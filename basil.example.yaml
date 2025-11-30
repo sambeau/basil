@@ -1,0 +1,23 @@
+# Basil Example Configuration
+# This demonstrates the basic configuration options
+
+server:
+  host: localhost
+  port: 8080
+
+logging:
+  level: info
+  format: text
+  output: stderr
+
+# Example routes (commented out - add your handlers)
+# routes:
+#   - path: /
+#     handler: handlers/index.parsley
+#   - path: /api/*
+#     handler: handlers/api.parsley
+
+# Example static files (commented out)
+# static:
+#   - path: /static/
+#     root: ./public

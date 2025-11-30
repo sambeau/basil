@@ -1,0 +1,19 @@
+# Basil Hello World Example
+server:
+  host: localhost
+  port: 8080
+
+logging:
+  level: debug
+  format: text
+  output: stderr
+
+static:
+  - path: /static/
+    root: ./public
+
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+  - path: /api/hello
+    handler: ./handlers/api/hello.pars
