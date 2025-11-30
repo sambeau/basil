@@ -57,10 +57,10 @@ type SecurityConfig struct {
 
 // HSTSConfig holds HSTS (HTTP Strict Transport Security) settings
 type HSTSConfig struct {
-	Enabled           bool   `yaml:"enabled"`             // Enable HSTS header
-	MaxAge            string `yaml:"max_age"`             // HSTS max-age in seconds (default: "31536000" = 1 year)
-	IncludeSubDomains bool   `yaml:"include_subdomains"`  // Include subdomains in HSTS
-	Preload           bool   `yaml:"preload"`             // Allow HSTS preload list submission
+	Enabled           bool   `yaml:"enabled"`            // Enable HSTS header
+	MaxAge            string `yaml:"max_age"`            // HSTS max-age in seconds (default: "31536000" = 1 year)
+	IncludeSubDomains bool   `yaml:"include_subdomains"` // Include subdomains in HSTS
+	Preload           bool   `yaml:"preload"`            // Allow HSTS preload list submission
 }
 
 // StaticRoute maps URL paths to static files/directories

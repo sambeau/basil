@@ -14,7 +14,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
-| — | — | — | — |
+| Form validation/sanitization | FEAT-002 | Needs design | Options: config-based schemas, Parsley-side validation, or sanitization-only. See spec Phase 2 checklist. |
 
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |

@@ -11,62 +11,80 @@ import (
 	"sync"
 
 	"github.com/sambeau/basil/config"
+	"github.com/sambeau/parsley/pkg/ast"
 	"github.com/sambeau/parsley/pkg/evaluator"
+	"github.com/sambeau/parsley/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/parser"
 	"github.com/sambeau/parsley/pkg/parsley"
 )
 
-// scriptCache caches loaded Parsley scripts
-// In dev mode, caching is disabled and scripts are always read from disk
+// scriptCache caches compiled Parsley ASTs for production performance.
+// In dev mode, caching is disabled and scripts are always read and parsed from disk.
 type scriptCache struct {
-	mu      sync.RWMutex
-	scripts map[string]string // path -> source code
-	devMode bool
+	mu       sync.RWMutex
+	programs map[string]*ast.Program // path -> compiled AST
+	devMode  bool
 }
 
 func newScriptCache(devMode bool) *scriptCache {
 	return &scriptCache{
-		scripts: make(map[string]string),
-		devMode: devMode,
+		programs: make(map[string]*ast.Program),
+		devMode:  devMode,
 	}
 }
 
-// get returns script source, using cache only in production mode
-func (c *scriptCache) get(path string) (string, error) {
-	// In dev mode, always read from disk (no caching)
+// getAST returns the compiled AST for a script, using cache in production mode.
+// Returns the AST and any parse errors.
+func (c *scriptCache) getAST(path string) (*ast.Program, error) {
+	// In dev mode, always read and parse from disk (no caching)
 	if c.devMode {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return "", fmt.Errorf("reading script %s: %w", path, err)
-		}
-		return string(content), nil
+		return c.parseScript(path)
 	}
 
 	// Production mode: check cache first
 	c.mu.RLock()
-	source, ok := c.scripts[path]
+	program, ok := c.programs[path]
 	c.mu.RUnlock()
 	if ok {
-		return source, nil
+		return program, nil
 	}
 
-	// Load from disk
-	content, err := os.ReadFile(path)
+	// Parse from disk
+	program, err := c.parseScript(path)
 	if err != nil {
-		return "", fmt.Errorf("reading script %s: %w", path, err)
+		return nil, err
 	}
 
-	source = string(content)
+	// Cache the compiled AST
 	c.mu.Lock()
-	c.scripts[path] = source
+	c.programs[path] = program
 	c.mu.Unlock()
 
-	return source, nil
+	return program, nil
 }
 
-// clear removes all cached scripts (for hot reload)
+// parseScript reads and parses a Parsley script file.
+func (c *scriptCache) parseScript(path string) (*ast.Program, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading script %s: %w", path, err)
+	}
+
+	l := lexer.NewWithFilename(string(content), path)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if errors := p.Errors(); len(errors) != 0 {
+		return nil, fmt.Errorf("parse error in %s: %s", path, errors[0])
+	}
+
+	return program, nil
+}
+
+// clear removes all cached ASTs (for hot reload)
 func (c *scriptCache) clear() {
 	c.mu.Lock()
-	c.scripts = make(map[string]string)
+	c.programs = make(map[string]*ast.Program)
 	c.mu.Unlock()
 }
 
@@ -93,8 +111,8 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 
 // ServeHTTP handles HTTP requests by executing the Parsley script
 func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Load script (from cache or disk)
-	source, err := h.cache.get(h.scriptPath)
+	// Get compiled AST (from cache in production, fresh parse in dev)
+	program, err := h.cache.getAST(h.scriptPath)
 	if err != nil {
 		h.server.logError("failed to load script: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -104,10 +122,14 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Build request context for the script
 	reqCtx := buildRequestContext(r, h.route)
 
-	// Create security policy
+	// Create fresh environment for this request
+	env := evaluator.NewEnvironment()
+	env.Filename = h.scriptPath
+
+	// Set security policy
 	// Allow executing Parsley files in the script's directory (for imports)
 	scriptDir := filepath.Dir(h.scriptPath)
-	policy := &evaluator.SecurityPolicy{
+	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
@@ -115,29 +137,29 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
-	// Build evaluation options
-	opts := []parsley.Option{
-		parsley.WithFilename(h.scriptPath),
-		parsley.WithSecurity(policy),
-		parsley.WithVar("request", reqCtx),
-		parsley.WithVar("method", r.Method),
-		parsley.WithVar("path", r.URL.Path),
-		parsley.WithVar("query", queryToMap(r.URL.Query())),
-	}
+	// Set request variables
+	setEnvVar(env, "request", reqCtx)
+	setEnvVar(env, "method", r.Method)
+	setEnvVar(env, "path", r.URL.Path)
+	setEnvVar(env, "query", queryToMap(r.URL.Query()))
 
 	// Add database connection if configured
 	if h.server.db != nil {
-		opts = append(opts, parsley.WithDB("db", h.server.db, h.server.dbDriver))
+		conn := evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
+		env.Set("db", conn)
 	}
 
-	// Add custom logger that captures script log() output
+	// Set up custom logger that captures script log() output
 	scriptLogger := &scriptLogCapture{output: make([]string, 0)}
-	opts = append(opts, parsley.WithLogger(scriptLogger))
+	env.Logger = scriptLogger
 
-	// Execute the script
-	result, err := parsley.Eval(source, opts...)
-	if err != nil {
-		h.server.logError("script error in %s: %v", h.scriptPath, err)
+	// Execute the pre-compiled AST
+	result := evaluator.Eval(program, env)
+
+	// Check for runtime errors
+	if result != nil && result.Type() == evaluator.ERROR_OBJ {
+		errObj := result.(*evaluator.Error)
+		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Message)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -148,7 +170,16 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle the response
-	h.writeResponse(w, result)
+	h.writeResponse(w, &parsley.Result{Value: result})
+}
+
+// setEnvVar converts a Go value to Parsley and sets it in the environment.
+func setEnvVar(env *evaluator.Environment, name string, value interface{}) {
+	obj, err := parsley.ToParsley(value)
+	if err != nil {
+		return // Silently ignore conversion errors
+	}
+	env.Set(name, obj)
 }
 
 // buildRequestContext creates the request object passed to Parsley scripts
