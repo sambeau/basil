@@ -8,23 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Phase 2: Enhanced Features** (FEAT-002)
-  - SQLite database support with Parsley operators (`<=?=>`, `<=??=>`, `<=!=>`)
-  - Hot reload in dev mode with live browser refresh
-  - Request logging (text and JSON formats)
-  - Form parsing: URL-encoded, multipart/form-data, JSON body
-  - HTTPS with automatic Let's Encrypt certificates (autocert)
-  - Security headers (HSTS, CSP, X-Frame-Options, etc.)
-  - Reverse proxy support (X-Forwarded-For, X-Real-IP)
-  - AST caching for production performance
-  - SIGHUP handler for production script/cache reload
-  - Route-based response caching with configurable TTL
+- None
 
 ### Changed
 - None
 
 ### Fixed
 - None
+
+## [0.2.0] - 2025-06-20
+
+### Added
+- **Basil Web Server** (FEAT-002)
+  - Full HTTP/HTTPS server with route-based request handling
+  - HTTPS with automatic Let's Encrypt certificates (autocert)
+  - Development mode (`--dev`) with HTTP and live browser refresh
+  - SQLite database support with Parsley operators (`<=?=>`, `<=??=>`, `<=!=>`)
+  - Request logging (text and JSON formats)
+  - Form parsing: URL-encoded, multipart/form-data, JSON body
+  - Security headers (HSTS, CSP, X-Frame-Options, etc.)
+  - Reverse proxy support (X-Forwarded-For, X-Real-IP)
+  - AST caching for production performance
+  - SIGHUP handler for production script/cache reload
+  - Route-based response caching with configurable TTL
+- **Semantic Versioning** (FEAT-005)
+  - Git tag-based versioning with build-time injection
+  - Makefile with `build`, `dev`, `test`, `clean`, `check` targets
+  - `--version` flag shows version and commit hash
+
+### Fixed
+- Live reload no longer creates excessive log noise (BUG-004)
 
 ## [0.1.0] - 2025-11-30
 
