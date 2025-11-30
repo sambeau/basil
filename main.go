@@ -86,11 +86,21 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 		return fmt.Errorf("config validation: %w", err)
 	}
 
-	// Create and start server
+	// Create server
 	srv, err := server.New(cfg, configFile, stdout, stderr)
 	if err != nil {
 		return fmt.Errorf("creating server: %w", err)
 	}
+
+	// Set up SIGHUP handler for script cache reload (production hot reload)
+	sighup := make(chan os.Signal, 1)
+	signal.Notify(sighup, syscall.SIGHUP)
+	go func() {
+		for range sighup {
+			fmt.Fprintf(stdout, "Received SIGHUP - reloading scripts...\n")
+			srv.ReloadScripts()
+		}
+	}()
 
 	return srv.Run(ctx)
 }
@@ -114,11 +124,16 @@ Config Resolution:
   3. ./basil.yaml
   4. ~/.config/basil/basil.yaml
 
+Signals:
+  SIGHUP           Reload scripts (clear cache, re-parse on next request)
+  SIGINT/SIGTERM   Graceful shutdown
+
 Examples:
   basil                     Start with auto-detected config
   basil --dev               Development mode (HTTP on localhost:8080)
   basil --config app.yaml   Use specific config file
   basil --dev --port 3000   Dev mode on port 3000
+  kill -HUP <pid>           Reload scripts without restart
 
 `)
 }

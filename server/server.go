@@ -149,6 +149,14 @@ func (s *Server) setupRoutes() error {
 	return nil
 }
 
+// ReloadScripts clears the script cache, forcing all scripts to be re-parsed.
+// This is useful for production deployments when scripts are updated.
+// In dev mode, this has no effect (scripts are always re-parsed).
+func (s *Server) ReloadScripts() {
+	s.scriptCache.clear()
+	s.logInfo("script cache cleared - scripts will be re-parsed on next request")
+}
+
 // Run starts the server and blocks until the context is cancelled.
 func (s *Server) Run(ctx context.Context) error {
 	addr := s.listenAddr()
