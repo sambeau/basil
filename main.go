@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ func main() {
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) error {
 	// Set up flags
 	flags := flag.NewFlagSet("basil", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard) // Suppress default -h output
 
 	var (
 		configPath  = flags.String("config", "", "Path to config file")
@@ -40,10 +41,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 
 	// Parse flags
 	if err := flags.Parse(args); err != nil {
+		// Handle -h/--help: flag package returns ErrHelp
+		if errors.Is(err, flag.ErrHelp) {
+			printUsage(stdout)
+			return nil
+		}
+		// For other errors, show usage then error
+		printUsage(stderr)
 		return err
 	}
 
-	// Handle --help
+	// Handle explicit --help flag
 	if *showHelp {
 		printUsage(stdout)
 		return nil
