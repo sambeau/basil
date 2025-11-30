@@ -14,8 +14,11 @@ import (
 	"github.com/sambeau/basil/server"
 )
 
-// Version is set at build time via -ldflags
-var Version = "0.1.0-dev"
+// Version information, set at build time via -ldflags
+var (
+	Version = "dev"     // -X main.Version=$(git describe --tags --always)
+	Commit  = "unknown" // -X main.Commit=$(git rev-parse --short HEAD)
+)
 
 func main() {
 	ctx := context.Background()
@@ -59,7 +62,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 
 	// Handle --version
 	if *showVersion {
-		fmt.Fprintf(stdout, "basil version %s\n", Version)
+		fmt.Fprintf(stdout, "basil version %s (%s)\n", Version, Commit)
 		return nil
 	}
 

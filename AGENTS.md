@@ -9,14 +9,23 @@ Basil is a Go CLI application.
 
 ## Build & Validation Commands
 
-### Build
+### Build (with version)
 ```bash
-go build -o basil .
+make build
+# Or manually:
+# go build -ldflags "-X main.Version=$(git describe --tags --always) -X main.Commit=$(git rev-parse --short HEAD)" -o basil .
+```
+
+### Quick Build (development)
+```bash
+make dev
+# Or: go build -o basil .
 ```
 
 ### Test
 ```bash
-go test ./...
+make test
+# Or: go test ./...
 ```
 
 ### Lint
@@ -26,7 +35,8 @@ golangci-lint run
 
 ### Full Validation (run before committing)
 ```bash
-go build -o basil . && go test ./...
+make check
+# Or: go build -o basil . && go test ./...
 ```
 
 ## Project Structure
