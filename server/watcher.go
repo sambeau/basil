@@ -15,18 +15,18 @@ import (
 
 // Watcher monitors files for changes and triggers reload actions
 type Watcher struct {
-	watcher      *fsnotify.Watcher
-	server       *Server
-	configPath   string
-	handlerDirs  []string
-	staticDirs   []string
-	stdout       io.Writer
-	stderr       io.Writer
-	
+	watcher     *fsnotify.Watcher
+	server      *Server
+	configPath  string
+	handlerDirs []string
+	staticDirs  []string
+	stdout      io.Writer
+	stderr      io.Writer
+
 	// Track last change time to debounce rapid changes
-	mu           sync.Mutex
-	lastChange   time.Time
-	changeSeq    uint64 // Incremented on each file change for live reload
+	mu         sync.Mutex
+	lastChange time.Time
+	changeSeq  uint64 // Incremented on each file change for live reload
 }
 
 // NewWatcher creates a file watcher for hot reload in dev mode
@@ -58,7 +58,7 @@ func (w *Watcher) collectHandlerDirs() []string {
 		dir := filepath.Dir(route.Handler)
 		dirs[dir] = true
 	}
-	
+
 	result := make([]string, 0, len(dirs))
 	for dir := range dirs {
 		result = append(result, dir)
@@ -181,15 +181,15 @@ func (w *Watcher) handleFileChange(path string) {
 
 	// Check file extension
 	ext := strings.ToLower(filepath.Ext(path))
-	
+
 	switch ext {
 	case ".pars", ".parsley":
 		w.logInfo("handler changed: %s", path)
 		// Scripts are reloaded on next request (no caching in dev mode)
-		
+
 	case ".css", ".js", ".html", ".htm":
 		w.logInfo("static file changed: %s", path)
-		
+
 	default:
 		// Ignore other files
 		return
