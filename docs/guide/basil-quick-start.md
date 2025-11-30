@@ -149,13 +149,40 @@ logging:
 ```
 
 ### Request Data
-Your Parsley handlers receive request data:
+Your Parsley handlers receive request data via convenient variables:
+
+**Quick access variables:**
 ```parsley
-// Available variables in handlers:
 method   // "GET", "POST", etc.
 path     // "/api/hello"
 query    // {name: "world"} from ?name=world
-request  // Full request object with headers, etc.
+```
+
+**Full request object:**
+```parsley
+request = {
+  method:     "GET",
+  path:       "/api/hello",
+  query:      {name: "world"},
+  headers:    {"Content-Type": "application/json", "User-Agent": "..."},
+  host:       "localhost:8080",
+  remoteAddr: "127.0.0.1:52345",
+  auth:       ""  // route's auth setting: "required", "optional", or ""
+}
+```
+
+**Example: Using request data:**
+```parsley
+let name = query.name ?? "stranger"
+let userAgent = request.headers["User-Agent"] ?? "unknown"
+
+<html>
+<body>
+  <h1>Hello, {name}!</h1>
+  <p>You're using: {userAgent}</p>
+  <p>Your IP: {request.remoteAddr}</p>
+</body>
+</html>
 ```
 
 ### Response Types
