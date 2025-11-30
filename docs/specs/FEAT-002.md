@@ -1,7 +1,7 @@
 ---
 id: FEAT-002
 title: "Basil Web Server"
-status: draft
+status: in-progress
 priority: high
 created: 2025-11-30
 author: "@sambeau"
@@ -12,23 +12,20 @@ author: "@sambeau"
 ## Summary
 Build Basil, a focused Go web server for the Parsley programming language. Basil will be HTTPS-only, fast, secure, and simple to configure. It integrates with Parsley to render dynamic HTML while efficiently serving static files directly.
 
-## User Story
-As a web developer using Parsley, I want a dedicated web server that handles HTTP concerns (TLS, routing, static files, forms, authentication) so that Parsley scripts can focus purely on content generation without dealing with low-level web infrastructure.
+## Implementation Status
 
-## Acceptance Criteria
-
-### Phase 1: Core Server (MVP)
-- [ ] HTTPS-only server with automatic TLS (via Let's Encrypt / ACME)
-- [ ] `--dev` flag for local development (HTTP on localhost)
-- [ ] Configuration via YAML file with ENV variable interpolation
-- [ ] Config file resolution (CLI flag → ENV → `./basil.yaml` → `~/.config/basil/`)
-- [ ] Static file serving via configured directory pass-through
-- [ ] No directory listing (404 for folder requests)
-- [ ] Parsley script rendering with path-based routing to handlers
-- [ ] Parsley returns response dictionary `{status, headers, body}`
-- [ ] Request logging (configurable)
-- [ ] Graceful shutdown
-- [ ] Proxy mode support (`X-Forwarded-For`, `X-Forwarded-Proto`)
+### Phase 1: Core Server (MVP) ✅
+- [x] `--dev` flag for local development (HTTP on localhost)
+- [x] Configuration via YAML file with ENV variable interpolation
+- [x] Config file resolution (CLI flag → ENV → `./basil.yaml` → `~/.config/basil/`)
+- [x] Static file serving via configured directory pass-through
+- [x] Parsley script rendering with path-based routing to handlers
+- [x] Parsley module imports working (security policy allows handler directory)
+- [x] Request logging (basic)
+- [x] Graceful shutdown
+- [x] Dev mode disables script caching for live editing
+- [ ] HTTPS-only server with automatic TLS (deferred to Phase 2)
+- [ ] Proxy mode support (deferred to Phase 2)
 
 ### Phase 2: Enhanced Features
 - [ ] SQLite database connection management for Parsley

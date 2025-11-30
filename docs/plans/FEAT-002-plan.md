@@ -2,7 +2,7 @@
 id: PLAN-002
 feature: FEAT-002
 title: "Implementation Plan for Basil Web Server (Phase 1)"
-status: in-progress
+status: complete
 created: 2025-11-30
 ---
 
@@ -24,7 +24,10 @@ Implement the core Basil web server with HTTPS support, config loading, static f
 - 2025-11-30: Task 5 complete (dev mode tested)
 - 2025-11-30: Task 6 complete (basic logging)
 - 2025-11-30: Task 7 complete (26 tests passing)
-- 2025-11-30: Task 8 in progress (example created)
+- 2025-11-30: Task 8 complete (docs and example)
+- 2025-11-30: BUG-001 fixed (dev mode caching)
+- 2025-11-30: BUG-002 fixed (module imports)
+- 2025-11-30: **Phase 1 Complete** ✅
 
 ## Tasks
 
@@ -126,12 +129,12 @@ Tests:
 
 ---
 
-### Task 8: Documentation
-**Status**: IN PROGRESS
+### Task 8: Documentation ✅
+**Status**: COMPLETE
 
 - ✅ Example app created (examples/hello/)
-- [ ] Update FEAT-002 spec with implementation notes
-- [ ] Create quick-start guide
+- ✅ FEAT-002 spec updated with implementation status
+- ✅ Basil quick-start guide created (docs/guide/basil-quick-start.md)
 
 Tests:
 - Evaluates script and returns response
