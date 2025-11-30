@@ -1,12 +1,17 @@
 # Copilot Instructions for Basil
 
 ## Overview
-Basil is a Go CLI application with a structured Human-AI development workflow.
+Basil is a Go web server for the Parsley programming language.
 
 ## Before Any Task
 1. Read `AGENTS.md` at the repository root — it contains build commands, project structure, and workflow rules
 2. Check `BACKLOG.md` for related deferred items
 3. Use the appropriate prompt file for your task type
+
+## Writing Parsley Code
+Before writing any Parsley code (handlers, tests, examples):
+- Read `.github/instructions/parsley.instructions.md` for syntax rules
+- Key points: tags don't need quotes, singleton tags MUST be self-closing (`<br/>` not `<br>`), use `{var}` for interpolation (not `${var}`)
 
 ## Workflow Entry Points
 - **New Feature**: Use `/new-feature` prompt
