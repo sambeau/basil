@@ -167,7 +167,10 @@ request = {
   headers:    {"Content-Type": "application/json", "User-Agent": "..."},
   host:       "localhost:8080",
   remoteAddr: "127.0.0.1:52345",
-  auth:       ""  // route's auth setting: "required", "optional", or ""
+  auth:       "",    // route's auth setting: "required", "optional", or ""
+  body:       "...", // raw request body (POST/PUT/PATCH only)
+  form:       {},    // parsed form data or JSON body
+  files:      {}     // uploaded file metadata (multipart only)
 }
 ```
 
@@ -206,6 +209,45 @@ let userAgent = request.headers["User-Agent"] ?? "unknown"
   status: 201,
   headers: {"X-Custom": "value"},
   body: "Created!"
+}
+```
+
+### Handling Forms
+
+**URL-encoded forms** (`application/x-www-form-urlencoded`):
+```parsley
+// Form data is in request.form
+let username = request.form.username ?? ""
+let email = request.form.email ?? ""
+
+if method == "POST" {
+  // Process form submission
+  `<p>Thanks, {username}!</p>`
+} else {
+  `<form method="POST">
+    <input name="username" placeholder="Username"/>
+    <input name="email" type="email" placeholder="Email"/>
+    <button>Submit</button>
+  </form>`
+}
+```
+
+**JSON API requests** (`application/json`):
+```parsley
+// JSON body is parsed into request.form
+let data = request.form
+{
+  received: data,
+  message: "Got your JSON!"
+}
+```
+
+**File uploads** (`multipart/form-data`):
+```parsley
+// File metadata is in request.files
+let file = request.files.document
+if file {
+  `<p>Uploaded: {file.filename} ({file.size} bytes)</p>`
 }
 ```
 

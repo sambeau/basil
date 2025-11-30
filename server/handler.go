@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -154,7 +155,7 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		}
 	}
 
-	return map[string]interface{}{
+	ctx := map[string]interface{}{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"query":      queryToMap(r.URL.Query()),
@@ -163,6 +164,136 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		"remoteAddr": r.RemoteAddr,
 		"auth":       route.Auth, // "required", "optional", or ""
 	}
+
+	// Parse body for POST/PUT/PATCH requests
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
+		body, form, files := parseRequestBody(r)
+		ctx["body"] = body
+		ctx["form"] = form
+		ctx["files"] = files
+	}
+
+	return ctx
+}
+
+// parseRequestBody parses the request body based on content type
+// Returns: raw body (string), form data (map), file uploads (map)
+func parseRequestBody(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	contentType := r.Header.Get("Content-Type")
+
+	// Handle multipart form data (file uploads)
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		return parseMultipartForm(r)
+	}
+
+	// Handle URL-encoded form data
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		return parseURLEncodedForm(r)
+	}
+
+	// Handle JSON body
+	if strings.HasPrefix(contentType, "application/json") {
+		return parseJSONBody(r)
+	}
+
+	// Default: read raw body as string
+	return parseRawBody(r), nil, nil
+}
+
+// parseMultipartForm handles multipart/form-data (file uploads)
+func parseMultipartForm(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	// 32MB max memory, rest goes to temp files
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		return "", nil, nil
+	}
+
+	form := make(map[string]interface{})
+	files := make(map[string]interface{})
+
+	// Extract form values
+	if r.MultipartForm != nil {
+		for k, v := range r.MultipartForm.Value {
+			if len(v) == 1 {
+				form[k] = v[0]
+			} else {
+				form[k] = v
+			}
+		}
+
+		// Extract file metadata (not the actual file contents for safety)
+		for k, fileHeaders := range r.MultipartForm.File {
+			fileList := make([]map[string]interface{}, 0, len(fileHeaders))
+			for _, fh := range fileHeaders {
+				fileList = append(fileList, map[string]interface{}{
+					"filename": fh.Filename,
+					"size":     fh.Size,
+					"headers":  headerToMap(fh.Header),
+				})
+			}
+			if len(fileList) == 1 {
+				files[k] = fileList[0]
+			} else {
+				files[k] = fileList
+			}
+		}
+	}
+
+	return "", form, files
+}
+
+// parseURLEncodedForm handles application/x-www-form-urlencoded
+func parseURLEncodedForm(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	if err := r.ParseForm(); err != nil {
+		return "", nil, nil
+	}
+
+	form := make(map[string]interface{})
+	for k, v := range r.PostForm {
+		if len(v) == 1 {
+			form[k] = v[0]
+		} else {
+			form[k] = v
+		}
+	}
+
+	return "", form, nil
+}
+
+// parseJSONBody handles application/json
+func parseJSONBody(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	body := parseRawBody(r)
+
+	// Try to parse as JSON map
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &data); err == nil {
+		return body, data, nil
+	}
+
+	// If not a map, just return raw body
+	return body, nil, nil
+}
+
+// parseRawBody reads the entire body as a string
+func parseRawBody(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// headerToMap converts http.Header to a simple map
+func headerToMap(h map[string][]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range h {
+		if len(v) > 0 {
+			result[k] = v[0]
+		}
+	}
+	return result
 }
 
 // queryToMap converts URL query parameters to a map
