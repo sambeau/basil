@@ -129,6 +129,25 @@ static:
     file: ./public/favicon.ico
 ```
 
+### Logging
+Configure request logging:
+```yaml
+logging:
+  level: info        # debug, info, warn, error
+  format: text       # text or json
+  output: stdout     # stdout, stderr, or file path
+```
+
+**Text format** (default):
+```
+2025-11-30T12:34:56Z GET /api/hello 200 1.234ms
+```
+
+**JSON format** (for log aggregators):
+```json
+{"timestamp":"2025-11-30T12:34:56Z","method":"GET","path":"/api/hello","status":200,"duration":"1.234ms","duration_ms":1,"client_ip":"127.0.0.1:52345","user_agent":"curl/8.0"}
+```
+
 ### Request Data
 Your Parsley handlers receive request data:
 ```parsley
