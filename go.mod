@@ -1,0 +1,3 @@
+module basil
+
+go 1.21.3

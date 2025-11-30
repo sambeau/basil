@@ -1,0 +1,21 @@
+# Compiled binary
+basil
+
+# Test coverage
+coverage.out
+coverage.html
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go workspace (if using)
+go.work
+go.work.sum
