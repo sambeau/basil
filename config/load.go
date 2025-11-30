@@ -1,0 +1,177 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Load reads configuration from a file with ENV interpolation.
+// If configPath is empty, it searches default locations.
+// Validation of HTTPS settings is deferred until Validate() is called
+// after CLI flags (like --dev) have been applied.
+func Load(configPath string, getenv func(string) string) (*Config, error) {
+	path, err := resolveConfigPath(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
+	}
+
+	// Interpolate environment variables
+	data = interpolateEnv(data, getenv)
+
+	cfg := Defaults()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
+	if err := validateBasic(cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// Validate performs full configuration validation including HTTPS settings.
+// Call this after applying CLI overrides (like --dev).
+func Validate(cfg *Config) error {
+	if err := validateBasic(cfg); err != nil {
+		return err
+	}
+	return validateHTTPS(cfg)
+}
+
+// resolveConfigPath finds the config file to use.
+// Search order: explicit path > ./basil.yaml > ~/.config/basil/basil.yaml
+func resolveConfigPath(explicit string) (string, error) {
+	if explicit != "" {
+		if _, err := os.Stat(explicit); err != nil {
+			return "", fmt.Errorf("config file not found: %s", explicit)
+		}
+		return explicit, nil
+	}
+
+	// Try ./basil.yaml
+	if _, err := os.Stat("basil.yaml"); err == nil {
+		return "basil.yaml", nil
+	}
+
+	// Try ~/.config/basil/basil.yaml
+	home, err := os.UserHomeDir()
+	if err == nil {
+		xdgPath := filepath.Join(home, ".config", "basil", "basil.yaml")
+		if _, err := os.Stat(xdgPath); err == nil {
+			return xdgPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("no config file found (tried basil.yaml, ~/.config/basil/basil.yaml)")
+}
+
+// envPattern matches ${VAR} or ${VAR:-default}
+var envPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
+
+// interpolateEnv replaces ${VAR} and ${VAR:-default} patterns with environment values.
+func interpolateEnv(data []byte, getenv func(string) string) []byte {
+	return envPattern.ReplaceAllFunc(data, func(match []byte) []byte {
+		parts := envPattern.FindSubmatch(match)
+		if len(parts) < 2 {
+			return match
+		}
+
+		varName := string(parts[1])
+		value := getenv(varName)
+
+		if value == "" && len(parts) >= 3 && len(parts[2]) > 0 {
+			value = string(parts[2])
+		}
+
+		return []byte(value)
+	})
+}
+
+// validateBasic checks non-HTTPS configuration for errors.
+func validateBasic(cfg *Config) error {
+	var errs []string
+
+	// Server validation
+	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
+		errs = append(errs, fmt.Sprintf("invalid port: %d (must be 1-65535)", cfg.Server.Port))
+	}
+
+	// Static routes validation
+	for i, s := range cfg.Static {
+		if s.Path == "" {
+			errs = append(errs, fmt.Sprintf("static[%d]: path is required", i))
+		}
+		if s.Root == "" && s.File == "" {
+			errs = append(errs, fmt.Sprintf("static[%d]: either root or file is required", i))
+		}
+		if s.Root != "" && s.File != "" {
+			errs = append(errs, fmt.Sprintf("static[%d]: cannot specify both root and file", i))
+		}
+	}
+
+	// Routes validation
+	for i, r := range cfg.Routes {
+		if r.Path == "" {
+			errs = append(errs, fmt.Sprintf("routes[%d]: path is required", i))
+		}
+		if r.Handler == "" {
+			errs = append(errs, fmt.Sprintf("routes[%d]: handler is required", i))
+		}
+		if r.Auth != "" && r.Auth != "required" && r.Auth != "optional" {
+			errs = append(errs, fmt.Sprintf("routes[%d]: auth must be 'required', 'optional', or empty", i))
+		}
+	}
+
+	// Logging validation
+	validLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
+	if !validLevels[cfg.Logging.Level] {
+		errs = append(errs, fmt.Sprintf("invalid log level: %s (must be debug, info, warn, or error)", cfg.Logging.Level))
+	}
+
+	validFormats := map[string]bool{"json": true, "text": true}
+	if !validFormats[cfg.Logging.Format] {
+		errs = append(errs, fmt.Sprintf("invalid log format: %s (must be json or text)", cfg.Logging.Format))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("configuration errors:\n  - %s", strings.Join(errs, "\n  - "))
+	}
+
+	return nil
+}
+
+// validateHTTPS checks HTTPS-specific configuration.
+func validateHTTPS(cfg *Config) error {
+	// Skip HTTPS validation in dev mode
+	if cfg.Server.Dev {
+		return nil
+	}
+
+	var errs []string
+
+	// Production requires HTTPS
+	if !cfg.Server.HTTPS.Auto && (cfg.Server.HTTPS.Cert == "" || cfg.Server.HTTPS.Key == "") {
+		errs = append(errs, "production mode requires https.auto=true or both https.cert and https.key")
+	}
+	if cfg.Server.HTTPS.Auto && cfg.Server.HTTPS.Email == "" {
+		errs = append(errs, "https.auto requires https.email for Let's Encrypt notifications")
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("configuration errors:\n  - %s", strings.Join(errs, "\n  - "))
+	}
+
+	return nil
+}

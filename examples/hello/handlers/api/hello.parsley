@@ -1,0 +1,10 @@
+// JSON API endpoint
+// Returns a greeting with timestamp
+
+{
+  message: "Hello from the Basil API!",
+  method: method,
+  path: path,
+  query: query,
+  timestamp: now()
+}
