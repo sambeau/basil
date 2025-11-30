@@ -1,3 +1,7 @@
+// index.pars
+//
+// Parsley uses .pars files for both scripts and modules.
+//
 // Homepage handler
 // Returns a simple HTML page
 
