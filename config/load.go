@@ -15,21 +15,28 @@ import (
 // Validation of HTTPS settings is deferred until Validate() is called
 // after CLI flags (like --dev) have been applied.
 func Load(configPath string, getenv func(string) string) (*Config, error) {
+	cfg, _, err := LoadWithPath(configPath, getenv)
+	return cfg, err
+}
+
+// LoadWithPath reads configuration and returns both the config and the resolved path.
+// This is useful when the caller needs to know the actual config file location.
+func LoadWithPath(configPath string, getenv func(string) string) (*Config, string, error) {
 	path, err := resolveConfigPath(configPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Get absolute path and directory for resolving relative paths
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve config path: %w", err)
+		return nil, "", fmt.Errorf("failed to resolve config path: %w", err)
 	}
 	baseDir := filepath.Dir(absPath)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		return nil, "", fmt.Errorf("failed to read config: %w", err)
 	}
 
 	// Interpolate environment variables
@@ -37,7 +44,7 @@ func Load(configPath string, getenv func(string) string) (*Config, error) {
 
 	cfg := Defaults()
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+		return nil, "", fmt.Errorf("failed to parse config: %w", err)
 	}
 
 	// Set base directory for resolving relative paths
@@ -62,10 +69,10 @@ func Load(configPath string, getenv func(string) string) (*Config, error) {
 
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return cfg, nil
+	return cfg, absPath, nil
 }
 
 // Validate performs full configuration validation including HTTPS settings.

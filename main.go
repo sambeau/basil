@@ -68,7 +68,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 	defer cancel()
 
 	// Load configuration
-	cfg, err := config.Load(*configPath, getenv)
+	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -87,7 +87,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 	}
 
 	// Create and start server
-	srv, err := server.New(cfg, stdout, stderr)
+	srv, err := server.New(cfg, configFile, stdout, stderr)
 	if err != nil {
 		return fmt.Errorf("creating server: %w", err)
 	}
