@@ -8,7 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- None
+- **Phase 2: Enhanced Features** (FEAT-002)
+  - SQLite database support with Parsley operators (`<=?=>`, `<=??=>`, `<=!=>`)
+  - Hot reload in dev mode with live browser refresh
+  - Request logging (text and JSON formats)
+  - Form parsing: URL-encoded, multipart/form-data, JSON body
+  - HTTPS with automatic Let's Encrypt certificates (autocert)
+  - Security headers (HSTS, CSP, X-Frame-Options, etc.)
+  - Reverse proxy support (X-Forwarded-For, X-Real-IP)
+  - AST caching for production performance
+  - SIGHUP handler for production script/cache reload
+  - Route-based response caching with configurable TTL
 
 ### Changed
 - None

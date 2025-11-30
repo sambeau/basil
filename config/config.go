@@ -6,6 +6,7 @@ import "time"
 type Config struct {
 	BaseDir  string         `yaml:"-"` // Directory containing config file, for resolving relative paths
 	Server   ServerConfig   `yaml:"server"`
+	Security SecurityConfig `yaml:"security"`
 	Database DatabaseConfig `yaml:"database"`
 	Static   []StaticRoute  `yaml:"static"`
 	Routes   []Route        `yaml:"routes"`
@@ -30,16 +31,36 @@ type ServerConfig struct {
 
 // HTTPSConfig holds TLS/HTTPS settings
 type HTTPSConfig struct {
-	Auto  bool   `yaml:"auto"`  // Use Let's Encrypt
-	Email string `yaml:"email"` // ACME email
-	Cert  string `yaml:"cert"`  // Manual cert path
-	Key   string `yaml:"key"`   // Manual key path
+	Auto     bool   `yaml:"auto"`      // Use Let's Encrypt
+	Email    string `yaml:"email"`     // ACME email for Let's Encrypt notifications
+	CacheDir string `yaml:"cache_dir"` // Directory to store certificates (default: "certs")
+	Cert     string `yaml:"cert"`      // Manual cert path (overrides auto)
+	Key      string `yaml:"key"`       // Manual key path (overrides auto)
 }
 
 // ProxyConfig holds reverse proxy settings
 type ProxyConfig struct {
 	Trusted    bool     `yaml:"trusted"`     // Trust X-Forwarded-* headers
 	TrustedIPs []string `yaml:"trusted_ips"` // Optional: restrict to specific proxies
+}
+
+// SecurityConfig holds security header settings
+type SecurityConfig struct {
+	HSTS               HSTSConfig `yaml:"hsts"`                 // HTTP Strict Transport Security
+	ContentTypeOptions string     `yaml:"content_type_options"` // X-Content-Type-Options (default: "nosniff")
+	FrameOptions       string     `yaml:"frame_options"`        // X-Frame-Options (default: "DENY")
+	XSSProtection      string     `yaml:"xss_protection"`       // X-XSS-Protection (default: "1; mode=block")
+	ReferrerPolicy     string     `yaml:"referrer_policy"`      // Referrer-Policy (default: "strict-origin-when-cross-origin")
+	CSP                string     `yaml:"csp"`                  // Content-Security-Policy
+	PermissionsPolicy  string     `yaml:"permissions_policy"`   // Permissions-Policy (formerly Feature-Policy)
+}
+
+// HSTSConfig holds HSTS (HTTP Strict Transport Security) settings
+type HSTSConfig struct {
+	Enabled           bool   `yaml:"enabled"`            // Enable HSTS header
+	MaxAge            string `yaml:"max_age"`            // HSTS max-age in seconds (default: "31536000" = 1 year)
+	IncludeSubDomains bool   `yaml:"include_subdomains"` // Include subdomains in HSTS
+	Preload           bool   `yaml:"preload"`            // Allow HSTS preload list submission
 }
 
 // StaticRoute maps URL paths to static files/directories
@@ -82,6 +103,18 @@ func Defaults() *Config {
 			Proxy: ProxyConfig{
 				Trusted: false,
 			},
+		},
+		Security: SecurityConfig{
+			HSTS: HSTSConfig{
+				Enabled:           true,
+				MaxAge:            "31536000", // 1 year
+				IncludeSubDomains: true,
+				Preload:           false,
+			},
+			ContentTypeOptions: "nosniff",
+			FrameOptions:       "DENY",
+			XSSProtection:      "1; mode=block",
+			ReferrerPolicy:     "strict-origin-when-cross-origin",
 		},
 		Logging: LoggingConfig{
 			Level:  "info",

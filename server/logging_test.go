@@ -160,3 +160,28 @@ func TestRequestLoggerDefaultFormat(t *testing.T) {
 		t.Error("default format should be text, not JSON")
 	}
 }
+
+func TestRequestLoggerSkipsLivereload(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"seq":1}`))
+	})
+
+	var buf bytes.Buffer
+	logger := newRequestLogger(handler, &buf, "text")
+
+	// Request to /__livereload should not be logged
+	req := httptest.NewRequest("GET", "/__livereload", nil)
+	rec := httptest.NewRecorder()
+	logger.ServeHTTP(rec, req)
+
+	// Response should still work
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+	}
+
+	// But log should be empty
+	if buf.Len() != 0 {
+		t.Errorf("expected no log output for /__livereload, got: %s", buf.String())
+	}
+}

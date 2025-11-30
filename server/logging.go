@@ -58,6 +58,12 @@ func newRequestLogger(handler http.Handler, output io.Writer, format string) *re
 }
 
 func (rl *requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Skip logging for internal dev endpoints
+	if r.URL.Path == "/__livereload" {
+		rl.handler.ServeHTTP(w, r)
+		return
+	}
+
 	start := time.Now()
 
 	// Wrap response writer to capture status
