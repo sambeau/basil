@@ -20,6 +20,13 @@ func Load(configPath string, getenv func(string) string) (*Config, error) {
 		return nil, err
 	}
 
+	// Get absolute path and directory for resolving relative paths
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve config path: %w", err)
+	}
+	baseDir := filepath.Dir(absPath)
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -31,6 +38,26 @@ func Load(configPath string, getenv func(string) string) (*Config, error) {
 	cfg := Defaults()
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Set base directory for resolving relative paths
+	cfg.BaseDir = baseDir
+
+	// Resolve relative paths in static routes
+	for i := range cfg.Static {
+		if cfg.Static[i].Root != "" && !filepath.IsAbs(cfg.Static[i].Root) {
+			cfg.Static[i].Root = filepath.Join(baseDir, cfg.Static[i].Root)
+		}
+		if cfg.Static[i].File != "" && !filepath.IsAbs(cfg.Static[i].File) {
+			cfg.Static[i].File = filepath.Join(baseDir, cfg.Static[i].File)
+		}
+	}
+
+	// Resolve relative paths in routes
+	for i := range cfg.Routes {
+		if cfg.Routes[i].Handler != "" && !filepath.IsAbs(cfg.Routes[i].Handler) {
+			cfg.Routes[i].Handler = filepath.Join(baseDir, cfg.Routes[i].Handler)
+		}
 	}
 
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()

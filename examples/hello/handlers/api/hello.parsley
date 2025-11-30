@@ -3,8 +3,5 @@
 
 {
   message: "Hello from the Basil API!",
-  method: method,
-  path: path,
-  query: query,
   timestamp: now()
 }

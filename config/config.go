@@ -4,6 +4,7 @@ import "time"
 
 // Config represents the complete Basil configuration
 type Config struct {
+	BaseDir string        `yaml:"-"` // Directory containing config file, for resolving relative paths
 	Server  ServerConfig  `yaml:"server"`
 	Static  []StaticRoute `yaml:"static"`
 	Routes  []Route       `yaml:"routes"`

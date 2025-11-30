@@ -1,10 +1,10 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -65,16 +65,8 @@ type parsleyHandler struct {
 
 // newParsleyHandler creates a handler for a Parsley script route
 func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*parsleyHandler, error) {
-	// Resolve script path (relative to config file or absolute)
+	// Handler path is already resolved to absolute by config.Load()
 	scriptPath := route.Handler
-	if !filepath.IsAbs(scriptPath) {
-		// TODO: Make relative to config file location
-		absPath, err := filepath.Abs(scriptPath)
-		if err != nil {
-			return nil, fmt.Errorf("resolving handler path: %w", err)
-		}
-		scriptPath = absPath
-	}
 
 	return &parsleyHandler{
 		server:     s,
@@ -224,8 +216,13 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 // writeJSON writes a JSON response
 func (h *parsleyHandler) writeJSON(w http.ResponseWriter, value interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	// Simple JSON encoding (in production, use encoding/json)
-	fmt.Fprintf(w, "%v", value)
+	data, err := json.Marshal(value)
+	if err != nil {
+		h.server.logError("failed to marshal JSON: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 // scriptLogCapture captures log() output from Parsley scripts

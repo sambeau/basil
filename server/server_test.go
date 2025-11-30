@@ -324,7 +324,7 @@ func TestGracefulShutdown(t *testing.T) {
 	// This test verifies the shutdown logic without actually starting a server
 	// We test the listenAddr and server creation, but skip the actual Run()
 	// to avoid port binding issues in test environments
-	
+
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Host: "127.0.0.1",

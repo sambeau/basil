@@ -128,23 +128,25 @@ routes:
 		t.Errorf("expected log format 'json', got %q", cfg.Logging.Format)
 	}
 
-	// Verify static routes
+	// Verify static routes - paths are now resolved to absolute
 	if len(cfg.Static) != 1 {
 		t.Fatalf("expected 1 static route, got %d", len(cfg.Static))
 	}
 	if cfg.Static[0].Path != "/assets/" {
 		t.Errorf("expected static path '/assets/', got %q", cfg.Static[0].Path)
 	}
-	if cfg.Static[0].Root != "./public" {
-		t.Errorf("expected static root './public', got %q", cfg.Static[0].Root)
+	expectedStaticRoot := filepath.Join(dir, "public")
+	if cfg.Static[0].Root != expectedStaticRoot {
+		t.Errorf("expected static root %q, got %q", expectedStaticRoot, cfg.Static[0].Root)
 	}
 
-	// Verify dynamic routes
+	// Verify dynamic routes - handlers are now resolved to absolute
 	if len(cfg.Routes) != 2 {
 		t.Fatalf("expected 2 routes, got %d", len(cfg.Routes))
 	}
-	if cfg.Routes[0].Handler != "index.parsley" {
-		t.Errorf("expected handler 'index.parsley', got %q", cfg.Routes[0].Handler)
+	expectedHandler := filepath.Join(dir, "index.parsley")
+	if cfg.Routes[0].Handler != expectedHandler {
+		t.Errorf("expected handler %q, got %q", expectedHandler, cfg.Routes[0].Handler)
 	}
 	if cfg.Routes[1].Auth != "required" {
 		t.Errorf("expected auth 'required', got %q", cfg.Routes[1].Auth)
