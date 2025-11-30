@@ -72,9 +72,15 @@ func (s *Server) setupRoutes() error {
 func (s *Server) Run(ctx context.Context) error {
 	addr := s.listenAddr()
 
+	// Wrap handler with request logging middleware
+	var handler http.Handler = s.mux
+	if s.config.Logging.Level != "error" { // Log requests unless level is error-only
+		handler = newRequestLogger(handler, s.stdout, s.config.Logging.Format)
+	}
+
 	s.server = &http.Server{
 		Addr:              addr,
-		Handler:           s.mux,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
