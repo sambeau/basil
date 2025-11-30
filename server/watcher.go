@@ -175,8 +175,7 @@ func (w *Watcher) eventLoop(ctx context.Context) {
 func (w *Watcher) handleFileChange(path string) {
 	// Check if it's the config file
 	if w.configPath != "" && filepath.Base(path) == filepath.Base(w.configPath) {
-		w.logInfo("config changed: %s (restart required)", path)
-		// TODO: Could implement graceful restart here
+		w.logInfo("config changed: %s (browser will reload, restart server for config changes to take effect)", path)
 		return
 	}
 
@@ -202,6 +201,13 @@ func (w *Watcher) GetChangeSeq() uint64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.changeSeq
+}
+
+// TriggerReload increments the change sequence to trigger browser reload
+func (w *Watcher) TriggerReload() {
+	w.mu.Lock()
+	w.changeSeq++
+	w.mu.Unlock()
 }
 
 // Close stops the watcher

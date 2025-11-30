@@ -154,10 +154,14 @@ func (s *Server) setupRoutes() error {
 // ReloadScripts clears the script cache and response cache, forcing all scripts
 // to be re-parsed and responses to be regenerated.
 // This is useful for production deployments when scripts are updated.
-// In dev mode, this has no effect (scripts are always re-parsed).
+// In dev mode, this also triggers browser reload via the live reload mechanism.
 func (s *Server) ReloadScripts() {
 	s.scriptCache.clear()
 	s.responseCache.Clear()
+	// Trigger browser reload if watcher is active (dev mode)
+	if s.watcher != nil {
+		s.watcher.TriggerReload()
+	}
 	s.logInfo("caches cleared - scripts will be re-parsed on next request")
 }
 
