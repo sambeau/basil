@@ -4,11 +4,19 @@ import "time"
 
 // Config represents the complete Basil configuration
 type Config struct {
-	BaseDir string        `yaml:"-"` // Directory containing config file, for resolving relative paths
-	Server  ServerConfig  `yaml:"server"`
-	Static  []StaticRoute `yaml:"static"`
-	Routes  []Route       `yaml:"routes"`
-	Logging LoggingConfig `yaml:"logging"`
+	BaseDir  string         `yaml:"-"` // Directory containing config file, for resolving relative paths
+	Server   ServerConfig   `yaml:"server"`
+	Database DatabaseConfig `yaml:"database"`
+	Static   []StaticRoute  `yaml:"static"`
+	Routes   []Route        `yaml:"routes"`
+	Logging  LoggingConfig  `yaml:"logging"`
+}
+
+// DatabaseConfig holds database connection settings
+type DatabaseConfig struct {
+	Driver string `yaml:"driver"` // sqlite, postgres, mysql (only sqlite supported currently)
+	Path   string `yaml:"path"`   // For sqlite: path to database file
+	DSN    string `yaml:"dsn"`    // For postgres/mysql: connection string (future)
 }
 
 // ServerConfig holds server settings

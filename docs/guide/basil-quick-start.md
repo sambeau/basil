@@ -274,6 +274,106 @@ export Page = fn({title, contents}) {
 </Page>
 ```
 
+## Database Support
+
+Basil integrates with SQLite databases using Parsley's database operators.
+
+### Configuration
+
+**basil.yaml:**
+```yaml
+database:
+  driver: sqlite
+  path: ./data.db    # Relative to config file
+```
+
+### Using the Database
+
+In your handlers, the database connection is available as `db`:
+
+**handlers/users.pars:**
+```parsley
+// Query all users
+let users = db <=??=> "SELECT * FROM users ORDER BY name"
+
+<html>
+<body>
+  <h1>Users</h1>
+  <ul>
+  {for (user in users) {
+    <li>{user.name} ({user.email})</li>
+  }}
+  </ul>
+</body>
+</html>
+```
+
+### Database Operators
+
+| Operator | Description | Returns |
+|----------|-------------|---------|
+| `<=?=>` | Query single row | Dictionary or `null` |
+| `<=??=>` | Query multiple rows | Array of dictionaries |
+| `<=!=>` | Execute mutation | `{affected, lastId}` |
+
+### Examples
+
+**Query single row:**
+```parsley
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+if user {
+  <p>Found: {user.name}</p>
+} else {
+  <p>User not found</p>
+}
+```
+
+**Insert data:**
+```parsley
+let result = db <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+<p>Created user with ID: {result.lastId}</p>
+```
+
+**Update data:**
+```parsley
+let result = db <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
+<p>Updated {result.affected} row(s)</p>
+```
+
+### Database Setup
+
+Create your tables before running Basil. You can use the SQLite CLI:
+
+```bash
+sqlite3 data.db <<EOF
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE
+);
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
+EOF
+```
+
+Or create a setup handler:
+
+**handlers/setup.pars:**
+```parsley
+let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE
+)"
+<p>Database initialized!</p>
+```
+
+### Notes
+
+- Basil manages the database connection lifecycle
+- The connection uses WAL mode for better concurrency
+- SQLite is limited to one writer at a time
+- Parsley scripts cannot close the managed connection
+
 ## CLI Reference
 
 ```

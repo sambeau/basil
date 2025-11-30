@@ -2,13 +2,18 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/sambeau/basil/config"
+
+	// SQLite driver (pure Go, no CGO required)
+	_ "modernc.org/sqlite"
 )
 
 // Server represents a Basil web server instance.
@@ -21,6 +26,8 @@ type Server struct {
 	server      *http.Server
 	scriptCache *scriptCache
 	watcher     *Watcher
+	db          *sql.DB // Database connection (nil if not configured)
+	dbDriver    string  // Database driver name ("sqlite", etc.)
 }
 
 // New creates a new Basil server with the given configuration.
@@ -34,12 +41,76 @@ func New(cfg *config.Config, configPath string, stdout, stderr io.Writer) (*Serv
 		scriptCache: newScriptCache(cfg.Server.Dev),
 	}
 
+	// Initialize database connection if configured
+	if err := s.initDatabase(); err != nil {
+		return nil, fmt.Errorf("initializing database: %w", err)
+	}
+
 	// Set up routes
 	if err := s.setupRoutes(); err != nil {
+		// Clean up database on route setup failure
+		if s.db != nil {
+			s.db.Close()
+		}
 		return nil, fmt.Errorf("setting up routes: %w", err)
 	}
 
 	return s, nil
+}
+
+// initDatabase opens the database connection if configured.
+func (s *Server) initDatabase() error {
+	dbCfg := s.config.Database
+
+	// No database configured
+	if dbCfg.Driver == "" {
+		return nil
+	}
+
+	switch dbCfg.Driver {
+	case "sqlite":
+		return s.initSQLite(dbCfg.Path)
+	case "postgres", "mysql":
+		return fmt.Errorf("database driver %q not yet supported", dbCfg.Driver)
+	default:
+		return fmt.Errorf("unknown database driver %q", dbCfg.Driver)
+	}
+}
+
+// initSQLite opens a SQLite database connection.
+func (s *Server) initSQLite(path string) error {
+	if path == "" {
+		return fmt.Errorf("sqlite requires database.path to be set")
+	}
+
+	// Resolve relative paths against config base directory
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(s.config.BaseDir, path)
+	}
+
+	// Open database with WAL mode for better concurrency
+	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if err != nil {
+		return fmt.Errorf("opening sqlite database: %w", err)
+	}
+
+	// Verify connection
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return fmt.Errorf("connecting to sqlite database: %w", err)
+	}
+
+	// Configure connection pool for SQLite
+	// SQLite works best with a single writer, but can handle multiple readers
+	db.SetMaxOpenConns(1) // SQLite doesn't support concurrent writes
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0) // Keep connection open indefinitely
+
+	s.db = db
+	s.dbDriver = "sqlite"
+
+	s.logInfo("connected to SQLite database: %s", path)
+	return nil
 }
 
 // setupRoutes configures the HTTP mux with static and dynamic routes.
@@ -79,6 +150,14 @@ func (s *Server) setupRoutes() error {
 // Run starts the server and blocks until the context is cancelled.
 func (s *Server) Run(ctx context.Context) error {
 	addr := s.listenAddr()
+
+	// Ensure database is closed on shutdown
+	if s.db != nil {
+		defer func() {
+			s.logInfo("closing database connection")
+			s.db.Close()
+		}()
+	}
 
 	// In dev mode, start file watcher for hot reload
 	if s.config.Server.Dev {

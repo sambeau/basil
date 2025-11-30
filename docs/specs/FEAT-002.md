@@ -28,13 +28,16 @@ Build Basil, a focused Go web server for the Parsley programming language. Basil
 - [ ] Proxy mode support (deferred to Phase 2)
 
 ### Phase 2: Enhanced Features
-- [ ] SQLite database connection management for Parsley
+- [x] SQLite database connection management for Parsley
+- [x] Hot reload in dev mode (watch scripts and config)
+- [x] Request logging (text and JSON formats)
+- [x] Multipart form parsing (passed to Parsley as dictionary)
 - [ ] Route-based caching for generated responses (configurable TTL)
 - [ ] Compiled/cached Parsley scripts (AST in memory)
-- [ ] Hot reload in dev mode (watch scripts and config)
-- [ ] Multipart form parsing (passed to Parsley as dictionary)
 - [ ] Request data validation/sanitization
 - [ ] Security headers (CSP, HSTS, etc.)
+- [ ] HTTPS-only server with automatic TLS
+- [ ] Proxy mode support
 
 ### Phase 3: Administration
 - [ ] Route-based authentication (Basil-managed)

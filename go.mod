@@ -5,13 +5,14 @@ go 1.24.0
 toolchain go1.24.10
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/sambeau/parsley v0.0.0-00010101000000-000000000000
 	gopkg.in/yaml.v3 v3.0.1
+	modernc.org/sqlite v1.40.1
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
@@ -27,7 +28,6 @@ require (
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.40.1 // indirect
 )
 
 replace github.com/sambeau/parsley => ../parsley
