@@ -1,9 +1,10 @@
 ---
 id: FEAT-002
 title: "Basil Web Server"
-status: in-progress
+status: complete
 priority: high
 created: 2025-11-30
+completed: 2025-11-30
 author: "@sambeau"
 ---
 
@@ -24,7 +25,7 @@ Build Basil, a focused Go web server for the Parsley programming language. Basil
 - [x] Request logging (basic)
 - [x] Graceful shutdown
 - [x] Dev mode disables script caching for live editing
-- [ ] HTTPS-only server with automatic TLS (deferred to Phase 2)
+- [x] HTTPS-only server with automatic TLS
 - [x] Proxy mode support
 
 ### Phase 2: Enhanced Features ✅
@@ -38,13 +39,10 @@ Build Basil, a focused Go web server for the Parsley programming language. Basil
 - [x] Compiled/cached Parsley scripts (AST in memory)
 - [x] SIGHUP handler for production script reload
 - [x] Route-based caching for generated responses (configurable TTL)
-- [ ] Request data validation/sanitization (deferred to backlog)
 
-### Phase 3: Administration
-- [ ] Route-based authentication (Basil-managed)
-- [ ] Passkey/WebAuthn authentication
-- [ ] User identity passed to Parsley (id, email, etc.)
-- [ ] Admin interface (built with Parsley)
+### Future Work (Moved to Separate Features)
+- Authentication → FEAT-004
+- Admin interface → Backlog
 
 ## Design Decisions
 

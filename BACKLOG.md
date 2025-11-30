@@ -19,7 +19,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
-| — | — | — | — |
+| Admin interface | FEAT-002 | Premature | Needs auth first, unclear requirements. Built with Parsley when needed. |
 
 ## Completed (Archive)
 <!-- Move items here when done, with completion date -->
