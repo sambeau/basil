@@ -125,6 +125,11 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		parsley.WithVar("query", queryToMap(r.URL.Query())),
 	}
 
+	// Add database connection if configured
+	if h.server.db != nil {
+		opts = append(opts, parsley.WithDB("db", h.server.db, h.server.dbDriver))
+	}
+
 	// Add custom logger that captures script log() output
 	scriptLogger := &scriptLogCapture{output: make([]string, 0)}
 	opts = append(opts, parsley.WithLogger(scriptLogger))
