@@ -14,17 +14,20 @@ import (
 // Server represents a Basil web server instance.
 type Server struct {
 	config      *config.Config
+	configPath  string
 	stdout      io.Writer
 	stderr      io.Writer
 	mux         *http.ServeMux
 	server      *http.Server
 	scriptCache *scriptCache
+	watcher     *Watcher
 }
 
 // New creates a new Basil server with the given configuration.
-func New(cfg *config.Config, stdout, stderr io.Writer) (*Server, error) {
+func New(cfg *config.Config, configPath string, stdout, stderr io.Writer) (*Server, error) {
 	s := &Server{
 		config:      cfg,
+		configPath:  configPath,
 		stdout:      stdout,
 		stderr:      stderr,
 		mux:         http.NewServeMux(),
@@ -41,6 +44,11 @@ func New(cfg *config.Config, stdout, stderr io.Writer) (*Server, error) {
 
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
+	// In dev mode, add live reload endpoint
+	if s.config.Server.Dev {
+		s.mux.Handle("/__livereload", newLiveReloadHandler(s))
+	}
+
 	// Register static routes first (more specific)
 	for _, static := range s.config.Static {
 		if static.Root != "" {
@@ -72,9 +80,29 @@ func (s *Server) setupRoutes() error {
 func (s *Server) Run(ctx context.Context) error {
 	addr := s.listenAddr()
 
+	// In dev mode, start file watcher for hot reload
+	if s.config.Server.Dev {
+		watcher, err := NewWatcher(s, s.configPath, s.stdout, s.stderr)
+		if err != nil {
+			s.logError("failed to create watcher: %v", err)
+		} else {
+			s.watcher = watcher
+			if err := s.watcher.Start(ctx); err != nil {
+				s.logError("failed to start watcher: %v", err)
+			}
+			defer s.watcher.Close()
+		}
+	}
+
+	// Determine handler - wrap with live reload in dev mode
+	var handler http.Handler = s.mux
+	if s.config.Server.Dev {
+		handler = injectLiveReload(s.mux)
+	}
+
 	s.server = &http.Server{
 		Addr:              addr,
-		Handler:           s.mux,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
