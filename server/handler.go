@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -14,19 +15,32 @@ import (
 )
 
 // scriptCache caches loaded Parsley scripts
+// In dev mode, caching is disabled and scripts are always read from disk
 type scriptCache struct {
 	mu      sync.RWMutex
 	scripts map[string]string // path -> source code
+	devMode bool
 }
 
-func newScriptCache() *scriptCache {
+func newScriptCache(devMode bool) *scriptCache {
 	return &scriptCache{
 		scripts: make(map[string]string),
+		devMode: devMode,
 	}
 }
 
-// get returns cached script source, loading from disk if needed
+// get returns script source, using cache only in production mode
 func (c *scriptCache) get(path string) (string, error) {
+	// In dev mode, always read from disk (no caching)
+	if c.devMode {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("reading script %s: %w", path, err)
+		}
+		return string(content), nil
+	}
+
+	// Production mode: check cache first
 	c.mu.RLock()
 	source, ok := c.scripts[path]
 	c.mu.RUnlock()
@@ -90,12 +104,13 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqCtx := buildRequestContext(r, h.route)
 
 	// Create security policy
-	// By default: allow reading from script directory, no writing, no executing
+	// Allow executing Parsley files in the script's directory (for imports)
+	scriptDir := filepath.Dir(h.scriptPath)
 	policy := &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
-		AllowExecute:  []string{},                        // No execute access
+		AllowExecute:  []string{scriptDir},               // Allow imports from handler directory
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 

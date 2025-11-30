@@ -14,6 +14,6 @@ static:
 
 routes:
   - path: /
-    handler: ./handlers/index.parsley
+    handler: ./handlers/index.pars
   - path: /api/hello
-    handler: ./handlers/api/hello.parsley
+    handler: ./handlers/api/hello.pars

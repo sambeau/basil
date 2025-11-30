@@ -28,7 +28,7 @@ func New(cfg *config.Config, stdout, stderr io.Writer) (*Server, error) {
 		stdout:      stdout,
 		stderr:      stderr,
 		mux:         http.NewServeMux(),
-		scriptCache: newScriptCache(),
+		scriptCache: newScriptCache(cfg.Server.Dev),
 	}
 
 	// Set up routes

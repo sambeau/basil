@@ -1,0 +1,14 @@
+// page.pars
+// A simple HTML page component
+
+export Page = fn({title, contents}){
+	<html>
+	<head>
+		<title>{title}</title>
+		<link rel="stylesheet" href="/static/style.css"/>
+	</head>
+		<body>
+			{contents}
+		</body>
+	</html>
+}
