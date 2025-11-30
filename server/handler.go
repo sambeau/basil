@@ -90,10 +90,11 @@ func (c *scriptCache) clear() {
 
 // parsleyHandler handles HTTP requests with Parsley scripts
 type parsleyHandler struct {
-	server     *Server
-	route      config.Route
-	scriptPath string
-	cache      *scriptCache
+	server        *Server
+	route         config.Route
+	scriptPath    string
+	cache         *scriptCache
+	responseCache *responseCache
 }
 
 // newParsleyHandler creates a handler for a Parsley script route
@@ -102,15 +103,32 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 	scriptPath := route.Handler
 
 	return &parsleyHandler{
-		server:     s,
-		route:      route,
-		scriptPath: scriptPath,
-		cache:      cache,
+		server:        s,
+		route:         route,
+		scriptPath:    scriptPath,
+		cache:         cache,
+		responseCache: s.responseCache,
 	}, nil
 }
 
 // ServeHTTP handles HTTP requests by executing the Parsley script
 func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Check response cache first (only for cacheable routes with GET requests)
+	if h.route.Cache > 0 && r.Method == http.MethodGet {
+		if cached := h.responseCache.Get(r); cached != nil {
+			// Serve from cache
+			for k, v := range cached.headers {
+				for _, vv := range v {
+					w.Header().Add(k, vv)
+				}
+			}
+			w.Header().Set("X-Cache", "HIT")
+			w.WriteHeader(cached.status)
+			w.Write(cached.body)
+			return
+		}
+	}
+
 	// Get compiled AST (from cache in production, fresh parse in dev)
 	program, err := h.cache.getAST(h.scriptPath)
 	if err != nil {
@@ -169,8 +187,8 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.server.logInfo("[script] %s", line)
 	}
 
-	// Handle the response
-	h.writeResponse(w, &parsley.Result{Value: result})
+	// Handle the response (with caching if enabled)
+	h.writeResponseWithCache(w, r, &parsley.Result{Value: result})
 }
 
 // setEnvVar converts a Go value to Parsley and sets it in the environment.
@@ -343,6 +361,25 @@ func queryToMap(query map[string][]string) map[string]interface{} {
 		}
 	}
 	return result
+}
+
+// writeResponseWithCache writes the response and caches it if the route has caching enabled.
+func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.Request, result *parsley.Result) {
+	// If caching is enabled for this route and it's a GET request, capture the response
+	if h.route.Cache > 0 && r.Method == http.MethodGet {
+		crw := newCachedResponseWriter(w)
+		crw.Header().Set("X-Cache", "MISS")
+		h.writeResponse(crw, result)
+
+		// Only cache successful responses (2xx)
+		if crw.statusCode >= 200 && crw.statusCode < 300 {
+			h.responseCache.Set(r, h.route.Cache, crw.statusCode, crw.Header(), crw.body)
+		}
+		return
+	}
+
+	// No caching, write directly
+	h.writeResponse(w, result)
 }
 
 // writeResponse writes the Parsley result to the HTTP response

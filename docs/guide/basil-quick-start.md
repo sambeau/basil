@@ -457,6 +457,66 @@ server:
 
 **Security note:** Only enable `proxy.trusted` when actually behind a proxy. Untrusted clients could spoof headers otherwise.
 
+## Response Caching
+
+Basil can cache generated responses per-route for improved performance.
+
+### Configuration
+
+Enable caching with a TTL (time-to-live) on specific routes:
+
+```yaml
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+    cache: 5m                    # Cache for 5 minutes
+
+  - path: /api/data
+    handler: ./handlers/api/data.pars
+    cache: 30s                   # Cache for 30 seconds
+
+  - path: /admin/
+    handler: ./handlers/admin.pars
+    # No cache - always fresh (good for admin pages)
+```
+
+**Supported duration formats:**
+- `30s` — 30 seconds
+- `5m` — 5 minutes
+- `1h` — 1 hour
+- `24h` — 24 hours
+
+### How It Works
+
+- Only GET requests are cached
+- Cache key includes method, path, and query string
+- Only successful responses (2xx) are cached
+- `X-Cache: HIT` or `X-Cache: MISS` header indicates cache status
+- Cache is disabled in dev mode
+
+### Cache Management
+
+**Reload scripts and clear cache:**
+```bash
+kill -HUP $(pgrep basil)
+```
+
+This clears both the AST cache (compiled scripts) and response cache without restarting the server.
+
+### When to Use Caching
+
+**Good candidates:**
+- Homepage and landing pages
+- API endpoints with stable data
+- Documentation pages
+- RSS feeds
+
+**Avoid caching:**
+- Pages with user-specific content
+- Real-time data
+- Admin interfaces
+- POST/PUT/DELETE endpoints (automatically excluded)
+
 ## CLI Reference
 
 ```

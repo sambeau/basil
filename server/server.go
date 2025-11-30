@@ -20,27 +20,29 @@ import (
 
 // Server represents a Basil web server instance.
 type Server struct {
-	config      *config.Config
-	configPath  string
-	stdout      io.Writer
-	stderr      io.Writer
-	mux         *http.ServeMux
-	server      *http.Server
-	scriptCache *scriptCache
-	watcher     *Watcher
-	db          *sql.DB // Database connection (nil if not configured)
-	dbDriver    string  // Database driver name ("sqlite", etc.)
+	config        *config.Config
+	configPath    string
+	stdout        io.Writer
+	stderr        io.Writer
+	mux           *http.ServeMux
+	server        *http.Server
+	scriptCache   *scriptCache
+	responseCache *responseCache
+	watcher       *Watcher
+	db            *sql.DB // Database connection (nil if not configured)
+	dbDriver      string  // Database driver name ("sqlite", etc.)
 }
 
 // New creates a new Basil server with the given configuration.
 func New(cfg *config.Config, configPath string, stdout, stderr io.Writer) (*Server, error) {
 	s := &Server{
-		config:      cfg,
-		configPath:  configPath,
-		stdout:      stdout,
-		stderr:      stderr,
-		mux:         http.NewServeMux(),
-		scriptCache: newScriptCache(cfg.Server.Dev),
+		config:        cfg,
+		configPath:    configPath,
+		stdout:        stdout,
+		stderr:        stderr,
+		mux:           http.NewServeMux(),
+		scriptCache:   newScriptCache(cfg.Server.Dev),
+		responseCache: newResponseCache(cfg.Server.Dev),
 	}
 
 	// Initialize database connection if configured
@@ -149,12 +151,14 @@ func (s *Server) setupRoutes() error {
 	return nil
 }
 
-// ReloadScripts clears the script cache, forcing all scripts to be re-parsed.
+// ReloadScripts clears the script cache and response cache, forcing all scripts
+// to be re-parsed and responses to be regenerated.
 // This is useful for production deployments when scripts are updated.
 // In dev mode, this has no effect (scripts are always re-parsed).
 func (s *Server) ReloadScripts() {
 	s.scriptCache.clear()
-	s.logInfo("script cache cleared - scripts will be re-parsed on next request")
+	s.responseCache.Clear()
+	s.logInfo("caches cleared - scripts will be re-parsed on next request")
 }
 
 // Run starts the server and blocks until the context is cancelled.
