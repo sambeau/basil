@@ -51,7 +51,7 @@ It's the first thing AI reads before any task. Contains build commands, project 
 ## Git Questions
 
 ### Who does git commits?
-AI commits to feature/bug branches. Human merges to main and creates release tags.
+AI commits to feature/bug branches, merges to main, and creates release tags. Human reviews and approves.
 
 *Added: 2025-11-30*
 

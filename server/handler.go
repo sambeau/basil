@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,71 +11,90 @@ import (
 	"sync"
 
 	"github.com/sambeau/basil/config"
+	"github.com/sambeau/parsley/pkg/ast"
 	"github.com/sambeau/parsley/pkg/evaluator"
+	"github.com/sambeau/parsley/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/parser"
 	"github.com/sambeau/parsley/pkg/parsley"
 )
 
-// scriptCache caches loaded Parsley scripts
-// In dev mode, caching is disabled and scripts are always read from disk
+// scriptCache caches compiled Parsley ASTs for production performance.
+// In dev mode, caching is disabled and scripts are always read and parsed from disk.
 type scriptCache struct {
-	mu      sync.RWMutex
-	scripts map[string]string // path -> source code
-	devMode bool
+	mu       sync.RWMutex
+	programs map[string]*ast.Program // path -> compiled AST
+	devMode  bool
 }
 
 func newScriptCache(devMode bool) *scriptCache {
 	return &scriptCache{
-		scripts: make(map[string]string),
-		devMode: devMode,
+		programs: make(map[string]*ast.Program),
+		devMode:  devMode,
 	}
 }
 
-// get returns script source, using cache only in production mode
-func (c *scriptCache) get(path string) (string, error) {
-	// In dev mode, always read from disk (no caching)
+// getAST returns the compiled AST for a script, using cache in production mode.
+// Returns the AST and any parse errors.
+func (c *scriptCache) getAST(path string) (*ast.Program, error) {
+	// In dev mode, always read and parse from disk (no caching)
 	if c.devMode {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return "", fmt.Errorf("reading script %s: %w", path, err)
-		}
-		return string(content), nil
+		return c.parseScript(path)
 	}
 
 	// Production mode: check cache first
 	c.mu.RLock()
-	source, ok := c.scripts[path]
+	program, ok := c.programs[path]
 	c.mu.RUnlock()
 	if ok {
-		return source, nil
+		return program, nil
 	}
 
-	// Load from disk
-	content, err := os.ReadFile(path)
+	// Parse from disk
+	program, err := c.parseScript(path)
 	if err != nil {
-		return "", fmt.Errorf("reading script %s: %w", path, err)
+		return nil, err
 	}
 
-	source = string(content)
+	// Cache the compiled AST
 	c.mu.Lock()
-	c.scripts[path] = source
+	c.programs[path] = program
 	c.mu.Unlock()
 
-	return source, nil
+	return program, nil
 }
 
-// clear removes all cached scripts (for hot reload)
+// parseScript reads and parses a Parsley script file.
+func (c *scriptCache) parseScript(path string) (*ast.Program, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading script %s: %w", path, err)
+	}
+
+	l := lexer.NewWithFilename(string(content), path)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if errors := p.Errors(); len(errors) != 0 {
+		return nil, fmt.Errorf("parse error in %s: %s", path, errors[0])
+	}
+
+	return program, nil
+}
+
+// clear removes all cached ASTs (for hot reload)
 func (c *scriptCache) clear() {
 	c.mu.Lock()
-	c.scripts = make(map[string]string)
+	c.programs = make(map[string]*ast.Program)
 	c.mu.Unlock()
 }
 
 // parsleyHandler handles HTTP requests with Parsley scripts
 type parsleyHandler struct {
-	server     *Server
-	route      config.Route
-	scriptPath string
-	cache      *scriptCache
+	server        *Server
+	route         config.Route
+	scriptPath    string
+	cache         *scriptCache
+	responseCache *responseCache
 }
 
 // newParsleyHandler creates a handler for a Parsley script route
@@ -83,17 +103,34 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 	scriptPath := route.Handler
 
 	return &parsleyHandler{
-		server:     s,
-		route:      route,
-		scriptPath: scriptPath,
-		cache:      cache,
+		server:        s,
+		route:         route,
+		scriptPath:    scriptPath,
+		cache:         cache,
+		responseCache: s.responseCache,
 	}, nil
 }
 
 // ServeHTTP handles HTTP requests by executing the Parsley script
 func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Load script (from cache or disk)
-	source, err := h.cache.get(h.scriptPath)
+	// Check response cache first (only for cacheable routes with GET requests)
+	if h.route.Cache > 0 && r.Method == http.MethodGet {
+		if cached := h.responseCache.Get(r); cached != nil {
+			// Serve from cache
+			for k, v := range cached.headers {
+				for _, vv := range v {
+					w.Header().Add(k, vv)
+				}
+			}
+			w.Header().Set("X-Cache", "HIT")
+			w.WriteHeader(cached.status)
+			w.Write(cached.body)
+			return
+		}
+	}
+
+	// Get compiled AST (from cache in production, fresh parse in dev)
+	program, err := h.cache.getAST(h.scriptPath)
 	if err != nil {
 		h.server.logError("failed to load script: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -103,10 +140,14 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Build request context for the script
 	reqCtx := buildRequestContext(r, h.route)
 
-	// Create security policy
+	// Create fresh environment for this request
+	env := evaluator.NewEnvironment()
+	env.Filename = h.scriptPath
+
+	// Set security policy
 	// Allow executing Parsley files in the script's directory (for imports)
 	scriptDir := filepath.Dir(h.scriptPath)
-	policy := &evaluator.SecurityPolicy{
+	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
@@ -114,24 +155,29 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
-	// Build evaluation options
-	opts := []parsley.Option{
-		parsley.WithFilename(h.scriptPath),
-		parsley.WithSecurity(policy),
-		parsley.WithVar("request", reqCtx),
-		parsley.WithVar("method", r.Method),
-		parsley.WithVar("path", r.URL.Path),
-		parsley.WithVar("query", queryToMap(r.URL.Query())),
+	// Set request variables
+	setEnvVar(env, "request", reqCtx)
+	setEnvVar(env, "method", r.Method)
+	setEnvVar(env, "path", r.URL.Path)
+	setEnvVar(env, "query", queryToMap(r.URL.Query()))
+
+	// Add database connection if configured
+	if h.server.db != nil {
+		conn := evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
+		env.Set("db", conn)
 	}
 
-	// Add custom logger that captures script log() output
+	// Set up custom logger that captures script log() output
 	scriptLogger := &scriptLogCapture{output: make([]string, 0)}
-	opts = append(opts, parsley.WithLogger(scriptLogger))
+	env.Logger = scriptLogger
 
-	// Execute the script
-	result, err := parsley.Eval(source, opts...)
-	if err != nil {
-		h.server.logError("script error in %s: %v", h.scriptPath, err)
+	// Execute the pre-compiled AST
+	result := evaluator.Eval(program, env)
+
+	// Check for runtime errors
+	if result != nil && result.Type() == evaluator.ERROR_OBJ {
+		errObj := result.(*evaluator.Error)
+		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Message)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -141,8 +187,17 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.server.logInfo("[script] %s", line)
 	}
 
-	// Handle the response
-	h.writeResponse(w, result)
+	// Handle the response (with caching if enabled)
+	h.writeResponseWithCache(w, r, &parsley.Result{Value: result})
+}
+
+// setEnvVar converts a Go value to Parsley and sets it in the environment.
+func setEnvVar(env *evaluator.Environment, name string, value interface{}) {
+	obj, err := parsley.ToParsley(value)
+	if err != nil {
+		return // Silently ignore conversion errors
+	}
+	env.Set(name, obj)
 }
 
 // buildRequestContext creates the request object passed to Parsley scripts
@@ -154,7 +209,7 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		}
 	}
 
-	return map[string]interface{}{
+	ctx := map[string]interface{}{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"query":      queryToMap(r.URL.Query()),
@@ -163,6 +218,136 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		"remoteAddr": r.RemoteAddr,
 		"auth":       route.Auth, // "required", "optional", or ""
 	}
+
+	// Parse body for POST/PUT/PATCH requests
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
+		body, form, files := parseRequestBody(r)
+		ctx["body"] = body
+		ctx["form"] = form
+		ctx["files"] = files
+	}
+
+	return ctx
+}
+
+// parseRequestBody parses the request body based on content type
+// Returns: raw body (string), form data (map), file uploads (map)
+func parseRequestBody(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	contentType := r.Header.Get("Content-Type")
+
+	// Handle multipart form data (file uploads)
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		return parseMultipartForm(r)
+	}
+
+	// Handle URL-encoded form data
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		return parseURLEncodedForm(r)
+	}
+
+	// Handle JSON body
+	if strings.HasPrefix(contentType, "application/json") {
+		return parseJSONBody(r)
+	}
+
+	// Default: read raw body as string
+	return parseRawBody(r), nil, nil
+}
+
+// parseMultipartForm handles multipart/form-data (file uploads)
+func parseMultipartForm(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	// 32MB max memory, rest goes to temp files
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		return "", nil, nil
+	}
+
+	form := make(map[string]interface{})
+	files := make(map[string]interface{})
+
+	// Extract form values
+	if r.MultipartForm != nil {
+		for k, v := range r.MultipartForm.Value {
+			if len(v) == 1 {
+				form[k] = v[0]
+			} else {
+				form[k] = v
+			}
+		}
+
+		// Extract file metadata (not the actual file contents for safety)
+		for k, fileHeaders := range r.MultipartForm.File {
+			fileList := make([]map[string]interface{}, 0, len(fileHeaders))
+			for _, fh := range fileHeaders {
+				fileList = append(fileList, map[string]interface{}{
+					"filename": fh.Filename,
+					"size":     fh.Size,
+					"headers":  headerToMap(fh.Header),
+				})
+			}
+			if len(fileList) == 1 {
+				files[k] = fileList[0]
+			} else {
+				files[k] = fileList
+			}
+		}
+	}
+
+	return "", form, files
+}
+
+// parseURLEncodedForm handles application/x-www-form-urlencoded
+func parseURLEncodedForm(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	if err := r.ParseForm(); err != nil {
+		return "", nil, nil
+	}
+
+	form := make(map[string]interface{})
+	for k, v := range r.PostForm {
+		if len(v) == 1 {
+			form[k] = v[0]
+		} else {
+			form[k] = v
+		}
+	}
+
+	return "", form, nil
+}
+
+// parseJSONBody handles application/json
+func parseJSONBody(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+	body := parseRawBody(r)
+
+	// Try to parse as JSON map
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &data); err == nil {
+		return body, data, nil
+	}
+
+	// If not a map, just return raw body
+	return body, nil, nil
+}
+
+// parseRawBody reads the entire body as a string
+func parseRawBody(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// headerToMap converts http.Header to a simple map
+func headerToMap(h map[string][]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range h {
+		if len(v) > 0 {
+			result[k] = v[0]
+		}
+	}
+	return result
 }
 
 // queryToMap converts URL query parameters to a map
@@ -176,6 +361,25 @@ func queryToMap(query map[string][]string) map[string]interface{} {
 		}
 	}
 	return result
+}
+
+// writeResponseWithCache writes the response and caches it if the route has caching enabled.
+func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.Request, result *parsley.Result) {
+	// If caching is enabled for this route and it's a GET request, capture the response
+	if h.route.Cache > 0 && r.Method == http.MethodGet {
+		crw := newCachedResponseWriter(w)
+		crw.Header().Set("X-Cache", "MISS")
+		h.writeResponse(crw, result)
+
+		// Only cache successful responses (2xx)
+		if crw.statusCode >= 200 && crw.statusCode < 300 {
+			h.responseCache.Set(r, h.route.Cache, crw.statusCode, crw.Header(), crw.body)
+		}
+		return
+	}
+
+	// No caching, write directly
+	h.writeResponse(w, result)
 }
 
 // writeResponse writes the Parsley result to the HTTP response

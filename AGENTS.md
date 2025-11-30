@@ -97,8 +97,8 @@ basil/
 - Feature branches: `feat/FEAT-XXX-short-description`
 - Bug fix branches: `fix/BUG-XXX-short-description`
 - AI commits to feature branches
-- Human merges to main after review
-- Human creates release tags
+- AI merges to main after human approval
+- AI creates release tags
 
 ## Documentation Updates
 When answering a "how do I..." question from human:

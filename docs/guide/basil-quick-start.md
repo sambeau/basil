@@ -129,14 +129,63 @@ static:
     file: ./public/favicon.ico
 ```
 
+### Logging
+Configure request logging:
+```yaml
+logging:
+  level: info        # debug, info, warn, error
+  format: text       # text or json
+  output: stdout     # stdout, stderr, or file path
+```
+
+**Text format** (default):
+```
+2025-11-30T12:34:56Z GET /api/hello 200 1.234ms
+```
+
+**JSON format** (for log aggregators):
+```json
+{"timestamp":"2025-11-30T12:34:56Z","method":"GET","path":"/api/hello","status":200,"duration":"1.234ms","duration_ms":1,"client_ip":"127.0.0.1:52345","user_agent":"curl/8.0"}
+```
+
 ### Request Data
-Your Parsley handlers receive request data:
+Your Parsley handlers receive request data via convenient variables:
+
+**Quick access variables:**
 ```parsley
-// Available variables in handlers:
 method   // "GET", "POST", etc.
 path     // "/api/hello"
 query    // {name: "world"} from ?name=world
-request  // Full request object with headers, etc.
+```
+
+**Full request object:**
+```parsley
+request = {
+  method:     "GET",
+  path:       "/api/hello",
+  query:      {name: "world"},
+  headers:    {"Content-Type": "application/json", "User-Agent": "..."},
+  host:       "localhost:8080",
+  remoteAddr: "127.0.0.1:52345",
+  auth:       "",    // route's auth setting: "required", "optional", or ""
+  body:       "...", // raw request body (POST/PUT/PATCH only)
+  form:       {},    // parsed form data or JSON body
+  files:      {}     // uploaded file metadata (multipart only)
+}
+```
+
+**Example: Using request data:**
+```parsley
+let name = query.name ?? "stranger"
+let userAgent = request.headers["User-Agent"] ?? "unknown"
+
+<html>
+<body>
+  <h1>Hello, {name}!</h1>
+  <p>You're using: {userAgent}</p>
+  <p>Your IP: {request.remoteAddr}</p>
+</body>
+</html>
 ```
 
 ### Response Types
@@ -163,6 +212,45 @@ request  // Full request object with headers, etc.
 }
 ```
 
+### Handling Forms
+
+**URL-encoded forms** (`application/x-www-form-urlencoded`):
+```parsley
+// Form data is in request.form
+let username = request.form.username ?? ""
+let email = request.form.email ?? ""
+
+if method == "POST" {
+  // Process form submission
+  `<p>Thanks, {username}!</p>`
+} else {
+  `<form method="POST">
+    <input name="username" placeholder="Username"/>
+    <input name="email" type="email" placeholder="Email"/>
+    <button>Submit</button>
+  </form>`
+}
+```
+
+**JSON API requests** (`application/json`):
+```parsley
+// JSON body is parsed into request.form
+let data = request.form
+{
+  received: data,
+  message: "Got your JSON!"
+}
+```
+
+**File uploads** (`multipart/form-data`):
+```parsley
+// File metadata is in request.files
+let file = request.files.document
+if file {
+  `<p>Uploaded: {file.filename} ({file.size} bytes)</p>`
+}
+```
+
 ## Using Modules
 
 Create reusable components:
@@ -185,6 +273,249 @@ export Page = fn({title, contents}) {
   <h1>Welcome!</h1>
 </Page>
 ```
+
+## Database Support
+
+Basil integrates with SQLite databases using Parsley's database operators.
+
+### Configuration
+
+**basil.yaml:**
+```yaml
+database:
+  driver: sqlite
+  path: ./data.db    # Relative to config file
+```
+
+### Using the Database
+
+In your handlers, the database connection is available as `db`:
+
+**handlers/users.pars:**
+```parsley
+// Query all users
+let users = db <=??=> "SELECT * FROM users ORDER BY name"
+
+<html>
+<body>
+  <h1>Users</h1>
+  <ul>
+  {for (user in users) {
+    <li>{user.name} ({user.email})</li>
+  }}
+  </ul>
+</body>
+</html>
+```
+
+### Database Operators
+
+| Operator | Description | Returns |
+|----------|-------------|---------|
+| `<=?=>` | Query single row | Dictionary or `null` |
+| `<=??=>` | Query multiple rows | Array of dictionaries |
+| `<=!=>` | Execute mutation | `{affected, lastId}` |
+
+### Examples
+
+**Query single row:**
+```parsley
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+if user {
+  <p>Found: {user.name}</p>
+} else {
+  <p>User not found</p>
+}
+```
+
+**Insert data:**
+```parsley
+let result = db <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+<p>Created user with ID: {result.lastId}</p>
+```
+
+**Update data:**
+```parsley
+let result = db <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
+<p>Updated {result.affected} row(s)</p>
+```
+
+### Database Setup
+
+Create your tables before running Basil. You can use the SQLite CLI:
+
+```bash
+sqlite3 data.db <<EOF
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE
+);
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
+EOF
+```
+
+Or create a setup handler:
+
+**handlers/setup.pars:**
+```parsley
+let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE
+)"
+<p>Database initialized!</p>
+```
+
+### Notes
+
+- Basil manages the database connection lifecycle
+- The connection uses WAL mode for better concurrency
+- SQLite is limited to one writer at a time
+- Parsley scripts cannot close the managed connection
+
+## Security
+
+Basil includes security features for production deployments.
+
+### HTTPS/TLS
+
+In production mode (without `--dev`), Basil runs HTTPS with automatic Let's Encrypt certificates.
+
+**Automatic TLS (recommended):**
+```yaml
+server:
+  host: example.com     # Required for auto TLS
+  port: 443
+  https:
+    auto: true
+    email: admin@example.com    # For Let's Encrypt notifications
+    cache_dir: ./certs          # Where to store certificates
+```
+
+**Manual certificates:**
+```yaml
+server:
+  https:
+    cert: /path/to/cert.pem
+    key: /path/to/key.pem
+```
+
+**How it works:**
+- Basil listens on port 443 for HTTPS
+- An HTTP server on port 80 handles ACME challenges and redirects to HTTPS
+- Certificates are automatically renewed before expiry
+- HTTP/2 is enabled by default
+
+### Security Headers
+
+Basil sets secure defaults for all responses:
+
+| Header | Default | Purpose |
+|--------|---------|---------|
+| `Strict-Transport-Security` | 1 year, includeSubDomains | Force HTTPS |
+| `X-Content-Type-Options` | nosniff | Prevent MIME-sniffing |
+| `X-Frame-Options` | DENY | Prevent clickjacking |
+| `X-XSS-Protection` | 1; mode=block | Legacy XSS filter |
+| `Referrer-Policy` | strict-origin-when-cross-origin | Control referrer info |
+
+**Customizing headers:**
+```yaml
+security:
+  hsts:
+    enabled: true
+    max_age: "63072000"        # 2 years
+    include_subdomains: true
+    preload: true              # For HSTS preload list
+  content_type_options: nosniff
+  frame_options: SAMEORIGIN    # Allow same-origin framing
+  xss_protection: "1; mode=block"
+  referrer_policy: no-referrer
+  csp: "default-src 'self'; script-src 'self'"
+  permissions_policy: "geolocation=(), microphone=()"
+```
+
+**Dev mode note:** HSTS headers are not sent in dev mode to avoid browser issues.
+
+### Reverse Proxy Support
+
+When running behind a load balancer or reverse proxy (nginx, Cloudflare, etc.):
+
+```yaml
+server:
+  proxy:
+    trusted: true              # Trust X-Forwarded-* headers
+    trusted_ips:               # Optional: only trust specific proxies
+      - 10.0.0.1
+      - 10.0.0.2
+```
+
+**What this enables:**
+- Client IP extracted from `X-Forwarded-For` or `X-Real-IP`
+- Original client IP used in request logging
+- Available in handlers via `request.remoteAddr`
+
+**Security note:** Only enable `proxy.trusted` when actually behind a proxy. Untrusted clients could spoof headers otherwise.
+
+## Response Caching
+
+Basil can cache generated responses per-route for improved performance.
+
+### Configuration
+
+Enable caching with a TTL (time-to-live) on specific routes:
+
+```yaml
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+    cache: 5m                    # Cache for 5 minutes
+
+  - path: /api/data
+    handler: ./handlers/api/data.pars
+    cache: 30s                   # Cache for 30 seconds
+
+  - path: /admin/
+    handler: ./handlers/admin.pars
+    # No cache - always fresh (good for admin pages)
+```
+
+**Supported duration formats:**
+- `30s` — 30 seconds
+- `5m` — 5 minutes
+- `1h` — 1 hour
+- `24h` — 24 hours
+
+### How It Works
+
+- Only GET requests are cached
+- Cache key includes method, path, and query string
+- Only successful responses (2xx) are cached
+- `X-Cache: HIT` or `X-Cache: MISS` header indicates cache status
+- Cache is disabled in dev mode
+
+### Cache Management
+
+**Reload scripts and clear cache:**
+```bash
+kill -HUP $(pgrep basil)
+```
+
+This clears both the AST cache (compiled scripts) and response cache without restarting the server.
+
+### When to Use Caching
+
+**Good candidates:**
+- Homepage and landing pages
+- API endpoints with stable data
+- Documentation pages
+- RSS feeds
+
+**Avoid caching:**
+- Pages with user-specific content
+- Real-time data
+- Admin interfaces
+- POST/PUT/DELETE endpoints (automatically excluded)
 
 ## CLI Reference
 
