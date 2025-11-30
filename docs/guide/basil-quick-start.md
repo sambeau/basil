@@ -374,6 +374,89 @@ let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (
 - SQLite is limited to one writer at a time
 - Parsley scripts cannot close the managed connection
 
+## Security
+
+Basil includes security features for production deployments.
+
+### HTTPS/TLS
+
+In production mode (without `--dev`), Basil runs HTTPS with automatic Let's Encrypt certificates.
+
+**Automatic TLS (recommended):**
+```yaml
+server:
+  host: example.com     # Required for auto TLS
+  port: 443
+  https:
+    auto: true
+    email: admin@example.com    # For Let's Encrypt notifications
+    cache_dir: ./certs          # Where to store certificates
+```
+
+**Manual certificates:**
+```yaml
+server:
+  https:
+    cert: /path/to/cert.pem
+    key: /path/to/key.pem
+```
+
+**How it works:**
+- Basil listens on port 443 for HTTPS
+- An HTTP server on port 80 handles ACME challenges and redirects to HTTPS
+- Certificates are automatically renewed before expiry
+- HTTP/2 is enabled by default
+
+### Security Headers
+
+Basil sets secure defaults for all responses:
+
+| Header | Default | Purpose |
+|--------|---------|---------|
+| `Strict-Transport-Security` | 1 year, includeSubDomains | Force HTTPS |
+| `X-Content-Type-Options` | nosniff | Prevent MIME-sniffing |
+| `X-Frame-Options` | DENY | Prevent clickjacking |
+| `X-XSS-Protection` | 1; mode=block | Legacy XSS filter |
+| `Referrer-Policy` | strict-origin-when-cross-origin | Control referrer info |
+
+**Customizing headers:**
+```yaml
+security:
+  hsts:
+    enabled: true
+    max_age: "63072000"        # 2 years
+    include_subdomains: true
+    preload: true              # For HSTS preload list
+  content_type_options: nosniff
+  frame_options: SAMEORIGIN    # Allow same-origin framing
+  xss_protection: "1; mode=block"
+  referrer_policy: no-referrer
+  csp: "default-src 'self'; script-src 'self'"
+  permissions_policy: "geolocation=(), microphone=()"
+```
+
+**Dev mode note:** HSTS headers are not sent in dev mode to avoid browser issues.
+
+### Reverse Proxy Support
+
+When running behind a load balancer or reverse proxy (nginx, Cloudflare, etc.):
+
+```yaml
+server:
+  proxy:
+    trusted: true              # Trust X-Forwarded-* headers
+    trusted_ips:               # Optional: only trust specific proxies
+      - 10.0.0.1
+      - 10.0.0.2
+```
+
+**What this enables:**
+- Client IP extracted from `X-Forwarded-For` or `X-Real-IP`
+- Original client IP used in request logging
+- Available in handlers via `request.remoteAddr`
+
+**Security note:** Only enable `proxy.trusted` when actually behind a proxy. Untrusted clients could spoof headers otherwise.
+
 ## CLI Reference
 
 ```

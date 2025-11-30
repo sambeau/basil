@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sambeau/basil/config"
+	"golang.org/x/crypto/acme/autocert"
 
 	// SQLite driver (pure Go, no CGO required)
 	_ "modernc.org/sqlite"
@@ -181,6 +183,12 @@ func (s *Server) Run(ctx context.Context) error {
 		handler = injectLiveReload(handler)
 	}
 
+	// Add proxy header handling (must be before logging to get real IPs)
+	handler = newProxyAware(handler, s.config.Server.Proxy)
+
+	// Add security headers
+	handler = newSecurityHeaders(handler, s.config.Security, s.config.Server.Dev)
+
 	// Wrap with request logging middleware (unless level is error-only)
 	if s.config.Logging.Level != "error" {
 		handler = newRequestLogger(handler, s.stdout, s.config.Logging.Format)
@@ -239,16 +247,94 @@ func (s *Server) listenAddr() string {
 	return fmt.Sprintf("%s:%d", host, port)
 }
 
-// listenAndServeTLS starts HTTPS server.
-// Placeholder for Phase 1 - will implement autocert in Phase 2.
+// listenAndServeTLS starts HTTPS server with TLS.
+// Supports automatic Let's Encrypt certificates or manual certificate files.
 func (s *Server) listenAndServeTLS() error {
 	cfg := s.config.Server.HTTPS
 
 	// Manual cert mode
 	if cfg.Cert != "" && cfg.Key != "" {
+		s.logInfo("using manual TLS certificates")
 		return s.server.ListenAndServeTLS(cfg.Cert, cfg.Key)
 	}
 
-	// Auto cert mode - placeholder for Phase 2
-	return fmt.Errorf("HTTPS auto mode not yet implemented - use --dev for development")
+	// Auto cert mode using Let's Encrypt
+	if !cfg.Auto {
+		return fmt.Errorf("HTTPS requires either auto: true or cert/key paths")
+	}
+
+	return s.listenAndServeAutocert()
+}
+
+// listenAndServeAutocert configures and starts the server with Let's Encrypt certificates.
+func (s *Server) listenAndServeAutocert() error {
+	cfg := s.config.Server.HTTPS
+
+	// Determine cache directory for certificates
+	cacheDir := "certs"
+	if cfg.CacheDir != "" {
+		cacheDir = cfg.CacheDir
+	}
+
+	// Create autocert manager
+	manager := &autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		Cache:      autocert.DirCache(cacheDir),
+		HostPolicy: s.hostPolicy(),
+	}
+
+	if cfg.Email != "" {
+		manager.Email = cfg.Email
+	}
+
+	// Configure TLS
+	s.server.TLSConfig = &tls.Config{
+		GetCertificate: manager.GetCertificate,
+		NextProtos:     []string{"h2", "http/1.1"}, // Enable HTTP/2
+		MinVersion:     tls.VersionTLS12,
+	}
+
+	// Start HTTP redirect server on port 80 for ACME challenges and redirects
+	go s.runHTTPRedirect(manager)
+
+	s.logInfo("automatic TLS enabled via Let's Encrypt (cache: %s)", cacheDir)
+
+	// ListenAndServeTLS with empty cert/key uses TLSConfig
+	return s.server.ListenAndServeTLS("", "")
+}
+
+// hostPolicy returns a function that validates hostnames for certificate requests.
+func (s *Server) hostPolicy() autocert.HostPolicy {
+	host := s.config.Server.Host
+
+	// If no host configured, allow any
+	if host == "" {
+		return nil
+	}
+
+	// Allow only the configured host
+	return autocert.HostWhitelist(host)
+}
+
+// runHTTPRedirect starts an HTTP server on port 80 that:
+// 1. Handles ACME HTTP-01 challenges for Let's Encrypt
+// 2. Redirects all other requests to HTTPS
+func (s *Server) runHTTPRedirect(manager *autocert.Manager) {
+	redirectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Build HTTPS URL
+		target := "https://" + r.Host + r.URL.RequestURI()
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	})
+
+	// Use autocert's handler which passes ACME challenges to manager
+	// and delegates everything else to our redirect handler
+	httpServer := &http.Server{
+		Addr:              ":80",
+		Handler:           manager.HTTPHandler(redirectHandler),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		s.logError("HTTP redirect server error: %v", err)
+	}
 }
