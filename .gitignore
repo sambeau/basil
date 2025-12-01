@@ -1,6 +1,6 @@
-# Compiled binaries
-basil
-pars
+# Compiled binaries (in root only)
+/basil
+/pars
 
 # Test coverage
 coverage.out
