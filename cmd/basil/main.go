@@ -53,6 +53,7 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	var (
 		configPath  = flags.String("config", "", "Path to config file")
 		devMode     = flags.Bool("dev", false, "Development mode (HTTP on localhost)")
+		quietMode   = flags.Bool("quiet", false, "Suppress request logs (dev mode)")
 		port        = flags.Int("port", 0, "Override listen port")
 		showVersion = flags.Bool("version", false, "Show version")
 		showHelp    = flags.Bool("help", false, "Show help")
@@ -96,6 +97,9 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	if *devMode {
 		cfg.Server.Dev = true
 	}
+	if *quietMode {
+		cfg.Logging.Level = "error"
+	}
 	if *port != 0 {
 		cfg.Server.Port = *port
 	}
@@ -137,6 +141,7 @@ Usage:
 Server Options:
   --config PATH    Path to config file (default: auto-detect)
   --dev            Development mode (HTTP on localhost)
+  --quiet          Suppress request logs (dev mode)
   --port PORT      Override listen port
   --version        Show version
   --help           Show this help
