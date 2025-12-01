@@ -42,16 +42,16 @@ Test all methods and edge cases.
 Document new methods with examples.
 
 ## Validation Checklist
-- [ ] `go build ./cmd/basil && go build ./cmd/pars` succeeds
-- [ ] `go test ./...` passes
-- [ ] All edge cases tested
-- [ ] Documentation updated
+- [x] `go build ./cmd/basil && go build ./cmd/pars` succeeds
+- [x] `go test ./...` passes
+- [x] All edge cases tested
+- [x] Documentation updated
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1 | ⬜ Not started | shuffle() |
-| | Task 2 | ⬜ Not started | pick() |
-| | Task 3 | ⬜ Not started | take() |
-| | Task 4 | ⬜ Not started | Tests |
-| | Task 5 | ⬜ Not started | Docs |
+| 2025-12-01 | Task 1 | ✅ Complete | shuffle() with Fisher-Yates |
+| 2025-12-01 | Task 2 | ✅ Complete | pick() and pick(n) |
+| 2025-12-01 | Task 3 | ✅ Complete | take(n) |
+| 2025-12-01 | Task 4 | ✅ Complete | 27 test cases |
+| 2025-12-01 | Task 5 | ✅ Complete | CHEATSHEET.md and reference.md |

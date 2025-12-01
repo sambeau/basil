@@ -1,7 +1,7 @@
 ---
 id: FEAT-008
 title: "Array Randomization Methods (pick, take, shuffle)"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-01
 author: "@human"
