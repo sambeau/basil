@@ -1055,8 +1055,12 @@ func (p *Parser) parseSquareBracketArrayLiteral() ast.Expression {
 
 	// Parse remaining elements separated by commas
 	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken() // consume current element
 		p.nextToken() // consume comma
+		// Check for trailing comma (next token is closing bracket)
+		if p.peekTokenIs(lexer.RBRACKET) {
+			break
+		}
+		p.nextToken() // move to next element
 		array.Elements = append(array.Elements, p.parseExpression(COMMA_PREC))
 	}
 
@@ -1379,8 +1383,12 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 	args = append(args, p.parseExpression(COMMA_PREC+1))
 
 	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken()
-		p.nextToken()
+		p.nextToken() // consume comma
+		// Check for trailing comma (next token is closing delimiter)
+		if p.peekTokenIs(end) {
+			break
+		}
+		p.nextToken() // move to next argument
 		args = append(args, p.parseExpression(COMMA_PREC+1))
 	}
 
@@ -1692,6 +1700,11 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 	for !p.curTokenIs(lexer.RBRACE) {
 		p.nextToken()
 
+		// Check for trailing comma - we might have just consumed a comma and now see RBRACE
+		if p.curTokenIs(lexer.RBRACE) {
+			break
+		}
+
 		// Key must be an identifier
 		if !p.curTokenIs(lexer.IDENT) {
 			p.errors = append(p.errors, fmt.Sprintf("expected identifier as dictionary key, got %s at line %d, column %d",
@@ -1721,10 +1734,6 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 		}
 		if p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.SEMICOLON) {
 			p.nextToken()
-			// Skip any extra commas/semicolons
-			for p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.SEMICOLON) {
-				p.nextToken()
-			}
 		}
 	}
 
