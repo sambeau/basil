@@ -105,8 +105,11 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		return fmt.Errorf("config validation: %w", err)
 	}
 
+	// Build version string
+	version := fmt.Sprintf("version %s (%s)", Version, Commit)
+
 	// Create server
-	srv, err := server.New(cfg, configFile, stdout, stderr)
+	srv, err := server.New(cfg, configFile, version, stdout, stderr)
 	if err != nil {
 		return fmt.Errorf("creating server: %w", err)
 	}

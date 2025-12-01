@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestStaticFileServing(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestSingleFileServing(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestParsleyRouteExecution(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestParsleyRouteWithMapResponse(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestParsleyRouteMissingScript(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -341,7 +341,7 @@ func TestGracefulShutdown(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	srv, err := New(cfg, "", stdout, stderr)
+	srv, err := New(cfg, "", "test", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}

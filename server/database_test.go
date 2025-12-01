@@ -22,7 +22,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg.Server.Dev = true
 
 		var stdout, stderr bytes.Buffer
-		s, err := New(cfg, "", &stdout, &stderr)
+		s, err := New(cfg, "", "test", &stdout, &stderr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -42,7 +42,7 @@ func TestDatabaseInit(t *testing.T) {
 		}
 
 		var stdout, stderr bytes.Buffer
-		s, err := New(cfg, "", &stdout, &stderr)
+		s, err := New(cfg, "", "test", &stdout, &stderr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -69,7 +69,7 @@ func TestDatabaseInit(t *testing.T) {
 		}
 
 		var stdout, stderr bytes.Buffer
-		s, err := New(cfg, "", &stdout, &stderr)
+		s, err := New(cfg, "", "test", &stdout, &stderr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -92,7 +92,7 @@ func TestDatabaseInit(t *testing.T) {
 		}
 
 		var stdout, stderr bytes.Buffer
-		_, err := New(cfg, "", &stdout, &stderr)
+		_, err := New(cfg, "", "test", &stdout, &stderr)
 		if err == nil {
 			t.Fatal("expected error for unknown driver")
 		}
@@ -108,7 +108,7 @@ func TestDatabaseInit(t *testing.T) {
 		}
 
 		var stdout, stderr bytes.Buffer
-		_, err := New(cfg, "", &stdout, &stderr)
+		_, err := New(cfg, "", "test", &stdout, &stderr)
 		if err == nil {
 			t.Fatal("expected error for postgres (not yet supported)")
 		}
@@ -124,7 +124,7 @@ func TestDatabaseInit(t *testing.T) {
 		}
 
 		var stdout, stderr bytes.Buffer
-		_, err := New(cfg, "", &stdout, &stderr)
+		_, err := New(cfg, "", "test", &stdout, &stderr)
 		if err == nil {
 			t.Fatal("expected error for missing sqlite path")
 		}
@@ -182,7 +182,7 @@ let users = db <=??=> "SELECT id, name FROM users ORDER BY id"
 	}
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", &stdout, &stderr)
+	s, err := New(cfg, "", "test", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestDatabaseShutdown(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", &stdout, &stderr)
+	s, err := New(cfg, "", "test", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

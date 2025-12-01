@@ -23,6 +23,7 @@ import (
 type Server struct {
 	config        *config.Config
 	configPath    string
+	version       string
 	stdout        io.Writer
 	stderr        io.Writer
 	mux           *http.ServeMux
@@ -41,10 +42,11 @@ type Server struct {
 }
 
 // New creates a new Basil server with the given configuration.
-func New(cfg *config.Config, configPath string, stdout, stderr io.Writer) (*Server, error) {
+func New(cfg *config.Config, configPath string, version string, stdout, stderr io.Writer) (*Server, error) {
 	s := &Server{
 		config:        cfg,
 		configPath:    configPath,
+		version:       version,
 		stdout:        stdout,
 		stderr:        stderr,
 		mux:           http.NewServeMux(),
@@ -325,6 +327,9 @@ func (s *Server) Run(ctx context.Context) error {
 		IdleTimeout:       120 * time.Second,
 		BaseContext:       func(_ net.Listener) context.Context { return ctx },
 	}
+
+	// Log version
+	fmt.Fprintf(s.stdout, "basil %s\n", s.version)
 
 	// Start server in goroutine
 	errCh := make(chan error, 1)
