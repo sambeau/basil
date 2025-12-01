@@ -28,8 +28,17 @@ const liveReloadScript = `<script>
     setTimeout(checkForChanges, pollInterval);
   }
   
-  checkForChanges();
-  console.log('[LiveReload] Connected');
+  // Wait for page to fully load (including images) before starting live reload
+  // This prevents reload from aborting in-flight resource requests
+  if (document.readyState === 'complete') {
+    checkForChanges();
+    console.log('[LiveReload] Connected');
+  } else {
+    window.addEventListener('load', function() {
+      checkForChanges();
+      console.log('[LiveReload] Connected');
+    });
+  }
 })();
 </script>`
 
