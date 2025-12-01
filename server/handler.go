@@ -12,11 +12,11 @@ import (
 
 	"github.com/sambeau/basil/auth"
 	"github.com/sambeau/basil/config"
-	"github.com/sambeau/parsley/pkg/ast"
-	"github.com/sambeau/parsley/pkg/evaluator"
-	"github.com/sambeau/parsley/pkg/lexer"
-	"github.com/sambeau/parsley/pkg/parser"
-	"github.com/sambeau/parsley/pkg/parsley"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
+	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
 // scriptCache caches compiled Parsley ASTs for production performance.

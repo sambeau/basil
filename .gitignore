@@ -1,5 +1,6 @@
-# Compiled binary
+# Compiled binaries
 basil
+pars
 
 # Test coverage
 coverage.out
