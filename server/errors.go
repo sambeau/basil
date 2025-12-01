@@ -428,7 +428,7 @@ func highlightParsley(code string) string {
 }
 
 // escapeForCodeDisplay escapes text for display in HTML code blocks.
-// Only escapes < and > (which would be interpreted as HTML tags), 
+// Only escapes < and > (which would be interpreted as HTML tags),
 // and & (to prevent entity interpretation). Keeps quotes readable.
 func escapeForCodeDisplay(s string) string {
 	s = strings.ReplaceAll(s, "&", "&amp;")

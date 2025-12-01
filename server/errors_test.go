@@ -249,12 +249,12 @@ func TestHighlightParsley_HTMLEscape(t *testing.T) {
 func TestHighlightParsley_QuotesReadable(t *testing.T) {
 	// Quotes should appear as " in the output, not as &#34;
 	result := highlightParsley(`let name = "hello"`)
-	
+
 	// Should NOT contain &#34;
 	if strings.Contains(result, "&#34;") {
 		t.Errorf("quotes should be readable as \", not &#34;, got %q", result)
 	}
-	
+
 	// Should contain actual quote marks (escaped properly for HTML attribute context is fine)
 	// The string "hello" should be visible
 	if !strings.Contains(result, `"hello"`) {
@@ -265,12 +265,12 @@ func TestHighlightParsley_QuotesReadable(t *testing.T) {
 func TestHighlightParsley_HTMLTagAttributes(t *testing.T) {
 	// HTML tags with attributes should be readable
 	result := highlightParsley(`<img src="/logo.png" alt="Logo"/>`)
-	
+
 	// Should NOT contain &#34;
 	if strings.Contains(result, "&#34;") {
 		t.Errorf("quotes in tag attributes should be readable, got %q", result)
 	}
-	
+
 	// Should contain the tag
 	if !strings.Contains(result, `class="tag"`) {
 		t.Errorf("expected tag highlighting, got %q", result)
