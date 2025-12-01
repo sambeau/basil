@@ -270,6 +270,9 @@ func (s *Server) ReloadScripts() {
 
 // Run starts the server and blocks until the context is cancelled.
 func (s *Server) Run(ctx context.Context) error {
+	// Log version first
+	fmt.Fprintf(s.stdout, "basil %s\n", s.version)
+
 	addr := s.listenAddr()
 
 	// Ensure databases are closed on shutdown
@@ -327,9 +330,6 @@ func (s *Server) Run(ctx context.Context) error {
 		IdleTimeout:       120 * time.Second,
 		BaseContext:       func(_ net.Listener) context.Context { return ctx },
 	}
-
-	// Log version
-	fmt.Fprintf(s.stdout, "basil %s\n", s.version)
 
 	// Start server in goroutine
 	errCh := make(chan error, 1)
