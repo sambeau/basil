@@ -97,7 +97,7 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	if *devMode {
 		cfg.Server.Dev = true
 	}
-	if *quietMode {
+	if *quietMode || cfg.Logging.Quiet {
 		cfg.Logging.Level = "error"
 	}
 	if *port != 0 {

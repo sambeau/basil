@@ -91,6 +91,7 @@ type LoggingConfig struct {
 	Level   string               `yaml:"level"`   // debug, info, warn, error
 	Format  string               `yaml:"format"`  // json or text
 	Output  string               `yaml:"output"`  // stderr, stdout, or file path
+	Quiet   bool                 `yaml:"quiet"`   // suppress request logs
 	Parsley ParsleyLoggingConfig `yaml:"parsley"` // Parsley script log() output
 }
 
