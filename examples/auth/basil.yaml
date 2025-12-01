@@ -27,6 +27,8 @@ routes:
     handler: ./handlers/login.pars
   - path: /logout
     handler: ./handlers/logout.pars
+  - path: /recovery-codes
+    handler: ./handlers/recovery-codes.pars
   
   # Protected pages
   - path: /dashboard

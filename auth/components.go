@@ -68,6 +68,7 @@ func (e *ComponentExpander) expandRegister(match string) string {
 	emailPlaceholder := getAttrOrDefault(attrs, "email_placeholder", "you@example.com")
 	buttonText := getAttrOrDefault(attrs, "button_text", "Create account")
 	redirect := getAttrOrDefault(attrs, "redirect", "/")
+	recoveryPage := attrs["recovery_page"] // Optional: page to show recovery codes
 	class := attrs["class"]
 
 	// Build CSS classes
@@ -78,6 +79,22 @@ func (e *ComponentExpander) expandRegister(match string) string {
 
 	// Generate unique ID for this form
 	formID := fmt.Sprintf("basil-register-%d", generateUniqueID())
+
+	// Determine recovery code handling JS
+	var recoveryJS string
+	if recoveryPage != "" {
+		// Store in sessionStorage and redirect to recovery page
+		recoveryJS = fmt.Sprintf(`
+        sessionStorage.setItem('basil_recovery_codes', JSON.stringify(result.recovery_codes));
+        sessionStorage.setItem('basil_recovery_user', result.user?.name || name);
+        window.location.href = '%s';
+        return;`, html.EscapeString(recoveryPage))
+	} else {
+		// Fall back to alert (not ideal but works)
+		recoveryJS = fmt.Sprintf(`
+        alert('Save these recovery codes:\\n\\n' + result.recovery_codes.join('\\n'));
+        window.location.href = '%s';`, html.EscapeString(redirect))
+	}
 
 	return fmt.Sprintf(`<form id="%s" class="%s">
   <input type="text" name="name" class="basil-auth-input" placeholder="%s" value="%s" required/>
@@ -154,12 +171,11 @@ func (e *ComponentExpander) expandRegister(match string) string {
       
       const result = await finishRes.json();
       
-      // Show recovery codes if present
-      if (result.recovery_codes) {
-        alert('Save these recovery codes:\\n\\n' + result.recovery_codes.join('\\n'));
+      // Handle recovery codes
+      if (result.recovery_codes) {%s
       }
       
-      // Redirect on success
+      // Redirect on success (if not already redirected by recovery page)
       window.location.href = '%s';
       
     } catch (err) {
@@ -187,7 +203,7 @@ func (e *ComponentExpander) expandRegister(match string) string {
 </script>`,
 		formID, formClass, html.EscapeString(namePlaceholder), name,
 		html.EscapeString(emailPlaceholder), email,
-		html.EscapeString(buttonText), formID, html.EscapeString(redirect))
+		html.EscapeString(buttonText), formID, recoveryJS, html.EscapeString(redirect))
 }
 
 // expandLogin expands <PasskeyLogin/> to button HTML + script.

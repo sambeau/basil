@@ -65,6 +65,17 @@ func TestComponentExpander_ExpandRegister(t *testing.T) {
 			},
 		},
 		{
+			name:  "register with recovery_page",
+			input: `<PasskeyRegister recovery_page="/recovery-codes"/>`,
+			contains: []string{
+				`sessionStorage.setItem('basil_recovery_codes'`,
+				`window.location.href = '/recovery-codes'`,
+			},
+			notIn: []string{
+				`alert(`,
+			},
+		},
+		{
 			name:  "component in HTML context",
 			input: `<div><PasskeyRegister/></div>`,
 			contains: []string{

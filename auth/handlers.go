@@ -287,8 +287,8 @@ func (h *Handlers) RecoverHandler(w http.ResponseWriter, r *http.Request) {
 	remaining, _ := h.db.GetRecoveryCodeCount(user.ID)
 
 	jsonResponse(w, map[string]any{
-		"user":                 user,
-		"remaining_codes":      remaining,
+		"user":                   user,
+		"remaining_codes":        remaining,
 		"should_add_new_passkey": true,
 	})
 }

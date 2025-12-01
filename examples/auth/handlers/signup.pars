@@ -18,7 +18,7 @@ if request.user {
       name_placeholder="Your name"
       email_placeholder="Email (optional)"
       button_text="Create account"
-      redirect="/dashboard"
+      recovery_page="/recovery-codes"
       class="auth-form"
     />
     

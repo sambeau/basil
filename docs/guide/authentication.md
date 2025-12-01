@@ -90,7 +90,10 @@ Registration form with WebAuthn.
 | `email_placeholder` | `"you@example.com"` | Email input placeholder |
 | `button_text` | `"Create account"` | Button label |
 | `redirect` | `"/"` | URL after successful registration |
+| `recovery_page` | `""` | URL to show recovery codes (recommended) |
 | `class` | `""` | Additional CSS classes |
+
+**Recovery codes:** When `recovery_page` is set, codes are stored in `sessionStorage` as `basil_recovery_codes` (JSON array) and `basil_recovery_user` (username), then the user is redirected there. Your recovery page can display them nicely and clear the storage after.
 
 ### `<PasskeyLogin/>`
 
