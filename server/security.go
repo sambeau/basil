@@ -28,6 +28,13 @@ func newSecurityHeaders(handler http.Handler, cfg config.SecurityConfig, devMode
 func (s *securityHeaders) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 
+	// In dev mode, disable browser caching to ensure fresh content on every request
+	if s.devMode {
+		h.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		h.Set("Pragma", "no-cache")
+		h.Set("Expires", "0")
+	}
+
 	// HSTS - tell browsers to always use HTTPS (skip in dev mode)
 	if !s.devMode && s.cfg.HSTS.Enabled {
 		hstsValue := "max-age=" + s.cfg.HSTS.MaxAge
