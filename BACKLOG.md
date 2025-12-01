@@ -11,11 +11,6 @@ Deferred items from implementation, to be picked up in future work.
 |------|--------|-----------------|-------|
 | Resolve paths relative to config file location | FEAT-002 | Phase 1 scope | Handler/static paths should be relative to config file, not CWD |
 
-## Parsley Enhancement Requests
-| Item | Source | Notes |
-|------|--------|-------|
-| Runtime errors should include line numbers | FEAT-006 | Errors like `identifier not found: tubs` have no line info, so Basil can't show source context. Format suggestion: `file.pars:45: identifier not found: tubs` |
-
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
