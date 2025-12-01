@@ -180,8 +180,8 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check for runtime errors
 	if result != nil && result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
-		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Message)
-		h.handleScriptError(w, "runtime", h.scriptPath, errObj.Message)
+		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Inspect())
+		h.handleScriptErrorWithLocation(w, "runtime", h.scriptPath, errObj.Message, errObj.Line, errObj.Column)
 		return
 	}
 
@@ -497,6 +497,24 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, fileP
 		Line:    line,
 		Column:  col,
 		Message: cleanMsg,
+	}
+
+	renderDevErrorPage(w, devErr)
+}
+
+// handleScriptErrorWithLocation handles errors with explicit line/column info from Parsley.
+func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, errType, filePath, message string, line, col int) {
+	if !h.server.config.Server.Dev {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	devErr := &DevError{
+		Type:    errType,
+		File:    filePath,
+		Line:    line,
+		Column:  col,
+		Message: message,
 	}
 
 	renderDevErrorPage(w, devErr)
