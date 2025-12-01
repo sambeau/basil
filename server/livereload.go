@@ -10,7 +10,9 @@ import (
 const liveReloadScript = `<script>
 (function() {
   let lastSeq = 0;
+  let initializing = true;
   const pollInterval = 1000;
+  const initGracePeriod = 2000; // Don't reload for 2s after page load
   
   async function checkForChanges() {
     try {
@@ -18,9 +20,14 @@ const liveReloadScript = `<script>
       const data = await resp.json();
       if (lastSeq === 0) {
         lastSeq = data.seq;
-      } else if (data.seq !== lastSeq) {
+        // Start grace period - don't reload for changes that happen right after page load
+        setTimeout(function() { initializing = false; }, initGracePeriod);
+      } else if (data.seq !== lastSeq && !initializing) {
         console.log('[LiveReload] Change detected, reloading...');
         location.reload();
+      } else if (data.seq !== lastSeq) {
+        // During grace period, just update lastSeq without reloading
+        lastSeq = data.seq;
       }
     } catch (e) {
       // Server might be restarting, retry
