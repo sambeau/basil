@@ -1,0 +1,42 @@
+// signup.pars - Registration page
+
+{Page} = import(@./page.pars)
+
+// Redirect if already logged in
+if request.user {
+  {
+    status: 302,
+    headers: { "Location": "/dashboard" },
+    body: ""
+  }
+} else {
+  <Page title="Sign Up">
+    <h1>Create Account</h1>
+    <p>Create your account using a passkey. No password needed!</p>
+    
+    <PasskeyRegister
+      name_placeholder="Your name"
+      email_placeholder="Email (optional)"
+      button_text="Create account"
+      recovery_page="/recovery-codes"
+      class="auth-form"
+    />
+    
+    <p class="auth-note">
+      Already have an account? <a href="/login">Sign in</a>
+    </p>
+    
+    <details>
+      <summary>What is a passkey?</summary>
+      <p>
+        Passkeys are a modern, secure replacement for passwords. 
+        They use your device's built-in security (fingerprint, face, or PIN) 
+        to verify your identity.
+      </p>
+      <p>
+        Your passkey is stored securely on your device and never shared 
+        with this website.
+      </p>
+    </details>
+  </Page>
+}

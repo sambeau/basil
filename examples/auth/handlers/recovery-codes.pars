@@ -1,0 +1,74 @@
+// recovery-codes.pars - Display recovery codes after registration
+
+{Page} = import(@./page.pars)
+
+<Page title="Recovery Codes">
+  <div class="recovery-codes-page">
+    <h1>Save Your Recovery Codes</h1>
+    <p>
+      These codes can be used to access your account if you lose your passkey device.
+      <strong>Save them somewhere safe!</strong> They will only be shown once.
+    </p>
+    
+    <div id="recovery-codes" class="recovery-codes">
+      <p class="loading">Loading codes...</p>
+    </div>
+    
+    <div class="recovery-actions">
+      <button id="copy-codes" class="basil-auth-button" disabled>Copy to clipboard</button>
+      <a href="/dashboard" id="continue-btn" class="basil-auth-button secondary" style="display:none">
+        I've saved my codes - Continue
+      </a>
+    </div>
+  </div>
+  
+  <script>
+  (function() {
+    const codesDiv = document.getElementById('recovery-codes');
+    const copyBtn = document.getElementById('copy-codes');
+    const continueBtn = document.getElementById('continue-btn');
+    
+    // Get codes from sessionStorage
+    const codesJson = sessionStorage.getItem('basil_recovery_codes');
+    const userName = sessionStorage.getItem('basil_recovery_user') || 'User';
+    
+    if (!codesJson) {
+      codesDiv.innerHTML = '<p class="error">No recovery codes found. You may have already saved them.</p>';
+      continueBtn.style.display = 'inline-block';
+      return;
+    }
+    
+    const codes = JSON.parse(codesJson);
+    
+    // Display codes
+    let html = '<ul class="codes-list">';
+    codes.forEach((code, i) => {
+      html += '<li><code>' + code + '</code></li>';
+    });
+    html += '</ul>';
+    codesDiv.innerHTML = html;
+    
+    // Enable copy button
+    copyBtn.disabled = false;
+    continueBtn.style.display = 'inline-block';
+    
+    // Copy to clipboard
+    copyBtn.addEventListener('click', async () => {
+      const text = 'Recovery codes for ' + userName + ':\n\n' + codes.join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 2000);
+      } catch (err) {
+        alert('Copy failed. Please select and copy manually.');
+      }
+    });
+    
+    // Clear codes when leaving (they've seen them)
+    continueBtn.addEventListener('click', () => {
+      sessionStorage.removeItem('basil_recovery_codes');
+      sessionStorage.removeItem('basil_recovery_user');
+    });
+  })();
+  </script>
+</Page>

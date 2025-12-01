@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/sambeau/basil/auth"
 	"github.com/sambeau/basil/config"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -31,6 +32,12 @@ type Server struct {
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
+
+	// Auth system (nil if auth not enabled)
+	authDB       *auth.DB
+	authWebAuthn *auth.WebAuthnManager
+	authHandlers *auth.Handlers
+	authMW       *auth.Middleware
 }
 
 // New creates a new Basil server with the given configuration.
@@ -50,9 +57,21 @@ func New(cfg *config.Config, configPath string, stdout, stderr io.Writer) (*Serv
 		return nil, fmt.Errorf("initializing database: %w", err)
 	}
 
+	// Initialize auth system if enabled
+	if err := s.initAuth(); err != nil {
+		// Clean up database on auth init failure
+		if s.db != nil {
+			s.db.Close()
+		}
+		return nil, fmt.Errorf("initializing auth: %w", err)
+	}
+
 	// Set up routes
 	if err := s.setupRoutes(); err != nil {
-		// Clean up database on route setup failure
+		// Clean up on route setup failure
+		if s.authDB != nil {
+			s.authDB.Close()
+		}
 		if s.db != nil {
 			s.db.Close()
 		}
@@ -117,11 +136,77 @@ func (s *Server) initSQLite(path string) error {
 	return nil
 }
 
+// initAuth initializes the authentication system if enabled.
+func (s *Server) initAuth() error {
+	if !s.config.Auth.Enabled {
+		return nil
+	}
+
+	// Open auth database (separate from app database)
+	authDB, err := auth.OpenDB(s.config.BaseDir)
+	if err != nil {
+		return fmt.Errorf("opening auth database: %w", err)
+	}
+	s.authDB = authDB
+
+	// Determine RP ID and origin from server config
+	rpID := s.config.Server.Host
+	if rpID == "" {
+		rpID = "localhost"
+	}
+
+	// Build origin
+	var origin string
+	if s.config.Server.Dev {
+		origin = fmt.Sprintf("http://localhost:%d", s.config.Server.Port)
+	} else if s.config.Server.HTTPS.Auto || s.config.Server.HTTPS.Cert != "" {
+		origin = fmt.Sprintf("https://%s", rpID)
+		if s.config.Server.Port != 443 {
+			origin = fmt.Sprintf("%s:%d", origin, s.config.Server.Port)
+		}
+	} else {
+		origin = fmt.Sprintf("http://%s:%d", rpID, s.config.Server.Port)
+	}
+
+	// Initialize WebAuthn
+	webauthn, err := auth.NewWebAuthnManager(authDB, rpID, origin, rpID)
+	if err != nil {
+		authDB.Close()
+		return fmt.Errorf("initializing webauthn: %w", err)
+	}
+	s.authWebAuthn = webauthn
+
+	// Create handlers and middleware
+	sessionTTL := s.config.Auth.SessionTTL
+	if sessionTTL == 0 {
+		sessionTTL = 24 * time.Hour
+	}
+	secure := !s.config.Server.Dev // Secure cookies in production
+	regOpen := s.config.Auth.Registration == "open"
+
+	s.authHandlers = auth.NewHandlers(authDB, webauthn, sessionTTL, secure, regOpen)
+	s.authMW = auth.NewMiddleware(authDB)
+
+	s.logInfo("authentication enabled (registration: %s)", s.config.Auth.Registration)
+	return nil
+}
+
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
 	// In dev mode, add live reload endpoint
 	if s.config.Server.Dev {
 		s.mux.Handle("/__livereload", newLiveReloadHandler(s))
+	}
+
+	// Register auth endpoints if auth is enabled
+	if s.authHandlers != nil {
+		s.mux.HandleFunc("/__auth/register/begin", s.authHandlers.BeginRegisterHandler)
+		s.mux.HandleFunc("/__auth/register/finish", s.authHandlers.FinishRegisterHandler)
+		s.mux.HandleFunc("/__auth/login/begin", s.authHandlers.BeginLoginHandler)
+		s.mux.HandleFunc("/__auth/login/finish", s.authHandlers.FinishLoginHandler)
+		s.mux.HandleFunc("/__auth/logout", s.authHandlers.LogoutHandler)
+		s.mux.HandleFunc("/__auth/recover", s.authHandlers.RecoverHandler)
+		s.mux.HandleFunc("/__auth/me", s.authHandlers.MeHandler)
 	}
 
 	// Register static routes first (more specific)
@@ -145,7 +230,23 @@ func (s *Server) setupRoutes() error {
 		if err != nil {
 			return fmt.Errorf("creating handler for %s: %w", route.Path, err)
 		}
-		s.mux.Handle(route.Path, handler)
+
+		// Apply auth middleware if configured
+		var finalHandler http.Handler = handler
+		if s.authMW != nil {
+			switch route.Auth {
+			case "required":
+				finalHandler = s.authMW.RequireAuth(handler)
+			case "optional":
+				finalHandler = s.authMW.OptionalAuth(handler)
+			default:
+				// No auth middleware - but still check for user if auth enabled
+				// so request.user is available even on public pages
+				finalHandler = s.authMW.OptionalAuth(handler)
+			}
+		}
+
+		s.mux.Handle(route.Path, finalHandler)
 	}
 
 	return nil
@@ -169,7 +270,13 @@ func (s *Server) ReloadScripts() {
 func (s *Server) Run(ctx context.Context) error {
 	addr := s.listenAddr()
 
-	// Ensure database is closed on shutdown
+	// Ensure databases are closed on shutdown
+	if s.authDB != nil {
+		defer func() {
+			s.logInfo("closing auth database connection")
+			s.authDB.Close()
+		}()
+	}
 	if s.db != nil {
 		defer func() {
 			s.logInfo("closing database connection")

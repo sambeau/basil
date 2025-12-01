@@ -1,0 +1,20 @@
+// logout.pars - Logout page
+
+{Page} = import(@./page.pars)
+
+<Page title="Sign Out">
+  <h1>Sign Out</h1>
+  
+  if request.user {
+    <p>Click below to sign out of your account.</p>
+    <PasskeyLogout
+      text="Sign out"
+      redirect="/"
+      method="button"
+      class="auth-form"
+    />
+  } else {
+    <p>You are not signed in.</p>
+    <p><a href="/login">Sign in</a></p>
+  }
+</Page>

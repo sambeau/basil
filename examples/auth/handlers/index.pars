@@ -1,0 +1,28 @@
+// index.pars - Homepage
+
+{Page} = import(@./page.pars)
+
+<Page title="Home">
+  <h1>Welcome to the Auth Demo</h1>
+  <p>This example shows Basil's passkey authentication.</p>
+  
+  if (request.user) {
+    <p>
+		Hello, {request.user.name}!
+		<a href="/dashboard">Go to dashboard</a>
+	</p>
+  } else {
+    <p>
+      <a href="/signup">Create an account</a> or 
+      <a href="/login">sign in</a> to get started.
+    </p>
+  }
+  
+  <h2>Features</h2>
+  <ul>
+    <li>Passkey-based authentication (no passwords!)</li>
+    <li>Browser-native passkey UI</li>
+    <li>Recovery codes for account recovery</li>
+    <li>Session management</li>
+  </ul>
+</Page>

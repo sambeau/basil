@@ -7,6 +7,7 @@ type Config struct {
 	BaseDir  string         `yaml:"-"` // Directory containing config file, for resolving relative paths
 	Server   ServerConfig   `yaml:"server"`
 	Security SecurityConfig `yaml:"security"`
+	Auth     AuthConfig     `yaml:"auth"`
 	Database DatabaseConfig `yaml:"database"`
 	Static   []StaticRoute  `yaml:"static"`
 	Routes   []Route        `yaml:"routes"`
@@ -63,6 +64,13 @@ type HSTSConfig struct {
 	Preload           bool   `yaml:"preload"`            // Allow HSTS preload list submission
 }
 
+// AuthConfig holds authentication settings
+type AuthConfig struct {
+	Enabled      bool          `yaml:"enabled"`      // Enable authentication
+	Registration string        `yaml:"registration"` // "open" (anyone can register) or "closed" (invite only)
+	SessionTTL   time.Duration `yaml:"session_ttl"`  // Session duration (default: 24h)
+}
+
 // StaticRoute maps URL paths to static files/directories
 type StaticRoute struct {
 	Path string `yaml:"path"` // URL path prefix (e.g., /static/)
@@ -115,6 +123,11 @@ func Defaults() *Config {
 			FrameOptions:       "DENY",
 			XSSProtection:      "1; mode=block",
 			ReferrerPolicy:     "strict-origin-when-cross-origin",
+		},
+		Auth: AuthConfig{
+			Enabled:      false,
+			Registration: "closed",
+			SessionTTL:   24 * time.Hour,
 		},
 		Logging: LoggingConfig{
 			Level:  "info",

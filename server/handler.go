@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sambeau/basil/auth"
 	"github.com/sambeau/basil/config"
 	"github.com/sambeau/parsley/pkg/ast"
 	"github.com/sambeau/parsley/pkg/evaluator"
@@ -90,11 +91,12 @@ func (c *scriptCache) clear() {
 
 // parsleyHandler handles HTTP requests with Parsley scripts
 type parsleyHandler struct {
-	server        *Server
-	route         config.Route
-	scriptPath    string
-	cache         *scriptCache
-	responseCache *responseCache
+	server            *Server
+	route             config.Route
+	scriptPath        string
+	cache             *scriptCache
+	responseCache     *responseCache
+	componentExpander *auth.ComponentExpander
 }
 
 // newParsleyHandler creates a handler for a Parsley script route
@@ -103,11 +105,12 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 	scriptPath := route.Handler
 
 	return &parsleyHandler{
-		server:        s,
-		route:         route,
-		scriptPath:    scriptPath,
-		cache:         cache,
-		responseCache: s.responseCache,
+		server:            s,
+		route:             route,
+		scriptPath:        scriptPath,
+		cache:             cache,
+		responseCache:     s.responseCache,
+		componentExpander: auth.NewComponentExpander(),
 	}, nil
 }
 
@@ -133,7 +136,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	program, err := h.cache.getAST(h.scriptPath)
 	if err != nil {
 		h.server.logError("failed to load script: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.handleScriptError(w, "parse", h.scriptPath, err.Error())
 		return
 	}
 
@@ -178,7 +181,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result != nil && result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
 		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Message)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.handleScriptError(w, "runtime", h.scriptPath, errObj.Message)
 		return
 	}
 
@@ -217,6 +220,19 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		"host":       r.Host,
 		"remoteAddr": r.RemoteAddr,
 		"auth":       route.Auth, // "required", "optional", or ""
+	}
+
+	// Add authenticated user if present
+	user := auth.GetUser(r)
+	if user != nil {
+		ctx["user"] = map[string]interface{}{
+			"id":      user.ID,
+			"name":    user.Name,
+			"email":   user.Email,     // May be empty string
+			"created": user.CreatedAt, // time.Time
+		}
+	} else {
+		ctx["user"] = nil
 	}
 
 	// Parse body for POST/PUT/PATCH requests
@@ -397,11 +413,14 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 	case string:
 		// Plain text or HTML (detect by content)
 		contentType := "text/plain; charset=utf-8"
+		output := v
 		if strings.HasPrefix(strings.TrimSpace(v), "<") {
 			contentType = "text/html; charset=utf-8"
+			// Expand auth components in HTML output
+			output = h.componentExpander.ExpandComponents(v)
 		}
 		w.Header().Set("Content-Type", contentType)
-		fmt.Fprint(w, v)
+		fmt.Fprint(w, output)
 
 	case map[string]interface{}:
 		// Check for special response object format
@@ -416,7 +435,12 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 		if body, ok := v["body"]; ok {
 			switch b := body.(type) {
 			case string:
-				fmt.Fprint(w, b)
+				// Expand auth components if it looks like HTML
+				output := b
+				if strings.HasPrefix(strings.TrimSpace(b), "<") {
+					output = h.componentExpander.ExpandComponents(b)
+				}
+				fmt.Fprint(w, output)
 			default:
 				// JSON encode other body types
 				h.writeJSON(w, b)
@@ -442,6 +466,40 @@ func (h *parsleyHandler) writeJSON(w http.ResponseWriter, value interface{}) {
 		return
 	}
 	w.Write(data)
+}
+
+// handleScriptError handles errors during script execution.
+// In dev mode, it renders a detailed error page. In production, it returns a generic 500.
+func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, filePath, message string) {
+	// In production mode, always return generic error
+	if !h.server.config.Server.Dev {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// In dev mode, render detailed error page
+	// Try to extract line info from the error message
+	extractedFile, line, col, cleanMsg := extractLineInfo(message)
+
+	// Use extracted file if we found one, otherwise use the handler file
+	if extractedFile != "" {
+		filePath = extractedFile
+	}
+
+	// If no clean message was extracted, use the original
+	if cleanMsg == "" {
+		cleanMsg = message
+	}
+
+	devErr := &DevError{
+		Type:    errType,
+		File:    filePath,
+		Line:    line,
+		Column:  col,
+		Message: cleanMsg,
+	}
+
+	renderDevErrorPage(w, devErr)
 }
 
 // scriptLogCapture captures log() output from Parsley scripts
