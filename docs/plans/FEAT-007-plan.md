@@ -132,26 +132,26 @@ Steps:
 ---
 
 ## Validation Checklist
-- [ ] `go build -o basil ./cmd/basil` succeeds
-- [ ] `go build -o pars ./cmd/pars` succeeds
-- [ ] `go test ./...` passes
-- [ ] `./basil --version` works
-- [ ] `./pars --version` works
-- [ ] Dev mode error display still works
-- [ ] No `replace` directive in go.mod
-- [ ] Makefile works (`make build`, `make test`)
+- [x] `go build -o basil ./cmd/basil` succeeds
+- [x] `go build -o pars ./cmd/pars` succeeds
+- [x] `go test ./...` passes
+- [x] `./basil --version` works
+- [x] `./pars --version` works
+- [ ] Dev mode error display still works (manual test pending)
+- [x] No `replace` directive in go.mod
+- [x] Makefile works (`make build`, `make test`)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1 | ⬜ Not started | Copy Parsley source |
-| | Task 1b | ⬜ Not started | Move Basil CLI to cmd/ |
-| | Task 2 | ⬜ Not started | Update Parsley imports |
-| | Task 3 | ⬜ Not started | Update Basil imports |
-| | Task 4 | ⬜ Not started | Update go.mod |
-| | Task 5 | ⬜ Not started | Build and test |
-| | Task 6 | ⬜ Not started | Update Makefile |
-| | Task 7 | ⬜ Not started | Clean up |
+| 2025-12-01 | Task 1 | ✅ Complete | Copied pkg/* to pkg/parsley/ |
+| 2025-12-01 | Task 1b | ✅ Complete | Moved main.go and main_test.go to cmd/basil/ |
+| 2025-12-01 | Task 2 | ✅ Complete | Updated all imports via sed |
+| 2025-12-01 | Task 3 | ✅ Complete | server/handler.go imports updated |
+| 2025-12-01 | Task 4 | ✅ Complete | Removed replace directive, ran go mod tidy |
+| 2025-12-01 | Task 5 | ✅ Complete | All builds pass, all tests pass |
+| 2025-12-01 | Task 6 | ✅ Complete | Makefile updated with build-basil, build-pars targets |
+| 2025-12-01 | Task 7 | ✅ Complete | Removed parsley-src symlink |
 
 ## Post-Migration
 - Archive `github.com/sambeau/parsley` repo with note pointing to basil

@@ -1,7 +1,7 @@
 ---
 id: FEAT-007
 title: "Merge Parsley into Basil Monorepo"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-01
 author: "@human"

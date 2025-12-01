@@ -1,11 +1,11 @@
 # Agent Instructions for Basil
 
 ## Project Overview
-Basil is a Go CLI application.
+Basil is a Go web server for the Parsley programming language.
 
-**Repository size:** Small
-**Primary language:** Go 1.21+
-**Architecture:** Single module
+**Repository size:** Medium (monorepo)
+**Primary language:** Go 1.24+
+**Architecture:** Single module, monorepo with Parsley
 
 ## Build & Validation Commands
 
@@ -13,13 +13,14 @@ Basil is a Go CLI application.
 ```bash
 make build
 # Or manually:
-# go build -ldflags "-X main.Version=$(git describe --tags --always) -X main.Commit=$(git rev-parse --short HEAD)" -o basil .
+# go build -ldflags "-X main.Version=$(git describe --tags --always) -X main.Commit=$(git rev-parse --short HEAD)" -o basil ./cmd/basil
+# go build -ldflags "-X main.Version=$(git describe --tags --always)" -o pars ./cmd/pars
 ```
 
 ### Quick Build (development)
 ```bash
 make dev
-# Or: go build -o basil .
+# Or: go build -o basil ./cmd/basil && go build -o pars ./cmd/pars
 ```
 
 ### Test
@@ -36,13 +37,28 @@ golangci-lint run
 ### Full Validation (run before committing)
 ```bash
 make check
-# Or: go build -o basil . && go test ./...
+# Or: go build -o basil ./cmd/basil && go build -o pars ./cmd/pars && go test ./...
 ```
 
 ## Project Structure
 ```
 basil/
-├── main.go                      # Entry point
+├── cmd/
+│   ├── basil/                   # Basil server CLI entry point
+│   │   └── main.go
+│   └── pars/                    # Parsley CLI entry point
+│       └── main.go
+├── pkg/
+│   └── parsley/                 # Parsley language implementation
+│       ├── ast/                 # Abstract syntax tree
+│       ├── evaluator/           # Interpreter
+│       ├── lexer/               # Tokenizer
+│       ├── parser/              # Parser
+│       ├── parsley/             # High-level API
+│       └── ...                  # Other packages
+├── server/                      # Basil server logic
+├── auth/                        # Basil authentication
+├── config/                      # Basil configuration
 ├── AGENTS.md                    # This file - agent operational context
 ├── ID_COUNTER.md                # Auto-incrementing ID tracker
 ├── BACKLOG.md                   # Deferred items
