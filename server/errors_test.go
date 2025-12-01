@@ -54,10 +54,7 @@ func TestRenderDevErrorPage_ParseError(t *testing.T) {
 		t.Error("expected error message in output")
 	}
 
-	// Check live reload script is present
-	if !strings.Contains(body, "__livereload") {
-		t.Error("expected live reload script in output")
-	}
+	// Note: live reload script is injected by middleware, not renderDevErrorPage directly
 }
 
 func TestRenderDevErrorPage_RuntimeError(t *testing.T) {
@@ -347,10 +344,7 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 		t.Error("expected error message in body")
 	}
 
-	// Should contain live reload script
-	if !strings.Contains(body, "__livereload") {
-		t.Error("expected live reload script")
-	}
+	// Note: live reload script is injected by middleware, not tested here
 }
 
 func TestHandleScriptError_ProdMode(t *testing.T) {

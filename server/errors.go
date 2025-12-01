@@ -27,43 +27,6 @@ type SourceLine struct {
 	IsError bool
 }
 
-// liveReloadScriptForError is the live reload script for error pages.
-// Same as the main live reload but works standalone.
-const liveReloadScriptForError = `<script>
-(function() {
-  let lastSeq = 0;
-  const pollInterval = 1000;
-  
-  async function checkForChanges() {
-    try {
-      const resp = await fetch('/__livereload');
-      const data = await resp.json();
-      if (lastSeq === 0) {
-        lastSeq = data.seq;
-      } else if (data.seq !== lastSeq) {
-        console.log('[LiveReload] Change detected, reloading...');
-        location.reload();
-      }
-    } catch (e) {
-      // Server might be restarting, retry
-    }
-    setTimeout(checkForChanges, pollInterval);
-  }
-  
-  // Wait for page to fully load before starting live reload
-  // This prevents reload from aborting in-flight resource requests
-  if (document.readyState === 'complete') {
-    checkForChanges();
-    console.log('[LiveReload] Connected (error page)');
-  } else {
-    window.addEventListener('load', function() {
-      checkForChanges();
-      console.log('[LiveReload] Connected (error page)');
-    });
-  }
-})();
-</script>`
-
 // errorPageStyles contains the inline CSS for the error page.
 const errorPageStyles = `
 <style>
@@ -275,8 +238,7 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 
 	sb.WriteString("</div>\n") // .error-container
 
-	// Live reload script
-	sb.WriteString(liveReloadScriptForError)
+	// Note: live reload script is injected by injectLiveReload middleware
 
 	sb.WriteString("</body>\n</html>")
 
