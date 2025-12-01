@@ -1,0 +1,7 @@
+
+let match = "Order #12345" ~ /Order #(\d+)/
+if (match) {
+     logLine("Order number:", match[1])
+}
+
+//Order number: "12345"
