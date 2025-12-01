@@ -1,6 +1,6 @@
 // page.pars - Shared page layout component
 
-let Page = fn({title, contents}) {
+export Page = fn({title, contents}) {
   <html lang="en">
   <head>
     <meta charset="utf-8"/>
@@ -11,12 +11,16 @@ let Page = fn({title, contents}) {
   <body>
     <nav>
       <a href="/">Home</a>
-      if request.user {
-        <a href="/dashboard">Dashboard</a>
-        <a href="/logout">Sign out</a>
+      if (request.user) {
+        <>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/logout">Sign out</a>
+        </>
       } else {
-        <a href="/login">Sign in</a>
-        <a href="/signup">Sign up</a>
+        <>
+            <a href="/login">Sign in</a>
+            <a href="/signup">Sign up</a>
+        </>
       }
     </nav>
     <main>
@@ -25,5 +29,3 @@ let Page = fn({title, contents}) {
   </body>
   </html>
 }
-
-{Page}

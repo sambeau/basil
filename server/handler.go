@@ -136,7 +136,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	program, err := h.cache.getAST(h.scriptPath)
 	if err != nil {
 		h.server.logError("failed to load script: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.handleScriptError(w, "parse", h.scriptPath, err.Error())
 		return
 	}
 
@@ -181,7 +181,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result != nil && result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
 		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Message)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.handleScriptError(w, "runtime", h.scriptPath, errObj.Message)
 		return
 	}
 
@@ -466,6 +466,40 @@ func (h *parsleyHandler) writeJSON(w http.ResponseWriter, value interface{}) {
 		return
 	}
 	w.Write(data)
+}
+
+// handleScriptError handles errors during script execution.
+// In dev mode, it renders a detailed error page. In production, it returns a generic 500.
+func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, filePath, message string) {
+	// In production mode, always return generic error
+	if !h.server.config.Server.Dev {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// In dev mode, render detailed error page
+	// Try to extract line info from the error message
+	extractedFile, line, col, cleanMsg := extractLineInfo(message)
+
+	// Use extracted file if we found one, otherwise use the handler file
+	if extractedFile != "" {
+		filePath = extractedFile
+	}
+
+	// If no clean message was extracted, use the original
+	if cleanMsg == "" {
+		cleanMsg = message
+	}
+
+	devErr := &DevError{
+		Type:    errType,
+		File:    filePath,
+		Line:    line,
+		Column:  col,
+		Message: cleanMsg,
+	}
+
+	renderDevErrorPage(w, devErr)
 }
 
 // scriptLogCapture captures log() output from Parsley scripts

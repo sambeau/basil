@@ -6,8 +6,11 @@
   <h1>Welcome to the Auth Demo</h1>
   <p>This example shows Basil's passkey authentication.</p>
   
-  if request.user {
-    <p>Hello, {request.user.name}! <a href="/dashboard">Go to dashboard</a></p>
+  if (request.user) {
+    <p>
+		Hello, {request.user.name}!
+		<a href="/dashboard">Go to dashboard</a>
+	</p>
   } else {
     <p>
       <a href="/signup">Create an account</a> or 
