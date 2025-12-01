@@ -9,14 +9,14 @@ import (
 // liveReloadScript is injected into HTML responses in dev mode
 const liveReloadScript = `<script>
 (function() {
-  let lastSeq = 0;
+  let lastSeq = -1;  // Use -1 to indicate "not yet initialized"
   const pollInterval = 1000;
   
   async function checkForChanges() {
     try {
       const resp = await fetch('/__livereload');
       const data = await resp.json();
-      if (lastSeq === 0) {
+      if (lastSeq === -1) {
         lastSeq = data.seq;
       } else if (data.seq !== lastSeq) {
         console.log('[LiveReload] Change detected, reloading...');
