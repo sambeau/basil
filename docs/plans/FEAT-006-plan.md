@@ -110,8 +110,8 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `go build -o basil .`
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `go build -o basil .`
 - [ ] Linter passes: `golangci-lint run`
 - [ ] Manual test: introduce parse error, see error page
 - [ ] Manual test: introduce runtime error, see error page with source
@@ -121,11 +121,11 @@ Tests:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1 | ⬜ Not started | — |
-| | Task 2 | ⬜ Not started | — |
-| | Task 3 | ⬜ Not started | — |
-| | Task 4 | ⬜ Not started | — |
-| | Task 5 | ⬜ Not started | — |
+| 2025-12-01 | Task 1 | ✅ Complete | Created server/errors.go with DevError, renderDevErrorPage |
+| 2025-12-01 | Task 2 | ✅ Complete | Added highlightParsley() for syntax highlighting |
+| 2025-12-01 | Task 3 | ✅ Complete | Added getSourceContext() for source extraction |
+| 2025-12-01 | Task 4 | ✅ Complete | Integrated with handler via handleScriptError() |
+| 2025-12-01 | Task 5 | ✅ Complete | All tests pass, ready for manual testing |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:
