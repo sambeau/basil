@@ -7,6 +7,7 @@ Welcome to the human-friendly documentation for the Basil development process.
 | I want to... | Go to... |
 |--------------|----------|
 | Get started quickly | [Quick Start](quick-start.md) |
+| Add authentication | [Authentication](authentication.md) |
 | Look up a command/format | [Cheatsheet](cheatsheet.md) |
 | Find an answer to a question | [FAQ](faq.md) |
 | Create a new feature | [Creating a Feature](walkthroughs/creating-a-feature.md) |

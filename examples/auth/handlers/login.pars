@@ -1,0 +1,35 @@
+// login.pars - Login page
+
+{Page} = import(@./page.pars)
+
+// Redirect if already logged in
+if request.user {
+  {
+    status: 302,
+    headers: { "Location": "/dashboard" },
+    body: ""
+  }
+} else {
+  <Page title="Sign In">
+    <h1>Sign In</h1>
+    <p>Sign in with your passkey.</p>
+    
+    <PasskeyLogin
+      button_text="Sign in with passkey"
+      redirect="/dashboard"
+      class="auth-form"
+    />
+    
+    <p class="auth-note">
+      Don't have an account? <a href="/signup">Create one</a>
+    </p>
+    
+    <details>
+      <summary>Lost your passkey?</summary>
+      <p>
+        If you've lost access to your passkey device, you can use a 
+        recovery code to sign in. Contact the site administrator for help.
+      </p>
+    </details>
+  </Page>
+}
