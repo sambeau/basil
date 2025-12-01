@@ -2,7 +2,16 @@
 
 When writing Parsley code in Basil handlers, tests, or examples, consult this reference.
 
-Full documentation: https://github.com/sambeau/parsley/blob/main/docs/CHEATSHEET.md
+## Documentation
+- **Cheatsheet**: `docs/parsley/CHEATSHEET.md` - Quick syntax reference
+- **Full Reference**: `docs/parsley/reference.md` - Complete language docs
+- **Design Philosophy**: `docs/parsley/design/Design Philosophy.md` - Core principles
+- **Examples**: `examples/parsley/` - Demo scripts
+
+## Parsley Tests
+- Unit tests go in `pkg/parsley/tests/`
+- Use `package tests` (not `package main`)
+- Follow table-driven test patterns
 
 ## 🚨 Critical: HTML/XML Tag Rules
 
