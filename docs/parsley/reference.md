@@ -268,6 +268,10 @@ let name = "World"
 | `.length()` | Array length | `[1,2,3].length()` → `3` |
 | `.sort()` | Sort ascending | `[3,1,2].sort()` → `[1,2,3]` |
 | `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
+| `.shuffle()` | Random order | `[1,2,3].shuffle()` → `[2,3,1]` |
+| `.pick()` | Random element | `[1,2,3].pick()` → `2` |
+| `.pick(n)` | n random elements (with replacement) | `[1,2,3].pick(5)` → `[1,3,1,2,1]` |
+| `.take(n)` | n unique random elements | `[1,2,3,4,5].take(3)` → `[4,1,3]` |
 | `.map(fn)` | Transform each | `[1,2].map(fn(x){x*2})` → `[2,4]` |
 | `.filter(fn)` | Keep matching | `[1,2,3].filter(fn(x){x>1})` → `[2,3]` |
 | `.join()` | Join to string | `["a","b","c"].join()` → `"abc"` |

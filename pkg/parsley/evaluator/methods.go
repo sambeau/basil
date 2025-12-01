@@ -4,6 +4,7 @@ package evaluator
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"sort"
 	"strings"
@@ -204,6 +205,85 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		}
 
 		return &String{Value: strings.Join(items, separator)}
+
+	case "shuffle":
+		// shuffle() - returns a new array with elements in random order (Fisher-Yates)
+		if len(args) != 0 {
+			return newError("wrong number of arguments to `shuffle`. got=%d, want=0", len(args))
+		}
+		length := len(arr.Elements)
+		newElements := make([]Object, length)
+		copy(newElements, arr.Elements)
+		// Fisher-Yates shuffle
+		for i := length - 1; i > 0; i-- {
+			j := rand.Intn(i + 1)
+			newElements[i], newElements[j] = newElements[j], newElements[i]
+		}
+		return &Array{Elements: newElements}
+
+	case "pick":
+		// pick() - returns a single random element (null if empty)
+		// pick(n) - returns array of n random elements (with replacement, can exceed length)
+		if len(args) > 1 {
+			return newError("wrong number of arguments to `pick`. got=%d, want=0-1", len(args))
+		}
+		length := len(arr.Elements)
+
+		// pick() - single element
+		if len(args) == 0 {
+			if length == 0 {
+				return NULL
+			}
+			return arr.Elements[rand.Intn(length)]
+		}
+
+		// pick(n) - array of n elements with replacement
+		n, ok := args[0].(*Integer)
+		if !ok {
+			return newError("argument to `pick` must be an integer, got %s", args[0].Type())
+		}
+		if n.Value < 0 {
+			return newError("argument to `pick` must be non-negative, got %d", n.Value)
+		}
+		if length == 0 && n.Value > 0 {
+			return newError("cannot pick from empty array")
+		}
+
+		result := make([]Object, n.Value)
+		for i := int64(0); i < n.Value; i++ {
+			result[i] = arr.Elements[rand.Intn(length)]
+		}
+		return &Array{Elements: result}
+
+	case "take":
+		// take(n) - returns array of n unique random elements (without replacement)
+		if len(args) != 1 {
+			return newError("wrong number of arguments to `take`. got=%d, want=1", len(args))
+		}
+		n, ok := args[0].(*Integer)
+		if !ok {
+			return newError("argument to `take` must be an integer, got %s", args[0].Type())
+		}
+		if n.Value < 0 {
+			return newError("argument to `take` must be non-negative, got %d", n.Value)
+		}
+		length := len(arr.Elements)
+		if int(n.Value) > length {
+			return newError("cannot take %d unique items from array of length %d", n.Value, length)
+		}
+
+		// Use Fisher-Yates partial shuffle to select n unique elements
+		indices := make([]int, length)
+		for i := range indices {
+			indices[i] = i
+		}
+		result := make([]Object, n.Value)
+		for i := int64(0); i < n.Value; i++ {
+			j := int(i) + rand.Intn(length-int(i))
+			indices[int(i)], indices[j] = indices[j], indices[int(i)]
+			result[i] = arr.Elements[indices[int(i)]]
+		}
+		return &Array{Elements: result}
 
 	default:
 		return newError("unknown method '%s' for ARRAY", method)

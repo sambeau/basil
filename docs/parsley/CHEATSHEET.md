@@ -261,6 +261,10 @@ data =/=> conn(@/remote/file.json).json
 [3,1,2].sort()              // [1, 2, 3]
 [1,2,3].reverse()           // [3, 2, 1]
 [1,2,3].join(",")           // "1,2,3"
+[1,2,3].shuffle()           // [2, 3, 1] (random order)
+[1,2,3].pick()              // 2 (random element)
+[1,2,3].pick(5)             // [1, 3, 1, 2, 1] (random, allows duplicates)
+[1,2,3,4,5].take(3)         // [4, 1, 3] (random, unique)
 
 // Path methods
 @./file.txt.exists          // true/false
