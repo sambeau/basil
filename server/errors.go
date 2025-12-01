@@ -322,73 +322,119 @@ var (
 	// Numbers
 	numberPattern = regexp.MustCompile(`\b\d+\.?\d*\b`)
 
-	// HTML tags
-	tagPattern = regexp.MustCompile(`</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>|/>`)
+	// HTML tags - match opening, closing, and self-closing tags
+	tagPattern = regexp.MustCompile(`</?[a-zA-Z][a-zA-Z0-9]*[^>]*>`)
 
 	// Comments
 	commentPattern = regexp.MustCompile(`//.*$`)
 
 	// Function calls (identifier followed by parenthesis)
-	fnCallPattern = regexp.MustCompile(`\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(`)
+	fnCallPattern = regexp.MustCompile(`\b([a-zA-Z_][a-zA-Z0-9_]*)\(`)
 )
 
 // highlightParsley applies syntax highlighting to a line of Parsley code.
 // It returns HTML with span elements for styling.
+// The approach: find all tokens to highlight, sort by position, then build output
+// with proper HTML escaping for non-highlighted parts.
 func highlightParsley(code string) string {
-	// First, escape HTML entities
-	escaped := html.EscapeString(code)
+	type highlight struct {
+		start int
+		end   int
+		class string
+		text  string
+	}
 
-	// Apply highlighting in order of precedence
-	// Use simpler patterns that work with Go's RE2 engine
+	var highlights []highlight
 
-	// Comments first (they contain everything after //)
-	escaped = commentPattern.ReplaceAllStringFunc(escaped, func(m string) string {
-		return `<span class="comment">` + m + `</span>`
-	})
+	// Find all matches for each pattern
+	// Comments (highest priority - will override others)
+	for _, m := range commentPattern.FindAllStringIndex(code, -1) {
+		highlights = append(highlights, highlight{m[0], m[1], "comment", code[m[0]:m[1]]})
+	}
 
-	// Strings - the escaped quote is &#34; but we need a simpler approach
-	// Just match common string patterns after HTML escaping
-	stringEscPattern := regexp.MustCompile(`&#34;[^&]*&#34;`)
-	escaped = stringEscPattern.ReplaceAllStringFunc(escaped, func(m string) string {
-		if strings.Contains(m, `class="`) {
-			return m
-		}
-		return `<span class="str">` + m + `</span>`
-	})
+	// Strings
+	for _, m := range stringPattern.FindAllStringIndex(code, -1) {
+		highlights = append(highlights, highlight{m[0], m[1], "str", code[m[0]:m[1]]})
+	}
 
-	// HTML tags in Parsley source - match &lt;tagname...&gt; patterns
-	tagEscPattern := regexp.MustCompile(`&lt;/?[a-zA-Z][a-zA-Z0-9]*[^&]*?(?:&gt;|/&gt;)`)
-	escaped = tagEscPattern.ReplaceAllStringFunc(escaped, func(m string) string {
-		if strings.Contains(m, `class="`) {
-			return m
-		}
-		return `<span class="tag">` + m + `</span>`
-	})
-
-	// Numbers (but not inside already-highlighted spans)
-	escaped = numberPattern.ReplaceAllStringFunc(escaped, func(m string) string {
-		return `<span class="num">` + m + `</span>`
-	})
+	// HTML tags
+	for _, m := range tagPattern.FindAllStringIndex(code, -1) {
+		highlights = append(highlights, highlight{m[0], m[1], "tag", code[m[0]:m[1]]})
+	}
 
 	// Keywords
-	escaped = keywordPattern.ReplaceAllStringFunc(escaped, func(m string) string {
-		return `<span class="kw">` + m + `</span>`
-	})
+	for _, m := range keywordPattern.FindAllStringIndex(code, -1) {
+		highlights = append(highlights, highlight{m[0], m[1], "kw", code[m[0]:m[1]]})
+	}
 
-	// Function calls
-	escaped = fnCallPattern.ReplaceAllStringFunc(escaped, func(m string) string {
-		idx := strings.LastIndex(m, "(")
-		if idx == -1 {
-			return m
-		}
-		fnName := strings.TrimSpace(m[:idx])
-		if keywordPattern.MatchString(fnName) {
-			return m
-		}
-		return `<span class="fn">` + fnName + `</span>(`
-	})
+	// Numbers
+	for _, m := range numberPattern.FindAllStringIndex(code, -1) {
+		highlights = append(highlights, highlight{m[0], m[1], "num", code[m[0]:m[1]]})
+	}
 
-	return escaped
+	// Function calls - extract just the function name
+	for _, m := range fnCallPattern.FindAllStringSubmatchIndex(code, -1) {
+		if len(m) >= 4 {
+			// m[2]:m[3] is the captured group (function name)
+			fnName := code[m[2]:m[3]]
+			// Don't highlight if it's a keyword
+			if !keywordPattern.MatchString(fnName) {
+				highlights = append(highlights, highlight{m[2], m[3], "fn", fnName})
+			}
+		}
+	}
+
+	// Sort by start position
+	for i := 0; i < len(highlights)-1; i++ {
+		for j := i + 1; j < len(highlights); j++ {
+			if highlights[j].start < highlights[i].start {
+				highlights[i], highlights[j] = highlights[j], highlights[i]
+			}
+		}
+	}
+
+	// Remove overlapping highlights (keep first/higher priority)
+	var filtered []highlight
+	lastEnd := 0
+	for _, h := range highlights {
+		if h.start >= lastEnd {
+			filtered = append(filtered, h)
+			lastEnd = h.end
+		}
+	}
+
+	// Build output
+	var result strings.Builder
+	pos := 0
+	for _, h := range filtered {
+		// Add escaped text before this highlight
+		if h.start > pos {
+			result.WriteString(escapeForCodeDisplay(code[pos:h.start]))
+		}
+		// Add highlighted text (escaped inside the span)
+		result.WriteString(`<span class="`)
+		result.WriteString(h.class)
+		result.WriteString(`">`)
+		result.WriteString(escapeForCodeDisplay(h.text))
+		result.WriteString(`</span>`)
+		pos = h.end
+	}
+	// Add remaining text
+	if pos < len(code) {
+		result.WriteString(escapeForCodeDisplay(code[pos:]))
+	}
+
+	return result.String()
+}
+
+// escapeForCodeDisplay escapes text for display in HTML code blocks.
+// Only escapes < and > (which would be interpreted as HTML tags), 
+// and & (to prevent entity interpretation). Keeps quotes readable.
+func escapeForCodeDisplay(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
 }
 
 // extractLineInfo attempts to extract file, line, and column information from an error message.
