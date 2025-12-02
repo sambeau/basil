@@ -34,7 +34,7 @@ func TestPathCleaning(t *testing.T) {
 		{
 			name:     "eliminate_single_dot",
 			input:    `@/./foo/./bar`,
-			expected: `{__type: path, absolute: true, components: , foo, bar}`,
+			expected: `{__type: path, absolute: true, components: foo, bar}`,
 		},
 		{
 			name:     "eliminate_single_dot_relative",
@@ -46,12 +46,12 @@ func TestPathCleaning(t *testing.T) {
 		{
 			name:     "eliminate_dotdot_with_preceding",
 			input:    `@/foo/../bar`,
-			expected: `{__type: path, absolute: true, components: , bar}`,
+			expected: `{__type: path, absolute: true, components: bar}`,
 		},
 		{
 			name:     "eliminate_multiple_dotdot",
 			input:    `@/a/b/../../c`,
-			expected: `{__type: path, absolute: true, components: , c}`,
+			expected: `{__type: path, absolute: true, components: c}`,
 		},
 		{
 			name:     "eliminate_dotdot_relative",
@@ -63,12 +63,12 @@ func TestPathCleaning(t *testing.T) {
 		{
 			name:     "eliminate_dotdot_at_root",
 			input:    `@/../foo`,
-			expected: `{__type: path, absolute: true, components: , foo}`,
+			expected: `{__type: path, absolute: true, components: foo}`,
 		},
 		{
 			name:     "eliminate_multiple_dotdot_at_root",
 			input:    `@/../../../foo`,
-			expected: `{__type: path, absolute: true, components: , foo}`,
+			expected: `{__type: path, absolute: true, components: foo}`,
 		},
 
 		// Rule 5: Leave .. intact at beginning of non-rooted path
@@ -92,7 +92,7 @@ func TestPathCleaning(t *testing.T) {
 		{
 			name:     "multiple_slashes",
 			input:    `@/a//b///c`,
-			expected: `{__type: path, absolute: true, components: , a, b, c}`,
+			expected: `{__type: path, absolute: true, components: a, b, c}`,
 		},
 
 		// Complex combinations
@@ -104,7 +104,7 @@ func TestPathCleaning(t *testing.T) {
 		{
 			name:     "deeply_nested_cleanup",
 			input:    `@/a/b/c/../../d/../e`,
-			expected: `{__type: path, absolute: true, components: , a, e}`,
+			expected: `{__type: path, absolute: true, components: a, e}`,
 		},
 	}
 

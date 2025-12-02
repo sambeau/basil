@@ -177,10 +177,11 @@ func TestUrlOperatorWithProperties(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`let u = @https://example.com + "api" + "v1"; u.pathname`, "api/v1"},
+		// URL pathname should always start with /
+		{`let u = @https://example.com + "api" + "v1"; u.pathname`, "/api/v1"},
 		{`let u = @https://api.github.com + "repos"; u.host`, "api.github.com"},
 		{`let u = @https://example.com:8080 + "api"; u.origin`, "https://example.com:8080"},
-		{`let u = (@https://example.com + "api") + "users"; u.pathname`, "api/users"},
+		{`let u = (@https://example.com + "api") + "users"; u.pathname`, "/api/users"},
 	}
 
 	for _, tt := range tests {
@@ -239,7 +240,8 @@ func TestOperatorPrecedence(t *testing.T) {
 		expected string
 	}{
 		{`let p = @/usr + "local" + "bin"; p.basename`, "bin"},
-		{`let u = @https://api.example.com + "v1" + "users"; u.pathname`, "v1/users"},
+		// URL pathname should always start with /
+		{`let u = @https://api.example.com + "v1" + "users"; u.pathname`, "/v1/users"},
 	}
 
 	for _, tt := range tests {

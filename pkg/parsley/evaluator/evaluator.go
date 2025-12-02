@@ -2184,14 +2184,10 @@ func cleanPathComponents(components []string, isAbsolute bool) []string {
 		}
 	}
 
-	// For absolute paths, prepend empty string to represent root
-	// This is the traditional Unix convention: /usr/local → ["", "usr", "local"]
-	if isAbsolute {
-		result = append([]string{""}, result...)
-	}
-
-	// If result is empty for relative path, return current directory
-	if len(result) == 0 {
+	// If result is empty, return current directory for relative paths
+	// For absolute paths with no components (just "/"), return empty slice
+	// The absolute flag will be used during reconstruction to add leading "/"
+	if len(result) == 0 && !isAbsolute {
 		return []string{"."} // Current directory
 	}
 
@@ -2742,31 +2738,21 @@ func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 		return &String{Value: result.String()}
 
 	case "pathname":
-		// Just the path part as a string
+		// Just the path part as a string (always with leading /)
 		if pathExpr, ok := dict.Pairs["path"]; ok {
 			pathObj := Eval(pathExpr, env)
 			if arr, ok := pathObj.(*Array); ok {
-				var result strings.Builder
-				hasLeadingSlash := false
-				for i, elem := range arr.Elements {
-					if str, ok := elem.(*String); ok {
-						if i == 0 && str.Value == "" {
-							// Leading empty string means absolute path
-							result.WriteString("/")
-							hasLeadingSlash = true
-						} else if str.Value != "" {
-							// Add slash before element (but not if we just added leading slash)
-							if i > 0 && !(i == 1 && hasLeadingSlash) {
-								result.WriteString("/")
-							}
-							result.WriteString(str.Value)
-						}
+				var parts []string
+				for _, elem := range arr.Elements {
+					if str, ok := elem.(*String); ok && str.Value != "" {
+						parts = append(parts, str.Value)
 					}
 				}
-				return &String{Value: result.String()}
+				// URL paths always start with /
+				return &String{Value: "/" + strings.Join(parts, "/")}
 			}
 		}
-		return &String{Value: ""}
+		return &String{Value: "/"}
 
 	case "hostname":
 		// Alias for host
@@ -3061,11 +3047,15 @@ func getFilePathString(dict *Dictionary, env *Environment) string {
 
 	// Build path string
 	var result strings.Builder
+
+	// Add leading / for absolute paths
+	if isAbsolute {
+		result.WriteString("/")
+	}
+
 	for i, elem := range arr.Elements {
 		if str, ok := elem.(*String); ok {
-			if i == 0 && isAbsolute && str.Value == "" {
-				result.WriteString("/")
-			} else if str.Value == "." && i == 0 {
+			if str.Value == "." && i == 0 && !isAbsolute {
 				result.WriteString(".")
 			} else if str.Value == "~" && i == 0 {
 				// Expand home directory
@@ -3076,12 +3066,17 @@ func getFilePathString(dict *Dictionary, env *Environment) string {
 					result.WriteString("~")
 				}
 			} else if str.Value != "" {
-				if i > 0 && result.Len() > 0 && !strings.HasSuffix(result.String(), "/") {
+				if i > 0 || (isAbsolute && result.Len() > 1) {
 					result.WriteString("/")
 				}
 				result.WriteString(str.Value)
 			}
 		}
+	}
+
+	// Handle empty result
+	if result.Len() == 0 {
+		return "."
 	}
 
 	return result.String()
@@ -3417,7 +3412,16 @@ func pathDictToString(dict *Dictionary) string {
 		return ""
 	}
 
-	// Build path string - first element being empty indicates absolute path
+	// Get absolute flag
+	isAbsolute := false
+	if absExpr, ok := dict.Pairs["absolute"]; ok {
+		absObj := Eval(absExpr, dict.Env)
+		if b, ok := absObj.(*Boolean); ok {
+			isAbsolute = b.Value
+		}
+	}
+
+	// Build path string from components
 	var parts []string
 	for _, elem := range arr.Elements {
 		if str, ok := elem.(*String); ok {
@@ -3426,13 +3430,16 @@ func pathDictToString(dict *Dictionary) string {
 	}
 
 	if len(parts) == 0 {
+		if isAbsolute {
+			return "/"
+		}
 		return "."
 	}
 
-	// Join with "/" - if first element is empty, this creates a leading /
+	// Join components and add leading / for absolute paths
 	result := strings.Join(parts, "/")
-	if result == "" {
-		return "."
+	if isAbsolute {
+		return "/" + result
 	}
 	return result
 }

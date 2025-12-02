@@ -117,7 +117,7 @@ func TestPathPartsProperty(t *testing.T) {
 		input    string
 		expected int
 	}{
-		{`let p = @/usr/local/bin; len(p.parts)`, 4},
+		{`let p = @/usr/local/bin; len(p.parts)`, 3},
 		{`let p = @./config/app.json; len(p.parts)`, 3},
 		{`let p = @~/docs; len(p.parts)`, 2},
 	}
@@ -139,8 +139,8 @@ func TestPathPartsProperty(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`let p = @/usr/local/bin; p.parts[1]`, "usr"},
-		{`let p = @/usr/local/bin; p.parts[2]`, "local"},
+		{`let p = @/usr/local/bin; p.parts[0]`, "usr"},
+		{`let p = @/usr/local/bin; p.parts[1]`, "local"},
 		{`let p = @./config; p.parts[0]`, "."},
 	}
 
