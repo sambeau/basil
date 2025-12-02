@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,11 +14,12 @@ import (
 
 // DevError holds information about an error to display in dev mode.
 type DevError struct {
-	Type    string // "parse", "runtime", "file"
-	File    string // Full path to the file
-	Line    int    // Line number (0 if unknown)
-	Column  int    // Column number (0 if unknown)
-	Message string // Error message
+	Type     string // "parse", "runtime", "file"
+	File     string // Full path to the file
+	Line     int    // Line number (0 if unknown)
+	Column   int    // Column number (0 if unknown)
+	Message  string // Error message
+	BasePath string // Base path for making paths relative (project root)
 }
 
 // SourceLine represents a line of source code for display.
@@ -157,6 +159,36 @@ const errorPageStyles = `
 </style>
 `
 
+// makeRelativePath converts an absolute path to a relative path based on the base path.
+// If the path cannot be made relative, it returns the original path.
+func makeRelativePath(path, basePath string) string {
+	if basePath == "" || path == "" {
+		return path
+	}
+	rel, err := filepath.Rel(basePath, path)
+	if err != nil {
+		return path
+	}
+	// Prefix with ./ for clarity if it doesn't start with ../
+	if !strings.HasPrefix(rel, "..") && !strings.HasPrefix(rel, ".") {
+		rel = "./" + rel
+	}
+	return rel
+}
+
+// makeMessageRelative replaces absolute paths in an error message with relative paths.
+func makeMessageRelative(message, basePath string) string {
+	if basePath == "" {
+		return message
+	}
+	// Replace the base path with ./ in the message
+	// Handle both with and without trailing slash
+	baseWithSlash := strings.TrimSuffix(basePath, "/") + "/"
+	message = strings.ReplaceAll(message, baseWithSlash, "./")
+	message = strings.ReplaceAll(message, basePath, ".")
+	return message
+}
+
 // renderDevErrorPage generates an HTML error page for dev mode.
 func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -167,6 +199,10 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 	if devErr.File != "" && devErr.Line > 0 {
 		sourceLines = getSourceContext(devErr.File, devErr.Line, 5)
 	}
+
+	// Make paths relative for display
+	displayFile := makeRelativePath(devErr.File, devErr.BasePath)
+	displayMessage := makeMessageRelative(devErr.Message, devErr.BasePath)
 
 	// Build the page
 	var sb strings.Builder
@@ -186,9 +222,9 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 	sb.WriteString("<div class=\"error-location\">\n")
 	sb.WriteString(fmt.Sprintf("<span class=\"error-type\">%s error</span>\n", html.EscapeString(devErr.Type)))
 
-	if devErr.File != "" {
+	if displayFile != "" {
 		sb.WriteString("<span class=\"file-path\">")
-		sb.WriteString(html.EscapeString(devErr.File))
+		sb.WriteString(html.EscapeString(displayFile))
 		if devErr.Line > 0 {
 			sb.WriteString(fmt.Sprintf(":<span class=\"line-info\">%d</span>", devErr.Line))
 			if devErr.Column > 0 {
@@ -201,7 +237,7 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 
 	// Error message
 	sb.WriteString("<div class=\"error-message\">")
-	sb.WriteString(html.EscapeString(devErr.Message))
+	sb.WriteString(html.EscapeString(displayMessage))
 	sb.WriteString("</div>\n")
 
 	// Source code context

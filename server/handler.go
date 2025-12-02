@@ -611,12 +611,16 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, fileP
 		cleanMsg = message
 	}
 
+	// Get base path for making paths relative (directory of config file)
+	basePath := filepath.Dir(h.server.configPath)
+
 	devErr := &DevError{
-		Type:    errType,
-		File:    filePath,
-		Line:    line,
-		Column:  col,
-		Message: cleanMsg,
+		Type:     errType,
+		File:     filePath,
+		Line:     line,
+		Column:   col,
+		Message:  cleanMsg,
+		BasePath: basePath,
 	}
 
 	renderDevErrorPage(w, devErr)
@@ -629,12 +633,16 @@ func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, er
 		return
 	}
 
+	// Get base path for making paths relative (directory of config file)
+	basePath := filepath.Dir(h.server.configPath)
+
 	devErr := &DevError{
-		Type:    errType,
-		File:    filePath,
-		Line:    line,
-		Column:  col,
-		Message: message,
+		Type:     errType,
+		File:     filePath,
+		Line:     line,
+		Column:   col,
+		Message:  message,
+		BasePath: basePath,
 	}
 
 	renderDevErrorPage(w, devErr)
