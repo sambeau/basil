@@ -159,6 +159,170 @@ const errorPageStyles = `
 </style>
 `
 
+// notFoundPageStyles contains the inline CSS for the 404 page.
+const notFoundPageStyles = `
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #f39c12;
+  }
+  .status-code {
+    display: inline-block;
+    background: #f39c12;
+    color: #1a1a2e;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+  }
+  .info-box {
+    background: #16213e;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #f39c12;
+  }
+  .info-box h2 {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .path {
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #61afef;
+    word-break: break-all;
+  }
+  .checked-list {
+    margin-top: 0.5rem;
+    padding-left: 1rem;
+  }
+  .checked-list li {
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-bottom: 0.25rem;
+    list-style: none;
+  }
+  .checked-list li:before {
+    content: "✗ ";
+    color: #e74c3c;
+  }
+  .hint {
+    background: #16213e;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+  }
+  .hint code {
+    background: #0f0f23;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    color: #98c379;
+  }
+  .footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #2d2d44;
+    font-size: 0.8rem;
+    color: #5c6370;
+  }
+</style>
+`
+
+// Dev404Info holds information about a 404 to display in dev mode.
+type Dev404Info struct {
+	RequestPath  string   // The URL path that was requested
+	StaticRoot   string   // The public_dir that was checked (if any)
+	CheckedPaths []string // Paths that were checked (relative)
+	HasHandler   bool     // Whether a route handler exists
+	RoutePath    string   // The route path that matched (e.g., "/" or "/admin")
+	BasePath     string   // Base path for making paths relative
+}
+
+// renderDev404Page writes a styled 404 page for development mode.
+func renderDev404Page(w http.ResponseWriter, info Dev404Info) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusNotFound)
+
+	var sb strings.Builder
+
+	sb.WriteString("<!DOCTYPE html>\n<html>\n<head>\n")
+	sb.WriteString("<meta charset=\"utf-8\">\n")
+	sb.WriteString("<title>404 Not Found</title>\n")
+	sb.WriteString(notFoundPageStyles)
+	sb.WriteString("</head>\n<body>\n")
+
+	sb.WriteString("<div class=\"container\">\n")
+
+	// Header
+	sb.WriteString("<h1><span class=\"status-code\">404</span> Not Found</h1>\n")
+
+	// Requested path
+	sb.WriteString("<div class=\"info-box\">\n")
+	sb.WriteString("<h2>Requested</h2>\n")
+	sb.WriteString("<div class=\"path\">")
+	sb.WriteString(html.EscapeString(info.RequestPath))
+	sb.WriteString("</div>\n")
+	sb.WriteString("</div>\n")
+
+	// What was checked
+	if len(info.CheckedPaths) > 0 || info.StaticRoot != "" {
+		sb.WriteString("<div class=\"info-box\">\n")
+		sb.WriteString("<h2>Checked</h2>\n")
+		sb.WriteString("<ul class=\"checked-list\">\n")
+		for _, p := range info.CheckedPaths {
+			sb.WriteString("<li>")
+			sb.WriteString(html.EscapeString(p))
+			sb.WriteString("</li>\n")
+		}
+		sb.WriteString("</ul>\n")
+		sb.WriteString("</div>\n")
+	}
+
+	// Hint
+	sb.WriteString("<div class=\"hint\">\n")
+	if info.StaticRoot == "" && !info.HasHandler {
+		sb.WriteString("No <code>public_dir</code> or handler configured. ")
+		sb.WriteString("Add a route in <code>basil.yaml</code> to handle this path.")
+	} else if info.StaticRoot == "" {
+		sb.WriteString("This path wasn't handled by your route. ")
+		sb.WriteString("Add a <code>public_dir</code> to serve static files.")
+	} else {
+		sb.WriteString("Create the file in your <code>public_dir</code> or handle this path in your route handler.")
+	}
+	sb.WriteString("\n</div>\n")
+
+	// Footer
+	sb.WriteString("<div class=\"footer\">")
+	sb.WriteString("This is a development-only page.")
+	sb.WriteString("</div>\n")
+
+	sb.WriteString("</div>\n") // .container
+
+	sb.WriteString("</body>\n</html>")
+
+	w.Write([]byte(sb.String()))
+}
+
 // makeRelativePath converts an absolute path to a relative path based on the base path.
 // If the path cannot be made relative, it returns the original path.
 func makeRelativePath(path, basePath string) string {
