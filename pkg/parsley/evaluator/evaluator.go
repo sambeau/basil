@@ -4684,6 +4684,10 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
+				// Track if original pattern was explicitly relative (./ prefix)
+				// Go's filepath.Glob strips this, so we need to restore it
+				wasExplicitlyRelative := strings.HasPrefix(pattern, "./")
+
 				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
 				matches, err := filepath.Glob(pattern)
 				if err != nil {
@@ -4696,6 +4700,12 @@ func getBuiltins() map[string]*Builtin {
 					info, statErr := os.Stat(match)
 					if statErr != nil {
 						continue
+					}
+
+					// Restore ./ prefix if the original pattern had it
+					// filepath.Glob strips ./ but we want to preserve relative path semantics
+					if wasExplicitlyRelative && !strings.HasPrefix(match, "./") && !strings.HasPrefix(match, "/") {
+						match = "./" + match
 					}
 
 					components, isAbsolute := parsePathString(match)
