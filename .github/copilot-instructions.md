@@ -33,3 +33,9 @@ Before writing any Parsley code (handlers, tests, examples):
 ## Documentation
 - Update `docs/guide/faq.md` when answering "how do I..." questions
 - Add deferred items to `BACKLOG.md`
+
+## Parsley Documentation
+When documenting Parsley language features:
+- `docs/parsley/reference.md` - Comprehensive reference. All features should be documented here with accurate grammar snippets
+- `docs/parsley/CHEATSHEET.md` - AI-focused cheatsheet highlighting differences from other languages, ordered by likelihood of being a pitfall
+- `docs/parsley/README.md` - Quick guide with examples (may be outdated)

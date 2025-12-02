@@ -46,9 +46,15 @@ let evens = for (n in [1,2,3,4]) {
 }
 ```
 
-### 4. If is an Expression (Like Ternary)
+### 4. If Requires Parentheses (Like C/JavaScript)
 ```parsley
-// ✅ CORRECT - If returns value
+// ❌ WRONG (Go/Python style)
+if age >= 18 { "adult" }
+
+// ✅ CORRECT - Parentheses required around condition
+if (age >= 18) { "adult" }
+
+// If is an expression (returns value like ternary)
 let status = if (age >= 18) "adult" else "minor"
 
 // Can use in concatenation
