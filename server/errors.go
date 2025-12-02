@@ -615,16 +615,24 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 
 	// Common patterns:
 	// "parse error in /path/file.pars: message"
+	// "parse errors in module ./path/file.pars:\n  message"
 	// "/path/file.pars:12: message"
 	// "/path/file.pars:12:5: message"
 	// "script error in /path/file.pars: message"
 
-	// Pattern: "error in <path>: <message>"
+	// Pattern: "error[s] in [module] <path>: <message>"
 	if idx := strings.Index(errMsg, " in "); idx != -1 {
 		rest := errMsg[idx+4:]
-		if colonIdx := strings.Index(rest, ": "); colonIdx != -1 {
+		// Handle "module ./path:" format
+		if strings.HasPrefix(rest, "module ") {
+			rest = rest[7:] // skip "module "
+		}
+		// Find the colon after the path (could be ": " or ":\n")
+		if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
 			file = rest[:colonIdx]
-			cleanMsg = rest[colonIdx+2:]
+			// Clean message starts after the colon (and any whitespace)
+			remaining := rest[colonIdx+1:]
+			cleanMsg = strings.TrimLeft(remaining, " \n\t")
 		}
 	}
 
@@ -645,7 +653,24 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 		}
 	}
 
-	// Also check for "at line X" pattern in message
+	// Check for "at line X, column Y" pattern (captures both line and column)
+	if line == 0 || col == 0 {
+		atLineColPattern := regexp.MustCompile(`at line (\d+),?\s*column\s*(\d+)`)
+		if matches := atLineColPattern.FindStringSubmatch(errMsg); len(matches) > 2 {
+			if line == 0 {
+				if n, err := strconv.Atoi(matches[1]); err == nil {
+					line = n
+				}
+			}
+			if col == 0 {
+				if n, err := strconv.Atoi(matches[2]); err == nil {
+					col = n
+				}
+			}
+		}
+	}
+
+	// Check for "at line X" pattern (without column)
 	if line == 0 {
 		linePattern := regexp.MustCompile(`at line (\d+)`)
 		if matches := linePattern.FindStringSubmatch(errMsg); len(matches) > 1 {
@@ -655,7 +680,7 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 		}
 	}
 
-	// Check for "line X, col Y" pattern
+	// Check for "line X, col Y" or "line X, column Y" pattern
 	if line == 0 {
 		lineColPattern := regexp.MustCompile(`line (\d+)(?:,?\s*col(?:umn)?\s*(\d+))?`)
 		if matches := lineColPattern.FindStringSubmatch(errMsg); len(matches) > 1 {

@@ -310,6 +310,29 @@ func TestExtractLineInfo_ScriptError(t *testing.T) {
 	}
 }
 
+func TestExtractLineInfo_ModuleParseErrors(t *testing.T) {
+	// Test the multi-line parse errors format with "module" prefix
+	msg := `parse errors in module ./app/pages/home.pars:
+  expected identifier as dictionary key, got opening tag at line 6, column 3
+  line 31, column 7: unexpected 'Page'`
+
+	file, line, col, cleanMsg := extractLineInfo(msg)
+
+	if file != "./app/pages/home.pars" {
+		t.Errorf("expected file './app/pages/home.pars', got %q", file)
+	}
+	if line != 6 {
+		t.Errorf("expected line 6, got %d", line)
+	}
+	if col != 3 {
+		t.Errorf("expected column 3, got %d", col)
+	}
+	// Clean message should have the error details (trimmed of leading whitespace)
+	if !strings.Contains(cleanMsg, "expected identifier") {
+		t.Errorf("expected clean message to contain error, got %q", cleanMsg)
+	}
+}
+
 func TestHandleScriptError_DevMode(t *testing.T) {
 	// Create a mock handler with dev mode enabled
 	cfg := &config.Config{
