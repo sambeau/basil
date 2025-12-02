@@ -1059,7 +1059,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 			return newError("file handle has no valid path")
 		}
 
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
 			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 		}
@@ -1101,7 +1101,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 			return newError("file handle has no valid path")
 		}
 
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
 			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 		}
@@ -1162,7 +1162,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 			return newError("directory handle has no valid path")
 		}
 
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
 			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 		}
@@ -1204,7 +1204,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 			return newError("directory handle has no valid path")
 		}
 
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
 			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 		}

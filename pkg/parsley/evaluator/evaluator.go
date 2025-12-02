@@ -331,6 +331,7 @@ type Environment struct {
 	store       map[string]Object
 	outer       *Environment
 	Filename    string
+	RootPath    string       // Handler root directory for @~/ path resolution
 	LastToken   *lexer.Token
 	letBindings map[string]bool // tracks which variables were declared with 'let'
 	exports     map[string]bool // tracks which variables were explicitly exported
@@ -354,9 +355,10 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename, token, and logger from outer environment
+	// Preserve filename, token, logger, and root path from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
+		env.RootPath = outer.RootPath
 		env.LastToken = outer.LastToken
 		env.Logger = outer.Logger
 	}
@@ -3110,13 +3112,9 @@ func getFilePathString(dict *Dictionary, env *Environment) string {
 			if str.Value == "." && i == 0 && !isAbsolute {
 				result.WriteString(".")
 			} else if str.Value == "~" && i == 0 {
-				// Expand home directory
-				home, err := os.UserHomeDir()
-				if err == nil {
-					result.WriteString(home)
-				} else {
-					result.WriteString("~")
-				}
+				// Keep ~ unexpanded - resolveModulePath will handle it
+				// This allows ~/ to mean "handler root" in Basil context
+				result.WriteString("~")
 			} else if str.Value != "" {
 				if i > 0 || (isAbsolute && result.Len() > 1) {
 					result.WriteString("/")
@@ -8043,8 +8041,8 @@ func evalImport(args []Object, env *Environment) Object {
 		return newError("argument to `import` must be a path or string, got %s", arg.Type())
 	}
 
-	// Resolve path relative to current file
-	absPath, err := resolveModulePath(pathStr, env.Filename)
+	// Resolve path relative to current file (or root path for ~/ paths)
+	absPath, err := resolveModulePath(pathStr, env.Filename, env.RootPath)
 	if err != nil {
 		return newError("failed to resolve module path: %s", err.Error())
 	}
@@ -8101,6 +8099,8 @@ func evalImport(args []Object, env *Environment) Object {
 	// Create isolated environment for the module
 	moduleEnv := NewEnvironment()
 	moduleEnv.Filename = absPath
+	// Copy root path from parent environment (preserved across imports for ~/ resolution)
+	moduleEnv.RootPath = env.RootPath
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
 
@@ -10942,8 +10942,8 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 			return nil, newError("file handle has no valid path")
 		}
 
-		// Resolve the path relative to the current file
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		// Resolve the path relative to the current file (or root path for ~/ paths)
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
 			return nil, newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 		}
@@ -12076,8 +12076,8 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 			return newError("file handle has no valid path")
 		}
 
-		// Resolve the path relative to the current file
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		// Resolve the path relative to the current file (or root path for ~/ paths)
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
 			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 		}
@@ -12385,8 +12385,8 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 		return newError("file handle has no valid path")
 	}
 
-	// Resolve the path relative to the current file
-	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+	// Resolve the path relative to the current file (or root path for ~/ paths)
+	absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 	if pathErr != nil {
 		return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
 	}
@@ -12481,12 +12481,29 @@ func objectToExpression(obj Object) ast.Expression {
 
 // objectLiteralExpression removed - now using ast.ObjectLiteralExpression
 
-// resolveModulePath resolves a module path relative to the current file
-func resolveModulePath(pathStr string, currentFile string) (string, error) {
+// resolveModulePath resolves a module path relative to the current file or root path.
+// Paths starting with ~/ are resolved from rootPath (handler root directory in Basil).
+// If rootPath is not set, ~/ falls back to the user's home directory.
+// Paths starting with / are absolute.
+// All other paths are resolved relative to the current file.
+func resolveModulePath(pathStr string, currentFile string, rootPath string) (string, error) {
 	var absPath string
 
-	// If path is absolute, use it directly
-	if strings.HasPrefix(pathStr, "/") {
+	// Handle ~/ prefix - resolve from root path or home directory
+	if strings.HasPrefix(pathStr, "~/") {
+		if rootPath != "" {
+			// In Basil context: ~/ means handler root directory
+			absPath = filepath.Join(rootPath, pathStr[2:])
+		} else {
+			// Standalone: ~/ means home directory (traditional behavior)
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("cannot expand ~/: %s", err.Error())
+			}
+			absPath = filepath.Join(home, pathStr[2:])
+		}
+	} else if strings.HasPrefix(pathStr, "/") {
+		// If path is absolute, use it directly
 		absPath = pathStr
 	} else {
 		// Resolve relative to the current file's directory

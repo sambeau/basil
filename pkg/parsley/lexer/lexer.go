@@ -265,17 +265,17 @@ var keywords = map[string]TokenType{
 	"function": FUNCTION, // alias for JS familiarity
 	"let":      LET,
 	"for":      FOR,
-	"in":     IN,
-	"as":     AS,
-	"true":   TRUE,
-	"false":  FALSE,
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
-	"export": EXPORT,
-	"and":    AND,
-	"or":     OR,
-	"not":    BANG,
+	"in":       IN,
+	"as":       AS,
+	"true":     TRUE,
+	"false":    FALSE,
+	"if":       IF,
+	"else":     ELSE,
+	"return":   RETURN,
+	"export":   EXPORT,
+	"and":      AND,
+	"or":       OR,
+	"not":      BANG,
 }
 
 // LookupIdent checks if an identifier is a keyword
