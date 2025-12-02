@@ -11,7 +11,7 @@ export Page = fn({title, contents}) {
   <body>
     <nav>
       <a href="/">Home</a>
-      if (request.user) {
+      if (basil.auth.user) {
         <>
             <a href="/dashboard">Dashboard</a>
             <a href="/logout">Sign out</a>

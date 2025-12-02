@@ -6,22 +6,22 @@
 // Unauthenticated requests return 401 before reaching this handler
 
 <Page title="Dashboard">
-  <h1>Welcome, {request.user.name}!</h1>
+  <h1>Welcome, {basil.auth.user.name}!</h1>
   
   <div class="user-info">
     <h2>Your Account</h2>
     <dl>
       <dt>User ID</dt>
-      <dd>{request.user.id}</dd>
+      <dd>{basil.auth.user.id}</dd>
       
       <dt>Name</dt>
-      <dd>{request.user.name}</dd>
+      <dd>{basil.auth.user.name}</dd>
       
       <dt>Email</dt>
-      <dd>{request.user.email ?? "(not set)"}</dd>
+      <dd>{basil.auth.user.email ?? "(not set)"}</dd>
       
       <dt>Account Created</dt>
-      <dd>{request.user.created}</dd>
+      <dd>{basil.auth.user.created}</dd>
     </dl>
   </div>
   

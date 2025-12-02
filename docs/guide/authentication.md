@@ -57,24 +57,24 @@ routes:
   
   - path: /profile
     handler: ./handlers/profile.pars
-    auth: optional    # request.user available if logged in
+    auth: optional    # basil.auth.user available if logged in
 ```
 
-### 4. Use `request.user`
+### 4. Use `basil.auth.user`
 
 In authenticated handlers:
 
 ```parsley
-if request.user {
-  <p>Hello, {request.user.name}!</p>
+if basil.auth.user {
+  <p>Hello, {basil.auth.user.name}!</p>
 }
 ```
 
 User object fields:
-- `request.user.id` — User ID (e.g., "usr_abc123")
-- `request.user.name` — Display name
-- `request.user.email` — Email (may be empty)
-- `request.user.created` — Account creation timestamp
+- `basil.auth.user.id` — User ID (e.g., "usr_abc123")
+- `basil.auth.user.name` — Display name
+- `basil.auth.user.email` — Email (may be empty)
+- `basil.auth.user.created` — Account creation timestamp
 
 ## Components Reference
 

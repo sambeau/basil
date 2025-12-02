@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -158,17 +159,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
-	// Set request variables
-	setEnvVar(env, "request", reqCtx)
-	setEnvVar(env, "method", r.Method)
-	setEnvVar(env, "path", r.URL.Path)
-	setEnvVar(env, "query", queryToMap(r.URL.Query()))
-
-	// Add database connection if configured
-	if h.server.db != nil {
-		conn := evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
-		env.Set("db", conn)
-	}
+	// Build and inject the basil namespace object
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver)
+	env.Set("basil", basilObj)
 
 	// Set up custom logger that captures script log() output
 	scriptLogger := &scriptLogCapture{output: make([]string, 0)}
@@ -190,8 +183,11 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.server.logInfo("[script] %s", line)
 	}
 
+	// Extract response metadata from basil.http.response
+	responseMeta := extractResponseMeta(env)
+
 	// Handle the response (with caching if enabled)
-	h.writeResponseWithCache(w, r, &parsley.Result{Value: result})
+	h.writeResponseWithCache(w, r, &parsley.Result{Value: result}, responseMeta)
 }
 
 // setEnvVar converts a Go value to Parsley and sets it in the environment.
@@ -201,6 +197,116 @@ func setEnvVar(env *evaluator.Environment, name string, value interface{}) {
 		return // Silently ignore conversion errors
 	}
 	env.Set(name, obj)
+}
+
+// responseMeta holds response metadata set by the script via basil.http.response
+type responseMeta struct {
+	status  int
+	headers map[string]string
+}
+
+// buildBasilContext creates the basil namespace object injected into Parsley scripts
+// Returns a Parsley Dictionary object that can be set directly in the environment
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string) evaluator.Object {
+	// Build auth context
+	authCtx := map[string]interface{}{
+		"required": route.Auth == "required",
+	}
+
+	// Add authenticated user if present
+	user := auth.GetUser(r)
+	if user != nil {
+		authCtx["user"] = map[string]interface{}{
+			"id":      user.ID,
+			"name":    user.Name,
+			"email":   user.Email,
+			"created": user.CreatedAt,
+		}
+	} else {
+		authCtx["user"] = nil
+	}
+
+	// Build the basil namespace (without sqlite - that's added separately)
+	basilMap := map[string]interface{}{
+		"http": map[string]interface{}{
+			"request": reqCtx,
+			"response": map[string]interface{}{
+				"status":  int64(200),
+				"headers": map[string]interface{}{},
+			},
+		},
+		"auth": authCtx,
+	}
+
+	// Convert to Parsley Dictionary
+	basilObj, err := parsley.ToParsley(basilMap)
+	if err != nil {
+		// Fallback to empty dict on error
+		return &evaluator.Dictionary{Pairs: make(map[string]ast.Expression)}
+	}
+
+	basilDict := basilObj.(*evaluator.Dictionary)
+
+	// Add database connection if configured (as a special object, not via ToParsley)
+	if db != nil {
+		conn := evaluator.NewManagedDBConnection(db, dbDriver)
+		// Use ast.ObjectLiteralExpression to wrap the DBConnection for Dictionary storage
+		basilDict.Pairs["sqlite"] = &ast.ObjectLiteralExpression{Obj: conn}
+	}
+
+	return basilDict
+}
+
+// extractResponseMeta reads basil.http.response from the environment after script execution
+func extractResponseMeta(env *evaluator.Environment) *responseMeta {
+	meta := &responseMeta{
+		status:  200,
+		headers: make(map[string]string),
+	}
+
+	// Get basil object from environment
+	basilObj, ok := env.Get("basil")
+	if !ok || basilObj == nil {
+		return meta
+	}
+
+	// Convert to Go map using parsley's conversion
+	basilMap, ok := parsley.FromParsley(basilObj).(map[string]interface{})
+	if !ok {
+		return meta
+	}
+
+	// Navigate to basil.http.response
+	httpMap, ok := basilMap["http"].(map[string]interface{})
+	if !ok {
+		return meta
+	}
+
+	responseMap, ok := httpMap["response"].(map[string]interface{})
+	if !ok {
+		return meta
+	}
+
+	// Extract status
+	if status, ok := responseMap["status"]; ok {
+		switch s := status.(type) {
+		case int64:
+			meta.status = int(s)
+		case int:
+			meta.status = s
+		case float64:
+			meta.status = int(s)
+		}
+	}
+
+	// Extract headers
+	if headers, ok := responseMap["headers"].(map[string]interface{}); ok {
+		for k, v := range headers {
+			meta.headers[k] = fmt.Sprintf("%v", v)
+		}
+	}
+
+	return meta
 }
 
 // buildRequestContext creates the request object passed to Parsley scripts
@@ -219,20 +325,6 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		"headers":    headers,
 		"host":       r.Host,
 		"remoteAddr": r.RemoteAddr,
-		"auth":       route.Auth, // "required", "optional", or ""
-	}
-
-	// Add authenticated user if present
-	user := auth.GetUser(r)
-	if user != nil {
-		ctx["user"] = map[string]interface{}{
-			"id":      user.ID,
-			"name":    user.Name,
-			"email":   user.Email,     // May be empty string
-			"created": user.CreatedAt, // time.Time
-		}
-	} else {
-		ctx["user"] = nil
 	}
 
 	// Parse body for POST/PUT/PATCH requests
@@ -380,12 +472,12 @@ func queryToMap(query map[string][]string) map[string]interface{} {
 }
 
 // writeResponseWithCache writes the response and caches it if the route has caching enabled.
-func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.Request, result *parsley.Result) {
+func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.Request, result *parsley.Result, meta *responseMeta) {
 	// If caching is enabled for this route and it's a GET request, capture the response
 	if h.route.Cache > 0 && r.Method == http.MethodGet {
 		crw := newCachedResponseWriter(w)
 		crw.Header().Set("X-Cache", "MISS")
-		h.writeResponse(crw, result)
+		h.writeResponse(crw, result, meta)
 
 		// Only cache successful responses (2xx)
 		if crw.statusCode >= 200 && crw.statusCode < 300 {
@@ -395,13 +487,25 @@ func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.R
 	}
 
 	// No caching, write directly
-	h.writeResponse(w, result)
+	h.writeResponse(w, result, meta)
 }
 
 // writeResponse writes the Parsley result to the HTTP response
-func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Result) {
+func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Result, meta *responseMeta) {
+	// Apply response headers from basil.http.response.headers
+	for k, v := range meta.headers {
+		w.Header().Set(k, v)
+	}
+
+	// Determine if we need a custom status code
+	customStatus := meta.status != 200
+
 	if result == nil || result.IsNull() {
-		w.WriteHeader(http.StatusNoContent)
+		if customStatus {
+			w.WriteHeader(meta.status)
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
 		return
 	}
 
@@ -420,12 +524,19 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 			output = h.componentExpander.ExpandComponents(v)
 		}
 		w.Header().Set("Content-Type", contentType)
+		if customStatus {
+			w.WriteHeader(meta.status)
+		}
 		fmt.Fprint(w, output)
 
 	case map[string]interface{}:
-		// Check for special response object format
+		// Check for special response object format (legacy support)
 		if status, ok := v["status"].(int64); ok {
 			w.WriteHeader(int(status))
+			customStatus = false // Already written
+		} else if customStatus {
+			w.WriteHeader(meta.status)
+			customStatus = false
 		}
 		if headers, ok := v["headers"].(map[string]interface{}); ok {
 			for k, hv := range headers {
@@ -452,6 +563,9 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 
 	default:
 		// Encode as JSON
+		if customStatus {
+			w.WriteHeader(meta.status)
+		}
 		h.writeJSON(w, value)
 	}
 }

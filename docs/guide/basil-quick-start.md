@@ -149,25 +149,18 @@ logging:
 ```
 
 ### Request Data
-Your Parsley handlers receive request data via convenient variables:
 
-**Quick access variables:**
-```parsley
-method   // "GET", "POST", etc.
-path     // "/api/hello"
-query    // {name: "world"} from ?name=world
-```
+Your Parsley handlers receive request data via the `basil` namespace object:
 
-**Full request object:**
+**Accessing request data:**
 ```parsley
-request = {
+basil.http.request = {
   method:     "GET",
   path:       "/api/hello",
   query:      {name: "world"},
   headers:    {"Content-Type": "application/json", "User-Agent": "..."},
   host:       "localhost:8080",
   remoteAddr: "127.0.0.1:52345",
-  auth:       "",    // route's auth setting: "required", "optional", or ""
   body:       "...", // raw request body (POST/PUT/PATCH only)
   form:       {},    // parsed form data or JSON body
   files:      {}     // uploaded file metadata (multipart only)
@@ -176,14 +169,15 @@ request = {
 
 **Example: Using request data:**
 ```parsley
-let name = query.name ?? "stranger"
-let userAgent = request.headers["User-Agent"] ?? "unknown"
+let req = basil.http.request
+let name = req.query.name ?? "stranger"
+let userAgent = req.headers["User-Agent"] ?? "unknown"
 
 <html>
 <body>
   <h1>Hello, {name}!</h1>
   <p>You're using: {userAgent}</p>
-  <p>Your IP: {request.remoteAddr}</p>
+  <p>Your IP: {req.remoteAddr}</p>
 </body>
 </html>
 ```
@@ -203,24 +197,27 @@ let userAgent = request.headers["User-Agent"] ?? "unknown"
 }
 ```
 
-**Custom Response** (full control):
+**Custom Response** (set metadata via `basil.http.response`):
 ```parsley
-{
-  status: 201,
-  headers: {"X-Custom": "value"},
-  body: "Created!"
-}
+// Set response metadata
+basil.http.response.status = 201
+basil.http.response.headers["X-Custom"] = "value"
+
+// Return the body (your return value is the body)
+`<p>Created!</p>`
 ```
 
 ### Handling Forms
 
 **URL-encoded forms** (`application/x-www-form-urlencoded`):
 ```parsley
-// Form data is in request.form
-let username = request.form.username ?? ""
-let email = request.form.email ?? ""
+let req = basil.http.request
 
-if method == "POST" {
+// Form data is in basil.http.request.form
+let username = req.form.username ?? ""
+let email = req.form.email ?? ""
+
+if req.method == "POST" {
   // Process form submission
   `<p>Thanks, {username}!</p>`
 } else {
@@ -234,8 +231,8 @@ if method == "POST" {
 
 **JSON API requests** (`application/json`):
 ```parsley
-// JSON body is parsed into request.form
-let data = request.form
+// JSON body is parsed into basil.http.request.form
+let data = basil.http.request.form
 {
   received: data,
   message: "Got your JSON!"
@@ -244,8 +241,8 @@ let data = request.form
 
 **File uploads** (`multipart/form-data`):
 ```parsley
-// File metadata is in request.files
-let file = request.files.document
+// File metadata is in basil.http.request.files
+let file = basil.http.request.files.document
 if file {
   `<p>Uploaded: {file.filename} ({file.size} bytes)</p>`
 }
@@ -289,12 +286,12 @@ database:
 
 ### Using the Database
 
-In your handlers, the database connection is available as `db`:
+In your handlers, the database connection is available as `basil.sqlite`:
 
 **handlers/users.pars:**
 ```parsley
 // Query all users
-let users = db <=??=> "SELECT * FROM users ORDER BY name"
+let users = basil.sqlite <=??=> "SELECT * FROM users ORDER BY name"
 
 <html>
 <body>
@@ -320,7 +317,7 @@ let users = db <=??=> "SELECT * FROM users ORDER BY name"
 
 **Query single row:**
 ```parsley
-let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+let user = basil.sqlite <=?=> "SELECT * FROM users WHERE id = 1"
 if user {
   <p>Found: {user.name}</p>
 } else {
@@ -330,13 +327,13 @@ if user {
 
 **Insert data:**
 ```parsley
-let result = db <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+let result = basil.sqlite <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
 <p>Created user with ID: {result.lastId}</p>
 ```
 
 **Update data:**
 ```parsley
-let result = db <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
+let result = basil.sqlite <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
 <p>Updated {result.affected} row(s)</p>
 ```
 
@@ -359,7 +356,7 @@ Or create a setup handler:
 
 **handlers/setup.pars:**
 ```parsley
-let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (
+let _ = basil.sqlite <=!=> "CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT UNIQUE
@@ -453,7 +450,7 @@ server:
 **What this enables:**
 - Client IP extracted from `X-Forwarded-For` or `X-Real-IP`
 - Original client IP used in request logging
-- Available in handlers via `request.remoteAddr`
+- Available in handlers via `basil.http.request.remoteAddr`
 
 **Security note:** Only enable `proxy.trusted` when actually behind a proxy. Untrusted clients could spoof headers otherwise.
 
