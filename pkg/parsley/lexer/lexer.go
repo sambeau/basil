@@ -261,9 +261,10 @@ func (tt TokenType) String() string {
 
 // Keywords map for identifying language keywords
 var keywords = map[string]TokenType{
-	"fn":     FUNCTION,
-	"let":    LET,
-	"for":    FOR,
+	"fn":       FUNCTION,
+	"function": FUNCTION, // alias for JS familiarity
+	"let":      LET,
+	"for":      FOR,
 	"in":     IN,
 	"as":     AS,
 	"true":   TRUE,
