@@ -144,6 +144,16 @@ const errorPageStyles = `
   .comment { color: #5c6370; font-style: italic; }
   .fn { color: #61afef; }
   
+  .error-hint {
+    background: #1a3a1a;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    color: #98c379;
+    border-left: 4px solid #98c379;
+  }
+  
   .footer {
     margin-top: 2rem;
     padding-top: 1rem;
@@ -353,6 +363,48 @@ func makeMessageRelative(message, basePath string) string {
 	return message
 }
 
+// improveErrorMessage rewrites confusing parser errors to be more helpful.
+// Returns the improved message and an optional hint.
+func improveErrorMessage(message string) (improved string, hint string) {
+	// Strip cascade errors - only show the first error
+	// Multi-line error messages often have cascade errors on subsequent lines
+	lines := strings.Split(message, "\n")
+	if len(lines) > 1 {
+		// Keep only the first non-empty line (the primary error)
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				message = line
+				break
+			}
+		}
+	}
+
+	// Pattern: "expected identifier as dictionary key, got opening tag"
+	// This happens when parser sees <ComponentName> but ComponentName is undefined
+	dictKeyPattern := regexp.MustCompile(`expected identifier as dictionary key, got opening tag`)
+	if dictKeyPattern.MatchString(message) {
+		// Try to extract what tag was found from the source context
+		// For now, give a generic but helpful message
+		improved = "Unrecognized component tag"
+		hint = "Is the component imported? Check that the import path is correct and the component is exported."
+		return improved, hint
+	}
+
+	// Pattern: "unexpected 'SomeName'" where SomeName starts with uppercase
+	// Usually a cascade error from undefined component
+	unexpectedUpperPattern := regexp.MustCompile(`unexpected '([A-Z][a-zA-Z0-9]*)'`)
+	if matches := unexpectedUpperPattern.FindStringSubmatch(message); len(matches) > 1 {
+		componentName := matches[1]
+		improved = fmt.Sprintf("'%s' is not defined", componentName)
+		hint = fmt.Sprintf("Did you forget to import %s? Component names must start with an uppercase letter.", componentName)
+		return improved, hint
+	}
+
+	// No improvements - return original
+	return message, ""
+}
+
 // renderDevErrorPage generates an HTML error page for dev mode.
 func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -366,7 +418,10 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 
 	// Make paths relative for display
 	displayFile := makeRelativePath(devErr.File, devErr.BasePath)
-	displayMessage := makeMessageRelative(devErr.Message, devErr.BasePath)
+
+	// Improve the error message for common confusing cases
+	improvedMessage, hint := improveErrorMessage(devErr.Message)
+	displayMessage := makeMessageRelative(improvedMessage, devErr.BasePath)
 
 	// Build the page
 	var sb strings.Builder
@@ -403,6 +458,13 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 	sb.WriteString("<div class=\"error-message\">")
 	sb.WriteString(html.EscapeString(displayMessage))
 	sb.WriteString("</div>\n")
+
+	// Hint (if any)
+	if hint != "" {
+		sb.WriteString("<div class=\"error-hint\">💡 ")
+		sb.WriteString(html.EscapeString(hint))
+		sb.WriteString("</div>\n")
+	}
 
 	// Source code context
 	if len(sourceLines) > 0 {
