@@ -35,30 +35,30 @@ func evalWithPublicDir(t *testing.T, input string, publicDir string) evaluator.O
 	return evaluator.Eval(program, env)
 }
 
-// TestPublicDirTransformation tests that paths under public_dir are rewritten to web URLs
-func TestPublicDirTransformation(t *testing.T) {
+// TestAssetFunction tests that url() transforms paths under public_dir to web URLs
+func TestAssetFunction(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
 		publicDir string
 		expected  string
 	}{
-		// Basic transformation: ./public/x -> /x
+		// Basic transformation: asset(@./public/x) -> /x
 		{
 			name:      "simple_public_path",
-			input:     `let p = @./public/images/foo.png; p.string`,
+			input:     `asset(@./public/images/foo.png)`,
 			publicDir: "./public",
 			expected:  `/images/foo.png`,
 		},
 		{
 			name:      "public_root_file",
-			input:     `let p = @./public/style.css; p.string`,
+			input:     `asset(@./public/style.css)`,
 			publicDir: "./public",
 			expected:  `/style.css`,
 		},
 		{
 			name:      "public_directory_itself",
-			input:     `let p = @./public; p.string`,
+			input:     `asset(@./public)`,
 			publicDir: "./public",
 			expected:  `/`,
 		},
@@ -66,7 +66,7 @@ func TestPublicDirTransformation(t *testing.T) {
 		// Nested public_dir
 		{
 			name:      "nested_public_dir",
-			input:     `let p = @./dist/public/js/app.js; p.string`,
+			input:     `asset(@./dist/public/js/app.js)`,
 			publicDir: "./dist/public",
 			expected:  `/js/app.js`,
 		},
@@ -74,13 +74,13 @@ func TestPublicDirTransformation(t *testing.T) {
 		// Paths NOT under public_dir should remain unchanged
 		{
 			name:      "outside_public_dir",
-			input:     `let p = @./data/config.json; p.string`,
+			input:     `asset(@./data/config.json)`,
 			publicDir: "./public",
 			expected:  `./data/config.json`,
 		},
 		{
 			name:      "different_prefix",
-			input:     `let p = @./public_backup/images/foo.png; p.string`,
+			input:     `asset(@./public_backup/images/foo.png)`,
 			publicDir: "./public",
 			expected:  `./public_backup/images/foo.png`,
 		},
@@ -88,7 +88,7 @@ func TestPublicDirTransformation(t *testing.T) {
 		// Absolute paths should not be transformed
 		{
 			name:      "absolute_path_unchanged",
-			input:     `let p = @/var/www/public/images/foo.png; p.string`,
+			input:     `asset(@/var/www/public/images/foo.png)`,
 			publicDir: "./public",
 			expected:  `/var/www/public/images/foo.png`,
 		},
@@ -96,7 +96,7 @@ func TestPublicDirTransformation(t *testing.T) {
 		// Without public_dir set, paths remain unchanged
 		{
 			name:      "no_public_dir_set",
-			input:     `let p = @./public/images/foo.png; p.string`,
+			input:     `asset(@./public/images/foo.png)`,
 			publicDir: "",
 			expected:  `./public/images/foo.png`,
 		},
@@ -104,13 +104,13 @@ func TestPublicDirTransformation(t *testing.T) {
 		// Various public_dir formats should work
 		{
 			name:      "public_dir_without_dot_slash",
-			input:     `let p = @./public/images/foo.png; p.string`,
+			input:     `asset(@./public/images/foo.png)`,
 			publicDir: "public",
 			expected:  `/images/foo.png`,
 		},
 		{
 			name:      "public_dir_with_trailing_slash",
-			input:     `let p = @./public/images/foo.png; p.string`,
+			input:     `asset(@./public/images/foo.png)`,
 			publicDir: "./public/",
 			expected:  `/images/foo.png`,
 		},
@@ -127,8 +127,8 @@ func TestPublicDirTransformation(t *testing.T) {
 	}
 }
 
-// TestPublicDirInHTMLAttributes tests path transformation in HTML context
-func TestPublicDirInHTMLAttributes(t *testing.T) {
+// TestPathsWithoutUrlRemainUnchanged tests that paths without url() are NOT transformed
+func TestPathsWithoutUrlRemainUnchanged(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
@@ -136,28 +136,61 @@ func TestPublicDirInHTMLAttributes(t *testing.T) {
 		expected  string
 	}{
 		{
-			name:      "img_src_transformed",
+			name:      "path_string_not_transformed",
+			input:     `let p = @./public/images/foo.png; p.string`,
+			publicDir: "./public",
+			expected:  `./public/images/foo.png`,
+		},
+		{
+			name:      "path_in_html_not_transformed",
 			input:     `let p = @./public/images/photo.jpg; <img src={p}/>`,
+			publicDir: "./public",
+			expected:  `<img src=./public/images/photo.jpg />`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalWithPublicDir(t, tt.input, tt.publicDir)
+			if result.Inspect() != tt.expected {
+				t.Errorf("for input %s with public_dir=%q:\nexpected: %s\n     got: %s",
+					tt.input, tt.publicDir, tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestAssetInHTMLAttributes tests url() function in HTML context
+func TestAssetInHTMLAttributes(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		publicDir string
+		expected  string
+	}{
+		{
+			name:      "img_src_with_url",
+			input:     `let p = @./public/images/photo.jpg; <img src={asset(p)}/>`,
 			publicDir: "./public",
 			expected:  `<img src=/images/photo.jpg />`,
 		},
 		{
-			name:      "link_href_transformed",
-			input:     `let css = @./public/css/style.css; <link rel=stylesheet href={css}/>`,
+			name:      "link_href_with_url",
+			input:     `let css = @./public/css/style.css; <link rel=stylesheet href={asset(css)}/>`,
 			publicDir: "./public",
 			expected:  `<link rel=stylesheet href=/css/style.css />`,
 		},
 		{
-			name:      "script_src_transformed",
-			input:     `let js = @./public/js/app.js; <script src={js}/>`,
+			name:      "script_src_with_url",
+			input:     `let js = @./public/js/app.js; <script src={asset(js)}/>`,
 			publicDir: "./public",
 			expected:  `<script src=/js/app.js />`,
 		},
 		{
-			name:      "multiple_paths_transformed",
-			input:     `let img = @./public/img/a.png; let css = @./public/style.css; <div><img src={img}/><link href={css}/></div>`,
+			name:      "inline_url_call",
+			input:     `<img src={asset(@./public/img/a.png)}/>`,
 			publicDir: "./public",
-			expected:  `<div><img src=/img/a.png /><link href=/style.css /></div>`,
+			expected:  `<img src=/img/a.png />`,
 		},
 	}
 

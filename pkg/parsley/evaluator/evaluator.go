@@ -3477,41 +3477,6 @@ func pathDictToString(dict *Dictionary) string {
 		}
 	}
 
-	// Check for public_dir transformation (only for relative paths)
-	// Absolute paths (starting with /) are not transformed
-	if !isAbsolute && dict.Env != nil {
-		publicDirParts := getPublicDirComponents(dict.Env)
-		if publicDirParts != nil {
-			// For relative paths, skip the leading "." when comparing
-			// @./public/images/foo.png → parts = [".", "public", "images", "foo.png"]
-			// public_dir = "./public" → publicDirParts = ["public"]
-			// We compare parts[1:] against publicDirParts
-			partsToCheck := parts
-			if len(parts) > 0 && parts[0] == "." {
-				partsToCheck = parts[1:]
-			}
-
-			if len(partsToCheck) >= len(publicDirParts) {
-				// Check if path starts with public_dir components
-				matches := true
-				for i, pdPart := range publicDirParts {
-					if partsToCheck[i] != pdPart {
-						matches = false
-						break
-					}
-				}
-				if matches {
-					// Strip public_dir prefix and return as web-root-relative path
-					webParts := partsToCheck[len(publicDirParts):]
-					if len(webParts) == 0 {
-						return "/"
-					}
-					return "/" + strings.Join(webParts, "/")
-				}
-			}
-		}
-	}
-
 	if len(parts) == 0 {
 		if isAbsolute {
 			return "/"
@@ -3527,32 +3492,39 @@ func pathDictToString(dict *Dictionary) string {
 	return result
 }
 
-// pathDictToFilesystemString converts a path dictionary to filesystem string WITHOUT public_dir transformation
-// Use this for actual filesystem operations (files(), file(), etc.) where we need the real path
-func pathDictToFilesystemString(dict *Dictionary) string {
-	// Get components array
+// pathToWebURL transforms a path under public_dir to a web URL
+// e.g., ./public/images/foo.png -> /images/foo.png (when public_dir is ./public)
+// Returns the original path if not under public_dir or if public_dir is not set
+func pathToWebURL(dict *Dictionary) string {
+	if dict.Env == nil {
+		return pathDictToString(dict)
+	}
+
+	publicDirParts := getPublicDirComponents(dict.Env)
+	if publicDirParts == nil {
+		return pathDictToString(dict)
+	}
+
+	// Get components
 	componentsExpr, ok := dict.Pairs["components"]
 	if !ok {
 		return ""
 	}
-
-	// Evaluate the array expression
 	componentsObj := Eval(componentsExpr, dict.Env)
 	arr, ok := componentsObj.(*Array)
 	if !ok {
 		return ""
 	}
 
-	// Get absolute flag
-	isAbsolute := false
+	// Get absolute flag - absolute paths are not transformed
 	if absExpr, ok := dict.Pairs["absolute"]; ok {
 		absObj := Eval(absExpr, dict.Env)
-		if b, ok := absObj.(*Boolean); ok {
-			isAbsolute = b.Value
+		if b, ok := absObj.(*Boolean); ok && b.Value {
+			return pathDictToString(dict)
 		}
 	}
 
-	// Build path string from components
+	// Build parts array
 	var parts []string
 	for _, elem := range arr.Elements {
 		if str, ok := elem.(*String); ok {
@@ -3560,19 +3532,35 @@ func pathDictToFilesystemString(dict *Dictionary) string {
 		}
 	}
 
-	if len(parts) == 0 {
-		if isAbsolute {
-			return "/"
-		}
-		return "."
+	// For relative paths, skip the leading "." when comparing
+	// @./public/images/foo.png → parts = [".", "public", "images", "foo.png"]
+	// public_dir = "./public" → publicDirParts = ["public"]
+	partsToCheck := parts
+	if len(parts) > 0 && parts[0] == "." {
+		partsToCheck = parts[1:]
 	}
 
-	// Join components and add leading / for absolute paths
-	result := strings.Join(parts, "/")
-	if isAbsolute {
-		return "/" + result
+	if len(partsToCheck) >= len(publicDirParts) {
+		// Check if path starts with public_dir components
+		matches := true
+		for i, pdPart := range publicDirParts {
+			if partsToCheck[i] != pdPart {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			// Strip public_dir prefix and return as web-root-relative path
+			webParts := partsToCheck[len(publicDirParts):]
+			if len(webParts) == 0 {
+				return "/"
+			}
+			return "/" + strings.Join(webParts, "/")
+		}
 	}
-	return result
+
+	// Not under public_dir, return as-is
+	return pathDictToString(dict)
 }
 
 // urlDictToString converts a URL dictionary back to a string
@@ -4015,7 +4003,7 @@ func getBuiltins() map[string]*Builtin {
 					if keyFileObj, ok := options["keyFile"]; ok {
 						var keyPath string
 						if keyDict, ok := keyFileObj.(*Dictionary); ok && isPathDict(keyDict) {
-							keyPath = pathDictToFilesystemString(keyDict)
+							keyPath = pathDictToString(keyDict)
 						} else if keyStr, ok := keyFileObj.(*String); ok {
 							keyPath = keyStr.Value
 						}
@@ -4076,7 +4064,7 @@ func getBuiltins() map[string]*Builtin {
 					if knownHostsObj, ok := options["knownHostsFile"]; ok {
 						var knownHostsPath string
 						if khDict, ok := knownHostsObj.(*Dictionary); ok && isPathDict(khDict) {
-							knownHostsPath = pathDictToFilesystemString(khDict)
+							knownHostsPath = pathDictToString(khDict)
 						} else if khStr, ok := knownHostsObj.(*String); ok {
 							knownHostsPath = khStr.Value
 						}
@@ -4797,7 +4785,7 @@ func getBuiltins() map[string]*Builtin {
 						if arg.Env == nil {
 							arg.Env = env
 						}
-						pattern = pathDictToFilesystemString(arg)
+						pattern = pathDictToString(arg)
 					} else {
 						return newError("argument to `files` must be a path or string pattern, got dictionary")
 					}
@@ -5401,6 +5389,28 @@ func getBuiltins() map[string]*Builtin {
 					return &Integer{Value: int64(len(a.Elements))}
 				default:
 					return newError("argument to `len` not supported, got %s", args[0].Type())
+				}
+			},
+		},
+		// asset() - converts a path under public_dir to a web URL
+		// e.g., asset(@./public/images/foo.png) -> "/images/foo.png"
+		"asset": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `asset`. got=%d, want=1", len(args))
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if isPathDict(arg) {
+						return &String{Value: pathToWebURL(arg)}
+					}
+					return newError("argument to `asset` must be a path, got dictionary")
+				case *String:
+					// If it's already a string, just return it
+					return arg
+				default:
+					return newError("argument to `asset` must be a path, got %s", args[0].Type())
 				}
 			},
 		},
@@ -6180,7 +6190,7 @@ func applyCommandOptions(cmd *exec.Cmd, optsLit *ast.DictionaryLiteral, env *Env
 		dirObj := Eval(dirExpr, env)
 		if pathDict, ok := dirObj.(*Dictionary); ok {
 			if isPathDict(pathDict) {
-				pathStr := pathDictToFilesystemString(pathDict)
+				pathStr := pathDictToString(pathDict)
 				cmd.Dir = pathStr
 			}
 		}
@@ -7660,12 +7670,12 @@ func evalPathInfixExpression(tok lexer.Token, operator string, left, right *Dict
 	switch operator {
 	case "==":
 		// Compare paths by their filesystem string representation
-		leftStr := pathDictToFilesystemString(left)
-		rightStr := pathDictToFilesystemString(right)
+		leftStr := pathDictToString(left)
+		rightStr := pathDictToString(right)
 		return nativeBoolToParsBoolean(leftStr == rightStr)
 	case "!=":
-		leftStr := pathDictToFilesystemString(left)
-		rightStr := pathDictToFilesystemString(right)
+		leftStr := pathDictToString(left)
+		rightStr := pathDictToString(right)
 		return nativeBoolToParsBoolean(leftStr != rightStr)
 	default:
 		return newErrorWithPos(tok, "unknown operator for path: %s (supported: ==, !=)", operator)
@@ -7925,7 +7935,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			if !isPathDict(arg) {
 				return newError("argument to SFTP connection must be a path, got dictionary")
 			}
-			pathStr = pathDictToFilesystemString(arg)
+			pathStr = pathDictToString(arg)
 		case *String:
 			pathStr = arg.Value
 		default:
@@ -7958,7 +7968,7 @@ func evalImport(args []Object, env *Environment) Object {
 		if typeExpr, ok := arg.Pairs["__type"]; ok {
 			typeVal := Eval(typeExpr, arg.Env)
 			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
-				pathStr = pathDictToFilesystemString(arg)
+				pathStr = pathDictToString(arg)
 			} else {
 				return newError("argument to `import` must be a path or string, got dictionary")
 			}
