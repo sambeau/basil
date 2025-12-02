@@ -6970,6 +6970,8 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		return nativeBoolToParsBoolean(isTruthy(left) || isTruthy(right))
 	case operator == "++":
 		return evalConcatExpression(left, right)
+	case operator == "in":
+		return evalInExpression(tok, left, right)
 	case operator == "..":
 		return evalRangeExpression(tok, left, right)
 	// Path and URL operators with strings (must come before general string concatenation)
@@ -9401,6 +9403,43 @@ func evalConcatExpression(left, right Object) Object {
 	result = append(result, rightElements...)
 
 	return &Array{Elements: result}
+}
+
+// evalInExpression handles the 'in' membership operator
+// Returns true if left is contained in right (array, dictionary key, or substring)
+func evalInExpression(tok lexer.Token, left, right Object) Object {
+	switch r := right.(type) {
+	case *Array:
+		// Check if left is an element of the array
+		for _, elem := range r.Elements {
+			if objectsEqual(left, elem) {
+				return TRUE
+			}
+		}
+		return FALSE
+	case *Dictionary:
+		// Check if left is a key in the dictionary
+		if left.Type() != STRING_OBJ {
+			return newErrorWithPos(tok, "dictionary key must be a string, got %s", left.Type())
+		}
+		key := left.(*String).Value
+		if _, ok := r.Pairs[key]; ok {
+			return TRUE
+		}
+		return FALSE
+	case *String:
+		// Check if left is a substring of right
+		if left.Type() != STRING_OBJ {
+			return newErrorWithPos(tok, "substring must be a string, got %s", left.Type())
+		}
+		substring := left.(*String).Value
+		if strings.Contains(r.Value, substring) {
+			return TRUE
+		}
+		return FALSE
+	default:
+		return newErrorWithPos(tok, "'in' operator requires array, dictionary, or string on right side, got %s", right.Type())
+	}
 }
 
 // evalIndexExpression handles array and string indexing

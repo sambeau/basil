@@ -73,6 +73,20 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 		// Return rune count for proper Unicode support
 		return &Integer{Value: int64(len([]rune(str.Value)))}
 
+	case "includes":
+		// includes(substring) - returns true if string contains the substring
+		if len(args) != 1 {
+			return newError("wrong number of arguments to `includes`. got=%d, want=1", len(args))
+		}
+		substr, ok := args[0].(*String)
+		if !ok {
+			return newError("argument to `includes` must be a string, got %s", args[0].Type())
+		}
+		if strings.Contains(str.Value, substr.Value) {
+			return TRUE
+		}
+		return FALSE
+
 	default:
 		return newError("unknown method '%s' for STRING", method)
 	}
@@ -284,6 +298,18 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 			result[i] = arr.Elements[indices[int(i)]]
 		}
 		return &Array{Elements: result}
+
+	case "includes":
+		// includes(value) - returns true if array contains the value
+		if len(args) != 1 {
+			return newError("wrong number of arguments to `includes`. got=%d, want=1", len(args))
+		}
+		for _, elem := range arr.Elements {
+			if objectsEqual(args[0], elem) {
+				return TRUE
+			}
+		}
+		return FALSE
 
 	default:
 		return newError("unknown method '%s' for ARRAY", method)

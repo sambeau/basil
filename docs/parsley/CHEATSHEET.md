@@ -231,6 +231,11 @@ let date = @(2024-{month}-{day})  // Builds from variables
 [1,2] || [2,3]              // [1, 2, 3] (union)
 [1,2,3] - [2]               // [1, 3] (subtraction)
 
+// Membership testing with 'in'
+2 in [1, 2, 3]              // true (array membership)
+"name" in {name: "Sam"}     // true (dict key exists)
+"ell" in "hello"            // true (substring)
+
 // Range
 1..5                         // [1, 2, 3, 4, 5]
 ```
@@ -256,6 +261,7 @@ data =/=> conn(@/remote/file.json).json
 "hello".toUpper()              // "HELLO"
 "  trim  ".trim()           // "trim"
 "a,b,c".split(",")          // ["a", "b", "c"]
+"hello".includes("ell")     // true (substring check)
 
 // Array methods
 [3,1,2].sort()              // [1, 2, 3]
@@ -265,6 +271,7 @@ data =/=> conn(@/remote/file.json).json
 [1,2,3].pick()              // 2 (random element)
 [1,2,3].pick(5)             // [1, 3, 1, 2, 1] (random, allows duplicates)
 [1,2,3,4,5].take(3)         // [4, 1, 3] (random, unique)
+[1,2,3].includes(2)         // true (membership check)
 
 // Path methods
 @./file.txt.exists          // true/false
