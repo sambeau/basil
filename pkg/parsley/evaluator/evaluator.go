@@ -7019,6 +7019,17 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(function) {
 			return function
 		}
+		
+		// Better error for calling null as a function
+		if function == NULL || function == nil {
+			funcName := node.Function.String()
+			// Check if this looks like it came from an import destructuring
+			if ident, ok := node.Function.(*ast.Identifier); ok {
+				return newError("cannot call '%s' because it is null\n   💡 Hint: '%s' may not be exported from the imported module. Check the export name matches.", ident.Value, ident.Value)
+			}
+			return newError("cannot call null as a function: %s", funcName)
+		}
+		
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
@@ -7960,7 +7971,10 @@ func applyFunction(fn Object, args []Object) Object {
 	case *Builtin:
 		return fn.Fn(args...)
 	default:
-		return newError("not a function: %s", fn.Type())
+		if fn == NULL || fn == nil {
+			return newError("cannot call null as a function\n   💡 Hint: The value may not be exported from an imported module, or the variable is uninitialized")
+		}
+		return newError("cannot call %s as a function\n   💡 Hint: Only functions can be called with parentheses", fn.Type())
 	}
 }
 
@@ -8010,7 +8024,10 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			Options:    nil,
 		}
 	default:
-		return newError("not a function: %s", fn.Type())
+		if fn == NULL || fn == nil {
+			return newError("cannot call null as a function\n   💡 Hint: The value may not be exported from an imported module, or the variable is uninitialized")
+		}
+		return newError("cannot call %s as a function\n   💡 Hint: Only functions can be called with parentheses", fn.Type())
 	}
 }
 
@@ -8841,8 +8858,20 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		dict.Pairs["contents"] = createLiteralExpression(contentsObj)
 	}
 
+	// Check if component is null (common when import destructuring gets wrong name)
+	if val == NULL || val == nil {
+		return newError("cannot use '<%s/>' because '%s' is null\n   💡 Hint: '%s' may not be exported from the imported module. Check the export name matches.", node.Name, node.Name, node.Name)
+	}
+
 	// Call the function with the props dictionary
-	return applyFunction(val, []Object{dict})
+	result := applyFunction(val, []Object{dict})
+	
+	// Improve error message if function call failed
+	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
+		return newError("cannot use '<%s/>' because '%s' is not a function (got %s)\n   💡 Hint: Components must be functions. Check that '%s' is exported as a function.", node.Name, node.Name, val.Type(), node.Name)
+	}
+	
+	return result
 }
 
 // evalTagContents evaluates tag contents and returns as a concatenated string
@@ -9151,8 +9180,13 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 		if builtin, ok := getBuiltins()[tagName]; ok {
 			val = builtin
 		} else {
-			return newError("function not found: %s", tagName)
+			return newError("undefined component: %s\n   💡 Hint: Make sure '%s' is imported or defined before use", tagName, tagName)
 		}
+	}
+
+	// Check if component is null (common when import destructuring gets wrong name)
+	if val == NULL || val == nil {
+		return newError("cannot use '<%s/>' because '%s' is null\n   💡 Hint: '%s' may not be exported from the imported module. Check the export name matches.", tagName, tagName, tagName)
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -9167,7 +9201,14 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 	}
 
 	// Call the function with the props dictionary
-	return applyFunction(val, []Object{props})
+	result := applyFunction(val, []Object{props})
+	
+	// Improve error message if function call failed
+	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
+		return newError("cannot use '<%s/>' because '%s' is not a function (got %s)\n   💡 Hint: Components must be functions. Check that '%s' is exported as a function.", tagName, tagName, val.Type(), tagName)
+	}
+	
+	return result
 }
 
 // parseTagProps parses tag properties into a dictionary
