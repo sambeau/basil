@@ -2903,6 +2903,27 @@ func isDirDict(dict *Dictionary) bool {
 	return false
 }
 
+// fileDictToPathDict converts a file/dir dictionary to a path dictionary
+// File dicts use _pathComponents/_pathAbsolute, path dicts use components/absolute
+func fileDictToPathDict(dict *Dictionary) *Dictionary {
+	compExpr, ok := dict.Pairs["_pathComponents"]
+	if !ok {
+		return nil
+	}
+	absExpr := dict.Pairs["_pathAbsolute"]
+	if absExpr == nil {
+		absExpr = &ast.Boolean{Value: false}
+	}
+
+	return &Dictionary{
+		Pairs: map[string]ast.Expression{
+			"components": compExpr,
+			"absolute":   absExpr,
+		},
+		Env: dict.Env,
+	}
+}
+
 // evalDirComputedProperty returns computed properties for directory dictionaries
 func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Object {
 	pathStr := getFilePathString(dict, env)
@@ -5394,6 +5415,7 @@ func getBuiltins() map[string]*Builtin {
 		},
 		// asset() - converts a path under public_dir to a web URL
 		// e.g., asset(@./public/images/foo.png) -> "/images/foo.png"
+		// Also accepts file dictionaries from files() and extracts their path
 		"asset": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -5405,12 +5427,21 @@ func getBuiltins() map[string]*Builtin {
 					if isPathDict(arg) {
 						return &String{Value: pathToWebURL(arg)}
 					}
-					return newError("argument to `asset` must be a path, got dictionary")
+					// Check if it's a file/dir dictionary - extract path and convert
+					if isFileDict(arg) || isDirDict(arg) {
+						// Convert file dict to path dict for pathToWebURL
+						pathDict := fileDictToPathDict(arg)
+						if pathDict != nil {
+							return &String{Value: pathToWebURL(pathDict)}
+						}
+						return newError("could not extract path from file")
+					}
+					return newError("argument to `asset` must be a path or file, got dictionary")
 				case *String:
 					// If it's already a string, just return it
 					return arg
 				default:
-					return newError("argument to `asset` must be a path, got %s", args[0].Type())
+					return newError("argument to `asset` must be a path or file, got %s", args[0].Type())
 				}
 			},
 		},
