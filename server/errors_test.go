@@ -370,6 +370,88 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 	// Note: live reload script is injected by middleware, not tested here
 }
 
+func TestImproveErrorMessage(t *testing.T) {
+	tests := []struct {
+		name         string
+		message      string
+		wantImproved string
+		wantHint     string
+	}{
+		{
+			name:         "missing parentheses",
+			message:      "expected '(', got 'x'",
+			wantImproved: "Missing parentheses around condition",
+			wantHint:     "Parsley requires parentheses: if (condition) { } and for (x in arr) { }",
+		},
+		{
+			name:         "python comment",
+			message:      "unexpected '#'",
+			wantImproved: "Invalid comment syntax",
+			wantHint:     "Use // for comments, not #. Parsley uses C-style comments: // single line or /* multi-line */",
+		},
+		{
+			name:         "console.log",
+			message:      "identifier not found: console",
+			wantImproved: "'console' is not defined",
+			wantHint:     "Use log() for debugging output. Example: log(\"value:\", myVar)",
+		},
+		{
+			name:         "print function",
+			message:      "identifier not found: print",
+			wantImproved: "'print' is not defined",
+			wantHint:     "Use log() for output. Example: log(\"hello world\")",
+		},
+		{
+			name:         "document DOM",
+			message:      "identifier not found: document",
+			wantImproved: "'document' is not defined",
+			wantHint:     "Parsley runs on the server, not in the browser. DOM APIs are not available.",
+		},
+		{
+			name:         "window browser global",
+			message:      "identifier not found: window",
+			wantImproved: "'window' is not defined",
+			wantHint:     "Parsley runs on the server, not in the browser. Browser globals are not available.",
+		},
+		{
+			name:         "require Node.js",
+			message:      "identifier not found: require",
+			wantImproved: "'require' is not defined",
+			wantHint:     "Use 'import' to load modules. Example: import utils from \"./utils.pars\"",
+		},
+		{
+			name:         "unrecognized component tag",
+			message:      "expected identifier as dictionary key, got opening tag",
+			wantImproved: "Unrecognized component tag",
+			wantHint:     "Is the component imported? Check that the import path is correct and the component is exported.",
+		},
+		{
+			name:         "unexpected uppercase (undefined component)",
+			message:      "unexpected 'MyComponent'",
+			wantImproved: "'MyComponent' is not defined",
+			wantHint:     "Did you forget to import MyComponent? Component names must start with an uppercase letter.",
+		},
+		{
+			name:         "no improvement needed",
+			message:      "some other error",
+			wantImproved: "some other error",
+			wantHint:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotImproved, gotHint := improveErrorMessage(tt.message)
+			if gotImproved != tt.wantImproved {
+				t.Errorf("improved = %q, want %q", gotImproved, tt.wantImproved)
+			}
+			if gotHint != tt.wantHint {
+				t.Errorf("hint = %q, want %q", gotHint, tt.wantHint)
+			}
+		})
+	}
+}
+
 func TestHandleScriptError_ProdMode(t *testing.T) {
 	// Create a mock handler with dev mode disabled
 	cfg := &config.Config{

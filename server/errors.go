@@ -380,6 +380,25 @@ func improveErrorMessage(message string) (improved string, hint string) {
 		}
 	}
 
+	// Pattern: "expected '(', got 'x'" after 'if' keyword
+	// User wrote: if x > 5 { } (Go/Python style without parens)
+	ifParenPattern := regexp.MustCompile(`expected '\(', got '([^']+)'`)
+	if matches := ifParenPattern.FindStringSubmatch(message); len(matches) > 1 {
+		// Check if this looks like a condition variable
+		if matches[1] != "(" && matches[1] != "{" {
+			improved = fmt.Sprintf("Missing parentheses around condition")
+			hint = "Parsley requires parentheses: if (condition) { } and for (x in arr) { }"
+			return improved, hint
+		}
+	}
+
+	// Pattern: "unexpected '#'" - Python-style comment
+	if strings.Contains(message, "unexpected '#'") {
+		improved = "Invalid comment syntax"
+		hint = "Use // for comments, not #. Parsley uses C-style comments: // single line or /* multi-line */"
+		return improved, hint
+	}
+
 	// Pattern: "expected identifier as dictionary key, got opening tag"
 	// This happens when parser sees <ComponentName> but ComponentName is undefined
 	dictKeyPattern := regexp.MustCompile(`expected identifier as dictionary key, got opening tag`)
@@ -398,6 +417,43 @@ func improveErrorMessage(message string) (improved string, hint string) {
 		componentName := matches[1]
 		improved = fmt.Sprintf("'%s' is not defined", componentName)
 		hint = fmt.Sprintf("Did you forget to import %s? Component names must start with an uppercase letter.", componentName)
+		return improved, hint
+	}
+
+	// === Runtime error patterns ===
+
+	// Pattern: "identifier not found: console" - JavaScript console.log()
+	if strings.Contains(message, "identifier not found: console") {
+		improved = "'console' is not defined"
+		hint = "Use log() for debugging output. Example: log(\"value:\", myVar)"
+		return improved, hint
+	}
+
+	// Pattern: "identifier not found: print" - Python print()
+	if strings.Contains(message, "identifier not found: print") {
+		improved = "'print' is not defined"
+		hint = "Use log() for output. Example: log(\"hello world\")"
+		return improved, hint
+	}
+
+	// Pattern: "identifier not found: document" - JavaScript DOM
+	if strings.Contains(message, "identifier not found: document") {
+		improved = "'document' is not defined"
+		hint = "Parsley runs on the server, not in the browser. DOM APIs are not available."
+		return improved, hint
+	}
+
+	// Pattern: "identifier not found: window" - JavaScript browser global
+	if strings.Contains(message, "identifier not found: window") {
+		improved = "'window' is not defined"
+		hint = "Parsley runs on the server, not in the browser. Browser globals are not available."
+		return improved, hint
+	}
+
+	// Pattern: "identifier not found: require" - Node.js require()
+	if strings.Contains(message, "identifier not found: require") {
+		improved = "'require' is not defined"
+		hint = "Use 'import' to load modules. Example: import utils from \"./utils.pars\""
 		return improved, hint
 	}
 
