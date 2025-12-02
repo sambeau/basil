@@ -210,7 +210,7 @@ func TestArrayJoinWithComma(t *testing.T) {
 }
 
 func TestArrayJoinPathComponents(t *testing.T) {
-	result := evalStringConv(`let p = path("/usr/local/bin"); p.components.join("/")`)
+	result := evalStringConv(`let p = @/usr/local/bin; p.components.join("/")`)
 	expected := "/usr/local/bin"
 	if result != expected {
 		t.Errorf("got %q, want %q", result, expected)

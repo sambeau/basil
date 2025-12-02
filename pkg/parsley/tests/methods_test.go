@@ -287,12 +287,12 @@ func TestPathMethods(t *testing.T) {
 		expected bool
 	}{
 		// isAbsolute()
-		{`let p = path("/usr/local"); p.isAbsolute()`, true},
-		{`let p = path("relative/path"); p.isAbsolute()`, false},
+		{`let p = @/usr/local; p.isAbsolute()`, true},
+		{`let p = @./relative/path; p.isAbsolute()`, false},
 
 		// isRelative()
-		{`let p = path("/usr/local"); p.isRelative()`, false},
-		{`let p = path("relative/path"); p.isRelative()`, true},
+		{`let p = @/usr/local; p.isRelative()`, false},
+		{`let p = @./relative/path; p.isRelative()`, true},
 	}
 
 	for _, tt := range tests {

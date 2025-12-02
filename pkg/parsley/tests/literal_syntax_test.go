@@ -112,8 +112,9 @@ func TestLiteralConstructorEquivalence(t *testing.T) {
 		literal     string
 		constructor string
 	}{
-		{"@/usr/local/bin", `path("/usr/local/bin")`},
-		{"@./config.json", `path("./config.json")`},
+		// path() builtin removed - use @({...}) for dynamic paths
+		{"@/usr/local/bin", `@({"/usr/local/bin"})`},
+		{"@./config.json", `@({"./config.json"})`},
 		{"@https://example.com/api", `url("https://example.com/api")`},
 		{"@http://localhost:8080/test", `url("http://localhost:8080/test")`},
 	}

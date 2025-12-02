@@ -35,32 +35,32 @@ func TestPathParsing(t *testing.T) {
 	}{
 		{
 			name:     "absolute unix path",
-			input:    `path("/usr/local/bin")`,
+			input:    `@/usr/local/bin`,
 			expected: `{__type: path, absolute: true, components: , usr, local, bin}`,
 		},
 		{
 			name:     "relative path",
-			input:    `path("./config/app.json")`,
+			input:    `@./config/app.json`,
 			expected: `{__type: path, absolute: false, components: ., config, app.json}`,
 		},
 		{
 			name:     "path_components_access",
-			input:    `let p = path("/usr/local/bin"); p.components`,
+			input:    `let p = @/usr/local/bin; p.components`,
 			expected: `[, usr, local, bin]`,
 		},
 		{
 			name:     "path components index",
-			input:    `let p = path("/usr/local/bin"); p.components[-1]`,
+			input:    `let p = @/usr/local/bin; p.components[-1]`,
 			expected: `bin`,
 		},
 		{
 			name:     "path absolute flag",
-			input:    `let p = path("/usr/local/bin"); p.absolute`,
+			input:    `let p = @/usr/local/bin; p.absolute`,
 			expected: `true`,
 		},
 		{
 			name:     "relative path absolute flag",
-			input:    `let p = path("./config/app.json"); p.absolute`,
+			input:    `let p = @./config/app.json; p.absolute`,
 			expected: `false`,
 		},
 	}
@@ -86,42 +86,42 @@ func TestPathComputedProperties(t *testing.T) {
 	}{
 		{
 			name:     "basename",
-			input:    `let p = path("/usr/local/bin/tool.exe"); p.basename`,
+			input:    `let p = @/usr/local/bin/tool.exe; p.basename`,
 			expected: `tool.exe`,
 		},
 		{
 			name:     "extension",
-			input:    `let p = path("/usr/local/bin/tool.exe"); p.extension`,
+			input:    `let p = @/usr/local/bin/tool.exe; p.extension`,
 			expected: `exe`,
 		},
 		{
 			name:     "ext alias",
-			input:    `let p = path("/usr/local/bin/tool.exe"); p.ext`,
+			input:    `let p = @/usr/local/bin/tool.exe; p.ext`,
 			expected: `exe`,
 		},
 		{
 			name:     "stem",
-			input:    `let p = path("/usr/local/bin/tool.exe"); p.stem`,
+			input:    `let p = @/usr/local/bin/tool.exe; p.stem`,
 			expected: `tool`,
 		},
 		{
 			name:     "dirname as string",
-			input:    `let p = path("/usr/local/bin/tool.exe"); toString(p.dirname)`,
+			input:    `let p = @/usr/local/bin/tool.exe; toString(p.dirname)`,
 			expected: `/usr/local/bin`,
 		},
 		{
 			name:     "parent alias",
-			input:    `let p = path("/usr/local/bin/tool.exe"); toString(p.parent)`,
+			input:    `let p = @/usr/local/bin/tool.exe; toString(p.parent)`,
 			expected: `/usr/local/bin`,
 		},
 		{
 			name:     "no extension",
-			input:    `let p = path("/usr/local/bin/README"); p.extension`,
+			input:    `let p = @/usr/local/bin/README; p.extension`,
 			expected: ``,
 		},
 		{
 			name:     "multi-part extension",
-			input:    `let p = path("/archive/file.tar.gz"); p.extension`,
+			input:    `let p = @/archive/file.tar.gz; p.extension`,
 			expected: `gz`,
 		},
 	}
@@ -147,18 +147,18 @@ func TestPathToString(t *testing.T) {
 	}{
 		{
 			name:     "absolute path to string",
-			input:    `let p = path("/usr/local/bin"); toString(p)`,
+			input:    `let p = @/usr/local/bin; toString(p)`,
 			expected: `/usr/local/bin`,
 		},
 		{
 			name:     "relative path to string",
-			input:    `let p = path("./config/app.json"); toString(p)`,
+			input:    `let p = @./config/app.json; toString(p)`,
 			expected: `./config/app.json`,
 		},
 		{
 			name:     "roundtrip path",
-			input:    `let p = path("/usr/local/bin"); toString(path(toString(p)))`,
-			expected: `/usr/local/bin`,
+			input:    `let p = @/usr/local/bin; let s = toString(p); @({s})`,
+			expected: `{__type: path, absolute: true, components: , usr, local, bin}`,
 		},
 	}
 
@@ -326,12 +326,12 @@ func TestPathArrayComposition(t *testing.T) {
 	}{
 		{
 			name:     "filter path components using join",
-			input:    `let p = path("/usr/local/bin"); p.components.filter(fn(c) { c != "local" }).join("/")`,
+			input:    `let p = @/usr/local/bin; p.components.filter(fn(c) { c != "local" }).join("/")`,
 			expected: `/usr/bin`,
 		},
 		{
 			name:     "map path components",
-			input:    `let p = path("/usr/local/bin"); p.components.map(fn(c) { len(c) })`,
+			input:    `let p = @/usr/local/bin; p.components.map(fn(c) { len(c) })`,
 			expected: `[0, 3, 5, 3]`,
 		},
 	}

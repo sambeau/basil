@@ -4238,22 +4238,6 @@ func getBuiltins() map[string]*Builtin {
 				return timeToDict(t, env)
 			},
 		},
-		"path": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newError("wrong number of arguments to `path`. got=%d, want=1", len(args))
-				}
-
-				str, ok := args[0].(*String)
-				if !ok {
-					return newError("argument to `path` must be a string, got %s", args[0].Type())
-				}
-
-				components, isAbsolute := parsePathString(str.Value)
-				env := NewEnvironment()
-				return pathToDict(components, isAbsolute, env)
-			},
-		},
 		"url": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
