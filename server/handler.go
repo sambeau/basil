@@ -153,13 +153,15 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.Filename = h.scriptPath
 
 	// Set security policy
-	// Allow executing Parsley files in the script's directory (for imports)
+	// Allow executing Parsley files in the script's directory and subdirectories (for imports)
 	scriptDir := filepath.Dir(h.scriptPath)
+	// Get absolute path for proper prefix matching
+	absScriptDir, _ := filepath.Abs(scriptDir)
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
-		AllowExecute:  []string{scriptDir},               // Allow imports from handler directory
+		AllowExecute:  []string{absScriptDir},            // Allow imports from handler directory tree
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
