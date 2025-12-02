@@ -3527,6 +3527,54 @@ func pathDictToString(dict *Dictionary) string {
 	return result
 }
 
+// pathDictToFilesystemString converts a path dictionary to filesystem string WITHOUT public_dir transformation
+// Use this for actual filesystem operations (files(), file(), etc.) where we need the real path
+func pathDictToFilesystemString(dict *Dictionary) string {
+	// Get components array
+	componentsExpr, ok := dict.Pairs["components"]
+	if !ok {
+		return ""
+	}
+
+	// Evaluate the array expression
+	componentsObj := Eval(componentsExpr, dict.Env)
+	arr, ok := componentsObj.(*Array)
+	if !ok {
+		return ""
+	}
+
+	// Get absolute flag
+	isAbsolute := false
+	if absExpr, ok := dict.Pairs["absolute"]; ok {
+		absObj := Eval(absExpr, dict.Env)
+		if b, ok := absObj.(*Boolean); ok {
+			isAbsolute = b.Value
+		}
+	}
+
+	// Build path string from components
+	var parts []string
+	for _, elem := range arr.Elements {
+		if str, ok := elem.(*String); ok {
+			parts = append(parts, str.Value)
+		}
+	}
+
+	if len(parts) == 0 {
+		if isAbsolute {
+			return "/"
+		}
+		return "."
+	}
+
+	// Join components and add leading / for absolute paths
+	result := strings.Join(parts, "/")
+	if isAbsolute {
+		return "/" + result
+	}
+	return result
+}
+
 // urlDictToString converts a URL dictionary back to a string
 func urlDictToString(dict *Dictionary) string {
 	var result strings.Builder
@@ -3967,7 +4015,7 @@ func getBuiltins() map[string]*Builtin {
 					if keyFileObj, ok := options["keyFile"]; ok {
 						var keyPath string
 						if keyDict, ok := keyFileObj.(*Dictionary); ok && isPathDict(keyDict) {
-							keyPath = pathDictToString(keyDict)
+							keyPath = pathDictToFilesystemString(keyDict)
 						} else if keyStr, ok := keyFileObj.(*String); ok {
 							keyPath = keyStr.Value
 						}
@@ -4028,7 +4076,7 @@ func getBuiltins() map[string]*Builtin {
 					if knownHostsObj, ok := options["knownHostsFile"]; ok {
 						var knownHostsPath string
 						if khDict, ok := knownHostsObj.(*Dictionary); ok && isPathDict(khDict) {
-							knownHostsPath = pathDictToString(khDict)
+							knownHostsPath = pathDictToFilesystemString(khDict)
 						} else if khStr, ok := knownHostsObj.(*String); ok {
 							knownHostsPath = khStr.Value
 						}
@@ -4744,12 +4792,12 @@ func getBuiltins() map[string]*Builtin {
 				switch arg := args[0].(type) {
 				case *Dictionary:
 					if isPathDict(arg) {
-						// Convert path dict to string
+						// Convert path dict to filesystem string (not web URL)
 						// Ensure the dict has an env for evaluation
 						if arg.Env == nil {
 							arg.Env = env
 						}
-						pattern = pathDictToString(arg)
+						pattern = pathDictToFilesystemString(arg)
 					} else {
 						return newError("argument to `files` must be a path or string pattern, got dictionary")
 					}
@@ -6132,7 +6180,7 @@ func applyCommandOptions(cmd *exec.Cmd, optsLit *ast.DictionaryLiteral, env *Env
 		dirObj := Eval(dirExpr, env)
 		if pathDict, ok := dirObj.(*Dictionary); ok {
 			if isPathDict(pathDict) {
-				pathStr := pathDictToString(pathDict)
+				pathStr := pathDictToFilesystemString(pathDict)
 				cmd.Dir = pathStr
 			}
 		}
@@ -7611,13 +7659,13 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 func evalPathInfixExpression(tok lexer.Token, operator string, left, right *Dictionary) Object {
 	switch operator {
 	case "==":
-		// Compare paths by their string representation
-		leftStr := pathDictToString(left)
-		rightStr := pathDictToString(right)
+		// Compare paths by their filesystem string representation
+		leftStr := pathDictToFilesystemString(left)
+		rightStr := pathDictToFilesystemString(right)
 		return nativeBoolToParsBoolean(leftStr == rightStr)
 	case "!=":
-		leftStr := pathDictToString(left)
-		rightStr := pathDictToString(right)
+		leftStr := pathDictToFilesystemString(left)
+		rightStr := pathDictToFilesystemString(right)
 		return nativeBoolToParsBoolean(leftStr != rightStr)
 	default:
 		return newErrorWithPos(tok, "unknown operator for path: %s (supported: ==, !=)", operator)
@@ -7877,7 +7925,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			if !isPathDict(arg) {
 				return newError("argument to SFTP connection must be a path, got dictionary")
 			}
-			pathStr = pathDictToString(arg)
+			pathStr = pathDictToFilesystemString(arg)
 		case *String:
 			pathStr = arg.Value
 		default:
@@ -7910,7 +7958,7 @@ func evalImport(args []Object, env *Environment) Object {
 		if typeExpr, ok := arg.Pairs["__type"]; ok {
 			typeVal := Eval(typeExpr, arg.Env)
 			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
-				pathStr = pathDictToString(arg)
+				pathStr = pathDictToFilesystemString(arg)
 			} else {
 				return newError("argument to `import` must be a path or string, got dictionary")
 			}
