@@ -4796,15 +4796,16 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				var pattern string
-				env := NewEnvironment()
+				var env *Environment
 
 				switch arg := args[0].(type) {
 				case *Dictionary:
 					if isPathDict(arg) {
-						// Convert path dict to filesystem string (not web URL)
-						// Ensure the dict has an env for evaluation
-						if arg.Env == nil {
-							arg.Env = env
+						// Use the path dict's environment to preserve basil context
+						if arg.Env != nil {
+							env = arg.Env
+						} else {
+							env = NewEnvironment()
 						}
 						pattern = pathDictToString(arg)
 					} else {
@@ -4812,6 +4813,7 @@ func getBuiltins() map[string]*Builtin {
 					}
 				case *String:
 					pattern = arg.Value
+					env = NewEnvironment()
 				default:
 					return newError("argument to `files` must be a path or string pattern, got %s", args[0].Type())
 				}
