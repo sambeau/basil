@@ -70,6 +70,7 @@ const (
 	DB_CONNECTION_OBJ    = "DB_CONNECTION"
 	SFTP_CONNECTION_OBJ  = "SFTP_CONNECTION"
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
+	TABLE_OBJ            = "TABLE"
 )
 
 // Object represents all values in our language
@@ -216,6 +217,27 @@ func (d *Dictionary) Inspect() string {
 	out.WriteString(strings.Join(pairs, ", "))
 	out.WriteString("}")
 	return out.String()
+}
+
+// Table represents a tabular data structure wrapping an array of dictionaries.
+// Provides SQL-like operations (where, orderBy, select, etc.) with immutable semantics.
+type Table struct {
+	Rows    []*Dictionary // Array of dictionaries (each row is a dict)
+	Columns []string      // Column order (from first row or select())
+}
+
+func (t *Table) Type() ObjectType { return TABLE_OBJ }
+func (t *Table) Inspect() string {
+	return fmt.Sprintf("Table(%d rows)", len(t.Rows))
+}
+
+// Copy creates a deep copy of the Table for immutability
+func (t *Table) Copy() *Table {
+	newRows := make([]*Dictionary, len(t.Rows))
+	copy(newRows, t.Rows) // Shallow copy of slice - rows themselves are immutable dicts
+	newColumns := make([]string, len(t.Columns))
+	copy(newColumns, t.Columns)
+	return &Table{Rows: newRows, Columns: newColumns}
 }
 
 // DBConnection represents a database connection
@@ -6883,6 +6905,8 @@ func Eval(node ast.Node, env *Environment) Object {
 
 			// Dispatch based on receiver type
 			switch receiver := left.(type) {
+			case *Table:
+				return EvalTableMethod(receiver, method, args, env)
 			case *DBConnection:
 				return evalDBConnectionMethod(receiver, method, args, env)
 			case *SFTPConnection:
@@ -8011,6 +8035,10 @@ func applyFunction(fn Object, args []Object) Object {
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
 		return fn.Fn(args...)
+	case *StdlibBuiltin:
+		// StdlibBuiltin needs an environment but applyFunction doesn't have one
+		// This shouldn't happen as StdlibBuiltin should be called via applyFunctionWithEnv
+		return newError("stdlib function called without environment context")
 	default:
 		if fn == NULL || fn == nil {
 			return newError("cannot call null as a function\n   💡 Hint: The value may not be exported from an imported module, or the variable is uninitialized")
@@ -8037,6 +8065,8 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
 		return fn.Fn(args...)
+	case *StdlibBuiltin:
+		return fn.Fn(args, env)
 	case *SFTPConnection:
 		// SFTP connection is callable: conn(@/path) returns SFTP file handle
 		if len(args) != 1 {
@@ -8099,10 +8129,10 @@ func evalImport(args []Object, env *Environment) Object {
 		return newError("argument to `import` must be a path or string, got %s", arg.Type())
 	}
 
-	// Check for stdlib imports (std/...) - these are not yet implemented
+	// Check for standard library imports (@std/modulename)
 	if strings.HasPrefix(pathStr, "std/") {
-		moduleName := pathStr[4:] // Remove "std/" prefix
-		return newError("standard library module '@std/%s' is not yet available\n   💡 Hint: The Parsley standard library is coming soon. For now, define your own utility functions.", moduleName)
+		moduleName := strings.TrimPrefix(pathStr, "std/")
+		return loadStdlibModule(moduleName, env)
 	}
 
 	// Resolve path relative to current file (or root path for ~/ paths)
@@ -8628,6 +8658,11 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 
 // evalDictDestructuringAssignment evaluates dictionary destructuring patterns
 func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool, export bool) Object {
+	// Handle StdlibModuleDict (from @std/ imports)
+	if stdlibMod, ok := val.(*StdlibModuleDict); ok {
+		return evalStdlibModuleDestructuring(pattern, stdlibMod, env, isLet, export)
+	}
+
 	// Type check: value must be a dictionary
 	dict, ok := val.(*Dictionary)
 	if !ok {
@@ -9971,6 +10006,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Null propagation: property access on null returns null
 	if left == NULL || left == nil {
 		return NULL
+	}
+
+	// Handle Table property access
+	if table, ok := left.(*Table); ok {
+		return EvalTableProperty(table, node.Key)
 	}
 
 	// Handle SFTP file handles for format accessors

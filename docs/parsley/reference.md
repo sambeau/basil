@@ -2435,6 +2435,119 @@ SQLITE(123)
 
 ---
 
+## Standard Library
+
+Parsley includes a standard library of modules that provide additional functionality. Import them using the `std/` prefix:
+
+```parsley
+let {Table} = import("std/table")
+```
+
+> **Note:** The `@std/` path literal syntax is planned but not yet implemented. Use string imports for now.
+
+### Table Module (`std/table`)
+
+The Table module provides SQL-like operations on arrays of dictionaries.
+
+#### Creating a Table
+
+```parsley
+let {Table} = import("std/table")
+
+let data = [
+    {name: "Alice", age: 30, dept: "Engineering"},
+    {name: "Bob", age: 25, dept: "Sales"},
+    {name: "Carol", age: 35, dept: "Engineering"}
+]
+
+let t = Table(data)
+```
+
+#### Properties
+
+| Property | Description |
+|----------|-------------|
+| `.rows` | Returns the array of dictionaries |
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.where(fn)` | Filter rows where predicate returns truthy |
+| `.orderBy(col)` | Sort by column (ascending) |
+| `.orderBy(col, "desc")` | Sort by column (descending) |
+| `.orderBy([col1, col2])` | Sort by multiple columns |
+| `.select([cols])` | Keep only specified columns |
+| `.limit(n)` | Take first n rows |
+| `.limit(n, offset)` | Take n rows starting at offset |
+| `.count()` | Return number of rows |
+| `.sum(col)` | Sum of numeric values in column |
+| `.avg(col)` | Average of numeric values in column |
+| `.min(col)` | Minimum value in column |
+| `.max(col)` | Maximum value in column |
+| `.toHTML()` | Render as HTML table string |
+| `.toCSV()` | Render as CSV string (RFC 4180) |
+
+#### Examples
+
+**Filtering:**
+```parsley
+// Get engineering employees over 28
+Table(data)
+    .where(fn(row) { row.dept == "Engineering" && row.age > 28 })
+    .rows  // [{name: "Alice", ...}, {name: "Carol", ...}]
+```
+
+**Sorting:**
+```parsley
+// Sort by age descending
+Table(data).orderBy("age", "desc").rows
+
+// Sort by department, then by age descending
+Table(data).orderBy([["dept", "asc"], ["age", "desc"]]).rows
+```
+
+**Projection:**
+```parsley
+// Keep only name and age
+Table(data).select(["name", "age"]).rows
+```
+
+**Aggregation:**
+```parsley
+Table(data).count()         // 3
+Table(data).sum("age")      // 90
+Table(data).avg("age")      // 30.0
+Table(data).min("age")      // 25
+Table(data).max("age")      // 35
+```
+
+**Chaining:**
+```parsley
+// Active users over 25, sorted by name, first 10
+Table(users)
+    .where(fn(u) { u.active && u.age > 25 })
+    .orderBy("name")
+    .limit(10)
+    .select(["name", "email"])
+    .toHTML()
+```
+
+**Output Formats:**
+```parsley
+// HTML table
+Table(data).toHTML()
+// <table><thead><tr><th>age</th><th>dept</th><th>name</th></tr></thead>...
+
+// CSV
+Table(data).toCSV()
+// "age","dept","name"
+// 30,"Engineering","Alice"
+// ...
+```
+
+---
+
 ## Go Library
 
 The `pkg/parsley` package provides a public API for embedding Parsley in Go applications.

@@ -1,5 +1,5 @@
 ---
-updated: 2025-12-02
+updated: 2025-01-03
 ---
 
 # Backlog
@@ -10,6 +10,7 @@ Deferred items from implementation, to be picked up in future work.
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
 | Resolve paths relative to config file location | FEAT-002 | Phase 1 scope | Handler/static paths should be relative to config file, not CWD |
+| Add @std/ prefix support to lexer | FEAT-018 | Workaround available | Currently requires `import("std/table")` string syntax. Should support `import(@std/table)` path literal. |
 
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
@@ -22,6 +23,13 @@ Deferred items from implementation, to be picked up in future work.
 | Email recovery | FEAT-004 | Probably never | Magic link via email. Pain points: deliverability (SPF/DKIM/reputation), styling (1999 CSS), complexity. SMS is easier. |
 | Multiple passkeys per user | FEAT-004 | Not MVP | Allow registering phone + laptop + YubiKey. Adds device management UI. |
 | Roles/permissions | FEAT-004 | Not MVP | `request.user.role` and role-based route protection |
+| Table.groupBy(column) | FEAT-018 | Not MVP | Complex aggregation, needs design for return type |
+| Table.join(table, column) | FEAT-018 | Not MVP | SQL joins, needs careful design |
+| Table column transforms | FEAT-018 | Not MVP | `transform(col, fn)`, `addColumn(name, fn)` |
+| Table.distinct() | FEAT-018 | Not MVP | Deduplication |
+| Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access |
+| Table.toJSON() | FEAT-018 | Not MVP | JSON output |
+| Table.fromCSV(string) | FEAT-018 | Not MVP | CSV parsing into Table |
 
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |

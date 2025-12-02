@@ -514,6 +514,51 @@ let {Page} = import(@~/components/page.pars)
 
 // Destructuring import
 let {greet, PI, Logo} = import(@./utils.pars)
+
+// Standard library import (use string syntax)
+let {Table} = import("std/table")
+```
+
+### Standard Library
+
+#### Table Module (`std/table`)
+SQL-like operations on arrays of dictionaries:
+```parsley
+let {Table} = import("std/table")
+
+let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+let t = Table(data)
+
+// Filtering
+t.where(fn(row) { row.age > 25 }).rows   // [{name: "Alice", age: 30}]
+
+// Sorting  
+t.orderBy("age", "desc").rows            // Sorted by age descending
+
+// Projection
+t.select(["name"]).rows                  // [{name: "Alice"}, {name: "Bob"}]
+
+// Pagination
+t.limit(10).rows                         // First 10 rows
+t.limit(10, 20).rows                     // 10 rows starting at offset 20
+
+// Aggregation
+t.count()                                // 2
+t.sum("age")                             // 55
+t.avg("age")                             // 27.5
+t.min("age")                             // 25
+t.max("age")                             // 30
+
+// Output
+t.toHTML()                               // HTML <table> string
+t.toCSV()                                // CSV string (RFC 4180)
+
+// Chaining
+Table(users)
+    .where(fn(u) { u.active })
+    .orderBy("name")
+    .limit(10)
+    .toHTML()
 ```
 
 ---

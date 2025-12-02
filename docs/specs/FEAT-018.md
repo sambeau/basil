@@ -1,10 +1,11 @@
 # FEAT-018: Standard Library Table Module
 
 ## Status
-- **State:** Draft
+- **State:** Implemented
 - **Priority:** High
 - **Branch:** `feat/FEAT-018-stdlib-table`
-- **Related:** None
+- **Related:** PLAN-010
+- **Completed:** 2025-01-03
 
 ## Summary
 Add a Table module to the Parsley standard library that provides SQL-like operations on arrays of dictionaries. This establishes the foundation for the standard library pattern.
