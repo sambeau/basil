@@ -1376,20 +1376,19 @@ func fileDictToString(dict *Dictionary) string {
 		}
 	}
 
-	// Build path string
-	var result strings.Builder
-	for i, comp := range components {
-		if comp == "" && i == 0 && isAbsolute {
-			result.WriteString("/")
-		} else {
-			if i > 0 && (i > 1 || !isAbsolute) {
-				result.WriteString("/")
-			}
-			result.WriteString(comp)
+	// Build path string - use same logic as pathDictToString
+	if len(components) == 0 {
+		if isAbsolute {
+			return "/"
 		}
+		return "."
 	}
 
-	return result.String()
+	result := strings.Join(components, "/")
+	if isAbsolute {
+		return "/" + result
+	}
+	return result
 }
 
 // dirDictToString converts a directory dictionary to its path string (with trailing slash)
@@ -1416,21 +1415,24 @@ func dirDictToString(dict *Dictionary) string {
 		}
 	}
 
-	// Build path string
-	var result strings.Builder
-	for i, comp := range components {
-		if comp == "" && i == 0 && isAbsolute {
-			result.WriteString("/")
+	// Build path string - use same logic as pathDictToString
+	var pathStr string
+	if len(components) == 0 {
+		if isAbsolute {
+			pathStr = "/"
 		} else {
-			if i > 0 && (i > 1 || !isAbsolute) {
-				result.WriteString("/")
-			}
-			result.WriteString(comp)
+			pathStr = "./"
+		}
+	} else {
+		result := strings.Join(components, "/")
+		if isAbsolute {
+			pathStr = "/" + result
+		} else {
+			pathStr = result
 		}
 	}
 
 	// Add trailing slash for directories
-	pathStr := result.String()
 	if !strings.HasSuffix(pathStr, "/") {
 		pathStr += "/"
 	}
@@ -3548,67 +3550,97 @@ func pathToWebURL(dict *Dictionary) string {
 		return pathDictToString(dict)
 	}
 
-	publicDirParts := getPublicDirComponents(dict.Env)
-	if publicDirParts == nil {
-		return pathDictToString(dict)
-	}
-
-	// Get components
-	componentsExpr, ok := dict.Pairs["components"]
-	if !ok {
-		return ""
-	}
-	componentsObj := Eval(componentsExpr, dict.Env)
-	arr, ok := componentsObj.(*Array)
-	if !ok {
+	// Get the file path as a string first
+	filePath := pathDictToString(dict)
+	if filePath == "" {
 		return ""
 	}
 
-	// Get absolute flag - absolute paths are not transformed
-	if absExpr, ok := dict.Pairs["absolute"]; ok {
-		absObj := Eval(absExpr, dict.Env)
-		if b, ok := absObj.(*Boolean); ok && b.Value {
-			return pathDictToString(dict)
+	// Get public_dir from environment
+	publicDirStr := getPublicDir(dict.Env)
+	if publicDirStr == "" {
+		return filePath
+	}
+
+	// Resolve both paths to absolute for comparison
+	var absFilePath, absPublicDir string
+
+	if filepath.IsAbs(filePath) {
+		absFilePath = filepath.Clean(filePath)
+	} else {
+		// Relative to root path if available
+		if dict.Env.RootPath != "" {
+			absFilePath = filepath.Clean(filepath.Join(dict.Env.RootPath, filePath))
+		} else {
+			absFilePath = filepath.Clean(filePath)
 		}
 	}
 
-	// Build parts array
-	var parts []string
-	for _, elem := range arr.Elements {
-		if str, ok := elem.(*String); ok {
-			parts = append(parts, str.Value)
+	if filepath.IsAbs(publicDirStr) {
+		absPublicDir = filepath.Clean(publicDirStr)
+	} else {
+		// Relative to root path if available
+		if dict.Env.RootPath != "" {
+			absPublicDir = filepath.Clean(filepath.Join(dict.Env.RootPath, publicDirStr))
+		} else {
+			absPublicDir = filepath.Clean(publicDirStr)
 		}
 	}
 
-	// For relative paths, skip the leading "." when comparing
-	// @./public/images/foo.png → parts = [".", "public", "images", "foo.png"]
-	// public_dir = "./public" → publicDirParts = ["public"]
-	partsToCheck := parts
-	if len(parts) > 0 && parts[0] == "." {
-		partsToCheck = parts[1:]
+	// Check if file path is under public_dir
+	// Use HasPrefix on cleaned absolute paths
+	if strings.HasPrefix(absFilePath, absPublicDir+"/") {
+		// Strip public_dir prefix and return as web-root-relative path
+		webPath := strings.TrimPrefix(absFilePath, absPublicDir)
+		if webPath == "" || webPath == "/" {
+			return "/"
+		}
+		// Ensure it starts with /
+		if !strings.HasPrefix(webPath, "/") {
+			webPath = "/" + webPath
+		}
+		return webPath
 	}
 
-	if len(partsToCheck) >= len(publicDirParts) {
-		// Check if path starts with public_dir components
-		matches := true
-		for i, pdPart := range publicDirParts {
-			if partsToCheck[i] != pdPart {
-				matches = false
-				break
-			}
-		}
-		if matches {
-			// Strip public_dir prefix and return as web-root-relative path
-			webParts := partsToCheck[len(publicDirParts):]
-			if len(webParts) == 0 {
-				return "/"
-			}
-			return "/" + strings.Join(webParts, "/")
-		}
+	// Exact match (file IS the public dir root)
+	if absFilePath == absPublicDir {
+		return "/"
 	}
 
 	// Not under public_dir, return as-is
-	return pathDictToString(dict)
+	return filePath
+}
+
+// getPublicDir returns the public_dir string from the environment
+func getPublicDir(env *Environment) string {
+	if env == nil {
+		return ""
+	}
+
+	// Get basil object from environment
+	basilObj, ok := env.Get("basil")
+	if !ok || basilObj == nil {
+		return ""
+	}
+
+	// Extract basil.public_dir
+	basilDict, ok := basilObj.(*Dictionary)
+	if !ok {
+		return ""
+	}
+
+	publicDirExpr, ok := basilDict.Pairs["public_dir"]
+	if !ok {
+		return ""
+	}
+
+	publicDirObj := Eval(publicDirExpr, env)
+	publicDirStr, ok := publicDirObj.(*String)
+	if !ok {
+		return ""
+	}
+
+	return publicDirStr.Value
 }
 
 // urlDictToString converts a URL dictionary back to a string

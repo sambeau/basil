@@ -30,6 +30,12 @@ Before writing any Parsley code (handlers, tests, examples):
 - Human creates release tags
 - Use Conventional Commits format
 
+## Testing
+- All code changes must include tests
+- Run tests frequently during implementation
+- Update test files in `pkg/parsley/tests/` for Parsley language features
+- Bug fixes must include regression tests
+
 ## Documentation
 - Update `docs/guide/faq.md` when answering "how do I..." questions
 - Add deferred items to `BACKLOG.md`

@@ -44,3 +44,10 @@ pkg/          # Public packages (if any)
 - Prefer standard library when reasonable
 - Run `go mod tidy` after adding/removing dependencies
 - Commit `go.sum` with `go.mod`
+
+## Testing
+- All code changes must include tests
+- Run tests frequently during implementation
+- Update test files in `pkg/parsley/tests/` for Parsley language features
+- Bug fixes must include regression tests
+

@@ -204,3 +204,118 @@ func TestAssetInHTMLAttributes(t *testing.T) {
 		})
 	}
 }
+
+// TestAssetWithAbsolutePaths tests that asset() works with absolute paths
+// This simulates what happens when files(@~/public/images/*) returns absolute paths
+func TestAssetWithAbsolutePaths(t *testing.T) {
+	// Create a helper that sets up an environment with RootPath
+	evalWithRootPath := func(t *testing.T, input string, publicDir string, rootPath string) evaluator.Object {
+		l := lexer.New(input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			t.Fatalf("parser errors: %v", p.Errors())
+		}
+
+		env := evaluator.NewEnvironment()
+		env.RootPath = rootPath
+
+		if publicDir != "" {
+			basilDict := &evaluator.Dictionary{
+				Pairs: map[string]ast.Expression{
+					"public_dir": &ast.StringLiteral{Value: publicDir},
+				},
+				Env: env,
+			}
+			env.SetProtected("basil", basilDict)
+		}
+
+		return evaluator.Eval(program, env)
+	}
+
+	tests := []struct {
+		name      string
+		input     string
+		publicDir string
+		rootPath  string
+		expected  string
+	}{
+		{
+			name:      "absolute_path_under_public_dir",
+			input:     `asset(@/project/public/images/foo.png)`,
+			publicDir: "./public",
+			rootPath:  "/project",
+			expected:  `/images/foo.png`,
+		},
+		{
+			name:      "absolute_path_nested_under_public_dir",
+			input:     `asset(@/project/app/public/images/tubs/tub1.png)`,
+			publicDir: "./app/public",
+			rootPath:  "/project",
+			expected:  `/images/tubs/tub1.png`,
+		},
+		{
+			name:      "absolute_path_not_under_public_dir",
+			input:     `asset(@/other/path/file.txt)`,
+			publicDir: "./public",
+			rootPath:  "/project",
+			expected:  `/other/path/file.txt`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalWithRootPath(t, tt.input, tt.publicDir, tt.rootPath)
+			if result.Inspect() != tt.expected {
+				t.Errorf("for input %s with public_dir=%q, rootPath=%q:\nexpected: %s\n     got: %s",
+					tt.input, tt.publicDir, tt.rootPath, tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestFileDictToString tests that file dictionaries stringify correctly
+func TestFileDictToString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "absolute_path_concatenation",
+			input:    `"path: " + @/usr/local/bin`,
+			expected: `path: /usr/local/bin`,
+		},
+		{
+			name:     "relative_path_concatenation",
+			input:    `"path: " + @./some/file.txt`,
+			expected: `path: ./some/file.txt`,
+		},
+		{
+			name:     "home_path_concatenation",
+			input:    `"path: " + @~/documents/file.txt`,
+			expected: `path: ~/documents/file.txt`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("for input %s:\nexpected: %s\n     got: %s",
+					tt.input, tt.expected, result.Inspect())
+			}
+		})
+	}
+}
