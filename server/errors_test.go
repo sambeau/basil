@@ -333,6 +333,28 @@ func TestExtractLineInfo_ModuleParseErrors(t *testing.T) {
 	}
 }
 
+func TestExtractLineInfo_ModuleRuntimeError(t *testing.T) {
+	// Test runtime error from a module - the format from evaluator when a module has an error
+	// This is the format: "in module <path>: line X, column Y: <message>"
+	msg := "in module ./app/pages/scouts.pars: line 18, column 20: dot notation can only be used on dictionaries, got BUILTIN"
+
+	file, line, col, cleanMsg := extractLineInfo(msg)
+
+	if file != "./app/pages/scouts.pars" {
+		t.Errorf("expected file './app/pages/scouts.pars', got %q", file)
+	}
+	if line != 18 {
+		t.Errorf("expected line 18, got %d", line)
+	}
+	if col != 20 {
+		t.Errorf("expected column 20, got %d", col)
+	}
+	// Clean message should be stripped of the module prefix and line/col info
+	if strings.Contains(cleanMsg, "in module") {
+		t.Errorf("clean message should not contain 'in module', got %q", cleanMsg)
+	}
+}
+
 func TestHandleScriptError_DevMode(t *testing.T) {
 	// Create a mock handler with dev mode enabled
 	cfg := &config.Config{
@@ -368,6 +390,73 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 	}
 
 	// Note: live reload script is injected by middleware, not tested here
+}
+
+func TestHandleScriptErrorWithLocation_ModuleError(t *testing.T) {
+	// Test that module errors show the correct file path, not the parent handler path
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg, configPath: "/app/basil.yaml"}
+	h := &parsleyHandler{
+		server:     s,
+		scriptPath: "/app/app.pars", // The parent handler
+	}
+
+	w := httptest.NewRecorder()
+	// Simulate error message from a module - this is the format from evaluator
+	moduleErrMsg := "in module ./app/pages/scouts.pars: line 18, column 20: dot notation can only be used on dictionaries, got BUILTIN"
+	h.handleScriptErrorWithLocation(w, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
+
+	body := w.Body.String()
+
+	// The error page should show the MODULE path, not the parent handler path
+	if strings.Contains(body, "app.pars") && !strings.Contains(body, "scouts.pars") {
+		t.Error("error page should show module path (scouts.pars), not parent handler path (app.pars)")
+	}
+
+	// Should contain the correct file path
+	if !strings.Contains(body, "scouts.pars") {
+		t.Error("expected error page to show scouts.pars")
+	}
+
+	// Should show line 18
+	if !strings.Contains(body, ":18") && !strings.Contains(body, "18") {
+		t.Error("expected error page to show line 18")
+	}
+}
+
+func TestHandleScriptErrorWithLocation_ModuleNotFound(t *testing.T) {
+	// Test module-not-found errors show correct module file (no line info available)
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg, configPath: "/app/basil.yaml"}
+	h := &parsleyHandler{
+		server:     s,
+		scriptPath: "/app/app.pars",
+	}
+
+	w := httptest.NewRecorder()
+	moduleErrMsg := "in module ./app/pages/scouts.pars: module not found: ./app/pages/std/table"
+	h.handleScriptErrorWithLocation(w, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
+
+	body := w.Body.String()
+
+	// Should show the module where the import failed (scouts.pars), not the parent
+	if !strings.Contains(body, "scouts.pars") {
+		t.Errorf("expected error page to show scouts.pars, body contains: %s", body[:min(500, len(body))])
+	}
+
+	// Should NOT show app.pars as the primary file
+	// (it might appear in the message but not in the file-path span)
+	if strings.Contains(body, `class="file-path">./app/app.pars`) {
+		t.Error("error page should not show app.pars as primary file path")
+	}
 }
 
 func TestImproveErrorMessage(t *testing.T) {

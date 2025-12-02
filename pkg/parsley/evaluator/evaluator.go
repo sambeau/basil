@@ -8099,6 +8099,12 @@ func evalImport(args []Object, env *Environment) Object {
 		return newError("argument to `import` must be a path or string, got %s", arg.Type())
 	}
 
+	// Check for stdlib imports (std/...) - these are not yet implemented
+	if strings.HasPrefix(pathStr, "std/") {
+		moduleName := pathStr[4:] // Remove "std/" prefix
+		return newError("standard library module '@std/%s' is not yet available\n   💡 Hint: The Parsley standard library is coming soon. For now, define your own utility functions.", moduleName)
+	}
+
 	// Resolve path relative to current file (or root path for ~/ paths)
 	absPath, err := resolveModulePath(pathStr, env.Filename, env.RootPath)
 	if err != nil {

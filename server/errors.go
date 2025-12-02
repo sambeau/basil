@@ -734,23 +734,38 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 	// Common patterns:
 	// "parse error in /path/file.pars: message"
 	// "parse errors in module ./path/file.pars:\n  message"
+	// "in module ./path/file.pars: line X, column Y: message"
 	// "/path/file.pars:12: message"
 	// "/path/file.pars:12:5: message"
 	// "script error in /path/file.pars: message"
 
-	// Pattern: "error[s] in [module] <path>: <message>"
-	if idx := strings.Index(errMsg, " in "); idx != -1 {
-		rest := errMsg[idx+4:]
-		// Handle "module ./path:" format
-		if strings.HasPrefix(rest, "module ") {
-			rest = rest[7:] // skip "module "
-		}
-		// Find the colon after the path (could be ": " or ":\n")
+	// Pattern: "in module <path>: <message>" (starts with "in module")
+	if strings.HasPrefix(errMsg, "in module ") {
+		rest := errMsg[10:] // skip "in module "
+		// Find the colon after the path
 		if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
 			file = rest[:colonIdx]
 			// Clean message starts after the colon (and any whitespace)
 			remaining := rest[colonIdx+1:]
 			cleanMsg = strings.TrimLeft(remaining, " \n\t")
+		}
+	}
+
+	// Pattern: "error[s] in [module] <path>: <message>"
+	if file == "" {
+		if idx := strings.Index(errMsg, " in "); idx != -1 {
+			rest := errMsg[idx+4:]
+			// Handle "module ./path:" format
+			if strings.HasPrefix(rest, "module ") {
+				rest = rest[7:] // skip "module "
+			}
+			// Find the colon after the path (could be ": " or ":\n")
+			if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
+				file = rest[:colonIdx]
+				// Clean message starts after the colon (and any whitespace)
+				remaining := rest[colonIdx+1:]
+				cleanMsg = strings.TrimLeft(remaining, " \n\t")
+			}
 		}
 	}
 
