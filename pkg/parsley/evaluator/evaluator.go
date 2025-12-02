@@ -4845,11 +4845,16 @@ func getBuiltins() map[string]*Builtin {
 					return newError("argument to `files` must be a path or string pattern, got %s", args[0].Type())
 				}
 
-				// Expand home directory if needed
+				// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
 				if strings.HasPrefix(pattern, "~/") {
-					home, err := os.UserHomeDir()
-					if err == nil {
-						pattern = filepath.Join(home, pattern[2:])
+					if env != nil && env.RootPath != "" {
+						pattern = filepath.Join(env.RootPath, pattern[2:])
+					} else {
+						// Fallback to user home directory if no root path set
+						home, err := os.UserHomeDir()
+						if err == nil {
+							pattern = filepath.Join(home, pattern[2:])
+						}
 					}
 				}
 
