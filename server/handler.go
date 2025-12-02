@@ -153,15 +153,14 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.Filename = h.scriptPath
 
 	// Set security policy
-	// Allow executing Parsley files in the script's directory and subdirectories (for imports)
-	scriptDir := filepath.Dir(h.scriptPath)
-	// Get absolute path for proper prefix matching
-	absScriptDir, _ := filepath.Abs(scriptDir)
+	// Allow executing Parsley files from the project root (config's BaseDir)
+	// This enables imports from shared directories like /components
+	projectRoot := h.server.config.BaseDir
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
-		AllowExecute:  []string{absScriptDir},            // Allow imports from handler directory tree
+		AllowExecute:  []string{projectRoot},             // Allow imports from anywhere in project
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
