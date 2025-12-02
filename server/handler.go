@@ -634,6 +634,28 @@ func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, er
 		return
 	}
 
+	// Try to extract more specific location from the error message
+	// This handles cases like import errors where the message contains
+	// the actual file/line of the error (e.g., "parse errors in module ./path.pars:")
+	extractedFile, extractedLine, extractedCol, cleanMsg := extractLineInfo(message)
+	if extractedFile != "" {
+		filePath = extractedFile
+		// If we extracted a file from a "parse errors in module" message,
+		// this is really a parse error, not a runtime error
+		if strings.Contains(message, "parse error") {
+			errType = "parse"
+		}
+	}
+	if extractedLine > 0 {
+		line = extractedLine
+	}
+	if extractedCol > 0 {
+		col = extractedCol
+	}
+	if cleanMsg != "" && cleanMsg != message {
+		message = cleanMsg
+	}
+
 	// Get base path for making paths relative (directory of config file)
 	basePath := filepath.Dir(h.server.configPath)
 
