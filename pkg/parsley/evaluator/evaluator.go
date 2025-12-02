@@ -8050,7 +8050,10 @@ func evalImport(args []Object, env *Environment) Object {
 	// Read the file
 	content, err := os.ReadFile(absPath)
 	if err != nil {
-		return newError("failed to read module file %s: %s", absPath, err.Error())
+		if os.IsNotExist(err) {
+			return newError("module not found: %s", absPath)
+		}
+		return newError("failed to read module %s: %s", absPath, err.Error())
 	}
 
 	// Parse the module

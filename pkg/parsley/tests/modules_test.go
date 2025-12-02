@@ -145,7 +145,7 @@ func TestModuleNotFound(t *testing.T) {
 	}
 
 	errStr := result.Inspect()
-	if !strings.Contains(errStr, "failed to read module file") {
+	if !strings.Contains(errStr, "module not found") {
 		t.Errorf("expected file not found error, got: %s", errStr)
 	}
 }
