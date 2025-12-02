@@ -251,6 +251,11 @@ a ?? b ?? c ?? "default"   // First non-null value
 "hello"[1:4]    // "ell"
 "hello"[2:]     // "llo"
 "hello"[:3]     // "hel"
+
+// Optional indexing - returns null instead of error
+"hello"[?99]    // null
+"hello"[?0]     // "h"
+""[?0] ?? "?"   // "?" (safe empty string access)
 ```
 
 ### Interpolation
@@ -313,6 +318,23 @@ nums[-1]     // Last element
 nums[1:3]    // Elements 1 and 2
 nums[2:]     // From index 2 to end
 nums[:2]     // From start to index 2
+```
+
+### Optional Indexing
+Use `[?n]` for safe access that returns `null` instead of an error when out of bounds:
+```parsley
+let arr = [1, 2, 3]
+arr[0]       // 1
+arr[99]      // ERROR: index out of range
+arr[?99]     // null (no error)
+arr[?0]      // 1 (same as arr[0] when in bounds)
+
+// Combine with null coalesce for defaults
+arr[?99] ?? "default"  // "default"
+[][?0] ?? "empty"      // "empty"
+
+// Works with negative indices too
+arr[?-99]    // null
 ```
 
 ### Concatenation

@@ -279,6 +279,18 @@ data =/=> conn(@/remote/file.json).json
 [1,2,3,4,5].take(3)         // [4, 1, 3] (random, unique)
 [1,2,3].includes(2)         // true (membership check)
 
+// Array/string indexing
+let arr = [1, 2, 3]
+arr[0]                      // 1 (errors if out of bounds)
+arr[-1]                     // 3 (negative indices from end)
+arr[?99]                    // null (optional: no error if OOB)
+arr[?0] ?? "default"        // 1 (combine with null coalesce)
+[][?0] ?? "empty"           // "empty" (safe empty array access)
+
+// String indexing same
+"hello"[0]                  // "h"
+"hello"[?99]                // null
+
 // Path methods
 @./file.txt.exists          // true/false
 @./file.txt.basename        // "file.txt"

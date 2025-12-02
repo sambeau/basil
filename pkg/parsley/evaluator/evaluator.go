@@ -6826,7 +6826,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(index) {
 			return index
 		}
-		return evalIndexExpression(node.Token, left, index)
+		return evalIndexExpression(node.Token, left, index, node.Optional)
 
 	case *ast.SliceExpression:
 		left := Eval(node.Left, env)
@@ -9450,7 +9450,8 @@ func evalInExpression(tok lexer.Token, left, right Object) Object {
 }
 
 // evalIndexExpression handles array and string indexing
-func evalIndexExpression(tok lexer.Token, left, index Object) Object {
+// If optional is true, returns NULL instead of error for out-of-bounds access
+func evalIndexExpression(tok lexer.Token, left, index Object, optional bool) Object {
 	// Handle response typed dictionary - unwrap __data for indexing
 	if dict, ok := left.(*Dictionary); ok && isResponseDict(dict) {
 		if dataExpr, ok := dict.Pairs["__data"]; ok {
@@ -9463,18 +9464,19 @@ func evalIndexExpression(tok lexer.Token, left, index Object) Object {
 
 	switch {
 	case left.Type() == ARRAY_OBJ && index.Type() == INTEGER_OBJ:
-		return evalArrayIndexExpression(tok, left, index)
+		return evalArrayIndexExpression(tok, left, index, optional)
 	case left.Type() == STRING_OBJ && index.Type() == INTEGER_OBJ:
-		return evalStringIndexExpression(tok, left, index)
+		return evalStringIndexExpression(tok, left, index, optional)
 	case left.Type() == DICTIONARY_OBJ && index.Type() == STRING_OBJ:
-		return evalDictionaryIndexExpression(left, index)
+		return evalDictionaryIndexExpression(left, index, optional)
 	default:
 		return newErrorWithPos(tok, "index operator not supported: %s[%s]", left.Type(), index.Type())
 	}
 }
 
 // evalArrayIndexExpression handles array indexing with support for negative indices
-func evalArrayIndexExpression(tok lexer.Token, array, index Object) Object {
+// If optional is true, returns NULL instead of error for out-of-bounds access
+func evalArrayIndexExpression(tok lexer.Token, array, index Object, optional bool) Object {
 	arrayObject := array.(*Array)
 	idx := index.(*Integer).Value
 	max := int64(len(arrayObject.Elements))
@@ -9485,6 +9487,9 @@ func evalArrayIndexExpression(tok lexer.Token, array, index Object) Object {
 	}
 
 	if idx < 0 || idx >= max {
+		if optional {
+			return NULL
+		}
 		return newErrorWithPos(tok, "index out of range: %d", index.(*Integer).Value)
 	}
 
@@ -9492,7 +9497,8 @@ func evalArrayIndexExpression(tok lexer.Token, array, index Object) Object {
 }
 
 // evalStringIndexExpression handles string indexing with support for negative indices
-func evalStringIndexExpression(tok lexer.Token, str, index Object) Object {
+// If optional is true, returns NULL instead of error for out-of-bounds access
+func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool) Object {
 	stringObject := str.(*String)
 	idx := index.(*Integer).Value
 	max := int64(len(stringObject.Value))
@@ -9503,6 +9509,9 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object) Object {
 	}
 
 	if idx < 0 || idx >= max {
+		if optional {
+			return NULL
+		}
 		return newErrorWithPos(tok, "index out of range: %d", index.(*Integer).Value)
 	}
 
@@ -12172,7 +12181,8 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 }
 
 // evalDictionaryIndexExpression handles dictionary access via dict["key"]
-func evalDictionaryIndexExpression(dict, index Object) Object {
+// The optional parameter is accepted for API consistency but dictionaries already return NULL for missing keys
+func evalDictionaryIndexExpression(dict, index Object, optional bool) Object {
 	dictObject := dict.(*Dictionary)
 	key := index.(*String).Value
 

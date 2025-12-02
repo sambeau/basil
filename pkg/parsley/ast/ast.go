@@ -582,9 +582,10 @@ func (fe *ForExpression) String() string {
 
 // IndexExpression represents array/string indexing like arr[0] or str[1]
 type IndexExpression struct {
-	Token lexer.Token // the '[' token
-	Left  Expression  // the array or string being indexed
-	Index Expression  // the index expression
+	Token    lexer.Token // the '[' token
+	Left     Expression  // the array or string being indexed
+	Index    Expression  // the index expression
+	Optional bool        // true for [?n] optional indexing syntax
 }
 
 func (ie *IndexExpression) expressionNode()      {}
@@ -595,6 +596,9 @@ func (ie *IndexExpression) String() string {
 	out.WriteString("(")
 	out.WriteString(ie.Left.String())
 	out.WriteString("[")
+	if ie.Optional {
+		out.WriteString("?")
+	}
 	out.WriteString(ie.Index.String())
 	out.WriteString("])")
 

@@ -1406,6 +1406,12 @@ func (p *Parser) parseIndexOrSliceExpression(left ast.Expression) ast.Expression
 
 	p.nextToken()
 
+	// Check for optional index [?...]
+	if p.curTokenIs(lexer.QUESTION) {
+		exp.Optional = true
+		p.nextToken()
+	}
+
 	// Check for slice (colon before any expression, or expression followed by colon)
 	if p.curTokenIs(lexer.COLON) {
 		// Slice with no start: [:end]
