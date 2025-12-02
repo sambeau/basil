@@ -141,6 +141,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Clear module cache so imports see fresh basil.* values for this request
+	// Modules that access basil.http.request, basil.auth.user, etc. need current data
+	evaluator.ClearModuleCache()
+
 	// Build request context for the script
 	reqCtx := buildRequestContext(r, h.route)
 

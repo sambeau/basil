@@ -585,6 +585,14 @@ var moduleCache = &ModuleCache{
 	loading: make(map[string]bool),
 }
 
+// ClearModuleCache clears all cached modules
+// This should be called before each request in Basil to ensure modules
+// see fresh basil.* values (request data, auth, etc.)
+func ClearModuleCache() {
+	moduleCache.modules = make(map[string]*Dictionary)
+	moduleCache.loading = make(map[string]bool)
+}
+
 // naturalCompare compares two objects using natural sort order
 // Returns true if a < b in natural sort order
 func naturalCompare(a, b Object) bool {
