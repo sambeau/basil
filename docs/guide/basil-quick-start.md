@@ -377,26 +377,62 @@ Basil includes security features for production deployments.
 
 ### HTTPS/TLS
 
-In production mode (without `--dev`), Basil runs HTTPS with automatic Let's Encrypt certificates.
+Basil supports three HTTPS modes depending on your environment:
 
-**Automatic TLS (recommended):**
+#### Development (localhost)
+
+Use `--dev` flag. HTTPS is not required and validation is skipped:
+
 ```yaml
 server:
-  host: example.com     # Required for auto TLS
+  host: localhost
+  port: 8080
+```
+
+```bash
+basil --dev
+```
+
+#### Local HTTPS Testing (self-signed certificates)
+
+For testing HTTPS locally without Let's Encrypt:
+
+```bash
+# Generate self-signed cert for localhost
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem \
+  -days 365 -nodes -subj "/CN=localhost"
+```
+
+```yaml
+server:
+  host: localhost
   port: 443
-  https:
-    auto: true
-    email: admin@example.com    # For Let's Encrypt notifications
-    cache_dir: ./certs          # Where to store certificates
+https:
+  cert: ./cert.pem
+  key: ./key.pem
 ```
 
-**Manual certificates:**
+**Note:** Browsers will show a security warning for self-signed certs.
+
+#### Production (Let's Encrypt)
+
+For production with automatic Let's Encrypt certificates:
+
 ```yaml
 server:
-  https:
-    cert: /path/to/cert.pem
-    key: /path/to/key.pem
+  host: example.com     # Must be a real domain pointing to your server
+  port: 443
+https:
+  auto: true
+  email: admin@example.com    # Required for Let's Encrypt notifications
+  cache_dir: ./certs          # Where to store certificates (default: "certs")
 ```
+
+**Requirements for Let's Encrypt:**
+- A publicly accessible hostname (not localhost)
+- Port 80 open for ACME HTTP-01 challenges
+- Port 443 for HTTPS traffic
+- DNS pointing to your server
 
 **How it works:**
 - Basil listens on port 443 for HTTPS
