@@ -109,6 +109,11 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		return fmt.Errorf("config validation: %w", err)
 	}
 
+	// Show warnings for potential misconfigurations
+	for _, warning := range config.Warnings(cfg) {
+		fmt.Fprintf(stderr, "warning: %s\n", warning)
+	}
+
 	// Build version string
 	version := fmt.Sprintf("version %s (%s)", Version, Commit)
 

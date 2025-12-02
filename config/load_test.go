@@ -355,6 +355,49 @@ func TestResolveConfigPath(t *testing.T) {
 	}
 }
 
+func TestWarnings(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *Config
+		wantWarn string
+	}{
+		{
+			name:     "no routes",
+			cfg:      &Config{},
+			wantWarn: "no routes configured",
+		},
+		{
+			name: "has routes",
+			cfg: &Config{
+				Routes: []Route{{Path: "/", Handler: "./app.pars"}},
+			},
+			wantWarn: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warnings := Warnings(tt.cfg)
+			if tt.wantWarn == "" {
+				if len(warnings) > 0 {
+					t.Errorf("expected no warnings, got %v", warnings)
+				}
+			} else {
+				found := false
+				for _, w := range warnings {
+					if contains(w, tt.wantWarn) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected warning containing %q, got %v", tt.wantWarn, warnings)
+				}
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }

@@ -98,6 +98,23 @@ func Validate(cfg *Config) error {
 	return validateHTTPS(cfg)
 }
 
+// Warnings returns non-fatal configuration issues that should be reported to the user.
+// These are problems that won't prevent the server from starting but likely indicate
+// a misconfiguration.
+func Warnings(cfg *Config) []string {
+	var warnings []string
+
+	// Warn if no routes are configured
+	if len(cfg.Routes) == 0 {
+		warnings = append(warnings, "no routes configured - the server will return 404 for all requests")
+	}
+
+	// Warn if routes exist but none have handlers that exist
+	// (This would be caught at runtime, but an early warning is helpful)
+
+	return warnings
+}
+
 // resolveConfigPath finds the config file to use.
 // Search order: explicit path > ./basil.yaml > ~/.config/basil/basil.yaml
 func resolveConfigPath(explicit string) (string, error) {
