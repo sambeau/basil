@@ -6658,6 +6658,10 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.UrlLiteral:
 		return evalUrlLiteral(node, env)
 
+	case *ast.StdlibPathLiteral:
+		// Standard library paths evaluate to a simple string (e.g., "std/table")
+		return &String{Value: node.Value}
+
 	case *ast.PathTemplateLiteral:
 		return evalPathTemplateLiteral(node, env)
 

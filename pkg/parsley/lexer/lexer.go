@@ -25,6 +25,7 @@ const (
 	DURATION_LITERAL  // @2h30m, @7d, @1y6mo
 	PATH_LITERAL      // @/usr/local, @./config
 	URL_LITERAL       // @https://example.com
+	STDLIB_PATH       // @std/table, @std/string
 	PATH_TEMPLATE     // @(./path/{expr}/file)
 	URL_TEMPLATE      // @(https://api.com/{expr}/path)
 	DATETIME_TEMPLATE // @(2024-{month}-{day}T{hour}:00:00)
@@ -138,6 +139,8 @@ func (tt TokenType) String() string {
 		return "PATH_LITERAL"
 	case URL_LITERAL:
 		return "URL_LITERAL"
+	case STDLIB_PATH:
+		return "STDLIB_PATH"
 	case PATH_TEMPLATE:
 		return "PATH_TEMPLATE"
 	case URL_TEMPLATE:
@@ -721,6 +724,9 @@ func (l *Lexer) NextToken() Token {
 		case URL_LITERAL:
 			tok.Type = URL_LITERAL
 			tok.Literal = l.readUrlLiteral()
+		case STDLIB_PATH:
+			tok.Type = STDLIB_PATH
+			tok.Literal = l.readStdlibPath()
 		case PATH_TEMPLATE:
 			tok.Type = PATH_TEMPLATE
 			tok.Literal = l.readPathTemplate()
@@ -1733,6 +1739,11 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		return l.detectTemplateAtLiteralType()
 	}
 
+	// Check for @std/ which indicates a standard library import
+	if pos+4 <= len(l.input) && l.input[pos:pos+4] == "std/" {
+		return STDLIB_PATH
+	}
+
 	// Check for @- (stdin/stdout) - must be just "-" not followed by path char or digit
 	if l.input[pos] == '-' {
 		// Check next char - if it's not a digit and not a path char, it's stdin
@@ -1855,6 +1866,26 @@ func (l *Lexer) readPathLiteral() string {
 			if nextCh != '/' && nextCh != '.' && !isPathChar(nextCh) && isLetter(nextCh) {
 				break
 			}
+		}
+		path = append(path, l.ch)
+		l.readChar()
+	}
+
+	return string(path)
+}
+
+// readStdlibPath reads a standard library path after @
+// Supports: @std/table, @std/string, etc.
+// Returns the path WITH the "std/" prefix (e.g., "std/table")
+func (l *Lexer) readStdlibPath() string {
+	l.readChar() // skip @
+
+	var path []byte
+	// Read until whitespace or delimiter
+	for l.ch != 0 && !isWhitespace(l.ch) {
+		// Stop at delimiters that can't be in a module name
+		if l.ch == ')' || l.ch == ']' || l.ch == '}' || l.ch == ',' || l.ch == ';' {
+			break
 		}
 		path = append(path, l.ch)
 		l.readChar()

@@ -287,6 +287,16 @@ func (ul *UrlLiteral) expressionNode()      {}
 func (ul *UrlLiteral) TokenLiteral() string { return ul.Token.Literal }
 func (ul *UrlLiteral) String() string       { return "@" + ul.Value }
 
+// StdlibPathLiteral represents standard library imports like @std/table
+type StdlibPathLiteral struct {
+	Token lexer.Token // the lexer.STDLIB_PATH token
+	Value string      // the stdlib path (e.g., "std/table")
+}
+
+func (sp *StdlibPathLiteral) expressionNode()      {}
+func (sp *StdlibPathLiteral) TokenLiteral() string { return sp.Token.Literal }
+func (sp *StdlibPathLiteral) String() string       { return "@" + sp.Value }
+
 // PathTemplateLiteral represents interpolated path templates like @(./path/{expr}/file)
 type PathTemplateLiteral struct {
 	Token lexer.Token // the lexer.PATH_TEMPLATE token

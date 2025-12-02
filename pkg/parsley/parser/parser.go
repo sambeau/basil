@@ -95,6 +95,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.DURATION_LITERAL, p.parseDurationLiteral)
 	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
 	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
+	p.registerPrefix(lexer.STDLIB_PATH, p.parseStdlibPathLiteral)
 	p.registerPrefix(lexer.PATH_TEMPLATE, p.parsePathTemplateLiteral)
 	p.registerPrefix(lexer.URL_TEMPLATE, p.parseUrlTemplateLiteral)
 	p.registerPrefix(lexer.DATETIME_TEMPLATE, p.parseDatetimeTemplateLiteral)
@@ -808,6 +809,14 @@ func (p *Parser) parsePathLiteral() ast.Expression {
 func (p *Parser) parseUrlLiteral() ast.Expression {
 	// Token.Literal contains the URL string (without the @ prefix)
 	return &ast.UrlLiteral{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
+}
+
+func (p *Parser) parseStdlibPathLiteral() ast.Expression {
+	// Token.Literal contains the stdlib path (e.g., "std/table")
+	return &ast.StdlibPathLiteral{
 		Token: p.curToken,
 		Value: p.curToken.Literal,
 	}
@@ -1585,7 +1594,7 @@ func (p *Parser) checkKeywordTypo(ident string) string {
 		"ipmort": true, "imort": true, "impor": true,
 	}
 	if importTypos[lower] {
-		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'import'?\n   💡 Hint: Use import(@./file.pars) or import(\"std/table\")", ident)
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'import'?\n   💡 Hint: Use import(@./file.pars) or import(@std/table)", ident)
 	}
 
 	// Common typos of 'true' / 'false'
