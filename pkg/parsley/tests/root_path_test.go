@@ -90,11 +90,11 @@ message`
 func TestRootPathWithoutRootSet(t *testing.T) {
 	// Test that ~/ falls back to home directory when RootPath is not set
 	// This maintains backward compatibility for standalone pars usage
-	
+
 	// Create a temp file in home directory simulation isn't practical,
 	// so we just test that parsing works and doesn't error
 	input := `let path = @~/some/module.pars
-path.path`  // Access the path property of the path dictionary
+path.path` // Access the path property of the path dictionary
 
 	l := lexer.New(input)
 	p := parser.New(l)

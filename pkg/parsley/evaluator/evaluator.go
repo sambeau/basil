@@ -331,7 +331,7 @@ type Environment struct {
 	store       map[string]Object
 	outer       *Environment
 	Filename    string
-	RootPath    string       // Handler root directory for @~/ path resolution
+	RootPath    string // Handler root directory for @~/ path resolution
 	LastToken   *lexer.Token
 	letBindings map[string]bool // tracks which variables were declared with 'let'
 	exports     map[string]bool // tracks which variables were explicitly exported
