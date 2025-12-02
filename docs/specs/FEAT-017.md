@@ -1,7 +1,7 @@
 ---
 id: FEAT-017
 title: "Handler Root Path Alias (@~/)"
-status: draft
+status: complete
 priority: medium
 created: 2025-12-02
 author: "@sambeau"
@@ -16,11 +16,11 @@ Add a `@~/` path prefix that resolves paths relative to the handler's root direc
 As a Parsley developer, I want to import modules using a root-relative path so that I don't need to count `../` segments and my imports remain stable when I move files.
 
 ## Acceptance Criteria
-- [ ] `@~/path` in imports resolves from the handler's directory (the directory containing the route's handler file)
-- [ ] `@~/path` works in `read()` and `write()` operations
-- [ ] Error messages show the resolved path when `@~/` paths fail
-- [ ] Works correctly with nested imports (handler root is preserved, not the importing file's directory)
-- [ ] Documentation updated with examples
+- [x] `@~/path` in imports resolves from the handler's directory (the directory containing the route's handler file)
+- [x] `@~/path` works in `read()` and `write()` operations
+- [x] Error messages show the resolved path when `@~/` paths fail
+- [x] Works correctly with nested imports (handler root is preserved, not the importing file's directory)
+- [x] Documentation updated with examples
 
 ## Design Decisions
 - **`@~/` syntax**: Chosen over `@/` to avoid confusion with absolute filesystem paths. Familiar to webpack/Vite users.

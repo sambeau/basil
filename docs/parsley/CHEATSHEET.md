@@ -190,9 +190,9 @@ let Card = fn({title, body}) {
 ### 4. Literal Syntax with @
 ```parsley
 // Paths
-@./relative/path
-@~/home/path
-@/absolute/path
+@./relative/path           // Relative to current file
+@~/components/header.pars  // Relative to handler root (in Basil)
+@/absolute/path            // Absolute filesystem path
 
 // URLs
 @https://example.com
@@ -504,12 +504,15 @@ export let greet = fn(name) { "Hello, {name}!" }
 export PI = 3.14159
 export Logo = <img src="logo.png" alt="Logo"/>
 
-// Import in another file
+// Import - relative to current file
 let utils = import(@./utils.pars)
 log(utils.greet("Alice"))
-log(utils.PI)
 
-// Or use destructuring
+// Import - relative to handler root (Basil only)
+// Eliminates ../../../ navigation
+let {Page} = import(@~/components/page.pars)
+
+// Destructuring import
 let {greet, PI, Logo} = import(@./utils.pars)
 ```
 

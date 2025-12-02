@@ -271,6 +271,26 @@ export Page = fn({title, contents}) {
 </Page>
 ```
 
+### Handler Root Imports (@~/)
+
+Use `@~/` to import relative to the handler's directory instead of the current file. This eliminates `../../../` navigation in deeply nested files:
+
+```
+handlers/
+├── index.pars          # handler root
+├── components/
+│   └── page.pars
+└── utils/
+    └── deep/
+        └── nested.pars
+```
+
+**handlers/utils/deep/nested.pars:**
+```parsley
+// Instead of: import(@../../components/page.pars)
+{Page} = import(@~/components/page.pars)
+```
+
 ## Database Support
 
 Basil integrates with SQLite databases using Parsley's database operators.
