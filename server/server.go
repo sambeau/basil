@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -211,47 +212,103 @@ func (s *Server) setupRoutes() error {
 		s.mux.HandleFunc("/__auth/me", s.authHandlers.MeHandler)
 	}
 
-	// Register static routes first (more specific)
+	// Register explicit static routes (non-root paths like /favicon.ico)
 	for _, static := range s.config.Static {
-		if static.Root != "" {
-			// Directory serving
-			handler := http.StripPrefix(static.Path, http.FileServer(http.Dir(static.Root)))
-			s.mux.Handle(static.Path, handler)
-		} else if static.File != "" {
-			// Single file serving - capture path for closure
-			filePath := static.File
-			s.mux.HandleFunc(static.Path, func(w http.ResponseWriter, r *http.Request) {
-				http.ServeFile(w, r, filePath)
-			})
+		if static.Path != "/" {
+			if static.Root != "" {
+				handler := http.StripPrefix(static.Path, http.FileServer(http.Dir(static.Root)))
+				s.mux.Handle(static.Path, handler)
+			} else if static.File != "" {
+				filePath := static.File
+				s.mux.HandleFunc(static.Path, func(w http.ResponseWriter, r *http.Request) {
+					http.ServeFile(w, r, filePath)
+				})
+			}
 		}
 	}
 
-	// Register Parsley routes
+	// Register Parsley routes (specific paths)
 	for _, route := range s.config.Routes {
+		if route.Path == "/" {
+			continue // Handle root separately as fallback
+		}
 		handler, err := newParsleyHandler(s, route, s.scriptCache)
 		if err != nil {
 			return fmt.Errorf("creating handler for %s: %w", route.Path, err)
 		}
-
-		// Apply auth middleware if configured
-		var finalHandler http.Handler = handler
-		if s.authMW != nil {
-			switch route.Auth {
-			case "required":
-				finalHandler = s.authMW.RequireAuth(handler)
-			case "optional":
-				finalHandler = s.authMW.OptionalAuth(handler)
-			default:
-				// No auth middleware - but still check for user if auth enabled
-				// so request.user is available even on public pages
-				finalHandler = s.authMW.OptionalAuth(handler)
-			}
-		}
-
+		finalHandler := s.applyAuthMiddleware(handler, route.Auth)
 		s.mux.Handle(route.Path, finalHandler)
 	}
 
+	// Create fallback handler for "/" that serves:
+	// 1. Static files from public_dir (if file exists)
+	// 2. Root route handler (if configured)
+	// 3. 404
+	s.mux.Handle("/", s.createRootHandler())
+
 	return nil
+}
+
+// applyAuthMiddleware wraps a handler with appropriate auth middleware
+func (s *Server) applyAuthMiddleware(handler http.Handler, authMode string) http.Handler {
+	if s.authMW == nil {
+		return handler
+	}
+	switch authMode {
+	case "required":
+		return s.authMW.RequireAuth(handler)
+	case "optional":
+		return s.authMW.OptionalAuth(handler)
+	default:
+		return s.authMW.OptionalAuth(handler)
+	}
+}
+
+// createRootHandler creates a handler that serves static files with route fallback
+func (s *Server) createRootHandler() http.Handler {
+	// Determine static file root
+	var staticRoot string
+	for _, static := range s.config.Static {
+		if static.Path == "/" && static.Root != "" {
+			staticRoot = static.Root
+			break
+		}
+	}
+	if staticRoot == "" && s.config.PublicDir != "" {
+		staticRoot = s.config.PublicDir
+	}
+
+	// Find root route handler if configured
+	var rootHandler http.Handler
+	for _, route := range s.config.Routes {
+		if route.Path == "/" {
+			handler, err := newParsleyHandler(s, route, s.scriptCache)
+			if err == nil {
+				rootHandler = s.applyAuthMiddleware(handler, route.Auth)
+			}
+			break
+		}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Try static file first (if configured and file exists)
+		if staticRoot != "" && r.URL.Path != "/" {
+			filePath := filepath.Join(staticRoot, r.URL.Path)
+			if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, filePath)
+				return
+			}
+		}
+
+		// Fall back to root route handler
+		if rootHandler != nil {
+			rootHandler.ServeHTTP(w, r)
+			return
+		}
+
+		// No handler - 404
+		http.NotFound(w, r)
+	})
 }
 
 // ReloadScripts clears the script cache and response cache, forcing all scripts
