@@ -337,6 +337,7 @@ type Environment struct {
 	protected   map[string]bool // tracks which variables cannot be reassigned
 	Security    *SecurityPolicy // File system security policy
 	Logger      Logger          // Logger for log()/logLine() output
+	importStack map[string]bool // tracks modules being imported (for circular dep detection)
 }
 
 // NewEnvironment creates a new environment
@@ -345,7 +346,8 @@ func NewEnvironment() *Environment {
 	l := make(map[string]bool)
 	x := make(map[string]bool)
 	p := make(map[string]bool)
-	return &Environment{store: s, outer: nil, letBindings: l, exports: x, protected: p, Logger: DefaultLogger}
+	i := make(map[string]bool)
+	return &Environment{store: s, outer: nil, letBindings: l, exports: x, protected: p, importStack: i, Logger: DefaultLogger}
 }
 
 // NewEnclosedEnvironment creates a new environment with outer reference
@@ -575,22 +577,22 @@ var (
 
 // ModuleCache caches imported modules
 type ModuleCache struct {
+	mu      sync.RWMutex
 	modules map[string]*Dictionary // absolute path -> module dictionary
-	loading map[string]bool        // tracks currently loading modules for cycle detection
 }
 
 // Global module cache
 var moduleCache = &ModuleCache{
 	modules: make(map[string]*Dictionary),
-	loading: make(map[string]bool),
 }
 
 // ClearModuleCache clears all cached modules
 // This should be called before each request in Basil to ensure modules
 // see fresh basil.* values (request data, auth, etc.)
 func ClearModuleCache() {
+	moduleCache.mu.Lock()
+	defer moduleCache.mu.Unlock()
 	moduleCache.modules = make(map[string]*Dictionary)
-	moduleCache.loading = make(map[string]bool)
 }
 
 // naturalCompare compares two objects using natural sort order
@@ -7932,19 +7934,27 @@ func evalImport(args []Object, env *Environment) Object {
 		return newError("security: %s", err.Error())
 	}
 
-	// Check if module is currently being loaded (circular dependency)
-	if moduleCache.loading[absPath] {
+	// Check if module is currently being loaded in THIS request (circular dependency)
+	// Use the root environment's importStack to track across nested imports
+	rootEnv := env
+	for rootEnv.outer != nil {
+		rootEnv = rootEnv.outer
+	}
+	if rootEnv.importStack[absPath] {
 		return newError("circular dependency detected when importing: %s", absPath)
 	}
 
-	// Check cache first
+	// Check cache first (with lock for thread safety)
+	moduleCache.mu.RLock()
 	if cached, ok := moduleCache.modules[absPath]; ok {
+		moduleCache.mu.RUnlock()
 		return cached
 	}
+	moduleCache.mu.RUnlock()
 
-	// Mark as loading
-	moduleCache.loading[absPath] = true
-	defer delete(moduleCache.loading, absPath)
+	// Mark as loading in this request's import stack
+	rootEnv.importStack[absPath] = true
+	defer delete(rootEnv.importStack, absPath)
 
 	// Read the file
 	content, err := os.ReadFile(absPath)
@@ -7994,7 +8004,9 @@ func evalImport(args []Object, env *Environment) Object {
 	moduleDict := environmentToDict(moduleEnv)
 
 	// Cache the result
+	moduleCache.mu.Lock()
 	moduleCache.modules[absPath] = moduleDict
+	moduleCache.mu.Unlock()
 
 	return moduleDict
 }
