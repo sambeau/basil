@@ -81,6 +81,20 @@ For root route `/` with `public_dir: ./app/public`:
 4. `asset()` function uses correct public_dir per route
 5. Backward compat: global public_dir works for "/" route
 
+## Documentation Notes
+
+When documenting this feature, clarify:
+
+1. **Route isolation**: Each route "owns" its path prefix. A request to `/api/foo.css` will only check the `/api` route's `public_dir`, never the root route's - even if `./app/public/api/foo.css` exists.
+
+2. **No cross-contamination**: Static files in one route's `public_dir` cannot "leak" into another route's namespace. This is by design.
+
+3. **Longest prefix wins**: Go's ServeMux uses longest prefix matching, so `/api/v2` takes precedence over `/api` which takes precedence over `/`.
+
+4. **No public_dir = no static files**: Routes without `public_dir` don't serve static files at all, even if a parent route has one. Be explicit.
+
+5. **Accidental shadowing impossible**: If you have both a `/api` route and files in `./app/public/api/`, the route always wins - the static files are unreachable (which prevents accidental data exposure).
+
 ## Progress Log
 
 - [x] Step 1: Update config types - Added `PublicDir` to Route struct
