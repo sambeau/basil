@@ -2440,7 +2440,7 @@ SQLITE(123)
 Parsley includes a standard library of modules that provide additional functionality. Import them using the `std/` prefix:
 
 ```parsley
-let {Table} = import("std/table")
+let {table} = import("std/table")
 ```
 
 > **Note:** The `@std/` path literal syntax is planned but not yet implemented. Use string imports for now.
@@ -2452,7 +2452,7 @@ The Table module provides SQL-like operations on arrays of dictionaries.
 #### Creating a Table
 
 ```parsley
-let {Table} = import("std/table")
+let {table} = import("std/table")
 
 let data = [
     {name: "Alice", age: 30, dept: "Engineering"},
@@ -2460,7 +2460,7 @@ let data = [
     {name: "Carol", age: 35, dept: "Engineering"}
 ]
 
-let t = Table(data)
+let t = table(data)
 ```
 
 #### Properties
@@ -2493,7 +2493,7 @@ let t = Table(data)
 **Filtering:**
 ```parsley
 // Get engineering employees over 28
-Table(data)
+table(data)
     .where(fn(row) { row.dept == "Engineering" && row.age > 28 })
     .rows  // [{name: "Alice", ...}, {name: "Carol", ...}]
 ```
@@ -2501,31 +2501,31 @@ Table(data)
 **Sorting:**
 ```parsley
 // Sort by age descending
-Table(data).orderBy("age", "desc").rows
+table(data).orderBy("age", "desc").rows
 
 // Sort by department, then by age descending
-Table(data).orderBy([["dept", "asc"], ["age", "desc"]]).rows
+table(data).orderBy([["dept", "asc"], ["age", "desc"]]).rows
 ```
 
 **Projection:**
 ```parsley
 // Keep only name and age
-Table(data).select(["name", "age"]).rows
+table(data).select(["name", "age"]).rows
 ```
 
 **Aggregation:**
 ```parsley
-Table(data).count()         // 3
-Table(data).sum("age")      // 90
-Table(data).avg("age")      // 30.0
-Table(data).min("age")      // 25
-Table(data).max("age")      // 35
+table(data).count()         // 3
+table(data).sum("age")      // 90
+table(data).avg("age")      // 30.0
+table(data).min("age")      // 25
+table(data).max("age")      // 35
 ```
 
 **Chaining:**
 ```parsley
 // Active users over 25, sorted by name, first 10
-Table(users)
+table(users)
     .where(fn(u) { u.active && u.age > 25 })
     .orderBy("name")
     .limit(10)
@@ -2536,11 +2536,11 @@ Table(users)
 **Output Formats:**
 ```parsley
 // HTML table
-Table(data).toHTML()
+table(data).toHTML()
 // <table><thead><tr><th>age</th><th>dept</th><th>name</th></tr></thead>...
 
 // CSV
-Table(data).toCSV()
+table(data).toCSV()
 // "age","dept","name"
 // 30,"Engineering","Alice"
 // ...

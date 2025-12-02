@@ -516,7 +516,7 @@ let {Page} = import(@~/components/page.pars)
 let {greet, PI, Logo} = import(@./utils.pars)
 
 // Standard library import (use string syntax)
-let {Table} = import("std/table")
+let {table} = import("std/table")
 ```
 
 ### Standard Library
@@ -524,10 +524,10 @@ let {Table} = import("std/table")
 #### Table Module (`std/table`)
 SQL-like operations on arrays of dictionaries:
 ```parsley
-let {Table} = import("std/table")
+let {table} = import("std/table")
 
 let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-let t = Table(data)
+let t = table(data)
 
 // Filtering
 t.where(fn(row) { row.age > 25 }).rows   // [{name: "Alice", age: 30}]
@@ -554,7 +554,7 @@ t.toHTML()                               // HTML <table> string
 t.toCSV()                                // CSV string (RFC 4180)
 
 // Chaining
-Table(users)
+table(users)
     .where(fn(u) { u.active })
     .orderBy("name")
     .limit(10)

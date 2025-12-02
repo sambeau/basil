@@ -34,10 +34,10 @@ func loadStdlibModule(name string, env *Environment) Object {
 
 // loadTableModule returns the Table module as a dictionary
 func loadTableModule(env *Environment) Object {
-	// Return stdlib module dict with Table constructor
+	// Return stdlib module dict with table constructor
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"Table": &StdlibBuiltin{Name: "Table", Fn: TableConstructor},
+			"table": &StdlibBuiltin{Name: "table", Fn: TableConstructor},
 		},
 	}
 }
@@ -393,7 +393,7 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 		case *Float:
 			sum += v.Value
 			hasFloat = true
-		// Skip non-numeric values
+			// Skip non-numeric values
 		}
 	}
 
@@ -426,7 +426,7 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 		case *Float:
 			sum += v.Value
 			count++
-		// Skip non-numeric values
+			// Skip non-numeric values
 		}
 	}
 

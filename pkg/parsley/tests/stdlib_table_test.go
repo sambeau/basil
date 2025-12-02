@@ -10,8 +10,8 @@ import (
 )
 
 func TestStdlibTableImport(t *testing.T) {
-	input := `let {Table} = import("std/table")
-Table`
+	input := `let {table} = import("std/table")
+table`
 
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -39,9 +39,9 @@ Table`
 }
 
 func TestTableConstructor(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-t = Table(data)
+t = table(data)
 t`
 
 	result := evalTest(t, input)
@@ -58,8 +58,8 @@ t`
 }
 
 func TestTableEmptyArray(t *testing.T) {
-	input := `let {Table} = import("std/table")
-Table([])`
+	input := `let {table} = import("std/table")
+table([])`
 
 	result := evalTest(t, input)
 
@@ -74,8 +74,8 @@ func TestTableInvalidInput(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`let {Table} = import("std/table"); Table("not array")`, "must be an array"},
-		{`let {Table} = import("std/table"); Table([1, 2, 3])`, "must be dictionaries"},
+		{`let {table} = import("std/table"); table("not array")`, "must be an array"},
+		{`let {table} = import("std/table"); table([1, 2, 3])`, "must be dictionaries"},
 	}
 
 	for _, tt := range tests {
@@ -98,9 +98,9 @@ func TestTableInvalidInput(t *testing.T) {
 }
 
 func TestTableRows(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{a: 1}, {a: 2}]
-Table(data).rows`
+table(data).rows`
 
 	result := evalTest(t, input)
 
@@ -115,9 +115,9 @@ Table(data).rows`
 }
 
 func TestTableCount(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{a: 1}, {a: 2}, {a: 3}]
-Table(data).count()`
+table(data).count()`
 
 	result := evalTest(t, input)
 
@@ -132,9 +132,9 @@ Table(data).count()`
 }
 
 func TestTableWhere(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}, {name: "Carol", age: 35}]
-Table(data).where(fn(row) { row.age > 25 }).count()`
+table(data).where(fn(row) { row.age > 25 }).count()`
 
 	result := evalTest(t, input)
 
@@ -149,9 +149,9 @@ Table(data).where(fn(row) { row.age > 25 }).count()`
 }
 
 func TestTableOrderBy(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
-t = Table(data).orderBy("name")
+t = table(data).orderBy("name")
 t.rows[0].name`
 
 	result := evalTest(t, input)
@@ -167,9 +167,9 @@ t.rows[0].name`
 }
 
 func TestTableOrderByDesc(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
-t = Table(data).orderBy("val", "desc")
+t = table(data).orderBy("val", "desc")
 t.rows[0].val`
 
 	result := evalTest(t, input)
@@ -185,9 +185,9 @@ t.rows[0].val`
 }
 
 func TestTableSelect(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{a: 1, b: 2, c: 3}, {a: 4, b: 5, c: 6}]
-t = Table(data).select(["a", "c"])
+t = table(data).select(["a", "c"])
 t.rows[0].b`
 
 	result := evalTest(t, input)
@@ -199,9 +199,9 @@ t.rows[0].b`
 }
 
 func TestTableLimit(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
-Table(data).limit(2).count()`
+table(data).limit(2).count()`
 
 	result := evalTest(t, input)
 
@@ -212,9 +212,9 @@ Table(data).limit(2).count()`
 }
 
 func TestTableLimitOffset(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
-t = Table(data).limit(2, 2)
+t = table(data).limit(2, 2)
 t.rows[0].v`
 
 	result := evalTest(t, input)
@@ -226,9 +226,9 @@ t.rows[0].v`
 }
 
 func TestTableSum(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{val: 10}, {val: 20}, {val: 30}]
-Table(data).sum("val")`
+table(data).sum("val")`
 
 	result := evalTest(t, input)
 
@@ -243,9 +243,9 @@ Table(data).sum("val")`
 }
 
 func TestTableAvg(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{val: 10}, {val: 20}, {val: 30}]
-Table(data).avg("val")`
+table(data).avg("val")`
 
 	result := evalTest(t, input)
 
@@ -260,9 +260,9 @@ Table(data).avg("val")`
 }
 
 func TestTableMinMax(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{val: 10}, {val: 20}, {val: 5}]
-tbl = Table(data)
+tbl = table(data)
 minVal = tbl.min("val"); maxVal = tbl.max("val"); [minVal, maxVal]`
 
 	result := evalTest(t, input)
@@ -280,9 +280,9 @@ minVal = tbl.min("val"); maxVal = tbl.max("val"); [minVal, maxVal]`
 }
 
 func TestTableToHTML(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Alice", age: 30}]
-Table(data).toHTML()`
+table(data).toHTML()`
 
 	result := evalTest(t, input)
 
@@ -307,9 +307,9 @@ Table(data).toHTML()`
 }
 
 func TestTableToCSV(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-Table(data).toCSV()`
+table(data).toCSV()`
 
 	result := evalTest(t, input)
 
@@ -331,9 +331,9 @@ Table(data).toCSV()`
 }
 
 func TestTableCSVEscaping(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{text: "hello, world"}, {text: "has \"quotes\""}]
-Table(data).toCSV()`
+table(data).toCSV()`
 
 	result := evalTest(t, input)
 
@@ -350,12 +350,12 @@ Table(data).toCSV()`
 }
 
 func TestTableChaining(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{name: "Alice", age: 30, active: true}, 
         {name: "Bob", age: 25, active: true},
         {name: "Carol", age: 35, active: false},
         {name: "Dan", age: 28, active: true}]
-Table(data)
+table(data)
     .where(fn(row) { row.active })
     .orderBy("age", "desc")
     .select(["name", "age"])
@@ -374,9 +374,9 @@ Table(data)
 }
 
 func TestTableImmutability(t *testing.T) {
-	input := `let {Table} = import("std/table")
+	input := `let {table} = import("std/table")
 data = [{val: 1}, {val: 2}, {val: 3}]
-original = Table(data)
+original = table(data)
 filtered = original.where(fn(row) { row.val > 1 })
 origCount = original.count(); filtCount = filtered.count(); [origCount, filtCount]`
 
