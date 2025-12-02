@@ -497,12 +497,26 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 		return nil
 	}
 
-	// Convert to absolute path
+	// Convert to absolute path and resolve symlinks for consistent comparison
+	// This handles macOS /var -> /private/var symlinks and similar
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("invalid path: %s", err)
 	}
 	absPath = filepath.Clean(absPath)
+
+	// Try to resolve symlinks. If the file doesn't exist (e.g., for write operations),
+	// resolve the parent directory and append the filename.
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = resolved
+	} else {
+		// File doesn't exist - try resolving parent directory
+		dir := filepath.Dir(absPath)
+		base := filepath.Base(absPath)
+		if resolvedDir, err := filepath.EvalSymlinks(dir); err == nil {
+			absPath = filepath.Join(resolvedDir, base)
+		}
+	}
 
 	switch operation {
 	case "read":
@@ -527,7 +541,12 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 			return nil // Unrestricted
 		}
 		if !isPathAllowed(absPath, e.Security.AllowExecute) {
-			return fmt.Errorf("script execution not allowed: %s (use --allow-execute or -x)", path)
+			// Include helpful debug info in error message
+			if len(e.Security.AllowExecute) > 0 {
+				allowedStr := strings.Join(e.Security.AllowExecute, ", ")
+				return fmt.Errorf("script execution not allowed: %s (resolved to: %s, allowed: %s)", path, absPath, allowedStr)
+			}
+			return fmt.Errorf("script execution not allowed: %s (no directories allowed)", path)
 		}
 	}
 
@@ -543,7 +562,12 @@ func isPathAllowed(path string, allowList []string) bool {
 
 	// Check if path is within any allowed directory
 	for _, allowed := range allowList {
-		if path == allowed || strings.HasPrefix(path, allowed+string(filepath.Separator)) {
+		// Resolve symlinks in allowed path for consistent comparison
+		resolvedAllowed := allowed
+		if resolved, err := filepath.EvalSymlinks(allowed); err == nil {
+			resolvedAllowed = resolved
+		}
+		if path == resolvedAllowed || strings.HasPrefix(path, resolvedAllowed+string(filepath.Separator)) {
 			return true
 		}
 	}
@@ -560,7 +584,12 @@ func isPathRestricted(path string, restrictList []string) bool {
 
 	// Check if path is within any restricted directory
 	for _, restricted := range restrictList {
-		if path == restricted || strings.HasPrefix(path, restricted+string(filepath.Separator)) {
+		// Resolve symlinks in restricted path for consistent comparison
+		resolvedRestricted := restricted
+		if resolved, err := filepath.EvalSymlinks(restricted); err == nil {
+			resolvedRestricted = resolved
+		}
+		if path == resolvedRestricted || strings.HasPrefix(path, resolvedRestricted+string(filepath.Separator)) {
 			return true
 		}
 	}
