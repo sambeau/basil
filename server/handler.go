@@ -159,9 +159,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
-	// Build and inject the basil namespace object
+	// Build and inject the basil namespace object (protected from reassignment)
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver)
-	env.Set("basil", basilObj)
+	env.SetProtected("basil", basilObj)
 
 	// Set up custom logger that captures script log() output
 	scriptLogger := &scriptLogCapture{output: make([]string, 0)}

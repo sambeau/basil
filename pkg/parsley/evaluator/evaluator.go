@@ -334,6 +334,7 @@ type Environment struct {
 	LastToken   *lexer.Token
 	letBindings map[string]bool // tracks which variables were declared with 'let'
 	exports     map[string]bool // tracks which variables were explicitly exported
+	protected   map[string]bool // tracks which variables cannot be reassigned
 	Security    *SecurityPolicy // File system security policy
 	Logger      Logger          // Logger for log()/logLine() output
 }
@@ -343,7 +344,8 @@ func NewEnvironment() *Environment {
 	s := make(map[string]Object)
 	l := make(map[string]bool)
 	x := make(map[string]bool)
-	return &Environment{store: s, outer: nil, letBindings: l, exports: x, Logger: DefaultLogger}
+	p := make(map[string]bool)
+	return &Environment{store: s, outer: nil, letBindings: l, exports: x, protected: p, Logger: DefaultLogger}
 }
 
 // NewEnclosedEnvironment creates a new environment with outer reference
@@ -419,9 +421,33 @@ func (e *Environment) IsExported(name string) bool {
 	return false
 }
 
+// SetProtected stores a value and marks it as protected (cannot be reassigned)
+func (e *Environment) SetProtected(name string, val Object) Object {
+	e.store[name] = val
+	e.protected[name] = true
+	return val
+}
+
+// IsProtected checks if a variable is protected from reassignment
+func (e *Environment) IsProtected(name string) bool {
+	if e.protected[name] {
+		return true
+	}
+	if e.outer != nil {
+		return e.outer.IsProtected(name)
+	}
+	return false
+}
+
 // Update stores a value in the environment where it's defined (current or outer)
 // If the variable doesn't exist anywhere, it creates it in the current scope
+// Returns an error if trying to reassign a protected variable
 func (e *Environment) Update(name string, val Object) Object {
+	// Check if variable is protected
+	if e.IsProtected(name) {
+		return &Error{Message: fmt.Sprintf("cannot reassign protected variable '%s'", name)}
+	}
+
 	// Check if variable exists in current scope
 	if _, ok := e.store[name]; ok {
 		e.store[name] = val
@@ -7852,6 +7878,12 @@ func evalImport(args []Object, env *Environment) Object {
 	moduleEnv.Filename = absPath
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
+
+	// Copy basil context to module environment (if present)
+	// This allows modules to access basil.http, basil.auth, basil.sqlite etc.
+	if basil, ok := env.Get("basil"); ok {
+		moduleEnv.SetProtected("basil", basil)
+	}
 
 	// Evaluate the module
 	result := Eval(program, moduleEnv)

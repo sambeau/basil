@@ -56,7 +56,7 @@ func (h *liveReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.server.watcher != nil {
 		seq = h.server.watcher.GetChangeSeq()
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	fmt.Fprintf(w, `{"seq":%d}`, seq)
@@ -71,7 +71,7 @@ func injectLiveReload(next http.Handler) http.Handler {
 			request:        r,
 		}
 		next.ServeHTTP(lrw, r)
-		
+
 		// Flush any buffered content
 		lrw.flush()
 	})
@@ -100,13 +100,13 @@ func (w *liveReloadResponseWriter) Write(b []byte) (int, error) {
 		contentType := w.Header().Get("Content-Type")
 		w.isHTML = strings.Contains(contentType, "text/html")
 	}
-	
+
 	if w.isHTML {
 		// Buffer HTML content
 		w.buffer = append(w.buffer, b...)
 		return len(b), nil
 	}
-	
+
 	// Non-HTML: write directly
 	if !w.wroteHeader {
 		w.wroteHeader = true
@@ -121,17 +121,17 @@ func (w *liveReloadResponseWriter) flush() {
 	if !w.isHTML || len(w.buffer) == 0 {
 		return
 	}
-	
+
 	// Inject script before </body> or at end
 	content := string(w.buffer)
 	injected := false
-	
+
 	// Try to inject before </body>
 	if idx := strings.LastIndex(strings.ToLower(content), "</body>"); idx != -1 {
 		content = content[:idx] + liveReloadScript + content[idx:]
 		injected = true
 	}
-	
+
 	// Fallback: inject before </html>
 	if !injected {
 		if idx := strings.LastIndex(strings.ToLower(content), "</html>"); idx != -1 {
@@ -139,12 +139,12 @@ func (w *liveReloadResponseWriter) flush() {
 			injected = true
 		}
 	}
-	
+
 	// Fallback: append at end
 	if !injected {
 		content = content + liveReloadScript
 	}
-	
+
 	// Update content length and write
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
 	if !w.wroteHeader {

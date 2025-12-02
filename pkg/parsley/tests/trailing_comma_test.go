@@ -17,16 +17,16 @@ func TestTrailingCommaArrays(t *testing.T) {
 		{"[1, 2, 3,]", "[1, 2, 3]"},
 		{"[1,]", "[1]"},
 		{"[1, 2,]", "[1, 2]"},
-		
+
 		// Multi-line style (single line for test but same syntax)
 		{`["a", "b", "c",]`, "[a, b, c]"},
-		
+
 		// Empty array (no trailing comma possible)
 		{"[]", "[]"},
-		
+
 		// Expressions with trailing comma
 		{"[1+2, 3*4,]", "[3, 12]"},
-		
+
 		// Nested arrays with trailing commas
 		{"[[1,], [2, 3,],]", "[[1], [2, 3]]"},
 	}
@@ -62,7 +62,7 @@ func TestTrailingCommaDictionaries(t *testing.T) {
 		// Basic trailing comma
 		{`{a: 1, b: 2,}`, `{a: 1, b: 2}`},
 		{`{x: 10,}`, `{x: 10}`},
-		
+
 		// Empty dictionary (no trailing comma possible)
 		{`{}`, `{}`},
 	}
@@ -98,10 +98,10 @@ func TestTrailingCommaFunctionCalls(t *testing.T) {
 		// Define a function and call with trailing comma
 		{`let add = fn(a, b) { a + b }; add(1, 2,)`, `3`},
 		{`let sum3 = fn(a, b, c) { a + b + c }; sum3(1, 2, 3,)`, `6`},
-		
+
 		// Single argument with trailing comma
 		{`let identity = fn(x) { x }; identity(42,)`, `42`},
-		
+
 		// Built-in function with trailing comma
 		{`len([1, 2, 3],)`, `3`},
 		{`len("hello",)`, `5`},
