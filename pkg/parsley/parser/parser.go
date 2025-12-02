@@ -218,6 +218,14 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return stmt
 	case lexer.IDENT:
+		// Check for common keyword typos when identifier is followed by another identifier
+		// This pattern (ident ident) is usually a mistake - likely a typo of a keyword
+		if p.peekTokenIs(lexer.IDENT) {
+			if hint := p.checkKeywordTypo(p.curToken.Literal); hint != "" {
+				p.errors = append(p.errors, fmt.Sprintf("line %d, column %d: %s", p.curToken.Line, p.curToken.Column, hint))
+				return nil
+			}
+		}
 		// Check if this is an assignment statement (= or <== or <=/= or <=?=> or <=??=> or <=!=>)
 		if p.peekTokenIs(lexer.ASSIGN) || p.peekTokenIs(lexer.READ_FROM) || p.peekTokenIs(lexer.FETCH_FROM) || p.peekTokenIs(lexer.QUERY_ONE) || p.peekTokenIs(lexer.QUERY_MANY) || p.peekTokenIs(lexer.EXECUTE) {
 			return p.parseAssignmentStatement(false)
@@ -1520,6 +1528,84 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 	msg := fmt.Sprintf("line %d, column %d: unexpected '%s'",
 		line, column, literal)
 	p.errors = append(p.errors, msg)
+}
+
+// checkKeywordTypo checks if an identifier is a common misspelling of a keyword
+// Returns a helpful error message if it's a typo, empty string otherwise
+func (p *Parser) checkKeywordTypo(ident string) string {
+	lower := strings.ToLower(ident)
+
+	// Common typos of 'export'
+	exportTypos := map[string]bool{
+		"expoert": true, "exprot": true, "exort": true, "exprt": true,
+		"exporrt": true, "expport": true, "exoport": true, "epxort": true,
+		"eport": true, "expost": true, "expotr": true,
+	}
+	if exportTypos[lower] {
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'export'?\n   💡 Hint: Use 'export' to make values available when importing this module", ident)
+	}
+
+	// Common typos of 'let'
+	letTypos := map[string]bool{
+		"lte": true, "elt": true, "lett": true, "lat": true, "lit": true,
+	}
+	if letTypos[lower] {
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'let'?\n   💡 Hint: Use 'let' to declare variables: let x = 5", ident)
+	}
+
+	// Common typos of 'function' / 'fn'
+	fnTypos := map[string]bool{
+		"func": true, "function": true, "fuction": true, "fucntion": true,
+		"funciton": true, "funtion": true, "fnn": true,
+	}
+	if fnTypos[lower] {
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'fn'?\n   💡 Hint: In Parsley, functions use 'fn': fn(x) { x * 2 }", ident)
+	}
+
+	// Common typos of 'return'
+	returnTypos := map[string]bool{
+		"retrun": true, "reutrn": true, "retrn": true, "retunr": true,
+		"rerturn": true, "returm": true, "retutn": true,
+	}
+	if returnTypos[lower] {
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'return'?", ident)
+	}
+
+	// Common typos of 'for'
+	forTypos := map[string]bool{
+		"fro": true, "forr": true,
+	}
+	if forTypos[lower] {
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'for'?", ident)
+	}
+
+	// Common typos of 'import'
+	importTypos := map[string]bool{
+		"improt": true, "impoer": true, "imoprt": true, "imprt": true,
+		"ipmort": true, "imort": true, "impor": true,
+	}
+	if importTypos[lower] {
+		return fmt.Sprintf("unknown keyword '%s'. Did you mean 'import'?\n   💡 Hint: Use import(@./file.pars) or import(\"std/table\")", ident)
+	}
+
+	// Common typos of 'true' / 'false'
+	boolTypos := map[string]string{
+		"ture": "true", "treu": "true", "trrue": "true",
+		"flase": "false", "fasle": "false", "fales": "false",
+	}
+	if correct, ok := boolTypos[lower]; ok {
+		return fmt.Sprintf("unknown identifier '%s'. Did you mean '%s'?", ident, correct)
+	}
+
+	// Common typos of 'null'
+	nullTypos := map[string]bool{
+		"nul": true, "nulll": true, "nill": true, "nil": true,
+	}
+	if nullTypos[lower] {
+		return fmt.Sprintf("unknown identifier '%s'. Did you mean 'null'?\n   💡 Hint: In Parsley, use 'null' (not 'nil' or 'None')", ident)
+	}
+
+	return ""
 }
 
 // tokenTypeToReadableName converts token types to human-readable names
