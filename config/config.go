@@ -4,14 +4,15 @@ import "time"
 
 // Config represents the complete Basil configuration
 type Config struct {
-	BaseDir  string         `yaml:"-"` // Directory containing config file, for resolving relative paths
-	Server   ServerConfig   `yaml:"server"`
-	Security SecurityConfig `yaml:"security"`
-	Auth     AuthConfig     `yaml:"auth"`
-	Database DatabaseConfig `yaml:"database"`
-	Static   []StaticRoute  `yaml:"static"`
-	Routes   []Route        `yaml:"routes"`
-	Logging  LoggingConfig  `yaml:"logging"`
+	BaseDir   string         `yaml:"-"`          // Directory containing config file, for resolving relative paths
+	Server    ServerConfig   `yaml:"server"`
+	Security  SecurityConfig `yaml:"security"`
+	Auth      AuthConfig     `yaml:"auth"`
+	Database  DatabaseConfig `yaml:"database"`
+	PublicDir string         `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
+	Static    []StaticRoute  `yaml:"static"`
+	Routes    []Route        `yaml:"routes"`
+	Logging   LoggingConfig  `yaml:"logging"`
 }
 
 // DatabaseConfig holds database connection settings
@@ -130,6 +131,7 @@ func Defaults() *Config {
 			Registration: "closed",
 			SessionTTL:   24 * time.Hour,
 		},
+		PublicDir: "./public",
 		Logging: LoggingConfig{
 			Level:  "info",
 			Format: "text",

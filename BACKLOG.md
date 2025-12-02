@@ -10,7 +10,6 @@ Deferred items from implementation, to be picked up in future work.
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
 | Resolve paths relative to config file location | FEAT-002 | Phase 1 scope | Handler/static paths should be relative to config file, not CWD |
-| Auto-rewrite public_dir paths to web URLs | Discussion | Needs design | `./public/images/foo.png` → `/images/foo.png` in HTML output. Single `public_dir` config, Basil rewrites paths under it to web-root-relative URLs. Parsley stays unaware. |
 
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |

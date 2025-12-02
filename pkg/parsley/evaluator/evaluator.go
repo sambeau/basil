@@ -3397,6 +3397,52 @@ func evalDatetimeComputedProperty(dict *Dictionary, key string, env *Environment
 	return nil // Property doesn't exist
 }
 
+// getPublicDirComponents extracts public_dir components from basil config in environment
+// Returns nil if basil.public_dir is not set or path is outside public_dir
+func getPublicDirComponents(env *Environment) []string {
+	if env == nil {
+		return nil
+	}
+
+	// Get basil object from environment
+	basilObj, ok := env.Get("basil")
+	if !ok || basilObj == nil {
+		return nil
+	}
+
+	// Extract basil.public_dir
+	basilDict, ok := basilObj.(*Dictionary)
+	if !ok {
+		return nil
+	}
+
+	publicDirExpr, ok := basilDict.Pairs["public_dir"]
+	if !ok {
+		return nil
+	}
+
+	publicDirObj := Eval(publicDirExpr, env)
+	publicDirStr, ok := publicDirObj.(*String)
+	if !ok || publicDirStr.Value == "" {
+		return nil
+	}
+
+	// Parse public_dir into components (e.g., "./public" → ["public"])
+	publicDir := publicDirStr.Value
+
+	// Clean the path and split into components
+	// Handle "./public", "public", "./public/assets" etc.
+	publicDir = strings.TrimPrefix(publicDir, "./")
+	publicDir = strings.TrimPrefix(publicDir, "/")
+	publicDir = strings.TrimSuffix(publicDir, "/")
+
+	if publicDir == "" {
+		return nil
+	}
+
+	return strings.Split(publicDir, "/")
+}
+
 // pathDictToString converts a path dictionary back to a string
 func pathDictToString(dict *Dictionary) string {
 	// Get components array
@@ -3426,6 +3472,41 @@ func pathDictToString(dict *Dictionary) string {
 	for _, elem := range arr.Elements {
 		if str, ok := elem.(*String); ok {
 			parts = append(parts, str.Value)
+		}
+	}
+
+	// Check for public_dir transformation (only for relative paths)
+	// Absolute paths (starting with /) are not transformed
+	if !isAbsolute && dict.Env != nil {
+		publicDirParts := getPublicDirComponents(dict.Env)
+		if publicDirParts != nil {
+			// For relative paths, skip the leading "." when comparing
+			// @./public/images/foo.png → parts = [".", "public", "images", "foo.png"]
+			// public_dir = "./public" → publicDirParts = ["public"]
+			// We compare parts[1:] against publicDirParts
+			partsToCheck := parts
+			if len(parts) > 0 && parts[0] == "." {
+				partsToCheck = parts[1:]
+			}
+
+			if len(partsToCheck) >= len(publicDirParts) {
+				// Check if path starts with public_dir components
+				matches := true
+				for i, pdPart := range publicDirParts {
+					if partsToCheck[i] != pdPart {
+						matches = false
+						break
+					}
+				}
+				if matches {
+					// Strip public_dir prefix and return as web-root-relative path
+					webParts := partsToCheck[len(publicDirParts):]
+					if len(webParts) == 0 {
+						return "/"
+					}
+					return "/" + strings.Join(webParts, "/")
+				}
+			}
 		}
 	}
 

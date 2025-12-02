@@ -164,7 +164,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build and inject the basil namespace object (protected from reassignment)
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.server.config.PublicDir)
 	env.SetProtected("basil", basilObj)
 
 	// Set up custom logger that captures script log() output
@@ -211,7 +211,7 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string) evaluator.Object {
 	// Build auth context
 	authCtx := map[string]interface{}{
 		"required": route.Auth == "required",
@@ -239,8 +239,9 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 				"headers": map[string]interface{}{},
 			},
 		},
-		"auth":    authCtx,
-		"context": map[string]interface{}{}, // Empty dict for user-defined globals
+		"auth":       authCtx,
+		"context":    map[string]interface{}{}, // Empty dict for user-defined globals
+		"public_dir": publicDir,                // Public directory for path rewriting
 	}
 
 	// Convert to Parsley Dictionary

@@ -10,6 +10,11 @@ logging:
   format: text
   output: stderr
 
+# Public directory for static files
+# Paths under this directory are automatically rewritten to web-root URLs
+# e.g., @./public/images/foo.png → /images/foo.png in HTML output
+public_dir: ./public
+
 # Example routes (commented out - add your handlers)
 # routes:
 #   - path: /

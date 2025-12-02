@@ -1,9 +1,10 @@
 ---
 id: FEAT-016
 title: "Auto-rewrite public_dir paths to web URLs"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-02
+implemented: 2025-12-02
 ---
 
 # FEAT-016: Auto-rewrite public_dir paths to web URLs
