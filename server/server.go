@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sambeau/basil/auth"
@@ -237,6 +238,12 @@ func (s *Server) setupRoutes() error {
 			return fmt.Errorf("creating handler for %s: %w", route.Path, err)
 		}
 		finalHandler := s.applyAuthMiddleware(handler, route.Auth)
+
+		// If route has public_dir, wrap with static file fallback
+		if route.PublicDir != "" {
+			finalHandler = s.createRouteWithStaticFallback(route, finalHandler)
+		}
+
 		s.mux.Handle(route.Path, finalHandler)
 	}
 
@@ -264,29 +271,69 @@ func (s *Server) applyAuthMiddleware(handler http.Handler, authMode string) http
 	}
 }
 
+// createRouteWithStaticFallback wraps a route handler with static file fallback.
+// For a route like /admin with public_dir ./admin/public:
+// - /admin/styles.css will try the handler, then ./admin/public/styles.css
+func (s *Server) createRouteWithStaticFallback(route config.Route, handler http.Handler) http.Handler {
+	routePath := strings.TrimSuffix(route.Path, "/")
+	staticRoot := route.PublicDir
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// For exact route path or paths that would be handled by sub-routes, use handler
+		// Static files are for paths under this route that don't match other routes
+		urlPath := r.URL.Path
+
+		// Strip route prefix to get the file path within public_dir
+		relativePath := strings.TrimPrefix(urlPath, routePath)
+		if relativePath == "" {
+			relativePath = "/"
+		}
+
+		// Try static file first (if not the route root itself)
+		if relativePath != "/" && staticRoot != "" {
+			filePath := filepath.Join(staticRoot, relativePath)
+			if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, filePath)
+				return
+			}
+		}
+
+		// Fall back to route handler
+		handler.ServeHTTP(w, r)
+	})
+}
+
 // createRootHandler creates a handler that serves static files with route fallback
 func (s *Server) createRootHandler() http.Handler {
-	// Determine static file root
+	// Determine static file root - prefer route's public_dir, fall back to static config
 	var staticRoot string
-	for _, static := range s.config.Static {
-		if static.Path == "/" && static.Root != "" {
-			staticRoot = static.Root
+	var rootRoute *config.Route
+
+	// Find root route to get its public_dir
+	for i := range s.config.Routes {
+		if s.config.Routes[i].Path == "/" {
+			rootRoute = &s.config.Routes[i]
+			staticRoot = rootRoute.PublicDir
 			break
 		}
 	}
-	if staticRoot == "" && s.config.PublicDir != "" {
-		staticRoot = s.config.PublicDir
+
+	// Fall back to explicit static route config if no route public_dir
+	if staticRoot == "" {
+		for _, static := range s.config.Static {
+			if static.Path == "/" && static.Root != "" {
+				staticRoot = static.Root
+				break
+			}
+		}
 	}
 
 	// Find root route handler if configured
 	var rootHandler http.Handler
-	for _, route := range s.config.Routes {
-		if route.Path == "/" {
-			handler, err := newParsleyHandler(s, route, s.scriptCache)
-			if err == nil {
-				rootHandler = s.applyAuthMiddleware(handler, route.Auth)
-			}
-			break
+	if rootRoute != nil {
+		handler, err := newParsleyHandler(s, *rootRoute, s.scriptCache)
+		if err == nil {
+			rootHandler = s.applyAuthMiddleware(handler, rootRoute.Auth)
 		}
 	}
 

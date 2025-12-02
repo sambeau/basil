@@ -164,7 +164,8 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build and inject the basil namespace object (protected from reassignment)
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.server.config.PublicDir)
+	// Use route's public_dir for this handler
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir)
 	env.SetProtected("basil", basilObj)
 
 	// Set up custom logger that captures script log() output

@@ -65,6 +65,20 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		if cfg.Routes[i].Handler != "" && !filepath.IsAbs(cfg.Routes[i].Handler) {
 			cfg.Routes[i].Handler = filepath.Join(baseDir, cfg.Routes[i].Handler)
 		}
+		if cfg.Routes[i].PublicDir != "" && !filepath.IsAbs(cfg.Routes[i].PublicDir) {
+			cfg.Routes[i].PublicDir = filepath.Join(baseDir, cfg.Routes[i].PublicDir)
+		}
+	}
+
+	// Apply global public_dir to root route if not specified
+	for i := range cfg.Routes {
+		if cfg.Routes[i].Path == "/" && cfg.Routes[i].PublicDir == "" && cfg.PublicDir != "" {
+			if filepath.IsAbs(cfg.PublicDir) {
+				cfg.Routes[i].PublicDir = cfg.PublicDir
+			} else {
+				cfg.Routes[i].PublicDir = filepath.Join(baseDir, cfg.PublicDir)
+			}
+		}
 	}
 
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()

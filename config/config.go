@@ -81,10 +81,11 @@ type StaticRoute struct {
 
 // Route maps URL paths to Parsley handlers
 type Route struct {
-	Path    string        `yaml:"path"`    // URL path pattern (supports * wildcard)
-	Handler string        `yaml:"handler"` // Path to Parsley script
-	Auth    string        `yaml:"auth"`    // "required", "optional", or empty
-	Cache   time.Duration `yaml:"cache"`   // Response cache TTL (0 = no cache)
+	Path      string        `yaml:"path"`       // URL path pattern (supports * wildcard)
+	Handler   string        `yaml:"handler"`    // Path to Parsley script
+	Auth      string        `yaml:"auth"`       // "required", "optional", or empty
+	Cache     time.Duration `yaml:"cache"`      // Response cache TTL (0 = no cache)
+	PublicDir string        `yaml:"public_dir"` // Directory for static files for this route
 }
 
 // LoggingConfig holds logging settings
