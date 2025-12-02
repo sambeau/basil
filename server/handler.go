@@ -235,7 +235,8 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 				"headers": map[string]interface{}{},
 			},
 		},
-		"auth": authCtx,
+		"auth":    authCtx,
+		"context": map[string]interface{}{}, // Empty dict for user-defined globals
 	}
 
 	// Convert to Parsley Dictionary
