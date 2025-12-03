@@ -1,7 +1,7 @@
 ---
 id: FEAT-019
 title: "Basil Dev Tools"
-status: draft
+status: complete
 priority: high
 created: 2025-12-03
 author: "@human"
@@ -20,38 +20,38 @@ As an **AI assistant**, I want **easy access to live server output** so that **I
 ## Acceptance Criteria
 
 ### Phase 1: Core Logging Infrastructure
-- [ ] `dev.log(value)` logs a value to the default log page
-- [ ] `dev.log(label, value)` logs with a label
-- [ ] Logs are persisted to SQLite database (per handler)
-- [ ] Logs include: filename, line number, datetime, log call representation, value
-- [ ] `/__/logs` displays logs in styled HTML matching error pages
-- [ ] `/__/logs?text` displays logs in plain text format
-- [ ] `/__/logs?clear` clears the log page
-- [ ] `dev.clearLog()` clears the current log route programmatically
-- [ ] Dev tools only available in dev mode
-- [ ] In production: `/__/*` routes return 404, `dev.*` functions are silent no-ops
+- [x] `dev.log(value)` logs a value to the default log page
+- [x] `dev.log(label, value)` logs with a label
+- [x] Logs are persisted to SQLite database (per handler)
+- [x] Logs include: filename, line number, datetime, log call representation, value
+- [x] `/__/logs` displays logs in styled HTML matching error pages
+- [x] `/__/logs?text` displays logs in plain text format
+- [x] `/__/logs?clear` clears the log page
+- [x] `dev.clearLog()` clears the current log route programmatically
+- [x] Dev tools only available in dev mode
+- [x] In production: `/__/*` routes return 404, `dev.*` functions are silent no-ops
 
 ### Phase 2: Log Routing
-- [ ] `dev.logPage(route, value)` logs to `/__/logs/{route}`
-- [ ] `dev.logPage(route, label, value)` logs with label to specific route
-- [ ] `dev.setLogRoute(route)` sets default route for subsequent `dev.log()` calls
-- [ ] `dev.clearLogPage(route)` clears a specific log route
-- [ ] `/__/logs/{route}` displays route-specific logs
-- [ ] `/__/logs/{route}?clear` clears that route's logs
+- [x] `dev.logPage(route, value)` logs to `/__/logs/{route}`
+- [x] `dev.logPage(route, label, value)` logs with label to specific route
+- [x] `dev.setLogRoute(route)` sets default route for subsequent `dev.log()` calls
+- [x] `dev.clearLogPage(route)` clears a specific log route
+- [x] `/__/logs/{route}` displays route-specific logs
+- [x] `/__/logs/{route}?clear` clears that route's logs
 
 ### Phase 3: Log Levels & Enhancements
-- [ ] `dev.log(value, {level: "warn"})` logs with warning level
-- [ ] Warning logs displayed with amber/yellow styling and ⚠️ icon
-- [ ] Info logs (default) displayed with standard styling and ℹ️ icon
-- [ ] `.json` modifier renders value as formatted JSON in log
-- [ ] Log page auto-scrolls to most recent entry
+- [x] `dev.log(value, {level: "warn"})` logs with warning level
+- [x] Warning logs displayed with amber/yellow styling and ⚠️ icon
+- [x] Info logs (default) displayed with standard styling and ℹ️ icon
+- [ ] `.json` modifier renders value as formatted JSON in log *(deferred)*
+- [x] ~~Log page auto-scrolls to most recent entry~~ *(not needed: newest-first display)*
 
 ### Phase 4: Dev Tools Index & Config
-- [ ] `/__` index page listing available dev tools
-- [ ] `/__/env` shows environment information (non-sensitive)
-- [ ] Config option for SQLite database location/name (per handler)
-- [ ] Log truncation when database grows too large
-- [ ] Graceful handling of deleted/moved database
+- [x] `/__` index page listing available dev tools
+- [x] `/__/env` shows environment information (non-sensitive)
+- [x] Config option for SQLite database location/name (per handler)
+- [x] Log truncation when database grows too large
+- [x] Graceful handling of deleted/moved database
 
 ## Design Decisions
 
@@ -139,14 +139,36 @@ CREATE INDEX idx_logs_timestamp ON logs(timestamp);
 
 ```yaml
 dev:
-  enabled: true                           # Enable dev mode (default: false in prod)
-  log_database: "data/dev_logs.db"        # SQLite path (default: dev_logs_{datetime}.db)
+  log_database: "data/dev_logs.db"        # SQLite path (default: dev_logs.db in project dir)
   log_max_size: 10485760                  # Max DB size in bytes (default: 10MB)
   log_truncate_percent: 25                # Delete oldest X% when truncating
 ```
 
 ## Implementation Notes
-*Added during/after implementation*
+
+### Completed 2025-12-03
+
+**Files created:**
+- `server/devlog.go` - SQLite-backed log storage with auto-truncation
+- `server/devtools.go` - HTTP handlers for `/__/*` routes
+- `pkg/parsley/evaluator/stdlib_dev.go` - `dev.*` functions and `std/dev` stdlib module
+
+**Files modified:**
+- `server/server.go` - Dev tools initialization in dev mode
+- `server/handler.go` - Inject `dev` module and `env.DevLog` into handler environment
+- `pkg/parsley/evaluator/evaluator.go` - Added `DevLog` and `BasilCtx` fields to Environment
+- `pkg/parsley/evaluator/stdlib_table.go` - Added `std/dev` and `std/basil` to stdlib registry
+- `config/config.go` - Added `DevConfig` struct
+
+**Key decisions during implementation:**
+- Logs display newest-first (no auto-scroll needed)
+- Fixed header with always-accessible Clear button
+- Default database is `dev_logs.db` (persists across restarts)
+- `std/dev` stdlib import allows use in modules: `let {dev} = import("std/dev")`
+- DevLog read from environment at call-time (not import-time) for module support
+
+**Deferred:**
+- `.json` modifier for formatted JSON output (not MVP)
 
 ## Related
 - Plan: [PLAN-011](../plans/PLAN-011.md)
