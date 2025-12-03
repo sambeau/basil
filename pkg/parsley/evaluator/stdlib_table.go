@@ -19,14 +19,18 @@ type StdlibBuiltin struct {
 func (sb *StdlibBuiltin) Type() ObjectType { return BUILTIN_OBJ }
 func (sb *StdlibBuiltin) Inspect() string  { return fmt.Sprintf("stdlib function: %s", sb.Name) }
 
-// Standard library module registry
-var stdlibModules = map[string]func(*Environment) Object{
-	"table": loadTableModule,
+// getStdlibModules returns the standard library module registry
+// This is a function rather than a var to avoid initialization cycles
+func getStdlibModules() map[string]func(*Environment) Object {
+	return map[string]func(*Environment) Object{
+		"table": loadTableModule,
+	}
 }
 
 // loadStdlibModule loads a standard library module by name
 func loadStdlibModule(name string, env *Environment) Object {
-	loader, ok := stdlibModules[name]
+	modules := getStdlibModules()
+	loader, ok := modules[name]
 	if !ok {
 		return newError("unknown standard library module: @std/%s", name)
 	}
@@ -35,10 +39,11 @@ func loadStdlibModule(name string, env *Environment) Object {
 
 // loadTableModule returns the Table module as a dictionary
 func loadTableModule(env *Environment) Object {
-	// Return stdlib module dict with table constructor
+	// Return stdlib module dict with table constructor and utilities
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"table": &StdlibBuiltin{Name: "table", Fn: TableConstructor},
+			"table":    &StdlibBuiltin{Name: "table", Fn: TableConstructor},
+			"fromDict": &StdlibBuiltin{Name: "fromDict", Fn: TableFromDict},
 		},
 	}
 }
@@ -129,6 +134,52 @@ func TableConstructor(args []Object, env *Environment) Object {
 	}
 
 	return &Table{Rows: rows, Columns: columns}
+}
+
+// TableFromDict creates a Table from a dictionary's entries
+// Usage: fromDict(dict) or fromDict(dict, keyColumnName, valueColumnName)
+func TableFromDict(args []Object, env *Environment) Object {
+	if len(args) != 1 && len(args) != 3 {
+		return newError("wrong number of arguments to `fromDict`. got=%d, want=1 or 3", len(args))
+	}
+
+	dict, ok := args[0].(*Dictionary)
+	if !ok {
+		return newError("first argument to `fromDict` must be a dictionary, got %s", args[0].Type())
+	}
+
+	keyName := "key"
+	valueName := "value"
+	if len(args) == 3 {
+		k, ok := args[1].(*String)
+		if !ok {
+			return newError("second argument to `fromDict` must be a string, got %s", args[1].Type())
+		}
+		v, ok := args[2].(*String)
+		if !ok {
+			return newError("third argument to `fromDict` must be a string, got %s", args[2].Type())
+		}
+		keyName = k.Value
+		valueName = v.Value
+	}
+
+	// Build rows from dictionary entries
+	rows := make([]*Dictionary, 0, len(dict.Pairs))
+	for k, expr := range dict.Pairs {
+		// Skip internal fields
+		if strings.HasPrefix(k, "__") {
+			continue
+		}
+		val := Eval(expr, dict.Env)
+		// Create a dictionary for each entry
+		entryPairs := map[string]ast.Expression{
+			keyName:   objectToExpression(&String{Value: k}),
+			valueName: objectToExpression(val),
+		}
+		rows = append(rows, &Dictionary{Pairs: entryPairs, Env: env})
+	}
+
+	return &Table{Rows: rows, Columns: []string{keyName, valueName}}
 }
 
 // getDictKeys extracts keys from a dictionary in sorted order

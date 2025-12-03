@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/locale"
 )
 
@@ -517,6 +518,43 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 			}
 		}
 		return &Array{Elements: values}
+
+	case "entries":
+		// entries() or entries(keyName, valueName)
+		// Returns array of dictionaries with key/value pairs
+		if len(args) != 0 && len(args) != 2 {
+			return newError("wrong number of arguments to `entries`. got=%d, want=0 or 2", len(args))
+		}
+
+		keyName := "key"
+		valueName := "value"
+		if len(args) == 2 {
+			k, ok := args[0].(*String)
+			if !ok {
+				return newError("first argument to `entries` must be a string, got %s", args[0].Type())
+			}
+			v, ok := args[1].(*String)
+			if !ok {
+				return newError("second argument to `entries` must be a string, got %s", args[1].Type())
+			}
+			keyName = k.Value
+			valueName = v.Value
+		}
+
+		entries := make([]Object, 0, len(dict.Pairs))
+		for k, expr := range dict.Pairs {
+			// Skip internal fields
+			if !strings.HasPrefix(k, "__") {
+				val := Eval(expr, dict.Env)
+				// Create a dictionary for each entry
+				entryPairs := map[string]ast.Expression{
+					keyName:   objectToExpression(&String{Value: k}),
+					valueName: objectToExpression(val),
+				}
+				entries = append(entries, &Dictionary{Pairs: entryPairs, Env: env})
+			}
+		}
+		return &Array{Elements: entries}
 
 	case "has":
 		if len(args) != 1 {

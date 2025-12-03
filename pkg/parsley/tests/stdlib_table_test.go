@@ -611,3 +611,95 @@ func evalTest(t *testing.T, input string) evaluator.Object {
 
 	return result
 }
+
+func TestDictionaryEntries(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "entries with default names",
+			input:    `let d = {a: 1, b: 2}; d.entries()`,
+			expected: `[{key: a, value: 1}, {key: b, value: 2}]`,
+		},
+		{
+			name:     "entries with custom names",
+			input:    `let d = {x: 10, y: 20}; d.entries("Name", "Val")`,
+			expected: `[{Name: x, Val: 10}, {Name: y, Val: 20}]`,
+		},
+		{
+			name:     "entries with string keys",
+			input:    `let d = {"Total": 100}; d.entries("Category", "Value")`,
+			expected: `[{Category: Total, Value: 100}]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalTest(t, tt.input)
+			// Check that it's an array
+			arr, ok := result.(*evaluator.Array)
+			if !ok {
+				t.Fatalf("expected Array, got %s", result.Type())
+			}
+			// Should have entries
+			if len(arr.Elements) == 0 {
+				t.Fatal("expected non-empty array")
+			}
+			// Each element should be a dictionary
+			for _, elem := range arr.Elements {
+				if elem.Type() != evaluator.DICTIONARY_OBJ {
+					t.Errorf("expected DICTIONARY, got %s", elem.Type())
+				}
+			}
+		})
+	}
+}
+
+func TestTableFromDict(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectRows  int
+		expectCols  []string
+	}{
+		{
+			name: "fromDict with default column names",
+			input: `let {fromDict} = import("std/table")
+let d = {a: 1, b: 2}
+fromDict(d)`,
+			expectRows: 2,
+			expectCols: []string{"key", "value"},
+		},
+		{
+			name: "fromDict with custom column names",
+			input: `let {fromDict} = import("std/table")
+let d = {"Total": 100, "Active": 50}
+fromDict(d, "Category", "Value")`,
+			expectRows: 2,
+			expectCols: []string{"Category", "Value"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalTest(t, tt.input)
+			tbl, ok := result.(*evaluator.Table)
+			if !ok {
+				t.Fatalf("expected Table, got %s", result.Type())
+			}
+			if len(tbl.Rows) != tt.expectRows {
+				t.Errorf("expected %d rows, got %d", tt.expectRows, len(tbl.Rows))
+			}
+			if len(tbl.Columns) != len(tt.expectCols) {
+				t.Errorf("expected columns %v, got %v", tt.expectCols, tbl.Columns)
+			}
+			for i, col := range tt.expectCols {
+				if tbl.Columns[i] != col {
+					t.Errorf("expected column %d to be %s, got %s", i, col, tbl.Columns[i])
+				}
+			}
+		})
+	}
+}
