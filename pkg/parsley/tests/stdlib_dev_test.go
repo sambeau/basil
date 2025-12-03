@@ -111,6 +111,44 @@ func TestDevLogWithLabel(t *testing.T) {
 	}
 }
 
+func TestDevLogWithLevel(t *testing.T) {
+	tests := []struct {
+		input         string
+		expectedLevel string
+	}{
+		{`dev.log(42)`, "info"},
+		{`dev.log(42, {level: "info"})`, "info"},
+		{`dev.log(42, {level: "warn"})`, "warn"},
+		{`dev.log(42, {level: "warning"})`, "warn"},
+		{`dev.log("label", 42, {level: "warn"})`, "warn"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			mock := &mockDevLogWriter{}
+			env := evaluator.NewEnvironment()
+			env.Filename = "test.pars"
+			env.DevLog = mock
+			devModule := evaluator.NewDevModule()
+			env.Set("dev", devModule)
+
+			result := testEval(tt.input, env)
+			if isError(result) {
+				t.Fatalf("got error: %s", result.Inspect())
+			}
+
+			if len(mock.entries) != 1 {
+				t.Fatalf("expected 1 log entry, got %d", len(mock.entries))
+			}
+
+			entry := mock.entries[0]
+			if entry.level != tt.expectedLevel {
+				t.Errorf("expected level '%s', got '%s'", tt.expectedLevel, entry.level)
+			}
+		})
+	}
+}
+
 func TestDevClearLog(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()

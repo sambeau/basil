@@ -3,8 +3,6 @@ package evaluator
 import (
 	"fmt"
 	"strings"
-
-	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
 // DevLogWriter is an interface for writing dev logs.
@@ -86,7 +84,7 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 		if isOptionsDict(args[1]) {
 			// dev.log(value, {level: "warn"})
 			value = args[0]
-			level = extractLevel(args[1])
+			level = extractLevel(args[1], env)
 		} else {
 			// dev.log(label, value)
 			label = devObjectToString(args[0])
@@ -96,7 +94,7 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 		// dev.log(label, value, options)
 		label = devObjectToString(args[0])
 		value = args[1]
-		level = extractLevel(args[2])
+		level = extractLevel(args[2], env)
 	}
 
 	// Build call representation
@@ -163,7 +161,7 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 		if isOptionsDict(args[2]) {
 			// dev.logPage(route, value, {level: "warn"})
 			value = args[1]
-			level = extractLevel(args[2])
+			level = extractLevel(args[2], env)
 		} else {
 			// dev.logPage(route, label, value)
 			label = devObjectToString(args[1])
@@ -173,7 +171,7 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 		// dev.logPage(route, label, value, options)
 		label = devObjectToString(args[1])
 		value = args[2]
-		level = extractLevel(args[3])
+		level = extractLevel(args[3], env)
 	}
 
 	// Build call representation
@@ -265,7 +263,7 @@ func isOptionsDict(obj Object) bool {
 	return false
 }
 
-func extractLevel(obj Object) string {
+func extractLevel(obj Object, env *Environment) string {
 	dict, ok := obj.(*Dictionary)
 	if !ok {
 		return "info"
@@ -277,13 +275,16 @@ func extractLevel(obj Object) string {
 	}
 
 	// Evaluate the expression to get the value
-	// Since we're in a helper, we need to handle ObjectLiteralExpression
-	if objLit, ok := levelExpr.(*ast.ObjectLiteralExpression); ok {
-		if str, ok := objLit.Obj.(*String); ok {
-			level := strings.ToLower(str.Value)
-			if level == "warn" || level == "warning" {
-				return "warn"
-			}
+	// Use the dictionary's environment for evaluation
+	evalEnv := dict.Env
+	if evalEnv == nil {
+		evalEnv = env
+	}
+	levelVal := Eval(levelExpr, evalEnv)
+	if str, ok := levelVal.(*String); ok {
+		level := strings.ToLower(str.Value)
+		if level == "warn" || level == "warning" {
+			return "warn"
 		}
 	}
 
