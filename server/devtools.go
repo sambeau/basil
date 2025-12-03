@@ -444,10 +444,6 @@ const devToolsLogsHTML = `<!DOCTYPE html>
       Add <code>?text</code> to URL for plain text output.
     </div>
   </div>
-  <script>
-    // Auto-scroll to bottom on load
-    window.scrollTo(0, document.body.scrollHeight);
-  </script>
 </body>
 </html>
 `
