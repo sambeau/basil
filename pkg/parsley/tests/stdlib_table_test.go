@@ -413,6 +413,179 @@ func TestUnknownStdlibModule(t *testing.T) {
 	}
 }
 
+// TestTableSumWithStringNumbers tests that sum() coerces string numbers
+func TestTableSumWithStringNumbers(t *testing.T) {
+	// Create a table with string values (simulating legacy or mixed data)
+	input := `let {table} = import("std/table")
+data = [{val: "10"}, {val: "20"}, {val: "30"}]
+table(data).sum("val")`
+
+	result := evalTest(t, input)
+
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s", result.Type())
+	}
+
+	if intVal.Value != 60 {
+		t.Errorf("expected 60, got %d", intVal.Value)
+	}
+}
+
+// TestTableAvgWithStringNumbers tests that avg() coerces string numbers
+func TestTableAvgWithStringNumbers(t *testing.T) {
+	input := `let {table} = import("std/table")
+data = [{val: "10"}, {val: "20"}, {val: "30"}]
+table(data).avg("val")`
+
+	result := evalTest(t, input)
+
+	floatVal, ok := result.(*evaluator.Float)
+	if !ok {
+		t.Fatalf("expected Float, got %s", result.Type())
+	}
+
+	if floatVal.Value != 20.0 {
+		t.Errorf("expected 20.0, got %f", floatVal.Value)
+	}
+}
+
+// TestTableMinWithStringNumbers tests that min() coerces string numbers for proper numeric comparison
+func TestTableMinWithStringNumbers(t *testing.T) {
+	// Without coercion, "5" > "10" lexicographically, so min would wrongly be "10"
+	input := `let {table} = import("std/table")
+data = [{val: "5"}, {val: "10"}, {val: "2"}]
+table(data).min("val")`
+
+	result := evalTest(t, input)
+
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer (coerced), got %s", result.Type())
+	}
+
+	if intVal.Value != 2 {
+		t.Errorf("expected 2 (numeric min), got %d", intVal.Value)
+	}
+}
+
+// TestTableMaxWithStringNumbers tests that max() coerces string numbers for proper numeric comparison
+func TestTableMaxWithStringNumbers(t *testing.T) {
+	// Without coercion, "9" > "100" lexicographically, so max would wrongly be "9"
+	input := `let {table} = import("std/table")
+data = [{val: "9"}, {val: "100"}, {val: "50"}]
+table(data).max("val")`
+
+	result := evalTest(t, input)
+
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer (coerced), got %s", result.Type())
+	}
+
+	if intVal.Value != 100 {
+		t.Errorf("expected 100 (numeric max), got %d", intVal.Value)
+	}
+}
+
+// TestTableWhereWithCSVData tests where() with type-coerced CSV data
+func TestTableWhereWithCSVData(t *testing.T) {
+	input := `let {table} = import("std/table")
+let data = parseCSV("name,value\na,10\nb,20\nc,5\nd,15")
+let t = table(data)
+t.where(fn(row) { row.value > 10 }).count()`
+
+	result := evalTest(t, input)
+
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s", result.Type())
+	}
+
+	// Values > 10 are: 20, 15 (2 rows)
+	if intVal.Value != 2 {
+		t.Errorf("expected 2 rows with value > 10, got %d", intVal.Value)
+	}
+}
+
+// TestTableOrderByWithCSVData tests orderBy() with type-coerced CSV data
+func TestTableOrderByWithCSVData(t *testing.T) {
+	input := `let {table} = import("std/table")
+let data = parseCSV("name,value\na,10\nb,2\nc,100")
+let t = table(data).orderBy("value")
+t.rows[0].value`
+
+	result := evalTest(t, input)
+
+	// Should be sorted numerically: 2 is first (not "10" lexicographically)
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s", result.Type())
+	}
+
+	if intVal.Value != 2 {
+		t.Errorf("expected first value to be 2 (numeric sort), got %d", intVal.Value)
+	}
+}
+
+// TestTableAggregatesWithCSVData tests all aggregate functions with CSV data
+func TestTableAggregatesWithCSVData(t *testing.T) {
+	// Test sum
+	input := `let {table} = import("std/table")
+let data = parseCSV("value\n10\n20\n30\n40")
+table(data).sum("value")`
+
+	result := evalTest(t, input)
+	sumVal := result.(*evaluator.Integer).Value
+	if sumVal != 100 {
+		t.Errorf("expected sum=100, got %d", sumVal)
+	}
+
+	// Test avg
+	input = `let {table} = import("std/table")
+let data = parseCSV("value\n10\n20\n30\n40")
+table(data).avg("value")`
+
+	result = evalTest(t, input)
+	avgVal := result.(*evaluator.Float).Value
+	if avgVal != 25.0 {
+		t.Errorf("expected avg=25.0, got %f", avgVal)
+	}
+
+	// Test min
+	input = `let {table} = import("std/table")
+let data = parseCSV("value\n10\n20\n30\n40")
+table(data).min("value")`
+
+	result = evalTest(t, input)
+	minVal := result.(*evaluator.Integer).Value
+	if minVal != 10 {
+		t.Errorf("expected min=10, got %d", minVal)
+	}
+
+	// Test max
+	input = `let {table} = import("std/table")
+let data = parseCSV("value\n10\n20\n30\n40")
+table(data).max("value")`
+
+	result = evalTest(t, input)
+	maxVal := result.(*evaluator.Integer).Value
+	if maxVal != 40 {
+		t.Errorf("expected max=40, got %d", maxVal)
+	}
+
+	// Test count
+	input = `let {table} = import("std/table")
+let data = parseCSV("value\n10\n20\n30\n40")
+table(data).count()`
+
+	result = evalTest(t, input)
+	countVal := result.(*evaluator.Integer).Value
+	if countVal != 4 {
+		t.Errorf("expected count=4, got %d", countVal)
+	}
+}
+
 // Helper function to evaluate test input
 func evalTest(t *testing.T, input string) evaluator.Object {
 	t.Helper()

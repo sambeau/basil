@@ -6042,8 +6042,8 @@ func getBuiltins() map[string]*Builtin {
 					return newError("parseCSV() expects string argument, got %s", args[0].Type())
 				}
 
-				// Parse options if provided
-				hasHeader := false
+				// Parse options if provided (default: header=true)
+				hasHeader := true
 				if len(args) == 2 {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						if headerExpr, exists := optDict.Pairs["header"]; exists {
@@ -6072,10 +6072,7 @@ func getBuiltins() map[string]*Builtin {
 						}
 						for j, value := range record {
 							if j < len(headers) {
-								dict.Pairs[headers[j]] = &ast.StringLiteral{
-									Token: lexer.Token{Type: lexer.STRING, Literal: value},
-									Value: value,
-								}
+								dict.Pairs[headers[j]] = &ast.ObjectLiteralExpression{Obj: parseCSVValue(value)}
 							}
 						}
 						rows[i] = dict
@@ -6088,7 +6085,7 @@ func getBuiltins() map[string]*Builtin {
 				for i, record := range records {
 					row := make([]Object, len(record))
 					for j, value := range record {
-						row[j] = &String{Value: value}
+						row[j] = parseCSVValue(value)
 					}
 					rows[i] = &Array{Elements: row}
 				}

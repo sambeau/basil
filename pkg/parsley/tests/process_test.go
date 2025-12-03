@@ -287,7 +287,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 	}{
 		{
 			name:    "parseCSV without header",
-			input:   `parseCSV("a,b,c\n1,2,3")`,
+			input:   `parseCSV("a,b,c\n1,2,3", {header: false})`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				arr, ok := obj.(*evaluator.Array)
@@ -295,7 +295,21 @@ func TestCSVFormatBuiltins(t *testing.T) {
 			},
 		},
 		{
-			name:    "parseCSV with header",
+			name:    "parseCSV with header (default)",
+			input:   `parseCSV("name,age\nAlice,30")`,
+			wantErr: false,
+			check: func(obj evaluator.Object) bool {
+				arr, ok := obj.(*evaluator.Array)
+				if !ok || len(arr.Elements) == 0 {
+					return false
+				}
+				// First row should be a dictionary with keys from header
+				dict, ok := arr.Elements[0].(*evaluator.Dictionary)
+				return ok && len(dict.Pairs) == 2
+			},
+		},
+		{
+			name:    "parseCSV with explicit header option",
 			input:   `parseCSV("name,age\nAlice,30", {header: true})`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
