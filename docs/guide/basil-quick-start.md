@@ -32,6 +32,7 @@ myapp/
 ### 2. Create Configuration
 
 **basil.yaml:**
+
 ```yaml
 server:
   host: localhost
@@ -49,6 +50,7 @@ routes:
 ### 3. Create a Handler
 
 **handlers/index.pars:**
+
 ```parsley
 // Homepage handler
 let title = "My Basil App"
@@ -68,6 +70,7 @@ let title = "My Basil App"
 ### 4. Add Some Style
 
 **public/style.css:**
+
 ```css
 body {
   font-family: system-ui, sans-serif;
@@ -104,6 +107,7 @@ Basil finds config in this order:
 
 ### ENV Variables
 Config supports `${VAR:-default}` syntax:
+
 ```yaml
 server:
   port: ${PORT:-8080}
@@ -111,6 +115,7 @@ server:
 
 ### Routes
 Routes map URL paths to Parsley handlers:
+
 ```yaml
 routes:
   - path: /              # Exact match
@@ -121,6 +126,7 @@ routes:
 
 ### Static Files
 Serve directories or single files:
+
 ```yaml
 static:
   - path: /static/       # Directory
@@ -131,6 +137,7 @@ static:
 
 ### Logging
 Configure request logging:
+
 ```yaml
 logging:
   level: info        # debug, info, warn, error
@@ -139,11 +146,13 @@ logging:
 ```
 
 **Text format** (default):
+
 ```
 2025-11-30T12:34:56Z GET /api/hello 200 1.234ms
 ```
 
 **JSON format** (for log aggregators):
+
 ```json
 {"timestamp":"2025-11-30T12:34:56Z","method":"GET","path":"/api/hello","status":200,"duration":"1.234ms","duration_ms":1,"client_ip":"127.0.0.1:52345","user_agent":"curl/8.0"}
 ```
@@ -153,6 +162,7 @@ logging:
 Your Parsley handlers receive request data via the `basil` namespace object:
 
 **Accessing request data:**
+
 ```parsley
 basil.http.request = {
   method:     "GET",
@@ -168,6 +178,7 @@ basil.http.request = {
 ```
 
 **Example: Using request data:**
+
 ```parsley
 let req = basil.http.request
 let name = req.query.name ?? "stranger"
@@ -185,11 +196,13 @@ let userAgent = req.headers["User-Agent"] ?? "unknown"
 ### Response Types
 
 **HTML** (auto-detected by leading `<`):
+
 ```parsley
 `<html><body>Hello!</body></html>`
 ```
 
 **JSON** (return a map/dictionary):
+
 ```parsley
 {
   message: "Hello!",
@@ -198,6 +211,7 @@ let userAgent = req.headers["User-Agent"] ?? "unknown"
 ```
 
 **Custom Response** (set metadata via `basil.http.response`):
+
 ```parsley
 // Set response metadata
 basil.http.response.status = 201
@@ -210,6 +224,7 @@ basil.http.response.headers["X-Custom"] = "value"
 ### Handling Forms
 
 **URL-encoded forms** (`application/x-www-form-urlencoded`):
+
 ```parsley
 let req = basil.http.request
 
@@ -230,6 +245,7 @@ if req.method == "POST" {
 ```
 
 **JSON API requests** (`application/json`):
+
 ```parsley
 // JSON body is parsed into basil.http.request.form
 let data = basil.http.request.form
@@ -240,6 +256,7 @@ let data = basil.http.request.form
 ```
 
 **File uploads** (`multipart/form-data`):
+
 ```parsley
 // File metadata is in basil.http.request.files
 let file = basil.http.request.files.document
@@ -253,6 +270,7 @@ if file {
 Create reusable components:
 
 **handlers/Page.pars:**
+
 ```parsley
 export Page = fn({title, contents}) {
   `<html>
@@ -263,6 +281,7 @@ export Page = fn({title, contents}) {
 ```
 
 **handlers/index.pars:**
+
 ```parsley
 {Page} = import(@./Page.pars)
 
@@ -286,6 +305,7 @@ handlers/
 ```
 
 **handlers/utils/deep/nested.pars:**
+
 ```parsley
 // Instead of: import(@../../components/page.pars)
 {Page} = import(@~/components/page.pars)
@@ -298,6 +318,7 @@ Basil integrates with SQLite databases using Parsley's database operators.
 ### Configuration
 
 **basil.yaml:**
+
 ```yaml
 database:
   driver: sqlite
@@ -309,6 +330,7 @@ database:
 In your handlers, the database connection is available as `basil.sqlite`:
 
 **handlers/users.pars:**
+
 ```parsley
 // Query all users
 let users = basil.sqlite <=??=> "SELECT * FROM users ORDER BY name"
@@ -336,6 +358,7 @@ let users = basil.sqlite <=??=> "SELECT * FROM users ORDER BY name"
 ### Examples
 
 **Query single row:**
+
 ```parsley
 let user = basil.sqlite <=?=> "SELECT * FROM users WHERE id = 1"
 if user {
@@ -346,12 +369,14 @@ if user {
 ```
 
 **Insert data:**
+
 ```parsley
 let result = basil.sqlite <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
 <p>Created user with ID: {result.lastId}</p>
 ```
 
 **Update data:**
+
 ```parsley
 let result = basil.sqlite <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
 <p>Updated {result.affected} row(s)</p>
@@ -473,6 +498,7 @@ Basil sets secure defaults for all responses:
 | `Referrer-Policy` | strict-origin-when-cross-origin | Control referrer info |
 
 **Customizing headers:**
+
 ```yaml
 security:
   hsts:
@@ -550,6 +576,7 @@ routes:
 ### Cache Management
 
 **Reload scripts and clear cache:**
+
 ```bash
 kill -HUP $(pgrep basil)
 ```
