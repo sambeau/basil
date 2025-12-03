@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"html"
 	"net/http"
@@ -40,6 +41,18 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		route := strings.TrimPrefix(path, "/__/logs/")
 		route = strings.TrimSuffix(route, "/")
 		h.serveLogs(w, r, route)
+	case path == "/__/db" || path == "/__/db/":
+		h.serveDB(w, r)
+	case strings.HasPrefix(path, "/__/db/download/"):
+		tableName := strings.TrimPrefix(path, "/__/db/download/")
+		tableName = strings.TrimSuffix(tableName, "/")
+		h.serveDBDownload(w, r, tableName)
+	case strings.HasPrefix(path, "/__/db/upload/"):
+		tableName := strings.TrimPrefix(path, "/__/db/upload/")
+		tableName = strings.TrimSuffix(tableName, "/")
+		h.serveDBUpload(w, r, tableName)
+	case path == "/__/db/create":
+		h.serveDBCreate(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -191,6 +204,220 @@ func (h *devToolsHandler) serveLogsHTML(w http.ResponseWriter, entries []LogEntr
 	fmt.Fprint(w, html)
 }
 
+// openAppDB opens the application's SQLite database.
+func (h *devToolsHandler) openAppDB() (*sql.DB, error) {
+	dbPath := h.server.config.Database.Path
+	if dbPath == "" {
+		return nil, fmt.Errorf("no database configured (set database.path in config)")
+	}
+
+	// Resolve relative path
+	if !filepath.IsAbs(dbPath) {
+		dbPath = filepath.Join(h.server.config.BaseDir, dbPath)
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+
+	return db, nil
+}
+
+// serveDB serves the database overview page.
+func (h *devToolsHandler) serveDB(w http.ResponseWriter, r *http.Request) {
+	db, err := h.openAppDB()
+	if err != nil {
+		h.serveDBError(w, "Database Error", err.Error())
+		return
+	}
+	defer db.Close()
+
+	// Get table list
+	tables, err := getTableList(db)
+	if err != nil {
+		h.serveDBError(w, "Database Error", err.Error())
+		return
+	}
+
+	// Get info for each table
+	var tableInfos []*TableInfo
+	for _, name := range tables {
+		info, err := getTableInfo(db, name)
+		if err != nil {
+			h.server.logError("failed to get table info for %s: %v", name, err)
+			continue
+		}
+		tableInfos = append(tableInfos, info)
+	}
+
+	// Build tables HTML
+	var tablesHTML strings.Builder
+	if len(tableInfos) == 0 {
+		tablesHTML.WriteString(`<div class="empty-state">No tables in database. Create one below.</div>`)
+	} else {
+		for _, t := range tableInfos {
+			tablesHTML.WriteString(h.renderTableCard(t))
+		}
+	}
+
+	// Get database filename for display
+	dbPath := h.server.config.Database.Path
+
+	htmlOut := fmt.Sprintf(devToolsDBHTML,
+		html.EscapeString(filepath.Base(dbPath)),
+		len(tableInfos),
+		tablesHTML.String())
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, htmlOut)
+}
+
+// renderTableCard renders a single table's card HTML.
+func (h *devToolsHandler) renderTableCard(t *TableInfo) string {
+	var columnsHTML strings.Builder
+	for _, col := range t.Columns {
+		constraints := ""
+		if col.PK {
+			constraints = " <span class=\"constraint\">PK</span>"
+		}
+		if col.NotNull {
+			constraints += " <span class=\"constraint\">NOT NULL</span>"
+		}
+		columnsHTML.WriteString(fmt.Sprintf(`
+			<tr>
+				<td class="col-name">%s</td>
+				<td class="col-type">%s%s</td>
+			</tr>`,
+			html.EscapeString(col.Name),
+			html.EscapeString(col.Type),
+			constraints))
+	}
+
+	return fmt.Sprintf(`
+		<div class="table-card">
+			<div class="table-header">
+				<span class="table-name">📊 %s</span>
+				<span class="row-count">%d rows</span>
+			</div>
+			<table class="columns-table">
+				<thead>
+					<tr><th>Column</th><th>Type</th></tr>
+				</thead>
+				<tbody>%s</tbody>
+			</table>
+			<div class="table-actions">
+				<a href="/__/db/download/%s" class="btn btn-download">⬇️ Download CSV</a>
+				<form action="/__/db/upload/%s" method="POST" enctype="multipart/form-data" class="upload-form">
+					<label class="btn btn-upload">
+						⬆️ Replace Table
+						<input type="file" name="file" accept=".csv" onchange="this.form.submit()" hidden>
+					</label>
+				</form>
+			</div>
+		</div>`,
+		html.EscapeString(t.Name),
+		t.RowCount,
+		columnsHTML.String(),
+		html.EscapeString(t.Name),
+		html.EscapeString(t.Name))
+}
+
+// serveDBDownload serves a table as CSV download.
+func (h *devToolsHandler) serveDBDownload(w http.ResponseWriter, r *http.Request, tableName string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := h.openAppDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	// Set headers for CSV download
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.csv"`, tableName))
+
+	if err := exportTableCSV(db, tableName, w); err != nil {
+		h.server.logError("failed to export table %s: %v", tableName, err)
+		// Can't change response at this point if we've started writing
+	}
+}
+
+// serveDBUpload handles CSV upload to replace a table.
+func (h *devToolsHandler) serveDBUpload(w http.ResponseWriter, r *http.Request, tableName string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form (max 32MB)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		h.serveDBError(w, "Upload Error", "Failed to parse form: "+err.Error())
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		h.serveDBError(w, "Upload Error", "No file provided: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	db, err := h.openAppDB()
+	if err != nil {
+		h.serveDBError(w, "Database Error", err.Error())
+		return
+	}
+	defer db.Close()
+
+	if err := replaceTableFromCSV(db, tableName, file); err != nil {
+		h.serveDBError(w, "Import Error", err.Error())
+		return
+	}
+
+	// Redirect back to database view
+	http.Redirect(w, r, "/__/db", http.StatusSeeOther)
+}
+
+// serveDBCreate handles creating a new table.
+func (h *devToolsHandler) serveDBCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tableName := strings.TrimSpace(r.FormValue("name"))
+	if tableName == "" {
+		h.serveDBError(w, "Create Error", "Table name is required")
+		return
+	}
+
+	db, err := h.openAppDB()
+	if err != nil {
+		h.serveDBError(w, "Database Error", err.Error())
+		return
+	}
+	defer db.Close()
+
+	if err := createEmptyTable(db, tableName); err != nil {
+		h.serveDBError(w, "Create Error", err.Error())
+		return
+	}
+
+	// Redirect back to database view
+	http.Redirect(w, r, "/__/db", http.StatusSeeOther)
+}
+
+// serveDBError renders an error page for database operations.
+func (h *devToolsHandler) serveDBError(w http.ResponseWriter, title, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprintf(w, devToolsDBErrorHTML, html.EscapeString(title), html.EscapeString(title), html.EscapeString(message))
+}
+
 // HTML templates
 
 const devToolsIndexHTML = `<!DOCTYPE html>
@@ -268,6 +495,12 @@ const devToolsIndexHTML = `<!DOCTYPE html>
         <a href="/__/logs">
           📋 Logs
           <div class="tool-desc">View dev.log() output from your handlers</div>
+        </a>
+      </li>
+      <li>
+        <a href="/__/db">
+          🗄️ Database
+          <div class="tool-desc">View tables, export/import CSV data</div>
         </a>
       </li>
       <li>
@@ -577,6 +810,312 @@ const devToolsEnvHTML = `<!DOCTYPE html>
     <div class="footer">
       Sensitive information (secrets, full paths) is hidden for security.
     </div>
+  </div>
+</body>
+</html>
+`
+
+const devToolsDBHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Basil Database</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #98c379;
+    }
+    .brand {
+      display: inline-block;
+      background: #98c379;
+      color: #1a1a2e;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .back-link {
+      color: #61afef;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    .info-box {
+      background: #252542;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+    .info-item {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .info-label {
+      color: #5c6370;
+      font-size: 0.85rem;
+    }
+    .info-value {
+      color: #e5c07b;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+    }
+    .create-section {
+      background: #252542;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .create-section h2 {
+      font-size: 1rem;
+      color: #98c379;
+      margin-bottom: 0.75rem;
+    }
+    .create-form {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .create-form input[type="text"] {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #3d3d5c;
+      border-radius: 4px;
+      background: #1a1a2e;
+      color: #eee;
+      font-size: 0.9rem;
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    .create-form input[type="text"]:focus {
+      outline: none;
+      border-color: #98c379;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s;
+    }
+    .btn-create {
+      background: #98c379;
+      color: #1a1a2e;
+      font-weight: 500;
+    }
+    .btn-create:hover {
+      background: #7cb668;
+    }
+    .btn-download {
+      background: #61afef;
+      color: #1a1a2e;
+    }
+    .btn-download:hover {
+      background: #4d9fe6;
+    }
+    .btn-upload {
+      background: #e5c07b;
+      color: #1a1a2e;
+    }
+    .btn-upload:hover {
+      background: #d4af6a;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #5c6370;
+      font-size: 0.95rem;
+    }
+    .table-card {
+      background: #252542;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #3d3d5c;
+    }
+    .table-name {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #61afef;
+    }
+    .row-count {
+      font-size: 0.85rem;
+      color: #5c6370;
+    }
+    .columns-table {
+      width: 100%%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    .columns-table th {
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      background: #1a1a2e;
+      color: #5c6370;
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    .columns-table td {
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid #3d3d5c;
+    }
+    .columns-table tr:last-child td {
+      border-bottom: none;
+    }
+    .col-name {
+      font-family: 'SF Mono', Monaco, monospace;
+      color: #eee;
+    }
+    .col-type {
+      color: #e5c07b;
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    .constraint {
+      font-size: 0.7rem;
+      background: #3d3d5c;
+      color: #98c379;
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      margin-left: 0.3rem;
+    }
+    .table-actions {
+      display: flex;
+      gap: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #3d3d5c;
+    }
+    .upload-form {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><span class="brand">🌿 DEV</span> Database</h1>
+      <a href="/__" class="back-link">← Dev Tools</a>
+    </div>
+    <div class="info-box">
+      <div class="info-item">
+        <span class="info-label">File:</span>
+        <span class="info-value">%s</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Tables:</span>
+        <span class="info-value">%d</span>
+      </div>
+    </div>
+    <div class="create-section">
+      <h2>➕ Create New Table</h2>
+      <form action="/__/db/create" method="POST" class="create-form">
+        <input type="text" name="name" placeholder="table_name" pattern="[a-zA-Z_][a-zA-Z0-9_]*" required>
+        <button type="submit" class="btn btn-create">Create</button>
+      </form>
+    </div>
+    %s
+  </div>
+</body>
+</html>
+`
+
+const devToolsDBErrorHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>%s</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .error-box {
+      background: #252542;
+      border-radius: 8px;
+      padding: 2rem;
+      max-width: 500px;
+      text-align: center;
+    }
+    .error-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      color: #e06c75;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .error-message {
+      color: #abb2bf;
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #1a1a2e;
+      padding: 1rem;
+      border-radius: 4px;
+      text-align: left;
+      word-break: break-word;
+    }
+    .back-link {
+      display: inline-block;
+      color: #61afef;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-box">
+    <div class="error-icon">⚠️</div>
+    <h1>%s</h1>
+    <div class="error-message">%s</div>
+    <a href="/__/db" class="back-link">← Back to Database</a>
   </div>
 </body>
 </html>
