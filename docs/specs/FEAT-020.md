@@ -10,43 +10,75 @@ author: "@human"
 # FEAT-020: Per-Developer Config Overrides
 
 ## Summary
-Allow developers to override config values (port, database, handlers directory) without modifying the shared `basil.yaml`. This enables multiple developers to run isolated instances on the same machine, each with their own port and data.
+Allow a single config file to define multiple developer instances, each with their own port, database, handlers, and static paths. Admin controls all configurations centrally; developers select their instance via CLI flag.
 
 ## User Story
-As a **developer on a team**, I want **to run my own Basil instance with custom port and database** so that **I can develop on my branch without conflicting with other developers**.
+As an **admin**, I want **to define developer instances in a single config file** so that **I control what configurations are available and can manage them centrally**.
 
-As a **solo developer**, I want **to test different configurations quickly** so that **I can experiment without editing my main config file**.
+As a **developer on a team**, I want **to run my own Basil instance by name** so that **I can develop on my branch without conflicting with other developers**.
 
 ## Acceptance Criteria
 
-### Phase 1: Local Config File
-- [ ] Support `basil.local.yaml` that merges on top of `basil.yaml`
-- [ ] `basil.local.yaml` is auto-loaded if present (same directory as main config)
-- [ ] Local config only needs to specify overrides, not full config
-- [ ] Document that `basil.local.yaml` should be gitignored
+- [ ] Config supports `developers` section with named developer configs
+- [ ] Each developer config can override: `port`, `database`, `handlers`, `static`, `logging`
+- [ ] `basil --dev alice` runs using developer "alice" config merged with base
+- [ ] `basil --dev` (no name) uses first developer config or errors if none defined
+- [ ] Developer configs inherit base config values if not specified
+- [ ] Production config (server section) remains unchanged
 
-### Phase 2: Environment Variables
-- [ ] `BASIL_PORT` overrides `server.port`
-- [ ] `BASIL_HANDLERS` overrides `handlers.root`
-- [ ] `BASIL_STATIC` overrides `static.root`
-- [ ] `BASIL_DATABASE` overrides `auth.database`
-- [ ] `BASIL_DEV_DATABASE` overrides `dev.log_database`
-- [ ] Environment variables take precedence over config files
+## Config Example
 
-### Phase 3: CLI Flags
-- [ ] `--port` flag overrides port
-- [ ] `--handlers` flag overrides handlers root
-- [ ] `--db` flag overrides auth database
-- [ ] CLI flags take highest precedence
-- [ ] `--local-config` flag to specify alternate local config file
+```yaml
+server:
+  host: example.com
+  port: 443
+
+handlers:
+  root: ./handlers
+
+static:
+  - path: /static/
+    root: ./public
+
+database:
+  path: ./data/production.db
+
+# Developer instances - each runs on their own port
+developers:
+  alice:
+    port: 3001
+    database: ./data/alice.db
+    # handlers and static inherited from base
+    
+  bob:
+    port: 3002
+    database: ./data/bob.db
+    handlers: ./handlers-experimental  # override
+    
+  shared:
+    port: 3000
+    # Everything else inherited - for quick testing
+```
+
+## Usage
+
+```bash
+# Run as developer "alice"
+basil --dev alice
+
+# Run as developer "bob" 
+basil --dev bob
+
+# Production (no --dev flag)
+basil
+```
 
 ## Design Decisions
 
-- **Priority order**: CLI > env vars > basil.local.yaml > basil.yaml (standard override pattern)
-- **Naming**: `basil.local.yaml` matches patterns like `.env.local`, `docker-compose.override.yml`
-- **Merge strategy**: Simple top-level merge, not deep merge (keeps it predictable)
-- **Env var prefix**: `BASIL_` namespace avoids conflicts
-- **Minimal CLI flags**: Only the most common overrides; env vars cover the rest
+- **Single config file**: Admin controls all configurations; no local files to manage
+- **Named developers**: Clear, explicit; avoid magic port assignment
+- **Inheritance**: Developer configs only need to specify overrides
+- **`--dev` flag reuse**: Already exists for dev mode; extend with optional name argument
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -54,51 +86,32 @@ As a **solo developer**, I want **to test different configurations quickly** so 
 ## Technical Context
 
 ### Affected Components
-- `config/load.go` — Add local config loading, env var parsing, merge logic
-- `config/config.go` — May need helper methods for merging
-- `cmd/basil/main.go` — Add CLI flags, pass to config loader
+- `config/config.go` — Add `DeveloperConfig` struct and `Developers` map to Config
+- `config/load.go` — Add merge logic for developer config
+- `cmd/basil/main.go` — Modify `--dev` flag to accept optional name
 
 ### Dependencies
 - Depends on: None
-- Blocks: Future multi-hostname/multi-site features (B use case)
+- Blocks: Future multi-hostname/multi-site features
 
 ### Edge Cases & Constraints
-1. **Missing local config** — Silently skip (not an error)
-2. **Invalid local config** — Error with clear message mentioning it's the local file
-3. **Relative paths in local config** — Resolve relative to config file location (existing behavior)
-4. **Partial overrides** — Only specified fields override; unspecified fields keep base values
-5. **Empty env vars** — Treat empty string as "not set" (don't override with empty)
+1. **No developers defined + `--dev name`** — Error: "developer 'name' not found in config"
+2. **`--dev` without name, no developers** — Current behavior (dev mode, base config)
+3. **`--dev` without name, developers exist** — Use first developer? Or require name? (TBD)
+4. **Developer overrides production port** — Allowed (admin's choice)
+5. **Relative paths in developer config** — Resolve relative to config file (same as base)
 
-### Config Loading Algorithm
-```
-1. Determine base config path (--config flag or default basil.yaml)
-2. Load base config
-3. Check for basil.local.yaml in same directory
-4. If exists, load and merge (local values win)
-5. Apply BASIL_* environment variables (if set and non-empty)
-6. Apply CLI flags (if provided)
-7. Validate final merged config
-```
+### Developer Config Fields
+| Field | Type | Overrides |
+|-------|------|-----------|
+| `port` | int | `server.port` |
+| `database` | string | `database.path` |
+| `handlers` | string | `handlers.root` (new field) |
+| `static` | string | `public_dir` |
+| `logging` | LoggingConfig | `logging.*` |
 
-### Environment Variable Mapping
-| Env Var | Config Path | Type |
-|---------|-------------|------|
-| BASIL_PORT | server.port | int |
-| BASIL_HANDLERS | handlers.root | string |
-| BASIL_STATIC | static.root | string |
-| BASIL_DATABASE | auth.database | string |
-| BASIL_DEV_DATABASE | dev.log_database | string |
-
-### CLI Flag Mapping
-| Flag | Config Path | Notes |
-|------|-------------|-------|
-| --port | server.port | Short: -p |
-| --handlers | handlers.root | |
-| --db | auth.database | |
-| --local-config | (special) | Path to alternate local config |
-
-## Implementation Notes
+### Implementation Notes
 *Added during/after implementation*
 
 ## Related
-- Backlog item: "HTTP-only production mode (behind proxy)" (related to future use case B)
+- Plan: [FEAT-020-plan.md](../plans/FEAT-020-plan.md)

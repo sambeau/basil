@@ -1,160 +1,171 @@
 # FEAT-020 Implementation Plan: Per-Developer Config Overrides
 
 ## Overview
-Enable multiple developers to run isolated Basil instances on the same machine by supporting config overrides via local config file, environment variables, and CLI flags.
+Add a `developers` section to config that defines named developer instances. Each developer runs `basil --dev <name>` to use their config merged with the base.
 
 ## Current State
-- Config loaded from `basil.yaml` (or `--config` path)
-- Only `--port` CLI override exists (in main.go)
-- No local config file support
-- No environment variable overrides (except `${VAR}` interpolation in YAML values)
+- `--dev` flag exists but only enables dev mode (HTTP, localhost)
+- No concept of named developer configurations
+- All developers share same config
 
-## Implementation Phases
+## Implementation
 
-### Phase 1: Local Config File (`basil.local.yaml`)
-**Goal**: Auto-load and merge a gitignored local config file
+### Step 1: Add DeveloperConfig struct
+**File: `config/config.go`**
 
-**Changes to `config/load.go`**:
+```go
+// DeveloperConfig holds per-developer overrides
+type DeveloperConfig struct {
+    Port     int           `yaml:"port"`
+    Database string        `yaml:"database"`
+    Handlers string        `yaml:"handlers"`  // handlers root directory
+    Static   string        `yaml:"static"`    // public_dir override
+    Logging  LoggingConfig `yaml:"logging"`
+}
+```
 
-1. Add `loadLocalConfig()` function:
-   ```go
-   func loadLocalConfig(baseConfigPath string) (*Config, error)
-   ```
-   - Given `/path/to/basil.yaml`, looks for `/path/to/basil.local.yaml`
-   - Returns nil (not error) if file doesn't exist
-   - Parses YAML into Config struct
+Add to Config struct:
+```go
+type Config struct {
+    // ... existing fields ...
+    Developers map[string]DeveloperConfig `yaml:"developers"`
+}
+```
 
-2. Add `mergeConfig()` function:
-   ```go
-   func mergeConfig(base, override *Config) *Config
-   ```
-   - Top-level field merge (not deep merge)
-   - Zero/empty values in override don't replace base values
-   - Need careful handling of:
-     - `Server.Port` (0 means "not set", use base)
-     - Slice fields like `Routes`, `Static` (override replaces entirely if non-empty)
-     - String fields (empty string means "not set")
-
-3. Modify `LoadWithPath()`:
-   - After loading base config, call `loadLocalConfig()`
-   - If local config exists, merge it
-
-**Tests**:
-- `TestLoadLocalConfig` - loads local file when present
-- `TestLoadLocalConfigMissing` - silently skips when absent  
-- `TestMergeConfig` - various merge scenarios
-- `TestLocalConfigOverridesBase` - integration test
-
-**Estimated effort**: 1-2 hours
+**Estimated: 15 minutes**
 
 ---
 
-### Phase 2: Environment Variable Overrides
-**Goal**: Apply `BASIL_*` env vars after config file loading
+### Step 2: Add ApplyDeveloper function
+**File: `config/load.go`**
 
-**Changes to `config/load.go`**:
+```go
+// ApplyDeveloper merges a named developer config onto the base config.
+// Returns error if developer name not found.
+func ApplyDeveloper(cfg *Config, name string) error {
+    dev, ok := cfg.Developers[name]
+    if !ok {
+        // List available developers in error
+        return fmt.Errorf("developer '%s' not found in config", name)
+    }
+    
+    if dev.Port != 0 {
+        cfg.Server.Port = dev.Port
+    }
+    if dev.Database != "" {
+        cfg.Database.Path = dev.Database
+    }
+    if dev.Handlers != "" {
+        // Need to update routes to use this base path
+        // Or add HandlersRoot to config
+    }
+    if dev.Static != "" {
+        cfg.PublicDir = dev.Static
+    }
+    // Logging: only override non-zero values
+    if dev.Logging.Level != "" {
+        cfg.Logging.Level = dev.Logging.Level
+    }
+    // etc.
+    
+    return nil
+}
+```
 
-1. Add `applyEnvOverrides()` function:
-   ```go
-   func applyEnvOverrides(cfg *Config, getenv func(string) string)
-   ```
-   
-2. Environment variable mapping:
-   | Env Var | Config Field | Parse |
-   |---------|--------------|-------|
-   | `BASIL_PORT` | `Server.Port` | `strconv.Atoi` |
-   | `BASIL_HANDLERS` | First route's `Handler` dir? | string |
-   | `BASIL_STATIC` | `PublicDir` | string |
-   | `BASIL_DATABASE` | `Auth.Database` or `Database.Path` | string |
-   | `BASIL_DEV_DATABASE` | `Dev.LogDatabase` | string |
-
-3. Modify `LoadWithPath()`:
-   - After merging local config, call `applyEnvOverrides()`
-
-**Design decision needed**: 
-- `BASIL_HANDLERS` - what does this override? We have `Routes[].Handler` (individual files) but no global "handlers directory". 
-- Options:
-  a) Add `HandlersDir` to Config that gets used as base for relative handler paths
-  b) Override just the first route's handler
-  c) Skip this env var for now (users use local config for complex changes)
-
-**Recommendation**: Add `HandlersDir string` to Config, use it as prefix for relative handler paths. This matches common pattern.
-
-**Tests**:
-- `TestEnvOverridePort`
-- `TestEnvOverrideDatabase`
-- `TestEnvOverrideEmpty` - empty env var doesn't override
-- `TestEnvOverridePriority` - env beats local config
-
-**Estimated effort**: 1 hour
-
----
-
-### Phase 3: CLI Flags
-**Goal**: Add CLI flags for common overrides
-
-**Changes to `cmd/basil/main.go`**:
-
-1. Add new flags:
-   ```go
-   handlers    = flags.String("handlers", "", "Override handlers directory")
-   database    = flags.String("db", "", "Override database path")
-   localConfig = flags.String("local-config", "", "Path to local config override file")
-   ```
-
-2. Apply after env overrides:
-   ```go
-   if *handlers != "" {
-       cfg.HandlersDir = *handlers
-   }
-   if *database != "" {
-       cfg.Database.Path = *database
-   }
-   ```
-
-3. If `--local-config` provided, use that instead of auto-detected `basil.local.yaml`
-
-4. Update `printUsage()` with new flags
-
-**Tests**:
-- Existing test pattern in `main_test.go`
-
-**Estimated effort**: 30 minutes
+**Estimated: 30 minutes**
 
 ---
 
-### Phase 4: Documentation & Cleanup
-**Goal**: Document the feature and add gitignore guidance
+### Step 3: Modify --dev flag to accept name
+**File: `cmd/basil/main.go`**
 
-1. Update `basil.example.yaml` with comments about local overrides
-2. Add `basil.local.yaml` to recommended `.gitignore`
-3. Update docs (FAQ, quick-start)
-4. Update FEAT-020 spec with implementation notes
+Current:
+```go
+devMode = flags.Bool("dev", false, "Development mode")
+```
 
-**Estimated effort**: 30 minutes
+Change to:
+```go
+devName = flags.String("dev", "", "Development mode (optionally specify developer name)")
+```
+
+Then in logic:
+```go
+if *devName != "" {
+    cfg.Server.Dev = true
+    if *devName != "true" { // Handle bare --dev
+        if err := config.ApplyDeveloper(cfg, *devName); err != nil {
+            return err
+        }
+    }
+}
+```
+
+Actually, this is tricky with `flag` package. Better approach:
+```go
+devMode = flags.Bool("dev", false, "Development mode (HTTP on localhost)")
+devName = flags.String("as", "", "Run as named developer from config")
+```
+
+Usage: `basil --dev --as alice`
+
+Or simpler - just use `--dev` for mode and add separate `--developer`:
+```go
+devMode    = flags.Bool("dev", false, "Development mode")
+devProfile = flags.String("profile", "", "Developer profile name from config")
+```
+
+Usage: `basil --dev --profile alice`
+
+**Recommendation**: `--profile` is clearer and avoids overloading `--dev`
+
+**Estimated: 30 minutes**
+
+---
+
+### Step 4: Tests
+**File: `config/load_test.go`**
+
+- `TestApplyDeveloper` - merges correctly
+- `TestApplyDeveloperNotFound` - error with message
+- `TestApplyDeveloperPartial` - only overrides specified fields
+- `TestDeveloperConfigParsing` - YAML parsing works
+
+**File: `cmd/basil/main_test.go`**
+
+- Test `--dev --profile alice` uses alice config
+
+**Estimated: 45 minutes**
+
+---
+
+### Step 5: Documentation
+- Update `basil.example.yaml` with developers section example
+- Update CLI help text
+
+**Estimated: 15 minutes**
 
 ---
 
 ## Total Estimated Effort
-~3-4 hours
+~2 hours
 
-## Risks & Mitigations
+## Open Questions
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Merge logic complexity | Med | Keep it simple: top-level merge only, document behavior |
-| HandlersDir concept unclear | Low | Clear docs, sensible default (config file directory) |
-| Breaking existing behavior | Med | All overrides are additive; base config behavior unchanged |
+1. **Flag name**: `--profile`, `--as`, `--developer`, or overload `--dev`?
+   - Recommendation: `--profile` (clear, doesn't overload existing flag)
 
-## Testing Strategy
-- Unit tests for each new function
-- Integration tests for full load → merge → override flow
-- Manual testing with example project
+2. **Handlers path**: Add `HandlersRoot` to config, or keep per-route handlers?
+   - Recommendation: Add `HandlersRoot` - simpler mental model
+
+3. **`--dev` without `--profile` when developers exist**: Use first? Require profile?
+   - Recommendation: Current behavior (dev mode with base config) - explicit is better
 
 ## Progress Log
-| Phase | Status | Notes |
-|-------|--------|-------|
-| Phase 1: Local Config | Not started | |
-| Phase 2: Env Vars | Not started | |
-| Phase 3: CLI Flags | Not started | |
-| Phase 4: Docs | Not started | |
+| Step | Status | Notes |
+|------|--------|-------|
+| Step 1: DeveloperConfig struct | Not started | |
+| Step 2: ApplyDeveloper function | Not started | |
+| Step 3: --profile flag | Not started | |
+| Step 4: Tests | Not started | |
+| Step 5: Documentation | Not started | |
