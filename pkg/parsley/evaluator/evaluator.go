@@ -361,6 +361,7 @@ type Environment struct {
 	Security    *SecurityPolicy // File system security policy
 	Logger      Logger          // Logger for log()/logLine() output
 	importStack map[string]bool // tracks modules being imported (for circular dep detection)
+	DevLog      DevLogWriter    // Dev log writer (nil in production mode)
 }
 
 // NewEnvironment creates a new environment
@@ -377,12 +378,13 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename, token, logger, and root path from outer environment
+	// Preserve filename, token, logger, devlog, and root path from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.RootPath = outer.RootPath
 		env.LastToken = outer.LastToken
 		env.Logger = outer.Logger
+		env.DevLog = outer.DevLog
 	}
 	return env
 }

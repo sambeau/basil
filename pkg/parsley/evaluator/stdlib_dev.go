@@ -33,6 +33,19 @@ func NewDevModule(writer DevLogWriter) *DevModule {
 func (dm *DevModule) Type() ObjectType { return BUILTIN_OBJ }
 func (dm *DevModule) Inspect() string  { return "dev" }
 
+// loadDevModule returns the dev module for stdlib import
+// It gets the DevLogWriter from the environment (set by the server in handler context)
+func loadDevModule(env *Environment) Object {
+	// Create DevModule using the writer from the environment
+	// If env.DevLog is nil (production mode or non-handler context), functions become no-ops
+	devModule := NewDevModule(env.DevLog)
+	return &StdlibModuleDict{
+		Exports: map[string]Object{
+			"dev": devModule,
+		},
+	}
+}
+
 // evalDevModuleMethod handles method calls on the dev module
 func evalDevModuleMethod(dm *DevModule, method string, args []Object, env *Environment) Object {
 	switch method {

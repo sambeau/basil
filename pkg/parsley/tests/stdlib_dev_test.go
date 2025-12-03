@@ -270,6 +270,55 @@ func TestDevRouteValidation(t *testing.T) {
 	}
 }
 
+func TestDevStdlibImport(t *testing.T) {
+	mock := &mockDevLogWriter{}
+	env := evaluator.NewEnvironment()
+	env.Filename = "test.pars"
+	env.DevLog = mock // Set on environment, not directly injected
+
+	// Import dev module via stdlib
+	result := testEval(`
+		let {dev} = import("std/dev")
+		dev.log("imported", 42)
+		42
+	`, env)
+
+	if isError(result) {
+		t.Fatalf("got error: %s", result.Inspect())
+	}
+
+	if len(mock.entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(mock.entries))
+	}
+
+	entry := mock.entries[0]
+	if entry.valueRepr != "42" {
+		t.Errorf("expected valueRepr '42', got '%s'", entry.valueRepr)
+	}
+}
+
+func TestDevStdlibImportNoOpInProduction(t *testing.T) {
+	// Environment without DevLog set (production mode)
+	env := evaluator.NewEnvironment()
+	env.Filename = "test.pars"
+
+	// Import dev module via stdlib - should work but be a no-op
+	result := testEval(`
+		let {dev} = import("std/dev")
+		dev.log("test", 123)
+		"success"
+	`, env)
+
+	if isError(result) {
+		t.Fatalf("expected no error in production mode, got: %s", result.Inspect())
+	}
+
+	str, ok := result.(*evaluator.String)
+	if !ok || str.Value != "success" {
+		t.Errorf("expected 'success', got %s", result.Inspect())
+	}
+}
+
 // Helper to evaluate with a custom environment
 func testEval(input string, env *evaluator.Environment) evaluator.Object {
 	l := lexer.NewWithFilename(input, "test.pars")

@@ -172,13 +172,11 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir)
 	env.SetProtected("basil", basilObj)
 
-	// Inject dev module (nil writer in production mode - functions become no-ops)
-	var devWriter evaluator.DevLogWriter
+	// Set dev log writer on environment (available to stdlib dev module via import)
+	// nil in production mode - dev functions become no-ops
 	if h.server.devLog != nil {
-		devWriter = h.server.devLog
+		env.DevLog = h.server.devLog
 	}
-	devModule := evaluator.NewDevModule(devWriter)
-	env.SetProtected("dev", devModule)
 
 	// Set up custom logger that captures script log() output
 	scriptLogger := &scriptLogCapture{output: make([]string, 0)}

@@ -24,6 +24,7 @@ func (sb *StdlibBuiltin) Inspect() string  { return fmt.Sprintf("stdlib function
 func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
 		"table": loadTableModule,
+		"dev":   loadDevModule,
 	}
 }
 
