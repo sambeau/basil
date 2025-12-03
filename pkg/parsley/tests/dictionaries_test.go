@@ -432,3 +432,57 @@ func TestDeleteKeywordNoLongerReserved(t *testing.T) {
 		})
 	}
 }
+
+// TestDictionaryStringKeys tests that strings can be used as dictionary keys
+func TestDictionaryStringKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple string key",
+			input:    `let d = {"name": "Alice"}; d["name"]`,
+			expected: `Alice`,
+		},
+		{
+			name:     "string key with spaces",
+			input:    `let d = {"full name": "Alice Smith"}; d["full name"]`,
+			expected: `Alice Smith`,
+		},
+		{
+			name:     "mixed string and identifier keys",
+			input:    `let d = {"Total Scouts": 5, active: 3}; d["Total Scouts"] + d.active`,
+			expected: `8`,
+		},
+		{
+			name:     "string key with special characters",
+			input:    `let d = {"key-with-dashes": 42}; d["key-with-dashes"]`,
+			expected: `42`,
+		},
+		{
+			name:     "multiple string keys",
+			input:    `let d = {"first": 1, "second": 2, "third": 3}; d["first"] + d["second"] + d["third"]`,
+			expected: `6`,
+		},
+		{
+			name:     "string key empty string",
+			input:    `let d = {"": "empty key"}; d[""]`,
+			expected: `empty key`,
+		},
+		{
+			name:     "string key access via variable",
+			input:    `let d = {"my key": 100}; let k = "my key"; d[k]`,
+			expected: `100`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalInput(tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

@@ -1808,13 +1808,17 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 			break
 		}
 
-		// Key must be an identifier
-		if !p.curTokenIs(lexer.IDENT) {
-			p.errors = append(p.errors, fmt.Sprintf("expected identifier as dictionary key, got %s at line %d, column %d",
+		// Key can be an identifier or a string
+		var key string
+		if p.curTokenIs(lexer.IDENT) {
+			key = p.curToken.Literal
+		} else if p.curTokenIs(lexer.STRING) {
+			key = p.curToken.Literal
+		} else {
+			p.errors = append(p.errors, fmt.Sprintf("expected identifier or string as dictionary key, got %s at line %d, column %d",
 				tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
 			return nil
 		}
-		key := p.curToken.Literal
 
 		// Expect colon
 		if !p.expectPeek(lexer.COLON) {
