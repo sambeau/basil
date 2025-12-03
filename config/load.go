@@ -240,3 +240,44 @@ func validateHTTPS(cfg *Config) error {
 
 	return nil
 }
+
+// ParseSize parses a size string like "10MB", "1GB", "500KB" to bytes.
+// Supports: B, KB, MB, GB (case insensitive).
+// Returns 0 for empty string.
+func ParseSize(s string) (int64, error) {
+	if s == "" {
+		return 0, nil
+	}
+
+	s = strings.TrimSpace(strings.ToUpper(s))
+
+	// Check suffixes in order of length (longest first) to avoid "B" matching before "MB"
+	suffixes := []struct {
+		suffix string
+		mult   int64
+	}{
+		{"GB", 1024 * 1024 * 1024},
+		{"MB", 1024 * 1024},
+		{"KB", 1024},
+		{"B", 1},
+	}
+
+	for _, sf := range suffixes {
+		if strings.HasSuffix(s, sf.suffix) {
+			numStr := strings.TrimSuffix(s, sf.suffix)
+			numStr = strings.TrimSpace(numStr)
+			var num int64
+			if _, err := fmt.Sscanf(numStr, "%d", &num); err != nil {
+				return 0, fmt.Errorf("invalid size number: %s", numStr)
+			}
+			return num * sf.mult, nil
+		}
+	}
+
+	// Try parsing as plain number (bytes)
+	var num int64
+	if _, err := fmt.Sscanf(s, "%d", &num); err != nil {
+		return 0, fmt.Errorf("invalid size format: %s (use B, KB, MB, or GB suffix)", s)
+	}
+	return num, nil
+}

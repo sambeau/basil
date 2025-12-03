@@ -341,3 +341,70 @@ func TestDevToolsWarnLevel(t *testing.T) {
 		t.Error("expected warning icon")
 	}
 }
+
+func TestDevToolsEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Defaults()
+	cfg.BaseDir = tmpDir
+	cfg.Server.Dev = true
+	cfg.Server.Port = 8080
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "v1.2.3", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	handler := newDevToolsHandler(s)
+	req := httptest.NewRequest("GET", "/__/env", nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "v1.2.3") {
+		t.Error("expected version to be displayed")
+	}
+	if !strings.Contains(body, "go1.") {
+		t.Error("expected Go version to be displayed")
+	}
+	if !strings.Contains(body, "8080") {
+		t.Error("expected port to be displayed")
+	}
+	if !strings.Contains(body, "Environment") {
+		t.Error("expected Environment title")
+	}
+}
+
+func TestDevToolsEnvNoSecrets(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Defaults()
+	cfg.BaseDir = tmpDir
+	cfg.Server.Dev = true
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	handler := newDevToolsHandler(s)
+	req := httptest.NewRequest("GET", "/__/env", nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	// Should not contain full paths or secrets
+	if strings.Contains(body, tmpDir) {
+		t.Error("should not expose full path")
+	}
+}

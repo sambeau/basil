@@ -410,3 +410,55 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+func TestParseSize(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+		wantErr  bool
+	}{
+		{"", 0, false},
+		{"1024", 1024, false},
+		{"1B", 1, false},
+		{"1KB", 1024, false},
+		{"1kb", 1024, false},
+		{"10KB", 10 * 1024, false},
+		{"1MB", 1024 * 1024, false},
+		{"10MB", 10 * 1024 * 1024, false},
+		{"1GB", 1024 * 1024 * 1024, false},
+		{"  5MB  ", 5 * 1024 * 1024, false},
+		{"invalid", 0, true},
+		{"MB", 0, true},   // No number
+		{"abc", 0, true},  // Not a number
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result, err := ParseSize(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for %q", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error for %q: %v", tt.input, err)
+				return
+			}
+			if result != tt.expected {
+				t.Errorf("ParseSize(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDevConfigDefaults(t *testing.T) {
+	cfg := Defaults()
+
+	if cfg.Dev.LogMaxSize != "10MB" {
+		t.Errorf("expected default log_max_size '10MB', got %q", cfg.Dev.LogMaxSize)
+	}
+	if cfg.Dev.LogTruncatePct != 25 {
+		t.Errorf("expected default log_truncate_pct 25, got %d", cfg.Dev.LogTruncatePct)
+	}
+}

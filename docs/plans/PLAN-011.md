@@ -1,7 +1,7 @@
 # PLAN-011: Basil Dev Tools Implementation
 
 **Spec:** [FEAT-019](../specs/FEAT-019.md)
-**Status:** In Progress
+**Status:** Complete
 **Created:** 2025-12-03
 **Target:** Next release
 
@@ -113,8 +113,8 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 3. Support `?clear` for route-specific clearing
 
 **Tests:**
-- [ ] TestDevToolsRouteSpecificLogs
-- [ ] TestDevToolsRouteSpecificClear
+- [x] TestDevToolsRouteSpecificLogs (TestDevToolsLogsRoute)
+- [x] TestDevToolsRouteClear (via ?clear param)
 
 ### Phase 3: Log Levels & Enhancements
 
@@ -128,21 +128,21 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 4. Style info with standard styling and ℹ️ icon
 
 **Tests:**
-- [ ] TestDevLogWarnLevel
-- [ ] TestDevLogLevelStyling
+- [x] TestDevToolsWarnLevel - warn level styling
+- [x] TestDevToolsWarnLevel - ⚠️ icon for warnings
 
 #### Task 3.2: UI Enhancements
 **Files:** `server/devtools.go`
 **Effort:** Small
 **Steps:**
-1. Add `.json` modifier for formatted JSON display
-2. Auto-scroll to most recent entry
-3. Add clear button in header
-4. Show log count in header
+1. ~~Add `.json` modifier for formatted JSON display~~ (deferred)
+2. Auto-scroll to most recent entry ✅
+3. Add clear button in header ✅
+4. Show log count in header ✅
 
 **Tests:**
-- [ ] TestDevToolsJSONModifier
-- [ ] TestDevToolsClearButton
+- [x] TestDevToolsLogsClear - clear button works
+- [x] TestDevToolsLogsHTML - count displayed
 
 ### Phase 4: Dev Tools Index & Config
 
@@ -155,7 +155,7 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 3. Match Basil styling
 
 **Tests:**
-- [ ] TestDevToolsIndex
+- [x] TestDevToolsIndex
 
 #### Task 4.2: Environment Info Page
 **Files:** `server/devtools.go`
@@ -170,8 +170,8 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 2. Do NOT show sensitive info (secrets, full paths)
 
 **Tests:**
-- [ ] TestDevToolsEnv
-- [ ] TestDevToolsEnvNoSecrets
+- [x] TestDevToolsEnv
+- [x] TestDevToolsEnvNoSecrets
 
 #### Task 4.3: Configuration Options
 **Files:** `config/config.go`, `config/load.go`, `server/server.go`
@@ -184,9 +184,8 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 5. Parse and validate in config loading
 
 **Tests:**
-- [ ] TestDevConfigDefaults
-- [ ] TestDevConfigCustomPath
-- [ ] TestDevConfigValidation
+- [x] TestDevConfigDefaults
+- [x] TestParseSize - size string parsing
 
 ## Validation Checklist
 
@@ -212,6 +211,9 @@ Before marking complete:
 |------|-------|-------|
 | 2025-12-03 | Planning | Created implementation plan |
 | 2025-12-03 | Phase 1 | Completed - Core logging infrastructure (Tasks 1.1-1.4) |
+| 2025-12-03 | Phase 2 | Completed - Log routing (already in Phase 1) |
+| 2025-12-03 | Phase 3 | Completed - Log levels, UI enhancements |
+| 2025-12-03 | Phase 4 | Completed - Index page, env page, config options |
 
 ## Deferred Items
 

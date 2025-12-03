@@ -8,6 +8,7 @@ type Config struct {
 	Server    ServerConfig   `yaml:"server"`
 	Security  SecurityConfig `yaml:"security"`
 	Auth      AuthConfig     `yaml:"auth"`
+	Dev       DevConfig      `yaml:"dev"`
 	Database  DatabaseConfig `yaml:"database"`
 	PublicDir string         `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
 	Static    []StaticRoute  `yaml:"static"`
@@ -72,6 +73,13 @@ type AuthConfig struct {
 	SessionTTL   time.Duration `yaml:"session_ttl"`  // Session duration (default: 24h)
 }
 
+// DevConfig holds dev tools settings (only used when --dev flag is enabled)
+type DevConfig struct {
+	LogDatabase    string `yaml:"log_database"`    // Path to dev log database file (default: auto-generated)
+	LogMaxSize     string `yaml:"log_max_size"`    // Maximum log database size (default: "10MB")
+	LogTruncatePct int    `yaml:"log_truncate_pct"` // Percentage to delete when truncating (default: 25)
+}
+
 // StaticRoute maps URL paths to static files/directories
 type StaticRoute struct {
 	Path string `yaml:"path"` // URL path prefix (e.g., /static/)
@@ -131,6 +139,10 @@ func Defaults() *Config {
 			Enabled:      false,
 			Registration: "closed",
 			SessionTTL:   24 * time.Hour,
+		},
+		Dev: DevConfig{
+			LogMaxSize:     "10MB",
+			LogTruncatePct: 25,
 		},
 		PublicDir: "./public",
 		Logging: LoggingConfig{

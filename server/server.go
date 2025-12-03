@@ -102,9 +102,25 @@ func (s *Server) initDevTools() error {
 		return nil
 	}
 
-	// Create dev log database
+	// Create dev log database with config overrides
 	cfg := DefaultDevLogConfig()
-	// TODO: Allow config override via s.config.Dev.LogDatabase, etc.
+
+	// Apply config overrides
+	if s.config.Dev.LogDatabase != "" {
+		cfg.Path = s.config.Dev.LogDatabase
+	}
+	if s.config.Dev.LogMaxSize != "" {
+		size, err := config.ParseSize(s.config.Dev.LogMaxSize)
+		if err != nil {
+			return fmt.Errorf("parsing dev.log_max_size: %w", err)
+		}
+		if size > 0 {
+			cfg.MaxSize = size
+		}
+	}
+	if s.config.Dev.LogTruncatePct > 0 {
+		cfg.TruncatePct = s.config.Dev.LogTruncatePct
+	}
 
 	// Use a temp directory if the base directory doesn't exist (e.g., in tests)
 	baseDir := s.config.BaseDir

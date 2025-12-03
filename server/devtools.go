@@ -5,6 +5,7 @@ import (
 	"html"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -31,6 +32,8 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/__" || path == "/__/":
 		h.serveIndex(w, r)
+	case path == "/__/env" || path == "/__/env/":
+		h.serveEnv(w, r)
 	case path == "/__/logs" || path == "/__/logs/":
 		h.serveLogs(w, r, "")
 	case strings.HasPrefix(path, "/__/logs/"):
@@ -46,6 +49,41 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *devToolsHandler) serveIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, devToolsIndexHTML)
+}
+
+// serveEnv serves the environment info page.
+func (h *devToolsHandler) serveEnv(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	version := h.server.version
+	if version == "" {
+		version = "dev"
+	}
+	goVersion := runtime.Version()
+	handlerCount := len(h.server.config.Routes)
+
+	// Build config info (sanitized - no secrets or full paths)
+	configInfo := []struct{ Name, Value string }{
+		{"Port", fmt.Sprintf("%d", h.server.config.Server.Port)},
+		{"Dev Mode", fmt.Sprintf("%v", h.server.config.Server.Dev)},
+	}
+
+	var infoHTML strings.Builder
+	for _, info := range configInfo {
+		infoHTML.WriteString(fmt.Sprintf(`
+			<tr>
+				<td>%s</td>
+				<td>%s</td>
+			</tr>
+		`, html.EscapeString(info.Name), html.EscapeString(info.Value)))
+	}
+
+	htmlOut := fmt.Sprintf(devToolsEnvHTML,
+		html.EscapeString(version),
+		html.EscapeString(goVersion),
+		handlerCount,
+		infoHTML.String())
+	fmt.Fprint(w, htmlOut)
 }
 
 // serveLogs serves the logs page.
@@ -232,6 +270,12 @@ const devToolsIndexHTML = `<!DOCTYPE html>
           <div class="tool-desc">View dev.log() output from your handlers</div>
         </a>
       </li>
+      <li>
+        <a href="/__/env">
+          ⚙️ Environment
+          <div class="tool-desc">View server info and configuration</div>
+        </a>
+      </li>
     </ul>
     <div class="footer">
       Dev tools are only available in dev mode.
@@ -391,6 +435,140 @@ const devToolsLogsHTML = `<!DOCTYPE html>
     // Auto-scroll to bottom on load
     window.scrollTo(0, document.body.scrollHeight);
   </script>
+</body>
+</html>
+`
+
+const devToolsEnvHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Basil Environment</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    h1 {
+      font-size: 1.25rem;
+      color: #eee;
+    }
+    .brand {
+      display: inline-block;
+      background: #98c379;
+      color: #1a1a2e;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .back-link {
+      color: #61afef;
+      text-decoration: none;
+      font-size: 0.875rem;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    .info-section {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .info-section h2 {
+      font-size: 1rem;
+      color: #98c379;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 0.5rem;
+    }
+    .info-label {
+      color: #7f8c8d;
+    }
+    .info-value {
+      color: #e5c07b;
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    table {
+      width: 100%%;
+      border-collapse: collapse;
+    }
+    table td {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #2d2d44;
+    }
+    table td:first-child {
+      color: #7f8c8d;
+      width: 40%%;
+    }
+    table td:last-child {
+      color: #e5c07b;
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    table tr:last-child td {
+      border-bottom: none;
+    }
+    .footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #2d2d44;
+      font-size: 0.8rem;
+      color: #5c6370;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><span class="brand">🌿 DEV</span> Environment</h1>
+      <a href="/__" class="back-link">← Dev Tools</a>
+    </div>
+    <div class="info-section">
+      <h2>🌿 Server</h2>
+      <div class="info-grid">
+        <span class="info-label">Basil Version</span>
+        <span class="info-value">%s</span>
+        <span class="info-label">Go Version</span>
+        <span class="info-value">%s</span>
+        <span class="info-label">Handlers</span>
+        <span class="info-value">%d</span>
+      </div>
+    </div>
+    <div class="info-section">
+      <h2>⚙️ Configuration</h2>
+      <table>
+        %s
+      </table>
+    </div>
+    <div class="footer">
+      Sensitive information (secrets, full paths) is hidden for security.
+    </div>
+  </div>
 </body>
 </html>
 `
