@@ -11393,7 +11393,7 @@ func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 			pairs := make(map[string]ast.Expression)
 			for i, value := range record {
 				if i < len(headers) {
-					pairs[headers[i]] = &ast.ObjectLiteralExpression{Obj: &String{Value: value}}
+					pairs[headers[i]] = &ast.ObjectLiteralExpression{Obj: parseCSVValue(value)}
 				}
 			}
 			rows = append(rows, &Dictionary{Pairs: pairs, Env: NewEnvironment()})
@@ -11406,11 +11406,34 @@ func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 	for i, record := range records {
 		elements := make([]Object, len(record))
 		for j, value := range record {
-			elements[j] = &String{Value: value}
+			elements[j] = parseCSVValue(value)
 		}
 		rows[i] = &Array{Elements: elements}
 	}
 	return &Array{Elements: rows}, nil
+}
+
+// parseCSVValue converts a CSV string value to the appropriate type
+// Tries integer, float, boolean, then falls back to string
+func parseCSVValue(value string) Object {
+	// Try integer first (stricter than float)
+	if i, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return &Integer{Value: i}
+	}
+	// Try float
+	if f, err := strconv.ParseFloat(value, 64); err == nil {
+		return &Float{Value: f}
+	}
+	// Try boolean
+	lower := strings.ToLower(value)
+	if lower == "true" {
+		return TRUE
+	}
+	if lower == "false" {
+		return FALSE
+	}
+	// Keep as string
+	return &String{Value: value}
 }
 
 // evalWriteStatement evaluates the ==> and ==>> operators to write file content
