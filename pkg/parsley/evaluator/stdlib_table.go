@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -393,7 +394,15 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 		case *Float:
 			sum += v.Value
 			hasFloat = true
-			// Skip non-numeric values
+		case *String:
+			// Try to parse string as number
+			if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
+				sum += f
+				if strings.Contains(v.Value, ".") {
+					hasFloat = true
+				}
+			}
+			// Skip non-numeric strings
 		}
 	}
 
@@ -426,7 +435,13 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 		case *Float:
 			sum += v.Value
 			count++
-			// Skip non-numeric values
+		case *String:
+			// Try to parse string as number
+			if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
+				sum += f
+				count++
+			}
+			// Skip non-numeric strings
 		}
 	}
 
@@ -458,6 +473,8 @@ func tableMin(t *Table, args []Object, env *Environment) Object {
 		if val.Type() == NULL_OBJ {
 			continue
 		}
+		// Try to coerce strings to numbers for comparison
+		val = coerceToNumber(val)
 		if minVal == nil || compareObjects(val, minVal) < 0 {
 			minVal = val
 		}
@@ -490,6 +507,8 @@ func tableMax(t *Table, args []Object, env *Environment) Object {
 		if val.Type() == NULL_OBJ {
 			continue
 		}
+		// Try to coerce strings to numbers for comparison
+		val = coerceToNumber(val)
 		if maxVal == nil || compareObjects(val, maxVal) > 0 {
 			maxVal = val
 		}
@@ -499,6 +518,21 @@ func tableMax(t *Table, args []Object, env *Environment) Object {
 		return NULL
 	}
 	return maxVal
+}
+
+// coerceToNumber attempts to convert a string to a number if possible
+func coerceToNumber(obj Object) Object {
+	if str, ok := obj.(*String); ok {
+		// Try integer first
+		if i, err := strconv.ParseInt(str.Value, 10, 64); err == nil {
+			return &Integer{Value: i}
+		}
+		// Try float
+		if f, err := strconv.ParseFloat(str.Value, 64); err == nil {
+			return &Float{Value: f}
+		}
+	}
+	return obj
 }
 
 // tableToHTML renders the table as an HTML table element
