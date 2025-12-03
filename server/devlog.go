@@ -49,13 +49,12 @@ func DefaultDevLogConfig() DevLogConfig {
 }
 
 // NewDevLog creates a new DevLog instance.
-// If path is empty, creates a timestamped database in baseDir.
+// If path is empty, creates a database named "dev_logs.db" in baseDir.
 func NewDevLog(baseDir string, cfg DevLogConfig) (*DevLog, error) {
 	path := cfg.Path
 	if path == "" {
-		// Create timestamped database file
-		timestamp := time.Now().Format("2006-01-02_15-04-05")
-		path = filepath.Join(baseDir, fmt.Sprintf("dev_logs_%s.db", timestamp))
+		// Use a fixed filename so logs persist across restarts
+		path = filepath.Join(baseDir, "dev_logs.db")
 	} else if !filepath.IsAbs(path) {
 		path = filepath.Join(baseDir, path)
 	}

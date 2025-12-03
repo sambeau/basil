@@ -22,10 +22,10 @@ func TestDevLogCreate(t *testing.T) {
 		t.Error("database file was not created")
 	}
 
-	// Check path contains timestamp pattern
+	// Check path uses the fixed default filename
 	base := filepath.Base(dl.Path())
-	if len(base) < 20 { // dev_logs_2006-01-02_15-04-05.db is ~30 chars
-		t.Errorf("unexpected database filename: %s", base)
+	if base != "dev_logs.db" {
+		t.Errorf("expected 'dev_logs.db', got: %s", base)
 	}
 }
 
