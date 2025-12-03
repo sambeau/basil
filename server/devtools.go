@@ -298,17 +298,28 @@ const devToolsLogsHTML = `<!DOCTYPE html>
       background: #1a1a2e;
       color: #eee;
       min-height: 100vh;
-      padding: 2rem;
-    }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
     }
     .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #1a1a2e;
+      border-bottom: 1px solid #2d2d44;
+      padding: 1rem 2rem;
+      z-index: 100;
+    }
+    .header-inner {
+      max-width: 900px;
+      margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.5rem;
+    }
+    .logs-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 5rem 2rem 2rem 2rem; /* top padding for fixed header */
     }
     h1 {
       font-size: 1.5rem;
@@ -417,8 +428,8 @@ const devToolsLogsHTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
+  <div class="header">
+    <div class="header-inner">
       <h1><span class="brand">🌿 DEV</span> %s</h1>
       <div class="actions">
         <a href="/__" class="back-link">← Dev Tools</a>
@@ -426,6 +437,8 @@ const devToolsLogsHTML = `<!DOCTYPE html>
         <a href="%s" class="btn">🗑️ Clear</a>
       </div>
     </div>
+  </div>
+  <div class="logs-container">
     %s
     <div class="footer">
       Add <code>?text</code> to URL for plain text output.
