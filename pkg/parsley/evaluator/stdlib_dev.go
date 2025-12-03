@@ -16,16 +16,16 @@ type DevLogWriter interface {
 
 // DevModule provides dev tools functions (dev.log, dev.clearLog, etc.)
 // It's callable as a namespace and has methods.
+// Note: DevModule reads DevLog from the environment at call time, not at creation time.
+// This allows modules imported at top-level to still log when called from handlers.
 type DevModule struct {
-	writer       DevLogWriter
 	defaultRoute string
 }
 
 // NewDevModule creates a new DevModule.
-// If writer is nil, all functions become silent no-ops (production mode).
-func NewDevModule(writer DevLogWriter) *DevModule {
+// The actual DevLogWriter is read from env.DevLog at call time.
+func NewDevModule() *DevModule {
 	return &DevModule{
-		writer:       writer,
 		defaultRoute: "",
 	}
 }
@@ -34,11 +34,10 @@ func (dm *DevModule) Type() ObjectType { return BUILTIN_OBJ }
 func (dm *DevModule) Inspect() string  { return "dev" }
 
 // loadDevModule returns the dev module for stdlib import
-// It gets the DevLogWriter from the environment (set by the server in handler context)
+// The DevLogWriter is read from env.DevLog at call time (not import time).
+// This allows modules to be imported at top-level and still log when called from handlers.
 func loadDevModule(env *Environment) Object {
-	// Create DevModule using the writer from the environment
-	// If env.DevLog is nil (production mode or non-handler context), functions become no-ops
-	devModule := NewDevModule(env.DevLog)
+	devModule := NewDevModule()
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
 			"dev": devModule,
@@ -66,8 +65,8 @@ func evalDevModuleMethod(dm *DevModule, method string, args []Object, env *Envir
 
 // evalLog implements dev.log(value) and dev.log(label, value)
 func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
-	// No-op in production mode
-	if dm.writer == nil {
+	// No-op in production mode (read from env at call time, not import time)
+	if env.DevLog == nil {
 		return NULL
 	}
 
@@ -110,7 +109,7 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 		line = env.LastToken.Line
 	}
 
-	if err := dm.writer.LogFromEvaluator(dm.defaultRoute, level, filename, line, callRepr, value.Inspect()); err != nil {
+	if err := env.DevLog.LogFromEvaluator(dm.defaultRoute, level, filename, line, callRepr, value.Inspect()); err != nil {
 		// Don't fail the script, just log to stderr
 		fmt.Printf("[WARN] dev.log failed: %v\n", err)
 	}
@@ -121,7 +120,7 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 // evalClearLog implements dev.clearLog()
 func (dm *DevModule) evalClearLog(args []Object, env *Environment) Object {
 	// No-op in production mode
-	if dm.writer == nil {
+	if env.DevLog == nil {
 		return NULL
 	}
 
@@ -129,7 +128,7 @@ func (dm *DevModule) evalClearLog(args []Object, env *Environment) Object {
 		return newError("dev.clearLog expects 0 arguments")
 	}
 
-	if err := dm.writer.ClearLogs(dm.defaultRoute); err != nil {
+	if err := env.DevLog.ClearLogs(dm.defaultRoute); err != nil {
 		return newError("dev.clearLog failed: %v", err)
 	}
 
@@ -139,7 +138,7 @@ func (dm *DevModule) evalClearLog(args []Object, env *Environment) Object {
 // evalLogPage implements dev.logPage(route, value) and dev.logPage(route, label, value)
 func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 	// No-op in production mode
-	if dm.writer == nil {
+	if env.DevLog == nil {
 		return NULL
 	}
 
@@ -187,7 +186,7 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 		line = env.LastToken.Line
 	}
 
-	if err := dm.writer.LogFromEvaluator(route, level, filename, line, callRepr, value.Inspect()); err != nil {
+	if err := env.DevLog.LogFromEvaluator(route, level, filename, line, callRepr, value.Inspect()); err != nil {
 		fmt.Printf("[WARN] dev.logPage failed: %v\n", err)
 	}
 
@@ -197,7 +196,7 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 // evalSetLogRoute implements dev.setLogRoute(route)
 func (dm *DevModule) evalSetLogRoute(args []Object, env *Environment) Object {
 	// No-op in production mode
-	if dm.writer == nil {
+	if env.DevLog == nil {
 		return NULL
 	}
 
@@ -217,7 +216,7 @@ func (dm *DevModule) evalSetLogRoute(args []Object, env *Environment) Object {
 // evalClearLogPage implements dev.clearLogPage(route)
 func (dm *DevModule) evalClearLogPage(args []Object, env *Environment) Object {
 	// No-op in production mode
-	if dm.writer == nil {
+	if env.DevLog == nil {
 		return NULL
 	}
 
@@ -230,7 +229,7 @@ func (dm *DevModule) evalClearLogPage(args []Object, env *Environment) Object {
 		return newError("dev.clearLogPage: invalid route '%s' (use alphanumeric, hyphens, underscores)", route)
 	}
 
-	if err := dm.writer.ClearLogs(route); err != nil {
+	if err := env.DevLog.ClearLogs(route); err != nil {
 		return newError("dev.clearLogPage failed: %v", err)
 	}
 

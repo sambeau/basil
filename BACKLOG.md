@@ -11,6 +11,7 @@ Deferred items from implementation, to be picked up in future work.
 |------|--------|-----------------|-------|
 | Resolve paths relative to config file location | FEAT-002 | Phase 1 scope | Handler/static paths should be relative to config file, not CWD |
 | Add @std/ prefix support to lexer | FEAT-018 | Workaround available | Currently requires `import("std/table")` string syntax. Should support `import(@std/table)` path literal. |
+| Remove `basil` global in favor of `std/basil` import | FEAT-019 | Backward compat | Having both `basil` global and `std/basil` import creates two objects with same content. Hard to test properly, confusing API. Deprecate global, require `let {basil} = import("std/basil")`. Breaking change - needs migration path. |
 
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |

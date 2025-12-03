@@ -8222,6 +8222,9 @@ func evalImport(args []Object, env *Environment) Object {
 	moduleEnv.RootPath = env.RootPath
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
+	// Copy DevLog and BasilCtx for stdlib imports (std/dev, std/basil)
+	moduleEnv.DevLog = env.DevLog
+	moduleEnv.BasilCtx = env.BasilCtx
 
 	// Copy basil context to module environment (if present)
 	// This allows modules to access basil.http, basil.auth, basil.sqlite etc.

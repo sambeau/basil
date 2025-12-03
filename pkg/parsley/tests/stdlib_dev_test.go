@@ -57,7 +57,8 @@ func TestDevLog(t *testing.T) {
 			mock := &mockDevLogWriter{}
 			env := evaluator.NewEnvironment()
 			env.Filename = "test.pars"
-			devModule := evaluator.NewDevModule(mock)
+			env.DevLog = mock // Set on environment - DevModule reads at call time
+			devModule := evaluator.NewDevModule()
 			env.Set("dev", devModule)
 
 			result := testEval(tt.input, env)
@@ -87,7 +88,8 @@ func TestDevLogWithLabel(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()
 	env.Filename = "test.pars"
-	devModule := evaluator.NewDevModule(mock)
+	env.DevLog = mock
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	result := testEval(`dev.log("users", [1, 2, 3])`, env)
@@ -112,7 +114,8 @@ func TestDevLogWithLabel(t *testing.T) {
 func TestDevClearLog(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()
-	devModule := evaluator.NewDevModule(mock)
+	env.DevLog = mock
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	result := testEval(`dev.clearLog()`, env)
@@ -130,9 +133,10 @@ func TestDevClearLog(t *testing.T) {
 }
 
 func TestDevNoOpInProduction(t *testing.T) {
-	// Create dev module with nil writer (production mode)
+	// Create dev module with nil DevLog in env (production mode)
 	env := evaluator.NewEnvironment()
-	devModule := evaluator.NewDevModule(nil)
+	// env.DevLog is nil - simulates production mode
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	tests := []string{
@@ -162,7 +166,8 @@ func TestDevLogPage(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()
 	env.Filename = "test.pars"
-	devModule := evaluator.NewDevModule(mock)
+	env.DevLog = mock
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	result := testEval(`dev.logPage("users", [1, 2, 3])`, env)
@@ -187,7 +192,8 @@ func TestDevSetLogRoute(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()
 	env.Filename = "test.pars"
-	devModule := evaluator.NewDevModule(mock)
+	env.DevLog = mock
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	// Set route then log
@@ -212,7 +218,8 @@ func TestDevSetLogRoute(t *testing.T) {
 func TestDevClearLogPage(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()
-	devModule := evaluator.NewDevModule(mock)
+	env.DevLog = mock
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	result := testEval(`dev.clearLogPage("users")`, env)
@@ -232,7 +239,8 @@ func TestDevClearLogPage(t *testing.T) {
 func TestDevRouteValidation(t *testing.T) {
 	mock := &mockDevLogWriter{}
 	env := evaluator.NewEnvironment()
-	devModule := evaluator.NewDevModule(mock)
+	env.DevLog = mock
+	devModule := evaluator.NewDevModule()
 	env.Set("dev", devModule)
 
 	tests := []struct {
