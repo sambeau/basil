@@ -16,7 +16,7 @@ func TestModuleCacheClear(t *testing.T) {
 	// Create a temp module
 	tmpDir := t.TempDir()
 	modulePath := filepath.Join(tmpDir, "counter.pars")
-	
+
 	// First version of module
 	err := os.WriteFile(modulePath, []byte(`export count = 1`), 0644)
 	if err != nil {
@@ -33,13 +33,13 @@ func TestModuleCacheClear(t *testing.T) {
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.ParseProgram()
-	
+
 	if len(p.Errors()) > 0 {
 		t.Fatalf("parser errors: %v", p.Errors())
 	}
 
 	result := evaluator.Eval(program, env)
-	
+
 	intResult, ok := result.(*evaluator.Integer)
 	if !ok {
 		t.Fatalf("expected Integer, got %T: %s", result, result.Inspect())
@@ -64,7 +64,7 @@ func TestModuleCacheClear(t *testing.T) {
 	program2 := p2.ParseProgram()
 
 	result2 := evaluator.Eval(program2, env2)
-	
+
 	intResult2, ok := result2.(*evaluator.Integer)
 	if !ok {
 		t.Fatalf("expected Integer, got %T: %s", result2, result2.Inspect())
@@ -87,7 +87,7 @@ func TestModuleCacheClear(t *testing.T) {
 	program3 := p3.ParseProgram()
 
 	result3 := evaluator.Eval(program3, env3)
-	
+
 	intResult3, ok := result3.(*evaluator.Integer)
 	if !ok {
 		t.Fatalf("expected Integer, got %T: %s", result3, result3.Inspect())
@@ -102,7 +102,7 @@ func TestModuleCacheThreadSafety(t *testing.T) {
 	// Create a temp module
 	tmpDir := t.TempDir()
 	modulePath := filepath.Join(tmpDir, "shared.pars")
-	
+
 	err := os.WriteFile(modulePath, []byte(`export value = 42`), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestModuleCacheConcurrentClearAndImport(t *testing.T) {
 	// Create a temp module
 	tmpDir := t.TempDir()
 	modulePath := filepath.Join(tmpDir, "cleartest.pars")
-	
+
 	err := os.WriteFile(modulePath, []byte(`export num = 100`), 0644)
 	if err != nil {
 		t.Fatal(err)

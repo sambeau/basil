@@ -27,8 +27,8 @@ func TestNotAFunctionErrorMessages(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         string
-		expectedError string   // Substring that should appear in error
-		expectedHint  string   // Hint that should appear
+		expectedError string // Substring that should appear in error
+		expectedHint  string // Hint that should appear
 	}{
 		{
 			name:          "call_null_as_function",

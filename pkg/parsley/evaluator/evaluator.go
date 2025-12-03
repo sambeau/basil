@@ -7084,7 +7084,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(function) {
 			return function
 		}
-		
+
 		// Better error for calling null as a function
 		if function == NULL || function == nil {
 			funcName := node.Function.String()
@@ -7094,7 +7094,7 @@ func Eval(node ast.Node, env *Environment) Object {
 			}
 			return newError("cannot call null as a function: %s", funcName)
 		}
-		
+
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
@@ -8064,9 +8064,19 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
-		return fn.Fn(args...)
+		result := fn.Fn(args...)
+		// Add position info to builtin errors for better debugging
+		if isError(result) {
+			return enrichErrorWithPos(result, env.LastToken)
+		}
+		return result
 	case *StdlibBuiltin:
-		return fn.Fn(args, env)
+		result := fn.Fn(args, env)
+		// Add position info to stdlib errors for better debugging
+		if isError(result) {
+			return enrichErrorWithPos(result, env.LastToken)
+		}
+		return result
 	case *SFTPConnection:
 		// SFTP connection is callable: conn(@/path) returns SFTP file handle
 		if len(args) != 1 {
@@ -8582,6 +8592,19 @@ func newErrorWithPos(tok lexer.Token, format string, a ...interface{}) *Error {
 	}
 }
 
+// enrichErrorWithPos adds position info to an error that doesn't have it.
+// This is useful for wrapping errors from builtins at the call site.
+func enrichErrorWithPos(obj Object, tok *lexer.Token) Object {
+	if tok == nil {
+		return obj
+	}
+	if errObj, ok := obj.(*Error); ok && errObj.Line == 0 {
+		errObj.Line = tok.Line
+		errObj.Column = tok.Column
+	}
+	return obj
+}
+
 func isError(obj Object) bool {
 	if obj != nil {
 		return obj.Type() == ERROR_OBJ
@@ -8947,12 +8970,12 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	// Call the function with the props dictionary
 	result := applyFunction(val, []Object{dict})
-	
+
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
 		return newError("cannot use '<%s/>' because '%s' is not a function (got %s)\n   💡 Hint: Components must be functions. Check that '%s' is exported as a function.", node.Name, node.Name, val.Type(), node.Name)
 	}
-	
+
 	return result
 }
 
@@ -9284,12 +9307,12 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 
 	// Call the function with the props dictionary
 	result := applyFunction(val, []Object{props})
-	
+
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
 		return newError("cannot use '<%s/>' because '%s' is not a function (got %s)\n   💡 Hint: Components must be functions. Check that '%s' is exported as a function.", tagName, tagName, val.Type(), tagName)
 	}
-	
+
 	return result
 }
 
