@@ -135,6 +135,20 @@ basil.response.headers["Content-Disposition"] = "attachment; filename=orders.csv
 {csv}
 ```
 
+**Loading and displaying a CSV file:**
+```parsley
+{table} = import(@std/table)
+
+// Read CSV file and convert to table
+data <== CSV(@./data/sales.csv)
+sales = table(data)
+    .where({it.amount > 100})
+    .orderBy("date", "desc")
+
+<h2>High Value Sales</h2>
+{sales.toHTML()}
+```
+
 ## Implementation Notes
 
 ### Architecture
