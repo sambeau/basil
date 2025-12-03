@@ -25,6 +25,7 @@ func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
 		"table": loadTableModule,
 		"dev":   loadDevModule,
+		"basil": loadBasilModule,
 	}
 }
 
@@ -45,6 +46,26 @@ func loadTableModule(env *Environment) Object {
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
 			"table": &TableModule{},
+		},
+	}
+}
+
+// loadBasilModule returns the basil server context module
+// This provides access to request, response, db, auth, etc. in handlers and modules
+func loadBasilModule(env *Environment) Object {
+	// Get basil context from environment (set by server handler)
+	if env.BasilCtx == nil {
+		// Return empty module if not in handler context (e.g., CLI, tests)
+		return &StdlibModuleDict{
+			Exports: map[string]Object{
+				"basil": &Dictionary{Pairs: make(map[string]ast.Expression)},
+			},
+		}
+	}
+
+	return &StdlibModuleDict{
+		Exports: map[string]Object{
+			"basil": env.BasilCtx,
 		},
 	}
 }

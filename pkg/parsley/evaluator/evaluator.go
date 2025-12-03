@@ -362,6 +362,7 @@ type Environment struct {
 	Logger      Logger          // Logger for log()/logLine() output
 	importStack map[string]bool // tracks modules being imported (for circular dep detection)
 	DevLog      DevLogWriter    // Dev log writer (nil in production mode)
+	BasilCtx    Object          // Basil server context (request, db, auth, etc.)
 }
 
 // NewEnvironment creates a new environment
@@ -378,13 +379,14 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename, token, logger, devlog, and root path from outer environment
+	// Preserve filename, token, logger, devlog, basilctx, and root path from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.RootPath = outer.RootPath
 		env.LastToken = outer.LastToken
 		env.Logger = outer.Logger
 		env.DevLog = outer.DevLog
+		env.BasilCtx = outer.BasilCtx
 	}
 	return env
 }

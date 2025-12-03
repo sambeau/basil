@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
@@ -701,5 +702,41 @@ table.fromDict(d, "Category", "Value")`,
 				}
 			}
 		})
+	}
+}
+
+func TestBasilStdlibImport(t *testing.T) {
+	// Test that std/basil import works (returns empty dict when not in handler context)
+	input := `
+		let {basil} = import("std/basil")
+		basil
+	`
+	result := evalTest(t, input)
+
+	// Should be a Dictionary (empty in test context)
+	if result.Type() != evaluator.DICTIONARY_OBJ {
+		t.Errorf("expected Dictionary, got %s", result.Type())
+	}
+}
+
+func TestBasilStdlibImportWithContext(t *testing.T) {
+	// Test that std/basil import returns the context when set
+	env := evaluator.NewEnvironment()
+
+	// Create a mock basil context
+	mockBasil := &evaluator.Dictionary{
+		Pairs: map[string]ast.Expression{},
+	}
+	env.BasilCtx = mockBasil
+
+	l := lexer.New(`let {basil} = import("std/basil"); basil`)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	result := evaluator.Eval(program, env)
+
+	// Should be the same object we set
+	if result != mockBasil {
+		t.Errorf("expected basil context to be returned, got %s", result.Type())
 	}
 }

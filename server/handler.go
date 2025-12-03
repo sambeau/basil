@@ -172,6 +172,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir)
 	env.SetProtected("basil", basilObj)
 
+	// Also set on environment for stdlib import (std/basil)
+	env.BasilCtx = basilObj
+
 	// Set dev log writer on environment (available to stdlib dev module via import)
 	// nil in production mode - dev functions become no-ops
 	if h.server.devLog != nil {
