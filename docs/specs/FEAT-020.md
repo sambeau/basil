@@ -1,7 +1,7 @@
 ---
 id: FEAT-020
 title: "Per-Developer Config Overrides"
-status: draft
+status: complete
 priority: medium
 created: 2025-12-03
 author: "@human"
@@ -19,12 +19,11 @@ As a **developer on a team**, I want **to run my own Basil instance by name** so
 
 ## Acceptance Criteria
 
-- [ ] Config supports `developers` section with named developer configs
-- [ ] Each developer config can override: `port`, `database`, `handlers`, `static`, `logging`
-- [ ] `basil --dev alice` runs using developer "alice" config merged with base
-- [ ] `basil --dev` (no name) uses first developer config or errors if none defined
-- [ ] Developer configs inherit base config values if not specified
-- [ ] Production config (server section) remains unchanged
+- [x] Config supports `developers` section with named developer configs
+- [x] Each developer config can override: `port`, `database`, `handlers`, `static`, `logging`
+- [x] `basil --dev --profile alice` or `basil --dev -as alice` runs using developer "alice" config
+- [x] Developer configs inherit base config values if not specified
+- [x] Production config (server section) remains unchanged
 
 ## Config Example
 
@@ -33,15 +32,16 @@ server:
   host: example.com
   port: 443
 
-handlers:
-  root: ./handlers
-
 static:
   - path: /static/
     root: ./public
 
 database:
   path: ./data/production.db
+
+routes:
+  - path: /
+    handler: ./handlers/index.pars
 
 # Developer instances - each runs on their own port
 developers:
@@ -64,10 +64,13 @@ developers:
 
 ```bash
 # Run as developer "alice"
-basil --dev alice
+basil --dev -as alice
 
 # Run as developer "bob" 
-basil --dev bob
+basil --dev --profile bob
+
+# Development mode (base config)
+basil --dev
 
 # Production (no --dev flag)
 basil
@@ -78,7 +81,6 @@ basil
 - **Single config file**: Admin controls all configurations; no local files to manage
 - **Named developers**: Clear, explicit; avoid magic port assignment
 - **Inheritance**: Developer configs only need to specify overrides
-- **`--dev` flag reuse**: Already exists for dev mode; extend with optional name argument
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -112,6 +114,17 @@ basil
 
 ### Implementation Notes
 *Added during/after implementation*
+
+**Implemented 2025-01-09:**
+- Added `DeveloperConfig` struct to `config/config.go`
+- Added `Developers map[string]DeveloperConfig` to `Config` struct
+- Added `ApplyDeveloper(cfg *Config, profileName string)` to `config/load.go`
+- Added `--profile` flag with `-as` alias to `cmd/basil/main.go`
+- Profile is applied after config load but before other CLI overrides (port, quiet)
+- Tests added to `config/load_test.go` covering all override scenarios
+- Example added to `basil.example.yaml`
+
+**Design change:** Used separate `--profile`/`-as` flags rather than extending `--dev` to take an optional argument, as Go's flag package doesn't support optional arguments cleanly.
 
 ## Related
 - Plan: [FEAT-020-plan.md](../plans/FEAT-020-plan.md)

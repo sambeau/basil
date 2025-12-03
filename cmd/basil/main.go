@@ -55,9 +55,12 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		devMode     = flags.Bool("dev", false, "Development mode (HTTP on localhost)")
 		quietMode   = flags.Bool("quiet", false, "Suppress request logs (dev mode)")
 		port        = flags.Int("port", 0, "Override listen port")
+		profile     = flags.String("profile", "", "Developer profile to apply")
 		showVersion = flags.Bool("version", false, "Show version")
 		showHelp    = flags.Bool("help", false, "Show help")
 	)
+	// -as alias for --profile
+	flags.StringVar(profile, "as", "", "Alias for --profile")
 
 	// Parse flags
 	if err := flags.Parse(args); err != nil {
@@ -91,6 +94,13 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+
+	// Apply developer profile if specified
+	if *profile != "" {
+		if err := config.ApplyDeveloper(cfg, *profile); err != nil {
+			return fmt.Errorf("applying profile %q: %w", *profile, err)
+		}
 	}
 
 	// Apply CLI overrides
@@ -144,12 +154,14 @@ Usage:
   basil users <command> [options]
 
 Server Options:
-  --config PATH    Path to config file (default: auto-detect)
-  --dev            Development mode (HTTP on localhost)
-  --quiet          Suppress request logs (dev mode)
-  --port PORT      Override listen port
-  --version        Show version
-  --help           Show this help
+  --config PATH      Path to config file (default: auto-detect)
+  --dev              Development mode (HTTP on localhost)
+  --quiet            Suppress request logs (dev mode)
+  --port PORT        Override listen port
+  --profile NAME     Apply a developer profile from config
+  -as NAME           Alias for --profile
+  --version          Show version
+  --help             Show this help
 
 User Management:
   basil users list            List all users
@@ -168,12 +180,13 @@ Signals:
   SIGINT/SIGTERM   Graceful shutdown
 
 Examples:
-  basil                     Start with auto-detected config
-  basil --dev               Development mode (HTTP on localhost:8080)
-  basil --config app.yaml   Use specific config file
-  basil --dev --port 3000   Dev mode on port 3000
-  basil users list          List all registered users
-  basil users reset usr_abc Generate new recovery codes for user
+  basil                       Start with auto-detected config
+  basil --dev                 Development mode (HTTP on localhost:8080)
+  basil --config app.yaml     Use specific config file
+  basil --dev --port 3000     Dev mode on port 3000
+  basil --dev -as sam         Dev mode with Sam's config overrides
+  basil users list            List all registered users
+  basil users reset usr_abc   Generate new recovery codes for user
 
 `)
 }

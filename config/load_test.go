@@ -462,3 +462,169 @@ func TestDevConfigDefaults(t *testing.T) {
 		t.Errorf("expected default log_truncate_pct 25, got %d", cfg.Dev.LogTruncatePct)
 	}
 }
+
+func TestApplyDeveloper(t *testing.T) {
+	t.Run("applies port override", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Port: 3001},
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.Server.Port != 3001 {
+			t.Errorf("expected port 3001, got %d", cfg.Server.Port)
+		}
+	})
+
+	t.Run("applies database override", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.BaseDir = "/app"
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Database: "sam.db"},
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.Database.Path != "/app/sam.db" {
+			t.Errorf("expected database path '/app/sam.db', got %q", cfg.Database.Path)
+		}
+	})
+
+	t.Run("applies absolute database path", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.BaseDir = "/app"
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Database: "/data/sam.db"},
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.Database.Path != "/data/sam.db" {
+			t.Errorf("expected database path '/data/sam.db', got %q", cfg.Database.Path)
+		}
+	})
+
+	t.Run("applies logging overrides", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {
+				Logging: LoggingConfig{
+					Level:  "debug",
+					Format: "json",
+				},
+			},
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.Logging.Level != "debug" {
+			t.Errorf("expected log level 'debug', got %q", cfg.Logging.Level)
+		}
+		if cfg.Logging.Format != "json" {
+			t.Errorf("expected log format 'json', got %q", cfg.Logging.Format)
+		}
+	})
+
+	t.Run("only overrides non-zero values", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.Server.Port = 8080
+		cfg.Logging.Level = "info"
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Port: 3001}, // Only port, not logging
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.Server.Port != 3001 {
+			t.Errorf("expected port 3001, got %d", cfg.Server.Port)
+		}
+		// Logging should remain unchanged
+		if cfg.Logging.Level != "info" {
+			t.Errorf("expected log level 'info' (unchanged), got %q", cfg.Logging.Level)
+		}
+	})
+
+	t.Run("error on unknown profile", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Port: 3001},
+		}
+
+		err := ApplyDeveloper(cfg, "unknown")
+		if err == nil {
+			t.Fatal("expected error for unknown profile")
+		}
+		if err.Error() != `unknown developer profile "unknown" (available: sam)` {
+			t.Errorf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("error on no developers defined", func(t *testing.T) {
+		cfg := Defaults()
+
+		err := ApplyDeveloper(cfg, "sam")
+		if err == nil {
+			t.Fatal("expected error when no developers defined")
+		}
+		if err.Error() != "no developer profiles defined in config" {
+			t.Errorf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("applies handlers directory override", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.BaseDir = "/app"
+		cfg.Routes = []Route{
+			{Path: "/", Handler: "/app/handlers/index.pars"},
+			{Path: "/api/*", Handler: "/app/handlers/api/handler.pars"},
+		}
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Handlers: "sam-handlers"},
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.Routes[0].Handler != "/app/sam-handlers/index.pars" {
+			t.Errorf("expected handler '/app/sam-handlers/index.pars', got %q", cfg.Routes[0].Handler)
+		}
+		if cfg.Routes[1].Handler != "/app/sam-handlers/handler.pars" {
+			t.Errorf("expected handler '/app/sam-handlers/handler.pars', got %q", cfg.Routes[1].Handler)
+		}
+	})
+
+	t.Run("applies static directory override", func(t *testing.T) {
+		cfg := Defaults()
+		cfg.BaseDir = "/app"
+		cfg.PublicDir = "/app/public"
+		cfg.Routes = []Route{
+			{Path: "/", Handler: "index.pars", PublicDir: "/app/public"},
+		}
+		cfg.Developers = map[string]DeveloperConfig{
+			"sam": {Static: "sam-public"},
+		}
+
+		if err := ApplyDeveloper(cfg, "sam"); err != nil {
+			t.Fatalf("ApplyDeveloper failed: %v", err)
+		}
+
+		if cfg.PublicDir != "/app/sam-public" {
+			t.Errorf("expected public_dir '/app/sam-public', got %q", cfg.PublicDir)
+		}
+		if cfg.Routes[0].PublicDir != "/app/sam-public" {
+			t.Errorf("expected route public_dir '/app/sam-public', got %q", cfg.Routes[0].PublicDir)
+		}
+	})
+}

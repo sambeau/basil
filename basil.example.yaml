@@ -26,3 +26,18 @@ public_dir: ./public
 # static:
 #   - path: /static/
 #     root: ./public
+
+# Developer profiles for per-developer overrides
+# Each developer can have their own port, database, handlers, etc.
+# Use with: basil --dev -as sam
+# developers:
+#   sam:
+#     port: 3001
+#     database: sam.db
+#     # handlers: sam-handlers  # Optional: use different handlers directory
+#     # static: sam-public      # Optional: use different static files directory
+#     logging:
+#       level: debug
+#   alex:
+#     port: 3002
+#     database: alex.db

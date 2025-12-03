@@ -281,3 +281,82 @@ func ParseSize(s string) (int64, error) {
 	}
 	return num, nil
 }
+
+// ApplyDeveloper applies a named developer profile to the configuration.
+// Only non-zero values in the developer config override the base config.
+// Returns an error if the profile name doesn't exist.
+func ApplyDeveloper(cfg *Config, profileName string) error {
+	if cfg.Developers == nil {
+		return fmt.Errorf("no developer profiles defined in config")
+	}
+
+	dev, ok := cfg.Developers[profileName]
+	if !ok {
+		// List available profiles in error message
+		var names []string
+		for name := range cfg.Developers {
+			names = append(names, name)
+		}
+		return fmt.Errorf("unknown developer profile %q (available: %s)", profileName, strings.Join(names, ", "))
+	}
+
+	// Apply port override
+	if dev.Port != 0 {
+		cfg.Server.Port = dev.Port
+	}
+
+	// Apply database override
+	if dev.Database != "" {
+		path := dev.Database
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(cfg.BaseDir, path)
+		}
+		cfg.Database.Path = path
+	}
+
+	// Apply handlers override - update all routes
+	if dev.Handlers != "" {
+		handlersDir := dev.Handlers
+		if !filepath.IsAbs(handlersDir) {
+			handlersDir = filepath.Join(cfg.BaseDir, handlersDir)
+		}
+		for i := range cfg.Routes {
+			if cfg.Routes[i].Handler != "" {
+				// Get just the filename and replace the directory
+				base := filepath.Base(cfg.Routes[i].Handler)
+				cfg.Routes[i].Handler = filepath.Join(handlersDir, base)
+			}
+		}
+	}
+
+	// Apply static/public_dir override
+	if dev.Static != "" {
+		staticDir := dev.Static
+		if !filepath.IsAbs(staticDir) {
+			staticDir = filepath.Join(cfg.BaseDir, staticDir)
+		}
+		cfg.PublicDir = staticDir
+		// Also update routes that reference the public dir
+		for i := range cfg.Routes {
+			if cfg.Routes[i].PublicDir != "" {
+				cfg.Routes[i].PublicDir = staticDir
+			}
+		}
+	}
+
+	// Apply logging overrides (only non-zero values)
+	if dev.Logging.Level != "" {
+		cfg.Logging.Level = dev.Logging.Level
+	}
+	if dev.Logging.Format != "" {
+		cfg.Logging.Format = dev.Logging.Format
+	}
+	if dev.Logging.Output != "" {
+		cfg.Logging.Output = dev.Logging.Output
+	}
+	if dev.Logging.Quiet {
+		cfg.Logging.Quiet = true
+	}
+
+	return nil
+}

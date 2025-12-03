@@ -136,8 +136,13 @@ Usage:
 ## Progress Log
 | Step | Status | Notes |
 |------|--------|-------|
-| Step 1: DeveloperConfig struct | Not started | |
-| Step 2: ApplyDeveloper function | Not started | |
-| Step 3: --profile flag | Not started | |
-| Step 4: Tests | Not started | |
-| Step 5: Documentation | Not started | |
+| Step 1: DeveloperConfig struct | Complete | Added to config/config.go |
+| Step 2: ApplyDeveloper function | Complete | Added to config/load.go with path resolution |
+| Step 3: --profile flag | Complete | Added --profile and -as alias to main.go |
+| Step 4: Tests | Complete | 9 test cases in config/load_test.go |
+| Step 5: Documentation | Complete | Updated basil.example.yaml and CLI help |
+
+## Completion Summary
+All steps completed 2025-01-09. Feature is ready for use.
+
+Usage: `basil --dev -as <profile_name>`

@@ -4,16 +4,27 @@ import "time"
 
 // Config represents the complete Basil configuration
 type Config struct {
-	BaseDir   string         `yaml:"-"` // Directory containing config file, for resolving relative paths
-	Server    ServerConfig   `yaml:"server"`
-	Security  SecurityConfig `yaml:"security"`
-	Auth      AuthConfig     `yaml:"auth"`
-	Dev       DevConfig      `yaml:"dev"`
-	Database  DatabaseConfig `yaml:"database"`
-	PublicDir string         `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
-	Static    []StaticRoute  `yaml:"static"`
-	Routes    []Route        `yaml:"routes"`
-	Logging   LoggingConfig  `yaml:"logging"`
+	BaseDir    string                     `yaml:"-"` // Directory containing config file, for resolving relative paths
+	Server     ServerConfig               `yaml:"server"`
+	Security   SecurityConfig             `yaml:"security"`
+	Auth       AuthConfig                 `yaml:"auth"`
+	Dev        DevConfig                  `yaml:"dev"`
+	Database   DatabaseConfig             `yaml:"database"`
+	PublicDir  string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
+	Static     []StaticRoute              `yaml:"static"`
+	Routes     []Route                    `yaml:"routes"`
+	Logging    LoggingConfig              `yaml:"logging"`
+	Developers map[string]DeveloperConfig `yaml:"developers"` // Named developer profiles for per-developer overrides
+}
+
+// DeveloperConfig holds per-developer overrides
+// All fields are optional - only non-zero values override the base config
+type DeveloperConfig struct {
+	Port     int           `yaml:"port"`     // Override server.port
+	Database string        `yaml:"database"` // Override database.path
+	Handlers string        `yaml:"handlers"` // Override handlers directory (for routes)
+	Static   string        `yaml:"static"`   // Override public_dir
+	Logging  LoggingConfig `yaml:"logging"`  // Override logging settings
 }
 
 // DatabaseConfig holds database connection settings
