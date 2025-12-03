@@ -8,6 +8,9 @@ logging:
   format: text
   output: stderr
 
+database:
+  path: ./hello.db
+
 static:
   - path: /static/
     root: ./public

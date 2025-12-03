@@ -74,6 +74,60 @@ func getTableInfo(db *sql.DB, tableName string) (*TableInfo, error) {
 	}, nil
 }
 
+// getTableData returns all rows from a table (up to 1000 rows).
+func getTableData(db *sql.DB, tableName string) ([]string, [][]interface{}, error) {
+	// Validate table name to prevent SQL injection
+	if !isValidTableName(tableName) {
+		return nil, nil, fmt.Errorf("invalid table name: %s", tableName)
+	}
+
+	// Query with LIMIT to prevent huge responses
+	// Table name is validated, safe to use in query
+	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %q LIMIT 1000", tableName))
+	if err != nil {
+		return nil, nil, fmt.Errorf("query table: %w", err)
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, nil, fmt.Errorf("get columns: %w", err)
+	}
+
+	// Read all rows
+	var data [][]interface{}
+	for rows.Next() {
+		// Create a slice of interface{} to hold the row values
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, nil, fmt.Errorf("scan row: %w", err)
+		}
+
+		// Convert []byte to string for display
+		row := make([]interface{}, len(columns))
+		for i, v := range values {
+			if b, ok := v.([]byte); ok {
+				row[i] = string(b)
+			} else {
+				row[i] = v
+			}
+		}
+		data = append(data, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("iterate rows: %w", err)
+	}
+
+	return columns, data, nil
+}
+
 // getTableColumns returns column info using PRAGMA table_info.
 func getTableColumns(db *sql.DB, tableName string) ([]ColumnInfo, error) {
 	// Validate table name
@@ -451,4 +505,19 @@ func createEmptyTable(db *sql.DB, tableName string) error {
 	}
 
 	return tx.Commit()
+}
+
+// dropTable deletes a table from the database.
+func dropTable(db *sql.DB, tableName string) error {
+	if !isValidTableName(tableName) {
+		return fmt.Errorf("invalid table name: %s", tableName)
+	}
+
+	// Table name is validated, safe to use in query
+	_, err := db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %q", tableName))
+	if err != nil {
+		return fmt.Errorf("drop table: %w", err)
+	}
+
+	return nil
 }

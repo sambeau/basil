@@ -43,6 +43,10 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveLogs(w, r, route)
 	case path == "/__/db" || path == "/__/db/":
 		h.serveDB(w, r)
+	case strings.HasPrefix(path, "/__/db/view/"):
+		tableName := strings.TrimPrefix(path, "/__/db/view/")
+		tableName = strings.TrimSuffix(tableName, "/")
+		h.serveDBView(w, r, tableName)
 	case strings.HasPrefix(path, "/__/db/download/"):
 		tableName := strings.TrimPrefix(path, "/__/db/download/")
 		tableName = strings.TrimSuffix(tableName, "/")
@@ -53,6 +57,10 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveDBUpload(w, r, tableName)
 	case path == "/__/db/create":
 		h.serveDBCreate(w, r)
+	case strings.HasPrefix(path, "/__/db/delete/"):
+		tableName := strings.TrimPrefix(path, "/__/db/delete/")
+		tableName = strings.TrimSuffix(tableName, "/")
+		h.serveDBDelete(w, r, tableName)
 	default:
 		http.NotFound(w, r)
 	}
@@ -297,7 +305,7 @@ func (h *devToolsHandler) renderTableCard(t *TableInfo) string {
 		<div class="table-card">
 			<div class="table-header">
 				<span class="table-name">📊 %s</span>
-				<span class="row-count">%d rows</span>
+				<a href="/__/db/view/%s" class="row-count-link">%d rows →</a>
 			</div>
 			<table class="columns-table">
 				<thead>
@@ -309,17 +317,78 @@ func (h *devToolsHandler) renderTableCard(t *TableInfo) string {
 				<a href="/__/db/download/%s" class="btn btn-download">⬇️ Download CSV</a>
 				<form action="/__/db/upload/%s" method="POST" enctype="multipart/form-data" class="upload-form">
 					<label class="btn btn-upload">
-						⬆️ Replace Table
+						⬆️ Replace Table from CSV
 						<input type="file" name="file" accept=".csv" onchange="this.form.submit()" hidden>
 					</label>
+				</form>
+				<div class="spacer"></div>
+				<form action="/__/db/delete/%s" method="POST" class="delete-form" onsubmit="return confirm('Delete table %s? This cannot be undone.')">
+					<button type="submit" class="btn btn-delete">🗑️ Delete</button>
 				</form>
 			</div>
 		</div>`,
 		html.EscapeString(t.Name),
+		html.EscapeString(t.Name),
 		t.RowCount,
 		columnsHTML.String(),
 		html.EscapeString(t.Name),
+		html.EscapeString(t.Name),
+		html.EscapeString(t.Name),
 		html.EscapeString(t.Name))
+}
+
+// serveDBView serves the table data view page.
+func (h *devToolsHandler) serveDBView(w http.ResponseWriter, r *http.Request, tableName string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := h.openAppDB()
+	if err != nil {
+		h.serveDBError(w, "Database Error", err.Error())
+		return
+	}
+	defer db.Close()
+
+	// Get table data
+	columns, rows, err := getTableData(db, tableName)
+	if err != nil {
+		h.serveDBError(w, "Query Error", err.Error())
+		return
+	}
+
+	// Build table HTML
+	var tableHTML strings.Builder
+	if len(rows) == 0 {
+		tableHTML.WriteString(`<div class="empty-state">No data in this table</div>`)
+	} else {
+		tableHTML.WriteString(`<div class="data-table-wrapper"><table class="data-table"><thead><tr><th class="row-number">#</th>`)
+		for _, col := range columns {
+			tableHTML.WriteString(fmt.Sprintf(`<th>%s</th>`, html.EscapeString(col)))
+		}
+		tableHTML.WriteString(`</tr></thead><tbody>`)
+		for i, row := range rows {
+			tableHTML.WriteString(fmt.Sprintf(`<tr><td class="row-number">%d</td>`, i+1))
+			for _, val := range row {
+				if val == nil {
+					tableHTML.WriteString(`<td class="null-value">NULL</td>`)
+				} else {
+					tableHTML.WriteString(fmt.Sprintf(`<td>%s</td>`, html.EscapeString(fmt.Sprintf("%v", val))))
+				}
+			}
+			tableHTML.WriteString(`</tr>`)
+		}
+		tableHTML.WriteString(`</tbody></table></div>`)
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, devToolsDBViewHTML,
+		html.EscapeString(tableName),
+		html.EscapeString(tableName),
+		len(rows),
+		len(columns),
+		tableHTML.String())
 }
 
 // serveDBDownload serves a table as CSV download.
@@ -378,8 +447,8 @@ func (h *devToolsHandler) serveDBUpload(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Redirect back to database view
-	http.Redirect(w, r, "/__/db", http.StatusSeeOther)
+	// Re-render the database page directly (avoids Safari redirect bug)
+	h.serveDB(w, r)
 }
 
 // serveDBCreate handles creating a new table.
@@ -407,8 +476,31 @@ func (h *devToolsHandler) serveDBCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Redirect back to database view
-	http.Redirect(w, r, "/__/db", http.StatusSeeOther)
+	// Re-render the database page directly (avoids Safari redirect bug)
+	h.serveDB(w, r)
+}
+
+// serveDBDelete handles deleting a table.
+func (h *devToolsHandler) serveDBDelete(w http.ResponseWriter, r *http.Request, tableName string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := h.openAppDB()
+	if err != nil {
+		h.serveDBError(w, "Database Error", err.Error())
+		return
+	}
+	defer db.Close()
+
+	if err := dropTable(db, tableName); err != nil {
+		h.serveDBError(w, "Delete Error", err.Error())
+		return
+	}
+
+	// Re-render the database page directly
+	h.serveDB(w, r)
 }
 
 // serveDBError renders an error page for database operations.
@@ -828,17 +920,28 @@ const devToolsDBHTML = `<!DOCTYPE html>
       background: #1a1a2e;
       color: #eee;
       min-height: 100vh;
-      padding: 2rem;
+    }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #1a1a2e;
+      border-bottom: 1px solid #2d2d44;
+      padding: 1rem 2rem;
+      z-index: 100;
+    }
+    .header-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .container {
       max-width: 900px;
       margin: 0 auto;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.5rem;
+      padding: 5rem 2rem 2rem 2rem;
     }
     h1 {
       font-size: 1.5rem;
@@ -972,9 +1075,13 @@ const devToolsDBHTML = `<!DOCTYPE html>
       font-weight: 500;
       color: #61afef;
     }
-    .row-count {
+    .row-count-link {
       font-size: 0.85rem;
-      color: #5c6370;
+      color: #61afef;
+      text-decoration: none;
+    }
+    .row-count-link:hover {
+      text-decoration: underline;
     }
     .columns-table {
       width: 100%%;
@@ -986,7 +1093,7 @@ const devToolsDBHTML = `<!DOCTYPE html>
       text-align: left;
       padding: 0.4rem 0.75rem;
       background: #1a1a2e;
-      color: #5c6370;
+      color: #61afef;
       font-weight: 500;
       font-size: 0.75rem;
       text-transform: uppercase;
@@ -1019,17 +1126,32 @@ const devToolsDBHTML = `<!DOCTYPE html>
       gap: 0.75rem;
       padding-top: 0.75rem;
       border-top: 1px solid #3d3d5c;
+      align-items: center;
     }
-    .upload-form {
+    .upload-form, .delete-form {
       display: inline-block;
+    }
+    .spacer {
+      flex: 1;
+    }
+    .btn-delete {
+      background: transparent;
+      color: #e06c75;
+      border: 1px solid #e06c75;
+    }
+    .btn-delete:hover {
+      background: #e06c75;
+      color: #1a1a2e;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1><span class="brand">🌿 DEV</span> Database</h1>
-      <a href="/__" class="back-link">← Dev Tools</a>
+      <div class="header-inner">
+        <h1><span class="brand">🌿 DEV</span> Database</h1>
+        <a href="/__" class="back-link">← Dev Tools</a>
+      </div>
     </div>
     <div class="info-box">
       <div class="info-item">
@@ -1047,6 +1169,166 @@ const devToolsDBHTML = `<!DOCTYPE html>
         <input type="text" name="name" placeholder="table_name" pattern="[a-zA-Z_][a-zA-Z0-9_]*" required>
         <button type="submit" class="btn btn-create">Create</button>
       </form>
+    </div>
+    %s
+  </div>
+</body>
+</html>
+`
+
+const devToolsDBViewHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>%s - Basil Database</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #1a1a2e;
+      border-bottom: 1px solid #2d2d44;
+      padding: 1rem 2rem;
+      z-index: 100;
+    }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 5rem 2rem 2rem 2rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #98c379;
+    }
+    .brand {
+      display: inline-block;
+      background: #98c379;
+      color: #1a1a2e;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .back-link {
+      color: #61afef;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    .info-box {
+      background: #252542;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+    .info-item {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .info-label {
+      color: #5c6370;
+      font-size: 0.85rem;
+    }
+    .info-value {
+      color: #e5c07b;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+    }
+    .data-table-wrapper {
+      background: #252542;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .data-table {
+      width: 100%%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: #1a1a2e;
+      color: #61afef;
+      font-weight: 500;
+      font-size: 0.8rem;
+      border-bottom: 1px solid #3d3d5c;
+      position: sticky;
+      top: 0;
+    }
+    .data-table td {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid #3d3d5c;
+      font-family: 'SF Mono', Monaco, monospace;
+      color: #eee;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+    .data-table tr:hover td {
+      background: #2a2a4a;
+    }
+    .null-value {
+      color: #5c6370;
+      font-style: italic;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #5c6370;
+      font-size: 0.95rem;
+    }
+    .row-number {
+      color: #5c6370;
+      font-size: 0.75rem;
+      text-align: right;
+      width: 50px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-inner">
+      <h1><span class="brand">🌿 DEV</span> %s</h1>
+      <a href="/__/db" class="back-link">← Database</a>
+    </div>
+  </div>
+  <div class="container">
+    <div class="info-box">
+      <div class="info-item">
+        <span class="info-label">Rows:</span>
+        <span class="info-value">%d</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Columns:</span>
+        <span class="info-value">%d</span>
+      </div>
     </div>
     %s
   </div>

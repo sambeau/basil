@@ -18,12 +18,12 @@ func TestIsValidTableName(t *testing.T) {
 		{"my_table", true},
 		{"Table123", true},
 		{"_private", true},
-		{"123table", false},  // Can't start with digit
-		{"my-table", false},  // Hyphen not allowed
-		{"my table", false},  // Space not allowed
-		{"", false},          // Empty not allowed
-		{"select", true},     // Reserved words are technically allowed
-		{"user's", false},    // Apostrophe not allowed
+		{"123table", false}, // Can't start with digit
+		{"my-table", false}, // Hyphen not allowed
+		{"my table", false}, // Space not allowed
+		{"", false},         // Empty not allowed
+		{"select", true},    // Reserved words are technically allowed
+		{"user's", false},   // Apostrophe not allowed
 	}
 
 	for _, tt := range tests {
@@ -56,6 +56,66 @@ func TestIsValidColumnName(t *testing.T) {
 				t.Errorf("isValidColumnName(%q) = %v, want %v", tt.name, got, tt.valid)
 			}
 		})
+	}
+}
+
+func TestGetTableData(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer db.Close()
+
+	// Create and populate test table
+	_, err = db.Exec(`
+		CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, score REAL);
+		INSERT INTO users (id, name, score) VALUES (1, 'Alice', 95.5);
+		INSERT INTO users (id, name, score) VALUES (2, 'Bob', NULL);
+		INSERT INTO users (id, name, score) VALUES (3, 'Charlie', 87.0);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	// Test getTableData
+	columns, rows, err := getTableData(db, "users")
+	if err != nil {
+		t.Fatalf("getTableData failed: %v", err)
+	}
+
+	// Check columns
+	expectedCols := []string{"id", "name", "score"}
+	if len(columns) != len(expectedCols) {
+		t.Errorf("expected %d columns, got %d", len(expectedCols), len(columns))
+	}
+	for i, col := range expectedCols {
+		if columns[i] != col {
+			t.Errorf("column %d: expected %q, got %q", i, col, columns[i])
+		}
+	}
+
+	// Check rows
+	if len(rows) != 3 {
+		t.Errorf("expected 3 rows, got %d", len(rows))
+	}
+
+	// Check first row values
+	if rows[0][0] != int64(1) {
+		t.Errorf("row 0 col 0: expected 1, got %v", rows[0][0])
+	}
+	if rows[0][1] != "Alice" {
+		t.Errorf("row 0 col 1: expected 'Alice', got %v", rows[0][1])
+	}
+
+	// Check NULL value
+	if rows[1][2] != nil {
+		t.Errorf("row 1 col 2: expected nil, got %v", rows[1][2])
+	}
+
+	// Test invalid table name
+	_, _, err = getTableData(db, "invalid-table")
+	if err == nil {
+		t.Error("expected error for invalid table name")
 	}
 }
 
