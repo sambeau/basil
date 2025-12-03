@@ -32,7 +32,7 @@ result = Table(data).where({it.status == "active"}).rows
 
 ### Import Path
 ```parsley
-{Table} = import(@std/table)
+{table} = import(@std/table)
 ```
 
 The `@std/` prefix indicates standard library modules (built into the interpreter, not filesystem paths).
@@ -92,7 +92,7 @@ All aggregations operate on the current rows and return a scalar value:
 
 **Database results:**
 ```parsley
-{Table} = import(@std/table)
+{table} = import(@std/table)
 
 users = query("SELECT * FROM users WHERE role = ?", [role])
 table = Table(users)
@@ -107,7 +107,7 @@ table = Table(users)
 
 **API response transformation:**
 ```parsley
-{Table} = import(@std/table)
+{table} = import(@std/table)
 
 data = fetch("https://api.example.com/sales").json()
 summary = Table(data)
@@ -122,7 +122,7 @@ summary = Table(data)
 
 **CSV export endpoint:**
 ```parsley
-{Table} = import(@std/table)
+{table} = import(@std/table)
 
 orders = query("SELECT * FROM orders WHERE date >= ?", [startDate])
 csv = Table(orders)
