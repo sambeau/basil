@@ -20,3 +20,6 @@ Thumbs.db
 # Go workspace (if using)
 go.work
 go.work.sum
+
+# Symlinks
+tubbo
