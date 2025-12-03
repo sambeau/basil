@@ -486,3 +486,47 @@ func TestDictionaryStringKeys(t *testing.T) {
 		})
 	}
 }
+
+// TestDictionaryEagerEvaluation tests that dictionary values are evaluated at creation time
+func TestDictionaryEagerEvaluation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "method call in value",
+			input:    `let arr = [1, 2, 3]; let d = {"count": arr.length()}; d["count"]`,
+			expected: `3`,
+		},
+		{
+			name:     "method call inspects as value",
+			input:    `let arr = [1, 2, 3]; let d = {"count": arr.length()}; d`,
+			expected: `{count: 3}`,
+		},
+		{
+			name:     "array of dicts with method calls",
+			input:    `let arr = [1, 2, 3]; let stats = [{"count": arr.length()}]; stats[0]["count"]`,
+			expected: `3`,
+		},
+		{
+			name:     "expression in value",
+			input:    `let x = 5; let d = {"result": x * 2 + 1}; d["result"]`,
+			expected: `11`,
+		},
+		{
+			name:     "function call in value",
+			input:    `let add = fn(a, b) { a + b }; let d = {"sum": add(3, 4)}; d["sum"]`,
+			expected: `7`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalInput(tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

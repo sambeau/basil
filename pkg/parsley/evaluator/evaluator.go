@@ -10009,8 +10009,20 @@ func evalStringSliceExpression(str, start, end Object) Object {
 
 // evalDictionaryLiteral evaluates dictionary literals
 func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object {
+	// Evaluate all values eagerly and store them as ObjectLiteralExpressions
+	// This ensures values like method calls (t.count()) are evaluated at creation time
+	pairs := make(map[string]ast.Expression)
+	for key, expr := range node.Pairs {
+		value := Eval(expr, env)
+		if isError(value) {
+			return value
+		}
+		// Convert the evaluated value back to an expression for storage
+		pairs[key] = objectToExpression(value)
+	}
+
 	dict := &Dictionary{
-		Pairs: node.Pairs,
+		Pairs: pairs,
 		Env:   env,
 	}
 	return dict
