@@ -76,48 +76,20 @@ func ApplyDeveloper(cfg *Config, name string) error {
 
 ---
 
-### Step 3: Modify --dev flag to accept name
+### Step 3: Add --profile flag (with -as alias)
 **File: `cmd/basil/main.go`**
 
-Current:
 ```go
-devMode = flags.Bool("dev", false, "Development mode")
+devMode    = flags.Bool("dev", false, "Development mode (HTTP on localhost)")
+devProfile = flags.String("profile", "", "Developer profile name from config (alias: -as)")
+
+// Register alias
+flags.StringVar(devProfile, "as", "", "Alias for --profile")
 ```
 
-Change to:
-```go
-devName = flags.String("dev", "", "Development mode (optionally specify developer name)")
-```
-
-Then in logic:
-```go
-if *devName != "" {
-    cfg.Server.Dev = true
-    if *devName != "true" { // Handle bare --dev
-        if err := config.ApplyDeveloper(cfg, *devName); err != nil {
-            return err
-        }
-    }
-}
-```
-
-Actually, this is tricky with `flag` package. Better approach:
-```go
-devMode = flags.Bool("dev", false, "Development mode (HTTP on localhost)")
-devName = flags.String("as", "", "Run as named developer from config")
-```
-
-Usage: `basil --dev --as alice`
-
-Or simpler - just use `--dev` for mode and add separate `--developer`:
-```go
-devMode    = flags.Bool("dev", false, "Development mode")
-devProfile = flags.String("profile", "", "Developer profile name from config")
-```
-
-Usage: `basil --dev --profile alice`
-
-**Recommendation**: `--profile` is clearer and avoids overloading `--dev`
+Usage: 
+- `basil --dev --profile alice`
+- `basil --dev -as alice`
 
 **Estimated: 30 minutes**
 
@@ -152,8 +124,8 @@ Usage: `basil --dev --profile alice`
 
 ## Open Questions
 
-1. **Flag name**: `--profile`, `--as`, `--developer`, or overload `--dev`?
-   - Recommendation: `--profile` (clear, doesn't overload existing flag)
+1. **Flag name**: `--profile` with `-as` alias
+   - `basil --dev --profile alice` or `basil --dev -as alice`
 
 2. **Handlers path**: Add `HandlersRoot` to config, or keep per-route handlers?
    - Recommendation: Add `HandlersRoot` - simpler mental model
