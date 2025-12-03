@@ -666,17 +666,17 @@ func TestTableFromDict(t *testing.T) {
 	}{
 		{
 			name: "fromDict with default column names",
-			input: `let {fromDict} = import("std/table")
+			input: `let {table} = import("std/table")
 let d = {a: 1, b: 2}
-fromDict(d)`,
+table.fromDict(d)`,
 			expectRows: 2,
 			expectCols: []string{"key", "value"},
 		},
 		{
 			name: "fromDict with custom column names",
-			input: `let {fromDict} = import("std/table")
+			input: `let {table} = import("std/table")
 let d = {"Total": 100, "Active": 50}
-fromDict(d, "Category", "Value")`,
+table.fromDict(d, "Category", "Value")`,
 			expectRows: 2,
 			expectCols: []string{"Category", "Value"},
 		},

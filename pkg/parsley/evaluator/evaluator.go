@@ -6902,6 +6902,8 @@ func Eval(node ast.Node, env *Environment) Object {
 
 			// Dispatch based on receiver type
 			switch receiver := left.(type) {
+			case *TableModule:
+				return evalTableModuleMethod(receiver, method, args, env)
 			case *Table:
 				return EvalTableMethod(receiver, method, args, env)
 			case *DBConnection:
@@ -8070,6 +8072,13 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	case *StdlibBuiltin:
 		result := fn.Fn(args, env)
 		// Add position info to stdlib errors for better debugging
+		if isError(result) {
+			return enrichErrorWithPos(result, env.LastToken)
+		}
+		return result
+	case *TableModule:
+		// TableModule is callable: table(arr) creates a Table from an array
+		result := TableConstructor(args, env)
 		if isError(result) {
 			return enrichErrorWithPos(result, env.LastToken)
 		}

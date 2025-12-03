@@ -39,12 +39,29 @@ func loadStdlibModule(name string, env *Environment) Object {
 
 // loadTableModule returns the Table module as a dictionary
 func loadTableModule(env *Environment) Object {
-	// Return stdlib module dict with table constructor and utilities
+	// Return stdlib module dict with table constructor
+	// The table export is a TableModule which is both callable and has methods
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"table":    &StdlibBuiltin{Name: "table", Fn: TableConstructor},
-			"fromDict": &StdlibBuiltin{Name: "fromDict", Fn: TableFromDict},
+			"table": &TableModule{},
 		},
+	}
+}
+
+// TableModule represents the table constructor with methods like fromDict
+// It can be called directly as table(arr) or used as table.fromDict(dict, ...)
+type TableModule struct{}
+
+func (tm *TableModule) Type() ObjectType { return BUILTIN_OBJ }
+func (tm *TableModule) Inspect() string  { return "table" }
+
+// evalTableModuleMethod handles method calls on the table module (e.g., table.fromDict)
+func evalTableModuleMethod(tm *TableModule, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "fromDict":
+		return TableFromDict(args, env)
+	default:
+		return newError("unknown method '%s' on table module", method)
 	}
 }
 
