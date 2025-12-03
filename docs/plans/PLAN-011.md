@@ -1,7 +1,7 @@
 # PLAN-011: Basil Dev Tools Implementation
 
 **Spec:** [FEAT-019](../specs/FEAT-019.md)
-**Status:** Draft
+**Status:** In Progress
 **Created:** 2025-12-03
 **Target:** Next release
 
@@ -33,11 +33,11 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 7. Add size-based truncation (delete oldest 25% when exceeding limit)
 
 **Tests:**
-- [ ] TestDevLogCreate - database creation
-- [ ] TestDevLogWrite - writing log entries
-- [ ] TestDevLogRead - reading logs back
-- [ ] TestDevLogClear - clearing logs
-- [ ] TestDevLogTruncation - size-based truncation
+- [x] TestDevLogCreate - database creation
+- [x] TestDevLogWrite - writing log entries
+- [x] TestDevLogRead - reading logs back
+- [x] TestDevLogClear - clearing logs
+- [x] TestDevLogTruncation - size-based truncation
 
 #### Task 1.2: Dev Module for Parsley
 **Files:** `pkg/parsley/evaluator/stdlib_dev.go` (new), `pkg/parsley/evaluator/stdlib_table.go` (modify)
@@ -51,10 +51,10 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 6. Capture filename, line number from environment context
 
 **Tests:**
-- [ ] TestDevLog - basic logging
-- [ ] TestDevLogWithLabel - labeled logging
-- [ ] TestDevClearLog - clearing logs
-- [ ] TestDevNoOpInProduction - silent no-ops when disabled
+- [x] TestDevLog - basic logging
+- [x] TestDevLogWithLabel - labeled logging
+- [x] TestDevClearLog - clearing logs
+- [x] TestDevNoOpInProduction - silent no-ops when disabled
 
 #### Task 1.3: Inject Dev Module into Handler
 **Files:** `server/handler.go`, `server/server.go`
@@ -66,8 +66,8 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 4. Pass devLog reference through to evaluator context
 
 **Tests:**
-- [ ] TestDevModuleInjectedInDevMode
-- [ ] TestDevModuleNotInjectedInProduction
+- [x] TestDevModuleInjectedInDevMode
+- [x] TestDevModuleNotInjectedInProduction
 
 #### Task 1.4: Dev Tools HTTP Handlers
 **Files:** `server/devtools.go` (new), `server/server.go`
@@ -81,10 +81,10 @@ Implement a web-based developer tools suite for Basil accessible at `/__` routes
 6. Return 404 for `/__/*` routes in production
 
 **Tests:**
-- [ ] TestDevToolsLogsHTML - HTML output
-- [ ] TestDevToolsLogsText - plain text output
-- [ ] TestDevToolsClear - clearing via query param
-- [ ] TestDevTools404InProduction - 404 in production mode
+- [x] TestDevToolsLogsHTML - HTML output
+- [x] TestDevToolsLogsText - plain text output
+- [x] TestDevToolsClear - clearing via query param
+- [x] TestDevTools404InProduction - 404 in production mode
 
 ### Phase 2: Log Routing
 
@@ -211,6 +211,7 @@ Before marking complete:
 | Date | Phase | Notes |
 |------|-------|-------|
 | 2025-12-03 | Planning | Created implementation plan |
+| 2025-12-03 | Phase 1 | Completed - Core logging infrastructure (Tasks 1.1-1.4) |
 
 ## Deferred Items
 

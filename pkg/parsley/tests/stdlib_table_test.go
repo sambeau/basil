@@ -659,10 +659,10 @@ func TestDictionaryEntries(t *testing.T) {
 
 func TestTableFromDict(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		expectRows  int
-		expectCols  []string
+		name       string
+		input      string
+		expectRows int
+		expectCols []string
 	}{
 		{
 			name: "fromDict with default column names",
