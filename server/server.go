@@ -36,6 +36,9 @@ type Server struct {
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
 
+	// Dev tools (nil if not in dev mode)
+	devLog *DevLog
+
 	// Auth system (nil if auth not enabled)
 	authDB       *auth.DB
 	authWebAuthn *auth.WebAuthnManager
@@ -56,8 +59,14 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		responseCache: newResponseCache(cfg.Server.Dev),
 	}
 
+	// Initialize dev tools in dev mode
+	if err := s.initDevTools(); err != nil {
+		return nil, fmt.Errorf("initializing dev tools: %w", err)
+	}
+
 	// Initialize database connection if configured
 	if err := s.initDatabase(); err != nil {
+		s.cleanupDevTools()
 		return nil, fmt.Errorf("initializing database: %w", err)
 	}
 
@@ -67,6 +76,7 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		if s.db != nil {
 			s.db.Close()
 		}
+		s.cleanupDevTools()
 		return nil, fmt.Errorf("initializing auth: %w", err)
 	}
 
@@ -79,10 +89,56 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		if s.db != nil {
 			s.db.Close()
 		}
+		s.cleanupDevTools()
 		return nil, fmt.Errorf("setting up routes: %w", err)
 	}
 
 	return s, nil
+}
+
+// initDevTools initializes dev tools (logging, etc.) in dev mode.
+func (s *Server) initDevTools() error {
+	if !s.config.Server.Dev {
+		return nil
+	}
+
+	// Create dev log database
+	cfg := DefaultDevLogConfig()
+	// TODO: Allow config override via s.config.Dev.LogDatabase, etc.
+
+	// Use a temp directory if the base directory doesn't exist (e.g., in tests)
+	baseDir := s.config.BaseDir
+	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+		baseDir = os.TempDir()
+	}
+
+	devLog, err := NewDevLog(baseDir, cfg)
+	if err != nil {
+		return fmt.Errorf("creating dev log: %w", err)
+	}
+
+	s.devLog = devLog
+	s.logInfo("dev tools enabled, logs at: %s", devLog.Path())
+	return nil
+}
+
+// cleanupDevTools closes dev tools resources.
+func (s *Server) cleanupDevTools() {
+	if s.devLog != nil {
+		s.devLog.Close()
+		s.devLog = nil
+	}
+}
+
+// Close closes all server resources. Use this in tests; in production, use Run() with a context.
+func (s *Server) Close() {
+	s.cleanupDevTools()
+	if s.authDB != nil {
+		s.authDB.Close()
+	}
+	if s.db != nil {
+		s.db.Close()
+	}
 }
 
 // initDatabase opens the database connection if configured.
@@ -197,9 +253,13 @@ func (s *Server) initAuth() error {
 
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
-	// In dev mode, add live reload endpoint
+	// In dev mode, add dev tools endpoints
 	if s.config.Server.Dev {
 		s.mux.Handle("/__livereload", newLiveReloadHandler(s))
+		// Dev tools handler for /__/* routes (logs, etc.)
+		devTools := newDevToolsHandler(s)
+		s.mux.Handle("/__/", devTools)
+		s.mux.Handle("/__", devTools)
 	}
 
 	// Register auth endpoints if auth is enabled

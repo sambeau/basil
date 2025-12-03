@@ -6902,6 +6902,8 @@ func Eval(node ast.Node, env *Environment) Object {
 
 			// Dispatch based on receiver type
 			switch receiver := left.(type) {
+			case *DevModule:
+				return evalDevModuleMethod(receiver, method, args, env)
 			case *TableModule:
 				return evalTableModuleMethod(receiver, method, args, env)
 			case *Table:
@@ -8083,6 +8085,9 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			return enrichErrorWithPos(result, env.LastToken)
 		}
 		return result
+	case *DevModule:
+		// DevModule is not directly callable, only used as a namespace
+		return newError("dev module cannot be called directly, use dev.log() or other methods")
 	case *SFTPConnection:
 		// SFTP connection is callable: conn(@/path) returns SFTP file handle
 		if len(args) != 1 {

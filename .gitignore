@@ -23,3 +23,8 @@ go.work.sum
 
 # Symlinks
 tubbo
+
+# Dev tools logs (SQLite databases)
+dev_logs_*.db
+dev_logs_*.db-wal
+dev_logs_*.db-shm
