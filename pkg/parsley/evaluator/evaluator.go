@@ -6753,7 +6753,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(right) {
 			return right
 		}
-		return evalPrefixExpression(node.Operator, right)
+		return evalPrefixExpression(node.Token, node.Operator, right)
 
 	case *ast.InfixExpression:
 		// Special handling for database operators
@@ -7073,7 +7073,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If it's not a function, return error
 					if !isError(fnObj) {
-						return newError("'%s' is not a function", method)
+						return newErrorWithPos(node.Token, "'%s' is not a function", method)
 					}
 				}
 				// Fall through to normal property/function evaluation
@@ -7201,16 +7201,16 @@ func nativeBoolToParsBoolean(input bool) *Boolean {
 	return FALSE
 }
 
-func evalPrefixExpression(operator string, right Object) Object {
+func evalPrefixExpression(tok lexer.Token, operator string, right Object) Object {
 	switch operator {
 	case "!":
 		return evalBangOperatorExpression(right)
 	case "not":
 		return evalBangOperatorExpression(right)
 	case "-":
-		return evalMinusPrefixOperatorExpression(right)
+		return evalMinusPrefixOperatorExpression(tok, right)
 	default:
-		return newError("unknown operator: %s%s", operator, right.Type())
+		return newErrorWithPos(tok, "unknown operator: %s%s", operator, right.Type())
 	}
 }
 
@@ -7227,9 +7227,9 @@ func evalBangOperatorExpression(right Object) Object {
 	}
 }
 
-func evalMinusPrefixOperatorExpression(right Object) Object {
+func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
 	if right.Type() != INTEGER_OBJ {
-		return newError("unknown operator: -%s", right.Type())
+		return newErrorWithPos(tok, "unknown operator: -%s", right.Type())
 	}
 
 	value := right.(*Integer).Value
@@ -7372,7 +7372,7 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	case left.Type() == FLOAT_OBJ && right.Type() == INTEGER_OBJ:
 		return evalMixedInfixExpression(tok, operator, left, right)
 	case left.Type() == STRING_OBJ && right.Type() == STRING_OBJ:
-		return evalStringInfixExpression(operator, left, right)
+		return evalStringInfixExpression(tok, operator, left, right)
 	case operator == "==":
 		return nativeBoolToParsBoolean(left == right)
 	case operator == "!=":
@@ -7418,7 +7418,7 @@ func evalIntegerInfixExpression(tok lexer.Token, operator string, left, right Ob
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s", operator)
+		return newErrorWithPos(tok, "unknown operator: %s", operator)
 	}
 }
 
@@ -7451,7 +7451,7 @@ func evalFloatInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s", operator)
+		return newErrorWithPos(tok, "unknown operator: %s", operator)
 	}
 }
 
@@ -7465,7 +7465,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case *Float:
 		leftVal = left.Value
 	default:
-		return newError("unsupported type for mixed arithmetic: %s", left.Type())
+		return newErrorWithPos(tok, "unsupported type for mixed arithmetic: %s", left.Type())
 	}
 
 	switch right := right.(type) {
@@ -7474,7 +7474,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case *Float:
 		rightVal = right.Value
 	default:
-		return newError("unsupported type for mixed arithmetic: %s", right.Type())
+		return newErrorWithPos(tok, "unsupported type for mixed arithmetic: %s", right.Type())
 	}
 
 	switch operator {
@@ -7502,11 +7502,11 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s", operator)
+		return newErrorWithPos(tok, "unknown operator: %s", operator)
 	}
 }
 
-func evalStringInfixExpression(operator string, left, right Object) Object {
+func evalStringInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
 	leftVal := left.(*String).Value
 	rightVal := right.(*String).Value
 
@@ -7518,7 +7518,7 @@ func evalStringInfixExpression(operator string, left, right Object) Object {
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	}
 }
 
