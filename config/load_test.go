@@ -428,8 +428,8 @@ func TestParseSize(t *testing.T) {
 		{"1GB", 1024 * 1024 * 1024, false},
 		{"  5MB  ", 5 * 1024 * 1024, false},
 		{"invalid", 0, true},
-		{"MB", 0, true},   // No number
-		{"abc", 0, true},  // Not a number
+		{"MB", 0, true},  // No number
+		{"abc", 0, true}, // Not a number
 	}
 
 	for _, tt := range tests {

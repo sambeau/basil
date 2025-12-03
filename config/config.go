@@ -75,8 +75,8 @@ type AuthConfig struct {
 
 // DevConfig holds dev tools settings (only used when --dev flag is enabled)
 type DevConfig struct {
-	LogDatabase    string `yaml:"log_database"`    // Path to dev log database file (default: auto-generated)
-	LogMaxSize     string `yaml:"log_max_size"`    // Maximum log database size (default: "10MB")
+	LogDatabase    string `yaml:"log_database"`     // Path to dev log database file (default: auto-generated)
+	LogMaxSize     string `yaml:"log_max_size"`     // Maximum log database size (default: "10MB")
 	LogTruncatePct int    `yaml:"log_truncate_pct"` // Percentage to delete when truncating (default: 25)
 }
 
