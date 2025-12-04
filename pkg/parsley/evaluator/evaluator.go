@@ -1745,7 +1745,7 @@ func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 				// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
 				t, err = time.ParseInLocation("2006-01-02T15:04:05", node.Value, time.UTC)
 				if err != nil {
-					return newError("invalid datetime literal: %s", node.Value)
+					return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", node.Value))
 				}
 			}
 		}
@@ -1760,7 +1760,7 @@ func evalDurationLiteral(node *ast.DurationLiteral, env *Environment) Object {
 	// Parse the duration string into months and seconds
 	months, seconds, err := parseDurationString(node.Value)
 	if err != nil {
-		return newError("invalid duration literal: %s", err.Error())
+		return newFormatError("FMT-0009", err)
 	}
 
 	return durationToDict(months, seconds, env)
@@ -1891,7 +1891,7 @@ func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environ
 				// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
 				t, err = time.ParseInLocation("2006-01-02T15:04:05", datetimeStr, time.UTC)
 				if err != nil {
-					return newError("invalid datetime in template: %s", datetimeStr)
+					return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", datetimeStr))
 				}
 			}
 		}
@@ -4518,7 +4518,7 @@ func getBuiltins() map[string]*Builtin {
 						t, err = time.Parse("2006-01-02T15:04:05", arg.Value)
 					}
 					if err != nil {
-						return newError("invalid datetime string: %s", arg.Value)
+						return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", arg.Value))
 					}
 				case *Integer:
 					// Unix timestamp
@@ -4527,7 +4527,7 @@ func getBuiltins() map[string]*Builtin {
 					// From dictionary
 					t, err = dictToTime(arg, env)
 					if err != nil {
-						return newError("invalid datetime dictionary: %s", err)
+						return newFormatError("FMT-0004", err)
 					}
 				default:
 					return newTypeError("TYPE-0012", "time", "a string, integer, or dictionary", args[0].Type())
@@ -5261,7 +5261,7 @@ func getBuiltins() map[string]*Builtin {
 				// Extract months and seconds from duration
 				months, seconds, err := getDurationComponents(dict, NewEnvironment())
 				if err != nil {
-					return newError("invalid duration: %s", err.Error())
+					return newFormatError("FMT-0009", err)
 				}
 
 				// Get locale (default to en-US)
@@ -7641,11 +7641,11 @@ func evalDatetimeInfixExpression(tok lexer.Token, operator string, left, right *
 
 	leftUnix, err := getDatetimeUnix(left, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 	rightUnix, err := getDatetimeUnix(right, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 
 	switch operator {
@@ -7688,11 +7688,11 @@ func evalDatetimeIntersection(tok lexer.Token, left, right *Dictionary, env *Env
 	// Get components from both sides
 	leftTime, err := dictToTime(left, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 	rightTime, err := dictToTime(right, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 
 	var resultTime time.Time
@@ -7758,7 +7758,7 @@ func evalDatetimeIntegerInfixExpression(tok lexer.Token, operator string, dt *Di
 	env := NewEnvironment()
 	unixTime, err := getDatetimeUnix(dt, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 
 	// Get the kind from the original datetime
@@ -7783,7 +7783,7 @@ func evalIntegerDatetimeInfixExpression(tok lexer.Token, operator string, second
 	env := NewEnvironment()
 	unixTime, err := getDatetimeUnix(dt, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 
 	// Get the kind from the original datetime
@@ -7805,12 +7805,12 @@ func evalDurationInfixExpression(tok lexer.Token, operator string, left, right *
 
 	leftMonths, leftSeconds, err := getDurationComponents(left, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid duration: %s", err)
+		return newFormatErrorWithPos("FMT-0009", tok, err)
 	}
 
 	rightMonths, rightSeconds, err := getDurationComponents(right, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid duration: %s", err)
+		return newFormatErrorWithPos("FMT-0009", tok, err)
 	}
 
 	switch operator {
@@ -7848,7 +7848,7 @@ func evalDurationIntegerInfixExpression(tok lexer.Token, operator string, dur *D
 
 	months, seconds, err := getDurationComponents(dur, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid duration: %s", err)
+		return newFormatErrorWithPos("FMT-0009", tok, err)
 	}
 
 	switch operator {
@@ -7871,13 +7871,13 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 	// Get datetime as time.Time
 	t, err := dictToTime(dt, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid datetime: %s", err)
+		return newFormatErrorWithPos("FMT-0004", tok, err)
 	}
 
 	// Get duration components
 	months, seconds, err := getDurationComponents(dur, env)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid duration: %s", err)
+		return newFormatErrorWithPos("FMT-0009", tok, err)
 	}
 
 	// Get the kind from the original datetime

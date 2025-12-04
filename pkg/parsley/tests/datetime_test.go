@@ -350,7 +350,7 @@ func TestDatetimeErrors(t *testing.T) {
 			name:    "time() with invalid string",
 			code:    `let dt = time("not a datetime");`,
 			wantErr: true,
-			errMsg:  "invalid datetime string",
+			errMsg:  "invalid datetime",
 		},
 		{
 			name:    "time() with non-dictionary delta",

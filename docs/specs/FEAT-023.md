@@ -687,10 +687,40 @@ The structured error object enables both formats from the same data.
 - Document all error codes in reference documentation
 - Add examples for custom error rendering
 
+**Phase 8: Error Migration** ✅ In Progress (2025-12-04)
+- Created helper functions for common error patterns:
+  - `newSecurityError()` for SEC-xxxx errors
+  - `newDatabaseError()`, `newDatabaseErrorWithDriver()`, `newDatabaseStateError()` for DB-xxxx
+  - `newTypeError()` for TYPE-xxxx errors
+  - `newArityError()`, `newArityErrorRange()`, `newArityErrorMin()` for ARITY-xxxx
+  - `newIOError()` for IO-xxxx errors
+  - `newFormatError()`, `newFormatErrorWithPos()` for FMT-xxxx
+  - `newUndefinedMethodError()` for UNDEF-0002
+  - `newLocaleError()` for FMT-0008
+  - `newStateError()` for STATE-xxxx
+- Migrated 380 of 554 error sites (68.6%):
+  - Security errors (SEC-0001 through SEC-0005)
+  - Database errors (DB-0001 through DB-0008)
+  - Type errors (TYPE-0001 through TYPE-0014)
+  - Arity errors (ARITY-0001 through ARITY-0005)
+  - I/O errors (IO-0002 through IO-0007)
+  - Format errors (FMT-0002, FMT-0003, FMT-0008)
+  - Method errors (UNDEF-0002)
+- Added new error codes: ARITY-0005 (min args), FMT-0008 (locale), FMT-0009 (duration)
+- Updated error code checking from string matching to Code comparison
+- 174 error sites remaining for migration
+
 ### Remaining Work
 
-1. **Migrate existing error sites** - Gradually update ~466 error creation sites in evaluator to use structured errors with proper classes and codes
+1. **Complete error migration** - 174 remaining sites including:
+   - Datetime/duration format errors (~20 sites)
+   - URL template errors (~5 sites)
+   - SSH/SFTP connection errors (~10 sites)
+   - JSON/CSV parsing errors (~10 sites)
+   - Component/tag errors (~30 sites)
+   - Miscellaneous errors (~99 sites)
 2. **Update error messages** - Apply improved message formats from the spec
+3. **Documentation** - Document all error codes in reference
 
 ## Notes
 
