@@ -31,6 +31,7 @@ const (
 	ClassOperator  ErrorClass = "operator"  // Invalid operations
 	ClassState     ErrorClass = "state"     // Invalid state
 	ClassImport    ErrorClass = "import"    // Module loading
+	ClassValue     ErrorClass = "value"     // Invalid value (e.g., negative, empty)
 )
 
 // ParsleyError represents any error from parsing or evaluation.
@@ -315,6 +316,10 @@ var ErrorCatalog = map[string]ErrorDef{
 	"ARITY-0005": {
 		Class:    ClassArity,
 		Template: "`{{.Function}}` expects at least {{.Min}} argument(s), got {{.Got}}",
+	},
+	"ARITY-0006": {
+		Class:    ClassArity,
+		Template: "`{{.Function}}` expects exactly {{.Choice1}} or {{.Choice2}} argument(s), got {{.Got}}",
 	},
 
 	// ========================================
@@ -759,6 +764,26 @@ var ErrorCatalog = map[string]ErrorDef{
 	"VAL-0003": {
 		Class:    ClassFormat,
 		Template: "invalid file pattern '{{.Pattern}}': {{.GoError}}",
+	},
+	"VAL-0004": {
+		Class:    ClassValue,
+		Template: "argument to `{{.Method}}` must be non-negative, got {{.Got}}",
+	},
+	"VAL-0005": {
+		Class:    ClassValue,
+		Template: "cannot {{.Method}} from empty array",
+	},
+	"VAL-0006": {
+		Class:    ClassValue,
+		Template: "cannot take {{.Requested}} unique items from array of length {{.Length}}",
+	},
+	"VAL-0007": {
+		Class:    ClassValue,
+		Template: "invalid duration: {{.GoError}}",
+	},
+	"VAL-0008": {
+		Class:    ClassValue,
+		Template: "{{.Type}} handle has no valid path",
 	},
 
 	// ========================================

@@ -8965,6 +8965,23 @@ func newArityErrorRange(function string, got, min, max int) *Error {
 	}
 }
 
+// newArityErrorExact creates a structured error for exactly X or Y arguments.
+func newArityErrorExact(function string, got, choice1, choice2 int) *Error {
+	perr := perrors.New("ARITY-0006", map[string]any{
+		"Function": function,
+		"Got":      got,
+		"Choice1":  choice1,
+		"Choice2":  choice2,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // newArityErrorMin creates a structured error for minimum arguments required.
 func newArityErrorMin(function string, got, min int) *Error {
 	perr := perrors.New("ARITY-0005", map[string]any{

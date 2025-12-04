@@ -61,29 +61,29 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 	switch method {
 	case "toUpper":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toUpper`. got=%d, want=0", len(args))
+			return newArityError("toUpper", len(args), 0)
 		}
 		return &String{Value: strings.ToUpper(str.Value)}
 
 	case "toLower":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toLower`. got=%d, want=0", len(args))
+			return newArityError("toLower", len(args), 0)
 		}
 		return &String{Value: strings.ToLower(str.Value)}
 
 	case "trim":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `trim`. got=%d, want=0", len(args))
+			return newArityError("trim", len(args), 0)
 		}
 		return &String{Value: strings.TrimSpace(str.Value)}
 
 	case "split":
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `split`. got=%d, want=1", len(args))
+			return newArityError("split", len(args), 1)
 		}
 		delim, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to `split` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "split", "a string", args[0].Type())
 		}
 		parts := strings.Split(str.Value, delim.Value)
 		elements := make([]Object, len(parts))
@@ -94,21 +94,21 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 
 	case "replace":
 		if len(args) != 2 {
-			return newError("wrong number of arguments to `replace`. got=%d, want=2", len(args))
+			return newArityError("replace", len(args), 2)
 		}
 		old, ok := args[0].(*String)
 		if !ok {
-			return newError("first argument to `replace` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0005", "replace", "a string", args[0].Type())
 		}
 		new, ok := args[1].(*String)
 		if !ok {
-			return newError("second argument to `replace` must be a string, got %s", args[1].Type())
+			return newTypeError("TYPE-0006", "replace", "a string", args[1].Type())
 		}
 		return &String{Value: strings.ReplaceAll(str.Value, old.Value, new.Value)}
 
 	case "length":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `length`. got=%d, want=0", len(args))
+			return newArityError("length", len(args), 0)
 		}
 		// Return rune count for proper Unicode support
 		return &Integer{Value: int64(len([]rune(str.Value)))}
@@ -116,11 +116,11 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 	case "includes":
 		// includes(substring) - returns true if string contains the substring
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `includes`. got=%d, want=1", len(args))
+			return newArityError("includes", len(args), 1)
 		}
 		substr, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to `includes` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "includes", "a string", args[0].Type())
 		}
 		if strings.Contains(str.Value, substr.Value) {
 			return TRUE
@@ -141,13 +141,13 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	switch method {
 	case "length":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `length`. got=%d, want=0", len(args))
+			return newArityError("length", len(args), 0)
 		}
 		return &Integer{Value: int64(len(arr.Elements))}
 
 	case "reverse":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `reverse`. got=%d, want=0", len(args))
+			return newArityError("reverse", len(args), 0)
 		}
 		// Create a reversed copy
 		length := len(arr.Elements)
@@ -159,44 +159,44 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 
 	case "sort":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `sort`. got=%d, want=0", len(args))
+			return newArityError("sort", len(args), 0)
 		}
 		return naturalSortArray(arr)
 
 	case "sortBy":
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `sortBy`. got=%d, want=1", len(args))
+			return newArityError("sortBy", len(args), 1)
 		}
 		fn, ok := args[0].(*Function)
 		if !ok {
-			return newError("argument to 'sortBy' must be a function, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "sortBy", "a function", args[0].Type())
 		}
 		return sortArrayByFunction(arr, fn, env)
 
 	case "map":
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `map`. got=%d, want=1", len(args))
+			return newArityError("map", len(args), 1)
 		}
 		fn, ok := args[0].(*Function)
 		if !ok {
-			return newError("argument to 'map' must be a function, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "map", "a function", args[0].Type())
 		}
 		return mapArrayWithFunction(arr, fn, env)
 
 	case "filter":
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `filter`. got=%d, want=1", len(args))
+			return newArityError("filter", len(args), 1)
 		}
 		fn, ok := args[0].(*Function)
 		if !ok {
-			return newError("argument to 'filter' must be a function, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "filter", "a function", args[0].Type())
 		}
 		return filterArrayWithFunction(arr, fn, env)
 
 	case "format":
 		// format(style?, locale?)
 		if len(args) > 2 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0-2", len(args))
+			return newArityErrorRange("format", len(args), 0, 2)
 		}
 
 		// Convert array elements to strings
@@ -212,7 +212,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		if len(args) >= 1 {
 			styleStr, ok := args[0].(*String)
 			if !ok {
-				return newError("first argument to `format` must be a string (style), got %s", args[0].Type())
+				return newTypeError("TYPE-0005", "format", "a string (style)", args[0].Type())
 			}
 			switch styleStr.Value {
 			case "and":
@@ -222,14 +222,14 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 			case "unit":
 				style = locale.ListStyleUnit
 			default:
-				return newError("invalid style %q for 'format', use 'and', 'or', or 'unit'", styleStr.Value)
+				return newValidationError("VAL-0002", map[string]any{"Style": styleStr.Value, "Context": "format", "ValidOptions": "and, or, unit"})
 			}
 		}
 
 		if len(args) == 2 {
 			locStr, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to `format` must be a string (locale), got %s", args[1].Type())
+				return newTypeError("TYPE-0006", "format", "a string (locale)", args[1].Type())
 			}
 			localeStr = locStr.Value
 		}
@@ -240,14 +240,14 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "join":
 		// join(separator?) - joins array elements into a string
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `join`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("join", len(args), 0, 1)
 		}
 
 		separator := ""
 		if len(args) == 1 {
 			sepStr, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `join` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "join", "a string", args[0].Type())
 			}
 			separator = sepStr.Value
 		}
@@ -263,7 +263,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "shuffle":
 		// shuffle() - returns a new array with elements in random order (Fisher-Yates)
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `shuffle`. got=%d, want=0", len(args))
+			return newArityError("shuffle", len(args), 0)
 		}
 		length := len(arr.Elements)
 		newElements := make([]Object, length)
@@ -279,7 +279,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		// pick() - returns a single random element (null if empty)
 		// pick(n) - returns array of n random elements (with replacement, can exceed length)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `pick`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("pick", len(args), 0, 1)
 		}
 		length := len(arr.Elements)
 
@@ -294,13 +294,13 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		// pick(n) - array of n elements with replacement
 		n, ok := args[0].(*Integer)
 		if !ok {
-			return newError("argument to `pick` must be an integer, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "pick", "an integer", args[0].Type())
 		}
 		if n.Value < 0 {
-			return newError("argument to `pick` must be non-negative, got %d", n.Value)
+			return newValidationError("VAL-0004", map[string]any{"Method": "pick", "Got": n.Value})
 		}
 		if length == 0 && n.Value > 0 {
-			return newError("cannot pick from empty array")
+			return newValidationError("VAL-0005", map[string]any{"Method": "pick"})
 		}
 
 		result := make([]Object, n.Value)
@@ -312,18 +312,18 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "take":
 		// take(n) - returns array of n unique random elements (without replacement)
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `take`. got=%d, want=1", len(args))
+			return newArityError("take", len(args), 1)
 		}
 		n, ok := args[0].(*Integer)
 		if !ok {
-			return newError("argument to `take` must be an integer, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "take", "an integer", args[0].Type())
 		}
 		if n.Value < 0 {
-			return newError("argument to `take` must be non-negative, got %d", n.Value)
+			return newValidationError("VAL-0004", map[string]any{"Method": "take", "Got": n.Value})
 		}
 		length := len(arr.Elements)
 		if int(n.Value) > length {
-			return newError("cannot take %d unique items from array of length %d", n.Value, length)
+			return newValidationError("VAL-0006", map[string]any{"Requested": n.Value, "Length": length})
 		}
 
 		// Use Fisher-Yates partial shuffle to select n unique elements
@@ -342,7 +342,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "includes":
 		// includes(value) - returns true if array contains the value
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `includes`. got=%d, want=1", len(args))
+			return newArityError("includes", len(args), 1)
 		}
 		for _, elem := range arr.Elements {
 			if objectsEqual(args[0], elem) {
@@ -533,7 +533,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 	switch method {
 	case "keys":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `keys`. got=%d, want=0", len(args))
+			return newArityError("keys", len(args), 0)
 		}
 		keys := make([]Object, 0, len(dict.Pairs))
 		for k := range dict.Pairs {
@@ -546,7 +546,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 
 	case "values":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `values`. got=%d, want=0", len(args))
+			return newArityError("values", len(args), 0)
 		}
 		values := make([]Object, 0, len(dict.Pairs))
 		for k, expr := range dict.Pairs {
@@ -562,7 +562,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		// entries() or entries(keyName, valueName)
 		// Returns array of dictionaries with key/value pairs
 		if len(args) != 0 && len(args) != 2 {
-			return newError("wrong number of arguments to `entries`. got=%d, want=0 or 2", len(args))
+			return newArityErrorExact("entries", len(args), 0, 2)
 		}
 
 		keyName := "key"
@@ -570,11 +570,11 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		if len(args) == 2 {
 			k, ok := args[0].(*String)
 			if !ok {
-				return newError("first argument to `entries` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0005", "entries", "a string (key name)", args[0].Type())
 			}
 			v, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to `entries` must be a string, got %s", args[1].Type())
+				return newTypeError("TYPE-0006", "entries", "a string (value name)", args[1].Type())
 			}
 			keyName = k.Value
 			valueName = v.Value
@@ -597,22 +597,22 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 
 	case "has":
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `has`. got=%d, want=1", len(args))
+			return newArityError("has", len(args), 1)
 		}
 		key, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to `has` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "has", "a string", args[0].Type())
 		}
 		_, exists := dict.Pairs[key.Value]
 		return nativeBoolToParsBoolean(exists)
 
 	case "delete":
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `delete`. got=%d, want=1", len(args))
+			return newArityError("delete", len(args), 1)
 		}
 		key, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to `delete` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "delete", "a string", args[0].Type())
 		}
 		delete(dict.Pairs, key.Value)
 		return NULL
@@ -633,13 +633,13 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("format", len(args), 0, 1)
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `format` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -648,17 +648,17 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 	case "currency":
 		// currency(code, locale?)
 		if len(args) < 1 || len(args) > 2 {
-			return newError("wrong number of arguments to `currency`. got=%d, want=1-2", len(args))
+			return newArityErrorRange("currency", len(args), 1, 2)
 		}
 		code, ok := args[0].(*String)
 		if !ok {
-			return newError("first argument to `currency` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0005", "currency", "a string (currency code)", args[0].Type())
 		}
 		localeStr := "en-US"
 		if len(args) == 2 {
 			loc, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to `currency` must be a string, got %s", args[1].Type())
+				return newTypeError("TYPE-0006", "currency", "a string (locale)", args[1].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -667,13 +667,13 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 	case "percent":
 		// percent(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `percent`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("percent", len(args), 0, 1)
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `percent` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "percent", "a string", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -690,13 +690,13 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("format", len(args), 0, 1)
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `format` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -705,17 +705,17 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 	case "currency":
 		// currency(code, locale?)
 		if len(args) < 1 || len(args) > 2 {
-			return newError("wrong number of arguments to `currency`. got=%d, want=1-2", len(args))
+			return newArityErrorRange("currency", len(args), 1, 2)
 		}
 		code, ok := args[0].(*String)
 		if !ok {
-			return newError("first argument to `currency` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0005", "currency", "a string (currency code)", args[0].Type())
 		}
 		localeStr := "en-US"
 		if len(args) == 2 {
 			loc, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to `currency` must be a string, got %s", args[1].Type())
+				return newTypeError("TYPE-0006", "currency", "a string (locale)", args[1].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -724,13 +724,13 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 	case "percent":
 		// percent(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `percent`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("percent", len(args), 0, 1)
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `percent` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "percent", "a string", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -751,14 +751,14 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
 	case "format":
 		// format(style?, locale?)
 		if len(args) > 2 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0-2", len(args))
+			return newArityErrorRange("format", len(args), 0, 2)
 		}
 
 		style := "long"
@@ -767,7 +767,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		if len(args) >= 1 {
 			styleArg, ok := args[0].(*String)
 			if !ok {
-				return newError("first argument to `format` must be a string (style), got %s", args[0].Type())
+				return newTypeError("TYPE-0005", "format", "a string (style)", args[0].Type())
 			}
 			style = styleArg.Value
 		}
@@ -775,7 +775,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		if len(args) == 2 {
 			locArg, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to `format` must be a string (locale), got %s", args[1].Type())
+				return newTypeError("TYPE-0006", "format", "a string (locale)", args[1].Type())
 			}
 			localeStr = locArg.Value
 		}
@@ -785,19 +785,19 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 
 	case "dayOfYear":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `dayOfYear`. got=%d, want=0", len(args))
+			return newArityError("dayOfYear", len(args), 0)
 		}
 		return evalDatetimeComputedProperty(dict, "dayOfYear", env)
 
 	case "week":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `week`. got=%d, want=0", len(args))
+			return newArityError("week", len(args), 0)
 		}
 		return evalDatetimeComputedProperty(dict, "week", env)
 
 	case "timestamp":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `timestamp`. got=%d, want=0", len(args))
+			return newArityError("timestamp", len(args), 0)
 		}
 		return evalDatetimeComputedProperty(dict, "timestamp", env)
 
@@ -819,20 +819,20 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("format", len(args), 0, 1)
 		}
 
 		// Extract months and seconds from duration
 		months, seconds, err := getDurationComponents(dict, env)
 		if err != nil {
-			return newError("invalid duration: %s", err.Error())
+			return newValidationError("VAL-0007", map[string]any{"GoError": err.Error()})
 		}
 
 		// Get locale (default to en-US)
@@ -840,7 +840,7 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		if len(args) == 1 {
 			locStr, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `format` must be a string, got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
 			}
 			localeStr = locStr.Value
 		}
@@ -864,13 +864,13 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
 	case "isAbsolute":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `isAbsolute`. got=%d, want=0", len(args))
+			return newArityError("isAbsolute", len(args), 0)
 		}
 		// Get the absolute property
 		if absExpr, ok := dict.Pairs["absolute"]; ok {
@@ -883,7 +883,7 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 	case "isRelative":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `isRelative`. got=%d, want=0", len(args))
+			return newArityError("isRelative", len(args), 0)
 		}
 		// Get the absolute property and negate it
 		if absExpr, ok := dict.Pairs["absolute"]; ok {
@@ -911,13 +911,13 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
 	case "origin":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `origin`. got=%d, want=0", len(args))
+			return newArityError("origin", len(args), 0)
 		}
 		// origin = scheme + "://" + host + (port ? ":" + port : "")
 		scheme := ""
@@ -956,7 +956,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	case "pathname":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `pathname`. got=%d, want=0", len(args))
+			return newArityError("pathname", len(args), 0)
 		}
 		// pathname = "/" + path components joined by "/"
 		if pathExpr, ok := dict.Pairs["path"]; ok {
@@ -976,7 +976,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	case "search":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `search`. got=%d, want=0", len(args))
+			return newArityError("search", len(args), 0)
 		}
 		// search = query string representation
 		if queryExpr, ok := dict.Pairs["query"]; ok {
@@ -1001,7 +1001,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	case "href":
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `href`. got=%d, want=0", len(args))
+			return newArityError("href", len(args), 0)
 		}
 		// href = full URL string representation
 		return &String{Value: urlDictToString(dict)}
@@ -1023,7 +1023,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
@@ -1031,7 +1031,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		// format(style?)
 		// Styles: "pattern" (just pattern), "literal" (with slashes/flags), "verbose" (pattern and flags separated)
 		if len(args) > 1 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
+			return newArityErrorRange("format", len(args), 0, 1)
 		}
 
 		// Get pattern and flags
@@ -1056,7 +1056,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		if len(args) == 1 {
 			styleArg, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to `format` must be a string (style), got %s", args[0].Type())
+				return newTypeError("TYPE-0012", "format", "a string (style)", args[0].Type())
 			}
 			style = styleArg.Value
 		}
@@ -1072,17 +1072,17 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 			}
 			return &String{Value: "pattern: " + pattern + ", flags: " + flags}
 		default:
-			return newError("invalid style %q for 'format', use 'pattern', 'literal', or 'verbose'", style)
+			return newValidationError("VAL-0002", map[string]any{"Style": style, "Context": "regex format", "ValidOptions": "pattern, literal, verbose"})
 		}
 
 	case "test":
 		// test(string) - returns boolean if the regex matches the string
 		if len(args) != 1 {
-			return newError("wrong number of arguments to `test`. got=%d, want=1", len(args))
+			return newArityError("test", len(args), 1)
 		}
 		str, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to `test` must be a string, got %s", args[0].Type())
+			return newTypeError("TYPE-0012", "test", "a string", args[0].Type())
 		}
 
 		// Get pattern and flags
@@ -1105,7 +1105,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		// Compile regex with flags
 		re, err := compileRegex(pattern, flags)
 		if err != nil {
-			return newError("invalid regex pattern: %s", err.Error())
+			return newFormatError("FMT-0007", err)
 		}
 
 		return nativeBoolToParsBoolean(re.MatchString(str.Value))
@@ -1127,14 +1127,14 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
 	case "remove":
 		// remove() - removes/deletes the file from filesystem
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `remove`. got=%d, want=0", len(args))
+			return newArityError("remove", len(args), 0)
 		}
 		return evalFileRemove(dict, env)
 
@@ -1142,12 +1142,12 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		// Create directory
 		pathStr := getFilePathString(dict, env)
 		if pathStr == "" {
-			return newError("file handle has no valid path")
+			return newValidationError("VAL-0008", map[string]any{"Type": "file"})
 		}
 
 		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
-			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+			return newIOError("IO-0007", pathStr, pathErr)
 		}
 
 		var recursive bool
@@ -1176,7 +1176,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		}
 
 		if err != nil {
-			return newError("failed to create directory: %s", err.Error())
+			return newIOError("IO-0009", absPath, err)
 		}
 		return NULL
 
@@ -1184,12 +1184,12 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		// Remove directory
 		pathStr := getFilePathString(dict, env)
 		if pathStr == "" {
-			return newError("file handle has no valid path")
+			return newValidationError("VAL-0008", map[string]any{"Type": "file"})
 		}
 
 		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
-			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+			return newIOError("IO-0007", pathStr, pathErr)
 		}
 
 		var recursive bool
@@ -1218,7 +1218,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		}
 
 		if err != nil {
-			return newError("failed to remove directory: %s", err.Error())
+			return newIOError("IO-0010", absPath, err)
 		}
 		return NULL
 
@@ -1239,7 +1239,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
@@ -1247,12 +1247,12 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 		// Create directory
 		pathStr := getFilePathString(dict, env)
 		if pathStr == "" {
-			return newError("directory handle has no valid path")
+			return newValidationError("VAL-0008", map[string]any{"Type": "directory"})
 		}
 
 		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
-			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+			return newIOError("IO-0007", pathStr, pathErr)
 		}
 
 		var recursive bool
@@ -1281,7 +1281,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 		}
 
 		if err != nil {
-			return newError("failed to create directory: %s", err.Error())
+			return newIOError("IO-0009", absPath, err)
 		}
 		return NULL
 
@@ -1289,12 +1289,12 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 		// Remove directory
 		pathStr := getFilePathString(dict, env)
 		if pathStr == "" {
-			return newError("directory handle has no valid path")
+			return newValidationError("VAL-0008", map[string]any{"Type": "directory"})
 		}
 
 		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
-			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+			return newIOError("IO-0007", pathStr, pathErr)
 		}
 
 		var recursive bool
@@ -1323,7 +1323,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 		}
 
 		if err != nil {
-			return newError("failed to remove directory: %s", err.Error())
+			return newIOError("IO-0010", absPath, err)
 		}
 		return NULL
 
@@ -1344,7 +1344,7 @@ func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Envi
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
@@ -1363,7 +1363,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "response":
 		// response() - returns the __response metadata dictionary
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `response`. got=%d, want=0", len(args))
+			return newArityError("response", len(args), 0)
 		}
 		if responseExpr, ok := dict.Pairs["__response"]; ok {
 			return Eval(responseExpr, dict.Env)
@@ -1373,7 +1373,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "format":
 		// format() - returns the format string (json, text, etc.)
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `format`. got=%d, want=0", len(args))
+			return newArityError("format", len(args), 0)
 		}
 		if formatExpr, ok := dict.Pairs["__format"]; ok {
 			return Eval(formatExpr, dict.Env)
@@ -1383,7 +1383,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "data":
 		// data() - returns the __data directly (for explicit access)
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `data`. got=%d, want=0", len(args))
+			return newArityError("data", len(args), 0)
 		}
 		if dataExpr, ok := dict.Pairs["__data"]; ok {
 			return Eval(dataExpr, dict.Env)
@@ -1393,7 +1393,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+			return newArityError("toDict", len(args), 0)
 		}
 		return dict
 
