@@ -162,7 +162,13 @@ func (p *Parser) StructuredErrors() []*perrors.ParsleyError {
 }
 
 // addError adds both a string error and a structured error.
+// Only the first error is recorded - subsequent errors are usually cascading noise.
 func (p *Parser) addError(msg string, line, column int) {
+	// Only keep the first error
+	if len(p.structuredErrors) > 0 {
+		return
+	}
+
 	// Add string error for backward compatibility
 	if line > 0 {
 		p.errors = append(p.errors, fmt.Sprintf("line %d, column %d: %s", line, column, msg))
@@ -180,7 +186,13 @@ func (p *Parser) addError(msg string, line, column int) {
 }
 
 // addStructuredError adds a structured error from the catalog.
+// Only the first error is recorded - subsequent errors are usually cascading noise.
 func (p *Parser) addStructuredError(code string, line, column int, data map[string]any) {
+	// Only keep the first error
+	if len(p.structuredErrors) > 0 {
+		return
+	}
+
 	perr := perrors.NewWithPosition(code, line, column, data)
 
 	// Add string error for backward compatibility
@@ -191,7 +203,13 @@ func (p *Parser) addStructuredError(code string, line, column int, data map[stri
 }
 
 // addErrorWithHints adds an error with hints.
+// Only the first error is recorded - subsequent errors are usually cascading noise.
 func (p *Parser) addErrorWithHints(msg string, line, column int, hints ...string) {
+	// Only keep the first error
+	if len(p.structuredErrors) > 0 {
+		return
+	}
+
 	// Add string error for backward compatibility
 	var sb strings.Builder
 	if line > 0 {
@@ -265,16 +283,18 @@ func (p *Parser) parseStatement() ast.Statement {
 		savedPeek := p.peekToken
 		savedPrev := p.prevToken
 		savedErrors := len(p.errors)
+		savedStructuredErrors := len(p.structuredErrors)
 		savedLexerState := p.l.SaveState()
 
 		stmt := p.parseDictDestructuringAssignment()
 
 		// If parsing failed (no = found), restore and parse as expression
-		if stmt == nil || len(p.errors) > savedErrors {
+		if stmt == nil || len(p.errors) > savedErrors || len(p.structuredErrors) > savedStructuredErrors {
 			p.curToken = savedCur
 			p.peekToken = savedPeek
 			p.prevToken = savedPrev
 			p.errors = p.errors[:savedErrors]
+			p.structuredErrors = p.structuredErrors[:savedStructuredErrors]
 			p.l.RestoreState(savedLexerState)
 			return p.parseExpressionStatement()
 		}
@@ -301,16 +321,18 @@ func (p *Parser) parseStatement() ast.Statement {
 			savedPeek := p.peekToken
 			savedPrev := p.prevToken
 			savedErrors := len(p.errors)
+			savedStructuredErrors := len(p.structuredErrors)
 			savedLexerState := p.l.SaveState()
 
 			stmt := p.parseAssignmentStatement(false)
 
 			// If parsing failed (no = found), restore and parse as expression
-			if stmt == nil || len(p.errors) > savedErrors {
+			if stmt == nil || len(p.errors) > savedErrors || len(p.structuredErrors) > savedStructuredErrors {
 				p.curToken = savedCur
 				p.peekToken = savedPeek
 				p.prevToken = savedPrev
 				p.errors = p.errors[:savedErrors]
+				p.structuredErrors = p.structuredErrors[:savedStructuredErrors]
 				p.l.RestoreState(savedLexerState)
 				return p.parseExpressionStatement()
 			}
@@ -345,16 +367,18 @@ func (p *Parser) parseExportStatement() ast.Statement {
 		savedPeek := p.peekToken
 		savedPrev := p.prevToken
 		savedErrors := len(p.errors)
+		savedStructuredErrors := len(p.structuredErrors)
 		savedLexerState := p.l.SaveState()
 
 		stmt := p.parseDictDestructuringAssignment()
 
 		// If parsing failed, restore and report error
-		if stmt == nil || len(p.errors) > savedErrors {
+		if stmt == nil || len(p.errors) > savedErrors || len(p.structuredErrors) > savedStructuredErrors {
 			p.curToken = savedCur
 			p.peekToken = savedPeek
 			p.prevToken = savedPrev
 			p.errors = p.errors[:savedErrors]
+			p.structuredErrors = p.structuredErrors[:savedStructuredErrors]
 			p.l.RestoreState(savedLexerState)
 			p.peekError(lexer.LET)
 			return nil
