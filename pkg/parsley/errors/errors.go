@@ -246,6 +246,14 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "{{.Function}} callback must be a function, got {{.Got}}",
 	},
+	"TYPE-0011": {
+		Class:    ClassType,
+		Template: "third argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
+	},
+	"TYPE-0012": {
+		Class:    ClassType,
+		Template: "argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
+	},
 
 	// ========================================
 	// Arity errors (ARITY-0xxx)

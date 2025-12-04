@@ -4323,7 +4323,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Sin(arg.Value)}
 				default:
-					return newError("argument to `sin` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "sin", "", arg.Type())
 				}
 			},
 		},
@@ -4340,7 +4340,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Cos(arg.Value)}
 				default:
-					return newError("argument to `cos` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "cos", "", arg.Type())
 				}
 			},
 		},
@@ -4357,7 +4357,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Tan(arg.Value)}
 				default:
-					return newError("argument to `tan` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "tan", "", arg.Type())
 				}
 			},
 		},
@@ -4374,7 +4374,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Asin(arg.Value)}
 				default:
-					return newError("argument to `asin` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "asin", "", arg.Type())
 				}
 			},
 		},
@@ -4391,7 +4391,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Acos(arg.Value)}
 				default:
-					return newError("argument to `acos` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "acos", "", arg.Type())
 				}
 			},
 		},
@@ -4408,7 +4408,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Atan(arg.Value)}
 				default:
-					return newError("argument to `atan` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "atan", "", arg.Type())
 				}
 			},
 		},
@@ -4425,7 +4425,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Sqrt(arg.Value)}
 				default:
-					return newError("argument to `sqrt` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "sqrt", "", arg.Type())
 				}
 			},
 		},
@@ -4442,7 +4442,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Integer{Value: int64(math.Round(arg.Value))}
 				default:
-					return newError("argument to `round` not supported, got %s", arg.Type())
+					return newTypeError("TYPE-0002", "round", "", arg.Type())
 				}
 			},
 		},
@@ -4463,7 +4463,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					baseVal = base.Value
 				default:
-					return newError("first argument to `pow` not supported, got %s", base.Type())
+					return newTypeError("TYPE-0005", "pow", "a number", base.Type())
 				}
 
 				switch exp := exp.(type) {
@@ -4472,7 +4472,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					expVal = exp.Value
 				default:
-					return newError("second argument to `pow` not supported, got %s", exp.Type())
+					return newTypeError("TYPE-0006", "pow", "a number", exp.Type())
 				}
 
 				return &Float{Value: math.Pow(baseVal, expVal)}
@@ -5045,14 +5045,14 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					value = arg.Value
 				default:
-					return newError("first argument to `formatNumber` must be an integer or float, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "formatNumber", "an integer or float", args[0].Type())
 				}
 
 				locale := "en"
 				if len(args) == 2 {
 					locStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `formatNumber` must be a string, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "formatNumber", "a string", args[1].Type())
 					}
 					locale = locStr.Value
 				}
@@ -5079,12 +5079,12 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					value = arg.Value
 				default:
-					return newError("first argument to `formatCurrency` must be an integer or float, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "formatCurrency", "an integer or float", args[0].Type())
 				}
 
 				currStr, ok := args[1].(*String)
 				if !ok {
-					return newError("second argument to `formatCurrency` must be a string (currency code), got %s", args[1].Type())
+					return newTypeError("TYPE-0006", "formatCurrency", "a string (currency code)", args[1].Type())
 				}
 
 				cur, err := currency.ParseISO(currStr.Value)
@@ -5096,7 +5096,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 3 {
 					locStr, ok := args[2].(*String)
 					if !ok {
-						return newError("third argument to `formatCurrency` must be a string, got %s", args[2].Type())
+						return newTypeError("TYPE-0011", "formatCurrency", "a string", args[2].Type())
 					}
 					locale = locStr.Value
 				}
@@ -5124,14 +5124,14 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					value = arg.Value
 				default:
-					return newError("first argument to `formatPercent` must be an integer or float, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "formatPercent", "an integer or float", args[0].Type())
 				}
 
 				locale := "en"
 				if len(args) == 2 {
 					locStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `formatPercent` must be a string, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "formatPercent", "a string", args[1].Type())
 					}
 					locale = locStr.Value
 				}
@@ -5154,7 +5154,7 @@ func getBuiltins() map[string]*Builtin {
 				// First argument must be a datetime dictionary
 				dict, ok := args[0].(*Dictionary)
 				if !ok || !isDatetimeDict(dict) {
-					return newError("first argument to `formatDate` must be a datetime, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "formatDate", "a datetime", args[0].Type())
 				}
 
 				// Extract time from datetime dictionary
@@ -5173,7 +5173,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) >= 2 {
 					styleStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `formatDate` must be a string, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "formatDate", "a string", args[1].Type())
 					}
 					style = styleStr.Value
 					// Validate style
@@ -5186,7 +5186,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 3 {
 					locStr, ok := args[2].(*String)
 					if !ok {
-						return newError("third argument to `formatDate` must be a string, got %s", args[2].Type())
+						return newTypeError("TYPE-0011", "formatDate", "a string", args[2].Type())
 					}
 					locale = locStr.Value
 				}
@@ -5222,7 +5222,7 @@ func getBuiltins() map[string]*Builtin {
 					if len(args) >= 2 {
 						styleStr, ok := args[1].(*String)
 						if !ok {
-							return newError("second argument to `format` for arrays must be a string (style), got %s", args[1].Type())
+							return newTypeError("TYPE-0006", "format", "a string (style)", args[1].Type())
 						}
 						switch styleStr.Value {
 						case "and":
@@ -5239,7 +5239,7 @@ func getBuiltins() map[string]*Builtin {
 					if len(args) == 3 {
 						locStr, ok := args[2].(*String)
 						if !ok {
-							return newError("third argument to `format` must be a string (locale), got %s", args[2].Type())
+							return newTypeError("TYPE-0011", "format", "a string (locale)", args[2].Type())
 						}
 						localeStr = locStr.Value
 					}
@@ -5251,11 +5251,11 @@ func getBuiltins() map[string]*Builtin {
 				// Handle duration dictionaries
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newError("first argument to `format` must be a duration or array, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "format", "a duration or array", args[0].Type())
 				}
 
 				if !isDurationDict(dict) {
-					return newError("first argument to `format` must be a duration, got dictionary")
+					return newTypeError("TYPE-0005", "format", "a duration", DICTIONARY_OBJ)
 				}
 
 				// Extract months and seconds from duration
@@ -5269,7 +5269,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					locStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `format` must be a string, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "format", "a string", args[1].Type())
 					}
 					localeStr = locStr.Value
 				}
@@ -5287,7 +5287,7 @@ func getBuiltins() map[string]*Builtin {
 
 				fn, ok := args[0].(*Function)
 				if !ok {
-					return newError("first argument to `map` must be a function, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "map", "a function", args[0].Type())
 				}
 
 				// If second argument is an array, use it; otherwise create array from remaining args
@@ -5339,7 +5339,7 @@ func getBuiltins() map[string]*Builtin {
 
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("argument to `toUpper` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toUpper", "a string", args[0].Type())
 				}
 
 				return &String{Value: strings.ToUpper(str.Value)}
@@ -5353,7 +5353,7 @@ func getBuiltins() map[string]*Builtin {
 
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("argument to `toLower` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toLower", "a string", args[0].Type())
 				}
 
 				return &String{Value: strings.ToLower(str.Value)}
@@ -5367,14 +5367,14 @@ func getBuiltins() map[string]*Builtin {
 
 				pattern, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to `regex` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "regex", "a string", args[0].Type())
 				}
 
 				flags := ""
 				if len(args) == 2 {
 					flagsStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `regex` must be a string, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "regex", "a string", args[1].Type())
 					}
 					flags = flagsStr.Value
 				}
@@ -5402,7 +5402,7 @@ func getBuiltins() map[string]*Builtin {
 
 				text, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to `replace` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "replace", "a string", args[0].Type())
 				}
 
 				// Second arg can be string or regex
@@ -5412,7 +5412,7 @@ func getBuiltins() map[string]*Builtin {
 					// String pattern - use literal replacement
 					replacement, ok := args[2].(*String)
 					if !ok {
-						return newError("third argument to `replace` must be a string, got %s", args[2].Type())
+						return newTypeError("TYPE-0011", "replace", "a string", args[2].Type())
 					}
 					return &String{Value: strings.Replace(text.Value, str.Value, replacement.Value, -1)}
 				} else if dict, ok := args[1].(*Dictionary); ok && isRegexDict(dict) {
@@ -5430,12 +5430,12 @@ func getBuiltins() map[string]*Builtin {
 						}
 					}
 				} else {
-					return newError("second argument to `replace` must be a string or regex, got %s", args[1].Type())
+					return newTypeError("TYPE-0006", "replace", "a string or regex", args[1].Type())
 				}
 
 				replacement, ok := args[2].(*String)
 				if !ok {
-					return newError("third argument to `replace` must be a string, got %s", args[2].Type())
+					return newTypeError("TYPE-0011", "replace", "a string", args[2].Type())
 				}
 
 				re, err := compileRegex(pattern, flags)
@@ -5455,7 +5455,7 @@ func getBuiltins() map[string]*Builtin {
 
 				text, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to `split` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "split", "a string", args[0].Type())
 				}
 
 				// Second arg can be string or regex
@@ -5486,7 +5486,7 @@ func getBuiltins() map[string]*Builtin {
 
 					parts = re.Split(text.Value, -1)
 				} else {
-					return newError("second argument to `split` must be a string or regex, got %s", args[1].Type())
+					return newTypeError("TYPE-0006", "split", "a string or regex", args[1].Type())
 				}
 
 				elements := make([]Object, len(parts))
@@ -5506,7 +5506,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: tag name (required)
 				nameStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to `tag` must be a string (tag name), got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "tag", "a string (tag name)", args[0].Type())
 				}
 
 				// Create the tag dictionary
@@ -5546,7 +5546,7 @@ func getBuiltins() map[string]*Builtin {
 					case *Null:
 						pairs["contents"] = createLiteralExpression(NULL)
 					default:
-						return newError("third argument to `tag` must be a string or array (contents), got %s", args[2].Type())
+						return newTypeError("TYPE-0011", "tag", "a string or array (contents)", args[2].Type())
 					}
 				} else {
 					pairs["contents"] = createLiteralExpression(NULL)
@@ -5576,7 +5576,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Array:
 					return &Integer{Value: int64(len(a.Elements))}
 				default:
-					return newError("argument to `len` not supported, got %s", args[0].Type())
+					return newTypeError("TYPE-0002", "len", "", args[0].Type())
 				}
 			},
 		},
@@ -5660,7 +5660,7 @@ func getBuiltins() map[string]*Builtin {
 
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("argument to `toInt` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toInt", "a string", args[0].Type())
 				}
 
 				var val int64
@@ -5680,7 +5680,7 @@ func getBuiltins() map[string]*Builtin {
 
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("argument to `toFloat` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toFloat", "a string", args[0].Type())
 				}
 
 				var val float64
@@ -5700,7 +5700,7 @@ func getBuiltins() map[string]*Builtin {
 
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("argument to `toNumber` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toNumber", "a string", args[0].Type())
 				}
 
 				// Try to parse as integer first
@@ -5796,7 +5796,7 @@ func getBuiltins() map[string]*Builtin {
 
 				arr, ok := args[0].(*Array)
 				if !ok {
-					return newError("argument to `sort` must be an array, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "sort", "an array", args[0].Type())
 				}
 
 				// Create a copy to avoid modifying the original
@@ -5819,7 +5819,7 @@ func getBuiltins() map[string]*Builtin {
 
 				arr, ok := args[0].(*Array)
 				if !ok {
-					return newError("argument to `reverse` must be an array, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "reverse", "an array", args[0].Type())
 				}
 
 				// Create a reversed copy
@@ -5839,7 +5839,7 @@ func getBuiltins() map[string]*Builtin {
 
 				arr, ok := args[0].(*Array)
 				if !ok {
-					return newError("first argument to `sortBy` must be an array, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "sortBy", "an array", args[0].Type())
 				}
 
 				compareFn := args[1]
@@ -5847,7 +5847,7 @@ func getBuiltins() map[string]*Builtin {
 				// Verify it's a function
 				fn, ok := compareFn.(*Function)
 				if !ok {
-					return newError("second argument to `sortBy` must be a function, got %s", compareFn.Type())
+					return newTypeError("TYPE-0006", "sortBy", "a function", compareFn.Type())
 				}
 
 				// Verify the function takes exactly 2 parameters
@@ -5886,7 +5886,7 @@ func getBuiltins() map[string]*Builtin {
 
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newError("argument to `keys` must be a dictionary, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "keys", "a dictionary", args[0].Type())
 				}
 
 				keys := make([]Object, 0, len(dict.Pairs))
@@ -5904,7 +5904,7 @@ func getBuiltins() map[string]*Builtin {
 
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newError("argument to `values` must be a dictionary, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "values", "a dictionary", args[0].Type())
 				}
 
 				// Create environment for evaluation with 'this'
@@ -5927,12 +5927,12 @@ func getBuiltins() map[string]*Builtin {
 
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newError("first argument to `has` must be a dictionary, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "has", "a dictionary", args[0].Type())
 				}
 
 				key, ok := args[1].(*String)
 				if !ok {
-					return newError("second argument to `has` must be a string, got %s", args[1].Type())
+					return newTypeError("TYPE-0006", "has", "a string", args[1].Type())
 				}
 
 				_, exists := dict.Pairs[key.Value]
@@ -5947,7 +5947,7 @@ func getBuiltins() map[string]*Builtin {
 
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newError("argument to `toArray` must be a dictionary, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toArray", "a dictionary", args[0].Type())
 				}
 
 				// Create environment for evaluation with 'this'
@@ -5986,7 +5986,7 @@ func getBuiltins() map[string]*Builtin {
 
 				arr, ok := args[0].(*Array)
 				if !ok {
-					return newError("argument to `toDict` must be an array, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "toDict", "an array", args[0].Type())
 				}
 
 				dict := &Dictionary{
@@ -6045,7 +6045,7 @@ func getBuiltins() map[string]*Builtin {
 				// First argument: binary name/path (string)
 				binary, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to `COMMAND` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "COMMAND", "a string", args[0].Type())
 				}
 
 				// Second argument (optional): args array
@@ -6061,7 +6061,7 @@ func getBuiltins() map[string]*Builtin {
 							}
 						}
 					} else {
-						return newError("second argument to `COMMAND` must be an array, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "COMMAND", "an array", args[1].Type())
 					}
 				}
 
@@ -6071,7 +6071,7 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[2].(*Dictionary); ok {
 						options = optDict
 					} else {
-						return newError("third argument to `COMMAND` must be a dictionary, got %s", args[2].Type())
+						return newTypeError("TYPE-0011", "COMMAND", "a dictionary", args[2].Type())
 					}
 				}
 
@@ -8843,6 +8843,23 @@ func newDatabaseErrorWithDriver(code, driver string, err error) *Error {
 	perr := perrors.New(code, map[string]any{
 		"Driver":  driver,
 		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newTypeError creates a structured type error for function arguments.
+// code should be TYPE-0001 (general), TYPE-0005 (first arg), or TYPE-0006 (second arg).
+func newTypeError(code, function, expected string, got ObjectType) *Error {
+	perr := perrors.New(code, map[string]any{
+		"Function": function,
+		"Expected": expected,
+		"Got":      perrors.TypeName(string(got)),
 	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
