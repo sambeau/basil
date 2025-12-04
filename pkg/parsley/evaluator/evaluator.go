@@ -3149,7 +3149,7 @@ func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 func readDirContents(dirPath string, env *Environment) Object {
 	// Security check
 	if err := env.checkPathAccess(dirPath, "read"); err != nil {
-		return newError("security: %s", err.Error())
+		return newSecurityError("read", err)
 	}
 
 	entries, err := os.ReadDir(dirPath)
@@ -8291,7 +8291,7 @@ func evalImport(args []Object, env *Environment) Object {
 
 	// Security check
 	if err := env.checkPathAccess(absPath, "execute"); err != nil {
-		return newError("security: %s", err.Error())
+		return newSecurityError("execute", err)
 	}
 
 	// Check if module is currently being loaded in THIS request (circular dependency)
@@ -8774,6 +8774,42 @@ func newStructuredErrorWithPos(code string, tok lexer.Token, data map[string]any
 		Line:    tok.Line,
 		Column:  tok.Column,
 		Data:    perr.Data,
+	}
+}
+
+// newSecurityError creates a structured security error from a checkPathAccess error.
+// The operation should be "read", "write", or "execute".
+// We preserve the original error message for specificity (e.g., "file read restricted: /path")
+// but add structured metadata for programmatic handling.
+func newSecurityError(operation string, err error) *Error {
+	// Map operation to error code
+	var code string
+	switch operation {
+	case "read":
+		code = "SEC-0002"
+	case "write":
+		code = "SEC-0003"
+	case "execute":
+		code = "SEC-0004"
+	default:
+		code = "SEC-0001"
+	}
+
+	// Get the catalog entry for hints
+	perr := perrors.New(code, map[string]any{
+		"Operation": operation,
+	})
+
+	// Use original error message for specificity, but add structured metadata
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: "security: " + err.Error(), // Preserve original specific message
+		Hints:   perr.Hints,
+		Data: map[string]any{
+			"Operation": operation,
+			"GoError":   err.Error(),
+		},
 	}
 }
 
@@ -11299,7 +11335,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 
 		// Security check
 		if err := env.checkPathAccess(pathStr, "read"); err != nil {
-			return nil, newError("security: %s", err.Error())
+			return nil, newSecurityError("read", err)
 		}
 
 		// Read the raw file content
@@ -12456,7 +12492,7 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 
 		// Security check
 		if err := env.checkPathAccess(pathStr, "write"); err != nil {
-			return newError("security: %s", err.Error())
+			return newSecurityError("write", err)
 		}
 	}
 
@@ -12764,7 +12800,7 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 
 	// Security check (treat as write operation)
 	if err := env.checkPathAccess(absPath, "write"); err != nil {
-		return newError("security: %s", err.Error())
+		return newSecurityError("write", err)
 	}
 
 	// Delete the file

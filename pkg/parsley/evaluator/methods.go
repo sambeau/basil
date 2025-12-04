@@ -1165,7 +1165,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 		// Security check (treat as write operation)
 		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newError("security: %s", err.Error())
+			return newSecurityError("write", err)
 		}
 
 		var err error
@@ -1207,7 +1207,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 		// Security check (treat as write operation)
 		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newError("security: %s", err.Error())
+			return newSecurityError("write", err)
 		}
 
 		var err error
@@ -1270,7 +1270,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 		// Security check (treat as write operation)
 		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newError("security: %s", err.Error())
+			return newSecurityError("write", err)
 		}
 
 		var err error
@@ -1312,7 +1312,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 		// Security check (treat as write operation)
 		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newError("security: %s", err.Error())
+			return newSecurityError("write", err)
 		}
 
 		var err error
