@@ -5673,7 +5673,7 @@ func getBuiltins() map[string]*Builtin {
 				var val int64
 				_, err := fmt.Sscanf(str.Value, "%d", &val)
 				if err != nil {
-					return newError("cannot convert '%s' to integer", str.Value)
+					return newConversionError("TYPE-0015", str.Value)
 				}
 
 				return &Integer{Value: val}
@@ -5693,7 +5693,7 @@ func getBuiltins() map[string]*Builtin {
 				var val float64
 				_, err := fmt.Sscanf(str.Value, "%f", &val)
 				if err != nil {
-					return newError("cannot convert '%s' to float", str.Value)
+					return newConversionError("TYPE-0016", str.Value)
 				}
 
 				return &Float{Value: val}
@@ -5725,7 +5725,7 @@ func getBuiltins() map[string]*Builtin {
 					return &Float{Value: floatVal}
 				}
 
-				return newError("cannot convert '%s' to number", str.Value)
+				return newConversionError("TYPE-0017", str.Value)
 			},
 		},
 		"toString": {
@@ -10442,7 +10442,7 @@ func evalArraySliceExpression(array, start, end Object) Object {
 			startIdx = max + startIdx
 		}
 	} else {
-		return newError("slice start index must be an integer, got %s", start.Type())
+		return newSliceIndexTypeError("start", string(start.Type()))
 	}
 
 	// Determine end index
@@ -10454,18 +10454,18 @@ func evalArraySliceExpression(array, start, end Object) Object {
 			endIdx = max + endIdx
 		}
 	} else {
-		return newError("slice end index must be an integer, got %s", end.Type())
+		return newSliceIndexTypeError("end", string(end.Type()))
 	}
 
 	// Validate and clamp indices
 	if startIdx < 0 {
-		return newError("slice start index out of range: %d", startIdx)
+		return newIndexError("INDEX-0001", map[string]any{"Index": startIdx, "Length": max})
 	}
 	if endIdx < 0 {
-		return newError("slice end index out of range: %d", endIdx)
+		return newIndexError("INDEX-0001", map[string]any{"Index": endIdx, "Length": max})
 	}
 	if startIdx > endIdx {
-		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
+		return newIndexError("INDEX-0003", map[string]any{"Start": startIdx, "End": endIdx})
 	}
 
 	// Clamp to array bounds (allow slicing beyond length)
@@ -10496,7 +10496,7 @@ func evalStringSliceExpression(str, start, end Object) Object {
 			startIdx = max + startIdx
 		}
 	} else {
-		return newError("slice start index must be an integer, got %s", start.Type())
+		return newSliceIndexTypeError("start", string(start.Type()))
 	}
 
 	// Determine end index
@@ -10508,18 +10508,18 @@ func evalStringSliceExpression(str, start, end Object) Object {
 			endIdx = max + endIdx
 		}
 	} else {
-		return newError("slice end index must be an integer, got %s", end.Type())
+		return newSliceIndexTypeError("end", string(end.Type()))
 	}
 
 	// Validate and clamp indices
 	if startIdx < 0 {
-		return newError("slice start index out of range: %d", startIdx)
+		return newIndexError("INDEX-0001", map[string]any{"Index": startIdx, "Length": max})
 	}
 	if endIdx < 0 {
-		return newError("slice end index out of range: %d", endIdx)
+		return newIndexError("INDEX-0001", map[string]any{"Index": endIdx, "Length": max})
 	}
 	if startIdx > endIdx {
-		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
+		return newIndexError("INDEX-0003", map[string]any{"Start": startIdx, "End": endIdx})
 	}
 
 	// Clamp to string bounds (allow slicing beyond length)
