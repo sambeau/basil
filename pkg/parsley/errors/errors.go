@@ -746,8 +746,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"LOOP-0002": {
 		Class:    ClassType,
-		Template: "`for (array) {{.Type}}` is ambiguous without { }",
-		Hints:    []string{"for x in array { ... }", "for (array) fn(x) { ... }"},
+		Template: "for expects a function, got {{.Type}}",
+		Hints:    []string{"for (array) fn(x) { ... }", "for x in array { ... }"},
 	},
 	"LOOP-0003": {
 		Class:    ClassState,

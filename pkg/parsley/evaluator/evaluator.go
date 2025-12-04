@@ -7625,7 +7625,7 @@ func evalIntegerInfixExpression(tok lexer.Token, operator string, left, right Ob
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newOperatorError("OP-0014", map[string]any{"Type": "INTEGER", "Operator": operator})
+		return newOperatorError("OP-0014", map[string]any{"Type": "integer", "Operator": operator})
 	}
 }
 
@@ -7658,7 +7658,7 @@ func evalFloatInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newOperatorError("OP-0014", map[string]any{"Type": "FLOAT", "Operator": operator})
+		return newOperatorError("OP-0014", map[string]any{"Type": "float", "Operator": operator})
 	}
 }
 
@@ -8686,7 +8686,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			elements[i] = &String{Value: string(r)}
 		}
 	default:
-		return newLoopError("LOOP-0001", map[string]any{"Type": string(iterableObj.Type())})
+		return newLoopError("LOOP-0001", map[string]any{"Type": strings.ToLower(string(iterableObj.Type()))})
 	}
 
 	// Determine which function to use
@@ -11153,7 +11153,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 	// The source should be a file or directory dictionary
 	sourceDict, ok := source.(*Dictionary)
 	if !ok {
-		errMsg := fmt.Sprintf("read operator <== requires a file or directory handle, got %s", source.Type())
+		errMsg := fmt.Sprintf("read operator <== requires a file or directory handle, got %s", strings.ToLower(string(source.Type())))
 		if useErrorCapture {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
@@ -11279,7 +11279,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 	if !ok {
 		if useErrorCapture {
 			return evalDictDestructuringAssignment(node.DictPattern,
-				makeFetchResponseDict(NULL, fmt.Sprintf("fetch operator <=/= requires a request or URL handle, got %s", source.Type()), 0, nil, env), env, node.IsLet, false)
+				makeFetchResponseDict(NULL, fmt.Sprintf("fetch operator <=/= requires a request or URL handle, got %s", strings.ToLower(string(source.Type()))), 0, nil, env), env, node.IsLet, false)
 		}
 		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": string(source.Type())})
 	}
@@ -13366,14 +13366,14 @@ func encodeText(value Object) ([]byte, error) {
 func encodeBytes(value Object) ([]byte, error) {
 	arr, ok := value.(*Array)
 	if !ok {
-		return nil, fmt.Errorf("bytes format requires an array, got %s", value.Type())
+		return nil, fmt.Errorf("bytes format requires an array, got %s", strings.ToLower(string(value.Type())))
 	}
 
 	data := make([]byte, len(arr.Elements))
 	for i, elem := range arr.Elements {
 		intVal, ok := elem.(*Integer)
 		if !ok {
-			return nil, fmt.Errorf("bytes array must contain integers, got %s at index %d", elem.Type(), i)
+			return nil, fmt.Errorf("bytes array must contain integers, got %s at index %d", strings.ToLower(string(elem.Type())), i)
 		}
 		if intVal.Value < 0 || intVal.Value > 255 {
 			return nil, fmt.Errorf("byte value out of range (0-255): %d at index %d", intVal.Value, i)
@@ -13478,7 +13478,7 @@ func encodeYAML(value Object) ([]byte, error) {
 func encodeCSV(value Object, hasHeader bool) ([]byte, error) {
 	arr, ok := value.(*Array)
 	if !ok {
-		return nil, fmt.Errorf("CSV format requires an array, got %s", value.Type())
+		return nil, fmt.Errorf("CSV format requires an array, got %s", strings.ToLower(string(value.Type())))
 	}
 
 	if len(arr.Elements) == 0 {
