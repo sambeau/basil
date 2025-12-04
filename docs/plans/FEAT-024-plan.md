@@ -2,8 +2,9 @@
 
 **Feature:** FEAT-024 Print Function  
 **Created:** 2025-12-04  
-**Status:** Not Started  
-**Estimated Effort:** 2-4 hours
+**Status:** Complete  
+**Estimated Effort:** 2-4 hours  
+**Actual Effort:** ~1 hour
 
 ## Overview
 
@@ -11,16 +12,17 @@ Implement `print()` and `println()` builtins that output values to the result st
 
 ## Architecture Decision
 
-**Chosen approach:** Environment-based print buffer
+**Chosen approach:** PrintValue object type (changed from original plan)
 
-The Environment will carry a `printBuffer []Object` that accumulates `print()` outputs. Block evaluation merges this buffer with expression results in interleaved order.
+Instead of environment-based buffer, we use a `PrintValue` object type that block evaluation recognizes and expands into results. This is cleaner because:
 
-### Why Environment-based?
+1. **No environment changes**: Builtins don't need env access
+2. **Simpler interleaving**: Results naturally interleave in statement order
+3. **Type-safe**: PrintValue is explicit about intent
 
-1. **Thread-safe**: Each evaluation has its own environment
-2. **Scoped**: Print buffer naturally scopes to current execution
-3. **Minimal change**: No new object types needed
-4. **Interleaving**: Can track print positions for correct ordering
+### Original Plan (Not Used)
+
+The original plan proposed environment-based print buffer, but the PrintValue approach proved simpler.
 
 ## Tasks
 
@@ -264,12 +266,14 @@ print({x: 1})       // "{x: 1}"
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
 | 2025-12-04 | Plan created | ✅ Done | |
-| | Task 1: Environment | Not started | |
-| | Task 2: objectToUserString | Not started | |
-| | Task 3: print builtin | Not started | |
-| | Task 4: println builtin | Not started | |
-| | Task 5: evalBlockStatement | Not started | |
-| | Task 6: evalProgram | Not started | |
-| | Task 7: evalInterpolationBlock | Not started | |
-| | Task 8: Tests | Not started | |
+| 2025-12-04 | PrintValue object type | ✅ Done | Added PRINT_VALUE_OBJ constant and PrintValue struct |
+| 2025-12-04 | objectToUserString | ✅ Done | User-facing string representation for all types |
+| 2025-12-04 | print builtin | ✅ Done | Returns PrintValue with args |
+| 2025-12-04 | println builtin | ✅ Done | Returns PrintValue with args + newline |
+| 2025-12-04 | evalBlockStatement | ✅ Done | Expands PrintValue into results |
+| 2025-12-04 | evalProgram | ✅ Done | Collects print results at program level |
+| 2025-12-04 | evalInterpolationBlock | ✅ Done | Same handling as block statement |
+| 2025-12-04 | For loop handling | ✅ Done | Added PrintValue handling in for loop bodies |
+| 2025-12-04 | Tests | ✅ Done | 11 test functions in print_test.go |
+| 2025-12-04 | **Implementation complete** | ✅ Done | Commit c7ff50b |
 | | Task 9: Update spec | Not started | |
