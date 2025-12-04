@@ -494,6 +494,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassFormat,
 		Template: "invalid CSV: {{.GoError}}",
 	},
+	"FMT-0008": {
+		Class:    ClassFormat,
+		Template: "invalid locale: {{.Locale}}",
+	},
 
 	// ========================================
 	// Operator errors (OP-0xxx)

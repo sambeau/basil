@@ -1700,7 +1700,7 @@ func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
 	// Try to compile the regex to validate it
 	_, err := compileRegex(node.Pattern, node.Flags)
 	if err != nil {
-		return newError("invalid regex pattern: %s", err.Error())
+		return newFormatError("FMT-0002", err)
 	}
 
 	return &Dictionary{Pairs: pairs, Env: env}
@@ -4559,7 +4559,7 @@ func getBuiltins() map[string]*Builtin {
 				env := NewEnvironment()
 				urlDict, err := parseUrlString(str.Value, env)
 				if err != nil {
-					return newError("invalid URL: %s", err.Error())
+					return newFormatError("FMT-0003", err)
 				}
 
 				return urlDict
@@ -5059,7 +5059,7 @@ func getBuiltins() map[string]*Builtin {
 
 				tag, err := language.Parse(locale)
 				if err != nil {
-					return newError("invalid locale: %s", locale)
+					return newLocaleError(locale)
 				}
 
 				p := message.NewPrinter(tag)
@@ -5103,7 +5103,7 @@ func getBuiltins() map[string]*Builtin {
 
 				tag, err := language.Parse(locale)
 				if err != nil {
-					return newError("invalid locale: %s", locale)
+					return newLocaleError(locale)
 				}
 
 				p := message.NewPrinter(tag)
@@ -5138,7 +5138,7 @@ func getBuiltins() map[string]*Builtin {
 
 				tag, err := language.Parse(locale)
 				if err != nil {
-					return newError("invalid locale: %s", locale)
+					return newLocaleError(locale)
 				}
 
 				p := message.NewPrinter(tag)
@@ -5382,7 +5382,7 @@ func getBuiltins() map[string]*Builtin {
 				// Validate the regex
 				_, err := compileRegex(pattern.Value, flags)
 				if err != nil {
-					return newError("invalid regex pattern: %s", err.Error())
+					return newFormatError("FMT-0002", err)
 				}
 
 				// Create regex dictionary
@@ -5440,7 +5440,7 @@ func getBuiltins() map[string]*Builtin {
 
 				re, err := compileRegex(pattern, flags)
 				if err != nil {
-					return newError("invalid regex: %s", err.Error())
+					return newFormatError("FMT-0002", err)
 				}
 
 				result := re.ReplaceAllString(text.Value, replacement.Value)
@@ -5481,7 +5481,7 @@ func getBuiltins() map[string]*Builtin {
 
 					re, err := compileRegex(pattern, flags)
 					if err != nil {
-						return newError("invalid regex: %s", err.Error())
+						return newFormatError("FMT-0002", err)
 					}
 
 					parts = re.Split(text.Value, -1)
@@ -8997,6 +8997,20 @@ func newUndefinedMethodError(method string, typeName string) *Error {
 // newStateError creates a structured error for state-related issues.
 func newStateError(code string) *Error {
 	perr := perrors.New(code, nil)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newLocaleError creates a structured error for invalid locale.
+func newLocaleError(locale string) *Error {
+	perr := perrors.New("FMT-0008", map[string]any{
+		"Locale": locale,
+	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,
@@ -13330,7 +13344,7 @@ func evalRangeExpression(tok lexer.Token, left, right Object) Object {
 func formatNumberWithLocale(value float64, localeStr string) Object {
 	tag, err := language.Parse(localeStr)
 	if err != nil {
-		return newError("invalid locale: %s", localeStr)
+		return newLocaleError(localeStr)
 	}
 	p := message.NewPrinter(tag)
 	return &String{Value: p.Sprintf("%v", number.Decimal(value))}
@@ -13345,7 +13359,7 @@ func formatCurrencyWithLocale(value float64, currencyCode string, localeStr stri
 
 	tag, err := language.Parse(localeStr)
 	if err != nil {
-		return newError("invalid locale: %s", localeStr)
+		return newLocaleError(localeStr)
 	}
 
 	p := message.NewPrinter(tag)
@@ -13357,7 +13371,7 @@ func formatCurrencyWithLocale(value float64, currencyCode string, localeStr stri
 func formatPercentWithLocale(value float64, localeStr string) Object {
 	tag, err := language.Parse(localeStr)
 	if err != nil {
-		return newError("invalid locale: %s", localeStr)
+		return newLocaleError(localeStr)
 	}
 	p := message.NewPrinter(tag)
 	return &String{Value: p.Sprintf("%v", number.Percent(value))}
