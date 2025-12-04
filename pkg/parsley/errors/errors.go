@@ -293,6 +293,14 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "slice {{.Position}} index must be an integer, got {{.Got}}",
 	},
+	"TYPE-0019": {
+		Class:    ClassType,
+		Template: "{{.Function}} element at index {{.Index}} must be {{.Expected}}, got {{.Got}}",
+	},
+	"TYPE-0020": {
+		Class:    ClassType,
+		Template: "{{.Context}} must be {{.Expected}}, got {{.Got}}",
+	},
 
 	// ========================================
 	// Arity errors (ARITY-0xxx)
@@ -785,6 +793,18 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassValue,
 		Template: "{{.Type}} handle has no valid path",
 	},
+	"VAL-0009": {
+		Class:    ClassValue,
+		Template: "{{.Function}}: invalid route '{{.Route}}' (use alphanumeric, hyphens, underscores)",
+	},
+	"VAL-0010": {
+		Class:    ClassValue,
+		Template: "orderBy column spec must have {{.Min}}-{{.Max}} elements, got {{.Got}}",
+	},
+	"VAL-0011": {
+		Class:    ClassValue,
+		Template: "{{.Function}} requires at least one column",
+	},
 
 	// ========================================
 	// Destructuring errors (DEST-0xxx)
@@ -820,6 +840,10 @@ var ErrorCatalog = map[string]ErrorDef{
 	"INTERNAL-0002": {
 		Class:    ClassState,
 		Template: "unknown node type: {{.Type}}",
+	},
+	"INTERNAL-0003": {
+		Class:    ClassState,
+		Template: "{{.Function}} failed: {{.GoError}}",
 	},
 
 	// ========================================

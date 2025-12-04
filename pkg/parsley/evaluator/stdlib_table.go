@@ -34,7 +34,7 @@ func loadStdlibModule(name string, env *Environment) Object {
 	modules := getStdlibModules()
 	loader, ok := modules[name]
 	if !ok {
-		return newError("unknown standard library module: @std/%s", name)
+		return newUndefinedError("UNDEF-0005", map[string]any{"Module": name})
 	}
 	return loader(env)
 }
@@ -83,7 +83,7 @@ func evalTableModuleMethod(tm *TableModule, method string, args []Object, env *E
 	case "fromDict":
 		return TableFromDict(args, env)
 	default:
-		return newError("unknown method '%s' on table module", method)
+		return unknownMethodError(method, "table module", []string{"fromDict"})
 	}
 }
 
@@ -113,7 +113,7 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 		if exportedVal, exists := mod.Exports[keyName]; exists {
 			value = exportedVal
 		} else {
-			return newError("module does not export '%s'", keyName)
+			return newImportError("IMPORT-0004", map[string]any{"Export": keyName})
 		}
 
 		// Determine the target variable name (alias or original key)
@@ -142,12 +142,12 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 // TableConstructor creates a new Table from an array of dictionaries
 func TableConstructor(args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `Table`. got=%d, want=1", len(args))
+		return newArityError("Table", len(args), 1)
 	}
 
 	arr, ok := args[0].(*Array)
 	if !ok {
-		return newError("argument to `Table` must be an array, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "Table", "an array", args[0].Type())
 	}
 
 	// Handle empty array
@@ -162,7 +162,7 @@ func TableConstructor(args []Object, env *Environment) Object {
 	for i, elem := range arr.Elements {
 		dict, ok := elem.(*Dictionary)
 		if !ok {
-			return newError("Table elements must be dictionaries, element %d is %s", i, elem.Type())
+			return newStructuredError("TYPE-0019", map[string]any{"Function": "Table", "Index": i, "Expected": "dictionary", "Got": elem.Type()})
 		}
 		rows = append(rows, dict)
 
@@ -179,12 +179,12 @@ func TableConstructor(args []Object, env *Environment) Object {
 // Usage: fromDict(dict) or fromDict(dict, keyColumnName, valueColumnName)
 func TableFromDict(args []Object, env *Environment) Object {
 	if len(args) != 1 && len(args) != 3 {
-		return newError("wrong number of arguments to `fromDict`. got=%d, want=1 or 3", len(args))
+		return newArityErrorExact("fromDict", len(args), 1, 3)
 	}
 
 	dict, ok := args[0].(*Dictionary)
 	if !ok {
-		return newError("first argument to `fromDict` must be a dictionary, got %s", args[0].Type())
+		return newTypeError("TYPE-0005", "fromDict", "a dictionary", args[0].Type())
 	}
 
 	keyName := "key"
@@ -192,11 +192,11 @@ func TableFromDict(args []Object, env *Environment) Object {
 	if len(args) == 3 {
 		k, ok := args[1].(*String)
 		if !ok {
-			return newError("second argument to `fromDict` must be a string, got %s", args[1].Type())
+			return newTypeError("TYPE-0006", "fromDict", "a string (key column name)", args[1].Type())
 		}
 		v, ok := args[2].(*String)
 		if !ok {
-			return newError("third argument to `fromDict` must be a string, got %s", args[2].Type())
+			return newTypeError("TYPE-0014", "fromDict", "a string (value column name)", args[2].Type())
 		}
 		keyName = k.Value
 		valueName = v.Value
@@ -246,12 +246,12 @@ func getDictValue(dict *Dictionary, key string) Object {
 // tableWhere filters rows where predicate returns truthy
 func tableWhere(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `where`. got=%d, want=1", len(args))
+		return newArityError("where", len(args), 1)
 	}
 
 	fn, ok := args[0].(*Function)
 	if !ok {
-		return newError("argument to `where` must be a function, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "where", "a function", args[0].Type())
 	}
 
 	filteredRows := make([]*Dictionary, 0)
@@ -287,7 +287,7 @@ func tableWhere(t *Table, args []Object, env *Environment) Object {
 // tableOrderBy sorts rows by column(s)
 func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 	if len(args) < 1 || len(args) > 2 {
-		return newError("wrong number of arguments to `orderBy`. got=%d, want=1 or 2", len(args))
+		return newArityErrorRange("orderBy", len(args), 1, 2)
 	}
 
 	// Parse arguments to determine sort columns and directions
@@ -305,7 +305,7 @@ func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 			if dir, ok := args[1].(*String); ok {
 				spec.desc = strings.ToLower(dir.Value) == "desc"
 			} else {
-				return newError("second argument to `orderBy` must be a string direction, got %s", args[1].Type())
+				return newTypeError("TYPE-0006", "orderBy", "a string (direction)", args[1].Type())
 			}
 		}
 		specs = append(specs, spec)
@@ -318,31 +318,31 @@ func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 				specs = append(specs, sortSpec{column: e.Value, desc: false})
 			case *Array:
 				if len(e.Elements) < 1 || len(e.Elements) > 2 {
-					return newError("orderBy column spec must have 1 or 2 elements, got %d", len(e.Elements))
+					return newValidationError("VAL-0010", map[string]any{"Min": 1, "Max": 2, "Got": len(e.Elements)})
 				}
 				col, ok := e.Elements[0].(*String)
 				if !ok {
-					return newError("orderBy column name must be a string")
+					return newStructuredError("TYPE-0020", map[string]any{"Context": "orderBy column name", "Expected": "string", "Got": e.Elements[0].Type()})
 				}
 				spec := sortSpec{column: col.Value, desc: false}
 				if len(e.Elements) == 2 {
 					dir, ok := e.Elements[1].(*String)
 					if !ok {
-						return newError("orderBy direction must be a string")
+						return newStructuredError("TYPE-0020", map[string]any{"Context": "orderBy direction", "Expected": "string", "Got": e.Elements[1].Type()})
 					}
 					spec.desc = strings.ToLower(dir.Value) == "desc"
 				}
 				specs = append(specs, spec)
 			default:
-				return newError("orderBy array element %d must be a string or array", i)
+				return newStructuredError("TYPE-0019", map[string]any{"Function": "orderBy", "Index": i, "Expected": "string or array", "Got": elem.Type()})
 			}
 		}
 	default:
-		return newError("first argument to `orderBy` must be a string or array, got %s", args[0].Type())
+		return newTypeError("TYPE-0005", "orderBy", "a string or array", args[0].Type())
 	}
 
 	if len(specs) == 0 {
-		return newError("orderBy requires at least one column")
+		return newValidationError("VAL-0011", map[string]any{"Function": "orderBy"})
 	}
 
 	// Copy rows for sorting
@@ -374,12 +374,12 @@ func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 // tableSelect projects specific columns
 func tableSelect(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `select`. got=%d, want=1", len(args))
+		return newArityError("select", len(args), 1)
 	}
 
 	columnsArr, ok := args[0].(*Array)
 	if !ok {
-		return newError("argument to `select` must be an array of column names, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "select", "an array of column names", args[0].Type())
 	}
 
 	// Extract column names
@@ -387,7 +387,7 @@ func tableSelect(t *Table, args []Object, env *Environment) Object {
 	for i, elem := range columnsArr.Elements {
 		str, ok := elem.(*String)
 		if !ok {
-			return newError("select column names must be strings, element %d is %s", i, elem.Type())
+			return newStructuredError("TYPE-0019", map[string]any{"Function": "select", "Index": i, "Expected": "string", "Got": elem.Type()})
 		}
 		columns = append(columns, str.Value)
 	}
@@ -413,25 +413,25 @@ func tableSelect(t *Table, args []Object, env *Environment) Object {
 // tableLimit limits the number of rows
 func tableLimit(t *Table, args []Object, env *Environment) Object {
 	if len(args) < 1 || len(args) > 2 {
-		return newError("wrong number of arguments to `limit`. got=%d, want=1 or 2", len(args))
+		return newArityErrorRange("limit", len(args), 1, 2)
 	}
 
 	n, ok := args[0].(*Integer)
 	if !ok {
-		return newError("first argument to `limit` must be an integer, got %s", args[0].Type())
+		return newTypeError("TYPE-0005", "limit", "an integer", args[0].Type())
 	}
 	if n.Value < 0 {
-		return newError("limit count cannot be negative")
+		return newValidationError("VAL-0004", map[string]any{"Method": "limit (count)", "Got": n.Value})
 	}
 
 	offset := int64(0)
 	if len(args) == 2 {
 		off, ok := args[1].(*Integer)
 		if !ok {
-			return newError("second argument to `limit` must be an integer, got %s", args[1].Type())
+			return newTypeError("TYPE-0006", "limit", "an integer (offset)", args[1].Type())
 		}
 		if off.Value < 0 {
-			return newError("limit offset cannot be negative")
+			return newValidationError("VAL-0004", map[string]any{"Method": "limit (offset)", "Got": off.Value})
 		}
 		offset = off.Value
 	}
@@ -457,7 +457,7 @@ func tableLimit(t *Table, args []Object, env *Environment) Object {
 // tableCount returns the number of rows
 func tableCount(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 0 {
-		return newError("wrong number of arguments to `count`. got=%d, want=0", len(args))
+		return newArityError("count", len(args), 0)
 	}
 	return &Integer{Value: int64(len(t.Rows))}
 }
@@ -465,12 +465,12 @@ func tableCount(t *Table, args []Object, env *Environment) Object {
 // tableSum returns the sum of a numeric column
 func tableSum(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `sum`. got=%d, want=1", len(args))
+		return newArityError("sum", len(args), 1)
 	}
 
 	col, ok := args[0].(*String)
 	if !ok {
-		return newError("argument to `sum` must be a column name string, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "sum", "a column name string", args[0].Type())
 	}
 
 	var sum float64
@@ -505,12 +505,12 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 // tableAvg returns the average of a numeric column
 func tableAvg(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `avg`. got=%d, want=1", len(args))
+		return newArityError("max", len(args), 1)
 	}
 
 	col, ok := args[0].(*String)
 	if !ok {
-		return newError("argument to `avg` must be a column name string, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "max", "a column name string", args[0].Type())
 	}
 
 	var sum float64
@@ -545,12 +545,12 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 // tableMin returns the minimum value of a column
 func tableMin(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `min`. got=%d, want=1", len(args))
+		return newArityError("min", len(args), 1)
 	}
 
 	col, ok := args[0].(*String)
 	if !ok {
-		return newError("argument to `min` must be a column name string, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "min", "a column name string", args[0].Type())
 	}
 
 	if len(t.Rows) == 0 {
@@ -579,12 +579,12 @@ func tableMin(t *Table, args []Object, env *Environment) Object {
 // tableMax returns the maximum value of a column
 func tableMax(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `max`. got=%d, want=1", len(args))
+		return newArityError("max", len(args), 1)
 	}
 
 	col, ok := args[0].(*String)
 	if !ok {
-		return newError("argument to `max` must be a column name string, got %s", args[0].Type())
+		return newTypeError("TYPE-0012", "max", "a column name string", args[0].Type())
 	}
 
 	if len(t.Rows) == 0 {
@@ -628,7 +628,7 @@ func coerceToNumber(obj Object) Object {
 // tableToHTML renders the table as an HTML table element
 func tableToHTML(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 0 {
-		return newError("wrong number of arguments to `toHTML`. got=%d, want=0", len(args))
+		return newArityError("toHTML", len(args), 0)
 	}
 
 	var sb strings.Builder
@@ -689,7 +689,7 @@ func objectToString(obj Object) string {
 // tableToCSV renders the table as RFC 4180 compliant CSV
 func tableToCSV(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 0 {
-		return newError("wrong number of arguments to `toCSV`. got=%d, want=0", len(args))
+		return newArityError("toCSV", len(args), 0)
 	}
 
 	var sb strings.Builder
@@ -764,7 +764,7 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 	case "toCSV":
 		return tableToCSV(t, args, env)
 	default:
-		return newError("unknown method '%s' for Table", method)
+		return unknownMethodError(method, "Table", []string{"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max", "toHTML", "toCSV"})
 	}
 }
 
@@ -774,6 +774,6 @@ func EvalTableProperty(t *Table, property string) Object {
 	case "rows":
 		return tableRows(t)
 	default:
-		return newError("unknown property '%s' for Table", property)
+		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}
 }

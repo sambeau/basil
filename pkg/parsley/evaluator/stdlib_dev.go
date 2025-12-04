@@ -57,7 +57,7 @@ func evalDevModuleMethod(dm *DevModule, method string, args []Object, env *Envir
 	case "clearLogPage":
 		return dm.evalClearLogPage(args, env)
 	default:
-		return newError("unknown method '%s' on dev module", method)
+		return unknownMethodError(method, "dev module", []string{"log", "clearLog", "logPage", "setLogRoute", "clearLogPage"})
 	}
 }
 
@@ -69,7 +69,7 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 	}
 
 	if len(args) < 1 || len(args) > 3 {
-		return newError("dev.log expects 1-3 arguments: dev.log(value) or dev.log(label, value) or dev.log(value, {level: \"warn\"})")
+		return newArityErrorRange("dev.log", len(args), 1, 3)
 	}
 
 	var label string
@@ -123,11 +123,11 @@ func (dm *DevModule) evalClearLog(args []Object, env *Environment) Object {
 	}
 
 	if len(args) != 0 {
-		return newError("dev.clearLog expects 0 arguments")
+		return newArityError("dev.clearLog", len(args), 0)
 	}
 
 	if err := env.DevLog.ClearLogs(dm.defaultRoute); err != nil {
-		return newError("dev.clearLog failed: %v", err)
+		return newInternalError("INTERNAL-0003", map[string]any{"Function": "dev.clearLog", "GoError": err.Error()})
 	}
 
 	return NULL
@@ -141,12 +141,12 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 	}
 
 	if len(args) < 2 || len(args) > 4 {
-		return newError("dev.logPage expects 2-4 arguments: dev.logPage(route, value) or dev.logPage(route, label, value)")
+		return newArityErrorRange("dev.logPage", len(args), 2, 4)
 	}
 
 	route := devObjectToString(args[0])
 	if !isValidRoute(route) {
-		return newError("dev.logPage: invalid route '%s' (use alphanumeric, hyphens, underscores)", route)
+		return newValidationError("VAL-0009", map[string]any{"Route": route, "Function": "dev.logPage"})
 	}
 
 	var label string
@@ -199,12 +199,12 @@ func (dm *DevModule) evalSetLogRoute(args []Object, env *Environment) Object {
 	}
 
 	if len(args) != 1 {
-		return newError("dev.setLogRoute expects 1 argument: dev.setLogRoute(route)")
+		return newArityError("dev.setLogRoute", len(args), 1)
 	}
 
 	route := devObjectToString(args[0])
 	if route != "" && !isValidRoute(route) {
-		return newError("dev.setLogRoute: invalid route '%s' (use alphanumeric, hyphens, underscores)", route)
+		return newValidationError("VAL-0009", map[string]any{"Route": route, "Function": "dev.setLogRoute"})
 	}
 
 	dm.defaultRoute = route
@@ -219,16 +219,16 @@ func (dm *DevModule) evalClearLogPage(args []Object, env *Environment) Object {
 	}
 
 	if len(args) != 1 {
-		return newError("dev.clearLogPage expects 1 argument: dev.clearLogPage(route)")
+		return newArityError("dev.clearLogPage", len(args), 1)
 	}
 
 	route := devObjectToString(args[0])
 	if !isValidRoute(route) {
-		return newError("dev.clearLogPage: invalid route '%s' (use alphanumeric, hyphens, underscores)", route)
+		return newValidationError("VAL-0009", map[string]any{"Route": route, "Function": "dev.clearLogPage"})
 	}
 
 	if err := env.DevLog.ClearLogs(route); err != nil {
-		return newError("dev.clearLogPage failed: %v", err)
+		return newInternalError("INTERNAL-0003", map[string]any{"Function": "dev.clearLogPage", "GoError": err.Error()})
 	}
 
 	return NULL

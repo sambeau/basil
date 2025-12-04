@@ -9067,6 +9067,19 @@ func newUndefinedComponentError(name string) *Error {
 		Data:    perr.Data,
 	}
 }
+
+// newUndefinedError creates a structured error for undefined properties/methods.
+func newUndefinedError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // newLocaleError creates a structured error for invalid locale.
 func newLocaleError(locale string) *Error {
 	perr := perrors.New("FMT-0008", map[string]any{

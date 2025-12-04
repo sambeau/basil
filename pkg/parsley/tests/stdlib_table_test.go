@@ -76,7 +76,7 @@ func TestTableInvalidInput(t *testing.T) {
 		errContains string
 	}{
 		{`let {table} = import("std/table"); table("not array")`, "must be an array"},
-		{`let {table} = import("std/table"); table([1, 2, 3])`, "must be dictionaries"},
+		{`let {table} = import("std/table"); table([1, 2, 3])`, "must be dictionary"},
 	}
 
 	for _, tt := range tests {
