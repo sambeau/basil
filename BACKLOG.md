@@ -12,6 +12,7 @@ Deferred items from implementation, to be picked up in future work.
 | Resolve paths relative to config file location | FEAT-002 | Phase 1 scope | Handler/static paths should be relative to config file, not CWD |
 | Add @std/ prefix support to lexer | FEAT-018 | Workaround available | Currently requires `import("std/table")` string syntax. Should support `import(@std/table)` path literal. |
 | Remove `basil` global in favor of `std/basil` import | FEAT-019 | Backward compat | Having both `basil` global and `std/basil` import creates two objects with same content. Hard to test properly, confusing API. Deprecate global, require `let {basil} = import("std/basil")`. Breaking change - needs migration path. |
+| Complete structured error migration | FEAT-023 | Phase 6+ | Migrate remaining files: `builtins.go`, other `stdlib_*.go` modules (json, http, sftp, etc.). Core evaluator files done. |
 
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
@@ -32,6 +33,7 @@ Deferred items from implementation, to be picked up in future work.
 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access |
 | Table.toJSON() | FEAT-018 | Not MVP | JSON output |
 | Table.fromCSV(string) | FEAT-018 | Not MVP | CSV parsing into Table |
+| Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
 
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |
@@ -43,6 +45,7 @@ Deferred items from implementation, to be picked up in future work.
 | Dev logs: JS-based clear without page reload | FEAT-019 | Polish | Currently clear redirects, which re-runs handler dev.log() calls. Use fetch() + DOM update instead. |
 | Dev logs: pause/resume toggle | FEAT-019 | Polish | Temporarily stop collecting logs without clearing. Useful when debugging specific requests. |
 | Dev logs: `.json` modifier for formatted JSON | FEAT-019 | Not MVP | `dev.log(data, {json: true})` renders value as formatted/syntax-highlighted JSON. |
+| Error code validation tests | FEAT-023 | Phase 6+ | Test suite to ensure all error codes in errors.go are actually used, and all newStructuredError calls use valid codes. Prevents drift between defined and used codes. |
 
 ## Completed (Archive)
 <!-- Move items here when done, with completion date -->
