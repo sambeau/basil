@@ -600,11 +600,89 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"IMPORT-0002": {
 		Class:    ClassImport,
-		Template: "circular dependency detected: {{.Chain}}",
+		Template: "circular dependency detected when importing: {{.Path}}",
 	},
 	"IMPORT-0003": {
 		Class:    ClassImport,
 		Template: "parse errors in module {{.ModulePath}}",
+	},
+	"IMPORT-0004": {
+		Class:    ClassImport,
+		Template: "failed to resolve module path: {{.GoError}}",
+	},
+	"IMPORT-0005": {
+		Class:    ClassImport,
+		Template: "in module {{.ModulePath}}: line {{.Line}}, column {{.Column}}: {{.NestedError}}",
+	},
+
+	// ========================================
+	// Command/Exec errors (CMD-0xxx)
+	// ========================================
+	"CMD-0001": {
+		Class:    ClassState,
+		Template: "command handle missing {{.Field}} field",
+	},
+	"CMD-0002": {
+		Class:    ClassType,
+		Template: "command {{.Field}} must be {{.Expected}}, got {{.Actual}}",
+	},
+	"CMD-0003": {
+		Class:    ClassType,
+		Template: "command arguments must be strings",
+	},
+	"CMD-0004": {
+		Class:    ClassType,
+		Template: "command input must be a string or null, got {{.Type}}",
+	},
+
+	// ========================================
+	// Loop/iteration errors (LOOP-0xxx)
+	// ========================================
+	"LOOP-0001": {
+		Class:    ClassType,
+		Template: "for expects an array, string, or dictionary, got {{.Type}}",
+	},
+	"LOOP-0002": {
+		Class:    ClassType,
+		Template: "for expects a function or builtin, got {{.Type}}",
+	},
+	"LOOP-0003": {
+		Class:    ClassState,
+		Template: "for expression missing function or body",
+	},
+	"LOOP-0004": {
+		Class:    ClassArity,
+		Template: "function passed to for must take 1 or 2 parameters, got {{.Got}}",
+	},
+	"LOOP-0005": {
+		Class:    ClassState,
+		Template: "for loop over dictionary requires body with key, value parameters",
+	},
+	"LOOP-0006": {
+		Class:    ClassState,
+		Template: "for loop over dictionary requires function body",
+	},
+	"LOOP-0007": {
+		Class:    ClassArity,
+		Template: "for loop over dictionary requires exactly 2 parameters (key, value), got {{.Got}}",
+	},
+
+	// ========================================
+	// Call errors (CALL-0xxx)
+	// ========================================
+	"CALL-0001": {
+		Class:    ClassType,
+		Template: "cannot call null as a function",
+		Hints:    []string{"The value may not be exported from an imported module, or the variable is uninitialized"},
+	},
+	"CALL-0002": {
+		Class:    ClassType,
+		Template: "cannot call {{.Type}} as a function",
+		Hints:    []string{"Only functions can be called with parentheses"},
+	},
+	"CALL-0003": {
+		Class:    ClassType,
+		Template: "dev module cannot be called directly, use dev.log() or other methods",
 	},
 }
 

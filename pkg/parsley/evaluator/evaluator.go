@@ -6286,11 +6286,11 @@ func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object 
 	// Extract binary
 	binaryExpr, ok := cmdDict.Pairs["binary"]
 	if !ok {
-		return newError("command handle missing binary field")
+		return newCommandError("CMD-0001", map[string]any{"Field": "binary"})
 	}
 	binaryLit, ok := binaryExpr.(*ast.StringLiteral)
 	if !ok {
-		return newError("command binary must be a string")
+		return newCommandError("CMD-0002", map[string]any{"Field": "binary", "Expected": "a string", "Actual": "non-string expression"})
 	}
 	binary := binaryLit.Value
 
@@ -6318,18 +6318,18 @@ func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object 
 	// Extract args
 	argsExpr, ok := cmdDict.Pairs["args"]
 	if !ok {
-		return newError("command handle missing args field")
+		return newCommandError("CMD-0001", map[string]any{"Field": "args"})
 	}
 	argsLit, ok := argsExpr.(*ast.ArrayLiteral)
 	if !ok {
-		return newError("command args must be an array")
+		return newCommandError("CMD-0002", map[string]any{"Field": "args", "Expected": "an array", "Actual": "non-array expression"})
 	}
 
 	args := make([]string, len(argsLit.Elements))
 	for i, argExpr := range argsLit.Elements {
 		argLit, ok := argExpr.(*ast.StringLiteral)
 		if !ok {
-			return newError("command arguments must be strings")
+			return newCommandError("CMD-0003", nil)
 		}
 		args[i] = argLit.Value
 	}
@@ -6337,11 +6337,11 @@ func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object 
 	// Extract options
 	optsExpr, ok := cmdDict.Pairs["options"]
 	if !ok {
-		return newError("command handle missing options field")
+		return newCommandError("CMD-0001", map[string]any{"Field": "options"})
 	}
 	optsLit, ok := optsExpr.(*ast.DictionaryLiteral)
 	if !ok {
-		return newError("command options must be a dictionary")
+		return newCommandError("CMD-0002", map[string]any{"Field": "options", "Expected": "a dictionary", "Actual": "non-dictionary expression"})
 	}
 
 	// Build exec.Command
@@ -6355,7 +6355,7 @@ func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object 
 		if str, ok := input.(*String); ok {
 			cmd.Stdin = strings.NewReader(str.Value)
 		} else {
-			return newError("command input must be a string or null, got %s", input.Type())
+			return newCommandError("CMD-0004", map[string]any{"Type": string(input.Type())})
 		}
 	}
 
@@ -8221,7 +8221,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		return result
 	case *DevModule:
 		// DevModule is not directly callable, only used as a namespace
-		return newError("dev module cannot be called directly, use dev.log() or other methods")
+		return newCallError("CALL-0003", nil)
 	case *SFTPConnection:
 		// SFTP connection is callable: conn(@/path) returns SFTP file handle
 		if len(args) != 1 {
@@ -8293,7 +8293,7 @@ func evalImport(args []Object, env *Environment) Object {
 	// Resolve path relative to current file (or root path for ~/ paths)
 	absPath, err := resolveModulePath(pathStr, env.Filename, env.RootPath)
 	if err != nil {
-		return newError("failed to resolve module path: %s", err.Error())
+		return newImportError("IMPORT-0004", map[string]any{"GoError": err.Error()})
 	}
 
 	// Security check
@@ -8308,7 +8308,7 @@ func evalImport(args []Object, env *Environment) Object {
 		rootEnv = rootEnv.outer
 	}
 	if rootEnv.importStack[absPath] {
-		return newError("circular dependency detected when importing: %s", absPath)
+		return newImportError("IMPORT-0002", map[string]any{"Path": absPath})
 	}
 
 	// Check cache first (with lock for thread safety)
@@ -8338,11 +8338,12 @@ func evalImport(args []Object, env *Environment) Object {
 	program := p.ParseProgram()
 	if len(p.Errors()) > 0 {
 		var errMsg strings.Builder
-		errMsg.WriteString(fmt.Sprintf("parse errors in module %s:\n", absPath))
 		for _, msg := range p.Errors() {
 			errMsg.WriteString(fmt.Sprintf("  %s\n", msg))
 		}
-		return newError("%s", errMsg.String())
+		err := newImportError("IMPORT-0003", map[string]any{"ModulePath": absPath})
+		err.Message = err.Message + ":\n" + errMsg.String()
+		return err
 	}
 
 	// Create isolated environment for the module
@@ -8370,9 +8371,17 @@ func evalImport(args []Object, env *Environment) Object {
 		errObj := result.(*Error)
 		// Include module path in error message for context
 		if errObj.Line > 0 {
-			return newError("in module %s: line %d, column %d: %s", absPath, errObj.Line, errObj.Column, errObj.Message)
+			return newImportError("IMPORT-0005", map[string]any{
+				"ModulePath":  absPath,
+				"Line":        errObj.Line,
+				"Column":      errObj.Column,
+				"NestedError": errObj.Message,
+			})
 		}
-		return newError("in module %s: %s", absPath, errObj.Message)
+		return newImportError("IMPORT-0001", map[string]any{
+			"ModulePath":  absPath,
+			"NestedError": errObj.Message,
+		})
 	}
 
 	// Convert environment to dictionary
@@ -8584,7 +8593,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			elements[i] = &String{Value: string(r)}
 		}
 	default:
-		return newError("for expects an array, string, or dictionary, got %s", iterableObj.Type())
+		return newLoopError("LOOP-0001", map[string]any{"Type": string(iterableObj.Type())})
 	}
 
 	// Determine which function to use
@@ -8600,7 +8609,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 		case *Function, *Builtin:
 			// OK
 		default:
-			return newError("for expects a function or builtin, got %s", fn.Type())
+			return newLoopError("LOOP-0002", map[string]any{"Type": string(fn.Type())})
 		}
 	} else if node.Body != nil {
 		// 'in' form: for(var in array) body
@@ -8611,7 +8620,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			Env:    env,
 		}
 	} else {
-		return newError("for expression missing function or body")
+		return newLoopError("LOOP-0003", nil)
 	}
 
 	// Map function over array elements
@@ -8627,7 +8636,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			// Call user function
 			paramCount := f.ParamCount()
 			if paramCount != 1 && paramCount != 2 {
-				return newError("function passed to for must take 1 or 2 parameters, got %d", paramCount)
+				return newLoopError("LOOP-0004", map[string]any{"Got": paramCount})
 			}
 
 			// Prepare arguments based on parameter count
@@ -8682,15 +8691,15 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 				Env:    env,
 			}
 		} else {
-			return newError("for loop over dictionary requires body with key, value parameters")
+			return newLoopError("LOOP-0005", nil)
 		}
 	} else {
-		return newError("for loop over dictionary requires function body")
+		return newLoopError("LOOP-0006", nil)
 	}
 
 	// Check parameter count
 	if fn.ParamCount() != 2 {
-		return newError("for loop over dictionary requires exactly 2 parameters (key, value), got %d", fn.ParamCount())
+		return newLoopError("LOOP-0007", map[string]any{"Got": fn.ParamCount()})
 	}
 
 	// Iterate over dictionary key-value pairs
@@ -9119,6 +9128,54 @@ func newSliceIndexTypeError(position string, got string) *Error {
 
 // newIndexError creates a structured index error.
 func newIndexError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newCommandError creates a structured command/exec error.
+func newCommandError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newLoopError creates a structured loop/iteration error.
+func newLoopError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newImportError creates a structured import/module error.
+func newImportError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newCallError creates a structured call error.
+func newCallError(code string, data map[string]any) *Error {
 	perr := perrors.New(code, data)
 	return &Error{
 		Class:   ErrorClass(perr.Class),
