@@ -4260,7 +4260,7 @@ func getBuiltins() map[string]*Builtin {
 						if knownHostsPath != "" {
 							callback, err := knownhosts.New(knownHostsPath)
 							if err != nil {
-								return newError("failed to load known_hosts: %s", err.Error())
+								return newNetworkError("NET-0008", err)
 							}
 							config.HostKeyCallback = callback
 						}
@@ -4314,7 +4314,7 @@ func getBuiltins() map[string]*Builtin {
 			Fn: func(args ...Object) Object {
 				// This is a placeholder - actual implementation happens in CallExpression
 				// where we have access to the environment for path resolution
-				return newError("import() requires environment context")
+				return newInternalError("INTERNAL-0001", map[string]any{"Context": "import()"})
 			},
 		},
 		"sin": {
@@ -5005,7 +5005,7 @@ func getBuiltins() map[string]*Builtin {
 				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
 				matches, err := filepath.Glob(pattern)
 				if err != nil {
-					return newError("invalid file pattern '%s': %s", pattern, err.Error())
+					return newValidationError("VAL-0003", map[string]any{"Pattern": pattern, "GoError": err.Error()})
 				}
 
 				// Convert matches to array of file handles
@@ -5612,7 +5612,7 @@ func getBuiltins() map[string]*Builtin {
 						if pathDict != nil {
 							return &String{Value: pathToWebURL(pathDict)}
 						}
-						return newError("could not extract path from file")
+						return newFileOpError("FILEOP-0002", nil)
 					}
 					return newTypeError("TYPE-0012", "asset", "a path or file", DICTIONARY_OBJ)
 				case *String:
@@ -6072,7 +6072,7 @@ func getBuiltins() map[string]*Builtin {
 							if str, ok := arg.(*String); ok {
 								cmdArgs[i] = str.Value
 							} else {
-								return newError("COMMAND arguments must be strings, got %s at index %d", arg.Type(), i)
+								return newCommandError("CMD-0003", nil)
 							}
 						}
 					} else {
@@ -7236,7 +7236,8 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalSliceExpression(left, start, end)
 	}
 
-	return newError("unknown node type: %T", node)
+	perr := perrors.New("INTERNAL-0002", map[string]any{"Type": fmt.Sprintf("%T", node)})
+	return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 }
 
 // Helper functions
@@ -9197,6 +9198,139 @@ func newCallError(code string, data map[string]any) *Error {
 	}
 }
 
+// newDestructuringError creates a structured destructuring error.
+func newDestructuringError(code string, val Object) *Error {
+	data := map[string]any{}
+	if val != nil {
+		data["Got"] = string(val.Type())
+	}
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newHTTPError creates a structured HTTP error.
+func newHTTPError(code string, err error) *Error {
+	data := map[string]any{}
+	if err != nil {
+		data["GoError"] = err.Error()
+	}
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newHTTPStateError creates a structured HTTP state error (no underlying error).
+func newHTTPStateError(code string) *Error {
+	perr := perrors.New(code, nil)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newHTTPErrorMessage creates an HTTP error with a custom message.
+func newHTTPErrorMessage(code string, message string) *Error {
+	data := map[string]any{"Error": message}
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newSQLError creates a structured SQL error.
+func newSQLError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newStdioError creates a structured stdio error.
+func newStdioError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newSFTPError creates a structured SFTP error.
+func newSFTPError(code string, err error) *Error {
+	data := map[string]any{}
+	if err != nil {
+		data["GoError"] = err.Error()
+	}
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newFileOpError creates a structured file operator error.
+func newFileOpError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newValidationError creates a structured validation error.
+func newValidationError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newInternalError creates a structured internal/context error.
+func newInternalError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // enrichErrorWithPos adds position info to an error that doesn't have it.
 // This is useful for wrapping errors from builtins at the call site.
 func enrichErrorWithPos(obj Object, tok *lexer.Token) Object {
@@ -9294,7 +9428,7 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 	// Type check: value must be a dictionary
 	dict, ok := val.(*Dictionary)
 	if !ok {
-		return newError("dictionary destructuring requires a dictionary value, got %s", val.Type())
+		return newDestructuringError("DEST-0001", val)
 	}
 
 	// Track which keys we've extracted (for rest operator)
@@ -9326,7 +9460,7 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 					return result
 				}
 			} else {
-				return newError("unsupported nested destructuring pattern")
+				return newDestructuringError("DEST-0002", nil)
 			}
 		} else {
 			// Determine the target variable name (alias or original key)
@@ -9636,7 +9770,8 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 
 	sqlStr, ok := sqlContent.(*String)
 	if !ok {
-		return newError("SQL tag content must be a string")
+		perr := perrors.New("SQL-0001", nil)
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Build result dictionary with sql and params
@@ -10110,7 +10245,8 @@ func parseTagProps(propsStr string, env *Environment) Object {
 								pairs[key] = value
 							}
 						} else {
-							return newError("spread operator requires a dictionary, got %s", spreadObj.Type())
+							perr := perrors.New("SPREAD-0001", map[string]any{"Got": string(spreadObj.Type())})
+							return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 						}
 					}
 				}
@@ -10784,7 +10920,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 		}
-		return newError("read operator <== requires a file or directory handle, got %s", source.Type())
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "read operator <==", "Expected": "a file or directory handle", "Got": string(source.Type())})
 	}
 
 	var content Object
@@ -10799,7 +10935,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 				return evalDictDestructuringAssignment(node.DictPattern,
 					makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 			}
-			return newError("directory handle has no valid path")
+			return newFileOpError("FILEOP-0008", nil)
 		}
 		content = readDirContents(pathStr, env)
 		if isError(content) {
@@ -10825,7 +10961,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 		}
-		return newError("read operator <== requires a file or directory handle, got dictionary")
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "read operator <==", "Expected": "a file or directory handle", "Got": "dictionary"})
 	}
 
 	// Assign to the target variable(s)
@@ -10907,7 +11043,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeFetchResponseDict(NULL, fmt.Sprintf("fetch operator <=/= requires a request or URL handle, got %s", source.Type()), 0, nil, env), env, node.IsLet, false)
 		}
-		return newError("fetch operator <=/= requires a request or URL handle, got %s", source.Type())
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": string(source.Type())})
 	}
 
 	var reqDict *Dictionary
@@ -10922,7 +11058,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeFetchResponseDict(NULL, "fetch operator <=/= requires a request or URL handle, got dictionary", 0, nil, env), env, node.IsLet, false)
 		}
-		return newError("fetch operator <=/= requires a request or URL handle, got dictionary")
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": "dictionary"})
 	}
 
 	// Fetch URL content with full response info
@@ -10934,7 +11070,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeFetchResponseDict(NULL, info.Error, info.StatusCode, info.Headers, env), env, node.IsLet, false)
 		}
-		return newError("%s", info.Error)
+		return newHTTPErrorMessage("HTTP-0006", info.Error)
 	}
 
 	// Create response typed dictionary
@@ -11505,7 +11641,7 @@ func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dic
 	// Get the URL string
 	urlStr := getRequestUrlString(reqDict, env)
 	if urlStr == "" {
-		return nil, 0, nil, newError("request handle has no valid URL")
+		return nil, 0, nil, newHTTPStateError("HTTP-0001")
 	}
 
 	// Get method
@@ -11547,7 +11683,7 @@ func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dic
 			case *Dictionary, *Array:
 				jsonBytes, err := encodeJSON(bodyObj)
 				if err != nil {
-					return nil, 0, nil, newError("failed to encode request body: %s", err.Error())
+					return nil, 0, nil, newHTTPError("HTTP-0002", err)
 				}
 				bodyReader = bytes.NewReader(jsonBytes)
 			default:
@@ -11564,7 +11700,7 @@ func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dic
 	// Create request
 	req, err := http.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
-		return nil, 0, nil, newError("failed to create request: %s", err.Error())
+		return nil, 0, nil, newHTTPError("HTTP-0003", err)
 	}
 
 	// Set headers
@@ -11588,14 +11724,14 @@ func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dic
 	// Execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, nil, newError("fetch failed: %s", err.Error())
+		return nil, 0, nil, newHTTPError("HTTP-0004", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response body
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, int64(resp.StatusCode), nil, newError("failed to read response: %s", err.Error())
+		return nil, int64(resp.StatusCode), nil, newHTTPError("HTTP-0005", err)
 	}
 
 	// Convert response headers to dictionary
@@ -11698,20 +11834,20 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 				var readErr error
 				data, readErr = io.ReadAll(os.Stdin)
 				if readErr != nil {
-					return nil, newError("failed to read from stdin: %s", readErr.Error())
+					return nil, newStdioError("STDIO-0003", map[string]any{"GoError": readErr.Error()})
 				}
 				pathStr = "-"
 			case "stdout", "stderr":
-				return nil, newError("cannot read from %s", stdioStr.Value)
+				return nil, newStdioError("STDIO-0004", map[string]any{"Stream": stdioStr.Value})
 			default:
-				return nil, newError("unknown stdio stream: %s", stdioStr.Value)
+				return nil, newStdioError("STDIO-0002", map[string]any{"Name": stdioStr.Value})
 			}
 		}
 	} else {
 		// Get the path from the file dictionary
 		pathStr = getFilePathString(fileDict, env)
 		if pathStr == "" {
-			return nil, newError("file handle has no valid path")
+			return nil, newFileOpError("FILEOP-0002", nil)
 		}
 
 		// Resolve the path relative to the current file (or root path for ~/ paths)
@@ -11737,7 +11873,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	// Get the format
 	formatExpr, hasFormat := fileDict.Pairs["format"]
 	if !hasFormat {
-		return nil, newError("file handle has no format specified")
+		return nil, newFileOpError("FILEOP-0003", nil)
 	}
 	formatObj := Eval(formatExpr, env)
 	if isError(formatObj) {
@@ -11745,7 +11881,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	}
 	formatStr, ok := formatObj.(*String)
 	if !ok {
-		return nil, newError("file format must be a string, got %s", formatObj.Type())
+		return nil, newFileOpError("FILEOP-0004", map[string]any{"Got": string(formatObj.Type())})
 	}
 
 	// Decode based on format
@@ -11800,7 +11936,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		return parseMarkdown(content, env)
 
 	default:
-		return nil, newError("unsupported file format: %s", formatStr.Value)
+		return nil, newFileOpError("FILEOP-0005", map[string]any{"Operation": "reading", "Format": formatStr.Value})
 	}
 }
 
@@ -11808,7 +11944,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 func parseJSON(content string) (Object, *Error) {
 	var data interface{}
 	if err := json.Unmarshal([]byte(content), &data); err != nil {
-		return nil, newError("failed to parse JSON: %s", err.Error())
+		return nil, newFormatError("FMT-0005", err)
 	}
 	return jsonToObject(data), nil
 }
@@ -11817,7 +11953,7 @@ func parseJSON(content string) (Object, *Error) {
 func parseYAML(content string) (Object, *Error) {
 	var data interface{}
 	if err := yaml.Unmarshal([]byte(content), &data); err != nil {
-		return nil, newError("failed to parse YAML: %s", err.Error())
+		return nil, newFormatError("FMT-0006", err)
 	}
 	return yamlToObject(data), nil
 }
@@ -11843,7 +11979,7 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 			// Parse YAML frontmatter
 			var frontmatter map[string]interface{}
 			if err := yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter); err != nil {
-				return nil, newError("failed to parse frontmatter: %s", err.Error())
+				return nil, newFormatError("FMT-0006", err)
 			}
 
 			// Add frontmatter fields to result
@@ -11858,7 +11994,7 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 	var htmlBuf bytes.Buffer
 	md := goldmark.New()
 	if err := md.Convert([]byte(body), &htmlBuf); err != nil {
-		return nil, newError("failed to convert markdown: %s", err.Error())
+		return nil, newFormatError("FMT-0010", err)
 	}
 
 	// Add html and raw fields
@@ -11998,7 +12134,7 @@ func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 	reader := csv.NewReader(strings.NewReader(string(data)))
 	records, err := reader.ReadAll()
 	if err != nil {
-		return nil, newError("failed to parse CSV: %s", err.Error())
+		return nil, newFormatError("FMT-0007", err)
 	}
 
 	if len(records) == 0 {
@@ -12088,7 +12224,7 @@ func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
 	// The target should be a file dictionary
 	fileDict, ok := target.(*Dictionary)
 	if !ok || !isFileDict(fileDict) {
-		return newError("write operator requires a file handle or HTTP request, got %s", target.Type())
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "write operator ==>", "Expected": "a file handle or HTTP request", "Got": string(target.Type())})
 	}
 
 	// Write the file content based on format
@@ -12135,7 +12271,7 @@ func evalHTTPWrite(reqDict *Dictionary, value Object, env *Environment) Object {
 
 	// Handle errors
 	if info.Error != "" {
-		return newError("%s", info.Error)
+		return newHTTPErrorMessage("HTTP-0006", info.Error)
 	}
 
 	// Create and return response typed dictionary
@@ -12171,14 +12307,14 @@ func makeSFTPResponseDict(data Object, errMsg string, env *Environment) *Diction
 // evalSFTPRead reads content from an SFTP file handle
 func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 	if !handle.Connection.Connected {
-		return nil, newError("SFTP connection is not connected")
+		return nil, newStateError("STATE-0002")
 	}
 
 	// Handle directory listing
 	if handle.Format == "dir" {
 		entries, err := handle.Connection.Client.ReadDir(handle.Path)
 		if err != nil {
-			return nil, newError("failed to list directory: %s", err.Error())
+			return nil, newSFTPError("SFTP-0006", err)
 		}
 
 		files := make([]Object, 0, len(entries))
@@ -12201,14 +12337,14 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 	// Open remote file
 	file, err := handle.Connection.Client.Open(handle.Path)
 	if err != nil {
-		return nil, newError("SFTP read failed: %s", err.Error())
+		return nil, newSFTPError("SFTP-0007", err)
 	}
 	defer file.Close()
 
 	// Read content
 	data, err := io.ReadAll(file)
 	if err != nil {
-		return nil, newError("SFTP read failed: %s", err.Error())
+		return nil, newSFTPError("SFTP-0007", err)
 	}
 
 	// Parse based on format
@@ -12253,14 +12389,15 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 			return &String{Value: string(data)}, nil
 		}
 	default:
-		return nil, newError("unknown format: %s", format)
+		perr := perrors.New("SFTP-0004", map[string]any{"Format": format})
+		return nil, &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 }
 
 // evalSFTPWrite writes content to an SFTP file handle
 func evalSFTPWrite(handle *SFTPFileHandle, value Object, append bool, env *Environment) Object {
 	if !handle.Connection.Connected {
-		return newError("SFTP connection is not connected")
+		return newStateError("STATE-0002")
 	}
 
 	// Determine open flags
@@ -12290,7 +12427,8 @@ func evalSFTPWrite(handle *SFTPFileHandle, value Object, append bool, env *Envir
 		if str, ok := value.(*String); ok {
 			content = str.Value
 		} else {
-			return newError("text format requires string value, got %s", value.Type())
+			perr := perrors.New("SFTP-0001", map[string]any{"Format": "text", "Expected": "string value", "Got": string(value.Type())})
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 		}
 	case "lines":
 		if arr, ok := value.(*Array); ok {
@@ -12299,15 +12437,18 @@ func evalSFTPWrite(handle *SFTPFileHandle, value Object, append bool, env *Envir
 				if str, ok := elem.(*String); ok {
 					lines[i] = str.Value
 				} else {
-					return newError("lines format requires array of strings, got %s at index %d", elem.Type(), i)
+					perr := perrors.New("SFTP-0002", map[string]any{"Format": "lines", "Expected": "strings", "Index": i, "Got": string(elem.Type())})
+					return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 				}
 			}
 			content = strings.Join(lines, "\n") + "\n"
 		} else {
-			return newError("lines format requires array, got %s", value.Type())
+			perr := perrors.New("SFTP-0001", map[string]any{"Format": "lines", "Expected": "array", "Got": string(value.Type())})
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 		}
 	case "csv":
-		return newError("CSV write not yet implemented for SFTP")
+		perr := perrors.New("SFTP-0003", nil)
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	case "bytes":
 		if arr, ok := value.(*Array); ok {
 			bytes := make([]byte, len(arr.Elements))
@@ -12315,28 +12456,31 @@ func evalSFTPWrite(handle *SFTPFileHandle, value Object, append bool, env *Envir
 				if intVal, ok := elem.(*Integer); ok {
 					bytes[i] = byte(intVal.Value)
 				} else {
-					return newError("bytes format requires array of integers, got %s at index %d", elem.Type(), i)
+					perr := perrors.New("SFTP-0002", map[string]any{"Format": "bytes", "Expected": "integers", "Index": i, "Got": string(elem.Type())})
+					return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 				}
 			}
 			content = string(bytes)
 		} else {
-			return newError("bytes format requires array, got %s", value.Type())
+			perr := perrors.New("SFTP-0001", map[string]any{"Format": "bytes", "Expected": "array", "Got": string(value.Type())})
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 		}
 	default:
-		return newError("unknown format: %s", format)
+		perr := perrors.New("SFTP-0004", map[string]any{"Format": format})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Open remote file via SFTP with appropriate flags
 	file, err := handle.Connection.Client.OpenFile(handle.Path, flags)
 	if err != nil {
-		return newError("SFTP write failed: %s", err.Error())
+		return newSFTPError("SFTP-0005", err)
 	}
 	defer file.Close()
 
 	// Write content
 	_, err = file.Write([]byte(content))
 	if err != nil {
-		return newError("SFTP write failed: %s", err.Error())
+		return newSFTPError("SFTP-0005", err)
 	}
 
 	return NULL
@@ -12543,7 +12687,7 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface
 		// Get SQL content
 		sqlExpr, hasSql := dict.Pairs["sql"]
 		if !hasSql {
-			return "", nil, newError("query object missing 'sql' property")
+			return "", nil, newSQLError("SQL-0002", nil)
 		}
 		sqlObj := Eval(sqlExpr, env)
 		if isError(sqlObj) {
@@ -12551,7 +12695,7 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface
 		}
 		sqlStr, ok := sqlObj.(*String)
 		if !ok {
-			return "", nil, newError("sql property must be a string, got %s", sqlObj.Type())
+			return "", nil, newSQLError("SQL-0003", map[string]any{"Got": string(sqlObj.Type())})
 		}
 
 		// Get params if present
@@ -12569,7 +12713,7 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface
 		return sqlStr.Value, params, nil
 	}
 
-	return "", nil, newError("query must be a string or <SQL> tag, got %s", queryObj.Type())
+	return "", nil, newSQLError("SQL-0004", map[string]any{"Got": string(queryObj.Type())})
 }
 
 // dictToNamedParams converts a dictionary to a slice of named parameters
@@ -12855,7 +12999,7 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 		if stdioStr, ok := stdioObj.(*String); ok {
 			switch stdioStr.Value {
 			case "stdin":
-				return newError("cannot write to stdin")
+				return newStdioError("STDIO-0001", nil)
 			case "stdout", "stderr":
 				isStdio = true
 				stdioStream = stdioStr.Value
@@ -12864,7 +13008,7 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 				isStdio = true
 				stdioStream = "stdout"
 			default:
-				return newError("unknown stdio stream: %s", stdioStr.Value)
+				return newStdioError("STDIO-0002", map[string]any{"Name": stdioStr.Value})
 			}
 		}
 	}
@@ -12874,13 +13018,13 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 		// Get the path from the file dictionary
 		pathStr = getFilePathString(fileDict, env)
 		if pathStr == "" {
-			return newError("file handle has no valid path")
+			return newFileOpError("FILEOP-0002", nil)
 		}
 
 		// Resolve the path relative to the current file (or root path for ~/ paths)
 		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
-			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+			return newIOError("IO-0007", pathStr, pathErr)
 		}
 		pathStr = absPath
 
@@ -12893,7 +13037,7 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	// Get the format
 	formatExpr, hasFormat := fileDict.Pairs["format"]
 	if !hasFormat {
-		return newError("file handle has no format specified")
+		return newFileOpError("FILEOP-0003", nil)
 	}
 	formatObj := Eval(formatExpr, env)
 	if isError(formatObj) {
@@ -12901,7 +13045,7 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	}
 	formatStr, ok := formatObj.(*String)
 	if !ok {
-		return newError("file format must be a string, got %s", formatObj.Type())
+		return newFileOpError("FILEOP-0004", map[string]any{"Got": string(formatObj.Type())})
 	}
 
 	// Encode the value based on format
@@ -12931,11 +13075,11 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 		data, encodeErr = encodeYAML(value)
 
 	default:
-		return newError("unsupported file format for writing: %s", formatStr.Value)
+		return newFileOpError("FILEOP-0005", map[string]any{"Operation": "writing", "Format": formatStr.Value})
 	}
 
 	if encodeErr != nil {
-		return newError("failed to encode data: %s", encodeErr.Error())
+		return newFileOpError("FILEOP-0006", map[string]any{"GoError": encodeErr.Error()})
 	}
 
 	// Write to stdout/stderr or file
@@ -13183,7 +13327,7 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 	// Get the path from the file dictionary
 	pathStr := getFilePathString(fileDict, env)
 	if pathStr == "" {
-		return newError("file handle has no valid path")
+		return newFileOpError("FILEOP-0002", nil)
 	}
 
 	// Resolve the path relative to the current file (or root path for ~/ paths)
@@ -13541,7 +13685,7 @@ func formatNumberWithLocale(value float64, localeStr string) Object {
 func formatCurrencyWithLocale(value float64, currencyCode string, localeStr string) Object {
 	cur, err := currency.ParseISO(currencyCode)
 	if err != nil {
-		return newError("invalid currency code: %s", currencyCode)
+		return newValidationError("VAL-0001", map[string]any{"Code": currencyCode})
 	}
 
 	tag, err := language.Parse(localeStr)
@@ -13578,7 +13722,7 @@ func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr stri
 	// Validate style
 	validStyles := map[string]bool{"short": true, "medium": true, "long": true, "full": true}
 	if !validStyles[style] {
-		return newError("style must be one of: short, medium, long, full, got %s", style)
+		return newValidationError("VAL-0002", map[string]any{"Style": style, "Context": "formatDate", "ValidOptions": "short, medium, long, full"})
 	}
 
 	// Map locale string to monday.Locale

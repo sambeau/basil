@@ -574,6 +574,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassFormat,
 		Template: "invalid duration: {{.GoError}}",
 	},
+	"FMT-0010": {
+		Class:    ClassFormat,
+		Template: "failed to convert markdown: {{.GoError}}",
+	},
 
 	// ========================================
 	// Operator errors (OP-0xxx)
@@ -902,6 +906,70 @@ var ErrorCatalog = map[string]ErrorDef{
 	"SQL-0001": {
 		Class:    ClassType,
 		Template: "SQL tag content must be a string",
+	},
+	"SQL-0002": {
+		Class:    ClassType,
+		Template: "query object missing 'sql' property",
+	},
+	"SQL-0003": {
+		Class:    ClassType,
+		Template: "sql property must be a string, got {{.Got}}",
+	},
+	"SQL-0004": {
+		Class:    ClassType,
+		Template: "query must be a string or <SQL> tag, got {{.Got}}",
+	},
+
+	// ========================================
+	// HTTP errors (HTTP-0xxx)
+	// ========================================
+	"HTTP-0001": {
+		Class:    ClassState,
+		Template: "request handle has no valid URL",
+	},
+	"HTTP-0002": {
+		Class:    ClassFormat,
+		Template: "failed to encode request body: {{.GoError}}",
+	},
+	"HTTP-0003": {
+		Class:    ClassNetwork,
+		Template: "failed to create request: {{.GoError}}",
+	},
+	"HTTP-0004": {
+		Class:    ClassNetwork,
+		Template: "fetch failed: {{.GoError}}",
+	},
+	"HTTP-0005": {
+		Class:    ClassIO,
+		Template: "failed to read response: {{.GoError}}",
+	},
+	"HTTP-0006": {
+		Class:    ClassNetwork,
+		Template: "HTTP error: {{.Error}}",
+	},
+
+	// ========================================
+	// Stdio read errors (STDIO-0003+)
+	// ========================================
+	"STDIO-0003": {
+		Class:    ClassIO,
+		Template: "failed to read from stdin: {{.GoError}}",
+	},
+	"STDIO-0004": {
+		Class:    ClassIO,
+		Template: "cannot read from {{.Stream}}",
+	},
+
+	// ========================================
+	// SFTP read errors (SFTP-0006+)
+	// ========================================
+	"SFTP-0006": {
+		Class:    ClassIO,
+		Template: "failed to list directory: {{.GoError}}",
+	},
+	"SFTP-0007": {
+		Class:    ClassIO,
+		Template: "SFTP read failed: {{.GoError}}",
 	},
 }
 
