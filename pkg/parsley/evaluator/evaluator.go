@@ -3154,7 +3154,7 @@ func readDirContents(dirPath string, env *Environment) Object {
 
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return newError("failed to read directory '%s': %s", dirPath, err.Error())
+		return newIOError("IO-0003", dirPath, err)
 	}
 
 	elements := make([]Object, 0, len(entries))
@@ -6564,7 +6564,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		return &Boolean{Value: true}
 
 	default:
-		return newError("unknown method for database connection: %s", method)
+		return newUndefinedMethodError(method, "database connection")
 	}
 }
 
@@ -6593,7 +6593,7 @@ func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object
 		return NULL
 
 	default:
-		return newError("unknown method for SFTP connection: %s", method)
+		return newUndefinedMethodError(method, "SFTP connection")
 	}
 }
 
@@ -6663,12 +6663,12 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 		}
 
 		if err := handle.Connection.Client.Remove(handle.Path); err != nil {
-			return newError("failed to remove file: %s", err.Error())
+			return newIOError("IO-0005", handle.Path, err)
 		}
 		return NULL
 
 	default:
-		return newError("unknown method for SFTP file handle: %s", method)
+		return newUndefinedMethodError(method, "SFTP file handle")
 	}
 }
 
@@ -7013,7 +7013,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					// Fall through to check dictionary methods if datetime method failed
 					if result != nil && isError(result) {
 						// Check if it's "unknown method" error - try dictionary method
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							// Try dictionary methods
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
@@ -7036,7 +7036,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -7052,7 +7052,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -7068,7 +7068,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -7084,7 +7084,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -7100,7 +7100,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -7116,7 +7116,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -7132,7 +7132,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If unknown method, fall through to dictionary methods
 					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
 							dictResult := evalDictionaryMethod(receiver, method, args, env)
 							if dictResult != nil {
 								return dictResult
@@ -8320,9 +8320,9 @@ func evalImport(args []Object, env *Environment) Object {
 	content, err := os.ReadFile(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return newError("module not found: %s", absPath)
+			return newIOError("IO-0002", absPath, err)
 		}
-		return newError("failed to read module %s: %s", absPath, err.Error())
+		return newIOError("IO-0003", absPath, err)
 	}
 
 	// Parse the module
@@ -8941,6 +8941,62 @@ func newArityErrorMin(function string, got, min int) *Error {
 		"Got":      got,
 		"Min":      min,
 	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newIOError creates a structured error for I/O operations.
+func newIOError(code string, path string, err error) *Error {
+	perr := perrors.New(code, map[string]any{
+		"Path":    path,
+		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newFormatError creates a structured error for format/parsing issues.
+func newFormatError(code string, err error) *Error {
+	perr := perrors.New(code, map[string]any{
+		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newUndefinedMethodError creates a structured error for unknown methods.
+func newUndefinedMethodError(method string, typeName string) *Error {
+	perr := perrors.New("UNDEF-0002", map[string]any{
+		"Method": method,
+		"Type":   typeName,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newStateError creates a structured error for state-related issues.
+func newStateError(code string) *Error {
+	perr := perrors.New(code, nil)
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,
@@ -11466,7 +11522,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		// Resolve the path relative to the current file (or root path for ~/ paths)
 		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 		if pathErr != nil {
-			return nil, newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+			return nil, newIOError("IO-0007", pathStr, pathErr)
 		}
 		pathStr = absPath
 
@@ -11479,7 +11535,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		var readErr error
 		data, readErr = os.ReadFile(pathStr)
 		if readErr != nil {
-			return nil, newError("failed to read file '%s': %s", pathStr, readErr.Error())
+			return nil, newIOError("IO-0003", pathStr, readErr)
 		}
 	}
 
@@ -12695,7 +12751,7 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	} else if appendMode {
 		f, err := os.OpenFile(pathStr, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			return newError("failed to open file '%s' for append: %s", pathStr, err.Error())
+			return newIOError("IO-0004", pathStr, err)
 		}
 		defer f.Close()
 		_, writeErr = f.Write(data)
@@ -12705,9 +12761,9 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 
 	if writeErr != nil {
 		if isStdio {
-			return newError("failed to write to %s: %s", stdioStream, writeErr.Error())
+			return newIOError("IO-0004", stdioStream, writeErr)
 		}
-		return newError("failed to write to file '%s': %s", pathStr, writeErr.Error())
+		return newIOError("IO-0004", pathStr, writeErr)
 	}
 
 	return nil
@@ -12932,7 +12988,7 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 	// Resolve the path relative to the current file (or root path for ~/ paths)
 	absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
 	if pathErr != nil {
-		return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		return newIOError("IO-0007", pathStr, pathErr)
 	}
 
 	// Security check (treat as write operation)
@@ -12943,7 +12999,7 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 	// Delete the file
 	err := os.Remove(absPath)
 	if err != nil {
-		return newError("failed to delete file '%s': %s", absPath, err.Error())
+		return newIOError("IO-0005", absPath, err)
 	}
 
 	// Return a new null value instead of the global NULL
