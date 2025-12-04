@@ -9013,6 +9013,19 @@ func newStateError(code string) *Error {
 	}
 }
 
+// newUndefinedComponentError creates a structured error for undefined components.
+func newUndefinedComponentError(name string) *Error {
+	perr := perrors.New("UNDEF-0003", map[string]any{
+		"Name": name,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
 // newLocaleError creates a structured error for invalid locale.
 func newLocaleError(locale string) *Error {
 	perr := perrors.New("FMT-0008", map[string]any{
@@ -9447,7 +9460,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Look up the component variable/function
 	val, ok := env.Get(node.Name)
 	if !ok {
-		return newError("undefined component: %s", node.Name)
+		return newUndefinedComponentError(node.Name)
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -9809,7 +9822,7 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 		if builtin, ok := getBuiltins()[tagName]; ok {
 			val = builtin
 		} else {
-			return newError("undefined component: %s\n   💡 Hint: Make sure '%s' is imported or defined before use", tagName, tagName)
+			return newUndefinedComponentError(tagName)
 		}
 	}
 
