@@ -6546,7 +6546,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		}
 		// Managed connections cannot be closed by Parsley scripts
 		if conn.Managed {
-			return newError("cannot close server-managed database connection")
+			return newDatabaseStateError("DB-0009")
 		}
 		// Remove from cache and close
 		cacheKey := conn.Driver + ":" + conn.DSN
@@ -6556,7 +6556,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 
 		if err := conn.DB.Close(); err != nil {
 			conn.LastError = err.Error()
-			return newError("failed to close connection: %s", err.Error())
+			return newDatabaseError("DB-0010", err)
 		}
 		return NULL
 
@@ -6630,7 +6630,7 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 		}
 
 		if err != nil {
-			return newError("failed to create directory: %s", err.Error())
+			return newIOError("IO-0009", handle.Path, err)
 		}
 		return NULL
 
@@ -6659,7 +6659,7 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 		}
 
 		if err != nil {
-			return newError("failed to remove directory: %s", err.Error())
+			return newIOError("IO-0010", handle.Path, err)
 		}
 		return NULL
 
@@ -6897,11 +6897,13 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Verify it's a command handle
 		cmdDict, ok := cmdObj.(*Dictionary)
 		if !ok {
-			return newError("left operand of <=#=> must be command handle, got %s", cmdObj.Type())
+			perr := perrors.New("CMD-0005", map[string]any{"Got": string(cmdObj.Type())})
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 		}
 
 		if !isCommandHandle(cmdDict) {
-			return newError("left operand of <=#=> must be command handle")
+			perr := perrors.New("CMD-0006", nil)
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 		}
 
 		// Evaluate input

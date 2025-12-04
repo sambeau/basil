@@ -381,6 +381,14 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassIO,
 		Template: "SFTP {{.Operation}} failed: {{.GoError}}",
 	},
+	"IO-0009": {
+		Class:    ClassIO,
+		Template: "failed to create directory '{{.Path}}': {{.GoError}}",
+	},
+	"IO-0010": {
+		Class:    ClassIO,
+		Template: "failed to remove directory '{{.Path}}': {{.GoError}}",
+	},
 
 	// ========================================
 	// Database errors (DB-0xxx)
@@ -416,6 +424,18 @@ var ErrorCatalog = map[string]ErrorDef{
 	"DB-0008": {
 		Class:    ClassDatabase,
 		Template: "failed to get columns: {{.GoError}}",
+	},
+	"DB-0009": {
+		Class:    ClassState,
+		Template: "cannot close server-managed database connection",
+	},
+	"DB-0010": {
+		Class:    ClassDatabase,
+		Template: "failed to close database connection: {{.GoError}}",
+	},
+	"DB-0011": {
+		Class:    ClassDatabase,
+		Template: "execute failed: {{.GoError}}",
 	},
 
 	// ========================================
@@ -683,6 +703,94 @@ var ErrorCatalog = map[string]ErrorDef{
 	"CALL-0003": {
 		Class:    ClassType,
 		Template: "dev module cannot be called directly, use dev.log() or other methods",
+	},
+
+	// ========================================
+	// File operator errors (FILEOP-0xxx)
+	// ========================================
+	"FILEOP-0001": {
+		Class:    ClassType,
+		Template: "{{.Operator}} operator requires {{.Expected}}, got {{.Got}}",
+	},
+	"FILEOP-0002": {
+		Class:    ClassState,
+		Template: "file handle has no valid path",
+	},
+	"FILEOP-0003": {
+		Class:    ClassState,
+		Template: "file handle has no format specified",
+	},
+	"FILEOP-0004": {
+		Class:    ClassType,
+		Template: "file format must be a string, got {{.Got}}",
+	},
+	"FILEOP-0005": {
+		Class:    ClassFormat,
+		Template: "unsupported file format for {{.Operation}}: {{.Format}}",
+	},
+	"FILEOP-0006": {
+		Class:    ClassIO,
+		Template: "failed to encode data: {{.GoError}}",
+	},
+	"CMD-0005": {
+		Class:    ClassType,
+		Template: "left operand of <=#=> must be command handle, got {{.Got}}",
+	},
+	"CMD-0006": {
+		Class:    ClassState,
+		Template: "left operand of <=#=> must be command handle",
+	},
+
+	// ========================================
+	// Validation errors (VAL-0xxx)
+	// ========================================
+	"VAL-0001": {
+		Class:    ClassFormat,
+		Template: "invalid currency code: {{.Code}}",
+	},
+	"VAL-0002": {
+		Class:    ClassFormat,
+		Template: "invalid style {{.Style}} for {{.Context}}, use {{.ValidOptions}}",
+	},
+	"VAL-0003": {
+		Class:    ClassFormat,
+		Template: "invalid file pattern '{{.Pattern}}': {{.GoError}}",
+	},
+
+	// ========================================
+	// Destructuring errors (DEST-0xxx)
+	// ========================================
+	"DEST-0001": {
+		Class:    ClassType,
+		Template: "dictionary destructuring requires a dictionary value, got {{.Got}}",
+	},
+	"DEST-0002": {
+		Class:    ClassState,
+		Template: "unsupported nested destructuring pattern",
+	},
+
+	// ========================================
+	// Stdio errors (STDIO-0xxx)
+	// ========================================
+	"STDIO-0001": {
+		Class:    ClassIO,
+		Template: "cannot write to stdin",
+	},
+	"STDIO-0002": {
+		Class:    ClassFormat,
+		Template: "unknown stdio stream: {{.Name}}",
+	},
+
+	// ========================================
+	// Misc/internal errors (INTERNAL-0xxx)
+	// ========================================
+	"INTERNAL-0001": {
+		Class:    ClassState,
+		Template: "{{.Context}} requires environment context",
+	},
+	"INTERNAL-0002": {
+		Class:    ClassState,
+		Template: "unknown node type: {{.Type}}",
 	},
 }
 
