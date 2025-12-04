@@ -9166,19 +9166,7 @@ func newUndefinedError(code string, data map[string]any) *Error {
 }
 
 // newOperatorError creates a structured error for operator errors.
-// Automatically converts type names (LeftType, RightType, Type, Got) to lowercase.
 func newOperatorError(code string, data map[string]any) *Error {
-	// Normalize type names to lowercase
-	for _, key := range []string{"LeftType", "RightType", "Type", "Got"} {
-		if v, ok := data[key]; ok {
-			switch t := v.(type) {
-			case ObjectType:
-				data[key] = perrors.TypeName(string(t))
-			case string:
-				data[key] = perrors.TypeName(t)
-			}
-		}
-	}
 	perr := perrors.New(code, data)
 	return &Error{
 		Class:   ErrorClass(perr.Class),
@@ -9439,17 +9427,6 @@ func newSFTPError(code string, err error) *Error {
 
 // newFileOpError creates a structured file operator error.
 func newFileOpError(code string, data map[string]any) *Error {
-	// Normalize type names to lowercase
-	for _, key := range []string{"Type", "Got"} {
-		if v, ok := data[key]; ok {
-			switch t := v.(type) {
-			case ObjectType:
-				data[key] = perrors.TypeName(string(t))
-			case string:
-				data[key] = perrors.TypeName(t)
-			}
-		}
-	}
 	perr := perrors.New(code, data)
 	return &Error{
 		Class:   ErrorClass(perr.Class),

@@ -1119,7 +1119,21 @@ var ErrorCatalog = map[string]ErrorDef{
 
 // New creates a ParsleyError from the catalog.
 // If the code is not found, creates a generic error with the message.
+// Type names in common keys (Got, Type, LeftType, RightType) are automatically
+// normalized to lowercase for consistent error messages.
 func New(code string, data map[string]any) *ParsleyError {
+	// Normalize type names to lowercase in common keys
+	if data != nil {
+		for _, key := range []string{"Got", "Type", "LeftType", "RightType"} {
+			if v, ok := data[key]; ok {
+				// Use fmt.Sprintf to handle both string and custom string types (like ObjectType)
+				if s := fmt.Sprintf("%v", v); s != "" {
+					data[key] = TypeName(s)
+				}
+			}
+		}
+	}
+
 	def, ok := ErrorCatalog[code]
 	if !ok {
 		// Unknown code - create a generic error
