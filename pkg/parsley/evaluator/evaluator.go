@@ -72,6 +72,7 @@ const (
 	SFTP_CONNECTION_OBJ  = "SFTP_CONNECTION"
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
 	TABLE_OBJ            = "TABLE"
+	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 )
 
 // Object represents all values in our language
@@ -125,6 +126,14 @@ type ReturnValue struct {
 
 func (rv *ReturnValue) Type() ObjectType { return RETURN_OBJ }
 func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
+
+// PrintValue represents values to be added to the result stream by print()/println()
+type PrintValue struct {
+	Values []Object
+}
+
+func (pv *PrintValue) Type() ObjectType { return PRINT_VALUE_OBJ }
+func (pv *PrintValue) Inspect() string  { return "<print>" }
 
 // Error represents error objects with structured error information.
 // It maintains backward compatibility while supporting the new structured error system.
@@ -5799,6 +5808,27 @@ func getBuiltins() map[string]*Builtin {
 				return NULL
 			},
 		},
+		"print": {
+			Fn: func(args ...Object) Object {
+				if len(args) == 0 {
+					return newArityError("print", 0, 1)
+				}
+				return &PrintValue{Values: args}
+			},
+		},
+		"println": {
+			Fn: func(args ...Object) Object {
+				// println with no args just returns a newline
+				if len(args) == 0 {
+					return &PrintValue{Values: []Object{&String{Value: "\n"}}}
+				}
+				// Append newline after all values
+				values := make([]Object, len(args)+1)
+				copy(values, args)
+				values[len(args)] = &String{Value: "\n"}
+				return &PrintValue{Values: values}
+			},
+		},
 		"sort": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -7243,16 +7273,43 @@ func Eval(node ast.Node, env *Environment) Object {
 // Helper functions
 func evalProgram(stmts []ast.Statement, env *Environment) Object {
 	var result Object
+	var printResults []Object
 
 	for _, statement := range stmts {
 		result = Eval(statement, env)
 
-		switch result := result.(type) {
+		switch r := result.(type) {
 		case *ReturnValue:
-			return result.Value
+			// If we have accumulated print results, combine them with return value
+			if len(printResults) > 0 {
+				printResults = append(printResults, r.Value)
+				return &Array{Elements: printResults}
+			}
+			return r.Value
 		case *Error:
-			return result
+			return r
+		case *PrintValue:
+			// Accumulate print values at program level
+			for _, v := range r.Values {
+				str := objectToUserString(v)
+				if str != "" {
+					printResults = append(printResults, &String{Value: str})
+				}
+			}
+			result = NULL // print returns null
 		}
+	}
+
+	// If we accumulated print results
+	if len(printResults) > 0 {
+		// If the last statement wasn't a print and had a value, include it
+		if result != nil && result.Type() != NULL_OBJ && result.Type() != PRINT_VALUE_OBJ {
+			printResults = append(printResults, result)
+		}
+		if len(printResults) == 1 {
+			return printResults[0]
+		}
+		return &Array{Elements: printResults}
 	}
 
 	return result
@@ -7268,6 +7325,18 @@ func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
 			rt := result.Type()
 			if rt == RETURN_OBJ || rt == ERROR_OBJ {
 				return result
+			}
+
+			// Handle PrintValue - expand into results as strings
+			if rt == PRINT_VALUE_OBJ {
+				pv := result.(*PrintValue)
+				for _, v := range pv.Values {
+					str := objectToUserString(v)
+					if str != "" { // Skip empty (null produces "")
+						results = append(results, &String{Value: str})
+					}
+				}
+				continue
 			}
 
 			// Collect non-NULL results
@@ -7300,6 +7369,18 @@ func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Obj
 			rt := result.Type()
 			if rt == RETURN_OBJ || rt == ERROR_OBJ {
 				return result
+			}
+
+			// Handle PrintValue - expand into results as strings
+			if rt == PRINT_VALUE_OBJ {
+				pv := result.(*PrintValue)
+				for _, v := range pv.Values {
+					str := objectToUserString(v)
+					if str != "" { // Skip empty (null produces "")
+						results = append(results, &String{Value: str})
+					}
+				}
+				continue
 			}
 
 			// Collect non-NULL results
@@ -8674,6 +8755,16 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 				if isError(evaluated) {
 					return evaluated
 				}
+				// Handle PrintValue in for loop body
+				if pv, ok := evaluated.(*PrintValue); ok {
+					for _, v := range pv.Values {
+						str := objectToUserString(v)
+						if str != "" {
+							result = append(result, &String{Value: str})
+						}
+					}
+					evaluated = NULL // Don't add PrintValue itself
+				}
 			}
 		}
 
@@ -8736,6 +8827,16 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 			}
 			if isError(evaluated) {
 				return evaluated
+			}
+			// Handle PrintValue in for loop body
+			if pv, ok := evaluated.(*PrintValue); ok {
+				for _, v := range pv.Values {
+					str := objectToUserString(v)
+					if str != "" {
+						result = append(result, &String{Value: str})
+					}
+				}
+				evaluated = NULL // Don't add PrintValue itself
 			}
 		}
 
@@ -10394,6 +10495,114 @@ func objectToTemplateString(obj Object) string {
 		return ""
 	default:
 		return obj.Inspect()
+	}
+}
+
+// objectToUserString converts an object to its user-facing string representation
+// for print() and {interpolation}. Differs from objectToPrintString in that:
+// - Arrays are rendered as [1, 2, 3] (JSON-style), not concatenated
+// - Dictionaries are rendered as {a: 1, b: 2} (Parsley-style)
+// - Null is empty string (silent)
+func objectToUserString(obj Object) string {
+	if obj == nil {
+		return ""
+	}
+
+	switch o := obj.(type) {
+	case *Integer:
+		return strconv.FormatInt(o.Value, 10)
+	case *Float:
+		return fmt.Sprintf("%g", o.Value)
+	case *Boolean:
+		if o.Value {
+			return "true"
+		}
+		return "false"
+	case *String:
+		return o.Value // No quotes
+	case *Null:
+		return "" // Silent in output
+	case *Array:
+		// JSON-style: [1, 2, 3]
+		var result strings.Builder
+		result.WriteString("[")
+		for i, elem := range o.Elements {
+			if i > 0 {
+				result.WriteString(", ")
+			}
+			result.WriteString(objectToUserString(elem))
+		}
+		result.WriteString("]")
+		return result.String()
+	case *Dictionary:
+		// Check for special dictionary types first
+		if isPathDict(o) {
+			return pathDictToString(o)
+		}
+		if isUrlDict(o) {
+			return urlDictToString(o)
+		}
+		if isTagDict(o) {
+			return tagDictToString(o)
+		}
+		if isDatetimeDict(o) {
+			return datetimeDictToString(o)
+		}
+		if isDurationDict(o) {
+			return durationDictToString(o)
+		}
+		if isRegexDict(o) {
+			return regexDictToString(o)
+		}
+		if isFileDict(o) {
+			return fileDictToString(o)
+		}
+		if isDirDict(o) {
+			return dirDictToString(o)
+		}
+		if isRequestDict(o) {
+			return requestDictToString(o)
+		}
+		// Regular dictionary: Parsley-style {a: 1, b: 2}
+		var result strings.Builder
+		result.WriteString("{")
+		first := true
+		for key, val := range o.Pairs {
+			if !first {
+				result.WriteString(", ")
+			}
+			first = false
+			result.WriteString(key)
+			result.WriteString(": ")
+			// Evaluate the expression to get the value
+			if o.Env != nil {
+				evaluated := Eval(val, o.Env)
+				result.WriteString(objectToUserString(evaluated))
+			} else {
+				result.WriteString(val.String())
+			}
+		}
+		result.WriteString("}")
+		return result.String()
+	case *Table:
+		// Summary format
+		rowCount := len(o.Rows)
+		colCount := len(o.Columns)
+		return fmt.Sprintf("<Table: %d rows, %d cols>", rowCount, colCount)
+	case *Error:
+		// [ERR-001] message format
+		if o.Code != "" {
+			return fmt.Sprintf("[%s] %s", o.Code, o.Message)
+		}
+		return o.Message
+	case *Function:
+		return "<function>"
+	case *Builtin:
+		return "<builtin>"
+	case *DBConnection:
+		return "<DBConnection>"
+	default:
+		return o.Inspect()
 	}
 }
 
