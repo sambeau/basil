@@ -2242,12 +2242,12 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 	// Extract pattern and flags from regex dictionary
 	patternExpr, ok := regexDict.Pairs["pattern"]
 	if !ok {
-		return newErrorWithPos(tok, "regex dictionary missing pattern field")
+		return newValidationError("VAL-0015", map[string]any{})
 	}
 	patternObj := Eval(patternExpr, env)
 	patternStr, ok := patternObj.(*String)
 	if !ok {
-		return newErrorWithPos(tok, "regex pattern must be a string")
+		return newValidationError("VAL-0016", map[string]any{"Got": patternObj.Type()})
 	}
 
 	flagsExpr, ok := regexDict.Pairs["flags"]
@@ -2262,7 +2262,7 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 	// Compile the regex
 	re, err := compileRegex(patternStr.Value, flags)
 	if err != nil {
-		return newErrorWithPos(tok, "invalid regex: %s", err.Error())
+		return newFormatError("FMT-0002", err)
 	}
 
 	// Find matches
@@ -7172,7 +7172,7 @@ func Eval(node ast.Node, env *Environment) Object {
 					}
 					// If it's not a function, return error
 					if !isError(fnObj) {
-						return newErrorWithPos(node.Token, "'%s' is not a function", method)
+						return newStructuredError("TYPE-0021", map[string]any{"Name": method})
 					}
 				}
 				// Fall through to normal property/function evaluation
@@ -7336,7 +7336,7 @@ func evalPrefixExpression(tok lexer.Token, operator string, right Object) Object
 	case "-":
 		return evalMinusPrefixOperatorExpression(tok, right)
 	default:
-		return newErrorWithPos(tok, "unknown operator: %s%s", operator, right.Type())
+		return newOperatorError("OP-0005", map[string]any{"Operator": operator, "Type": right.Type()})
 	}
 }
 
@@ -7355,7 +7355,7 @@ func evalBangOperatorExpression(right Object) Object {
 
 func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
 	if right.Type() != INTEGER_OBJ {
-		return newErrorWithPos(tok, "unknown operator: -%s", right.Type())
+		return newOperatorError("OP-0004", map[string]any{"Type": right.Type()})
 	}
 
 	value := right.(*Integer).Value
@@ -7406,21 +7406,21 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if operator == "+" {
 			return evalStringConcatExpression(left, right)
 		}
-		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	case operator == "+" && (left.Type() == STRING_OBJ || right.Type() == STRING_OBJ):
 		// String concatenation with automatic type conversion
 		return evalStringConcatExpression(left, right)
 	// Regex match operators
 	case operator == "~" || operator == "!~":
 		if left.Type() != STRING_OBJ {
-			return newErrorWithPos(tok, "left operand of %s must be a string, got %s", operator, left.Type())
+			return newOperatorError("OP-0007", map[string]any{"Operator": operator, "Expected": "a string", "Got": left.Type()})
 		}
 		if right.Type() != DICTIONARY_OBJ {
-			return newErrorWithPos(tok, "right operand of %s must be a regex, got %s", operator, right.Type())
+			return newOperatorError("OP-0008", map[string]any{"Operator": operator, "Expected": "a regex", "Got": right.Type()})
 		}
 		rightDict := right.(*Dictionary)
 		if !isRegexDict(rightDict) {
-			return newErrorWithPos(tok, "right operand of %s must be a regex dictionary", operator)
+			return newOperatorError("OP-0008", map[string]any{"Operator": operator, "Expected": "a regex dictionary", "Got": "dictionary"})
 		}
 		result := evalMatchExpression(tok, left.(*String).Value, rightDict, NewEnvironment())
 		if operator == "!~" {
@@ -7443,7 +7443,7 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		}
 		if isDurationDict(leftDict) && isDatetimeDict(rightDict) {
 			// duration + datetime not allowed, only datetime + duration
-			return newErrorWithPos(tok, "cannot add datetime to duration (use datetime + duration instead)")
+			return newOperatorError("OP-0011", map[string]any{})
 		}
 		// Path dictionary operations
 		if isPathDict(leftDict) && isPathDict(rightDict) {
@@ -7463,7 +7463,7 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		} else if operator == "!=" {
 			return nativeBoolToParsBoolean(left != right)
 		}
-		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	case left.Type() == DICTIONARY_OBJ && right.Type() == INTEGER_OBJ:
 		if dict := left.(*Dictionary); isDatetimeDict(dict) {
 			return evalDatetimeIntegerInfixExpression(tok, operator, dict, right.(*Integer))
@@ -7471,12 +7471,12 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if dict := left.(*Dictionary); isDurationDict(dict) {
 			return evalDurationIntegerInfixExpression(tok, operator, dict, right.(*Integer))
 		}
-		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	case left.Type() == INTEGER_OBJ && right.Type() == DICTIONARY_OBJ:
 		if dict := right.(*Dictionary); isDatetimeDict(dict) {
 			return evalIntegerDatetimeInfixExpression(tok, operator, left.(*Integer), dict)
 		}
-		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	// Array subtraction
 	case operator == "-" && left.Type() == ARRAY_OBJ && right.Type() == ARRAY_OBJ:
 		return evalArraySubtraction(left.(*Array), right.(*Array))
@@ -7504,9 +7504,9 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	case operator == "!=":
 		return nativeBoolToParsBoolean(left != right)
 	case left.Type() != right.Type():
-		return newErrorWithPos(tok, "type mismatch: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0009", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	default:
-		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	}
 }
 
@@ -7523,12 +7523,12 @@ func evalIntegerInfixExpression(tok lexer.Token, operator string, left, right Ob
 		return &Integer{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newErrorWithPos(tok, "division by zero")
+			return newOperatorError("OP-0002", map[string]any{})
 		}
 		return &Integer{Value: leftVal / rightVal}
 	case "%":
 		if rightVal == 0 {
-			return newErrorWithPos(tok, "modulo by zero")
+			return newOperatorError("OP-0006", map[string]any{})
 		}
 		return &Integer{Value: leftVal % rightVal}
 	case "<":
@@ -7544,7 +7544,7 @@ func evalIntegerInfixExpression(tok lexer.Token, operator string, left, right Ob
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newErrorWithPos(tok, "unknown operator: %s", operator)
+		return newOperatorError("OP-0014", map[string]any{"Type": "INTEGER", "Operator": operator})
 	}
 }
 
@@ -7561,7 +7561,7 @@ func evalFloatInfixExpression(tok lexer.Token, operator string, left, right Obje
 		return &Float{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newErrorWithPos(tok, "division by zero")
+			return newOperatorError("OP-0002", map[string]any{})
 		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
@@ -7577,7 +7577,7 @@ func evalFloatInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newErrorWithPos(tok, "unknown operator: %s", operator)
+		return newOperatorError("OP-0014", map[string]any{"Type": "FLOAT", "Operator": operator})
 	}
 }
 
@@ -7591,7 +7591,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case *Float:
 		leftVal = left.Value
 	default:
-		return newErrorWithPos(tok, "unsupported type for mixed arithmetic: %s", left.Type())
+		return newOperatorError("OP-0010", map[string]any{"Type": left.Type()})
 	}
 
 	switch right := right.(type) {
@@ -7600,7 +7600,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case *Float:
 		rightVal = right.Value
 	default:
-		return newErrorWithPos(tok, "unsupported type for mixed arithmetic: %s", right.Type())
+		return newOperatorError("OP-0010", map[string]any{"Type": right.Type()})
 	}
 
 	switch operator {
@@ -7612,7 +7612,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 		return &Float{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newErrorWithPos(tok, "division by zero")
+			return newOperatorError("OP-0002", map[string]any{})
 		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
@@ -7628,7 +7628,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newErrorWithPos(tok, "unknown operator: %s", operator)
+		return newOperatorError("OP-0014", map[string]any{"Type": "mixed numeric", "Operator": operator})
 	}
 }
 
@@ -7644,7 +7644,7 @@ func evalStringInfixExpression(tok lexer.Token, operator string, left, right Obj
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
-		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	}
 }
 
@@ -7686,7 +7686,7 @@ func evalDatetimeInfixExpression(tok lexer.Token, operator string, left, right *
 		// Return as duration (0 months, diffSeconds seconds)
 		return durationToDict(0, diffSeconds, env)
 	default:
-		return newErrorWithPos(tok, "unknown operator for datetime: %s", operator)
+		return newOperatorError("OP-0014", map[string]any{"Type": "datetime", "Operator": operator})
 	}
 }
 
@@ -7759,13 +7759,13 @@ func evalDatetimeIntersection(tok lexer.Token, left, right *Dictionary, env *Env
 			0, time.UTC,
 		)
 	case leftKind == "date" && rightKind == "date":
-		return newErrorWithPos(tok, "cannot intersect two dates - use date && time to combine")
+		return newOperatorError("OP-0012", map[string]any{"Kind": "date", "Hint": "use date && time to combine"})
 	case leftKind == "time" && rightKind == "time":
-		return newErrorWithPos(tok, "cannot intersect two times - use date && time to combine")
+		return newOperatorError("OP-0012", map[string]any{"Kind": "time", "Hint": "use date && time to combine"})
 	case leftKind == "datetime" && rightKind == "datetime":
-		return newErrorWithPos(tok, "cannot intersect two datetimes - ambiguous which components to use")
+		return newOperatorError("OP-0012", map[string]any{"Kind": "datetime", "Hint": "ambiguous which components to use"})
 	default:
-		return newErrorWithPos(tok, "unknown datetime kinds: %s && %s", leftKind, rightKind)
+		return newOperatorError("OP-0001", map[string]any{"LeftType": leftKind, "Operator": "&&", "RightType": rightKind})
 	}
 
 	return timeToDictWithKind(resultTime, "datetime", env)
@@ -7792,7 +7792,7 @@ func evalDatetimeIntegerInfixExpression(tok lexer.Token, operator string, dt *Di
 		newTime := time.Unix(unixTime-seconds.Value, 0).UTC()
 		return timeToDictWithKind(newTime, kind, env)
 	default:
-		return newErrorWithPos(tok, "unknown operator for datetime and integer: %s", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "datetime", "RightType": "integer", "Operator": operator, "Supported": "+, -"})
 	}
 }
 
@@ -7813,7 +7813,7 @@ func evalIntegerDatetimeInfixExpression(tok lexer.Token, operator string, second
 		newTime := time.Unix(unixTime+seconds.Value, 0).UTC()
 		return timeToDictWithKind(newTime, kind, env)
 	default:
-		return newErrorWithPos(tok, "unknown operator for integer and datetime: %s", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "integer", "RightType": "datetime", "Operator": operator, "Supported": "+"})
 	}
 }
 
@@ -7839,7 +7839,7 @@ func evalDurationInfixExpression(tok lexer.Token, operator string, left, right *
 	case "<", ">", "<=", ">=", "==", "!=":
 		// Comparison only allowed for pure-seconds durations (no months)
 		if leftMonths != 0 || rightMonths != 0 {
-			return newErrorWithPos(tok, "cannot compare durations with month components (months have variable length)")
+			return newOperatorError("OP-0013", map[string]any{})
 		}
 		switch operator {
 		case "<":
@@ -7857,7 +7857,7 @@ func evalDurationInfixExpression(tok lexer.Token, operator string, left, right *
 		}
 	}
 
-	return newErrorWithPos(tok, "unknown operator for duration: %s", operator)
+	return newOperatorError("OP-0014", map[string]any{"Type": "duration", "Operator": operator})
 }
 
 // evalDurationIntegerInfixExpression handles duration * integer or duration / integer
@@ -7874,11 +7874,11 @@ func evalDurationIntegerInfixExpression(tok lexer.Token, operator string, dur *D
 		return durationToDict(months*num.Value, seconds*num.Value, env)
 	case "/":
 		if num.Value == 0 {
-			return newErrorWithPos(tok, "division by zero")
+			return newOperatorError("OP-0002", map[string]any{})
 		}
 		return durationToDict(months/num.Value, seconds/num.Value, env)
 	default:
-		return newErrorWithPos(tok, "unknown operator for duration and integer: %s", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "duration", "RightType": "integer", "Operator": operator, "Supported": "*, /"})
 	}
 }
 
@@ -7923,7 +7923,7 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 		}
 		return timeToDictWithKind(t, kind, env)
 	default:
-		return newErrorWithPos(tok, "unknown operator for datetime and duration: %s", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "datetime", "RightType": "duration", "Operator": operator, "Supported": "+, -"})
 	}
 }
 
@@ -7940,7 +7940,7 @@ func evalPathInfixExpression(tok lexer.Token, operator string, left, right *Dict
 		rightStr := pathDictToString(right)
 		return nativeBoolToParsBoolean(leftStr != rightStr)
 	default:
-		return newErrorWithPos(tok, "unknown operator for path: %s (supported: ==, !=)", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "path", "RightType": "path", "Operator": operator, "Supported": "==, !="})
 	}
 }
 
@@ -7957,22 +7957,22 @@ func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dicti
 		// Get current components
 		componentsExpr, ok := path.Pairs["components"]
 		if !ok {
-			return newErrorWithPos(tok, "path dictionary missing components field")
+			return newValidationError("VAL-0017", map[string]any{"Type": "path", "Field": "components"})
 		}
 		componentsObj := Eval(componentsExpr, env)
 		if componentsObj.Type() != ARRAY_OBJ {
-			return newErrorWithPos(tok, "path components is not an array")
+			return newValidationError("VAL-0018", map[string]any{"Field": "path components", "Expected": "array", "Got": componentsObj.Type()})
 		}
 		componentsArr := componentsObj.(*Array)
 
 		// Get absolute flag
 		absoluteExpr, ok := path.Pairs["absolute"]
 		if !ok {
-			return newErrorWithPos(tok, "path dictionary missing absolute field")
+			return newValidationError("VAL-0017", map[string]any{"Type": "path", "Field": "absolute"})
 		}
 		absoluteObj := Eval(absoluteExpr, env)
 		if absoluteObj.Type() != BOOLEAN_OBJ {
-			return newErrorWithPos(tok, "path absolute is not a boolean")
+			return newValidationError("VAL-0018", map[string]any{"Field": "path absolute", "Expected": "boolean", "Got": absoluteObj.Type()})
 		}
 		isAbsolute := absoluteObj.(*Boolean).Value
 
@@ -7996,7 +7996,7 @@ func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dicti
 
 		return pathToDict(newComponents, isAbsolute, env)
 	default:
-		return newErrorWithPos(tok, "unknown operator for path and string: %s (supported: +, /)", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "path", "RightType": "string", "Operator": operator, "Supported": "+, /"})
 	}
 }
 
@@ -8013,7 +8013,7 @@ func evalUrlInfixExpression(tok lexer.Token, operator string, left, right *Dicti
 		rightStr := urlDictToString(right)
 		return nativeBoolToParsBoolean(leftStr != rightStr)
 	default:
-		return newErrorWithPos(tok, "unknown operator for url: %s (supported: ==, !=)", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "url", "RightType": "url", "Operator": operator, "Supported": "==, !="})
 	}
 }
 
@@ -8030,11 +8030,11 @@ func evalUrlStringInfixExpression(tok lexer.Token, operator string, urlDict *Dic
 		// Get current path array
 		pathExpr, ok := urlDict.Pairs["path"]
 		if !ok {
-			return newErrorWithPos(tok, "url dictionary missing path field")
+			return newValidationError("VAL-0017", map[string]any{"Type": "url", "Field": "path"})
 		}
 		pathObj := Eval(pathExpr, env)
 		if pathObj.Type() != ARRAY_OBJ {
-			return newErrorWithPos(tok, "url path is not an array")
+			return newValidationError("VAL-0018", map[string]any{"Field": "url path", "Expected": "array", "Got": pathObj.Type()})
 		}
 		pathArr := pathObj.(*Array)
 
@@ -8073,7 +8073,7 @@ func evalUrlStringInfixExpression(tok lexer.Token, operator string, urlDict *Dic
 
 		return &Dictionary{Pairs: pairs, Env: env}
 	default:
-		return newErrorWithPos(tok, "unknown operator for url and string: %s (supported: +)", operator)
+		return newOperatorError("OP-0015", map[string]any{"LeftType": "url", "RightType": "string", "Operator": operator, "Supported": "+"})
 	}
 }
 
@@ -8748,22 +8748,6 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 	return &Array{Elements: result}
 }
 
-// newError creates an unstructured error (DEPRECATED - use structured errors instead).
-// This function exists only for unmigrated code in methods.go.
-// TODO: Migrate methods.go to structured errors, then remove this function.
-func newError(format string, a ...interface{}) *Error {
-	return &Error{Message: fmt.Sprintf(format, a...)}
-}
-
-// newErrorWithPos creates an error with position information from a token
-func newErrorWithPos(tok lexer.Token, format string, a ...interface{}) *Error {
-	return &Error{
-		Message: fmt.Sprintf(format, a...),
-		Line:    tok.Line,
-		Column:  tok.Column,
-	}
-}
-
 // newErrorWithClass creates an error with a specific class.
 func newErrorWithClass(class ErrorClass, format string, a ...interface{}) *Error {
 	return &Error{
@@ -9070,6 +9054,18 @@ func newUndefinedComponentError(name string) *Error {
 
 // newUndefinedError creates a structured error for undefined properties/methods.
 func newUndefinedError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newOperatorError creates a structured error for operator errors.
+func newOperatorError(code string, data map[string]any) *Error {
 	perr := perrors.New(code, data)
 	return &Error{
 		Class:   ErrorClass(perr.Class),
@@ -10577,7 +10573,7 @@ func evalInExpression(tok lexer.Token, left, right Object) Object {
 	case *Dictionary:
 		// Check if left is a key in the dictionary
 		if left.Type() != STRING_OBJ {
-			return newErrorWithPos(tok, "dictionary key must be a string, got %s", left.Type())
+			return newOperatorError("OP-0017", map[string]any{"Got": left.Type()})
 		}
 		key := left.(*String).Value
 		if _, ok := r.Pairs[key]; ok {
@@ -10587,7 +10583,7 @@ func evalInExpression(tok lexer.Token, left, right Object) Object {
 	case *String:
 		// Check if left is a substring of right
 		if left.Type() != STRING_OBJ {
-			return newErrorWithPos(tok, "substring must be a string, got %s", left.Type())
+			return newOperatorError("OP-0018", map[string]any{"Got": left.Type()})
 		}
 		substring := left.(*String).Value
 		if strings.Contains(r.Value, substring) {
@@ -10595,7 +10591,7 @@ func evalInExpression(tok lexer.Token, left, right Object) Object {
 		}
 		return FALSE
 	default:
-		return newErrorWithPos(tok, "'in' operator requires array, dictionary, or string on right side, got %s", right.Type())
+		return newOperatorError("OP-0016", map[string]any{"Got": right.Type()})
 	}
 }
 
@@ -10640,7 +10636,7 @@ func evalArrayIndexExpression(tok lexer.Token, array, index Object, optional boo
 		if optional {
 			return NULL
 		}
-		return newErrorWithPos(tok, "index out of range: %d", index.(*Integer).Value)
+		return newIndexError("INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
 	}
 
 	return arrayObject.Elements[idx]
@@ -10662,7 +10658,7 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 		if optional {
 			return NULL
 		}
-		return newErrorWithPos(tok, "index out of range: %d", index.(*Integer).Value)
+		return newIndexError("INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
 	}
 
 	return &String{Value: string(stringObject.Value[idx])}
@@ -10852,13 +10848,13 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 				Options:    sftpHandle.Options,
 			}
 		}
-		return newErrorWithPos(node.Token, "unknown property for SFTP file handle: %s", node.Key)
+		return newUndefinedError("UNDEF-0004", map[string]any{"Property": node.Key, "Type": "SFTP file handle"})
 	}
 
 	// Handle Dictionary (including special types like datetime, path, url)
 	dict, ok := left.(*Dictionary)
 	if !ok {
-		return newErrorWithPos(node.Token, "dot notation can only be used on dictionaries, got %s", left.Type())
+		return newStructuredError("TYPE-0022", map[string]any{"Got": left.Type()})
 	}
 
 	// Handle HTTP method accessors for request dictionaries
@@ -13617,7 +13613,7 @@ func evalArrayChunking(tok lexer.Token, array *Array, size *Integer) Object {
 	chunkSize := int(size.Value)
 
 	if chunkSize <= 0 {
-		return newErrorWithPos(tok, "chunk size must be > 0, got %d", chunkSize)
+		return newValidationError("VAL-0012", map[string]any{"Got": chunkSize})
 	}
 
 	result := []Object{}
@@ -13669,10 +13665,10 @@ func evalArrayRepetition(array *Array, count *Integer) Object {
 // evalRangeExpression creates an inclusive range from start to end
 func evalRangeExpression(tok lexer.Token, left, right Object) Object {
 	if left.Type() != INTEGER_OBJ {
-		return newErrorWithPos(tok, "range start must be an integer, got %s", left.Type())
+		return newValidationError("VAL-0013", map[string]any{"Got": left.Type()})
 	}
 	if right.Type() != INTEGER_OBJ {
-		return newErrorWithPos(tok, "range end must be an integer, got %s", right.Type())
+		return newValidationError("VAL-0014", map[string]any{"Got": right.Type()})
 	}
 
 	start := left.(*Integer).Value

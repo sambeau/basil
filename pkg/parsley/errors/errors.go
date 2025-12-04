@@ -301,6 +301,14 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "{{.Context}} must be {{.Expected}}, got {{.Got}}",
 	},
+	"TYPE-0021": {
+		Class:    ClassType,
+		Template: "'{{.Name}}' is not a function",
+	},
+	"TYPE-0022": {
+		Class:    ClassType,
+		Template: "dot notation can only be used on dictionaries, got {{.Got}}",
+	},
 
 	// ========================================
 	// Arity errors (ARITY-0xxx)
@@ -611,6 +619,63 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassOperator,
 		Template: "cannot negate {{.Type}}",
 	},
+	"OP-0005": {
+		Class:    ClassOperator,
+		Template: "unknown prefix operator: {{.Operator}}{{.Type}}",
+	},
+	"OP-0006": {
+		Class:    ClassOperator,
+		Template: "modulo by zero",
+	},
+	"OP-0007": {
+		Class:    ClassOperator,
+		Template: "left operand of {{.Operator}} must be {{.Expected}}, got {{.Got}}",
+	},
+	"OP-0008": {
+		Class:    ClassOperator,
+		Template: "right operand of {{.Operator}} must be {{.Expected}}, got {{.Got}}",
+	},
+	"OP-0009": {
+		Class:    ClassOperator,
+		Template: "type mismatch: {{.LeftType}} {{.Operator}} {{.RightType}}",
+	},
+	"OP-0010": {
+		Class:    ClassOperator,
+		Template: "unsupported type for mixed arithmetic: {{.Type}}",
+	},
+	"OP-0011": {
+		Class:    ClassOperator,
+		Template: "cannot add duration to datetime (use datetime + duration instead)",
+		Hints:    []string{"datetime + duration is supported", "duration + datetime is not supported"},
+	},
+	"OP-0012": {
+		Class:    ClassOperator,
+		Template: "cannot intersect two {{.Kind}}s - {{.Hint}}",
+	},
+	"OP-0013": {
+		Class:    ClassOperator,
+		Template: "cannot compare durations with month components (months have variable length)",
+	},
+	"OP-0014": {
+		Class:    ClassOperator,
+		Template: "unknown operator for {{.Type}}: {{.Operator}}",
+	},
+	"OP-0015": {
+		Class:    ClassOperator,
+		Template: "unknown operator for {{.LeftType}} and {{.RightType}}: {{.Operator}} (supported: {{.Supported}})",
+	},
+	"OP-0016": {
+		Class:    ClassOperator,
+		Template: "'in' operator requires array, dictionary, or string on right side, got {{.Got}}",
+	},
+	"OP-0017": {
+		Class:    ClassOperator,
+		Template: "dictionary key must be a string, got {{.Got}}",
+	},
+	"OP-0018": {
+		Class:    ClassOperator,
+		Template: "substring must be a string, got {{.Got}}",
+	},
 
 	// ========================================
 	// State errors (STATE-0xxx)
@@ -804,6 +869,35 @@ var ErrorCatalog = map[string]ErrorDef{
 	"VAL-0011": {
 		Class:    ClassValue,
 		Template: "{{.Function}} requires at least one column",
+	},
+	"VAL-0012": {
+		Class:    ClassValue,
+		Template: "chunk size must be > 0, got {{.Got}}",
+	},
+	"VAL-0013": {
+		Class:    ClassValue,
+		Template: "range start must be an integer, got {{.Got}}",
+	},
+	"VAL-0014": {
+		Class:    ClassValue,
+		Template: "range end must be an integer, got {{.Got}}",
+	},
+	"VAL-0015": {
+		Class:    ClassValue,
+		Template: "regex dictionary missing pattern field",
+		Hints:    []string{"regex dictionaries must have a 'pattern' field"},
+	},
+	"VAL-0016": {
+		Class:    ClassValue,
+		Template: "regex pattern must be a string, got {{.Got}}",
+	},
+	"VAL-0017": {
+		Class:    ClassValue,
+		Template: "{{.Type}} dictionary missing {{.Field}} field",
+	},
+	"VAL-0018": {
+		Class:    ClassValue,
+		Template: "{{.Field}} field must be {{.Expected}}, got {{.Got}}",
 	},
 
 	// ========================================
