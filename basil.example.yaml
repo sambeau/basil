@@ -10,6 +10,9 @@ logging:
   format: text
   output: stderr
 
+# SQLite database (path relative to config file)
+# sqlite: ./data.db
+
 # Public directory for static files
 # Paths under this directory are automatically rewritten to web-root URLs
 # e.g., @./public/images/foo.png → /images/foo.png in HTML output
@@ -29,15 +32,15 @@ public_dir: ./public
 
 # Developer profiles for per-developer overrides
 # Each developer can have their own port, database, handlers, etc.
-# Use with: basil --dev -as sam
+# Use with: basil --dev --profile sam
 # developers:
 #   sam:
 #     port: 3001
-#     database: sam.db
+#     sqlite: sam.db
 #     # handlers: sam-handlers  # Optional: use different handlers directory
 #     # static: sam-public      # Optional: use different static files directory
 #     logging:
 #       level: debug
 #   alex:
 #     port: 3002
-#     database: alex.db
+#     sqlite: alex.db

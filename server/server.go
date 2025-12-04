@@ -157,32 +157,23 @@ func (s *Server) Close() {
 	}
 }
 
-// initDatabase opens the database connection if configured.
+// initDatabase opens the SQLite database connection if configured.
 func (s *Server) initDatabase() error {
-	dbCfg := s.config.Database
-
 	// No database configured
-	if dbCfg.Driver == "" {
+	if s.config.SQLite == "" {
 		return nil
 	}
 
-	switch dbCfg.Driver {
-	case "sqlite":
-		return s.initSQLite(dbCfg.Path)
-	case "postgres", "mysql":
-		return fmt.Errorf("database driver %q not yet supported", dbCfg.Driver)
-	default:
-		return fmt.Errorf("unknown database driver %q", dbCfg.Driver)
-	}
+	return s.initSQLite(s.config.SQLite)
 }
 
 // initSQLite opens a SQLite database connection.
 func (s *Server) initSQLite(path string) error {
 	if path == "" {
-		return fmt.Errorf("sqlite requires database.path to be set")
+		return fmt.Errorf("sqlite path is empty")
 	}
 
-	// Resolve relative paths against config base directory
+	// Path should already be resolved by config loader, but handle relative just in case
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(s.config.BaseDir, path)
 	}

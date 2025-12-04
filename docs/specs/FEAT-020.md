@@ -36,8 +36,7 @@ static:
   - path: /static/
     root: ./public
 
-database:
-  path: ./data/production.db
+sqlite: ./data/production.db
 
 routes:
   - path: /
@@ -47,12 +46,12 @@ routes:
 developers:
   alice:
     port: 3001
-    database: ./data/alice.db
+    sqlite: ./data/alice.db
     # handlers and static inherited from base
     
   bob:
     port: 3002
-    database: ./data/bob.db
+    sqlite: ./data/bob.db
     handlers: ./handlers-experimental  # override
     
   shared:

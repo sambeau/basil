@@ -200,6 +200,91 @@ logging:
 	}
 }
 
+func TestLoadSQLiteConfig(t *testing.T) {
+	t.Run("parses sqlite path", func(t *testing.T) {
+		dir := t.TempDir()
+		configPath := filepath.Join(dir, "basil.yaml")
+
+		configContent := `
+server:
+  port: 8080
+sqlite: ./data.db
+logging:
+  level: info
+  format: text
+  output: stderr
+`
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			t.Fatalf("failed to write test config: %v", err)
+		}
+
+		cfg, err := Load(configPath, os.Getenv)
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+
+		// SQLite path should be resolved to absolute
+		expectedPath := filepath.Join(dir, "data.db")
+		if cfg.SQLite != expectedPath {
+			t.Errorf("expected sqlite path %q, got %q", expectedPath, cfg.SQLite)
+		}
+	})
+
+	t.Run("handles absolute sqlite path", func(t *testing.T) {
+		dir := t.TempDir()
+		configPath := filepath.Join(dir, "basil.yaml")
+
+		configContent := `
+server:
+  port: 8080
+sqlite: /var/data/app.db
+logging:
+  level: info
+  format: text
+  output: stderr
+`
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			t.Fatalf("failed to write test config: %v", err)
+		}
+
+		cfg, err := Load(configPath, os.Getenv)
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+
+		// Absolute path should remain unchanged
+		if cfg.SQLite != "/var/data/app.db" {
+			t.Errorf("expected sqlite path '/var/data/app.db', got %q", cfg.SQLite)
+		}
+	})
+
+	t.Run("empty sqlite is valid", func(t *testing.T) {
+		dir := t.TempDir()
+		configPath := filepath.Join(dir, "basil.yaml")
+
+		configContent := `
+server:
+  port: 8080
+logging:
+  level: info
+  format: text
+  output: stderr
+`
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			t.Fatalf("failed to write test config: %v", err)
+		}
+
+		cfg, err := Load(configPath, os.Getenv)
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+
+		if cfg.SQLite != "" {
+			t.Errorf("expected empty sqlite path, got %q", cfg.SQLite)
+		}
+	})
+}
+
 func TestValidation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -479,35 +564,35 @@ func TestApplyDeveloper(t *testing.T) {
 		}
 	})
 
-	t.Run("applies database override", func(t *testing.T) {
+	t.Run("applies sqlite override", func(t *testing.T) {
 		cfg := Defaults()
 		cfg.BaseDir = "/app"
 		cfg.Developers = map[string]DeveloperConfig{
-			"sam": {Database: "sam.db"},
+			"sam": {SQLite: "sam.db"},
 		}
 
 		if err := ApplyDeveloper(cfg, "sam"); err != nil {
 			t.Fatalf("ApplyDeveloper failed: %v", err)
 		}
 
-		if cfg.Database.Path != "/app/sam.db" {
-			t.Errorf("expected database path '/app/sam.db', got %q", cfg.Database.Path)
+		if cfg.SQLite != "/app/sam.db" {
+			t.Errorf("expected sqlite path '/app/sam.db', got %q", cfg.SQLite)
 		}
 	})
 
-	t.Run("applies absolute database path", func(t *testing.T) {
+	t.Run("applies absolute sqlite path", func(t *testing.T) {
 		cfg := Defaults()
 		cfg.BaseDir = "/app"
 		cfg.Developers = map[string]DeveloperConfig{
-			"sam": {Database: "/data/sam.db"},
+			"sam": {SQLite: "/data/sam.db"},
 		}
 
 		if err := ApplyDeveloper(cfg, "sam"); err != nil {
 			t.Fatalf("ApplyDeveloper failed: %v", err)
 		}
 
-		if cfg.Database.Path != "/data/sam.db" {
-			t.Errorf("expected database path '/data/sam.db', got %q", cfg.Database.Path)
+		if cfg.SQLite != "/data/sam.db" {
+			t.Errorf("expected sqlite path '/data/sam.db', got %q", cfg.SQLite)
 		}
 	})
 

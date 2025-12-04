@@ -36,10 +36,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg := config.Defaults()
 		cfg.BaseDir = tmpDir
 		cfg.Server.Dev = true
-		cfg.Database = config.DatabaseConfig{
-			Driver: "sqlite",
-			Path:   "test.db",
-		}
+		cfg.SQLite = "test.db"
 
 		var stdout, stderr bytes.Buffer
 		s, err := New(cfg, "", "test", &stdout, &stderr)
@@ -63,10 +60,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg := config.Defaults()
 		cfg.BaseDir = "/some/other/dir"
 		cfg.Server.Dev = true
-		cfg.Database = config.DatabaseConfig{
-			Driver: "sqlite",
-			Path:   dbPath, // Absolute path
-		}
+		cfg.SQLite = dbPath // Absolute path
 
 		var stdout, stderr bytes.Buffer
 		s, err := New(cfg, "", "test", &stdout, &stderr)
@@ -81,54 +75,6 @@ func TestDatabaseInit(t *testing.T) {
 		// Clean up
 		s.db.Close()
 	})
-
-	t.Run("unknown driver", func(t *testing.T) {
-		cfg := config.Defaults()
-		cfg.BaseDir = tmpDir
-		cfg.Server.Dev = true
-		cfg.Database = config.DatabaseConfig{
-			Driver: "mongodb",
-			Path:   "test.db",
-		}
-
-		var stdout, stderr bytes.Buffer
-		_, err := New(cfg, "", "test", &stdout, &stderr)
-		if err == nil {
-			t.Fatal("expected error for unknown driver")
-		}
-	})
-
-	t.Run("postgres not yet supported", func(t *testing.T) {
-		cfg := config.Defaults()
-		cfg.BaseDir = tmpDir
-		cfg.Server.Dev = true
-		cfg.Database = config.DatabaseConfig{
-			Driver: "postgres",
-			DSN:    "host=localhost",
-		}
-
-		var stdout, stderr bytes.Buffer
-		_, err := New(cfg, "", "test", &stdout, &stderr)
-		if err == nil {
-			t.Fatal("expected error for postgres (not yet supported)")
-		}
-	})
-
-	t.Run("sqlite missing path", func(t *testing.T) {
-		cfg := config.Defaults()
-		cfg.BaseDir = tmpDir
-		cfg.Server.Dev = true
-		cfg.Database = config.DatabaseConfig{
-			Driver: "sqlite",
-			// Path is empty
-		}
-
-		var stdout, stderr bytes.Buffer
-		_, err := New(cfg, "", "test", &stdout, &stderr)
-		if err == nil {
-			t.Fatal("expected error for missing sqlite path")
-		}
-	})
 }
 
 func TestDatabaseInHandler(t *testing.T) {
@@ -140,10 +86,7 @@ func TestDatabaseInHandler(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
-	cfg.Database = config.DatabaseConfig{
-		Driver: "sqlite",
-		Path:   dbPath,
-	}
+	cfg.SQLite = dbPath
 
 	// Create a test handler script that queries the database
 	handlersDir := filepath.Join(tmpDir, "handlers")
@@ -219,10 +162,7 @@ func TestDatabaseShutdown(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
-	cfg.Database = config.DatabaseConfig{
-		Driver: "sqlite",
-		Path:   dbPath,
-	}
+	cfg.SQLite = dbPath
 
 	var stdout, stderr bytes.Buffer
 	s, err := New(cfg, "", "test", &stdout, &stderr)
