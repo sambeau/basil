@@ -1153,6 +1153,10 @@ func (p *Parser) parseIfExpression() ast.Expression {
 		// Block form: if (...) { ... }
 		p.nextToken()
 		expression.Consequence = p.parseBlockStatement()
+	} else if !hasParens {
+		// Without parens, block braces are required
+		p.errors = append(p.errors, "if without parentheses requires braces: if condition { ... }\n  Use: if (condition) expr  OR  if condition { expr }")
+		return nil
 	} else {
 		// Single statement/expression form: if (...) expr or if (...) return expr
 		p.nextToken()
@@ -1417,11 +1421,9 @@ func (p *Parser) parseForExpression() ast.Expression {
 				return nil
 			}
 		} else {
-			// Without parens, need to parse array expression then function
-			// This form is tricky - we need the array then the function
-			// for arr fn  - how do we know where arr ends?
-			// For now, require parens for this form
-			p.errors = append(p.errors, "for(array) func form requires parentheses")
+			// Without parens, can't determine where array ends and function begins
+			// for arr fn  - is "fn" part of the array expression or the mapping function?
+			p.errors = append(p.errors, "for(array) func form requires parentheses (ambiguous without them)\n  Use: for (array) fn  OR  for x in array { ... }")
 			return nil
 		}
 
