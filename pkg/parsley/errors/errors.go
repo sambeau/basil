@@ -254,6 +254,16 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
 	},
+	"TYPE-0013": {
+		Class:    ClassType,
+		Template: "index operator not supported: {{.Left}}[{{.Right}}]",
+		Hints:    []string{"Arrays and strings can be indexed with integers", "Dictionaries can be indexed with strings"},
+	},
+	"TYPE-0014": {
+		Class:    ClassType,
+		Template: "slice operator not supported: {{.Type}}",
+		Hints:    []string{"Slicing works with arrays and strings"},
+	},
 
 	// ========================================
 	// Arity errors (ARITY-0xxx)

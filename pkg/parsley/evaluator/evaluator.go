@@ -3863,7 +3863,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: path literal
 				pathStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to `SQLITE` must be a path, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "SQLITE", "a path", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -3871,7 +3871,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to `SQLITE` must be a dictionary, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "SQLITE", "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -3939,7 +3939,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: URL literal
 				urlStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to POSTGRES must be a URL, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "POSTGRES", "a URL", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -3947,7 +3947,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to POSTGRES must be a dictionary, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "POSTGRES", "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4014,7 +4014,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: URL literal
 				urlStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to MYSQL must be a URL, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "MYSQL", "a URL", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -4022,7 +4022,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to MYSQL must be a dictionary, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "MYSQL", "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4091,7 +4091,7 @@ func getBuiltins() map[string]*Builtin {
 				switch arg := args[0].(type) {
 				case *Dictionary:
 					if !isUrlDict(arg) {
-						return newError("first argument to SFTP must be a URL, got dictionary")
+						return newTypeError("TYPE-0005", "SFTP", "a URL", DICTIONARY_OBJ)
 					}
 					// Extract URL string from dictionary
 					if schemeExpr, ok := arg.Pairs["scheme"]; ok {
@@ -4104,7 +4104,7 @@ func getBuiltins() map[string]*Builtin {
 				case *String:
 					urlStr = arg.Value
 				default:
-					return newError("first argument to SFTP must be a URL, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "SFTP", "a URL", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -4112,7 +4112,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to SFTP must be a dictionary, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "SFTP", "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4530,14 +4530,14 @@ func getBuiltins() map[string]*Builtin {
 						return newError("invalid datetime dictionary: %s", err)
 					}
 				default:
-					return newError("argument to `time` must be a string, integer, or dictionary, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "time", "a string, integer, or dictionary", args[0].Type())
 				}
 
 				// Apply delta if provided
 				if len(args) == 2 {
 					delta, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to `time` must be a dictionary, got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "time", "a dictionary", args[1].Type())
 					}
 					t = applyDelta(t, delta, env)
 				}
@@ -4553,7 +4553,7 @@ func getBuiltins() map[string]*Builtin {
 
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("argument to `url` must be a string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "url", "a string", args[0].Type())
 				}
 
 				env := NewEnvironment()
@@ -4579,14 +4579,14 @@ func getBuiltins() map[string]*Builtin {
 				switch arg := args[0].(type) {
 				case *Dictionary:
 					if !isPathDict(arg) {
-						return newError("first argument to `file` must be a path, got dictionary")
+						return newTypeError("TYPE-0005", "file", "a path", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `file` must be a path or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "file", "a path or string", args[0].Type())
 				}
 
 				// Get the path string for format inference
@@ -4636,13 +4636,13 @@ func getBuiltins() map[string]*Builtin {
 						// Path dictionary - create file handle
 						return fileToDict(arg, "json", options, env)
 					}
-					return newError("first argument to `JSON` must be a path or URL, got dictionary")
+					return newTypeError("TYPE-0005", "JSON", "a path or URL", DICTIONARY_OBJ)
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict := pathToDict(components, isAbsolute, env)
 					return fileToDict(pathDict, "json", options, env)
 				default:
-					return newError("first argument to `JSON` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "JSON", "a path, URL, or string", args[0].Type())
 				}
 			},
 		},
@@ -4672,14 +4672,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "yaml", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `YAML` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "YAML", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `YAML` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "YAML", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "yaml", options, env)
@@ -4711,14 +4711,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "csv", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `CSV` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "CSV", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `CSV` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "CSV", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "csv", options, env)
@@ -4750,14 +4750,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "lines", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `lines` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "lines", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `lines` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "lines", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "lines", options, env)
@@ -4789,14 +4789,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "text", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `text` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "text", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `text` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "text", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "text", options, env)
@@ -4828,14 +4828,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "bytes", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `bytes` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "bytes", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `bytes` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "bytes", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "bytes", options, env)
@@ -4868,14 +4868,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "svg", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `SVG` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "SVG", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `SVG` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "SVG", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "svg", options, env)
@@ -4908,14 +4908,14 @@ func getBuiltins() map[string]*Builtin {
 						return requestToDict(arg, "md", options, env)
 					}
 					if !isPathDict(arg) {
-						return newError("first argument to `MD` must be a path or URL, got dictionary")
+						return newTypeError("TYPE-0005", "MD", "a path or URL", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("first argument to `MD` must be a path, URL, or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0005", "MD", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "md", options, env)
@@ -4935,14 +4935,14 @@ func getBuiltins() map[string]*Builtin {
 				switch arg := args[0].(type) {
 				case *Dictionary:
 					if !isPathDict(arg) {
-						return newError("argument to `dir` must be a path, got dictionary")
+						return newTypeError("TYPE-0012", "dir", "a path", DICTIONARY_OBJ)
 					}
 					pathDict = arg
 				case *String:
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newError("argument to `dir` must be a path or string, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "dir", "a path or string", args[0].Type())
 				}
 
 				return dirToDict(pathDict, env)
@@ -4969,13 +4969,13 @@ func getBuiltins() map[string]*Builtin {
 						}
 						pattern = pathDictToString(arg)
 					} else {
-						return newError("argument to `files` must be a path or string pattern, got dictionary")
+						return newTypeError("TYPE-0012", "files", "a path or string pattern", DICTIONARY_OBJ)
 					}
 				case *String:
 					pattern = arg.Value
 					env = NewEnvironment()
 				default:
-					return newError("argument to `files` must be a path or string pattern, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "files", "a path or string pattern", args[0].Type())
 				}
 
 				// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
@@ -5530,7 +5530,7 @@ func getBuiltins() map[string]*Builtin {
 						// No attributes, use empty dict
 						pairs["attrs"] = createLiteralExpression(&Dictionary{Pairs: map[string]ast.Expression{}, Env: NewEnvironment()})
 					default:
-						return newError("second argument to `tag` must be a dictionary (attributes), got %s", args[1].Type())
+						return newTypeError("TYPE-0006", "tag", "a dictionary (attributes)", args[1].Type())
 					}
 				} else {
 					pairs["attrs"] = createLiteralExpression(&Dictionary{Pairs: map[string]ast.Expression{}, Env: NewEnvironment()})
@@ -5603,12 +5603,12 @@ func getBuiltins() map[string]*Builtin {
 						}
 						return newError("could not extract path from file")
 					}
-					return newError("argument to `asset` must be a path or file, got dictionary")
+					return newTypeError("TYPE-0012", "asset", "a path or file", DICTIONARY_OBJ)
 				case *String:
 					// If it's already a string, just return it
 					return arg
 				default:
-					return newError("argument to `asset` must be a path or file, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "asset", "a path or file", args[0].Type())
 				}
 			},
 		},
@@ -8226,13 +8226,13 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		switch arg := args[0].(type) {
 		case *Dictionary:
 			if !isPathDict(arg) {
-				return newError("argument to SFTP connection must be a path, got dictionary")
+				return newTypeError("TYPE-0012", "SFTP connection", "a path", DICTIONARY_OBJ)
 			}
 			pathStr = pathDictToString(arg)
 		case *String:
 			pathStr = arg.Value
 		default:
-			return newError("argument to SFTP connection must be a path, got %s", arg.Type())
+			return newTypeError("TYPE-0012", "SFTP connection", "a path", arg.Type())
 		}
 
 		// Return SFTP file handle
@@ -8266,15 +8266,15 @@ func evalImport(args []Object, env *Environment) Object {
 			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
 				pathStr = pathDictToString(arg)
 			} else {
-				return newError("argument to `import` must be a path or string, got dictionary")
+				return newTypeError("TYPE-0012", "import", "a path or string", DICTIONARY_OBJ)
 			}
 		} else {
-			return newError("argument to `import` must be a path or string, got dictionary")
+			return newTypeError("TYPE-0012", "import", "a path or string", DICTIONARY_OBJ)
 		}
 	case *String:
 		pathStr = arg.Value
 	default:
-		return newError("argument to `import` must be a path or string, got %s", arg.Type())
+		return newTypeError("TYPE-0012", "import", "a path or string", arg.Type())
 	}
 
 	// Check for standard library imports (@std/modulename)
@@ -8860,6 +8860,37 @@ func newTypeError(code, function, expected string, got ObjectType) *Error {
 		"Function": function,
 		"Expected": expected,
 		"Got":      perrors.TypeName(string(got)),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newIndexTypeError creates a structured error for unsupported index operations.
+func newIndexTypeError(tok lexer.Token, left, index ObjectType) *Error {
+	perr := perrors.New("TYPE-0013", map[string]any{
+		"Left":  perrors.TypeName(string(left)),
+		"Right": perrors.TypeName(string(index)),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+		Line:    tok.Line,
+		Column:  tok.Column,
+	}
+}
+
+// newSliceTypeError creates a structured error for unsupported slice operations.
+func newSliceTypeError(left ObjectType) *Error {
+	perr := perrors.New("TYPE-0014", map[string]any{
+		"Type": perrors.TypeName(string(left)),
 	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
@@ -10120,7 +10151,7 @@ func evalIndexExpression(tok lexer.Token, left, index Object, optional bool) Obj
 	case left.Type() == DICTIONARY_OBJ && index.Type() == STRING_OBJ:
 		return evalDictionaryIndexExpression(left, index, optional)
 	default:
-		return newErrorWithPos(tok, "index operator not supported: %s[%s]", left.Type(), index.Type())
+		return newIndexTypeError(tok, left.Type(), index.Type())
 	}
 }
 
@@ -10176,7 +10207,7 @@ func evalSliceExpression(left, start, end Object) Object {
 	case STRING_OBJ:
 		return evalStringSliceExpression(left, start, end)
 	default:
-		return newError("slice operator not supported: %s", left.Type())
+		return newSliceTypeError(left.Type())
 	}
 }
 
