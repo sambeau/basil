@@ -1,7 +1,8 @@
 # FEAT-023: Structured Error Objects
 
-**Status:** Implemented (Phase 1-4)  
+**Status:** Implemented (Phase 1-5 Complete)  
 **Created:** 2025-12-04  
+**Updated:** 2025-12-04  
 **Author:** AI Assistant  
 
 ## Summary
@@ -724,17 +725,47 @@ The structured error object enables both formats from the same data.
   - SEC-0006 (SFTP auth)
 - 95 error sites remaining for migration
 
+### Phase 5: Complete Migration (2025-12-04)
+
+Completed full migration of all `newError()` calls in the evaluator package:
+
+**Files migrated:**
+- `methods.go`: 105 → 0 newError() calls
+- `stdlib_dev.go`: 11 → 0 newError() calls  
+- `stdlib_table.go`: 43 → 0 newError() calls
+- `evaluator.go`: 58 → 0 newErrorWithPos() calls
+
+**Deprecated functions removed:**
+- `newError()` - removed entirely
+- `newErrorWithPos()` - removed entirely
+
+**New error codes added:**
+- Operator errors: OP-0005 through OP-0018
+- Validation errors: VAL-0004 through VAL-0018
+- Type errors: TYPE-0019 through TYPE-0022
+- Arity error: ARITY-0006
+
+**New helper functions:**
+- `newOperatorError()` - for operator-related errors
+- `newUndefinedError()` - for undefined property/method errors
+- `newArityErrorExact()` - for exact argument count errors
+
+**Total migration:**
+- All evaluator package `newError()` calls now use structured errors
+- ~217 additional error sites migrated in this phase
+- Error codes provide programmatic error handling capability
+
 ### Remaining Work
 
-1. **Complete error migration** - 95 remaining sites including:
-   - Command handle errors (~12 sites)
-   - For loop errors (~7 sites)
-   - Import/module errors (~6 sites)
-   - File/write operator errors (~25 sites)
-   - Database operator errors (~15 sites)
-   - Miscellaneous errors (~30 sites)
+1. ~~**Complete error migration** - 95 remaining sites including:~~
+   ~~- Command handle errors (~12 sites)~~
+   ~~- For loop errors (~7 sites)~~
+   ~~- Import/module errors (~6 sites)~~
+   ~~- File/write operator errors (~25 sites)~~
+   ~~- Database operator errors (~15 sites)~~
+   ~~- Miscellaneous errors (~30 sites)~~
 2. **Update error messages** - Apply improved message formats from the spec
-3. **Documentation** - Document all error codes in reference
+3. **Documentation** - Document all error codes in reference ✅ (see docs/parsley/error-codes.md)
 
 ## Notes
 
