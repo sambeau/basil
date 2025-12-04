@@ -1794,7 +1794,7 @@ func evalUrlLiteral(node *ast.UrlLiteral, env *Environment) Object {
 	// Parse the URL string
 	urlDict, err := parseUrlString(node.Value, env)
 	if err != nil {
-		return newError("invalid URL literal: %s", err.Error())
+		return newFormatError("FMT-0003", err)
 	}
 
 	return urlDict
@@ -1832,7 +1832,7 @@ func evalUrlTemplateLiteral(node *ast.UrlTemplateLiteral, env *Environment) Obje
 	// Parse the URL string
 	urlDict, err := parseUrlString(urlStr, env)
 	if err != nil {
-		return newError("invalid URL in template: %s", err.Error())
+		return newFormatError("FMT-0003", err)
 	}
 
 	return urlDict
@@ -1927,7 +1927,7 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 			}
 
 			if braceCount != 0 {
-				return newError("unclosed { in path/URL template")
+				return newParseError("PARSE-0009", "path/URL template", nil)
 			}
 
 			// Extract and evaluate the expression
@@ -1936,7 +1936,7 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 
 			// Handle empty interpolation
 			if strings.TrimSpace(exprStr) == "" {
-				return newError("empty interpolation {} in path/URL template")
+				return newParseError("PARSE-0010", "path/URL template", nil)
 			}
 
 			// Parse and evaluate the expression
@@ -1945,7 +1945,7 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if len(p.Errors()) > 0 {
-				return newError("error parsing template expression: %s", p.Errors()[0])
+				return newParseError("PARSE-0011", "template", fmt.Errorf("%s", p.Errors()[0]))
 			}
 
 			// Evaluate the expression
@@ -9036,6 +9036,79 @@ func newFormatErrorWithPos(code string, tok lexer.Token, err error) *Error {
 	}
 }
 
+// newParseError creates a structured parse error for template syntax issues.
+func newParseError(code string, context string, err error) *Error {
+	data := map[string]any{
+		"Context": context,
+	}
+	if err != nil {
+		data["GoError"] = err.Error()
+	}
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newConversionError creates a structured type error for value conversion failures.
+func newConversionError(code string, value string) *Error {
+	perr := perrors.New(code, map[string]any{
+		"Value": value,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newNetworkError creates a structured network error.
+func newNetworkError(code string, err error) *Error {
+	perr := perrors.New(code, map[string]any{
+		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newSliceIndexTypeError creates a structured type error for slice index type issues.
+func newSliceIndexTypeError(position string, got string) *Error {
+	perr := perrors.New("TYPE-0018", map[string]any{
+		"Position": position,
+		"Got":      got,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newIndexError creates a structured index error.
+func newIndexError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // enrichErrorWithPos adds position info to an error that doesn't have it.
 // This is useful for wrapping errors from builtins at the call site.
 func enrichErrorWithPos(obj Object, tok *lexer.Token) Object {
@@ -9242,7 +9315,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			}
 
 			if braceCount != 0 {
-				return newError("unclosed { in template literal")
+				return newParseError("PARSE-0009", "template literal", nil)
 			}
 
 			// Extract and evaluate the expression
@@ -9255,7 +9328,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if len(p.Errors()) > 0 {
-				return newError("error parsing template expression: %s", p.Errors()[0])
+				return newParseError("PARSE-0011", "template", fmt.Errorf("%s", p.Errors()[0]))
 			}
 
 			// Evaluate the expression
@@ -9534,7 +9607,7 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			}
 
 			if braceCount != 0 {
-				return newError("unclosed { in tag props")
+				return newParseError("PARSE-0009", "tag props", nil)
 			}
 
 			// Extract and evaluate the expression
@@ -9547,7 +9620,7 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if len(p.Errors()) > 0 {
-				return newError("error parsing tag prop expression: %s", p.Errors()[0])
+				return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
 			}
 
 			// Evaluate the expression
@@ -9681,7 +9754,7 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 			}
 
 			if braceCount != 0 {
-				return newError("unclosed { in tag")
+				return newParseError("PARSE-0009", "tag", nil)
 			}
 
 			// Extract and evaluate the expression
@@ -9694,7 +9767,7 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if len(p.Errors()) > 0 {
-				return newError("error parsing tag expression: %s", p.Errors()[0])
+				return newParseError("PARSE-0011", "tag", fmt.Errorf("%s", p.Errors()[0]))
 			}
 
 			// Evaluate the expression
@@ -9866,7 +9939,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 						program := p.ParseProgram()
 
 						if len(p.Errors()) > 0 {
-							return newError("error parsing tag prop expression: %s", p.Errors()[0])
+							return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
 						}
 
 						// Store as expression statement
@@ -9916,7 +9989,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 				}
 
 				if braceCount != 0 {
-					return newError("unclosed {...} in tag spread operator")
+					return newParseError("PARSE-0009", "tag spread operator", nil)
 				}
 
 				exprStr := propsStr[exprStart:i]
@@ -9928,7 +10001,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 				program := p.ParseProgram()
 
 				if len(p.Errors()) > 0 {
-					return newError("error parsing tag spread expression: %s", p.Errors()[0])
+					return newParseError("PARSE-0011", "tag spread", fmt.Errorf("%s", p.Errors()[0]))
 				}
 
 				if len(program.Statements) > 0 {
@@ -9982,7 +10055,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 			}
 
 			if braceCount != 0 {
-				return newError("unclosed { in tag prop")
+				return newParseError("PARSE-0009", "tag prop", nil)
 			}
 
 			exprStr := propsStr[exprStart:i]
@@ -9994,7 +10067,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if len(p.Errors()) > 0 {
-				return newError("error parsing tag prop expression: %s", p.Errors()[0])
+				return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
 			}
 
 			// Store as expression statement

@@ -200,6 +200,18 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "singleton tag must be self-closing",
 		Hints:    []string{"<{{.Tag}}/>"},
 	},
+	"PARSE-0009": {
+		Class:    ClassParse,
+		Template: "unclosed { in {{.Context}}",
+	},
+	"PARSE-0010": {
+		Class:    ClassParse,
+		Template: "empty interpolation {} in {{.Context}}",
+	},
+	"PARSE-0011": {
+		Class:    ClassParse,
+		Template: "error parsing {{.Context}} expression: {{.GoError}}",
+	},
 
 	// ========================================
 	// Type errors (TYPE-0xxx)
@@ -263,6 +275,22 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "slice operator not supported: {{.Type}}",
 		Hints:    []string{"Slicing works with arrays and strings"},
+	},
+	"TYPE-0015": {
+		Class:    ClassType,
+		Template: "cannot convert '{{.Value}}' to integer",
+	},
+	"TYPE-0016": {
+		Class:    ClassType,
+		Template: "cannot convert '{{.Value}}' to float",
+	},
+	"TYPE-0017": {
+		Class:    ClassType,
+		Template: "cannot convert '{{.Value}}' to number",
+	},
+	"TYPE-0018": {
+		Class:    ClassType,
+		Template: "slice {{.Position}} index must be an integer, got {{.Got}}",
 	},
 
 	// ========================================
@@ -409,6 +437,26 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassNetwork,
 		Template: "HTTP {{.Method}} {{.URL}} returned {{.StatusCode}}",
 	},
+	"NET-0005": {
+		Class:    ClassNetwork,
+		Template: "SFTP: {{.GoError}}",
+	},
+	"NET-0006": {
+		Class:    ClassNetwork,
+		Template: "failed to read SSH key file: {{.GoError}}",
+	},
+	"NET-0007": {
+		Class:    ClassNetwork,
+		Template: "failed to parse SSH key: {{.GoError}}",
+	},
+	"NET-0008": {
+		Class:    ClassNetwork,
+		Template: "failed to load known_hosts: {{.GoError}}",
+	},
+	"NET-0009": {
+		Class:    ClassNetwork,
+		Template: "failed to create SFTP client: {{.GoError}}",
+	},
 
 	// ========================================
 	// Security errors (SEC-0xxx)
@@ -437,6 +485,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassSecurity,
 		Template: "security: network access denied",
 		Hints:    []string{"use --allow-net or -n to allow network access"},
+	},
+	"SEC-0006": {
+		Class:    ClassSecurity,
+		Template: "SFTP requires authentication: provide keyFile or password in options",
 	},
 
 	// ========================================
