@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
@@ -61,7 +62,8 @@ var precedences = map[lexer.TokenType]int{
 type Parser struct {
 	l *lexer.Lexer
 
-	errors []string
+	errors           []string          // Legacy string errors (for backward compatibility)
+	structuredErrors []*perrors.ParsleyError // Structured errors
 
 	prevToken lexer.Token
 	curToken  lexer.Token
@@ -149,9 +151,68 @@ func New(l *lexer.Lexer) *Parser {
 	return p
 }
 
-// Errors returns parser errors
+// Errors returns parser errors as strings (for backward compatibility)
 func (p *Parser) Errors() []string {
 	return p.errors
+}
+
+// StructuredErrors returns parser errors as structured ParsleyError objects.
+func (p *Parser) StructuredErrors() []*perrors.ParsleyError {
+	return p.structuredErrors
+}
+
+// addError adds both a string error and a structured error.
+func (p *Parser) addError(msg string, line, column int) {
+	// Add string error for backward compatibility
+	if line > 0 {
+		p.errors = append(p.errors, fmt.Sprintf("line %d, column %d: %s", line, column, msg))
+	} else {
+		p.errors = append(p.errors, msg)
+	}
+
+	// Add structured error
+	p.structuredErrors = append(p.structuredErrors, &perrors.ParsleyError{
+		Class:   perrors.ClassParse,
+		Message: msg,
+		Line:    line,
+		Column:  column,
+	})
+}
+
+// addStructuredError adds a structured error from the catalog.
+func (p *Parser) addStructuredError(code string, line, column int, data map[string]any) {
+	perr := perrors.NewWithPosition(code, line, column, data)
+
+	// Add string error for backward compatibility
+	p.errors = append(p.errors, perr.String())
+
+	// Add structured error
+	p.structuredErrors = append(p.structuredErrors, perr)
+}
+
+// addErrorWithHints adds an error with hints.
+func (p *Parser) addErrorWithHints(msg string, line, column int, hints ...string) {
+	// Add string error for backward compatibility
+	var sb strings.Builder
+	if line > 0 {
+		sb.WriteString(fmt.Sprintf("line %d, column %d: %s", line, column, msg))
+	} else {
+		sb.WriteString(msg)
+	}
+	for _, hint := range hints {
+		sb.WriteString("\n  ")
+		sb.WriteString(hint)
+	}
+	p.errors = append(p.errors, sb.String())
+
+	// Add structured error
+	p.structuredErrors = append(p.structuredErrors, &perrors.ParsleyError{
+		Class:   perrors.ClassParse,
+		Message: msg,
+		Hints:   hints,
+		Line:    line,
+		Column:  column,
+	})
 }
 
 // registerPrefix registers a prefix parse function
@@ -1144,7 +1205,7 @@ func (p *Parser) parseIfExpression() ast.Expression {
 			return nil
 		}
 	} else {
-		// Without parens, we need to parse until we hit '{' 
+		// Without parens, we need to parse until we hit '{'
 		// Use a precedence that stops at LBRACE
 		expression.Condition = p.parseExpressionUntilBrace()
 	}
@@ -1395,9 +1456,16 @@ func (p *Parser) parseForExpression() ast.Expression {
 		}
 
 		// Parse body - must be a block expression
-		if !p.expectPeek(lexer.LBRACE) {
+		if !p.peekTokenIs(lexer.LBRACE) {
+			// Give a helpful error - user probably wrote for (x in arr) expr instead of for x in arr { expr }
+			if hasParens {
+				p.errors = append(p.errors, "for (var in array) requires a { } block body, not an expression\n  Use: for x in array { ... }  (parentheses are optional)")
+			} else {
+				p.errors = append(p.errors, fmt.Sprintf("expected '{' after for expression, got '%s'", p.peekToken.Literal))
+			}
 			return nil
 		}
+		p.nextToken()
 
 		// Create a function literal for the body
 		bodyFn := &ast.FunctionLiteral{

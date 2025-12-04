@@ -10,16 +10,36 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 )
 
 // DevError holds information about an error to display in dev mode.
 type DevError struct {
-	Type     string // "parse", "runtime", "file"
-	File     string // Full path to the file
-	Line     int    // Line number (0 if unknown)
-	Column   int    // Column number (0 if unknown)
-	Message  string // Error message
-	BasePath string // Base path for making paths relative (project root)
+	Type     string   // "parse", "runtime", "file"
+	File     string   // Full path to the file
+	Line     int      // Line number (0 if unknown)
+	Column   int      // Column number (0 if unknown)
+	Message  string   // Error message
+	Hints    []string // Suggestions for fixing the error
+	BasePath string   // Base path for making paths relative (project root)
+}
+
+// FromParsleyError creates a DevError from a structured ParsleyError.
+func FromParsleyError(perr *perrors.ParsleyError, basePath string) *DevError {
+	errType := "runtime"
+	if perr.IsParseError() {
+		errType = "parse"
+	}
+	return &DevError{
+		Type:     errType,
+		File:     perr.File,
+		Line:     perr.Line,
+		Column:   perr.Column,
+		Message:  perr.Message,
+		Hints:    perr.Hints,
+		BasePath: basePath,
+	}
 }
 
 // SourceLine represents a line of source code for display.
@@ -515,8 +535,17 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 	sb.WriteString(html.EscapeString(displayMessage))
 	sb.WriteString("</div>\n")
 
-	// Hint (if any)
-	if hint != "" {
+	// Hint (if any) - prioritize structured hints from DevError, then improved message hints
+	if len(devErr.Hints) > 0 {
+		sb.WriteString("<div class=\"error-hint\">💡 ")
+		for i, h := range devErr.Hints {
+			if i > 0 {
+				sb.WriteString("<br>")
+			}
+			sb.WriteString(html.EscapeString(h))
+		}
+		sb.WriteString("</div>\n")
+	} else if hint != "" {
 		sb.WriteString("<div class=\"error-hint\">💡 ")
 		sb.WriteString(html.EscapeString(hint))
 		sb.WriteString("</div>\n")

@@ -25,6 +25,7 @@ import (
 	"github.com/goodsign/monday"
 	"github.com/pkg/sftp"
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/locale"
 	"github.com/sambeau/basil/pkg/parsley/parser"
@@ -125,12 +126,39 @@ type ReturnValue struct {
 func (rv *ReturnValue) Type() ObjectType { return RETURN_OBJ }
 func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
 
-// Error represents error objects
+// Error represents error objects with structured error information.
+// It maintains backward compatibility while supporting the new structured error system.
 type Error struct {
 	Message string
 	Line    int
 	Column  int
+	// New structured error fields
+	Class ErrorClass     // Error category (default: ClassType)
+	Code  string         // Error code (e.g., "TYPE-0001")
+	Hints []string       // Suggestions for fixing the error
+	File  string         // File path (if known)
+	Data  map[string]any // Template variables for custom rendering
 }
+
+// ErrorClass categorizes errors for filtering and templating.
+type ErrorClass = perrors.ErrorClass
+
+// Error class constants
+const (
+	ClassParse     = perrors.ClassParse
+	ClassType      = perrors.ClassType
+	ClassArity     = perrors.ClassArity
+	ClassUndefined = perrors.ClassUndefined
+	ClassIO        = perrors.ClassIO
+	ClassDatabase  = perrors.ClassDatabase
+	ClassNetwork   = perrors.ClassNetwork
+	ClassSecurity  = perrors.ClassSecurity
+	ClassIndex     = perrors.ClassIndex
+	ClassFormat    = perrors.ClassFormat
+	ClassOperator  = perrors.ClassOperator
+	ClassState     = perrors.ClassState
+	ClassImport    = perrors.ClassImport
+)
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
 func (e *Error) Inspect() string {
@@ -138,6 +166,24 @@ func (e *Error) Inspect() string {
 		return fmt.Sprintf("line %d, column %d: %s", e.Line, e.Column, e.Message)
 	}
 	return "ERROR: " + e.Message
+}
+
+// ToParsleyError converts this Error to a ParsleyError for structured error handling.
+func (e *Error) ToParsleyError() *perrors.ParsleyError {
+	class := e.Class
+	if class == "" {
+		class = perrors.ClassType // Default class
+	}
+	return &perrors.ParsleyError{
+		Class:   class,
+		Code:    e.Code,
+		Message: e.Message,
+		Hints:   e.Hints,
+		Line:    e.Line,
+		Column:  e.Column,
+		File:    e.File,
+		Data:    e.Data,
+	}
 }
 
 // Function represents function objects
@@ -8635,6 +8681,50 @@ func newErrorWithPos(tok lexer.Token, format string, a ...interface{}) *Error {
 		Message: fmt.Sprintf(format, a...),
 		Line:    tok.Line,
 		Column:  tok.Column,
+	}
+}
+
+// newErrorWithClass creates an error with a specific class.
+func newErrorWithClass(class ErrorClass, format string, a ...interface{}) *Error {
+	return &Error{
+		Class:   class,
+		Message: fmt.Sprintf(format, a...),
+	}
+}
+
+// newErrorWithClassAndPos creates an error with class and position information.
+func newErrorWithClassAndPos(class ErrorClass, tok lexer.Token, format string, a ...interface{}) *Error {
+	return &Error{
+		Class:   class,
+		Message: fmt.Sprintf(format, a...),
+		Line:    tok.Line,
+		Column:  tok.Column,
+	}
+}
+
+// newStructuredError creates a structured error from the catalog.
+func newStructuredError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newStructuredErrorWithPos creates a structured error with position information.
+func newStructuredErrorWithPos(code string, tok lexer.Token, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Line:    tok.Line,
+		Column:  tok.Column,
+		Data:    perr.Data,
 	}
 }
 

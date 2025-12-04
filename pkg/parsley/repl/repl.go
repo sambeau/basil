@@ -154,8 +154,18 @@ func Start(in io.Reader, out io.Writer, version string) {
 
 		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
-			io.WriteString(out, evaluated.Inspect())
-			io.WriteString(out, "\n")
+			// Check if it's an error
+			if errObj, ok := evaluated.(*evaluator.Error); ok {
+				printRuntimeError(out, errObj)
+			} else {
+				result := evaluated.Inspect()
+				if result == "null" {
+					io.WriteString(out, "OK\n")
+				} else {
+					io.WriteString(out, result)
+					io.WriteString(out, "\n")
+				}
+			}
 		}
 
 		// Clear buffer for next input
@@ -293,10 +303,27 @@ func findTagEnd(input string, pos int) int {
 	return -1 // Tag not closed yet
 }
 
-// printParserErrors prints parser errors
+// printParserErrors prints parser errors with structured formatting
 func printParserErrors(out io.Writer, errors []string) {
-	io.WriteString(out, "Woops! We ran into some parser errors:\n")
+	io.WriteString(out, "Parser error:\n")
 	for _, msg := range errors {
-		io.WriteString(out, "\t"+msg+"\n")
+		io.WriteString(out, "  "+msg+"\n")
+	}
+}
+
+// printRuntimeError prints a runtime error with structured formatting
+func printRuntimeError(out io.Writer, err *evaluator.Error) {
+	io.WriteString(out, "Runtime error:\n")
+
+	// Location info
+	if err.Line > 0 {
+		fmt.Fprintf(out, "  line %d, column %d: %s\n", err.Line, err.Column, err.Message)
+	} else {
+		io.WriteString(out, "  "+err.Message+"\n")
+	}
+
+	// Hints
+	for _, hint := range err.Hints {
+		io.WriteString(out, "  "+hint+"\n")
 	}
 }

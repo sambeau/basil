@@ -192,7 +192,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result != nil && result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
 		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Inspect())
-		h.handleScriptErrorWithLocation(w, "runtime", h.scriptPath, errObj.Message, errObj.Line, errObj.Column)
+		h.handleStructuredError(w, "runtime", h.scriptPath, errObj)
 		return
 	}
 
@@ -634,6 +634,40 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, fileP
 		Line:     line,
 		Column:   col,
 		Message:  cleanMsg,
+		BasePath: basePath,
+	}
+
+	renderDevErrorPage(w, devErr)
+}
+
+// handleStructuredError handles errors with structured error information from Parsley.
+func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, errType, filePath string, errObj *evaluator.Error) {
+	if !h.server.config.Server.Dev {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Get base path for making paths relative (directory of config file)
+	basePath := filepath.Dir(h.server.configPath)
+
+	// Use file from error if available, otherwise use handler file
+	file := errObj.File
+	if file == "" {
+		file = filePath
+	}
+
+	// Determine error type from class if available
+	if errObj.Class == evaluator.ClassParse {
+		errType = "parse"
+	}
+
+	devErr := &DevError{
+		Type:     errType,
+		File:     file,
+		Line:     errObj.Line,
+		Column:   errObj.Column,
+		Message:  errObj.Message,
+		Hints:    errObj.Hints,
 		BasePath: basePath,
 	}
 

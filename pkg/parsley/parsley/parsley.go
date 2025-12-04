@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
@@ -100,7 +101,10 @@ func Eval(source string, opts ...Option) (*Result, error) {
 
 	// Check for parse errors
 	if errors := p.Errors(); len(errors) != 0 {
-		return nil, &ParseError{Errors: errors}
+		return nil, &ParseError{
+			Errors:           errors,
+			StructuredErrors: p.StructuredErrors(),
+		}
 	}
 
 	// Evaluate the program
@@ -109,8 +113,17 @@ func Eval(source string, opts ...Option) (*Result, error) {
 	// Check for runtime errors
 	if result != nil && result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
-		return &Result{Value: result, Err: &RuntimeError{Message: errObj.Message, Line: errObj.Line, Column: errObj.Column}},
-			&RuntimeError{Message: errObj.Message, Line: errObj.Line, Column: errObj.Column}
+		rtErr := &RuntimeError{
+			Message: errObj.Message,
+			Line:    errObj.Line,
+			Column:  errObj.Column,
+			Class:   ErrorClass(errObj.Class),
+			Code:    errObj.Code,
+			Hints:   errObj.Hints,
+			File:    errObj.File,
+			Data:    errObj.Data,
+		}
+		return &Result{Value: result, Err: rtErr}, rtErr
 	}
 
 	return &Result{Value: result}, nil
@@ -132,7 +145,8 @@ func EvalFile(filename string, opts ...Option) (*Result, error) {
 
 // ParseError represents one or more parse errors
 type ParseError struct {
-	Errors []string
+	Errors           []string           // Legacy string errors
+	StructuredErrors []*perrors.ParsleyError // Structured errors
 }
 
 func (e *ParseError) Error() string {
@@ -147,7 +161,33 @@ type RuntimeError struct {
 	Message string
 	Line    int
 	Column  int
+	// New structured error fields
+	Class ErrorClass
+	Code  string
+	Hints []string
+	File  string
+	Data  map[string]any
 }
+
+// ErrorClass categorizes errors for filtering and templating.
+type ErrorClass = perrors.ErrorClass
+
+// Error class constants
+const (
+	ClassParse     = perrors.ClassParse
+	ClassType      = perrors.ClassType
+	ClassArity     = perrors.ClassArity
+	ClassUndefined = perrors.ClassUndefined
+	ClassIO        = perrors.ClassIO
+	ClassDatabase  = perrors.ClassDatabase
+	ClassNetwork   = perrors.ClassNetwork
+	ClassSecurity  = perrors.ClassSecurity
+	ClassIndex     = perrors.ClassIndex
+	ClassFormat    = perrors.ClassFormat
+	ClassOperator  = perrors.ClassOperator
+	ClassState     = perrors.ClassState
+	ClassImport    = perrors.ClassImport
+)
 
 func (e *RuntimeError) Error() string {
 	if e.Line > 0 {
@@ -155,6 +195,27 @@ func (e *RuntimeError) Error() string {
 	}
 	return e.Message
 }
+
+// ToParsleyError converts this RuntimeError to a ParsleyError.
+func (e *RuntimeError) ToParsleyError() *perrors.ParsleyError {
+	class := e.Class
+	if class == "" {
+		class = perrors.ClassType
+	}
+	return &perrors.ParsleyError{
+		Class:   class,
+		Code:    e.Code,
+		Message: e.Message,
+		Hints:   e.Hints,
+		Line:    e.Line,
+		Column:  e.Column,
+		File:    e.File,
+		Data:    e.Data,
+	}
+}
+
+// ParsleyError re-exports the error type for convenience
+type ParsleyError = perrors.ParsleyError
 
 // Re-export types from evaluator for convenience
 type (
