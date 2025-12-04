@@ -515,6 +515,35 @@ func (e *Environment) IsProtected(name string) bool {
 	return false
 }
 
+// AllIdentifiers returns all identifiers available in this environment and its outer scopes.
+// This is used for fuzzy matching in error messages.
+func (e *Environment) AllIdentifiers() []string {
+	seen := make(map[string]bool)
+	var result []string
+
+	// Walk through all scopes
+	env := e
+	for env != nil {
+		for name := range env.store {
+			if !seen[name] {
+				seen[name] = true
+				result = append(result, name)
+			}
+		}
+		env = env.outer
+	}
+
+	// Add builtins
+	for name := range getBuiltins() {
+		if !seen[name] {
+			seen[name] = true
+			result = append(result, name)
+		}
+	}
+
+	return result
+}
+
 // Update stores a value in the environment where it's defined (current or outer)
 // If the variable doesn't exist anywhere, it creates it in the current scope
 // Returns an error if trying to reassign a protected variable
@@ -8086,7 +8115,27 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 		if builtin, ok := getBuiltins()[node.Value]; ok {
 			return builtin
 		}
-		return newErrorWithPos(node.Token, "identifier not found: %s", node.Value)
+
+		// Create a structured error with fuzzy matching
+		parsleyErr := perrors.NewUndefinedIdentifier(node.Value, env.AllIdentifiers())
+		parsleyErr.Line = node.Token.Line
+		parsleyErr.Column = node.Token.Column
+
+		// Also check for common keywords that might be misspelled
+		if len(parsleyErr.Hints) == 0 {
+			if suggestion := perrors.FindClosestMatch(node.Value, perrors.ParsleyKeywords); suggestion != "" {
+				parsleyErr.Hints = append(parsleyErr.Hints, "Did you mean `"+suggestion+"`?")
+			}
+		}
+
+		return &Error{
+			Message: parsleyErr.Message,
+			Class:   parsleyErr.Class,
+			Code:    parsleyErr.Code,
+			Hints:   parsleyErr.Hints,
+			Line:    parsleyErr.Line,
+			Column:  parsleyErr.Column,
+		}
 	}
 
 	return val

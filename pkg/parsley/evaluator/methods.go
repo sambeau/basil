@@ -10,8 +10,47 @@ import (
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/locale"
 )
+
+// ============================================================================
+// Available Methods for Fuzzy Matching
+// ============================================================================
+
+// stringMethods lists all methods available on string
+var stringMethods = []string{
+	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
+}
+
+// arrayMethods lists all methods available on array
+var arrayMethods = []string{
+	"length", "reverse", "push", "pop", "shift", "unshift", "slice", "concat",
+	"includes", "indexOf", "join", "sort", "first", "last", "map", "filter",
+	"reduce", "unique", "flatten", "find", "findIndex", "every", "some", "groupBy",
+	"count", "countBy", "maxBy", "minBy", "sortBy", "take", "skip", "zip",
+}
+
+// integerMethods lists all methods available on integer
+var integerMethods = []string{
+	"abs", "format",
+}
+
+// floatMethods lists all methods available on float
+var floatMethods = []string{
+	"abs", "format", "round", "floor", "ceil",
+}
+
+// unknownMethodError creates an error for an unknown method with fuzzy matching hint
+func unknownMethodError(method, typeName string, availableMethods []string) *Error {
+	parsleyErr := errors.NewUndefinedMethod(method, typeName, availableMethods)
+	return &Error{
+		Message: parsleyErr.Message,
+		Class:   parsleyErr.Class,
+		Code:    parsleyErr.Code,
+		Hints:   parsleyErr.Hints,
+	}
+}
 
 // ============================================================================
 // String Methods
@@ -89,7 +128,7 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 		return FALSE
 
 	default:
-		return newError("unknown method '%s' for STRING", method)
+		return unknownMethodError(method, "string", stringMethods)
 	}
 }
 
@@ -313,7 +352,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		return FALSE
 
 	default:
-		return newError("unknown method '%s' for ARRAY", method)
+		return unknownMethodError(method, "array", arrayMethods)
 	}
 }
 
@@ -641,7 +680,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		return formatPercentWithLocale(float64(num.Value), localeStr)
 
 	default:
-		return newError("unknown method '%s' for INTEGER", method)
+		return unknownMethodError(method, "integer", integerMethods)
 	}
 }
 
@@ -698,7 +737,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 		return formatPercentWithLocale(num.Value, localeStr)
 
 	default:
-		return newError("unknown method '%s' for FLOAT", method)
+		return unknownMethodError(method, "float", floatMethods)
 	}
 }
 
@@ -763,7 +802,10 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		return evalDatetimeComputedProperty(dict, "timestamp", env)
 
 	default:
-		return newError("unknown method '%s' for datetime", method)
+		return unknownMethodError(method, "datetime", []string{
+			"format", "year", "month", "day", "hour", "minute", "second",
+			"weekday", "week", "timestamp",
+		})
 	}
 }
 
@@ -808,7 +850,7 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		return &String{Value: result}
 
 	default:
-		return newError("unknown method '%s' for duration", method)
+		return unknownMethodError(method, "duration", []string{"format"})
 	}
 }
 
@@ -853,7 +895,9 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 		return TRUE
 
 	default:
-		return newError("unknown method '%s' for path", method)
+		return unknownMethodError(method, "path", []string{
+			"toString", "join", "parent", "isAbsolute", "isRelative",
+		})
 	}
 }
 
@@ -963,7 +1007,9 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 		return &String{Value: urlDictToString(dict)}
 
 	default:
-		return newError("unknown method '%s' for url", method)
+		return unknownMethodError(method, "url", []string{
+			"toDict", "toString", "query", "href",
+		})
 	}
 }
 
@@ -1065,7 +1111,9 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		return nativeBoolToParsBoolean(re.MatchString(str.Value))
 
 	default:
-		return newError("unknown method '%s' for regex", method)
+		return unknownMethodError(method, "regex", []string{
+			"toDict", "toString", "test", "exec", "execAll", "matches",
+		})
 	}
 }
 
@@ -1175,7 +1223,9 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		return NULL
 
 	default:
-		return newError("unknown method '%s' for file", method)
+		return unknownMethodError(method, "file", []string{
+			"toDict", "read", "write", "append", "delete",
+		})
 	}
 }
 
@@ -1278,7 +1328,9 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 		return NULL
 
 	default:
-		return newError("unknown method '%s' for dir", method)
+		return unknownMethodError(method, "dir", []string{
+			"toDict", "create", "delete",
+		})
 	}
 }
 
@@ -1297,7 +1349,7 @@ func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Envi
 		return dict
 
 	default:
-		return newError("unknown method '%s' for request", method)
+		return unknownMethodError(method, "request", []string{"toDict"})
 	}
 }
 
@@ -1346,6 +1398,8 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 		return dict
 
 	default:
-		return newError("unknown method '%s' for response", method)
+		return unknownMethodError(method, "response", []string{
+			"ok", "error", "json", "text", "data", "toDict",
+		})
 	}
 }

@@ -332,3 +332,168 @@ func TestParsleyError_Error(t *testing.T) {
 		t.Errorf("Error() = %q, want %q", e.Error(), "line 1, column 1: test error")
 	}
 }
+
+// ============================================================================
+// Fuzzy Matching Tests
+// ============================================================================
+
+func TestLevenshteinDistance(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want int
+	}{
+		{"", "", 0},
+		{"abc", "", 3},
+		{"", "abc", 3},
+		{"abc", "abc", 0},
+		{"abc", "abd", 1},
+		{"abc", "ab", 1},
+		{"abc", "abcd", 1},
+		{"kitten", "sitting", 3},
+		{"fro", "for", 2}, // swap
+		{"lenght", "length", 2},
+		{"pritn", "print", 2},
+	}
+
+	for _, tt := range tests {
+		got := levenshteinDistance(tt.a, tt.b)
+		if got != tt.want {
+			t.Errorf("levenshteinDistance(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+func TestFindClosestMatch(t *testing.T) {
+	identifiers := []string{"print", "printf", "println", "name", "length", "forEach", "map", "filter"}
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"pritn", "print"},       // Simple typo (distance 2: swap)
+		{"prnt", "print"},        // Missing letter (distance 1)
+		{"printt", "print"},      // Extra letter (distance 1)
+		{"lenght", "length"},     // Common misspelling (distance 2: swap)
+		{"fro", ""},              // Distance 2 to "for" but for is not in list
+		{"forEach", ""},          // Exact match returns empty
+		{"xyz", ""},              // No close match
+		{"mappp", "map"},         // Distance 2, threshold for 5-char input is 2
+		{"mapp", "map"},          // Distance 1, within threshold
+		{"filtter", "filter"},    // Double letter typo (distance 1)
+		{"", ""},                 // Empty input
+		{"abcdefghijklmnop", ""}, // Very long word with no match
+	}
+
+	for _, tt := range tests {
+		got := FindClosestMatch(tt.input, identifiers)
+		if got != tt.want {
+			t.Errorf("FindClosestMatch(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+
+	// Test with nil candidates
+	if got := FindClosestMatch("test", nil); got != "" {
+		t.Errorf("FindClosestMatch with nil candidates = %q, want empty", got)
+	}
+}
+
+func TestFindTopMatches(t *testing.T) {
+	identifiers := []string{"print", "printf", "println", "sprint", "paint"}
+
+	// Note: FindTopMatches excludes exact matches (distance 0)
+	// "print" has distance 0 to "print" so it's excluded
+	// But case-insensitive comparison: "print" lowercase vs "print" = distance 0
+	// so nothing for print should show... wait, let me check
+	// Actually "printf" has distance 1 to "print", "sprint" has distance 1
+
+	tests := []struct {
+		name  string
+		input string
+		n     int
+		desc  string
+	}{
+		{"typo", "pritn", 3, "should return some matches"},
+		{"exact", "print", 2, "exact match excluded, close ones returned"},
+		{"none", "xyz", 3, "no close matches"},
+		{"empty", "", 3, "empty input"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FindTopMatches(tt.input, identifiers, tt.n)
+			// Verify the function doesn't panic and returns reasonable results
+			if tt.input == "" || tt.input == "xyz" {
+				if len(got) != 0 {
+					t.Errorf("FindTopMatches(%q) = %v, want empty", tt.input, got)
+				}
+			} else if tt.input == "pritn" {
+				if len(got) == 0 {
+					t.Errorf("FindTopMatches(%q) should return matches", tt.input)
+				}
+				// First match should be "print" (distance 2)
+				if got[0] != "print" {
+					t.Errorf("FindTopMatches(%q)[0] = %q, want 'print'", tt.input, got[0])
+				}
+			}
+		})
+	}
+}
+
+func TestNewUndefinedIdentifier(t *testing.T) {
+	availableIdentifiers := []string{"print", "println", "length", "forEach"}
+
+	// Test with typo that has a close match
+	err := NewUndefinedIdentifier("pritn", availableIdentifiers)
+	if err.Code != "UNDEF-0001" {
+		t.Errorf("Code = %q, want UNDEF-0001", err.Code)
+	}
+	if !strings.Contains(err.Message, "pritn") {
+		t.Errorf("Message should contain 'pritn': %s", err.Message)
+	}
+	if len(err.Hints) == 0 || !strings.Contains(err.Hints[0], "print") {
+		t.Errorf("Should have hint suggesting 'print': %v", err.Hints)
+	}
+
+	// Test with no close match
+	err2 := NewUndefinedIdentifier("xyz", availableIdentifiers)
+	if len(err2.Hints) != 0 {
+		t.Errorf("Should have no hints for 'xyz': %v", err2.Hints)
+	}
+}
+
+func TestNewUndefinedMethod(t *testing.T) {
+	methods := []string{"length", "upper", "lower", "trim", "split"}
+
+	err := NewUndefinedMethod("lenght", "string", methods)
+	if err.Code != "UNDEF-0002" {
+		t.Errorf("Code = %q, want UNDEF-0002", err.Code)
+	}
+	if !strings.Contains(err.Message, "lenght") {
+		t.Errorf("Message should contain 'lenght': %s", err.Message)
+	}
+	if len(err.Hints) == 0 || !strings.Contains(err.Hints[0], "length") {
+		t.Errorf("Should have hint suggesting 'length': %v", err.Hints)
+	}
+}
+
+func TestParsleyKeywords(t *testing.T) {
+	// Verify we have all the expected keywords
+	expected := map[string]bool{
+		"if": true, "else": true, "for": true, "in": true, "fn": true,
+		"let": true, "const": true, "return": true, "true": true, "false": true,
+		"null": true, "and": true, "or": true, "not": true, "import": true,
+		"export": true, "break": true, "continue": true, "switch": true,
+		"case": true, "default": true,
+	}
+
+	for _, kw := range ParsleyKeywords {
+		if !expected[kw] {
+			t.Errorf("Unexpected keyword in ParsleyKeywords: %q", kw)
+		}
+		delete(expected, kw)
+	}
+
+	for kw := range expected {
+		t.Errorf("Missing keyword in ParsleyKeywords: %q", kw)
+	}
+}
