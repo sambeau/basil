@@ -684,6 +684,32 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	return leftExp
 }
 
+// parseExpressionUntilBrace parses an expression but stops when we see '{'
+// Used for if/for without parentheses: if condition { } or for x in arr { }
+func (p *Parser) parseExpressionUntilBrace() ast.Expression {
+	prefix := p.prefixParseFns[p.curToken.Type]
+	if prefix == nil {
+		p.noPrefixParseFnError(p.curToken.Type)
+		return nil
+	}
+
+	leftExp := prefix()
+
+	// Stop at semicolon, LBRACE, or when precedence is exhausted
+	for !p.peekTokenIs(lexer.SEMICOLON) && !p.peekTokenIs(lexer.LBRACE) && LOWEST < p.peekPrecedence() {
+		infix := p.infixParseFns[p.peekToken.Type]
+		if infix == nil {
+			return leftExp
+		}
+
+		p.nextToken()
+
+		leftExp = infix(leftExp)
+	}
+
+	return leftExp
+}
+
 // Parse functions for different expression types
 func (p *Parser) parseIdentifier() ast.Expression {
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -1093,11 +1119,14 @@ func (p *Parser) parseSquareBracketArrayLiteral() ast.Expression {
 func (p *Parser) parseIfExpression() ast.Expression {
 	expression := &ast.IfExpression{Token: p.curToken}
 
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
+	// Parentheses are optional: if (cond) { } OR if cond { }
+	hasParens := p.peekTokenIs(lexer.LPAREN)
+	if hasParens {
+		p.nextToken() // consume '('
+		p.nextToken() // move to condition
+	} else {
+		p.nextToken() // move to condition
 	}
-
-	p.nextToken()
 
 	// Check for assignment in condition
 	if p.curTokenIs(lexer.IDENT) && p.peekTokenIs(lexer.ASSIGN) {
@@ -1108,16 +1137,26 @@ func (p *Parser) parseIfExpression() ast.Expression {
 		return nil
 	}
 
-	expression.Condition = p.parseExpression(LOWEST)
-
-	if !p.expectPeek(lexer.RPAREN) {
-		return nil
+	// Parse condition - if no parens, stop at LBRACE
+	if hasParens {
+		expression.Condition = p.parseExpression(LOWEST)
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	} else {
+		// Without parens, we need to parse until we hit '{' 
+		// Use a precedence that stops at LBRACE
+		expression.Condition = p.parseExpressionUntilBrace()
 	}
 
 	if p.peekTokenIs(lexer.LBRACE) {
 		// Block form: if (...) { ... }
 		p.nextToken()
 		expression.Consequence = p.parseBlockStatement()
+	} else if !hasParens {
+		// Without parens, block braces are required
+		p.errors = append(p.errors, "if without parentheses requires braces: if condition { ... }\n  Use: if (condition) expr  OR  if condition { expr }")
+		return nil
 	} else {
 		// Single statement/expression form: if (...) expr or if (...) return expr
 		p.nextToken()
@@ -1313,14 +1352,16 @@ func (p *Parser) parseFunctionParameter() *ast.FunctionParameter {
 
 // parseForExpression parses for expressions
 // Two forms: for(array) func  OR  for(var in array) body
+// Parentheses are optional: for (x in arr) { } OR for x in arr { }
 func (p *Parser) parseForExpression() ast.Expression {
 	expression := &ast.ForExpression{Token: p.curToken}
 
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
+	// Parentheses are optional
+	hasParens := p.peekTokenIs(lexer.LPAREN)
+	if hasParens {
+		p.nextToken() // consume '('
 	}
-
-	p.nextToken()
+	p.nextToken() // move to first token of expression
 
 	// Check if this is the "for(var in array)" form
 	// We need to peek ahead to see if there's an IN token or COMMA (for key,value syntax)
@@ -1343,10 +1384,14 @@ func (p *Parser) parseForExpression() ast.Expression {
 		}
 		p.nextToken() // move past IN to array/dict expression
 
-		expression.Array = p.parseExpression(LOWEST)
-
-		if !p.expectPeek(lexer.RPAREN) {
-			return nil
+		// Parse array expression - if no parens, stop at LBRACE
+		if hasParens {
+			expression.Array = p.parseExpression(LOWEST)
+			if !p.expectPeek(lexer.RPAREN) {
+				return nil
+			}
+		} else {
+			expression.Array = p.parseExpressionUntilBrace()
 		}
 
 		// Parse body - must be a block expression
@@ -1370,9 +1415,15 @@ func (p *Parser) parseForExpression() ast.Expression {
 		expression.Body = bodyFn
 	} else {
 		// Parse: for(array) func
-		expression.Array = p.parseExpression(LOWEST)
-
-		if !p.expectPeek(lexer.RPAREN) {
+		if hasParens {
+			expression.Array = p.parseExpression(LOWEST)
+			if !p.expectPeek(lexer.RPAREN) {
+				return nil
+			}
+		} else {
+			// Without parens, can't determine where array ends and function begins
+			// for arr fn  - is "fn" part of the array expression or the mapping function?
+			p.errors = append(p.errors, "for(array) func form requires parentheses (ambiguous without them)\n  Use: for (array) fn  OR  for x in array { ... }")
 			return nil
 		}
 

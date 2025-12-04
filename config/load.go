@@ -81,6 +81,11 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		}
 	}
 
+	// Resolve relative sqlite path
+	if cfg.SQLite != "" && !filepath.IsAbs(cfg.SQLite) {
+		cfg.SQLite = filepath.Join(baseDir, cfg.SQLite)
+	}
+
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
 		return nil, "", err
@@ -305,13 +310,13 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 		cfg.Server.Port = dev.Port
 	}
 
-	// Apply database override
-	if dev.Database != "" {
-		path := dev.Database
+	// Apply sqlite override
+	if dev.SQLite != "" {
+		path := dev.SQLite
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(cfg.BaseDir, path)
 		}
-		cfg.Database.Path = path
+		cfg.SQLite = path
 	}
 
 	// Apply handlers override - update all routes

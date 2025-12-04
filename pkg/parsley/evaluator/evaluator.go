@@ -6636,7 +6636,8 @@ func Eval(node ast.Node, env *Environment) Object {
 				env.SetLet(node.Name.Value, val)
 			}
 		}
-		return val
+		// Declarations return NULL (excluded from block concatenation)
+		return NULL
 
 	case *ast.AssignmentStatement:
 		val := Eval(node.Value, env)
@@ -6663,7 +6664,8 @@ func Eval(node ast.Node, env *Environment) Object {
 				env.Update(node.Name.Value, val)
 			}
 		}
-		return val
+		// Assignments return NULL (excluded from block concatenation)
+		return NULL
 
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
@@ -7164,39 +7166,65 @@ func evalProgram(stmts []ast.Statement, env *Environment) Object {
 }
 
 func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
-	var result Object
+	var results []Object
 
 	for _, statement := range block.Statements {
-		result = Eval(statement, env)
+		result := Eval(statement, env)
 
 		if result != nil {
 			rt := result.Type()
 			if rt == RETURN_OBJ || rt == ERROR_OBJ {
 				return result
 			}
+
+			// Collect non-NULL results
+			if rt != NULL_OBJ {
+				results = append(results, result)
+			}
 		}
 	}
 
-	return result
+	// Return based on number of results
+	switch len(results) {
+	case 0:
+		return NULL
+	case 1:
+		return results[0] // Single result: return directly (preserves type)
+	default:
+		return &Array{Elements: results} // Multiple results: return as array
+	}
 }
 
 // evalInterpolationBlock evaluates an interpolation block inside tag contents
-// It executes all statements and returns the value of the last one (or NULL if empty)
+// Collects non-NULL results; returns single value, array, or NULL
 func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Object {
-	var result Object = NULL
+	var results []Object
 
 	for _, statement := range block.Statements {
-		result = Eval(statement, env)
+		result := Eval(statement, env)
 
 		if result != nil {
 			rt := result.Type()
 			if rt == RETURN_OBJ || rt == ERROR_OBJ {
 				return result
 			}
+
+			// Collect non-NULL results
+			if rt != NULL_OBJ {
+				results = append(results, result)
+			}
 		}
 	}
 
-	return result
+	// Return based on number of results
+	switch len(results) {
+	case 0:
+		return NULL
+	case 1:
+		return results[0] // Single result: return directly
+	default:
+		return &Array{Elements: results} // Multiple results: return as array
+	}
 }
 
 func nativeBoolToParsBoolean(input bool) *Boolean {
@@ -8693,8 +8721,8 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		}
 	}
 
-	// Return the original value
-	return val
+	// Destructuring assignments return NULL (excluded from block concatenation)
+	return NULL
 }
 
 // evalDictDestructuringAssignment evaluates dictionary destructuring patterns
@@ -8786,8 +8814,8 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 		}
 	}
 
-	// Return the original value
-	return val
+	// Destructuring assignments return NULL (excluded from block concatenation)
+	return NULL
 }
 
 // evalTemplateLiteral evaluates a template literal with interpolation

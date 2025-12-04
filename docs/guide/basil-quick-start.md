@@ -320,9 +320,7 @@ Basil integrates with SQLite databases using Parsley's database operators.
 **basil.yaml:**
 
 ```yaml
-database:
-  driver: sqlite
-  path: ./data.db    # Relative to config file
+sqlite: ./data.db    # Path to SQLite database file (relative to config)
 ```
 
 ### Using the Database

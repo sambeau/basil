@@ -214,9 +214,9 @@ func (h *devToolsHandler) serveLogsHTML(w http.ResponseWriter, entries []LogEntr
 
 // openAppDB opens the application's SQLite database.
 func (h *devToolsHandler) openAppDB() (*sql.DB, error) {
-	dbPath := h.server.config.Database.Path
+	dbPath := h.server.config.SQLite
 	if dbPath == "" {
-		return nil, fmt.Errorf("no database configured (set database.path in config)")
+		return nil, fmt.Errorf("no database configured (set sqlite in config)")
 	}
 
 	// Resolve relative path
@@ -270,7 +270,7 @@ func (h *devToolsHandler) serveDB(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get database filename for display
-	dbPath := h.server.config.Database.Path
+	dbPath := h.server.config.SQLite
 
 	htmlOut := fmt.Sprintf(devToolsDBHTML,
 		html.EscapeString(filepath.Base(dbPath)),

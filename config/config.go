@@ -9,7 +9,7 @@ type Config struct {
 	Security   SecurityConfig             `yaml:"security"`
 	Auth       AuthConfig                 `yaml:"auth"`
 	Dev        DevConfig                  `yaml:"dev"`
-	Database   DatabaseConfig             `yaml:"database"`
+	SQLite     string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
 	PublicDir  string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
 	Static     []StaticRoute              `yaml:"static"`
 	Routes     []Route                    `yaml:"routes"`
@@ -21,17 +21,18 @@ type Config struct {
 // All fields are optional - only non-zero values override the base config
 type DeveloperConfig struct {
 	Port     int           `yaml:"port"`     // Override server.port
-	Database string        `yaml:"database"` // Override database.path
+	SQLite   string        `yaml:"sqlite"`   // Override sqlite path
 	Handlers string        `yaml:"handlers"` // Override handlers directory (for routes)
 	Static   string        `yaml:"static"`   // Override public_dir
 	Logging  LoggingConfig `yaml:"logging"`  // Override logging settings
 }
 
-// DatabaseConfig holds database connection settings
+// DatabaseConfig is deprecated - use top-level 'sqlite' field instead.
+// Kept for documentation purposes only.
 type DatabaseConfig struct {
-	Driver string `yaml:"driver"` // sqlite, postgres, mysql (only sqlite supported currently)
-	Path   string `yaml:"path"`   // For sqlite: path to database file
-	DSN    string `yaml:"dsn"`    // For postgres/mysql: connection string (future)
+	Driver string `yaml:"driver"` // Deprecated
+	Path   string `yaml:"path"`   // Deprecated
+	DSN    string `yaml:"dsn"`    // Deprecated
 }
 
 // ServerConfig holds server settings
