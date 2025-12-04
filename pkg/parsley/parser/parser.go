@@ -284,7 +284,7 @@ func (p *Parser) parseStatement() ast.Statement {
 		// This pattern (ident ident) is usually a mistake - likely a typo of a keyword
 		if p.peekTokenIs(lexer.IDENT) {
 			if hint := p.checkKeywordTypo(p.curToken.Literal); hint != "" {
-				p.errors = append(p.errors, fmt.Sprintf("line %d, column %d: %s", p.curToken.Line, p.curToken.Column, hint))
+				p.addError(hint, p.curToken.Line, p.curToken.Column)
 				return nil
 			}
 		}
@@ -781,8 +781,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %q as integer", p.curToken.Literal)
-		p.errors = append(p.errors, msg)
+		p.addError(fmt.Sprintf("could not parse %q as integer", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
@@ -795,8 +794,7 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %q as float", p.curToken.Literal)
-		p.errors = append(p.errors, msg)
+		p.addError(fmt.Sprintf("could not parse %q as float", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
@@ -816,7 +814,7 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 	// Token.Literal is in the form "/pattern/flags"
 	literal := p.curToken.Literal
 	if len(literal) < 2 || literal[0] != '/' {
-		p.errors = append(p.errors, fmt.Sprintf("invalid regex literal: %s", literal))
+		p.addError(fmt.Sprintf("invalid regex literal: %s", literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
@@ -824,7 +822,7 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 	// This handles /pattern/ and /pattern/flags
 	lastSlash := strings.LastIndex(literal[1:], "/")
 	if lastSlash == -1 {
-		p.errors = append(p.errors, fmt.Sprintf("unterminated regex literal: %s", literal))
+		p.addError(fmt.Sprintf("unterminated regex literal: %s", literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 	lastSlash++ // adjust for the slice offset
@@ -954,16 +952,16 @@ func (p *Parser) parseTagPair() ast.Expression {
 
 	// Current token should be TAG_END
 	if !p.curTokenIs(lexer.TAG_END) {
-		p.errors = append(p.errors, fmt.Sprintf("expected closing tag, got %s at line %d, column %d",
-			tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
+		p.addError(fmt.Sprintf("expected closing tag </%s>, got %s",
+			tagExpr.Name, tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
 	// Validate closing tag matches opening tag
 	closingName := p.curToken.Literal
 	if closingName != tagExpr.Name {
-		p.errors = append(p.errors, fmt.Sprintf("mismatched tags: opening <%s> but closing </%s> at line %d, column %d",
-			tagExpr.Name, closingName, p.curToken.Line, p.curToken.Column))
+		p.addError(fmt.Sprintf("mismatched tags: opening <%s> but closing </%s>",
+			tagExpr.Name, closingName), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
@@ -1060,8 +1058,8 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 
 		default:
 			// Unexpected token
-			p.errors = append(p.errors, fmt.Sprintf("unexpected token in tag contents: %s at line %d, column %d",
-				tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
+			p.addError(fmt.Sprintf("unexpected token in tag contents: %s",
+				tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
 			p.nextToken()
 		}
 	}
@@ -1192,9 +1190,10 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	// Check for assignment in condition
 	if p.curTokenIs(lexer.IDENT) && p.peekTokenIs(lexer.ASSIGN) {
 		varName := p.curToken.Literal
-		msg := fmt.Sprintf("assignment is not allowed inside if condition. Use a separate statement:\n  let %s = ...\n  if (%s) { ... }",
-			varName, varName)
-		p.errors = append(p.errors, msg)
+		p.addErrorWithHints("assignment is not allowed inside if condition",
+			p.curToken.Line, p.curToken.Column,
+			fmt.Sprintf("let %s = ...", varName),
+			fmt.Sprintf("if (%s) { ... }", varName))
 		return nil
 	}
 
@@ -1216,7 +1215,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 		expression.Consequence = p.parseBlockStatement()
 	} else if !hasParens {
 		// Without parens, block braces are required
-		p.errors = append(p.errors, "if without parentheses requires braces: if condition { ... }\n  Use: if (condition) expr  OR  if condition { expr }")
+		p.addErrorWithHints("if without parentheses requires braces",
+			expression.Token.Line, expression.Token.Column,
+			"if (condition) expr", "if condition { expr }")
 		return nil
 	} else {
 		// Single statement/expression form: if (...) expr or if (...) return expr
@@ -1459,9 +1460,12 @@ func (p *Parser) parseForExpression() ast.Expression {
 		if !p.peekTokenIs(lexer.LBRACE) {
 			// Give a helpful error - user probably wrote for (x in arr) expr instead of for x in arr { expr }
 			if hasParens {
-				p.errors = append(p.errors, "for (var in array) requires a { } block body, not an expression\n  Use: for x in array { ... }  (parentheses are optional)")
+				p.addErrorWithHints("for (var in array) requires a { } block body, not an expression",
+					expression.Token.Line, expression.Token.Column,
+					"for x in array { ... }  (parentheses are optional)")
 			} else {
-				p.errors = append(p.errors, fmt.Sprintf("expected '{' after for expression, got '%s'", p.peekToken.Literal))
+				p.addError(fmt.Sprintf("expected '{' after for expression, got '%s'", p.peekToken.Literal),
+					p.peekToken.Line, p.peekToken.Column)
 			}
 			return nil
 		}
@@ -1491,7 +1495,9 @@ func (p *Parser) parseForExpression() ast.Expression {
 		} else {
 			// Without parens, can't determine where array ends and function begins
 			// for arr fn  - is "fn" part of the array expression or the mapping function?
-			p.errors = append(p.errors, "for(array) func form requires parentheses (ambiguous without them)\n  Use: for (array) fn  OR  for x in array { ... }")
+			p.addErrorWithHints("for(array) func form requires parentheses (ambiguous without them)",
+				expression.Token.Line, expression.Token.Column,
+				"for (array) fn", "for x in array { ... }")
 			return nil
 		}
 
@@ -1628,9 +1634,7 @@ func (p *Parser) peekError(t lexer.TokenType) {
 	line := p.curToken.Line
 	column := p.curToken.Column + len(p.curToken.Literal)
 
-	msg := fmt.Sprintf("line %d, column %d: expected %s, got '%s'",
-		line, column, tokenName, gotLiteral)
-	p.errors = append(p.errors, msg)
+	p.addError(fmt.Sprintf("expected %s, got '%s'", tokenName, gotLiteral), line, column)
 }
 
 func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
@@ -1653,9 +1657,7 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 		column = p.prevToken.Column + len(p.prevToken.Literal)
 	}
 
-	msg := fmt.Sprintf("line %d, column %d: unexpected '%s'",
-		line, column, literal)
-	p.errors = append(p.errors, msg)
+	p.addError(fmt.Sprintf("unexpected '%s'", literal), line, column)
 }
 
 // checkKeywordTypo checks if an identifier is a common misspelling of a keyword
@@ -1934,8 +1936,8 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 		} else if p.curTokenIs(lexer.STRING) {
 			key = p.curToken.Literal
 		} else {
-			p.errors = append(p.errors, fmt.Sprintf("expected identifier or string as dictionary key, got %s at line %d, column %d",
-				tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
+			p.addError(fmt.Sprintf("expected identifier or string as dictionary key, got %s",
+				tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
 			return nil
 		}
 
@@ -1987,9 +1989,7 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 
 	// Check for empty pattern
 	if p.peekTokenIs(lexer.RBRACE) {
-		msg := fmt.Sprintf("empty dictionary destructuring pattern at line %d, column %d",
-			p.peekToken.Line, p.peekToken.Column)
-		p.errors = append(p.errors, msg)
+		p.addError("empty dictionary destructuring pattern", p.peekToken.Line, p.peekToken.Column)
 		return nil
 	}
 
@@ -2000,18 +2000,14 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 		// Check for rest operator
 		if p.curTokenIs(lexer.DOTDOTDOT) {
 			if !p.expectPeek(lexer.IDENT) {
-				msg := fmt.Sprintf("expected identifier after '...' at line %d, column %d",
-					p.peekToken.Line, p.peekToken.Column)
-				p.errors = append(p.errors, msg)
+				p.addError("expected identifier after '...'", p.peekToken.Line, p.peekToken.Column)
 				return nil
 			}
 			pattern.Rest = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 			// Rest must be at the end
 			if !p.peekTokenIs(lexer.RBRACE) {
-				msg := fmt.Sprintf("rest element must be last in destructuring pattern at line %d, column %d",
-					p.peekToken.Line, p.peekToken.Column)
-				p.errors = append(p.errors, msg)
+				p.addError("rest element must be last in destructuring pattern", p.peekToken.Line, p.peekToken.Column)
 				return nil
 			}
 			break
@@ -2032,9 +2028,7 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 		if p.peekTokenIs(lexer.AS) {
 			p.nextToken() // consume 'as'
 			if !p.expectPeek(lexer.IDENT) {
-				msg := fmt.Sprintf("expected identifier after 'as' at line %d, column %d",
-					p.peekToken.Line, p.peekToken.Column)
-				p.errors = append(p.errors, msg)
+				p.addError("expected identifier after 'as'", p.peekToken.Line, p.peekToken.Column)
 				return nil
 			}
 			key.Alias = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -2050,14 +2044,10 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 				key.Nested = p.parseDictDestructuringPattern()
 			} else if p.curTokenIs(lexer.LBRACKET) {
 				// For nested array destructuring, we'd need to handle this
-				msg := fmt.Sprintf("nested array destructuring not yet supported at line %d, column %d",
-					p.curToken.Line, p.curToken.Column)
-				p.errors = append(p.errors, msg)
+				p.addError("nested array destructuring not yet supported", p.curToken.Line, p.curToken.Column)
 				return nil
 			} else {
-				msg := fmt.Sprintf("expected destructuring pattern after ':' at line %d, column %d",
-					p.curToken.Line, p.curToken.Column)
-				p.errors = append(p.errors, msg)
+				p.addError("expected destructuring pattern after ':'", p.curToken.Line, p.curToken.Column)
 				return nil
 			}
 		}
