@@ -1,4 +1,4 @@
-# FEAT-026: File Module (std/file)
+# FEAT-026: File Module and Global Cleanup
 
 **Status:** Proposed  
 **Created:** 2025-12-04  
@@ -7,7 +7,7 @@
 
 ## Summary
 
-Reorganize file handle factories from global builtins into a cohesive `std/file` module. The module creates file handles that are then read via the `<==` operator.
+Reorganize file handle factories from global builtins into a cohesive `std/file` module, and remove the `basil` global in favor of `std/basil` import. This is a pre-1.0 cleanup to establish consistent module-based APIs.
 
 ## Motivation
 
@@ -21,11 +21,20 @@ let f = CSV(@./data.csv)    // Uppercase
 let f = YAML(@./config.yml) // Uppercase
 ```
 
+Similarly, `basil` exists as both a global AND a module:
+
+```parsley
+// Current (confusing)
+basil.version           // Global access
+let {basil} = import("std/basil")  // Also works!
+```
+
 Problems:
 1. **Naming inconsistency**: `file()` is lowercase, format-specific factories are UPPERCASE
-2. **Global pollution**: 10+ globals for file operations
+2. **Global pollution**: 10+ globals for file operations, plus `basil`
 3. **Discoverability**: No obvious namespace to explore
-4. **No callable module pattern**: Unlike other std modules
+4. **Duplicate APIs**: `basil` global duplicates `std/basil` module
+5. **No callable module pattern**: Unlike other std modules
 
 ## Terminology
 
@@ -159,6 +168,37 @@ let {file} = import("std/file")
 let data <== file.json(@./data.json)
 ```
 
+## Basil Global Removal
+
+### Current State
+
+The `basil` global provides access to request context in handlers:
+
+```parsley
+// Current (global)
+basil.version
+basil.request.path
+basil.request.method
+```
+
+### New Pattern
+
+Require explicit import:
+
+```parsley
+// After
+let {basil} = import("std/basil")
+basil.version
+basil.request.path
+```
+
+### Rationale
+
+1. **Consistency**: All std modules use import pattern
+2. **Explicitness**: Clear where `basil` comes from
+3. **Testing**: Easier to mock/stub when imported
+4. **No magic**: Handlers are just Parsley files, no special globals
+
 ## Implementation Notes
 
 ### Callable Module
@@ -197,6 +237,7 @@ File handles remain dictionaries with `__type: "file"`:
 2. **Callable module?** → Yes, `file(@path)` delegates to auto-detect
 3. **Deprecation period?** → No, hard removal (pre-1.0)
 4. **Keep global `file()`?** → No, removes confusion with module name
+5. **Keep `basil` global?** → No, require `import("std/basil")`
 
 ## Future Work
 
