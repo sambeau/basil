@@ -1,10 +1,11 @@
 ---
 id: FEAT-022
 title: "Block Concatenation Semantics"
-status: investigation
+status: closed-wontfix
 priority: high
 created: 2025-12-04
 author: "@human"
+closed: 2025-12-04
 ---
 
 # FEAT-022: Block Concatenation Semantics
@@ -160,3 +161,78 @@ return &Array{Elements: result}
 
 - Plan: `docs/plans/FEAT-022-plan.md`
 - Similar: `for` loop already implements concatenation semantics
+
+---
+
+## Investigation Results (2025-12-04)
+
+### What Was Done
+
+1. Created experimental branch `feat/FEAT-022-block-concatenation`
+2. Modified declaration statements to return NULL:
+   - `LetStatement`
+   - `AssignmentStatement`  
+   - `evalDestructuringAssignment`
+   - `evalDictDestructuringAssignment`
+3. Modified block evaluation to concatenate non-NULL results:
+   - `evalBlockStatement` 
+   - `evalInterpolationBlock`
+4. Ran test suite
+
+### Results: 38 Test Failures
+
+The fundamental problem: **stringification breaks type preservation**.
+
+#### Key Failure Categories:
+
+1. **Functions return strings instead of typed values**
+   - `fn(a, b) { a + b }` returns `"6"` instead of `Integer(6)`
+   - Array-returning functions return `"123"` instead of `[1, 2, 3]`
+
+2. **Closures break completely**
+   - Function that returns a function gets stringified
+   - Subsequent call fails: "cannot call STRING as a function"
+
+3. **Assignment-as-expression patterns break**
+   - Tests expecting `x = 5` to return `5` now get `null`
+
+4. **Module system affected**
+   - Imports/destructuring affected by NULL returns
+
+### Root Cause Analysis
+
+The `for` loop model works because it returns an **array** of results, preserving types. By concatenating to a **string**, we lose type information.
+
+### Options Considered
+
+| Option | Description | Verdict |
+|--------|-------------|---------|
+| A. Status quo | Keep current semantics, document better | ✅ **Recommended** |
+| B. Array return | Return array instead of string | Preserves types but major semantic change |
+| C. Special syntax | New `{| |}` for concatenation blocks | Too much syntax |
+| D. Explicit concat | Require `++` operator | Verbose |
+
+### Recommendation
+
+**No-go on this approach.**
+
+The status quo is correct:
+- Regular code blocks return the last expression (preserving type)
+- Template interpolation (`evalTagContents`) already concatenates results
+- `for` loops already return arrays of results
+
+The problem is **documentation and user expectations**, not semantics. Parsley's behavior is consistent; it just needs better explanation.
+
+### Action Items
+
+1. ✅ Keep experimental branch for reference
+2. ⬜ Improve documentation to explain:
+   - "Parsley is expression-based; blocks return their last expression"
+   - "In template contexts, multiple expressions are concatenated"
+   - "Use `for` when you want to collect multiple values"
+3. ⬜ Update CHEATSHEET.md with this pitfall
+4. ⬜ Consider adding a linter warning for "unused expression" in blocks
+
+### Branch Status
+
+Branch `feat/FEAT-022-block-concatenation` kept for reference but NOT to be merged.
