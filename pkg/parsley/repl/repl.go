@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/peterh/liner"
+	"github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
@@ -146,8 +147,8 @@ func Start(in io.Reader, out io.Writer, version string) {
 		p := parser.New(l)
 		program := p.ParseProgram()
 
-		if errors := p.Errors(); len(errors) != 0 {
-			printParserErrors(out, errors)
+		if errs := p.StructuredErrors(); len(errs) != 0 {
+			printStructuredErrors(out, errs)
 			inputBuffer.Reset()
 			continue
 		}
@@ -303,27 +304,27 @@ func findTagEnd(input string, pos int) int {
 	return -1 // Tag not closed yet
 }
 
-// printParserErrors prints parser errors with structured formatting
-func printParserErrors(out io.Writer, errors []string) {
-	io.WriteString(out, "Parser error:\n")
-	for _, msg := range errors {
-		io.WriteString(out, "  "+msg+"\n")
+// printStructuredErrors prints parser errors using structured error format
+func printStructuredErrors(out io.Writer, errs []*errors.ParsleyError) {
+	for _, err := range errs {
+		io.WriteString(out, err.PrettyString())
+		io.WriteString(out, "\n")
 	}
 }
 
 // printRuntimeError prints a runtime error with structured formatting
 func printRuntimeError(out io.Writer, err *evaluator.Error) {
-	io.WriteString(out, "Runtime error:\n")
+	io.WriteString(out, "Runtime error")
 
 	// Location info
 	if err.Line > 0 {
-		fmt.Fprintf(out, "  line %d, column %d: %s\n", err.Line, err.Column, err.Message)
+		fmt.Fprintf(out, ": line %d, column %d\n  %s\n", err.Line, err.Column, err.Message)
 	} else {
-		io.WriteString(out, "  "+err.Message+"\n")
+		io.WriteString(out, "\n  "+err.Message+"\n")
 	}
 
 	// Hints
 	for _, hint := range err.Hints {
-		io.WriteString(out, "  "+hint+"\n")
+		io.WriteString(out, "  hint: "+hint+"\n")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/formatter"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
@@ -129,8 +130,8 @@ func executeFile(filename string, prettyPrint bool) {
 
 	// Parse the program
 	program := p.ParseProgram()
-	if errors := p.Errors(); len(errors) != 0 {
-		printErrors(filename, string(content), errors)
+	if errs := p.StructuredErrors(); len(errs) != 0 {
+		printStructuredErrors(filename, string(content), errs)
 		os.Exit(1)
 	}
 
@@ -142,13 +143,11 @@ func executeFile(filename string, prettyPrint bool) {
 
 	// Check for evaluation errors
 	if evaluated != nil && evaluated.Type() == evaluator.ERROR_OBJ {
-		// Format runtime errors the same way as parse errors
 		errObj, ok := evaluated.(*evaluator.Error)
-		if ok && errObj.Line > 0 {
-			// Error has position information
-			printErrors(filename, string(content), []string{errObj.Inspect()})
+		if ok {
+			printRuntimeError(filename, string(content), errObj)
 		} else {
-			// Error without position information (legacy format)
+			// Legacy error format (shouldn't happen anymore)
 			fmt.Fprintf(os.Stderr, "%s: %s\n", filename, evaluated.Inspect())
 		}
 		os.Exit(1)
@@ -167,65 +166,87 @@ func executeFile(filename string, prettyPrint bool) {
 	}
 }
 
-// printErrors prints formatted error messages with context
-func printErrors(filename string, source string, errors []string) {
-	fmt.Fprintf(os.Stderr, "Error in '%s':\n", filename)
+// printStructuredErrors prints parser errors with source context
+func printStructuredErrors(filename string, source string, errs []*errors.ParsleyError) {
 	lines := strings.Split(source, "\n")
 
-	for _, msg := range errors {
-		fmt.Fprintf(os.Stderr, "  %s\n", msg)
+	for _, err := range errs {
+		fmt.Fprintln(os.Stderr, err.PrettyString())
+		printSourceContext(lines, err.Line, err.Column)
+	}
+}
 
-		// Try to extract line number and column, then show context
-		var lineNum, colNum int
-		if n, _ := fmt.Sscanf(msg, "line %d, column %d", &lineNum, &colNum); n == 2 && lineNum > 0 && lineNum <= len(lines) {
-			sourceLine := lines[lineNum-1]
+// printRuntimeError prints a runtime error with source context
+func printRuntimeError(filename string, source string, err *evaluator.Error) {
+	lines := strings.Split(source, "\n")
 
-			// Calculate how many columns to trim from the left
-			trimCount := 0
-			for i := 0; i < len(sourceLine); i++ {
-				if sourceLine[i] == ' ' || sourceLine[i] == '\t' {
-					if sourceLine[i] == '\t' {
-						trimCount += 8
-					} else {
-						trimCount++
-					}
-				} else {
-					break
-				}
+	fmt.Fprint(os.Stderr, "Runtime error")
+	if err.Line > 0 {
+		fmt.Fprintf(os.Stderr, ": line %d, column %d\n", err.Line, err.Column)
+	} else {
+		fmt.Fprintln(os.Stderr)
+	}
+	fmt.Fprintf(os.Stderr, "  %s\n", err.Message)
+
+	// Hints
+	for _, hint := range err.Hints {
+		fmt.Fprintf(os.Stderr, "  hint: %s\n", hint)
+	}
+
+	// Source context
+	if err.Line > 0 {
+		printSourceContext(lines, err.Line, err.Column)
+	}
+}
+
+// printSourceContext prints the source line and error pointer
+func printSourceContext(lines []string, lineNum, colNum int) {
+	if lineNum <= 0 || lineNum > len(lines) {
+		return
+	}
+
+	sourceLine := lines[lineNum-1]
+
+	// Calculate how many columns to trim from the left
+	trimCount := 0
+	for i := 0; i < len(sourceLine); i++ {
+		if sourceLine[i] == ' ' || sourceLine[i] == '\t' {
+			if sourceLine[i] == '\t' {
+				trimCount += 8
+			} else {
+				trimCount++
 			}
-
-			// Trim left whitespace from the source line
-			trimmedLine := strings.TrimLeft(sourceLine, " \t")
-
-			// Show the trimmed line with slight indentation
-			fmt.Fprintf(os.Stderr, "    %s\n", trimmedLine)
-
-			// Show pointer to the error position
-			if colNum > 0 {
-				// Calculate visual column accounting for tabs (8 spaces each) up to error position
-				visualCol := 0
-				for i := 0; i < colNum-1 && i < len(sourceLine); i++ {
-					if sourceLine[i] == '\t' {
-						visualCol += 8
-					} else {
-						visualCol++
-					}
-				}
-
-				// Adjust pointer position by subtracting trimmed columns
-				adjustedCol := visualCol - trimCount
-				if adjustedCol < 0 {
-					adjustedCol = 0
-				}
-
-				pointer := strings.Repeat(" ", adjustedCol) + "^"
-				fmt.Fprintf(os.Stderr, "    %s\n", pointer)
-			}
-		} else if _, err := fmt.Sscanf(msg, "line %d", &lineNum); err == nil && lineNum > 0 && lineNum <= len(lines) {
-			// Fallback: show line without pointer if only line number available
-			trimmedLine := strings.TrimLeft(lines[lineNum-1], " \t")
-			fmt.Fprintf(os.Stderr, "    %s\n", trimmedLine)
+		} else {
+			break
 		}
+	}
+
+	// Trim left whitespace from the source line
+	trimmedLine := strings.TrimLeft(sourceLine, " \t")
+
+	// Show the trimmed line with slight indentation
+	fmt.Fprintf(os.Stderr, "    %s\n", trimmedLine)
+
+	// Show pointer to the error position
+	if colNum > 0 {
+		// Calculate visual column accounting for tabs (8 spaces each) up to error position
+		visualCol := 0
+		for i := 0; i < colNum-1 && i < len(sourceLine); i++ {
+			if sourceLine[i] == '\t' {
+				visualCol += 8
+			} else {
+				visualCol++
+			}
+		}
+
+		// Adjust pointer position by subtracting trimmed columns
+		adjustedCol := visualCol - trimCount
+		if adjustedCol < 0 {
+			adjustedCol = 0
+		}
+
+		pointer := strings.Repeat(" ", adjustedCol) + "^"
+		fmt.Fprintf(os.Stderr, "    %s\n", pointer)
 	}
 }
 
