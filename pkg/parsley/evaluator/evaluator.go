@@ -1727,7 +1727,7 @@ func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 			// Try without seconds
 			t, err = time.Parse("15:04", node.Value)
 			if err != nil {
-				return newError("invalid time literal: %s", node.Value)
+				return newFormatError("FMT-0004", fmt.Errorf("invalid time literal: %s", node.Value))
 			}
 		}
 
@@ -1867,7 +1867,7 @@ func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environ
 			// Try without seconds
 			t, err = time.Parse("15:04", datetimeStr)
 			if err != nil {
-				return newError("invalid time in datetime template: %s", datetimeStr)
+				return newFormatError("FMT-0004", fmt.Errorf("invalid time in datetime template: %s", datetimeStr))
 			}
 		}
 
@@ -5096,7 +5096,8 @@ func getBuiltins() map[string]*Builtin {
 
 				cur, err := currency.ParseISO(currStr.Value)
 				if err != nil {
-					return newError("invalid currency code: %s", currStr.Value)
+					perr := perrors.New("VAL-0001", map[string]any{"Code": currStr.Value})
+					return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 				}
 
 				locale := "en"
@@ -5186,7 +5187,8 @@ func getBuiltins() map[string]*Builtin {
 					// Validate style
 					validStyles := map[string]bool{"short": true, "medium": true, "long": true, "full": true}
 					if !validStyles[style] {
-						return newError("style must be one of: short, medium, long, full, got %s", style)
+						perr := perrors.New("VAL-0002", map[string]any{"Style": style, "Context": "datetime format", "ValidOptions": "short, medium, long, full"})
+						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 					}
 				}
 
@@ -5239,7 +5241,8 @@ func getBuiltins() map[string]*Builtin {
 						case "unit":
 							style = locale.ListStyleUnit
 						default:
-							return newError("invalid style %q for `format`, use 'and', 'or', or 'unit'", styleStr.Value)
+							perr := perrors.New("VAL-0002", map[string]any{"Style": styleStr.Value, "Context": "`format`", "ValidOptions": "'and', 'or', or 'unit'"})
+							return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 						}
 					}
 
@@ -5308,7 +5311,8 @@ func getBuiltins() map[string]*Builtin {
 
 				// Validate function parameter count
 				if fn.ParamCount() != 1 {
-					return newError("function passed to `map` must take exactly 1 parameter, got %d", fn.ParamCount())
+					perr := perrors.New("CALLBACK-0001", map[string]any{"Function": "map", "Expected": 1, "Got": fn.ParamCount()})
+					return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 				}
 
 				result := []Object{}
@@ -5859,7 +5863,8 @@ func getBuiltins() map[string]*Builtin {
 
 				// Verify the function takes exactly 2 parameters
 				if fn.ParamCount() != 2 {
-					return newError("comparison function must take exactly 2 parameters, got %d", fn.ParamCount())
+					perr := perrors.New("CALLBACK-0001", map[string]any{"Function": "sortBy comparison", "Expected": 2, "Got": fn.ParamCount()})
+					return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 				}
 
 				// Create a copy to avoid modifying the original
@@ -6004,12 +6009,14 @@ func getBuiltins() map[string]*Builtin {
 				for _, elem := range arr.Elements {
 					pair, ok := elem.(*Array)
 					if !ok || len(pair.Elements) != 2 {
-						return newError("toDict requires array of [key, value] pairs")
+						perr := perrors.New("TODICT-0001", nil)
+						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 					}
 
 					keyObj, ok := pair.Elements[0].(*String)
 					if !ok {
-						return newError("dictionary keys must be strings, got %s", pair.Elements[0].Type())
+						perr := perrors.New("TODICT-0002", map[string]any{"Got": string(pair.Elements[0].Type())})
+						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 					}
 
 					// Create a literal expression from the value
@@ -6032,7 +6039,8 @@ func getBuiltins() map[string]*Builtin {
 						dict.Env.Set(tempKey, v)
 						expr = &ast.Identifier{Value: tempKey}
 					default:
-						return newError("toDict: unsupported value type %s", valueObj.Type())
+						perr := perrors.New("TODICT-0003", map[string]any{"Got": string(valueObj.Type())})
+						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 					}
 
 					dict.Pairs[keyObj.Value] = expr
@@ -9562,7 +9570,8 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	// Check if component is null (common when import destructuring gets wrong name)
 	if val == NULL || val == nil {
-		return newError("cannot use '<%s/>' because '%s' is null\n   💡 Hint: '%s' may not be exported from the imported module. Check the export name matches.", node.Name, node.Name, node.Name)
+		perr := perrors.New("COMP-0001", map[string]any{"Name": node.Name})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Call the function with the props dictionary
@@ -9570,7 +9579,8 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
-		return newError("cannot use '<%s/>' because '%s' is not a function (got %s)\n   💡 Hint: Components must be functions. Check that '%s' is exported as a function.", node.Name, node.Name, val.Type(), node.Name)
+		perr := perrors.New("COMP-0002", map[string]any{"Name": node.Name, "Got": string(val.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	return result
@@ -9888,7 +9898,8 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 
 	// Check if component is null (common when import destructuring gets wrong name)
 	if val == NULL || val == nil {
-		return newError("cannot use '<%s/>' because '%s' is null\n   💡 Hint: '%s' may not be exported from the imported module. Check the export name matches.", tagName, tagName, tagName)
+		perr := perrors.New("COMP-0001", map[string]any{"Name": tagName})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -9907,7 +9918,8 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
-		return newError("cannot use '<%s/>' because '%s' is not a function (got %s)\n   💡 Hint: Components must be functions. Check that '%s' is exported as a function.", tagName, tagName, val.Type(), tagName)
+		perr := perrors.New("COMP-0002", map[string]any{"Name": tagName, "Got": string(val.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	return result

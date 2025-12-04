@@ -253,7 +253,7 @@ func TestFormatDateErrors(t *testing.T) {
 		{`formatDate({})`, "must be a datetime"},
 		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, 123)`, "must be a string"},
 		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", 456)`, "must be a string"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "invalid")`, "must be one of: short, medium, long, full"},
+		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "invalid")`, "invalid style"},
 	}
 
 	for _, tt := range tests {
