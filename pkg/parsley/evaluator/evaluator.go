@@ -9020,6 +9020,22 @@ func newLocaleError(locale string) *Error {
 	}
 }
 
+// newFormatErrorWithPos creates a structured format error with position info.
+func newFormatErrorWithPos(code string, tok lexer.Token, err error) *Error {
+	perr := perrors.New(code, map[string]any{
+		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+		Line:    tok.Line,
+		Column:  tok.Column,
+	}
+}
+
 // enrichErrorWithPos adds position info to an error that doesn't have it.
 // This is useful for wrapping errors from builtins at the call site.
 func enrichErrorWithPos(obj Object, tok *lexer.Token) Object {

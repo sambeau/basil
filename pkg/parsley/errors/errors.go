@@ -498,6 +498,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassFormat,
 		Template: "invalid locale: {{.Locale}}",
 	},
+	"FMT-0009": {
+		Class:    ClassFormat,
+		Template: "invalid duration: {{.GoError}}",
+	},
 
 	// ========================================
 	// Operator errors (OP-0xxx)
