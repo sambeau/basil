@@ -8748,6 +8748,9 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 	return &Array{Elements: result}
 }
 
+// newError creates an unstructured error (DEPRECATED - use structured errors instead).
+// This function exists only for unmigrated code in methods.go.
+// TODO: Migrate methods.go to structured errors, then remove this function.
 func newError(format string, a ...interface{}) *Error {
 	return &Error{Message: fmt.Sprintf(format, a...)}
 }
