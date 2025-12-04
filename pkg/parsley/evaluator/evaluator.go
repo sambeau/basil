@@ -6092,12 +6092,12 @@ func getBuiltins() map[string]*Builtin {
 				}
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("parseJSON() expects string argument, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "parseJSON", "a string", args[0].Type())
 				}
 
 				var result interface{}
 				if err := json.Unmarshal([]byte(str.Value), &result); err != nil {
-					return newError("parseJSON error: %s", err.Error())
+					return newFormatError("FMT-0005", err)
 				}
 
 				return jsonToObject(result)
@@ -6112,7 +6112,7 @@ func getBuiltins() map[string]*Builtin {
 				jsonData := objectToGo(args[0])
 				jsonBytes, err := json.Marshal(jsonData)
 				if err != nil {
-					return newError("stringifyJSON error: %s", err.Error())
+					return newFormatError("FMT-0005", err)
 				}
 
 				return &String{Value: string(jsonBytes)}
@@ -6125,7 +6125,7 @@ func getBuiltins() map[string]*Builtin {
 				}
 				str, ok := args[0].(*String)
 				if !ok {
-					return newError("parseCSV() expects string argument, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "parseCSV", "a string", args[0].Type())
 				}
 
 				// Parse options if provided (default: header=true)
@@ -6144,7 +6144,7 @@ func getBuiltins() map[string]*Builtin {
 				reader := csv.NewReader(strings.NewReader(str.Value))
 				records, err := reader.ReadAll()
 				if err != nil {
-					return newError("parseCSV error: %s", err.Error())
+					return newFormatError("FMT-0007", err)
 				}
 
 				if hasHeader && len(records) > 0 {
@@ -6186,7 +6186,7 @@ func getBuiltins() map[string]*Builtin {
 
 				arr, ok := args[0].(*Array)
 				if !ok {
-					return newError("stringifyCSV() expects array argument, got %s", args[0].Type())
+					return newTypeError("TYPE-0012", "stringifyCSV", "an array", args[0].Type())
 				}
 
 				var buf bytes.Buffer
@@ -6199,16 +6199,16 @@ func getBuiltins() map[string]*Builtin {
 							record[i] = cell.Inspect()
 						}
 						if err := writer.Write(record); err != nil {
-							return newError("stringifyCSV error: %s", err.Error())
+							return newFormatError("FMT-0007", err)
 						}
 					} else {
-						return newError("stringifyCSV expects array of arrays, got element of type %s", elem.Type())
+						return newTypeError("TYPE-0012", "stringifyCSV", "an array of arrays", elem.Type())
 					}
 				}
 
 				writer.Flush()
 				if err := writer.Error(); err != nil {
-					return newError("stringifyCSV error: %s", err.Error())
+					return newFormatError("FMT-0007", err)
 				}
 
 				return &String{Value: buf.String()}
