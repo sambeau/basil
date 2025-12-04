@@ -6081,7 +6081,7 @@ func getBuiltins() map[string]*Builtin {
 		"parseJSON": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("parseJSON() expects 1 argument, got=%d", len(args))
+					return newArityError("parseJSON", len(args), 1)
 				}
 				str, ok := args[0].(*String)
 				if !ok {
@@ -6099,7 +6099,7 @@ func getBuiltins() map[string]*Builtin {
 		"stringifyJSON": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("stringifyJSON() expects 1 argument, got=%d", len(args))
+					return newArityError("stringifyJSON", len(args), 1)
 				}
 
 				jsonData := objectToGo(args[0])
@@ -6114,7 +6114,7 @@ func getBuiltins() map[string]*Builtin {
 		"parseCSV": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("parseCSV() expects 1-2 arguments, got=%d", len(args))
+					return newArityErrorRange("parseCSV", len(args), 1, 2)
 				}
 				str, ok := args[0].(*String)
 				if !ok {
@@ -6174,7 +6174,7 @@ func getBuiltins() map[string]*Builtin {
 		"stringifyCSV": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("stringifyCSV() expects 1 argument, got=%d", len(args))
+					return newArityError("stringifyCSV", len(args), 1)
 				}
 
 				arr, ok := args[0].(*Array)
@@ -6503,7 +6503,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 	switch method {
 	case "begin":
 		if len(args) != 0 {
-			return newError("begin() takes no arguments, got=%d", len(args))
+			return newArityError("begin", len(args), 0)
 		}
 		if conn.InTransaction {
 			return newDatabaseStateError("DB-0007")
@@ -6513,7 +6513,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 
 	case "commit":
 		if len(args) != 0 {
-			return newError("commit() takes no arguments, got=%d", len(args))
+			return newArityError("commit", len(args), 0)
 		}
 		if !conn.InTransaction {
 			return newDatabaseStateError("DB-0006")
@@ -6525,7 +6525,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 
 	case "rollback":
 		if len(args) != 0 {
-			return newError("rollback() takes no arguments, got=%d", len(args))
+			return newArityError("rollback", len(args), 0)
 		}
 		if !conn.InTransaction {
 			return newDatabaseStateError("DB-0006")
@@ -6535,7 +6535,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 
 	case "close":
 		if len(args) != 0 {
-			return newError("close() takes no arguments, got=%d", len(args))
+			return newArityError("close", len(args), 0)
 		}
 		// Managed connections cannot be closed by Parsley scripts
 		if conn.Managed {
@@ -6555,7 +6555,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 
 	case "ping":
 		if len(args) != 0 {
-			return newError("ping() takes no arguments, got=%d", len(args))
+			return newArityError("ping", len(args), 0)
 		}
 		if err := conn.DB.Ping(); err != nil {
 			conn.LastError = err.Error()
@@ -6573,7 +6573,7 @@ func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object
 	switch method {
 	case "close":
 		if len(args) != 0 {
-			return newError("close() takes no arguments, got=%d", len(args))
+			return newArityError("close", len(args), 0)
 		}
 
 		// Remove from cache
@@ -6659,7 +6659,7 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 	case "remove":
 		// Remove file
 		if len(args) != 0 {
-			return newError("remove() takes no arguments, got=%d", len(args))
+			return newArityError("remove", len(args), 0)
 		}
 
 		if err := handle.Connection.Client.Remove(handle.Path); err != nil {
@@ -8218,7 +8218,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	case *SFTPConnection:
 		// SFTP connection is callable: conn(@/path) returns SFTP file handle
 		if len(args) != 1 {
-			return newError("SFTP connection takes exactly 1 argument (path), got=%d", len(args))
+			return newArityError("SFTP", len(args), 1)
 		}
 
 		// Extract path from argument
