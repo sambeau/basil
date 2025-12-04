@@ -698,27 +698,41 @@ The structured error object enables both formats from the same data.
   - `newUndefinedMethodError()` for UNDEF-0002
   - `newLocaleError()` for FMT-0008
   - `newStateError()` for STATE-xxxx
-- Migrated 380 of 554 error sites (68.6%):
-  - Security errors (SEC-0001 through SEC-0005)
+  - `newParseError()` for PARSE-0009, PARSE-0010, PARSE-0011
+  - `newConversionError()` for TYPE-0015, TYPE-0016, TYPE-0017
+  - `newNetworkError()` for NET-xxxx
+  - `newSliceIndexTypeError()` for TYPE-0018
+  - `newIndexError()` for INDEX-xxxx
+  - `newUndefinedComponentError()` for UNDEF-0003
+- Migrated 459 of 554 error sites (82.8%):
+  - Security errors (SEC-0001 through SEC-0006)
   - Database errors (DB-0001 through DB-0008)
-  - Type errors (TYPE-0001 through TYPE-0014)
+  - Type errors (TYPE-0001 through TYPE-0018)
   - Arity errors (ARITY-0001 through ARITY-0005)
   - I/O errors (IO-0002 through IO-0007)
-  - Format errors (FMT-0002, FMT-0003, FMT-0008)
-  - Method errors (UNDEF-0002)
-- Added new error codes: ARITY-0005 (min args), FMT-0008 (locale), FMT-0009 (duration)
-- Updated error code checking from string matching to Code comparison
-- 174 error sites remaining for migration
+  - Format errors (FMT-0002 through FMT-0009)
+  - Method errors (UNDEF-0002, UNDEF-0003)
+  - Parse errors (PARSE-0009 through PARSE-0011)
+  - Network errors (NET-0003, NET-0005 through NET-0009)
+  - Index errors (INDEX-0001, INDEX-0003)
+- Added new error codes:
+  - ARITY-0005 (min args)
+  - FMT-0008 (locale), FMT-0009 (duration)
+  - TYPE-0015/0016/0017 (conversion), TYPE-0018 (slice index type)
+  - PARSE-0009/0010/0011 (template syntax)
+  - NET-0005 through NET-0009 (SFTP/SSH)
+  - SEC-0006 (SFTP auth)
+- 95 error sites remaining for migration
 
 ### Remaining Work
 
-1. **Complete error migration** - 174 remaining sites including:
-   - Datetime/duration format errors (~20 sites)
-   - URL template errors (~5 sites)
-   - SSH/SFTP connection errors (~10 sites)
-   - JSON/CSV parsing errors (~10 sites)
-   - Component/tag errors (~30 sites)
-   - Miscellaneous errors (~99 sites)
+1. **Complete error migration** - 95 remaining sites including:
+   - Command handle errors (~12 sites)
+   - For loop errors (~7 sites)
+   - Import/module errors (~6 sites)
+   - File/write operator errors (~25 sites)
+   - Database operator errors (~15 sites)
+   - Miscellaneous errors (~30 sites)
 2. **Update error messages** - Apply improved message formats from the spec
 3. **Documentation** - Document all error codes in reference
 
