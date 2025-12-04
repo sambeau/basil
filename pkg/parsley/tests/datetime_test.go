@@ -332,13 +332,13 @@ func TestDatetimeErrors(t *testing.T) {
 			name:    "time() with no arguments",
 			code:    `let dt = time();`,
 			wantErr: true,
-			errMsg:  "wrong number of arguments",
+			errMsg:  "expects 1-2 arguments",
 		},
 		{
 			name:    "time() with too many arguments",
 			code:    `let dt = time("2024-01-01", {days: 1}, "extra");`,
 			wantErr: true,
-			errMsg:  "wrong number of arguments",
+			errMsg:  "expects 1-2 arguments",
 		},
 		{
 			name:    "time() with invalid type",

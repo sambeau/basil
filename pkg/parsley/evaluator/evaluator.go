@@ -3857,7 +3857,7 @@ func getBuiltins() map[string]*Builtin {
 		"SQLITE": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `SQLITE`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("SQLITE", len(args), 1, 2)
 				}
 
 				// First arg: path literal
@@ -3933,7 +3933,7 @@ func getBuiltins() map[string]*Builtin {
 		"POSTGRES": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `POSTGRES`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("POSTGRES", len(args), 1, 2)
 				}
 
 				// First arg: URL literal
@@ -4008,7 +4008,7 @@ func getBuiltins() map[string]*Builtin {
 		"MYSQL": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `MYSQL`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("MYSQL", len(args), 1, 2)
 				}
 
 				// First arg: URL literal
@@ -4083,7 +4083,7 @@ func getBuiltins() map[string]*Builtin {
 		"SFTP": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `SFTP`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("SFTP", len(args), 1, 2)
 				}
 
 				// First arg: URL (can be dictionary or string)
@@ -4313,7 +4313,7 @@ func getBuiltins() map[string]*Builtin {
 		"sin": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `sin`. got=%d, want=1", len(args))
+					return newArityError("sin", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4330,7 +4330,7 @@ func getBuiltins() map[string]*Builtin {
 		"cos": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `cos`. got=%d, want=1", len(args))
+					return newArityError("cos", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4347,7 +4347,7 @@ func getBuiltins() map[string]*Builtin {
 		"tan": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `tan`. got=%d, want=1", len(args))
+					return newArityError("tan", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4364,7 +4364,7 @@ func getBuiltins() map[string]*Builtin {
 		"asin": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `asin`. got=%d, want=1", len(args))
+					return newArityError("asin", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4381,7 +4381,7 @@ func getBuiltins() map[string]*Builtin {
 		"acos": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `acos`. got=%d, want=1", len(args))
+					return newArityError("acos", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4398,7 +4398,7 @@ func getBuiltins() map[string]*Builtin {
 		"atan": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `atan`. got=%d, want=1", len(args))
+					return newArityError("atan", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4415,7 +4415,7 @@ func getBuiltins() map[string]*Builtin {
 		"sqrt": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `sqrt`. got=%d, want=1", len(args))
+					return newArityError("sqrt", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4432,7 +4432,7 @@ func getBuiltins() map[string]*Builtin {
 		"round": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `round`. got=%d, want=1", len(args))
+					return newArityError("round", len(args), 1)
 				}
 
 				arg := args[0]
@@ -4449,7 +4449,7 @@ func getBuiltins() map[string]*Builtin {
 		"pow": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 2 {
-					return newError("wrong number of arguments to `pow`. got=%d, want=2", len(args))
+					return newArityError("pow", len(args), 2)
 				}
 
 				base := args[0]
@@ -4481,7 +4481,7 @@ func getBuiltins() map[string]*Builtin {
 		"pi": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 0 {
-					return newError("wrong number of arguments to `pi`. got=%d, want=0", len(args))
+					return newArityError("pi", len(args), 0)
 				}
 				return &Float{Value: math.Pi}
 			},
@@ -4489,7 +4489,7 @@ func getBuiltins() map[string]*Builtin {
 		"now": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 0 {
-					return newError("wrong number of arguments to `now`. got=%d, want=0", len(args))
+					return newArityError("now", len(args), 0)
 				}
 				// Get current environment from context (we'll pass it through the Builtin)
 				// For now, create a new environment for the dictionary
@@ -4500,7 +4500,7 @@ func getBuiltins() map[string]*Builtin {
 		"time": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `time`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("time", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -4548,7 +4548,7 @@ func getBuiltins() map[string]*Builtin {
 		"url": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `url`. got=%d, want=1", len(args))
+					return newArityError("url", len(args), 1)
 				}
 
 				str, ok := args[0].(*String)
@@ -4569,7 +4569,7 @@ func getBuiltins() map[string]*Builtin {
 		"file": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `file`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("file", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary or string
@@ -4612,7 +4612,7 @@ func getBuiltins() map[string]*Builtin {
 		"JSON": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `JSON`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("JSON", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -4649,7 +4649,7 @@ func getBuiltins() map[string]*Builtin {
 		"YAML": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `YAML`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("YAML", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4688,7 +4688,7 @@ func getBuiltins() map[string]*Builtin {
 		"CSV": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `CSV`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("CSV", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4727,7 +4727,7 @@ func getBuiltins() map[string]*Builtin {
 		"lines": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `lines`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("lines", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4766,7 +4766,7 @@ func getBuiltins() map[string]*Builtin {
 		"text": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `text`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("text", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4805,7 +4805,7 @@ func getBuiltins() map[string]*Builtin {
 		"bytes": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `bytes`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("bytes", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4845,7 +4845,7 @@ func getBuiltins() map[string]*Builtin {
 		"SVG": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `SVG`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("SVG", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4885,7 +4885,7 @@ func getBuiltins() map[string]*Builtin {
 		"MD": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `MD`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("MD", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4925,7 +4925,7 @@ func getBuiltins() map[string]*Builtin {
 		"dir": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 1 {
-					return newError("wrong number of arguments to `dir`. got=%d, want=1", len(args))
+					return newArityError("dir", len(args), 1)
 				}
 
 				// First argument must be a path dictionary or string
@@ -4952,7 +4952,7 @@ func getBuiltins() map[string]*Builtin {
 		"files": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 1 {
-					return newError("wrong number of arguments to `files`. got=%d, want=1", len(args))
+					return newArityError("files", len(args), 1)
 				}
 
 				var pattern string
@@ -5035,7 +5035,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatNumber": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `formatNumber`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("formatNumber", len(args), 1, 2)
 				}
 
 				var value float64
@@ -5069,7 +5069,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatCurrency": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 2 || len(args) > 3 {
-					return newError("wrong number of arguments to `formatCurrency`. got=%d, want=2 or 3", len(args))
+					return newArityErrorRange("formatCurrency", len(args), 2, 3)
 				}
 
 				var value float64
@@ -5114,7 +5114,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatPercent": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `formatPercent`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("formatPercent", len(args), 1, 2)
 				}
 
 				var value float64
@@ -5148,7 +5148,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatDate": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
-					return newError("wrong number of arguments to `formatDate`. got=%d, want=1, 2, or 3", len(args))
+					return newArityErrorRange("formatDate", len(args), 1, 3)
 				}
 
 				// First argument must be a datetime dictionary
@@ -5203,7 +5203,7 @@ func getBuiltins() map[string]*Builtin {
 		"format": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
-					return newError("wrong number of arguments to `format`. got=%d, want=1-3", len(args))
+					return newArityErrorRange("format", len(args), 1, 3)
 				}
 
 				// Handle arrays (list formatting)
@@ -5282,7 +5282,7 @@ func getBuiltins() map[string]*Builtin {
 		"map": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 2 {
-					return newError("wrong number of arguments to `map`. got=%d, want at least 2", len(args))
+					return newArityErrorMin("map", len(args), 2)
 				}
 
 				fn, ok := args[0].(*Function)
@@ -5334,7 +5334,7 @@ func getBuiltins() map[string]*Builtin {
 		"toUpper": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toUpper`. got=%d, want=1", len(args))
+					return newArityError("toUpper", len(args), 1)
 				}
 
 				str, ok := args[0].(*String)
@@ -5348,7 +5348,7 @@ func getBuiltins() map[string]*Builtin {
 		"toLower": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toLower`. got=%d, want=1", len(args))
+					return newArityError("toLower", len(args), 1)
 				}
 
 				str, ok := args[0].(*String)
@@ -5362,7 +5362,7 @@ func getBuiltins() map[string]*Builtin {
 		"regex": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments to `regex`. got=%d, want=1 or 2", len(args))
+					return newArityErrorRange("regex", len(args), 1, 2)
 				}
 
 				pattern, ok := args[0].(*String)
@@ -5397,7 +5397,7 @@ func getBuiltins() map[string]*Builtin {
 		"replace": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 3 {
-					return newError("wrong number of arguments to `replace`. got=%d, want=3", len(args))
+					return newArityError("replace", len(args), 3)
 				}
 
 				text, ok := args[0].(*String)
@@ -5450,7 +5450,7 @@ func getBuiltins() map[string]*Builtin {
 		"split": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 2 {
-					return newError("wrong number of arguments to `split`. got=%d, want=2", len(args))
+					return newArityError("split", len(args), 2)
 				}
 
 				text, ok := args[0].(*String)
@@ -5500,7 +5500,7 @@ func getBuiltins() map[string]*Builtin {
 		"tag": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
-					return newError("wrong number of arguments to `tag`. got=%d, want=1 to 3", len(args))
+					return newArityErrorRange("tag", len(args), 1, 3)
 				}
 
 				// First arg: tag name (required)
@@ -5558,7 +5558,7 @@ func getBuiltins() map[string]*Builtin {
 		"len": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `len`. got=%d, want=1", len(args))
+					return newArityError("len", len(args), 1)
 				}
 
 				arg := args[0]
@@ -5586,7 +5586,7 @@ func getBuiltins() map[string]*Builtin {
 		"asset": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `asset`. got=%d, want=1", len(args))
+					return newArityError("asset", len(args), 1)
 				}
 
 				switch arg := args[0].(type) {
@@ -5615,7 +5615,7 @@ func getBuiltins() map[string]*Builtin {
 		"repr": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `repr`. got=%d, want=1", len(args))
+					return newArityError("repr", len(args), 1)
 				}
 
 				// Return the debug/dictionary representation of any value
@@ -5655,7 +5655,7 @@ func getBuiltins() map[string]*Builtin {
 		"toInt": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toInt`. got=%d, want=1", len(args))
+					return newArityError("toInt", len(args), 1)
 				}
 
 				str, ok := args[0].(*String)
@@ -5675,7 +5675,7 @@ func getBuiltins() map[string]*Builtin {
 		"toFloat": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toFloat`. got=%d, want=1", len(args))
+					return newArityError("toFloat", len(args), 1)
 				}
 
 				str, ok := args[0].(*String)
@@ -5695,7 +5695,7 @@ func getBuiltins() map[string]*Builtin {
 		"toNumber": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toNumber`. got=%d, want=1", len(args))
+					return newArityError("toNumber", len(args), 1)
 				}
 
 				str, ok := args[0].(*String)
@@ -5791,7 +5791,7 @@ func getBuiltins() map[string]*Builtin {
 		"sort": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `sort`. got=%d, want=1", len(args))
+					return newArityError("sort", len(args), 1)
 				}
 
 				arr, ok := args[0].(*Array)
@@ -5814,7 +5814,7 @@ func getBuiltins() map[string]*Builtin {
 		"reverse": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `reverse`. got=%d, want=1", len(args))
+					return newArityError("reverse", len(args), 1)
 				}
 
 				arr, ok := args[0].(*Array)
@@ -5834,7 +5834,7 @@ func getBuiltins() map[string]*Builtin {
 		"sortBy": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 2 {
-					return newError("wrong number of arguments to `sortBy`. got=%d, want=2", len(args))
+					return newArityError("sortBy", len(args), 2)
 				}
 
 				arr, ok := args[0].(*Array)
@@ -5881,7 +5881,7 @@ func getBuiltins() map[string]*Builtin {
 		"keys": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `keys`. got=%d, want=1", len(args))
+					return newArityError("keys", len(args), 1)
 				}
 
 				dict, ok := args[0].(*Dictionary)
@@ -5899,7 +5899,7 @@ func getBuiltins() map[string]*Builtin {
 		"values": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `values`. got=%d, want=1", len(args))
+					return newArityError("values", len(args), 1)
 				}
 
 				dict, ok := args[0].(*Dictionary)
@@ -5922,7 +5922,7 @@ func getBuiltins() map[string]*Builtin {
 		"has": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 2 {
-					return newError("wrong number of arguments to `has`. got=%d, want=2", len(args))
+					return newArityError("has", len(args), 2)
 				}
 
 				dict, ok := args[0].(*Dictionary)
@@ -5942,7 +5942,7 @@ func getBuiltins() map[string]*Builtin {
 		"toArray": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toArray`. got=%d, want=1", len(args))
+					return newArityError("toArray", len(args), 1)
 				}
 
 				dict, ok := args[0].(*Dictionary)
@@ -5981,7 +5981,7 @@ func getBuiltins() map[string]*Builtin {
 		"toDict": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments to `toDict`. got=%d, want=1", len(args))
+					return newArityError("toDict", len(args), 1)
 				}
 
 				arr, ok := args[0].(*Array)
@@ -6037,7 +6037,7 @@ func getBuiltins() map[string]*Builtin {
 		"COMMAND": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
-					return newError("wrong number of arguments to `COMMAND`. got=%d, want=1-3", len(args))
+					return newArityErrorRange("COMMAND", len(args), 1, 3)
 				}
 
 				env := NewEnvironment()
@@ -8253,7 +8253,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 // evalImport implements the import(path) builtin
 func evalImport(args []Object, env *Environment) Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments to `import`. got=%d, want=1", len(args))
+		return newArityError("import", len(args), 1)
 	}
 
 	// Extract path string from argument (handle both path dictionaries and strings)
@@ -8891,6 +8891,55 @@ func newIndexTypeError(tok lexer.Token, left, index ObjectType) *Error {
 func newSliceTypeError(left ObjectType) *Error {
 	perr := perrors.New("TYPE-0014", map[string]any{
 		"Type": perrors.TypeName(string(left)),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newArityError creates a structured error for wrong number of arguments (exact count).
+func newArityError(function string, got, want int) *Error {
+	perr := perrors.New("ARITY-0001", map[string]any{
+		"Function": function,
+		"Got":      got,
+		"Want":     want,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newArityErrorRange creates a structured error for wrong number of arguments (range).
+func newArityErrorRange(function string, got, min, max int) *Error {
+	perr := perrors.New("ARITY-0004", map[string]any{
+		"Function": function,
+		"Got":      got,
+		"Min":      min,
+		"Max":      max,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newArityErrorMin creates a structured error for minimum arguments required.
+func newArityErrorMin(function string, got, min int) *Error {
+	perr := perrors.New("ARITY-0005", map[string]any{
+		"Function": function,
+		"Got":      got,
+		"Min":      min,
 	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),

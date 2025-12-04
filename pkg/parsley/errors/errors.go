@@ -284,6 +284,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassArity,
 		Template: "`{{.Function}}` expects {{.Min}}-{{.Max}} arguments, got {{.Got}}",
 	},
+	"ARITY-0005": {
+		Class:    ClassArity,
+		Template: "`{{.Function}}` expects at least {{.Min}} argument(s), got {{.Got}}",
+	},
 
 	// ========================================
 	// Undefined errors (UNDEF-0xxx)
