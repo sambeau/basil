@@ -4097,7 +4097,7 @@ func getBuiltins() map[string]*Builtin {
 					if schemeExpr, ok := arg.Pairs["scheme"]; ok {
 						scheme := Eval(schemeExpr, arg.Env)
 						if schemeVal, ok := scheme.(*String); ok && schemeVal.Value != "sftp" {
-							return newError("SFTP requires sftp:// URL scheme, got %s://", schemeVal.Value)
+							return newFormatError("FMT-0003", fmt.Errorf("SFTP requires sftp:// URL scheme, got %s://", schemeVal.Value))
 						}
 					}
 					urlStr = urlDictToString(arg)
@@ -4122,7 +4122,7 @@ func getBuiltins() map[string]*Builtin {
 
 				// Parse SFTP URL
 				if !strings.HasPrefix(urlStr, "sftp://") {
-					return newError("SFTP URL must start with sftp://")
+					return newFormatError("FMT-0003", fmt.Errorf("SFTP URL must start with sftp://"))
 				}
 
 				// Parse URL components
@@ -4192,7 +4192,7 @@ func getBuiltins() map[string]*Builtin {
 						if keyPath != "" {
 							keyData, err := os.ReadFile(keyPath)
 							if err != nil {
-								return newError("failed to read SSH key file: %s", err.Error())
+								return newNetworkError("NET-0006", err)
 							}
 
 							var signer ssh.Signer
@@ -4208,7 +4208,7 @@ func getBuiltins() map[string]*Builtin {
 							}
 
 							if signerErr != nil {
-								return newError("failed to parse SSH key: %s", signerErr.Error())
+								return newNetworkError("NET-0007", signerErr)
 							}
 
 							authMethods = append(authMethods, ssh.PublicKeys(signer))
@@ -4229,7 +4229,14 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				if len(authMethods) == 0 {
-					return newError("SFTP requires authentication: provide keyFile or password in options")
+					perr := perrors.New("SEC-0006", nil)
+					return &Error{
+						Class:   ErrorClass(perr.Class),
+						Code:    perr.Code,
+						Message: perr.Message,
+						Hints:   perr.Hints,
+						Data:    perr.Data,
+					}
 				}
 
 				// Configure SSH client
@@ -4274,14 +4281,14 @@ func getBuiltins() map[string]*Builtin {
 				// Connect to SSH server
 				sshClient, err := ssh.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)), config)
 				if err != nil {
-					return newError("failed to connect to SSH server: %s", err.Error())
+					return newNetworkError("NET-0003", err)
 				}
 
 				// Create SFTP client
 				sftpClient, err := sftp.NewClient(sshClient)
 				if err != nil {
 					sshClient.Close()
-					return newError("failed to create SFTP client: %s", err.Error())
+					return newNetworkError("NET-0009", err)
 				}
 
 				// Create connection object
