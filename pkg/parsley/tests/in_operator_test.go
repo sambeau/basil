@@ -197,14 +197,14 @@ func TestInOperatorErrors(t *testing.T) {
 		expectedErr string
 	}{
 		// Invalid right operand
-		{`1 in 42`, "'in' operator requires array, dictionary, or string on right side, got INTEGER"},
-		{`1 in true`, "'in' operator requires array, dictionary, or string on right side, got BOOLEAN"},
+		{`1 in 42`, "'in' operator requires array, dictionary, or string on right side, got integer"},
+		{`1 in true`, "'in' operator requires array, dictionary, or string on right side, got boolean"},
 
 		// Invalid dictionary key type
-		{`1 in {a: 1, b: 2}`, "dictionary key must be a string, got INTEGER"},
+		{`1 in {a: 1, b: 2}`, "dictionary key must be a string, got integer"},
 
 		// Invalid substring type
-		{`1 in "hello"`, "substring must be a string, got INTEGER"},
+		{`1 in "hello"`, "substring must be a string, got integer"},
 	}
 
 	for _, tt := range tests {
