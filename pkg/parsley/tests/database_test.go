@@ -16,7 +16,7 @@ func TestSQLiteConnection(t *testing.T) {
 	}{
 		{
 			name:     "Create SQLite connection",
-			input:    `let db = SQLITE(":memory:")`,
+			input:    `let db = SQLITE(":memory:"); db`,
 			expected: "DB_CONNECTION",
 		},
 		{

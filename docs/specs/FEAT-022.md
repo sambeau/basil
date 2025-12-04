@@ -1,11 +1,10 @@
 ---
 id: FEAT-022
 title: "Block Concatenation Semantics"
-status: closed-wontfix
+status: active
 priority: high
 created: 2025-12-04
 author: "@human"
-closed: 2025-12-04
 ---
 
 # FEAT-022: Block Concatenation Semantics
@@ -236,3 +235,123 @@ The problem is **documentation and user expectations**, not semantics. Parsley's
 ### Branch Status
 
 Branch `feat/FEAT-022-block-concatenation` kept for reference but NOT to be merged.
+
+---
+
+## Second Investigation: Array-Based Approach (2025-12-04)
+
+### Insight
+
+The string-based approach failed because stringification destroys type information. But what if blocks return **arrays** instead of strings? Arrays preserve types, and stringification only happens at the output boundary (HTTP response, REPL).
+
+### Implementation
+
+Changed `evalBlockStatement` and `evalInterpolationBlock`:
+
+```go
+func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
+    var results []Object
+
+    for _, statement := range block.Statements {
+        result := Eval(statement, env)
+        if result != nil {
+            rt := result.Type()
+            if rt == RETURN_OBJ || rt == ERROR_OBJ {
+                return result
+            }
+            if rt != NULL_OBJ {
+                results = append(results, result)
+            }
+        }
+    }
+
+    switch len(results) {
+    case 0:
+        return NULL
+    case 1:
+        return results[0] // Single result: return directly (preserves type)
+    default:
+        return &Array{Elements: results} // Multiple results: return as array
+    }
+}
+```
+
+### Results: SUCCESS! ✅
+
+All tests pass after updating 4 tests that explicitly tested "assignment returns value" behavior.
+
+#### What Works:
+
+1. **Type preservation** - Functions return typed values, not strings
+   ```parsley
+   let arr = fn() { 1; 2; 3 }()
+   arr[0] + arr[1] + arr[2]  // → 6 (integer arithmetic works!)
+   ```
+
+2. **Closures work** - Single expression returns function directly
+   ```parsley
+   let makeAdder = fn(x) { fn(y) { x + y } }
+   let add5 = makeAdder(5)
+   add5(3)  // → 8 ✅
+   ```
+
+3. **Template contexts work** - Arrays auto-concatenate via `objectToTemplateString`
+   ```parsley
+   <div>{
+     let x = 1
+     <p>First</p>
+     <p>Second</p>
+   }</div>
+   // → <div><p>First</p><p>Second</p></div>
+   ```
+
+4. **HTTP output works** - Arrays handled properly by `writeResponse` in handler.go
+
+### Semantic Changes
+
+| Before | After |
+|--------|-------|
+| `x = 5` returns `5` | `x = 5` returns `null` |
+| `let x = 5` returns `5` | `let x = 5` returns `null` |
+| `{ "a"; "b"; "c" }` returns `"c"` | `{ "a"; "b"; "c" }` returns `["a", "b", "c"]` |
+| `{ let x = 1; "a" }` returns `"a"` | `{ let x = 1; "a" }` returns `"a"` (single result) |
+
+### Key Design Decision: Single vs Multiple Results
+
+- **0 results** → `NULL`
+- **1 result** → Return that result directly (no array wrapper)
+- **2+ results** → Return as `Array`
+
+The single-result case is critical: it means `fn(x) { x + 1 }` returns an integer, not a single-element array.
+
+### Performance Implications
+
+**Needs Assessment:**
+
+1. **Slice allocation**: Every multi-expression block allocates a slice
+   - Mitigation: Most blocks have 1-2 expressions (fast path handles single)
+   - Question: How many blocks in typical Parsley code have 2+ non-null expressions?
+
+2. **Array creation**: `&Array{Elements: results}` allocates
+   - Mitigation: Only for multi-expression blocks
+   - Already happens for `for` loops, so not new overhead
+
+3. **No string building**: We removed `strings.Builder` allocation from old approach
+   - This is actually a win for single-expression blocks
+
+**Benchmark needed** to quantify impact on real-world Parsley handlers.
+
+### Tests Updated
+
+4 tests changed to reflect "assignment returns null" semantics:
+- `TestSQLiteConnection/Create_SQLite_connection`
+- `TestFunctions` (all assignment expectations)
+- `TestVariableAssignment`
+- `TestAdvancedVariableUsage`
+
+### Decision: Pending Performance Analysis
+
+The array-based approach works semantically. Need to assess:
+1. Performance impact on typical handlers
+2. Memory allocation patterns
+3. Whether this is worth the breaking change

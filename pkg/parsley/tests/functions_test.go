@@ -15,45 +15,36 @@ func TestFunctions(t *testing.T) {
 		expected string
 	}{
 		// Basic function assignment and calling
-		{"add = fn(i, j) { i + j }", "fn([i j]) {\n(i + j)\n}"},
-		{"add(1, 2)", "3"},
+		// Note: assignments return null, so we test the function call instead
+		{"add = fn(i, j) { i + j }; add(1, 2)", "3"},
 		{"add(10, 20)", "30"},
 
 		// Function with if-else expression
-		{"gt = fn(i, j) { if (i > j) true else false }", "fn([i j]) {\nif(i > j) trueelse false\n}"},
-		{"gt(5, 3)", "true"},
+		{"gt = fn(i, j) { if (i > j) true else false }; gt(5, 3)", "true"},
 		{"gt(2, 7)", "false"},
 		{"gt(5, 5)", "false"},
 
 		// Function with if-return and fallback expression
-		{"positive = fn(x) { if (x >= 0) { return \"yes\" } \"no\" }", "fn([x]) {\nif(x >= 0) return yes;no\n}"},
-		{"positive(1)", "yes"},
+		{"positive = fn(x) { if (x >= 0) { return \"yes\" } \"no\" }; positive(1)", "yes"},
 		{"positive(0)", "yes"},
 		{"positive(-1)", "no"},
 
 		// Function with comparison operators
-		{"lte = fn(a, b) { if (a <= b) true else false }", "fn([a b]) {\nif(a <= b) trueelse false\n}"},
-		{"lte(3, 5)", "true"},
+		{"lte = fn(a, b) { if (a <= b) true else false }; lte(3, 5)", "true"},
 		{"lte(5, 3)", "false"},
 		{"lte(5, 5)", "true"},
 
 		// Functions with floats
-		{"multiply = fn(x, y) { x * y }", "fn([x y]) {\n(x * y)\n}"},
-		{"multiply(2.5, 4.0)", "10"},
+		{"multiply = fn(x, y) { x * y }; multiply(2.5, 4.0)", "10"},
 
 		// Functions with trigonometry
-		{"sinCos = fn(angle) { sin(angle) + cos(angle) }", "fn([angle]) {\n(sin(angle) + cos(angle))\n}"},
-		// sin(0) + cos(0) = 0 + 1 = 1
-		{"sinCos(0)", "1"},
+		{"sinCos = fn(angle) { sin(angle) + cos(angle) }; sinCos(0)", "1"},
 
 		// Nested function calls
-		{"max = fn(a, b) { if (a > b) a else b }", "fn([a b]) {\nif(a > b) aelse b\n}"},
-		{"max(max(1, 2), 3)", "3"},
+		{"max = fn(a, b) { if (a > b) a else b }; max(max(1, 2), 3)", "3"},
 
 		// Function returning function result
-		{"double = fn(x) { x * 2 }", "fn([x]) {\n(x * 2)\n}"},
-		{"quadruple = fn(x) { double(double(x)) }", "fn([x]) {\ndouble(double(x))\n}"},
-		{"quadruple(5)", "20"},
+		{"double = fn(x) { x * 2 }; quadruple = fn(x) { double(double(x)) }; quadruple(5)", "20"},
 	}
 
 	env := evaluator.NewEnvironment()

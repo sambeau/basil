@@ -7166,8 +7166,7 @@ func evalProgram(stmts []ast.Statement, env *Environment) Object {
 }
 
 func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
-	var results strings.Builder
-	hasContent := false
+	var results []Object
 
 	for _, statement := range block.Statements {
 		result := Eval(statement, env)
@@ -7178,25 +7177,28 @@ func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
 				return result
 			}
 
-			// Concatenate non-NULL results
+			// Collect non-NULL results
 			if rt != NULL_OBJ {
-				results.WriteString(objectToTemplateString(result))
-				hasContent = true
+				results = append(results, result)
 			}
 		}
 	}
 
-	if !hasContent {
+	// Return based on number of results
+	switch len(results) {
+	case 0:
 		return NULL
+	case 1:
+		return results[0] // Single result: return directly (preserves type)
+	default:
+		return &Array{Elements: results} // Multiple results: return as array
 	}
-	return &String{Value: results.String()}
 }
 
 // evalInterpolationBlock evaluates an interpolation block inside tag contents
-// It executes all statements and concatenates non-NULL results
+// Collects non-NULL results; returns single value, array, or NULL
 func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Object {
-	var results strings.Builder
-	hasContent := false
+	var results []Object
 
 	for _, statement := range block.Statements {
 		result := Eval(statement, env)
@@ -7207,18 +7209,22 @@ func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Obj
 				return result
 			}
 
-			// Concatenate non-NULL results
+			// Collect non-NULL results
 			if rt != NULL_OBJ {
-				results.WriteString(objectToTemplateString(result))
-				hasContent = true
+				results = append(results, result)
 			}
 		}
 	}
 
-	if !hasContent {
+	// Return based on number of results
+	switch len(results) {
+	case 0:
 		return NULL
+	case 1:
+		return results[0] // Single result: return directly
+	default:
+		return &Array{Elements: results} // Multiple results: return as array
 	}
-	return &String{Value: results.String()}
 }
 
 func nativeBoolToParsBoolean(input bool) *Boolean {
