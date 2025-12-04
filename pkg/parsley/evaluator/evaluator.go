@@ -6516,7 +6516,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 			return newError("commit() takes no arguments, got=%d", len(args))
 		}
 		if !conn.InTransaction {
-			return newError("no transaction in progress")
+			return newDatabaseStateError("DB-0006")
 		}
 		// For now, just mark transaction as complete
 		// Real transaction support will be added with actual query execution
@@ -6528,7 +6528,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 			return newError("rollback() takes no arguments, got=%d", len(args))
 		}
 		if !conn.InTransaction {
-			return newError("no transaction in progress")
+			return newDatabaseStateError("DB-0006")
 		}
 		conn.InTransaction = false
 		return &Boolean{Value: true}
@@ -8810,6 +8810,31 @@ func newSecurityError(operation string, err error) *Error {
 			"Operation": operation,
 			"GoError":   err.Error(),
 		},
+	}
+}
+
+// newDatabaseError creates a structured database error.
+func newDatabaseError(code string, err error) *Error {
+	perr := perrors.New(code, map[string]any{
+		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newDatabaseStateError creates a structured database state error (no Go error).
+func newDatabaseStateError(code string) *Error {
+	perr := perrors.New(code, nil)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
 	}
 }
 
@@ -11984,7 +12009,7 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 	rows, queryErr := conn.DB.Query(sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
-		return newError("query failed: %s", queryErr.Error())
+		return newDatabaseError("DB-0002", queryErr)
 	}
 	defer rows.Close()
 
@@ -12010,7 +12035,7 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 
 	if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
 		conn.LastError = scanErr.Error()
-		return newError("failed to scan row: %s", scanErr.Error())
+		return newDatabaseError("DB-0004", scanErr)
 	}
 
 	// Convert to dictionary
