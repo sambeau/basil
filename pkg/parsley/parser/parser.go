@@ -62,7 +62,7 @@ var precedences = map[lexer.TokenType]int{
 type Parser struct {
 	l *lexer.Lexer
 
-	errors           []string          // Legacy string errors (for backward compatibility)
+	errors           []string                // Legacy string errors (for backward compatibility)
 	structuredErrors []*perrors.ParsleyError // Structured errors
 
 	prevToken lexer.Token

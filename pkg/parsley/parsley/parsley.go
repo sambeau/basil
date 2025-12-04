@@ -145,7 +145,7 @@ func EvalFile(filename string, opts ...Option) (*Result, error) {
 
 // ParseError represents one or more parse errors
 type ParseError struct {
-	Errors           []string           // Legacy string errors
+	Errors           []string                // Legacy string errors
 	StructuredErrors []*perrors.ParsleyError // Structured errors
 }
 

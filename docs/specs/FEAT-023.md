@@ -655,15 +655,42 @@ The structured error object enables both formats from the same data.
 - Updated error page rendering to display hints
 - Error pages now show structured hints when available
 
-**Phase 5: Documentation** (Pending)
-- Document all error codes
+**Phase 5: Fuzzy Matching ("Did you mean?")** ✅ (2025-01-20)
+- Implemented Levenshtein distance algorithm for edit distance calculation
+- Added `FindClosestMatch()` for single best suggestion
+- Added `FindTopMatches()` for multiple suggestions
+- Added `NewUndefinedIdentifier()` with automatic fuzzy matching
+- Added `NewUndefinedMethod()` with automatic fuzzy matching
+- Added `AllIdentifiers()` to Environment to get all available identifiers + builtins
+- Updated `evalIdentifier()` to use fuzzy matching with "Did you mean?" hints
+- Updated all method error handlers (string, array, integer, float, datetime, duration, path, url, regex, file, dir, request, response) to use fuzzy matching
+- Added `ParsleyKeywords` list for keyword typo detection
+- Dynamic threshold: 1 edit for 1-3 chars, 2 edits for 4-6 chars, 3 edits for 7+ chars
+
+**Phase 6: Error Catalog Expansion** ✅ (2025-01-20)
+- Expanded ErrorCatalog from ~20 to 70+ error codes:
+  - PARSE (8 codes): token errors, regex/string/number literals, singleton tags
+  - TYPE (10 codes): function calls, iteration, indexing, callbacks, comparisons
+  - ARITY (4 codes): argument count errors, ranges
+  - UNDEF (6 codes): identifiers, methods, properties, modules, exports
+  - IO (8 codes): file operations, SFTP
+  - DB (7 codes): query, connection, transaction errors
+  - NET (4 codes): HTTP, SSH
+  - SEC (5 codes): read, write, execute, network access
+  - INDEX (5 codes): out of range, empty collection, negative index, key not found
+  - FMT (7 codes): regex, URL, datetime, JSON, YAML, CSV
+  - OP (4 codes): unknown operator, division by zero, comparison, negation
+  - STATE (3 codes): connection state, file handles
+  - IMPORT (3 codes): nested errors, circular dependencies
+
+**Phase 7: Documentation** (Pending)
+- Document all error codes in reference documentation
 - Add examples for custom error rendering
 
 ### Remaining Work
 
 1. **Migrate existing error sites** - Gradually update ~466 error creation sites in evaluator to use structured errors with proper classes and codes
-2. **Add "Did you mean?" suggestions** - Implement fuzzy matching for identifiers, methods, and keywords
-3. **Update error messages** - Apply improved message formats from the spec
+2. **Update error messages** - Apply improved message formats from the spec
 
 ## Notes
 
@@ -675,6 +702,7 @@ Space for additional notes and ideas during implementation.
 
 ### Implementation Notes
 
-- Fuzzy matching should use Levenshtein distance or similar for "Did you mean?" suggestions
-- Apply to identifiers, method names, and keywords (performance is acceptable since execution has stopped)
+- Fuzzy matching uses Levenshtein distance for "Did you mean?" suggestions
+- Applied to identifiers, method names, and keywords
+- Performance is acceptable since execution has stopped when errors occur
 - Templates use Go `text/template` - can add custom functions for pluralization etc.

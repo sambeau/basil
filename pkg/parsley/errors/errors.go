@@ -35,14 +35,14 @@ const (
 
 // ParsleyError represents any error from parsing or evaluation.
 type ParsleyError struct {
-	Class   ErrorClass     `json:"class"`             // Error category
-	Code    string         `json:"code"`              // Error code (e.g., "TYPE-0001")
-	Message string         `json:"message"`           // Human-readable message
-	Hints   []string       `json:"hints,omitempty"`   // Suggestions for fixing
-	Line    int            `json:"line"`              // 1-based line (0 if unknown)
-	Column  int            `json:"column"`            // 1-based column (0 if unknown)
-	File    string         `json:"file,omitempty"`    // File path (if known)
-	Data    map[string]any `json:"data,omitempty"`    // Template variables
+	Class   ErrorClass     `json:"class"`           // Error category
+	Code    string         `json:"code"`            // Error code (e.g., "TYPE-0001")
+	Message string         `json:"message"`         // Human-readable message
+	Hints   []string       `json:"hints,omitempty"` // Suggestions for fixing
+	Line    int            `json:"line"`            // 1-based line (0 if unknown)
+	Column  int            `json:"column"`          // 1-based column (0 if unknown)
+	File    string         `json:"file,omitempty"`  // File path (if known)
+	Data    map[string]any `json:"data,omitempty"`  // Template variables
 }
 
 // Error implements the error interface.
