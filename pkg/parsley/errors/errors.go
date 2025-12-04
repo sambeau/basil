@@ -172,16 +172,16 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"PARSE-0002": {
 		Class:    ClassParse,
-		Template: "unexpected token '{{.Token}}'",
+		Template: "unexpected '{{.Token}}'",
 	},
 	"PARSE-0003": {
 		Class:    ClassParse,
-		Template: "for (var in array) requires a { } block body, not an expression",
-		Hints:    []string{"for {{.Var}} in {{.Array}} { ... }"},
+		Template: "`for ({{.Var}} in {{.Array}})` is ambiguous without { ... }",
+		Hints:    []string{"for {{.Var}} in {{.Array}} { ... }", "for ({{.Array}}) fn({{.Var}}) { ... }"},
 	},
 	"PARSE-0004": {
 		Class:    ClassParse,
-		Template: "for(array) fn form requires parentheses (ambiguous without them)",
+		Template: "`for {{.Array}} {{.Expr}}` is ambiguous without ()",
 		Hints:    []string{"for ({{.Array}}) fn", "for x in {{.Array}} { ... }"},
 	},
 	"PARSE-0005": {
@@ -231,8 +231,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0004": {
 		Class:    ClassType,
-		Template: "for expects a function or builtin, got {{.Got}}",
-		Hints:    []string{"for (array) fn(x) { ... }", "for x in array { ... }"},
+		Template: "`for ({{.Array}}) {{.Got}}` is ambiguous without { }",
+		Hints:    []string{"for _ in {{.Array}} { {{.Got}} }", "for ({{.Array}}) { print {{.Got}} }"},
 	},
 	"TYPE-0005": {
 		Class:    ClassType,
@@ -746,7 +746,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"LOOP-0002": {
 		Class:    ClassType,
-		Template: "for expects a function or builtin, got {{.Type}}",
+		Template: "`for (array) {{.Type}}` is ambiguous without { }",
+		Hints:    []string{"for x in array { ... }", "for (array) fn(x) { ... }"},
 	},
 	"LOOP-0003": {
 		Class:    ClassState,

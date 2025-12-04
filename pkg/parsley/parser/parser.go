@@ -1458,15 +1458,17 @@ func (p *Parser) parseForExpression() ast.Expression {
 
 		// Parse body - must be a block expression
 		if !p.peekTokenIs(lexer.LBRACE) {
-			// Give a helpful error - user probably wrote for (x in arr) expr instead of for x in arr { expr }
-			if hasParens {
-				p.addErrorWithHints("for (var in array) requires a { } block body, not an expression",
-					expression.Token.Line, expression.Token.Column,
-					"for x in array { ... }  (parentheses are optional)")
-			} else {
-				p.addError(fmt.Sprintf("expected '{' after for expression, got '%s'", p.peekToken.Literal),
-					p.peekToken.Line, p.peekToken.Column)
+			// Give a helpful error - user wrote for (x in arr) expr instead of for x in arr { expr }
+			varName := "x"
+			if expression.Variable != nil {
+				varName = expression.Variable.Value
 			}
+			arrayStr := "array"
+			if expression.Array != nil {
+				arrayStr = expression.Array.String()
+			}
+			p.addStructuredError("PARSE-0003", expression.Token.Line, expression.Token.Column,
+				map[string]any{"Var": varName, "Array": arrayStr})
 			return nil
 		}
 		p.nextToken()
@@ -1495,9 +1497,9 @@ func (p *Parser) parseForExpression() ast.Expression {
 		} else {
 			// Without parens, can't determine where array ends and function begins
 			// for arr fn  - is "fn" part of the array expression or the mapping function?
-			p.addErrorWithHints("for(array) func form requires parentheses (ambiguous without them)",
-				expression.Token.Line, expression.Token.Column,
-				"for (array) fn", "for x in array { ... }")
+			// Use generic placeholders since we can't reliably extract the source
+			p.addStructuredError("PARSE-0004", expression.Token.Line, expression.Token.Column,
+				map[string]any{"Array": "array", "Expr": "expr"})
 			return nil
 		}
 

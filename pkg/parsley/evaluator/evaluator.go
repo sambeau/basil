@@ -8702,7 +8702,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 		case *Function, *Builtin:
 			// OK
 		default:
-			return newLoopError("LOOP-0002", map[string]any{"Type": string(fn.Type())})
+			return newLoopError("LOOP-0002", map[string]any{"Type": strings.ToLower(string(fn.Type()))})
 		}
 	} else if node.Body != nil {
 		// 'in' form: for(var in array) body
