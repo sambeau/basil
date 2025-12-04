@@ -363,6 +363,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassDatabase,
 		Template: "connection is already in a transaction",
 	},
+	"DB-0008": {
+		Class:    ClassDatabase,
+		Template: "failed to get columns: {{.GoError}}",
+	},
 
 	// ========================================
 	// Network errors (NET-0xxx)

@@ -3892,7 +3892,7 @@ func getBuiltins() map[string]*Builtin {
 					var err error
 					db, err = sql.Open("sqlite", dsn)
 					if err != nil {
-						return newError("failed to open SQLite database: %s", err.Error())
+						return newDatabaseErrorWithDriver("DB-0003", "SQLite", err)
 					}
 
 					// Apply connection options if provided
@@ -3912,7 +3912,7 @@ func getBuiltins() map[string]*Builtin {
 					// Test connection
 					if err := db.Ping(); err != nil {
 						db.Close()
-						return newError("failed to ping SQLite database: %s", err.Error())
+						return newDatabaseErrorWithDriver("DB-0005", "SQLite", err)
 					}
 
 					// Cache connection
@@ -3967,7 +3967,7 @@ func getBuiltins() map[string]*Builtin {
 					var err error
 					db, err = sql.Open("postgres", dsn)
 					if err != nil {
-						return newError("failed to open PostgreSQL database: %s", err.Error())
+						return newDatabaseErrorWithDriver("DB-0003", "PostgreSQL", err)
 					}
 
 					// Apply connection options if provided
@@ -3987,7 +3987,7 @@ func getBuiltins() map[string]*Builtin {
 					// Test connection
 					if err := db.Ping(); err != nil {
 						db.Close()
-						return newError("failed to ping PostgreSQL database: %s", err.Error())
+						return newDatabaseErrorWithDriver("DB-0005", "PostgreSQL", err)
 					}
 
 					// Cache connection
@@ -4042,7 +4042,7 @@ func getBuiltins() map[string]*Builtin {
 					var err error
 					db, err = sql.Open("mysql", dsn)
 					if err != nil {
-						return newError("failed to open MySQL database: %s", err.Error())
+						return newDatabaseErrorWithDriver("DB-0003", "MySQL", err)
 					}
 
 					// Apply connection options if provided
@@ -4062,7 +4062,7 @@ func getBuiltins() map[string]*Builtin {
 					// Test connection
 					if err := db.Ping(); err != nil {
 						db.Close()
-						return newError("failed to ping MySQL database: %s", err.Error())
+						return newDatabaseErrorWithDriver("DB-0005", "MySQL", err)
 					}
 
 					// Cache connection
@@ -6506,7 +6506,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 			return newError("begin() takes no arguments, got=%d", len(args))
 		}
 		if conn.InTransaction {
-			return newError("connection is already in a transaction")
+			return newDatabaseStateError("DB-0007")
 		}
 		conn.InTransaction = true
 		return &Boolean{Value: true}
@@ -8835,6 +8835,21 @@ func newDatabaseStateError(code string) *Error {
 		Code:    perr.Code,
 		Message: perr.Message,
 		Hints:   perr.Hints,
+	}
+}
+
+// newDatabaseErrorWithDriver creates a structured database error with driver info.
+func newDatabaseErrorWithDriver(code, driver string, err error) *Error {
+	perr := perrors.New(code, map[string]any{
+		"Driver":  driver,
+		"GoError": err.Error(),
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
 	}
 }
 
@@ -12017,7 +12032,7 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 	columns, colErr := rows.Columns()
 	if colErr != nil {
 		conn.LastError = colErr.Error()
-		return newError("failed to get columns: %s", colErr.Error())
+		return newDatabaseError("DB-0008", colErr)
 	}
 
 	// Check if there's a row
@@ -12073,7 +12088,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 	rows, queryErr := conn.DB.Query(sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
-		return newError("query failed: %s", queryErr.Error())
+		return newDatabaseError("DB-0002", queryErr)
 	}
 	defer rows.Close()
 
@@ -12081,7 +12096,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 	columns, colErr := rows.Columns()
 	if colErr != nil {
 		conn.LastError = colErr.Error()
-		return newError("failed to get columns: %s", colErr.Error())
+		return newDatabaseError("DB-0008", colErr)
 	}
 
 	// Scan all rows
@@ -12095,7 +12110,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 
 		if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
 			conn.LastError = scanErr.Error()
-			return newError("failed to scan row: %s", scanErr.Error())
+			return newDatabaseError("DB-0004", scanErr)
 		}
 
 		resultDict := rowToDict(columns, values, env)
@@ -12104,7 +12119,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 
 	if rowsErr := rows.Err(); rowsErr != nil {
 		conn.LastError = rowsErr.Error()
-		return newError("error iterating rows: %s", rowsErr.Error())
+		return newDatabaseError("DB-0002", rowsErr)
 	}
 
 	resultArray := &Array{Elements: results}
@@ -12348,7 +12363,7 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 	rows, queryErr := conn.DB.Query(sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
-		return newError("query failed: %s", queryErr.Error())
+		return newDatabaseError("DB-0002", queryErr)
 	}
 	defer rows.Close()
 
@@ -12356,7 +12371,7 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 	columns, colErr := rows.Columns()
 	if colErr != nil {
 		conn.LastError = colErr.Error()
-		return newError("failed to get columns: %s", colErr.Error())
+		return newDatabaseError("DB-0008", colErr)
 	}
 
 	// Check if there's a row
@@ -12374,7 +12389,7 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 
 	if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
 		conn.LastError = scanErr.Error()
-		return newError("failed to scan row: %s", scanErr.Error())
+		return newDatabaseError("DB-0004", scanErr)
 	}
 
 	// Convert to dictionary
@@ -12398,7 +12413,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 	rows, queryErr := conn.DB.Query(sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
-		return newError("query failed: %s", queryErr.Error())
+		return newDatabaseError("DB-0002", queryErr)
 	}
 	defer rows.Close()
 
@@ -12406,7 +12421,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 	columns, colErr := rows.Columns()
 	if colErr != nil {
 		conn.LastError = colErr.Error()
-		return newError("failed to get columns: %s", colErr.Error())
+		return newDatabaseError("DB-0008", colErr)
 	}
 
 	// Scan all rows
@@ -12420,7 +12435,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 
 		if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
 			conn.LastError = scanErr.Error()
-			return newError("failed to scan row: %s", scanErr.Error())
+			return newDatabaseError("DB-0004", scanErr)
 		}
 
 		resultDict := rowToDict(columns, values, env)
@@ -12429,7 +12444,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 
 	if rowsErr := rows.Err(); rowsErr != nil {
 		conn.LastError = rowsErr.Error()
-		return newError("error iterating rows: %s", rowsErr.Error())
+		return newDatabaseError("DB-0002", rowsErr)
 	}
 
 	return &Array{Elements: results}
