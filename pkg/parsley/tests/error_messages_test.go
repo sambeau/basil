@@ -34,7 +34,7 @@ func TestNotAFunctionErrorMessages(t *testing.T) {
 			name:          "call_null_as_function",
 			input:         `let x = null; x()`,
 			expectedError: "null",
-			expectedHint:  "Hint",
+			expectedHint:  "exported", // Part of the hint about exported modules
 		},
 		{
 			name:          "call_integer_as_function",
@@ -75,8 +75,17 @@ func TestNotAFunctionErrorMessages(t *testing.T) {
 				t.Errorf("expected error containing %q, got: %s", tt.expectedError, errObj.Message)
 			}
 
-			if !strings.Contains(errObj.Message, tt.expectedHint) {
-				t.Errorf("expected hint containing %q, got: %s", tt.expectedHint, errObj.Message)
+			// Check for hint - can be in message (legacy) or in Hints slice (new structured errors)
+			hintInMessage := strings.Contains(errObj.Message, tt.expectedHint)
+			hintInHints := false
+			for _, hint := range errObj.Hints {
+				if strings.Contains(hint, tt.expectedHint) {
+					hintInHints = true
+					break
+				}
+			}
+			if !hintInMessage && !hintInHints {
+				t.Errorf("expected hint containing %q, got message: %s, hints: %v", tt.expectedHint, errObj.Message, errObj.Hints)
 			}
 		})
 	}
@@ -104,9 +113,11 @@ func TestNullFunctionCallFromImport(t *testing.T) {
 		t.Errorf("expected error to mention 'null', got: %s", errObj.Message)
 	}
 
-	// Should have a helpful hint
-	if !strings.Contains(errObj.Message, "Hint") {
-		t.Errorf("expected error to have a hint, got: %s", errObj.Message)
+	// Should have a helpful hint (in message or Hints slice)
+	hintInMessage := strings.Contains(errObj.Message, "Hint")
+	hintInHints := len(errObj.Hints) > 0
+	if !hintInMessage && !hintInHints {
+		t.Errorf("expected error to have a hint, got message: %s, hints: %v", errObj.Message, errObj.Hints)
 	}
 }
 
@@ -136,9 +147,11 @@ func TestComponentNotFunctionError(t *testing.T) {
 				t.Errorf("expected 'is not a function' in error, got: %s", errObj.Message)
 			}
 
-			// Should have a hint about components being functions
-			if !strings.Contains(errObj.Message, "Hint") {
-				t.Errorf("expected hint in error, got: %s", errObj.Message)
+			// Should have a hint about components being functions (in message or Hints slice)
+			hintInMessage := strings.Contains(errObj.Message, "Hint")
+			hintInHints := len(errObj.Hints) > 0
+			if !hintInMessage && !hintInHints {
+				t.Errorf("expected hint in error, got message: %s, hints: %v", errObj.Message, errObj.Hints)
 			}
 		})
 	}

@@ -792,6 +792,117 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassState,
 		Template: "unknown node type: {{.Type}}",
 	},
+
+	// ========================================
+	// More database errors (DB-012+)
+	// ========================================
+	"DB-0012": {
+		Class:    ClassType,
+		Template: "{{.Operator}} requires a database connection, got {{.Got}}",
+	},
+
+	// ========================================
+	// More call errors (CALL-004+)
+	// ========================================
+	"CALL-0004": {
+		Class:    ClassType,
+		Template: "cannot call '{{.Name}}' because it is null",
+		Hints:    []string{"'{{.Name}}' may not be exported from the imported module. Check the export name matches."},
+	},
+	"CALL-0005": {
+		Class:    ClassType,
+		Template: "cannot call null as a function: {{.Context}}",
+	},
+
+	// ========================================
+	// Component errors (COMP-0xxx)
+	// ========================================
+	"COMP-0001": {
+		Class:    ClassType,
+		Template: "cannot use '<{{.Name}}/>' because '{{.Name}}' is null",
+		Hints:    []string{"'{{.Name}}' may not be exported from the imported module. Check the export name matches."},
+	},
+	"COMP-0002": {
+		Class:    ClassType,
+		Template: "cannot use '<{{.Name}}/>' because '{{.Name}}' is not a function (got {{.Got}})",
+		Hints:    []string{"Components must be functions. Check that '{{.Name}}' is exported as a function."},
+	},
+
+	// ========================================
+	// toDict errors (TODICT-0xxx)
+	// ========================================
+	"TODICT-0001": {
+		Class:    ClassType,
+		Template: "toDict requires array of [key, value] pairs",
+	},
+	"TODICT-0002": {
+		Class:    ClassType,
+		Template: "dictionary keys must be strings, got {{.Got}}",
+	},
+	"TODICT-0003": {
+		Class:    ClassType,
+		Template: "toDict: unsupported value type {{.Got}}",
+	},
+
+	// ========================================
+	// Map/filter callback errors (CALLBACK-0xxx)
+	// ========================================
+	"CALLBACK-0001": {
+		Class:    ClassArity,
+		Template: "function passed to `{{.Function}}` must take exactly {{.Expected}} parameter(s), got {{.Got}}",
+	},
+
+	// ========================================
+	// File read/write operator errors (FILEOP-007+)
+	// ========================================
+	"FILEOP-0007": {
+		Class:    ClassType,
+		Template: "{{.Operator}} requires {{.Expected}}, got {{.Got}}",
+	},
+	"FILEOP-0008": {
+		Class:    ClassState,
+		Template: "directory handle has no valid path",
+	},
+
+	// ========================================
+	// SFTP format errors (SFTP-0xxx)
+	// ========================================
+	"SFTP-0001": {
+		Class:    ClassType,
+		Template: "{{.Format}} format requires {{.Expected}}, got {{.Got}}",
+	},
+	"SFTP-0002": {
+		Class:    ClassType,
+		Template: "{{.Format}} format requires {{.Expected}} at index {{.Index}}, got {{.Got}}",
+	},
+	"SFTP-0003": {
+		Class:    ClassState,
+		Template: "CSV write not yet implemented for SFTP",
+	},
+	"SFTP-0004": {
+		Class:    ClassFormat,
+		Template: "unknown format: {{.Format}}",
+	},
+	"SFTP-0005": {
+		Class:    ClassIO,
+		Template: "SFTP write failed: {{.GoError}}",
+	},
+
+	// ========================================
+	// Spread errors (SPREAD-0xxx)
+	// ========================================
+	"SPREAD-0001": {
+		Class:    ClassType,
+		Template: "spread operator requires a dictionary, got {{.Got}}",
+	},
+
+	// ========================================
+	// SQL errors (SQL-0xxx)
+	// ========================================
+	"SQL-0001": {
+		Class:    ClassType,
+		Template: "SQL tag content must be a string",
+	},
 }
 
 // New creates a ParsleyError from the catalog.

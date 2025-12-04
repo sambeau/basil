@@ -7181,9 +7181,9 @@ func Eval(node ast.Node, env *Environment) Object {
 			funcName := node.Function.String()
 			// Check if this looks like it came from an import destructuring
 			if ident, ok := node.Function.(*ast.Identifier); ok {
-				return newError("cannot call '%s' because it is null\n   💡 Hint: '%s' may not be exported from the imported module. Check the export name matches.", ident.Value, ident.Value)
+				return newCallError("CALL-0004", map[string]any{"Name": ident.Value})
 			}
-			return newError("cannot call null as a function: %s", funcName)
+			return newCallError("CALL-0005", map[string]any{"Context": funcName})
 		}
 
 		args := evalExpressions(node.Arguments, env)
@@ -8175,12 +8175,13 @@ func applyFunction(fn Object, args []Object) Object {
 	case *StdlibBuiltin:
 		// StdlibBuiltin needs an environment but applyFunction doesn't have one
 		// This shouldn't happen as StdlibBuiltin should be called via applyFunctionWithEnv
-		return newError("stdlib function called without environment context")
+		perr := perrors.New("INTERNAL-0001", map[string]any{"Context": "stdlib function"})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	default:
 		if fn == NULL || fn == nil {
-			return newError("cannot call null as a function\n   💡 Hint: The value may not be exported from an imported module, or the variable is uninitialized")
+			return newCallError("CALL-0001", nil)
 		}
-		return newError("cannot call %s as a function\n   💡 Hint: Only functions can be called with parentheses", fn.Type())
+		return newCallError("CALL-0002", map[string]any{"Type": string(fn.Type())})
 	}
 }
 
@@ -8253,9 +8254,9 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		}
 	default:
 		if fn == NULL || fn == nil {
-			return newError("cannot call null as a function\n   💡 Hint: The value may not be exported from an imported module, or the variable is uninitialized")
+			return newCallError("CALL-0001", nil)
 		}
-		return newError("cannot call %s as a function\n   💡 Hint: Only functions can be called with parentheses", fn.Type())
+		return newCallError("CALL-0002", map[string]any{"Type": string(fn.Type())})
 	}
 }
 
@@ -12339,7 +12340,8 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 
 	conn, ok := connObj.(*DBConnection)
 	if !ok {
-		return newError("query operator <=?=> requires a database connection, got %s", connObj.Type())
+		perr := perrors.New("DB-0012", map[string]any{"Operator": "query operator <=?=>", "Got": string(connObj.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Evaluate the query expression (should return a tag with SQL and params)
@@ -12404,7 +12406,8 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 
 	conn, ok := connObj.(*DBConnection)
 	if !ok {
-		return newError("query operator <=??=> requires a database connection, got %s", connObj.Type())
+		perr := perrors.New("DB-0012", map[string]any{"Operator": "query operator <=??=>", "Got": string(connObj.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Evaluate the query expression
@@ -12471,7 +12474,8 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 
 	conn, ok := connObj.(*DBConnection)
 	if !ok {
-		return newError("execute operator <=!=> requires a database connection, got %s", connObj.Type())
+		perr := perrors.New("DB-0012", map[string]any{"Operator": "execute operator <=!=>", "Got": string(connObj.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Evaluate the query expression
@@ -12490,7 +12494,7 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 	result, execErr := conn.DB.Exec(sql, params...)
 	if execErr != nil {
 		conn.LastError = execErr.Error()
-		return newError("execute failed: %s", execErr.Error())
+		return newDatabaseError("DB-0011", execErr)
 	}
 
 	// Get affected rows and last insert ID
@@ -12685,7 +12689,8 @@ func assignQueryResult(names []*ast.Identifier, result Object, env *Environment,
 func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Object {
 	conn, ok := connObj.(*DBConnection)
 	if !ok {
-		return newError("query operator <=?=> requires a database connection, got %s", connObj.Type())
+		perr := perrors.New("DB-0012", map[string]any{"Operator": "query operator <=?=>", "Got": string(connObj.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Extract SQL and params from the query object
@@ -12735,7 +12740,8 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Object {
 	conn, ok := connObj.(*DBConnection)
 	if !ok {
-		return newError("query operator <=??=> requires a database connection, got %s", connObj.Type())
+		perr := perrors.New("DB-0012", map[string]any{"Operator": "query operator <=??=>", "Got": string(connObj.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Extract SQL and params
@@ -12789,7 +12795,8 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Object {
 	conn, ok := connObj.(*DBConnection)
 	if !ok {
-		return newError("execute operator <=!=> requires a database connection, got %s", connObj.Type())
+		perr := perrors.New("DB-0012", map[string]any{"Operator": "execute operator <=!=>", "Got": string(connObj.Type())})
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 	}
 
 	// Extract SQL and params
@@ -12802,7 +12809,7 @@ func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Obje
 	result, execErr := conn.DB.Exec(sql, params...)
 	if execErr != nil {
 		conn.LastError = execErr.Error()
-		return newError("execute failed: %s", execErr.Error())
+		return newDatabaseError("DB-0011", execErr)
 	}
 
 	// Get affected rows and last insert ID
