@@ -1,16 +1,16 @@
 ---
 id: FEAT-030
-title: "error() Function for User-Defined Catchable Errors"
+title: "fail() Function for User-Defined Catchable Errors"
 status: draft
 priority: medium
 created: 2025-12-05
 author: "@copilot"
 ---
 
-# FEAT-030: error() Function for User-Defined Catchable Errors
+# FEAT-030: fail() Function for User-Defined Catchable Errors
 
 ## Summary
-Add an `error()` built-in function that allows user code to create catchable errors. This enables user-defined functions to participate in the `try` expression error handling system introduced in FEAT-029. Without this, `try` can only catch errors from built-in functions and system operations.
+Add a `fail()` built-in function that allows user code to create catchable errors. This enables user-defined functions to participate in the `try` expression error handling system introduced in FEAT-029. Without this, `try` can only catch errors from built-in functions and system operations.
 
 ## User Story
 As a Parsley developer, I want to create catchable errors in my functions so that callers can use `try` to handle expected failure conditions gracefully.
@@ -32,11 +32,11 @@ let validate = fn(email) {
 let {result, error} = try validate("not-an-email")  // No way to catch
 ```
 
-With `error()`:
+With `fail()`:
 ```parsley
 let validate = fn(email) {
   if (!email.contains("@")) {
-    error("Invalid email format: missing @")
+    fail("Invalid email format: missing @")
   }
   email
 }
@@ -45,17 +45,17 @@ let {result, error} = try validate("not-an-email")
 ```
 
 ## Acceptance Criteria
-- [ ] `error(message)` creates a catchable error
-- [ ] `try` catches errors created by `error()`
+- [ ] `fail(message)` creates a catchable error
+- [ ] `try` catches errors created by `fail()`
 - [ ] Non-string arguments produce a Type error (or are coerced?)
-- [ ] `error()` with no arguments produces Arity error
+- [ ] `fail()` with no arguments produces Arity error
 - [ ] Errors propagate through call stack until caught by `try`
-- [ ] Uncaught `error()` terminates with error message (like other errors)
+- [ ] Uncaught `fail()` terminates with error message (like other errors)
 
 ## Design Decisions
 
 ### Error Class: Value
-**Decision**: `error()` creates errors with the `Value` error class.
+**Decision**: `fail()` creates errors with the `Value` error class.
 
 **Rationale**: 
 - Value errors are for "semantically invalid" data (wrong meaning, not wrong type)
@@ -63,26 +63,26 @@ let {result, error} = try validate("not-an-email")
 - Value is catchable, which is the whole point
 - Alternative `User` class adds complexity without benefit
 
-### Function Name: `error()`
-**Decision**: Use `error()` rather than `throw()`, `fail()`, or `raise()`.
+### Function Name: `fail()`
+**Decision**: Use `fail()` rather than `error()`, `throw()`, or `raise()`.
 
 **Rationale**:
+- **Avoids namespace clash**: `error()` would conflict with the established `{result, error}` destructuring pattern. Local variables shadow builtins in Parsley, so `let {result, error} = try func()` would make `error()` uncallable in that scope.
+- **Natural pairing**: `try` and `fail` pair well in English — you try something, it might fail
 - Parsley doesn't have exceptions, so `throw` is misleading
-- `error()` clearly describes what you're creating
-- Matches the return value name in `{result, error}`
-- `fail()` could work but is less descriptive
+- `raise` is Python-specific terminology
 
 ### Signature Options
 
 **Option A: Message only (recommended)**
 ```parsley
-error("Something went wrong")
+fail("Something went wrong")
 ```
 Simple, covers 95% of use cases. Error class is always Value.
 
 **Option B: Message + class**
 ```parsley
-error("File not found", "IO")
+fail("File not found", "IO")
 ```
 Allows specifying error class. More flexible but:
 - Adds complexity
@@ -91,7 +91,7 @@ Allows specifying error class. More flexible but:
 
 **Option C: Structured error**
 ```parsley
-error({message: "Invalid", code: "VAL-001", details: {...}})
+fail({message: "Invalid", code: "VAL-001", details: {...}})
 ```
 Most flexible but complex. Probably overkill.
 
@@ -99,7 +99,7 @@ Most flexible but complex. Probably overkill.
 
 ### Why Not Just Return `{result, error}`?
 
-An alternative to `error()` is having functions manually return a `{result, error}` dictionary:
+An alternative to `fail()` is having functions manually return a `{result, error}` dictionary:
 
 ```parsley
 // Manual approach
@@ -115,7 +115,7 @@ let {result, error} = validate("bad")  // No try needed
 
 **Comparison:**
 
-| Aspect | `error()` | Manual `{result, error}` |
+| Aspect | `fail()` | Manual `{result, error}` |
 |--------|-----------|-------------------------|
 | Call site | `try validate(x)` | `validate(x)` |
 | Forgetting to handle | Uncaught error crashes | Silent `null` propagates |
@@ -126,8 +126,8 @@ let {result, error} = validate("bad")  // No try needed
 **The Big Win: Automatic Propagation**
 
 ```parsley
-// With error() - propagates automatically
-let step1 = fn(x) { if (x < 0) { error("negative") }; x }
+// With fail() - propagates automatically
+let step1 = fn(x) { if (x < 0) { fail("negative") }; x }
 let step2 = fn(x) { step1(x) * 2 }
 let step3 = fn(x) { step2(x) + 1 }
 
@@ -149,10 +149,10 @@ let step2 = fn(x) {
 ```
 
 **When to use each:**
-- **Use `error()`**: Failure is exceptional but expected; you want automatic propagation; caller might forget to check
+- **Use `fail()`**: Failure is exceptional but expected; you want automatic propagation; caller might forget to check
 - **Use manual `{result, error}`**: Both outcomes are equally "normal" (e.g., lookup that may not find); returning multiple values anyway
 
-The `error()` approach is essentially Go's `if err != nil { return err }` pattern, but automatic.
+The `fail()` approach is essentially Go's `if err != nil { return err }` pattern, but automatic.
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -160,7 +160,7 @@ The `error()` approach is essentially Go's `if err != nil { return err }` patter
 ## Technical Context
 
 ### Affected Components
-- `pkg/parsley/evaluator/builtins.go` — Add `error` builtin function
+- `pkg/parsley/evaluator/builtins.go` — Add `fail` builtin function
 - `pkg/parsley/errors/errors.go` — May need helper to create Value errors
 
 ### Dependencies
@@ -169,42 +169,42 @@ The `error()` approach is essentially Go's `if err != nil { return err }` patter
 
 ### Edge Cases & Constraints
 
-1. **`error()` without `try`** — Error propagates up and terminates program with message. Same as any other uncaught error.
+1. **`fail()` without `try`** — Error propagates up and terminates program with message. Same as any other uncaught error.
 
 2. **Nested function calls** — Error bubbles through stack:
    ```parsley
-   let inner = fn() { error("oops") }
+   let inner = fn() { fail("oops") }
    let outer = fn() { inner() }
    let {result, error} = try outer()  // Catches error from inner
    ```
 
-3. **`error()` in callbacks** — Works same as anywhere:
+3. **`fail()` in callbacks** — Works same as anywhere:
    ```parsley
    let items = [1, 2, 3]
    let result = try items.map(fn(x) {
-     if (x == 2) { error("don't like 2") }
+     if (x == 2) { fail("don't like 2") }
      x
    })
    ```
 
-4. **Empty message** — `error("")` is valid, creates error with empty message.
+4. **Empty message** — `fail("")` is valid, creates error with empty message.
 
-5. **Null message** — `error(null)` — Type error? Or coerce to "null"?
+5. **Null message** — `fail(null)` — Type error? Or coerce to "null"?
 
-6. **Non-catchable by design** — `error()` ALWAYS creates catchable errors. If you want a non-catchable error (programming mistake), just let it fail naturally.
+6. **Non-catchable by design** — `fail()` ALWAYS creates catchable errors. If you want a non-catchable error (programming mistake), just let it fail naturally.
 
 ### Implementation Sketch
 
 ```go
 // In builtins.go
-"error": func(ctx EvalContext, args ...object.Object) object.Object {
+"fail": func(ctx EvalContext, args ...object.Object) object.Object {
     if len(args) != 1 {
-        return newArityError(ctx, "error", 1, len(args))
+        return newArityError(ctx, "fail", 1, len(args))
     }
     
     msg, ok := args[0].(*object.String)
     if !ok {
-        return newTypeError(ctx, "error() requires a string argument")
+        return newTypeError(ctx, "fail() requires a string argument")
     }
     
     // Create a Value-class structured error
@@ -222,7 +222,7 @@ The `error()` approach is essentially Go's `if err != nil { return err }` patter
 
 1. **Error code**: Should user errors have a fixed code like `USER-0001`, or should users be able to specify a code? Fixed is simpler.
 
-2. **Stack trace**: Should the error include a stack trace showing where `error()` was called? Would help debugging but adds complexity.
+2. **Stack trace**: Should the error include a stack trace showing where `fail()` was called? Would help debugging but adds complexity.
 
 3. **Type coercion**: If given a non-string, should we:
    - Return Type error (strict)
@@ -232,4 +232,4 @@ The `error()` approach is essentially Go's `if err != nil { return err }` patter
 ## Related
 - FEAT-029: Try expression (prerequisite)
 - FEAT-023: Structured errors (provides error infrastructure)
-- BACKLOG.md entry: "error() function for user-defined catchable errors"
+- BACKLOG.md entry: "fail() function for user-defined catchable errors"
