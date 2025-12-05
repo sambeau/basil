@@ -243,6 +243,7 @@ const (
 	ClassOperator  = perrors.ClassOperator
 	ClassState     = perrors.ClassState
 	ClassImport    = perrors.ClassImport
+	ClassValue     = perrors.ClassValue
 )
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
@@ -6000,6 +6001,25 @@ func getBuiltins() map[string]*Builtin {
 				copy(values, args)
 				values[len(args)] = &String{Value: "\n"}
 				return &PrintValue{Values: values}
+			},
+		},
+		"fail": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newArityError("fail", len(args), 1)
+				}
+
+				msg, ok := args[0].(*String)
+				if !ok {
+					return newTypeError("TYPE-0005", "fail", "a string", args[0].Type())
+				}
+
+				// Create a Value-class catchable error
+				return &Error{
+					Class:   ClassValue,
+					Code:    "USER-0001",
+					Message: msg.Value,
+				}
 			},
 		},
 		"sort": {

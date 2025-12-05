@@ -547,6 +547,19 @@ try url(123)        // Type error propagates (crashes)
 try url(":::bad:::") // Format error caught in {error}
 ```
 
+**User-defined errors with `fail()`:**
+```parsley
+// Create functions that can fail
+let validate = fn(x) {
+  if (x < 0) { fail("must be non-negative") }
+  x * 2
+}
+
+// Caller uses try
+let {result, error} = try validate(-5)
+// error = "must be non-negative"
+```
+
 ### Map/Filter
 ```parsley
 // Map

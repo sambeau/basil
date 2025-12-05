@@ -376,3 +376,183 @@ func TestTryMethodOnNull(t *testing.T) {
 		t.Errorf("expected null propagation, got %T: %s", result, result.Inspect())
 	}
 }
+
+// =============================================================================
+// FAIL() FUNCTION TESTS (FEAT-030)
+// =============================================================================
+
+// TestFailBasic tests that fail() creates an error that terminates without try
+func TestFailBasic(t *testing.T) {
+	input := `fail("something went wrong")`
+	result := evalTryHelper(input)
+
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected error, got %T: %s", result, result.Inspect())
+	}
+
+	if errObj.Message != "something went wrong" {
+		t.Errorf("expected message 'something went wrong', got '%s'", errObj.Message)
+	}
+
+	// Should be Value class (catchable)
+	if errObj.Class != evaluator.ClassValue {
+		t.Errorf("expected ClassValue, got %s", errObj.Class)
+	}
+
+	// Should have USER-0001 code
+	if errObj.Code != "USER-0001" {
+		t.Errorf("expected code 'USER-0001', got '%s'", errObj.Code)
+	}
+}
+
+// TestFailWithTry tests that try catches fail() errors
+func TestFailWithTry(t *testing.T) {
+	input := `
+let validate = fn(x) {
+  if (x < 0) {
+    fail("must be non-negative")
+  }
+  x * 2
+}
+
+let {result, error} = try validate(-5)
+error
+`
+	result := evalTryHelper(input)
+
+	strVal, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+	}
+
+	if strVal.Value != "must be non-negative" {
+		t.Errorf("expected 'must be non-negative', got '%s'", strVal.Value)
+	}
+}
+
+// TestFailWithTryResult tests that result is null when fail() is caught
+func TestFailWithTryResult(t *testing.T) {
+	input := `
+let validate = fn(x) {
+  if (x < 0) {
+    fail("must be non-negative")
+  }
+  x * 2
+}
+
+let {result, error} = try validate(-5)
+result
+`
+	result := evalTryHelper(input)
+
+	if result != evaluator.NULL {
+		t.Errorf("expected null result, got %T: %s", result, result.Inspect())
+	}
+}
+
+// TestFailArityError tests that fail() without argument produces Arity error
+func TestFailArityError(t *testing.T) {
+	input := `fail()`
+	result := evalTryHelper(input)
+
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected error, got %T: %s", result, result.Inspect())
+	}
+
+	// Should be an arity error (not catchable)
+	if errObj.Class != evaluator.ClassArity {
+		t.Errorf("expected ClassArity, got %s", errObj.Class)
+	}
+}
+
+// TestFailTypeError tests that fail() with non-string produces Type error
+func TestFailTypeError(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"integer", `fail(123)`},
+		{"array", `fail([1, 2, 3])`},
+		{"dictionary", `fail({a: 1})`},
+		{"null", `fail(null)`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalTryHelper(tt.input)
+
+			errObj, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected error, got %T: %s", result, result.Inspect())
+			}
+
+			// Should be a type error (not catchable)
+			if errObj.Class != evaluator.ClassType {
+				t.Errorf("expected ClassType, got %s", errObj.Class)
+			}
+		})
+	}
+}
+
+// TestFailNestedPropagation tests that fail() propagates through call stack
+func TestFailNestedPropagation(t *testing.T) {
+	input := `
+let inner = fn() { fail("deep error") }
+let middle = fn() { inner() }
+let outer = fn() { middle() }
+
+let {result, error} = try outer()
+error
+`
+	result := evalTryHelper(input)
+
+	strVal, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+	}
+
+	if strVal.Value != "deep error" {
+		t.Errorf("expected 'deep error', got '%s'", strVal.Value)
+	}
+}
+
+// TestFailInCallback tests that fail() works in callbacks like map
+func TestFailInCallback(t *testing.T) {
+	input := `
+let items = [1, 2, 3, 4, 5]
+let {result, error} = try items.map(fn(x) {
+  if (x == 3) {
+    fail("found 3")
+  }
+  x * 2
+})
+error
+`
+	result := evalTryHelper(input)
+
+	strVal, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+	}
+
+	if strVal.Value != "found 3" {
+		t.Errorf("expected 'found 3', got '%s'", strVal.Value)
+	}
+}
+
+// TestFailEmptyMessage tests that fail("") is valid
+func TestFailEmptyMessage(t *testing.T) {
+	input := `let {result, error} = try fail(""); error`
+	result := evalTryHelper(input)
+
+	strVal, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+	}
+
+	if strVal.Value != "" {
+		t.Errorf("expected empty string, got '%s'", strVal.Value)
+	}
+}

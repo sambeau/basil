@@ -25,7 +25,7 @@ const PARSER_LOGO = `
 // Parsley keywords and builtins for tab completion
 var completionWords = []string{
 	// Keywords
-	"let", "if", "else", "for", "in", "fn", "return", "export", "import",
+	"let", "if", "else", "for", "in", "fn", "return", "export", "import", "try",
 	// Builtins - I/O
 	"log", "logLine", "file", "dir", "JSON", "CSV", "MD", "SVG", "HTML",
 	"text", "lines", "bytes", "SFTP", "Fetch", "SQL",
@@ -39,6 +39,8 @@ var completionWords = []string{
 	"min", "max", "sum",
 	// Builtins - DateTime
 	"now", "date", "time", "duration", "format", "parse",
+	// Builtins - Error Handling
+	"fail",
 	// Builtins - Other
 	"range", "glob", "toString",
 	// Common values

@@ -1,7 +1,7 @@
 ---
 id: FEAT-030
 title: "fail() Function for User-Defined Catchable Errors"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-05
 author: "@copilot"
@@ -45,12 +45,12 @@ let {result, error} = try validate("not-an-email")
 ```
 
 ## Acceptance Criteria
-- [ ] `fail(message)` creates a catchable error
-- [ ] `try` catches errors created by `fail()`
-- [ ] Non-string arguments produce a Type error (or are coerced?)
-- [ ] `fail()` with no arguments produces Arity error
-- [ ] Errors propagate through call stack until caught by `try`
-- [ ] Uncaught `fail()` terminates with error message (like other errors)
+- [x] `fail(message)` creates a catchable error
+- [x] `try` catches errors created by `fail()`
+- [x] Non-string arguments produce a Type error
+- [x] `fail()` with no arguments produces Arity error
+- [x] Errors propagate through call stack until caught by `try`
+- [x] Uncaught `fail()` terminates with error message (like other errors)
 
 ## Design Decisions
 

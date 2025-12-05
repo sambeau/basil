@@ -2272,6 +2272,75 @@ try time()          // Arity error - missing argument
 try undefined()     // Undefined error - function doesn't exist
 ```
 
+### The `fail()` Function
+
+The `fail()` function creates a user-defined catchable error. This allows your functions to participate in the `try` error handling system.
+
+**Grammar:**
+
+```
+fail_call ::= "fail" "(" string_expr ")"
+```
+
+**Syntax:**
+
+```parsley
+fail("error message")
+```
+
+**Behavior:**
+
+- Creates a `Value`-class error (catchable by `try`)
+- If not caught by `try`, halts execution with the error message
+- Error code is always `USER-0001`
+
+**Example:**
+
+```parsley
+// Create a validation function that can fail
+let validateEmail = fn(email) {
+  if (!email.contains("@")) {
+    fail("Invalid email: missing @ symbol")
+  }
+  if (!email.contains(".")) {
+    fail("Invalid email: missing domain")
+  }
+  email
+}
+
+// Caller uses try to handle potential failure
+let {result, error} = try validateEmail(userInput)
+if (error != null) {
+  log("Validation failed: {error}")
+} else {
+  log("Valid email: {result}")
+}
+```
+
+**Automatic Propagation:**
+
+Errors from `fail()` propagate through the call stack until caught by `try`:
+
+```parsley
+let step1 = fn(x) { if (x < 0) { fail("negative") }; x }
+let step2 = fn(x) { step1(x) * 2 }
+let step3 = fn(x) { step2(x) + 1 }
+
+// Catches error from step1, even though we called step3
+let {result, error} = try step3(-5)
+// error = "negative"
+```
+
+**Type Requirements:**
+
+`fail()` requires a string argument. Non-strings produce a Type error:
+
+```parsley
+fail("message")     // ✓ OK
+fail(123)           // ✗ Type error
+fail(null)          // ✗ Type error
+```
+
 ---
 
 ## Utility Functions
