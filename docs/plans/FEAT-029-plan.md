@@ -220,7 +220,7 @@ Steps:
 | 2025-12-05 | Task 3: Parser | ✅ Complete | Added parseTryExpression, validates call expr |
 | 2025-12-05 | Task 4: isCatchableError | ✅ Complete | Added IsCatchable() method on ErrorClass |
 | 2025-12-05 | Task 5: Evaluator | ✅ Complete | Added evalTryExpression |
-| 2025-12-05 | Task 6: Tests | ✅ Complete | Created try_test.go with 14 tests |
+| 2025-12-05 | Task 6: Tests | ✅ Complete | Created try_test.go with 16 tests |
 | 2025-12-05 | Task 7: Documentation | ✅ Complete | Updated reference.md and CHEATSHEET.md |
 
 ## Notes
@@ -232,7 +232,7 @@ The `try` expression returns a dictionary with guaranteed keys:
 
 This matches the existing `<==` pattern for file operations.
 
-### Edge Cases to Consider
-- `try try func()` - nested try: should work, inner try returns dict, outer sees success
-- `try null.method()` - calling method on null: this is a Type error, should NOT be caught
-- Empty error message - ensure error always has meaningful message
+### Edge Cases Verified
+- `try try func()` - **Syntax error**: inner try returns dict (not a call), outer try rejects it. This is correct.
+- `try null.method()` - **Returns null**: Parsley uses null propagation, so method calls on null return null (not an error). No error to catch.
+- Empty error message - Verified: error messages from builtins like `url()`, `time()` include meaningful details.

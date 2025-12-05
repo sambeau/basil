@@ -341,3 +341,38 @@ func TestTryDictionaryStructure(t *testing.T) {
 		t.Error("missing 'error' key")
 	}
 }
+
+// TestTryNestedTry tests that nested try is a syntax error
+// (inner try returns dict, which is not a call expression)
+func TestTryNestedTry(t *testing.T) {
+	// try try func() is a syntax error because inner try returns a dictionary
+	// and outer try requires a function call
+	input := `try try url("test")`
+	result := evalTryHelper(input)
+
+	// Should be a parse error
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected parse error, got %T: %s", result, result.Inspect())
+	}
+
+	// Error should mention "call" or "function"
+	msg := strings.ToLower(errObj.Message)
+	if !strings.Contains(msg, "call") && !strings.Contains(msg, "function") {
+		t.Errorf("expected error about call/function, got: %s", errObj.Message)
+	}
+}
+
+// TestTryMethodOnNull tests that calling method on null is NOT catchable (it's a bug)
+func TestTryMethodOnNull(t *testing.T) {
+	// In Parsley, method calls on null return null (null propagation)
+	// So try x.foo() where x is null just returns {result: null, error: null}
+	// This is the expected behavior - null propagation, not an error
+	input := `let x = null; (try x.foo()).result`
+	result := evalTryHelper(input)
+
+	// Should be null (null propagation)
+	if result != evaluator.NULL {
+		t.Errorf("expected null propagation, got %T: %s", result, result.Inspect())
+	}
+}
