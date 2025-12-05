@@ -73,6 +73,7 @@ const (
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
 	TABLE_OBJ            = "TABLE"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
+	MONEY_OBJ            = "MONEY"
 )
 
 // Object represents all values in our language
@@ -96,6 +97,81 @@ type Float struct {
 
 func (f *Float) Inspect() string  { return fmt.Sprintf("%g", f.Value) }
 func (f *Float) Type() ObjectType { return FLOAT_OBJ }
+
+// Money represents money/currency objects with exact arithmetic
+type Money struct {
+	Amount   int64  // Amount in smallest unit (e.g., cents)
+	Currency string // Currency code (e.g., "USD", "GBP", "EUR")
+	Scale    int8   // Decimal places (2 for USD, 0 for JPY)
+}
+
+func (m *Money) Type() ObjectType { return MONEY_OBJ }
+
+func (m *Money) Inspect() string {
+	// Use symbol shortcuts for common currencies
+	symbol := currencyToSymbol(m.Currency)
+	if symbol != "" {
+		return symbol + m.formatAmount()
+	}
+	// Use CODE#amount format for others
+	return m.Currency + "#" + m.formatAmount()
+}
+
+// formatAmount returns the formatted amount without currency prefix
+func (m *Money) formatAmount() string {
+	if m.Scale == 0 {
+		return strconv.FormatInt(m.Amount, 10)
+	}
+
+	divisor := int64(1)
+	for i := int8(0); i < m.Scale; i++ {
+		divisor *= 10
+	}
+
+	negative := m.Amount < 0
+	amount := m.Amount
+	if negative {
+		amount = -amount
+	}
+
+	whole := amount / divisor
+	frac := amount % divisor
+
+	// Format with leading zeros in fractional part
+	format := fmt.Sprintf("%%d.%%0%dd", m.Scale)
+	result := fmt.Sprintf(format, whole, frac)
+
+	if negative {
+		return "-" + result
+	}
+	return result
+}
+
+// currencyToSymbol returns the display symbol for a currency code
+func currencyToSymbol(code string) string {
+	switch code {
+	case "USD":
+		return "$"
+	case "GBP":
+		return "£"
+	case "EUR":
+		return "€"
+	case "JPY":
+		return "¥"
+	case "CAD":
+		return "CA$"
+	case "AUD":
+		return "AU$"
+	case "HKD":
+		return "HK$"
+	case "SGD":
+		return "S$"
+	case "CNY":
+		return "CN¥"
+	default:
+		return ""
+	}
+}
 
 // Boolean represents boolean objects
 type Boolean struct {
@@ -256,8 +332,9 @@ func (a *Array) Inspect() string {
 
 // Dictionary represents dictionary objects with lazy evaluation
 type Dictionary struct {
-	Pairs map[string]ast.Expression // Store expressions for lazy evaluation
-	Env   *Environment              // Environment for evaluation (for 'this' binding)
+	Pairs    map[string]ast.Expression // Store expressions for lazy evaluation
+	KeyOrder []string                  // Insertion order of keys
+	Env      *Environment              // Environment for evaluation (for 'this' binding)
 }
 
 func (d *Dictionary) Type() ObjectType { return DICTIONARY_OBJ }
@@ -265,15 +342,21 @@ func (d *Dictionary) Inspect() string {
 	var out strings.Builder
 	pairs := []string{}
 
-	// Sort keys for consistent output
-	keys := make([]string, 0, len(d.Pairs))
-	for key := range d.Pairs {
-		keys = append(keys, key)
+	// Use KeyOrder if available, otherwise fall back to sorted keys
+	keys := d.KeyOrder
+	if len(keys) == 0 && len(d.Pairs) > 0 {
+		keys = make([]string, 0, len(d.Pairs))
+		for key := range d.Pairs {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
 	}
-	sort.Strings(keys)
 
 	for _, key := range keys {
-		expr := d.Pairs[key]
+		expr, ok := d.Pairs[key]
+		if !ok {
+			continue // Skip keys that were deleted
+		}
 		// For inspection, we show the expression, not the evaluated value
 		pairs = append(pairs, fmt.Sprintf("%s: %s", key, expr.String()))
 	}
@@ -281,6 +364,42 @@ func (d *Dictionary) Inspect() string {
 	out.WriteString(strings.Join(pairs, ", "))
 	out.WriteString("}")
 	return out.String()
+}
+
+// Keys returns the keys in insertion order (or sorted if KeyOrder not set)
+func (d *Dictionary) Keys() []string {
+	if len(d.KeyOrder) > 0 {
+		// Filter to only keys that still exist in Pairs
+		keys := make([]string, 0, len(d.KeyOrder))
+		for _, k := range d.KeyOrder {
+			if _, ok := d.Pairs[k]; ok {
+				keys = append(keys, k)
+			}
+		}
+		return keys
+	}
+	// Fallback: sorted keys for backward compatibility
+	keys := make([]string, 0, len(d.Pairs))
+	for k := range d.Pairs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// SetKey sets a key-value pair, appending to KeyOrder if new
+func (d *Dictionary) SetKey(key string, expr ast.Expression) {
+	if _, exists := d.Pairs[key]; !exists {
+		d.KeyOrder = append(d.KeyOrder, key)
+	}
+	d.Pairs[key] = expr
+}
+
+// DeleteKey removes a key from both Pairs and KeyOrder
+func (d *Dictionary) DeleteKey(key string) {
+	delete(d.Pairs, key)
+	// Remove from KeyOrder (lazy - we filter in Keys() instead for efficiency)
+	// KeyOrder cleanup happens in Keys() method
 }
 
 // Table represents a tabular data structure wrapping an array of dictionaries.
@@ -616,11 +735,23 @@ func (e *Environment) Update(name string, val Object) Object {
 }
 
 // NewDictionaryFromObjects creates a Dictionary from a map of Objects
-// This is useful for programmatically creating dictionaries without AST expressions
+// Keys are sorted for deterministic output when no order is specified
 func NewDictionaryFromObjects(pairs map[string]Object) *Dictionary {
+	// Sort keys for deterministic behavior
+	keys := make([]string, 0, len(pairs))
+	for k := range pairs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return NewDictionaryFromObjectsWithOrder(pairs, keys)
+}
+
+// NewDictionaryFromObjectsWithOrder creates a Dictionary with specific key order
+func NewDictionaryFromObjectsWithOrder(pairs map[string]Object, keyOrder []string) *Dictionary {
 	dict := &Dictionary{
-		Pairs: make(map[string]ast.Expression),
-		Env:   NewEnvironment(),
+		Pairs:    make(map[string]ast.Expression),
+		KeyOrder: keyOrder,
+		Env:      NewEnvironment(),
 	}
 	for k, v := range pairs {
 		dict.Pairs[k] = &ast.ObjectLiteralExpression{Obj: v}
@@ -5966,8 +6097,9 @@ func getBuiltins() map[string]*Builtin {
 					return newTypeError("TYPE-0012", "keys", "a dictionary", args[0].Type())
 				}
 
-				keys := make([]Object, 0, len(dict.Pairs))
-				for key := range dict.Pairs {
+				orderedKeys := dict.Keys()
+				keys := make([]Object, 0, len(orderedKeys))
+				for _, key := range orderedKeys {
 					keys = append(keys, &String{Value: key})
 				}
 				return &Array{Elements: keys}
@@ -5988,9 +6120,10 @@ func getBuiltins() map[string]*Builtin {
 				dictEnv := NewEnclosedEnvironment(dict.Env)
 				dictEnv.Set("this", dict)
 
-				values := make([]Object, 0, len(dict.Pairs))
-				for _, expr := range dict.Pairs {
-					val := Eval(expr, dictEnv)
+				orderedKeys := dict.Keys()
+				values := make([]Object, 0, len(orderedKeys))
+				for _, key := range orderedKeys {
+					val := Eval(dict.Pairs[key], dictEnv)
 					values = append(values, val)
 				}
 				return &Array{Elements: values}
@@ -6031,9 +6164,10 @@ func getBuiltins() map[string]*Builtin {
 				dictEnv := NewEnclosedEnvironment(dict.Env)
 				dictEnv.Set("this", dict)
 
-				pairs := make([]Object, 0, len(dict.Pairs))
-				for key, expr := range dict.Pairs {
-					val := Eval(expr, dictEnv)
+				orderedKeys := dict.Keys()
+				pairs := make([]Object, 0, len(orderedKeys))
+				for _, key := range orderedKeys {
+					val := Eval(dict.Pairs[key], dictEnv)
 
 					// Skip functions with parameters (they can't be called without args)
 					if fn, ok := val.(*Function); ok && fn.ParamCount() > 0 {
@@ -6067,8 +6201,9 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				dict := &Dictionary{
-					Pairs: make(map[string]ast.Expression),
-					Env:   NewEnvironment(),
+					Pairs:    make(map[string]ast.Expression),
+					KeyOrder: []string{},
+					Env:      NewEnvironment(),
 				}
 
 				for _, elem := range arr.Elements {
@@ -6108,7 +6243,7 @@ func getBuiltins() map[string]*Builtin {
 						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
 					}
 
-					dict.Pairs[keyObj.Value] = expr
+					dict.SetKey(keyObj.Value, expr)
 				}
 
 				return dict
@@ -6285,6 +6420,87 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &String{Value: buf.String()}
+			},
+		},
+		// money() - create a Money value from amount and currency
+		// money(amount, currency) - amount is integer/float, currency is 3-letter code
+		// money(amount, currency, scale) - explicit scale (decimal places)
+		"money": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 2 || len(args) > 3 {
+					return newArityErrorRange("money", len(args), 2, 3)
+				}
+
+				// Parse amount (integer or float)
+				var amountCents int64
+				var inferredScale int8 = 2 // Default to 2 decimal places
+
+				switch a := args[0].(type) {
+				case *Integer:
+					// Integer amount - assume it's already in minor units if scale provided,
+					// otherwise treat as major units
+					if len(args) == 3 {
+						amountCents = a.Value
+					} else {
+						amountCents = a.Value * 100 // Convert to cents
+					}
+				case *Float:
+					// Float amount - convert to minor units
+					// Count decimal places in the float for scale inference
+					floatStr := fmt.Sprintf("%g", a.Value)
+					if dotIdx := strings.Index(floatStr, "."); dotIdx >= 0 {
+						inferredScale = int8(len(floatStr) - dotIdx - 1)
+					}
+					// Convert to minor units: multiply by 10^scale
+					multiplier := math.Pow10(int(inferredScale))
+					amountCents = int64(math.Round(a.Value * multiplier))
+				default:
+					return newTypeError("TYPE-0012", "money", "a number", args[0].Type())
+				}
+
+				// Parse currency code
+				currencyStr, ok := args[1].(*String)
+				if !ok {
+					return newTypeError("TYPE-0012", "money", "a currency code string", args[1].Type())
+				}
+
+				currency := strings.ToUpper(currencyStr.Value)
+				if len(currency) != 3 {
+					return newStructuredError("VAL-0019", map[string]any{"Got": currencyStr.Value})
+				}
+
+				// Parse optional scale
+				scale := inferredScale
+				if len(args) == 3 {
+					scaleInt, ok := args[2].(*Integer)
+					if !ok {
+						return newTypeError("TYPE-0012", "money", "a scale integer", args[2].Type())
+					}
+					scale = int8(scaleInt.Value)
+					if scale < 0 || scale > 10 {
+						return newStructuredError("VAL-0020", map[string]any{"Got": scaleInt.Value})
+					}
+				} else {
+					// Use known currency scale if available
+					if knownScale, ok := lexer.CurrencyScales[currency]; ok {
+						// Need to adjust amount if inferredScale differs from knownScale
+						if inferredScale != knownScale {
+							diff := int(knownScale - inferredScale)
+							if diff > 0 {
+								amountCents *= int64(math.Pow10(diff))
+							} else {
+								amountCents /= int64(math.Pow10(-diff))
+							}
+						}
+						scale = knownScale
+					}
+				}
+
+				return &Money{
+					Amount:   amountCents,
+					Currency: currency,
+					Scale:    scale,
+				}
 			},
 		},
 	}
@@ -6869,6 +7085,13 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.DurationLiteral:
 		return evalDurationLiteral(node, env)
 
+	case *ast.MoneyLiteral:
+		return &Money{
+			Amount:   node.Amount,
+			Currency: node.Currency,
+			Scale:    node.Scale,
+		}
+
 	case *ast.PathLiteral:
 		return evalPathLiteral(node, env)
 
@@ -7085,6 +7308,8 @@ func Eval(node ast.Node, env *Environment) Object {
 				return evalIntegerMethod(receiver, method, args)
 			case *Float:
 				return evalFloatMethod(receiver, method, args)
+			case *Money:
+				return evalMoneyMethod(receiver, method, args)
 			case *Dictionary:
 				// Check for special dictionary types first
 				if isDatetimeDict(receiver) {
@@ -7470,12 +7695,23 @@ func evalBangOperatorExpression(right Object) Object {
 }
 
 func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
-	if right.Type() != INTEGER_OBJ {
+	switch right.Type() {
+	case INTEGER_OBJ:
+		value := right.(*Integer).Value
+		return &Integer{Value: -value}
+	case FLOAT_OBJ:
+		value := right.(*Float).Value
+		return &Float{Value: -value}
+	case MONEY_OBJ:
+		money := right.(*Money)
+		return &Money{
+			Amount:   -money.Amount,
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	default:
 		return newOperatorError("OP-0004", map[string]any{"Type": right.Type()})
 	}
-
-	value := right.(*Integer).Value
-	return &Integer{Value: -value}
 }
 
 func evalInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
@@ -7599,6 +7835,17 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	// Array chunking
 	case operator == "/" && left.Type() == ARRAY_OBJ && right.Type() == INTEGER_OBJ:
 		return evalArrayChunking(tok, left.(*Array), right.(*Integer))
+	// Money operations
+	case left.Type() == MONEY_OBJ && right.Type() == MONEY_OBJ:
+		return evalMoneyInfixExpression(tok, operator, left.(*Money), right.(*Money))
+	case left.Type() == MONEY_OBJ && right.Type() == INTEGER_OBJ:
+		return evalMoneyScalarExpression(tok, operator, left.(*Money), float64(right.(*Integer).Value))
+	case left.Type() == MONEY_OBJ && right.Type() == FLOAT_OBJ:
+		return evalMoneyScalarExpression(tok, operator, left.(*Money), right.(*Float).Value)
+	case left.Type() == INTEGER_OBJ && right.Type() == MONEY_OBJ:
+		return evalScalarMoneyExpression(tok, operator, float64(left.(*Integer).Value), right.(*Money))
+	case left.Type() == FLOAT_OBJ && right.Type() == MONEY_OBJ:
+		return evalScalarMoneyExpression(tok, operator, left.(*Float).Value, right.(*Money))
 	// String repetition
 	case operator == "*" && left.Type() == STRING_OBJ && right.Type() == INTEGER_OBJ:
 		return evalStringRepetition(left.(*String), right.(*Integer))
@@ -8840,9 +9087,10 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 		return newLoopError("LOOP-0007", map[string]any{"Got": fn.ParamCount()})
 	}
 
-	// Iterate over dictionary key-value pairs
+	// Iterate over dictionary key-value pairs in insertion order
 	result := []Object{}
-	for key, expr := range dict.Pairs {
+	for _, key := range dict.Keys() {
+		expr := dict.Pairs[key]
 		// Evaluate the value
 		value := Eval(expr, dictEnv)
 		if isError(value) {
@@ -11028,7 +11276,17 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 	// Evaluate all values eagerly and store them as ObjectLiteralExpressions
 	// This ensures values like method calls (t.count()) are evaluated at creation time
 	pairs := make(map[string]ast.Expression)
-	for key, expr := range node.Pairs {
+
+	// Use KeyOrder from AST if available, otherwise iterate map (for backward compat)
+	keys := node.KeyOrder
+	if len(keys) == 0 {
+		for key := range node.Pairs {
+			keys = append(keys, key)
+		}
+	}
+
+	for _, key := range keys {
+		expr := node.Pairs[key]
 		value := Eval(expr, env)
 		if isError(value) {
 			return value
@@ -11038,8 +11296,9 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 	}
 
 	dict := &Dictionary{
-		Pairs: pairs,
-		Env:   env,
+		Pairs:    pairs,
+		KeyOrder: keys,
+		Env:      env,
 	}
 	return dict
 }
@@ -11088,6 +11347,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 			}
 		}
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": node.Key, "Type": "SFTP file handle"})
+	}
+
+	// Handle Money property access
+	if money, ok := left.(*Money); ok {
+		return evalMoneyProperty(money, node.Key)
 	}
 
 	// Handle Dictionary (including special types like datetime, path, url)
@@ -14000,4 +14264,135 @@ func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr stri
 	format := getDateFormatForStyle(style, mondayLocale)
 
 	return &String{Value: monday.Format(t, format, mondayLocale)}
+}
+
+// ============================================================================
+// Money arithmetic
+// ============================================================================
+
+// evalMoneyInfixExpression handles arithmetic between two Money values
+func evalMoneyInfixExpression(tok lexer.Token, operator string, left, right *Money) Object {
+	// Currency must match for all operations
+	if left.Currency != right.Currency {
+		return newOperatorError("OP-0019", map[string]any{
+			"LeftCurrency":  left.Currency,
+			"RightCurrency": right.Currency,
+		})
+	}
+
+	// Promote to higher scale if needed
+	scale := left.Scale
+	if right.Scale > scale {
+		scale = right.Scale
+	}
+
+	leftAmount := promoteMoneyScale(left.Amount, left.Scale, scale)
+	rightAmount := promoteMoneyScale(right.Amount, right.Scale, scale)
+
+	switch operator {
+	case "+":
+		return &Money{
+			Amount:   leftAmount + rightAmount,
+			Currency: left.Currency,
+			Scale:    scale,
+		}
+	case "-":
+		return &Money{
+			Amount:   leftAmount - rightAmount,
+			Currency: left.Currency,
+			Scale:    scale,
+		}
+	case "<":
+		return nativeBoolToParsBoolean(leftAmount < rightAmount)
+	case ">":
+		return nativeBoolToParsBoolean(leftAmount > rightAmount)
+	case "<=":
+		return nativeBoolToParsBoolean(leftAmount <= rightAmount)
+	case ">=":
+		return nativeBoolToParsBoolean(leftAmount >= rightAmount)
+	case "==":
+		return nativeBoolToParsBoolean(leftAmount == rightAmount)
+	case "!=":
+		return nativeBoolToParsBoolean(leftAmount != rightAmount)
+	default:
+		return newOperatorError("OP-0020", map[string]any{"Operator": operator})
+	}
+}
+
+// evalMoneyScalarExpression handles Money * scalar and Money / scalar
+func evalMoneyScalarExpression(tok lexer.Token, operator string, money *Money, scalar float64) Object {
+	switch operator {
+	case "*":
+		// Multiply amount by scalar, use banker's rounding
+		result := float64(money.Amount) * scalar
+		return &Money{
+			Amount:   bankersRound(result),
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	case "/":
+		if scalar == 0 {
+			return newOperatorError("OP-0002", map[string]any{})
+		}
+		// Divide amount by scalar, use banker's rounding
+		result := float64(money.Amount) / scalar
+		return &Money{
+			Amount:   bankersRound(result),
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	default:
+		return newOperatorError("OP-0021", map[string]any{
+			"Operator": operator,
+		})
+	}
+}
+
+// evalScalarMoneyExpression handles scalar * Money (commutative with *)
+func evalScalarMoneyExpression(tok lexer.Token, operator string, scalar float64, money *Money) Object {
+	switch operator {
+	case "*":
+		// Multiply is commutative
+		result := float64(money.Amount) * scalar
+		return &Money{
+			Amount:   bankersRound(result),
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	default:
+		return newOperatorError("OP-0021", map[string]any{
+			"Operator": operator,
+		})
+	}
+}
+
+// promoteMoneyScale promotes an amount to a higher scale
+func promoteMoneyScale(amount int64, fromScale, toScale int8) int64 {
+	if fromScale >= toScale {
+		return amount
+	}
+	for i := fromScale; i < toScale; i++ {
+		amount *= 10
+	}
+	return amount
+}
+
+// bankersRound implements banker's rounding (round half to even)
+func bankersRound(x float64) int64 {
+	// Get the integer and fractional parts
+	whole := math.Floor(x)
+	frac := x - whole
+
+	if frac < 0.5 {
+		return int64(whole)
+	} else if frac > 0.5 {
+		return int64(whole) + 1
+	} else {
+		// Exactly 0.5 - round to even
+		wholeInt := int64(whole)
+		if wholeInt%2 == 0 {
+			return wholeInt
+		}
+		return wholeInt + 1
+	}
 }

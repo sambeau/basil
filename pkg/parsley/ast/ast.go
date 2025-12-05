@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/lexer"
@@ -266,6 +267,34 @@ type DurationLiteral struct {
 func (dr *DurationLiteral) expressionNode()      {}
 func (dr *DurationLiteral) TokenLiteral() string { return dr.Token.Literal }
 func (dr *DurationLiteral) String() string       { return "@" + dr.Value }
+
+// MoneyLiteral represents money literals like $12.34, £99.99, EUR#50.00
+type MoneyLiteral struct {
+	Token    lexer.Token // the lexer.MONEY token
+	Currency string      // currency code: "USD", "GBP", "EUR", etc.
+	Amount   int64       // amount in smallest unit (e.g., cents)
+	Scale    int8        // decimal places (2 for USD, 0 for JPY)
+}
+
+func (ml *MoneyLiteral) expressionNode()      {}
+func (ml *MoneyLiteral) TokenLiteral() string { return ml.Token.Literal }
+func (ml *MoneyLiteral) String() string {
+	// Format as CODE#amount with appropriate decimal places
+	if ml.Scale == 0 {
+		return ml.Currency + "#" + fmt.Sprintf("%d", ml.Amount)
+	}
+	divisor := int64(1)
+	for i := int8(0); i < ml.Scale; i++ {
+		divisor *= 10
+	}
+	whole := ml.Amount / divisor
+	frac := ml.Amount % divisor
+	if frac < 0 {
+		frac = -frac
+	}
+	format := fmt.Sprintf("%%d.%%0%dd", ml.Scale)
+	return ml.Currency + "#" + fmt.Sprintf(format, whole, frac)
+}
 
 // PathLiteral represents path literals like @/usr/local/bin or @./config.json
 type PathLiteral struct {
@@ -645,8 +674,9 @@ func (se *SliceExpression) String() string {
 
 // DictionaryLiteral represents dictionary literals like { key: value, ... }
 type DictionaryLiteral struct {
-	Token lexer.Token // the '{' token
-	Pairs map[string]Expression
+	Token    lexer.Token // the '{' token
+	Pairs    map[string]Expression
+	KeyOrder []string // Keys in source order
 }
 
 func (dl *DictionaryLiteral) expressionNode()      {}
@@ -655,8 +685,17 @@ func (dl *DictionaryLiteral) String() string {
 	var out bytes.Buffer
 
 	pairs := []string{}
-	for key, value := range dl.Pairs {
-		pairs = append(pairs, key+": "+value.String())
+	// Use KeyOrder if available for consistent output
+	keys := dl.KeyOrder
+	if len(keys) == 0 {
+		for key := range dl.Pairs {
+			keys = append(keys, key)
+		}
+	}
+	for _, key := range keys {
+		if value, ok := dl.Pairs[key]; ok {
+			pairs = append(pairs, key+": "+value.String())
+		}
 	}
 
 	out.WriteString("{")

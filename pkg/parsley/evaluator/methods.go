@@ -12,6 +12,9 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/locale"
+	"golang.org/x/text/currency"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // ============================================================================
@@ -535,8 +538,9 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		if len(args) != 0 {
 			return newArityError("keys", len(args), 0)
 		}
-		keys := make([]Object, 0, len(dict.Pairs))
-		for k := range dict.Pairs {
+		orderedKeys := dict.Keys()
+		keys := make([]Object, 0, len(orderedKeys))
+		for _, k := range orderedKeys {
 			// Skip internal fields
 			if !strings.HasPrefix(k, "__") {
 				keys = append(keys, &String{Value: k})
@@ -548,11 +552,12 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		if len(args) != 0 {
 			return newArityError("values", len(args), 0)
 		}
-		values := make([]Object, 0, len(dict.Pairs))
-		for k, expr := range dict.Pairs {
+		orderedKeys := dict.Keys()
+		values := make([]Object, 0, len(orderedKeys))
+		for _, k := range orderedKeys {
 			// Skip internal fields
 			if !strings.HasPrefix(k, "__") {
-				val := Eval(expr, dict.Env)
+				val := Eval(dict.Pairs[k], dict.Env)
 				values = append(values, val)
 			}
 		}
@@ -580,17 +585,22 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 			valueName = v.Value
 		}
 
-		entries := make([]Object, 0, len(dict.Pairs))
-		for k, expr := range dict.Pairs {
+		orderedKeys := dict.Keys()
+		entries := make([]Object, 0, len(orderedKeys))
+		for _, k := range orderedKeys {
 			// Skip internal fields
 			if !strings.HasPrefix(k, "__") {
-				val := Eval(expr, dict.Env)
+				val := Eval(dict.Pairs[k], dict.Env)
 				// Create a dictionary for each entry
 				entryPairs := map[string]ast.Expression{
 					keyName:   objectToExpression(&String{Value: k}),
 					valueName: objectToExpression(val),
 				}
-				entries = append(entries, &Dictionary{Pairs: entryPairs, Env: env})
+				entries = append(entries, &Dictionary{
+					Pairs:    entryPairs,
+					KeyOrder: []string{keyName, valueName},
+					Env:      env,
+				})
 			}
 		}
 		return &Array{Elements: entries}
@@ -614,7 +624,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		if !ok {
 			return newTypeError("TYPE-0012", "delete", "a string", args[0].Type())
 		}
-		delete(dict.Pairs, key.Value)
+		dict.DeleteKey(key.Value)
 		return NULL
 
 	default:
@@ -1402,4 +1412,146 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 			"ok", "error", "json", "text", "data", "toDict",
 		})
 	}
+}
+
+// ============================================================================
+// Money Methods
+// ============================================================================
+
+// moneyMethods lists all methods available on money
+var moneyMethods = []string{
+	"format", "abs", "split",
+}
+
+// evalMoneyProperty handles property access on Money values
+func evalMoneyProperty(money *Money, key string) Object {
+	switch key {
+	case "currency":
+		return &String{Value: money.Currency}
+	case "amount":
+		return &Integer{Value: money.Amount}
+	case "scale":
+		return &Integer{Value: int64(money.Scale)}
+	default:
+		return unknownMethodError(key, "money", append([]string{"currency", "amount", "scale"}, moneyMethods...))
+	}
+}
+
+// evalMoneyMethod evaluates a method call on a Money value
+func evalMoneyMethod(money *Money, method string, args []Object) Object {
+	switch method {
+	case "format":
+		// format() or format(locale)
+		if len(args) > 1 {
+			return newArityErrorRange("format", len(args), 0, 1)
+		}
+
+		localeStr := "en-US" // default locale
+		if len(args) == 1 {
+			localeArg, ok := args[0].(*String)
+			if !ok {
+				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
+			}
+			localeStr = localeArg.Value
+		}
+
+		return formatMoney(money, localeStr)
+
+	case "abs":
+		// abs() - returns absolute value
+		if len(args) != 0 {
+			return newArityError("abs", len(args), 0)
+		}
+		amount := money.Amount
+		if amount < 0 {
+			amount = -amount
+		}
+		return &Money{
+			Amount:   amount,
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+
+	case "split":
+		// split(n) - split into n parts that sum to original
+		if len(args) != 1 {
+			return newArityError("split", len(args), 1)
+		}
+		nArg, ok := args[0].(*Integer)
+		if !ok {
+			return newTypeError("TYPE-0012", "split", "an integer", args[0].Type())
+		}
+		n := nArg.Value
+		if n <= 0 {
+			return newStructuredError("VAL-0021", map[string]any{"Function": "split", "Expected": "a positive integer", "Got": n})
+		}
+
+		return splitMoney(money, n)
+
+	default:
+		return unknownMethodError(method, "money", moneyMethods)
+	}
+}
+
+// formatMoney formats a Money value with locale-aware formatting
+func formatMoney(money *Money, localeStr string) Object {
+	// Try to use golang.org/x/text/currency for known currencies
+	cur, err := currency.ParseISO(money.Currency)
+	if err == nil {
+		// Known currency - use proper locale formatting
+		tag, err := language.Parse(localeStr)
+		if err != nil {
+			return newLocaleError(localeStr)
+		}
+
+		// Convert amount to float for formatting
+		divisor := float64(1)
+		for i := int8(0); i < money.Scale; i++ {
+			divisor *= 10
+		}
+		value := float64(money.Amount) / divisor
+
+		p := message.NewPrinter(tag)
+		return &String{Value: p.Sprintf("%v", currency.Symbol(cur.Amount(value)))}
+	}
+
+	// Unknown currency (BTC, custom) - simple format: CODE amount
+	return &String{Value: money.Currency + " " + money.formatAmount()}
+}
+
+// splitMoney splits a Money value into n parts that sum exactly to the original
+func splitMoney(money *Money, n int64) Object {
+	if n == 1 {
+		return &Array{Elements: []Object{&Money{
+			Amount:   money.Amount,
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}}}
+	}
+
+	// Base amount for each part
+	baseAmount := money.Amount / n
+	// Remainder to distribute (can be negative if amount is negative)
+	remainder := money.Amount - (baseAmount * n)
+
+	elements := make([]Object, n)
+
+	// Distribute: first |remainder| parts get +1 or -1 (depending on sign)
+	for i := int64(0); i < n; i++ {
+		amount := baseAmount
+		if remainder > 0 {
+			amount++
+			remainder--
+		} else if remainder < 0 {
+			amount--
+			remainder++
+		}
+		elements[i] = &Money{
+			Amount:   amount,
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	}
+
+	return &Array{Elements: elements}
 }

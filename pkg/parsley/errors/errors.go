@@ -676,6 +676,21 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassOperator,
 		Template: "substring must be a string, got {{.Got}}",
 	},
+	"OP-0019": {
+		Class:    ClassOperator,
+		Template: "cannot mix currencies: {{.LeftCurrency}} and {{.RightCurrency}}",
+		Hints:    []string{"convert to the same currency before arithmetic"},
+	},
+	"OP-0020": {
+		Class:    ClassOperator,
+		Template: "unsupported operation between money values: {{.Operator}}",
+		Hints:    []string{"only +, -, and comparison operators are allowed between money values"},
+	},
+	"OP-0021": {
+		Class:    ClassOperator,
+		Template: "unsupported operation between money and number: {{.Operator}}",
+		Hints:    []string{"only * and / are allowed between money and numbers"},
+	},
 
 	// ========================================
 	// State errors (STATE-0xxx)
@@ -899,6 +914,18 @@ var ErrorCatalog = map[string]ErrorDef{
 	"VAL-0018": {
 		Class:    ClassValue,
 		Template: "{{.Field}} field must be {{.Expected}}, got {{.Got}}",
+	},
+	"VAL-0019": {
+		Class:    ClassValue,
+		Template: "money() requires a 3-letter currency code, got '{{.Got}}'",
+	},
+	"VAL-0020": {
+		Class:    ClassValue,
+		Template: "money() scale must be between 0 and 10, got {{.Got}}",
+	},
+	"VAL-0021": {
+		Class:    ClassValue,
+		Template: "{{.Function}}() requires {{.Expected}}, got {{.Got}}",
 	},
 
 	// ========================================

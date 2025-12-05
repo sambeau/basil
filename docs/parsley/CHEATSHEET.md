@@ -142,6 +142,7 @@ let path = "./config.json"  // This is just a string
 | String | `` `Hi ${x}` `` | `f"Hi {x}"` | `"Hi {x}"` |
 | Regex | `/abc/i` | `re.compile(r"abc", re.I)` | `/abc/i` |
 | Null | `null` | `None` | `null` |
+| Money | N/A | N/A | `$12.34`, `EUR#50.00` |
 
 ---
 
@@ -246,7 +247,47 @@ let date = @(2024-{month}-{day})  // Builds from variables
 1..5                         // [1, 2, 3, 4, 5]
 ```
 
-### 6. File I/O with Special Operators
+### 6. Money Type (Exact Financial Arithmetic)
+```parsley
+// Currency symbol literals
+$12.34                       // USD
+£99.99                       // GBP
+€50.00                       // EUR
+¥1000                        // JPY (no decimals)
+
+// Compound symbols
+CA$25.00                     // Canadian Dollar
+AU$50.00                     // Australian Dollar
+
+// CODE# syntax (any 3-letter currency)
+USD#12.34                    // Same as $12.34
+BTC#1.00000000              // Bitcoin (8 decimals)
+
+// Constructor
+money(12.34, "USD")          // $12.34
+money(1000, "JPY")           // ¥1000
+
+// Arithmetic (same currency only!)
+$10.00 + $5.00               // $15.00
+$10.00 * 2                   // $20.00
+$10.00 / 3                   // $3.33 (banker's rounding)
+-$50.00                      // Negative money
+
+// ❌ ERROR: Cannot mix currencies
+$10.00 + £5.00               // Error!
+
+// Properties
+$12.34.currency              // "USD"
+$12.34.amount                // 1234 (in cents)
+$12.34.scale                 // 2
+
+// Methods
+$1234.56.format()            // "$ 1,234.56"
+(-$50.00).abs()              // $50.00
+$100.00.split(3)             // [$33.34, $33.33, $33.33]
+```
+
+### 7. File I/O with Special Operators
 ```parsley
 // Read operators
 let data <== JSON(@./config.json)       // Read file
@@ -261,7 +302,7 @@ let {response, error} <=/= Fetch(@https://api.example.com)
 data =/=> conn(@/remote/file.json).json
 ```
 
-### 7. Method Chaining
+### 8. Method Chaining
 ```parsley
 // String methods
 "hello".toUpper()              // "HELLO"

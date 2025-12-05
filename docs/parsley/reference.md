@@ -12,6 +12,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Number Methods](#number-methods)
 - [Datetime Methods](#datetime-methods)
 - [Duration Methods](#duration-methods)
+- [Money Type](#money-type)
 - [Path Methods](#path-methods)
 - [URL Methods](#url-methods)
 - [File I/O](#file-io)
@@ -42,6 +43,7 @@ Complete reference for all Parsley types, methods, and operators.
 | DateTime | `@2024-11-26T15:30:00` | Date and time |
 | Time | `@12:30`, `@12:30:45` | Time only (uses current date internally) |
 | Duration | `@1d`, `@2h30m` | Time spans |
+| Money | `$12.34`, `EUR#50.00` | Currency values with exact arithmetic |
 | Path | `@./file.pars` | File system paths |
 | URL | `@https://example.com` | Web addresses |
 | File Handle | `JSON(@./config.json)` | File with format binding |
@@ -52,6 +54,7 @@ Complete reference for all Parsley types, methods, and operators.
 ## Operators
 
 ### Arithmetic
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `+` | Addition | `2 + 3` → `5` |
@@ -70,6 +73,7 @@ Complete reference for all Parsley types, methods, and operators.
 | `..` | Range (inclusive) | `1..5` → `[1, 2, 3, 4, 5]` |
 
 ### Comparison
+
 | Operator | Description |
 |----------|-------------|
 | `==` | Equal |
@@ -80,6 +84,7 @@ Complete reference for all Parsley types, methods, and operators.
 | `>=` | Greater than or equal |
 
 ### Logical
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `&&` | Boolean AND | `true && false` → `false` |
@@ -92,6 +97,7 @@ Complete reference for all Parsley types, methods, and operators.
 ### Set Operations
 
 **Array Intersection** (`&&`): Returns elements present in both arrays (deduplicated).
+
 ```parsley
 [1, 2, 3] && [2, 3, 4]           // [2, 3]
 [1, 2, 2, 3] && [2, 3, 3, 4]     // [2, 3] (duplicates removed)
@@ -99,6 +105,7 @@ Complete reference for all Parsley types, methods, and operators.
 ```
 
 **Array Union** (`||`): Merges arrays, removing duplicates.
+
 ```parsley
 [1, 2] || [2, 3]                 // [1, 2, 3]
 [1, 1, 2] || [2, 3, 3]           // [1, 2, 3] (duplicates removed)
@@ -106,6 +113,7 @@ Complete reference for all Parsley types, methods, and operators.
 ```
 
 **Array Subtraction** (`-`): Removes elements from left array that exist in right.
+
 ```parsley
 [1, 2, 3, 4] - [2, 4]            // [1, 3]
 [1, 2, 2, 3] - [2]               // [1, 3] (all instances removed)
@@ -113,18 +121,21 @@ Complete reference for all Parsley types, methods, and operators.
 ```
 
 **Dictionary Intersection** (`&&`): Returns dictionary with keys present in both (left values kept).
+
 ```parsley
 {a: 1, b: 2, c: 3} && {b: 99, c: 99, d: 4}  // {b: 2, c: 3}
 {a: 1} && {b: 2}                             // {}
 ```
 
 **Dictionary Subtraction** (`-`): Removes keys from left that exist in right (values in right don't matter).
+
 ```parsley
 {a: 1, b: 2, c: 3} - {b: 0, d: 0}  // {a: 1, c: 3}
 {a: 1, b: 2} - {c: 3}              // {a: 1, b: 2} (no change)
 ```
 
 **Array Chunking** (`/`): Splits array into chunks of specified size.
+
 ```parsley
 [1, 2, 3, 4, 5, 6] / 2    // [[1, 2], [3, 4], [5, 6]]
 [1, 2, 3, 4, 5] / 2       // [[1, 2], [3, 4], [5]]
@@ -133,6 +144,7 @@ Complete reference for all Parsley types, methods, and operators.
 ```
 
 **String Repetition** (`*`): Repeats string N times.
+
 ```parsley
 "abc" * 3                 // "abcabcabc"
 "x" * 5                   // "xxxxx"
@@ -141,6 +153,7 @@ Complete reference for all Parsley types, methods, and operators.
 ```
 
 **Array Repetition** (`*`): Repeats array contents N times.
+
 ```parsley
 [1, 2] * 3                // [1, 2, 1, 2, 1, 2]
 ["a"] * 4                 // ["a", "a", "a", "a"]
@@ -167,6 +180,7 @@ Complete reference for all Parsley types, methods, and operators.
 ```
 
 **Common Use Cases:**
+
 ```parsley
 // Loop over a range
 for (i in 1..10) { log(i) }
@@ -186,12 +200,14 @@ let range = start..end
 ```
 
 ### Pattern Matching
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `~` | Regex match | `"test" ~ /\w+/` → `["test"]` |
 | `!~` | Regex not-match | `"abc" !~ /\d/` → `true` |
 
 ### Nullish Coalescing
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `??` | Default if null | `null ?? "default"` → `"default"` |
@@ -205,6 +221,7 @@ a ?? b ?? c ?? "default"   // First non-null value
 ```
 
 ### File I/O
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `<==` | Read from file | `let data <== JSON(@./file.json)` |
@@ -212,11 +229,13 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `==>>` | Append to file | `line ==>> lines(@./log.txt)` |
 
 ### Process Execution
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `<=#=>` | Execute command with input | `let result = COMMAND("ls") <=#=> null` |
 
 ### Database
+
 | Operator | Description | Example |
 |----------|-------------|---------|
 | `<=?=>` | Query single row | `let user = db <=?=> "SELECT * FROM users WHERE id = 1"` |
@@ -224,6 +243,7 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `<=!=>` | Execute mutation | `let result = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"` |
 
 ### Other
+
 | Operator | Description |
 |----------|-------------|
 | `=` | Assignment |
@@ -245,6 +265,7 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `.replace(old, new)` | Replace text | `"hello".replace("l", "L")` → `"heLLo"` |
 
 ### Indexing and Slicing
+
 ```parsley
 "hello"[0]      // "h"
 "hello"[-1]     // "o" (last)
@@ -259,6 +280,7 @@ a ?? b ?? c ?? "default"   // First non-null value
 ```
 
 ### Interpolation
+
 ```parsley
 let name = "World"
 "Hello, {name}!"  // "Hello, World!"
@@ -285,7 +307,9 @@ let name = "World"
 | `.format("or")` | With conjunction | `["a","b"].format("or")` → `"a or b"` |
 
 ### Array Literals
+
 Arrays are created using bracket syntax:
+
 ```parsley
 let nums = [1, 2, 3]
 let names = ["Alice", "Bob", "Carol"]
@@ -295,7 +319,9 @@ let empty = []
 ```
 
 ### Array Destructuring
+
 Extract values from arrays into variables using bracket syntax:
+
 ```parsley
 let [a, b, c] = [1, 2, 3]    // a=1, b=2, c=3
 let [first, second] = nums    // first=1, second=2
@@ -312,6 +338,7 @@ getFirst([1, 2, 3])  // 1
 ```
 
 ### Indexing and Slicing
+
 ```parsley
 nums[0]      // First element
 nums[-1]     // Last element
@@ -321,6 +348,7 @@ nums[:2]     // From start to index 2
 ```
 
 ### Optional Indexing
+
 Use `[?n]` for safe access that returns `null` instead of an error when out of bounds:
 ```parsley
 let arr = [1, 2, 3]
@@ -338,6 +366,7 @@ arr[?-99]    // null
 ```
 
 ### Concatenation
+
 ```parsley
 [1, 2] ++ [3, 4]  // [1, 2, 3, 4]
 1 ++ [2, 3]       // [1, 2, 3] (scalar concatenation)
@@ -345,6 +374,7 @@ arr[?-99]    // null
 ```
 
 ### Set Operations
+
 ```parsley
 [1, 2, 3] && [2, 3, 4]  // [2, 3] (intersection)
 [1, 2] || [2, 3]        // [1, 2, 3] (union)
@@ -352,6 +382,7 @@ arr[?-99]    // null
 ```
 
 ### Other Operations
+
 ```parsley
 [1, 2, 3, 4] / 2  // [[1, 2], [3, 4]] (chunking)
 [1, 2] * 3        // [1, 2, 1, 2, 1, 2] (repetition)
@@ -369,12 +400,14 @@ arr[?-99]    // null
 | `.delete(key)` | Remove key | `d.delete("a")` → removes key `a` |
 
 ### Access
+
 ```parsley
 dict.key        // Dot notation
 dict["key"]     // Bracket notation
 ```
 
 ### Removing Keys
+
 ```parsley
 let d = {a: 1, b: 2, c: 3}
 d.delete("b")   // d is now {a: 1, c: 3}
@@ -382,6 +415,7 @@ d.delete("x")   // No error if key doesn't exist
 ```
 
 ### Self-Reference with `this`
+
 ```parsley
 let config = {
     width: 100,
@@ -391,11 +425,13 @@ let config = {
 ```
 
 ### Merging
+
 ```parsley
 {a: 1} ++ {b: 2}  // {a: 1, b: 2}
 ```
 
 ### Set Operations
+
 ```parsley
 {a: 1, b: 2} && {b: 3, c: 4}  // {b: 2} (intersection, left values kept)
 {a: 1, b: 2} - {b: 0}         // {a: 1} (subtract keys)
@@ -414,6 +450,7 @@ let config = {
 | `.percent()` | Percentage | `0.125.percent()` → `"13%"` |
 
 ### Math Functions
+
 ```parsley
 sqrt(16)        // 4
 round(3.7)      // 4
@@ -428,6 +465,7 @@ asin(x), acos(x), atan(x)
 ## Datetime Methods
 
 ### Creation
+
 ```parsley
 now()                                    // Current datetime
 time("2024-11-26")                       // Parse ISO date
@@ -437,6 +475,7 @@ time({year: 2024, month: 12, day: 25})   // From components
 ```
 
 ### Literals
+
 Parsley supports three kinds of datetime literals, each with its own display format:
 
 ```parsley
@@ -447,6 +486,7 @@ Parsley supports three kinds of datetime literals, each with its own display for
 ```
 
 ### Literal Kinds
+
 Each datetime literal tracks its kind, which determines how it displays when converted to a string:
 
 | Literal | Kind | String Output |
@@ -471,6 +511,7 @@ toString(@12:30:45)             // "12:30:45"
 ```
 
 ### Time-Only Literals
+
 Time-only literals (`@HH:MM` or `@HH:MM:SS`) use the current UTC date internally but display as time only:
 
 ```parsley
@@ -489,6 +530,7 @@ toString(meeting)  // "14:30"
 ```
 
 ### Kind Preservation
+
 The kind is preserved through arithmetic operations:
 
 ```parsley
@@ -505,6 +547,7 @@ The kind is preserved through arithmetic operations:
 ```
 
 ### Interpolated Datetime Templates
+
 Use `@(...)` syntax for datetime literals with embedded expressions:
 
 ```parsley
@@ -552,6 +595,7 @@ The kind is automatically determined:
 Static datetime literals (`@2024-12-25`) remain unchanged and don't require parentheses.
 
 ### Properties
+
 | Property | Description |
 |----------|-------------|
 | `.year` | Year number |
@@ -570,6 +614,7 @@ Static datetime literals (`@2024-12-25`) remain unchanged and don't require pare
 | `.week` | ISO week number (1-53) |
 
 ### Methods
+
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.format()` | Default format | `dt.format()` → `"11/26/2024"` |
@@ -580,6 +625,7 @@ Static datetime literals (`@2024-12-25`) remain unchanged and don't require pare
 Style options: `"short"`, `"medium"`, `"long"`, `"full"`
 
 ### Comparisons
+
 All datetime kinds can be compared:
 
 ```parsley
@@ -589,6 +635,7 @@ All datetime kinds can be compared:
 ```
 
 ### Intersection Operator (`&&`)
+
 Combine date and time components using the `&&` operator:
 
 ```parsley
@@ -618,6 +665,7 @@ Combine date and time components using the `&&` operator:
 ## Duration Methods
 
 ### Literals
+
 ```parsley
 @1d          // 1 day
 @2h          // 2 hours
@@ -627,6 +675,7 @@ Combine date and time components using the `&&` operator:
 ```
 
 ### Methods
+
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.format()` | Relative time | `@1d.format()` → `"tomorrow"` |
@@ -634,7 +683,9 @@ Combine date and time components using the `&&` operator:
 | `.toDict()` | Dictionary form | `@1d2h.toDict()` → `{__type: "duration", ...}` |
 
 ### String Conversion
+
 Durations convert to human-readable strings in templates and print statements:
+
 ```parsley
 let d = @1d2h30m
 "{d}"              // "1 day, 2 hours, 30 minutes"
@@ -642,6 +693,7 @@ log(d)             // 1 day, 2 hours, 30 minutes
 ```
 
 ### Arithmetic
+
 ```parsley
 let christmas = @2025-12-25
 let daysUntil = christmas - now()
@@ -650,9 +702,141 @@ daysUntil.format()  // "in 4 weeks"
 
 ---
 
+## Money Type
+
+Money values provide exact arithmetic for financial calculations with currency type safety.
+
+### Literals
+
+```parsley
+// Currency symbol syntax
+$12.34       // USD
+£99.99       // GBP
+€50.00       // EUR
+¥1000        // JPY (no decimals)
+
+// Compound symbols
+CA$25.00     // Canadian Dollar
+AU$50.00     // Australian Dollar
+HK$100.00    // Hong Kong Dollar
+S$75.50      // Singapore Dollar
+CN¥500       // Chinese Yuan
+
+// CODE# syntax (any 3-letter currency)
+USD#12.34    // Same as $12.34
+GBP#99.99    // Same as £99.99
+EUR#50.00    // Same as €50.00
+BTC#1.00000000  // Bitcoin (custom scale)
+```
+
+### Constructor
+
+```parsley
+money(12.34, "USD")       // $12.34
+money(1000, "JPY")        // ¥1000
+money(1234, "USD", 2)     // $12.34 (amount in minor units with explicit scale)
+```
+
+### Arithmetic
+
+Money arithmetic maintains exact precision:
+
+```parsley
+$10.00 + $5.00    // $15.00
+$20.00 - $8.00    // $12.00
+$10.00 * 3        // $30.00
+$15.00 / 3        // $5.00 (banker's rounding)
+-$50.00           // Negative amount
+```
+
+**Rules:**
+
+- Money + Money: Same currency only
+- Money - Money: Same currency only
+- Money * scalar: Allowed
+- scalar * Money: Allowed
+- Money / scalar: Allowed (uses banker's rounding)
+- Money / Money: Error (use `.amount` if you need a ratio)
+- Money + scalar: Error (ambiguous)
+
+### Comparison
+
+```parsley
+$10.00 > $5.00    // true
+$10.00 == $10     // true (same value)
+$10.00 != $5.00   // true
+$10.00 < £5.00    // Error: cannot mix currencies
+```
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `.currency` | String | ISO currency code (`"USD"`, `"GBP"`) |
+| `.amount` | Integer | Amount in smallest unit (cents) |
+| `.scale` | Integer | Decimal places (2 for USD, 0 for JPY) |
+
+```parsley
+$12.34.currency   // "USD"
+$12.34.amount     // 1234
+$12.34.scale      // 2
+¥1000.scale       // 0
+```
+
+### Methods
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.format()` | Locale-aware formatting | `$1234.56.format()` → `"$ 1,234.56"` |
+| `.format(locale)` | Specific locale | `$1234.56.format("de-DE")` → formatted for German |
+| `.abs()` | Absolute value | `(-$50.00).abs()` → `$50.00` |
+| `.split(n)` | Split into n parts | `$100.00.split(3)` → `[$33.34, $33.33, $33.33]` |
+
+### Split Method
+
+The `.split(n)` method divides money fairly, distributing any remainder:
+
+```parsley
+$100.00.split(3)  // [$33.34, $33.33, $33.33]
+$10.00.split(4)   // [$2.50, $2.50, $2.50, $2.50]
+$0.01.split(3)    // [$0.01, $0.00, $0.00]
+```
+
+The sum of split parts always equals the original:
+```parsley
+let parts = $100.00.split(3)
+// parts[0] + parts[1] + parts[2] == $100.00
+```
+
+### Currency Mismatch Errors
+
+Mixing currencies is a runtime error:
+
+```parsley
+$10.00 + £5.00    // Error: cannot mix currencies: USD and GBP
+$10.00 == €10.00  // Error: cannot mix currencies: USD and EUR
+```
+
+### Using Money in Templates
+
+```parsley
+let price = $29.99
+let tax = price * 0.08
+let total = price + tax
+
+<div>
+  <span>Price: {price}</span>
+  <span>Tax: {tax}</span>
+  <span>Total: {total}</span>
+</div>
+```
+
+---
+
 ## Path Methods
 
 ### Creation
+
 ```parsley
 @./config.json       // Relative path
 @/usr/local/bin      // Absolute path
@@ -660,6 +844,7 @@ path("some/path")    // Dynamic path
 ```
 
 ### Path Cleaning
+
 Paths are automatically cleaned when created, following [Rob Pike's cleanname algorithm](https://9p.io/sys/doc/lexnames.html):
 - `.` (current directory) elements are eliminated
 - `..` elements eliminate the preceding component
@@ -675,7 +860,9 @@ p.string  // "./c"
 ```
 
 ### Interpolated Path Templates
+
 Use `@(...)` syntax for paths with embedded expressions:
+
 ```parsley
 name = "config"
 p = @(./data/{name}.json)
@@ -695,6 +882,7 @@ p.string  // "./file2.txt"
 Static path literals (`@./path`) remain unchanged and don't require parentheses.
 
 ### Properties
+
 | Property | Description | Example |
 |----------|-------------|---------|
 | `.basename` | Filename | `"config.json"` |
@@ -705,6 +893,7 @@ Static path literals (`@./path`) remain unchanged and don't require parentheses.
 | `.string` | Full path as string | `"./data/config.json"` |
 
 ### Methods
+
 | Method | Description |
 |--------|-------------|
 | `.isAbsolute()` | Is absolute path |
@@ -712,6 +901,7 @@ Static path literals (`@./path`) remain unchanged and don't require parentheses.
 | `.toDict()` | Dictionary form |
 
 ### String Conversion
+
 Paths convert to their path string in templates:
 ```parsley
 let p = @./src/main.go
@@ -724,12 +914,14 @@ log(p)             // ./src/main.go
 ## URL Methods
 
 ### Creation
+
 ```parsley
 @https://api.example.com/users    // URL
 url("https://example.com:8080")   // Dynamic URL
 ```
 
 ### Interpolated URL Templates
+
 Use `@(...)` syntax for URLs with embedded expressions:
 ```parsley
 version = "v2"
@@ -754,6 +946,7 @@ u.fragment  // "intro"
 Static URL literals (`@https://...`) remain unchanged and don't require parentheses.
 
 ### Properties
+
 | Property | Description |
 |----------|-------------|
 | `.scheme` | Protocol ("https") |
@@ -764,6 +957,7 @@ Static URL literals (`@https://...`) remain unchanged and don't require parenthe
 | `.string` | Full URL as string |
 
 ### Methods
+
 | Method | Description |
 |--------|-------------|
 | `.origin()` | Scheme + host + port |
@@ -779,7 +973,9 @@ u.query.page   // "2"
 ```
 
 ### String Conversion
+
 URLs convert to their full URL string in templates:
+
 ```parsley
 let u = @https://api.example.com/v1
 "{u}"              // "https://api.example.com/v1"
@@ -791,6 +987,7 @@ log(u)             // https://api.example.com/v1
 ## File I/O
 
 ### File Handle Factories
+
 | Factory | Format | Read Returns | Write Accepts |
 |---------|--------|--------------|---------------|
 | `file(path)` | Auto-detect | Depends on ext | String |
@@ -803,6 +1000,7 @@ log(u)             // https://api.example.com/v1
 | `bytes(path)` | Binary | Byte Array | Byte Array |
 
 ### File Handle Properties
+
 | Property | Description |
 |----------|-------------|
 | `.exists` | File exists |
@@ -815,6 +1013,7 @@ log(u)             // https://api.example.com/v1
 | `.stem` | Name without extension |
 
 ### File Handle Methods
+
 | Method | Description |
 |--------|-------------|
 | `.remove()` | Removes/deletes the file from the filesystem. Returns `null` on success, error on failure. |
@@ -842,6 +1041,7 @@ if (result != null) {
 ```
 
 ### Reading (`<==`)
+
 ```parsley
 let config <== JSON(@./config.json)
 let rows <== CSV(@./data.csv)
@@ -873,6 +1073,7 @@ let config <== JSON(@./config.json) ?? {defaults: true}
 ```
 
 ### Writing (`==>`)
+
 ```parsley
 myDict ==> JSON(@./output.json)
 records ==> CSV(@./export.csv)
@@ -881,12 +1082,14 @@ records ==> CSV(@./export.csv)
 ```
 
 ### Appending (`==>>`)
+
 ```parsley
 newLine ==>> lines(@./log.txt)
 message ==>> text(@./debug.log)
 ```
 
 ### Stdin/Stdout/Stderr
+
 Read from stdin and write to stdout/stderr for Unix pipeline integration.
 
 **Syntax:**
@@ -921,6 +1124,7 @@ active ==> JSON(@-)
 ```
 
 **Error Handling:**
+
 ```parsley
 // Cannot read from stdout/stderr
 let data <== text(@stdout)  // ERROR: cannot read from stdout
@@ -930,6 +1134,7 @@ let data <== text(@stdout)  // ERROR: cannot read from stdout
 ```
 
 ### Directory Operations
+
 ```parsley
 let d = dir(@./images)
 d.exists      // true
@@ -960,6 +1165,7 @@ let configs = files("~/.config/*.json")
 ```
 
 **Glob Pattern Syntax:**
+
 | Pattern | Matches |
 |---------|---------|
 | `*` | Any sequence of characters (not including `/`) |
@@ -968,6 +1174,7 @@ let configs = files("~/.config/*.json")
 | `[a-z]` | Any character in the range |
 
 **Working with Results:**
+
 ```parsley
 // List all markdown files
 let docs = files(@./docs/*.md)
@@ -1013,6 +1220,7 @@ let conn = SFTP("sftp://user:password@example.com:2222/", {
 ```
 
 **Connection Features:**
+
 - Connection caching by `user@host:port` for efficiency
 - `known_hosts` verification for security (~/.ssh/known_hosts)
 - Supports SSH keys (recommended) and password authentication
@@ -1030,6 +1238,7 @@ SFTP uses the same network operators as HTTP/database operations:
 | `=/=>>` | Append to SFTP | `line =/=>> conn(@/log.txt).lines` |
 
 **Callable Syntax:**
+
 ```parsley
 let conn = SFTP("sftp://user:pass@host/")
 let handle = conn(@/path/to/file.txt)  // Returns file handle
@@ -1240,6 +1449,7 @@ conn.close()
 ## Regex
 
 ### Literals
+
 ```parsley
 /pattern/       // Basic regex
 /pattern/i      // Case insensitive
@@ -1247,11 +1457,13 @@ conn.close()
 ```
 
 ### Dynamic Creation
+
 ```parsley
 regex("\\d+", "i")
 ```
 
 ### Methods
+
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.test(string)` | Test if matches | `/\d+/.test("abc123")` → `true` |
@@ -1261,7 +1473,9 @@ regex("\\d+", "i")
 | `.toDict()` | Dictionary form | `/\d+/i.toDict()` → `{pattern: "\\d+", flags: "i", ...}` |
 
 ### String Conversion
+
 Regex patterns convert to literal notation in templates:
+
 ```parsley
 let r = /[a-z]+/i
 "{r}"              // "/[a-z]+/i"
@@ -1269,6 +1483,7 @@ log(r)             // /[a-z]+/i
 ```
 
 ### Matching
+
 ```parsley
 "test@example.com" ~ /\w+@\w+\.\w+/  // ["test@example.com"]
 "hello" ~ /\d+/                       // null (no match)
@@ -1276,6 +1491,7 @@ log(r)             // /[a-z]+/i
 ```
 
 ### Capture Groups
+
 ```parsley
 let match = "Phone: (555) 123-4567" ~ /\((\d{3})\) (\d{3})-(\d{4})/
 match[0]  // Full match
@@ -1285,6 +1501,7 @@ match[3]  // "4567"
 ```
 
 ### Replace and Split
+
 ```parsley
 "hello world".replace(/world/, "Parsley")  // "hello Parsley"
 "a1b2c3".split(/\d+/)                      // ["a", "b", "c"]
@@ -1454,6 +1671,7 @@ if (error == null) {
 ```
 
 **Form Submission:**
+
 ```parsley
 let formData = {
     username: "alice",
@@ -1474,6 +1692,7 @@ if (status == 200) {
 ```
 
 **Download Text Content:**
+
 ```parsley
 let {data, error} <=/= text(@https://raw.githubusercontent.com/user/repo/main/README.md)
 if (error == null) {
@@ -1482,6 +1701,7 @@ if (error == null) {
 ```
 
 **Multiple API Calls:**
+
 ```parsley
 let users <=/= JSON(@https://api.example.com/users)
 let posts <=/= JSON(@https://api.example.com/posts)
@@ -1869,6 +2089,7 @@ if (result.exitCode != 0) {
 ## Modules
 
 ### Creating a Module
+
 ```parsley
 // math.pars
 
@@ -1885,6 +2106,7 @@ let multiply = fn(a, b) { a * b }
 ```
 
 ### Importing
+
 ```parsley
 let math = import(@./math.pars)
 math.add(2, 3)  // 5
@@ -1899,6 +2121,7 @@ let {add, PI, Logo} = import(@./math.pars)
 ## Tags
 
 ### HTML/XML Tags
+
 ```parsley
 <div class="container">
     <h1>{title}</h1>
@@ -1907,6 +2130,7 @@ let {add, PI, Logo} = import(@./math.pars)
 ```
 
 ### Self-Closing
+
 ```parsley
 <br/>
 <img src="photo.jpg" />
@@ -1914,6 +2138,7 @@ let {add, PI, Logo} = import(@./math.pars)
 ```
 
 ### Components
+
 ```parsley
 let Card = fn({title, body}) {
     <div class="card">
@@ -1926,6 +2151,7 @@ let Card = fn({title, body}) {
 ```
 
 ### Fragments
+
 ```parsley
 <>
     <p>First</p>
@@ -1934,6 +2160,7 @@ let Card = fn({title, body}) {
 ```
 
 ### Raw Mode (Style/Script)
+
 Inside `<style>` and `<script>` tags, use `@{}` for interpolation:
 ```parsley
 let color = "blue"
@@ -1941,6 +2168,7 @@ let color = "blue"
 ```
 
 ### Programmatic Tags
+
 ```parsley
 tag("div", {class: "box"}, "content")
 // Creates tag dictionary, use toString() to render
@@ -1951,6 +2179,7 @@ tag("div", {class: "box"}, "content")
 ## Utility Functions
 
 ### Type Conversion
+
 | Function | Description |
 |----------|-------------|
 | `toInt(str)` | String to integer |
@@ -1959,6 +2188,7 @@ tag("div", {class: "box"}, "content")
 | `toString(value)` | Convert to string |
 
 ### Debugging
+
 | Function | Description |
 |----------|-------------|
 | `log(...)` | Output to stdout |
@@ -1967,6 +2197,7 @@ tag("div", {class: "box"}, "content")
 | `repr(value)` | Dictionary representation of pseudo-types |
 
 ### The `repr()` Function
+
 The `repr()` function returns a detailed dictionary representation of pseudo-types (datetime, duration, regex, path, url, file, dir, request). This is useful for debugging and introspection:
 
 ```parsley
@@ -1983,6 +2214,7 @@ repr(p)    // {__type: "path", path: "./src/main.go", basename: "main.go", ...}
 For regular values, `repr()` returns them unchanged.
 
 ### The `toDict()` Method
+
 All pseudo-types support a `.toDict()` method that returns their internal dictionary representation:
 
 ```parsley
@@ -1997,6 +2229,7 @@ All pseudo-types support a `.toDict()` method that returns their internal dictio
 #### JSON Functions
 
 **`parseJSON(string)`**
+
 Parse a JSON string into Parsley objects:
 
 ```parsley
@@ -2015,6 +2248,7 @@ log(data.users[0].name)  // Bob
 ```
 
 **`stringifyJSON(object)`**
+
 Convert Parsley objects to JSON string:
 
 ```parsley
@@ -2036,6 +2270,7 @@ Supported types: dictionaries, arrays, strings, integers, floats, booleans, null
 #### CSV Functions
 
 **`parseCSV(string, options?)`**
+
 Parse CSV string into array of arrays or dictionaries:
 
 ```parsley
@@ -2056,6 +2291,7 @@ for (person in people) {
 ```
 
 **`stringifyCSV(array)`**
+
 Convert array of arrays to CSV string:
 
 ```parsley
@@ -2075,6 +2311,7 @@ log(csv)
 #### Practical Examples
 
 **JSON API Response Processing:**
+
 ```parsley
 // Simulate fetching JSON from API
 let response = parseJSON("{\"users\":[{\"id\":1,\"name\":\"Alice\"}]}")
@@ -2091,6 +2328,7 @@ let jsonRequest = stringifyJSON(request)
 ```
 
 **CSV Data Processing:**
+
 ```parsley
 // Read CSV with header
 let csvData = "product,price,quantity\nApple,1.50,100\nBanana,0.75,200"

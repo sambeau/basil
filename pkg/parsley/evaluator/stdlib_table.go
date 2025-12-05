@@ -221,16 +221,17 @@ func TableFromDict(args []Object, env *Environment) Object {
 	return &Table{Rows: rows, Columns: []string{keyName, valueName}}
 }
 
-// getDictKeys extracts keys from a dictionary in sorted order
+// getDictKeys extracts keys from a dictionary in insertion order
+// Falls back to sorted order if KeyOrder is not set
 func getDictKeys(dict *Dictionary, env *Environment) []string {
-	keys := make([]string, 0, len(dict.Pairs))
-	for k := range dict.Pairs {
-		// Skip internal keys like __type
+	orderedKeys := dict.Keys()
+	// Filter out internal keys like __type
+	keys := make([]string, 0, len(orderedKeys))
+	for _, k := range orderedKeys {
 		if !strings.HasPrefix(k, "__") {
 			keys = append(keys, k)
 		}
 	}
-	sort.Strings(keys)
 	return keys
 }
 

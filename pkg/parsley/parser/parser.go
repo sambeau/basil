@@ -95,6 +95,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.REGEX, p.parseRegexLiteral)
 	p.registerPrefix(lexer.DATETIME_LITERAL, p.parseDatetimeLiteral)
 	p.registerPrefix(lexer.DURATION_LITERAL, p.parseDurationLiteral)
+	p.registerPrefix(lexer.MONEY, p.parseMoneyLiteral)
 	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
 	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
 	p.registerPrefix(lexer.STDLIB_PATH, p.parseStdlibPathLiteral)
@@ -905,6 +906,76 @@ func (p *Parser) parseDurationLiteral() ast.Expression {
 		Token: p.curToken,
 		Value: p.curToken.Literal,
 	}
+}
+
+func (p *Parser) parseMoneyLiteral() ast.Expression {
+	// Token.Literal contains the money literal (e.g., "USD#12.34")
+	// Parse the currency, amount, and scale from the literal
+	literal := p.curToken.Literal
+
+	// Find the # separator
+	hashIdx := strings.Index(literal, "#")
+	if hashIdx == -1 {
+		p.addError(fmt.Sprintf("invalid money literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+
+	currency := literal[:hashIdx]
+	numStr := literal[hashIdx+1:]
+
+	// Calculate scale from decimal places
+	scale := int8(0)
+	dotIdx := strings.Index(numStr, ".")
+	if dotIdx >= 0 {
+		scale = int8(len(numStr) - dotIdx - 1)
+	}
+
+	// Parse amount as integer (in smallest unit)
+	amount := parseMoneyAmountFromString(numStr, scale)
+
+	return &ast.MoneyLiteral{
+		Token:    p.curToken,
+		Currency: currency,
+		Amount:   amount,
+		Scale:    scale,
+	}
+}
+
+// parseMoneyAmountFromString converts a number string to an integer amount in smallest units
+func parseMoneyAmountFromString(numStr string, scale int8) int64 {
+	var result int64
+	var seenDot bool
+	var fracDigits int8
+	var negative bool
+
+	for i, ch := range numStr {
+		if ch == '-' && i == 0 {
+			negative = true
+			continue
+		}
+		if ch == '.' {
+			seenDot = true
+			continue
+		}
+		if ch >= '0' && ch <= '9' {
+			result = result*10 + int64(ch-'0')
+			if seenDot {
+				fracDigits++
+			}
+		}
+	}
+
+	// Pad with zeros if needed
+	for fracDigits < scale {
+		result *= 10
+		fracDigits++
+	}
+
+	if negative {
+		result = -result
+	}
+
+	return result
 }
 
 func (p *Parser) parsePathLiteral() ast.Expression {
@@ -1939,6 +2010,7 @@ func (p *Parser) curPrecedence() int {
 func (p *Parser) parseDictionaryLiteral() ast.Expression {
 	dict := &ast.DictionaryLiteral{Token: p.curToken}
 	dict.Pairs = make(map[string]ast.Expression)
+	dict.KeyOrder = []string{}
 
 	// Empty dictionary
 	if p.peekTokenIs(lexer.RBRACE) {
@@ -1980,6 +2052,7 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 		}
 
 		dict.Pairs[key] = value
+		dict.KeyOrder = append(dict.KeyOrder, key)
 
 		// Check for comma, semicolon, or closing brace
 		if p.peekTokenIs(lexer.RBRACE) {
