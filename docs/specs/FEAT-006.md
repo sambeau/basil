@@ -124,25 +124,16 @@ Runtime errors now flow through `handleStructuredError()` which uses the structu
 
 Parse errors still use the legacy path (`handleScriptError()` with `extractLineInfo()` regex parsing) because `scriptCache.parseScript()` returns string errors. This works but could be improved.
 
-### Minor Cleanup Opportunity
+### Minor Cleanup Opportunity ✅
 
-**Parse error path could use structured errors directly:**
+**Parse error path now uses structured errors directly.**
 
-Current (`server/handler.go`):
-```go
-if errors := p.Errors(); len(errors) != 0 {
-    return nil, fmt.Errorf("parse error in %s: %s", path, errors[0])
-}
-```
+Updated `server/handler.go` (2025-12-05):
+- `parseScript()` now uses `p.StructuredErrors()` and returns `*perrors.ParsleyError` directly
+- Added `handleParsleyError()` method that uses `FromParsleyError()` 
+- `ServeHTTP` uses `errors.As()` to detect structured parse errors
 
-Could become:
-```go
-if errs := p.StructuredErrors(); len(errs) != 0 {
-    return nil, errs[0]  // Return *ParsleyError directly
-}
-```
-
-Then `handleScriptError()` could accept `*ParsleyError` and skip the regex extraction. This is a minor improvement — the current code works correctly.
+This eliminates regex extraction for parse errors — they now flow through the same clean path as runtime errors.
 
 ### Out of Scope
 

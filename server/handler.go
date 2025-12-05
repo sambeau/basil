@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/sambeau/basil/config"
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
@@ -76,8 +78,9 @@ func (c *scriptCache) parseScript(path string) (*ast.Program, error) {
 	p := parser.New(l)
 	program := p.ParseProgram()
 
-	if errors := p.Errors(); len(errors) != 0 {
-		return nil, fmt.Errorf("parse error in %s: %s", path, errors[0])
+	// Use structured errors for better error display
+	if errs := p.StructuredErrors(); len(errs) > 0 {
+		return nil, errs[0]
 	}
 
 	return program, nil
@@ -137,7 +140,13 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	program, err := h.cache.getAST(h.scriptPath)
 	if err != nil {
 		h.server.logError("failed to load script: %v", err)
-		h.handleScriptError(w, "parse", h.scriptPath, err.Error())
+		// Check if it's a structured parse error
+		var parseErr *perrors.ParsleyError
+		if errors.As(err, &parseErr) {
+			h.handleParsleyError(w, h.scriptPath, parseErr)
+		} else {
+			h.handleScriptError(w, "parse", h.scriptPath, err.Error())
+		}
 		return
 	}
 
@@ -636,6 +645,29 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, fileP
 		Message:  cleanMsg,
 		BasePath: basePath,
 	}
+
+	renderDevErrorPage(w, devErr)
+}
+
+// handleParsleyError handles structured ParsleyError from the parser.
+// This provides clean error display without regex parsing of error messages.
+func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, filePath string, parseErr *perrors.ParsleyError) {
+	if !h.server.config.Server.Dev {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Get base path for making paths relative (directory of config file)
+	basePath := filepath.Dir(h.server.configPath)
+
+	// Use file from error if available, otherwise use handler file
+	file := parseErr.File
+	if file == "" {
+		file = filePath
+	}
+
+	devErr := FromParsleyError(parseErr, basePath)
+	devErr.File = file // Ensure file is set if it was missing
 
 	renderDevErrorPage(w, devErr)
 }
