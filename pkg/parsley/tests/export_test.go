@@ -312,7 +312,7 @@ func TestModuleErrorReporting(t *testing.T) {
 			moduleCode:   "let x = anotherUnknown",
 			mainCode:     `let mod = import("%s")`,
 			expectError:  true,
-			errorContain: "in module",
+			errorContain: ".pars", // Module path is included in error
 		},
 		{
 			name:         "error includes line number",

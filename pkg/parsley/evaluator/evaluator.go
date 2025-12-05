@@ -247,10 +247,17 @@ const (
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
 func (e *Error) Inspect() string {
-	if e.Line > 0 {
-		return fmt.Sprintf("line %d, column %d: %s", e.Line, e.Column, e.Message)
+	var sb strings.Builder
+	if e.File != "" {
+		sb.WriteString("in ")
+		sb.WriteString(e.File)
+		sb.WriteString(": ")
 	}
-	return "ERROR: " + e.Message
+	if e.Line > 0 {
+		sb.WriteString(fmt.Sprintf("line %d, column %d: ", e.Line, e.Column))
+	}
+	sb.WriteString(e.Message)
+	return sb.String()
 }
 
 // ToParsleyError converts this Error to a ParsleyError for structured error handling.
@@ -8707,17 +8714,25 @@ func evalImport(args []Object, env *Environment) Object {
 		return newIOError("IO-0003", absPath, err)
 	}
 
-	// Parse the module
-	l := lexer.New(string(content))
+	// Parse the module (with filename for error reporting)
+	l := lexer.NewWithFilename(string(content), absPath)
 	p := parser.New(l)
 	program := p.ParseProgram()
-	if len(p.Errors()) > 0 {
-		var errMsg strings.Builder
-		for _, msg := range p.Errors() {
-			errMsg.WriteString(fmt.Sprintf("  %s\n", msg))
+
+	// Check for parse errors using structured errors
+	if errs := p.StructuredErrors(); len(errs) > 0 {
+		// Return the first parse error with file info preserved
+		perr := errs[0]
+		err := &Error{
+			Class:   ClassParse,
+			Code:    perr.Code,
+			Message: perr.Message,
+			Hints:   perr.Hints,
+			Line:    perr.Line,
+			Column:  perr.Column,
+			File:    absPath,
+			Data:    perr.Data,
 		}
-		err := newImportError("IMPORT-0003", map[string]any{"ModulePath": absPath})
-		err.Message = err.Message + ":\n" + errMsg.String()
 		return err
 	}
 
@@ -8744,19 +8759,11 @@ func evalImport(args []Object, env *Environment) Object {
 	// Check for errors during module evaluation
 	if isError(result) {
 		errObj := result.(*Error)
-		// Include module path in error message for context
-		if errObj.Line > 0 {
-			return newImportError("IMPORT-0005", map[string]any{
-				"ModulePath":  absPath,
-				"Line":        errObj.Line,
-				"Column":      errObj.Column,
-				"NestedError": errObj.Message,
-			})
+		// Preserve file info from module error
+		if errObj.File == "" {
+			errObj.File = absPath
 		}
-		return newImportError("IMPORT-0001", map[string]any{
-			"ModulePath":  absPath,
-			"NestedError": errObj.Message,
-		})
+		return errObj
 	}
 
 	// Convert environment to dictionary
