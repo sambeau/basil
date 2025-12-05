@@ -541,9 +541,9 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 		sb.WriteString("<span class=\"file-path\">")
 		sb.WriteString(html.EscapeString(displayFile))
 		if devErr.Line > 0 {
-			sb.WriteString(fmt.Sprintf(":<span class=\"line-info\">%d</span>", devErr.Line))
+			sb.WriteString(fmt.Sprintf(" : <span class=\"line-info\">%d</span>", devErr.Line))
 			if devErr.Column > 0 {
-				sb.WriteString(fmt.Sprintf(":<span class=\"line-info\">%d</span>", devErr.Column))
+				sb.WriteString(fmt.Sprintf(" : <span class=\"line-info\">%d</span>", devErr.Column))
 			}
 		}
 		sb.WriteString("</span>\n")
