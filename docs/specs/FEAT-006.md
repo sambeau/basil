@@ -1,9 +1,10 @@
 ---
 id: FEAT-006
 title: "Dev Mode Error Display in Browser"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-01
+updated: 2025-12-05
 author: "@human"
 ---
 
@@ -16,15 +17,15 @@ Display Parsley errors directly in the browser during development mode, with syn
 As a developer using Basil in dev mode, I want to see Parsley errors directly in my browser with syntax highlighting and the relevant source code so that I can quickly identify and fix issues without switching to the terminal, and have the page automatically reload when I save a fix.
 
 ## Acceptance Criteria
-- [ ] Parse errors display in browser with file path and line/column numbers
-- [ ] Runtime errors display in browser with file path and error message
-- [ ] Error page shows source code context (5 lines before/after error line)
-- [ ] Error line is highlighted with a visual indicator (caret or highlight)
-- [ ] Source code has syntax highlighting (at minimum: keywords, strings, numbers)
-- [ ] Live reload script is injected so page recovers when error is fixed
-- [ ] Only enabled in dev mode (production shows generic "Internal Server Error")
-- [ ] Error page is styled and readable (dark theme, monospace code)
-- [ ] Template/handler not found errors also display in browser
+- [x] Parse errors display in browser with file path and line/column numbers
+- [x] Runtime errors display in browser with file path and error message
+- [x] Error page shows source code context (5 lines before/after error line)
+- [x] Error line is highlighted with a visual indicator (caret or highlight)
+- [x] Source code has syntax highlighting (at minimum: keywords, strings, numbers)
+- [x] Live reload script is injected so page recovers when error is fixed
+- [x] Only enabled in dev mode (production shows generic "Internal Server Error")
+- [x] Error page is styled and readable (dark theme, monospace code)
+- [x] Template/handler not found errors also display in browser
 
 ## Design Decisions
 - **HTML error page, not JSON**: Developers see errors in browser, not just API responses
@@ -110,9 +111,45 @@ As a developer using Basil in dev mode, I want to see Parsley errors directly in
 5. **Source file unreadable** — If we can't read source for context, show error without code
 
 ## Implementation Notes
-*Added during/after implementation*
+
+### Implementation Status (2025-12-05)
+
+All acceptance criteria are met. Implementation is in:
+- `server/errors.go` — `DevError` struct, `renderDevErrorPage()`, `highlightParsley()`, `getSourceContext()`
+- `server/handler.go` — `handleScriptError()`, `handleStructuredError()`, `handleScriptErrorWithLocation()`
+
+### Integration with FEAT-023 (Structured Errors)
+
+Runtime errors now flow through `handleStructuredError()` which uses the structured `evaluator.Error` with `Class`, `Code`, `Hints`, `Line`, `Column`, and `File` fields directly — no regex parsing needed.
+
+Parse errors still use the legacy path (`handleScriptError()` with `extractLineInfo()` regex parsing) because `scriptCache.parseScript()` returns string errors. This works but could be improved.
+
+### Minor Cleanup Opportunity
+
+**Parse error path could use structured errors directly:**
+
+Current (`server/handler.go`):
+```go
+if errors := p.Errors(); len(errors) != 0 {
+    return nil, fmt.Errorf("parse error in %s: %s", path, errors[0])
+}
+```
+
+Could become:
+```go
+if errs := p.StructuredErrors(); len(errs) != 0 {
+    return nil, errs[0]  // Return *ParsleyError directly
+}
+```
+
+Then `handleScriptError()` could accept `*ParsleyError` and skip the regex extraction. This is a minor improvement — the current code works correctly.
+
+### Out of Scope
+
+**API route error handling** (returning JSON errors instead of HTML) is covered by FEAT-028: API Routes. This feature focuses on HTML error display for browser-based development.
 
 ## Related
-- Plan: `docs/plans/FEAT-006-plan.md`
-- Related bugs: BUG-005 (import inconsistencies - errors surfaced this need)
+- FEAT-023: Structured Error Objects — provides structured error data
+- FEAT-028: API Routes — handles JSON error responses for APIs
+- Plan: `docs/plans/FEAT-006-plan.md` (not created — spec was detailed enough)
 
