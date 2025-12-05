@@ -469,8 +469,8 @@ func TestImproveErrorMessage(t *testing.T) {
 		{
 			name:         "missing parentheses",
 			message:      "expected '(', got 'x'",
-			wantImproved: "Missing parentheses around condition",
-			wantHint:     "Parsley requires parentheses: if (condition) { } and for (x in arr) { }",
+			wantImproved: "Missing parentheses",
+			wantHint:     "Function parameters need parentheses: fn(x) { ... } or fn(a, b) { ... }",
 		},
 		{
 			name:         "python comment",

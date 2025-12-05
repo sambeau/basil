@@ -173,6 +173,26 @@ const errorPageStyles = `
     color: #98c379;
     border-left: 4px solid #98c379;
   }
+  .hint-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  .hint-row {
+    display: flex;
+    align-items: baseline;
+    margin-left: 1.75rem;
+  }
+  .hint-prefix {
+    width: 2rem;
+    color: #5c8a5c;
+    flex-shrink: 0;
+  }
+  .hint-code {
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  }
   
   .footer {
     margin-top: 2rem;
@@ -400,14 +420,14 @@ func improveErrorMessage(message string) (improved string, hint string) {
 		}
 	}
 
-	// Pattern: "expected '(', got 'x'" after 'if' keyword
-	// User wrote: if x > 5 { } (Go/Python style without parens)
+	// Pattern: "expected '(', got 'x'" 
+	// This happens when parentheses are required but missing (e.g., fn x { } instead of fn(x) { })
 	ifParenPattern := regexp.MustCompile(`expected '\(', got '([^']+)'`)
 	if matches := ifParenPattern.FindStringSubmatch(message); len(matches) > 1 {
-		// Check if this looks like a condition variable
+		// Check if this looks like a parameter name
 		if matches[1] != "(" && matches[1] != "{" {
-			improved = fmt.Sprintf("Missing parentheses around condition")
-			hint = "Parsley requires parentheses: if (condition) { } and for (x in arr) { }"
+			improved = fmt.Sprintf("Missing parentheses")
+			hint = "Function parameters need parentheses: fn(x) { ... } or fn(a, b) { ... }"
 			return improved, hint
 		}
 	}
@@ -537,17 +557,28 @@ func renderDevErrorPage(w http.ResponseWriter, devErr *DevError) {
 
 	// Hint (if any) - prioritize structured hints from DevError, then improved message hints
 	if len(devErr.Hints) > 0 {
-		sb.WriteString("<div class=\"error-hint\">💡 ")
+		sb.WriteString("<div class=\"error-hint\">\n")
+		sb.WriteString("<div class=\"hint-header\">💡 Try</div>\n")
 		for i, h := range devErr.Hints {
-			if i > 0 {
-				sb.WriteString("<br>")
+			sb.WriteString("<div class=\"hint-row\">")
+			if i == 0 {
+				sb.WriteString("<span class=\"hint-prefix\"></span>")
+			} else {
+				sb.WriteString("<span class=\"hint-prefix\">or</span>")
 			}
+			sb.WriteString("<span class=\"hint-code\">")
 			sb.WriteString(html.EscapeString(h))
+			sb.WriteString("</span></div>\n")
 		}
 		sb.WriteString("</div>\n")
 	} else if hint != "" {
-		sb.WriteString("<div class=\"error-hint\">💡 ")
+		sb.WriteString("<div class=\"error-hint\">\n")
+		sb.WriteString("<div class=\"hint-header\">💡 Hint</div>\n")
+		sb.WriteString("<div class=\"hint-row\">")
+		sb.WriteString("<span class=\"hint-prefix\"></span>")
+		sb.WriteString("<span class=\"hint-code\">")
 		sb.WriteString(html.EscapeString(hint))
+		sb.WriteString("</span></div>\n")
 		sb.WriteString("</div>\n")
 	}
 

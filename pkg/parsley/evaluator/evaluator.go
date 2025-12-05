@@ -7293,186 +7293,10 @@ func Eval(node ast.Node, env *Environment) Object {
 
 			method := dotExpr.Key
 
-			// Dispatch based on receiver type
-			switch receiver := left.(type) {
-			case *DevModule:
-				return evalDevModuleMethod(receiver, method, args, env)
-			case *TableModule:
-				return evalTableModuleMethod(receiver, method, args, env)
-			case *Table:
-				return EvalTableMethod(receiver, method, args, env)
-			case *DBConnection:
-				return evalDBConnectionMethod(receiver, method, args, env)
-			case *SFTPConnection:
-				return evalSFTPConnectionMethod(receiver, method, args, env)
-			case *SFTPFileHandle:
-				return evalSFTPFileHandleMethod(receiver, method, args, env)
-			case *String:
-				return evalStringMethod(receiver, method, args)
-			case *Array:
-				return evalArrayMethod(receiver, method, args, env)
-			case *Integer:
-				return evalIntegerMethod(receiver, method, args)
-			case *Float:
-				return evalFloatMethod(receiver, method, args)
-			case *Money:
-				return evalMoneyMethod(receiver, method, args)
-			case *Dictionary:
-				// Check for special dictionary types first
-				if isDatetimeDict(receiver) {
-					result := evalDatetimeMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// Fall through to check dictionary methods if datetime method failed
-					if result != nil && isError(result) {
-						// Check if it's "unknown method" error - try dictionary method
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							// Try dictionary methods
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isDurationDict(receiver) {
-					result := evalDurationMethod(receiver, method, args, env)
-					if result != nil {
-						return result
-					}
-				}
-				if isPathDict(receiver) {
-					result := evalPathMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isUrlDict(receiver) {
-					result := evalUrlMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isRegexDict(receiver) {
-					result := evalRegexMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isFileDict(receiver) {
-					result := evalFileMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isDirDict(receiver) {
-					result := evalDirMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isRequestDict(receiver) {
-					result := evalRequestMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				if isResponseDict(receiver) {
-					result := evalResponseMethod(receiver, method, args, env)
-					if result != nil && !isError(result) {
-						return result
-					}
-					// If unknown method, fall through to dictionary methods
-					if result != nil && isError(result) {
-						if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
-							dictResult := evalDictionaryMethod(receiver, method, args, env)
-							if dictResult != nil {
-								return dictResult
-							}
-						}
-						return result
-					}
-				}
-				// Regular dictionary methods (keys, values, has)
-				result := evalDictionaryMethod(receiver, method, args, env)
-				if result != nil {
-					return result
-				}
-				// Check if the dictionary has a user-defined function at this key
-				if fnExpr, ok := receiver.Pairs[method]; ok {
-					fnObj := Eval(fnExpr, receiver.Env)
-					if fn, ok := fnObj.(*Function); ok {
-						// Call the function with 'this' bound to the dictionary
-						return applyMethodWithThis(fn, args, receiver)
-					}
-					// If it's not a function, return error
-					if !isError(fnObj) {
-						return newStructuredError("TYPE-0021", map[string]any{"Name": method})
-					}
-				}
-				// Fall through to normal property/function evaluation
+			// Dispatch based on receiver type and enrich errors with position
+			result := dispatchMethodCall(left, method, args, env)
+			if result != nil {
+				return withPosition(result, dotExpr.Token, env)
 			}
 		}
 
@@ -9769,6 +9593,209 @@ func isError(obj Object) bool {
 		return obj.Type() == ERROR_OBJ
 	}
 	return false
+}
+
+// withPosition adds line/column position to an error if it doesn't already have one.
+// Returns the object unchanged if it's not an error or already has position info.
+func withPosition(obj Object, tok lexer.Token, env *Environment) Object {
+	if err, ok := obj.(*Error); ok {
+		if err.Line == 0 && err.Column == 0 {
+			err.Line = tok.Line
+			err.Column = tok.Column
+			if err.File == "" && env != nil && env.Filename != "" {
+				err.File = env.Filename
+			}
+		}
+	}
+	return obj
+}
+
+// dispatchMethodCall dispatches a method call to the appropriate type-specific handler.
+// Returns nil if the type doesn't match any handler (falls through to property access).
+func dispatchMethodCall(left Object, method string, args []Object, env *Environment) Object {
+	switch receiver := left.(type) {
+	case *DevModule:
+		return evalDevModuleMethod(receiver, method, args, env)
+	case *TableModule:
+		return evalTableModuleMethod(receiver, method, args, env)
+	case *Table:
+		return EvalTableMethod(receiver, method, args, env)
+	case *DBConnection:
+		return evalDBConnectionMethod(receiver, method, args, env)
+	case *SFTPConnection:
+		return evalSFTPConnectionMethod(receiver, method, args, env)
+	case *SFTPFileHandle:
+		return evalSFTPFileHandleMethod(receiver, method, args, env)
+	case *String:
+		return evalStringMethod(receiver, method, args)
+	case *Array:
+		return evalArrayMethod(receiver, method, args, env)
+	case *Integer:
+		return evalIntegerMethod(receiver, method, args)
+	case *Float:
+		return evalFloatMethod(receiver, method, args)
+	case *Money:
+		return evalMoneyMethod(receiver, method, args)
+	case *Dictionary:
+		// Check for special dictionary types first
+		if isDatetimeDict(receiver) {
+			result := evalDatetimeMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// Fall through to check dictionary methods if datetime method failed
+			if result != nil && isError(result) {
+				// Check if it's "unknown method" error - try dictionary method
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					// Try dictionary methods
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isDurationDict(receiver) {
+			result := evalDurationMethod(receiver, method, args, env)
+			if result != nil {
+				return result
+			}
+		}
+		if isPathDict(receiver) {
+			result := evalPathMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isUrlDict(receiver) {
+			result := evalUrlMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isRegexDict(receiver) {
+			result := evalRegexMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isFileDict(receiver) {
+			result := evalFileMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isDirDict(receiver) {
+			result := evalDirMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isRequestDict(receiver) {
+			result := evalRequestMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		if isResponseDict(receiver) {
+			result := evalResponseMethod(receiver, method, args, env)
+			if result != nil && !isError(result) {
+				return result
+			}
+			// If unknown method, fall through to dictionary methods
+			if result != nil && isError(result) {
+				if errObj, ok := result.(*Error); ok && errObj.Code == "UNDEF-0002" {
+					dictResult := evalDictionaryMethod(receiver, method, args, env)
+					if dictResult != nil {
+						return dictResult
+					}
+				}
+				return result
+			}
+		}
+		// Regular dictionary methods (keys, values, has)
+		result := evalDictionaryMethod(receiver, method, args, env)
+		if result != nil {
+			return result
+		}
+		// Check if the dictionary has a user-defined function at this key
+		if fnExpr, ok := receiver.Pairs[method]; ok {
+			fnObj := Eval(fnExpr, receiver.Env)
+			if fn, ok := fnObj.(*Function); ok {
+				// Call the function with 'this' bound to the dictionary
+				return applyMethodWithThis(fn, args, receiver)
+			}
+			// If it's not a function, return error
+			if !isError(fnObj) {
+				return newStructuredError("TYPE-0021", map[string]any{"Name": method})
+			}
+		}
+		// Fall through to normal property/function evaluation
+		return nil
+	}
+	// No specific handler for this type
+	return nil
 }
 
 // evalDestructuringAssignment handles array destructuring assignment
