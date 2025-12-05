@@ -1,0 +1,178 @@
+---
+id: FEAT-030
+title: "error() Function for User-Defined Catchable Errors"
+status: draft
+priority: medium
+created: 2025-12-05
+author: "@copilot"
+---
+
+# FEAT-030: error() Function for User-Defined Catchable Errors
+
+## Summary
+Add an `error()` built-in function that allows user code to create catchable errors. This enables user-defined functions to participate in the `try` expression error handling system introduced in FEAT-029. Without this, `try` can only catch errors from built-in functions and system operations.
+
+## User Story
+As a Parsley developer, I want to create catchable errors in my functions so that callers can use `try` to handle expected failure conditions gracefully.
+
+## Motivation
+
+Currently, `try` only catches errors from built-in functions:
+```parsley
+// Works - url() can fail with Network/Format errors
+let {result, error} = try url("https://api.example.com/data")
+
+// Doesn't work - user functions can't signal catchable errors
+let validate = fn(email) {
+  if (!email.contains("@")) {
+    // ??? How do we signal this is invalid?
+  }
+  email
+}
+let {result, error} = try validate("not-an-email")  // No way to catch
+```
+
+With `error()`:
+```parsley
+let validate = fn(email) {
+  if (!email.contains("@")) {
+    error("Invalid email format: missing @")
+  }
+  email
+}
+let {result, error} = try validate("not-an-email")
+// error = "Invalid email format: missing @"
+```
+
+## Acceptance Criteria
+- [ ] `error(message)` creates a catchable error
+- [ ] `try` catches errors created by `error()`
+- [ ] Non-string arguments produce a Type error (or are coerced?)
+- [ ] `error()` with no arguments produces Arity error
+- [ ] Errors propagate through call stack until caught by `try`
+- [ ] Uncaught `error()` terminates with error message (like other errors)
+
+## Design Decisions
+
+### Error Class: Value
+**Decision**: `error()` creates errors with the `Value` error class.
+
+**Rationale**: 
+- Value errors are for "semantically invalid" data (wrong meaning, not wrong type)
+- User validation errors fit this: the email string is valid data, but invalid for use as an email
+- Value is catchable, which is the whole point
+- Alternative `User` class adds complexity without benefit
+
+### Function Name: `error()`
+**Decision**: Use `error()` rather than `throw()`, `fail()`, or `raise()`.
+
+**Rationale**:
+- Parsley doesn't have exceptions, so `throw` is misleading
+- `error()` clearly describes what you're creating
+- Matches the return value name in `{result, error}`
+- `fail()` could work but is less descriptive
+
+### Signature Options
+
+**Option A: Message only (recommended)**
+```parsley
+error("Something went wrong")
+```
+Simple, covers 95% of use cases. Error class is always Value.
+
+**Option B: Message + class**
+```parsley
+error("File not found", "IO")
+```
+Allows specifying error class. More flexible but:
+- Adds complexity
+- Users might misuse (creating Type errors when they mean Value)
+- Edge case: what if they specify a non-catchable class?
+
+**Option C: Structured error**
+```parsley
+error({message: "Invalid", code: "VAL-001", details: {...}})
+```
+Most flexible but complex. Probably overkill.
+
+**Recommendation**: Start with Option A. Can extend later if needed.
+
+---
+<!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
+
+## Technical Context
+
+### Affected Components
+- `pkg/parsley/evaluator/builtins.go` — Add `error` builtin function
+- `pkg/parsley/errors/errors.go` — May need helper to create Value errors
+
+### Dependencies
+- Depends on: FEAT-029 (try expression), FEAT-023 (structured errors)
+- Blocks: None
+
+### Edge Cases & Constraints
+
+1. **`error()` without `try`** — Error propagates up and terminates program with message. Same as any other uncaught error.
+
+2. **Nested function calls** — Error bubbles through stack:
+   ```parsley
+   let inner = fn() { error("oops") }
+   let outer = fn() { inner() }
+   let {result, error} = try outer()  // Catches error from inner
+   ```
+
+3. **`error()` in callbacks** — Works same as anywhere:
+   ```parsley
+   let items = [1, 2, 3]
+   let result = try items.map(fn(x) {
+     if (x == 2) { error("don't like 2") }
+     x
+   })
+   ```
+
+4. **Empty message** — `error("")` is valid, creates error with empty message.
+
+5. **Null message** — `error(null)` — Type error? Or coerce to "null"?
+
+6. **Non-catchable by design** — `error()` ALWAYS creates catchable errors. If you want a non-catchable error (programming mistake), just let it fail naturally.
+
+### Implementation Sketch
+
+```go
+// In builtins.go
+"error": func(ctx EvalContext, args ...object.Object) object.Object {
+    if len(args) != 1 {
+        return newArityError(ctx, "error", 1, len(args))
+    }
+    
+    msg, ok := args[0].(*object.String)
+    if !ok {
+        return newTypeError(ctx, "error() requires a string argument")
+    }
+    
+    // Create a Value-class structured error
+    return newStructuredError(
+        ctx,
+        errors.Value,      // Always Value class
+        "USER-0001",       // Or generate dynamically?
+        msg.Value,
+        nil,               // No extra details
+    )
+}
+```
+
+### Open Questions
+
+1. **Error code**: Should user errors have a fixed code like `USER-0001`, or should users be able to specify a code? Fixed is simpler.
+
+2. **Stack trace**: Should the error include a stack trace showing where `error()` was called? Would help debugging but adds complexity.
+
+3. **Type coercion**: If given a non-string, should we:
+   - Return Type error (strict)
+   - Coerce to string via `.toString()` (lenient)
+   - Recommend: strict (Type error) to encourage good practices
+
+## Related
+- FEAT-029: Try expression (prerequisite)
+- FEAT-023: Structured errors (provides error infrastructure)
+- BACKLOG.md entry: "error() function for user-defined catchable errors"
