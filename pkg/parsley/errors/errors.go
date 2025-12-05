@@ -617,6 +617,22 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 
 	// ========================================
+	// Value errors (VALUE-0xxx)
+	// ========================================
+	"VALUE-0001": {
+		Class:    ClassValue,
+		Template: "`{{.Function}}` requires a non-empty array",
+	},
+	"VALUE-0002": {
+		Class:    ClassValue,
+		Template: "`{{.Function}}` requires a non-negative number, got {{.Got}}",
+	},
+	"VALUE-0003": {
+		Class:    ClassValue,
+		Template: "`{{.Function}}` domain error: {{.Reason}}",
+	},
+
+	// ========================================
 	// Operator errors (OP-0xxx)
 	// ========================================
 	"OP-0001": {

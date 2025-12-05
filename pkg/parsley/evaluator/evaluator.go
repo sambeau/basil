@@ -4500,182 +4500,6 @@ func getBuiltins() map[string]*Builtin {
 				return newInternalError("INTERNAL-0001", map[string]any{"Context": "import()"})
 			},
 		},
-		"sin": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("sin", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Sin(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Sin(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "sin", "", arg.Type())
-				}
-			},
-		},
-		"cos": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("cos", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Cos(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Cos(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "cos", "", arg.Type())
-				}
-			},
-		},
-		"tan": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("tan", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Tan(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Tan(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "tan", "", arg.Type())
-				}
-			},
-		},
-		"asin": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("asin", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Asin(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Asin(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "asin", "", arg.Type())
-				}
-			},
-		},
-		"acos": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("acos", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Acos(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Acos(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "acos", "", arg.Type())
-				}
-			},
-		},
-		"atan": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("atan", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Atan(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Atan(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "atan", "", arg.Type())
-				}
-			},
-		},
-		"sqrt": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("sqrt", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return &Float{Value: math.Sqrt(float64(arg.Value))}
-				case *Float:
-					return &Float{Value: math.Sqrt(arg.Value)}
-				default:
-					return newTypeError("TYPE-0002", "sqrt", "", arg.Type())
-				}
-			},
-		},
-		"round": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("round", len(args), 1)
-				}
-
-				arg := args[0]
-				switch arg := arg.(type) {
-				case *Integer:
-					return arg // already an integer
-				case *Float:
-					return &Integer{Value: int64(math.Round(arg.Value))}
-				default:
-					return newTypeError("TYPE-0002", "round", "", arg.Type())
-				}
-			},
-		},
-		"pow": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 2 {
-					return newArityError("pow", len(args), 2)
-				}
-
-				base := args[0]
-				exp := args[1]
-
-				var baseVal, expVal float64
-
-				switch base := base.(type) {
-				case *Integer:
-					baseVal = float64(base.Value)
-				case *Float:
-					baseVal = base.Value
-				default:
-					return newTypeError("TYPE-0005", "pow", "a number", base.Type())
-				}
-
-				switch exp := exp.(type) {
-				case *Integer:
-					expVal = float64(exp.Value)
-				case *Float:
-					expVal = exp.Value
-				default:
-					return newTypeError("TYPE-0006", "pow", "a number", exp.Type())
-				}
-
-				return &Float{Value: math.Pow(baseVal, expVal)}
-			},
-		},
-		"pi": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 0 {
-					return newArityError("pi", len(args), 0)
-				}
-				return &Float{Value: math.Pi}
-			},
-		},
 		"now": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 0 {
@@ -9254,6 +9078,18 @@ func newFormatError(code string, err error) *Error {
 	}
 }
 
+// newValueError creates a structured error for invalid values (empty arrays, domain errors, etc.)
+func newValueError(code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // newUndefinedMethodError creates a structured error for unknown methods.
 func newUndefinedMethodError(method string, typeName string) *Error {
 	perr := perrors.New("UNDEF-0002", map[string]any{
@@ -11494,6 +11330,14 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Handle Money property access
 	if money, ok := left.(*Money); ok {
 		return evalMoneyProperty(money, node.Key)
+	}
+
+	// Handle StdlibModuleDict property access (e.g., math.PI)
+	if stdlibMod, ok := left.(*StdlibModuleDict); ok {
+		if val, exists := stdlibMod.Exports[node.Key]; exists {
+			return val
+		}
+		return newUndefinedError("UNDEF-0004", map[string]any{"Property": node.Key, "Type": "stdlib module"})
 	}
 
 	// Handle Dictionary (including special types like datetime, path, url)

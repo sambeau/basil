@@ -1,5 +1,5 @@
 ---
-updated: 2025-01-03
+updated: 2025-01-05
 ---
 
 # Backlog
@@ -36,6 +36,9 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| std/math: Advanced statistics | FEAT-031 | Niche | percentile, quartile, correlation, z-score - add based on demand from data-focused users |
+| std/math: Hyperbolic functions | FEAT-031 | Niche | sinh, cosh, tanh - rare use case for most users |
+| std/math: Special functions | FEAT-031 | Niche | gamma, factorial - mathematical niche |
 | SPREAD-0001 error missing line numbers | Error improvements | Needs refactoring | Error is inside `parseTagProps` string parsing function which doesn't have access to a token. Would need to pass token through or refactor to track position during parsing. |
 | Admin interface | FEAT-002 | Premature | Needs auth first, unclear requirements. Built with Parsley when needed. |
 | Key scopes | FEAT-004 | Not MVP | Limit what API keys can access (read-only, specific routes, etc.) |

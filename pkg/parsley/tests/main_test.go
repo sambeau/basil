@@ -20,12 +20,12 @@ func TestTrigonometricFunctions(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"sin(0)", "0"},
-		{"cos(0)", "1"},
-		{"tan(0)", "0"},
-		{"sqrt(4)", "2"},
-		{"pow(2, 3)", "8"},
-		{"pi()", "3.14159"},
+		{"math = import(\"std/math\"); math.sin(0)", "0"},
+		{"math = import(\"std/math\"); math.cos(0)", "1"},
+		{"math = import(\"std/math\"); math.tan(0)", "0"},
+		{"math = import(\"std/math\"); math.sqrt(4)", "2"},
+		{"math = import(\"std/math\"); math.pow(2, 3)", "8"},
+		{"math = import(\"std/math\"); math.PI", "3.14159"},
 	}
 
 	for _, tt := range tests {
@@ -67,15 +67,15 @@ func TestVariableAssignment(t *testing.T) {
 
 		// Variable assignment with expressions
 		{"x = 2 + 3; x", "5"},
-		{"y = sin(0); y", "0"},
-		{"z = cos(0); z", "1"},
-		{"pi_val = pi(); pi_val", "3.141592653589793"},
-		{"area = pi() * pow(5, 2); area", "78.53981633974483"},
+		{"math = import(\"std/math\"); y = math.sin(0); y", "0"},
+		{"math = import(\"std/math\"); z = math.cos(0); z", "1"},
+		{"math = import(\"std/math\"); pi_val = math.PI; pi_val", "3.141592653589793"},
+		{"math = import(\"std/math\"); area = math.PI * math.pow(5, 2); area", "78.53981633974483"},
 
 		// Using variables in expressions
 		{"x = 10; y = x * 2; y", "20"},
-		{"radius = 3; area = pi() * pow(radius, 2); area", "28.274333882308138"},
-		{"a = 3; b = 4; c = sqrt(pow(a, 2) + pow(b, 2)); c", "5"},
+		{"math = import(\"std/math\"); radius = 3; area = math.PI * math.pow(radius, 2); area", "28.274333882308138"},
+		{"math = import(\"std/math\"); a = 3; b = 4; c = math.sqrt(math.pow(a, 2) + math.pow(b, 2)); c", "5"},
 	}
 
 	for _, tt := range tests {
@@ -134,22 +134,22 @@ func TestAdvancedVariableUsage(t *testing.T) {
 		// Test variables in complex expressions
 		{"a = 3; a", "3"},
 		{"b = 4; b", "4"},
-		{"hypotenuse = sqrt(a*a + b*b); hypotenuse", "5"},
+		{"math = import(\"std/math\"); hypotenuse = math.sqrt(a*a + b*b); hypotenuse", "5"},
 
 		// Test trigonometric variables
-		{"angle = pi() / 4; angle", "0.7853981633974483"},
-		{"sin_angle = sin(angle); sin_angle", "0.7071067811865475"}, // Updated expected value
-		{"cos_angle = cos(angle); cos_angle", "0.7071067811865476"}, // Updated expected value
+		{"math = import(\"std/math\"); angle = math.PI / 4; angle", "0.7853981633974483"},
+		{"math = import(\"std/math\"); sin_angle = math.sin(angle); sin_angle", "0.7071067811865475"}, // Updated expected value
+		{"math = import(\"std/math\"); cos_angle = math.cos(angle); cos_angle", "0.7071067811865476"}, // Updated expected value
 
 		// Test updating trigonometric calculations
-		{"angle = pi() / 2; angle", "1.5707963267948966"},
-		{"sin_angle = sin(angle); sin_angle", "1"},
-		{"cos_angle = cos(angle); cos_angle", "6.123233995736757e-17"}, // Updated expected value
+		{"math = import(\"std/math\"); angle = math.PI / 2; angle", "1.5707963267948966"},
+		{"math = import(\"std/math\"); sin_angle = math.sin(angle); sin_angle", "1"},
+		{"math = import(\"std/math\"); cos_angle = math.cos(angle); cos_angle", "6.123233995736757e-17"}, // Updated expected value
 
 		// Test variable chains
 		{"base = 2; base", "2"},
 		{"exp = 3; exp", "3"},
-		{"result = pow(base, exp); result", "8"},
+		{"math = import(\"std/math\"); result = math.pow(base, exp); result", "8"},
 		{"doubled = result * 2; doubled", "16"},
 	}
 

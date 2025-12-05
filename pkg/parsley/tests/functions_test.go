@@ -37,8 +37,8 @@ func TestFunctions(t *testing.T) {
 		// Functions with floats
 		{"multiply = fn(x, y) { x * y }; multiply(2.5, 4.0)", "10"},
 
-		// Functions with trigonometry
-		{"sinCos = fn(angle) { sin(angle) + cos(angle) }; sinCos(0)", "1"},
+		// Functions with trigonometry (using std/math)
+		{"math = import(\"std/math\"); sinCos = fn(angle) { math.sin(angle) + math.cos(angle) }; sinCos(0)", "1"},
 
 		// Nested function calls
 		{"max = fn(a, b) { if (a > b) a else b }; max(max(1, 2), 3)", "3"},

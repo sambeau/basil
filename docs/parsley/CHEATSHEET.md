@@ -666,6 +666,76 @@ table(users)
     .toHTML()
 ```
 
+#### Math Module (`std/math`)
+Mathematical functions and constants. Note: Use `math.log()` for natural log since `log` is a builtin print function.
+```parsley
+let math = import("std/math")
+// Or: let {floor, sqrt, PI} = import("std/math")
+
+// Constants
+math.PI                // 3.14159...
+math.E                 // 2.71828...
+math.TAU               // 6.28318... (2π)
+
+// Rounding (all return integers)
+math.floor(3.7)        // 3
+math.ceil(3.2)         // 4
+math.round(3.5)        // 4
+math.trunc(-3.7)       // -3 (toward zero)
+
+// Comparison
+math.abs(-5)           // 5
+math.sign(-42)         // -1
+math.clamp(15, 0, 10)  // 10
+
+// Aggregation (2 args OR array)
+math.min(5, 3)         // 3
+math.min([1, 2, 3])    // 1
+math.max([1, 2, 3])    // 3
+math.sum([1, 2, 3])    // 6
+math.avg([1, 2, 3])    // 2.0
+math.product([2, 3])   // 6
+
+// Statistics (array only)
+math.median([1, 2, 3, 4])     // 2.5
+math.mode([1, 2, 2, 3])       // 2
+math.stddev([1, 2, 3])        // ~0.816
+math.variance([1, 2, 3])      // ~0.667
+math.range([1, 5, 3])         // 4 (5 - 1)
+
+// Random
+math.random()          // [0, 1)
+math.random(10)        // [0, 10)
+math.random(5, 10)     // [5, 10)
+math.randomInt(6)      // [0, 6] (die roll)
+math.randomInt(1, 6)   // [1, 6]
+math.seed(42)          // For reproducibility
+
+// Powers & Logarithms
+math.sqrt(16)          // 4
+math.pow(2, 10)        // 1024
+math.exp(1)            // e (~2.718)
+math.log(math.E)       // 1.0 (natural log)
+math.log10(1000)       // 3.0
+
+// Trigonometry (radians)
+math.sin(math.PI / 2)  // 1
+math.cos(0)            // 1
+math.tan(0)            // 0
+math.asin(1)           // π/2
+math.atan2(1, 1)       // π/4
+
+// Angular conversion
+math.degrees(math.PI)  // 180
+math.radians(180)      // π
+
+// Geometry & Interpolation
+math.hypot(3, 4)       // 5
+math.dist(0, 0, 3, 4)  // 5
+math.lerp(0, 100, 0.5) // 50
+math.map(50, 0, 100, 0, 1)  // 0.5
+```
+
 ---
 
 ## 🎨 String Formatting

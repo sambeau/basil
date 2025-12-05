@@ -26,6 +26,7 @@ func getStdlibModules() map[string]func(*Environment) Object {
 		"table": loadTableModule,
 		"dev":   loadDevModule,
 		"basil": loadBasilModule,
+		"math":  loadMathModule,
 	}
 }
 

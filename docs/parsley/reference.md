@@ -2981,6 +2981,245 @@ let withMiddle = t.insertColAfter("name", "middle", ["M.", "R."])
 let withId = t.insertColBefore("name", "id", [1, 2])
 ```
 
+### Math Module (`std/math`)
+
+The Math module provides mathematical functions and constants. Designed for educators, students, and creative coders.
+
+#### Importing
+
+```parsley
+// Import specific functions
+let {floor, ceil, sqrt, PI} = import("std/math")
+
+// Import entire module
+let math = import("std/math")
+math.sqrt(16)  // 4
+```
+
+> **Note:** The built-in `log` function prints to console. Use `math.log()` to access the natural logarithm function.
+
+#### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PI` | 3.14159... | Ratio of circle circumference to diameter |
+| `E` | 2.71828... | Euler's number (base of natural logarithm) |
+| `TAU` | 6.28318... | 2π, the full circle constant |
+
+```parsley
+let {PI, E, TAU} = import("std/math")
+PI           // 3.141592653589793
+E            // 2.718281828459045
+TAU          // 6.283185307179586
+```
+
+#### Rounding Functions
+
+These functions return integers:
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `floor(x)` | Round down to nearest integer | `floor(3.7)` → `3` |
+| `ceil(x)` | Round up to nearest integer | `ceil(3.2)` → `4` |
+| `round(x)` | Round to nearest integer | `round(3.5)` → `4` |
+| `trunc(x)` | Truncate toward zero | `trunc(-3.7)` → `-3` |
+
+```parsley
+let {floor, ceil, round, trunc} = import("std/math")
+floor(3.7)   // 3
+ceil(3.2)    // 4
+round(3.5)   // 4
+trunc(-3.7)  // -3 (toward zero)
+```
+
+#### Comparison Functions
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `abs(x)` | Absolute value | `abs(-5)` → `5` |
+| `sign(x)` | Sign of number (-1, 0, or 1) | `sign(-5)` → `-1` |
+| `clamp(x, min, max)` | Constrain value to range | `clamp(15, 0, 10)` → `10` |
+
+```parsley
+let {abs, sign, clamp} = import("std/math")
+abs(-3.14)        // 3.14
+sign(-42)         // -1
+clamp(15, 0, 10)  // 10
+clamp(5, 0, 10)   // 5
+```
+
+#### Aggregation Functions
+
+These functions accept either two arguments OR a single array:
+
+| Function | Description |
+|----------|-------------|
+| `min(a, b)` or `min(arr)` | Minimum value |
+| `max(a, b)` or `max(arr)` | Maximum value |
+| `sum(a, b)` or `sum(arr)` | Sum of values |
+| `avg(a, b)` or `avg(arr)` | Average (mean) of values |
+| `mean(...)` | Alias for `avg` |
+| `product(a, b)` or `product(arr)` | Product of values |
+| `count(arr)` | Number of elements in array |
+
+```parsley
+let {min, max, sum, avg, product, count} = import("std/math")
+
+// Two argument form
+min(5, 3)       // 3
+max(5, 3)       // 5
+sum(10, 20)     // 30
+avg(10, 20)     // 15.0
+
+// Array form
+min([5, 3, 8, 1])     // 1
+max([5, 3, 8, 1])     // 8
+sum([1, 2, 3, 4])     // 10
+avg([1, 2, 3, 4])     // 2.5
+product([2, 3, 4])    // 24
+count([1, 2, 3])      // 3
+```
+
+#### Statistics Functions
+
+These functions require a non-empty array:
+
+| Function | Description |
+|----------|-------------|
+| `median(arr)` | Middle value (or average of two middle values) |
+| `mode(arr)` | Most frequent value (smallest on tie) |
+| `stddev(arr)` | Population standard deviation |
+| `variance(arr)` | Population variance |
+| `range(arr)` | Difference between max and min |
+
+```parsley
+let {median, mode, stddev, variance, range} = import("std/math")
+
+median([1, 2, 3])        // 2
+median([1, 2, 3, 4])     // 2.5
+mode([1, 2, 2, 3])       // 2
+stddev([2, 4, 4, 4, 5, 5, 7, 9])  // 2.0
+variance([2, 4, 4, 4, 5, 5, 7, 9]) // 4.0
+range([1, 5, 3, 10, 2])  // 9
+```
+
+#### Random Functions
+
+| Function | Description |
+|----------|-------------|
+| `random()` | Random float in [0, 1) |
+| `random(max)` | Random float in [0, max) |
+| `random(min, max)` | Random float in [min, max) |
+| `randomInt(max)` | Random integer in [0, max] |
+| `randomInt(min, max)` | Random integer in [min, max] |
+| `seed(n)` | Seed the random generator for reproducibility |
+
+```parsley
+let {random, randomInt, seed} = import("std/math")
+
+random()           // e.g., 0.7234...
+random(10)         // e.g., 4.891... (0 to <10)
+random(5, 10)      // e.g., 7.234... (5 to <10)
+randomInt(6)       // e.g., 4 (0 to 6 inclusive, like a die)
+randomInt(1, 6)    // e.g., 3 (1 to 6 inclusive)
+
+// For reproducible results
+seed(42)
+random()           // Always same value with same seed
+```
+
+#### Powers & Logarithms
+
+| Function | Description |
+|----------|-------------|
+| `sqrt(x)` | Square root (error if negative) |
+| `pow(base, exp)` | Raise base to power |
+| `exp(x)` | e raised to power x |
+| `log(x)` | Natural logarithm (error if ≤ 0) |
+| `log10(x)` | Base-10 logarithm (error if ≤ 0) |
+
+```parsley
+let math = import("std/math")
+
+math.sqrt(16)          // 4
+math.pow(2, 10)        // 1024
+math.exp(1)            // 2.718281828459045 (e)
+math.log(math.E)       // 1.0
+math.log10(1000)       // 3.0
+```
+
+#### Trigonometry
+
+All angles are in radians. Use `degrees()` and `radians()` to convert.
+
+| Function | Description |
+|----------|-------------|
+| `sin(x)` | Sine |
+| `cos(x)` | Cosine |
+| `tan(x)` | Tangent |
+| `asin(x)` | Arcsine (input in [-1, 1]) |
+| `acos(x)` | Arccosine (input in [-1, 1]) |
+| `atan(x)` | Arctangent |
+| `atan2(y, x)` | Arctangent of y/x (handles quadrants) |
+
+```parsley
+let {sin, cos, tan, asin, PI} = import("std/math")
+
+sin(0)            // 0
+sin(PI / 2)       // 1
+cos(0)            // 1
+cos(PI)           // -1
+asin(1)           // 1.5707... (PI/2)
+```
+
+#### Angular Conversion
+
+| Function | Description |
+|----------|-------------|
+| `degrees(radians)` | Convert radians to degrees |
+| `radians(degrees)` | Convert degrees to radians |
+
+```parsley
+let {degrees, radians, PI, sin} = import("std/math")
+
+degrees(PI)       // 180
+radians(180)      // 3.14159... (PI)
+
+// Using degrees for trig
+sin(radians(90))  // 1
+```
+
+#### Geometry & Interpolation
+
+| Function | Description |
+|----------|-------------|
+| `hypot(x, y)` | Hypotenuse (√(x² + y²)) |
+| `dist(x1, y1, x2, y2)` | Distance between two points |
+| `lerp(a, b, t)` | Linear interpolation (t=0 gives a, t=1 gives b) |
+| `map(value, inMin, inMax, outMin, outMax)` | Map value from one range to another |
+
+```parsley
+let {hypot, dist, lerp, map} = import("std/math")
+
+// Pythagorean theorem
+hypot(3, 4)                // 5
+
+// Distance between points
+dist(0, 0, 3, 4)           // 5
+dist(1, 1, 4, 5)           // 5
+
+// Linear interpolation
+lerp(0, 100, 0)            // 0 (start)
+lerp(0, 100, 1)            // 100 (end)
+lerp(0, 100, 0.5)          // 50 (middle)
+lerp(0, 100, 0.25)         // 25
+
+// Range mapping
+map(50, 0, 100, 0, 1)      // 0.5 (50% of input range = 50% of output)
+map(32, 32, 212, 0, 100)   // 0 (32°F = 0°C)
+map(212, 32, 212, 0, 100)  // 100 (212°F = 100°C)
+```
+
 ---
 
 ## Go Library
