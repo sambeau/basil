@@ -204,7 +204,16 @@ type Function struct {
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
 func (f *Function) Inspect() string {
-	return fmt.Sprintf("fn(%v) {\n%s\n}", f.Params, f.Body.String())
+	body := f.Body.String()
+	// Indent each line of the body
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		if line != "" {
+			lines[i] = "  " + line
+		}
+	}
+	indentedBody := strings.Join(lines, "\n")
+	return fmt.Sprintf("fn(%v) {\n%s\n}", f.Params, indentedBody)
 }
 
 // ParamCount returns the number of parameters for this function
@@ -548,6 +557,32 @@ func (e *Environment) AllIdentifiers() []string {
 			seen[name] = true
 			result = append(result, name)
 		}
+	}
+
+	return result
+}
+
+// UserVariables returns a map of user-defined variables (excluding builtins).
+// This is used by the REPL to show what's in scope.
+func (e *Environment) UserVariables() map[string]Object {
+	result := make(map[string]Object)
+	builtins := getBuiltins()
+
+	// Walk through all scopes
+	env := e
+	for env != nil {
+		for name, val := range env.store {
+			// Skip if already seen (inner scope shadows outer)
+			if _, exists := result[name]; exists {
+				continue
+			}
+			// Skip builtins
+			if _, isBuiltin := builtins[name]; isBuiltin {
+				continue
+			}
+			result[name] = val
+		}
+		env = env.outer
 	}
 
 	return result
@@ -10523,16 +10558,11 @@ func objectToUserString(obj Object) string {
 	case *Null:
 		return "" // Silent in output
 	case *Array:
-		// JSON-style: [1, 2, 3]
+		// Concatenate elements (same as objectToPrintString)
 		var result strings.Builder
-		result.WriteString("[")
-		for i, elem := range o.Elements {
-			if i > 0 {
-				result.WriteString(", ")
-			}
+		for _, elem := range o.Elements {
 			result.WriteString(objectToUserString(elem))
 		}
-		result.WriteString("]")
 		return result.String()
 	case *Dictionary:
 		// Check for special dictionary types first

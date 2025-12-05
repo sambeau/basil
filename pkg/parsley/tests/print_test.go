@@ -328,7 +328,7 @@ func TestPrintInConditional(t *testing.T) {
 	}
 }
 
-// TestPrintArrayRepresentation tests that arrays are printed as [1, 2, 3]
+// TestPrintArrayRepresentation tests that arrays are printed as concatenated values
 func TestPrintArrayRepresentation(t *testing.T) {
 	result := evalPrint(`print([1, 2, 3])`)
 	if result == nil {
@@ -341,7 +341,7 @@ func TestPrintArrayRepresentation(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected String, got %T (%s)", result, result.Inspect())
 	}
-	expected := "[1, 2, 3]"
+	expected := "123"
 	if str.Value != expected {
 		t.Errorf("expected %q, got %q", expected, str.Value)
 	}

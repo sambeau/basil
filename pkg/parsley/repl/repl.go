@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/peterh/liner"
@@ -79,6 +80,7 @@ func Start(in io.Reader, out io.Writer, version string) {
 	fmt.Fprintln(out, "")
 	fmt.Fprintln(out, "Type 'exit' or Ctrl+D to quit")
 	fmt.Fprintln(out, "Use Tab for completion, ↑↓ for history")
+	fmt.Fprintln(out, "Type ':help' for REPL commands")
 	fmt.Fprintln(out, "")
 
 	var inputBuffer strings.Builder
@@ -113,6 +115,12 @@ func Start(in io.Reader, out io.Writer, version string) {
 		if inputBuffer.Len() == 0 && (trimmed == "exit" || trimmed == "quit") {
 			fmt.Fprintln(out, "Goodbye!")
 			return
+		}
+
+		// Handle REPL commands (start with :)
+		if inputBuffer.Len() == 0 && strings.HasPrefix(trimmed, ":") {
+			handleReplCommand(trimmed, env, out)
+			continue
 		}
 
 		// Skip empty lines when no input buffered
@@ -158,19 +166,81 @@ func Start(in io.Reader, out io.Writer, version string) {
 			// Check if it's an error
 			if errObj, ok := evaluated.(*evaluator.Error); ok {
 				printRuntimeError(out, errObj)
+			} else if evaluated.Type() == evaluator.NULL_OBJ {
+				io.WriteString(out, "OK\n")
 			} else {
-				result := evaluated.Inspect()
-				if result == "null" {
-					io.WriteString(out, "OK\n")
-				} else {
+				// Use ObjectToPrintString for consistent output with script mode
+				result := evaluator.ObjectToPrintString(evaluated)
+				if result != "" {
 					io.WriteString(out, result)
 					io.WriteString(out, "\n")
+				} else {
+					io.WriteString(out, "OK\n")
 				}
 			}
 		}
 
 		// Clear buffer for next input
 		inputBuffer.Reset()
+	}
+}
+
+// handleReplCommand handles REPL meta-commands that start with ':'
+func handleReplCommand(cmd string, env *evaluator.Environment, out io.Writer) {
+	switch cmd {
+	case ":help", ":h", ":?":
+		fmt.Fprintln(out, "REPL Commands:")
+		fmt.Fprintln(out, "  :help, :h, :?   Show this help")
+		fmt.Fprintln(out, "  :env            Show variables in scope")
+		fmt.Fprintln(out, "  :clear          Clear all user variables")
+		fmt.Fprintln(out, "  exit, quit      Exit the REPL")
+
+	case ":env":
+		printEnvironment(env, out)
+
+	case ":clear":
+		// Create a fresh environment
+		*env = *evaluator.NewEnvironment()
+		fmt.Fprintln(out, "Environment cleared")
+
+	default:
+		fmt.Fprintf(out, "Unknown command: %s (type :help for commands)\n", cmd)
+	}
+}
+
+// printEnvironment displays all user-defined variables in the environment
+func printEnvironment(env *evaluator.Environment, out io.Writer) {
+	vars := env.UserVariables()
+	if len(vars) == 0 {
+		fmt.Fprintln(out, "(no user variables)")
+		return
+	}
+
+	// Sort for consistent output
+	names := make([]string, 0, len(vars))
+	for name := range vars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		obj := vars[name]
+		typeStr := string(obj.Type())
+		value := obj.Inspect()
+
+		// For multi-line values, indent continuation lines by 2 spaces
+		if strings.Contains(value, "\n") {
+			lines := strings.Split(value, "\n")
+			for i := 1; i < len(lines); i++ {
+				lines[i] = "  " + lines[i]
+			}
+			value = strings.Join(lines, "\n")
+		} else if len(value) > 60 {
+			// Truncate long single-line values
+			value = value[:57] + "..."
+		}
+
+		fmt.Fprintf(out, "  %s: %s = %s\n", name, typeStr, value)
 	}
 }
 
