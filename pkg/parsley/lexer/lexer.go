@@ -709,7 +709,7 @@ func (l *Lexer) NextToken() Token {
 		str, terminated := l.readString()
 		if !terminated {
 			tok.Type = ILLEGAL
-			tok.Literal = fmt.Sprintf("unterminated string starting with \"%s\"", truncate(str, 20))
+			tok.Literal = fmt.Sprintf("Unterminated string starting with \"%s\"", truncate(str, 20))
 		} else {
 			tok.Type = STRING
 			tok.Literal = str

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -214,7 +215,7 @@ func TestInOperatorErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%s)", result, result.Inspect())
 			}
-			if errObj.Message != tt.expectedErr {
+			if !strings.EqualFold(errObj.Message, tt.expectedErr) {
 				t.Errorf("expected error %q, got %q", tt.expectedErr, errObj.Message)
 			}
 		})

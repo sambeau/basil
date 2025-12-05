@@ -71,7 +71,7 @@ func TestNotAFunctionErrorMessages(t *testing.T) {
 				t.Fatalf("expected error, got %T: %s", result, result.Inspect())
 			}
 
-			if !strings.Contains(errObj.Message, tt.expectedError) {
+			if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower(tt.expectedError)) {
 				t.Errorf("expected error containing %q, got: %s", tt.expectedError, errObj.Message)
 			}
 
@@ -142,9 +142,9 @@ func TestComponentNotFunctionError(t *testing.T) {
 				t.Fatalf("expected error, got %T: %s", result, result.Inspect())
 			}
 
-			// Should mention "is not a function"
-			if !strings.Contains(errObj.Message, "is not a function") {
-				t.Errorf("expected 'is not a function' in error, got: %s", errObj.Message)
+			// Should mention "as a function" (error message says "Cannot call X as a function")
+			if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower("as a function")) {
+				t.Errorf("expected 'as a function' in error, got: %s", errObj.Message)
 			}
 
 			// Should have a hint about components being functions (in message or Hints slice)

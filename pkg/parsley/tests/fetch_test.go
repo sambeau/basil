@@ -79,7 +79,7 @@ func TestUrlBuiltin(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected error, got %T (%+v)", result, result)
 				}
-				if !strings.Contains(errObj.Message, tt.errorMsg) {
+				if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower(tt.errorMsg)) {
 					t.Errorf("error message should contain %q, got %q", tt.errorMsg, errObj.Message)
 				}
 				return
@@ -152,7 +152,7 @@ func TestRequestHandleCreation(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected error, got %T (%+v)", result, result)
 				}
-				if !strings.Contains(errObj.Message, tt.errorMsg) {
+				if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower(tt.errorMsg)) {
 					t.Errorf("error message should contain %q, got %q", tt.errorMsg, errObj.Message)
 				}
 				return
@@ -290,7 +290,7 @@ func TestFetchErrorHandling(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(errObj.Message, tt.errorMsg) {
+			if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower(tt.errorMsg)) {
 				t.Errorf("error message should contain %q, got %q", tt.errorMsg, errObj.Message)
 			}
 		})

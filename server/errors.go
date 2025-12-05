@@ -420,7 +420,7 @@ func improveErrorMessage(message string) (improved string, hint string) {
 		}
 	}
 
-	// Pattern: "expected '(', got 'x'" 
+	// Pattern: "expected '(', got 'x'"
 	// This happens when parentheses are required but missing (e.g., fn x { } instead of fn(x) { })
 	ifParenPattern := regexp.MustCompile(`expected '\(', got '([^']+)'`)
 	if matches := ifParenPattern.FindStringSubmatch(message); len(matches) > 1 {

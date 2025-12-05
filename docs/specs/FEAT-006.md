@@ -1,10 +1,11 @@
 ---
 id: FEAT-006
 title: "Dev Mode Error Display in Browser"
-status: implemented
+status: complete
 priority: high
 created: 2025-12-01
 updated: 2025-12-05
+completed: 2025-12-05
 author: "@human"
 ---
 

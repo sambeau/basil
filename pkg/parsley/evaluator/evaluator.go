@@ -7201,12 +7201,12 @@ func Eval(node ast.Node, env *Environment) Object {
 		cmdDict, ok := cmdObj.(*Dictionary)
 		if !ok {
 			perr := perrors.New("CMD-0005", map[string]any{"Got": string(cmdObj.Type())})
-			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 		}
 
 		if !isCommandHandle(cmdDict) {
 			perr := perrors.New("CMD-0006", nil)
-			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 		}
 
 		// Evaluate input
@@ -7310,16 +7310,21 @@ func Eval(node ast.Node, env *Environment) Object {
 			funcName := node.Function.String()
 			// Check if this looks like it came from an import destructuring
 			if ident, ok := node.Function.(*ast.Identifier); ok {
-				return newCallError("CALL-0004", map[string]any{"Name": ident.Value})
+				return withPosition(newCallError("CALL-0004", map[string]any{"Name": ident.Value}), node.Token, env)
 			}
-			return newCallError("CALL-0005", map[string]any{"Context": funcName})
+			return withPosition(newCallError("CALL-0005", map[string]any{"Context": funcName}), node.Token, env)
 		}
+
+		// Save the call token before evaluating arguments (which may modify env.LastToken)
+		callToken := node.Token
 
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
-		return applyFunctionWithEnv(function, args, env)
+		result := applyFunctionWithEnv(function, args, env)
+		// Enrich errors from function application with call site position
+		return withPosition(result, callToken, env)
 
 	case *ast.ForExpression:
 		return evalForExpression(node, env)
@@ -7589,21 +7594,21 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if operator == "+" {
 			return evalStringConcatExpression(left, right)
 		}
-		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
+		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	case operator == "+" && (left.Type() == STRING_OBJ || right.Type() == STRING_OBJ):
 		// String concatenation with automatic type conversion
 		return evalStringConcatExpression(left, right)
 	// Regex match operators
 	case operator == "~" || operator == "!~":
 		if left.Type() != STRING_OBJ {
-			return newOperatorError("OP-0007", map[string]any{"Operator": operator, "Expected": "a string", "Got": left.Type()})
+			return newOperatorErrorWithPos(tok, "OP-0007", map[string]any{"Operator": operator, "Expected": "a string", "Got": left.Type()})
 		}
 		if right.Type() != DICTIONARY_OBJ {
-			return newOperatorError("OP-0008", map[string]any{"Operator": operator, "Expected": "a regex", "Got": right.Type()})
+			return newOperatorErrorWithPos(tok, "OP-0008", map[string]any{"Operator": operator, "Expected": "a regex", "Got": right.Type()})
 		}
 		rightDict := right.(*Dictionary)
 		if !isRegexDict(rightDict) {
-			return newOperatorError("OP-0008", map[string]any{"Operator": operator, "Expected": "a regex dictionary", "Got": "dictionary"})
+			return newOperatorErrorWithPos(tok, "OP-0008", map[string]any{"Operator": operator, "Expected": "a regex dictionary", "Got": "dictionary"})
 		}
 		result := evalMatchExpression(tok, left.(*String).Value, rightDict, NewEnvironment())
 		if operator == "!~" {
@@ -7626,7 +7631,7 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		}
 		if isDurationDict(leftDict) && isDatetimeDict(rightDict) {
 			// duration + datetime not allowed, only datetime + duration
-			return newOperatorError("OP-0011", map[string]any{})
+			return newOperatorErrorWithPos(tok, "OP-0011", map[string]any{})
 		}
 		// Path dictionary operations
 		if isPathDict(leftDict) && isPathDict(rightDict) {
@@ -7646,7 +7651,7 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		} else if operator == "!=" {
 			return nativeBoolToParsBoolean(left != right)
 		}
-		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
+		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	case left.Type() == DICTIONARY_OBJ && right.Type() == INTEGER_OBJ:
 		if dict := left.(*Dictionary); isDatetimeDict(dict) {
 			return evalDatetimeIntegerInfixExpression(tok, operator, dict, right.(*Integer))
@@ -7654,12 +7659,12 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if dict := left.(*Dictionary); isDurationDict(dict) {
 			return evalDurationIntegerInfixExpression(tok, operator, dict, right.(*Integer))
 		}
-		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
+		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	case left.Type() == INTEGER_OBJ && right.Type() == DICTIONARY_OBJ:
 		if dict := right.(*Dictionary); isDatetimeDict(dict) {
 			return evalIntegerDatetimeInfixExpression(tok, operator, left.(*Integer), dict)
 		}
-		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
+		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	// Array subtraction
 	case operator == "-" && left.Type() == ARRAY_OBJ && right.Type() == ARRAY_OBJ:
 		return evalArraySubtraction(left.(*Array), right.(*Array))
@@ -7698,9 +7703,9 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	case operator == "!=":
 		return nativeBoolToParsBoolean(left != right)
 	case left.Type() != right.Type():
-		return newOperatorError("OP-0009", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
+		return newOperatorErrorWithPos(tok, "OP-0009", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	default:
-		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
+		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	}
 }
 
@@ -7717,12 +7722,12 @@ func evalIntegerInfixExpression(tok lexer.Token, operator string, left, right Ob
 		return &Integer{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newOperatorError("OP-0002", map[string]any{})
+			return newOperatorErrorWithPos(tok, "OP-0002", map[string]any{})
 		}
 		return &Integer{Value: leftVal / rightVal}
 	case "%":
 		if rightVal == 0 {
-			return newOperatorError("OP-0006", map[string]any{})
+			return newOperatorErrorWithPos(tok, "OP-0006", map[string]any{})
 		}
 		return &Integer{Value: leftVal % rightVal}
 	case "<":
@@ -7755,7 +7760,7 @@ func evalFloatInfixExpression(tok lexer.Token, operator string, left, right Obje
 		return &Float{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newOperatorError("OP-0002", map[string]any{})
+			return newOperatorErrorWithPos(tok, "OP-0002", map[string]any{})
 		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
@@ -7806,7 +7811,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 		return &Float{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newOperatorError("OP-0002", map[string]any{})
+			return newOperatorErrorWithPos(tok, "OP-0002", map[string]any{})
 		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
@@ -8427,7 +8432,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		return result
 	case *DevModule:
 		// DevModule is not directly callable, only used as a namespace
-		return newCallError("CALL-0003", nil)
+		return enrichErrorWithPos(newCallError("CALL-0003", nil), env.LastToken)
 	case *SFTPConnection:
 		// SFTP connection is callable: conn(@/path) returns SFTP file handle
 		if len(args) != 1 {
@@ -8457,9 +8462,9 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		}
 	default:
 		if fn == NULL || fn == nil {
-			return newCallError("CALL-0001", nil)
+			return enrichErrorWithPos(newCallError("CALL-0001", nil), env.LastToken)
 		}
-		return newCallError("CALL-0002", map[string]any{"Type": string(fn.Type())})
+		return enrichErrorWithPos(newCallError("CALL-0002", map[string]any{"Type": string(fn.Type())}), env.LastToken)
 	}
 }
 
@@ -8799,7 +8804,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			elements[i] = &String{Value: string(r)}
 		}
 	default:
-		return newLoopError("LOOP-0001", map[string]any{"Type": strings.ToLower(string(iterableObj.Type()))})
+		return newLoopErrorWithPos(node.Token, "LOOP-0001", map[string]any{"Type": strings.ToLower(string(iterableObj.Type()))})
 	}
 
 	// Determine which function to use
@@ -8815,7 +8820,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 		case *Function, *Builtin:
 			// OK
 		default:
-			return newLoopError("LOOP-0002", map[string]any{"Type": strings.ToLower(string(fn.Type()))})
+			return newLoopErrorWithPos(node.Token, "LOOP-0002", map[string]any{"Type": strings.ToLower(string(fn.Type()))})
 		}
 	} else if node.Body != nil {
 		// 'in' form: for(var in array) body
@@ -8826,7 +8831,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			Env:    env,
 		}
 	} else {
-		return newLoopError("LOOP-0003", nil)
+		return newLoopErrorWithPos(node.Token, "LOOP-0003", nil)
 	}
 
 	// Map function over array elements
@@ -8842,7 +8847,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			// Call user function
 			paramCount := f.ParamCount()
 			if paramCount != 1 && paramCount != 2 {
-				return newLoopError("LOOP-0004", map[string]any{"Got": paramCount})
+				return newLoopErrorWithPos(node.Token, "LOOP-0004", map[string]any{"Got": paramCount})
 			}
 
 			// Prepare arguments based on parameter count
@@ -8907,15 +8912,15 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 				Env:    env,
 			}
 		} else {
-			return newLoopError("LOOP-0005", nil)
+			return newLoopErrorWithPos(node.Token, "LOOP-0005", nil)
 		}
 	} else {
-		return newLoopError("LOOP-0006", nil)
+		return newLoopErrorWithPos(node.Token, "LOOP-0006", nil)
 	}
 
 	// Check parameter count
 	if fn.ParamCount() != 2 {
-		return newLoopError("LOOP-0007", map[string]any{"Got": fn.ParamCount()})
+		return newLoopErrorWithPos(node.Token, "LOOP-0007", map[string]any{"Got": fn.ParamCount()})
 	}
 
 	// Iterate over dictionary key-value pairs in insertion order
@@ -9291,6 +9296,20 @@ func newOperatorError(code string, data map[string]any) *Error {
 	}
 }
 
+// newOperatorErrorWithPos creates a structured error for operator errors with position info.
+func newOperatorErrorWithPos(tok lexer.Token, code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+		Line:    tok.Line,
+		Column:  tok.Column,
+	}
+}
+
 // newLocaleError creates a structured error for invalid locale.
 func newLocaleError(locale string) *Error {
 	perr := perrors.New("FMT-0008", map[string]any{
@@ -9394,6 +9413,20 @@ func newIndexError(code string, data map[string]any) *Error {
 	}
 }
 
+// newIndexErrorWithPos creates a structured index error with position info.
+func newIndexErrorWithPos(tok lexer.Token, code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+		Line:    tok.Line,
+		Column:  tok.Column,
+	}
+}
+
 // newCommandError creates a structured command/exec error.
 func newCommandError(code string, data map[string]any) *Error {
 	perr := perrors.New(code, data)
@@ -9415,6 +9448,20 @@ func newLoopError(code string, data map[string]any) *Error {
 		Message: perr.Message,
 		Hints:   perr.Hints,
 		Data:    perr.Data,
+	}
+}
+
+// newLoopErrorWithPos creates a structured loop/iteration error with position info.
+func newLoopErrorWithPos(tok lexer.Token, code string, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+		Line:    tok.Line,
+		Column:  tok.Column,
 	}
 }
 
@@ -9791,8 +9838,8 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 				return newStructuredError("TYPE-0021", map[string]any{"Name": method})
 			}
 		}
-		// Fall through to normal property/function evaluation
-		return nil
+		// Method not found - return error with available methods
+		return unknownMethodError(method, "dictionary", dictionaryMethods)
 	}
 	// No specific handler for this type
 	return nil
@@ -10040,7 +10087,7 @@ func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
 
 	if isCustom {
 		// Custom tag - call function with props dictionary
-		return evalCustomTag(tagName, rest, env)
+		return evalCustomTag(node.Token, tagName, rest, env)
 	} else {
 		// Standard tag - return as interpolated string
 		return evalStandardTag(tagName, rest, env)
@@ -10152,7 +10199,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Check if component is null (common when import destructuring gets wrong name)
 	if val == NULL || val == nil {
 		perr := perrors.New("COMP-0001", map[string]any{"Name": node.Name})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
 
 	// Call the function with the props dictionary
@@ -10161,7 +10208,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
 		perr := perrors.New("COMP-0002", map[string]any{"Name": node.Name, "Got": string(val.Type())})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
 
 	return result
@@ -10218,7 +10265,7 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 	sqlStr, ok := sqlContent.(*String)
 	if !ok {
 		perr := perrors.New("SQL-0001", nil)
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
 
 	// Build result dictionary with sql and params
@@ -10467,7 +10514,7 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 }
 
 // evalCustomTag evaluates a custom (uppercase) tag as a function call
-func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
+func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Environment) Object {
 	// Look up the variable/function
 	val, ok := env.Get(tagName)
 	if !ok {
@@ -10481,7 +10528,7 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 	// Check if component is null (common when import destructuring gets wrong name)
 	if val == NULL || val == nil {
 		perr := perrors.New("COMP-0001", map[string]any{"Name": tagName})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -10501,7 +10548,7 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
 		perr := perrors.New("COMP-0002", map[string]any{"Name": tagName, "Got": string(val.Type())})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
 	}
 
 	return result
@@ -11157,7 +11204,7 @@ func evalArrayIndexExpression(tok lexer.Token, array, index Object, optional boo
 		if optional {
 			return NULL
 		}
-		return newIndexError("INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
+		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
 	}
 
 	return arrayObject.Elements[idx]
@@ -11179,7 +11226,7 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 		if optional {
 			return NULL
 		}
-		return newIndexError("INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
+		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
 	}
 
 	return &String{Value: string(stringObject.Value[idx])}
@@ -11391,7 +11438,7 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Handle Dictionary (including special types like datetime, path, url)
 	dict, ok := left.(*Dictionary)
 	if !ok {
-		return newStructuredError("TYPE-0022", map[string]any{"Got": left.Type()})
+		return newStructuredErrorWithPos("TYPE-0022", node.Token, map[string]any{"Got": left.Type()})
 	}
 
 	// Handle HTTP method accessors for request dictionaries

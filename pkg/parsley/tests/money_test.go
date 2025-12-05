@@ -41,7 +41,7 @@ func testExpectedError(t *testing.T, input string, obj evaluator.Object, expecte
 		return
 	}
 
-	if !strings.Contains(err.Message, expectedSubstring) {
+	if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(expectedSubstring)) {
 		t.Errorf("For input '%s': expected error containing '%s', got '%s'", input, expectedSubstring, err.Message)
 	}
 }

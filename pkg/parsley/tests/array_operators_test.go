@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -31,16 +32,16 @@ func TestArrayScalarConcat(t *testing.T) {
 		{"1 ++ [2,3,4]", "[1, 2, 3, 4]"},
 		{`"a" ++ ["b","c"]`, `[a, b, c]`},
 		{"1 ++ []", "[1]"},
-		
+
 		// Append scalar
 		{"[1,2,3] ++ 4", "[1, 2, 3, 4]"},
 		{`["a","b"] ++ "c"`, `[a, b, c]`},
 		{"[] ++ 1", "[1]"},
-		
+
 		// Chaining
 		{"1 ++ [2] ++ 3", "[1, 2, 3]"},
 		{"1 ++ 2 ++ 3", "[1, 2, 3]"},
-		
+
 		// Mixed types
 		{`1 ++ ["two", 3]`, `[1, two, 3]`},
 	}
@@ -64,22 +65,22 @@ func TestArrayIntersection(t *testing.T) {
 		// Basic intersection
 		{"[1,2,3] && [2,3,4]", "[2, 3]"},
 		{"[1,2,3,4,5] && [3,4,5,6,7]", "[3, 4, 5]"},
-		
+
 		// Empty arrays
 		{"[1,2,3] && []", "[]"},
 		{"[] && [1,2,3]", "[]"},
 		{"[] && []", "[]"},
-		
+
 		// No overlap
 		{"[1,2] && [3,4]", "[]"},
-		
+
 		// Duplicates in left
 		{"[1,2,2,3,3,3] && [2,3]", "[2, 3]"},
-		
+
 		// Mixed types
 		{`[1, "2", 3] && [1, 3]`, "[1, 3]"},
 		{`["a", "b", "c"] && ["b", "c", "d"]`, "[b, c]"},
-		
+
 		// All elements match
 		{"[1,2,3] && [1,2,3]", "[1, 2, 3]"},
 	}
@@ -103,19 +104,19 @@ func TestArrayUnion(t *testing.T) {
 		// Basic union
 		{"[1,2,3] || [3,4,5]", "[1, 2, 3, 4, 5]"},
 		{"[1,2] || [3,4]", "[1, 2, 3, 4]"},
-		
+
 		// Empty arrays
 		{"[1,2,3] || []", "[1, 2, 3]"},
 		{"[] || [1,2,3]", "[1, 2, 3]"},
 		{"[] || []", "[]"},
-		
+
 		// Duplicates
 		{"[1,2,2,3] || [2,3,3,4]", "[1, 2, 3, 4]"},
 		{"[1,1,1] || [1,1,1]", "[1]"},
-		
+
 		// Order preservation (left then right)
 		{"[3,1,2] || [2,4,5]", "[3, 1, 2, 4, 5]"},
-		
+
 		// Mixed types
 		{`[1, "2"] || ["2", 3]`, `[1, 2, 3]`},
 		{`["a", "b"] || ["b", "c"]`, "[a, b, c]"},
@@ -140,24 +141,24 @@ func TestArraySubtraction(t *testing.T) {
 		// Basic subtraction
 		{"[1,2,3,4] - [2,4]", "[1, 3]"},
 		{"[1,2,3,4,5] - [3,4,5]", "[1, 2]"},
-		
+
 		// Non-existent elements
 		{"[1,2,3] - [4,5]", "[1, 2, 3]"},
-		
+
 		// Empty arrays
 		{"[1,2,3] - []", "[1, 2, 3]"},
 		{"[] - [1,2,3]", "[]"},
-		
+
 		// All removed
 		{"[1,2,3] - [1,2,3,4]", "[]"},
-		
+
 		// Duplicates
 		{"[1,2,2,3,3,3] - [2,3]", "[1]"},
-		
+
 		// Mixed types
 		{`[1, "2", 3] - [1, 3]`, "[2]"},
 		{`["a", "b", "c"] - ["b"]`, "[a, c]"},
-		
+
 		// Order preservation
 		{"[5,3,1,4,2] - [3,1]", "[5, 4, 2]"},
 	}
@@ -181,21 +182,21 @@ func TestArrayChunking(t *testing.T) {
 		// Exact division
 		{"[1,2,3,4] / 2", "[[1, 2], [3, 4]]"},
 		{"[1,2,3,4,5,6] / 3", "[[1, 2, 3], [4, 5, 6]]"},
-		
+
 		// Ragged last chunk
 		{"[1,2,3,4,5] / 2", "[[1, 2], [3, 4], [5]]"},
 		{"[1,2,3,4,5,6,7] / 3", "[[1, 2, 3], [4, 5, 6], [7]]"},
-		
+
 		// Chunk size = 1
 		{"[1,2,3] / 1", "[[1], [2], [3]]"},
-		
+
 		// Chunk size > array length
 		{"[1,2] / 5", "[[1, 2]]"},
 		{"[1] / 10", "[[1]]"},
-		
+
 		// Empty array
 		{"[] / 2", "[]"},
-		
+
 		// Large chunk
 		{"[1,2,3,4,5,6,7,8,9,10] / 4", "[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]]"},
 	}
@@ -228,8 +229,7 @@ func TestArrayChunkingErrors(t *testing.T) {
 			if tt.shouldError {
 				if err, ok := result.(*evaluator.Error); !ok {
 					t.Errorf("expected error, got %T", result)
-				} else if tt.errorMsg != "" && err.Message != tt.errorMsg && 
-					len(err.Message) < len(tt.errorMsg) || err.Message[:len(tt.errorMsg)] != tt.errorMsg {
+				} else if tt.errorMsg != "" && !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errorMsg)) {
 					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Message)
 				}
 			}
@@ -247,19 +247,19 @@ func TestStringRepetition(t *testing.T) {
 		{`"abc" * 3`, "abcabcabc"},
 		{`"x" * 5`, "xxxxx"},
 		{`"hello" * 2`, "hellohello"},
-		
+
 		// Zero and negative
 		{`"abc" * 0`, ""},
 		{`"abc" * -1`, ""},
 		{`"abc" * -10`, ""},
-		
+
 		// Count = 1
 		{`"test" * 1`, "test"},
-		
+
 		// Empty string
 		{`"" * 5`, ""},
 		{`"" * 0`, ""},
-		
+
 		// Special characters
 		{`"!\n" * 3`, "!\n!\n!\n"},
 	}
@@ -284,19 +284,19 @@ func TestArrayRepetition(t *testing.T) {
 		{"[1,2] * 3", "[1, 2, 1, 2, 1, 2]"},
 		{"[1] * 5", "[1, 1, 1, 1, 1]"},
 		{`["a", "b"] * 2`, "[a, b, a, b]"},
-		
+
 		// Zero and negative
 		{"[1,2,3] * 0", "[]"},
 		{"[1,2,3] * -1", "[]"},
 		{"[1,2,3] * -10", "[]"},
-		
+
 		// Count = 1
 		{"[1,2,3] * 1", "[1, 2, 3]"},
-		
+
 		// Empty array
 		{"[] * 5", "[]"},
 		{"[] * 0", "[]"},
-		
+
 		// Mixed types
 		{`[1, "two", 3] * 2`, `[1, two, 3, 1, two, 3]`},
 	}
@@ -319,16 +319,16 @@ func TestArrayOperatorChaining(t *testing.T) {
 	}{
 		// Intersection then union
 		{"([1,2,3] && [2,3,4]) || [5,6]", "[2, 3, 5, 6]"},
-		
+
 		// Subtraction then concat
 		{"([1,2,3,4] - [2,4]) ++ [5]", "[1, 3, 5]"},
-		
+
 		// Concat then intersection
 		{"([1,2] ++ [3,4]) && [2,3,4,5]", "[2, 3, 4]"},
-		
+
 		// Union then subtraction
 		{"([1,2] || [2,3]) - [2]", "[1, 3]"},
-		
+
 		// Repetition then chunking
 		{"([1,2] * 3) / 2", "[[1, 2], [1, 2], [1, 2]]"},
 	}

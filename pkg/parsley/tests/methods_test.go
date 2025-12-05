@@ -644,7 +644,7 @@ func TestMethodErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(err.Message, tt.errContains) {
+			if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errContains)) {
 				t.Errorf("expected error to contain %q, got %q", tt.errContains, err.Message)
 			}
 		})

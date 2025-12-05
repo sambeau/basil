@@ -1036,6 +1036,10 @@ func (p *Parser) parseTagPair() ast.Expression {
 		Contents: []ast.Node{},
 	}
 
+	// Save opening tag position for error reporting
+	openingLine := p.curToken.Line
+	openingColumn := p.curToken.Column
+
 	// Parse tag name and props from the TAG_START token literal
 	// Format: "tagname attr1="value" attr2={expr}" or empty string for <>
 	raw := p.curToken.Literal
@@ -1047,8 +1051,13 @@ func (p *Parser) parseTagPair() ast.Expression {
 
 	// Current token should be TAG_END
 	if !p.curTokenIs(lexer.TAG_END) {
-		p.addError(fmt.Sprintf("expected closing tag </%s>, got %s",
-			tagExpr.Name, tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
+		// Check if this is a known void/singleton element that should be self-closing
+		if isVoidElement(tagExpr.Name) {
+			p.addStructuredError("PARSE-0008", openingLine, openingColumn, map[string]any{"Tag": tagExpr.Name})
+		} else {
+			p.addError(fmt.Sprintf("expected closing tag </%s>, got %s",
+				tagExpr.Name, tokenTypeToReadableName(p.curToken.Type)), openingLine, openingColumn)
+		}
 		return nil
 	}
 
@@ -1182,6 +1191,16 @@ func parseTagNameAndProps(raw string) (string, string) {
 	return raw, ""
 }
 
+// isVoidElement returns true if the tag is a void/singleton element that must be self-closing
+func isVoidElement(tag string) bool {
+	voidElements := map[string]bool{
+		"area": true, "base": true, "br": true, "col": true, "embed": true,
+		"hr": true, "img": true, "input": true, "link": true, "meta": true,
+		"param": true, "source": true, "track": true, "wbr": true,
+	}
+	return voidElements[tag]
+}
+
 func (p *Parser) parseBoolean() ast.Expression {
 	return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(lexer.TRUE)}
 }
@@ -1227,9 +1246,53 @@ func (p *Parser) parseExecuteExpression(left ast.Expression) ast.Expression {
 }
 
 func (p *Parser) parseGroupedExpression() ast.Expression {
+	openParen := p.curToken
 	p.nextToken()
 
 	exp := p.parseExpression(LOWEST)
+
+	// Check for arrow function syntax: (a, b) => ...
+	// This is not supported in Parsley, but we can give a helpful error
+	if p.peekTokenIs(lexer.COMMA) {
+		// Looks like (expr, ...) - could be attempted arrow function
+		// Save position for error reporting
+		commaPos := p.peekToken
+
+		// Skip to find ) and =>
+		depth := 1
+		foundArrow := false
+		for depth > 0 {
+			p.nextToken()
+			if p.curTokenIs(lexer.LPAREN) {
+				depth++
+			} else if p.curTokenIs(lexer.RPAREN) {
+				depth--
+			} else if p.curTokenIs(lexer.EOF) {
+				break
+			}
+		}
+		// Check if next is => (represented as = followed by >)
+		if p.curTokenIs(lexer.RPAREN) && p.peekTokenIs(lexer.ASSIGN) {
+			// Save and peek ahead
+			p.nextToken() // consume =
+			if p.peekTokenIs(lexer.GT) {
+				foundArrow = true
+			}
+		}
+
+		if foundArrow {
+			p.addErrorWithHints(
+				"Arrow function syntax is not supported",
+				openParen.Line, openParen.Column,
+				"use fn(a, b) { a + b } instead",
+				"single-param shorthand: arr.map(fn(x) { x * 2 })")
+			return nil
+		}
+
+		// Not an arrow function, give normal error at comma
+		p.addError(fmt.Sprintf("expected ')', got '%s'", commaPos.Literal), commaPos.Line, commaPos.Column)
+		return nil
+	}
 
 	if !p.expectPeek(lexer.RPAREN) {
 		return nil
@@ -1600,6 +1663,18 @@ func (p *Parser) parseForExpression() ast.Expression {
 
 		p.nextToken() // move past RPAREN to function
 
+		// Check if user wrote for (expr) { ... } which is ambiguous
+		// They probably meant for x in expr { ... } or for (expr) fn(x) { ... }
+		if p.curTokenIs(lexer.LBRACE) {
+			arrayStr := "array"
+			if expression.Array != nil {
+				arrayStr = expression.Array.String()
+			}
+			p.addStructuredError("TYPE-0004", expression.Token.Line, expression.Token.Column,
+				map[string]any{"Array": arrayStr, "Got": "{ ... }"})
+			return nil
+		}
+
 		expression.Function = p.parseExpression(LOWEST)
 	}
 
@@ -1622,6 +1697,24 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 
 	p.nextToken()
 	args = append(args, p.parseExpression(COMMA_PREC+1))
+
+	// Check for single-param arrow function: func(x => ...)
+	// After parsing 'x', if we see '=' followed by '>', it's an arrow function attempt
+	if p.peekTokenIs(lexer.ASSIGN) {
+		// Save the identifier position
+		identTok := p.curToken
+		p.nextToken() // consume =
+		if p.peekTokenIs(lexer.GT) {
+			// This is x => ... pattern
+			p.addErrorWithHints(
+				"Arrow function syntax is not supported",
+				identTok.Line, identTok.Column,
+				"use fn(x) { x * 2 } instead",
+				"example: arr.map(fn(x) { x * 2 })")
+			return nil
+		}
+		// Not arrow, restore position conceptually (we've consumed =, so error will cascade)
+	}
 
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken() // consume comma
@@ -2039,7 +2132,7 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 		} else if p.curTokenIs(lexer.STRING) {
 			key = p.curToken.Literal
 		} else {
-			p.addError(fmt.Sprintf("expected identifier or string as dictionary key, got %s",
+			p.addError(fmt.Sprintf("Expected identifier or string as dictionary key, got %s",
 				tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
 			return nil
 		}

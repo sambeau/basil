@@ -370,7 +370,7 @@ func TestDatetimeErrors(t *testing.T) {
 				errObj, ok := result.(*evaluator.Error)
 				if !ok {
 					t.Errorf("expected Error object, got %T", result)
-				} else if !strings.Contains(errObj.Message, tt.errMsg) {
+				} else if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower(tt.errMsg)) {
 					t.Errorf("error message %q does not contain %q", errObj.Message, tt.errMsg)
 				}
 			}
@@ -678,7 +678,7 @@ func TestDatetimeIntersectionErrors(t *testing.T) {
 				t.Fatalf("Expected error but got success: %v", result)
 			}
 			errStr := result.Inspect()
-			if !strings.Contains(errStr, tt.errContains) {
+			if !strings.Contains(strings.ToLower(errStr), strings.ToLower(tt.errContains)) {
 				t.Errorf("Expected error containing '%s', got '%s'", tt.errContains, errStr)
 			}
 		})

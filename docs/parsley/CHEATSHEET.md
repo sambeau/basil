@@ -83,6 +83,31 @@ let duration = @1d
 let path = "./config.json"  // This is just a string
 ```
 
+### 6. No Arrow Functions - Use fn() { }
+Parsley uses `fn(x) { body }` syntax for functions. The arrow function syntax `x => body` is **NOT supported**.
+
+```parsley
+// ❌ WRONG (JavaScript arrow functions)
+arr.map(x => x * 2)
+arr.map((a, b) => a + b)
+arr.filter(x => x > 0)
+
+// ✅ CORRECT - Use fn() { } syntax
+arr.map(fn(x) { x * 2 })
+arr.filter(fn(x) { x > 0 })
+
+// Named functions
+let double = fn(x) { x * 2 }
+let add = fn(a, b) { a + b }
+
+// Multiline functions
+let process = fn(items) {
+    let filtered = items.filter(fn(x) { x > 0 })
+    let doubled = filtered.map(fn(x) { x * 2 })
+    doubled
+}
+```
+
 ---
 
 ## 📊 Most Used Features (from actual usage data)

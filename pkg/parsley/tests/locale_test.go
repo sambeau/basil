@@ -158,7 +158,7 @@ func TestFormatNumberErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(err.Message, tt.errContains) {
+			if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errContains)) {
 				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
 			}
 		})
@@ -188,7 +188,7 @@ func TestFormatCurrencyErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(err.Message, tt.errContains) {
+			if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errContains)) {
 				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
 			}
 		})
@@ -268,7 +268,7 @@ func TestFormatDateErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(err.Message, tt.errContains) {
+			if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errContains)) {
 				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
 			}
 		})
@@ -412,7 +412,7 @@ func TestFormatDurationErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(err.Message, tt.errContains) {
+			if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errContains)) {
 				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
 			}
 		})
@@ -668,7 +668,7 @@ func TestFormatListErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected Error, got %T (%+v)", result, result)
 			}
-			if !strings.Contains(err.Message, tt.errContains) {
+			if !strings.Contains(strings.ToLower(err.Message), strings.ToLower(tt.errContains)) {
 				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
 			}
 		})

@@ -168,11 +168,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"PARSE-0001": {
 		Class:    ClassParse,
-		Template: "expected {{.Expected}}, got '{{.Got}}'",
+		Template: "Expected {{.Expected}}, got '{{.Got}}'",
 	},
 	"PARSE-0002": {
 		Class:    ClassParse,
-		Template: "unexpected '{{.Token}}'",
+		Template: "Unexpected '{{.Token}}'",
 	},
 	"PARSE-0003": {
 		Class:    ClassParse,
@@ -186,32 +186,32 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"PARSE-0005": {
 		Class:    ClassParse,
-		Template: "invalid regex literal: {{.Literal}}",
+		Template: "Invalid regex literal: {{.Literal}}",
 	},
 	"PARSE-0006": {
 		Class:    ClassParse,
-		Template: "unterminated string",
+		Template: "Unterminated string",
 	},
 	"PARSE-0007": {
 		Class:    ClassParse,
-		Template: "invalid number literal: {{.Literal}}",
+		Template: "Invalid number literal: {{.Literal}}",
 	},
 	"PARSE-0008": {
 		Class:    ClassParse,
-		Template: "singleton tag must be self-closing",
+		Template: "Singleton tag must be self-closing",
 		Hints:    []string{"<{{.Tag}}/>"},
 	},
 	"PARSE-0009": {
 		Class:    ClassParse,
-		Template: "unclosed { in {{.Context}}",
+		Template: "Unclosed { in {{.Context}}",
 	},
 	"PARSE-0010": {
 		Class:    ClassParse,
-		Template: "empty interpolation {} in {{.Context}}",
+		Template: "Empty interpolation {} in {{.Context}}",
 	},
 	"PARSE-0011": {
 		Class:    ClassParse,
-		Template: "error parsing {{.Context}} expression: {{.GoError}}",
+		Template: "Error parsing {{.Context}} expression: {{.GoError}}",
 	},
 
 	// ========================================
@@ -223,37 +223,37 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0002": {
 		Class:    ClassType,
-		Template: "argument to `{{.Function}}` not supported, got {{.Got}}",
+		Template: "Argument to `{{.Function}}` not supported, got {{.Got}}",
 	},
 	"TYPE-0003": {
 		Class:    ClassType,
-		Template: "cannot call {{.Got}} as a function",
+		Template: "Cannot call {{.Got}} as a function",
 	},
 	"TYPE-0004": {
 		Class:    ClassType,
-		Template: "`for ({{.Array}}) {{.Got}}` is ambiguous without { }",
-		Hints:    []string{"for _ in {{.Array}} { {{.Got}} }", "for ({{.Array}}) { print {{.Got}} }"},
+		Template: "`for ({{.Array}}) {{.Got}}` is ambiguous",
+		Hints:    []string{"for _ in {{.Array}} { ... }", "for ({{.Array}}) fn(x) { ... }"},
 	},
 	"TYPE-0005": {
 		Class:    ClassType,
-		Template: "first argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
+		Template: "First argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0006": {
 		Class:    ClassType,
-		Template: "second argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
+		Template: "Second argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0007": {
 		Class:    ClassType,
-		Template: "cannot iterate over {{.Got}}",
+		Template: "Cannot iterate over {{.Got}}",
 		Hints:    []string{"for works with arrays, strings, and ranges"},
 	},
 	"TYPE-0008": {
 		Class:    ClassType,
-		Template: "cannot index {{.Got}} with {{.IndexType}}",
+		Template: "Cannot index {{.Got}} with {{.IndexType}}",
 	},
 	"TYPE-0009": {
 		Class:    ClassType,
-		Template: "comparison function must return boolean, got {{.Got}}",
+		Template: "Comparison function must return boolean, got {{.Got}}",
 	},
 	"TYPE-0010": {
 		Class:    ClassType,
@@ -261,37 +261,37 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0011": {
 		Class:    ClassType,
-		Template: "third argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
+		Template: "Third argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0012": {
 		Class:    ClassType,
-		Template: "argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
+		Template: "Argument to `{{.Function}}` must be {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0013": {
 		Class:    ClassType,
-		Template: "index operator not supported: {{.Left}}[{{.Right}}]",
+		Template: "Index operator not supported: {{.Left}}[{{.Right}}]",
 		Hints:    []string{"Arrays and strings can be indexed with integers", "Dictionaries can be indexed with strings"},
 	},
 	"TYPE-0014": {
 		Class:    ClassType,
-		Template: "slice operator not supported: {{.Type}}",
+		Template: "Slice operator not supported: {{.Type}}",
 		Hints:    []string{"Slicing works with arrays and strings"},
 	},
 	"TYPE-0015": {
 		Class:    ClassType,
-		Template: "cannot convert '{{.Value}}' to integer",
+		Template: "Cannot convert '{{.Value}}' to integer",
 	},
 	"TYPE-0016": {
 		Class:    ClassType,
-		Template: "cannot convert '{{.Value}}' to float",
+		Template: "Cannot convert '{{.Value}}' to float",
 	},
 	"TYPE-0017": {
 		Class:    ClassType,
-		Template: "cannot convert '{{.Value}}' to number",
+		Template: "Cannot convert '{{.Value}}' to number",
 	},
 	"TYPE-0018": {
 		Class:    ClassType,
-		Template: "slice {{.Position}} index must be an integer, got {{.Got}}",
+		Template: "Slice {{.Position}} index must be an integer, got {{.Got}}",
 	},
 	"TYPE-0019": {
 		Class:    ClassType,
@@ -307,11 +307,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0022": {
 		Class:    ClassType,
-		Template: "dot notation can only be used on dictionaries, got {{.Got}}",
+		Template: "Dot notation can only be used on dictionaries, got {{.Got}}",
 	},
 	"TYPE-0023": {
 		Class:    ClassType,
-		Template: "key '{{.Key}}' already exists in dictionary",
+		Template: "Key '{{.Key}}' already exists in dictionary",
 	},
 
 	// ========================================
@@ -319,7 +319,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"ARITY-0001": {
 		Class:    ClassArity,
-		Template: "wrong number of arguments to `{{.Function}}`. got={{.Got}}, want={{.Want}}",
+		Template: "Wrong number of arguments to `{{.Function}}`. got={{.Got}}, want={{.Want}}",
 	},
 	"ARITY-0002": {
 		Class:    ClassArity,
@@ -327,7 +327,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"ARITY-0003": {
 		Class:    ClassArity,
-		Template: "comparison function must take exactly 2 parameters, got {{.Got}}",
+		Template: "Comparison function must take exactly 2 parameters, got {{.Got}}",
 	},
 	"ARITY-0004": {
 		Class:    ClassArity,
@@ -347,28 +347,28 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"UNDEF-0001": {
 		Class:    ClassUndefined,
-		Template: "identifier not found: {{.Name}}",
+		Template: "Identifier not found: {{.Name}}",
 		// Hint "Did you mean `X`?" added dynamically by fuzzy matching
 	},
 	"UNDEF-0002": {
 		Class:    ClassUndefined,
-		Template: "unknown method '{{.Method}}' for {{.Type}}",
+		Template: "Unknown method '{{.Method}}' for {{.Type}}",
 	},
 	"UNDEF-0003": {
 		Class:    ClassUndefined,
-		Template: "undefined component: {{.Name}}",
+		Template: "Undefined component: {{.Name}}",
 	},
 	"UNDEF-0004": {
 		Class:    ClassUndefined,
-		Template: "unknown property '{{.Property}}' on {{.Type}}",
+		Template: "Unknown property '{{.Property}}' on {{.Type}}",
 	},
 	"UNDEF-0005": {
 		Class:    ClassUndefined,
-		Template: "unknown standard library module: @std/{{.Module}}",
+		Template: "Unknown standard library module: @std/{{.Module}}",
 	},
 	"UNDEF-0006": {
 		Class:    ClassUndefined,
-		Template: "module does not export '{{.Name}}'",
+		Template: "Module does not export '{{.Name}}'",
 	},
 
 	// ========================================
@@ -376,31 +376,31 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"IO-0001": {
 		Class:    ClassIO,
-		Template: "failed to {{.Operation}} '{{.Path}}': {{.GoError}}",
+		Template: "Failed to {{.Operation}} '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0002": {
 		Class:    ClassIO,
-		Template: "module not found: {{.Path}}",
+		Template: "Module not found: {{.Path}}",
 	},
 	"IO-0003": {
 		Class:    ClassIO,
-		Template: "failed to read file '{{.Path}}': {{.GoError}}",
+		Template: "Failed to read file '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0004": {
 		Class:    ClassIO,
-		Template: "failed to write file '{{.Path}}': {{.GoError}}",
+		Template: "Failed to write file '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0005": {
 		Class:    ClassIO,
-		Template: "failed to delete '{{.Path}}': {{.GoError}}",
+		Template: "Failed to delete '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0006": {
 		Class:    ClassIO,
-		Template: "failed to create directory '{{.Path}}': {{.GoError}}",
+		Template: "Failed to create directory '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0007": {
 		Class:    ClassIO,
-		Template: "failed to resolve path '{{.Path}}': {{.GoError}}",
+		Template: "Failed to resolve path '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0008": {
 		Class:    ClassIO,
@@ -408,11 +408,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"IO-0009": {
 		Class:    ClassIO,
-		Template: "failed to create directory '{{.Path}}': {{.GoError}}",
+		Template: "Failed to create directory '{{.Path}}': {{.GoError}}",
 	},
 	"IO-0010": {
 		Class:    ClassIO,
-		Template: "failed to remove directory '{{.Path}}': {{.GoError}}",
+		Template: "Failed to remove directory '{{.Path}}': {{.GoError}}",
 	},
 
 	// ========================================
@@ -424,43 +424,43 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"DB-0002": {
 		Class:    ClassDatabase,
-		Template: "query failed: {{.GoError}}",
+		Template: "Query failed: {{.GoError}}",
 	},
 	"DB-0003": {
 		Class:    ClassDatabase,
-		Template: "failed to open {{.Driver}} database: {{.GoError}}",
+		Template: "Failed to open {{.Driver}} database: {{.GoError}}",
 	},
 	"DB-0004": {
 		Class:    ClassDatabase,
-		Template: "failed to scan row: {{.GoError}}",
+		Template: "Failed to scan row: {{.GoError}}",
 	},
 	"DB-0005": {
 		Class:    ClassDatabase,
-		Template: "failed to ping database: {{.GoError}}",
+		Template: "Failed to ping database: {{.GoError}}",
 	},
 	"DB-0006": {
 		Class:    ClassDatabase,
-		Template: "no transaction in progress",
+		Template: "No transaction in progress",
 	},
 	"DB-0007": {
 		Class:    ClassDatabase,
-		Template: "connection is already in a transaction",
+		Template: "Connection is already in a transaction",
 	},
 	"DB-0008": {
 		Class:    ClassDatabase,
-		Template: "failed to get columns: {{.GoError}}",
+		Template: "Failed to get columns: {{.GoError}}",
 	},
 	"DB-0009": {
 		Class:    ClassState,
-		Template: "cannot close server-managed database connection",
+		Template: "Cannot close server-managed database connection",
 	},
 	"DB-0010": {
 		Class:    ClassDatabase,
-		Template: "failed to close database connection: {{.GoError}}",
+		Template: "Failed to close database connection: {{.GoError}}",
 	},
 	"DB-0011": {
 		Class:    ClassDatabase,
-		Template: "execute failed: {{.GoError}}",
+		Template: "Execute failed: {{.GoError}}",
 	},
 
 	// ========================================
@@ -476,7 +476,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"NET-0003": {
 		Class:    ClassNetwork,
-		Template: "failed to connect to SSH server: {{.GoError}}",
+		Template: "Failed to connect to SSH server: {{.GoError}}",
 	},
 	"NET-0004": {
 		Class:    ClassNetwork,
@@ -488,19 +488,19 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"NET-0006": {
 		Class:    ClassNetwork,
-		Template: "failed to read SSH key file: {{.GoError}}",
+		Template: "Failed to read SSH key file: {{.GoError}}",
 	},
 	"NET-0007": {
 		Class:    ClassNetwork,
-		Template: "failed to parse SSH key: {{.GoError}}",
+		Template: "Failed to parse SSH key: {{.GoError}}",
 	},
 	"NET-0008": {
 		Class:    ClassNetwork,
-		Template: "failed to load known_hosts: {{.GoError}}",
+		Template: "Failed to load known_hosts: {{.GoError}}",
 	},
 	"NET-0009": {
 		Class:    ClassNetwork,
-		Template: "failed to create SFTP client: {{.GoError}}",
+		Template: "Failed to create SFTP client: {{.GoError}}",
 	},
 
 	// ========================================
@@ -508,27 +508,27 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"SEC-0001": {
 		Class:    ClassSecurity,
-		Template: "security: {{.Operation}} access denied",
+		Template: "Security: {{.Operation}} access denied",
 		Hints:    []string{"use {{.Flag}} to allow this operation"},
 	},
 	"SEC-0002": {
 		Class:    ClassSecurity,
-		Template: "security: read access denied",
+		Template: "Security: read access denied",
 		Hints:    []string{"use --allow-read or -r to allow file reading"},
 	},
 	"SEC-0003": {
 		Class:    ClassSecurity,
-		Template: "security: write access denied",
+		Template: "Security: write access denied",
 		Hints:    []string{"use --allow-write or -w to allow file writing"},
 	},
 	"SEC-0004": {
 		Class:    ClassSecurity,
-		Template: "security: execute access denied",
+		Template: "Security: execute access denied",
 		Hints:    []string{"use --allow-execute or -x to allow execution"},
 	},
 	"SEC-0005": {
 		Class:    ClassSecurity,
-		Template: "security: network access denied",
+		Template: "Security: network access denied",
 		Hints:    []string{"use --allow-net or -n to allow network access"},
 	},
 	"SEC-0006": {
@@ -541,23 +541,23 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"INDEX-0001": {
 		Class:    ClassIndex,
-		Template: "index {{.Index}} out of range (length {{.Length}})",
+		Template: "Index {{.Index}} out of range (length {{.Length}})",
 	},
 	"INDEX-0002": {
 		Class:    ClassIndex,
-		Template: "cannot {{.Operation}} from empty {{.Type}}",
+		Template: "Cannot {{.Operation}} from empty {{.Type}}",
 	},
 	"INDEX-0003": {
 		Class:    ClassIndex,
-		Template: "slice start index {{.Start}} is greater than end index {{.End}}",
+		Template: "Slice start index {{.Start}} is greater than end index {{.End}}",
 	},
 	"INDEX-0004": {
 		Class:    ClassIndex,
-		Template: "negative index not allowed: {{.Index}}",
+		Template: "Negative index not allowed: {{.Index}}",
 	},
 	"INDEX-0005": {
 		Class:    ClassIndex,
-		Template: "key '{{.Key}}' not found in dictionary",
+		Template: "Key '{{.Key}}' not found in dictionary",
 	},
 
 	// ========================================
@@ -565,43 +565,43 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"FMT-0001": {
 		Class:    ClassFormat,
-		Template: "invalid {{.Format}}: {{.GoError}}",
+		Template: "Invalid {{.Format}}: {{.GoError}}",
 	},
 	"FMT-0002": {
 		Class:    ClassFormat,
-		Template: "invalid regex pattern: {{.GoError}}",
+		Template: "Invalid regex pattern: {{.GoError}}",
 	},
 	"FMT-0003": {
 		Class:    ClassFormat,
-		Template: "invalid URL: {{.GoError}}",
+		Template: "Invalid URL: {{.GoError}}",
 	},
 	"FMT-0004": {
 		Class:    ClassFormat,
-		Template: "invalid datetime: {{.GoError}}",
+		Template: "Invalid datetime: {{.GoError}}",
 	},
 	"FMT-0005": {
 		Class:    ClassFormat,
-		Template: "invalid JSON: {{.GoError}}",
+		Template: "Invalid JSON: {{.GoError}}",
 	},
 	"FMT-0006": {
 		Class:    ClassFormat,
-		Template: "invalid YAML: {{.GoError}}",
+		Template: "Invalid YAML: {{.GoError}}",
 	},
 	"FMT-0007": {
 		Class:    ClassFormat,
-		Template: "invalid CSV: {{.GoError}}",
+		Template: "Invalid CSV: {{.GoError}}",
 	},
 	"FMT-0008": {
 		Class:    ClassFormat,
-		Template: "invalid locale: {{.Locale}}",
+		Template: "Invalid locale: {{.Locale}}",
 	},
 	"FMT-0009": {
 		Class:    ClassFormat,
-		Template: "invalid duration: {{.GoError}}",
+		Template: "Invalid duration: {{.GoError}}",
 	},
 	"FMT-0010": {
 		Class:    ClassFormat,
-		Template: "failed to convert markdown: {{.GoError}}",
+		Template: "Failed to convert markdown: {{.GoError}}",
 	},
 
 	// ========================================
@@ -609,64 +609,64 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"OP-0001": {
 		Class:    ClassOperator,
-		Template: "unknown operator: {{.LeftType}} {{.Operator}} {{.RightType}}",
+		Template: "Unknown operator: {{.LeftType}} {{.Operator}} {{.RightType}}",
 	},
 	"OP-0002": {
 		Class:    ClassOperator,
-		Template: "division by zero",
+		Template: "Division by zero",
 	},
 	"OP-0003": {
 		Class:    ClassOperator,
-		Template: "cannot compare {{.LeftType}} and {{.RightType}}",
+		Template: "Cannot compare {{.LeftType}} and {{.RightType}}",
 	},
 	"OP-0004": {
 		Class:    ClassOperator,
-		Template: "cannot negate {{.Type}}",
+		Template: "Cannot negate {{.Type}}",
 	},
 	"OP-0005": {
 		Class:    ClassOperator,
-		Template: "unknown prefix operator: {{.Operator}}{{.Type}}",
+		Template: "Unknown prefix operator: {{.Operator}}{{.Type}}",
 	},
 	"OP-0006": {
 		Class:    ClassOperator,
-		Template: "modulo by zero",
+		Template: "Modulo by zero",
 	},
 	"OP-0007": {
 		Class:    ClassOperator,
-		Template: "left operand of {{.Operator}} must be {{.Expected}}, got {{.Got}}",
+		Template: "Left operand of {{.Operator}} must be {{.Expected}}, got {{.Got}}",
 	},
 	"OP-0008": {
 		Class:    ClassOperator,
-		Template: "right operand of {{.Operator}} must be {{.Expected}}, got {{.Got}}",
+		Template: "Right operand of {{.Operator}} must be {{.Expected}}, got {{.Got}}",
 	},
 	"OP-0009": {
 		Class:    ClassOperator,
-		Template: "type mismatch: {{.LeftType}} {{.Operator}} {{.RightType}}",
+		Template: "Type mismatch: {{.LeftType}} {{.Operator}} {{.RightType}}",
 	},
 	"OP-0010": {
 		Class:    ClassOperator,
-		Template: "unsupported type for mixed arithmetic: {{.Type}}",
+		Template: "Unsupported type for mixed arithmetic: {{.Type}}",
 	},
 	"OP-0011": {
 		Class:    ClassOperator,
-		Template: "cannot add duration to datetime (use datetime + duration instead)",
-		Hints:    []string{"datetime + duration is supported", "duration + datetime is not supported"},
+		Template: "Cannot add duration to datetime",
+		Hints:    []string{"use datetime + duration instead"},
 	},
 	"OP-0012": {
 		Class:    ClassOperator,
-		Template: "cannot intersect two {{.Kind}}s - {{.Hint}}",
+		Template: "Cannot intersect two {{.Kind}}s - {{.Hint}}",
 	},
 	"OP-0013": {
 		Class:    ClassOperator,
-		Template: "cannot compare durations with month components (months have variable length)",
+		Template: "Cannot compare durations with month components (months have variable length)",
 	},
 	"OP-0014": {
 		Class:    ClassOperator,
-		Template: "unknown operator for {{.Type}}: {{.Operator}}",
+		Template: "Unknown operator for {{.Type}}: {{.Operator}}",
 	},
 	"OP-0015": {
 		Class:    ClassOperator,
-		Template: "unknown operator for {{.LeftType}} and {{.RightType}}: {{.Operator}} (supported: {{.Supported}})",
+		Template: "Unknown operator for {{.LeftType}} and {{.RightType}}: {{.Operator}} (supported: {{.Supported}})",
 	},
 	"OP-0016": {
 		Class:    ClassOperator,
@@ -674,25 +674,25 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"OP-0017": {
 		Class:    ClassOperator,
-		Template: "dictionary key must be a string, got {{.Got}}",
+		Template: "Dictionary key must be a string, got {{.Got}}",
 	},
 	"OP-0018": {
 		Class:    ClassOperator,
-		Template: "substring must be a string, got {{.Got}}",
+		Template: "Substring must be a string, got {{.Got}}",
 	},
 	"OP-0019": {
 		Class:    ClassOperator,
-		Template: "cannot mix currencies: {{.LeftCurrency}} and {{.RightCurrency}}",
+		Template: "Cannot mix currencies: {{.LeftCurrency}} and {{.RightCurrency}}",
 		Hints:    []string{"convert to the same currency before arithmetic"},
 	},
 	"OP-0020": {
 		Class:    ClassOperator,
-		Template: "unsupported operation between money values: {{.Operator}}",
+		Template: "Unsupported operation between money values: {{.Operator}}",
 		Hints:    []string{"only +, -, and comparison operators are allowed between money values"},
 	},
 	"OP-0021": {
 		Class:    ClassOperator,
-		Template: "unsupported operation between money and number: {{.Operator}}",
+		Template: "Unsupported operation between money and number: {{.Operator}}",
 		Hints:    []string{"only * and / are allowed between money and numbers"},
 	},
 
@@ -709,7 +709,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"STATE-0003": {
 		Class:    ClassState,
-		Template: "file handle is closed",
+		Template: "File handle is closed",
 	},
 
 	// ========================================
@@ -717,23 +717,23 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"IMPORT-0001": {
 		Class:    ClassImport,
-		Template: "in module {{.ModulePath}}: {{.NestedError}}",
+		Template: "In module {{.ModulePath}}: {{.NestedError}}",
 	},
 	"IMPORT-0002": {
 		Class:    ClassImport,
-		Template: "circular dependency detected when importing: {{.Path}}",
+		Template: "Circular dependency detected when importing: {{.Path}}",
 	},
 	"IMPORT-0003": {
 		Class:    ClassImport,
-		Template: "parse errors in module {{.ModulePath}}",
+		Template: "Parse errors in module {{.ModulePath}}",
 	},
 	"IMPORT-0004": {
 		Class:    ClassImport,
-		Template: "failed to resolve module path: {{.GoError}}",
+		Template: "Failed to resolve module path: {{.GoError}}",
 	},
 	"IMPORT-0005": {
 		Class:    ClassImport,
-		Template: "in module {{.ModulePath}}: line {{.Line}}, column {{.Column}}: {{.NestedError}}",
+		Template: "In module {{.ModulePath}}: line {{.Line}}, column {{.Column}}: {{.NestedError}}",
 	},
 
 	// ========================================
@@ -741,19 +741,19 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"CMD-0001": {
 		Class:    ClassState,
-		Template: "command handle missing {{.Field}} field",
+		Template: "Command handle missing {{.Field}} field",
 	},
 	"CMD-0002": {
 		Class:    ClassType,
-		Template: "command {{.Field}} must be {{.Expected}}, got {{.Actual}}",
+		Template: "Command {{.Field}} must be {{.Expected}}, got {{.Actual}}",
 	},
 	"CMD-0003": {
 		Class:    ClassType,
-		Template: "command arguments must be strings",
+		Template: "Command arguments must be strings",
 	},
 	"CMD-0004": {
 		Class:    ClassType,
-		Template: "command input must be a string or null, got {{.Type}}",
+		Template: "Command input must be a string or null, got {{.Type}}",
 	},
 
 	// ========================================
@@ -761,32 +761,32 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"LOOP-0001": {
 		Class:    ClassType,
-		Template: "for expects an array, string, or dictionary, got {{.Type}}",
+		Template: "For expects an array, string, or dictionary, got {{.Type}}",
 	},
 	"LOOP-0002": {
 		Class:    ClassType,
-		Template: "for expects a function, got {{.Type}}",
+		Template: "For expects a function, got {{.Type}}",
 		Hints:    []string{"for (array) fn(x) { ... }", "for x in array { ... }"},
 	},
 	"LOOP-0003": {
 		Class:    ClassState,
-		Template: "for expression missing function or body",
+		Template: "For expression missing function or body",
 	},
 	"LOOP-0004": {
 		Class:    ClassArity,
-		Template: "function passed to for must take 1 or 2 parameters, got {{.Got}}",
+		Template: "Function passed to for must take 1 or 2 parameters, got {{.Got}}",
 	},
 	"LOOP-0005": {
 		Class:    ClassState,
-		Template: "for loop over dictionary requires body with key, value parameters",
+		Template: "For loop over dictionary requires body with key, value parameters",
 	},
 	"LOOP-0006": {
 		Class:    ClassState,
-		Template: "for loop over dictionary requires function body",
+		Template: "For loop over dictionary requires function body",
 	},
 	"LOOP-0007": {
 		Class:    ClassArity,
-		Template: "for loop over dictionary requires exactly 2 parameters (key, value), got {{.Got}}",
+		Template: "For loop over dictionary requires exactly 2 parameters (key, value), got {{.Got}}",
 	},
 
 	// ========================================
@@ -794,17 +794,17 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"CALL-0001": {
 		Class:    ClassType,
-		Template: "cannot call null as a function",
+		Template: "Cannot call null as a function",
 		Hints:    []string{"The value may not be exported from an imported module, or the variable is uninitialized"},
 	},
 	"CALL-0002": {
 		Class:    ClassType,
-		Template: "cannot call {{.Type}} as a function",
+		Template: "Cannot call {{.Type}} as a function",
 		Hints:    []string{"Only functions can be called with parentheses"},
 	},
 	"CALL-0003": {
 		Class:    ClassType,
-		Template: "dev module cannot be called directly, use dev.log() or other methods",
+		Template: "Dev module cannot be called directly, use dev.log() or other methods",
 	},
 
 	// ========================================
@@ -816,31 +816,31 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"FILEOP-0002": {
 		Class:    ClassState,
-		Template: "file handle has no valid path",
+		Template: "File handle has no valid path",
 	},
 	"FILEOP-0003": {
 		Class:    ClassState,
-		Template: "file handle has no format specified",
+		Template: "File handle has no format specified",
 	},
 	"FILEOP-0004": {
 		Class:    ClassType,
-		Template: "file format must be a string, got {{.Got}}",
+		Template: "File format must be a string, got {{.Got}}",
 	},
 	"FILEOP-0005": {
 		Class:    ClassFormat,
-		Template: "unsupported file format for {{.Operation}}: {{.Format}}",
+		Template: "Unsupported file format for {{.Operation}}: {{.Format}}",
 	},
 	"FILEOP-0006": {
 		Class:    ClassIO,
-		Template: "failed to encode data: {{.GoError}}",
+		Template: "Failed to encode data: {{.GoError}}",
 	},
 	"CMD-0005": {
 		Class:    ClassType,
-		Template: "left operand of <=#=> must be command handle, got {{.Got}}",
+		Template: "Left operand of <=#=> must be command handle, got {{.Got}}",
 	},
 	"CMD-0006": {
 		Class:    ClassState,
-		Template: "left operand of <=#=> must be command handle",
+		Template: "Left operand of <=#=> must be command handle",
 	},
 
 	// ========================================
@@ -848,31 +848,31 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"VAL-0001": {
 		Class:    ClassFormat,
-		Template: "invalid currency code: {{.Code}}",
+		Template: "Invalid currency code: {{.Code}}",
 	},
 	"VAL-0002": {
 		Class:    ClassFormat,
-		Template: "invalid style {{.Style}} for {{.Context}}, use {{.ValidOptions}}",
+		Template: "Invalid style {{.Style}} for {{.Context}}, use {{.ValidOptions}}",
 	},
 	"VAL-0003": {
 		Class:    ClassFormat,
-		Template: "invalid file pattern '{{.Pattern}}': {{.GoError}}",
+		Template: "Invalid file pattern '{{.Pattern}}': {{.GoError}}",
 	},
 	"VAL-0004": {
 		Class:    ClassValue,
-		Template: "argument to `{{.Method}}` must be non-negative, got {{.Got}}",
+		Template: "Argument to `{{.Method}}` must be non-negative, got {{.Got}}",
 	},
 	"VAL-0005": {
 		Class:    ClassValue,
-		Template: "cannot {{.Method}} from empty array",
+		Template: "Cannot {{.Method}} from empty array",
 	},
 	"VAL-0006": {
 		Class:    ClassValue,
-		Template: "cannot take {{.Requested}} unique items from array of length {{.Length}}",
+		Template: "Cannot take {{.Requested}} unique items from array of length {{.Length}}",
 	},
 	"VAL-0007": {
 		Class:    ClassValue,
-		Template: "invalid duration: {{.GoError}}",
+		Template: "Invalid duration: {{.GoError}}",
 	},
 	"VAL-0008": {
 		Class:    ClassValue,
@@ -884,7 +884,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0010": {
 		Class:    ClassValue,
-		Template: "orderBy column spec must have {{.Min}}-{{.Max}} elements, got {{.Got}}",
+		Template: "The orderBy column spec must have {{.Min}}-{{.Max}} elements, got {{.Got}}",
 	},
 	"VAL-0011": {
 		Class:    ClassValue,
@@ -892,24 +892,24 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0012": {
 		Class:    ClassValue,
-		Template: "chunk size must be > 0, got {{.Got}}",
+		Template: "Chunk size must be > 0, got {{.Got}}",
 	},
 	"VAL-0013": {
 		Class:    ClassValue,
-		Template: "range start must be an integer, got {{.Got}}",
+		Template: "Range start must be an integer, got {{.Got}}",
 	},
 	"VAL-0014": {
 		Class:    ClassValue,
-		Template: "range end must be an integer, got {{.Got}}",
+		Template: "Range end must be an integer, got {{.Got}}",
 	},
 	"VAL-0015": {
 		Class:    ClassValue,
-		Template: "regex dictionary missing pattern field",
+		Template: "Regex dictionary missing pattern field",
 		Hints:    []string{"regex dictionaries must have a 'pattern' field"},
 	},
 	"VAL-0016": {
 		Class:    ClassValue,
-		Template: "regex pattern must be a string, got {{.Got}}",
+		Template: "Regex pattern must be a string, got {{.Got}}",
 	},
 	"VAL-0017": {
 		Class:    ClassValue,
@@ -921,11 +921,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0019": {
 		Class:    ClassValue,
-		Template: "money() requires a 3-letter currency code, got '{{.Got}}'",
+		Template: "The money() function requires a 3-letter currency code, got '{{.Got}}'",
 	},
 	"VAL-0020": {
 		Class:    ClassValue,
-		Template: "money() scale must be between 0 and 10, got {{.Got}}",
+		Template: "The money() scale must be between 0 and 10, got {{.Got}}",
 	},
 	"VAL-0021": {
 		Class:    ClassValue,
@@ -937,11 +937,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"DEST-0001": {
 		Class:    ClassType,
-		Template: "dictionary destructuring requires a dictionary value, got {{.Got}}",
+		Template: "Dictionary destructuring requires a dictionary value, got {{.Got}}",
 	},
 	"DEST-0002": {
 		Class:    ClassState,
-		Template: "unsupported nested destructuring pattern",
+		Template: "Unsupported nested destructuring pattern",
 	},
 
 	// ========================================
@@ -949,11 +949,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"STDIO-0001": {
 		Class:    ClassIO,
-		Template: "cannot write to stdin",
+		Template: "Cannot write to stdin",
 	},
 	"STDIO-0002": {
 		Class:    ClassFormat,
-		Template: "unknown stdio stream: {{.Name}}",
+		Template: "Unknown stdio stream: {{.Name}}",
 	},
 
 	// ========================================
@@ -965,7 +965,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"INTERNAL-0002": {
 		Class:    ClassState,
-		Template: "unknown node type: {{.Type}}",
+		Template: "Unknown node type: {{.Type}}",
 	},
 	"INTERNAL-0003": {
 		Class:    ClassState,
@@ -985,12 +985,12 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"CALL-0004": {
 		Class:    ClassType,
-		Template: "cannot call '{{.Name}}' because it is null",
+		Template: "Cannot call '{{.Name}}' because it is null",
 		Hints:    []string{"'{{.Name}}' may not be exported from the imported module. Check the export name matches."},
 	},
 	"CALL-0005": {
 		Class:    ClassType,
-		Template: "cannot call null as a function: {{.Context}}",
+		Template: "Cannot call null as a function: {{.Context}}",
 	},
 
 	// ========================================
@@ -998,12 +998,12 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"COMP-0001": {
 		Class:    ClassType,
-		Template: "cannot use '<{{.Name}}/>' because '{{.Name}}' is null",
+		Template: "Cannot use '<{{.Name}}/>' because '{{.Name}}' is null",
 		Hints:    []string{"'{{.Name}}' may not be exported from the imported module. Check the export name matches."},
 	},
 	"COMP-0002": {
 		Class:    ClassType,
-		Template: "cannot use '<{{.Name}}/>' because '{{.Name}}' is not a function (got {{.Got}})",
+		Template: "Cannot use '<{{.Name}}/>' because '{{.Name}}' is not a function (got {{.Got}})",
 		Hints:    []string{"Components must be functions. Check that '{{.Name}}' is exported as a function."},
 	},
 
@@ -1012,15 +1012,15 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"TODICT-0001": {
 		Class:    ClassType,
-		Template: "toDict requires array of [key, value] pairs",
+		Template: "The toDict function requires array of [key, value] pairs",
 	},
 	"TODICT-0002": {
 		Class:    ClassType,
-		Template: "dictionary keys must be strings, got {{.Got}}",
+		Template: "Dictionary keys must be strings, got {{.Got}}",
 	},
 	"TODICT-0003": {
 		Class:    ClassType,
-		Template: "toDict: unsupported value type {{.Got}}",
+		Template: "The toDict function: unsupported value type {{.Got}}",
 	},
 
 	// ========================================
@@ -1028,7 +1028,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"CALLBACK-0001": {
 		Class:    ClassArity,
-		Template: "function passed to `{{.Function}}` must take exactly {{.Expected}} parameter(s), got {{.Got}}",
+		Template: "Function passed to `{{.Function}}` must take exactly {{.Expected}} parameter(s), got {{.Got}}",
 	},
 
 	// ========================================
@@ -1040,7 +1040,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"FILEOP-0008": {
 		Class:    ClassState,
-		Template: "directory handle has no valid path",
+		Template: "Directory handle has no valid path",
 	},
 
 	// ========================================
@@ -1060,7 +1060,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"SFTP-0004": {
 		Class:    ClassFormat,
-		Template: "unknown format: {{.Format}}",
+		Template: "Unknown format: {{.Format}}",
 	},
 	"SFTP-0005": {
 		Class:    ClassIO,
@@ -1072,7 +1072,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"SPREAD-0001": {
 		Class:    ClassType,
-		Template: "spread operator requires a dictionary, got {{.Got}}",
+		Template: "Spread operator requires a dictionary, got {{.Got}}",
 	},
 
 	// ========================================
@@ -1084,15 +1084,15 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"SQL-0002": {
 		Class:    ClassType,
-		Template: "query object missing 'sql' property",
+		Template: "Query object missing 'sql' property",
 	},
 	"SQL-0003": {
 		Class:    ClassType,
-		Template: "sql property must be a string, got {{.Got}}",
+		Template: "The sql property must be a string, got {{.Got}}",
 	},
 	"SQL-0004": {
 		Class:    ClassType,
-		Template: "query must be a string or <SQL> tag, got {{.Got}}",
+		Template: "Query must be a string or <SQL> tag, got {{.Got}}",
 	},
 
 	// ========================================
@@ -1100,23 +1100,23 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"HTTP-0001": {
 		Class:    ClassState,
-		Template: "request handle has no valid URL",
+		Template: "Request handle has no valid URL",
 	},
 	"HTTP-0002": {
 		Class:    ClassFormat,
-		Template: "failed to encode request body: {{.GoError}}",
+		Template: "Failed to encode request body: {{.GoError}}",
 	},
 	"HTTP-0003": {
 		Class:    ClassNetwork,
-		Template: "failed to create request: {{.GoError}}",
+		Template: "Failed to create request: {{.GoError}}",
 	},
 	"HTTP-0004": {
 		Class:    ClassNetwork,
-		Template: "fetch failed: {{.GoError}}",
+		Template: "Fetch failed: {{.GoError}}",
 	},
 	"HTTP-0005": {
 		Class:    ClassIO,
-		Template: "failed to read response: {{.GoError}}",
+		Template: "Failed to read response: {{.GoError}}",
 	},
 	"HTTP-0006": {
 		Class:    ClassNetwork,
@@ -1128,11 +1128,11 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"STDIO-0003": {
 		Class:    ClassIO,
-		Template: "failed to read from stdin: {{.GoError}}",
+		Template: "Failed to read from stdin: {{.GoError}}",
 	},
 	"STDIO-0004": {
 		Class:    ClassIO,
-		Template: "cannot read from {{.Stream}}",
+		Template: "Cannot read from {{.Stream}}",
 	},
 
 	// ========================================
@@ -1140,7 +1140,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"SFTP-0006": {
 		Class:    ClassIO,
-		Template: "failed to list directory: {{.GoError}}",
+		Template: "Failed to list directory: {{.GoError}}",
 	},
 	"SFTP-0007": {
 		Class:    ClassIO,

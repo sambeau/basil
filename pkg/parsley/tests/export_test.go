@@ -344,7 +344,7 @@ func TestModuleErrorReporting(t *testing.T) {
 					t.Errorf("expected error, got %s (%s)", result.Type(), result.Inspect())
 					return
 				}
-				if !strings.Contains(result.Inspect(), tt.errorContain) {
+				if !strings.Contains(strings.ToLower(result.Inspect()), strings.ToLower(tt.errorContain)) {
 					t.Errorf("expected error containing %q, got %q", tt.errorContain, result.Inspect())
 				}
 			}

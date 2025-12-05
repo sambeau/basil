@@ -20,6 +20,14 @@ These rules apply to all code changes in this repository.
 - Wrap errors with context: `fmt.Errorf("doing X: %w", err)`
 - Return errors, don't panic (except for truly unrecoverable situations)
 
+### Error Messages (Parsley)
+After implementing any feature that produces error messages, verify:
+- **Capitalization**: Messages start with a capital letter (unless starting with a code like `PARSE-0001`)
+- **Line numbers**: All runtime errors include line and column information
+- **Hints**: Complex errors include actionable hints
+- **Consistency**: Use existing error catalog in `pkg/parsley/errors/errors.go` when possible
+- **Testing**: Error message tests should use case-insensitive matching (`strings.Contains(strings.ToLower(...))`)
+
 ### Comments
 - Exported functions must have doc comments
 - Doc comments start with the function name: `// FunctionName does...`

@@ -44,6 +44,11 @@ var floatMethods = []string{
 	"abs", "format", "round", "floor", "ceil",
 }
 
+// dictionaryMethods lists all methods available on dictionary
+var dictionaryMethods = []string{
+	"keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore",
+}
+
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
 func unknownMethodError(method, typeName string, availableMethods []string) *Error {
 	parsleyErr := errors.NewUndefinedMethod(method, typeName, availableMethods)

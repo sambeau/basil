@@ -301,9 +301,9 @@ func TestReadOperatorCSVNoHeader(t *testing.T) {
 	}
 }
 
-// containsString checks if a string contains a substring
+// containsString checks if a string contains a substring (case-insensitive)
 func containsSubstr(s, substr string) bool {
-	return strings.Contains(s, substr)
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 // TestReadOperatorErrorCapture tests the {data, error} pattern for capturing errors
@@ -354,7 +354,7 @@ func TestReadOperatorErrorCapture(t *testing.T) {
 		{
 			name:     "error can be used in string concatenation",
 			code:     `let {data, error} <== JSON("/nonexistent/file.json"); "Error: " + error`,
-			expected: "Error: failed to read file '/nonexistent/file.json': open /nonexistent/file.json: no such file or directory",
+			expected: "Error: Failed to read file '/nonexistent/file.json': open /nonexistent/file.json: no such file or directory",
 		},
 		{
 			name:     "successful read with nested data access",

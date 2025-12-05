@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -247,8 +248,8 @@ func TestDatetimeLiteralErrors(t *testing.T) {
 			t.Errorf("Expected error for input %q, got %T (%+v)", tt.input, evaluated, evaluated)
 			continue
 		}
-		if len(errObj.Message) < len(tt.expectedError) || errObj.Message[:len(tt.expectedError)] != tt.expectedError {
-			t.Errorf("Wrong error message. Expected to start with %q, got %q",
+		if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower(tt.expectedError)) {
+			t.Errorf("Wrong error message. Expected to contain %q, got %q",
 				tt.expectedError, errObj.Message)
 		}
 	}

@@ -240,7 +240,7 @@ func TestForIndexErrorCases(t *testing.T) {
 			t.Errorf("Expected error for input: %s, got: %T (%+v)", tt.input, evaluated, evaluated)
 			continue
 		}
-		if errObj.Message != tt.expectedError {
+		if !strings.EqualFold(errObj.Message, tt.expectedError) {
 			t.Errorf("Wrong error message.\nExpected: %s\nGot: %s\nInput: %s",
 				tt.expectedError, errObj.Message, tt.input)
 		}

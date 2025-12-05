@@ -347,7 +347,7 @@ func TestDatetimeTemplateErrors(t *testing.T) {
 			}
 
 			resultStr := result.Inspect()
-			if !strings.Contains(resultStr, tt.expectedError) {
+			if !strings.Contains(strings.ToLower(resultStr), strings.ToLower(tt.expectedError)) {
 				t.Errorf("expected error containing %q, got=%q", tt.expectedError, resultStr)
 			}
 		})

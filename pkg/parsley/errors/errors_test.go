@@ -182,7 +182,7 @@ func TestNew_WithCatalog(t *testing.T) {
 				"Want":     "1-2",
 			},
 			wantClass:    ClassArity,
-			wantContains: "wrong number of arguments to `split`. got=3, want=1-2",
+			wantContains: "Wrong number of arguments to `split`. got=3, want=1-2",
 		},
 		{
 			name: "undefined identifier",
@@ -191,7 +191,7 @@ func TestNew_WithCatalog(t *testing.T) {
 				"Name": "foobar",
 			},
 			wantClass:    ClassUndefined,
-			wantContains: "identifier not found: foobar",
+			wantContains: "Identifier not found: foobar",
 		},
 		{
 			name: "unknown code",

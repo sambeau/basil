@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -163,22 +164,9 @@ func TestRangeErrors(t *testing.T) {
 			}
 
 			errMsg := result.Inspect()
-			if len(tt.expectedErr) > 0 && !contains(errMsg, tt.expectedErr) {
+			if len(tt.expectedErr) > 0 && !strings.Contains(strings.ToLower(errMsg), strings.ToLower(tt.expectedErr)) {
 				t.Errorf("expected error containing %q, got %q", tt.expectedErr, errMsg)
 			}
 		})
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || findInString(s, substr)))
-}
-
-func findInString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

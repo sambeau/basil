@@ -409,7 +409,7 @@ func TestUnknownStdlibModule(t *testing.T) {
 	}
 
 	errMsg := result.(*evaluator.Error).Message
-	if !strings.Contains(errMsg, "unknown standard library module") {
+	if !strings.Contains(strings.ToLower(errMsg), strings.ToLower("unknown standard library module")) {
 		t.Errorf("expected 'unknown standard library module' error, got %q", errMsg)
 	}
 }
