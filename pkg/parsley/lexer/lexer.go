@@ -307,6 +307,14 @@ type Lexer struct {
 	inRawTextTag  string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
 }
 
+// truncate returns the first n characters of a string, adding "..." if truncated.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
 // New creates a new lexer instance
 func New(input string) *Lexer {
 	l := &Lexer{
@@ -698,8 +706,14 @@ func (l *Lexer) NextToken() Token {
 	case '"':
 		line := l.line
 		column := l.column
-		tok.Type = STRING
-		tok.Literal = l.readString()
+		str, terminated := l.readString()
+		if !terminated {
+			tok.Type = ILLEGAL
+			tok.Literal = fmt.Sprintf("unterminated string starting with \"%s\"", truncate(str, 20))
+		} else {
+			tok.Type = STRING
+			tok.Literal = str
+		}
 		tok.Line = line
 		tok.Column = column
 	case '`':
@@ -1151,12 +1165,14 @@ func buildMoneyLiteral(currency string, amount int64, scale int8) string {
 	return result
 }
 
-// readString reads a string literal with escape sequence support
-func (l *Lexer) readString() string {
+// readString reads a string literal with escape sequence support.
+// Returns the string content and whether it was terminated properly.
+// Strings cannot span multiple lines (use template literals for that).
+func (l *Lexer) readString() (string, bool) {
 	var result []byte
 	l.readChar() // skip opening quote
 
-	for l.ch != '"' && l.ch != 0 {
+	for l.ch != '"' && l.ch != 0 && l.ch != '\n' {
 		if l.ch == '\\' {
 			l.readChar() // consume backslash
 			switch l.ch {
@@ -1179,7 +1195,9 @@ func (l *Lexer) readString() string {
 		l.readChar()
 	}
 
-	return string(result)
+	// Check if string was properly terminated
+	terminated := l.ch == '"'
+	return string(result), terminated
 }
 
 // readTemplate reads a template literal (backtick string)

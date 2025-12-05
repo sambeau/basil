@@ -259,13 +259,7 @@ func TestDatabaseLargeResultSet(t *testing.T) {
 func TestDatabaseDataTypes(t *testing.T) {
 	input := `
 		let db = SQLITE(":memory:")
-		let _ = db <=!=> "CREATE TABLE test_types (
-			id INTEGER PRIMARY KEY,
-			int_val INTEGER,
-			float_val REAL,
-			text_val TEXT,
-			blob_val BLOB
-		)"
+		let _ = db <=!=> ` + "`CREATE TABLE test_types (\n\t\t\tid INTEGER PRIMARY KEY,\n\t\t\tint_val INTEGER,\n\t\t\tfloat_val REAL,\n\t\t\ttext_val TEXT,\n\t\t\tblob_val BLOB\n\t\t)`" + `
 		
 		let _ = db <=!=> "INSERT INTO test_types (int_val, float_val, text_val) VALUES (42, 3.14, 'hello')"
 		
