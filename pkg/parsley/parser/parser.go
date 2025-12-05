@@ -1754,7 +1754,12 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 		column = p.prevToken.Column + len(p.prevToken.Literal)
 	}
 
-	p.addError(fmt.Sprintf("unexpected '%s'", literal), line, column)
+	// ILLEGAL tokens already contain a descriptive error message, use it directly
+	if t == lexer.ILLEGAL {
+		p.addError(literal, line, column)
+	} else {
+		p.addError(fmt.Sprintf("unexpected '%s'", literal), line, column)
+	}
 }
 
 // checkKeywordTypo checks if an identifier is a common misspelling of a keyword
