@@ -2,7 +2,7 @@
 id: PLAN-018
 feature: FEAT-029
 title: "Implementation Plan for Try Expression"
-status: draft
+status: complete
 created: 2025-12-05
 ---
 
@@ -205,23 +205,23 @@ Steps:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
-- [ ] Documentation updated
-- [ ] FEAT-029 status updated to `implemented`
-- [ ] BACKLOG.md updated with deferrals (if any)
+- [x] Documentation updated
+- [x] FEAT-029 status updated to `implemented`
+- [x] BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Lexer | ⬜ Not Started | |
-| | Task 2: AST | ⬜ Not Started | |
-| | Task 3: Parser | ⬜ Not Started | |
-| | Task 4: isCatchableError | ⬜ Not Started | |
-| | Task 5: Evaluator | ⬜ Not Started | |
-| | Task 6: Tests | ⬜ Not Started | |
-| | Task 7: Documentation | ⬜ Not Started | |
+| 2025-12-05 | Task 1: Lexer | ✅ Complete | Added TRY token and keyword |
+| 2025-12-05 | Task 2: AST | ✅ Complete | Added TryExpression struct |
+| 2025-12-05 | Task 3: Parser | ✅ Complete | Added parseTryExpression, validates call expr |
+| 2025-12-05 | Task 4: isCatchableError | ✅ Complete | Added IsCatchable() method on ErrorClass |
+| 2025-12-05 | Task 5: Evaluator | ✅ Complete | Added evalTryExpression |
+| 2025-12-05 | Task 6: Tests | ✅ Complete | Created try_test.go with 14 tests |
+| 2025-12-05 | Task 7: Documentation | ✅ Complete | Updated reference.md and CHEATSHEET.md |
 
 ## Notes
 

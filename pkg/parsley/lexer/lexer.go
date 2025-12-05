@@ -97,6 +97,7 @@ const (
 	ELSE     // "else"
 	RETURN   // "return"
 	EXPORT   // "export"
+	TRY      // "try"
 )
 
 // Token represents a single token
@@ -260,6 +261,8 @@ func (tt TokenType) String() string {
 		return "RETURN"
 	case EXPORT:
 		return "EXPORT"
+	case TRY:
+		return "TRY"
 	default:
 		return "UNKNOWN"
 	}
@@ -282,6 +285,7 @@ var keywords = map[string]TokenType{
 	"and":      AND,
 	"or":       OR,
 	"not":      BANG,
+	"try":      TRY,
 }
 
 // LookupIdent checks if an identifier is a keyword

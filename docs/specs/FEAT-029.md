@@ -1,7 +1,7 @@
 ---
 id: FEAT-029
 title: "Try Expression for Catchable Errors"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-05
 author: "@human"
@@ -16,15 +16,15 @@ Add a `try` expression that wraps function/method calls and catches "user errors
 As a Parsley developer, I want to catch and handle runtime errors from user input and I/O operations so that my scripts can gracefully handle failures without crashing, while still getting immediate feedback on bugs in my code.
 
 ## Acceptance Criteria
-- [ ] `try` keyword parses before function/method call expressions
-- [ ] `try func()` returns `{result: <value>, error: null}` on success
-- [ ] `try func()` returns `{result: null, error: <message>}` on catchable error
-- [ ] Catchable errors: IO, Network, Database, Format, Value, Security classes
-- [ ] Non-catchable errors: Type, Arity, Undefined, Parse, Internal, Operator classes
-- [ ] Works with destructuring: `let {result, error} = try func()`
-- [ ] Nested calls are wrapped: `try outer(inner(x))` catches errors from both
-- [ ] `try` on non-call expression is a syntax error
-- [ ] Error message includes original error details
+- [x] `try` keyword parses before function/method call expressions
+- [x] `try func()` returns `{result: <value>, error: null}` on success
+- [x] `try func()` returns `{result: null, error: <message>}` on catchable error
+- [x] Catchable errors: IO, Network, Database, Format, Value, Security classes
+- [x] Non-catchable errors: Type, Arity, Undefined, Parse, Internal, Operator classes
+- [x] Works with destructuring: `let {result, error} = try func()`
+- [x] Nested calls are wrapped: `try outer(inner(x))` catches errors from both
+- [x] `try` on non-call expression is a syntax error
+- [x] Error message includes original error details
 
 ## Design Decisions
 

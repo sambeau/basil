@@ -21,6 +21,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Regex](#regex)
 - [Modules](#modules)
 - [Tags](#tags)
+- [Error Handling](#error-handling)
 - [Utility Functions](#utility-functions)
 - [Go Library](#go-library)
 
@@ -2175,6 +2176,100 @@ let color = "blue"
 ```parsley
 tag("div", {class: "box"}, "content")
 // Creates tag dictionary, use toString() to render
+```
+
+---
+
+## Error Handling
+
+### The `try` Expression
+
+The `try` expression catches runtime errors from function and method calls, returning a dictionary with `result` and `error` fields instead of halting execution.
+
+**Grammar:**
+
+```
+try_expr ::= "try" call_expr
+call_expr ::= identifier "(" arguments? ")"
+            | expression "." identifier "(" arguments? ")"
+```
+
+**Syntax:**
+
+```parsley
+let response = try functionCall()
+let {result, error} = try obj.method()
+```
+
+**Return Value:**
+
+On success:
+```parsley
+{result: <return_value>, error: null}
+```
+
+On catchable error:
+```parsley
+{result: null, error: "Error message"}
+```
+
+**Example:**
+
+```parsley
+// Try a function that might fail
+let {result, error} = try url("not a valid url")
+
+if (error != null) {
+    log("Failed to parse URL: {error}")
+} else {
+    log("Parsed URL: {result}")
+}
+
+// Using null coalescing for defaults
+let parsed = (try time("maybe-invalid")).result ?? now()
+```
+
+### Catchable vs Non-Catchable Errors
+
+Not all errors can be caught. The `try` expression only catches "user errors" - failures from external factors that cannot be validated in advance.
+
+**Catchable Errors** (caught by `try`):
+| Class | Description | Example |
+|-------|-------------|---------|
+| IO | File operations | File not found, permission denied |
+| Network | HTTP, SFTP | Connection refused, timeout |
+| Database | SQL operations | Query syntax error, connection lost |
+| Format | Parsing/conversion | Invalid JSON, malformed URL |
+| Value | Invalid values | Empty required field |
+| Security | Access control | Path traversal attempt |
+
+**Non-Catchable Errors** (always halt execution):
+| Class | Description | Why Not Catchable |
+|-------|-------------|-------------------|
+| Type | Type mismatch | Validate with `typeof()` |
+| Arity | Wrong argument count | Code structure issue |
+| Undefined | Name not found | Spelling error |
+| Index | Out of bounds | Check `array.length()` first |
+| Operator | Invalid operation | Code logic error |
+| Parse | Syntax error | Fix the code |
+| Internal | Interpreter bug | Report as bug |
+
+**Design Philosophy:**
+
+> If you can check before calling, you should. If external factors can fail unexpectedly, `try` catches it.
+
+**Examples:**
+
+```parsley
+// These CAN be caught (external failures)
+let {result, error} = try url("user-provided-input")
+let {result, error} = try time("user-date-string")
+let {result, error} = try file.read()
+
+// These CANNOT be caught (fix your code instead)
+try url(123)        // Type error - url() expects string
+try time()          // Arity error - missing argument
+try undefined()     // Undefined error - function doesn't exist
 ```
 
 ---

@@ -113,6 +113,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.FOR, p.parseForExpression)
+	p.registerPrefix(lexer.TRY, p.parseTryExpression)
 	p.registerPrefix(lexer.LBRACE, p.parseDictionaryLiteral)
 
 	// Initialize infix parse functions
@@ -1203,6 +1204,33 @@ func isVoidElement(tag string) bool {
 
 func (p *Parser) parseBoolean() ast.Expression {
 	return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(lexer.TRUE)}
+}
+
+func (p *Parser) parseTryExpression() ast.Expression {
+	expression := &ast.TryExpression{Token: p.curToken}
+
+	p.nextToken()
+
+	// Parse the expression after 'try'
+	call := p.parseExpression(PREFIX)
+
+	// Validate that it's a call expression (function or method call)
+	switch call.(type) {
+	case *ast.CallExpression:
+		// Direct function call: try func()
+		expression.Call = call
+	default:
+		// Not a call expression - give helpful error
+		p.addErrorWithHints(
+			"Try requires a function or method call",
+			expression.Token.Line, expression.Token.Column,
+			"try can only wrap function calls like: try func()",
+			"try can only wrap method calls like: try obj.method()",
+		)
+		return nil
+	}
+
+	return expression
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {

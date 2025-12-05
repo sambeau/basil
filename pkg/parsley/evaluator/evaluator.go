@@ -7360,6 +7360,9 @@ func Eval(node ast.Node, env *Environment) Object {
 			}
 		}
 		return evalSliceExpression(left, start, end)
+
+	case *ast.TryExpression:
+		return evalTryExpression(node, env)
 	}
 
 	perr := perrors.New("INTERNAL-0002", map[string]any{"Type": fmt.Sprintf("%T", node)})
@@ -11350,6 +11353,44 @@ func evalStringSliceExpression(str, start, end Object) Object {
 
 	// Create the slice
 	return &String{Value: stringObject.Value[startIdx:endIdx]}
+}
+
+// evalTryExpression evaluates a try expression.
+// It catches "user errors" (IO, Network, Database, Format, Value, Security) and
+// returns them in a {result, error} dictionary instead of halting execution.
+// "Developer errors" (Type, Arity, Undefined, etc.) are propagated unchanged.
+func evalTryExpression(node *ast.TryExpression, env *Environment) Object {
+	// Evaluate the call expression
+	result := Eval(node.Call, env)
+
+	// If it's an error, check if it's catchable
+	if err, ok := result.(*Error); ok {
+		// Convert evaluator.Error class to perrors.ErrorClass to check catchability
+		perrClass := perrors.ErrorClass(err.Class)
+		if perrClass.IsCatchable() {
+			// Wrap in {result: null, error: <message>} dictionary
+			pairs := make(map[string]ast.Expression)
+			pairs["result"] = &ast.ObjectLiteralExpression{Obj: NULL}
+			pairs["error"] = &ast.ObjectLiteralExpression{Obj: &String{Value: err.Message}}
+			return &Dictionary{
+				Pairs:    pairs,
+				KeyOrder: []string{"result", "error"},
+				Env:      env,
+			}
+		}
+		// Non-catchable error - propagate unchanged
+		return err
+	}
+
+	// Success - wrap in {result: <value>, error: null} dictionary
+	pairs := make(map[string]ast.Expression)
+	pairs["result"] = &ast.ObjectLiteralExpression{Obj: result}
+	pairs["error"] = &ast.ObjectLiteralExpression{Obj: NULL}
+	return &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: []string{"result", "error"},
+		Env:      env,
+	}
 }
 
 // evalDictionaryLiteral evaluates dictionary literals

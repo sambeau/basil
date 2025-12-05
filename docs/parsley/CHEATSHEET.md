@@ -508,17 +508,43 @@ conn.close()
 ## 🔧 Common Patterns
 
 ### Error Handling
+
+**For file operations, use capture pattern:**
 ```parsley
-// Capture pattern
 let {data, error} <== JSON(@./file.json)
 if (error) {
     log("Failed:", error)
     return
 }
 log("Success:", data)
+```
 
-// Fallback pattern
-let config <== JSON(@./config.json) ?? {default: "settings"}
+**For function/method calls, use `try` expression:**
+```parsley
+// try returns {result, error} dictionary
+let {result, error} = try url("user-input")
+if (error != null) {
+    log("Invalid URL:", error)
+    return
+}
+log("Parsed:", result)
+
+// With null coalescing for defaults
+let parsed = (try time("maybe-invalid")).result ?? now()
+```
+
+**Catchable errors (caught by `try`):**
+- IO, Network, Database, Format, Value, Security
+
+**Non-catchable errors (fix your code):**
+- Type, Arity, Undefined, Index, Parse (these are bugs)
+
+```parsley
+// ❌ CANNOT catch type errors - validate first
+try url(123)        // Type error propagates (crashes)
+
+// ✅ CAN catch format errors - external input may fail  
+try url(":::bad:::") // Format error caught in {error}
 ```
 
 ### Map/Filter

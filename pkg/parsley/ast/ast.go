@@ -1064,3 +1064,19 @@ func (ib *InterpolationBlock) String() string {
 	out.WriteString("}")
 	return out.String()
 }
+
+// TryExpression represents a try expression that catches "user errors"
+// and returns a {result, error} dictionary instead of halting.
+type TryExpression struct {
+	Token lexer.Token // The 'try' token
+	Call  Expression  // Must be a CallExpression (function or method call)
+}
+
+func (te *TryExpression) expressionNode()      {}
+func (te *TryExpression) TokenLiteral() string { return te.Token.Literal }
+func (te *TryExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("try ")
+	out.WriteString(te.Call.String())
+	return out.String()
+}

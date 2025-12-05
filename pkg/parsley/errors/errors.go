@@ -34,6 +34,18 @@ const (
 	ClassValue     ErrorClass = "value"     // Invalid value (e.g., negative, empty)
 )
 
+// IsCatchable returns true if errors of this class can be caught by try expressions.
+// Catchable errors are "user errors" - external factors that can't be validated before calling.
+// Non-catchable errors are "developer errors" - logic bugs that should halt execution.
+func (ec ErrorClass) IsCatchable() bool {
+	switch ec {
+	case ClassIO, ClassNetwork, ClassDatabase, ClassFormat, ClassValue, ClassSecurity:
+		return true
+	default:
+		return false
+	}
+}
+
 // ParsleyError represents any error from parsing or evaluation.
 type ParsleyError struct {
 	Class   ErrorClass     `json:"class"`           // Error category
