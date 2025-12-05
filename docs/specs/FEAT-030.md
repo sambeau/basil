@@ -97,6 +97,63 @@ Most flexible but complex. Probably overkill.
 
 **Recommendation**: Start with Option A. Can extend later if needed.
 
+### Why Not Just Return `{result, error}`?
+
+An alternative to `error()` is having functions manually return a `{result, error}` dictionary:
+
+```parsley
+// Manual approach
+let validate = fn(email) {
+  if (!email.contains("@")) {
+    {result: null, error: "Invalid email format"}
+  } else {
+    {result: email, error: null}
+  }
+}
+let {result, error} = validate("bad")  // No try needed
+```
+
+**Comparison:**
+
+| Aspect | `error()` | Manual `{result, error}` |
+|--------|-----------|-------------------------|
+| Call site | `try validate(x)` | `validate(x)` |
+| Forgetting to handle | Uncaught error crashes | Silent `null` propagates |
+| Propagation | Automatic through call stack | Must manually pass up |
+| Return type | Normal type (string) | Always dict |
+| Composition | Works with existing code | Caller must know pattern |
+
+**The Big Win: Automatic Propagation**
+
+```parsley
+// With error() - propagates automatically
+let step1 = fn(x) { if (x < 0) { error("negative") }; x }
+let step2 = fn(x) { step1(x) * 2 }
+let step3 = fn(x) { step2(x) + 1 }
+
+let {result, error} = try step3(-5)  // Catches error from step1!
+```
+
+```parsley
+// With manual return - tedious, error-prone
+let step1 = fn(x) { 
+  if (x < 0) { {result: null, error: "negative"} } 
+  else { {result: x, error: null} }
+}
+let step2 = fn(x) { 
+  let {result, error} = step1(x)
+  if (error) { {result: null, error: error} }  // Must forward!
+  else { {result: result * 2, error: null} }
+}
+// ... and so on for every layer
+```
+
+**When to use each:**
+- **Use `error()`**: Failure is exceptional but expected; you want automatic propagation; caller might forget to check
+- **Use manual `{result, error}`**: Both outcomes are equally "normal" (e.g., lookup that may not find); returning multiple values anyway
+
+The `error()` approach is essentially Go's `if err != nil { return err }` pattern, but automatic.
+
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
 
