@@ -211,23 +211,20 @@ The `fail()` approach is essentially Go's `if err != nil { return err }` pattern
     return newStructuredError(
         ctx,
         errors.Value,      // Always Value class
-        "USER-0001",       // Or generate dynamically?
+        "USER-0001",       // Fixed code for all user errors
         msg.Value,
         nil,               // No extra details
     )
 }
 ```
 
-### Open Questions
+### Resolved Questions
 
-1. **Error code**: Should user errors have a fixed code like `USER-0001`, or should users be able to specify a code? Fixed is simpler.
+1. **Error code**: Fixed `USER-0001` for all user errors. If more sophisticated error codes are needed in the future, we can extend the signature then.
 
-2. **Stack trace**: Should the error include a stack trace showing where `fail()` was called? Would help debugging but adds complexity.
+2. **Stack trace**: No stack trace for MVP. Parsley errors don't currently include stack traces; adding them would be a broader effort.
 
-3. **Type coercion**: If given a non-string, should we:
-   - Return Type error (strict)
-   - Coerce to string via `.toString()` (lenient)
-   - Recommend: strict (Type error) to encourage good practices
+3. **Type coercion**: Strict — `fail()` requires a string argument. Non-strings produce a Type error. Use `fail(string(value))` if coercion is needed.
 
 ## Related
 - FEAT-029: Try expression (prerequisite)
