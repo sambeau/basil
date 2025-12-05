@@ -293,6 +293,7 @@ let name = "World"
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.length()` | Array length | `[1,2,3].length()` → `3` |
+| `.insert(i, v)` | Insert before index | `[1,3].insert(1, 2)` → `[1,2,3]` |
 | `.sort()` | Sort ascending | `[3,1,2].sort()` → `[1,2,3]` |
 | `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
 | `.shuffle()` | Random order | `[1,2,3].shuffle()` → `[2,3,1]` |
@@ -398,6 +399,8 @@ arr[?-99]    // null
 | `.values()` | All values | `{a:1}.values()` → `[1]` |
 | `.has(key)` | Key exists | `{a:1}.has("a")` → `true` |
 | `.delete(key)` | Remove key | `d.delete("a")` → removes key `a` |
+| `.insertAfter(k, newK, v)` | Insert after key | `{a:1,c:3}.insertAfter("a","b",2)` → `{a:1,b:2,c:3}` |
+| `.insertBefore(k, newK, v)` | Insert before key | `{b:2,c:3}.insertBefore("b","a",1)` → `{a:1,b:2,c:3}` |
 
 ### Access
 
@@ -2723,6 +2726,11 @@ let t = table(data)
 | `.avg(col)` | Average of numeric values in column |
 | `.min(col)` | Minimum value in column |
 | `.max(col)` | Maximum value in column |
+| `.appendRow(row)` | Append row to end of table |
+| `.insertRowAt(i, row)` | Insert row before index |
+| `.appendCol(name, values\|fn)` | Append column with values or computed |
+| `.insertColAfter(col, name, values\|fn)` | Insert column after existing |
+| `.insertColBefore(col, name, values\|fn)` | Insert column before existing |
 | `.toHTML()` | Render as HTML table string |
 | `.toCSV()` | Render as CSV string (RFC 4180) |
 
@@ -2782,6 +2790,31 @@ table(data).toCSV()
 // "age","dept","name"
 // 30,"Engineering","Alice"
 // ...
+```
+
+**Row Operations:**
+```parsley
+// Append a new row
+let t2 = table(data).appendRow({name: "Dave", age: 28, dept: "HR"})
+
+// Insert row at specific position
+let t3 = table(data).insertRowAt(1, {name: "Eve", age: 32, dept: "Sales"})
+```
+
+**Column Operations:**
+```parsley
+// Append column with values array
+let t = table([{name: "Alice"}, {name: "Bob"}])
+let withAge = t.appendCol("age", [30, 25])
+
+// Append computed column using function
+let withInitials = t.appendCol("initial", fn(row) { row.name[0] })
+
+// Insert column after existing column
+let withMiddle = t.insertColAfter("name", "middle", ["M.", "R."])
+
+// Insert column before existing column
+let withId = t.insertColBefore("name", "id", [1, 2])
 ```
 
 ---

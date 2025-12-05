@@ -739,6 +739,308 @@ func tableRows(t *Table) Object {
 	return &Array{Elements: elements}
 }
 
+// ============================================================================
+// Table Insert/Append Methods
+// ============================================================================
+
+// tableAppendRow appends a row to the table, returns new table
+func tableAppendRow(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("appendRow", len(args), 1)
+	}
+
+	row, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0012", "appendRow", "a dictionary", args[0].Type())
+	}
+
+	// Validate row has required columns (for non-empty tables)
+	if len(t.Columns) > 0 {
+		rowKeys := row.Keys()
+		if err := validateRowColumns(rowKeys, t.Columns, "appendRow"); err != nil {
+			return err
+		}
+	}
+
+	// Create new table with row appended
+	newRows := make([]*Dictionary, len(t.Rows)+1)
+	copy(newRows, t.Rows)
+	newRows[len(t.Rows)] = row
+
+	// Determine columns (from new row if table was empty)
+	newColumns := t.Columns
+	if len(newColumns) == 0 {
+		newColumns = row.Keys()
+	}
+
+	return &Table{Rows: newRows, Columns: newColumns}
+}
+
+// tableInsertRowAt inserts a row at a specific index, returns new table
+func tableInsertRowAt(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("insertRowAt", len(args), 2)
+	}
+
+	idxObj, ok := args[0].(*Integer)
+	if !ok {
+		return newTypeError("TYPE-0012", "insertRowAt", "an integer", args[0].Type())
+	}
+
+	row, ok := args[1].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0012", "insertRowAt", "a dictionary", args[1].Type())
+	}
+
+	idx := int(idxObj.Value)
+	length := len(t.Rows)
+
+	// Handle negative indices
+	if idx < 0 {
+		idx = length + idx
+	}
+
+	// Bounds check: index must be in [0, length]
+	if idx < 0 || idx > length {
+		return newIndexError("INDEX-0001", map[string]any{"Index": idxObj.Value, "Length": length})
+	}
+
+	// Validate row has required columns (for non-empty tables)
+	if len(t.Columns) > 0 {
+		rowKeys := row.Keys()
+		if err := validateRowColumns(rowKeys, t.Columns, "insertRowAt"); err != nil {
+			return err
+		}
+	}
+
+	// Create new table with row inserted
+	newRows := make([]*Dictionary, length+1)
+	copy(newRows[:idx], t.Rows[:idx])
+	newRows[idx] = row
+	copy(newRows[idx+1:], t.Rows[idx:])
+
+	// Determine columns (from new row if table was empty)
+	newColumns := t.Columns
+	if len(newColumns) == 0 {
+		newColumns = row.Keys()
+	}
+
+	return &Table{Rows: newRows, Columns: newColumns}
+}
+
+// tableAppendCol appends a column to the table, returns new table
+// Accepts either values array or function: appendCol(name, values) or appendCol(name, fn)
+func tableAppendCol(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("appendCol", len(args), 2)
+	}
+
+	colName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "appendCol", "a string", args[0].Type())
+	}
+
+	// Check column doesn't already exist
+	for _, col := range t.Columns {
+		if col == colName.Value {
+			return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
+		}
+	}
+
+	// Get column values (either from array or by computing with function)
+	values, err := getColumnValues(args[1], t, env, "appendCol")
+	if err != nil {
+		return err
+	}
+
+	// Create new table with column appended
+	return createTableWithNewColumn(t, colName.Value, values, len(t.Columns), env)
+}
+
+// tableInsertColAfter inserts a column after an existing column, returns new table
+func tableInsertColAfter(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 3 {
+		return newArityError("insertColAfter", len(args), 3)
+	}
+
+	afterCol, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "insertColAfter", "a string (existing column)", args[0].Type())
+	}
+
+	colName, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "insertColAfter", "a string (new column)", args[1].Type())
+	}
+
+	// Find position of existing column
+	insertPos := -1
+	for i, col := range t.Columns {
+		if col == afterCol.Value {
+			insertPos = i + 1 // Insert after this column
+			break
+		}
+	}
+	if insertPos == -1 {
+		return newIndexError("INDEX-0005", map[string]any{"Key": afterCol.Value})
+	}
+
+	// Check new column doesn't already exist
+	for _, col := range t.Columns {
+		if col == colName.Value {
+			return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
+		}
+	}
+
+	// Get column values
+	values, err := getColumnValues(args[2], t, env, "insertColAfter")
+	if err != nil {
+		return err
+	}
+
+	return createTableWithNewColumn(t, colName.Value, values, insertPos, env)
+}
+
+// tableInsertColBefore inserts a column before an existing column, returns new table
+func tableInsertColBefore(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 3 {
+		return newArityError("insertColBefore", len(args), 3)
+	}
+
+	beforeCol, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "insertColBefore", "a string (existing column)", args[0].Type())
+	}
+
+	colName, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "insertColBefore", "a string (new column)", args[1].Type())
+	}
+
+	// Find position of existing column
+	insertPos := -1
+	for i, col := range t.Columns {
+		if col == beforeCol.Value {
+			insertPos = i // Insert at this position (before)
+			break
+		}
+	}
+	if insertPos == -1 {
+		return newIndexError("INDEX-0005", map[string]any{"Key": beforeCol.Value})
+	}
+
+	// Check new column doesn't already exist
+	for _, col := range t.Columns {
+		if col == colName.Value {
+			return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
+		}
+	}
+
+	// Get column values
+	values, err := getColumnValues(args[2], t, env, "insertColBefore")
+	if err != nil {
+		return err
+	}
+
+	return createTableWithNewColumn(t, colName.Value, values, insertPos, env)
+}
+
+// validateRowColumns checks that row keys match table columns
+func validateRowColumns(rowKeys, tableColumns []string, methodName string) *Error {
+	if len(rowKeys) != len(tableColumns) {
+		return newStructuredError("TYPE-0020", map[string]any{
+			"Context":  methodName + " row",
+			"Expected": fmt.Sprintf("%d columns", len(tableColumns)),
+			"Got":      fmt.Sprintf("%d columns", len(rowKeys)),
+		})
+	}
+
+	// Check all required columns exist
+	rowKeySet := make(map[string]bool)
+	for _, k := range rowKeys {
+		rowKeySet[k] = true
+	}
+	for _, col := range tableColumns {
+		if !rowKeySet[col] {
+			return newIndexError("INDEX-0005", map[string]any{"Key": col})
+		}
+	}
+
+	return nil
+}
+
+// getColumnValues gets column values from either an array or a function
+func getColumnValues(arg Object, t *Table, env *Environment, methodName string) ([]Object, *Error) {
+	switch v := arg.(type) {
+	case *Array:
+		// Values array - must match row count
+		if len(v.Elements) != len(t.Rows) {
+			return nil, newStructuredError("TYPE-0020", map[string]any{
+				"Context":  methodName + " values",
+				"Expected": fmt.Sprintf("%d values", len(t.Rows)),
+				"Got":      fmt.Sprintf("%d values", len(v.Elements)),
+			})
+		}
+		return v.Elements, nil
+
+	case *Function:
+		// Compute values by calling function with each row
+		values := make([]Object, len(t.Rows))
+		for i, row := range t.Rows {
+			extendedEnv := extendFunctionEnv(v, []Object{row})
+			var result Object
+			for _, stmt := range v.Body.Statements {
+				result = evalStatement(stmt, extendedEnv)
+				if returnValue, ok := result.(*ReturnValue); ok {
+					result = returnValue.Value
+					break
+				}
+				if isError(result) {
+					return nil, result.(*Error)
+				}
+			}
+			values[i] = result
+		}
+		return values, nil
+
+	default:
+		return nil, newTypeError("TYPE-0020", methodName, "an array or function", arg.Type())
+	}
+}
+
+// createTableWithNewColumn creates a new table with a column inserted at the given position
+func createTableWithNewColumn(t *Table, colName string, values []Object, insertPos int, env *Environment) *Table {
+	// Create new column order
+	newColumns := make([]string, len(t.Columns)+1)
+	copy(newColumns[:insertPos], t.Columns[:insertPos])
+	newColumns[insertPos] = colName
+	copy(newColumns[insertPos+1:], t.Columns[insertPos:])
+
+	// Create new rows with the new column
+	newRows := make([]*Dictionary, len(t.Rows))
+	for i, row := range t.Rows {
+		// Copy existing pairs
+		newPairs := make(map[string]ast.Expression, len(row.Pairs)+1)
+		for k, v := range row.Pairs {
+			newPairs[k] = v
+		}
+		// Add new column value
+		newPairs[colName] = objectToExpression(values[i])
+
+		// Create new key order with column inserted at correct position
+		newKeyOrder := make([]string, len(newColumns))
+		copy(newKeyOrder, newColumns)
+
+		newRows[i] = &Dictionary{
+			Pairs:    newPairs,
+			KeyOrder: newKeyOrder,
+			Env:      env,
+		}
+	}
+
+	return &Table{Rows: newRows, Columns: newColumns}
+}
+
 // EvalTableMethod dispatches method calls on Table objects
 func EvalTableMethod(t *Table, method string, args []Object, env *Environment) Object {
 	switch method {
@@ -764,8 +1066,21 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableToHTML(t, args, env)
 	case "toCSV":
 		return tableToCSV(t, args, env)
+	case "appendRow":
+		return tableAppendRow(t, args, env)
+	case "insertRowAt":
+		return tableInsertRowAt(t, args, env)
+	case "appendCol":
+		return tableAppendCol(t, args, env)
+	case "insertColAfter":
+		return tableInsertColAfter(t, args, env)
+	case "insertColBefore":
+		return tableInsertColBefore(t, args, env)
 	default:
-		return unknownMethodError(method, "Table", []string{"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max", "toHTML", "toCSV"})
+		return unknownMethodError(method, "Table", []string{
+			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
+			"toHTML", "toCSV", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+		})
 	}
 }
 

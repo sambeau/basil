@@ -309,6 +309,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "dot notation can only be used on dictionaries, got {{.Got}}",
 	},
+	"TYPE-0023": {
+		Class:    ClassType,
+		Template: "key '{{.Key}}' already exists in dictionary",
+	},
 
 	// ========================================
 	// Arity errors (ARITY-0xxx)

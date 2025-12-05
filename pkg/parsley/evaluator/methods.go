@@ -31,7 +31,7 @@ var arrayMethods = []string{
 	"length", "reverse", "push", "pop", "shift", "unshift", "slice", "concat",
 	"includes", "indexOf", "join", "sort", "first", "last", "map", "filter",
 	"reduce", "unique", "flatten", "find", "findIndex", "every", "some", "groupBy",
-	"count", "countBy", "maxBy", "minBy", "sortBy", "take", "skip", "zip",
+	"count", "countBy", "maxBy", "minBy", "sortBy", "take", "skip", "zip", "insert",
 }
 
 // integerMethods lists all methods available on integer
@@ -354,6 +354,36 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		}
 		return FALSE
 
+	case "insert":
+		// insert(index, value) - returns new array with value inserted before index
+		// Supports negative indices (e.g., -1 = before last element)
+		if len(args) != 2 {
+			return newArityError("insert", len(args), 2)
+		}
+		idxObj, ok := args[0].(*Integer)
+		if !ok {
+			return newTypeError("TYPE-0012", "insert", "an integer", args[0].Type())
+		}
+		idx := int(idxObj.Value)
+		length := len(arr.Elements)
+
+		// Handle negative indices
+		if idx < 0 {
+			idx = length + idx
+		}
+
+		// Bounds check: index must be in [0, length] (inclusive of length for append)
+		if idx < 0 || idx > length {
+			return newIndexError("INDEX-0001", map[string]any{"Index": idxObj.Value, "Length": length})
+		}
+
+		// Create new array with element inserted
+		newElements := make([]Object, length+1)
+		copy(newElements[:idx], arr.Elements[:idx])
+		newElements[idx] = args[1]
+		copy(newElements[idx+1:], arr.Elements[idx:])
+		return &Array{Elements: newElements}
+
 	default:
 		return unknownMethodError(method, "array", arrayMethods)
 	}
@@ -627,9 +657,105 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		dict.DeleteKey(key.Value)
 		return NULL
 
+	case "insertAfter":
+		// insertAfter(existingKey, newKey, value) - returns new dictionary with k/v inserted after existingKey
+		if len(args) != 3 {
+			return newArityError("insertAfter", len(args), 3)
+		}
+		existingKey, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "insertAfter", "a string (existing key)", args[0].Type())
+		}
+		newKey, ok := args[1].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "insertAfter", "a string (new key)", args[1].Type())
+		}
+		// Check existing key exists
+		if _, exists := dict.Pairs[existingKey.Value]; !exists {
+			return newIndexError("INDEX-0005", map[string]any{"Key": existingKey.Value})
+		}
+		// Check new key doesn't exist
+		if _, exists := dict.Pairs[newKey.Value]; exists {
+			return newStructuredError("TYPE-0023", map[string]any{"Key": newKey.Value})
+		}
+		return insertDictKeyAfter(dict, existingKey.Value, newKey.Value, args[2], env)
+
+	case "insertBefore":
+		// insertBefore(existingKey, newKey, value) - returns new dictionary with k/v inserted before existingKey
+		if len(args) != 3 {
+			return newArityError("insertBefore", len(args), 3)
+		}
+		existingKey, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "insertBefore", "a string (existing key)", args[0].Type())
+		}
+		newKey, ok := args[1].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "insertBefore", "a string (new key)", args[1].Type())
+		}
+		// Check existing key exists
+		if _, exists := dict.Pairs[existingKey.Value]; !exists {
+			return newIndexError("INDEX-0005", map[string]any{"Key": existingKey.Value})
+		}
+		// Check new key doesn't exist
+		if _, exists := dict.Pairs[newKey.Value]; exists {
+			return newStructuredError("TYPE-0023", map[string]any{"Key": newKey.Value})
+		}
+		return insertDictKeyBefore(dict, existingKey.Value, newKey.Value, args[2], env)
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
+	}
+}
+
+// insertDictKeyAfter creates a new dictionary with a key-value pair inserted after an existing key
+func insertDictKeyAfter(dict *Dictionary, afterKey, newKey string, value Object, env *Environment) *Dictionary {
+	// Build new key order with newKey inserted after afterKey
+	newKeyOrder := make([]string, 0, len(dict.KeyOrder)+1)
+	for _, k := range dict.Keys() {
+		newKeyOrder = append(newKeyOrder, k)
+		if k == afterKey {
+			newKeyOrder = append(newKeyOrder, newKey)
+		}
+	}
+
+	// Copy pairs and add new pair
+	newPairs := make(map[string]ast.Expression, len(dict.Pairs)+1)
+	for k, v := range dict.Pairs {
+		newPairs[k] = v
+	}
+	newPairs[newKey] = objectToExpression(value)
+
+	return &Dictionary{
+		Pairs:    newPairs,
+		KeyOrder: newKeyOrder,
+		Env:      env,
+	}
+}
+
+// insertDictKeyBefore creates a new dictionary with a key-value pair inserted before an existing key
+func insertDictKeyBefore(dict *Dictionary, beforeKey, newKey string, value Object, env *Environment) *Dictionary {
+	// Build new key order with newKey inserted before beforeKey
+	newKeyOrder := make([]string, 0, len(dict.KeyOrder)+1)
+	for _, k := range dict.Keys() {
+		if k == beforeKey {
+			newKeyOrder = append(newKeyOrder, newKey)
+		}
+		newKeyOrder = append(newKeyOrder, k)
+	}
+
+	// Copy pairs and add new pair
+	newPairs := make(map[string]ast.Expression, len(dict.Pairs)+1)
+	for k, v := range dict.Pairs {
+		newPairs[k] = v
+	}
+	newPairs[newKey] = objectToExpression(value)
+
+	return &Dictionary{
+		Pairs:    newPairs,
+		KeyOrder: newKeyOrder,
+		Env:      env,
 	}
 }
 
