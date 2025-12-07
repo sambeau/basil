@@ -145,8 +145,6 @@ Tests:
 | 2025-12-07 | Task 3: publicUrl() Builtin | ✅ Complete | public_url.go |
 | 2025-12-07 | Task 4: Server Wiring | ✅ Complete | |
 | 2025-12-07 | Task 5: Documentation | ✅ Complete | reference.md, CHEATSHEET.md |
-| | Task 4: Server Wiring | ⬜ Not started | |
-| | Task 5: Documentation | ⬜ Not started | |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:

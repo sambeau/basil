@@ -30,14 +30,14 @@ Bundlers like Webpack/Vite handle this by copying assets to the output folder an
 3. Doesn't require copying files around
 
 ## Acceptance Criteria
-- [ ] `publicUrl(@./path)` returns a public URL string for the file
-- [ ] URLs are content-hashed for cache-busting (file changes → URL changes)
-- [ ] Files are served from original location (no copying)
-- [ ] Aggressive cache headers: `Cache-Control: public, max-age=31536000, immutable`
-- [ ] Warning logged for files >10MB
-- [ ] Error returned for files >100MB (guide users to `public/` folder)
-- [ ] Registry cleared on server reload (SIGHUP)
-- [ ] Works in both `routes:` and `site:` modes
+- [x] `publicUrl(@./path)` returns a public URL string for the file
+- [x] URLs are content-hashed for cache-busting (file changes → URL changes)
+- [x] Files are served from original location (no copying)
+- [x] Aggressive cache headers: `Cache-Control: public, max-age=31536000, immutable`
+- [x] Warning logged for files >10MB
+- [x] Error returned for files >100MB (guide users to `public/` folder)
+- [x] Registry cleared on server reload (SIGHUP)
+- [ ] Works in both `routes:` and `site:` modes (site mode pending FEAT-040)
 
 ## Design Decisions
 
