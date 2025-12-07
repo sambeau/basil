@@ -7,7 +7,7 @@
   
   if basil.auth.user {
     <p>Click below to sign out of your account.</p>
-    <PasskeyLogout
+    <basil.auth.Logout
       text="Sign out"
       redirect="/"
       method="button"

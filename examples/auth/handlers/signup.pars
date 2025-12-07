@@ -14,7 +14,7 @@ if basil.auth.user {
     <h1>Create Account</h1>
     <p>Create your account using a passkey. No password needed!</p>
     
-    <PasskeyRegister
+    <basil.auth.Register
       name_placeholder="Your name"
       email_placeholder="Email (optional)"
       button_text="Create account"
