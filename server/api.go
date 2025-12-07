@@ -60,9 +60,14 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"},
 	}
 
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path)
 	env.SetProtected("basil", basilObj)
 	env.BasilCtx = basilObj
+
+	// Set fragment cache and handler path for <basil.cache.Cache> component
+	env.FragmentCache = h.server.fragmentCache
+	env.HandlerPath = h.route.Path
+	env.DevMode = h.server.config.Server.Dev
 
 	if h.server.devLog != nil {
 		env.DevLog = h.server.devLog

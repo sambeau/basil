@@ -41,6 +41,18 @@ import (
 	"golang.org/x/text/number"
 )
 
+// FragmentCacher is the interface for fragment caching in the evaluator.
+// This allows the server package to provide cache implementation without
+// creating a circular dependency.
+type FragmentCacher interface {
+	// Get returns cached HTML fragment and true on hit, empty string and false on miss
+	Get(key string) (string, bool)
+	// Set stores a fragment in the cache with the given TTL
+	Set(key string, html string, maxAge time.Duration)
+	// Invalidate removes a specific cache entry
+	Invalidate(key string)
+}
+
 // Database connection cache
 var (
 	dbConnectionsMu sync.RWMutex
@@ -543,19 +555,22 @@ var DefaultLogger Logger = &defaultStdoutLogger{}
 
 // Environment represents the environment for variable bindings
 type Environment struct {
-	store       map[string]Object
-	outer       *Environment
-	Filename    string
-	RootPath    string // Handler root directory for @~/ path resolution
-	LastToken   *lexer.Token
-	letBindings map[string]bool // tracks which variables were declared with 'let'
-	exports     map[string]bool // tracks which variables were explicitly exported
-	protected   map[string]bool // tracks which variables cannot be reassigned
-	Security    *SecurityPolicy // File system security policy
-	Logger      Logger          // Logger for log()/logLine() output
-	importStack map[string]bool // tracks modules being imported (for circular dep detection)
-	DevLog      DevLogWriter    // Dev log writer (nil in production mode)
-	BasilCtx    Object          // Basil server context (request, db, auth, etc.)
+	store         map[string]Object
+	outer         *Environment
+	Filename      string
+	RootPath      string // Handler root directory for @~/ path resolution
+	LastToken     *lexer.Token
+	letBindings   map[string]bool // tracks which variables were declared with 'let'
+	exports       map[string]bool // tracks which variables were explicitly exported
+	protected     map[string]bool // tracks which variables cannot be reassigned
+	Security      *SecurityPolicy // File system security policy
+	Logger        Logger          // Logger for log()/logLine() output
+	importStack   map[string]bool // tracks modules being imported (for circular dep detection)
+	DevLog        DevLogWriter    // Dev log writer (nil in production mode)
+	BasilCtx      Object          // Basil server context (request, db, auth, etc.)
+	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
+	HandlerPath   string          // Current handler path for cache key namespacing
+	DevMode       bool            // Whether dev mode is enabled (affects caching)
 }
 
 // NewEnvironment creates a new environment
@@ -572,7 +587,7 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename, token, logger, devlog, basilctx, and root path from outer environment
+	// Preserve filename, token, logger, devlog, basilctx, fragment cache, handler path, and root path from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.RootPath = outer.RootPath
@@ -580,6 +595,9 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.Logger = outer.Logger
 		env.DevLog = outer.DevLog
 		env.BasilCtx = outer.BasilCtx
+		env.FragmentCache = outer.FragmentCache
+		env.HandlerPath = outer.HandlerPath
+		env.DevMode = outer.DevMode
 	}
 	return env
 }
@@ -7220,6 +7238,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.TryExpression:
 		return evalTryExpression(node, env)
+
+	case *ast.ImportExpression:
+		return evalImportExpression(node, env)
 	}
 
 	perr := perrors.New("INTERNAL-0002", map[string]any{"Type": fmt.Sprintf("%T", node)})
@@ -8337,34 +8358,58 @@ func CallWithEnv(fn Object, args []Object, env *Environment) Object {
 	return applyFunctionWithEnv(fn, args, env)
 }
 
-// evalImport implements the import(path) builtin
-func evalImport(args []Object, env *Environment) Object {
-	if len(args) != 1 {
-		return newArityError("import", len(args), 1)
+// evalImportExpression implements the new import @path syntax.
+// Unlike the old import("path") function call, this:
+// - Takes path directly from AST (no string arg)
+// - Auto-binds to environment when used as a statement
+// - Supports "as Alias" syntax
+func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
+	// Evaluate the path expression to get the path string
+	pathObj := Eval(node.Path, env)
+	if isError(pathObj) {
+		return pathObj
 	}
 
-	// Extract path string from argument (handle both path dictionaries and strings)
+	// Convert to string - handles StdlibPathLiteral, PathLiteral, PathTemplateLiteral, etc.
 	var pathStr string
-	switch arg := args[0].(type) {
+	switch p := pathObj.(type) {
+	case *String:
+		pathStr = p.Value
 	case *Dictionary:
-		// Handle path literal (@/path/to/file.pars)
-		if typeExpr, ok := arg.Pairs["__type"]; ok {
-			typeVal := Eval(typeExpr, arg.Env)
+		// Handle path literal dictionary (@./path/to/file)
+		if typeExpr, ok := p.Pairs["__type"]; ok {
+			typeVal := Eval(typeExpr, p.Env)
 			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
-				pathStr = pathDictToString(arg)
+				pathStr = pathDictToString(p)
 			} else {
-				return newTypeError("TYPE-0012", "import", "a path or string", DICTIONARY_OBJ)
+				return newTypeError("TYPE-0012", "import", "a path", DICTIONARY_OBJ)
 			}
 		} else {
-			return newTypeError("TYPE-0012", "import", "a path or string", DICTIONARY_OBJ)
+			return newTypeError("TYPE-0012", "import", "a path", DICTIONARY_OBJ)
 		}
-	case *String:
-		pathStr = arg.Value
 	default:
-		return newTypeError("TYPE-0012", "import", "a path or string", arg.Type())
+		return newTypeError("TYPE-0012", "import", "a path", pathObj.Type())
 	}
 
-	// Check for standard library imports (@std/modulename)
+	// Load the module using the shared import logic
+	module := importModule(pathStr, env)
+	if isError(module) {
+		return module
+	}
+
+	// Auto-bind to environment if we have a bind name
+	// This happens when import is used as a statement (not destructuring assignment)
+	if node.BindName != "" {
+		env.Set(node.BindName, module)
+	}
+
+	return module
+}
+
+// importModule is the shared logic for loading a module by path string.
+// Used by both evalImport (old syntax) and evalImportExpression (new syntax).
+func importModule(pathStr string, env *Environment) Object {
+	// Check for standard library imports (std/modulename)
 	if strings.HasPrefix(pathStr, "std/") {
 		moduleName := strings.TrimPrefix(pathStr, "std/")
 		return loadStdlibModule(moduleName, env)
@@ -8421,7 +8466,7 @@ func evalImport(args []Object, env *Environment) Object {
 	if errs := p.StructuredErrors(); len(errs) > 0 {
 		// Return the first parse error with file info preserved
 		perr := errs[0]
-		err := &Error{
+		parseErr := &Error{
 			Class:   ClassParse,
 			Code:    perr.Code,
 			Message: perr.Message,
@@ -8431,7 +8476,7 @@ func evalImport(args []Object, env *Environment) Object {
 			File:    absPath,
 			Data:    perr.Data,
 		}
-		return err
+		return parseErr
 	}
 
 	// Create isolated environment for the module
@@ -8473,6 +8518,37 @@ func evalImport(args []Object, env *Environment) Object {
 	moduleCache.mu.Unlock()
 
 	return moduleDict
+}
+
+// evalImport implements the import(path) builtin (legacy syntax)
+// Delegates to importModule after extracting the path string.
+func evalImport(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("import", len(args), 1)
+	}
+
+	// Extract path string from argument (handle both path dictionaries and strings)
+	var pathStr string
+	switch arg := args[0].(type) {
+	case *Dictionary:
+		// Handle path literal (@/path/to/file.pars)
+		if typeExpr, ok := arg.Pairs["__type"]; ok {
+			typeVal := Eval(typeExpr, arg.Env)
+			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
+				pathStr = pathDictToString(arg)
+			} else {
+				return newTypeError("TYPE-0012", "import", "a path or string", DICTIONARY_OBJ)
+			}
+		} else {
+			return newTypeError("TYPE-0012", "import", "a path or string", DICTIONARY_OBJ)
+		}
+	case *String:
+		pathStr = arg.Value
+	default:
+		return newTypeError("TYPE-0012", "import", "a path or string", arg.Type())
+	}
+
+	return importModule(pathStr, env)
 }
 
 // evalLogLine implements logLine with filename and line number
@@ -9984,6 +10060,11 @@ func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		return evalTagContents(node.Contents, env)
 	}
 
+	// Special handling for basil.cache.Cache component
+	if node.Name == "basil.cache.Cache" {
+		return evalCacheTag(node, env)
+	}
+
 	// Check if it's a custom component (starts with uppercase)
 	isCustom := len(node.Name) > 0 && unicode.IsUpper(rune(node.Name[0]))
 
@@ -9994,6 +10075,136 @@ func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		// Standard tag - return as HTML string
 		return evalStandardTagPair(node, env)
 	}
+}
+
+// evalCacheTag handles the <basil.cache.Cache> component for fragment caching.
+// It short-circuits child evaluation on cache hit, or caches the result on miss.
+func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
+	// Parse props to get key and maxAge
+	propsDict := parseTagProps(node.Props, env)
+	if isError(propsDict) {
+		return propsDict
+	}
+	props := propsDict.(*Dictionary)
+
+	// Extract 'key' attribute (required)
+	keyExpr, hasKey := props.Pairs["key"]
+	if !hasKey {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "CACHE-0001",
+			Message: "Cache component requires 'key' attribute",
+			Hints:   []string{"Add a key attribute: <basil.cache.Cache key=\"sidebar\">"},
+			Line:    node.Token.Line,
+			Column:  node.Token.Column,
+		}
+	}
+	keyObj := Eval(keyExpr, env)
+	if isError(keyObj) {
+		return keyObj
+	}
+	keyStr, ok := keyObj.(*String)
+	if !ok {
+		return &Error{
+			Class:   ClassType,
+			Code:    "CACHE-0002",
+			Message: "Cache key must be a string",
+			Hints:   []string{"Use a string value for key: key=\"sidebar\" or key={\"user-\" + id}"},
+			Line:    node.Token.Line,
+			Column:  node.Token.Column,
+		}
+	}
+
+	// Extract 'maxAge' attribute (required)
+	maxAgeExpr, hasMaxAge := props.Pairs["maxAge"]
+	if !hasMaxAge {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "CACHE-0003",
+			Message: "Cache component requires 'maxAge' attribute",
+			Hints:   []string{"Add a duration: <basil.cache.Cache key=\"sidebar\" maxAge={@1h}>"},
+			Line:    node.Token.Line,
+			Column:  node.Token.Column,
+		}
+	}
+	maxAgeObj := Eval(maxAgeExpr, env)
+	if isError(maxAgeObj) {
+		return maxAgeObj
+	}
+
+	// Duration is represented as a Dictionary with __type="duration", months, seconds
+	maxAgeDict, ok := maxAgeObj.(*Dictionary)
+	if !ok || !isDurationDict(maxAgeDict) {
+		return &Error{
+			Class:   ClassType,
+			Code:    "CACHE-0004",
+			Message: "Cache maxAge must be a duration",
+			Hints:   []string{"Use a duration literal: maxAge={@1h} or maxAge={@15m}"},
+			Line:    node.Token.Line,
+			Column:  node.Token.Column,
+		}
+	}
+
+	// Extract duration components (months not used for cache TTL, only seconds)
+	_, seconds, err := getDurationComponents(maxAgeDict, env)
+	if err != nil {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "CACHE-0005",
+			Message: fmt.Sprintf("Invalid duration: %v", err),
+			Line:    node.Token.Line,
+			Column:  node.Token.Column,
+		}
+	}
+	maxAgeDuration := time.Duration(seconds) * time.Second
+
+	// Extract optional 'enabled' attribute (defaults to true)
+	enabled := true
+	if enabledExpr, hasEnabled := props.Pairs["enabled"]; hasEnabled {
+		enabledObj := Eval(enabledExpr, env)
+		if isError(enabledObj) {
+			return enabledObj
+		}
+		if enabledBool, ok := enabledObj.(*Boolean); ok {
+			enabled = enabledBool.Value
+		}
+	}
+
+	// Build full cache key: {handler_path}:{user_key}
+	fullKey := env.HandlerPath + ":" + keyStr.Value
+
+	// Check if caching is disabled (dev mode or enabled=false)
+	if env.DevMode || !enabled {
+		// Dev mode: skip caching and evaluate children normally
+		// TODO: Add dev logging when DevLogWriter interface supports cache logging
+		return evalTagContents(node.Contents, env)
+	}
+
+	// Check if fragment cache is available
+	if env.FragmentCache == nil {
+		// No cache available, evaluate children normally
+		return evalTagContents(node.Contents, env)
+	}
+
+	// Check cache for hit
+	if cached, hit := env.FragmentCache.Get(fullKey); hit {
+		// Cache hit - return cached HTML without evaluating children
+		return &String{Value: cached}
+	}
+
+	// Cache miss - evaluate children
+	result := evalTagContents(node.Contents, env)
+	if isError(result) {
+		return result
+	}
+
+	// Get HTML string from result
+	html := objectToTemplateString(result)
+
+	// Store in cache
+	env.FragmentCache.Set(fullKey, html, maxAgeDuration)
+
+	return &String{Value: html}
 }
 
 // evalStandardTagPair evaluates a standard (lowercase) tag pair as HTML string

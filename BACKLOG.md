@@ -38,6 +38,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| Fragment cache DevTools integration | FEAT-037 | Not MVP | Add `/__/cache` page showing cache stats (entries, hits, misses, hit rate, size) with clear button. `FragmentCacheStats` and `Stats()` method already exist in `fragment_cache.go`. |
 | std/math: Advanced statistics | FEAT-031 | Niche | percentile, quartile, correlation, z-score - add based on demand from data-focused users |
 | std/math: Hyperbolic functions | FEAT-031 | Niche | sinh, cosh, tanh - rare use case for most users |
 | std/math: Special functions | FEAT-031 | Niche | gamma, factorial - mathematical niche |

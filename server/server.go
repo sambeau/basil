@@ -32,6 +32,7 @@ type Server struct {
 	server        *http.Server
 	scriptCache   *scriptCache
 	responseCache *responseCache
+	fragmentCache *fragmentCache
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
@@ -61,6 +62,7 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		mux:           http.NewServeMux(),
 		scriptCache:   newScriptCache(cfg.Server.Dev),
 		responseCache: newResponseCache(cfg.Server.Dev),
+		fragmentCache: newFragmentCache(cfg.Server.Dev, 1000),
 		rateLimiter:   newRateLimiter(60, time.Minute),
 	}
 
@@ -297,6 +299,7 @@ func (s *Server) initGit() error {
 		s.logInfo("git push received, reloading handlers...")
 		s.scriptCache.clear()
 		s.responseCache.Clear()
+		s.fragmentCache.Clear()
 	}
 
 	gitHandler, err := NewGitHandler(siteDir, s.authDB, s.config, onPush, s.stdout, s.stderr)
@@ -537,13 +540,14 @@ func (s *Server) createRootHandler() http.Handler {
 	})
 }
 
-// ReloadScripts clears the script cache and response cache, forcing all scripts
-// to be re-parsed and responses to be regenerated.
+// ReloadScripts clears the script cache, response cache, and fragment cache,
+// forcing all scripts to be re-parsed and responses to be regenerated.
 // This is useful for production deployments when scripts are updated.
 // In dev mode, this also triggers browser reload via the live reload mechanism.
 func (s *Server) ReloadScripts() {
 	s.scriptCache.clear()
 	s.responseCache.Clear()
+	s.fragmentCache.Clear()
 	// Trigger browser reload if watcher is active (dev mode)
 	if s.watcher != nil {
 		s.watcher.TriggerReload()
