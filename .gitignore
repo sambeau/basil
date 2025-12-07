@@ -28,3 +28,6 @@ tubbo
 dev_logs_*.db
 dev_logs_*.db-wal
 dev_logs_*.db-shm
+
+# Ulysses app metadata
+.Ulysses-Group.plist
