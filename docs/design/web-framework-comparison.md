@@ -28,7 +28,7 @@
 | Raw body | `php://input` | `req.body` (middleware) | `request.body.read` | `request.raw_post` | ✅ `basil.http.request.body` | |
 | Form data | `$_POST` | `req.body` (middleware) | `params` | `params` | ✅ `basil.http.request.form` | |
 | File uploads | `$_FILES` | `req.files` (multer) | `params[:file]` | `params[:file]` | ✅ `basil.http.request.files` | |
-| **Cookies** | `$_COOKIE` | `req.cookies` | `request.cookies` | `cookies` | ❌ **Missing** | FEAT-043 |
+| **Cookies** | `$_COOKIE` | `req.cookies` | `request.cookies` | `cookies` | ✅ `basil.http.request.cookies` | FEAT-043 |
 | Client IP | `$_SERVER['REMOTE_ADDR']` | `req.ip` | `request.ip` | `request.remote_ip` | ✅ `basil.http.request.remoteAddr` | |
 | Host | `$_SERVER['HTTP_HOST']` | `req.hostname` | `request.host` | `request.host` | ✅ `basil.http.request.host` | |
 
@@ -38,7 +38,7 @@
 |---------|-----|---------|---------|-------|-------|-------|
 | Status code | `http_response_code()` | `res.status()` | `status 404` | `head :not_found` | ✅ `basil.http.response.status` | |
 | Headers | `header()` | `res.set()` | `headers[]` | `response.headers[]` | ✅ `basil.http.response.headers` | |
-| **Set cookies** | `setcookie()` | `res.cookie()` | `response.set_cookie()` | `cookies[]` | ❌ **Missing** | FEAT-043 |
+| **Set cookies** | `setcookie()` | `res.cookie()` | `response.set_cookie()` | `cookies[]` | ✅ `basil.http.response.cookies` | FEAT-043 |
 | **Redirect** | `header('Location:')` | `res.redirect()` | `redirect()` | `redirect_to()` | ⚠️ **Manual** | FEAT-045 |
 | Send file | `readfile()` | `res.sendFile()` | `send_file()` | `send_file()` | ⚠️ Via file I/O | |
 | JSON response | `json_encode()` | `res.json()` | `json()` | `render json:` | ✅ Auto-detected | |

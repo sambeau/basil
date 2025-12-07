@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sambeau/basil/auth"
 	"github.com/sambeau/basil/config"
@@ -220,7 +221,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract response metadata from basil.http.response
-	responseMeta := extractResponseMeta(env)
+	responseMeta := extractResponseMeta(env, h.server.config.Server.Dev)
 
 	// Handle the response (with caching if enabled)
 	h.writeResponseWithCache(w, r, &parsley.Result{Value: result}, responseMeta)
@@ -239,6 +240,7 @@ func setEnvVar(env *evaluator.Environment, name string, value interface{}) {
 type responseMeta struct {
 	status  int
 	headers map[string]string
+	cookies []*http.Cookie
 }
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
@@ -269,6 +271,7 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 			"response": map[string]interface{}{
 				"status":  int64(200),
 				"headers": map[string]interface{}{},
+				"cookies": map[string]interface{}{},
 			},
 		},
 		"auth":       authCtx,
@@ -300,10 +303,11 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 }
 
 // extractResponseMeta reads basil.http.response from the environment after script execution
-func extractResponseMeta(env *evaluator.Environment) *responseMeta {
+func extractResponseMeta(env *evaluator.Environment, devMode bool) *responseMeta {
 	meta := &responseMeta{
 		status:  200,
 		headers: make(map[string]string),
+		cookies: make([]*http.Cookie, 0),
 	}
 
 	// Get basil object from environment
@@ -348,7 +352,135 @@ func extractResponseMeta(env *evaluator.Environment) *responseMeta {
 		}
 	}
 
+	// Extract cookies
+	if cookies, ok := responseMap["cookies"].(map[string]interface{}); ok {
+		for name, value := range cookies {
+			cookie := buildCookie(name, value, devMode)
+			if cookie != nil {
+				meta.cookies = append(meta.cookies, cookie)
+			}
+		}
+	}
+
 	return meta
+}
+
+// buildCookie creates an http.Cookie from a Parsley cookie value.
+// The value can be a simple string (uses secure defaults) or a dict with options.
+//
+// Supported options:
+//   - value: string (required if dict)
+//   - maxAge: duration dict or int64 (seconds)
+//   - expires: datetime dict
+//   - path: string (default: "/")
+//   - domain: string
+//   - secure: bool (default: false in dev, true in prod)
+//   - httpOnly: bool (default: true)
+//   - sameSite: string ("Strict", "Lax", "None") (default: "Lax")
+func buildCookie(name string, value interface{}, devMode bool) *http.Cookie {
+	cookie := &http.Cookie{
+		Name:     name,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	// Set Secure default based on mode
+	if !devMode {
+		cookie.Secure = true
+	}
+
+	switch v := value.(type) {
+	case string:
+		// Simple string value
+		cookie.Value = v
+	case map[string]interface{}:
+		// Dict with options
+		if val, ok := v["value"].(string); ok {
+			cookie.Value = val
+		} else if val, ok := v["value"]; ok {
+			cookie.Value = fmt.Sprintf("%v", val)
+		}
+
+		// maxAge can be a duration dict or int64
+		if maxAge, ok := v["maxAge"]; ok {
+			cookie.MaxAge = durationToSeconds(maxAge)
+		}
+
+		// expires is a datetime dict
+		if expires, ok := v["expires"].(map[string]interface{}); ok {
+			if unix, ok := expires["unix"].(int64); ok {
+				cookie.Expires = time.Unix(unix, 0)
+			}
+		}
+
+		// path
+		if path, ok := v["path"].(string); ok {
+			cookie.Path = path
+		}
+
+		// domain
+		if domain, ok := v["domain"].(string); ok {
+			cookie.Domain = domain
+		}
+
+		// secure
+		if secure, ok := v["secure"].(bool); ok {
+			cookie.Secure = secure
+		}
+
+		// httpOnly
+		if httpOnly, ok := v["httpOnly"].(bool); ok {
+			cookie.HttpOnly = httpOnly
+		}
+
+		// sameSite
+		if sameSite, ok := v["sameSite"].(string); ok {
+			switch strings.ToLower(sameSite) {
+			case "strict":
+				cookie.SameSite = http.SameSiteStrictMode
+			case "lax":
+				cookie.SameSite = http.SameSiteLaxMode
+			case "none":
+				cookie.SameSite = http.SameSiteNoneMode
+				// SameSite=None requires Secure=true
+				cookie.Secure = true
+			}
+		}
+	default:
+		// Unknown type, convert to string
+		cookie.Value = fmt.Sprintf("%v", value)
+	}
+
+	return cookie
+}
+
+// durationToSeconds converts a Parsley duration value to seconds.
+// Accepts duration dicts (with months/seconds or totalSeconds) or int64.
+func durationToSeconds(value interface{}) int {
+	switch v := value.(type) {
+	case int64:
+		return int(v)
+	case int:
+		return v
+	case float64:
+		return int(v)
+	case map[string]interface{}:
+		// Parsley duration dict - check for totalSeconds first
+		if totalSeconds, ok := v["totalSeconds"].(int64); ok {
+			return int(totalSeconds)
+		}
+		// Fall back to seconds field (for simple durations)
+		if seconds, ok := v["seconds"].(int64); ok {
+			// If months are present, we can't accurately convert to seconds
+			// (months have variable length). Use an approximation of 30 days.
+			if months, ok := v["months"].(int64); ok && months > 0 {
+				return int(months*30*24*60*60 + seconds)
+			}
+			return int(seconds)
+		}
+	}
+	return 0
 }
 
 // buildRequestContext creates the request object passed to Parsley scripts
@@ -360,11 +492,18 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		}
 	}
 
+	// Parse cookies into a simple name→value map
+	cookies := make(map[string]interface{})
+	for _, c := range r.Cookies() {
+		cookies[c.Name] = c.Value
+	}
+
 	ctx := map[string]interface{}{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"query":      queryToMap(r.URL.Query()),
 		"headers":    headers,
+		"cookies":    cookies,
 		"host":       r.Host,
 		"remoteAddr": r.RemoteAddr,
 	}
@@ -566,6 +705,11 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 	// Apply response headers from basil.http.response.headers
 	for k, v := range meta.headers {
 		w.Header().Set(k, v)
+	}
+
+	// Apply response cookies from basil.http.response.cookies
+	for _, cookie := range meta.cookies {
+		http.SetCookie(w, cookie)
 	}
 
 	// Determine if we need a custom status code

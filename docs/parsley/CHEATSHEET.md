@@ -980,6 +980,40 @@ log(result)
 
 ## Basil Server Functions
 
+### Cookies
+
+**Reading cookies:**
+```parsley
+let theme = basil.http.request.cookies.theme ?? "light"
+let all = basil.http.request.cookies  // dict of all cookies
+```
+
+**Setting cookies:**
+```parsley
+// Simple value (secure defaults)
+basil.http.response.cookies.theme = "dark"
+
+// With options
+basil.http.response.cookies.remember = {
+    value: token,
+    maxAge: @30d,           // Duration literal
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict"
+}
+
+// Delete cookie
+basil.http.response.cookies.old = {value: "", maxAge: @0s}
+```
+
+**Gotchas:**
+- ❌ In dev mode, `secure` defaults to `false` (for localhost)
+- ✅ In production, `secure` defaults to `true`
+- ✅ `httpOnly: true` always (XSS protection)
+- ❌ `sameSite: "None"` requires `secure: true` (auto-set)
+
+---
+
 ### Site Mode - Filesystem-Based Routing
 
 Configure in YAML:

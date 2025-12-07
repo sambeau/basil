@@ -3528,6 +3528,130 @@ if (len(errors) == 0) {
 
 These functions are only available when running Parsley scripts in Basil server handlers.
 
+### The `basil` Namespace
+
+When running in Basil, scripts have access to the `basil` global object which provides HTTP request/response handling, authentication context, and server utilities.
+
+#### basil.http.request
+
+Contains information about the incoming HTTP request.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `method` | String | HTTP method (GET, POST, etc.) |
+| `path` | String | URL path |
+| `query` | Dict | Query string parameters |
+| `headers` | Dict | HTTP headers |
+| `cookies` | Dict | Request cookies (name → value) |
+| `body` | String | Raw request body (POST/PUT/PATCH) |
+| `form` | Dict | Parsed form data (POST/PUT/PATCH) |
+| `files` | Dict | Uploaded files metadata |
+| `host` | String | Request host |
+| `remoteAddr` | String | Client IP address |
+| `subpath` | Path | Remaining path in site mode |
+
+**Reading cookies:**
+```parsley
+// Access all cookies as a dict
+let cookies = basil.http.request.cookies
+let theme = cookies.theme ?? "light"
+
+// Direct access
+let sessionId = basil.http.request.cookies.session_id
+```
+
+#### basil.http.response
+
+Control the HTTP response status, headers, and cookies.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `status` | Int | 200 | HTTP status code |
+| `headers` | Dict | {} | Response headers |
+| `cookies` | Dict | {} | Cookies to set |
+
+**Setting response status and headers:**
+```parsley
+basil.http.response.status = 404
+basil.http.response.headers["X-Custom"] = "value"
+basil.http.response.headers["Content-Type"] = "application/json"
+```
+
+**Setting cookies:**
+
+Cookies can be set as simple strings (using secure defaults) or as dicts with options:
+
+```parsley
+// Simple value (uses secure defaults)
+basil.http.response.cookies.theme = "dark"
+
+// With options
+basil.http.response.cookies.remember_token = {
+    value: token,
+    maxAge: @30d,           // Duration literal for 30 days
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict"
+}
+
+// Delete a cookie (maxAge: 0)
+basil.http.response.cookies.old_cookie = {value: "", maxAge: @0s}
+```
+
+**Cookie options:**
+
+| Option | Type | Default (prod) | Default (dev) | Description |
+|--------|------|----------------|---------------|-------------|
+| `value` | String | required | required | Cookie value |
+| `maxAge` | Duration/Int | session | session | Seconds until expiry |
+| `expires` | DateTime | — | — | Absolute expiry time |
+| `path` | String | `"/"` | `"/"` | URL path scope |
+| `domain` | String | — | — | Domain scope |
+| `secure` | Bool | `true` | `false` | HTTPS only |
+| `httpOnly` | Bool | `true` | `true` | No JavaScript access |
+| `sameSite` | String | `"Lax"` | `"Lax"` | `"Strict"`, `"Lax"`, or `"None"` |
+
+**Security notes:**
+- In production, `secure` defaults to `true` (HTTPS only)
+- In dev mode, `secure` defaults to `false` for localhost testing
+- `httpOnly` always defaults to `true` to prevent XSS attacks
+- Setting `sameSite: "None"` automatically enables `secure: true`
+
+#### basil.auth
+
+Authentication context (when auth is enabled).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | Bool | Whether auth is required for this route |
+| `user` | Dict/null | Authenticated user or null |
+
+**User object (when authenticated):**
+```parsley
+if (basil.auth.user != null) {
+    let user = basil.auth.user
+    log("User: {user.name} ({user.email})")
+    log("ID: {user.id}")
+    log("Joined: {user.created}")
+}
+```
+
+#### basil.context
+
+A mutable dict for passing data between handlers and modules:
+
+```parsley
+basil.context.pageTitle = "Dashboard"
+basil.context.breadcrumbs = ["Home", "Dashboard"]
+```
+
+#### basil.public_dir
+
+The public directory for this route (if configured).
+
+---
+
 ### Site Mode (Filesystem-Based Routing)
 
 Basil supports filesystem-based routing via the `site:` configuration option. Instead of explicit route definitions, requests are routed to `index.pars` files based on the URL path.

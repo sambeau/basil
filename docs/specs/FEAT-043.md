@@ -1,7 +1,7 @@
 ---
 id: FEAT-043
 title: "Cookie Support"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-07
 author: "@human"
@@ -16,13 +16,13 @@ Add the ability to read and set HTTP cookies from Parsley handlers. Cookies are 
 As a Parsley developer, I want to read and set cookies so that I can persist client-side state across requests without requiring authentication.
 
 ## Acceptance Criteria
-- [ ] `basil.http.request.cookies` is a dict of cookie name → value (strings)
-- [ ] `basil.http.response.cookies` can be assigned to set cookies
-- [ ] Cookie options supported: `value`, `maxAge`, `expires`, `path`, `domain`, `secure`, `httpOnly`, `sameSite`
-- [ ] Setting a cookie with `maxAge: 0` or past `expires` deletes it
-- [ ] Cookies are properly URL-encoded/decoded
-- [ ] HttpOnly and Secure default to `true` in production mode
-- [ ] Documentation updated
+- [x] `basil.http.request.cookies` is a dict of cookie name → value (strings)
+- [x] `basil.http.response.cookies` can be assigned to set cookies
+- [x] Cookie options supported: `value`, `maxAge`, `expires`, `path`, `domain`, `secure`, `httpOnly`, `sameSite`
+- [x] Setting a cookie with `maxAge: 0` or past `expires` deletes it
+- [x] Cookies are properly URL-encoded/decoded
+- [x] HttpOnly and Secure default to `true` in production mode
+- [x] Documentation updated
 
 ## Design Decisions
 
