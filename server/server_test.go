@@ -199,7 +199,7 @@ func TestParsleyRouteWithMapResponse(t *testing.T) {
 			Dev:  true,
 		},
 		Routes: []config.Route{
-			{Path: "/api", Handler: scriptPath},
+			{Path: "/data", Handler: scriptPath},
 		},
 		Logging: config.LoggingConfig{
 			Level:  "info",
@@ -216,7 +216,7 @@ func TestParsleyRouteWithMapResponse(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/api", nil)
+	req := httptest.NewRequest("GET", "/data", nil)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)

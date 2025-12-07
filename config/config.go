@@ -106,6 +106,7 @@ type Route struct {
 	Auth      string        `yaml:"auth"`       // "required", "optional", or empty
 	Cache     time.Duration `yaml:"cache"`      // Response cache TTL (0 = no cache)
 	PublicDir string        `yaml:"public_dir"` // Directory for static files for this route
+	Type      string        `yaml:"type"`       // Route type: "api" for API modules, empty for page handlers
 }
 
 // LoggingConfig holds logging settings

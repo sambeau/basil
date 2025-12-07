@@ -35,6 +35,7 @@ type Server struct {
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
+	rateLimiter   *rateLimiter
 
 	// Dev tools (nil if not in dev mode)
 	devLog *DevLog
@@ -57,6 +58,7 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		mux:           http.NewServeMux(),
 		scriptCache:   newScriptCache(cfg.Server.Dev),
 		responseCache: newResponseCache(cfg.Server.Dev),
+		rateLimiter:   newRateLimiter(60, time.Minute),
 	}
 
 	// Initialize dev tools in dev mode
@@ -300,11 +302,28 @@ func (s *Server) setupRoutes() error {
 		if route.Path == "/" {
 			continue // Handle root separately as fallback
 		}
-		handler, err := newParsleyHandler(s, route, s.scriptCache)
+
+		isAPI := isAPIRoute(route)
+		var handler http.Handler
+		var err error
+
+		if isAPI {
+			handler, err = newAPIHandler(s, route, s.scriptCache)
+		} else {
+			handler, err = newParsleyHandler(s, route, s.scriptCache)
+		}
 		if err != nil {
 			return fmt.Errorf("creating handler for %s: %w", route.Path, err)
 		}
-		finalHandler := s.applyAuthMiddleware(handler, route.Auth)
+
+		authMode := route.Auth
+		if isAPI && authMode == "" {
+			// For API routes, always run OptionalAuth to populate context without forcing login;
+			// handler-level wrappers will enforce.
+			authMode = "optional"
+		}
+
+		finalHandler := s.applyAuthMiddleware(handler, authMode)
 
 		// If route has public_dir, wrap with static file fallback
 		if route.PublicDir != "" {
@@ -312,6 +331,10 @@ func (s *Server) setupRoutes() error {
 		}
 
 		s.mux.Handle(route.Path, finalHandler)
+		// For API routes, also register with trailing slash to handle sub-paths (e.g., /api/todos/123)
+		if isAPI && !strings.HasSuffix(route.Path, "/") {
+			s.mux.Handle(route.Path+"/", finalHandler)
+		}
 	}
 
 	// Create fallback handler for "/" that serves:
@@ -321,6 +344,24 @@ func (s *Server) setupRoutes() error {
 	s.mux.Handle("/", s.createRootHandler())
 
 	return nil
+}
+
+// isAPIRoute determines whether the route should be handled as an API module.
+func isAPIRoute(route config.Route) bool {
+	if strings.EqualFold(route.Type, "api") {
+		return true
+	}
+
+	path := strings.TrimSuffix(route.Path, "/")
+	if path == "" {
+		path = "/"
+	}
+
+	if path == "/api" || strings.HasPrefix(path, "/api/") {
+		return true
+	}
+
+	return false
 }
 
 // applyAuthMiddleware wraps a handler with appropriate auth middleware

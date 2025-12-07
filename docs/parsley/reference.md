@@ -3220,6 +3220,243 @@ map(32, 32, 212, 0, 100)   // 0 (32°F = 0°C)
 map(212, 32, 212, 0, 100)  // 100 (212°F = 100°C)
 ```
 
+### Validation Module (`std/valid`)
+
+The Validation module provides functions for validating user input, form data, and common formats.
+
+#### Importing
+
+```parsley
+// Import specific validators
+let {email, minLen, positive} = import("std/valid")
+
+// Import entire module
+let valid = import("std/valid")
+valid.email("test@example.com")  // true
+```
+
+#### Type Validators
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `string(x)` | True if x is a string | `string("hello")` → `true` |
+| `number(x)` | True if x is int or float | `number(3.14)` → `true` |
+| `integer(x)` | True if x is an integer | `integer(42)` → `true` |
+| `boolean(x)` | True if x is boolean | `boolean(true)` → `true` |
+| `array(x)` | True if x is an array | `array([1,2])` → `true` |
+| `dict(x)` | True if x is a dictionary | `dict({a:1})` → `true` |
+
+```parsley
+let valid = import("std/valid")
+
+valid.string("hello")   // true
+valid.string(123)       // false
+valid.number(3.14)      // true
+valid.number("3.14")    // false (string)
+valid.integer(42)       // true
+valid.integer(3.14)     // false
+```
+
+#### String Validators
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `empty(x)` | True if string is empty or whitespace | `empty("  ")` → `true` |
+| `minLen(x, n)` | True if length ≥ n | `minLen("hello", 3)` → `true` |
+| `maxLen(x, n)` | True if length ≤ n | `maxLen("hi", 10)` → `true` |
+| `length(x, min, max)` | True if min ≤ length ≤ max | `length("hello", 1, 10)` → `true` |
+| `matches(x, regex)` | True if x matches regex | `matches("abc", "^[a-z]+$")` → `true` |
+| `alpha(x)` | True if only letters a-z, A-Z | `alpha("Hello")` → `true` |
+| `alphanumeric(x)` | True if only letters and digits | `alphanumeric("abc123")` → `true` |
+| `numeric(x)` | True if parseable as number | `numeric("123.45")` → `true` |
+
+```parsley
+let valid = import("std/valid")
+
+// Form validation example
+let username = "alice123"
+let password = "secret"
+
+valid.minLen(username, 3)         // true - at least 3 chars
+valid.maxLen(username, 20)        // true - at most 20 chars
+valid.alphanumeric(username)      // true - only letters/digits
+valid.length(password, 6, 100)    // true - 6-100 chars
+
+// Unicode support (counts runes, not bytes)
+valid.minLen("日本語", 3)           // true - 3 characters
+```
+
+#### Number Validators
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `min(x, n)` | True if x ≥ n | `min(5, 1)` → `true` |
+| `max(x, n)` | True if x ≤ n | `max(5, 10)` → `true` |
+| `between(x, lo, hi)` | True if lo ≤ x ≤ hi | `between(5, 1, 10)` → `true` |
+| `positive(x)` | True if x > 0 | `positive(5)` → `true` |
+| `negative(x)` | True if x < 0 | `negative(-5)` → `true` |
+
+```parsley
+let valid = import("std/valid")
+
+// Age validation
+let age = 25
+valid.positive(age)           // true
+valid.between(age, 0, 120)    // true
+
+// Quantity validation
+let qty = 3
+valid.min(qty, 1)             // true - at least 1
+valid.max(qty, 100)           // true - at most 100
+```
+
+#### Format Validators
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `email(x)` | Basic email format | `email("test@example.com")` → `true` |
+| `url(x)` | Valid http/https URL | `url("https://example.com")` → `true` |
+| `uuid(x)` | UUID format | `uuid("550e8400-e29b-...")` → `true` |
+| `phone(x)` | Loose phone format | `phone("+1 (555) 123-4567")` → `true` |
+| `creditCard(x)` | Luhn algorithm check | `creditCard("4111111111111111")` → `true` |
+| `time(x)` | Time format HH:MM[:SS] | `time("14:30")` → `true` |
+
+```parsley
+let valid = import("std/valid")
+
+// Contact form validation
+valid.email("user@example.com")         // true
+valid.phone("+1 (555) 123-4567")        // true
+valid.url("https://example.com")        // true
+
+// Invalid formats
+valid.email("not-an-email")             // false
+valid.url("example.com")                // false (no protocol)
+valid.phone("123")                      // false (too short)
+```
+
+#### Date Validators
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `date(x, locale?)` | Valid date (default ISO) | `date("2024-12-25")` → `true` |
+| `parseDate(x, locale)` | Parse to ISO or null | `parseDate("12/25/2024", "US")` → `"2024-12-25"` |
+
+**Supported locales:**
+- `"ISO"` (default): `YYYY-MM-DD`
+- `"US"`: `MM/DD/YYYY`
+- `"GB"`: `DD/MM/YYYY`
+
+```parsley
+let valid = import("std/valid")
+
+// ISO format (default)
+valid.date("2024-12-25")                // true
+valid.date("2024-02-30")                // false (Feb 30 doesn't exist)
+valid.date("2024-02-29")                // true (2024 is leap year)
+
+// US format (MM/DD/YYYY)
+valid.date("12/25/2024", "US")          // true
+valid.date("25/12/2024", "US")          // false (month 25 invalid)
+
+// GB format (DD/MM/YYYY)
+valid.date("25/12/2024", "GB")          // true
+
+// Parse to ISO format
+valid.parseDate("12/25/2024", "US")     // "2024-12-25"
+valid.parseDate("25/12/2024", "GB")     // "2024-12-25"
+valid.parseDate("invalid", "US")        // null
+```
+
+#### Postal Code Validator
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `postalCode(x, locale)` | Valid postal code | `postalCode("90210", "US")` → `true` |
+
+**Supported locales:**
+- `"US"`: 5-digit or 9-digit (12345 or 12345-6789)
+- `"GB"`: UK format (SW1A 1AA, M1 1AA)
+
+```parsley
+let valid = import("std/valid")
+
+// US postal codes
+valid.postalCode("90210", "US")         // true
+valid.postalCode("90210-1234", "US")    // true
+valid.postalCode("9021", "US")          // false (too short)
+
+// UK postal codes
+valid.postalCode("SW1A 1AA", "GB")      // true
+valid.postalCode("M1 1AA", "GB")        // true
+valid.postalCode("12345", "GB")         // false
+```
+
+#### Collection Validators
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `contains(arr, x)` | True if array contains value | `contains([1,2,3], 2)` → `true` |
+| `oneOf(x, options)` | True if x is in options | `oneOf("red", ["red","green"])` → `true` |
+
+```parsley
+let valid = import("std/valid")
+
+// Check if value is in allowed list
+let color = "red"
+valid.oneOf(color, ["red", "green", "blue"])  // true
+
+// Check array membership
+let cart = ["apple", "banana", "orange"]
+valid.contains(cart, "apple")                  // true
+valid.contains(cart, "grape")                  // false
+```
+
+#### Complete Form Validation Example
+
+```parsley
+let valid = import("std/valid")
+
+// Validate a registration form
+let form = {
+    username: "alice123",
+    email: "alice@example.com",
+    password: "secret123",
+    age: 25,
+    country: "US",
+    zip: "90210"
+}
+
+let errors = []
+
+if (!valid.alphanumeric(form.username)) {
+    errors = errors ++ ["Username must be alphanumeric"]
+}
+if (!valid.length(form.username, 3, 20)) {
+    errors = errors ++ ["Username must be 3-20 characters"]
+}
+if (!valid.email(form.email)) {
+    errors = errors ++ ["Invalid email address"]
+}
+if (!valid.minLen(form.password, 8)) {
+    errors = errors ++ ["Password must be at least 8 characters"]
+}
+if (!valid.between(form.age, 13, 120)) {
+    errors = errors ++ ["Age must be between 13 and 120"]
+}
+if (!valid.postalCode(form.zip, form.country)) {
+    errors = errors ++ ["Invalid postal code"]
+}
+
+if (len(errors) == 0) {
+    log("Form is valid!")
+} else {
+    for (err in errors) {
+        log("Error: {err}")
+    }
+}
+```
+
 ---
 
 ## Go Library

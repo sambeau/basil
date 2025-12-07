@@ -588,19 +588,28 @@ let Button = fn({text, onClick}) {
 // Use component
 <Button text="Click Me" onClick="handleClick()"/>
 
-// With children
-let Card = fn({title}, ...children) {
+// With children (pass as array)
+let Card = fn({title, children}) {
     <div class="card">
         <h3>{title}</h3>
         {children}
     </div>
 }
 
-<Card title="Welcome">
-    <p>Body content</p>
+<Card title="Welcome" children={[
+    <p>Body content</p>,
     <p>More content</p>
-</Card>
+]}/>
+
+// Or use a slot pattern
+let Wrapper = fn({slot}) {
+    <div class="wrapper">{slot}</div>
+}
+
+<Wrapper slot={<p>Content here</p>}/>
 ```
+
+**Note:** Function rest parameters (`fn(a, ...rest)`) are not yet supported. Only dict rest destructuring works: `let {a, ...rest} = obj`.
 
 ### Modules
 ```parsley
@@ -734,6 +743,61 @@ math.hypot(3, 4)       // 5
 math.dist(0, 0, 3, 4)  // 5
 math.lerp(0, 100, 0.5) // 50
 math.map(50, 0, 100, 0, 1)  // 0.5
+```
+
+#### Validation Module (`std/valid`)
+Validators for form input and data validation. All validators return `true` or `false`.
+```parsley
+let valid = import("std/valid")
+// Or: let {email, minLen, positive} = import("std/valid")
+
+// Type validators
+valid.string("hello")              // true
+valid.number(3.14)                 // true
+valid.integer(42)                  // true
+valid.boolean(true)                // true
+valid.array([1,2,3])               // true
+valid.dict({a: 1})                 // true
+
+// String validators
+valid.empty("   ")                 // true (whitespace only)
+valid.minLen("hello", 3)           // true
+valid.maxLen("hello", 10)          // true
+valid.length("hello", 3, 10)       // true
+valid.matches("abc123", "^[a-z0-9]+$")  // true
+valid.alpha("Hello")               // true (letters only)
+valid.alphanumeric("abc123")       // true
+valid.numeric("123.45")            // true (parseable number)
+
+// Number validators
+valid.min(5, 1)                    // true (5 >= 1)
+valid.max(5, 10)                   // true (5 <= 10)
+valid.between(5, 1, 10)            // true
+valid.positive(5)                  // true (> 0)
+valid.negative(-5)                 // true (< 0)
+
+// Format validators
+valid.email("test@example.com")    // true
+valid.url("https://example.com")   // true
+valid.uuid("550e8400-e29b-41d4-...") // true
+valid.phone("+1 (555) 123-4567")   // true
+valid.creditCard("4111111111111111") // true (Luhn check)
+valid.time("14:30")                // true
+
+// Date validators (locale: "ISO", "US", "GB")
+valid.date("2024-12-25")           // true (default ISO)
+valid.date("12/25/2024", "US")     // true
+valid.date("25/12/2024", "GB")     // true
+valid.date("2024-02-30")           // false (Feb 30!)
+valid.parseDate("12/25/2024", "US") // "2024-12-25" or null
+
+// Postal codes (locale: "US", "GB")
+valid.postalCode("90210", "US")    // true
+valid.postalCode("SW1A 1AA", "GB") // true
+
+// Collection validators
+valid.contains([1,2,3], 2)         // true
+valid.oneOf("red", ["red","green","blue"]) // true
 ```
 
 ---

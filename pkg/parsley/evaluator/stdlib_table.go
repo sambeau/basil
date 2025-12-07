@@ -23,10 +23,14 @@ func (sb *StdlibBuiltin) Inspect() string  { return fmt.Sprintf("stdlib function
 // This is a function rather than a var to avoid initialization cycles
 func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
-		"table": loadTableModule,
-		"dev":   loadDevModule,
-		"basil": loadBasilModule,
-		"math":  loadMathModule,
+		"table":  loadTableModule,
+		"dev":    loadDevModule,
+		"basil":  loadBasilModule,
+		"math":   loadMathModule,
+		"valid":  loadValidModule,
+		"schema": loadSchemaModule,
+		"id":     loadIDModule,
+		"api":    loadAPIModule,
 	}
 }
 
@@ -114,7 +118,7 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 		if exportedVal, exists := mod.Exports[keyName]; exists {
 			value = exportedVal
 		} else {
-			return newImportError("IMPORT-0004", map[string]any{"Export": keyName})
+			return newUndefinedError("UNDEF-0006", map[string]any{"Name": keyName})
 		}
 
 		// Determine the target variable name (alias or original key)

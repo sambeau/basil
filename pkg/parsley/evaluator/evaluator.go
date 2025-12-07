@@ -72,8 +72,10 @@ const (
 	SFTP_CONNECTION_OBJ  = "SFTP_CONNECTION"
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
 	TABLE_OBJ            = "TABLE"
+	TABLE_BINDING_OBJ    = "TABLE_BINDING"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
+	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
 )
 
 // Object represents all values in our language
@@ -908,6 +910,17 @@ func ClearModuleCache() {
 	moduleCache.mu.Lock()
 	defer moduleCache.mu.Unlock()
 	moduleCache.modules = make(map[string]*Dictionary)
+}
+
+// ClearDBConnections closes and clears all cached database connections.
+// This is primarily used in tests to ensure isolation between test cases.
+func ClearDBConnections() {
+	dbConnectionsMu.Lock()
+	defer dbConnectionsMu.Unlock()
+	for _, db := range dbConnections {
+		db.Close()
+	}
+	dbConnections = make(map[string]*sql.DB)
 }
 
 // naturalCompare compares two objects using natural sort order
@@ -8270,6 +8283,9 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			return enrichErrorWithPos(result, env.LastToken)
 		}
 		return result
+	case *AuthWrappedFunction:
+		// Delegate to the inner function
+		return applyFunctionWithEnv(fn.Inner, args, env)
 	case *TableModule:
 		// TableModule is callable: table(arr) creates a Table from an array
 		result := TableConstructor(args, env)
@@ -8313,6 +8329,12 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		}
 		return enrichErrorWithPos(newCallError("CALL-0002", map[string]any{"Type": string(fn.Type())}), env.LastToken)
 	}
+}
+
+// CallWithEnv invokes a callable object within the provided environment.
+// This is used by external packages (e.g., server layer) to execute exported handlers.
+func CallWithEnv(fn Object, args []Object, env *Environment) Object {
+	return applyFunctionWithEnv(fn, args, env)
 }
 
 // evalImport implements the import(path) builtin
@@ -9526,6 +9548,8 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return evalTableModuleMethod(receiver, method, args, env)
 	case *Table:
 		return EvalTableMethod(receiver, method, args, env)
+	case *TableBinding:
+		return evalTableBindingMethod(receiver, method, args, env)
 	case *DBConnection:
 		return evalDBConnectionMethod(receiver, method, args, env)
 	case *SFTPConnection:
@@ -13904,6 +13928,12 @@ func environmentToDict(env *Environment) *Dictionary {
 
 	// Create dictionary with the module's environment for evaluation
 	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// ExportsToDict exposes the exported bindings of a module environment as a dictionary.
+// Intended for host callers (e.g., Basil server) that need to access module exports directly.
+func ExportsToDict(env *Environment) *Dictionary {
+	return environmentToDict(env)
 }
 
 // objectToExpression wraps an Object as an AST expression
