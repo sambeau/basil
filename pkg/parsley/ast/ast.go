@@ -1080,3 +1080,33 @@ func (te *TryExpression) String() string {
 	out.WriteString(te.Call.String())
 	return out.String()
 }
+
+// ImportExpression represents an import expression: import @path or import @path as Alias
+// When used as a statement, it auto-binds to the last path segment (or alias if provided).
+// When used in an assignment like {x} = import @path, it returns the module for destructuring.
+type ImportExpression struct {
+	Token    lexer.Token // The 'import' token
+	Path     Expression  // The path expression (StdlibPathLiteral, PathLiteral, PathTemplateLiteral, etc.)
+	Alias    *Identifier // Optional alias from "as Alias"
+	BindName string      // Name to bind to environment (computed from path or alias)
+}
+
+func (ie *ImportExpression) expressionNode()      {}
+func (ie *ImportExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *ImportExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("import @")
+	if ie.Path != nil {
+		// Strip leading @ from path string if present
+		pathStr := ie.Path.String()
+		if len(pathStr) > 0 && pathStr[0] == '@' {
+			pathStr = pathStr[1:]
+		}
+		out.WriteString(pathStr)
+	}
+	if ie.Alias != nil {
+		out.WriteString(" as ")
+		out.WriteString(ie.Alias.Value)
+	}
+	return out.String()
+}

@@ -114,6 +114,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.FOR, p.parseForExpression)
 	p.registerPrefix(lexer.TRY, p.parseTryExpression)
+	p.registerPrefix(lexer.IMPORT, p.parseImportExpression)
 	p.registerPrefix(lexer.LBRACE, p.parseDictionaryLiteral)
 
 	// Initialize infix parse functions
@@ -1231,6 +1232,114 @@ func (p *Parser) parseTryExpression() ast.Expression {
 	}
 
 	return expression
+}
+
+// parseImportExpression parses import expressions:
+//   import @std/math           -> new syntax, binds to "math"
+//   import @./local/file       -> new syntax, binds to "file"
+//   import @std/math as M      -> new syntax, binds to "M"
+//   import @(./path/{name})    -> new syntax, dynamic import
+//   import("std/math")         -> old syntax, returns call expression for backward compat
+//   import(@std/math)          -> old syntax with path literal
+func (p *Parser) parseImportExpression() ast.Expression {
+	importToken := p.curToken
+
+	p.nextToken() // consume 'import'
+
+	// Check for old syntax: import(...) - treat as function call for backward compatibility
+	if p.curTokenIs(lexer.LPAREN) {
+		// Create identifier for "import" function
+		ident := &ast.Identifier{Token: importToken, Value: "import"}
+		// Parse as call expression
+		return p.parseCallExpression(ident)
+	}
+
+	// New syntax: import @path
+	expression := &ast.ImportExpression{Token: importToken}
+
+	// Parse the path - must be a path literal token (@std/..., @./..., etc.)
+	// or a path template for dynamic imports (@(...))
+	switch p.curToken.Type {
+	case lexer.STDLIB_PATH:
+		expression.Path = &ast.StdlibPathLiteral{
+			Token: p.curToken,
+			Value: p.curToken.Literal,
+		}
+		expression.BindName = extractBindName(p.curToken.Literal)
+	case lexer.PATH_LITERAL:
+		expression.Path = &ast.PathLiteral{
+			Token: p.curToken,
+			Value: p.curToken.Literal,
+		}
+		expression.BindName = extractBindName(p.curToken.Literal)
+	case lexer.PATH_TEMPLATE:
+		expression.Path = &ast.PathTemplateLiteral{
+			Token: p.curToken,
+			Value: p.curToken.Literal,
+		}
+		// Dynamic imports can't auto-bind (name unknown at parse time)
+		expression.BindName = ""
+	default:
+		p.addErrorWithHints(
+			"Expected path after import",
+			p.curToken.Line, p.curToken.Column,
+			"Use new syntax: import @std/math",
+			"Use new syntax: import @./local/file",
+			"Old syntax import(\"path\") still works for backward compatibility",
+		)
+		return nil
+	}
+
+	// Check for optional 'as Alias'
+	if p.peekTokenIs(lexer.AS) {
+		p.nextToken() // consume 'as'
+		p.nextToken() // move to alias identifier
+		if !p.curTokenIs(lexer.IDENT) {
+			p.addErrorWithHints(
+				"Expected identifier after 'as'",
+				p.curToken.Line, p.curToken.Column,
+				"import @path as Alias - Alias must be an identifier",
+			)
+			return nil
+		}
+		expression.Alias = &ast.Identifier{
+			Token: p.curToken,
+			Value: p.curToken.Literal,
+		}
+		expression.BindName = p.curToken.Literal
+	}
+
+	return expression
+}
+
+// extractBindName extracts the binding name from a module path.
+// "std/math" -> "math"
+// "./components/Button" -> "Button"
+// "../shared/utils" -> "utils"
+func extractBindName(path string) string {
+	// Remove file extension if present
+	if idx := lastIndex(path, ".pars"); idx != -1 {
+		path = path[:idx]
+	}
+	if idx := lastIndex(path, "."); idx != -1 && idx > lastIndex(path, "/") {
+		path = path[:idx]
+	}
+
+	// Get the last segment
+	if idx := lastIndex(path, "/"); idx != -1 {
+		return path[idx+1:]
+	}
+	return path
+}
+
+// lastIndex returns the index of the last occurrence of substr in s, or -1 if not found.
+func lastIndex(s, substr string) int {
+	for i := len(s) - len(substr); i >= 0; i-- {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
