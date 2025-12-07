@@ -20,7 +20,7 @@ As a Parsley developer, I want to read and set cookies so that I can persist cli
 - [x] `basil.http.response.cookies` can be assigned to set cookies
 - [x] Cookie options supported: `value`, `maxAge`, `expires`, `path`, `domain`, `secure`, `httpOnly`, `sameSite`
 - [x] Setting a cookie with `maxAge: 0` or past `expires` deletes it
-- [x] Cookies are properly URL-encoded/decoded
+- [x] Cookies are properly URL-encoded/decoded (via Go's http package)
 - [x] HttpOnly and Secure default to `true` in production mode
 - [x] Documentation updated
 
@@ -95,10 +95,16 @@ basil.http.response.cookies.old_cookie = {value: "", maxAge: @0s}
 2. **Special characters** — Values must be URL-encoded if they contain special chars
 3. **Multiple cookies same name** — Last one wins (standard HTTP behavior)
 4. **Expired cookies** — Setting `maxAge: @0s` or past `expires` tells browser to delete
-5. **SameSite=None requires Secure** — Validate and error if `sameSite: "None"` without `secure: true`
+5. **SameSite=None requires Secure** — Automatically sets `secure: true` when `sameSite: "None"` (auto-fix rather than error)
 
 ## Implementation Notes
-*Added during/after implementation*
+
+- URL encoding/decoding handled by Go's `net/http` package (no custom encoding)
+- SameSite=None auto-fixes by setting Secure=true (better UX than erroring)
+- Duration dicts use `totalSeconds` field for accurate conversion
+- Dev mode detected via `h.server.config.Server.Dev`
+- Cookie helpers: `buildCookie()`, `durationToSeconds()` in server/handler.go
+- Tests in server/cookies_test.go
 
 ## Related
 - Blocks: FEAT-044 (CSRF Protection)
