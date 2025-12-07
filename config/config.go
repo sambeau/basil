@@ -12,6 +12,7 @@ type Config struct {
 	Dev        DevConfig                  `yaml:"dev"`
 	SQLite     string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
 	PublicDir  string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
+	Site       string                     `yaml:"site"`       // Directory for filesystem-based routing (mutually exclusive with routes)
 	Static     []StaticRoute              `yaml:"static"`
 	Routes     []Route                    `yaml:"routes"`
 	Logging    LoggingConfig              `yaml:"logging"`

@@ -3277,7 +3277,7 @@ func fileDictToPathDict(dict *Dictionary) *Dictionary {
 	return &Dictionary{
 		Pairs: map[string]ast.Expression{
 			"segments": compExpr,
-			"absolute":   absExpr,
+			"absolute": absExpr,
 		},
 		Env: dict.Env,
 	}

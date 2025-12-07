@@ -3517,6 +3517,55 @@ if (len(errors) == 0) {
 
 These functions are only available when running Parsley scripts in Basil server handlers.
 
+### Site Mode (Filesystem-Based Routing)
+
+Basil supports filesystem-based routing via the `site:` configuration option. Instead of explicit route definitions, requests are routed to `index.pars` files based on the URL path.
+
+**Configuration:**
+```yaml
+site: ./site  # Directory containing index.pars files
+# Note: site: and routes: are mutually exclusive
+```
+
+**How it works:**
+1. Given a request path like `/reports/2025/Q4/`, Basil walks back from the deepest path toward the root
+2. It finds the first directory containing an `index.pars` file
+3. That handler receives the request with `basil.http.request.subpath` containing the remaining path segments
+
+**Example directory structure:**
+```
+site/
+  index.pars           # Handles /
+  reports/
+    index.pars         # Handles /reports/, /reports/2025/, /reports/2025/Q4/
+  admin/
+    index.pars         # Handles /admin/, /admin/settings/
+    users/
+      index.pars       # Handles /admin/users/, /admin/users/123/
+```
+
+**Accessing the subpath:**
+```parsley
+// In site/reports/index.pars, for request /reports/2025/Q4/
+let subpath = basil.http.request.subpath
+
+subpath.segments       // ["2025", "Q4"]
+subpath.segments[0]    // "2025"
+subpath.segments.length() // 2
+
+// Empty subpath for exact match (request to /reports/)
+// subpath.segments would be []
+```
+
+**Trailing slash redirect:**
+Requests to directory-like paths without a trailing slash (e.g., `/reports`) are automatically redirected to `/reports/` with a 302 redirect.
+
+**Security:**
+- Path traversal attempts (`..`) are blocked (400 Bad Request)
+- Dotfile/hidden file access (`.git`, `.env`) is blocked (404 Not Found)
+
+---
+
 ### publicUrl()
 
 Makes a private file (e.g., a component asset in `modules/`) accessible via a public URL.

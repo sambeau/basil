@@ -46,12 +46,12 @@ func TestAssetRegistry_Register(t *testing.T) {
 
 func TestAssetRegistry_SameContentSameHash(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create two files with identical content
 	content := []byte("identical content")
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
-	
+
 	if err := os.WriteFile(file1, content, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestAssetRegistry_SameContentSameHash(t *testing.T) {
 func TestAssetRegistry_ModifiedFileNewHash(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
-	
+
 	// Create initial file
 	if err := os.WriteFile(testFile, []byte("original"), 0644); err != nil {
 		t.Fatal(err)
@@ -155,7 +155,7 @@ func TestAssetHandler_ServeFile(t *testing.T) {
 	url, _ := registry.Register(testFile)
 
 	handler := newAssetHandler(registry)
-	
+
 	req := httptest.NewRequest("GET", url, nil)
 	rec := httptest.NewRecorder()
 
@@ -223,7 +223,7 @@ func TestAssetHandler_ExtensionMismatch(t *testing.T) {
 func TestAssetRegistry_LargeFileSizeLimit(t *testing.T) {
 	// We can't easily test 100MB files, but we can verify the error message format
 	registry := newAssetRegistry(nil)
-	
+
 	// Non-existent file with .big extension
 	_, err := registry.Register("/tmp/nonexistent.big")
 	if err == nil {

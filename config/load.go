@@ -86,6 +86,11 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		cfg.SQLite = filepath.Join(baseDir, cfg.SQLite)
 	}
 
+	// Resolve relative site path
+	if cfg.Site != "" && !filepath.IsAbs(cfg.Site) {
+		cfg.Site = filepath.Join(baseDir, cfg.Site)
+	}
+
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
 		return nil, "", err
@@ -176,6 +181,11 @@ func validateBasic(cfg *Config) error {
 	// Server validation
 	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
 		errs = append(errs, fmt.Sprintf("invalid port: %d (must be 1-65535)", cfg.Server.Port))
+	}
+
+	// Site and routes are mutually exclusive
+	if cfg.Site != "" && len(cfg.Routes) > 0 {
+		errs = append(errs, "site and routes are mutually exclusive - use site for filesystem routing or routes for explicit routing")
 	}
 
 	// Static routes validation

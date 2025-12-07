@@ -1,5 +1,5 @@
 ---
-updated: 2025-12-06
+updated: 2025-12-08
 ---
 
 # Backlog
@@ -15,6 +15,8 @@ Deferred items from implementation, to be picked up in future work.
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| Per-route caching in site mode | FEAT-040 | Needs design | Site mode has no way to configure cache TTL per index.pars. Routes mode has `cache:` per route. Options: comment directive in index.pars, basil.yaml section per path pattern, or runtime config via `basil.http.response.cache`. |
+| Auth integration in site mode | FEAT-040 | Needs design | Site mode has no way to specify auth requirements per handler. Routes mode has `auth:` per route. Options: comment directive in index.pars, basil.yaml section per path pattern, or check `basil.auth.user` in handler and redirect/error manually. |
 | Rest operator consistency | API Design | Needs design | **Current state:** Dict rest destructuring works (`let {a, ...rest} = obj`). Array/dict merge handled by `++` operator (`a ++ {z: 3}`, `arr1 ++ arr2`). **Missing:** (1) Array rest destructuring (`let [first, ...rest] = arr`), (2) Function rest parameters (`fn(a, ...rest)`). Note: Spread in literals is NOT needed—use `++` instead. **Cheatsheet showed `fn({title}, ...children)` which doesn't work—fixed.** |
 | Standardize locale support across stdlib | FEAT-032/033 | Needs design | Define a standard set of locales (e.g., top 10-15 by usage/currency) and ensure consistent support across: dates (parsing/formatting), times, numbers (decimal/thousands separators), currency formatting, postal codes. Currently ad-hoc (US, GB, ISO). Need to decide: which locales, what coverage each gets, how to handle partial support. Consider: en-US, en-GB, de-DE, fr-FR, es-ES, ja-JP, zh-CN, pt-BR, ru-RU, ar-SA (roughly top 10 traded currencies). |
 | CSV upload merge mode for /__/db | FEAT-021 | Not MVP | Current "Replace" overwrites entire table. Add "Merge" option that updates existing rows by primary key and inserts new ones. Use case: download CSV, edit non-BLOB columns, re-upload without losing BLOB data. UI: dropdown or separate button next to "Replace". |

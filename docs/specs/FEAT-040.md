@@ -1,7 +1,7 @@
 ---
 id: FEAT-040
 title: "Filesystem-Based Routing"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-07
 author: "@human"
@@ -16,17 +16,17 @@ Add a "site mode" routing option where URL paths map to `index.pars` files in a 
 As a developer building a content-driven site, I want URLs to automatically map to handler files in my folder structure so that I don't need to manually configure every route.
 
 ## Acceptance Criteria
-- [ ] New `site:` config option specifies filesystem routing root
-- [ ] `site:` and `routes:` are mutually exclusive (validation error if both present)
-- [ ] `static:` continues to work alongside `site:` (orthogonal concerns)
-- [ ] Given path `/reports/2025/Q4/`, Basil walks back looking for `index.pars`
-- [ ] First `index.pars` found is executed; remaining path passed to handler
-- Remaining path available via `basil.http.request.subpath` (Path object with `.segments` array)
-- [ ] Returns 404 if no `index.pars` found walking back to site root
-- [ ] Handlers can explicitly return 404 for paths they don't handle
-- [ ] Only `index.pars` files are executed; other `.pars` files are not directly routable
-- [ ] Directory requests without trailing slash redirect to trailing slash (SEO canonical)
-- [ ] Query parameters (`?foo=bar`) continue to work as normal
+- [x] New `site:` config option specifies filesystem routing root
+- [x] `site:` and `routes:` are mutually exclusive (validation error if both present)
+- [x] `static:` continues to work alongside `site:` (orthogonal concerns)
+- [x] Given path `/reports/2025/Q4/`, Basil walks back looking for `index.pars`
+- [x] First `index.pars` found is executed; remaining path passed to handler
+- [x] Remaining path available via `basil.http.request.subpath` (Path object with `.segments` array)
+- [x] Returns 404 if no `index.pars` found walking back to site root
+- [x] Handlers can explicitly return 404 for paths they don't handle
+- [x] Only `index.pars` files are executed; other `.pars` files are not directly routable
+- [x] Directory requests without trailing slash redirect to trailing slash (SEO canonical)
+- [x] Query parameters (`?foo=bar`) continue to work as normal
 
 ## Design Decisions
 
@@ -107,11 +107,11 @@ basil.http.request.subpath.segments // ["2025", "Q4"]
 
 ### Edge Cases & Constraints
 
-1. **Trailing slash normalization** — `/reports/2025` redirects to `/reports/2025/` (301) for canonical URLs. This matches traditional web server behavior.
+1. **Trailing slash normalization** — `/reports/2025` redirects to `/reports/2025/` (302) for canonical URLs. This matches traditional web server behavior.
 
 2. **Root index.pars** — `/site/index.pars` handles `/` and any path with no other `index.pars` higher in the tree.
 
-3. **Empty subpath** — When request exactly matches `index.pars` location, `subpath.string` is `"/"` and `subpath.segments` is `[]`.
+3. **Empty subpath** — When request exactly matches `index.pars` location, `subpath.segments` is `[]` (empty array). The `subpath.string` property returns `"."` for relative paths.
 
 4. **File extensions in path** — `/reports/2025/Q4/data.pdf` still walks back to find `index.pars`. The handler decides whether to serve a file, generate content, or 404.
 
@@ -182,6 +182,15 @@ if (year and quarter) {
 
 ## Implementation Notes
 *Added during/after implementation*
+
+- **2025-12-08**: Implemented in `server/site.go` with walk-back routing algorithm
+- Config validation added to `config/load.go` (mutual exclusion check)
+- `basil.http.request.subpath` is a Path object with `__type: "path"`, `absolute: false`, and `segments: [...]`
+- Empty subpath (exact handler match) has empty segments array `[]`
+- Trailing slash redirect returns 302 Found
+- Security: path traversal (`..`) returns 400 Bad Request, dotfiles return 404
+- Static files from `public_dir` are served before walk-back routing
+- Site handler uses existing `parsleyHandler` infrastructure for executing `index.pars` files
 
 ## Related
 - Design doc: `docs/parsley/design/Filepath routing.md`

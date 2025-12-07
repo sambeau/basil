@@ -50,14 +50,14 @@ func (r *assetRegistry) Register(filepath string) (string, error) {
 	}
 
 	// Size limits
-	const warnSize = 10 * 1024 * 1024  // 10MB
-	const maxSize = 100 * 1024 * 1024  // 100MB
+	const warnSize = 10 * 1024 * 1024 // 10MB
+	const maxSize = 100 * 1024 * 1024 // 100MB
 
 	if stat.Size() > maxSize {
 		return "", fmt.Errorf("file too large for publicUrl() (>100MB): %s - use public/ folder instead", filepath)
 	}
 	if stat.Size() > warnSize && r.logger != nil {
-		r.logger("publicUrl(): large file %s (%dMB) - consider using public/ folder", 
+		r.logger("publicUrl(): large file %s (%dMB) - consider using public/ folder",
 			filepath, stat.Size()/1024/1024)
 	}
 
@@ -128,11 +128,11 @@ type assetHandler struct {
 func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Extract hash from URL: /__p/{hash}.{ext}
 	urlPath := strings.TrimPrefix(r.URL.Path, "/__p/")
-	
+
 	// Split off extension to get hash
 	ext := path.Ext(urlPath)
 	hash := strings.TrimSuffix(urlPath, ext)
-	
+
 	if hash == "" {
 		http.NotFound(w, r)
 		return

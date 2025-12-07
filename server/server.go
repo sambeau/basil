@@ -365,6 +365,14 @@ func (s *Server) setupRoutes() error {
 		}
 	}
 
+	// Site mode: use filesystem-based routing
+	if s.config.Site != "" {
+		s.mux.Handle("/", newSiteHandler(s, s.config.Site, s.scriptCache))
+		s.logInfo("site mode enabled at %s", s.config.Site)
+		return nil
+	}
+
+	// Routes mode: explicit route-based routing
 	// Register Parsley routes (specific paths)
 	for _, route := range s.config.Routes {
 		if route.Path == "/" {

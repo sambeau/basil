@@ -391,6 +391,36 @@ routes:
 			expectErr: true,
 			errSubstr: "auth must be",
 		},
+		{
+			name: "site and routes mutually exclusive",
+			config: `
+server:
+  port: 8080
+logging:
+  level: info
+  format: text
+  output: stderr
+site: ./site
+routes:
+  - path: /
+    handler: test.parsley
+`,
+			expectErr: true,
+			errSubstr: "site and routes are mutually exclusive",
+		},
+		{
+			name: "site only is valid",
+			config: `
+server:
+  port: 8080
+logging:
+  level: info
+  format: text
+  output: stderr
+site: ./site
+`,
+			expectErr: false,
+		},
 	}
 
 	for _, tt := range tests {

@@ -369,6 +369,13 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 		"remoteAddr": r.RemoteAddr,
 	}
 
+	// Add subpath if in site routing mode
+	// subpath is set by siteHandler via context when using filesystem-based routing
+	if subpath := getSubpath(r.Context()); subpath != "" || r.Context().Value(subpathContextKey{}) != nil {
+		// Convert subpath to Path object format for Parsley
+		ctx["subpath"] = buildSubpathObject(subpath)
+	}
+
 	// Parse body for POST/PUT/PATCH requests
 	if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
 		body, form, files := parseRequestBody(r)
@@ -511,6 +518,28 @@ func queryToMap(query map[string][]string) map[string]interface{} {
 		}
 	}
 	return result
+}
+
+// buildSubpathObject creates a Path object for the subpath in site routing.
+// The subpath is the portion of the URL path not consumed by the matched handler.
+// Returns a map that will be converted to a Parsley Path dictionary via ToParsley.
+func buildSubpathObject(subpath string) map[string]interface{} {
+	// Parse segments from subpath (e.g., "/2025/Q4" -> ["2025", "Q4"])
+	segments := []interface{}{}
+	if subpath != "" && subpath != "/" {
+		parts := strings.Split(strings.Trim(subpath, "/"), "/")
+		for _, part := range parts {
+			if part != "" {
+				segments = append(segments, part)
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"__type":   "path",
+		"absolute": false, // Subpath is always relative
+		"segments": segments,
+	}
 }
 
 // writeResponseWithCache writes the response and caches it if the route has caching enabled.

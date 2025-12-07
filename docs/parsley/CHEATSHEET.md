@@ -978,6 +978,32 @@ log(result)
 
 ## Basil Server Functions
 
+### Site Mode - Filesystem-Based Routing
+
+Configure in YAML:
+```yaml
+site: ./site  # Use instead of routes:
+```
+
+Walk-back routing finds `index.pars` files:
+```
+/reports/2025/Q4/  →  site/reports/index.pars (if site/reports/2025/Q4/index.pars doesn't exist)
+```
+
+**Access remaining path via subpath:**
+```parsley
+// In site/reports/index.pars for /reports/2025/Q4/
+let segments = basil.http.request.subpath.segments  // ["2025", "Q4"]
+let year = segments[0]  // "2025"
+```
+
+**Gotchas:**
+- ❌ `site:` and `routes:` are mutually exclusive
+- ✅ `/path` auto-redirects to `/path/` for directories
+- ❌ Dotfiles (`.git/`) and path traversal (`..`) are blocked
+
+---
+
 ### publicUrl() - Component Assets
 
 Make private files (like SVGs in component folders) publicly accessible:
