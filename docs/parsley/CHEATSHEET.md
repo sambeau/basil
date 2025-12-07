@@ -239,6 +239,12 @@ let Card = fn({title, body}) {
 let month = "11"
 let day = "29"
 let date = @(2024-{month}-{day})  // Builds from variables
+
+// Dynamic imports (FEAT-039 - planned)
+let name = "Button"
+✅ import @(./components/{name})      // Interpolated path literal (preferred)
+❌ import @("./components/{name}")    // String with interpolation (not idiomatic)
+❌ import @("./components/" + name)   // String concatenation (not idiomatic)
 ```
 
 ### 5. Operators Are Overloaded
