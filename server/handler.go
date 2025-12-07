@@ -773,6 +773,11 @@ func (s *Server) logInfo(format string, args ...interface{}) {
 	fmt.Fprintf(s.stdout, "[INFO] "+format+"\n", args...)
 }
 
+// logWarn logs a warning message
+func (s *Server) logWarn(format string, args ...interface{}) {
+	fmt.Fprintf(s.stderr, "[WARN] "+format+"\n", args...)
+}
+
 // logError logs an error message
 func (s *Server) logError(format string, args ...interface{}) {
 	fmt.Fprintf(s.stderr, "[ERROR] "+format+"\n", args...)

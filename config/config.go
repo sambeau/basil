@@ -8,6 +8,7 @@ type Config struct {
 	Server     ServerConfig               `yaml:"server"`
 	Security   SecurityConfig             `yaml:"security"`
 	Auth       AuthConfig                 `yaml:"auth"`
+	Git        GitConfig                  `yaml:"git"`
 	Dev        DevConfig                  `yaml:"dev"`
 	SQLite     string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
 	PublicDir  string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
@@ -85,6 +86,12 @@ type AuthConfig struct {
 	SessionTTL   time.Duration `yaml:"session_ttl"`  // Session duration (default: 24h)
 }
 
+// GitConfig holds Git server settings
+type GitConfig struct {
+	Enabled     bool `yaml:"enabled"`      // Enable Git HTTP server at /.git/
+	RequireAuth bool `yaml:"require_auth"` // Require API key authentication (default: true)
+}
+
 // DevConfig holds dev tools settings (only used when --dev flag is enabled)
 type DevConfig struct {
 	LogDatabase    string `yaml:"log_database"`     // Path to dev log database file (default: auto-generated)
@@ -152,6 +159,10 @@ func Defaults() *Config {
 			Enabled:      false,
 			Registration: "closed",
 			SessionTTL:   24 * time.Hour,
+		},
+		Git: GitConfig{
+			Enabled:     false,
+			RequireAuth: true,
 		},
 		Dev: DevConfig{
 			LogMaxSize:     "10MB",

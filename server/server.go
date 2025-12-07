@@ -45,6 +45,9 @@ type Server struct {
 	authWebAuthn *auth.WebAuthnManager
 	authHandlers *auth.Handlers
 	authMW       *auth.Middleware
+
+	// Git server (nil if git not enabled)
+	gitHandler *GitHandler
 }
 
 // New creates a new Basil server with the given configuration.
@@ -80,6 +83,18 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		}
 		s.cleanupDevTools()
 		return nil, fmt.Errorf("initializing auth: %w", err)
+	}
+
+	// Initialize Git server if enabled
+	if err := s.initGit(); err != nil {
+		if s.authDB != nil {
+			s.authDB.Close()
+		}
+		if s.db != nil {
+			s.db.Close()
+		}
+		s.cleanupDevTools()
+		return nil, fmt.Errorf("initializing git server: %w", err)
 	}
 
 	// Set up routes
@@ -260,6 +275,40 @@ func (s *Server) initAuth() error {
 	return nil
 }
 
+// initGit initializes the Git HTTP server if enabled.
+func (s *Server) initGit() error {
+	if !s.config.Git.Enabled {
+		return nil
+	}
+
+	// Security warnings
+	if !s.config.Git.RequireAuth && !s.config.Server.Dev {
+		s.logWarn("git server is enabled without authentication - this is insecure!")
+	}
+	if s.config.Git.RequireAuth && s.authDB == nil {
+		return fmt.Errorf("git server requires auth but auth is not enabled - enable auth.enabled or set git.require_auth: false")
+	}
+
+	// Git handler needs the site directory (where .git repo is)
+	siteDir := s.config.BaseDir
+
+	// Create reload callback
+	onPush := func() {
+		s.logInfo("git push received, reloading handlers...")
+		s.scriptCache.clear()
+		s.responseCache.Clear()
+	}
+
+	gitHandler, err := NewGitHandler(siteDir, s.authDB, s.config, onPush, s.stdout, s.stderr)
+	if err != nil {
+		return fmt.Errorf("creating git handler: %w", err)
+	}
+
+	s.gitHandler = gitHandler
+	s.logInfo("git server enabled at /.git/")
+	return nil
+}
+
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
 	// In dev mode, add dev tools endpoints
@@ -280,6 +329,11 @@ func (s *Server) setupRoutes() error {
 		s.mux.HandleFunc("/__auth/logout", s.authHandlers.LogoutHandler)
 		s.mux.HandleFunc("/__auth/recover", s.authHandlers.RecoverHandler)
 		s.mux.HandleFunc("/__auth/me", s.authHandlers.MeHandler)
+	}
+
+	// Register Git server if enabled
+	if s.gitHandler != nil {
+		s.mux.Handle("/.git/", s.gitHandler)
 	}
 
 	// Register explicit static routes (non-root paths like /favicon.ico)
