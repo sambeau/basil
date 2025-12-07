@@ -41,7 +41,7 @@ Bundlers like Webpack/Vite handle this by copying assets to the output folder an
 
 ## Design Decisions
 
-- **Content hash for URLs**: URLs include a hash of file contents (e.g., `/_p/a3f2b1c8.svg`). This provides automatic cache-busting—when a file changes, the hash changes, so browsers fetch the new version. The hash is deterministic, so the same content always produces the same URL.
+- **Content hash for URLs**: URLs include a hash of file contents (e.g., `/__p/a3f2b1c8.svg`). This provides automatic cache-busting—when a file changes, the hash changes, so browsers fetch the new version. The hash is deterministic, so the same content always produces the same URL.
 
 - **Lazy hashing with cache**: To avoid re-reading large files, we cache the hash along with modTime and size. On subsequent calls, we check if the file has changed before re-hashing. This makes `publicUrl()` fast in steady state.
 
@@ -51,7 +51,7 @@ Bundlers like Webpack/Vite handle this by copying assets to the output folder an
 
 - **Size limits**: Large files should go in `public/`. We warn at 10MB and error at 100MB to guide developers toward the right pattern.
 
-- **URL prefix `/_p/`**: Short, unlikely to conflict with user routes, clearly identifies public assets.
+- **URL prefix `/__p/`**: Short, unlikely to conflict with user routes, clearly identifies public assets.
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -64,7 +64,7 @@ Bundlers like Webpack/Vite handle this by copying assets to the output folder an
 // Basic usage
 let iconUrl = publicUrl(@./icon.svg)
 <img src={iconUrl}/>
-// Output: <img src="/_p/a3f2b1c8.svg"/>
+// Output: <img src="/__p/a3f2b1c8.svg"/>
 
 // In a component module (modules/Button.pars)
 export Button = fn({label}) {
@@ -78,12 +78,12 @@ export Button = fn({label}) {
 
 ### URL Format
 ```
-/_p/{contentHash}.{extension}
+/__p/{contentHash}.{extension}
 
 Examples:
-/_p/a3f2b1c8.svg
-/_p/7d3e9f2a.png
-/_p/1b4c8e6d.css
+/__p/a3f2b1c8.svg
+/__p/7d3e9f2a.png
+/__p/1b4c8e6d.css
 ```
 
 ### Hash Algorithm
@@ -133,7 +133,7 @@ func (r *assetRegistry) Register(filepath string) (string, error) {
     if entry, ok := r.cache[filepath]; ok {
         if entry.modTime.Equal(stat.ModTime()) && entry.size == stat.Size() {
             r.mu.RUnlock()
-            return "/_p/" + entry.hash + path.Ext(filepath), nil
+            return "/__p/" + entry.hash + path.Ext(filepath), nil
         }
     }
     r.mu.RUnlock()
@@ -152,17 +152,17 @@ func (r *assetRegistry) Register(filepath string) (string, error) {
     r.cache[filepath] = assetEntry{hash, stat.ModTime(), stat.Size()}
     r.mu.Unlock()
     
-    return "/_p/" + hash + ext, nil
+    return "/__p/" + hash + ext, nil
 }
 ```
 
 ### Serving Flow
 
 ```go
-// Handler for /_p/* routes
+// Handler for /__p/* routes
 func (r *assetRegistry) ServeAsset(w http.ResponseWriter, req *http.Request) {
-    // Extract hash from URL: /_p/{hash}.{ext}
-    hashWithExt := strings.TrimPrefix(req.URL.Path, "/_p/")
+    // Extract hash from URL: /__p/{hash}.{ext}
+    hashWithExt := strings.TrimPrefix(req.URL.Path, "/__p/")
     hash := strings.TrimSuffix(hashWithExt, path.Ext(hashWithExt))
     
     r.mu.RLock()
@@ -183,7 +183,7 @@ func (r *assetRegistry) ServeAsset(w http.ResponseWriter, req *http.Request) {
 ```
 
 ### Affected Components
-- `server/server.go` — Add asset registry, wire up `/_p/` route
+- `server/server.go` — Add asset registry, wire up `/__p/` route
 - `server/assets.go` — New file: asset registry implementation
 - `pkg/parsley/evaluator/builtins.go` — Add `publicUrl()` builtin
 - `pkg/parsley/evaluator/evaluator.go` — Wire builtin to server registry
