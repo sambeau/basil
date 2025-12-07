@@ -18,9 +18,9 @@ type ComponentExpander struct {
 func NewComponentExpander() *ComponentExpander {
 	return &ComponentExpander{
 		tagPatterns: map[string]*regexp.Regexp{
-			"PasskeyRegister": regexp.MustCompile(`<PasskeyRegister\s*([^>]*)/?>`),
-			"PasskeyLogin":    regexp.MustCompile(`<PasskeyLogin\s*([^>]*)/?>`),
-			"PasskeyLogout":   regexp.MustCompile(`<PasskeyLogout\s*([^>]*)/?>`),
+			"basil.auth.Register": regexp.MustCompile(`<basil\.auth\.Register\s*([^>]*)/?>`),
+			"basil.auth.Login":    regexp.MustCompile(`<basil\.auth\.Login\s*([^>]*)/?>`),
+			"basil.auth.Logout":   regexp.MustCompile(`<basil\.auth\.Logout\s*([^>]*)/?>`),
 		},
 	}
 }
@@ -30,9 +30,9 @@ func (e *ComponentExpander) ExpandComponents(htmlContent string) string {
 	result := htmlContent
 
 	// Expand each component type
-	result = e.tagPatterns["PasskeyRegister"].ReplaceAllStringFunc(result, e.expandRegister)
-	result = e.tagPatterns["PasskeyLogin"].ReplaceAllStringFunc(result, e.expandLogin)
-	result = e.tagPatterns["PasskeyLogout"].ReplaceAllStringFunc(result, e.expandLogout)
+	result = e.tagPatterns["basil.auth.Register"].ReplaceAllStringFunc(result, e.expandRegister)
+	result = e.tagPatterns["basil.auth.Login"].ReplaceAllStringFunc(result, e.expandLogin)
+	result = e.tagPatterns["basil.auth.Logout"].ReplaceAllStringFunc(result, e.expandLogout)
 
 	return result
 }
@@ -55,10 +55,10 @@ func parseAttributes(attrStr string) map[string]string {
 	return attrs
 }
 
-// expandRegister expands <PasskeyRegister/> to form HTML + script.
+// expandRegister expands <basil.auth.Register/> to form HTML + script.
 func (e *ComponentExpander) expandRegister(match string) string {
 	// Extract attributes
-	attrMatch := e.tagPatterns["PasskeyRegister"].FindStringSubmatch(match)
+	attrMatch := e.tagPatterns["basil.auth.Register"].FindStringSubmatch(match)
 	attrs := parseAttributes(attrMatch[1])
 
 	// Get attribute values with defaults
@@ -206,10 +206,10 @@ func (e *ComponentExpander) expandRegister(match string) string {
 		html.EscapeString(buttonText), formID, recoveryJS, html.EscapeString(redirect))
 }
 
-// expandLogin expands <PasskeyLogin/> to button HTML + script.
+// expandLogin expands <basil.auth.Login/> to button HTML + script.
 func (e *ComponentExpander) expandLogin(match string) string {
 	// Extract attributes
-	attrMatch := e.tagPatterns["PasskeyLogin"].FindStringSubmatch(match)
+	attrMatch := e.tagPatterns["basil.auth.Login"].FindStringSubmatch(match)
 	attrs := parseAttributes(attrMatch[1])
 
 	// Get attribute values with defaults
@@ -324,10 +324,10 @@ func (e *ComponentExpander) expandLogin(match string) string {
 </script>`, divID, divClass, html.EscapeString(buttonText), divID, html.EscapeString(redirect))
 }
 
-// expandLogout expands <PasskeyLogout/> to button/link HTML + script.
+// expandLogout expands <basil.auth.Logout/> to button/link HTML + script.
 func (e *ComponentExpander) expandLogout(match string) string {
 	// Extract attributes
-	attrMatch := e.tagPatterns["PasskeyLogout"].FindStringSubmatch(match)
+	attrMatch := e.tagPatterns["basil.auth.Logout"].FindStringSubmatch(match)
 	attrs := parseAttributes(attrMatch[1])
 
 	// Get attribute values with defaults

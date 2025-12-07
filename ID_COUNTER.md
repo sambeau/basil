@@ -4,7 +4,7 @@ Last updated: 2025-12-07
 
 | Type | Prefix | Next ID | Last Allocated |
 |------|--------|---------|----------------|
-| Feature | FEAT | 037 | FEAT-036 (2025-12-07) |
+| Feature | FEAT | 040 | FEAT-039 (2025-12-07) |
 | Bug | BUG | 011 | BUG-010 (2025-12-02) |
-| Plan | PLAN | 023 | PLAN-022 (2025-12-06) |
+| Plan | PLAN | 027 | PLAN-026 (2025-12-07) |
 | Decision | ADR | 001 | — |

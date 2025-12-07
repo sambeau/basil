@@ -1,3 +1,5 @@
+github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f h1:x/RDwGRneK2/891S2o7KhZt3MhHMSCssoeDOfvolTMk=
+github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f/go.mod h1:+6Yuq73F9068Na+mSBNXCvyuxvgw4f/g5ii40e3U8Sc=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=

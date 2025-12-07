@@ -98,6 +98,7 @@ const (
 	RETURN   // "return"
 	EXPORT   // "export"
 	TRY      // "try"
+	IMPORT   // "import"
 )
 
 // Token represents a single token
@@ -263,6 +264,8 @@ func (tt TokenType) String() string {
 		return "EXPORT"
 	case TRY:
 		return "TRY"
+	case IMPORT:
+		return "IMPORT"
 	default:
 		return "UNKNOWN"
 	}
@@ -286,6 +289,7 @@ var keywords = map[string]TokenType{
 	"or":       OR,
 	"not":      BANG,
 	"try":      TRY,
+	"import":   IMPORT,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -1439,14 +1443,14 @@ func (l *Lexer) readDoctype() string {
 	return string(result)
 }
 
-// readTagEnd reads a closing tag like </div> or </my-component>
+// readTagEnd reads a closing tag like </div> or </my-component> or </basil.cache.Cache>
 func (l *Lexer) readTagEnd() string {
 	var result []byte
 	l.readChar() // skip <
 	l.readChar() // skip /
 
-	// Read tag name (allow hyphens for web components like my-component)
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '-' {
+	// Read tag name (allow hyphens for web components like my-component, dots for namespaced components like basil.cache.Cache)
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '-' || l.ch == '.' {
 		result = append(result, l.ch)
 		l.readChar()
 	}

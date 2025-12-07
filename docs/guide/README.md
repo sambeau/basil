@@ -8,6 +8,7 @@ Welcome to the human-friendly documentation for the Basil development process.
 |--------------|----------|
 | Get started quickly | [Quick Start](quick-start.md) |
 | Add authentication | [Authentication](authentication.md) |
+| Deploy via Git push | [Git over HTTPS](git.md) |
 | Look up a command/format | [Cheatsheet](cheatsheet.md) |
 | Find an answer to a question | [FAQ](faq.md) |
 | Create a new feature | [Creating a Feature](walkthroughs/creating-a-feature.md) |

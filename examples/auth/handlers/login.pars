@@ -14,7 +14,7 @@ if basil.auth.user {
     <h1>Sign In</h1>
     <p>Sign in with your passkey.</p>
     
-    <PasskeyLogin
+    <basil.auth.Login
       button_text="Sign in with passkey"
       redirect="/dashboard"
       class="auth-form"

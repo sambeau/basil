@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect

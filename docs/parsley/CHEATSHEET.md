@@ -239,6 +239,10 @@ let Card = fn({title, body}) {
 let month = "11"
 let day = "29"
 let date = @(2024-{month}-{day})  // Builds from variables
+
+// Dynamic imports
+let name = "Button"
+import @(./components/{name})      // Interpolated path literal
 ```
 
 ### 5. Operators Are Overloaded
@@ -618,18 +622,22 @@ export let greet = fn(name) { "Hello, {name}!" }
 export PI = 3.14159
 export Logo = <img src="logo.png" alt="Logo"/>
 
-// Import - relative to current file
+// NEW SYNTAX (recommended) - auto-binds to last path segment
+import @./utils             // binds to 'utils'
+import @std/math            // binds to 'math'
+utils.greet("Alice")
+math.floor(3.7)
+
+// With alias
+import @std/math as M       // binds to 'M'
+M.PI
+
+// Destructuring
+{greet, PI} = import @./utils
+{floor, ceil} = import @std/math
+
+// OLD SYNTAX (still works)
 let utils = import(@./utils.pars)
-log(utils.greet("Alice"))
-
-// Import - relative to handler root (Basil only)
-// Eliminates ../../../ navigation
-let {Page} = import(@~/components/page.pars)
-
-// Destructuring import
-let {greet, PI, Logo} = import(@./utils.pars)
-
-// Standard library import (use string syntax)
 let {table} = import("std/table")
 ```
 
@@ -638,7 +646,8 @@ let {table} = import("std/table")
 #### Table Module (`std/table`)
 SQL-like operations on arrays of dictionaries:
 ```parsley
-let {table} = import("std/table")
+import @std/table
+// Or: {table} = import @std/table
 
 let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 let t = table(data)
@@ -678,8 +687,8 @@ table(users)
 #### Math Module (`std/math`)
 Mathematical functions and constants. Note: Use `math.log()` for natural log since `log` is a builtin print function.
 ```parsley
-let math = import("std/math")
-// Or: let {floor, sqrt, PI} = import("std/math")
+import @std/math
+// Or: {floor, sqrt, PI} = import @std/math
 
 // Constants
 math.PI                // 3.14159...
@@ -696,7 +705,6 @@ math.trunc(-3.7)       // -3 (toward zero)
 math.abs(-5)           // 5
 math.sign(-42)         // -1
 math.clamp(15, 0, 10)  // 10
-
 // Aggregation (2 args OR array)
 math.min(5, 3)         // 3
 math.min([1, 2, 3])    // 1
@@ -748,8 +756,8 @@ math.map(50, 0, 100, 0, 1)  // 0.5
 #### Validation Module (`std/valid`)
 Validators for form input and data validation. All validators return `true` or `false`.
 ```parsley
-let valid = import("std/valid")
-// Or: let {email, minLen, positive} = import("std/valid")
+import @std/valid as valid
+// Or: {email, minLen, positive} = import @std/valid
 
 // Type validators
 valid.string("hello")              // true

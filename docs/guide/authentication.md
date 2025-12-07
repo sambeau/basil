@@ -21,7 +21,7 @@ In your Parsley handlers, use the built-in components:
 
 **Registration page (signup.pars):**
 ```parsley
-<PasskeyRegister
+<basil.auth.Register
   name_placeholder="Your name"
   email_placeholder="Email (optional)"
   button_text="Create account"
@@ -31,7 +31,7 @@ In your Parsley handlers, use the built-in components:
 
 **Login page (login.pars):**
 ```parsley
-<PasskeyLogin
+<basil.auth.Login
   button_text="Sign in"
   redirect="/dashboard"
 />
@@ -39,7 +39,7 @@ In your Parsley handlers, use the built-in components:
 
 **Logout (anywhere):**
 ```parsley
-<PasskeyLogout
+<basil.auth.Logout
   text="Sign out"
   redirect="/"
 />
@@ -78,7 +78,7 @@ User object fields:
 
 ## Components Reference
 
-### `<PasskeyRegister/>`
+### `<basil.auth.Register/>`
 
 Registration form with WebAuthn.
 
@@ -95,7 +95,7 @@ Registration form with WebAuthn.
 
 **Recovery codes:** When `recovery_page` is set, codes are stored in `sessionStorage` as `basil_recovery_codes` (JSON array) and `basil_recovery_user` (username), then the user is redirected there. Your recovery page can display them nicely and clear the storage after.
 
-### `<PasskeyLogin/>`
+### `<basil.auth.Login/>`
 
 Login button with WebAuthn.
 
@@ -105,7 +105,7 @@ Login button with WebAuthn.
 | `redirect` | `"/"` | URL after successful login |
 | `class` | `""` | Additional CSS classes |
 
-### `<PasskeyLogout/>`
+### `<basil.auth.Logout/>`
 
 Logout button or link.
 

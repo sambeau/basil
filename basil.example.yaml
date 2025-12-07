@@ -30,6 +30,12 @@ public_dir: ./public
 #   - path: /static/
 #     root: ./public
 
+# Git over HTTPS - serve your site as a Git repository
+# Allows pushing changes directly to the server
+# git:
+#   enabled: true        # Enable Git endpoint at /.git/
+#   require_auth: true   # Require API key authentication
+
 # Developer profiles for per-developer overrides
 # Each developer can have their own port, database, handlers, etc.
 # Use with: basil --dev --profile sam

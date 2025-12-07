@@ -178,11 +178,16 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Build and inject the basil namespace object (protected from reassignment)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path)
 	env.SetProtected("basil", basilObj)
 
 	// Also set on environment for stdlib import (std/basil)
 	env.BasilCtx = basilObj
+
+	// Set fragment cache and handler path for <basil.cache.Cache> component
+	env.FragmentCache = h.server.fragmentCache
+	env.HandlerPath = h.route.Path
+	env.DevMode = h.server.config.Server.Dev
 
 	// Set dev log writer on environment (available to stdlib dev module via import)
 	// nil in production mode - dev functions become no-ops
@@ -234,7 +239,7 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string) evaluator.Object {
 	// Build auth context
 	authCtx := map[string]interface{}{
 		"required": route.Auth == "required",
@@ -282,6 +287,10 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 		// Use ast.ObjectLiteralExpression to wrap the DBConnection for Dictionary storage
 		basilDict.Pairs["sqlite"] = &ast.ObjectLiteralExpression{Obj: conn}
 	}
+
+	// Note: Fragment caching (FEAT-037) uses <basil.cache.Cache> tag which accesses
+	// the cache via env.FragmentCache. The basil.cache.invalidate() function
+	// will be added in a future task.
 
 	return basilDict
 }
@@ -771,6 +780,11 @@ func (l *scriptLogCapture) LogLine(args ...interface{}) {
 // logInfo logs an info message
 func (s *Server) logInfo(format string, args ...interface{}) {
 	fmt.Fprintf(s.stdout, "[INFO] "+format+"\n", args...)
+}
+
+// logWarn logs a warning message
+func (s *Server) logWarn(format string, args ...interface{}) {
+	fmt.Fprintf(s.stderr, "[WARN] "+format+"\n", args...)
 }
 
 // logError logs an error message

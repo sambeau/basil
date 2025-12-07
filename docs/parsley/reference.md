@@ -2111,13 +2111,54 @@ let multiply = fn(a, b) { a * b }
 
 ### Importing
 
-```parsley
-let math = import(@./math.pars)
-math.add(2, 3)  // 5
-math.PI         // 3.14159
+**New syntax (recommended):**
 
-// Destructure
-let {add, PI, Logo} = import(@./math.pars)
+```parsley
+// Import with auto-binding (binds to last path segment)
+import @std/math       // binds to 'math'
+import @./utils.pars   // binds to 'utils'
+
+math.floor(3.7)        // 3
+utils.helper()
+
+// Import with alias
+import @std/math as M
+M.PI  // 3.14159
+
+// Destructuring import
+{floor, ceil} = import @std/math
+floor(3.7)  // 3
+ceil(3.2)   // 4
+
+// Destructure with rename
+{floor as f, PI} = import @std/math
+f(3.7)  // 3
+PI      // 3.14159
+```
+
+**Old syntax (still supported for backward compatibility):**
+
+```parsley
+let math = import("std/math")
+let {add, PI} = import(@./math.pars)
+```
+
+### Standard Library Imports
+
+```parsley
+import @std/math        // Math functions (floor, ceil, PI, etc.)
+import @std/strings     // String utilities (split, join, etc.)
+import @std/table       // Table data structure
+import @std/id          // ID generation (uuid, nanoid, etc.)
+import @std/valid       // Validation functions
+import @std/schema      // Schema validation
+```
+
+### Local Imports
+
+```parsley
+import @./components/Button     // Relative to current file
+import @../shared/utils         // Parent directory
 ```
 
 ---

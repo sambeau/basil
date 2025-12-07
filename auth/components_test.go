@@ -17,7 +17,7 @@ func TestComponentExpander_ExpandRegister(t *testing.T) {
 	}{
 		{
 			name:  "basic register component",
-			input: `<PasskeyRegister/>`,
+			input: `<basil.auth.Register/>`,
 			contains: []string{
 				`class="basil-auth-register"`,
 				`placeholder="Your name"`,
@@ -29,14 +29,14 @@ func TestComponentExpander_ExpandRegister(t *testing.T) {
 		},
 		{
 			name:  "register with custom button text",
-			input: `<PasskeyRegister button_text="Sign up now"/>`,
+			input: `<basil.auth.Register button_text="Sign up now"/>`,
 			contains: []string{
 				`>Sign up now</button>`,
 			},
 		},
 		{
 			name:  "register with custom placeholders",
-			input: `<PasskeyRegister name_placeholder="Enter name" email_placeholder="Enter email"/>`,
+			input: `<basil.auth.Register name_placeholder="Enter name" email_placeholder="Enter email"/>`,
 			contains: []string{
 				`placeholder="Enter name"`,
 				`placeholder="Enter email"`,
@@ -44,7 +44,7 @@ func TestComponentExpander_ExpandRegister(t *testing.T) {
 		},
 		{
 			name:  "register with prefilled values",
-			input: `<PasskeyRegister name="Sam" email="sam@example.com"/>`,
+			input: `<basil.auth.Register name="Sam" email="sam@example.com"/>`,
 			contains: []string{
 				`value="Sam"`,
 				`value="sam@example.com"`,
@@ -52,21 +52,21 @@ func TestComponentExpander_ExpandRegister(t *testing.T) {
 		},
 		{
 			name:  "register with custom class",
-			input: `<PasskeyRegister class="my-form"/>`,
+			input: `<basil.auth.Register class="my-form"/>`,
 			contains: []string{
 				`class="basil-auth-register my-form"`,
 			},
 		},
 		{
 			name:  "register with redirect",
-			input: `<PasskeyRegister redirect="/dashboard"/>`,
+			input: `<basil.auth.Register redirect="/dashboard"/>`,
 			contains: []string{
 				`window.location.href = '/dashboard'`,
 			},
 		},
 		{
 			name:  "register with recovery_page",
-			input: `<PasskeyRegister recovery_page="/recovery-codes"/>`,
+			input: `<basil.auth.Register recovery_page="/recovery-codes"/>`,
 			contains: []string{
 				`sessionStorage.setItem('basil_recovery_codes'`,
 				`window.location.href = '/recovery-codes'`,
@@ -77,7 +77,7 @@ func TestComponentExpander_ExpandRegister(t *testing.T) {
 		},
 		{
 			name:  "component in HTML context",
-			input: `<div><PasskeyRegister/></div>`,
+			input: `<div><basil.auth.Register/></div>`,
 			contains: []string{
 				`<div><form id=`,
 				`</script></div>`,
@@ -115,7 +115,7 @@ func TestComponentExpander_ExpandLogin(t *testing.T) {
 	}{
 		{
 			name:  "basic login component",
-			input: `<PasskeyLogin/>`,
+			input: `<basil.auth.Login/>`,
 			contains: []string{
 				`class="basil-auth-login"`,
 				`>Sign in</button>`,
@@ -125,21 +125,21 @@ func TestComponentExpander_ExpandLogin(t *testing.T) {
 		},
 		{
 			name:  "login with custom button text",
-			input: `<PasskeyLogin button_text="Log in with passkey"/>`,
+			input: `<basil.auth.Login button_text="Log in with passkey"/>`,
 			contains: []string{
 				`>Log in with passkey</button>`,
 			},
 		},
 		{
 			name:  "login with custom class",
-			input: `<PasskeyLogin class="login-btn"/>`,
+			input: `<basil.auth.Login class="login-btn"/>`,
 			contains: []string{
 				`class="basil-auth-login login-btn"`,
 			},
 		},
 		{
 			name:  "login with redirect",
-			input: `<PasskeyLogin redirect="/home"/>`,
+			input: `<basil.auth.Login redirect="/home"/>`,
 			contains: []string{
 				`window.location.href = '/home'`,
 			},
@@ -170,7 +170,7 @@ func TestComponentExpander_ExpandLogout(t *testing.T) {
 	}{
 		{
 			name:  "basic logout component",
-			input: `<PasskeyLogout/>`,
+			input: `<basil.auth.Logout/>`,
 			contains: []string{
 				`class="basil-auth-logout`,
 				`>Sign out</button>`,
@@ -179,14 +179,14 @@ func TestComponentExpander_ExpandLogout(t *testing.T) {
 		},
 		{
 			name:  "logout with custom text",
-			input: `<PasskeyLogout text="Log out"/>`,
+			input: `<basil.auth.Logout text="Log out"/>`,
 			contains: []string{
 				`>Log out</button>`,
 			},
 		},
 		{
 			name:  "logout as link",
-			input: `<PasskeyLogout method="link"/>`,
+			input: `<basil.auth.Logout method="link"/>`,
 			contains: []string{
 				`<a id=`,
 				`>Sign out</a>`,
@@ -194,14 +194,14 @@ func TestComponentExpander_ExpandLogout(t *testing.T) {
 		},
 		{
 			name:  "logout with custom class",
-			input: `<PasskeyLogout class="nav-link"/>`,
+			input: `<basil.auth.Logout class="nav-link"/>`,
 			contains: []string{
 				`class="basil-auth-logout nav-link`,
 			},
 		},
 		{
 			name:  "logout with redirect",
-			input: `<PasskeyLogout redirect="/login"/>`,
+			input: `<basil.auth.Logout redirect="/login"/>`,
 			contains: []string{
 				`window.location.href = '/login'`,
 			},
@@ -226,8 +226,8 @@ func TestComponentExpander_MultipleComponents(t *testing.T) {
 	expander := NewComponentExpander()
 
 	input := `<div>
-		<PasskeyLogin/>
-		<PasskeyLogout/>
+		<basil.auth.Login/>
+		<basil.auth.Logout/>
 	</div>`
 
 	result := expander.ExpandComponents(input)
@@ -265,7 +265,7 @@ func TestComponentExpander_EscapesHTML(t *testing.T) {
 	expander := NewComponentExpander()
 
 	// Test that special characters are escaped
-	input := `<PasskeyRegister button_text="Click &amp; go"/>`
+	input := `<basil.auth.Register button_text="Click &amp; go"/>`
 	result := expander.ExpandComponents(input)
 
 	// The &amp; should remain escaped in output
