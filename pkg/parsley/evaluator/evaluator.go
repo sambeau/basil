@@ -6887,8 +6887,8 @@ func Eval(node ast.Node, env *Environment) Object {
 		}
 
 		// Handle array destructuring assignment
-		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, val, env, true, node.Export)
+		if node.ArrayPattern != nil {
+			return evalArrayPatternAssignment(node.ArrayPattern, val, env, true, node.Export)
 		}
 
 		// Single assignment
@@ -6915,8 +6915,8 @@ func Eval(node ast.Node, env *Environment) Object {
 		}
 
 		// Handle array destructuring assignment
-		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, val, env, false, node.Export)
+		if node.ArrayPattern != nil {
+			return evalArrayPatternAssignment(node.ArrayPattern, val, env, false, node.Export)
 		}
 
 		// Single assignment
@@ -8666,9 +8666,9 @@ func extendFunctionEnv(fn *Function, args []Object) *Environment {
 		if param.DictPattern != nil {
 			// Dictionary destructuring (in function params, never exported)
 			evalDictDestructuringAssignment(param.DictPattern, arg, env, true, false)
-		} else if len(param.ArrayPattern) > 0 {
+		} else if param.ArrayPattern != nil {
 			// Array destructuring
-			evalArrayDestructuringForParam(param.ArrayPattern, arg, env)
+			evalArrayPatternForParam(param.ArrayPattern, arg, env)
 		} else if param.Ident != nil {
 			// Simple identifier
 			env.Set(param.Ident.Value, arg)
@@ -8678,8 +8678,8 @@ func extendFunctionEnv(fn *Function, args []Object) *Environment {
 	return env
 }
 
-// evalArrayDestructuringForParam handles array destructuring in function parameters
-func evalArrayDestructuringForParam(pattern []*ast.Identifier, val Object, env *Environment) {
+// evalArrayPatternForParam handles array destructuring in function parameters with explicit ...rest
+func evalArrayPatternForParam(pattern *ast.ArrayDestructuringPattern, val Object, env *Environment) {
 	// Convert value to array if it isn't already
 	var elements []Object
 
@@ -8691,8 +8691,8 @@ func evalArrayDestructuringForParam(pattern []*ast.Identifier, val Object, env *
 		elements = []Object{v}
 	}
 
-	// Assign each element to corresponding variable
-	for i, name := range pattern {
+	// Assign each named element to corresponding variable
+	for i, name := range pattern.Names {
 		if i < len(elements) {
 			if name.Value != "_" {
 				env.Set(name.Value, elements[i])
@@ -8705,16 +8705,17 @@ func evalArrayDestructuringForParam(pattern []*ast.Identifier, val Object, env *
 		}
 	}
 
-	// If there are more elements than names, assign remaining as array to last variable
-	if len(elements) > len(pattern) && len(pattern) > 0 {
-		lastIdx := len(pattern) - 1
-		lastName := pattern[lastIdx]
-		if lastName.Value != "_" {
-			// Replace the last assignment with an array of remaining elements
-			remaining := &Array{Elements: elements[lastIdx:]}
-			env.Set(lastName.Value, remaining)
+	// Handle rest parameter if present - ONLY collect remaining if explicit ...rest
+	if pattern.Rest != nil && pattern.Rest.Value != "_" {
+		var remaining *Array
+		if len(elements) > len(pattern.Names) {
+			remaining = &Array{Elements: elements[len(pattern.Names):]}
+		} else {
+			remaining = &Array{Elements: []Object{}}
 		}
+		env.Set(pattern.Rest.Value, remaining)
 	}
+	// Without explicit ...rest, extra elements are simply ignored (like JS/TS)
 }
 
 func unwrapReturnValue(obj Object) Object {
@@ -9815,7 +9816,76 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 	return nil
 }
 
-// evalDestructuringAssignment handles array destructuring assignment
+// evalArrayPatternAssignment handles array destructuring with explicit ...rest syntax
+func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Object, env *Environment, isLet bool, export bool) Object {
+	// Convert value to array if it isn't already
+	var elements []Object
+
+	switch v := val.(type) {
+	case *Array:
+		elements = v.Elements
+	default:
+		// Single value becomes single-element array
+		elements = []Object{v}
+	}
+
+	// Assign each named element to corresponding variable
+	for i, name := range pattern.Names {
+		if i < len(elements) {
+			// Direct assignment for elements within bounds
+			if name.Value != "_" {
+				if export && isLet {
+					env.SetLetExport(name.Value, elements[i])
+				} else if export {
+					env.SetExport(name.Value, elements[i])
+				} else if isLet {
+					env.SetLet(name.Value, elements[i])
+				} else {
+					env.Update(name.Value, elements[i])
+				}
+			}
+		} else {
+			// No more elements, assign null
+			if name.Value != "_" {
+				if export && isLet {
+					env.SetLetExport(name.Value, NULL)
+				} else if export {
+					env.SetExport(name.Value, NULL)
+				} else if isLet {
+					env.SetLet(name.Value, NULL)
+				} else {
+					env.Update(name.Value, NULL)
+				}
+			}
+		}
+	}
+
+	// Handle rest parameter if present - ONLY collect remaining if explicit ...rest
+	if pattern.Rest != nil && pattern.Rest.Value != "_" {
+		var remaining *Array
+		if len(elements) > len(pattern.Names) {
+			remaining = &Array{Elements: elements[len(pattern.Names):]}
+		} else {
+			remaining = &Array{Elements: []Object{}}
+		}
+		if export && isLet {
+			env.SetLetExport(pattern.Rest.Value, remaining)
+		} else if export {
+			env.SetExport(pattern.Rest.Value, remaining)
+		} else if isLet {
+			env.SetLet(pattern.Rest.Value, remaining)
+		} else {
+			env.Update(pattern.Rest.Value, remaining)
+		}
+	}
+	// Without explicit ...rest, extra elements are simply ignored (like JS/TS)
+
+	// Destructuring assignments return NULL (excluded from block concatenation)
+	return NULL
+}
+
+// evalDestructuringAssignment handles simple array destructuring assignment (legacy, for db queries)
+// This is kept for backwards compatibility with database query statements that use Names []*Identifier
 func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Environment, isLet bool, export bool) Object {
 	// Convert value to array if it isn't already
 	var elements []Object
@@ -9859,24 +9929,8 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		}
 	}
 
-	// If there are more elements than names, assign remaining as array to last variable
-	if len(elements) > len(names) && len(names) > 0 {
-		lastIdx := len(names) - 1
-		lastName := names[lastIdx]
-		if lastName.Value != "_" {
-			// Replace the last assignment with an array of remaining elements
-			remaining := &Array{Elements: elements[lastIdx:]}
-			if export && isLet {
-				env.SetLetExport(lastName.Value, remaining)
-			} else if export {
-				env.SetExport(lastName.Value, remaining)
-			} else if isLet {
-				env.SetLet(lastName.Value, remaining)
-			} else {
-				env.Update(lastName.Value, remaining)
-			}
-		}
-	}
+	// Note: This legacy function does NOT support rest parameters
+	// Extra elements are ignored (for consistency with the new behavior)
 
 	// Destructuring assignments return NULL (excluded from block concatenation)
 	return NULL
@@ -11739,8 +11793,8 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet, false)
 	}
 
-	if len(node.Names) > 0 {
-		return evalDestructuringAssignment(node.Names, content, env, node.IsLet, false)
+	if node.ArrayPattern != nil {
+		return evalArrayPatternAssignment(node.ArrayPattern, content, env, node.IsLet, false)
 	}
 
 	// Single assignment
@@ -11793,8 +11847,8 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 		}
 
 		// Simple assignment
-		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, content, env, node.IsLet, false)
+		if node.ArrayPattern != nil {
+			return evalArrayPatternAssignment(node.ArrayPattern, content, env, node.IsLet, false)
 		}
 
 		return content
@@ -11861,8 +11915,8 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 		return evalDictDestructuringAssignment(node.DictPattern, info.Content, env, node.IsLet, false)
 	}
 
-	if len(node.Names) > 0 {
-		return evalDestructuringAssignment(node.Names, responseDict, env, node.IsLet, false)
+	if node.ArrayPattern != nil {
+		return evalArrayPatternAssignment(node.ArrayPattern, responseDict, env, node.IsLet, false)
 	}
 
 	// Single assignment

@@ -1,4 +1,36 @@
-# README Updates - November 2025
+# Parsley Language Changes
+
+## December 2025
+
+### BREAKING: Array Destructuring Now Requires Explicit `...rest` (FEAT-042)
+
+Previously, the last variable in an array destructuring pattern would implicitly "slurp" all remaining elements:
+```parsley
+// OLD BEHAVIOR (no longer works)
+let [head, tail] = [1, 2, 3, 4]  // head=1, tail=[2, 3, 4] -- IMPLICIT SLURP
+```
+
+Now, extra elements are ignored (like JavaScript/TypeScript) unless you explicitly use `...rest`:
+```parsley
+// NEW BEHAVIOR
+let [a, b] = [1, 2, 3, 4]       // a=1, b=2 (extras ignored)
+let [head, ...tail] = [1, 2, 3, 4]  // head=1, tail=[2, 3, 4] (explicit rest)
+```
+
+**Why this change?**
+- Consistency with dictionary destructuring (`{a, ...rest}`)
+- Matches JavaScript/TypeScript behavior
+- Avoids surprising implicit behavior
+
+**Migration:**
+- If your code relied on implicit slurping, add `...` before the last variable name
+- `let [a, b] = arr` where `b` was meant to capture remaining → `let [a, ...b] = arr`
+
+---
+
+## November 2025
+
+### README Updates
 
 ## Overview
 The README has been completely reorganized and all examples have been tested against the actual Parsley v0.9.0 implementation.

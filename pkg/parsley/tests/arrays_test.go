@@ -306,9 +306,29 @@ func TestBracketArrayDestructuring(t *testing.T) {
 			expected: "2",
 		},
 		{
-			name:     "destructuring with rest collects extra elements",
-			input:    "let [a, b] = [1, 2, 3, 4]; a",
-			expected: "1",
+			name:     "extras ignored without rest",
+			input:    "let [a, b] = [1, 2, 3, 4]; b",
+			expected: "2",
+		},
+		{
+			name:     "explicit rest collects remaining",
+			input:    "let [a, ...rest] = [1, 2, 3, 4]; len(rest)",
+			expected: "3",
+		},
+		{
+			name:     "rest gets empty array when no remaining",
+			input:    "let [a, b, ...rest] = [1, 2]; len(rest)",
+			expected: "0",
+		},
+		{
+			name:     "rest only pattern",
+			input:    "let [...all] = [1, 2, 3]; len(all)",
+			expected: "3",
+		},
+		{
+			name:     "rest with placeholder",
+			input:    "let [_, ...rest] = [1, 2, 3]; rest[0]",
+			expected: "2",
 		},
 		{
 			name:     "destructuring with computed array",

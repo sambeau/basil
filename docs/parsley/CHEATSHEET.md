@@ -144,6 +144,8 @@ let process = fn(items) {
 | Variable | `let x = 5` | `x = 5` | `let x = 5` |
 | Destructure | `const {x, y} = obj` | `x, y = obj` | `let {x, y} = obj` |
 | Array Destruct | `const [a, b] = arr` | `a, b = arr` | `let [a, b] = arr` |
+| Rest (array) | `const [a, ...rest] = arr` | `a, *rest = arr` | `let [a, ...rest] = arr` |
+| Rest (dict) | `const {a, ...rest} = obj` | N/A | `let {a, ...rest} = obj` |
 | Function | `(x) => x*2` | `lambda x: x*2` | `fn(x) { x*2 }` |
 | Named func | `function f(x) {}` | `def f(x):` | `let f = fn(x) {}` |
 
@@ -613,7 +615,7 @@ let Wrapper = fn({slot}) {
 <Wrapper slot={<p>Content here</p>}/>
 ```
 
-**Note:** Function rest parameters (`fn(a, ...rest)`) are not yet supported. Only dict rest destructuring works: `let {a, ...rest} = obj`.
+**Note:** Function rest parameters in simple position (`fn(a, ...rest)`) are not yet supported. Use array destructuring: `fn([a, ...rest])` or dict destructuring: `let {a, ...rest} = obj`.
 
 ### Modules
 ```parsley

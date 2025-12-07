@@ -50,12 +50,12 @@ func (p *Program) String() string {
 
 // LetStatement represents let statements like 'let x = 5;' or 'let [x,y,z] = [1,2,3];'
 type LetStatement struct {
-	Token       lexer.Token               // the lexer.LET token
-	Name        *Identifier               // single name (for backwards compatibility)
-	Names       []*Identifier             // multiple names for array destructuring
-	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
-	Value       Expression
-	Export      bool // true if 'export' keyword was used
+	Token        lexer.Token                // the lexer.LET token
+	Name         *Identifier                // single name (for backwards compatibility)
+	ArrayPattern *ArrayDestructuringPattern // pattern for array destructuring
+	DictPattern  *DictDestructuringPattern  // pattern for dictionary destructuring
+	Value        Expression
+	Export       bool // true if 'export' keyword was used
 }
 
 func (ls *LetStatement) statementNode()       {}
@@ -69,13 +69,8 @@ func (ls *LetStatement) String() string {
 	out.WriteString(ls.TokenLiteral() + " ")
 	if ls.DictPattern != nil {
 		out.WriteString(ls.DictPattern.String())
-	} else if len(ls.Names) > 0 {
-		for i, name := range ls.Names {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(name.String())
-		}
+	} else if ls.ArrayPattern != nil {
+		out.WriteString(ls.ArrayPattern.String())
 	} else {
 		out.WriteString(ls.Name.String())
 	}
@@ -91,12 +86,12 @@ func (ls *LetStatement) String() string {
 
 // AssignmentStatement represents assignment statements like 'x = 5;' or '[x,y,z] = [1,2,3];'
 type AssignmentStatement struct {
-	Token       lexer.Token               // the identifier token
-	Name        *Identifier               // single name (for backwards compatibility)
-	Names       []*Identifier             // multiple names for array destructuring
-	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
-	Value       Expression
-	Export      bool // true if 'export' keyword was used
+	Token        lexer.Token                // the identifier token
+	Name         *Identifier                // single name (for backwards compatibility)
+	ArrayPattern *ArrayDestructuringPattern // pattern for array destructuring
+	DictPattern  *DictDestructuringPattern  // pattern for dictionary destructuring
+	Value        Expression
+	Export       bool // true if 'export' keyword was used
 }
 
 func (as *AssignmentStatement) statementNode()       {}
@@ -109,13 +104,8 @@ func (as *AssignmentStatement) String() string {
 	}
 	if as.DictPattern != nil {
 		out.WriteString(as.DictPattern.String())
-	} else if len(as.Names) > 0 {
-		for i, name := range as.Names {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(name.String())
-		}
+	} else if as.ArrayPattern != nil {
+		out.WriteString(as.ArrayPattern.String())
 	} else {
 		out.WriteString(as.Name.String())
 	}
@@ -489,26 +479,17 @@ func (ie *IfExpression) String() string {
 // FunctionLiteral represents function literals
 // FunctionParameter represents a function parameter (identifier, array pattern, or dict pattern)
 type FunctionParameter struct {
-	Ident        *Identifier               // simple identifier parameter
-	ArrayPattern []*Identifier             // array destructuring pattern
-	DictPattern  *DictDestructuringPattern // dict destructuring pattern
+	Ident        *Identifier                // simple identifier parameter
+	ArrayPattern *ArrayDestructuringPattern // array destructuring pattern
+	DictPattern  *DictDestructuringPattern  // dict destructuring pattern
 }
 
 func (fp *FunctionParameter) String() string {
 	if fp.DictPattern != nil {
 		return fp.DictPattern.String()
 	}
-	if len(fp.ArrayPattern) > 0 {
-		var out bytes.Buffer
-		out.WriteString("[")
-		for i, p := range fp.ArrayPattern {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(p.String())
-		}
-		out.WriteString("]")
-		return out.String()
+	if fp.ArrayPattern != nil {
+		return fp.ArrayPattern.String()
 	}
 	return fp.Ident.String()
 }
@@ -749,12 +730,12 @@ func (ee *ExecuteExpression) String() string {
 
 // ReadStatement represents read-from-file statements like 'let x <== file(...)' or '{a, b} <== file(...)'
 type ReadStatement struct {
-	Token       lexer.Token               // the <== token
-	Name        *Identifier               // single name for let x <==
-	Names       []*Identifier             // multiple names for array destructuring
-	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
-	IsLet       bool                      // true if 'let' was used
-	Source      Expression                // the file handle expression
+	Token        lexer.Token                // the <== token
+	Name         *Identifier                // single name for let x <==
+	ArrayPattern *ArrayDestructuringPattern // pattern for array destructuring
+	DictPattern  *DictDestructuringPattern  // pattern for dictionary destructuring
+	IsLet        bool                       // true if 'let' was used
+	Source       Expression                 // the file handle expression
 }
 
 func (rs *ReadStatement) statementNode()       {}
@@ -767,13 +748,8 @@ func (rs *ReadStatement) String() string {
 	}
 	if rs.DictPattern != nil {
 		out.WriteString(rs.DictPattern.String())
-	} else if len(rs.Names) > 0 {
-		for i, name := range rs.Names {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(name.String())
-		}
+	} else if rs.ArrayPattern != nil {
+		out.WriteString(rs.ArrayPattern.String())
 	} else if rs.Name != nil {
 		out.WriteString(rs.Name.String())
 	}
@@ -789,12 +765,12 @@ func (rs *ReadStatement) String() string {
 
 // FetchStatement represents fetch-from-URL statements like 'let x <=/= JSON(@https://...)' or '{data, error} <=/= JSON(@url)'
 type FetchStatement struct {
-	Token       lexer.Token               // the <=/= token
-	Name        *Identifier               // single name for let x <=/=
-	Names       []*Identifier             // multiple names for array destructuring
-	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
-	IsLet       bool                      // true if 'let' was used
-	Source      Expression                // the URL/request handle expression
+	Token        lexer.Token                // the <=/= token
+	Name         *Identifier                // single name for let x <=/=
+	ArrayPattern *ArrayDestructuringPattern // pattern for array destructuring
+	DictPattern  *DictDestructuringPattern  // pattern for dictionary destructuring
+	IsLet        bool                       // true if 'let' was used
+	Source       Expression                 // the URL/request handle expression
 }
 
 func (fs *FetchStatement) statementNode()       {}
@@ -807,13 +783,8 @@ func (fs *FetchStatement) String() string {
 	}
 	if fs.DictPattern != nil {
 		out.WriteString(fs.DictPattern.String())
-	} else if len(fs.Names) > 0 {
-		for i, name := range fs.Names {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(name.String())
-		}
+	} else if fs.ArrayPattern != nil {
+		out.WriteString(fs.ArrayPattern.String())
 	} else if fs.Name != nil {
 		out.WriteString(fs.Name.String())
 	}
@@ -1029,6 +1000,37 @@ func (ddk *DictDestructuringKey) String() string {
 	} else {
 		out.WriteString(ddk.Key.String())
 	}
+
+	return out.String()
+}
+
+// ArrayDestructuringPattern represents an array destructuring pattern like [a, b, ...rest]
+type ArrayDestructuringPattern struct {
+	Token lexer.Token   // the '[' token
+	Names []*Identifier // the identifiers to extract
+	Rest  *Identifier   // optional rest identifier (for ...rest)
+}
+
+func (adp *ArrayDestructuringPattern) expressionNode()      {}
+func (adp *ArrayDestructuringPattern) TokenLiteral() string { return adp.Token.Literal }
+func (adp *ArrayDestructuringPattern) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("[")
+	for i, name := range adp.Names {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(name.String())
+	}
+	if adp.Rest != nil {
+		if len(adp.Names) > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString("...")
+		out.WriteString(adp.Rest.String())
+	}
+	out.WriteString("]")
 
 	return out.String()
 }

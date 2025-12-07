@@ -328,7 +328,15 @@ Extract values from arrays into variables using bracket syntax:
 ```parsley
 let [a, b, c] = [1, 2, 3]    // a=1, b=2, c=3
 let [first, second] = nums    // first=1, second=2
-let [x, y] = [10, 20, 30]     // x=10, y=20 (extra ignored)
+let [x, y] = [10, 20, 30]     // x=10, y=20 (extras ignored)
+```
+
+Use `...rest` to collect remaining elements (must be last):
+```parsley
+let [head, ...tail] = [1, 2, 3, 4]  // head=1, tail=[2, 3, 4]
+let [a, b, ...rest] = [1, 2]        // a=1, b=2, rest=[]
+let [...all] = [1, 2, 3]            // all=[1, 2, 3]
+let [_, ...rest] = arr              // skip first, collect rest
 ```
 
 Destructuring works in function parameters:
@@ -336,8 +344,11 @@ Destructuring works in function parameters:
 let sum = fn([a, b]) { a + b }
 sum([3, 4])  // 7
 
-let getFirst = fn([first, ...rest]) { first }
-getFirst([1, 2, 3])  // 1
+let head = fn([first, ...rest]) { first }
+head([1, 2, 3])  // 1
+
+let tail = fn([_, ...rest]) { rest }
+tail([1, 2, 3])  // [2, 3]
 ```
 
 ### Indexing and Slicing

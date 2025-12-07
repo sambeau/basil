@@ -37,12 +37,20 @@ func TestArrayDestructuringInFunctionParams(t *testing.T) {
 			expected: "1",
 		},
 		{
-			name: "extract rest elements",
+			name: "extract rest elements with explicit ...rest",
 			input: `
-				let tail = fn([first, rest]) { rest };
+				let tail = fn([first, ...rest]) { rest };
 				tail([1, 2, 3, 4, 5])
 			`,
 			expected: "[2, 3, 4, 5]",
+		},
+		{
+			name: "extras ignored without ...rest",
+			input: `
+				let getTwo = fn([a, b]) { [a, b] };
+				getTwo([1, 2, 3, 4, 5])
+			`,
+			expected: "[1, 2]",
 		},
 		{
 			name: "multiple parameters",

@@ -457,25 +457,13 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		return stmt
 	}
 
-	// Check for array destructuring pattern with brackets: let [a, b, c] = [1, 2, 3]
+	// Check for array destructuring pattern with brackets: let [a, b, c] = [1, 2, 3] or let [a, ...rest] = arr
 	if p.peekTokenIs(lexer.LBRACKET) {
 		p.nextToken() // move to '['
 
-		// Parse identifiers inside brackets
-		if !p.expectPeek(lexer.IDENT) {
-			return nil
-		}
-		names := []*ast.Identifier{
-			{Token: p.curToken, Value: p.curToken.Literal},
-		}
-		for p.peekTokenIs(lexer.COMMA) {
-			p.nextToken() // consume comma
-			if !p.expectPeek(lexer.IDENT) {
-				return nil
-			}
-			names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
-		}
-		if !p.expectPeek(lexer.RBRACKET) {
+		// Parse array destructuring pattern
+		arrayPattern := p.parseArrayDestructuringPattern()
+		if arrayPattern == nil {
 			return nil
 		}
 
@@ -483,9 +471,9 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		if p.peekTokenIs(lexer.READ_FROM) {
 			p.nextToken() // consume <==
 			readStmt := &ast.ReadStatement{
-				Token: p.curToken,
-				Names: names,
-				IsLet: true,
+				Token:        p.curToken,
+				ArrayPattern: arrayPattern,
+				IsLet:        true,
 			}
 			p.nextToken()
 			readStmt.Source = p.parseExpression(LOWEST)
@@ -498,9 +486,9 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		if p.peekTokenIs(lexer.FETCH_FROM) {
 			p.nextToken() // consume <=/=
 			fetchStmt := &ast.FetchStatement{
-				Token: p.curToken,
-				Names: names,
-				IsLet: true,
+				Token:        p.curToken,
+				ArrayPattern: arrayPattern,
+				IsLet:        true,
 			}
 			p.nextToken()
 			fetchStmt.Source = p.parseExpression(LOWEST)
@@ -515,7 +503,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		}
 
 		stmt := &ast.LetStatement{Token: letToken, Export: export}
-		stmt.Names = names
+		stmt.ArrayPattern = arrayPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
 
@@ -1679,23 +1667,7 @@ func (p *Parser) parseFunctionParameter() *ast.FunctionParameter {
 
 	case lexer.LBRACKET:
 		// Array destructuring pattern
-		if !p.expectPeek(lexer.IDENT) {
-			return nil
-		}
-		idents := []*ast.Identifier{
-			{Token: p.curToken, Value: p.curToken.Literal},
-		}
-		for p.peekTokenIs(lexer.COMMA) {
-			p.nextToken() // consume comma
-			if !p.expectPeek(lexer.IDENT) {
-				return nil
-			}
-			idents = append(idents, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
-		}
-		if !p.expectPeek(lexer.RBRACKET) {
-			return nil
-		}
-		param.ArrayPattern = idents
+		param.ArrayPattern = p.parseArrayDestructuringPattern()
 		return param
 
 	case lexer.IDENT:
@@ -2405,6 +2377,66 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 	}
 
 	if !p.expectPeek(lexer.RBRACE) {
+		return nil
+	}
+
+	return pattern
+}
+
+// parseArrayDestructuringPattern parses array destructuring patterns like [a, b, ...rest]
+func (p *Parser) parseArrayDestructuringPattern() *ast.ArrayDestructuringPattern {
+	pattern := &ast.ArrayDestructuringPattern{Token: p.curToken} // the '[' token
+
+	// Check for empty pattern - but allow [...rest]
+	if p.peekTokenIs(lexer.RBRACKET) {
+		p.addError("empty array destructuring pattern", p.peekToken.Line, p.peekToken.Column)
+		return nil
+	}
+
+	p.nextToken() // move to first identifier or ...
+
+	// Parse identifiers
+	for {
+		// Check for rest operator
+		if p.curTokenIs(lexer.DOTDOTDOT) {
+			if !p.expectPeek(lexer.IDENT) {
+				p.addError("expected identifier after '...'", p.peekToken.Line, p.peekToken.Column)
+				return nil
+			}
+			pattern.Rest = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+			// Rest must be at the end
+			if !p.peekTokenIs(lexer.RBRACKET) {
+				p.addError("rest element must be last in destructuring pattern", p.peekToken.Line, p.peekToken.Column)
+				return nil
+			}
+			break
+		}
+
+		// Expect identifier
+		if !p.curTokenIs(lexer.IDENT) {
+			p.addError("expected identifier in array destructuring pattern", p.curToken.Line, p.curToken.Column)
+			return nil
+		}
+
+		pattern.Names = append(pattern.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+
+		// Check for more identifiers
+		if !p.peekTokenIs(lexer.COMMA) {
+			break
+		}
+		p.nextToken() // consume comma
+
+		// Check for trailing comma before ]
+		if p.peekTokenIs(lexer.RBRACKET) {
+			break
+		}
+
+		// Move to next identifier or rest operator
+		p.nextToken()
+	}
+
+	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
 	}
 
