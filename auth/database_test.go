@@ -294,6 +294,191 @@ func TestSplitString(t *testing.T) {
 	}
 }
 
+func TestCreateUserWithRole(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Create admin user
+	admin, err := db.CreateUserWithRole("Admin", "admin@example.com", RoleAdmin)
+	if err != nil {
+		t.Fatalf("CreateUserWithRole failed: %v", err)
+	}
+	if admin.Role != RoleAdmin {
+		t.Errorf("admin.Role = %q, want %q", admin.Role, RoleAdmin)
+	}
+
+	// Create editor user
+	editor, err := db.CreateUserWithRole("Editor", "editor@example.com", RoleEditor)
+	if err != nil {
+		t.Fatalf("CreateUserWithRole failed: %v", err)
+	}
+	if editor.Role != RoleEditor {
+		t.Errorf("editor.Role = %q, want %q", editor.Role, RoleEditor)
+	}
+
+	// Verify roles persist through GetUser
+	gotAdmin, _ := db.GetUser(admin.ID)
+	if gotAdmin.Role != RoleAdmin {
+		t.Errorf("retrieved admin.Role = %q, want %q", gotAdmin.Role, RoleAdmin)
+	}
+
+	gotEditor, _ := db.GetUser(editor.ID)
+	if gotEditor.Role != RoleEditor {
+		t.Errorf("retrieved editor.Role = %q, want %q", gotEditor.Role, RoleEditor)
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user, err := db.CreateUser("Original", "original@example.com")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Update name and email
+	err = db.UpdateUser(user.ID, "Updated", "updated@example.com")
+	if err != nil {
+		t.Fatalf("UpdateUser failed: %v", err)
+	}
+
+	// Verify update
+	got, _ := db.GetUser(user.ID)
+	if got.Name != "Updated" {
+		t.Errorf("Name = %q, want %q", got.Name, "Updated")
+	}
+	if got.Email != "updated@example.com" {
+		t.Errorf("Email = %q, want %q", got.Email, "updated@example.com")
+	}
+}
+
+func TestSetUserRole(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user, err := db.CreateUser("Alice", "alice@example.com")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Default role should be editor
+	if user.Role != RoleEditor {
+		t.Errorf("default role = %q, want %q", user.Role, RoleEditor)
+	}
+
+	// Promote to admin
+	err = db.SetUserRole(user.ID, RoleAdmin)
+	if err != nil {
+		t.Fatalf("SetUserRole to admin failed: %v", err)
+	}
+
+	got, _ := db.GetUser(user.ID)
+	if got.Role != RoleAdmin {
+		t.Errorf("Role after promotion = %q, want %q", got.Role, RoleAdmin)
+	}
+
+	// Demote back to editor
+	err = db.SetUserRole(user.ID, RoleEditor)
+	if err != nil {
+		t.Fatalf("SetUserRole to editor failed: %v", err)
+	}
+
+	got, _ = db.GetUser(user.ID)
+	if got.Role != RoleEditor {
+		t.Errorf("Role after demotion = %q, want %q", got.Role, RoleEditor)
+	}
+}
+
+func TestCountAdmins(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Initially no admins
+	count, err := db.CountAdmins()
+	if err != nil {
+		t.Fatalf("CountAdmins failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("initial admin count = %d, want 0", count)
+	}
+
+	// Create an admin
+	db.CreateUserWithRole("Admin", "admin@example.com", RoleAdmin)
+	count, _ = db.CountAdmins()
+	if count != 1 {
+		t.Errorf("admin count after creating admin = %d, want 1", count)
+	}
+
+	// Create an editor (shouldn't increase count)
+	db.CreateUserWithRole("Editor", "editor@example.com", RoleEditor)
+	count, _ = db.CountAdmins()
+	if count != 1 {
+		t.Errorf("admin count after creating editor = %d, want 1", count)
+	}
+}
+
+func TestHasCredentials(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user, _ := db.CreateUser("Alice", "alice@example.com")
+
+	// Initially no credentials
+	has, err := db.HasCredentials(user.ID)
+	if err != nil {
+		t.Fatalf("HasCredentials failed: %v", err)
+	}
+	if has {
+		t.Error("expected no credentials initially")
+	}
+
+	// Add a credential
+	cred := &Credential{
+		ID:        []byte("cred-1"),
+		UserID:    user.ID,
+		PublicKey: []byte("key"),
+	}
+	db.SaveCredential(cred)
+
+	// Now should have credentials
+	has, _ = db.HasCredentials(user.ID)
+	if !has {
+		t.Error("expected credentials after saving")
+	}
+}
+
+func TestUserRoleInList(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	db.CreateUserWithRole("Admin", "admin@example.com", RoleAdmin)
+	db.CreateUserWithRole("Editor", "editor@example.com", RoleEditor)
+
+	users, err := db.ListUsers()
+	if err != nil {
+		t.Fatalf("ListUsers failed: %v", err)
+	}
+
+	// Verify roles are present in list
+	var foundAdmin, foundEditor bool
+	for _, u := range users {
+		if u.Role == RoleAdmin {
+			foundAdmin = true
+		}
+		if u.Role == RoleEditor {
+			foundEditor = true
+		}
+	}
+
+	if !foundAdmin {
+		t.Error("admin role not found in user list")
+	}
+	if !foundEditor {
+		t.Error("editor role not found in user list")
+	}
+}
+
 // setupTestDB creates a temporary test database.
 func setupTestDB(t *testing.T) *DB {
 	t.Helper()

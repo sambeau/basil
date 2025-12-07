@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	email TEXT,
+	role TEXT NOT NULL DEFAULT 'editor',
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -53,11 +54,42 @@ CREATE TABLE IF NOT EXISTS recovery_codes (
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS api_keys (
+	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	key_hash TEXT NOT NULL,
+	key_prefix TEXT NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	last_used_at TIMESTAMP,
+	expires_at TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 `
+
+// migrations tracks schema migrations to apply to existing databases.
+var migrations = []string{
+	// Migration 1: Add role column to users table
+	`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'editor'`,
+	// Migration 2: Create api_keys table
+	`CREATE TABLE IF NOT EXISTS api_keys (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		key_hash TEXT NOT NULL,
+		key_prefix TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		last_used_at TIMESTAMP,
+		expires_at TIMESTAMP
+	)`,
+	// Migration 3: Create api_keys index
+	`CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)`,
+}
 
 // OpenDB opens the auth database, creating it if necessary.
 // The database is stored separately from the app database for security.
@@ -79,6 +111,18 @@ func OpenDB(basePath string) (*DB, error) {
 		return nil, fmt.Errorf("opening auth database: %w", err)
 	}
 
+	// Enable WAL mode for concurrent access (CLI + server)
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("enabling WAL mode: %w", err)
+	}
+
+	// Set busy timeout to wait for locks (5 seconds)
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("setting busy timeout: %w", err)
+	}
+
 	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		db.Close()
@@ -91,7 +135,24 @@ func OpenDB(basePath string) (*DB, error) {
 		return nil, fmt.Errorf("creating schema: %w", err)
 	}
 
-	return &DB{db: db, path: dbPath}, nil
+	d := &DB{db: db, path: dbPath}
+
+	// Apply migrations for existing databases
+	if err := d.applyMigrations(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("applying migrations: %w", err)
+	}
+
+	return d, nil
+}
+
+// applyMigrations applies schema migrations to existing databases.
+func (d *DB) applyMigrations() error {
+	for _, migration := range migrations {
+		// Ignore errors - migrations are idempotent (CREATE IF NOT EXISTS, column already exists)
+		d.db.Exec(migration)
+	}
+	return nil
 }
 
 // Close closes the database connection.
@@ -116,17 +177,31 @@ func generateID(prefix string) string {
 // --- User operations ---
 
 // CreateUser creates a new user and returns the user with generated ID.
+// New users default to 'editor' role; use CreateUserWithRole for admin.
 func (d *DB) CreateUser(name, email string) (*User, error) {
+	return d.CreateUserWithRole(name, email, RoleEditor)
+}
+
+// CreateUserWithRole creates a new user with the specified role.
+func (d *DB) CreateUserWithRole(name, email, role string) (*User, error) {
+	if role == "" {
+		role = RoleEditor
+	}
+	if role != RoleAdmin && role != RoleEditor {
+		return nil, fmt.Errorf("invalid role: %s (must be 'admin' or 'editor')", role)
+	}
+
 	user := &User{
 		ID:        generateID("usr"),
 		Name:      name,
 		Email:     email,
+		Role:      role,
 		CreatedAt: time.Now().UTC(),
 	}
 
 	_, err := d.db.Exec(
-		"INSERT INTO users (id, name, email, created_at) VALUES (?, ?, ?, ?)",
-		user.ID, user.Name, nullString(user.Email), user.CreatedAt,
+		"INSERT INTO users (id, name, email, role, created_at) VALUES (?, ?, ?, ?, ?)",
+		user.ID, user.Name, nullString(user.Email), user.Role, user.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating user: %w", err)
@@ -139,11 +214,12 @@ func (d *DB) CreateUser(name, email string) (*User, error) {
 func (d *DB) GetUser(id string) (*User, error) {
 	user := &User{}
 	var email sql.NullString
+	var role sql.NullString
 
 	err := d.db.QueryRow(
-		"SELECT id, name, email, created_at FROM users WHERE id = ?",
+		"SELECT id, name, email, role, created_at FROM users WHERE id = ?",
 		id,
-	).Scan(&user.ID, &user.Name, &email, &user.CreatedAt)
+	).Scan(&user.ID, &user.Name, &email, &role, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -153,6 +229,10 @@ func (d *DB) GetUser(id string) (*User, error) {
 	}
 
 	user.Email = email.String
+	user.Role = role.String
+	if user.Role == "" {
+		user.Role = RoleEditor // Default for old records without role
+	}
 	return user, nil
 }
 
@@ -160,11 +240,12 @@ func (d *DB) GetUser(id string) (*User, error) {
 func (d *DB) GetUserByEmail(email string) (*User, error) {
 	user := &User{}
 	var emailVal sql.NullString
+	var role sql.NullString
 
 	err := d.db.QueryRow(
-		"SELECT id, name, email, created_at FROM users WHERE email = ?",
+		"SELECT id, name, email, role, created_at FROM users WHERE email = ?",
 		email,
-	).Scan(&user.ID, &user.Name, &emailVal, &user.CreatedAt)
+	).Scan(&user.ID, &user.Name, &emailVal, &role, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -174,13 +255,17 @@ func (d *DB) GetUserByEmail(email string) (*User, error) {
 	}
 
 	user.Email = emailVal.String
+	user.Role = role.String
+	if user.Role == "" {
+		user.Role = RoleEditor
+	}
 	return user, nil
 }
 
 // ListUsers returns all users.
 func (d *DB) ListUsers() ([]*User, error) {
 	rows, err := d.db.Query(
-		"SELECT id, name, email, created_at FROM users ORDER BY created_at DESC",
+		"SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("listing users: %w", err)
@@ -191,10 +276,15 @@ func (d *DB) ListUsers() ([]*User, error) {
 	for rows.Next() {
 		user := &User{}
 		var email sql.NullString
-		if err := rows.Scan(&user.ID, &user.Name, &email, &user.CreatedAt); err != nil {
+		var role sql.NullString
+		if err := rows.Scan(&user.ID, &user.Name, &email, &role, &user.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning user: %w", err)
 		}
 		user.Email = email.String
+		user.Role = role.String
+		if user.Role == "" {
+			user.Role = RoleEditor
+		}
 		users = append(users, user)
 	}
 
@@ -314,6 +404,81 @@ func (d *DB) UpdateCredentialSignCount(id []byte, signCount uint32) error {
 		signCount, id,
 	)
 	return err
+}
+
+// --- Additional user operations ---
+
+// UpdateUser updates a user's name and/or email.
+func (d *DB) UpdateUser(id, name, email string) error {
+	if name == "" && email == "" {
+		return fmt.Errorf("at least one of name or email must be provided")
+	}
+
+	// Build update query dynamically
+	query := "UPDATE users SET "
+	var args []interface{}
+
+	if name != "" {
+		query += "name = ?"
+		args = append(args, name)
+	}
+	if email != "" {
+		if name != "" {
+			query += ", "
+		}
+		query += "email = ?"
+		args = append(args, nullString(email).String)
+	}
+	query += " WHERE id = ?"
+	args = append(args, id)
+
+	result, err := d.db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("updating user: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user not found: %s", id)
+	}
+
+	return nil
+}
+
+// SetUserRole changes a user's role.
+func (d *DB) SetUserRole(id, role string) error {
+	if role != RoleAdmin && role != RoleEditor {
+		return fmt.Errorf("invalid role: %s (must be 'admin' or 'editor')", role)
+	}
+
+	result, err := d.db.Exec("UPDATE users SET role = ? WHERE id = ?", role, id)
+	if err != nil {
+		return fmt.Errorf("setting user role: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user not found: %s", id)
+	}
+
+	return nil
+}
+
+// CountAdmins returns the count of admin users.
+func (d *DB) CountAdmins() (int, error) {
+	var count int
+	err := d.db.QueryRow("SELECT COUNT(*) FROM users WHERE role = ?", RoleAdmin).Scan(&count)
+	return count, err
+}
+
+// HasCredentials checks if a user has any passkey credentials.
+func (d *DB) HasCredentials(userID string) (bool, error) {
+	var count int
+	err := d.db.QueryRow("SELECT COUNT(*) FROM credentials WHERE user_id = ?", userID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("counting credentials: %w", err)
+	}
+	return count > 0, nil
 }
 
 // --- Helper functions ---

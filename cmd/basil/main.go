@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/sambeau/basil/auth"
@@ -37,6 +38,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 		switch args[0] {
 		case "users":
 			return runUsersCommand(args[1:], stdout, stderr, getenv)
+		case "apikey":
+			return runAPIKeyCommand(args[1:], stdout, stderr, getenv)
 		}
 	}
 
@@ -152,6 +155,7 @@ func printUsage(w io.Writer) {
 Usage:
   basil [options]
   basil users <command> [options]
+  basil apikey <command> [options]
 
 Server Options:
   --config PATH      Path to config file (default: auto-detect)
@@ -164,10 +168,18 @@ Server Options:
   --help             Show this help
 
 User Management:
-  basil users list            List all users
-  basil users show <id>       Show user details
-  basil users delete <id>     Delete a user
-  basil users reset <id>      Generate new recovery codes
+  basil users create           Create a new user
+  basil users list             List all users
+  basil users show <id>        Show user details
+  basil users update <id>      Update user name/email
+  basil users set-role <id>    Change user role
+  basil users delete <id>      Delete a user
+  basil users reset <id>       Generate new recovery codes
+
+API Key Management:
+  basil apikey create          Create an API key for a user
+  basil apikey list            List API keys for a user
+  basil apikey revoke <id>     Revoke an API key
 
 Config Resolution:
   1. --config flag
@@ -185,8 +197,9 @@ Examples:
   basil --config app.yaml     Use specific config file
   basil --dev --port 3000     Dev mode on port 3000
   basil --dev -as sam         Dev mode with Sam's config overrides
+  basil users create --name "Admin" --email admin@example.com --role admin
   basil users list            List all registered users
-  basil users reset usr_abc   Generate new recovery codes for user
+  basil apikey create --user usr_abc123 --name "MacBook Git"
 
 `)
 }
@@ -200,6 +213,9 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 	var (
 		configPath = flags.String("config", "", "Path to config file")
 		force      = flags.Bool("force", false, "Skip confirmation prompts")
+		name       = flags.String("name", "", "User name")
+		email      = flags.String("email", "", "User email")
+		role       = flags.String("role", "", "User role (admin/editor)")
 	)
 
 	if len(args) == 0 {
@@ -239,6 +255,8 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 
 	// Execute subcommand
 	switch subCmd {
+	case "create":
+		return usersCreateCmd(db, *name, *email, *role, stdout, stderr)
 	case "list":
 		return usersListCmd(db, stdout)
 	case "show":
@@ -246,6 +264,23 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 			return fmt.Errorf("missing user ID")
 		}
 		return usersShowCmd(db, flags.Arg(0), stdout)
+	case "update":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing user ID")
+		}
+		return usersUpdateCmd(db, flags.Arg(0), *name, *email, stdout)
+	case "set-role":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing user ID")
+		}
+		if flags.NArg() < 2 && *role == "" {
+			return fmt.Errorf("missing role (use: admin or editor)")
+		}
+		targetRole := *role
+		if targetRole == "" {
+			targetRole = flags.Arg(1)
+		}
+		return usersSetRoleCmd(db, flags.Arg(0), targetRole, stdout)
 	case "delete":
 		if flags.NArg() == 0 {
 			return fmt.Errorf("missing user ID")
@@ -269,18 +304,28 @@ Usage:
   basil users <command> [options] [args]
 
 Commands:
+  create            Create a new user
   list              List all users
   show <id>         Show user details
+  update <id>       Update user name/email
+  set-role <id>     Change user role
   delete <id>       Delete a user
   reset <id>        Generate new recovery codes
 
 Options:
   --config PATH     Path to config file
+  --name NAME       User name (for create/update)
+  --email EMAIL     User email (for create/update)
+  --role ROLE       User role: admin or editor (for create/set-role)
   --force           Skip confirmation prompts (for delete)
 
 Examples:
+  basil users create --name "Admin" --email admin@example.com --role admin
+  basil users create --name "Editor" --email editor@example.com
   basil users list
   basil users show usr_abc123
+  basil users update usr_abc123 --name "New Name"
+  basil users set-role usr_abc123 editor
   basil users delete usr_abc123 --force
   basil users reset usr_abc123
 
@@ -297,6 +342,42 @@ func authDBPath(configFile string) string {
 	return filepath.Join(dir, ".basil-auth.db")
 }
 
+// usersCreateCmd creates a new user.
+func usersCreateCmd(db *auth.DB, name, email, role string, stdout, stderr io.Writer) error {
+	if name == "" {
+		return fmt.Errorf("--name is required")
+	}
+
+	// Check if this is the first user
+	count, err := db.UserCount()
+	if err != nil {
+		return fmt.Errorf("checking user count: %w", err)
+	}
+
+	// First user is always admin
+	if count == 0 {
+		if role != "" && role != auth.RoleAdmin {
+			fmt.Fprintf(stderr, "Note: First user is always admin (ignoring --role %s)\n", role)
+		}
+		role = auth.RoleAdmin
+	} else if role == "" {
+		role = auth.RoleEditor
+	}
+
+	// Validate role
+	if role != auth.RoleAdmin && role != auth.RoleEditor {
+		return fmt.Errorf("invalid role: %s (use: admin or editor)", role)
+	}
+
+	user, err := db.CreateUserWithRole(name, email, role)
+	if err != nil {
+		return fmt.Errorf("creating user: %w", err)
+	}
+
+	fmt.Fprintf(stdout, "✓ Created user %s\n", user.ID)
+	return nil
+}
+
 // usersListCmd lists all users.
 func usersListCmd(db *auth.DB, stdout io.Writer) error {
 	users, err := db.ListUsers()
@@ -310,8 +391,8 @@ func usersListCmd(db *auth.DB, stdout io.Writer) error {
 	}
 
 	// Print header
-	fmt.Fprintf(stdout, "%-20s %-30s %-30s %s\n", "ID", "NAME", "EMAIL", "CREATED")
-	fmt.Fprintln(stdout, "-------------------------------------------------------------------------------------")
+	fmt.Fprintf(stdout, "%-36s %-20s %-30s %-8s %s\n", "ID", "NAME", "EMAIL", "ROLE", "CREATED")
+	fmt.Fprintln(stdout, strings.Repeat("-", 110))
 
 	// Print users
 	for _, u := range users {
@@ -319,8 +400,12 @@ func usersListCmd(db *auth.DB, stdout io.Writer) error {
 		if email == "" {
 			email = "(none)"
 		}
-		fmt.Fprintf(stdout, "%-20s %-30s %-30s %s\n",
-			u.ID, u.Name, email, u.CreatedAt.Format("2006-01-02 15:04"))
+		name := u.Name
+		if len(name) > 20 {
+			name = name[:17] + "..."
+		}
+		fmt.Fprintf(stdout, "%-36s %-20s %-30s %-8s %s\n",
+			u.ID, name, email, u.Role, u.CreatedAt.Format("2006-01-02 15:04"))
 	}
 
 	fmt.Fprintf(stdout, "\nTotal: %d user(s)\n", len(users))
@@ -344,6 +429,7 @@ func usersShowCmd(db *auth.DB, userID string, stdout io.Writer) error {
 	} else {
 		fmt.Fprintln(stdout, "Email:      (none)")
 	}
+	fmt.Fprintf(stdout, "Role:       %s\n", user.Role)
 	fmt.Fprintf(stdout, "Created:    %s\n", user.CreatedAt.Format("2006-01-02 15:04:05"))
 
 	// Get credential count
@@ -358,6 +444,70 @@ func usersShowCmd(db *auth.DB, userID string, stdout io.Writer) error {
 		fmt.Fprintf(stdout, "Recovery:   %d code(s) remaining\n", count)
 	}
 
+	// Get API key count
+	apiKeys, err := db.GetAPIKeys(userID)
+	if err == nil {
+		fmt.Fprintf(stdout, "API Keys:   %d\n", len(apiKeys))
+	}
+
+	return nil
+}
+
+// usersUpdateCmd updates a user's name and/or email.
+func usersUpdateCmd(db *auth.DB, userID, name, email string, stdout io.Writer) error {
+	if name == "" && email == "" {
+		return fmt.Errorf("at least one of --name or --email must be provided")
+	}
+
+	// Check user exists
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+
+	if err := db.UpdateUser(userID, name, email); err != nil {
+		return fmt.Errorf("updating user: %w", err)
+	}
+
+	fmt.Fprintf(stdout, "✓ Updated user %s\n", userID)
+	return nil
+}
+
+// usersSetRoleCmd changes a user's role.
+func usersSetRoleCmd(db *auth.DB, userID, role string, stdout io.Writer) error {
+	// Check user exists
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+
+	// Validate role
+	if role != auth.RoleAdmin && role != auth.RoleEditor {
+		return fmt.Errorf("invalid role: %s (use: admin or editor)", role)
+	}
+
+	// Prevent removing the last admin
+	if user.Role == auth.RoleAdmin && role != auth.RoleAdmin {
+		adminCount, err := db.CountAdmins()
+		if err != nil {
+			return fmt.Errorf("checking admin count: %w", err)
+		}
+		if adminCount <= 1 {
+			return fmt.Errorf("cannot remove the last admin user")
+		}
+	}
+
+	if err := db.SetUserRole(userID, role); err != nil {
+		return fmt.Errorf("setting role: %w", err)
+	}
+
+	fmt.Fprintf(stdout, "✓ Set role for %s to %s\n", user.Name, role)
 	return nil
 }
 
@@ -372,9 +522,20 @@ func usersDeleteCmd(db *auth.DB, userID string, stdout, stderr io.Writer, force 
 		return fmt.Errorf("user not found: %s", userID)
 	}
 
+	// Prevent deleting the last admin
+	if user.Role == auth.RoleAdmin {
+		adminCount, err := db.CountAdmins()
+		if err != nil {
+			return fmt.Errorf("checking admin count: %w", err)
+		}
+		if adminCount <= 1 {
+			return fmt.Errorf("cannot delete the last admin user")
+		}
+	}
+
 	// Confirm unless --force
 	if !force {
-		fmt.Fprintf(stderr, "Delete user %q (%s)? [y/N] ", user.Name, user.ID)
+		fmt.Fprintf(stderr, "⚠ This will delete user %s and all their credentials.\n  Continue? [y/N] ", user.Name)
 		var response string
 		fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
@@ -383,12 +544,12 @@ func usersDeleteCmd(db *auth.DB, userID string, stdout, stderr io.Writer, force 
 		}
 	}
 
-	// Delete user (cascades to credentials, sessions, recovery codes)
+	// Delete user (cascades to credentials, sessions, recovery codes, API keys)
 	if err := db.DeleteUser(userID); err != nil {
 		return fmt.Errorf("deleting user: %w", err)
 	}
 
-	fmt.Fprintf(stdout, "Deleted user: %s\n", user.ID)
+	fmt.Fprintf(stdout, "✓ Deleted user %s\n", user.ID)
 	return nil
 }
 
@@ -415,5 +576,168 @@ func usersResetCmd(db *auth.DB, userID string, stdout io.Writer) error {
 	}
 	fmt.Fprintln(stdout, "\nSave these codes securely. They cannot be shown again.")
 
+	return nil
+}
+
+// --- API Key Commands ---
+
+// runAPIKeyCommand handles the `basil apikey` subcommand.
+func runAPIKeyCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil apikey", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	var (
+		configPath = flags.String("config", "", "Path to config file")
+		userID     = flags.String("user", "", "User ID")
+		name       = flags.String("name", "", "API key name/label")
+	)
+
+	if len(args) == 0 {
+		printAPIKeyUsage(stderr)
+		return fmt.Errorf("missing apikey subcommand")
+	}
+
+	subCmd := args[0]
+
+	if err := flags.Parse(args[1:]); err != nil {
+		printAPIKeyUsage(stderr)
+		return err
+	}
+
+	// Load config
+	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	if !cfg.Auth.Enabled {
+		return fmt.Errorf("authentication is not enabled in config")
+	}
+
+	dbPath := authDBPath(configFile)
+	db, err := auth.OpenDB(dbPath)
+	if err != nil {
+		return fmt.Errorf("opening auth database: %w", err)
+	}
+	defer db.Close()
+
+	switch subCmd {
+	case "create":
+		if *userID == "" {
+			return fmt.Errorf("--user is required")
+		}
+		if *name == "" {
+			return fmt.Errorf("--name is required")
+		}
+		return apiKeyCreateCmd(db, *userID, *name, stdout)
+	case "list":
+		if *userID == "" {
+			return fmt.Errorf("--user is required")
+		}
+		return apiKeyListCmd(db, *userID, stdout)
+	case "revoke":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing API key ID")
+		}
+		return apiKeyRevokeCmd(db, flags.Arg(0), stdout)
+	default:
+		printAPIKeyUsage(stderr)
+		return fmt.Errorf("unknown apikey subcommand: %s", subCmd)
+	}
+}
+
+func printAPIKeyUsage(w io.Writer) {
+	fmt.Fprintf(w, `basil apikey - Manage API keys
+
+Usage:
+  basil apikey <command> [options] [args]
+
+Commands:
+  create            Create a new API key
+  list              List API keys for a user
+  revoke <id>       Revoke an API key
+
+Options:
+  --config PATH     Path to config file
+  --user ID         User ID (required for create/list)
+  --name NAME       API key name/label (required for create)
+
+Examples:
+  basil apikey create --user usr_abc123 --name "MacBook Git"
+  basil apikey list --user usr_abc123
+  basil apikey revoke key_xyz789
+
+`)
+}
+
+// apiKeyCreateCmd creates an API key for a user.
+func apiKeyCreateCmd(db *auth.DB, userID, name string, stdout io.Writer) error {
+	key, plaintext, err := db.CreateAPIKey(userID, name)
+	if err != nil {
+		return fmt.Errorf("creating API key: %w", err)
+	}
+
+	fmt.Fprintf(stdout, "✓ Created API key: %s\n", plaintext)
+	fmt.Fprintf(stdout, "  Key ID: %s\n", key.ID)
+	fmt.Fprintln(stdout, "  (save this now — it won't be shown again)")
+	return nil
+}
+
+// apiKeyListCmd lists API keys for a user.
+func apiKeyListCmd(db *auth.DB, userID string, stdout io.Writer) error {
+	// Verify user exists
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+
+	keys, err := db.GetAPIKeys(userID)
+	if err != nil {
+		return fmt.Errorf("listing API keys: %w", err)
+	}
+
+	if len(keys) == 0 {
+		fmt.Fprintln(stdout, "No API keys found.")
+		return nil
+	}
+
+	fmt.Fprintf(stdout, "%-36s %-20s %-20s %-12s %s\n", "ID", "NAME", "PREFIX", "CREATED", "LAST USED")
+	fmt.Fprintln(stdout, strings.Repeat("-", 110))
+
+	for _, k := range keys {
+		lastUsed := "never"
+		if k.LastUsedAt != nil {
+			lastUsed = k.LastUsedAt.Format("2006-01-02")
+		}
+		name := k.Name
+		if len(name) > 20 {
+			name = name[:17] + "..."
+		}
+		fmt.Fprintf(stdout, "%-36s %-20s %-20s %-12s %s\n",
+			k.ID, name, k.KeyPrefix, k.CreatedAt.Format("2006-01-02"), lastUsed)
+	}
+
+	return nil
+}
+
+// apiKeyRevokeCmd revokes an API key.
+func apiKeyRevokeCmd(db *auth.DB, keyID string, stdout io.Writer) error {
+	// Get key first to show name in confirmation
+	key, err := db.GetAPIKey(keyID)
+	if err != nil {
+		return fmt.Errorf("getting API key: %w", err)
+	}
+	if key == nil {
+		return fmt.Errorf("API key not found: %s", keyID)
+	}
+
+	if err := db.DeleteAPIKey(keyID); err != nil {
+		return fmt.Errorf("revoking API key: %w", err)
+	}
+
+	fmt.Fprintf(stdout, "✓ Revoked API key %q\n", key.Name)
 	return nil
 }

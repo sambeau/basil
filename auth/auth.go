@@ -8,8 +8,27 @@ type User struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email,omitempty"` // Optional
+	Role      string    `json:"role"`            // "admin" or "editor"
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// APIKey represents an API key for a user.
+type APIKey struct {
+	ID         string     `json:"id"`         // "key_xyz789"
+	UserID     string     `json:"user_id"`    // Owner
+	Name       string     `json:"name"`       // Label, e.g., "MacBook Git"
+	KeyHash    string     `json:"-"`          // bcrypt hash, never exposed
+	KeyPrefix  string     `json:"key_prefix"` // "bsl_...k2m9" for display
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+}
+
+// Role constants
+const (
+	RoleAdmin  = "admin"
+	RoleEditor = "editor"
+)
 
 // Credential represents a WebAuthn credential (passkey) for a user.
 type Credential struct {

@@ -21,9 +21,10 @@ type WebAuthnManager struct {
 
 // challengeData stores pending challenge information.
 type challengeData struct {
-	sessionData *webauthn.SessionData
-	user        *webAuthnUser // For registration
-	expiresAt   time.Time
+	sessionData    *webauthn.SessionData
+	user           *webAuthnUser // For registration
+	existingUserID string        // Non-empty if registering passkey for existing user
+	expiresAt      time.Time
 }
 
 // webAuthnUser implements webauthn.User interface.
@@ -101,6 +102,40 @@ func (m *WebAuthnManager) BeginRegistration(name, email string) (*protocol.Crede
 	return options, challengeID, nil
 }
 
+// BeginRegistrationForExisting starts passkey registration for an existing user
+// who doesn't have any credentials (e.g., created via CLI).
+func (m *WebAuthnManager) BeginRegistrationForExisting(existingUser *User) (*protocol.CredentialCreation, string, error) {
+	// Use the existing user's ID
+	user := &webAuthnUser{
+		id:          []byte(existingUser.ID),
+		name:        existingUser.Email,
+		displayName: existingUser.Name,
+		credentials: nil,
+	}
+	if existingUser.Email == "" {
+		user.name = existingUser.Name
+	}
+
+	// Generate registration options
+	options, sessionData, err := m.webauthn.BeginRegistration(user)
+	if err != nil {
+		return nil, "", fmt.Errorf("beginning registration: %w", err)
+	}
+
+	// Store challenge with existing user ID marker
+	challengeID := generateID("chal")
+	m.mu.Lock()
+	m.challenges[challengeID] = &challengeData{
+		sessionData:    sessionData,
+		user:           user,
+		existingUserID: existingUser.ID, // Mark as existing user
+		expiresAt:      time.Now().Add(5 * time.Minute),
+	}
+	m.mu.Unlock()
+
+	return options, challengeID, nil
+}
+
 // FinishRegistration completes registration and creates the user.
 // Returns the created user and recovery codes.
 func (m *WebAuthnManager) FinishRegistration(challengeID string, response *protocol.ParsedCredentialCreationData) (*User, []string, error) {
@@ -126,17 +161,28 @@ func (m *WebAuthnManager) FinishRegistration(challengeID string, response *proto
 		return nil, nil, fmt.Errorf("verifying credential: %w", err)
 	}
 
-	// Create user in database
-	// Extract name from the user object we stored
-	name := challenge.user.displayName
-	email := ""
-	if challenge.user.name != name {
-		email = challenge.user.name
-	}
+	var user *User
 
-	user, err := m.db.CreateUser(name, email)
-	if err != nil {
-		return nil, nil, fmt.Errorf("creating user: %w", err)
+	// Check if this is registration for an existing user (created via CLI)
+	if challenge.existingUserID != "" {
+		// Fetch the existing user
+		user, err = m.db.GetUser(challenge.existingUserID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("fetching existing user: %w", err)
+		}
+	} else {
+		// Create new user in database
+		// Extract name from the user object we stored
+		name := challenge.user.displayName
+		email := ""
+		if challenge.user.name != name {
+			email = challenge.user.name
+		}
+
+		user, err = m.db.CreateUser(name, email)
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating user: %w", err)
+		}
 	}
 
 	// Save credential
@@ -151,8 +197,10 @@ func (m *WebAuthnManager) FinishRegistration(challengeID string, response *proto
 	}
 
 	if err := m.db.SaveCredential(cred); err != nil {
-		// Rollback user creation
-		m.db.DeleteUser(user.ID)
+		// Rollback user creation only if we created a new user
+		if challenge.existingUserID == "" {
+			m.db.DeleteUser(user.ID)
+		}
 		return nil, nil, fmt.Errorf("saving credential: %w", err)
 	}
 

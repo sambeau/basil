@@ -71,12 +71,27 @@ func (h *Handlers) BeginRegisterHandler(w http.ResponseWriter, r *http.Request) 
 	if req.Email != "" {
 		existing, _ := h.db.GetUserByEmail(req.Email)
 		if existing != nil {
-			jsonError(w, "Email already registered", http.StatusConflict)
+			// Check if they have any passkeys - CLI-created users may not
+			hasCredentials, _ := h.db.HasCredentials(existing.ID)
+			if hasCredentials {
+				jsonError(w, "Email already registered", http.StatusConflict)
+				return
+			}
+			// User exists but has no passkey - allow registration for existing user
+			options, challengeID, err := h.webauthn.BeginRegistrationForExisting(existing)
+			if err != nil {
+				jsonError(w, "Failed to start registration", http.StatusInternalServerError)
+				return
+			}
+			jsonResponse(w, map[string]any{
+				"options":      options,
+				"challenge_id": challengeID,
+			})
 			return
 		}
 	}
 
-	// Begin WebAuthn registration
+	// Begin WebAuthn registration for new user
 	options, challengeID, err := h.webauthn.BeginRegistration(req.Name, req.Email)
 	if err != nil {
 		jsonError(w, "Failed to start registration", http.StatusInternalServerError)
