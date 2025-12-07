@@ -181,15 +181,15 @@ func TestOptionalIndexingWithPathComponents(t *testing.T) {
 		expected string
 	}{
 		// Root path - components is empty, [?0] returns null, coalesce to "home"
-		{`let p = @/; p.components[?0] ?? "home"`, "home"},
+		{`let p = @/; p.segments[?0] ?? "home"`, "home"},
 
 		// Path with segment - [?0] returns the first component
-		{`let p = @/about; p.components[?0] ?? "home"`, "about"},
-		{`let p = @/foo/bar; p.components[?0] ?? "home"`, "foo"},
+		{`let p = @/about; p.segments[?0] ?? "home"`, "about"},
+		{`let p = @/foo/bar; p.segments[?0] ?? "home"`, "foo"},
 
 		// Accessing deeper components
-		{`let p = @/foo/bar; p.components[?1] ?? "none"`, "bar"},
-		{`let p = @/foo/bar; p.components[?2] ?? "none"`, "none"},
+		{`let p = @/foo/bar; p.segments[?1] ?? "none"`, "bar"},
+		{`let p = @/foo/bar; p.segments[?2] ?? "none"`, "none"},
 	}
 
 	for _, tt := range tests {

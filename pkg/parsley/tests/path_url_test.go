@@ -36,21 +36,21 @@ func TestPathParsing(t *testing.T) {
 		{
 			name:     "absolute unix path",
 			input:    `@/usr/local/bin`,
-			expected: `{__type: path, absolute: true, components: usr, local, bin}`,
+			expected: `{__type: path, absolute: true, segments: usr, local, bin}`,
 		},
 		{
 			name:     "relative path",
 			input:    `@./config/app.json`,
-			expected: `{__type: path, absolute: false, components: ., config, app.json}`,
+			expected: `{__type: path, absolute: false, segments: ., config, app.json}`,
 		},
 		{
 			name:     "path_components_access",
-			input:    `let p = @/usr/local/bin; p.components`,
+			input:    `let p = @/usr/local/bin; p.segments`,
 			expected: `[usr, local, bin]`,
 		},
 		{
 			name:     "path components index",
-			input:    `let p = @/usr/local/bin; p.components[-1]`,
+			input:    `let p = @/usr/local/bin; p.segments[-1]`,
 			expected: `bin`,
 		},
 		{
@@ -158,7 +158,7 @@ func TestPathToString(t *testing.T) {
 		{
 			name:     "roundtrip path",
 			input:    `let p = @/usr/local/bin; let s = toString(p); @({s})`,
-			expected: `{__type: path, absolute: true, components: usr, local, bin}`,
+			expected: `{__type: path, absolute: true, segments: usr, local, bin}`,
 		},
 	}
 
@@ -326,12 +326,12 @@ func TestPathArrayComposition(t *testing.T) {
 	}{
 		{
 			name:     "filter path components using join",
-			input:    `let p = @/usr/local/bin; "/" + p.components.filter(fn(c) { c != "local" }).join("/")`,
+			input:    `let p = @/usr/local/bin; "/" + p.segments.filter(fn(c) { c != "local" }).join("/")`,
 			expected: `/usr/bin`,
 		},
 		{
 			name:     "map path components",
-			input:    `let p = @/usr/local/bin; p.components.map(fn(c) { len(c) })`,
+			input:    `let p = @/usr/local/bin; p.segments.map(fn(c) { len(c) })`,
 			expected: `[3, 5, 3]`,
 		},
 	}

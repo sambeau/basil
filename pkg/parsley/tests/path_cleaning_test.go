@@ -34,77 +34,77 @@ func TestPathCleaning(t *testing.T) {
 		{
 			name:     "eliminate_single_dot",
 			input:    `@/./foo/./bar`,
-			expected: `{__type: path, absolute: true, components: foo, bar}`,
+			expected: `{__type: path, absolute: true, segments: foo, bar}`,
 		},
 		{
 			name:     "eliminate_single_dot_relative",
 			input:    `@./a/./b`,
-			expected: `{__type: path, absolute: false, components: ., a, b}`,
+			expected: `{__type: path, absolute: false, segments: ., a, b}`,
 		},
 
 		// Rule 3: Eliminate .. and the preceding element
 		{
 			name:     "eliminate_dotdot_with_preceding",
 			input:    `@/foo/../bar`,
-			expected: `{__type: path, absolute: true, components: bar}`,
+			expected: `{__type: path, absolute: true, segments: bar}`,
 		},
 		{
 			name:     "eliminate_multiple_dotdot",
 			input:    `@/a/b/../../c`,
-			expected: `{__type: path, absolute: true, components: c}`,
+			expected: `{__type: path, absolute: true, segments: c}`,
 		},
 		{
 			name:     "eliminate_dotdot_relative",
 			input:    `@./a/b/../c`,
-			expected: `{__type: path, absolute: false, components: ., a, c}`,
+			expected: `{__type: path, absolute: false, segments: ., a, c}`,
 		},
 
 		// Rule 4: Eliminate .. at beginning of rooted path
 		{
 			name:     "eliminate_dotdot_at_root",
 			input:    `@/../foo`,
-			expected: `{__type: path, absolute: true, components: foo}`,
+			expected: `{__type: path, absolute: true, segments: foo}`,
 		},
 		{
 			name:     "eliminate_multiple_dotdot_at_root",
 			input:    `@/../../../foo`,
-			expected: `{__type: path, absolute: true, components: foo}`,
+			expected: `{__type: path, absolute: true, segments: foo}`,
 		},
 
 		// Rule 5: Leave .. intact at beginning of non-rooted path
 		{
 			name:     "preserve_dotdot_at_start_relative",
 			input:    `@../foo`,
-			expected: `{__type: path, absolute: false, components: .., foo}`,
+			expected: `{__type: path, absolute: false, segments: .., foo}`,
 		},
 		{
 			name:     "preserve_multiple_dotdot_at_start",
 			input:    `@../../foo`,
-			expected: `{__type: path, absolute: false, components: .., .., foo}`,
+			expected: `{__type: path, absolute: false, segments: .., .., foo}`,
 		},
 		{
 			name:     "preserve_dotdot_then_eliminate",
 			input:    `@../a/../b`,
-			expected: `{__type: path, absolute: false, components: .., b}`,
+			expected: `{__type: path, absolute: false, segments: .., b}`,
 		},
 
 		// Multiple slashes (handled by split)
 		{
 			name:     "multiple_slashes",
 			input:    `@/a//b///c`,
-			expected: `{__type: path, absolute: true, components: a, b, c}`,
+			expected: `{__type: path, absolute: true, segments: a, b, c}`,
 		},
 
 		// Complex combinations
 		{
 			name:     "complex_cleaning",
 			input:    `@./a/b/../../c/./d`,
-			expected: `{__type: path, absolute: false, components: ., c, d}`,
+			expected: `{__type: path, absolute: false, segments: ., c, d}`,
 		},
 		{
 			name:     "deeply_nested_cleanup",
 			input:    `@/a/b/c/../../d/../e`,
-			expected: `{__type: path, absolute: true, components: a, e}`,
+			expected: `{__type: path, absolute: true, segments: a, e}`,
 		},
 	}
 

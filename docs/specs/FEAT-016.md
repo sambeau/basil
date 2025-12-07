@@ -22,7 +22,7 @@ Filesystem paths and web URLs are different address spaces. Currently, users mus
 // Current workaround - ugly
 let tubs = files(@./public/images/tubs/*)
 for(tub in tubs) {
-    <img src={"/" + tub.path.components[1:].join("/")}/>
+    <img src={"/" + tub.path.segments[1:].join("/")}/>
 }
 ```
 

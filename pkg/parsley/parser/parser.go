@@ -1235,12 +1235,13 @@ func (p *Parser) parseTryExpression() ast.Expression {
 }
 
 // parseImportExpression parses import expressions:
-//   import @std/math           -> new syntax, binds to "math"
-//   import @./local/file       -> new syntax, binds to "file"
-//   import @std/math as M      -> new syntax, binds to "M"
-//   import @(./path/{name})    -> new syntax, dynamic import
-//   import("std/math")         -> old syntax, returns call expression for backward compat
-//   import(@std/math)          -> old syntax with path literal
+//
+//	import @std/math           -> new syntax, binds to "math"
+//	import @./local/file       -> new syntax, binds to "file"
+//	import @std/math as M      -> new syntax, binds to "M"
+//	import @(./path/{name})    -> new syntax, dynamic import
+//	import("std/math")         -> old syntax, returns call expression for backward compat
+//	import(@std/math)          -> old syntax with path literal
 func (p *Parser) parseImportExpression() ast.Expression {
 	importToken := p.curToken
 

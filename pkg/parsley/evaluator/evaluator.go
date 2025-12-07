@@ -2610,7 +2610,7 @@ func pathToDict(components []string, isAbsolute bool, env *Environment) *Diction
 			Value: comp,
 		}
 	}
-	pairs["components"] = &ast.ArrayLiteral{
+	pairs["segments"] = &ast.ArrayLiteral{
 		Token:    lexer.Token{Type: lexer.LBRACKET, Literal: "["},
 		Elements: componentExprs,
 	}
@@ -2647,7 +2647,7 @@ func stdioToDict(stream string, env *Environment) *Dictionary {
 	}
 
 	// Add components as array with just "-"
-	pairs["components"] = &ast.ArrayLiteral{
+	pairs["segments"] = &ast.ArrayLiteral{
 		Token: lexer.Token{Type: lexer.LBRACKET, Literal: "["},
 		Elements: []ast.Expression{
 			&ast.StringLiteral{
@@ -2842,7 +2842,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 	switch key {
 	case "basename":
 		// Get last component
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return NULL
 		}
@@ -2855,7 +2855,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "dirname", "parent":
 		// Get all but last component, return as path dict
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return NULL
 		}
@@ -2887,7 +2887,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "extension", "ext":
 		// Get extension from basename
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return NULL
 		}
@@ -2910,7 +2910,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "stem":
 		// Get filename without extension
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return NULL
 		}
@@ -2941,7 +2941,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "suffixes":
 		// Get all extensions as array (e.g., ["tar", "gz"] from file.tar.gz)
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return NULL
 		}
@@ -2970,7 +2970,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "parts":
 		// Alias for components
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return NULL
 		}
@@ -3002,7 +3002,7 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "dir":
 		// Directory path as string (all but the last component)
-		componentsExpr, ok := dict.Pairs["components"]
+		componentsExpr, ok := dict.Pairs["segments"]
 		if !ok {
 			return &String{Value: ""}
 		}
@@ -3174,7 +3174,7 @@ func fileToDict(pathDict *Dictionary, format string, options *Dictionary, env *E
 
 	// Add path field (the original path dictionary)
 	// Store the path components and absolute flag from the path dict
-	if compExpr, ok := pathDict.Pairs["components"]; ok {
+	if compExpr, ok := pathDict.Pairs["segments"]; ok {
 		pairs["_pathComponents"] = compExpr
 	}
 	if absExpr, ok := pathDict.Pairs["absolute"]; ok {
@@ -3226,7 +3226,7 @@ func dirToDict(pathDict *Dictionary, env *Environment) *Dictionary {
 	}
 
 	// Store the path components and absolute flag from the path dict
-	if compExpr, ok := pathDict.Pairs["components"]; ok {
+	if compExpr, ok := pathDict.Pairs["segments"]; ok {
 		pairs["_pathComponents"] = compExpr
 	}
 	if absExpr, ok := pathDict.Pairs["absolute"]; ok {
@@ -3265,7 +3265,7 @@ func fileDictToPathDict(dict *Dictionary) *Dictionary {
 
 	return &Dictionary{
 		Pairs: map[string]ast.Expression{
-			"components": compExpr,
+			"segments": compExpr,
 			"absolute":   absExpr,
 		},
 		Env: dict.Env,
@@ -3813,7 +3813,7 @@ func getPublicDirComponents(env *Environment) []string {
 // pathDictToString converts a path dictionary back to a string
 func pathDictToString(dict *Dictionary) string {
 	// Get components array
-	componentsExpr, ok := dict.Pairs["components"]
+	componentsExpr, ok := dict.Pairs["segments"]
 	if !ok {
 		return ""
 	}
@@ -4636,7 +4636,7 @@ func getBuiltins() map[string]*Builtin {
 
 				// Get the path string for format inference
 				pathStr := getFilePathString(&Dictionary{Pairs: map[string]ast.Expression{
-					"_pathComponents": pathDict.Pairs["components"],
+					"_pathComponents": pathDict.Pairs["segments"],
 					"_pathAbsolute":   pathDict.Pairs["absolute"],
 				}, Env: env}, env)
 
@@ -8035,9 +8035,9 @@ func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dicti
 	case "+", "/":
 		// Join path with string segment
 		// Get current components
-		componentsExpr, ok := path.Pairs["components"]
+		componentsExpr, ok := path.Pairs["segments"]
 		if !ok {
-			return newValidationError("VAL-0017", map[string]any{"Type": "path", "Field": "components"})
+			return newValidationError("VAL-0017", map[string]any{"Type": "path", "Field": "segments"})
 		}
 		componentsObj := Eval(componentsExpr, env)
 		if componentsObj.Type() != ARRAY_OBJ {

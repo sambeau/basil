@@ -212,7 +212,7 @@ func TestArrayJoinWithComma(t *testing.T) {
 func TestArrayJoinPathComponents(t *testing.T) {
 	// For absolute paths, components no longer include empty string prefix
 	// Use path string conversion instead for full path
-	result := evalStringConv(`let p = @/usr/local/bin; "/" + p.components.join("/")`)
+	result := evalStringConv(`let p = @/usr/local/bin; "/" + p.segments.join("/")`)
 	expected := "/usr/local/bin"
 	if result != expected {
 		t.Errorf("got %q, want %q", result, expected)
