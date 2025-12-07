@@ -186,8 +186,12 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Set fragment cache and handler path for <basil.cache.Cache> component
 	env.FragmentCache = h.server.fragmentCache
+	env.AssetRegistry = h.server.assetRegistry
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
+
+	// Inject publicUrl() function for asset registration
+	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
 
 	// Set dev log writer on environment (available to stdlib dev module via import)
 	// nil in production mode - dev functions become no-ops

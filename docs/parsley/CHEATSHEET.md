@@ -973,3 +973,29 @@ let result = <TestComponent
 
 log(result)
 ```
+
+---
+
+## Basil Server Functions
+
+### publicUrl() - Component Assets
+
+Make private files (like SVGs in component folders) publicly accessible:
+
+```parsley
+// In modules/Button.pars
+let icon = publicUrl(@./icon.svg)
+<img src={icon}/>
+// Output: <img src="/__p/a3f2b1c8.svg"/>
+```
+
+**Key Features:**
+- Content-hashed URLs for automatic cache-busting
+- Aggressive caching (`max-age=31536000`)
+- File stays in place (no copying)
+- Only in Basil handlers (not CLI)
+
+**Gotchas:**
+- ❌ Files >100MB fail - use `public/` folder
+- ❌ Path must be within handler directory
+- ✅ Works with `@./relative` paths from current file

@@ -64,10 +64,14 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.SetProtected("basil", basilObj)
 	env.BasilCtx = basilObj
 
-	// Set fragment cache and handler path for <basil.cache.Cache> component
+	// Set fragment cache, asset registry, and handler path
 	env.FragmentCache = h.server.fragmentCache
+	env.AssetRegistry = h.server.assetRegistry
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
+
+	// Inject publicUrl() function for asset registration
+	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
 
 	if h.server.devLog != nil {
 		env.DevLog = h.server.devLog

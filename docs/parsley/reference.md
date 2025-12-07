@@ -23,6 +23,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Tags](#tags)
 - [Error Handling](#error-handling)
 - [Utility Functions](#utility-functions)
+- [Basil Server Functions](#basil-server-functions)
 - [Go Library](#go-library)
 
 ---
@@ -3507,6 +3508,67 @@ if (len(errors) == 0) {
     for (err in errors) {
         log("Error: {err}")
     }
+}
+```
+
+---
+
+## Basil Server Functions
+
+These functions are only available when running Parsley scripts in Basil server handlers.
+
+### publicUrl()
+
+Makes a private file (e.g., a component asset in `modules/`) accessible via a public URL.
+
+```parsley
+// In a component file (modules/Button.pars)
+let icon = publicUrl(@./icon.svg)
+<button>
+  <img src={icon} alt=""/>
+  Button
+</button>
+// Output: <button><img src="/__p/a3f2b1c8.svg" alt=""/>Button</button>
+```
+
+**Signature:**
+```
+publicUrl(path) -> string
+```
+
+**Arguments:**
+- `path`: A path literal (`@./file.ext`) or string path to the file
+
+**Returns:** A public URL string in the format `/__p/{hash}.{ext}`
+
+**Features:**
+- **Content-hashed URLs**: URLs include a hash of file contents for automatic cache-busting
+- **Aggressive caching**: Assets are served with `Cache-Control: public, max-age=31536000, immutable`
+- **No file copying**: Files remain in their original location
+- **Lazy hashing**: Hash is computed once and cached until file changes
+
+**Size Limits:**
+- Files >10MB trigger a warning in dev mode
+- Files >100MB return an error (use `public/` folder instead)
+
+**Security:**
+- Path must be within the handler's root directory
+- Path traversal outside handler root is blocked
+
+**Example: Component with co-located assets:**
+```parsley
+// modules/Card.pars
+export Card = fn({title, image}) {
+  let imageUrl = publicUrl(image)
+  let styleUrl = publicUrl(@./card.css)
+  
+  <>
+    <link rel="stylesheet" href={styleUrl}/>
+    <div class="card">
+      <img src={imageUrl} alt=""/>
+      <h3>{title}</h3>
+    </div>
+  </>
 }
 ```
 

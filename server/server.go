@@ -33,6 +33,7 @@ type Server struct {
 	scriptCache   *scriptCache
 	responseCache *responseCache
 	fragmentCache *fragmentCache
+	assetRegistry *assetRegistry
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
@@ -64,6 +65,13 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		responseCache: newResponseCache(cfg.Server.Dev),
 		fragmentCache: newFragmentCache(cfg.Server.Dev, 1000),
 		rateLimiter:   newRateLimiter(60, time.Minute),
+	}
+
+	// Initialize asset registry (logger for warnings, nil for production silent mode)
+	if cfg.Server.Dev {
+		s.assetRegistry = newAssetRegistry(s.logWarn)
+	} else {
+		s.assetRegistry = newAssetRegistry(nil)
 	}
 
 	// Initialize dev tools in dev mode
@@ -314,6 +322,9 @@ func (s *Server) initGit() error {
 
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
+	// Register asset handler for publicUrl() files at /__p/
+	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry))
+
 	// In dev mode, add dev tools endpoints
 	if s.config.Server.Dev {
 		s.mux.Handle("/__livereload", newLiveReloadHandler(s))
@@ -548,6 +559,7 @@ func (s *Server) ReloadScripts() {
 	s.scriptCache.clear()
 	s.responseCache.Clear()
 	s.fragmentCache.Clear()
+	s.assetRegistry.Clear()
 	// Trigger browser reload if watcher is active (dev mode)
 	if s.watcher != nil {
 		s.watcher.TriggerReload()

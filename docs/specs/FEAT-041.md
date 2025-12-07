@@ -242,6 +242,25 @@ let user = basil.sqlite <=?=> "SELECT * FROM users WHERE id = 1"
 ## Implementation Notes
 *Added during/after implementation*
 
+### Implementation Date: 2025-12-07
+
+**Files Changed:**
+- `server/assets.go` (new) — Asset registry with content hashing, HTTP handler
+- `server/assets_test.go` (new) — Registry and handler tests
+- `server/server.go` — Added `assetRegistry` field, initialization, route setup
+- `server/handler.go` — Pass asset registry to environment, inject `publicUrl` builtin
+- `server/api.go` — Same changes for API handlers
+- `pkg/parsley/evaluator/evaluator.go` — Added `AssetRegistrar` interface, `AssetRegistry` field on `Environment`
+- `pkg/parsley/evaluator/public_url.go` (new) — `publicUrl()` builtin implementation
+- `pkg/parsley/tests/public_url_test.go` (new) — Builtin tests
+
+**Design Decisions:**
+- `publicUrl` is a top-level function (not `basil.publicUrl()`) for simplicity
+- Implemented as `StdlibBuiltin` with environment access
+- Hash uses first 16 hex chars of SHA256 (64 bits)
+- Path security check uses RootPath from handler environment
+- Errors use existing error classes (state, security, type, arity)
+
 ## Related
 - Design doc: `docs/parsley/design/Public files.md`
 - FEAT-040: Filesystem-Based Routing (different approach to same problem space)

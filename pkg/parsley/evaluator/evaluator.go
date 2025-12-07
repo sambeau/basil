@@ -53,6 +53,15 @@ type FragmentCacher interface {
 	Invalidate(key string)
 }
 
+// AssetRegistrar is the interface for public asset registration in the evaluator.
+// This allows the server package to provide asset registry implementation without
+// creating a circular dependency.
+type AssetRegistrar interface {
+	// Register registers a file and returns its public URL.
+	// Returns error if file doesn't exist or exceeds size limits.
+	Register(filepath string) (string, error)
+}
+
 // Database connection cache
 var (
 	dbConnectionsMu sync.RWMutex
@@ -569,6 +578,7 @@ type Environment struct {
 	DevLog        DevLogWriter    // Dev log writer (nil in production mode)
 	BasilCtx      Object          // Basil server context (request, db, auth, etc.)
 	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
+	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
 	HandlerPath   string          // Current handler path for cache key namespacing
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
 }
@@ -587,7 +597,7 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename, token, logger, devlog, basilctx, fragment cache, handler path, and root path from outer environment
+	// Preserve filename, token, logger, devlog, basilctx, caches, and root path from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.RootPath = outer.RootPath
@@ -596,6 +606,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.DevLog = outer.DevLog
 		env.BasilCtx = outer.BasilCtx
 		env.FragmentCache = outer.FragmentCache
+		env.AssetRegistry = outer.AssetRegistry
 		env.HandlerPath = outer.HandlerPath
 		env.DevMode = outer.DevMode
 	}

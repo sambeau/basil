@@ -128,10 +128,10 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `make check`
-- [ ] Build succeeds: `make build`
+- [x] All tests pass: `make check`
+- [x] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
-- [ ] Documentation updated
+- [x] Documentation updated
 - [ ] Manual test: create component with asset, verify URL works
 - [ ] Manual test: modify asset, verify new URL generated
 - [ ] Manual test: large file warning appears
@@ -140,9 +140,11 @@ Tests:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Asset Registry | ⬜ Not started | |
-| | Task 2: HTTP Handler | ⬜ Not started | |
-| | Task 3: publicUrl() Builtin | ⬜ Not started | |
+| 2025-12-07 | Task 1: Asset Registry | ✅ Complete | server/assets.go |
+| 2025-12-07 | Task 2: HTTP Handler | ✅ Complete | In assets.go |
+| 2025-12-07 | Task 3: publicUrl() Builtin | ✅ Complete | public_url.go |
+| 2025-12-07 | Task 4: Server Wiring | ✅ Complete | |
+| 2025-12-07 | Task 5: Documentation | ✅ Complete | reference.md, CHEATSHEET.md |
 | | Task 4: Server Wiring | ⬜ Not started | |
 | | Task 5: Documentation | ⬜ Not started | |
 
