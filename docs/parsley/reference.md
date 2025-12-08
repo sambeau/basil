@@ -3708,6 +3708,48 @@ if (basil.auth.user != null) {
 }
 ```
 
+#### basil.csrf
+
+CSRF (Cross-Site Request Forgery) protection context.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `token` | String | CSRF token for form submissions |
+
+**Usage in forms:**
+```parsley
+<form method=POST action="/submit">
+    <input type=hidden name=_csrf value={basil.csrf.token}/>
+    <input type=text name=email/>
+    <button>Submit</button>
+</form>
+```
+
+**Usage in meta tag (for AJAX):**
+```parsley
+<head>
+    <meta name=csrf-token content={basil.csrf.token}/>
+</head>
+```
+
+Then in JavaScript:
+```javascript
+fetch('/submit', {
+    method: 'POST',
+    headers: {
+        'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+})
+```
+
+**How CSRF protection works:**
+- The token is stored in a cookie (`_csrf`) and must be submitted with forms
+- POST, PUT, PATCH, DELETE requests to auth routes are validated automatically
+- API routes (`type: api`) skip CSRF validation (they use API keys)
+- Invalid or missing tokens return 403 Forbidden
+
 #### basil.context
 
 A mutable dict for passing data between handlers and modules:

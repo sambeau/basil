@@ -155,6 +155,12 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Modules that access basil.http.request, basil.auth.user, etc. need current data
 	evaluator.ClearModuleCache()
 
+	// Get or generate CSRF token and set cookie if needed
+	csrfToken, isNew := GetCSRFToken(r)
+	if isNew && csrfToken != "" {
+		SetCSRFCookie(w, csrfToken, h.server.config.Server.Dev)
+	}
+
 	// Build request context for the script
 	reqCtx := buildRequestContext(r, h.route)
 
@@ -179,7 +185,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Build and inject the basil namespace object (protected from reassignment)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken)
 	env.SetProtected("basil", basilObj)
 
 	// Also set on environment for stdlib import (std/basil)
@@ -252,7 +258,7 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string) evaluator.Object {
 	// Build auth context
 	authCtx := map[string]interface{}{
 		"required": route.Auth == "required",
@@ -284,6 +290,9 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 		"auth":       authCtx,
 		"context":    map[string]interface{}{}, // Empty dict for user-defined globals
 		"public_dir": publicDir,                // Public directory for path rewriting
+		"csrf": map[string]interface{}{
+			"token": csrfToken,
+		},
 	}
 
 	// Convert to Parsley Dictionary

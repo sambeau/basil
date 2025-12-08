@@ -48,6 +48,9 @@ type Server struct {
 	authHandlers *auth.Handlers
 	authMW       *auth.Middleware
 
+	// CSRF middleware
+	csrfMW *CSRFMiddleware
+
 	// Git server (nil if git not enabled)
 	gitHandler *GitHandler
 }
@@ -65,6 +68,7 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		responseCache: newResponseCache(cfg.Server.Dev),
 		fragmentCache: newFragmentCache(cfg.Server.Dev, 1000),
 		rateLimiter:   newRateLimiter(60, time.Minute),
+		csrfMW:        NewCSRFMiddleware(cfg.Server.Dev),
 	}
 
 	// Initialize asset registry (logger for warnings, nil for production silent mode)
@@ -400,6 +404,12 @@ func (s *Server) setupRoutes() error {
 		}
 
 		finalHandler := s.applyAuthMiddleware(handler, authMode)
+
+		// Apply CSRF middleware for non-API routes with auth
+		// API routes use API keys/bearer tokens, not cookies, so CSRF doesn't apply
+		if !isAPI && (authMode == "required" || authMode == "optional") {
+			finalHandler = s.csrfMW.Validate(finalHandler)
+		}
 
 		// If route has public_dir, wrap with static file fallback
 		if route.PublicDir != "" {

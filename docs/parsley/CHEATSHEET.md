@@ -1014,6 +1014,50 @@ basil.http.response.cookies.old = {value: "", maxAge: @0s}
 
 ---
 
+### CSRF Protection
+
+**Forms with auth require CSRF token:**
+```parsley
+<form method=POST action="/submit">
+    <input type=hidden name=_csrf value={basil.csrf.token}/>
+    <input type=text name=email/>
+    <button>Submit</button>
+</form>
+```
+
+**For AJAX, use meta tag + header:**
+```parsley
+// In <head>
+<meta name=csrf-token content={basil.csrf.token}/>
+```
+```javascript
+// In JavaScript
+fetch('/submit', {
+    method: 'POST',
+    headers: {
+        'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content
+    },
+    body: JSON.stringify(data)
+})
+```
+
+**When CSRF is validated:**
+| Route Type | Method | CSRF Check |
+|------------|--------|------------|
+| `auth: required` | GET/HEAD/OPTIONS | ❌ Skip |
+| `auth: required` | POST/PUT/PATCH/DELETE | ✅ Validate |
+| `auth: optional` | POST/PUT/PATCH/DELETE | ✅ Validate |
+| `type: api` | Any | ❌ Skip (uses API keys) |
+| No auth | Any | ❌ Skip |
+
+**Gotchas:**
+- ❌ Missing or invalid token → 403 Forbidden
+- ✅ Token stored in HttpOnly cookie (auto-managed)
+- ❌ API routes don't need CSRF (use API keys instead)
+- ✅ Same token works across tabs/back button (per-session)
+
+---
+
 ### Redirects
 
 **Return redirects from handlers:**

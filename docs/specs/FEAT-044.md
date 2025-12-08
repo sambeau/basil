@@ -1,9 +1,10 @@
 ---
 id: FEAT-044
 title: "CSRF Protection"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-07
+implemented: 2025-12-08
 author: "@human"
 ---
 
@@ -16,15 +17,15 @@ Add built-in Cross-Site Request Forgery (CSRF) protection for form submissions. 
 As a Parsley developer, I want automatic CSRF protection so that my forms are secure against cross-site request forgery without manual implementation.
 
 ## Acceptance Criteria
-- [ ] `basil.csrf.token` returns a CSRF token string for embedding in forms
-- [ ] `<input type=hidden name=_csrf value={basil.csrf.token}/>` pattern works
-- [ ] POST/PUT/PATCH/DELETE requests with `auth: required` or `auth: optional` validate CSRF
-- [ ] Invalid/missing CSRF token returns 403 Forbidden with clear error
-- [ ] CSRF cookie is HttpOnly, Secure (in prod), SameSite=Strict
-- [ ] Token regenerated per session (not per request) for usability
-- [ ] AJAX requests can send token via `X-CSRF-Token` header as alternative
-- [ ] API routes (type: api) skip CSRF validation (use API keys instead)
-- [ ] Documentation updated with form example
+- [x] `basil.csrf.token` returns a CSRF token string for embedding in forms
+- [x] `<input type=hidden name=_csrf value={basil.csrf.token}/>` pattern works
+- [x] POST/PUT/PATCH/DELETE requests with `auth: required` or `auth: optional` validate CSRF
+- [x] Invalid/missing CSRF token returns 403 Forbidden with clear error
+- [x] CSRF cookie is HttpOnly, Secure (in prod), SameSite=Strict
+- [x] Token regenerated per session (not per request) for usability
+- [x] AJAX requests can send token via `X-CSRF-Token` header as alternative
+- [x] API routes (type: api) skip CSRF validation (use API keys instead)
+- [x] Documentation updated with form example
 
 ## Design Decisions
 
@@ -135,7 +136,25 @@ basil.csrf.token     // "a1b2c3d4e5f6..." (32+ char random string)
 ```
 
 ## Implementation Notes
-*Added during/after implementation*
+
+**Implementation Date:** 2025-12-08
+
+**Files Changed:**
+- `server/csrf.go` (new) — Token generation, validation middleware, cookie management
+- `server/csrf_test.go` (new) — Comprehensive tests for all CSRF functionality
+- `server/handler.go` — Added CSRF token to basil context, set cookie in ServeHTTP
+- `server/api.go` — Pass empty CSRF token (API routes don't use CSRF)
+- `server/server.go` — Added csrfMW field, apply CSRF middleware for auth routes
+- `docs/parsley/reference.md` — Added basil.csrf section
+- `docs/parsley/CHEATSHEET.md` — Added CSRF Protection section
+
+**Key Design Points:**
+- Double-submit cookie pattern (stateless)
+- 32-byte random token (64 hex characters)
+- Constant-time comparison to prevent timing attacks
+- Cookie: `_csrf`, HttpOnly, SameSite=Strict, Secure in production
+- Form field: `_csrf`
+- Header: `X-CSRF-Token` (for AJAX)
 
 ## Related
 - Depends on: FEAT-043 (Cookies)
