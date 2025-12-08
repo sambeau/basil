@@ -5558,6 +5558,60 @@ func getBuiltins() map[string]*Builtin {
 				return &Array{Elements: elements}
 			},
 		},
+		// match(path, pattern) - extract named parameters from URL paths
+		// Returns dictionary on match, null on no match
+		// Supports :name for single segment capture, *name for rest/glob capture
+		"match": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 2 {
+					return newArityError("match", len(args), 2)
+				}
+
+				// First arg: path (string or path dict)
+				var path string
+				switch p := args[0].(type) {
+				case *String:
+					path = p.Value
+				case *Dictionary:
+					if isPathDict(p) {
+						path = pathDictToString(p)
+					} else {
+						return newTypeError("TYPE-0005", "match", "a string or path", args[0].Type())
+					}
+				default:
+					return newTypeError("TYPE-0005", "match", "a string or path", args[0].Type())
+				}
+
+				// Second arg: pattern (string)
+				pattern, ok := args[1].(*String)
+				if !ok {
+					return newTypeError("TYPE-0006", "match", "a string", args[1].Type())
+				}
+
+				// Match the path against pattern
+				result := matchPathPattern(path, pattern.Value)
+				if result == nil {
+					return NULL
+				}
+
+				// Convert result to Dictionary
+				pairs := make(map[string]ast.Expression)
+				for key, val := range result {
+					switch v := val.(type) {
+					case string:
+						pairs[key] = createLiteralExpression(&String{Value: v})
+					case []string:
+						elements := make([]Object, len(v))
+						for i, s := range v {
+							elements[i] = &String{Value: s}
+						}
+						pairs[key] = createLiteralExpression(&Array{Elements: elements})
+					}
+				}
+
+				return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+			},
+		},
 		"tag": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
@@ -14688,4 +14742,84 @@ func bankersRound(x float64) int64 {
 		}
 		return wholeInt + 1
 	}
+}
+
+// matchPathPattern matches a URL path against a pattern with :param and *glob segments
+// Returns map of captured values on match, nil on no match
+// :name captures a single segment, *name captures remaining segments as []string
+func matchPathPattern(path, pattern string) map[string]interface{} {
+	// Normalize: trim trailing slashes for comparison
+	path = strings.TrimSuffix(path, "/")
+	pattern = strings.TrimSuffix(pattern, "/")
+
+	// Handle empty paths
+	if path == "" {
+		path = "/"
+	}
+	if pattern == "" {
+		pattern = "/"
+	}
+
+	// Split into segments
+	pathSegs := strings.Split(path, "/")
+	patternSegs := strings.Split(pattern, "/")
+
+	// Remove empty first segment from leading /
+	if len(pathSegs) > 0 && pathSegs[0] == "" {
+		pathSegs = pathSegs[1:]
+	}
+	if len(patternSegs) > 0 && patternSegs[0] == "" {
+		patternSegs = patternSegs[1:]
+	}
+
+	result := make(map[string]interface{})
+
+	pi := 0 // pattern index
+	for i := 0; i < len(pathSegs); i++ {
+		if pi >= len(patternSegs) {
+			// Path has extra segments with no pattern to match
+			return nil
+		}
+
+		seg := patternSegs[pi]
+
+		if strings.HasPrefix(seg, "*") {
+			// Glob: capture rest of path as array
+			name := seg[1:]
+			if name == "" {
+				name = "rest" // default name if just "*"
+			}
+			result[name] = pathSegs[i:]
+			return result
+		}
+
+		if strings.HasPrefix(seg, ":") {
+			// Parameter: capture single segment
+			name := seg[1:]
+			result[name] = pathSegs[i]
+		} else if seg != pathSegs[i] {
+			// Literal: must match exactly (case sensitive)
+			return nil
+		}
+
+		pi++
+	}
+
+	// Check all pattern segments consumed (unless we had a glob)
+	if pi < len(patternSegs) {
+		// Remaining pattern segments - check if they're all optional (glob at end)
+		remaining := patternSegs[pi:]
+		if len(remaining) == 1 && strings.HasPrefix(remaining[0], "*") {
+			// Single glob at end with no path segments - empty array
+			name := remaining[0][1:]
+			if name == "" {
+				name = "rest"
+			}
+			result[name] = []string{}
+			return result
+		}
+		return nil
+	}
+
+	return result
 }

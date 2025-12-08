@@ -2419,6 +2419,77 @@ fail(null)          // ✗ Type error
 | `toNumber(str)` | Auto-detect int/float |
 | `toString(value)` | Convert to string |
 
+### Path Pattern Matching
+
+The `match(path, pattern)` function extracts named parameters from URL paths using Express-style patterns.
+
+| Function | Description |
+|----------|-------------|
+| `match(path, pattern)` | Match path against pattern, returns dict or `null` |
+
+**Pattern Syntax:**
+- `:name` — Captures a single segment as a string
+- `*name` — Captures remaining segments as an array (glob)
+- Literal segments must match exactly (case sensitive)
+
+```parsley
+// Basic parameter extraction
+let params = match("/users/123", "/users/:id")
+// → {id: "123"}
+
+// Multiple parameters
+let params = match("/users/42/posts/99", "/users/:userId/posts/:postId")
+// → {userId: "42", postId: "99"}
+
+// Glob capture (rest of path as array)
+let params = match("/files/docs/2025/report.pdf", "/files/*path")
+// → {path: ["docs", "2025", "report.pdf"]}
+
+// No match returns null
+let params = match("/posts/123", "/users/:id")
+// → null
+```
+
+**Pattern Examples:**
+
+| Pattern | Path | Result |
+|---------|------|--------|
+| `/users` | `/users` | `{}` |
+| `/users/:id` | `/users/123` | `{id: "123"}` |
+| `/users/:id/posts` | `/users/42/posts` | `{id: "42"}` |
+| `/:a/:b/:c` | `/x/y/z` | `{a: "x", b: "y", c: "z"}` |
+| `/files/*path` | `/files/a/b/c` | `{path: ["a", "b", "c"]}` |
+| `/*all` | `/any/thing` | `{all: ["any", "thing"]}` |
+
+**Route Dispatch Pattern:**
+
+```parsley
+let path = basil.http.request.path
+let method = basil.http.request.method
+
+if (let params = match(path, "/users/:id")) {
+    if (method == "GET") { showUser(params.id) }
+    else if (method == "DELETE") { deleteUser(params.id) }
+}
+else if (let params = match(path, "/users")) {
+    if (method == "GET") { listUsers() }
+    else if (method == "POST") { createUser() }
+}
+else if (let params = match(path, "/files/*path")) {
+    serveFile(params.path)
+}
+else {
+    let api = import("std/api")
+    api.notFound("Page not found")
+}
+```
+
+**Edge Cases:**
+- Trailing slashes are normalized: `/users/123/` matches `/users/:id`
+- Empty segments don't match: `/users/` doesn't match `/users/:id`
+- Case sensitive: `/Users/123` doesn't match `/users/:id`
+- Extra segments fail: `/users/123/extra` doesn't match `/users/:id`
+
 ### Debugging
 
 | Function | Description |

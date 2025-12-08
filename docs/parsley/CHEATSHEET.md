@@ -1042,6 +1042,53 @@ redirect("https://example.com")     // external URL
 
 ---
 
+### Path Pattern Matching
+
+**Extract parameters from URL paths:**
+
+```parsley
+// Basic parameter
+let params = match("/users/123", "/users/:id")
+// → {id: "123"}
+
+// Multiple parameters
+let params = match(path, "/users/:userId/posts/:postId")
+// → {userId: "42", postId: "99"}
+
+// Glob capture (remaining segments as array)
+let params = match("/files/a/b/c", "/files/*path")
+// → {path: ["a", "b", "c"]}
+
+// No match returns null
+match("/posts/123", "/users/:id")  // → null
+```
+
+**Pattern syntax:**
+| Pattern | Captures |
+|---------|----------|
+| `:name` | Single segment as string |
+| `*name` | Rest of path as array |
+| `literal` | Must match exactly |
+
+**Route dispatch pattern:**
+```parsley
+let path = basil.http.request.path
+
+if (let p = match(path, "/users/:id")) {
+    showUser(p.id)
+}
+else if (let p = match(path, "/files/*rest")) {
+    serveFile(p.rest.join("/"))
+}
+```
+
+**Gotchas:**
+- ✅ Trailing slashes normalized: `/users/123/` matches `/users/:id`
+- ❌ Case sensitive: `/Users/123` doesn't match `/users/:id`
+- ❌ Extra segments fail: `/users/123/extra` doesn't match `/users/:id`
+
+---
+
 ### Site Mode - Filesystem-Based Routing
 
 Configure in YAML:

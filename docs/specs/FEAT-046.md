@@ -1,9 +1,10 @@
 ---
 id: FEAT-046
 title: "Path Pattern Matching"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-07
+implemented: 2025-12-08
 author: "@human"
 ---
 
@@ -16,13 +17,13 @@ Add a `match(path, pattern)` function that extracts named parameters from URL pa
 As a Parsley developer, I want to extract parameters from URL paths using patterns so that I can handle dynamic routes without manual string parsing.
 
 ## Acceptance Criteria
-- [ ] `match(path, pattern)` returns dict of captured values on match, `null` on no match
-- [ ] Supports `:name` for single segment capture
-- [ ] Supports `*name` for rest/glob capture (multiple segments)
-- [ ] Supports literal segments that must match exactly
-- [ ] Returns `null` (not error) when pattern doesn't match
-- [ ] Works with `basil.http.request.path` and string paths
-- [ ] Pattern syntax documented with examples
+- [x] `match(path, pattern)` returns dict of captured values on match, `null` on no match
+- [x] Supports `:name` for single segment capture
+- [x] Supports `*name` for rest/glob capture (multiple segments)
+- [x] Supports literal segments that must match exactly
+- [x] Returns `null` (not error) when pattern doesn't match
+- [x] Works with `basil.http.request.path` and string paths
+- [x] Pattern syntax documented with examples
 
 ## Design Decisions
 
@@ -218,6 +219,36 @@ Function approach wins because:
 
 ## Implementation Notes
 *Added during/after implementation*
+
+### Implementation Details (2025-12-08)
+
+**Files modified:**
+- `pkg/parsley/evaluator/evaluator.go` — Added `match` builtin function and `matchPathPattern` helper
+- `server/match_test.go` — Comprehensive tests (15 test functions)
+- `docs/parsley/reference.md` — Added Path Pattern Matching section in Utility Functions
+- `docs/parsley/CHEATSHEET.md` — Added Path Pattern Matching section after Redirects
+
+**Key decisions:**
+1. `match()` is a global builtin (not in a module) since it's a general-purpose utility
+2. Returns `NULL` on no match (not error) for easy conditional checking
+3. Trailing slashes are normalized for both path and pattern
+4. Glob capture (`*name`) returns an array of remaining segments
+5. Empty glob (no remaining segments) returns empty array, not null
+6. Path dict support via `pathDictToString` for path literal arguments
+
+**Test coverage:**
+- Basic single parameter
+- Multiple parameters
+- Glob capture
+- Literal-only patterns
+- No match cases (wrong prefix, missing segment, extra segment, case sensitivity)
+- Trailing slash handling
+- Mixed param + glob
+- Empty glob
+- Root path
+- Catch-all glob
+- Invalid arguments
+- Special characters in segments
 
 ## Related
 - Alternative to: Express-style route params in config
