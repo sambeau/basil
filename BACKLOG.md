@@ -41,6 +41,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| Full CLDR compact number formatting | FEAT-048 | Library limitation | `humanize()` uses English suffixes (K, M, B) with locale-aware decimal formatting. True CLDR would give locale-specific suffixes (German "Mio.", Japanese "万"). Go's `golang.org/x/text` doesn't expose CLDR compact forms directly. K/M/B is industry standard (YouTube, Twitter, GitHub). Revisit if CJK locale support becomes important. |
 | Fragment cache DevTools integration | FEAT-037 | Not MVP | Add `/__/cache` page showing cache stats (entries, hits, misses, hit rate, size) with clear button. `FragmentCacheStats` and `Stats()` method already exist in `fragment_cache.go`. |
 | std/math: Advanced statistics | FEAT-031 | Niche | percentile, quartile, correlation, z-score - add based on demand from data-focused users |
 | std/math: Hyperbolic functions | FEAT-031 | Niche | sinh, cosh, tanh - rare use case for most users |
