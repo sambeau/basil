@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1400" viewBox="0 0 1200 1400">
+  <style>
+    .title { font: 22px sans-serif; font-weight: bold; }
+    .section { font: 14px sans-serif; font-weight: bold; }
+    .subsection { font: 12px sans-serif; font-weight: bold; font-style: italic; }
+    .node { font: 11px monospace; }
+    .box { fill: #f0f8ff; stroke: #8fbce6; stroke-width: 2; rx: 8; }
+    .section-box { fill: #e8f4ff; stroke: #6fa0d4; stroke-width: 1.5; rx: 4; }
+    .field-box { fill: #ffffff; stroke: #d0e8ff; stroke-width: 1; }
+    .field { font: 11px monospace; fill: #333; }
+    .type { font: 10px monospace; fill: #666; }
+    .comment { font: 10px sans-serif; fill: #888; font-style: italic; }
+    .divider { stroke: #ddd; stroke-width: 1; }
+    .legend { font: 11px sans-serif; }
+  </style>
+
+  <text x="30" y="40" class="title">std/basil Module Structure</text>
+  <text x="30" y="65" class="comment">(Server context object injected into Parsley scripts)</text>
+
+  <!-- Root -->
+  <rect x="30" y="100" width="1140" height="80" class="box"/>
+  <text x="50" y="125" class="section">basil (Dictionary / Module Export)</text>
+  <text x="50" y="145" class="field">let {basil} = import @std/basil</text>
+  <text x="50" y="165" class="comment">Available only in Basil server context; returns empty dict outside handlers</text>
+
+  <!-- http -->
+  <rect x="30" y="210" width="540" height="220" class="section-box"/>
+  <text x="50" y="235" class="subsection">basil.http</text>
+  <text x="50" y="260" class="field">request: {}</text>
+  <text x="70" y="280" class="field">method: "GET" | "POST" | ...</text>
+  <text x="70" y="295" class="field">url: string</text>
+  <text x="70" y="310" class="field">path: string</text>
+  <text x="70" y="325" class="field">query: dict&lt;string, string[]&gt;</text>
+  <text x="70" y="340" class="field">headers: dict&lt;string, string[]&gt;</text>
+  <text x="70" y="355" class="field">body: string</text>
+  <text x="70" y="370" class="field">cookies: dict&lt;string, string&gt;</text>
+
+  <text x="50" y="395" class="field">response: {}</text>
+  <text x="70" y="415" class="field">status: int64 (default: 200)</text>
+  <text x="70" y="430" class="field">headers: dict&lt;string, string&gt;</text>
+  <text x="70" y="445" class="field">cookies: dict&lt;string, any&gt;</text>
+
+  <!-- auth -->
+  <rect x="600" y="210" width="570" height="220" class="section-box"/>
+  <text x="620" y="235" class="subsection">basil.auth</text>
+  <text x="620" y="260" class="field">required: bool</text>
+  <text x="640" y="280" class="comment">True if route requires authentication</text>
+
+  <text x="620" y="310" class="field">user: user dict | null</text>
+  <text x="640" y="330" class="field">id: string</text>
+  <text x="640" y="345" class="field">name: string</text>
+  <text x="640" y="360" class="field">email: string</text>
+  <text x="640" y="375" class="field">created: datetime</text>
+  <text x="640" y="395" class="comment">null if unauthenticated</text>
+
+  <!-- context -->
+  <rect x="30" y="460" width="280" height="90" class="section-box"/>
+  <text x="50" y="485" class="subsection">basil.context</text>
+  <text x="50" y="510" class="field">{...} (empty dict)</text>
+  <text x="50" y="530" class="comment">User-defined globals for request</text>
+
+  <!-- public_dir -->
+  <rect x="330" y="460" width="280" height="90" class="section-box"/>
+  <text x="350" y="485" class="subsection">basil.public_dir</text>
+  <text x="350" y="510" class="field">string (path)</text>
+  <text x="350" y="530" class="comment">Directory path for static assets</text>
+
+  <!-- csrf -->
+  <rect x="630" y="460" width="280" height="90" class="section-box"/>
+  <text x="650" y="485" class="subsection">basil.csrf</text>
+  <text x="650" y="510" class="field">token: string</text>
+  <text x="650" y="530" class="comment">CSRF protection token</text>
+
+  <!-- sqlite (optional) -->
+  <rect x="930" y="460" width="240" height="90" class="section-box"/>
+  <text x="950" y="485" class="subsection">basil.sqlite (optional)</text>
+  <text x="950" y="510" class="field">DBConnection</text>
+  <text x="950" y="530" class="comment">If DB configured (with &lt;=&gt;)</text>
+
+  <!-- session (optional) -->
+  <rect x="30" y="580" width="280" height="110" class="section-box"/>
+  <text x="50" y="605" class="subsection">basil.session (optional)</text>
+  <text x="50" y="630" class="field">data: dict</text>
+  <text x="50" y="645" class="field">flash: dict</text>
+  <text x="50" y="660" class="field">maxAge: int64</text>
+  <text x="50" y="680" class="comment">If session configured</text>
+
+  <!-- Example Usage -->
+  <rect x="30" y="730" width="1140" height="320" class="field-box" style="fill: #f9f9f9; stroke: #ccc;"/>
+  <text x="50" y="755" class="section">Example Usage</text>
+
+  <text x="50" y="785" class="node" style="font-family: 'Courier New'">
+    &lt;parsley&gt;
+  </text>
+  <text x="50" y="805" class="node">let {basil} = import @std/basil</text>
+  <text x="50" y="825" class="node" style="fill: #666;"># Access request info</text>
+  <text x="50" y="845" class="node">let method = basil.http.request.method</text>
+  <text x="50" y="865" class="node">let path = basil.http.request.path</text>
+  <text x="50" y="885" class="node" style="fill: #666;"># Check authentication</text>
+  <text x="50" y="905" class="node">if basil.auth.user {</text>
+  <text x="70" y="925" class="node">&lt;p&gt;Hello {basil.auth.user.name}&lt;/p&gt;</text>
+  <text x="50" y="945" class="node">}</text>
+  <text x="50" y="965" class="node" style="fill: #666;"># Set response</text>
+  <text x="50" y="985" class="node">let _ = basil.http.response.status = 201</text>
+  <text x="50" y="1005" class="node">&lt;/parsley&gt;</text>
+
+  <!-- Context diagram -->
+  <rect x="30" y="1090" width="1140" height="280" class="field-box" style="fill: #f5f9ff; stroke: #b3d9ff;"/>
+  <text x="50" y="1115" class="section">Request Flow</text>
+
+  <rect x="50" y="1140" width="200" height="60" class="box" style="fill: #fff0e6;"/>
+  <text x="70" y="1165" class="node">HTTP Request</text>
+  <text x="70" y="1185" class="comment">Incoming request</text>
+
+  <path d="M 250 1170 L 300 1170" stroke="#8fbce6" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <rect x="300" y="1140" width="200" height="60" class="box" style="fill: #e6f2ff;"/>
+  <text x="320" y="1165" class="node">Handler Setup</text>
+  <text x="320" y="1185" class="comment">buildBasilContext()</text>
+
+  <path d="M 500 1170 L 550 1170" stroke="#8fbce6" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <rect x="550" y="1140" width="200" height="60" class="box" style="fill: #e6ffe6;"/>
+  <text x="570" y="1165" class="node">Script Environment</text>
+  <text x="570" y="1185" class="comment">env.BasilCtx set</text>
+
+  <path d="M 750 1170 L 800 1170" stroke="#8fbce6" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <rect x="800" y="1140" width="200" height="60" class="box" style="fill: #fff5e6;"/>
+  <text x="820" y="1165" class="node">Script Execution</text>
+  <text x="820" y="1185" class="comment">import @std/basil</text>
+
+  <!-- Response extraction -->
+  <text x="50" y="1250" class="comment">After execution, extractResponseMeta() reads basil.http.response to:</text>
+  <text x="70" y="1270" class="comment">• Set HTTP status code</text>
+  <text x="70" y="1290" class="comment">• Add response headers</text>
+  <text x="70" y="1310" class="comment">• Set cookies</text>
+
+  <!-- Arrows marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#8fbce6" />
+    </marker>
+  </defs>
+</svg>
