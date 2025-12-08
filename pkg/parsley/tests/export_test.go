@@ -53,7 +53,7 @@ func TestExportKeyword(t *testing.T) {
 export let add = fn(a, b) { a + b }
 let multiply = fn(a, b) { a * b }
 `,
-			mainCode:       `let mod = import("%s"); mod.add(2, 3)`,
+			mainCode:       `let mod = import @%s; mod.add(2, 3)`,
 			expectedOutput: "5",
 		},
 		{
@@ -61,7 +61,7 @@ let multiply = fn(a, b) { a * b }
 			moduleCode: `
 export add = fn(a, b) { a + b }
 `,
-			mainCode:       `let mod = import("%s"); mod.add(2, 3)`,
+			mainCode:       `let mod = import @%s; mod.add(2, 3)`,
 			expectedOutput: "5",
 		},
 		{
@@ -69,7 +69,7 @@ export add = fn(a, b) { a + b }
 			moduleCode: `
 let add = fn(a, b) { a + b }
 `,
-			mainCode:       `let mod = import("%s"); mod.add(2, 3)`,
+			mainCode:       `let mod = import @%s; mod.add(2, 3)`,
 			expectedOutput: "5",
 		},
 		{
@@ -78,7 +78,7 @@ let add = fn(a, b) { a + b }
 add = fn(a, b) { a + b }
 let greet = fn(name) { name }
 `,
-			mainCode:       `let mod = import("%s"); mod.greet("World")`,
+			mainCode:       `let mod = import @%s; mod.greet("World")`,
 			expectedOutput: "World",
 		},
 		{
@@ -86,7 +86,7 @@ let greet = fn(name) { name }
 			moduleCode: `
 export let version = "1.0.0"
 `,
-			mainCode:       `let mod = import("%s"); mod.version`,
+			mainCode:       `let mod = import @%s; mod.version`,
 			expectedOutput: "1.0.0",
 		},
 		{
@@ -95,7 +95,7 @@ export let version = "1.0.0"
 export let x = 10
 export let y = 20
 `,
-			mainCode:       `let mod = import("%s"); mod.x + mod.y`,
+			mainCode:       `let mod = import @%s; mod.x + mod.y`,
 			expectedOutput: "30",
 		},
 		{
@@ -103,7 +103,7 @@ export let y = 20
 			moduleCode: `
 export Pi = 3.141592653589793
 `,
-			mainCode:       `let mod = import("%s"); mod.Pi`,
+			mainCode:       `let mod = import @%s; mod.Pi`,
 			expectedOutput: "3.141592653589793",
 		},
 		{
@@ -111,7 +111,7 @@ export Pi = 3.141592653589793
 			moduleCode: `
 export Logo = <img src="logo.png" alt="Logo"/>
 `,
-			mainCode:       `let mod = import("%s"); mod.Logo`,
+			mainCode:       `let mod = import @%s; mod.Logo`,
 			expectedOutput: `<img src="logo.png" alt="Logo" />`,
 		},
 		{
@@ -119,7 +119,7 @@ export Logo = <img src="logo.png" alt="Logo"/>
 			moduleCode: `
 export Pi = 3.14159
 `,
-			mainCode:       `let {Pi} = import("%s"); Pi`,
+			mainCode:       `let {Pi} = import @%s; Pi`,
 			expectedOutput: "3.14159",
 		},
 		{
@@ -127,7 +127,7 @@ export Pi = 3.14159
 			moduleCode: `
 export Header = <header><h1>Welcome</h1></header>
 `,
-			mainCode:       `let mod = import("%s"); <div>{mod.Header}</div>`,
+			mainCode:       `let mod = import @%s; <div>{mod.Header}</div>`,
 			expectedOutput: `<div><header><h1>Welcome</h1></header></div>`,
 		},
 	}
@@ -135,7 +135,7 @@ export Header = <header><h1>Welcome</h1></header>
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Write module file
-			moduleFile := filepath.Join(tmpDir, tt.name+".pars")
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_"); moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
 			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write module file: %v", err)
@@ -187,7 +187,7 @@ func TestExportDestructuring(t *testing.T) {
 			moduleCode: `
 export let [a, b] = [1, 2]
 `,
-			mainCode:       `let mod = import("%s"); mod.a + mod.b`,
+			mainCode:       `let mod = import @%s; mod.a + mod.b`,
 			expectedOutput: "3",
 		},
 	}
@@ -195,7 +195,7 @@ export let [a, b] = [1, 2]
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Write module file
-			moduleFile := filepath.Join(tmpDir, tt.name+".pars")
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_"); moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
 			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write module file: %v", err)
@@ -272,7 +272,7 @@ internal = fn(a, b) { a + b }
 	}
 
 	// Try to access the bare assignment from imported module
-	mainCode := formatString(`let mod = import("%s"); mod.internal(1, 2)`, moduleFile)
+	mainCode := formatString(`let mod = import @%s; mod.internal(1, 2)`, moduleFile)
 	mainFile := filepath.Join(tmpDir, "main.pars")
 	result := evalExport(mainCode, mainFile)
 
@@ -303,21 +303,21 @@ func TestModuleErrorReporting(t *testing.T) {
 		{
 			name:         "identifier not found in module",
 			moduleCode:   "let x = unknownVar",
-			mainCode:     `let mod = import("%s")`,
+			mainCode:     `let mod = import @%s`,
 			expectError:  true,
 			errorContain: "identifier not found: unknownVar",
 		},
 		{
 			name:         "error includes module path",
 			moduleCode:   "let x = anotherUnknown",
-			mainCode:     `let mod = import("%s")`,
+			mainCode:     `let mod = import @%s`,
 			expectError:  true,
 			errorContain: ".pars", // Module path is included in error
 		},
 		{
 			name:         "error includes line number",
 			moduleCode:   "let x = 5\nlet y = badVar",
-			mainCode:     `let mod = import("%s")`,
+			mainCode:     `let mod = import @%s`,
 			expectError:  true,
 			errorContain: "line 2",
 		},
@@ -326,7 +326,7 @@ func TestModuleErrorReporting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Write module file
-			moduleFile := filepath.Join(tmpDir, tt.name+".pars")
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_"); moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
 			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write module file: %v", err)

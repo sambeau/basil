@@ -53,14 +53,14 @@ func TestDictionaryInsertionOrder(t *testing.T) {
 			`d = { c: 3, a: 1, b: 2 }; result = for (k, v in d) { k }; result`,
 			`[c, a, b]`,
 		},
-		// builtin keys() preserves order
+		// method keys() preserves order
 		{
-			`keys({ third: 3, first: 1, second: 2 })`,
+			`{ third: 3, first: 1, second: 2 }.keys()`,
 			`[third, first, second]`,
 		},
-		// builtin values() preserves order
+		// method values() preserves order
 		{
-			`values({ z: "last", a: "first", m: "middle" })`,
+			`{ z: "last", a: "first", m: "middle" }.values()`,
 			`[last, first, middle]`,
 		},
 	}

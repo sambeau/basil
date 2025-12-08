@@ -85,11 +85,11 @@ func TestForWithStrings(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`for("Sam") toUpper`, "[S, A, M]"},
-		{`for("abc") toUpper`, "[A, B, C]"},
-		{`for("XYZ") toLower`, "[x, y, z]"},
-		{`for(["Sam","Phillips"]) toUpper`, "[SAM, PHILLIPS]"},
-		{`for(name in ["SAM","PHILLIPS"]) { toLower(name) }`, "[sam, phillips]"},
+		{`for(c in "Sam") { c.toUpper() }`, "[S, A, M]"},
+		{`for(c in "abc") { c.toUpper() }`, "[A, B, C]"},
+		{`for(c in "XYZ") { c.toLower() }`, "[x, y, z]"},
+		{`for(s in ["Sam","Phillips"]) { s.toUpper() }`, "[SAM, PHILLIPS]"},
+		{`for(name in ["SAM","PHILLIPS"]) { name.toLower() }`, "[sam, phillips]"},
 	}
 
 	for _, tt := range tests {
@@ -123,17 +123,17 @@ func TestForEquivalenceWithMap(t *testing.T) {
 	}{
 		{
 			"double = fn(x) { x * 2 }; for([1,2,3]) double",
-			"double = fn(x) { x * 2 }; map(double, [1,2,3])",
+			"double = fn(x) { x * 2 }; [1,2,3].map(double)",
 			"[2, 4, 6]",
 		},
 		{
 			"for(x in [1,2,3]) { x * 2 }",
-			"map(fn(x){x*2}, [1,2,3])",
+			"[1,2,3].map(fn(x){x*2})",
 			"[2, 4, 6]",
 		},
 		{
 			"for(x in [5,10,15]) { x + 1 }",
-			"map(fn(x){x+1}, [5,10,15])",
+			"[5,10,15].map(fn(x){x+1})",
 			"[6, 11, 16]",
 		},
 	}
@@ -185,14 +185,16 @@ func TestForEquivalenceWithMap(t *testing.T) {
 	}
 }
 
-func TestForWithBuiltins(t *testing.T) {
+func TestForWithFunctions(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{`for("hello") toUpper`, "[H, E, L, L, O]"},
-		{`for("WORLD") toLower`, "[w, o, r, l, d]"},
-		{`for(["a","b","c"]) toUpper`, "[A, B, C]"},
+		// Test for(collection) fn syntax with user-defined functions
+		{`double = fn(x) { x * 2 }; for([1,2,3]) double`, "[2, 4, 6]"},
+		{`for(c in "hello") { c.toUpper() }`, "[H, E, L, L, O]"},
+		{`for(c in "WORLD") { c.toLower() }`, "[w, o, r, l, d]"},
+		{`for(s in ["a","b","c"]) { s.toUpper() }`, "[A, B, C]"},
 	}
 
 	for _, tt := range tests {
@@ -223,10 +225,10 @@ func TestToUpperToLower(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`toUpper("hello")`, "HELLO"},
-		{`toLower("WORLD")`, "world"},
-		{`toUpper("MiXeD")`, "MIXED"},
-		{`toLower("MiXeD")`, "mixed"},
+		{`"hello".toUpper()`, "HELLO"},
+		{`"WORLD".toLower()`, "world"},
+		{`"MiXeD".toUpper()`, "MIXED"},
+		{`"MiXeD".toLower()`, "mixed"},
 	}
 
 	for _, tt := range tests {

@@ -34,7 +34,7 @@ func evalAPITest(t *testing.T, input string) evaluator.Object {
 // =============================================================================
 
 func TestAPIModuleImport(t *testing.T) {
-	input := `let {public, notFound} = import("std/api")
+	input := `let {public, notFound} = import @std/api
 public`
 
 	result := evalAPITest(t, input)
@@ -49,7 +49,7 @@ public`
 }
 
 func TestAPIModuleImportAll(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 api.public`
 
 	result := evalAPITest(t, input)
@@ -68,7 +68,7 @@ api.public`
 // =============================================================================
 
 func TestAPIPublicWrapper(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let handler = api.public(fn(req) { "hello" })
 handler`
 
@@ -85,7 +85,7 @@ handler`
 }
 
 func TestAPIAuthWrapper(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let handler = api.auth(fn(req) { "protected" })
 handler`
 
@@ -101,7 +101,7 @@ handler`
 }
 
 func TestAPIAdminOnlyWrapper(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let handler = api.adminOnly(fn(req) { "admin only" })
 handler`
 
@@ -117,7 +117,7 @@ handler`
 }
 
 func TestAPIRolesWrapper(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let handler = api.roles(["editor", "admin"], fn(req) { "role protected" })
 handler`
 
@@ -137,7 +137,7 @@ handler`
 // =============================================================================
 
 func TestAPINotFound(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.notFound("User not found")
 err`
 
@@ -153,7 +153,7 @@ err`
 }
 
 func TestAPINotFoundDefault(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.notFound()
 err`
 
@@ -169,7 +169,7 @@ err`
 }
 
 func TestAPIForbidden(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.forbidden("Access denied")
 err`
 
@@ -185,7 +185,7 @@ err`
 }
 
 func TestAPIBadRequest(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.badRequest("Invalid input")
 err`
 
@@ -201,7 +201,7 @@ err`
 }
 
 func TestAPIUnauthorized(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.unauthorized("Not logged in")
 err`
 
@@ -217,7 +217,7 @@ err`
 }
 
 func TestAPIConflict(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.conflict("Resource already exists")
 err`
 
@@ -233,7 +233,7 @@ err`
 }
 
 func TestAPIServerError(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let err = api.serverError("Something went wrong")
 err`
 
@@ -253,7 +253,7 @@ err`
 // =============================================================================
 
 func TestAPIPublicTypeError(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 api.public("not a function")`
 
 	result := evalAPITest(t, input)
@@ -264,7 +264,7 @@ api.public("not a function")`
 }
 
 func TestAPIRolesTypeError(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 api.roles("not an array", fn(req) { "test" })`
 
 	result := evalAPITest(t, input)
@@ -279,7 +279,7 @@ api.roles("not an array", fn(req) { "test" })`
 // =============================================================================
 
 func TestAPIWrappedFunctionExecutes(t *testing.T) {
-	input := `let api = import("std/api")
+	input := `let api = import @std/api
 let handler = api.public(fn(x) { x * 2 })
 handler(21)`
 

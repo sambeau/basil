@@ -11,7 +11,7 @@ import (
 )
 
 func TestStdlibTableImport(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 table`
 
 	l := lexer.New(input)
@@ -40,7 +40,7 @@ table`
 }
 
 func TestTableConstructor(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 t = table(data)
 t`
@@ -59,7 +59,7 @@ t`
 }
 
 func TestTableEmptyArray(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 table([])`
 
 	result := evalTest(t, input)
@@ -75,8 +75,8 @@ func TestTableInvalidInput(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`let {table} = import("std/table"); table("not array")`, "must be an array"},
-		{`let {table} = import("std/table"); table([1, 2, 3])`, "must be dictionary"},
+		{`let {table} = import @std/table; table("not array")`, "must be an array"},
+		{`let {table} = import @std/table; table([1, 2, 3])`, "must be dictionary"},
 	}
 
 	for _, tt := range tests {
@@ -99,7 +99,7 @@ func TestTableInvalidInput(t *testing.T) {
 }
 
 func TestTableRows(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{a: 1}, {a: 2}]
 table(data).rows`
 
@@ -116,7 +116,7 @@ table(data).rows`
 }
 
 func TestTableCount(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{a: 1}, {a: 2}, {a: 3}]
 table(data).count()`
 
@@ -133,7 +133,7 @@ table(data).count()`
 }
 
 func TestTableWhere(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}, {name: "Carol", age: 35}]
 table(data).where(fn(row) { row.age > 25 }).count()`
 
@@ -150,7 +150,7 @@ table(data).where(fn(row) { row.age > 25 }).count()`
 }
 
 func TestTableOrderBy(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
 t = table(data).orderBy("name")
 t.rows[0].name`
@@ -168,7 +168,7 @@ t.rows[0].name`
 }
 
 func TestTableOrderByDesc(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
 t = table(data).orderBy("val", "desc")
 t.rows[0].val`
@@ -186,7 +186,7 @@ t.rows[0].val`
 }
 
 func TestTableSelect(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{a: 1, b: 2, c: 3}, {a: 4, b: 5, c: 6}]
 t = table(data).select(["a", "c"])
 t.rows[0].b`
@@ -200,7 +200,7 @@ t.rows[0].b`
 }
 
 func TestTableLimit(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
 table(data).limit(2).count()`
 
@@ -213,7 +213,7 @@ table(data).limit(2).count()`
 }
 
 func TestTableLimitOffset(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
 t = table(data).limit(2, 2)
 t.rows[0].v`
@@ -227,7 +227,7 @@ t.rows[0].v`
 }
 
 func TestTableSum(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: 10}, {val: 20}, {val: 30}]
 table(data).sum("val")`
 
@@ -244,7 +244,7 @@ table(data).sum("val")`
 }
 
 func TestTableAvg(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: 10}, {val: 20}, {val: 30}]
 table(data).avg("val")`
 
@@ -261,7 +261,7 @@ table(data).avg("val")`
 }
 
 func TestTableMinMax(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: 10}, {val: 20}, {val: 5}]
 tbl = table(data)
 minVal = tbl.min("val"); maxVal = tbl.max("val"); [minVal, maxVal]`
@@ -281,7 +281,7 @@ minVal = tbl.min("val"); maxVal = tbl.max("val"); [minVal, maxVal]`
 }
 
 func TestTableToHTML(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Alice", age: 30}]
 table(data).toHTML()`
 
@@ -308,7 +308,7 @@ table(data).toHTML()`
 }
 
 func TestTableToCSV(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 table(data).toCSV()`
 
@@ -332,7 +332,7 @@ table(data).toCSV()`
 }
 
 func TestTableCSVEscaping(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{text: "hello, world"}, {text: "has \"quotes\""}]
 table(data).toCSV()`
 
@@ -351,7 +351,7 @@ table(data).toCSV()`
 }
 
 func TestTableChaining(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{name: "Alice", age: 30, active: true}, 
         {name: "Bob", age: 25, active: true},
         {name: "Carol", age: 35, active: false},
@@ -375,7 +375,7 @@ table(data)
 }
 
 func TestTableImmutability(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: 1}, {val: 2}, {val: 3}]
 original = table(data)
 filtered = original.where(fn(row) { row.val > 1 })
@@ -396,7 +396,7 @@ origCount = original.count(); filtCount = filtered.count(); [origCount, filtCoun
 }
 
 func TestUnknownStdlibModule(t *testing.T) {
-	input := `import("std/nonexistent")`
+	input := `import @std/nonexistent`
 
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -417,7 +417,7 @@ func TestUnknownStdlibModule(t *testing.T) {
 // TestTableSumWithStringNumbers tests that sum() coerces string numbers
 func TestTableSumWithStringNumbers(t *testing.T) {
 	// Create a table with string values (simulating legacy or mixed data)
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: "10"}, {val: "20"}, {val: "30"}]
 table(data).sum("val")`
 
@@ -435,7 +435,7 @@ table(data).sum("val")`
 
 // TestTableAvgWithStringNumbers tests that avg() coerces string numbers
 func TestTableAvgWithStringNumbers(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: "10"}, {val: "20"}, {val: "30"}]
 table(data).avg("val")`
 
@@ -454,7 +454,7 @@ table(data).avg("val")`
 // TestTableMinWithStringNumbers tests that min() coerces string numbers for proper numeric comparison
 func TestTableMinWithStringNumbers(t *testing.T) {
 	// Without coercion, "5" > "10" lexicographically, so min would wrongly be "10"
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: "5"}, {val: "10"}, {val: "2"}]
 table(data).min("val")`
 
@@ -473,7 +473,7 @@ table(data).min("val")`
 // TestTableMaxWithStringNumbers tests that max() coerces string numbers for proper numeric comparison
 func TestTableMaxWithStringNumbers(t *testing.T) {
 	// Without coercion, "9" > "100" lexicographically, so max would wrongly be "9"
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 data = [{val: "9"}, {val: "100"}, {val: "50"}]
 table(data).max("val")`
 
@@ -491,7 +491,7 @@ table(data).max("val")`
 
 // TestTableWhereWithCSVData tests where() with type-coerced CSV data
 func TestTableWhereWithCSVData(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 let data = parseCSV("name,value\na,10\nb,20\nc,5\nd,15")
 let t = table(data)
 t.where(fn(row) { row.value > 10 }).count()`
@@ -511,7 +511,7 @@ t.where(fn(row) { row.value > 10 }).count()`
 
 // TestTableOrderByWithCSVData tests orderBy() with type-coerced CSV data
 func TestTableOrderByWithCSVData(t *testing.T) {
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 let data = parseCSV("name,value\na,10\nb,2\nc,100")
 let t = table(data).orderBy("value")
 t.rows[0].value`
@@ -532,7 +532,7 @@ t.rows[0].value`
 // TestTableAggregatesWithCSVData tests all aggregate functions with CSV data
 func TestTableAggregatesWithCSVData(t *testing.T) {
 	// Test sum
-	input := `let {table} = import("std/table")
+	input := `let {table} = import @std/table
 let data = parseCSV("value\n10\n20\n30\n40")
 table(data).sum("value")`
 
@@ -543,7 +543,7 @@ table(data).sum("value")`
 	}
 
 	// Test avg
-	input = `let {table} = import("std/table")
+	input = `let {table} = import @std/table
 let data = parseCSV("value\n10\n20\n30\n40")
 table(data).avg("value")`
 
@@ -554,7 +554,7 @@ table(data).avg("value")`
 	}
 
 	// Test min
-	input = `let {table} = import("std/table")
+	input = `let {table} = import @std/table
 let data = parseCSV("value\n10\n20\n30\n40")
 table(data).min("value")`
 
@@ -565,7 +565,7 @@ table(data).min("value")`
 	}
 
 	// Test max
-	input = `let {table} = import("std/table")
+	input = `let {table} = import @std/table
 let data = parseCSV("value\n10\n20\n30\n40")
 table(data).max("value")`
 
@@ -576,7 +576,7 @@ table(data).max("value")`
 	}
 
 	// Test count
-	input = `let {table} = import("std/table")
+	input = `let {table} = import @std/table
 let data = parseCSV("value\n10\n20\n30\n40")
 table(data).count()`
 
@@ -667,7 +667,7 @@ func TestTableFromDict(t *testing.T) {
 	}{
 		{
 			name: "fromDict with default column names",
-			input: `let {table} = import("std/table")
+			input: `let {table} = import @std/table
 let d = {a: 1, b: 2}
 table.fromDict(d)`,
 			expectRows: 2,
@@ -675,7 +675,7 @@ table.fromDict(d)`,
 		},
 		{
 			name: "fromDict with custom column names",
-			input: `let {table} = import("std/table")
+			input: `let {table} = import @std/table
 let d = {"Total": 100, "Active": 50}
 table.fromDict(d, "Category", "Value")`,
 			expectRows: 2,
@@ -708,7 +708,7 @@ table.fromDict(d, "Category", "Value")`,
 func TestBasilStdlibImport(t *testing.T) {
 	// Test that std/basil import works (returns empty dict when not in handler context)
 	input := `
-		let {basil} = import("std/basil")
+		let {basil} = import @std/basil
 		basil
 	`
 	result := evalTest(t, input)
@@ -729,7 +729,7 @@ func TestBasilStdlibImportWithContext(t *testing.T) {
 	}
 	env.BasilCtx = mockBasil
 
-	l := lexer.New(`let {basil} = import("std/basil"); basil`)
+	l := lexer.New(`let {basil} = import @std/basil; basil`)
 	p := parser.New(l)
 	program := p.ParseProgram()
 

@@ -98,11 +98,6 @@ func TestImportDestructuring(t *testing.T) {
 			input:    `{floor as f} = import @std/math; f(9.9)`,
 			expected: int64(9),
 		},
-		{
-			name:     "mixed destructure with old syntax",
-			input:    `{PI, E} = import("std/math"); PI > E`,
-			expected: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -142,27 +137,23 @@ func TestImportDestructuring(t *testing.T) {
 	}
 }
 
-// TestImportBackwardCompat tests that old import() syntax still works
-func TestImportBackwardCompat(t *testing.T) {
+// TestOldImportSyntaxRejected tests that old import() syntax is now rejected
+func TestOldImportSyntaxRejected(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected float64
+		name  string
+		input string
 	}{
 		{
-			name:     "old syntax with string",
-			input:    `let m = import("std/math"); m.PI`,
-			expected: 3.141592653589793,
+			name:  "old syntax with string",
+			input: `let m = import("std/math"); m.PI`,
 		},
 		{
-			name:     "old syntax with path literal",
-			input:    `let m = import(@std/math); m.PI`,
-			expected: 3.141592653589793,
+			name:  "old syntax with path literal in parens",
+			input: `let m = import(@std/math); m.PI`,
 		},
 		{
-			name:     "old syntax destructure",
-			input:    `let {PI} = import("std/math"); PI`,
-			expected: 3.141592653589793,
+			name:  "old syntax destructure",
+			input: `let {PI} = import("std/math"); PI`,
 		},
 	}
 
@@ -172,23 +163,9 @@ func TestImportBackwardCompat(t *testing.T) {
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				t.Fatalf("parser errors: %v", p.Errors())
-			}
-
-			env := evaluator.NewEnvironment()
-			result := evaluator.Eval(program, env)
-
-			if result.Type() == evaluator.ERROR_OBJ {
-				t.Fatalf("evaluation error: %s", result.Inspect())
-			}
-
-			if result.Type() != evaluator.FLOAT_OBJ {
-				t.Fatalf("expected FLOAT, got %s (%s)", result.Type(), result.Inspect())
-			}
-
-			if result.(*evaluator.Float).Value != tt.expected {
-				t.Errorf("expected %f, got %f", tt.expected, result.(*evaluator.Float).Value)
+			// Old syntax should now produce an error
+			if len(p.Errors()) == 0 {
+				t.Fatalf("expected parser error for old import syntax, got none. Program: %s", program.String())
 			}
 		})
 	}

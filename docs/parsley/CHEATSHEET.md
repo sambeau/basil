@@ -643,10 +643,6 @@ M.PI
 // Destructuring
 {greet, PI} = import @./utils
 {floor, ceil} = import @std/math
-
-// OLD SYNTAX (still works)
-let utils = import(@./utils.pars)
-let {table} = import("std/table")
 ```
 
 ### Standard Library
@@ -1157,7 +1153,7 @@ fetch('/submit', {
 
 **Return redirects from handlers:**
 ```parsley
-let {redirect} = import("std/api")
+import @std/api
 
 redirect("/dashboard")              // 302 (default)
 redirect("/new-page", 301)          // 301 permanent

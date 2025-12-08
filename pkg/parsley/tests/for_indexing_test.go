@@ -127,7 +127,7 @@ func TestForBackwardCompatibility(t *testing.T) {
 		},
 		{
 			// String iteration with single param
-			input:    `for(c in "hi") { toUpper(c) }`,
+			input:    `for(c in "hi") { c.toUpper() }`,
 			expected: `[H, I]`,
 		},
 	}

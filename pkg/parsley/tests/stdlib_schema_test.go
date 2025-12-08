@@ -34,7 +34,7 @@ func evalSchemaTest(t *testing.T, input string) evaluator.Object {
 // =============================================================================
 
 func TestSchemaModuleImport(t *testing.T) {
-	input := `let {string, email, integer} = import("std/schema")
+	input := `let {string, email, integer} = import @std/schema
 string`
 
 	result := evalSchemaTest(t, input)
@@ -49,7 +49,7 @@ string`
 }
 
 func TestSchemaModuleImportAll(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 schema.string`
 
 	result := evalSchemaTest(t, input)
@@ -68,7 +68,7 @@ schema.string`
 // =============================================================================
 
 func TestSchemaStringType(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let spec = schema.string()
 spec.type`
 
@@ -88,7 +88,7 @@ spec.type`
 }
 
 func TestSchemaStringTypeWithOptions(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let spec = schema.string({min: 3, max: 100, required: true})
 spec.required`
 
@@ -108,7 +108,7 @@ spec.required`
 }
 
 func TestSchemaEmailType(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let spec = schema.email()
 spec.type`
 
@@ -128,7 +128,7 @@ spec.type`
 }
 
 func TestSchemaIntegerType(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let spec = schema.integer({min: 0, max: 100})
 spec.type`
 
@@ -148,7 +148,7 @@ spec.type`
 }
 
 func TestSchemaEnumType(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let spec = schema.enum("pending", "active", "completed")
 spec.type`
 
@@ -168,7 +168,7 @@ spec.type`
 }
 
 func TestSchemaIDType(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let spec = schema.id()
 spec.format`
 
@@ -192,7 +192,7 @@ spec.format`
 // =============================================================================
 
 func TestSchemaDefine(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let UserSchema = schema.define("User", {
   email: schema.email({required: true}),
   age: schema.integer({min: 0})
@@ -219,7 +219,7 @@ UserSchema.name`
 // =============================================================================
 
 func TestSchemaValidateValid(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let UserSchema = schema.define("User", {
   email: schema.email({required: true}),
   age: schema.integer({min: 0})
@@ -246,7 +246,7 @@ result.valid`
 }
 
 func TestSchemaValidateMissingRequired(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let UserSchema = schema.define("User", {
   email: schema.email({required: true}),
   age: schema.integer({min: 0})
@@ -272,7 +272,7 @@ result.valid`
 }
 
 func TestSchemaValidateInvalidEmail(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let UserSchema = schema.define("User", {
   email: schema.email({required: true})
 })
@@ -297,7 +297,7 @@ result.valid`
 }
 
 func TestSchemaValidateIntegerRange(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let AgeSchema = schema.define("Age", {
   value: schema.integer({min: 0, max: 150})
 })
@@ -322,7 +322,7 @@ result.valid`
 }
 
 func TestSchemaValidateStringLength(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let NameSchema = schema.define("Name", {
   name: schema.string({min: 2, max: 50})
 })
@@ -347,7 +347,7 @@ result.valid`
 }
 
 func TestSchemaValidateErrorDetails(t *testing.T) {
-	input := `let schema = import("std/schema")
+	input := `let schema = import @std/schema
 let UserSchema = schema.define("User", {
   email: schema.email({required: true})
 })

@@ -324,7 +324,7 @@ func TestDevStdlibImport(t *testing.T) {
 
 	// Import dev module via stdlib
 	result := testEval(`
-		let {dev} = import("std/dev")
+		let {dev} = import @std/dev
 		dev.log("imported", 42)
 		42
 	`, env)
@@ -350,7 +350,7 @@ func TestDevStdlibImportNoOpInProduction(t *testing.T) {
 
 	// Import dev module via stdlib - should work but be a no-op
 	result := testEval(`
-		let {dev} = import("std/dev")
+		let {dev} = import @std/dev
 		dev.log("test", 123)
 		"success"
 	`, env)

@@ -62,7 +62,6 @@ var precedences = map[lexer.TokenType]int{
 type Parser struct {
 	l *lexer.Lexer
 
-	errors           []string                // Legacy string errors (for backward compatibility)
 	structuredErrors []*perrors.ParsleyError // Structured errors
 
 	prevToken lexer.Token
@@ -81,8 +80,7 @@ type (
 // New creates a new parser instance
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
-		l:      l,
-		errors: []string{},
+		l: l,
 	}
 
 	// Initialize prefix parse functions
@@ -154,9 +152,18 @@ func New(l *lexer.Lexer) *Parser {
 	return p
 }
 
-// Errors returns parser errors as strings (for backward compatibility)
+// Errors returns parser errors as strings (convenience method for tests).
+// Prefer StructuredErrors() for production code.
 func (p *Parser) Errors() []string {
-	return p.errors
+	result := make([]string, len(p.structuredErrors))
+	for i, err := range p.structuredErrors {
+		if err.Line > 0 {
+			result[i] = fmt.Sprintf("line %d, column %d: %s", err.Line, err.Column, err.Message)
+		} else {
+			result[i] = err.Message
+		}
+	}
+	return result
 }
 
 // StructuredErrors returns parser errors as structured ParsleyError objects.
@@ -164,19 +171,12 @@ func (p *Parser) StructuredErrors() []*perrors.ParsleyError {
 	return p.structuredErrors
 }
 
-// addError adds both a string error and a structured error.
+// addError adds a structured error.
 // Only the first error is recorded - subsequent errors are usually cascading noise.
 func (p *Parser) addError(msg string, line, column int) {
 	// Only keep the first error
 	if len(p.structuredErrors) > 0 {
 		return
-	}
-
-	// Add string error for backward compatibility
-	if line > 0 {
-		p.errors = append(p.errors, fmt.Sprintf("line %d, column %d: %s", line, column, msg))
-	} else {
-		p.errors = append(p.errors, msg)
 	}
 
 	// Add structured error
@@ -198,9 +198,6 @@ func (p *Parser) addStructuredError(code string, line, column int, data map[stri
 
 	perr := perrors.NewWithPosition(code, line, column, data)
 
-	// Add string error for backward compatibility
-	p.errors = append(p.errors, perr.String())
-
 	// Add structured error
 	p.structuredErrors = append(p.structuredErrors, perr)
 }
@@ -212,19 +209,6 @@ func (p *Parser) addErrorWithHints(msg string, line, column int, hints ...string
 	if len(p.structuredErrors) > 0 {
 		return
 	}
-
-	// Add string error for backward compatibility
-	var sb strings.Builder
-	if line > 0 {
-		sb.WriteString(fmt.Sprintf("line %d, column %d: %s", line, column, msg))
-	} else {
-		sb.WriteString(msg)
-	}
-	for _, hint := range hints {
-		sb.WriteString("\n  ")
-		sb.WriteString(hint)
-	}
-	p.errors = append(p.errors, sb.String())
 
 	// Add structured error
 	p.structuredErrors = append(p.structuredErrors, &perrors.ParsleyError{
@@ -285,18 +269,16 @@ func (p *Parser) parseStatement() ast.Statement {
 		savedCur := p.curToken
 		savedPeek := p.peekToken
 		savedPrev := p.prevToken
-		savedErrors := len(p.errors)
 		savedStructuredErrors := len(p.structuredErrors)
 		savedLexerState := p.l.SaveState()
 
 		stmt := p.parseDictDestructuringAssignment()
 
 		// If parsing failed (no = found), restore and parse as expression
-		if stmt == nil || len(p.errors) > savedErrors || len(p.structuredErrors) > savedStructuredErrors {
+		if stmt == nil || len(p.structuredErrors) > savedStructuredErrors {
 			p.curToken = savedCur
 			p.peekToken = savedPeek
 			p.prevToken = savedPrev
-			p.errors = p.errors[:savedErrors]
 			p.structuredErrors = p.structuredErrors[:savedStructuredErrors]
 			p.l.RestoreState(savedLexerState)
 			return p.parseExpressionStatement()
@@ -323,18 +305,16 @@ func (p *Parser) parseStatement() ast.Statement {
 			savedCur := p.curToken
 			savedPeek := p.peekToken
 			savedPrev := p.prevToken
-			savedErrors := len(p.errors)
 			savedStructuredErrors := len(p.structuredErrors)
 			savedLexerState := p.l.SaveState()
 
 			stmt := p.parseAssignmentStatement(false)
 
 			// If parsing failed (no = found), restore and parse as expression
-			if stmt == nil || len(p.errors) > savedErrors || len(p.structuredErrors) > savedStructuredErrors {
+			if stmt == nil || len(p.structuredErrors) > savedStructuredErrors {
 				p.curToken = savedCur
 				p.peekToken = savedPeek
 				p.prevToken = savedPrev
-				p.errors = p.errors[:savedErrors]
 				p.structuredErrors = p.structuredErrors[:savedStructuredErrors]
 				p.l.RestoreState(savedLexerState)
 				return p.parseExpressionStatement()
@@ -369,18 +349,16 @@ func (p *Parser) parseExportStatement() ast.Statement {
 		savedCur := p.curToken
 		savedPeek := p.peekToken
 		savedPrev := p.prevToken
-		savedErrors := len(p.errors)
 		savedStructuredErrors := len(p.structuredErrors)
 		savedLexerState := p.l.SaveState()
 
 		stmt := p.parseDictDestructuringAssignment()
 
 		// If parsing failed, restore and report error
-		if stmt == nil || len(p.errors) > savedErrors || len(p.structuredErrors) > savedStructuredErrors {
+		if stmt == nil || len(p.structuredErrors) > savedStructuredErrors {
 			p.curToken = savedCur
 			p.peekToken = savedPeek
 			p.prevToken = savedPrev
-			p.errors = p.errors[:savedErrors]
 			p.structuredErrors = p.structuredErrors[:savedStructuredErrors]
 			p.l.RestoreState(savedLexerState)
 			p.peekError(lexer.LET)
@@ -1224,24 +1202,14 @@ func (p *Parser) parseTryExpression() ast.Expression {
 
 // parseImportExpression parses import expressions:
 //
-//	import @std/math           -> new syntax, binds to "math"
-//	import @./local/file       -> new syntax, binds to "file"
-//	import @std/math as M      -> new syntax, binds to "M"
-//	import @(./path/{name})    -> new syntax, dynamic import
-//	import("std/math")         -> old syntax, returns call expression for backward compat
-//	import(@std/math)          -> old syntax with path literal
+//	import @std/math           -> binds to "math"
+//	import @./local/file       -> binds to "file"
+//	import @std/math as M      -> binds to "M"
+//	import @(./path/{name})    -> dynamic import
 func (p *Parser) parseImportExpression() ast.Expression {
 	importToken := p.curToken
 
 	p.nextToken() // consume 'import'
-
-	// Check for old syntax: import(...) - treat as function call for backward compatibility
-	if p.curTokenIs(lexer.LPAREN) {
-		// Create identifier for "import" function
-		ident := &ast.Identifier{Token: importToken, Value: "import"}
-		// Parse as call expression
-		return p.parseCallExpression(ident)
-	}
 
 	// New syntax: import @path
 	expression := &ast.ImportExpression{Token: importToken}
@@ -1272,9 +1240,8 @@ func (p *Parser) parseImportExpression() ast.Expression {
 		p.addErrorWithHints(
 			"Expected path after import",
 			p.curToken.Line, p.curToken.Column,
-			"Use new syntax: import @std/math",
-			"Use new syntax: import @./local/file",
-			"Old syntax import(\"path\") still works for backward compatibility",
+			"Use: import @std/math",
+			"Use: import @./local/file",
 		)
 		return nil
 	}

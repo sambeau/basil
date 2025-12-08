@@ -201,7 +201,7 @@ func TestSecurityExecuteDefault(t *testing.T) {
 	moduleFile := filepath.Join(tempDir, "module.pars")
 	os.WriteFile(moduleFile, []byte("let x = 42"), 0644)
 
-	code := `import("` + moduleFile + `")`
+	code := `import @` + moduleFile
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{} // Default policy
@@ -235,7 +235,7 @@ func TestSecurityExecuteAllowed(t *testing.T) {
 	moduleFile := filepath.Join(tempDir, "module.pars")
 	os.WriteFile(moduleFile, []byte("let x = 42"), 0644)
 
-	code := `import("` + moduleFile + `")`
+	code := `import @` + moduleFile
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{

@@ -175,14 +175,14 @@ func TestStdlibPathVsRegularPath(t *testing.T) {
 	}
 }
 
-// TestStdlibImportSyntax tests the full import(@std/...) syntax is parsed correctly
+// TestStdlibImportSyntax tests the full import @std/... syntax is parsed correctly
 func TestStdlibImportSyntax(t *testing.T) {
-	// Test that import(@std/...) parses without error
+	// Test that import @std/... parses without error
 	// (Actual module loading would require stdlib modules to exist)
 	inputs := []string{
-		`import(@std/table)`,
-		`let t = import(@std/table)`,
-		`let {filter, map} = import(@std/collections)`,
+		`import @std/table`,
+		`let t = import @std/table`,
+		`let {filter, map} = import @std/collections`,
 	}
 
 	for _, input := range inputs {

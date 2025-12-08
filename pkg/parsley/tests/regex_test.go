@@ -100,15 +100,13 @@ func TestRegexBuiltin(t *testing.T) {
 	}
 }
 
-func TestReplaceFunction(t *testing.T) {
+func TestReplaceMethod(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{`replace("hello world", "world", "Go")`, `"hello Go"`},
-		{`replace("one1two2three", /\d/, "X")`, `"oneXtwoXthree"`},
-		{`replace("Test", /test/i, "SUCCESS")`, `"SUCCESS"`},
-		{`replace("a,b,c", ",", ";")`, `"a;b;c"`},
+		{`"hello world".replace("world", "Go")`, `"hello Go"`},
+		{`"a,b,c".replace(",", ";")`, `"a;b;c"`},
 	}
 
 	for _, tt := range tests {
@@ -117,15 +115,14 @@ func TestReplaceFunction(t *testing.T) {
 	}
 }
 
-func TestSplitFunction(t *testing.T) {
+func TestSplitMethod(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{`split("a,b,c", ",")`, `["a", "b", "c"]`},
-		{`split("one1two2three", /\d/)`, `["one", "two", "three"]`},
-		{`split("hello world", " ")`, `["hello", "world"]`},
-		{`len(split("a:b:c:d", ":"))`, `4`},
+		{`"a,b,c".split(",")`, `["a", "b", "c"]`},
+		{`"hello world".split(" ")`, `["hello", "world"]`},
+		{`len("a:b:c:d".split(":"))`, `4`},
 	}
 
 	for _, tt := range tests {

@@ -30,14 +30,6 @@ type DeveloperConfig struct {
 	Logging  LoggingConfig `yaml:"logging"`  // Override logging settings
 }
 
-// DatabaseConfig is deprecated - use top-level 'sqlite' field instead.
-// Kept for documentation purposes only.
-type DatabaseConfig struct {
-	Driver string `yaml:"driver"` // Deprecated
-	Path   string `yaml:"path"`   // Deprecated
-	DSN    string `yaml:"dsn"`    // Deprecated
-}
-
 // ServerConfig holds server settings
 type ServerConfig struct {
 	Host  string      `yaml:"host"`

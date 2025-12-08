@@ -24,7 +24,7 @@ func evalModule(input string, filename string) evaluator.Object {
 
 func TestBasicModuleImport(t *testing.T) {
 	input := `
-		let mod = import(@./test_fixtures/modules/simple.pars)
+		let mod = import @./test_fixtures/modules/simple.pars
 		mod.value
 	`
 
@@ -46,7 +46,7 @@ func TestBasicModuleImport(t *testing.T) {
 
 func TestModuleDestructuring(t *testing.T) {
 	input := `
-		let {add, PI} = import(@./test_fixtures/modules/math.pars)
+		let {add, PI} = import @./test_fixtures/modules/math.pars
 		add(10, 32)
 	`
 
@@ -68,7 +68,7 @@ func TestModuleDestructuring(t *testing.T) {
 
 func TestModuleAlias(t *testing.T) {
 	input := `
-		let {square as sq} = import(@./test_fixtures/modules/math.pars)
+		let {square as sq} = import @./test_fixtures/modules/math.pars
 		sq(8)
 	`
 
@@ -90,8 +90,8 @@ func TestModuleAlias(t *testing.T) {
 
 func TestModuleCaching(t *testing.T) {
 	input := `
-		let mod1 = import(@./test_fixtures/modules/simple.pars)
-		let mod2 = import(@./test_fixtures/modules/simple.pars)
+		let mod1 = import @./test_fixtures/modules/simple.pars
+		let mod2 = import @./test_fixtures/modules/simple.pars
 		mod1 == mod2
 	`
 
@@ -113,7 +113,7 @@ func TestModuleCaching(t *testing.T) {
 
 func TestModuleStringPath(t *testing.T) {
 	input := `
-		let mod = import("./test_fixtures/modules/simple.pars")
+		import @./test_fixtures/modules/simple.pars as mod
 		mod.text
 	`
 
@@ -135,7 +135,7 @@ func TestModuleStringPath(t *testing.T) {
 
 func TestModuleNotFound(t *testing.T) {
 	input := `
-		let mod = import(@./nonexistent.pars)
+		let mod = import @./nonexistent.pars
 	`
 
 	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
@@ -152,7 +152,7 @@ func TestModuleNotFound(t *testing.T) {
 
 func TestModuleFunction(t *testing.T) {
 	input := `
-		let math = import(@./test_fixtures/modules/math.pars)
+		let math = import @./test_fixtures/modules/math.pars
 		math.add(math.multiply(2, 3), 4)
 	`
 
@@ -175,7 +175,7 @@ func TestModuleFunction(t *testing.T) {
 
 func TestModuleClosures(t *testing.T) {
 	input := `
-		let {double} = import(@./test_fixtures/modules/simple.pars)
+		let {double} = import @./test_fixtures/modules/simple.pars
 		double(21)
 	`
 

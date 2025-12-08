@@ -115,7 +115,7 @@ func TestCorrectKeywordsStillWork(t *testing.T) {
 		},
 		{
 			name:  "correct_import",
-			input: `import(@./test.pars)`,
+			input: `import @./test.pars`,
 		},
 		{
 			name:  "correct_true",

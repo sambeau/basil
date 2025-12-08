@@ -32,7 +32,7 @@ func TestTableAppendColWithValues(t *testing.T) {
 		{
 			name: "append column with values",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "Alice"}, {name: "Bob"}])
 				let t2 = t.appendCol("age", [30, 25])
 				t2.rows[0].age
@@ -42,7 +42,7 @@ func TestTableAppendColWithValues(t *testing.T) {
 		{
 			name: "append column - verify second row",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "Alice"}, {name: "Bob"}])
 				let t2 = t.appendCol("age", [30, 25])
 				t2.rows[1].age
@@ -52,7 +52,7 @@ func TestTableAppendColWithValues(t *testing.T) {
 		{
 			name: "append column - original unchanged",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "Alice"}])
 				let _ = t.appendCol("age", [30])
 				t.rows[0].keys()
@@ -81,7 +81,7 @@ func TestTableAppendColWithFunction(t *testing.T) {
 		{
 			name: "append computed column",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 10, b: 5}, {a: 20, b: 3}])
 				let t2 = t.appendCol("sum", fn(row) { row.a + row.b })
 				t2.rows[0].sum
@@ -91,7 +91,7 @@ func TestTableAppendColWithFunction(t *testing.T) {
 		{
 			name: "append computed column - second row",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 10, b: 5}, {a: 20, b: 3}])
 				let t2 = t.appendCol("sum", fn(row) { row.a + row.b })
 				t2.rows[1].sum
@@ -101,7 +101,7 @@ func TestTableAppendColWithFunction(t *testing.T) {
 		{
 			name: "append string computed column",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{first: "John", last: "Doe"}])
 				let t2 = t.appendCol("full", fn(row) { row.first + " " + row.last })
 				t2.rows[0].full
@@ -130,7 +130,7 @@ func TestTableInsertColAfter(t *testing.T) {
 		{
 			name: "insert column after first",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 1, c: 3}])
 				let t2 = t.insertColAfter("a", "b", [2])
 				t2.rows[0].keys()
@@ -140,7 +140,7 @@ func TestTableInsertColAfter(t *testing.T) {
 		{
 			name: "insert column with function",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{x: 10, z: 30}])
 				let t2 = t.insertColAfter("x", "y", fn(row) { row.x * 2 })
 				t2.rows[0].y
@@ -150,7 +150,7 @@ func TestTableInsertColAfter(t *testing.T) {
 		{
 			name: "insert after last column",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 1, b: 2}])
 				let t2 = t.insertColAfter("b", "c", [3])
 				t2.rows[0].keys()
@@ -179,7 +179,7 @@ func TestTableInsertColBefore(t *testing.T) {
 		{
 			name: "insert column before first",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{b: 2, c: 3}])
 				let t2 = t.insertColBefore("b", "a", [1])
 				t2.rows[0].keys()
@@ -189,7 +189,7 @@ func TestTableInsertColBefore(t *testing.T) {
 		{
 			name: "insert column before middle",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 1, c: 3}])
 				let t2 = t.insertColBefore("c", "b", [2])
 				t2.rows[0].keys()
@@ -199,7 +199,7 @@ func TestTableInsertColBefore(t *testing.T) {
 		{
 			name: "insert with function",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{y: 20, z: 30}])
 				let t2 = t.insertColBefore("y", "x", fn(row) { row.y / 2 })
 				t2.rows[0].x
@@ -228,7 +228,7 @@ func TestTableColInsertErrors(t *testing.T) {
 		{
 			name: "appendCol - values length mismatch",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}, {a: 2}]).appendCol("b", [1])
 			`,
 			expectedError: "values",
@@ -236,7 +236,7 @@ func TestTableColInsertErrors(t *testing.T) {
 		{
 			name: "appendCol - duplicate column name",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}]).appendCol("a", [2])
 			`,
 			expectedError: "already exists",
@@ -244,7 +244,7 @@ func TestTableColInsertErrors(t *testing.T) {
 		{
 			name: "insertColAfter - column not found",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}]).insertColAfter("x", "b", [2])
 			`,
 			expectedError: "not found",
@@ -252,7 +252,7 @@ func TestTableColInsertErrors(t *testing.T) {
 		{
 			name: "insertColBefore - column not found",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}]).insertColBefore("x", "b", [2])
 			`,
 			expectedError: "not found",
@@ -260,7 +260,7 @@ func TestTableColInsertErrors(t *testing.T) {
 		{
 			name: "insertColAfter - duplicate new column",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1, b: 2}]).insertColAfter("a", "b", [3])
 			`,
 			expectedError: "already exists",
@@ -268,7 +268,7 @@ func TestTableColInsertErrors(t *testing.T) {
 		{
 			name: "appendCol - invalid third arg type",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}]).appendCol("b", "not array or function")
 			`,
 			expectedError: "array or function",

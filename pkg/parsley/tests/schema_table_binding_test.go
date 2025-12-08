@@ -11,7 +11,7 @@ import (
 func TestSchemaTableInsertAndFind(t *testing.T) {
 	evaluator.ClearDBConnections()
 	input := `
-let schema = import("std/schema")
+let schema = import @std/schema
 let db = SQLITE(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 let User = schema.define("User", {
@@ -55,7 +55,7 @@ let inserted = Users.insert({name: "Alice", age: 30})
 func TestSchemaTableValidationFailure(t *testing.T) {
 	evaluator.ClearDBConnections()
 	input := `
-let schema = import("std/schema")
+let schema = import @std/schema
 let db = SQLITE(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 let User = schema.define("User", {
@@ -82,7 +82,7 @@ Users.insert({age: 20})
 func TestSchemaTableWhereAndPagination(t *testing.T) {
 	evaluator.ClearDBConnections()
 	input := `
-let schema = import("std/schema")
+let schema = import @std/schema
 let db = SQLITE(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 let User = schema.define("User", {
@@ -128,7 +128,7 @@ let basil = {http: {request: {query: {limit: "1", offset: "1"}}}}
 func TestSchemaTableDelete(t *testing.T) {
 	evaluator.ClearDBConnections()
 	input := `
-let schema = import("std/schema")
+let schema = import @std/schema
 let db = SQLITE(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 let User = schema.define("User", {
@@ -152,7 +152,7 @@ Users.delete("non-existent")
 func TestSchemaTableRejectsInvalidColumn(t *testing.T) {
 	evaluator.ClearDBConnections()
 	input := `
-let schema = import("std/schema")
+let schema = import @std/schema
 let db = SQLITE(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 let User = schema.define("User", {

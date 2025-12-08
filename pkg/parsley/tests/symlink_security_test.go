@@ -162,7 +162,7 @@ func TestSymlinkSecurityExecute(t *testing.T) {
 	// Test: Importing through symlink should work if target is allowed
 	t.Run("import_through_symlink", func(t *testing.T) {
 		linkedModule := filepath.Join(linkDir, "helper.pars")
-		input := `let m = import(@` + linkedModule + `); m.greeting`
+		input := `let m = import @` + linkedModule + `; m.greeting`
 
 		env := evaluator.NewEnvironment()
 		env.Filename = filepath.Join(tmpDir, "main.pars")

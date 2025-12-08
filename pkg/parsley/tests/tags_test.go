@@ -216,7 +216,7 @@ func TestCustomTagsWithBooleanProps(t *testing.T) {
 		{
 			name: "custom tag with boolean prop",
 			input: `Button = fn(props) {
-  isDisabled = has(props, "disabled")
+  isDisabled = props.has("disabled")
   if (isDisabled) {
     "disabled"
   } else {
@@ -229,7 +229,7 @@ func TestCustomTagsWithBooleanProps(t *testing.T) {
 		{
 			name: "custom tag without boolean prop",
 			input: `Button = fn(props) {
-  isDisabled = has(props, "disabled")
+  isDisabled = props.has("disabled")
   if (isDisabled) {
     "disabled"
   } else {
@@ -779,7 +779,7 @@ func TestComponentsWithProps(t *testing.T) {
 				<h2>Hello, {name}</h2>
 			}
 			names = ["Sara", "Cahal", "Edite"]
-			result = map(Welcome, names)
+			result = names.map(Welcome)
 			<div>{result}</div>`,
 			expected: "<div><h2>Hello, Sara</h2><h2>Hello, Cahal</h2><h2>Hello, Edite</h2></div>",
 		},

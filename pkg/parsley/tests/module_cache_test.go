@@ -24,7 +24,7 @@ func TestModuleCacheClear(t *testing.T) {
 	}
 
 	// Import the module
-	input := `let mod = import(@` + modulePath + `); mod.count`
+	input := `let mod = import @` + modulePath + `; mod.count`
 
 	env := evaluator.NewEnvironment()
 	env.Filename = filepath.Join(tmpDir, "main.pars")
@@ -121,7 +121,7 @@ func TestModuleCacheThreadSafety(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			input := `let mod = import(@` + modulePath + `); mod.value`
+			input := `let mod = import @` + modulePath + `; mod.value`
 
 			env := evaluator.NewEnvironment()
 			env.Filename = filepath.Join(tmpDir, "test.pars")
@@ -212,7 +212,7 @@ func TestModuleCacheConcurrentClearAndImport(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 20; j++ {
-				input := `let mod = import(@` + modulePath + `); mod.num`
+				input := `let mod = import @` + modulePath + `; mod.num`
 
 				env := evaluator.NewEnvironment()
 				env.Filename = filepath.Join(tmpDir, "test.pars")
@@ -250,8 +250,8 @@ func TestModuleCacheIsolation(t *testing.T) {
 
 	// Import both
 	input := `
-		let m1 = import(@` + mod1Path + `)
-		let m2 = import(@` + mod2Path + `)
+		let m1 = import @` + mod1Path + `
+		let m2 = import @` + mod2Path + `
 		m1.val + "-" + m2.val
 	`
 

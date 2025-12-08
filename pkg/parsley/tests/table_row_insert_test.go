@@ -32,7 +32,7 @@ func TestTableAppendRow(t *testing.T) {
 		{
 			name: "append row to table",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 1, b: 2}, {a: 3, b: 4}])
 				t.appendRow({a: 5, b: 6}).count()
 			`,
@@ -41,7 +41,7 @@ func TestTableAppendRow(t *testing.T) {
 		{
 			name: "append row - verify data",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "Alice"}])
 				let t2 = t.appendRow({name: "Bob"})
 				t2.rows[1].name
@@ -51,7 +51,7 @@ func TestTableAppendRow(t *testing.T) {
 		{
 			name: "append to empty table",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([])
 				t.appendRow({x: 1, y: 2}).count()
 			`,
@@ -60,7 +60,7 @@ func TestTableAppendRow(t *testing.T) {
 		{
 			name: "original table unchanged",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 1}])
 				let _ = t.appendRow({a: 2})
 				t.count()
@@ -89,7 +89,7 @@ func TestTableInsertRowAt(t *testing.T) {
 		{
 			name: "insert at beginning",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "B"}, {name: "C"}])
 				t.insertRowAt(0, {name: "A"}).rows[0].name
 			`,
@@ -98,7 +98,7 @@ func TestTableInsertRowAt(t *testing.T) {
 		{
 			name: "insert in middle",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "A"}, {name: "C"}])
 				t.insertRowAt(1, {name: "B"}).rows[1].name
 			`,
@@ -107,7 +107,7 @@ func TestTableInsertRowAt(t *testing.T) {
 		{
 			name: "insert at end (same as append)",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "A"}, {name: "B"}])
 				t.insertRowAt(2, {name: "C"}).rows[2].name
 			`,
@@ -116,7 +116,7 @@ func TestTableInsertRowAt(t *testing.T) {
 		{
 			name: "negative index",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{name: "A"}, {name: "C"}])
 				t.insertRowAt(-1, {name: "B"}).rows[1].name
 			`,
@@ -125,7 +125,7 @@ func TestTableInsertRowAt(t *testing.T) {
 		{
 			name: "verify count after insert",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				let t = table([{a: 1}, {a: 2}])
 				t.insertRowAt(1, {a: 99}).count()
 			`,
@@ -153,7 +153,7 @@ func TestTableRowInsertErrors(t *testing.T) {
 		{
 			name: "insertRowAt - index out of bounds",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}]).insertRowAt(5, {a: 2})
 			`,
 			expectedError: "out of range",
@@ -161,7 +161,7 @@ func TestTableRowInsertErrors(t *testing.T) {
 		{
 			name: "appendRow - wrong type",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1}]).appendRow("not a dict")
 			`,
 			expectedError: "must be a dictionary",
@@ -169,7 +169,7 @@ func TestTableRowInsertErrors(t *testing.T) {
 		{
 			name: "appendRow - wrong column count",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1, b: 2}]).appendRow({a: 1})
 			`,
 			expectedError: "columns",
@@ -177,7 +177,7 @@ func TestTableRowInsertErrors(t *testing.T) {
 		{
 			name: "appendRow - missing column",
 			input: `
-				let {table} = import(@std/table)
+				let {table} = import @std/table
 				table([{a: 1, b: 2}]).appendRow({a: 1, c: 2})
 			`,
 			expectedError: "not found",

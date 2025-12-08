@@ -318,7 +318,7 @@ func TestPracticalExamples(t *testing.T) {
 		{
 			name: "calculate distance from point",
 			input: `
-				let math = import("std/math");
+				import @std/math;
 				let distance = fn({x, y}) { math.sqrt(x * x + y * y) };
 				distance({x: 3, y: 4})
 			`,

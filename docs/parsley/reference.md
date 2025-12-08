@@ -2169,7 +2169,7 @@ PI      // 3.14159
 **Old syntax (still supported for backward compatibility):**
 
 ```parsley
-let math = import("std/math")
+let math = import @std/math
 let {add, PI} = import(@./math.pars)
 ```
 
@@ -2485,7 +2485,7 @@ else if (let params = match(path, "/files/*path")) {
     serveFile(params.path)
 }
 else {
-    let api = import("std/api")
+    let api = import @std/api
     api.notFound("Page not found")
 }
 ```
@@ -2833,7 +2833,7 @@ The following operations are subject to security checks:
 | File write | `write` | `"data" ==> text("file.txt")` |
 | File delete | `write` | `file("temp.txt").remove()` |
 | Directory list | `read` | `dir("./folder").files` |
-| Module import | `execute` | `import("./module.pars")` |
+| Module import | `execute` | `import @./module.pars` |
 
 ### Best Practices
 
@@ -2987,7 +2987,7 @@ SQLITE(123)
 Parsley includes a standard library of modules that provide additional functionality. Import them using the `std/` prefix:
 
 ```parsley
-let {table} = import("std/table")
+let {table} = import @std/table
 ```
 
 > **Note:** The `@std/` path literal syntax is planned but not yet implemented. Use string imports for now.
@@ -2999,7 +2999,7 @@ The Table module provides SQL-like operations on arrays of dictionaries.
 #### Creating a Table
 
 ```parsley
-let {table} = import("std/table")
+let {table} = import @std/table
 
 let data = [
     {name: "Alice", age: 30, dept: "Engineering"},
@@ -3131,10 +3131,10 @@ The Math module provides mathematical functions and constants. Designed for educ
 
 ```parsley
 // Import specific functions
-let {floor, ceil, sqrt, PI} = import("std/math")
+let {floor, ceil, sqrt, PI} = import @std/math
 
 // Import entire module
-let math = import("std/math")
+let math = import @std/math
 math.sqrt(16)  // 4
 ```
 
@@ -3149,7 +3149,7 @@ math.sqrt(16)  // 4
 | `TAU` | 6.28318... | 2π, the full circle constant |
 
 ```parsley
-let {PI, E, TAU} = import("std/math")
+let {PI, E, TAU} = import @std/math
 PI           // 3.141592653589793
 E            // 2.718281828459045
 TAU          // 6.283185307179586
@@ -3167,7 +3167,7 @@ These functions return integers:
 | `trunc(x)` | Truncate toward zero | `trunc(-3.7)` → `-3` |
 
 ```parsley
-let {floor, ceil, round, trunc} = import("std/math")
+let {floor, ceil, round, trunc} = import @std/math
 floor(3.7)   // 3
 ceil(3.2)    // 4
 round(3.5)   // 4
@@ -3183,7 +3183,7 @@ trunc(-3.7)  // -3 (toward zero)
 | `clamp(x, min, max)` | Constrain value to range | `clamp(15, 0, 10)` → `10` |
 
 ```parsley
-let {abs, sign, clamp} = import("std/math")
+let {abs, sign, clamp} = import @std/math
 abs(-3.14)        // 3.14
 sign(-42)         // -1
 clamp(15, 0, 10)  // 10
@@ -3205,7 +3205,7 @@ These functions accept either two arguments OR a single array:
 | `count(arr)` | Number of elements in array |
 
 ```parsley
-let {min, max, sum, avg, product, count} = import("std/math")
+let {min, max, sum, avg, product, count} = import @std/math
 
 // Two argument form
 min(5, 3)       // 3
@@ -3235,7 +3235,7 @@ These functions require a non-empty array:
 | `range(arr)` | Difference between max and min |
 
 ```parsley
-let {median, mode, stddev, variance, range} = import("std/math")
+let {median, mode, stddev, variance, range} = import @std/math
 
 median([1, 2, 3])        // 2
 median([1, 2, 3, 4])     // 2.5
@@ -3257,7 +3257,7 @@ range([1, 5, 3, 10, 2])  // 9
 | `seed(n)` | Seed the random generator for reproducibility |
 
 ```parsley
-let {random, randomInt, seed} = import("std/math")
+let {random, randomInt, seed} = import @std/math
 
 random()           // e.g., 0.7234...
 random(10)         // e.g., 4.891... (0 to <10)
@@ -3281,7 +3281,7 @@ random()           // Always same value with same seed
 | `log10(x)` | Base-10 logarithm (error if ≤ 0) |
 
 ```parsley
-let math = import("std/math")
+let math = import @std/math
 
 math.sqrt(16)          // 4
 math.pow(2, 10)        // 1024
@@ -3305,7 +3305,7 @@ All angles are in radians. Use `degrees()` and `radians()` to convert.
 | `atan2(y, x)` | Arctangent of y/x (handles quadrants) |
 
 ```parsley
-let {sin, cos, tan, asin, PI} = import("std/math")
+let {sin, cos, tan, asin, PI} = import @std/math
 
 sin(0)            // 0
 sin(PI / 2)       // 1
@@ -3322,7 +3322,7 @@ asin(1)           // 1.5707... (PI/2)
 | `radians(degrees)` | Convert degrees to radians |
 
 ```parsley
-let {degrees, radians, PI, sin} = import("std/math")
+let {degrees, radians, PI, sin} = import @std/math
 
 degrees(PI)       // 180
 radians(180)      // 3.14159... (PI)
@@ -3341,7 +3341,7 @@ sin(radians(90))  // 1
 | `map(value, inMin, inMax, outMin, outMax)` | Map value from one range to another |
 
 ```parsley
-let {hypot, dist, lerp, map} = import("std/math")
+let {hypot, dist, lerp, map} = import @std/math
 
 // Pythagorean theorem
 hypot(3, 4)                // 5
@@ -3370,10 +3370,10 @@ The Validation module provides functions for validating user input, form data, a
 
 ```parsley
 // Import specific validators
-let {email, minLen, positive} = import("std/valid")
+let {email, minLen, positive} = import @std/valid
 
 // Import entire module
-let valid = import("std/valid")
+let valid = import @std/valid
 valid.email("test@example.com")  // true
 ```
 
@@ -3389,7 +3389,7 @@ valid.email("test@example.com")  // true
 | `dict(x)` | True if x is a dictionary | `dict({a:1})` → `true` |
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 valid.string("hello")   // true
 valid.string(123)       // false
@@ -3413,7 +3413,7 @@ valid.integer(3.14)     // false
 | `numeric(x)` | True if parseable as number | `numeric("123.45")` → `true` |
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // Form validation example
 let username = "alice123"
@@ -3439,7 +3439,7 @@ valid.minLen("日本語", 3)           // true - 3 characters
 | `negative(x)` | True if x < 0 | `negative(-5)` → `true` |
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // Age validation
 let age = 25
@@ -3464,7 +3464,7 @@ valid.max(qty, 100)           // true - at most 100
 | `time(x)` | Time format HH:MM[:SS] | `time("14:30")` → `true` |
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // Contact form validation
 valid.email("user@example.com")         // true
@@ -3490,7 +3490,7 @@ valid.phone("123")                      // false (too short)
 - `"GB"`: `DD/MM/YYYY`
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // ISO format (default)
 valid.date("2024-12-25")                // true
@@ -3521,7 +3521,7 @@ valid.parseDate("invalid", "US")        // null
 - `"GB"`: UK format (SW1A 1AA, M1 1AA)
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // US postal codes
 valid.postalCode("90210", "US")         // true
@@ -3542,7 +3542,7 @@ valid.postalCode("12345", "GB")         // false
 | `oneOf(x, options)` | True if x is in options | `oneOf("red", ["red","green"])` → `true` |
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // Check if value is in allowed list
 let color = "red"
@@ -3557,7 +3557,7 @@ valid.contains(cart, "grape")                  // false
 #### Complete Form Validation Example
 
 ```parsley
-let valid = import("std/valid")
+let valid = import @std/valid
 
 // Validate a registration form
 let form = {
@@ -3856,10 +3856,10 @@ The API module provides helpers for building web APIs with proper HTTP responses
 
 ```parsley
 // Import specific functions
-let {redirect, notFound, forbidden} = import("std/api")
+let {redirect, notFound, forbidden} = import @std/api
 
 // Import entire module
-let api = import("std/api")
+let api = import @std/api
 api.redirect("/dashboard")
 ```
 
@@ -3878,7 +3878,7 @@ Return a redirect response from a handler:
 **Valid status codes:** 300-308 (3xx redirect codes only)
 
 ```parsley
-let {redirect} = import("std/api")
+let {redirect} = import @std/api
 
 // Basic redirect (302 Found)
 redirect("/dashboard")
@@ -3923,7 +3923,7 @@ Return HTTP error responses from handlers:
 | `tooMany(msg?)` | 429 | "Too many requests" |
 
 ```parsley
-let {notFound, forbidden} = import("std/api")
+let {notFound, forbidden} = import @std/api
 
 // Return 404 with default message
 notFound()
@@ -3949,7 +3949,7 @@ Wrap handlers to control authentication requirements:
 | `roles(roleList, fn)` | Auth required + specific roles |
 
 ```parsley
-let {public, adminOnly, roles} = import("std/api")
+let {public, adminOnly, roles} = import @std/api
 
 // Public endpoint - no auth required
 export get = public(fn(req) {

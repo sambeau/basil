@@ -79,7 +79,7 @@ func TestRedirect_AllValidStatusCodes(t *testing.T) {
 
 func TestApiRedirect_DefaultStatus(t *testing.T) {
 	// Test that redirect() with just a URL returns a Redirect with default 302
-	code := `let api = import("std/api")
+	code := `let api = import @std/api
 api.redirect("/dashboard")
 `
 	result, err := parsley.Eval(code)
@@ -113,25 +113,25 @@ func TestApiRedirect_CustomStatus(t *testing.T) {
 	}{
 		{
 			name:   "301 permanent redirect",
-			code:   `let api = import("std/api"); api.redirect("/old-page", 301)`,
+			code:   `let api = import @std/api; api.redirect("/old-page", 301)`,
 			url:    "/old-page",
 			status: 301,
 		},
 		{
 			name:   "303 see other",
-			code:   `let api = import("std/api"); api.redirect("/result", 303)`,
+			code:   `let api = import @std/api; api.redirect("/result", 303)`,
 			url:    "/result",
 			status: 303,
 		},
 		{
 			name:   "307 temporary redirect",
-			code:   `let api = import("std/api"); api.redirect("/temp", 307)`,
+			code:   `let api = import @std/api; api.redirect("/temp", 307)`,
 			url:    "/temp",
 			status: 307,
 		},
 		{
 			name:   "308 permanent redirect",
-			code:   `let api = import("std/api"); api.redirect("/permanent", 308)`,
+			code:   `let api = import @std/api; api.redirect("/permanent", 308)`,
 			url:    "/permanent",
 			status: 308,
 		},
@@ -165,7 +165,7 @@ func TestApiRedirect_CustomStatus(t *testing.T) {
 
 func TestApiRedirect_PathLiteral(t *testing.T) {
 	// Test with a path literal (using @ prefix)
-	code := `let api = import("std/api")
+	code := `let api = import @std/api
 api.redirect(@/users/profile)
 `
 	result, err := parsley.Eval(code)
@@ -194,19 +194,19 @@ func TestApiRedirect_InvalidStatus(t *testing.T) {
 	}{
 		{
 			name: "status 200",
-			code: `let api = import("std/api"); api.redirect("/page", 200)`,
+			code: `let api = import @std/api; api.redirect("/page", 200)`,
 		},
 		{
 			name: "status 400",
-			code: `let api = import("std/api"); api.redirect("/page", 400)`,
+			code: `let api = import @std/api; api.redirect("/page", 400)`,
 		},
 		{
 			name: "status 500",
-			code: `let api = import("std/api"); api.redirect("/page", 500)`,
+			code: `let api = import @std/api; api.redirect("/page", 500)`,
 		},
 		{
 			name: "status 299",
-			code: `let api = import("std/api"); api.redirect("/page", 299)`,
+			code: `let api = import @std/api; api.redirect("/page", 299)`,
 		},
 	}
 
@@ -222,7 +222,7 @@ func TestApiRedirect_InvalidStatus(t *testing.T) {
 }
 
 func TestApiRedirect_MissingURL(t *testing.T) {
-	code := `let api = import("std/api"); api.redirect()`
+	code := `let api = import @std/api; api.redirect()`
 	result, err := parsley.Eval(code)
 
 	// Either err is returned, or result is an error object
@@ -238,15 +238,15 @@ func TestApiRedirect_InvalidURLType(t *testing.T) {
 	}{
 		{
 			name: "integer URL",
-			code: `let api = import("std/api"); api.redirect(123)`,
+			code: `let api = import @std/api; api.redirect(123)`,
 		},
 		{
 			name: "boolean URL",
-			code: `let api = import("std/api"); api.redirect(true)`,
+			code: `let api = import @std/api; api.redirect(true)`,
 		},
 		{
 			name: "array URL",
-			code: `let api = import("std/api"); api.redirect(["/page"])`,
+			code: `let api = import @std/api; api.redirect(["/page"])`,
 		},
 	}
 

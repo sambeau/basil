@@ -35,7 +35,7 @@ func evalIDTest(t *testing.T, input string) evaluator.Object {
 // =============================================================================
 
 func TestIDModuleImport(t *testing.T) {
-	input := `let {new, uuid} = import("std/id")
+	input := `let {new, uuid} = import @std/id
 new`
 
 	result := evalIDTest(t, input)
@@ -50,7 +50,7 @@ new`
 }
 
 func TestIDModuleImportAll(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.new`
 
 	result := evalIDTest(t, input)
@@ -69,7 +69,7 @@ id.new`
 // =============================================================================
 
 func TestIDNew(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.new()`
 
 	result := evalIDTest(t, input)
@@ -96,7 +96,7 @@ id.new()`
 }
 
 func TestIDNewUniqueness(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 let ids = [id.new(), id.new(), id.new(), id.new(), id.new()]
 ids`
 
@@ -130,7 +130,7 @@ ids`
 // =============================================================================
 
 func TestIDUUID(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.uuid()`
 
 	result := evalIDTest(t, input)
@@ -152,7 +152,7 @@ id.uuid()`
 }
 
 func TestIDUUIDv4Alias(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.uuidv4()`
 
 	result := evalIDTest(t, input)
@@ -177,7 +177,7 @@ id.uuidv4()`
 // =============================================================================
 
 func TestIDUUIDv7(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.uuidv7()`
 
 	result := evalIDTest(t, input)
@@ -200,7 +200,7 @@ id.uuidv7()`
 
 func TestIDUUIDv7Ordering(t *testing.T) {
 	// UUID v7 should be time-sortable - verify both are valid format
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 let id1 = id.uuidv7()
 id1`
 
@@ -226,7 +226,7 @@ id1`
 // =============================================================================
 
 func TestIDNanoid(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.nanoid()`
 
 	result := evalIDTest(t, input)
@@ -253,7 +253,7 @@ id.nanoid()`
 }
 
 func TestIDNanoidCustomLength(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.nanoid(10)`
 
 	result := evalIDTest(t, input)
@@ -284,18 +284,18 @@ func TestIDNanoidInvalidLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := `let id = import("std/id")
+			input := `let id = import @std/id
 id.nanoid(` + string(rune('0'+tt.length)) + `)`
 
 			// For negative and 0, we need to handle differently
 			if tt.length == 0 {
-				input = `let id = import("std/id")
+				input = `let id = import @std/id
 id.nanoid(0)`
 			} else if tt.length < 0 {
 				// Skip negative test - can't easily represent in Parsley
 				return
 			} else if tt.length > 256 {
-				input = `let id = import("std/id")
+				input = `let id = import @std/id
 id.nanoid(300)`
 			}
 
@@ -313,7 +313,7 @@ id.nanoid(300)`
 // =============================================================================
 
 func TestIDCUID(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.cuid()`
 
 	result := evalIDTest(t, input)
@@ -338,7 +338,7 @@ id.cuid()`
 }
 
 func TestIDCUIDUniqueness(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 let ids = [id.cuid(), id.cuid(), id.cuid()]
 ids`
 
@@ -372,7 +372,7 @@ ids`
 // =============================================================================
 
 func TestIDNewArityError(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.new("extra")`
 
 	result := evalIDTest(t, input)
@@ -383,7 +383,7 @@ id.new("extra")`
 }
 
 func TestIDUUIDArityError(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.uuid("extra")`
 
 	result := evalIDTest(t, input)
@@ -394,7 +394,7 @@ id.uuid("extra")`
 }
 
 func TestIDCUIDArityError(t *testing.T) {
-	input := `let id = import("std/id")
+	input := `let id = import @std/id
 id.cuid("extra")`
 
 	result := evalIDTest(t, input)

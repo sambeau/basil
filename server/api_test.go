@@ -15,7 +15,7 @@ func TestAPIRouteMapping(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "todos.pars")
 
-	script := `let api = import(@std/api)
+	script := `let api = import @std/api
 
 export get = api.public(fn(req) { {message: "ok"} })
 export getById = api.public(fn(req) { {id: req.params.id} })
@@ -79,7 +79,7 @@ func TestAPIRouteAuthDefaultsToProtected(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "secure.pars")
 
-	script := `let api = import(@std/api)
+	script := `let api = import @std/api
 
 export get = fn(req) { {ok: true} }
 `
@@ -116,7 +116,7 @@ func TestAPIRateLimitOverride(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "limited.pars")
 
-	script := `let api = import(@std/api)
+	script := `let api = import @std/api
 
 export rateLimit = {requests: 1, window: "1s"}
 export get = api.public(fn(req) { {ok: true} })
