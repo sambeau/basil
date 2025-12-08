@@ -1865,11 +1865,11 @@ func humanizeNumber(value float64, localeStr string) string {
 	// Different languages use different compact forms
 	// For now, we'll use English-style suffixes and locale-aware number formatting
 	units := []compactUnit{
-		{1e15, 1e15, "Q"},  // Quadrillion
-		{1e12, 1e12, "T"},  // Trillion
-		{1e9, 1e9, "B"},    // Billion
-		{1e6, 1e6, "M"},    // Million
-		{1e3, 1e3, "K"},    // Thousand
+		{1e15, 1e15, "Q"}, // Quadrillion
+		{1e12, 1e12, "T"}, // Trillion
+		{1e9, 1e9, "B"},   // Billion
+		{1e6, 1e6, "M"},   // Million
+		{1e3, 1e3, "K"},   // Thousand
 	}
 
 	var divisor float64 = 1
