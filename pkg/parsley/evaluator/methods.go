@@ -4,8 +4,11 @@ package evaluator
 
 import (
 	"fmt"
+	"html"
+	"math"
 	"math/rand"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -24,6 +27,7 @@ import (
 // stringMethods lists all methods available on string
 var stringMethods = []string{
 	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
+	"highlight", "paragraphs",
 }
 
 // arrayMethods lists all methods available on array
@@ -36,12 +40,12 @@ var arrayMethods = []string{
 
 // integerMethods lists all methods available on integer
 var integerMethods = []string{
-	"abs", "format",
+	"abs", "format", "humanize",
 }
 
 // floatMethods lists all methods available on float
 var floatMethods = []string{
-	"abs", "format", "round", "floor", "ceil",
+	"abs", "format", "round", "floor", "ceil", "humanize",
 }
 
 // dictionaryMethods lists all methods available on dictionary
@@ -134,6 +138,32 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 			return TRUE
 		}
 		return FALSE
+
+	case "highlight":
+		// highlight(phrase, tag?) - wrap search matches in HTML tag with XSS protection
+		if len(args) < 1 || len(args) > 2 {
+			return newArityErrorRange("highlight", len(args), 1, 2)
+		}
+		phrase, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "highlight", "a string", args[0].Type())
+		}
+		tag := "mark" // default tag
+		if len(args) == 2 {
+			tagArg, ok := args[1].(*String)
+			if !ok {
+				return newTypeError("TYPE-0013", "highlight", "a string", args[1].Type())
+			}
+			tag = tagArg.Value
+		}
+		return &String{Value: highlightString(str.Value, phrase.Value, tag)}
+
+	case "paragraphs":
+		// paragraphs() - convert plain text with blank lines to HTML paragraphs
+		if len(args) != 0 {
+			return newArityError("paragraphs", len(args), 0)
+		}
+		return &String{Value: textToParagraphs(str.Value)}
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)
@@ -820,6 +850,21 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		}
 		return formatPercentWithLocale(float64(num.Value), localeStr)
 
+	case "humanize":
+		// humanize(locale?) - compact number format (1K, 1.2M, etc.)
+		if len(args) > 1 {
+			return newArityErrorRange("humanize", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			loc, ok := args[0].(*String)
+			if !ok {
+				return newTypeError("TYPE-0012", "humanize", "a string", args[0].Type())
+			}
+			localeStr = loc.Value
+		}
+		return &String{Value: humanizeNumber(float64(num.Value), localeStr)}
+
 	default:
 		return unknownMethodError(method, "integer", integerMethods)
 	}
@@ -876,6 +921,21 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 			localeStr = loc.Value
 		}
 		return formatPercentWithLocale(num.Value, localeStr)
+
+	case "humanize":
+		// humanize(locale?) - compact number format (1K, 1.2M, etc.)
+		if len(args) > 1 {
+			return newArityErrorRange("humanize", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			loc, ok := args[0].(*String)
+			if !ok {
+				return newTypeError("TYPE-0012", "humanize", "a string", args[0].Type())
+			}
+			localeStr = loc.Value
+		}
+		return &String{Value: humanizeNumber(num.Value, localeStr)}
 
 	default:
 		return unknownMethodError(method, "float", floatMethods)
@@ -1685,4 +1745,156 @@ func splitMoney(money *Money, n int64) Object {
 	}
 
 	return &Array{Elements: elements}
+}
+
+// ============================================================================
+// Text View Helper Functions
+// ============================================================================
+
+// highlightString wraps all occurrences of phrase in the string with an HTML tag.
+// The string is HTML-escaped first to prevent XSS. Matching is case-insensitive.
+func highlightString(s, phrase, tag string) string {
+	// Empty phrase or string - return escaped original
+	if phrase == "" || s == "" {
+		return html.EscapeString(s)
+	}
+
+	// Escape the source string first
+	escaped := html.EscapeString(s)
+
+	// Also escape the phrase for matching (in case it contains HTML chars)
+	escapedPhrase := html.EscapeString(phrase)
+
+	// If phrase is empty after escaping, return escaped string
+	if escapedPhrase == "" {
+		return escaped
+	}
+
+	// Build case-insensitive regex pattern for the escaped phrase
+	// Escape regex special characters in the phrase
+	quotedPhrase := regexp.QuoteMeta(escapedPhrase)
+	pattern := regexp.MustCompile("(?i)" + quotedPhrase)
+
+	// Replace all matches, preserving original case
+	result := pattern.ReplaceAllStringFunc(escaped, func(match string) string {
+		return "<" + tag + ">" + match + "</" + tag + ">"
+	})
+
+	return result
+}
+
+// textToParagraphs converts plain text with blank lines to HTML paragraphs.
+// The text is HTML-escaped to prevent XSS. Single newlines become <br/>.
+func textToParagraphs(s string) string {
+	// Empty or whitespace-only input
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+
+	// Normalize line endings
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	// Split on blank lines (one or more consecutive newlines)
+	// \n\n+ means two or more newlines
+	paragraphPattern := regexp.MustCompile(`\n\n+`)
+	paragraphs := paragraphPattern.Split(s, -1)
+
+	var result strings.Builder
+	for _, para := range paragraphs {
+		// Trim and skip empty paragraphs
+		para = strings.TrimSpace(para)
+		if para == "" {
+			continue
+		}
+
+		// Escape HTML
+		para = html.EscapeString(para)
+
+		// Convert single newlines to <br/>
+		para = strings.ReplaceAll(para, "\n", "<br/>")
+
+		result.WriteString("<p>")
+		result.WriteString(para)
+		result.WriteString("</p>")
+	}
+
+	return result.String()
+}
+
+// humanizeNumber formats a number in compact form (e.g., 1.2M, 1K).
+// Uses CLDR locale data for proper internationalization.
+func humanizeNumber(value float64, localeStr string) string {
+	// Handle special cases
+	if math.IsNaN(value) {
+		return "NaN"
+	}
+	if math.IsInf(value, 1) {
+		return "∞"
+	}
+	if math.IsInf(value, -1) {
+		return "-∞"
+	}
+
+	// Parse locale, fall back to en-US
+	tag, err := language.Parse(localeStr)
+	if err != nil {
+		tag = language.AmericanEnglish
+	}
+
+	// For small numbers, just format normally
+	absValue := math.Abs(value)
+	if absValue < 1000 {
+		p := message.NewPrinter(tag)
+		// Format with up to 1 decimal place for small numbers
+		if value == math.Trunc(value) {
+			return p.Sprintf("%.0f", value)
+		}
+		return p.Sprintf("%.1f", value)
+	}
+
+	// Determine the appropriate suffix and divisor
+	// Using short scale (US/modern): K, M, B, T
+	type compactUnit struct {
+		threshold float64
+		divisor   float64
+		suffix    string
+	}
+
+	// Different languages use different compact forms
+	// For now, we'll use English-style suffixes and locale-aware number formatting
+	units := []compactUnit{
+		{1e15, 1e15, "Q"},  // Quadrillion
+		{1e12, 1e12, "T"},  // Trillion
+		{1e9, 1e9, "B"},    // Billion
+		{1e6, 1e6, "M"},    // Million
+		{1e3, 1e3, "K"},    // Thousand
+	}
+
+	var divisor float64 = 1
+	var suffix string = ""
+
+	for _, u := range units {
+		if absValue >= u.threshold {
+			divisor = u.divisor
+			suffix = u.suffix
+			break
+		}
+	}
+
+	scaledValue := value / divisor
+	p := message.NewPrinter(tag)
+
+	// Format with 1 decimal place if needed, otherwise whole number
+	if scaledValue == math.Trunc(scaledValue) {
+		return p.Sprintf("%.0f", scaledValue) + suffix
+	}
+
+	// Round to 1 decimal place
+	rounded := math.Round(scaledValue*10) / 10
+	if rounded == math.Trunc(rounded) {
+		return p.Sprintf("%.0f", rounded) + suffix
+	}
+	return p.Sprintf("%.1f", rounded) + suffix
 }

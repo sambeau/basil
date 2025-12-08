@@ -265,6 +265,10 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `.trim()` | Remove whitespace | `"  hi  ".trim()` → `"hi"` |
 | `.split(delim)` | Split to array | `"a,b,c".split(",")` → `["a","b","c"]` |
 | `.replace(old, new)` | Replace text | `"hello".replace("l", "L")` → `"heLLo"` |
+| `.includes(substr)` | Check if contains | `"hello".includes("ell")` → `true` |
+| `.highlight(phrase)` | Highlight search matches | `"hello world".highlight("world")` → `"hello <mark>world</mark>"` |
+| `.highlight(phrase, tag)` | With custom tag | `"hello".highlight("ell", "strong")` → `"h<strong>ell</strong>o"` |
+| `.paragraphs()` | Text to HTML paragraphs | `"Para one.\n\nPara two.".paragraphs()` → `"<p>Para one.</p><p>Para two.</p>"` |
 
 ### Indexing and Slicing
 
@@ -464,6 +468,8 @@ let config = {
 | `.currency(code)` | Currency format | `99.currency("USD")` → `"$99.00"` |
 | `.currency(code, locale)` | With locale | `99.currency("EUR","de-DE")` → `"99,00 €"` |
 | `.percent()` | Percentage | `0.125.percent()` → `"13%"` |
+| `.humanize()` | Compact format | `1234567.humanize()` → `"1.2M"` |
+| `.humanize(locale)` | With locale | `1234.humanize("de")` → `"1,2K"` |
 
 ### Math Functions
 

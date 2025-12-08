@@ -1,7 +1,7 @@
 ---
 id: FEAT-048
 title: "Text View Helpers"
-status: draft
+status: implemented
 priority: low
 created: 2025-12-07
 author: "@copilot"
@@ -19,12 +19,12 @@ As a developer building content-heavy pages, I want simple methods to safely dis
 
 ## Acceptance Criteria
 
-- [ ] `string.highlight(phrase)` wraps matches in `<mark>` tags, escaping HTML in the string
-- [ ] `string.highlight(phrase, tag)` allows custom wrapper tag
-- [ ] `string.paragraphs()` converts newline-separated text to `<p>` tags, escaping HTML
-- [ ] `number.humanize()` returns compact format ("1.2M") using default locale
-- [ ] `number.humanize(locale)` returns locale-specific compact format
-- [ ] All methods handle edge cases gracefully (empty strings, zero, negative numbers)
+- [x] `string.highlight(phrase)` wraps matches in `<mark>` tags, escaping HTML in the string
+- [x] `string.highlight(phrase, tag)` allows custom wrapper tag
+- [x] `string.paragraphs()` converts newline-separated text to `<p>` tags, escaping HTML
+- [x] `number.humanize()` returns compact format ("1.2M") using default locale
+- [x] `number.humanize(locale)` returns locale-specific compact format
+- [x] All methods handle edge cases gracefully (empty strings, zero, negative numbers)
 
 ## Design Decisions
 

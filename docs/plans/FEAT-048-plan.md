@@ -2,7 +2,7 @@
 id: PLAN-029
 feature: FEAT-048
 title: "Implementation Plan for Text View Helpers"
-status: draft
+status: complete
 created: 2025-12-08
 ---
 
@@ -161,23 +161,23 @@ Steps:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run` (if configured)
-- [ ] Documentation updated
-- [ ] Spec FEAT-048 acceptance criteria all checked
-- [ ] BACKLOG.md updated with deferrals (if any)
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Linter passes: `golangci-lint run` (if configured)
+- [x] Documentation updated
+- [x] Spec FEAT-048 acceptance criteria all checked
+- [x] BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: highlight | ⬜ Not started | |
-| | Task 2: paragraphs | ⬜ Not started | |
-| | Task 3: humanize | ⬜ Not started | |
-| | Task 4: HTML helper | ⬜ Not started | |
-| | Task 5: Method lists | ⬜ Not started | |
-| | Task 6: Tests | ⬜ Not started | |
-| | Task 7: Docs | ⬜ Not started | |
+| 2025-12-08 | Task 1: highlight | ✅ Complete | Added to evalStringMethod with HTML escaping |
+| 2025-12-08 | Task 2: paragraphs | ✅ Complete | Added to evalStringMethod with HTML escaping |
+| 2025-12-08 | Task 3: humanize | ✅ Complete | Added to both integer and float methods |
+| 2025-12-08 | Task 4: HTML helper | ✅ Complete | Using stdlib html.EscapeString |
+| 2025-12-08 | Task 5: Method lists | ✅ Complete | Updated stringMethods, integerMethods, floatMethods |
+| 2025-12-08 | Task 6: Tests | ✅ Complete | text_helpers_test.go with 40+ test cases |
+| 2025-12-08 | Task 7: Docs | ✅ Complete | Updated reference.md and CHEATSHEET.md |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:

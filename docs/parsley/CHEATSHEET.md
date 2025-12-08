@@ -340,6 +340,12 @@ data =/=> conn(@/remote/file.json).json
 "  trim  ".trim()           // "trim"
 "a,b,c".split(",")          // ["a", "b", "c"]
 "hello".includes("ell")     // true (substring check)
+"hello world".highlight("world")  // "hello <mark>world</mark>"
+"Para 1\n\nPara 2".paragraphs()   // "<p>Para 1</p><p>Para 2</p>"
+
+// Number methods
+1234567.humanize()          // "1.2M"
+1234.humanize("de")         // "1,2K"
 
 // Array methods
 [3,1,2].sort()              // [1, 2, 3]
@@ -838,6 +844,47 @@ now().format("long", "de-DE")     // "29. November 2024"
 @-1d.format()                     // "yesterday"
 @2h30m.format()                   // "2 hours"
 ```
+
+### Compact Numbers
+```parsley
+1234.humanize()                   // "1.2K"
+1234567.humanize()                // "1.2M"
+1234567890.humanize()             // "1.2B"
+1234.humanize("de")               // "1,2K" (German locale)
+```
+
+---
+
+## 📝 Text View Helpers
+
+### Highlight Search Matches
+```parsley
+// Highlight search terms in text (case-insensitive)
+text.highlight("search")          // wraps in <mark>
+text.highlight("term", "strong")  // wraps in custom tag
+
+// Example:
+"Hello World".highlight("world")
+// "Hello <mark>World</mark>"
+
+"Search results".highlight("search", "em")
+// "<em>Search</em> results"
+```
+
+### Convert Text to Paragraphs
+```parsley
+// Double newlines → <p>, single → <br/>
+text.paragraphs()
+
+// Example:
+"First para.\n\nSecond para.".paragraphs()
+// "<p>First para.</p><p>Second para.</p>"
+
+"Line one\nLine two".paragraphs()
+// "<p>Line one<br/>Line two</p>"
+```
+
+**Note:** Both methods HTML-escape their input for XSS safety.
 
 ---
 
