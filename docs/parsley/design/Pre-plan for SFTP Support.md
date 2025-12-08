@@ -17,7 +17,7 @@
 - reading diectories is a conundrum: do we create a format object DIR(), do we infer a directory by path and return a directory object or do we use an API like we have for filesystems?
 - What pitfalls should we look out for?
 - What else should we consider supporting?
-- How would we do more complicated operations (methods on the Format Object? … what would that mean for JSON()? or CSV()??)
+- How would we do more complicated operations (methods on the Format Object? … what would that mean for jsonFile()? or csvFile()??)
 
 ## Linked TODO Items:
 

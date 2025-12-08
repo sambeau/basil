@@ -16,11 +16,11 @@ When Basil renders HTML output containing filesystem paths under `public_dir`, a
 **After:** `<img src="/images/foo.png"/>`
 
 ## Motivation
-Filesystem paths and web URLs are different address spaces. Currently, users must manually transform paths when using `files()` results in HTML:
+Filesystem paths and web URLs are different address spaces. Currently, users must manually transform paths when using `fileList()` results in HTML:
 
 ```parsley
 // Current workaround - ugly
-let tubs = files(@./public/images/tubs/*)
+let tubs = fileList(@./public/images/tubs/*)
 for(tub in tubs) {
     <img src={"/" + tub.path.segments[1:].join("/")}/>
 }
@@ -29,7 +29,7 @@ for(tub in tubs) {
 Should be:
 ```parsley
 // Desired - just works
-let tubs = files(@./public/images/tubs/*)
+let tubs = fileList(@./public/images/tubs/*)
 for(tub in tubs) {
     <img src={tub}/>
 }
@@ -148,7 +148,7 @@ let f = file(@./public/images/test.png)
 toString(f.path)  // Expected: "/images/test.png"
 
 // Files glob
-let files = files(@./public/css/*.css)
+let files = fileList(@./public/css/*.css)
 files[0].path     // Expected: path with components ["css", "style.css"], absolute=true? or web-path?
 
 // In HTML

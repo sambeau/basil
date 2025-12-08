@@ -49,14 +49,14 @@ SFTP can do this:
 We should let HTTP do something similar:
 
 ```parsley
-let updated = bob =/=> JSON(@https://api.example.com/users/1).put
+let updated = bob =/=> jsonFile(@https://api.example.com/users/1).put
 ```
 
 ❌ This example from the refernce isn't what we need: the arrow is going the wrong way and the payload should be on the client side of the arrow:
 
 ```parsley
 // POST with JSON body
-let response <=/= JSON(@https://api.example.com/users, {
+let response <=/= jsonFile(@https://api.example.com/users, {
     method: "POST",
     body: {name: "Alice", email: "alice@example.com"},
 }) 
@@ -65,21 +65,21 @@ let response <=/= JSON(@https://api.example.com/users, {
 ✅ This is so much clearer
 
 ```parsley
-let response = {name: "Alice", email: "alice@example.com"} =/=> JSON(@https://api.example.com/users) // defaults to POST
+let response = {name: "Alice", email: "alice@example.com"} =/=> jsonFile(@https://api.example.com/users) // defaults to POST
 ```
 
 And if you want it to be a PUT or a PATCH
 
 ```parsley
-let response = {name: "Alice", email: "alice@example.com"} =/=> JSON(@https://api.example.com/users).put
-let response = {name: "Alice", email: "alice@example.com"} =/=> JSON(@https://api.example.com/users).patch
+let response = {name: "Alice", email: "alice@example.com"} =/=> jsonFile(@https://api.example.com/users).put
+let response = {name: "Alice", email: "alice@example.com"} =/=> jsonFile(@https://api.example.com/users).patch
 ```
 
 If need-be we could use a method call, e.g.
 
 ```parsley
-let response = {name: "Alice", email: "alice@example.com"} =/=> JSON(@https://api.example.com/users).put()
-let response = {name: "Alice", email: "alice@example.com"} =/=> JSON(@https://api.example.com/users).patch()
+let response = {name: "Alice", email: "alice@example.com"} =/=> jsonFile(@https://api.example.com/users).put()
+let response = {name: "Alice", email: "alice@example.com"} =/=> jsonFile(@https://api.example.com/users).patch()
 ```
 
 But, I'm less keen as it's not clear what the precedence is, and might confuse users — does the patch apply after the network journey? It's ambiguous.

@@ -7,7 +7,7 @@
 ## Design Principles
 
 1. **Files are objects** — Like `path`, `url`, `datetime`, files are special dictionaries
-2. **Format is bound to the file** — `JSON(@./data.json)` creates a JSON-aware file handle
+2. **Format is bound to the file** — `jsonFile(@./data.json)` creates a JSON-aware file handle
 3. **I/O is explicit** — The `<==` operator is when reading actually happens
 4. **Errors are values** — Destructure `{data, error}` or use `??` for fallbacks
 5. **Composable** — File handles can be stored, passed, compared
@@ -41,10 +41,10 @@ a ?? b ?? c ?? "default"   // First non-null value
 let f = file(@./readme.txt)
 
 // Format-specific factories
-let jf = JSON(@./config.json)
-let cf = CSV(@./data.csv)
-let lf = lines(@./log.txt)
-let bf = bytes(@./image.png)
+let jf = jsonFile(@./config.json)
+let cf = csvFile(@./data.csv)
+let lf = linesFile(@./log.txt)
+let bf = bytesFile(@./image.png)
 ```
 
 ### File Handle Structure
@@ -78,7 +78,7 @@ All properties are lazy-evaluated (filesystem access on demand):
 | `f.basename` | String | Filename (from path) |
 
 ```parsley
-let f = JSON(@./config.json)
+let f = jsonFile(@./config.json)
 
 f.exists      // true
 f.size        // 2048
@@ -94,12 +94,12 @@ f.path.ext    // "json"
 | Factory | Format | Read Returns | Write Accepts |
 |---------|--------|--------------|---------------|
 | `file(path)` | (inferred) | Depends on extension | String |
-| `JSON(path)` | `"json"` | Dict or Array | Dict or Array |
-| `CSV(path)` | `"csv"` | Array of Arrays | Array of Arrays |
-| `CSV(path, {header: true})` | `"csv"` | Array of Dicts | Array of Dicts |
-| `lines(path)` | `"lines"` | Array of Strings | Array of Strings |
-| `text(path)` | `"text"` | String | String |
-| `bytes(path)` | `"bytes"` | Byte Array | Byte Array |
+| `jsonFile(path)` | `"json"` | Dict or Array | Dict or Array |
+| `csvFile(path)` | `"csv"` | Array of Arrays | Array of Arrays |
+| `csvFile(path, {header: true})` | `"csv"` | Array of Dicts | Array of Dicts |
+| `linesFile(path)` | `"lines"` | Array of Strings | Array of Strings |
+| `textFile(path)` | `"text"` | String | String |
+| `bytesFile(path)` | `"bytes"` | Byte Array | Byte Array |
 
 ### Auto-Detection from Extension
 
@@ -116,11 +116,11 @@ When using `file()`, format is inferred:
 
 ```parsley
 // These are equivalent:
-data <== JSON(@./config.json)
+data <== jsonFile(@./config.json)
 data <== file(@./config.json)    // Infers JSON from .json
 
 // Explicit format overrides:
-raw <== text(@./config.json)     // Read JSON file as raw text
+raw <== textFile(@./config.json)     // Read JSON file as raw text
 ```
 
 ---
@@ -133,9 +133,9 @@ Data flows FROM file TO variable.
 
 ```parsley
 // Read with bound format
-config <== JSON(@./config.json)       // Dict
-records <== CSV(@./data.csv)          // Array of Arrays
-logLines <== lines(@./app.log)        // Array of Strings
+config <== jsonFile(@./config.json)       // Dict
+records <== csvFile(@./data.csv)          // Array of Arrays
+logLines <== linesFile(@./app.log)        // Array of Strings
 
 // Read with auto-detection
 config <== file(@./config.json)       // Infers JSON
@@ -145,18 +145,18 @@ config <== file(@./config.json)       // Infers JSON
 
 ```parsley
 // Use ?? for default on error/missing
-config <== JSON(@./config.json) ?? {}
-users <== JSON(@./users.json) ?? []
+config <== jsonFile(@./config.json) ?? {}
+users <== jsonFile(@./users.json) ?? []
 
 // Cascade through multiple files
-settings <== JSON(@./user.json) ?? JSON(@./default.json) ?? {}
+settings <== jsonFile(@./user.json) ?? jsonFile(@./default.json) ?? {}
 ```
 
 ### With Error Capture
 
 ```parsley
 // Destructure to get both data and error
-{data, error} <== JSON(@./config.json)
+{data, error} <== jsonFile(@./config.json)
 
 if (error) {
     <p class="error">Failed to load: {error}</p>
@@ -168,7 +168,7 @@ if (error) {
 ### Reading from File Handle Variables
 
 ```parsley
-let configFile = JSON(@./config.json)
+let configFile = jsonFile(@./config.json)
 
 // Check before reading
 if (configFile.exists) {
@@ -188,23 +188,23 @@ Data flows FROM variable TO file.
 
 ```parsley
 // Write with format encoding
-myDict ==> JSON(@./output.json)       // Encodes as JSON
-records ==> CSV(@./export.csv)        // Encodes as CSV
-"Hello" ==> text(@./greeting.txt)     // Writes string
+myDict ==> jsonFile(@./output.json)       // Encodes as JSON
+records ==> csvFile(@./export.csv)        // Encodes as CSV
+"Hello" ==> textFile(@./greeting.txt)     // Writes string
 ```
 
 ### Error Handling
 
 ```parsley
 // Returns error or null
-error = data ==> JSON(@./output.json)
+error = data ==> jsonFile(@./output.json)
 
 if (error) {
     log("Write failed:", error)
 }
 
 // Or ignore (fire and forget)
-data ==> JSON(@./cache.json)
+data ==> jsonFile(@./cache.json)
 ```
 
 ---
@@ -215,13 +215,13 @@ Data flows and appends to file.
 
 ```parsley
 // Append line to log
-logEntry ==>> lines(@./app.log)
+logEntry ==>> linesFile(@./app.log)
 
 // Append text with newline
-(message + "\n") ==>> text(@./debug.log)
+(message + "\n") ==>> textFile(@./debug.log)
 
 // Append CSV row
-newRecord ==>> CSV(@./data.csv)
+newRecord ==>> csvFile(@./data.csv)
 ```
 
 ---
@@ -265,7 +265,7 @@ for (img in images ?? []) {
 ### Example 1: Load Config with Defaults
 
 ```parsley
-config <== JSON(@./config.json) ?? {}
+config <== jsonFile(@./config.json) ?? {}
 
 <html 
     lang="{config.lang ?? "en"}"
@@ -280,7 +280,7 @@ config <== JSON(@./config.json) ?? {}
 ### Example 2: Display Users or Error
 
 ```parsley
-{users, error} <== JSON(@./users.json)
+{users, error} <== jsonFile(@./users.json)
 
 if (error) {
     <div class="error">
@@ -302,7 +302,7 @@ if (error) {
 ### Example 3: Process CSV Data
 
 ```parsley
-{sales, error} <== CSV(@./sales.csv, {header: true})
+{sales, error} <== csvFile(@./sales.csv, {header: true})
 
 if (error) {
     <p class="error">Failed to load sales data</p>
@@ -336,7 +336,7 @@ if (error) {
 
 ```parsley
 {images, _} <== glob(@./gallery/*.jpg)
-metadata <== JSON(@./gallery/meta.json) ?? {}
+metadata <== jsonFile(@./gallery/meta.json) ?? {}
 
 <div class="gallery">
     for (img in images ?? []) {
@@ -359,7 +359,7 @@ metadata <== JSON(@./gallery/meta.json) ?? {}
 ### Example 5: Transform and Save Data
 
 ```parsley
-{input, readErr} <== JSON(@./raw-data.json)
+{input, readErr} <== jsonFile(@./raw-data.json)
 
 if (readErr) {
     log("Read failed:", readErr)
@@ -376,7 +376,7 @@ if (readErr) {
         })
     
     // Save result
-    writeErr = processed ==> JSON(@./processed-data.json)
+    writeErr = processed ==> jsonFile(@./processed-data.json)
     
     if (writeErr) {
         log("Write failed:", writeErr)
@@ -396,7 +396,7 @@ let entry = {
 }
 
 let line = entry.timestamp + " [" + entry.level + "] " + entry.message + "\n"
-line ==>> text(@./app.log)
+line ==>> textFile(@./app.log)
 ```
 
 ### Example 7: File Handle Composition
@@ -404,9 +404,9 @@ line ==>> text(@./app.log)
 ```parsley
 // Store file handles for later use
 let configs = [
-    JSON(@./config/base.json),
-    JSON(@./config/production.json),
-    JSON(@./config/local.json)
+    jsonFile(@./config/base.json),
+    jsonFile(@./config/production.json),
+    jsonFile(@./config/local.json)
 ]
 
 // Merge configs (later files override earlier)
@@ -444,7 +444,7 @@ for (configFile in configs) {
 - Add `file()` builtin returning file dictionary
 - Add `isFileDict()` helper
 - Implement lazy property evaluation for metadata
-- Add format factories: `JSON()`, `CSV()`, `lines()`, `text()`, `bytes()`
+- Add format factories: `jsonFile()`, `csvFile()`, `linesFile()`, `textFile()`, `bytesFile()`
 
 ### Phase 3: Read Operator `<==` ✅ (v0.9.9)
 - Add `READ_FROM` token (`<==`)
@@ -488,13 +488,13 @@ pars --allow-fs template.pars
 
 1. **Should `file()` accept URL objects for HTTP fetch?**
    ```parsley
-   data <== JSON(url("https://api.example.com/data"))
+   data <== jsonFile(url("https://api.example.com/data"))
    ```
    *Recommendation: Separate `fetch()` function for network requests*
 
 2. **Should file handles cache their content?**
    ```parsley
-   let f = JSON(@./data.json)
+   let f = jsonFile(@./data.json)
    a <== f
    b <== f  // Re-read or cached?
    ```
@@ -502,7 +502,7 @@ pars --allow-fs template.pars
 
 3. **How to handle encoding?**
    ```parsley
-   text <== text(@./latin1.txt, {encoding: "latin1"})
+   text <== textFile(@./latin1.txt, {encoding: "latin1"})
    ```
    *Recommendation: Default UTF-8, optional encoding parameter*
 

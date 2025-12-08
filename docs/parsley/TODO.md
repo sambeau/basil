@@ -70,7 +70,7 @@
 - ~~Regular expression literals with /pattern/ syntax~~ ✅ (v0.6.0)
 - ~~i8n/Localisation~~ ✅ (v0.9.7)
 - ~~Nullish coalescing operator (??)~~ ✅ (v0.9.9)
-- ~~File handle objects (file(), JSON(), CSV(), lines(), text(), bytes())~~ ✅ (v0.9.9)
+- ~~File handle objects (file(), jsonFile(), csvFile(), linesFile(), textFile(), bytesFile())~~ ✅ (v0.9.9)
 - ~~Read operator (<==)~~ ✅ (v0.9.9)
 - ~~Write operators (==>, ==>>)~~ ✅ (v0.9.9)
 - ~~Directory operations (dir(), glob())~~ ✅ (v0.9.9)

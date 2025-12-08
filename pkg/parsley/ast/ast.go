@@ -763,7 +763,7 @@ func (rs *ReadStatement) String() string {
 	return out.String()
 }
 
-// FetchStatement represents fetch-from-URL statements like 'let x <=/= JSON(@https://...)' or '{data, error} <=/= JSON(@url)'
+// FetchStatement represents fetch-from-URL statements like 'let x <=/= jsonFile(@https://...)' or '{data, error} <=/= jsonFile(@url)'
 type FetchStatement struct {
 	Token        lexer.Token                // the <=/= token
 	Name         *Identifier                // single name for let x <=/=

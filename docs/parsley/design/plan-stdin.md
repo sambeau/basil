@@ -10,8 +10,8 @@
 
 1. **Fits existing API** — STDIN is just another "path" that works with all file operations
 2. **Unix-familiar** — `@-` follows the standard Unix convention for STDIN/STDOUT
-3. **Format-aware** — Works with `JSON(@-)`, `CSV(@-)`, `lines(@-)`, `text(@-)`, `bytes(@-)`
-4. **Error handling** — Supports `{data, error} <== JSON(@-)` and `?? fallback`
+3. **Format-aware** — Works with `jsonFile(@-)`, `csvFile(@-)`, `linesFile(@-)`, `textFile(@-)`, `bytesFile(@-)`
+4. **Error handling** — Supports `{data, error} <== jsonFile(@-)` and `?? fallback`
 5. **Composable** — Can be stored in variables, passed to functions
 
 ---
@@ -24,14 +24,14 @@ The `-` path is universally understood in Unix to mean STDIN (for input) or STDO
 
 ```parsley
 // Read from STDIN
-input <== text(@-)
-data <== JSON(@-)
-lines <== lines(@-)
-records <== CSV(@-)
+input <== textFile(@-)
+data <== jsonFile(@-)
+lines <== linesFile(@-)
+records <== csvFile(@-)
 
 // Write to STDOUT (explicit - normally output is implicit)
-result ==> text(@-)
-data ==> JSON(@-)
+result ==> textFile(@-)
+data ==> jsonFile(@-)
 ```
 
 ### Aliases (Optional, Self-Documenting)
@@ -39,9 +39,9 @@ data ==> JSON(@-)
 For clarity, named aliases could also be supported:
 
 ```parsley
-input <== text(@stdin)
-output ==> text(@stdout)
-errors ==> text(@stderr)
+input <== textFile(@stdin)
+output ==> textFile(@stdout)
+errors ==> textFile(@stderr)
 ```
 
 ---
@@ -52,25 +52,25 @@ errors ==> text(@stderr)
 
 ```parsley
 // Read all STDIN as text
-input <== text(@-)
+input <== textFile(@-)
 
 // Read STDIN as lines array
-for line in lines(@-) {
+for line in linesFile(@-) {
     <p>{line}</p>
 }
 
 // Parse STDIN as JSON
-data <== JSON(@-)
+data <== jsonFile(@-)
 
 // Parse STDIN as CSV
-records <== CSV(@-, {header: true})
+records <== csvFile(@-, {header: true})
 ```
 
 ### With Error Handling
 
 ```parsley
 // Destructure for error capture
-{data, error} <== JSON(@-)
+{data, error} <== jsonFile(@-)
 
 if error {
     <div class="error">Invalid JSON input: {error}</div>
@@ -79,14 +79,14 @@ if error {
 }
 
 // With fallback
-config <== JSON(@-) ?? {defaults: true}
+config <== jsonFile(@-) ?? {defaults: true}
 ```
 
 ### With File Handle
 
 ```parsley
 // Create a file handle for STDIN
-let input = JSON(@-)
+let input = jsonFile(@-)
 
 // Check if there's input (non-blocking check?)
 // Note: This may not be practical for STDIN
@@ -103,23 +103,23 @@ By default, Parsley outputs to STDOUT. Explicit operators allow control:
 
 ```parsley
 // Format output as JSON
-data ==> JSON(@-)
+data ==> jsonFile(@-)
 
 // Write raw text
-"Processing complete\n" ==> text(@-)
+"Processing complete\n" ==> textFile(@-)
 ```
 
 ### STDERR for Errors/Logs
 
 ```parsley
 // Log warnings to STDERR
-"Warning: file not found\n" ==> text(@stderr)
+"Warning: file not found\n" ==> textFile(@stderr)
 
 // Error messages
-"Error: invalid input\n" ==> text(@stderr)
+"Error: invalid input\n" ==> textFile(@stderr)
 
 // Structured logging
-{level: "error", msg: "failed"} ==> JSON(@stderr)
+{level: "error", msg: "failed"} ==> jsonFile(@stderr)
 ```
 
 ---
@@ -134,7 +134,7 @@ $ echo '{"name":"Alice","age":30}' | pars filter.pars
 
 ```parsley
 // filter.pars
-let user <== JSON(@-)
+let user <== jsonFile(@-)
 
 <div class="user">
     <h1>{user.name}</h1>
@@ -150,7 +150,7 @@ $ cat urls.txt | pars process.pars
 
 ```parsley
 // process.pars
-for url in lines(@-) {
+for url in linesFile(@-) {
     let trimmed = url.trim()
     if trimmed.length() > 0 {
         <a href="{trimmed}">{trimmed}</a>
@@ -166,7 +166,7 @@ $ cat data.csv | pars table.pars > report.html
 
 ```parsley
 // table.pars
-let records <== CSV(@-, {header: true})
+let records <== csvFile(@-, {header: true})
 
 <table>
     <thead>
@@ -196,7 +196,7 @@ $ curl -s https://api.example.com/users | pars transform.pars | jq .
 
 ```parsley
 // transform.pars
-let users <== JSON(@-)
+let users <== jsonFile(@-)
 
 let transformed = users.map(fn(u) {
     {
@@ -206,7 +206,7 @@ let transformed = users.map(fn(u) {
     }
 })
 
-transformed ==> JSON(@-)
+transformed ==> jsonFile(@-)
 ```
 
 ### 5. Multi-Source Processing
@@ -218,8 +218,8 @@ $ cat config.json | pars render.pars --data users.json
 ```parsley
 // render.pars
 // STDIN for config, file for data
-let config <== JSON(@-)
-let users <== JSON(@./users.json)
+let config <== jsonFile(@-)
+let users <== jsonFile(@./users.json)
 
 <html lang="{config.lang ?? "en"}">
     <head><title>{config.title}</title></head>
@@ -234,15 +234,15 @@ let users <== JSON(@./users.json)
 ### 6. Error Handling with STDERR
 
 ```parsley
-{data, error} <== JSON(@-)
+{data, error} <== jsonFile(@-)
 
 if error {
     // Log error to STDERR, output fallback to STDOUT
-    "Error parsing input: " + error + "\n" ==> text(@stderr)
-    {error: true, message: error} ==> JSON(@-)
+    "Error parsing input: " + error + "\n" ==> textFile(@stderr)
+    {error: true, message: error} ==> jsonFile(@-)
 } else {
     // Process and output
-    data.map(fn(x) { x * 2 }) ==> JSON(@-)
+    data.map(fn(x) { x * 2 }) ==> jsonFile(@-)
 }
 ```
 
@@ -415,10 +415,10 @@ if isatty.IsTerminal(os.Stdin.Fd()) {
 
 ```parsley
 // Empty input should return empty/null, not hang
-data <== JSON(@-) ?? []
+data <== jsonFile(@-) ?? []
 
 // For lines, empty input = empty array
-for line in lines(@-) {  // Zero iterations if empty
+for line in linesFile(@-) {  // Zero iterations if empty
     ...
 }
 ```
@@ -428,8 +428,8 @@ for line in lines(@-) {  // Zero iterations if empty
 STDIN can only be read once. Subsequent reads return empty:
 
 ```parsley
-first <== text(@-)   // Gets all input
-second <== text(@-)  // Empty string (already consumed)
+first <== textFile(@-)   // Gets all input
+second <== textFile(@-)  // Empty string (already consumed)
 ```
 
 **Potential Enhancement**: Buffer STDIN on first read for re-use within same script.
@@ -438,7 +438,7 @@ second <== text(@-)  // Empty string (already consumed)
 
 ```parsley
 // Read binary data
-data <== bytes(@-)
+data <== bytesFile(@-)
 
 // Useful for base64 encoding, etc.
 encoded = base64(data)
@@ -467,7 +467,7 @@ for line in stream(@-) {
 | Ruby | `STDIN.read`, `$stdin` | Global constant |
 | Node.js | `process.stdin` | Stream object |
 | Bash | `read`, `cat -` | `-` convention |
-| **Parsley** | `text(@-)`, `JSON(@-)` | Path literal, format-aware |
+| **Parsley** | `textFile(@-)`, `jsonFile(@-)` | Path literal, format-aware |
 
 Parsley's approach is most similar to the Unix `-` convention but with the added benefit of format binding.
 
@@ -477,15 +477,15 @@ Parsley's approach is most similar to the Unix `-` convention but with the added
 
 | Feature | Syntax | Description |
 |---------|--------|-------------|
-| Read text | `text <== text(@-)` | Read STDIN as string |
-| Read lines | `lines <== lines(@-)` | Read STDIN as line array |
-| Read JSON | `data <== JSON(@-)` | Parse STDIN as JSON |
-| Read CSV | `records <== CSV(@-)` | Parse STDIN as CSV |
-| Read bytes | `data <== bytes(@-)` | Read STDIN as byte array |
-| Write STDOUT | `data ==> text(@-)` | Explicit STDOUT output |
-| Write STDERR | `msg ==> text(@stderr)` | Write to STDERR |
-| Error handling | `{data, error} <== JSON(@-)` | Capture parse errors |
-| Fallback | `data <== JSON(@-) ?? {}` | Default on error/empty |
+| Read text | `text <== textFile(@-)` | Read STDIN as string |
+| Read lines | `lines <== linesFile(@-)` | Read STDIN as line array |
+| Read JSON | `data <== jsonFile(@-)` | Parse STDIN as JSON |
+| Read CSV | `records <== csvFile(@-)` | Parse STDIN as CSV |
+| Read bytes | `data <== bytesFile(@-)` | Read STDIN as byte array |
+| Write STDOUT | `data ==> textFile(@-)` | Explicit STDOUT output |
+| Write STDERR | `msg ==> textFile(@stderr)` | Write to STDERR |
+| Error handling | `{data, error} <== jsonFile(@-)` | Capture parse errors |
+| Fallback | `data <== jsonFile(@-) ?? {}` | Default on error/empty |
 
 ---
 
@@ -515,8 +515,8 @@ Parsley's approach is most similar to the Unix `-` convention but with the added
    - Recommendation: No detection initially
 
 3. **Should `@-` for write default to STDOUT or be an error?**
-   - `data ==> text(@-)` → STDOUT
-   - `data ==> JSON(@-)` → STDOUT with JSON formatting
+   - `data ==> textFile(@-)` → STDOUT
+   - `data ==> jsonFile(@-)` → STDOUT with JSON formatting
    - Recommendation: Allow, treat as explicit STDOUT
 
 4. **Should we support `/dev/stdin` path on Unix?**

@@ -4666,10 +4666,10 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, format, options, env)
 			},
 		},
-		"JSON": {
+		"jsonFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("JSON", len(args), 1, 2)
+					return newArityErrorRange("jsonFile", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -4699,14 +4699,14 @@ func getBuiltins() map[string]*Builtin {
 					pathDict := pathToDict(components, isAbsolute, env)
 					return fileToDict(pathDict, "json", options, env)
 				default:
-					return newTypeError("TYPE-0005", "JSON", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "jsonFile", "a path, URL, or string", args[0].Type())
 				}
 			},
 		},
-		"YAML": {
+		"yamlFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("YAML", len(args), 1, 2)
+					return newArityErrorRange("yamlFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4736,16 +4736,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "YAML", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "yamlFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "yaml", options, env)
 			},
 		},
-		"CSV": {
+		"csvFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("CSV", len(args), 1, 2)
+					return newArityErrorRange("csvFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4775,16 +4775,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "CSV", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "csvFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "csv", options, env)
 			},
 		},
-		"lines": {
+		"linesFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("lines", len(args), 1, 2)
+					return newArityErrorRange("linesFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4814,16 +4814,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "lines", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "linesFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "lines", options, env)
 			},
 		},
-		"text": {
+		"textFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("text", len(args), 1, 2)
+					return newArityErrorRange("textFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4853,16 +4853,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "text", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "textFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "text", options, env)
 			},
 		},
-		"bytes": {
+		"bytesFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("bytes", len(args), 1, 2)
+					return newArityErrorRange("bytesFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4892,17 +4892,17 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "bytes", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "bytesFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "bytes", options, env)
 			},
 		},
 		// SVG file format - reads SVG files and strips XML prolog for use as components
-		"SVG": {
+		"svgFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("SVG", len(args), 1, 2)
+					return newArityErrorRange("svgFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4932,17 +4932,17 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "SVG", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "svgFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "svg", options, env)
 			},
 		},
 		// Markdown file format - reads MD files with frontmatter support
-		"MD": {
+		"markdownFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("MD", len(args), 1, 2)
+					return newArityErrorRange("markdownFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4972,7 +4972,7 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "MD", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "markdownFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "md", options, env)
@@ -5006,10 +5006,10 @@ func getBuiltins() map[string]*Builtin {
 			},
 		},
 		// File pattern matching (glob patterns)
-		"files": {
+		"fileList": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 1 {
-					return newArityError("files", len(args), 1)
+					return newArityError("fileList", len(args), 1)
 				}
 
 				var pattern string
@@ -5026,13 +5026,13 @@ func getBuiltins() map[string]*Builtin {
 						}
 						pattern = pathDictToString(arg)
 					} else {
-						return newTypeError("TYPE-0012", "files", "a path or string pattern", DICTIONARY_OBJ)
+						return newTypeError("TYPE-0012", "fileList", "a path or string pattern", DICTIONARY_OBJ)
 					}
 				case *String:
 					pattern = arg.Value
 					env = NewEnvironment()
 				default:
-					return newTypeError("TYPE-0012", "files", "a path or string pattern", args[0].Type())
+					return newTypeError("TYPE-0012", "fileList", "a path or string pattern", args[0].Type())
 				}
 
 				// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
@@ -5516,7 +5516,7 @@ func getBuiltins() map[string]*Builtin {
 		},
 		// asset() - converts a path under public_dir to a web URL
 		// e.g., asset(@./public/images/foo.png) -> "/images/foo.png"
-		// Also accepts file dictionaries from files() and extracts their path
+		// Also accepts file dictionaries from fileList() and extracts their path
 		"asset": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -7299,9 +7299,9 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	// String repetition
 	case operator == "*" && left.Type() == STRING_OBJ && right.Type() == INTEGER_OBJ:
 		return evalStringRepetition(left.(*String), right.(*Integer))
-	// Array scalar multiplication
+	// Array repetition
 	case operator == "*" && left.Type() == ARRAY_OBJ && right.Type() == INTEGER_OBJ:
-		return evalArrayScalarMultiply(left.(*Array), right.(*Integer))
+		return evalArrayRepetition(left.(*Array), right.(*Integer))
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
 		return evalIntegerInfixExpression(tok, operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
@@ -11578,7 +11578,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 		return content
 	}
 
-	// The source should be a request dictionary (from JSON(@url), etc.) or a URL dictionary
+	// The source should be a request dictionary (from jsonFile(@url), etc.) or a URL dictionary
 	sourceDict, ok := source.(*Dictionary)
 	if !ok {
 		if useErrorCapture {
@@ -14165,28 +14165,17 @@ func evalStringRepetition(str *String, count *Integer) Object {
 	return &String{Value: builder.String()}
 }
 
-// evalArrayScalarMultiply multiplies numeric elements in an array by a scalar
-// Non-numeric elements are passed through unchanged
-func evalArrayScalarMultiply(array *Array, scalar *Integer) Object {
-	n := scalar.Value
+// evalArrayRepetition repeats an array n times
+func evalArrayRepetition(array *Array, count *Integer) Object {
+	n := int(count.Value)
 
-	result := make([]Object, len(array.Elements))
-	for i, elem := range array.Elements {
-		switch e := elem.(type) {
-		case *Integer:
-			result[i] = &Integer{Value: e.Value * n}
-		case *Float:
-			result[i] = &Float{Value: e.Value * float64(n)}
-		case *Money:
-			result[i] = &Money{
-				Amount:   e.Amount * n,
-				Currency: e.Currency,
-				Scale:    e.Scale,
-			}
-		default:
-			// Non-numeric elements pass through unchanged
-			result[i] = elem
-		}
+	if n <= 0 {
+		return &Array{Elements: []Object{}}
+	}
+
+	result := make([]Object, 0, len(array.Elements)*n)
+	for i := 0; i < n; i++ {
+		result = append(result, array.Elements...)
 	}
 
 	return &Array{Elements: result}

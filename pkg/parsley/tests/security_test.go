@@ -17,7 +17,7 @@ func TestSecurityWriteDefault(t *testing.T) {
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.txt")
 
-	code := `"hello" ==> text("` + testFile + `")`
+	code := `"hello" ==> textFile("` + testFile + `")`
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{} // Default policy
@@ -50,7 +50,7 @@ func TestSecurityWriteAllowed(t *testing.T) {
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.txt")
 
-	code := `"hello" ==> text("` + testFile + `")`
+	code := `"hello" ==> textFile("` + testFile + `")`
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{
@@ -89,7 +89,7 @@ func TestSecurityWriteAll(t *testing.T) {
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.txt")
 
-	code := `"hello" ==> text("` + testFile + `")`
+	code := `"hello" ==> textFile("` + testFile + `")`
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{
@@ -129,7 +129,7 @@ func TestSecurityReadRestricted(t *testing.T) {
 	testFile := filepath.Join(tempDir, "test.txt")
 	os.WriteFile(testFile, []byte("hello"), 0644)
 
-	code := `content <== text("` + testFile + `")`
+	code := `content <== textFile("` + testFile + `")`
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{
@@ -165,7 +165,7 @@ func TestSecurityNoRead(t *testing.T) {
 	testFile := filepath.Join(tempDir, "test.txt")
 	os.WriteFile(testFile, []byte("hello"), 0644)
 
-	code := `content <== text("` + testFile + `")`
+	code := `content <== textFile("` + testFile + `")`
 
 	env := evaluator.NewEnvironment()
 	env.Security = &evaluator.SecurityPolicy{

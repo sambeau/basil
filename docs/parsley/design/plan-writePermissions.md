@@ -79,11 +79,11 @@ pars --allow-write=/home/user/project/output template.pars
 
 ```parsley
 // Attempting to write to /etc/passwd with --allow-write=./output
-data ==> JSON(@/etc/passwd)
+data ==> jsonFile(@/etc/passwd)
 // ERROR: write permission denied: '/etc/passwd' is not within allowed paths [./output]
 
 // With error capture
-let {data, error} = data ==> JSON(@/etc/passwd)
+let {data, error} = data ==> jsonFile(@/etc/passwd)
 // error = "write permission denied: '/etc/passwd' is not within allowed paths [./output]"
 ```
 
@@ -300,7 +300,7 @@ pars --deny-write template.pars
 Attempting to write outside allowed paths produces an error that can be captured:
 
 \`\`\`parsley
-let {data, error} = myData ==> JSON(@/etc/passwd)
+let {data, error} = myData ==> jsonFile(@/etc/passwd)
 if (error) {
     // error = "write permission denied: ..."
 }

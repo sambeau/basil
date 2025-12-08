@@ -206,7 +206,7 @@ func TestAssetInHTMLAttributes(t *testing.T) {
 }
 
 // TestAssetWithAbsolutePaths tests that asset() works with absolute paths
-// This simulates what happens when files(@~/public/images/*) returns absolute paths
+// This simulates what happens when fileList(@~/public/images/*) returns absolute paths
 func TestAssetWithAbsolutePaths(t *testing.T) {
 	// Create a helper that sets up an environment with RootPath
 	evalWithRootPath := func(t *testing.T, input string, publicDir string, rootPath string) evaluator.Object {

@@ -118,15 +118,15 @@ These are domain-specific utilities better served by imports.
 #### → `std/fs` (new module)
 | Current | New | Notes |
 |---------|-----|-------|
-| `files(pattern)` | `fs.glob(pattern)` | Glob file search |
-| `JSON(path)` | `fs.readJSON(path)` | Read JSON file |
-| `YAML(path)` | `fs.readYAML(path)` | Read YAML file |
-| `CSV(path)` | `fs.readCSV(path)` | Read CSV file |
-| `lines(path)` | `fs.readLines(path)` | Read lines |
-| `text(path)` | `fs.readText(path)` | Read text |
-| `bytes(path)` | `fs.readBytes(path)` | Read bytes |
-| `SVG(path)` | `fs.readSVG(path)` | Read SVG |
-| `MD(path)` | `fs.readMarkdown(path)` | Read Markdown |
+| `fileList(pattern)` | `fs.glob(pattern)` | Glob file search |
+| `jsonFile(path)` | `fs.readJSON(path)` | Read JSON file |
+| `yamlFile(path)` | `fs.readYAML(path)` | Read YAML file |
+| `csvFile(path)` | `fs.readCSV(path)` | Read CSV file |
+| `linesFile(path)` | `fs.readLines(path)` | Read lines |
+| `textFile(path)` | `fs.readText(path)` | Read text |
+| `bytesFile(path)` | `fs.readBytes(path)` | Read bytes |
+| `svgFile(path)` | `fs.readSVG(path)` | Read SVG |
+| `markdownFile(path)` | `fs.readMarkdown(path)` | Read Markdown |
 
 **Note**: `file()` and `dir()` remain as global type constructors. The `std/fs` module provides file reading utilities.
 

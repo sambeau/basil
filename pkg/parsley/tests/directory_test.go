@@ -165,8 +165,8 @@ func TestDirFilesProperty(t *testing.T) {
 	}
 }
 
-// TestFilesBasic tests the files() function
-func TestFilesBasic(t *testing.T) {
+// TestFileListBasic tests the fileList() function
+func TestFileListBasic(t *testing.T) {
 	// Create a temp directory
 	tempDir := t.TempDir()
 
@@ -182,28 +182,28 @@ func TestFilesBasic(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "files matches txt files",
-			input:    `let f = files("` + tempDir + `/*.txt"); f.length()`,
+			name:     "fileList matches txt files",
+			input:    `let f = fileList("` + tempDir + `/*.txt"); f.length()`,
 			expected: "2",
 		},
 		{
-			name:     "files matches json files",
-			input:    `let f = files("` + tempDir + `/*.json"); f.length()`,
+			name:     "fileList matches json files",
+			input:    `let f = fileList("` + tempDir + `/*.json"); f.length()`,
 			expected: "1",
 		},
 		{
-			name:     "files matches all files",
-			input:    `let f = files("` + tempDir + `/*"); f.length()`,
+			name:     "fileList matches all files",
+			input:    `let f = fileList("` + tempDir + `/*"); f.length()`,
 			expected: "4",
 		},
 		{
-			name:     "files result has correct format",
-			input:    `let f = files("` + tempDir + `/*.json"); f[0].format`,
+			name:     "fileList result has correct format",
+			input:    `let f = fileList("` + tempDir + `/*.json"); f[0].format`,
 			expected: "json",
 		},
 		{
-			name:     "files no matches returns empty array",
-			input:    `let f = files("` + tempDir + `/*.xyz"); f.length()`,
+			name:     "fileList no matches returns empty array",
+			input:    `let f = fileList("` + tempDir + `/*.xyz"); f.length()`,
 			expected: "0",
 		},
 	}
@@ -218,8 +218,8 @@ func TestFilesBasic(t *testing.T) {
 	}
 }
 
-// TestFilesWithDirs tests files() returning both files and directories
-func TestFilesWithDirs(t *testing.T) {
+// TestFileListWithDirs tests fileList() returning both files and directories
+func TestFileListWithDirs(t *testing.T) {
 	// Create a temp directory
 	tempDir := t.TempDir()
 
@@ -233,8 +233,8 @@ func TestFilesWithDirs(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "files returns both files and dirs",
-			input:    `let items = files("` + tempDir + `/*"); items.length()`,
+			name:     "fileList returns both files and dirs",
+			input:    `let items = fileList("` + tempDir + `/*"); items.length()`,
 			expected: "2",
 		},
 	}

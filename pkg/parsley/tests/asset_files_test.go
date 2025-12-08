@@ -11,7 +11,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
-// evalWithFilesContext creates an environment suitable for testing files() and asset()
+// evalWithFilesContext creates an environment suitable for testing fileList() and asset()
 func evalWithFilesContext(t *testing.T, input string, cwd string, rootPath string, publicDir string) evaluator.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -39,7 +39,7 @@ func evalWithFilesContext(t *testing.T, input string, cwd string, rootPath strin
 	return evaluator.Eval(program, env)
 }
 
-// TestAssetAcceptsFileDictionaries tests that asset() works with file dictionaries from files()
+// TestAssetAcceptsFileDictionaries tests that asset() works with file dictionaries from fileList()
 func TestAssetAcceptsFileDictionaries(t *testing.T) {
 	// Create temp directory structure
 	tmpDir := t.TempDir()
@@ -52,10 +52,10 @@ func TestAssetAcceptsFileDictionaries(t *testing.T) {
 	os.WriteFile(filepath.Join(imagesDir, "a.png"), []byte("img"), 0644)
 	os.WriteFile(filepath.Join(imagesDir, "b.png"), []byte("img"), 0644)
 
-	// Test: files() returns file dicts, asset() transforms them to web URLs
+	// Test: fileList() returns file dicts, asset() transforms them to web URLs
 	// Using absolute paths
 	input := `
-		let images = files(@` + imagesDir + `/*.png)
+		let images = fileList(@` + imagesDir + `/*.png)
 		for (img in images) { asset(img) }
 	`
 
@@ -95,7 +95,7 @@ func TestAssetWithFileDictInHTML(t *testing.T) {
 
 	// Using absolute path
 	input := `
-		let photos = files(@` + imagesDir + `/*.jpg)
+		let photos = fileList(@` + imagesDir + `/*.jpg)
 		let photo = photos[0]
 		<img src={asset(photo)}/>
 	`
@@ -112,9 +112,9 @@ func TestAssetWithFileDictInHTML(t *testing.T) {
 	}
 }
 
-// TestFilesEnvironmentPreservation tests that files() preserves environment for asset()
-func TestFilesEnvironmentPreservation(t *testing.T) {
-	// This tests the fix where files() would lose the caller's environment
+// TestFileListEnvironmentPreservation tests that fileList() preserves environment for asset()
+func TestFileListEnvironmentPreservation(t *testing.T) {
+	// This tests the fix where fileList() would lose the caller's environment
 	// (including public_dir) when the file dictionaries were used with asset()
 
 	tmpDir := t.TempDir()
@@ -124,11 +124,11 @@ func TestFilesEnvironmentPreservation(t *testing.T) {
 	os.MkdirAll(cssDir, 0755)
 	os.WriteFile(filepath.Join(cssDir, "style.css"), []byte("body{}"), 0644)
 
-	// The key test: in a for loop, the file dicts from files() should retain
+	// The key test: in a for loop, the file dicts from fileList() should retain
 	// enough context for asset() to work correctly
 	// Using absolute path pattern since relative paths resolve against cwd
 	input := `
-		let styles = files(@` + publicDir + `/css/*.css)
+		let styles = fileList(@` + publicDir + `/css/*.css)
 		for (css in styles) {
 			<link rel=stylesheet href={asset(css)}/>
 		}
@@ -224,8 +224,8 @@ func TestAssetWithStringPath(t *testing.T) {
 	}
 }
 
-// TestFilesWithAssetPipeline tests a realistic pipeline: files() -> map with asset()
-func TestFilesWithAssetPipeline(t *testing.T) {
+// TestFileListWithAssetPipeline tests a realistic pipeline: fileList() -> map with asset()
+func TestFileListWithAssetPipeline(t *testing.T) {
 	tmpDir := t.TempDir()
 	publicDir := filepath.Join(tmpDir, "public")
 	assetsDir := filepath.Join(publicDir, "assets")
@@ -237,7 +237,7 @@ func TestFilesWithAssetPipeline(t *testing.T) {
 	// Realistic use case: collect files and generate script tags
 	// Using absolute path pattern
 	input := `
-		let scripts = files(@` + publicDir + `/assets/*.js)
+		let scripts = fileList(@` + publicDir + `/assets/*.js)
 		for (script in scripts) {
 			<script src={asset(script)}/>
 		}

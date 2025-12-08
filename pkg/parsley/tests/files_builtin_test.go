@@ -11,8 +11,8 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
-// evalFilesBuiltin evaluates code that uses files() builtin
-func evalFilesBuiltin(input string, cwd string, rootPath string) evaluator.Object {
+// evalFileListBuiltin evaluates code that uses fileList() builtin
+func evalFileListBuiltin(input string, cwd string, rootPath string) evaluator.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.ParseProgram()
@@ -29,8 +29,8 @@ func evalFilesBuiltin(input string, cwd string, rootPath string) evaluator.Objec
 	return evaluator.Eval(program, env)
 }
 
-// TestFilesPreservesDotSlashPrefix tests that files(@./...) preserves the ./ prefix
-func TestFilesPreservesDotSlashPrefix(t *testing.T) {
+// TestFileListPreservesDotSlashPrefix tests that fileList(@./...) preserves the ./ prefix
+func TestFileListPreservesDotSlashPrefix(t *testing.T) {
 	// Create temp directory with some files
 	tmpDir := t.TempDir()
 
@@ -48,9 +48,9 @@ func TestFilesPreservesDotSlashPrefix(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	input := `let f = files(@./*.txt); for (file in f) { toString(file.path) }`
+	input := `let f = fileList(@./*.txt); for (file in f) { toString(file.path) }`
 
-	result := evalFilesBuiltin(input, tmpDir, tmpDir)
+	result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
 	if errObj, ok := result.(*evaluator.Error); ok {
 		t.Fatalf("unexpected error: %s", errObj.Message)
@@ -70,8 +70,8 @@ func TestFilesPreservesDotSlashPrefix(t *testing.T) {
 	}
 }
 
-// TestFilesWithRootPathAlias tests that files(@~/) uses RootPath when set
-func TestFilesWithRootPathAlias(t *testing.T) {
+// TestFileListWithRootPathAlias tests that fileList(@~/) uses RootPath when set
+func TestFileListWithRootPathAlias(t *testing.T) {
 	// Create temp directory structure:
 	// root/
 	//   subdir/
@@ -91,10 +91,10 @@ func TestFilesWithRootPathAlias(t *testing.T) {
 	os.WriteFile(filepath.Join(dataDir, "file1.txt"), []byte("one"), 0644)
 	os.WriteFile(filepath.Join(dataDir, "file2.txt"), []byte("two"), 0644)
 
-	// Test files(@~/data/*.txt) from subdir should find files in root/data
-	input := `let f = files(@~/data/*.txt); len(f)`
+	// Test fileList(@~/data/*.txt) from subdir should find files in root/data
+	input := `let f = fileList(@~/data/*.txt); len(f)`
 
-	result := evalFilesBuiltin(input, subDir, rootDir)
+	result := evalFileListBuiltin(input, subDir, rootDir)
 
 	if errObj, ok := result.(*evaluator.Error); ok {
 		t.Fatalf("unexpected error: %s", errObj.Message)
@@ -110,8 +110,8 @@ func TestFilesWithRootPathAlias(t *testing.T) {
 	}
 }
 
-// TestFilesRootPathFallback tests that ~/ falls back to home dir when RootPath not set
-func TestFilesRootPathFallback(t *testing.T) {
+// TestFileListRootPathFallback tests that ~/ falls back to home dir when RootPath not set
+func TestFileListRootPathFallback(t *testing.T) {
 	// When RootPath is empty, ~/ should expand to user's home directory
 	// We can't easily test this without creating files in home, so we just
 	// test that it doesn't error when RootPath is empty
@@ -119,9 +119,9 @@ func TestFilesRootPathFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a glob pattern that won't match anything in home
-	input := `let f = files(@~/nonexistent_parsley_test_dir_12345/*.xyz); len(f)`
+	input := `let f = fileList(@~/nonexistent_parsley_test_dir_12345/*.xyz); len(f)`
 
-	result := evalFilesBuiltin(input, tmpDir, "") // Empty RootPath
+	result := evalFileListBuiltin(input, tmpDir, "") // Empty RootPath
 
 	if errObj, ok := result.(*evaluator.Error); ok {
 		// Error is OK if it's about not finding files, but not about path resolution
@@ -138,17 +138,17 @@ func TestFilesRootPathFallback(t *testing.T) {
 	}
 }
 
-// TestFilesAbsolutePath tests that files() works with absolute paths
-func TestFilesAbsolutePath(t *testing.T) {
+// TestFileListAbsolutePath tests that fileList() works with absolute paths
+func TestFileListAbsolutePath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test files
 	os.WriteFile(filepath.Join(tmpDir, "test1.dat"), []byte("data1"), 0644)
 	os.WriteFile(filepath.Join(tmpDir, "test2.dat"), []byte("data2"), 0644)
 
-	input := `let f = files(@` + tmpDir + `/*.dat); len(f)`
+	input := `let f = fileList(@` + tmpDir + `/*.dat); len(f)`
 
-	result := evalFilesBuiltin(input, tmpDir, tmpDir)
+	result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
 	if errObj, ok := result.(*evaluator.Error); ok {
 		t.Fatalf("unexpected error: %s", errObj.Message)
@@ -164,13 +164,13 @@ func TestFilesAbsolutePath(t *testing.T) {
 	}
 }
 
-// TestFilesEmptyResult tests that files() returns empty array for no matches
-func TestFilesEmptyResult(t *testing.T) {
+// TestFileListEmptyResult tests that fileList() returns empty array for no matches
+func TestFileListEmptyResult(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	input := `let f = files(@./nonexistent/*.xyz); len(f)`
+	input := `let f = fileList(@./nonexistent/*.xyz); len(f)`
 
-	result := evalFilesBuiltin(input, tmpDir, tmpDir)
+	result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
 	// Should return 0, not an error
 	if errObj, ok := result.(*evaluator.Error); ok {
@@ -188,17 +188,17 @@ func TestFilesEmptyResult(t *testing.T) {
 	}
 }
 
-// TestFilesResultIsFileDictionary tests that files() returns proper file dictionaries
-func TestFilesResultIsFileDictionary(t *testing.T) {
+// TestFileListResultIsFileDictionary tests that fileList() returns proper file dictionaries
+func TestFileListResultIsFileDictionary(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a test file
 	testFile := filepath.Join(tmpDir, "sample.txt")
 	os.WriteFile(testFile, []byte("hello world"), 0644)
 
-	input := `let f = files(@` + tmpDir + `/*.txt); f[0].basename`
+	input := `let f = fileList(@` + tmpDir + `/*.txt); f[0].basename`
 
-	result := evalFilesBuiltin(input, tmpDir, tmpDir)
+	result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
 	if errObj, ok := result.(*evaluator.Error); ok {
 		t.Fatalf("unexpected error: %s", errObj.Message)
@@ -214,8 +214,8 @@ func TestFilesResultIsFileDictionary(t *testing.T) {
 	}
 }
 
-// TestFilesGlobPatterns tests various glob patterns
-func TestFilesGlobPatterns(t *testing.T) {
+// TestFileListGlobPatterns tests various glob patterns
+func TestFileListGlobPatterns(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create directory structure
@@ -257,9 +257,9 @@ func TestFilesGlobPatterns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := `let f = files(@` + tt.pattern + `); len(f)`
+			input := `let f = fileList(@` + tt.pattern + `); len(f)`
 
-			result := evalFilesBuiltin(input, tmpDir, tmpDir)
+			result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
 			if errObj, ok := result.(*evaluator.Error); ok {
 				t.Fatalf("unexpected error: %s", errObj.Message)

@@ -274,38 +274,31 @@ func TestStringRepetition(t *testing.T) {
 	}
 }
 
-// TestArrayScalarMultiplication tests array * integer (scalar multiplication)
-func TestArrayScalarMultiplication(t *testing.T) {
+// TestArrayRepetition tests array repetition operator
+func TestArrayRepetition(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		// Basic scalar multiplication
-		{"[1,2] * 3", "[3, 6]"},
-		{"[1] * 5", "[5]"},
-		{"[10, 20, 30] * 2", "[20, 40, 60]"},
+		// Basic repetition
+		{"[1,2] * 3", "[1, 2, 1, 2, 1, 2]"},
+		{"[1] * 5", "[1, 1, 1, 1, 1]"},
+		{`["a", "b"] * 2`, "[a, b, a, b]"},
 
-		// Zero multiplier
-		{"[1,2,3] * 0", "[0, 0, 0]"},
+		// Zero and negative
+		{"[1,2,3] * 0", "[]"},
+		{"[1,2,3] * -1", "[]"},
+		{"[1,2,3] * -10", "[]"},
 
-		// Negative multiplier
-		{"[1,2,3] * -1", "[-1, -2, -3]"},
-		{"[1,2,3] * -2", "[-2, -4, -6]"},
-
-		// Multiply by 1
+		// Count = 1
 		{"[1,2,3] * 1", "[1, 2, 3]"},
 
 		// Empty array
 		{"[] * 5", "[]"},
 		{"[] * 0", "[]"},
 
-		// Mixed types (non-numeric pass through unchanged)
-		{`[1, "two", 3] * 2`, `[2, two, 6]`},
-		{`["a", "b"] * 2`, "[a, b]"},
-
-		// Floats
-		{"[1.5, 2.5] * 2", "[3, 5]"},
-		{"[1, 2.5, 3] * 3", "[3, 7.5, 9]"},
+		// Mixed types
+		{`[1, "two", 3] * 2`, `[1, two, 3, 1, two, 3]`},
 	}
 
 	for _, tt := range tests {
@@ -336,8 +329,8 @@ func TestArrayOperatorChaining(t *testing.T) {
 		// Union then subtraction
 		{"([1,2] || [2,3]) - [2]", "[1, 3]"},
 
-		// Scalar multiply then chunking
-		{"([1,2,3] * 2) / 3", "[[2, 4, 6]]"},
+		// Repetition then chunking
+		{"([1,2] * 3) / 2", "[[1, 2], [1, 2], [1, 2]]"},
 	}
 
 	for _, tt := range tests {
@@ -361,7 +354,7 @@ func TestArrayOperatorsWithVariables(t *testing.T) {
 		{"let a = [1,2,3,4]; let b = [2,4]; a - b", "[1, 3]"},
 		{"let nums = [1,2,3,4,5,6]; nums / 2", "[[1, 2], [3, 4], [5, 6]]"},
 		{`let str = "ab"; str * 3`, "ababab"},
-		{"let arr = [1,2]; arr * 3", "[3, 6]"},
+		{"let arr = [1,2]; arr * 3", "[1, 2, 1, 2, 1, 2]"},
 	}
 
 	for _, tt := range tests {
