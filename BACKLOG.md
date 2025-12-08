@@ -15,6 +15,8 @@ Deferred items from implementation, to be picked up in future work.
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| SQLite session store | FEAT-049 | Phase 2 | Cookie sessions have ~4KB limit. SQLite store for larger session data. Server-side sessions with session ID in cookie. Includes cleanup goroutine for expired sessions. |
+| Session auth integration | FEAT-049 | Phase 3 | Auto-regenerate session ID on login/logout for security. `basil.auth.login()` and `basil.auth.logout()` should call `session.regenerate()`. |
 | Form `target=` partial updates (Turbo-style) | Rails UX | Needs design | Allow `<Form target="#id">` to replace element content without full page reload. Challenges: (1) How handler knows to return fragment vs full page, (2) Layout wrapping behavior, (3) Works differently for filepath vs config routing, (4) Where/how to inject the ~20 lines of JS. High UX value but needs architectural thought. See `docs/design/rails-inspired-ux.md`. |
 | Per-route caching in site mode | FEAT-040 | Needs design | Site mode has no way to configure cache TTL per index.pars. Routes mode has `cache:` per route. Options: comment directive in index.pars, basil.yaml section per path pattern, or runtime config via `basil.http.response.cache`. |
 | Auth integration in site mode | FEAT-040 | Needs design | Site mode has no way to specify auth requirements per handler. Routes mode has `auth:` per route. Options: comment directive in index.pars, basil.yaml section per path pattern, or check `basil.auth.user` in handler and redirect/error manually. |

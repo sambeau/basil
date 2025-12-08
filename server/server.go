@@ -39,6 +39,10 @@ type Server struct {
 	dbDriver      string  // Database driver name ("sqlite", etc.)
 	rateLimiter   *rateLimiter
 
+	// Session store (cookie-based by default)
+	sessionStore  SessionStore
+	sessionSecret string
+
 	// Dev tools (nil if not in dev mode)
 	devLog *DevLog
 
@@ -76,6 +80,11 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		s.assetRegistry = newAssetRegistry(s.logWarn)
 	} else {
 		s.assetRegistry = newAssetRegistry(nil)
+	}
+
+	// Initialize session store
+	if err := s.initSessions(); err != nil {
+		return nil, fmt.Errorf("initializing sessions: %w", err)
 	}
 
 	// Initialize dev tools in dev mode
@@ -186,6 +195,37 @@ func (s *Server) Close() {
 	if s.db != nil {
 		s.db.Close()
 	}
+}
+
+// initSessions initializes the session store.
+func (s *Server) initSessions() error {
+	cfg := &s.config.Session
+
+	// Determine session secret
+	secret := cfg.Secret
+	if secret == "" {
+		if s.config.Server.Dev {
+			// In dev mode, generate a random secret (sessions won't persist across restarts)
+			var err error
+			secret, err = generateRandomSecret()
+			if err != nil {
+				return fmt.Errorf("generating dev session secret: %w", err)
+			}
+			s.logInfo("sessions: using auto-generated secret (dev mode)")
+		} else {
+			// In production, require explicit secret
+			s.logWarn("sessions: no secret configured, sessions disabled")
+			return nil
+		}
+	}
+
+	s.sessionSecret = secret
+
+	// Create cookie session store (default and currently only supported store)
+	s.sessionStore = NewCookieSessionStore(cfg, secret)
+
+	s.logInfo("sessions: cookie store initialized (max_age=%s)", cfg.MaxAge)
+	return nil
 }
 
 // initDatabase opens the SQLite database connection if configured.

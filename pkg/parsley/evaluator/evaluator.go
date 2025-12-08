@@ -9699,6 +9699,8 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return evalSFTPConnectionMethod(receiver, method, args, env)
 	case *SFTPFileHandle:
 		return evalSFTPFileHandleMethod(receiver, method, args, env)
+	case *SessionModule:
+		return evalSessionMethod(receiver, method, args, env)
 	case *String:
 		return evalStringMethod(receiver, method, args)
 	case *Array:

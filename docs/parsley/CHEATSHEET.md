@@ -1061,6 +1061,54 @@ basil.http.response.cookies.old = {value: "", maxAge: @0s}
 
 ---
 
+### Sessions (basil.session)
+
+**Basic session operations:**
+```parsley
+// Store values
+basil.session.set("user_id", 123)
+basil.session.set("cart", ["item1", "item2"])
+
+// Retrieve values
+let userId = basil.session.get("user_id")           // 123 or null
+let cart = basil.session.get("cart", [])            // with default
+
+// Check/delete
+basil.session.has("user_id")                        // true
+basil.session.delete("user_id")
+basil.session.clear()                               // logout
+```
+
+**Flash messages (show once then disappear):**
+```parsley
+// Set flash on redirect
+basil.session.flash("success", "Profile updated!")
+redirect("/profile")
+
+// Display flash on target page  
+if (basil.session.hasFlash()) {
+    let msg = basil.session.getFlash("success")
+    if (msg != null) {
+        <div class="alert">{msg}</div>
+    }
+}
+```
+
+**Configuration (basil.yaml):**
+```yaml
+session:
+  secret: "32-char-secret-key"  # Required in production
+  max_age: 24h                  # Session lifetime
+```
+
+**Gotchas:**
+- ❌ In dev mode, random secret = sessions don't persist across restarts
+- ✅ In production, must configure explicit `secret`
+- ❌ ~4KB max data (stored in encrypted cookie)
+- ✅ Use `flash()` for one-time messages (auto-deleted on read)
+
+---
+
 ### CSRF Protection
 
 **Forms with auth require CSRF token:**

@@ -161,6 +161,24 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		SetCSRFCookie(w, csrfToken, h.server.config.Server.Dev)
 	}
 
+	// Load session (if session store is configured)
+	var session *Session
+	var sessionModule *evaluator.SessionModule
+	if h.server.sessionStore != nil {
+		sessionData, err := h.server.sessionStore.Load(r)
+		if err != nil {
+			h.server.logError("failed to load session: %v", err)
+			// Continue without session on error
+		} else {
+			session = NewSession(sessionData, h.server.sessionStore, w)
+			sessionModule = evaluator.NewSessionModule(
+				sessionData.Data,
+				sessionData.Flash,
+				h.server.config.Session.MaxAge,
+			)
+		}
+	}
+
 	// Build request context for the script
 	reqCtx := buildRequestContext(r, h.route)
 
@@ -185,7 +203,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Build and inject the basil namespace object (protected from reassignment)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule)
 	env.SetProtected("basil", basilObj)
 
 	// Also set on environment for stdlib import (std/basil)
@@ -233,6 +251,24 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.server.logInfo("[script] %s", line)
 	}
 
+	// Sync session changes from evaluator module back to session wrapper
+	if session != nil && sessionModule != nil {
+		// Copy data and flash from the module (which may have been modified by the script)
+		session.data.Data = sessionModule.Data
+		session.data.Flash = sessionModule.Flash
+		// Mark dirty if the module was modified
+		if sessionModule.Dirty {
+			session.dirty = true
+		}
+		if sessionModule.Cleared {
+			session.cleared = true
+		}
+		// Commit session (writes cookie if dirty)
+		if err := session.Commit(); err != nil {
+			h.server.logError("failed to commit session: %v", err)
+		}
+	}
+
 	// Extract response metadata from basil.http.response
 	responseMeta := extractResponseMeta(env, h.server.config.Server.Dev)
 
@@ -258,7 +294,7 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string, sessionModule *evaluator.SessionModule) evaluator.Object {
 	// Build auth context
 	authCtx := map[string]interface{}{
 		"required": route.Auth == "required",
@@ -309,6 +345,11 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 		conn := evaluator.NewManagedDBConnection(db, dbDriver)
 		// Use ast.ObjectLiteralExpression to wrap the DBConnection for Dictionary storage
 		basilDict.Pairs["sqlite"] = &ast.ObjectLiteralExpression{Obj: conn}
+	}
+
+	// Add session module if configured
+	if sessionModule != nil {
+		basilDict.Pairs["session"] = &ast.ObjectLiteralExpression{Obj: sessionModule}
 	}
 
 	// Note: Fragment caching (FEAT-037) uses <basil.cache.Cache> tag which accesses

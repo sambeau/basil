@@ -8,6 +8,7 @@ type Config struct {
 	Server     ServerConfig               `yaml:"server"`
 	Security   SecurityConfig             `yaml:"security"`
 	Auth       AuthConfig                 `yaml:"auth"`
+	Session    SessionConfig              `yaml:"session"`
 	Git        GitConfig                  `yaml:"git"`
 	Dev        DevConfig                  `yaml:"dev"`
 	SQLite     string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
@@ -93,6 +94,20 @@ type GitConfig struct {
 	RequireAuth bool `yaml:"require_auth"` // Require API key authentication (default: true)
 }
 
+// SessionConfig holds session storage settings
+type SessionConfig struct {
+	Store      string        `yaml:"store"`       // Storage backend: "cookie" (default) or "sqlite"
+	Secret     string        `yaml:"secret"`      // Encryption secret (required in production, auto-generated in dev)
+	MaxAge     time.Duration `yaml:"max_age"`     // Session lifetime (default: 24h)
+	CookieName string        `yaml:"cookie_name"` // Cookie name (default: "_basil_session")
+	Secure     *bool         `yaml:"secure"`      // HTTPS only (default: true in production)
+	HttpOnly   bool          `yaml:"http_only"`   // No JavaScript access (default: true)
+	SameSite   string        `yaml:"same_site"`   // SameSite policy: "Lax", "Strict", "None" (default: "Lax")
+	// SQLite-specific options (only used when store: sqlite)
+	Table   string        `yaml:"table"`   // Table name (default: "_sessions")
+	Cleanup time.Duration `yaml:"cleanup"` // Cleanup interval for expired sessions (default: 1h)
+}
+
 // DevConfig holds dev tools settings (only used when --dev flag is enabled)
 type DevConfig struct {
 	LogDatabase    string `yaml:"log_database"`     // Path to dev log database file (default: auto-generated)
@@ -164,6 +179,15 @@ func Defaults() *Config {
 		Git: GitConfig{
 			Enabled:     false,
 			RequireAuth: true,
+		},
+		Session: SessionConfig{
+			Store:      "cookie",
+			MaxAge:     24 * time.Hour,
+			CookieName: "_basil_session",
+			HttpOnly:   true,
+			SameSite:   "Lax",
+			Table:      "_sessions",
+			Cleanup:    1 * time.Hour,
 		},
 		Dev: DevConfig{
 			LogMaxSize:     "10MB",

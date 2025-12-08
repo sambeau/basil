@@ -3714,6 +3714,85 @@ if (basil.auth.user != null) {
 }
 ```
 
+#### basil.session
+
+Server-side session storage with encrypted cookies. Sessions persist across requests and can store arbitrary data.
+
+**Methods:**
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `get(key)` | String | Any | Get session value, null if missing |
+| `get(key, default)` | String, Any | Any | Get session value with default |
+| `set(key, value)` | String, Any | null | Store value in session |
+| `delete(key)` | String | null | Remove value from session |
+| `has(key)` | String | Bool | Check if key exists |
+| `clear()` | - | null | Remove all session data |
+| `all()` | - | Dict | Get all session data |
+| `flash(key, msg)` | String, String | null | Set one-time message |
+| `getFlash(key)` | String | String/null | Get and remove flash message |
+| `getAllFlash()` | - | Dict | Get and remove all flash messages |
+| `hasFlash()` | - | Bool | Check if any flash messages exist |
+| `regenerate()` | - | null | Mark session for new ID |
+
+**Basic usage:**
+```parsley
+// Store user preferences
+basil.session.set("theme", "dark")
+basil.session.set("language", "en")
+
+// Retrieve values
+let theme = basil.session.get("theme", "light")  // "dark" or default "light"
+
+// Check existence
+if (basil.session.has("cart")) {
+    let cart = basil.session.get("cart")
+}
+
+// Remove specific key
+basil.session.delete("temp_data")
+
+// Clear entire session (e.g., on logout)
+basil.session.clear()
+```
+
+**Flash messages (one-time notifications):**
+```parsley
+// On form submit handler
+basil.session.flash("success", "Your profile has been updated!")
+redirect("/profile")
+
+// On the target page
+if (basil.session.hasFlash()) {
+    let flash = basil.session.getAllFlash()
+    if (flash.success != null) {
+        <div class="alert alert-success">{flash.success}</div>
+    }
+    if (flash.error != null) {
+        <div class="alert alert-danger">{flash.error}</div>
+    }
+}
+```
+
+**Configuration (basil.yaml):**
+```yaml
+session:
+  secret: "your-32-char-secret-key-here"  # Required in production
+  max_age: 24h                            # Session lifetime (default: 24h)
+  cookie_name: "_basil_session"           # Cookie name (default)
+  secure: true                            # HTTPS only (default in production)
+  http_only: true                         # No JavaScript access (default)
+  same_site: "Lax"                        # SameSite policy (default)
+```
+
+**Notes:**
+- Sessions are stored in encrypted cookies using AES-256-GCM
+- In dev mode, a random secret is generated (sessions don't persist across restarts)
+- In production, `secret` must be configured explicitly
+- Session data is limited by cookie size (~4KB max)
+- Use `flash()` for one-time messages that should only appear once
+```
+
 #### basil.csrf
 
 CSRF (Cross-Site Request Forgery) protection context.

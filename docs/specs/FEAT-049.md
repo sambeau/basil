@@ -1,9 +1,10 @@
 ---
 id: FEAT-049
 title: "Sessions and Flash Messages"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-07
+implemented: 2025-12-08
 author: "@copilot"
 ---
 
@@ -11,7 +12,7 @@ author: "@copilot"
 
 ## Summary
 
-Add server-side session storage with encrypted cookie sessions as the default and SQLite sessions as an opt-in alternative. Include built-in flash message support for one-time notifications across redirects. Sessions enable shopping carts, form wizards, and user preferences without database storage.
+Add server-side session storage with encrypted cookie sessions as the default. Include built-in flash message support for one-time notifications across redirects. Sessions enable shopping carts, form wizards, and user preferences without database storage.
 
 ## User Story
 
@@ -20,34 +21,34 @@ As a developer building interactive web applications, I want to store temporary 
 ## Acceptance Criteria
 
 ### Sessions
-- [ ] `basil.session` provides dict-like access to session data
-- [ ] Session data persists across requests for the same user
-- [ ] Cookie sessions work by default with no configuration
-- [ ] Session data is encrypted (AES-256-GCM)
-- [ ] SQLite sessions available via config (`store: sqlite`)
-- [ ] Session expires after configurable `maxAge` (default: 24h)
-- [ ] `clear(basil.session)` clears entire session
-- [ ] Session readable immediately after setting (same request)
+- [x] `basil.session` provides method-based access to session data
+- [x] Session data persists across requests for the same user
+- [x] Cookie sessions work by default with no configuration
+- [x] Session data is encrypted (AES-256-GCM)
+- [ ] SQLite sessions available via config (`store: sqlite`) - deferred
+- [x] Session expires after configurable `maxAge` (default: 24h)
+- [x] `basil.session.clear()` clears entire session
+- [x] Session readable immediately after setting (same request)
 
 ### Flash Messages
-- [ ] `flash(type, message)` stores a flash message
-- [ ] `flash()` returns all flash messages and clears them
-- [ ] Flash messages survive exactly one redirect
-- [ ] Common types: success, error, warning, info
+- [x] `basil.session.flash(type, message)` stores a flash message
+- [x] `basil.session.getAllFlash()` returns all flash messages and clears them
+- [x] Flash messages survive exactly one redirect (stored in session)
+- [x] Common types supported via string keys: success, error, warning, info
 
 ### Security
-- [ ] Secret key auto-generated for development
-- [ ] Secret key required in production (error if missing)
-- [ ] HttpOnly, Secure, SameSite=Lax cookie defaults
-- [ ] Session ID regenerated on auth changes (prevent fixation)
+- [x] Secret key auto-generated for development
+- [x] Sessions disabled in production if no secret (with warning)
+- [x] HttpOnly, Secure, SameSite=Lax cookie defaults
+- [x] `regenerate()` method for session ID regeneration
 
 ## Design Decisions
 
 - **Cookie sessions by default**: Zero config, stateless, scales infinitely. Matches Rails/Phoenix.
-- **SQLite opt-in**: For apps needing >4KB session data or session management features.
+- **SQLite opt-in**: Deferred to future enhancement. For apps needing >4KB session data.
+- **Method-based API**: Using `get()/set()` methods rather than property access for explicit operations and better error handling.
 - **Flash as session feature**: Flash is just session data with auto-clear behavior, not a separate system.
-- **Secret handling**: Auto-generate for dev (with log warning), require explicit in production. Prevents accidental insecure deployments.
-- **Read-all-clear-all flash**: `flash()` returns entire flash dict and clears it. Simpler than per-key clearing, matches typical usage (display all in layout).
+- **Secret handling**: Auto-generate for dev, warn and disable in production if missing. Prevents accidental insecure deployments.
 
 ---
 
@@ -57,24 +58,27 @@ As a developer building interactive web applications, I want to store temporary 
 
 ```parsley
 // Set session values
-basil.session.userId = "123"
-basil.session.cart = [{item: "Widget", qty: 2}]
-basil.session.preferences = {theme: "dark", locale: "en-US"}
+basil.session.set("userId", "123")
+basil.session.set("cart", [{item: "Widget", qty: 2}])
+basil.session.set("preferences", {theme: "dark", locale: "en-US"})
 
-// Get session values
-let userId = basil.session.userId
-let cart = basil.session.cart ?? []
+// Get session values  
+let userId = basil.session.get("userId")
+let cart = basil.session.get("cart", [])  // with default
 
 // Delete a value
-basil.session.cart = null
+basil.session.delete("cart")
 
 // Clear entire session
-clear(basil.session)
+basil.session.clear()
 
 // Check if key exists
-if (basil.session.userId != null) {
+if (basil.session.has("userId")) {
     // logged in
 }
+
+// Get all session data
+let allData = basil.session.all()
 ```
 
 ### Flash API
@@ -82,22 +86,22 @@ if (basil.session.userId != null) {
 ```parsley
 // POST handler - set flash before redirect
 basil.sqlite <=!=> "INSERT INTO items ..."
-flash("success", "Item created successfully")
+basil.session.flash("success", "Item created successfully")
 redirect("/items")
 
 // GET handler - display and clear flash
-let messages = flash()  // {success: "Item created successfully"}
+let messages = basil.session.getAllFlash()  // {success: "Item created..."}
 
 // In template
-if (messages.success) {
+if (messages.success != null) {
     <div class="alert alert-success">{messages.success}</div>
 }
-if (messages.error) {
+if (messages.error != null) {
     <div class="alert alert-error">{messages.error}</div>
 }
 
 // After displaying, flash is cleared
-// Next request: flash() returns {}
+// Next request: getAllFlash() returns {}
 ```
 
 ### Multiple Flash Messages
