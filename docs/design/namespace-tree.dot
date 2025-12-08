@@ -1,0 +1,80 @@
+// Basil namespace tree - generated on 2025-12-08
+// TODO: Keep in sync with builtin list in evaluator.go
+
+digraph basil_namespace {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fontsize=12];
+
+  // Clusters for categories
+  subgraph cluster_global {
+    label = "Global builtins";
+    color = "#d1e8ff";
+
+    core [label="Core: import, len, print, println, repr, log, logLine, fail, asset (BASIL)", fillcolor="#eaf4ff"];
+    constructors [label="Constructors: now, time, url, file, dir, regex, money", fillcolor="#f4fff0"];
+    dbcons [label="DB/Connections: SQLITE, POSTGRES, MYSQL, SFTP, COMMAND", fillcolor="#fff6e6"];
+    conversions [label="Conversions: toInt, toFloat, toNumber, toString, toDebug, toArray, toDict", fillcolor="#fff0f0"];
+  }
+
+  subgraph cluster_std {
+    label = "Stdlib modules (use import @std/..)", color="#dff7d1";
+    std_table [label="std/table"];
+    std_math [label="std/math"];
+    std_valid [label="std/valid"];
+    std_schema [label="std/schema"];
+    std_id [label="std/id"];
+    std_api [label="std/api"];
+    std_dev [label="std/dev"];
+    std_basil [label="std/basil (BASIL)"];
+    std_other [label="(Deferred): std/format, std/fs, std/json, std/csv", fillcolor="#fffbe6"];
+  }
+
+  subgraph cluster_objmethods {
+    label = "Object Methods (not globals)";
+    color="#ffe6f2";
+    str_methods [label="String: .toUpper(), .toLower(), .replace(), .split()", fillcolor="#fff0f6"];
+    arr_methods [label="Array: .map(fn), .sort(), .reverse(), .sortBy(fn), .chunk()", fillcolor="#fff0f6"];
+    dict_methods [label="Dict: .keys(), .values(), .has(key)", fillcolor="#fff0f6"];
+  }
+
+  subgraph cluster_removed {
+    label = "Removed (FEAT-052) - use methods instead";
+    color="#ffe6e6";
+    rem1 [label="toUpper(), toLower(), replace(), split()", fillcolor="#ffecec"];
+    rem2 [label="map(), sort(), reverse(), sortBy()", fillcolor="#ffecec"];
+    rem3 [label="keys(), values(), has()", fillcolor="#ffecec"];
+  }
+
+  // Basil-only helpers
+  basil_only [label = "Basil-only: asset(), std/basil module (context, auth, public_dir)", fillcolor="#e8f7f1"];
+
+  // Set up edges to show relationships
+  core -> constructors [label="type constructors"];
+  core -> std_table [label="imports -> modules"];
+  core -> basil_only [label="server helpers"];
+  constructors -> conversions [label="conversion helpers"];
+  std_table -> std_basil;
+
+  // Methods and removed builtins - point to user action
+  arr_methods -> rem2 [style=dashed, color="#a55000", label="replaces"];
+  str_methods -> rem1 [style=dashed, color="#a55000", label="replaces"];
+  dict_methods -> rem3 [style=dashed, color="#a55000", label="replaces"];
+
+  // Styling tweaks
+  core [shape=folder];
+  constructors [shape=note];
+  conversions [shape=note];
+  basil_only [shape=oval];
+
+  // Legend
+  legend [shape=plaintext, label=<
+    <table BORDER="0" CELLBORDER="0">
+      <tr><td align="left">Legend:</td></tr>
+      <tr><td align="left">• <b>Blue</b> = Core builtins</td></tr>
+      <tr><td align="left">• <b>Green</b> = Stdlib modules</td></tr>
+      <tr><td align="left">• <b>Pink</b> = Object methods</td></tr>
+      <tr><td align="left">• <b>Red</b> = Removed in FEAT-052</td></tr>
+      <tr><td align="left">• <b>Oval</b> = Basil-only helpers</td></tr>
+    </table>
+  >];
+}

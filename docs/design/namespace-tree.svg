@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1100" viewBox="0 0 1400 1100">
+  <style>
+    .title { font: 20px sans-serif; font-weight: bold; }
+    .section { font: 14px sans-serif; font-weight: bold; }
+    .node { font: 12px monospace; }
+    .box { fill: #f0f8ff; stroke: #8fbce6; stroke-width: 1.5; rx: 6; }
+    .box-green { fill: #e6ffe6; stroke: #78c080; }
+    .box-yellow { fill: #fff7e6; stroke: #e0b070; }
+    .box-pink { fill: #fff0f6; stroke: #f092b8; }
+    .box-red { fill: #ffecec; stroke: #e06a6a; }
+    .box-oval { fill: #e8f7f1; stroke: #6fd6b7; rx: 24; }
+    .legend { font: 12px sans-serif; }
+    .divider { stroke: #eee; stroke-width: 1; }
+  </style>
+
+  <text x="30" y="40" class="title">Basil Namespace Tree (builtins & stdlib)</text>
+
+  <!-- Core -->
+  <rect x="30" y="70" width="420" height="70" class="box"/>
+  <text x="50" y="95" class="section">Core builtins</text>
+  <text x="50" y="115" class="node">import, len, print, println, repr, log, logLine, fail, asset (BASIL)</text>
+
+  <!-- Constructors -->
+  <rect x="30" y="170" width="420" height="70" class="box-green"/>
+  <text x="50" y="195" class="section">Constructors</text>
+  <text x="50" y="215" class="node">now, time, url, file, dir, regex, money</text>
+
+  <!-- DB / connections -->
+  <rect x="30" y="270" width="420" height="60" class="box-yellow"/>
+  <text x="50" y="295" class="section">DB / Connections</text>
+  <text x="50" y="315" class="node">SQLITE, POSTGRES, MYSQL, SFTP, COMMAND</text>
+
+  <!-- Type conversions -->
+  <rect x="30" y="370" width="420" height="80" class="box-pink"/>
+  <text x="50" y="395" class="section">Conversions</text>
+  <text x="50" y="415" class="node">toInt, toFloat, toNumber, toString, toDebug, toArray, toDict</text>
+
+  <!-- Stdlib modules -->
+  <rect x="470" y="70" width="850" height="200" class="box-green"/>
+  <text x="490" y="95" class="section">Stdlib modules (import @std/..)</text>
+  <text x="490" y="125" class="node">std/table | std/math | std/valid | std/schema | std/id | std/api | std/dev | std/basil (BASIL)</text>
+  <text x="490" y="145" class="node">Deferred: std/format, std/fs, std/json, std/csv</text>
+
+  <!-- Object Methods -->
+  <rect x="470" y="310" width="850" height="170" class="box-pink"/>
+  <text x="490" y="335" class="section">Object methods (not builtins)</text>
+  <text x="490" y="360" class="node">String: .toUpper(), .toLower(), .replace(), .split()</text>
+  <text x="490" y="380" class="node">Array: .map(fn), .sort(), .reverse(), .sortBy(fn), .chunk()/others</text>
+  <text x="490" y="400" class="node">Dict: .keys(), .values(), .has(key)</text>
+
+  <!-- Removed (FEAT-052) -->
+  <rect x="30" y="470" width="420" height="110" class="box-red"/>
+  <text x="50" y="495" class="section">Removed (FEAT-052)</text>
+  <text x="50" y="515" class="node">toUpper(), toLower(), replace(), split(), map(), sort(), reverse(), sortBy(), keys(), values(), has()</text>
+
+  <!-- Basil only -->
+  <ellipse cx="740" cy="530" rx="370" ry="42" class="box-oval"/>
+  <text x="430" y="525" class="section">Basil-only</text>
+  <text x="430" y="545" class="node">asset(), std/basil (auth, context, http, public_dir)</text>
+
+  <!-- Relationships (arrows) -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="strokeWidth" markerWidth="10" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8fbce6" />
+    </marker>
+  </defs>
+
+  <line x1="450" y1="100" x2="470" y2="100" stroke="#8fbce6" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="210" x2="470" y2="210" stroke="#78c080" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="290" x2="470" y2="290" stroke="#f0bc4d" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="470" y1="350" x2="470" y2="310" stroke="#f092b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <rect x="30" y="600" width="430" height="150" fill="#ffffff" stroke="#ddd" rx="6"/>
+  <text x="50" y="630" class="legend">Legend: </text>
+  <text x="50" y="650" class="legend">• Blue: Core builtins</text>
+  <text x="50" y="670" class="legend">• Green: Stdlib modules</text>
+  <text x="50" y="690" class="legend">• Pink: Object methods (callable on objects)</text>
+  <text x="50" y="710" class="legend">• Red: Removed in FEAT-052 (use methods instead)</text>
+  <text x="50" y="730" class="legend">• Oval: Basil-only helpers & runtime modules</text>
+</svg>
