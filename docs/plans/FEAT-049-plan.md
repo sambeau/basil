@@ -2,8 +2,9 @@
 id: PLAN-030
 feature: FEAT-049
 title: "Implementation Plan for Sessions and Flash Messages"
-status: draft
+status: complete
 created: 2025-12-08
+completed: 2025-12-08
 ---
 
 # Implementation Plan: FEAT-049 Sessions and Flash Messages
@@ -288,28 +289,28 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
-- [ ] Documentation updated
-- [ ] Spec FEAT-049 acceptance criteria all checked
-- [ ] BACKLOG.md updated with deferrals (if any)
+- [x] Documentation updated
+- [x] Spec FEAT-049 acceptance criteria all checked
+- [x] BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Session config | ⬜ Not started | |
-| | Task 2: Encryption | ⬜ Not started | |
-| | Task 3: Cookie store | ⬜ Not started | |
-| | Task 4: Middleware | ⬜ Not started | |
-| | Task 5: Handler exposure | ⬜ Not started | |
-| | Task 6: flash() function | ⬜ Not started | |
-| | Task 7: Server wiring | ⬜ Not started | |
-| | Task 8: SQLite store | ⬜ Not started | |
-| | Task 9: Cleanup job | ⬜ Not started | |
-| | Task 10: Regeneration | ⬜ Not started | |
-| | Task 11: Auth integration | ⬜ Not started | |
-| | Task 12: Documentation | ⬜ Not started | |
+| 2025-12-08 | Task 1: Session config | ✅ Complete | Added SessionConfig to config.go |
+| 2025-12-08 | Task 2: Encryption | ✅ Complete | AES-256-GCM in session_crypto.go |
+| 2025-12-08 | Task 3: Cookie store | ✅ Complete | CookieSessionStore in session.go |
+| 2025-12-08 | Task 4: Middleware | ✅ Complete | Integrated into handler.go |
+| 2025-12-08 | Task 5: Handler exposure | ✅ Complete | SessionModule via buildBasilContext |
+| 2025-12-08 | Task 6: flash() function | ✅ Complete | flash/getFlash/getAllFlash/hasFlash methods |
+| 2025-12-08 | Task 7: Server wiring | ✅ Complete | initSessions() in server.go |
+| | Task 8: SQLite store | ⏸️ Deferred | Added to BACKLOG.md (Phase 2) |
+| | Task 9: Cleanup job | ⏸️ Deferred | Added to BACKLOG.md (Phase 2) |
+| 2025-12-08 | Task 10: Regeneration | 🔄 Partial | Method exists, auth integration deferred |
+| | Task 11: Auth integration | ⏸️ Deferred | Added to BACKLOG.md (Phase 3) |
+| 2025-12-08 | Task 12: Documentation | ✅ Complete | reference.md, CHEATSHEET.md updated |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:
