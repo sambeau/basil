@@ -7299,9 +7299,9 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	// String repetition
 	case operator == "*" && left.Type() == STRING_OBJ && right.Type() == INTEGER_OBJ:
 		return evalStringRepetition(left.(*String), right.(*Integer))
-	// Array repetition
+	// Array scalar multiplication
 	case operator == "*" && left.Type() == ARRAY_OBJ && right.Type() == INTEGER_OBJ:
-		return evalArrayRepetition(left.(*Array), right.(*Integer))
+		return evalArrayScalarMultiply(left.(*Array), right.(*Integer))
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
 		return evalIntegerInfixExpression(tok, operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
@@ -14165,17 +14165,28 @@ func evalStringRepetition(str *String, count *Integer) Object {
 	return &String{Value: builder.String()}
 }
 
-// evalArrayRepetition repeats an array n times
-func evalArrayRepetition(array *Array, count *Integer) Object {
-	n := int(count.Value)
+// evalArrayScalarMultiply multiplies numeric elements in an array by a scalar
+// Non-numeric elements are passed through unchanged
+func evalArrayScalarMultiply(array *Array, scalar *Integer) Object {
+	n := scalar.Value
 
-	if n <= 0 {
-		return &Array{Elements: []Object{}}
-	}
-
-	result := make([]Object, 0, len(array.Elements)*n)
-	for i := 0; i < n; i++ {
-		result = append(result, array.Elements...)
+	result := make([]Object, len(array.Elements))
+	for i, elem := range array.Elements {
+		switch e := elem.(type) {
+		case *Integer:
+			result[i] = &Integer{Value: e.Value * n}
+		case *Float:
+			result[i] = &Float{Value: e.Value * float64(n)}
+		case *Money:
+			result[i] = &Money{
+				Amount:   e.Amount * n,
+				Currency: e.Currency,
+				Scale:    e.Scale,
+			}
+		default:
+			// Non-numeric elements pass through unchanged
+			result[i] = elem
+		}
 	}
 
 	return &Array{Elements: result}
