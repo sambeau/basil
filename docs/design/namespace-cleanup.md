@@ -1,5 +1,7 @@
 # Parsley Namespace Cleanup Design
 
+> **Status (2025-12-08)**: Phase 1 (method-duplicate builtins) completed in FEAT-052. Import syntax updated to `import @path`.
+
 ## Overview
 
 This document proposes cleanup of the Parsley global namespace by:
@@ -67,9 +69,11 @@ This document proposes cleanup of the Parsley global namespace by:
 
 ---
 
-### Category 2: Remove (Duplicated as Methods)
+### Category 2: Remove (Duplicated as Methods) ✅ COMPLETED
 
-These exist both as builtins and methods. The method form is preferred.
+> **Completed in FEAT-052 (2025-12-08)**: All 11 builtins removed. Method syntax is now the only option.
+
+These ~~exist~~ existed both as builtins and methods. The method form is ~~preferred~~ now required.
 
 #### String Operations
 | Builtin | Method Form | Action |
@@ -152,31 +156,32 @@ These are domain-specific utilities better served by imports.
 
 ## Summary
 
-| Category | Count | Action |
-|----------|-------|--------|
-| Keep as global | 28 | No change |
-| Remove (method duplicates) | 11 | Delete, use methods |
-| Move to stdlib | 16 | Create new modules |
-| **Total** | 55 | (4 already in stdlib or special) |
+| Category | Count | Action | Status |
+|----------|-------|--------|--------|
+| Keep as global | 28 | No change | — |
+| Remove (method duplicates) | 11 | Delete, use methods | ✅ Done (FEAT-052) |
+| Move to stdlib | 16 | Create new modules | Future work |
+| **Total** | 55 | (4 already in stdlib or special) | |
 
 ---
 
 ## Migration Path
 
-### Phase 1: Deprecation Warnings (Pre-1.0)
-Add deprecation warnings to builtins that will be removed:
-```
-Warning: toUpper() is deprecated. Use "string".toUpper() instead.
-```
+### ~~Phase 1: Deprecation Warnings (Pre-1.0)~~ SKIPPED
+~~Add deprecation warnings to builtins that will be removed.~~
 
-### Phase 2: Remove Deprecated (1.0)
-- Remove the 11 method-duplicate builtins
-- Users must use method syntax
+> **Decision**: Since we're pre-alpha with no external users, we skipped deprecation warnings and went straight to removal.
 
-### Phase 3: Stdlib Modules (1.0 or Post-1.0)
+### ~~Phase 2: Remove Deprecated (1.0)~~ ✅ COMPLETED (Pre-Alpha)
+- ✅ Remove the 11 method-duplicate builtins — Done in FEAT-052
+- ✅ Users must use method syntax — Now enforced
+
+### Phase 3: Stdlib Modules (Post-Alpha)
 - Create `std/format`, `std/fs`, `std/json`, `std/csv`
 - Add deprecation warnings to moved functions
 - Eventually remove from global namespace
+
+> **Status**: Deferred to post-alpha. These are non-breaking additions.
 
 ---
 
@@ -204,25 +209,30 @@ std/
 
 ## Example: Before and After
 
-### Before (Current)
+### Before (Removed in FEAT-052)
 ```parsley
+// ❌ These no longer work:
 let upper = toUpper(name)
 let items = sort(products)
 let k = keys(config)
-let data = JSON(~/data.json)
-let formatted = formatNumber(price, {decimals: 2})
 ```
 
-### After (Proposed)
+### Current (Required Syntax)
 ```parsley
+// ✅ Method syntax is now required:
 let upper = name.toUpper()
 let items = products.sort()
 let k = config.keys()
+```
 
-let {fs} = import("std/fs")
+### Future (When stdlib modules exist)
+```parsley
+// File reading utilities (proposed):
+import @std/fs
 let data = fs.readJSON(~/data.json)
 
-let {format} = import("std/format")
+// Formatting utilities (proposed):
+import @std/format
 let formatted = format.number(price, {decimals: 2})
 ```
 
@@ -232,7 +242,7 @@ let formatted = format.number(price, {decimals: 2})
 
 1. **`format()` template function** - Is this used enough to stay global? It's powerful for `format("Hello {name}", {name: "World"})`.
 
-2. **Backwards compatibility period** - How long should deprecation warnings run before removal?
+2. ~~**Backwards compatibility period** - How long should deprecation warnings run before removal?~~ **Resolved**: No deprecation period needed for pre-alpha. Direct removal in FEAT-052.
 
 3. **`match()` placement** - Currently does URL path matching. Should it move to `std/path` or `std/url`, or stay global?
 
@@ -242,9 +252,11 @@ let formatted = format.number(price, {decimals: 2})
 
 ## Recommendation
 
-For 1.0:
-1. **Remove** the 11 method duplicates (breaking change, do before 1.0)
-2. **Keep** type constructors and essentials global
-3. **Defer** stdlib moves to post-1.0 (non-breaking, can add modules alongside existing builtins)
+~~For 1.0:~~
+1. ~~**Remove** the 11 method duplicates (breaking change, do before 1.0)~~ ✅ **DONE** (FEAT-052)
+2. **Keep** type constructors and essentials global — Current plan
+3. **Defer** stdlib moves to post-alpha (non-breaking, can add modules alongside existing builtins) — Current plan
 
-This minimizes breaking changes while cleaning up the most obvious redundancy.
+~~This minimizes breaking changes while cleaning up the most obvious redundancy.~~
+
+**Update (2025-12-08)**: Phase 1 complete. The codebase now uses method syntax exclusively for the 11 removed builtins. Stdlib module work (Phase 3) is deferred to post-alpha.
