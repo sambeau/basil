@@ -1,7 +1,7 @@
 ---
 id: FEAT-036
 title: "CLI User Management"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-07
 author: "@sambeau"

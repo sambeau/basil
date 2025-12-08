@@ -1,7 +1,7 @@
 ---
 id: FEAT-037
 title: "Fragment Caching"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-07
 author: "@human"

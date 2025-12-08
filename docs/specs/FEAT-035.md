@@ -1,7 +1,7 @@
 ---
 id: FEAT-035
 title: "Git over HTTPS"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-07
 author: "@sambeau"

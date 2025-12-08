@@ -1,9 +1,10 @@
 ---
 id: FEAT-041
 title: "Public URL for Private Assets"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-07
+implemented: 2025-12-07
 author: "@human"
 ---
 

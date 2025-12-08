@@ -1,10 +1,11 @@
 ---
 id: FEAT-034
 title: "std/api - API Module for Basil"
-status: in-progress
+status: implemented
 priority: high
 created: 2025-12-06
-updated: 2025-12-06
+updated: 2025-12-08
+implemented: 2025-12-08
 author: "@human"
 ---
 
