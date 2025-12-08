@@ -1014,6 +1014,34 @@ basil.http.response.cookies.old = {value: "", maxAge: @0s}
 
 ---
 
+### Redirects
+
+**Return redirects from handlers:**
+```parsley
+let {redirect} = import("std/api")
+
+redirect("/dashboard")              // 302 (default)
+redirect("/new-page", 301)          // 301 permanent
+redirect(@/users/profile)           // path literal
+redirect("https://example.com")     // external URL
+```
+
+**Common status codes:**
+| Code | Name | Use |
+|------|------|-----|
+| 301 | Moved Permanently | SEO-safe permanent move |
+| 302 | Found | Temporary redirect (default) |
+| 303 | See Other | After POST (PRG pattern) |
+| 307 | Temporary Redirect | Preserve method |
+| 308 | Permanent Redirect | Permanent + preserve method |
+
+**Gotchas:**
+- ❌ Status must be 3xx (300-308) or error
+- ✅ `redirect()` returns immediately - handler exits
+- ❌ No response body with redirects
+
+---
+
 ### Site Mode - Filesystem-Based Routing
 
 Configure in YAML:

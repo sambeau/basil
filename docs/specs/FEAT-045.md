@@ -1,9 +1,10 @@
 ---
 id: FEAT-045
 title: "Redirect Helper Function"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-07
+implemented: 2025-01-13
 author: "@human"
 ---
 
@@ -16,13 +17,13 @@ Add a `redirect(url, status?)` helper function to simplify HTTP redirects. Curre
 As a Parsley developer, I want a simple redirect function so that I can redirect users without boilerplate code.
 
 ## Acceptance Criteria
-- [ ] `redirect("/path")` returns a 302 Found redirect
-- [ ] `redirect("/path", 301)` returns a 301 Moved Permanently redirect
-- [ ] `redirect(url)` accepts absolute URLs like `@https://example.com`
-- [ ] Function terminates handler execution (like `error()`)
-- [ ] Works with path literals: `redirect(@/dashboard)`
-- [ ] Accepts URL objects for dynamic URLs
-- [ ] Documentation updated with examples
+- [x] `redirect("/path")` returns a 302 Found redirect
+- [x] `redirect("/path", 301)` returns a 301 Moved Permanently redirect
+- [x] `redirect(url)` accepts absolute URLs like `@https://example.com`
+- [x] Function terminates handler execution (like `error()`)
+- [x] Works with path literals: `redirect(@/dashboard)`
+- [x] Accepts URL objects for dynamic URLs
+- [x] Documentation updated with examples
 
 ## Design Decisions
 
@@ -142,6 +143,25 @@ redirect("/dashboard")
 
 ## Implementation Notes
 *Added during/after implementation*
+
+### Implementation Details (2025-01-13)
+
+**Implementation approach:** Option A (Return special object) was chosen.
+
+**Files modified:**
+- `pkg/parsley/evaluator/evaluator.go` — Added `REDIRECT_OBJ` constant
+- `pkg/parsley/evaluator/stdlib_api.go` — Added `redirect()` builtin, `Redirect` struct, and `apiRedirect` function
+- `server/handler.go` — Added redirect detection after error check, uses `http.Redirect()`
+- `server/redirect_test.go` — Comprehensive tests for Redirect struct and apiRedirect function
+- `docs/parsley/reference.md` — Added std/api module documentation with redirect helper
+- `docs/parsley/CHEATSHEET.md` — Added redirects section
+
+**Key decisions:**
+1. `redirect()` is part of `std/api` module (not a global builtin) since it's server-specific
+2. Supports string URLs, path literals (via `pathDictToString`), and URL objects
+3. Validates status code must be 300-308 (3xx redirect codes only)
+4. Default status is 302 (Found) for temporary redirects
+5. Handler detects `REDIRECT_OBJ` type and calls `http.Redirect()` which sets Location header and body
 
 ## Related
 - Similar to: `error(code, message)` function pattern

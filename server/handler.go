@@ -215,6 +215,13 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for redirect response
+	if result != nil && result.Type() == evaluator.REDIRECT_OBJ {
+		redirect := result.(*evaluator.Redirect)
+		http.Redirect(w, r, redirect.URL, redirect.Status)
+		return
+	}
+
 	// Log any captured script output
 	for _, line := range scriptLogger.output {
 		h.server.logInfo("[script] %s", line)

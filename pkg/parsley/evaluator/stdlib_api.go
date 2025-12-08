@@ -1,6 +1,8 @@
 package evaluator
 
 import (
+	"fmt"
+
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
@@ -21,6 +23,9 @@ func loadAPIModule(env *Environment) Object {
 			"unauthorized": &Builtin{Fn: apiUnauthorized},
 			"conflict":     &Builtin{Fn: apiConflict},
 			"serverError":  &Builtin{Fn: apiServerError},
+
+			// Redirect helper
+			"redirect": &Builtin{Fn: apiRedirect},
 		},
 	}
 }
@@ -284,4 +289,81 @@ func (e *APIError) ToDict() *Dictionary {
 	pairs["error"] = objectToExpression(&Dictionary{Pairs: errorPairs})
 
 	return &Dictionary{Pairs: pairs}
+}
+
+// =============================================================================
+// Redirect Helper
+// =============================================================================
+
+// Redirect represents an HTTP redirect response
+type Redirect struct {
+	URL    string
+	Status int
+}
+
+func (r *Redirect) Type() ObjectType { return REDIRECT_OBJ }
+func (r *Redirect) Inspect() string  { return fmt.Sprintf("redirect(%s, %d)", r.URL, r.Status) }
+
+// apiRedirect creates an HTTP redirect response
+// redirect(url) - 302 Found (default)
+// redirect(url, status) - custom status (must be 3xx)
+func apiRedirect(args ...Object) Object {
+	if len(args) < 1 || len(args) > 2 {
+		return newArityErrorRange("redirect", len(args), 1, 2)
+	}
+
+	// Extract URL from first argument
+	var url string
+	switch u := args[0].(type) {
+	case *String:
+		url = u.Value
+	case *Dictionary:
+		// Check if it's a path object (has __type: "path")
+		if typeExpr, ok := u.Pairs["__type"]; ok {
+			if strLit, ok := typeExpr.(*ast.StringLiteral); ok && strLit.Value == "path" {
+				// Convert path to string
+				url = pathDictToString(u)
+			}
+		}
+		if url == "" {
+			return newTypeError("TYPE-0001", "redirect", "string or path", u.Type())
+		}
+	default:
+		return newTypeError("TYPE-0001", "redirect", "string or path", args[0].Type())
+	}
+
+	// Validate URL is not empty
+	if url == "" {
+		return &Error{
+			Message: "redirect URL cannot be empty",
+			Class:   ClassValue,
+			Code:    "VALUE-0001",
+			Hints:   []string{"provide a valid URL or path"},
+		}
+	}
+
+	// Default status is 302 Found
+	status := 302
+
+	// Check for optional status code
+	if len(args) == 2 {
+		switch s := args[1].(type) {
+		case *Integer:
+			status = int(s.Value)
+		default:
+			return newTypeError("TYPE-0001", "redirect", "integer", args[1].Type())
+		}
+
+		// Validate status is a 3xx redirect code
+		if status < 300 || status > 399 {
+			return &Error{
+				Message: fmt.Sprintf("redirect status must be 3xx, got %d", status),
+				Class:   ClassValue,
+				Code:    "VALUE-0002",
+				Hints:   []string{"use 301 (permanent), 302 (found), 303 (see other), 307 (temporary), or 308 (permanent)"},
+			}
+		}
+	}
+
+	return &Redirect{URL: url, Status: status}
 }

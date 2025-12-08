@@ -3650,6 +3650,128 @@ basil.context.breadcrumbs = ["Home", "Dashboard"]
 
 The public directory for this route (if configured).
 
+### API Module (`std/api`)
+
+The API module provides helpers for building web APIs with proper HTTP responses, auth wrappers, and redirects.
+
+#### Importing
+
+```parsley
+// Import specific functions
+let {redirect, notFound, forbidden} = import("std/api")
+
+// Import entire module
+let api = import("std/api")
+api.redirect("/dashboard")
+```
+
+#### Redirect Helper
+
+Return a redirect response from a handler:
+
+| Function | Description |
+|----------|-------------|
+| `redirect(url, status?)` | Returns a redirect response |
+
+**Arguments:**
+- `url` — Target URL (string or path literal)
+- `status` — Optional HTTP status code (default: 302). Must be 3xx.
+
+**Valid status codes:** 300-308 (3xx redirect codes only)
+
+```parsley
+let {redirect} = import("std/api")
+
+// Basic redirect (302 Found)
+redirect("/dashboard")
+
+// Permanent redirect (301)
+redirect("/new-page", 301)
+
+// Redirect to external URL
+redirect("https://example.com/page")
+
+// Using path literal
+redirect(@/users/profile)
+
+// Post-login redirect
+if (loggedIn) {
+    redirect(basil.http.request.query.return ?? "/home")
+}
+```
+
+**Common status codes:**
+| Code | Name | Use Case |
+|------|------|----------|
+| 301 | Moved Permanently | Page permanently moved, search engines update |
+| 302 | Found | Temporary redirect (default) |
+| 303 | See Other | Redirect after POST (PRG pattern) |
+| 307 | Temporary Redirect | Temporary, preserve HTTP method |
+| 308 | Permanent Redirect | Permanent, preserve HTTP method |
+
+#### Error Helpers
+
+Return HTTP error responses from handlers:
+
+| Function | Status | Default Message |
+|----------|--------|-----------------|
+| `badRequest(msg?)` | 400 | "Bad request" |
+| `unauthorized(msg?)` | 401 | "Unauthorized" |
+| `forbidden(msg?)` | 403 | "Forbidden" |
+| `notFound(msg?)` | 404 | "Not found" |
+| `conflict(msg?)` | 409 | "Conflict" |
+| `gone(msg?)` | 410 | "Gone" |
+| `unprocessable(msg?)` | 422 | "Unprocessable entity" |
+| `tooMany(msg?)` | 429 | "Too many requests" |
+
+```parsley
+let {notFound, forbidden} = import("std/api")
+
+// Return 404 with default message
+notFound()
+
+// Return 404 with custom message
+notFound("User not found")
+
+// Access control
+if (todo.owner_id != user.id) {
+    forbidden("Not your todo")
+}
+```
+
+#### Auth Wrappers
+
+Wrap handlers to control authentication requirements:
+
+| Wrapper | Effect |
+|---------|--------|
+| `public(fn)` | No auth required |
+| `auth(fn)` | Auth required (default behavior) |
+| `adminOnly(fn)` | Auth required + admin role |
+| `roles(roleList, fn)` | Auth required + specific roles |
+
+```parsley
+let {public, adminOnly, roles} = import("std/api")
+
+// Public endpoint - no auth required
+export get = public(fn(req) {
+    // Anyone can access this
+    getPublicData()
+})
+
+// Admin only
+export delete = adminOnly(fn(req) {
+    // Only admins can delete
+    deleteRecord(req.params.id)
+})
+
+// Specific roles
+export put = roles(["editor", "admin"], fn(req) {
+    // Only editors and admins can update
+    updateRecord(req.params.id, req.form)
+})
+```
+
 ---
 
 ### Site Mode (Filesystem-Based Routing)

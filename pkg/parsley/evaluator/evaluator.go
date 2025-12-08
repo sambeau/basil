@@ -97,6 +97,7 @@ const (
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
 	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
+	REDIRECT_OBJ         = "REDIRECT"  // HTTP redirect response
 )
 
 // Object represents all values in our language
