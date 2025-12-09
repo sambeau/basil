@@ -877,19 +877,7 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, r *http.Reques
 		cleanMsg = message
 	}
 
-	// Get base path for making paths relative (directory of config file)
-	basePath := filepath.Dir(h.server.configPath)
-
-	devErr := &DevError{
-		Type:     errType,
-		File:     filePath,
-		Line:     line,
-		Column:   col,
-		Message:  cleanMsg,
-		BasePath: basePath,
-	}
-
-	renderDevErrorPage(w, devErr)
+	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", cleanMsg, filePath, line, col))
 }
 
 // handleParsleyError handles structured ParsleyError from the parser.
@@ -900,19 +888,13 @@ func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get base path for making paths relative (directory of config file)
-	basePath := filepath.Dir(h.server.configPath)
-
 	// Use file from error if available, otherwise use handler file
 	file := parseErr.File
 	if file == "" {
 		file = filePath
 	}
 
-	devErr := FromParsleyError(parseErr, basePath)
-	devErr.File = file // Ensure file is set if it was missing
-
-	renderDevErrorPage(w, devErr)
+	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", parseErr.Message, file, parseErr.Line, parseErr.Column))
 }
 
 // handleStructuredError handles errors with structured error information from Parsley.
@@ -921,9 +903,6 @@ func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, r *http.Re
 		h.server.handle500(w, r, fmt.Errorf("%s", errObj.Message))
 		return
 	}
-
-	// Get base path for making paths relative (directory of config file)
-	basePath := filepath.Dir(h.server.configPath)
 
 	// Use file from error if available, otherwise use handler file
 	file := errObj.File
@@ -936,17 +915,7 @@ func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, r *http.Re
 		errType = "parse"
 	}
 
-	devErr := &DevError{
-		Type:     errType,
-		File:     file,
-		Line:     errObj.Line,
-		Column:   errObj.Column,
-		Message:  errObj.Message,
-		Hints:    errObj.Hints,
-		BasePath: basePath,
-	}
-
-	renderDevErrorPage(w, devErr)
+	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", errObj.Message, file, errObj.Line, errObj.Column))
 }
 
 // handleScriptErrorWithLocation handles errors with explicit line/column info from Parsley.
@@ -978,19 +947,7 @@ func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, r 
 		message = cleanMsg
 	}
 
-	// Get base path for making paths relative (directory of config file)
-	basePath := filepath.Dir(h.server.configPath)
-
-	devErr := &DevError{
-		Type:     errType,
-		File:     filePath,
-		Line:     line,
-		Column:   col,
-		Message:  message,
-		BasePath: basePath,
-	}
-
-	renderDevErrorPage(w, devErr)
+	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", message, filePath, line, col))
 }
 
 // scriptLogCapture captures log() output from Parsley scripts

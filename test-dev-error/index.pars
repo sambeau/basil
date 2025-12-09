@@ -1,0 +1,14 @@
+// This handler intentionally causes an error to demonstrate dev_error.pars
+
+// Uncomment ONE of these to see different error types:
+
+// 1. Runtime error - undefined variable
+result = undefinedVariable + 10
+
+// 2. Type error - calling non-function
+// let x = 5
+// x()
+
+// 3. Dictionary access error
+// let obj = {name: "test"}
+// obj.nonexistent.property

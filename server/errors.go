@@ -907,15 +907,48 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	if s.config.Server.Dev && err != nil {
 		errorMap["details"] = err.Error()
 
+		// Try to extract file, line, column from error message
+		// Format: "message at file:line:col"
+		var file string
+		var line, col int
+		errMsg := err.Error()
+
+		// Parse "message at file:line:col" format
+		if parts := regexp.MustCompile(` at (.+):(\d+):(\d+)$`).FindStringSubmatch(errMsg); len(parts) == 4 {
+			file = parts[1]
+			line, _ = strconv.Atoi(parts[2])
+			col, _ = strconv.Atoi(parts[3])
+			// Extract just the message part
+			errMsg = regexp.MustCompile(` at .+:\d+:\d+$`).ReplaceAllString(errMsg, "")
+		}
+
+		if file != "" {
+			errorMap["file"] = file
+			errorMap["line"] = line
+			errorMap["column"] = col
+			errorMap["message_text"] = errMsg
+
+			// Try to get source context
+			if sourceLines := s.getSourceContext(file, line, 3); len(sourceLines) > 0 {
+				// Convert to array of maps for Parsley
+				linesArray := make([]interface{}, len(sourceLines))
+				for i, sl := range sourceLines {
+					linesArray[i] = map[string]interface{}{
+						"number":   sl.Number,
+						"content":  sl.Content,
+						"is_error": sl.IsError,
+					}
+				}
+				errorMap["source"] = linesArray
+			}
+		}
+
 		// Add request information
 		errorMap["request"] = map[string]interface{}{
 			"method": r.Method,
 			"path":   r.URL.Path,
 			"query":  r.URL.RawQuery,
 		}
-
-		// Add stack trace if available (simple version)
-		errorMap["stack"] = fmt.Sprintf("%+v", err)
 	}
 
 	errorObj, _ := parsley.ToParsley(errorMap)
@@ -930,6 +963,40 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	env.Set("basil", basilObj)
 
 	return env
+}
+
+// getSourceContext extracts source lines around an error line
+func (s *Server) getSourceContext(filePath string, errorLine, contextLines int) []SourceLine {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+
+	var lines []SourceLine
+	scanner := bufio.NewScanner(file)
+	lineNum := 1
+	startLine := errorLine - contextLines
+	if startLine < 1 {
+		startLine = 1
+	}
+	endLine := errorLine + contextLines
+
+	for scanner.Scan() {
+		if lineNum >= startLine && lineNum <= endLine {
+			lines = append(lines, SourceLine{
+				Number:  lineNum,
+				Content: scanner.Text(),
+				IsError: lineNum == errorLine,
+			})
+		}
+		if lineNum > endLine {
+			break
+		}
+		lineNum++
+	}
+
+	return lines
 }
 
 // renderPreludeError renders an error page from the prelude
@@ -970,10 +1037,33 @@ func (s *Server) renderPreludeError(w http.ResponseWriter, r *http.Request, code
 		return false
 	}
 
+	// Convert to Go value - should be a string or array of strings
+	value := parsley.FromParsley(result)
+
+	var html string
+	switch v := value.(type) {
+	case string:
+		html = v
+	case []interface{}:
+		// Join array elements into a string
+		var parts []string
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				parts = append(parts, s)
+			} else {
+				parts = append(parts, fmt.Sprint(item))
+			}
+		}
+		html = strings.Join(parts, "")
+	default:
+		s.logError("error page %s did not return a string or array, got %T", pageName, value)
+		return false
+	}
+
 	// Write the response
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
-	fmt.Fprint(w, result.Inspect())
+	fmt.Fprint(w, html)
 	return true
 }
 
