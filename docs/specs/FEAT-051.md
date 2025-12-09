@@ -1,13 +1,29 @@
 ---
 id: FEAT-051
 title: "Standard Prelude"
-status: draft
+status: tracking
 priority: high
 created: 2025-12-08
 author: "@copilot"
+tracking:
+  - FEAT-056
+  - FEAT-057
+  - FEAT-058
+  - FEAT-059
 ---
 
 # FEAT-051: Standard Prelude
+
+> **📋 TRACKING ISSUE**: This feature has been split into smaller, independently implementable features:
+>
+> | Feature | Title | Status | Description |
+> |---------|-------|--------|-------------|
+> | [FEAT-056](FEAT-056.md) | Prelude Infrastructure | draft | Embed system, startup parsing, asset serving |
+> | [FEAT-057](FEAT-057.md) | DevTools in Parsley | draft | File-based routing for `/__/` pages |
+> | [FEAT-058](FEAT-058.md) | HTML Components in Prelude | draft | `std/html` loads from prelude |
+> | [FEAT-059](FEAT-059.md) | Error Pages | draft | 404, 500, dev error pages |
+>
+> **Implementation order**: FEAT-056 → (FEAT-057, FEAT-058, FEAT-059 can be parallel)
 
 ## Summary
 

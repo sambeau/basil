@@ -1,13 +1,16 @@
 ---
 id: FEAT-050
 title: "Built-in JavaScript Assets"
-status: draft
+status: superseded
 priority: medium
 created: 2025-12-08
 author: "@copilot"
+superseded-by: FEAT-056
 ---
 
 # FEAT-050: Built-in JavaScript Assets
+
+> **⚠️ SUPERSEDED**: This feature has been superseded by [FEAT-056](FEAT-056.md) (Prelude Infrastructure), which provides a more general solution that includes JavaScript asset serving as part of the prelude system.
 
 ## Summary
 
