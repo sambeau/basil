@@ -5774,6 +5774,30 @@ func getBuiltins() map[string]*Builtin {
 				return &PrintValue{Values: values}
 			},
 		},
+		"printf": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 2 {
+					return newArityError("printf", len(args), 2)
+				}
+
+				templateStr, ok := args[0].(*String)
+				if !ok {
+					return newTypeError("TYPE-0005", "printf", "a string (template)", args[0].Type())
+				}
+
+				dict, ok := args[1].(*Dictionary)
+				if !ok {
+					return newTypeError("TYPE-0006", "printf", "a dictionary (values)", args[1].Type())
+				}
+
+				renderEnv, errObj := buildRenderEnv(dict.Env, dict)
+				if errObj != nil {
+					return errObj
+				}
+
+				return interpolateRawString(templateStr.Value, renderEnv)
+			},
+		},
 		"fail": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -9411,7 +9435,7 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 	case *SessionModule:
 		return evalSessionMethod(receiver, method, args, env)
 	case *String:
-		return evalStringMethod(receiver, method, args)
+		return evalStringMethod(receiver, method, args, env)
 	case *Array:
 		return evalArrayMethod(receiver, method, args, env)
 	case *Integer:
@@ -9855,6 +9879,76 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			result.WriteByte(template[i])
 			i++
 		}
+	}
+
+	return &String{Value: result.String()}
+}
+
+// interpolateRawString evaluates a string containing @{...} interpolations.
+// Similar to evalTemplateLiteral but uses @{} delimiters and supports \@ for literal @.
+func interpolateRawString(template string, env *Environment) Object {
+	if env == nil {
+		env = NewEnvironment()
+	}
+
+	var result strings.Builder
+	i := 0
+	for i < len(template) {
+		// Handle escaped @
+		if template[i] == '\\' && i+1 < len(template) && template[i+1] == '@' {
+			result.WriteByte('@')
+			i += 2
+			continue
+		}
+
+		// Look for @{
+		if i < len(template)-1 && template[i] == '@' && template[i+1] == '{' {
+			i += 2 // skip @{
+			braceCount := 1
+			exprStart := i
+
+			for i < len(template) && braceCount > 0 {
+				if template[i] == '{' {
+					braceCount++
+				} else if template[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newParseError("PARSE-0009", "raw template", nil)
+			}
+
+			exprStr := template[exprStart:i]
+			i++ // skip closing }
+
+			l := lexer.New(exprStr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				return newParseError("PARSE-0011", "raw template", fmt.Errorf("%s", p.Errors()[0]))
+			}
+
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+
+			if evaluated != nil {
+				result.WriteString(objectToTemplateString(evaluated))
+			}
+			continue
+		}
+
+		result.WriteByte(template[i])
+		i++
 	}
 
 	return &String{Value: result.String()}
@@ -12546,6 +12640,16 @@ func parseYAML(content string) (Object, *Error) {
 // Returns a dictionary with: html, raw, and any frontmatter fields
 func parseMarkdown(content string, env *Environment) (Object, *Error) {
 	pairs := make(map[string]ast.Expression)
+
+	rendered := interpolateRawString(content, env)
+	if errObj, ok := rendered.(*Error); ok {
+		return nil, errObj
+	}
+	renderedStr, ok := rendered.(*String)
+	if !ok {
+		return nil, newFormatError("FMT-0010", fmt.Errorf("invalid rendered markdown content"))
+	}
+	content = renderedStr.Value
 
 	// Check for YAML frontmatter (starts with ---)
 	body := content

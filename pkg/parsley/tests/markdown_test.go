@@ -200,3 +200,45 @@ This is **bold** text.
 		t.Errorf("Expected bold text, got: %s", html)
 	}
 }
+
+func TestMarkdownInterpolatesRawTemplates(t *testing.T) {
+	// Create a temp directory for test files
+	tmpDir, err := os.MkdirTemp("", "parsley-md-interpolation-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mdContent := `# @{title}
+
+Value: @{value}
+Literal: \@{skip}
+`
+	mdPath := filepath.Join(tmpDir, "dynamic.md")
+	if err := os.WriteFile(mdPath, []byte(mdContent), 0644); err != nil {
+		t.Fatalf("Failed to write markdown file: %v", err)
+	}
+
+	testFilePath := filepath.Join(tmpDir, "test.pars")
+	code := `let title = "Hello"; let value = 42; let post <== markdown(@./dynamic.md); post.html`
+	result := testEvalMDWithFilename(code, testFilePath)
+
+	if result == nil {
+		t.Fatalf("Result is nil")
+	}
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("Evaluation error: %s", result.Inspect())
+	}
+
+	html := result.Inspect()
+	if !strings.Contains(html, "<h1>Hello</h1>") {
+		t.Errorf("Expected interpolated title, got: %s", html)
+	}
+	if !strings.Contains(html, "Value: 42") {
+		t.Errorf("Expected interpolated value, got: %s", html)
+	}
+	if !strings.Contains(html, "@{skip}") {
+		t.Errorf("Expected escaped interpolation to remain literal, got: %s", html)
+	}
+}

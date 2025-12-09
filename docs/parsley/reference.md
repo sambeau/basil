@@ -269,6 +269,7 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `.highlight(phrase)` | Highlight search matches | `"hello world".highlight("world")` → `"hello <mark>world</mark>"` |
 | `.highlight(phrase, tag)` | With custom tag | `"hello".highlight("ell", "strong")` → `"h<strong>ell</strong>o"` |
 | `.paragraphs()` | Text to HTML paragraphs | `"Para one.\n\nPara two.".paragraphs()` → `"<p>Para one.</p><p>Para two.</p>"` |
+| `.render(dict?)` | Render `@{...}` with current scope or a provided dictionary; use `\@` to escape | `"color @{c}".render({c: "red"})` → `"color red"` |
 
 ### Indexing and Slicing
 
@@ -291,6 +292,22 @@ a ?? b ?? c ?? "default"   // First non-null value
 let name = "World"
 "Hello, {name}!"  // "Hello, World!"
 ```
+
+### Raw Templates with `.render()`
+
+Use `@{...}` when you want braces to stay literal until you explicitly render the string. The optional
+dictionary argument provides a custom scope; otherwise the current scope is used.
+
+```parsley
+let css = "width: @{w * 2}px; {kept}"
+css.render({w: 10})                // "width: 20px; {kept}"
+printf("Hi @{name}!", {name: "Ada"}) // Builtin synonym
+{title: "Home"}.render("Title: @{title}") // Dictionary synonym
+"Email: \\@{help} @{user}".render({user: "alice"}) // "Email: @{help} alice"
+```
+
+`@{...}` accepts full expressions (math, conditionals, method chains). Use `\@` to escape the at-sign.
+`markdown()` applies the same rendering pass to file content before converting to HTML.
 
 ---
 
@@ -418,6 +435,7 @@ arr[?-99]    // null
 | `.delete(key)` | Remove key | `d.delete("a")` → removes key `a` |
 | `.insertAfter(k, newK, v)` | Insert after key | `{a:1,c:3}.insertAfter("a","b",2)` → `{a:1,b:2,c:3}` |
 | `.insertBefore(k, newK, v)` | Insert before key | `{b:2,c:3}.insertBefore("b","a",1)` → `{a:1,b:2,c:3}` |
+| `.render(template)` | Render `template` with dictionary values and `@{...}` | `{name: "Ada"}.render("Hi @{name}")` → `"Hi Ada"` |
 
 ### Access
 
@@ -1031,7 +1049,7 @@ log(u)             // https://api.example.com/v1
 | `file(path)` | Auto-detect | Depends on ext | String |
 | `JSON(path)` | JSON | Dict or Array | Dict or Array |
 | `CSV(path)` | CSV | Array of Dicts | Array of Dicts |
-| `markdown(path)` | Markdown | Dict (html + frontmatter) | String |
+| `markdown(path)` | Markdown | Dict (html + frontmatter, `@{...}` rendered) | String |
 | `SVG(path)` | SVG | String (prolog stripped) | String |
 | `lines(path)` | Lines | Array of Strings | Array of Strings |
 | `text(path)` | Text | String | String |
@@ -1095,7 +1113,7 @@ post.title       // From frontmatter
 post.date        // Parsed as DateTime if ISO format
 post.tags        // Array from frontmatter
 post.html        // Rendered HTML
-post.raw         // Original markdown body
+post.raw         // Rendered markdown body (after `@{...}`)
 
 // Destructure from file
 let {name, version} <== JSON(@./package.json)

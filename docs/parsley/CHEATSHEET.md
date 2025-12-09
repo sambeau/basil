@@ -342,6 +342,7 @@ data =/=> conn(@/remote/file.json).json
 "hello".includes("ell")     // true (substring check)
 "hello world".highlight("world")  // "hello <mark>world</mark>"
 "Para 1\n\nPara 2".paragraphs()   // "<p>Para 1</p><p>Para 2</p>"
+"color @{c}".render({c: "red"})   // @{...} stays literal until render()
 
 // Number methods
 1234567.humanize()          // "1.2M"
@@ -387,7 +388,7 @@ arr[?0] ?? "default"        // 1 (combine with null coalesce)
 file(@path)      // Auto-detect format from extension
 JSON(@path)      // Parse as JSON
 CSV(@path)       // Parse as CSV
-markdown(@path)        // Markdown with frontmatter
+markdown(@path)        // Markdown with @{...} rendering + frontmatter
 text(@path)      // Plain text (use for HTML files)
 lines(@path)     // Array of lines
 bytes(@path)     // Byte array
@@ -848,6 +849,17 @@ valid.oneOf("red", ["red","green","blue"]) // true
 1234567890.humanize()             // "1.2B"
 1234.humanize("de")               // "1,2K" (German locale)
 ```
+
+### Raw Templates (`@{...}`)
+```parsley
+let tpl = "width @{w}px; {kept}"
+tpl.render({w: 20})                    // "width 20px; {kept}"
+printf("Hi @{name}", {name: "Ada"})      // Builtin synonym
+{title: "Home"}.render("Title @{title}") // Dictionary synonym
+"Email: \\@{help} @{user}".render({user: "sam"}) // Escape @
+```
+`@{...}` runs full expressions and stays literal until rendered. `markdown()` files use the same
+render pass before HTML conversion.
 
 ---
 

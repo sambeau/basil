@@ -27,7 +27,7 @@ import (
 // stringMethods lists all methods available on string
 var stringMethods = []string{
 	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
-	"highlight", "paragraphs",
+	"render", "highlight", "paragraphs",
 }
 
 // arrayMethods lists all methods available on array
@@ -50,7 +50,7 @@ var floatMethods = []string{
 
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
-	"keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore",
+	"keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -64,12 +64,29 @@ func unknownMethodError(method, typeName string, availableMethods []string) *Err
 	}
 }
 
+// buildRenderEnv creates an environment seeded with the provided dictionary's evaluated values.
+// Values are evaluated in the dictionary's own environment, then bound in a new environment that
+// encloses the provided base environment so callers retain outer-scope access.
+func buildRenderEnv(baseEnv *Environment, dict *Dictionary) (*Environment, Object) {
+	renderEnv := NewEnclosedEnvironment(baseEnv)
+
+	for key, valExpr := range dict.Pairs {
+		val := Eval(valExpr, dict.Env)
+		if isError(val) {
+			return nil, val
+		}
+		renderEnv.Set(key, val)
+	}
+
+	return renderEnv, nil
+}
+
 // ============================================================================
 // String Methods
 // ============================================================================
 
 // evalStringMethod evaluates a method call on a String
-func evalStringMethod(str *String, method string, args []Object) Object {
+func evalStringMethod(str *String, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toUpper":
 		if len(args) != 0 {
@@ -164,6 +181,31 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 			return newArityError("paragraphs", len(args), 0)
 		}
 		return &String{Value: textToParagraphs(str.Value)}
+
+	case "render":
+		if len(args) > 1 {
+			return newArityErrorRange("render", len(args), 0, 1)
+		}
+
+		if env == nil {
+			env = NewEnvironment()
+		}
+
+		renderEnv := env
+		if len(args) == 1 {
+			dict, ok := args[0].(*Dictionary)
+			if !ok {
+				return newTypeError("TYPE-0012", "render", "a dictionary", args[0].Type())
+			}
+
+			var errObj Object
+			renderEnv, errObj = buildRenderEnv(env, dict)
+			if errObj != nil {
+				return errObj
+			}
+		}
+
+		return interpolateRawString(str.Value, renderEnv)
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)
@@ -737,6 +779,23 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 			return newStructuredError("TYPE-0023", map[string]any{"Key": newKey.Value})
 		}
 		return insertDictKeyBefore(dict, existingKey.Value, newKey.Value, args[2], env)
+
+	case "render":
+		if len(args) != 1 {
+			return newArityError("render", len(args), 1)
+		}
+
+		templateStr, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "render", "a string", args[0].Type())
+		}
+
+		renderEnv, errObj := buildRenderEnv(env, dict)
+		if errObj != nil {
+			return errObj
+		}
+
+		return interpolateRawString(templateStr.Value, renderEnv)
 
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
