@@ -2,6 +2,7 @@
 server:
   host: localhost
   port: 8080
+  dev: true
 
 logging:
   level: debug

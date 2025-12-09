@@ -35,7 +35,7 @@ export getById = api.public(fn(req) { {id: req.params.id} })
 	stdout := &noopBuffer{}
 	stderr := &noopBuffer{}
 
-	srv, err := New(cfg, "", "test", stdout, stderr)
+	srv, err := New(cfg, "", "test", "test-commit", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -98,7 +98,7 @@ export get = fn(req) { {ok: true} }
 	stdout := &noopBuffer{}
 	stderr := &noopBuffer{}
 
-	srv, err := New(cfg, "", "test", stdout, stderr)
+	srv, err := New(cfg, "", "test", "test-commit", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -136,7 +136,7 @@ export get = api.public(fn(req) { {ok: true} })
 	stdout := &noopBuffer{}
 	stderr := &noopBuffer{}
 
-	srv, err := New(cfg, "", "test", stdout, stderr)
+	srv, err := New(cfg, "", "test", "test-commit", stdout, stderr)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}

@@ -131,7 +131,7 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	version := fmt.Sprintf("version %s (%s)", Version, Commit)
 
 	// Create server
-	srv, err := server.New(cfg, configFile, version, stdout, stderr)
+	srv, err := server.New(cfg, configFile, version, Commit, stdout, stderr)
 	if err != nil {
 		return fmt.Errorf("creating server: %w", err)
 	}

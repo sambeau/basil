@@ -22,7 +22,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg.Server.Dev = true
 
 		var stdout, stderr bytes.Buffer
-		s, err := New(cfg, "", "test", &stdout, &stderr)
+		s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -39,7 +39,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg.SQLite = "test.db"
 
 		var stdout, stderr bytes.Buffer
-		s, err := New(cfg, "", "test", &stdout, &stderr)
+		s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -63,7 +63,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg.SQLite = dbPath // Absolute path
 
 		var stdout, stderr bytes.Buffer
-		s, err := New(cfg, "", "test", &stdout, &stderr)
+		s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -125,7 +125,7 @@ let users = basil.sqlite <=??=> "SELECT id, name FROM users ORDER BY id"
 	}
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestDatabaseShutdown(t *testing.T) {
 	cfg.SQLite = dbPath
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

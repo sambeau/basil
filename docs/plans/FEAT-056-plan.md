@@ -150,12 +150,13 @@ Tests:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Directory Structure | ⬜ Not Started | — |
-| | Task 2: Embed System | ⬜ Not Started | — |
-| | Task 3: Asset Handler | ⬜ Not Started | — |
-| | Task 4: JSAssetURL | ⬜ Not Started | — |
-| | Task 5: Server Integration | ⬜ Not Started | — |
-| | Task 6: Export Functions | ⬜ Not Started | — |
+| 2025-12-09 | Task 1: Directory Structure | ✅ Complete | Created prelude/js/basil.js |
+| 2025-12-09 | Task 2: Embed System | ✅ Complete | Implemented initPrelude() with fail-fast parsing |
+| 2025-12-09 | Task 3: Asset Handler | ✅ Complete | handlePreludeAsset() serves /__/js/, /__/css/, /__/public/ |
+| 2025-12-09 | Task 4: JSAssetURL | ✅ Complete | Version hash from commit or content |
+| 2025-12-09 | Task 5: Server Integration | ✅ Complete | initPrelude() called in New(), routes registered |
+| 2025-12-09 | Task 6: Export Functions | ✅ Complete | GetPreludeAST() and HasPreludeAST() |
+| 2025-12-09 | Tests | ✅ Complete | 10 test functions, all passing |
 
 ## Deferred Items
 

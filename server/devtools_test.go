@@ -18,7 +18,7 @@ func TestDevToolsIndex(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestDevToolsLogsHTML(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestDevToolsLogsText(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestDevToolsLogsClear(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestDevToolsLogsRoute(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestDevTools404InProduction(t *testing.T) {
 	cfg.Server.Dev = false // Production mode
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestDevToolsEmptyState(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestDevToolsWarnLevel(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestDevToolsEnv(t *testing.T) {
 	cfg.Server.Port = 8080
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "v1.2.3", &stdout, &stderr)
+	s, err := New(cfg, "", "v1.2.3", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -390,7 +390,7 @@ func TestDevToolsEnvNoSecrets(t *testing.T) {
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
-	s, err := New(cfg, "", "test", &stdout, &stderr)
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}

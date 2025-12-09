@@ -63,7 +63,7 @@ type Server struct {
 }
 
 // New creates a new Basil server with the given configuration.
-func New(cfg *config.Config, configPath string, version string, stdout, stderr io.Writer) (*Server, error) {
+func New(cfg *config.Config, configPath string, version, commit string, stdout, stderr io.Writer) (*Server, error) {
 	s := &Server{
 		config:        cfg,
 		configPath:    configPath,
@@ -76,6 +76,11 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		fragmentCache: newFragmentCache(cfg.Server.Dev, 1000),
 		rateLimiter:   newRateLimiter(60, time.Minute),
 		csrfMW:        NewCSRFMiddleware(cfg.Server.Dev),
+	}
+
+	// Initialize prelude (embedded assets and Parsley files)
+	if err := initPrelude(commit); err != nil {
+		return nil, fmt.Errorf("initializing prelude: %w", err)
 	}
 
 	// Initialize CORS middleware if configured
@@ -376,6 +381,11 @@ func (s *Server) initGit() error {
 func (s *Server) setupRoutes() error {
 	// Register asset handler for publicUrl() files at /__p/
 	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry))
+
+	// Register prelude asset handlers
+	s.mux.HandleFunc("/__/js/", s.handlePreludeAsset)
+	s.mux.HandleFunc("/__/css/", s.handlePreludeAsset)
+	s.mux.HandleFunc("/__/public/", s.handlePreludeAsset)
 
 	// In dev mode, add dev tools endpoints
 	if s.config.Server.Dev {
