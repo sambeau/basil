@@ -248,6 +248,17 @@ func (dl *DatetimeLiteral) expressionNode()      {}
 func (dl *DatetimeLiteral) TokenLiteral() string { return dl.Token.Literal }
 func (dl *DatetimeLiteral) String() string       { return "@" + dl.Value }
 
+// DatetimeNowLiteral represents current time/date/datetime literals like @now, @timeNow, @dateNow, @today
+// Kind indicates which dictionary shape to produce: "datetime", "date", or "time".
+type DatetimeNowLiteral struct {
+	Token lexer.Token // the lexer.DATETIME_NOW, TIME_NOW, or DATE_NOW token
+	Kind  string
+}
+
+func (dnl *DatetimeNowLiteral) expressionNode()      {}
+func (dnl *DatetimeNowLiteral) TokenLiteral() string { return dnl.Token.Literal }
+func (dnl *DatetimeNowLiteral) String() string       { return "@" + dnl.Token.Literal }
+
 // DurationLiteral represents duration literals like @2h30m, @7d, @1y6mo
 type DurationLiteral struct {
 	Token lexer.Token // the lexer.DURATION_LITERAL token

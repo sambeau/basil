@@ -22,6 +22,9 @@ const (
 	TEMPLATE          // `template ${expr}`
 	REGEX             // /pattern/flags
 	DATETIME_LITERAL  // @2024-12-25T14:30:00Z
+	DATETIME_NOW      // @now
+	TIME_NOW          // @timeNow
+	DATE_NOW          // @dateNow, @today
 	DURATION_LITERAL  // @2h30m, @7d, @1y6mo
 	PATH_LITERAL      // @/usr/local, @./config
 	URL_LITERAL       // @https://example.com
@@ -136,6 +139,12 @@ func (tt TokenType) String() string {
 		return "REGEX"
 	case DATETIME_LITERAL:
 		return "DATETIME_LITERAL"
+	case DATETIME_NOW:
+		return "DATETIME_NOW"
+	case TIME_NOW:
+		return "TIME_NOW"
+	case DATE_NOW:
+		return "DATE_NOW"
 	case DURATION_LITERAL:
 		return "DURATION_LITERAL"
 	case PATH_LITERAL:
@@ -737,6 +746,15 @@ func (l *Lexer) NextToken() Token {
 		// Peek ahead to determine the literal type
 		literalType := l.detectAtLiteralType()
 		switch literalType {
+		case DATETIME_NOW:
+			tok.Type = DATETIME_NOW
+			tok.Literal = l.readNowLiteral("now")
+		case TIME_NOW:
+			tok.Type = TIME_NOW
+			tok.Literal = l.readNowLiteral("timeNow")
+		case DATE_NOW:
+			tok.Type = DATE_NOW
+			tok.Literal = l.readNowLiteral(l.detectDateNowKeyword())
 		case DATETIME_LITERAL:
 			tok.Type = DATETIME_LITERAL
 			tok.Literal = l.readDatetimeLiteral()
@@ -2104,6 +2122,17 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		return STDLIB_PATH
 	}
 
+	// Check for @now-style literals
+	if l.isKeywordAt(pos, "now") {
+		return DATETIME_NOW
+	}
+	if l.isKeywordAt(pos, "timeNow") {
+		return TIME_NOW
+	}
+	if l.isKeywordAt(pos, "dateNow") || l.isKeywordAt(pos, "today") {
+		return DATE_NOW
+	}
+
 	// Check for @- (stdin/stdout) - must be just "-" not followed by path char or digit
 	if l.input[pos] == '-' {
 		// Check next char - if it's not a digit and not a path char, it's stdin
@@ -2184,6 +2213,42 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 
 	// Default to duration
 	return DURATION_LITERAL
+}
+
+// isKeywordAt reports whether the given keyword appears at position pos
+// and is not followed by additional identifier characters.
+func (l *Lexer) isKeywordAt(pos int, keyword string) bool {
+	end := pos + len(keyword)
+	if end > len(l.input) {
+		return false
+	}
+	if string(l.input[pos:end]) != keyword {
+		return false
+	}
+	if end < len(l.input) && (isLetter(l.input[end]) || isDigit(l.input[end])) {
+		return false
+	}
+	return true
+}
+
+// detectDateNowKeyword identifies whether the current @date literal keyword
+// is "dateNow" or the synonym "today".
+func (l *Lexer) detectDateNowKeyword() string {
+	pos := l.readPosition
+	if l.isKeywordAt(pos, "dateNow") {
+		return "dateNow"
+	}
+	return "today"
+}
+
+// readNowLiteral consumes the @ prefix and advances past the keyword,
+// returning the matched literal keyword.
+func (l *Lexer) readNowLiteral(keyword string) string {
+	l.readChar() // skip @
+	for i := 0; i < len(keyword); i++ {
+		l.readChar()
+	}
+	return keyword
 }
 
 // readPathLiteral reads a path literal after @

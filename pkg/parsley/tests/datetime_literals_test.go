@@ -188,6 +188,28 @@ func TestDatetimeLiteralEquivalence(t *testing.T) {
 	}
 }
 
+func TestDatetimeNowLiterals(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"@now.kind", "datetime"},
+		{"@timeNow.kind", "time"},
+		{"@dateNow.kind", "date"},
+		{"@today.kind", "date"},
+		{"now().kind", "datetime"},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalDatetime(tt.input)
+		testExpectedDatetime(t, tt.input, evaluated, tt.expected)
+	}
+
+	// Ensure today/dateNow share the same kind marker
+	comparison := testEvalDatetime("@today.kind == @dateNow.kind")
+	testExpectedDatetime(t, "@today.kind == @dateNow.kind", comparison, "true")
+}
+
 func TestDatetimeLiteralInExpressions(t *testing.T) {
 	tests := []struct {
 		input    string

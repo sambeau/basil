@@ -91,6 +91,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.STRING, p.parseStringLiteral)
 	p.registerPrefix(lexer.TEMPLATE, p.parseTemplateLiteral)
 	p.registerPrefix(lexer.REGEX, p.parseRegexLiteral)
+	p.registerPrefix(lexer.DATETIME_NOW, p.parseDatetimeNow)
+	p.registerPrefix(lexer.TIME_NOW, p.parseTimeNow)
+	p.registerPrefix(lexer.DATE_NOW, p.parseDateNow)
 	p.registerPrefix(lexer.DATETIME_LITERAL, p.parseDatetimeLiteral)
 	p.registerPrefix(lexer.DURATION_LITERAL, p.parseDurationLiteral)
 	p.registerPrefix(lexer.MONEY, p.parseMoneyLiteral)
@@ -831,6 +834,25 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 		Pattern: pattern,
 		Flags:   flags,
 	}
+}
+
+func (p *Parser) parseDatetimeNowLiteral(kind string) ast.Expression {
+	return &ast.DatetimeNowLiteral{
+		Token: p.curToken,
+		Kind:  kind,
+	}
+}
+
+func (p *Parser) parseDatetimeNow() ast.Expression {
+	return p.parseDatetimeNowLiteral("datetime")
+}
+
+func (p *Parser) parseTimeNow() ast.Expression {
+	return p.parseDatetimeNowLiteral("time")
+}
+
+func (p *Parser) parseDateNow() ast.Expression {
+	return p.parseDatetimeNowLiteral("date")
 }
 
 func (p *Parser) parseDatetimeLiteral() ast.Expression {
@@ -2028,6 +2050,12 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "regex"
 	case lexer.DATETIME_LITERAL:
 		return "datetime"
+	case lexer.DATETIME_NOW:
+		return "datetime"
+	case lexer.TIME_NOW:
+		return "time"
+	case lexer.DATE_NOW:
+		return "date"
 	case lexer.DURATION_LITERAL:
 		return "duration"
 	case lexer.PATH_LITERAL:

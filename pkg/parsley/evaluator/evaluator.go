@@ -334,7 +334,8 @@ type BuiltinFunction func(args ...Object) Object
 
 // Builtin represents built-in function objects
 type Builtin struct {
-	Fn BuiltinFunction
+	Fn        BuiltinFunction
+	FnWithEnv func(env *Environment, args ...Object) Object
 }
 
 func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
@@ -612,6 +613,23 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.DevMode = outer.DevMode
 	}
 	return env
+}
+
+func logDeprecation(env *Environment, callRepr, suggestion string) {
+	if env == nil || env.DevLog == nil {
+		return
+	}
+
+	filename := env.Filename
+	line := 0
+	if env.LastToken != nil {
+		line = env.LastToken.Line
+	}
+
+	message := fmt.Sprintf("%s is deprecated; use %s", callRepr, suggestion)
+	if err := env.DevLog.LogFromEvaluator(env.HandlerPath, "warn", filename, line, callRepr, message); err != nil {
+		fmt.Printf("[WARN] deprecation log failed: %v\n", err)
+	}
 }
 
 // Get retrieves a value from the environment
@@ -1930,6 +1948,16 @@ func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
 	}
 
 	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+func evalDatetimeNowLiteral(node *ast.DatetimeNowLiteral, env *Environment) Object {
+	kind := node.Kind
+	if kind == "" {
+		kind = "datetime"
+	}
+
+	now := time.Now()
+	return timeToDictWithKind(now, kind, env)
 }
 
 // evalDatetimeLiteral evaluates a datetime literal like @2024-12-25T14:30:00Z or @12:30
@@ -4544,14 +4572,17 @@ func getBuiltins() map[string]*Builtin {
 			},
 		},
 		"now": {
-			Fn: func(args ...Object) Object {
+			FnWithEnv: func(env *Environment, args ...Object) Object {
 				if len(args) != 0 {
 					return newArityError("now", len(args), 0)
 				}
-				// Get current environment from context (we'll pass it through the Builtin)
-				// For now, create a new environment for the dictionary
-				env := NewEnvironment()
-				return timeToDict(time.Now(), env)
+
+				if env == nil {
+					env = NewEnvironment()
+				}
+
+				logDeprecation(env, "now()", "@now")
+				return timeToDictWithKind(time.Now(), "datetime", env)
 			},
 		},
 		"time": {
@@ -6694,6 +6725,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.RegexLiteral:
 		return evalRegexLiteral(node, env)
 
+	case *ast.DatetimeNowLiteral:
+		return evalDatetimeNowLiteral(node, env)
+
 	case *ast.DatetimeLiteral:
 		return evalDatetimeLiteral(node, env)
 
@@ -7993,6 +8027,9 @@ func applyFunction(fn Object, args []Object) Object {
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
+		if fn.FnWithEnv != nil {
+			return fn.FnWithEnv(nil, args...)
+		}
 		return fn.Fn(args...)
 	case *StdlibBuiltin:
 		// StdlibBuiltin needs an environment but applyFunction doesn't have one
@@ -8024,7 +8061,12 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
-		result := fn.Fn(args...)
+		var result Object
+		if fn.FnWithEnv != nil {
+			result = fn.FnWithEnv(env, args...)
+		} else {
+			result = fn.Fn(args...)
+		}
 		// Add position info to builtin errors for better debugging
 		if isError(result) {
 			return enrichErrorWithPos(result, env.LastToken)
