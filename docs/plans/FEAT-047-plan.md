@@ -2,8 +2,9 @@
 id: PLAN-047
 feature: FEAT-047
 title: "Implementation Plan for CORS Configuration"
-status: draft
+status: implemented
 created: 2025-12-09
+implemented: 2025-12-09
 ---
 
 # Implementation Plan: FEAT-047 (CORS Configuration)
@@ -189,12 +190,12 @@ Steps:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| — | Task 1: Config types | ⬜ Not started | — |
-| — | Task 2: Config parsing | ⬜ Not started | — |
-| — | Task 3: CORS middleware | ⬜ Not started | — |
-| — | Task 4: Server wiring | ⬜ Not started | — |
-| — | Task 5: cors() function | ⬜ Not started | — |
-| — | Task 6: Documentation | ⬜ Not started | — |
+| 2025-12-09 | Task 1: Config types | ✅ Complete | Added CORSConfig struct and StringOrSlice helper |
+| 2025-12-09 | Task 2: Config parsing | ✅ Complete | Validation rejects wildcard with credentials |
+| 2025-12-09 | Task 3: CORS middleware | ✅ Complete | Full implementation with preflight support |
+| 2025-12-09 | Task 4: Server wiring | ✅ Complete | Added to middleware chain after security headers |
+| — | Task 5: cors() function | ⬜ Deferred | Per-handler overrides deferred to future PR |
+| — | Task 6: Documentation | ⬜ Deferred | Will document after cors() function added |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:

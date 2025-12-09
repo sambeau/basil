@@ -7,6 +7,7 @@ type Config struct {
 	BaseDir    string                     `yaml:"-"` // Directory containing config file, for resolving relative paths
 	Server     ServerConfig               `yaml:"server"`
 	Security   SecurityConfig             `yaml:"security"`
+	CORS       CORSConfig                 `yaml:"cors"`
 	Auth       AuthConfig                 `yaml:"auth"`
 	Session    SessionConfig              `yaml:"session"`
 	Git        GitConfig                  `yaml:"git"`
@@ -71,6 +72,45 @@ type HSTSConfig struct {
 	MaxAge            string `yaml:"max_age"`            // HSTS max-age in seconds (default: "31536000" = 1 year)
 	IncludeSubDomains bool   `yaml:"include_subdomains"` // Include subdomains in HSTS
 	Preload           bool   `yaml:"preload"`            // Allow HSTS preload list submission
+}
+
+// CORSConfig holds CORS (Cross-Origin Resource Sharing) settings
+type CORSConfig struct {
+	Origins     StringOrSlice `yaml:"origins"`     // "*" or list of allowed origins
+	Methods     []string      `yaml:"methods"`     // Allowed HTTP methods (default: GET, HEAD, POST)
+	Headers     []string      `yaml:"headers"`     // Allowed request headers
+	Expose      []string      `yaml:"expose"`      // Response headers exposed to browser
+	Credentials bool          `yaml:"credentials"` // Allow credentials (cookies, auth headers)
+	MaxAge      int           `yaml:"maxAge"`      // Preflight cache duration in seconds
+}
+
+// StringOrSlice supports YAML fields that can be either a string or a slice of strings
+type StringOrSlice []string
+
+// UnmarshalYAML implements yaml.Unmarshaler to handle both string and []string
+func (s *StringOrSlice) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var single string
+	if err := unmarshal(&single); err == nil {
+		*s = []string{single}
+		return nil
+	}
+
+	var slice []string
+	if err := unmarshal(&slice); err != nil {
+		return err
+	}
+	*s = slice
+	return nil
+}
+
+// Contains checks if the slice contains the given string
+func (s StringOrSlice) Contains(str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 // AuthConfig holds authentication settings
@@ -162,6 +202,11 @@ func Defaults() *Config {
 			FrameOptions:       "DENY",
 			XSSProtection:      "1; mode=block",
 			ReferrerPolicy:     "strict-origin-when-cross-origin",
+		},
+		CORS: CORSConfig{
+			// Empty by default - CORS disabled unless configured
+			Methods: []string{"GET", "HEAD", "POST"},
+			MaxAge:  86400, // 24 hours
 		},
 		Auth: AuthConfig{
 			Enabled:      false,

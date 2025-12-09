@@ -225,6 +225,14 @@ func validateBasic(cfg *Config) error {
 		errs = append(errs, fmt.Sprintf("invalid log format: %s (must be json or text)", cfg.Logging.Format))
 	}
 
+	// CORS validation
+	if len(cfg.CORS.Origins) > 0 {
+		// Cannot use wildcard origin with credentials
+		if cfg.CORS.Credentials && cfg.CORS.Origins.Contains("*") {
+			errs = append(errs, "cors: cannot use origins '*' with credentials true (browsers reject this)")
+		}
+	}
+
 	if len(errs) > 0 {
 		return fmt.Errorf("configuration errors:\n  - %s", strings.Join(errs, "\n  - "))
 	}

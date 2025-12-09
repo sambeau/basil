@@ -55,6 +55,9 @@ type Server struct {
 	// CSRF middleware
 	csrfMW *CSRFMiddleware
 
+	// CORS middleware
+	corsMW *CORSMiddleware
+
 	// Git server (nil if git not enabled)
 	gitHandler *GitHandler
 }
@@ -73,6 +76,11 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		fragmentCache: newFragmentCache(cfg.Server.Dev, 1000),
 		rateLimiter:   newRateLimiter(60, time.Minute),
 		csrfMW:        NewCSRFMiddleware(cfg.Server.Dev),
+	}
+
+	// Initialize CORS middleware if configured
+	if len(cfg.CORS.Origins) > 0 {
+		s.corsMW = NewCORSMiddleware(cfg.CORS)
 	}
 
 	// Initialize asset registry (logger for warnings, nil for production silent mode)
@@ -673,6 +681,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// Add security headers
 	handler = newSecurityHeaders(handler, s.config.Security, s.config.Server.Dev)
+
+	// Add CORS middleware if configured
+	if s.corsMW != nil {
+		handler = s.corsMW.Handler(handler)
+	}
 
 	// Wrap with request logging middleware (unless level is error-only)
 	if s.config.Logging.Level != "error" {

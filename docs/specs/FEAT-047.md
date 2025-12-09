@@ -1,9 +1,10 @@
 ---
 id: FEAT-047
 title: "CORS Configuration"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-07
+implemented: 2025-12-09
 author: "@human"
 ---
 
@@ -16,13 +17,13 @@ Add Cross-Origin Resource Sharing (CORS) configuration to allow APIs to be consu
 As a Basil developer building an API, I want to configure CORS so that my frontend application on a different domain can call my API endpoints.
 
 ## Acceptance Criteria
-- [ ] Global CORS config in `basil.yaml` under `cors:` key
-- [ ] Supports: `origins`, `methods`, `headers`, `expose`, `credentials`, `maxAge`
-- [ ] Automatically handles OPTIONS preflight requests
-- [ ] `cors()` function in Parsley for per-handler overrides
-- [ ] `credentials: true` requires specific origin (not `*`)
-- [ ] Validates configuration and errors on invalid combinations
-- [ ] Documentation with common patterns
+- [x] Global CORS config in `basil.yaml` under `cors:` key
+- [x] Supports: `origins`, `methods`, `headers`, `expose`, `credentials`, `maxAge`
+- [x] Automatically handles OPTIONS preflight requests
+- [ ] `cors()` function in Parsley for per-handler overrides (deferred)
+- [x] `credentials: true` requires specific origin (not `*`)
+- [x] Validates configuration and errors on invalid combinations
+- [ ] Documentation with common patterns (deferred)
 
 ## Design Decisions
 
