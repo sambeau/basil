@@ -534,6 +534,52 @@ server:
 
 **Security note:** Only enable `proxy.trusted` when actually behind a proxy. Untrusted clients could spoof headers otherwise.
 
+## CORS (Cross-Origin Resource Sharing)
+
+CORS allows your Basil API to be called from JavaScript running on different domains (e.g., when your frontend and backend are on separate domains or ports).
+
+### Quick Setup
+
+For local development with a frontend on port 3000:
+
+```yaml
+cors:
+  origins: http://localhost:3000
+  credentials: true
+```
+
+For production with multiple frontends:
+
+```yaml
+cors:
+  origins:
+    - https://app.example.com
+    - https://admin.example.com
+  methods: [GET, POST, PUT, DELETE]
+  headers: [Content-Type, Authorization]
+  credentials: true
+  maxAge: 86400  # Cache preflight for 24 hours
+```
+
+### Configuration Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `origins` | Allowed domains (string or array) | `https://app.example.com` or `["https://app.com", "https://staging.app.com"]` |
+| `methods` | Allowed HTTP methods | `[GET, POST, PUT, DELETE]` (default: `[GET, HEAD, POST]`) |
+| `headers` | Allowed request headers | `[Content-Type, Authorization]` |
+| `expose` | Response headers accessible to JavaScript | `[X-Total-Count, X-Page]` |
+| `credentials` | Allow cookies/auth headers | `true` or `false` (default: `false`) |
+| `maxAge` | Preflight cache duration (seconds) | `86400` (default: 24 hours) |
+
+### Important Notes
+
+- Cannot use `origins: "*"` with `credentials: true` (browsers reject this)
+- CORS is disabled by default (no origins = no CORS headers)
+- Basil automatically handles OPTIONS preflight requests
+
+**See the [CORS Guide](./cors.md) for detailed examples and troubleshooting.**
+
 ## Response Caching
 
 Basil can cache generated responses per-route for improved performance.
