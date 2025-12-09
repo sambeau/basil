@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>Basil Logs{if (devtools.route) { ": " + devtools.route }}</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: #1a1a2e;
+			color: #eee;
+			padding: 2rem;
+			min-height: 100vh;
+		}
+		.container {
+			max-width: 1200px;
+			margin: 0 auto;
+		}
+		.header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 1.5rem;
+		}
+		h1 {
+			font-size: 1.5rem;
+			color: #4ecdc4;
+		}
+		.actions {
+			display: flex;
+			gap: 0.75rem;
+		}
+		.btn {
+			background: #16213e;
+			color: #eee;
+			padding: 0.5rem 1rem;
+			border-radius: 4px;
+			text-decoration: none;
+			font-size: 0.875rem;
+			border: 1px solid #4ecdc4;
+			transition: background 0.2s;
+		}
+		.btn:hover {
+			background: #4ecdc4;
+			color: #1a1a2e;
+		}
+		.btn-danger {
+			border-color: #ff6b6b;
+		}
+		.btn-danger:hover {
+			background: #ff6b6b;
+		}
+		.stats {
+			background: #16213e;
+			border-radius: 8px;
+			padding: 1rem 1.25rem;
+			margin-bottom: 1rem;
+			border-left: 4px solid #4ecdc4;
+			color: #bbb;
+			font-size: 0.875rem;
+		}
+		.empty-state {
+			background: #16213e;
+			border-radius: 8px;
+			padding: 3rem;
+			text-align: center;
+			color: #7f8c8d;
+		}
+		.empty-state code {
+			background: #1a1a2e;
+			padding: 0.2rem 0.5rem;
+			border-radius: 4px;
+			color: #4ecdc4;
+		}
+		.log-entry {
+			background: #16213e;
+			border-radius: 8px;
+			padding: 1rem;
+			margin-bottom: 0.75rem;
+			border-left: 4px solid #4ecdc4;
+		}
+		.log-entry.warn {
+			border-left-color: #ff6b6b;
+		}
+		.log-header {
+			display: flex;
+			gap: 1rem;
+			margin-bottom: 0.5rem;
+			font-size: 0.875rem;
+			color: #7f8c8d;
+		}
+		.log-icon {
+			font-size: 1rem;
+		}
+		.log-file, .log-time {
+			font-family: 'Monaco', 'Courier New', monospace;
+		}
+		.log-call {
+			color: #4ecdc4;
+			font-family: 'Monaco', 'Courier New', monospace;
+			font-size: 0.875rem;
+			margin-bottom: 0.5rem;
+		}
+		.log-value {
+			color: #eee;
+			font-family: 'Monaco', 'Courier New', monospace;
+			font-size: 0.875rem;
+			padding: 0.5rem;
+			background: #1a1a2e;
+			border-radius: 4px;
+			overflow-x: auto;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>📋 Basil Logs{if (devtools.route) { ": " + devtools.route }}</h1>
+			<div class="actions">
+				<a href="/__/" class="btn">← Back</a>
+				{if (devtools.log_count > 0) {
+					<a href="{devtools.clear_url}" class="btn btn-danger">Clear Logs</a>
+				}}
+			</div>
+		</div>
+
+		<div class="stats">
+			{devtools.log_count} log {if (devtools.log_count == 1) { "entry" } else { "entries" }}
+		</div>
+
+		{if (devtools.log_count == 0) {
+			<div class="empty-state">
+				No logs yet. Use <code>dev.log(value)</code> in your handlers.
+			</div>
+		} else {
+			for (log in devtools.logs) {
+				<div class="log-entry{if (log.level == "warn") { " warn" }}">
+					<div class="log-header">
+						<span class="log-icon">{if (log.level == "warn") { "⚠️" } else { "ℹ️" }}</span>
+						<span class="log-file">📁 {log.filename}:{log.line}</span>
+						<span class="log-time">🕐 {log.timestamp}</span>
+					</div>
+					<div class="log-call">💻 {log.call}</div>
+					<div class="log-value">{log.value}</div>
+				</div>
+			}
+		}}
+	</div>
+</body>
+</html>

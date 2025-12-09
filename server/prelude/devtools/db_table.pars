@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>Table: {devtools.table_name}</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: #1a1a2e;
+			color: #eee;
+			padding: 2rem;
+			min-height: 100vh;
+		}
+		.container {
+			max-width: 1400px;
+			margin: 0 auto;
+		}
+		.header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 1.5rem;
+		}
+		h1 {
+			font-size: 1.5rem;
+			color: #4ecdc4;
+			font-family: 'Monaco', 'Courier New', monospace;
+		}
+		.btn {
+			background: #16213e;
+			color: #eee;
+			padding: 0.5rem 1rem;
+			border-radius: 4px;
+			text-decoration: none;
+			font-size: 0.875rem;
+			border: 1px solid #4ecdc4;
+			transition: background 0.2s;
+		}
+		.btn:hover {
+			background: #4ecdc4;
+			color: #1a1a2e;
+		}
+		.stats {
+			background: #16213e;
+			border-radius: 8px;
+			padding: 1rem 1.25rem;
+			margin-bottom: 1rem;
+			border-left: 4px solid #4ecdc4;
+			color: #bbb;
+			font-size: 0.875rem;
+		}
+		.empty-state {
+			background: #16213e;
+			border-radius: 8px;
+			padding: 3rem;
+			text-align: center;
+			color: #7f8c8d;
+		}
+		.table-wrapper {
+			overflow-x: auto;
+			background: #16213e;
+			border-radius: 8px;
+			padding: 1rem;
+		}
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 0.875rem;
+		}
+		th {
+			background: #1a1a2e;
+			color: #4ecdc4;
+			padding: 0.75rem;
+			text-align: left;
+			font-weight: 600;
+			border-bottom: 2px solid #4ecdc4;
+			white-space: nowrap;
+		}
+		td {
+			padding: 0.75rem;
+			border-bottom: 1px solid #0f3460;
+			font-family: 'Monaco', 'Courier New', monospace;
+		}
+		tr:last-child td {
+			border-bottom: none;
+		}
+		tr:hover {
+			background: #1a1a2e;
+		}
+		.null-value {
+			color: #7f8c8d;
+			font-style: italic;
+		}
+		.error-state {
+			background: #16213e;
+			border-radius: 8px;
+			padding: 2rem;
+			border-left: 4px solid #ff6b6b;
+		}
+		.error-title {
+			color: #ff6b6b;
+			font-size: 1.125rem;
+			margin-bottom: 0.5rem;
+		}
+		.error-message {
+			color: #bbb;
+			font-size: 0.875rem;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>🗄️ {devtools.table_name}</h1>
+			<a href="/__/db" class="btn">← Back to Tables</a>
+		</div>
+
+		{if (devtools.error) {
+			<div class="error-state">
+				<div class="error-title">Database Error</div>
+				<div class="error-message">{devtools.error}</div>
+			</div>
+		}}
+		{if (!devtools.error && devtools.row_count == 0) {
+			<div class="empty-state">
+				No rows in this table.
+			</div>
+		}}
+		{if (!devtools.error && devtools.row_count > 0) {
+			<div class="stats">
+				{devtools.row_count} {if (devtools.row_count == 1) { "row" } else { "rows" }} • {devtools.column_count} {if (devtools.column_count == 1) { "column" } else { "columns" }}
+			</div>
+
+			<div class="table-wrapper">
+				<table>
+					<thead>
+						<tr>
+							for (col in devtools.columns) {
+								<th>{col}</th>
+							}
+						</tr>
+					</thead>
+					<tbody>
+						for (row in devtools.rows) {
+							<tr>
+								for (cell in row) {
+									<td>{
+										if (cell == null) {
+											<span class="null-value">NULL</span>
+										} else {
+											cell
+										}
+									}</td>
+								}
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}}
+	</div>
+</body>
+</html>

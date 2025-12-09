@@ -922,11 +922,13 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 			errMsg = regexp.MustCompile(` at .+:\d+:\d+$`).ReplaceAllString(errMsg, "")
 		}
 
+		// Always set message_text
+		errorMap["message_text"] = errMsg
+
 		if file != "" {
 			errorMap["file"] = file
 			errorMap["line"] = line
 			errorMap["column"] = col
-			errorMap["message_text"] = errMsg
 
 			// Try to get source context
 			if sourceLines := s.getSourceContext(file, line, 3); len(sourceLines) > 0 {

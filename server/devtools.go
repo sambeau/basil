@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
 // devToolsHandler serves dev tool pages at /__/* routes.
@@ -32,9 +35,9 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case path == "/__" || path == "/__/":
-		h.serveIndex(w, r)
+		h.handleDevToolsWithPrelude(w, r, "index.pars")
 	case path == "/__/env" || path == "/__/env/":
-		h.serveEnv(w, r)
+		h.handleDevToolsWithPrelude(w, r, "env.pars")
 	case path == "/__/logs" || path == "/__/logs/":
 		h.serveLogs(w, r, "")
 	case strings.HasPrefix(path, "/__/logs/"):
@@ -42,11 +45,9 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		route = strings.TrimSuffix(route, "/")
 		h.serveLogs(w, r, route)
 	case path == "/__/db" || path == "/__/db/":
-		h.serveDB(w, r)
+		h.handleDevToolsWithPrelude(w, r, "db.pars")
 	case strings.HasPrefix(path, "/__/db/view/"):
-		tableName := strings.TrimPrefix(path, "/__/db/view/")
-		tableName = strings.TrimSuffix(tableName, "/")
-		h.serveDBView(w, r, tableName)
+		h.handleDevToolsWithPrelude(w, r, "db_table.pars")
 	case strings.HasPrefix(path, "/__/db/download/"):
 		tableName := strings.TrimPrefix(path, "/__/db/download/")
 		tableName = strings.TrimSuffix(tableName, "/")
@@ -123,7 +124,7 @@ func (h *devToolsHandler) serveLogs(w http.ResponseWriter, r *http.Request, rout
 		return
 	}
 
-	// Get logs
+	// Check for ?text query param
 	var entries []LogEntry
 	if h.server.devLog != nil {
 		var err error
@@ -133,13 +134,12 @@ func (h *devToolsHandler) serveLogs(w http.ResponseWriter, r *http.Request, rout
 		}
 	}
 
-	// Check for ?text query param
 	if r.URL.Query().Has("text") {
 		h.serveLogsText(w, entries, route)
 		return
 	}
 
-	h.serveLogsHTML(w, entries, route)
+	h.handleDevToolsWithPrelude(w, r, "logs.pars")
 }
 
 // serveLogsText serves logs in plain text format.
@@ -1402,3 +1402,196 @@ const devToolsDBErrorHTML = `<!DOCTYPE html>
 </body>
 </html>
 `
+
+// createDevToolsEnv creates an environment for rendering DevTools pages
+func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evaluator.Environment {
+	env := evaluator.NewEnvironment()
+
+	// Add Basil metadata
+	version := h.server.version
+	if version == "" {
+		version = "dev"
+	}
+	basilMap := map[string]interface{}{
+		"version":     version,
+		"commit":      "unknown", // commit hash not stored in Server struct
+		"dev":         h.server.config.Server.Dev,
+		"go_version":  runtime.Version(),
+		"route_count": len(h.server.config.Routes),
+	}
+	basilObj, _ := parsley.ToParsley(basilMap)
+	env.Set("basil", basilObj)
+
+	// Add DevTools-specific data
+	devtoolsMap := map[string]interface{}{}
+
+	// Determine which page we're rendering
+	switch {
+	case path == "/__" || path == "/__/":
+		// Index page
+		devtoolsMap["has_db"] = h.server.config.SQLite != ""
+
+	case strings.HasPrefix(path, "/__/logs"):
+		// Logs page
+		route := ""
+		if strings.HasPrefix(path, "/__/logs/") {
+			route = strings.TrimPrefix(path, "/__/logs/")
+			route = strings.TrimSuffix(route, "/")
+		}
+		devtoolsMap["route"] = route
+
+		// Get logs
+		var entries []LogEntry
+		if h.server.devLog != nil {
+			var err error
+			entries, err = h.server.devLog.GetLogs(route, 500)
+			if err != nil {
+				h.server.logError("failed to get logs: %v", err)
+			}
+		}
+
+		// Convert to Parsley-friendly format
+		logsArray := make([]interface{}, len(entries))
+		for i, e := range entries {
+			logsArray[i] = map[string]interface{}{
+				"level":     e.Level,
+				"filename":  filepath.Base(e.Filename),
+				"line":      e.Line,
+				"timestamp": e.Timestamp.Format("2006-01-02 15:04:05"),
+				"call":      e.CallRepr,
+				"value":     e.ValueRepr,
+			}
+		}
+		devtoolsMap["logs"] = logsArray
+		devtoolsMap["log_count"] = len(entries)
+
+		clearURL := "/__/logs?clear"
+		if route != "" {
+			clearURL = fmt.Sprintf("/__/logs/%s?clear", route)
+		}
+		devtoolsMap["clear_url"] = clearURL
+
+	case path == "/__/db" || path == "/__/db/":
+		// Database overview page
+		db, err := h.openAppDB()
+		if err != nil {
+			devtoolsMap["error"] = err.Error()
+		} else {
+			defer db.Close()
+
+			tables, err := getTableList(db)
+			if err != nil {
+				devtoolsMap["error"] = err.Error()
+			} else {
+				// Get info for each table
+				tablesArray := make([]interface{}, 0, len(tables))
+				for _, name := range tables {
+					info, err := getTableInfo(db, name)
+					if err != nil {
+						h.server.logError("failed to get table info for %s: %v", name, err)
+						continue
+					}
+					tablesArray = append(tablesArray, map[string]interface{}{
+						"name":      info.Name,
+						"row_count": info.RowCount,
+					})
+				}
+				devtoolsMap["tables"] = tablesArray
+				devtoolsMap["table_count"] = len(tablesArray)
+			}
+		}
+
+	case strings.HasPrefix(path, "/__/db/view/"):
+		// Table view page
+		tableName := strings.TrimPrefix(path, "/__/db/view/")
+		tableName = strings.TrimSuffix(tableName, "/")
+		devtoolsMap["table_name"] = tableName
+
+		db, err := h.openAppDB()
+		if err != nil {
+			devtoolsMap["error"] = err.Error()
+		} else {
+			defer db.Close()
+
+			columns, rows, err := getTableData(db, tableName)
+			if err != nil {
+				devtoolsMap["error"] = err.Error()
+			} else {
+				// Convert to Parsley-friendly format
+				rowsArray := make([]interface{}, len(rows))
+				for i, row := range rows {
+					cellsArray := make([]interface{}, len(row))
+					for j, val := range row {
+						if val == nil {
+							cellsArray[j] = nil
+						} else {
+							cellsArray[j] = fmt.Sprintf("%v", val)
+						}
+					}
+					rowsArray[i] = cellsArray
+				}
+
+				columnsArray := make([]interface{}, len(columns))
+				for i, col := range columns {
+					columnsArray[i] = col
+				}
+
+				devtoolsMap["columns"] = columnsArray
+				devtoolsMap["rows"] = rowsArray
+				devtoolsMap["row_count"] = len(rows)
+				devtoolsMap["column_count"] = len(columns)
+			}
+		}
+
+	case path == "/__/env" || path == "/__/env/":
+		// Environment info page
+		configArray := []interface{}{
+			map[string]interface{}{"name": "Port", "value": fmt.Sprintf("%d", h.server.config.Server.Port)},
+			map[string]interface{}{"name": "Dev Mode", "value": fmt.Sprintf("%v", h.server.config.Server.Dev)},
+		}
+		devtoolsMap["config"] = configArray
+	}
+
+	devtoolsObj, _ := parsley.ToParsley(devtoolsMap)
+	env.Set("devtools", devtoolsObj)
+
+	return env
+}
+
+// handleDevToolsWithPrelude renders DevTools pages using Parsley templates from prelude
+func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *http.Request, templateName string) {
+	// Get the prelude AST
+	ast := GetPreludeAST("devtools/" + templateName)
+	if ast == nil {
+		http.Error(w, fmt.Sprintf("Template not found: %s", templateName), http.StatusInternalServerError)
+		return
+	}
+
+	// Create environment
+	env := h.createDevToolsEnv(r.URL.Path, r)
+
+	// Evaluate
+	result := evaluator.Eval(ast, env)
+	if err, ok := result.(*evaluator.Error); ok {
+		http.Error(w, fmt.Sprintf("Template error: %s", err.Message), http.StatusInternalServerError)
+		return
+	}
+
+	// Convert result to Go value
+	val := parsley.FromParsley(result)
+
+	// Handle array results (join like error pages)
+	var output string
+	if arr, ok := val.([]interface{}); ok {
+		parts := make([]string, len(arr))
+		for i, item := range arr {
+			parts[i] = fmt.Sprintf("%v", item)
+		}
+		output = strings.Join(parts, "")
+	} else {
+		output = fmt.Sprintf("%v", val)
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, output)
+}

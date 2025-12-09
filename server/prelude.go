@@ -18,7 +18,7 @@ import (
 
 // Embed the prelude directory
 //
-//go:embed prelude/js/* prelude/css/* prelude/public/* prelude/errors/*
+//go:embed prelude/js/* prelude/css/* prelude/public/* prelude/errors/* prelude/devtools/*
 var preludeFS embed.FS
 
 // preludeASTs stores parsed ASTs for all .pars files in the prelude
