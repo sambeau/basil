@@ -58,13 +58,15 @@ As a web developer processing form input, I want simple string methods to clean 
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `s.stripHtml()` | Remove HTML/XML tags | `"<b>hello</b>"` → `"hello"` |
+| `s.stripHtml()` | Remove HTML/XML tags and decode entities | `"<b>hello</b>"` → `"hello"` |
 | `s.digits()` | Keep only ASCII digits 0-9 | `"(123) 456-7890"` → `"1234567890"` |
 
 ```parsley
-// Strip HTML tags (not entities)
+// Strip HTML tags and decode entities
 "<p>Hello <b>world</b>!</p>".stripHtml()  // "Hello world!"
 "<script>alert('x')</script>".stripHtml() // "alert('x')"
+"Plain &amp; simple".stripHtml()          // "Plain & simple"
+"&lt;not a tag&gt;".stripHtml()           // "<not a tag>"
 
 // Extract digits for phone/card numbers
 "(555) 123-4567".digits()                 // "5551234567"
@@ -200,7 +202,8 @@ regexp.MustCompile(`\s+`).ReplaceAllString(s, "")
 
 **stripHtml()**:
 ```go
-regexp.MustCompile(`<[^>]*>`).ReplaceAllString(s, "")
+stripped := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(s, "")
+return html.UnescapeString(stripped)
 ```
 
 **digits()**:
