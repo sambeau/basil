@@ -2,8 +2,9 @@
 id: PLAN-014
 feature: FEAT-022
 title: "Implementation Plan for Block Concatenation Investigation"
-status: active
+status: complete
 created: 2025-12-04
+completed: 2025-12-04
 ---
 
 # Implementation Plan: FEAT-022 Block Concatenation
@@ -328,3 +329,27 @@ If investigation shows this is too breaking:
 2. `git branch -D feat/FEAT-022-block-concatenation`
 3. Update FEAT-022.md with findings
 4. Consider alternative approaches (Option 1 or 2 from original discussion)
+
+---
+
+## Progress Log
+
+### 2025-12-04: Investigation Complete - Array-Based Approach Implemented
+
+**Decision**: Implemented Option B (array return) instead of string concatenation.
+
+**Implementation**:
+- Modified `evalBlockStatement` to collect non-NULL results
+- Single result → return directly (preserves type)
+- Multiple results → return as array
+- Zero results → return NULL
+- Declarations (`let`, assignments) return NULL (excluded from results)
+
+**Commits**:
+- `379eef5` - Initial investigation
+- `38d7858` - Document investigation results
+- `0a5fe2f` - Array-based block semantics implementation (all tests pass)
+- `7a38c20` - Performance analysis (no measurable impact)
+- `3d3ff41` - Final: array-based block semantics with optional parens
+
+**Outcome**: Successfully implemented. Blocks now collect and return multiple expression results as arrays, preserving type information while maintaining consistent block behavior across all contexts (functions, if/else, for loops, top-level scripts).

@@ -2,8 +2,9 @@
 id: PLAN-021
 feature: FEAT-033
 title: "Implementation Plan for String Sanitizer Methods"
-status: draft
+status: ready
 created: 2025-12-05
+updated: 2025-12-09
 ---
 
 # Implementation Plan: FEAT-033 String Sanitizer Methods
@@ -16,9 +17,13 @@ Add 6 string methods for common sanitization tasks when cleaning user input from
 - Content: `stripHtml()`, `digits()`
 - URL: `slug()`
 
+**Estimated effort**: 1-2 hours
+**Risk**: Low (additive change, no breaking changes)
+
 ## Prerequisites
 - [x] Design decisions finalized (see FEAT-033)
 - [x] Understand existing string method implementation (see `methods.go`)
+- [x] Test file pattern identified (`pkg/parsley/tests/methods_test.go`)
 
 ## Existing String Method Pattern
 String methods are defined in `pkg/parsley/evaluator/methods.go`:
@@ -36,6 +41,24 @@ Methods are also listed in `stringMethods` slice for documentation/completion.
 
 ## Tasks
 
+### Task 0: Add Pre-compiled Regex Patterns
+**Files**: `pkg/parsley/evaluator/methods.go`
+**Estimated effort**: Small
+
+Add compiled regex patterns at package level for performance:
+
+```go
+// Near top of file, after imports
+var (
+    whitespaceRegex = regexp.MustCompile(`\s+`)
+    htmlTagRegex    = regexp.MustCompile(`<[^>]*>`)
+    nonDigitRegex   = regexp.MustCompile(`[^0-9]`)
+    nonSlugRegex    = regexp.MustCompile(`[^a-z0-9]+`)
+)
+```
+
+---
+
 ### Task 1: Add collapse() Method
 **Files**: `pkg/parsley/evaluator/methods.go`
 **Estimated effort**: Small
@@ -47,16 +70,8 @@ case "collapse":
     if len(args) != 0 {
         return newArityError("collapse", len(args), 0)
     }
-    re := regexp.MustCompile(`\s+`)
-    return &String{Value: re.ReplaceAllString(s.Value, " ")}
+    return &String{Value: whitespaceRegex.ReplaceAllString(str.Value, " ")}
 ```
-
-Tests:
-- `"hello   world".collapse()` → `"hello world"`
-- `"  hello   world  ".collapse()` → `" hello world "` (preserves edges)
-- `"hello\t\nworld".collapse()` → `"hello world"`
-- `"hello world".collapse()` → `"hello world"` (no change)
-- `"".collapse()` → `""`
 
 ---
 
@@ -71,16 +86,9 @@ case "normalizeSpace":
     if len(args) != 0 {
         return newArityError("normalizeSpace", len(args), 0)
     }
-    re := regexp.MustCompile(`\s+`)
-    collapsed := re.ReplaceAllString(s.Value, " ")
+    collapsed := whitespaceRegex.ReplaceAllString(str.Value, " ")
     return &String{Value: strings.TrimSpace(collapsed)}
 ```
-
-Tests:
-- `"  hello   world  ".normalizeSpace()` → `"hello world"`
-- `"   ".normalizeSpace()` → `""`
-- `"hello world".normalizeSpace()` → `"hello world"`
-- `"\t\nhello\t\n".normalizeSpace()` → `"hello"`
 
 ---
 
@@ -95,15 +103,8 @@ case "stripSpace":
     if len(args) != 0 {
         return newArityError("stripSpace", len(args), 0)
     }
-    re := regexp.MustCompile(`\s+`)
-    return &String{Value: re.ReplaceAllString(s.Value, "")}
+    return &String{Value: whitespaceRegex.ReplaceAllString(str.Value, "")}
 ```
-
-Tests:
-- `"hello world".stripSpace()` → `"helloworld"`
-- `"  hello   world  ".stripSpace()` → `"helloworld"`
-- `"hello".stripSpace()` → `"hello"`
-- `"   ".stripSpace()` → `""`
 
 ---
 
@@ -118,19 +119,8 @@ case "stripHtml":
     if len(args) != 0 {
         return newArityError("stripHtml", len(args), 0)
     }
-    re := regexp.MustCompile(`<[^>]*>`)
-    return &String{Value: re.ReplaceAllString(s.Value, "")}
+    return &String{Value: htmlTagRegex.ReplaceAllString(str.Value, "")}
 ```
-
-Tests:
-- `"<b>hello</b>".stripHtml()` → `"hello"`
-- `"<p>Hello <b>world</b>!</p>".stripHtml()` → `"Hello world!"`
-- `"<script>alert('x')</script>".stripHtml()` → `"alert('x')"`
-- `"no tags".stripHtml()` → `"no tags"`
-- `"<>".stripHtml()` → `""`
-- `"a < b > c".stripHtml()` → `"a < b > c"` (not valid HTML tags)
-
-Note: This is simple tag stripping, not a full HTML sanitizer. It removes anything between `<` and `>`.
 
 ---
 
@@ -145,22 +135,14 @@ case "digits":
     if len(args) != 0 {
         return newArityError("digits", len(args), 0)
     }
-    re := regexp.MustCompile(`[^0-9]`)
-    return &String{Value: re.ReplaceAllString(s.Value, "")}
+    return &String{Value: nonDigitRegex.ReplaceAllString(str.Value, "")}
 ```
-
-Tests:
-- `"(123) 456-7890".digits()` → `"1234567890"`
-- `"+1 (555) 123-4567".digits()` → `"15551234567"`
-- `"Card: 4111-1111-1111-1111".digits()` → `"4111111111111111"`
-- `"abc".digits()` → `""`
-- `"a1b2c3".digits()` → `"123"`
 
 ---
 
 ### Task 6: Add slug() Method
 **Files**: `pkg/parsley/evaluator/methods.go`
-**Estimated effort**: Medium
+**Estimated effort**: Small
 
 Implement `slug()` - convert to URL-safe slug:
 
@@ -169,26 +151,11 @@ case "slug":
     if len(args) != 0 {
         return newArityError("slug", len(args), 0)
     }
-    // Convert to lowercase
-    result := strings.ToLower(s.Value)
-    // Replace non-alphanumeric with hyphens
-    re := regexp.MustCompile(`[^a-z0-9]+`)
-    result = re.ReplaceAllString(result, "-")
-    // Trim leading/trailing hyphens
+    result := strings.ToLower(str.Value)
+    result = nonSlugRegex.ReplaceAllString(result, "-")
     result = strings.Trim(result, "-")
     return &String{Value: result}
 ```
-
-Tests:
-- `"Hello World".slug()` → `"hello-world"`
-- `"Hello World!".slug()` → `"hello-world"`
-- `"  My Blog Post  ".slug()` → `"my-blog-post"`
-- `"Product: iPhone 15 Pro".slug()` → `"product-iphone-15-pro"`
-- `"What's New?".slug()` → `"whats-new"`
-- `"---test---".slug()` → `"test"`
-- `"Café".slug()` → `"caf"` (removes accented chars)
-- `"".slug()` → `""`
-- `"---".slug()` → `""`
 
 ---
 
@@ -196,37 +163,134 @@ Tests:
 **Files**: `pkg/parsley/evaluator/methods.go`
 **Estimated effort**: Small
 
-Add new methods to `stringMethods` slice:
+Add new methods to `stringMethods` slice (line ~30):
 
 ```go
 var stringMethods = []string{
-    // ... existing methods ...
+    "toUpper", "toLower", "trim", "split", "replace", "length", "includes",
+    "render", "highlight", "paragraphs", "parseJSON", "parseCSV",
     "collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 }
 ```
 
 ---
 
-### Task 8: Documentation
+### Task 8: Add Tests
+**Files**: `pkg/parsley/tests/methods_test.go`
+**Estimated effort**: Medium
+
+Add comprehensive tests for all 6 new methods. Add to `TestStringMethods`:
+
+```go
+// collapse()
+{`"hello   world".collapse()`, "hello world"},
+{`"  hello   world  ".collapse()`, " hello world "},
+{`"hello\t\nworld".collapse()`, "hello world"},
+{`"hello world".collapse()`, "hello world"},
+{`"".collapse()`, ""},
+
+// normalizeSpace()
+{`"  hello   world  ".normalizeSpace()`, "hello world"},
+{`"   ".normalizeSpace()`, ""},
+{`"hello world".normalizeSpace()`, "hello world"},
+{`"\t\nhello\t\n".normalizeSpace()`, "hello"},
+
+// stripSpace()
+{`"hello world".stripSpace()`, "helloworld"},
+{`"  hello   world  ".stripSpace()`, "helloworld"},
+{`"hello".stripSpace()`, "hello"},
+{`"   ".stripSpace()`, ""},
+
+// stripHtml()
+{`"<b>hello</b>".stripHtml()`, "hello"},
+{`"<p>Hello <b>world</b>!</p>".stripHtml()`, "Hello world!"},
+{`"no tags".stripHtml()`, "no tags"},
+{`"<>".stripHtml()`, ""},
+
+// digits()
+{`"(123) 456-7890".digits()`, "1234567890"},
+{`"+1 (555) 123-4567".digits()`, "15551234567"},
+{`"abc".digits()`, ""},
+{`"a1b2c3".digits()`, "123"},
+
+// slug()
+{`"Hello World".slug()`, "hello-world"},
+{`"Hello World!".slug()`, "hello-world"},
+{`"  My Blog Post  ".slug()`, "my-blog-post"},
+{`"Product: iPhone 15 Pro".slug()`, "product-iphone-15-pro"},
+{`"What's New?".slug()`, "whats-new"},
+{`"---test---".slug()`, "test"},
+{`"".slug()`, ""},
+{`"---".slug()`, ""},
+```
+
+Also test chaining:
+```go
+// Chaining sanitizers
+{`"  <b>Hello</b>   World  ".stripHtml().normalizeSpace()`, "Hello World"},
+{`"  Form Title  ".normalizeSpace().slug()`, "form-title"},
+```
+
+---
+
+### Task 9: Documentation
 **Files**: `docs/parsley/reference.md`, `docs/parsley/CHEATSHEET.md`
 **Estimated effort**: Small
 
-Steps:
-1. Add new string methods to reference.md String Methods section
-2. Add sanitization examples to CHEATSHEET.md
+**reference.md** - Add to String Methods section:
+
+```markdown
+### Sanitization Methods
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `s.collapse()` | Replace whitespace runs with single space | `"a   b"` → `"a b"` |
+| `s.normalizeSpace()` | Trim + collapse whitespace | `"  a   b  "` → `"a b"` |
+| `s.stripSpace()` | Remove all whitespace | `"a b"` → `"ab"` |
+| `s.stripHtml()` | Remove HTML tags | `"<b>hi</b>"` → `"hi"` |
+| `s.digits()` | Keep only digits 0-9 | `"(123) 456"` → `"123456"` |
+| `s.slug()` | Convert to URL slug | `"Hello World!"` → `"hello-world"` |
+```
+
+**CHEATSHEET.md** - Add sanitization section with pitfall warning:
+
+```markdown
+## String Sanitization
+// Form input cleanup
+"  hello   world  ".normalizeSpace()  // "hello world"
+"<b>text</b>".stripHtml()             // "text"
+"(555) 123-4567".digits()             // "5551234567"
+"Blog Post Title!".slug()             // "blog-post-title"
+
+// ⚠️ slug() removes accented characters, doesn't transliterate
+"Café".slug()  // "caf" not "cafe"
+```
 
 ---
 
 ## Validation Checklist
 - [ ] All tests pass: `make test`
 - [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run`
-- [ ] Documentation updated
+- [ ] Full validation: `make check`
+- [ ] Documentation updated (reference.md, CHEATSHEET.md)
+- [ ] Spec status updated to `implemented`
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| | Task 0: Regex vars | | |
+| | Task 1: collapse() | | |
+| | Task 2: normalizeSpace() | | |
+| | Task 3: stripSpace() | | |
+| | Task 4: stripHtml() | | |
+| | Task 5: digits() | | |
+| | Task 6: slug() | | |
+| | Task 7: Update method list | | |
+| | Task 8: Tests | | |
+| | Task 9: Documentation | | |
+
+## Deferred Items
+- `s.transliterate()` — Complex accent→ASCII mapping; add later if needed (per spec)
 
 ## Notes
 - All methods return new strings (immutable)

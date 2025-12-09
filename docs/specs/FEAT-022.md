@@ -1,9 +1,10 @@
 ---
 id: FEAT-022
 title: "Block Concatenation Semantics"
-status: active
+status: implemented
 priority: high
 created: 2025-12-04
+implemented: 2025-12-04
 author: "@human"
 ---
 
@@ -50,12 +51,14 @@ As a **Parsley developer**, I want **all expressions in a code block to contribu
 
 ## Acceptance Criteria (Investigation)
 
-- [ ] Document what currently returns values vs. side-effects
-- [ ] Identify which constructs should return `null` (be excluded)
-- [ ] Create experimental branch with modified behavior
-- [ ] Run test suite and document what breaks
-- [ ] Assess performance implications
-- [ ] Make go/no-go recommendation
+- [x] Document what currently returns values vs. side-effects (2025-12-04)
+- [x] Identify which constructs should return `null` (be excluded) (2025-12-04)
+- [x] Create experimental branch with modified behavior (2025-12-04)
+- [x] Run test suite and document what breaks (2025-12-04)
+- [x] Assess performance implications (2025-12-04)
+- [x] Make go/no-go recommendation (2025-12-04)
+
+**Implementation Decision**: Chose array-based approach (Option B) - blocks return arrays for multiple non-NULL expressions, preserving type information. Implemented in commit 3d3ff41.
 
 ## Design Decisions
 
