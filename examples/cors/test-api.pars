@@ -1,0 +1,4 @@
+// Simple API endpoint for testing CORS
+basil.http.response.headers["Content-Type"] = "application/json"
+basil.http.response.headers["X-Total-Count"] = "42"
+"{\"message\": \"CORS is working!\", \"method\": \"" + basil.http.request.method + "\"}"
