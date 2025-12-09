@@ -1,13 +1,33 @@
 ---
 id: FEAT-028
 title: "API Routes"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-05
+updated: 2025-12-09
 author: "@human"
 ---
 
 # FEAT-028: API Routes
+
+## Implementation Status
+
+**Core features implemented in `server/api.go`:**
+- ✅ `type: api` route declaration
+- ✅ Convention-based routing (`/api/*` prefix auto-detected)
+- ✅ Automatic JSON serialization for dicts/arrays
+- ✅ JSON error responses (leverages FEAT-023 structured errors)
+- ✅ 401 for auth failures instead of redirect
+- ✅ Method-specific handlers via exports (`get`, `post`, `getById`, `put`, `patch`, `delete`)
+- ✅ Response object with `status`, `headers`, `body`
+- ✅ Nested routing via `routes` export
+- ✅ Rate limiting via `rateLimit` export
+- ✅ Auth wrappers (`api.public()`, `api.auth()`, `api.adminOnly()`, `api.roles()`)
+
+**Deferred to separate features:**
+- ❌ CORS support → FEAT-047
+- ❌ Request validation/schemas → Future
+- ❌ OpenAPI spec generation → Future
 
 ## Summary
 
