@@ -620,10 +620,10 @@ func (s *Server) createRootHandler() http.Handler {
 				relStatic := makeRelativePath(staticRoot, info.BasePath)
 				info.CheckedPaths = append(info.CheckedPaths, relStatic+r.URL.Path)
 			}
-			renderDev404Page(w, info)
+			s.handle404(w, r)
 			return
 		}
-		http.NotFound(w, r)
+		s.handle404(w, r)
 	})
 }
 

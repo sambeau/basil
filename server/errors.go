@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	perrors "github.com/sambeau/basil/pkg/parsley/errors"
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
 // DevError holds information about an error to display in dev mode.
@@ -889,4 +891,106 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 	}
 
 	return file, line, col, cleanMsg
+}
+
+// createErrorEnv creates an environment for rendering error pages
+func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator.Environment {
+	env := evaluator.NewEnvironment()
+
+	// Basic error information
+	errorMap := map[string]interface{}{
+		"code":    code,
+		"message": http.StatusText(code),
+	}
+
+	// In dev mode, add detailed error information
+	if s.config.Server.Dev && err != nil {
+		errorMap["details"] = err.Error()
+
+		// Add request information
+		errorMap["request"] = map[string]interface{}{
+			"method": r.Method,
+			"path":   r.URL.Path,
+			"query":  r.URL.RawQuery,
+		}
+
+		// Add stack trace if available (simple version)
+		errorMap["stack"] = fmt.Sprintf("%+v", err)
+	}
+
+	errorObj, _ := parsley.ToParsley(errorMap)
+	env.Set("error", errorObj)
+
+	// Add Basil metadata
+	basilMap := map[string]interface{}{
+		"version": s.version,
+		"dev":     s.config.Server.Dev,
+	}
+	basilObj, _ := parsley.ToParsley(basilMap)
+	env.Set("basil", basilObj)
+
+	return env
+}
+
+// renderPreludeError renders an error page from the prelude
+// Returns true if successfully rendered, false if fallback needed
+func (s *Server) renderPreludeError(w http.ResponseWriter, r *http.Request, code int, err error) bool {
+	// Determine which error page to use
+	var pageName string
+	if s.config.Server.Dev && err != nil {
+		// Dev mode with error: use detailed dev error page
+		pageName = "errors/dev_error.pars"
+	} else {
+		// Try specific error code page
+		pageName = fmt.Sprintf("errors/%d.pars", code)
+	}
+
+	// Get the AST from prelude
+	program := GetPreludeAST(pageName)
+	if program == nil {
+		// Try fallback to 500 page
+		if code != 500 {
+			program = GetPreludeAST("errors/500.pars")
+		}
+		if program == nil {
+			// No error page available
+			return false
+		}
+	}
+
+	// Create environment with error details
+	env := s.createErrorEnv(r, code, err)
+
+	// Evaluate the error page
+	result := evaluator.Eval(program, env)
+
+	// If evaluation failed, don't recurse - return false for fallback
+	if _, isErr := result.(*evaluator.Error); isErr {
+		s.logError("error rendering error page %s: %s", pageName, result.Inspect())
+		return false
+	}
+
+	// Write the response
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
+	fmt.Fprint(w, result.Inspect())
+	return true
+}
+
+// handle404 renders a 404 error page
+func (s *Server) handle404(w http.ResponseWriter, r *http.Request) {
+	// Try prelude error page first
+	if !s.renderPreludeError(w, r, http.StatusNotFound, nil) {
+		// Fallback to plain text
+		http.NotFound(w, r)
+	}
+}
+
+// handle500 renders a 500 error page
+func (s *Server) handle500(w http.ResponseWriter, r *http.Request, err error) {
+	// Try prelude error page first
+	if !s.renderPreludeError(w, r, http.StatusInternalServerError, err) {
+		// Fallback to plain text
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

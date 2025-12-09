@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -356,7 +357,6 @@ func TestExtractLineInfo_ModuleRuntimeError(t *testing.T) {
 }
 
 func TestHandleScriptError_DevMode(t *testing.T) {
-	// Create a mock handler with dev mode enabled
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Dev: true,
@@ -369,7 +369,8 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	h.handleScriptError(w, "runtime", "/test/handler.pars", "test error message")
+	req := httptest.NewRequest("GET", "/test", nil)
+	h.handleScriptError(w, req, "runtime", "/test/handler.pars", "test error message")
 
 	resp := w.Result()
 	body := w.Body.String()
@@ -406,9 +407,10 @@ func TestHandleScriptErrorWithLocation_ModuleError(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
 	// Simulate error message from a module - this is the format from evaluator
 	moduleErrMsg := "in module ./app/pages/scouts.pars: line 18, column 20: dot notation can only be used on dictionaries, got BUILTIN"
-	h.handleScriptErrorWithLocation(w, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
+	h.handleScriptErrorWithLocation(w, req, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
 
 	body := w.Body.String()
 
@@ -437,13 +439,13 @@ func TestHandleScriptErrorWithLocation_ModuleNotFound(t *testing.T) {
 	}
 	s := &Server{config: cfg, configPath: "/app/basil.yaml"}
 	h := &parsleyHandler{
-		server:     s,
-		scriptPath: "/app/app.pars",
+		server: s,
 	}
 
 	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
 	moduleErrMsg := "in module ./app/pages/scouts.pars: module not found: ./app/pages/std/table"
-	h.handleScriptErrorWithLocation(w, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
+	h.handleScriptErrorWithLocation(w, req, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
 
 	body := w.Body.String()
 
@@ -540,9 +542,7 @@ func TestImproveErrorMessage(t *testing.T) {
 		})
 	}
 }
-
 func TestHandleScriptError_ProdMode(t *testing.T) {
-	// Create a mock handler with dev mode disabled
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Dev: false,
@@ -555,7 +555,8 @@ func TestHandleScriptError_ProdMode(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	h.handleScriptError(w, "runtime", "/test/handler.pars", "test error message")
+	req := httptest.NewRequest("GET", "/test", nil)
+	h.handleScriptError(w, req, "runtime", "/test/handler.pars", "test error message")
 
 	resp := w.Result()
 	body := w.Body.String()
@@ -565,18 +566,215 @@ func TestHandleScriptError_ProdMode(t *testing.T) {
 		t.Errorf("expected status 500, got %d", resp.StatusCode)
 	}
 
-	// Should be plain text (generic error)
-	if ct := resp.Header.Get("Content-Type"); strings.Contains(ct, "text/html") {
-		t.Errorf("expected plain text in prod mode, got %s", ct)
+	// Should be HTML (prelude error page)
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML in prod mode, got %s", ct)
 	}
 
-	// Should NOT contain detailed error info
+	// Should contain 500 error message
+	if !strings.Contains(body, "500") {
+		t.Error("expected body to contain '500'")
+	}
+
+	// Should NOT contain detailed error info (test error message shouldn't appear)
 	if strings.Contains(body, "test error message") {
-		t.Error("should not expose error details in production")
+		t.Error("should not expose detailed error details in production")
+	}
+}
+
+func TestCreateErrorEnv(t *testing.T) {
+	// Initialize prelude before running tests
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
 	}
 
-	// Should be generic error
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg}
+	req := httptest.NewRequest("GET", "/test/path?foo=bar", nil)
+	err := fmt.Errorf("test error")
+
+	env := s.createErrorEnv(req, 404, err)
+
+	// Check that error object was set
+	errorObj, ok := env.Get("error")
+	if !ok {
+		t.Fatal("expected 'error' to be set in environment")
+	}
+	if errorObj == nil {
+		t.Fatal("error object should not be nil")
+	}
+
+	// Check that basil object was set
+	basilObj, ok := env.Get("basil")
+	if !ok {
+		t.Fatal("expected 'basil' to be set in environment")
+	}
+	if basilObj == nil {
+		t.Fatal("basil object should not be nil")
+	}
+}
+
+func TestRenderPreludeError_404(t *testing.T) {
+	// Initialize prelude before running tests
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/missing", nil)
+	err := fmt.Errorf("not found")
+
+	success := s.renderPreludeError(w, req, 404, err)
+
+	if !success {
+		t.Fatal("expected renderPreludeError to succeed")
+	}
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	// Should return 404
+	if resp.StatusCode != 404 {
+		t.Errorf("expected status 404, got %d", resp.StatusCode)
+	}
+
+	// Should be HTML
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+
+	// Should contain 404 error page content
+	if !strings.Contains(body, "404") {
+		t.Errorf("expected body to contain '404', got: %s", body)
+	}
+	if !strings.Contains(body, "not found") {
+		t.Errorf("expected body to contain 'not found', got: %s", body)
+	}
+}
+
+func TestRenderPreludeError_500(t *testing.T) {
+	// Initialize prelude before running tests
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/error", nil)
+	err := fmt.Errorf("server error")
+
+	success := s.renderPreludeError(w, req, 500, err)
+
+	if !success {
+		t.Fatal("expected renderPreludeError to succeed")
+	}
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	// Should return 500
+	if resp.StatusCode != 500 {
+		t.Errorf("expected status 500, got %d", resp.StatusCode)
+	}
+
+	// Should be HTML
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+
+	// Should contain 500 error page content
+	if !strings.Contains(body, "500") {
+		t.Error("expected body to contain '500'")
+	}
 	if !strings.Contains(body, "Internal Server Error") {
-		t.Error("expected generic error message")
+		t.Error("expected body to contain 'Internal Server Error'")
+	}
+}
+
+func TestHandle404(t *testing.T) {
+	// Initialize prelude before running tests
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/missing", nil)
+
+	s.handle404(w, req)
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	// Should return 404
+	if resp.StatusCode != 404 {
+		t.Errorf("expected status 404, got %d", resp.StatusCode)
+	}
+
+	// Should be HTML
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+
+	// Should contain 404 content
+	if !strings.Contains(body, "404") {
+		t.Error("expected body to contain '404'")
+	}
+}
+
+func TestHandle500(t *testing.T) {
+	// Initialize prelude before running tests
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			Dev: true,
+		},
+	}
+	s := &Server{config: cfg}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/error", nil)
+	err := fmt.Errorf("test error")
+
+	s.handle500(w, req, err)
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	// Should return 500
+	if resp.StatusCode != 500 {
+		t.Errorf("expected status 500, got %d", resp.StatusCode)
+	}
+
+	// Should be HTML
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+
+	// Should contain 500 content
+	if !strings.Contains(body, "500") {
+		t.Error("expected body to contain '500'")
 	}
 }

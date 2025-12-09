@@ -144,9 +144,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Check if it's a structured parse error
 		var parseErr *perrors.ParsleyError
 		if errors.As(err, &parseErr) {
-			h.handleParsleyError(w, h.scriptPath, parseErr)
+			h.handleParsleyError(w, r, h.scriptPath, parseErr)
 		} else {
-			h.handleScriptError(w, "parse", h.scriptPath, err.Error())
+			h.handleScriptError(w, r, "parse", h.scriptPath, err.Error())
 		}
 		return
 	}
@@ -235,7 +235,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result != nil && result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
 		h.server.logError("script error in %s: %s", h.scriptPath, errObj.Inspect())
-		h.handleStructuredError(w, "runtime", h.scriptPath, errObj)
+		h.handleStructuredError(w, r, "runtime", h.scriptPath, errObj)
 		return
 	}
 
@@ -744,7 +744,7 @@ func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.R
 	if h.route.Cache > 0 && r.Method == http.MethodGet {
 		crw := newCachedResponseWriter(w)
 		crw.Header().Set("X-Cache", "MISS")
-		h.writeResponse(crw, result, meta)
+		h.writeResponse(crw, r, result, meta)
 
 		// Only cache successful responses (2xx)
 		if crw.statusCode >= 200 && crw.statusCode < 300 {
@@ -754,11 +754,11 @@ func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.R
 	}
 
 	// No caching, write directly
-	h.writeResponse(w, result, meta)
+	h.writeResponse(w, r, result, meta)
 }
 
 // writeResponse writes the Parsley result to the HTTP response
-func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Result, meta *responseMeta) {
+func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, result *parsley.Result, meta *responseMeta) {
 	// Apply response headers from basil.http.response.headers
 	for k, v := range meta.headers {
 		w.Header().Set(k, v)
@@ -826,11 +826,11 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 				fmt.Fprint(w, output)
 			default:
 				// JSON encode other body types
-				h.writeJSON(w, b)
+				h.writeJSON(w, r, b)
 			}
 		} else {
 			// No body field, encode the whole map as JSON
-			h.writeJSON(w, v)
+			h.writeJSON(w, r, v)
 		}
 
 	default:
@@ -838,17 +838,17 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, result *parsley.Re
 		if customStatus {
 			w.WriteHeader(meta.status)
 		}
-		h.writeJSON(w, value)
+		h.writeJSON(w, r, value)
 	}
 }
 
 // writeJSON writes a JSON response
-func (h *parsleyHandler) writeJSON(w http.ResponseWriter, value interface{}) {
+func (h *parsleyHandler) writeJSON(w http.ResponseWriter, r *http.Request, value interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	data, err := json.Marshal(value)
 	if err != nil {
 		h.server.logError("failed to marshal JSON: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.server.handle500(w, r, err)
 		return
 	}
 	w.Write(data)
@@ -856,10 +856,10 @@ func (h *parsleyHandler) writeJSON(w http.ResponseWriter, value interface{}) {
 
 // handleScriptError handles errors during script execution.
 // In dev mode, it renders a detailed error page. In production, it returns a generic 500.
-func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, filePath, message string) {
+func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, r *http.Request, errType, filePath, message string) {
 	// In production mode, always return generic error
 	if !h.server.config.Server.Dev {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.server.handle500(w, r, fmt.Errorf("%s", message))
 		return
 	}
 
@@ -894,9 +894,9 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, errType, fileP
 
 // handleParsleyError handles structured ParsleyError from the parser.
 // This provides clean error display without regex parsing of error messages.
-func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, filePath string, parseErr *perrors.ParsleyError) {
+func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, r *http.Request, filePath string, parseErr *perrors.ParsleyError) {
 	if !h.server.config.Server.Dev {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.server.handle500(w, r, fmt.Errorf("parse error: %s", parseErr.Message))
 		return
 	}
 
@@ -916,9 +916,9 @@ func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, filePath stri
 }
 
 // handleStructuredError handles errors with structured error information from Parsley.
-func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, errType, filePath string, errObj *evaluator.Error) {
+func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, r *http.Request, errType, filePath string, errObj *evaluator.Error) {
 	if !h.server.config.Server.Dev {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.server.handle500(w, r, fmt.Errorf("%s", errObj.Message))
 		return
 	}
 
@@ -950,9 +950,9 @@ func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, errType, f
 }
 
 // handleScriptErrorWithLocation handles errors with explicit line/column info from Parsley.
-func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, errType, filePath, message string, line, col int) {
+func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, r *http.Request, errType, filePath, message string, line, col int) {
 	if !h.server.config.Server.Dev {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.server.handle500(w, r, fmt.Errorf("%s", message))
 		return
 	}
 

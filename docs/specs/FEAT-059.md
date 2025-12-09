@@ -1,9 +1,10 @@
 ---
 id: FEAT-059
 title: "Error Pages in Prelude"
-status: draft
+status: implemented
 priority: low
 created: 2025-12-09
+implemented: 2025-12-09
 author: "@copilot"
 depends-on: FEAT-056
 part-of: FEAT-051
@@ -22,26 +23,26 @@ As a Basil maintainer, I want error pages written in Parsley so that they're con
 ## Acceptance Criteria
 
 ### Error Pages
-- [ ] `prelude/errors/404.pars` - Not Found page
-- [ ] `prelude/errors/500.pars` - Internal Server Error page
-- [ ] `prelude/errors/dev_error.pars` - Detailed error for dev mode
+- [x] `prelude/errors/404.pars` - Not Found page
+- [x] `prelude/errors/500.pars` - Internal Server Error page  
+- [x] `prelude/errors/dev_error.pars` - Detailed error for dev mode
 
 ### Dev vs Production
-- [ ] Dev mode shows detailed error with stack trace, request info
-- [ ] Production mode shows minimal, user-friendly error
-- [ ] Parsley parse/eval errors show source location in dev mode
+- [x] Dev mode shows detailed error with stack trace, request info
+- [x] Production mode shows minimal, user-friendly error
+- [x] Parsley parse/eval errors show source location in dev mode
 
 ### Error Environment
-- [ ] Error pages receive error details in environment
-- [ ] `error.code` - HTTP status code
-- [ ] `error.message` - Error message
-- [ ] `error.details` - Additional details (dev mode only)
-- [ ] `error.stack` - Stack trace (dev mode only)
-- [ ] `error.request` - Request info (dev mode only)
+- [x] Error pages receive error details in environment
+- [x] `error.code` - HTTP status code
+- [x] `error.message` - Error message
+- [x] `error.details` - Additional details (dev mode only)
+- [x] `error.stack` - Stack trace (dev mode only)
+- [x] `error.request` - Request info (dev mode only)
 
 ### Fallback Handling
-- [ ] If error page itself fails, fall back to plain text
-- [ ] No infinite recursion if error page has error
+- [x] If error page itself fails, fall back to plain text
+- [x] No infinite recursion if error page has error
 
 ## Design Decisions
 

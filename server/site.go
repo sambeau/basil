@@ -71,20 +71,8 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Walk back to find the nearest index.pars handler
 	handlerPath, subpath := h.findHandler(urlPath)
 	if handlerPath == "" {
-		// No handler found
-		if h.server.config.Server.Dev {
-			info := Dev404Info{
-				RequestPath: urlPath,
-				StaticRoot:  h.server.config.PublicDir,
-				HasHandler:  false,
-				RoutePath:   urlPath,
-				BasePath:    h.server.config.BaseDir,
-			}
-			info.CheckedPaths = h.getCheckedPaths(urlPath)
-			renderDev404Page(w, info)
-			return
-		}
-		http.NotFound(w, r)
+		// No handler found - use prelude 404 page
+		h.server.handle404(w, r)
 		return
 	}
 
