@@ -1,9 +1,10 @@
 ---
 id: FEAT-056
 title: "Prelude Infrastructure"
-status: draft
+status: implemented
 priority: high
 created: 2025-12-09
+implemented: 2025-12-09
 author: "@copilot"
 supersedes: FEAT-050
 part-of: FEAT-051
@@ -24,24 +25,24 @@ As a Basil maintainer, I want a system that embeds Parsley files and static asse
 ## Acceptance Criteria
 
 ### Embedding
-- [ ] All files under `prelude/` are embedded via `//go:embed`
-- [ ] `.pars` files are parsed at server startup into cached ASTs
-- [ ] Parse errors in prelude cause server startup to fail (fail-fast)
-- [ ] Single binary deployment - no external files needed
+- [x] All files under `prelude/` are embedded via `//go:embed`
+- [x] `.pars` files are parsed at server startup into cached ASTs
+- [x] Parse errors in prelude cause server startup to fail (fail-fast)
+- [x] Single binary deployment - no external files needed
 
 ### Asset Serving
-- [ ] `/__/js/{file}` serves files from `prelude/js/`
-- [ ] `/__/css/{file}` serves files from `prelude/css/` (empty initially)
-- [ ] `/__/public/{file}` serves files from `prelude/public/` (empty initially)
-- [ ] Proper Content-Type headers based on file extension
-- [ ] Versioned assets (with hash in filename) get immutable caching
-- [ ] `JSAssetURL()` returns versioned URL for `basil.js`
+- [x] `/__/js/{file}` serves files from `prelude/js/`
+- [x] `/__/css/{file}` serves files from `prelude/css/` (empty initially)
+- [x] `/__/public/{file}` serves files from `prelude/public/` (empty initially)
+- [x] Proper Content-Type headers based on file extension
+- [x] Versioned assets (with hash in filename) get immutable caching
+- [x] `JSAssetURL()` returns versioned URL for `basil.js`
 
 ### JavaScript Assets (from FEAT-050)
-- [ ] `prelude/js/basil.js` contains component enhancement JavaScript
-- [ ] Hash derived from git commit (short hash) for cache busting
-- [ ] Response includes `Cache-Control: public, max-age=31536000, immutable`
-- [ ] HTML components can emit `<script type="module" src="...">`
+- [x] `prelude/js/basil.js` contains component enhancement JavaScript
+- [x] Hash derived from git commit (short hash) for cache busting
+- [x] Response includes `Cache-Control: public, max-age=31536000, immutable`
+- [x] HTML components can emit `<script type="module" src="...">`
 
 ## Design Decisions
 
