@@ -1,6 +1,6 @@
 # Parsley Namespace Cleanup Design
 
-> **Status (2025-12-09)**: Phase 1 (method-duplicate builtins) completed in FEAT-052. Import syntax updated to `import @path`. File builtins renamed to *File() variants. Planning final namespace organization.
+> **Status (2025-12-09)**: Phase 1 (method-duplicate builtins) completed in FEAT-052. Phase 2 (file builtin renames) completed. Import syntax updated to `import @path`. Planning final namespace organization.
 
 ## Overview
 
@@ -54,7 +54,6 @@ This document proposes cleanup of the Parsley global namespace by:
 | `dir` | dir dict | Creates directory handle pseudo-type |
 | `regex` | regex dict | Creates compiled regex pseudo-type |
 | `money` | Money | Creates Money type |
-| `publicUrl` | URL string | Basil-only: Creates public asset URL (renamed from `asset`) |
 
 #### File Reading (Core to data-driven websites)
 | Function | Returns | Reason |
@@ -100,19 +99,21 @@ This document proposes cleanup of the Parsley global namespace by:
 
 > **Completed (2025-12-09)**: File reading builtins renamed for clarity and consistency.
 
-These builtins were renamed to follow a consistent `*File()` pattern with uppercase format names:
+After testing various naming patterns, settled on these final names:
 
-| Old Name | New Name | Rationale |
-|----------|----------|-----------|
+| Old Name | Final Name | Rationale |
+|----------|------------|----------|
 | `files()` | `fileList()` | Returns array of file handles, not individual files |
-| `JSON()` | `JSON()` | Uppercase format name + File suffix |
-| `YAML()` | `YAML()` | Uppercase format name + File suffix |
-| `CSV()` | `CSV()` | Uppercase format name + File suffix |
-| `SVG()` | `SVG()` | Uppercase format name + File suffix |
-| `MD()` | `markdown()` | Full name (Markdown) is clearer than abbreviation |
-| `lines()` | `lines()` | Consistent File suffix |
-| `text()` | `text()` | Consistent File suffix |
-| `bytes()` | `bytes()` | Consistent File suffix |
+| `JSON()` / `jsonFile()` / `JSONFile()` | `JSON()` | Uppercase format name, consistent with `.toJSON()` |
+| `YAML()` / `yamlFile()` / `YAMLFile()` | `YAML()` | Uppercase format name |
+| `CSV()` / `csvFile()` / `CSVFile()` | `CSV()` | Uppercase format name, consistent with `.toCSV()` |
+| `SVG()` / `svgFile()` / `SVGFile()` | `SVG()` | Uppercase format name |
+| `MD()` | `markdown()` | Full name is clearer than abbreviation |
+| `lines()` / `linesFile()` | `lines()` | Simple, clear |
+| `text()` / `textFile()` | `text()` | Simple, clear |
+| `bytes()` / `bytesFile()` | `bytes()` | Simple, clear |
+
+**Note:** These names are very similar to the original builtins (except `markdown`), but are the clearest of many variations tested. They're consistent with method names like `.toJSON()` and `.toCSV()`.
 
 **Note:** `file(path)` remains unchanged - it's the generic file handle constructor.
 
@@ -167,9 +168,11 @@ These should become methods on their respective types, not separate modules.
 | Current | Proposed | Notes |
 |---------|----------|-------|
 | `stringifyJSON(obj)` | `obj.toJSON()` | Arrays and dicts serialize themselves |
-| `parseJSON(s)` | `s.parseJSON()` | String parses itself to JSON |
+| `parseJSON(s)` | `s.parseJSON()` | String parses to object (array or dict) |
 
 **Rationale:** All core types should have `.toJSON()`. Custom types with `.toJSON()` are auto-serializable.
+
+**Clarification:** `s.parseJSON()` parses a JSON string into a Parsley object (array or dictionary), not into another string.
 
 #### CSV → Table Methods
 | Current | Proposed | Notes |
@@ -179,10 +182,17 @@ These should become methods on their respective types, not separate modules.
 
 **Rationale:** CSV is just an array of dictionaries - only Table needs it.
 
-#### Path Pattern Matching → Path Method
+#### Path Methods
 | Current | Proposed | Notes |
 |---------|----------|-------|
 | `match(path, pattern)` | `path.match(pattern)` | Path matches against pattern |
+| `publicUrl(path)` / `asset(path)` | `path.public()` | **Basil-only**: Converts path under `public_dir` to web URL |
+| N/A (new) | `path.toURL(prefix)` | **Parsley**: Converts path to URL with explicit prefix |
+
+**Rationale for `path.public()` vs `publicUrl()`:** 
+- Parsley has no knowledge of a `public_dir` - that's Basil-specific config
+- Making it a method on path keeps Basil-specific logic in Basil
+- `path.toURL(prefix)` is the general Parsley version with explicit control
 
 ---
 
@@ -218,7 +228,6 @@ These should become methods on their respective types, not separate modules.
 | JSON/CSV serialization | Move to type methods | Planned |
 | `match()` | Move to path method | Planned |
 | `len()` | Remove (use `.length()`) | Planned |
-| `asset()` | Rename to `publicUrl()` | Planned |
 
 ---
 
@@ -231,13 +240,16 @@ These should become methods on their respective types, not separate modules.
 **Decision:** No deprecation period. Pre-alpha means we break things and fix them.
 
 ### Phase 2: Rename File Builtins ✅ COMPLETED
-- ✅ Rename file builtins to `*File()` pattern — Done (2025-12-09)
-- ✅ Use uppercase for format names (`JSON`, `YAML`, `CSV`, `SVG`)
+- ✅ Rename `files()` to `fileList()` — Done (2025-12-09)
+- ✅ Rename format-specific builtins to simple names — Done (2025-12-09)
+  - `JSON()`, `YAML()`, `CSV()`, `SVG()` (uppercase format names)
+  - `lines()`, `text()`, `bytes()`, `markdown()` (lowercase descriptive names)
 
 ### Phase 3: Final Namespace Reorganization (Planned)
 - [ ] Remove `len()` - use `.length()` method
 - [ ] Rename database constructors to `@` prefix (`@DB`, `@sqlite`, `@postgres`, `@mysql`, `@sftp`, `@shell`)
-- [ ] Rename `asset()` to `publicUrl()` (Basil-only)
+- [ ] Move `publicUrl()` / `asset()` to `path.public()` method (Basil-only)
+- [ ] Add `path.toURL(prefix)` method (Parsley)
 - [ ] Move formatting to type methods (`.format()` on numbers, dates, money)
 - [ ] Move JSON serialization to type methods (`.toJSON()`, `.parseJSON()`)
 - [ ] Move CSV to table methods (`.toCSV()`, `.parseCSV()`)
@@ -248,6 +260,9 @@ Ensure all core types have standard methods:
 - [ ] All types: `.toJSON()`, `.toString()`, `.toDebug()`
 - [ ] Formattable types: `.format(options)`
 - [ ] Collections: `.length()` (not `len()`)
+- [ ] Strings: `.parseJSON()` (string → object), `.parseCSV()` (string → table)
+- [ ] Tables: `.toCSV()`
+- [ ] Paths: `.match(pattern)`, `.public()` (Basil-only), `.toURL(prefix)`
 - [ ] Strings: `.parseJSON()`, `.parseCSV()`
 - [ ] Tables: `.toCSV()`
 - [ ] Paths: `.match(pattern)`
@@ -312,16 +327,18 @@ let items = products.sort()
 
 ### Phase 2: File Builtins (Completed)
 ```parsley
-// ❌ Before:
-let data = JSON(~/data.json)
-let config = YAML(~/config.yml)
-let rows = CSV(~/data.csv)
+// ❌ Before (various iterations):
+let data = jsonFile(~/data.json)     // or JSONFile()
+let config = yamlFile(~/config.yml)   // or YAMLFile()
+let rows = csvFile(~/data.csv)       // or CSVFile()
 
-// ✅ After (now required):
+// ✅ After (final names):
 let data = JSON(~/data.json)
 let config = YAML(~/config.yml)
 let rows = CSV(~/data.csv)
 ```
+
+**Note:** Final names are similar to original builtins but clearest after testing many variations.
 
 ### Phase 3: Final Reorganization (Planned)
 ```parsley
@@ -330,12 +347,15 @@ let count = len(items)
 let formatted = formatNumber(price, {decimals: 2})
 let json = stringifyJSON(data)
 let params = match("/users/123", "/users/:id")
+let url = asset(@./public/logo.png)  // or publicUrl()
 
 // ✅ Future (planned):
 let count = items.length()
 let formatted = price.format({decimals: 2})
 let json = data.toJSON()
 let params = @"/users/123".match("/users/:id")
+let url = @./public/logo.png.public()          // Basil-only
+let url = @./assets/logo.png.toURL("/static")  // Parsley with explicit prefix
 ```
 
 ### Database Connections (Planned)
@@ -382,9 +402,17 @@ Adding `import @std/fs` ceremony would work against the language's purpose.
 - No need for separate modules
 
 ### Why Uppercase Format Names?
-- `JSON`, `YAML`, `CSV`, `SVG` match format names
-- Consistent with how these formats are typically written
-- `markdown` uses full name (not `MDFile`) for clarity
+- `JSON`, `YAML`, `CSV`, `SVG` match conventional format names
+- Consistent with how these formats are typically written (JSON not Json)
+- Consistent with method names: `obj.toJSON()`, `table.toCSV()`
+- `markdown` uses full lowercase name for clarity (not `MD` or `Markdown`)
+- After testing many variations (`jsonFile`, `JSONFile`, `json`, `JSON`), these are clearest
+
+### Why `path.public()` Instead of Global `publicUrl()`?
+- **Parsley has no knowledge of `public_dir`** - that's Basil-specific configuration
+- Making it a method keeps Basil-specific logic in Basil, not Parsley core
+- `path.toURL(prefix)` is the general Parsley equivalent with explicit control
+- Methods on types are clearer than global functions with context dependencies
 
 ---
 
@@ -404,8 +432,10 @@ Adding `import @std/fs` ceremony would work against the language's purpose.
 2. Create feature specs for Phase 3 changes:
    - Database constructor renames (`@DB`, `@sqlite`, etc.)
    - Remove `len()`, use `.length()`
+   - Move `publicUrl()`/`asset()` to `path.public()` (Basil-only)
+   - Add `path.toURL(prefix)` (Parsley)
    - Move formatting to type methods
-   - Move serialization to type methods
+   - Move serialization to type methods (`.toJSON()`, `.parseJSON()`)
    - Move `match()` to path method
 3. Implement and test Phase 3 changes
 4. Update all documentation and examples
@@ -414,4 +444,4 @@ Adding `import @std/fs` ceremony would work against the language's purpose.
 ---
 
 **Last Updated:** 2025-12-09  
-**Status:** Phase 2 complete, Phase 3 planned
+**Status:** Phase 2 complete (file builtins renamed), Phase 3 planned
