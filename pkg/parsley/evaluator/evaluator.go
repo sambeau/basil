@@ -4666,10 +4666,10 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, format, options, env)
 			},
 		},
-		"JSONFile": {
+		"JSON": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("JSONFile", len(args), 1, 2)
+					return newArityErrorRange("JSON", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -4699,14 +4699,14 @@ func getBuiltins() map[string]*Builtin {
 					pathDict := pathToDict(components, isAbsolute, env)
 					return fileToDict(pathDict, "json", options, env)
 				default:
-					return newTypeError("TYPE-0005", "JSONFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "JSON", "a path, URL, or string", args[0].Type())
 				}
 			},
 		},
-		"YAMLFile": {
+		"YAML": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("YAMLFile", len(args), 1, 2)
+					return newArityErrorRange("YAML", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4736,16 +4736,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "yamlFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "YAML", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "yaml", options, env)
 			},
 		},
-		"CSVFile": {
+		"CSV": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("CSVFile", len(args), 1, 2)
+					return newArityErrorRange("CSV", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4775,16 +4775,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "CSVFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "CSV", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "csv", options, env)
 			},
 		},
-		"linesFile": {
+		"lines": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("linesFile", len(args), 1, 2)
+					return newArityErrorRange("lines", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4814,16 +4814,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "linesFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "lines", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "lines", options, env)
 			},
 		},
-		"textFile": {
+		"text": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("textFile", len(args), 1, 2)
+					return newArityErrorRange("text", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4853,16 +4853,16 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "textFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "text", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "text", options, env)
 			},
 		},
-		"bytesFile": {
+		"bytes": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("bytesFile", len(args), 1, 2)
+					return newArityErrorRange("bytes", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4892,17 +4892,17 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "bytesFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "bytes", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "bytes", options, env)
 			},
 		},
 		// SVG file format - reads SVG files and strips XML prolog for use as components
-		"SVGFile": {
+		"SVG": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("SVGFile", len(args), 1, 2)
+					return newArityErrorRange("SVG", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4932,17 +4932,17 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "SVGFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "SVG", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "svg", options, env)
 			},
 		},
 		// Markdown file format - reads MD files with frontmatter support
-		"markdownFile": {
+		"markdown": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("markdownFile", len(args), 1, 2)
+					return newArityErrorRange("markdown", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4972,10 +4972,10 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "markdownFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "markdown", "a path, URL, or string", args[0].Type())
 				}
 
-				return fileToDict(pathDict, "md", options, env)
+				return fileToDict(pathDict, "markdown", options, env)
 			},
 		},
 		// Directory handle factory

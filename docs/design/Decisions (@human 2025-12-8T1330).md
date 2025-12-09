@@ -21,7 +21,7 @@ format() template function - Is this used enough to stay global? It's powerful f
 match() placement - Currently does URL path matching. Should it move to std/path or std/url, or stay global?
 
 File readers (JSON, CSV, etc.) - These use uppercase by convention. Should they stay as-is for familiarity, or lowercase in std/fs?
-- rename to JSONFile() CSVFile(etc.)
+- rename to JSON() CSV(etc.)
 
 RE: Defer stdlib moves to post-alpha (non-breaking, can add modules alongside existing builtins) — Current plan ❌
 - No. We need to break things PRE alpha The point

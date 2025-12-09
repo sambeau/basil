@@ -60,16 +60,16 @@ This document proposes cleanup of the Parsley global namespace by:
 | Function | Returns | Reason |
 |----------|---------|--------|
 | `fileList(pattern)` | Array[File] | Glob pattern matching for files |
-| `JSONFile(path)` | Any | Read and parse JSON file |
-| `YAMLFile(path)` | Any | Read and parse YAML file |
-| `CSVFile(path)` | Table | Read and parse CSV file as table |
-| `linesFile(path)` | Array[String] | Read file as array of lines |
-| `textFile(path)` | String | Read file as text |
-| `bytesFile(path)` | Bytes | Read file as bytes |
-| `SVGFile(path)` | SVG | Read SVG file |
-| `markdownFile(path)` | String | Read Markdown file |
+| `JSON(path)` | Any | Read and parse JSON file |
+| `YAML(path)` | Any | Read and parse YAML file |
+| `CSV(path)` | Table | Read and parse CSV file as table |
+| `lines(path)` | Array[String] | Read file as array of lines |
+| `text(path)` | String | Read file as text |
+| `bytes(path)` | Bytes | Read file as bytes |
+| `SVG(path)` | SVG | Read SVG file |
+| `markdown(path)` | String | Read Markdown file |
 
-**Note:** Uppercase names (`JSONFile`, `YAMLFile`, `CSVFile`, `SVGFile`) match the convention of `JSON`, `YAML`, `CSV`, `SVG` as format names.
+**Note:** Uppercase names (`JSON`, `YAML`, `CSV`, `SVG`) match the convention of `JSON`, `YAML`, `CSV`, `SVG` as format names.
 
 #### Database/Connection Constructors (Used with `<=>` operator)
 | Old Name | New Name | Creates | Notes |
@@ -105,14 +105,14 @@ These builtins were renamed to follow a consistent `*File()` pattern with upperc
 | Old Name | New Name | Rationale |
 |----------|----------|-----------|
 | `files()` | `fileList()` | Returns array of file handles, not individual files |
-| `JSON()` | `JSONFile()` | Uppercase format name + File suffix |
-| `YAML()` | `YAMLFile()` | Uppercase format name + File suffix |
-| `CSV()` | `CSVFile()` | Uppercase format name + File suffix |
-| `SVG()` | `SVGFile()` | Uppercase format name + File suffix |
-| `MD()` | `markdownFile()` | Full name (Markdown) is clearer than abbreviation |
-| `lines()` | `linesFile()` | Consistent File suffix |
-| `text()` | `textFile()` | Consistent File suffix |
-| `bytes()` | `bytesFile()` | Consistent File suffix |
+| `JSON()` | `JSON()` | Uppercase format name + File suffix |
+| `YAML()` | `YAML()` | Uppercase format name + File suffix |
+| `CSV()` | `CSV()` | Uppercase format name + File suffix |
+| `SVG()` | `SVG()` | Uppercase format name + File suffix |
+| `MD()` | `markdown()` | Full name (Markdown) is clearer than abbreviation |
+| `lines()` | `lines()` | Consistent File suffix |
+| `text()` | `text()` | Consistent File suffix |
+| `bytes()` | `bytes()` | Consistent File suffix |
 
 **Note:** `file(path)` remains unchanged - it's the generic file handle constructor.
 
@@ -193,14 +193,14 @@ These should become methods on their respective types, not separate modules.
 | Function | Status | Rationale |
 |----------|--------|-----------|
 | `fileList()` | Keep global | Glob patterns for finding files |
-| `JSONFile()` | Keep global | Reading JSON data files |
-| `YAMLFile()` | Keep global | Reading YAML config/data |
-| `CSVFile()` | Keep global | Reading CSV data as tables |
-| `linesFile()` | Keep global | Reading line-based data |
-| `textFile()` | Keep global | Reading text content |
-| `bytesFile()` | Keep global | Reading binary data |
-| `SVGFile()` | Keep global | Reading SVG graphics |
-| `markdownFile()` | Keep global | Reading Markdown content |
+| `JSON()` | Keep global | Reading JSON data files |
+| `YAML()` | Keep global | Reading YAML config/data |
+| `CSV()` | Keep global | Reading CSV data as tables |
+| `lines()` | Keep global | Reading line-based data |
+| `text()` | Keep global | Reading text content |
+| `bytes()` | Keep global | Reading binary data |
+| `SVG()` | Keep global | Reading SVG graphics |
+| `markdown()` | Keep global | Reading Markdown content |
 
 **Rationale:** These are fundamental to Parsley's purpose. A `std/fs` module would add ceremony without value.
 
@@ -232,7 +232,7 @@ These should become methods on their respective types, not separate modules.
 
 ### Phase 2: Rename File Builtins ✅ COMPLETED
 - ✅ Rename file builtins to `*File()` pattern — Done (2025-12-09)
-- ✅ Use uppercase for format names (`JSONFile`, `YAMLFile`, `CSVFile`, `SVGFile`)
+- ✅ Use uppercase for format names (`JSON`, `YAML`, `CSV`, `SVG`)
 
 ### Phase 3: Final Namespace Reorganization (Planned)
 - [ ] Remove `len()` - use `.length()` method
@@ -265,7 +265,7 @@ After all phases complete, the global namespace will contain:
 - `tag`, `now`, `time`, `url`, `file`, `dir`, `regex`, `money`, `publicUrl` (Basil-only)
 
 ### File Reading (Core to data-driven sites)
-- `fileList`, `JSONFile`, `YAMLFile`, `CSVFile`, `linesFile`, `textFile`, `bytesFile`, `SVGFile`, `markdownFile`
+- `fileList`, `JSON`, `YAML`, `CSV`, `lines`, `text`, `bytes`, `SVG`, `markdown`
 
 ### Database/External Connections
 - `@DB` (Basil-only), `@sqlite`, `@postgres`, `@mysql`, `@sftp`, `@shell`
@@ -318,9 +318,9 @@ let config = YAML(~/config.yml)
 let rows = CSV(~/data.csv)
 
 // ✅ After (now required):
-let data = JSONFile(~/data.json)
-let config = YAMLFile(~/config.yml)
-let rows = CSVFile(~/data.csv)
+let data = JSON(~/data.json)
+let config = YAML(~/config.yml)
+let rows = CSV(~/data.csv)
 ```
 
 ### Phase 3: Final Reorganization (Planned)
@@ -382,9 +382,9 @@ Adding `import @std/fs` ceremony would work against the language's purpose.
 - No need for separate modules
 
 ### Why Uppercase Format Names?
-- `JSONFile`, `YAMLFile`, `CSVFile`, `SVGFile` match format names
+- `JSON`, `YAML`, `CSV`, `SVG` match format names
 - Consistent with how these formats are typically written
-- `markdownFile` uses full name (not `MDFile`) for clarity
+- `markdown` uses full name (not `MDFile`) for clarity
 
 ---
 

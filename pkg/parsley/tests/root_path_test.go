@@ -143,7 +143,7 @@ func TestRootPathRead(t *testing.T) {
 	}
 
 	// Script that reads from ~/data/config.json
-	input := `let data <== JSONFile(@~/data/config.json)
+	input := `let data <== JSON(@~/data/config.json)
 data.name`
 
 	mainPath := filepath.Join(tmpDir, "main.pars")

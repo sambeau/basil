@@ -41,19 +41,19 @@ func TestWriteOperatorText(t *testing.T) {
 	}{
 		{
 			name:     "write string to text file",
-			code:     `"Hello, World!" ==> textFile("` + filepath.Join(tmpDir, "test1.txt") + `")`,
+			code:     `"Hello, World!" ==> text("` + filepath.Join(tmpDir, "test1.txt") + `")`,
 			file:     "test1.txt",
 			expected: "Hello, World!",
 		},
 		{
 			name:     "write variable to text file",
-			code:     `let msg = "Greetings!"; msg ==> textFile("` + filepath.Join(tmpDir, "test2.txt") + `")`,
+			code:     `let msg = "Greetings!"; msg ==> text("` + filepath.Join(tmpDir, "test2.txt") + `")`,
 			file:     "test2.txt",
 			expected: "Greetings!",
 		},
 		{
 			name:     "write number to text file",
-			code:     `42 ==> textFile("` + filepath.Join(tmpDir, "test3.txt") + `")`,
+			code:     `42 ==> text("` + filepath.Join(tmpDir, "test3.txt") + `")`,
 			file:     "test3.txt",
 			expected: "42",
 		},
@@ -96,13 +96,13 @@ func TestWriteOperatorJSON(t *testing.T) {
 	}{
 		{
 			name:         "write dict to JSON file",
-			code:         `let d = {name: "Alice", age: 30}; d ==> JSONFile("` + filepath.Join(tmpDir, "test1.json") + `")`,
+			code:         `let d = {name: "Alice", age: 30}; d ==> JSON("` + filepath.Join(tmpDir, "test1.json") + `")`,
 			file:         "test1.json",
 			expectedJSON: `"name": "Alice"`,
 		},
 		{
 			name:         "write array to JSON file",
-			code:         `[1, 2, 3] ==> JSONFile("` + filepath.Join(tmpDir, "test2.json") + `")`,
+			code:         `[1, 2, 3] ==> JSON("` + filepath.Join(tmpDir, "test2.json") + `")`,
 			file:         "test2.json",
 			expectedJSON: `[`,
 		},
@@ -145,7 +145,7 @@ func TestWriteOperatorLines(t *testing.T) {
 	}{
 		{
 			name:     "write array of strings as lines",
-			code:     `["line1", "line2", "line3"] ==> linesFile("` + filepath.Join(tmpDir, "test1.log") + `")`,
+			code:     `["line1", "line2", "line3"] ==> lines("` + filepath.Join(tmpDir, "test1.log") + `")`,
 			file:     "test1.log",
 			expected: "line1\nline2\nline3",
 		},
@@ -188,7 +188,7 @@ func TestWriteOperatorCSV(t *testing.T) {
 	}{
 		{
 			name:     "write array of arrays as CSV",
-			code:     `[["a", "b"], ["c", "d"]] ==> CSVFile("` + filepath.Join(tmpDir, "test1.csv") + `")`,
+			code:     `[["a", "b"], ["c", "d"]] ==> CSV("` + filepath.Join(tmpDir, "test1.csv") + `")`,
 			file:     "test1.csv",
 			contains: "a,b",
 		},
@@ -236,7 +236,7 @@ func TestAppendOperator(t *testing.T) {
 	}{
 		{
 			name:     "append to existing file",
-			code:     `"-appended" ==>> textFile("` + initialFile + `")`,
+			code:     `"-appended" ==>> text("` + initialFile + `")`,
 			expected: "initial-appended",
 		},
 	}
@@ -270,7 +270,7 @@ func TestAppendToNewFile(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	newFile := filepath.Join(tmpDir, "new.txt")
-	code := `"created by append" ==>> textFile("` + newFile + `")`
+	code := `"created by append" ==>> text("` + newFile + `")`
 
 	result := testEvalWriteOp(code)
 	if result != nil && result.Type() == "ERROR" {
@@ -296,8 +296,8 @@ func TestWriteOperatorBytes(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	bytesFile := filepath.Join(tmpDir, "test.bin")
-	code := `[72, 101, 108, 108, 111] ==> bytesFile("` + bytesFile + `")`
+	bytes := filepath.Join(tmpDir, "test.bin")
+	code := `[72, 101, 108, 108, 111] ==> bytes("` + bytes + `")`
 
 	result := testEvalWriteOp(code)
 	if result != nil && result.Type() == "ERROR" {
@@ -305,7 +305,7 @@ func TestWriteOperatorBytes(t *testing.T) {
 		return
 	}
 
-	content, err := os.ReadFile(bytesFile)
+	content, err := os.ReadFile(bytes)
 	if err != nil {
 		t.Errorf("Failed to read file: %v", err)
 		return
@@ -329,7 +329,7 @@ func TestWriteOperatorErrors(t *testing.T) {
 		},
 		{
 			name:          "write bytes with non-array",
-			code:          `"not bytes" ==> bytesFile("/tmp/test.bin")`,
+			code:          `"not bytes" ==> bytes("/tmp/test.bin")`,
 			errorContains: "requires an array",
 		},
 	}
@@ -363,12 +363,12 @@ func TestWriteReadRoundtrip(t *testing.T) {
 	}{
 		{
 			name:     "JSON roundtrip",
-			code:     `let d = {name: "Bob", score: 95}; d ==> JSONFile("` + filepath.Join(tmpDir, "rt.json") + `"); let data <== JSONFile("` + filepath.Join(tmpDir, "rt.json") + `"); data.name`,
+			code:     `let d = {name: "Bob", score: 95}; d ==> JSON("` + filepath.Join(tmpDir, "rt.json") + `"); let data <== JSON("` + filepath.Join(tmpDir, "rt.json") + `"); data.name`,
 			expected: "Bob",
 		},
 		{
 			name:     "text roundtrip",
-			code:     `"round trip test" ==> textFile("` + filepath.Join(tmpDir, "rt.txt") + `"); let content <== textFile("` + filepath.Join(tmpDir, "rt.txt") + `"); content`,
+			code:     `"round trip test" ==> text("` + filepath.Join(tmpDir, "rt.txt") + `"); let content <== text("` + filepath.Join(tmpDir, "rt.txt") + `"); content`,
 			expected: "round trip test",
 		},
 	}

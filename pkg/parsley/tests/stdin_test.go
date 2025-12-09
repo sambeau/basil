@@ -74,8 +74,8 @@ func runWithStdin(t *testing.T, code string, stdinData string) (string, string) 
 }
 
 func TestStdinJSONRead(t *testing.T) {
-	code := `let data <== JSONFile(@-)
-data ==> JSONFile(@-)`
+	code := `let data <== JSON(@-)
+data ==> JSON(@-)`
 
 	stdout, _ := runWithStdin(t, code, `{"name":"test","value":42}`)
 
@@ -88,8 +88,8 @@ data ==> JSONFile(@-)`
 }
 
 func TestStdinTextRead(t *testing.T) {
-	code := `let data <== textFile(@-)
-data ==> textFile(@-)`
+	code := `let data <== text(@-)
+data ==> text(@-)`
 
 	stdout, _ := runWithStdin(t, code, "Hello World")
 
@@ -99,8 +99,8 @@ data ==> textFile(@-)`
 }
 
 func TestStdinLinesRead(t *testing.T) {
-	code := `let data <== linesFile(@-)
-len(data) ==> textFile(@-)`
+	code := `let data <== lines(@-)
+len(data) ==> text(@-)`
 
 	stdout, _ := runWithStdin(t, code, "line1\nline2\nline3")
 
@@ -110,8 +110,8 @@ len(data) ==> textFile(@-)`
 }
 
 func TestStdinAlias(t *testing.T) {
-	code := `let data <== JSONFile(@stdin)
-data ==> JSONFile(@stdout)`
+	code := `let data <== JSON(@stdin)
+data ==> JSON(@stdout)`
 
 	stdout, _ := runWithStdin(t, code, `{"test":true}`)
 
@@ -121,7 +121,7 @@ data ==> JSONFile(@stdout)`
 }
 
 func TestStderrWrite(t *testing.T) {
-	code := `"error message" ==> textFile(@stderr)`
+	code := `"error message" ==> text(@stderr)`
 
 	_, stderr := runWithStdin(t, code, "")
 
@@ -131,8 +131,8 @@ func TestStderrWrite(t *testing.T) {
 }
 
 func TestStdioSeparation(t *testing.T) {
-	code := `"stdout message" ==> textFile(@stdout)
-"stderr message" ==> textFile(@stderr)`
+	code := `"stdout message" ==> text(@stdout)
+"stderr message" ==> text(@stderr)`
 
 	stdout, stderr := runWithStdin(t, code, "")
 

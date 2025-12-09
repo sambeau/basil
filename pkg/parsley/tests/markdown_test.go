@@ -48,7 +48,7 @@ This is a paragraph.
 	testFilePath := filepath.Join(tmpDir, "test.pars")
 
 	// Test reading markdown
-	code := `let post <== markdownFile(@./simple.md); post.html`
+	code := `let post <== markdown(@./simple.md); post.html`
 	result := testEvalMDWithFilename(code, testFilePath)
 
 	if result == nil {
@@ -104,32 +104,32 @@ This is the blog content.
 	}{
 		{
 			name:     "access title",
-			code:     `let post <== markdownFile(@./blog.md); post.title`,
+			code:     `let post <== markdown(@./blog.md); post.title`,
 			expected: "My Blog Post",
 		},
 		{
 			name:     "access author",
-			code:     `let post <== markdownFile(@./blog.md); post.author`,
+			code:     `let post <== markdown(@./blog.md); post.author`,
 			expected: "John Doe",
 		},
 		{
 			name:     "access draft",
-			code:     `let post <== markdownFile(@./blog.md); post.draft`,
+			code:     `let post <== markdown(@./blog.md); post.draft`,
 			expected: "false",
 		},
 		{
 			name:     "access tags array",
-			code:     `let post <== markdownFile(@./blog.md); post.tags[0]`,
+			code:     `let post <== markdown(@./blog.md); post.tags[0]`,
 			expected: "go",
 		},
 		{
 			name:     "html contains content",
-			code:     `let post <== markdownFile(@./blog.md); post.html`,
+			code:     `let post <== markdown(@./blog.md); post.html`,
 			expected: "<h1>Content</h1>",
 		},
 		{
 			name:     "raw contains markdown",
-			code:     `let post <== markdownFile(@./blog.md); post.raw`,
+			code:     `let post <== markdown(@./blog.md); post.raw`,
 			expected: "# Content",
 		},
 	}
@@ -176,7 +176,7 @@ This is **bold** text.
 	testFilePath := filepath.Join(tmpDir, "test.pars")
 
 	// Test using markdown in a template
-	code := `let post <== markdownFile(@./post.md)
+	code := `let post <== markdown(@./post.md)
 <article>
   <h1>{post.title}</h1>
   <div class="content">{post.html}</div>

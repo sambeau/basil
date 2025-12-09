@@ -48,7 +48,7 @@ Complete reference for all Parsley types, methods, and operators.
 | Money | `$12.34`, `EUR#50.00` | Currency values with exact arithmetic |
 | Path | `@./file.pars` | File system paths |
 | URL | `@https://example.com` | Web addresses |
-| File Handle | `JSONFile(@./config.json)` | File with format binding |
+| File Handle | `JSON(@./config.json)` | File with format binding |
 | Directory | `dir(@./folder)` | Directory handle |
 
 ---
@@ -226,9 +226,9 @@ a ?? b ?? c ?? "default"   // First non-null value
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| `<==` | Read from file | `let data <== JSONFile(@./file.json)` |
-| `==>` | Write to file | `data ==> JSONFile(@./out.json)` |
-| `==>>` | Append to file | `line ==>> linesFile(@./log.txt)` |
+| `<==` | Read from file | `let data <== JSON(@./file.json)` |
+| `==>` | Write to file | `data ==> JSON(@./out.json)` |
+| `==>>` | Append to file | `line ==>> lines(@./log.txt)` |
 
 ### Process Execution
 
@@ -1025,13 +1025,13 @@ log(u)             // https://api.example.com/v1
 | Factory | Format | Read Returns | Write Accepts |
 |---------|--------|--------------|---------------|
 | `file(path)` | Auto-detect | Depends on ext | String |
-| `JSONFile(path)` | JSON | Dict or Array | Dict or Array |
-| `CSVFile(path)` | CSV | Array of Dicts | Array of Dicts |
-| `markdownFile(path)` | Markdown | Dict (html + frontmatter) | String |
-| `SVGFile(path)` | SVG | String (prolog stripped) | String |
-| `linesFile(path)` | Lines | Array of Strings | Array of Strings |
-| `textFile(path)` | Text | String | String |
-| `bytesFile(path)` | Binary | Byte Array | Byte Array |
+| `JSON(path)` | JSON | Dict or Array | Dict or Array |
+| `CSV(path)` | CSV | Array of Dicts | Array of Dicts |
+| `markdown(path)` | Markdown | Dict (html + frontmatter) | String |
+| `SVG(path)` | SVG | String (prolog stripped) | String |
+| `lines(path)` | Lines | Array of Strings | Array of Strings |
+| `text(path)` | Text | String | String |
+| `bytes(path)` | Binary | Byte Array | Byte Array |
 
 ### File Handle Properties
 
@@ -1077,16 +1077,16 @@ if (result != null) {
 ### Reading (`<==`)
 
 ```parsley
-let config <== JSONFile(@./config.json)
-let rows <== CSVFile(@./data.csv)
-let content <== textFile(@./readme.txt)
+let config <== JSON(@./config.json)
+let rows <== CSV(@./data.csv)
+let content <== text(@./readme.txt)
 
 // Load SVG icons as reusable components
-let Arrow <== SVGFile(@./icons/arrow.svg)
+let Arrow <== SVG(@./icons/arrow.svg)
 <button><Arrow/> Next</button>
 
 // Load markdown with YAML frontmatter
-let post <== markdownFile(@./blog.md)
+let post <== markdown(@./blog.md)
 post.title       // From frontmatter
 post.date        // Parsed as DateTime if ISO format
 post.tags        // Array from frontmatter
@@ -1094,32 +1094,32 @@ post.html        // Rendered HTML
 post.raw         // Original markdown body
 
 // Destructure from file
-let {name, version} <== JSONFile(@./package.json)
+let {name, version} <== JSON(@./package.json)
 
 // Error capture pattern
-let {data, error} <== JSONFile(@./config.json)
+let {data, error} <== JSON(@./config.json)
 if (error) {
     log("Error:", error)
 }
 
 // Fallback
-let config <== JSONFile(@./config.json) ?? {defaults: true}
+let config <== JSON(@./config.json) ?? {defaults: true}
 ```
 
 ### Writing (`==>`)
 
 ```parsley
-myDict ==> JSONFile(@./output.json)
-records ==> CSVFile(@./export.csv)
-"Hello" ==> textFile(@./greeting.txt)
-"<svg>...</svg>" ==> SVGFile(@./icon.svg)
+myDict ==> JSON(@./output.json)
+records ==> CSV(@./export.csv)
+"Hello" ==> text(@./greeting.txt)
+"<svg>...</svg>" ==> SVG(@./icon.svg)
 ```
 
 ### Appending (`==>>`)
 
 ```parsley
-newLine ==>> linesFile(@./log.txt)
-message ==>> textFile(@./debug.log)
+newLine ==>> lines(@./log.txt)
+message ==>> text(@./debug.log)
 ```
 
 ### Stdin/Stdout/Stderr
@@ -1134,37 +1134,37 @@ Read from stdin and write to stdout/stderr for Unix pipeline integration.
 
 ```parsley
 // Read JSON from stdin
-let data <== JSONFile(@-)
+let data <== JSON(@-)
 
 // Write JSON to stdout
-data ==> JSONFile(@-)
+data ==> JSON(@-)
 
 // Using explicit aliases
-let input <== textFile(@stdin)
-"output" ==> textFile(@stdout)
-"error" ==> textFile(@stderr)
+let input <== text(@stdin)
+"output" ==> text(@stdout)
+"error" ==> text(@stderr)
 
 // Works with all format factories
-let lines <== linesFile(@-)
-let csvData <== CSVFile(@stdin)
-data ==> YAMLFile(@stdout)
+let lines <== lines(@-)
+let csvData <== CSV(@stdin)
+data ==> YAML(@stdout)
 
 // Full pipeline example: filter active items
-let input <== JSONFile(@-)
+let input <== JSON(@-)
 let active = for (item in input.items) {
     if (item.active) { item }
 }
-active ==> JSONFile(@-)
+active ==> JSON(@-)
 ```
 
 **Error Handling:**
 
 ```parsley
 // Cannot read from stdout/stderr
-let data <== textFile(@stdout)  // ERROR: cannot read from stdout
+let data <== text(@stdout)  // ERROR: cannot read from stdout
 
 // Cannot write to stdin
-"text" ==> textFile(@stdin)     // ERROR: cannot write to stdin
+"text" ==> text(@stdin)     // ERROR: cannot write to stdin
 ```
 
 ### Directory Operations
@@ -1551,27 +1551,27 @@ Fetch content from URLs using the `<=/=` operator with request handles.
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| `<=/=` | Fetch from URL | `let data <=/= JSONFile(@https://api.example.com)` |
+| `<=/=` | Fetch from URL | `let data <=/= JSON(@https://api.example.com)` |
 
 ### Request Handle Factories
 
 | Factory | Format | Returns |
 |---------|--------|---------|
-| `JSONFile(url)` | JSON | Parsed JSON (dict/array) |
-| `textFile(url)` | Plain text | String |
-| `YAMLFile(url)` | YAML | Parsed YAML |
-| `linesFile(url)` | Lines | Array of strings |
-| `bytesFile(url)` | Binary | Array of integers |
+| `JSON(url)` | JSON | Parsed JSON (dict/array) |
+| `text(url)` | Plain text | String |
+| `YAML(url)` | YAML | Parsed YAML |
+| `lines(url)` | Lines | Array of strings |
+| `bytes(url)` | Binary | Array of integers |
 
 ### Basic Usage
 
 ```parsley
 // Fetch JSON data
-let users <=/= JSONFile(@https://api.example.com/users)
+let users <=/= JSON(@https://api.example.com/users)
 log(users[0].name)
 
 // Fetch text content
-let html <=/= textFile(@https://example.com)
+let html <=/= text(@https://example.com)
 
 // Direct URL fetch (defaults to text)
 let content <=/= @https://example.com
@@ -1583,19 +1583,19 @@ Pass a second argument to customize the request:
 
 ```parsley
 // POST with JSON body
-let response <=/= JSONFile(@https://api.example.com/users, {
+let response <=/= JSON(@https://api.example.com/users, {
     method: "POST",
     body: {name: "Alice", email: "alice@example.com"},
     headers: {"Authorization": "Bearer token123"}
 })
 
 // Custom timeout (milliseconds)
-let data <=/= JSONFile(@https://slow-api.com/data, {
+let data <=/= JSON(@https://slow-api.com/data, {
     timeout: 10000  // 10 seconds
 })
 
 // PUT request
-let updated <=/= JSONFile(@https://api.example.com/users/1, {
+let updated <=/= JSON(@https://api.example.com/users/1, {
     method: "PUT",
     body: {name: "Bob"},
     headers: {"Content-Type": "application/json"}
@@ -1608,7 +1608,7 @@ Use destructuring to capture errors and response metadata:
 
 ```parsley
 // Basic error capture
-let {data, error} <=/= JSONFile(@https://api.example.com/data)
+let {data, error} <=/= JSON(@https://api.example.com/data)
 if (error != null) {
     log("Fetch failed:", error)
 } else {
@@ -1616,12 +1616,12 @@ if (error != null) {
 }
 
 // Access HTTP status and headers
-let {data, error, status, headers} <=/= JSONFile(@https://api.example.com/users)
+let {data, error, status, headers} <=/= JSON(@https://api.example.com/users)
 log("Status code:", status)
 log("Content-Type:", headers["Content-Type"])
 
 // Handle errors gracefully
-let {data, error} <=/= JSONFile(@https://unreliable-api.com/data)
+let {data, error} <=/= JSON(@https://unreliable-api.com/data)
 let users = data ?? []  // Default to empty array on error
 ```
 
@@ -1631,21 +1631,21 @@ Supported methods: GET (default), POST, PUT, PATCH, DELETE, HEAD, OPTIONS
 
 ```parsley
 // GET (default)
-let data <=/= JSONFile(@https://api.example.com/items)
+let data <=/= JSON(@https://api.example.com/items)
 
 // POST
-let created <=/= JSONFile(@https://api.example.com/items, {
+let created <=/= JSON(@https://api.example.com/items, {
     method: "POST",
     body: {title: "New Item"}
 })
 
 // DELETE
-let {data, status} <=/= JSONFile(@https://api.example.com/items/123, {
+let {data, status} <=/= JSON(@https://api.example.com/items/123, {
     method: "DELETE"
 })
 
 // PATCH
-let updated <=/= JSONFile(@https://api.example.com/items/123, {
+let updated <=/= JSON(@https://api.example.com/items/123, {
     method: "PATCH",
     body: {title: "Updated Title"}
 })
@@ -1659,7 +1659,7 @@ Customize headers for authentication, content negotiation, etc.
 
 ```parsley
 // Simple headers without hyphens work fine
-let data <=/= JSONFile(@https://api.example.com/data, {
+let data <=/= JSON(@https://api.example.com/data, {
     headers: {
         Authorization: "Bearer " + apiToken
     }
@@ -1681,7 +1681,7 @@ When using error capture pattern `{data, error, status, headers}`:
 | `headers` | Dictionary | Response HTTP headers |
 
 ```parsley
-let {data, error, status, headers} <=/= JSONFile(@https://api.example.com/data)
+let {data, error, status, headers} <=/= JSON(@https://api.example.com/data)
 
 if (status == 200) {
     log("Success!")
@@ -1697,7 +1697,7 @@ if (status == 200) {
 **API Integration:**
 ```parsley
 // Fetch and process API data
-let {data, error} <=/= JSONFile(@https://api.github.com/users/octocat)
+let {data, error} <=/= JSON(@https://api.github.com/users/octocat)
 if (error == null) {
     log("User: " + data.login)
     log("Repos: " + data.public_repos)
@@ -1712,7 +1712,7 @@ let formData = {
     password: "secret123"
 }
 
-let {data, error, status} <=/= JSONFile(@https://example.com/login, {
+let {data, error, status} <=/= JSON(@https://example.com/login, {
     method: "POST",
     body: formData,
     headers: {"Content-Type": "application/json"}
@@ -1728,17 +1728,17 @@ if (status == 200) {
 **Download Text Content:**
 
 ```parsley
-let {data, error} <=/= textFile(@https://raw.githubusercontent.com/user/repo/main/README.md)
+let {data, error} <=/= text(@https://raw.githubusercontent.com/user/repo/main/README.md)
 if (error == null) {
-    data ==> textFile(@./downloaded_readme.md)
+    data ==> text(@./downloaded_readme.md)
 }
 ```
 
 **Multiple API Calls:**
 
 ```parsley
-let users <=/= JSONFile(@https://api.example.com/users)
-let posts <=/= JSONFile(@https://api.example.com/posts)
+let users <=/= JSON(@https://api.example.com/users)
+let posts <=/= JSON(@https://api.example.com/posts)
 
 for (user in users) {
     let userPosts = posts.filter(fn(p) { p.userId == user.id })
@@ -1756,7 +1756,7 @@ for (user in users) {
 
 ```parsley
 // Good: Error handling and timeout
-let {data, error, status} <=/= JSONFile(@https://api.example.com/data, {
+let {data, error, status} <=/= JSON(@https://api.example.com/data, {
     timeout: 5000,
     headers: {"Authorization": "Bearer " + getToken()}
 })
@@ -2829,8 +2829,8 @@ The following operations are subject to security checks:
 
 | Operation | Security Check | Example |
 |-----------|----------------|---------|
-| File read | `read` | `content <== textFile("file.txt")` |
-| File write | `write` | `"data" ==> textFile("file.txt")` |
+| File read | `read` | `content <== text("file.txt")` |
+| File write | `write` | `"data" ==> text("file.txt")` |
 | File delete | `write` | `file("temp.txt").remove()` |
 | Directory list | `read` | `dir("./folder").files` |
 | Module import | `execute` | `import @./module.pars` |

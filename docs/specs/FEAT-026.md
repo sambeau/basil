@@ -16,9 +16,9 @@ Currently, file operations use a mix of inconsistent globals:
 ```parsley
 // Current (inconsistent)
 let f = file(@./data.json)  // Lowercase
-let f = JSONFile(@./data.json)  // Uppercase! Why?
-let f = CSVFile(@./data.csv)    // Uppercase
-let f = YAMLFile(@./config.yml) // Uppercase
+let f = JSON(@./data.json)  // Uppercase! Why?
+let f = CSV(@./data.csv)    // Uppercase
+let f = YAML(@./config.yml) // Uppercase
 ```
 
 Similarly, `basil` exists as both a global AND a module:
@@ -71,9 +71,9 @@ All methods create file handles. The format determines how `<==` will parse the 
 | `file.json(@path)` | JSON file | Dictionary/Array |
 | `file.yaml(@path)` | YAML file | Dictionary/Array |
 | `file.csv(@path)` | CSV file | Table |
-| `file.textFile(@path)` | Plain text | String |
-| `file.linesFile(@path)` | Line-delimited text | Array of strings |
-| `file.bytesFile(@path)` | Binary file | Byte array |
+| `file.text(@path)` | Plain text | String |
+| `file.lines(@path)` | Line-delimited text | Array of strings |
+| `file.bytes(@path)` | Binary file | Byte array |
 | `file.md(@path)` | Markdown file | HTML string |
 | `file.svg(@path)` | SVG file | HTML element |
 
@@ -103,7 +103,7 @@ let {file} = import("std/file")
 // Create handles (no I/O)
 let jsonHandle = file.json(@./config.json)
 let csvHandle = file.csv(@./data.csv)
-let textHandle = file.textFile(@./readme.txt)
+let textHandle = file.text(@./readme.txt)
 
 // Read files (I/O happens here)
 let config <== jsonHandle
@@ -146,14 +146,14 @@ These globals will be **removed** (hard removal, pre-1.0):
 | Old Global | New Method |
 |------------|------------|
 | `file()` | `file()` (via module) |
-| `JSONFile()` | `file.json()` |
-| `YAMLFile()` | `file.yaml()` |
-| `CSVFile()` | `file.csv()` |
-| `textFile()` | `file.textFile()` |
-| `linesFile()` | `file.linesFile()` |
-| `bytesFile()` | `file.bytesFile()` |
-| `markdownFile()` | `file.md()` |
-| `SVGFile()` | `file.svg()` |
+| `JSON()` | `file.json()` |
+| `YAML()` | `file.yaml()` |
+| `CSV()` | `file.csv()` |
+| `text()` | `file.text()` |
+| `lines()` | `file.lines()` |
+| `bytes()` | `file.bytes()` |
+| `markdown()` | `file.md()` |
+| `SVG()` | `file.svg()` |
 | `dir()` | `file.dir()` |
 | `glob()` | `file.glob()` |
 
@@ -161,7 +161,7 @@ These globals will be **removed** (hard removal, pre-1.0):
 
 ```parsley
 // Before
-let data <== JSONFile(@./data.json)
+let data <== JSON(@./data.json)
 
 // After
 let {file} = import("std/file")

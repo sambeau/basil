@@ -28,31 +28,31 @@ func TestHTTPMethodAccessors(t *testing.T) {
 	}{
 		{
 			name:     "GET method accessor",
-			input:    `JSONFile(@https://example.com/api).get.method`,
+			input:    `JSON(@https://example.com/api).get.method`,
 			wantType: "string",
 			wantVal:  "GET",
 		},
 		{
 			name:     "POST method accessor",
-			input:    `JSONFile(@https://example.com/api).post.method`,
+			input:    `JSON(@https://example.com/api).post.method`,
 			wantType: "string",
 			wantVal:  "POST",
 		},
 		{
 			name:     "PUT method accessor",
-			input:    `JSONFile(@https://example.com/api).put.method`,
+			input:    `JSON(@https://example.com/api).put.method`,
 			wantType: "string",
 			wantVal:  "PUT",
 		},
 		{
 			name:     "PATCH method accessor",
-			input:    `JSONFile(@https://example.com/api).patch.method`,
+			input:    `JSON(@https://example.com/api).patch.method`,
 			wantType: "string",
 			wantVal:  "PATCH",
 		},
 		{
 			name:     "DELETE method accessor",
-			input:    `JSONFile(@https://example.com/api).delete.method`,
+			input:    `JSON(@https://example.com/api).delete.method`,
 			wantType: "string",
 			wantVal:  "DELETE",
 		},
@@ -86,13 +86,13 @@ func TestResponseTypedDict(t *testing.T) {
 	}{
 		{
 			name:     "Request dict has __type",
-			input:    `JSONFile(@https://example.com/api).__type`,
+			input:    `JSON(@https://example.com/api).__type`,
 			wantType: "string",
 			wantVal:  "request",
 		},
 		{
 			name:     "Request dict has format",
-			input:    `JSONFile(@https://example.com/api).format`,
+			input:    `JSON(@https://example.com/api).format`,
 			wantType: "string",
 			wantVal:  "json",
 		},
@@ -125,7 +125,7 @@ func TestResponseMethodExists(t *testing.T) {
 	}{
 		{
 			name:  "Method chaining works",
-			input: `let req = JSONFile(@https://example.com/api).post; req.method`,
+			input: `let req = JSON(@https://example.com/api).post; req.method`,
 		},
 	}
 
