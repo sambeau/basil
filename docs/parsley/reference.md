@@ -270,6 +270,12 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `.highlight(phrase, tag)` | With custom tag | `"hello".highlight("ell", "strong")` → `"h<strong>ell</strong>o"` |
 | `.paragraphs()` | Text to HTML paragraphs | `"Para one.\n\nPara two.".paragraphs()` → `"<p>Para one.</p><p>Para two.</p>"` |
 | `.render(dict?)` | Render `@{...}` with current scope or a provided dictionary; use `\@` to escape | `"color @{c}".render({c: "red"})` → `"color red"` |
+| `.collapse()` | Replace all whitespace sequences with single space | `"hello   world".collapse()` → `"hello world"` |
+| `.normalizeSpace()` | Collapse whitespace and trim | `"  hello   world  ".normalizeSpace()` → `"hello world"` |
+| `.stripSpace()` | Remove all whitespace | `"hello world".stripSpace()` → `"helloworld"` |
+| `.stripHtml()` | Remove HTML tags and decode entities | `"<p>Hello</p>".stripHtml()` → `"Hello"` |
+| `.digits()` | Extract only digits | `"(555) 123-4567".digits()` → `"5551234567"` |
+| `.slug()` | Convert to URL-safe slug | `"Hello World!".slug()` → `"hello-world"` |
 
 ### Indexing and Slicing
 

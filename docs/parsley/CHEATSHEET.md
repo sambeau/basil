@@ -344,6 +344,17 @@ data =/=> conn(@/remote/file.json).json
 "Para 1\n\nPara 2".paragraphs()   // "<p>Para 1</p><p>Para 2</p>"
 "color @{c}".render({c: "red"})   // @{...} stays literal until render()
 
+// String sanitizer methods (form input cleanup)
+"hello   world".collapse()          // "hello world" (whitespace → single space)
+"  hello   world  ".normalizeSpace()  // "hello world" (collapse + trim)
+"hello world".stripSpace()          // "helloworld" (remove all whitespace)
+"<p>Hello</p>".stripHtml()          // "Hello" (strip tags + decode entities)
+"(555) 123-4567".digits()           // "5551234567" (extract digits)
+"Hello World!".slug()               // "hello-world" (URL-safe slug)
+
+// Chaining sanitizers
+"  <p>Product Name!</p>  ".stripHtml().normalizeSpace().slug()  // "product-name"
+
 // Number methods
 1234567.humanize()          // "1.2M"
 1234.humanize("de")         // "1,2K"

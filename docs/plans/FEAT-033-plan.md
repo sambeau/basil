@@ -2,9 +2,10 @@
 id: PLAN-021
 feature: FEAT-033
 title: "Implementation Plan for String Sanitizer Methods"
-status: ready
+status: implemented
 created: 2025-12-05
 updated: 2025-12-09
+implemented: 2025-12-09
 ---
 
 # Implementation Plan: FEAT-033 String Sanitizer Methods
@@ -278,16 +279,16 @@ Also test chaining:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 0: Regex vars | | |
-| | Task 1: collapse() | | |
-| | Task 2: normalizeSpace() | | |
-| | Task 3: stripSpace() | | |
-| | Task 4: stripHtml() | | |
-| | Task 5: digits() | | |
-| | Task 6: slug() | | |
-| | Task 7: Update method list | | |
-| | Task 8: Tests | | |
-| | Task 9: Documentation | | |
+| 2025-12-09 | Task 0: Regex vars | ✅ Complete | Added pre-compiled regex patterns at package level |
+| 2025-12-09 | Task 1: collapse() | ✅ Complete | Implemented with whitespaceRegex |
+| 2025-12-09 | Task 2: normalizeSpace() | ✅ Complete | Implemented with collapse + trim |
+| 2025-12-09 | Task 3: stripSpace() | ✅ Complete | Implemented to remove all whitespace |
+| 2025-12-09 | Task 4: stripHtml() | ✅ Complete | Implemented with htmlTagRegex + UnescapeString |
+| 2025-12-09 | Task 5: digits() | ✅ Complete | Implemented with nonDigitRegex |
+| 2025-12-09 | Task 6: slug() | ✅ Complete | Implemented with ToLower + nonSlugRegex |
+| 2025-12-09 | Task 7: Update method list | ✅ Complete | Added all 6 methods to stringMethods array |
+| 2025-12-09 | Task 8: Tests | ✅ Complete | Added 30+ test cases including chaining tests |
+| 2025-12-09 | Task 9: Documentation | ✅ Complete | Updated reference.md and CHEATSHEET.md |
 
 ## Deferred Items
 - `s.transliterate()` — Complex accent→ASCII mapping; add later if needed (per spec)

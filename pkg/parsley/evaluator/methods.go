@@ -22,6 +22,17 @@ import (
 )
 
 // ============================================================================
+// Pre-compiled regex patterns for sanitizer methods
+// ============================================================================
+
+var (
+	whitespaceRegex = regexp.MustCompile(`\s+`)
+	htmlTagRegex    = regexp.MustCompile(`<[^>]*>`)
+	nonDigitRegex   = regexp.MustCompile(`[^0-9]`)
+	nonSlugRegex    = regexp.MustCompile(`[^a-z0-9]+`)
+)
+
+// ============================================================================
 // Available Methods for Fuzzy Matching
 // ============================================================================
 
@@ -29,6 +40,7 @@ import (
 var stringMethods = []string{
 	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
+	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 }
 
 // arrayMethods lists all methods available on array
@@ -237,6 +249,45 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 			return err
 		}
 		return result
+
+	case "collapse":
+		if len(args) != 0 {
+			return newArityError("collapse", len(args), 0)
+		}
+		return &String{Value: whitespaceRegex.ReplaceAllString(str.Value, " ")}
+
+	case "normalizeSpace":
+		if len(args) != 0 {
+			return newArityError("normalizeSpace", len(args), 0)
+		}
+		collapsed := whitespaceRegex.ReplaceAllString(str.Value, " ")
+		return &String{Value: strings.TrimSpace(collapsed)}
+
+	case "stripSpace":
+		if len(args) != 0 {
+			return newArityError("stripSpace", len(args), 0)
+		}
+		return &String{Value: whitespaceRegex.ReplaceAllString(str.Value, "")}
+
+	case "stripHtml":
+		if len(args) != 0 {
+			return newArityError("stripHtml", len(args), 0)
+		}
+		stripped := htmlTagRegex.ReplaceAllString(str.Value, "")
+		return &String{Value: html.UnescapeString(stripped)}
+
+	case "digits":
+		if len(args) != 0 {
+			return newArityError("digits", len(args), 0)
+		}
+		return &String{Value: nonDigitRegex.ReplaceAllString(str.Value, "")}
+
+	case "slug":
+		if len(args) != 0 {
+			return newArityError("slug", len(args), 0)
+		}
+		lower := strings.ToLower(str.Value)
+		return &String{Value: strings.Trim(nonSlugRegex.ReplaceAllString(lower, "-"), "-")}
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)

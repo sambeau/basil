@@ -46,6 +46,63 @@ func TestStringMethods(t *testing.T) {
 		{`"hello".length()`, int64(5)},
 		{`"".length()`, int64(0)},
 		{`"日本語".length()`, int64(3)}, // Unicode rune count
+
+		// collapse() - Replace all whitespace sequences with single space
+		{`"hello   world".collapse()`, "hello world"},
+		{`"multi\n\nline\n\ntext".collapse()`, "multi line text"},
+		{`"  leading and trailing  ".collapse()`, " leading and trailing "},
+		{`"tabs\t\t\tand\tspaces".collapse()`, "tabs and spaces"},
+		{`"already collapsed".collapse()`, "already collapsed"},
+		{`"".collapse()`, ""},
+
+		// normalizeSpace() - Collapse whitespace and trim
+		{`"  hello   world  ".normalizeSpace()`, "hello world"},
+		{`"multi\n\nline\n\ntext".normalizeSpace()`, "multi line text"},
+		{`"   leading".normalizeSpace()`, "leading"},
+		{`"trailing   ".normalizeSpace()`, "trailing"},
+		{`"already normalized".normalizeSpace()`, "already normalized"},
+		{`"   ".normalizeSpace()`, ""},
+		{`"".normalizeSpace()`, ""},
+
+		// stripSpace() - Remove all whitespace
+		{`"hello world".stripSpace()`, "helloworld"},
+		{`"  remove   all  spaces  ".stripSpace()`, "removeallspaces"},
+		{`"tabs\t\tand\nnewlines".stripSpace()`, "tabsandnewlines"},
+		{`"nospace".stripSpace()`, "nospace"},
+		{`"   ".stripSpace()`, ""},
+		{`"".stripSpace()`, ""},
+
+		// stripHtml() - Remove HTML tags and decode entities
+		{`"<p>Hello</p>".stripHtml()`, "Hello"},
+		{`"<div class=\"test\">Content</div>".stripHtml()`, "Content"},
+		{`"Plain &amp; simple".stripHtml()`, "Plain & simple"},
+		{`"&lt;not a tag&gt;".stripHtml()`, "<not a tag>"},
+		{`"<a href=\"#\">Link</a> text".stripHtml()`, "Link text"},
+		{`"No tags here".stripHtml()`, "No tags here"},
+		{`"".stripHtml()`, ""},
+
+		// digits() - Extract only digits
+		{`"abc123def456".digits()`, "123456"},
+		{`"(555) 123-4567".digits()`, "5551234567"},
+		{`"Price: $19.99".digits()`, "1999"},
+		{`"no digits here".digits()`, ""},
+		{`"42".digits()`, "42"},
+		{`"".digits()`, ""},
+
+		// slug() - Convert to URL-safe slug
+		{`"Hello World".slug()`, "hello-world"},
+		{`"Multiple   Spaces".slug()`, "multiple-spaces"},
+		{`"Special!@#Characters".slug()`, "special-characters"},
+		{`"--leading-and-trailing--".slug()`, "leading-and-trailing"},
+		{`"CamelCase123".slug()`, "camelcase123"},
+		{`"already-a-slug".slug()`, "already-a-slug"},
+		{`"!!!".slug()`, ""},
+		{`"".slug()`, ""},
+
+		// Chaining sanitizers
+		{`"  <p>Hello   World</p>  ".stripHtml().normalizeSpace()`, "Hello World"},
+		{`"Price: $19.99".digits().length()`, int64(4)},
+		{`"  Product Name!  ".normalizeSpace().slug()`, "product-name"},
 	}
 
 	for _, tt := range tests {
