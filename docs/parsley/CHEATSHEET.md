@@ -120,7 +120,7 @@ let process = fn(items) {
 
 ### File I/O (very common)
 - `file(@path)` - 46 test uses, 8 example uses
-- `jsonFile(@path)` - 20 uses
+- `JSONFile(@path)` - 20 uses
 - `dir(@path)` - 23 test uses, 15 example uses
 - `textFile(@path)` - 27 test uses, 7 example uses
 
@@ -321,11 +321,11 @@ $100.00.split(3)             // [$33.34, $33.33, $33.33]
 ### 7. File I/O with Special Operators
 ```parsley
 // Read operators
-let data <== jsonFile(@./config.json)       // Read file
-let {name, error} <== jsonFile(@./data.json) // With error capture
+let data <== JSONFile(@./config.json)       // Read file
+let {name, error} <== JSONFile(@./data.json) // With error capture
 
 // Write operators  
-data ==> jsonFile(@./output.json)           // Write/overwrite
+data ==> JSONFile(@./output.json)           // Write/overwrite
 data ==>> textFile(@./log.txt)              // Append
 
 // Network operators (HTTP/SFTP)
@@ -385,35 +385,35 @@ arr[?0] ?? "default"        // 1 (combine with null coalesce)
 ### Factory Functions
 ```parsley
 file(@path)      // Auto-detect format from extension
-jsonFile(@path)      // Parse as JSON
-csvFile(@path)       // Parse as CSV
+JSONFile(@path)      // Parse as JSON
+CSVFile(@path)       // Parse as CSV
 markdownFile(@path)        // Markdown with frontmatter
 textFile(@path)      // Plain text (use for HTML files)
 linesFile(@path)     // Array of lines
 bytesFile(@path)     // Byte array
-svgFile(@path)       // SVG (strips prolog)
+SVGFile(@path)       // SVG (strips prolog)
 dir(@path)       // Directory listing
 ```
 
 ### Read Patterns
 ```parsley
 // Simple read
-let config <== jsonFile(@./config.json)
+let config <== JSONFile(@./config.json)
 
 // With error handling
-let {data, error} <== jsonFile(@./data.json)
+let {data, error} <== JSONFile(@./data.json)
 if (error) {
     log("Error:", error)
 }
 
 // With fallback
-let config <== jsonFile(@./config.json) ?? {default: true}
+let config <== JSONFile(@./config.json) ?? {default: true}
 ```
 
 ### Write Patterns
 ```parsley
 // Overwrite
-data ==> jsonFile(@./output.json)
+data ==> JSONFile(@./output.json)
 
 // Append
 log_entry ==>> textFile(@./log.txt)
@@ -422,8 +422,8 @@ log_entry ==>> textFile(@./log.txt)
 ### Stdin/Stdout/Stderr (NEW in v0.14.0)
 ```parsley
 // @- is the Unix convention: stdin for reads, stdout for writes
-let data <== jsonFile(@-)              // Read JSON from stdin
-data ==> jsonFile(@-)                  // Write JSON to stdout
+let data <== JSONFile(@-)              // Read JSON from stdin
+data ==> JSONFile(@-)                  // Write JSON to stdout
 
 // Explicit aliases also available
 let input <== textFile(@stdin)         // Read text from stdin
@@ -432,15 +432,15 @@ let input <== textFile(@stdin)         // Read text from stdin
 
 // Works with all format factories
 let lines <== linesFile(@-)            // Read lines from stdin
-let csvData <== csvFile(@-)            // Parse CSV from stdin
-data ==> yamlFile(@-)                  // Write YAML to stdout
+let csvData <== CSVFile(@-)            // Parse CSV from stdin
+data ==> YAMLFile(@-)                  // Write YAML to stdout
 
 // Full Unix pipeline example
-let input <== jsonFile(@-)
+let input <== JSONFile(@-)
 let output = for (item in input.items) {
     if (item.active) { item }
 }
-output ==> jsonFile(@-)
+output ==> JSONFile(@-)
 ```
 
 ### Directory Operations (NEW in v0.12.1)
@@ -523,7 +523,7 @@ conn.close()
 
 **For file operations, use capture pattern:**
 ```parsley
-let {data, error} <== jsonFile(@./file.json)
+let {data, error} <== JSONFile(@./file.json)
 if (error) {
     log("Failed:", error)
     return
@@ -907,14 +907,14 @@ type(@1d)                         // "DURATION"
 ### Simple Script
 ```parsley
 // Read, transform, write
-let data <== jsonFile(@./input.json)
+let data <== JSONFile(@./input.json)
 let processed = for (item in data) {
     {
         name: item.name.toUpper(),
         score: item.score * 2
     }
 }
-processed ==> jsonFile(@./output.json)
+processed ==> JSONFile(@./output.json)
 log("Processed {len(processed)} items")
 ```
 
@@ -982,10 +982,10 @@ logLine()  // Blank line
 ### File Operation Pattern
 ```parsley
 // Write test data
-testData ==> jsonFile(@./test-file.json)
+testData ==> JSONFile(@./test-file.json)
 
 // Read it back
-let {data, error} <== jsonFile(@./test-file.json)
+let {data, error} <== JSONFile(@./test-file.json)
 
 // Verify
 if (error) {

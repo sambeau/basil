@@ -55,12 +55,12 @@ func TestSVGFormat(t *testing.T) {
 	}{
 		{
 			name:     "SVG stripping XML prolog",
-			input:    `let Icon <== svgFile(@./test.svg); Icon`,
+			input:    `let Icon <== SVGFile(@./test.svg); Icon`,
 			contains: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">`,
 		},
 		{
 			name:     "SVG as custom component",
-			input:    `let MyIcon <== svgFile(@./test.svg)` + "\n" + `<div><MyIcon/></div>`,
+			input:    `let MyIcon <== SVGFile(@./test.svg)` + "\n" + `<div><MyIcon/></div>`,
 			contains: `<div><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">`,
 		},
 	}
@@ -146,7 +146,7 @@ func TestSVGStripXMLProlog(t *testing.T) {
 			testFilePath := filepath.Join(tmpDir, "test.pars")
 
 			// Create test .pars code
-			parsCode := `let Icon <== svgFile(@./test.svg); Icon`
+			parsCode := `let Icon <== SVGFile(@./test.svg); Icon`
 
 			result := testEvalSVGWithFilename(parsCode, testFilePath)
 			if result == nil {
@@ -175,7 +175,7 @@ func TestSVGWrite(t *testing.T) {
 	testFilePath := filepath.Join(tmpDir, "test.pars")
 
 	// Test writing SVG content (correct syntax: value ==> file handle)
-	code := `let icon = "<svg><circle/></svg>"; icon ==> svgFile(@./output.svg); "done"`
+	code := `let icon = "<svg><circle/></svg>"; icon ==> SVGFile(@./output.svg); "done"`
 	result := testEvalSVGWithFilename(code, testFilePath)
 	if result == nil {
 		t.Fatalf("Result is nil")

@@ -105,7 +105,7 @@ func TestRequestHandleCreation(t *testing.T) {
 	}{
 		{
 			name:  "JSON request handle from URL",
-			input: `jsonFile(url("https://api.example.com/data"))`,
+			input: `JSONFile(url("https://api.example.com/data"))`,
 			check: func(obj evaluator.Object) bool {
 				dict, ok := obj.(*evaluator.Dictionary)
 				if !ok {
@@ -119,7 +119,7 @@ func TestRequestHandleCreation(t *testing.T) {
 		},
 		{
 			name:  "YAML request handle from URL",
-			input: `yamlFile(url("https://api.example.com/config.yaml"))`,
+			input: `YAMLFile(url("https://api.example.com/config.yaml"))`,
 			check: func(obj evaluator.Object) bool {
 				dict, ok := obj.(*evaluator.Dictionary)
 				return ok && dict != nil
@@ -202,7 +202,7 @@ func TestFetchOperatorWithMockServer(t *testing.T) {
 	defer methodServer.Close()
 
 	t.Run("fetch JSON with error capture pattern", func(t *testing.T) {
-		input := `{data, error} <=/= jsonFile(url("` + jsonServer.URL + `")); data`
+		input := `{data, error} <=/= JSONFile(url("` + jsonServer.URL + `")); data`
 		result := testEvalHelper(input)
 
 		// Should return a dictionary with name and value
@@ -357,7 +357,7 @@ func TestRequestWithOptions(t *testing.T) {
 	defer echoServer.Close()
 
 	t.Run("basic GET request", func(t *testing.T) {
-		input := `{data, error} <=/= jsonFile(url("` + echoServer.URL + `")); data.method`
+		input := `{data, error} <=/= JSONFile(url("` + echoServer.URL + `")); data.method`
 		result := testEvalHelper(input)
 
 		str, ok := result.(*evaluator.String)

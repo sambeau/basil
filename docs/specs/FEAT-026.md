@@ -16,9 +16,9 @@ Currently, file operations use a mix of inconsistent globals:
 ```parsley
 // Current (inconsistent)
 let f = file(@./data.json)  // Lowercase
-let f = jsonFile(@./data.json)  // Uppercase! Why?
-let f = csvFile(@./data.csv)    // Uppercase
-let f = yamlFile(@./config.yml) // Uppercase
+let f = JSONFile(@./data.json)  // Uppercase! Why?
+let f = CSVFile(@./data.csv)    // Uppercase
+let f = YAMLFile(@./config.yml) // Uppercase
 ```
 
 Similarly, `basil` exists as both a global AND a module:
@@ -146,14 +146,14 @@ These globals will be **removed** (hard removal, pre-1.0):
 | Old Global | New Method |
 |------------|------------|
 | `file()` | `file()` (via module) |
-| `jsonFile()` | `file.json()` |
-| `yamlFile()` | `file.yaml()` |
-| `csvFile()` | `file.csv()` |
+| `JSONFile()` | `file.json()` |
+| `YAMLFile()` | `file.yaml()` |
+| `CSVFile()` | `file.csv()` |
 | `textFile()` | `file.textFile()` |
 | `linesFile()` | `file.linesFile()` |
 | `bytesFile()` | `file.bytesFile()` |
 | `markdownFile()` | `file.md()` |
-| `svgFile()` | `file.svg()` |
+| `SVGFile()` | `file.svg()` |
 | `dir()` | `file.dir()` |
 | `glob()` | `file.glob()` |
 
@@ -161,7 +161,7 @@ These globals will be **removed** (hard removal, pre-1.0):
 
 ```parsley
 // Before
-let data <== jsonFile(@./data.json)
+let data <== JSONFile(@./data.json)
 
 // After
 let {file} = import("std/file")

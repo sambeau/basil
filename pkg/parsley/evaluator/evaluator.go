@@ -4666,10 +4666,10 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, format, options, env)
 			},
 		},
-		"jsonFile": {
+		"JSONFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("jsonFile", len(args), 1, 2)
+					return newArityErrorRange("JSONFile", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -4699,14 +4699,14 @@ func getBuiltins() map[string]*Builtin {
 					pathDict := pathToDict(components, isAbsolute, env)
 					return fileToDict(pathDict, "json", options, env)
 				default:
-					return newTypeError("TYPE-0005", "jsonFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "JSONFile", "a path, URL, or string", args[0].Type())
 				}
 			},
 		},
-		"yamlFile": {
+		"YAMLFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("yamlFile", len(args), 1, 2)
+					return newArityErrorRange("YAMLFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4742,10 +4742,10 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, "yaml", options, env)
 			},
 		},
-		"csvFile": {
+		"CSVFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("csvFile", len(args), 1, 2)
+					return newArityErrorRange("CSVFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4775,7 +4775,7 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "csvFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "CSVFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "csv", options, env)
@@ -4899,10 +4899,10 @@ func getBuiltins() map[string]*Builtin {
 			},
 		},
 		// SVG file format - reads SVG files and strips XML prolog for use as components
-		"svgFile": {
+		"SVGFile": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("svgFile", len(args), 1, 2)
+					return newArityErrorRange("SVGFile", len(args), 1, 2)
 				}
 
 				// First argument must be a path dictionary, URL dictionary, or string
@@ -4932,7 +4932,7 @@ func getBuiltins() map[string]*Builtin {
 					components, isAbsolute := parsePathString(arg.Value)
 					pathDict = pathToDict(components, isAbsolute, env)
 				default:
-					return newTypeError("TYPE-0005", "svgFile", "a path, URL, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "SVGFile", "a path, URL, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "svg", options, env)

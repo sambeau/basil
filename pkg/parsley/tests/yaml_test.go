@@ -57,27 +57,27 @@ tags:
 	}{
 		{
 			name:     "Read name field",
-			input:    `let config <== yamlFile(@./test.yaml); config.name`,
+			input:    `let config <== YAMLFile(@./test.yaml); config.name`,
 			expected: "John Doe",
 		},
 		{
 			name:     "Read age field",
-			input:    `let config <== yamlFile(@./test.yaml); config.age`,
+			input:    `let config <== YAMLFile(@./test.yaml); config.age`,
 			expected: "30",
 		},
 		{
 			name:     "Read boolean field",
-			input:    `let config <== yamlFile(@./test.yaml); config.active`,
+			input:    `let config <== YAMLFile(@./test.yaml); config.active`,
 			expected: "true",
 		},
 		{
 			name:     "Read array element",
-			input:    `let config <== yamlFile(@./test.yaml); config.tags[0]`,
+			input:    `let config <== YAMLFile(@./test.yaml); config.tags[0]`,
 			expected: "developer",
 		},
 		{
 			name:     "Read second array element",
-			input:    `let config <== yamlFile(@./test.yaml); config.tags[1]`,
+			input:    `let config <== YAMLFile(@./test.yaml); config.tags[1]`,
 			expected: "golang",
 		},
 	}
@@ -131,22 +131,22 @@ database:
 	}{
 		{
 			name:     "Read nested host",
-			input:    `let config <== yamlFile(@./config.yaml); config.server.host`,
+			input:    `let config <== YAMLFile(@./config.yaml); config.server.host`,
 			expected: "localhost",
 		},
 		{
 			name:     "Read nested port",
-			input:    `let config <== yamlFile(@./config.yaml); config.server.port`,
+			input:    `let config <== YAMLFile(@./config.yaml); config.server.port`,
 			expected: "8080",
 		},
 		{
 			name:     "Read deeply nested boolean",
-			input:    `let config <== yamlFile(@./config.yaml); config.server.ssl.enabled`,
+			input:    `let config <== YAMLFile(@./config.yaml); config.server.ssl.enabled`,
 			expected: "true",
 		},
 		{
 			name:     "Read database pool_size",
-			input:    `let config <== yamlFile(@./config.yaml); config.database.pool_size`,
+			input:    `let config <== YAMLFile(@./config.yaml); config.database.pool_size`,
 			expected: "10",
 		},
 	}
@@ -194,17 +194,17 @@ created_at: 2024-01-01T10:30:00Z
 	}{
 		{
 			name:     "Read title",
-			input:    `let event <== yamlFile(@./event.yaml); event.title`,
+			input:    `let event <== YAMLFile(@./event.yaml); event.title`,
 			expected: "Test Event",
 		},
 		{
 			name:     "Read date year",
-			input:    `let event <== yamlFile(@./event.yaml); event.date.year`,
+			input:    `let event <== YAMLFile(@./event.yaml); event.date.year`,
 			expected: "2024",
 		},
 		{
 			name:     "Read created_at month",
-			input:    `let event <== yamlFile(@./event.yaml); event.created_at.month`,
+			input:    `let event <== YAMLFile(@./event.yaml); event.created_at.month`,
 			expected: "1",
 		},
 	}
@@ -255,17 +255,17 @@ func TestYAMLArray(t *testing.T) {
 	}{
 		{
 			name:     "Read first user name",
-			input:    `let users <== yamlFile(@./users.yaml); users[0].name`,
+			input:    `let users <== YAMLFile(@./users.yaml); users[0].name`,
 			expected: "Alice",
 		},
 		{
 			name:     "Read second user role",
-			input:    `let users <== yamlFile(@./users.yaml); users[1].role`,
+			input:    `let users <== YAMLFile(@./users.yaml); users[1].role`,
 			expected: "user",
 		},
 		{
 			name:     "Read third user name",
-			input:    `let users <== yamlFile(@./users.yaml); users[2].name`,
+			input:    `let users <== YAMLFile(@./users.yaml); users[2].name`,
 			expected: "Charlie",
 		},
 	}
@@ -303,7 +303,7 @@ func TestYAMLWriteRead(t *testing.T) {
 	version: "1.0.0",
 	enabled: true
 }
-data ==> yamlFile(@` + yamlPath + `)
+data ==> YAMLFile(@` + yamlPath + `)
 "done"`
 
 	result := testEvalYAMLWithFilename(input, testFilePath)
@@ -332,7 +332,7 @@ data ==> yamlFile(@` + yamlPath + `)
 	}
 
 	// Now read it back
-	input2 := `let loaded <== yamlFile(@` + yamlPath + `)
+	input2 := `let loaded <== YAMLFile(@` + yamlPath + `)
 loaded.name`
 
 	result2 := testEvalYAMLWithFilename(input2, testFilePath)
@@ -364,7 +364,7 @@ func TestYAMLEmptyFile(t *testing.T) {
 	testFilePath := filepath.Join(tmpDir, "test.pars")
 
 	// Empty YAML should parse to null/nil
-	input := `let config <== yamlFile(@./empty.yaml); config`
+	input := `let config <== YAMLFile(@./empty.yaml); config`
 	result := testEvalYAMLWithFilename(input, testFilePath)
 
 	if result == nil {

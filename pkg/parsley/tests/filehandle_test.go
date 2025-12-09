@@ -64,13 +64,13 @@ func TestFormatFactories(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`let f = jsonFile(@./config.json); f.format`, "json"},
-		{`let f = csvFile(@./data.csv); f.format`, "csv"},
+		{`let f = JSONFile(@./config.json); f.format`, "json"},
+		{`let f = CSVFile(@./data.csv); f.format`, "csv"},
 		{`let f = linesFile(@./app.log); f.format`, "lines"},
 		{`let f = textFile(@./readme.txt); f.format`, "text"},
 		{`let f = bytesFile(@./image.png); f.format`, "bytes"},
 		// Format factories override extension inference
-		{`let f = jsonFile(@./config.txt); f.format`, "json"},
+		{`let f = JSONFile(@./config.txt); f.format`, "json"},
 		{`let f = textFile(@./data.json); f.format`, "text"},
 	}
 
@@ -187,8 +187,8 @@ func TestFileWithStringArgument(t *testing.T) {
 		expected string
 	}{
 		{`let f = file("./config.json"); f.format`, "json"},
-		{`let f = jsonFile("./data.json"); f.format`, "json"},
-		{`let f = csvFile("./data.csv"); f.format`, "csv"},
+		{`let f = JSONFile("./data.json"); f.format`, "json"},
+		{`let f = CSVFile("./data.csv"); f.format`, "csv"},
 	}
 
 	for _, tt := range tests {
@@ -211,7 +211,7 @@ func TestFileWithStringArgument(t *testing.T) {
 // Test CSV with header option
 func TestCSVWithOptions(t *testing.T) {
 	// Test that options are stored
-	input := `let f = csvFile(@./data.csv, {header: true}); f.options`
+	input := `let f = CSVFile(@./data.csv, {header: true}); f.options`
 	result := testEvalFileHandle(input)
 	if result == nil {
 		t.Fatalf("evaluation returned nil")
@@ -232,13 +232,13 @@ func TestFileBuiltinErrors(t *testing.T) {
 	tests := []struct {
 		input string
 	}{
-		{`file()`},    // No arguments
-		{`file(123)`}, // Wrong type
-		{`jsonFile()`},    // No arguments
-		{`csvFile()`},     // No arguments
-		{`linesFile()`},   // No arguments
-		{`textFile()`},    // No arguments
-		{`bytesFile()`},   // No arguments
+		{`file()`},      // No arguments
+		{`file(123)`},   // Wrong type
+		{`JSONFile()`},  // No arguments
+		{`CSVFile()`},   // No arguments
+		{`linesFile()`}, // No arguments
+		{`textFile()`},  // No arguments
+		{`bytesFile()`}, // No arguments
 	}
 
 	for _, tt := range tests {

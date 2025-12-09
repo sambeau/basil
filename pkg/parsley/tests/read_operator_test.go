@@ -72,12 +72,12 @@ func TestReadOperatorBasic(t *testing.T) {
 		},
 		{
 			name:     "read JSON file with let",
-			code:     `let data <== jsonFile("` + jsonPath + `"); data.name`,
+			code:     `let data <== JSONFile("` + jsonPath + `"); data.name`,
 			expected: "Alice",
 		},
 		{
 			name:     "read JSON file age",
-			code:     `let data <== jsonFile("` + jsonPath + `"); data.age`,
+			code:     `let data <== JSONFile("` + jsonPath + `"); data.age`,
 			expected: "30",
 		},
 		{
@@ -92,22 +92,22 @@ func TestReadOperatorBasic(t *testing.T) {
 		},
 		{
 			name:     "read CSV file",
-			code:     `let rows <== csvFile("` + csvPath + `"); rows.length()`,
+			code:     `let rows <== CSVFile("` + csvPath + `"); rows.length()`,
 			expected: "2",
 		},
 		{
 			name:     "read CSV file first row name",
-			code:     `let rows <== csvFile("` + csvPath + `"); rows[0].name`,
+			code:     `let rows <== CSVFile("` + csvPath + `"); rows[0].name`,
 			expected: "Alice",
 		},
 		{
 			name:     "read CSV file second row age",
-			code:     `let rows <== csvFile("` + csvPath + `"); rows[1].age`,
+			code:     `let rows <== CSVFile("` + csvPath + `"); rows[1].age`,
 			expected: "25",
 		},
 		{
 			name:     "read with dict destructuring",
-			code:     `let {name, age} <== jsonFile("` + jsonPath + `"); name + " is " + age`,
+			code:     `let {name, age} <== JSONFile("` + jsonPath + `"); name + " is " + age`,
 			expected: "Alice is 30",
 		},
 	}
@@ -149,12 +149,12 @@ func TestReadOperatorReassignment(t *testing.T) {
 	}{
 		{
 			name:     "reassign variable with <==",
-				code:     `let x = "initial"; x <== textFile("` + file1 + `"); x`,
+			code:     `let x = "initial"; x <== textFile("` + file1 + `"); x`,
 			expected: "First",
 		},
 		{
 			name:     "read multiple times",
-				code:     `let x <== textFile("` + file1 + `"); let y <== textFile("` + file2 + `"); x + " " + y`,
+			code:     `let x <== textFile("` + file1 + `"); let y <== textFile("` + file2 + `"); x + " " + y`,
 			expected: "First Second",
 		},
 	}
@@ -191,12 +191,12 @@ func TestReadOperatorBytes(t *testing.T) {
 	}{
 		{
 			name:     "read bytes length",
-				code:     `let data <== bytesFile("` + binPath + `"); data.length()`,
+			code:     `let data <== bytesFile("` + binPath + `"); data.length()`,
 			expected: "5",
 		},
 		{
 			name:     "read bytes first byte",
-				code:     `let data <== bytesFile("` + binPath + `"); data[0]`,
+			code:     `let data <== bytesFile("` + binPath + `"); data[0]`,
 			expected: "72", // 0x48 = 72 = 'H'
 		},
 	}
@@ -221,7 +221,7 @@ func TestReadOperatorErrors(t *testing.T) {
 	}{
 		{
 			name:          "read non-existent file",
-				code:          `let x <== textFile("/nonexistent/file.txt"); x`,
+			code:          `let x <== textFile("/nonexistent/file.txt"); x`,
 			shouldError:   true,
 			errorContains: "failed to read file",
 		},
@@ -328,37 +328,37 @@ func TestReadOperatorErrorCapture(t *testing.T) {
 	}{
 		{
 			name:     "error capture on missing file - error is string",
-			code:     `let {data, error} <== jsonFile("/nonexistent/file.json"); if (error) { "got error" } else { "no error" }`,
+			code:     `let {data, error} <== JSONFile("/nonexistent/file.json"); if (error) { "got error" } else { "no error" }`,
 			expected: "got error",
 		},
 		{
 			name:     "error capture on missing file - data is null",
-			code:     `let {data, error} <== jsonFile("/nonexistent/file.json"); if (data == null) { "data is null" } else { "data exists" }`,
+			code:     `let {data, error} <== JSONFile("/nonexistent/file.json"); if (data == null) { "data is null" } else { "data exists" }`,
 			expected: "data is null",
 		},
 		{
 			name:     "error capture on success - error is null",
-			code:     `let {data, error} <== jsonFile("` + jsonPath + `"); if (error == null) { "no error" } else { "got error" }`,
+			code:     `let {data, error} <== JSONFile("` + jsonPath + `"); if (error == null) { "no error" } else { "got error" }`,
 			expected: "no error",
 		},
 		{
 			name:     "error capture on success - data is accessible",
-			code:     `let {data, error} <== jsonFile("` + jsonPath + `"); data.name`,
+			code:     `let {data, error} <== JSONFile("` + jsonPath + `"); data.name`,
 			expected: "Alice",
 		},
 		{
 			name:     "error capture with underscore for unused",
-			code:     `let {data, error} <== jsonFile("/nonexistent/file.json"); let _ = data; if (error != null) { "captured" } else { "missed" }`,
+			code:     `let {data, error} <== JSONFile("/nonexistent/file.json"); let _ = data; if (error != null) { "captured" } else { "missed" }`,
 			expected: "captured",
 		},
 		{
 			name:     "error can be used in string concatenation",
-			code:     `let {data, error} <== jsonFile("/nonexistent/file.json"); "Error: " + error`,
+			code:     `let {data, error} <== JSONFile("/nonexistent/file.json"); "Error: " + error`,
 			expected: "Error: Failed to read file '/nonexistent/file.json': open /nonexistent/file.json: no such file or directory",
 		},
 		{
 			name:     "successful read with nested data access",
-			code:     `let {data, error} <== jsonFile("` + jsonPath + `"); if (error == null) { data.name + " is " + data.age } else { "error" }`,
+			code:     `let {data, error} <== JSONFile("` + jsonPath + `"); if (error == null) { data.name + " is " + data.age } else { "error" }`,
 			expected: "Alice is 30",
 		},
 	}

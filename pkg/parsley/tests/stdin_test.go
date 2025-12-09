@@ -74,8 +74,8 @@ func runWithStdin(t *testing.T, code string, stdinData string) (string, string) 
 }
 
 func TestStdinJSONRead(t *testing.T) {
-	code := `let data <== jsonFile(@-)
-data ==> jsonFile(@-)`
+	code := `let data <== JSONFile(@-)
+data ==> JSONFile(@-)`
 
 	stdout, _ := runWithStdin(t, code, `{"name":"test","value":42}`)
 
@@ -110,8 +110,8 @@ len(data) ==> textFile(@-)`
 }
 
 func TestStdinAlias(t *testing.T) {
-	code := `let data <== jsonFile(@stdin)
-data ==> jsonFile(@stdout)`
+	code := `let data <== JSONFile(@stdin)
+data ==> JSONFile(@stdout)`
 
 	stdout, _ := runWithStdin(t, code, `{"test":true}`)
 

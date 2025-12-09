@@ -96,13 +96,13 @@ func TestWriteOperatorJSON(t *testing.T) {
 	}{
 		{
 			name:         "write dict to JSON file",
-			code:         `let d = {name: "Alice", age: 30}; d ==> jsonFile("` + filepath.Join(tmpDir, "test1.json") + `")`,
+			code:         `let d = {name: "Alice", age: 30}; d ==> JSONFile("` + filepath.Join(tmpDir, "test1.json") + `")`,
 			file:         "test1.json",
 			expectedJSON: `"name": "Alice"`,
 		},
 		{
 			name:         "write array to JSON file",
-			code:         `[1, 2, 3] ==> jsonFile("` + filepath.Join(tmpDir, "test2.json") + `")`,
+			code:         `[1, 2, 3] ==> JSONFile("` + filepath.Join(tmpDir, "test2.json") + `")`,
 			file:         "test2.json",
 			expectedJSON: `[`,
 		},
@@ -188,7 +188,7 @@ func TestWriteOperatorCSV(t *testing.T) {
 	}{
 		{
 			name:     "write array of arrays as CSV",
-			code:     `[["a", "b"], ["c", "d"]] ==> csvFile("` + filepath.Join(tmpDir, "test1.csv") + `")`,
+			code:     `[["a", "b"], ["c", "d"]] ==> CSVFile("` + filepath.Join(tmpDir, "test1.csv") + `")`,
 			file:     "test1.csv",
 			contains: "a,b",
 		},
@@ -363,7 +363,7 @@ func TestWriteReadRoundtrip(t *testing.T) {
 	}{
 		{
 			name:     "JSON roundtrip",
-			code:     `let d = {name: "Bob", score: 95}; d ==> jsonFile("` + filepath.Join(tmpDir, "rt.json") + `"); let data <== jsonFile("` + filepath.Join(tmpDir, "rt.json") + `"); data.name`,
+			code:     `let d = {name: "Bob", score: 95}; d ==> JSONFile("` + filepath.Join(tmpDir, "rt.json") + `"); let data <== JSONFile("` + filepath.Join(tmpDir, "rt.json") + `"); data.name`,
 			expected: "Bob",
 		},
 		{
