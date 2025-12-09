@@ -3,6 +3,7 @@
 package evaluator
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"math"
@@ -27,7 +28,7 @@ import (
 // stringMethods lists all methods available on string
 var stringMethods = []string{
 	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
-	"render", "highlight", "paragraphs",
+	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 }
 
 // arrayMethods lists all methods available on array
@@ -36,6 +37,7 @@ var arrayMethods = []string{
 	"includes", "indexOf", "join", "sort", "first", "last", "map", "filter",
 	"reduce", "unique", "flatten", "find", "findIndex", "every", "some", "groupBy",
 	"count", "countBy", "maxBy", "minBy", "sortBy", "take", "skip", "zip", "insert",
+	"toJSON", "toCSV",
 }
 
 // integerMethods lists all methods available on integer
@@ -50,7 +52,7 @@ var floatMethods = []string{
 
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
-	"keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render",
+	"keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -207,6 +209,35 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 
 		return interpolateRawString(str.Value, renderEnv)
 
+	case "parseJSON":
+		if len(args) != 0 {
+			return newArityError("parseJSON", len(args), 0)
+		}
+		result, err := parseJSON(str.Value)
+		if err != nil {
+			return err
+		}
+		return result
+
+	case "parseCSV":
+		if len(args) > 1 {
+			return newArityErrorRange("parseCSV", len(args), 0, 1)
+		}
+		hasHeader := true
+		if len(args) == 1 {
+			flag, ok := args[0].(*Boolean)
+			if !ok {
+				return newTypeError("TYPE-0004", "parseCSV", "a boolean", args[0].Type())
+			}
+			hasHeader = flag.Value
+		}
+
+		result, err := parseCSV([]byte(str.Value), hasHeader)
+		if err != nil {
+			return err
+		}
+		return result
+
 	default:
 		return unknownMethodError(method, "string", stringMethods)
 	}
@@ -339,6 +370,34 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		}
 
 		return &String{Value: strings.Join(items, separator)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		jsonBytes, err := json.Marshal(objectToGo(arr))
+		if err != nil {
+			return newFormatError("FMT-0005", err)
+		}
+		return &String{Value: string(jsonBytes)}
+
+	case "toCSV":
+		if len(args) > 1 {
+			return newArityErrorRange("toCSV", len(args), 0, 1)
+		}
+		hasHeader := true
+		if len(args) == 1 {
+			flag, ok := args[0].(*Boolean)
+			if !ok {
+				return newTypeError("TYPE-0004", "toCSV", "a boolean", args[0].Type())
+			}
+			hasHeader = flag.Value
+		}
+		csvBytes, err := encodeCSV(arr, hasHeader)
+		if err != nil {
+			return newFormatError("FMT-0007", err)
+		}
+		return &String{Value: string(csvBytes)}
 
 	case "shuffle":
 		// shuffle() - returns a new array with elements in random order (Fisher-Yates)
@@ -797,6 +856,16 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 
 		return interpolateRawString(templateStr.Value, renderEnv)
 
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		jsonBytes, err := json.Marshal(objectToGo(dict))
+		if err != nil {
+			return newFormatError("FMT-0005", err)
+		}
+		return &String{Value: string(jsonBytes)}
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
@@ -1154,9 +1223,67 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 		}
 		return TRUE
 
+	case "public":
+		if len(args) != 0 {
+			return newArityError("public", len(args), 0)
+		}
+		return evalPublicURL([]Object{dict}, env)
+
+	case "toURL":
+		if len(args) != 1 {
+			return newArityError("toURL", len(args), 1)
+		}
+		prefix, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "toURL", "a string", args[0].Type())
+		}
+
+		pathStr := pathDictToString(dict)
+		cleanPrefix := strings.TrimRight(prefix.Value, "/")
+		relPath := pathStr
+		if strings.HasPrefix(relPath, "./") {
+			relPath = relPath[1:]
+		}
+		if !strings.HasPrefix(relPath, "/") {
+			relPath = "/" + relPath
+		}
+
+		return &String{Value: cleanPrefix + relPath}
+
+	case "match":
+		if len(args) != 1 {
+			return newArityError("match", len(args), 1)
+		}
+		pattern, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0006", "match", "a string", args[0].Type())
+		}
+
+		pathStr := pathDictToString(dict)
+		result := matchPathPattern(pathStr, pattern.Value)
+		if result == nil {
+			return NULL
+		}
+
+		pairs := make(map[string]ast.Expression)
+		for key, val := range result {
+			switch v := val.(type) {
+			case string:
+				pairs[key] = createLiteralExpression(&String{Value: v})
+			case []string:
+				elements := make([]Object, len(v))
+				for i, s := range v {
+					elements[i] = &String{Value: s}
+				}
+				pairs[key] = createLiteralExpression(&Array{Elements: elements})
+			}
+		}
+
+		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+
 	default:
 		return unknownMethodError(method, "path", []string{
-			"toString", "join", "parent", "isAbsolute", "isRelative",
+			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match",
 		})
 	}
 }

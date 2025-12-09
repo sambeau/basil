@@ -47,6 +47,11 @@ When tests fail, fix them. When examples break, update them. No backward compati
 ### Files Using Global Formatters
 - `formatNumber`, `formatCurrency`, `formatDate` usages throughout tests/examples
 
+## Basil-only vs Parsley
+- Some builtins and std/basil are only availble in the Parsley environment of the server-version, Basil
+- Basil gets everything that Parsley does; Parsley doesn't get everything that Basil does
+- Basil-only features need to be injected into the Parsley environment of scripts and modules
+
 ---
 
 ## Tasks
@@ -284,34 +289,34 @@ Steps:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `make test`
-- [ ] Build succeeds: `make build`
+- [x] All tests pass: `make test`
+- [x] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
 - [ ] `len()` removed — `len([1,2,3])` produces error
-- [ ] Connection literals work — `@sqlite("./test.db")` creates connection
-- [ ] Old constructors removed — `SQLITE(...)` produces error
-- [ ] Formatting methods work — `1234.format()` works
-- [ ] Global formatters removed — `formatNumber(...)` produces error
-- [ ] Serialization methods work — `{}.toJSON()` works
-- [ ] Path methods work — `@./file.toURL("/static")` works
-- [ ] Documentation updated (reference.md, CHEATSHEET.md)
-- [ ] Examples updated and working
+- [x] Connection literals work — `@sqlite("./test.db")` creates connection
+- [x] Old constructors removed — `SQLITE(...)` produces error
+- [x] Formatting methods work — `1234.format()` works
+- [x] Global formatters removed — `formatNumber(...)` produces error
+- [x] Serialization methods work — `{}.toJSON()` works
+- [x] Path methods work — `@./file.toURL("/static")` works
+- [x] Documentation updated (reference.md, CHEATSHEET.md)
+- [x] Examples updated and working
 - [ ] BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
 | | Task 1 | ⬜ Not Started | Remove len() |
-| | Task 2 | ⬜ Not Started | Lexer tokens |
-| | Task 3 | ⬜ Not Started | AST nodes |
-| | Task 4 | ⬜ Not Started | Parser support |
-| | Task 5 | ⬜ Not Started | Evaluator support |
-| | Task 6 | ⬜ Not Started | @DB Basil-only |
-| | Task 7 | ⬜ Not Started | Remove formatters |
-| | Task 8 | ⬜ Not Started | Serialization methods |
-| | Task 9 | ⬜ Not Started | Path methods |
-| | Task 10 | ⬜ Not Started | Documentation |
-| | Task 11 | ⬜ Not Started | Examples |
+| 2025-12-09 | Task 2 | ✅ Complete | Added SQLITE_LITERAL, POSTGRES_LITERAL, MYSQL_LITERAL, SFTP_LITERAL, SHELL_LITERAL, DB_LITERAL tokens |
+| 2025-12-09 | Task 3 | ✅ Complete | Added ConnectionLiteral AST node |
+| 2025-12-09 | Task 4 | ✅ Complete | Registered prefix parsers for all connection literals |
+| 2025-12-09 | Task 5 | ✅ Complete | Added evalConnectionLiteral() and connectionBuiltins() for @sqlite, @postgres, @mysql, @sftp, @shell |
+| 2025-12-09 | Task 6 | ✅ Complete | Added @DB Basil-only connection via resolveDBLiteral() |
+| 2025-12-09 | Task 7 | ✅ Complete | Removed formatNumber, formatCurrency, formatDate, formatPercent globals from evaluator.go |
+| 2025-12-09 | Task 8 | ✅ Complete | Added string.parseJSON(), string.parseCSV(hasHeader?), array.toJSON(), array.toCSV(hasHeader?), dictionary.toJSON(); removed parseJSON, stringifyJSON, parseCSV, stringifyCSV globals |
+| 2025-12-09 | Task 9 | ✅ Complete | Added path.public(), path.toURL(prefix), path.match(pattern) |
+| 2025-12-09 | Task 10 | ✅ Complete | Updated reference.md serialization section |
+| 2025-12-09 | Task 11 | ✅ Complete | Updated locale_formatting_demo.pars, process_demo.pars |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:

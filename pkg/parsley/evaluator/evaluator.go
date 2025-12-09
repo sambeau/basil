@@ -2020,6 +2020,66 @@ func evalDurationLiteral(node *ast.DurationLiteral, env *Environment) Object {
 	return durationToDict(months, seconds, env)
 }
 
+func evalConnectionLiteral(node *ast.ConnectionLiteral, env *Environment) Object {
+	if node.Kind == "db" {
+		return resolveDBLiteral(env)
+	}
+
+	builtin := connectionBuiltins()[node.Kind]
+	if builtin == nil {
+		return newInternalError("INTERNAL-0002", map[string]any{"Type": "connection literal"})
+	}
+	return builtin
+}
+
+// resolveDBLiteral returns the Basil-managed database connection or an error when unavailable.
+func resolveDBLiteral(env *Environment) Object {
+	var basilObj Object
+	if env != nil {
+		basilObj = env.BasilCtx
+		if basilObj == nil {
+			if candidate, ok := env.Get("basil"); ok {
+				basilObj = candidate
+			}
+		}
+	}
+
+	basilDict, ok := basilObj.(*Dictionary)
+	if !ok || basilDict == nil {
+		return &Error{
+			Class:   ErrorClass("state"),
+			Message: "@DB is only available in Basil server handlers",
+			Hints:   []string{"Run inside a Basil handler with a configured database"},
+		}
+	}
+
+	sqliteExpr, ok := basilDict.Pairs["sqlite"]
+	if !ok {
+		return &Error{
+			Class:   ErrorClass("state"),
+			Message: "@DB is only available in Basil server handlers",
+			Hints:   []string{"Ensure the handler has a configured database connection"},
+		}
+	}
+
+	evalEnv := basilDict.Env
+	if evalEnv == nil {
+		evalEnv = env
+	}
+
+	connObj := Eval(sqliteExpr, evalEnv)
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return &Error{
+			Class:   ErrorClass("state"),
+			Message: "@DB is only available in Basil server handlers",
+			Hints:   []string{"Ensure the handler has a configured database connection"},
+		}
+	}
+
+	return conn
+}
+
 // evalPathLiteral parses a path literal like @/usr/local/bin or @./config.json
 // Also handles special stdio paths: @-, @stdin, @stdout, @stderr
 func evalPathLiteral(node *ast.PathLiteral, env *Environment) Object {
@@ -4105,19 +4165,21 @@ func urlDictToString(dict *Dictionary) string {
 	return result.String()
 }
 
-// getBuiltins returns the map of built-in functions
-func getBuiltins() map[string]*Builtin {
+// connectionBuiltins defines callable constructors for connection literals like @sqlite and @shell.
+func connectionBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
-		"SQLITE": {
+		"sqlite": {
 			Fn: func(args ...Object) Object {
+				callName := "@sqlite"
+
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("SQLITE", len(args), 1, 2)
+					return newArityErrorRange(callName, len(args), 1, 2)
 				}
 
 				// First arg: path literal
 				pathStr, ok := args[0].(*String)
 				if !ok {
-					return newTypeError("TYPE-0005", "SQLITE", "a path", args[0].Type())
+					return newTypeError("TYPE-0005", callName, "a path", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -4125,7 +4187,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newTypeError("TYPE-0006", "SQLITE", "a dictionary", args[1].Type())
+						return newTypeError("TYPE-0006", callName, "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4184,16 +4246,18 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
-		"POSTGRES": {
+		"postgres": {
 			Fn: func(args ...Object) Object {
+				callName := "@postgres"
+
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("POSTGRES", len(args), 1, 2)
+					return newArityErrorRange(callName, len(args), 1, 2)
 				}
 
 				// First arg: URL literal
 				urlStr, ok := args[0].(*String)
 				if !ok {
-					return newTypeError("TYPE-0005", "POSTGRES", "a URL", args[0].Type())
+					return newTypeError("TYPE-0005", callName, "a URL", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -4201,7 +4265,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newTypeError("TYPE-0006", "POSTGRES", "a dictionary", args[1].Type())
+						return newTypeError("TYPE-0006", callName, "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4259,16 +4323,18 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
-		"MYSQL": {
+		"mysql": {
 			Fn: func(args ...Object) Object {
+				callName := "@mysql"
+
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("MYSQL", len(args), 1, 2)
+					return newArityErrorRange(callName, len(args), 1, 2)
 				}
 
 				// First arg: URL literal
 				urlStr, ok := args[0].(*String)
 				if !ok {
-					return newTypeError("TYPE-0005", "MYSQL", "a URL", args[0].Type())
+					return newTypeError("TYPE-0005", callName, "a URL", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -4276,7 +4342,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newTypeError("TYPE-0006", "MYSQL", "a dictionary", args[1].Type())
+						return newTypeError("TYPE-0006", callName, "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4334,10 +4400,12 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
-		"SFTP": {
+		"sftp": {
 			Fn: func(args ...Object) Object {
+				callName := "@sftp"
+
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("SFTP", len(args), 1, 2)
+					return newArityErrorRange(callName, len(args), 1, 2)
 				}
 
 				// First arg: URL (can be dictionary or string)
@@ -4345,7 +4413,7 @@ func getBuiltins() map[string]*Builtin {
 				switch arg := args[0].(type) {
 				case *Dictionary:
 					if !isUrlDict(arg) {
-						return newTypeError("TYPE-0005", "SFTP", "a URL", DICTIONARY_OBJ)
+						return newTypeError("TYPE-0005", callName, "a URL", DICTIONARY_OBJ)
 					}
 					// Extract URL string from dictionary
 					if schemeExpr, ok := arg.Pairs["scheme"]; ok {
@@ -4358,7 +4426,7 @@ func getBuiltins() map[string]*Builtin {
 				case *String:
 					urlStr = arg.Value
 				default:
-					return newTypeError("TYPE-0005", "SFTP", "a URL", args[0].Type())
+					return newTypeError("TYPE-0005", callName, "a URL", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -4366,7 +4434,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newTypeError("TYPE-0006", "SFTP", "a dictionary", args[1].Type())
+						return newTypeError("TYPE-0006", callName, "a dictionary", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -4564,6 +4632,61 @@ func getBuiltins() map[string]*Builtin {
 				return newConn
 			},
 		},
+		"shell": {
+			FnWithEnv: func(env *Environment, args ...Object) Object {
+				callName := "@shell"
+
+				if len(args) < 1 || len(args) > 3 {
+					return newArityErrorRange(callName, len(args), 1, 3)
+				}
+
+				effectiveEnv := env
+				if effectiveEnv == nil {
+					effectiveEnv = NewEnvironment()
+				}
+
+				// First argument: binary name/path (string)
+				binary, ok := args[0].(*String)
+				if !ok {
+					return newTypeError("TYPE-0005", callName, "a string", args[0].Type())
+				}
+
+				// Second argument (optional): args array
+				var cmdArgs []string
+				if len(args) >= 2 {
+					if argsArray, ok := args[1].(*Array); ok {
+						cmdArgs = make([]string, len(argsArray.Elements))
+						for i, arg := range argsArray.Elements {
+							if str, ok := arg.(*String); ok {
+								cmdArgs[i] = str.Value
+							} else {
+								return newCommandError("CMD-0003", nil)
+							}
+						}
+					} else {
+						return newTypeError("TYPE-0006", callName, "an array", args[1].Type())
+					}
+				}
+
+				// Third argument (optional): options dict
+				var options *Dictionary
+				if len(args) >= 3 {
+					if optDict, ok := args[2].(*Dictionary); ok {
+						options = optDict
+					} else {
+						return newTypeError("TYPE-0011", callName, "a dictionary", args[2].Type())
+					}
+				}
+
+				return createCommandHandle(binary.Value, cmdArgs, options, effectiveEnv)
+			},
+		},
+	}
+}
+
+// getBuiltins returns the map of built-in functions
+func getBuiltins() map[string]*Builtin {
+	return map[string]*Builtin{
 		"import": {
 			Fn: func(args ...Object) Object {
 				// This is a placeholder - actual implementation happens in CallExpression
@@ -5119,177 +5242,6 @@ func getBuiltins() map[string]*Builtin {
 				return &Array{Elements: elements}
 			},
 		},
-		// Locale-aware formatting functions
-		"formatNumber": {
-			Fn: func(args ...Object) Object {
-				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("formatNumber", len(args), 1, 2)
-				}
-
-				var value float64
-				switch arg := args[0].(type) {
-				case *Integer:
-					value = float64(arg.Value)
-				case *Float:
-					value = arg.Value
-				default:
-					return newTypeError("TYPE-0005", "formatNumber", "an integer or float", args[0].Type())
-				}
-
-				locale := "en"
-				if len(args) == 2 {
-					locStr, ok := args[1].(*String)
-					if !ok {
-						return newTypeError("TYPE-0006", "formatNumber", "a string", args[1].Type())
-					}
-					locale = locStr.Value
-				}
-
-				tag, err := language.Parse(locale)
-				if err != nil {
-					return newLocaleError(locale)
-				}
-
-				p := message.NewPrinter(tag)
-				return &String{Value: p.Sprintf("%v", number.Decimal(value))}
-			},
-		},
-		"formatCurrency": {
-			Fn: func(args ...Object) Object {
-				if len(args) < 2 || len(args) > 3 {
-					return newArityErrorRange("formatCurrency", len(args), 2, 3)
-				}
-
-				var value float64
-				switch arg := args[0].(type) {
-				case *Integer:
-					value = float64(arg.Value)
-				case *Float:
-					value = arg.Value
-				default:
-					return newTypeError("TYPE-0005", "formatCurrency", "an integer or float", args[0].Type())
-				}
-
-				currStr, ok := args[1].(*String)
-				if !ok {
-					return newTypeError("TYPE-0006", "formatCurrency", "a string (currency code)", args[1].Type())
-				}
-
-				cur, err := currency.ParseISO(currStr.Value)
-				if err != nil {
-					perr := perrors.New("VAL-0001", map[string]any{"Code": currStr.Value})
-					return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
-				}
-
-				locale := "en"
-				if len(args) == 3 {
-					locStr, ok := args[2].(*String)
-					if !ok {
-						return newTypeError("TYPE-0011", "formatCurrency", "a string", args[2].Type())
-					}
-					locale = locStr.Value
-				}
-
-				tag, err := language.Parse(locale)
-				if err != nil {
-					return newLocaleError(locale)
-				}
-
-				p := message.NewPrinter(tag)
-				amount := cur.Amount(value)
-				return &String{Value: p.Sprintf("%v", currency.Symbol(amount))}
-			},
-		},
-		"formatPercent": {
-			Fn: func(args ...Object) Object {
-				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("formatPercent", len(args), 1, 2)
-				}
-
-				var value float64
-				switch arg := args[0].(type) {
-				case *Integer:
-					value = float64(arg.Value)
-				case *Float:
-					value = arg.Value
-				default:
-					return newTypeError("TYPE-0005", "formatPercent", "an integer or float", args[0].Type())
-				}
-
-				locale := "en"
-				if len(args) == 2 {
-					locStr, ok := args[1].(*String)
-					if !ok {
-						return newTypeError("TYPE-0006", "formatPercent", "a string", args[1].Type())
-					}
-					locale = locStr.Value
-				}
-
-				tag, err := language.Parse(locale)
-				if err != nil {
-					return newLocaleError(locale)
-				}
-
-				p := message.NewPrinter(tag)
-				return &String{Value: p.Sprintf("%v", number.Percent(value))}
-			},
-		},
-		"formatDate": {
-			Fn: func(args ...Object) Object {
-				if len(args) < 1 || len(args) > 3 {
-					return newArityErrorRange("formatDate", len(args), 1, 3)
-				}
-
-				// First argument must be a datetime dictionary
-				dict, ok := args[0].(*Dictionary)
-				if !ok || !isDatetimeDict(dict) {
-					return newTypeError("TYPE-0005", "formatDate", "a datetime", args[0].Type())
-				}
-
-				// Extract time from datetime dictionary
-				var t time.Time
-				if unixExpr, ok := dict.Pairs["unix"]; ok {
-					unixObj := Eval(unixExpr, NewEnvironment())
-					if unixInt, ok := unixObj.(*Integer); ok {
-						t = time.Unix(unixInt.Value, 0).UTC()
-					}
-				}
-
-				// Default style and locale
-				style := "long"
-				locale := "en-US"
-
-				if len(args) >= 2 {
-					styleStr, ok := args[1].(*String)
-					if !ok {
-						return newTypeError("TYPE-0006", "formatDate", "a string", args[1].Type())
-					}
-					style = styleStr.Value
-					// Validate style
-					validStyles := map[string]bool{"short": true, "medium": true, "long": true, "full": true}
-					if !validStyles[style] {
-						perr := perrors.New("VAL-0002", map[string]any{"Style": style, "Context": "datetime format", "ValidOptions": "short, medium, long, full"})
-						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
-					}
-				}
-
-				if len(args) == 3 {
-					locStr, ok := args[2].(*String)
-					if !ok {
-						return newTypeError("TYPE-0011", "formatDate", "a string", args[2].Type())
-					}
-					locale = locStr.Value
-				}
-
-				// Map locale string to monday.Locale
-				mondayLocale := getMondayLocale(locale)
-
-				// Get format pattern for style
-				format := getDateFormatForStyle(style, mondayLocale)
-
-				return &String{Value: monday.Format(t, format, mondayLocale)}
-			},
-		},
 		"format": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
@@ -5518,31 +5470,6 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
-			},
-		},
-		"len": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("len", len(args), 1)
-				}
-
-				arg := args[0]
-
-				// Handle response typed dictionary - unwrap __data for length
-				if dict, ok := arg.(*Dictionary); ok && isResponseDict(dict) {
-					if dataExpr, ok := dict.Pairs["__data"]; ok {
-						arg = Eval(dataExpr, dict.Env)
-					}
-				}
-
-				switch a := arg.(type) {
-				case *String:
-					return &Integer{Value: int64(len(a.Value))}
-				case *Array:
-					return &Integer{Value: int64(len(a.Elements))}
-				default:
-					return newTypeError("TYPE-0002", "len", "", args[0].Type())
-				}
 			},
 		},
 		// asset() - converts a path under public_dir to a web URL
@@ -5917,179 +5844,6 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return dict
-			},
-		},
-		"COMMAND": {
-			Fn: func(args ...Object) Object {
-				if len(args) < 1 || len(args) > 3 {
-					return newArityErrorRange("COMMAND", len(args), 1, 3)
-				}
-
-				env := NewEnvironment()
-
-				// First argument: binary name/path (string)
-				binary, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0005", "COMMAND", "a string", args[0].Type())
-				}
-
-				// Second argument (optional): args array
-				var cmdArgs []string
-				if len(args) >= 2 {
-					if argsArray, ok := args[1].(*Array); ok {
-						cmdArgs = make([]string, len(argsArray.Elements))
-						for i, arg := range argsArray.Elements {
-							if str, ok := arg.(*String); ok {
-								cmdArgs[i] = str.Value
-							} else {
-								return newCommandError("CMD-0003", nil)
-							}
-						}
-					} else {
-						return newTypeError("TYPE-0006", "COMMAND", "an array", args[1].Type())
-					}
-				}
-
-				// Third argument (optional): options dict
-				var options *Dictionary
-				if len(args) >= 3 {
-					if optDict, ok := args[2].(*Dictionary); ok {
-						options = optDict
-					} else {
-						return newTypeError("TYPE-0011", "COMMAND", "a dictionary", args[2].Type())
-					}
-				}
-
-				return createCommandHandle(binary.Value, cmdArgs, options, env)
-			},
-		},
-		"parseJSON": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("parseJSON", len(args), 1)
-				}
-				str, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0012", "parseJSON", "a string", args[0].Type())
-				}
-
-				var result interface{}
-				if err := json.Unmarshal([]byte(str.Value), &result); err != nil {
-					return newFormatError("FMT-0005", err)
-				}
-
-				return jsonToObject(result)
-			},
-		},
-		"stringifyJSON": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("stringifyJSON", len(args), 1)
-				}
-
-				jsonData := objectToGo(args[0])
-				jsonBytes, err := json.Marshal(jsonData)
-				if err != nil {
-					return newFormatError("FMT-0005", err)
-				}
-
-				return &String{Value: string(jsonBytes)}
-			},
-		},
-		"parseCSV": {
-			Fn: func(args ...Object) Object {
-				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("parseCSV", len(args), 1, 2)
-				}
-				str, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0012", "parseCSV", "a string", args[0].Type())
-				}
-
-				// Parse options if provided (default: header=true)
-				hasHeader := true
-				if len(args) == 2 {
-					if optDict, ok := args[1].(*Dictionary); ok {
-						if headerExpr, exists := optDict.Pairs["header"]; exists {
-							headerObj := Eval(headerExpr, optDict.Env)
-							if headerBool, ok := headerObj.(*Boolean); ok {
-								hasHeader = headerBool.Value
-							}
-						}
-					}
-				}
-
-				reader := csv.NewReader(strings.NewReader(str.Value))
-				records, err := reader.ReadAll()
-				if err != nil {
-					return newFormatError("FMT-0007", err)
-				}
-
-				if hasHeader && len(records) > 0 {
-					// Return array of dicts with headers as keys
-					headers := records[0]
-					rows := make([]Object, len(records)-1)
-					for i, record := range records[1:] {
-						dict := &Dictionary{
-							Pairs: make(map[string]ast.Expression),
-							Env:   NewEnvironment(),
-						}
-						for j, value := range record {
-							if j < len(headers) {
-								dict.Pairs[headers[j]] = &ast.ObjectLiteralExpression{Obj: parseCSVValue(value)}
-							}
-						}
-						rows[i] = dict
-					}
-					return &Array{Elements: rows}
-				}
-
-				// Return array of arrays
-				rows := make([]Object, len(records))
-				for i, record := range records {
-					row := make([]Object, len(record))
-					for j, value := range record {
-						row[j] = parseCSVValue(value)
-					}
-					rows[i] = &Array{Elements: row}
-				}
-				return &Array{Elements: rows}
-			},
-		},
-		"stringifyCSV": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("stringifyCSV", len(args), 1)
-				}
-
-				arr, ok := args[0].(*Array)
-				if !ok {
-					return newTypeError("TYPE-0012", "stringifyCSV", "an array", args[0].Type())
-				}
-
-				var buf bytes.Buffer
-				writer := csv.NewWriter(&buf)
-
-				for _, elem := range arr.Elements {
-					if row, ok := elem.(*Array); ok {
-						record := make([]string, len(row.Elements))
-						for i, cell := range row.Elements {
-							record[i] = cell.Inspect()
-						}
-						if err := writer.Write(record); err != nil {
-							return newFormatError("FMT-0007", err)
-						}
-					} else {
-						return newTypeError("TYPE-0012", "stringifyCSV", "an array of arrays", elem.Type())
-					}
-				}
-
-				writer.Flush()
-				if err := writer.Error(); err != nil {
-					return newFormatError("FMT-0007", err)
-				}
-
-				return &String{Value: buf.String()}
 			},
 		},
 		// money() - create a Money value from amount and currency
@@ -6757,6 +6511,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.DurationLiteral:
 		return evalDurationLiteral(node, env)
+
+	case *ast.ConnectionLiteral:
+		return evalConnectionLiteral(node, env)
 
 	case *ast.MoneyLiteral:
 		return &Money{

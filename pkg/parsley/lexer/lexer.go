@@ -26,6 +26,12 @@ const (
 	TIME_NOW          // @timeNow
 	DATE_NOW          // @dateNow, @today
 	DURATION_LITERAL  // @2h30m, @7d, @1y6mo
+	SQLITE_LITERAL    // @sqlite
+	POSTGRES_LITERAL  // @postgres
+	MYSQL_LITERAL     // @mysql
+	SFTP_LITERAL      // @sftp
+	SHELL_LITERAL     // @shell
+	DB_LITERAL        // @DB
 	PATH_LITERAL      // @/usr/local, @./config
 	URL_LITERAL       // @https://example.com
 	STDLIB_PATH       // @std/table, @std/string
@@ -147,6 +153,18 @@ func (tt TokenType) String() string {
 		return "DATE_NOW"
 	case DURATION_LITERAL:
 		return "DURATION_LITERAL"
+	case SQLITE_LITERAL:
+		return "SQLITE_LITERAL"
+	case POSTGRES_LITERAL:
+		return "POSTGRES_LITERAL"
+	case MYSQL_LITERAL:
+		return "MYSQL_LITERAL"
+	case SFTP_LITERAL:
+		return "SFTP_LITERAL"
+	case SHELL_LITERAL:
+		return "SHELL_LITERAL"
+	case DB_LITERAL:
+		return "DB_LITERAL"
 	case PATH_LITERAL:
 		return "PATH_LITERAL"
 	case URL_LITERAL:
@@ -779,6 +797,24 @@ func (l *Lexer) NextToken() Token {
 		case DATETIME_TEMPLATE:
 			tok.Type = DATETIME_TEMPLATE
 			tok.Literal = l.readDatetimeTemplate()
+		case SQLITE_LITERAL:
+			tok.Type = SQLITE_LITERAL
+			tok.Literal = l.readConnectionLiteral("sqlite")
+		case POSTGRES_LITERAL:
+			tok.Type = POSTGRES_LITERAL
+			tok.Literal = l.readConnectionLiteral("postgres")
+		case MYSQL_LITERAL:
+			tok.Type = MYSQL_LITERAL
+			tok.Literal = l.readConnectionLiteral("mysql")
+		case SFTP_LITERAL:
+			tok.Type = SFTP_LITERAL
+			tok.Literal = l.readConnectionLiteral("sftp")
+		case SHELL_LITERAL:
+			tok.Type = SHELL_LITERAL
+			tok.Literal = l.readConnectionLiteral("shell")
+		case DB_LITERAL:
+			tok.Type = DB_LITERAL
+			tok.Literal = l.readConnectionLiteral("DB")
 		default:
 			tok.Type = ILLEGAL
 			tok.Literal = string(l.ch)
@@ -2133,6 +2169,23 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		return DATE_NOW
 	}
 
+	// Check for connection literals
+	for _, conn := range []struct {
+		keyword string
+		token   TokenType
+	}{
+		{"sqlite", SQLITE_LITERAL},
+		{"postgres", POSTGRES_LITERAL},
+		{"mysql", MYSQL_LITERAL},
+		{"sftp", SFTP_LITERAL},
+		{"shell", SHELL_LITERAL},
+		{"DB", DB_LITERAL},
+	} {
+		if l.isKeywordAt(pos, conn.keyword) {
+			return conn.token
+		}
+	}
+
 	// Check for @- (stdin/stdout) - must be just "-" not followed by path char or digit
 	if l.input[pos] == '-' {
 		// Check next char - if it's not a digit and not a path char, it's stdin
@@ -2244,6 +2297,16 @@ func (l *Lexer) detectDateNowKeyword() string {
 // readNowLiteral consumes the @ prefix and advances past the keyword,
 // returning the matched literal keyword.
 func (l *Lexer) readNowLiteral(keyword string) string {
+	l.readChar() // skip @
+	for i := 0; i < len(keyword); i++ {
+		l.readChar()
+	}
+	return keyword
+}
+
+// readConnectionLiteral consumes the @ prefix and advances past the connection keyword.
+// The returned literal is the keyword itself (e.g., "sqlite").
+func (l *Lexer) readConnectionLiteral(keyword string) string {
 	l.readChar() // skip @
 	for i := 0; i < len(keyword); i++ {
 		l.readChar()

@@ -33,14 +33,14 @@ logLine("All suffixes:")
 logLine("  .suffixes:", archivePath.suffixes)
 logLine("  First suffix:", archivePath.suffixes[0])
 logLine("  Last suffix:", archivePath.suffixes[1])
-logLine("  Number of suffixes:", len(archivePath.suffixes))
+logLine("  Number of suffixes:", archivePath.suffixes.length())
 logLine()
 
 // Multi-extension file
 let multiExt = @/archive/backup.2024.tar.gz.enc
 logLine("Multi-extension file:", toString(multiExt))
 logLine("  All suffixes:", multiExt.suffixes)
-logLine("  Count:", len(multiExt.suffixes))
+logLine("  Count:", multiExt.suffixes.length())
 logLine()
 
 // path.parts (alias for components)
@@ -49,7 +49,7 @@ logLine("Source file path:", toString(srcPath))
 logLine("  .parts:", srcPath.parts)
 logLine("  .components:", srcPath.components)
 logLine("  (same property, different name)")
-logLine("  Number of parts:", len(srcPath.parts))
+logLine("  Number of parts:", srcPath.parts.length())
 logLine()
 
 // path.isAbsolute and path.isRelative
@@ -143,9 +143,9 @@ let file2 = @/downloads/archive.tar.gz
 let file3 = @/config/settings
 
 logLine("File type detection:")
-logLine("  " + file1.name + ":", if (len(file1.suffixes) > 0) file1.suffixes[-1] else "no extension")
-logLine("  " + file2.name + ":", if (len(file2.suffixes) > 0) file2.suffixes[-1] else "no extension")
-logLine("  " + file3.name + ":", if (len(file3.suffixes) > 0) file3.suffixes[-1] else "no extension")
+logLine("  " + file1.name + ":", if (file1.suffixes.length() > 0) file1.suffixes[-1] else "no extension")
+logLine("  " + file2.name + ":", if (file2.suffixes.length() > 0) file2.suffixes[-1] else "no extension")
+logLine("  " + file3.name + ":", if (file3.suffixes.length() > 0) file3.suffixes[-1] else "no extension")
 logLine()
 
 // Example 2: Building URLs with protocol awareness
@@ -161,8 +161,8 @@ logLine()
 let validatePath = fn(p) {
     let pathStr = toString(p)
     let typeStr = if (p.isAbsolute) "absolute" else "relative"
-    let depthVal = len(p.parts)
-    let hasExt = len(p.suffixes) > 0
+    let depthVal = p.parts.length()
+    let hasExt = p.suffixes.length() > 0
     
     "path: " + pathStr + ", type: " + typeStr + ", depth: " + toString(depthVal) + ", hasExtension: " + toString(hasExt)
 }

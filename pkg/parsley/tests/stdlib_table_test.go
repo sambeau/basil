@@ -492,7 +492,7 @@ table(data).max("val")`
 // TestTableWhereWithCSVData tests where() with type-coerced CSV data
 func TestTableWhereWithCSVData(t *testing.T) {
 	input := `let {table} = import @std/table
-let data = parseCSV("name,value\na,10\nb,20\nc,5\nd,15")
+let data = "name,value\na,10\nb,20\nc,5\nd,15".parseCSV()
 let t = table(data)
 t.where(fn(row) { row.value > 10 }).count()`
 
@@ -512,7 +512,7 @@ t.where(fn(row) { row.value > 10 }).count()`
 // TestTableOrderByWithCSVData tests orderBy() with type-coerced CSV data
 func TestTableOrderByWithCSVData(t *testing.T) {
 	input := `let {table} = import @std/table
-let data = parseCSV("name,value\na,10\nb,2\nc,100")
+let data = "name,value\na,10\nb,2\nc,100".parseCSV()
 let t = table(data).orderBy("value")
 t.rows[0].value`
 
@@ -533,7 +533,7 @@ t.rows[0].value`
 func TestTableAggregatesWithCSVData(t *testing.T) {
 	// Test sum
 	input := `let {table} = import @std/table
-let data = parseCSV("value\n10\n20\n30\n40")
+let data = "value\n10\n20\n30\n40".parseCSV()
 table(data).sum("value")`
 
 	result := evalTest(t, input)
@@ -544,7 +544,7 @@ table(data).sum("value")`
 
 	// Test avg
 	input = `let {table} = import @std/table
-let data = parseCSV("value\n10\n20\n30\n40")
+let data = "value\n10\n20\n30\n40".parseCSV()
 table(data).avg("value")`
 
 	result = evalTest(t, input)
@@ -555,7 +555,7 @@ table(data).avg("value")`
 
 	// Test min
 	input = `let {table} = import @std/table
-let data = parseCSV("value\n10\n20\n30\n40")
+let data = "value\n10\n20\n30\n40".parseCSV()
 table(data).min("value")`
 
 	result = evalTest(t, input)
@@ -566,7 +566,7 @@ table(data).min("value")`
 
 	// Test max
 	input = `let {table} = import @std/table
-let data = parseCSV("value\n10\n20\n30\n40")
+let data = "value\n10\n20\n30\n40".parseCSV()
 table(data).max("value")`
 
 	result = evalTest(t, input)
@@ -577,7 +577,7 @@ table(data).max("value")`
 
 	// Test count
 	input = `let {table} = import @std/table
-let data = parseCSV("value\n10\n20\n30\n40")
+let data = "value\n10\n20\n30\n40".parseCSV()
 table(data).count()`
 
 	result = evalTest(t, input)

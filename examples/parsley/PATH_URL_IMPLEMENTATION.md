@@ -348,7 +348,7 @@ archive.name         // "database.tar.gz" (same as basename)
 archive.suffix       // "gz" (same as extension)
 archive.suffixes     // ["tar", "gz"]
 archive.suffixes[0]  // "tar"
-len(archive.suffixes) // 2
+archive.suffixes.length() // 2
 
 let config = @./app.config
 config.isAbsolute    // false

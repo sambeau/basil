@@ -92,7 +92,7 @@ func TestFileListWithRootPathAlias(t *testing.T) {
 	os.WriteFile(filepath.Join(dataDir, "file2.txt"), []byte("two"), 0644)
 
 	// Test fileList(@~/data/*.txt) from subdir should find files in root/data
-	input := `let f = fileList(@~/data/*.txt); len(f)`
+	input := `let f = fileList(@~/data/*.txt); f.length()`
 
 	result := evalFileListBuiltin(input, subDir, rootDir)
 
@@ -119,7 +119,7 @@ func TestFileListRootPathFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a glob pattern that won't match anything in home
-	input := `let f = fileList(@~/nonexistent_parsley_test_dir_12345/*.xyz); len(f)`
+	input := `let f = fileList(@~/nonexistent_parsley_test_dir_12345/*.xyz); f.length()`
 
 	result := evalFileListBuiltin(input, tmpDir, "") // Empty RootPath
 
@@ -146,7 +146,7 @@ func TestFileListAbsolutePath(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "test1.dat"), []byte("data1"), 0644)
 	os.WriteFile(filepath.Join(tmpDir, "test2.dat"), []byte("data2"), 0644)
 
-	input := `let f = fileList(@` + tmpDir + `/*.dat); len(f)`
+	input := `let f = fileList(@` + tmpDir + `/*.dat); f.length()`
 
 	result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
@@ -168,7 +168,7 @@ func TestFileListAbsolutePath(t *testing.T) {
 func TestFileListEmptyResult(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	input := `let f = fileList(@./nonexistent/*.xyz); len(f)`
+	input := `let f = fileList(@./nonexistent/*.xyz); f.length()`
 
 	result := evalFileListBuiltin(input, tmpDir, tmpDir)
 
@@ -257,7 +257,7 @@ func TestFileListGlobPatterns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := `let f = fileList(@` + tt.pattern + `); len(f)`
+			input := `let f = fileList(@` + tt.pattern + `); f.length()`
 
 			result := evalFileListBuiltin(input, tmpDir, tmpDir)
 

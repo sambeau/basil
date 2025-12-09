@@ -13,7 +13,7 @@ let combined = "Hello" + " " + "World"
 log(combined)
 
 let text = "Hello World"
-log("length:", len(text))
+log("length:", text.length())
 log("toUpper:", toUpper(text))
 log("toLower:", toLower(text))
 log("slice:", text[0:5])

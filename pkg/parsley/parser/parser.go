@@ -96,6 +96,12 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.DATE_NOW, p.parseDateNow)
 	p.registerPrefix(lexer.DATETIME_LITERAL, p.parseDatetimeLiteral)
 	p.registerPrefix(lexer.DURATION_LITERAL, p.parseDurationLiteral)
+	p.registerPrefix(lexer.SQLITE_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.POSTGRES_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.MYSQL_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.SFTP_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.SHELL_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.DB_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.MONEY, p.parseMoneyLiteral)
 	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
 	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
@@ -966,6 +972,29 @@ func parseMoneyAmountFromString(numStr string, scale int8) int64 {
 	}
 
 	return result
+}
+
+func (p *Parser) parseConnectionLiteral() ast.Expression {
+	kind := ""
+	switch p.curToken.Type {
+	case lexer.SQLITE_LITERAL:
+		kind = "sqlite"
+	case lexer.POSTGRES_LITERAL:
+		kind = "postgres"
+	case lexer.MYSQL_LITERAL:
+		kind = "mysql"
+	case lexer.SFTP_LITERAL:
+		kind = "sftp"
+	case lexer.SHELL_LITERAL:
+		kind = "shell"
+	case lexer.DB_LITERAL:
+		kind = "db"
+	}
+
+	return &ast.ConnectionLiteral{
+		Token: p.curToken,
+		Kind:  kind,
+	}
 }
 
 func (p *Parser) parsePathLiteral() ast.Expression {

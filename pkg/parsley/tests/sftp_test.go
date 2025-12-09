@@ -10,7 +10,7 @@ import (
 // To run these tests, set up an SFTP server and remove the t.Skip() calls.
 // See docs/TODO.md for integration testing setup requirements.
 
-// TestSFTPConnectionCreation tests SFTP() builtin connection creation
+// TestSFTPConnectionCreation tests () builtin connection creation
 func TestSFTPConnectionCreation(t *testing.T) {
 	t.Skip("SFTP tests suspended - requires SFTP server for integration testing")
 
@@ -21,32 +21,32 @@ func TestSFTPConnectionCreation(t *testing.T) {
 	}{
 		{
 			name:    "SFTP with password",
-			input:   `SFTP("sftp://user:pass@example.com/")`,
+			input:   `("sftp://user:pass@example.com/")`,
 			wantErr: true, // Will fail without real server, but should parse correctly
 		},
 		{
 			name:    "SFTP with SSH key",
-			input:   `SFTP("sftp://user@example.com/", {key: @~/.ssh/id_rsa})`,
+			input:   `("sftp://user@example.com/", {key: @~/.ssh/id_rsa})`,
 			wantErr: true, // Will fail without real server
 		},
 		{
 			name:    "SFTP with timeout",
-			input:   `SFTP("sftp://user:pass@example.com/", {timeout: @5s})`,
+			input:   `("sftp://user:pass@example.com/", {timeout: @5s})`,
 			wantErr: true,
 		},
 		{
 			name:    "SFTP with port",
-			input:   `SFTP("sftp://user:pass@example.com:2222/")`,
+			input:   `("sftp://user:pass@example.com:2222/")`,
 			wantErr: true,
 		},
 		{
 			name:    "Invalid URL",
-			input:   `SFTP("not-a-url")`,
+			input:   `("not-a-url")`,
 			wantErr: true,
 		},
 		{
 			name:    "Missing credentials",
-			input:   `SFTP("sftp://example.com/")`,
+			input:   `("sftp://example.com/")`,
 			wantErr: true,
 		},
 	}
@@ -77,12 +77,12 @@ func TestSFTPCallableSyntax(t *testing.T) {
 	}{
 		{
 			name:    "Create file handle",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/data.json)`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/data.json)`,
 			wantErr: true, // Will fail without real server
 		},
 		{
 			name:    "Multiple file handles",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); let f1 = conn(@/file1.txt); let f2 = conn(@/file2.txt); f2`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); let f1 = conn(@/file1.txt); let f2 = conn(@/file2.txt); f2`,
 			wantErr: true,
 		},
 	}
@@ -110,37 +110,37 @@ func TestSFTPFormatAccessors(t *testing.T) {
 	}{
 		{
 			name:    "JSON accessor",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/data.json).json`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/data.json).json`,
 			wantErr: true, // Will fail without real server
 		},
 		{
 			name:    "Text accessor",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/file.txt).text`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/file.txt).text`,
 			wantErr: true,
 		},
 		{
 			name:    "CSV accessor",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/data.csv).csv`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/data.csv).csv`,
 			wantErr: true,
 		},
 		{
 			name:    "Lines accessor",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/log.txt).lines`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/log.txt).lines`,
 			wantErr: true,
 		},
 		{
 			name:    "Bytes accessor",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/binary.dat).bytes`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/binary.dat).bytes`,
 			wantErr: true,
 		},
 		{
 			name:    "File accessor (auto-detect)",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/data.json).file`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/data.json).file`,
 			wantErr: true,
 		},
 		{
 			name:    "Dir accessor",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/uploads).dir`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/uploads).dir`,
 			wantErr: true,
 		},
 	}
@@ -164,17 +164,17 @@ func TestSFTPReadOperatorSyntax(t *testing.T) {
 	}{
 		{
 			name:    "Read JSON file",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); data <=/= conn(@/data.json).json`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); data <=/= conn(@/data.json).json`,
 			wantErr: true, // Will fail without real server
 		},
 		{
 			name:    "Read text file",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); content <=/= conn(@/file.txt).text`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); content <=/= conn(@/file.txt).text`,
 			wantErr: true,
 		},
 		{
 			name:    "Read with error capture",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); {data, error} <=/= conn(@/data.json).json; error`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); {data, error} <=/= conn(@/data.json).json; error`,
 			wantErr: true,
 		},
 	}
@@ -198,17 +198,17 @@ func TestSFTPWriteOperatorSyntax(t *testing.T) {
 	}{
 		{
 			name:    "Write JSON file",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); {name: "test"} =/=> conn(@/data.json).json`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); {name: "test"} =/=> conn(@/data.json).json`,
 			wantErr: true,
 		},
 		{
 			name:    "Write text file",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); "Hello World" =/=> conn(@/file.txt).text`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); "Hello World" =/=> conn(@/file.txt).text`,
 			wantErr: true,
 		},
 		{
 			name:    "Write with error capture",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); error = {test: 123} =/=> conn(@/data.json).json; error`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); error = {test: 123} =/=> conn(@/data.json).json; error`,
 			wantErr: true,
 		},
 	}
@@ -232,12 +232,12 @@ func TestSFTPAppendOperatorSyntax(t *testing.T) {
 	}{
 		{
 			name:    "Append to text file",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); "New line\n" =/=>> conn(@/log.txt).text`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); "New line\n" =/=>> conn(@/log.txt).text`,
 			wantErr: true,
 		},
 		{
 			name:    "Append line",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); "Log entry" =/=>> conn(@/app.log).lines`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); "Log entry" =/=>> conn(@/app.log).lines`,
 			wantErr: true,
 		},
 	}
@@ -261,27 +261,27 @@ func TestSFTPDirectoryOperations(t *testing.T) {
 	}{
 		{
 			name:    "List directory",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); files <=/= conn(@/uploads).dir`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); files <=/= conn(@/uploads).dir`,
 			wantErr: true,
 		},
 		{
 			name:    "Create directory",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/newdir).mkdir()`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/newdir).mkdir()`,
 			wantErr: true,
 		},
 		{
 			name:    "Create directory with mode",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/newdir).mkdir({mode: 0755})`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/newdir).mkdir({mode: 0755})`,
 			wantErr: true,
 		},
 		{
 			name:    "Remove directory",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/olddir).rmdir()`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/olddir).rmdir()`,
 			wantErr: true,
 		},
 		{
 			name:    "Remove file",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn(@/old.txt).remove()`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn(@/old.txt).remove()`,
 			wantErr: true,
 		},
 	}
@@ -305,12 +305,12 @@ func TestSFTPConnectionMethods(t *testing.T) {
 	}{
 		{
 			name:    "Close connection",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn.close()`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn.close()`,
 			wantErr: true, // Will fail to connect but should parse
 		},
 		{
 			name:    "Use after close",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); conn.close(); conn(@/file.txt)`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); conn.close(); conn(@/file.txt)`,
 			wantErr: true,
 		},
 	}
@@ -334,12 +334,12 @@ func TestSFTPErrorCapturePattern(t *testing.T) {
 	}{
 		{
 			name:    "Capture read error",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); {data, error} <=/= conn(@/missing.txt).text; error != null`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); {data, error} <=/= conn(@/missing.txt).text; error != null`,
 			wantErr: false, // Should return true (error exists)
 		},
 		{
 			name:    "Capture write error",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); {data, error} = "test" =/=> conn(@/readonly.txt).text; error != null`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); {data, error} = "test" =/=> conn(@/readonly.txt).text; error != null`,
 			wantErr: false, // Should return true (error exists)
 		},
 	}
@@ -373,12 +373,12 @@ func TestSFTPConnectionCaching(t *testing.T) {
 	}{
 		{
 			name:    "Reuse connection",
-			input:   `let conn1 = SFTP("sftp://user:pass@example.com/"); let conn2 = SFTP("sftp://user:pass@example.com/"); conn1 == conn2`,
+			input:   `let conn1 = ("sftp://user:pass@example.com/"); let conn2 = ("sftp://user:pass@example.com/"); conn1 == conn2`,
 			wantErr: true, // Will fail to connect, but tests caching logic
 		},
 		{
 			name:    "Different hosts create different connections",
-			input:   `let conn1 = SFTP("sftp://user:pass@host1.com/"); let conn2 = SFTP("sftp://user:pass@host2.com/"); conn1 == conn2`,
+			input:   `let conn1 = ("sftp://user:pass@host1.com/"); let conn2 = ("sftp://user:pass@host2.com/"); conn1 == conn2`,
 			wantErr: true,
 		},
 	}
@@ -402,22 +402,22 @@ func TestSFTPURLParsing(t *testing.T) {
 	}{
 		{
 			name:    "URL with path",
-			input:   `SFTP("sftp://user:pass@example.com/home/user/")`,
+			input:   `("sftp://user:pass@example.com/home/user/")`,
 			wantErr: true,
 		},
 		{
 			name:    "URL with special characters in password",
-			input:   `SFTP("sftp://user:p@ss%20word@example.com/")`,
+			input:   `("sftp://user:p@ss%20word@example.com/")`,
 			wantErr: true,
 		},
 		{
 			name:    "URL without trailing slash",
-			input:   `SFTP("sftp://user:pass@example.com")`,
+			input:   `("sftp://user:pass@example.com")`,
 			wantErr: true,
 		},
 		{
 			name:    "Invalid scheme",
-			input:   `SFTP("http://user:pass@example.com/")`,
+			input:   `("http://user:pass@example.com/")`,
 			wantErr: true,
 		},
 	}
@@ -444,22 +444,22 @@ func TestSFTPFormatEncoding(t *testing.T) {
 	}{
 		{
 			name:    "JSON encoding",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); {a: 1, b: [2, 3]} =/=> conn(@/test.json).json`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); {a: 1, b: [2, 3]} =/=> conn(@/test.json).json`,
 			wantErr: true,
 		},
 		{
 			name:    "Text encoding",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); "Hello\nWorld" =/=> conn(@/test.txt).text`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); "Hello\nWorld" =/=> conn(@/test.txt).text`,
 			wantErr: true,
 		},
 		{
 			name:    "Lines encoding",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); ["line1", "line2", "line3"] =/=> conn(@/test.txt).lines`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); ["line1", "line2", "line3"] =/=> conn(@/test.txt).lines`,
 			wantErr: true,
 		},
 		{
 			name:    "Bytes encoding",
-			input:   `let conn = SFTP("sftp://user:pass@example.com/"); [72, 101, 108, 108, 111] =/=> conn(@/test.bin).bytes`,
+			input:   `let conn = ("sftp://user:pass@example.com/"); [72, 101, 108, 108, 111] =/=> conn(@/test.bin).bytes`,
 			wantErr: true,
 		},
 	}

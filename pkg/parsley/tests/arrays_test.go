@@ -312,17 +312,17 @@ func TestBracketArrayDestructuring(t *testing.T) {
 		},
 		{
 			name:     "explicit rest collects remaining",
-			input:    "let [a, ...rest] = [1, 2, 3, 4]; len(rest)",
+			input:    "let [a, ...rest] = [1, 2, 3, 4]; rest.length()",
 			expected: "3",
 		},
 		{
 			name:     "rest gets empty array when no remaining",
-			input:    "let [a, b, ...rest] = [1, 2]; len(rest)",
+			input:    "let [a, b, ...rest] = [1, 2]; rest.length()",
 			expected: "0",
 		},
 		{
 			name:     "rest only pattern",
-			input:    "let [...all] = [1, 2, 3]; len(all)",
+			input:    "let [...all] = [1, 2, 3]; all.length()",
 			expected: "3",
 		},
 		{

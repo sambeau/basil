@@ -18,7 +18,7 @@ func TestDatabaseTransactions(t *testing.T) {
 		{
 			name: "Transaction commit",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"
 				
 				db.begin()
@@ -42,7 +42,7 @@ func TestDatabaseTransactions(t *testing.T) {
 		{
 			name: "Transaction rollback",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "CREATE TABLE test_rollback (id INTEGER PRIMARY KEY, value TEXT)"
 				
 				db.begin()
@@ -94,7 +94,7 @@ func TestDatabaseTransactions(t *testing.T) {
 
 func TestDatabaseNullValues(t *testing.T) {
 	input := `
-		let db = SQLITE(":memory:")
+		let db = @sqlite(":memory:")
 		let _ = db <=!=> "CREATE TABLE test_nulls (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
 		let _ = db <=!=> "INSERT INTO test_nulls (id, name) VALUES (1, 'Alice')"
 		
@@ -130,8 +130,8 @@ func TestDatabaseNullValues(t *testing.T) {
 
 func TestDatabaseMultipleConnections(t *testing.T) {
 	input := `
-		let db1 = SQLITE(":memory:")
-		let db2 = SQLITE(":memory:")
+		let db1 = @sqlite(":memory:")
+		let db2 = @sqlite(":memory:")
 		
 		let _ = db1 <=!=> "CREATE TABLE test1 (id INTEGER PRIMARY KEY, value TEXT)"
 		let _ = db2 <=!=> "CREATE TABLE test2 (id INTEGER PRIMARY KEY, value TEXT)"
@@ -172,7 +172,7 @@ func TestDatabaseMultipleConnections(t *testing.T) {
 
 func TestDatabaseEmptyResultSet(t *testing.T) {
 	input := `
-		let db = SQLITE(":memory:")
+		let db = @sqlite(":memory:")
 		let _ = db <=!=> "CREATE TABLE test_empty (id INTEGER PRIMARY KEY, value TEXT)"
 		
 		let rows = db <=??=> "SELECT * FROM test_empty"
@@ -207,7 +207,7 @@ func TestDatabaseEmptyResultSet(t *testing.T) {
 func TestDatabaseLargeResultSet(t *testing.T) {
 	// Create database and insert rows
 	l := lexer.New(`
-		let db = SQLITE(":memory:")
+		let db = @sqlite(":memory:")
 		let _ = db <=!=> "CREATE TABLE test_large (id INTEGER PRIMARY KEY, value INTEGER)"
 	`)
 	p := parser.New(l)
@@ -233,7 +233,7 @@ func TestDatabaseLargeResultSet(t *testing.T) {
 	// Query all rows
 	l3 := lexer.New(`
 		let rows = db <=??=> "SELECT * FROM test_large"
-		len(rows)
+		rows.length()
 	`)
 	p3 := parser.New(l3)
 	program3 := p3.ParseProgram()
@@ -258,7 +258,7 @@ func TestDatabaseLargeResultSet(t *testing.T) {
 
 func TestDatabaseDataTypes(t *testing.T) {
 	input := `
-		let db = SQLITE(":memory:")
+		let db = @sqlite(":memory:")
 		let _ = db <=!=> ` + "`CREATE TABLE test_types (\n\t\t\tid INTEGER PRIMARY KEY,\n\t\t\tint_val INTEGER,\n\t\t\tfloat_val REAL,\n\t\t\ttext_val TEXT,\n\t\t\tblob_val BLOB\n\t\t)`" + `
 		
 		let _ = db <=!=> "INSERT INTO test_types (int_val, float_val, text_val) VALUES (42, 3.14, 'hello')"

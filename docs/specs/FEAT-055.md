@@ -39,39 +39,39 @@ As a Parsley developer, I want a clean, consistent namespace where:
 ## Acceptance Criteria
 
 ### Remove `len()` Builtin
-- [ ] Remove `len()` builtin function
-- [ ] Users must use `string.length()` and `array.length()` methods
+- [x] Remove `len()` builtin function
+- [x] Users must use `string.length()` and `array.length()` methods
 
 ### Database Constructor Renames
-- [ ] `basil.sqlite` → `@DB` (Basil's built-in database)
-- [ ] `SQLITE` → `@sqlite` (external SQLite)
-- [ ] `POSTGRES` → `@postgres` (PostgreSQL)
-- [ ] `MYSQL` → `@mysql` (MySQL)
-- [ ] `SFTP` → `@sftp` (SFTP file system)
-- [ ] `COMMAND` → `@shell` (shell command execution)
+- [x] `basil.sqlite` → `@DB` (Basil's built-in database)
+- [x] `SQLITE` → `@sqlite` (external SQLite)
+- [x] `POSTGRES` → `@postgres` (PostgreSQL)
+- [x] `MYSQL` → `@mysql` (MySQL)
+- [x] `SFTP` → `@sftp` (SFTP file system)
+- [x] `COMMAND` → `@shell` (shell command execution)
 
 ### Path Methods
-- [ ] `publicUrl()` / `asset()` → `path.public()` (Basil-only: converts path under `public_dir` to web URL)
-- [ ] Add `path.toURL(prefix)` method (Parsley: converts path to URL with explicit prefix)
-- [ ] `match(path, pattern)` → `path.match(pattern)` method
+- [x] `publicUrl()` / `asset()` → `path.public()` (Basil-only: converts path under `public_dir` to web URL)
+- [x] Add `path.toURL(prefix)` method (Parsley: converts path to URL with explicit prefix)
+- [x] `match(path, pattern)` → `path.match(pattern)` method
 
 ### Formatting → Type Methods
-- [ ] `formatNumber(n, ...)` → `n.format(...)`
-- [ ] `formatCurrency(money, ...)` → `money.format(...)`
-- [ ] `formatDate(d, ...)` → `d.format(...)` (if not already present)
-- [ ] Remove global formatting functions
+- [x] `formatNumber(n, ...)` → `n.format(...)`
+- [x] `formatCurrency(money, ...)` → `money.format(...)`
+- [x] `formatDate(d, ...)` → `d.format(...)` (if not already present)
+- [x] Remove global formatting functions
 
 ### JSON/CSV Serialization → Type Methods
-- [ ] `stringifyJSON(obj)` → `obj.toJSON()` (arrays, dicts serialize themselves)
-- [ ] `parseJSON(s)` → `s.parseJSON()` (string parses to object)
-- [ ] `stringifyCSV(table)` → `table.toCSV()`
-- [ ] `parseCSV(s)` → `s.parseCSV()` (string parses to table)
-- [ ] Remove global serialization functions
+- [x] `stringifyJSON(obj)` → `obj.toJSON()` (arrays, dicts serialize themselves)
+- [x] `parseJSON(s)` → `s.parseJSON()` (string parses to object)
+- [x] `stringifyCSV(table)` → `table.toCSV()`
+- [x] `parseCSV(s)` → `s.parseCSV()` (string parses to table)
+- [x] Remove global serialization functions
 
 ### Documentation & Tests
-- [ ] Update all documentation (reference.md, CHEATSHEET.md)
-- [ ] Update all tests to use new syntax
-- [ ] Update examples throughout codebase
+- [x] Update all documentation (reference.md, CHEATSHEET.md)
+- [x] Update all tests to use new syntax
+- [x] Update examples throughout codebase
 
 ## Design Decisions
 

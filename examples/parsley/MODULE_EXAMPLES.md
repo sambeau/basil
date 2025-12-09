@@ -79,13 +79,13 @@ This means:
 
 ```parsley
 // modules/strings.pars
-let isEmpty = fn(s) { len(s) == 0 }
+let isEmpty = fn(s) { s.length() == 0 }
 
 let capitalize = fn(s) {
-    if (len(s) == 0) {
+    if (s.length() == 0) {
         s
     } else {
-        toUpper(s[0:1]) + s[1:len(s)]
+        toUpper(s[0:1]) + s[1:s.length()]
     }
 }
 
@@ -116,7 +116,7 @@ let isEmail = fn(str) {
 }
 
 let isStrongPassword = fn(pwd) {
-    len(pwd) >= 8 & 
+    pwd.length() >= 8 & 
     (pwd ~ /[A-Z]/) & 
     (pwd ~ /[a-z]/) & 
     (pwd ~ /[0-9]/)
@@ -154,15 +154,15 @@ let sum = fn(arr) {
 }
 
 let average = fn(arr) {
-    if (len(arr) == 0) {
+    if (arr.length() == 0) {
         0
     } else {
-        sum(arr) / len(arr)
+        sum(arr) / arr.length()
     }
 }
 
 let max = fn(arr) {
-    if (len(arr) == 0) {
+    if (arr.length() == 0) {
         0
     } else {
         let maximum = arr[0]

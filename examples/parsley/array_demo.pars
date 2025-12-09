@@ -17,6 +17,6 @@ str[0:5]
 "Concatenation"[3:7]
 "Hello, World!"[7:12]
 
-len(str)
-len(arr)
-len("")
+str.length()
+arr.length()
+"".length()

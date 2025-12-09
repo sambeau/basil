@@ -4,7 +4,7 @@ let isEmail = fn(str) {
 }
 
 let isStrongPassword = fn(pwd) {
-    len(pwd) >= 8 & 
+    pwd.length() >= 8 & 
     (pwd ~ /[A-Z]/) & 
     (pwd ~ /[a-z]/) & 
     (pwd ~ /[0-9]/)

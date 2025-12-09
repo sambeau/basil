@@ -42,7 +42,7 @@ log("Total age:", total_age)
 log("\n=== Validators Example ===")
 let validators = {
     required: fn(value) {
-        if (len(value) == 0) {
+        if (value.length() == 0) {
             "This field is required"
         } else {
             false
@@ -51,7 +51,7 @@ let validators = {
     
     min_length: fn(min) {
         fn(value) {
-            if (len(value) < min) {
+            if (value.length() < min) {
                 "Must be at least ${min} characters"
             } else {
                 false

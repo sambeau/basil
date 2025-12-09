@@ -106,7 +106,7 @@ log("\n=== CSV Processing ===");
 let csv = "apple,banana,cherry,date";
 let fruits = split(csv, ",");
 log("Fruits:", fruits);
-log("Count:", len(fruits));
+log("Count:", fruits.length());
 
 log("\n=== Cleaning Whitespace ===");
 let messy = "  too   many    spaces  ";

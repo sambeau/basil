@@ -17,55 +17,55 @@ func TestCSVTypeCoercion(t *testing.T) {
 	}{
 		{
 			name: "integers are parsed as integers",
-			input: `let data = parseCSV("num\n42\n-7\n0")
+			input: `let data = "num\n42\n-7\n0".parseCSV()
 data[0].num`,
 			expected: "42",
 		},
 		{
 			name: "floats are parsed as floats",
-			input: `let data = parseCSV("num\n3.14\n-2.5\n0.0")
+			input: `let data = "num\n3.14\n-2.5\n0.0".parseCSV()
 data[0].num`,
 			expected: "3.14",
 		},
 		{
 			name: "booleans are parsed as booleans true",
-			input: `let data = parseCSV("flag\ntrue")
+			input: `let data = "flag\ntrue".parseCSV()
 data[0].flag`,
 			expected: "true",
 		},
 		{
 			name: "booleans are parsed as booleans false",
-			input: `let data = parseCSV("flag\nfalse")
+			input: `let data = "flag\nfalse".parseCSV()
 data[0].flag`,
 			expected: "false",
 		},
 		{
 			name: "strings stay as strings",
-			input: `let data = parseCSV("name\nhello\nworld")
+			input: `let data = "name\nhello\nworld".parseCSV()
 data[0].name`,
 			expected: "hello",
 		},
 		{
 			name: "mixed types - name column",
-			input: `let data = parseCSV("name,age,score,active\nAlice,30,95.5,true")
+			input: `let data = "name,age,score,active\nAlice,30,95.5,true".parseCSV()
 data[0].name`,
 			expected: `Alice`,
 		},
 		{
 			name: "mixed types - age column",
-			input: `let data = parseCSV("name,age,score,active\nAlice,30,95.5,true")
+			input: `let data = "name,age,score,active\nAlice,30,95.5,true".parseCSV()
 data[0].age`,
 			expected: `30`,
 		},
 		{
 			name: "mixed types - score column",
-			input: `let data = parseCSV("name,age,score,active\nAlice,30,95.5,true")
+			input: `let data = "name,age,score,active\nAlice,30,95.5,true".parseCSV()
 data[0].score`,
 			expected: `95.5`,
 		},
 		{
 			name: "mixed types - active column",
-			input: `let data = parseCSV("name,age,score,active\nAlice,30,95.5,true")
+			input: `let data = "name,age,score,active\nAlice,30,95.5,true".parseCSV()
 data[0].active`,
 			expected: `true`,
 		},
@@ -101,7 +101,7 @@ data[0].active`,
 
 // TestCSVIntegerType verifies that CSV integers are actual INTEGER type
 func TestCSVIntegerType(t *testing.T) {
-	input := `let data = parseCSV("num\n42")
+	input := `let data = "num\n42".parseCSV()
 data[0].num`
 
 	l := lexer.New(input)
@@ -117,7 +117,7 @@ data[0].num`
 
 // TestCSVFloatType verifies that CSV floats are actual FLOAT type
 func TestCSVFloatType(t *testing.T) {
-	input := `let data = parseCSV("num\n3.14")
+	input := `let data = "num\n3.14".parseCSV()
 data[0].num`
 
 	l := lexer.New(input)
@@ -133,7 +133,7 @@ data[0].num`
 
 // TestCSVBooleanType verifies that CSV booleans are actual BOOLEAN type
 func TestCSVBooleanType(t *testing.T) {
-	input := `let data = parseCSV("flag\ntrue")
+	input := `let data = "flag\ntrue".parseCSV()
 data[0].flag`
 
 	l := lexer.New(input)
@@ -149,7 +149,7 @@ data[0].flag`
 
 // TestCSVComparisonWithIntegers tests that CSV integers can be compared with literal integers
 func TestCSVComparisonWithIntegers(t *testing.T) {
-	input := `let data = parseCSV("value\n10\n20\n5")
+	input := `let data = "value\n10\n20\n5".parseCSV()
 data[0].value > 5`
 
 	l := lexer.New(input)
@@ -169,7 +169,7 @@ data[0].value > 5`
 
 // TestCSVArithmetic tests that CSV numbers can be used in arithmetic
 func TestCSVArithmetic(t *testing.T) {
-	input := `let data = parseCSV("a,b\n10,3")
+	input := `let data = "a,b\n10,3".parseCSV()
 data[0].a + data[0].b`
 
 	l := lexer.New(input)

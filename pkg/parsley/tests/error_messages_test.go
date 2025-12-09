@@ -181,7 +181,7 @@ func TestValidFunctionCallsWork(t *testing.T) {
 		},
 		{
 			name:     "call_builtin",
-			input:    `len([1, 2, 3, 4, 5])`,
+			input:    `[1, 2, 3, 4, 5].length()`,
 			expected: 5,
 		},
 	}

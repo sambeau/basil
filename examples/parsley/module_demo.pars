@@ -48,6 +48,6 @@ let validEmails = for(email in emails) {
     if (validate.isEmail(email)) email
 }
 log("Valid emails:", validEmails)
-log("Count:", len(validEmails))
+log("Count:", validEmails.length())
 
 log("\n=== Demo Complete ===")

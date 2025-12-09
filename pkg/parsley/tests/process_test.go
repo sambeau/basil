@@ -24,7 +24,7 @@ func testEvalProcess(input string) evaluator.Object {
 
 // TestProcessExecutionToken tests the <=#=> token
 func TestProcessExecutionToken(t *testing.T) {
-	input := `let result = COMMAND("echo") <=#=> "hello"`
+	input := `let result = @shell("echo") <=#=> "hello"`
 
 	l := lexer.New(input)
 	foundExecuteWith := false
@@ -40,36 +40,36 @@ func TestProcessExecutionToken(t *testing.T) {
 	}
 }
 
-// TestCommandBuiltin tests the COMMAND() builtin function
-func TestCommandBuiltin(t *testing.T) {
+// TestShellLiteral creates command handles via @shell
+func TestShellLiteral(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
 		wantErr bool
 	}{
 		{
-			name:    "COMMAND with binary only",
-			input:   `COMMAND("echo")`,
+			name:    "@shell with binary only",
+			input:   `@shell("echo")`,
 			wantErr: false,
 		},
 		{
-			name:    "COMMAND with binary and args",
-			input:   `COMMAND("echo", ["hello", "world"])`,
+			name:    "@shell with binary and args",
+			input:   `@shell("echo", ["hello", "world"])`,
 			wantErr: false,
 		},
 		{
-			name:    "COMMAND with all options",
-			input:   `COMMAND("ls", ["-la"], {env: {PATH: "/usr/bin"}, dir: "/tmp"})`,
+			name:    "@shell with all options",
+			input:   `@shell("ls", ["-la"], {env: {PATH: "/usr/bin"}, dir: "/tmp"})`,
 			wantErr: false,
 		},
 		{
-			name:    "COMMAND with no arguments",
-			input:   `COMMAND()`,
+			name:    "@shell with no arguments",
+			input:   `@shell()`,
 			wantErr: true,
 		},
 		{
-			name:    "COMMAND with non-string binary",
-			input:   `COMMAND(123)`,
+			name:    "@shell with non-string binary",
+			input:   `@shell(123)`,
 			wantErr: true,
 		},
 	}
@@ -117,7 +117,7 @@ func TestProcessExecution(t *testing.T) {
 	}{
 		{
 			name:    "echo command",
-			input:   `let result = COMMAND("echo", ["hello"]) <=#=> null; result.stdout`,
+			input:   `let result = @shell("echo", ["hello"]) <=#=> null; result.stdout`,
 			wantErr: false,
 			checkStdout: func(s string) bool {
 				return strings.TrimSpace(s) == "hello"
@@ -125,7 +125,7 @@ func TestProcessExecution(t *testing.T) {
 		},
 		{
 			name:    "echo with input (ignored)",
-			input:   `let result = COMMAND("echo", ["test"]) <=#=> "input data"; result.stdout`,
+			input:   `let result = @shell("echo", ["test"]) <=#=> "input data"; result.stdout`,
 			wantErr: false,
 			checkStdout: func(s string) bool {
 				return strings.Contains(s, "test")
@@ -133,7 +133,7 @@ func TestProcessExecution(t *testing.T) {
 		},
 		{
 			name:    "command with exit code",
-			input:   `let result = COMMAND("echo", ["ok"]) <=#=> null; result.exitCode`,
+			input:   `let result = @shell("echo", ["ok"]) <=#=> null; result.exitCode`,
 			wantErr: false,
 			checkStdout: func(s string) bool {
 				return s == "0"
@@ -171,7 +171,7 @@ func TestProcessExecution(t *testing.T) {
 
 // TestProcessExecutionResult tests result structure
 func TestProcessExecutionResult(t *testing.T) {
-	input := `let result = COMMAND("echo", ["test output"]) <=#=> null; result.exitCode == 0`
+	input := `let result = @shell("echo", ["test output"]) <=#=> null; result.exitCode == 0`
 
 	result := testEvalProcess(input)
 	if err, ok := result.(*evaluator.Error); ok {
@@ -188,7 +188,7 @@ func TestProcessExecutionResult(t *testing.T) {
 	}
 
 	// Test all fields exist
-	input2 := `let result = COMMAND("echo", ["test"]) <=#=> null; [result.stdout, result.stderr, result.exitCode, result.error]`
+	input2 := `let result = @shell("echo", ["test"]) <=#=> null; [result.stdout, result.stderr, result.exitCode, result.error]`
 
 	result2 := testEvalProcess(input2)
 	if err, ok := result2.(*evaluator.Error); ok {
@@ -205,8 +205,8 @@ func TestProcessExecutionResult(t *testing.T) {
 	}
 }
 
-// TestJSONFormatBuiltins tests parseJSON and stringifyJSON
-func TestJSONFormatBuiltins(t *testing.T) {
+// TestJSONSerializationMethods tests parseJSON and toJSON methods
+func TestJSONSerializationMethods(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -215,7 +215,7 @@ func TestJSONFormatBuiltins(t *testing.T) {
 	}{
 		{
 			name:    "parseJSON simple object",
-			input:   `parseJSON("{\"name\":\"Alice\",\"age\":30}")`,
+			input:   `"{\"name\":\"Alice\",\"age\":30}".parseJSON()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				dict, ok := obj.(*evaluator.Dictionary)
@@ -224,7 +224,7 @@ func TestJSONFormatBuiltins(t *testing.T) {
 		},
 		{
 			name:    "parseJSON array",
-			input:   `parseJSON("[1,2,3]")`,
+			input:   `"[1,2,3]".parseJSON()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				arr, ok := obj.(*evaluator.Array)
@@ -232,8 +232,8 @@ func TestJSONFormatBuiltins(t *testing.T) {
 			},
 		},
 		{
-			name:    "stringifyJSON object",
-			input:   `stringifyJSON({name: "Bob", age: 25})`,
+			name:    "toJSON object",
+			input:   `{name: "Bob", age: 25}.toJSON()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				str, ok := obj.(*evaluator.String)
@@ -241,8 +241,8 @@ func TestJSONFormatBuiltins(t *testing.T) {
 			},
 		},
 		{
-			name:    "stringifyJSON array",
-			input:   `stringifyJSON([1, 2, 3])`,
+			name:    "toJSON array",
+			input:   `[1, 2, 3].toJSON()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				str, ok := obj.(*evaluator.String)
@@ -251,7 +251,7 @@ func TestJSONFormatBuiltins(t *testing.T) {
 		},
 		{
 			name:    "parseJSON invalid JSON",
-			input:   `parseJSON("{invalid}")`,
+			input:   `"{invalid}".parseJSON()`,
 			wantErr: true,
 			check:   nil,
 		},
@@ -277,8 +277,8 @@ func TestJSONFormatBuiltins(t *testing.T) {
 	}
 }
 
-// TestCSVFormatBuiltins tests parseCSV and stringifyCSV
-func TestCSVFormatBuiltins(t *testing.T) {
+// TestCSVFormatMethods tests parseCSV and toCSV methods
+func TestCSVFormatMethods(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -287,7 +287,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 	}{
 		{
 			name:    "parseCSV without header",
-			input:   `parseCSV("a,b,c\n1,2,3", {header: false})`,
+			input:   `"a,b,c\n1,2,3".parseCSV(false)`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				arr, ok := obj.(*evaluator.Array)
@@ -296,7 +296,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 		},
 		{
 			name:    "parseCSV with header (default)",
-			input:   `parseCSV("name,age\nAlice,30")`,
+			input:   `"name,age\nAlice,30".parseCSV()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				arr, ok := obj.(*evaluator.Array)
@@ -310,7 +310,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 		},
 		{
 			name:    "parseCSV with explicit header option",
-			input:   `parseCSV("name,age\nAlice,30", {header: true})`,
+			input:   `"name,age\nAlice,30".parseCSV(true)`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				arr, ok := obj.(*evaluator.Array)
@@ -323,8 +323,8 @@ func TestCSVFormatBuiltins(t *testing.T) {
 			},
 		},
 		{
-			name:    "stringifyCSV array of arrays",
-			input:   `stringifyCSV([["a","b"],["1","2"]])`,
+			name:    "toCSV array of arrays",
+			input:   `[["a","b"],["1","2"]].toCSV()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
 				str, ok := obj.(*evaluator.String)
@@ -355,7 +355,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 
 // TestJSONRoundTrip tests JSON parse/stringify round-trip
 func TestJSONRoundTrip(t *testing.T) {
-	input := `let obj = {name: "Test", value: 42, items: [1, 2, 3]}; let json = stringifyJSON(obj); let parsed = parseJSON(json); parsed.name`
+	input := `let obj = {name: "Test", value: 42, items: [1, 2, 3]}; let json = obj.toJSON(); let parsed = json.parseJSON(); parsed.name`
 
 	result := testEvalProcess(input)
 	if err, ok := result.(*evaluator.Error); ok {

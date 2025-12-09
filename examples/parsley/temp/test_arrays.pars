@@ -15,7 +15,7 @@ log("concat:", [1, 2] ++ [3, 4])
 let doubled = for (n in nums) { n * 2 }
 log("doubled:", doubled)
 
-log("len:", len([1, 2, 3]))
+log("len:", [1, 2, 3].length())
 log("sort:", sort([3, 1, 2]))
 log("reverse:", reverse([1, 2, 3]))
 log("map:", map(fn(x) { x * 2 }, nums))

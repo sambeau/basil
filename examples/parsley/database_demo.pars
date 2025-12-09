@@ -9,7 +9,7 @@
 // - Executing updates with <=!=>
 
 // Database setup
-let db = SQLITE(":memory:")
+let db = @sqlite(":memory:")
 
 // Create users table
 let _ = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT, age INTEGER)"

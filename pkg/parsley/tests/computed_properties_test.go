@@ -70,10 +70,10 @@ func TestPathSuffixesProperty(t *testing.T) {
 		input    string
 		expected int
 	}{
-		{`let p = @/file.tar.gz; len(p.suffixes)`, 2},
-		{`let p = @./config.yaml; len(p.suffixes)`, 1},
-		{`let p = @~/README; len(p.suffixes)`, 0},
-		{`let p = @/file.backup.old.txt; len(p.suffixes)`, 3},
+		{`let p = @/file.tar.gz; p.suffixes.length()`, 2},
+		{`let p = @./config.yaml; p.suffixes.length()`, 1},
+		{`let p = @~/README; p.suffixes.length()`, 0},
+		{`let p = @/file.backup.old.txt; p.suffixes.length()`, 3},
 	}
 
 	for _, tt := range tests {
@@ -117,9 +117,9 @@ func TestPathPartsProperty(t *testing.T) {
 		input    string
 		expected int
 	}{
-		{`let p = @/usr/local/bin; len(p.parts)`, 3},
-		{`let p = @./config/app.json; len(p.parts)`, 3},
-		{`let p = @~/docs; len(p.parts)`, 2},
+		{`let p = @/usr/local/bin; p.parts.length()`, 3},
+		{`let p = @./config/app.json; p.parts.length()`, 3},
+		{`let p = @~/docs; p.parts.length()`, 2},
 	}
 
 	for _, tt := range tests {
@@ -317,7 +317,7 @@ func TestCombinedComputedProperties(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`let p = @/archive/file.tar.gz; p.name + " has " + toString(len(p.suffixes)) + " suffixes"`, "file.tar.gz has 2 suffixes"},
+		{`let p = @/archive/file.tar.gz; p.name + " has " + toString(p.suffixes.length()) + " suffixes"`, "file.tar.gz has 2 suffixes"},
 		{`let p = @./config.json; if (p.isRelative) "relative" else "absolute"`, "relative"},
 		{`let u = @https://api.example.com:8080/v1; u.protocol + "//" + u.hostname`, "https://api.example.com"},
 	}

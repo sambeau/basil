@@ -8,15 +8,15 @@ let sum = fn(arr) {
 }
 
 let average = fn(arr) {
-    if (len(arr) == 0) {
+    if (arr.length() == 0) {
         0
     } else {
-        sum(arr) / len(arr)
+        sum(arr) / arr.length()
     }
 }
 
 let max = fn(arr) {
-    if (len(arr) == 0) {
+    if (arr.length() == 0) {
         null
     } else {
         let maximum = arr[0]
@@ -30,7 +30,7 @@ let max = fn(arr) {
 }
 
 let min = fn(arr) {
-    if (len(arr) == 0) {
+    if (arr.length() == 0) {
         null
     } else {
         let minimum = arr[0]

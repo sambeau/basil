@@ -122,7 +122,7 @@ func TestSplitMethod(t *testing.T) {
 	}{
 		{`"a,b,c".split(",")`, `["a", "b", "c"]`},
 		{`"hello world".split(" ")`, `["hello", "world"]`},
-		{`len("a:b:c:d".split(":"))`, `4`},
+		{`"a:b:c:d".split(":").length()`, `4`},
 	}
 
 	for _, tt := range tests {

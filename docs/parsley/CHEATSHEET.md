@@ -125,7 +125,7 @@ let process = fn(items) {
 - `text(@path)` - 27 test uses, 7 example uses
 
 ### String/Array (frequent)
-- `len()` - 189 test uses, 14 example uses
+- `.length()` - string/array length
 - `split()` - 23 test uses, 6 example uses
 - `sort()` - 7 uses
 
@@ -927,7 +927,7 @@ let processed = for (item in data) {
     }
 }
 processed ==> JSON(@./output.json)
-log("Processed {len(processed)} items")
+log("Processed {processed.length()} items")
 ```
 
 ### HTML Generation
@@ -987,7 +987,7 @@ logLine("=== Test Description ===")
 let input = [1, 2, 3]
 let result = for (n in input) { n * 2 }
 log("Result:", result)
-log("Length:", len(result))
+log("Length:", result.length())
 logLine()  // Blank line
 ```
 

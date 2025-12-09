@@ -97,7 +97,7 @@ func TestRangeInExpressions(t *testing.T) {
 		{"(1..5) - (2..3)", "[1, 4, 5]"},
 
 		// In function arguments
-		{"len(1..10)", "10"},
+		{"(1..10).length()", "10"},
 		{"(1..5).join(\", \")", "1, 2, 3, 4, 5"},
 	}
 

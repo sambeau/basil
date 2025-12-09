@@ -1,8 +1,11 @@
 package tests
 
 import (
+	"database/sql"
+	"strings"
 	"testing"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
@@ -16,32 +19,32 @@ func TestSQLiteConnection(t *testing.T) {
 	}{
 		{
 			name:     "Create SQLite connection",
-			input:    `let db = SQLITE(":memory:"); db`,
+			input:    `let db = @sqlite(":memory:"); db`,
 			expected: "DB_CONNECTION",
 		},
 		{
 			name:     "Check connection type",
-			input:    `let db = SQLITE(":memory:"); db`,
+			input:    `let db = @sqlite(":memory:"); db`,
 			expected: "<DBConnection driver=sqlite>",
 		},
 		{
 			name:     "Ping connection",
-			input:    `let db = SQLITE(":memory:"); db.ping()`,
+			input:    `let db = @sqlite(":memory:"); db.ping()`,
 			expected: true,
 		},
 		{
 			name:     "Begin transaction",
-			input:    `let db = SQLITE(":memory:"); db.begin()`,
+			input:    `let db = @sqlite(":memory:"); db.begin()`,
 			expected: true,
 		},
 		{
 			name:     "Begin and commit transaction",
-			input:    `let db = SQLITE(":memory:"); db.begin(); db.commit()`,
+			input:    `let db = @sqlite(":memory:"); db.begin(); db.commit()`,
 			expected: true,
 		},
 		{
 			name:     "Begin and rollback transaction",
-			input:    `let db = SQLITE(":memory:"); db.begin(); db.rollback()`,
+			input:    `let db = @sqlite(":memory:"); db.begin(); db.rollback()`,
 			expected: true,
 		},
 	}
@@ -86,6 +89,62 @@ func TestSQLiteConnection(t *testing.T) {
 	}
 }
 
+func TestDBLiteralBasilOnly(t *testing.T) {
+	t.Run("errors outside basil", func(t *testing.T) {
+		l := lexer.New(`@DB`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
+
+		errObj, ok := result.(*evaluator.Error)
+		if !ok {
+			t.Fatalf("Expected error, got %T", result)
+		}
+
+		if !strings.Contains(errObj.Message, "@DB is only available in Basil server handlers") {
+			t.Fatalf("Unexpected error message: %s", errObj.Message)
+		}
+	})
+
+	t.Run("returns basil connection", func(t *testing.T) {
+		db, err := sql.Open("sqlite", ":memory:")
+		if err != nil {
+			t.Fatalf("Failed to open sqlite: %v", err)
+		}
+		defer db.Close()
+
+		env := evaluator.NewEnvironment()
+		conn := evaluator.NewManagedDBConnection(db, "sqlite")
+		basilDict := &evaluator.Dictionary{
+			Pairs: map[string]ast.Expression{
+				"sqlite": &ast.ObjectLiteralExpression{Obj: conn},
+			},
+			Env: env,
+		}
+		env.BasilCtx = basilDict
+		env.Set("basil", basilDict)
+
+		l := lexer.New(`@DB`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		result := evaluator.Eval(program, env)
+		dbConn, ok := result.(*evaluator.DBConnection)
+		if !ok {
+			t.Fatalf("Expected DBConnection, got %T", result)
+		}
+
+		if dbConn.Driver != "sqlite" {
+			t.Errorf("Expected driver 'sqlite', got %s", dbConn.Driver)
+		}
+		if !dbConn.Managed {
+			t.Errorf("Expected managed connection for @DB")
+		}
+	})
+}
+
 func TestSQLiteQueries(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -95,7 +154,7 @@ func TestSQLiteQueries(t *testing.T) {
 		{
 			name: "Execute CREATE TABLE",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let result = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)"
 				result
 			`,
@@ -113,7 +172,7 @@ func TestSQLiteQueries(t *testing.T) {
 		{
 			name: "Execute INSERT",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "DROP TABLE IF EXISTS test_users"
 				let _ = db <=!=> "CREATE TABLE test_users (id INTEGER PRIMARY KEY, name TEXT)"
 				let result = db <=!=> "INSERT INTO test_users (name) VALUES ('Alice')"
@@ -139,7 +198,7 @@ func TestSQLiteQueries(t *testing.T) {
 		{
 			name: "Query single row with <=?=>",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "DROP TABLE IF EXISTS query_users"
 				let _ = db <=!=> "CREATE TABLE query_users (id INTEGER PRIMARY KEY, name TEXT)"
 				let _ = db <=!=> "INSERT INTO query_users (name) VALUES ('Alice')"
@@ -160,7 +219,7 @@ func TestSQLiteQueries(t *testing.T) {
 		{
 			name: "Query multiple rows with <=??=>",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "DROP TABLE IF EXISTS many_users"
 				let _ = db <=!=> "CREATE TABLE many_users (id INTEGER PRIMARY KEY, name TEXT)"
 				let _ = db <=!=> "INSERT INTO many_users (name) VALUES ('Alice')"
@@ -181,7 +240,7 @@ func TestSQLiteQueries(t *testing.T) {
 		{
 			name: "Query non-existent row returns null",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "DROP TABLE IF EXISTS empty_users"
 				let _ = db <=!=> "CREATE TABLE empty_users (id INTEGER PRIMARY KEY, name TEXT)"
 				let user = db <=?=> "SELECT * FROM empty_users WHERE id = 999"
@@ -230,7 +289,7 @@ func TestSQLTag(t *testing.T) {
 		{
 			name: "SQL tag with params",
 			input: `
-				let db = SQLITE(":memory:")
+				let db = @sqlite(":memory:")
 				let _ = db <=!=> "DROP TABLE IF EXISTS tag_users"
 				let _ = db <=!=> "CREATE TABLE tag_users (id INTEGER PRIMARY KEY, name TEXT)"
 				

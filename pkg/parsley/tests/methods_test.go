@@ -121,7 +121,7 @@ func TestArrayMethods(t *testing.T) {
 
 		// filter()
 		{`[1, 2, 3, 4, 5].filter(fn(x) { x > 2 })`, []int64{3, 4, 5}},
-		{`["a", "bb", "ccc"].filter(fn(s) { len(s) > 1 })`, []string{"bb", "ccc"}},
+		{`["a", "bb", "ccc"].filter(fn(s) { s.length() > 1 })`, []string{"bb", "ccc"}},
 		{`[1, 2, 3].filter(fn(x) { x > 10 })`, []int64{}},
 
 		// format()

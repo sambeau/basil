@@ -33,11 +33,11 @@ import (
 )
 
 func main() {
-    result := parsley.Eval(`len(42)`)  // Wrong type!
+    result := parsley.Eval(`42.length()`)  // Wrong type!
     
     if result.Error != nil {
         fmt.Println(result.Error.Message)
-        // Output: len expected array or string, got integer
+        // Output: length() requires array or string, got integer
     }
 }
 ```
@@ -100,7 +100,7 @@ if err := result.Error; err != nil {
 
 ```go
 fmt.Println(err.String())
-// Output: line 5, column 12: len expected array or string, got integer
+// Output: line 5, column 12: length() requires array or string, got integer
 ```
 
 ### Pretty Multi-line
@@ -109,8 +109,8 @@ fmt.Println(err.String())
 fmt.Println(err.PrettyString())
 // Output:
 // Runtime error: line 5, column 12
-//   len expected array or string, got integer
-//   Try: len([1, 2, 3]) or len("hello")
+//   length() requires array or string, got integer
+//   Try: [1, 2, 3].length() or "hello".length()
 ```
 
 ### JSON Serialization
@@ -122,12 +122,12 @@ fmt.Println(string(jsonBytes))
 // {
 //   "class": "type",
 //   "code": "TYPE-0001",
-//   "message": "len expected array or string, got integer",
-//   "hints": ["Try: len([1, 2, 3]) or len(\"hello\")"],
+//   "message": "length() requires array or string, got integer",
+//   "hints": ["Try: [1, 2, 3].length() or \"hello\".length()"],
 //   "line": 5,
 //   "column": 12,
 //   "data": {
-//     "Function": "len",
+//     "Function": "length",
 //     "Expected": "array or string",
 //     "Got": "integer"
 //   }

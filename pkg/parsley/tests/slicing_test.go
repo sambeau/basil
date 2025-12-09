@@ -123,8 +123,8 @@ func TestSlicingInExpressions(t *testing.T) {
 		expected string
 	}{
 		// In function calls
-		{`len([1,2,3,4,5][2:])`, "3"},
-		{`len("hello"[:3])`, "3"},
+		{`[1,2,3,4,5][2:].length()`, "3"},
+		{`"hello"[:3].length()`, "3"},
 
 		// In for loops
 		{`for (x in [1,2,3,4,5][2:]) { x }`, "[3, 4, 5]"},

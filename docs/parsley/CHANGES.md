@@ -146,7 +146,7 @@ let total = 0
 for (score in scores) {
     total = total + score
 }
-let average = total / len(scores)
+let average = total / scores.length()
 ```
 
 ### Map Pattern

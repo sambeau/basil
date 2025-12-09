@@ -63,9 +63,9 @@ message
 
 ## Length Functions
 
-let arrayLength = len(arr);
-let stringLength = len(greeting);
-let emptyLength = len("");
+let arrayLength = arr.length();
+let stringLength = greeting.length();
+let emptyLength = "".length();
 
 arrayLength
 stringLength
@@ -77,7 +77,7 @@ let data = [100,200,300,400,500];
 let doubled = for(x in data) { x * 2 };
 let firstThree = doubled[0:3];
 let withExtra = firstThree ++ [999];
-let result = "Result: " + "length=" ++ len(withExtra);
+let result = "Result: " + "length=" ++ withExtra.length();
 
 doubled
 firstThree

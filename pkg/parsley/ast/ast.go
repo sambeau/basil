@@ -317,6 +317,16 @@ func (ul *UrlLiteral) expressionNode()      {}
 func (ul *UrlLiteral) TokenLiteral() string { return ul.Token.Literal }
 func (ul *UrlLiteral) String() string       { return "@" + ul.Value }
 
+// ConnectionLiteral represents connection constructor literals like @sqlite, @postgres, @shell
+type ConnectionLiteral struct {
+	Token lexer.Token // the lexer.*_LITERAL token
+	Kind  string      // "sqlite", "postgres", "mysql", "sftp", "shell", "db"
+}
+
+func (cl *ConnectionLiteral) expressionNode()      {}
+func (cl *ConnectionLiteral) TokenLiteral() string { return cl.Token.Literal }
+func (cl *ConnectionLiteral) String() string       { return "@" + cl.Kind }
+
 // StdlibPathLiteral represents standard library imports like @std/table
 type StdlibPathLiteral struct {
 	Token lexer.Token // the lexer.STDLIB_PATH token

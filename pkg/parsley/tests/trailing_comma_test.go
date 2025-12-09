@@ -103,8 +103,8 @@ func TestTrailingCommaFunctionCalls(t *testing.T) {
 		{`let identity = fn(x) { x }; identity(42,)`, `42`},
 
 		// Built-in function with trailing comma
-		{`len([1, 2, 3],)`, `3`},
-		{`len("hello",)`, `5`},
+		{`toInt("3",)`, `3`},
+		{`toInt("5",)`, `5`},
 	}
 
 	for _, tt := range tests {
@@ -144,8 +144,8 @@ func TestTrailingCommaErrors(t *testing.T) {
 		{"leading comma array", "[,1, 2]"},
 		{"double comma dict", "{a: 1,,}"},
 		{"leading comma dict", "{,a: 1}"},
-		{"double comma function call", "len(x,,)"},
-		{"leading comma function call", "len(,x)"},
+		{"double comma function call", "toInt(x,,)"},
+		{"leading comma function call", "toInt(,x)"},
 	}
 
 	for _, tt := range tests {

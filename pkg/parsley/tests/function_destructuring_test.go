@@ -284,7 +284,7 @@ func TestHigherOrderFunctionsWithDestructuring(t *testing.T) {
 			input: `
 				let process = fn(f, arr) {
 					let helper = fn(idx) {
-						if(idx >= len(arr)) { [] } else {
+						if(idx >= arr.length()) { [] } else {
 							let item = arr[idx];
 							let rest = helper(idx + 1);
 							[f(item)] ++ rest

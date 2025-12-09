@@ -15,23 +15,23 @@ func TestFormatNumber(t *testing.T) {
 		expected string
 	}{
 		// Default locale (English)
-		{`formatNumber(1234567.89)`, "1,234,567.89"},
-		{`formatNumber(1234567)`, "1,234,567"},
+		{`1234567.89.format()`, "1,234,567.89"},
+		{`1234567.format()`, "1,234,567"},
 
 		// US English
-		{`formatNumber(1234567.89, "en-US")`, "1,234,567.89"},
+		{`1234567.89.format("en-US")`, "1,234,567.89"},
 
 		// German - uses period for thousands, comma for decimal
-		{`formatNumber(1234567.89, "de-DE")`, "1.234.567,89"},
+		{`1234567.89.format("de-DE")`, "1.234.567,89"},
 
 		// French - uses space for thousands, comma for decimal
-		{`formatNumber(1234567.89, "fr-FR")`, "1 234 567,89"},
+		{`1234567.89.format("fr-FR")`, "1 234 567,89"},
 
 		// Indian English - lakh/crore grouping
-		{`formatNumber(1234567.89, "en-IN")`, "12,34,567.89"},
+		{`1234567.89.format("en-IN")`, "12,34,567.89"},
 
 		// Spanish
-		{`formatNumber(1234567.89, "es-ES")`, "1.234.567,89"},
+		{`1234567.89.format("es-ES")`, "1.234.567,89"},
 	}
 
 	for _, tt := range tests {
@@ -62,21 +62,21 @@ func TestFormatCurrency(t *testing.T) {
 		contains string // Use contains since exact formatting varies
 	}{
 		// USD
-		{`formatCurrency(1234.56, "USD", "en-US")`, "$"},
-		{`formatCurrency(1234.56, "USD", "en-US")`, "1,234.56"},
+		{`1234.56.currency("USD", "en-US")`, "$"},
+		{`1234.56.currency("USD", "en-US")`, "1,234.56"},
 
 		// EUR in different locales
-		{`formatCurrency(1234.56, "EUR", "de-DE")`, "€"},
-		{`formatCurrency(1234.56, "EUR", "de-DE")`, "1.234,56"},
+		{`1234.56.currency("EUR", "de-DE")`, "€"},
+		{`1234.56.currency("EUR", "de-DE")`, "1.234,56"},
 
 		// GBP
-		{`formatCurrency(1234.56, "GBP", "en-GB")`, "£"},
+		{`1234.56.currency("GBP", "en-GB")`, "£"},
 
 		// JPY (no decimal places) - uses fullwidth yen sign ￥
-		{`formatCurrency(1234, "JPY", "ja-JP")`, "￥"},
+		{`1234.currency("JPY", "ja-JP")`, "￥"},
 
 		// CHF
-		{`formatCurrency(1234.56, "CHF", "de-CH")`, "CHF"},
+		{`1234.56.currency("CHF", "de-CH")`, "CHF"},
 	}
 
 	for _, tt := range tests {
@@ -104,17 +104,17 @@ func TestFormatPercent(t *testing.T) {
 		contains string
 	}{
 		// Basic percentage
-		{`formatPercent(0.12)`, "12"},
-		{`formatPercent(0.12)`, "%"},
+		{`0.12.percent()`, "12"},
+		{`0.12.percent()`, "%"},
 
 		// US format
-		{`formatPercent(0.1234, "en-US")`, "12"},
+		{`0.1234.percent("en-US")`, "12"},
 
 		// German format (space before %)
-		{`formatPercent(0.1234, "de-DE")`, "%"},
+		{`0.1234.percent("de-DE")`, "%"},
 
 		// Turkish (% before number)
-		{`formatPercent(0.1234, "tr-TR")`, "%"},
+		{`0.1234.percent("tr-TR")`, "%"},
 	}
 
 	for _, tt := range tests {
@@ -141,9 +141,9 @@ func TestFormatNumberErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`formatNumber("not a number")`, "must be an integer or float"},
-		{`formatNumber(123, 456)`, "must be a string"},
-		{`formatNumber(123, "invalid-locale-xyz")`, "invalid locale"},
+		{`"not a number".format()`, "unknown method"},
+		{`123.format(456)`, "string"},
+		{`123.format("invalid-locale-xyz")`, "invalid locale"},
 	}
 
 	for _, tt := range tests {
@@ -170,10 +170,10 @@ func TestFormatCurrencyErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`formatCurrency("not a number", "USD")`, "must be an integer or float"},
-		{`formatCurrency(123, 456)`, "must be a string"},
-		{`formatCurrency(123, "INVALID")`, "invalid currency code"},
-		{`formatCurrency(123, "USD", "invalid-locale-xyz")`, "invalid locale"},
+		{`"not a number".currency("USD")`, "unknown method"},
+		{`123.currency(456)`, "string"},
+		{`123.currency("INVALID")`, "invalid currency code"},
+		{`123.currency("USD", "invalid-locale-xyz")`, "invalid locale"},
 	}
 
 	for _, tt := range tests {
@@ -201,28 +201,28 @@ func TestFormatDate(t *testing.T) {
 		contains string
 	}{
 		// US English formats
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d)`, "December 25, 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "short")`, "12/25/24"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "medium")`, "Dec 25, 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long")`, "December 25, 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "full")`, "December 25, 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format()`, "December 25, 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("short")`, "12/25/24"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("medium")`, "Dec 25, 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long")`, "December 25, 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full")`, "December 25, 2024"},
 
 		// French formats
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", "fr-FR")`, "25 décembre 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "medium", "fr-FR")`, "25 déc 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "full", "fr-FR")`, "mercredi"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "fr-FR")`, "25 décembre 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("medium", "fr-FR")`, "25 déc 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full", "fr-FR")`, "mercredi"},
 
 		// German formats
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", "de-DE")`, "25. Dezember 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "short", "de-DE")`, "25.12.24"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "full", "de-DE")`, "Mittwoch"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "de-DE")`, "25. Dezember 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("short", "de-DE")`, "25.12.24"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full", "de-DE")`, "Mittwoch"},
 
 		// Japanese formats
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", "ja-JP")`, "2024年12月25日"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "ja-JP")`, "2024年12月25日"},
 
 		// Spanish formats
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", "es-ES")`, "25 de diciembre de 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "full", "es-ES")`, "miércoles"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "es-ES")`, "25 de diciembre de 2024"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full", "es-ES")`, "miércoles"},
 	}
 
 	for _, tt := range tests {
@@ -249,11 +249,10 @@ func TestFormatDateErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`formatDate("not a date")`, "must be a datetime"},
-		{`formatDate({})`, "must be a datetime"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, 123)`, "must be a string"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", 456)`, "must be a string"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "invalid")`, "invalid style"},
+		{`"not_a_date".format()`, "unknown method"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format(123)`, "string"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", 456)`, "string"},
+		{`let d = time({year: 2024, month: 12, day: 25}); d.format("invalid")`, "invalid style"},
 	}
 
 	for _, tt := range tests {

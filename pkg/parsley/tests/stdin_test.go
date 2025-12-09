@@ -60,7 +60,7 @@ func runWithStdin(t *testing.T, code string, stdinData string) (string, string) 
 	}
 
 	env := evaluator.NewEnvironment()
-	evaluator.Eval(program, env)
+	result := evaluator.Eval(program, env)
 
 	// Close writers and read output
 	stdoutWriter.Close()
@@ -69,6 +69,10 @@ func runWithStdin(t *testing.T, code string, stdinData string) (string, string) 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	io.Copy(&stdoutBuf, stdoutReader)
 	io.Copy(&stderrBuf, stderrReader)
+
+	if errObj, ok := result.(*evaluator.Error); ok {
+		stderrBuf.WriteString(errObj.Inspect())
+	}
 
 	return stdoutBuf.String(), stderrBuf.String()
 }
@@ -100,12 +104,11 @@ data ==> text(@-)`
 
 func TestStdinLinesRead(t *testing.T) {
 	code := `let data <== lines(@-)
-len(data) ==> text(@-)`
+data.length().format() ==> text(@-)`
 
-	stdout, _ := runWithStdin(t, code, "line1\nline2\nline3")
-
-	if stdout != "3" {
-		t.Errorf("Expected '3' lines, got: %s", stdout)
+	stdout, stderr := runWithStdin(t, code, "line1\nline2\nline3")
+	if strings.TrimSpace(stdout) != "3" {
+		t.Errorf("Expected '3' lines, got: %q (stderr: %q)", stdout, stderr)
 	}
 }
 

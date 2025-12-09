@@ -14,7 +14,7 @@ log("Christmas in future:", is_future);
 
 // Array of dates
 let holidays = [@2024-01-01, @2024-07-04, @2024-12-25];
-log("Number of holidays:", len(holidays));
+log("Number of holidays:", holidays.length());
 
 // Field access
 let event = @2024-06-15T10:30:00;

@@ -234,7 +234,7 @@ a ?? b ?? c ?? "default"   // First non-null value
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| `<=#=>` | Execute command with input | `let result = COMMAND("ls") <=#=> null` |
+| `<=#=>` | Execute command with input | `let result = @shell("ls") <=#=> null` |
 
 ### Database
 
@@ -1851,7 +1851,7 @@ for (user in users) {
 }
 
 // Get count
-let count = len(users)
+let count = users.length()
 ```
 
 ### Executing Mutations (`<=!=>`)
@@ -2027,17 +2027,17 @@ Execute external commands and capture their output.
 
 ### Creating a Command
 
-Use `COMMAND()` to create a command handle:
+Use `@shell` to create a command handle:
 
 ```parsley
 // Simple command
-let cmd = COMMAND("echo")
+let cmd = @shell("echo")
 
 // Command with arguments
-let cmd = COMMAND("ls", ["-la", "/tmp"])
+let cmd = @shell("ls", ["-la", "/tmp"])
 
 // Command with options
-let cmd = COMMAND("node", ["script.js"], {
+let cmd = @shell("node", ["script.js"], {
     env: {NODE_ENV: "production"},
     dir: "/path/to/project",
     timeout: @30s
@@ -2058,10 +2058,10 @@ Use the `<=#=>` operator to execute a command:
 
 ```parsley
 // Execute without input
-let result = COMMAND("echo", ["hello"]) <=#=> null
+let result = @shell("echo", ["hello"]) <=#=> null
 
 // Command can also have input data (passed to stdin)
-let result = COMMAND("cat") <=#=> "input data"
+let result = @shell("cat") <=#=> "input data"
 ```
 
 ### Result Structure
@@ -2079,30 +2079,30 @@ Execution returns a dictionary with:
 
 ```parsley
 // Basic command
-let result = COMMAND("date") <=#=> null
+let result = @shell("date") <=#=> null
 log("Current date:", result.stdout)
 log("Exit code:", result.exitCode)
 
 // Command with arguments
-let result = COMMAND("ls", ["-la", "/tmp"]) <=#=> null
+let result = @shell("ls", ["-la", "/tmp"]) <=#=> null
 if (result.exitCode == 0) {
     log("Files:")
     log(result.stdout)
 }
 
 // Command with custom environment
-let cmd = COMMAND("printenv", ["MY_VAR"], {
+let cmd = @shell("printenv", ["MY_VAR"], {
     env: {MY_VAR: "custom value"}
 })
 let result = cmd <=#=> null
 log("Environment variable:", result.stdout)
 
 // Command with working directory
-let result = COMMAND("pwd", [], {dir: "/tmp"}) <=#=> null
+let result = @shell("pwd", [], {dir: "/tmp"}) <=#=> null
 log("Current directory:", result.stdout)
 
 // Command with timeout
-let result = COMMAND("sleep", ["60"], {timeout: @5s}) <=#=> null
+let result = @shell("sleep", ["60"], {timeout: @5s}) <=#=> null
 if (result.error != null) {
     log("Command timed out or failed:", result.error)
 }
@@ -2121,19 +2121,19 @@ Process execution requires explicit permission via command-line flags:
 ./pars --allow-execute=/usr/bin,/bin script.pars
 ```
 
-Without these flags, `COMMAND()` will return a security error.
+Without these flags, `@shell` will return a security error.
 
 ### Error Handling
 
 ```parsley
 // Command doesn't exist
-let result = COMMAND("nonexistent_cmd") <=#=> null
+let result = @shell("nonexistent_cmd") <=#=> null
 if (result.error != null) {
     log("Error:", result.error)
 }
 
 // Non-zero exit code
-let result = COMMAND("ls", ["/nonexistent"]) <=#=> null
+let result = @shell("ls", ["/nonexistent"]) <=#=> null
 if (result.exitCode != 0) {
     log("Command failed with code:", result.exitCode)
     log("Error output:", result.stderr)
@@ -2555,64 +2555,64 @@ All pseudo-types support a `.toDict()` method that returns their internal dictio
 @./config.json.toDict() // {__type: "path", path: "./config.json", ...}
 ```
 
-### Format Conversion Functions
+### Serialization Methods
 
-#### JSON Functions
+#### JSON Methods
 
-**`parseJSON(string)`**
+**`string.parseJSON()`**
 
 Parse a JSON string into Parsley objects:
 
 ```parsley
 let jsonStr = "{\"name\":\"Alice\",\"age\":30}"
-let obj = parseJSON(jsonStr)
+let obj = jsonStr.parseJSON()
 log(obj.name)  // Alice
 log(obj.age)   // 30
 
 // Arrays
-let arr = parseJSON("[1, 2, 3]")
+let arr = "[1, 2, 3]".parseJSON()
 log(arr[0])    // 1
 
 // Nested structures
-let data = parseJSON("{\"users\":[{\"id\":1,\"name\":\"Bob\"}]}")
+let data = "{\"users\":[{\"id\":1,\"name\":\"Bob\"}]}".parseJSON()
 log(data.users[0].name)  // Bob
 ```
 
-**`stringifyJSON(object)`**
+**`dictionary.toJSON()` / `array.toJSON()`**
 
 Convert Parsley objects to JSON string:
 
 ```parsley
 let obj = {name: "Alice", age: 30, active: true}
-let json = stringifyJSON(obj)
+let json = obj.toJSON()
 log(json)  // {"active":true,"age":30,"name":"Alice"}
 
 // Arrays
 let arr = [1, 2, 3]
-log(stringifyJSON(arr))  // [1,2,3]
+log(arr.toJSON())  // [1,2,3]
 
 // Nested objects
 let data = {user: {id: 1, name: "Bob"}, tags: ["a", "b"]}
-log(stringifyJSON(data))
+log(data.toJSON())
 ```
 
 Supported types: dictionaries, arrays, strings, integers, floats, booleans, null.
 
-#### CSV Functions
+#### CSV Methods
 
-**`parseCSV(string, options?)`**
+**`string.parseCSV(hasHeader?)`**
 
 Parse CSV string into array of arrays or dictionaries:
 
 ```parsley
 // Basic parsing (array of arrays)
 let csv = "a,b,c\n1,2,3\n4,5,6"
-let rows = parseCSV(csv)
+let rows = csv.parseCSV()
 log(rows)  // [["a","b","c"], ["1","2","3"], ["4","5","6"]]
 
 // Parse with header (array of dictionaries)
 let csv = "name,age,city\nAlice,30,NYC\nBob,25,LA"
-let people = parseCSV(csv, {header: true})
+let people = csv.parseCSV(true)
 log(people[0].name)   // Alice
 log(people[1].city)   // LA
 
@@ -2621,22 +2621,31 @@ for (person in people) {
 }
 ```
 
-**`stringifyCSV(array)`**
+**`array.toCSV(hasHeader?)`**
 
-Convert array of arrays to CSV string:
+Convert array of arrays or array of dictionaries to CSV string:
 
 ```parsley
+// Array of arrays
 let data = [
     ["Name", "Age", "City"],
     ["Alice", "30", "NYC"],
     ["Bob", "25", "LA"]
 ]
-let csv = stringifyCSV(data)
+let csv = data.toCSV()
 log(csv)
 // Output:
 // Name,Age,City
 // Alice,30,NYC
 // Bob,25,LA
+
+// Array of dictionaries (extracts keys as header)
+let people = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+let csv = people.toCSV(true)
+// Output:
+// name,age
+// Alice,30
+// Bob,25
 ```
 
 #### Practical Examples
@@ -2645,7 +2654,7 @@ log(csv)
 
 ```parsley
 // Simulate fetching JSON from API
-let response = parseJSON("{\"users\":[{\"id\":1,\"name\":\"Alice\"}]}")
+let response = "{\"users\":[{\"id\":1,\"name\":\"Alice\"}]}".parseJSON()
 for (user in response.users) {
     log("User #{user.id}: {user.name}")
 }
@@ -2655,7 +2664,7 @@ let request = {
     method: "POST",
     data: {username: "alice", email: "alice@example.com"}
 }
-let jsonRequest = stringifyJSON(request)
+let jsonRequest = request.toJSON()
 ```
 
 **CSV Data Processing:**
@@ -2663,7 +2672,7 @@ let jsonRequest = stringifyJSON(request)
 ```parsley
 // Read CSV with header
 let csvData = "product,price,quantity\nApple,1.50,100\nBanana,0.75,200"
-let inventory = parseCSV(csvData, {header: true})
+let inventory = csvData.parseCSV(true)
 
 // Calculate total value
 let total = 0
@@ -2679,7 +2688,7 @@ let report = [
     ["Apple", "150.00"],
     ["Banana", "150.00"]
 ]
-let csvOutput = stringifyCSV(report)
+let csvOutput = report.toCSV()
 ```
 
 ---
@@ -3612,7 +3621,7 @@ if (!valid.postalCode(form.zip, form.country)) {
     errors = errors ++ ["Invalid postal code"]
 }
 
-if (len(errors) == 0) {
+if (errors.length() == 0) {
     log("Form is valid!")
 } else {
     for (err in errors) {

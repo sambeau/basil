@@ -331,7 +331,7 @@ func TestPathArrayComposition(t *testing.T) {
 		},
 		{
 			name:     "map path components",
-			input:    `let p = @/usr/local/bin; p.segments.map(fn(c) { len(c) })`,
+			input:    `let p = @/usr/local/bin; p.segments.map(fn(c) { c.length() })`,
 			expected: `[3, 5, 3]`,
 		},
 	}

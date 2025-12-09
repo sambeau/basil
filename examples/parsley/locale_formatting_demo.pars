@@ -1,35 +1,35 @@
 // Locale-aware formatting demo
-// Demonstrates formatNumber, formatCurrency, and formatPercent
+// Demonstrates number formatting methods: .format(), .currency(), .percent()
 
 log("=== Number Formatting by Locale ===")
 log("Value: 1,234,567.89")
-log("  Default (en): " + formatNumber(1234567.89))
-log("  en-US:        " + formatNumber(1234567.89, "en-US"))
-log("  de-DE:        " + formatNumber(1234567.89, "de-DE"))
-log("  fr-FR:        " + formatNumber(1234567.89, "fr-FR"))
-log("  en-IN:        " + formatNumber(1234567.89, "en-IN"))
-log("  es-ES:        " + formatNumber(1234567.89, "es-ES"))
-log("  ja-JP:        " + formatNumber(1234567.89, "ja-JP"))
+log("  Default (en): " + 1234567.89.format())
+log("  en-US:        " + 1234567.89.format("en-US"))
+log("  de-DE:        " + 1234567.89.format("de-DE"))
+log("  fr-FR:        " + 1234567.89.format("fr-FR"))
+log("  en-IN:        " + 1234567.89.format("en-IN"))
+log("  es-ES:        " + 1234567.89.format("es-ES"))
+log("  ja-JP:        " + 1234567.89.format("ja-JP"))
 
 log("")
 log("=== Currency Formatting ===")
 log("Value: 1,234.56")
-log("  USD (en-US): " + formatCurrency(1234.56, "USD", "en-US"))
-log("  EUR (de-DE): " + formatCurrency(1234.56, "EUR", "de-DE"))
-log("  EUR (fr-FR): " + formatCurrency(1234.56, "EUR", "fr-FR"))
-log("  GBP (en-GB): " + formatCurrency(1234.56, "GBP", "en-GB"))
-log("  JPY (ja-JP): " + formatCurrency(1234, "JPY", "ja-JP"))
-log("  CHF (de-CH): " + formatCurrency(1234.56, "CHF", "de-CH"))
-log("  INR (en-IN): " + formatCurrency(1234.56, "INR", "en-IN"))
+log("  USD (en-US): " + 1234.56.currency("USD", "en-US"))
+log("  EUR (de-DE): " + 1234.56.currency("EUR", "de-DE"))
+log("  EUR (fr-FR): " + 1234.56.currency("EUR", "fr-FR"))
+log("  GBP (en-GB): " + 1234.56.currency("GBP", "en-GB"))
+log("  JPY (ja-JP): " + 1234.currency("JPY", "ja-JP"))
+log("  CHF (de-CH): " + 1234.56.currency("CHF", "de-CH"))
+log("  INR (en-IN): " + 1234.56.currency("INR", "en-IN"))
 
 log("")
 log("=== Percentage Formatting ===")
 log("Value: 0.1234 (12.34%)")
-log("  Default (en): " + formatPercent(0.1234))
-log("  en-US:        " + formatPercent(0.1234, "en-US"))
-log("  de-DE:        " + formatPercent(0.1234, "de-DE"))
-log("  fr-FR:        " + formatPercent(0.1234, "fr-FR"))
-log("  tr-TR:        " + formatPercent(0.1234, "tr-TR"))
+log("  Default (en): " + 0.1234.percent())
+log("  en-US:        " + 0.1234.percent("en-US"))
+log("  de-DE:        " + 0.1234.percent("de-DE"))
+log("  fr-FR:        " + 0.1234.percent("fr-FR"))
+log("  tr-TR:        " + 0.1234.percent("tr-TR"))
 
 log("")
 log("=== In HTML Template ===")
@@ -37,5 +37,5 @@ let price = 99.99
 let currency = "EUR"
 let locale = "de-DE"
 log(<div class="price">
-    <span class="amount">{formatCurrency(price, currency, locale)}</span>
+    <span class="amount">{price.currency(currency, locale)}</span>
 </div>)
