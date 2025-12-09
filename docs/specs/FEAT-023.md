@@ -1,9 +1,14 @@
-# FEAT-023: Structured Error Objects
+---
+id: FEAT-023
+title: "Structured Error Objects"
+status: complete
+priority: high
+created: 2025-12-04
+updated: 2025-12-09
+author: "@ai"
+---
 
-**Status:** Implemented (Phase 1-5 Complete)  
-**Created:** 2025-12-04  
-**Updated:** 2025-12-04  
-**Author:** AI Assistant  
+# FEAT-023: Structured Error Objects  
 
 ## Summary
 

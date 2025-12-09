@@ -1,9 +1,15 @@
-# FEAT-026: File Module and Global Cleanup
+---
+id: FEAT-026
+title: "File Module and Global Cleanup"
+status: superseded
+priority: medium
+created: 2025-12-04
+updated: 2025-12-09
+author: "@ai"
+superseded_by: FEAT-055
+---
 
-**Status:** Proposed  
-**Created:** 2025-12-04  
-**Author:** AI Assistant  
-**Depends on:** None
+# FEAT-026: File Module and Global Cleanup
 
 ## Summary
 
