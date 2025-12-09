@@ -489,7 +489,11 @@ asin(x), acos(x), atan(x)
 ### Creation
 
 ```parsley
-now()                                    // Current datetime
+@now                                      // Current datetime (preferred)
+@timeNow                                  // Current time (kind: "time")
+@dateNow                                  // Current date (kind: "date")
+@today                                    // Synonym for @dateNow
+now()                                    // Deprecated: use @now
 time("2024-11-26")                       // Parse ISO date
 time("2024-11-26T15:30:00")              // With time
 time(1732579200)                         // Unix timestamp
@@ -718,7 +722,7 @@ log(d)             // 1 day, 2 hours, 30 minutes
 
 ```parsley
 let christmas = @2025-12-25
-let daysUntil = christmas - now()
+let daysUntil = christmas - @today
 daysUntil.format()  // "in 4 weeks"
 ```
 

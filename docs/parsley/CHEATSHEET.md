@@ -131,7 +131,7 @@ let process = fn(items) {
 
 ### DateTime (common)
 - `time()` - 159 test uses, 22 example uses
-- `now()` - 28 test uses, 8 example uses
+- `@now` - current datetime literal (replaces deprecated `now()`)
 
 ---
 
@@ -826,10 +826,10 @@ valid.oneOf("red", ["red","green","blue"]) // true
 
 ### Dates
 ```parsley
-now().format("short")             // "11/29/24"
-now().format("medium")            // "Nov 29, 2024"
-now().format("long")              // "November 29, 2024"
-now().format("long", "de-DE")     // "29. November 2024"
+@now.format("short")               // "11/29/24"
+@now.format("medium")              // "Nov 29, 2024"
+@now.format("long")                // "November 29, 2024"
+@now.format("long", "de-DE")       // "29. November 2024"
 
 @2024-11-29.format("full")        // "Friday, November 29, 2024"
 ```
