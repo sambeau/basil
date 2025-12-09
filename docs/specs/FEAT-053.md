@@ -1,9 +1,10 @@
 ---
 id: FEAT-053
 title: "String .render() Method for Raw Interpolation"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-09
+implemented: 2025-12-09
 author: "@human"
 ---
 
@@ -16,19 +17,19 @@ Add a `.render()` method to strings that performs `@{...}` interpolation, allowi
 As a Parsley developer, I want to create CSS/JavaScript templates with literal `{...}` braces that only interpolate when I explicitly call `.render()`, so that I can cleanly separate template definition from value substitution without escaping braces. I also want convenient syntax options like `printf()` and `dict.render()` for common use cases.
 
 ## Acceptance Criteria
-- [ ] `string.render()` with no arguments interpolates `@{...}` expressions using current scope
-- [ ] `string.render(dict)` interpolates using provided dictionary values
-- [ ] `printf(string, dict)` works as synonym for `string.render(dict)`
-- [ ] `dict.render(string)` works as synonym for `string.render(dict)`
-- [ ] `@{...}` can contain full Parsley expressions (variables, functions, math, conditionals, method chains)
-- [ ] Regular `{...}` braces remain literal in the string
-- [ ] Nested braces in `@{...}` expressions are handled correctly
-- [ ] `\@` escape sequence produces literal `@` (prevents interpolation)
-- [ ] `markdown()` builtin applies `.render()` to markdown content before converting to HTML
-- [ ] Errors in interpolated expressions return proper Error objects
-- [ ] Methods added to `stringMethods` and `dictionaryMethods` arrays for fuzzy matching
-- [ ] Tests cover all use cases (simple vars, math, functions, conditionals, method chains, escaping, all three syntax forms, markdown integration)
-- [ ] Documentation updated in reference.md and CHEATSHEET.md
+- [x] `string.render()` with no arguments interpolates `@{...}` expressions using current scope
+- [x] `string.render(dict)` interpolates using provided dictionary values
+- [x] `printf(string, dict)` works as synonym for `string.render(dict)`
+- [x] `dict.render(string)` works as synonym for `string.render(dict)`
+- [x] `@{...}` can contain full Parsley expressions (variables, functions, math, conditionals, method chains)
+- [x] Regular `{...}` braces remain literal in the string
+- [x] Nested braces in `@{...}` expressions are handled correctly
+- [x] `\@` escape sequence produces literal `@` (prevents interpolation)
+- [x] `markdown()` builtin applies `.render()` to markdown content before converting to HTML
+- [x] Errors in interpolated expressions return proper Error objects
+- [x] Methods added to `stringMethods` and `dictionaryMethods` arrays for fuzzy matching
+- [x] Tests cover all use cases (simple vars, math, functions, conditionals, method chains, escaping, all three syntax forms, markdown integration)
+- [x] Documentation updated in reference.md and CHEATSHEET.md
 
 ## Design Decisions
 - **Name: `.render()`** — Most widely recognized term in templating libraries (Mustache, Handlebars, Jinja2, ERB, Liquid all use "render")
