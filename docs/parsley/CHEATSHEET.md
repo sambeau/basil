@@ -543,7 +543,7 @@ if (error != null) {
 log("Parsed:", result)
 
 // With null coalescing for defaults
-let parsed = (try time("maybe-invalid")).result ?? now()
+let parsed = (try time("maybe-invalid")).result ?? @now
 ```
 
 **Catchable errors (caught by `try`):**

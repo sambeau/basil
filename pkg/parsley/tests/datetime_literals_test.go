@@ -194,10 +194,15 @@ func TestDatetimeNowLiterals(t *testing.T) {
 		expected string
 	}{
 		{"@now.kind", "datetime"},
+		{"@now.__type", "datetime"},
 		{"@timeNow.kind", "time"},
+		{"@timeNow.__type", "datetime"},
 		{"@dateNow.kind", "date"},
+		{"@dateNow.__type", "datetime"},
 		{"@today.kind", "date"},
+		{"@today.__type", "datetime"},
 		{"now().kind", "datetime"},
+		{"now().__type", "datetime"},
 	}
 
 	for _, tt := range tests {

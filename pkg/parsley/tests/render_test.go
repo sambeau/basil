@@ -42,7 +42,7 @@ let border = 2
 
 func TestStringRenderWithDictionary(t *testing.T) {
 	code := `
-let tpl = "math @{width * 2} chain @{names[0].toUpper()} cond @{visible ? 'on' : 'off'} keep {braces}"
+let tpl = "math @{width * 2} chain @{names[0].toUpper()} cond @{if (visible) \"on\" else \"off\"} keep {braces}"
 let result = tpl.render({width: 7, names: ["red", "blue"], visible: false})
 result
 `

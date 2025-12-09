@@ -2319,7 +2319,7 @@ if (error != null) {
 }
 
 // Using null coalescing for defaults
-let parsed = (try time("maybe-invalid")).result ?? now()
+let parsed = (try time("maybe-invalid")).result ?? @now
 ```
 
 ### Catchable vs Non-Catchable Errors
