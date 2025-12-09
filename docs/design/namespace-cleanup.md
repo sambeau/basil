@@ -33,65 +33,70 @@ This document proposes cleanup of the Parsley global namespace by:
 ### Category 1: Keep as Global Builtins
 
 #### Core Language (Essential)
-| Function | Reason |
-|----------|--------|
-| `import` | Core language feature |
-| `fail` | Error handling |
-| `log`, `logLine` | Debugging essential |
-| `print`, `println` | Output essential |
-| `repr` | Debugging |
+
+| Function           | Reason                |
+| ------------------ | --------------------- |
+| `import`           | Core language feature |
+| `fail`             | Error handling        |
+| `log`, `logLine`   | Debugging essential   |
+| `print`, `println` | Output essential      |
+| `repr`             | Debugging             |
 
 **Note:** `len()` removed - use `string.length()` and `array.length()` methods instead.
 
 #### Type Constructors (Create types/pseudo-types)
-| Function | Creates | Reason |
-|----------|---------|--------|
-| `tag` | tag dict | HTML tag pseudo-type (core to Parsley) |
-| `now` | datetime | Primary way to get current time |
-| `time` | datetime | Creates datetime from components |
-| `url` | url dict | Creates URL pseudo-type |
-| `file` | file dict | Creates file handle pseudo-type |
-| `dir` | dir dict | Creates directory handle pseudo-type |
-| `regex` | regex dict | Creates compiled regex pseudo-type |
-| `money` | Money | Creates Money type |
+
+| Function | Creates    | Reason                                 |
+| -------- | ---------- | -------------------------------------- |
+| `tag`    | tag dict   | HTML tag pseudo-type (core to Parsley) |
+| `now`    | datetime   | Primary way to get current time        |
+| `time`   | datetime   | Creates datetime from components       |
+| `url`    | url dict   | Creates URL pseudo-type                |
+| `file`   | file dict  | Creates file handle pseudo-type        |
+| `dir`    | dir dict   | Creates directory handle pseudo-type   |
+| `regex`  | regex dict | Creates compiled regex pseudo-type     |
+| `money`  | Money      | Creates Money type                     |
 
 #### File Reading (Core to data-driven websites)
-| Function | Returns | Reason |
-|----------|---------|--------|
-| `fileList(pattern)` | Array[File] | Glob pattern matching for files |
-| `JSON(path)` | Any | Read and parse JSON file |
-| `YAML(path)` | Any | Read and parse YAML file |
-| `CSV(path)` | Table | Read and parse CSV file as table |
-| `lines(path)` | Array[String] | Read file as array of lines |
-| `text(path)` | String | Read file as text |
-| `bytes(path)` | Bytes | Read file as bytes |
-| `SVG(path)` | SVG | Read SVG file |
-| `markdown(path)` | String | Read Markdown file |
+
+| Function            | Returns       | Reason                           |
+| ------------------- | ------------- | -------------------------------- |
+| `fileList(pattern)` | Array[File]   | Glob pattern matching for files  |
+| `JSON(path)`        | Any           | Read and parse JSON file         |
+| `YAML(path)`        | Any           | Read and parse YAML file         |
+| `CSV(path)`         | Table         | Read and parse CSV file as table |
+| `lines(path)`       | Array[String] | Read file as array of lines      |
+| `text(path)`        | String        | Read file as text                |
+| `bytes(path)`       | Bytes         | Read file as bytes               |
+| `SVG(path)`         | SVG           | Read SVG file                    |
+| `markdown(path)`    | String        | Read Markdown file               |
 
 **Note:** Uppercase names (`JSON`, `YAML`, `CSV`, `SVG`) match the convention of `JSON`, `YAML`, `CSV`, `SVG` as format names.
 
 #### Database/Connection Constructors (Used with `<=>` operator)
-| Old Name | New Name | Creates | Notes |
-|----------|----------|---------|-------|
-| `basil.sqlite` | `@DB` | Built-in DB | Basil's always-available database (Basil-only) |
-| `SQLITE` | `@sqlite` | SQLite connection | External SQLite database |
-| `POSTGRES` | `@postgres` | PostgreSQL connection | PostgreSQL database |
-| `MYSQL` | `@mysql` | MySQL connection | MySQL database |
-| `SFTP` | `@sftp` | SFTP connection | SFTP file system |
-| `COMMAND` | `@shell` | Shell command | Shell command execution |
+
+| Old Name       | New Name    | Creates               | Notes                                          |
+| -------------- | ----------- | --------------------- | ---------------------------------------------- |
+| `basil.sqlite` | `@DB`       | Built-in DB           | Basil's always-available database (Basil-only) |
+| `SQLITE`       | `@sqlite`   | SQLite connection     | External SQLite database                       |
+| `POSTGRES`     | `@postgres` | PostgreSQL connection | PostgreSQL database                            |
+| `MYSQL`        | `@mysql`    | MySQL connection      | MySQL database                                 |
+| `SFTP`         | `@sftp`     | SFTP connection       | SFTP file system                               |
+| `COMMAND`      | `@shell`    | Shell command         | Shell command execution                        |
 
 **Rationale:** Using `@` prefix distinguishes connections/external resources from regular functions. `@DB` is Basil's built-in database (always available), while `@sqlite`, `@postgres`, etc. are external connections that must be configured.
 
 #### Type Conversion (Fundamental)
-| Function | Reason |
-|----------|--------|
-| `toInt` | Type conversion |
-| `toFloat` | Type conversion |
+
+| Function   | Reason                 |
+| ---------- | ---------------------- |
+| `toInt`    | Type conversion        |
+| `toFloat`  | Type conversion        |
 | `toNumber` | Parse string to number |
-| `toString` | Type conversion |
-| `toDebug` | Debug representation |
-| `toArray` | Convert to array |
-| `toDict` | Convert to dict |
+| `toString` | Type conversion        |
+| `toDebug`  | Debug representation   |
+| `toArray`  | Convert to array       |
+| `toDict`   | Convert to dict        |
 
 ---
 
@@ -101,17 +106,17 @@ This document proposes cleanup of the Parsley global namespace by:
 
 After testing various naming patterns, settled on these final names:
 
-| Old Name | Final Name | Rationale |
-|----------|------------|----------|
-| `files()` | `fileList()` | Returns array of file handles, not individual files |
-| `JSON()` / `jsonFile()` / `JSONFile()` | `JSON()` | Uppercase format name, consistent with `.toJSON()` |
-| `YAML()` / `yamlFile()` / `YAMLFile()` | `YAML()` | Uppercase format name |
-| `CSV()` / `csvFile()` / `CSVFile()` | `CSV()` | Uppercase format name, consistent with `.toCSV()` |
-| `SVG()` / `svgFile()` / `SVGFile()` | `SVG()` | Uppercase format name |
-| `MD()` | `markdown()` | Full name is clearer than abbreviation |
-| `lines()` / `linesFile()` | `lines()` | Simple, clear |
-| `text()` / `textFile()` | `text()` | Simple, clear |
-| `bytes()` / `bytesFile()` | `bytes()` | Simple, clear |
+| Old Name                               | Final Name   | Rationale                                           |
+| -------------------------------------- | ------------ | --------------------------------------------------- |
+| `files()`                              | `fileList()` | Returns array of file handles, not individual files |
+| `JSON()` / `jsonFile()` / `JSONFile()` | `JSON()`     | Uppercase format name, consistent with `.toJSON()`  |
+| `YAML()` / `yamlFile()` / `YAMLFile()` | `YAML()`     | Uppercase format name                               |
+| `CSV()` / `csvFile()` / `CSVFile()`    | `CSV()`      | Uppercase format name, consistent with `.toCSV()`   |
+| `SVG()` / `svgFile()` / `SVGFile()`    | `SVG()`      | Uppercase format name                               |
+| `MD()`                                 | `markdown()` | Full name is clearer than abbreviation              |
+| `lines()` / `linesFile()`              | `lines()`    | Simple, clear                                       |
+| `text()` / `textFile()`                | `text()`     | Simple, clear                                       |
+| `bytes()` / `bytesFile()`              | `bytes()`    | Simple, clear                                       |
 
 **Note:** These names are very similar to the original builtins (except `markdown`), but are the clearest of many variations tested. They're consistent with method names like `.toJSON()` and `.toCSV()`.
 
@@ -123,29 +128,32 @@ After testing various naming patterns, settled on these final names:
 
 > **Completed in FEAT-052 (2025-12-08)**: All 11 builtins removed. Method syntax is now the only option.
 
-These ~~exist~~ existed both as builtins and methods. The method form is ~~preferred~~ now required.
+These \~\~exist\~\~ existed both as builtins and methods. The method form is \~\~preferred\~\~ now required.
 
 #### String Operations
-| Builtin | Method Form | Action |
-|---------|-------------|--------|
-| `toUpper(s)` | `s.toUpper()` | **Remove** |
-| `toLower(s)` | `s.toLower()` | **Remove** |
+
+| Builtin                | Method Form           | Action     |
+| ---------------------- | --------------------- | ---------- |
+| `toUpper(s)`           | `s.toUpper()`         | **Remove** |
+| `toLower(s)`           | `s.toLower()`         | **Remove** |
 | `replace(s, old, new)` | `s.replace(old, new)` | **Remove** |
-| `split(s, delim)` | `s.split(delim)` | **Remove** |
+| `split(s, delim)`      | `s.split(delim)`      | **Remove** |
 
 #### Array Operations
-| Builtin | Method Form | Action |
-|---------|-------------|--------|
-| `map(arr, fn)` | `arr.map(fn)` | **Remove** |
-| `sort(arr)` | `arr.sort()` | **Remove** |
-| `reverse(arr)` | `arr.reverse()` | **Remove** |
+
+| Builtin           | Method Form      | Action     |
+| ----------------- | ---------------- | ---------- |
+| `map(arr, fn)`    | `arr.map(fn)`    | **Remove** |
+| `sort(arr)`       | `arr.sort()`     | **Remove** |
+| `reverse(arr)`    | `arr.reverse()`  | **Remove** |
 | `sortBy(arr, fn)` | `arr.sortBy(fn)` | **Remove** |
 
 #### Dictionary Operations
-| Builtin | Method Form | Action |
-|---------|-------------|--------|
-| `keys(dict)` | `dict.keys()` | **Remove** |
-| `values(dict)` | `dict.values()` | **Remove** |
+
+| Builtin          | Method Form     | Action     |
+| ---------------- | --------------- | ---------- |
+| `keys(dict)`     | `dict.keys()`   | **Remove** |
+| `values(dict)`   | `dict.values()` | **Remove** |
 | `has(dict, key)` | `dict.has(key)` | **Remove** |
 
 ---
@@ -155,39 +163,43 @@ These ~~exist~~ existed both as builtins and methods. The method form is ~~prefe
 These should become methods on their respective types, not separate modules.
 
 #### Formatting → Type Methods
-| Current | Proposed | Notes |
-|---------|----------|-------|
-| `formatNumber(n, ...)` | `n.format(...)` | Numbers have their own formatter |
-| `formatCurrency(money, ...)` | `money.format(...)` | Money type has its own formatter |
-| ~~`formatPercent(n, ...)`~~ | `n.format({style: "percent"})` | Percentage is a number format style |
-| `formatDate(d, ...)` | `d.format(...)` | Datetime has its own formatter |
+
+| Current                         | Proposed                       | Notes                               |
+| ------------------------------- | ------------------------------ | ----------------------------------- |
+| `formatNumber(n, ...)`          | `n.format(...)`                | Numbers have their own formatter    |
+| `formatCurrency(money, ...)`    | `money.format(...)`            | Money type has its own formatter    |
+| \~\~`formatPercent(n, ...)`\~\~ | `n.format({style: "percent"})` | Percentage is a number format style |
+| `formatDate(d, ...)`            | `d.format(...)`                | Datetime has its own formatter      |
 
 **Rationale:** Each type knows how to format itself. Standard `.format()` method across all types.
 
 #### JSON Serialization → Type Methods
-| Current | Proposed | Notes |
-|---------|----------|-------|
-| `stringifyJSON(obj)` | `obj.toJSON()` | Arrays and dicts serialize themselves |
-| `parseJSON(s)` | `s.parseJSON()` | String parses to object (array or dict) |
+
+| Current              | Proposed        | Notes                                   |
+| -------------------- | --------------- | --------------------------------------- |
+| `stringifyJSON(obj)` | `obj.toJSON()`  | Arrays and dicts serialize themselves   |
+| `parseJSON(s)`       | `s.parseJSON()` | String parses to object (array or dict) |
 
 **Rationale:** All core types should have `.toJSON()`. Custom types with `.toJSON()` are auto-serializable.
 
 **Clarification:** `s.parseJSON()` parses a JSON string into a Parsley object (array or dictionary), not into another string.
 
 #### CSV → Table Methods
-| Current | Proposed | Notes |
-|---------|----------|-------|
+
+| Current               | Proposed        | Notes                   |
+| --------------------- | --------------- | ----------------------- |
 | `stringifyCSV(table)` | `table.toCSV()` | Table serializes to CSV |
-| `parseCSV(s)` | `s.parseCSV()` | String parses to table |
+| `parseCSV(s)`         | `s.parseCSV()`  | String parses to table  |
 
 **Rationale:** CSV is just an array of dictionaries - only Table needs it.
 
 #### Path Methods
-| Current | Proposed | Notes |
-|---------|----------|-------|
-| `match(path, pattern)` | `path.match(pattern)` | Path matches against pattern |
-| `publicUrl(path)` / `asset(path)` | `path.public()` | **Basil-only**: Converts path under `public_dir` to web URL |
-| N/A (new) | `path.toURL(prefix)` | **Parsley**: Converts path to URL with explicit prefix |
+
+| Current                           | Proposed              | Notes                                                       |
+| --------------------------------- | --------------------- | ----------------------------------------------------------- |
+| `match(path, pattern)`            | `path.match(pattern)` | Path matches against pattern                                |
+| `publicUrl(path)` / `asset(path)` | `path.public()`       | **Basil-only**: Converts path under `public_dir` to web URL |
+| N/A (new)                         | `path.toURL(prefix)`  | **Parsley**: Converts path to URL with explicit prefix      |
 
 **Rationale for `path.public()` vs `publicUrl()`:** 
 - Parsley has no knowledge of a `public_dir` - that's Basil-specific config
@@ -200,17 +212,17 @@ These should become methods on their respective types, not separate modules.
 
 **Decision:** File reading operations stay global. They are core to Parsley's mission of making websites from data.
 
-| Function | Status | Rationale |
-|----------|--------|-----------|
+| Function     | Status      | Rationale                       |
+| ------------ | ----------- | ------------------------------- |
 | `fileList()` | Keep global | Glob patterns for finding files |
-| `JSON()` | Keep global | Reading JSON data files |
-| `YAML()` | Keep global | Reading YAML config/data |
-| `CSV()` | Keep global | Reading CSV data as tables |
-| `lines()` | Keep global | Reading line-based data |
-| `text()` | Keep global | Reading text content |
-| `bytes()` | Keep global | Reading binary data |
-| `SVG()` | Keep global | Reading SVG graphics |
-| `markdown()` | Keep global | Reading Markdown content |
+| `JSON()`     | Keep global | Reading JSON data files         |
+| `YAML()`     | Keep global | Reading YAML config/data        |
+| `CSV()`      | Keep global | Reading CSV data as tables      |
+| `lines()`    | Keep global | Reading line-based data         |
+| `text()`     | Keep global | Reading text content            |
+| `bytes()`    | Keep global | Reading binary data             |
+| `SVG()`      | Keep global | Reading SVG graphics            |
+| `markdown()` | Keep global | Reading Markdown content        |
 
 **Rationale:** These are fundamental to Parsley's purpose. A `std/fs` module would add ceremony without value.
 
@@ -218,16 +230,16 @@ These should become methods on their respective types, not separate modules.
 
 ## Summary
 
-| Category | Action | Status |
-|----------|--------|--------|
-| Core language + type constructors | Keep global | Ongoing |
-| File operations (`*File()`) | Keep global | ✅ Renamed (2025-12-09) |
-| Method duplicates | Removed | ✅ Done (FEAT-052) |
-| Database constructors | Rename to `@` prefix | Planned |
-| Formatting | Move to type methods | Planned |
-| JSON/CSV serialization | Move to type methods | Planned |
-| `match()` | Move to path method | Planned |
-| `len()` | Remove (use `.length()`) | Planned |
+| Category                          | Action                   | Status                 |
+| --------------------------------- | ------------------------ | ---------------------- |
+| Core language + type constructors | Keep global              | Ongoing                |
+| File operations (`*File()`)       | Keep global              | ✅ Renamed (2025-12-09) |
+| Method duplicates                 | Removed                  | ✅ Done (FEAT-052)      |
+| Database constructors             | Rename to `@` prefix     | Planned                |
+| Formatting                        | Move to type methods     | Planned                |
+| JSON/CSV serialization            | Move to type methods     | Planned                |
+| `match()`                         | Move to path method      | Planned                |
+| `len()`                           | Remove (use `.length()`) | Planned                |
 
 ---
 
@@ -288,7 +300,7 @@ After all phases complete, the global namespace will contain:
 ### Type Conversion
 - `toInt`, `toFloat`, `toNumber`, `toString`, `toDebug`, `toArray`, `toDict`
 
-**Total: ~35 global builtins** (down from 59, with better organization)
+**Total: \~35 global builtins** (down from 59, with better organization)
 
 ---
 
@@ -353,7 +365,7 @@ let url = asset(@./public/logo.png)  // or publicUrl()
 let count = items.length()
 let formatted = price.format({decimals: 2})
 let json = data.toJSON()
-let params = @"/users/123".match("/users/:id")
+let params = @/users/123.match("/users/:id")
 let url = @./public/logo.png.public()          // Basil-only
 let url = @./assets/logo.png.toURL("/static")  // Parsley with explicit prefix
 ```
@@ -430,13 +442,13 @@ Adding `import @std/fs` ceremony would work against the language's purpose.
 
 1. ✅ Complete file builtin renames (done 2025-12-09)
 2. Create feature specs for Phase 3 changes:
-   - Database constructor renames (`@DB`, `@sqlite`, etc.)
-   - Remove `len()`, use `.length()`
-   - Move `publicUrl()`/`asset()` to `path.public()` (Basil-only)
-   - Add `path.toURL(prefix)` (Parsley)
-   - Move formatting to type methods
-   - Move serialization to type methods (`.toJSON()`, `.parseJSON()`)
-   - Move `match()` to path method
+   3. Database constructor renames (`@DB`, `@sqlite`, etc.)
+   4. Remove `len()`, use `.length()`
+   5. Move `publicUrl()`/`asset()` to `path.public()` (Basil-only)
+   6. Add `path.toURL(prefix)` (Parsley)
+   7. Move formatting to type methods
+   8. Move serialization to type methods (`.toJSON()`, `.parseJSON()`)
+   9. Move `match()` to path method
 3. Implement and test Phase 3 changes
 4. Update all documentation and examples
 5. Final validation before declaring namespace stable
