@@ -2,8 +2,9 @@
 id: PLAN-035
 feature: FEAT-057
 title: "Implementation Plan for DevTools in Parsley"
-status: draft
+status: completed
 created: 2025-12-09
+completed: 2025-12-09
 ---
 
 # Implementation Plan: FEAT-057 DevTools in Parsley
@@ -182,13 +183,38 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `make test`
-- [ ] Build succeeds: `make build`
-- [ ] Manual testing of all DevTools pages
-- [ ] Styling consistent with error pages
-- [ ] No regression in functionality
+- [x] All tests pass: `make test`
+- [x] Build succeeds: `make build`
+- [x] Manual testing of all DevTools pages
+- [x] Styling consistent with error pages
+- [x] No regression in functionality
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| — | — | — | — |
+| 2025-12-09 | All tasks | ✅ Completed | Created 5 Parsley templates, updated handlers, all tests pass |
+
+## Implementation Notes
+
+### Templates Created
+- `prelude/devtools/index.pars` - Main dashboard
+- `prelude/devtools/logs.pars` - Logs viewer
+- `prelude/devtools/db.pars` - Database table list
+- `prelude/devtools/db_table.pars` - Table data view
+- `prelude/devtools/env.pars` - Environment info
+
+### Parsley Syntax Learnings
+- `if` and `for` statements must be wrapped in `{ }` when used directly in tag contents
+- Cannot use `else if` in some contexts - use nested `if` or separate conditions
+- For loops need wrapping even when not nested: `<div>{for (x in arr) { ... }}</div>`
+
+### Files Modified
+- `server/devtools.go`: Added `createDevToolsEnv()` and `handleDevToolsWithPrelude()`
+- `server/prelude.go`: Added `devtools/*` to embed directive
+- `server/errors.go`: Fixed `error.message_text` to always be set
+
+### Legacy Code Preserved
+Database operation handlers (upload, download, create, delete) still use Go HTML generation.
+These were not converted as they involve forms and file uploads which are better handled server-side.
+
+Commit: 42b41fd
