@@ -4,25 +4,25 @@ export default = fn(props) {
 	let count = props.count
 	<div>
 		Count: {count}
-		<button part-click="increment" part-count={count}>+</button>
-		<button part-click="decrement" part-count={count}>-</button>
+		<button part-click="increment" part-count={count + 1}>+</button>
+		<button part-click="decrement" part-count={count - 1}>-</button>
 	</div>
 }
 
 export increment = fn(props) {
-	let newCount = props.count + 1
+	let count = props.count
 	<div>
-		Count: {newCount}
-		<button part-click="increment" part-count={newCount}>+</button>
-		<button part-click="decrement" part-count={newCount}>-</button>
+		Count: {count}
+		<button part-click="increment" part-count={count + 1}>+</button>
+		<button part-click="decrement" part-count={count - 1}>-</button>
 	</div>
 }
 
 export decrement = fn(props) {
-	let newCount = props.count - 1
+	let count = props.count
 	<div>
-		Count: {newCount}
-		<button part-click="increment" part-count={newCount}>+</button>
-		<button part-click="decrement" part-count={newCount}>-</button>
+		Count: {count}
+		<button part-click="increment" part-count={count + 1}>+</button>
+		<button part-click="decrement" part-count={count - 1}>-</button>
 	</div>
 }

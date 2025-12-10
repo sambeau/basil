@@ -221,7 +221,8 @@ When you use a `<Part/>` tag, Basil automatically injects JavaScript before `</b
 - Graceful error handling (keeps old content on failure)
 - Loading class (`part-loading`) during fetch
 - Auto-refresh with `part-refresh={ms}`
-- Lazy loading with `part-load="view"` (+ optional `part-load-threshold={px}`)
+- Immediate async load with `part-load="view"` (for slow data)
+- Lazy loading with `part-lazy="view"` (+ optional `part-lazy-threshold={px}`)
 
 **CSS Hook:**
 
@@ -243,28 +244,46 @@ Refresh a Part on an interval (milliseconds). The timer resets after manual inte
 ```
 
 Details:
-- Minimum interval: 100ms (anything lower is ignored)
+- Minimum interval: 100ms (anything lower is clamped to 100ms)
 - Uses the latest `data-part-props` and `data-part-view` for each refresh
 - Stops if the Part is removed from the DOM
 - Keeps using `part-loading` during fetch
 
-### Lazy Loading (`part-load`, `part-load-threshold`)
+### Immediate Async Load (`part-load`)
 
-Defer loading a view until the Part is near the viewport. Use a placeholder view for initial render.
+Fetch a view immediately after page load. Use for slow data (API calls, database queries) where you want to show a placeholder first.
 
 ```parsley
 <Part 
     src={@./profile.part}
+    view="placeholder"            # initial server render
+    part-load="loaded"            # view to fetch immediately
+/>
+```
+
+Details:
+- Renders placeholder view server-side
+- Fetches specified view immediately after page loads
+- Use when data is slow but should start loading right away
+- Auto-refresh (if configured) starts after the load completes
+
+### Lazy Loading (`part-lazy`, `part-lazy-threshold`)
+
+Defer loading a view until the Part is scrolled near the viewport. Use a placeholder view for initial render.
+
+```parsley
+<Part 
+    src={@./heavy-chart.part}
     view="placeholder"            # initial server render / placeholder
-    part-load="loaded"            # view to load when visible
-    part-load-threshold={200}      # start loading 200px before entering viewport (optional)
+    part-lazy="loaded"            # view to load when visible
+    part-lazy-threshold={200}     # start loading 200px before entering viewport (optional)
 />
 ```
 
 Details:
 - Uses Intersection Observer for efficient visibility detection
 - Loads only once; does not reload on re-entry
-- `part-load-threshold` defaults to `0` if omitted
+- `part-lazy-threshold` defaults to `0` if omitted
 - Auto-refresh (if configured) starts after the lazy load completes
 
 ### Nested Parts

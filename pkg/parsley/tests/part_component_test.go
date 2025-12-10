@@ -143,7 +143,8 @@ func TestPartComponentWithProps(t *testing.T) {
 }
 
 func TestPartComponentWithRefreshAndLoad(t *testing.T) {
-	input := `<Part src={@./test_fixtures/parts/counter.part} part-refresh={5000} part-load="loaded" part-load-threshold={200}/>`
+	// Test immediate load (part-load) - fetches view right away
+	input := `<Part src={@./test_fixtures/parts/counter.part} part-refresh={5000} part-load="loaded"/>`
 
 	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
 	p := parser.New(l)
@@ -178,10 +179,6 @@ func TestPartComponentWithRefreshAndLoad(t *testing.T) {
 		t.Errorf("expected data-part-load attribute, got: %s", html)
 	}
 
-	if !strings.Contains(html, `data-part-load-threshold="200"`) {
-		t.Errorf("expected data-part-load-threshold attribute, got: %s", html)
-	}
-
 	// Ensure config attributes are not passed to view props
 	propsStart := strings.Index(html, "data-part-props='") + len("data-part-props='")
 	propsEnd := strings.Index(html[propsStart:], "'") + propsStart
@@ -203,8 +200,65 @@ func TestPartComponentWithRefreshAndLoad(t *testing.T) {
 	if _, hasLoad := props["part-load"]; hasLoad {
 		t.Errorf("expected part-load not to be passed to view props")
 	}
-	if _, hasThreshold := props["part-load-threshold"]; hasThreshold {
-		t.Errorf("expected part-load-threshold not to be passed to view props")
+}
+
+func TestPartComponentWithLazy(t *testing.T) {
+	// Test lazy loading (part-lazy) - fetches view when scrolled into viewport
+	input := `<Part src={@./test_fixtures/parts/counter.part} part-lazy="loaded" part-lazy-threshold={200}/>`
+
+	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+
+	result := evaluator.Eval(program, env)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %T", result)
+	}
+
+	html := str.Value
+
+	if !strings.Contains(html, `data-part-lazy="loaded"`) {
+		t.Errorf("expected data-part-lazy attribute, got: %s", html)
+	}
+
+	if !strings.Contains(html, `data-part-lazy-threshold="200"`) {
+		t.Errorf("expected data-part-lazy-threshold attribute, got: %s", html)
+	}
+
+	// Ensure config attributes are not passed to view props
+	propsStart := strings.Index(html, "data-part-props='") + len("data-part-props='")
+	propsEnd := strings.Index(html[propsStart:], "'") + propsStart
+	propsJSON := html[propsStart:propsEnd]
+	propsJSON = strings.ReplaceAll(propsJSON, "&quot;", "\"")
+	propsJSON = strings.ReplaceAll(propsJSON, "&#39;", "'")
+	propsJSON = strings.ReplaceAll(propsJSON, "&amp;", "&")
+	propsJSON = strings.ReplaceAll(propsJSON, "&lt;", "<")
+	propsJSON = strings.ReplaceAll(propsJSON, "&gt;", ">")
+
+	var props map[string]interface{}
+	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
+		t.Fatalf("failed to parse props JSON: %v (JSON: %s)", err, propsJSON)
+	}
+
+	if _, hasLazy := props["part-lazy"]; hasLazy {
+		t.Errorf("expected part-lazy not to be passed to view props")
+	}
+	if _, hasThreshold := props["part-lazy-threshold"]; hasThreshold {
+		t.Errorf("expected part-lazy-threshold not to be passed to view props")
 	}
 }
 

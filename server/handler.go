@@ -872,6 +872,36 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 		}
 
 	default:
+		// Check if it's an array of strings (HTML fragments to concatenate)
+		if arr, ok := value.([]interface{}); ok {
+			var allStrings = true
+			var builder strings.Builder
+			for _, item := range arr {
+				if s, ok := item.(string); ok {
+					builder.WriteString(s)
+				} else {
+					allStrings = false
+					break
+				}
+			}
+			if allStrings {
+				output := builder.String()
+				contentType := "text/plain; charset=utf-8"
+				if strings.HasPrefix(strings.TrimSpace(output), "<") {
+					contentType = "text/html; charset=utf-8"
+					output = h.componentExpander.ExpandComponents(output)
+					if env != nil && env.ContainsParts {
+						output = injectPartsRuntime(output)
+					}
+				}
+				w.Header().Set("Content-Type", contentType)
+				if customStatus {
+					w.WriteHeader(meta.status)
+				}
+				fmt.Fprint(w, output)
+				return
+			}
+		}
 		// Encode as JSON
 		if customStatus {
 			w.WriteHeader(meta.status)
@@ -1010,6 +1040,7 @@ func partsRuntimeScript() string {
 
 	var refreshIntervals = new WeakMap();
 	var lazyParts = new WeakMap();
+	var loadedParts = new WeakMap();
 
 	function parseProps(el) {
 		var propsJson = el.getAttribute('data-part-props');
@@ -1114,8 +1145,12 @@ func partsRuntimeScript() string {
 				// Re-initialize event handlers for this Part (and nested Parts)
 				initParts(el);
 
-				// Restart auto-refresh if configured
-				if (resetTimer && el.getAttribute('data-part-refresh') && (!el.getAttribute('data-part-load') || lazyParts.get(el))) {
+				// Restart auto-refresh if configured (check both lazy and load have completed)
+				var hasLazy = el.getAttribute('data-part-lazy');
+				var hasLoad = el.getAttribute('data-part-load');
+				var lazyDone = !hasLazy || lazyParts.get(el);
+				var loadDone = !hasLoad || loadedParts.get(el);
+				if (resetTimer && el.getAttribute('data-part-refresh') && lazyDone && loadDone) {
 					startAutoRefresh(el);
 				}
 			})
@@ -1124,7 +1159,11 @@ func partsRuntimeScript() string {
 				// Remove loading class on error (leave old content)
 				el.classList.remove('part-loading');
 				// Restart auto-refresh if it was previously configured
-				if (resetTimer && el.getAttribute('data-part-refresh') && (!el.getAttribute('data-part-load') || lazyParts.get(el))) {
+				var hasLazy = el.getAttribute('data-part-lazy');
+				var hasLoad = el.getAttribute('data-part-load');
+				var lazyDone = !hasLazy || lazyParts.get(el);
+				var loadDone = !hasLoad || loadedParts.get(el);
+				if (resetTimer && el.getAttribute('data-part-refresh') && lazyDone && loadDone) {
 					startAutoRefresh(el);
 				}
 			});
@@ -1143,7 +1182,7 @@ func partsRuntimeScript() string {
 				Array.from(clickEl.attributes).forEach(function(attr) {
 					if (attr.name.startsWith('part-')) {
 						var propName = attr.name.substring(5); // Remove 'part-' prefix
-						var reserved = ['click', 'submit', 'load', 'refresh', 'load-threshold'];
+						var reserved = ['click', 'submit', 'load', 'lazy', 'refresh', 'lazy-threshold'];
 						if (reserved.indexOf(propName) !== -1) return;
 						clickProps[propName] = attr.value;
 					}
@@ -1167,14 +1206,34 @@ func partsRuntimeScript() string {
 		});
 	}
 
-	function initLazyLoading(root) {
+	// Immediate load: fetch view right away (for slow data with placeholder)
+	function initImmediateLoad(root) {
 		(root || document).querySelectorAll('[data-part-load]').forEach(function(part) {
+			// If already loaded, skip
+			if (loadedParts.get(part)) {
+				return;
+			}
+			loadedParts.set(part, true);
+
+			var view = part.getAttribute('data-part-load');
+			var props = parseProps(part);
+			var src = part.getAttribute('data-part-src');
+
+			updatePart(part, src, view, props, 'GET');
+
+			// Start auto-refresh after load completes (handled in updatePart)
+		});
+	}
+
+	// Lazy loading: fetch view when scrolled into viewport
+	function initLazyLoading(root) {
+		(root || document).querySelectorAll('[data-part-lazy]').forEach(function(part) {
 			// If already loaded, skip
 			if (lazyParts.get(part)) {
 				return;
 			}
 
-			var thresholdAttr = part.getAttribute('data-part-load-threshold');
+			var thresholdAttr = part.getAttribute('data-part-lazy-threshold');
 			var thresholdNum = parseFloat(thresholdAttr);
 			if (isNaN(thresholdNum) || thresholdNum < 0) {
 				thresholdNum = 0;
@@ -1186,16 +1245,13 @@ func partsRuntimeScript() string {
 						observer.unobserve(part);
 						lazyParts.set(part, true);
 
-						var view = part.getAttribute('data-part-load') || part.getAttribute('data-part-view') || 'default';
+						var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
 						var props = parseProps(part);
 						var src = part.getAttribute('data-part-src');
 
 						updatePart(part, src, view, props, 'GET');
 
-						// Start auto-refresh after load (if configured)
-						if (part.getAttribute('data-part-refresh')) {
-							startAutoRefresh(part);
-						}
+						// Start auto-refresh after lazy load (if configured, handled in updatePart)
 					}
 				});
 			}, {
@@ -1210,17 +1266,28 @@ func partsRuntimeScript() string {
 	function initParts(root) {
 		var scope = root && root.querySelectorAll ? root : document;
 
+		// If root itself is a Part, reinitialize its interactions
+		if (root && root.getAttribute && root.getAttribute('data-part-src')) {
+			bindInteractions(root);
+		}
+
 		scope.querySelectorAll('[data-part-src]').forEach(function(el) {
 			bindInteractions(el);
 
-			// Lazy loading setup
+			// Immediate load setup (part-load)
 			if (el.getAttribute('data-part-load')) {
-				initLazyLoading(el.parentElement || el);
-				return; // Skip auto-refresh until loaded
+				initImmediateLoad(el.parentElement || el);
 			}
 
-			// Auto-refresh setup (non-lazy Parts)
-			if (el.getAttribute('data-part-refresh')) {
+			// Lazy loading setup (part-lazy)
+			if (el.getAttribute('data-part-lazy')) {
+				initLazyLoading(el.parentElement || el);
+			}
+
+			// Auto-refresh setup (skip if waiting for load or lazy)
+			var hasLazy = el.getAttribute('data-part-lazy');
+			var hasLoad = el.getAttribute('data-part-load');
+			if (!hasLazy && !hasLoad && el.getAttribute('data-part-refresh')) {
 				startAutoRefresh(el);
 			}
 		});
@@ -1232,8 +1299,14 @@ func partsRuntimeScript() string {
 		parts.forEach(function(part) {
 			if (document.hidden) {
 				stopAutoRefresh(part);
-			} else if (!part.getAttribute('data-part-load') || lazyParts.get(part)) {
-				startAutoRefresh(part);
+			} else {
+				var hasLazy = part.getAttribute('data-part-lazy');
+				var hasLoad = part.getAttribute('data-part-load');
+				var lazyDone = !hasLazy || lazyParts.get(part);
+				var loadDone = !hasLoad || loadedParts.get(part);
+				if (lazyDone && loadDone) {
+					startAutoRefresh(part);
+				}
 			}
 		});
 	});
@@ -1242,11 +1315,9 @@ func partsRuntimeScript() string {
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', function() {
 			initParts(document);
-			initLazyLoading(document);
 		});
 	} else {
 		initParts(document);
-		initLazyLoading(document);
 	}
 })();
 </script>

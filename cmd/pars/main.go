@@ -178,11 +178,23 @@ func printStructuredErrors(filename string, source string, errs []*errors.Parsle
 
 // printRuntimeError prints a runtime error with source context
 func printRuntimeError(filename string, source string, err *evaluator.Error) {
-	lines := strings.Split(source, "\n")
+	// Use the file from the error if available (for errors in imported modules)
+	displayFile := filename
+	displaySource := source
+	if err.File != "" && err.File != filename {
+		displayFile = err.File
+		// Try to load the actual source file for context
+		if content, readErr := os.ReadFile(err.File); readErr == nil {
+			displaySource = string(content)
+		}
+	}
+	lines := strings.Split(displaySource, "\n")
 
 	fmt.Fprint(os.Stderr, "Runtime error")
 	if err.Line > 0 {
-		fmt.Fprintf(os.Stderr, ": line %d, column %d\n", err.Line, err.Column)
+		fmt.Fprintf(os.Stderr, " in %s: line %d, column %d\n", displayFile, err.Line, err.Column)
+	} else if displayFile != "" {
+		fmt.Fprintf(os.Stderr, " in %s\n", displayFile)
 	} else {
 		fmt.Fprintln(os.Stderr)
 	}

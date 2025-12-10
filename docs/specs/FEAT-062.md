@@ -1,6 +1,6 @@
 ---
 id: FEAT-062
-title: "Parts V1.1: Auto-Refresh and Lazy Loading"
+title: "Parts V1.1: Auto-Refresh, Deferred Load, and Lazy Loading"
 status: done
 priority: medium
 created: 2025-12-10
@@ -8,15 +8,18 @@ completed: 2025-12-10
 author: "@human + AI"
 ---
 
-# FEAT-062: Parts V1.1: Auto-Refresh and Lazy Loading
+# FEAT-062: Parts V1.1: Auto-Refresh, Deferred Load, and Lazy Loading
 
 ## Summary
 
-Add auto-refresh and lazy loading capabilities to Parts. `part-refresh={ms}` enables periodic updates for live data (dashboards, notifications, real-time stats), while `part-load="view"` defers Part rendering until visible, improving initial page load performance.
+Add auto-refresh, deferred loading, and lazy loading capabilities to Parts:
+- `part-refresh={ms}` enables periodic updates for live data (dashboards, notifications, real-time stats)
+- `part-load="view"` fetches a view immediately after page load (for slow data with placeholder)
+- `part-lazy="view"` defers Part rendering until scrolled into viewport (performance optimization)
 
 ## User Story
 
-As a web developer, I want Parts that can automatically refresh themselves on an interval and load content only when needed, so that I can build live dashboards and optimize page load performance without manual polling or complex lazy-loading code.
+As a web developer, I want Parts that can automatically refresh themselves, load slow content asynchronously with a placeholder, and defer loading until visible, so that I can build live dashboards and optimize page load performance without manual polling or complex lazy-loading code.
 
 ## Acceptance Criteria
 
@@ -28,25 +31,32 @@ As a web developer, I want Parts that can automatically refresh themselves on an
 - [x] Refresh stops when Part is removed from DOM
 - [x] Props accumulate across auto-refreshes (same as manual updates)
 
-### Lazy Loading
+### Deferred Load (Immediate Async)
 - [x] `part-load="view"` attribute on `<Part/>` tag
-- [x] Initial render shows placeholder (empty or custom)
+- [x] Initial render shows placeholder view
+- [x] Part immediately fetches specified view after page load
+- [x] Works for slow data (API calls, database queries)
+
+### Lazy Loading (Scroll-Triggered)
+- [x] `part-lazy="view"` attribute on `<Part/>` tag
+- [x] Initial render shows placeholder view
 - [x] Part loads when scrolled into viewport (Intersection Observer)
-- [x] Load threshold configurable via `part-load-threshold={px}`
+- [x] Load threshold configurable via `part-lazy-threshold={px}`
 - [x] Already-loaded Parts don't reload on re-entry
 - [x] Works with nested Parts (child Parts lazy-load independently)
 
 ### Combined Use
-- [x] `part-refresh` and `part-load` work together (refresh starts after load)
+- [x] `part-refresh` works with `part-load` (refresh starts after load)
+- [x] `part-refresh` works with `part-lazy` (refresh starts after lazy load)
 
 ## Design Decisions
 
+- **Two loading modes**: `part-load` (immediate) vs `part-lazy` (viewport-triggered) serve different use cases
 - **Milliseconds not seconds**: More flexible, aligns with `setTimeout` API
 - **Pause when hidden**: Saves bandwidth, battery; resumes on visibility
 - **Reset on interaction**: User action implies fresh data; avoid double-fetch
 - **Intersection Observer**: Modern, performant, built-in lazy-load support
 - **Props accumulate**: Consistent with V1 behavior
-- **No custom placeholders (V1.1)**: Keep simple; defer to V1.2 if needed
 - **Threshold in pixels**: Easier to reason about than percentage for most use cases
 
 ---
@@ -75,139 +85,63 @@ As a web developer, I want Parts that can automatically refresh themselves on an
 </div>
 ```
 
-### Lazy Loading Syntax
+### Deferred Load Syntax (Immediate Async)
+
+```parsley
+<Part 
+    src={@./user-profile.part} 
+    view="placeholder"
+    part-load="loaded"  // Fetch "loaded" view immediately
+/>
+```
+
+**Generated HTML:**
+
+```html
+<div data-part-src="/user-profile.part" 
+     data-part-view="placeholder"
+     data-part-props='{}' 
+     data-part-load="loaded">
+    <!-- Placeholder content rendered initially -->
+</div>
+```
+
+### Lazy Loading Syntax (Scroll-Triggered)
 
 ```parsley
 <Part 
     src={@./heavy-chart.part} 
-    view="chart"
-    part-load="chart"           // Load when visible
-    part-load-threshold={200}    // Start loading 200px before entering viewport
+    view="placeholder"
+    part-lazy="chart"            // Load when visible
+    part-lazy-threshold={200}    // Start loading 200px before entering viewport
 />
 ```
 
-**Generated HTML (before load):**
+**Generated HTML:**
 
 ```html
 <div data-part-src="/heavy-chart.part" 
-     data-part-view="chart"
+     data-part-view="placeholder"
      data-part-props='{}' 
-     data-part-load="chart"
-     data-part-load-threshold="200">
-    <!-- Empty or minimal placeholder -->
+     data-part-lazy="chart"
+     data-part-lazy-threshold="200">
+    <!-- Placeholder content until scrolled into view -->
 </div>
 ```
 
-### JavaScript Runtime Changes
+### JavaScript Runtime
 
-**Auto-Refresh Implementation:**
+The runtime handles three loading modes:
 
-```javascript
-// Track active intervals by Part element
-const refreshIntervals = new WeakMap();
+1. **Immediate Load (`data-part-load`)**: Fetches the specified view immediately after page load
+2. **Lazy Load (`data-part-lazy`)**: Uses IntersectionObserver to fetch when scrolled into viewport
+3. **Auto-Refresh (`data-part-refresh`)**: Polls at interval, pauses when tab hidden
 
-function startAutoRefresh(part) {
-    const interval = parseInt(part.dataset.partRefresh);
-    if (!interval || interval < 100) return; // Minimum 100ms
-    
-    // Clear existing interval
-    stopAutoRefresh(part);
-    
-    // Start new interval
-    const timerId = setInterval(() => {
-        if (document.hidden) return; // Pause when tab hidden
-        const view = part.dataset.partView;
-        const propsJson = part.dataset.partProps;
-        const props = propsJson ? JSON.parse(propsJson) : {};
-        refresh(part, view, props, 'GET');
-    }, interval);
-    
-    refreshIntervals.set(part, timerId);
-}
-
-function stopAutoRefresh(part) {
-    const timerId = refreshIntervals.get(part);
-    if (timerId) {
-        clearInterval(timerId);
-        refreshIntervals.delete(part);
-    }
-}
-
-// Pause/resume on visibility change
-document.addEventListener('visibilitychange', () => {
-    document.querySelectorAll('[data-part-refresh]').forEach(part => {
-        if (document.hidden) {
-            stopAutoRefresh(part);
-        } else {
-            startAutoRefresh(part);
-        }
-    });
-});
-
-// Reset interval after manual interaction
-function refresh(part, view, props, method) {
-    // ... existing refresh logic ...
-    
-    // Reset auto-refresh timer
-    if (part.dataset.partRefresh) {
-        startAutoRefresh(part);
-    }
-}
-```
-
-**Lazy Loading Implementation:**
-
-```javascript
-const lazyParts = new WeakMap(); // Track loaded state
-
-function initLazyLoading() {
-    const parts = document.querySelectorAll('[data-part-load]');
-    
-    parts.forEach(part => {
-        const threshold = part.dataset.partLoadThreshold || '0';
-        
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    // Load only once
-                    if (lazyParts.get(part)) return;
-                    lazyParts.set(part, true);
-                    
-                    const view = part.dataset.partLoad;
-                    const propsJson = part.dataset.partProps;
-                    const props = propsJson ? JSON.parse(propsJson) : {};
-                    
-                    refresh(part, view, props, 'GET');
-                    
-                    // Start auto-refresh after load (if configured)
-                    if (part.dataset.partRefresh) {
-                        startAutoRefresh(part);
-                    }
-                    
-                    // Stop observing
-                    observer.unobserve(part);
-                }
-            });
-        }, {
-            rootMargin: threshold + 'px'
-        });
-        
-        observer.observe(part);
-    });
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    initLazyLoading();
-    
-    // Start auto-refresh for non-lazy Parts
-    document.querySelectorAll('[data-part-refresh]:not([data-part-load])').forEach(startAutoRefresh);
-});
-```
+For complete implementation, see `server/handler.go` (`partsRuntimeScript` function).
 
 ### Server Implementation
 
-No server changes required. Auto-refresh and lazy loading are client-side features that use existing Part request infrastructure.
+No server changes required. All loading modes are client-side features that use existing Part request infrastructure.
 
 ### Edge Cases
 
@@ -216,9 +150,10 @@ No server changes required. Auto-refresh and lazy loading are client-side featur
 3. **Part removed from DOM**: Use `WeakMap` so intervals are garbage-collected
 4. **Nested lazy Parts**: Each Part independently observes and loads
 5. **Lazy + Refresh**: Refresh starts after initial lazy load completes
-6. **Hidden tab**: Pause refresh when `document.hidden === true`
-7. **Network errors**: Keep existing interval (don't stop on error)
-8. **Threshold edge cases**: Negative values treated as 0, missing defaults to 0
+6. **Load + Refresh**: Refresh starts after initial load completes
+7. **Hidden tab**: Pause refresh when `document.hidden === true`
+8. **Network errors**: Keep existing interval (don't stop on error)
+9. **Threshold edge cases**: Negative values treated as 0, missing defaults to 0
 
 ### Performance Considerations
 
@@ -226,6 +161,7 @@ No server changes required. Auto-refresh and lazy loading are client-side featur
 - **Battery**: Pausing on hidden tabs saves resources
 - **Bandwidth**: Auto-refresh only fetches changed content (no full page reload)
 - **Lazy loading**: Reduces initial payload for below-the-fold content
+- **Immediate load**: Shows placeholder instantly, fetches data asynchronously
 
 ### Browser Compatibility
 
@@ -238,8 +174,9 @@ No server changes required. Auto-refresh and lazy loading are client-side featur
 ### V1.1 (This Spec)
 
 - `part-refresh={ms}` for auto-refresh
-- `part-load="view"` for lazy loading
-- `part-load-threshold={px}` for load offset
+- `part-load="view"` for immediate async loading (slow data with placeholder)
+- `part-lazy="view"` for scroll-triggered lazy loading
+- `part-lazy-threshold={px}` for lazy load offset
 - Visibility-aware refresh (pause when hidden)
 - Interaction resets refresh timer
 
@@ -253,9 +190,25 @@ No server changes required. Auto-refresh and lazy loading are client-side featur
 ## Related
 
 - Depends on: `docs/specs/FEAT-061.md` (Parts V1) ✅ Complete
-- Plan: `docs/plans/FEAT-062-plan.md` (to be created)
+- Design: `docs/design/DESIGN-parts.md`
 
 ## Implementation Notes
-- Auto-refresh uses `data-part-props`/`data-part-view` for each interval, resets after manual updates, pauses on hidden tabs, and stops if the Part is removed.
-- Lazy loading uses Intersection Observer per Part with optional `data-part-load-threshold` (px) and starts auto-refresh after the first load if configured.
-- `part-loading` remains the CSS hook during fetches for clicks, submits, auto-refresh, and lazy-load fetches.
+
+**Completed:** 2025-12-10
+
+### Key Distinctions
+
+| Feature | Attribute | When it loads | Use case |
+|---------|-----------|---------------|----------|
+| Immediate | `part-load="view"` | Right after page load | Slow API/database data with placeholder |
+| Lazy | `part-lazy="view"` | When scrolled into viewport | Heavy content below the fold |
+| Refresh | `part-refresh={ms}` | Every N milliseconds | Live data (clocks, notifications) |
+
+### Attribute Summary
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `part-refresh` | number | Auto-refresh interval in milliseconds (min 100ms) |
+| `part-load` | string | View to fetch immediately after page load |
+| `part-lazy` | string | View to fetch when scrolled into viewport |
+| `part-lazy-threshold` | number | Pixels before viewport to trigger lazy load (default 0) |

@@ -1,0 +1,19 @@
+// Async content Part - demonstrates part-load for slow data
+// Shows placeholder immediately, then fetches real content
+
+export placeholder = fn() {
+    <div class="card skeleton">
+        <p>Loading data...</p>
+    </div>
+}
+
+export loaded = fn() {
+    // In a real app, this might fetch from an API or database
+    <div class="card">
+        <h3>Data Loaded!</h3>
+        <p>This content was fetched immediately after the page loaded.</p>
+        <p>Use <code>part-load</code> when you have slow data but want to show something right away.</p>
+    </div>
+}
+
+export default = placeholder

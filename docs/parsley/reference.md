@@ -2352,8 +2352,9 @@ export decrement = fn(props) {
 | `part-submit="viewName"` | `<form>` | Fetches `viewName` on submit |
 | `part-*` | Any | Passed as props to view function |
 | `part-refresh={ms}` | `<Part/>` | Auto-refresh current view every `ms` (resets on interactions, pauses when tab hidden) |
-| `part-load="view"` | `<Part/>` | Lazy-load `view` when Part enters viewport |
-| `part-load-threshold={px}` | `<Part/>` | Start lazy load when within `px` of viewport (default `0`) |
+| `part-load="view"` | `<Part/>` | Immediately fetch `view` after page load (for slow data) |
+| `part-lazy="view"` | `<Part/>` | Lazy-load `view` when Part enters viewport |
+| `part-lazy-threshold={px}` | `<Part/>` | Start lazy load when within `px` of viewport (default `0`) |
 
 **Props Handling:**
 
@@ -2370,9 +2371,14 @@ For auto-refresh:
 - Resets after manual interactions (click/submit)
 - Pauses when the tab is hidden and stops if the Part is removed
 
-For lazy loading:
+For immediate load (`part-load`):
+- Shows placeholder view from server
+- Immediately fetches specified view after page load
+- Use when data is slow but should start loading right away
+
+For lazy loading (`part-lazy`):
 - Uses Intersection Observer to load once when near the viewport
-- Respects `part-load-threshold` (pixels of pre-load margin)
+- Respects `part-lazy-threshold` (pixels of pre-load margin)
 - Auto-refresh starts after the lazy load completes
 
 **Type Coercion:**
@@ -2401,7 +2407,8 @@ routes:
 The Parts runtime is automatically injected before `</body>` when a `<Part/>` tag is used. It:
 - Sets up event listeners for `part-click` and `part-submit`
 - Supports auto-refresh (`part-refresh`) with visibility-aware timers
-- Supports lazy loading (`part-load`, `part-load-threshold`) via Intersection Observer
+- Supports immediate async load (`part-load`) for slow data with placeholders
+- Supports lazy loading (`part-lazy`, `part-lazy-threshold`) via Intersection Observer
 - Fetches Part views via `?_view=name` requests
 - Updates Part innerHTML with response and maintains `data-part-props`
 - Handles errors gracefully (keeps old content on failure)

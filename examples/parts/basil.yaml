@@ -14,3 +14,6 @@ routes:
 
   - path: /lazy-content.part
     handler: ./handlers/lazy-content.part
+
+  - path: /async-content.part
+    handler: ./handlers/async-content.part

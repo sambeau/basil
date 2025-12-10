@@ -1,28 +1,58 @@
-`<!DOCTYPE html>
-<html>
-<body>
 <h1>Parts Example</h1>
 
 <section>
 	<h2>Counter (click to update)</h2>
 	<p>Click the buttons to increment or decrement:</p>
-	{<Part src={@./counter.part} view="default" count={0}/>} 
+	<Part src={@./counter.part} view="default" count={0}/>
 	<p>The counter updates without reloading the page.</p>
 </section>
 
 <section>
 	<h2>Auto-refreshing clock</h2>
 	<p>This Part refreshes every second using <code>part-refresh</code>.</p>
-	{<Part src={@./clock.part} part-refresh={1000}/>} 
+	<Part src={@./clock.part} part-refresh={1000}/>
+</section>
+
+<section>
+	<h2>Immediate async load</h2>
+	<p>This Part shows "Loading..." then immediately fetches the real data using <code>part-load</code>.</p>
+	<Part src={@./async-content.part} view="placeholder" part-load="loaded"/>
 </section>
 
 <section style="margin-top: 3rem; min-height: 400px;">
-	<h2>Lazy-loaded content</h2>
-	<p>The panel below loads when it nears the viewport using <code>part-load</code> and <code>part-load-threshold</code>.</p>
+	<h2>Lazy-loaded content (scroll-triggered)</h2>
+	<p>The panel below loads when it nears the viewport using <code>part-lazy</code> and <code>part-lazy-threshold</code>.</p>
+	<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
+		<em>Scroll down to trigger lazy load...</em>
+	</div>
+	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
 	<div style="height: 300px;"></div>
-	{<Part src={@./lazy-content.part} view="placeholder" part-load="loaded" part-load-threshold={150}/>} 
-	<div style="height: 300px;"></div>
-</section>
 
-</body>
-</html>`
+	<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
+		<em>Scroll down to trigger lazy load...</em>
+	</div>
+	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
+	<div style="height: 300px;"></div>
+		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
+		<em>Scroll down to trigger lazy load...</em>
+	</div>
+	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
+	<div style="height: 300px;"></div>
+		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
+		<em>Scroll down to trigger lazy load...</em>
+	</div>
+	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
+	<div style="height: 300px;"></div>
+		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
+		<em>Scroll down to trigger lazy load...</em>
+	</div>
+	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
+	<div style="height: 300px;"></div>
+		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
+		<em>Scroll down to trigger lazy load...</em>
+	</div>
+	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
+	<div style="height: 300px;"></div>
+
+
+</section>

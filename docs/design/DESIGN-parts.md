@@ -149,20 +149,28 @@ Props are extracted from attributes matching `part-*` (excluding reserved names)
 Auto-refresh on interval:
 
 ```parsley
-<div part-refresh={1000}>
-    {time.now().format("HH:mm:ss")}
-</div>
+<Part src=@./parts/clock.part part-refresh={1000}/>
 ```
 
 ### `part-load` (v1.1)
 
-Immediately load a different view after mount (for lazy loading):
+Immediately load a different view after mount (for slow data):
 
 ```parsley
-<div part-load="loaded" part-userId={userId}>
-    Loading...
-</div>
+<Part src=@./parts/user-profile.part view="placeholder" part-load="loaded" userId={userId}/>
 ```
+
+The Part renders `placeholder` view initially, then immediately fetches `loaded` view.
+
+### `part-lazy` (v1.1)
+
+Load a different view when scrolled into viewport (for lazy loading):
+
+```parsley
+<Part src=@./parts/heavy-chart.part view="placeholder" part-lazy="loaded" part-lazy-threshold={200}/>
+```
+
+The Part renders `placeholder` view initially, then fetches `loaded` view when 200px from viewport.
 
 ---
 

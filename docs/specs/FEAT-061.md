@@ -123,16 +123,18 @@ export increment = render
 | `part-submit="view"` | form submit | POST | Switch to named view |
 | `part-{name}={value}` | — | — | Pass prop to target view |
 | `part-refresh={ms}` | interval | GET | Auto-refresh (FEAT-062) |
-| `part-load="view"` | viewport | GET | Lazy load (FEAT-062) |
-| `part-load-threshold={px}` | — | — | Lazy load offset (FEAT-062) |
+| `part-load="view"` | page load | GET | Immediate async load (FEAT-062) |
+| `part-lazy="view"` | viewport | GET | Lazy load when visible (FEAT-062) |
+| `part-lazy-threshold={px}` | — | — | Lazy load offset (FEAT-062) |
 
 ### Reserved attribute names
 
 The following `part-*` attributes are reserved for framework use and cannot be used as prop names:
 - `part-click` — Click interaction trigger
 - `part-submit` — Form submit trigger
-- `part-load` — Lazy loading control (FEAT-062)
-- `part-load-threshold` — Lazy loading threshold (FEAT-062)
+- `part-load` — Immediate async loading (FEAT-062)
+- `part-lazy` — Scroll-triggered lazy loading (FEAT-062)
+- `part-lazy-threshold` — Lazy loading threshold (FEAT-062)
 - `part-refresh` — Auto-refresh interval (FEAT-062)
 
 ### Type Coercion
@@ -236,12 +238,13 @@ For complete implementation details, see `server/handler.go` (`partsRuntimeScrip
 
 ### V1.1 (Implemented - FEAT-062)
 
-Auto-refresh and lazy loading capabilities:
+Auto-refresh, deferred loading, and lazy loading capabilities:
 - `part-refresh={ms}` for periodic updates (dashboards, live data, notifications)
-- `part-load="view"` for deferred rendering until visible (performance optimization)
-- `part-load-threshold={px}` to control when lazy Parts start loading
+- `part-load="view"` for immediate async loading (slow data with placeholder)
+- `part-lazy="view"` for deferred rendering until visible (performance optimization)
+- `part-lazy-threshold={px}` to control when lazy Parts start loading
 - Auto-refresh pauses when tab hidden, resets on manual interactions
-- Lazy Parts skip auto-refresh until first load completes
+- Both load modes defer auto-refresh until content loads
 
 **See:** `docs/specs/FEAT-062.md` for complete specification
 

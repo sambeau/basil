@@ -1330,7 +1330,8 @@ export increment = fn(props) {
 - ✅ `part-click="viewName"` triggers view updates
 - ✅ `part-submit="viewName"` works on forms
 - ✅ `part-refresh={ms}` auto-refreshes the Part (pauses when tab hidden)
-- ✅ `part-load="view"` lazy-loads a view; `part-load-threshold={px}` preloads earlier
+- ✅ `part-load="view"` fetches view immediately after page load (for slow data)
+- ✅ `part-lazy="view"` lazy-loads when scrolled into view; `part-lazy-threshold={px}` preloads earlier
 - ❌ Part files need routes in `basil.yaml`: `- path: /counter.part`
 - ✅ JavaScript auto-injects when `<Part/>` is used
 - ✅ Parts can be nested inside other Parts

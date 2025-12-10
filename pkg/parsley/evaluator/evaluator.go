@@ -8584,6 +8584,25 @@ func newStructuredErrorWithPos(code string, tok lexer.Token, data map[string]any
 	}
 }
 
+// newStructuredErrorWithPosAndFile creates a structured error with position and file information.
+func newStructuredErrorWithPosAndFile(code string, tok lexer.Token, env *Environment, data map[string]any) *Error {
+	perr := perrors.New(code, data)
+	file := ""
+	if env != nil {
+		file = env.Filename
+	}
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Line:    tok.Line,
+		Column:  tok.Column,
+		File:    file,
+		Data:    perr.Data,
+	}
+}
+
 // newSecurityError creates a structured security error from a checkPathAccess error.
 // The operation should be "read", "write", or "execute".
 // We preserve the original error message for specificity (e.g., "file read restricted: /path")
@@ -10097,7 +10116,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 		hasRefresh = true
 	}
 
-	// Optional: lazy-load view name
+	// Optional: immediate load view name (fetch right away for slow data)
 	hasLoad := false
 	loadValue := ""
 	if loadExpr, ok := props.Pairs["part-load"]; ok {
@@ -10115,16 +10134,34 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 		}
 	}
 
+	// Optional: lazy-load view name (fetch when scrolled into viewport)
+	hasLazy := false
+	lazyValue := ""
+	if lazyExpr, ok := props.Pairs["part-lazy"]; ok {
+		lazyObj := Eval(lazyExpr, env)
+		if isError(lazyObj) {
+			return lazyObj
+		}
+		if lazyStr, ok := lazyObj.(*String); ok {
+			lazyValue = lazyStr.Value
+			hasLazy = true
+		} else {
+			// Coerce non-strings to string for robustness
+			lazyValue = fmt.Sprint(objectToGoValue(lazyObj))
+			hasLazy = true
+		}
+	}
+
 	// Optional: lazy-load threshold in px
-	hasLoadThreshold := false
-	loadThresholdValue := ""
-	if thresholdExpr, ok := props.Pairs["part-load-threshold"]; ok {
+	hasLazyThreshold := false
+	lazyThresholdValue := ""
+	if thresholdExpr, ok := props.Pairs["part-lazy-threshold"]; ok {
 		thresholdObj := Eval(thresholdExpr, env)
 		if isError(thresholdObj) {
 			return thresholdObj
 		}
-		loadThresholdValue = fmt.Sprint(objectToGoValue(thresholdObj))
-		hasLoadThreshold = true
+		lazyThresholdValue = fmt.Sprint(objectToGoValue(thresholdObj))
+		hasLazyThreshold = true
 	}
 
 	// Look up the view function in the Part module
@@ -10160,7 +10197,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	// Build props dictionary for view function (excluding src and view)
 	viewProps := make(map[string]ast.Expression)
 	for key, expr := range props.Pairs {
-		if key == "src" || key == "view" || key == "part-refresh" || key == "part-load" || key == "part-load-threshold" {
+		if key == "src" || key == "view" || key == "part-refresh" || key == "part-load" || key == "part-lazy" || key == "part-lazy-threshold" {
 			continue
 		}
 		viewProps[key] = expr
@@ -10217,9 +10254,14 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 		output.WriteString(htmlEscape(loadValue))
 		output.WriteString("\"")
 	}
-	if hasLoadThreshold {
-		output.WriteString(" data-part-load-threshold=\"")
-		output.WriteString(htmlEscape(loadThresholdValue))
+	if hasLazy {
+		output.WriteString(" data-part-lazy=\"")
+		output.WriteString(htmlEscape(lazyValue))
+		output.WriteString("\"")
+	}
+	if hasLazyThreshold {
+		output.WriteString(" data-part-lazy-threshold=\"")
+		output.WriteString(htmlEscape(lazyThresholdValue))
 		output.WriteString("\"")
 	}
 	output.WriteString(">")
@@ -11697,7 +11739,7 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Handle Dictionary (including special types like datetime, path, url)
 	dict, ok := left.(*Dictionary)
 	if !ok {
-		return newStructuredErrorWithPos("TYPE-0022", node.Token, map[string]any{"Got": left.Type()})
+		return newStructuredErrorWithPosAndFile("TYPE-0022", node.Token, env, map[string]any{"Got": left.Type()})
 	}
 
 	// Handle HTTP method accessors for request dictionaries
