@@ -303,7 +303,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	responseMeta := extractResponseMeta(env, h.server.config.Server.Dev)
 
 	// Handle the response (with caching if enabled)
-	h.writeResponseWithCache(w, r, &parsley.Result{Value: result}, responseMeta)
+	h.writeResponseWithCache(w, r, &parsley.Result{Value: result}, responseMeta, env)
 }
 
 // setEnvVar converts a Go value to Parsley and sets it in the environment.
@@ -769,12 +769,12 @@ func buildSubpathObject(subpath string) map[string]interface{} {
 }
 
 // writeResponseWithCache writes the response and caches it if the route has caching enabled.
-func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.Request, result *parsley.Result, meta *responseMeta) {
+func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.Request, result *parsley.Result, meta *responseMeta, env *evaluator.Environment) {
 	// If caching is enabled for this route and it's a GET request, capture the response
 	if h.route.Cache > 0 && r.Method == http.MethodGet {
 		crw := newCachedResponseWriter(w)
 		crw.Header().Set("X-Cache", "MISS")
-		h.writeResponse(crw, r, result, meta)
+		h.writeResponse(crw, r, result, meta, env)
 
 		// Only cache successful responses (2xx)
 		if crw.statusCode >= 200 && crw.statusCode < 300 {
@@ -784,11 +784,11 @@ func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.R
 	}
 
 	// No caching, write directly
-	h.writeResponse(w, r, result, meta)
+	h.writeResponse(w, r, result, meta, env)
 }
 
 // writeResponse writes the Parsley result to the HTTP response
-func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, result *parsley.Result, meta *responseMeta) {
+func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, result *parsley.Result, meta *responseMeta, env *evaluator.Environment) {
 	// Apply response headers from basil.http.response.headers
 	for k, v := range meta.headers {
 		w.Header().Set(k, v)
@@ -824,6 +824,10 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 			contentType = "text/html; charset=utf-8"
 			// Expand auth components in HTML output
 			output = h.componentExpander.ExpandComponents(v)
+			// Inject Parts runtime if page contains Parts
+			if env != nil && env.ContainsParts {
+				output = injectPartsRuntime(output)
+			}
 		}
 		w.Header().Set("Content-Type", contentType)
 		if customStatus {
@@ -852,6 +856,10 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 				output := b
 				if strings.HasPrefix(strings.TrimSpace(b), "<") {
 					output = h.componentExpander.ExpandComponents(b)
+					// Inject Parts runtime if page contains Parts
+					if env != nil && env.ContainsParts {
+						output = injectPartsRuntime(output)
+					}
 				}
 				fmt.Fprint(w, output)
 			default:
@@ -978,6 +986,115 @@ func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, r 
 	}
 
 	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", message, filePath, line, col))
+}
+
+// injectPartsRuntime injects the Parts JavaScript runtime before </body>
+// This enables interactive Parts with automatic event handling and updates
+func injectPartsRuntime(html string) string {
+	// Find the closing </body> tag (case-insensitive)
+	bodyEndIdx := strings.LastIndex(strings.ToLower(html), "</body>")
+	if bodyEndIdx == -1 {
+		// No </body> tag, append at end
+		return html + "\n" + partsRuntimeScript()
+	}
+
+	// Inject script before </body>
+	return html[:bodyEndIdx] + partsRuntimeScript() + html[bodyEndIdx:]
+}
+
+// partsRuntimeScript returns the Parts JavaScript runtime
+func partsRuntimeScript() string {
+	return `<script>
+(function() {
+  'use strict';
+  
+  // Initialize all Parts on the page
+  function initParts() {
+    document.querySelectorAll('[data-part-src]').forEach(function(el) {
+      var src = el.getAttribute('data-part-src');
+      var view = el.getAttribute('data-part-view');
+      var propsJson = el.getAttribute('data-part-props');
+      var props = {};
+      
+      try {
+        props = propsJson ? JSON.parse(propsJson) : {};
+      } catch (e) {
+        console.error('Failed to parse Part props:', e);
+      }
+      
+      // Handle part-click attributes
+      el.querySelectorAll('[part-click]').forEach(function(clickEl) {
+        var clickView = clickEl.getAttribute('part-click');
+        clickEl.addEventListener('click', function(e) {
+          e.preventDefault();
+          updatePart(el, src, clickView, props);
+        });
+      });
+      
+      // Handle part-submit on forms
+      el.querySelectorAll('form[part-submit]').forEach(function(form) {
+        var submitView = form.getAttribute('part-submit');
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          var formData = new FormData(form);
+          var formProps = Object.assign({}, props);
+          formData.forEach(function(value, key) {
+            formProps[key] = value;
+          });
+          updatePart(el, src, submitView, formProps);
+        });
+      });
+    });
+  }
+  
+  // Update a Part by fetching a new view
+  function updatePart(el, src, view, props) {
+    // Add loading class
+    el.classList.add('part-loading');
+    
+    // Build URL with query params
+    var url = new URL(src, window.location.origin);
+    url.searchParams.set('_view', view);
+    
+    // Add props as query params
+    Object.keys(props).forEach(function(key) {
+      url.searchParams.set(key, props[key]);
+    });
+    
+    // Fetch the updated HTML
+    fetch(url.toString())
+      .then(function(response) {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        return response.text();
+      })
+      .then(function(html) {
+        // Update innerHTML
+        el.innerHTML = html;
+        
+        // Remove loading class
+        el.classList.remove('part-loading');
+        
+        // Re-initialize event handlers for this Part
+        initParts();
+      })
+      .catch(function(error) {
+        console.error('Failed to update Part:', error);
+        // Remove loading class on error (leave old content)
+        el.classList.remove('part-loading');
+      });
+  }
+  
+  // Initialize on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initParts);
+  } else {
+    initParts();
+  }
+})();
+</script>
+`
 }
 
 // scriptLogCapture captures log() output from Parsley scripts
