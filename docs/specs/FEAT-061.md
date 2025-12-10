@@ -122,8 +122,18 @@ export increment = render
 | `part-click="view"` | click | GET | Switch to named view |
 | `part-submit="view"` | form submit | POST | Switch to named view |
 | `part-{name}={value}` | — | — | Pass prop to target view |
+| `part-refresh={ms}` | interval | GET | Auto-refresh (FEAT-062) |
+| `part-load="view"` | viewport | GET | Lazy load (FEAT-062) |
+| `part-load-threshold={px}` | — | — | Lazy load offset (FEAT-062) |
 
-**Reserved attribute names:** `part-click`, `part-submit`, `part-load`, `part-refresh`
+### Reserved attribute names
+
+The following `part-*` attributes are reserved for framework use and cannot be used as prop names:
+- `part-click` — Click interaction trigger
+- `part-submit` — Form submit trigger
+- `part-load` — Lazy loading control (FEAT-062)
+- `part-load-threshold` — Lazy loading threshold (FEAT-062)
+- `part-refresh` — Auto-refresh interval (FEAT-062)
 
 ### Type Coercion
 
@@ -157,88 +167,17 @@ POST /_parts/todo-item?_view=save
 
 Injected automatically when page contains `<Part/>`:
 
-```javascript
-(function() {
-    function refresh(part, view, props, method) {
-        part.classList.add('part-loading');
-        part.classList.add('part-leave');
-        
-        const src = part.dataset.partSrc;
-        const url = new URL(src, location.origin);
-        if (view) url.searchParams.set('_view', view);
-        
-        const options = { credentials: 'same-origin' };
-        
-        if (method === 'POST') {
-            options.method = 'POST';
-            options.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-            options.body = new URLSearchParams(props).toString();
-        } else {
-            Object.entries(props || {}).forEach(([k, v]) => 
-                url.searchParams.set(k, v));
-        }
-        
-        const duration = getTransitionDuration(part);
-        
-        fetch(url, options)
-            .then(r => r.text())
-            .then(html => {
-                setTimeout(() => {
-                    part.innerHTML = html;
-                    part.classList.remove('part-leave');
-                    part.classList.add('part-enter');
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            part.classList.remove('part-enter');
-                        });
-                    });
-                    init(part);
-                }, duration);
-            })
-            .finally(() => {
-                part.classList.remove('part-loading');
-            });
-    }
-    
-    function getProps(el) {
-        const props = {};
-        const reserved = ['part-click', 'part-submit', 'part-load', 'part-refresh'];
-        for (const attr of el.attributes) {
-            if (attr.name.startsWith('part-') && !reserved.includes(attr.name)) {
-                props[attr.name.slice(5)] = attr.value;
-            }
-        }
-        return props;
-    }
-    
-    function getTransitionDuration(el) {
-        const style = getComputedStyle(el);
-        const duration = parseFloat(style.transitionDuration) * 1000;
-        return duration || 0;
-    }
-    
-    function init(root) {
-        root.querySelectorAll('[part-click]').forEach(el => {
-            el.onclick = (e) => {
-                e.preventDefault();
-                const part = el.closest('[data-part-src]');
-                refresh(part, el.getAttribute('part-click'), getProps(el), 'GET');
-            };
-        });
-        
-        root.querySelectorAll('form[part-submit]').forEach(form => {
-            form.onsubmit = (e) => {
-                e.preventDefault();
-                const part = form.closest('[data-part-src]');
-                const props = Object.fromEntries(new FormData(form));
-                refresh(part, form.getAttribute('part-submit'), props, 'POST');
-            };
-        });
-    }
-    
-    document.querySelectorAll('[data-part-src]').forEach(init);
-})();
-```
+**Features (V1 + V1.1):**
+- Click and form submit interactions (`part-click`, `part-submit`)
+- Auto-refresh with configurable intervals (`part-refresh={ms}`)
+- Lazy loading with viewport detection (`part-load="view"`)
+- Page visibility integration (pause refresh when tab hidden)
+- Loading state tracking (`part-loading` class)
+- Nested Part re-initialization after updates
+
+**Runtime size:** ~170 lines of vanilla JavaScript, ~5KB minified
+
+For complete implementation details, see `server/handler.go` (`partsRuntimeScript` function).
 
 ### CSS Classes
 
@@ -295,11 +234,16 @@ Injected automatically when page contains `<Part/>`:
 - Nested Parts support
 - Auth inheritance
 
-### V1.1 (Future)
+### V1.1 (Implemented - FEAT-062)
 
-See FEAT-062 for auto-refresh and lazy loading:
-- `part-refresh={ms}` for auto-refresh
-- `part-load="view"` for lazy loading
+Auto-refresh and lazy loading capabilities:
+- `part-refresh={ms}` for periodic updates (dashboards, live data, notifications)
+- `part-load="view"` for deferred rendering until visible (performance optimization)
+- `part-load-threshold={px}` to control when lazy Parts start loading
+- Auto-refresh pauses when tab hidden, resets on manual interactions
+- Lazy Parts skip auto-refresh until first load completes
+
+**See:** `docs/specs/FEAT-062.md` for complete specification
 
 ### V1.2 (Future)
 
@@ -353,8 +297,7 @@ See FEAT-062 for auto-refresh and lazy loading:
 ### Deferred to BACKLOG
 
 - CSS animation classes (`part-leave`/`part-enter`) - Use `part-loading` class for now
-- Auto-refresh (`part-refresh={ms}`)
-- Lazy loading (`part-load="view"`)
 - Responsive Parts with media queries
 - Part response caching
+- Target other Parts on page
 
