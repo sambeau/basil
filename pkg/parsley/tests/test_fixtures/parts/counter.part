@@ -1,0 +1,28 @@
+// Counter Part - Example of a simple Part with multiple views
+
+export default = fn(props) {
+    let count = props.count ?? 0
+    <div>
+        <p>Count: {count}</p>
+        <button part-click="increment" part-count={count}>+</button>
+        <button part-click="decrement" part-count={count}>-</button>
+    </div>
+}
+
+export increment = fn(props) {
+    let count = (props.count ?? 0) + 1
+    <div>
+        <p>Count: {count}</p>
+        <button part-click="increment" part-count={count}>+</button>
+        <button part-click="decrement" part-count={count}>-</button>
+    </div>
+}
+
+export decrement = fn(props) {
+    let count = (props.count ?? 0) - 1
+    <div>
+        <p>Count: {count}</p>
+        <button part-click="increment" part-count={count}>+</button>
+        <button part-click="decrement" part-count={count}>-</button>
+    </div>
+}

@@ -1,0 +1,81 @@
+# Parts
+
+A ‘part’ is a special kind of Parsley module for Basil.
+
+It has three characteristics:
+- It returns a fragment of HTML
+- It has more than one state it can be in
+- It can be inserted into a page using javascript
+
+A part module has a the file ending ‘.part’
+
+It is based on  ‘Hotwire Spark’ from Ruby-on-Rails and the ‘hot loading’ techniques.
+
+## A part has multi-part ‘states’
+
+Each method a part module returns can be used to display it.
+
+This allows a part to switch between:
+- Editing states
+- Error states
+- Responsive states
+- Slow-loading ‘lazy’ states
+- Lazy states
+
+A part can have as many states as it has methods. 
+
+- An editable part might have two (normal, edit) or three (normal, edit, error).
+- A timer might only have one that refreshes based on a javascript timer
+- A responsive part might have states for small, medium, large
+- A lazy component might present a loading state, then switch to a loaded state when the data is ready.
+
+## A part can reload
+Each part can be reloaded by javascript and replaced in the page. 
+
+For instance:
+- A form that changes on submit
+- An error that clears itself
+- A page element that changes periodically
+- A lazy element that takes time to load
+
+## Javascript
+A part comes with just enough javascript to replace itself in the page when it needs to reload. The javascript will request the part by its exported method name. 
+
+## Part components
+
+### A part will be a special Basil component
+
+``<Part/>``
+
+We will need to discuss what props it should have:
+- path
+- initial state
+- etc.
+
+### First parts
+
+To begin with we should offer parts that change state on an event (like a click) and ones that refresh on a timer.
+
+We should also consider Responsive and Lazy parts to assess how easy they would be to add (Lazy sounds tricky, but responsive sounds possible if we generalise the javascript even trigger).
+
+## Basil Server Magic API
+
+The basil server will sent a way to identify the correct part and a way to identify the correct state: the most obvious being a path and a variable.
+
+I would like to make it super-simple to use parts in file-routing mode (maybe just .part files could sit alongside .pars files?) and simple in single-handler mode.
+
+- are there better ways to do it?
+
+## Prior Art
+- https://github.com/hotwired/spark
+- Any others to draw inspiration from
+
+## See Alson
+
+See also the ‘rails-inspired-ux’ design-discussion document. That discusses using the YAML config—we don’t want that, we want something a developer can control in-code, that is flexible and composable—I think have ``.part`` files are a simpler solution.
+
+## Discussion
+
+This is a discussion document that I hope, after some discussion, will lead to a design document and then a spec.
+
+We are, of course looking, for the most simple, minimal, composable way to do this; something that neatly fits into Parsley.

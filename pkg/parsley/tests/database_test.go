@@ -51,11 +51,11 @@ func TestSQLiteConnection(t *testing.T) {
 		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `db.ping()`)
 		p := parser.New(l)
 		program := p.ParseProgram()
-		
+
 		if len(p.Errors()) > 0 {
 			t.Fatalf("Parser errors: %v", p.Errors())
 		}
-		
+
 		env := evaluator.NewEnvironment()
 		result := evaluator.Eval(program, env)
 
@@ -78,11 +78,11 @@ func TestSQLiteConnection(t *testing.T) {
 		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `db.begin()`)
 		p := parser.New(l)
 		program := p.ParseProgram()
-		
+
 		if len(p.Errors()) > 0 {
 			t.Fatalf("Parser errors: %v", p.Errors())
 		}
-		
+
 		env := evaluator.NewEnvironment()
 		result := evaluator.Eval(program, env)
 
@@ -105,11 +105,11 @@ func TestSQLiteConnection(t *testing.T) {
 		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `let _ = db.begin()` + "\n" + `db.commit()`)
 		p := parser.New(l)
 		program := p.ParseProgram()
-		
+
 		if len(p.Errors()) > 0 {
 			t.Fatalf("Parser errors: %v", p.Errors())
 		}
-		
+
 		env := evaluator.NewEnvironment()
 		result := evaluator.Eval(program, env)
 
@@ -128,11 +128,11 @@ func TestSQLiteConnection(t *testing.T) {
 		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `let _ = db.begin()` + "\n" + `db.rollback()`)
 		p := parser.New(l)
 		program := p.ParseProgram()
-		
+
 		if len(p.Errors()) > 0 {
 			t.Fatalf("Parser errors: %v", p.Errors())
 		}
-		
+
 		env := evaluator.NewEnvironment()
 		result := evaluator.Eval(program, env)
 

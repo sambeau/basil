@@ -202,21 +202,21 @@ func TestAtPrefixDisambiguation(t *testing.T) {
 				t.Errorf("expected Dictionary, got %T (%+v)", result, result)
 				return
 			}
-			
+
 			// Check __type field
 			typeExpr, ok := dict.Pairs["__type"]
 			if !ok {
 				t.Errorf("dictionary missing __type field")
 				return
 			}
-			
+
 			typeVal := evaluator.Eval(typeExpr, dict.Env)
 			typeStr, ok := typeVal.(*evaluator.String)
 			if !ok {
 				t.Errorf("__type is not a string, got %T", typeVal)
 				return
 			}
-			
+
 			if typeStr.Value != tt.expected {
 				t.Errorf("expected __type=%s, got %s", tt.expected, typeStr.Value)
 			}

@@ -45,10 +45,10 @@ func TestShuffleMethod(t *testing.T) {
 		p := parser.New(l)
 		env := evaluator.NewEnvironment()
 		program := p.ParseProgram()
-		
+
 		// Execute all statements
 		evaluator.Eval(program, env)
-		
+
 		// Check that original array is unchanged
 		arr, ok := env.Get("arr")
 		if !ok {
@@ -137,10 +137,10 @@ func TestPickMethod(t *testing.T) {
 		p := parser.New(l)
 		env := evaluator.NewEnvironment()
 		program := p.ParseProgram()
-		
+
 		// Execute all statements
 		evaluator.Eval(program, env)
-		
+
 		// Check that original array is unchanged
 		arr, ok := env.Get("arr")
 		if !ok {
@@ -220,10 +220,10 @@ func TestTakeMethod(t *testing.T) {
 		p := parser.New(l)
 		env := evaluator.NewEnvironment()
 		program := p.ParseProgram()
-		
+
 		// Execute all statements
 		evaluator.Eval(program, env)
-		
+
 		// Check that original array is unchanged
 		arr, ok := env.Get("arr")
 		if !ok {

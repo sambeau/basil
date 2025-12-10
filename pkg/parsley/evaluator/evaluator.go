@@ -583,6 +583,7 @@ type Environment struct {
 	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
 	HandlerPath   string          // Current handler path for cache key namespacing
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
+	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
 }
 
 // NewEnvironment creates a new environment
@@ -611,6 +612,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.AssetRegistry = outer.AssetRegistry
 		env.HandlerPath = outer.HandlerPath
 		env.DevMode = outer.DevMode
+		env.ContainsParts = outer.ContainsParts
 	}
 	return env
 }
@@ -8093,6 +8095,33 @@ func importModule(pathStr string, env *Environment) Object {
 	// Convert environment to dictionary
 	moduleDict := environmentToDict(moduleEnv)
 
+	// Mark as Part module if file extension is .part
+	if strings.HasSuffix(absPath, ".part") {
+		// Add __type metadata to identify this as a Part module
+		moduleDict.Pairs["__type"] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: "part"},
+			Value: "part",
+		}
+
+		// Verify all exports are functions (Part module contract)
+		for name, expr := range moduleDict.Pairs {
+			if name == "__type" {
+				continue
+			}
+			// Evaluate the expression to check its type
+			obj := Eval(expr, moduleDict.Env)
+			if _, ok := obj.(*Function); !ok {
+				return &Error{
+					Class:   ClassType,
+					Code:    "PART-0001",
+					Message: fmt.Sprintf("Part module export '%s' must be a function, got %s", name, obj.Type()),
+					Hints:   []string{"All exports in .part files must be view functions", "Example: export default = fn(props) { <div>...</div> }"},
+					File:    absPath,
+				}
+			}
+		}
+	}
+
 	// Cache the result
 	moduleCache.mu.Lock()
 	moduleCache.modules[absPath] = moduleDict
@@ -9764,6 +9793,11 @@ func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
 	tagName := raw[:i]
 	rest := raw[i:]
 
+	// Special handling for Part component
+	if tagName == "Part" {
+		return evalPartTag(node.Token, rest, env)
+	}
+
 	// Check if it's a custom tag (starts with uppercase)
 	isCustom := len(tagName) > 0 && unicode.IsUpper(rune(tagName[0]))
 
@@ -9928,6 +9962,272 @@ func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 	env.FragmentCache.Set(fullKey, html, maxAgeDuration)
 
 	return &String{Value: html}
+}
+
+// evalPartTag handles the <Part /> component for reloadable HTML fragments.
+// It loads a Part module, calls the specified view function, and wraps the result
+// with data attributes for JavaScript runtime interactivity.
+func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
+	// Parse props to extract src, view, and additional props
+	propsDict := parseTagProps(propsStr, env)
+	if isError(propsDict) {
+		return propsDict
+	}
+	props := propsDict.(*Dictionary)
+
+	// Extract 'src' attribute (required - path to Part module)
+	srcExpr, hasSrc := props.Pairs["src"]
+	if !hasSrc {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "PART-0002",
+			Message: "Part component requires 'src' attribute",
+			Hints:   []string{"Add a src attribute: <Part src={@./counter.part}/>", "The src should be a path to a .part file"},
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Evaluate src to get the path
+	srcObj := Eval(srcExpr, env)
+	if isError(srcObj) {
+		return srcObj
+	}
+
+	// Extract path string from path dictionary or string
+	var pathStr string
+	switch src := srcObj.(type) {
+	case *Dictionary:
+		// Handle path literal (@./file.part)
+		if typeExpr, ok := src.Pairs["__type"]; ok {
+			typeVal := Eval(typeExpr, src.Env)
+			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
+				pathStr = pathDictToString(src)
+			} else {
+				return &Error{
+					Class:   ClassType,
+					Code:    "PART-0003",
+					Message: "Part src must be a path or string",
+					Hints:   []string{"Use a path literal: src=@./counter.part", "Or a string: src=\"./counter.part\""},
+					Line:    token.Line,
+					Column:  token.Column,
+				}
+			}
+		} else {
+			return &Error{
+				Class:   ClassType,
+				Code:    "PART-0003",
+				Message: "Part src must be a path or string",
+				Hints:   []string{"Use a path literal: src={@./counter.part}", "Or a string: src=\"./counter.part\""},
+				Line:    token.Line,
+				Column:  token.Column,
+			}
+		}
+	case *String:
+		pathStr = src.Value
+	default:
+		return &Error{
+			Class:   ClassType,
+			Code:    "PART-0003",
+			Message: fmt.Sprintf("Part src must be a path or string, got %s", src.Type()),
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Verify path ends with .part
+	if !strings.HasSuffix(pathStr, ".part") {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "PART-0004",
+			Message: fmt.Sprintf("Part src must reference a .part file, got: %s", pathStr),
+			Hints:   []string{"Ensure your Part file has a .part extension"},
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Import the Part module
+	partModule := importModule(pathStr, env)
+	if isError(partModule) {
+		return partModule
+	}
+
+	partDict, ok := partModule.(*Dictionary)
+	if !ok {
+		return &Error{
+			Class:   ClassType,
+			Code:    "PART-0005",
+			Message: "Part module did not return a dictionary",
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Extract 'view' attribute (optional, defaults to "default")
+	viewName := "default"
+	if viewExpr, hasView := props.Pairs["view"]; hasView {
+		viewObj := Eval(viewExpr, env)
+		if isError(viewObj) {
+			return viewObj
+		}
+		if viewStr, ok := viewObj.(*String); ok {
+			viewName = viewStr.Value
+		} else {
+			return &Error{
+				Class:   ClassType,
+				Code:    "PART-0006",
+				Message: "Part view must be a string",
+				Hints:   []string{"Use view=\"edit\" or view={viewName}"},
+				Line:    token.Line,
+				Column:  token.Column,
+			}
+		}
+	}
+
+	// Look up the view function in the Part module
+	viewExpr, hasView := partDict.Pairs[viewName]
+	if !hasView {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "PART-0007",
+			Message: fmt.Sprintf("Part does not export view '%s'", viewName),
+			Hints:   []string{fmt.Sprintf("Add export %s = fn(props) { ... } to your Part file", viewName)},
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Evaluate the view expression to get the function
+	viewFn := Eval(viewExpr, partDict.Env)
+	if isError(viewFn) {
+		return viewFn
+	}
+
+	fnObj, ok := viewFn.(*Function)
+	if !ok {
+		return &Error{
+			Class:   ClassType,
+			Code:    "PART-0008",
+			Message: fmt.Sprintf("Part view '%s' must be a function, got %s", viewName, viewFn.Type()),
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Build props dictionary for view function (excluding src and view)
+	viewProps := make(map[string]ast.Expression)
+	for key, expr := range props.Pairs {
+		if key != "src" && key != "view" {
+			viewProps[key] = expr
+		}
+	}
+	viewPropsDict := &Dictionary{Pairs: viewProps, Env: env}
+
+	// Call the view function with props
+	result := applyFunction(fnObj, []Object{viewPropsDict})
+	if isError(result) {
+		return result
+	}
+
+	// Get the HTML content from the view function result
+	htmlContent := objectToTemplateString(result)
+
+	// Build data attributes for JavaScript runtime
+	// Encode props as JSON for the data-part-props attribute
+	propsJSON := encodePropsToJSON(viewPropsDict)
+
+	// Resolve the absolute path for data-part-src
+	absPath, err := resolveModulePath(pathStr, env.Filename, env.RootPath)
+	if err != nil {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "PART-0009",
+			Message: fmt.Sprintf("Failed to resolve Part path: %v", err),
+			Line:    token.Line,
+			Column:  token.Column,
+		}
+	}
+
+	// Mark that this page contains Parts (for JS injection)
+	env.ContainsParts = true
+
+	// Wrap the result in a div with data attributes
+	var output strings.Builder
+	output.WriteString("<div data-part-src=\"")
+	output.WriteString(htmlEscape(absPath))
+	output.WriteString("\" data-part-view=\"")
+	output.WriteString(htmlEscape(viewName))
+	output.WriteString("\" data-part-props='")
+	output.WriteString(htmlEscape(propsJSON))
+	output.WriteString("'>")
+	output.WriteString(htmlContent)
+	output.WriteString("</div>")
+
+	return &String{Value: output.String()}
+}
+
+// htmlEscape escapes special HTML characters for safe attribute values
+func htmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&#39;")
+	return s
+}
+
+// encodePropsToJSON encodes a props dictionary to JSON for data-part-props attribute
+func encodePropsToJSON(props *Dictionary) string {
+	// Build a map of evaluated prop values
+	propsMap := make(map[string]interface{})
+	for key, expr := range props.Pairs {
+		// Evaluate the expression
+		val := Eval(expr, props.Env)
+		// Convert to Go type for JSON marshaling
+		propsMap[key] = objectToGoValue(val)
+	}
+
+	// Marshal to JSON
+	jsonBytes, err := json.Marshal(propsMap)
+	if err != nil {
+		// If marshaling fails, return empty object
+		return "{}"
+	}
+
+	return string(jsonBytes)
+}
+
+// objectToGoValue converts a Parsley object to a Go value for JSON marshaling
+func objectToGoValue(obj Object) interface{} {
+	switch v := obj.(type) {
+	case *Integer:
+		return v.Value
+	case *Float:
+		return v.Value
+	case *Boolean:
+		return v.Value
+	case *String:
+		return v.Value
+	case *Array:
+		arr := make([]interface{}, len(v.Elements))
+		for i, elem := range v.Elements {
+			arr[i] = objectToGoValue(elem)
+		}
+		return arr
+	case *Dictionary:
+		m := make(map[string]interface{})
+		for key, expr := range v.Pairs {
+			val := Eval(expr, v.Env)
+			m[key] = objectToGoValue(val)
+		}
+		return m
+	case *Null:
+		return nil
+	default:
+		// For other types, use Inspect() as string
+		return obj.Inspect()
+	}
 }
 
 // evalStandardTagPair evaluates a standard (lowercase) tag pair as HTML string
@@ -13222,24 +13522,6 @@ func dictToNamedParams(dict *Dictionary, env *Environment) []interface{} {
 	}
 
 	return params
-}
-
-// objectToGoValue converts a Parsley object to a Go value for database params
-func objectToGoValue(obj Object) interface{} {
-	switch v := obj.(type) {
-	case *Integer:
-		return v.Value
-	case *Float:
-		return v.Value
-	case *String:
-		return v.Value
-	case *Boolean:
-		return v.Value
-	case *Null:
-		return nil
-	default:
-		return obj.Inspect()
-	}
 }
 
 // rowToDict converts a database row to a Parsley dictionary
