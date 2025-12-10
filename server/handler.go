@@ -1027,7 +1027,15 @@ func partsRuntimeScript() string {
         var clickView = clickEl.getAttribute('part-click');
         clickEl.addEventListener('click', function(e) {
           e.preventDefault();
-          updatePart(el, src, clickView, props);
+          // Collect part-* attributes from the clicked element
+          var clickProps = Object.assign({}, props);
+          Array.from(clickEl.attributes).forEach(function(attr) {
+            if (attr.name.startsWith('part-') && attr.name !== 'part-click') {
+              var propName = attr.name.substring(5); // Remove 'part-' prefix
+              clickProps[propName] = attr.value;
+            }
+          });
+          updatePart(el, src, clickView, clickProps);
         });
       });
       

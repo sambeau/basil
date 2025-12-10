@@ -1,9 +1,10 @@
+`<!DOCTYPE html>
+<html>
+<body>
 <h1>Parts Example</h1>
-
 <p>Click the buttons to increment or decrement:</p>
-
-<Part src={@./counter.part} view="default" count={0}/>
-
+{<Part src={@./counter.part} view="default" count={0}/>}
 <hr/>
-
 <p>The counter updates without reloading the page!</p>
+</body>
+</html>`

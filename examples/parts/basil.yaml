@@ -6,5 +6,5 @@ routes:
   - path: /
     handler: ./handlers/index.pars
   
-  - path: /handlers/counter.part
+  - path: /counter.part
     handler: ./handlers/counter.part

@@ -10171,25 +10171,31 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 }
 
 // convertPathToPartURL converts an absolute file path to a Part URL
-// Example: /path/to/handlers/foo/bar.part -> /foo/bar.part
+// Uses the handler's route path as the base for relative URL calculation
+// Example: If handler route is "/dashboard" and Part is "../shared/counter.part",
+//          the URL becomes "/shared/counter.part"
 func convertPathToPartURL(absPath string, rootPath string, handlerPath string) string {
-	// If rootPath is set, make the path relative to it
+	// handlerPath is the route path (e.g., "/", "/dashboard/settings")
+	// rootPath is the handler's file system directory
+	// absPath is the Part file's absolute file system path
+	
+	// Calculate the Part file's path relative to the handler's directory
 	if rootPath != "" {
 		relPath, err := filepath.Rel(rootPath, absPath)
-		if err == nil && !strings.HasPrefix(relPath, "..") {
+		if err == nil {
 			// Convert to URL path with forward slashes
-			return "/" + filepath.ToSlash(relPath)
-		}
-	}
-
-	// Fallback: use the handler path as context
-	// If the handler is /dashboard/index.pars and Part is /dashboard/counter.part
-	// then the URL should be /dashboard/counter.part
-	if handlerPath != "" {
-		handlerDir := filepath.Dir(handlerPath)
-		relPath, err := filepath.Rel(filepath.Dir(handlerDir), absPath)
-		if err == nil && !strings.HasPrefix(relPath, "..") {
-			return "/" + filepath.ToSlash(relPath)
+			relURL := filepath.ToSlash(relPath)
+			
+			// Join with the handler's route directory
+			if handlerPath != "" {
+				handlerDir := filepath.Dir(handlerPath)
+				if handlerDir == "/" || handlerDir == "." {
+					return "/" + relURL
+				}
+				return handlerDir + "/" + relURL
+			}
+			
+			return "/" + relURL
 		}
 	}
 
