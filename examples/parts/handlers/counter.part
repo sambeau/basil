@@ -1,0 +1,52 @@
+// Counter Part - demonstrates multiple views and state management
+// Each view function receives props and returns HTML
+
+export default = fn(props) {
+	let count = props.count
+	
+	<div>
+		<p>Count: {count}</p>
+		<button part-click="increment" part-count={count}>+</button>
+		<button part-click="decrement" part-count={count}>-</button>
+		<form part-submit="reset" style="display: inline; margin-left: 1rem;">
+			<button type="submit">Reset</button>
+		</form>
+	</div>
+}
+
+export increment = fn(props) {
+	let newCount = props.count + 1
+	
+	<div>
+		<p>Count: {newCount}</p>
+		<button part-click="increment" part-count={newCount}>+</button>
+		<button part-click="decrement" part-count={newCount}>-</button>
+		<form part-submit="reset" style="display: inline; margin-left: 1rem;">
+			<button type="submit">Reset</button>
+		</form>
+	</div>
+}
+
+export decrement = fn(props) {
+	let newCount = props.count - 1
+	
+	<div>
+		<p>Count: {newCount}</p>
+		<button part-click="increment" part-count={newCount}>+</button>
+		<button part-click="decrement" part-count={newCount}>-</button>
+		<form part-submit="reset" style="display: inline; margin-left: 1rem;">
+			<button type="submit">Reset</button>
+		</form>
+	</div>
+}
+
+export reset = fn(props) {
+	<div>
+		<p>Count: 0</p>
+		<button part-click="increment" part-count=0>+</button>
+		<button part-click="decrement" part-count=0>-</button>
+		<form part-submit="reset" style="display: inline; margin-left: 1rem;">
+			<button type="submit">Reset</button>
+		</form>
+	</div>
+}

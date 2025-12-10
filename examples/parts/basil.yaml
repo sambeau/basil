@@ -1,0 +1,10 @@
+server:
+  port: 3000
+  dev: true
+
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+  
+  - path: /handlers/counter.part
+    handler: ./handlers/counter.part
