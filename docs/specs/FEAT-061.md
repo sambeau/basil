@@ -297,6 +297,7 @@ Injected automatically when page contains `<Part/>`:
 
 ### V1.1 (Future)
 
+See FEAT-062 for auto-refresh and lazy loading:
 - `part-refresh={ms}` for auto-refresh
 - `part-load="view"` for lazy loading
 
