@@ -121,6 +121,39 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 
 // ServeHTTP handles HTTP requests by executing the Parsley script
 func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Check if this is a Part request with _view parameter
+	if isPartRequest(r) {
+		// Verify the handler is actually a .part file
+		if !strings.HasSuffix(h.scriptPath, ".part") {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+
+		// Create minimal environment for Part handling
+		env := evaluator.NewEnvironment()
+		env.Filename = h.scriptPath
+		scriptDir := filepath.Dir(h.scriptPath)
+		absScriptDir, _ := filepath.Abs(scriptDir)
+		env.RootPath = absScriptDir
+		env.Security = &evaluator.SecurityPolicy{
+			NoRead:        false,
+			AllowWrite:    []string{},
+			AllowWriteAll: false,
+			AllowExecute:  []string{absScriptDir},
+			RestrictRead:  []string{"/etc", "/var", "/root"},
+		}
+
+		// Handle the Part request
+		h.handlePartRequest(w, r, h.scriptPath, env)
+		return
+	}
+
+	// Block direct requests to .part files without _view parameter
+	if strings.HasSuffix(h.scriptPath, ".part") {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
 	// Check response cache first (only for cacheable routes with GET requests)
 	if h.route.Cache > 0 && r.Method == http.MethodGet {
 		if cached := h.responseCache.Get(r); cached != nil {

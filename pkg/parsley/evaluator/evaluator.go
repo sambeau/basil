@@ -10137,7 +10137,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	// Encode props as JSON for the data-part-props attribute
 	propsJSON := encodePropsToJSON(viewPropsDict)
 
-	// Resolve the absolute path for data-part-src
+	// Resolve the absolute path for the Part file
 	absPath, err := resolveModulePath(pathStr, env.Filename, env.RootPath)
 	if err != nil {
 		return &Error{
@@ -10149,13 +10149,16 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 		}
 	}
 
+	// Convert absolute path to Part URL
+	partURL := convertPathToPartURL(absPath, env.RootPath, env.HandlerPath)
+
 	// Mark that this page contains Parts (for JS injection)
 	env.ContainsParts = true
 
 	// Wrap the result in a div with data attributes
 	var output strings.Builder
 	output.WriteString("<div data-part-src=\"")
-	output.WriteString(htmlEscape(absPath))
+	output.WriteString(htmlEscape(partURL))
 	output.WriteString("\" data-part-view=\"")
 	output.WriteString(htmlEscape(viewName))
 	output.WriteString("\" data-part-props='")
@@ -10165,6 +10168,33 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	output.WriteString("</div>")
 
 	return &String{Value: output.String()}
+}
+
+// convertPathToPartURL converts an absolute file path to a Part URL
+// Example: /path/to/handlers/foo/bar.part -> /foo/bar.part
+func convertPathToPartURL(absPath string, rootPath string, handlerPath string) string {
+	// If rootPath is set, make the path relative to it
+	if rootPath != "" {
+		relPath, err := filepath.Rel(rootPath, absPath)
+		if err == nil && !strings.HasPrefix(relPath, "..") {
+			// Convert to URL path with forward slashes
+			return "/" + filepath.ToSlash(relPath)
+		}
+	}
+
+	// Fallback: use the handler path as context
+	// If the handler is /dashboard/index.pars and Part is /dashboard/counter.part
+	// then the URL should be /dashboard/counter.part
+	if handlerPath != "" {
+		handlerDir := filepath.Dir(handlerPath)
+		relPath, err := filepath.Rel(filepath.Dir(handlerDir), absPath)
+		if err == nil && !strings.HasPrefix(relPath, "..") {
+			return "/" + filepath.ToSlash(relPath)
+		}
+	}
+
+	// Final fallback: use absolute path
+	return absPath
 }
 
 // htmlEscape escapes special HTML characters for safe attribute values

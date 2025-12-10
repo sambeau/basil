@@ -32,10 +32,16 @@ type Server struct {
 	server        *http.Server
 	scriptCache   *scriptCache
 	responseCache *responseCache
+	fragmentCache *fragmentCache
+	assetRegistry *assetRegistry
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
 	rateLimiter   *rateLimiter
+
+	// Session store (cookie-based by default)
+	sessionStore  SessionStore
+	sessionSecret string
 
 	// Dev tools (nil if not in dev mode)
 	devLog *DevLog
@@ -45,10 +51,19 @@ type Server struct {
 	authWebAuthn *auth.WebAuthnManager
 	authHandlers *auth.Handlers
 	authMW       *auth.Middleware
+
+	// CSRF middleware
+	csrfMW *CSRFMiddleware
+
+	// CORS middleware
+	corsMW *CORSMiddleware
+
+	// Git server (nil if git not enabled)
+	gitHandler *GitHandler
 }
 
 // New creates a new Basil server with the given configuration.
-func New(cfg *config.Config, configPath string, version string, stdout, stderr io.Writer) (*Server, error) {
+func New(cfg *config.Config, configPath string, version, commit string, stdout, stderr io.Writer) (*Server, error) {
 	s := &Server{
 		config:        cfg,
 		configPath:    configPath,
@@ -58,7 +73,31 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		mux:           http.NewServeMux(),
 		scriptCache:   newScriptCache(cfg.Server.Dev),
 		responseCache: newResponseCache(cfg.Server.Dev),
+		fragmentCache: newFragmentCache(cfg.Server.Dev, 1000),
 		rateLimiter:   newRateLimiter(60, time.Minute),
+		csrfMW:        NewCSRFMiddleware(cfg.Server.Dev),
+	}
+
+	// Initialize prelude (embedded assets and Parsley files)
+	if err := initPrelude(commit); err != nil {
+		return nil, fmt.Errorf("initializing prelude: %w", err)
+	}
+
+	// Initialize CORS middleware if configured
+	if len(cfg.CORS.Origins) > 0 {
+		s.corsMW = NewCORSMiddleware(cfg.CORS)
+	}
+
+	// Initialize asset registry (logger for warnings, nil for production silent mode)
+	if cfg.Server.Dev {
+		s.assetRegistry = newAssetRegistry(s.logWarn)
+	} else {
+		s.assetRegistry = newAssetRegistry(nil)
+	}
+
+	// Initialize session store
+	if err := s.initSessions(); err != nil {
+		return nil, fmt.Errorf("initializing sessions: %w", err)
 	}
 
 	// Initialize dev tools in dev mode
@@ -80,6 +119,18 @@ func New(cfg *config.Config, configPath string, version string, stdout, stderr i
 		}
 		s.cleanupDevTools()
 		return nil, fmt.Errorf("initializing auth: %w", err)
+	}
+
+	// Initialize Git server if enabled
+	if err := s.initGit(); err != nil {
+		if s.authDB != nil {
+			s.authDB.Close()
+		}
+		if s.db != nil {
+			s.db.Close()
+		}
+		s.cleanupDevTools()
+		return nil, fmt.Errorf("initializing git server: %w", err)
 	}
 
 	// Set up routes
@@ -157,6 +208,37 @@ func (s *Server) Close() {
 	if s.db != nil {
 		s.db.Close()
 	}
+}
+
+// initSessions initializes the session store.
+func (s *Server) initSessions() error {
+	cfg := &s.config.Session
+
+	// Determine session secret
+	secret := cfg.Secret
+	if secret == "" {
+		if s.config.Server.Dev {
+			// In dev mode, generate a random secret (sessions won't persist across restarts)
+			var err error
+			secret, err = generateRandomSecret()
+			if err != nil {
+				return fmt.Errorf("generating dev session secret: %w", err)
+			}
+			s.logInfo("sessions: using auto-generated secret (dev mode)")
+		} else {
+			// In production, require explicit secret
+			s.logWarn("sessions: no secret configured, sessions disabled")
+			return nil
+		}
+	}
+
+	s.sessionSecret = secret
+
+	// Create cookie session store (default and currently only supported store)
+	s.sessionStore = NewCookieSessionStore(cfg, secret)
+
+	s.logInfo("sessions: cookie store initialized (max_age=%s)", cfg.MaxAge)
+	return nil
 }
 
 // initDatabase opens the SQLite database connection if configured.
@@ -260,8 +342,51 @@ func (s *Server) initAuth() error {
 	return nil
 }
 
+// initGit initializes the Git HTTP server if enabled.
+func (s *Server) initGit() error {
+	if !s.config.Git.Enabled {
+		return nil
+	}
+
+	// Security warnings
+	if !s.config.Git.RequireAuth && !s.config.Server.Dev {
+		s.logWarn("git server is enabled without authentication - this is insecure!")
+	}
+	if s.config.Git.RequireAuth && s.authDB == nil {
+		return fmt.Errorf("git server requires auth but auth is not enabled - enable auth.enabled or set git.require_auth: false")
+	}
+
+	// Git handler needs the site directory (where .git repo is)
+	siteDir := s.config.BaseDir
+
+	// Create reload callback
+	onPush := func() {
+		s.logInfo("git push received, reloading handlers...")
+		s.scriptCache.clear()
+		s.responseCache.Clear()
+		s.fragmentCache.Clear()
+	}
+
+	gitHandler, err := NewGitHandler(siteDir, s.authDB, s.config, onPush, s.stdout, s.stderr)
+	if err != nil {
+		return fmt.Errorf("creating git handler: %w", err)
+	}
+
+	s.gitHandler = gitHandler
+	s.logInfo("git server enabled at /.git/")
+	return nil
+}
+
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
+	// Register asset handler for publicUrl() files at /__p/
+	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry))
+
+	// Register prelude asset handlers
+	s.mux.HandleFunc("/__/js/", s.handlePreludeAsset)
+	s.mux.HandleFunc("/__/css/", s.handlePreludeAsset)
+	s.mux.HandleFunc("/__/public/", s.handlePreludeAsset)
+
 	// In dev mode, add dev tools endpoints
 	if s.config.Server.Dev {
 		s.mux.Handle("/__livereload", newLiveReloadHandler(s))
@@ -282,6 +407,11 @@ func (s *Server) setupRoutes() error {
 		s.mux.HandleFunc("/__auth/me", s.authHandlers.MeHandler)
 	}
 
+	// Register Git server if enabled
+	if s.gitHandler != nil {
+		s.mux.Handle("/.git/", s.gitHandler)
+	}
+
 	// Register explicit static routes (non-root paths like /favicon.ico)
 	for _, static := range s.config.Static {
 		if static.Path != "/" {
@@ -297,6 +427,14 @@ func (s *Server) setupRoutes() error {
 		}
 	}
 
+	// Site mode: use filesystem-based routing
+	if s.config.Site != "" {
+		s.mux.Handle("/", newSiteHandler(s, s.config.Site, s.scriptCache))
+		s.logInfo("site mode enabled at %s", s.config.Site)
+		return nil
+	}
+
+	// Routes mode: explicit route-based routing
 	// Register Parsley routes (specific paths)
 	for _, route := range s.config.Routes {
 		if route.Path == "/" {
@@ -324,6 +462,12 @@ func (s *Server) setupRoutes() error {
 		}
 
 		finalHandler := s.applyAuthMiddleware(handler, authMode)
+
+		// Apply CSRF middleware for non-API routes with auth
+		// API routes use API keys/bearer tokens, not cookies, so CSRF doesn't apply
+		if !isAPI && (authMode == "required" || authMode == "optional") {
+			finalHandler = s.csrfMW.Validate(finalHandler)
+		}
 
 		// If route has public_dir, wrap with static file fallback
 		if route.PublicDir != "" {
@@ -476,20 +620,22 @@ func (s *Server) createRootHandler() http.Handler {
 				relStatic := makeRelativePath(staticRoot, info.BasePath)
 				info.CheckedPaths = append(info.CheckedPaths, relStatic+r.URL.Path)
 			}
-			renderDev404Page(w, info)
+			s.handle404(w, r)
 			return
 		}
-		http.NotFound(w, r)
+		s.handle404(w, r)
 	})
 }
 
-// ReloadScripts clears the script cache and response cache, forcing all scripts
-// to be re-parsed and responses to be regenerated.
+// ReloadScripts clears the script cache, response cache, and fragment cache,
+// forcing all scripts to be re-parsed and responses to be regenerated.
 // This is useful for production deployments when scripts are updated.
 // In dev mode, this also triggers browser reload via the live reload mechanism.
 func (s *Server) ReloadScripts() {
 	s.scriptCache.clear()
 	s.responseCache.Clear()
+	s.fragmentCache.Clear()
+	s.assetRegistry.Clear()
 	// Trigger browser reload if watcher is active (dev mode)
 	if s.watcher != nil {
 		s.watcher.TriggerReload()
@@ -545,6 +691,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// Add security headers
 	handler = newSecurityHeaders(handler, s.config.Security, s.config.Server.Dev)
+
+	// Add CORS middleware if configured
+	if s.corsMW != nil {
+		handler = s.corsMW.Handler(handler)
+	}
 
 	// Wrap with request logging middleware (unless level is error-only)
 	if s.config.Logging.Level != "error" {
