@@ -1,9 +1,10 @@
 ---
 id: FEAT-060
 title: "Remove basil Global (Breaking Change)"
-status: draft
+status: complete
 priority: high
 created: 2025-12-09
+updated: 2025-12-10
 author: "@ai"
 ---
 
@@ -159,8 +160,24 @@ env.BasilCtx = basilObj          // Used by std/basil import
 ```
 
 ## Implementation Notes
-*To be added during implementation*
+
+Implemented on 2025-12-10. All changes completed in single atomic commit (bef1984).
+
+**Files Modified:**
+- `server/handler.go` - Removed `env.SetProtected("basil", basilObj)`, kept `env.BasilCtx`
+- `server/api.go` - Removed `env.SetProtected("basil", basilObj)`, kept `env.BasilCtx`
+- `server/errors.go` - Changed to use `env.BasilCtx` instead of `env.Set("basil", ...)`
+- `server/devtools.go` - Changed to use `env.BasilCtx` in `createDevToolsEnv()`
+- 3 server prelude templates - Added `let {basil} = import @std/basil`
+- 7 example handlers - Added import statement
+- 2 documentation files - Updated code examples
+- 2 test files - Fixed test scripts and expectations
+
+**Test Results:**
+- All tests passing (100%)
+- No regressions
+- Breaking change successfully implemented
 
 ## Related
-- Backlog item: "Remove `basil` global in favor of `std/basil` import"
+- Backlog item: "Remove `basil` global in favor of `std/basil` import" (completed)
 - Related: FEAT-011 (Basil namespace - introduced the dual system)
