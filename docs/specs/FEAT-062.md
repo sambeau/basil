@@ -37,7 +37,6 @@ As a web developer, I want Parts that can automatically refresh themselves on an
 
 ### Combined Use
 - [ ] `part-refresh` and `part-load` work together (refresh starts after load)
-- [ ] Refresh respects visibility (pause when scrolled out of view)
 
 ## Design Decisions
 
@@ -163,32 +162,37 @@ const lazyParts = new WeakMap(); // Track loaded state
 function initLazyLoading() {
     const parts = document.querySelectorAll('[data-part-load]');
     
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const part = entry.target;
-                
-                // Load only once
-                if (lazyParts.get(part)) return;
-                lazyParts.set(part, true);
-                
-                const view = part.dataset.partLoad;
-                const propsJson = part.dataset.partProps;
-                const props = propsJson ? JSON.parse(propsJson) : {};
-                
-                refresh(part, view, props, 'GET');
-                
-                // Start auto-refresh after load (if configured)
-                if (part.dataset.partRefresh) {
-                    startAutoRefresh(part);
+    parts.forEach(part => {
+        const threshold = part.dataset.partLoadThreshold || '0';
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Load only once
+                    if (lazyParts.get(part)) return;
+                    lazyParts.set(part, true);
+                    
+                    const view = part.dataset.partLoad;
+                    const propsJson = part.dataset.partProps;
+                    const props = propsJson ? JSON.parse(propsJson) : {};
+                    
+                    refresh(part, view, props, 'GET');
+                    
+                    // Start auto-refresh after load (if configured)
+                    if (part.dataset.partRefresh) {
+                        startAutoRefresh(part);
+                    }
+                    
+                    // Stop observing
+                    observer.unobserve(part);
                 }
-            }
+            });
+        }, {
+            rootMargin: threshold + 'px'
         });
-    }, {
-        rootMargin: getPart.dataset.partLoadThreshold || '0'} + 'px'
+        
+        observer.observe(part);
     });
-    
-    parts.forEach(part => observer.observe(part));
 }
 
 // Initialize on page load
