@@ -39,7 +39,7 @@ As a web developer, I want to create interactive page fragments that can reload 
 
 ### JavaScript Runtime
 - [x] Auto-injected when page contains `<Part/>` components
-- [x] `data-part-loading` class added during fetch
+- [x] `part-loading` class added during fetch
 - [ ] `part-leave`/`part-enter` classes for CSS animations (deferred - V1.1)
 - [x] On fetch error, old content remains visible
 - [x] Nested Parts re-initialized after parent refresh
@@ -160,7 +160,7 @@ Injected automatically when page contains `<Part/>`:
 ```javascript
 (function() {
     function refresh(part, view, props, method) {
-        part.classList.add('data-part-loading');
+        part.classList.add('part-loading');
         part.classList.add('part-leave');
         
         const src = part.dataset.partSrc;
@@ -196,7 +196,7 @@ Injected automatically when page contains `<Part/>`:
                 }, duration);
             })
             .finally(() => {
-                part.classList.remove('data-part-loading');
+                part.classList.remove('part-loading');
             });
     }
     
@@ -243,8 +243,8 @@ Injected automatically when page contains `<Part/>`:
 ### CSS Classes
 
 | Class | When Applied | Purpose |
-|-------|--------------|---------|
-| `data-part-loading` | During fetch | Style loading state |
+|-------|--------------|--------|
+| `part-loading` | During fetch | Style loading state |
 | `part-leave` | Before content swap | Exit animation |
 | `part-enter` | After content swap | Enter animation |
 

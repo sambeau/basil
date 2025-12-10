@@ -219,12 +219,12 @@ When you use a `<Part/>` tag, Basil automatically injects JavaScript before `</b
 - Automatic initialization on page load
 - Re-initializes after each Part update (for nested Parts)
 - Graceful error handling (keeps old content on failure)
-- Loading class (`data-part-loading`) during fetch
+- Loading class (`part-loading`) during fetch
 
 **CSS Hook:**
 
 ```css
-[data-part-src].data-part-loading {
+[data-part-src].part-loading {
     opacity: 0.5;
     pointer-events: none;
 }
@@ -337,7 +337,7 @@ If a view function fails or returns an error:
 If the fetch fails (network error, timeout):
 - JavaScript logs error to console
 - Old content remains visible
-- `data-part-loading` class is removed
+- `part-loading` class is removed
 
 ### Debugging
 

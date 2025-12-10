@@ -1057,8 +1057,8 @@ func partsRuntimeScript() string {
   
   // Update a Part by fetching a new view
   function updatePart(el, src, view, props, method) {
-    // Add loading class (spec: data-part-loading)
-    el.classList.add('data-part-loading');
+    // Add loading class
+    el.classList.add('part-loading');
     
     // Build URL
     var url = new URL(src, window.location.origin);
@@ -1095,7 +1095,7 @@ func partsRuntimeScript() string {
         el.innerHTML = html;
         
         // Remove loading class
-        el.classList.remove('data-part-loading');
+        el.classList.remove('part-loading');
         
         // Re-initialize event handlers for this Part
         initParts();
@@ -1103,7 +1103,7 @@ func partsRuntimeScript() string {
       .catch(function(error) {
         console.error('Failed to update Part:', error);
         // Remove loading class on error (leave old content)
-        el.classList.remove('data-part-loading');
+        el.classList.remove('part-loading');
       });
   }
   
