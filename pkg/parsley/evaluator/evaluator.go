@@ -6206,6 +6206,17 @@ func createErrorResult(errMsg string, exitCode int64) *Dictionary {
 func evalStatement(stmt ast.Statement, env *Environment) Object {
 	switch stmt := stmt.(type) {
 	case *ast.ExpressionStatement:
+		// Special case: standalone import statements (not in let/assignment)
+		// These auto-bind and return NULL to avoid appearing in program output
+		if importExpr, ok := stmt.Expression.(*ast.ImportExpression); ok {
+			module := Eval(importExpr, env)
+			if isError(module) {
+				return module
+			}
+			// Auto-bind if we have a bind name (already done in evalImportExpression)
+			// Return NULL so imports don't appear in concatenated output
+			return NULL
+		}
 		return Eval(stmt.Expression, env)
 	case *ast.ReturnStatement:
 		val := Eval(stmt.ReturnValue, env)
@@ -6401,6 +6412,17 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalProgram(node.Statements, env)
 
 	case *ast.ExpressionStatement:
+		// Special case: standalone import statements (not in let/assignment)
+		// These auto-bind and return NULL to avoid appearing in program output
+		if importExpr, ok := node.Expression.(*ast.ImportExpression); ok {
+			module := Eval(importExpr, env)
+			if isError(module) {
+				return module
+			}
+			// Module is already auto-bound in evalImportExpression
+			// Return NULL so imports don't appear in concatenated output
+			return NULL
+		}
 		return Eval(node.Expression, env)
 
 	case *ast.BlockStatement:
@@ -6797,47 +6819,49 @@ func Eval(node ast.Node, env *Environment) Object {
 
 // Helper functions
 func evalProgram(stmts []ast.Statement, env *Environment) Object {
-	var result Object
-	var printResults []Object
+	var results []Object
 
 	for _, statement := range stmts {
-		result = Eval(statement, env)
+		result := Eval(statement, env)
 
-		switch r := result.(type) {
-		case *ReturnValue:
-			// If we have accumulated print results, combine them with return value
-			if len(printResults) > 0 {
-				printResults = append(printResults, r.Value)
-				return &Array{Elements: printResults}
+		if result != nil {
+			rt := result.Type()
+			if rt == RETURN_OBJ {
+				// Immediate return with value
+				return result.(*ReturnValue).Value
 			}
-			return r.Value
-		case *Error:
-			return r
-		case *PrintValue:
-			// Accumulate print values at program level
-			for _, v := range r.Values {
-				str := objectToUserString(v)
-				if str != "" {
-					printResults = append(printResults, &String{Value: str})
+			if rt == ERROR_OBJ {
+				return result
+			}
+
+			// Handle PrintValue - expand into results as strings
+			if rt == PRINT_VALUE_OBJ {
+				pv := result.(*PrintValue)
+				for _, v := range pv.Values {
+					str := objectToUserString(v)
+					if str != "" { // Skip empty (null produces "")
+						results = append(results, &String{Value: str})
+					}
 				}
+				continue
 			}
-			result = NULL // print returns null
+
+			// Collect non-NULL results
+			if rt != NULL_OBJ {
+				results = append(results, result)
+			}
 		}
 	}
 
-	// If we accumulated print results
-	if len(printResults) > 0 {
-		// If the last statement wasn't a print and had a value, include it
-		if result != nil && result.Type() != NULL_OBJ && result.Type() != PRINT_VALUE_OBJ {
-			printResults = append(printResults, result)
-		}
-		if len(printResults) == 1 {
-			return printResults[0]
-		}
-		return &Array{Elements: printResults}
+	// Return based on number of results
+	switch len(results) {
+	case 0:
+		return NULL
+	case 1:
+		return results[0] // Single result: return directly (preserves type)
+	default:
+		return &Array{Elements: results} // Multiple results: return as array
 	}
-
-	return result
 }
 
 func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
@@ -7959,6 +7983,7 @@ func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
 		env.Set(node.BindName, module)
 	}
 
+	// Always return the module (for use in let statements and destructuring)
 	return module
 }
 
@@ -11439,7 +11464,8 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		}
 	}
 
-	return content
+	// Read statements return NULL (like let statements)
+	return NULL
 }
 
 // evalFetchStatement evaluates the <=/= operator to fetch URL content
@@ -11561,7 +11587,8 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 		}
 	}
 
-	return responseDict
+	// Fetch statements return NULL (like let statements)
+	return NULL
 }
 
 // isRequestDict checks if a dictionary is a request handle by looking for __type field
@@ -13283,7 +13310,8 @@ func rowToDict(columns []string, values []interface{}, env *Environment) *Dictio
 // assignQueryResult assigns query result to variables
 func assignQueryResult(names []*ast.Identifier, result Object, env *Environment, isLet bool) Object {
 	if len(names) == 0 {
-		return result
+		// No assignment target - shouldn't happen in practice
+		return NULL
 	}
 
 	if len(names) == 1 {
@@ -13295,7 +13323,8 @@ func assignQueryResult(names []*ast.Identifier, result Object, env *Environment,
 				env.Update(name, result)
 			}
 		}
-		return result
+		// Query statements return NULL (like let statements)
+		return NULL
 	}
 
 	// Multiple names - destructure array or dict

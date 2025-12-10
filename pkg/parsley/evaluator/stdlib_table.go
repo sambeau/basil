@@ -141,7 +141,8 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 		}
 	}
 
-	return mod
+	// Destructuring assignments return NULL (excluded from block concatenation)
+	return NULL
 }
 
 // TableConstructor creates a new Table from an array of dictionaries
