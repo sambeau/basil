@@ -40,9 +40,23 @@ func TestShuffleMethod(t *testing.T) {
 	})
 
 	t.Run("shuffle does not modify original", func(t *testing.T) {
-		result := evalRandomTest(`let arr = [1,2,3]; arr.shuffle(); arr`)
-		if result.Inspect() != "[1, 2, 3]" {
-			t.Errorf("Original array was modified: %s", result.Inspect())
+		// Test in multiple statements to verify shuffle returns new array
+		l := lexer.New("let arr = [1,2,3]\narr.shuffle()\narr")
+		p := parser.New(l)
+		env := evaluator.NewEnvironment()
+		program := p.ParseProgram()
+		
+		// Execute all statements
+		evaluator.Eval(program, env)
+		
+		// Check that original array is unchanged
+		arr, ok := env.Get("arr")
+		if !ok {
+			t.Error("arr not found in environment")
+			return
+		}
+		if arr.Inspect() != "[1, 2, 3]" {
+			t.Errorf("Original array was modified: %s", arr.Inspect())
 		}
 	})
 
@@ -119,9 +133,22 @@ func TestPickMethod(t *testing.T) {
 	})
 
 	t.Run("pick does not modify original", func(t *testing.T) {
-		result := evalRandomTest(`let arr = [1,2,3]; arr.pick(2); arr`)
-		if result.Inspect() != "[1, 2, 3]" {
-			t.Errorf("Original array was modified: %s", result.Inspect())
+		l := lexer.New("let arr = [1,2,3]\narr.pick(2)\narr")
+		p := parser.New(l)
+		env := evaluator.NewEnvironment()
+		program := p.ParseProgram()
+		
+		// Execute all statements
+		evaluator.Eval(program, env)
+		
+		// Check that original array is unchanged
+		arr, ok := env.Get("arr")
+		if !ok {
+			t.Error("arr not found in environment")
+			return
+		}
+		if arr.Inspect() != "[1, 2, 3]" {
+			t.Errorf("Original array was modified: %s", arr.Inspect())
 		}
 	})
 
@@ -189,9 +216,22 @@ func TestTakeMethod(t *testing.T) {
 	})
 
 	t.Run("take does not modify original", func(t *testing.T) {
-		result := evalRandomTest(`let arr = [1,2,3]; arr.take(2); arr`)
-		if result.Inspect() != "[1, 2, 3]" {
-			t.Errorf("Original array was modified: %s", result.Inspect())
+		l := lexer.New("let arr = [1,2,3]\narr.take(2)\narr")
+		p := parser.New(l)
+		env := evaluator.NewEnvironment()
+		program := p.ParseProgram()
+		
+		// Execute all statements
+		evaluator.Eval(program, env)
+		
+		// Check that original array is unchanged
+		arr, ok := env.Get("arr")
+		if !ok {
+			t.Error("arr not found in environment")
+			return
+		}
+		if arr.Inspect() != "[1, 2, 3]" {
+			t.Errorf("Original array was modified: %s", arr.Inspect())
 		}
 	})
 

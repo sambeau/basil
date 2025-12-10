@@ -184,24 +184,42 @@ func TestUrlLiteralsComputedProperties(t *testing.T) {
 // Test that @ prefix correctly distinguishes between different literal types
 func TestAtPrefixDisambiguation(t *testing.T) {
 	tests := []struct {
+		name     string
 		input    string
-		typeTest string
+		expected string
 	}{
-		{"let d = @2024-12-25; d", `d.__type == "datetime"`},
-		{"let dur = @2h30m; dur", `dur.__type == "duration"`},
-		{"let p = @/usr/local; p", `p.__type == "path"`},
-		{"let u = @https://example.com; u", `u.__type == "url"`},
+		{"datetime", `@2024-12-25`, "datetime"},
+		{"duration", `@2h30m`, "duration"},
+		{"path", `@/usr/local`, "path"},
+		{"url", `@https://example.com`, "url"},
 	}
 
 	for _, tt := range tests {
-		result := testEvalLiteral(tt.input + "; " + tt.typeTest)
-		boolean, ok := result.(*evaluator.Boolean)
-		if !ok {
-			t.Errorf("For input '%s': expected Boolean, got %T (%+v)", tt.input, result, result)
-			continue
-		}
-		if !boolean.Value {
-			t.Errorf("For input '%s': expected true, got false", tt.input)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalLiteral(tt.input)
+			dict, ok := result.(*evaluator.Dictionary)
+			if !ok {
+				t.Errorf("expected Dictionary, got %T (%+v)", result, result)
+				return
+			}
+			
+			// Check __type field
+			typeExpr, ok := dict.Pairs["__type"]
+			if !ok {
+				t.Errorf("dictionary missing __type field")
+				return
+			}
+			
+			typeVal := evaluator.Eval(typeExpr, dict.Env)
+			typeStr, ok := typeVal.(*evaluator.String)
+			if !ok {
+				t.Errorf("__type is not a string, got %T", typeVal)
+				return
+			}
+			
+			if typeStr.Value != tt.expected {
+				t.Errorf("expected __type=%s, got %s", tt.expected, typeStr.Value)
+			}
+		})
 	}
 }

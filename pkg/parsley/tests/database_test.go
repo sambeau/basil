@@ -12,81 +12,140 @@ import (
 )
 
 func TestSQLiteConnection(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected interface{}
-	}{
-		{
-			name:     "Create SQLite connection",
-			input:    `let db = @sqlite(":memory:"); db`,
-			expected: "DB_CONNECTION",
-		},
-		{
-			name:     "Check connection type",
-			input:    `let db = @sqlite(":memory:"); db`,
-			expected: "<DBConnection driver=sqlite>",
-		},
-		{
-			name:     "Ping connection",
-			input:    `let db = @sqlite(":memory:"); db.ping()`,
-			expected: true,
-		},
-		{
-			name:     "Begin transaction",
-			input:    `let db = @sqlite(":memory:"); db.begin()`,
-			expected: true,
-		},
-		{
-			name:     "Begin and commit transaction",
-			input:    `let db = @sqlite(":memory:"); db.begin(); db.commit()`,
-			expected: true,
-		},
-		{
-			name:     "Begin and rollback transaction",
-			input:    `let db = @sqlite(":memory:"); db.begin(); db.rollback()`,
-			expected: true,
-		},
-	}
+	t.Run("Create SQLite connection", func(t *testing.T) {
+		l := lexer.New(`let db = @sqlite(":memory:")`)
+		p := parser.New(l)
+		program := p.ParseProgram()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New(tt.input)
-			p := parser.New(l)
-			program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
 
-			if len(p.Errors()) != 0 {
-				t.Fatalf("Parser errors: %v", p.Errors())
-			}
+		env := evaluator.NewEnvironment()
+		evaluator.Eval(program, env)
 
-			env := evaluator.NewEnvironment()
-			result := evaluator.Eval(program, env)
+		db, ok := env.Get("db")
+		if !ok {
+			t.Fatal("db not found in environment")
+		}
 
-			if result == nil {
-				t.Fatalf("Eval returned nil")
-			}
+		if db.Type() != "DB_CONNECTION" {
+			t.Errorf("Expected DB_CONNECTION object, got %s", db.Type())
+		}
+	})
 
-			switch expected := tt.expected.(type) {
-			case string:
-				if expected == "DB_CONNECTION" {
-					if result.Type() != "DB_CONNECTION" {
-						t.Errorf("Expected DB_CONNECTION object, got %s", result.Type())
-					}
-				} else {
-					if result.Inspect() != expected {
-						t.Errorf("Expected %q, got %q", expected, result.Inspect())
-					}
-				}
-			case bool:
-				boolean, ok := result.(*evaluator.Boolean)
-				if !ok {
-					t.Errorf("Expected Boolean object, got %T", result)
-				} else if boolean.Value != expected {
-					t.Errorf("Expected %v, got %v", expected, boolean.Value)
-				}
-			}
-		})
-	}
+	t.Run("Check connection type", func(t *testing.T) {
+		l := lexer.New(`let db = @sqlite(":memory:")`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		env := evaluator.NewEnvironment()
+		evaluator.Eval(program, env)
+
+		db, _ := env.Get("db")
+		if db.Inspect() != "<DBConnection driver=sqlite>" {
+			t.Errorf("Expected %q, got %q", "<DBConnection driver=sqlite>", db.Inspect())
+		}
+	})
+
+	t.Run("Ping connection", func(t *testing.T) {
+		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `db.ping()`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
+
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("Eval error: %s", err.Message)
+		}
+
+		// db.ping() should be the only non-NULL result
+		boolean, ok := result.(*evaluator.Boolean)
+		if !ok {
+			t.Errorf("Expected Boolean, got %T: %v", result, result)
+			return
+		}
+		if !boolean.Value {
+			t.Errorf("Expected true, got %v", result.Inspect())
+		}
+	})
+
+	t.Run("Begin transaction", func(t *testing.T) {
+		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `db.begin()`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
+
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("Eval error: %s", err.Message)
+		}
+
+		// db.begin() should be the only non-NULL result
+		boolean, ok := result.(*evaluator.Boolean)
+		if !ok {
+			t.Errorf("Expected Boolean, got %T: %v", result, result)
+			return
+		}
+		if !boolean.Value {
+			t.Errorf("Expected true, got %v", result.Inspect())
+		}
+	})
+
+	t.Run("Begin and commit transaction", func(t *testing.T) {
+		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `let _ = db.begin()` + "\n" + `db.commit()`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
+
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("Eval error: %s", err.Message)
+		}
+
+		// Only db.commit() should be in output (db.begin() assigned to _)
+		boolean, ok := result.(*evaluator.Boolean)
+		if !ok || !boolean.Value {
+			t.Errorf("Expected true, got %v", result.Inspect())
+		}
+	})
+
+	t.Run("Begin and rollback transaction", func(t *testing.T) {
+		l := lexer.New(`let db = @sqlite(":memory:")` + "\n" + `let _ = db.begin()` + "\n" + `db.rollback()`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
+
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("Eval error: %s", err.Message)
+		}
+
+		// Only db.rollback() should be in output
+		boolean, ok := result.(*evaluator.Boolean)
+		if !ok || !boolean.Value {
+			t.Errorf("Expected true, got %v", result.Inspect())
+		}
+	})
 }
 
 func TestDBLiteralBasilOnly(t *testing.T) {

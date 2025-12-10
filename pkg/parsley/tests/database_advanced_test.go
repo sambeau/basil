@@ -10,86 +10,90 @@ import (
 )
 
 func TestDatabaseTransactions(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		check func(*testing.T, evaluator.Object)
-	}{
-		{
-			name: "Transaction commit",
-			input: `
-				let db = @sqlite(":memory:")
-				let _ = db <=!=> "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"
-				
-				db.begin()
-				let _ = db <=!=> "INSERT INTO test (value) VALUES ('a')"
-				let _ = db <=!=> "INSERT INTO test (value) VALUES ('b')"
-				db.commit()
-				
-				let rows = db <=??=> "SELECT * FROM test"
-				rows
-			`,
-			check: func(t *testing.T, result evaluator.Object) {
-				arr, ok := result.(*evaluator.Array)
-				if !ok {
-					t.Fatalf("Expected Array, got %T", result)
-				}
-				if len(arr.Elements) != 2 {
-					t.Errorf("Expected 2 rows, got %d", len(arr.Elements))
-				}
-			},
-		},
-		{
-			name: "Transaction rollback",
-			input: `
-				let db = @sqlite(":memory:")
-				let _ = db <=!=> "CREATE TABLE test_rollback (id INTEGER PRIMARY KEY, value TEXT)"
-				
-				db.begin()
-				let _ = db <=!=> "INSERT INTO test_rollback (value) VALUES ('in_transaction')"
-				db.rollback()
-				
-				let rows = db <=??=> "SELECT * FROM test_rollback"
-				rows
-			`,
-			check: func(t *testing.T, result evaluator.Object) {
-				arr, ok := result.(*evaluator.Array)
-				if !ok {
-					t.Fatalf("Expected Array, got %T", result)
-				}
-				// Note: actual SQL transaction support not implemented,
-				// so rollback just clears the flag but doesn't revert changes
-				if len(arr.Elements) != 1 {
-					t.Logf("Note: Got %d rows (SQL transactions not fully implemented, rollback doesn't revert)", len(arr.Elements))
-				}
-			},
-		},
-	}
+	t.Run("Transaction commit", func(t *testing.T) {
+		input := `
+			let db = @sqlite(":memory:")
+			let _ = db <=!=> "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"
+			
+			let _ = db.begin()
+			let _ = db <=!=> "INSERT INTO test (value) VALUES ('a')"
+			let _ = db <=!=> "INSERT INTO test (value) VALUES ('b')"
+			let _ = db.commit()
+			
+			let rows = db <=??=> "SELECT * FROM test"
+		`
+		l := lexer.New(input)
+		p := parser.New(l)
+		program := p.ParseProgram()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New(tt.input)
-			p := parser.New(l)
-			program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
 
-			if len(p.Errors()) != 0 {
-				t.Fatalf("Parser errors: %v", p.Errors())
-			}
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
 
-			env := evaluator.NewEnvironment()
-			result := evaluator.Eval(program, env)
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("Eval returned error: %s", err.Message)
+		}
 
-			if result == nil {
-				t.Fatalf("Eval returned nil")
-			}
+		// Get rows from environment
+		rowsObj, ok := env.Get("rows")
+		if !ok {
+			t.Fatal("rows not found in environment")
+		}
 
-			if err, ok := result.(*evaluator.Error); ok {
-				t.Fatalf("Eval returned error: %s", err.Message)
-			}
+		arr, ok := rowsObj.(*evaluator.Array)
+		if !ok {
+			t.Fatalf("Expected Array, got %T", rowsObj)
+		}
+		if len(arr.Elements) != 2 {
+			t.Errorf("Expected 2 rows, got %d", len(arr.Elements))
+		}
+	})
 
-			tt.check(t, result)
-		})
-	}
+	t.Run("Transaction rollback", func(t *testing.T) {
+		input := `
+			let db = @sqlite(":memory:")
+			let _ = db <=!=> "CREATE TABLE test_rollback (id INTEGER PRIMARY KEY, value TEXT)"
+			
+			let _ = db.begin()
+			let _ = db <=!=> "INSERT INTO test_rollback (value) VALUES ('in_transaction')"
+			let _ = db.rollback()
+			
+			let rows = db <=??=> "SELECT * FROM test_rollback"
+		`
+		l := lexer.New(input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) != 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+
+		env := evaluator.NewEnvironment()
+		result := evaluator.Eval(program, env)
+
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("Eval returned error: %s", err.Message)
+		}
+
+		// Get rows from environment
+		rowsObj, ok := env.Get("rows")
+		if !ok {
+			t.Fatal("rows not found in environment")
+		}
+
+		arr, ok := rowsObj.(*evaluator.Array)
+		if !ok {
+			t.Fatalf("Expected Array, got %T", rowsObj)
+		}
+		// Note: actual SQL transaction support not implemented,
+		// so rollback just clears the flag but doesn't revert changes
+		if len(arr.Elements) != 1 {
+			t.Logf("Note: Got %d rows (SQL transactions not fully implemented, rollback doesn't revert)", len(arr.Elements))
+		}
+	})
 }
 
 func TestDatabaseNullValues(t *testing.T) {

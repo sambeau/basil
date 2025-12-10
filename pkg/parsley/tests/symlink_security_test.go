@@ -68,9 +68,15 @@ func TestSymlinkSecurityRead(t *testing.T) {
 			t.Fatalf("unexpected error: %s", errObj.Message)
 		}
 
-		strResult, ok := result.(*evaluator.String)
+		// Check the content variable in the environment
+		contentObj, ok := env.Get("content")
 		if !ok {
-			t.Fatalf("expected String, got %T: %s", result, result.Inspect())
+			t.Fatalf("expected 'content' to be set in environment")
+		}
+
+		strResult, ok := contentObj.(*evaluator.String)
+		if !ok {
+			t.Fatalf("expected String, got %T: %s", contentObj, contentObj.Inspect())
 		}
 
 		if strResult.Value != "allowed content" {
@@ -238,10 +244,16 @@ func TestMacOSVarSymlink(t *testing.T) {
 				t.Fatalf("unexpected error: %s", errObj.Message)
 			}
 
-			// The result should be the string content
-			strResult, ok := result.(*evaluator.String)
+			// Check the content variable in the environment
+			contentObj, ok := env.Get("content")
 			if !ok {
-				t.Fatalf("expected String, got %T", result)
+				t.Fatalf("expected 'content' to be set in environment")
+			}
+
+			// The result should be the string content
+			strResult, ok := contentObj.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T", contentObj)
 			}
 
 			if strResult.Value != "test content" {
