@@ -1032,7 +1032,8 @@ func partsRuntimeScript() string {
 
 	function startAutoRefresh(part) {
 		var interval = parseInt(part.getAttribute('data-part-refresh'), 10);
-		if (!interval || interval < 100) return;
+		if (!interval) return;
+		if (interval < 100) interval = 100; // clamp minimum interval
 
 		stopAutoRefresh(part);
 
@@ -1173,7 +1174,11 @@ func partsRuntimeScript() string {
 				return;
 			}
 
-			var threshold = part.getAttribute('data-part-load-threshold') || '0';
+			var thresholdAttr = part.getAttribute('data-part-load-threshold');
+			var thresholdNum = parseFloat(thresholdAttr);
+			if (isNaN(thresholdNum) || thresholdNum < 0) {
+				thresholdNum = 0;
+			}
 
 			var observer = new IntersectionObserver(function(entries) {
 				entries.forEach(function(entry) {
@@ -1194,7 +1199,7 @@ func partsRuntimeScript() string {
 					}
 				});
 			}, {
-				rootMargin: threshold + 'px'
+				rootMargin: thresholdNum + 'px'
 			});
 
 			observer.observe(part);
