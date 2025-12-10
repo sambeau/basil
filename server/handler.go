@@ -1006,113 +1006,243 @@ func injectPartsRuntime(html string) string {
 func partsRuntimeScript() string {
 	return `<script>
 (function() {
-  'use strict';
-  
-  // Initialize all Parts on the page
-  function initParts() {
-    document.querySelectorAll('[data-part-src]').forEach(function(el) {
-      var src = el.getAttribute('data-part-src');
-      var view = el.getAttribute('data-part-view');
-      var propsJson = el.getAttribute('data-part-props');
-      var props = {};
-      
-      try {
-        props = propsJson ? JSON.parse(propsJson) : {};
-      } catch (e) {
-        console.error('Failed to parse Part props:', e);
-      }
-      
-      // Handle part-click attributes (GET request)
-      el.querySelectorAll('[part-click]').forEach(function(clickEl) {
-        var clickView = clickEl.getAttribute('part-click');
-        clickEl.addEventListener('click', function(e) {
-          e.preventDefault();
-          // Collect part-* attributes from the clicked element
-          var clickProps = Object.assign({}, props);
-          Array.from(clickEl.attributes).forEach(function(attr) {
-            if (attr.name.startsWith('part-') && attr.name !== 'part-click') {
-              var propName = attr.name.substring(5); // Remove 'part-' prefix
-              clickProps[propName] = attr.value;
-            }
-          });
-          updatePart(el, src, clickView, clickProps, 'GET');
-        });
-      });
-      
-      // Handle part-submit on forms (POST request)
-      el.querySelectorAll('form[part-submit]').forEach(function(form) {
-        var submitView = form.getAttribute('part-submit');
-        form.addEventListener('submit', function(e) {
-          e.preventDefault();
-          var formData = new FormData(form);
-          var formProps = Object.assign({}, props);
-          formData.forEach(function(value, key) {
-            formProps[key] = value;
-          });
-          updatePart(el, src, submitView, formProps, 'POST');
-        });
-      });
-    });
-  }
-  
-  // Update a Part by fetching a new view
-  function updatePart(el, src, view, props, method) {
-    // Add loading class
-    el.classList.add('part-loading');
-    
-    // Build URL
-    var url = new URL(src, window.location.origin);
-    url.searchParams.set('_view', view);
-    
-    var fetchOptions = {
-      method: method || 'GET',
-      credentials: 'same-origin'
-    };
-    
-    if (method === 'POST') {
-      // POST: send props in body
-      fetchOptions.headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      };
-      fetchOptions.body = new URLSearchParams(props).toString();
-    } else {
-      // GET: send props as query params
-      Object.keys(props).forEach(function(key) {
-        url.searchParams.set(key, props[key]);
-      });
-    }
-    
-    // Fetch the updated HTML
-    fetch(url.toString(), fetchOptions)
-      .then(function(response) {
-        if (!response.ok) {
-          throw new Error('HTTP ' + response.status);
-        }
-        return response.text();
-      })
-      .then(function(html) {
-        // Update innerHTML
-        el.innerHTML = html;
-        
-        // Remove loading class
-        el.classList.remove('part-loading');
-        
-        // Re-initialize event handlers for this Part
-        initParts();
-      })
-      .catch(function(error) {
-        console.error('Failed to update Part:', error);
-        // Remove loading class on error (leave old content)
-        el.classList.remove('part-loading');
-      });
-  }
-  
-  // Initialize on page load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initParts);
-  } else {
-    initParts();
-  }
+	'use strict';
+
+	var refreshIntervals = new WeakMap();
+	var lazyParts = new WeakMap();
+
+	function parseProps(el) {
+		var propsJson = el.getAttribute('data-part-props');
+		if (!propsJson) return {};
+		try {
+			return JSON.parse(propsJson) || {};
+		} catch (e) {
+			console.error('Failed to parse Part props:', e);
+			return {};
+		}
+	}
+
+	function stopAutoRefresh(part) {
+		var timerId = refreshIntervals.get(part);
+		if (timerId) {
+			clearInterval(timerId);
+			refreshIntervals.delete(part);
+		}
+	}
+
+	function startAutoRefresh(part) {
+		var interval = parseInt(part.getAttribute('data-part-refresh'), 10);
+		if (!interval || interval < 100) return;
+
+		stopAutoRefresh(part);
+
+		var timerId = setInterval(function() {
+			if (document.hidden) return; // Pause when tab hidden
+			if (!document.body.contains(part)) {
+				stopAutoRefresh(part);
+				return;
+			}
+
+			var view = part.getAttribute('data-part-view') || 'default';
+			var props = parseProps(part);
+			var src = part.getAttribute('data-part-src');
+			updatePart(part, src, view, props, 'GET', false);
+		}, interval);
+
+		refreshIntervals.set(part, timerId);
+	}
+
+	// Update a Part by fetching a new view
+	function updatePart(el, src, view, props, method, resetTimer) {
+		if (resetTimer === void 0) resetTimer = true;
+
+		// Add loading class
+		el.classList.add('part-loading');
+
+		// Stop existing auto-refresh to avoid overlaps
+		if (resetTimer) {
+			stopAutoRefresh(el);
+		}
+
+		// Build URL
+		var url = new URL(src, window.location.origin);
+		url.searchParams.set('_view', view);
+
+		var fetchOptions = {
+			method: method || 'GET',
+			credentials: 'same-origin'
+		};
+
+		if (method === 'POST') {
+			// POST: send props in body
+			fetchOptions.headers = {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			};
+			fetchOptions.body = new URLSearchParams(props).toString();
+		} else {
+			// GET: send props as query params
+			Object.keys(props || {}).forEach(function(key) {
+				url.searchParams.set(key, props[key]);
+			});
+		}
+
+		// Fetch the updated HTML
+		fetch(url.toString(), fetchOptions)
+			.then(function(response) {
+				if (!response.ok) {
+					throw new Error('HTTP ' + response.status);
+				}
+				return response.text();
+			})
+			.then(function(html) {
+				// Update innerHTML
+				el.innerHTML = html;
+
+				// Persist latest view/props for future refreshes
+				el.setAttribute('data-part-view', view);
+				try {
+					el.setAttribute('data-part-props', JSON.stringify(props || {}));
+				} catch (e) {
+					// Fallback: empty props if serialization fails
+					el.setAttribute('data-part-props', '{}');
+				}
+
+				// Remove loading class
+				el.classList.remove('part-loading');
+
+				// Re-initialize event handlers for this Part (and nested Parts)
+				initParts(el);
+
+				// Restart auto-refresh if configured
+				if (resetTimer && el.getAttribute('data-part-refresh') && (!el.getAttribute('data-part-load') || lazyParts.get(el))) {
+					startAutoRefresh(el);
+				}
+			})
+			.catch(function(error) {
+				console.error('Failed to update Part:', error);
+				// Remove loading class on error (leave old content)
+				el.classList.remove('part-loading');
+				// Restart auto-refresh if it was previously configured
+				if (resetTimer && el.getAttribute('data-part-refresh') && (!el.getAttribute('data-part-load') || lazyParts.get(el))) {
+					startAutoRefresh(el);
+				}
+			});
+	}
+
+	function bindInteractions(el) {
+		var src = el.getAttribute('data-part-src');
+		var baseProps = parseProps(el);
+
+		// Handle part-click attributes (GET request)
+		el.querySelectorAll('[part-click]').forEach(function(clickEl) {
+			var clickView = clickEl.getAttribute('part-click');
+			clickEl.onclick = function(e) {
+				e.preventDefault();
+				var clickProps = Object.assign({}, baseProps);
+				Array.from(clickEl.attributes).forEach(function(attr) {
+					if (attr.name.startsWith('part-')) {
+						var propName = attr.name.substring(5); // Remove 'part-' prefix
+						var reserved = ['click', 'submit', 'load', 'refresh', 'load-threshold'];
+						if (reserved.indexOf(propName) !== -1) return;
+						clickProps[propName] = attr.value;
+					}
+				});
+				updatePart(el, src, clickView, clickProps, 'GET');
+			};
+		});
+
+		// Handle part-submit on forms (POST request)
+		el.querySelectorAll('form[part-submit]').forEach(function(form) {
+			var submitView = form.getAttribute('part-submit');
+			form.onsubmit = function(e) {
+				e.preventDefault();
+				var formData = new FormData(form);
+				var formProps = Object.assign({}, baseProps);
+				formData.forEach(function(value, key) {
+					formProps[key] = value;
+				});
+				updatePart(el, src, submitView, formProps, 'POST');
+			};
+		});
+	}
+
+	function initLazyLoading(root) {
+		(root || document).querySelectorAll('[data-part-load]').forEach(function(part) {
+			// If already loaded, skip
+			if (lazyParts.get(part)) {
+				return;
+			}
+
+			var threshold = part.getAttribute('data-part-load-threshold') || '0';
+
+			var observer = new IntersectionObserver(function(entries) {
+				entries.forEach(function(entry) {
+					if (entry.isIntersecting) {
+						observer.unobserve(part);
+						lazyParts.set(part, true);
+
+						var view = part.getAttribute('data-part-load') || part.getAttribute('data-part-view') || 'default';
+						var props = parseProps(part);
+						var src = part.getAttribute('data-part-src');
+
+						updatePart(part, src, view, props, 'GET');
+
+						// Start auto-refresh after load (if configured)
+						if (part.getAttribute('data-part-refresh')) {
+							startAutoRefresh(part);
+						}
+					}
+				});
+			}, {
+				rootMargin: threshold + 'px'
+			});
+
+			observer.observe(part);
+		});
+	}
+
+	// Initialize all Parts within a root (default: document)
+	function initParts(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+
+		scope.querySelectorAll('[data-part-src]').forEach(function(el) {
+			bindInteractions(el);
+
+			// Lazy loading setup
+			if (el.getAttribute('data-part-load')) {
+				initLazyLoading(el.parentElement || el);
+				return; // Skip auto-refresh until loaded
+			}
+
+			// Auto-refresh setup (non-lazy Parts)
+			if (el.getAttribute('data-part-refresh')) {
+				startAutoRefresh(el);
+			}
+		});
+	}
+
+	// Pause/resume auto-refresh on tab visibility change
+	document.addEventListener('visibilitychange', function() {
+		var parts = document.querySelectorAll('[data-part-refresh]');
+		parts.forEach(function(part) {
+			if (document.hidden) {
+				stopAutoRefresh(part);
+			} else if (!part.getAttribute('data-part-load') || lazyParts.get(part)) {
+				startAutoRefresh(part);
+			}
+		});
+	});
+
+	// Initialize on page load
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', function() {
+			initParts(document);
+			initLazyLoading(document);
+		});
+	} else {
+		initParts(document);
+		initLazyLoading(document);
+	}
 })();
 </script>
 `

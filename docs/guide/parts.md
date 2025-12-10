@@ -220,6 +220,8 @@ When you use a `<Part/>` tag, Basil automatically injects JavaScript before `</b
 - Re-initializes after each Part update (for nested Parts)
 - Graceful error handling (keeps old content on failure)
 - Loading class (`part-loading`) during fetch
+- Auto-refresh with `part-refresh={ms}`
+- Lazy loading with `part-load="view"` (+ optional `part-load-threshold={px}`)
 
 **CSS Hook:**
 
@@ -231,6 +233,39 @@ When you use a `<Part/>` tag, Basil automatically injects JavaScript before `</b
 ```
 
 ## Advanced Patterns
+
+### Auto-Refresh (`part-refresh`)
+
+Refresh a Part on an interval (milliseconds). The timer resets after manual interactions and pauses when the tab is hidden.
+
+```parsley
+<Part src={@./clock.part} part-refresh={1000}/>
+```
+
+Details:
+- Minimum interval: 100ms (anything lower is ignored)
+- Uses the latest `data-part-props` and `data-part-view` for each refresh
+- Stops if the Part is removed from the DOM
+- Keeps using `part-loading` during fetch
+
+### Lazy Loading (`part-load`, `part-load-threshold`)
+
+Defer loading a view until the Part is near the viewport. Use a placeholder view for initial render.
+
+```parsley
+<Part 
+    src={@./profile.part}
+    view="placeholder"            # initial server render / placeholder
+    part-load="loaded"            # view to load when visible
+    part-load-threshold={200}      # start loading 200px before entering viewport (optional)
+/>
+```
+
+Details:
+- Uses Intersection Observer for efficient visibility detection
+- Loads only once; does not reload on re-entry
+- `part-load-threshold` defaults to `0` if omitted
+- Auto-refresh (if configured) starts after the lazy load completes
 
 ### Nested Parts
 

@@ -1329,6 +1329,8 @@ export increment = fn(props) {
 - ✅ `part-*` attributes become props in view functions
 - ✅ `part-click="viewName"` triggers view updates
 - ✅ `part-submit="viewName"` works on forms
+- ✅ `part-refresh={ms}` auto-refreshes the Part (pauses when tab hidden)
+- ✅ `part-load="view"` lazy-loads a view; `part-load-threshold={px}` preloads earlier
 - ❌ Part files need routes in `basil.yaml`: `- path: /counter.part`
 - ✅ JavaScript auto-injects when `<Part/>` is used
 - ✅ Parts can be nested inside other Parts

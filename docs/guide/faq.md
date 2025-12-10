@@ -95,6 +95,16 @@ When you use a `<Part/>` tag, Basil automatically injects JavaScript that listen
 
 *Added: 2025-12-10*
 
+### How do I auto-refresh a Part?
+Add `part-refresh={ms}` to the `<Part/>` tag. The timer resets after interactions and pauses when the tab is hidden.
+
+*Added: 2025-12-10*
+
+### How do I lazy-load a Part?
+Use `part-load="view"` (optionally with `part-load-threshold={px}`) on the `<Part/>` tag. Start with a placeholder view and the runtime will load the target view when the Part approaches the viewport.
+
+*Added: 2025-12-10*
+
 ---
 
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

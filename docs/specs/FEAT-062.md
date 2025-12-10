@@ -1,9 +1,10 @@
 ---
 id: FEAT-062
 title: "Parts V1.1: Auto-Refresh and Lazy Loading"
-status: draft
+status: done
 priority: medium
 created: 2025-12-10
+completed: 2025-12-10
 author: "@human + AI"
 ---
 
@@ -20,23 +21,23 @@ As a web developer, I want Parts that can automatically refresh themselves on an
 ## Acceptance Criteria
 
 ### Auto-Refresh
-- [ ] `part-refresh={milliseconds}` attribute on `<Part/>` tag
-- [ ] Part automatically fetches current view at specified interval
-- [ ] Interval resets after manual interactions (click/submit)
-- [ ] Refresh pauses when tab is hidden (Page Visibility API)
-- [ ] Refresh stops when Part is removed from DOM
-- [ ] Props accumulate across auto-refreshes (same as manual updates)
+- [x] `part-refresh={milliseconds}` attribute on `<Part/>` tag
+- [x] Part automatically fetches current view at specified interval
+- [x] Interval resets after manual interactions (click/submit)
+- [x] Refresh pauses when tab is hidden (Page Visibility API)
+- [x] Refresh stops when Part is removed from DOM
+- [x] Props accumulate across auto-refreshes (same as manual updates)
 
 ### Lazy Loading
-- [ ] `part-load="view"` attribute on `<Part/>` tag
-- [ ] Initial render shows placeholder (empty or custom)
-- [ ] Part loads when scrolled into viewport (Intersection Observer)
-- [ ] Load threshold configurable via `part-load-threshold={px}`
-- [ ] Already-loaded Parts don't reload on re-entry
-- [ ] Works with nested Parts (child Parts lazy-load independently)
+- [x] `part-load="view"` attribute on `<Part/>` tag
+- [x] Initial render shows placeholder (empty or custom)
+- [x] Part loads when scrolled into viewport (Intersection Observer)
+- [x] Load threshold configurable via `part-load-threshold={px}`
+- [x] Already-loaded Parts don't reload on re-entry
+- [x] Works with nested Parts (child Parts lazy-load independently)
 
 ### Combined Use
-- [ ] `part-refresh` and `part-load` work together (refresh starts after load)
+- [x] `part-refresh` and `part-load` work together (refresh starts after load)
 
 ## Design Decisions
 
@@ -255,5 +256,6 @@ No server changes required. Auto-refresh and lazy loading are client-side featur
 - Plan: `docs/plans/FEAT-062-plan.md` (to be created)
 
 ## Implementation Notes
-
-*To be added during implementation*
+- Auto-refresh uses `data-part-props`/`data-part-view` for each interval, resets after manual updates, pauses on hidden tabs, and stops if the Part is removed.
+- Lazy loading uses Intersection Observer per Part with optional `data-part-load-threshold` (px) and starts auto-refresh after the first load if configured.
+- `part-loading` remains the CSS hook during fetches for clicks, submits, auto-refresh, and lazy-load fetches.

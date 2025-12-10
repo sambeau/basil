@@ -1,0 +1,17 @@
+// Lazy-loaded content Part with placeholder
+
+export placeholder = fn() {
+    <div class="card skeleton">
+        <p>Loading content...</p>
+    </div>
+}
+
+export loaded = fn() {
+    <div class="card">
+        <h3>Lazy-loaded panel</h3>
+        <p>This content was loaded when it came into view.</p>
+        <p>It demonstrates part-load with an optional threshold.</p>
+    </div>
+}
+
+export default = placeholder

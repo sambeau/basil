@@ -280,7 +280,7 @@ Injected automatically when page contains `<Part/>`:
 3. **Nested Part refresh**: When parent refreshes, child Parts re-initialize
 4. **Same Part multiple times**: Each instance is independent (own wrapper div)
 5. **Part in Part**: Works — nested Parts get own `data-part-src` wrapper
-6. **Network error**: Old content remains, `data-part-loading` removed
+6. **Network error**: Old content remains, `part-loading` removed
 
 ## Versioned Scope
 

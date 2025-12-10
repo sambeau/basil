@@ -192,7 +192,7 @@ Steps:
 1. Server: Return appropriate HTTP status codes (404, 500)
 2. Server: Log errors for debugging
 3. JS: On fetch error, leave old content in place
-4. JS: Remove `data-part-loading` class on error
+4. JS: Remove `part-loading` class on error
 
 Tests:
 - Network error leaves old content

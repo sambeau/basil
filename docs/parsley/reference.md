@@ -2351,6 +2351,9 @@ export decrement = fn(props) {
 | `part-click="viewName"` | Any | Fetches `viewName` on click |
 | `part-submit="viewName"` | `<form>` | Fetches `viewName` on submit |
 | `part-*` | Any | Passed as props to view function |
+| `part-refresh={ms}` | `<Part/>` | Auto-refresh current view every `ms` (resets on interactions, pauses when tab hidden) |
+| `part-load="view"` | `<Part/>` | Lazy-load `view` when Part enters viewport |
+| `part-load-threshold={px}` | `<Part/>` | Start lazy load when within `px` of viewport (default `0`) |
 
 **Props Handling:**
 
@@ -2361,6 +2364,16 @@ When a Part interaction occurs:
 4. All props are sent to the view function via query parameters
 5. Server executes view function and returns HTML fragment
 6. JavaScript replaces the Part's innerHTML
+
+For auto-refresh:
+- Uses the latest `data-part-view` and `data-part-props`
+- Resets after manual interactions (click/submit)
+- Pauses when the tab is hidden and stops if the Part is removed
+
+For lazy loading:
+- Uses Intersection Observer to load once when near the viewport
+- Respects `part-load-threshold` (pixels of pre-load margin)
+- Auto-refresh starts after the lazy load completes
 
 **Type Coercion:**
 
@@ -2387,8 +2400,10 @@ routes:
 
 The Parts runtime is automatically injected before `</body>` when a `<Part/>` tag is used. It:
 - Sets up event listeners for `part-click` and `part-submit`
+- Supports auto-refresh (`part-refresh`) with visibility-aware timers
+- Supports lazy loading (`part-load`, `part-load-threshold`) via Intersection Observer
 - Fetches Part views via `?_view=name` requests
-- Updates Part innerHTML with response
+- Updates Part innerHTML with response and maintains `data-part-props`
 - Handles errors gracefully (keeps old content on failure)
 
 **Nested Parts:**

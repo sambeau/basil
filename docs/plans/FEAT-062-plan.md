@@ -159,13 +159,13 @@ Tests:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| — | Task 1: Component Attributes | ⬜ Not started | — |
-| — | Task 2: Auto-Refresh | ⬜ Not started | — |
-| — | Task 3: Lazy Loading | ⬜ Not started | — |
-| — | Task 4: Combined Handling | ⬜ Not started | — |
-| — | Task 5: Unit Tests | ⬜ Not started | — |
-| — | Task 6: Example | ⬜ Not started | — |
-| — | Task 7: Documentation | ⬜ Not started | — |
+| 2025-12-10 | Task 1: Component Attributes | ✅ Complete | Added data-part-refresh/load/load-threshold output |
+| 2025-12-10 | Task 2: Auto-Refresh | ✅ Complete | JS runtime timers with visibility pause/reset |
+| 2025-12-10 | Task 3: Lazy Loading | ✅ Complete | IntersectionObserver per Part, threshold support |
+| 2025-12-10 | Task 4: Combined Handling | ✅ Complete | Start refresh after lazy load; skip before |
+| 2025-12-10 | Task 5: Unit Tests | ✅ Complete | Added attribute generation tests |
+| 2025-12-10 | Task 6: Example | ✅ Complete | Clock and lazy content demo added |
+| 2025-12-10 | Task 7: Documentation | ✅ Complete | Guide, reference, cheatsheet, FAQ updated |
 
 ## Deferred Items
 Items to add to BACKLOG.md after implementation:

@@ -10085,6 +10085,48 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 		}
 	}
 
+	// Optional: auto-refresh interval (milliseconds)
+	hasRefresh := false
+	refreshValue := ""
+	if refreshExpr, ok := props.Pairs["part-refresh"]; ok {
+		refreshObj := Eval(refreshExpr, env)
+		if isError(refreshObj) {
+			return refreshObj
+		}
+		refreshValue = fmt.Sprint(objectToGoValue(refreshObj))
+		hasRefresh = true
+	}
+
+	// Optional: lazy-load view name
+	hasLoad := false
+	loadValue := ""
+	if loadExpr, ok := props.Pairs["part-load"]; ok {
+		loadObj := Eval(loadExpr, env)
+		if isError(loadObj) {
+			return loadObj
+		}
+		if loadStr, ok := loadObj.(*String); ok {
+			loadValue = loadStr.Value
+			hasLoad = true
+		} else {
+			// Coerce non-strings to string for robustness
+			loadValue = fmt.Sprint(objectToGoValue(loadObj))
+			hasLoad = true
+		}
+	}
+
+	// Optional: lazy-load threshold in px
+	hasLoadThreshold := false
+	loadThresholdValue := ""
+	if thresholdExpr, ok := props.Pairs["part-load-threshold"]; ok {
+		thresholdObj := Eval(thresholdExpr, env)
+		if isError(thresholdObj) {
+			return thresholdObj
+		}
+		loadThresholdValue = fmt.Sprint(objectToGoValue(thresholdObj))
+		hasLoadThreshold = true
+	}
+
 	// Look up the view function in the Part module
 	viewExpr, hasView := partDict.Pairs[viewName]
 	if !hasView {
@@ -10118,9 +10160,10 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	// Build props dictionary for view function (excluding src and view)
 	viewProps := make(map[string]ast.Expression)
 	for key, expr := range props.Pairs {
-		if key != "src" && key != "view" {
-			viewProps[key] = expr
+		if key == "src" || key == "view" || key == "part-refresh" || key == "part-load" || key == "part-load-threshold" {
+			continue
 		}
+		viewProps[key] = expr
 	}
 	viewPropsDict := &Dictionary{Pairs: viewProps, Env: env}
 
@@ -10163,7 +10206,23 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	output.WriteString(htmlEscape(viewName))
 	output.WriteString("\" data-part-props='")
 	output.WriteString(htmlEscape(propsJSON))
-	output.WriteString("'>")
+	output.WriteString("'")
+	if hasRefresh {
+		output.WriteString(" data-part-refresh=\"")
+		output.WriteString(htmlEscape(refreshValue))
+		output.WriteString("\"")
+	}
+	if hasLoad {
+		output.WriteString(" data-part-load=\"")
+		output.WriteString(htmlEscape(loadValue))
+		output.WriteString("\"")
+	}
+	if hasLoadThreshold {
+		output.WriteString(" data-part-load-threshold=\"")
+		output.WriteString(htmlEscape(loadThresholdValue))
+		output.WriteString("\"")
+	}
+	output.WriteString(">")
 	output.WriteString(htmlContent)
 	output.WriteString("</div>")
 
@@ -10173,19 +10232,20 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 // convertPathToPartURL converts an absolute file path to a Part URL
 // Uses the handler's route path as the base for relative URL calculation
 // Example: If handler route is "/dashboard" and Part is "../shared/counter.part",
-//          the URL becomes "/shared/counter.part"
+//
+//	the URL becomes "/shared/counter.part"
 func convertPathToPartURL(absPath string, rootPath string, handlerPath string) string {
 	// handlerPath is the route path (e.g., "/", "/dashboard/settings")
 	// rootPath is the handler's file system directory
 	// absPath is the Part file's absolute file system path
-	
+
 	// Calculate the Part file's path relative to the handler's directory
 	if rootPath != "" {
 		relPath, err := filepath.Rel(rootPath, absPath)
 		if err == nil {
 			// Convert to URL path with forward slashes
 			relURL := filepath.ToSlash(relPath)
-			
+
 			// Join with the handler's route directory
 			if handlerPath != "" {
 				handlerDir := filepath.Dir(handlerPath)
@@ -10194,7 +10254,7 @@ func convertPathToPartURL(absPath string, rootPath string, handlerPath string) s
 				}
 				return handlerDir + "/" + relURL
 			}
-			
+
 			return "/" + relURL
 		}
 	}

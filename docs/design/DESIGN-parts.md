@@ -522,13 +522,13 @@ Developers who need custom error states can handle errors within their Part view
 
 ### Loading Indicators
 
-**Decision: Add `data-part-loading` class during fetch**
+**Decision: Add `part-loading` class during fetch**
 
-The JS runtime adds a `data-part-loading` class to the Part wrapper while fetching:
+The JS runtime adds a `part-loading` class to the Part wrapper while fetching:
 
 ```javascript
 function refresh(part, view, props) {
-    part.classList.add('data-part-loading');
+    part.classList.add('part-loading');
     
     fetch(url, { credentials: 'same-origin' })
         .then(r => r.text())
@@ -537,7 +537,7 @@ function refresh(part, view, props) {
             init(part); 
         })
         .finally(() => {
-            part.classList.remove('data-part-loading');
+            part.classList.remove('part-loading');
         });
 }
 ```
@@ -545,13 +545,13 @@ function refresh(part, view, props) {
 Developers can style this as needed:
 
 ```css
-[data-part-loading] {
+[data-part-src].part-loading {
     opacity: 0.5;
     pointer-events: none;
 }
 
 /* Or add a spinner */
-[data-part-loading]::after {
+[data-part-src].part-loading::after {
     content: '';
     position: absolute;
     /* spinner styles */

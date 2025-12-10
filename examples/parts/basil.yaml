@@ -8,3 +8,9 @@ routes:
   
   - path: /counter.part
     handler: ./handlers/counter.part
+
+  - path: /clock.part
+    handler: ./handlers/clock.part
+
+  - path: /lazy-content.part
+    handler: ./handlers/lazy-content.part
