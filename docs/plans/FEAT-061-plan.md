@@ -2,8 +2,9 @@
 id: PLAN-037
 feature: FEAT-061
 title: "Implementation Plan: Parts (Reloadable HTML Fragments)"
-status: draft
+status: complete
 created: 2025-12-10
+completed: 2025-12-10
 ---
 
 # Implementation Plan: FEAT-061 Parts
@@ -236,15 +237,20 @@ Tests:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Part Module Recognition | ⬜ Not Started | |
-| | Task 2: `<Part/>` Component | ⬜ Not Started | |
-| | Task 3: Part Attribute Output | ⬜ Not Started | |
-| | Task 4: Server Part Handler | ⬜ Not Started | |
-| | Task 5: Part URL Generation | ⬜ Not Started | |
-| | Task 6: JS Runtime Injection | ⬜ Not Started | |
-| | Task 7: Nested Parts Support | ⬜ Not Started | |
-| | Task 8: Error Handling | ⬜ Not Started | |
-| | Task 9: Documentation | ⬜ Not Started | |
+| 2025-12-10 | Task 1: Part Module Recognition | ✅ Complete | Implemented in evaluator.go, validates function-only exports |
+| 2025-12-10 | Task 2: `<Part/>` Component | ✅ Complete | Renders with data-part-* attributes |
+| 2025-12-10 | Task 3: Part Attribute Output | ✅ Complete | data-part-src, data-part-view, data-part-props |
+| 2025-12-10 | Task 4: Server Part Handler | ✅ Complete | handlePartRequest in server/parts.go |
+| 2025-12-10 | Task 5: Part URL Generation | ✅ Complete | convertPathToPartURL using handler route path |
+| 2025-12-10 | Task 6: JS Runtime Injection | ✅ Complete | Auto-injects when ContainsParts flag is true |
+| 2025-12-10 | Task 7: Nested Parts Support | ✅ Complete | Tested with comprehensive test cases |
+| 2025-12-10 | Task 8: Error Handling | ✅ Complete | Server 400/404/500, JS graceful fallback |
+| 2025-12-10 | Task 9: Example | ✅ Complete | examples/parts/ with counter demo |
+| 2025-12-10 | Task 10: Documentation | ✅ Complete | Updated CHEATSHEET, reference, FAQ, created parts.md guide |
+
+**Additional Fixes:**
+- Fixed JS runtime to collect part-* attributes from clicked elements (props weren't being passed)
+- Fixed Part URL generation to use handler route path as base (404 errors resolved)
 
 ## Deferred Items
 

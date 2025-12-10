@@ -1,9 +1,10 @@
 ---
 id: FEAT-061
 title: "Parts: Reloadable HTML Fragments"
-status: draft
+status: done
 priority: high
 created: 2025-12-10
+completed: 2025-12-10
 author: "@human + AI"
 ---
 
@@ -20,32 +21,32 @@ As a web developer, I want to create interactive page fragments that can reload 
 ## Acceptance Criteria
 
 ### Core Functionality
-- [ ] `.part` files are recognized as Part modules
-- [ ] Parts export view functions (e.g., `export default = fn(props) { ... }`)
-- [ ] `<Part src=@./path.part props.../>` component renders Parts
-- [ ] Initial render is server-side (for SEO)
-- [ ] `part-click` attribute triggers view change on click
-- [ ] `part-submit` attribute triggers view change on form submit
-- [ ] `part-{propname}` attributes pass props to target view
-- [ ] Props are type-coerced (same rules as Basil forms)
+- [x] `.part` files are recognized as Part modules
+- [x] Parts export view functions (e.g., `export default = fn(props) { ... }`)
+- [x] `<Part src=@./path.part props.../>` component renders Parts
+- [x] Initial render is server-side (for SEO)
+- [x] `part-click` attribute triggers view change on click
+- [x] `part-submit` attribute triggers view change on form submit
+- [x] `part-{propname}` attributes pass props to target view
+- [x] Props are type-coerced (same rules as Basil forms)
 
 ### Server Behavior
-- [ ] `.part` files return 404 when accessed directly
-- [ ] Part requests use `_view` query param to select view
-- [ ] GET requests for `part-click`, POST for `part-submit`
-- [ ] Auth/session inherited from cookies
-- [ ] Parts can be located anywhere accessible to calling script
+- [x] `.part` files return 404 when accessed directly (without _view)
+- [x] Part requests use `_view` query param to select view
+- [x] GET requests for `part-click`, POST for `part-submit`
+- [x] Auth/session inherited from cookies
+- [x] Parts can be located anywhere accessible to calling script
 
 ### JavaScript Runtime
-- [ ] Auto-injected when page contains `<Part/>` components
-- [ ] `data-part-loading` class added during fetch
-- [ ] `part-leave`/`part-enter` classes for CSS animations
-- [ ] On fetch error, old content remains visible
-- [ ] Nested Parts re-initialized after parent refresh
+- [x] Auto-injected when page contains `<Part/>` components
+- [x] `data-part-loading` class added during fetch (CSS hook: `part-loading`)
+- [ ] `part-leave`/`part-enter` classes for CSS animations (deferred - V1.1)
+- [x] On fetch error, old content remains visible
+- [x] Nested Parts re-initialized after parent refresh
 
 ### Composition
-- [ ] Parts can contain other Parts
-- [ ] Multiple instances of same Part are independent
+- [x] Parts can contain other Parts
+- [x] Multiple instances of same Part are independent
 
 ## Design Decisions
 
@@ -307,4 +308,52 @@ Injected automatically when page contains `<Part/>`:
 ## Related
 
 - Design: `docs/design/DESIGN-parts.md`
-- Plan: `docs/plans/FEAT-061-plan.md` (to be created)
+- Plan: `docs/plans/FEAT-061-plan.md` ✅ Complete
+- Documentation:
+  - `docs/parsley/CHEATSHEET.md` - Parts syntax and gotchas
+  - `docs/parsley/reference.md` - Complete Parts reference
+  - `docs/guide/parts.md` - Comprehensive guide with examples
+  - `docs/guide/faq.md` - Parts FAQ entries
+- Example: `examples/parts/` - Working counter demo
+
+---
+
+## Implementation Notes
+
+**Completed:** 2025-12-10
+
+### Key Files Modified
+
+**Core Implementation:**
+- `pkg/parsley/evaluator/evaluator.go` - Part module loading, <Part/> component, URL conversion, JS injection
+- `server/parts.go` - Part request handler, prop parsing, type coercion
+- `server/handler.go` - Part routing, JS runtime injection
+
+**Tests:**
+- `pkg/parsley/evaluator/parts_test.go` - Part module loading tests
+- `pkg/parsley/evaluator/part_component_test.go` - <Part/> rendering tests
+- `pkg/parsley/evaluator/part_attributes_test.go` - Data attribute tests
+- `pkg/parsley/evaluator/nested_parts_test.go` - Nested Parts tests
+- `pkg/parsley/evaluator/part_errors_test.go` - Error handling tests
+
+**Example:**
+- `examples/parts/handlers/counter.part` - Interactive counter Part
+- `examples/parts/handlers/index.pars` - Main page using Part
+- `examples/parts/basil.yaml` - Route configuration
+
+### Issues Resolved During Implementation
+
+1. **JSON Array Response**: Initial example had multiple top-level expressions, causing server to return JSON array instead of HTML string. Fixed by wrapping in template literal.
+
+2. **Props Not Passing**: JavaScript runtime wasn't collecting `part-*` attributes from clicked elements. Fixed by merging clicked element's attributes with container props.
+
+3. **404 on Part Requests**: URL generation was making paths relative to handlers directory instead of handler route. Fixed `convertPathToPartURL` to use handler route path as base.
+
+### Deferred to BACKLOG
+
+- CSS animation classes (`part-leave`/`part-enter`) - Use `part-loading` class for now
+- Auto-refresh (`part-refresh={ms}`)
+- Lazy loading (`part-load="view"`)
+- Responsive Parts with media queries
+- Part response caching
+
