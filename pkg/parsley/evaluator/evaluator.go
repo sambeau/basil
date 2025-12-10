@@ -8365,11 +8365,13 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			// Create a new environment and bind the parameters
 			extendedEnv := extendFunctionEnv(f, args)
 
-			// Evaluate all statements in the body
+			// Evaluate all statements in the body and collect results
+			var bodyResults []Object
 			for _, stmt := range f.Body.Statements {
 				evaluated = evalStatement(stmt, extendedEnv)
 				if returnValue, ok := evaluated.(*ReturnValue); ok {
 					evaluated = returnValue.Value
+					bodyResults = append(bodyResults, evaluated)
 					break
 				}
 				if isError(evaluated) {
@@ -8380,11 +8382,25 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 					for _, v := range pv.Values {
 						str := objectToUserString(v)
 						if str != "" {
-							result = append(result, &String{Value: str})
+							bodyResults = append(bodyResults, &String{Value: str})
 						}
 					}
-					evaluated = NULL // Don't add PrintValue itself
+					continue
 				}
+				// Collect non-NULL results
+				if evaluated != NULL {
+					bodyResults = append(bodyResults, evaluated)
+				}
+			}
+
+			// Use block result rules: single result or array
+			switch len(bodyResults) {
+			case 0:
+				evaluated = NULL
+			case 1:
+				evaluated = bodyResults[0]
+			default:
+				evaluated = &Array{Elements: bodyResults}
 			}
 		}
 
