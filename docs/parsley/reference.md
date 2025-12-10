@@ -21,6 +21,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Regex](#regex)
 - [Modules](#modules)
 - [Tags](#tags)
+  - [Parts - Interactive HTML Fragments](#parts---interactive-html-fragments)
 - [Error Handling](#error-handling)
 - [Utility Functions](#utility-functions)
 - [Basil Server Functions](#basil-server-functions)
@@ -2275,6 +2276,134 @@ let color = "blue"
 ```parsley
 tag("div", {class: "box"}, "content")
 // Creates tag dictionary, use toString() to render
+```
+
+### Parts - Interactive HTML Fragments
+
+Parts enable interactive HTML components that update without full page reloads. They use multiple view functions to handle different states and interactions.
+
+**File Extension:** `.part`
+
+**Grammar:**
+```
+part_tag ::= "<Part" attributes* "/>"
+attributes ::= "src=" "{" path_literal "}"
+             | "view=" string_literal
+             | identifier "=" "{" expression "}"
+```
+
+**Part File Structure:**
+
+Part files (`.part` extension) can only export functions, not variables:
+
+```parsley
+// counter.part
+export default = fn(props) {
+    <div>
+        Count: {props.count}
+        <button part-click="increment" part-count={props.count}>+</button>
+        <button part-click="decrement" part-count={props.count}>-</button>
+    </div>
+}
+
+export increment = fn(props) {
+    let newCount = props.count + 1
+    <div>
+        Count: {newCount}
+        <button part-click="increment" part-count={newCount}>+</button>
+        <button part-click="decrement" part-count={newCount}>-</button>
+    </div>
+}
+
+export decrement = fn(props) {
+    let newCount = props.count - 1
+    <div>
+        Count: {newCount}
+        <button part-click="decrement" part-count={newCount}>-</button>
+        <button part-click="increment" part-count={newCount}>+</button>
+    </div>
+}
+```
+
+**Using Parts:**
+
+```parsley
+// index.pars
+<Part src={@./counter.part} view="default" count={0}/>
+```
+
+**Rendered Output:**
+
+```html
+<div data-part-src="/counter.part" 
+     data-part-view="default" 
+     data-part-props='{"count":0}'>
+    Count: 0
+    <button part-click="increment" part-count="0">+</button>
+    <button part-click="decrement" part-count="0">-</button>
+</div>
+```
+
+**Interactive Attributes:**
+
+| Attribute | Element | Effect |
+|-----------|---------|--------|
+| `part-click="viewName"` | Any | Fetches `viewName` on click |
+| `part-submit="viewName"` | `<form>` | Fetches `viewName` on submit |
+| `part-*` | Any | Passed as props to view function |
+
+**Props Handling:**
+
+When a Part interaction occurs:
+1. Initial props from `data-part-props` are loaded
+2. Any `part-*` attributes on the clicked element are collected
+3. Form data (if `part-submit`) is merged in
+4. All props are sent to the view function via query parameters
+5. Server executes view function and returns HTML fragment
+6. JavaScript replaces the Part's innerHTML
+
+**Type Coercion:**
+
+Props are coerced from query strings to appropriate types:
+- `"123"` → Integer `123`
+- `"3.14"` → Float `3.14`
+- `"true"` / `"false"` → Boolean
+- Other values → String
+
+**Configuration:**
+
+Part files need routes in `basil.yaml`:
+
+```yaml
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+  
+  - path: /counter.part
+    handler: ./handlers/counter.part
+```
+
+**JavaScript Runtime:**
+
+The Parts runtime is automatically injected before `</body>` when a `<Part/>` tag is used. It:
+- Sets up event listeners for `part-click` and `part-submit`
+- Fetches Part views via `?_view=name` requests
+- Updates Part innerHTML with response
+- Handles errors gracefully (keeps old content on failure)
+
+**Nested Parts:**
+
+Parts can be nested. Each maintains its own state and event handlers:
+
+```parsley
+// dashboard.part
+export default = fn(props) {
+    <div>
+        <h1>Dashboard</h1>
+        <Part src={@./counter.part} view="default" count={0}/>
+        <Part src={@./timer.part} view="default" seconds={60}/>
+    </div>
+}
 ```
 
 ---

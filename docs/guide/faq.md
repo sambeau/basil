@@ -76,4 +76,25 @@ Yes, just edit `ID_COUNTER.md` directly. Make sure to increment the "Next ID" so
 
 ---
 
+## Parsley Questions
+
+### How do I create interactive HTML components?
+Use Parts - create a `.part` file that exports view functions. Each view can respond to user interactions via `part-click` or `part-submit` attributes. See `examples/parts/` for a working example.
+
+*Added: 2025-12-10*
+
+### What's the difference between .pars and .part files?
+- `.pars` files are normal Parsley modules that can export anything
+- `.part` files can only export functions (view functions for interactive components)
+- `.part` files need routes in `basil.yaml` to be accessible via HTTP
+
+*Added: 2025-12-10*
+
+### How do Parts update without reloading the page?
+When you use a `<Part/>` tag, Basil automatically injects JavaScript that listens for `part-click` and `part-submit` events. When triggered, it fetches the new view from the server and updates just that Part's HTML.
+
+*Added: 2025-12-10*
+
+---
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

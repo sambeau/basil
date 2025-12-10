@@ -8,6 +8,7 @@ Welcome to the human-friendly documentation for the Basil development process.
 |--------------|----------|
 | Get started quickly | [Quick Start](quick-start.md) |
 | Add authentication | [Authentication](authentication.md) |
+| Create interactive components | [Parts Guide](parts.md) |
 | Enable CORS for APIs | [CORS Configuration](cors.md) |
 | Deploy via Git push | [Git over HTTPS](git.md) |
 | Look up a command/format | [Cheatsheet](cheatsheet.md) |

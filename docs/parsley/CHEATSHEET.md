@@ -1294,3 +1294,41 @@ let icon = publicUrl(@./icon.svg)
 - ❌ Files >100MB fail - use `public/` folder
 - ❌ Path must be within handler directory
 - ✅ Works with `@./relative` paths from current file
+
+---
+
+### Parts - Interactive HTML Fragments
+
+Parts are reloadable HTML fragments with multiple view functions for interactivity.
+
+**Creating a Part:**
+```parsley
+// counter.part - Only export functions (no other exports allowed)
+export default = fn(props) {
+    <div>Count: {props.count}
+        <button part-click="increment" part-count={props.count}>+</button>
+    </div>
+}
+
+export increment = fn(props) {
+    let newCount = props.count + 1
+    <div>Count: {newCount}
+        <button part-click="increment" part-count={newCount}>+</button>
+    </div>
+}
+```
+
+**Using a Part:**
+```parsley
+// index.pars
+<Part src={@./counter.part} view="default" count={0}/>
+```
+
+**Gotchas:**
+- ❌ `.part` files CANNOT export variables, only functions
+- ✅ `part-*` attributes become props in view functions
+- ✅ `part-click="viewName"` triggers view updates
+- ✅ `part-submit="viewName"` works on forms
+- ❌ Part files need routes in `basil.yaml`: `- path: /counter.part`
+- ✅ JavaScript auto-injects when `<Part/>` is used
+- ✅ Parts can be nested inside other Parts
