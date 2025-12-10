@@ -1547,8 +1547,23 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	if p.peekTokenIs(lexer.ELSE) {
 		p.nextToken()
 
-		// Check if alternative is a block statement or single statement/expression
-		if p.peekTokenIs(lexer.LBRACE) {
+		// Check for 'else if'
+		if p.peekTokenIs(lexer.IF) {
+			p.nextToken()
+			// Recursively parse the if expression
+			ifExpr := p.parseIfExpression()
+			// Wrap it in a block statement
+			expression.Alternative = &ast.BlockStatement{
+				Token: p.curToken,
+				Statements: []ast.Statement{
+					&ast.ExpressionStatement{
+						Token:      p.curToken,
+						Expression: ifExpr,
+					},
+				},
+			}
+		} else if p.peekTokenIs(lexer.LBRACE) {
+			// else { ... }
 			p.nextToken()
 			expression.Alternative = p.parseBlockStatement()
 		} else {
