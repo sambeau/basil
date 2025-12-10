@@ -1,57 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Parts Example - Basil</title>
-	<link rel="stylesheet" href="/public/styles.css"/>
-</head>
-<body>
-	<div class="container">
-		<h1>Parts Example</h1>
-		<p>This demonstrates interactive Parts with multiple view functions.</p>
-		
-		<div class="demo">
-			<h2>Counter Part</h2>
-			<p>Click the buttons to increment, decrement, or reset the counter.</p>
-			<p>Notice how the count updates without a full page reload!</p>
-			
-			<div class="part-container">
-				<Part src={@./counter.part} view="default" count={0}/>
-			</div>
-		</div>
-		
-		<div class="info">
-			<h2>How it Works</h2>
-			<ul>
-				<li><strong>Part Attributes:</strong> <code>part-click</code> defines which view to call on click</li>
-				<li><strong>Props:</strong> The <code>part-count</code> attribute passes the current count</li>
-				<li><strong>Form Submit:</strong> <code>part-submit</code> handles form submissions</li>
-				<li><strong>Loading States:</strong> The <code>.part-loading</code> class is added during updates</li>
-			</ul>
-		</div>
-		
-		<div class="code-example">
-			<h2>Code Example</h2>
-			<pre><code>{`// counter.part
-export default = fn(props) {
-  let count = props.count
-  <div>
-    <p>Count: {count}</p>
-    <button part-click="increment" part-count={count}>+</button>
-    <button part-click="decrement" part-count={count}>-</button>
-  </div>
-}
+<h1>Parts Example</h1>
 
-export increment = fn(props) {
-  let newCount = props.count + 1
-  <div>
-    <p>Count: {newCount}</p>
-    <button part-click="increment" part-count={newCount}>+</button>
-    <button part-click="decrement" part-count={newCount}>-</button>
-  </div>
-}`}</code></pre>
-		</div>
-	</div>
-</body>
-</html>
+<p>Click the buttons to increment or decrement:</p>
+
+<Part src={@./counter.part} view="default" count={0}/>
+
+<hr/>
+
+<p>The counter updates without reloading the page!</p>

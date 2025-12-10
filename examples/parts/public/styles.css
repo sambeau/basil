@@ -1,146 +1,17 @@
-/* Parts Example Styles */
-
-:root {
-	--primary-color: #2563eb;
-	--primary-hover: #1d4ed8;
-	--bg-color: #f8fafc;
-	--border-color: #e2e8f0;
-	--text-color: #1e293b;
-	--code-bg: #f1f5f9;
-}
-
-* {
-	box-sizing: border-box;
-	margin: 0;
-	padding: 0;
-}
+/* Minimal styles */
 
 body {
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-	line-height: 1.6;
-	color: var(--text-color);
-	background-color: var(--bg-color);
+	font-family: sans-serif;
 	padding: 2rem;
-}
-
-.container {
-	max-width: 800px;
-	margin: 0 auto;
-	background: white;
-	padding: 2rem;
-	border-radius: 8px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-h1 {
-	color: var(--primary-color);
-	margin-bottom: 0.5rem;
-	font-size: 2rem;
-}
-
-h2 {
-	margin-top: 2rem;
-	margin-bottom: 1rem;
-	color: var(--text-color);
-	font-size: 1.5rem;
-}
-
-p {
-	margin-bottom: 1rem;
-}
-
-.demo {
-	padding: 1.5rem;
-	background-color: var(--bg-color);
-	border-radius: 8px;
-	margin: 2rem 0;
-}
-
-.part-container {
-	margin-top: 1.5rem;
-	padding: 1rem;
-	background: white;
-	border-radius: 6px;
-	border: 2px solid var(--border-color);
 }
 
 button {
-	padding: 0.5rem 1.5rem;
-	background-color: var(--primary-color);
-	color: white;
-	border: none;
-	border-radius: 4px;
+	padding: 0.5rem 1rem;
+	margin: 0.25rem;
 	cursor: pointer;
-	font-size: 1rem;
-	transition: background-color 0.2s;
-	margin-right: 0.5rem;
 }
 
-button:hover {
-	background-color: var(--primary-hover);
-}
-
-button:active {
-	transform: translateY(1px);
-}
-
-/* Loading state for Parts */
+/* Loading state */
 [data-part-src].part-loading {
-	opacity: 0.6;
-	pointer-events: none;
-	position: relative;
-}
-
-[data-part-src].part-loading::after {
-	content: '';
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(255, 255, 255, 0.5);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.info ul {
-	margin-left: 1.5rem;
-	margin-top: 1rem;
-}
-
-.info li {
-	margin-bottom: 0.5rem;
-}
-
-code {
-	background-color: var(--code-bg);
-	padding: 0.2rem 0.4rem;
-	border-radius: 3px;
-	font-family: 'Courier New', Courier, monospace;
-	font-size: 0.9em;
-}
-
-.code-example pre {
-	background-color: var(--code-bg);
-	padding: 1rem;
-	border-radius: 6px;
-	overflow-x: auto;
-	margin-top: 1rem;
-}
-
-.code-example code {
-	background: none;
-	padding: 0;
-}
-
-/* Part-specific styles */
-[data-part-src] p {
-	font-size: 1.25rem;
-	font-weight: 600;
-	margin-bottom: 1rem;
-}
-
-[data-part-src] button {
-	min-width: 3rem;
+	opacity: 0.5;
 }
