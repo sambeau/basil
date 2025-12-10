@@ -1022,7 +1022,7 @@ func partsRuntimeScript() string {
         console.error('Failed to parse Part props:', e);
       }
       
-      // Handle part-click attributes
+      // Handle part-click attributes (GET request)
       el.querySelectorAll('[part-click]').forEach(function(clickEl) {
         var clickView = clickEl.getAttribute('part-click');
         clickEl.addEventListener('click', function(e) {
@@ -1035,11 +1035,11 @@ func partsRuntimeScript() string {
               clickProps[propName] = attr.value;
             }
           });
-          updatePart(el, src, clickView, clickProps);
+          updatePart(el, src, clickView, clickProps, 'GET');
         });
       });
       
-      // Handle part-submit on forms
+      // Handle part-submit on forms (POST request)
       el.querySelectorAll('form[part-submit]').forEach(function(form) {
         var submitView = form.getAttribute('part-submit');
         form.addEventListener('submit', function(e) {
@@ -1049,28 +1049,41 @@ func partsRuntimeScript() string {
           formData.forEach(function(value, key) {
             formProps[key] = value;
           });
-          updatePart(el, src, submitView, formProps);
+          updatePart(el, src, submitView, formProps, 'POST');
         });
       });
     });
   }
   
   // Update a Part by fetching a new view
-  function updatePart(el, src, view, props) {
-    // Add loading class
-    el.classList.add('part-loading');
+  function updatePart(el, src, view, props, method) {
+    // Add loading class (spec: data-part-loading)
+    el.classList.add('data-part-loading');
     
-    // Build URL with query params
+    // Build URL
     var url = new URL(src, window.location.origin);
     url.searchParams.set('_view', view);
     
-    // Add props as query params
-    Object.keys(props).forEach(function(key) {
-      url.searchParams.set(key, props[key]);
-    });
+    var fetchOptions = {
+      method: method || 'GET',
+      credentials: 'same-origin'
+    };
+    
+    if (method === 'POST') {
+      // POST: send props in body
+      fetchOptions.headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      };
+      fetchOptions.body = new URLSearchParams(props).toString();
+    } else {
+      // GET: send props as query params
+      Object.keys(props).forEach(function(key) {
+        url.searchParams.set(key, props[key]);
+      });
+    }
     
     // Fetch the updated HTML
-    fetch(url.toString())
+    fetch(url.toString(), fetchOptions)
       .then(function(response) {
         if (!response.ok) {
           throw new Error('HTTP ' + response.status);
@@ -1082,7 +1095,7 @@ func partsRuntimeScript() string {
         el.innerHTML = html;
         
         // Remove loading class
-        el.classList.remove('part-loading');
+        el.classList.remove('data-part-loading');
         
         // Re-initialize event handlers for this Part
         initParts();
@@ -1090,7 +1103,7 @@ func partsRuntimeScript() string {
       .catch(function(error) {
         console.error('Failed to update Part:', error);
         // Remove loading class on error (leave old content)
-        el.classList.remove('part-loading');
+        el.classList.remove('data-part-loading');
       });
   }
   

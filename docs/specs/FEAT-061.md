@@ -39,7 +39,7 @@ As a web developer, I want to create interactive page fragments that can reload 
 
 ### JavaScript Runtime
 - [x] Auto-injected when page contains `<Part/>` components
-- [x] `data-part-loading` class added during fetch (CSS hook: `part-loading`)
+- [x] `data-part-loading` class added during fetch
 - [ ] `part-leave`/`part-enter` classes for CSS animations (deferred - V1.1)
 - [x] On fetch error, old content remains visible
 - [x] Nested Parts re-initialized after parent refresh
