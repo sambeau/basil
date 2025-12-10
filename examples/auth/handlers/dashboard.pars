@@ -1,5 +1,6 @@
 // dashboard.pars - Protected page
 
+let {basil} = import @std/basil
 {Page} = import(@./page.pars)
 
 // Note: This route has auth: required in basil.yaml

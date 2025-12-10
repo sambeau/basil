@@ -96,6 +96,8 @@ func TestDatabaseInHandler(t *testing.T) {
 
 	// Script that creates a table and inserts data
 	setupScript := `
+let {basil} = import @std/basil
+
 // Create test table and insert data
 let _ = basil.sqlite <=!=> "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"
 let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Alice')"
@@ -108,6 +110,7 @@ let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Bob')"
 
 	// Script that queries users
 	queryScript := `
+let {basil} = import @std/basil
 let users = basil.sqlite <=??=> "SELECT id, name FROM users ORDER BY id"
 <ul>
 {for (user in users) {

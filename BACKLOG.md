@@ -9,7 +9,7 @@ Deferred items from implementation, to be picked up in future work.
 ## High Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
-| Remove `basil` global in favor of `std/basil` import | FEAT-019 | Backward compat | Having both `basil` global and `std/basil` import creates two objects with same content. Hard to test properly, confusing API. Deprecate global, require `let {basil} = import("std/basil")`. Breaking change - needs migration path. |
+| Support for `else if` in Parsley | FEAT-057 | Language feature | Currently `else if` is not supported in tag contents or other contexts. Must use nested `if` blocks or separate `{if}` conditions. Pain point discovered during DevTools template implementation. Affects readability and ergonomics. |
 | Complete structured error migration | FEAT-023 | Phase 6+ | Migrate remaining files: `builtins.go`, other `stdlib_*.go` modules (json, http, sftp, etc.). Core evaluator files done. |
 
 ## Medium Priority

@@ -1,4 +1,6 @@
 // Simple API endpoint for testing CORS
+let {basil} = import @std/basil
+
 basil.http.response.headers["Content-Type"] = "application/json"
 basil.http.response.headers["X-Total-Count"] = "42"
 "{\"message\": \"CORS is working!\", \"method\": \"" + basil.http.request.method + "\"}"

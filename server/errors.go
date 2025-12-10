@@ -956,13 +956,13 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	errorObj, _ := parsley.ToParsley(errorMap)
 	env.Set("error", errorObj)
 
-	// Add Basil metadata
+	// Add Basil metadata for error templates (BasilCtx for std/basil import)
 	basilMap := map[string]interface{}{
 		"version": s.version,
 		"dev":     s.config.Server.Dev,
 	}
 	basilObj, _ := parsley.ToParsley(basilMap)
-	env.Set("basil", basilObj)
+	env.BasilCtx = basilObj.(*evaluator.Dictionary)
 
 	return env
 }

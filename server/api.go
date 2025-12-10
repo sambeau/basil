@@ -61,7 +61,6 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, "", nil)
-	env.SetProtected("basil", basilObj)
 	env.BasilCtx = basilObj
 
 	// Set fragment cache, asset registry, and handler path

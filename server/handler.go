@@ -201,12 +201,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
-	// Build and inject the basil namespace object (protected from reassignment)
+	// Build basil context for stdlib import (std/basil)
 	// Use route's public_dir for this handler
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule)
-	env.SetProtected("basil", basilObj)
-
-	// Also set on environment for stdlib import (std/basil)
 	env.BasilCtx = basilObj
 
 	// Set fragment cache and handler path for <basil.cache.Cache> component

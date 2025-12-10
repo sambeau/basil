@@ -1,5 +1,7 @@
 // page.pars - Shared page layout component
 
+let {basil} = import @std/basil
+
 export Page = fn({title, contents}) {
   <html lang="en">
   <head>

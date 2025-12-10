@@ -1,5 +1,6 @@
 // index.pars - Homepage
 
+let {basil} = import @std/basil
 {Page} = import(@./page.pars)
 
 <Page title="Home">

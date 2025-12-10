@@ -1420,7 +1420,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		"route_count": len(h.server.config.Routes),
 	}
 	basilObj, _ := parsley.ToParsley(basilMap)
-	env.Set("basil", basilObj)
+	env.BasilCtx = basilObj.(*evaluator.Dictionary)
 
 	// Add DevTools-specific data
 	devtoolsMap := map[string]interface{}{}

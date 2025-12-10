@@ -180,6 +180,8 @@ basil.http.request = {
 **Example: Using request data:**
 
 ```parsley
+let {basil} = import @std/basil
+
 let req = basil.http.request
 let name = req.query.name ?? "stranger"
 let userAgent = req.headers["User-Agent"] ?? "unknown"
@@ -213,6 +215,8 @@ let userAgent = req.headers["User-Agent"] ?? "unknown"
 **Custom Response** (set metadata via `basil.http.response`):
 
 ```parsley
+let {basil} = import @std/basil
+
 // Set response metadata
 basil.http.response.status = 201
 basil.http.response.headers["X-Custom"] = "value"
@@ -226,6 +230,7 @@ basil.http.response.headers["X-Custom"] = "value"
 **URL-encoded forms** (`application/x-www-form-urlencoded`):
 
 ```parsley
+let {basil} = import @std/basil
 let req = basil.http.request
 
 // Form data is in basil.http.request.form

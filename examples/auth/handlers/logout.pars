@@ -1,5 +1,6 @@
 // logout.pars - Logout page
 
+let {basil} = import @std/basil
 {Page} = import(@./page.pars)
 
 <Page title="Sign Out">

@@ -225,6 +225,8 @@ cors:
 
 In your handler:
 ```parsley
+let {basil} = import @std/basil
+
 basil.http.response.headers["X-Total-Count"] = "150"
 basil.http.response.headers["X-Page"] = "2"
 basil.http.response.headers["X-Per-Page"] = "20"
@@ -559,6 +561,8 @@ routes:
 
 **handlers/items.pars:**
 ```parsley
+let {basil} = import @std/basil
+
 basil.http.response.headers["Content-Type"] = "application/json"
 basil.http.response.headers["X-Total-Count"] = "100"
 

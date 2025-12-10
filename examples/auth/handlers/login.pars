@@ -1,5 +1,6 @@
 // login.pars - Login page
 
+let {basil} = import @std/basil
 {Page} = import(@./page.pars)
 
 // Redirect if already logged in

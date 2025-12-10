@@ -608,13 +608,9 @@ func TestCreateErrorEnv(t *testing.T) {
 		t.Fatal("error object should not be nil")
 	}
 
-	// Check that basil object was set
-	basilObj, ok := env.Get("basil")
-	if !ok {
-		t.Fatal("expected 'basil' to be set in environment")
-	}
-	if basilObj == nil {
-		t.Fatal("basil object should not be nil")
+	// Check that basil object was set on BasilCtx
+	if env.BasilCtx == nil {
+		t.Fatal("expected BasilCtx to be set in environment")
 	}
 }
 
