@@ -121,21 +121,26 @@ The hash is the first 8 characters of SHA-256 of the concatenated content.
 ### Discovery Algorithm
 
 ```
-1. Walk handlers/ directory recursively (depth-first)
-2. For each directory (alphabetically):
+1. Determine handler root directory:
+   - Site mode: Parent of the site/ directory (the handler root)
+   - Route mode: Common ancestor of all handler file paths
+2. Walk handler root directory recursively (depth-first)
+3. For each directory (alphabetically):
    a. Collect .css files (alphabetically)
    b. Collect .js files (alphabetically)
    c. Recurse into subdirectories (alphabetically)
-3. Skip hidden files (.*) and public/ folder
-4. Store ordered lists: cssFiles, jsFiles
-5. Compute hash from concatenated content
+4. Skip hidden files (.*) and public/ folder
+5. Store ordered lists: cssFiles, jsFiles
+6. Compute hash from concatenated content
 ```
+
+**Note**: In site mode, the entire handler root is scanned, not just the `site/` directory. This allows CSS/JS files to be organized in sibling directories like `components/`, alongside the `site/` handlers.
 
 ### Example File Order
 
 Given this structure:
 ```
-handlers/
+<handler root>/           # In site mode: parent of site/
 ├── base.css              # 1
 ├── utils.js              # JS-1
 ├── components/
@@ -144,6 +149,8 @@ handlers/
 │   │   └── button.js     # JS-2
 │   └── card/
 │       └── card.css      # 3
+├── site/                 # Site mode handlers directory
+│   └── index.pars
 ├── pages/
 │   └── about/
 │       └── about.css     # 4
