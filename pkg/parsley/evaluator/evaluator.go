@@ -7873,6 +7873,19 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	switch fn := fn.(type) {
 	case *Function:
 		extendedEnv := extendFunctionEnv(fn, args)
+		// Copy runtime context from calling environment to function environment
+		// This ensures <Css/>, <Script/>, and other runtime features work in imported components
+		if env != nil {
+			extendedEnv.AssetBundle = env.AssetBundle
+			extendedEnv.AssetRegistry = env.AssetRegistry
+			extendedEnv.FragmentCache = env.FragmentCache
+			extendedEnv.BasilCtx = env.BasilCtx
+			extendedEnv.DevLog = env.DevLog
+			extendedEnv.HandlerPath = env.HandlerPath
+			extendedEnv.DevMode = env.DevMode
+			extendedEnv.Security = env.Security
+			extendedEnv.Logger = env.Logger
+		}
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
