@@ -52,7 +52,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var rootPath string
 	scriptDir := filepath.Dir(h.scriptPath)
 	absScriptDir, _ := filepath.Abs(scriptDir)
-	
+
 	if h.route.PublicDir != "" {
 		absPublicDir, _ := filepath.Abs(h.route.PublicDir)
 		// If handler is within or equal to PublicDir, use PublicDir as root (site mode)

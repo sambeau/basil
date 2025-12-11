@@ -132,12 +132,12 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Create minimal environment for Part handling
 		env := evaluator.NewEnvironment()
 		env.Filename = h.scriptPath
-		
+
 		// Set root path - distinguish between site mode and route mode
 		var rootPath string
 		scriptDir := filepath.Dir(h.scriptPath)
 		absScriptDir, _ := filepath.Abs(scriptDir)
-		
+
 		if h.route.PublicDir != "" {
 			absPublicDir, _ := filepath.Abs(h.route.PublicDir)
 			// If handler is within or equal to PublicDir, use PublicDir as root (site mode)
@@ -242,7 +242,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var rootPath string
 	scriptDir := filepath.Dir(h.scriptPath)
 	absScriptDir, _ := filepath.Abs(scriptDir)
-	
+
 	if h.route.PublicDir != "" {
 		absPublicDir, _ := filepath.Abs(h.route.PublicDir)
 		// If handler is within or equal to PublicDir, use PublicDir as root (site mode)

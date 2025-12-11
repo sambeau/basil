@@ -1026,8 +1026,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"COMP-0001": {
 		Class:    ClassType,
-		Template: "Cannot use '<{{.Name}}/>' because '{{.Name}}' is null",
-		Hints:    []string{"'{{.Name}}' may not be exported from the imported module. Check the export name matches."},
+		Template: "Component '<{{.Name}}/>' not found - '{{.Name}}' is null or not exported",
+		Hints:    []string{"Did you forget to 'export {{.Name}}' in the imported module?", "Check that the export name matches exactly (case-sensitive)", "Ensure the module file exists and is imported correctly"},
 	},
 	"COMP-0002": {
 		Class:    ClassType,

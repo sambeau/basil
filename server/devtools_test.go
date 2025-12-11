@@ -419,7 +419,7 @@ func TestDevToolsDBFileDownload(t *testing.T) {
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
 	// Don't set SQLite in config yet - let server create it
-	
+
 	var stdout, stderr bytes.Buffer
 	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
 	if err != nil {
@@ -657,4 +657,3 @@ func TestBytesEqual(t *testing.T) {
 		})
 	}
 }
-
