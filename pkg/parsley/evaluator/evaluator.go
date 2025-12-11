@@ -8093,6 +8093,9 @@ func importModule(pathStr string, env *Environment) Object {
 	// Copy DevLog and BasilCtx for stdlib imports (std/dev, std/basil)
 	moduleEnv.DevLog = env.DevLog
 	moduleEnv.BasilCtx = env.BasilCtx
+	// Copy AssetRegistry and AssetBundle for Basil server context
+	moduleEnv.AssetRegistry = env.AssetRegistry
+	moduleEnv.AssetBundle = env.AssetBundle
 
 	// Copy basil context to module environment (if present)
 	// This allows modules to access basil.http, basil.auth, basil.sqlite etc.
