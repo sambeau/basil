@@ -59,6 +59,7 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		quietMode   = flags.Bool("quiet", false, "Suppress request logs (dev mode)")
 		port        = flags.Int("port", 0, "Override listen port")
 		profile     = flags.String("profile", "", "Developer profile to apply")
+		initFolder  = flags.String("init", "", "Create a new Basil project in the specified folder")
 		showVersion = flags.Bool("version", false, "Show version")
 		showHelp    = flags.Bool("help", false, "Show help")
 	)
@@ -87,6 +88,11 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	if *showVersion {
 		fmt.Fprintf(stdout, "basil version %s (%s)\n", Version, Commit)
 		return nil
+	}
+
+	// Handle --init
+	if *initFolder != "" {
+		return runInitCommand(*initFolder, stdout, stderr)
 	}
 
 	// Set up signal handling for graceful shutdown
@@ -164,6 +170,7 @@ Server Options:
   --port PORT        Override listen port
   --profile NAME     Apply a developer profile from config
   -as NAME           Alias for --profile
+  --init FOLDER      Create a new Basil project in the specified folder
   --version          Show version
   --help             Show this help
 

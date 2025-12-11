@@ -1,10 +1,22 @@
 # Basil
 
-A Go (Golang) project.
+A web server for the Parsley programming language.
 
 ## Prerequisites
 
-- [Go](https://golang.org/dl/) 1.21 or later
+- [Go](https://golang.org/dl/) 1.24 or later
+
+## Quick Start
+
+Create a new project:
+
+```bash
+basil --init myproject
+cd myproject
+basil
+```
+
+Your site will be running at http://localhost:8080
 
 ## Getting Started
 

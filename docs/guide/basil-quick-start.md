@@ -4,7 +4,7 @@ Get a Parsley-powered web app running in 5 minutes.
 
 ## Prerequisites
 
-- Go 1.21+ installed
+- Go 1.24+ installed
 - Parsley library available (via replace directive or published)
 
 ## Installation
@@ -18,7 +18,28 @@ go build -o basil .
 
 ## Your First Basil App
 
-### 1. Create Project Structure
+### Quick Start with --init
+
+The fastest way to get started:
+
+```bash
+basil --init myapp
+cd myapp
+basil
+```
+
+Visit http://localhost:8080 🎉
+
+This creates:
+- `basil.yaml` — Configuration with sensible defaults
+- `site/index.pars` — A simple homepage
+- `public/` — Folder for static files (CSS, JS, images)
+
+### Manual Setup (Alternative)
+
+If you prefer to set up the project structure manually:
+
+#### 1. Create Project Structure
 
 ```
 myapp/
@@ -29,7 +50,7 @@ myapp/
     └── style.css        # Static files
 ```
 
-### 2. Create Configuration
+#### 2. Create Configuration
 
 **basil.yaml:**
 
@@ -47,7 +68,7 @@ routes:
     handler: ./handlers/index.pars
 ```
 
-### 3. Create a Handler
+#### 3. Create a Handler
 
 **handlers/index.pars:**
 
@@ -81,16 +102,16 @@ body {
 h1 { color: #2d5016; }
 ```
 
-### 5. Run It!
+#### 4. Run It!
 
 ```bash
 # From your project directory
 basil --dev --config basil.yaml
 ```
 
-Visit http://localhost:8080 🎉
+## Next Steps
 
-## Key Concepts
+Now that you have a basic app running, explore:
 
 ### Dev Mode
 Use `--dev` for local development:
