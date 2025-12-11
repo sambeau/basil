@@ -132,14 +132,21 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Create minimal environment for Part handling
 		env := evaluator.NewEnvironment()
 		env.Filename = h.scriptPath
-		scriptDir := filepath.Dir(h.scriptPath)
-		absScriptDir, _ := filepath.Abs(scriptDir)
-		env.RootPath = absScriptDir
+		
+		// Set root path - use route.PublicDir if available (site mode), else handler directory
+		var rootPath string
+		if h.route.PublicDir != "" {
+			rootPath = h.route.PublicDir
+		} else {
+			scriptDir := filepath.Dir(h.scriptPath)
+			rootPath, _ = filepath.Abs(scriptDir)
+		}
+		env.RootPath = rootPath
 		env.Security = &evaluator.SecurityPolicy{
 			NoRead:        false,
 			AllowWrite:    []string{},
 			AllowWriteAll: false,
-			AllowExecute:  []string{absScriptDir},
+			AllowExecute:  []string{rootPath},
 			RestrictRead:  []string{"/etc", "/var", "/root"},
 		}
 
@@ -219,18 +226,27 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env := evaluator.NewEnvironment()
 	env.Filename = h.scriptPath
 
-	// Set root path for @~/ imports (handler's directory)
-	scriptDir := filepath.Dir(h.scriptPath)
-	absScriptDir, _ := filepath.Abs(scriptDir)
-	env.RootPath = absScriptDir
+	// Set root path for @~/ imports
+	// In site mode, use route.PublicDir (handler root) to allow access to public/, components/, etc.
+	// In handler-file mode, use handler's directory
+	var rootPath string
+	if h.route.PublicDir != "" {
+		// Site mode or explicit public_dir - use it as root
+		rootPath = h.route.PublicDir
+	} else {
+		// Handler-file mode - use handler's directory
+		scriptDir := filepath.Dir(h.scriptPath)
+		rootPath, _ = filepath.Abs(scriptDir)
+	}
+	env.RootPath = rootPath
 
 	// Set security policy
-	// Allow executing Parsley files in the script's directory and subdirectories (for imports)
+	// Allow executing Parsley files in the root path and subdirectories (for imports)
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
-		AllowExecute:  []string{absScriptDir},            // Allow imports from handler directory tree
+		AllowExecute:  []string{rootPath},                // Allow imports from handler directory tree
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 

@@ -151,14 +151,15 @@ func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, h
 		routePath = "/"
 	}
 
-	// Determine publicDir for this handler (directory containing index.pars)
-	publicDir := filepath.Dir(handlerPath)
+	// Determine handler root (parent of site directory) for @~ resolution
+	// This allows handlers to access sibling directories like public/, components/, etc.
+	handlerRoot := filepath.Dir(h.siteRoot)
 
 	// Create a synthetic route for the handler
 	route := config.Route{
 		Path:      routePath,
 		Handler:   handlerPath,
-		PublicDir: publicDir,
+		PublicDir: handlerRoot, // Use handler root, not handler's directory
 	}
 
 	// Create the handler using existing infrastructure

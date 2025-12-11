@@ -48,15 +48,21 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env := evaluator.NewEnvironment()
 	env.Filename = h.scriptPath
 
-	scriptDir := filepath.Dir(h.scriptPath)
-	absScriptDir, _ := filepath.Abs(scriptDir)
-	env.RootPath = absScriptDir
+	// Set root path - use route.PublicDir if available (site mode), else handler directory
+	var rootPath string
+	if h.route.PublicDir != "" {
+		rootPath = h.route.PublicDir
+	} else {
+		scriptDir := filepath.Dir(h.scriptPath)
+		rootPath, _ = filepath.Abs(scriptDir)
+	}
+	env.RootPath = rootPath
 
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,
 		AllowWrite:    []string{},
 		AllowWriteAll: false,
-		AllowExecute:  []string{absScriptDir},
+		AllowExecute:  []string{rootPath},
 		RestrictRead:  []string{"/etc", "/var", "/root"},
 	}
 
