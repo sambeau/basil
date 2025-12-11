@@ -62,6 +62,12 @@ type AssetRegistrar interface {
 	Register(filepath string) (string, error)
 }
 
+// AssetBundler provides site-wide CSS/JS bundle URLs for <Css/> and <Script/> tags.
+type AssetBundler interface {
+	CSSUrl() string // Returns URL for CSS bundle, or empty string if no CSS files
+	JSUrl() string  // Returns URL for JS bundle, or empty string if no JS files
+}
+
 // Database connection cache
 var (
 	dbConnectionsMu sync.RWMutex
@@ -581,6 +587,7 @@ type Environment struct {
 	BasilCtx      Object          // Basil server context (request, db, auth, etc.)
 	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
 	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
+	AssetBundle   AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
 	HandlerPath   string          // Current handler path for cache key namespacing
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
 	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
@@ -610,6 +617,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.BasilCtx = outer.BasilCtx
 		env.FragmentCache = outer.FragmentCache
 		env.AssetRegistry = outer.AssetRegistry
+		env.AssetBundle = outer.AssetBundle
 		env.HandlerPath = outer.HandlerPath
 		env.DevMode = outer.DevMode
 		env.ContainsParts = outer.ContainsParts
@@ -10770,6 +10778,28 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 
 // evalCustomTag evaluates a custom (uppercase) tag as a function call
 func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Environment) Object {
+	// Special handling for Css and Script bundle tags
+	if tagName == "Css" {
+		if env.AssetBundle == nil {
+			return &String{Value: ""} // No bundle available
+		}
+		url := env.AssetBundle.CSSUrl()
+		if url == "" {
+			return &String{Value: ""} // No CSS files in bundle
+		}
+		return &String{Value: fmt.Sprintf(`<link rel="stylesheet" href="%s">`, url)}
+	}
+	if tagName == "Script" {
+		if env.AssetBundle == nil {
+			return &String{Value: ""} // No bundle available
+		}
+		url := env.AssetBundle.JSUrl()
+		if url == "" {
+			return &String{Value: ""} // No JS files in bundle
+		}
+		return &String{Value: fmt.Sprintf(`<script src="%s"></script>`, url)}
+	}
+
 	// Look up the variable/function
 	val, ok := env.Get(tagName)
 	if !ok {

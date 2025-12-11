@@ -25,6 +25,15 @@ logging:
 # e.g., @./public/images/foo.png → /images/foo.png in HTML output
 public_dir: ./public
 
+# Asset bundling (automatic)
+# Basil automatically bundles all .css and .js files from your handlers directory
+# Access with <Css/> and <Script/> tags in your Parsley handlers
+# Routes: /__site.css and /__site.js
+# - Files are concatenated in depth-first, alphabetical order
+# - Hidden files (starting with .) are excluded
+# - Cache-busting hash is added automatically (e.g., ?v=a1b2c3d4)
+# - In dev mode, bundles include source path comments
+
 # Example routes (commented out - add your handlers)
 # routes:
 #   - path: /

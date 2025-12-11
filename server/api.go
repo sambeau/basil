@@ -66,6 +66,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set fragment cache, asset registry, and handler path
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
+	env.AssetBundle = h.server.assetBundle
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
 
