@@ -30,6 +30,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/locale"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"gopkg.in/yaml.v3"
@@ -13081,7 +13082,9 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 
 	// Convert markdown to HTML using goldmark
 	var htmlBuf bytes.Buffer
-	md := goldmark.New()
+	md := goldmark.New(
+		goldmark.WithExtensions(extension.GFM),
+	)
 	if err := md.Convert([]byte(body), &htmlBuf); err != nil {
 		return nil, newFormatError("FMT-0010", err)
 	}

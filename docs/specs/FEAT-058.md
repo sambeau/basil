@@ -39,16 +39,18 @@ As a Basil maintainer, I want HTML components written in Parsley so that I can i
 - [ ] `TextAreaField` - multi-line text input
 
 ### JavaScript Integration
-- [ ] Components that need JS emit `<script type="module" src={basil.js.url}/>`
-- [ ] `basil.js.url` available in prelude environment
-- [ ] Script tag uses `type="module"` for deduplication
+- [ ] Components that need JS use data attributes (e.g., `data-confirm`)
+- [ ] JavaScript in site bundle (via FEAT-063 `<Javascript/>`) handles enhancement
+- [ ] No per-component script injection needed
 
 ## Design Decisions
 
-- **Parsley-native**: Components are regular Parsley functions
+- **Parsley-native**: Components are regular Parsley functions using `fn({props})`
 - **Pre-parsed**: No runtime parsing overhead
 - **Accessible by default**: All components include proper ARIA attributes
 - **Progressive enhancement**: JS enhances but isn't required
+- **Unstyled**: Components emit semantic HTML with classes but no styles; users provide CSS
+- **Contents prop**: Child content passed via `{contents}` prop (standard Parsley pattern)
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -105,8 +107,7 @@ func loadHTMLModule(env *Environment) *Dictionary {
 ### Example Component (text_field.pars)
 
 ```parsley
-export fn TextField(props) {
-    let {name, label, type, value, hint, error, required} = props
+export TextField = fn({name, label, type, value, hint, error, required}) {
     let inputId = "field-" ++ name
     let hintId = if (hint) { inputId ++ "-hint" } else { null }
     let errorId = if (error) { inputId ++ "-error" } else { null }
@@ -145,23 +146,13 @@ export fn TextField(props) {
 ### Example Component (form.pars)
 
 ```parsley
-export fn Form(props, children) {
-    let {action, method, confirm, autosubmit} = props
-    
-    let attrs = {
-        action: action,
-        method: method ?? "POST"
-    }
-    
-    if (confirm) {
-        attrs["data-confirm"] = confirm
-    }
-    
-    <form {...attrs}>
-        {children}
-        if (confirm || autosubmit) {
-            <script type="module" src={basil.js.url}/>
-        }
+export Form = fn({action, method, confirm, autosubmit, contents}) {
+    <form 
+        action={action}
+        method={method ?? "POST"}
+        data-confirm={confirm}
+    >
+        {contents}
     </form>
 }
 ```
@@ -169,27 +160,15 @@ export fn Form(props, children) {
 ### Usage in User Code
 
 ```parsley
-import {TextField, Button, Form} from @std/html
+{TextField, Button, Form} = import @std/html
 
-fn ContactForm() {
+ContactForm = fn() {
     <Form action="/contact" confirm="Submit this form?">
         <TextField name="email" label="Email" type="email" required={true}/>
         <TextField name="message" label="Message" hint="Max 500 characters"/>
         <Button type="submit">Send</Button>
     </Form>
 }
-```
-
-### Prelude Environment for Components
-
-Components receive a special environment with:
-
-```go
-env.Set("basil", map[string]interface{}{
-    "js": map[string]interface{}{
-        "url": JSAssetURL(),
-    },
-})
 ```
 
 ### Affected Files
@@ -200,6 +179,6 @@ env.Set("basil", map[string]interface{}{
 
 ## Related
 
-- **Depends on**: FEAT-056 (Prelude Infrastructure)
+- **Depends on**: FEAT-056 (Prelude Infrastructure), FEAT-063 (CSS/JS Auto-Bundle for JavaScript enhancement)
 - **Part of**: FEAT-051 (Standard Prelude)
 - **Completes**: FEAT-046 (HTML Components)

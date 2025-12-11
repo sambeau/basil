@@ -75,12 +75,12 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 	// Call the view function with props using ApplyFunctionWithEnv
 	// This properly handles all parameter types including destructuring patterns like fn({width})
 	result = evaluator.ApplyFunctionWithEnv(fnObj, []evaluator.Object{props}, env)
-	
+
 	// Unwrap return values
 	if retVal, ok := result.(*evaluator.ReturnValue); ok {
 		result = retVal.Value
 	}
-	
+
 	if result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
 		http.Error(w, errObj.Message, http.StatusInternalServerError)
