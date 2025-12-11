@@ -18,6 +18,9 @@
       "include": "#duration-literals"
     },
     {
+      "include": "#money-literals"
+    },
+    {
       "include": "#path-template-literals"
     },
     {
@@ -71,7 +74,7 @@
         },
         {
           "name": "keyword.other.parsley",
-          "match": "\\b(let|fn|as)\\b"
+          "match": "\\b(let|fn|as|export)\\b"
         }
       ]
     },
@@ -222,6 +225,15 @@
         }
       ]
     },
+    "money-literals": {
+      "patterns": [
+        {
+          "name": "constant.numeric.money.parsley",
+          "comment": "Money: $100, $12.50, £99.99, €50, ¥1000",
+          "match": "[$£€¥][0-9]+(\\.[0-9]{1,2})?"
+        }
+      ]
+    },
     "path-template-literals": {
       "patterns": [
         {
@@ -326,7 +338,7 @@
       "patterns": [
         {
           "name": "support.function.builtin.parsley",
-          "match": "\\b(import|len|map|sort|sortBy|reverse|toString|toDebug|repr|toNumber|toInt|toFloat|toUpper|toLower|log|logLine|has|keys|values|toArray|toDict|delete|sin|cos|tan|asin|acos|atan|sqrt|round|pow|pi|now|time|path|url|regex|replace|split)\\b"
+          "match": "\\b(import|len|map|filter|reduce|sort|sortBy|reverse|toString|toDebug|repr|toNumber|toInt|toFloat|toUpper|toLower|trim|log|logLine|has|keys|values|toArray|toDict|delete|sin|cos|tan|asin|acos|atan|sqrt|round|ceil|floor|abs|pow|pi|now|time|path|url|regex|replace|split|join|range|sum|min|max|any|all|contains|startsWith|endsWith|find|findIndex|unique|flatten|chunk|zip|unzip|groupBy|countBy|partition|take|drop|takeWhile|dropWhile)\\b"
         },
         {
           "name": "entity.name.function.parsley",

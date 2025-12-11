@@ -1,3 +1,31 @@
+# VSCode Extension Updates - v0.16.0
+
+## Summary
+
+Updated the Parsley VSCode extension to support `.part` files and add latest language features (v0.16.0).
+
+## Changes in v0.16.0
+
+### 1. Updated `package.json`
+- Bumped version from `0.15.0` to `0.16.0`
+- Added `.part` file extension support (for Parsley Part components used in Basil)
+
+### 2. Updated `syntaxes/parsley.tmLanguage.json`
+- Added `export` keyword for component exports
+- Added syntax highlighting for Money literals: `$100`, `£99.99`, `€50`, `¥1000`
+- Expanded builtin functions list with latest additions:
+  - Array methods: `filter`, `reduce`, `unique`, `flatten`, `chunk`, `zip`, `unzip`, `groupBy`, `countBy`, `partition`
+  - String methods: `trim`, `join`, `contains`, `startsWith`, `endsWith`, `find`, `findIndex`
+  - Math methods: `ceil`, `floor`, `abs`
+  - Collection methods: `range`, `sum`, `min`, `max`, `any`, `all`, `take`, `drop`, `takeWhile`, `dropWhile`
+
+### Notes
+- `.part` files are Parsley components that can be loaded dynamically by Part components in Basil
+- Money literals follow the pattern: currency symbol + digits with optional 2 decimal places
+- All new builtin functions are now properly highlighted in the editor
+
+---
+
 # VSCode Extension Updates - v0.14.0
 
 ## Summary
