@@ -5199,45 +5199,70 @@ func getBuiltins() map[string]*Builtin {
 					return newTypeError("TYPE-0012", "fileList", "a path or string pattern", args[0].Type())
 				}
 
+			// Track if original pattern was explicitly relative (./ or ../ prefix) BEFORE resolving
+			wasExplicitlyRelative := strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../")
+
+			// Resolve path based on prefix
+			if strings.HasPrefix(pattern, "~/") {
 				// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
-				if strings.HasPrefix(pattern, "~/") {
-					if env != nil && env.RootPath != "" {
-						pattern = filepath.Join(env.RootPath, pattern[2:])
+				if env != nil && env.RootPath != "" {
+					pattern = filepath.Join(env.RootPath, pattern[2:])
+				} else {
+					// Fallback to user home directory if no root path set
+					home, err := os.UserHomeDir()
+					if err == nil {
+						pattern = filepath.Join(home, pattern[2:])
+					}
+				}
+			} else if strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../") {
+				// Resolve relative paths based on current file's directory (like import does)
+				var baseDir string
+				if env != nil && env.Filename != "" {
+					baseDir = filepath.Dir(env.Filename)
+				} else {
+					// If no current file, use current working directory
+					cwd, err := os.Getwd()
+					if err != nil {
+						return newIOError("IO-0003", ".", err)
+					}
+					baseDir = cwd
+				}
+				pattern = filepath.Join(baseDir, pattern)
+			}
+
+			// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				return newValidationError("VAL-0003", map[string]any{"Pattern": pattern, "GoError": err.Error()})
+			}
+
+			// Convert matches to array of file handles
+			elements := make([]Object, 0, len(matches))
+			for _, match := range matches {
+				info, statErr := os.Stat(match)
+				if statErr != nil {
+					continue
+				}
+
+				// If the original pattern was relative (./ or ../), convert absolute matches back to relative
+				if wasExplicitlyRelative && filepath.IsAbs(match) {
+					// Get the base directory we used for resolution
+					var baseDir string
+					if env != nil && env.Filename != "" {
+						baseDir = filepath.Dir(env.Filename)
 					} else {
-						// Fallback to user home directory if no root path set
-						home, err := os.UserHomeDir()
-						if err == nil {
-							pattern = filepath.Join(home, pattern[2:])
-						}
+						cwd, _ := os.Getwd()
+						baseDir = cwd
+					}
+					// Convert to relative path
+					relPath, err := filepath.Rel(baseDir, match)
+					if err == nil {
+						match = "./" + relPath
 					}
 				}
 
-				// Track if original pattern was explicitly relative (./ prefix)
-				// Go's filepath.Glob strips this, so we need to restore it
-				wasExplicitlyRelative := strings.HasPrefix(pattern, "./")
-
-				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
-				matches, err := filepath.Glob(pattern)
-				if err != nil {
-					return newValidationError("VAL-0003", map[string]any{"Pattern": pattern, "GoError": err.Error()})
-				}
-
-				// Convert matches to array of file handles
-				elements := make([]Object, 0, len(matches))
-				for _, match := range matches {
-					info, statErr := os.Stat(match)
-					if statErr != nil {
-						continue
-					}
-
-					// Restore ./ prefix if the original pattern had it
-					// filepath.Glob strips ./ but we want to preserve relative path semantics
-					if wasExplicitlyRelative && !strings.HasPrefix(match, "./") && !strings.HasPrefix(match, "/") {
-						match = "./" + match
-					}
-
-					components, isAbsolute := parsePathString(match)
-					pathDict := pathToDict(components, isAbsolute, env)
+				components, isAbsolute := parsePathString(match)
+				pathDict := pathToDict(components, isAbsolute, env)
 
 					var fileHandle *Dictionary
 					if info.IsDir() {
