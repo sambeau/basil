@@ -1,9 +1,10 @@
 ---
 id: FEAT-066
 title: "Database Download/Upload for Dev Tools"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-11
+updated: 2025-12-11
 author: "@human + AI"
 ---
 
@@ -207,8 +208,71 @@ document.getElementById('db-upload').addEventListener('change', function(e) {
 - Size limit prevents DoS
 
 ## Implementation Notes
-*To be added during implementation*
+
+**Implemented**: 2025-12-11
+
+### Key Implementation Details
+
+1. **Download Handler** (`handleDevDBFileDownload`):
+   - Uses `http.ServeFile` for efficient streaming
+   - Sets proper Content-Type and Content-Disposition headers
+   - Extracts filename from configured database path
+
+2. **Upload Handler** (`handleDevDBFileUpload`):
+   - Validates SQLite magic bytes: `53 51 4C 69 74 65 20 66 6F 72 6D 61 74 20 33 00`
+   - Creates timestamped backup: `<dbPath>.YYYYMMDD-HHMMSS.backup`
+   - Replaces database file atomically
+   - Calls `server.ReloadScripts()` to invalidate all caches
+   - Returns JSON response with success status and backup filename
+
+3. **Helper Functions**:
+   - `copyFile(src, dst)`: Safe file copy with error handling
+   - `bytesEqual(a, b)`: Byte slice comparison for magic bytes validation
+
+4. **UI Implementation** (`server/prelude/devtools/db.pars`):
+   - Download button linking to `/__/db/download`
+   - Upload form with file input and submit button
+   - JavaScript for file selection UX and AJAX upload
+   - Success/error message display
+   - Auto-reload after successful upload
+
+5. **Routes** (added to `devtools.go` ServeHTTP):
+   - `GET /__/db/download` → `handleDevDBFileDownload`
+   - `POST /__/db/upload` → `handleDevDBFileUpload`
+
+### Test Coverage
+
+Added 6 comprehensive tests in `server/devtools_test.go`:
+- `TestDevToolsDBFileDownload`: Verifies download headers and content
+- `TestDevToolsDBFileUpload`: Tests valid upload with backup creation
+- `TestDevToolsDBFileUploadInvalidFile`: Validates rejection of non-SQLite files
+- `TestCopyFile`: Tests file copy utility
+- `TestCopyFileNonExistent`: Tests error handling
+- `TestBytesEqual`: Tests byte comparison utility
+
+All tests pass successfully.
+
+### Files Modified
+
+- `server/devtools.go`: Added download/upload handlers, helper functions
+- `server/devtools_test.go`: Added comprehensive test coverage
+- `server/prelude/devtools/db.pars`: Updated UI with download/upload controls
+- `docs/specs/FEAT-066.md`: This specification
+- `docs/plans/FEAT-066-plan.md`: Implementation plan
+
+### Commit
+
+```
+feat: add database download/upload to dev tools (FEAT-066)
+
+- Add download button to export entire SQLite database
+- Add upload form with drag-and-drop file selection
+- Validate uploaded files with SQLite magic bytes check
+- Automatically create timestamped backups before upload
+- Invalidate caches after database replacement
+- Add comprehensive tests for download, upload, validation
+```
 
 ## Related
-- Plan: `docs/plans/FEAT-066-plan.md` (to be created)
-- Similar: Existing CSV import/export on `/__/db` page
+- Plan: `docs/plans/FEAT-066-plan.md`
+- Similar: Existing CSV import/export on `/__/db` page (per-table operations)
