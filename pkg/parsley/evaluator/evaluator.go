@@ -5210,70 +5210,70 @@ func getBuiltins() map[string]*Builtin {
 					return newTypeError("TYPE-0012", "fileList", "a path or string pattern", args[0].Type())
 				}
 
-			// Track if original pattern was explicitly relative (./ or ../ prefix) BEFORE resolving
-			wasExplicitlyRelative := strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../")
+				// Track if original pattern was explicitly relative (./ or ../ prefix) BEFORE resolving
+				wasExplicitlyRelative := strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../")
 
-			// Resolve path based on prefix
-			if strings.HasPrefix(pattern, "~/") {
-				// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
-				if env != nil && env.RootPath != "" {
-					pattern = filepath.Join(env.RootPath, pattern[2:])
-				} else {
-					// Fallback to user home directory if no root path set
-					home, err := os.UserHomeDir()
-					if err == nil {
-						pattern = filepath.Join(home, pattern[2:])
+				// Resolve path based on prefix
+				if strings.HasPrefix(pattern, "~/") {
+					// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
+					if env != nil && env.RootPath != "" {
+						pattern = filepath.Join(env.RootPath, pattern[2:])
+					} else {
+						// Fallback to user home directory if no root path set
+						home, err := os.UserHomeDir()
+						if err == nil {
+							pattern = filepath.Join(home, pattern[2:])
+						}
 					}
-				}
-			} else if strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../") {
-				// Resolve relative paths based on current file's directory (like import does)
-				var baseDir string
-				if env != nil && env.Filename != "" {
-					baseDir = filepath.Dir(env.Filename)
-				} else {
-					// If no current file, use current working directory
-					cwd, err := os.Getwd()
-					if err != nil {
-						return newIOError("IO-0003", ".", err)
-					}
-					baseDir = cwd
-				}
-				pattern = filepath.Join(baseDir, pattern)
-			}
-
-			// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
-			matches, err := filepath.Glob(pattern)
-			if err != nil {
-				return newValidationError("VAL-0003", map[string]any{"Pattern": pattern, "GoError": err.Error()})
-			}
-
-			// Convert matches to array of file handles
-			elements := make([]Object, 0, len(matches))
-			for _, match := range matches {
-				info, statErr := os.Stat(match)
-				if statErr != nil {
-					continue
-				}
-
-				// If the original pattern was relative (./ or ../), convert absolute matches back to relative
-				if wasExplicitlyRelative && filepath.IsAbs(match) {
-					// Get the base directory we used for resolution
+				} else if strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../") {
+					// Resolve relative paths based on current file's directory (like import does)
 					var baseDir string
 					if env != nil && env.Filename != "" {
 						baseDir = filepath.Dir(env.Filename)
 					} else {
-						cwd, _ := os.Getwd()
+						// If no current file, use current working directory
+						cwd, err := os.Getwd()
+						if err != nil {
+							return newIOError("IO-0003", ".", err)
+						}
 						baseDir = cwd
 					}
-					// Convert to relative path
-					relPath, err := filepath.Rel(baseDir, match)
-					if err == nil {
-						match = "./" + relPath
-					}
+					pattern = filepath.Join(baseDir, pattern)
 				}
 
-				components, isAbsolute := parsePathString(match)
-				pathDict := pathToDict(components, isAbsolute, env)
+				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
+				matches, err := filepath.Glob(pattern)
+				if err != nil {
+					return newValidationError("VAL-0003", map[string]any{"Pattern": pattern, "GoError": err.Error()})
+				}
+
+				// Convert matches to array of file handles
+				elements := make([]Object, 0, len(matches))
+				for _, match := range matches {
+					info, statErr := os.Stat(match)
+					if statErr != nil {
+						continue
+					}
+
+					// If the original pattern was relative (./ or ../), convert absolute matches back to relative
+					if wasExplicitlyRelative && filepath.IsAbs(match) {
+						// Get the base directory we used for resolution
+						var baseDir string
+						if env != nil && env.Filename != "" {
+							baseDir = filepath.Dir(env.Filename)
+						} else {
+							cwd, _ := os.Getwd()
+							baseDir = cwd
+						}
+						// Convert to relative path
+						relPath, err := filepath.Rel(baseDir, match)
+						if err == nil {
+							match = "./" + relPath
+						}
+					}
+
+					components, isAbsolute := parsePathString(match)
+					pathDict := pathToDict(components, isAbsolute, env)
 
 					var fileHandle *Dictionary
 					if info.IsDir() {
@@ -6813,7 +6813,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
-		result := applyFunctionWithEnv(function, args, env)
+		result := ApplyFunctionWithEnv(function, args, env)
 		// Enrich errors from function application with call site position
 		return withPosition(result, callToken, env)
 
@@ -7851,6 +7851,7 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 			Hints:   parsleyErr.Hints,
 			Line:    parsleyErr.Line,
 			Column:  parsleyErr.Column,
+			File:    env.Filename,
 		}
 	}
 
@@ -7905,7 +7906,10 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary) Objec
 	return unwrapReturnValue(evaluated)
 }
 
-func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
+// ApplyFunctionWithEnv applies a function with the given arguments in the context of an environment.
+// It handles parameter binding including destructuring patterns, and copies runtime context
+// from the calling environment to ensure features like <CSS/>, <Javascript/> work in imported components.
+func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	switch fn := fn.(type) {
 	case *Function:
 		extendedEnv := extendFunctionEnv(fn, args)
@@ -7945,7 +7949,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		return result
 	case *AuthWrappedFunction:
 		// Delegate to the inner function
-		return applyFunctionWithEnv(fn.Inner, args, env)
+		return ApplyFunctionWithEnv(fn.Inner, args, env)
 	case *TableModule:
 		// TableModule is callable: table(arr) creates a Table from an array
 		result := TableConstructor(args, env)
@@ -7994,7 +7998,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 // CallWithEnv invokes a callable object within the provided environment.
 // This is used by external packages (e.g., server layer) to execute exported handlers.
 func CallWithEnv(fn Object, args []Object, env *Environment) Object {
-	return applyFunctionWithEnv(fn, args, env)
+	return ApplyFunctionWithEnv(fn, args, env)
 }
 
 // evalImportExpression implements the new import @path syntax.
@@ -9839,30 +9843,30 @@ func interpolateRawString(template string, env *Environment) Object {
 				return newParseError("PARSE-0009", "raw template", nil)
 			}
 
-		exprStr := template[exprStart:i]
-		i++ // skip closing }
+			exprStr := template[exprStart:i]
+			i++ // skip closing }
 
-		l := lexer.NewWithFilename(exprStr, env.Filename)
-		p := parser.New(l)
-		program := p.ParseProgram()
+			l := lexer.NewWithFilename(exprStr, env.Filename)
+			p := parser.New(l)
+			program := p.ParseProgram()
 
-		if errs := p.StructuredErrors(); len(errs) > 0 {
-			// Return first parse error with file info preserved
-			perr := errs[0]
-			return &Error{
-				Class:   ClassParse,
-				Code:    perr.Code,
-				Message: perr.Message,
-				Hints:   perr.Hints,
-				Line:    perr.Line,
-				Column:  perr.Column,
-				File:    env.Filename,
-				Data:    perr.Data,
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
-		}
 
-		var evaluated Object
-		for _, stmt := range program.Statements {
+			var evaluated Object
+			for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
 					return evaluated
@@ -10287,7 +10291,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	viewPropsDict := &Dictionary{Pairs: viewProps, Env: env}
 
 	// Call the view function with props, passing environment for runtime context
-	result := applyFunctionWithEnv(fnObj, []Object{viewPropsDict}, env)
+	result := ApplyFunctionWithEnv(fnObj, []Object{viewPropsDict}, env)
 	if isError(result) {
 		return result
 	}
@@ -10540,7 +10544,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	}
 
 	// Call the function with the props dictionary, passing environment for runtime context
-	result := applyFunctionWithEnv(val, []Object{dict}, env)
+	result := ApplyFunctionWithEnv(val, []Object{dict}, env)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
@@ -10924,7 +10928,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	}
 
 	// Call the function with the props dictionary, passing environment for runtime context
-	result := applyFunctionWithEnv(val, []Object{props}, env)
+	result := ApplyFunctionWithEnv(val, []Object{props}, env)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {

@@ -72,18 +72,9 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Call the view function with props
-	// Manually invoke the function (since evaluator.applyFunction is not exported)
-	// Create extended environment with function parameters bound to args
-	fnEnv := evaluator.NewEnclosedEnvironment(fnObj.Env)
-	
-	// Bind parameters (simple case - just one parameter for props)
-	if len(fnObj.Params) > 0 && fnObj.Params[0].Ident != nil {
-		fnEnv.Set(fnObj.Params[0].Ident.Value, props)
-	}
-	
-	// Execute function body
-	result = evaluator.Eval(fnObj.Body, fnEnv)
+	// Call the view function with props using ApplyFunctionWithEnv
+	// This properly handles all parameter types including destructuring patterns like fn({width})
+	result = evaluator.ApplyFunctionWithEnv(fnObj, []evaluator.Object{props}, env)
 	
 	// Unwrap return values
 	if retVal, ok := result.(*evaluator.ReturnValue); ok {
