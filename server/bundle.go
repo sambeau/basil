@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
 
 // AssetBundle manages site-wide CSS and JavaScript bundles.
@@ -229,14 +228,20 @@ func (b *AssetBundle) ServeCSS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
-	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, hash))
 
-	// Cache headers
+	// In dev mode, don't use ETags - just serve fresh content every time
+	// This prevents browser caching issues during development
 	if b.devMode {
-		w.Header().Set("Cache-Control", "no-cache")
-	} else {
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(content)
+		return
 	}
+
+	// Production mode: use ETags and long-term caching
+	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, hash))
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
 
 	// Handle ETag caching
 	if match := r.Header.Get("If-None-Match"); match == fmt.Sprintf(`"%s"`, hash) {
@@ -244,7 +249,9 @@ func (b *AssetBundle) ServeCSS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeContent(w, r, "site.css", time.Time{}, bytes.NewReader(content))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(content)
 }
 
 // ServeJS serves the JS bundle.
@@ -260,14 +267,20 @@ func (b *AssetBundle) ServeJS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, hash))
 
-	// Cache headers
+	// In dev mode, don't use ETags - just serve fresh content every time
+	// This prevents browser caching issues during development
 	if b.devMode {
-		w.Header().Set("Cache-Control", "no-cache")
-	} else {
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(content)
+		return
 	}
+
+	// Production mode: use ETags and long-term caching
+	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, hash))
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
 
 	// Handle ETag caching
 	if match := r.Header.Get("If-None-Match"); match == fmt.Sprintf(`"%s"`, hash) {
@@ -275,5 +288,7 @@ func (b *AssetBundle) ServeJS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeContent(w, r, "site.js", time.Time{}, bytes.NewReader(content))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(content)
 }
