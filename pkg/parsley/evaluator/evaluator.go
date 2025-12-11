@@ -10225,8 +10225,8 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	}
 	viewPropsDict := &Dictionary{Pairs: viewProps, Env: env}
 
-	// Call the view function with props
-	result := applyFunction(fnObj, []Object{viewPropsDict})
+	// Call the view function with props, passing environment for runtime context
+	result := applyFunctionWithEnv(fnObj, []Object{viewPropsDict}, env)
 	if isError(result) {
 		return result
 	}
@@ -10478,8 +10478,8 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
 
-	// Call the function with the props dictionary
-	result := applyFunction(val, []Object{dict})
+	// Call the function with the props dictionary, passing environment for runtime context
+	result := applyFunctionWithEnv(val, []Object{dict}, env)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
@@ -10840,8 +10840,8 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		return props
 	}
 
-	// Call the function with the props dictionary
-	result := applyFunction(val, []Object{props})
+	// Call the function with the props dictionary, passing environment for runtime context
+	result := applyFunctionWithEnv(val, []Object{props}, env)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
