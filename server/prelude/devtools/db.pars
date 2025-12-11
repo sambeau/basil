@@ -103,6 +103,87 @@
 			color: #bbb;
 			font-size: 0.875rem;
 		}
+		.db-actions {
+			display: flex;
+			gap: 1rem;
+			margin-bottom: 1rem;
+		}
+		.btn-download {
+			background: #4ecdc4;
+			color: #1a1a2e;
+			padding: 0.75rem 1.5rem;
+			border-radius: 4px;
+			text-decoration: none;
+			font-size: 0.875rem;
+			font-weight: 600;
+			border: none;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		.btn-download:hover {
+			background: #3db8af;
+		}
+		.upload-form {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+		}
+		.file-input {
+			display: none;
+		}
+		.file-label {
+			background: #16213e;
+			color: #eee;
+			padding: 0.75rem 1.5rem;
+			border-radius: 4px;
+			font-size: 0.875rem;
+			border: 1px solid #4ecdc4;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		.file-label:hover {
+			background: #4ecdc4;
+			color: #1a1a2e;
+		}
+		.btn-upload {
+			background: #ff6b6b;
+			color: #fff;
+			padding: 0.75rem 1.5rem;
+			border-radius: 4px;
+			font-size: 0.875rem;
+			font-weight: 600;
+			border: none;
+			cursor: pointer;
+			transition: background 0.2s;
+			display: none;
+		}
+		.btn-upload:hover {
+			background: #ff5252;
+		}
+		.btn-upload.visible {
+			display: block;
+		}
+		.file-name {
+			font-size: 0.875rem;
+			color: #bbb;
+		}
+		.upload-message {
+			margin-top: 0.5rem;
+			padding: 0.5rem;
+			border-radius: 4px;
+			font-size: 0.875rem;
+			display: none;
+		}
+		.upload-message.success {
+			background: #2ecc71;
+			color: #fff;
+			display: block;
+		}
+		.upload-message.error {
+			background: #ff6b6b;
+			color: #fff;
+			display: block;
+		}
 	</style>
 </head>
 <body>
@@ -111,6 +192,17 @@
 			<h1>🗄️ Database Browser</h1>
 			<a href="/__/" class="btn">← Back</a>
 		</div>
+
+		<div class="db-actions">
+			<a href="/__/db/download" class="btn-download">📥 Download Database</a>
+			<form class="upload-form" id="uploadForm" enctype="multipart/form-data">
+				<input type="file" id="fileInput" name="database" accept=".db,.sqlite,.sqlite3" class="file-input"/>
+				<label for="fileInput" class="file-label">📤 Choose Database File</label>
+				<span class="file-name" id="fileName"></span>
+				<button type="submit" class="btn-upload" id="uploadBtn">Upload</button>
+			</form>
+		</div>
+		<div id="uploadMessage" class="upload-message"></div>
 
 		{if (devtools.error) {
 			<div class="error-state">
@@ -138,5 +230,59 @@
 			</div>
 		}}
 	</div>
+	<script>
+		// Handle file selection
+		const fileInput = document.getElementById('fileInput');
+		const fileName = document.getElementById('fileName');
+		const uploadBtn = document.getElementById('uploadBtn');
+		const uploadMessage = document.getElementById('uploadMessage');
+
+		fileInput.addEventListener('change', function(e) {
+			if (e.target.files.length > 0) {
+				fileName.textContent = e.target.files[0].name;
+				uploadBtn.classList.add('visible');
+			} else {
+				fileName.textContent = '';
+				uploadBtn.classList.remove('visible');
+			}
+		});
+
+		// Handle form submission
+		document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+			e.preventDefault();
+			
+			const file = fileInput.files[0];
+			if (!file) return;
+
+			uploadMessage.className = 'upload-message';
+			uploadMessage.textContent = 'Uploading...';
+			uploadMessage.style.display = 'block';
+
+			const formData = new FormData();
+			formData.append('database', file);
+
+			try {
+				const response = await fetch('/__/db/upload', {
+					method: 'POST',
+					body: formData
+				});
+
+				const result = await response.json();
+
+				if (response.ok) {
+					uploadMessage.className = 'upload-message success';
+					uploadMessage.textContent = result.message || 'Database uploaded successfully';
+					// Reload page after 1 second
+					setTimeout(() => window.location.reload(), 1000);
+				} else {
+					uploadMessage.className = 'upload-message error';
+					uploadMessage.textContent = result.message || 'Upload failed';
+				}
+			} catch (error) {
+				uploadMessage.className = 'upload-message error';
+				uploadMessage.textContent = 'Upload failed: ' + error.message;
+			}
+		});
+	</script>
 </body>
 </html>
