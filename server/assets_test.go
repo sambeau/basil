@@ -154,7 +154,7 @@ func TestAssetHandler_ServeFile(t *testing.T) {
 	registry := newAssetRegistry(nil)
 	url, _ := registry.Register(testFile)
 
-	handler := newAssetHandler(registry)
+	handler := newAssetHandler(registry, false)
 
 	req := httptest.NewRequest("GET", url, nil)
 	rec := httptest.NewRecorder()
@@ -183,7 +183,7 @@ func TestAssetHandler_ServeFile(t *testing.T) {
 
 func TestAssetHandler_NotFound(t *testing.T) {
 	registry := newAssetRegistry(nil)
-	handler := newAssetHandler(registry)
+	handler := newAssetHandler(registry, false)
 
 	req := httptest.NewRequest("GET", "/__p/nonexistent.svg", nil)
 	rec := httptest.NewRecorder()
@@ -208,7 +208,7 @@ func TestAssetHandler_ExtensionMismatch(t *testing.T) {
 	// Change extension in URL
 	wrongURL := strings.Replace(url, ".svg", ".png", 1)
 
-	handler := newAssetHandler(registry)
+	handler := newAssetHandler(registry, false)
 	req := httptest.NewRequest("GET", wrongURL, nil)
 	rec := httptest.NewRecorder()
 
