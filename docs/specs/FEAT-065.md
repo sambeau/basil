@@ -1,9 +1,10 @@
 ---
 id: FEAT-065
 title: "Project Init Command"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-11
+implemented: 2025-12-11
 author: "@human + AI"
 ---
 
@@ -18,32 +19,86 @@ As a developer new to Basil, I want a simple command to create a new project so 
 ## Acceptance Criteria
 
 ### Core Functionality
-- [ ] `basil --init <foldername>` creates the specified folder if it doesn't exist
-- [ ] Error if folder exists and is not empty (prevent accidental overwrite)
-- [ ] Creates `site/` subdirectory
-- [ ] Creates `public/` subdirectory
-- [ ] Creates `site/index.pars` with minimal "Hello from Basil" content
-- [ ] Creates `basil.yaml` with working defaults
-- [ ] Prints success message with next steps
+- [x] `basil --init <foldername>` creates the specified folder if it doesn't exist
+- [x] Error if folder exists and is not empty (prevent accidental overwrite)
+- [x] Creates `site/` subdirectory
+- [x] Creates `public/` subdirectory
+- [x] Creates `site/index.pars` with minimal "Hello from Basil" content
+- [x] Creates `basil.yaml` with working defaults
+- [x] Prints success message with next steps
 
 ### YAML Configuration
-- [ ] Uses `site:` mode (filesystem routing)
-- [ ] Sets `public_dir: ./public`
-- [ ] Includes server host/port defaults
-- [ ] Includes helpful comments explaining options
-- [ ] Uses relative paths (works from any directory)
+- [x] Uses `site:` mode (filesystem routing)
+- [x] Sets `public_dir: ./public`
+- [x] Includes server host/port defaults
+- [x] Includes helpful comments explaining options
+- [x] Uses relative paths (works from any directory)
 
 ### Error Handling
-- [ ] Validates folder name (no invalid characters)
-- [ ] Checks if path is a file (error if so)
-- [ ] Checks if folder exists and has files (error if not empty)
-- [ ] Creates intermediate directories if needed
-- [ ] Clear error messages for all failure cases
+- [x] Validates folder name (no invalid characters)
+- [x] Checks if path is a file (error if so)
+- [x] Checks if folder exists and has files (error if not empty)
+- [x] Creates intermediate directories if needed
+- [x] Clear error messages for all failure cases
 
 ### User Experience
-- [ ] Success message shows created structure
-- [ ] Instructions on how to start server (`cd <folder> && basil`)
-- [ ] Help text documents the command (`basil --help`)
+- [x] Success message shows created structure
+- [x] Instructions on how to start server (`cd <folder> && basil`)
+- [x] Help text documents the command (`basil --help`)
+
+## Implementation Notes
+
+**Commit:** c296b59
+**Date:** 2025-12-11
+
+Successfully implemented all acceptance criteria.
+
+### Files Created
+- `cmd/basil/init.go` (106 lines) - Init command implementation
+- `cmd/basil/init_test.go` (244 lines) - 8 comprehensive unit tests
+
+### Files Modified
+- `cmd/basil/main.go` - Added --init flag and command routing
+- `cmd/basil/main_test.go` - Added integration test
+- `README.md` - Added Quick Start section with --init
+- `docs/guide/basil-quick-start.md` - Updated with --init as primary method
+
+### Testing
+All 9 tests passing:
+- Creates all expected files and folders
+- Error handling for file vs folder
+- Error handling for non-empty folder
+- Success with empty existing folder
+- Relative and absolute paths work
+- YAML content validation
+- Index.pars content validation
+- Full CLI integration test
+- Manual E2E test verified server runs
+
+### Key Implementation Details
+- Uses `os.MkdirAll` for atomic directory creation
+- Validates before any filesystem changes (fail fast)
+- Clear, actionable error messages
+- Pretty tree-style success output
+- File permissions: 0755 for directories, 0644 for files
+
+### User Experience
+Success message format:
+```
+Created new Basil project in 'myproject'
+
+  myproject/
+  ├── basil.yaml      Configuration
+  ├── site/           Handlers (filesystem routing)
+  │   └── index.pars  Homepage
+  └── public/         Static files (CSS, JS, images)
+
+Get started:
+  cd myproject
+  basil
+
+Your site will be running at http://localhost:8080
+```
 
 ## Design Decisions
 
