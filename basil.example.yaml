@@ -10,6 +10,13 @@ logging:
   format: text
   output: stderr
 
+# HTTP response compression (enabled by default)
+# compression:
+#   enabled: true       # Enable gzip compression (default: true)
+#   level: default      # Compression level: fastest, default, best, none
+#   min_size: 1024      # Minimum response size to compress (bytes)
+#   zstd: false         # Enable Zstd compression (experimental)
+
 # SQLite database (path relative to config file)
 # sqlite: ./data.db
 

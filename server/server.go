@@ -702,6 +702,9 @@ func (s *Server) Run(ctx context.Context) error {
 		handler = newRequestLogger(handler, s.stdout, s.config.Logging.Format)
 	}
 
+	// Wrap with compression (outermost - compresses all responses)
+	handler = newCompressionHandler(handler, s.config.Compression)
+
 	s.server = &http.Server{
 		Addr:              addr,
 		Handler:           handler,

@@ -585,6 +585,77 @@ cors:
 
 **See the [CORS Guide](./cors.md) for detailed examples and troubleshooting.**
 
+## HTTP Compression
+
+Basil automatically compresses HTTP responses using gzip compression to reduce bandwidth usage and improve page load times. Compression is **enabled by default** with sensible defaults.
+
+### Default Behavior
+
+- All text-based responses (HTML, CSS, JavaScript, JSON, etc.) are compressed
+- Small responses (< 1024 bytes) are not compressed (overhead not worth it)
+- Binary content (images, videos) is not compressed (already compressed)
+- Only responses to clients that support gzip (`Accept-Encoding: gzip`) are compressed
+
+### Configuration
+
+Compression can be customized in `basil.yaml`:
+
+```yaml
+compression:
+  enabled: true       # Enable/disable compression (default: true)
+  level: default      # Compression level: fastest, default, best, none
+  min_size: 1024      # Minimum response size in bytes (default: 1024)
+  zstd: false         # Enable Zstd compression (experimental, default: false)
+```
+
+### Compression Levels
+
+| Level | Description | Use Case |
+|-------|-------------|----------|
+| `fastest` | Fast compression, larger files | High-traffic sites prioritizing CPU |
+| `default` | Balanced speed and compression | **Recommended for most cases** |
+| `best` | Maximum compression, slower | Bandwidth-constrained environments |
+| `none` | Disable compression | Same as `enabled: false` |
+
+### When to Adjust Settings
+
+**Increase `min_size` (e.g., 2048):**
+- Very high-traffic sites where CPU is constrained
+- Most responses are small (< 2KB)
+
+**Use `level: best`:**
+- Bandwidth is expensive or limited
+- CPU capacity is available
+- Responses are large (> 100KB)
+
+**Use `level: fastest`:**
+- Extremely high request rates
+- CPU is the bottleneck
+- Bandwidth is cheap/unlimited
+
+**Disable compression (`enabled: false`):**
+- All responses are already compressed (images, video, pre-compressed assets)
+- Using a CDN that handles compression
+- Debugging response content
+
+### Verification
+
+Check if compression is working:
+
+```bash
+# Check response headers
+curl -I -H "Accept-Encoding: gzip" http://localhost:8080/
+
+# Output should include:
+# Content-Encoding: gzip
+```
+
+### Performance Impact
+
+- **Bandwidth savings:** 60-80% reduction for HTML/CSS/JS
+- **CPU overhead:** Negligible with default settings (~5% on modern CPUs)
+- **Latency improvement:** Faster downloads, especially on slower connections
+
 ## Response Caching
 
 Basil can cache generated responses per-route for improved performance.
