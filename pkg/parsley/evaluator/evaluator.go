@@ -2263,13 +2263,24 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 				return newParseError("PARSE-0010", "path/URL template", nil)
 			}
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "template", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -9747,13 +9758,24 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			exprStr := template[exprStart:i]
 			i++ // skip closing }
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "template", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -9817,19 +9839,30 @@ func interpolateRawString(template string, env *Environment) Object {
 				return newParseError("PARSE-0009", "raw template", nil)
 			}
 
-			exprStr := template[exprStart:i]
-			i++ // skip closing }
+		exprStr := template[exprStart:i]
+		i++ // skip closing }
 
-			l := lexer.New(exprStr)
-			p := parser.New(l)
-			program := p.ParseProgram()
+		l := lexer.NewWithFilename(exprStr, env.Filename)
+		p := parser.New(l)
+		program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "raw template", fmt.Errorf("%s", p.Errors()[0]))
+		if errs := p.StructuredErrors(); len(errs) > 0 {
+			// Return first parse error with file info preserved
+			perr := errs[0]
+			return &Error{
+				Class:   ClassParse,
+				Code:    perr.Code,
+				Message: perr.Message,
+				Hints:   perr.Hints,
+				Line:    perr.Line,
+				Column:  perr.Column,
+				File:    env.Filename,
+				Data:    perr.Data,
 			}
+		}
 
-			var evaluated Object
-			for _, stmt := range program.Statements {
+		var evaluated Object
+		for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
 					return evaluated
@@ -10637,13 +10670,24 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			exprStr := propsStr[exprStart:i]
 			i++ // skip closing }
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -10784,13 +10828,24 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 			exprStr := propsStr[exprStart:i]
 			i++ // skip closing }
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "tag", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -10980,13 +11035,24 @@ func parseTagProps(propsStr string, env *Environment) Object {
 							}
 						}
 						exprStr := valueStr[exprStart:j]
-						// Parse the expression
-						l := lexer.New(exprStr)
+						// Parse the expression (with filename for error reporting)
+						l := lexer.NewWithFilename(exprStr, env.Filename)
 						p := parser.New(l)
 						program := p.ParseProgram()
 
-						if len(p.Errors()) > 0 {
-							return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
+						if errs := p.StructuredErrors(); len(errs) > 0 {
+							// Return first parse error with file info preserved
+							perr := errs[0]
+							return &Error{
+								Class:   ClassParse,
+								Code:    perr.Code,
+								Message: perr.Message,
+								Hints:   perr.Hints,
+								Line:    perr.Line,
+								Column:  perr.Column,
+								File:    env.Filename,
+								Data:    perr.Data,
+							}
 						}
 
 						// Store as expression statement
@@ -11042,13 +11108,24 @@ func parseTagProps(propsStr string, env *Environment) Object {
 				exprStr := propsStr[exprStart:i]
 				i++ // skip }
 
-				// Parse and evaluate the spread expression
-				l := lexer.New(exprStr)
+				// Parse and evaluate the spread expression (with filename for error reporting)
+				l := lexer.NewWithFilename(exprStr, env.Filename)
 				p := parser.New(l)
 				program := p.ParseProgram()
 
-				if len(p.Errors()) > 0 {
-					return newParseError("PARSE-0011", "tag spread", fmt.Errorf("%s", p.Errors()[0]))
+				if errs := p.StructuredErrors(); len(errs) > 0 {
+					// Return first parse error with file info preserved
+					perr := errs[0]
+					return &Error{
+						Class:   ClassParse,
+						Code:    perr.Code,
+						Message: perr.Message,
+						Hints:   perr.Hints,
+						Line:    perr.Line,
+						Column:  perr.Column,
+						File:    env.Filename,
+						Data:    perr.Data,
+					}
 				}
 
 				if len(program.Statements) > 0 {
@@ -11109,13 +11186,24 @@ func parseTagProps(propsStr string, env *Environment) Object {
 			exprStr := propsStr[exprStart:i]
 			i++ // skip }
 
-			// Parse the expression
-			l := lexer.New(exprStr)
+			// Parse the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Store as expression statement
