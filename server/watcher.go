@@ -54,6 +54,14 @@ func NewWatcher(s *Server, configPath string, stdout, stderr io.Writer) (*Watche
 // collectHandlerDirs returns unique directories containing handler scripts
 func (w *Watcher) collectHandlerDirs() []string {
 	dirs := make(map[string]bool)
+	
+	// In site mode, watch the handler root (parent of site directory)
+	if w.server.config.Site != "" {
+		handlerRoot := filepath.Dir(w.server.config.Site)
+		dirs[handlerRoot] = true
+	}
+	
+	// In route mode, watch directories containing handlers
 	for _, route := range w.server.config.Routes {
 		dir := filepath.Dir(route.Handler)
 		dirs[dir] = true
@@ -187,13 +195,43 @@ func (w *Watcher) handleFileChange(path string) {
 		w.logInfo("handler changed: %s", path)
 		// Scripts are reloaded on next request (no caching in dev mode)
 
-	case ".css", ".js", ".html", ".htm":
+	case ".css", ".js":
+		w.logInfo("asset changed: %s", path)
+		// Rebuild asset bundle if this is under handlers directory
+		if w.isHandlerAsset(path) {
+			if err := w.server.assetBundle.Rebuild(); err != nil {
+				w.logError("failed to rebuild asset bundle: %v", err)
+			}
+		}
+
+	case ".html", ".htm":
 		w.logInfo("static file changed: %s", path)
 
 	default:
 		// Ignore other files
 		return
 	}
+}
+
+// isHandlerAsset checks if a file path is under one of the handler directories.
+func (w *Watcher) isHandlerAsset(path string) bool {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	for _, dir := range w.handlerDirs {
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			continue
+		}
+		// Check if path is under this directory
+		relPath, err := filepath.Rel(absDir, absPath)
+		if err == nil && !strings.HasPrefix(relPath, "..") {
+			return true
+		}
+	}
+	return false
 }
 
 // GetChangeSeq returns the current change sequence number for live reload

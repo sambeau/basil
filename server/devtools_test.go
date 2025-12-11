@@ -2,8 +2,11 @@ package server
 
 import (
 	"bytes"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -408,3 +411,250 @@ func TestDevToolsEnvNoSecrets(t *testing.T) {
 		t.Error("should not expose full path")
 	}
 }
+
+func TestDevToolsDBFileDownload(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Defaults()
+	cfg.BaseDir = tmpDir
+	cfg.Server.Dev = true
+	// Don't set SQLite in config yet - let server create it
+	
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	// Now set the SQLite path and create a test database file
+	testDBPath := tmpDir + "/test.db"
+	s.config.SQLite = testDBPath
+	sqliteMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
+	testDBContent := append(sqliteMagic, []byte("rest of database")...)
+	if err := os.WriteFile(testDBPath, testDBContent, 0644); err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+
+	handler := newDevToolsHandler(s)
+	req := httptest.NewRequest("GET", "/__/db/download", nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	if w.Header().Get("Content-Type") != "application/octet-stream" {
+		t.Errorf("expected Content-Type application/octet-stream, got %s", w.Header().Get("Content-Type"))
+	}
+
+	disposition := w.Header().Get("Content-Disposition")
+	if !strings.Contains(disposition, "attachment") || !strings.Contains(disposition, "test.db") {
+		t.Errorf("expected Content-Disposition with attachment and test.db, got %s", disposition)
+	}
+
+	if !bytes.Equal(w.Body.Bytes(), testDBContent) {
+		t.Error("downloaded content does not match database file")
+	}
+}
+
+func TestDevToolsDBFileUpload(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Defaults()
+	cfg.BaseDir = tmpDir
+	cfg.Server.Dev = true
+	// Don't set SQLite in config yet
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	// Now set the SQLite path and create initial database file
+	testDBPath := tmpDir + "/test.db"
+	s.config.SQLite = testDBPath
+	sqliteMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
+	initialContent := append(sqliteMagic, []byte("initial database")...)
+	if err := os.WriteFile(testDBPath, initialContent, 0644); err != nil {
+		t.Fatalf("failed to create initial db: %v", err)
+	}
+
+	// Create a valid SQLite file content for upload (with magic bytes)
+	uploadContent := append(sqliteMagic, []byte("rest of database")...)
+
+	// Create multipart form
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("database", "upload.db")
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	if _, err := part.Write(uploadContent); err != nil {
+		t.Fatalf("failed to write upload content: %v", err)
+	}
+	writer.Close()
+
+	handler := newDevToolsHandler(s)
+	req := httptest.NewRequest("POST", "/__/db/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Check that response is JSON
+	if !strings.Contains(w.Header().Get("Content-Type"), "application/json") {
+		t.Errorf("expected JSON response, got %s", w.Header().Get("Content-Type"))
+	}
+
+	// Check that backup was created
+	backupFiles, err := filepath.Glob(testDBPath + ".*.backup")
+	if err != nil {
+		t.Fatalf("failed to check for backup: %v", err)
+	}
+	if len(backupFiles) == 0 {
+		t.Error("expected backup file to be created")
+	}
+
+	// Check that database was replaced
+	newContent, err := os.ReadFile(testDBPath)
+	if err != nil {
+		t.Fatalf("failed to read updated db: %v", err)
+	}
+	if !bytes.Equal(newContent, uploadContent) {
+		t.Error("database content was not updated correctly")
+	}
+}
+
+func TestDevToolsDBFileUploadInvalidFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Defaults()
+	cfg.BaseDir = tmpDir
+	cfg.Server.Dev = true
+	// Don't set SQLite in config yet
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	// Now set the SQLite path and create initial database
+	testDBPath := tmpDir + "/test.db"
+	s.config.SQLite = testDBPath
+	sqliteMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
+	initialContent := append(sqliteMagic, []byte("initial")...)
+	if err := os.WriteFile(testDBPath, initialContent, 0644); err != nil {
+		t.Fatalf("failed to create initial db: %v", err)
+	}
+
+	// Create invalid file (not SQLite)
+	invalidContent := []byte("not a sqlite database")
+
+	// Create multipart form
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("database", "invalid.db")
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	if _, err := part.Write(invalidContent); err != nil {
+		t.Fatalf("failed to write content: %v", err)
+	}
+	writer.Close()
+
+	handler := newDevToolsHandler(s)
+	req := httptest.NewRequest("POST", "/__/db/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+
+	if !strings.Contains(w.Body.String(), "not a SQLite database") {
+		t.Error("expected error message about invalid SQLite file")
+	}
+
+	// Verify original database was not changed
+	content, err := os.ReadFile(testDBPath)
+	if err != nil {
+		t.Fatalf("failed to read db: %v", err)
+	}
+	if !bytes.Equal(content, initialContent) {
+		t.Error("database should not have been modified")
+	}
+}
+
+func TestCopyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	src := filepath.Join(tmpDir, "source.txt")
+	dst := filepath.Join(tmpDir, "dest.txt")
+
+	content := []byte("test content")
+	if err := os.WriteFile(src, content, 0644); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
+
+	if err := copyFile(src, dst); err != nil {
+		t.Fatalf("copyFile failed: %v", err)
+	}
+
+	dstContent, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("failed to read destination: %v", err)
+	}
+
+	if !bytes.Equal(dstContent, content) {
+		t.Error("copied content does not match source")
+	}
+}
+
+func TestCopyFileNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	src := filepath.Join(tmpDir, "nonexistent.txt")
+	dst := filepath.Join(tmpDir, "dest.txt")
+
+	err := copyFile(src, dst)
+	if err == nil {
+		t.Error("expected error when copying non-existent file")
+	}
+}
+
+func TestBytesEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        []byte
+		b        []byte
+		expected bool
+	}{
+		{"equal slices", []byte{1, 2, 3}, []byte{1, 2, 3}, true},
+		{"different lengths", []byte{1, 2}, []byte{1, 2, 3}, false},
+		{"different content", []byte{1, 2, 3}, []byte{1, 2, 4}, false},
+		{"empty slices", []byte{}, []byte{}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := bytesEqual(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("bytesEqual(%v, %v) = %v, want %v", tt.a, tt.b, result, tt.expected)
+			}
+		})
+	}
+}
+

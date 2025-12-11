@@ -2430,6 +2430,91 @@ export default = fn(props) {
 
 ---
 
+### Asset Bundle Tags
+
+Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree. Use `<Css/>` and `<Script/>` tags to include these bundles.
+
+**File Discovery:**
+- Basil recursively scans the handlers directory for `.css` and `.js` files
+- Files are concatenated in depth-first, alphabetical order
+- Hidden files (starting with `.`) are excluded
+- Each bundle gets a cache-busting hash query parameter (e.g., `?v=abc12345`)
+
+**Grammar:**
+```
+css_tag    ::= "<Css/>"
+script_tag ::= "<Script/>"
+```
+
+**Usage:**
+
+```parsley
+// page.pars
+export default = fn(props) {
+    <html>
+        <head>
+            <title>My Site</title>
+            <Css/>
+        </head>
+        <body>
+            <h1>Welcome</h1>
+            <Script/>
+        </body>
+    </html>
+}
+```
+
+**Output:**
+
+```html
+<html>
+    <head>
+        <title>My Site</title>
+        <link rel="stylesheet" href="/__site.css?v=a1b2c3d4">
+    </head>
+    <body>
+        <h1>Welcome</h1>
+        <script src="/__site.js?v=e5f6g7h8"></script>
+    </body>
+</html>
+```
+
+**Empty Bundles:**
+
+If no CSS or JS files exist in your handlers directory, the tags emit an empty string.
+
+**Bundle Routes:**
+
+Bundles are served at:
+- `/__site.css` - All concatenated CSS
+- `/__site.js` - All concatenated JavaScript
+
+Both routes support `ETag` headers for efficient caching.
+
+**Development Mode:**
+
+When running with the `--dev` flag, bundles include source comments:
+
+```css
+/* Source: handlers/components/button.css */
+.button { ... }
+
+/* Source: handlers/layout/grid.css */
+.grid { ... }
+```
+
+In production mode, source comments are omitted for smaller file sizes.
+
+**File Watching:**
+
+In development mode, the asset bundle automatically rebuilds when:
+- Any `.css` or `.js` file in `handlers/` is created, modified, or deleted
+- The server receives a `SIGHUP` signal (production hot reload)
+
+After rebuilding, the hash changes, and browsers fetch the updated bundle.
+
+---
+
 ## Error Handling
 
 ### The `try` Expression

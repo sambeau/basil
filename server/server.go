@@ -34,6 +34,7 @@ type Server struct {
 	responseCache *responseCache
 	fragmentCache *fragmentCache
 	assetRegistry *assetRegistry
+	assetBundle   *AssetBundle
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
@@ -93,6 +94,11 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		s.assetRegistry = newAssetRegistry(s.logWarn)
 	} else {
 		s.assetRegistry = newAssetRegistry(nil)
+	}
+
+	// Initialize asset bundle (CSS/JS auto-bundling)
+	if err := s.initAssetBundle(); err != nil {
+		return nil, fmt.Errorf("initializing asset bundle: %w", err)
 	}
 
 	// Initialize session store
@@ -197,6 +203,88 @@ func (s *Server) cleanupDevTools() {
 		s.devLog.Close()
 		s.devLog = nil
 	}
+}
+
+// initAssetBundle initializes the CSS/JS asset bundle.
+func (s *Server) initAssetBundle() error {
+	// Determine handlers directory from routes or site config
+	handlersDir := s.determineHandlersDir()
+	publicDirName := filepath.Base(s.config.PublicDir)
+	if handlersDir == "" {
+		// No routes configured, create empty bundle
+		s.assetBundle = NewAssetBundle("", s.config.Server.Dev, publicDirName)
+		return nil
+	}
+
+	s.assetBundle = NewAssetBundle(handlersDir, s.config.Server.Dev, publicDirName)
+	if err := s.assetBundle.Rebuild(); err != nil {
+		// Log warning but don't fail - bundle just won't have content
+		s.logWarn("failed to build asset bundle: %v", err)
+	}
+
+	return nil
+}
+
+// determineHandlersDir finds the handler root directory for asset bundle discovery.
+// In site mode, this is the parent of the site/ directory (the handler root).
+// In route mode, this is the common ancestor of all handler files.
+func (s *Server) determineHandlersDir() string {
+	// If using site (filesystem routing), use the parent of the site directory
+	// This allows discovering CSS/JS in components/, public/, etc. at handler root level
+	if s.config.Site != "" {
+		return filepath.Dir(s.config.Site)
+	}
+
+	// Otherwise, find common parent of all route handlers
+	if len(s.config.Routes) == 0 {
+		return ""
+	}
+
+	// Get directory of first handler
+	commonDir := filepath.Dir(s.config.Routes[0].Handler)
+
+	// Find common ancestor with all other handlers
+	for _, route := range s.config.Routes[1:] {
+		handlerDir := filepath.Dir(route.Handler)
+		commonDir = commonAncestor(commonDir, handlerDir)
+	}
+
+	return commonDir
+}
+
+// commonAncestor returns the common ancestor directory of two paths.
+func commonAncestor(path1, path2 string) string {
+	// Clean paths
+	path1 = filepath.Clean(path1)
+	path2 = filepath.Clean(path2)
+
+	// Split into components
+	parts1 := strings.Split(path1, string(filepath.Separator))
+	parts2 := strings.Split(path2, string(filepath.Separator))
+
+	// Find common prefix
+	var common []string
+	for i := 0; i < len(parts1) && i < len(parts2); i++ {
+		if parts1[i] == parts2[i] {
+			common = append(common, parts1[i])
+		} else {
+			break
+		}
+	}
+
+	if len(common) == 0 {
+		return ""
+	}
+
+	result := filepath.Join(common...)
+	
+	// Fix: If original paths were absolute (Unix), filepath.Join loses the leading /
+	// because it joins ["", "Users", ...] → "Users/..." instead of "/Users/..."
+	if len(common) > 0 && common[0] == "" && !filepath.IsAbs(result) {
+		result = string(filepath.Separator) + result
+	}
+	
+	return result
 }
 
 // Close closes all server resources. Use this in tests; in production, use Run() with a context.
@@ -381,6 +469,14 @@ func (s *Server) initGit() error {
 func (s *Server) setupRoutes() error {
 	// Register asset handler for publicUrl() files at /__p/
 	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry))
+
+	// Register asset bundle routes
+	s.mux.HandleFunc("/__site.css", func(w http.ResponseWriter, r *http.Request) {
+		s.assetBundle.ServeCSS(w, r)
+	})
+	s.mux.HandleFunc("/__site.js", func(w http.ResponseWriter, r *http.Request) {
+		s.assetBundle.ServeJS(w, r)
+	})
 
 	// Register prelude asset handlers
 	s.mux.HandleFunc("/__/js/", s.handlePreludeAsset)
@@ -636,6 +732,12 @@ func (s *Server) ReloadScripts() {
 	s.responseCache.Clear()
 	s.fragmentCache.Clear()
 	s.assetRegistry.Clear()
+	// Rebuild asset bundle
+	if s.assetBundle != nil {
+		if err := s.assetBundle.Rebuild(); err != nil {
+			s.logWarn("failed to rebuild asset bundle: %v", err)
+		}
+	}
 	// Trigger browser reload if watcher is active (dev mode)
 	if s.watcher != nil {
 		s.watcher.TriggerReload()
@@ -701,6 +803,9 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.config.Logging.Level != "error" {
 		handler = newRequestLogger(handler, s.stdout, s.config.Logging.Format)
 	}
+
+	// Wrap with compression (outermost - compresses all responses)
+	handler = newCompressionHandler(handler, s.config.Compression)
 
 	s.server = &http.Server{
 		Addr:              addr,

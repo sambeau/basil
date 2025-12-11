@@ -27,32 +27,15 @@
 	</div>
 	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
 	<div style="height: 300px;"></div>
+</section>
 
+
+<section style="margin-top: 3rem; min-height: 400px;">
+	<h2>Lazy-loaded content (scroll-triggered)</h2>
+	<p>The panel below loads when it nears the viewport using <code>part-lazy</code> and <code>part-lazy-threshold</code>.</p>
 	<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
 		<em>Scroll down to trigger lazy load...</em>
 	</div>
 	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
 	<div style="height: 300px;"></div>
-		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
-		<em>Scroll down to trigger lazy load...</em>
-	</div>
-	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
-	<div style="height: 300px;"></div>
-		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
-		<em>Scroll down to trigger lazy load...</em>
-	</div>
-	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
-	<div style="height: 300px;"></div>
-		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
-		<em>Scroll down to trigger lazy load...</em>
-	</div>
-	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
-	<div style="height: 300px;"></div>
-		<div style="height: 300px; background: #eee; display: flex; align-items: center; justify-content: center;">
-		<em>Scroll down to trigger lazy load...</em>
-	</div>
-	<Part src={@./lazy-content.part} view="placeholder" part-lazy="loaded" part-lazy-threshold={150}/>
-	<div style="height: 300px;"></div>
-
-
 </section>

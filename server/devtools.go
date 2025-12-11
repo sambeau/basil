@@ -4,10 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
@@ -46,6 +49,10 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveLogs(w, r, route)
 	case path == "/__/db" || path == "/__/db/":
 		h.handleDevToolsWithPrelude(w, r, "db.pars")
+	case path == "/__/db/download" || path == "/__/db/download/":
+		h.handleDevDBFileDownload(w, r)
+	case path == "/__/db/upload" || path == "/__/db/upload/":
+		h.handleDevDBFileUpload(w, r)
 	case strings.HasPrefix(path, "/__/db/view/"):
 		h.handleDevToolsWithPrelude(w, r, "db_table.pars")
 	case strings.HasPrefix(path, "/__/db/download/"):
@@ -501,6 +508,153 @@ func (h *devToolsHandler) serveDBDelete(w http.ResponseWriter, r *http.Request, 
 
 	// Re-render the database page directly
 	h.serveDB(w, r)
+}
+
+// handleDevDBFileDownload downloads the entire database file.
+func (h *devToolsHandler) handleDevDBFileDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	dbPath := h.server.config.SQLite
+	if dbPath == "" {
+		http.Error(w, "No database configured", http.StatusInternalServerError)
+		return
+	}
+
+	// Resolve relative path
+	if !filepath.IsAbs(dbPath) {
+		dbPath = filepath.Join(h.server.config.BaseDir, dbPath)
+	}
+
+	// Get base filename for download
+	basename := filepath.Base(dbPath)
+
+	// Set headers for database file download
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, basename))
+
+	http.ServeFile(w, r, dbPath)
+}
+
+// handleDevDBFileUpload handles uploading a database file to replace the current one.
+func (h *devToolsHandler) handleDevDBFileUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form (max 100MB)
+	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		http.Error(w, "Failed to parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("database")
+	if err != nil {
+		http.Error(w, "No file provided: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read first 16 bytes to validate SQLite magic bytes
+	magic := make([]byte, 16)
+	n, err := file.Read(magic)
+	if err != nil || n != 16 {
+		http.Error(w, "Failed to read file header", http.StatusBadRequest)
+		return
+	}
+
+	// Check SQLite magic bytes: "SQLite format 3\x00"
+	expectedMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
+	if !bytesEqual(magic, expectedMagic) {
+		http.Error(w, "Invalid file: not a SQLite database", http.StatusBadRequest)
+		return
+	}
+
+	// Reset file pointer to beginning
+	if seeker, ok := file.(io.Seeker); ok {
+		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+			http.Error(w, "Failed to reset file pointer", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	dbPath := h.server.config.SQLite
+	if dbPath == "" {
+		http.Error(w, "No database configured", http.StatusInternalServerError)
+		return
+	}
+
+	// Resolve relative path
+	if !filepath.IsAbs(dbPath) {
+		dbPath = filepath.Join(h.server.config.BaseDir, dbPath)
+	}
+
+	// Create timestamped backup
+	timestamp := time.Now().Format("20060102-150405")
+	backupPath := fmt.Sprintf("%s.%s.backup", dbPath, timestamp)
+	if err := copyFile(dbPath, backupPath); err != nil {
+		http.Error(w, "Failed to create backup: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Write uploaded file to database path
+	outFile, err := os.Create(dbPath)
+	if err != nil {
+		http.Error(w, "Failed to create database file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer outFile.Close()
+
+	if _, err := io.Copy(outFile, file); err != nil {
+		// Try to restore from backup
+		_ = copyFile(backupPath, dbPath)
+		http.Error(w, "Failed to write database: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Invalidate caches
+	h.server.ReloadScripts()
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"success": true, "message": "Database uploaded successfully", "backup": "%s"}`, filepath.Base(backupPath))
+}
+
+// copyFile copies a file from src to dst.
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open source: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("create destination: %w", err)
+	}
+	defer destFile.Close()
+
+	if _, err := io.Copy(destFile, sourceFile); err != nil {
+		return fmt.Errorf("copy data: %w", err)
+	}
+
+	return destFile.Sync()
+}
+
+// bytesEqual compares two byte slices for equality.
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // serveDBError renders an error page for database operations.

@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -67,5 +69,36 @@ func TestRunMissingConfig(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "config file not found") {
 		t.Errorf("expected 'config file not found' error, got %q", err.Error())
+	}
+}
+
+func TestCLI_InitCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectPath := filepath.Join(tmpDir, "myapp")
+
+	var stdout, stderr bytes.Buffer
+	err := run(context.Background(), []string{"--init", projectPath}, &stdout, &stderr, os.Getenv)
+	if err != nil {
+		t.Fatalf("init command failed: %v", err)
+	}
+
+	// Check success message
+	output := stdout.String()
+	if !strings.Contains(output, "Created new Basil project") {
+		t.Error("success message not printed")
+	}
+	if !strings.Contains(output, "Get started:") {
+		t.Error("missing 'Get started' instructions")
+	}
+
+	// Verify files exist
+	if _, err := os.Stat(filepath.Join(projectPath, "basil.yaml")); err != nil {
+		t.Error("basil.yaml not created")
+	}
+	if _, err := os.Stat(filepath.Join(projectPath, "site", "index.pars")); err != nil {
+		t.Error("site/index.pars not created")
+	}
+	if _, err := os.Stat(filepath.Join(projectPath, "public")); err != nil {
+		t.Error("public/ directory not created")
 	}
 }

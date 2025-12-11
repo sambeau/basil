@@ -132,14 +132,30 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Create minimal environment for Part handling
 		env := evaluator.NewEnvironment()
 		env.Filename = h.scriptPath
+		
+		// Set root path - distinguish between site mode and route mode
+		var rootPath string
 		scriptDir := filepath.Dir(h.scriptPath)
 		absScriptDir, _ := filepath.Abs(scriptDir)
-		env.RootPath = absScriptDir
+		
+		if h.route.PublicDir != "" {
+			absPublicDir, _ := filepath.Abs(h.route.PublicDir)
+			// If handler is within or equal to PublicDir, use PublicDir as root (site mode)
+			if strings.HasPrefix(absScriptDir+string(filepath.Separator), absPublicDir+string(filepath.Separator)) ||
+				absScriptDir == absPublicDir {
+				rootPath = absPublicDir
+			} else {
+				rootPath = absScriptDir
+			}
+		} else {
+			rootPath = absScriptDir
+		}
+		env.RootPath = rootPath
 		env.Security = &evaluator.SecurityPolicy{
 			NoRead:        false,
 			AllowWrite:    []string{},
 			AllowWriteAll: false,
-			AllowExecute:  []string{absScriptDir},
+			AllowExecute:  []string{rootPath},
 			RestrictRead:  []string{"/etc", "/var", "/root"},
 		}
 
@@ -219,18 +235,37 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env := evaluator.NewEnvironment()
 	env.Filename = h.scriptPath
 
-	// Set root path for @~/ imports (handler's directory)
+	// Set root path for @~/ imports
+	// In site mode, route.PublicDir points to the handler root (parent of site/)
+	// In route mode, route.PublicDir (if set) points to the public/ directory for publicUrl()
+	// We can distinguish by checking if the handler file is within PublicDir
+	var rootPath string
 	scriptDir := filepath.Dir(h.scriptPath)
 	absScriptDir, _ := filepath.Abs(scriptDir)
-	env.RootPath = absScriptDir
+	
+	if h.route.PublicDir != "" {
+		absPublicDir, _ := filepath.Abs(h.route.PublicDir)
+		// If handler is within or equal to PublicDir, use PublicDir as root (site mode)
+		// Otherwise, PublicDir is for static files, use handler directory (route mode)
+		if strings.HasPrefix(absScriptDir+string(filepath.Separator), absPublicDir+string(filepath.Separator)) ||
+			absScriptDir == absPublicDir {
+			rootPath = absPublicDir
+		} else {
+			rootPath = absScriptDir
+		}
+	} else {
+		// No PublicDir set - use handler's directory
+		rootPath = absScriptDir
+	}
+	env.RootPath = rootPath
 
 	// Set security policy
-	// Allow executing Parsley files in the script's directory and subdirectories (for imports)
+	// Allow executing Parsley files in the root path and subdirectories (for imports)
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                             // Allow reads
 		AllowWrite:    []string{},                        // No write access
 		AllowWriteAll: false,                             // Deny all writes
-		AllowExecute:  []string{absScriptDir},            // Allow imports from handler directory tree
+		AllowExecute:  []string{rootPath},                // Allow imports from handler directory tree
 		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
@@ -242,6 +277,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set fragment cache and handler path for <basil.cache.Cache> component
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
+	env.AssetBundle = h.server.assetBundle
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
 

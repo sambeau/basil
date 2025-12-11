@@ -4,14 +4,15 @@ import "time"
 
 // Config represents the complete Basil configuration
 type Config struct {
-	BaseDir    string                     `yaml:"-"` // Directory containing config file, for resolving relative paths
-	Server     ServerConfig               `yaml:"server"`
-	Security   SecurityConfig             `yaml:"security"`
-	CORS       CORSConfig                 `yaml:"cors"`
-	Auth       AuthConfig                 `yaml:"auth"`
-	Session    SessionConfig              `yaml:"session"`
-	Git        GitConfig                  `yaml:"git"`
-	Dev        DevConfig                  `yaml:"dev"`
+	BaseDir     string                     `yaml:"-"` // Directory containing config file, for resolving relative paths
+	Server      ServerConfig               `yaml:"server"`
+	Security    SecurityConfig             `yaml:"security"`
+	CORS        CORSConfig                 `yaml:"cors"`
+	Compression CompressionConfig          `yaml:"compression"`
+	Auth        AuthConfig                 `yaml:"auth"`
+	Session     SessionConfig              `yaml:"session"`
+	Git         GitConfig                  `yaml:"git"`
+	Dev         DevConfig                  `yaml:"dev"`
 	SQLite     string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
 	PublicDir  string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
 	Site       string                     `yaml:"site"`       // Directory for filesystem-based routing (mutually exclusive with routes)
@@ -82,6 +83,14 @@ type CORSConfig struct {
 	Expose      []string      `yaml:"expose"`      // Response headers exposed to browser
 	Credentials bool          `yaml:"credentials"` // Allow credentials (cookies, auth headers)
 	MaxAge      int           `yaml:"maxAge"`      // Preflight cache duration in seconds
+}
+
+// CompressionConfig holds HTTP response compression settings
+type CompressionConfig struct {
+	Enabled bool   `yaml:"enabled"`  // Enable gzip/zstd compression (default: true)
+	Level   string `yaml:"level"`    // Compression level: "fastest", "default", "best", "none" (default: "default")
+	MinSize int    `yaml:"min_size"` // Minimum response size to compress in bytes (default: 1024)
+	Zstd    bool   `yaml:"zstd"`     // Enable Zstd compression for supporting browsers (default: false)
 }
 
 // StringOrSlice supports YAML fields that can be either a string or a slice of strings
@@ -207,6 +216,12 @@ func Defaults() *Config {
 			// Empty by default - CORS disabled unless configured
 			Methods: []string{"GET", "HEAD", "POST"},
 			MaxAge:  86400, // 24 hours
+		},
+		Compression: CompressionConfig{
+			Enabled: true,
+			Level:   "default",
+			MinSize: 1024,
+			Zstd:    false,
 		},
 		Auth: AuthConfig{
 			Enabled:      false,

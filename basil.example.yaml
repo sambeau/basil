@@ -10,6 +10,13 @@ logging:
   format: text
   output: stderr
 
+# HTTP response compression (enabled by default)
+# compression:
+#   enabled: true       # Enable gzip compression (default: true)
+#   level: default      # Compression level: fastest, default, best, none
+#   min_size: 1024      # Minimum response size to compress (bytes)
+#   zstd: false         # Enable Zstd compression (experimental)
+
 # SQLite database (path relative to config file)
 # sqlite: ./data.db
 
@@ -17,6 +24,15 @@ logging:
 # Paths under this directory are automatically rewritten to web-root URLs
 # e.g., @./public/images/foo.png → /images/foo.png in HTML output
 public_dir: ./public
+
+# Asset bundling (automatic)
+# Basil automatically bundles all .css and .js files from your handlers directory
+# Access with <Css/> and <Script/> tags in your Parsley handlers
+# Routes: /__site.css and /__site.js
+# - Files are concatenated in depth-first, alphabetical order
+# - Hidden files (starting with .) are excluded
+# - Cache-busting hash is added automatically (e.g., ?v=a1b2c3d4)
+# - In dev mode, bundles include source path comments
 
 # Example routes (commented out - add your handlers)
 # routes:

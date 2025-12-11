@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -304,6 +305,57 @@ func TestSplitPath(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestSiteHandler_RootPath tests that @~ resolves to handler root, not site directory.
+func TestSiteHandler_RootPath(t *testing.T) {
+	dir := t.TempDir()
+	siteDir := filepath.Join(dir, "site")
+	componentsDir := filepath.Join(dir, "components")
+
+	must(os.MkdirAll(siteDir, 0755))
+	must(os.MkdirAll(componentsDir, 0755))
+
+	// Create a component at handler root
+	componentContent := `export let header = "Hello from component"`
+	must(os.WriteFile(filepath.Join(componentsDir, "header.pars"), []byte(componentContent), 0644))
+
+	// Create site index that imports from @~/components
+	indexContent := `
+let {header} = import @~/components/header.pars
+header
+`
+	must(os.WriteFile(filepath.Join(siteDir, "index.pars"), []byte(indexContent), 0644))
+
+	cfg := config.Defaults()
+	cfg.BaseDir = dir
+	cfg.Server.Dev = true
+	cfg.Site = siteDir
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	handler := newSiteHandler(s, siteDir, s.scriptCache)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+		t.Logf("Body: %s", rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Hello from component") {
+		t.Errorf("expected component content, got %q", body)
+		t.Log("This indicates @~ is not resolving to handler root")
 	}
 }
 

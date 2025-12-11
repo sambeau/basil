@@ -1335,3 +1335,56 @@ export increment = fn(props) {
 - ❌ Part files need routes in `basil.yaml`: `- path: /counter.part`
 - ✅ JavaScript auto-injects when `<Part/>` is used
 - ✅ Parts can be nested inside other Parts
+
+---
+
+### Asset Bundle Tags - <Css/> and <Script/>
+
+Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree.
+
+**Auto-bundling:**
+```parsley
+// In any handler (.pars file)
+<html>
+  <head>
+    <Css/>
+  </head>
+  <body>
+    <h1>Hello</h1>
+    <Script/>
+  </body>
+</html>
+```
+
+**Output:**
+```html
+<link rel="stylesheet" href="/__site.css?v=a1b2c3d4">
+<script src="/__site.js?v=e5f6g7h8"></script>
+```
+
+**File discovery rules:**
+- Scans `handlers/` directory recursively
+- Depth-first, alphabetical ordering (allows CSS cascade control)
+- Hidden files (`.filename.css`) are excluded
+- Hash changes when files change (automatic cache busting)
+
+**Development mode:**
+Bundles include source comments:
+```css
+/* Source: handlers/components/button.css */
+.button { padding: 10px; }
+
+/* Source: handlers/layout/grid.css */
+.grid { display: grid; }
+```
+
+**Production mode:**
+Source comments are omitted.
+
+**Gotchas:**
+- ✅ If no `.css` or `.js` files exist, tags emit empty string
+- ✅ Bundle auto-rebuilds on file changes (dev mode)
+- ✅ `SIGHUP` rebuilds bundle (production hot reload)
+- ❌ Don't manually create `/__site.css` or `/__site.js` routes
+- ✅ Tags are self-closing: `<Css/>` and `<Script/>` (not `<Css>`)
+

@@ -4,7 +4,7 @@ Get a Parsley-powered web app running in 5 minutes.
 
 ## Prerequisites
 
-- Go 1.21+ installed
+- Go 1.24+ installed
 - Parsley library available (via replace directive or published)
 
 ## Installation
@@ -18,7 +18,28 @@ go build -o basil .
 
 ## Your First Basil App
 
-### 1. Create Project Structure
+### Quick Start with --init
+
+The fastest way to get started:
+
+```bash
+basil --init myapp
+cd myapp
+basil
+```
+
+Visit http://localhost:8080 🎉
+
+This creates:
+- `basil.yaml` — Configuration with sensible defaults
+- `site/index.pars` — A simple homepage
+- `public/` — Folder for static files (CSS, JS, images)
+
+### Manual Setup (Alternative)
+
+If you prefer to set up the project structure manually:
+
+#### 1. Create Project Structure
 
 ```
 myapp/
@@ -29,7 +50,7 @@ myapp/
     └── style.css        # Static files
 ```
 
-### 2. Create Configuration
+#### 2. Create Configuration
 
 **basil.yaml:**
 
@@ -47,7 +68,7 @@ routes:
     handler: ./handlers/index.pars
 ```
 
-### 3. Create a Handler
+#### 3. Create a Handler
 
 **handlers/index.pars:**
 
@@ -81,16 +102,16 @@ body {
 h1 { color: #2d5016; }
 ```
 
-### 5. Run It!
+#### 4. Run It!
 
 ```bash
 # From your project directory
 basil --dev --config basil.yaml
 ```
 
-Visit http://localhost:8080 🎉
+## Next Steps
 
-## Key Concepts
+Now that you have a basic app running, explore:
 
 ### Dev Mode
 Use `--dev` for local development:
@@ -584,6 +605,77 @@ cors:
 - Basil automatically handles OPTIONS preflight requests
 
 **See the [CORS Guide](./cors.md) for detailed examples and troubleshooting.**
+
+## HTTP Compression
+
+Basil automatically compresses HTTP responses using gzip compression to reduce bandwidth usage and improve page load times. Compression is **enabled by default** with sensible defaults.
+
+### Default Behavior
+
+- All text-based responses (HTML, CSS, JavaScript, JSON, etc.) are compressed
+- Small responses (< 1024 bytes) are not compressed (overhead not worth it)
+- Binary content (images, videos) is not compressed (already compressed)
+- Only responses to clients that support gzip (`Accept-Encoding: gzip`) are compressed
+
+### Configuration
+
+Compression can be customized in `basil.yaml`:
+
+```yaml
+compression:
+  enabled: true       # Enable/disable compression (default: true)
+  level: default      # Compression level: fastest, default, best, none
+  min_size: 1024      # Minimum response size in bytes (default: 1024)
+  zstd: false         # Enable Zstd compression (experimental, default: false)
+```
+
+### Compression Levels
+
+| Level | Description | Use Case |
+|-------|-------------|----------|
+| `fastest` | Fast compression, larger files | High-traffic sites prioritizing CPU |
+| `default` | Balanced speed and compression | **Recommended for most cases** |
+| `best` | Maximum compression, slower | Bandwidth-constrained environments |
+| `none` | Disable compression | Same as `enabled: false` |
+
+### When to Adjust Settings
+
+**Increase `min_size` (e.g., 2048):**
+- Very high-traffic sites where CPU is constrained
+- Most responses are small (< 2KB)
+
+**Use `level: best`:**
+- Bandwidth is expensive or limited
+- CPU capacity is available
+- Responses are large (> 100KB)
+
+**Use `level: fastest`:**
+- Extremely high request rates
+- CPU is the bottleneck
+- Bandwidth is cheap/unlimited
+
+**Disable compression (`enabled: false`):**
+- All responses are already compressed (images, video, pre-compressed assets)
+- Using a CDN that handles compression
+- Debugging response content
+
+### Verification
+
+Check if compression is working:
+
+```bash
+# Check response headers
+curl -I -H "Accept-Encoding: gzip" http://localhost:8080/
+
+# Output should include:
+# Content-Encoding: gzip
+```
+
+### Performance Impact
+
+- **Bandwidth savings:** 60-80% reduction for HTML/CSS/JS
+- **CPU overhead:** Negligible with default settings (~5% on modern CPUs)
+- **Latency improvement:** Faster downloads, especially on slower connections
 
 ## Response Caching
 
