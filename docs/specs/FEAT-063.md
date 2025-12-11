@@ -1,9 +1,10 @@
 ---
 id: FEAT-063
 title: "Site-Wide CSS/JS Auto-Bundle"
-status: draft
+status: implemented
 priority: medium
 created: 2025-12-11
+implemented: 2025-12-11
 author: "@human + AI"
 ---
 
@@ -20,32 +21,80 @@ As a developer, I want my component CSS and JavaScript files to be automatically
 ## Acceptance Criteria
 
 ### Core Functionality
-- [ ] All `.css` files under `handlers/` are discovered and concatenated
-- [ ] All `.js` files under `handlers/` are discovered and concatenated
-- [ ] Files in `public/` are excluded (served separately for third-party libs)
-- [ ] Hidden files (starting with `.`) are excluded
-- [ ] Bundle served at `/__site.css?v={hash}` and `/__site.js?v={hash}`
-- [ ] Hash computed from concatenated content for cache busting
+- [x] All `.css` files under `handlers/` are discovered and concatenated
+- [x] All `.js` files under `handlers/` are discovered and concatenated
+- [x] Files in `public/` are excluded (served separately for third-party libs)
+- [x] Hidden files (starting with `.`) are excluded
+- [x] Bundle served at `/__site.css?v={hash}` and `/__site.js?v={hash}`
+- [x] Hash computed from concatenated content for cache busting
 
 ### File Order
-- [ ] Depth-first traversal of directory tree
-- [ ] Alphabetical ordering within each directory level
-- [ ] Deterministic order across restarts
+- [x] Depth-first traversal of directory tree
+- [x] Alphabetical ordering within each directory level
+- [x] Deterministic order across restarts
 
 ### Tags
-- [ ] `<Css/>` tag emits `<link rel="stylesheet" href="/__site.css?v={hash}">`
-- [ ] `<Script/>` tag emits `<script src="/__site.js?v={hash}"></script>`
+- [x] `<Css/>` tag emits `<link rel="stylesheet" href="/__site.css?v={hash}">`
+- [x] `<Script/>` tag emits `<script src="/__site.js?v={hash}"></script>`
 
 ### Dev Mode
-- [ ] Source file comments included in output (showing which file each section came from)
-- [ ] Bundle regenerated on any `.css`/`.js` file change
-- [ ] Hash updated on regeneration
+- [x] Source file comments included in output (showing which file each section came from)
+- [x] Bundle regenerated on any `.css`/`.js` file change
+- [x] Hash updated on regeneration
 
 ### Production Mode
-- [ ] No source comments (just concatenated content)
-- [ ] Bundle generated once at startup
-- [ ] SIGHUP triggers regeneration
-- [ ] Long cache headers (`Cache-Control: public, max-age=31536000`)
+- [x] No source comments (just concatenated content)
+- [x] Bundle generated once at startup
+- [x] SIGHUP triggers regeneration
+- [x] Long cache headers (`Cache-Control: public, max-age=31536000`)
+
+## Implementation Notes
+
+**Commit:** a2d1575
+**Date:** 2025-12-11
+
+Successfully implemented all acceptance criteria. Key implementation details:
+
+### Files Created
+- `server/bundle.go` (265 lines) - AssetBundle type with discovery, concatenation, hashing, HTTP serving
+- `server/bundle_test.go` (190 lines) - 7 comprehensive unit tests
+- `pkg/parsley/tests/bundle_tags_test.go` (163 lines) - 6 integration tests for tag evaluation
+
+### Files Modified
+- `server/server.go` - Added assetBundle field, initialization, route registration
+- `pkg/parsley/evaluator/evaluator.go` - AssetBundler interface, <Css/>/<Script/> tag handling
+- `server/handler.go` & `server/api.go` - Bundle context injection
+- `server/watcher.go` - Bundle rebuild on file changes
+- `docs/parsley/reference.md` - Asset Bundle Tags section
+- `docs/parsley/CHEATSHEET.md` - Gotchas and usage guide
+- `basil.example.yaml` - Documentation comments
+
+### Testing
+All 13 tests passing:
+- Asset discovery with depth-first alphabetical ordering
+- Dev mode source comments
+- Production mode without comments
+- Hidden file exclusion
+- Empty bundle handling
+- Hash computation (SHA-256, first 8 chars)
+- URL generation with cache-busting
+- <Css/> tag emits link element
+- <Script/> tag emits script element
+- Empty/missing bundle cases
+- Template integration
+
+### Design Choices
+- **AssetBundler interface**: Prevents circular dependencies between server and evaluator packages
+- **Depth-first alphabetical**: Allows predictable CSS cascade control via folder structure
+- **ETag support**: Efficient HTTP caching with 304 Not Modified responses
+- **File watching integration**: Seamless dev mode experience with live reload
+
+### Known Limitations
+- No minification (deferred - could add in future)
+- No source maps (deferred - could add in future)
+- No per-route bundles (site-wide only)
+
+
 
 ## Design Decisions
 
