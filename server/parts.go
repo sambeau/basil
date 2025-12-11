@@ -182,6 +182,13 @@ func objectToTemplateString(obj evaluator.Object) string {
 			return "true"
 		}
 		return "false"
+	case *evaluator.Array:
+		// Concatenate array elements (for multiple expressions in block)
+		var result string
+		for _, elem := range v.Elements {
+			result += objectToTemplateString(elem)
+		}
+		return result
 	default:
 		return obj.Inspect()
 	}
