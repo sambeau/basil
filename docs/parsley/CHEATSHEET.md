@@ -473,9 +473,9 @@ dir(@./test).rmdir()
 
 ### File Globbing
 ```parsley
-// Find files matching a pattern
-let images = fileList(@./images/*.jpg)
-let configs = fileList("~/.config/*.json")
+// Find files matching a pattern (relative to CURRENT FILE, not cwd)
+let images = fileList(@./images/*.jpg)     // @./ resolves from file location
+let configs = fileList(@~/.config/*.json)  // @~/ resolves from project root
 
 // Iterate over matches
 for(f in fileList(@./docs/*.md)) {
@@ -488,6 +488,8 @@ for(config in fileList(@./config/*.json)) {
     log(data)
 }
 ```
+
+**Important:** `@./` paths resolve relative to the **current file's directory**, not the working directory where you started the server. This matches import behavior.
 
 ---
 

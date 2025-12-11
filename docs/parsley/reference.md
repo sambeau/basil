@@ -1227,6 +1227,19 @@ let logs = fileList("./logs/*.log")
 let configs = fileList("~/.config/*.json")
 ```
 
+**Path Resolution:**
+
+- `@./` and `@../` — Resolved relative to the **current file's directory** (like imports)
+- `@~/` — Resolved relative to the project root (or home directory if not in Basil)
+- Absolute paths — Used as-is
+- String patterns without `@` — Resolved relative to current working directory
+
+```parsley
+// In ~/components/clock/clock.pars:
+images = fileList(@./img/*.svg)  // Finds ~/components/clock/img/*.svg
+icons = fileList(@~/assets/*.png)  // Finds ~/assets/*.png (from project root)
+```
+
 **Glob Pattern Syntax:**
 
 | Pattern | Matches |
