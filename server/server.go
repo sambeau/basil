@@ -224,11 +224,14 @@ func (s *Server) initAssetBundle() error {
 	return nil
 }
 
-// determineHandlersDir finds the common parent directory for all handlers.
+// determineHandlersDir finds the handler root directory for asset bundle discovery.
+// In site mode, this is the parent of the site/ directory (the handler root).
+// In route mode, this is the common ancestor of all handler files.
 func (s *Server) determineHandlersDir() string {
-	// If using site (filesystem routing), use that directory
+	// If using site (filesystem routing), use the parent of the site directory
+	// This allows discovering CSS/JS in components/, public/, etc. at handler root level
 	if s.config.Site != "" {
-		return s.config.Site
+		return filepath.Dir(s.config.Site)
 	}
 
 	// Otherwise, find common parent of all route handlers
