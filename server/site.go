@@ -68,6 +68,19 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Check if request is for a .part file (for Part refresh/lazy-load)
+	if strings.HasSuffix(urlPath, ".part") {
+		partPath := filepath.Join(h.siteRoot, "..", urlPath) // Parts are relative to handler root (parent of site/)
+		partPath = filepath.Clean(partPath)
+		if info, err := os.Stat(partPath); err == nil && !info.IsDir() {
+			h.servePartFile(w, r, partPath, urlPath)
+			return
+		}
+		// Part file not found
+		http.NotFound(w, r)
+		return
+	}
+
 	// Walk back to find the nearest index.pars handler
 	handlerPath, subpath := h.findHandler(urlPath)
 	if handlerPath == "" {
@@ -228,4 +241,40 @@ func getSubpath(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// servePartFile serves a .part file for Part component refresh/lazy-load.
+func (h *siteHandler) servePartFile(w http.ResponseWriter, r *http.Request, partPath string, urlPath string) {
+	// Determine handler root (parent of site directory)
+	handlerRoot := filepath.Dir(h.siteRoot)
+
+	// Calculate the route path (URL path minus .part file itself)
+	routePath := filepath.Dir(urlPath)
+	if routePath == "." {
+		routePath = "/"
+	} else if !strings.HasPrefix(routePath, "/") {
+		routePath = "/" + routePath
+	}
+	if !strings.HasSuffix(routePath, "/") {
+		routePath += "/"
+	}
+
+	// Create a synthetic route for the Part handler
+	route := config.Route{
+		Path:      routePath,
+		Handler:   partPath,
+		PublicDir: handlerRoot,
+	}
+
+	// Create the handler using existing infrastructure
+	handler, err := newParsleyHandler(h.server, route, h.scriptCache)
+	if err != nil {
+		h.server.logError("failed to create Part handler for %s: %v", partPath, err)
+		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Apply auth middleware (optional auth for now)
+	finalHandler := h.server.applyAuthMiddleware(handler, "optional")
+	finalHandler.ServeHTTP(w, r)
 }
