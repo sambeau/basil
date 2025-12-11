@@ -133,13 +133,22 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env := evaluator.NewEnvironment()
 		env.Filename = h.scriptPath
 		
-		// Set root path - use route.PublicDir if available (site mode), else handler directory
+		// Set root path - distinguish between site mode and route mode
 		var rootPath string
+		scriptDir := filepath.Dir(h.scriptPath)
+		absScriptDir, _ := filepath.Abs(scriptDir)
+		
 		if h.route.PublicDir != "" {
-			rootPath = h.route.PublicDir
+			absPublicDir, _ := filepath.Abs(h.route.PublicDir)
+			// If handler is within or equal to PublicDir, use PublicDir as root (site mode)
+			if strings.HasPrefix(absScriptDir+string(filepath.Separator), absPublicDir+string(filepath.Separator)) ||
+				absScriptDir == absPublicDir {
+				rootPath = absPublicDir
+			} else {
+				rootPath = absScriptDir
+			}
 		} else {
-			scriptDir := filepath.Dir(h.scriptPath)
-			rootPath, _ = filepath.Abs(scriptDir)
+			rootPath = absScriptDir
 		}
 		env.RootPath = rootPath
 		env.Security = &evaluator.SecurityPolicy{
@@ -227,16 +236,26 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.Filename = h.scriptPath
 
 	// Set root path for @~/ imports
-	// In site mode, use route.PublicDir (handler root) to allow access to public/, components/, etc.
-	// In handler-file mode, use handler's directory
+	// In site mode, route.PublicDir points to the handler root (parent of site/)
+	// In route mode, route.PublicDir (if set) points to the public/ directory for publicUrl()
+	// We can distinguish by checking if the handler file is within PublicDir
 	var rootPath string
+	scriptDir := filepath.Dir(h.scriptPath)
+	absScriptDir, _ := filepath.Abs(scriptDir)
+	
 	if h.route.PublicDir != "" {
-		// Site mode or explicit public_dir - use it as root
-		rootPath = h.route.PublicDir
+		absPublicDir, _ := filepath.Abs(h.route.PublicDir)
+		// If handler is within or equal to PublicDir, use PublicDir as root (site mode)
+		// Otherwise, PublicDir is for static files, use handler directory (route mode)
+		if strings.HasPrefix(absScriptDir+string(filepath.Separator), absPublicDir+string(filepath.Separator)) ||
+			absScriptDir == absPublicDir {
+			rootPath = absPublicDir
+		} else {
+			rootPath = absScriptDir
+		}
 	} else {
-		// Handler-file mode - use handler's directory
-		scriptDir := filepath.Dir(h.scriptPath)
-		rootPath, _ = filepath.Abs(scriptDir)
+		// No PublicDir set - use handler's directory
+		rootPath = absScriptDir
 	}
 	env.RootPath = rootPath
 

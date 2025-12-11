@@ -48,13 +48,22 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env := evaluator.NewEnvironment()
 	env.Filename = h.scriptPath
 
-	// Set root path - use route.PublicDir if available (site mode), else handler directory
+	// Set root path - distinguish between site mode and route mode
 	var rootPath string
+	scriptDir := filepath.Dir(h.scriptPath)
+	absScriptDir, _ := filepath.Abs(scriptDir)
+	
 	if h.route.PublicDir != "" {
-		rootPath = h.route.PublicDir
+		absPublicDir, _ := filepath.Abs(h.route.PublicDir)
+		// If handler is within or equal to PublicDir, use PublicDir as root (site mode)
+		if strings.HasPrefix(absScriptDir+string(filepath.Separator), absPublicDir+string(filepath.Separator)) ||
+			absScriptDir == absPublicDir {
+			rootPath = absPublicDir
+		} else {
+			rootPath = absScriptDir
+		}
 	} else {
-		scriptDir := filepath.Dir(h.scriptPath)
-		rootPath, _ = filepath.Abs(scriptDir)
+		rootPath = absScriptDir
 	}
 	env.RootPath = rootPath
 

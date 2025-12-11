@@ -272,7 +272,15 @@ func commonAncestor(path1, path2 string) string {
 		return ""
 	}
 
-	return filepath.Join(common...)
+	result := filepath.Join(common...)
+	
+	// Fix: If original paths were absolute (Unix), filepath.Join loses the leading /
+	// because it joins ["", "Users", ...] → "Users/..." instead of "/Users/..."
+	if len(common) > 0 && common[0] == "" && !filepath.IsAbs(result) {
+		result = string(filepath.Separator) + result
+	}
+	
+	return result
 }
 
 // Close closes all server resources. Use this in tests; in production, use Run() with a context.
