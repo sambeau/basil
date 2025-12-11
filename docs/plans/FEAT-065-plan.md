@@ -257,12 +257,12 @@ Steps:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| — | Task 1: Init command | ⬜ Not started | — |
-| — | Task 2: CLI integration | ⬜ Not started | — |
-| — | Task 3: Unit tests | ⬜ Not started | — |
-| — | Task 4: Integration test | ⬜ Not started | — |
-| — | Task 5: Documentation | ⬜ Not started | — |
-| — | Task 6: Manual E2E test | ⬜ Not started | — |
+| 2025-12-11 | Task 1: Init command | ✅ Complete | cmd/basil/init.go created |
+| 2025-12-11 | Task 2: CLI integration | ✅ Complete | --init flag added to main.go |
+| 2025-12-11 | Task 3: Unit tests | ✅ Complete | 8 tests in init_test.go, all passing |
+| 2025-12-11 | Task 4: Integration test | ✅ Complete | Added to main_test.go |
+| 2025-12-11 | Task 5: Documentation | ✅ Complete | Updated README and quick-start |
+| 2025-12-11 | Task 6: Manual E2E test | ✅ Complete | Verified with /tmp/testbasil |
 
 ## Deferred Items
 
