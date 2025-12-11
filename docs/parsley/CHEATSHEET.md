@@ -1338,7 +1338,7 @@ export increment = fn(props) {
 
 ---
 
-### Asset Bundle Tags - <Css/> and <Script/>
+### Asset Bundle Tags - <CSS/> and <Javascript/>
 
 Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree.
 
@@ -1347,11 +1347,11 @@ Basil automatically bundles CSS and JavaScript files from your `handlers/` direc
 // In any handler (.pars file)
 <html>
   <head>
-    <Css/>
+    <CSS/>
   </head>
   <body>
     <h1>Hello</h1>
-    <Script/>
+    <Javascript/>
   </body>
 </html>
 ```
@@ -1386,5 +1386,5 @@ Source comments are omitted.
 - ✅ Bundle auto-rebuilds on file changes (dev mode)
 - ✅ `SIGHUP` rebuilds bundle (production hot reload)
 - ❌ Don't manually create `/__site.css` or `/__site.js` routes
-- ✅ Tags are self-closing: `<Css/>` and `<Script/>` (not `<Css>`)
+- ✅ Tags are self-closing: `<CSS/>` and `<Javascript/>` (not `<CSS>`)
 

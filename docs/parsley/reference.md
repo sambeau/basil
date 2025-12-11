@@ -2432,7 +2432,7 @@ export default = fn(props) {
 
 ### Asset Bundle Tags
 
-Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree. Use `<Css/>` and `<Script/>` tags to include these bundles.
+Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree. Use `<CSS/>` and `<Javascript/>` tags to include these bundles.
 
 **File Discovery:**
 - Basil recursively scans the handlers directory for `.css` and `.js` files

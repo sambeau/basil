@@ -44,7 +44,7 @@ func TestCssTag_EmitsLink(t *testing.T) {
 		cssURL: "/__site.css?v=abc12345",
 	}
 
-	result := evalWithAssetBundle(t, "<Css/>", bundle)
+	result := evalWithAssetBundle(t, "<CSS/>", bundle)
 
 	str, ok := result.(*evaluator.String)
 	if !ok {
@@ -62,7 +62,7 @@ func TestScriptTag_EmitsScript(t *testing.T) {
 		jsURL: "/__site.js?v=def67890",
 	}
 
-	result := evalWithAssetBundle(t, "<Script/>", bundle)
+	result := evalWithAssetBundle(t, "<Javascript/>", bundle)
 
 	str, ok := result.(*evaluator.String)
 	if !ok {
@@ -77,7 +77,7 @@ func TestScriptTag_EmitsScript(t *testing.T) {
 
 func TestCssTag_NoBundle(t *testing.T) {
 	// No bundle set
-	l := lexer.New("<Css/>")
+	l := lexer.New("<CSS/>")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -105,7 +105,7 @@ func TestCssTag_EmptyBundle(t *testing.T) {
 		cssURL: "", // No CSS files
 	}
 
-	result := evalWithAssetBundle(t, "<Css/>", bundle)
+	result := evalWithAssetBundle(t, "<CSS/>", bundle)
 
 	str, ok := result.(*evaluator.String)
 	if !ok {
@@ -122,7 +122,7 @@ func TestScriptTag_EmptyBundle(t *testing.T) {
 		jsURL: "", // No JS files
 	}
 
-	result := evalWithAssetBundle(t, "<Script/>", bundle)
+	result := evalWithAssetBundle(t, "<Javascript/>", bundle)
 
 	str, ok := result.(*evaluator.String)
 	if !ok {
@@ -143,11 +143,11 @@ func TestCssAndScriptTags_InTemplate(t *testing.T) {
 	input := `
 <html>
 <head>
-  <Css/>
+  <CSS/>
 </head>
 <body>
   <h1>Test</h1>
-  <Script/>
+  <Javascript/>
 </body>
 </html>
 `
@@ -164,6 +164,6 @@ func TestCssAndScriptTags_InTemplate(t *testing.T) {
 		t.Error("Output should contain CSS link tag")
 	}
 	if !contains(str.Value, `<script src="/__site.js?v=def456"></script>`) {
-		t.Error("Output should contain Script tag")
+		t.Error("Output should contain Javascript tag")
 	}
 }

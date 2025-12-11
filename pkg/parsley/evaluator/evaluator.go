@@ -10791,8 +10791,8 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 
 // evalCustomTag evaluates a custom (uppercase) tag as a function call
 func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Environment) Object {
-	// Special handling for Css and Script bundle tags
-	if tagName == "Css" {
+	// Special handling for CSS and Javascript bundle tags
+	if tagName == "CSS" {
 		if env.AssetBundle == nil {
 			return &String{Value: ""} // No bundle available
 		}
@@ -10802,7 +10802,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		}
 		return &String{Value: fmt.Sprintf(`<link rel="stylesheet" href="%s">`, url)}
 	}
-	if tagName == "Script" {
+	if tagName == "Javascript" {
 		if env.AssetBundle == nil {
 			return &String{Value: ""} // No bundle available
 		}
