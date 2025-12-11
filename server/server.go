@@ -209,13 +209,14 @@ func (s *Server) cleanupDevTools() {
 func (s *Server) initAssetBundle() error {
 	// Determine handlers directory from routes or site config
 	handlersDir := s.determineHandlersDir()
+	publicDirName := filepath.Base(s.config.PublicDir)
 	if handlersDir == "" {
 		// No routes configured, create empty bundle
-		s.assetBundle = NewAssetBundle("", s.config.Server.Dev)
+		s.assetBundle = NewAssetBundle("", s.config.Server.Dev, publicDirName)
 		return nil
 	}
 
-	s.assetBundle = NewAssetBundle(handlersDir, s.config.Server.Dev)
+	s.assetBundle = NewAssetBundle(handlersDir, s.config.Server.Dev, publicDirName)
 	if err := s.assetBundle.Rebuild(); err != nil {
 		// Log warning but don't fail - bundle just won't have content
 		s.logWarn("failed to build asset bundle: %v", err)

@@ -18,22 +18,25 @@ import (
 // AssetBundle manages site-wide CSS and JavaScript bundles.
 // It discovers, concatenates, and serves all .css and .js files from the handlers directory.
 type AssetBundle struct {
-	mu          sync.RWMutex
-	cssFiles    []string // ordered absolute file paths
-	jsFiles     []string // ordered absolute file paths
-	cssHash     string   // first 8 chars of SHA-256
-	jsHash      string   // first 8 chars of SHA-256
-	cssContent  []byte   // concatenated CSS content
-	jsContent   []byte   // concatenated JS content
-	devMode     bool
-	handlersDir string
+	mu            sync.RWMutex
+	cssFiles      []string // ordered absolute file paths
+	jsFiles       []string // ordered absolute file paths
+	cssHash       string   // first 8 chars of SHA-256
+	jsHash        string   // first 8 chars of SHA-256
+	cssContent    []byte   // concatenated CSS content
+	jsContent     []byte   // concatenated JS content
+	devMode       bool
+	handlersDir   string
+	publicDirName string // basename of public directory to exclude
 }
 
 // NewAssetBundle creates a new asset bundle manager.
-func NewAssetBundle(handlersDir string, devMode bool) *AssetBundle {
+// publicDirName is the basename of the directory to exclude (e.g., "public" from "./public").
+func NewAssetBundle(handlersDir string, devMode bool, publicDirName string) *AssetBundle {
 	return &AssetBundle{
-		handlersDir: handlersDir,
-		devMode:     devMode,
+		handlersDir:   handlersDir,
+		devMode:       devMode,
+		publicDirName: publicDirName,
 	}
 }
 
@@ -100,8 +103,8 @@ func (b *AssetBundle) discoverAssets() (cssFiles, jsFiles []string, err error) {
 			return nil
 		}
 
-		// Skip public directory (if it exists under handlers for some reason)
-		if d.IsDir() && name == "public" {
+		// Skip public directory (static files, third-party libraries)
+		if d.IsDir() && b.publicDirName != "" && name == b.publicDirName {
 			return filepath.SkipDir
 		}
 

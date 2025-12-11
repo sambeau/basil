@@ -129,12 +129,14 @@ The hash is the first 8 characters of SHA-256 of the concatenated content.
    a. Collect .css files (alphabetically)
    b. Collect .js files (alphabetically)
    c. Recurse into subdirectories (alphabetically)
-4. Skip hidden files (.*) and public/ folder
+4. Skip hidden files (.*) and the configured public directory (from public_dir config)
 5. Store ordered lists: cssFiles, jsFiles
 6. Compute hash from concatenated content
 ```
 
 **Note**: In site mode, the entire handler root is scanned, not just the `site/` directory. This allows CSS/JS files to be organized in sibling directories like `components/`, alongside the `site/` handlers.
+
+**Note**: The public directory name is determined from the `public_dir` configuration (e.g., if `public_dir: "./static"`, then `static/` is excluded). This prevents third-party library files from being included in the auto-bundle.
 
 ### Example File Order
 
@@ -154,9 +156,11 @@ Given this structure:
 ├── pages/
 │   └── about/
 │       └── about.css     # 4
-└── parts/
-    └── header/
-        └── header.css    # 5
+├── parts/
+│   └── header/
+│       └── header.css    # 5
+└── public/               # Excluded (or whatever name is in public_dir config)
+    └── bootstrap.css     # Not included
 ```
 
 CSS order: base.css → button.css → card.css → about.css → header.css

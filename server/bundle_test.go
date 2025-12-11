@@ -22,7 +22,7 @@ func TestAssetBundle_Discovery(t *testing.T) {
 	os.WriteFile(filepath.Join(handlersDir, "components", "card.js"), []byte("console.log('card');"), 0644)
 	os.WriteFile(filepath.Join(handlersDir, "pages", "about.css"), []byte(".about { }"), 0644)
 
-	bundle := NewAssetBundle(handlersDir, false)
+	bundle := NewAssetBundle(handlersDir, false, "public")
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -63,7 +63,7 @@ func TestAssetBundle_DevModeComments(t *testing.T) {
 	os.MkdirAll(handlersDir, 0755)
 	os.WriteFile(filepath.Join(handlersDir, "test.css"), []byte(".test { }"), 0644)
 
-	bundle := NewAssetBundle(handlersDir, true) // dev mode
+	bundle := NewAssetBundle(handlersDir, true, "public") // dev mode
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -81,7 +81,7 @@ func TestAssetBundle_ProductionNoComments(t *testing.T) {
 	os.MkdirAll(handlersDir, 0755)
 	os.WriteFile(filepath.Join(handlersDir, "test.css"), []byte(".test { }"), 0644)
 
-	bundle := NewAssetBundle(handlersDir, false) // production mode
+	bundle := NewAssetBundle(handlersDir, false, "public") // production mode
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -101,7 +101,7 @@ func TestAssetBundle_ExcludesHidden(t *testing.T) {
 	os.WriteFile(filepath.Join(handlersDir, ".hidden", "secret.css"), []byte(".secret { }"), 0644)
 	os.WriteFile(filepath.Join(handlersDir, "normal.css"), []byte(".normal { }"), 0644)
 
-	bundle := NewAssetBundle(handlersDir, false)
+	bundle := NewAssetBundle(handlersDir, false, "public")
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -122,7 +122,7 @@ func TestAssetBundle_EmptyBundle(t *testing.T) {
 	handlersDir := filepath.Join(tmpDir, "handlers")
 	os.MkdirAll(handlersDir, 0755)
 
-	bundle := NewAssetBundle(handlersDir, false)
+	bundle := NewAssetBundle(handlersDir, false, "public")
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -142,7 +142,7 @@ func TestAssetBundle_HashComputation(t *testing.T) {
 	os.MkdirAll(handlersDir, 0755)
 	os.WriteFile(filepath.Join(handlersDir, "test.css"), []byte(".test { }"), 0644)
 
-	bundle := NewAssetBundle(handlersDir, false)
+	bundle := NewAssetBundle(handlersDir, false, "public")
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -175,7 +175,7 @@ func TestAssetBundle_URLs(t *testing.T) {
 	os.WriteFile(filepath.Join(handlersDir, "test.css"), []byte(".test { }"), 0644)
 	os.WriteFile(filepath.Join(handlersDir, "test.js"), []byte("console.log('test');"), 0644)
 
-	bundle := NewAssetBundle(handlersDir, false)
+	bundle := NewAssetBundle(handlersDir, false, "public")
 	err := bundle.Rebuild()
 	if err != nil {
 		t.Fatalf("Rebuild() failed: %v", err)
@@ -189,5 +189,37 @@ func TestAssetBundle_URLs(t *testing.T) {
 	jsURL := bundle.JSUrl()
 	if !strings.HasPrefix(jsURL, "/__site.js?v=") {
 		t.Errorf("Unexpected JS URL format: %s", jsURL)
+	}
+}
+
+func TestAssetBundle_ExcludesConfiguredPublicDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	handlersDir := filepath.Join(tmpDir, "handlers")
+	os.MkdirAll(filepath.Join(handlersDir, "static"), 0755)
+	os.MkdirAll(filepath.Join(handlersDir, "public"), 0755)
+	os.WriteFile(filepath.Join(handlersDir, "app.css"), []byte(".app { }"), 0644)
+	os.WriteFile(filepath.Join(handlersDir, "static", "vendor.css"), []byte(".vendor { }"), 0644)
+	os.WriteFile(filepath.Join(handlersDir, "public", "bootstrap.css"), []byte(".bootstrap { }"), 0644)
+
+	// Test with "static" as public directory name
+	bundle := NewAssetBundle(handlersDir, false, "static")
+	err := bundle.Rebuild()
+	if err != nil {
+		t.Fatalf("Rebuild() failed: %v", err)
+	}
+
+	cssContent := string(bundle.cssContent)
+	
+	// Should include app.css and public/bootstrap.css
+	if !strings.Contains(cssContent, ".app") {
+		t.Error("Bundle should include app.css")
+	}
+	if !strings.Contains(cssContent, ".bootstrap") {
+		t.Error("Bundle should include public/bootstrap.css (not configured as public dir)")
+	}
+	
+	// Should exclude static/vendor.css
+	if strings.Contains(cssContent, ".vendor") {
+		t.Error("Bundle should exclude static/ directory (configured as public dir)")
 	}
 }
