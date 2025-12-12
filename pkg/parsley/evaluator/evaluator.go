@@ -3394,6 +3394,46 @@ func fileDictToPathDict(dict *Dictionary) *Dictionary {
 	}
 }
 
+// coerceToPathDict converts various types to a path dictionary for file factories
+// Accepts: path dict, file dict, dir dict, or string
+// Returns: path dict and environment, or nil if conversion fails
+func coerceToPathDict(arg Object, defaultEnv *Environment) (*Dictionary, *Environment) {
+	env := defaultEnv
+	if env == nil {
+		env = NewEnvironment()
+	}
+
+	switch v := arg.(type) {
+	case *Dictionary:
+		// If it's already a path dict, return it
+		if isPathDict(v) {
+			if v.Env != nil {
+				env = v.Env
+			}
+			return v, env
+		}
+		// If it's a file or dir dict, extract the path
+		if isFileDict(v) || isDirDict(v) {
+			pathDict := fileDictToPathDict(v)
+			if pathDict != nil {
+				if v.Env != nil {
+					env = v.Env
+				}
+				return pathDict, env
+			}
+		}
+		// Not a valid dict type
+		return nil, env
+	case *String:
+		// Parse string as path
+		components, isAbsolute := parsePathString(v.Value)
+		pathDict := pathToDict(components, isAbsolute, env)
+		return pathDict, env
+	default:
+		return nil, env
+	}
+}
+
 // evalDirComputedProperty returns computed properties for directory dictionaries
 func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Object {
 	pathStr := getFilePathString(dict, env)
@@ -4805,28 +4845,19 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("file", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "file", "a path", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "file", "a path or string", args[0].Type())
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "file", "a path, file, or string", args[0].Type())
 				}
 
 				// Get the path string for format inference
 				pathStr := getFilePathString(&Dictionary{Pairs: map[string]ast.Expression{
 					"_pathComponents": pathDict.Pairs["segments"],
 					"_pathAbsolute":   pathDict.Pairs["absolute"],
-				}, Env: env}, env)
+				}, Env: pathEnv}, pathEnv)
 
 				// Auto-detect format from extension
 				format := inferFormatFromExtension(pathStr)
@@ -4839,7 +4870,7 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				return fileToDict(pathDict, format, options, env)
+				return fileToDict(pathDict, format, options, pathEnv)
 			},
 		},
 		"JSON": {
@@ -4858,25 +4889,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				// First argument can be a path, URL, or string
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if isUrlDict(arg) {
-						// URL dictionary - create request handle for fetch
-						return requestToDict(arg, "json", options, env)
-					}
-					if isPathDict(arg) {
-						// Path dictionary - create file handle
-						return fileToDict(arg, "json", options, env)
-					}
-					return newTypeError("TYPE-0005", "JSON", "a path or URL", DICTIONARY_OBJ)
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict := pathToDict(components, isAbsolute, env)
-					return fileToDict(pathDict, "json", options, env)
-				default:
-					return newTypeError("TYPE-0005", "JSON", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "json", options, env)
 				}
+
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "JSON", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "json", options, pathEnv)
 			},
 		},
 		"YAML": {
@@ -4924,8 +4948,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("CSV", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict (e.g., {header: true})
@@ -4936,25 +4958,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "csv", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "CSV", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "CSV", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "csv", options, env)
 				}
 
-				return fileToDict(pathDict, "csv", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "CSV", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "csv", options, pathEnv)
 			},
 		},
 		"lines": {
@@ -4963,8 +4978,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("lines", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -4975,25 +4988,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "lines", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "lines", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "lines", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "lines", options, env)
 				}
 
-				return fileToDict(pathDict, "lines", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "lines", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "lines", options, pathEnv)
 			},
 		},
 		"text": {
@@ -5002,8 +5008,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("text", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict (e.g., {encoding: "latin1"})
@@ -5014,25 +5018,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "text", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "text", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "text", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "text", options, env)
 				}
 
-				return fileToDict(pathDict, "text", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "text", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "text", options, pathEnv)
 			},
 		},
 		"bytes": {
@@ -5041,8 +5038,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("bytes", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -5053,25 +5048,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "bytes", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "bytes", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "bytes", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "bytes", options, env)
 				}
 
-				return fileToDict(pathDict, "bytes", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "bytes", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "bytes", options, pathEnv)
 			},
 		},
 		// SVG file format - reads SVG files and strips XML prolog for use as components
@@ -5081,8 +5069,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("SVG", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -5093,25 +5079,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "svg", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "SVG", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "SVG", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "svg", options, env)
 				}
 
-				return fileToDict(pathDict, "svg", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "SVG", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "svg", options, pathEnv)
 			},
 		},
 		// Markdown file format - reads MD files with frontmatter support
@@ -5121,8 +5100,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("markdown", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -5133,25 +5110,20 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "md", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "MD", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "markdown", "a path, URL, or string", args[0].Type())
+				// First argument can be a path, file dict, or string
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					// Create request dictionary for URL
+					return requestToDict(dict, "md", options, env)
 				}
 
-				return fileToDict(pathDict, "markdown", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "markdown", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "markdown", options, pathEnv)
 			},
 		},
 		// Directory handle factory
