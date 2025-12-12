@@ -113,6 +113,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TAG_START, p.parseTagPair)
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(lexer.READ_FROM, p.parseReadExpression)
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
 	p.registerPrefix(lexer.FALSE, p.parseBoolean)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
@@ -1358,6 +1359,19 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 	p.nextToken()
 
 	expression.Right = p.parseExpression(PREFIX)
+
+	return expression
+}
+
+// parseReadExpression parses bare <== expressions like '<== file(...)'
+func (p *Parser) parseReadExpression() ast.Expression {
+	expression := &ast.ReadExpression{
+		Token: p.curToken,
+	}
+
+	p.nextToken()
+
+	expression.Source = p.parseExpression(PREFIX)
 
 	return expression
 }

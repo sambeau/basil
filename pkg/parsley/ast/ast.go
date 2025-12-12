@@ -759,6 +759,23 @@ type ReadStatement struct {
 	Source       Expression                 // the file handle expression
 }
 
+// ReadExpression represents a bare read expression like '<== file(...)' that returns the content
+type ReadExpression struct {
+	Token  lexer.Token // the <== token
+	Source Expression  // the file handle expression
+}
+
+func (re *ReadExpression) expressionNode()      {}
+func (re *ReadExpression) TokenLiteral() string { return re.Token.Literal }
+func (re *ReadExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("<== ")
+	if re.Source != nil {
+		out.WriteString(re.Source.String())
+	}
+	return out.String()
+}
+
 func (rs *ReadStatement) statementNode()       {}
 func (rs *ReadStatement) TokenLiteral() string { return rs.Token.Literal }
 func (rs *ReadStatement) String() string {

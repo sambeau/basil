@@ -6498,6 +6498,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
 
+	case *ast.ReadExpression:
+		return evalReadExpression(node, env)
+
 	case *ast.FetchStatement:
 		return evalFetchStatement(node, env)
 
@@ -12032,6 +12035,43 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 
 	// Read statements return NULL (like let statements)
 	return NULL
+}
+
+// evalReadExpression evaluates a bare <== expression and returns the read content
+func evalReadExpression(node *ast.ReadExpression, env *Environment) Object {
+	// Evaluate the source expression (should be a file or dir handle)
+	source := Eval(node.Source, env)
+	if isError(source) {
+		return source
+	}
+
+	// The source should be a file or directory dictionary
+	sourceDict, ok := source.(*Dictionary)
+	if !ok {
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "read expression <==", "Expected": "a file or directory handle", "Got": string(source.Type())})
+	}
+
+	if isDirDict(sourceDict) {
+		// Read directory contents
+		pathStr := getFilePathString(sourceDict, env)
+		if pathStr == "" {
+			return newFileOpError("FILEOP-0008", nil)
+		}
+		content := readDirContents(pathStr, env)
+		if isError(content) {
+			return content
+		}
+		return content
+	} else if isFileDict(sourceDict) {
+		// Read file content based on format
+		content, readErr := readFileContent(sourceDict, env)
+		if readErr != nil {
+			return readErr
+		}
+		return content
+	}
+
+	return newFileOpError("FILEOP-0007", map[string]any{"Operator": "read expression <==", "Expected": "a file or directory handle", "Got": "dictionary"})
 }
 
 // evalFetchStatement evaluates the <=/= operator to fetch URL content
