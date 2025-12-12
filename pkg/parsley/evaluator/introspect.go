@@ -157,6 +157,62 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "list", Arity: "0", Description: "List directory contents"},
 		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
 	},
+	"table": {
+		{Name: "where", Arity: "1", Description: "Filter rows by predicate"},
+		{Name: "orderBy", Arity: "1+", Description: "Sort rows by column(s)"},
+		{Name: "select", Arity: "1+", Description: "Select specific columns"},
+		{Name: "limit", Arity: "1-2", Description: "Limit rows (count, offset?)"},
+		{Name: "count", Arity: "0", Description: "Count rows"},
+		{Name: "sum", Arity: "1", Description: "Sum column values"},
+		{Name: "avg", Arity: "1", Description: "Average column values"},
+		{Name: "min", Arity: "1", Description: "Minimum column value"},
+		{Name: "max", Arity: "1", Description: "Maximum column value"},
+		{Name: "toHTML", Arity: "0-1", Description: "Convert to HTML table"},
+		{Name: "toCSV", Arity: "0-1", Description: "Convert to CSV string"},
+		{Name: "appendRow", Arity: "1", Description: "Add row at end"},
+		{Name: "insertRowAt", Arity: "2", Description: "Insert row at index"},
+		{Name: "appendCol", Arity: "2", Description: "Add column at end"},
+		{Name: "insertColAfter", Arity: "3", Description: "Insert column after another"},
+		{Name: "insertColBefore", Arity: "3", Description: "Insert column before another"},
+	},
+	"dbconnection": {
+		{Name: "begin", Arity: "0", Description: "Begin transaction"},
+		{Name: "commit", Arity: "0", Description: "Commit transaction"},
+		{Name: "rollback", Arity: "0", Description: "Rollback transaction"},
+		{Name: "close", Arity: "0", Description: "Close connection"},
+		{Name: "ping", Arity: "0", Description: "Test connection"},
+	},
+	"sftpconnection": {
+		{Name: "close", Arity: "0", Description: "Close connection"},
+	},
+	"sftpfile": {
+		{Name: "mkdir", Arity: "0-1", Description: "Create directory"},
+		{Name: "rmdir", Arity: "0-1", Description: "Remove directory"},
+		{Name: "remove", Arity: "0", Description: "Remove file"},
+	},
+	"session": {
+		{Name: "get", Arity: "1-2", Description: "Get session value (key, default?)"},
+		{Name: "set", Arity: "2", Description: "Set session value (key, value)"},
+		{Name: "delete", Arity: "1", Description: "Delete session key"},
+		{Name: "has", Arity: "1", Description: "Check if key exists"},
+		{Name: "clear", Arity: "0", Description: "Clear all session data"},
+		{Name: "all", Arity: "0", Description: "Get all session data"},
+		{Name: "flash", Arity: "2", Description: "Set flash message (key, value)"},
+		{Name: "getFlash", Arity: "1", Description: "Get and clear flash message"},
+		{Name: "getAllFlash", Arity: "0", Description: "Get all flash messages"},
+		{Name: "hasFlash", Arity: "0", Description: "Check if flash messages exist"},
+		{Name: "regenerate", Arity: "0", Description: "Regenerate session ID"},
+	},
+	"dev": {
+		{Name: "log", Arity: "1-3", Description: "Log value to dev panel"},
+		{Name: "clearLog", Arity: "0", Description: "Clear dev log"},
+		{Name: "logPage", Arity: "0-1", Description: "Log page content"},
+		{Name: "setLogRoute", Arity: "1", Description: "Set log route pattern"},
+		{Name: "clearLogPage", Arity: "0", Description: "Clear page log"},
+	},
+	"tablemodule": {
+		{Name: "fromDict", Arity: "1", Description: "Create table from dictionary"},
+	},
 	"function": {
 		// Functions have no methods but we include them for completeness
 	},
@@ -191,6 +247,20 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 		return "builtin", ""
 	case *Money:
 		return "money", ""
+	case *Table:
+		return "table", ""
+	case *DBConnection:
+		return "dbconnection", ""
+	case *SFTPConnection:
+		return "sftpconnection", ""
+	case *SFTPFileHandle:
+		return "sftpfile", ""
+	case *SessionModule:
+		return "session", ""
+	case *DevModule:
+		return "dev", ""
+	case *TableModule:
+		return "tablemodule", ""
 	case *Dictionary:
 		// Check for typed dictionaries
 		if isDatetimeDict(o) {
