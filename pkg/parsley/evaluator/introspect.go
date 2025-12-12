@@ -484,7 +484,7 @@ func describeStdlibRoot(root *StdlibRoot) Object {
 // StdlibModuleDescriptions contains descriptions for each stdlib module
 var StdlibModuleDescriptions = map[string]string{
 	"api":    "HTTP client for API requests",
-	"basil":  "Server context (request, response, db, auth)",
+	"basil":  "Basil server context (server-only)",
 	"dev":    "Development tools (logging, debugging)",
 	"id":     "ID generation (UUID, nanoid, etc.)",
 	"math":   "Mathematical functions and constants",
