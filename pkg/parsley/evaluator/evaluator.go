@@ -5555,6 +5555,14 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
+		// inspect() - returns introspection data as a dictionary
+		"inspect": {
+			Fn: builtinInspect,
+		},
+		// describe() - pretty prints introspection data
+		"describe": {
+			Fn: builtinDescribe,
+		},
 		"toInt": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
