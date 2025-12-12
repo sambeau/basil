@@ -261,6 +261,8 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 		return "dev", ""
 	case *TableModule:
 		return "tablemodule", ""
+	case *StdlibModuleDict:
+		return "module", ""
 	case *Dictionary:
 		// Check for typed dictionaries
 		if isDatetimeDict(o) {
@@ -311,6 +313,12 @@ func builtinInspect(args ...Object) Object {
 	}
 
 	obj := args[0]
+
+	// Special handling for StdlibModuleDict - show exports
+	if mod, ok := obj.(*StdlibModuleDict); ok {
+		return inspectStdlibModule(mod)
+	}
+
 	typeName, subType := getObjectTypeName(obj, nil)
 
 	// Determine which method list to use
@@ -376,6 +384,43 @@ func builtinInspect(args ...Object) Object {
 	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 }
 
+// inspectStdlibModule returns introspection data for a stdlib module
+func inspectStdlibModule(mod *StdlibModuleDict) Object {
+	// Build exports array - sorted list of {name, type, description?}
+	keys := make([]string, 0, len(mod.Exports))
+	for k := range mod.Exports {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	exports := make([]Object, len(keys))
+	for i, name := range keys {
+		obj := mod.Exports[name]
+		exportType := strings.ToLower(string(obj.Type()))
+
+		pairs := map[string]ast.Expression{
+			"name": createLiteralExpression(&String{Value: name}),
+			"type": createLiteralExpression(&String{Value: exportType}),
+		}
+
+		// Check if we have metadata for this export
+		if info, ok := StdlibExports[name]; ok {
+			pairs["arity"] = createLiteralExpression(&String{Value: info.Arity})
+			pairs["description"] = createLiteralExpression(&String{Value: info.Description})
+		}
+
+		exports[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	}
+
+	// Build result dictionary
+	pairs := map[string]ast.Expression{
+		"type":    createLiteralExpression(&String{Value: "module"}),
+		"exports": createLiteralExpression(&Array{Elements: exports}),
+	}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
 // ============================================================================
 // Describe Function (Pretty Print)
 // ============================================================================
@@ -387,6 +432,12 @@ func builtinDescribe(args ...Object) Object {
 	}
 
 	obj := args[0]
+
+	// Special handling for StdlibModuleDict - show exports
+	if mod, ok := obj.(*StdlibModuleDict); ok {
+		return describeStdlibModule(mod)
+	}
+
 	typeName, subType := getObjectTypeName(obj, nil)
 
 	var sb strings.Builder
@@ -478,3 +529,192 @@ func arityToParams(arity string) string {
 		return "..."
 	}
 }
+
+// describeStdlibModule pretty prints a stdlib module's exports
+func describeStdlibModule(mod *StdlibModuleDict) Object {
+	var sb strings.Builder
+	sb.WriteString("Type: module\n\nExports:\n")
+
+	// Sort exports alphabetically
+	keys := make([]string, 0, len(mod.Exports))
+	for k := range mod.Exports {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Group by type (constants vs functions)
+	var constants []string
+	var functions []string
+	for _, name := range keys {
+		obj := mod.Exports[name]
+		switch obj.(type) {
+		case *Builtin, *Function:
+			functions = append(functions, name)
+		default:
+			constants = append(constants, name)
+		}
+	}
+
+	// Find max name length for alignment
+	maxNameLen := 0
+	for _, name := range keys {
+		info, hasInfo := StdlibExports[name]
+		var display string
+		if hasInfo && info.Arity != "" {
+			display = fmt.Sprintf("%s(%s)", name, arityToParams(info.Arity))
+		} else {
+			display = name
+		}
+		if len(display) > maxNameLen {
+			maxNameLen = len(display)
+		}
+	}
+
+	// Print constants first
+	if len(constants) > 0 {
+		sb.WriteString("  Constants:\n")
+		for _, name := range constants {
+			obj := mod.Exports[name]
+			padding := strings.Repeat(" ", maxNameLen-len(name)+2)
+			sb.WriteString(fmt.Sprintf("    %s%s= %s\n", name, padding, obj.Inspect()))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Print functions
+	if len(functions) > 0 {
+		sb.WriteString("  Functions:\n")
+		for _, name := range functions {
+			info, hasInfo := StdlibExports[name]
+			var display string
+			var desc string
+			if hasInfo {
+				display = fmt.Sprintf("%s(%s)", name, arityToParams(info.Arity))
+				desc = info.Description
+			} else {
+				display = name + "(...)"
+				desc = ""
+			}
+			padding := strings.Repeat(" ", maxNameLen-len(display)+2)
+			if desc != "" {
+				sb.WriteString(fmt.Sprintf("    %s%s- %s\n", display, padding, desc))
+			} else {
+				sb.WriteString(fmt.Sprintf("    %s\n", display))
+			}
+		}
+	}
+
+	return &String{Value: sb.String()}
+}
+
+// ============================================================================
+// Stdlib Export Metadata
+// ============================================================================
+
+// StdlibExports contains metadata for stdlib module exports
+var StdlibExports = map[string]MethodInfo{
+	// math module - Constants
+	"PI":  {Arity: "", Description: "Pi (3.14159...)"},
+	"E":   {Arity: "", Description: "Euler's number (2.71828...)"},
+	"TAU": {Arity: "", Description: "Tau (2*Pi)"},
+
+	// math module - Rounding
+	"floor": {Arity: "1", Description: "Round down to integer"},
+	"ceil":  {Arity: "1", Description: "Round up to integer"},
+	"round": {Arity: "1-2", Description: "Round to nearest (decimals?)"},
+	"trunc": {Arity: "1", Description: "Truncate to integer"},
+
+	// math module - Comparison & Clamping
+	"abs":   {Arity: "1", Description: "Absolute value"},
+	"sign":  {Arity: "1", Description: "Sign (-1, 0, or 1)"},
+	"clamp": {Arity: "3", Description: "Clamp value between min and max"},
+
+	// math module - Aggregation
+	"min":     {Arity: "1+", Description: "Minimum of values or array"},
+	"max":     {Arity: "1+", Description: "Maximum of values or array"},
+	"sum":     {Arity: "1+", Description: "Sum of values or array"},
+	"avg":     {Arity: "1+", Description: "Average of values or array"},
+	"mean":    {Arity: "1+", Description: "Mean (alias for avg)"},
+	"product": {Arity: "1+", Description: "Product of values or array"},
+	"count":   {Arity: "1", Description: "Count elements in array"},
+
+	// math module - Statistics
+	"median":   {Arity: "1", Description: "Median of array"},
+	"mode":     {Arity: "1", Description: "Mode of array"},
+	"stddev":   {Arity: "1", Description: "Standard deviation"},
+	"variance": {Arity: "1", Description: "Variance"},
+	"range":    {Arity: "1", Description: "Range (max - min)"},
+
+	// math module - Random
+	"random":    {Arity: "0", Description: "Random float 0-1"},
+	"randomInt": {Arity: "1-2", Description: "Random int (max) or (min, max)"},
+	"seed":      {Arity: "1", Description: "Seed random generator"},
+
+	// math module - Powers & Logarithms
+	"sqrt":  {Arity: "1", Description: "Square root"},
+	"pow":   {Arity: "2", Description: "Power (base, exponent)"},
+	"exp":   {Arity: "1", Description: "e^x"},
+	"log":   {Arity: "1", Description: "Natural logarithm"},
+	"log10": {Arity: "1", Description: "Base-10 logarithm"},
+
+	// math module - Trigonometry
+	"sin":   {Arity: "1", Description: "Sine (radians)"},
+	"cos":   {Arity: "1", Description: "Cosine (radians)"},
+	"tan":   {Arity: "1", Description: "Tangent (radians)"},
+	"asin":  {Arity: "1", Description: "Arc sine"},
+	"acos":  {Arity: "1", Description: "Arc cosine"},
+	"atan":  {Arity: "1", Description: "Arc tangent"},
+	"atan2": {Arity: "2", Description: "Arc tangent of y/x"},
+
+	// math module - Angular Conversion
+	"degrees": {Arity: "1", Description: "Radians to degrees"},
+	"radians": {Arity: "1", Description: "Degrees to radians"},
+
+	// math module - Geometry & Interpolation
+	"hypot": {Arity: "2", Description: "Hypotenuse length"},
+	"dist":  {Arity: "4", Description: "Distance between points"},
+	"lerp":  {Arity: "3", Description: "Linear interpolation"},
+	"map":   {Arity: "5", Description: "Map value from one range to another"},
+
+	// valid module - Type validators
+	"string":  {Arity: "1", Description: "Check if value is string"},
+	"number":  {Arity: "1", Description: "Check if value is number"},
+	"integer": {Arity: "1", Description: "Check if value is integer"},
+	"boolean": {Arity: "1", Description: "Check if value is boolean"},
+	"array":   {Arity: "1", Description: "Check if value is array"},
+	"dict":    {Arity: "1", Description: "Check if value is dictionary"},
+
+	// valid module - String validators
+	"empty":        {Arity: "1", Description: "Check if string is empty"},
+	"minLen":       {Arity: "2", Description: "Check minimum length"},
+	"maxLen":       {Arity: "2", Description: "Check maximum length"},
+	"length":       {Arity: "2-3", Description: "Check length (exact or range)"},
+	"matches":      {Arity: "2", Description: "Check regex match"},
+	"alpha":        {Arity: "1", Description: "Check if only letters"},
+	"alphanumeric": {Arity: "1", Description: "Check if only letters/numbers"},
+	"numeric":      {Arity: "1", Description: "Check if only digits"},
+
+	// valid module - Number validators
+	// "min" and "max" already defined in math
+	"between":  {Arity: "3", Description: "Check if number in range"},
+	"positive": {Arity: "1", Description: "Check if positive"},
+	"negative": {Arity: "1", Description: "Check if negative"},
+
+	// valid module - Format validators
+	"email":      {Arity: "1", Description: "Check email format"},
+	"url":        {Arity: "1", Description: "Check URL format"},
+	"uuid":       {Arity: "1", Description: "Check UUID format"},
+	"phone":      {Arity: "1-2", Description: "Check phone format (locale?)"},
+	"creditCard": {Arity: "1", Description: "Check credit card format"},
+	"date":       {Arity: "1-2", Description: "Check date format"},
+	"time":       {Arity: "1", Description: "Check time format"},
+
+	// valid module - Locale-aware validators
+	"postalCode": {Arity: "1-2", Description: "Check postal code (locale?)"},
+	"parseDate":  {Arity: "1-2", Description: "Parse date string (locale?)"},
+
+	// valid module - Collection validators
+	"contains": {Arity: "2", Description: "Check if array contains value"},
+	"oneOf":    {Arity: "2", Description: "Check if value is one of array"},
+}
+
