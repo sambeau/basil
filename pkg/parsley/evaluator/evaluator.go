@@ -8029,6 +8029,11 @@ func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
 // importModule is the shared logic for loading a module by path string.
 // Used by both evalImport (old syntax) and evalImportExpression (new syntax).
 func importModule(pathStr string, env *Environment) Object {
+	// Check for stdlib root import (just "std" without module name)
+	if pathStr == "std" {
+		return loadStdlibRoot()
+	}
+
 	// Check for standard library imports (std/modulename)
 	if strings.HasPrefix(pathStr, "std/") {
 		moduleName := strings.TrimPrefix(pathStr, "std/")

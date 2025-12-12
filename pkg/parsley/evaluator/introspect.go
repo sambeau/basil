@@ -261,6 +261,8 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 		return "dev", ""
 	case *TableModule:
 		return "tablemodule", ""
+	case *StdlibRoot:
+		return "stdlib", ""
 	case *StdlibModuleDict:
 		return "module", ""
 	case *Dictionary:
@@ -313,6 +315,11 @@ func builtinInspect(args ...Object) Object {
 	}
 
 	obj := args[0]
+
+	// Special handling for StdlibRoot - show available modules
+	if root, ok := obj.(*StdlibRoot); ok {
+		return inspectStdlibRoot(root)
+	}
 
 	// Special handling for StdlibModuleDict - show exports
 	if mod, ok := obj.(*StdlibModuleDict); ok {
@@ -421,6 +428,71 @@ func inspectStdlibModule(mod *StdlibModuleDict) Object {
 	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 }
 
+// inspectStdlibRoot returns introspection data for the stdlib root
+func inspectStdlibRoot(root *StdlibRoot) Object {
+	// Build modules array
+	modules := make([]Object, len(root.Modules))
+	for i, name := range root.Modules {
+		info, hasInfo := StdlibModuleDescriptions[name]
+		pairs := map[string]ast.Expression{
+			"name": createLiteralExpression(&String{Value: name}),
+		}
+		if hasInfo {
+			pairs["description"] = createLiteralExpression(&String{Value: info})
+		}
+		modules[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	}
+
+	// Build result dictionary
+	pairs := map[string]ast.Expression{
+		"type":    createLiteralExpression(&String{Value: "stdlib"}),
+		"modules": createLiteralExpression(&Array{Elements: modules}),
+	}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
+// describeStdlibRoot pretty prints the stdlib module listing
+func describeStdlibRoot(root *StdlibRoot) Object {
+	var sb strings.Builder
+	sb.WriteString("Parsley Standard Library (@std)\n\n")
+	sb.WriteString("Available modules:\n")
+
+	// Find max name length for alignment
+	maxNameLen := 0
+	for _, name := range root.Modules {
+		if len(name) > maxNameLen {
+			maxNameLen = len(name)
+		}
+	}
+
+	for _, name := range root.Modules {
+		padding := strings.Repeat(" ", maxNameLen-len(name)+2)
+		if desc, ok := StdlibModuleDescriptions[name]; ok {
+			sb.WriteString(fmt.Sprintf("  @std/%s%s- %s\n", name, padding, desc))
+		} else {
+			sb.WriteString(fmt.Sprintf("  @std/%s\n", name))
+		}
+	}
+
+	sb.WriteString("\nUsage: import @std/<module>\n")
+	sb.WriteString("Example: let { floor, ceil } = import @std/math\n")
+
+	return &String{Value: sb.String()}
+}
+
+// StdlibModuleDescriptions contains descriptions for each stdlib module
+var StdlibModuleDescriptions = map[string]string{
+	"api":    "HTTP client for API requests",
+	"basil":  "Server context (request, response, db, auth)",
+	"dev":    "Development tools (logging, debugging)",
+	"id":     "ID generation (UUID, nanoid, etc.)",
+	"math":   "Mathematical functions and constants",
+	"schema": "Schema validation and type checking",
+	"table":  "Table data structure with query methods",
+	"valid":  "Validation functions for strings, numbers, formats",
+}
+
 // ============================================================================
 // Describe Function (Pretty Print)
 // ============================================================================
@@ -432,6 +504,11 @@ func builtinDescribe(args ...Object) Object {
 	}
 
 	obj := args[0]
+
+	// Special handling for StdlibRoot - show available modules
+	if root, ok := obj.(*StdlibRoot); ok {
+		return describeStdlibRoot(root)
+	}
 
 	// Special handling for StdlibModuleDict - show exports
 	if mod, ok := obj.(*StdlibModuleDict); ok {

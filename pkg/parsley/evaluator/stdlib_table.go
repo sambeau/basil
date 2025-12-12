@@ -107,6 +107,28 @@ func (smd *StdlibModuleDict) Inspect() string {
 	return fmt.Sprintf("StdlibModule{%s}", strings.Join(keys, ", "))
 }
 
+// StdlibRoot represents the root of the standard library (import @std)
+// It provides introspection for available modules
+type StdlibRoot struct {
+	Modules []string // List of available module names
+}
+
+func (sr *StdlibRoot) Type() ObjectType { return DICTIONARY_OBJ }
+func (sr *StdlibRoot) Inspect() string {
+	return fmt.Sprintf("@std{%s}", strings.Join(sr.Modules, ", "))
+}
+
+// loadStdlibRoot returns the stdlib root with module listing
+func loadStdlibRoot() *StdlibRoot {
+	modules := getStdlibModules()
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return &StdlibRoot{Modules: names}
+}
+
 // evalStdlibModuleDestructuring handles destructuring imports from stdlib modules
 func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *StdlibModuleDict, env *Environment, isLet bool, export bool) Object {
 	// Process each key in the pattern
