@@ -1612,14 +1612,21 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
-	}
+	// Check if parameters are present (fn(x) {...}) or omitted (fn {...})
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // consume LPAREN
+		// Use new parameter parsing that supports destructuring
+		lit.Params = p.parseFunctionParametersNew()
 
-	// Use new parameter parsing that supports destructuring
-	lit.Params = p.parseFunctionParametersNew()
-
-	if !p.expectPeek(lexer.LBRACE) {
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+	} else if p.peekTokenIs(lexer.LBRACE) {
+		// No parameters - fn {} syntax
+		p.nextToken() // consume LBRACE
+		lit.Params = []*ast.FunctionParameter{}
+	} else {
+		p.peekError(lexer.LPAREN)
 		return nil
 	}
 
