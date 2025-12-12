@@ -758,6 +758,59 @@ func csvEscape(s string) string {
 	return "\"" + escaped + "\""
 }
 
+// tableToMarkdown renders the table as a GitHub Flavored Markdown table
+func tableToMarkdown(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("toMarkdown", len(args), 0)
+	}
+
+	if len(t.Columns) == 0 {
+		return &String{Value: ""}
+	}
+
+	var sb strings.Builder
+
+	// Header row
+	sb.WriteString("|")
+	for _, col := range t.Columns {
+		sb.WriteString(" ")
+		sb.WriteString(markdownEscape(col))
+		sb.WriteString(" |")
+	}
+	sb.WriteString("\n")
+
+	// Separator row
+	sb.WriteString("|")
+	for range t.Columns {
+		sb.WriteString(" --- |")
+	}
+	sb.WriteString("\n")
+
+	// Data rows
+	for _, row := range t.Rows {
+		sb.WriteString("|")
+		for _, col := range t.Columns {
+			sb.WriteString(" ")
+			val := getDictValue(row, col)
+			sb.WriteString(markdownEscape(objectToString(val)))
+			sb.WriteString(" |")
+		}
+		sb.WriteString("\n")
+	}
+
+	return &String{Value: sb.String()}
+}
+
+// markdownEscape escapes special characters in Markdown table cells
+func markdownEscape(s string) string {
+	// Escape pipe characters which are table delimiters
+	s = strings.ReplaceAll(s, "|", "\\|")
+	// Escape newlines as they break table structure
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	return s
+}
+
 // tableRows returns the underlying array of dictionaries
 func tableRows(t *Table) Object {
 	elements := make([]Object, len(t.Rows))
@@ -1119,6 +1172,8 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableToHTML(t, args, env)
 	case "toCSV":
 		return tableToCSV(t, args, env)
+	case "toMarkdown":
+		return tableToMarkdown(t, args, env)
 	case "appendRow":
 		return tableAppendRow(t, args, env)
 	case "insertRowAt":
@@ -1136,7 +1191,7 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
-			"toHTML", "toCSV", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+			"toHTML", "toCSV", "toMarkdown", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
 			"rowCount", "columnCount",
 		})
 	}
