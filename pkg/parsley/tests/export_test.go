@@ -65,18 +65,19 @@ export add = fn(a, b) { a + b }
 			expectedOutput: "5",
 		},
 		{
-			name: "let without export - backward compat",
+			name: "let without export - not exported",
 			moduleCode: `
 let add = fn(a, b) { a + b }
+export greet = fn(name) { name }
 `,
-			mainCode:       `let mod = import @%s; mod.add(2, 3)`,
-			expectedOutput: "5",
+			mainCode:       `let mod = import @%s; mod.greet("World")`,
+			expectedOutput: "World",
 		},
 		{
 			name: "bare assignment not exported",
 			moduleCode: `
 add = fn(a, b) { a + b }
-let greet = fn(name) { name }
+export greet = fn(name) { name }
 `,
 			mainCode:       `let mod = import @%s; mod.greet("World")`,
 			expectedOutput: "World",

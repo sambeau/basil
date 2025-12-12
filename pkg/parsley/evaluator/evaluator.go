@@ -690,17 +690,9 @@ func (e *Environment) IsLetBinding(name string) bool {
 	return false
 }
 
-// IsExported checks if a variable is exported (either via explicit export or via let - backward compat)
+// IsExported checks if a variable is explicitly exported
 func (e *Environment) IsExported(name string) bool {
-	// Check for explicit export first
-	if e.exports[name] {
-		return true
-	}
-	// Backward compatibility: let bindings are also exported
-	if e.letBindings[name] {
-		return true
-	}
-	return false
+	return e.exports[name]
 }
 
 // SetProtected stores a value and marks it as protected (cannot be reassigned)
