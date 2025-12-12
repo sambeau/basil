@@ -767,6 +767,31 @@ func tableRows(t *Table) Object {
 	return &Array{Elements: elements}
 }
 
+// tableColumns returns the column names as an array
+func tableColumns(t *Table) Object {
+	elements := make([]Object, len(t.Columns))
+	for i, col := range t.Columns {
+		elements[i] = &String{Value: col}
+	}
+	return &Array{Elements: elements}
+}
+
+// tableRowCount returns the number of rows in the table
+func tableRowCount(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("rowCount", len(args), 0)
+	}
+	return &Integer{Value: int64(len(t.Rows))}
+}
+
+// tableColumnCount returns the number of columns in the table
+func tableColumnCount(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("columnCount", len(args), 0)
+	}
+	return &Integer{Value: int64(len(t.Columns))}
+}
+
 // ============================================================================
 // Table Insert/Append Methods
 // ============================================================================
@@ -1104,10 +1129,15 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableInsertColAfter(t, args, env)
 	case "insertColBefore":
 		return tableInsertColBefore(t, args, env)
+	case "rowCount":
+		return tableRowCount(t, args, env)
+	case "columnCount":
+		return tableColumnCount(t, args, env)
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
 			"toHTML", "toCSV", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+			"rowCount", "columnCount",
 		})
 	}
 }
@@ -1117,6 +1147,8 @@ func EvalTableProperty(t *Table, property string) Object {
 	switch property {
 	case "rows":
 		return tableRows(t)
+	case "columns":
+		return tableColumns(t)
 	default:
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}

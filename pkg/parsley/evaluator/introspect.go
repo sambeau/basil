@@ -174,6 +174,8 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "appendCol", Arity: "2", Description: "Add column at end"},
 		{Name: "insertColAfter", Arity: "3", Description: "Insert column after another"},
 		{Name: "insertColBefore", Arity: "3", Description: "Insert column before another"},
+		{Name: "rowCount", Arity: "0", Description: "Get number of rows"},
+		{Name: "columnCount", Arity: "0", Description: "Get number of columns"},
 	},
 	"dbconnection": {
 		{Name: "begin", Arity: "0", Description: "Begin transaction"},
