@@ -23,14 +23,15 @@ func (sb *StdlibBuiltin) Inspect() string  { return fmt.Sprintf("stdlib function
 // This is a function rather than a var to avoid initialization cycles
 func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
-		"table":  loadTableModule,
-		"dev":    loadDevModule,
-		"basil":  loadBasilModule,
-		"math":   loadMathModule,
-		"valid":  loadValidModule,
-		"schema": loadSchemaModule,
-		"id":     loadIDModule,
-		"api":    loadAPIModule,
+		"table":    loadTableModule,
+		"dev":      loadDevModule,
+		"basil":    loadBasilModule,
+		"math":     loadMathModule,
+		"valid":    loadValidModule,
+		"schema":   loadSchemaModule,
+		"id":       loadIDModule,
+		"api":      loadAPIModule,
+		"markdown": loadMarkdownModule,
 	}
 }
 
