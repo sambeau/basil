@@ -13128,8 +13128,19 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 		return nil, newFormatError("FMT-0010", err)
 	}
 
+	// Apply @{expr} interpolation to the rendered HTML
+	// This allows Parsley code in markdown to generate HTML/SVG that renders properly
+	htmlWithInterpolation := interpolateRawString(htmlBuf.String(), env)
+	if errObj, ok := htmlWithInterpolation.(*Error); ok {
+		return nil, errObj
+	}
+	htmlStr, ok := htmlWithInterpolation.(*String)
+	if !ok {
+		return nil, newFormatError("FMT-0010", fmt.Errorf("invalid interpolated HTML content"))
+	}
+
 	// Add html and raw fields
-	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: htmlBuf.String()}}
+	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: htmlStr.Value}}
 	pairs["raw"] = &ast.ObjectLiteralExpression{Obj: &String{Value: body}}
 	
 	// Add md field containing metadata (frontmatter)
