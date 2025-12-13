@@ -795,7 +795,13 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 					
 					// Write the cell with value
 					sb.WriteString("<td>")
-					sb.WriteString(html.EscapeString(objectToString(val)))
+					// For String values, treat as raw HTML (like string footer does)
+					// For other types, escape for safety
+					if strVal, ok := val.(*String); ok {
+						sb.WriteString(strVal.Value)
+					} else {
+						sb.WriteString(html.EscapeString(objectToString(val)))
+					}
 					sb.WriteString("</td>")
 				}
 			}
