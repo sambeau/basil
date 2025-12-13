@@ -1338,7 +1338,17 @@ func EvalTableProperty(t *Table, property string) Object {
 		return tableRows(t)
 	case "columns":
 		return tableColumns(t)
+	case "row":
+		return tableRow(t)
 	default:
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}
+}
+
+// tableRow returns the first row of the table as a dictionary, or NULL if the table is empty
+func tableRow(t *Table) Object {
+	if len(t.Rows) == 0 {
+		return NULL
+	}
+	return t.Rows[0]
 }
