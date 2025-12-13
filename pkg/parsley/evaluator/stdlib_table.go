@@ -692,14 +692,60 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 
 	// Footer (optional)
 	if len(args) == 1 {
-		footerContent, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "toHTML", "a string (footer content)", args[0].Type())
-		}
-		if footerContent.Value != "" {
-			sb.WriteString("  <tfoot>\n    ")
-			sb.WriteString(footerContent.Value)
-			sb.WriteString("\n  </tfoot>\n")
+		// Check if it's a string (legacy format) or dictionary
+		if footerStr, ok := args[0].(*String); ok {
+			// String footer - just insert raw HTML
+			if footerStr.Value != "" {
+				sb.WriteString("  <tfoot>\n    ")
+				sb.WriteString(footerStr.Value)
+				sb.WriteString("\n  </tfoot>\n")
+			}
+		} else if footerDict, ok := args[0].(*Dictionary); ok {
+			// Dictionary footer - generate row with values for specified columns
+			sb.WriteString("  <tfoot>\n    <tr>")
+			
+			// Track consecutive empty cells for colspan
+			emptyCount := 0
+			
+			for i, col := range t.Columns {
+				val := getDictValue(footerDict, col)
+				
+				// Check if cell should be empty (NULL or Error for undefined property)
+				isEmpty := val.Type() == NULL_OBJ || val.Type() == ERROR_OBJ
+				
+				if isEmpty {
+					// Empty cell - increment counter
+					emptyCount++
+					
+					// If this is the last column, flush the empty cells
+					if i == len(t.Columns)-1 && emptyCount > 0 {
+						if emptyCount == 1 {
+							sb.WriteString("<td></td>")
+						} else {
+							sb.WriteString(fmt.Sprintf("<td colspan=\"%d\"></td>", emptyCount))
+						}
+					}
+				} else {
+					// Non-empty cell - flush any accumulated empty cells first
+					if emptyCount > 0 {
+						if emptyCount == 1 {
+							sb.WriteString("<td></td>")
+						} else {
+							sb.WriteString(fmt.Sprintf("<td colspan=\"%d\"></td>", emptyCount))
+						}
+						emptyCount = 0
+					}
+					
+					// Write the cell with value
+					sb.WriteString("<td>")
+					sb.WriteString(html.EscapeString(objectToString(val)))
+					sb.WriteString("</td>")
+				}
+			}
+			
+			sb.WriteString("</tr>\n  </tfoot>\n")
+		} else {
+			return newTypeError("TYPE-0012", "toHTML", "a string or dictionary (footer content)", args[0].Type())
 		}
 	}
 

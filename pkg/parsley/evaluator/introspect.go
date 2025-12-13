@@ -183,7 +183,7 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "avg", Arity: "1", Description: "Average column values"},
 		{Name: "min", Arity: "1", Description: "Minimum column value"},
 		{Name: "max", Arity: "1", Description: "Maximum column value"},
-		{Name: "toHTML", Arity: "0-1", Description: "Convert to HTML table (footer?)"},
+		{Name: "toHTML", Arity: "0-1", Description: "Convert to HTML table (footer: string|dict?)"},
 		{Name: "toCSV", Arity: "0", Description: "Convert to CSV string"},
 		{Name: "toMarkdown", Arity: "0", Description: "Convert to Markdown table"},
 		{Name: "toJSON", Arity: "0", Description: "Convert to JSON array"},
