@@ -656,8 +656,8 @@ func coerceToNumber(obj Object) Object {
 
 // tableToHTML renders the table as an HTML table element
 func tableToHTML(t *Table, args []Object, env *Environment) Object {
-	if len(args) != 0 {
-		return newArityError("toHTML", len(args), 0)
+	if len(args) > 1 {
+		return newArityErrorRange("toHTML", len(args), 0, 1)
 	}
 
 	var sb strings.Builder
@@ -689,6 +689,20 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 		sb.WriteString("</tr>\n")
 	}
 	sb.WriteString("  </tbody>\n")
+
+	// Footer (optional)
+	if len(args) == 1 {
+		footerContent, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "toHTML", "a string (footer content)", args[0].Type())
+		}
+		if footerContent.Value != "" {
+			sb.WriteString("  <tfoot>\n    ")
+			sb.WriteString(footerContent.Value)
+			sb.WriteString("\n  </tfoot>\n")
+		}
+	}
+
 	sb.WriteString("</table>")
 
 	return &String{Value: sb.String()}
