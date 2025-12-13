@@ -843,6 +843,41 @@ func tableColumns(t *Table) Object {
 	return &Array{Elements: elements}
 }
 
+// tableColumn returns all values from a specific column as an array
+func tableColumn(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("column", len(args), 1)
+	}
+
+	colName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "column", "a string (column name)", args[0].Type())
+	}
+
+	// Check if column exists
+	columnExists := false
+	for _, col := range t.Columns {
+		if col == colName.Value {
+			columnExists = true
+			break
+		}
+	}
+	if !columnExists {
+		return newIndexError("INDEX-0005", map[string]any{
+			"Key": colName.Value,
+		})
+	}
+
+	// Extract column values
+	values := make([]Object, len(t.Rows))
+	for i, row := range t.Rows {
+		val := getDictValue(row, colName.Value)
+		values[i] = val
+	}
+
+	return &Array{Elements: values}
+}
+
 // tableRowCount returns the number of rows in the table
 func tableRowCount(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 0 {
@@ -1202,11 +1237,13 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableRowCount(t, args, env)
 	case "columnCount":
 		return tableColumnCount(t, args, env)
+	case "column":
+		return tableColumn(t, args, env)
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
 			"toHTML", "toCSV", "toMarkdown", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
-			"rowCount", "columnCount",
+			"rowCount", "columnCount", "column",
 		})
 	}
 }
