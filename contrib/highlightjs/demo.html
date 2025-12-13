@@ -114,11 +114,13 @@ let html = `
 `</code></pre>
 
 	<h2>JSX-like Tags</h2>
-	<pre><code class="language-parsley">{Page} = import(@./page.pars)
+	<pre><code class="language-parsley">// Import a component
+let {Page} = import @./page.pars
 
 let title = "Welcome"
 let items = ["Apple", "Banana", "Cherry"]
 
+// Component with props and children
 &lt;Page title={title}&gt;
   &lt;h1&gt;{title}&lt;/h1&gt;
   &lt;div class="container"&gt;
@@ -127,7 +129,23 @@ let items = ["Apple", "Banana", "Cherry"]
       {items.map(fn(item) { &lt;li&gt;{item}&lt;/li&gt; })}
     &lt;/ul&gt;
   &lt;/div&gt;
-&lt;/Page&gt;</code></pre>
+&lt;/Page&gt;
+
+// Self-closing tags (required in Parsley)
+&lt;br/&gt;
+&lt;hr/&gt;
+&lt;Input type="text" placeholder="Enter name"/&gt;
+
+// Fragment syntax
+&lt;&gt;
+  &lt;span&gt;First&lt;/span&gt;
+  &lt;span&gt;Second&lt;/span&gt;
+&lt;/&gt;
+
+// Mixed attributes: strings and expressions
+&lt;Button class="primary" onClick={handleClick} disabled={!isValid}&gt;
+  Submit
+&lt;/Button&gt;</code></pre>
 
 	<h2>File I/O Operators</h2>
 	<pre><code class="language-parsley">// Read from file

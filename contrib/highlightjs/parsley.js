@@ -184,75 +184,51 @@ function hljsDefineParsley ( hljs ) {
 		]
 	}
 
-	// HTML/XML tags (Parsley's JSX-like syntax)
-	const TAG = {
-		begin: /<[A-Z][a-zA-Z0-9.]*/,
-		end: />/,
-		scope: 'tag',
-		contains: [
-			{
-				scope: 'name',
-				begin: /<[A-Z][a-zA-Z0-9.]*/,
-				end: /(?=\s|>|\/)/
-			},
-			{
-				scope: 'attr',
-				match: /[a-zA-Z_:][a-zA-Z0-9_:.-]*/
-			},
-			{
-				begin: /=/,
-				contains: [
-					STRING,
-					{
-						// Attribute expression: prop={expr}
-						begin: /{/,
-						end: /}/
-						// Contains expressions - will be populated later
-					}
-				]
-			}
-		]
+	// JSX-like tags - use subLanguage: 'xml' similar to how highlight.js handles JSX
+	// Parsley uses {expr} interpolation within tags (like JSX)
+	const regex = hljs.regex
+
+	// Fragment tags: <> and </>
+	const FRAGMENT = {
+		begin: '<>',
+		end: '</>'
 	}
 
-	const LOWERCASE_TAG = {
-		begin: /<[a-z][a-z0-9-]*/,
-		end: />/,
-		scope: 'tag',
-		contains: [
-			{
-				scope: 'name',
-				begin: /<[a-z][a-z0-9-]*/,
-				end: /(?=\s|>|\/)/
-			},
-			{
-				scope: 'attr',
-				match: /[a-zA-Z_:][a-zA-Z0-9_:.-]*/
-			},
-			{
-				begin: /=/,
-				contains: [
-					STRING,
-					{
-						// Attribute expression: prop={expr}
-						begin: /{/,
-						end: /}/
-						// Contains expressions - will be populated later
-					}
-				]
-			}
-		]
+	// Self-closing tags: <Component /> or <br/>
+	const XML_SELF_CLOSING = /<[A-Za-z][A-Za-z0-9._:-]*\s*\/>/
+
+	// Opening/closing tag pattern
+	const XML_TAG = {
+		begin: /<[A-Za-z][A-Za-z0-9._:-]*/,
+		end: /\/[A-Za-z0-9._:-]*>|\/>/
 	}
 
-	// Closing tags
-	const TAG_CLOSE = {
-		scope: 'tag',
-		begin: /<\/[A-Za-z][A-Za-z0-9.-]*/,
-		end: />/,
+	// The JSX/tag handling - delegates to xml sublanguage
+	const JSX_TAGS = {
+		variants: [
+			{ begin: FRAGMENT.begin, end: FRAGMENT.end },
+			{ match: XML_SELF_CLOSING },
+			{
+				begin: XML_TAG.begin,
+				end: XML_TAG.end
+			}
+		],
+		subLanguage: 'xml',
 		contains: [
 			{
-				scope: 'name',
-				begin: /<\/[A-Za-z][A-Za-z0-9.-]*/,
-				end: /(?=>)/
+				// Handle {expr} interpolation within tags
+				begin: /\{/,
+				end: /\}/,
+				scope: 'subst',
+				keywords: KEYWORDS,
+				contains: [] // Will be populated with EXPRESSION_MODES
+			},
+			{
+				// Nested tags
+				begin: XML_TAG.begin,
+				end: XML_TAG.end,
+				skip: true,
+				contains: [ 'self' ]
 			}
 		]
 	}
@@ -295,6 +271,9 @@ function hljsDefineParsley ( hljs ) {
 	// Populate template string substitution
 	TEMPLATE_STRING.contains[ 1 ].contains = EXPRESSION_MODES
 
+	// Populate JSX interpolation with expression modes
+	JSX_TAGS.contains[ 0 ].contains = EXPRESSION_MODES
+
 	return {
 		name: 'Parsley',
 		aliases: [ 'pars' ],
@@ -308,9 +287,7 @@ function hljsDefineParsley ( hljs ) {
 			STRING,
 			REGEX,
 			NUMBER,
-			TAG,
-			LOWERCASE_TAG,
-			TAG_CLOSE,
+			JSX_TAGS,
 			FUNCTION_DEF,
 			OPERATORS,
 			{
