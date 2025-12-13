@@ -760,20 +760,20 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 		} else if footerDict, ok := args[0].(*Dictionary); ok {
 			// Dictionary footer - generate row with values for specified columns
 			sb.WriteString("  <tfoot>\n    <tr>")
-			
+
 			// Track consecutive empty cells for colspan
 			emptyCount := 0
-			
+
 			for i, col := range t.Columns {
 				val := getDictValue(footerDict, col)
-				
+
 				// Check if cell should be empty (NULL or Error for undefined property)
 				isEmpty := val.Type() == NULL_OBJ || val.Type() == ERROR_OBJ
-				
+
 				if isEmpty {
 					// Empty cell - increment counter
 					emptyCount++
-					
+
 					// If this is the last column, flush the empty cells
 					if i == len(t.Columns)-1 && emptyCount > 0 {
 						if emptyCount == 1 {
@@ -792,7 +792,7 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 						}
 						emptyCount = 0
 					}
-					
+
 					// Write the cell with value
 					sb.WriteString("<td>")
 					// For String values, treat as raw HTML (like string footer does)
@@ -805,7 +805,7 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 					sb.WriteString("</td>")
 				}
 			}
-			
+
 			sb.WriteString("</tr>\n  </tfoot>\n")
 		} else {
 			return newTypeError("TYPE-0012", "toHTML", "a string or dictionary (footer content)", args[0].Type())

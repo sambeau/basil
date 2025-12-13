@@ -1,51 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parsley Syntax Highlighting Demo</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 0 20px;
-            line-height: 1.6;
-        }
-        h1 {
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: 0.3em;
-        }
-        h2 {
-            margin-top: 2em;
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: 0.3em;
-        }
-        pre {
-            background: #f6f8fa;
-            border-radius: 6px;
-            padding: 16px;
-            overflow-x: auto;
-        }
-        code {
-            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-            font-size: 14px;
-        }
-        .description {
-            color: #586069;
-            margin-bottom: 1em;
-        }
-    </style>
-</head>
-<body>
-    <h1>Parsley Syntax Highlighting Demo</h1>
-    <p class="description">
-        This page demonstrates the highlight.js language definition for Parsley.
-    </p>
 
-    <h2>Basic Syntax</h2>
-    <pre><code class="language-parsley">// Variables and functions
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Parsley Syntax Highlighting Demo</title>
+	<link rel="stylesheet"
+		href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css">
+	<style>
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+			max-width: 900px;
+			margin: 40px auto;
+			padding: 0 20px;
+			line-height: 1.6;
+		}
+
+		h1 {
+			border-bottom: 1px solid #eaecef;
+			padding-bottom: 0.3em;
+		}
+
+		h2 {
+			margin-top: 2em;
+			border-bottom: 1px solid #eaecef;
+			padding-bottom: 0.3em;
+		}
+
+		pre {
+			background: #f6f8fa;
+			border-radius: 6px;
+			padding: 16px;
+			overflow-x: auto;
+		}
+
+		code {
+			font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+			font-size: 14px;
+		}
+
+		.description {
+			color: #586069;
+			margin-bottom: 1em;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Parsley Syntax Highlighting Demo</h1>
+	<p class="description">
+		This page demonstrates the highlight.js language definition for Parsley.
+	</p>
+
+	<h2>Basic Syntax</h2>
+	<pre><code class="language-parsley">// Variables and functions
 let name = "Alice"
 let age = 30
 let active = true
@@ -56,8 +64,8 @@ let greet = fn(person) {
 
 print(greet(name))</code></pre>
 
-    <h2>At-Literals</h2>
-    <pre><code class="language-parsley">// DateTime literals
+	<h2>At-Literals</h2>
+	<pre><code class="language-parsley">// DateTime literals
 let now = @now
 let today = @today
 let meeting = @2024-12-25T14:30:00Z
@@ -84,8 +92,8 @@ let {basil} = import @std/basil
 let db = @sqlite
 let pg = @postgres</code></pre>
 
-    <h2>Money Literals</h2>
-    <pre><code class="language-parsley">let price = $19.99
+	<h2>Money Literals</h2>
+	<pre><code class="language-parsley">let price = $19.99
 let euro = EUR#50.00
 let pounds = £25.50
 let yen = ¥1000
@@ -93,8 +101,8 @@ let yen = ¥1000
 let total = price + money(5.00, "USD")
 let discounted = price * 0.8</code></pre>
 
-    <h2>Template Strings</h2>
-    <pre><code class="language-parsley">let name = "World"
+	<h2>Template Strings</h2>
+	<pre><code class="language-parsley">let name = "World"
 let count = 42
 let message = `Hello, ${name}! You have ${count} items.`
 
@@ -105,8 +113,8 @@ let html = `
   &lt;/div&gt;
 `</code></pre>
 
-    <h2>JSX-like Tags</h2>
-    <pre><code class="language-parsley">{Page} = import(@./page.pars)
+	<h2>JSX-like Tags</h2>
+	<pre><code class="language-parsley">{Page} = import(@./page.pars)
 
 let title = "Welcome"
 let items = ["Apple", "Banana", "Cherry"]
@@ -121,8 +129,8 @@ let items = ["Apple", "Banana", "Cherry"]
   &lt;/div&gt;
 &lt;/Page&gt;</code></pre>
 
-    <h2>File I/O Operators</h2>
-    <pre><code class="language-parsley">// Read from file
+	<h2>File I/O Operators</h2>
+	<pre><code class="language-parsley">// Read from file
 let content <== text(@./data.txt)
 let config <== json(@./config.json)
 
@@ -136,8 +144,8 @@ let response </=> @https://api.example.com/data
 // Append to file
 "Log entry" ==>> text(@./app.log)</code></pre>
 
-    <h2>Database Operators</h2>
-    <pre><code class="language-parsley">// Query one row
+	<h2>Database Operators</h2>
+	<pre><code class="language-parsley">// Query one row
 let user <=?=> {
   sql: "SELECT * FROM users WHERE id = ?",
   params: [userId]
@@ -161,8 +169,8 @@ let data = table(users)
 let filtered = data.where(fn(u) { u.age > 18 })
 let summary = data.toHTML({age: data.avg("age")})</code></pre>
 
-    <h2>Control Flow</h2>
-    <pre><code class="language-parsley">// If/else
+	<h2>Control Flow</h2>
+	<pre><code class="language-parsley">// If/else
 if user.isAdmin {
   &lt;AdminDashboard /&gt;
 } else {
@@ -184,8 +192,8 @@ try {
   print("Config loaded successfully")
 }</code></pre>
 
-    <h2>Functions and Exports</h2>
-    <pre><code class="language-parsley">// Simple function
+	<h2>Functions and Exports</h2>
+	<pre><code class="language-parsley">// Simple function
 let add = fn(a, b) {
   a + b
 }
@@ -209,8 +217,8 @@ export {
   helper2
 }</code></pre>
 
-    <h2>Arrays and Dictionaries</h2>
-    <pre><code class="language-parsley">// Arrays
+	<h2>Arrays and Dictionaries</h2>
+	<pre><code class="language-parsley">// Arrays
 let numbers = [1, 2, 3, 4, 5]
 let names = ["Alice", "Bob", "Charlie"]
 let mixed = [1, "two", true, @now]
@@ -231,8 +239,8 @@ let person = {
 let {name, age} = person
 let [first, second, ...rest] = numbers</code></pre>
 
-    <h2>Regular Expressions</h2>
-    <pre><code class="language-parsley">// Regex literals
+	<h2>Regular Expressions</h2>
+	<pre><code class="language-parsley">// Regex literals
 let emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
 let phonePattern = /^\d{3}-\d{3}-\d{4}$/
 
@@ -243,11 +251,54 @@ if email.match(emailPattern) {
 
 let cleaned = text.replace(/\s+/g, " ")</code></pre>
 
-    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js"></script>
-    <script src="parsley.js"></script>
-    <script>
-        hljs.registerLanguage('parsley', window.hljsDefineParsley);
-        hljs.highlightAll();
-    </script>
+	<h2>Operators (and, or, not)</h2>
+	<pre><code class="language-parsley">// Logical operators - should NOT highlight 'or' in 'import', 'export', etc.
+let {Page} = import @./page.pars
+export default = fn() { "hello" }
+
+// These should highlight 'and', 'or', 'not' as operators
+let result = a and b
+let either = x or y
+let negated = not active
+
+// Mixed with other words - only standalone operators should highlight
+let imported = "test"    // 'or' in import should NOT highlight
+let exported = "data"    // 'or' in export should NOT highlight
+let storage = "s3"       // 'or' should NOT highlight inside storage
+let history = []         // 'or' should NOT highlight inside history
+let minor = true         // 'or' should NOT highlight inside minor
+
+// Actual operators on their own lines
+print(value1 or value2)
+let combined = a and b and c
+if not isValid {
+  return "error"
+}</code></pre>
+
+	<h2>Path Literals</h2>
+	<pre><code class="language-parsley">// All path literal forms
+let relative = @./config.yaml
+let parent = @../data/file.json
+let absolute = @/usr/local/bin
+let home = @~/Documents/notes.md
+
+// Standard streams
+let input = @stdin
+let output = @stdout
+let errors = @stderr
+let dash = @-
+
+// URL literals
+let api = @https://api.example.com/v1/users
+let local = @http://localhost:3000/api</code></pre>
+
+	<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js"></script>
+	<!-- <link rel="stylesheet" href="https://unpkg.com/@highlightjs/cdn-assets@11.7.0/styles/github-dark.min.css" /> -->
+	<script src="parsley.js"></script>
+	<script>
+		hljs.registerLanguage( 'parsley', window.hljsDefineParsley )
+		hljs.highlightAll();
+	</script>
 </body>
+
 </html>
