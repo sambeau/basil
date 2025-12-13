@@ -1,0 +1,324 @@
+/*
+Language: Parsley
+Description: Parsley language syntax highlighting for highlight.js
+Author: Basil Contributors
+Website: https://github.com/sambeau/basil
+Category: web
+*/
+
+function hljsDefineParsley(hljs) {
+  const IDENT_RE = '[a-zA-Z_][a-zA-Z0-9_]*';
+  
+  const KEYWORDS = {
+    keyword: [
+      'fn',
+      'function',
+      'let',
+      'for',
+      'in',
+      'as',
+      'if',
+      'else',
+      'return',
+      'export',
+      'try',
+      'import',
+      'and',
+      'or',
+      'not'
+    ],
+    literal: [
+      'true',
+      'false',
+      'null',
+      'OK' // NULL display value
+    ]
+  };
+
+  // At-literals (@-prefixed values)
+  const AT_LITERAL = {
+    scope: 'symbol',
+    variants: [
+      // DateTime literals: @2024-12-25T14:30:00Z, @now, @today, @timeNow, @dateNow
+      {
+        match: /@\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?/
+      },
+      {
+        match: /@(now|today|timeNow|dateNow)\b/
+      },
+      // Duration literals: @2h30m, @7d, @1y6mo
+      {
+        match: /@(\d+y)?(\d+mo)?(\d+w)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?(\d+ms)?/
+      },
+      // Database connection literals
+      {
+        match: /@(sqlite|postgres|mysql|DB)\b/
+      },
+      // Other literals
+      {
+        match: /@(sftp|shell)\b/
+      },
+      // Stdlib imports: @std/module
+      {
+        match: /@std\/[a-z]+\b/
+      },
+      // Path literals: @./config, @/usr/local
+      {
+        begin: /@\./,
+        end: /(?=[\s,;)\]]|$)/,
+        relevance: 5
+      },
+      {
+        begin: /@\//,
+        end: /(?=[\s,;)\]]|$)/,
+        relevance: 5
+      },
+      // URL literals: @https://example.com
+      {
+        begin: /@https?:\/\//,
+        end: /(?=[\s,;)\]]|$)/,
+        relevance: 5
+      },
+      // Templated at-literals: @(expr)
+      {
+        begin: /@\(/,
+        end: /\)/,
+        contains: ['self']
+      }
+    ]
+  };
+
+  // Money literals: $12.34, £99.99, EUR#50.00
+  const MONEY = {
+    scope: 'number',
+    variants: [
+      {
+        match: /[$£€¥][\d,]+\.?\d*/
+      },
+      {
+        match: /[A-Z]{3}#[\d,]+\.?\d*/
+      }
+    ],
+    relevance: 5
+  };
+
+  // Operators
+  const OPERATORS = {
+    scope: 'operator',
+    variants: [
+      // File I/O operators
+      { match: /<==|<=\/=|==>|==>>/ },
+      // Database operators
+      { match: /<=\?=>|<=\?\?=>|<=!=>/ },
+      // Process execution
+      { match: /<=#=>/ },
+      // Comparison and logical
+      { match: /<=|>=|==|!=|!~|&&|\|\||and|or|not/ },
+      // Nullish coalescing
+      { match: /\?\?/ },
+      // Other operators
+      { match: /[+\-*\/%<>=!&|~?]/ },
+      { match: /\.\.\.|\.\.|\./ },
+      { match: /\+\+/ }
+    ]
+  };
+
+  // Template strings with ${expr} interpolation
+  const TEMPLATE_STRING = {
+    scope: 'string',
+    begin: '`',
+    end: '`',
+    contains: [
+      hljs.BACKSLASH_ESCAPE,
+      {
+        scope: 'subst',
+        begin: /\${/,
+        end: /}/,
+        keywords: KEYWORDS,
+        contains: [] // Will be populated below
+      }
+    ]
+  };
+
+  // Regular strings
+  const STRING = {
+    scope: 'string',
+    variants: [
+      hljs.QUOTE_STRING_MODE,
+      hljs.APOS_STRING_MODE
+    ]
+  };
+
+  // Regex literals: /pattern/flags
+  const REGEX = {
+    scope: 'regexp',
+    begin: /\//,
+    end: /\/[gimsuvy]*/,
+    contains: [
+      hljs.BACKSLASH_ESCAPE,
+      {
+        begin: /\[/,
+        end: /\]/,
+        contains: [hljs.BACKSLASH_ESCAPE]
+      }
+    ]
+  };
+
+  // Numbers (integer and float)
+  const NUMBER = {
+    scope: 'number',
+    variants: [
+      { match: /\b\d+\.\d+\b/ },
+      { match: /\b\d+\b/ }
+    ]
+  };
+
+  // HTML/XML tags (Parsley's JSX-like syntax)
+  const TAG = {
+    begin: /<[A-Z][a-zA-Z0-9.]*/,
+    end: />/,
+    scope: 'tag',
+    contains: [
+      {
+        scope: 'name',
+        begin: /<[A-Z][a-zA-Z0-9.]*/,
+        end: /(?=\s|>|\/)/
+      },
+      {
+        scope: 'attr',
+        match: /[a-zA-Z_:][a-zA-Z0-9_:.-]*/
+      },
+      {
+        begin: /=/,
+        contains: [
+          STRING,
+          {
+            // Attribute expression: prop={expr}
+            begin: /{/,
+            end: /}/,
+            contains: 'self'
+          }
+        ]
+      }
+    ]
+  };
+
+  const LOWERCASE_TAG = {
+    begin: /<[a-z][a-z0-9-]*/,
+    end: />/,
+    scope: 'tag',
+    contains: [
+      {
+        scope: 'name',
+        begin: /<[a-z][a-z0-9-]*/,
+        end: /(?=\s|>|\/)/
+      },
+      {
+        scope: 'attr',
+        match: /[a-zA-Z_:][a-zA-Z0-9_:.-]*/
+      },
+      {
+        begin: /=/,
+        contains: [
+          STRING,
+          {
+            // Attribute expression: prop={expr}
+            begin: /{/,
+            end: /}/,
+            contains: 'self'
+          }
+        ]
+      }
+    ]
+  };
+
+  // Closing tags
+  const TAG_CLOSE = {
+    scope: 'tag',
+    begin: /<\/[A-Za-z][A-Za-z0-9.-]*/,
+    end: />/,
+    contains: [
+      {
+        scope: 'name',
+        begin: /<\/[A-Za-z][A-Za-z0-9.-]*/,
+        end: /(?=>)/
+      }
+    ]
+  };
+
+  // Function definitions
+  const FUNCTION_DEF = {
+    scope: 'function',
+    begin: /\b(fn|function)\s*\(/,
+    end: /\)/,
+    keywords: KEYWORDS,
+    contains: [
+      {
+        scope: 'params',
+        begin: /\(/,
+        end: /\)/,
+        contains: [
+          {
+            scope: 'variable',
+            match: IDENT_RE
+          }
+        ]
+      }
+    ]
+  };
+
+  // Comments
+  const COMMENT = hljs.COMMENT('//', '$');
+
+  // Populate template string substitution
+  TEMPLATE_STRING.contains[1].contains = [
+    STRING,
+    TEMPLATE_STRING,
+    NUMBER,
+    MONEY,
+    AT_LITERAL,
+    OPERATORS
+  ];
+
+  return {
+    name: 'Parsley',
+    aliases: ['pars'],
+    case_insensitive: false,
+    keywords: KEYWORDS,
+    contains: [
+      COMMENT,
+      AT_LITERAL,
+      MONEY,
+      TEMPLATE_STRING,
+      STRING,
+      REGEX,
+      NUMBER,
+      TAG,
+      LOWERCASE_TAG,
+      TAG_CLOSE,
+      FUNCTION_DEF,
+      OPERATORS,
+      {
+        // Destructuring and object patterns
+        scope: 'variable',
+        match: /\{[a-zA-Z_][a-zA-Z0-9_,\s]*\}/
+      },
+      {
+        // Built-in functions
+        scope: 'built_in',
+        match: /\b(print|println|len|keys|values|type|inspect|describe|money|tag|toString|text|json|csv|sql|markdown)\b/
+      }
+    ]
+  };
+}
+
+// Export for different module systems
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = hljsDefineParsley;
+}
+if (typeof exports !== 'undefined') {
+  exports.default = hljsDefineParsley;
+}
+if (typeof window !== 'undefined') {
+  window.hljsDefineParsley = hljsDefineParsley;
+}
