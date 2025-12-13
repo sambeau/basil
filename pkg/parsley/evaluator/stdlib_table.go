@@ -825,6 +825,87 @@ func markdownEscape(s string) string {
 	return s
 }
 
+// tableToJSON renders the table as a JSON array of objects
+func tableToJSON(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("toJSON", len(args), 0)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("[")
+
+	for i, row := range t.Rows {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString("\n  {")
+
+		for j, col := range t.Columns {
+			if j > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString("\n    \"")
+			sb.WriteString(jsonEscape(col))
+			sb.WriteString("\": ")
+
+			val := getDictValue(row, col)
+			sb.WriteString(objectToJSON(val))
+		}
+
+		sb.WriteString("\n  }")
+	}
+
+	if len(t.Rows) > 0 {
+		sb.WriteString("\n")
+	}
+	sb.WriteString("]")
+
+	return &String{Value: sb.String()}
+}
+
+// objectToJSON converts an object to its JSON representation
+func objectToJSON(obj Object) string {
+	switch o := obj.(type) {
+	case *String:
+		return "\"" + jsonEscape(o.Value) + "\""
+	case *Integer:
+		return fmt.Sprintf("%d", o.Value)
+	case *Float:
+		return fmt.Sprintf("%g", o.Value)
+	case *Boolean:
+		if o.Value {
+			return "true"
+		}
+		return "false"
+	case *Null:
+		return "null"
+	case *Array:
+		var sb strings.Builder
+		sb.WriteString("[")
+		for i, elem := range o.Elements {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(objectToJSON(elem))
+		}
+		sb.WriteString("]")
+		return sb.String()
+	default:
+		// For other types, use string representation in quotes
+		return "\"" + jsonEscape(obj.Inspect()) + "\""
+	}
+}
+
+// jsonEscape escapes special characters for JSON strings
+func jsonEscape(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\t", "\\t")
+	return s
+}
+
 // tableRows returns the underlying array of dictionaries
 func tableRows(t *Table) Object {
 	elements := make([]Object, len(t.Rows))
@@ -1223,6 +1304,8 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableToCSV(t, args, env)
 	case "toMarkdown":
 		return tableToMarkdown(t, args, env)
+	case "toJSON":
+		return tableToJSON(t, args, env)
 	case "appendRow":
 		return tableAppendRow(t, args, env)
 	case "insertRowAt":
@@ -1242,7 +1325,7 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
-			"toHTML", "toCSV", "toMarkdown", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+			"toHTML", "toCSV", "toMarkdown", "toJSON", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
 			"rowCount", "columnCount", "column",
 		})
 	}

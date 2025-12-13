@@ -170,6 +170,7 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "toHTML", Arity: "0-1", Description: "Convert to HTML table (footer?)"},
 		{Name: "toCSV", Arity: "0", Description: "Convert to CSV string"},
 		{Name: "toMarkdown", Arity: "0", Description: "Convert to Markdown table"},
+		{Name: "toJSON", Arity: "0", Description: "Convert to JSON array"},
 		{Name: "appendRow", Arity: "1", Description: "Add row at end"},
 		{Name: "insertRowAt", Arity: "2", Description: "Insert row at index"},
 		{Name: "appendCol", Arity: "2", Description: "Add column at end"},
