@@ -504,16 +504,40 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 
 	var sum float64
 	hasFloat := false
+	var moneyCurrency string
+	var moneyScale int8
+	var moneySum int64
+	hasMoney := false
 
 	for _, row := range t.Rows {
 		val := getDictValue(row, col.Value)
 		switch v := val.(type) {
+		case *Money:
+			if !hasMoney {
+				// First money value - set currency and scale
+				moneyCurrency = v.Currency
+				moneyScale = v.Scale
+				hasMoney = true
+			} else if v.Currency != moneyCurrency {
+				// Mixed currencies - error
+				return newStructuredError("CALC-0001", map[string]any{"Message": fmt.Sprintf("Cannot sum mixed currencies: %s and %s", moneyCurrency, v.Currency)})
+			}
+			moneySum += v.Amount
 		case *Integer:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in sum"})
+			}
 			sum += float64(v.Value)
 		case *Float:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in sum"})
+			}
 			sum += v.Value
 			hasFloat = true
 		case *String:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in sum"})
+			}
 			// Try to parse string as number
 			if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
 				sum += f
@@ -525,6 +549,9 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 		}
 	}
 
+	if hasMoney {
+		return &Money{Amount: moneySum, Currency: moneyCurrency, Scale: moneyScale}
+	}
 	if hasFloat {
 		return &Float{Value: sum}
 	}
@@ -544,17 +571,42 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 
 	var sum float64
 	count := 0
+	var moneyCurrency string
+	var moneyScale int8
+	var moneySum int64
+	hasMoney := false
 
 	for _, row := range t.Rows {
 		val := getDictValue(row, col.Value)
 		switch v := val.(type) {
+		case *Money:
+			if !hasMoney {
+				// First money value - set currency and scale
+				moneyCurrency = v.Currency
+				moneyScale = v.Scale
+				hasMoney = true
+			} else if v.Currency != moneyCurrency {
+				// Mixed currencies - error
+				return newStructuredError("CALC-0001", map[string]any{"Message": fmt.Sprintf("Cannot average mixed currencies: %s and %s", moneyCurrency, v.Currency)})
+			}
+			moneySum += v.Amount
+			count++
 		case *Integer:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in average"})
+			}
 			sum += float64(v.Value)
 			count++
 		case *Float:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in average"})
+			}
 			sum += v.Value
 			count++
 		case *String:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in average"})
+			}
 			// Try to parse string as number
 			if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
 				sum += f
@@ -566,6 +618,11 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 
 	if count == 0 {
 		return NULL
+	}
+
+	if hasMoney {
+		avgAmount := moneySum / int64(count)
+		return &Money{Amount: avgAmount, Currency: moneyCurrency, Scale: moneyScale}
 	}
 
 	return &Float{Value: sum / float64(count)}
