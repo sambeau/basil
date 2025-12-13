@@ -82,8 +82,8 @@ function hljsDefineParsley(hljs) {
       // Templated at-literals: @(expr)
       {
         begin: /@\(/,
-        end: /\)/,
-        contains: ['self']
+        end: /\)/
+        // Contains expressions - will be populated later
       }
     ]
   };
@@ -195,8 +195,8 @@ function hljsDefineParsley(hljs) {
           {
             // Attribute expression: prop={expr}
             begin: /{/,
-            end: /}/,
-            contains: 'self'
+            end: /}/
+            // Contains expressions - will be populated later
           }
         ]
       }
@@ -224,8 +224,8 @@ function hljsDefineParsley(hljs) {
           {
             // Attribute expression: prop={expr}
             begin: /{/,
-            end: /}/,
-            contains: 'self'
+            end: /}/
+            // Contains expressions - will be populated later
           }
         ]
       }
@@ -270,15 +270,19 @@ function hljsDefineParsley(hljs) {
   // Comments
   const COMMENT = hljs.COMMENT('//', '$');
 
-  // Populate template string substitution
-  TEMPLATE_STRING.contains[1].contains = [
-    STRING,
-    TEMPLATE_STRING,
-    NUMBER,
-    MONEY,
+  // Define all modes that can appear in expressions
+  const EXPRESSION_MODES = [
+    COMMENT,
     AT_LITERAL,
+    MONEY,
+    TEMPLATE_STRING,
+    STRING,
+    NUMBER,
     OPERATORS
   ];
+
+  // Populate template string substitution
+  TEMPLATE_STRING.contains[1].contains = EXPRESSION_MODES;
 
   return {
     name: 'Parsley',
