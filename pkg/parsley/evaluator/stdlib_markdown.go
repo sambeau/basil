@@ -8,9 +8,9 @@ import (
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/yuin/goldmark"
+	gmast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	extast "github.com/yuin/goldmark/extension/ast"
-	gmast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
 )
 
@@ -32,14 +32,53 @@ func (mm *MarkdownModule) Inspect() string  { return "markdown" }
 // evalMarkdownModuleMethod handles method calls on the markdown module
 func evalMarkdownModuleMethod(mm *MarkdownModule, method string, args []Object, env *Environment) Object {
 	switch method {
+	// Core methods
 	case "parse":
 		return markdownParse(args, env)
 	case "toMarkdown":
 		return markdownRender(args, env)
 	case "toHTML":
 		return markdownToHTML(args, env)
+
+	// Query methods
+	case "findAll":
+		return markdownFindAll(args, env)
+	case "findFirst":
+		return markdownFindFirst(args, env)
+	case "headings":
+		return markdownHeadings(args, env)
+	case "links":
+		return markdownLinks(args, env)
+	case "images":
+		return markdownImages(args, env)
+	case "codeBlocks":
+		return markdownCodeBlocks(args, env)
+
+	// Convenience methods
+	case "title":
+		return markdownTitle(args, env)
+	case "toc":
+		return markdownTOC(args, env)
+	case "text":
+		return markdownText(args, env)
+	case "wordCount":
+		return markdownWordCount(args, env)
+
+	// Transform methods
+	case "walk":
+		return markdownWalk(args, env)
+	case "map":
+		return markdownMap(args, env)
+	case "filter":
+		return markdownFilter(args, env)
+
 	default:
-		return unknownMethodError(method, "markdown module", []string{"parse", "toMarkdown", "toHTML"})
+		return unknownMethodError(method, "markdown module", []string{
+			"parse", "toMarkdown", "toHTML",
+			"findAll", "findFirst", "headings", "links", "images", "codeBlocks",
+			"title", "toc", "text", "wordCount",
+			"walk", "map", "filter",
+		})
 	}
 }
 
@@ -1022,6 +1061,612 @@ func renderHTMLNode(buf *strings.Builder, node *Dictionary, env *Environment) {
 		for _, child := range children {
 			renderHTMLNode(buf, child, env)
 		}
+	}
+}
+
+// ============================================================================
+// Query Methods
+// ============================================================================
+
+// markdownFindAll finds all nodes of a given type
+// Usage: markdown.findAll(ast, "heading") or markdown.findAll(ast, ["heading", "link"])
+func markdownFindAll(args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("markdown.findAll", len(args), 2)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.findAll", "markdown AST dictionary", args[0].Type())
+	}
+
+	// Get types to find (can be string or array of strings)
+	typesToFind := make(map[string]bool)
+	switch t := args[1].(type) {
+	case *String:
+		typesToFind[t.Value] = true
+	case *Array:
+		for _, elem := range t.Elements {
+			if s, ok := elem.(*String); ok {
+				typesToFind[s.Value] = true
+			}
+		}
+	default:
+		return newTypeError("TYPE-0005", "markdown.findAll", "string or array of strings", args[1].Type())
+	}
+
+	results := make([]Object, 0)
+	findAllNodes(node, typesToFind, &results, env)
+	return &Array{Elements: results}
+}
+
+// findAllNodes recursively finds all nodes matching the given types
+func findAllNodes(node *Dictionary, types map[string]bool, results *[]Object, env *Environment) {
+	nodeType := getDictString(node, "type", env)
+	if types[nodeType] {
+		*results = append(*results, node)
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		findAllNodes(child, types, results, env)
+	}
+}
+
+// markdownFindFirst finds the first node of a given type
+// Usage: markdown.findFirst(ast, "heading")
+func markdownFindFirst(args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("markdown.findFirst", len(args), 2)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.findFirst", "markdown AST dictionary", args[0].Type())
+	}
+
+	typeStr, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.findFirst", "string", args[1].Type())
+	}
+
+	result := findFirstNode(node, typeStr.Value, env)
+	if result == nil {
+		return NULL
+	}
+	return result
+}
+
+// findFirstNode recursively finds the first node of a given type
+func findFirstNode(node *Dictionary, nodeType string, env *Environment) *Dictionary {
+	if getDictString(node, "type", env) == nodeType {
+		return node
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		if result := findFirstNode(child, nodeType, env); result != nil {
+			return result
+		}
+	}
+	return nil
+}
+
+// markdownHeadings extracts all headings with their metadata
+// Usage: markdown.headings(ast)
+// Returns: [{level: 1, text: "Title", id: "title"}, ...]
+func markdownHeadings(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.headings", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.headings", "markdown AST dictionary", args[0].Type())
+	}
+
+	results := make([]Object, 0)
+	collectHeadings(node, &results, env)
+	return &Array{Elements: results}
+}
+
+// collectHeadings recursively collects all headings
+func collectHeadings(node *Dictionary, results *[]Object, env *Environment) {
+	nodeType := getDictString(node, "type", env)
+	if nodeType == "heading" {
+		heading := &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"level": &ast.ObjectLiteralExpression{Obj: &Integer{Value: getDictInt(node, "level", env)}},
+				"text":  &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "text", env)}},
+				"id":    &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "id", env)}},
+			},
+			KeyOrder: []string{"level", "text", "id"},
+			Env:      env,
+		}
+		*results = append(*results, heading)
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		collectHeadings(child, results, env)
+	}
+}
+
+// markdownLinks extracts all links with their metadata
+// Usage: markdown.links(ast)
+// Returns: [{url: "...", title: "...", text: "..."}, ...]
+func markdownLinks(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.links", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.links", "markdown AST dictionary", args[0].Type())
+	}
+
+	results := make([]Object, 0)
+	collectLinks(node, &results, env)
+	return &Array{Elements: results}
+}
+
+// collectLinks recursively collects all links
+func collectLinks(node *Dictionary, results *[]Object, env *Environment) {
+	nodeType := getDictString(node, "type", env)
+	if nodeType == "link" || nodeType == "autolink" {
+		// Extract link text from children
+		var textBuf strings.Builder
+		extractPlainText(node, &textBuf, env)
+
+		link := &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"url":   &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "url", env)}},
+				"title": &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "title", env)}},
+				"text":  &ast.ObjectLiteralExpression{Obj: &String{Value: textBuf.String()}},
+			},
+			KeyOrder: []string{"url", "title", "text"},
+			Env:      env,
+		}
+		*results = append(*results, link)
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		collectLinks(child, results, env)
+	}
+}
+
+// markdownImages extracts all images with their metadata
+// Usage: markdown.images(ast)
+// Returns: [{url: "...", alt: "...", title: "..."}, ...]
+func markdownImages(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.images", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.images", "markdown AST dictionary", args[0].Type())
+	}
+
+	results := make([]Object, 0)
+	collectImages(node, &results, env)
+	return &Array{Elements: results}
+}
+
+// collectImages recursively collects all images
+func collectImages(node *Dictionary, results *[]Object, env *Environment) {
+	nodeType := getDictString(node, "type", env)
+	if nodeType == "image" {
+		image := &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"url":   &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "url", env)}},
+				"alt":   &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "alt", env)}},
+				"title": &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "title", env)}},
+			},
+			KeyOrder: []string{"url", "alt", "title"},
+			Env:      env,
+		}
+		*results = append(*results, image)
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		collectImages(child, results, env)
+	}
+}
+
+// markdownCodeBlocks extracts all code blocks with their metadata
+// Usage: markdown.codeBlocks(ast)
+// Returns: [{language: "go", code: "..."}, ...]
+func markdownCodeBlocks(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.codeBlocks", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.codeBlocks", "markdown AST dictionary", args[0].Type())
+	}
+
+	results := make([]Object, 0)
+	collectCodeBlocks(node, &results, env)
+	return &Array{Elements: results}
+}
+
+// collectCodeBlocks recursively collects all code blocks
+func collectCodeBlocks(node *Dictionary, results *[]Object, env *Environment) {
+	nodeType := getDictString(node, "type", env)
+	if nodeType == "code_block" || nodeType == "fenced_code_block" {
+		codeBlock := &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"language": &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "language", env)}},
+				"code":     &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(node, "code", env)}},
+			},
+			KeyOrder: []string{"language", "code"},
+			Env:      env,
+		}
+		*results = append(*results, codeBlock)
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		collectCodeBlocks(child, results, env)
+	}
+}
+
+// ============================================================================
+// Convenience Methods
+// ============================================================================
+
+// markdownTitle extracts the document title (first h1)
+// Usage: markdown.title(ast)
+// Returns: string or null
+func markdownTitle(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.title", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.title", "markdown AST dictionary", args[0].Type())
+	}
+
+	title := findTitle(node, env)
+	if title == "" {
+		return NULL
+	}
+	return &String{Value: title}
+}
+
+// findTitle finds the first h1 heading text
+func findTitle(node *Dictionary, env *Environment) string {
+	nodeType := getDictString(node, "type", env)
+	if nodeType == "heading" && getDictInt(node, "level", env) == 1 {
+		return getDictString(node, "text", env)
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		if title := findTitle(child, env); title != "" {
+			return title
+		}
+	}
+	return ""
+}
+
+// markdownTOC generates a table of contents
+// Usage: markdown.toc(ast) or markdown.toc(ast, {minLevel: 1, maxLevel: 3})
+// Returns: [{level: 1, text: "...", id: "...", indent: 0}, ...]
+func markdownTOC(args []Object, env *Environment) Object {
+	if len(args) < 1 || len(args) > 2 {
+		return newArityErrorRange("markdown.toc", len(args), 1, 2)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.toc", "markdown AST dictionary", args[0].Type())
+	}
+
+	// Default options
+	minLevel := int64(1)
+	maxLevel := int64(6)
+
+	// Parse options if provided
+	if len(args) == 2 {
+		opts, ok := args[1].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0005", "markdown.toc", "options dictionary", args[1].Type())
+		}
+		if min := getDictInt(opts, "minLevel", env); min > 0 {
+			minLevel = min
+		}
+		if max := getDictInt(opts, "maxLevel", env); max > 0 {
+			maxLevel = max
+		}
+	}
+
+	// Collect headings
+	headings := make([]Object, 0)
+	collectHeadings(node, &headings, env)
+
+	// Filter by level and add indent
+	results := make([]Object, 0)
+	for _, h := range headings {
+		heading := h.(*Dictionary)
+		level := getDictInt(heading, "level", env)
+		if level >= minLevel && level <= maxLevel {
+			tocItem := &Dictionary{
+				Pairs: map[string]ast.Expression{
+					"level":  &ast.ObjectLiteralExpression{Obj: &Integer{Value: level}},
+					"text":   &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(heading, "text", env)}},
+					"id":     &ast.ObjectLiteralExpression{Obj: &String{Value: getDictString(heading, "id", env)}},
+					"indent": &ast.ObjectLiteralExpression{Obj: &Integer{Value: level - minLevel}},
+				},
+				KeyOrder: []string{"level", "text", "id", "indent"},
+				Env:      env,
+			}
+			results = append(results, tocItem)
+		}
+	}
+
+	return &Array{Elements: results}
+}
+
+// markdownText extracts all plain text from the document
+// Usage: markdown.text(ast)
+// Returns: string
+func markdownText(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.text", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.text", "markdown AST dictionary", args[0].Type())
+	}
+
+	var buf strings.Builder
+	extractPlainText(node, &buf, env)
+	return &String{Value: buf.String()}
+}
+
+// extractPlainText recursively extracts all plain text from a node
+func extractPlainText(node *Dictionary, buf *strings.Builder, env *Environment) {
+	nodeType := getDictString(node, "type", env)
+
+	switch nodeType {
+	case "text", "string":
+		buf.WriteString(getDictString(node, "value", env))
+	case "code_span":
+		buf.WriteString(getDictString(node, "code", env))
+	case "code_block", "fenced_code_block":
+		buf.WriteString(getDictString(node, "code", env))
+	case "heading":
+		// Use pre-extracted text for headings
+		buf.WriteString(getDictString(node, "text", env))
+		buf.WriteString(" ")
+		return // Don't recurse into children for headings
+	default:
+		// Add spacing for block elements
+		switch nodeType {
+		case "paragraph", "list_item", "blockquote":
+			if buf.Len() > 0 {
+				buf.WriteString(" ")
+			}
+		}
+	}
+
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		extractPlainText(child, buf, env)
+	}
+}
+
+// markdownWordCount counts words in the document
+// Usage: markdown.wordCount(ast)
+// Returns: integer
+func markdownWordCount(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("markdown.wordCount", len(args), 1)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.wordCount", "markdown AST dictionary", args[0].Type())
+	}
+
+	var buf strings.Builder
+	extractPlainText(node, &buf, env)
+	text := buf.String()
+
+	// Count words by splitting on whitespace
+	words := strings.Fields(text)
+	return &Integer{Value: int64(len(words))}
+}
+
+// ============================================================================
+// Transform Methods
+// ============================================================================
+
+// markdownWalk walks the tree and calls a function on each node
+// Usage: markdown.walk(ast, fn(node) { ... })
+// The function receives each node but return value is ignored
+func markdownWalk(args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("markdown.walk", len(args), 2)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.walk", "markdown AST dictionary", args[0].Type())
+	}
+
+	fn, ok := args[1].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.walk", "function", args[1].Type())
+	}
+
+	walkNode(node, fn, env)
+	return NULL
+}
+
+// walkNode recursively walks the tree calling fn on each node
+func walkNode(node *Dictionary, fn *Function, env *Environment) {
+	// Call the function with this node
+	extendedEnv := extendFunctionEnv(fn, []Object{node})
+	for _, stmt := range fn.Body.Statements {
+		Eval(stmt, extendedEnv)
+	}
+
+	// Recurse into children
+	children := getDictChildren(node, env)
+	for _, child := range children {
+		walkNode(child, fn, env)
+	}
+}
+
+// markdownMap transforms nodes by applying a function
+// Usage: markdown.map(ast, fn(node) { return modifiedNode })
+// Returns a new tree with transformed nodes
+func markdownMap(args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("markdown.map", len(args), 2)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.map", "markdown AST dictionary", args[0].Type())
+	}
+
+	fn, ok := args[1].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.map", "function", args[1].Type())
+	}
+
+	result := mapNode(node, fn, env)
+	if result == nil {
+		return NULL
+	}
+	return result
+}
+
+// mapNode recursively transforms nodes
+func mapNode(node *Dictionary, fn *Function, env *Environment) *Dictionary {
+	// First, transform children
+	children := getDictChildren(node, env)
+	newChildren := make([]Object, 0, len(children))
+	for _, child := range children {
+		if mapped := mapNode(child, fn, env); mapped != nil {
+			newChildren = append(newChildren, mapped)
+		}
+	}
+
+	// Create new node with transformed children
+	newPairs := make(map[string]ast.Expression)
+	newKeyOrder := make([]string, 0)
+	for _, key := range node.KeyOrder {
+		if key == "children" {
+			continue
+		}
+		if expr, ok := node.Pairs[key]; ok {
+			newPairs[key] = expr
+			newKeyOrder = append(newKeyOrder, key)
+		}
+	}
+	if len(newChildren) > 0 {
+		newPairs["children"] = &ast.ObjectLiteralExpression{Obj: &Array{Elements: newChildren}}
+		newKeyOrder = append(newKeyOrder, "children")
+	}
+
+	newNode := &Dictionary{
+		Pairs:    newPairs,
+		KeyOrder: newKeyOrder,
+		Env:      env,
+	}
+
+	// Call the transform function
+	extendedEnv := extendFunctionEnv(fn, []Object{newNode})
+	var result Object
+	for _, stmt := range fn.Body.Statements {
+		result = Eval(stmt, extendedEnv)
+	}
+
+	// If function returns a dictionary, use it; otherwise keep the node
+	if dict, ok := result.(*Dictionary); ok {
+		return dict
+	}
+	return newNode
+}
+
+// markdownFilter removes nodes that don't match the predicate
+// Usage: markdown.filter(ast, fn(node) { return true/false })
+// Returns a new tree with only nodes where fn returns true
+func markdownFilter(args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("markdown.filter", len(args), 2)
+	}
+
+	node, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.filter", "markdown AST dictionary", args[0].Type())
+	}
+
+	fn, ok := args[1].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0005", "markdown.filter", "function", args[1].Type())
+	}
+
+	result := filterNode(node, fn, env)
+	if result == nil {
+		return NULL
+	}
+	return result
+}
+
+// filterNode recursively filters nodes
+func filterNode(node *Dictionary, fn *Function, env *Environment) *Dictionary {
+	// Check if this node passes the filter
+	extendedEnv := extendFunctionEnv(fn, []Object{node})
+	var result Object
+	for _, stmt := range fn.Body.Statements {
+		result = Eval(stmt, extendedEnv)
+	}
+
+	if !isTruthy(result) {
+		return nil
+	}
+
+	// Filter children
+	children := getDictChildren(node, env)
+	newChildren := make([]Object, 0, len(children))
+	for _, child := range children {
+		if filtered := filterNode(child, fn, env); filtered != nil {
+			newChildren = append(newChildren, filtered)
+		}
+	}
+
+	// Create new node with filtered children
+	newPairs := make(map[string]ast.Expression)
+	newKeyOrder := make([]string, 0)
+	for _, key := range node.KeyOrder {
+		if key == "children" {
+			continue
+		}
+		if expr, ok := node.Pairs[key]; ok {
+			newPairs[key] = expr
+			newKeyOrder = append(newKeyOrder, key)
+		}
+	}
+	if len(newChildren) > 0 {
+		newPairs["children"] = &ast.ObjectLiteralExpression{Obj: &Array{Elements: newChildren}}
+		newKeyOrder = append(newKeyOrder, "children")
+	}
+
+	return &Dictionary{
+		Pairs:    newPairs,
+		KeyOrder: newKeyOrder,
+		Env:      env,
 	}
 }
 

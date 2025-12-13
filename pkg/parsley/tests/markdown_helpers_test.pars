@@ -1,0 +1,117 @@
+let {markdown} = import @std/markdown
+
+let source = `
+# My Document Title
+
+This is some intro text with a [link](https://example.com "Example").
+
+## Getting Started
+
+Here is how to get started.
+
+### Installation
+
+Install with:
+
+` + "```bash\nnpm install mypackage\n```" + `
+
+### Configuration
+
+Configure like this:
+
+` + "```parsley\nlet config = { debug: true }\n```" + `
+
+## Advanced Topics
+
+More advanced stuff here.
+
+![Screenshot](./image.png "A screenshot")
+
+## Conclusion
+
+The end.
+`
+
+let ast = markdown.parse(source)
+
+print("=== title() ===")
+print(markdown.title(ast))
+
+print("\n=== headings() ===")
+let headings = markdown.headings(ast)
+for h in headings {
+  print("L" + h.level + ": " + h.text + " (#" + h.id + ")")
+}
+
+print("\n=== toc() ===")
+let toc = markdown.toc(ast)
+for item in toc {
+  let spaces = ""
+  for i in 1..item.indent {
+    spaces = spaces + "  "
+  }
+  print(spaces + "- [" + item.text + "](#" + item.id + ")")
+}
+
+print("\n=== links() ===")
+let links = markdown.links(ast)
+for link in links {
+  print(link.url + " - " + link.text)
+}
+
+print("\n=== images() ===")
+let images = markdown.images(ast)
+for img in images {
+  print(img.url + " (" + img.alt + ")")
+}
+
+print("\n=== codeBlocks() ===")
+let blocks = markdown.codeBlocks(ast)
+for block in blocks {
+  let lang = block.language
+  if lang == "" {
+    lang = "(none)"
+  }
+  print("Language: " + lang)
+  print("Has code: " + (block.code.length() > 0))
+}
+
+print("\n=== wordCount() ===")
+print(markdown.wordCount(ast))
+
+print("\n=== text() ===")
+let plainText = markdown.text(ast)
+print("Text length: " + plainText.length() + " chars")
+
+print("\n=== findAll() ===")
+let allHeadings = markdown.findAll(ast, "heading")
+print("Found " + allHeadings.length() + " headings")
+
+let multiTypes = markdown.findAll(ast, ["link", "image"])
+print("Found " + multiTypes.length() + " links + images")
+
+print("\n=== findFirst() ===")
+let firstCodeBlock = markdown.findFirst(ast, "fenced_code_block")
+let firstLang = firstCodeBlock.language
+if firstLang == "" {
+  firstLang = "(none)"
+}
+print("First code block language: " + firstLang)
+
+print("\n=== walk() ===")
+let linkCount = 0
+markdown.walk(ast, fn(node) {
+  if node.type == "link" {
+    linkCount = linkCount + 1
+  }
+})
+print("Walk found " + linkCount + " links")
+
+print("\n=== filter() - keep only doc/headings/text ===")
+let headingsOnly = markdown.filter(ast, fn(node) {
+  node.type == "document" or node.type == "heading" or node.type == "text"
+})
+print("Filtered to markdown:")
+print(markdown.toMarkdown(headingsOnly))
+
+print("\nAll tests passed!")
