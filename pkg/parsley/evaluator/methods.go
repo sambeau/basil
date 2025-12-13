@@ -8,6 +8,7 @@ import (
 	"html"
 	"math"
 	"math/rand"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -41,6 +42,7 @@ var stringMethods = []string{
 	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
+	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
 }
 
 // arrayMethods lists all methods available on array
@@ -308,6 +310,49 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		}
 		lower := strings.ToLower(str.Value)
 		return &String{Value: strings.Trim(nonSlugRegex.ReplaceAllString(lower, "-"), "-")}
+
+	case "htmlEncode":
+		if len(args) != 0 {
+			return newArityError("htmlEncode", len(args), 0)
+		}
+		return &String{Value: html.EscapeString(str.Value)}
+
+	case "htmlDecode":
+		if len(args) != 0 {
+			return newArityError("htmlDecode", len(args), 0)
+		}
+		return &String{Value: html.UnescapeString(str.Value)}
+
+	case "urlEncode":
+		if len(args) != 0 {
+			return newArityError("urlEncode", len(args), 0)
+		}
+		// QueryEscape uses + for spaces (application/x-www-form-urlencoded)
+		return &String{Value: url.QueryEscape(str.Value)}
+
+	case "urlDecode":
+		if len(args) != 0 {
+			return newArityError("urlDecode", len(args), 0)
+		}
+		decoded, err := url.QueryUnescape(str.Value)
+		if err != nil {
+			return newFormatError("FMT-0011", err)
+		}
+		return &String{Value: decoded}
+
+	case "urlPathEncode":
+		if len(args) != 0 {
+			return newArityError("urlPathEncode", len(args), 0)
+		}
+		// PathEscape encodes path segments (including /)
+		return &String{Value: url.PathEscape(str.Value)}
+
+	case "urlQueryEncode":
+		if len(args) != 0 {
+			return newArityError("urlQueryEncode", len(args), 0)
+		}
+		// QueryEscape encodes query values (& and = are encoded)
+		return &String{Value: url.QueryEscape(str.Value)}
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)
