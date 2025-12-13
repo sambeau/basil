@@ -19,6 +19,22 @@ type MethodInfo struct {
 	Description string
 }
 
+// PropertyInfo holds metadata about a property
+type PropertyInfo struct {
+	Name        string
+	Type        string // Return type, e.g., "array", "dictionary"
+	Description string
+}
+
+// TypeProperties maps type names to their available properties
+var TypeProperties = map[string][]PropertyInfo{
+	"table": {
+		{Name: "row", Type: "dictionary", Description: "First row (or NULL if empty)"},
+		{Name: "rows", Type: "array", Description: "All rows as array of dictionaries"},
+		{Name: "columns", Type: "array", Description: "Column names as array of strings"},
+	},
+}
+
 // TypeMethods maps type names to their available methods
 var TypeMethods = map[string][]MethodInfo{
 	"string": {
@@ -363,10 +379,37 @@ func builtinInspect(args ...Object) Object {
 		methodDicts[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 	}
 
+	// Build properties array
+	propertyInfos, hasProps := TypeProperties[methodKey]
+	var propertyDicts []Object
+	if hasProps {
+		// Sort properties alphabetically
+		sortedProps := make([]PropertyInfo, len(propertyInfos))
+		copy(sortedProps, propertyInfos)
+		sort.Slice(sortedProps, func(i, j int) bool {
+			return sortedProps[i].Name < sortedProps[j].Name
+		})
+
+		propertyDicts = make([]Object, len(sortedProps))
+		for i, p := range sortedProps {
+			propPairs := map[string]ast.Expression{
+				"name":        createLiteralExpression(&String{Value: p.Name}),
+				"type":        createLiteralExpression(&String{Value: p.Type}),
+				"description": createLiteralExpression(&String{Value: p.Description}),
+			}
+			propertyDicts[i] = &Dictionary{Pairs: propPairs, Env: NewEnvironment()}
+		}
+	}
+
 	// Build result dictionary
 	pairs := map[string]ast.Expression{
 		"type":    createLiteralExpression(&String{Value: typeName}),
 		"methods": createLiteralExpression(&Array{Elements: methodDicts}),
+	}
+
+	// Add properties if present
+	if hasProps {
+		pairs["properties"] = createLiteralExpression(&Array{Elements: propertyDicts})
 	}
 
 	// Add subtype if present
@@ -552,12 +595,41 @@ func builtinDescribe(args ...Object) Object {
 		sb.WriteString(fmt.Sprintf("Keys: %s\n", strings.Join(keys, ", ")))
 	}
 
-	// Methods
+	// Determine method/property key
 	methodKey := typeName
 	if subType != "" {
 		methodKey = subType
 	}
 
+	// Properties
+	propertyInfos, hasProps := TypeProperties[methodKey]
+	if hasProps && len(propertyInfos) > 0 {
+		sb.WriteString("\nProperties:\n")
+
+		// Sort properties alphabetically
+		sortedProps := make([]PropertyInfo, len(propertyInfos))
+		copy(sortedProps, propertyInfos)
+		sort.Slice(sortedProps, func(i, j int) bool {
+			return sortedProps[i].Name < sortedProps[j].Name
+		})
+
+		// Find max name length for alignment
+		maxPropLen := 0
+		for _, p := range sortedProps {
+			nameWithType := fmt.Sprintf(".%s: %s", p.Name, p.Type)
+			if len(nameWithType) > maxPropLen {
+				maxPropLen = len(nameWithType)
+			}
+		}
+
+		for _, p := range sortedProps {
+			nameWithType := fmt.Sprintf(".%s: %s", p.Name, p.Type)
+			padding := strings.Repeat(" ", maxPropLen-len(nameWithType)+2)
+			sb.WriteString(fmt.Sprintf("  %s%s- %s\n", nameWithType, padding, p.Description))
+		}
+	}
+
+	// Methods
 	methodInfos, ok := TypeMethods[methodKey]
 	if !ok || len(methodInfos) == 0 {
 		sb.WriteString("Methods: (none)\n")
