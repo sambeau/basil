@@ -13344,6 +13344,8 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 			for key, value := range frontmatter {
 				obj := yamlToObject(value)
 				metadataPairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+				// Also add to environment so interpolations can access frontmatter vars
+				env.Set(key, obj)
 			}
 		}
 	}
