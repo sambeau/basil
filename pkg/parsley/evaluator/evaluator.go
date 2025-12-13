@@ -101,6 +101,7 @@ const (
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
 	TABLE_OBJ            = "TABLE"
 	TABLE_BINDING_OBJ    = "TABLE_BINDING"
+	MDDOC_OBJ            = "MDDOC"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
 	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
@@ -6232,7 +6233,12 @@ func evalStatement(stmt ast.Statement, env *Environment) Object {
 			if isError(module) {
 				return module
 			}
-			// Auto-bind if we have a bind name (already done in evalImportExpression)
+			// Auto-bind ONLY for standalone imports (not in let/assignment)
+			// The bind name is derived from the path (e.g., "markdown" from "@std/markdown")
+			// or from an explicit alias (e.g., "MD" from "import @std/markdown as MD")
+			if importExpr.BindName != "" {
+				env.Set(importExpr.BindName, module)
+			}
 			// Return NULL so imports don't appear in concatenated output
 			return NULL
 		}
@@ -6438,7 +6444,12 @@ func Eval(node ast.Node, env *Environment) Object {
 			if isError(module) {
 				return module
 			}
-			// Module is already auto-bound in evalImportExpression
+			// Auto-bind ONLY for standalone imports (not in let/assignment)
+			// The bind name is derived from the path (e.g., "markdown" from "@std/markdown")
+			// or from an explicit alias (e.g., "MD" from "import @std/markdown as MD")
+			if importExpr.BindName != "" {
+				env.Set(importExpr.BindName, module)
+			}
 			// Return NULL so imports don't appear in concatenated output
 			return NULL
 		}
@@ -7933,6 +7944,13 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			return enrichErrorWithPos(result, env.LastToken)
 		}
 		return result
+	case *MdDocModule:
+		// MdDocModule is callable: mdDoc(text) or mdDoc(dict) creates an MdDoc
+		result := evalMdDocModuleCall(args, env)
+		if isError(result) {
+			return enrichErrorWithPos(result, env.LastToken)
+		}
+		return result
 	case *DevModule:
 		// DevModule is not directly callable, only used as a namespace
 		return enrichErrorWithPos(newCallError("CALL-0003", nil), env.LastToken)
@@ -8016,11 +8034,10 @@ func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
 		return module
 	}
 
-	// Auto-bind to environment if we have a bind name
-	// This happens when import is used as a statement (not destructuring assignment)
-	if node.BindName != "" {
-		env.Set(node.BindName, module)
-	}
+	// NOTE: Auto-binding to BindName is NOT done here.
+	// When import is used as a standalone statement, evalStatement handles the auto-bind.
+	// When import is used in a let/assignment (e.g., let {x} = import @std/foo),
+	// only the destructured names should be bound, not the path-derived name.
 
 	// Always return the module (for use in let statements and destructuring)
 	return module
@@ -9319,6 +9336,8 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return EvalTableMethod(receiver, method, args, env)
 	case *TableBinding:
 		return evalTableBindingMethod(receiver, method, args, env)
+	case *MdDoc:
+		return evalMdDocMethod(receiver, method, args, env)
 	case *DBConnection:
 		return evalDBConnectionMethod(receiver, method, args, env)
 	case *SFTPConnection:
@@ -13058,7 +13077,7 @@ func parseYAML(content string) (Object, *Error) {
 }
 
 // parseMarkdown parses markdown content with optional YAML frontmatter
-// Returns a dictionary with: html, raw, and any frontmatter fields
+// Returns a dictionary with: html, raw, and md (metadata from frontmatter)
 func parseMarkdown(content string, env *Environment) (Object, *Error) {
 	pairs := make(map[string]ast.Expression)
 
@@ -13074,6 +13093,7 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 
 	// Check for YAML frontmatter (starts with ---)
 	body := content
+	metadataPairs := make(map[string]ast.Expression)
 	if strings.HasPrefix(strings.TrimSpace(content), "---") {
 		// Find the closing ---
 		trimmed := strings.TrimSpace(content)
@@ -13091,10 +13111,10 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 				return nil, newFormatError("FMT-0006", err)
 			}
 
-			// Add frontmatter fields to result
+			// Add frontmatter fields to metadata dict
 			for key, value := range frontmatter {
 				obj := yamlToObject(value)
-				pairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+				metadataPairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
 			}
 		}
 	}
@@ -13111,6 +13131,12 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 	// Add html and raw fields
 	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: htmlBuf.String()}}
 	pairs["raw"] = &ast.ObjectLiteralExpression{Obj: &String{Value: body}}
+	
+	// Add md field containing metadata (frontmatter)
+	pairs["md"] = &ast.DictionaryLiteral{
+		Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+		Pairs: metadataPairs,
+	}
 
 	return &Dictionary{Pairs: pairs, Env: env}, nil
 }

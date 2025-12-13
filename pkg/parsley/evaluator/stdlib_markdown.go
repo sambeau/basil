@@ -15,10 +15,11 @@ import (
 )
 
 // loadMarkdownModule returns the markdown module as a dictionary
+// Export name is "md" to avoid clash with markdown() file factory builtin
 func loadMarkdownModule(env *Environment) Object {
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"markdown": &MarkdownModule{},
+			"md": &MarkdownModule{},
 		},
 	}
 }
@@ -27,7 +28,7 @@ func loadMarkdownModule(env *Environment) Object {
 type MarkdownModule struct{}
 
 func (mm *MarkdownModule) Type() ObjectType { return BUILTIN_OBJ }
-func (mm *MarkdownModule) Inspect() string  { return "markdown" }
+func (mm *MarkdownModule) Inspect() string  { return "md" }
 
 // evalMarkdownModuleMethod handles method calls on the markdown module
 func evalMarkdownModuleMethod(mm *MarkdownModule, method string, args []Object, env *Environment) Object {
@@ -1669,4 +1670,3 @@ func filterNode(node *Dictionary, fn *Function, env *Environment) *Dictionary {
 		Env:      env,
 	}
 }
-

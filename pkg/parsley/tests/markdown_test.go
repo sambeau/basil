@@ -104,22 +104,22 @@ This is the blog content.
 	}{
 		{
 			name:     "access title",
-			code:     `let post <== markdown(@./blog.md); post.title`,
+			code:     `let post <== markdown(@./blog.md); post.md.title`,
 			expected: "My Blog Post",
 		},
 		{
 			name:     "access author",
-			code:     `let post <== markdown(@./blog.md); post.author`,
+			code:     `let post <== markdown(@./blog.md); post.md.author`,
 			expected: "John Doe",
 		},
 		{
 			name:     "access draft",
-			code:     `let post <== markdown(@./blog.md); post.draft`,
+			code:     `let post <== markdown(@./blog.md); post.md.draft`,
 			expected: "false",
 		},
 		{
 			name:     "access tags array",
-			code:     `let post <== markdown(@./blog.md); post.tags[0]`,
+			code:     `let post <== markdown(@./blog.md); post.md.tags[0]`,
 			expected: "go",
 		},
 		{
@@ -178,7 +178,7 @@ This is **bold** text.
 	// Test using markdown in a template
 	code := `let post <== markdown(@./post.md)
 <article>
-  <h1>{post.title}</h1>
+  <h1>{post.md.title}</h1>
   <div class="content">{post.html}</div>
 </article>`
 

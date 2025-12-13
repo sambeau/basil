@@ -1,0 +1,61 @@
+// Test: Generate a Table of Contents from a markdown document
+
+let {markdown} = import @std/markdown
+
+let source = `# Introduction
+
+Welcome to the guide.
+
+## Getting Started
+
+First steps here.
+
+### Installation
+
+How to install.
+
+### Configuration
+
+How to configure.
+
+## Advanced Topics
+
+More complex stuff.
+
+### Performance
+
+Tips for speed.
+
+## Conclusion
+
+Final thoughts.
+`
+
+let doc = markdown.parse(source)
+
+// Filter to get all headings from the document's children
+let headings = doc.children.filter(fn(n) { n.type == "heading" })
+
+print("=== Table of Contents ===")
+print("")
+
+for h in headings {
+    // Build indent based on heading level
+    let indent = ""
+    if (h.level == 2) { indent = "  " }
+    if (h.level == 3) { indent = "    " }
+    if (h.level == 4) { indent = "      " }
+    print(indent + "- [" + h.text + "](#" + h.id + ")")
+}
+
+print("")
+print("=== As HTML ===")
+<nav class="toc">
+  <ul>
+    {for h in headings {
+      <li class="level-{h.level}">
+        <a href="#{h.id}">{h.text}</a>
+      </li>
+    }}
+  </ul>
+</nav>

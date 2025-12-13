@@ -8,6 +8,12 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
+// Inspectable is an interface for objects that can be inspected for display
+// This is used to avoid circular imports between ast and evaluator packages
+type Inspectable interface {
+	Inspect() string
+}
+
 // Node represents any node in the AST
 type Node interface {
 	TokenLiteral() string
@@ -1081,7 +1087,13 @@ type ObjectLiteralExpression struct {
 
 func (ole *ObjectLiteralExpression) expressionNode()      {}
 func (ole *ObjectLiteralExpression) TokenLiteral() string { return "" }
-func (ole *ObjectLiteralExpression) String() string       { return "<object literal>" }
+func (ole *ObjectLiteralExpression) String() string {
+	// Try to get a displayable representation via Inspectable interface
+	if inspectable, ok := ole.Obj.(Inspectable); ok {
+		return inspectable.Inspect()
+	}
+	return "<object literal>"
+}
 
 // InterpolationBlock represents a block of statements inside tag interpolation {stmt; stmt; ...}
 // When evaluated, it returns the value of the last statement (or null if empty)
