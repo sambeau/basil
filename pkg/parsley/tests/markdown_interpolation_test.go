@@ -63,19 +63,19 @@ let value = "test"`,
 			expected: []string{"<p>Upper: HELLO</p>"},
 		},
 		{
-			name: "array interpolation",
+			name:     "array interpolation",
 			markdown: "First: @{items[0]}",
 			setup:    `let items = [1, 2, 3]`,
 			expected: []string{"<p>First: 1</p>"},
 		},
 		{
-			name: "dictionary interpolation",
+			name:     "dictionary interpolation",
 			markdown: "Name: @{person.name}",
 			setup:    `let person = {name: "Alice", age: 30}`,
 			expected: []string{"<p>Name: Alice</p>"},
 		},
 		{
-			name: "interpolation in heading",
+			name:     "interpolation in heading",
 			markdown: "# Report for @{year}",
 			setup:    `let year = 2024`,
 			expected: []string{"<h1", ">Report for 2024</h1>"},
@@ -85,8 +85,44 @@ let value = "test"`,
 			markdown: `- Item @{1}
 - Item @{2}
 - Item @{3}`,
-			setup: "",
+			setup:    "",
 			expected: []string{"<li>Item 1</li>", "<li>Item 2</li>", "<li>Item 3</li>"},
+		},
+		{
+			name:     "comparison operators",
+			markdown: "Result: @{10 > 5}",
+			setup:    "",
+			expected: []string{"<p>Result: true</p>"},
+		},
+		{
+			name:     "less than operator",
+			markdown: "Check: @{3 < 10}",
+			setup:    "",
+			expected: []string{"<p>Check: true</p>"},
+		},
+		{
+			name:     "complex comparison",
+			markdown: "Value: @{if (x > 10) { \"big\" } else { \"small\" }}",
+			setup:    "let x = 15",
+			expected: []string{"<p>Value: big</p>"},
+		},
+		{
+			name:     "HTML tags in expression",
+			markdown: "HTML: @{\"<div>Hello</div>\"}",
+			setup:    "",
+			expected: []string{"<p>HTML: <div>Hello</div></p>"},
+		},
+		{
+			name:     "nested braces with comparison",
+			markdown: "Adults: @{{age: 25}.age > 18}",
+			setup:    "",
+			expected: []string{"<p>Adults: true</p>"},
+		},
+		{
+			name:     "function with nested braces and tags",
+			markdown: `Items: @{[1,2,3].map(fn(x) { "<li>" + x + "</li>" }).join("")}`,
+			setup:    "",
+			expected: []string{"<p>Items: <li>1</li><li>2</li><li>3</li></p>"},
 		},
 	}
 

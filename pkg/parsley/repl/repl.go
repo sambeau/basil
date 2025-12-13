@@ -76,6 +76,11 @@ func Start(in io.Reader, out io.Writer, version string) {
 	}()
 
 	env := evaluator.NewEnvironment()
+	// Set up permissive security policy for REPL (allow reads and writes by default)
+	env.Security = &evaluator.SecurityPolicy{
+		AllowWriteAll:   true, // Allow writes in REPL
+		AllowExecuteAll: false, // Disallow executes for security
+	}
 
 	fmt.Fprintf(out, "%s", PARSER_LOGO)
 	fmt.Fprintln(out, "v", version)

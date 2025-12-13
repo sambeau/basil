@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	htmllib "html"
 	"io"
 	"math"
 	"net"
@@ -30,7 +31,13 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/locale"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/yuin/goldmark"
+	goldmarkAst "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
+	goldmarkParser "github.com/yuin/goldmark/parser"
+	goldmarkRenderer "github.com/yuin/goldmark/renderer"
+	"github.com/yuin/goldmark/renderer/html"
+	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"gopkg.in/yaml.v3"
@@ -535,8 +542,10 @@ func (sfh *SFTPFileHandle) Inspect() string {
 type SecurityPolicy struct {
 	RestrictRead    []string // Denied read directories (blacklist)
 	NoRead          bool     // Deny all reads
-	AllowWrite      []string // Allowed write directories (whitelist)
-	AllowWriteAll   bool     // Allow all writes
+	RestrictWrite   []string // Denied write directories (blacklist)
+	NoWrite         bool     // Deny all writes
+	AllowWrite      []string // Allowed write directories (whitelist, used when AllowWriteAll is false)
+	AllowWriteAll   bool     // Allow all writes (default true for pars)
 	AllowExecute    []string // Allowed execute directories (whitelist)
 	AllowExecuteAll bool     // Allow all executes
 }
@@ -824,13 +833,10 @@ func NewDictionaryFromObjectsWithOrder(pairs map[string]Object, keyOrder []strin
 // checkPathAccess validates file system access based on security policy
 func (e *Environment) checkPathAccess(path string, operation string) error {
 	if e.Security == nil {
-		// No policy = default behavior
+		// No policy = permissive defaults (for REPL and simple scripts)
 		// Read: allowed
-		// Write: denied
-		// Execute: denied
-		if operation == "write" {
-			return fmt.Errorf("write access denied (use --allow-write or -w)")
-		}
+		// Write: allowed (changed to be permissive by default)
+		// Execute: denied (still requires explicit permission)
 		if operation == "execute" {
 			return fmt.Errorf("execute access denied (use --allow-execute or -x)")
 		}
@@ -869,11 +875,21 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 		}
 
 	case "write":
-		if e.Security.AllowWriteAll {
-			return nil // Unrestricted
+		// First check if all writes are denied
+		if e.Security.NoWrite {
+			return fmt.Errorf("file write access denied: %s", path)
 		}
+		// Check blacklist (deny specific paths)
+		if isPathRestricted(absPath, e.Security.RestrictWrite) {
+			return fmt.Errorf("file write restricted: %s", path)
+		}
+		// If AllowWriteAll is true (default for pars), allow the write
+		if e.Security.AllowWriteAll {
+			return nil
+		}
+		// Otherwise check whitelist (used by basil server)
 		if !isPathAllowed(absPath, e.Security.AllowWrite) {
-			return fmt.Errorf("file write not allowed: %s (use --allow-write or -w)", path)
+			return fmt.Errorf("file write not allowed: %s", path)
 		}
 
 	case "execute":
@@ -13076,20 +13092,233 @@ func parseYAML(content string) (Object, *Error) {
 	return yamlToObject(data), nil
 }
 
+// ========== Goldmark Parsley Interpolation Extension ==========
+
+// KindParsleyInterpolation is the NodeKind for Parsley interpolation nodes
+var KindParsleyInterpolation = goldmarkAst.NewNodeKind("ParsleyInterpolation")
+
+// ParsleyInterpolationNode represents a @{expr} interpolation in the Goldmark AST
+type ParsleyInterpolationNode struct {
+	goldmarkAst.BaseInline
+	Expression string
+}
+
+// Dump implements goldmarkAst.Node.Dump for debugging
+func (n *ParsleyInterpolationNode) Dump(source []byte, level int) {
+	goldmarkAst.DumpHelper(n, source, level, map[string]string{
+		"Expression": n.Expression,
+	}, nil)
+}
+
+// Kind implements goldmarkAst.Node.Kind
+func (n *ParsleyInterpolationNode) Kind() goldmarkAst.NodeKind {
+	return KindParsleyInterpolation
+}
+
+// parsleyInterpolationParser parses @{expr} syntax into AST nodes
+type parsleyInterpolationParser struct{}
+
+// Trigger returns the character that triggers this parser
+func (p *parsleyInterpolationParser) Trigger() []byte {
+	return []byte{'@'}
+}
+
+// Parse parses a @{expr} interpolation and returns an AST node
+func (p *parsleyInterpolationParser) Parse(parent goldmarkAst.Node, block text.Reader, pc goldmarkParser.Context) goldmarkAst.Node {
+	line, segment := block.PeekLine()
+
+	// Check for @{
+	if len(line) < 2 || line[1] != '{' {
+		return nil
+	}
+
+	// Check for backslash escape: look at the character before '@' in the source
+	// Note: segment.Start is the position of '@' in the source
+	if segment.Start > 0 {
+		source := block.Source()
+		// Look at the byte before the '@'
+		prevPos := segment.Start - 1
+		if prevPos >= 0 && prevPos < len(source) && source[prevPos] == '\\' {
+			// Check if this backslash itself is escaped
+			if prevPos > 0 && source[prevPos-1] == '\\' {
+				// Double backslash: \\@{ -> \@{ (backslash is literal, @ triggers us)
+				// This is NOT escaped, proceed with parsing
+			} else {
+				// Single backslash: \@{ -> @{ (@ is escaped)
+				// Don't parse as interpolation, advance past @{ and return nil
+				block.Advance(2)
+				return nil
+			}
+		}
+	}
+
+	// Find matching closing brace
+	pos := findMatchingBraceInBytes(line, 2)
+	if pos == -1 {
+		return nil // No matching brace
+	}
+
+	// Extract expression (between @{ and })
+	expr := string(line[2:pos])
+
+	// Advance reader past the entire @{expr}
+	block.Advance(pos + 1)
+
+	return &ParsleyInterpolationNode{
+		Expression: expr,
+	}
+}
+
+// findMatchingBraceInBytes finds the closing } for a { at startPos
+// Handles nested braces, strings, raw strings, and escape sequences
+func findMatchingBraceInBytes(input []byte, startPos int) int {
+	depth := 1
+	inString := false
+	inRawString := false
+	inChar := false
+	escapeNext := false
+	i := startPos
+
+	for i < len(input) {
+		ch := input[i]
+
+		// Handle escape sequences
+		if escapeNext {
+			escapeNext = false
+			i++
+			continue
+		}
+
+		if ch == '\\' && !inRawString {
+			escapeNext = true
+			i++
+			continue
+		}
+
+		// Check for raw string start (backtick)
+		if ch == '`' && !inString && !inChar {
+			inRawString = !inRawString
+			i++
+			continue
+		}
+
+		// Handle regular strings and chars (only when not in raw string)
+		if !inRawString {
+			if ch == '"' && !inChar {
+				inString = !inString
+				i++
+				continue
+			}
+
+			if ch == '\'' && !inString {
+				inChar = !inChar
+				i++
+				continue
+			}
+		}
+
+		// Only count braces outside of strings
+		if !inString && !inChar && !inRawString {
+			if ch == '{' {
+				depth++
+			} else if ch == '}' {
+				depth--
+				if depth == 0 {
+					return i
+				}
+			}
+		}
+
+		i++
+	}
+
+	return -1 // No matching brace found
+}
+
+// parsleyInterpolationRenderer renders ParsleyInterpolationNode to HTML
+type parsleyInterpolationRenderer struct {
+	env *Environment
+}
+
+// RegisterFuncs registers the render function for ParsleyInterpolationNode
+func (r *parsleyInterpolationRenderer) RegisterFuncs(reg goldmarkRenderer.NodeRendererFuncRegisterer) {
+	reg.Register(KindParsleyInterpolation, r.renderParsleyInterpolation)
+}
+
+// renderParsleyInterpolation evaluates and renders a Parsley interpolation
+func (r *parsleyInterpolationRenderer) renderParsleyInterpolation(
+	w util.BufWriter,
+	source []byte,
+	node goldmarkAst.Node,
+	entering bool,
+) (goldmarkAst.WalkStatus, error) {
+	if !entering {
+		return goldmarkAst.WalkContinue, nil
+	}
+
+	n := node.(*ParsleyInterpolationNode)
+
+	// Parse the Parsley expression
+	l := lexer.New(n.Expression)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		// Parse error - output error span
+		w.WriteString(`<span class="parsley-error" title="Parse error">`)
+		w.WriteString(htmllib.EscapeString(strings.Join(p.Errors(), "; ")))
+		w.WriteString("</span>")
+		return goldmarkAst.WalkContinue, nil
+	}
+
+	// Evaluate the expression
+	var result Object
+	for _, stmt := range program.Statements {
+		result = Eval(stmt, r.env)
+		if isError(result) {
+			// Evaluation error - output error span
+			w.WriteString(`<span class="parsley-error" title="Evaluation error">`)
+			w.WriteString(htmllib.EscapeString(result.Inspect()))
+			w.WriteString("</span>")
+			return goldmarkAst.WalkContinue, nil
+		}
+	}
+
+	// Convert result to string and output
+	if result != nil {
+		output := objectToTemplateString(result)
+		w.WriteString(output)
+	}
+
+	return goldmarkAst.WalkContinue, nil
+}
+
+// ParsleyInterpolationExtension is a Goldmark extension that evaluates @{expr} syntax
+type ParsleyInterpolationExtension struct {
+	env *Environment
+}
+
+// NewParsleyInterpolation creates a new Parsley interpolation extension
+func NewParsleyInterpolation(env *Environment) goldmark.Extender {
+	return &ParsleyInterpolationExtension{env: env}
+}
+
+// Extend adds the Parsley interpolation parser and renderer to Goldmark
+func (e *ParsleyInterpolationExtension) Extend(m goldmark.Markdown) {
+	m.Parser().AddOptions(goldmarkParser.WithInlineParsers(
+		util.Prioritized(&parsleyInterpolationParser{}, 500),
+	))
+	m.Renderer().AddOptions(goldmarkRenderer.WithNodeRenderers(
+		util.Prioritized(&parsleyInterpolationRenderer{env: e.env}, 500),
+	))
+}
+
+// ========== End Goldmark Extension ==========
+
 // parseMarkdown parses markdown content with optional YAML frontmatter
 // Returns a dictionary with: html, raw, and md (metadata from frontmatter)
 func parseMarkdown(content string, env *Environment) (Object, *Error) {
 	pairs := make(map[string]ast.Expression)
-
-	rendered := interpolateRawString(content, env)
-	if errObj, ok := rendered.(*Error); ok {
-		return nil, errObj
-	}
-	renderedStr, ok := rendered.(*String)
-	if !ok {
-		return nil, newFormatError("FMT-0010", fmt.Errorf("invalid rendered markdown content"))
-	}
-	content = renderedStr.Value
 
 	// Check for YAML frontmatter (starts with ---)
 	body := content
@@ -13119,30 +13348,25 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 		}
 	}
 
-	// Convert markdown to HTML using goldmark
+	// Convert markdown to HTML using goldmark with Parsley interpolation extension
 	var htmlBuf bytes.Buffer
 	md := goldmark.New(
-		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithExtensions(
+			extension.GFM,
+			NewParsleyInterpolation(env), // Custom extension for @{expr} syntax
+		),
+		goldmark.WithRendererOptions(html.WithUnsafe()), // Allow raw HTML from interpolations
 	)
 	if err := md.Convert([]byte(body), &htmlBuf); err != nil {
 		return nil, newFormatError("FMT-0010", err)
 	}
 
-	// Apply @{expr} interpolation to the rendered HTML
-	// This allows Parsley code in markdown to generate HTML/SVG that renders properly
-	htmlWithInterpolation := interpolateRawString(htmlBuf.String(), env)
-	if errObj, ok := htmlWithInterpolation.(*Error); ok {
-		return nil, errObj
-	}
-	htmlStr, ok := htmlWithInterpolation.(*String)
-	if !ok {
-		return nil, newFormatError("FMT-0010", fmt.Errorf("invalid interpolated HTML content"))
-	}
+	finalHTML := htmlBuf.String()
 
 	// Add html and raw fields
-	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: htmlStr.Value}}
+	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: finalHTML}}
 	pairs["raw"] = &ast.ObjectLiteralExpression{Obj: &String{Value: body}}
-	
+
 	// Add md field containing metadata (frontmatter)
 	pairs["md"] = &ast.DictionaryLiteral{
 		Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},

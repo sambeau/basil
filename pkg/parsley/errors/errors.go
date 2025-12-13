@@ -531,7 +531,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"SEC-0003": {
 		Class:    ClassSecurity,
 		Template: "Security: write access denied",
-		Hints:    []string{"use --allow-write or -w to allow file writing"},
+		Hints:    []string{"writes are allowed by default; check if --no-write or --restrict-write was used"},
 	},
 	"SEC-0004": {
 		Class:    ClassSecurity,

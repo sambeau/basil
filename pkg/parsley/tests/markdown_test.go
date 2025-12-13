@@ -238,9 +238,8 @@ Literal: \@{skip}
 	if !strings.Contains(html, "Value: 42") {
 		t.Errorf("Expected interpolated value, got: %s", html)
 	}
-	// Note: \@{skip} in markdown becomes @{skip} after goldmark processing,
-	// then gets interpolated to "ignored". Markdown doesn't preserve the backslash.
-	if !strings.Contains(html, "Literal: ignored") {
-		t.Errorf("Expected interpolated skip value, got: %s", html)
+	// \@{skip} is escaped, so it should remain as literal @{skip} in output (not interpolated)
+	if !strings.Contains(html, "Literal: @{skip}") {
+		t.Errorf("Expected literal @{skip}, got: %s", html)
 	}
 }
