@@ -56,6 +56,12 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "stripHtml", Arity: "0", Description: "Remove HTML tags"},
 		{Name: "digits", Arity: "0", Description: "Extract only digits"},
 		{Name: "slug", Arity: "0", Description: "Convert to URL-safe slug"},
+		{Name: "htmlEncode", Arity: "0", Description: "Encode HTML entities (<, >, &, etc.)"},
+		{Name: "htmlDecode", Arity: "0", Description: "Decode HTML entities"},
+		{Name: "urlEncode", Arity: "0", Description: "URL encode (spaces become +)"},
+		{Name: "urlDecode", Arity: "0", Description: "Decode URL-encoded string"},
+		{Name: "urlPathEncode", Arity: "0", Description: "Encode URL path segment (/ becomes %2F)"},
+		{Name: "urlQueryEncode", Arity: "0", Description: "Encode URL query value (& and = encoded)"},
 	},
 	"array": {
 		{Name: "length", Arity: "0", Description: "Get element count"},
