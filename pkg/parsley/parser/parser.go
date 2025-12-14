@@ -1093,13 +1093,15 @@ func (p *Parser) parseTagPair() ast.Expression {
 }
 
 // parseTagContents parses the contents between opening and closing tags
+// In the new syntax, tag contents are code (expressions/statements), not raw text.
+// Text must be quoted: <p>"Hello"</p>
 func (p *Parser) parseTagContents(tagName string) []ast.Node {
 	var contents []ast.Node
 
 	for !p.curTokenIs(lexer.TAG_END) && !p.curTokenIs(lexer.EOF) {
 		switch p.curToken.Type {
 		case lexer.TAG_TEXT:
-			// Raw text content
+			// Raw text content - still supported for style/script tags
 			textNode := &ast.TextNode{
 				Token: p.curToken,
 				Value: p.curToken.Literal,
@@ -1123,68 +1125,29 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 			}
 			p.nextToken()
 
-		case lexer.LBRACE:
-			// Interpolation block - can contain one or more statements
-			// We need to handle this carefully to maintain the lexer mode correctly
-			startToken := p.curToken
-			p.nextToken() // skip {
-
-			// Check if this is empty {}
-			if p.curTokenIs(lexer.RBRACE) {
-				// Empty interpolation - just skip it
-				p.l.EnterTagContentMode()
-				p.nextToken() // move past }
-				continue
-			}
-
-			// Parse statements until we hit RBRACE
-			// This is similar to how ParseProgram works, but we stop at }
-			var statements []ast.Statement
-			for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
-				stmt := p.parseStatement()
-				if stmt != nil {
-					statements = append(statements, stmt)
-				}
-				// Peek at next token to see if we should continue
-				if p.peekTokenIs(lexer.RBRACE) {
-					break
-				}
-				p.nextToken()
-			}
-
-			if len(statements) == 1 {
-				// Single statement - extract the expression if it's an expression statement
-				if exprStmt, ok := statements[0].(*ast.ExpressionStatement); ok {
+		default:
+			// Parse as a statement (expression, for loop, if statement, etc.)
+			// This is the new behavior - code inside tags without { }
+			stmt := p.parseStatement()
+			if stmt != nil {
+				// If it's an expression statement, add just the expression
+				if exprStmt, ok := stmt.(*ast.ExpressionStatement); ok {
 					contents = append(contents, exprStmt.Expression)
 				} else {
-					// Wrap in an interpolation block
+					// For other statements (for, if, let), wrap in InterpolationBlock
 					block := &ast.InterpolationBlock{
-						Token:      startToken,
-						Statements: statements,
+						Token:      p.curToken,
+						Statements: []ast.Statement{stmt},
 					}
 					contents = append(contents, block)
 				}
-			} else if len(statements) > 1 {
-				// Multiple statements - use interpolation block
-				block := &ast.InterpolationBlock{
-					Token:      startToken,
-					Statements: statements,
-				}
-				contents = append(contents, block)
 			}
-
-			// Re-enter tag content mode BEFORE checking for }
-			p.l.EnterTagContentMode()
-			if !p.expectPeek(lexer.RBRACE) {
-				return contents
+			// Move to next token if we're not already at TAG_END
+			if !p.curTokenIs(lexer.TAG_END) && !p.peekTokenIs(lexer.TAG_END) {
+				p.nextToken()
+			} else if p.peekTokenIs(lexer.TAG_END) {
+				p.nextToken()
 			}
-			p.nextToken() // move past }
-
-		default:
-			// Unexpected token
-			p.addError(fmt.Sprintf("unexpected token in tag contents: %s",
-				tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
-			p.nextToken()
 		}
 	}
 

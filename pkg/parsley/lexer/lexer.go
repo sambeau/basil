@@ -636,6 +636,10 @@ func (l *Lexer) NextToken() Token {
 			tok.Literal = l.readTagEnd()
 			tok.Line = line
 			tok.Column = column
+			// Decrement tag depth
+			if l.tagDepth > 0 {
+				l.tagDepth--
+			}
 			l.lastTokenType = tok.Type
 			return tok
 		} else if isLetter(l.peekChar()) || l.peekChar() == '>' {
@@ -647,13 +651,15 @@ func (l *Lexer) NextToken() Token {
 				tok.Type = TAG
 			} else {
 				tok.Type = TAG_START
-				// Enter tag content mode
-				l.inTagContent = true
-				l.tagDepth = 1
+				// Track tag depth but DON'T enter tag content mode
+				// This allows code (not raw text) inside tags
+				l.tagDepth++
 				// Check if this is a raw text tag (style or script)
+				// For these, we DO need special handling
 				tagName := extractTagName(tagContent)
 				if tagName == "style" || tagName == "script" {
 					l.inRawTextTag = tagName
+					l.inTagContent = true // Only for raw text tags
 				}
 			}
 			tok.Literal = tagContent
