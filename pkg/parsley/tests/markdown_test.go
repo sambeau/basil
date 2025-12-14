@@ -48,7 +48,7 @@ This is a paragraph.
 	testFilePath := filepath.Join(tmpDir, "test.pars")
 
 	// Test reading markdown
-	code := `let post <== markdown(@./simple.md); post.html`
+	code := `let post <== MD(@./simple.md); post.html`
 	result := testEvalMDWithFilename(code, testFilePath)
 
 	if result == nil {
@@ -104,32 +104,32 @@ This is the blog content.
 	}{
 		{
 			name:     "access title",
-			code:     `let post <== markdown(@./blog.md); post.md.title`,
+			code:     `let post <== MD(@./blog.md); post.md.title`,
 			expected: "My Blog Post",
 		},
 		{
 			name:     "access author",
-			code:     `let post <== markdown(@./blog.md); post.md.author`,
+			code:     `let post <== MD(@./blog.md); post.md.author`,
 			expected: "John Doe",
 		},
 		{
 			name:     "access draft",
-			code:     `let post <== markdown(@./blog.md); post.md.draft`,
+			code:     `let post <== MD(@./blog.md); post.md.draft`,
 			expected: "false",
 		},
 		{
 			name:     "access tags array",
-			code:     `let post <== markdown(@./blog.md); post.md.tags[0]`,
+			code:     `let post <== MD(@./blog.md); post.md.tags[0]`,
 			expected: "go",
 		},
 		{
 			name:     "html contains content",
-			code:     `let post <== markdown(@./blog.md); post.html`,
+			code:     `let post <== MD(@./blog.md); post.html`,
 			expected: "<h1>Content</h1>",
 		},
 		{
 			name:     "raw contains markdown",
-			code:     `let post <== markdown(@./blog.md); post.raw`,
+			code:     `let post <== MD(@./blog.md); post.raw`,
 			expected: "# Content",
 		},
 	}
@@ -176,7 +176,7 @@ This is **bold** text.
 	testFilePath := filepath.Join(tmpDir, "test.pars")
 
 	// Test using markdown in a template
-	code := `let post <== markdown(@./post.md)
+	code := `let post <== MD(@./post.md)
 <article>
   <h1>post.md.title</h1>
   <div class="content">post.html</div>
@@ -220,7 +220,7 @@ Literal: \@{skip}
 	}
 
 	testFilePath := filepath.Join(tmpDir, "test.pars")
-	code := `let title = "Hello"; let value = 42; let skip = "ignored"; let post <== markdown(@./dynamic.md); post.html`
+	code := `let title = "Hello"; let value = 42; let skip = "ignored"; let post <== MD(@./dynamic.md); post.html`
 	result := testEvalMDWithFilename(code, testFilePath)
 
 	if result == nil {
@@ -241,5 +241,171 @@ Literal: \@{skip}
 	// \@{skip} is escaped, so it should remain as literal @{skip} in output (not interpolated)
 	if !strings.Contains(html, "Literal: @{skip}") {
 		t.Errorf("Expected literal @{skip}, got: %s", html)
+	}
+}
+
+// TestMarkdownStringParsing tests parsing markdown from strings
+func TestMarkdownStringParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		contains []string
+	}{
+		{
+			name:     "basic markdown",
+			code:     `markdown("# Hello World\n\nParagraph").html`,
+			contains: []string{"<h1>Hello World</h1>", "<p>Paragraph</p>"},
+		},
+		{
+			name:     "markdown with frontmatter",
+			code:     `markdown("---\ntitle: Test\n---\n# Body").md.title`,
+			contains: []string{"Test"},
+		},
+		{
+			name:     "raw field",
+			code:     `markdown("# Hello").raw`,
+			contains: []string{"# Hello"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+l := lexer.New(tt.code)
+p := parser.New(l)
+program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result == nil {
+				t.Fatalf("Result is nil")
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("Evaluation error: %s", result.Inspect())
+			}
+
+			output := result.Inspect()
+			for _, expected := range tt.contains {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected to contain '%s', got: %s", expected, output)
+				}
+			}
+		})
+	}
+}
+
+// TestToMarkdownMethod tests the string.toMarkdown() method
+func TestToMarkdownMethod(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		contains []string
+	}{
+		{
+			name:     "basic usage",
+			code:     `"# Hello".toMarkdown().html`,
+			contains: []string{"<h1>Hello</h1>"},
+		},
+		{
+			name:     "with variable",
+			code:     `let md = "## Test\n\nBody"; md.toMarkdown().html`,
+			contains: []string{"<h2>Test</h2>", "<p>Body</p>"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+l := lexer.New(tt.code)
+p := parser.New(l)
+program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result == nil {
+				t.Fatalf("Result is nil")
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("Evaluation error: %s", result.Inspect())
+			}
+
+			output := result.Inspect()
+			for _, expected := range tt.contains {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected to contain '%s', got: %s", expected, output)
+				}
+			}
+		})
+	}
+}
+
+// TestMarkdownHeadingIDs tests the {ids: true} option
+func TestMarkdownHeadingIDs(t *testing.T) {
+	tests := []struct {
+		name        string
+		code        string
+		contains    []string
+		notContains []string
+	}{
+		{
+			name:     "basic heading ID",
+			code:     `markdown("# Hello World", {ids: true}).html`,
+			contains: []string{`id="hello-world"`},
+		},
+		{
+			name:     "multiple headings",
+			code:     `markdown("# Intro\n\n## Getting Started\n\n## Features", {ids: true}).html`,
+			contains: []string{`id="intro"`, `id="getting-started"`, `id="features"`},
+		},
+		{
+			name:     "duplicate headings",
+			code:     `markdown("# Intro\n\n# Intro", {ids: true}).html`,
+			contains: []string{`id="intro"`, `id="intro-1"`},
+		},
+		{
+			name:     "special characters",
+			code:     `markdown("# Hello, World!", {ids: true}).html`,
+			contains: []string{`id="hello-world"`},
+		},
+		{
+			name:        "default no IDs",
+			code:        `markdown("# Hello").html`,
+			notContains: []string{`id=`},
+		},
+		{
+			name:     "toMarkdown with IDs",
+			code:     `"# Test".toMarkdown({ids: true}).html`,
+			contains: []string{`id="test"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+l := lexer.New(tt.code)
+p := parser.New(l)
+program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result == nil {
+				t.Fatalf("Result is nil")
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("Evaluation error: %s", result.Inspect())
+			}
+
+			output := result.Inspect()
+			for _, expected := range tt.contains {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected to contain '%s', got: %s", expected, output)
+				}
+			}
+			for _, notExpected := range tt.notContains {
+				if strings.Contains(output, notExpected) {
+					t.Errorf("Expected NOT to contain '%s', got: %s", notExpected, output)
+				}
+			}
+		})
 	}
 }

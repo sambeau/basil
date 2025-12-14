@@ -243,6 +243,27 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 
 		return interpolateRawString(str.Value, renderEnv)
 
+	case "toMarkdown":
+		// toMarkdown(options?) - parse markdown string to {html, raw, md}
+		if len(args) > 1 {
+			return newArityErrorRange("toMarkdown", len(args), 0, 1)
+		}
+		
+		var options *Dictionary
+		if len(args) == 1 {
+			optDict, ok := args[0].(*Dictionary)
+			if !ok {
+				return newTypeError("TYPE-0012", "toMarkdown", "a dictionary", args[0].Type())
+			}
+			options = optDict
+		}
+		
+		result, err := parseMarkdown(str.Value, options, env)
+		if err != nil {
+			return err
+		}
+		return result
+	
 	case "parseJSON":
 		if len(args) != 0 {
 			return newArityError("parseJSON", len(args), 0)

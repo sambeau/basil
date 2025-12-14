@@ -1,9 +1,10 @@
 ---
 id: FEAT-054
 title: "Replace now() with @now/@timeNow/@dateNow/@today Datetime Literals"
-status: draft
+status: complete
 priority: medium
 created: 2025-12-09
+completed: 2025-12-09
 author: "@human"
 ---
 

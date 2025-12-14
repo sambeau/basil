@@ -1,9 +1,10 @@
 ---
 id: FEAT-057
 title: "DevTools in Parsley"
-status: draft
+status: complete
 priority: medium
 created: 2025-12-09
+completed: 2025-12-09
 author: "@copilot"
 depends-on: FEAT-056
 part-of: FEAT-051

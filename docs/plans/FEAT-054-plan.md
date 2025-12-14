@@ -2,8 +2,9 @@
 id: PLAN-032
 feature: FEAT-054
 title: "Implementation Plan for @now/@timeNow/@dateNow/@today Literals"
-status: draft
+status: complete
 created: 2025-12-09
+completed: 2025-12-09
 ---
 
 # Implementation Plan: FEAT-054 Datetime Now Literals

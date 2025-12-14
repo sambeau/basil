@@ -142,7 +142,7 @@ let value = "test"`,
 			if code != "" {
 				code += "\n"
 			}
-			code += `let mdfile = markdown(@./test.md)
+			code += `let mdfile = MD(@./test.md)
 let m = null
 m <== mdfile
 m.html`
@@ -199,7 +199,7 @@ Total: $@{total}
 	// Make frontmatter data available in environment
 	code := `let year = 2024
 let total = 42000
-let mdfile = markdown(@./report.md)
+let mdfile = MD(@./report.md)
 let m = null
 m <== mdfile
 m.html`
@@ -247,7 +247,7 @@ func TestMarkdownInterpolationInline(t *testing.T) {
 
 	code := `let a = 10
 let b = 20
-let mdfile = markdown(@./math.md)
+let mdfile = MD(@./math.md)
 let m = null
 m <== mdfile
 m.html`

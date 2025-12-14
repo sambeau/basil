@@ -1,7 +1,7 @@
 ---
 id: FEAT-058
 title: "HTML Components in Prelude"
-status: draft
+status: deferred
 priority: medium
 created: 2025-12-09
 author: "@copilot"

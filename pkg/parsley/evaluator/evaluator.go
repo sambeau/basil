@@ -5102,11 +5102,11 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, "svg", options, pathEnv)
 			},
 		},
-		// Markdown file format - reads MD files with frontmatter support
-		"markdown": {
+		// MD file format - reads MD files with frontmatter support
+		"MD": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("markdown", len(args), 1, 2)
+					return newArityErrorRange("MD", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -5129,10 +5129,45 @@ func getBuiltins() map[string]*Builtin {
 				// Coerce to path dict (handles path, file, dir, string)
 				pathDict, pathEnv := coerceToPathDict(args[0], env)
 				if pathDict == nil {
-					return newTypeError("TYPE-0005", "markdown", "a path, file, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "MD", "a path, file, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "markdown", options, pathEnv)
+			},
+		},
+		// markdown function - parses markdown strings
+		"markdown": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newArityErrorRange("markdown", len(args), 1, 2)
+				}
+
+				env := NewEnvironment()
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				// First argument must be a string
+				str, ok := args[0].(*String)
+				if !ok {
+					// Check if they passed a path and suggest MD() instead
+					if _, isDict := args[0].(*Dictionary); isDict {
+						return newTypeError("TYPE-0012", "markdown", "a string (use MD(@path) for files)", args[0].Type())
+					}
+					return newTypeError("TYPE-0012", "markdown", "a string", args[0].Type())
+				}
+
+				// Parse the markdown string
+				result, err := parseMarkdown(str.Value, options, env)
+				if err != nil {
+					return err
+				}
+				return result
 			},
 		},
 		// Directory handle factory
@@ -13158,7 +13193,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	case "md", "markdown":
 		// Parse markdown with optional YAML frontmatter
 		content := string(data)
-		return parseMarkdown(content, env)
+		return parseMarkdown(content, nil, env)
 
 	default:
 		return nil, newFileOpError("FILEOP-0005", map[string]any{"Operation": "reading", "Format": formatStr.Value})
@@ -13408,8 +13443,19 @@ func (e *ParsleyInterpolationExtension) Extend(m goldmark.Markdown) {
 
 // parseMarkdown parses markdown content with optional YAML frontmatter
 // Returns a dictionary with: html, raw, and md (metadata from frontmatter)
-func parseMarkdown(content string, env *Environment) (Object, *Error) {
+func parseMarkdown(content string, options *Dictionary, env *Environment) (Object, *Error) {
 	pairs := make(map[string]ast.Expression)
+
+	// Extract options
+	includeIDs := false
+	if options != nil {
+		if idsExpr, ok := options.Pairs["ids"]; ok {
+			idsVal := Eval(idsExpr, options.Env)
+			if b, ok := idsVal.(*Boolean); ok {
+				includeIDs = b.Value
+			}
+		}
+	}
 
 	// Check for YAML frontmatter (starts with ---)
 	body := content
@@ -13443,11 +13489,19 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 
 	// Convert markdown to HTML using goldmark with Parsley interpolation extension
 	var htmlBuf bytes.Buffer
+	
+	// Configure parser options
+	parserOptions := []goldmarkParser.Option{}
+	if includeIDs {
+		parserOptions = append(parserOptions, goldmarkParser.WithAutoHeadingID())
+	}
+	
 	md := goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,
 			NewParsleyInterpolation(env), // Custom extension for @{expr} syntax
 		),
+		goldmark.WithParserOptions(parserOptions...),
 		goldmark.WithRendererOptions(html.WithUnsafe()), // Allow raw HTML from interpolations
 	)
 	if err := md.Convert([]byte(body), &htmlBuf); err != nil {

@@ -31,3 +31,4 @@ dev_logs_*.db-shm
 
 # Ulysses app metadata
 .Ulysses-Group.plist
+setup

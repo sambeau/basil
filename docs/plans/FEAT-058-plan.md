@@ -2,7 +2,7 @@
 id: PLAN-036
 feature: FEAT-058
 title: "Implementation Plan for HTML Components in Prelude"
-status: draft
+status: deferred
 created: 2025-12-09
 ---
 

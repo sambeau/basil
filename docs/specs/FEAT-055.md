@@ -1,9 +1,10 @@
 ---
 id: FEAT-055
 title: "Parsley Namespace Cleanup - Final Reorganization"
-status: draft
+status: complete
 priority: high
 created: 2025-12-09
+completed: 2025-12-09
 author: "@human"
 ---
 
