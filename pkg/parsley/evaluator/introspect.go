@@ -38,10 +38,87 @@ type PropertyInfo struct {
 
 // TypeProperties maps type names to their available properties
 var TypeProperties = map[string][]PropertyInfo{
+	"string": {
+		// No direct properties on string primitives
+	},
+	"integer": {
+		// No properties on integer primitives
+	},
+	"float": {
+		// No properties on float primitives
+	},
+	"boolean": {
+		// No properties on boolean primitives
+	},
+	"array": {
+		// No direct properties on arrays
+	},
+	"dictionary": {
+		// Dynamic properties based on keys
+	},
+	"datetime": {
+		// Direct properties (stored in dict)
+		{Name: "year", Type: "integer", Description: "Year number"},
+		{Name: "month", Type: "integer", Description: "Month (1-12)"},
+		{Name: "day", Type: "integer", Description: "Day of month (1-31)"},
+		{Name: "hour", Type: "integer", Description: "Hour (0-23)"},
+		{Name: "minute", Type: "integer", Description: "Minute (0-59)"},
+		{Name: "second", Type: "integer", Description: "Second (0-59)"},
+		{Name: "weekday", Type: "string", Description: "Day name (Monday, Tuesday, etc.)"},
+		{Name: "unix", Type: "integer", Description: "Unix timestamp (seconds since 1970-01-01)"},
+		{Name: "iso", Type: "string", Description: "ISO 8601 datetime string"},
+		{Name: "kind", Type: "string", Description: "Datetime kind (date, datetime, time, time_seconds)"},
+		// Computed properties
+		{Name: "date", Type: "string", Description: "Date portion (YYYY-MM-DD)"},
+		{Name: "time", Type: "string", Description: "Time portion (HH:MM or HH:MM:SS)"},
+		{Name: "dayOfYear", Type: "integer", Description: "Day number within year (1-366)"},
+		{Name: "week", Type: "integer", Description: "ISO week number (1-53)"},
+		{Name: "timestamp", Type: "integer", Description: "Unix timestamp (alias for .unix)"},
+	},
+	"money": {
+		{Name: "amount", Type: "integer", Description: "Amount in smallest currency unit (e.g., cents)"},
+		{Name: "currency", Type: "string", Description: "ISO 4217 currency code (e.g., USD, EUR)"},
+		{Name: "scale", Type: "integer", Description: "Number of decimal places for currency"},
+	},
+	"duration": {
+		{Name: "seconds", Type: "integer", Description: "Total duration in seconds"},
+		{Name: "minutes", Type: "integer", Description: "Total duration in minutes"},
+		{Name: "hours", Type: "integer", Description: "Total duration in hours"},
+		{Name: "days", Type: "integer", Description: "Total duration in days"},
+	},
+	"path": {
+		{Name: "absolute", Type: "boolean", Description: "Whether path is absolute"},
+		{Name: "segments", Type: "array", Description: "Path segments as array of strings"},
+		{Name: "extension", Type: "string", Description: "File extension (without dot)"},
+		{Name: "filename", Type: "string", Description: "Last segment (file or directory name)"},
+		{Name: "parent", Type: "path", Description: "Parent directory path"},
+	},
+	"url": {
+		{Name: "scheme", Type: "string", Description: "URL scheme (http, https, etc.)"},
+		{Name: "host", Type: "string", Description: "Hostname"},
+		{Name: "port", Type: "integer", Description: "Port number"},
+		{Name: "path", Type: "path", Description: "URL path as path object"},
+		{Name: "query", Type: "dictionary", Description: "Query parameters as dictionary"},
+		{Name: "fragment", Type: "string", Description: "Fragment identifier (after #)"},
+	},
+	"file": {
+		{Name: "path", Type: "path", Description: "File path"},
+		{Name: "format", Type: "string", Description: "File format (json, yaml, csv, etc.)"},
+		{Name: "exists", Type: "boolean", Description: "Whether file exists"},
+		{Name: "size", Type: "integer", Description: "File size in bytes"},
+	},
+	"dir": {
+		{Name: "path", Type: "path", Description: "Directory path"},
+		{Name: "exists", Type: "boolean", Description: "Whether directory exists"},
+	},
 	"table": {
 		{Name: "row", Type: "dictionary", Description: "First row (or NULL if empty)"},
 		{Name: "rows", Type: "array", Description: "All rows as array of dictionaries"},
 		{Name: "columns", Type: "array", Description: "Column names as array of strings"},
+	},
+	"regex": {
+		{Name: "pattern", Type: "string", Description: "Regular expression pattern"},
+		{Name: "flags", Type: "string", Description: "Regex flags"},
 	},
 }
 
