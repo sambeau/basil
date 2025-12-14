@@ -354,7 +354,7 @@ func TestSQLTag(t *testing.T) {
 				
 				let InsertUser = fn(props) {
 					<SQL>
-						INSERT INTO tag_users (name) VALUES ('Alice')
+						"INSERT INTO tag_users (name) VALUES ('Alice')"
 					</SQL>
 				}
 				

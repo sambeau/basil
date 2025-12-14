@@ -5,7 +5,7 @@ let {basil} = import @std/basil
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>Basil DevTools</title>
+	<title>"Basil DevTools"</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -97,46 +97,46 @@ let {basil} = import @std/basil
 </head>
 <body>
 	<div class="container">
-		<h1>🛠 Basil Dev Tools</h1>
+		<h1>"🛠 Basil Dev Tools"</h1>
 		<div class="version">
-			Version {basil.version} • Commit {basil.commit}
+			"Version " + basil.version + " • Commit " + basil.commit
 		</div>
 
 		<div class="tools-grid">
 			<a href="/__/logs" class="tool-card">
-				<div class="tool-icon">📋</div>
-				<div class="tool-title">Dev Logs</div>
-				<div class="tool-desc">View runtime logs from dev.log() calls in your handlers</div>
+				<div class="tool-icon">"📋"</div>
+				<div class="tool-title">"Dev Logs"</div>
+				<div class="tool-desc">"View runtime logs from dev.log() calls in your handlers"</div>
 			</a>
 
-			{if (devtools.has_db) {
+			if (devtools.has_db) {
 				<a href="/__/db" class="tool-card">
-					<div class="tool-icon">🗄️</div>
-					<div class="tool-title">Database Browser</div>
-					<div class="tool-desc">Browse and query your SQLite database tables</div>
+					<div class="tool-icon">"🗄️"</div>
+					<div class="tool-title">"Database Browser"</div>
+					<div class="tool-desc">"Browse and query your SQLite database tables"</div>
 				</a>
-			}}
+			}
 
 			<a href="/__/env" class="tool-card">
-				<div class="tool-icon">⚙️</div>
-				<div class="tool-title">Environment</div>
-				<div class="tool-desc">View server configuration and environment info</div>
+				<div class="tool-icon">"⚙️"</div>
+				<div class="tool-title">"Environment"</div>
+				<div class="tool-desc">"View server configuration and environment info"</div>
 			</a>
 		</div>
 
 		<div class="section">
-			<h2>Server Information</h2>
+			<h2>"Server Information"</h2>
 			<div class="info-grid">
-				<span class="info-label">Version:</span>
-				<span class="info-value">{basil.version}</span>
-				<span class="info-label">Commit:</span>
-				<span class="info-value">{basil.commit}</span>
-				<span class="info-label">Dev Mode:</span>
-				<span class="info-value">{basil.dev}</span>
-				<span class="info-label">Go Version:</span>
-				<span class="info-value">{basil.go_version}</span>
-				<span class="info-label">Routes:</span>
-				<span class="info-value">{basil.route_count}</span>
+				<span class="info-label">"Version:"</span>
+				<span class="info-value">basil.version</span>
+				<span class="info-label">"Commit:"</span>
+				<span class="info-value">basil.commit</span>
+				<span class="info-label">"Dev Mode:"</span>
+				<span class="info-value">basil.dev</span>
+				<span class="info-label">"Go Version:"</span>
+				<span class="info-value">basil.go_version</span>
+				<span class="info-label">"Routes:"</span>
+				<span class="info-value">basil.route_count</span>
 			</div>
 		</div>
 	</div>

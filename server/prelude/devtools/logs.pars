@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>Basil Logs{if (devtools.route) { ": " + devtools.route }}</title>
+	<title>"Basil Logs" + if (devtools.route) { ": " + devtools.route } else { "" }</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -116,36 +116,36 @@
 <body>
 	<div class="container">
 		<div class="header">
-			<h1>📋 Basil Logs{if (devtools.route) { ": " + devtools.route }}</h1>
+			<h1>"📋 Basil Logs" + if (devtools.route) { ": " + devtools.route } else { "" }</h1>
 			<div class="actions">
-				<a href="/__/" class="btn">← Back</a>
-				{if (devtools.log_count > 0) {
-					<a href="{devtools.clear_url}" class="btn btn-danger">Clear Logs</a>
-				}}
+				<a href="/__/" class="btn">"← Back"</a>
+				if (devtools.log_count > 0) {
+					<a href={devtools.clear_url} class="btn btn-danger">"Clear Logs"</a>
+				}
 			</div>
 		</div>
 
 		<div class="stats">
-			{devtools.log_count} log {if (devtools.log_count == 1) { "entry" } else { "entries" }}
+			devtools.log_count + " log " + if (devtools.log_count == 1) { "entry" } else { "entries" }
 		</div>
 
-		{if (devtools.log_count == 0) {
+		if (devtools.log_count == 0) {
 			<div class="empty-state">
-				No logs yet. Use <code>dev.log(value)</code> in your handlers.
+				"No logs yet. Use " <code>"dev.log(value)"</code> " in your handlers."
 			</div>
 		} else {
 			for (log in devtools.logs) {
-				<div class="log-entry{if (log.level == "warn") { " warn" }}">
+				<div class={"log-entry" + if (log.level == "warn") { " warn" } else { "" }}>
 					<div class="log-header">
-						<span class="log-icon">{if (log.level == "warn") { "⚠️" } else { "ℹ️" }}</span>
-						<span class="log-file">📁 {log.filename}:{log.line}</span>
-						<span class="log-time">🕐 {log.timestamp}</span>
+						<span class="log-icon">if (log.level == "warn") { "⚠️" } else { "ℹ️" }</span>
+						<span class="log-file">"📁 " + log.filename + ":" + log.line</span>
+						<span class="log-time">"🕐 " + log.timestamp</span>
 					</div>
-					<div class="log-call">💻 {log.call}</div>
-					<div class="log-value">{log.value}</div>
+					<div class="log-call">"💻 " + log.call</div>
+					<div class="log-value">log.value</div>
 				</div>
 			}
-		}}
+		}
 	</div>
 </body>
 </html>

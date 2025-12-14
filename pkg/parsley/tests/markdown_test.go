@@ -178,8 +178,8 @@ This is **bold** text.
 	// Test using markdown in a template
 	code := `let post <== markdown(@./post.md)
 <article>
-  <h1>{post.md.title}</h1>
-  <div class="content">{post.html}</div>
+  <h1>post.md.title</h1>
+  <div class="content">post.html</div>
 </article>`
 
 	result := testEvalMDWithFilename(code, testFilePath)

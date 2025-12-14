@@ -5,7 +5,7 @@ let {basil} = import @std/basil
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>Error {error.code}</title>
+	<title>"Error " + error.code</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -126,73 +126,71 @@ let {basil} = import @std/basil
 <body>
 	<div class="container">
 		<h1>
-			<span class="error-code">{error.code}</span>
-			{error.message}
+			<span class="error-code">error.code</span>
+			error.message
 		</h1>
-		{if (error.message_text) {
+		if (error.message_text) {
 			<div class="section">
-				<h2>Error Details</h2>
-				<div class="message">{error.message_text}</div>{
-					if (error.file) {
-						<div class="location">
-							at {error.file}:{error.line}:{error.column}
-						</div>
-					}
-				}</div>
+				<h2>"Error Details"</h2>
+				<div class="message">error.message_text</div>
+				if (error.file) {
+					<div class="location">
+						"at " + error.file + ":" + error.line + ":" + error.column
+					</div>
+				}
+			</div>
 		}
 		
 		if (error.source) {
 			<div class="section">
-				<h2>Source Code</h2>
-				<pre class="code-block">{
+				<h2>"Source Code"</h2>
+				<pre class="code-block">
 					for (line in error.source) {
 						if (line.is_error) {
-							<span class="line-error">{line.number} | {line.content " <--"} ERROR</span><br/>
+							<span class="line-error">line.number + " | " + line.content + " <--" + " ERROR"</span><br/>
 						} else {
-							<span class="line-number">{line.number}</span><>| {line.content}</><br/>
+							<span class="line-number">line.number</span><>"| " + line.content</><br/>
 						}
 					}
-				}
 				</pre>	
 			</div>
 		}
 		
 		if (error.request) {
 			<div class="section">
-				<h2>Request Information</h2>
+				<h2>"Request Information"</h2>
 				<div class="request-info">
 					<div class="request-row">
-						<div class="request-label">Method:</div>
-						<div class="request-value">{error.request.method}</div>
+						<div class="request-label">"Method:"</div>
+						<div class="request-value">error.request.method</div>
 					</div>
 					<div class="request-row">
-						<div class="request-label">Path:</div>
-						<div class="request-value">{error.request.path}</div>
-					</div>{
-						if (error.request.query) {
-							<div class="request-row">
-								<div class="request-label">Query:</div>
-								<div class="request-value">{error.request.query}</div>
-							</div>
-						}
-				}</div>
+						<div class="request-label">"Path:"</div>
+						<div class="request-value">error.request.path</div>
+					</div>
+					if (error.request.query) {
+						<div class="request-row">
+							<div class="request-label">"Query:"</div>
+							<div class="request-value">error.request.query</div>
+						</div>
+					}
+				</div>
 			</div>
 		}
 		
 		<div class="section">
-			<h2>Server Information</h2>
+			<h2>"Server Information"</h2>
 			<div class="request-info">
 				<div class="request-row">
-					<div class="request-label">Version:</div>
-					<div class="request-value">{basil.version}</div>
+					<div class="request-label">"Version:"</div>
+					<div class="request-value">basil.version</div>
 				</div>
 				<div class="request-row">
-					<div class="request-label">Mode:</div>
-					<div class="request-value">development</div>
+					<div class="request-label">"Mode:"</div>
+					<div class="request-value">"development"</div>
 				</div>
 			</div>
 		</div>
-	}
 	</div>
 </body>
 </html>

@@ -17,7 +17,7 @@ func TestPartAttributesRender(t *testing.T) {
 	}{
 		{
 			name:  "part-click attribute",
-			input: `<button part-click="increment">+</button>`,
+			input: `<button part-click="increment">"+"</button>`,
 			contains: []string{
 				`part-click="increment"`,
 				`<button`,
@@ -26,10 +26,10 @@ func TestPartAttributesRender(t *testing.T) {
 		},
 		{
 			name:  "part-click with part-count",
-			input: `<button part-click="increment" part-count={5}>+</button>`,
+			input: `<button part-click="increment" part-count={5}>"+"</button>`,
 			contains: []string{
 				`part-click="increment"`,
-				`part-count=5`,
+				`part-count="5"`,
 			},
 		},
 		{
@@ -42,16 +42,16 @@ func TestPartAttributesRender(t *testing.T) {
 		},
 		{
 			name:  "multiple part attributes",
-			input: `<button part-click="edit" part-id={123} part-name={"item"}>Edit</button>`,
+			input: `<button part-click="edit" part-id={123} part-name={"item"}>"Edit"</button>`,
 			contains: []string{
 				`part-click="edit"`,
-				`part-id=123`,
-				`part-name=item`,
+				`part-id="123"`,
+				`part-name="item"`,
 			},
 		},
 		{
 			name:  "part attribute with special characters",
-			input: `<button part-click="save" part-message={"Hello & goodbye"}>Save</button>`,
+			input: `<button part-click="save" part-message={"Hello & goodbye"}>"Save"</button>`,
 			contains: []string{
 				`part-click="save"`,
 				// HTML escaping happens in objectToTemplateString, test actual value
@@ -94,8 +94,8 @@ func TestPartAttributesRender(t *testing.T) {
 func TestPartAttributesInTagPairs(t *testing.T) {
 	input := `
 		<div class="container">
-			<button part-click="increment" part-count={5}>+</button>
-			<button part-click="decrement" part-count={5}>-</button>
+			<button part-click="increment" part-count={5}>"+"</button>
+			<button part-click="decrement" part-count={5}>"-"</button>
 		</div>
 	`
 
@@ -128,7 +128,7 @@ func TestPartAttributesInTagPairs(t *testing.T) {
 		t.Errorf("expected decrement button with part-click attribute, got: %s", str.Value)
 	}
 
-	if strings.Count(str.Value, `part-count=5`) != 2 {
+	if strings.Count(str.Value, `part-count="5"`) != 2 {
 		t.Errorf("expected two part-count attributes, got: %s", str.Value)
 	}
 }

@@ -146,7 +146,7 @@ func TestCssAndScriptTags_InTemplate(t *testing.T) {
   <CSS/>
 </head>
 <body>
-  <h1>Test</h1>
+  <h1>"Test"</h1>
   <Javascript/>
 </body>
 </html>

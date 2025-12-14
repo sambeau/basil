@@ -1098,6 +1098,9 @@ func (p *Parser) parseTagPair() ast.Expression {
 func (p *Parser) parseTagContents(tagName string) []ast.Node {
 	var contents []ast.Node
 
+	// Check if this is a raw text tag (style/script) which uses @{} for interpolation
+	isRawTextTag := tagName == "style" || tagName == "script"
+
 	for !p.curTokenIs(lexer.TAG_END) && !p.curTokenIs(lexer.EOF) {
 		switch p.curToken.Type {
 		case lexer.TAG_TEXT:
@@ -1124,6 +1127,50 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 				contents = append(contents, singletonTag)
 			}
 			p.nextToken()
+
+		case lexer.LBRACE:
+			// LBRACE in tag contents - this is from @{} interpolation in style/script tags
+			if isRawTextTag {
+				// Parse interpolation block for raw text tags
+				// The lexer gave us { from @{, now parse the expression and expect }
+				startToken := p.curToken
+				p.nextToken() // move past {
+
+				var stmts []ast.Statement
+				for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+					stmt := p.parseStatement()
+					if stmt != nil {
+						stmts = append(stmts, stmt)
+					}
+					p.nextToken()
+				}
+
+				block := &ast.InterpolationBlock{
+					Token:      startToken,
+					Statements: stmts,
+				}
+				contents = append(contents, block)
+				p.nextToken() // move past }
+			} else {
+				// For non-raw tags, { starts a dictionary literal - parse as expression
+				stmt := p.parseStatement()
+				if stmt != nil {
+					if exprStmt, ok := stmt.(*ast.ExpressionStatement); ok {
+						contents = append(contents, exprStmt.Expression)
+					} else {
+						block := &ast.InterpolationBlock{
+							Token:      p.curToken,
+							Statements: []ast.Statement{stmt},
+						}
+						contents = append(contents, block)
+					}
+				}
+				if !p.curTokenIs(lexer.TAG_END) && !p.peekTokenIs(lexer.TAG_END) {
+					p.nextToken()
+				} else if p.peekTokenIs(lexer.TAG_END) {
+					p.nextToken()
+				}
+			}
 
 		default:
 			// Parse as a statement (expression, for loop, if statement, etc.)
@@ -1419,7 +1466,11 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 		return nil
 	}
 
-	return exp
+	// Wrap in GroupedExpression so that (expr)(args) can call the result
+	return &ast.GroupedExpression{
+		Token: openParen,
+		Inner: exp,
+	}
 }
 
 func (p *Parser) parseSquareBracketArrayLiteral() ast.Expression {
@@ -1809,9 +1860,38 @@ func (p *Parser) parseForExpression() ast.Expression {
 }
 
 func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {
-	exp := &ast.CallExpression{Token: p.curToken, Function: fn}
-	exp.Arguments = p.parseExpressionList(lexer.RPAREN)
-	return exp
+	// Only certain expression types can be called as functions.
+	// This prevents `if(...){...}(x)` or `"string"(x)` from being parsed as calls.
+	// Callable expressions: identifiers, member access, index access, calls (chaining), function literals, connection literals, grouped expressions
+	switch fn.(type) {
+	case *ast.Identifier,
+		*ast.DotExpression,
+		*ast.IndexExpression,
+		*ast.CallExpression,
+		*ast.FunctionLiteral,
+		*ast.ConnectionLiteral,
+		*ast.GroupedExpression:
+		// These are callable - continue with call parsing
+		exp := &ast.CallExpression{Token: p.curToken, Function: fn}
+		exp.Arguments = p.parseExpressionList(lexer.RPAREN)
+		return exp
+	default:
+		// Not callable - the `(` we consumed starts a grouped expression.
+		// Parse what's inside the parens as an expression, then concatenate
+		// with the left expression using ++.
+		p.nextToken() // move past (
+		inner := p.parseExpression(LOWEST)
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+		// Create a concatenation: fn ++ inner
+		return &ast.InfixExpression{
+			Token:    p.curToken,
+			Left:     fn,
+			Operator: "++",
+			Right:    inner,
+		}
+	}
 }
 
 func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {

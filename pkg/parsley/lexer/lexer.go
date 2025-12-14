@@ -329,17 +329,18 @@ func LookupIdent(ident string) TokenType {
 
 // Lexer represents the lexical analyzer
 type Lexer struct {
-	filename      string
-	input         string
-	position      int       // current position in input (points to current char)
-	readPosition  int       // current reading position in input (after current char)
-	ch            byte      // current char under examination
-	line          int       // current line number
-	column        int       // current column number
-	inTagContent  bool      // whether we're currently lexing tag content
-	tagDepth      int       // nesting depth of tags (for proper TAG_END matching)
-	lastTokenType TokenType // last token type for regex context detection
-	inRawTextTag  string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
+	filename             string
+	input                string
+	position             int       // current position in input (points to current char)
+	readPosition         int       // current reading position in input (after current char)
+	ch                   byte      // current char under examination
+	line                 int       // current line number
+	column               int       // current column number
+	inTagContent         bool      // whether we're currently lexing tag content
+	tagDepth             int       // nesting depth of tags (for proper TAG_END matching)
+	lastTokenType        TokenType // last token type for regex context detection
+	inRawTextTag         string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
+	inRawTextInterpolate bool      // true when inside @{} interpolation within a raw text tag
 }
 
 // truncate returns the first n characters of a string, adding "..." if truncated.
@@ -744,6 +745,11 @@ func (l *Lexer) NextToken() Token {
 		tok = newToken(LBRACE, l.ch, l.line, l.column)
 	case '}':
 		tok = newToken(RBRACE, l.ch, l.line, l.column)
+		// If we were in a raw text tag interpolation (@{}), re-enter tag content mode
+		if l.inRawTextInterpolate {
+			l.inTagContent = true
+			l.inRawTextInterpolate = false
+		}
 	case '"':
 		line := l.line
 		column := l.column
@@ -1681,9 +1687,10 @@ func (l *Lexer) nextTagContentToken() Token {
 			if l.tagDepth == 0 {
 				l.inTagContent = false
 			}
-			// If we're closing a raw text tag, exit raw text mode
+			// If we're closing a raw text tag, exit raw text mode AND tag content mode
 			if l.inRawTextTag != "" && closingTagName == l.inRawTextTag {
 				l.inRawTextTag = ""
+				l.inTagContent = false // Exit tag content mode when closing style/script
 			}
 			return tok
 		} else if l.peekChar() == '!' {
@@ -1770,6 +1777,7 @@ func (l *Lexer) nextTagContentToken() Token {
 			tok = newToken(LBRACE, l.ch, l.line, l.column)
 			l.readChar() // skip {
 			l.inTagContent = false
+			l.inRawTextInterpolate = true // Remember to re-enter tag mode after }
 			return tok
 		}
 		// Not @{, treat @ as regular text

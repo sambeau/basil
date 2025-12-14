@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>500 - Server Error</title>
+	<title>"500 - Server Error"</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -51,9 +51,9 @@
 </head>
 <body>
 	<div class="container">
-		<h1>500</h1>
-		<p>Something went wrong</p>
-		<a href="/">Go home</a>
+		<h1>"500"</h1>
+		<p>"Something went wrong"</p>
+		<a href="/">"Go home"</a>
 	</div>
 </body>
 </html>

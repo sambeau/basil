@@ -17,12 +17,12 @@ func TestXMLComments(t *testing.T) {
 	}{
 		{
 			name:     "comment in tag content",
-			input:    `<div>hello<!-- this is a comment -->world</div>`,
+			input:    `<div>"hello"<!-- this is a comment -->"world"</div>`,
 			expected: "<div>helloworld</div>",
 		},
 		{
 			name:     "comment at start",
-			input:    `<!-- comment --><p>text</p>`,
+			input:    `<!-- comment --><p>"text"</p>`,
 			expected: "<p>text</p>",
 		},
 		{
@@ -30,12 +30,12 @@ func TestXMLComments(t *testing.T) {
 			input: `<div><!-- 
 multiline
 comment
--->content</div>`,
+-->"content"</div>`,
 			expected: "<div>content</div>",
 		},
 		{
 			name:     "multiple comments",
-			input:    `<div><!-- one -->hello<!-- two -->world<!-- three --></div>`,
+			input:    `<div><!-- one -->"hello"<!-- two -->"world"<!-- three --></div>`,
 			expected: "<div>helloworld</div>",
 		},
 	}
@@ -121,17 +121,17 @@ func TestWebComponentTags(t *testing.T) {
 	}{
 		{
 			name:     "simple web component",
-			input:    `<my-component>content</my-component>`,
+			input:    `<my-component>"content"</my-component>`,
 			expected: "<my-component>content</my-component>",
 		},
 		{
 			name:     "nested web components",
-			input:    `<my-app><my-header>Title</my-header></my-app>`,
+			input:    `<my-app><my-header>"Title"</my-header></my-app>`,
 			expected: "<my-app><my-header>Title</my-header></my-app>",
 		},
 		{
 			name:     "web component with attributes",
-			input:    `<custom-element id="test">text</custom-element>`,
+			input:    `<custom-element id="test">"text"</custom-element>`,
 			expected: `<custom-element id="test">text</custom-element>`,
 		},
 		{
@@ -457,7 +457,7 @@ func TestProcessingInstructions(t *testing.T) {
 		},
 		{
 			name:     "xml declaration concatenated with html",
-			input:    `<?xml version="1.0"?> + <html><body>content</body></html>`,
+			input:    `<?xml version="1.0"?> + <html><body>"content"</body></html>`,
 			expected: `<?xml version="1.0"?><html><body>content</body></html>`,
 		},
 		{
