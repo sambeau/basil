@@ -13193,7 +13193,17 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	case "md", "markdown":
 		// Parse markdown with optional YAML frontmatter
 		content := string(data)
-		return parseMarkdown(content, nil, env)
+		
+		// Extract options from fileDict if present
+		var options *Dictionary
+		if optionsExpr, ok := fileDict.Pairs["options"]; ok {
+			optionsObj := Eval(optionsExpr, env)
+			if optDict, ok := optionsObj.(*Dictionary); ok {
+				options = optDict
+			}
+		}
+		
+		return parseMarkdown(content, options, env)
 
 	default:
 		return nil, newFileOpError("FILEOP-0005", map[string]any{"Operation": "reading", "Format": formatStr.Value})
@@ -13489,13 +13499,13 @@ func parseMarkdown(content string, options *Dictionary, env *Environment) (Objec
 
 	// Convert markdown to HTML using goldmark with Parsley interpolation extension
 	var htmlBuf bytes.Buffer
-	
+
 	// Configure parser options
 	parserOptions := []goldmarkParser.Option{}
 	if includeIDs {
 		parserOptions = append(parserOptions, goldmarkParser.WithAutoHeadingID())
 	}
-	
+
 	md := goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,

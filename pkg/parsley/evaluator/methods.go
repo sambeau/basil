@@ -248,7 +248,7 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		if len(args) > 1 {
 			return newArityErrorRange("parseMarkdown", len(args), 0, 1)
 		}
-		
+
 		var options *Dictionary
 		if len(args) == 1 {
 			optDict, ok := args[0].(*Dictionary)
@@ -257,7 +257,7 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 			}
 			options = optDict
 		}
-		
+
 		result, err := parseMarkdown(str.Value, options, env)
 		if err != nil {
 			return err

@@ -270,9 +270,9 @@ func TestMarkdownStringParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-l := lexer.New(tt.code)
-p := parser.New(l)
-program := p.ParseProgram()
+			l := lexer.New(tt.code)
+			p := parser.New(l)
+			program := p.ParseProgram()
 			env := evaluator.NewEnvironment()
 			result := evaluator.Eval(program, env)
 
@@ -315,9 +315,9 @@ func TestParseMarkdownMethod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-l := lexer.New(tt.code)
-p := parser.New(l)
-program := p.ParseProgram()
+			l := lexer.New(tt.code)
+			p := parser.New(l)
+			program := p.ParseProgram()
 			env := evaluator.NewEnvironment()
 			result := evaluator.Eval(program, env)
 
@@ -381,9 +381,9 @@ func TestMarkdownHeadingIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-l := lexer.New(tt.code)
-p := parser.New(l)
-program := p.ParseProgram()
+			l := lexer.New(tt.code)
+			p := parser.New(l)
+			program := p.ParseProgram()
 			env := evaluator.NewEnvironment()
 			result := evaluator.Eval(program, env)
 
@@ -392,6 +392,78 @@ program := p.ParseProgram()
 			}
 
 			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("Evaluation error: %s", result.Inspect())
+			}
+
+			output := result.Inspect()
+			for _, expected := range tt.contains {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected to contain '%s', got: %s", expected, output)
+				}
+			}
+			for _, notExpected := range tt.notContains {
+				if strings.Contains(output, notExpected) {
+					t.Errorf("Expected NOT to contain '%s', got: %s", notExpected, output)
+				}
+			}
+		})
+	}
+}
+
+// TestMarkdownFileWithHeadingIDs tests MD(@path, {ids: true}) with file loading
+func TestMarkdownFileWithHeadingIDs(t *testing.T) {
+	// Create a temp directory for test files
+	tmpDir, err := os.MkdirTemp("", "parsley-md-file-ids-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a markdown file with multiple headings
+	mdContent := `# Getting Started
+
+## Installation
+
+Follow these steps.
+
+## Configuration
+
+Set up your config.
+`
+	mdPath := filepath.Join(tmpDir, "guide.md")
+	if err := os.WriteFile(mdPath, []byte(mdContent), 0644); err != nil {
+		t.Fatalf("Failed to write markdown file: %v", err)
+	}
+
+	testFilePath := filepath.Join(tmpDir, "test.pars")
+
+	tests := []struct {
+		name        string
+		code        string
+		contains    []string
+		notContains []string
+	}{
+		{
+			name:     "MD with ids option",
+			code:     `let doc <== MD(@./guide.md, {ids: true}); doc.html`,
+			contains: []string{`id="getting-started"`, `id="installation"`, `id="configuration"`},
+		},
+		{
+			name:        "MD without ids option",
+			code:        `let doc <== MD(@./guide.md); doc.html`,
+			notContains: []string{`id=`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+result := testEvalMDWithFilename(tt.code, testFilePath)
+
+if result == nil {
+t.Fatalf("Result is nil")
+}
+
+if result.Type() == evaluator.ERROR_OBJ {
 				t.Fatalf("Evaluation error: %s", result.Inspect())
 			}
 
