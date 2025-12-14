@@ -70,6 +70,9 @@ Single elements that add required attributes or smart defaults:
 | `<Iframe>` | Requires `title`, adds `loading="lazy"` |
 | `<A>` | Auto `rel="noopener noreferrer"` for `target="_blank"` |
 | `<Time>` | Formats `datetime` attribute from value |
+| `<LocalTime>` | Client-side localization of UTC datetime |
+| `<TimeRange>` | Smart display of datetime spans |
+| `<RelativeTime>` | "2 hours ago" / "in 3 days" with optional auto-refresh |
 | `<Abbr>` | Requires `title` (expansion) |
 | `<Button>` | Defaults to `type="button"` (not submit) |
 | `<Th>` | Infers `scope` from position |
@@ -564,6 +567,230 @@ Renders:
 ```html
 <time datetime="2024-12-07T10:30:00Z">December 7, 2024</time>
 ```
+
+#### `<LocalTime>`
+
+Client-side localized datetime display. Renders a `<local-time>` custom element that JavaScript enhances to show the datetime in the user's browser timezone and locale.
+
+```parsley
+// With server-rendered fallback
+<LocalTime datetime={event.startTime}>
+    event.startTime.format("long")
+</LocalTime>
+
+// Format options
+<LocalTime datetime={post.createdAt} format="short"/>
+<LocalTime datetime={meeting.time} format="time"/>   // Time only
+<LocalTime datetime={deadline} format="date"/>       // Date only
+<LocalTime datetime={event.date} format="long" weekday="long"/>
+```
+
+Renders:
+```html
+<local-time datetime="2024-12-25T14:30:00Z">December 25, 2024 at 2:30 PM UTC</local-time>
+```
+
+After JS enhancement (user in EST):
+```html
+<local-time datetime="2024-12-25T14:30:00Z">December 25, 2024 at 9:30 AM</local-time>
+```
+
+Props:
+- `datetime` - The UTC datetime to display (required)
+- `format` - `"short"`, `"long"` (default), `"full"`, `"date"`, `"time"`
+- `weekday` - `"short"`, `"long"` (adds weekday to output)
+
+Format examples:
+
+| Format | Example Output |
+|--------|----------------|
+| `"short"` | 12/25/24, 9:30 AM |
+| `"long"` | December 25, 2024 at 9:30 AM |
+| `"full"` | Wednesday, December 25, 2024 at 9:30 AM EST |
+| `"date"` | December 25, 2024 |
+| `"time"` | 9:30 AM |
+
+The JavaScript uses `Intl.DateTimeFormat` with the browser's locale (`navigator.language`).
+
+#### `<TimeRange>`
+
+Smart display of datetime spans that collapses redundant information. Renders a `<time-range>` custom element.
+
+```parsley
+// Same-day event
+<TimeRange start={session.start} end={session.end}>
+    session.start.format("long") + " – " + session.end.time
+</TimeRange>
+// → December 25, 2024, 9:00 AM – 11:00 AM
+
+// Multi-day event
+<TimeRange start={conference.start} end={conference.end}>
+    conference.start.date + " – " + conference.end.date
+</TimeRange>
+// → December 25 – 27, 2024
+```
+
+Renders:
+```html
+<time-range start="2024-12-25T14:00:00Z" end="2024-12-25T16:00:00Z">
+    December 25, 2024 at 2:00 PM – 4:00 PM UTC
+</time-range>
+```
+
+After JS enhancement (user in EST):
+```html
+<time-range start="2024-12-25T14:00:00Z" end="2024-12-25T16:00:00Z">
+    December 25, 2024, 9:00 AM – 11:00 AM
+</time-range>
+```
+
+Props:
+- `start` - Start datetime (required)
+- `end` - End datetime (required)
+- `format` - `"short"`, `"long"` (default)
+- `separator` - Text between start/end (default: `" – "`)
+
+Smart formatting rules:
+
+| Scenario | Example Output |
+|----------|----------------|
+| Same day | December 25, 2024, 9:00 AM – 11:00 AM |
+| Same month | December 25 – 27, 2024 |
+| Same year | December 25 – January 3, 2024 |
+| Different years | December 25, 2024 – January 3, 2025 |
+| All day (midnight to midnight) | December 25, 2024 |
+| Multi-day all day | December 25 – 27, 2024 |
+
+#### `<RelativeTime>`
+
+Human-readable relative time display ("2 hours ago", "in 3 days"). Renders a `<relative-time>` custom element with optional auto-refresh.
+
+```parsley
+// Basic usage
+<RelativeTime datetime={comment.createdAt}/>
+// → "5 minutes ago"
+
+// Live countdown (auto-refreshes)
+<RelativeTime datetime={auction.ends} live/>
+// → "2 hours 34 minutes" (updates every minute)
+
+// Threshold: show relative within 7 days, then absolute
+<RelativeTime datetime={post.createdAt} threshold=@7d/>
+// Recent: "3 days ago"
+// Older: "December 18, 2024"
+```
+
+Renders:
+```html
+<relative-time datetime="2024-12-25T14:30:00Z">2 hours ago</relative-time>
+
+<!-- With live updates -->
+<relative-time datetime="2024-12-25T16:00:00Z" live>in 2 hours 34 minutes</relative-time>
+```
+
+Props:
+- `datetime` - The UTC datetime (required)
+- `live` - Auto-refresh the display (for countdowns/countups)
+- `threshold` - Duration after which to show absolute date instead
+- `format` - Absolute date format when threshold exceeded (default: `"long"`)
+
+Relative formatting examples:
+
+| Time Difference | Output |
+|-----------------|--------|
+| < 1 minute | just now |
+| 1-59 minutes | 5 minutes ago |
+| 1-23 hours | 2 hours ago |
+| 1-6 days | 3 days ago |
+| 1-4 weeks | 2 weeks ago |
+| 1-11 months | 3 months ago |
+| 1+ years | 2 years ago |
+| Future | in 3 days |
+
+The JavaScript uses `Intl.RelativeTimeFormat` for localized output. When `live` is set, the component updates every minute (or every second when < 1 minute away).
+
+**Auto-refresh behavior:**
+- Updates DOM only when displayed text would change
+- Pauses when tab is hidden (via `document.visibilityState`)
+- Cleans up interval on element disconnect
+
+---
+
+### Time Component Accessibility
+
+The time components (`<LocalTime>`, `<TimeRange>`, `<RelativeTime>`) have specific accessibility considerations:
+
+#### Machine-Readable Datetime
+All components preserve the ISO datetime in the `datetime` attribute, providing machine-readable data for assistive technologies and tools.
+
+#### Screen Reader Announcements
+- **Static times**: No special handling needed — screen readers read the text content naturally
+- **Live updates**: Use `aria-live="off"` by default to prevent constant announcements during countdowns
+- **Critical countdowns**: Add `announce` prop to enable `aria-live="polite"` for important deadlines
+
+```parsley
+// Silent countdown (default) - no announcements
+<RelativeTime datetime={auction.ends} live/>
+
+// Announced countdown - speaks changes at key intervals
+<RelativeTime datetime={auction.ends} live announce/>
+```
+
+When `announce` is set, the component only announces at meaningful intervals (1 hour, 30 min, 10 min, 5 min, 1 min, 30 sec) rather than every update.
+
+#### Timezone Clarity
+For `<LocalTime>`, consider whether users need to know which timezone is displayed:
+
+```parsley
+// Show timezone abbreviation
+<LocalTime datetime={event.time} format="full"/>
+// → "December 25, 2024 at 9:30 AM EST"
+
+// Or add explicit timezone indicator
+<LocalTime datetime={flight.departure} showZone/>
+// → "9:30 AM (EST)"
+```
+
+#### Relative Time Comprehension
+Relative times ("3 days ago") can be harder to interpret than absolute dates for some users. The `threshold` prop addresses this by switching to absolute dates after a duration:
+
+```parsley
+// After 7 days, show the actual date
+<RelativeTime datetime={post.createdAt} threshold=@7d/>
+```
+
+Consider using shorter thresholds for important dates, or providing both:
+
+```parsley
+<span>
+    <RelativeTime datetime={event.date}/>
+    (<LocalTime datetime={event.date} format="date"/>)
+</span>
+// → "in 3 days (December 28, 2024)"
+```
+
+#### Title Attribute for Precision
+All time components include the full UTC datetime in a `title` attribute for hover/focus:
+
+```html
+<local-time datetime="2024-12-25T14:30:00Z" title="December 25, 2024 at 2:30 PM UTC">
+    December 25, 2024 at 9:30 AM
+</local-time>
+```
+
+This provides access to the original UTC time for users who need precision.
+
+#### Focus and Interaction
+Time elements are not interactive by default (no focus, no click handling). If a time needs to be actionable (e.g., click to copy, click for details), wrap in a `<button>` or `<a>`:
+
+```parsley
+<button type="button" data-copy-datetime={event.time.iso}>
+    <LocalTime datetime={event.time}>event.time.format("long")</LocalTime>
+    <SrOnly>Click to copy datetime</SrOnly>
+</button>
+```
+
+---
 
 #### `<Abbr>`
 

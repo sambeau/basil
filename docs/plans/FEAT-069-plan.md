@@ -261,3 +261,63 @@ Items to add to BACKLOG.md after implementation:
 - LSP hover documentation for builtins
 - Auto-generate API reference from metadata
 - Connection literal metadata (`@sqlite`, `@postgres`)
+
+---
+
+## Ongoing Maintenance
+
+### When Adding New Builtins
+**Every time a builtin is added** to `getBuiltins()`, immediately add corresponding entry to `BuiltinMetadata`:
+
+```go
+"new_function": {
+    Name:        "new_function",
+    Arity:       "1-2",  // Actual arity
+    Description: "Clear description of what it does",
+    Params:      []string{"param1", "param2?"},  // ? for optional
+    Category:    "appropriate-category",
+},
+```
+
+### Periodic Audit (Monthly or When Touching Builtins)
+Run this checklist to ensure introspection data stays synchronized:
+
+1. **Completeness check**:
+   ```bash
+   # Count builtins in getBuiltins()
+   grep -c '".*": {$' pkg/parsley/evaluator/evaluator.go
+   
+   # Count entries in BuiltinMetadata
+   grep -c '".*": {Name:' pkg/parsley/evaluator/introspect.go
+   
+   # Numbers should match (minus internal-only functions like 'import')
+   ```
+
+2. **Spot check** random builtins:
+   - Verify arity matches implementation
+   - Confirm parameter names are accurate
+   - Check category is appropriate
+
+3. **Test introspection**:
+   ```go
+   func TestAllBuiltinsHaveMetadata(t *testing.T) {
+       builtins := getBuiltins()
+       for name := range builtins {
+           if name == "import" { continue } // Skip internal
+           metadata, exists := BuiltinMetadata[name]
+           if !exists {
+               t.Errorf("Missing metadata for builtin: %s", name)
+           }
+           // Verify metadata fields are populated...
+       }
+   }
+   ```
+
+### Deprecation Process
+When deprecating a builtin:
+1. Add `Deprecated: "Use X instead"` to metadata
+2. Keep the function working for backwards compatibility
+3. Document in CHANGELOG under deprecation section
+4. Remove in major version bump
+
+**Reference**: See `.github/instructions/code.instructions.md` for integration with development workflow.

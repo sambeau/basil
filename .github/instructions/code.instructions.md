@@ -59,3 +59,27 @@ pkg/          # Public packages (if any)
 - Update test files in `pkg/parsley/tests/` for Parsley language features
 - Bug fixes must include regression tests
 
+## Builtin Function Introspection
+When adding, modifying, or removing builtin functions:
+
+1. **Update `BuiltinMetadata` map** in `pkg/parsley/evaluator/introspect.go`:
+   - Add entries for new builtins
+   - Update descriptions for modified builtins
+   - Remove entries for deprecated/removed builtins
+   - Ensure `Arity`, `Params`, and `Category` are accurate
+
+2. **Audit checklist** (run periodically or when touching builtins):
+   - [ ] Every function in `getBuiltins()` has a `BuiltinMetadata` entry
+   - [ ] Every `BuiltinMetadata` entry matches an actual builtin
+   - [ ] All parameter names end with `?` for optional params
+   - [ ] Arity strings match actual function behavior (e.g., `"1"`, `"1-2"`, `"0+"`, `"1+"`)
+   - [ ] Categories are consistent across similar functions
+   - [ ] Deprecated builtins have non-empty `Deprecated` messages
+
+3. **Test coverage**:
+   - `inspect(builtin_name)` returns expected metadata
+   - `describe(builtin_name)` produces readable output
+   - No missing or outdated introspection data
+
+**Location reference**: See FEAT-069 implementation plan for full details.
+

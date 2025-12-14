@@ -19,6 +19,16 @@ type MethodInfo struct {
 	Description string
 }
 
+// BuiltinInfo holds metadata about a builtin function
+type BuiltinInfo struct {
+	Name        string
+	Arity       string   // e.g., "1", "1-2", "0+", "1+"
+	Description string
+	Params      []string // Parameter names, "?" suffix for optional
+	Category    string   // Grouping: "file", "time", "conversion", etc.
+	Deprecated  string   // If non-empty, deprecation message
+}
+
 // PropertyInfo holds metadata about a property
 type PropertyInfo struct {
 	Name        string
@@ -252,6 +262,80 @@ var TypeMethods = map[string][]MethodInfo{
 }
 
 // ============================================================================
+// Builtin Function Metadata
+// ============================================================================
+
+// BuiltinMetadata maps builtin function names to their metadata
+var BuiltinMetadata = map[string]BuiltinInfo{
+	// === File/Data Loading ===
+	"JSON":     {Name: "JSON", Arity: "1-2", Description: "Load JSON from path or URL", Params: []string{"source", "options?"}, Category: "file"},
+	"YAML":     {Name: "YAML", Arity: "1-2", Description: "Load YAML from path or URL", Params: []string{"source", "options?"}, Category: "file"},
+	"CSV":      {Name: "CSV", Arity: "1-2", Description: "Load CSV from path or URL as table", Params: []string{"source", "options?"}, Category: "file"},
+	"MD":       {Name: "MD", Arity: "1-2", Description: "Load markdown file and render to HTML", Params: []string{"path", "options?"}, Category: "file"},
+	"markdown": {Name: "markdown", Arity: "1-2", Description: "Load markdown file with frontmatter", Params: []string{"path", "options?"}, Category: "file"},
+	"lines":    {Name: "lines", Arity: "1-2", Description: "Load file as array of lines", Params: []string{"source", "options?"}, Category: "file"},
+	"text":     {Name: "text", Arity: "1-2", Description: "Load file as text string", Params: []string{"source", "options?"}, Category: "file"},
+	"bytes":    {Name: "bytes", Arity: "1", Description: "Load file as byte array", Params: []string{"path"}, Category: "file"},
+	"SVG":      {Name: "SVG", Arity: "1-2", Description: "Load SVG file with optional attributes", Params: []string{"path", "attributes?"}, Category: "file"},
+	"file":     {Name: "file", Arity: "1-2", Description: "Load file with auto-detected format", Params: []string{"path", "options?"}, Category: "file"},
+	"dir":      {Name: "dir", Arity: "1", Description: "List directory contents", Params: []string{"path"}, Category: "file"},
+	"fileList": {Name: "fileList", Arity: "1-2", Description: "List files in directory recursively", Params: []string{"path", "pattern?"}, Category: "file"},
+	
+	// === Time ===
+	"time": {Name: "time", Arity: "1-2", Description: "Create datetime from string, timestamp, or dict", Params: []string{"input", "delta?"}, Category: "time"},
+	"now":  {Name: "now", Arity: "0", Description: "Current datetime", Params: []string{}, Category: "time", Deprecated: "Use @now datetime literal instead"},
+	
+	// === URLs ===
+	"url": {Name: "url", Arity: "1", Description: "Parse URL string into components", Params: []string{"urlString"}, Category: "url"},
+	
+	// === Type Conversion ===
+	"toInt":    {Name: "toInt", Arity: "1", Description: "Convert value to integer", Params: []string{"value"}, Category: "conversion"},
+	"toFloat":  {Name: "toFloat", Arity: "1", Description: "Convert value to float", Params: []string{"value"}, Category: "conversion"},
+	"toNumber": {Name: "toNumber", Arity: "1", Description: "Convert value to number (int or float)", Params: []string{"value"}, Category: "conversion"},
+	"toString": {Name: "toString", Arity: "1", Description: "Convert value to string", Params: []string{"value"}, Category: "conversion"},
+	"toArray":  {Name: "toArray", Arity: "1", Description: "Convert value to array", Params: []string{"value"}, Category: "conversion"},
+	"toDict":   {Name: "toDict", Arity: "1", Description: "Convert array of [key,value] pairs to dictionary", Params: []string{"pairs"}, Category: "conversion"},
+	
+	// === Type Introspection ===
+	"inspect":  {Name: "inspect", Arity: "1", Description: "Get introspection data for value", Params: []string{"value"}, Category: "introspection"},
+	"describe": {Name: "describe", Arity: "1", Description: "Get human-readable description of value", Params: []string{"value"}, Category: "introspection"},
+	"repr":     {Name: "repr", Arity: "1", Description: "Get code representation of value", Params: []string{"value"}, Category: "introspection"},
+	"builtins": {Name: "builtins", Arity: "0-1", Description: "List all builtin functions by category", Params: []string{"category?"}, Category: "introspection"},
+	
+	// === Output ===
+	"print":   {Name: "print", Arity: "1+", Description: "Print values without newline", Params: []string{"values..."}, Category: "output"},
+	"println": {Name: "println", Arity: "0+", Description: "Print values with newline", Params: []string{"values..."}, Category: "output"},
+	"printf":  {Name: "printf", Arity: "1+", Description: "Print formatted string", Params: []string{"format", "values..."}, Category: "output"},
+	"log":     {Name: "log", Arity: "1+", Description: "Log message", Params: []string{"values..."}, Category: "output"},
+	"logLine": {Name: "logLine", Arity: "1+", Description: "Log message with newline", Params: []string{"values..."}, Category: "output"},
+	"toDebug": {Name: "toDebug", Arity: "1", Description: "Convert value to debug string", Params: []string{"value"}, Category: "output"},
+	
+	// === Control Flow ===
+	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message", Params: []string{"message"}, Category: "control"},
+	
+	// === Formatting ===
+	"format": {Name: "format", Arity: "2+", Description: "Format string with placeholders", Params: []string{"template", "values..."}, Category: "format"},
+	"tag":    {Name: "tag", Arity: "1-3", Description: "Create HTML tag", Params: []string{"name", "attributes?", "content?"}, Category: "format"},
+	
+	// === Regex ===
+	"regex": {Name: "regex", Arity: "1-2", Description: "Create regex pattern", Params: []string{"pattern", "flags?"}, Category: "regex"},
+	"match": {Name: "match", Arity: "2-3", Description: "Match string against pattern", Params: []string{"string", "pattern", "flags?"}, Category: "regex"},
+	
+	// === Money ===
+	"money": {Name: "money", Arity: "1-2", Description: "Create money value", Params: []string{"amount", "currency?"}, Category: "money"},
+	
+	// === Assets ===
+	"asset": {Name: "asset", Arity: "1", Description: "Get asset path with cache busting", Params: []string{"path"}, Category: "asset"},
+	
+	// === Connection Literals (internal) ===
+	"sqlite":   {Name: "sqlite", Arity: "1", Description: "Create SQLite database connection", Params: []string{"path"}, Category: "connection"},
+	"postgres": {Name: "postgres", Arity: "1", Description: "Create PostgreSQL database connection", Params: []string{"connectionString"}, Category: "connection"},
+	"mysql":    {Name: "mysql", Arity: "1", Description: "Create MySQL database connection", Params: []string{"connectionString"}, Category: "connection"},
+	"sftp":     {Name: "sftp", Arity: "1", Description: "Create SFTP connection", Params: []string{"connectionString"}, Category: "connection"},
+	"shell":    {Name: "shell", Arity: "0", Description: "Create shell command executor", Params: []string{}, Category: "connection"},
+}
+
+// ============================================================================
 // Type Detection
 // ============================================================================
 
@@ -351,6 +435,11 @@ func builtinInspect(args ...Object) Object {
 	// Special handling for StdlibModuleDict - show exports
 	if mod, ok := obj.(*StdlibModuleDict); ok {
 		return inspectStdlibModule(mod)
+	}
+
+	// Special handling for Builtin functions
+	if builtin, ok := obj.(*Builtin); ok {
+		return inspectBuiltin(builtin)
 	}
 
 	typeName, subType := getObjectTypeName(obj, nil)
@@ -482,6 +571,62 @@ func inspectStdlibModule(mod *StdlibModuleDict) Object {
 	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 }
 
+// inspectBuiltin returns introspection data for a builtin function
+func inspectBuiltin(builtin *Builtin) Object {
+	// Try to find the builtin name by searching getBuiltins()
+	// This is a bit indirect but necessary since Builtin doesn't store its name
+	builtins := getBuiltins()
+	var name string
+	for n, b := range builtins {
+		if b == builtin {
+			name = n
+			break
+		}
+	}
+
+	if name == "" {
+		// Builtin not found in metadata
+		pairs := map[string]ast.Expression{
+			"type": createLiteralExpression(&String{Value: "builtin"}),
+			"name": createLiteralExpression(&String{Value: "<unknown>"}),
+		}
+		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	}
+
+	// Look up metadata
+	metadata, hasMetadata := BuiltinMetadata[name]
+	if !hasMetadata {
+		// No metadata available
+		pairs := map[string]ast.Expression{
+			"type": createLiteralExpression(&String{Value: "builtin"}),
+			"name": createLiteralExpression(&String{Value: name}),
+		}
+		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	}
+
+	// Build params array
+	paramObjs := make([]Object, len(metadata.Params))
+	for i, p := range metadata.Params {
+		paramObjs[i] = &String{Value: p}
+	}
+
+	// Build result dictionary
+	pairs := map[string]ast.Expression{
+		"type":        createLiteralExpression(&String{Value: "builtin"}),
+		"name":        createLiteralExpression(&String{Value: metadata.Name}),
+		"arity":       createLiteralExpression(&String{Value: metadata.Arity}),
+		"description": createLiteralExpression(&String{Value: metadata.Description}),
+		"params":      createLiteralExpression(&Array{Elements: paramObjs}),
+		"category":    createLiteralExpression(&String{Value: metadata.Category}),
+	}
+
+	if metadata.Deprecated != "" {
+		pairs["deprecated"] = createLiteralExpression(&String{Value: metadata.Deprecated})
+	}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
 // inspectStdlibRoot returns introspection data for the stdlib root
 func inspectStdlibRoot(root *StdlibRoot) Object {
 	// Build modules array
@@ -547,6 +692,52 @@ var StdlibModuleDescriptions = map[string]string{
 	"valid":  "Validation functions for strings, numbers, formats",
 }
 
+// describeBuiltin returns human-readable documentation for a builtin function
+func describeBuiltin(builtin *Builtin) Object {
+	// Find the builtin name
+	builtins := getBuiltins()
+	var name string
+	for n, b := range builtins {
+		if b == builtin {
+			name = n
+			break
+		}
+	}
+
+	if name == "" {
+		return &String{Value: "Builtin function (name unknown)"}
+	}
+
+	// Look up metadata
+	metadata, hasMetadata := BuiltinMetadata[name]
+	if !hasMetadata {
+		return &String{Value: fmt.Sprintf("Builtin: %s (no documentation available)", name)}
+	}
+
+	var sb strings.Builder
+	
+	// Function signature
+	sb.WriteString(fmt.Sprintf("%s(", metadata.Name))
+	sb.WriteString(strings.Join(metadata.Params, ", "))
+	sb.WriteString(")\n\n")
+	
+	// Description
+	sb.WriteString(fmt.Sprintf("%s\n\n", metadata.Description))
+	
+	// Arity
+	sb.WriteString(fmt.Sprintf("Arity: %s\n", metadata.Arity))
+	
+	// Category
+	sb.WriteString(fmt.Sprintf("Category: %s\n", metadata.Category))
+	
+	// Deprecation warning
+	if metadata.Deprecated != "" {
+		sb.WriteString(fmt.Sprintf("\n⚠ DEPRECATED: %s\n", metadata.Deprecated))
+	}
+
+	return &String{Value: sb.String()}
+}
+
 // ============================================================================
 // Describe Function (Pretty Print)
 // ============================================================================
@@ -567,6 +758,11 @@ func builtinDescribe(args ...Object) Object {
 	// Special handling for StdlibModuleDict - show exports
 	if mod, ok := obj.(*StdlibModuleDict); ok {
 		return describeStdlibModule(mod)
+	}
+
+	// Special handling for Builtin functions
+	if builtin, ok := obj.(*Builtin); ok {
+		return describeBuiltin(builtin)
 	}
 
 	typeName, subType := getObjectTypeName(obj, nil)

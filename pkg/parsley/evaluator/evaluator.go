@@ -4756,6 +4756,10 @@ func connectionBuiltins() map[string]*Builtin {
 }
 
 // getBuiltins returns the map of built-in functions
+//
+// IMPORTANT: When adding, modifying, or removing builtins, update the BuiltinMetadata
+// map in introspect.go to keep introspection data in sync. See .github/instructions/code.instructions.md
+// for maintenance checklist.
 func getBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
 		"import": {
@@ -5996,6 +6000,75 @@ func getBuiltins() map[string]*Builtin {
 					Currency: currency,
 					Scale:    scale,
 				}
+			},
+		},
+		// builtins() - list all builtin functions by category
+		"builtins": {
+			Fn: func(args ...Object) Object {
+				if len(args) > 1 {
+					return newArityErrorRange("builtins", len(args), 0, 1)
+				}
+
+				// Optional category filter
+				var categoryFilter string
+				if len(args) == 1 {
+					cat, ok := args[0].(*String)
+					if !ok {
+						return newTypeError("TYPE-0012", "builtins", "a category string", args[0].Type())
+					}
+					categoryFilter = cat.Value
+				}
+
+				// Group builtins by category
+				categories := make(map[string][]BuiltinInfo)
+				for _, metadata := range BuiltinMetadata {
+					if categoryFilter != "" && metadata.Category != categoryFilter {
+						continue
+					}
+					categories[metadata.Category] = append(categories[metadata.Category], metadata)
+				}
+
+				// Sort categories
+				catNames := make([]string, 0, len(categories))
+				for cat := range categories {
+					catNames = append(catNames, cat)
+				}
+				sort.Strings(catNames)
+
+				// Build result dictionary
+				resultPairs := make(map[string]ast.Expression)
+				for _, cat := range catNames {
+					funcs := categories[cat]
+					
+					// Sort functions within category
+					sort.Slice(funcs, func(i, j int) bool {
+						return funcs[i].Name < funcs[j].Name
+					})
+
+					// Convert to array of dictionaries
+					funcObjs := make([]Object, len(funcs))
+					for i, f := range funcs {
+						paramObjs := make([]Object, len(f.Params))
+						for j, p := range f.Params {
+							paramObjs[j] = &String{Value: p}
+						}
+
+						pairs := map[string]ast.Expression{
+							"name":        createLiteralExpression(&String{Value: f.Name}),
+							"arity":       createLiteralExpression(&String{Value: f.Arity}),
+							"description": createLiteralExpression(&String{Value: f.Description}),
+							"params":      createLiteralExpression(&Array{Elements: paramObjs}),
+						}
+						if f.Deprecated != "" {
+							pairs["deprecated"] = createLiteralExpression(&String{Value: f.Deprecated})
+						}
+						funcObjs[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+					}
+
+					resultPairs[cat] = createLiteralExpression(&Array{Elements: funcObjs})
+				}
+
+				return &Dictionary{Pairs: resultPairs, Env: NewEnvironment()}
 			},
 		},
 	}
@@ -13193,7 +13266,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	case "md", "markdown":
 		// Parse markdown with optional YAML frontmatter
 		content := string(data)
-		
+
 		// Extract options from fileDict if present
 		var options *Dictionary
 		if optionsExpr, ok := fileDict.Pairs["options"]; ok {
@@ -13202,7 +13275,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 				options = optDict
 			}
 		}
-		
+
 		return parseMarkdown(content, options, env)
 
 	default:
