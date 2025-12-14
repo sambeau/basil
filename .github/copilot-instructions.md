@@ -42,6 +42,7 @@ Before writing any Parsley code (handlers, tests, examples):
 
 ## Parsley Documentation
 When documenting Parsley language features:
+- When writing manual pages: see `.github/templates/DOC_MAN_BUILTIN.md` and `.github/templates/DDOC_MAN_STD.md`
 - `docs/parsley/reference.md` - Comprehensive reference. All features should be documented here with accurate grammar snippets
 - `docs/parsley/CHEATSHEET.md` - AI-focused cheatsheet highlighting differences from other languages, ordered by likelihood of being a pitfall
 - `docs/parsley/README.md` - Quick guide with examples (may be outdated)
