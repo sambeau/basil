@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	htmllib "html"
 	"io"
 	"math"
 	"net"
@@ -30,6 +31,13 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/locale"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/yuin/goldmark"
+	goldmarkAst "github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	goldmarkParser "github.com/yuin/goldmark/parser"
+	goldmarkRenderer "github.com/yuin/goldmark/renderer"
+	"github.com/yuin/goldmark/renderer/html"
+	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"gopkg.in/yaml.v3"
@@ -100,6 +108,7 @@ const (
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
 	TABLE_OBJ            = "TABLE"
 	TABLE_BINDING_OBJ    = "TABLE_BINDING"
+	MDDOC_OBJ            = "MDDOC"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
 	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
@@ -533,8 +542,10 @@ func (sfh *SFTPFileHandle) Inspect() string {
 type SecurityPolicy struct {
 	RestrictRead    []string // Denied read directories (blacklist)
 	NoRead          bool     // Deny all reads
-	AllowWrite      []string // Allowed write directories (whitelist)
-	AllowWriteAll   bool     // Allow all writes
+	RestrictWrite   []string // Denied write directories (blacklist)
+	NoWrite         bool     // Deny all writes
+	AllowWrite      []string // Allowed write directories (whitelist, used when AllowWriteAll is false)
+	AllowWriteAll   bool     // Allow all writes (default true for pars)
 	AllowExecute    []string // Allowed execute directories (whitelist)
 	AllowExecuteAll bool     // Allow all executes
 }
@@ -689,17 +700,9 @@ func (e *Environment) IsLetBinding(name string) bool {
 	return false
 }
 
-// IsExported checks if a variable is exported (either via explicit export or via let - backward compat)
+// IsExported checks if a variable is explicitly exported
 func (e *Environment) IsExported(name string) bool {
-	// Check for explicit export first
-	if e.exports[name] {
-		return true
-	}
-	// Backward compatibility: let bindings are also exported
-	if e.letBindings[name] {
-		return true
-	}
-	return false
+	return e.exports[name]
 }
 
 // SetProtected stores a value and marks it as protected (cannot be reassigned)
@@ -830,13 +833,10 @@ func NewDictionaryFromObjectsWithOrder(pairs map[string]Object, keyOrder []strin
 // checkPathAccess validates file system access based on security policy
 func (e *Environment) checkPathAccess(path string, operation string) error {
 	if e.Security == nil {
-		// No policy = default behavior
+		// No policy = permissive defaults (for REPL and simple scripts)
 		// Read: allowed
-		// Write: denied
-		// Execute: denied
-		if operation == "write" {
-			return fmt.Errorf("write access denied (use --allow-write or -w)")
-		}
+		// Write: allowed (changed to be permissive by default)
+		// Execute: denied (still requires explicit permission)
 		if operation == "execute" {
 			return fmt.Errorf("execute access denied (use --allow-execute or -x)")
 		}
@@ -875,11 +875,21 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 		}
 
 	case "write":
-		if e.Security.AllowWriteAll {
-			return nil // Unrestricted
+		// First check if all writes are denied
+		if e.Security.NoWrite {
+			return fmt.Errorf("file write access denied: %s", path)
 		}
+		// Check blacklist (deny specific paths)
+		if isPathRestricted(absPath, e.Security.RestrictWrite) {
+			return fmt.Errorf("file write restricted: %s", path)
+		}
+		// If AllowWriteAll is true (default for pars), allow the write
+		if e.Security.AllowWriteAll {
+			return nil
+		}
+		// Otherwise check whitelist (used by basil server)
 		if !isPathAllowed(absPath, e.Security.AllowWrite) {
-			return fmt.Errorf("file write not allowed: %s (use --allow-write or -w)", path)
+			return fmt.Errorf("file write not allowed: %s", path)
 		}
 
 	case "execute":
@@ -2263,13 +2273,24 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 				return newParseError("PARSE-0010", "path/URL template", nil)
 			}
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "template", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -3379,6 +3400,46 @@ func fileDictToPathDict(dict *Dictionary) *Dictionary {
 			"absolute": absExpr,
 		},
 		Env: dict.Env,
+	}
+}
+
+// coerceToPathDict converts various types to a path dictionary for file factories
+// Accepts: path dict, file dict, dir dict, or string
+// Returns: path dict and environment, or nil if conversion fails
+func coerceToPathDict(arg Object, defaultEnv *Environment) (*Dictionary, *Environment) {
+	env := defaultEnv
+	if env == nil {
+		env = NewEnvironment()
+	}
+
+	switch v := arg.(type) {
+	case *Dictionary:
+		// If it's already a path dict, return it
+		if isPathDict(v) {
+			if v.Env != nil {
+				env = v.Env
+			}
+			return v, env
+		}
+		// If it's a file or dir dict, extract the path
+		if isFileDict(v) || isDirDict(v) {
+			pathDict := fileDictToPathDict(v)
+			if pathDict != nil {
+				if v.Env != nil {
+					env = v.Env
+				}
+				return pathDict, env
+			}
+		}
+		// Not a valid dict type
+		return nil, env
+	case *String:
+		// Parse string as path
+		components, isAbsolute := parsePathString(v.Value)
+		pathDict := pathToDict(components, isAbsolute, env)
+		return pathDict, env
+	default:
+		return nil, env
 	}
 }
 
@@ -4793,28 +4854,19 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("file", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "file", "a path", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "file", "a path or string", args[0].Type())
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "file", "a path, file, or string", args[0].Type())
 				}
 
 				// Get the path string for format inference
 				pathStr := getFilePathString(&Dictionary{Pairs: map[string]ast.Expression{
 					"_pathComponents": pathDict.Pairs["segments"],
 					"_pathAbsolute":   pathDict.Pairs["absolute"],
-				}, Env: env}, env)
+				}, Env: pathEnv}, pathEnv)
 
 				// Auto-detect format from extension
 				format := inferFormatFromExtension(pathStr)
@@ -4827,7 +4879,7 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				return fileToDict(pathDict, format, options, env)
+				return fileToDict(pathDict, format, options, pathEnv)
 			},
 		},
 		"JSON": {
@@ -4846,25 +4898,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				// First argument can be a path, URL, or string
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if isUrlDict(arg) {
-						// URL dictionary - create request handle for fetch
-						return requestToDict(arg, "json", options, env)
-					}
-					if isPathDict(arg) {
-						// Path dictionary - create file handle
-						return fileToDict(arg, "json", options, env)
-					}
-					return newTypeError("TYPE-0005", "JSON", "a path or URL", DICTIONARY_OBJ)
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict := pathToDict(components, isAbsolute, env)
-					return fileToDict(pathDict, "json", options, env)
-				default:
-					return newTypeError("TYPE-0005", "JSON", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "json", options, env)
 				}
+
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "JSON", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "json", options, pathEnv)
 			},
 		},
 		"YAML": {
@@ -4912,8 +4957,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("CSV", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict (e.g., {header: true})
@@ -4924,25 +4967,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "csv", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "CSV", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "CSV", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "csv", options, env)
 				}
 
-				return fileToDict(pathDict, "csv", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "CSV", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "csv", options, pathEnv)
 			},
 		},
 		"lines": {
@@ -4951,8 +4987,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("lines", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -4963,25 +4997,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "lines", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "lines", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "lines", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "lines", options, env)
 				}
 
-				return fileToDict(pathDict, "lines", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "lines", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "lines", options, pathEnv)
 			},
 		},
 		"text": {
@@ -4990,8 +5017,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("text", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict (e.g., {encoding: "latin1"})
@@ -5002,25 +5027,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "text", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "text", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "text", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "text", options, env)
 				}
 
-				return fileToDict(pathDict, "text", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "text", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "text", options, pathEnv)
 			},
 		},
 		"bytes": {
@@ -5029,8 +5047,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("bytes", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -5041,25 +5057,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "bytes", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "bytes", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "bytes", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "bytes", options, env)
 				}
 
-				return fileToDict(pathDict, "bytes", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "bytes", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "bytes", options, pathEnv)
 			},
 		},
 		// SVG file format - reads SVG files and strips XML prolog for use as components
@@ -5069,8 +5078,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("SVG", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -5081,25 +5088,18 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "svg", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "SVG", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "SVG", "a path, URL, or string", args[0].Type())
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					return requestToDict(dict, "svg", options, env)
 				}
 
-				return fileToDict(pathDict, "svg", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "SVG", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "svg", options, pathEnv)
 			},
 		},
 		// Markdown file format - reads MD files with frontmatter support
@@ -5109,8 +5109,6 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("markdown", len(args), 1, 2)
 				}
 
-				// First argument must be a path dictionary, URL dictionary, or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
 
 				// Second argument is optional options dict
@@ -5121,25 +5119,20 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					// Check if it's a URL dict first
-					if isUrlDict(arg) {
-						// Create request dictionary for URL
-						return requestToDict(arg, "md", options, env)
-					}
-					if !isPathDict(arg) {
-						return newTypeError("TYPE-0005", "MD", "a path or URL", DICTIONARY_OBJ)
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newTypeError("TYPE-0005", "markdown", "a path, URL, or string", args[0].Type())
+				// First argument can be a path, file dict, or string
+				// Check for URL dict first
+				if dict, ok := args[0].(*Dictionary); ok && isUrlDict(dict) {
+					// Create request dictionary for URL
+					return requestToDict(dict, "md", options, env)
 				}
 
-				return fileToDict(pathDict, "markdown", options, env)
+				// Coerce to path dict (handles path, file, dir, string)
+				pathDict, pathEnv := coerceToPathDict(args[0], env)
+				if pathDict == nil {
+					return newTypeError("TYPE-0005", "markdown", "a path, file, or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "markdown", options, pathEnv)
 			},
 		},
 		// Directory handle factory
@@ -5199,8 +5192,12 @@ func getBuiltins() map[string]*Builtin {
 					return newTypeError("TYPE-0012", "fileList", "a path or string pattern", args[0].Type())
 				}
 
-				// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
+				// Track if original pattern was explicitly relative (./ or ../ prefix) BEFORE resolving
+				wasExplicitlyRelative := strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../")
+
+				// Resolve path based on prefix
 				if strings.HasPrefix(pattern, "~/") {
+					// Expand ~/ paths - in Parsley/Basil, ~/ means project root, not user home
 					if env != nil && env.RootPath != "" {
 						pattern = filepath.Join(env.RootPath, pattern[2:])
 					} else {
@@ -5210,11 +5207,21 @@ func getBuiltins() map[string]*Builtin {
 							pattern = filepath.Join(home, pattern[2:])
 						}
 					}
+				} else if strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../") {
+					// Resolve relative paths based on current file's directory (like import does)
+					var baseDir string
+					if env != nil && env.Filename != "" {
+						baseDir = filepath.Dir(env.Filename)
+					} else {
+						// If no current file, use current working directory
+						cwd, err := os.Getwd()
+						if err != nil {
+							return newIOError("IO-0003", ".", err)
+						}
+						baseDir = cwd
+					}
+					pattern = filepath.Join(baseDir, pattern)
 				}
-
-				// Track if original pattern was explicitly relative (./ prefix)
-				// Go's filepath.Glob strips this, so we need to restore it
-				wasExplicitlyRelative := strings.HasPrefix(pattern, "./")
 
 				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
 				matches, err := filepath.Glob(pattern)
@@ -5230,10 +5237,21 @@ func getBuiltins() map[string]*Builtin {
 						continue
 					}
 
-					// Restore ./ prefix if the original pattern had it
-					// filepath.Glob strips ./ but we want to preserve relative path semantics
-					if wasExplicitlyRelative && !strings.HasPrefix(match, "./") && !strings.HasPrefix(match, "/") {
-						match = "./" + match
+					// If the original pattern was relative (./ or ../), convert absolute matches back to relative
+					if wasExplicitlyRelative && filepath.IsAbs(match) {
+						// Get the base directory we used for resolution
+						var baseDir string
+						if env != nil && env.Filename != "" {
+							baseDir = filepath.Dir(env.Filename)
+						} else {
+							cwd, _ := os.Getwd()
+							baseDir = cwd
+						}
+						// Convert to relative path
+						relPath, err := filepath.Rel(baseDir, match)
+						if err == nil {
+							match = "./" + relPath
+						}
 					}
 
 					components, isAbsolute := parsePathString(match)
@@ -5553,6 +5571,14 @@ func getBuiltins() map[string]*Builtin {
 					return &String{Value: obj.Inspect()}
 				}
 			},
+		},
+		// inspect() - returns introspection data as a dictionary
+		"inspect": {
+			Fn: builtinInspect,
+		},
+		// describe() - pretty prints introspection data
+		"describe": {
+			Fn: builtinDescribe,
 		},
 		"toInt": {
 			Fn: func(args ...Object) Object {
@@ -6223,7 +6249,12 @@ func evalStatement(stmt ast.Statement, env *Environment) Object {
 			if isError(module) {
 				return module
 			}
-			// Auto-bind if we have a bind name (already done in evalImportExpression)
+			// Auto-bind ONLY for standalone imports (not in let/assignment)
+			// The bind name is derived from the path (e.g., "markdown" from "@std/markdown")
+			// or from an explicit alias (e.g., "MD" from "import @std/markdown as MD")
+			if importExpr.BindName != "" {
+				env.Set(importExpr.BindName, module)
+			}
 			// Return NULL so imports don't appear in concatenated output
 			return NULL
 		}
@@ -6429,7 +6460,12 @@ func Eval(node ast.Node, env *Environment) Object {
 			if isError(module) {
 				return module
 			}
-			// Module is already auto-bound in evalImportExpression
+			// Auto-bind ONLY for standalone imports (not in let/assignment)
+			// The bind name is derived from the path (e.g., "markdown" from "@std/markdown")
+			// or from an explicit alias (e.g., "MD" from "import @std/markdown as MD")
+			if importExpr.BindName != "" {
+				env.Set(importExpr.BindName, module)
+			}
 			// Return NULL so imports don't appear in concatenated output
 			return NULL
 		}
@@ -6496,6 +6532,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
+
+	case *ast.ReadExpression:
+		return evalReadExpression(node, env)
 
 	case *ast.FetchStatement:
 		return evalFetchStatement(node, env)
@@ -6777,7 +6816,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
-		result := applyFunctionWithEnv(function, args, env)
+		result := ApplyFunctionWithEnv(function, args, env)
 		// Enrich errors from function application with call site position
 		return withPosition(result, callToken, env)
 
@@ -7815,6 +7854,7 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 			Hints:   parsleyErr.Hints,
 			Line:    parsleyErr.Line,
 			Column:  parsleyErr.Column,
+			File:    env.Filename,
 		}
 	}
 
@@ -7869,7 +7909,10 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary) Objec
 	return unwrapReturnValue(evaluated)
 }
 
-func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
+// ApplyFunctionWithEnv applies a function with the given arguments in the context of an environment.
+// It handles parameter binding including destructuring patterns, and copies runtime context
+// from the calling environment to ensure features like <CSS/>, <Javascript/> work in imported components.
+func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	switch fn := fn.(type) {
 	case *Function:
 		extendedEnv := extendFunctionEnv(fn, args)
@@ -7909,10 +7952,17 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		return result
 	case *AuthWrappedFunction:
 		// Delegate to the inner function
-		return applyFunctionWithEnv(fn.Inner, args, env)
+		return ApplyFunctionWithEnv(fn.Inner, args, env)
 	case *TableModule:
 		// TableModule is callable: table(arr) creates a Table from an array
 		result := TableConstructor(args, env)
+		if isError(result) {
+			return enrichErrorWithPos(result, env.LastToken)
+		}
+		return result
+	case *MdDocModule:
+		// MdDocModule is callable: mdDoc(text) or mdDoc(dict) creates an MdDoc
+		result := evalMdDocModuleCall(args, env)
 		if isError(result) {
 			return enrichErrorWithPos(result, env.LastToken)
 		}
@@ -7958,7 +8008,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 // CallWithEnv invokes a callable object within the provided environment.
 // This is used by external packages (e.g., server layer) to execute exported handlers.
 func CallWithEnv(fn Object, args []Object, env *Environment) Object {
-	return applyFunctionWithEnv(fn, args, env)
+	return ApplyFunctionWithEnv(fn, args, env)
 }
 
 // evalImportExpression implements the new import @path syntax.
@@ -8000,11 +8050,10 @@ func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
 		return module
 	}
 
-	// Auto-bind to environment if we have a bind name
-	// This happens when import is used as a statement (not destructuring assignment)
-	if node.BindName != "" {
-		env.Set(node.BindName, module)
-	}
+	// NOTE: Auto-binding to BindName is NOT done here.
+	// When import is used as a standalone statement, evalStatement handles the auto-bind.
+	// When import is used in a let/assignment (e.g., let {x} = import @std/foo),
+	// only the destructured names should be bound, not the path-derived name.
 
 	// Always return the module (for use in let statements and destructuring)
 	return module
@@ -8013,6 +8062,11 @@ func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
 // importModule is the shared logic for loading a module by path string.
 // Used by both evalImport (old syntax) and evalImportExpression (new syntax).
 func importModule(pathStr string, env *Environment) Object {
+	// Check for stdlib root import (just "std" without module name)
+	if pathStr == "std" {
+		return loadStdlibRoot()
+	}
+
 	// Check for standard library imports (std/modulename)
 	if strings.HasPrefix(pathStr, "std/") {
 		moduleName := strings.TrimPrefix(pathStr, "std/")
@@ -8093,6 +8147,9 @@ func importModule(pathStr string, env *Environment) Object {
 	// Copy DevLog and BasilCtx for stdlib imports (std/dev, std/basil)
 	moduleEnv.DevLog = env.DevLog
 	moduleEnv.BasilCtx = env.BasilCtx
+	// Copy AssetRegistry and AssetBundle for Basil server context
+	moduleEnv.AssetRegistry = env.AssetRegistry
+	moduleEnv.AssetBundle = env.AssetBundle
 
 	// Copy basil context to module environment (if present)
 	// This allows modules to access basil.http, basil.auth, basil.sqlite etc.
@@ -9289,10 +9346,14 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return evalDevModuleMethod(receiver, method, args, env)
 	case *TableModule:
 		return evalTableModuleMethod(receiver, method, args, env)
+	case *MarkdownModule:
+		return evalMarkdownModuleMethod(receiver, method, args, env)
 	case *Table:
 		return EvalTableMethod(receiver, method, args, env)
 	case *TableBinding:
 		return evalTableBindingMethod(receiver, method, args, env)
+	case *MdDoc:
+		return evalMdDocMethod(receiver, method, args, env)
 	case *DBConnection:
 		return evalDBConnectionMethod(receiver, method, args, env)
 	case *SFTPConnection:
@@ -9719,13 +9780,24 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			exprStr := template[exprStart:i]
 			i++ // skip closing }
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "template", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -9792,12 +9864,23 @@ func interpolateRawString(template string, env *Environment) Object {
 			exprStr := template[exprStart:i]
 			i++ // skip closing }
 
-			l := lexer.New(exprStr)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "raw template", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			var evaluated Object
@@ -10226,7 +10309,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	viewPropsDict := &Dictionary{Pairs: viewProps, Env: env}
 
 	// Call the view function with props, passing environment for runtime context
-	result := applyFunctionWithEnv(fnObj, []Object{viewPropsDict}, env)
+	result := ApplyFunctionWithEnv(fnObj, []Object{viewPropsDict}, env)
 	if isError(result) {
 		return result
 	}
@@ -10479,7 +10562,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	}
 
 	// Call the function with the props dictionary, passing environment for runtime context
-	result := applyFunctionWithEnv(val, []Object{dict}, env)
+	result := ApplyFunctionWithEnv(val, []Object{dict}, env)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
@@ -10609,13 +10692,24 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			exprStr := propsStr[exprStart:i]
 			i++ // skip closing }
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -10756,13 +10850,24 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 			exprStr := propsStr[exprStart:i]
 			i++ // skip closing }
 
-			// Parse and evaluate the expression
-			l := lexer.New(exprStr)
+			// Parse and evaluate the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "tag", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Evaluate the expression
@@ -10791,8 +10896,8 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 
 // evalCustomTag evaluates a custom (uppercase) tag as a function call
 func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Environment) Object {
-	// Special handling for Css and Script bundle tags
-	if tagName == "Css" {
+	// Special handling for CSS and Javascript bundle tags
+	if tagName == "CSS" {
 		if env.AssetBundle == nil {
 			return &String{Value: ""} // No bundle available
 		}
@@ -10802,7 +10907,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		}
 		return &String{Value: fmt.Sprintf(`<link rel="stylesheet" href="%s">`, url)}
 	}
-	if tagName == "Script" {
+	if tagName == "Javascript" {
 		if env.AssetBundle == nil {
 			return &String{Value: ""} // No bundle available
 		}
@@ -10841,7 +10946,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	}
 
 	// Call the function with the props dictionary, passing environment for runtime context
-	result := applyFunctionWithEnv(val, []Object{props}, env)
+	result := ApplyFunctionWithEnv(val, []Object{props}, env)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
@@ -10952,13 +11057,24 @@ func parseTagProps(propsStr string, env *Environment) Object {
 							}
 						}
 						exprStr := valueStr[exprStart:j]
-						// Parse the expression
-						l := lexer.New(exprStr)
+						// Parse the expression (with filename for error reporting)
+						l := lexer.NewWithFilename(exprStr, env.Filename)
 						p := parser.New(l)
 						program := p.ParseProgram()
 
-						if len(p.Errors()) > 0 {
-							return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
+						if errs := p.StructuredErrors(); len(errs) > 0 {
+							// Return first parse error with file info preserved
+							perr := errs[0]
+							return &Error{
+								Class:   ClassParse,
+								Code:    perr.Code,
+								Message: perr.Message,
+								Hints:   perr.Hints,
+								Line:    perr.Line,
+								Column:  perr.Column,
+								File:    env.Filename,
+								Data:    perr.Data,
+							}
 						}
 
 						// Store as expression statement
@@ -11014,13 +11130,24 @@ func parseTagProps(propsStr string, env *Environment) Object {
 				exprStr := propsStr[exprStart:i]
 				i++ // skip }
 
-				// Parse and evaluate the spread expression
-				l := lexer.New(exprStr)
+				// Parse and evaluate the spread expression (with filename for error reporting)
+				l := lexer.NewWithFilename(exprStr, env.Filename)
 				p := parser.New(l)
 				program := p.ParseProgram()
 
-				if len(p.Errors()) > 0 {
-					return newParseError("PARSE-0011", "tag spread", fmt.Errorf("%s", p.Errors()[0]))
+				if errs := p.StructuredErrors(); len(errs) > 0 {
+					// Return first parse error with file info preserved
+					perr := errs[0]
+					return &Error{
+						Class:   ClassParse,
+						Code:    perr.Code,
+						Message: perr.Message,
+						Hints:   perr.Hints,
+						Line:    perr.Line,
+						Column:  perr.Column,
+						File:    env.Filename,
+						Data:    perr.Data,
+					}
 				}
 
 				if len(program.Statements) > 0 {
@@ -11081,13 +11208,24 @@ func parseTagProps(propsStr string, env *Environment) Object {
 			exprStr := propsStr[exprStart:i]
 			i++ // skip }
 
-			// Parse the expression
-			l := lexer.New(exprStr)
+			// Parse the expression (with filename for error reporting)
+			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			if len(p.Errors()) > 0 {
-				return newParseError("PARSE-0011", "tag prop", fmt.Errorf("%s", p.Errors()[0]))
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with file info preserved
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
 			}
 
 			// Store as expression statement
@@ -11947,6 +12085,43 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 
 	// Read statements return NULL (like let statements)
 	return NULL
+}
+
+// evalReadExpression evaluates a bare <== expression and returns the read content
+func evalReadExpression(node *ast.ReadExpression, env *Environment) Object {
+	// Evaluate the source expression (should be a file or dir handle)
+	source := Eval(node.Source, env)
+	if isError(source) {
+		return source
+	}
+
+	// The source should be a file or directory dictionary
+	sourceDict, ok := source.(*Dictionary)
+	if !ok {
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "read expression <==", "Expected": "a file or directory handle", "Got": string(source.Type())})
+	}
+
+	if isDirDict(sourceDict) {
+		// Read directory contents
+		pathStr := getFilePathString(sourceDict, env)
+		if pathStr == "" {
+			return newFileOpError("FILEOP-0008", nil)
+		}
+		content := readDirContents(pathStr, env)
+		if isError(content) {
+			return content
+		}
+		return content
+	} else if isFileDict(sourceDict) {
+		// Read file content based on format
+		content, readErr := readFileContent(sourceDict, env)
+		if readErr != nil {
+			return readErr
+		}
+		return content
+	}
+
+	return newFileOpError("FILEOP-0007", map[string]any{"Operator": "read expression <==", "Expected": "a file or directory handle", "Got": "dictionary"})
 }
 
 // evalFetchStatement evaluates the <=/= operator to fetch URL content
@@ -12917,23 +13092,237 @@ func parseYAML(content string) (Object, *Error) {
 	return yamlToObject(data), nil
 }
 
+// ========== Goldmark Parsley Interpolation Extension ==========
+
+// KindParsleyInterpolation is the NodeKind for Parsley interpolation nodes
+var KindParsleyInterpolation = goldmarkAst.NewNodeKind("ParsleyInterpolation")
+
+// ParsleyInterpolationNode represents a @{expr} interpolation in the Goldmark AST
+type ParsleyInterpolationNode struct {
+	goldmarkAst.BaseInline
+	Expression string
+}
+
+// Dump implements goldmarkAst.Node.Dump for debugging
+func (n *ParsleyInterpolationNode) Dump(source []byte, level int) {
+	goldmarkAst.DumpHelper(n, source, level, map[string]string{
+		"Expression": n.Expression,
+	}, nil)
+}
+
+// Kind implements goldmarkAst.Node.Kind
+func (n *ParsleyInterpolationNode) Kind() goldmarkAst.NodeKind {
+	return KindParsleyInterpolation
+}
+
+// parsleyInterpolationParser parses @{expr} syntax into AST nodes
+type parsleyInterpolationParser struct{}
+
+// Trigger returns the character that triggers this parser
+func (p *parsleyInterpolationParser) Trigger() []byte {
+	return []byte{'@'}
+}
+
+// Parse parses a @{expr} interpolation and returns an AST node
+func (p *parsleyInterpolationParser) Parse(parent goldmarkAst.Node, block text.Reader, pc goldmarkParser.Context) goldmarkAst.Node {
+	line, segment := block.PeekLine()
+
+	// Check for @{
+	if len(line) < 2 || line[1] != '{' {
+		return nil
+	}
+
+	// Check for backslash escape: look at the character before '@' in the source
+	// Note: segment.Start is the position of '@' in the source
+	if segment.Start > 0 {
+		source := block.Source()
+		// Look at the byte before the '@'
+		prevPos := segment.Start - 1
+		if prevPos >= 0 && prevPos < len(source) && source[prevPos] == '\\' {
+			// Check if this backslash itself is escaped
+			if prevPos > 0 && source[prevPos-1] == '\\' {
+				// Double backslash: \\@{ -> \@{ (backslash is literal, @ triggers us)
+				// This is NOT escaped, proceed with parsing
+			} else {
+				// Single backslash: \@{ -> @{ (@ is escaped)
+				// Don't parse as interpolation, advance past @{ and return nil
+				block.Advance(2)
+				return nil
+			}
+		}
+	}
+
+	// Find matching closing brace
+	pos := findMatchingBraceInBytes(line, 2)
+	if pos == -1 {
+		return nil // No matching brace
+	}
+
+	// Extract expression (between @{ and })
+	expr := string(line[2:pos])
+
+	// Advance reader past the entire @{expr}
+	block.Advance(pos + 1)
+
+	return &ParsleyInterpolationNode{
+		Expression: expr,
+	}
+}
+
+// findMatchingBraceInBytes finds the closing } for a { at startPos
+// Handles nested braces, strings, raw strings, and escape sequences
+func findMatchingBraceInBytes(input []byte, startPos int) int {
+	depth := 1
+	inString := false
+	inRawString := false
+	inChar := false
+	escapeNext := false
+	i := startPos
+
+	for i < len(input) {
+		ch := input[i]
+
+		// Handle escape sequences
+		if escapeNext {
+			escapeNext = false
+			i++
+			continue
+		}
+
+		if ch == '\\' && !inRawString {
+			escapeNext = true
+			i++
+			continue
+		}
+
+		// Check for raw string start (backtick)
+		if ch == '`' && !inString && !inChar {
+			inRawString = !inRawString
+			i++
+			continue
+		}
+
+		// Handle regular strings and chars (only when not in raw string)
+		if !inRawString {
+			if ch == '"' && !inChar {
+				inString = !inString
+				i++
+				continue
+			}
+
+			if ch == '\'' && !inString {
+				inChar = !inChar
+				i++
+				continue
+			}
+		}
+
+		// Only count braces outside of strings
+		if !inString && !inChar && !inRawString {
+			if ch == '{' {
+				depth++
+			} else if ch == '}' {
+				depth--
+				if depth == 0 {
+					return i
+				}
+			}
+		}
+
+		i++
+	}
+
+	return -1 // No matching brace found
+}
+
+// parsleyInterpolationRenderer renders ParsleyInterpolationNode to HTML
+type parsleyInterpolationRenderer struct {
+	env *Environment
+}
+
+// RegisterFuncs registers the render function for ParsleyInterpolationNode
+func (r *parsleyInterpolationRenderer) RegisterFuncs(reg goldmarkRenderer.NodeRendererFuncRegisterer) {
+	reg.Register(KindParsleyInterpolation, r.renderParsleyInterpolation)
+}
+
+// renderParsleyInterpolation evaluates and renders a Parsley interpolation
+func (r *parsleyInterpolationRenderer) renderParsleyInterpolation(
+	w util.BufWriter,
+	source []byte,
+	node goldmarkAst.Node,
+	entering bool,
+) (goldmarkAst.WalkStatus, error) {
+	if !entering {
+		return goldmarkAst.WalkContinue, nil
+	}
+
+	n := node.(*ParsleyInterpolationNode)
+
+	// Parse the Parsley expression
+	l := lexer.New(n.Expression)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		// Parse error - output error span
+		w.WriteString(`<span class="parsley-error" title="Parse error">`)
+		w.WriteString(htmllib.EscapeString(strings.Join(p.Errors(), "; ")))
+		w.WriteString("</span>")
+		return goldmarkAst.WalkContinue, nil
+	}
+
+	// Evaluate the expression
+	var result Object
+	for _, stmt := range program.Statements {
+		result = Eval(stmt, r.env)
+		if isError(result) {
+			// Evaluation error - output error span
+			w.WriteString(`<span class="parsley-error" title="Evaluation error">`)
+			w.WriteString(htmllib.EscapeString(result.Inspect()))
+			w.WriteString("</span>")
+			return goldmarkAst.WalkContinue, nil
+		}
+	}
+
+	// Convert result to string and output
+	if result != nil {
+		output := objectToTemplateString(result)
+		w.WriteString(output)
+	}
+
+	return goldmarkAst.WalkContinue, nil
+}
+
+// ParsleyInterpolationExtension is a Goldmark extension that evaluates @{expr} syntax
+type ParsleyInterpolationExtension struct {
+	env *Environment
+}
+
+// NewParsleyInterpolation creates a new Parsley interpolation extension
+func NewParsleyInterpolation(env *Environment) goldmark.Extender {
+	return &ParsleyInterpolationExtension{env: env}
+}
+
+// Extend adds the Parsley interpolation parser and renderer to Goldmark
+func (e *ParsleyInterpolationExtension) Extend(m goldmark.Markdown) {
+	m.Parser().AddOptions(goldmarkParser.WithInlineParsers(
+		util.Prioritized(&parsleyInterpolationParser{}, 500),
+	))
+	m.Renderer().AddOptions(goldmarkRenderer.WithNodeRenderers(
+		util.Prioritized(&parsleyInterpolationRenderer{env: e.env}, 500),
+	))
+}
+
+// ========== End Goldmark Extension ==========
+
 // parseMarkdown parses markdown content with optional YAML frontmatter
-// Returns a dictionary with: html, raw, and any frontmatter fields
+// Returns a dictionary with: html, raw, and md (metadata from frontmatter)
 func parseMarkdown(content string, env *Environment) (Object, *Error) {
 	pairs := make(map[string]ast.Expression)
 
-	rendered := interpolateRawString(content, env)
-	if errObj, ok := rendered.(*Error); ok {
-		return nil, errObj
-	}
-	renderedStr, ok := rendered.(*String)
-	if !ok {
-		return nil, newFormatError("FMT-0010", fmt.Errorf("invalid rendered markdown content"))
-	}
-	content = renderedStr.Value
-
 	// Check for YAML frontmatter (starts with ---)
 	body := content
+	metadataPairs := make(map[string]ast.Expression)
 	if strings.HasPrefix(strings.TrimSpace(content), "---") {
 		// Find the closing ---
 		trimmed := strings.TrimSpace(content)
@@ -12951,24 +13340,40 @@ func parseMarkdown(content string, env *Environment) (Object, *Error) {
 				return nil, newFormatError("FMT-0006", err)
 			}
 
-			// Add frontmatter fields to result
+			// Add frontmatter fields to metadata dict
 			for key, value := range frontmatter {
 				obj := yamlToObject(value)
-				pairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+				metadataPairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+				// Also add to environment so interpolations can access frontmatter vars
+				env.Set(key, obj)
 			}
 		}
 	}
 
-	// Convert markdown to HTML using goldmark
+	// Convert markdown to HTML using goldmark with Parsley interpolation extension
 	var htmlBuf bytes.Buffer
-	md := goldmark.New()
+	md := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,
+			NewParsleyInterpolation(env), // Custom extension for @{expr} syntax
+		),
+		goldmark.WithRendererOptions(html.WithUnsafe()), // Allow raw HTML from interpolations
+	)
 	if err := md.Convert([]byte(body), &htmlBuf); err != nil {
 		return nil, newFormatError("FMT-0010", err)
 	}
 
+	finalHTML := htmlBuf.String()
+
 	// Add html and raw fields
-	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: htmlBuf.String()}}
+	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: finalHTML}}
 	pairs["raw"] = &ast.ObjectLiteralExpression{Obj: &String{Value: body}}
+
+	// Add md field containing metadata (frontmatter)
+	pairs["md"] = &ast.DictionaryLiteral{
+		Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+		Pairs: metadataPairs,
+	}
 
 	return &Dictionary{Pairs: pairs, Env: env}, nil
 }

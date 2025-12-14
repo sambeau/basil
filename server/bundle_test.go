@@ -209,7 +209,7 @@ func TestAssetBundle_ExcludesConfiguredPublicDir(t *testing.T) {
 	}
 
 	cssContent := string(bundle.cssContent)
-	
+
 	// Should include app.css and public/bootstrap.css
 	if !strings.Contains(cssContent, ".app") {
 		t.Error("Bundle should include app.css")
@@ -217,7 +217,7 @@ func TestAssetBundle_ExcludesConfiguredPublicDir(t *testing.T) {
 	if !strings.Contains(cssContent, ".bootstrap") {
 		t.Error("Bundle should include public/bootstrap.css (not configured as public dir)")
 	}
-	
+
 	// Should exclude static/vendor.css
 	if strings.Contains(cssContent, ".vendor") {
 		t.Error("Bundle should exclude static/ directory (configured as public dir)")

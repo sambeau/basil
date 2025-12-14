@@ -65,18 +65,19 @@ export add = fn(a, b) { a + b }
 			expectedOutput: "5",
 		},
 		{
-			name: "let without export - backward compat",
+			name: "let without export - not exported",
 			moduleCode: `
 let add = fn(a, b) { a + b }
+export greet = fn(name) { name }
 `,
-			mainCode:       `let mod = import @%s; mod.add(2, 3)`,
-			expectedOutput: "5",
+			mainCode:       `let mod = import @%s; mod.greet("World")`,
+			expectedOutput: "World",
 		},
 		{
 			name: "bare assignment not exported",
 			moduleCode: `
 add = fn(a, b) { a + b }
-let greet = fn(name) { name }
+export greet = fn(name) { name }
 `,
 			mainCode:       `let mod = import @%s; mod.greet("World")`,
 			expectedOutput: "World",
@@ -135,7 +136,8 @@ export Header = <header><h1>Welcome</h1></header>
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Write module file
-			sanitizedName := strings.ReplaceAll(tt.name, " ", "_"); moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_")
+			moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
 			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write module file: %v", err)
@@ -195,7 +197,8 @@ export let [a, b] = [1, 2]
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Write module file
-			sanitizedName := strings.ReplaceAll(tt.name, " ", "_"); moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_")
+			moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
 			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write module file: %v", err)
@@ -326,7 +329,8 @@ func TestModuleErrorReporting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Write module file
-			sanitizedName := strings.ReplaceAll(tt.name, " ", "_"); moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_")
+			moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
 			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write module file: %v", err)

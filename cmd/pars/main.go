@@ -30,9 +30,8 @@ var (
 	// Security flags
 	restrictReadFlag     = flag.String("restrict-read", "", "Comma-separated read blacklist paths")
 	noReadFlag           = flag.Bool("no-read", false, "Deny all file reads")
-	allowWriteFlag       = flag.String("allow-write", "", "Comma-separated write whitelist paths")
-	allowWriteAllFlag    = flag.Bool("allow-write-all", false, "Allow unrestricted writes")
-	allowWriteAllShort   = flag.Bool("w", false, "Shorthand for --allow-write-all")
+	restrictWriteFlag    = flag.String("restrict-write", "", "Comma-separated write blacklist paths")
+	noWriteFlag          = flag.Bool("no-write", false, "Deny all file writes")
 	allowExecuteFlag     = flag.String("allow-execute", "", "Comma-separated execute whitelist paths")
 	allowExecuteAllFlag  = flag.Bool("allow-execute-all", false, "Allow unrestricted executes")
 	allowExecuteAllShort = flag.Bool("x", false, "Shorthand for --allow-execute-all")
@@ -88,15 +87,16 @@ Display Options:
 Security Options:
   --restrict-read=PATHS     Deny reading from comma-separated paths
   --no-read                 Deny all file reads
-  --allow-write=PATHS       Allow writing to comma-separated paths
-  --allow-write-all, -w     Allow unrestricted writes
+  --restrict-write=PATHS    Deny writing to comma-separated paths
+  --no-write                Deny all file writes
   --allow-execute=PATHS     Allow executing scripts from paths
   --allow-execute-all, -x   Allow unrestricted script execution
 
 Security Examples:
-  pars -w script.pars                           # Allow all writes
-  pars --allow-write=./output script.pars       # Allow writes to ./output only
-  pars -x --allow-write=./data script.pars      # Allow all executes, writes to ./data
+  pars script.pars                              # Allow all reads/writes (default)
+  pars --no-write script.pars                   # Deny all writes
+  pars --restrict-write=/etc script.pars        # Deny writes to /etc only
+  pars -x script.pars                           # Allow all reads/writes/executes
   pars --restrict-read=/etc script.pars         # Deny reads from /etc
 
 Examples:
@@ -266,11 +266,12 @@ func printSourceContext(lines []string, lineNum, colNum int) {
 func buildSecurityPolicy() (*evaluator.SecurityPolicy, error) {
 	policy := &evaluator.SecurityPolicy{
 		NoRead:          *noReadFlag,
-		AllowWriteAll:   *allowWriteAllFlag || *allowWriteAllShort,
+		NoWrite:         *noWriteFlag,
+		AllowWriteAll:   !*noWriteFlag, // Default to allowing writes unless --no-write is set
 		AllowExecuteAll: *allowExecuteAllFlag || *allowExecuteAllShort,
 	}
 
-	// Parse restrict list
+	// Parse restrict lists
 	if *restrictReadFlag != "" {
 		paths, err := parseAndResolvePaths(*restrictReadFlag)
 		if err != nil {
@@ -279,13 +280,12 @@ func buildSecurityPolicy() (*evaluator.SecurityPolicy, error) {
 		policy.RestrictRead = paths
 	}
 
-	// Parse allow lists
-	if *allowWriteFlag != "" {
-		paths, err := parseAndResolvePaths(*allowWriteFlag)
+	if *restrictWriteFlag != "" {
+		paths, err := parseAndResolvePaths(*restrictWriteFlag)
 		if err != nil {
-			return nil, fmt.Errorf("invalid --allow-write: %s", err)
+			return nil, fmt.Errorf("invalid --restrict-write: %s", err)
 		}
-		policy.AllowWrite = paths
+		policy.RestrictWrite = paths
 	}
 
 	if *allowExecuteFlag != "" {

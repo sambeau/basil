@@ -34,8 +34,8 @@ As a developer, I want my component CSS and JavaScript files to be automatically
 - [x] Deterministic order across restarts
 
 ### Tags
-- [x] `<Css/>` tag emits `<link rel="stylesheet" href="/__site.css?v={hash}">`
-- [x] `<Script/>` tag emits `<script src="/__site.js?v={hash}"></script>`
+- [x] `<CSS/>` tag emits `<link rel="stylesheet" href="/__site.css?v={hash}">`
+- [x] `<Javascript/>` tag emits `<script src="/__site.js?v={hash}"></script>`
 
 ### Dev Mode
 - [x] Source file comments included in output (showing which file each section came from)
@@ -62,7 +62,7 @@ Successfully implemented all acceptance criteria. Key implementation details:
 
 ### Files Modified
 - `server/server.go` - Added assetBundle field, initialization, route registration
-- `pkg/parsley/evaluator/evaluator.go` - AssetBundler interface, <Css/>/<Script/> tag handling
+- `pkg/parsley/evaluator/evaluator.go` - AssetBundler interface, <CSS/>/<Javascript/> tag handling
 - `server/handler.go` & `server/api.go` - Bundle context injection
 - `server/watcher.go` - Bundle rebuild on file changes
 - `docs/parsley/reference.md` - Asset Bundle Tags section
@@ -78,8 +78,8 @@ All 13 tests passing:
 - Empty bundle handling
 - Hash computation (SHA-256, first 8 chars)
 - URL generation with cache-busting
-- <Css/> tag emits link element
-- <Script/> tag emits script element
+- <CSS/> tag emits link element
+- <Javascript/> tag emits script element
 - Empty/missing bundle cases
 - Template integration
 
@@ -168,12 +168,12 @@ JS order: utils.js → button.js
 
 ### Tag Output
 
-**`<Css/>`**
+**`<CSS/>`**
 ```html
 <link rel="stylesheet" href="/__site.css?v=a1b2c3d4">
 ```
 
-**`<Script/>`**
+**`<Javascript/>`**
 ```html
 <script src="/__site.js?v=e5f6g7h8"></script>
 ```
@@ -228,13 +228,13 @@ ETag: "a1b2c3d4"
     <title>{title}</title>
     <link rel="stylesheet" href="/static/reset.css"/>      // Third-party from public/ (via static: config)
     <link rel="stylesheet" href="/static/vendor/lib.css"/> // Third-party from public/
-    <Css/>                                                  // Your bundled styles (last)
+    <CSS/>                                                  // Your bundled styles (last)
 </head>
 <body>
     {children}
     
     <script src="/static/vendor/chart.js"></script>  // Third-party from public/
-    <Script/>                                         // Your bundled scripts (last)
+    <Javascript/>                                     // Your bundled scripts (last)
 </body>
 </html>
 ```
@@ -257,11 +257,11 @@ export Page = fn({title, children}) {
     <head>
         <meta charset="utf-8"/>
         <title>{title}</title>
-        <Css/>
+        <CSS/>
     </head>
     <body>
         {children}
-        <Script/>
+        <Javascript/>
     </body>
     </html>
 }
@@ -274,7 +274,7 @@ Or leave it explicit for developer control.
 - `server/server.go` — Add AssetBundle struct, discovery on startup
 - `server/handler.go` — Serve `/__site.css` and `/__site.js` routes
 - `server/watcher.go` — Watch `.css`/`.js` files, trigger bundle regeneration
-- `pkg/parsley/evaluator/evaluator.go` — Implement `<Css/>` and `<Script/>` tags
+- `pkg/parsley/evaluator/evaluator.go` — Implement `<CSS/>` and `<Javascript/>` tags
 
 ### Edge Cases
 

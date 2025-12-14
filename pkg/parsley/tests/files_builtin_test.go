@@ -276,3 +276,92 @@ func TestFileListGlobPatterns(t *testing.T) {
 		})
 	}
 }
+
+// TestFileListRelativeToCurrentFile tests that fileList(@./...) resolves relative to current file
+func TestFileListRelativeToCurrentFile(t *testing.T) {
+	// Create directory structure:
+	// tmpDir/
+	//   components/
+	//     clock/
+	//       clock.pars (current file, env.Filename)
+	//       img/
+	//         icon1.svg
+	//         icon2.svg
+
+	tmpDir := t.TempDir()
+	clockDir := filepath.Join(tmpDir, "components", "clock")
+	imgDir := filepath.Join(clockDir, "img")
+
+	os.MkdirAll(imgDir, 0755)
+
+	// Create SVG files
+	os.WriteFile(filepath.Join(imgDir, "icon1.svg"), []byte("<svg>1</svg>"), 0644)
+	os.WriteFile(filepath.Join(imgDir, "icon2.svg"), []byte("<svg>2</svg>"), 0644)
+
+	// Simulate executing code from clock.pars
+	clockFile := filepath.Join(clockDir, "clock.pars")
+
+	// Test fileList(@./img/*.svg) - should find files relative to clock.pars
+	input := `let f = fileList(@./img/*.svg); f.length()`
+
+	// Create environment with Filename set to clock.pars
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %s", strings.Join(p.Errors(), "\n"))
+	}
+
+	env := evaluator.NewEnvironment()
+	env.Filename = clockFile // This is the key - current file location
+	env.RootPath = tmpDir
+	env.Security = &evaluator.SecurityPolicy{}
+
+	result := evaluator.Eval(program, env)
+
+	if errObj, ok := result.(*evaluator.Error); ok {
+		t.Fatalf("unexpected error: %s", errObj.Message)
+	}
+
+	intResult, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %T: %s", result, result.Inspect())
+	}
+
+	if intResult.Value != 2 {
+		t.Errorf("expected 2 SVG files, got %d", intResult.Value)
+	}
+
+	// Also verify the basenames in the results
+	input2 := `let f = fileList(@./img/*.svg); for (file in f) { toString(file.basename) }`
+	l2 := lexer.New(input2)
+	p2 := parser.New(l2)
+	program2 := p2.ParseProgram()
+
+	env2 := evaluator.NewEnvironment()
+	env2.Filename = clockFile
+	env2.RootPath = tmpDir
+	env2.Security = &evaluator.SecurityPolicy{}
+
+	result2 := evaluator.Eval(program2, env2)
+
+	if errObj, ok := result2.(*evaluator.Error); ok {
+		t.Fatalf("unexpected error: %s", errObj.Message)
+	}
+
+	arr, ok := result2.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T", result2)
+	}
+
+	// Check that we got the expected basenames
+	basenames := make(map[string]bool)
+	for _, elem := range arr.Elements {
+		basenames[elem.Inspect()] = true
+	}
+
+	if !basenames["icon1.svg"] || !basenames["icon2.svg"] {
+		t.Errorf("expected icon1.svg and icon2.svg, got: %v", basenames)
+	}
+}

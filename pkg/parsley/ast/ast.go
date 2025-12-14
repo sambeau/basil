@@ -8,6 +8,12 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
+// Inspectable is an interface for objects that can be inspected for display
+// This is used to avoid circular imports between ast and evaluator packages
+type Inspectable interface {
+	Inspect() string
+}
+
 // Node represents any node in the AST
 type Node interface {
 	TokenLiteral() string
@@ -759,6 +765,23 @@ type ReadStatement struct {
 	Source       Expression                 // the file handle expression
 }
 
+// ReadExpression represents a bare read expression like '<== file(...)' that returns the content
+type ReadExpression struct {
+	Token  lexer.Token // the <== token
+	Source Expression  // the file handle expression
+}
+
+func (re *ReadExpression) expressionNode()      {}
+func (re *ReadExpression) TokenLiteral() string { return re.Token.Literal }
+func (re *ReadExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("<== ")
+	if re.Source != nil {
+		out.WriteString(re.Source.String())
+	}
+	return out.String()
+}
+
 func (rs *ReadStatement) statementNode()       {}
 func (rs *ReadStatement) TokenLiteral() string { return rs.Token.Literal }
 func (rs *ReadStatement) String() string {
@@ -1064,7 +1087,13 @@ type ObjectLiteralExpression struct {
 
 func (ole *ObjectLiteralExpression) expressionNode()      {}
 func (ole *ObjectLiteralExpression) TokenLiteral() string { return "" }
-func (ole *ObjectLiteralExpression) String() string       { return "<object literal>" }
+func (ole *ObjectLiteralExpression) String() string {
+	// Try to get a displayable representation via Inspectable interface
+	if inspectable, ok := ole.Obj.(Inspectable); ok {
+		return inspectable.Inspect()
+	}
+	return "<object literal>"
+}
 
 // InterpolationBlock represents a block of statements inside tag interpolation {stmt; stmt; ...}
 // When evaluated, it returns the value of the last statement (or null if empty)

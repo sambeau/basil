@@ -63,7 +63,7 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.server.config.PublicDir != "" && urlPath != "/" {
 		staticPath := filepath.Join(h.server.config.PublicDir, urlPath)
 		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
-			http.ServeFile(w, r, staticPath)
+			serveStaticFile(w, r, staticPath, h.server.devLog != nil)
 			return
 		}
 	}

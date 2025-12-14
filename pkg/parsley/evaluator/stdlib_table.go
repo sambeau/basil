@@ -23,14 +23,16 @@ func (sb *StdlibBuiltin) Inspect() string  { return fmt.Sprintf("stdlib function
 // This is a function rather than a var to avoid initialization cycles
 func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
-		"table":  loadTableModule,
-		"dev":    loadDevModule,
-		"basil":  loadBasilModule,
-		"math":   loadMathModule,
-		"valid":  loadValidModule,
-		"schema": loadSchemaModule,
-		"id":     loadIDModule,
-		"api":    loadAPIModule,
+		"table":    loadTableModule,
+		"dev":      loadDevModule,
+		"basil":    loadBasilModule,
+		"math":     loadMathModule,
+		"valid":    loadValidModule,
+		"schema":   loadSchemaModule,
+		"id":       loadIDModule,
+		"api":      loadAPIModule,
+		"markdown": loadMarkdownModule,
+		"mdDoc":    loadMdDocModule,
 	}
 }
 
@@ -105,6 +107,28 @@ func (smd *StdlibModuleDict) Inspect() string {
 	}
 	sort.Strings(keys)
 	return fmt.Sprintf("StdlibModule{%s}", strings.Join(keys, ", "))
+}
+
+// StdlibRoot represents the root of the standard library (import @std)
+// It provides introspection for available modules
+type StdlibRoot struct {
+	Modules []string // List of available module names
+}
+
+func (sr *StdlibRoot) Type() ObjectType { return DICTIONARY_OBJ }
+func (sr *StdlibRoot) Inspect() string {
+	return fmt.Sprintf("@std{%s}", strings.Join(sr.Modules, ", "))
+}
+
+// loadStdlibRoot returns the stdlib root with module listing
+func loadStdlibRoot() *StdlibRoot {
+	modules := getStdlibModules()
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return &StdlibRoot{Modules: names}
 }
 
 // evalStdlibModuleDestructuring handles destructuring imports from stdlib modules
@@ -482,16 +506,40 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 
 	var sum float64
 	hasFloat := false
+	var moneyCurrency string
+	var moneyScale int8
+	var moneySum int64
+	hasMoney := false
 
 	for _, row := range t.Rows {
 		val := getDictValue(row, col.Value)
 		switch v := val.(type) {
+		case *Money:
+			if !hasMoney {
+				// First money value - set currency and scale
+				moneyCurrency = v.Currency
+				moneyScale = v.Scale
+				hasMoney = true
+			} else if v.Currency != moneyCurrency {
+				// Mixed currencies - error
+				return newStructuredError("CALC-0001", map[string]any{"Message": fmt.Sprintf("Cannot sum mixed currencies: %s and %s", moneyCurrency, v.Currency)})
+			}
+			moneySum += v.Amount
 		case *Integer:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in sum"})
+			}
 			sum += float64(v.Value)
 		case *Float:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in sum"})
+			}
 			sum += v.Value
 			hasFloat = true
 		case *String:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in sum"})
+			}
 			// Try to parse string as number
 			if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
 				sum += f
@@ -503,6 +551,9 @@ func tableSum(t *Table, args []Object, env *Environment) Object {
 		}
 	}
 
+	if hasMoney {
+		return &Money{Amount: moneySum, Currency: moneyCurrency, Scale: moneyScale}
+	}
 	if hasFloat {
 		return &Float{Value: sum}
 	}
@@ -522,17 +573,42 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 
 	var sum float64
 	count := 0
+	var moneyCurrency string
+	var moneyScale int8
+	var moneySum int64
+	hasMoney := false
 
 	for _, row := range t.Rows {
 		val := getDictValue(row, col.Value)
 		switch v := val.(type) {
+		case *Money:
+			if !hasMoney {
+				// First money value - set currency and scale
+				moneyCurrency = v.Currency
+				moneyScale = v.Scale
+				hasMoney = true
+			} else if v.Currency != moneyCurrency {
+				// Mixed currencies - error
+				return newStructuredError("CALC-0001", map[string]any{"Message": fmt.Sprintf("Cannot average mixed currencies: %s and %s", moneyCurrency, v.Currency)})
+			}
+			moneySum += v.Amount
+			count++
 		case *Integer:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in average"})
+			}
 			sum += float64(v.Value)
 			count++
 		case *Float:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in average"})
+			}
 			sum += v.Value
 			count++
 		case *String:
+			if hasMoney {
+				return newStructuredError("CALC-0001", map[string]any{"Message": "Cannot mix money and numeric types in average"})
+			}
 			// Try to parse string as number
 			if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
 				sum += f
@@ -544,6 +620,11 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 
 	if count == 0 {
 		return NULL
+	}
+
+	if hasMoney {
+		avgAmount := moneySum / int64(count)
+		return &Money{Amount: avgAmount, Currency: moneyCurrency, Scale: moneyScale}
 	}
 
 	return &Float{Value: sum / float64(count)}
@@ -634,8 +715,8 @@ func coerceToNumber(obj Object) Object {
 
 // tableToHTML renders the table as an HTML table element
 func tableToHTML(t *Table, args []Object, env *Environment) Object {
-	if len(args) != 0 {
-		return newArityError("toHTML", len(args), 0)
+	if len(args) > 1 {
+		return newArityErrorRange("toHTML", len(args), 0, 1)
 	}
 
 	var sb strings.Builder
@@ -667,6 +748,72 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 		sb.WriteString("</tr>\n")
 	}
 	sb.WriteString("  </tbody>\n")
+
+	// Footer (optional)
+	if len(args) == 1 {
+		// Check if it's a string (legacy format) or dictionary
+		if footerStr, ok := args[0].(*String); ok {
+			// String footer - just insert raw HTML
+			if footerStr.Value != "" {
+				sb.WriteString("  <tfoot>\n    ")
+				sb.WriteString(footerStr.Value)
+				sb.WriteString("\n  </tfoot>\n")
+			}
+		} else if footerDict, ok := args[0].(*Dictionary); ok {
+			// Dictionary footer - generate row with values for specified columns
+			sb.WriteString("  <tfoot>\n    <tr>")
+
+			// Track consecutive empty cells for colspan
+			emptyCount := 0
+
+			for i, col := range t.Columns {
+				val := getDictValue(footerDict, col)
+
+				// Check if cell should be empty (NULL or Error for undefined property)
+				isEmpty := val.Type() == NULL_OBJ || val.Type() == ERROR_OBJ
+
+				if isEmpty {
+					// Empty cell - increment counter
+					emptyCount++
+
+					// If this is the last column, flush the empty cells
+					if i == len(t.Columns)-1 && emptyCount > 0 {
+						if emptyCount == 1 {
+							sb.WriteString("<td></td>")
+						} else {
+							sb.WriteString(fmt.Sprintf("<td colspan=\"%d\"></td>", emptyCount))
+						}
+					}
+				} else {
+					// Non-empty cell - flush any accumulated empty cells first
+					if emptyCount > 0 {
+						if emptyCount == 1 {
+							sb.WriteString("<td></td>")
+						} else {
+							sb.WriteString(fmt.Sprintf("<td colspan=\"%d\"></td>", emptyCount))
+						}
+						emptyCount = 0
+					}
+
+					// Write the cell with value
+					sb.WriteString("<td>")
+					// For String values, treat as raw HTML (like string footer does)
+					// For other types, escape for safety
+					if strVal, ok := val.(*String); ok {
+						sb.WriteString(strVal.Value)
+					} else {
+						sb.WriteString(html.EscapeString(objectToString(val)))
+					}
+					sb.WriteString("</td>")
+				}
+			}
+
+			sb.WriteString("</tr>\n  </tfoot>\n")
+		} else {
+			return newTypeError("TYPE-0012", "toHTML", "a string or dictionary (footer content)", args[0].Type())
+		}
+	}
+
 	sb.WriteString("</table>")
 
 	return &String{Value: sb.String()}
@@ -736,6 +883,140 @@ func csvEscape(s string) string {
 	return "\"" + escaped + "\""
 }
 
+// tableToMarkdown renders the table as a GitHub Flavored Markdown table
+func tableToMarkdown(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("toMarkdown", len(args), 0)
+	}
+
+	if len(t.Columns) == 0 {
+		return &String{Value: ""}
+	}
+
+	var sb strings.Builder
+
+	// Header row
+	sb.WriteString("|")
+	for _, col := range t.Columns {
+		sb.WriteString(" ")
+		sb.WriteString(markdownEscape(col))
+		sb.WriteString(" |")
+	}
+	sb.WriteString("\n")
+
+	// Separator row
+	sb.WriteString("|")
+	for range t.Columns {
+		sb.WriteString(" --- |")
+	}
+	sb.WriteString("\n")
+
+	// Data rows
+	for _, row := range t.Rows {
+		sb.WriteString("|")
+		for _, col := range t.Columns {
+			sb.WriteString(" ")
+			val := getDictValue(row, col)
+			sb.WriteString(markdownEscape(objectToString(val)))
+			sb.WriteString(" |")
+		}
+		sb.WriteString("\n")
+	}
+
+	return &String{Value: sb.String()}
+}
+
+// markdownEscape escapes special characters in Markdown table cells
+func markdownEscape(s string) string {
+	// Escape pipe characters which are table delimiters
+	s = strings.ReplaceAll(s, "|", "\\|")
+	// Escape newlines as they break table structure
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	return s
+}
+
+// tableToJSON renders the table as a JSON array of objects
+func tableToJSON(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("toJSON", len(args), 0)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("[")
+
+	for i, row := range t.Rows {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString("\n  {")
+
+		for j, col := range t.Columns {
+			if j > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString("\n    \"")
+			sb.WriteString(jsonEscape(col))
+			sb.WriteString("\": ")
+
+			val := getDictValue(row, col)
+			sb.WriteString(objectToJSON(val))
+		}
+
+		sb.WriteString("\n  }")
+	}
+
+	if len(t.Rows) > 0 {
+		sb.WriteString("\n")
+	}
+	sb.WriteString("]")
+
+	return &String{Value: sb.String()}
+}
+
+// objectToJSON converts an object to its JSON representation
+func objectToJSON(obj Object) string {
+	switch o := obj.(type) {
+	case *String:
+		return "\"" + jsonEscape(o.Value) + "\""
+	case *Integer:
+		return fmt.Sprintf("%d", o.Value)
+	case *Float:
+		return fmt.Sprintf("%g", o.Value)
+	case *Boolean:
+		if o.Value {
+			return "true"
+		}
+		return "false"
+	case *Null:
+		return "null"
+	case *Array:
+		var sb strings.Builder
+		sb.WriteString("[")
+		for i, elem := range o.Elements {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(objectToJSON(elem))
+		}
+		sb.WriteString("]")
+		return sb.String()
+	default:
+		// For other types, use string representation in quotes
+		return "\"" + jsonEscape(obj.Inspect()) + "\""
+	}
+}
+
+// jsonEscape escapes special characters for JSON strings
+func jsonEscape(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\t", "\\t")
+	return s
+}
+
 // tableRows returns the underlying array of dictionaries
 func tableRows(t *Table) Object {
 	elements := make([]Object, len(t.Rows))
@@ -743,6 +1024,66 @@ func tableRows(t *Table) Object {
 		elements[i] = row
 	}
 	return &Array{Elements: elements}
+}
+
+// tableColumns returns the column names as an array
+func tableColumns(t *Table) Object {
+	elements := make([]Object, len(t.Columns))
+	for i, col := range t.Columns {
+		elements[i] = &String{Value: col}
+	}
+	return &Array{Elements: elements}
+}
+
+// tableColumn returns all values from a specific column as an array
+func tableColumn(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("column", len(args), 1)
+	}
+
+	colName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "column", "a string (column name)", args[0].Type())
+	}
+
+	// Check if column exists
+	columnExists := false
+	for _, col := range t.Columns {
+		if col == colName.Value {
+			columnExists = true
+			break
+		}
+	}
+	if !columnExists {
+		return newIndexError("INDEX-0005", map[string]any{
+			"Key": colName.Value,
+		})
+	}
+
+	// Extract column values
+	values := make([]Object, len(t.Rows))
+	for i, row := range t.Rows {
+		val := getDictValue(row, colName.Value)
+		values[i] = val
+	}
+
+	return &Array{Elements: values}
+}
+
+// tableRowCount returns the number of rows in the table
+func tableRowCount(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("rowCount", len(args), 0)
+	}
+	return &Integer{Value: int64(len(t.Rows))}
+}
+
+// tableColumnCount returns the number of columns in the table
+func tableColumnCount(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("columnCount", len(args), 0)
+	}
+	return &Integer{Value: int64(len(t.Columns))}
 }
 
 // ============================================================================
@@ -1072,6 +1413,10 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableToHTML(t, args, env)
 	case "toCSV":
 		return tableToCSV(t, args, env)
+	case "toMarkdown":
+		return tableToMarkdown(t, args, env)
+	case "toJSON":
+		return tableToJSON(t, args, env)
 	case "appendRow":
 		return tableAppendRow(t, args, env)
 	case "insertRowAt":
@@ -1082,10 +1427,17 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableInsertColAfter(t, args, env)
 	case "insertColBefore":
 		return tableInsertColBefore(t, args, env)
+	case "rowCount":
+		return tableRowCount(t, args, env)
+	case "columnCount":
+		return tableColumnCount(t, args, env)
+	case "column":
+		return tableColumn(t, args, env)
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
-			"toHTML", "toCSV", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+			"toHTML", "toCSV", "toMarkdown", "toJSON", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+			"rowCount", "columnCount", "column",
 		})
 	}
 }
@@ -1095,7 +1447,19 @@ func EvalTableProperty(t *Table, property string) Object {
 	switch property {
 	case "rows":
 		return tableRows(t)
+	case "columns":
+		return tableColumns(t)
+	case "row":
+		return tableRow(t)
 	default:
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}
+}
+
+// tableRow returns the first row of the table as a dictionary, or NULL if the table is empty
+func tableRow(t *Table) Object {
+	if len(t.Rows) == 0 {
+		return NULL
+	}
+	return t.Rows[0]
 }

@@ -8,6 +8,7 @@ import (
 	"html"
 	"math"
 	"math/rand"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -41,6 +42,7 @@ var stringMethods = []string{
 	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
+	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
 }
 
 // arrayMethods lists all methods available on array
@@ -136,18 +138,38 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		return &Array{Elements: elements}
 
 	case "replace":
+		// replace(search, replacement) - replace all occurrences
+		// search can be a string or regex
+		// replacement can be a string or function
 		if len(args) != 2 {
 			return newArityError("replace", len(args), 2)
 		}
-		old, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0005", "replace", "a string", args[0].Type())
+
+		switch search := args[0].(type) {
+		case *String:
+			// String search - replace all occurrences
+			switch replacement := args[1].(type) {
+			case *String:
+				// Simple string replacement
+				return &String{Value: strings.ReplaceAll(str.Value, search.Value, replacement.Value)}
+			case *Function:
+				// Functional replacement - call function for each match
+				return stringReplaceWithFunction(str.Value, search.Value, replacement, env)
+			default:
+				return newTypeError("TYPE-0006", "replace", "a string or function", args[1].Type())
+			}
+
+		case *Dictionary:
+			// Check if it's a regex
+			if !isRegexDict(search) {
+				return newTypeError("TYPE-0005", "replace", "a string or regex", "dictionary")
+			}
+			// Regex replacement
+			return regexReplaceOnString(str.Value, search, args[1], env)
+
+		default:
+			return newTypeError("TYPE-0005", "replace", "a string or regex", args[0].Type())
 		}
-		new, ok := args[1].(*String)
-		if !ok {
-			return newTypeError("TYPE-0006", "replace", "a string", args[1].Type())
-		}
-		return &String{Value: strings.ReplaceAll(str.Value, old.Value, new.Value)}
 
 	case "length":
 		if len(args) != 0 {
@@ -289,9 +311,193 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		lower := strings.ToLower(str.Value)
 		return &String{Value: strings.Trim(nonSlugRegex.ReplaceAllString(lower, "-"), "-")}
 
+	case "htmlEncode":
+		if len(args) != 0 {
+			return newArityError("htmlEncode", len(args), 0)
+		}
+		return &String{Value: html.EscapeString(str.Value)}
+
+	case "htmlDecode":
+		if len(args) != 0 {
+			return newArityError("htmlDecode", len(args), 0)
+		}
+		return &String{Value: html.UnescapeString(str.Value)}
+
+	case "urlEncode":
+		if len(args) != 0 {
+			return newArityError("urlEncode", len(args), 0)
+		}
+		// QueryEscape uses + for spaces (application/x-www-form-urlencoded)
+		return &String{Value: url.QueryEscape(str.Value)}
+
+	case "urlDecode":
+		if len(args) != 0 {
+			return newArityError("urlDecode", len(args), 0)
+		}
+		decoded, err := url.QueryUnescape(str.Value)
+		if err != nil {
+			return newFormatError("FMT-0011", err)
+		}
+		return &String{Value: decoded}
+
+	case "urlPathEncode":
+		if len(args) != 0 {
+			return newArityError("urlPathEncode", len(args), 0)
+		}
+		// PathEscape encodes path segments (including /)
+		return &String{Value: url.PathEscape(str.Value)}
+
+	case "urlQueryEncode":
+		if len(args) != 0 {
+			return newArityError("urlQueryEncode", len(args), 0)
+		}
+		// QueryEscape encodes query values (& and = are encoded)
+		return &String{Value: url.QueryEscape(str.Value)}
+
 	default:
 		return unknownMethodError(method, "string", stringMethods)
 	}
+}
+
+// stringReplaceWithFunction replaces all occurrences of a string using a function
+func stringReplaceWithFunction(input, search string, fn *Function, env *Environment) Object {
+	if search == "" {
+		return &String{Value: input}
+	}
+
+	var result strings.Builder
+	remaining := input
+
+	for {
+		idx := strings.Index(remaining, search)
+		if idx == -1 {
+			result.WriteString(remaining)
+			break
+		}
+
+		// Write everything before the match
+		result.WriteString(remaining[:idx])
+
+		// Call the function with the matched text
+		extendedEnv := extendFunctionEnv(fn, []Object{&String{Value: search}})
+		var replacement Object
+		for _, stmt := range fn.Body.Statements {
+			replacement = Eval(stmt, extendedEnv)
+		}
+
+		// Convert result to string
+		if replacement != nil {
+			if str, ok := replacement.(*String); ok {
+				result.WriteString(str.Value)
+			} else {
+				result.WriteString(replacement.Inspect())
+			}
+		}
+
+		// Move past the match
+		remaining = remaining[idx+len(search):]
+	}
+
+	return &String{Value: result.String()}
+}
+
+// regexReplaceOnString performs regex replacement on a string
+func regexReplaceOnString(input string, regexDict *Dictionary, replacement Object, env *Environment) Object {
+	// Extract pattern and flags
+	var pattern, flags string
+	if patternExpr, ok := regexDict.Pairs["pattern"]; ok {
+		if p := Eval(patternExpr, env); p != nil {
+			if str, ok := p.(*String); ok {
+				pattern = str.Value
+			}
+		}
+	}
+	if flagsExpr, ok := regexDict.Pairs["flags"]; ok {
+		if f := Eval(flagsExpr, env); f != nil {
+			if str, ok := f.(*String); ok {
+				flags = str.Value
+			}
+		}
+	}
+
+	// Check for global flag
+	global := strings.Contains(flags, "g")
+
+	// Compile regex
+	re, err := compileRegex(pattern, flags)
+	if err != nil {
+		return newFormatError("FMT-0007", err)
+	}
+
+	switch repl := replacement.(type) {
+	case *String:
+		// Simple string replacement
+		if global {
+			return &String{Value: re.ReplaceAllString(input, repl.Value)}
+		}
+		// Replace only first match
+		loc := re.FindStringIndex(input)
+		if loc == nil {
+			return &String{Value: input}
+		}
+		return &String{Value: input[:loc[0]] + repl.Value + input[loc[1]:]}
+
+	case *Function:
+		// Functional replacement
+		if global {
+			result := re.ReplaceAllStringFunc(input, func(match string) string {
+				// Get submatch info for capturing groups
+				submatches := re.FindStringSubmatch(match)
+				return callReplacementFunction(repl, submatches, env)
+			})
+			return &String{Value: result}
+		}
+		// Replace only first match
+		loc := re.FindStringSubmatchIndex(input)
+		if loc == nil {
+			return &String{Value: input}
+		}
+		match := re.FindStringSubmatch(input)
+		replacement := callReplacementFunction(repl, match, env)
+		return &String{Value: input[:loc[0]] + replacement + input[loc[1]:]}
+
+	default:
+		return newTypeError("TYPE-0006", "replace", "a string or function", replacement.Type())
+	}
+}
+
+// callReplacementFunction calls the replacement function with match info
+func callReplacementFunction(fn *Function, submatches []string, env *Environment) string {
+	// Build arguments: (match, ...groups)
+	// If function takes 1 arg, just pass match
+	// If function takes more args, pass match and capture groups
+	var args []Object
+
+	if len(submatches) > 0 {
+		// First element is the full match
+		args = append(args, &String{Value: submatches[0]})
+
+		// Additional elements are capture groups
+		if len(fn.Params) > 1 && len(submatches) > 1 {
+			for _, group := range submatches[1:] {
+				args = append(args, &String{Value: group})
+			}
+		}
+	}
+
+	extendedEnv := extendFunctionEnv(fn, args)
+	var result Object
+	for _, stmt := range fn.Body.Statements {
+		result = Eval(stmt, extendedEnv)
+	}
+
+	if result != nil {
+		if str, ok := result.(*String); ok {
+			return str.Value
+		}
+		return result.Inspect()
+	}
+	return ""
 }
 
 // ============================================================================
@@ -1548,9 +1754,21 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 
 		return nativeBoolToParsBoolean(re.MatchString(str.Value))
 
+	case "replace":
+		// replace(string, replacement) - replace matches in string
+		// replacement can be a string or function
+		if len(args) != 2 {
+			return newArityError("replace", len(args), 2)
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "replace", "a string", args[0].Type())
+		}
+		return regexReplaceOnString(str.Value, dict, args[1], env)
+
 	default:
 		return unknownMethodError(method, "regex", []string{
-			"toDict", "toString", "test", "exec", "execAll", "matches",
+			"toDict", "toString", "test", "exec", "execAll", "matches", "replace",
 		})
 	}
 }

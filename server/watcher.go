@@ -54,13 +54,13 @@ func NewWatcher(s *Server, configPath string, stdout, stderr io.Writer) (*Watche
 // collectHandlerDirs returns unique directories containing handler scripts
 func (w *Watcher) collectHandlerDirs() []string {
 	dirs := make(map[string]bool)
-	
+
 	// In site mode, watch the handler root (parent of site directory)
 	if w.server.config.Site != "" {
 		handlerRoot := filepath.Dir(w.server.config.Site)
 		dirs[handlerRoot] = true
 	}
-	
+
 	// In route mode, watch directories containing handlers
 	for _, route := range w.server.config.Routes {
 		dir := filepath.Dir(route.Handler)

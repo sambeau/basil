@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Parsley Syntax Highlighting Demo</title>
+	<link rel="stylesheet"
+		href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/styles/github.min.css">
+	<link rel="stylesheet" href="https://unpkg.com/@highlightjs/cdn-assets@11.7.0/styles/github-dark.min.css" />
+	<style>
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+			max-width: 900px;
+			margin: 40px auto;
+			padding: 0 20px;
+			line-height: 1.6;
+		}
+
+		h1 {
+			border-bottom: 1px solid #eaecef;
+			padding-bottom: 0.3em;
+		}
+
+		h2 {
+			margin-top: 2em;
+			border-bottom: 1px solid #eaecef;
+			padding-bottom: 0.3em;
+		}
+
+		pre {
+			background: #f6f8fa;
+			border-radius: 6px;
+			padding: 16px;
+			overflow-x: auto;
+		}
+
+		code {
+			font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+			font-size: 14px;
+		}
+
+		.description {
+			color: #586069;
+			margin-bottom: 1em;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Parsley Syntax Highlighting Demo</h1>
+	<p class="description">
+		This page demonstrates the highlight.js language definition for Parsley.
+	</p>
+
+	<h2>Basic Syntax</h2>
+	<pre><code class="language-parsley">// Variables and functions
+let name = "Alice"
+let age = 30
+let active = true
+
+let greet = fn(person) {
+  "Hello, " + person
+}
+
+print(greet(name))</code></pre>
+
+	<h2>At-Literals</h2>
+	<pre><code class="language-parsley">// DateTime literals
+let now = @now
+let today = @today
+let meeting = @2024-12-25T14:30:00Z
+let custom = @(2024-{month}-{day})
+
+// Duration literals
+let timeout = @5m30s
+let age = @30y6mo
+let week = @7d
+
+// Path literals
+let config = @./config.yaml
+let absolute = @/usr/local/bin
+
+// URL literals
+let api = @https://api.example.com/data
+let dynamic = @(https://api.com/{userId}/posts)
+
+// Stdlib imports
+let {table} = import @std/table
+let {basil} = import @std/basil
+
+// Database connection literals
+let db = @sqlite
+let pg = @postgres</code></pre>
+
+	<h2>Money Literals</h2>
+	<pre><code class="language-parsley">let price = $19.99
+let euro = EUR#50.00
+let pounds = £25.50
+let yen = ¥1000
+
+let total = price + money(5.00, "USD")
+let discounted = price * 0.8</code></pre>
+
+	<h2>Template Strings</h2>
+	<pre><code class="language-parsley">let name = "World"
+let count = 42
+let message = `Hello, ${name}! You have ${count} items.`
+
+let html = `
+  &lt;div class="card"&gt;
+    &lt;h2&gt;${title}&lt;/h2&gt;
+    &lt;p&gt;${description}&lt;/p&gt;
+  &lt;/div&gt;
+`</code></pre>
+
+	<h2>JSX-like Tags</h2>
+	<pre><code class="language-parsley">// Import a component
+let {Page} = import @./page.pars
+
+let title = "Welcome"
+let items = ["Apple", "Banana", "Cherry"]
+
+// Component with props and children
+&lt;Page title={title}&gt;
+  &lt;h1&gt;{title}&lt;/h1&gt;
+  &lt;div class="container"&gt;
+    &lt;p&gt;Hello from Parsley!&lt;/p&gt;
+    &lt;ul&gt;
+      {items.map(fn(item) { &lt;li&gt;{item}&lt;/li&gt; })}
+    &lt;/ul&gt;
+  &lt;/div&gt;
+&lt;/Page&gt;
+
+// Self-closing tags (required in Parsley)
+&lt;br/&gt;
+&lt;hr/&gt;
+&lt;Input type="text" placeholder="Enter name"/&gt;
+
+// Fragment syntax
+&lt;&gt;
+  &lt;span&gt;First&lt;/span&gt;
+  &lt;span&gt;Second&lt;/span&gt;
+&lt;/&gt;
+
+// Mixed attributes: strings and expressions
+&lt;Button class="primary" onClick={handleClick} disabled={!isValid}&gt;
+  Submit
+&lt;/Button&gt;</code></pre>
+
+	<h2>File I/O Operators</h2>
+	<pre><code class="language-parsley">// Read from file
+let content <== text(@./data.txt)
+let config <== json(@./config.json)
+
+// Fetch from URL
+let response </=> @https://api.example.com/data
+
+// Write to file
+"Hello, World!" ==> text(@./output.txt)
+{name: "Alice", age: 30} ==> json(@./user.json)
+
+// Append to file
+"Log entry" ==>> text(@./app.log)</code></pre>
+
+	<h2>Database Operators</h2>
+	<pre><code class="language-parsley">// Query one row
+let user <=?=> {
+  sql: "SELECT * FROM users WHERE id = ?",
+  params: [userId]
+}
+
+// Query many rows
+let users <=??=> {
+  sql: "SELECT * FROM users WHERE active = ?",
+  params: [true]
+}
+
+// Execute statement
+<=!=> {
+  sql: "INSERT INTO users (name, email) VALUES (?, ?)",
+  params: [name, email]
+}
+
+// Using table methods
+let {table} = import @std/table
+let data = table(users)
+let filtered = data.where(fn(u) { u.age > 18 })
+let summary = data.toHTML({age: data.avg("age")})</code></pre>
+
+	<h2>Control Flow</h2>
+	<pre><code class="language-parsley">// If/else
+if user.isAdmin {
+  &lt;AdminDashboard /&gt;
+} else {
+  &lt;UserDashboard /&gt;
+}
+
+// For loops
+for item in items {
+  print(item)
+}
+
+for i, item in items {
+  print(`${i}: ${item}`)
+}
+
+// Try/catch
+try {
+  let data <== json(@./config.json)
+  print("Config loaded successfully")
+}</code></pre>
+
+	<h2>Functions and Exports</h2>
+	<pre><code class="language-parsley">// Simple function
+let add = fn(a, b) {
+  a + b
+}
+
+// Function with return
+let multiply = fn(a, b) {
+  return a * b
+}
+
+// Export for modules
+export default = fn(props) {
+  &lt;div&gt;{props.message}&lt;/div&gt;
+}
+
+export formatDate = fn(date) {
+  date.format("YYYY-MM-DD")
+}
+
+export {
+  helper1,
+  helper2
+}</code></pre>
+
+	<h2>Arrays and Dictionaries</h2>
+	<pre><code class="language-parsley">// Arrays
+let numbers = [1, 2, 3, 4, 5]
+let names = ["Alice", "Bob", "Charlie"]
+let mixed = [1, "two", true, @now]
+
+// Array methods
+let doubled = numbers.map(fn(n) { n * 2 })
+let evens = numbers.filter(fn(n) { n % 2 == 0 })
+let sum = numbers.reduce(fn(acc, n) { acc + n }, 0)
+
+// Dictionaries
+let person = {
+  name: "Alice",
+  age: 30,
+  active: true
+}
+
+// Destructuring
+let {name, age} = person
+let [first, second, ...rest] = numbers</code></pre>
+
+	<h2>Regular Expressions</h2>
+	<pre><code class="language-parsley">// Regex literals
+let emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+let phonePattern = /^\d{3}-\d{3}-\d{4}$/
+
+// Using regex
+if email.match(emailPattern) {
+  print("Valid email")
+}
+
+let cleaned = text.replace(/\s+/g, " ")</code></pre>
+
+	<h2>Operators (and, or, not)</h2>
+	<pre><code class="language-parsley">// Logical operators - should NOT highlight 'or' in 'import', 'export', etc.
+let {Page} = import @./page.pars
+export default = fn() { "hello" }
+
+// These should highlight 'and', 'or', 'not' as operators
+let result = a and b
+let either = x or y
+let negated = not active
+
+// Mixed with other words - only standalone operators should highlight
+let imported = "test"    // 'or' in import should NOT highlight
+let exported = "data"    // 'or' in export should NOT highlight
+let storage = "s3"       // 'or' should NOT highlight inside storage
+let history = []         // 'or' should NOT highlight inside history
+let minor = true         // 'or' should NOT highlight inside minor
+
+// Actual operators on their own lines
+print(value1 or value2)
+let combined = a and b and c
+if not isValid {
+  return "error"
+}</code></pre>
+
+	<h2>Path Literals</h2>
+	<pre><code class="language-parsley">// All path literal forms
+let relative = @./config.yaml
+let parent = @../data/file.json
+let absolute = @/usr/local/bin
+let home = @~/Documents/notes.md
+
+// Standard streams
+let input = @stdin
+let output = @stdout
+let errors = @stderr
+let dash = @-
+
+// URL literals
+let api = @https://api.example.com/v1/users
+let local = @http://localhost:3000/api</code></pre>
+
+	<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@latest/build/highlight.min.js"></script>
+	<!-- <link rel="stylesheet" href="https://unpkg.com/@highlightjs/cdn-assets@11.7.0/styles/github-dark.min.css" /> -->
+	<script src="parsley.js"></script>
+	<script>
+		hljs.registerLanguage( 'parsley', window.hljsDefineParsley )
+		hljs.highlightAll();
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,78 @@
+// Test functional replace for strings and regex
+
+print("=== String replace with function ===")
+
+// Simple string replacement with function
+let text = "hello world"
+let result = text.replace("world", fn(match) {
+  match.toUpper()
+})
+print(result)  // hello WORLD
+
+// Replace multiple occurrences
+let text2 = "one two one three one"
+let result2 = text2.replace("one", fn(match) {
+  "ONE"
+})
+print(result2)  // ONE two ONE three ONE
+
+// Replace with transformation
+let prices = "Price: $10 and $20 and $30"
+let result3 = prices.replace("$", fn(m) {
+  "USD "
+})
+print(result3)  // Price: USD 10 and USD 20 and USD 30
+
+print("\n=== Regex replace with string ===")
+
+// Regex replace (global)
+let text4 = "hello world hello"
+let result4 = text4.replace(/hello/g, "hi")
+print(result4)  // hi world hi
+
+// Regex replace (first only)
+let text5 = "hello world hello"
+let result5 = text5.replace(/hello/, "hi")
+print(result5)  // hi world hello
+
+print("\n=== Regex replace with function ===")
+
+// Regex replace with function (global)
+let text6 = "abc 123 def 456"
+let result6 = text6.replace(/\d+/g, fn(match) {
+  "[" + match + "]"
+})
+print(result6)  // abc [123] def [456]
+
+// Regex replace with function (first only)
+let text7 = "abc 123 def 456"
+let result7 = text7.replace(/\d+/, fn(match) {
+  "[" + match + "]"
+})
+print(result7)  // abc [123] def 456
+
+// Transform case
+let text8 = "hello WORLD"
+let result8 = text8.replace(/[a-z]+/gi, fn(match) {
+  match.toUpper()
+})
+print(result8)  // HELLO WORLD
+
+print("\n=== Regex replace with capture groups ===")
+
+// Function receives capture groups as additional args
+let text9 = "John Smith, Jane Doe"
+let result9 = text9.replace(/(\w+) (\w+)/g, fn(match, first, last) {
+  last + ", " + first
+})
+print(result9)  // Smith, John, Doe, Jane
+
+print("\n=== String replace called on regex ===")
+
+// Call replace as regex method
+let pattern = /\d+/g
+let text10 = "a1b2c3"
+let result10 = pattern.replace(text10, fn(m) { "[" + m + "]" })
+print(result10)  // a[1]b[2]c[3]
+
+print("\nAll tests passed!")

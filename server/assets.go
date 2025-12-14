@@ -122,6 +122,7 @@ func formatAssetURL(hash, filepath string) string {
 // assetHandler serves registered assets at /__p/ URLs
 type assetHandler struct {
 	registry *assetRegistry
+	devMode  bool
 }
 
 // ServeHTTP handles requests to /__p/{hash}.{ext}
@@ -151,14 +152,25 @@ func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set aggressive cache headers (content-addressed = immutable)
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	// Set cache headers based on mode
+	if h.devMode {
+		// Dev mode: disable caching to prevent stale content
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+	} else {
+		// Production: aggressive caching (content-addressed = immutable)
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
 
 	// Serve the file - http.ServeFile handles Content-Type and Range requests
 	http.ServeFile(w, r, fp)
 }
 
 // newAssetHandler creates a new asset handler
-func newAssetHandler(registry *assetRegistry) *assetHandler {
-	return &assetHandler{registry: registry}
+func newAssetHandler(registry *assetRegistry, devMode bool) *assetHandler {
+	return &assetHandler{
+		registry: registry,
+		devMode:  devMode,
+	}
 }

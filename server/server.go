@@ -21,6 +21,19 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// serveStaticFile serves a file with appropriate caching headers for dev/production.
+// In dev mode, disables caching to ensure fresh content on every request.
+// In production mode, uses http.ServeFile's built-in ETag support.
+func serveStaticFile(w http.ResponseWriter, r *http.Request, filePath string, devMode bool) {
+	if devMode {
+		// Dev mode: disable all caching to prevent stale content issues
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+	}
+	http.ServeFile(w, r, filePath)
+}
+
 // Server represents a Basil web server instance.
 type Server struct {
 	config        *config.Config
@@ -277,13 +290,13 @@ func commonAncestor(path1, path2 string) string {
 	}
 
 	result := filepath.Join(common...)
-	
+
 	// Fix: If original paths were absolute (Unix), filepath.Join loses the leading /
 	// because it joins ["", "Users", ...] → "Users/..." instead of "/Users/..."
 	if len(common) > 0 && common[0] == "" && !filepath.IsAbs(result) {
 		result = string(filepath.Separator) + result
 	}
-	
+
 	return result
 }
 
@@ -468,7 +481,7 @@ func (s *Server) initGit() error {
 // setupRoutes configures the HTTP mux with static and dynamic routes.
 func (s *Server) setupRoutes() error {
 	// Register asset handler for publicUrl() files at /__p/
-	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry))
+	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry, s.devLog != nil))
 
 	// Register asset bundle routes
 	s.mux.HandleFunc("/__site.css", func(w http.ResponseWriter, r *http.Request) {
@@ -516,8 +529,9 @@ func (s *Server) setupRoutes() error {
 				s.mux.Handle(static.Path, handler)
 			} else if static.File != "" {
 				filePath := static.File
+				devMode := s.devLog != nil
 				s.mux.HandleFunc(static.Path, func(w http.ResponseWriter, r *http.Request) {
-					http.ServeFile(w, r, filePath)
+					serveStaticFile(w, r, filePath, devMode)
 				})
 			}
 		}
@@ -641,7 +655,7 @@ func (s *Server) createRouteWithStaticFallback(route config.Route, handler http.
 		if relativePath != "/" && staticRoot != "" {
 			filePath := filepath.Join(staticRoot, relativePath)
 			if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
-				http.ServeFile(w, r, filePath)
+				serveStaticFile(w, r, filePath, s.devLog != nil)
 				return
 			}
 		}
@@ -690,7 +704,7 @@ func (s *Server) createRootHandler() http.Handler {
 		if staticRoot != "" && r.URL.Path != "/" {
 			filePath := filepath.Join(staticRoot, r.URL.Path)
 			if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
-				http.ServeFile(w, r, filePath)
+				serveStaticFile(w, r, filePath, s.devLog != nil)
 				return
 			}
 		}

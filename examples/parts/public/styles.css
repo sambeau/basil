@@ -1,5 +1,10 @@
 /* Minimal styles */
 
+/* Ensure Part elements render correctly in standards mode (<!DOCTYPE html>) */
+[data-part-src] {
+	display: contents;
+}
+
 body {
 	font-family: sans-serif;
 	padding: 2rem;

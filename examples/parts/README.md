@@ -106,3 +106,15 @@ examples/parts/
 - Form submission with `part-submit`
 - Loading states
 - Error handling
+
+## Important: Standards Mode CSS
+
+If you include `<!DOCTYPE html>` in your page (recommended), add this CSS to ensure Parts render correctly:
+
+```css
+[data-part-src] {
+  display: contents;
+}
+```
+
+Without this, Part elements will collapse to inline elements in standards mode. The `display: contents` makes the Part wrapper transparent so the actual content determines the layout.

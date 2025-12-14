@@ -473,9 +473,9 @@ dir(@./test).rmdir()
 
 ### File Globbing
 ```parsley
-// Find files matching a pattern
-let images = fileList(@./images/*.jpg)
-let configs = fileList("~/.config/*.json")
+// Find files matching a pattern (relative to CURRENT FILE, not cwd)
+let images = fileList(@./images/*.jpg)     // @./ resolves from file location
+let configs = fileList(@~/.config/*.json)  // @~/ resolves from project root
 
 // Iterate over matches
 for(f in fileList(@./docs/*.md)) {
@@ -488,6 +488,8 @@ for(config in fileList(@./config/*.json)) {
     log(data)
 }
 ```
+
+**Important:** `@./` paths resolve relative to the **current file's directory**, not the working directory where you started the server. This matches import behavior.
 
 ---
 
@@ -1338,7 +1340,7 @@ export increment = fn(props) {
 
 ---
 
-### Asset Bundle Tags - <Css/> and <Script/>
+### Asset Bundle Tags - <CSS/> and <Javascript/>
 
 Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree.
 
@@ -1347,11 +1349,11 @@ Basil automatically bundles CSS and JavaScript files from your `handlers/` direc
 // In any handler (.pars file)
 <html>
   <head>
-    <Css/>
+    <CSS/>
   </head>
   <body>
     <h1>Hello</h1>
-    <Script/>
+    <Javascript/>
   </body>
 </html>
 ```
@@ -1386,5 +1388,5 @@ Source comments are omitted.
 - ✅ Bundle auto-rebuilds on file changes (dev mode)
 - ✅ `SIGHUP` rebuilds bundle (production hot reload)
 - ❌ Don't manually create `/__site.css` or `/__site.js` routes
-- ✅ Tags are self-closing: `<Css/>` and `<Script/>` (not `<Css>`)
+- ✅ Tags are self-closing: `<CSS/>` and `<Javascript/>` (not `<CSS>`)
 

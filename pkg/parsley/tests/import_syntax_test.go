@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -132,6 +133,112 @@ func TestImportDestructuring(t *testing.T) {
 				if result.(*evaluator.Boolean).Value != expected {
 					t.Errorf("expected %v, got %v", expected, result.(*evaluator.Boolean).Value)
 				}
+			}
+		})
+	}
+}
+
+// TestDestructuringImportDoesNotShadow tests that destructuring import
+// only binds the destructured names, not the path-derived name.
+// This allows builtins and other variables with the same name to remain accessible.
+func TestDestructuringImportDoesNotShadow(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected interface{}
+	}{
+		{
+			name:     "let destructure does not bind path name",
+			input:    `let {floor} = import @std/math; let math = "my math"; math`,
+			expected: "my math",
+		},
+		{
+			name:     "bare destructure does not bind path name",
+			input:    `{floor} = import @std/math; let math = "my math"; math`,
+			expected: "my math",
+		},
+		{
+			name:     "destructure with alias does not bind path name",
+			input:    `let {floor as f} = import @std/math; let math = 99; math + f(1.5)`,
+			expected: int64(100),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+
+			switch expected := tt.expected.(type) {
+			case string:
+				if result.Type() != evaluator.STRING_OBJ {
+					t.Fatalf("expected STRING, got %s (%s)", result.Type(), result.Inspect())
+				}
+				if result.(*evaluator.String).Value != expected {
+					t.Errorf("expected %q, got %q", expected, result.(*evaluator.String).Value)
+				}
+			case int64:
+				if result.Type() != evaluator.INTEGER_OBJ {
+					t.Fatalf("expected INTEGER, got %s (%s)", result.Type(), result.Inspect())
+				}
+				if result.(*evaluator.Integer).Value != expected {
+					t.Errorf("expected %d, got %d", expected, result.(*evaluator.Integer).Value)
+				}
+			}
+		})
+	}
+}
+
+// TestDestructuringImportPathNameNotBound verifies that accessing the path-derived
+// name after a destructuring import results in an "Identifier not found" error.
+func TestDestructuringImportPathNameNotBound(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "path name not bound after let destructure",
+			input: `let {floor} = import @std/math; math`,
+		},
+		{
+			name:  "path name not bound after bare destructure",
+			input: `{floor} = import @std/math; math`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			// We expect an error because "math" should not be bound
+			if result.Type() != evaluator.ERROR_OBJ {
+				t.Fatalf("expected error for undefined 'math', got %s (%s)", result.Type(), result.Inspect())
+			}
+
+			errObj := result.(*evaluator.Error)
+			if !strings.Contains(errObj.Message, "Identifier not found") {
+				t.Errorf("expected 'Identifier not found' error, got: %s", errObj.Message)
 			}
 		})
 	}

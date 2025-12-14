@@ -2158,6 +2158,14 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		return STDLIB_PATH
 	}
 
+	// Check for @std (without slash) - the stdlib root
+	if pos+3 <= len(l.input) && l.input[pos:pos+3] == "std" {
+		// Make sure it's just "std" and not "stdout" or similar
+		if pos+3 >= len(l.input) || !isLetter(l.input[pos+3]) {
+			return STDLIB_PATH
+		}
+	}
+
 	// Check for @now-style literals
 	if l.isKeywordAt(pos, "now") {
 		return DATETIME_NOW

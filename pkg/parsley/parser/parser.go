@@ -113,6 +113,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TAG_START, p.parseTagPair)
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(lexer.READ_FROM, p.parseReadExpression)
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
 	p.registerPrefix(lexer.FALSE, p.parseBoolean)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
@@ -1362,6 +1363,19 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 	return expression
 }
 
+// parseReadExpression parses bare <== expressions like '<== file(...)'
+func (p *Parser) parseReadExpression() ast.Expression {
+	expression := &ast.ReadExpression{
+		Token: p.curToken,
+	}
+
+	p.nextToken()
+
+	expression.Source = p.parseExpression(PREFIX)
+
+	return expression
+}
+
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
@@ -1612,14 +1626,21 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
-	}
+	// Check if parameters are present (fn(x) {...}) or omitted (fn {...})
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // consume LPAREN
+		// Use new parameter parsing that supports destructuring
+		lit.Params = p.parseFunctionParametersNew()
 
-	// Use new parameter parsing that supports destructuring
-	lit.Params = p.parseFunctionParametersNew()
-
-	if !p.expectPeek(lexer.LBRACE) {
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+	} else if p.peekTokenIs(lexer.LBRACE) {
+		// No parameters - fn {} syntax
+		p.nextToken() // consume LBRACE
+		lit.Params = []*ast.FunctionParameter{}
+	} else {
+		p.peekError(lexer.LPAREN)
 		return nil
 	}
 
