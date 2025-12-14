@@ -435,6 +435,19 @@ func (b *Boolean) expressionNode()      {}
 func (b *Boolean) TokenLiteral() string { return b.Token.Literal }
 func (b *Boolean) String() string       { return b.Token.Literal }
 
+// GroupedExpression represents a parenthesized expression like '(x + y)'
+// This is used to allow calling the result of complex expressions: (if(cond){fn})(args)
+type GroupedExpression struct {
+	Token lexer.Token // the '(' token
+	Inner Expression
+}
+
+func (ge *GroupedExpression) expressionNode()      {}
+func (ge *GroupedExpression) TokenLiteral() string { return ge.Token.Literal }
+func (ge *GroupedExpression) String() string {
+	return "(" + ge.Inner.String() + ")"
+}
+
 // PrefixExpression represents prefix expressions like '!x' or '-x'
 type PrefixExpression struct {
 	Token    lexer.Token // the prefix token, e.g. !

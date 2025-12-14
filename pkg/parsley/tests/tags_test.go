@@ -475,12 +475,12 @@ func TestBasicTagPairs(t *testing.T) {
 	}{
 		{
 			name:     "simple div tag",
-			input:    `<div>Hello, World!</div>`,
+			input:    `<div>"Hello, World!"</div>`,
 			expected: "<div>Hello, World!</div>",
 		},
 		{
 			name:     "paragraph tag",
-			input:    `<p>This is a paragraph.</p>`,
+			input:    `<p>"This is a paragraph."</p>`,
 			expected: "<p>This is a paragraph.</p>",
 		},
 		{
@@ -490,17 +490,17 @@ func TestBasicTagPairs(t *testing.T) {
 		},
 		{
 			name:     "tag with trailing space",
-			input:    `<div>Hello </div>`,
+			input:    `<div>"Hello "</div>`,
 			expected: "<div>Hello </div>",
 		},
 		{
 			name:     "tag with leading space",
-			input:    `<div> Hello</div>`,
+			input:    `<div>" Hello"</div>`,
 			expected: "<div> Hello</div>",
 		},
 		{
 			name:     "tag with multiple spaces",
-			input:    `<div>Hello   World</div>`,
+			input:    `<div>"Hello   World"</div>`,
 			expected: "<div>Hello   World</div>",
 		},
 	}
@@ -532,22 +532,22 @@ func TestNestedTags(t *testing.T) {
 	}{
 		{
 			name:     "simple nesting",
-			input:    `<div><p>Nested</p></div>`,
+			input:    `<div><p>"Nested"</p></div>`,
 			expected: "<div><p>Nested</p></div>",
 		},
 		{
 			name:     "multiple nested tags",
-			input:    `<div><h1>Title</h1><p>Content</p></div>`,
+			input:    `<div><h1>"Title"</h1><p>"Content"</p></div>`,
 			expected: "<div><h1>Title</h1><p>Content</p></div>",
 		},
 		{
 			name:     "deeply nested tags",
-			input:    `<div><section><article><p>Deep</p></article></section></div>`,
+			input:    `<div><section><article><p>"Deep"</p></article></section></div>`,
 			expected: "<div><section><article><p>Deep</p></article></section></div>",
 		},
 		{
 			name:     "nested with text between",
-			input:    `<div>Before<p>Middle</p>After</div>`,
+			input:    `<div>"Before"<p>"Middle"</p>"After"</div>`,
 			expected: "<div>Before<p>Middle</p>After</div>",
 		},
 	}
@@ -579,52 +579,52 @@ func TestTagsWithInterpolation(t *testing.T) {
 	}{
 		{
 			name:     "simple interpolation",
-			input:    "name = \"World\"\n<div>Hello, {name}!</div>",
+			input:    "name = \"World\"\n<div>\"Hello, \" name \"!\"</div>",
 			expected: "<div>Hello, World!</div>",
 		},
 		{
 			name:     "multiple interpolations",
-			input:    "x = \"A\"\ny = \"B\"\n<div>{x} and {y}</div>",
+			input:    "x = \"A\"\ny = \"B\"\n<div>x \" and \" y</div>",
 			expected: "<div>A and B</div>",
 		},
 		{
 			name:     "interpolation with spaces",
-			input:    "x = \"FIRST\"\ny = \"SECOND\"\n<div>{x} - {y}</div>",
+			input:    "x = \"FIRST\"\ny = \"SECOND\"\n<div>x \" - \" y</div>",
 			expected: "<div>FIRST - SECOND</div>",
 		},
 		{
 			name:     "interpolation at start",
-			input:    "name = \"Start\"\n<div>{name} here</div>",
+			input:    "name = \"Start\"\n<div>name \" here\"</div>",
 			expected: "<div>Start here</div>",
 		},
 		{
 			name:     "interpolation at end",
-			input:    "name = \"End\"\n<div>Here is {name}</div>",
+			input:    "name = \"End\"\n<div>\"Here is \" name</div>",
 			expected: "<div>Here is End</div>",
 		},
 		{
 			name:     "only interpolation",
-			input:    "name = \"Only\"\n<div>{name}</div>",
+			input:    "name = \"Only\"\n<div>name</div>",
 			expected: "<div>Only</div>",
 		},
 		{
 			name:     "multiple statements with semicolon",
-			input:    "<p>{x = 5; x * 2}</p>",
+			input:    "<p>(fn() { x = 5; x * 2 })()</p>",
 			expected: "<p>10</p>",
 		},
 		{
 			name:     "multiple statements with newlines",
-			input:    "<p>{\nx = 10\nx + 5\n}</p>",
+			input:    "<p>(fn() {\nx = 10\nx + 5\n})()</p>",
 			expected: "<p>15</p>",
 		},
 		{
 			name:     "for loop in interpolation",
-			input:    "<p>{for(i in [1,2,3]) { i }}</p>",
+			input:    "<p>for(i in [1,2,3]) { i }</p>",
 			expected: "<p>123</p>",
 		},
 		{
 			name:     "multiple statements with for loop",
-			input:    "<p>{\nx = 0\nfor(i in [1,2,3]) {\nx = x + i\n}\nx\n}</p>",
+			input:    "<p>(fn() {\nx = 0\nfor(i in [1,2,3]) {\nx = x + i\n}\nx\n})()</p>",
 			expected: "<p>6</p>",
 		},
 	}
@@ -656,17 +656,17 @@ func TestEmptyGroupingTags(t *testing.T) {
 	}{
 		{
 			name:     "simple grouping",
-			input:    `<>Hello</>`,
+			input:    `<>"Hello"</>`,
 			expected: "Hello",
 		},
 		{
 			name:     "grouping with nested tags",
-			input:    `<><div>First</div><div>Second</div></>`,
+			input:    `<><div>"First"</div><div>"Second"</div></>`,
 			expected: "<div>First</div><div>Second</div>",
 		},
 		{
 			name:     "grouping with interpolation",
-			input:    "x = \"Test\"\n<>{x}</>",
+			input:    "x = \"Test\"\n<>x</>",
 			expected: "Test",
 		},
 	}
@@ -699,35 +699,35 @@ func TestComponentsWithContents(t *testing.T) {
 		{
 			name: "basic component with contents",
 			input: `Title = fn(props) {
-				<title>{props.contents}</title>
+				<title>props.contents</title>
 			}
-			<Title>Home Page</Title>`,
+			<Title>"Home Page"</Title>`,
 			expected: "<title>Home Page</title>",
 		},
 		{
 			name: "component with contents and interpolation",
 			input: `SiteName = "MyGroovySite"
 			Title = fn(props) {
-				<title>{props.contents} - {SiteName}</title>
+				<title>props.contents " - " SiteName</title>
 			}
-			<Title>Home Page</Title>`,
+			<Title>"Home Page"</Title>`,
 			expected: "<title>Home Page - MyGroovySite</title>",
 		},
 		{
 			name: "component with nested tags in contents",
 			input: `Card = fn(props) {
-				<div>{props.contents}</div>
+				<div>props.contents</div>
 			}
-			<Card><h2>Title</h2><p>Body</p></Card>`,
+			<Card><h2>"Title"</h2><p>"Body"</p></Card>`,
 			expected: "<div><h2>Title</h2><p>Body</p></div>",
 		},
 		{
 			name: "component with interpolation in contents",
 			input: `name = "Alice"
 			Wrapper = fn(props) {
-				<div>{props.contents}</div>
+				<div>props.contents</div>
 			}
-			<Wrapper>Hello, {name}!</Wrapper>`,
+			<Wrapper>"Hello, " name "!"</Wrapper>`,
 			expected: "<div>Hello, Alice!</div>",
 		},
 	}
@@ -760,7 +760,7 @@ func TestComponentsWithProps(t *testing.T) {
 		{
 			name: "component with single prop",
 			input: `Greeting = fn(props) {
-				<h1>Hello, {props.name}!</h1>
+				<h1>"Hello, " props.name "!"</h1>
 			}
 			<Greeting name="World" />`,
 			expected: "<h1>Hello, World!</h1>",
@@ -768,7 +768,7 @@ func TestComponentsWithProps(t *testing.T) {
 		{
 			name: "component with multiple props",
 			input: `Person = fn(props) {
-				<div>{props.name} is {props.age} years old</div>
+				<div>props.name " is " props.age " years old"</div>
 			}
 			<Person name="Alice" age="30" />`,
 			expected: "<div>Alice is 30 years old</div>",
@@ -776,11 +776,11 @@ func TestComponentsWithProps(t *testing.T) {
 		{
 			name: "component used in map",
 			input: `Welcome = fn(name) {
-				<h2>Hello, {name}</h2>
+				<h2>"Hello, " name</h2>
 			}
 			names = ["Sara", "Cahal", "Edite"]
 			result = names.map(Welcome)
-			<div>{result}</div>`,
+			<div>result</div>`,
 			expected: "<div><h2>Hello, Sara</h2><h2>Hello, Cahal</h2><h2>Hello, Edite</h2></div>",
 		},
 	}
@@ -812,27 +812,27 @@ func TestWhitespacePreservation(t *testing.T) {
 	}{
 		{
 			name:     "preserve space after comma",
-			input:    "name = \"Sara\"\n<h2>Hello, {name}</h2>",
+			input:    "name = \"Sara\"\n<h2>\"Hello, \" name</h2>",
 			expected: "<h2>Hello, Sara</h2>",
 		},
 		{
 			name:     "preserve spaces around dash",
-			input:    "x = \"A\"\ny = \"B\"\n<div>{x} - {y}</div>",
+			input:    "x = \"A\"\ny = \"B\"\n<div>x \" - \" y</div>",
 			expected: "<div>A - B</div>",
 		},
 		{
 			name:     "preserve trailing space before interpolation",
-			input:    "name = \"World\"\n<div>Hello {name}</div>",
+			input:    "name = \"World\"\n<div>\"Hello \" name</div>",
 			expected: "<div>Hello World</div>",
 		},
 		{
 			name:     "preserve space after interpolation",
-			input:    "name = \"Alice\"\n<div>{name} here</div>",
+			input:    "name = \"Alice\"\n<div>name \" here\"</div>",
 			expected: "<div>Alice here</div>",
 		},
 		{
 			name:     "preserve multiple spaces",
-			input:    `<div>A    B</div>`,
+			input:    `<div>"A    B"</div>`,
 			expected: "<div>A    B</div>",
 		},
 	}
@@ -865,23 +865,23 @@ func TestComplexTagExamples(t *testing.T) {
 		{
 			name: "component composition",
 			input: `Card = fn(props) {
-				<div><h3>{props.title}</h3><p>{props.body}</p></div>
+				<div><h3>props.title</h3><p>props.body</p></div>
 			}
 			<Card title="Welcome" body="This is the content" />`,
 			expected: "<div><h3>Welcome</h3><p>This is the content</p></div>",
 		},
 		{
 			name: "nested components with contents",
-			input: `Inner = fn(props) { <span>{props.contents}</span> }
-			Outer = fn(props) { <div>{props.contents}</div> }
-			<Outer><Inner>Hello</Inner></Outer>`,
+			input: `Inner = fn(props) { <span>props.contents</span> }
+			Outer = fn(props) { <div>props.contents</div> }
+			<Outer><Inner>"Hello"</Inner></Outer>`,
 			expected: "<div><span>Hello</span></div>",
 		},
 		{
 			name: "tag with expressions",
 			input: `x = 5
 			y = 10
-			<div>The sum is {x + y}</div>`,
+			<div>"The sum is " + (x + y)</div>`,
 			expected: "<div>The sum is 15</div>",
 		},
 	}

@@ -55,7 +55,7 @@ func testCacheEval(input string, cache *mockFragmentCache, handlerPath string) e
 func TestCacheTag_BasicUsage(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>Cached content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>"Cached content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/dashboard")
 
 	if result == nil {
@@ -87,7 +87,7 @@ func TestCacheTag_CacheHit(t *testing.T) {
 	cache.entries["/dashboard:sidebar"] = "<div>Pre-cached content</div>"
 
 	// The input has different content, but we should get the cached version
-	input := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>New content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>"New content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/dashboard")
 
 	strResult, ok := result.(*evaluator.String)
@@ -106,7 +106,7 @@ func TestCacheTag_DynamicKey(t *testing.T) {
 	cache := newMockFragmentCache()
 
 	input := `let userId = 123
-<basil.cache.Cache key={"user-" + userId} maxAge={@1h}><div>User content</div></basil.cache.Cache>`
+<basil.cache.Cache key={"user-" + userId} maxAge={@1h}><div>"User content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/profile")
 
 	strResult, ok := result.(*evaluator.String)
@@ -128,7 +128,7 @@ func TestCacheTag_DynamicKey(t *testing.T) {
 func TestCacheTag_MissingKeyAttribute(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache maxAge={@5m}><div>Content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache maxAge={@5m}><div>"Content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/test")
 
 	errResult, ok := result.(*evaluator.Error)
@@ -144,7 +144,7 @@ func TestCacheTag_MissingKeyAttribute(t *testing.T) {
 func TestCacheTag_MissingMaxAgeAttribute(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache key="sidebar"><div>Content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="sidebar"><div>"Content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/test")
 
 	errResult, ok := result.(*evaluator.Error)
@@ -160,7 +160,7 @@ func TestCacheTag_MissingMaxAgeAttribute(t *testing.T) {
 func TestCacheTag_InvalidKeyType(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache key={123} maxAge={@5m}><div>Content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key={123} maxAge={@5m}><div>"Content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/test")
 
 	errResult, ok := result.(*evaluator.Error)
@@ -176,7 +176,7 @@ func TestCacheTag_InvalidKeyType(t *testing.T) {
 func TestCacheTag_InvalidMaxAgeType(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache key="sidebar" maxAge={300}><div>Content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="sidebar" maxAge={300}><div>"Content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/test")
 
 	errResult, ok := result.(*evaluator.Error)
@@ -192,7 +192,7 @@ func TestCacheTag_InvalidMaxAgeType(t *testing.T) {
 func TestCacheTag_EnabledFalse(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache key="sidebar" maxAge={@5m} enabled={false}><div>Content</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="sidebar" maxAge={@5m} enabled={false}><div>"Content"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/test")
 
 	strResult, ok := result.(*evaluator.String)
@@ -214,7 +214,7 @@ func TestCacheTag_EnabledFalse(t *testing.T) {
 func TestCacheTag_DevMode(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	l := lexer.New(`<basil.cache.Cache key="sidebar" maxAge={@5m}><div>Content</div></basil.cache.Cache>`)
+	l := lexer.New(`<basil.cache.Cache key="sidebar" maxAge={@5m}><div>"Content"</div></basil.cache.Cache>`)
 	p := parser.New(l)
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
@@ -242,7 +242,7 @@ func TestCacheTag_DevMode(t *testing.T) {
 
 func TestCacheTag_NoCacheAvailable(t *testing.T) {
 	// No cache set on environment
-	l := lexer.New(`<basil.cache.Cache key="sidebar" maxAge={@5m}><div>Content</div></basil.cache.Cache>`)
+	l := lexer.New(`<basil.cache.Cache key="sidebar" maxAge={@5m}><div>"Content"</div></basil.cache.Cache>`)
 	p := parser.New(l)
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
@@ -265,7 +265,7 @@ func TestCacheTag_NoCacheAvailable(t *testing.T) {
 func TestCacheTag_NestedContent(t *testing.T) {
 	cache := newMockFragmentCache()
 
-	input := `<basil.cache.Cache key="complex" maxAge={@10m}><div class="wrapper"><header><h1>Title</h1></header><main>Main content</main><footer>Footer</footer></div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="complex" maxAge={@10m}><div class="wrapper"><header><h1>"Title"</h1></header><main>"Main content"</main><footer>"Footer"</footer></div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/page")
 
 	strResult, ok := result.(*evaluator.String)
@@ -288,7 +288,7 @@ func TestCacheTag_WithInterpolation(t *testing.T) {
 	cache := newMockFragmentCache()
 
 	input := `let name = "Alice"
-<basil.cache.Cache key="greeting" maxAge={@5m}><div>Hello, {name}!</div></basil.cache.Cache>`
+<basil.cache.Cache key="greeting" maxAge={@5m}><div>"Hello, " name "!"</div></basil.cache.Cache>`
 	result := testCacheEval(input, cache, "/greet")
 
 	strResult, ok := result.(*evaluator.String)
@@ -306,10 +306,10 @@ func TestCacheTag_HandlerNamespacing(t *testing.T) {
 	cache := newMockFragmentCache()
 
 	// Same key, different handlers
-	input := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>Dashboard sidebar</div></basil.cache.Cache>`
+	input := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>"Dashboard sidebar"</div></basil.cache.Cache>`
 	testCacheEval(input, cache, "/dashboard")
 
-	input2 := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>Profile sidebar</div></basil.cache.Cache>`
+	input2 := `<basil.cache.Cache key="sidebar" maxAge={@5m}><div>"Profile sidebar"</div></basil.cache.Cache>`
 	testCacheEval(input2, cache, "/profile")
 
 	// Both should be cached separately

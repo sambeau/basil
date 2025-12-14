@@ -19,20 +19,20 @@ func TestCommentsInAndAroundTags(t *testing.T) {
 		{
 			name: "comment between tags in tag content",
 			input: `<div>
-    <p>First</p>
+    <p>"First"</p>
     // This is a comment
-    <p>Second</p>
+    <p>"Second"</p>
 </div>`,
-			expected: "<div><p>First</p> \n    <p>Second</p></div>",
+			expected: "<div><p>First</p><p>Second</p></div>",
 		},
 		{
 			name: "comment with @{} between tags",
 			input: `<div>
-    <p>First</p>
+    <p>"First"</p>
     // This comment has @{} in it
-    <p>Second</p>
+    <p>"Second"</p>
 </div>`,
-			expected: "<div><p>First</p> \n    <p>Second</p></div>",
+			expected: "<div><p>First</p><p>Second</p></div>",
 		},
 		{
 			name: "comment inside style tag",
@@ -60,7 +60,7 @@ body {
 			input: `let Page = fn() {
     <html>
         <head>
-            <title>Test</title>
+            <title>"Test"</title>
             // only @{} sections are interpolated
             <style>
                 body { color: red; }
@@ -69,7 +69,7 @@ body {
     </html>
 }
 <Page></Page>`,
-			expected: "<html><head><title>Test</title> \n            <style>\n                body { color: red; }\n            </style></head></html>",
+			expected: "<html><head><title>Test</title><style>\n                body { color: red; }\n            </style></head></html>",
 		},
 		{
 			name: "multiple comments in style tag",

@@ -4,7 +4,7 @@ let NotFoundPage = fn() {
     <head>
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-        <title>404 - Page Not Found</title>
+        <title>"404 - Page Not Found"</title>
         <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body {
@@ -52,9 +52,9 @@ let NotFoundPage = fn() {
     </head>
     <body>
         <div class="container">
-            <h1>404</h1>
-            <p>Page not found</p>
-            <a href="/">Go home</a>
+            <h1>"404"</h1>
+            <p>"Page not found"</p>
+            <a href="/">"Go home"</a>
         </div>
     </body>
     </html>

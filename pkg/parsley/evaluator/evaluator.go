@@ -6630,6 +6630,10 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.ObjectLiteralExpression:
 		return node.Obj.(Object)
 
+	case *ast.GroupedExpression:
+		// Simply evaluate the inner expression
+		return Eval(node.Inner, env)
+
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, env)
 		if isError(right) {
@@ -10651,7 +10655,94 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 	i := 0
 	for i < len(propsStr) {
-		// Look for {expr}
+		// Look for ={expr} - prop expression syntax
+		if propsStr[i] == '=' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
+			result.WriteByte('=') // write the =
+			i++                   // skip =
+			i++                   // skip {
+			braceCount := 1
+			exprStart := i
+
+			for i < len(propsStr) && braceCount > 0 {
+				if propsStr[i] == '"' {
+					// Skip quoted strings
+					i++
+					for i < len(propsStr) && propsStr[i] != '"' {
+						if propsStr[i] == '\\' {
+							i += 2
+						} else {
+							i++
+						}
+					}
+					if i < len(propsStr) {
+						i++
+					}
+					continue
+				}
+				if propsStr[i] == '{' {
+					braceCount++
+				} else if propsStr[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newParseError("PARSE-0009", "tag props", nil)
+			}
+
+			// Extract and evaluate the expression
+			exprStr := propsStr[exprStart:i]
+			i++ // skip closing }
+
+			// Parse and evaluate the expression
+			l := lexer.NewWithFilename(exprStr, env.Filename)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
+			}
+
+			// Evaluate the expression
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+
+			// Convert result to quoted string value
+			if evaluated != nil {
+				strVal := objectToTemplateString(evaluated)
+				result.WriteByte('"')
+				// Escape quotes in the value
+				for _, c := range strVal {
+					if c == '"' {
+						result.WriteString("\\\"")
+					} else {
+						result.WriteRune(c)
+					}
+				}
+				result.WriteByte('"')
+			}
+			continue
+		}
+
+		// Look for {expr} - inline interpolation (legacy syntax)
 		if propsStr[i] == '{' {
 			// Find the closing }
 			i++ // skip {

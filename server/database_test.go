@@ -102,7 +102,7 @@ let {basil} = import @std/basil
 let _ = basil.sqlite <=!=> "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"
 let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Alice')"
 let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Bob')"
-<p>Setup complete</p>
+<p>"Setup complete"</p>
 `
 	if err := os.WriteFile(filepath.Join(handlersDir, "setup.pars"), []byte(setupScript), 0o644); err != nil {
 		t.Fatal(err)
@@ -113,9 +113,9 @@ let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Bob')"
 let {basil} = import @std/basil
 let users = basil.sqlite <=??=> "SELECT id, name FROM users ORDER BY id"
 <ul>
-{for (user in users) {
-    <li>{user.name}</li>
-}}
+for (user in users) {
+    <li>user.name</li>
+}
 </ul>
 `
 	if err := os.WriteFile(filepath.Join(handlersDir, "users.pars"), []byte(queryScript), 0o644); err != nil {

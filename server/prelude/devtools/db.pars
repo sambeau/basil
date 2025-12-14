@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>Database Browser</title>
+	<title>"Database Browser"</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -189,46 +189,46 @@
 <body>
 	<div class="container">
 		<div class="header">
-			<h1>🗄️ Database Browser</h1>
-			<a href="/__/" class="btn">← Back</a>
+			<h1>"🗄️ Database Browser"</h1>
+			<a href="/__/" class="btn">"← Back"</a>
 		</div>
 
 		<div class="db-actions">
-			<a href="/__/db/download" class="btn-download">📥 Download Database</a>
+			<a href="/__/db/download" class="btn-download">"📥 Download Database"</a>
 			<form class="upload-form" id="uploadForm" enctype="multipart/form-data">
 				<input type="file" id="fileInput" name="database" accept=".db,.sqlite,.sqlite3" class="file-input"/>
-				<label for="fileInput" class="file-label">📤 Choose Database File</label>
+				<label for="fileInput" class="file-label">"📤 Choose Database File"</label>
 				<span class="file-name" id="fileName"></span>
-				<button type="submit" class="btn-upload" id="uploadBtn">Upload</button>
+				<button type="submit" class="btn-upload" id="uploadBtn">"Upload"</button>
 			</form>
 		</div>
 		<div id="uploadMessage" class="upload-message"></div>
 
-		{if (devtools.error) {
+		if (devtools.error) {
 			<div class="error-state">
-				<div class="error-title">Database Error</div>
-				<div class="error-message">{devtools.error}</div>
+				<div class="error-title">"Database Error"</div>
+				<div class="error-message">devtools.error</div>
 			</div>
-		}}
-		{if (!devtools.error && devtools.table_count == 0) {
+		}
+		if (!devtools.error && devtools.table_count == 0) {
 			<div class="empty-state">
-				No tables found in database.
+				"No tables found in database."
 			</div>
-		}}
-		{if (!devtools.error && devtools.table_count > 0) {
+		}
+		if (!devtools.error && devtools.table_count > 0) {
 			<div class="stats">
-				{devtools.table_count} {if (devtools.table_count == 1) { "table" } else { "tables" }} in database
+				devtools.table_count + " " + if (devtools.table_count == 1) { "table" } else { "tables" } + " in database"
 			</div>
 
 			<div class="table-list">
 				for (table in devtools.tables) {
-					<a href="/__/db/view/{table.name}" class="table-card">
-						<div class="table-name">{table.name}</div>
-						<div class="table-info">{table.row_count} {if (table.row_count == 1) { "row" } else { "rows" }}</div>
+					<a href={"/__/db/view/" + table.name} class="table-card">
+						<div class="table-name">table.name</div>
+						<div class="table-info">table.row_count + " " + if (table.row_count == 1) { "row" } else { "rows" }</div>
 					</a>
 				}
 			</div>
-		}}
+		}
 	</div>
 	<script>
 		// Handle file selection

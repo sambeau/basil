@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>Table: {devtools.table_name}</title>
+	<title>"Table: " + devtools.table_name</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
@@ -113,24 +113,24 @@
 <body>
 	<div class="container">
 		<div class="header">
-			<h1>🗄️ {devtools.table_name}</h1>
-			<a href="/__/db" class="btn">← Back to Tables</a>
+			<h1>"🗄️ " + devtools.table_name</h1>
+			<a href="/__/db" class="btn">"← Back to Tables"</a>
 		</div>
 
-		{if (devtools.error) {
+		if (devtools.error) {
 			<div class="error-state">
-				<div class="error-title">Database Error</div>
-				<div class="error-message">{devtools.error}</div>
+				<div class="error-title">"Database Error"</div>
+				<div class="error-message">devtools.error</div>
 			</div>
-		}}
-		{if (!devtools.error && devtools.row_count == 0) {
+		}
+		if (!devtools.error && devtools.row_count == 0) {
 			<div class="empty-state">
-				No rows in this table.
+				"No rows in this table."
 			</div>
-		}}
-		{if (!devtools.error && devtools.row_count > 0) {
+		}
+		if (!devtools.error && devtools.row_count > 0) {
 			<div class="stats">
-				{devtools.row_count} {if (devtools.row_count == 1) { "row" } else { "rows" }} • {devtools.column_count} {if (devtools.column_count == 1) { "column" } else { "columns" }}
+				devtools.row_count + " " + if (devtools.row_count == 1) { "row" } else { "rows" } + " • " + devtools.column_count + " " + if (devtools.column_count == 1) { "column" } else { "columns" }
 			</div>
 
 			<div class="table-wrapper">
@@ -138,7 +138,7 @@
 					<thead>
 						<tr>
 							for (col in devtools.columns) {
-								<th>{col}</th>
+								<th>col</th>
 							}
 						</tr>
 					</thead>
@@ -146,20 +146,20 @@
 						for (row in devtools.rows) {
 							<tr>
 								for (cell in row) {
-									<td>{
+									<td>
 										if (cell == null) {
-											<span class="null-value">NULL</span>
+											<span class="null-value">"NULL"</span>
 										} else {
 											cell
 										}
-									}</td>
+									</td>
 								}
 							</tr>
 						}
 					</tbody>
 				</table>
 			</div>
-		}}
+		}
 	</div>
 </body>
 </html>

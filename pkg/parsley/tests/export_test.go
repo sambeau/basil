@@ -126,9 +126,9 @@ export Pi = 3.14159
 		{
 			name: "export tag and use in template",
 			moduleCode: `
-export Header = <header><h1>Welcome</h1></header>
+export Header = <header><h1>"Welcome"</h1></header>
 `,
-			mainCode:       `let mod = import @%s; <div>{mod.Header}</div>`,
+			mainCode:       `let mod = import @%s; <div>mod.Header</div>`,
 			expectedOutput: `<div><header><h1>Welcome</h1></header></div>`,
 		},
 	}
