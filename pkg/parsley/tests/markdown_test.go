@@ -294,8 +294,8 @@ program := p.ParseProgram()
 	}
 }
 
-// TestToMarkdownMethod tests the string.toMarkdown() method
-func TestToMarkdownMethod(t *testing.T) {
+// TestParseMarkdownMethod tests the string.parseMarkdown() method
+func TestParseMarkdownMethod(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
@@ -303,12 +303,12 @@ func TestToMarkdownMethod(t *testing.T) {
 	}{
 		{
 			name:     "basic usage",
-			code:     `"# Hello".toMarkdown().html`,
+			code:     `"# Hello".parseMarkdown().html`,
 			contains: []string{"<h1>Hello</h1>"},
 		},
 		{
 			name:     "with variable",
-			code:     `let md = "## Test\n\nBody"; md.toMarkdown().html`,
+			code:     `let md = "## Test\n\nBody"; md.parseMarkdown().html`,
 			contains: []string{"<h2>Test</h2>", "<p>Body</p>"},
 		},
 	}
@@ -373,8 +373,8 @@ func TestMarkdownHeadingIDs(t *testing.T) {
 			notContains: []string{`id=`},
 		},
 		{
-			name:     "toMarkdown with IDs",
-			code:     `"# Test".toMarkdown({ids: true}).html`,
+			name:     "parseMarkdown with IDs",
+			code:     `"# Test".parseMarkdown({ids: true}).html`,
 			contains: []string{`id="test"`},
 		},
 	}

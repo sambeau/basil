@@ -107,17 +107,17 @@ let path = "./config.json"
 let Page = fn({title, contents}) {
     <html>
     <head>
-        <title>{title}</title>
+        <title>title</title>
     </head>
     <body>
-        {contents}
+        contents
     </body>
     </html>
 }
 
 // Use it (note: self-closing OR with children)
 <Page title="Home">
-    <h1>Welcome!</h1>
+    <h1>"Welcome!"</h1>
 </Page>
 ```
 
@@ -128,7 +128,7 @@ let Page = fn({title, contents}) {
 export Page = fn({title, contents}) {
     <html>
     <head><title>{title}</title></head>
-    <body>{contents}</body>
+    <body>contents</body>
     </html>
 }
 
@@ -136,7 +136,7 @@ export Page = fn({title, contents}) {
 {Page} = import(@./Page.pars)
 
 <Page title="Home">
-    <h1>Welcome!</h1>
+    <h1>"Welcome!"</h1>
 </Page>
 ```
 
@@ -144,7 +144,7 @@ export Page = fn({title, contents}) {
 
 **HTML** (auto-detected by leading `<`):
 ```parsley
-<html><body>Hello!</body></html>
+<html><body>"Hello!"</body></html>
 ```
 
 **JSON** (return a dictionary):

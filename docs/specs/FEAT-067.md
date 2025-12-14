@@ -20,7 +20,7 @@ As a developer, I want to parse markdown content directly from a string so that 
 - [ ] `MD(path)` loads markdown files (renamed from `markdown`)
 - [ ] `markdown(string)` parses markdown content from a string
 - [ ] `markdown(string)` returns same structure as `MD(path)`: `{raw, html, md}`
-- [ ] `string.toMarkdown()` works as method form of `markdown(string)`
+- [ ] `string.parseMarkdown()` works as method form of `markdown(string)`
 - [ ] Error message when passing path to `markdown()` suggests using `MD(path)` instead
 - [ ] All existing tests updated to use `MD()` for file loading
 - [ ] Documentation updated
@@ -28,7 +28,7 @@ As a developer, I want to parse markdown content directly from a string so that 
 ## Design Decisions
 - **Why rename to `MD`?**: Matches existing pattern (`JSON`, `YAML`, `CSV`). While "MD" isn't commonly used to refer to markdown, it's unambiguous in context and frees `markdown` for the more intuitive string-parsing role.
 - **Why keep `markdown()` for strings?**: Users naturally try `markdown(string)` and are confused when it doesn't work. The file vs string distinction should be: `<==` for files, `=` for strings/values.
-- **Method form**: `string.toMarkdown()` provides fluent API and matches `toJSON()`, `toYAML()` patterns.
+- **Method form**: `string.parseMarkdown()` provides fluent API and matches `parseJSON()`, `parseCSV()` patterns.
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -42,12 +42,12 @@ As a developer, I want to parse markdown content directly from a string so that 
 
 // String parsing (new)
 {raw, html, md} = markdown("# Hello\n\nWorld")
-{raw, html, md} = myString.toMarkdown()
+{raw, html, md} = myString.parseMarkdown()
 ```
 
 ### Affected Components
 - `pkg/parsley/evaluator/evaluator.go` — Rename `markdown` builtin to `MD`, add new `markdown` string-parsing function
-- `pkg/parsley/evaluator/stdlib_markdown.go` — May need `toMarkdown` string method
+- `pkg/parsley/evaluator/methods.go` — Add `parseMarkdown` string method
 - `pkg/parsley/tests/markdown_test.go` — Update to use `MD()`, add string parsing tests
 
 ### Dependencies

@@ -55,21 +55,21 @@ Tests:
 
 ---
 
-### Task 3: Implement `string.toMarkdown()` Method
-**Files**: `pkg/parsley/evaluator/evaluator.go`
+### Task 3: Implement `string.parseMarkdown()` Method
+**Files**: `pkg/parsley/evaluator/methods.go`
 **Estimated effort**: Small
 
-Add `toMarkdown()` method on strings.
+Add `parseMarkdown()` method on strings.
 
 Steps:
 1. Locate string method handling (search for `case *String:` in method dispatch)
-2. Add case for "toMarkdown" method
+2. Add case for "parseMarkdown" method
 3. Call same `parseMarkdown()` function used by `markdown()` builtin
 4. Support optional options dictionary argument
 
 Tests:
-- `"# Hello".toMarkdown()` returns same as `markdown("# Hello")`
-- `myVar.toMarkdown()` works with string variables
+- `"# Hello".parseMarkdown()` returns same as `markdown("# Hello")`
+- `myVar.parseMarkdown()` works with string variables
 
 ---
 
@@ -111,7 +111,7 @@ Tests:
 {input: `markdown("---\ntitle: Test\n---\n# Body")`, ...}
 
 // Method form
-{input: `"# Hello".toMarkdown().html`, expected: "<h1>Hello</h1>\n"}
+{input: `"# Hello".parseMarkdown().html`, expected: "<h1>Hello</h1>\n"}
 
 // Path error
 {input: `markdown(@./file.md)`, expectError: true}

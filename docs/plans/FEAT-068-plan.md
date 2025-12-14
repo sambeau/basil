@@ -92,18 +92,18 @@ Tests:
 
 ---
 
-### Task 4: Update string.toMarkdown() Method
-**Files**: `pkg/parsley/evaluator/evaluator.go`
+### Task 4: Update string.parseMarkdown() Method
+**Files**: `pkg/parsley/evaluator/methods.go`
 **Estimated effort**: Small
 
-Support options argument in `toMarkdown()` method.
+Support options argument in `parseMarkdown()` method.
 
 Steps:
 1. Check for optional dictionary argument
 2. Pass to `parseMarkdown()`
 
 Tests:
-- `"# Hello".toMarkdown({ids: true}).html` contains `id="hello"`
+- `"# Hello".parseMarkdown({ids: true}).html` contains `id="hello"`
 
 ---
 

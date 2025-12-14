@@ -19,7 +19,7 @@ As a developer, I want heading IDs automatically added to my markdown HTML so th
 ## Acceptance Criteria
 - [ ] `MD(path, {ids: true})` adds `id` attributes to `<h1>` through `<h6>` tags
 - [ ] `markdown(string, {ids: true})` same behavior for string parsing
-- [ ] `string.toMarkdown({ids: true})` same behavior for method form
+- [ ] `string.parseMarkdown({ids: true})` same behavior for method form
 - [ ] IDs are kebab-case slugs generated from heading text
 - [ ] IDs match existing `id` field in markdown AST nodes (consistency)
 - [ ] Duplicate headings get unique IDs (e.g., `my-heading`, `my-heading-1`, `my-heading-2`)
@@ -45,7 +45,7 @@ As a developer, I want heading IDs automatically added to my markdown HTML so th
 {raw, html, md} = markdown("# Hello\n\n## World", {ids: true})
 
 // Method form with options
-{raw, html, md} = myString.toMarkdown({ids: true})
+{raw, html, md} = myString.parseMarkdown({ids: true})
 ```
 
 ### Expected Output
@@ -65,7 +65,7 @@ Output with `{ids: true}`:
 
 ### Affected Components
 - `pkg/parsley/evaluator/evaluator.go` — Add `ids` option handling to `MD()`, `markdown()`, and `parseMarkdown()`
-- `pkg/parsley/evaluator/stdlib_markdown.go` — Ensure `toMarkdown()` method supports options; verify `generateSlug()` matches Goldmark
+- `pkg/parsley/evaluator/methods.go` — Ensure `parseMarkdown()` method supports options
 - `pkg/parsley/tests/markdown_test.go` — Add heading ID tests
 
 ### Dependencies
