@@ -203,15 +203,43 @@ d.months        // 14
 d.seconds       // 0
 ```
 
-### Deriving Other Units
+### Computed Properties
 
-Use arithmetic to convert seconds to other units:
+These properties calculate derived values from the seconds component:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `.days` | Integer | Total seconds as days (integer division) |
+| `.hours` | Integer | Total seconds as hours (integer division) |
+| `.minutes` | Integer | Total seconds as minutes (integer division) |
 
 ```parsley
-let d = @2d12h
-d.seconds / 86400    // 2 (days, truncated)
-d.seconds / 3600     // 60 (hours)
-d.seconds / 60       // 3600 (minutes)
+let d = @2d12h30m
+d.seconds       // 217800
+d.days          // 2 (217800 / 86400)
+d.hours         // 60 (217800 / 3600)
+d.minutes       // 3630 (217800 / 60)
+```
+
+For week-based durations:
+
+```parsley
+let w = @1w
+w.days          // 7
+w.hours         // 168
+w.minutes       // 10080
+```
+
+> **Note:** Computed properties return `null` for month-based durations since months have variable lengths (28-31 days):
+
+```parsley
+let y = @1y
+y.days          // null
+y.hours         // null
+y.minutes       // null
+
+let mixed = @1mo2d
+mixed.days      // null (has month component)
 ```
 
 ## Methods

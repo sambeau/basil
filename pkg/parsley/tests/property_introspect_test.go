@@ -79,6 +79,9 @@ func TestPropertyIntrospection(t *testing.T) {
 				"months",
 				"seconds",
 				"totalSeconds",
+				"days",
+				"hours",
+				"minutes",
 			},
 		},
 	}

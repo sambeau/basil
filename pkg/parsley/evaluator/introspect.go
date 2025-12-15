@@ -84,6 +84,9 @@ var TypeProperties = map[string][]PropertyInfo{
 		{Name: "months", Type: "integer", Description: "Month component (years are stored as 12*years)"},
 		{Name: "seconds", Type: "integer", Description: "Seconds component (weeks/days/hours/minutes as seconds)"},
 		{Name: "totalSeconds", Type: "integer", Description: "Total seconds (only present when months == 0)"},
+		{Name: "days", Type: "integer", Description: "Total duration in days (null if months > 0)"},
+		{Name: "hours", Type: "integer", Description: "Total duration in hours (null if months > 0)"},
+		{Name: "minutes", Type: "integer", Description: "Total duration in minutes (null if months > 0)"},
 	},
 	"path": {
 		{Name: "absolute", Type: "boolean", Description: "Whether path is absolute"},

@@ -101,6 +101,47 @@ func TestDurationLiterals(t *testing.T) {
 			code:     `let d = @1h; d.__type`,
 			expected: "duration",
 		},
+		// Computed properties
+		{
+			name:     "computed days property",
+			code:     `let d = @2d12h; d.days`,
+			expected: "2", // 216000 / 86400 = 2
+		},
+		{
+			name:     "computed hours property",
+			code:     `let d = @2d12h; d.hours`,
+			expected: "60", // 216000 / 3600 = 60
+		},
+		{
+			name:     "computed minutes property",
+			code:     `let d = @2h30m; d.minutes`,
+			expected: "150", // 9000 / 60 = 150
+		},
+		{
+			name:     "computed days for week",
+			code:     `let d = @1w; d.days`,
+			expected: "7",
+		},
+		{
+			name:     "computed hours for week",
+			code:     `let d = @1w; d.hours`,
+			expected: "168", // 7 * 24
+		},
+		{
+			name:     "computed properties null for month-based durations",
+			code:     `let d = @1y; d.days`,
+			expected: "null",
+		},
+		{
+			name:     "computed hours null for month-based durations",
+			code:     `let d = @1mo; d.hours`,
+			expected: "null",
+		},
+		{
+			name:     "computed minutes null for mixed durations",
+			code:     `let d = @1y2d; d.minutes`,
+			expected: "null",
+		},
 	}
 
 	for _, tt := range tests {

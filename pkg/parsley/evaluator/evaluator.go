@@ -3935,6 +3935,53 @@ func evalDatetimeComputedProperty(dict *Dictionary, key string, env *Environment
 	return nil // Property doesn't exist
 }
 
+// evalDurationComputedProperty returns computed properties for duration dictionaries
+// Returns nil if the property doesn't exist
+func evalDurationComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	// Get the months and seconds components
+	monthsExpr, hasMonths := dict.Pairs["months"]
+	secondsExpr, hasSeconds := dict.Pairs["seconds"]
+
+	if !hasMonths || !hasSeconds {
+		return nil
+	}
+
+	monthsObj := Eval(monthsExpr, env)
+	secondsObj := Eval(secondsExpr, env)
+
+	monthsInt, monthsOk := monthsObj.(*Integer)
+	secondsInt, secondsOk := secondsObj.(*Integer)
+
+	if !monthsOk || !secondsOk {
+		return nil
+	}
+
+	// For month-based durations, computed properties return null
+	// because months have variable lengths (28-31 days)
+	if monthsInt.Value != 0 {
+		switch key {
+		case "days", "hours", "minutes":
+			return NULL
+		}
+	}
+
+	switch key {
+	case "days":
+		// Total seconds as days (integer division)
+		return &Integer{Value: secondsInt.Value / 86400}
+
+	case "hours":
+		// Total seconds as hours (integer division)
+		return &Integer{Value: secondsInt.Value / 3600}
+
+	case "minutes":
+		// Total seconds as minutes (integer division)
+		return &Integer{Value: secondsInt.Value / 60}
+	}
+
+	return nil // Property doesn't exist
+}
+
 // getPublicDirComponents extracts public_dir components from basil config in environment
 // Returns nil if basil.public_dir is not set or path is outside public_dir
 func getPublicDirComponents(env *Environment) []string {
@@ -7656,16 +7703,16 @@ func evalDurationInfixExpression(tok lexer.Token, operator string, left, right *
 		if rightSeconds == 0 && rightMonths == 0 {
 			return newOperatorError("OP-0002", map[string]any{})
 		}
-		
+
 		// Convert both durations to approximate total seconds
 		const secondsPerMonth = 2629746 // 365.25 days / 12 months * 86400 seconds/day
 		leftTotal := float64(leftSeconds) + float64(leftMonths)*secondsPerMonth
 		rightTotal := float64(rightSeconds) + float64(rightMonths)*secondsPerMonth
-		
+
 		if rightTotal == 0 {
 			return newOperatorError("OP-0002", map[string]any{})
 		}
-		
+
 		// Return the ratio as a float
 		return &Float{Value: leftTotal / rightTotal}
 	case "<", ">", "<=", ">=", "==", "!=":
@@ -12190,6 +12237,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	}
 	if isDatetimeDict(dict) {
 		if computed := evalDatetimeComputedProperty(dict, node.Key, env); computed != nil {
+			return computed
+		}
+	}
+	if isDurationDict(dict) {
+		if computed := evalDurationComputedProperty(dict, node.Key, env); computed != nil {
 			return computed
 		}
 	}
