@@ -86,10 +86,11 @@ Add two durations together:
 @1d + @-6h       // 18 hours (1 day minus 6 hours)
 ```
 
-Add a duration to a datetime:
+Add a duration to a datetime (commutative):
 
 ```parsley
 @2024-12-25 + @7d     // January 1, 2025
+@7d + @2024-12-25     // January 1, 2025 (same result)
 @2024-01-15 + @1mo    // February 15, 2024
 @12:00 + @2h30m       // 14:30
 ```
@@ -432,6 +433,7 @@ ago.format()    // "5 days ago" (depends on current date)
 | `duration / integer` | Duration |
 | `duration / duration` | Float (ratio) |
 | `datetime + duration` | Datetime |
+| `duration + datetime` | Datetime (commutative) |
 | `datetime - duration` | Datetime |
 | `datetime - datetime` | Duration |
 | `integer + datetime` | Datetime |

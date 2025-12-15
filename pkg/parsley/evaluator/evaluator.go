@@ -7291,7 +7291,11 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 			return evalDatetimeDurationInfixExpression(tok, operator, leftDict, rightDict)
 		}
 		if isDurationDict(leftDict) && isDatetimeDict(rightDict) {
-			// duration + datetime not allowed, only datetime + duration
+			// For addition, duration + datetime is commutative (same as datetime + duration)
+			if operator == "+" {
+				return evalDatetimeDurationInfixExpression(tok, operator, rightDict, leftDict)
+			}
+			// duration - datetime doesn't make sense
 			return newOperatorErrorWithPos(tok, "OP-0011", map[string]any{})
 		}
 		// Path dictionary operations

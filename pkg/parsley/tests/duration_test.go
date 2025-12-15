@@ -265,6 +265,16 @@ func TestDatetimeDurationOperations(t *testing.T) {
 			expected: "2025",
 		},
 		{
+			name:     "duration plus datetime is commutative",
+			code:     `let dt = @2d + time("2024-01-15T00:00:00Z"); dt.day`,
+			expected: "17",
+		},
+		{
+			name:     "duration plus datetime equals datetime plus duration",
+			code:     `let d = @1y2mo; let dt = time("2024-01-01T00:00:00Z"); (d + dt) == (dt + d)`,
+			expected: "true",
+		},
+		{
 			name:     "add compound duration to datetime",
 			code:     `let dt = time("2024-01-01T00:00:00Z") + @1y2mo3d; dt.month`,
 			expected: "3", // Jan + 14 months = March of next year
@@ -433,8 +443,8 @@ func TestDurationErrors(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "cannot add datetime to duration",
-			code:        `@1d + time("2024-01-01T00:00:00Z")`,
+			name:        "cannot subtract datetime from duration",
+			code:        `@1d - time("2024-01-01T00:00:00Z")`,
 			expectError: true,
 		},
 		{
