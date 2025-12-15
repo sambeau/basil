@@ -46,6 +46,14 @@ public_dir: ./public
 #   - path: /static/
 #     root: ./public
 
+# File system security
+# By default, handlers can read files but cannot write
+# Use allow_write to whitelist directories where handlers can save data
+# security:
+#   allow_write:
+#     - ./data       # Allow writes to data directory
+#     - ./uploads    # Allow writes to uploads directory
+
 # Git over HTTPS - serve your site as a Git repository
 # Allows pushing changes directly to the server
 # git:

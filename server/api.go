@@ -69,7 +69,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,
-		AllowWrite:    []string{},
+		AllowWrite:    []string(h.server.config.Security.AllowWrite),
 		AllowWriteAll: false,
 		AllowExecute:  []string{rootPath},
 		RestrictRead:  []string{"/etc", "/var", "/root"},

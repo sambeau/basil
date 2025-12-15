@@ -58,13 +58,14 @@ type ProxyConfig struct {
 
 // SecurityConfig holds security header settings
 type SecurityConfig struct {
-	HSTS               HSTSConfig `yaml:"hsts"`                 // HTTP Strict Transport Security
-	ContentTypeOptions string     `yaml:"content_type_options"` // X-Content-Type-Options (default: "nosniff")
-	FrameOptions       string     `yaml:"frame_options"`        // X-Frame-Options (default: "DENY")
-	XSSProtection      string     `yaml:"xss_protection"`       // X-XSS-Protection (default: "1; mode=block")
-	ReferrerPolicy     string     `yaml:"referrer_policy"`      // Referrer-Policy (default: "strict-origin-when-cross-origin")
-	CSP                string     `yaml:"csp"`                  // Content-Security-Policy
-	PermissionsPolicy  string     `yaml:"permissions_policy"`   // Permissions-Policy (formerly Feature-Policy)
+	HSTS               HSTSConfig    `yaml:"hsts"`                 // HTTP Strict Transport Security
+	ContentTypeOptions string        `yaml:"content_type_options"` // X-Content-Type-Options (default: "nosniff")
+	FrameOptions       string        `yaml:"frame_options"`        // X-Frame-Options (default: "DENY")
+	XSSProtection      string        `yaml:"xss_protection"`       // X-XSS-Protection (default: "1; mode=block")
+	ReferrerPolicy     string        `yaml:"referrer_policy"`      // Referrer-Policy (default: "strict-origin-when-cross-origin")
+	CSP                string        `yaml:"csp"`                  // Content-Security-Policy
+	PermissionsPolicy  string        `yaml:"permissions_policy"`   // Permissions-Policy (formerly Feature-Policy)
+	AllowWrite         StringOrSlice `yaml:"allow_write"`          // Directories where handlers can write files (e.g., ["./data", "./uploads"])
 }
 
 // HSTSConfig holds HSTS (HTTP Strict Transport Security) settings

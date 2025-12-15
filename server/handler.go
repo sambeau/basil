@@ -153,7 +153,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env.RootPath = rootPath
 		env.Security = &evaluator.SecurityPolicy{
 			NoRead:        false,
-			AllowWrite:    []string{},
+			AllowWrite:    []string(h.server.config.Security.AllowWrite),
 			AllowWriteAll: false,
 			AllowExecute:  []string{rootPath},
 			RestrictRead:  []string{"/etc", "/var", "/root"},
@@ -262,11 +262,11 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set security policy
 	// Allow executing Parsley files in the root path and subdirectories (for imports)
 	env.Security = &evaluator.SecurityPolicy{
-		NoRead:        false,                             // Allow reads
-		AllowWrite:    []string{},                        // No write access
-		AllowWriteAll: false,                             // Deny all writes
-		AllowExecute:  []string{rootPath},                // Allow imports from handler directory tree
-		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
+		NoRead:        false,                                            // Allow reads
+		AllowWrite:    []string(h.server.config.Security.AllowWrite),   // Allow writes to configured directories
+		AllowWriteAll: false,                                            // Deny all writes unless in whitelist
+		AllowExecute:  []string{rootPath},                               // Allow imports from handler directory tree
+		RestrictRead:  []string{"/etc", "/var", "/root"},             // Basic restrictions
 	}
 
 	// Build basil context for stdlib import (std/basil)
