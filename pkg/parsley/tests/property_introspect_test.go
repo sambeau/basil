@@ -76,10 +76,9 @@ func TestPropertyIntrospection(t *testing.T) {
 			code: `inspect(@1d)`,
 			contains: []string{
 				"properties",
+				"months",
 				"seconds",
-				"minutes",
-				"hours",
-				"days",
+				"totalSeconds",
 			},
 		},
 	}
@@ -135,13 +134,13 @@ func TestPropertyTypesAreCorrect(t *testing.T) {
 func TestDescribeShowsPropertiesBeforeMethods(t *testing.T) {
 	code := `describe($1.00)`
 	result := testEvalHelper(code)
-	
+
 	output := result.Inspect()
-	
+
 	// Properties should come before Methods in the output
 	propsIndex := strings.Index(output, "Properties:")
 	methodsIndex := strings.Index(output, "Methods:")
-	
+
 	if propsIndex == -1 {
 		t.Error("Expected to find 'Properties:' in output")
 	}

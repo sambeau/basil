@@ -94,11 +94,10 @@ func TestBuiltinsContainsExpectedCategories(t *testing.T) {
 		let hasConversion = "conversion" in allBuiltins
 		hasFile and hasTime and hasConversion
 	`
-	
+
 	result := testEvalHelper(code)
 
 	if result.Inspect() != "true" {
 		t.Errorf("Expected builtins() to contain file, time, and conversion categories")
 	}
 }
-

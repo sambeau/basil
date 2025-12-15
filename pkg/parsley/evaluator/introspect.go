@@ -22,7 +22,7 @@ type MethodInfo struct {
 // BuiltinInfo holds metadata about a builtin function
 type BuiltinInfo struct {
 	Name        string
-	Arity       string   // e.g., "1", "1-2", "0+", "1+"
+	Arity       string // e.g., "1", "1-2", "0+", "1+"
 	Description string
 	Params      []string // Parameter names, "?" suffix for optional
 	Category    string   // Grouping: "file", "time", "conversion", etc.
@@ -81,10 +81,9 @@ var TypeProperties = map[string][]PropertyInfo{
 		{Name: "scale", Type: "integer", Description: "Number of decimal places for currency"},
 	},
 	"duration": {
-		{Name: "seconds", Type: "integer", Description: "Total duration in seconds"},
-		{Name: "minutes", Type: "integer", Description: "Total duration in minutes"},
-		{Name: "hours", Type: "integer", Description: "Total duration in hours"},
-		{Name: "days", Type: "integer", Description: "Total duration in days"},
+		{Name: "months", Type: "integer", Description: "Month component (years are stored as 12*years)"},
+		{Name: "seconds", Type: "integer", Description: "Seconds component (weeks/days/hours/minutes as seconds)"},
+		{Name: "totalSeconds", Type: "integer", Description: "Total seconds (only present when months == 0)"},
 	},
 	"path": {
 		{Name: "absolute", Type: "boolean", Description: "Whether path is absolute"},
@@ -357,14 +356,14 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"file":     {Name: "file", Arity: "1-2", Description: "Load file with auto-detected format", Params: []string{"path", "options?"}, Category: "file"},
 	"dir":      {Name: "dir", Arity: "1", Description: "List directory contents", Params: []string{"path"}, Category: "file"},
 	"fileList": {Name: "fileList", Arity: "1-2", Description: "List files in directory recursively", Params: []string{"path", "pattern?"}, Category: "file"},
-	
+
 	// === Time ===
 	"time": {Name: "time", Arity: "1-2", Description: "Create datetime from string, timestamp, or dict", Params: []string{"input", "delta?"}, Category: "time"},
 	"now":  {Name: "now", Arity: "0", Description: "Current datetime", Params: []string{}, Category: "time", Deprecated: "Use @now datetime literal instead"},
-	
+
 	// === URLs ===
 	"url": {Name: "url", Arity: "1", Description: "Parse URL string into components", Params: []string{"urlString"}, Category: "url"},
-	
+
 	// === Type Conversion ===
 	"toInt":    {Name: "toInt", Arity: "1", Description: "Convert value to integer", Params: []string{"value"}, Category: "conversion"},
 	"toFloat":  {Name: "toFloat", Arity: "1", Description: "Convert value to float", Params: []string{"value"}, Category: "conversion"},
@@ -372,13 +371,13 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"toString": {Name: "toString", Arity: "1", Description: "Convert value to string", Params: []string{"value"}, Category: "conversion"},
 	"toArray":  {Name: "toArray", Arity: "1", Description: "Convert value to array", Params: []string{"value"}, Category: "conversion"},
 	"toDict":   {Name: "toDict", Arity: "1", Description: "Convert array of [key,value] pairs to dictionary", Params: []string{"pairs"}, Category: "conversion"},
-	
+
 	// === Type Introspection ===
 	"inspect":  {Name: "inspect", Arity: "1", Description: "Get introspection data for value", Params: []string{"value"}, Category: "introspection"},
 	"describe": {Name: "describe", Arity: "1", Description: "Get human-readable description of value", Params: []string{"value"}, Category: "introspection"},
 	"repr":     {Name: "repr", Arity: "1", Description: "Get code representation of value", Params: []string{"value"}, Category: "introspection"},
 	"builtins": {Name: "builtins", Arity: "0-1", Description: "List all builtin functions by category", Params: []string{"category?"}, Category: "introspection"},
-	
+
 	// === Output ===
 	"print":   {Name: "print", Arity: "1+", Description: "Print values without newline", Params: []string{"values..."}, Category: "output"},
 	"println": {Name: "println", Arity: "0+", Description: "Print values with newline", Params: []string{"values..."}, Category: "output"},
@@ -386,24 +385,24 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"log":     {Name: "log", Arity: "1+", Description: "Log message", Params: []string{"values..."}, Category: "output"},
 	"logLine": {Name: "logLine", Arity: "1+", Description: "Log message with newline", Params: []string{"values..."}, Category: "output"},
 	"toDebug": {Name: "toDebug", Arity: "1", Description: "Convert value to debug string", Params: []string{"value"}, Category: "output"},
-	
+
 	// === Control Flow ===
 	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message", Params: []string{"message"}, Category: "control"},
-	
+
 	// === Formatting ===
 	"format": {Name: "format", Arity: "2+", Description: "Format string with placeholders", Params: []string{"template", "values..."}, Category: "format"},
 	"tag":    {Name: "tag", Arity: "1-3", Description: "Create HTML tag", Params: []string{"name", "attributes?", "content?"}, Category: "format"},
-	
+
 	// === Regex ===
 	"regex": {Name: "regex", Arity: "1-2", Description: "Create regex pattern", Params: []string{"pattern", "flags?"}, Category: "regex"},
 	"match": {Name: "match", Arity: "2-3", Description: "Match string against pattern", Params: []string{"string", "pattern", "flags?"}, Category: "regex"},
-	
+
 	// === Money ===
 	"money": {Name: "money", Arity: "1-2", Description: "Create money value", Params: []string{"amount", "currency?"}, Category: "money"},
-	
+
 	// === Assets ===
 	"asset": {Name: "asset", Arity: "1", Description: "Get asset path with cache busting", Params: []string{"path"}, Category: "asset"},
-	
+
 	// === Connection Literals (internal) ===
 	"sqlite":   {Name: "sqlite", Arity: "1", Description: "Create SQLite database connection", Params: []string{"path"}, Category: "connection"},
 	"postgres": {Name: "postgres", Arity: "1", Description: "Create PostgreSQL database connection", Params: []string{"connectionString"}, Category: "connection"},
@@ -792,21 +791,21 @@ func describeBuiltin(builtin *Builtin) Object {
 	}
 
 	var sb strings.Builder
-	
+
 	// Function signature
 	sb.WriteString(fmt.Sprintf("%s(", metadata.Name))
 	sb.WriteString(strings.Join(metadata.Params, ", "))
 	sb.WriteString(")\n\n")
-	
+
 	// Description
 	sb.WriteString(fmt.Sprintf("%s\n\n", metadata.Description))
-	
+
 	// Arity
 	sb.WriteString(fmt.Sprintf("Arity: %s\n", metadata.Arity))
-	
+
 	// Category
 	sb.WriteString(fmt.Sprintf("Category: %s\n", metadata.Category))
-	
+
 	// Deprecation warning
 	if metadata.Deprecated != "" {
 		sb.WriteString(fmt.Sprintf("\n⚠ DEPRECATED: %s\n", metadata.Deprecated))
