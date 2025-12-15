@@ -320,6 +320,79 @@ x`,
 	}
 }
 
+func TestTagPairsAsExpressionsWithoutParens(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "let assignment with tag pair",
+			input: `let page = <div>"Hello"</div>
+page`,
+			expected: `<div>Hello</div>`,
+		},
+		{
+			name: "plain assignment with tag pair",
+			input: `page = <section>"A"</section>
+page`,
+			expected: `<section>A</section>`,
+		},
+		{
+			name: "return tag pair",
+			input: `render = fn() {
+	return <span>"done"</span>
+}
+render()`,
+			expected: `<span>done</span>`,
+		},
+		{
+			name: "tag pair in array literal",
+			input: `items = [<li>"One"</li>, <li>"Two"</li>]
+items[1]`,
+			expected: `<li>Two</li>`,
+		},
+		{
+			name: "tag pair as function argument",
+			input: `echo = fn(x) { x }
+echo(<p>"Hi"</p>)`,
+			expected: `<p>Hi</p>`,
+		},
+		{
+			name: "tag pair as dictionary value",
+			input: `view = {body: <div>"B"</div>}
+view.body`,
+			expected: `<div>B</div>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			var result evaluator.Object
+			for _, stmt := range program.Statements {
+				result = evaluator.Eval(stmt, env)
+			}
+
+			if result == nil {
+				t.Fatalf("Eval returned nil")
+			}
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
 func TestTagErrors(t *testing.T) {
 	tests := []struct {
 		name        string
