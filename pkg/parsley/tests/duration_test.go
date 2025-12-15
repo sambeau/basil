@@ -309,6 +309,77 @@ func TestDurationComparison(t *testing.T) {
 	}
 }
 
+func TestDurationDivision(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "divide seconds-only durations",
+			code:     `@7d / @1d`,
+			expected: "7",
+		},
+		{
+			name:     "divide hours by hours",
+			code:     `@6h / @2h`,
+			expected: "3",
+		},
+		{
+			name:     "divide mixed units",
+			code:     `@2d / @12h`,
+			expected: "4",
+		},
+		{
+			name:     "divide with decimal result",
+			code:     `@1d / @3d`,
+			expected: "0.3333333333333333",
+		},
+		{
+			name:     "divide year by year",
+			code:     `@1y / @1y`,
+			expected: "1",
+		},
+		{
+			name:     "divide years",
+			code:     `@2y / @1y`,
+			expected: "2",
+		},
+		{
+			name:     "divide months by year",
+			code:     `@6mo / @1y`,
+			expected: "0.5",
+		},
+		{
+			name:     "divide months by months",
+			code:     `@3mo / @1mo`,
+			expected: "3",
+		},
+		{
+			name:     "age calculation example",
+			code:     `let birthdate = @1990-05-15; let today = time("2024-12-15T00:00:00Z"); (today - birthdate) / @1y`,
+			expected: "34.58797921928582",
+		},
+		{
+			name:     "mixed seconds and months",
+			code:     `(@1y + @30d) / @1y`,
+			expected: "1.0821372102096551",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDurationCode(tt.code)
+			if hasErr {
+				t.Fatalf("testDurationCode() unexpected error: %v", result)
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
 func TestDurationErrors(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -328,6 +399,11 @@ func TestDurationErrors(t *testing.T) {
 		{
 			name:        "division by zero",
 			code:        `@1d / 0`,
+			expectError: true,
+		},
+		{
+			name:        "division by zero duration",
+			code:        `@1d / @0s`,
 			expectError: true,
 		},
 	}

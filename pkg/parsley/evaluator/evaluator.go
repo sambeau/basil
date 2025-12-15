@@ -6039,7 +6039,7 @@ func getBuiltins() map[string]*Builtin {
 				resultPairs := make(map[string]ast.Expression)
 				for _, cat := range catNames {
 					funcs := categories[cat]
-					
+
 					// Sort functions within category
 					sort.Slice(funcs, func(i, j int) bool {
 						return funcs[i].Name < funcs[j].Name
@@ -7649,6 +7649,25 @@ func evalDurationInfixExpression(tok lexer.Token, operator string, left, right *
 		return durationToDict(leftMonths+rightMonths, leftSeconds+rightSeconds, env)
 	case "-":
 		return durationToDict(leftMonths-rightMonths, leftSeconds-rightSeconds, env)
+	case "/":
+		// Division returns the ratio of two durations as a number
+		// For durations with months, we use approximate conversion:
+		// 1 month ≈ 30.4375 days (365.25 / 12) ≈ 2,629,746 seconds
+		if rightSeconds == 0 && rightMonths == 0 {
+			return newOperatorError("OP-0002", map[string]any{})
+		}
+		
+		// Convert both durations to approximate total seconds
+		const secondsPerMonth = 2629746 // 365.25 days / 12 months * 86400 seconds/day
+		leftTotal := float64(leftSeconds) + float64(leftMonths)*secondsPerMonth
+		rightTotal := float64(rightSeconds) + float64(rightMonths)*secondsPerMonth
+		
+		if rightTotal == 0 {
+			return newOperatorError("OP-0002", map[string]any{})
+		}
+		
+		// Return the ratio as a float
+		return &Float{Value: leftTotal / rightTotal}
 	case "<", ">", "<=", ">=", "==", "!=":
 		// Comparison only allowed for pure-seconds durations (no months)
 		if leftMonths != 0 || rightMonths != 0 {
