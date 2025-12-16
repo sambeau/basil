@@ -245,7 +245,12 @@ func (s *Server) determineHandlersDir() string {
 	// If using site (filesystem routing), use the parent of the site directory
 	// This allows discovering CSS/JS in components/, public/, etc. at handler root level
 	if s.config.Site != "" {
-		return filepath.Dir(s.config.Site)
+		dir := filepath.Dir(s.config.Site)
+		// Resolve symlinks to ensure WalkDir can traverse the actual directory
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			return resolved
+		}
+		return dir
 	}
 
 	// Otherwise, find common parent of all route handlers

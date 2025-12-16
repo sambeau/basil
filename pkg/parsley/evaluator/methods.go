@@ -705,14 +705,14 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		if !ok {
 			return newTypeError("TYPE-0012", "reduce", "a function", args[0].Type())
 		}
-		
+
 		// Start with initial value
 		accumulator := args[1]
-		
+
 		// Apply function to each element
 		for _, elem := range arr.Elements {
 			extendedEnv := extendFunctionEnv(fn, []Object{accumulator, elem})
-			
+
 			var evaluated Object
 			for _, stmt := range fn.Body.Statements {
 				evaluated = evalStatement(stmt, extendedEnv)
@@ -724,10 +724,10 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 					return evaluated
 				}
 			}
-			
+
 			accumulator = evaluated
 		}
-		
+
 		return accumulator
 
 	case "format":
