@@ -151,43 +151,24 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "urlDecode", Arity: "0", Description: "Decode URL-encoded string"},
 		{Name: "urlPathEncode", Arity: "0", Description: "Encode URL path segment (/ becomes %2F)"},
 		{Name: "urlQueryEncode", Arity: "0", Description: "Encode URL query value (& and = encoded)"},
+		{Name: "outdent", Arity: "0", Description: "Remove common leading whitespace from all lines"},
+		{Name: "indent", Arity: "1", Description: "Add spaces to beginning of all non-blank lines"},
 	},
 	"array": {
 		{Name: "length", Arity: "0", Description: "Get element count"},
 		{Name: "reverse", Arity: "0", Description: "Reverse order"},
-		{Name: "push", Arity: "1", Description: "Add element to end"},
-		{Name: "pop", Arity: "0", Description: "Remove and return last element"},
-		{Name: "shift", Arity: "0", Description: "Remove and return first element"},
-		{Name: "unshift", Arity: "1", Description: "Add element to beginning"},
-		{Name: "slice", Arity: "1-2", Description: "Extract a section"},
-		{Name: "concat", Arity: "1", Description: "Concatenate arrays"},
-		{Name: "includes", Arity: "1", Description: "Check if contains element"},
-		{Name: "indexOf", Arity: "1", Description: "Find index of element"},
-		{Name: "join", Arity: "0-1", Description: "Join elements into string"},
 		{Name: "sort", Arity: "0", Description: "Sort elements"},
-		{Name: "first", Arity: "0", Description: "Get first element"},
-		{Name: "last", Arity: "0", Description: "Get last element"},
+		{Name: "sortBy", Arity: "1", Description: "Sort by key function"},
 		{Name: "map", Arity: "1", Description: "Transform each element"},
 		{Name: "filter", Arity: "1", Description: "Filter by predicate"},
-		{Name: "reduce", Arity: "2", Description: "Reduce to single value"},
-		{Name: "unique", Arity: "0", Description: "Remove duplicates"},
-		{Name: "flatten", Arity: "0", Description: "Flatten nested arrays"},
-		{Name: "find", Arity: "1", Description: "Find first matching element"},
-		{Name: "findIndex", Arity: "1", Description: "Find index of first match"},
-		{Name: "every", Arity: "1", Description: "Check if all match predicate"},
-		{Name: "some", Arity: "1", Description: "Check if any match predicate"},
-		{Name: "groupBy", Arity: "1", Description: "Group elements by key function"},
-		{Name: "count", Arity: "0-1", Description: "Count elements or matches"},
-		{Name: "countBy", Arity: "1", Description: "Count by key function"},
-		{Name: "maxBy", Arity: "1", Description: "Find max by key function"},
-		{Name: "minBy", Arity: "1", Description: "Find min by key function"},
-		{Name: "sortBy", Arity: "1", Description: "Sort by key function"},
-		{Name: "take", Arity: "1", Description: "Take first n elements"},
-		{Name: "skip", Arity: "1", Description: "Skip first n elements"},
-		{Name: "zip", Arity: "1+", Description: "Combine arrays element-wise"},
-		{Name: "insert", Arity: "2", Description: "Insert at index"},
+		{Name: "format", Arity: "0-2", Description: "Format as list (and/or/unit, locale)"},
+		{Name: "join", Arity: "0-1", Description: "Join elements into string"},
 		{Name: "toJSON", Arity: "0", Description: "Convert to JSON string"},
 		{Name: "toCSV", Arity: "0-1", Description: "Convert to CSV string"},
+		{Name: "shuffle", Arity: "0", Description: "Randomly shuffle elements"},
+		{Name: "pick", Arity: "0-1", Description: "Pick random element(s)"},
+		{Name: "take", Arity: "1", Description: "Take n unique random elements"},
+		{Name: "insert", Arity: "2", Description: "Insert at index"},
 	},
 	"integer": {
 		{Name: "abs", Arity: "0", Description: "Absolute value"},
@@ -453,6 +434,8 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 		return "tablemodule", ""
 	case *StdlibRoot:
 		return "stdlib", ""
+	case *BasilRoot:
+		return "basil", ""
 	case *StdlibModuleDict:
 		return "module", ""
 	case *Dictionary:
@@ -509,6 +492,11 @@ func builtinInspect(args ...Object) Object {
 	// Special handling for StdlibRoot - show available modules
 	if root, ok := obj.(*StdlibRoot); ok {
 		return inspectStdlibRoot(root)
+	}
+
+	// Special handling for BasilRoot - show available modules
+	if root, ok := obj.(*BasilRoot); ok {
+		return inspectBasilRoot(root)
 	}
 
 	// Special handling for StdlibModuleDict - show exports
@@ -730,6 +718,28 @@ func inspectStdlibRoot(root *StdlibRoot) Object {
 	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 }
 
+// inspectBasilRoot returns introspection data for the basil root
+func inspectBasilRoot(root *BasilRoot) Object {
+	modules := make([]Object, len(root.Modules))
+	for i, name := range root.Modules {
+		info, hasInfo := BasilModuleDescriptions[name]
+		pairs := map[string]ast.Expression{
+			"name": createLiteralExpression(&String{Value: name}),
+		}
+		if hasInfo {
+			pairs["description"] = createLiteralExpression(&String{Value: info})
+		}
+		modules[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	}
+
+	pairs := map[string]ast.Expression{
+		"type":    createLiteralExpression(&String{Value: "basil"}),
+		"modules": createLiteralExpression(&Array{Elements: modules}),
+	}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
 // describeStdlibRoot pretty prints the stdlib module listing
 func describeStdlibRoot(root *StdlibRoot) Object {
 	var sb strings.Builder
@@ -759,16 +769,49 @@ func describeStdlibRoot(root *StdlibRoot) Object {
 	return &String{Value: sb.String()}
 }
 
+// describeBasilRoot pretty prints the basil module listing
+func describeBasilRoot(root *BasilRoot) Object {
+	var sb strings.Builder
+	sb.WriteString("Basil Server Namespace (@basil)\n\n")
+	sb.WriteString("Available modules:\n")
+
+	maxNameLen := 0
+	for _, name := range root.Modules {
+		if len(name) > maxNameLen {
+			maxNameLen = len(name)
+		}
+	}
+
+	for _, name := range root.Modules {
+		padding := strings.Repeat(" ", maxNameLen-len(name)+2)
+		if desc, ok := BasilModuleDescriptions[name]; ok {
+			sb.WriteString(fmt.Sprintf("  @basil/%s%s- %s\n", name, padding, desc))
+		} else {
+			sb.WriteString(fmt.Sprintf("  @basil/%s\n", name))
+		}
+	}
+
+	sb.WriteString("\nUsage: import @basil/<module>\n")
+	sb.WriteString("Example: let { query, route } = import @basil/http\n")
+
+	return &String{Value: sb.String()}
+}
+
 // StdlibModuleDescriptions contains descriptions for each stdlib module
 var StdlibModuleDescriptions = map[string]string{
 	"api":    "HTTP client for API requests",
-	"basil":  "Basil server context (server-only)",
 	"dev":    "Development tools (logging, debugging)",
 	"id":     "ID generation (UUID, nanoid, etc.)",
 	"math":   "Mathematical functions and constants",
 	"schema": "Schema validation and type checking",
 	"table":  "Table data structure with query methods",
 	"valid":  "Validation functions for strings, numbers, formats",
+}
+
+// BasilModuleDescriptions contains descriptions for each basil namespace module
+var BasilModuleDescriptions = map[string]string{
+	"http": "HTTP request context (request, response, query, route, method)",
+	"auth": "Auth context, db, session, and user shortcuts",
 }
 
 // describeBuiltin returns human-readable documentation for a builtin function
@@ -832,6 +875,11 @@ func builtinDescribe(args ...Object) Object {
 	// Special handling for StdlibRoot - show available modules
 	if root, ok := obj.(*StdlibRoot); ok {
 		return describeStdlibRoot(root)
+	}
+
+	// Special handling for BasilRoot - show available modules
+	if root, ok := obj.(*BasilRoot); ok {
+		return describeBasilRoot(root)
 	}
 
 	// Special handling for StdlibModuleDict - show exports

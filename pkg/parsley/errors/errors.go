@@ -382,6 +382,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassUndefined,
 		Template: "Module does not export '{{.Name}}'",
 	},
+	"UNDEF-0007": {
+		Class:    ClassUndefined,
+		Template: "Unknown basil module: @basil/{{.Module}}",
+	},
 
 	// ========================================
 	// I/O errors (IO-0xxx)
@@ -762,6 +766,14 @@ var ErrorCatalog = map[string]ErrorDef{
 	"IMPORT-0005": {
 		Class:    ClassImport,
 		Template: "In module {{.ModulePath}}: line {{.Line}}, column {{.Column}}: {{.NestedError}}",
+	},
+	"IMPORT-0006": {
+		Class:    ClassImport,
+		Template: "Standard library module @std/{{.Module}} has been removed. {{.Replacement}}",
+		Hints: []string{
+			"Use @basil/http for request/response context",
+			"Use @basil/auth for db/session/auth",
+		},
 	},
 
 	// ========================================

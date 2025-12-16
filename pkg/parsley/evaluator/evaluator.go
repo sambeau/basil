@@ -2432,12 +2432,23 @@ func isDigit(ch rune) bool {
 	return ch >= '0' && ch <= '9'
 }
 
+// typeExprEquals checks if an expression represents a type marker matching the target.
+func typeExprEquals(expr ast.Expression, want string) bool {
+	switch v := expr.(type) {
+	case *ast.StringLiteral:
+		return v.Value == want
+	case *ast.ObjectLiteralExpression:
+		if strObj, ok := v.Obj.(*String); ok {
+			return strObj.Value == want
+		}
+	}
+	return false
+}
+
 // isRegexDict checks if a dictionary is a regex by looking for __type field
 func isRegexDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "regex"
-		}
+		return typeExprEquals(typeExpr, "regex")
 	}
 	return false
 }
@@ -2445,9 +2456,7 @@ func isRegexDict(dict *Dictionary) bool {
 // isPathDict checks if a dictionary is a path by looking for __type field
 func isPathDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "path"
-		}
+		return typeExprEquals(typeExpr, "path")
 	}
 	return false
 }
@@ -2455,9 +2464,7 @@ func isPathDict(dict *Dictionary) bool {
 // isUrlDict checks if a dictionary is a URL by looking for __type field
 func isUrlDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "url"
-		}
+		return typeExprEquals(typeExpr, "url")
 	}
 	return false
 }
@@ -2465,9 +2472,7 @@ func isUrlDict(dict *Dictionary) bool {
 // isFileDict checks if a dictionary is a file handle by looking for __type field
 func isFileDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "file"
-		}
+		return typeExprEquals(typeExpr, "file")
 	}
 	return false
 }
@@ -2475,9 +2480,7 @@ func isFileDict(dict *Dictionary) bool {
 // isTagDict checks if a dictionary is a tag by looking for __type field
 func isTagDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "tag"
-		}
+		return typeExprEquals(typeExpr, "tag")
 	}
 	return false
 }
@@ -3373,8 +3376,8 @@ func isDirDict(dict *Dictionary) bool {
 	if !ok {
 		return false
 	}
-	if lit, ok := typeExpr.(*ast.StringLiteral); ok {
-		return lit.Value == "dir"
+	if typeExprEquals(typeExpr, "dir") {
+		return true
 	}
 	if ident, ok := typeExpr.(*ast.Identifier); ok {
 		return ident.Value == "dir"
@@ -8249,10 +8252,21 @@ func importModule(pathStr string, env *Environment) Object {
 		return loadStdlibRoot()
 	}
 
+	// Check for basil root import (just "basil" without module name)
+	if pathStr == "basil" {
+		return loadBasilRoot()
+	}
+
 	// Check for standard library imports (std/modulename)
 	if strings.HasPrefix(pathStr, "std/") {
 		moduleName := strings.TrimPrefix(pathStr, "std/")
 		return loadStdlibModule(moduleName, env)
+	}
+
+	// Check for basil namespace imports (basil/modulename)
+	if strings.HasPrefix(pathStr, "basil/") {
+		moduleName := strings.TrimPrefix(pathStr, "basil/")
+		return loadBasilModule(moduleName, env)
 	}
 
 	// Resolve path relative to current file (or root path for ~/ paths)
@@ -8326,7 +8340,7 @@ func importModule(pathStr string, env *Environment) Object {
 	moduleEnv.RootPath = env.RootPath
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
-	// Copy DevLog and BasilCtx for stdlib imports (std/dev, std/basil)
+	// Copy DevLog and BasilCtx for stdlib imports (std/dev) and basil namespace modules
 	moduleEnv.DevLog = env.DevLog
 	moduleEnv.BasilCtx = env.BasilCtx
 	// Copy AssetRegistry and AssetBundle for Basil server context
@@ -12527,8 +12541,8 @@ func isRequestDict(dict *Dictionary) bool {
 	if !ok {
 		return false
 	}
-	if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-		return strLit.Value == "request"
+	if typeExprEquals(typeExpr, "request") {
+		return true
 	}
 	return false
 }
@@ -12539,8 +12553,8 @@ func isResponseDict(dict *Dictionary) bool {
 	if !ok {
 		return false
 	}
-	if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-		return strLit.Value == "response"
+	if typeExprEquals(typeExpr, "response") {
+		return true
 	}
 	return false
 }

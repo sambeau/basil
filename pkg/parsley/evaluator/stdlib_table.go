@@ -25,7 +25,6 @@ func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
 		"table":    loadTableModule,
 		"dev":      loadDevModule,
-		"basil":    loadBasilModule,
 		"math":     loadMathModule,
 		"valid":    loadValidModule,
 		"schema":   loadSchemaModule,
@@ -38,6 +37,13 @@ func getStdlibModules() map[string]func(*Environment) Object {
 
 // loadStdlibModule loads a standard library module by name
 func loadStdlibModule(name string, env *Environment) Object {
+	if name == "basil" {
+		return newImportError("IMPORT-0006", map[string]any{
+			"Module":      name,
+			"Replacement": "Use @basil/http or @basil/auth instead.",
+		})
+	}
+
 	modules := getStdlibModules()
 	loader, ok := modules[name]
 	if !ok {
@@ -53,26 +59,6 @@ func loadTableModule(env *Environment) Object {
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
 			"table": &TableModule{},
-		},
-	}
-}
-
-// loadBasilModule returns the basil server context module
-// This provides access to request, response, db, auth, etc. in handlers and modules
-func loadBasilModule(env *Environment) Object {
-	// Get basil context from environment (set by server handler)
-	if env.BasilCtx == nil {
-		// Return empty module if not in handler context (e.g., CLI, tests)
-		return &StdlibModuleDict{
-			Exports: map[string]Object{
-				"basil": &Dictionary{Pairs: make(map[string]ast.Expression)},
-			},
-		}
-	}
-
-	return &StdlibModuleDict{
-		Exports: map[string]Object{
-			"basil": env.BasilCtx,
 		},
 	}
 }
@@ -129,6 +115,145 @@ func loadStdlibRoot() *StdlibRoot {
 	}
 	sort.Strings(names)
 	return &StdlibRoot{Modules: names}
+}
+
+// BasilRoot represents the root of the basil namespace (import @basil)
+// It provides introspection for available basil modules
+type BasilRoot struct {
+	Modules []string // List of available module names
+}
+
+func (br *BasilRoot) Type() ObjectType { return DICTIONARY_OBJ }
+func (br *BasilRoot) Inspect() string {
+	return fmt.Sprintf("@basil{%s}", strings.Join(br.Modules, ", "))
+}
+
+// getBasilModules returns the basil namespace module registry
+func getBasilModules() map[string]func(*Environment) Object {
+	return map[string]func(*Environment) Object{
+		"http": loadBasilHTTPModule,
+		"auth": loadBasilAuthModule,
+	}
+}
+
+// loadBasilModule loads a basil namespace module by name
+func loadBasilModule(name string, env *Environment) Object {
+	modules := getBasilModules()
+	loader, ok := modules[name]
+	if !ok {
+		return newUndefinedError("UNDEF-0007", map[string]any{"Module": name})
+	}
+	return loader(env)
+}
+
+// loadBasilRoot returns the basil root with module listing
+func loadBasilRoot() *BasilRoot {
+	modules := getBasilModules()
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return &BasilRoot{Modules: names}
+}
+
+// getBasilCtxDict safely returns the basil context dictionary from the environment.
+func getBasilCtxDict(env *Environment) *Dictionary {
+	if env == nil || env.BasilCtx == nil {
+		return nil
+	}
+	if dict, ok := env.BasilCtx.(*Dictionary); ok {
+		return dict
+	}
+	return nil
+}
+
+// evalDictValue evaluates a dictionary field in the dictionary's own environment if present.
+func evalDictValue(dict *Dictionary, key string, env *Environment) Object {
+	if dict == nil {
+		return NULL
+	}
+	expr, ok := dict.Pairs[key]
+	if !ok {
+		return NULL
+	}
+	targetEnv := dict.Env
+	if targetEnv == nil {
+		targetEnv = env
+	}
+	val := Eval(expr, targetEnv)
+	if val == nil {
+		return NULL
+	}
+	return val
+}
+
+func ensureObject(val Object) Object {
+	if val == nil {
+		return NULL
+	}
+	return val
+}
+
+// loadBasilHTTPModule returns the HTTP-related basil module
+// Exports: request, response, query (shorthand), route, method
+func loadBasilHTTPModule(env *Environment) Object {
+	basilDict := getBasilCtxDict(env)
+	httpObj := evalDictValue(basilDict, "http", env)
+	httpDict, _ := httpObj.(*Dictionary)
+
+	requestObj := ensureObject(evalDictValue(httpDict, "request", env))
+	responseObj := ensureObject(evalDictValue(httpDict, "response", env))
+
+	var queryObj Object = NULL
+	var routeObj Object = NULL
+	var methodObj Object = NULL
+
+	if reqDict, ok := requestObj.(*Dictionary); ok {
+		queryObj = ensureObject(evalDictValue(reqDict, "query", env))
+		routeObj = evalDictValue(reqDict, "route", env)
+		if routeObj == NULL {
+			// Backwards compatibility for older contexts
+			routeObj = evalDictValue(reqDict, "subpath", env)
+		}
+		routeObj = ensureObject(routeObj)
+		methodObj = ensureObject(evalDictValue(reqDict, "method", env))
+	}
+
+	return &StdlibModuleDict{
+		Exports: map[string]Object{
+			"request":  requestObj,
+			"response": responseObj,
+			"query":    queryObj,
+			"route":    routeObj,
+			"method":   methodObj,
+		},
+	}
+}
+
+// loadBasilAuthModule returns the auth/database/session basil module
+// Exports: db (sqlite), session, auth (auth context), user (auth.user shortcut)
+func loadBasilAuthModule(env *Environment) Object {
+	basilDict := getBasilCtxDict(env)
+
+	// Top-level basil entries
+	dbObj := ensureObject(evalDictValue(basilDict, "sqlite", env))
+	sessionObj := ensureObject(evalDictValue(basilDict, "session", env))
+	authObj := ensureObject(evalDictValue(basilDict, "auth", env))
+
+	var userObj Object = NULL
+	if authDict, ok := authObj.(*Dictionary); ok {
+		userObj = ensureObject(evalDictValue(authDict, "user", env))
+	}
+
+	return &StdlibModuleDict{
+		Exports: map[string]Object{
+			"db":      dbObj,
+			"session": sessionObj,
+			"auth":    authObj,
+			"user":    userObj,
+		},
+	}
 }
 
 // evalStdlibModuleDestructuring handles destructuring imports from stdlib modules

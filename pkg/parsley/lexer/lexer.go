@@ -2180,6 +2180,19 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		}
 	}
 
+	// Check for @basil/ which indicates a basil namespace import
+	if pos+6 <= len(l.input) && l.input[pos:pos+6] == "basil/" {
+		return STDLIB_PATH
+	}
+
+	// Check for @basil (without slash) - the basil root
+	if pos+5 <= len(l.input) && l.input[pos:pos+5] == "basil" {
+		// Ensure it's not followed by identifier characters
+		if pos+5 >= len(l.input) || !isLetter(l.input[pos+5]) {
+			return STDLIB_PATH
+		}
+	}
+
 	// Check for @now-style literals
 	if l.isKeywordAt(pos, "now") {
 		return DATETIME_NOW
