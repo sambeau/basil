@@ -91,6 +91,13 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		cfg.Site = filepath.Join(baseDir, cfg.Site)
 	}
 
+	// Resolve relative paths in security.allow_write
+	for i := range cfg.Security.AllowWrite {
+		if !filepath.IsAbs(cfg.Security.AllowWrite[i]) {
+			cfg.Security.AllowWrite[i] = filepath.Join(baseDir, cfg.Security.AllowWrite[i])
+		}
+	}
+
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
 		return nil, "", err
@@ -114,8 +121,9 @@ func Validate(cfg *Config) error {
 func Warnings(cfg *Config) []string {
 	var warnings []string
 
-	// Warn if no routes are configured
-	if len(cfg.Routes) == 0 {
+	// Warn if no routes are configured AND not using site mode
+	// Site mode uses filesystem-based routing and doesn't need explicit routes
+	if len(cfg.Routes) == 0 && cfg.Site == "" {
 		warnings = append(warnings, "no routes configured - the server will return 404 for all requests")
 	}
 

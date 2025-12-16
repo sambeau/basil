@@ -488,6 +488,13 @@ func TestWarnings(t *testing.T) {
 			},
 			wantWarn: "",
 		},
+		{
+			name: "site mode no routes",
+			cfg: &Config{
+				Site: "./site",
+			},
+			wantWarn: "", // Site mode doesn't need routes
+		},
 	}
 
 	for _, tt := range tests {
@@ -740,6 +747,83 @@ func TestApplyDeveloper(t *testing.T) {
 		}
 		if cfg.Routes[0].PublicDir != "/app/sam-public" {
 			t.Errorf("expected route public_dir '/app/sam-public', got %q", cfg.Routes[0].PublicDir)
+		}
+	})
+}
+
+func TestLoadSecurityAllowWrite(t *testing.T) {
+	t.Run("resolves relative allow_write paths", func(t *testing.T) {
+		dir := t.TempDir()
+		configPath := filepath.Join(dir, "basil.yaml")
+		configContent := `
+server:
+  host: localhost
+  port: 8080
+security:
+  allow_write:
+    - ./data
+    - ./uploads
+routes:
+  - path: /
+    handler: handlers/index.pars
+`
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			t.Fatalf("failed to write test config: %v", err)
+		}
+
+		cfg, err := Load(configPath, os.Getenv)
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+
+		if len(cfg.Security.AllowWrite) != 2 {
+			t.Fatalf("expected 2 allow_write paths, got %d", len(cfg.Security.AllowWrite))
+		}
+
+		expectedData := filepath.Join(dir, "data")
+		expectedUploads := filepath.Join(dir, "uploads")
+
+		if cfg.Security.AllowWrite[0] != expectedData {
+			t.Errorf("expected allow_write[0] to be %q, got %q", expectedData, cfg.Security.AllowWrite[0])
+		}
+		if cfg.Security.AllowWrite[1] != expectedUploads {
+			t.Errorf("expected allow_write[1] to be %q, got %q", expectedUploads, cfg.Security.AllowWrite[1])
+		}
+	})
+
+	t.Run("preserves absolute allow_write paths", func(t *testing.T) {
+		dir := t.TempDir()
+		configPath := filepath.Join(dir, "basil.yaml")
+		configContent := `
+server:
+  host: localhost
+  port: 8080
+security:
+  allow_write:
+    - /var/data
+    - /tmp/uploads
+routes:
+  - path: /
+    handler: handlers/index.pars
+`
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			t.Fatalf("failed to write test config: %v", err)
+		}
+
+		cfg, err := Load(configPath, os.Getenv)
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+
+		if len(cfg.Security.AllowWrite) != 2 {
+			t.Fatalf("expected 2 allow_write paths, got %d", len(cfg.Security.AllowWrite))
+		}
+
+		if cfg.Security.AllowWrite[0] != "/var/data" {
+			t.Errorf("expected allow_write[0] to be '/var/data', got %q", cfg.Security.AllowWrite[0])
+		}
+		if cfg.Security.AllowWrite[1] != "/tmp/uploads" {
+			t.Errorf("expected allow_write[1] to be '/tmp/uploads', got %q", cfg.Security.AllowWrite[1])
 		}
 	})
 }
