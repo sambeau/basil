@@ -91,6 +91,11 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		cfg.Site = filepath.Join(baseDir, cfg.Site)
 	}
 
+	// Resolve relative public_dir path
+	if cfg.PublicDir != "" && !filepath.IsAbs(cfg.PublicDir) {
+		cfg.PublicDir = filepath.Join(baseDir, cfg.PublicDir)
+	}
+
 	// Resolve relative paths in security.allow_write
 	for i := range cfg.Security.AllowWrite {
 		if !filepath.IsAbs(cfg.Security.AllowWrite[i]) {
