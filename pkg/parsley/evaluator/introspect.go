@@ -161,6 +161,7 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "sortBy", Arity: "1", Description: "Sort by key function"},
 		{Name: "map", Arity: "1", Description: "Transform each element"},
 		{Name: "filter", Arity: "1", Description: "Filter by predicate"},
+		{Name: "reduce", Arity: "2", Description: "Reduce to single value with accumulator function"},
 		{Name: "format", Arity: "0-2", Description: "Format as list (and/or/unit, locale)"},
 		{Name: "join", Arity: "0-1", Description: "Join elements into string"},
 		{Name: "toJSON", Arity: "0", Description: "Convert to JSON string"},

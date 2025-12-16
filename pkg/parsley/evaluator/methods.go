@@ -48,7 +48,7 @@ var stringMethods = []string{
 
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
-	"length", "reverse", "sort", "sortBy", "map", "filter", "format", "join",
+	"length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
 	"toJSON", "toCSV", "shuffle", "pick", "take", "insert",
 }
 
@@ -694,6 +694,41 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 			return newTypeError("TYPE-0012", "filter", "a function", args[0].Type())
 		}
 		return filterArrayWithFunction(arr, fn, env)
+
+	case "reduce":
+		// reduce(fn, initial) - reduces array to single value
+		// fn takes (accumulator, element) and returns new accumulator
+		if len(args) != 2 {
+			return newArityError("reduce", len(args), 2)
+		}
+		fn, ok := args[0].(*Function)
+		if !ok {
+			return newTypeError("TYPE-0012", "reduce", "a function", args[0].Type())
+		}
+		
+		// Start with initial value
+		accumulator := args[1]
+		
+		// Apply function to each element
+		for _, elem := range arr.Elements {
+			extendedEnv := extendFunctionEnv(fn, []Object{accumulator, elem})
+			
+			var evaluated Object
+			for _, stmt := range fn.Body.Statements {
+				evaluated = evalStatement(stmt, extendedEnv)
+				if returnValue, ok := evaluated.(*ReturnValue); ok {
+					evaluated = returnValue.Value
+					break
+				}
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+			
+			accumulator = evaluated
+		}
+		
+		return accumulator
 
 	case "format":
 		// format(style?, locale?)
