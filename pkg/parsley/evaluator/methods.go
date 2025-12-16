@@ -43,15 +43,13 @@ var stringMethods = []string{
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
+	"outdent", "indent",
 }
 
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
-	"length", "reverse", "push", "pop", "shift", "unshift", "slice", "concat",
-	"includes", "indexOf", "join", "sort", "first", "last", "map", "filter",
-	"reduce", "unique", "flatten", "find", "findIndex", "every", "some", "groupBy",
-	"count", "countBy", "maxBy", "minBy", "sortBy", "take", "skip", "zip", "insert",
-	"toJSON", "toCSV",
+	"length", "reverse", "sort", "sortBy", "map", "filter", "format", "join",
+	"toJSON", "toCSV", "shuffle", "pick", "take", "insert",
 }
 
 // integerMethods lists all methods available on integer
@@ -375,6 +373,22 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		// QueryEscape encodes query values (& and = are encoded)
 		return &String{Value: url.QueryEscape(str.Value)}
 
+	case "outdent":
+		if len(args) != 0 {
+			return newArityError("outdent", len(args), 0)
+		}
+		return &String{Value: outdentString(str.Value)}
+
+	case "indent":
+		if len(args) != 1 {
+			return newArityError("indent", len(args), 1)
+		}
+		spaces, ok := args[0].(*Integer)
+		if !ok {
+			return newTypeError("TYPE-0012", "indent", "an integer", args[0].Type())
+		}
+		return &String{Value: indentString(str.Value, int(spaces.Value))}
+
 	default:
 		return unknownMethodError(method, "string", stringMethods)
 	}
@@ -519,6 +533,105 @@ func callReplacementFunction(fn *Function, submatches []string, env *Environment
 		return result.Inspect()
 	}
 	return ""
+}
+
+// outdentString removes common leading whitespace from all lines
+// It ignores whitespace-only lines during measurement, finds the minimum
+// indent among lines with text, and removes that amount from all text lines
+func outdentString(s string) string {
+	if s == "" {
+		return s
+	}
+
+	lines := strings.Split(s, "\n")
+	if len(lines) == 0 {
+		return s
+	}
+
+	// Find minimum indent (excluding whitespace-only lines and lines with no leading whitespace)
+	minIndent := -1
+	for _, line := range lines {
+		// Skip empty lines and whitespace-only lines
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		// Measure leading whitespace
+		indent := 0
+		for _, ch := range line {
+			if ch == ' ' || ch == '\t' {
+				indent++
+			} else {
+				break
+			}
+		}
+
+		// Skip lines with no indent (already at column 0)
+		if indent == 0 {
+			continue
+		}
+
+		// Track minimum
+		if minIndent == -1 || indent < minIndent {
+			minIndent = indent
+		}
+	}
+
+	// If no common indent found, return as-is
+	if minIndent <= 0 {
+		return s
+	}
+
+	// Remove common indent from all lines
+	result := make([]string, len(lines))
+	for i, line := range lines {
+		// If line is whitespace-only, remove all whitespace
+		if strings.TrimSpace(line) == "" {
+			result[i] = ""
+		} else if len(line) >= minIndent {
+			// Remove the common indent (but only if the line has at least that much indent)
+			hasIndent := true
+			for j := 0; j < minIndent; j++ {
+				if j >= len(line) || (line[j] != ' ' && line[j] != '\t') {
+					hasIndent = false
+					break
+				}
+			}
+			if hasIndent {
+				result[i] = line[minIndent:]
+			} else {
+				result[i] = line
+			}
+		} else {
+			// Line is shorter than minIndent
+			result[i] = line
+		}
+	}
+
+	return strings.Join(result, "\n")
+}
+
+// indentString adds spaces to the beginning of all non-whitespace-only lines
+func indentString(s string, spaces int) string {
+	if s == "" || spaces <= 0 {
+		return s
+	}
+
+	lines := strings.Split(s, "\n")
+	indent := strings.Repeat(" ", spaces)
+	result := make([]string, len(lines))
+
+	for i, line := range lines {
+		// If line is whitespace-only, keep it as-is
+		if strings.TrimSpace(line) == "" {
+			result[i] = line
+		} else {
+			// Add indent to lines with text
+			result[i] = indent + line
+		}
+	}
+
+	return strings.Join(result, "\n")
 }
 
 // ============================================================================
@@ -755,18 +868,6 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 			result[i] = arr.Elements[indices[int(i)]]
 		}
 		return &Array{Elements: result}
-
-	case "includes":
-		// includes(value) - returns true if array contains the value
-		if len(args) != 1 {
-			return newArityError("includes", len(args), 1)
-		}
-		for _, elem := range arr.Elements {
-			if objectsEqual(args[0], elem) {
-				return TRUE
-			}
-		}
-		return FALSE
 
 	case "insert":
 		// insert(index, value) - returns new array with value inserted before index

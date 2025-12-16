@@ -222,43 +222,6 @@ func TestInOperatorErrors(t *testing.T) {
 	}
 }
 
-// TestIncludesMethodArray tests the .includes() method on arrays
-func TestIncludesMethodArray(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected bool
-	}{
-		// Basic membership
-		{`[1, 2, 3].includes(1)`, true},
-		{`[1, 2, 3].includes(2)`, true},
-		{`[1, 2, 3].includes(4)`, false},
-
-		// Strings
-		{`["a", "b", "c"].includes("b")`, true},
-		{`["a", "b", "c"].includes("d")`, false},
-
-		// Chaining
-		{`[1, 2, 3].filter(fn(x) { x > 1 }).includes(2)`, true},
-		{`[1, 2, 3].filter(fn(x) { x > 1 }).includes(1)`, false},
-
-		// With variables
-		{`let arr = [1, 2, 3]; arr.includes(2)`, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := evalIn(tt.input)
-			boolObj, ok := result.(*evaluator.Boolean)
-			if !ok {
-				t.Fatalf("expected Boolean, got %T (%s)", result, result.Inspect())
-			}
-			if boolObj.Value != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, boolObj.Value)
-			}
-		})
-	}
-}
-
 // TestIncludesMethodString tests the .includes() method on strings
 func TestIncludesMethodString(t *testing.T) {
 	tests := []struct {
