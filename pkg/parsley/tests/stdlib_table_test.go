@@ -8,6 +8,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
+	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
 func TestStdlibTableImport(t *testing.T) {
@@ -17,6 +18,9 @@ table`
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
 
 	if len(p.Errors()) > 0 {
 		t.Fatalf("parser errors: %v", p.Errors())
@@ -36,6 +40,27 @@ table`
 	// Table should be a StdlibBuiltin
 	if result.Type() != evaluator.BUILTIN_OBJ {
 		t.Errorf("expected BUILTIN, got %s", result.Type())
+	}
+}
+
+func assertNoNilExpressions(t *testing.T, dict *evaluator.Dictionary, prefix string) {
+	t.Helper()
+	if dict == nil {
+		t.Fatalf("nil dictionary at %s", prefix)
+	}
+	for key, expr := range dict.Pairs {
+		if expr == nil {
+			t.Fatalf("nil expression for %s.%s", prefix, key)
+		}
+		if objLit, ok := expr.(*ast.ObjectLiteralExpression); ok {
+			if nested, ok := objLit.Obj.(*evaluator.Dictionary); ok {
+				next := key
+				if prefix != "" {
+					next = prefix + "." + key
+				}
+				assertNoNilExpressions(t, nested, next)
+			}
+		}
 	}
 }
 
@@ -401,6 +426,9 @@ func TestUnknownStdlibModule(t *testing.T) {
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
 	env := evaluator.NewEnvironment()
 	result := evaluator.Eval(program, env)
 
@@ -705,38 +733,227 @@ table.fromDict(d, "Category", "Value")`,
 	}
 }
 
-func TestBasilStdlibImport(t *testing.T) {
-	// Test that std/basil import works (returns empty dict when not in handler context)
-	input := `
-		let {basil} = import @std/basil
-		basil
-	`
-	result := evalTest(t, input)
-
-	// Should be a Dictionary (empty in test context)
-	if result.Type() != evaluator.DICTIONARY_OBJ {
-		t.Errorf("expected Dictionary, got %s", result.Type())
-	}
-}
-
-func TestBasilStdlibImportWithContext(t *testing.T) {
-	// Test that std/basil import returns the context when set
-	env := evaluator.NewEnvironment()
-
-	// Create a mock basil context
-	mockBasil := &evaluator.Dictionary{
-		Pairs: map[string]ast.Expression{},
-	}
-	env.BasilCtx = mockBasil
-
+func TestStdBasilImportFailsWithError(t *testing.T) {
 	l := lexer.New(`let {basil} = import @std/basil; basil`)
 	p := parser.New(l)
 	program := p.ParseProgram()
 
+	env := evaluator.NewEnvironment()
 	result := evaluator.Eval(program, env)
 
-	// Should be the same object we set
-	if result != mockBasil {
-		t.Errorf("expected basil context to be returned, got %s", result.Type())
+	err, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected error, got %s", result.Type())
+	}
+
+	if err.Code != "IMPORT-0006" {
+		t.Fatalf("expected IMPORT-0006, got %s (%s)", err.Code, err.Message)
+	}
+
+	if !strings.Contains(err.Message, "removed") {
+		t.Fatalf("expected removal message, got %q", err.Message)
+	}
+	if !strings.Contains(err.Message, "@basil/http") {
+		t.Fatalf("expected hint for @basil/http, got %q", err.Message)
+	}
+}
+
+func TestBasilHttpModuleWithContext(t *testing.T) {
+	env := evaluator.NewEnvironment()
+
+	basilMap := map[string]interface{}{
+		"http": map[string]interface{}{
+			"request": map[string]interface{}{
+				"method": "GET",
+				"path":   "/users/42",
+				"query":  map[string]interface{}{"flag": true},
+				"route": map[string]interface{}{
+					"__type":   "path",
+					"absolute": false,
+					"segments": []interface{}{"users", "42"},
+				},
+			},
+			"response": map[string]interface{}{},
+		},
+		"auth": map[string]interface{}{
+			"user": map[string]interface{}{"id": "u1"},
+		},
+	}
+
+	basilObj, err := parsley.ToParsley(basilMap)
+	if err != nil {
+		t.Fatalf("failed to build basil context: %v", err)
+	}
+	if dict, ok := basilObj.(*evaluator.Dictionary); ok {
+		assertNoNilExpressions(t, dict, "basil")
+		env.BasilCtx = dict
+	} else {
+		t.Fatalf("expected basil context dictionary, got %T", basilObj)
+	}
+
+	httpParser := parser.New(lexer.New(`import @basil/http`))
+	httpProgram := httpParser.ParseProgram()
+	if len(httpParser.Errors()) > 0 {
+		t.Fatalf("import parser errors: %v", httpParser.Errors())
+	}
+	httpResult := evaluator.Eval(httpProgram, env)
+	if errObj, isErr := httpResult.(*evaluator.Error); isErr {
+		t.Fatalf("import @basil/http failed: %s", errObj.Inspect())
+	}
+
+	testCases := []struct {
+		name   string
+		src    string
+		assert func(t *testing.T, obj evaluator.Object)
+	}{
+		{
+			name: "query flag",
+			src: `let {query} = import @basil/http
+query.flag`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				b, ok := obj.(*evaluator.Boolean)
+				if !ok || b.Value != true {
+					t.Fatalf("expected query.flag true, got %s", obj.Inspect())
+				}
+			},
+		},
+		{
+			name: "route match",
+			src: `let {route} = import @basil/http
+route.match("users/:id").id`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				s, ok := obj.(*evaluator.String)
+				if !ok || s.Value != "42" {
+					t.Fatalf("expected matched id 42, got %s", obj.Inspect())
+				}
+			},
+		},
+		{
+			name: "method",
+			src: `let {method} = import @basil/http
+method`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				s, ok := obj.(*evaluator.String)
+				if !ok || s.Value != "GET" {
+					t.Fatalf("expected method GET, got %s", obj.Inspect())
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		l := lexer.New(tc.src)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		if len(p.Errors()) > 0 {
+			t.Fatalf("%s parser errors: %v", tc.name, p.Errors())
+		}
+
+		result := evaluator.Eval(program, env)
+		if errObj, isErr := result.(*evaluator.Error); isErr {
+			t.Fatalf("%s eval error: %s", tc.name, errObj.Inspect())
+		}
+
+		tc.assert(t, result)
+	}
+}
+
+func TestBasilAuthModuleWithContext(t *testing.T) {
+	env := evaluator.NewEnvironment()
+
+	basilMap := map[string]interface{}{
+		"auth": map[string]interface{}{
+			"user": map[string]interface{}{"email": "user@example.com"},
+		},
+		"sqlite":  "db-conn",
+		"session": map[string]interface{}{"id": "sess-1"},
+	}
+
+	basilObj, err := parsley.ToParsley(basilMap)
+	if err != nil {
+		t.Fatalf("failed to build basil context: %v", err)
+	}
+	if dict, ok := basilObj.(*evaluator.Dictionary); ok {
+		assertNoNilExpressions(t, dict, "basil")
+		env.BasilCtx = dict
+	} else {
+		t.Fatalf("expected basil context dictionary, got %T", basilObj)
+	}
+
+	authParser := parser.New(lexer.New(`import @basil/auth`))
+	authProgram := authParser.ParseProgram()
+	if len(authParser.Errors()) > 0 {
+		t.Fatalf("import parser errors: %v", authParser.Errors())
+	}
+	authResult := evaluator.Eval(authProgram, env)
+	if errObj, isErr := authResult.(*evaluator.Error); isErr {
+		t.Fatalf("import @basil/auth failed: %s", errObj.Inspect())
+	}
+
+	testCases := []struct {
+		name   string
+		src    string
+		assert func(t *testing.T, obj evaluator.Object)
+	}{
+		{
+			name: "db",
+			src: `let {db} = import @basil/auth
+db`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				s, ok := obj.(*evaluator.String)
+				if !ok || s.Value != "db-conn" {
+					t.Fatalf("expected db-conn, got %s", obj.Inspect())
+				}
+			},
+		},
+		{
+			name: "session",
+			src: `let {session} = import @basil/auth
+session.id`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				s, ok := obj.(*evaluator.String)
+				if !ok || s.Value != "sess-1" {
+					t.Fatalf("expected session id, got %s", obj.Inspect())
+				}
+			},
+		},
+		{
+			name: "auth user",
+			src: `let {auth} = import @basil/auth
+auth.user.email`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				s, ok := obj.(*evaluator.String)
+				if !ok || s.Value != "user@example.com" {
+					t.Fatalf("expected auth.user.email, got %s", obj.Inspect())
+				}
+			},
+		},
+		{
+			name: "user shortcut",
+			src: `let {user} = import @basil/auth
+user.email`,
+			assert: func(t *testing.T, obj evaluator.Object) {
+				s, ok := obj.(*evaluator.String)
+				if !ok || s.Value != "user@example.com" {
+					t.Fatalf("expected user.email, got %s", obj.Inspect())
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		l := lexer.New(tc.src)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		if len(p.Errors()) > 0 {
+			t.Fatalf("%s parser errors: %v", tc.name, p.Errors())
+		}
+
+		result := evaluator.Eval(program, env)
+		if errObj, isErr := result.(*evaluator.Error); isErr {
+			t.Fatalf("%s eval error: %s", tc.name, errObj.Inspect())
+		}
+
+		tc.assert(t, result)
 	}
 }

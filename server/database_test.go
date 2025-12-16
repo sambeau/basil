@@ -86,6 +86,7 @@ func TestDatabaseInHandler(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
+	cfg.Server.Port = 0
 	cfg.SQLite = dbPath
 
 	// Create a test handler script that queries the database
@@ -96,12 +97,12 @@ func TestDatabaseInHandler(t *testing.T) {
 
 	// Script that creates a table and inserts data
 	setupScript := `
-let {basil} = import @std/basil
+let {db} = import @basil/auth
 
 // Create test table and insert data
-let _ = basil.sqlite <=!=> "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"
-let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Alice')"
-let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Bob')"
+let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"
+let _ = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
+let _ = db <=!=> "INSERT INTO users (name) VALUES ('Bob')"
 <p>"Setup complete"</p>
 `
 	if err := os.WriteFile(filepath.Join(handlersDir, "setup.pars"), []byte(setupScript), 0o644); err != nil {
@@ -110,8 +111,8 @@ let _ = basil.sqlite <=!=> "INSERT INTO users (name) VALUES ('Bob')"
 
 	// Script that queries users
 	queryScript := `
-let {basil} = import @std/basil
-let users = basil.sqlite <=??=> "SELECT id, name FROM users ORDER BY id"
+let {db} = import @basil/auth
+let users = db <=??=> "SELECT id, name FROM users ORDER BY id"
 <ul>
 for (user in users) {
     <li>user.name</li>

@@ -236,8 +236,8 @@ func TestSiteHandler_StaticFiles(t *testing.T) {
 	}
 }
 
-// TestBuildSubpathObject tests the subpath Path object construction.
-func TestBuildSubpathObject(t *testing.T) {
+// TestBuildRouteObject tests the route Path object construction.
+func TestBuildRouteObject(t *testing.T) {
 	tests := []struct {
 		subpath  string
 		wantSegs []interface{}
@@ -251,7 +251,7 @@ func TestBuildSubpathObject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.subpath, func(t *testing.T) {
-			obj := buildSubpathObject(tt.subpath)
+			obj := buildRouteObject(tt.subpath)
 
 			if obj["__type"] != "path" {
 				t.Errorf("expected __type='path', got %v", obj["__type"])
