@@ -11,6 +11,7 @@ import (
 	gmast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	extast "github.com/yuin/goldmark/extension/ast"
+	goldmarkParser "github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 )
 
@@ -157,7 +158,10 @@ func markdownToHTML(args []Object, env *Environment) Object {
 
 // parseMarkdownToAST parses markdown source and returns a Parsley AST representation
 func parseMarkdownToAST(source []byte, env *Environment) Object {
-	md := goldmark.New(goldmark.WithExtensions(extension.GFM))
+	md := goldmark.New(
+		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithParserOptions(goldmarkParser.WithAutoHeadingID()),
+	)
 	reader := text.NewReader(source)
 	doc := md.Parser().Parse(reader)
 
@@ -185,7 +189,16 @@ func convertGoldmarkNode(node gmast.Node, source []byte, env *Environment) *Dict
 		textContent := extractGoldmarkText(n, source)
 		pairs["text"] = &ast.ObjectLiteralExpression{Obj: &String{Value: textContent}}
 		keyOrder = append(keyOrder, "text")
-		pairs["id"] = &ast.ObjectLiteralExpression{Obj: &String{Value: generateSlug(textContent)}}
+
+		// Extract ID from Goldmark's attributes if present (set by WithAutoHeadingID)
+		// Otherwise generate our own slug
+		var headingID string
+		if id, ok := n.AttributeString("id"); ok {
+			headingID = string(id.([]byte))
+		} else {
+			headingID = generateSlug(textContent)
+		}
+		pairs["id"] = &ast.ObjectLiteralExpression{Obj: &String{Value: headingID}}
 		keyOrder = append(keyOrder, "id")
 
 	case *gmast.Paragraph:

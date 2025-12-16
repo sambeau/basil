@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -214,5 +215,65 @@ func TestMdDocMap(t *testing.T) {
 
 	if str.Value != "Hello" {
 		t.Errorf("expected 'Hello', got %q", str.Value)
+	}
+}
+
+// TestMdDocHeadingIDsWithPunctuation tests that mdDoc.headings() returns IDs matching Goldmark's algorithm
+func TestMdDocHeadingIDsWithPunctuation(t *testing.T) {
+	tests := []struct {
+		name     string
+		markdown string
+		expected string
+	}{
+		{
+			name:     "parentheses with minus",
+			markdown: "# Subtraction (-)",
+			expected: "subtraction--",
+		},
+		{
+			name:     "parentheses with plus",
+			markdown: "# Addition (+)",
+			expected: "addition-",
+		},
+		{
+			name:     "apostrophe",
+			markdown: "# What's New?",
+			expected: "whats-new",
+		},
+		{
+			name:     "ampersand",
+			markdown: "# Test (1) & (2)",
+			expected: "test-1--2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := fmt.Sprintf(`let {mdDoc} = import @std/mdDoc; let doc = mdDoc("%s"); doc.headings()[0].id`, tt.markdown)
+
+			l := lexer.New(input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected STRING, got %s (%s)", result.Type(), result.Inspect())
+			}
+
+			if str.Value != tt.expected {
+				t.Errorf("expected ID %q, got %q", tt.expected, str.Value)
+			}
+		})
 	}
 }

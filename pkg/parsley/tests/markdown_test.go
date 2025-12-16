@@ -368,6 +368,11 @@ func TestMarkdownHeadingIDs(t *testing.T) {
 			contains: []string{`id="hello-world"`},
 		},
 		{
+			name:     "punctuation edge cases - parentheses with operators",
+			code:     `markdown("# Subtraction (-)\n\n## Addition (+)", {ids: true}).html`,
+			contains: []string{`id="subtraction--"`, `id="addition-"`},
+		},
+		{
 			name:        "default no IDs",
 			code:        `markdown("# Hello").html`,
 			notContains: []string{`id=`},
@@ -457,13 +462,13 @@ Set up your config.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := testEvalMDWithFilename(tt.code, testFilePath)
+			result := testEvalMDWithFilename(tt.code, testFilePath)
 
-if result == nil {
-t.Fatalf("Result is nil")
-}
+			if result == nil {
+				t.Fatalf("Result is nil")
+			}
 
-if result.Type() == evaluator.ERROR_OBJ {
+			if result.Type() == evaluator.ERROR_OBJ {
 				t.Fatalf("Evaluation error: %s", result.Inspect())
 			}
 
