@@ -1101,7 +1101,17 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 	// Check if this is a raw text tag (style/script) which uses @{} for interpolation
 	isRawTextTag := tagName == "style" || tagName == "script"
 
-	for !p.curTokenIs(lexer.TAG_END) && !p.curTokenIs(lexer.EOF) {
+	for !p.curTokenIs(lexer.EOF) {
+		// If we hit a closing tag, only stop when it matches the current tag
+		if p.curTokenIs(lexer.TAG_END) {
+			if p.curToken.Literal == tagName {
+				break
+			}
+			// Closing tag for a nested element bubbled up; skip it and continue parsing
+			p.nextToken()
+			continue
+		}
+
 		switch p.curToken.Type {
 		case lexer.TAG_TEXT:
 			// Raw text content - still supported for style/script tags
@@ -1165,11 +1175,8 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 						contents = append(contents, block)
 					}
 				}
-				if !p.curTokenIs(lexer.TAG_END) && !p.peekTokenIs(lexer.TAG_END) {
-					p.nextToken()
-				} else if p.peekTokenIs(lexer.TAG_END) {
-					p.nextToken()
-				}
+				// Always advance - loop start handles nested TAG_ENDs
+				p.nextToken()
 			}
 
 		default:
@@ -1189,12 +1196,8 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 					contents = append(contents, block)
 				}
 			}
-			// Move to next token if we're not already at TAG_END
-			if !p.curTokenIs(lexer.TAG_END) && !p.peekTokenIs(lexer.TAG_END) {
-				p.nextToken()
-			} else if p.peekTokenIs(lexer.TAG_END) {
-				p.nextToken()
-			}
+			// Always advance - loop start handles nested TAG_ENDs
+			p.nextToken()
 		}
 	}
 
