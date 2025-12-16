@@ -1,6 +1,6 @@
 // page.pars - Shared page layout component
 
-let {basil} = import @std/basil
+let {auth} = import @basil/auth
 
 export Page = fn({title, contents}) {
   <html lang="en">
@@ -13,7 +13,7 @@ export Page = fn({title, contents}) {
   <body>
     <nav>
       <a href="/">Home</a>
-      if (basil.auth.user) {
+      if (auth.user) {
         <>
             <a href="/dashboard">Dashboard</a>
             <a href="/logout">Sign out</a>

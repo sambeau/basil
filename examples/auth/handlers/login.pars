@@ -1,10 +1,10 @@
 // login.pars - Login page
 
-let {basil} = import @std/basil
+let {auth} = import @basil/auth
 {Page} = import(@./page.pars)
 
 // Redirect if already logged in
-if basil.auth.user {
+if auth.user {
   {
     status: 302,
     headers: { "Location": "/dashboard" },
@@ -15,7 +15,7 @@ if basil.auth.user {
     <h1>Sign In</h1>
     <p>Sign in with your passkey.</p>
     
-    <basil.auth.Login
+    <auth.Login
       button_text="Sign in with passkey"
       redirect="/dashboard"
       class="auth-form"

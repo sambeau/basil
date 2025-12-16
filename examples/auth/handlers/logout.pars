@@ -1,14 +1,14 @@
 // logout.pars - Logout page
 
-let {basil} = import @std/basil
+let {auth} = import @basil/auth
 {Page} = import(@./page.pars)
 
 <Page title="Sign Out">
   <h1>Sign Out</h1>
   
-  if basil.auth.user {
+  if auth.user {
     <p>Click below to sign out of your account.</p>
-    <basil.auth.Logout
+    <auth.Logout
       text="Sign out"
       redirect="/"
       method="button"

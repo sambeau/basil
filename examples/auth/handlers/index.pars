@@ -1,15 +1,15 @@
-// index.pars - Homepage
+// index.pars - Landing page
 
-let {basil} = import @std/basil
+let {auth} = import @basil/auth
 {Page} = import(@./page.pars)
 
 <Page title="Home">
   <h1>Welcome to the Auth Demo</h1>
   <p>This example shows Basil's passkey authentication.</p>
   
-  if (basil.auth.user) {
+  if (auth.user) {
     <p>
-		Hello, {basil.auth.user.name}!
+      Hello, {auth.user.name}!
 		<a href="/dashboard">Go to dashboard</a>
 	</p>
   } else {

@@ -1,28 +1,28 @@
 // dashboard.pars - Protected page
 
-let {basil} = import @std/basil
+let {auth} = import @basil/auth
 {Page} = import(@./page.pars)
 
 // Note: This route has auth: required in basil.yaml
 // Unauthenticated requests return 401 before reaching this handler
 
 <Page title="Dashboard">
-  <h1>Welcome, {basil.auth.user.name}!</h1>
+  <h1>Welcome, {auth.user.name}!</h1>
   
   <div class="user-info">
     <h2>Your Account</h2>
     <dl>
       <dt>User ID</dt>
-      <dd>{basil.auth.user.id}</dd>
+      <dd>{auth.user.id}</dd>
       
       <dt>Name</dt>
-      <dd>{basil.auth.user.name}</dd>
+      <dd>{auth.user.name}</dd>
       
       <dt>Email</dt>
-      <dd>{basil.auth.user.email ?? "(not set)"}</dd>
+      <dd>{auth.user.email ?? "(not set)"}</dd>
       
       <dt>Account Created</dt>
-      <dd>{basil.auth.user.created}</dd>
+      <dd>{auth.user.created}</dd>
     </dl>
   </div>
   
