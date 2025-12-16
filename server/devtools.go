@@ -1575,6 +1575,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	}
 	basilObj, _ := parsley.ToParsley(basilMap)
 	env.BasilCtx = basilObj.(*evaluator.Dictionary)
+	env.Set("basil", env.BasilCtx)
 
 	// Add DevTools-specific data
 	devtoolsMap := map[string]interface{}{}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -262,10 +263,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set security policy
 	// Allow executing Parsley files in the root path and subdirectories (for imports)
 	env.Security = &evaluator.SecurityPolicy{
-		NoRead:        false,                                            // Allow reads
-		AllowWrite:    []string(h.server.config.Security.AllowWrite),   // Allow writes to configured directories
-		AllowWriteAll: false,                                            // Deny all writes unless in whitelist
-		AllowExecute:  []string{rootPath},                               // Allow imports from handler directory tree
+		NoRead:        false,                                         // Allow reads
+		AllowWrite:    []string(h.server.config.Security.AllowWrite), // Allow writes to configured directories
+		AllowWriteAll: false,                                         // Deny all writes unless in whitelist
+		AllowExecute:  []string{rootPath},                            // Allow imports from handler directory tree
 		RestrictRead:  []string{"/etc", "/var", "/root"},             // Basic restrictions
 	}
 
@@ -624,18 +625,18 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 	ctx := map[string]interface{}{
 		"method":     r.Method,
 		"path":       r.URL.Path,
-		"query":      queryToMap(r.URL.Query()),
+		"query":      queryToMap(r.URL.RawQuery),
 		"headers":    headers,
 		"cookies":    cookies,
 		"host":       r.Host,
 		"remoteAddr": r.RemoteAddr,
 	}
 
-	// Add subpath if in site routing mode
+	// Add route (formerly subpath) if in site routing mode
 	// subpath is set by siteHandler via context when using filesystem-based routing
 	if subpath := getSubpath(r.Context()); subpath != "" || r.Context().Value(subpathContextKey{}) != nil {
 		// Convert subpath to Path object format for Parsley
-		ctx["subpath"] = buildSubpathObject(subpath)
+		ctx["route"] = buildRouteObject(subpath)
 	}
 
 	// Parse body for POST/PUT/PATCH requests
@@ -769,23 +770,76 @@ func headerToMap(h map[string][]string) map[string]string {
 	return result
 }
 
-// queryToMap converts URL query parameters to a map
-func queryToMap(query map[string][]string) map[string]interface{} {
+// queryToMap converts URL query parameters to a map, treating valueless keys as true.
+// Examples:
+//
+//	?flag        -> {flag: true}
+//	?flag=       -> {flag: ""}
+//	?a&b=1&c     -> {a: true, b: "1", c: true}
+//	?x=1&x=2     -> {x: ["1", "2"]}
+//	?x&x=2       -> {x: [true, "2"]}
+func queryToMap(rawQuery string) map[string]interface{} {
 	result := make(map[string]interface{})
-	for k, v := range query {
-		if len(v) == 1 {
-			result[k] = v[0]
-		} else {
-			result[k] = v
-		}
+
+	if rawQuery == "" {
+		return result
 	}
+
+	// Preserve order and distinguish between "key" and "key=" tokens
+	tokens := strings.Split(rawQuery, "&")
+	accumulated := make(map[string][]interface{})
+
+	for _, token := range tokens {
+		if token == "" {
+			continue
+		}
+
+		hasEquals := strings.Contains(token, "=")
+		var keyPart, valPart string
+
+		if hasEquals {
+			parts := strings.SplitN(token, "=", 2)
+			keyPart = parts[0]
+			valPart = parts[1]
+		} else {
+			keyPart = token
+		}
+
+		key, err := url.QueryUnescape(keyPart)
+		if err != nil {
+			key = keyPart
+		}
+		if key == "" {
+			continue
+		}
+
+		if !hasEquals {
+			accumulated[key] = append(accumulated[key], true)
+			continue
+		}
+
+		val, err := url.QueryUnescape(valPart)
+		if err != nil {
+			val = valPart
+		}
+		accumulated[key] = append(accumulated[key], val)
+	}
+
+	for key, values := range accumulated {
+		if len(values) == 1 {
+			result[key] = values[0]
+			continue
+		}
+		result[key] = values
+	}
+
 	return result
 }
 
-// buildSubpathObject creates a Path object for the subpath in site routing.
-// The subpath is the portion of the URL path not consumed by the matched handler.
+// buildRouteObject creates a Path object for the route (formerly subpath) in site routing.
+// The route is the portion of the URL path not consumed by the matched handler.
 // Returns a map that will be converted to a Parsley Path dictionary via ToParsley.
-func buildSubpathObject(subpath string) map[string]interface{} {
+func buildRouteObject(subpath string) map[string]interface{} {
 	// Parse segments from subpath (e.g., "/2025/Q4" -> ["2025", "Q4"])
 	segments := []interface{}{}
 	if subpath != "" && subpath != "/" {
@@ -799,7 +853,7 @@ func buildSubpathObject(subpath string) map[string]interface{} {
 
 	return map[string]interface{}{
 		"__type":   "path",
-		"absolute": false, // Subpath is always relative
+		"absolute": false, // Routes from site mode are always relative
 		"segments": segments,
 	}
 }
