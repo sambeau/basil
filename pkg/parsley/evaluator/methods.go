@@ -660,10 +660,24 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		return &Array{Elements: newElements}
 
 	case "sort":
-		if len(args) != 0 {
-			return newArityError("sort", len(args), 0)
+		// sort() or sort({natural: false})
+		if len(args) > 1 {
+			return newArityErrorRange("sort", len(args), 0, 1)
 		}
-		return naturalSortArray(arr)
+		natural := true
+		if len(args) == 1 {
+			opts, ok := args[0].(*Dictionary)
+			if !ok {
+				return newTypeError("TYPE-0012", "sort", "a dictionary of options", args[0].Type())
+			}
+			if natExpr, hasNat := opts.Pairs["natural"]; hasNat {
+				natVal := Eval(natExpr, env)
+				if b, ok := natVal.(*Boolean); ok {
+					natural = b.Value
+				}
+			}
+		}
+		return sortArrayWithOptions(arr, natural)
 
 	case "sortBy":
 		if len(args) != 1 {
@@ -939,18 +953,23 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	}
 }
 
-// naturalSortArray performs a natural sort on an array
-func naturalSortArray(arr *Array) *Array {
+// sortArrayWithOptions performs a sort on an array with configurable options.
+func sortArrayWithOptions(arr *Array, natural bool) *Array {
 	// Make a copy of elements
 	elements := make([]Object, len(arr.Elements))
 	copy(elements, arr.Elements)
 
-	// Sort using natural comparison
+	// Sort using comparison with options
 	sort.SliceStable(elements, func(i, j int) bool {
-		return compareObjects(elements[i], elements[j]) < 0
+		return compareObjectsWithOptions(elements[i], elements[j], natural) < 0
 	})
 
 	return &Array{Elements: elements}
+}
+
+// naturalSortArray performs a natural sort on an array
+func naturalSortArray(arr *Array) *Array {
+	return sortArrayWithOptions(arr, true)
 }
 
 // sortArrayByFunction sorts an array using a key function
@@ -1037,8 +1056,48 @@ func filterArrayWithFunction(arr *Array, fn *Function, env *Environment) Object 
 	return &Array{Elements: result}
 }
 
-// compareObjects compares two objects for sorting
+// typeOrder returns the sort order for a type.
+// Order: null < numbers < strings < booleans < dates < durations < money < arrays < dicts < other
+func typeOrder(obj Object) int {
+	if obj == nil || obj == NULL {
+		return 0
+	}
+	switch obj.(type) {
+	case *Integer, *Float:
+		return 1
+	case *String:
+		return 2
+	case *Boolean:
+		return 3
+	case *Dictionary:
+		// Check for special dictionary types
+		if dict, ok := obj.(*Dictionary); ok {
+			if isDatetime(dict) {
+				return 4
+			}
+			if isDuration(dict) {
+				return 5
+			}
+			if isMoney(dict) {
+				return 6
+			}
+		}
+		return 8
+	case *Array:
+		return 7
+	default:
+		return 9
+	}
+}
+
+// compareObjects compares two objects for sorting using natural sort order.
+// Returns -1 if a < b, 0 if a == b, 1 if a > b.
 func compareObjects(a, b Object) int {
+	return compareObjectsWithOptions(a, b, true)
+}
+
+// compareObjectsWithOptions compares two objects with configurable natural sort.
+func compareObjectsWithOptions(a, b Object, natural bool) int {
 	// Handle nil/NULL
 	if a == nil || a == NULL {
 		if b == nil || b == NULL {
@@ -1050,7 +1109,17 @@ func compareObjects(a, b Object) int {
 		return 1
 	}
 
-	// Compare by type
+	// Check if types are different - compare by type order
+	aOrder := typeOrder(a)
+	bOrder := typeOrder(b)
+	if aOrder != bOrder {
+		if aOrder < bOrder {
+			return -1
+		}
+		return 1
+	}
+
+	// Same type category - compare values
 	switch av := a.(type) {
 	case *Integer:
 		if bv, ok := b.(*Integer); ok {
@@ -1090,6 +1159,9 @@ func compareObjects(a, b Object) int {
 		}
 	case *String:
 		if bv, ok := b.(*String); ok {
+			if natural {
+				return NaturalCompare(av.Value, bv.Value)
+			}
 			return strings.Compare(av.Value, bv.Value)
 		}
 	case *Boolean:
@@ -1101,10 +1173,144 @@ func compareObjects(a, b Object) int {
 			}
 			return 0
 		}
+	case *Dictionary:
+		if bv, ok := b.(*Dictionary); ok {
+			// Handle datetime comparison
+			if isDatetime(av) && isDatetime(bv) {
+				env := NewEnvironment()
+				aUnix, _ := getDatetimeUnix(av, env)
+				bUnix, _ := getDatetimeUnix(bv, env)
+				if aUnix < bUnix {
+					return -1
+				} else if aUnix > bUnix {
+					return 1
+				}
+				return 0
+			}
+			// Handle duration comparison
+			if isDuration(av) && isDuration(bv) {
+				aSec := getDurationSeconds(av)
+				bSec := getDurationSeconds(bv)
+				if aSec < bSec {
+					return -1
+				} else if aSec > bSec {
+					return 1
+				}
+				return 0
+			}
+			// Handle money comparison (same currency only)
+			if isMoney(av) && isMoney(bv) {
+				aCur := getMoneyField(av, "currency")
+				bCur := getMoneyField(bv, "currency")
+				if aCur == bCur {
+					aAmt := getMoneyAmount(av)
+					bAmt := getMoneyAmount(bv)
+					if aAmt < bAmt {
+						return -1
+					} else if aAmt > bAmt {
+						return 1
+					}
+					return 0
+				}
+				// Different currencies - compare currency codes
+				return strings.Compare(aCur, bCur)
+			}
+		}
+	case *Array:
+		if bv, ok := b.(*Array); ok {
+			// Compare arrays element by element
+			minLen := len(av.Elements)
+			if len(bv.Elements) < minLen {
+				minLen = len(bv.Elements)
+			}
+			for i := 0; i < minLen; i++ {
+				cmp := compareObjectsWithOptions(av.Elements[i], bv.Elements[i], natural)
+				if cmp != 0 {
+					return cmp
+				}
+			}
+			if len(av.Elements) < len(bv.Elements) {
+				return -1
+			} else if len(av.Elements) > len(bv.Elements) {
+				return 1
+			}
+			return 0
+		}
 	}
 
 	// Fall back to string comparison
+	if natural {
+		return NaturalCompare(a.Inspect(), b.Inspect())
+	}
 	return strings.Compare(a.Inspect(), b.Inspect())
+}
+
+// Helper functions for type detection and value extraction
+func isDatetime(dict *Dictionary) bool {
+	_, hasYear := dict.Pairs["year"]
+	_, hasMonth := dict.Pairs["month"]
+	_, hasDay := dict.Pairs["day"]
+	return hasYear && hasMonth && hasDay
+}
+
+func isDuration(dict *Dictionary) bool {
+	_, hasSeconds := dict.Pairs["seconds"]
+	_, hasMinutes := dict.Pairs["minutes"]
+	_, hasHours := dict.Pairs["hours"]
+	return hasSeconds || hasMinutes || hasHours
+}
+
+func isMoney(dict *Dictionary) bool {
+	_, hasCurrency := dict.Pairs["currency"]
+	_, hasAmount := dict.Pairs["amount"]
+	return hasCurrency && hasAmount
+}
+
+func getDurationSeconds(dict *Dictionary) float64 {
+	total := 0.0
+	if s, ok := dict.Pairs["seconds"]; ok {
+		total += evalExprToFloat(s)
+	}
+	if m, ok := dict.Pairs["minutes"]; ok {
+		total += evalExprToFloat(m) * 60
+	}
+	if h, ok := dict.Pairs["hours"]; ok {
+		total += evalExprToFloat(h) * 3600
+	}
+	if d, ok := dict.Pairs["days"]; ok {
+		total += evalExprToFloat(d) * 86400
+	}
+	return total
+}
+
+func getMoneyField(dict *Dictionary, field string) string {
+	if expr, ok := dict.Pairs[field]; ok {
+		env := NewEnvironment()
+		result := Eval(expr, env)
+		if s, ok := result.(*String); ok {
+			return s.Value
+		}
+	}
+	return ""
+}
+
+func getMoneyAmount(dict *Dictionary) float64 {
+	if expr, ok := dict.Pairs["amount"]; ok {
+		return evalExprToFloat(expr)
+	}
+	return 0
+}
+
+func evalExprToFloat(expr ast.Expression) float64 {
+	env := NewEnvironment()
+	result := Eval(expr, env)
+	switch v := result.(type) {
+	case *Integer:
+		return float64(v.Value)
+	case *Float:
+		return v.Value
+	}
+	return 0
 }
 
 // ============================================================================
