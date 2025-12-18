@@ -155,6 +155,7 @@ type DevConfig struct {
 	LogDatabase    string `yaml:"log_database"`     // Path to dev log database file (default: auto-generated)
 	LogMaxSize     string `yaml:"log_max_size"`     // Maximum log database size (default: "10MB")
 	LogTruncatePct int    `yaml:"log_truncate_pct"` // Percentage to delete when truncating (default: 25)
+	Cache          bool   `yaml:"cache"`            // Enable response caching in dev mode (default: false)
 }
 
 // StaticRoute maps URL paths to static files/directories

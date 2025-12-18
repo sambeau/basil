@@ -12,9 +12,9 @@ import (
 // Each cache entry stores the full response (status, headers, body) keyed by
 // request attributes (method, path, query string).
 type responseCache struct {
-	mu      sync.RWMutex
-	entries map[string]*cacheEntry
-	devMode bool
+	mu            sync.RWMutex
+	entries       map[string]*cacheEntry
+	cacheDisabled bool // true when caching is disabled (dev mode without override)
 }
 
 // cacheEntry represents a cached response with expiration time.
@@ -26,11 +26,11 @@ type cacheEntry struct {
 }
 
 // newResponseCache creates a new response cache.
-// In dev mode, caching is disabled.
-func newResponseCache(devMode bool) *responseCache {
+// In dev mode, caching is disabled unless cacheEnabled is true.
+func newResponseCache(devMode, cacheEnabled bool) *responseCache {
 	return &responseCache{
-		entries: make(map[string]*cacheEntry),
-		devMode: devMode,
+		entries:       make(map[string]*cacheEntry),
+		cacheDisabled: devMode && !cacheEnabled,
 	}
 }
 
@@ -50,8 +50,8 @@ func cacheKey(r *http.Request) string {
 // Get retrieves a cached response if available and not expired.
 // Returns nil if cache miss or expired.
 func (c *responseCache) Get(r *http.Request) *cacheEntry {
-	// No caching in dev mode
-	if c.devMode {
+	// No caching when disabled
+	if c.cacheDisabled {
 		return nil
 	}
 
@@ -79,8 +79,8 @@ func (c *responseCache) Get(r *http.Request) *cacheEntry {
 
 // Set stores a response in the cache with the given TTL.
 func (c *responseCache) Set(r *http.Request, ttl time.Duration, status int, headers http.Header, body []byte) {
-	// No caching in dev mode or with zero TTL
-	if c.devMode || ttl <= 0 {
+	// No caching when disabled or with zero TTL
+	if c.cacheDisabled || ttl <= 0 {
 		return
 	}
 
