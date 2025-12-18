@@ -6941,6 +6941,9 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Assignments return NULL (excluded from block concatenation)
 		return NULL
 
+	case *ast.IndexAssignmentStatement:
+		return evalIndexAssignment(node, env)
+
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
 
@@ -14143,6 +14146,130 @@ func parseCSVValue(value string) Object {
 	}
 	// Keep as string
 	return &String{Value: value}
+}
+
+// evalIndexAssignment evaluates index/property assignment statements like dict["key"] = value or obj.prop = value
+func evalIndexAssignment(node *ast.IndexAssignmentStatement, env *Environment) Object {
+	// Evaluate the value to assign
+	value := Eval(node.Value, env)
+	if isError(value) {
+		return value
+	}
+
+	// Handle IndexExpression assignment: dict["key"] = value or arr[0] = value
+	if indexExpr, ok := node.Target.(*ast.IndexExpression); ok {
+		// Evaluate the object being indexed
+		left := Eval(indexExpr.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		// Evaluate the index
+		index := Eval(indexExpr.Index, env)
+		if isError(index) {
+			return index
+		}
+
+		switch obj := left.(type) {
+		case *Dictionary:
+			// Dictionary assignment: dict["key"] = value
+			key, ok := index.(*String)
+			if !ok {
+				return &Error{
+					Message: fmt.Sprintf("dictionary key must be a string, got %s", index.Type()),
+					Line:    indexExpr.Token.Line,
+					Column:  indexExpr.Token.Column,
+				}
+			}
+			// Convert Object to ast.Expression for storage
+			obj.Pairs[key.Value] = objectToExpression(value)
+			// Add to order if new key
+			found := false
+			for _, k := range obj.KeyOrder {
+				if k == key.Value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				obj.KeyOrder = append(obj.KeyOrder, key.Value)
+			}
+			return NULL
+
+		case *Array:
+			// Array assignment: arr[0] = value
+			idx, ok := index.(*Integer)
+			if !ok {
+				return &Error{
+					Message: fmt.Sprintf("array index must be an integer, got %s", index.Type()),
+					Line:    indexExpr.Token.Line,
+					Column:  indexExpr.Token.Column,
+				}
+			}
+			i := int(idx.Value)
+			// Handle negative indices
+			if i < 0 {
+				i = len(obj.Elements) + i
+			}
+			if i < 0 || i >= len(obj.Elements) {
+				return &Error{
+					Message: fmt.Sprintf("array index out of bounds: %d (length %d)", idx.Value, len(obj.Elements)),
+					Line:    indexExpr.Token.Line,
+					Column:  indexExpr.Token.Column,
+				}
+			}
+			obj.Elements[i] = value
+			return NULL
+
+		default:
+			return &Error{
+				Message: fmt.Sprintf("cannot assign to index of %s", left.Type()),
+				Line:    indexExpr.Token.Line,
+				Column:  indexExpr.Token.Column,
+			}
+		}
+	}
+
+	// Handle DotExpression assignment: obj.prop = value
+	if dotExpr, ok := node.Target.(*ast.DotExpression); ok {
+		// Evaluate the object
+		left := Eval(dotExpr.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		switch obj := left.(type) {
+		case *Dictionary:
+			// Dictionary property assignment: dict.key = value
+			// Convert Object to ast.Expression for storage
+			obj.Pairs[dotExpr.Key] = objectToExpression(value)
+			// Add to order if new key
+			found := false
+			for _, k := range obj.KeyOrder {
+				if k == dotExpr.Key {
+					found = true
+					break
+				}
+			}
+			if !found {
+				obj.KeyOrder = append(obj.KeyOrder, dotExpr.Key)
+			}
+			return NULL
+
+		default:
+			return &Error{
+				Message: fmt.Sprintf("cannot assign to property of %s", left.Type()),
+				Line:    dotExpr.Token.Line,
+				Column:  dotExpr.Token.Column,
+			}
+		}
+	}
+
+	return &Error{
+		Message: "invalid assignment target",
+		Line:    node.Token.Line,
+		Column:  node.Token.Column,
+	}
 }
 
 // evalWriteStatement evaluates the ==> and ==>> operators to write file content

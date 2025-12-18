@@ -697,6 +697,26 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 
 	expr := p.parseExpression(LOWEST)
 
+	// Check for index/property assignment: expr[key] = value or expr.prop = value
+	if p.peekTokenIs(lexer.ASSIGN) {
+		if p.isAssignableExpression(expr) {
+			p.nextToken() // consume '='
+			assignToken := p.curToken
+			p.nextToken() // move to value expression
+			value := p.parseExpression(LOWEST)
+
+			if p.peekTokenIs(lexer.SEMICOLON) {
+				p.nextToken()
+			}
+
+			return &ast.IndexAssignmentStatement{
+				Token:  assignToken,
+				Target: expr,
+				Value:  value,
+			}
+		}
+	}
+
 	// Check for write operators ==> or ==>>
 	if p.peekTokenIs(lexer.WRITE_TO) || p.peekTokenIs(lexer.APPEND_TO) {
 		p.nextToken() // consume ==> or ==>>
@@ -722,6 +742,15 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 	}
 
 	return stmt
+}
+
+// isAssignableExpression returns true if the expression can be assigned to
+func (p *Parser) isAssignableExpression(expr ast.Expression) bool {
+	switch expr.(type) {
+	case *ast.IndexExpression, *ast.DotExpression:
+		return true
+	}
+	return false
 }
 
 // parseExpression parses expressions using Pratt parsing
