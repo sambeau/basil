@@ -2350,10 +2350,12 @@ func (p *Parser) curPrecedence() int {
 }
 
 // parseDictionaryLiteral parses dictionary literals like { key: value, ... }
+// Also supports computed keys: { [expr]: value, ... }
 func (p *Parser) parseDictionaryLiteral() ast.Expression {
 	dict := &ast.DictionaryLiteral{Token: p.curToken}
 	dict.Pairs = make(map[string]ast.Expression)
 	dict.KeyOrder = []string{}
+	dict.ComputedPairs = []ast.ComputedKeyValue{}
 
 	// Empty dictionary
 	if p.peekTokenIs(lexer.RBRACE) {
@@ -2370,32 +2372,64 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 			break
 		}
 
-		// Key can be an identifier or a string
-		var key string
-		if p.curTokenIs(lexer.IDENT) {
-			key = p.curToken.Literal
-		} else if p.curTokenIs(lexer.STRING) {
-			key = p.curToken.Literal
+		// Check for computed key: [expr]
+		if p.curTokenIs(lexer.LBRACKET) {
+			// Parse the key expression
+			p.nextToken()
+			keyExpr := p.parseExpression(LOWEST)
+			if keyExpr == nil {
+				return nil
+			}
+
+			// Expect closing bracket
+			if !p.expectPeek(lexer.RBRACKET) {
+				return nil
+			}
+
+			// Expect colon
+			if !p.expectPeek(lexer.COLON) {
+				return nil
+			}
+
+			// Parse value expression
+			p.nextToken()
+			value := p.parseExpression(COMMA_PREC + 1)
+			if value == nil {
+				return nil
+			}
+
+			dict.ComputedPairs = append(dict.ComputedPairs, ast.ComputedKeyValue{
+				Key:   keyExpr,
+				Value: value,
+			})
 		} else {
-			p.addError(fmt.Sprintf("Expected identifier or string as dictionary key, got %s",
-				tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
-			return nil
-		}
+			// Key can be an identifier or a string
+			var key string
+			if p.curTokenIs(lexer.IDENT) {
+				key = p.curToken.Literal
+			} else if p.curTokenIs(lexer.STRING) {
+				key = p.curToken.Literal
+			} else {
+				p.addError(fmt.Sprintf("Expected identifier or string as dictionary key, got %s",
+					tokenTypeToReadableName(p.curToken.Type)), p.curToken.Line, p.curToken.Column)
+				return nil
+			}
 
-		// Expect colon
-		if !p.expectPeek(lexer.COLON) {
-			return nil
-		}
+			// Expect colon
+			if !p.expectPeek(lexer.COLON) {
+				return nil
+			}
 
-		// Parse value expression with COMMA_PREC+1 to avoid consuming commas
-		p.nextToken()
-		value := p.parseExpression(COMMA_PREC + 1)
-		if value == nil {
-			return nil
-		}
+			// Parse value expression with COMMA_PREC+1 to avoid consuming commas
+			p.nextToken()
+			value := p.parseExpression(COMMA_PREC + 1)
+			if value == nil {
+				return nil
+			}
 
-		dict.Pairs[key] = value
-		dict.KeyOrder = append(dict.KeyOrder, key)
+			dict.Pairs[key] = value
+			dict.KeyOrder = append(dict.KeyOrder, key)
+		}
 
 		// Check for comma, semicolon, or closing brace
 		if p.peekTokenIs(lexer.RBRACE) {

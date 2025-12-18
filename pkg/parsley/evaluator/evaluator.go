@@ -12378,6 +12378,7 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 	// Evaluate all values eagerly and store them as ObjectLiteralExpressions
 	// This ensures values like method calls (t.count()) are evaluated at creation time
 	pairs := make(map[string]ast.Expression)
+	keyOrder := []string{}
 
 	// Use KeyOrder from AST if available, otherwise iterate map (for backward compat)
 	keys := node.KeyOrder
@@ -12395,11 +12396,45 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 		}
 		// Convert the evaluated value back to an expression for storage
 		pairs[key] = objectToExpression(value)
+		keyOrder = append(keyOrder, key)
+	}
+
+	// Evaluate computed key-value pairs
+	for _, cp := range node.ComputedPairs {
+		// Evaluate the key expression
+		keyObj := Eval(cp.Key, env)
+		if isError(keyObj) {
+			return keyObj
+		}
+
+		// Convert key to string
+		var keyStr string
+		switch k := keyObj.(type) {
+		case *String:
+			keyStr = k.Value
+		case *Integer:
+			keyStr = fmt.Sprintf("%d", k.Value)
+		case *Float:
+			keyStr = fmt.Sprintf("%g", k.Value)
+		case *Boolean:
+			keyStr = fmt.Sprintf("%t", k.Value)
+		default:
+			return &Error{Message: fmt.Sprintf("computed dictionary key must be a string, integer, float, or boolean, got %s", keyObj.Type())}
+		}
+
+		// Evaluate the value expression
+		value := Eval(cp.Value, env)
+		if isError(value) {
+			return value
+		}
+
+		pairs[keyStr] = objectToExpression(value)
+		keyOrder = append(keyOrder, keyStr)
 	}
 
 	dict := &Dictionary{
 		Pairs:    pairs,
-		KeyOrder: keys,
+		KeyOrder: keyOrder,
 		Env:      env,
 	}
 	return dict

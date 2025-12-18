@@ -719,6 +719,15 @@ type DictionaryLiteral struct {
 	Token    lexer.Token // the '{' token
 	Pairs    map[string]Expression
 	KeyOrder []string // Keys in source order
+	// ComputedPairs holds key-value pairs where the key is computed at runtime
+	// e.g., {[expr]: value}
+	ComputedPairs []ComputedKeyValue
+}
+
+// ComputedKeyValue represents a key-value pair with a computed key expression
+type ComputedKeyValue struct {
+	Key   Expression
+	Value Expression
 }
 
 func (dl *DictionaryLiteral) expressionNode()      {}
@@ -738,6 +747,10 @@ func (dl *DictionaryLiteral) String() string {
 		if value, ok := dl.Pairs[key]; ok {
 			pairs = append(pairs, key+": "+value.String())
 		}
+	}
+	// Add computed pairs
+	for _, cp := range dl.ComputedPairs {
+		pairs = append(pairs, "["+cp.Key.String()+"]: "+cp.Value.String())
 	}
 
 	out.WriteString("{")
