@@ -131,7 +131,7 @@
 
 		if (devtools.log_count == 0) {
 			<div class="empty-state">
-				"No logs yet. Use " <code>"dev.log(value)"</code> " in your handlers."
+				"No logs yet. Use " <code>"let {dev} = import @std/dev"</code> " then " <code>"dev.log(value)"</code> " in your handlers."
 			</div>
 		} else {
 			for (log in devtools.logs) {

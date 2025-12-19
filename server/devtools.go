@@ -187,7 +187,7 @@ func (h *devToolsHandler) serveLogsHTML(w http.ResponseWriter, entries []LogEntr
 
 	var logsHTML strings.Builder
 	if len(entries) == 0 {
-		logsHTML.WriteString(`<div class="empty-state">No logs yet. Use <code>dev.log(value)</code> in your handlers.</div>`)
+		logsHTML.WriteString(`<div class="empty-state">No logs yet. Use <code>let {dev} = import @std/dev</code> then <code>dev.log(value)</code> in your handlers.</div>`)
 	} else {
 		// Entries are already newest-first, keep that for HTML display
 		for _, e := range entries {
