@@ -324,6 +324,9 @@ printf("Hi @{name}!", {name: "Ada"}) // Builtin synonym
 |--------|-------------|---------|
 | `.length()` | Array length | `[1,2,3].length()` → `3` |
 | `.insert(i, v)` | Insert before index | `[1,3].insert(1, 2)` → `[1,2,3]` |
+| `.has(item)` | Check if item exists | `[1,2,3].has(2)` → `true` |
+| `.hasAny(arr)` | Check if any item from arr exists | `[1,2,3].hasAny([2,4])` → `true` |
+| `.hasAll(arr)` | Check if all items from arr exist | `[1,2,3].hasAll([2,3])` → `true` |
 | `.sort()` | Sort ascending | `[3,1,2].sort()` → `[1,2,3]` |
 | `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
 | `.shuffle()` | Random order | `[1,2,3].shuffle()` → `[2,3,1]` |

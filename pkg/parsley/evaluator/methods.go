@@ -49,7 +49,7 @@ var stringMethods = []string{
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
 	"length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
-	"toJSON", "toCSV", "shuffle", "pick", "take", "insert",
+	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll",
 }
 
 // integerMethods lists all methods available on integer
@@ -947,6 +947,60 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		newElements[idx] = args[1]
 		copy(newElements[idx+1:], arr.Elements[idx:])
 		return &Array{Elements: newElements}
+
+	case "has":
+		// has(item) - returns true if item is in array
+		if len(args) != 1 {
+			return newArityError("has", len(args), 1)
+		}
+		searchItem := args[0]
+		for _, elem := range arr.Elements {
+			if compareObjects(elem, searchItem) == 0 {
+				return TRUE
+			}
+		}
+		return FALSE
+
+	case "hasAny":
+		// hasAny(array2) - returns true if any item in array2 is in this array
+		if len(args) != 1 {
+			return newArityError("hasAny", len(args), 1)
+		}
+		arr2, ok := args[0].(*Array)
+		if !ok {
+			return newTypeError("TYPE-0012", "hasAny", "an array", args[0].Type())
+		}
+		for _, searchItem := range arr2.Elements {
+			for _, elem := range arr.Elements {
+				if compareObjects(elem, searchItem) == 0 {
+					return TRUE
+				}
+			}
+		}
+		return FALSE
+
+	case "hasAll":
+		// hasAll(array2) - returns true if all items in array2 are in this array
+		if len(args) != 1 {
+			return newArityError("hasAll", len(args), 1)
+		}
+		arr2, ok := args[0].(*Array)
+		if !ok {
+			return newTypeError("TYPE-0012", "hasAll", "an array", args[0].Type())
+		}
+		for _, searchItem := range arr2.Elements {
+			found := false
+			for _, elem := range arr.Elements {
+				if compareObjects(elem, searchItem) == 0 {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return FALSE
+			}
+		}
+		return TRUE
 
 	default:
 		return unknownMethodError(method, "array", arrayMethods)

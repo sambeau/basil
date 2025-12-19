@@ -184,6 +184,30 @@ func TestArrayMethods(t *testing.T) {
 		// format()
 		{`["apple", "banana", "cherry"].format()`, "apple, banana, and cherry"},
 		{`["a", "b"].format("or")`, "a or b"},
+
+		// has()
+		{`[1, 2, 3].has(2)`, true},
+		{`[1, 2, 3].has(5)`, false},
+		{`["a", "b", "c"].has("b")`, true},
+		{`["a", "b", "c"].has("d")`, false},
+		{`[].has(1)`, false},
+
+		// hasAny()
+		{`[1, 2, 3].hasAny([2, 4])`, true},
+		{`[1, 2, 3].hasAny([4, 5])`, false},
+		{`["a", "b", "c"].hasAny(["b", "d"])`, true},
+		{`["a", "b", "c"].hasAny(["d", "e"])`, false},
+		{`[1, 2, 3].hasAny([])`, false},
+		{`[].hasAny([1, 2])`, false},
+
+		// hasAll()
+		{`[1, 2, 3].hasAll([2, 3])`, true},
+		{`[1, 2, 3].hasAll([2, 4])`, false},
+		{`["a", "b", "c"].hasAll(["a", "c"])`, true},
+		{`["a", "b", "c"].hasAll(["c", "d"])`, false},
+		{`[1, 2, 3].hasAll([])`, true},
+		{`[].hasAll([])`, true},
+		{`[].hasAll([1])`, false},
 	}
 
 	for _, tt := range tests {
@@ -244,6 +268,14 @@ func TestArrayMethods(t *testing.T) {
 				}
 				if str.Value != expected {
 					t.Errorf("expected %q, got %q", expected, str.Value)
+				}
+			case bool:
+				b, ok := result.(*evaluator.Boolean)
+				if !ok {
+					t.Fatalf("expected Boolean, got %T (%+v)", result, result)
+				}
+				if b.Value != expected {
+					t.Errorf("expected %v, got %v", expected, b.Value)
 				}
 			}
 		})

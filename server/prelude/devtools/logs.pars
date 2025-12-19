@@ -116,7 +116,7 @@
 <body>
 	<div class="container">
 		<div class="header">
-			<h1>"📋 Basil Logs" + if (devtools.route) { ": " + devtools.route } else { "" }</h1>
+			<h1>"📋 Basil Logs" + if (devtools.route)  ": " + devtools.route  else  "" </h1>
 			<div class="actions">
 				<a href="/__/" class="btn">"← Back"</a>
 				if (devtools.log_count > 0) {
@@ -126,7 +126,7 @@
 		</div>
 
 		<div class="stats">
-			{devtools.log_count + " log " + if (devtools.log_count == 1) { "entry" } else { "entries" }}
+			devtools.log_count + " log " + if (devtools.log_count == 1) "entry"  else "entries" 
 		</div>
 
 		if (devtools.log_count == 0) {
@@ -135,14 +135,14 @@
 			</div>
 		} else {
 			for (log in devtools.logs) {
-				<div class={"log-entry" + if (log.level == "warn") { " warn" } else { "" }}>
+				<div class={"log-entry" + if (log.level == "warn") " warn"  else  ""}>
 					<div class="log-header">
-						<span class="log-icon">{if (log.level == "warn") { "⚠️" } else { "ℹ️" }}</span>
-						<span class="log-file">{"📁 " + log.filename + ":" + log.line}</span>
-						<span class="log-time">{"🕐 " + log.timestamp}</span>
+						<span class="log-icon">if (log.level == "warn")  "⚠️"  else  "ℹ️"</span>
+						<span class="log-file">"📁 " + log.filename + ":" + log.line</span>
+						<span class="log-time">"🕐 " + log.timestamp</span>
 					</div>
-					<div class="log-call">{"💻 " + log.call}</div>
-					<div class="log-value">{log.value}</div>
+					<div class="log-call">"💻 " + log.call</div>
+					<div class="log-value">log.value</div>
 				</div>
 			}
 		}

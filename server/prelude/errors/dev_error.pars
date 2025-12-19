@@ -124,13 +124,13 @@
 <body>
 	<div class="container">
 		<h1>
-			<span class="error-code">{error.code}</span>
-			{error.message}
+			<span class="error-code">error.code</span>
+			error.message
 		</h1>
 		if (error.message_text) {
 			<div class="section">
 				<h2>"Error Details"</h2>
-				<div class="message">{error.message_text}</div>
+				<div class="message">error.message_text</div>
 				if (error.file) {
 					<div class="location">
 						"at " + error.file + ":" + error.line + ":" + error.column
@@ -145,9 +145,9 @@
 				<pre class="code-block">
 					for (line in error.source) {
 						if (line.is_error) {
-							<span class="line-error">{line.number + " | " + line.content + " <--" + " ERROR"}</span><br/>
+							<span class="line-error">line.number + " | " + line.content + " <--" + " ERROR"</span><br/>
 						} else {
-							<span class="line-number">{line.number}</span><>{"| " + line.content}</><br/>
+							<span class="line-number">line.number</span>"| " + line.content<br/>
 						}
 					}
 				</pre>	
@@ -160,16 +160,16 @@
 				<div class="request-info">
 					<div class="request-row">
 						<div class="request-label">"Method:"</div>
-						<div class="request-value">{error.request.method}</div>
+						<div class="request-value">error.request.method</div>
 					</div>
 					<div class="request-row">
 						<div class="request-label">"Path:"</div>
-						<div class="request-value">{error.request.path}</div>
+						<div class="request-value">error.request.path</div>
 					</div>
 					if (error.request.query) {
 						<div class="request-row">
 							<div class="request-label">"Query:"</div>
-							<div class="request-value">{error.request.query}</div>
+							<div class="request-value">error.request.query</div>
 						</div>
 					}
 				</div>
@@ -181,7 +181,7 @@
 			<div class="request-info">
 				<div class="request-row">
 					<div class="request-label">"Version:"</div>
-					<div class="request-value">{basil.version}</div>
+					<div class="request-value">basil.version</div>
 				</div>
 				<div class="request-row">
 					<div class="request-label">"Mode:"</div>
