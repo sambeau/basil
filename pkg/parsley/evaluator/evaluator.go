@@ -3322,6 +3322,10 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 		// Alias for basename
 		return evalPathComputedProperty(dict, "basename", env)
 
+	case "filename":
+		// Alias for basename (more intuitive name)
+		return evalPathComputedProperty(dict, "basename", env)
+
 	case "suffix":
 		// Alias for extension
 		return evalPathComputedProperty(dict, "extension", env)

@@ -941,9 +941,9 @@ Static path literals (`@./path`) remain unchanged and don't require parentheses.
 |----------|-------------|---------|
 | `.segments` | Array of path segments | `["src", "main.go"]` |
 | `.absolute` | Whether path is absolute | `true` or `false` |
-| `.basename` | Filename | `"config.json"` |
-| `.ext` | Extension | `"json"` |
-| `.stem` | Name without ext | `"config"` |
+| `.basename` / `.filename` | Full filename with extension | `"config.json"` |
+| `.stem` | Filename without extension | `"config"` |
+| `.ext` / `.extension` | File extension | `"json"` |
 | `.dirname` | Parent directory | Path object |
 | `.dir` | Parent directory as string | `"./data"` |
 | `.string` | Full path as string | `"./data/config.json"` |
@@ -956,6 +956,9 @@ p.absolute   // true
 let p2 = @./src/main.go
 p2.segments  // [".", "src", "main.go"]
 p2.absolute  // false
+p2.filename  // "main.go"
+p2.stem      // "main"
+p2.extension // "go"
 ```
 
 ### Methods
