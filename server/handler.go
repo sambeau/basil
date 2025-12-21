@@ -279,6 +279,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
 	env.AssetBundle = h.server.assetBundle
+	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
 
@@ -1364,16 +1365,6 @@ func partsRuntimeScript() string {
 		scope.querySelectorAll('[data-part-src]').forEach(function(el) {
 			bindInteractions(el);
 
-			// Immediate load setup (part-load)
-			if (el.getAttribute('data-part-load')) {
-				initImmediateLoad(el.parentElement || el);
-			}
-
-			// Lazy loading setup (part-lazy)
-			if (el.getAttribute('data-part-lazy')) {
-				initLazyLoading(el.parentElement || el);
-			}
-
 			// Auto-refresh setup (skip if waiting for load or lazy)
 			var hasLazy = el.getAttribute('data-part-lazy');
 			var hasLoad = el.getAttribute('data-part-load');
@@ -1381,6 +1372,12 @@ func partsRuntimeScript() string {
 				startAutoRefresh(el);
 			}
 		});
+
+		// Initialize immediate load for all parts with part-load
+		initImmediateLoad(scope);
+
+		// Initialize lazy loading for all parts with part-lazy
+		initLazyLoading(scope);
 	}
 
 	// Pause/resume auto-refresh on tab visibility change
