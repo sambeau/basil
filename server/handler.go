@@ -1340,6 +1340,20 @@ func partsRuntimeScript() string {
 			requestAnimationFrame(function() {
 				console.log('[Parts] Part element after layout:', part, 'offsetHeight:', part.offsetHeight, 'clientHeight:', part.clientHeight);
 
+				// If the part has zero height, it's likely hidden or has no content
+				// IntersectionObserver won't work, so load immediately
+				if (part.offsetHeight === 0 && part.clientHeight === 0) {
+					console.log('[Parts] Part has zero height - loading immediately instead of observing');
+					lazyParts.set(part, true);
+
+					var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
+					var props = parseProps(part);
+					var src = part.getAttribute('data-part-src');
+
+					updatePart(part, src, view, props, 'GET');
+					return;
+				}
+
 				var observer = new IntersectionObserver(function(entries) {
 					entries.forEach(function(entry) {
 						console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 
