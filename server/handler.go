@@ -1319,12 +1319,10 @@ func partsRuntimeScript() string {
 	// Lazy loading: fetch view when scrolled into viewport
 	function initLazyLoading(root) {
 		var lazyParts_found = (root || document).querySelectorAll('[data-part-lazy]');
-		console.log('[Parts] initLazyLoading: found', lazyParts_found.length, 'lazy parts');
 		
 		lazyParts_found.forEach(function(part) {
 			// If already loaded, skip
 			if (lazyParts.get(part)) {
-				console.log('[Parts] Skipping already-loaded lazy part:', part.getAttribute('data-part-src'));
 				return;
 			}
 
@@ -1334,16 +1332,11 @@ func partsRuntimeScript() string {
 				thresholdNum = 0;
 			}
 
-			console.log('[Parts] Setting up IntersectionObserver for:', part.getAttribute('data-part-src'), 'threshold:', thresholdNum);
-
 			// Wait for next frame to ensure layout is complete before observing
 			requestAnimationFrame(function() {
-				console.log('[Parts] Part element after layout:', part, 'offsetHeight:', part.offsetHeight, 'clientHeight:', part.clientHeight);
-
 				// If the part has zero height, it's likely hidden or has no content
 				// IntersectionObserver won't work, so load immediately
 				if (part.offsetHeight === 0 && part.clientHeight === 0) {
-					console.log('[Parts] Part has zero height - loading immediately instead of observing');
 					lazyParts.set(part, true);
 
 					var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
@@ -1356,11 +1349,6 @@ func partsRuntimeScript() string {
 
 				var observer = new IntersectionObserver(function(entries) {
 					entries.forEach(function(entry) {
-						console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 
-							'isIntersecting:', entry.isIntersecting, 
-							'intersectionRatio:', entry.intersectionRatio,
-							'boundingClientRect:', entry.boundingClientRect,
-							'rootBounds:', entry.rootBounds);
 						if (entry.isIntersecting) {
 							observer.unobserve(part);
 							lazyParts.set(part, true);
@@ -1369,7 +1357,6 @@ func partsRuntimeScript() string {
 							var props = parseProps(part);
 							var src = part.getAttribute('data-part-src');
 
-							console.log('[Parts] Lazy-loading part:', src, 'view:', view);
 							updatePart(part, src, view, props, 'GET');
 
 							// Start auto-refresh after lazy load (if configured, handled in updatePart)
@@ -1387,7 +1374,6 @@ func partsRuntimeScript() string {
 
 	// Initialize all Parts within a root (default: document)
 	function initParts(root) {
-		console.log('[Parts] initParts called, readyState:', document.readyState, 'stack:', new Error().stack);
 		var scope = root && root.querySelectorAll ? root : document;
 
 		// If root itself is a Part, reinitialize its interactions
@@ -1396,7 +1382,6 @@ func partsRuntimeScript() string {
 		}
 
 		var allParts = scope.querySelectorAll('[data-part-src]');
-		console.log('[Parts] Found', allParts.length, 'total parts');
 		
 		allParts.forEach(function(el) {
 			bindInteractions(el);
