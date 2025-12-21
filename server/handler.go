@@ -1335,10 +1335,15 @@ func partsRuntimeScript() string {
 			}
 
 			console.log('[Parts] Setting up IntersectionObserver for:', part.getAttribute('data-part-src'), 'threshold:', thresholdNum);
+			console.log('[Parts] Part element:', part, 'offsetHeight:', part.offsetHeight, 'clientHeight:', part.clientHeight);
 
 			var observer = new IntersectionObserver(function(entries) {
 				entries.forEach(function(entry) {
-					console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 'isIntersecting:', entry.isIntersecting);
+					console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 
+						'isIntersecting:', entry.isIntersecting, 
+						'intersectionRatio:', entry.intersectionRatio,
+						'boundingClientRect:', entry.boundingClientRect,
+						'rootBounds:', entry.rootBounds);
 					if (entry.isIntersecting) {
 						observer.unobserve(part);
 						lazyParts.set(part, true);
@@ -1354,7 +1359,8 @@ func partsRuntimeScript() string {
 					}
 				});
 			}, {
-				rootMargin: thresholdNum + 'px'
+				rootMargin: thresholdNum + 'px',
+				threshold: 0.01
 			});
 
 			observer.observe(part);
@@ -1363,7 +1369,7 @@ func partsRuntimeScript() string {
 
 	// Initialize all Parts within a root (default: document)
 	function initParts(root) {
-		console.log('[Parts] initParts called, readyState:', document.readyState);
+		console.log('[Parts] initParts called, readyState:', document.readyState, 'stack:', new Error().stack);
 		var scope = root && root.querySelectorAll ? root : document;
 
 		// If root itself is a Part, reinitialize its interactions
