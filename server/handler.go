@@ -1318,9 +1318,13 @@ func partsRuntimeScript() string {
 
 	// Lazy loading: fetch view when scrolled into viewport
 	function initLazyLoading(root) {
-		(root || document).querySelectorAll('[data-part-lazy]').forEach(function(part) {
+		var lazyParts_found = (root || document).querySelectorAll('[data-part-lazy]');
+		console.log('[Parts] initLazyLoading: found', lazyParts_found.length, 'lazy parts');
+		
+		lazyParts_found.forEach(function(part) {
 			// If already loaded, skip
 			if (lazyParts.get(part)) {
+				console.log('[Parts] Skipping already-loaded lazy part:', part.getAttribute('data-part-src'));
 				return;
 			}
 
@@ -1330,8 +1334,11 @@ func partsRuntimeScript() string {
 				thresholdNum = 0;
 			}
 
+			console.log('[Parts] Setting up IntersectionObserver for:', part.getAttribute('data-part-src'), 'threshold:', thresholdNum);
+
 			var observer = new IntersectionObserver(function(entries) {
 				entries.forEach(function(entry) {
+					console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 'isIntersecting:', entry.isIntersecting);
 					if (entry.isIntersecting) {
 						observer.unobserve(part);
 						lazyParts.set(part, true);
@@ -1340,6 +1347,7 @@ func partsRuntimeScript() string {
 						var props = parseProps(part);
 						var src = part.getAttribute('data-part-src');
 
+						console.log('[Parts] Lazy-loading part:', src, 'view:', view);
 						updatePart(part, src, view, props, 'GET');
 
 						// Start auto-refresh after lazy load (if configured, handled in updatePart)
@@ -1355,6 +1363,7 @@ func partsRuntimeScript() string {
 
 	// Initialize all Parts within a root (default: document)
 	function initParts(root) {
+		console.log('[Parts] initParts called, readyState:', document.readyState);
 		var scope = root && root.querySelectorAll ? root : document;
 
 		// If root itself is a Part, reinitialize its interactions
@@ -1362,7 +1371,10 @@ func partsRuntimeScript() string {
 			bindInteractions(root);
 		}
 
-		scope.querySelectorAll('[data-part-src]').forEach(function(el) {
+		var allParts = scope.querySelectorAll('[data-part-src]');
+		console.log('[Parts] Found', allParts.length, 'total parts');
+		
+		allParts.forEach(function(el) {
 			bindInteractions(el);
 
 			// Auto-refresh setup (skip if waiting for load or lazy)
