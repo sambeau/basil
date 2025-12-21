@@ -599,6 +599,7 @@ type Environment struct {
 	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
 	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
 	AssetBundle   AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
+	BasilJSURL    string          // URL for basil.js prelude script (for <BasilJS/> tag)
 	HandlerPath   string          // Current handler path for cache key namespacing
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
 	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
@@ -629,6 +630,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.FragmentCache = outer.FragmentCache
 		env.AssetRegistry = outer.AssetRegistry
 		env.AssetBundle = outer.AssetBundle
+		env.BasilJSURL = outer.BasilJSURL
 		env.HandlerPath = outer.HandlerPath
 		env.DevMode = outer.DevMode
 		env.ContainsParts = outer.ContainsParts
@@ -10798,7 +10800,9 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	}
 
 	// Convert absolute path to Part URL
-	partURL := convertPathToPartURL(absPath, env.RootPath, env.HandlerPath)
+	// Use the handler file's directory to distinguish @./ from @~/ parts
+	handlerDir := filepath.Dir(env.Filename)
+	partURL := convertPathToPartURL(absPath, env.RootPath, env.HandlerPath, handlerDir)
 
 	// Mark that this page contains Parts (for JS injection)
 	env.ContainsParts = true
@@ -10844,33 +10848,47 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 // Example: If handler route is "/dashboard" and Part is "../shared/counter.part",
 //
 //	the URL becomes "/shared/counter.part"
-func convertPathToPartURL(absPath string, rootPath string, handlerPath string) string {
+func convertPathToPartURL(absPath string, rootPath string, handlerPath string, handlerDir string) string {
 	// handlerPath is the route path (e.g., "/", "/dashboard/settings")
-	// rootPath is the handler's file system directory
+	// rootPath is the project root (handler's file system root for @~/)
+	// handlerDir is the handler file's directory (for @./ resolution)
 	// absPath is the Part file's absolute file system path
 
-	// Calculate the Part file's path relative to the handler's directory
-	if rootPath != "" {
-		relPath, err := filepath.Rel(rootPath, absPath)
-		if err == nil {
-			// Convert to URL path with forward slashes
-			relURL := filepath.ToSlash(relPath)
+	if rootPath == "" {
+		return absPath
+	}
 
-			// Join with the handler's route directory
-			if handlerPath != "" {
-				handlerDir := filepath.Dir(handlerPath)
-				if handlerDir == "/" || handlerDir == "." {
-					return "/" + relURL
+	// Check if the Part is within the handler's directory tree (relative Part, e.g., @./)
+	// vs at the project root level (e.g., @~/)
+	if handlerDir != "" {
+		absHandlerDir, _ := filepath.Abs(handlerDir)
+		absPartDir := filepath.Dir(absPath)
+
+		// If Part is within the handler's directory tree, use handler's route as base
+		if strings.HasPrefix(absPartDir+string(filepath.Separator), absHandlerDir+string(filepath.Separator)) ||
+			absPartDir == absHandlerDir {
+			// Part is relative to handler - calculate path relative to handler directory
+			relToHandler, err := filepath.Rel(absHandlerDir, absPath)
+			if err == nil {
+				relURL := filepath.ToSlash(relToHandler)
+				if handlerPath != "" {
+					routeDir := filepath.Dir(handlerPath)
+					if routeDir == "/" || routeDir == "." {
+						return "/" + relURL
+					}
+					return routeDir + "/" + relURL
 				}
-				return handlerDir + "/" + relURL
+				return "/" + relURL
 			}
-
-			return "/" + relURL
 		}
 	}
 
-	// Final fallback: use absolute path
-	return absPath
+	// Part is at project root level (e.g., @~/parts/) - URL is just the relative path from root
+	relPath, err := filepath.Rel(rootPath, absPath)
+	if err != nil {
+		return absPath
+	}
+	return "/" + filepath.ToSlash(relPath)
 }
 
 // htmlEscape escapes special HTML characters for safe attribute values
@@ -11467,6 +11485,13 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 			return &String{Value: ""} // No JS files in bundle
 		}
 		return &String{Value: fmt.Sprintf(`<script src="%s"></script>`, url)}
+	}
+	// Special handling for BasilJS prelude script tag
+	if tagName == "BasilJS" {
+		if env.BasilJSURL == "" {
+			return &String{Value: ""} // No basil.js URL available
+		}
+		return &String{Value: fmt.Sprintf(`<script src="%s"></script>`, env.BasilJSURL)}
 	}
 
 	// Look up the variable/function
