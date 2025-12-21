@@ -1,6 +1,6 @@
 # Parsley Cheat Sheet
 
-Quick reference for Copilot AI agent developing Parsley. Focus on key differences from JavaScript, Python, Rust, and Go.
+Quick reference for beginners and AI agents developing Parsley. Focus on key differences from JavaScript, Python, Rust, and Go.
 
 ---
 
@@ -20,11 +20,10 @@ logLine("hello")       // Includes line number - USE FOR DEBUGGING
 
 ### 2. Comments
 ```parsley
-// ✅ CORRECT - C-style comments only
+// ✅ CORRECT - C-style single-line comments only
 // This is a comment
 
-/* Multi-line
-   comments work too */
+/* Multi-line comments DON'T work */  // ❌ Parsed as regex, causes error
 
 // ❌ WRONG - No Python/Shell style
 # This will ERROR
@@ -46,34 +45,23 @@ let evens = for (n in [1,2,3,4]) {
 }
 ```
 
-### 4. If Requires Parentheses (Like C/JavaScript)
+### 4. If  Parentheses are optional but recommended
 ```parsley
-// ❌ WRONG (Go/Python style)
+// ⚠️ CORRECT but could be ambiguous, especially for ternary
 if age >= 18 { "adult" }
 
-// ✅ CORRECT - Parentheses required around condition
+// ✅ CORRECT - Parentheses never ambiguous
 if (age >= 18) { "adult" }
 
-// If is an expression (returns value like ternary)
+// If is an expression (returns value like ternary) needs parentheses
 let status = if (age >= 18) "adult" else "minor"
-
-// Can use in concatenation
-let msg = "You are " + if (premium) "premium" else "regular"
-
-// Block style
-let result = if (x > 0) {
-    "positive"
-} else if (x < 0) {
-    "negative" 
-} else {
-    "zero"
-}
 ```
 
 ### 5. Path Literals Use @
 ```parsley
 // ✅ CORRECT
-let path = @./config.json
+let path = @./config.json          // Relative to current file
+let rootPath = @~/components/nav   // Relative to project root (Basil)
 let url = @https://example.com
 let date = @2024-11-29
 let time = @14:30
@@ -84,13 +72,9 @@ let path = "./config.json"  // This is just a string
 ```
 
 ### 6. No Arrow Functions - Use fn() { }
-Parsley uses `fn(x) { body }` syntax for functions. The arrow function syntax `x => body` is **NOT supported**.
-
 ```parsley
 // ❌ WRONG (JavaScript arrow functions)
 arr.map(x => x * 2)
-arr.map((a, b) => a + b)
-arr.filter(x => x > 0)
 
 // ✅ CORRECT - Use fn() { } syntax
 arr.map(fn(x) { x * 2 })
@@ -98,54 +82,53 @@ arr.filter(fn(x) { x > 0 })
 
 // Named functions
 let double = fn(x) { x * 2 }
-let add = fn(a, b) { a + b }
+```
 
-// Multiline functions
-let process = fn(items) {
-    let filtered = items.filter(fn(x) { x > 0 })
-    let doubled = filtered.map(fn(x) { x * 2 })
-    doubled
-}
+### 7. Strings in HTML Must Be Quoted
+```parsley
+// ❌ WRONG - bare text in tags
+<h3>Welcome to Parsley</h3>
+
+// ✅ CORRECT - strings need quotes
+<h3>"Welcome to Parsley"</h3>
+<h3>`Welcome to {name}`</h3>       // Template literal style also works
+```
+
+### 8. String/Tag nterpolation Uses {var} Not ${var}
+```parsley
+// ❌ WRONG (JavaScript style)
+<div class="user-${id}">
+
+// ✅ CORRECT - no $ needed
+<div class="user-{id}">
+"Hello, {name}!"
+```
+
+### 9. Self-Closing Tags MUST Use />
+```parsley
+// ❌ WRONG - not self-closing
+<br>
+<img src="photo.jpg">
+<Part src={@./foo.part}>
+
+// ✅ CORRECT - self-closing tags need />
+<br/>
+<img src="photo.jpg"/>
+<Part src={@./foo.part}/>
 ```
 
 ---
 
-## 📊 Most Used Features (from actual usage data)
-
-### Core (use these constantly)
-- `log()` - 710 uses in tests, 523 in examples - **#1 most used**
-- `let` - 382 uses - variable declaration
-- `if` - 72 uses - conditional expression
-- `for` - 44 uses - iteration/mapping
-
-### File I/O (very common)
-- `file(@path)` - 46 test uses, 8 example uses
-- `JSON(@path)` - 20 uses
-- `dir(@path)` - 23 test uses, 15 example uses
-- `text(@path)` - 27 test uses, 7 example uses
-
-### String/Array (frequent)
-- `.length()` - string/array length
-- `split()` - 23 test uses, 6 example uses
-- `sort()` - 7 uses
-
-### DateTime (common)
-- `time()` - 159 test uses, 22 example uses
-- `@now` - current datetime literal (replaces deprecated `now()`)
-
----
-
-## 🔤 Syntax Comparison
+## 📊 Syntax Quick Reference
 
 ### Variables & Functions
 
 | Feature | JavaScript | Python | Parsley |
-|---------|-----------|--------|---------||
+|---------|-----------|--------|---------|
 | Variable | `let x = 5` | `x = 5` | `let x = 5` |
 | Destructure | `const {x, y} = obj` | `x, y = obj` | `let {x, y} = obj` |
 | Array Destruct | `const [a, b] = arr` | `a, b = arr` | `let [a, b] = arr` |
 | Rest (array) | `const [a, ...rest] = arr` | `a, *rest = arr` | `let [a, ...rest] = arr` |
-| Rest (dict) | `const {a, ...rest} = obj` | N/A | `let {a, ...rest} = obj` |
 | Function | `(x) => x*2` | `lambda x: x*2` | `fn(x) { x*2 }` |
 | Named func | `function f(x) {}` | `def f(x):` | `let f = fn(x) {}` |
 
@@ -166,7 +149,7 @@ let process = fn(items) {
 |------|-----------|--------|---------|
 | Array | `[1, 2, 3]` | `[1, 2, 3]` | `[1, 2, 3]` |
 | Dict | `{x: 1, y: 2}` | `{"x": 1, "y": 2}` | `{x: 1, y: 2}` |
-| String | `` `Hi ${x}` `` | `f"Hi {x}"` | `"Hi {x}"` |
+| String | `` `Hi ${x}` `` | `f"Hi {x}"` | `` `Hi {x}` `` |
 | Regex | `/abc/i` | `re.compile(r"abc", re.I)` | `/abc/i` |
 | Null | `null` | `None` | `null` |
 | Money | N/A | N/A | `$12.34`, `EUR#50.00` |
@@ -175,8 +158,7 @@ let process = fn(items) {
 
 ## 🎯 Key Language Features
 
-### 1. Concatenative/Expression-Based
-Everything is an expression that returns a value:
+### 1. Everything Is an Expression
 ```parsley
 // If returns value
 let x = if (true) 10 else 20  // x = 10
@@ -185,75 +167,49 @@ let x = if (true) 10 else 20  // x = 10
 let squares = for (n in 1..5) { n * n }  // [1, 4, 9, 16, 25]
 
 // Tags return strings
-let html = <p>Hello</p>  // "<p>Hello</p>"
+let html = <p>"Hello"</p>  // "<p>Hello</p>"
 ```
 
-### 2. String Interpolation (like template literals)
+### 2. String Interpolation
 ```parsley
+// ✅ Interpolation ONLY in backtick strings
 let name = "Alice"
-let msg = "Hello, {name}!"      // "Hello, Alice!"
-let calc = "2 + 2 = {2 + 2}"    // "2 + 2 = 4"
+let msg = `Hello, {name}!`      // "Hello, Alice!"
+let calc = `2 + 2 = {2 + 2}`    // "2 + 2 = 4"
 
-// In attributes
-<div class="user-{id}">Content</div>
+// ❌ Regular strings do NOT interpolate
+let msg = "Hello, {name}!"      // {name} stays literal
+
+// In attributes (interpolation in expression values)
+<div class="user-{id}">"Content"</div>
 ```
 
 ### 3. HTML/XML as First-Class
 ```parsley
 // Tags return strings
-<p>Hello</p>                    // "<p>Hello</p>"
+<p>"Hello"</p>                    // "<p>Hello</p>"
 
 // Components are just functions
-let Card = fn({title, body}) {
+let Card = fn({title, contents}) { // contents, not body, not children
     <div class="card">
-        <h3>{title}</h3>
-        <p>{body}</p>
+        <h3>title</h3> // not <h3>{title}</h3>
+        <p>contents</p> // contents, not body, not children
     </div>
 }
 
-// Use like JSX
-<Card title="Welcome" body="Hello world"/>
+// Use 
+<Card title="Welcome">"Hello world"</Card> // preferred
+or
+<Card title="Welcome" contents="Hello world"/>
+
 ```
 
-### 4. Literal Syntax with @
-```parsley
-// Paths
-@./relative/path           // Relative to current file
-@~/components/header.pars  // Relative to handler root (in Basil)
-@/absolute/path            // Absolute filesystem path
-
-// URLs
-@https://example.com
-@https://api.github.com/users
-
-// Dates/Times
-@2024-11-29                  // Date
-@2024-11-29T14:30:00        // DateTime
-@14:30                       // Time
-@14:30:45                    // Time with seconds
-
-// Durations
-@1d                          // 1 day
-@2h30m                       // 2 hours 30 minutes
-@-1w                         // Negative: 1 week ago
-
-// Interpolated (dynamic)
-let month = "11"
-let day = "29"
-let date = @(2024-{month}-{day})  // Builds from variables
-
-// Dynamic imports
-let name = "Button"
-import @(./components/{name})      // Interpolated path literal
-```
-
-### 5. Operators Are Overloaded
+### 4. Operators Are Overloaded
 ```parsley
 // Arithmetic
 5 + 3                        // 8
 "Hello" + " World"           // "Hello World"
 @/usr + "local"              // @/usr/local (path join)
-@https://api.com + "/v1"     // @https://api.com/v1
 
 // Multiplication
 3 * 4                        // 12
@@ -276,140 +232,70 @@ import @(./components/{name})      // Interpolated path literal
 
 // Range
 1..5                         // [1, 2, 3, 4, 5]
+
+// Null coalescing
+value ?? "default"           // Returns "default" only if value is null
 ```
 
-### 6. Money Type (Exact Financial Arithmetic)
+### 5. Path Literals with @
 ```parsley
-// Currency symbol literals
-$12.34                       // USD
-£99.99                       // GBP
-€50.00                       // EUR
-¥1000                        // JPY (no decimals)
+// Paths
+@./relative/path           // Relative to current file
+@~/components/header.pars  // Relative to project root (in Basil)
+@/absolute/path            // Absolute filesystem path
 
-// Compound symbols
-CA$25.00                     // Canadian Dollar
-AU$50.00                     // Australian Dollar
+// URLs
+@https://example.com
+@https://api.github.com/users
 
-// CODE# syntax (any 3-letter currency)
-USD#12.34                    // Same as $12.34
-BTC#1.00000000              // Bitcoin (8 decimals)
+// Dates/Times
+@2024-11-29                  // Date
+@2024-11-29T14:30:00        // DateTime
+@14:30                       // Time
+@now                         // Current datetime
+@today                       // Current date
 
-// Constructor
-money(12.34, "USD")          // $12.34
-money(1000, "JPY")           // ¥1000
+// Durations
+@1d                          // 1 day
+@2h30m                       // 2 hours 30 minutes
+@-1w                         // Negative: 1 week ago
 
-// Arithmetic (same currency only!)
-$10.00 + $5.00               // $15.00
-$10.00 * 2                   // $20.00
-$10.00 / 3                   // $3.33 (banker's rounding)
--$50.00                      // Negative money
+// DateTime operations
+@2024-12-25 + @1d            // Add 1 day
+@now - @2024-01-01           // Duration between dates
+@2024-11-21 && @12:30        // Combine date + time → datetime
 
-// ❌ ERROR: Cannot mix currencies
-$10.00 + £5.00               // Error!
-
-// Properties
-$12.34.currency              // "USD"
-$12.34.amount                // 1234 (in cents)
-$12.34.scale                 // 2
-
-// Methods
-$1234.56.format()            // "$ 1,234.56"
-(-$50.00).abs()              // $50.00
-$100.00.split(3)             // [$33.34, $33.33, $33.33]
-```
-
-### 7. File I/O with Special Operators
-```parsley
-// Read operators
-let data <== JSON(@./config.json)       // Read file
-let {name, error} <== JSON(@./data.json) // With error capture
-
-// Write operators  
-data ==> JSON(@./output.json)           // Write/overwrite
-data ==>> text(@./log.txt)              // Append
-
-// Network operators (HTTP/SFTP)
-let {response, error} <=/= Fetch(@https://api.example.com)
-data =/=> conn(@/remote/file.json).json
-```
-
-### 8. Method Chaining
-```parsley
-// String methods
-"hello".toUpper()              // "HELLO"
-"  trim  ".trim()           // "trim"
-"a,b,c".split(",")          // ["a", "b", "c"]
-"hello".includes("ell")     // true (substring check)
-"hello world".highlight("world")  // "hello <mark>world</mark>"
-"Para 1\n\nPara 2".paragraphs()   // "<p>Para 1</p><p>Para 2</p>"
-"color @{c}".render({c: "red"})   // @{...} stays literal until render()
-
-// String sanitizer methods (form input cleanup)
-"hello   world".collapse()          // "hello world" (whitespace → single space)
-"  hello   world  ".normalizeSpace()  // "hello world" (collapse + trim)
-"hello world".stripSpace()          // "helloworld" (remove all whitespace)
-"<p>Hello</p>".stripHtml()          // "Hello" (strip tags + decode entities)
-"(555) 123-4567".digits()           // "5551234567" (extract digits)
-"Hello World!".slug()               // "hello-world" (URL-safe slug)
-
-// Chaining sanitizers
-"  <p>Product Name!</p>  ".stripHtml().normalizeSpace().slug()  // "product-name"
-
-// Number methods
-1234567.humanize()          // "1.2M"
-1234.humanize("de")         // "1,2K"
-
-// Array methods
-[3,1,2].sort()              // [1, 2, 3]
-[1,2,3].reverse()           // [3, 2, 1]
-[1,2,3].join(",")           // "1,2,3"
-[1,2,3].shuffle()           // [2, 3, 1] (random order)
-[1,2,3].pick()              // 2 (random element)
-[1,2,3].pick(5)             // [1, 3, 1, 2, 1] (random, allows duplicates)
-[1,2,3,4,5].take(3)         // [4, 1, 3] (random, unique)
-[1,2,3].includes(2)         // true (membership check)
-
-// Array/string indexing
-let arr = [1, 2, 3]
-arr[0]                      // 1 (errors if out of bounds)
-arr[-1]                     // 3 (negative indices from end)
-arr[?99]                    // null (optional: no error if OOB)
-arr[?0] ?? "default"        // 1 (combine with null coalesce)
-[][?0] ?? "empty"           // "empty" (safe empty array access)
-
-// String indexing same
-"hello"[0]                  // "h"
-"hello"[?99]                // null
-
-// Path methods
-@./file.txt.exists          // true/false
-@./file.txt.basename        // "file.txt"
-@./file.txt.ext             // "txt"
-
-// Chaining
-"  HELLO  ".trim().toLower()  // "hello"
+// Interpolated (dynamic)
+let month = "11"
+let date = @(2024-{month}-29)  // Builds from variables
 ```
 
 ---
 
-## 📁 File I/O Patterns
+## 📁 File I/O
 
 ### Factory Functions
 ```parsley
 file(@path)      // Auto-detect format from extension
 JSON(@path)      // Parse as JSON
 CSV(@path)       // Parse as CSV
-markdown(@path)        // Markdown with @{...} rendering + frontmatter
-text(@path)      // Plain text (use for HTML files)
+YAML(@path)      // Parse as YAML
+MD(@path)  // Markdown with @{...} rendering + frontmatter
+text(@path)      // Plain text
 lines(@path)     // Array of lines
 bytes(@path)     // Byte array
 SVG(@path)       // SVG (strips prolog)
 dir(@path)       // Directory listing
+
+// note that there are builtin string equivalents
+// e.g.
+
+markdown("# hello").html // --> <h1>hello</h1>
 ```
 
-### Read Patterns
+### Read/Write Operators
 ```parsley
-// Simple read
+// Read
 let config <== JSON(@./config.json)
 
 // With error handling
@@ -418,115 +304,83 @@ if (error) {
     log("Error:", error)
 }
 
-// With fallback
-let config <== JSON(@./config.json) ?? {default: true}
-```
+// Destructure from file
+let {name, version} <== JSON(@./package.json)
 
-### Write Patterns
-```parsley
-// Overwrite
+// Write (overwrite)
 data ==> JSON(@./output.json)
 
 // Append
 log_entry ==>> text(@./log.txt)
 ```
 
-### Stdin/Stdout/Stderr (NEW in v0.14.0)
+### Stdin/Stdout/Stderr
 ```parsley
-// @- is the Unix convention: stdin for reads, stdout for writes
 let data <== JSON(@-)              // Read JSON from stdin
 data ==> JSON(@-)                  // Write JSON to stdout
 
-// Explicit aliases also available
-let input <== text(@stdin)         // Read text from stdin
-"output" ==> text(@stdout)         // Write to stdout
-"error" ==> text(@stderr)          // Write to stderr
-
-// Works with all format factories
-let lines <== lines(@-)            // Read lines from stdin
-let csvData <== CSV(@-)            // Parse CSV from stdin
-data ==> YAML(@-)                  // Write YAML to stdout
-
-// Full Unix pipeline example
-let input <== JSON(@-)
-let output = for (item in input.items) {
-    if (item.active) { item }
-}
-output ==> JSON(@-)
+let input <== text(@stdin)
+"output" ==> text(@stdout)
+"error" ==> text(@stderr)
 ```
 
-### Directory Operations (NEW in v0.12.1)
+### HTTP Requests
 ```parsley
-// Create directories
-file(@./new-dir).mkdir()
-file(@./parent/child).mkdir({parents: true})  // Recursive
+// Simple GET
+let users <=/= JSON(@https://api.example.com/users)
 
+// With error handling
+let {data, error, status} <=/= JSON(@https://api.example.com/data)
 
-// Remove directories
-file(@./old-dir).rmdir()
-file(@./tree).rmdir({recursive: true})        // With contents
-
-// Works with dir() too
-dir(@./test).mkdir()
-dir(@./test).rmdir()
+// POST with body
+let response <=/= JSON(@https://api.example.com/users, {
+    method: "POST",
+    body: {name: "Alice"},
+    headers: {"Authorization": "Bearer token"}
+})
 ```
 
-### File Globbing
+### Database (SQLite)
 ```parsley
-// Find files matching a pattern (relative to CURRENT FILE, not cwd)
-let images = fileList(@./images/*.jpg)     // @./ resolves from file location
-let configs = fileList(@~/.config/*.json)  // @~/ resolves from project root
+let db = SQLITE(@./data.db)
 
-// Iterate over matches
-for(f in fileList(@./docs/*.md)) {
-    log(f.name)
-}
+// Query single row (returns dict or null)
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
 
-// Read all matching files
-for(config in fileList(@./config/*.json)) {
-    let data <== config
-    log(data)
-}
+// Query multiple rows (returns array)
+let users = db <=??=> "SELECT * FROM users WHERE age > 25"
+
+// Execute mutation (INSERT/UPDATE/DELETE)
+let result = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
+// result = {affected: 1, lastId: 1}
 ```
-
-**Important:** `@./` paths resolve relative to the **current file's directory**, not the working directory where you started the server. This matches import behavior.
 
 ---
 
-## 🌐 Network Operations
+## 💰 Money Type
 
-### HTTP (Fetch)
 ```parsley
-// Simple GET
-let {data, error} <=/= Fetch(@https://api.example.com)
+// Currency literals
+$12.34                       // USD
+£99.99                       // GBP
+€50.00                       // EUR
+¥1000                        // JPY (no decimals)
+CA$25.00                     // Canadian Dollar
+USD#12.34                    // CODE# syntax
 
-// POST with body
-let payload = {name: "Alice", age: 30}
-let {response, error} =/=> Fetch(@https://api.example.com/users, {
-    body: payload
-})
-```
+// Arithmetic (same currency only!)
+$10.00 + $5.00               // $15.00
+$10.00 * 2                   // $20.00
+$10.00 / 3                   // $3.33 (banker's rounding)
 
-### SFTP (NEW in v0.12.0)
-```parsley
-// Connect with SSH key
-let conn = SFTP(@sftp://user@host, {
-    keyFile: @~/.ssh/id_rsa,
-    timeout: @10s
-})
+// ❌ ERROR: Cannot mix currencies
+$10.00 + £5.00               // Error!
 
-// Read remote file
-let {config, error} <=/= conn(@/remote/config.json).json
-
-// Write remote file
-data =/=> conn(@/remote/output.json).json
-
-// Directory operations
-conn(@/remote/new-dir).mkdir()
-conn(@/remote/old-dir).rmdir({recursive: true})
-
-// Close connection
-conn.close()
+// Properties and methods
+$12.34.currency              // "USD"
+$12.34.amount                // 1234 (in cents)
+$1234.56.format()            // "$ 1,234.56"
+$100.00.split(3)             // [$33.34, $33.33, $33.33]
 ```
 
 ---
@@ -535,53 +389,31 @@ conn.close()
 
 ### Error Handling
 
-**For file operations, use capture pattern:**
+**For file/network ops, use capture pattern:**
 ```parsley
 let {data, error} <== JSON(@./file.json)
 if (error) {
     log("Failed:", error)
-    return
 }
-log("Success:", data)
 ```
 
-**For function/method calls, use `try` expression:**
+**For function calls, use `try` expression:**
 ```parsley
-// try returns {result, error} dictionary
 let {result, error} = try url("user-input")
 if (error != null) {
     log("Invalid URL:", error)
-    return
 }
-log("Parsed:", result)
 
 // With null coalescing for defaults
 let parsed = (try time("maybe-invalid")).result ?? @now
 ```
 
-**Catchable errors (caught by `try`):**
-- IO, Network, Database, Format, Value, Security
-
-**Non-catchable errors (fix your code):**
-- Type, Arity, Undefined, Index, Parse (these are bugs)
-
-```parsley
-// ❌ CANNOT catch type errors - validate first
-try url(123)        // Type error propagates (crashes)
-
-// ✅ CAN catch format errors - external input may fail  
-try url(":::bad:::") // Format error caught in {error}
-```
-
 **User-defined errors with `fail()`:**
 ```parsley
-// Create functions that can fail
 let validate = fn(x) {
   if (x < 0) { fail("must be non-negative") }
   x * 2
 }
-
-// Caller uses try
 let {result, error} = try validate(-5)
 // error = "must be non-negative"
 ```
@@ -608,34 +440,20 @@ let processed = for (item in items) {
 ```parsley
 // Define component
 let Button = fn({text, onClick}) {
-    <button onclick="{onClick}">{text}</button>
+    <button onclick="{onClick}">text</button> // not {text}
 }
 
 // Use component
 <Button text="Click Me" onClick="handleClick()"/>
 
-// With children (pass as array)
-let Card = fn({title, children}) {
+// With contents
+let Card = fn({title, contents}) {
     <div class="card">
-        <h3>{title}</h3>
-        {children}
+        <h3>title</h3>
+        contents // not {children}
     </div>
 }
-
-<Card title="Welcome" children={[
-    <p>Body content</p>,
-    <p>More content</p>
-]}/>
-
-// Or use a slot pattern
-let Wrapper = fn({slot}) {
-    <div class="wrapper">{slot}</div>
-}
-
-<Wrapper slot={<p>Content here</p>}/>
 ```
-
-**Note:** Function rest parameters in simple position (`fn(a, ...rest)`) are not yet supported. Use array destructuring: `fn([a, ...rest])` or dict destructuring: `let {a, ...rest} = obj`.
 
 ### Modules
 ```parsley
@@ -644,286 +462,505 @@ export let greet = fn(name) { "Hello, {name}!" }
 export PI = 3.14159
 export Logo = <img src="logo.png" alt="Logo"/>
 
-// NEW SYNTAX (recommended) - auto-binds to last path segment
-import @./utils             // binds to 'utils'
+// Import with destructuring (recommended)
+let {greet, PI} = import @./utils
+let {floor, ceil} = import @std/math
+
+// Import entire module
 import @std/math            // binds to 'math'
-utils.greet("Alice")
 math.floor(3.7)
 
 // With alias
-import @std/math as M       // binds to 'M'
-M.PI
-
-// Destructuring
-{greet, PI} = import @./utils
-{floor, ceil} = import @std/math
+import @std/math as M
+M.floor(3.7)
 ```
 
-### Standard Library
+---
 
-#### Table Module (`std/table`)
-SQL-like operations on arrays of dictionaries:
+## 📚 Standard Library (@std)
+
+### Math Module (`@std/math`)
 ```parsley
-import @std/table
-// Or: {table} = import @std/table
+let {PI, E, TAU, floor, ceil, round, min, max, sum, avg,
+     median, stddev, random, randomInt, sqrt, pow, sin,
+     hypot, lerp} = import @std/math
+
+// Constants
+PI                     // 3.14159...
+E                      // 2.71828...
+TAU                    // 6.28318...
+
+// Rounding
+floor(3.7)             // 3
+ceil(3.2)              // 4
+round(3.5)             // 4
+
+// Aggregation (2 args OR array)
+min(5, 3)              // 3
+max([1, 2, 3])         // 3
+sum([1, 2, 3])         // 6
+avg([1, 2, 3])         // 2.0
+
+// Statistics
+median([1, 2, 3, 4])   // 2.5
+stddev([1, 2, 3])      // ~0.816
+
+// Random
+random()               // [0, 1)
+randomInt(6)           // [0, 6] (die roll)
+
+// Powers & Trig
+sqrt(16)               // 4
+pow(2, 10)             // 1024
+sin(PI / 2)            // 1
+
+// Geometry
+hypot(3, 4)            // 5
+lerp(0, 100, 0.5)      // 50
+```
+
+### Validation Module (`@std/valid`)
+```parsley
+let {string, number, integer, minLen, maxLen, alpha,
+     alphanumeric, positive, between, email, url,
+     phone, creditCard, date} = import @std/valid
+
+// Type validators
+string("hello")                    // true
+number(3.14)                       // true
+integer(42)                        // true
+
+// String validators
+minLen("hello", 3)                 // true
+maxLen("hello", 10)                // true
+alpha("Hello")                     // true (letters only)
+alphanumeric("abc123")             // true
+
+// Number validators
+positive(5)                        // true
+between(5, 1, 10)                  // true
+
+// Format validators
+email("test@example.com")          // true
+url("https://example.com")         // true
+phone("+1 (555) 123-4567")         // true
+creditCard("4111111111111111")     // true (Luhn check)
+
+// Date validators
+date("2024-12-25")                 // true (ISO)
+date("12/25/2024", "US")           // true
+date("25/12/2024", "GB")           // true
+```
+
+### Table Module (`@std/table`)
+```parsley
+let {table} = import @std/table
 
 let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 let t = table(data)
 
 // Filtering
-t.where(fn(row) { row.age > 25 }).rows   // [{name: "Alice", age: 30}]
+t.where(fn(row) { row.age > 25 }).rows
 
 // Sorting  
-t.orderBy("age", "desc").rows            // Sorted by age descending
-
-// Projection
-t.select(["name"]).rows                  // [{name: "Alice"}, {name: "Bob"}]
-
-// Pagination
-t.limit(10).rows                         // First 10 rows
-t.limit(10, 20).rows                     // 10 rows starting at offset 20
+t.orderBy("age", "desc").rows
 
 // Aggregation
-t.count()                                // 2
-t.sum("age")                             // 55
-t.avg("age")                             // 27.5
-t.min("age")                             // 25
-t.max("age")                             // 30
+t.count()                          // 2
+t.sum("age")                       // 55
+t.avg("age")                       // 27.5
 
 // Output
-t.toHTML()                               // HTML <table> string
-t.toCSV()                                // CSV string (RFC 4180)
-
-// Chaining
-table(users)
-    .where(fn(u) { u.active })
-    .orderBy("name")
-    .limit(10)
-    .toHTML()
+t.toHTML()                         // HTML <table> string
+t.toCSV()                          // CSV string
 ```
 
-#### Math Module (`std/math`)
-Mathematical functions and constants. Note: Use `math.log()` for natural log since `log` is a builtin print function.
+### HTML Components (`@std/html`)
 ```parsley
-import @std/math
-// Or: {floor, sqrt, PI} = import @std/math
+let {Page, TextField, Button, Form} = import @std/html
 
-// Constants
-math.PI                // 3.14159...
-math.E                 // 2.71828...
-math.TAU               // 6.28318... (2π)
-
-// Rounding (all return integers)
-math.floor(3.7)        // 3
-math.ceil(3.2)         // 4
-math.round(3.5)        // 4
-math.trunc(-3.7)       // -3 (toward zero)
-
-// Comparison
-math.abs(-5)           // 5
-math.sign(-42)         // -1
-math.clamp(15, 0, 10)  // 10
-// Aggregation (2 args OR array)
-math.min(5, 3)         // 3
-math.min([1, 2, 3])    // 1
-math.max([1, 2, 3])    // 3
-math.sum([1, 2, 3])    // 6
-math.avg([1, 2, 3])    // 2.0
-math.product([2, 3])   // 6
-
-// Statistics (array only)
-math.median([1, 2, 3, 4])     // 2.5
-math.mode([1, 2, 2, 3])       // 2
-math.stddev([1, 2, 3])        // ~0.816
-math.variance([1, 2, 3])      // ~0.667
-math.range([1, 5, 3])         // 4 (5 - 1)
-
-// Random
-math.random()          // [0, 1)
-math.random(10)        // [0, 10)
-math.random(5, 10)     // [5, 10)
-math.randomInt(6)      // [0, 6] (die roll)
-math.randomInt(1, 6)   // [1, 6]
-math.seed(42)          // For reproducibility
-
-// Powers & Logarithms
-math.sqrt(16)          // 4
-math.pow(2, 10)        // 1024
-math.exp(1)            // e (~2.718)
-math.log(math.E)       // 1.0 (natural log)
-math.log10(1000)       // 3.0
-
-// Trigonometry (radians)
-math.sin(math.PI / 2)  // 1
-math.cos(0)            // 1
-math.tan(0)            // 0
-math.asin(1)           // π/2
-math.atan2(1, 1)       // π/4
-
-// Angular conversion
-math.degrees(math.PI)  // 180
-math.radians(180)      // π
-
-// Geometry & Interpolation
-math.hypot(3, 4)       // 5
-math.dist(0, 0, 3, 4)  // 5
-math.lerp(0, 100, 0.5) // 50
-math.map(50, 0, 100, 0, 1)  // 0.5
+<Page lang="en" title="Contact">
+    <main>
+        <h1>"Get in Touch"</h1>
+        <Form action="/contact" method="POST">
+            <TextField name="email" label="Email" type="email" required={true}/>
+            <Button type="submit">"Send"</Button>
+        </Form>
+    </main>
+</Page>
 ```
 
-#### Validation Module (`std/valid`)
-Validators for form input and data validation. All validators return `true` or `false`.
+### API Helpers (`@std/api`)
 ```parsley
-import @std/valid as valid
-// Or: {email, minLen, positive} = import @std/valid
+let {redirect, notFound, forbidden, badRequest,
+     unauthorized, conflict, serverError} = import @std/api
 
-// Type validators
-valid.string("hello")              // true
-valid.number(3.14)                 // true
-valid.integer(42)                  // true
-valid.boolean(true)                // true
-valid.array([1,2,3])               // true
-valid.dict({a: 1})                 // true
+redirect("/dashboard")              // 302 redirect
+redirect("/new-page", 301)          // Permanent redirect
+notFound("User not found")          // 404 error
+forbidden("Access denied")          // 403 error
+badRequest("Invalid input")         // 400 error
+unauthorized("Login required")      // 401 error
+```
 
-// String validators
-valid.empty("   ")                 // true (whitespace only)
-valid.minLen("hello", 3)           // true
-valid.maxLen("hello", 10)          // true
-valid.length("hello", 3, 10)       // true
-valid.matches("abc123", "^[a-z0-9]+$")  // true
-valid.alpha("Hello")               // true (letters only)
-valid.alphanumeric("abc123")       // true
-valid.numeric("123.45")            // true (parseable number)
+### Schema Module (`@std/schema`)
+```parsley
+let {string, email, integer, number, boolean,
+     object, array, define, validate} = import @std/schema
 
-// Number validators
-valid.min(5, 1)                    // true (5 >= 1)
-valid.max(5, 10)                   // true (5 <= 10)
-valid.between(5, 1, 10)            // true
-valid.positive(5)                  // true (> 0)
-valid.negative(-5)                 // true (< 0)
+// Define a schema
+let UserSchema = define({
+    name: string().minLen(1),
+    email: email(),
+    age: integer().min(0).max(150),
+    active: boolean()
+})
 
-// Format validators
-valid.email("test@example.com")    // true
-valid.url("https://example.com")   // true
-valid.uuid("550e8400-e29b-41d4-...") // true
-valid.phone("+1 (555) 123-4567")   // true
-valid.creditCard("4111111111111111") // true (Luhn check)
-valid.time("14:30")                // true
+// Validate data
+let {valid, errors} = validate(UserSchema, {
+    name: "Alice",
+    email: "alice@example.com",
+    age: 30,
+    active: true
+})
+```
 
-// Date validators (locale: "ISO", "US", "GB")
-valid.date("2024-12-25")           // true (default ISO)
-valid.date("12/25/2024", "US")     // true
-valid.date("25/12/2024", "GB")     // true
-valid.date("2024-02-30")           // false (Feb 30!)
-valid.parseDate("12/25/2024", "US") // "2024-12-25" or null
+### ID Module (`@std/id`)
+```parsley
+let {new, uuid, uuidv7, nanoid, cuid} = import @std/id
 
-// Postal codes (locale: "US", "GB")
-valid.postalCode("90210", "US")    // true
-valid.postalCode("SW1A 1AA", "GB") // true
+new()                              // ULID-like (sortable, URL-safe)
+uuid()                             // UUID v4
+uuidv7()                           // UUID v7 (time-sortable)
+nanoid()                           // NanoID
+cuid()                             // CUID
+```
 
-// Collection validators
-valid.contains([1,2,3], 2)         // true
-valid.oneOf("red", ["red","green","blue"]) // true
+### Markdown Module (`@std/markdown`)
+```parsley
+let {md} = import @std/markdown
+
+let doc = md.parse("# Hello\n\nWorld")
+
+// Query
+doc.title()                        // "Hello"
+doc.headings()                     // [{level: 1, text: "Hello"}]
+doc.links()                        // Array of links
+doc.codeBlocks()                   // Array of code blocks
+doc.toc()                          // Table of contents
+doc.wordCount()                    // Word count
+doc.text()                         // Plain text
+
+// Convert
+doc.toHTML()                       // HTML string
+doc.toMarkdown()                   // Markdown string
+```
+
+### Dev Module (`@std/dev`)
+```parsley
+let {dev} = import @std/dev
+
+dev.log("Debug info")              // Log to dev console
+dev.clearLog()                     // Clear dev log
+dev.logPage()                      // Get log page HTML
 ```
 
 ---
 
-## 🎨 String Formatting
+## 🌿 Basil Server
 
-### Numbers
-```parsley
-1234567.format()                  // "1,234,567"
-99.99.currency("USD")             // "$99.99"
-99.99.currency("EUR", "de-DE")    // "99,99 €"
-0.15.percent()                    // "15%"
+### Configuration (basil.yaml)
+```yaml
+server:
+  host: localhost
+  port: 8080
+
+# Filesystem-based routing
+site: ./site              # Files serve at their path
+
+# OR explicit routes
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+  - path: /api/*
+    handler: ./handlers/api.pars
+
+public_dir: ./public      # Static files
+
+sqlite: ./data.db         # Database
+
+session:
+  secret: "32-char-secret"  # Required in production
+  max_age: 24h
+
+security:
+  allow_write:
+    - ./data              # Whitelist write directories
 ```
 
-### Dates
+### HTTP Request/Response (`@basil/http`)
 ```parsley
-@now.format("short")               // "11/29/24"
-@now.format("medium")              // "Nov 29, 2024"
-@now.format("long")                // "November 29, 2024"
-@now.format("long", "de-DE")       // "29. November 2024"
+let {request, response, query, route, method} = import @basil/http
 
-@2024-11-29.format("full")        // "Friday, November 29, 2024"
+// Shortcuts (most common)
+query                              // URL query params {id: "123"}
+route                              // Matched route subpath
+method                             // "GET", "POST", etc.
+
+// Full request object
+request.method                     // "GET", "POST", etc.
+request.path                       // "/users/123"
+request.query                      // {id: "123"}
+request.form                       // POST form data
+request.cookies                    // {theme: "dark"}
+request.headers                    // Request headers
+
+// Set response
+response.status = 404
+response.headers["X-Custom"] = "value"
+
+// Set cookies
+response.cookies.theme = "dark"
+response.cookies.session = {
+    value: token,
+    maxAge: @30d,
+    httpOnly: true,
+    secure: true
+}
 ```
 
-### Durations
+### Sessions & Auth (`@basil/auth`)
 ```parsley
-@1d.format()                      // "tomorrow"
-@-1d.format()                     // "yesterday"
-@2h30m.format()                   // "2 hours"
+let {db, session, auth, user} = import @basil/auth
+
+// Session: store values
+session.set("user_id", 123)
+session.set("cart", ["item1", "item2"])
+
+// Session: retrieve values
+let userId = session.get("user_id")
+let cart = session.get("cart", [])        // with default
+
+// Session: check/delete
+session.has("user_id")                    // true
+session.delete("user_id")
+session.clear()                           // logout
+
+// Flash messages (show once then disappear)
+session.flash("success", "Profile updated!")
+// On next page:
+let msg = session.getFlash("success")
+
+// Auth context
+user                                      // Current user (auth.user shortcut)
+auth.user                                 // Same as above
+auth.isLoggedIn                           // Boolean
+
+// Database
+db <=?=> "SELECT * FROM users WHERE id = ?" [userId]
 ```
 
-### Compact Numbers
+### CSRF Protection
 ```parsley
-1234.humanize()                   // "1.2K"
-1234567.humanize()                // "1.2M"
-1234567890.humanize()             // "1.2B"
-1234.humanize("de")               // "1,2K" (German locale)
+let {request} = import @basil/http
+
+// In forms with auth
+<form method=POST action="/submit">
+    <input type=hidden name=_csrf value={request.csrf}/>
+    <button>"Submit"</button>
+</form>
+
+// For AJAX, use meta tag
+<meta name=csrf-token content={request.csrf}/>
 ```
 
-### Raw Templates (`@{...}`)
+### Path Pattern Matching
 ```parsley
-let tpl = "width @{w}px; {kept}"
-tpl.render({w: 20})                    // "width 20px; {kept}"
-printf("Hi @{name}", {name: "Ada"})      // Builtin synonym
-{title: "Home"}.render("Title @{title}") // Dictionary synonym
-"Email: \\@{help} @{user}".render({user: "sam"}) // Escape @
+let {route} = import @basil/http
+
+// route is the subpath after the matched route pattern
+// e.g., if basil.yaml has "/api/*" and URL is "/api/users/123"
+// then route = "users/123"
+
+logLine("Route: " + route)
+
+// Use .match() to extract parameters
+let {id} = route.match("users/:id")       // {id: "123"}
+let {rest} = route.match("files/*")       // {rest: "a/b/c"}
+
+// Pattern matching returns null if no match
+if (let params = route.match("users/:id")) {
+    showUser(params.id)
+}
+
+// Chain for nested routes
+let {rest} = route.match("api/*")
+let {id} = rest.match("users/:id")
 ```
-`@{...}` runs full expressions and stays literal until rendered. `markdown()` files use the same
-render pass before HTML conversion.
+
 
 ---
 
-## 📝 Text View Helpers
+## 🧩 Parts (Interactive Components)
 
-### Highlight Search Matches
+Parts are reloadable HTML fragments that update without page reloads.
+
+### Creating a Part (.part file)
 ```parsley
-// Highlight search terms in text (case-insensitive)
-text.highlight("search")          // wraps in <mark>
-text.highlight("term", "strong")  // wraps in custom tag
+// counter.part - ONLY export functions (not variables)
+export default = fn(props) {
+    let count = props.count
+    <div>
+        `Count: {count}`
+        <button part-click="increment" part-count={count + 1}>"+"</button>
+    </div>
+}
 
-// Example:
-"Hello World".highlight("world")
-// "Hello <mark>World</mark>"
-
-"Search results".highlight("search", "em")
-// "<em>Search</em> results"
+export increment = fn(props) {
+    let count = props.count
+    <div>
+        `Count: {count}`
+        <button part-click="increment" part-count={count + 1}>"+"</button>
+    </div>
+}
 ```
 
-### Convert Text to Paragraphs
+### Using Parts
 ```parsley
-// Double newlines → <p>, single → <br/>
-text.paragraphs()
+// Basic usage
+<Part src={@~/parts/counter.part} view="default" count={0}/>
 
-// Example:
-"First para.\n\nSecond para.".paragraphs()
-// "<p>First para.</p><p>Second para.</p>"
+// Auto-refresh every second
+<Part src={@~/parts/clock.part} part-refresh={1000}/>
 
-"Line one\nLine two".paragraphs()
-// "<p>Line one<br/>Line two</p>"
+// Load immediately after page (for slow data)
+<Part src={@~/parts/data.part} view="placeholder" part-load="loaded"/>
+
+// Lazy load when scrolled into view
+<Part src={@~/parts/content.part} view="placeholder" 
+      part-lazy="loaded" part-lazy-threshold={150}/>
 ```
 
-**Note:** Both methods HTML-escape their input for XSS safety.
+### Part Attributes
+| Attribute | Element | Effect |
+|-----------|---------|--------|
+| `part-click="view"` | Any | Fetches view on click |
+| `part-submit="view"` | `<form>` | Fetches view on submit |
+| `part-*` | Any | Passed as props to view |
+| `part-refresh={ms}` | `<Part/>` | Auto-refresh interval |
+| `part-load="view"` | `<Part/>` | Fetch view immediately after page load |
+| `part-lazy="view"` | `<Part/>` | Lazy-load when near viewport |
+| `part-lazy-threshold={px}` | `<Part/>` | Pre-load distance in pixels |
+
+### CSS for Lazy Parts
+```css
+/* Lazy Parts need dimensions for IntersectionObserver */
+[data-part-src]:not([data-part-lazy]) {
+    display: contents;    /* Eager parts are transparent */
+}
+
+[data-part-lazy] {
+    display: block;       /* Lazy parts need a box model */
+    min-height: 50px;     /* Give them dimensions */
+}
+```
 
 ---
 
-## 🔍 Type Checking
+## 🎨 Asset Bundles
+
+Basil auto-bundles CSS/JS from your handlers directory.
 
 ```parsley
-type(42)                          // "INTEGER"
-type(3.14)                        // "FLOAT"
-type("hi")                        // "STRING"
-type([1,2])                       // "ARRAY"
-type({x: 1})                      // "DICTIONARY"
-type(fn() {})                     // "FUNCTION"
-type(null)                        // "NULL"
-type(true)                        // "BOOLEAN"
-type(@2024-11-29)                 // "DATE"
-type(@14:30)                      // "TIME"
-type(@1d)                         // "DURATION"
+<html>
+  <head>
+    <CSS/>    <!-- Outputs: <link rel="stylesheet" href="/__site.css?v=abc123"> -->
+  </head>
+  <body>
+    <h1>"Hello"</h1>
+    <Javascript/>  <!-- Outputs: <script src="/__site.js?v=def456"></script> -->
+  </body>
+</html>
 ```
+
+**publicUrl() for component assets:**
+```parsley
+// In modules/Button.pars
+let icon = publicUrl(@./icon.svg)
+<img src={icon}/>
+// Output: <img src="/__p/a3f2b1c8.svg"/>
+```
+
+---
+
+## 🔒 Security Flags (CLI)
+
+```bash
+# Development (allow writes and imports)
+./pars -w -x script.pars
+
+# Production (whitelist specific paths)
+./pars --allow-write=./output --allow-execute=./lib script.pars
+
+# Restrict reads
+./pars --restrict-read=/etc script.pars
+./pars --no-read < data.json  # stdin-only
+```
+
+---
+
+## 📝 Method Reference
+
+### String Methods
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.length()` | String length | `"hello".length()` → `5` |
+| `.toUpper()` | Uppercase | `"hello".toUpper()` → `"HELLO"` |
+| `.toLower()` | Lowercase | `"HELLO".toLower()` → `"hello"` |
+| `.trim()` | Remove whitespace | `"  hi  ".trim()` → `"hi"` |
+| `.split(delim)` | Split to array | `"a,b".split(",")` → `["a","b"]` |
+| `.replace(old, new)` | Replace text | `"hi".replace("i", "o")` → `"ho"` |
+| `.includes(substr)` | Contains check | `"hello".includes("ell")` → `true` |
+| `.slug()` | URL-safe slug | `"Hello World!".slug()` → `"hello-world"` |
+| `.digits()` | Extract digits | `"(555) 123".digits()` → `"555123"` |
+| `.stripHtml()` | Remove HTML tags | `"<p>Hi</p>".stripHtml()` → `"Hi"` |
+| `.highlight(term)` | Wrap matches | `"hi".highlight("h")` → `"<mark>h</mark>i"` |
+| `.paragraphs()` | Text to HTML `<p>` | See reference |
+| `.parseJSON()` | Parse JSON string | `'{"a":1}'.parseJSON()` → `{a: 1}` |
+| `.parseCSV(header?)` | Parse CSV string | `"a,b\n1,2".parseCSV(true)` |
+
+### Array Methods
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.length()` | Array length | `[1,2,3].length()` → `3` |
+| `.sort()` | Sort ascending | `[3,1,2].sort()` → `[1,2,3]` |
+| `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
+| `.shuffle()` | Random order | `[1,2,3].shuffle()` |
+| `.pick()` | Random element | `[1,2,3].pick()` → `2` |
+| `.take(n)` | n random unique | `[1,2,3,4,5].take(3)` → `[4,1,3]` |
+| `.map(fn)` | Transform each | `[1,2].map(fn(x){x*2})` → `[2,4]` |
+| `.filter(fn)` | Keep matching | `[1,2,3].filter(fn(x){x>1})` → `[2,3]` |
+| `.join(sep?)` | Join to string | `["a","b"].join(",")` → `"a,b"` |
+| `.has(item)` | Contains check | `[1,2,3].has(2)` → `true` |
+| `.toJSON()` | To JSON string | `[1,2].toJSON()` → `"[1,2]"` |
+| `.toCSV(header?)` | To CSV string | See reference |
+
+### Number Methods
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.format(locale?)` | Locale format | `1234567.format()` → `"1,234,567"` |
+| `.currency(code, locale?)` | Currency format | `99.currency("USD")` → `"$99.00"` |
+| `.percent()` | Percentage | `0.125.percent()` → `"13%"` |
+| `.humanize(locale?)` | Compact format | `1234567.humanize()` → `"1.2M"` |
+
+### DateTime Methods
+| Property | Description |
+|----------|-------------|
+| `.year`, `.month`, `.day` | Date components |
+| `.hour`, `.minute`, `.second` | Time components |
+| `.weekday` | Day name ("Monday") |
+| `.unix` | Unix timestamp |
+| `.format(style?, locale?)` | Format output |
 
 ---
 
@@ -931,7 +968,6 @@ type(@1d)                         // "DURATION"
 
 ### Simple Script
 ```parsley
-// Read, transform, write
 let data <== JSON(@./input.json)
 let processed = for (item in data) {
     {
@@ -945,34 +981,31 @@ log("Processed {processed.length()} items")
 
 ### HTML Generation
 ```parsley
-let users = [
-    {name: "Alice", role: "Admin"},
-    {name: "Bob", role: "User"}
-]
+let {Page} = import @~/components/page/page.pars
 
-let UserTable = fn(users) {
+let users <== JSON(@./users.json)
+
+<Page title="Users">
     <table>
-        <tr><th>Name</th><th>Role</th></tr>
-        {for (user in users) {
+        <tr><th>"Name"</th><th>"Role"</th></tr>
+        for (user in users) {
             <tr>
-                <td>{user.name}</td>
-                <td>{user.role}</td>
+                <td>user.name</td>
+                <td>user.role</td>
             </tr>
-        }}
+        }
     </table>
-}
-
-<UserTable users={users}/>
+</Page>
 ```
 
 ### API Integration
 ```parsley
-let {posts, error} <=/= Fetch(@https://jsonplaceholder.typicode.com/posts)
+let {data, error} <=/= JSON(@https://jsonplaceholder.typicode.com/posts)
 
 if (error) {
     log("API Error:", error)
 } else {
-    for (post in posts) {
+    for (post in data) {
         log("Post {post.id}: {post.title}")
     }
 }
@@ -989,404 +1022,6 @@ if (error) {
 5. **Path literals need @** - `@./file` not `"./file"`
 6. **Comments are //** not #
 7. **Output is `log()`** not `print()` or `console.log()`
-
----
-
-## 🎯 When Writing Tests/Examples
-
-### Most Common Test Pattern
-```parsley
-logLine("=== Test Description ===")
-let input = [1, 2, 3]
-let result = for (n in input) { n * 2 }
-log("Result:", result)
-log("Length:", result.length())
-logLine()  // Blank line
-```
-
-### File Operation Pattern
-```parsley
-// Write test data
-testData ==> JSON(@./test-file.json)
-
-// Read it back
-let {data, error} <== JSON(@./test-file.json)
-
-// Verify
-if (error) {
-    log("ERROR:", error)
-} else {
-    log("SUCCESS:", data)
-}
-
-// Cleanup
-file(@./test-file.json).remove()
-```
-
-### Component Testing Pattern
-```parsley
-let TestComponent = fn({title, items}) {
-    <div>
-        <h1>{title}</h1>
-        <ul>
-            {for (item in items) {
-                <li>{item}</li>
-            }}
-        </ul>
-    </div>
-}
-
-let result = <TestComponent 
-    title="Test" 
-    items={["a", "b", "c"]}
-/>
-
-log(result)
-```
-
----
-
-## Basil Server Functions
-
-### Cookies
-
-**Reading cookies:**
-```parsley
-let theme = basil.http.request.cookies.theme ?? "light"
-let all = basil.http.request.cookies  // dict of all cookies
-```
-
-**Setting cookies:**
-```parsley
-// Simple value (secure defaults)
-basil.http.response.cookies.theme = "dark"
-
-// With options
-basil.http.response.cookies.remember = {
-    value: token,
-    maxAge: @30d,           // Duration literal
-    httpOnly: true,
-    secure: true,
-    sameSite: "Strict"
-}
-
-// Delete cookie
-basil.http.response.cookies.old = {value: "", maxAge: @0s}
-```
-
-**Gotchas:**
-- ❌ In dev mode, `secure` defaults to `false` (for localhost)
-- ✅ In production, `secure` defaults to `true`
-- ✅ `httpOnly: true` always (XSS protection)
-- ❌ `sameSite: "None"` requires `secure: true` (auto-set)
-
----
-
-### Sessions (basil.session)
-
-**Basic session operations:**
-```parsley
-// Store values
-basil.session.set("user_id", 123)
-basil.session.set("cart", ["item1", "item2"])
-
-// Retrieve values
-let userId = basil.session.get("user_id")           // 123 or null
-let cart = basil.session.get("cart", [])            // with default
-
-// Check/delete
-basil.session.has("user_id")                        // true
-basil.session.delete("user_id")
-basil.session.clear()                               // logout
-```
-
-**Flash messages (show once then disappear):**
-```parsley
-// Set flash on redirect
-basil.session.flash("success", "Profile updated!")
-redirect("/profile")
-
-// Display flash on target page  
-if (basil.session.hasFlash()) {
-    let msg = basil.session.getFlash("success")
-    if (msg != null) {
-        <div class="alert">{msg}</div>
-    }
-}
-```
-
-**Configuration (basil.yaml):**
-```yaml
-session:
-  secret: "32-char-secret-key"  # Required in production
-  max_age: 24h                  # Session lifetime
-```
-
-**Gotchas:**
-- ❌ In dev mode, random secret = sessions don't persist across restarts
-- ✅ In production, must configure explicit `secret`
-- ❌ ~4KB max data (stored in encrypted cookie)
-- ✅ Use `flash()` for one-time messages (auto-deleted on read)
-
----
-
-### CSRF Protection
-
-**Forms with auth require CSRF token:**
-```parsley
-<form method=POST action="/submit">
-    <input type=hidden name=_csrf value={basil.csrf.token}/>
-    <input type=text name=email/>
-    <button>Submit</button>
-</form>
-```
-
-**For AJAX, use meta tag + header:**
-```parsley
-// In <head>
-<meta name=csrf-token content={basil.csrf.token}/>
-```
-```javascript
-// In JavaScript
-fetch('/submit', {
-    method: 'POST',
-    headers: {
-        'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content
-    },
-    body: JSON.stringify(data)
-})
-```
-
-**When CSRF is validated:**
-| Route Type | Method | CSRF Check |
-|------------|--------|------------|
-| `auth: required` | GET/HEAD/OPTIONS | ❌ Skip |
-| `auth: required` | POST/PUT/PATCH/DELETE | ✅ Validate |
-| `auth: optional` | POST/PUT/PATCH/DELETE | ✅ Validate |
-| `type: api` | Any | ❌ Skip (uses API keys) |
-| No auth | Any | ❌ Skip |
-
-**Gotchas:**
-- ❌ Missing or invalid token → 403 Forbidden
-- ✅ Token stored in HttpOnly cookie (auto-managed)
-- ❌ API routes don't need CSRF (use API keys instead)
-- ✅ Same token works across tabs/back button (per-session)
-
----
-
-### Redirects
-
-**Return redirects from handlers:**
-```parsley
-import @std/api
-
-redirect("/dashboard")              // 302 (default)
-redirect("/new-page", 301)          // 301 permanent
-redirect(@/users/profile)           // path literal
-redirect("https://example.com")     // external URL
-```
-
-**Common status codes:**
-| Code | Name | Use |
-|------|------|-----|
-| 301 | Moved Permanently | SEO-safe permanent move |
-| 302 | Found | Temporary redirect (default) |
-| 303 | See Other | After POST (PRG pattern) |
-| 307 | Temporary Redirect | Preserve method |
-| 308 | Permanent Redirect | Permanent + preserve method |
-
-**Gotchas:**
-- ❌ Status must be 3xx (300-308) or error
-- ✅ `redirect()` returns immediately - handler exits
-- ❌ No response body with redirects
-
----
-
-### Path Pattern Matching
-
-**Extract parameters from URL paths:**
-
-```parsley
-// Basic parameter
-let params = match("/users/123", "/users/:id")
-// → {id: "123"}
-
-// Multiple parameters
-let params = match(path, "/users/:userId/posts/:postId")
-// → {userId: "42", postId: "99"}
-
-// Glob capture (remaining segments as array)
-let params = match("/files/a/b/c", "/files/*path")
-// → {path: ["a", "b", "c"]}
-
-// No match returns null
-match("/posts/123", "/users/:id")  // → null
-```
-
-**Pattern syntax:**
-| Pattern | Captures |
-|---------|----------|
-| `:name` | Single segment as string |
-| `*name` | Rest of path as array |
-| `literal` | Must match exactly |
-
-**Route dispatch pattern:**
-```parsley
-let path = basil.http.request.path
-
-if (let p = match(path, "/users/:id")) {
-    showUser(p.id)
-}
-else if (let p = match(path, "/files/*rest")) {
-    serveFile(p.rest.join("/"))
-}
-```
-
-**Gotchas:**
-- ✅ Trailing slashes normalized: `/users/123/` matches `/users/:id`
-- ❌ Case sensitive: `/Users/123` doesn't match `/users/:id`
-- ❌ Extra segments fail: `/users/123/extra` doesn't match `/users/:id`
-
----
-
-### Site Mode - Filesystem-Based Routing
-
-Configure in YAML:
-```yaml
-site: ./site  # Use instead of routes:
-```
-
-Walk-back routing finds `index.pars` files:
-```
-/reports/2025/Q4/  →  site/reports/index.pars (if site/reports/2025/Q4/index.pars doesn't exist)
-```
-
-**Access remaining path via subpath:**
-```parsley
-// In site/reports/index.pars for /reports/2025/Q4/
-let segments = basil.http.request.subpath.segments  // ["2025", "Q4"]
-let year = segments[0]  // "2025"
-```
-
-**Gotchas:**
-- ❌ `site:` and `routes:` are mutually exclusive
-- ✅ `/path` auto-redirects to `/path/` for directories
-- ❌ Dotfiles (`.git/`) and path traversal (`..`) are blocked
-
----
-
-### publicUrl() - Component Assets
-
-Make private files (like SVGs in component folders) publicly accessible:
-
-```parsley
-// In modules/Button.pars
-let icon = publicUrl(@./icon.svg)
-<img src={icon}/>
-// Output: <img src="/__p/a3f2b1c8.svg"/>
-```
-
-**Key Features:**
-- Content-hashed URLs for automatic cache-busting
-- Aggressive caching (`max-age=31536000`)
-- File stays in place (no copying)
-- Only in Basil handlers (not CLI)
-
-**Gotchas:**
-- ❌ Files >100MB fail - use `public/` folder
-- ❌ Path must be within handler directory
-- ✅ Works with `@./relative` paths from current file
-
----
-
-### Parts - Interactive HTML Fragments
-
-Parts are reloadable HTML fragments with multiple view functions for interactivity.
-
-**Creating a Part:**
-```parsley
-// counter.part - Only export functions (no other exports allowed)
-export default = fn(props) {
-    <div>Count: {props.count}
-        <button part-click="increment" part-count={props.count}>+</button>
-    </div>
-}
-
-export increment = fn(props) {
-    let newCount = props.count + 1
-    <div>Count: {newCount}
-        <button part-click="increment" part-count={newCount}>+</button>
-    </div>
-}
-```
-
-**Using a Part:**
-```parsley
-// index.pars
-<Part src={@./counter.part} view="default" count={0}/>
-```
-
-**Gotchas:**
-- ❌ `.part` files CANNOT export variables, only functions
-- ✅ `part-*` attributes become props in view functions
-- ✅ `part-click="viewName"` triggers view updates
-- ✅ `part-submit="viewName"` works on forms
-- ✅ `part-refresh={ms}` auto-refreshes the Part (pauses when tab hidden)
-- ✅ `part-load="view"` fetches view immediately after page load (for slow data)
-- ✅ `part-lazy="view"` lazy-loads when scrolled into view; `part-lazy-threshold={px}` preloads earlier
-- ❌ Part files need routes in `basil.yaml`: `- path: /counter.part`
-- ✅ JavaScript auto-injects when `<Part/>` is used
-- ✅ Parts can be nested inside other Parts
-
----
-
-### Asset Bundle Tags - <CSS/> and <Javascript/>
-
-Basil automatically bundles CSS and JavaScript files from your `handlers/` directory tree.
-
-**Auto-bundling:**
-```parsley
-// In any handler (.pars file)
-<html>
-  <head>
-    <CSS/>
-  </head>
-  <body>
-    <h1>Hello</h1>
-    <Javascript/>
-  </body>
-</html>
-```
-
-**Output:**
-```html
-<link rel="stylesheet" href="/__site.css?v=a1b2c3d4">
-<script src="/__site.js?v=e5f6g7h8"></script>
-```
-
-**File discovery rules:**
-- Scans `handlers/` directory recursively
-- Depth-first, alphabetical ordering (allows CSS cascade control)
-- Hidden files (`.filename.css`) are excluded
-- Hash changes when files change (automatic cache busting)
-
-**Development mode:**
-Bundles include source comments:
-```css
-/* Source: handlers/components/button.css */
-.button { padding: 10px; }
-
-/* Source: handlers/layout/grid.css */
-.grid { display: grid; }
-```
-
-**Production mode:**
-Source comments are omitted.
-
-**Gotchas:**
-- ✅ If no `.css` or `.js` files exist, tags emit empty string
-- ✅ Bundle auto-rebuilds on file changes (dev mode)
-- ✅ `SIGHUP` rebuilds bundle (production hot reload)
-- ❌ Don't manually create `/__site.css` or `/__site.js` routes
-- ✅ Tags are self-closing: `<CSS/>` and `<Javascript/>` (not `<CSS>`)
+8. **Strings in HTML need quotes** - `<p>"text"</p>` not `<p>text</p>`
+9. **Self-closing tags need />** - `<br/>` not `<br>`
 
