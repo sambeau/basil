@@ -1335,35 +1335,39 @@ func partsRuntimeScript() string {
 			}
 
 			console.log('[Parts] Setting up IntersectionObserver for:', part.getAttribute('data-part-src'), 'threshold:', thresholdNum);
-			console.log('[Parts] Part element:', part, 'offsetHeight:', part.offsetHeight, 'clientHeight:', part.clientHeight);
 
-			var observer = new IntersectionObserver(function(entries) {
-				entries.forEach(function(entry) {
-					console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 
-						'isIntersecting:', entry.isIntersecting, 
-						'intersectionRatio:', entry.intersectionRatio,
-						'boundingClientRect:', entry.boundingClientRect,
-						'rootBounds:', entry.rootBounds);
-					if (entry.isIntersecting) {
-						observer.unobserve(part);
-						lazyParts.set(part, true);
+			// Wait for next frame to ensure layout is complete before observing
+			requestAnimationFrame(function() {
+				console.log('[Parts] Part element after layout:', part, 'offsetHeight:', part.offsetHeight, 'clientHeight:', part.clientHeight);
 
-						var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
-						var props = parseProps(part);
-						var src = part.getAttribute('data-part-src');
+				var observer = new IntersectionObserver(function(entries) {
+					entries.forEach(function(entry) {
+						console.log('[Parts] IntersectionObserver callback:', entry.target.getAttribute('data-part-src'), 
+							'isIntersecting:', entry.isIntersecting, 
+							'intersectionRatio:', entry.intersectionRatio,
+							'boundingClientRect:', entry.boundingClientRect,
+							'rootBounds:', entry.rootBounds);
+						if (entry.isIntersecting) {
+							observer.unobserve(part);
+							lazyParts.set(part, true);
 
-						console.log('[Parts] Lazy-loading part:', src, 'view:', view);
-						updatePart(part, src, view, props, 'GET');
+							var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
+							var props = parseProps(part);
+							var src = part.getAttribute('data-part-src');
 
-						// Start auto-refresh after lazy load (if configured, handled in updatePart)
-					}
+							console.log('[Parts] Lazy-loading part:', src, 'view:', view);
+							updatePart(part, src, view, props, 'GET');
+
+							// Start auto-refresh after lazy load (if configured, handled in updatePart)
+						}
+					});
+				}, {
+					rootMargin: thresholdNum + 'px',
+					threshold: 0.01
 				});
-			}, {
-				rootMargin: thresholdNum + 'px',
-				threshold: 0.01
-			});
 
-			observer.observe(part);
+				observer.observe(part);
+			});
 		});
 	}
 
