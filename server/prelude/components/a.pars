@@ -1,0 +1,28 @@
+// A - Link with automatic safety for external links
+// Usage: <A href="/about">"About"</A>
+// Usage: <A href="https://external.com" external={true}>"External Site"</A>
+
+export A = fn({href, id, class, target, rel, external, download, hreflang, type, referrerpolicy, contents}) {
+    // Auto-add rel="noopener noreferrer" for external links or target="_blank"
+    let isExternal = external || target == "_blank"
+    let computedRel = if (isExternal && !rel) { 
+        "noopener noreferrer" 
+    } else { 
+        rel 
+    }
+    let computedTarget = if (external && !target) { "_blank" } else { target }
+    
+    <a 
+        href={href}
+        id={id}
+        class={class}
+        target={computedTarget}
+        rel={computedRel}
+        download={download}
+        hreflang={hreflang}
+        type={type}
+        referrerpolicy={referrerpolicy}
+    >
+        (contents)
+    </a>
+}

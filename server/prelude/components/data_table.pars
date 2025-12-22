@@ -1,0 +1,31 @@
+// DataTable - Data table with proper semantics
+// Usage: <DataTable caption="User list" columns={["Name", "Email", "Role"]} rows={users} keys={["name", "email", "role"]}/>
+
+export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
+    <table id={id} class={"data-table" ++ if (class) { " " ++ class } else { "" }}>
+        if (caption) {
+            <caption>caption</caption>
+        }
+        <thead>
+            <tr>
+                for (col, idx in columns ?? []) {
+                    <th scope="col">col</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            for (row in rows ?? []) {
+                <tr>
+                    for (key, idx in keys ?? []) {
+                        // First column gets row scope for accessibility
+                        if (idx == 0) {
+                            <th scope="row">row[key]</th>
+                        } else {
+                            <td>row[key]</td>
+                        }
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}

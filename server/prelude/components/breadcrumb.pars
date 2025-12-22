@@ -1,0 +1,42 @@
+// Breadcrumb - Breadcrumb navigation with Schema.org markup
+// Usage: <Breadcrumb items={[{label: "Home", href: "/"}, {label: "Products", href: "/products"}, {label: "Shoes"}]}/>
+
+export Breadcrumb = fn({items, id, class, separator}) {
+    let sep = separator ?? " / "
+    
+    <nav 
+        id={id}
+        class={"breadcrumb" ++ if (class) { " " ++ class } else { "" }}
+        aria-label="Breadcrumb"
+    >
+        <ol 
+            class="breadcrumb-list"
+            itemscope=""
+            itemtype="https://schema.org/BreadcrumbList"
+        >
+            for (item, idx in items ?? []) {
+                let isLast = idx == (items.length - 1)
+                <li 
+                    class="breadcrumb-item"
+                    itemprop="itemListElement"
+                    itemscope=""
+                    itemtype="https://schema.org/ListItem"
+                >
+                    if (idx > 0) {
+                        <span class="breadcrumb-separator" aria-hidden="true">sep</span>
+                    }
+                    if (item.href && !isLast) {
+                        <a href={item.href} itemprop="item">
+                            <span itemprop="name">item.label</span>
+                        </a>
+                    } else {
+                        <span itemprop="name" aria-current={if (isLast) { "page" } else { null }}>
+                            item.label
+                        </span>
+                    }
+                    <meta itemprop="position" content={idx + 1}/>
+                </li>
+            }
+        </ol>
+    </nav>
+}

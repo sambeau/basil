@@ -1,0 +1,48 @@
+// TextField - Text input with label, hint, error, and accessibility
+// Usage: <TextField name="email" label="Email" type="email" required={true}/>
+
+export TextField = fn({name, label, type, value, hint, error, required, id, class, placeholder, autocomplete, disabled, readonly, minlength, maxlength, pattern}) {
+    // Generate IDs for accessibility
+    let fieldId = id ?? "field-" ++ name
+    let inputId = fieldId ++ "-input"
+    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
+    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    
+    // Build aria-describedby from hint and error IDs
+    let describedByParts = []
+    if (hintId) { describedByParts = describedByParts ++ [hintId] }
+    if (errorId) { describedByParts = describedByParts ++ [errorId] }
+    let describedBy = if (describedByParts.length() > 0) { describedByParts.join(" ") } else { null }
+    
+    <div class={"field" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
+        <label for={inputId}>
+            label
+            if (required) {
+                <span class="field-required" aria-hidden="true">" *"</span>
+            }
+        </label>
+        <input 
+            type={type ?? "text"}
+            id={inputId}
+            name={name}
+            value={value ?? ""}
+            placeholder={if (placeholder) placeholder else null}
+            autocomplete={if (autocomplete) autocomplete else null}
+            disabled={if (disabled) "disabled" else null}
+            readonly={if (readonly) "readonly" else null}
+            minlength={if (minlength) minlength else null}
+            maxlength={if (maxlength) maxlength else null}
+            pattern={if (pattern) pattern else null}
+            required={if (required) "required" else null}
+            aria-required={if (required) "true" else null}
+            aria-describedby={describedBy}
+            aria-invalid={if (error) "true" else null}
+        />
+        if (hint) {
+            <p id={hintId} class="field-hint">hint</p>
+        }
+        if (error) {
+            <p id={errorId} class="field-error" role="alert">error</p>
+        }
+    </div>
+}

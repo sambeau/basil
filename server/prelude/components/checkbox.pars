@@ -1,0 +1,45 @@
+// Checkbox - Single checkbox for boolean values
+// Usage: <Checkbox name="agree" label="I agree to the terms" checked={form.agree}/>
+
+export Checkbox = fn({name, label, checked, hint, error, required, id, class, disabled, value}) {
+    // Generate IDs for accessibility
+    let fieldId = id ?? "field-" ++ name
+    let checkboxId = fieldId ++ "-input"
+    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
+    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    
+    // Build aria-describedby from hint and error IDs
+    let describedByParts = []
+    if (hintId) { describedByParts = describedByParts ++ [hintId] }
+    if (errorId) { describedByParts = describedByParts ++ [errorId] }
+    let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
+    
+    <div class={"field field-checkbox" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
+        <label class="checkbox-label">
+            <input 
+                type="checkbox"
+                id={checkboxId}
+                name={name}
+                value={value ?? "true"}
+                checked={checked}
+                disabled={disabled}
+                required={required}
+                aria-required={if (required) { "true" } else { null }}
+                aria-describedby={describedBy}
+                aria-invalid={if (error) { "true" } else { null }}
+            />
+            <span class="checkbox-text">
+                label
+                if (required) {
+                    <span class="field-required" aria-hidden="true">" *"</span>
+                }
+            </span>
+        </label>
+        if (hint) {
+            <p id={hintId} class="field-hint">hint</p>
+        }
+        if (error) {
+            <p id={errorId} class="field-error" role="alert">error</p>
+        }
+    </div>
+}

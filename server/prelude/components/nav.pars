@@ -1,0 +1,12 @@
+// Nav - Navigation landmark with proper labeling
+// Usage: <Nav label="Main navigation">nav contents</Nav>
+
+export Nav = fn({label, id, class, contents}) {
+    <nav 
+        id={id}
+        class={class}
+        aria-label={label}
+    >
+        (contents)
+    </nav>
+}

@@ -1,0 +1,15 @@
+// Icon - Accessible icon wrapper with optional sr-only label
+// Usage: <Icon name="search" label="Search"/>
+
+export Icon = fn({name, label, id, class}) {
+    <>
+        <span 
+            id={id}
+            class={"icon icon-" ++ name ++ if (class) { " " ++ class } else { "" }}
+            aria-hidden="true"
+        ></span>
+        if (label) {
+            <span class="sr-only">label</span>
+        }
+    </>
+}

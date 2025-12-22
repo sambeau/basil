@@ -1,0 +1,11 @@
+// Figure - Figure with caption
+// Usage: <Figure caption="A beautiful sunset">contents here</Figure>
+
+export Figure = fn({caption, id, class, contents}) {
+    <figure id={id} class={class}>
+        (contents)
+        if (caption) {
+            <figcaption>caption</figcaption>
+        }
+    </figure>
+}

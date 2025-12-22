@@ -1,0 +1,36 @@
+// RelativeTime - Human-readable relative time display ("2 hours ago", "in 3 days")
+// Renders a <relative-time> custom element with optional auto-refresh
+// Usage: <RelativeTime datetime={comment.createdAt}/>
+// Usage: <RelativeTime datetime={auction.ends} live={true}/>
+
+export RelativeTime = fn({datetime, live, threshold, format, announce, id, class}) {
+    // Format datetime attribute (ISO 8601)
+    let iso = if (datetime) { datetime.format("iso") } else { null }
+    
+    // Compute server-side relative time display
+    let display = if (datetime) {
+        datetime.relative()
+    } else {
+        ""
+    }
+    
+    // Title shows full UTC datetime for precision
+    let title = if (datetime) { datetime.format("full") ++ " UTC" } else { null }
+    
+    // Convert threshold duration to string if provided
+    let thresholdStr = if (threshold) { threshold.string } else { null }
+    
+    <relative-time 
+        datetime={iso}
+        live={if (live) { "true" } else { null }}
+        threshold={thresholdStr}
+        format={format}
+        announce={if (announce) { "true" } else { null }}
+        id={id}
+        class={class}
+        title={title}
+        aria-live={if (announce) { "polite" } else { "off" }}
+    >
+        display
+    </relative-time>
+}

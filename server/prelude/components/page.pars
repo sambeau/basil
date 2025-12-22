@@ -1,0 +1,43 @@
+// Page - Complete HTML document wrapper
+// Generates <!DOCTYPE html>, <html>, <head>, <body> with SkipLink and asset bundles
+//
+// Usage:
+//   <Page lang="en" title="My Site">
+//     <Nav>...</Nav>
+//     <main>Content here</main>
+//   </Page>
+//
+// Props:
+//   lang        - Language code (required)
+//   title       - Page title (required)
+//   description - Meta description
+//   class       - Body class
+//   id          - Body id
+//   head        - Additional <head> content (CSS, meta tags, etc.)
+//   noBasilJS   - Omit basil.js script (for pages that don't use enhanced components)
+
+export Page = fn({lang, title, description, class, id, head, noBasilJS, contents}) {
+    "<!DOCTYPE html>\n"
+    <html lang={lang ?? "en"}>
+    <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>title</title>
+        if (description) {
+            <meta name="description" content={description}/>
+        }
+        <CSS/>
+        if (head) {
+            (head)
+        }
+    </head>
+    <body class={class} id={id}>
+        <SkipLink/>
+        (contents)
+        <Javascript/>
+        if (!noBasilJS) {
+            <BasilJS/>
+        }
+    </body>
+    </html>
+}
