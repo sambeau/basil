@@ -145,7 +145,7 @@ func TestPathsWithoutUrlRemainUnchanged(t *testing.T) {
 			name:      "path_in_html_not_transformed",
 			input:     `let p = @./public/images/photo.jpg; <img src={p}/>`,
 			publicDir: "./public",
-			expected:  `<img src=./public/images/photo.jpg />`,
+			expected:  `<img src="./public/images/photo.jpg" />`,
 		},
 	}
 
@@ -172,25 +172,25 @@ func TestAssetInHTMLAttributes(t *testing.T) {
 			name:      "img_src_with_url",
 			input:     `let p = @./public/images/photo.jpg; <img src={asset(p)}/>`,
 			publicDir: "./public",
-			expected:  `<img src=/images/photo.jpg />`,
+			expected:  `<img src="/images/photo.jpg" />`,
 		},
 		{
 			name:      "link_href_with_url",
 			input:     `let css = @./public/css/style.css; <link rel=stylesheet href={asset(css)}/>`,
 			publicDir: "./public",
-			expected:  `<link rel=stylesheet href=/css/style.css />`,
+			expected:  `<link rel=stylesheet href="/css/style.css" />`,
 		},
 		{
 			name:      "script_src_with_url",
 			input:     `let js = @./public/js/app.js; <script src={asset(js)}/>`,
 			publicDir: "./public",
-			expected:  `<script src=/js/app.js />`,
+			expected:  `<script src="/js/app.js" />`,
 		},
 		{
 			name:      "inline_url_call",
 			input:     `<img src={asset(@./public/img/a.png)}/>`,
 			publicDir: "./public",
-			expected:  `<img src=/img/a.png />`,
+			expected:  `<img src="/img/a.png" />`,
 		},
 	}
 

@@ -225,7 +225,7 @@ func TestValidComponentCalls(t *testing.T) {
 		{
 			name:     "self_closing_component",
 			input:    `let Icon = fn(props) { <i class={props.name}/> }; <Icon name="star"/>`,
-			expected: `<i class=star />`,
+			expected: `<i class="star" />`,
 		},
 	}
 

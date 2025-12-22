@@ -1,0 +1,5 @@
+// Simple test for value quoting
+
+let val = ""
+print("val is: [" ++ val ++ "]")
+<input name="test" value={val}/>

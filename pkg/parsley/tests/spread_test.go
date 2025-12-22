@@ -21,7 +21,7 @@ func TestDictionarySpreadBasic(t *testing.T) {
 				let attrs = {id: "test", class: "box"}
 				<div ...attrs/>
 			`,
-			expected: `<div class="box" id="test" />`,
+			expected: `<div id="test" class="box" />`, // Insertion order: id, then class
 		},
 		{
 			name: "spread with boolean true",
@@ -62,7 +62,7 @@ func TestDictionarySpreadBasic(t *testing.T) {
 				let override = {class: "override"}
 				<div ...base ...override/>
 			`,
-			expected: `<div class="override" id="foo" />`,
+			expected: `<div id="foo" class="override" />`, // id from base, class overridden by override
 		},
 		{
 			name: "mixed regular attrs and spreads",
@@ -87,7 +87,7 @@ func TestDictionarySpreadBasic(t *testing.T) {
 				let {name, ...inputAttrs} = props
 				<input name={name} type="text" ...inputAttrs/>
 			`,
-			expected: `<input name="email" type="text" placeholder="Email" required />`,
+			expected: `<input name="email" type="text" placeholder="Email" required />`, // disabled=false omitted
 		},
 		{
 			name: "spread with HTML escaping",
@@ -139,14 +139,14 @@ func TestDictionarySpreadErrors(t *testing.T) {
 				let notDict = "string"
 				<input ...notDict/>
 			`,
-			errorMsg: "cannot spread",
+			errorMsg: "requires a dictionary",
 		},
 		{
 			name: "spread undefined variable",
 			input: `
 				<input ...notDefined/>
 			`,
-			errorMsg: "undefined",
+			errorMsg: "not found",
 		},
 	}
 
@@ -240,6 +240,119 @@ func TestDictionarySpreadWithComponents(t *testing.T) {
 
 			if result.Inspect() != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestExpressionAttributeSyntax tests the attr={expr} syntax for HTML attributes
+func TestExpressionAttributeSyntax(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "null first attribute omitted",
+			input:    `<input value={null} name="test"/>`,
+			expected: `<input name="test" />`,
+		},
+		{
+			name:     "false first attribute omitted",
+			input:    `<input disabled={false} name="test"/>`,
+			expected: `<input name="test" />`,
+		},
+		{
+			name:     "null middle attribute omitted",
+			input:    `<input type="text" value={null} name="test"/>`,
+			expected: `<input type="text" name="test" />`,
+		},
+		{
+			name:     "null end attribute omitted",
+			input:    `<input type="text" name="test" value={null}/>`,
+			expected: `<input type="text" name="test" />`,
+		},
+		{
+			name:     "multiple omitted attributes",
+			input:    `<input disabled={false} value={null} name="test"/>`,
+			expected: `<input name="test" />`,
+		},
+		{
+			name:     "all attributes omitted",
+			input:    `<input disabled={false} value={null}/>`,
+			expected: `<input />`,
+		},
+		{
+			name:     "true boolean renders as attribute name only",
+			input:    `<input disabled={true} name="test"/>`,
+			expected: `<input disabled name="test" />`,
+		},
+		{
+			name:     "string value quoted",
+			input:    `<input value={"hello"} name="test"/>`,
+			expected: `<input value="hello" name="test" />`,
+		},
+		{
+			name:     "empty string value quoted",
+			input:    `<input value={""} name="test"/>`,
+			expected: `<input value="" name="test" />`,
+		},
+		{
+			name:     "value with quotes escaped",
+			input:    `<input value={"say \"hello\""} name="test"/>`,
+			expected: `<input value="say &quot;hello&quot;" name="test" />`,
+		},
+		{
+			name:     "value with HTML entities escaped",
+			input:    `<input value={"<>&"} name="test"/>`,
+			expected: `<input value="&lt;&gt;&amp;" name="test" />`,
+		},
+		{
+			name:     "integer value quoted",
+			input:    `<input maxlength={50} name="test"/>`,
+			expected: `<input maxlength="50" name="test" />`,
+		},
+		{
+			name:     "variable expression",
+			input:    `let val = "email"; <input type={val}/>`,
+			expected: `<input type="email" />`,
+		},
+		{
+			name:     "null variable omitted",
+			input:    `let val = null; <input value={val} name="test"/>`,
+			expected: `<input name="test" />`,
+		},
+		{
+			name: "mixed with spread - null omitted",
+			input: `
+				let props = {name: "search", type: "search", placeholder: "search"}
+				let {value, ...rest} = props
+				<input value={value} ...rest/>
+			`,
+			expected: `<input name="search" placeholder="search" type="search" />`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result == nil {
+				t.Fatalf("Eval returned nil")
+			}
+
+			actual := strings.TrimSpace(result.Inspect())
+			if actual != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, actual)
 			}
 		})
 	}

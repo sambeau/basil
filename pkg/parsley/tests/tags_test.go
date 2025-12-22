@@ -23,22 +23,22 @@ func TestStandardTags(t *testing.T) {
 		{
 			name:     "meta tag with attribute",
 			input:    `<meta charset="utf-8" />`,
-			expected: `<meta charset="utf-8"  />`,
+			expected: `<meta charset="utf-8" />`,
 		},
 		{
 			name:     "input with multiple attributes",
 			input:    `<input type="text" name="username" />`,
-			expected: `<input type="text" name="username"  />`,
+			expected: `<input type="text" name="username" />`,
 		},
 		{
 			name:     "tag with boolean attribute",
 			input:    `<input type="checkbox" checked />`,
-			expected: `<input type="checkbox" checked  />`,
+			expected: `<input type="checkbox" checked />`,
 		},
 		{
 			name:     "multiline tag",
 			input:    `<img src="test.png" width="100" height="200" />`,
-			expected: `<img src="test.png" width="100" height="200"  />`,
+			expected: `<img src="test.png" width="100" height="200" />`,
 		},
 	}
 
@@ -76,32 +76,32 @@ func TestTagInterpolation(t *testing.T) {
 			name: "interpolate string variable",
 			input: `charset = "utf-8"
 <meta charset="{charset}" />`,
-			expected: `<meta charset="utf-8"  />`,
+			expected: `<meta charset="utf-8" />`,
 		},
 		{
 			name: "interpolate number variable",
 			input: `width = 300
 height = 200
 <img width="{width}" height="{height}" />`,
-			expected: `<img width="300" height="200"  />`,
+			expected: `<img width="300" height="200" />`,
 		},
 		{
 			name: "interpolate expression",
 			input: `x = 10
 <div data-value="{x * 2}" />`,
-			expected: `<div data-value="20"  />`,
+			expected: `<div data-value="20" />`,
 		},
 		{
 			name: "conditional interpolation",
 			input: `disabled = true
 <button disabled="{if(disabled){"disabled"}}" />`,
-			expected: `<button disabled="disabled"  />`,
+			expected: `<button disabled="disabled" />`,
 		},
 		{
 			name: "conditional interpolation false",
 			input: `disabled = false
 <button disabled="{if(disabled){"disabled"}}" />`,
-			expected: `<button disabled=""  />`,
+			expected: `<button disabled="" />`,
 		},
 	}
 
@@ -284,7 +284,7 @@ tags[0]`,
 			name: "tag in variable assignment",
 			input: `x = <input type="text" />
 x`,
-			expected: `<input type="text"  />`,
+			expected: `<input type="text" />`,
 		},
 		{
 			name:     "multiple tags concatenated",

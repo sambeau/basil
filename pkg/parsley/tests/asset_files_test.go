@@ -106,7 +106,7 @@ func TestAssetWithFileDictInHTML(t *testing.T) {
 		t.Fatalf("unexpected error: %s", errObj.Message)
 	}
 
-	expected := `<img src=/img/photo.jpg />`
+	expected := `<img src="/img/photo.jpg" />`
 	if result.Inspect() != expected {
 		t.Errorf("expected %q, got %q", expected, result.Inspect())
 	}
@@ -149,7 +149,7 @@ func TestFileListEnvironmentPreservation(t *testing.T) {
 		t.Fatalf("expected 1 element, got %d", len(arr.Elements))
 	}
 
-	expected := `<link rel=stylesheet href=/css/style.css />`
+	expected := `<link rel=stylesheet href="/css/style.css" />`
 	if arr.Elements[0].Inspect() != expected {
 		t.Errorf("expected %q, got %q", expected, arr.Elements[0].Inspect())
 	}
@@ -261,8 +261,8 @@ func TestFileListWithAssetPipeline(t *testing.T) {
 	// Check that each element is a proper script tag with web URL
 	for _, elem := range arr.Elements {
 		tag := elem.Inspect()
-		// Should be <script src=/assets/xxx.js />
-		if tag != "<script src=/assets/main.js />" && tag != "<script src=/assets/vendor.js />" {
+		// Should be <script src="/assets/xxx.js" />
+		if tag != `<script src="/assets/main.js" />` && tag != `<script src="/assets/vendor.js" />` {
 			t.Errorf("unexpected tag: %q", tag)
 		}
 	}

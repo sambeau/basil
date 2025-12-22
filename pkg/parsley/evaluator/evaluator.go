@@ -10963,12 +10963,16 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	// Process props with interpolation (similar to singleton tags)
 	if node.Props != "" {
-		result.WriteByte(' ')
 		propsResult := evalTagProps(node.Props, env)
 		if isError(propsResult) {
 			return propsResult
 		}
-		result.WriteString(propsResult.(*String).Value)
+		// Only add space and props if non-empty (spread-only props produce empty result)
+		propsStr := propsResult.(*String).Value
+		if propsStr != "" {
+			result.WriteByte(' ')
+			result.WriteString(propsStr)
+		}
 	}
 
 	// Process spread expressions - merge all into a single map to handle overrides
@@ -10985,8 +10989,8 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		// Verify it's a dictionary
 		dict, ok := spreadObj.(*Dictionary)
 		if !ok {
-			perr := perrors.New("EVAL-0032", map[string]any{
-				"Type": spreadObj.Type(),
+			perr := perrors.New("SPREAD-0001", map[string]any{
+				"Got": spreadObj.Type(),
 			})
 			return &Error{
 				Class:   ErrorClass(perr.Class),
@@ -10998,7 +11002,9 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		}
 
 		// Merge dictionary entries (later spreads override earlier ones)
-		for key, expr := range dict.Pairs {
+		// Use Keys() to preserve insertion order
+		for _, key := range dict.Keys() {
+			expr := dict.Pairs[key]
 			// Track order of first appearance
 			if _, exists := spreadAttrs[key]; !exists {
 				spreadOrder = append(spreadOrder, key)
@@ -11219,7 +11225,18 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 	i := 0
 	for i < len(propsStr) {
-		// Skip spread syntax ...identifier
+		// Skip leading whitespace, buffering it
+		wsStart := i
+		for i < len(propsStr) && (propsStr[i] == ' ' || propsStr[i] == '\t' || propsStr[i] == '\n' || propsStr[i] == '\r') {
+			i++
+		}
+
+		// If we've reached the end, break
+		if i >= len(propsStr) {
+			break
+		}
+
+		// Check for spread syntax ...identifier
 		if i+3 <= len(propsStr) && propsStr[i:i+3] == "..." {
 			// Skip the ...
 			i += 3
@@ -11231,8 +11248,12 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			for i < len(propsStr) && ((propsStr[i] >= 'a' && propsStr[i] <= 'z') || (propsStr[i] >= 'A' && propsStr[i] <= 'Z') || (propsStr[i] >= '0' && propsStr[i] <= '9') || propsStr[i] == '_') {
 				i++
 			}
+			// Don't write the buffered whitespace for spread operators
 			continue
 		}
+
+		// Not a spread operator - write the buffered whitespace
+		result.WriteString(propsStr[wsStart:i])
 
 		// Look for ={expr} - prop expression syntax
 		if propsStr[i] == '=' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
@@ -11509,9 +11530,21 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 	result.WriteString(tagName)
 
 	// Process props with interpolation
+	// Buffer whitespace so we can skip it if followed by spread operator
 	i := 0
 	for i < len(propsStr) {
-		// Skip spread syntax ...identifier
+		// Skip leading whitespace, buffering it
+		wsStart := i
+		for i < len(propsStr) && (propsStr[i] == ' ' || propsStr[i] == '\t' || propsStr[i] == '\n' || propsStr[i] == '\r') {
+			i++
+		}
+
+		// If we've reached the end, break
+		if i >= len(propsStr) {
+			break
+		}
+
+		// Check for spread syntax ...identifier
 		if i+3 <= len(propsStr) && propsStr[i:i+3] == "..." {
 			// Skip the ...
 			i += 3
@@ -11523,8 +11556,12 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			for i < len(propsStr) && ((propsStr[i] >= 'a' && propsStr[i] <= 'z') || (propsStr[i] >= 'A' && propsStr[i] <= 'Z') || (propsStr[i] >= '0' && propsStr[i] <= '9') || propsStr[i] == '_') {
 				i++
 			}
+			// Don't write the buffered whitespace for spread operators
 			continue
 		}
+
+		// Not a spread operator - write the buffered whitespace
+		result.WriteString(propsStr[wsStart:i])
 
 		// Look for {expr}
 		if propsStr[i] == '{' {
@@ -11619,7 +11656,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					}
 
 					if shouldOmit {
-						// Remove trailing "attrname=" from result
+						// Remove trailing "attrname=" and preceding whitespace from result
 						s := result.String()
 						j := len(s) - 1
 
@@ -11633,12 +11670,47 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 							j--
 						}
 
+						// Also remove ALL preceding whitespace - next attribute will have its own
+						for j >= 0 && (s[j] == ' ' || s[j] == '\n' || s[j] == '\t' || s[j] == '\r') {
+							j--
+						}
+
 						// Rebuild result without the attribute
 						result.Reset()
 						result.WriteString(s[:j+1])
 					} else {
-						// Write the value
-						result.WriteString(objectToTemplateString(evaluated))
+						// Write the value - wrap in quotes for HTML attributes
+						switch evaluated.(type) {
+						case *Boolean:
+							// Boolean true renders as just the attribute name (HTML5 boolean attribute)
+							// e.g., <input disabled/> not <input disabled="true"/>
+							// We already handled false (omitted) above, so this must be true
+							// Remove the trailing "=" from attr=
+							s := result.String()
+							if len(s) > 0 && s[len(s)-1] == '=' {
+								result.Reset()
+								result.WriteString(s[:len(s)-1])
+							}
+						default:
+							// For strings and other values, quote them
+							result.WriteByte('"')
+							strVal := objectToTemplateString(evaluated)
+							// Escape quotes in the value
+							for _, c := range strVal {
+								if c == '"' {
+									result.WriteString("&quot;")
+								} else if c == '&' {
+									result.WriteString("&amp;")
+								} else if c == '<' {
+									result.WriteString("&lt;")
+								} else if c == '>' {
+									result.WriteString("&gt;")
+								} else {
+									result.WriteRune(c)
+								}
+							}
+							result.WriteByte('"')
+						}
 					}
 				} else {
 					// Old syntax - always write
@@ -11666,8 +11738,8 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 		// Verify it's a dictionary
 		dict, ok := spreadObj.(*Dictionary)
 		if !ok {
-			perr := perrors.New("EVAL-0032", map[string]any{
-				"Type": spreadObj.Type(),
+			perr := perrors.New("SPREAD-0001", map[string]any{
+				"Got": spreadObj.Type(),
 			})
 			return &Error{
 				Class:   ErrorClass(perr.Class),
@@ -11679,7 +11751,9 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 		}
 
 		// Merge dictionary entries (later spreads override earlier ones)
-		for key, expr := range dict.Pairs {
+		// Use Keys() to preserve insertion order
+		for _, key := range dict.Keys() {
+			expr := dict.Pairs[key]
 			// Track order of first appearance
 			if _, exists := spreadAttrs[key]; !exists {
 				spreadOrder = append(spreadOrder, key)

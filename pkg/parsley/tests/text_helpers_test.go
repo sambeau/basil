@@ -438,9 +438,9 @@ text = "Search results for your search query"
 			name: "paragraphs in template",
 			input: `
 bio = "First line.\n\nSecond paragraph."
-<div class=bio>bio.paragraphs()</div>
+<div class="bio">bio.paragraphs()</div>
 `,
-			expected: `<div class=bio><p>First line.</p><p>Second paragraph.</p></div>`,
+			expected: `<div class="bio"><p>First line.</p><p>Second paragraph.</p></div>`,
 		},
 		{
 			name: "humanize in template",

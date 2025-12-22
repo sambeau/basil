@@ -1,0 +1,18 @@
+// Minimal test to debug spread issue
+
+let Component = fn(props) {
+    let {name, value, ...rest} = props
+    
+    print("DEBUG: name=" ++ name)
+    print("DEBUG: value=" ++ (value ?? "(null)"))
+    
+    // Inspect each key in rest
+    for k, v in rest {
+        print("DEBUG: rest[" ++ k ++ "] = " ++ v)
+    }
+    
+    <input name={name} value={value ?? ""} ...rest />
+}
+
+// Test case matching the user's issue
+<Component name="search" type="search" value="" placeholder="search" required={false}/>

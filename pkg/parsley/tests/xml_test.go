@@ -137,7 +137,7 @@ func TestWebComponentTags(t *testing.T) {
 		{
 			name:     "self-closing web component",
 			input:    `<my-icon name="star" />`,
-			expected: `<my-icon name="star"  />`,
+			expected: `<my-icon name="star" />`,
 		},
 	}
 

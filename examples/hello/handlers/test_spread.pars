@@ -1,0 +1,4 @@
+// Debug TextField issue
+import {TextField} from "std:html"
+
+<TextField name="search" label="Search" type="search" value="" placeholder="search" required={false}/>
