@@ -125,6 +125,27 @@ func (as *AssignmentStatement) String() string {
 	return out.String()
 }
 
+// IndexAssignmentStatement represents assignment to index/property expressions like 'dict["key"] = value' or 'obj.prop = value'
+type IndexAssignmentStatement struct {
+	Token  lexer.Token // the '=' token
+	Target Expression  // the IndexExpression or DotExpression being assigned to
+	Value  Expression  // the value being assigned
+}
+
+func (ias *IndexAssignmentStatement) statementNode()       {}
+func (ias *IndexAssignmentStatement) TokenLiteral() string { return ias.Token.Literal }
+func (ias *IndexAssignmentStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(ias.Target.String())
+	out.WriteString(" = ")
+	if ias.Value != nil {
+		out.WriteString(ias.Value.String())
+	}
+	out.WriteString(";")
+	return out.String()
+}
+
 // ReturnStatement represents return statements like 'return 5;'
 type ReturnStatement struct {
 	Token       lexer.Token // the 'return' token
@@ -698,6 +719,15 @@ type DictionaryLiteral struct {
 	Token    lexer.Token // the '{' token
 	Pairs    map[string]Expression
 	KeyOrder []string // Keys in source order
+	// ComputedPairs holds key-value pairs where the key is computed at runtime
+	// e.g., {[expr]: value}
+	ComputedPairs []ComputedKeyValue
+}
+
+// ComputedKeyValue represents a key-value pair with a computed key expression
+type ComputedKeyValue struct {
+	Key   Expression
+	Value Expression
 }
 
 func (dl *DictionaryLiteral) expressionNode()      {}
@@ -717,6 +747,10 @@ func (dl *DictionaryLiteral) String() string {
 		if value, ok := dl.Pairs[key]; ok {
 			pairs = append(pairs, key+": "+value.String())
 		}
+	}
+	// Add computed pairs
+	for _, cp := range dl.ComputedPairs {
+		pairs = append(pairs, "["+cp.Key.String()+"]: "+cp.Value.String())
 	}
 
 	out.WriteString("{")

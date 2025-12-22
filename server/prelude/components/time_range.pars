@@ -1,0 +1,55 @@
+// TimeRange - Smart display of datetime spans
+// Renders a <time-range> custom element
+// Usage: <TimeRange start={session.start} end={session.end}/>
+
+export TimeRange = fn({start, end, format, separator, id, class, contents}) {
+    // Format datetime attributes (ISO 8601)
+    let startIso = if (start) { start.format("iso") } else { null }
+    let endIso = if (end) { end.format("iso") } else { null }
+    let sep = separator ?? " – "
+    
+    // Compute server-side fallback display
+    let display = if (contents) {
+        contents
+    } else if (start && end) {
+        // Smart formatting based on date comparison
+        let sameDay = start.format("date") == end.format("date")
+        let sameMonth = start.format("month") == end.format("month") && start.format("year") == end.format("year")
+        let sameYear = start.format("year") == end.format("year")
+        
+        if (sameDay) {
+            // Same day: show date once, both times
+            start.format("long_date") ++ ", " ++ start.format("time") ++ sep ++ end.format("time")
+        } else if (sameMonth) {
+            // Same month: collapse month
+            start.format("day") ++ sep ++ end.format("day") ++ ", " ++ start.format("month_year")
+        } else if (sameYear) {
+            // Same year: show month for each, year once
+            start.format("month_day") ++ sep ++ end.format("month_day") ++ ", " ++ start.format("year")
+        } else {
+            // Different years
+            start.format("long") ++ sep ++ end.format("long")
+        }
+    } else {
+        ""
+    }
+    
+    // Title shows full range in UTC
+    let title = if (start && end) { 
+        start.format("full") ++ " – " ++ end.format("full") ++ " UTC" 
+    } else { 
+        null 
+    }
+    
+    <time-range 
+        start={startIso}
+        end={endIso}
+        format={format}
+        separator={separator}
+        id={id}
+        class={class}
+        title={title}
+    >
+        display
+    </time-range>
+}

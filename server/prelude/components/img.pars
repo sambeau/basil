@@ -1,0 +1,19 @@
+// Img - Image with required alt and lazy loading
+// Usage: <Img src="/photo.jpg" alt="A sunset over mountains" width={800} height={600}/>
+
+export Img = fn({src, alt, width, height, id, class, loading, decoding, srcset, sizes, crossorigin}) {
+    // Alt is effectively required - if not provided, use empty string for decorative images
+    <img 
+        src={src}
+        alt={alt ?? ""}
+        width={width}
+        height={height}
+        id={id}
+        class={class}
+        loading={loading ?? "lazy"}
+        decoding={decoding ?? "async"}
+        srcset={srcset}
+        sizes={sizes}
+        crossorigin={crossorigin}
+    />
+}

@@ -1,0 +1,10 @@
+// SkipLink - Accessibility skip link (skip to main content)
+// Usage: <SkipLink/>  or  <SkipLink target="#content" text="Skip to content"/>
+
+export SkipLink = fn({target, text}) {
+    let href = target ?? "#main"
+    let linkText = text ?? "Skip to main content"
+    <a href={href} class="skip-link">
+        linkText
+    </a>
+}

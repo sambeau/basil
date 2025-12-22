@@ -1,0 +1,23 @@
+// Button - Button with sensible defaults
+// Usage: <Button>"Click Me"</Button>  (type="button" by default, not submit!)
+// Usage: <Button type="submit">"Save"</Button>
+// Usage: <Button toggle="#menu">"Menu"</Button>
+// Usage: <Button copy="#api-key">"Copy"</Button>
+
+export Button = fn({type, id, class, disabled, toggle, copy, name, value, form, contents}) {
+    <button 
+        type={type ?? "button"}
+        id={if (id) id else null}
+        class={"button" ++ if (class) { " " ++ class } else { "" }}
+        disabled={if (disabled) "disabled" else null}
+        name={if (name) name else null}
+        value={if (value) value else null}
+        form={if (form) form else null}
+        data-toggle={if (toggle) toggle else null}
+        data-copy={if (copy) copy else null}
+        aria-controls={if (toggle) { toggle.replace("#", "") } else { null }}
+        aria-expanded={if (toggle) { "false" } else { null }}
+    >
+        (contents)
+    </button>
+}

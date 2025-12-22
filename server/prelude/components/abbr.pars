@@ -1,0 +1,6 @@
+// Abbr - Abbreviation with required expansion
+// Usage: <Abbr title="HyperText Markup Language">"HTML"</Abbr>
+
+export Abbr = fn({title, id, class, contents}) {
+    <abbr id={id} class={class} title={title}>(contents)</abbr>
+}

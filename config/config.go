@@ -16,6 +16,7 @@ type Config struct {
 	SQLite      string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
 	PublicDir   string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
 	Site        string                     `yaml:"site"`       // Directory for filesystem-based routing (mutually exclusive with routes)
+	SiteCache   time.Duration              `yaml:"site_cache"` // Response cache TTL for site mode (0 = no cache)
 	Static      []StaticRoute              `yaml:"static"`
 	Routes      []Route                    `yaml:"routes"`
 	Logging     LoggingConfig              `yaml:"logging"`
@@ -155,6 +156,7 @@ type DevConfig struct {
 	LogDatabase    string `yaml:"log_database"`     // Path to dev log database file (default: auto-generated)
 	LogMaxSize     string `yaml:"log_max_size"`     // Maximum log database size (default: "10MB")
 	LogTruncatePct int    `yaml:"log_truncate_pct"` // Percentage to delete when truncating (default: 25)
+	Cache          bool   `yaml:"cache"`            // Enable response caching in dev mode (default: false)
 }
 
 // StaticRoute maps URL paths to static files/directories

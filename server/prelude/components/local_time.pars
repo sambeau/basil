@@ -1,0 +1,34 @@
+// LocalTime - Client-side localized datetime display
+// Renders a <local-time> custom element that JavaScript enhances
+// Usage: <LocalTime datetime={event.startTime}>"fallback text"</LocalTime>
+// Usage: <LocalTime datetime={post.createdAt} format="short"/>
+
+export LocalTime = fn({datetime, format, weekday, showZone, id, class, contents}) {
+    // Format datetime attribute (ISO 8601)
+    let iso = if (datetime) { datetime.format("iso") } else { null }
+    
+    // Compute server-side fallback display
+    let fmt = format ?? "long"
+    let display = if (contents) {
+        contents
+    } else if (datetime) {
+        datetime.format(fmt)
+    } else {
+        ""
+    }
+    
+    // Title shows full UTC datetime for precision
+    let title = if (datetime) { datetime.format("full") ++ " UTC" } else { null }
+    
+    <local-time 
+        datetime={iso}
+        format={format}
+        weekday={weekday}
+        show-zone={if (showZone) { "true" } else { null }}
+        id={id}
+        class={class}
+        title={title}
+    >
+        display
+    </local-time>
+}

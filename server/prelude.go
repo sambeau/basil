@@ -12,13 +12,14 @@ import (
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // Embed the prelude directory
 //
-//go:embed prelude/js/* prelude/css/* prelude/public/* prelude/errors/* prelude/devtools/*
+//go:embed prelude/js/* prelude/css/* prelude/public/* prelude/errors/* prelude/devtools/* prelude/components/*
 var preludeFS embed.FS
 
 // preludeASTs stores parsed ASTs for all .pars files in the prelude
@@ -34,6 +35,9 @@ func initPrelude(commit string) error {
 
 	// Initialize JS asset hash
 	initJSHash(commit)
+
+	// Register the prelude loader with the evaluator for @std/html module
+	evaluator.PreludeLoader = GetPreludeAST
 
 	// Walk the embedded filesystem and parse all .pars files
 	return fs.WalkDir(preludeFS, "prelude", func(filePath string, d fs.DirEntry, err error) error {

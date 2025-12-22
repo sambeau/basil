@@ -1,9 +1,10 @@
 ---
 id: FEAT-058
 title: "HTML Components in Prelude"
-status: deferred
+status: implemented
 priority: medium
 created: 2025-12-09
+implemented: 2025-12-20
 author: "@copilot"
 depends-on: FEAT-056
 part-of: FEAT-051
@@ -23,25 +24,43 @@ As a Basil maintainer, I want HTML components written in Parsley so that I can i
 ## Acceptance Criteria
 
 ### Component Loading
-- [ ] `std/html` module loads components from `prelude/components/`
-- [ ] Components are pre-parsed at startup (via FEAT-056 infrastructure)
-- [ ] `import @std/html` provides `TextField`, `SelectField`, `Button`, etc.
-- [ ] Components use standard Parsley function syntax
+- [x] `std/html` module loads components from `prelude/components/`
+- [x] Components are pre-parsed at startup (via FEAT-056 infrastructure)
+- [x] `import @std/html` provides `TextField`, `SelectField`, `Button`, etc.
+- [x] Components use standard Parsley function syntax
 
 ### Components to Implement
-- [ ] `TextField` - text input with label, hint, error, accessibility
-- [ ] `SelectField` - select dropdown with options
-- [ ] `Button` - styled button with variants
-- [ ] `Form` - form wrapper with CSRF, confirmation, etc.
-- [ ] `DataTable` - sortable, paginated table
-- [ ] `CheckboxField` - checkbox with label
-- [ ] `RadioGroup` - group of radio buttons
-- [ ] `TextAreaField` - multi-line text input
+- [x] `TextField` - text input with label, hint, error, accessibility
+- [x] `SelectField` - select dropdown with options
+- [x] `Button` - styled button with variants
+- [x] `Form` - form wrapper with CSRF, confirmation, etc.
+- [x] `DataTable` - sortable, paginated table
+- [x] `CheckboxField` - checkbox with label (implemented as `Checkbox`)
+- [x] `RadioGroup` - group of radio buttons
+- [x] `TextAreaField` - multi-line text input
+
+### Additional Components (beyond original spec)
+- [x] `CheckboxGroup` - group of checkboxes
+- [x] `Nav` - navigation landmark with ARIA label
+- [x] `Breadcrumb` - breadcrumb navigation with Schema.org markup
+- [x] `SkipLink` - accessibility skip link
+- [x] `Img` - image with required alt and lazy loading
+- [x] `Iframe` - iframe with required title and lazy loading
+- [x] `Figure` - figure with caption
+- [x] `Blockquote` - blockquote with citation
+- [x] `SrOnly` - screen reader only text
+- [x] `Abbr` - abbreviation with expansion
+- [x] `A` - link with external link safety
+- [x] `Icon` - accessible icon wrapper
+- [x] `Time` - time element with datetime
+- [x] `LocalTime` - client-side localized time
+- [x] `TimeRange` - datetime span display
+- [x] `RelativeTime` - relative time display
 
 ### JavaScript Integration
-- [ ] Components that need JS use data attributes (e.g., `data-confirm`)
+- [x] Components that need JS use data attributes (e.g., `data-confirm`)
 - [ ] JavaScript in site bundle (via FEAT-063 `<Javascript/>`) handles enhancement
-- [ ] No per-component script injection needed
+- [x] No per-component script injection needed
 
 ## Design Decisions
 

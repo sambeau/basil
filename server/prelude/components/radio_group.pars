@@ -1,0 +1,59 @@
+// RadioGroup - Group of radio buttons with fieldset/legend
+// Usage: <RadioGroup name="size" label="Select size" options={[{value: "s", label: "Small"}, ...]} value={form.size}/>
+
+export RadioGroup = fn({name, label, value, options, valueKey, labelKey, hint, error, required, id, class, disabled}) {
+    // Generate IDs for accessibility
+    let fieldId = id ?? "field-" ++ name
+    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
+    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    
+    // Build aria-describedby from hint and error IDs
+    let describedByParts = []
+    if (hintId) { describedByParts = describedByParts ++ [hintId] }
+    if (errorId) { describedByParts = describedByParts ++ [errorId] }
+    let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
+    
+    // Default keys for option value and label
+    let vKey = valueKey ?? "value"
+    let lKey = labelKey ?? "label"
+    
+    <fieldset 
+        class={"radio-group" ++ if (class) { " " ++ class } else { ""}} 
+        id={fieldId}
+        aria-describedby={describedBy}
+        aria-invalid={if (error) { "true" } else { null }}
+    >
+        <legend>
+            label
+            if (required) {
+                <span class="field-required" aria-hidden="true">" *"</span>
+            }
+        </legend>
+        if (hint) {
+            <p id={hintId} class="field-hint">hint</p>
+        }
+        <div class="radio-group-options">
+            for (opt, idx in options ?? []) {
+                // Support both simple values and objects with value/label keys
+                let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
+                let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
+                let radioId = fieldId ++ "-" ++ idx
+                <label class="radio-option">
+                    <input 
+                        type="radio"
+                        id={radioId}
+                        name={name}
+                        value={optValue}
+                        checked={optValue == value}
+                        disabled={disabled}
+                        required={if (idx == 0 && required) { true } else { null }}
+                    />
+                    <span class="radio-label">optLabel</span>
+                </label>
+            }
+        </div>
+        if (error) {
+            <p id={errorId} class="field-error" role="alert">error</p>
+        }
+    </fieldset>
+}

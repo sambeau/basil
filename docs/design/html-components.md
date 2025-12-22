@@ -93,7 +93,7 @@ Single elements that add required attributes or smart defaults:
 
 #### `<Page>`
 
-Complete HTML document wrapper.
+Complete HTML document wrapper with automatic asset inclusion.
 
 ```parsley
 <Page lang="en" title="My Site" description="About my site">
@@ -112,25 +112,38 @@ Renders:
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Site</title>
   <meta name="description" content="About my site"/>
+  <link rel="stylesheet" href="/__site.css?v=abc123">
 </head>
 <body>
   <a href="#main" class="skip-link">Skip to main content</a>
   <nav>...</nav>
   <main id="main">...</main>
   <footer>...</footer>
+  <script src="/__site.js?v=def456"></script>
+  <script src="/__/js/basil.abc1234.js"></script>
 </body>
 </html>
 ```
 
 Props:
-- `lang` - Language code (required)
+- `lang` - Language code (default: "en")
 - `title` - Page title (required)
 - `description` - Meta description
 - `class` - Body class
+- `id` - Body id
+- `head` - Additional `<head>` content (extra CSS, meta tags, etc.)
+- `noBasilJS` - Omit basil.js script (for pages that don't use enhanced components)
+
+Automatic inclusions:
+- `<CSS/>` - Site CSS bundle (all `.css` files from handlers directory)
+- `<Javascript/>` - Site JS bundle (all `.js` files from handlers directory)
+- `<BasilJS/>` - Basil component enhancement JavaScript
+- `<SkipLink/>` - Accessibility skip link
+
 
 #### `<Head>`
 
-All the meta tags nobody wants to remember.
+All the meta tags nobody wants to remember. Includes Open Graph, Twitter Cards, and favicons.
 
 ```parsley
 <Head 
@@ -156,10 +169,13 @@ Renders:
   <meta name="description" content="About things"/>
   <meta name="author" content="Sam Phillips"/>
   
+  <!-- Canonical -->
+  <link rel="canonical" href="https://example.com/page"/>
+  
   <!-- Open Graph -->
   <meta property="og:title" content="My Page"/>
   <meta property="og:description" content="About things"/>
-  <meta property="og:image" content="https://example.com/og-image.png"/>
+  <meta property="og:image" content="/og-image.png"/>
   <meta property="og:url" content="https://example.com/page"/>
   <meta property="og:type" content="article"/>
   <meta property="article:published_time" content="2024-01-15"/>
@@ -168,16 +184,41 @@ Renders:
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:site" content="@handle"/>
+  <meta name="twitter:creator" content="@handle"/>
   <meta name="twitter:title" content="My Page"/>
   <meta name="twitter:description" content="About things"/>
-  <meta name="twitter:image" content="https://example.com/og-image.png"/>
+  <meta name="twitter:image" content="/og-image.png"/>
   
   <!-- Favicon -->
   <link rel="icon" href="/favicon.ico" sizes="any"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+  
+  <!-- Site CSS -->
+  <link rel="stylesheet" href="/__site.css?v=abc123">
 </head>
 ```
+
+Props:
+- `title` - Page title (required)
+- `description` - Meta description
+- `image` - Open Graph/Twitter image URL
+- `url` - Canonical URL
+- `type` - og:type (default: "website", use "article" for blog posts)
+- `author` - Author name
+- `published` - Published date (for articles, expects datetime value)
+- `modified` - Modified date (for articles)
+- `twitter` - Twitter handle (with @)
+- `favicon` - Custom favicon path (default: /favicon.ico)
+- `faviconSvg` - SVG favicon path (default: /favicon.svg)
+- `appleTouchIcon` - Apple touch icon path (default: /apple-touch-icon.png)
+- `noIndex` - Add robots noindex meta tag
+- `contents` - Additional head content (extra meta tags, scripts, etc.)
+
+Automatic inclusions:
+- `<CSS/>` - Site CSS bundle
+
+**Note:** `<Head>` is for when you need full control over the `<head>` section. For most cases, use `<Page>` which wraps everything including `<head>`.
 
 ---
 
@@ -990,10 +1031,34 @@ if (firstError) firstError.focus()
 
 ### Delivery
 
-JavaScript is built into Basil server runtime at `/__/basil.js`:
-- Automatically included on pages that use enhanced components
-- ~55 lines minified
-- No user action required
+Three special tags are available for including JavaScript and CSS bundles:
+
+| Tag | Output | Purpose |
+|-----|--------|---------|
+| `<CSS/>` | `<link rel="stylesheet" href="/__site.css?v={hash}">` | Site CSS bundle (all `.css` files from handlers directory) |
+| `<Javascript/>` | `<script src="/__site.js?v={hash}"></script>` | Site JS bundle (all `.js` files from handlers directory) |
+| `<BasilJS/>` | `<script src="/__/js/basil.{hash}.js"></script>` | Basil component enhancement JavaScript |
+
+**When using `<Page>`**, all three are automatically included:
+- `<CSS/>` in the `<head>`
+- `<Javascript/>` and `<BasilJS/>` before `</body>`
+
+**When building custom page layouts**, include them manually:
+
+```parsley
+<html>
+<head>
+  <CSS/>
+</head>
+<body>
+  // ... content ...
+  <Javascript/>
+  <BasilJS/>
+</body>
+</html>
+```
+
+The tags output empty strings if there are no files to bundle (e.g., `<CSS/>` outputs nothing if you have no `.css` files).
 
 ---
 

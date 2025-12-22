@@ -1,0 +1,59 @@
+// SelectField - Dropdown select with label, options, and accessibility
+// Usage: <SelectField name="country" label="Country" options={countries} valueKey="code" labelKey="name"/>
+
+export SelectField = fn({name, label, value, options, valueKey, labelKey, hint, error, required, id, class, placeholder, disabled, autosubmit}) {
+    // Generate IDs for accessibility
+    let fieldId = id ?? "field-" ++ name
+    let selectId = fieldId ++ "-input"
+    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
+    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    
+    // Build aria-describedby from hint and error IDs
+    let describedByParts = []
+    if (hintId) { describedByParts = describedByParts ++ [hintId] }
+    if (errorId) { describedByParts = describedByParts ++ [errorId] }
+    let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
+    
+    // Default keys for option value and label
+    let vKey = valueKey ?? "value"
+    let lKey = labelKey ?? "label"
+    
+    <div class={"field field-select" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
+        <label for={selectId}>
+            label
+            if (required) {
+                <span class="field-required" aria-hidden="true">" *"</span>
+            }
+        </label>
+        <select 
+            id={selectId}
+            name={name}
+            disabled={disabled}
+            required={required}
+            aria-required={if (required) { "true" } else { null }}
+            aria-describedby={describedBy}
+            aria-invalid={if (error) { "true" } else { null }}
+            data-autosubmit={if (autosubmit) { "true" } else { null }}
+        >
+            if (placeholder) {
+                <option value="" disabled={true} selected={value == null || value == ""}>
+                    placeholder
+                </option>
+            }
+            for (opt in options ?? []) {
+                // Support both simple values and objects with value/label keys
+                let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
+                let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
+                <option value={optValue} selected={optValue == value}>
+                    optLabel
+                </option>
+            }
+        </select>
+        if (hint) {
+            <p id={hintId} class="field-hint">hint</p>
+        }
+        if (error) {
+            <p id={errorId} class="field-error" role="alert">error</p>
+        }
+    </div>
+}

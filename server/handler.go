@@ -279,6 +279,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
 	env.AssetBundle = h.server.assetBundle
+	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
 
@@ -1317,7 +1318,9 @@ func partsRuntimeScript() string {
 
 	// Lazy loading: fetch view when scrolled into viewport
 	function initLazyLoading(root) {
-		(root || document).querySelectorAll('[data-part-lazy]').forEach(function(part) {
+		var lazyParts_found = (root || document).querySelectorAll('[data-part-lazy]');
+		
+		lazyParts_found.forEach(function(part) {
 			// If already loaded, skip
 			if (lazyParts.get(part)) {
 				return;
@@ -1329,26 +1332,43 @@ func partsRuntimeScript() string {
 				thresholdNum = 0;
 			}
 
-			var observer = new IntersectionObserver(function(entries) {
-				entries.forEach(function(entry) {
-					if (entry.isIntersecting) {
-						observer.unobserve(part);
-						lazyParts.set(part, true);
+			// Wait for next frame to ensure layout is complete before observing
+			requestAnimationFrame(function() {
+				// If the part has zero height, it's likely hidden or has no content
+				// IntersectionObserver won't work, so load immediately
+				if (part.offsetHeight === 0 && part.clientHeight === 0) {
+					lazyParts.set(part, true);
 
-						var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
-						var props = parseProps(part);
-						var src = part.getAttribute('data-part-src');
+					var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
+					var props = parseProps(part);
+					var src = part.getAttribute('data-part-src');
 
-						updatePart(part, src, view, props, 'GET');
+					updatePart(part, src, view, props, 'GET');
+					return;
+				}
 
-						// Start auto-refresh after lazy load (if configured, handled in updatePart)
-					}
+				var observer = new IntersectionObserver(function(entries) {
+					entries.forEach(function(entry) {
+						if (entry.isIntersecting) {
+							observer.unobserve(part);
+							lazyParts.set(part, true);
+
+							var view = part.getAttribute('data-part-lazy') || part.getAttribute('data-part-view') || 'default';
+							var props = parseProps(part);
+							var src = part.getAttribute('data-part-src');
+
+							updatePart(part, src, view, props, 'GET');
+
+							// Start auto-refresh after lazy load (if configured, handled in updatePart)
+						}
+					});
+				}, {
+					rootMargin: thresholdNum + 'px',
+					threshold: 0.01
 				});
-			}, {
-				rootMargin: thresholdNum + 'px'
-			});
 
-			observer.observe(part);
+				observer.observe(part);
+			});
 		});
 	}
 
@@ -1361,18 +1381,10 @@ func partsRuntimeScript() string {
 			bindInteractions(root);
 		}
 
-		scope.querySelectorAll('[data-part-src]').forEach(function(el) {
+		var allParts = scope.querySelectorAll('[data-part-src]');
+		
+		allParts.forEach(function(el) {
 			bindInteractions(el);
-
-			// Immediate load setup (part-load)
-			if (el.getAttribute('data-part-load')) {
-				initImmediateLoad(el.parentElement || el);
-			}
-
-			// Lazy loading setup (part-lazy)
-			if (el.getAttribute('data-part-lazy')) {
-				initLazyLoading(el.parentElement || el);
-			}
 
 			// Auto-refresh setup (skip if waiting for load or lazy)
 			var hasLazy = el.getAttribute('data-part-lazy');
@@ -1381,6 +1393,12 @@ func partsRuntimeScript() string {
 				startAutoRefresh(el);
 			}
 		});
+
+		// Initialize immediate load for all parts with part-load
+		initImmediateLoad(scope);
+
+		// Initialize lazy loading for all parts with part-lazy
+		initLazyLoading(scope);
 	}
 
 	// Pause/resume auto-refresh on tab visibility change

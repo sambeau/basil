@@ -1,0 +1,58 @@
+// TextareaField - Multi-line text input with label, hint, error, and accessibility
+// Usage: <TextareaField name="bio" label="Biography" maxlength={280} counter={true}/>
+
+export TextareaField = fn({name, label, value, hint, error, required, id, class, placeholder, rows, cols, minlength, maxlength, counter, autoresize, disabled, readonly}) {
+    // Generate IDs for accessibility
+    let fieldId = id ?? "field-" ++ name
+    let textareaId = fieldId ++ "-input"
+    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
+    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    let counterId = if (counter && maxlength) { fieldId ++ "-counter" } else { null }
+    
+    // Build aria-describedby from hint, error, and counter IDs
+    let describedByParts = []
+    if (hintId) { describedByParts = describedByParts ++ [hintId] }
+    if (errorId) { describedByParts = describedByParts ++ [errorId] }
+    if (counterId) { describedByParts = describedByParts ++ [counterId] }
+    let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
+    
+    let textareaValue = value ?? ""
+    let rowCount = rows ?? 4
+    
+    <div class={"field field-textarea" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
+        <label for={textareaId}>
+            label
+            if (required) {
+                <span class="field-required" aria-hidden="true">" *"</span>
+            }
+        </label>
+        <textarea 
+            id={textareaId}
+            name={name}
+            placeholder={placeholder}
+            rows={rowCount}
+            cols={cols}
+            minlength={minlength}
+            maxlength={maxlength}
+            disabled={disabled}
+            readonly={readonly}
+            required={required}
+            aria-required={if (required) { "true" } else { null }}
+            aria-describedby={describedBy}
+            aria-invalid={if (error) { "true" } else { null }}
+            data-counter={if (counter && counterId) { counterId } else { null }}
+            data-autoresize={if (autoresize) { "true" } else { null }}
+        >textareaValue</textarea>
+        if (hint) {
+            <p id={hintId} class="field-hint">hint</p>
+        }
+        if (counter && maxlength) {
+            <p id={counterId} class="field-counter" aria-live="polite">
+                textareaValue.length " / " maxlength
+            </p>
+        }
+        if (error) {
+            <p id={errorId} class="field-error" role="alert">error</p>
+        }
+    </div>
+}

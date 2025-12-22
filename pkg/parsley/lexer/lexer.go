@@ -2263,12 +2263,25 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		colonPos++
 	}
 
-	// Check for path: @/ or @./ or @~/ or @../
+	// Check for path: @/ or @./ or @~/ or @../ or @.filename (dotfiles)
 	firstChar := l.input[pos]
 	if firstChar == '/' {
 		return PATH_LITERAL
 	}
-	if firstChar == '.' && pos+1 < len(l.input) && (l.input[pos+1] == '/' || l.input[pos+1] == '.') {
+	if firstChar == '.' {
+		// Could be ./, .., or a dotfile like .config
+		if pos+1 < len(l.input) {
+			nextChar := l.input[pos+1]
+			// ./ or .. → path
+			if nextChar == '/' || nextChar == '.' {
+				return PATH_LITERAL
+			}
+			// .letter → dotfile path (like .config, .bashrc)
+			if isLetter(nextChar) || isDigit(nextChar) {
+				return PATH_LITERAL
+			}
+		}
+		// Just a dot by itself → path (current directory)
 		return PATH_LITERAL
 	}
 	if firstChar == '~' && pos+1 < len(l.input) && l.input[pos+1] == '/' {
@@ -2377,16 +2390,39 @@ func (l *Lexer) readPathLiteral() string {
 		if l.ch == ')' || l.ch == ']' || l.ch == '}' || l.ch == ',' || l.ch == ';' {
 			break
 		}
-		// Stop at dot if it's NOT followed by / and the previous char WAS / (i.e., /file.ext stops at . before property name)
-		// This allows ./path and ../path and file.txt but stops at .basename
+		// Stop at dot in specific cases to handle property access
+		// Examples:
+		//   @/path/to/file.txt.length  → stop at .length
+		//   @./file.txt.extension      → stop at .extension
+		// But allow:
+		//   @./.config           → dotfile after ./
+		//   @dir/.hidden         → dotfile in a directory
+		//   @file.txt            → file with extension
 		if l.ch == '.' && len(path) > 0 {
-			// If previous char is '/' and next char is a letter, this is .property access
-			if path[len(path)-1] == '/' && isLetter(l.peekChar()) {
-				break
-			}
-			// If next char is neither '/' nor '.', and we have text before, it might be property access
 			nextCh := l.peekChar()
-			if nextCh != '/' && nextCh != '.' && !isPathChar(nextCh) && isLetter(nextCh) {
+
+			// If next char is / or ., this is part of the path (../ or ./)
+			if nextCh == '/' || nextCh == '.' {
+				path = append(path, l.ch)
+				l.readChar()
+				continue
+			}
+
+			// If previous char is '/' and next is a letter, could be:
+			// - A dotfile: /. followed by filename → allow
+			// - Property access after path → stop
+			// We distinguish by checking if it looks like a known property name
+			if path[len(path)-1] == '/' && isLetter(nextCh) {
+				// This looks like a dotfile (e.g., /.config, /.bashrc)
+				// Continue reading - don't break
+				path = append(path, l.ch)
+				l.readChar()
+				continue
+			}
+
+			// If next char is not /, ., or a path char, and IS a letter,
+			// this might be property access
+			if !isPathChar(nextCh) && isLetter(nextCh) {
 				break
 			}
 		}

@@ -184,6 +184,30 @@ func TestArrayMethods(t *testing.T) {
 		// format()
 		{`["apple", "banana", "cherry"].format()`, "apple, banana, and cherry"},
 		{`["a", "b"].format("or")`, "a or b"},
+
+		// has()
+		{`[1, 2, 3].has(2)`, true},
+		{`[1, 2, 3].has(5)`, false},
+		{`["a", "b", "c"].has("b")`, true},
+		{`["a", "b", "c"].has("d")`, false},
+		{`[].has(1)`, false},
+
+		// hasAny()
+		{`[1, 2, 3].hasAny([2, 4])`, true},
+		{`[1, 2, 3].hasAny([4, 5])`, false},
+		{`["a", "b", "c"].hasAny(["b", "d"])`, true},
+		{`["a", "b", "c"].hasAny(["d", "e"])`, false},
+		{`[1, 2, 3].hasAny([])`, false},
+		{`[].hasAny([1, 2])`, false},
+
+		// hasAll()
+		{`[1, 2, 3].hasAll([2, 3])`, true},
+		{`[1, 2, 3].hasAll([2, 4])`, false},
+		{`["a", "b", "c"].hasAll(["a", "c"])`, true},
+		{`["a", "b", "c"].hasAll(["c", "d"])`, false},
+		{`[1, 2, 3].hasAll([])`, true},
+		{`[].hasAll([])`, true},
+		{`[].hasAll([1])`, false},
 	}
 
 	for _, tt := range tests {
@@ -244,6 +268,14 @@ func TestArrayMethods(t *testing.T) {
 				}
 				if str.Value != expected {
 					t.Errorf("expected %q, got %q", expected, str.Value)
+				}
+			case bool:
+				b, ok := result.(*evaluator.Boolean)
+				if !ok {
+					t.Fatalf("expected Boolean, got %T (%+v)", result, result)
+				}
+				if b.Value != expected {
+					t.Errorf("expected %v, got %v", expected, b.Value)
 				}
 			}
 		})
@@ -341,15 +373,31 @@ func TestDictionaryMethods(t *testing.T) {
 func TestPathMethods(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected bool
+		expected interface{}
+		check    string // "bool" for boolean, "string" for string
 	}{
 		// isAbsolute()
-		{`let p = @/usr/local; p.isAbsolute()`, true},
-		{`let p = @./relative/path; p.isAbsolute()`, false},
+		{`let p = @/usr/local; p.isAbsolute()`, true, "bool"},
+		{`let p = @./relative/path; p.isAbsolute()`, false, "bool"},
 
 		// isRelative()
-		{`let p = @/usr/local; p.isRelative()`, false},
-		{`let p = @./relative/path; p.isRelative()`, true},
+		{`let p = @/usr/local; p.isRelative()`, false, "bool"},
+		{`let p = @./relative/path; p.isRelative()`, true, "bool"},
+
+		// filename (new alias for basename)
+		{`let f = file("config.yaml"); f.path.filename`, "config.yaml", "string"},
+		{`let f = file("data.tar.gz"); f.path.filename`, "data.tar.gz", "string"},
+
+		// basename
+		{`let f = file("config.yaml"); f.path.basename`, "config.yaml", "string"},
+
+		// stem (filename without extension)
+		{`let f = file("config.yaml"); f.path.stem`, "config", "string"},
+		{`let f = file("data.tar.gz"); f.path.stem`, "data.tar", "string"},
+
+		// extension
+		{`let f = file("config.yaml"); f.path.extension`, "yaml", "string"},
+		{`let f = file("data.tar.gz"); f.path.extension`, "gz", "string"},
 	}
 
 	for _, tt := range tests {
@@ -360,12 +408,25 @@ func TestPathMethods(t *testing.T) {
 			env := evaluator.NewEnvironment()
 			result := evaluator.Eval(program, env)
 
-			b, ok := result.(*evaluator.Boolean)
-			if !ok {
-				t.Fatalf("expected Boolean, got %T (%+v)", result, result)
-			}
-			if b.Value != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, b.Value)
+			switch tt.check {
+			case "bool":
+				expected := tt.expected.(bool)
+				b, ok := result.(*evaluator.Boolean)
+				if !ok {
+					t.Fatalf("expected Boolean, got %T (%+v)", result, result)
+				}
+				if b.Value != expected {
+					t.Errorf("expected %v, got %v", expected, b.Value)
+				}
+			case "string":
+				expected := tt.expected.(string)
+				s, ok := result.(*evaluator.String)
+				if !ok {
+					t.Fatalf("expected String, got %T (%+v)", result, result)
+				}
+				if s.Value != expected {
+					t.Errorf("expected %q, got %q", expected, s.Value)
+				}
 			}
 		})
 	}

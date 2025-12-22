@@ -82,6 +82,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
 	env.AssetBundle = h.server.assetBundle
+	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
 

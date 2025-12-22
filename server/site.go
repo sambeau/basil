@@ -173,6 +173,7 @@ func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, h
 		Path:      routePath,
 		Handler:   handlerPath,
 		PublicDir: handlerRoot, // Use handler root, not handler's directory
+		Cache:     h.server.config.SiteCache,
 	}
 
 	// Create the handler using existing infrastructure

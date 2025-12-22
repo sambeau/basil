@@ -1,0 +1,25 @@
+// Form - Form wrapper with CSRF, confirmation, and submit protection
+// Usage: <Form action="/register" method="POST" confirm="Submit registration?">fields here</Form>
+
+let {request} = import @basil/http
+
+export Form = fn({action, method, id, class, confirm, enctype, target, novalidate, autocomplete, contents}) {
+    <form 
+        action={action}
+        method={method ?? "POST"}
+        id={if (id) id else null}
+        class={"form" ++ if (class) { " " ++ class } else { "" }}
+        enctype={if (enctype) enctype else null}
+        target={if (target) target else null}
+        novalidate={if (novalidate) "novalidate" else null}
+        autocomplete={if (autocomplete) autocomplete else null}
+        data-confirm={if (confirm) confirm else null}
+    >
+        // CSRF token injected automatically by Basil via server-side middleware
+        // The request.csrf variable is available in Basil handlers
+        if (request.csrf) {
+            <input type="hidden" name="_csrf" value={request.csrf}/>
+        }
+        contents
+    </form>
+}

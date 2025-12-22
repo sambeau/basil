@@ -147,7 +147,7 @@
 						if (line.is_error) {
 							<span class="line-error">line.number + " | " + line.content + " <--" + " ERROR"</span><br/>
 						} else {
-							<span class="line-number">line.number</span><>"| " + line.content</><br/>
+							<span class="line-number">line.number</span>"| " + line.content<br/>
 						}
 					}
 				</pre>	

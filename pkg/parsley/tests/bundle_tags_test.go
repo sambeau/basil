@@ -167,3 +167,52 @@ func TestCssAndScriptTags_InTemplate(t *testing.T) {
 		t.Error("Output should contain Javascript tag")
 	}
 }
+
+func TestBasilJSTag_EmitsScript(t *testing.T) {
+	l := lexer.New("<BasilJS/>")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	env.BasilJSURL = "/__/js/basil.abc1234.js"
+
+	result := evaluator.Eval(program, env)
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("Expected String, got %T", result)
+	}
+
+	expected := `<script src="/__/js/basil.abc1234.js"></script>`
+	if str.Value != expected {
+		t.Errorf("Expected %q, got %q", expected, str.Value)
+	}
+}
+
+func TestBasilJSTag_NoURL(t *testing.T) {
+	l := lexer.New("<BasilJS/>")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	// env.BasilJSURL is empty string
+
+	result := evaluator.Eval(program, env)
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("Expected String, got %T", result)
+	}
+
+	if str.Value != "" {
+		t.Errorf("Expected empty string when no BasilJSURL, got %q", str.Value)
+	}
+}

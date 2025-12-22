@@ -599,6 +599,7 @@ type Environment struct {
 	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
 	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
 	AssetBundle   AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
+	BasilJSURL    string          // URL for basil.js prelude script (for <BasilJS/> tag)
 	HandlerPath   string          // Current handler path for cache key namespacing
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
 	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
@@ -629,6 +630,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.FragmentCache = outer.FragmentCache
 		env.AssetRegistry = outer.AssetRegistry
 		env.AssetBundle = outer.AssetBundle
+		env.BasilJSURL = outer.BasilJSURL
 		env.HandlerPath = outer.HandlerPath
 		env.DevMode = outer.DevMode
 		env.ContainsParts = outer.ContainsParts
@@ -1011,7 +1013,7 @@ func naturalCompare(a, b Object) bool {
 	if aType == 1 {
 		aStr := a.(*String).Value
 		bStr := b.(*String).Value
-		return naturalStringCompare(aStr, bStr)
+		return NaturalCompare(aStr, bStr) < 0
 	}
 
 	// Other types (shouldn't happen with current implementation)
@@ -1052,61 +1054,314 @@ func getNumericValue(obj Object) float64 {
 	}
 }
 
-// naturalStringCompare compares strings using natural sort order
-// It treats consecutive digits as numbers and compares them numerically
-func naturalStringCompare(a, b string) bool {
-	aRunes := []rune(a)
-	bRunes := []rune(b)
+// NaturalCompare compares two strings using natural sort order.
+// Returns -1 if a < b, 0 if a == b, 1 if a > b.
+// Uses ASCII fast path for performance, falls back to Unicode for international text.
+func NaturalCompare(a, b string) int {
+	// Fast path: check if both strings are ASCII
+	if isASCII(a) && isASCII(b) {
+		return naturalCompareASCII(a, b)
+	}
+	// Fallback: Unicode-aware comparison
+	return naturalCompareUnicode(a, b)
+}
 
-	i, j := 0, 0
+// isASCII checks if a string contains only ASCII characters
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 128 {
+			return false
+		}
+	}
+	return true
+}
 
-	for i < len(aRunes) && j < len(bRunes) {
-		aChar := aRunes[i]
-		bChar := bRunes[j]
+// isDigitASCII checks if byte is ASCII digit (inlined for performance)
+func isDigitASCII(c byte) bool {
+	return '0' <= c && c <= '9'
+}
+
+// naturalCompareASCII compares two ASCII strings using natural sort order.
+// This is the fast path - works on bytes directly with zero allocations.
+func naturalCompareASCII(a, b string) int {
+	ai, bi := 0, 0
+
+	for ai < len(a) && bi < len(b) {
+		ca, cb := a[ai], b[bi]
 
 		// Both are digits - compare numerically
-		if unicode.IsDigit(aChar) && unicode.IsDigit(bChar) {
-			// Extract the full number from both strings
-			aNum, aEnd := extractNumber(aRunes, i)
-			bNum, bEnd := extractNumber(bRunes, j)
-
-			if aNum != bNum {
-				return aNum < bNum
+		if isDigitASCII(ca) && isDigitASCII(cb) {
+			// Check for leading zeros (left-aligned comparison)
+			if ca == '0' || cb == '0' {
+				if result := compareLeftASCII(a, b, &ai, &bi); result != 0 {
+					return result
+				}
+				continue
 			}
-
-			i = aEnd
-			j = bEnd
+			// Right-aligned comparison (no leading zeros)
+			if result := compareRightASCII(a, b, &ai, &bi); result != 0 {
+				return result
+			}
 			continue
 		}
 
-		// Character comparison
-		if aChar != bChar {
-			return aChar < bChar
+		// Regular character comparison
+		if ca != cb {
+			if ca < cb {
+				return -1
+			}
+			return 1
 		}
 
-		i++
-		j++
+		ai++
+		bi++
 	}
 
-	// If we've exhausted one string, the shorter one comes first
-	return len(aRunes) < len(bRunes)
+	// Shorter string comes first
+	if ai < len(a) {
+		return 1
+	}
+	if bi < len(b) {
+		return -1
+	}
+	return 0
 }
 
-// extractNumber extracts a number from a rune slice starting at the given position
-// Returns the number and the position after the last digit
-func extractNumber(runes []rune, start int) (int64, int) {
-	end := start
-	for end < len(runes) && unicode.IsDigit(runes[end]) {
-		end++
+// compareRightASCII compares two right-aligned numbers (no leading zeros).
+// The longest run of digits wins; if equal length, greater value wins.
+func compareRightASCII(a, b string, ai, bi *int) int {
+	bias := 0
+
+	for {
+		var ca, cb byte
+		aHasMore := *ai < len(a)
+		bHasMore := *bi < len(b)
+
+		if aHasMore {
+			ca = a[*ai]
+		}
+		if bHasMore {
+			cb = b[*bi]
+		}
+
+		aIsDigit := aHasMore && isDigitASCII(ca)
+		bIsDigit := bHasMore && isDigitASCII(cb)
+
+		if !aIsDigit && !bIsDigit {
+			return bias
+		}
+		if !aIsDigit {
+			return -1
+		}
+		if !bIsDigit {
+			return 1
+		}
+
+		if ca < cb {
+			if bias == 0 {
+				bias = -1
+			}
+		} else if ca > cb {
+			if bias == 0 {
+				bias = 1
+			}
+		}
+
+		*ai++
+		*bi++
+	}
+}
+
+// compareLeftASCII compares two left-aligned numbers (with leading zeros).
+// First different digit wins.
+func compareLeftASCII(a, b string, ai, bi *int) int {
+	for {
+		var ca, cb byte
+		aHasMore := *ai < len(a)
+		bHasMore := *bi < len(b)
+
+		if aHasMore {
+			ca = a[*ai]
+		}
+		if bHasMore {
+			cb = b[*bi]
+		}
+
+		aIsDigit := aHasMore && isDigitASCII(ca)
+		bIsDigit := bHasMore && isDigitASCII(cb)
+
+		if !aIsDigit && !bIsDigit {
+			return 0
+		}
+		if !aIsDigit {
+			return -1
+		}
+		if !bIsDigit {
+			return 1
+		}
+
+		if ca < cb {
+			return -1
+		}
+		if ca > cb {
+			return 1
+		}
+
+		*ai++
+		*bi++
+	}
+}
+
+// naturalCompareUnicode compares two strings using natural sort order with full Unicode support.
+// This handles non-ASCII digits (Arabic numerals, etc.) but is slower than ASCII path.
+func naturalCompareUnicode(a, b string) int {
+	aRunes := []rune(a)
+	bRunes := []rune(b)
+
+	ai, bi := 0, 0
+
+	for ai < len(aRunes) && bi < len(bRunes) {
+		ca, cb := aRunes[ai], bRunes[bi]
+
+		// Both are digits - compare numerically
+		if unicode.IsDigit(ca) && unicode.IsDigit(cb) {
+			// Check for leading zeros
+			if ca == '0' || cb == '0' {
+				if result := compareLeftUnicode(aRunes, bRunes, &ai, &bi); result != 0 {
+					return result
+				}
+				continue
+			}
+			if result := compareRightUnicode(aRunes, bRunes, &ai, &bi); result != 0 {
+				return result
+			}
+			continue
+		}
+
+		// Regular character comparison
+		if ca != cb {
+			if ca < cb {
+				return -1
+			}
+			return 1
+		}
+
+		ai++
+		bi++
 	}
 
-	numStr := string(runes[start:end])
-	num, err := strconv.ParseInt(numStr, 10, 64)
-	if err != nil {
-		return 0, end
+	// Shorter string comes first
+	if ai < len(aRunes) {
+		return 1
 	}
+	if bi < len(bRunes) {
+		return -1
+	}
+	return 0
+}
 
-	return num, end
+// compareRightUnicode compares two right-aligned numbers with Unicode digit support.
+func compareRightUnicode(a, b []rune, ai, bi *int) int {
+	bias := 0
+
+	for {
+		var ca, cb rune
+		aHasMore := *ai < len(a)
+		bHasMore := *bi < len(b)
+
+		if aHasMore {
+			ca = a[*ai]
+		}
+		if bHasMore {
+			cb = b[*bi]
+		}
+
+		aIsDigit := aHasMore && unicode.IsDigit(ca)
+		bIsDigit := bHasMore && unicode.IsDigit(cb)
+
+		if !aIsDigit && !bIsDigit {
+			return bias
+		}
+		if !aIsDigit {
+			return -1
+		}
+		if !bIsDigit {
+			return 1
+		}
+
+		// Get numeric value of Unicode digit
+		aVal := digitValue(ca)
+		bVal := digitValue(cb)
+
+		if aVal < bVal {
+			if bias == 0 {
+				bias = -1
+			}
+		} else if aVal > bVal {
+			if bias == 0 {
+				bias = 1
+			}
+		}
+
+		*ai++
+		*bi++
+	}
+}
+
+// compareLeftUnicode compares two left-aligned numbers with Unicode digit support.
+func compareLeftUnicode(a, b []rune, ai, bi *int) int {
+	for {
+		var ca, cb rune
+		aHasMore := *ai < len(a)
+		bHasMore := *bi < len(b)
+
+		if aHasMore {
+			ca = a[*ai]
+		}
+		if bHasMore {
+			cb = b[*bi]
+		}
+
+		aIsDigit := aHasMore && unicode.IsDigit(ca)
+		bIsDigit := bHasMore && unicode.IsDigit(cb)
+
+		if !aIsDigit && !bIsDigit {
+			return 0
+		}
+		if !aIsDigit {
+			return -1
+		}
+		if !bIsDigit {
+			return 1
+		}
+
+		// Get numeric value of Unicode digit
+		aVal := digitValue(ca)
+		bVal := digitValue(cb)
+
+		if aVal < bVal {
+			return -1
+		}
+		if aVal > bVal {
+			return 1
+		}
+
+		*ai++
+		*bi++
+	}
+}
+
+// digitValue returns the numeric value of a Unicode digit rune (0-9).
+// For non-decimal digits, falls back to rune comparison.
+func digitValue(r rune) int {
+	// ASCII fast path
+	if '0' <= r && r <= '9' {
+		return int(r - '0')
+	}
+	// Unicode digit - use the digit value from Unicode
+	// Most digit characters are in blocks of 10, starting at 0
+	// This handles Arabic-Indic, Devanagari, etc.
+	return int(r % 10)
 }
 
 // objectsEqual compares two objects for equality
@@ -3067,6 +3322,10 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 
 	case "name":
 		// Alias for basename
+		return evalPathComputedProperty(dict, "basename", env)
+
+	case "filename":
+		// Alias for basename (more intuitive name)
 		return evalPathComputedProperty(dict, "basename", env)
 
 	case "suffix":
@@ -6688,6 +6947,9 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Assignments return NULL (excluded from block concatenation)
 		return NULL
 
+	case *ast.IndexAssignmentStatement:
+		return evalIndexAssignment(node, env)
+
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
 
@@ -7510,6 +7772,14 @@ func evalStringInfixExpression(tok lexer.Token, operator string, left, right Obj
 		return nativeBoolToParsBoolean(leftVal == rightVal)
 	case "!=":
 		return nativeBoolToParsBoolean(leftVal != rightVal)
+	case "<":
+		return nativeBoolToParsBoolean(NaturalCompare(leftVal, rightVal) < 0)
+	case ">":
+		return nativeBoolToParsBoolean(NaturalCompare(leftVal, rightVal) > 0)
+	case "<=":
+		return nativeBoolToParsBoolean(NaturalCompare(leftVal, rightVal) <= 0)
+	case ">=":
+		return nativeBoolToParsBoolean(NaturalCompare(leftVal, rightVal) >= 0)
 	default:
 		return newOperatorError("OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	}
@@ -10530,7 +10800,9 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	}
 
 	// Convert absolute path to Part URL
-	partURL := convertPathToPartURL(absPath, env.RootPath, env.HandlerPath)
+	// Use the handler file's directory to distinguish @./ from @~/ parts
+	handlerDir := filepath.Dir(env.Filename)
+	partURL := convertPathToPartURL(absPath, env.RootPath, env.HandlerPath, handlerDir)
 
 	// Mark that this page contains Parts (for JS injection)
 	env.ContainsParts = true
@@ -10576,33 +10848,47 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 // Example: If handler route is "/dashboard" and Part is "../shared/counter.part",
 //
 //	the URL becomes "/shared/counter.part"
-func convertPathToPartURL(absPath string, rootPath string, handlerPath string) string {
+func convertPathToPartURL(absPath string, rootPath string, handlerPath string, handlerDir string) string {
 	// handlerPath is the route path (e.g., "/", "/dashboard/settings")
-	// rootPath is the handler's file system directory
+	// rootPath is the project root (handler's file system root for @~/)
+	// handlerDir is the handler file's directory (for @./ resolution)
 	// absPath is the Part file's absolute file system path
 
-	// Calculate the Part file's path relative to the handler's directory
-	if rootPath != "" {
-		relPath, err := filepath.Rel(rootPath, absPath)
-		if err == nil {
-			// Convert to URL path with forward slashes
-			relURL := filepath.ToSlash(relPath)
+	if rootPath == "" {
+		return absPath
+	}
 
-			// Join with the handler's route directory
-			if handlerPath != "" {
-				handlerDir := filepath.Dir(handlerPath)
-				if handlerDir == "/" || handlerDir == "." {
-					return "/" + relURL
+	// Check if the Part is within the handler's directory tree (relative Part, e.g., @./)
+	// vs at the project root level (e.g., @~/)
+	if handlerDir != "" {
+		absHandlerDir, _ := filepath.Abs(handlerDir)
+		absPartDir := filepath.Dir(absPath)
+
+		// If Part is within the handler's directory tree, use handler's route as base
+		if strings.HasPrefix(absPartDir+string(filepath.Separator), absHandlerDir+string(filepath.Separator)) ||
+			absPartDir == absHandlerDir {
+			// Part is relative to handler - calculate path relative to handler directory
+			relToHandler, err := filepath.Rel(absHandlerDir, absPath)
+			if err == nil {
+				relURL := filepath.ToSlash(relToHandler)
+				if handlerPath != "" {
+					routeDir := filepath.Dir(handlerPath)
+					if routeDir == "/" || routeDir == "." {
+						return "/" + relURL
+					}
+					return routeDir + "/" + relURL
 				}
-				return handlerDir + "/" + relURL
+				return "/" + relURL
 			}
-
-			return "/" + relURL
 		}
 	}
 
-	// Final fallback: use absolute path
-	return absPath
+	// Part is at project root level (e.g., @~/parts/) - URL is just the relative path from root
+	relPath, err := filepath.Rel(rootPath, absPath)
+	if err != nil {
+		return absPath
+	}
+	return "/" + filepath.ToSlash(relPath)
 }
 
 // htmlEscape escapes special HTML characters for safe attribute values
@@ -10849,9 +11135,9 @@ func evalTagProps(propsStr string, env *Environment) Object {
 	for i < len(propsStr) {
 		// Look for ={expr} - prop expression syntax
 		if propsStr[i] == '=' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
-			result.WriteByte('=') // write the =
-			i++                   // skip =
-			i++                   // skip {
+			// Don't write = yet - we need to see if value is null/false first
+			i++ // skip =
+			i++ // skip {
 			braceCount := 1
 			exprStart := i
 
@@ -10917,19 +11203,51 @@ func evalTagProps(propsStr string, env *Environment) Object {
 				}
 			}
 
-			// Convert result to quoted string value
+			// Only write attribute if value is not null or false
+			// For null or false, we need to remove the attribute name that was already written
 			if evaluated != nil {
-				strVal := objectToTemplateString(evaluated)
-				result.WriteByte('"')
-				// Escape quotes in the value
-				for _, c := range strVal {
-					if c == '"' {
-						result.WriteString("\\\"")
-					} else {
-						result.WriteRune(c)
+				// Check if it's a Null object or Boolean false
+				shouldOmit := false
+				switch v := evaluated.(type) {
+				case *Null:
+					shouldOmit = true
+				case *Boolean:
+					if !v.Value {
+						shouldOmit = true
 					}
 				}
-				result.WriteByte('"')
+
+				if shouldOmit {
+					// Remove trailing attribute name from result
+					// Walk backwards to find the start of the attribute name
+					s := result.String()
+					j := len(s) - 1
+					// Skip trailing whitespace
+					for j >= 0 && (s[j] == ' ' || s[j] == '\n' || s[j] == '\t' || s[j] == '\r') {
+						j--
+					}
+					// Walk back to find start of attribute name (stop at space or start)
+					for j >= 0 && s[j] != ' ' && s[j] != '\n' && s[j] != '\t' && s[j] != '\r' {
+						j--
+					}
+					// Rebuild result without the attribute name
+					result.Reset()
+					result.WriteString(s[:j+1])
+				} else {
+					// Write the attribute value
+					strVal := objectToTemplateString(evaluated)
+					result.WriteByte('=')
+					result.WriteByte('"')
+					// Escape quotes in the value
+					for _, c := range strVal {
+						if c == '"' {
+							result.WriteString("\\\"")
+						} else {
+							result.WriteRune(c)
+						}
+					}
+					result.WriteByte('"')
+				}
 			}
 			continue
 		}
@@ -11094,6 +11412,13 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 	for i < len(propsStr) {
 		// Look for {expr}
 		if propsStr[i] == '{' {
+			// Check if this is new syntax attr={expr} or old syntax attr="{expr}"
+			// Walk back to see if we just wrote =" or just =
+			s := result.String()
+			hasQuoteBefore := len(s) > 0 && s[len(s)-1] == '"'
+			hasEqualsBefore := len(s) > 1 && s[len(s)-2] == '=' || (len(s) > 0 && s[len(s)-1] == '=' && !hasQuoteBefore)
+			isNewSyntax := hasEqualsBefore && !hasQuoteBefore
+
 			// Find the closing }
 			i++ // skip {
 			braceCount := 1
@@ -11162,9 +11487,47 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 				}
 			}
 
-			// Convert result to string (don't add quotes - they should be in the tag already)
+			// For new syntax (attr={expr}), omit null/false values
+			// For old syntax (attr="{expr}"), render even null/empty to maintain compatibility
 			if evaluated != nil {
-				result.WriteString(objectToTemplateString(evaluated))
+				if isNewSyntax {
+					// Check if we should omit this attribute
+					shouldOmit := false
+					switch v := evaluated.(type) {
+					case *Null:
+						shouldOmit = true
+					case *Boolean:
+						if !v.Value {
+							shouldOmit = true
+						}
+					}
+
+					if shouldOmit {
+						// Remove trailing "attrname=" from result
+						s := result.String()
+						j := len(s) - 1
+
+						// Walk back past the = sign
+						if j >= 0 && s[j] == '=' {
+							j--
+						}
+
+						// Walk back past the attribute name
+						for j >= 0 && s[j] != ' ' && s[j] != '\n' && s[j] != '\t' && s[j] != '\r' {
+							j--
+						}
+
+						// Rebuild result without the attribute
+						result.Reset()
+						result.WriteString(s[:j+1])
+					} else {
+						// Write the value
+						result.WriteString(objectToTemplateString(evaluated))
+					}
+				} else {
+					// Old syntax - always write
+					result.WriteString(objectToTemplateString(evaluated))
+				}
 			}
 		} else {
 			// Regular character
@@ -11199,6 +11562,13 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 			return &String{Value: ""} // No JS files in bundle
 		}
 		return &String{Value: fmt.Sprintf(`<script src="%s"></script>`, url)}
+	}
+	// Special handling for BasilJS prelude script tag
+	if tagName == "BasilJS" {
+		if env.BasilJSURL == "" {
+			return &String{Value: ""} // No basil.js URL available
+		}
+		return &String{Value: fmt.Sprintf(`<script src="%s"></script>`, env.BasilJSURL)}
 	}
 
 	// Look up the variable/function
@@ -12114,6 +12484,7 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 	// Evaluate all values eagerly and store them as ObjectLiteralExpressions
 	// This ensures values like method calls (t.count()) are evaluated at creation time
 	pairs := make(map[string]ast.Expression)
+	keyOrder := []string{}
 
 	// Use KeyOrder from AST if available, otherwise iterate map (for backward compat)
 	keys := node.KeyOrder
@@ -12131,11 +12502,45 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 		}
 		// Convert the evaluated value back to an expression for storage
 		pairs[key] = objectToExpression(value)
+		keyOrder = append(keyOrder, key)
+	}
+
+	// Evaluate computed key-value pairs
+	for _, cp := range node.ComputedPairs {
+		// Evaluate the key expression
+		keyObj := Eval(cp.Key, env)
+		if isError(keyObj) {
+			return keyObj
+		}
+
+		// Convert key to string
+		var keyStr string
+		switch k := keyObj.(type) {
+		case *String:
+			keyStr = k.Value
+		case *Integer:
+			keyStr = fmt.Sprintf("%d", k.Value)
+		case *Float:
+			keyStr = fmt.Sprintf("%g", k.Value)
+		case *Boolean:
+			keyStr = fmt.Sprintf("%t", k.Value)
+		default:
+			return &Error{Message: fmt.Sprintf("computed dictionary key must be a string, integer, float, or boolean, got %s", keyObj.Type())}
+		}
+
+		// Evaluate the value expression
+		value := Eval(cp.Value, env)
+		if isError(value) {
+			return value
+		}
+
+		pairs[keyStr] = objectToExpression(value)
+		keyOrder = append(keyOrder, keyStr)
 	}
 
 	dict := &Dictionary{
 		Pairs:    pairs,
-		KeyOrder: keys,
+		KeyOrder: keyOrder,
 		Env:      env,
 	}
 	return dict
@@ -13882,6 +14287,130 @@ func parseCSVValue(value string) Object {
 	}
 	// Keep as string
 	return &String{Value: value}
+}
+
+// evalIndexAssignment evaluates index/property assignment statements like dict["key"] = value or obj.prop = value
+func evalIndexAssignment(node *ast.IndexAssignmentStatement, env *Environment) Object {
+	// Evaluate the value to assign
+	value := Eval(node.Value, env)
+	if isError(value) {
+		return value
+	}
+
+	// Handle IndexExpression assignment: dict["key"] = value or arr[0] = value
+	if indexExpr, ok := node.Target.(*ast.IndexExpression); ok {
+		// Evaluate the object being indexed
+		left := Eval(indexExpr.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		// Evaluate the index
+		index := Eval(indexExpr.Index, env)
+		if isError(index) {
+			return index
+		}
+
+		switch obj := left.(type) {
+		case *Dictionary:
+			// Dictionary assignment: dict["key"] = value
+			key, ok := index.(*String)
+			if !ok {
+				return &Error{
+					Message: fmt.Sprintf("dictionary key must be a string, got %s", index.Type()),
+					Line:    indexExpr.Token.Line,
+					Column:  indexExpr.Token.Column,
+				}
+			}
+			// Convert Object to ast.Expression for storage
+			obj.Pairs[key.Value] = objectToExpression(value)
+			// Add to order if new key
+			found := false
+			for _, k := range obj.KeyOrder {
+				if k == key.Value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				obj.KeyOrder = append(obj.KeyOrder, key.Value)
+			}
+			return NULL
+
+		case *Array:
+			// Array assignment: arr[0] = value
+			idx, ok := index.(*Integer)
+			if !ok {
+				return &Error{
+					Message: fmt.Sprintf("array index must be an integer, got %s", index.Type()),
+					Line:    indexExpr.Token.Line,
+					Column:  indexExpr.Token.Column,
+				}
+			}
+			i := int(idx.Value)
+			// Handle negative indices
+			if i < 0 {
+				i = len(obj.Elements) + i
+			}
+			if i < 0 || i >= len(obj.Elements) {
+				return &Error{
+					Message: fmt.Sprintf("array index out of bounds: %d (length %d)", idx.Value, len(obj.Elements)),
+					Line:    indexExpr.Token.Line,
+					Column:  indexExpr.Token.Column,
+				}
+			}
+			obj.Elements[i] = value
+			return NULL
+
+		default:
+			return &Error{
+				Message: fmt.Sprintf("cannot assign to index of %s", left.Type()),
+				Line:    indexExpr.Token.Line,
+				Column:  indexExpr.Token.Column,
+			}
+		}
+	}
+
+	// Handle DotExpression assignment: obj.prop = value
+	if dotExpr, ok := node.Target.(*ast.DotExpression); ok {
+		// Evaluate the object
+		left := Eval(dotExpr.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		switch obj := left.(type) {
+		case *Dictionary:
+			// Dictionary property assignment: dict.key = value
+			// Convert Object to ast.Expression for storage
+			obj.Pairs[dotExpr.Key] = objectToExpression(value)
+			// Add to order if new key
+			found := false
+			for _, k := range obj.KeyOrder {
+				if k == dotExpr.Key {
+					found = true
+					break
+				}
+			}
+			if !found {
+				obj.KeyOrder = append(obj.KeyOrder, dotExpr.Key)
+			}
+			return NULL
+
+		default:
+			return &Error{
+				Message: fmt.Sprintf("cannot assign to property of %s", left.Type()),
+				Line:    dotExpr.Token.Line,
+				Column:  dotExpr.Token.Column,
+			}
+		}
+	}
+
+	return &Error{
+		Message: "invalid assignment target",
+		Line:    node.Token.Line,
+		Column:  node.Token.Column,
+	}
 }
 
 // evalWriteStatement evaluates the ==> and ==>> operators to write file content

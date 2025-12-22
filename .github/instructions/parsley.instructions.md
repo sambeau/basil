@@ -4,7 +4,7 @@ When writing Parsley code in Basil handlers, tests, or examples, consult this re
 
 ## Documentation
 - **Cheatsheet**: `docs/parsley/CHEATSHEET.md` - Quick syntax reference
-- **Full Reference**: `docs/parsley/reference.md` - Complete language docs
+- **Full Reference**: `docs/parsley/reference.md` - Complete language docs - THIS IS OLD DO NOT USE
 - **Design Philosophy**: `docs/parsley/design/Design Philosophy.md` - Core principles
 - **Examples**: `examples/parsley/` - Demo scripts
 
