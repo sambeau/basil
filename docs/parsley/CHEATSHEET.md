@@ -479,6 +479,25 @@ M.floor(3.7)
 
 ## 📚 Standard Library (@std)
 
+### Module Quick Reference
+
+```parsley
+// Standard library
+let {table} = import @std/table
+let {dev} = import @std/dev
+let {PI, sin, cos, floor} = import @std/math
+let {email, minLen, url} = import @std/valid
+let {string, object, validate} = import @std/schema
+let {uuid, nanoid, new} = import @std/id
+let {notFound, redirect} = import @std/api
+let {md} = import @std/markdown
+let {mdDoc} = import @std/mdDoc
+
+// Basil context (available in handlers)
+let {request, response, query, route, method} = import @basil/http
+let {db, session, auth, user} = import @basil/auth
+```
+
 ### Math Module (`@std/math`)
 ```parsley
 let {PI, E, TAU, floor, ceil, round, min, max, sum, avg,
@@ -1024,4 +1043,5 @@ if (error) {
 7. **Output is `log()`** not `print()` or `console.log()`
 8. **Strings in HTML need quotes** - `<p>"text"</p>` not `<p>text</p>`
 9. **Self-closing tags need />** - `<br/>` not `<br>`
+10. **Code between tags does not need `{}` - ``<p>text</p>`` not ``<p>{text}</p>``
 
