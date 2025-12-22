@@ -11135,9 +11135,9 @@ func evalTagProps(propsStr string, env *Environment) Object {
 	for i < len(propsStr) {
 		// Look for ={expr} - prop expression syntax
 		if propsStr[i] == '=' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
-			result.WriteByte('=') // write the =
-			i++                   // skip =
-			i++                   // skip {
+			// Don't write = yet - we need to see if value is null/false first
+			i++ // skip =
+			i++ // skip {
 			braceCount := 1
 			exprStart := i
 
@@ -11203,19 +11203,51 @@ func evalTagProps(propsStr string, env *Environment) Object {
 				}
 			}
 
-			// Convert result to quoted string value
+			// Only write attribute if value is not null or false
+			// For null or false, we need to remove the attribute name that was already written
 			if evaluated != nil {
-				strVal := objectToTemplateString(evaluated)
-				result.WriteByte('"')
-				// Escape quotes in the value
-				for _, c := range strVal {
-					if c == '"' {
-						result.WriteString("\\\"")
-					} else {
-						result.WriteRune(c)
+				// Check if it's a Null object or Boolean false
+				shouldOmit := false
+				switch v := evaluated.(type) {
+				case *Null:
+					shouldOmit = true
+				case *Boolean:
+					if !v.Value {
+						shouldOmit = true
 					}
 				}
-				result.WriteByte('"')
+
+				if shouldOmit {
+					// Remove trailing attribute name from result
+					// Walk backwards to find the start of the attribute name
+					s := result.String()
+					j := len(s) - 1
+					// Skip trailing whitespace
+					for j >= 0 && (s[j] == ' ' || s[j] == '\n' || s[j] == '\t' || s[j] == '\r') {
+						j--
+					}
+					// Walk back to find start of attribute name (stop at space or start)
+					for j >= 0 && s[j] != ' ' && s[j] != '\n' && s[j] != '\t' && s[j] != '\r' {
+						j--
+					}
+					// Rebuild result without the attribute name
+					result.Reset()
+					result.WriteString(s[:j+1])
+				} else {
+					// Write the attribute value
+					strVal := objectToTemplateString(evaluated)
+					result.WriteByte('=')
+					result.WriteByte('"')
+					// Escape quotes in the value
+					for _, c := range strVal {
+						if c == '"' {
+							result.WriteString("\\\"")
+						} else {
+							result.WriteRune(c)
+						}
+					}
+					result.WriteByte('"')
+				}
 			}
 			continue
 		}
@@ -11380,6 +11412,13 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 	for i < len(propsStr) {
 		// Look for {expr}
 		if propsStr[i] == '{' {
+			// Check if this is new syntax attr={expr} or old syntax attr="{expr}"
+			// Walk back to see if we just wrote =" or just =
+			s := result.String()
+			hasQuoteBefore := len(s) > 0 && s[len(s)-1] == '"'
+			hasEqualsBefore := len(s) > 1 && s[len(s)-2] == '=' || (len(s) > 0 && s[len(s)-1] == '=' && !hasQuoteBefore)
+			isNewSyntax := hasEqualsBefore && !hasQuoteBefore
+
 			// Find the closing }
 			i++ // skip {
 			braceCount := 1
@@ -11448,9 +11487,47 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 				}
 			}
 
-			// Convert result to string (don't add quotes - they should be in the tag already)
+			// For new syntax (attr={expr}), omit null/false values
+			// For old syntax (attr="{expr}"), render even null/empty to maintain compatibility
 			if evaluated != nil {
-				result.WriteString(objectToTemplateString(evaluated))
+				if isNewSyntax {
+					// Check if we should omit this attribute
+					shouldOmit := false
+					switch v := evaluated.(type) {
+					case *Null:
+						shouldOmit = true
+					case *Boolean:
+						if !v.Value {
+							shouldOmit = true
+						}
+					}
+
+					if shouldOmit {
+						// Remove trailing "attrname=" from result
+						s := result.String()
+						j := len(s) - 1
+
+						// Walk back past the = sign
+						if j >= 0 && s[j] == '=' {
+							j--
+						}
+
+						// Walk back past the attribute name
+						for j >= 0 && s[j] != ' ' && s[j] != '\n' && s[j] != '\t' && s[j] != '\r' {
+							j--
+						}
+
+						// Rebuild result without the attribute
+						result.Reset()
+						result.WriteString(s[:j+1])
+					} else {
+						// Write the value
+						result.WriteString(objectToTemplateString(evaluated))
+					}
+				} else {
+					// Old syntax - always write
+					result.WriteString(objectToTemplateString(evaluated))
+				}
 			}
 		} else {
 			// Regular character
