@@ -210,6 +210,18 @@ func (i *Identifier) expressionNode()      {}
 func (i *Identifier) TokenLiteral() string { return i.Token.Literal }
 func (i *Identifier) String() string       { return i.Value }
 
+// SpreadExpr represents spread expressions like ...attrs used in tag attributes
+type SpreadExpr struct {
+	Token      lexer.Token // the lexer.DOTDOTDOT token
+	Expression Expression  // the identifier or expression to spread
+}
+
+func (se *SpreadExpr) expressionNode()      {}
+func (se *SpreadExpr) TokenLiteral() string { return se.Token.Literal }
+func (se *SpreadExpr) String() string {
+	return "..." + se.Expression.String()
+}
+
 // IntegerLiteral represents integer literals
 type IntegerLiteral struct {
 	Token lexer.Token // the lexer.INT token
@@ -396,8 +408,9 @@ func (dt *DatetimeTemplateLiteral) String() string       { return "@(" + dt.Valu
 
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
-	Token lexer.Token // the lexer.TAG token
-	Raw   string      // the raw tag content (everything between < and />)
+	Token   lexer.Token    // the lexer.TAG token
+	Raw     string         // the raw tag content (everything between < and />)
+	Spreads []*SpreadExpr  // spread expressions like ...attrs
 }
 
 func (tg *TagLiteral) expressionNode()      {}
@@ -406,10 +419,11 @@ func (tg *TagLiteral) String() string       { return "<" + tg.Raw + " />" }
 
 // TagPairExpression represents paired tags like <div>content</div>
 type TagPairExpression struct {
-	Token    lexer.Token // the lexer.TAG_START token
-	Name     string      // tag name (empty string for grouping tags <>)
-	Props    string      // raw props content
-	Contents []Node      // mixed content: text nodes, expressions, nested tags
+	Token    lexer.Token    // the lexer.TAG_START token
+	Name     string         // tag name (empty string for grouping tags <>)
+	Props    string         // raw props content
+	Spreads  []*SpreadExpr  // spread expressions like ...attrs
+	Contents []Node         // mixed content: text nodes, expressions, nested tags
 }
 
 func (tp *TagPairExpression) expressionNode()      {}

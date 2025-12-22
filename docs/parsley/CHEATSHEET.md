@@ -1017,6 +1017,34 @@ let users <== JSON(@./users.json)
 </Page>
 ```
 
+### Dictionary Spreading in HTML Tags
+```parsley
+// Spread dictionaries into HTML attributes using ...identifier
+let attrs = {placeholder: "Name", maxlength: 50, disabled: true}
+<input type="text" ...attrs/>
+// → <input type="text" placeholder="Name" maxlength="50" disabled/>
+
+// Boolean handling: true → attr, false/null → omitted
+let flags = {required: true, disabled: false, readonly: null}
+<input ...flags/>
+// → <input required/>  (disabled and readonly omitted)
+
+// Multiple spreads: last value wins
+let base = {class: "input", type: "text"}
+let override = {class: "input-lg"}
+<input ...base ...override/>
+// → <input type="text" class="input-lg"/>
+
+// Works with rest destructuring for clean component APIs
+let TextField = fn(props) {
+    let {name, label, ...inputAttrs} = props
+    <input name={name} ...inputAttrs/>
+}
+
+<TextField name="email" placeholder="Email" required={true}/>
+// → <input name="email" placeholder="Email" required/>
+```
+
 ### API Integration
 ```parsley
 let {data, error} <=/= JSON(@https://jsonplaceholder.typicode.com/posts)

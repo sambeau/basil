@@ -1076,7 +1076,12 @@ func (p *Parser) parseDatetimeTemplateLiteral() ast.Expression {
 }
 
 func (p *Parser) parseTagLiteral() ast.Expression {
-	return &ast.TagLiteral{Token: p.curToken, Raw: p.curToken.Literal}
+	tag := &ast.TagLiteral{
+		Token:   p.curToken,
+		Raw:     p.curToken.Literal,
+		Spreads: extractSpreadExpressions(p.curToken.Literal),
+	}
+	return tag
 }
 
 func (p *Parser) parseTagPair() ast.Expression {
@@ -1093,6 +1098,9 @@ func (p *Parser) parseTagPair() ast.Expression {
 	// Format: "tagname attr1="value" attr2={expr}" or empty string for <>
 	raw := p.curToken.Literal
 	tagExpr.Name, tagExpr.Props = parseTagNameAndProps(raw)
+	
+	// Extract spread expressions from props
+	tagExpr.Spreads = extractSpreadExpressions(tagExpr.Props)
 
 	// Parse tag contents
 	p.nextToken()
@@ -1251,6 +1259,91 @@ func parseTagNameAndProps(raw string) (string, string) {
 
 	// No spaces, all tag name
 	return raw, ""
+}
+
+// extractSpreadExpressions parses a raw props string to find spread expressions like "...attrs"
+// Returns a slice of SpreadExpr nodes
+func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
+	spreads := []*ast.SpreadExpr{}
+	
+	// Simple state machine to scan for spreads
+	i := 0
+	for i < len(raw) {
+		// Skip whitespace
+		for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n' || raw[i] == '\r') {
+			i++
+		}
+		
+		if i >= len(raw) {
+			break
+		}
+		
+		// Check for spread operator "..."
+		if i+3 <= len(raw) && raw[i:i+3] == "..." {
+			i += 3
+			
+			// Skip whitespace after ...
+			for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n' || raw[i] == '\r') {
+				i++
+			}
+			
+			// Extract identifier
+			start := i
+			for i < len(raw) && isIdentChar(raw[i]) {
+				i++
+			}
+			
+			if i > start {
+				identName := raw[start:i]
+				spreads = append(spreads, &ast.SpreadExpr{
+					Token: lexer.Token{Type: lexer.DOTDOTDOT, Literal: "..."},
+					Expression: &ast.Identifier{
+						Token: lexer.Token{Type: lexer.IDENT, Literal: identName},
+						Value: identName,
+					},
+				})
+			}
+		} else {
+			// Skip to next whitespace or potential spread
+			for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r' {
+				// Also check for quotes - need to skip content inside quotes
+				if raw[i] == '"' {
+					i++
+					for i < len(raw) && raw[i] != '"' {
+						if raw[i] == '\\' && i+1 < len(raw) {
+							i += 2 // skip escaped character
+						} else {
+							i++
+						}
+					}
+					if i < len(raw) {
+						i++ // skip closing quote
+					}
+				} else if raw[i] == '{' {
+					// Skip interpolation expressions
+					depth := 1
+					i++
+					for i < len(raw) && depth > 0 {
+						if raw[i] == '{' {
+							depth++
+						} else if raw[i] == '}' {
+							depth--
+						}
+						i++
+					}
+				} else {
+					i++
+				}
+			}
+		}
+	}
+	
+	return spreads
+}
+
+// isIdentChar returns true if the character can be part of an identifier
+func isIdentChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
 }
 
 // isVoidElement returns true if the tag is a void/singleton element that must be self-closing

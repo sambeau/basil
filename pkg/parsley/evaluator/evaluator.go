@@ -10395,7 +10395,7 @@ func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
 		return evalCustomTag(node.Token, tagName, rest, env)
 	} else {
 		// Standard tag - return as interpolated string
-		return evalStandardTag(tagName, rest, env)
+		return evalStandardTag(node, tagName, rest, env)
 	}
 }
 
@@ -10971,6 +10971,92 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		result.WriteString(propsResult.(*String).Value)
 	}
 
+	// Process spread expressions - merge all into a single map to handle overrides
+	spreadAttrs := make(map[string]any)
+	spreadOrder := []string{}
+	
+	for _, spread := range node.Spreads {
+		// Evaluate the spread expression
+		spreadObj := Eval(spread.Expression, env)
+		if isError(spreadObj) {
+			return spreadObj
+		}
+
+		// Verify it's a dictionary
+		dict, ok := spreadObj.(*Dictionary)
+		if !ok {
+			perr := perrors.New("EVAL-0032", map[string]any{
+				"Type": spreadObj.Type(),
+			})
+			return &Error{
+				Class:   ErrorClass(perr.Class),
+				Code:    perr.Code,
+				Message: perr.Message,
+				Hints:   perr.Hints,
+				Data:    perr.Data,
+			}
+		}
+
+		// Merge dictionary entries (later spreads override earlier ones)
+		for key, expr := range dict.Pairs {
+			// Track order of first appearance
+			if _, exists := spreadAttrs[key]; !exists {
+				spreadOrder = append(spreadOrder, key)
+			}
+			
+			// Evaluate the expression
+			value := Eval(expr, env)
+			if isError(value) {
+				return value
+			}
+			
+			// Store value (will override if key already exists)
+			spreadAttrs[key] = value
+		}
+	}
+	
+	// Write spread attributes in order
+	for _, key := range spreadOrder {
+		value := spreadAttrs[key]
+		
+		// Skip null and false values
+		switch v := value.(type) {
+		case *Null:
+			continue
+		case *Boolean:
+			if !v.Value {
+				continue
+			}
+			// Boolean true: render as boolean attribute
+			result.WriteByte(' ')
+			result.WriteString(key)
+			continue
+		}
+
+		// Render as regular attribute with value
+		result.WriteByte(' ')
+		result.WriteString(key)
+		result.WriteString("=\"")
+
+		// Get string value and escape
+		strVal := objectToTemplateString(value.(Object))
+		for _, c := range strVal {
+			if c == '"' {
+				result.WriteString("&quot;")
+			} else if c == '&' {
+				result.WriteString("&amp;")
+			} else if c == '<' {
+				result.WriteString("&lt;")
+			} else if c == '>' {
+				result.WriteString("&gt;")
+			} else {
+				result.WriteRune(c)
+			}
+		}
+
+		result.WriteByte('"')
+	}
+
 	result.WriteByte('>')
 
 	// Evaluate and append contents
@@ -11133,6 +11219,21 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 	i := 0
 	for i < len(propsStr) {
+		// Skip spread syntax ...identifier
+		if i+3 <= len(propsStr) && propsStr[i:i+3] == "..." {
+			// Skip the ...
+			i += 3
+			// Skip whitespace
+			for i < len(propsStr) && (propsStr[i] == ' ' || propsStr[i] == '\t' || propsStr[i] == '\n' || propsStr[i] == '\r') {
+				i++
+			}
+			// Skip identifier
+			for i < len(propsStr) && ((propsStr[i] >= 'a' && propsStr[i] <= 'z') || (propsStr[i] >= 'A' && propsStr[i] <= 'Z') || (propsStr[i] >= '0' && propsStr[i] <= '9') || propsStr[i] == '_') {
+				i++
+			}
+			continue
+		}
+		
 		// Look for ={expr} - prop expression syntax
 		if propsStr[i] == '=' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
 			// Don't write = yet - we need to see if value is null/false first
@@ -11402,7 +11503,7 @@ func createLiteralExpression(obj Object) ast.Expression {
 }
 
 // evalStandardTag evaluates a standard (lowercase) tag as an interpolated string
-func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
+func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env *Environment) Object {
 	var result strings.Builder
 	result.WriteByte('<')
 	result.WriteString(tagName)
@@ -11410,6 +11511,21 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 	// Process props with interpolation
 	i := 0
 	for i < len(propsStr) {
+		// Skip spread syntax ...identifier
+		if i+3 <= len(propsStr) && propsStr[i:i+3] == "..." {
+			// Skip the ...
+			i += 3
+			// Skip whitespace
+			for i < len(propsStr) && (propsStr[i] == ' ' || propsStr[i] == '\t' || propsStr[i] == '\n' || propsStr[i] == '\r') {
+				i++
+			}
+			// Skip identifier
+			for i < len(propsStr) && ((propsStr[i] >= 'a' && propsStr[i] <= 'z') || (propsStr[i] >= 'A' && propsStr[i] <= 'Z') || (propsStr[i] >= '0' && propsStr[i] <= '9') || propsStr[i] == '_') {
+				i++
+			}
+			continue
+		}
+		
 		// Look for {expr}
 		if propsStr[i] == '{' {
 			// Check if this is new syntax attr={expr} or old syntax attr="{expr}"
@@ -11534,6 +11650,92 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 			result.WriteByte(propsStr[i])
 			i++
 		}
+	}
+
+	// Process spread expressions - merge all into a single map to handle overrides
+	spreadAttrs := make(map[string]any)
+	spreadOrder := []string{}
+	
+	for _, spread := range node.Spreads {
+		// Evaluate the spread expression
+		spreadObj := Eval(spread.Expression, env)
+		if isError(spreadObj) {
+			return spreadObj
+		}
+
+		// Verify it's a dictionary
+		dict, ok := spreadObj.(*Dictionary)
+		if !ok {
+			perr := perrors.New("EVAL-0032", map[string]any{
+				"Type": spreadObj.Type(),
+			})
+			return &Error{
+				Class:   ErrorClass(perr.Class),
+				Code:    perr.Code,
+				Message: perr.Message,
+				Hints:   perr.Hints,
+				Data:    perr.Data,
+			}
+		}
+
+		// Merge dictionary entries (later spreads override earlier ones)
+		for key, expr := range dict.Pairs {
+			// Track order of first appearance
+			if _, exists := spreadAttrs[key]; !exists {
+				spreadOrder = append(spreadOrder, key)
+			}
+			
+			// Evaluate the expression
+			value := Eval(expr, env)
+			if isError(value) {
+				return value
+			}
+			
+			// Store value (will override if key already exists)
+			spreadAttrs[key] = value
+		}
+	}
+	
+	// Write spread attributes in order
+	for _, key := range spreadOrder {
+		value := spreadAttrs[key]
+		
+		// Skip null and false values
+		switch v := value.(type) {
+		case *Null:
+			continue
+		case *Boolean:
+			if !v.Value {
+				continue
+			}
+			// Boolean true: render as boolean attribute
+			result.WriteByte(' ')
+			result.WriteString(key)
+			continue
+		}
+
+		// Render as regular attribute with value
+		result.WriteByte(' ')
+		result.WriteString(key)
+		result.WriteString("=\"")
+
+		// Get string value and escape
+		strVal := objectToTemplateString(value.(Object))
+		for _, c := range strVal {
+			if c == '"' {
+				result.WriteString("&quot;")
+			} else if c == '&' {
+				result.WriteString("&amp;")
+			} else if c == '<' {
+				result.WriteString("&lt;")
+			} else if c == '>' {
+				result.WriteString("&gt;")
+			} else {
+				result.WriteRune(c)
+			}
+		}
+
+		result.WriteByte('"')
 	}
 
 	result.WriteString(" />")
@@ -11949,6 +12151,81 @@ func objectToTemplateString(obj Object) string {
 	default:
 		return obj.Inspect()
 	}
+}
+
+// evalDictionarySpread evaluates a dictionary and writes its key-value pairs
+// as HTML attributes to the builder. It handles null/false omission and boolean attributes.
+func evalDictionarySpread(dict *Dictionary, builder *strings.Builder, env *Environment) error {
+	if dict == nil {
+		return nil
+	}
+
+	// Collect and sort keys for deterministic output
+	keys := make([]string, 0, len(dict.Pairs))
+	for key := range dict.Pairs {
+		keys = append(keys, key)
+	}
+	
+	// Sort keys alphabetically
+	sortKeys := func(keys []string) {
+		for i := 0; i < len(keys); i++ {
+			for j := i + 1; j < len(keys); j++ {
+				if keys[i] > keys[j] {
+					keys[i], keys[j] = keys[j], keys[i]
+				}
+			}
+		}
+	}
+	sortKeys(keys)
+
+	for _, key := range keys {
+		expr := dict.Pairs[key]
+		
+		// Evaluate the expression
+		value := Eval(expr, env)
+		if isError(value) {
+			return fmt.Errorf("error evaluating attribute %s: %s", key, value.Inspect())
+		}
+
+		// Skip null and false values
+		switch v := value.(type) {
+		case *Null:
+			continue
+		case *Boolean:
+			if !v.Value {
+				continue
+			}
+			// Boolean true: render as boolean attribute
+			builder.WriteByte(' ')
+			builder.WriteString(key)
+			continue
+		}
+
+		// Render as regular attribute with value
+		builder.WriteByte(' ')
+		builder.WriteString(key)
+		builder.WriteString("=\"")
+
+		// Get string value and escape quotes
+		strVal := objectToTemplateString(value)
+		for _, c := range strVal {
+			if c == '"' {
+				builder.WriteString("&quot;")
+			} else if c == '&' {
+				builder.WriteString("&amp;")
+			} else if c == '<' {
+				builder.WriteString("&lt;")
+			} else if c == '>' {
+				builder.WriteString("&gt;")
+			} else {
+				builder.WriteRune(c)
+			}
+		}
+
+		builder.WriteByte('"')
+	}
+
+	return nil
 }
 
 // objectToUserString converts an object to its user-facing string representation
