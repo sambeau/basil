@@ -1,7 +1,10 @@
 // RadioGroup - Group of radio buttons with fieldset/legend
 // Usage: <RadioGroup name="size" label="Select size" options={[{value: "s", label: "Small"}, ...]} value={form.size}/>
 
-export RadioGroup = fn({name, label, value, options, valueKey, labelKey, hint, error, required, id, class, disabled}) {
+export RadioGroup = fn(props) {
+    // Extract component-specific props, spread the rest to fieldset
+    let {name, label, value, options, valueKey, labelKey, hint, error, required, id, class, disabled, ...fieldsetAttrs} = props
+    
     // Generate IDs for accessibility
     let fieldId = id ?? "field-" ++ name
     let hintId = if (hint) { fieldId ++ "-hint" } else { null }
@@ -22,6 +25,7 @@ export RadioGroup = fn({name, label, value, options, valueKey, labelKey, hint, e
         id={fieldId}
         aria-describedby={describedBy}
         aria-invalid={if (error) { "true" } else { null }}
+        ...fieldsetAttrs
     >
         <legend>
             label

@@ -2,7 +2,10 @@
 // Usage: <A href="/about">"About"</A>
 // Usage: <A href="https://external.com" external={true}>"External Site"</A>
 
-export A = fn({href, id, class, target, rel, external, download, hreflang, type, referrerpolicy, contents}) {
+export A = fn(props) {
+    // Extract component-specific props, spread the rest to the anchor
+    let {href, target, rel, external, contents, ...anchorAttrs} = props
+    
     // Auto-add rel="noopener noreferrer" for external links or target="_blank"
     let isExternal = external || target == "_blank"
     let computedRel = if (isExternal && !rel) { 
@@ -14,14 +17,9 @@ export A = fn({href, id, class, target, rel, external, download, hreflang, type,
     
     <a 
         href={href}
-        id={id}
-        class={class}
         target={computedTarget}
         rel={computedRel}
-        download={download}
-        hreflang={hreflang}
-        type={type}
-        referrerpolicy={referrerpolicy}
+        ...anchorAttrs
     >
         (contents)
     </a>

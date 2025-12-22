@@ -1,7 +1,10 @@
 // TextField - Text input with label, hint, error, and accessibility
 // Usage: <TextField name="email" label="Email" type="email" required={true}/>
 
-export TextField = fn({name, label, type, value, hint, error, required, id, class, placeholder, autocomplete, disabled, readonly, minlength, maxlength, pattern}) {
+export TextField = fn(props) {
+    // Extract component-specific props, spread the rest to the input
+    let {name, label, hint, error, required, id, class, ...inputAttrs} = props
+    
     // Generate IDs for accessibility
     let fieldId = id ?? "field-" ++ name
     let inputId = fieldId ++ "-input"
@@ -22,21 +25,15 @@ export TextField = fn({name, label, type, value, hint, error, required, id, clas
             }
         </label>
         <input 
-            type={type ?? "text"}
+            type={props.type ?? "text"}
             id={inputId}
             name={name}
-            value={value ?? ""}
-            placeholder={if (placeholder) placeholder else null}
-            autocomplete={if (autocomplete) autocomplete else null}
-            disabled={if (disabled) "disabled" else null}
-            readonly={if (readonly) "readonly" else null}
-            minlength={if (minlength) minlength else null}
-            maxlength={if (maxlength) maxlength else null}
-            pattern={if (pattern) pattern else null}
+            value={props.value ?? ""}
             required={if (required) "required" else null}
             aria-required={if (required) "true" else null}
             aria-describedby={describedBy}
             aria-invalid={if (error) "true" else null}
+            ...inputAttrs
         />
         if (hint) {
             <p id={hintId} class="field-hint">hint</p>

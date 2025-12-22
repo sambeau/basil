@@ -3,17 +3,15 @@
 
 let {request} = import @basil/http
 
-export Form = fn({action, method, id, class, confirm, enctype, target, novalidate, autocomplete, contents}) {
+export Form = fn(props) {
+    // Extract component-specific props, spread the rest to the form
+    let {method, class, confirm, contents, ...formAttrs} = props
+    
     <form 
-        action={action}
         method={method ?? "POST"}
-        id={if (id) id else null}
         class={"form" ++ if (class) { " " ++ class } else { "" }}
-        enctype={if (enctype) enctype else null}
-        target={if (target) target else null}
-        novalidate={if (novalidate) "novalidate" else null}
-        autocomplete={if (autocomplete) autocomplete else null}
-        data-confirm={if (confirm) confirm else null}
+        data-confirm={confirm}
+        ...formAttrs
     >
         // CSRF token injected automatically by Basil via server-side middleware
         // The request.csrf variable is available in Basil handlers
