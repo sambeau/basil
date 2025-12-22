@@ -3,7 +3,7 @@
 
 export TextField = fn(props) {
     // Extract component-specific props, spread the rest to the input
-    let {name, label, hint, error, required, id, class, ...inputAttrs} = props
+    let {name, label, type, value, hint, error, required, id, class, ...inputAttrs} = props
     
     // Generate IDs for accessibility
     let fieldId = id ?? "field-" ++ name
@@ -25,10 +25,10 @@ export TextField = fn(props) {
             }
         </label>
         <input 
-            type={props.type ?? "text"}
+            type={type ?? "text"}
             id={inputId}
             name={name}
-            value={props.value ?? ""}
+            value={value ?? ""}
             required={if (required) "required" else null}
             aria-required={if (required) "true" else null}
             aria-describedby={describedBy}
