@@ -2400,14 +2400,14 @@ func (l *Lexer) readPathLiteral() string {
 		//   @file.txt            → file with extension
 		if l.ch == '.' && len(path) > 0 {
 			nextCh := l.peekChar()
-			
+
 			// If next char is / or ., this is part of the path (../ or ./)
 			if nextCh == '/' || nextCh == '.' {
 				path = append(path, l.ch)
 				l.readChar()
 				continue
 			}
-			
+
 			// If previous char is '/' and next is a letter, could be:
 			// - A dotfile: /. followed by filename → allow
 			// - Property access after path → stop
@@ -2419,7 +2419,7 @@ func (l *Lexer) readPathLiteral() string {
 				l.readChar()
 				continue
 			}
-			
+
 			// If next char is not /, ., or a path char, and IS a letter,
 			// this might be property access
 			if !isPathChar(nextCh) && isLetter(nextCh) {

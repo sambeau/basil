@@ -32,6 +32,7 @@ func getStdlibModules() map[string]func(*Environment) Object {
 		"api":      loadAPIModule,
 		"markdown": loadMarkdownModule,
 		"mdDoc":    loadMdDocModule,
+		"html":     loadHTMLModule,
 	}
 }
 
