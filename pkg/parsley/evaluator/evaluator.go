@@ -10974,7 +10974,7 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Process spread expressions - merge all into a single map to handle overrides
 	spreadAttrs := make(map[string]any)
 	spreadOrder := []string{}
-	
+
 	for _, spread := range node.Spreads {
 		// Evaluate the spread expression
 		spreadObj := Eval(spread.Expression, env)
@@ -11003,22 +11003,22 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 			if _, exists := spreadAttrs[key]; !exists {
 				spreadOrder = append(spreadOrder, key)
 			}
-			
-			// Evaluate the expression
-			value := Eval(expr, env)
+
+			// Evaluate the expression in the dictionary's environment
+			value := Eval(expr, dict.Env)
 			if isError(value) {
 				return value
 			}
-			
+
 			// Store value (will override if key already exists)
 			spreadAttrs[key] = value
 		}
 	}
-	
+
 	// Write spread attributes in order
 	for _, key := range spreadOrder {
 		value := spreadAttrs[key]
-		
+
 		// Skip null and false values
 		switch v := value.(type) {
 		case *Null:
@@ -11233,7 +11233,7 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			}
 			continue
 		}
-		
+
 		// Look for ={expr} - prop expression syntax
 		if propsStr[i] == '=' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
 			// Don't write = yet - we need to see if value is null/false first
@@ -11525,7 +11525,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			}
 			continue
 		}
-		
+
 		// Look for {expr}
 		if propsStr[i] == '{' {
 			// Check if this is new syntax attr={expr} or old syntax attr="{expr}"
@@ -11655,7 +11655,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 	// Process spread expressions - merge all into a single map to handle overrides
 	spreadAttrs := make(map[string]any)
 	spreadOrder := []string{}
-	
+
 	for _, spread := range node.Spreads {
 		// Evaluate the spread expression
 		spreadObj := Eval(spread.Expression, env)
@@ -11684,22 +11684,22 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			if _, exists := spreadAttrs[key]; !exists {
 				spreadOrder = append(spreadOrder, key)
 			}
-			
-			// Evaluate the expression
-			value := Eval(expr, env)
+
+			// Evaluate the expression in the dictionary's environment
+			value := Eval(expr, dict.Env)
 			if isError(value) {
 				return value
 			}
-			
+
 			// Store value (will override if key already exists)
 			spreadAttrs[key] = value
 		}
 	}
-	
+
 	// Write spread attributes in order
 	for _, key := range spreadOrder {
 		value := spreadAttrs[key]
-		
+
 		// Skip null and false values
 		switch v := value.(type) {
 		case *Null:
@@ -12165,7 +12165,7 @@ func evalDictionarySpread(dict *Dictionary, builder *strings.Builder, env *Envir
 	for key := range dict.Pairs {
 		keys = append(keys, key)
 	}
-	
+
 	// Sort keys alphabetically
 	sortKeys := func(keys []string) {
 		for i := 0; i < len(keys); i++ {
@@ -12180,7 +12180,7 @@ func evalDictionarySpread(dict *Dictionary, builder *strings.Builder, env *Envir
 
 	for _, key := range keys {
 		expr := dict.Pairs[key]
-		
+
 		// Evaluate the expression
 		value := Eval(expr, env)
 		if isError(value) {

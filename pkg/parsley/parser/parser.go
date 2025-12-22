@@ -1098,7 +1098,7 @@ func (p *Parser) parseTagPair() ast.Expression {
 	// Format: "tagname attr1="value" attr2={expr}" or empty string for <>
 	raw := p.curToken.Literal
 	tagExpr.Name, tagExpr.Props = parseTagNameAndProps(raw)
-	
+
 	// Extract spread expressions from props
 	tagExpr.Spreads = extractSpreadExpressions(tagExpr.Props)
 
@@ -1265,7 +1265,7 @@ func parseTagNameAndProps(raw string) (string, string) {
 // Returns a slice of SpreadExpr nodes
 func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 	spreads := []*ast.SpreadExpr{}
-	
+
 	// Simple state machine to scan for spreads
 	i := 0
 	for i < len(raw) {
@@ -1273,26 +1273,26 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 		for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n' || raw[i] == '\r') {
 			i++
 		}
-		
+
 		if i >= len(raw) {
 			break
 		}
-		
+
 		// Check for spread operator "..."
 		if i+3 <= len(raw) && raw[i:i+3] == "..." {
 			i += 3
-			
+
 			// Skip whitespace after ...
 			for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n' || raw[i] == '\r') {
 				i++
 			}
-			
+
 			// Extract identifier
 			start := i
 			for i < len(raw) && isIdentChar(raw[i]) {
 				i++
 			}
-			
+
 			if i > start {
 				identName := raw[start:i]
 				spreads = append(spreads, &ast.SpreadExpr{
@@ -1337,7 +1337,7 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 			}
 		}
 	}
-	
+
 	return spreads
 }
 

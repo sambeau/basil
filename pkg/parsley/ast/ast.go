@@ -408,9 +408,9 @@ func (dt *DatetimeTemplateLiteral) String() string       { return "@(" + dt.Valu
 
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
-	Token   lexer.Token    // the lexer.TAG token
-	Raw     string         // the raw tag content (everything between < and />)
-	Spreads []*SpreadExpr  // spread expressions like ...attrs
+	Token   lexer.Token   // the lexer.TAG token
+	Raw     string        // the raw tag content (everything between < and />)
+	Spreads []*SpreadExpr // spread expressions like ...attrs
 }
 
 func (tg *TagLiteral) expressionNode()      {}
@@ -419,11 +419,11 @@ func (tg *TagLiteral) String() string       { return "<" + tg.Raw + " />" }
 
 // TagPairExpression represents paired tags like <div>content</div>
 type TagPairExpression struct {
-	Token    lexer.Token    // the lexer.TAG_START token
-	Name     string         // tag name (empty string for grouping tags <>)
-	Props    string         // raw props content
-	Spreads  []*SpreadExpr  // spread expressions like ...attrs
-	Contents []Node         // mixed content: text nodes, expressions, nested tags
+	Token    lexer.Token   // the lexer.TAG_START token
+	Name     string        // tag name (empty string for grouping tags <>)
+	Props    string        // raw props content
+	Spreads  []*SpreadExpr // spread expressions like ...attrs
+	Contents []Node        // mixed content: text nodes, expressions, nested tags
 }
 
 func (tp *TagPairExpression) expressionNode()      {}
