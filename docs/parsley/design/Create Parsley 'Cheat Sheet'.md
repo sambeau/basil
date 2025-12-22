@@ -121,3 +121,10 @@ When developing and testing Basil needs to run in ``dev`` mode to turn HTTPS and
 ```
  ./basil -dev --config path/to/basil.yaml
  ```
+
+ ## Working Code
+
+ Please read and use the code in the link ``setup`` (/Users/samphillips/Dev/setup) which has some examples of working code using current basil grammar.
+
+ see ``setup/site/``, ``setup/components/``, ``setup/parts/`` in particular.
+
