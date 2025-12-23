@@ -31,7 +31,7 @@ export Page = fn({lang, title, description, class, id, head, noBasilJS, contents
             (head)
         }
     </head>
-    <body class={class} id={id}>
+    <body class={class} id={id??"main"}>
         <SkipLink/>
         (contents)
         <Javascript/>
