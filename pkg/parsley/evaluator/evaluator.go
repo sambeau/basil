@@ -11918,6 +11918,67 @@ func parseTagProps(propsStr string, env *Environment) Object {
 			break
 		}
 
+		// Check for spread operator at prop level: ...expr
+		if i+3 <= len(propsStr) && propsStr[i] == '.' && propsStr[i+1] == '.' && propsStr[i+2] == '.' {
+			i += 3 // skip ...
+			
+			// Read the expression (identifier or complex expression)
+			exprStart := i
+			for i < len(propsStr) && !unicode.IsSpace(rune(propsStr[i])) {
+				i++
+			}
+			
+			exprStr := propsStr[exprStart:i]
+			
+			// Parse and evaluate the spread expression
+			l := lexer.NewWithFilename(exprStr, env.Filename)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				perr := errs[0]
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    perr.Line,
+					Column:  perr.Column,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
+			}
+
+			if len(program.Statements) > 0 {
+				if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
+					// Evaluate the spread expression
+					spreadObj := Eval(exprStmt.Expression, env)
+					if isError(spreadObj) {
+						return spreadObj
+					}
+
+					// If it's a dictionary, merge its properties
+					if spreadDict, ok := spreadObj.(*Dictionary); ok {
+						// Evaluate each property in the spread dict's environment
+						// and wrap it as a literal expression for the new dictionary
+						for key, expr := range spreadDict.Pairs {
+							// Evaluate in the spread dict's environment to get the actual value
+							value := Eval(expr, spreadDict.Env)
+							if isError(value) {
+								return value
+							}
+							// Wrap the evaluated value as a literal expression
+							pairs[key] = objectToExpression(value)
+						}
+					} else {
+						perr := perrors.New("SPREAD-0001", map[string]any{"Got": string(spreadObj.Type())})
+						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+					}
+				}
+			}
+			continue
+		}
+
 		// Read prop name
 		nameStart := i
 		for i < len(propsStr) && !unicode.IsSpace(rune(propsStr[i])) && propsStr[i] != '=' {
@@ -12028,8 +12089,16 @@ func parseTagProps(propsStr string, env *Environment) Object {
 
 						// If it's a dictionary, merge its properties
 						if spreadDict, ok := spreadObj.(*Dictionary); ok {
-							for key, value := range spreadDict.Pairs {
-								pairs[key] = value
+							// Evaluate each property in the spread dict's environment
+							// and wrap it as a literal expression for the new dictionary
+							for key, expr := range spreadDict.Pairs {
+								// Evaluate in the spread dict's environment to get the actual value
+								value := Eval(expr, spreadDict.Env)
+								if isError(value) {
+									return value
+								}
+								// Wrap the evaluated value as a literal expression
+								pairs[key] = objectToExpression(value)
 							}
 						} else {
 							perr := perrors.New("SPREAD-0001", map[string]any{"Got": string(spreadObj.Type())})

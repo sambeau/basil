@@ -40,6 +40,10 @@ var componentFiles = []struct {
 	file string
 	name string // export name (defaults to PascalCase of filename)
 }{
+	// Layout components
+	{"page.pars", "Page"},
+	{"head.pars", "Head"},
+
 	// Form components
 	{"text_field.pars", "TextField"},
 	{"textarea_field.pars", "TextareaField"},
@@ -79,6 +83,7 @@ var componentFiles = []struct {
 
 // loadHTMLModule loads the HTML components module from prelude.
 // Components are pre-parsed .pars files in the prelude/components/ directory.
+// Uses a two-pass approach so components can reference each other.
 func loadHTMLModule(env *Environment) Object {
 	// Check if prelude loader is available
 	if PreludeLoader == nil {
@@ -90,7 +95,12 @@ func loadHTMLModule(env *Environment) Object {
 		}
 	}
 
-	exports := make(map[string]Object)
+	// Pass 1: Load all component ASTs
+	type componentAST struct {
+		name    string
+		program *ast.Program
+	}
+	var components []componentAST
 
 	for _, comp := range componentFiles {
 		// Load the component AST from prelude
@@ -99,28 +109,35 @@ func loadHTMLModule(env *Environment) Object {
 			// Component not found - skip it (allows gradual implementation)
 			continue
 		}
+		components = append(components, componentAST{
+			name:    comp.name,
+			program: program,
+		})
+	}
 
-		// Create an isolated environment for the component
-		compEnv := NewEnvironment()
-		compEnv.Filename = "prelude/components/" + comp.file
+	// Pass 2: Evaluate components with shared environment
+	// This allows components to reference each other (e.g., Page uses SkipLink)
+	sharedEnv := NewEnvironment()
+	sharedEnv.Security = env.Security
+	sharedEnv.DevLog = env.DevLog
+	sharedEnv.BasilCtx = env.BasilCtx
+	sharedEnv.AssetRegistry = env.AssetRegistry
+	sharedEnv.AssetBundle = env.AssetBundle
 
-		// Copy parent environment context for stdlib access
-		compEnv.Security = env.Security
-		compEnv.DevLog = env.DevLog
-		compEnv.BasilCtx = env.BasilCtx
-		compEnv.AssetRegistry = env.AssetRegistry
-		compEnv.AssetBundle = env.AssetBundle
+	exports := make(map[string]Object)
 
-		// Evaluate the component file to populate exports
-		result := Eval(program, compEnv)
+	for _, comp := range components {
+		// Evaluate in the shared environment
+		sharedEnv.Filename = "prelude/components/" + comp.name
+		result := Eval(comp.program, sharedEnv)
 		if isError(result) {
 			// Log error but continue loading other components
 			continue
 		}
 
-		// Extract the exported function (named after the component)
-		if compEnv.IsExported(comp.name) {
-			if fn, ok := compEnv.store[comp.name]; ok {
+		// Extract the exported function
+		if sharedEnv.IsExported(comp.name) {
+			if fn, ok := sharedEnv.store[comp.name]; ok {
 				exports[comp.name] = fn
 			}
 		}
