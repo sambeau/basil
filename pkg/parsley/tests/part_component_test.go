@@ -340,3 +340,97 @@ func TestPartComponentMissingView(t *testing.T) {
 		t.Errorf("expected error code PART-0007, got: %s", err.Code)
 	}
 }
+
+func TestPartComponentWithId(t *testing.T) {
+	// Test that the id attribute is passed through to the wrapper div
+	input := `<Part src={@./test_fixtures/parts/counter.part} id="search-results"/>`
+
+	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+
+	result := evaluator.Eval(program, env)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %T", result)
+	}
+
+	html := str.Value
+
+	// Should have id as first attribute after opening div
+	if !strings.Contains(html, `<div id="search-results"`) {
+		t.Errorf("expected wrapper div to have id attribute, got: %s", html)
+	}
+
+	// Ensure id is not passed to view props
+	propsStart := strings.Index(html, "data-part-props='") + len("data-part-props='")
+	propsEnd := strings.Index(html[propsStart:], "'") + propsStart
+	propsJSON := html[propsStart:propsEnd]
+	propsJSON = strings.ReplaceAll(propsJSON, "&quot;", "\"")
+	propsJSON = strings.ReplaceAll(propsJSON, "&#39;", "'")
+	propsJSON = strings.ReplaceAll(propsJSON, "&amp;", "&")
+	propsJSON = strings.ReplaceAll(propsJSON, "&lt;", "<")
+	propsJSON = strings.ReplaceAll(propsJSON, "&gt;", ">")
+
+	var props map[string]interface{}
+	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
+		t.Fatalf("failed to parse props JSON: %v (JSON: %s)", err, propsJSON)
+	}
+
+	if _, hasId := props["id"]; hasId {
+		t.Errorf("expected id not to be passed to view props")
+	}
+}
+
+func TestPartComponentWithIdAndProps(t *testing.T) {
+	// Test that id works together with other props
+	input := `<Part src={@./test_fixtures/parts/counter.part} id="counter-1" count={5}/>`
+
+	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+
+	result := evaluator.Eval(program, env)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %T", result)
+	}
+
+	html := str.Value
+
+	// Should have id attribute
+	if !strings.Contains(html, `id="counter-1"`) {
+		t.Errorf("expected wrapper div to have id attribute, got: %s", html)
+	}
+
+	// Should contain count prop (HTML-escaped in data attribute)
+	if !strings.Contains(html, `&quot;count&quot;:5`) {
+		t.Errorf("expected props to contain count, got: %s", html)
+	}
+}

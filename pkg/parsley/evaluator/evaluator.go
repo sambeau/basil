@@ -10734,6 +10734,18 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 		hasLazyThreshold = true
 	}
 
+	// Optional: id attribute for cross-part targeting
+	hasId := false
+	idValue := ""
+	if idExpr, ok := props.Pairs["id"]; ok {
+		idObj := Eval(idExpr, env)
+		if isError(idObj) {
+			return idObj
+		}
+		idValue = fmt.Sprint(objectToGoValue(idObj))
+		hasId = true
+	}
+
 	// Look up the view function in the Part module
 	viewExpr, hasView := partDict.Pairs[viewName]
 	if !hasView {
@@ -10767,7 +10779,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	// Build props dictionary for view function (excluding src and view)
 	viewProps := make(map[string]ast.Expression)
 	for key, expr := range props.Pairs {
-		if key == "src" || key == "view" || key == "part-refresh" || key == "part-load" || key == "part-lazy" || key == "part-lazy-threshold" {
+		if key == "src" || key == "view" || key == "id" || key == "part-refresh" || key == "part-load" || key == "part-lazy" || key == "part-lazy-threshold" {
 			continue
 		}
 		viewProps[key] = expr
@@ -10809,7 +10821,13 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 
 	// Wrap the result in a div with data attributes
 	var output strings.Builder
-	output.WriteString("<div data-part-src=\"")
+	output.WriteString("<div")
+	if hasId {
+		output.WriteString(" id=\"")
+		output.WriteString(htmlEscape(idValue))
+		output.WriteString("\"")
+	}
+	output.WriteString(" data-part-src=\"")
 	output.WriteString(htmlEscape(partURL))
 	output.WriteString("\" data-part-view=\"")
 	output.WriteString(htmlEscape(viewName))
@@ -11936,101 +11954,22 @@ func parseTagProps(propsStr string, env *Environment) Object {
 		// Read prop value
 		var valueStr string
 		if propsStr[i] == '"' {
-			// Quoted string - check if it contains interpolation
+			// Quoted string - always treated as a literal (no interpolation)
+			// Use prop={expr} syntax for expressions
 			i++ // skip opening quote
 			valueStart := i
-			hasInterpolation := false
-			tempI := i
-			for tempI < len(propsStr) && propsStr[tempI] != '"' {
-				if propsStr[tempI] == '{' {
-					hasInterpolation = true
-					break
-				}
-				if propsStr[tempI] == '\\' {
-					tempI += 2
+			for i < len(propsStr) && propsStr[i] != '"' {
+				if propsStr[i] == '\\' {
+					i += 2
 				} else {
-					tempI++
+					i++
 				}
 			}
-
-			if hasInterpolation {
-				// The string contains {expr}, treat it as an interpolation
-				// Extract content between quotes
-				for i < len(propsStr) && propsStr[i] != '"' {
-					if propsStr[i] == '\\' {
-						i += 2
-					} else {
-						i++
-					}
-				}
-				valueStr = propsStr[valueStart:i]
-				if i < len(propsStr) {
-					i++ // skip closing quote
-				}
-
-				// Now parse the interpolation - find the {expr}
-				j := 0
-				for j < len(valueStr) {
-					if valueStr[j] == '{' {
-						j++ // skip {
-						exprStart := j
-						braceCount := 1
-						for j < len(valueStr) && braceCount > 0 {
-							if valueStr[j] == '{' {
-								braceCount++
-							} else if valueStr[j] == '}' {
-								braceCount--
-							}
-							if braceCount > 0 {
-								j++
-							}
-						}
-						exprStr := valueStr[exprStart:j]
-						// Parse the expression (with filename for error reporting)
-						l := lexer.NewWithFilename(exprStr, env.Filename)
-						p := parser.New(l)
-						program := p.ParseProgram()
-
-						if errs := p.StructuredErrors(); len(errs) > 0 {
-							// Return first parse error with file info preserved
-							perr := errs[0]
-							return &Error{
-								Class:   ClassParse,
-								Code:    perr.Code,
-								Message: perr.Message,
-								Hints:   perr.Hints,
-								Line:    perr.Line,
-								Column:  perr.Column,
-								File:    env.Filename,
-								Data:    perr.Data,
-							}
-						}
-
-						// Store as expression statement
-						if len(program.Statements) > 0 {
-							if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
-								pairs[propName] = exprStmt.Expression
-							}
-						}
-						break
-					}
-					j++
-				}
-			} else {
-				// Plain string with no interpolation
-				for i < len(propsStr) && propsStr[i] != '"' {
-					if propsStr[i] == '\\' {
-						i += 2
-					} else {
-						i++
-					}
-				}
-				valueStr = propsStr[valueStart:i]
-				if i < len(propsStr) {
-					i++ // skip closing quote
-				}
-				pairs[propName] = &ast.StringLiteral{Value: valueStr}
+			valueStr = propsStr[valueStart:i]
+			if i < len(propsStr) {
+				i++ // skip closing quote
 			}
+			pairs[propName] = &ast.StringLiteral{Value: valueStr}
 		} else if propsStr[i] == '{' {
 			// Expression in braces
 			i++ // skip {

@@ -75,33 +75,33 @@ func TestTagInterpolation(t *testing.T) {
 		{
 			name: "interpolate string variable",
 			input: `charset = "utf-8"
-<meta charset="{charset}" />`,
+<meta charset={charset} />`,
 			expected: `<meta charset="utf-8" />`,
 		},
 		{
 			name: "interpolate number variable",
 			input: `width = 300
 height = 200
-<img width="{width}" height="{height}" />`,
+<img width={width} height={height} />`,
 			expected: `<img width="300" height="200" />`,
 		},
 		{
 			name: "interpolate expression",
 			input: `x = 10
-<div data-value="{x * 2}" />`,
+<div data-value={x * 2} />`,
 			expected: `<div data-value="20" />`,
 		},
 		{
 			name: "conditional interpolation",
 			input: `disabled = true
-<button disabled="{if(disabled){"disabled"}}" />`,
+<button disabled={if(disabled){"disabled"}} />`,
 			expected: `<button disabled="disabled" />`,
 		},
 		{
 			name: "conditional interpolation false",
 			input: `disabled = false
-<button disabled="{if(disabled){"disabled"}}" />`,
-			expected: `<button disabled="" />`,
+<button disabled={if(disabled){"disabled"}} />`,
+			expected: `<button />`,
 		},
 	}
 
@@ -156,7 +156,7 @@ func TestCustomTags(t *testing.T) {
   toString("Dog: ", name, ", Age: ", age)
 }
 dogAge = 7
-<Dog name="Max" age="{dogAge}" />`,
+<Dog name="Max" age={dogAge} />`,
 			expected: `Dog: Max, Age: 7`,
 		},
 		{
@@ -175,7 +175,7 @@ dogAge = 7
   value = props.value
   value * 2
 }
-<Double value="{10 + 5}" />`,
+<Double value={10 + 5} />`,
 			expected: `30`,
 		},
 	}

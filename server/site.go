@@ -70,13 +70,27 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Check if request is for a .part file (for Part refresh/lazy-load)
 	if strings.HasSuffix(urlPath, ".part") {
-		partPath := filepath.Join(h.siteRoot, "..", urlPath) // Parts are relative to handler root (parent of site/)
+		// Parts can be located in two places:
+		// 1. Within the site/ directory (e.g., site/results.part accessed as /results.part)
+		// 2. In sibling directories at project root (e.g., parts/counter.part accessed as /parts/counter.part)
+		
+		// First, try within site/ directory (for Parts in same directory as handler)
+		partPath := filepath.Join(h.siteRoot, urlPath)
 		partPath = filepath.Clean(partPath)
 		if info, err := os.Stat(partPath); err == nil && !info.IsDir() {
 			h.servePartFile(w, r, partPath, urlPath)
 			return
 		}
-		// Part file not found
+		
+		// Then try at project root level (for @~/parts/ style paths)
+		partPath = filepath.Join(h.siteRoot, "..", urlPath)
+		partPath = filepath.Clean(partPath)
+		if info, err := os.Stat(partPath); err == nil && !info.IsDir() {
+			h.servePartFile(w, r, partPath, urlPath)
+			return
+		}
+		
+		// Part file not found in either location
 		http.NotFound(w, r)
 		return
 	}

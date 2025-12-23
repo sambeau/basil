@@ -2260,6 +2260,30 @@ import @../shared/utils         // Parent directory
 <meta charset="utf-8" />
 ```
 
+### Attribute Syntax
+
+Tag attributes support two forms:
+
+**Quoted strings** - Always literal, never interpolated:
+```parsley
+<a href="/about">"About"</a>
+<button onclick="alert('clicked')">"Click"</button>
+<div data-info="some {text}">"Content"</div>  // {text} is literal
+```
+
+**Expression braces** - Parsley expressions:
+```parsley
+<img src={imageUrl} />
+<div class={`card-{type}`}>"Content"</div>  // Template string with interpolation
+<button disabled={!isValid}>"Submit"</button>
+<input value={user.name} />
+```
+
+This separation allows JavaScript code in quoted attributes:
+```parsley
+<input oninput="Parts.refresh('results', {query: this.value}, {debounce: 300})" />
+```
+
 ### Components
 
 ```parsley
@@ -2308,6 +2332,7 @@ Parts enable interactive HTML components that update without full page reloads. 
 part_tag ::= "<Part" attributes* "/>"
 attributes ::= "src=" "{" path_literal "}"
              | "view=" string_literal
+             | "id=" string_literal
              | identifier "=" "{" expression "}"
 ```
 
@@ -2367,8 +2392,10 @@ export decrement = fn(props) {
 
 | Attribute | Element | Effect |
 |-----------|---------|--------|
+| `id="identifier"` | `<Part/>` | ID for cross-part targeting |
 | `part-click="viewName"` | Any | Fetches `viewName` on click |
 | `part-submit="viewName"` | `<form>` | Fetches `viewName` on submit |
+| `part-target="id"` | Any | Target Part by id (cross-part targeting) |
 | `part-*` | Any | Passed as props to view function |
 | `part-refresh={ms}` | `<Part/>` | Auto-refresh current view every `ms` (resets on interactions, pauses when tab hidden) |
 | `part-load="view"` | `<Part/>` | Immediately fetch `view` after page load (for slow data) |
@@ -2425,6 +2452,8 @@ routes:
 
 The Parts runtime is automatically injected before `</body>` when a `<Part/>` tag is used. It:
 - Sets up event listeners for `part-click` and `part-submit`
+- Supports cross-part targeting via `part-target` attribute
+- Exposes `Parts` API for programmatic refresh, state access, and events
 - Supports auto-refresh (`part-refresh`) with visibility-aware timers
 - Supports immediate async load (`part-load`) for slow data with placeholders
 - Supports lazy loading (`part-lazy`, `part-lazy-threshold`) via Intersection Observer
@@ -2445,6 +2474,61 @@ export default = fn(props) {
         <Part src={@./timer.part} view="default" seconds={60}/>
     </div>
 }
+```
+
+**Cross-Part Targeting:**
+
+Parts can be targeted from outside their boundaries using `part-target`. This enables patterns like a search box that updates a separate results Part:
+
+```parsley
+// Search box outside the Part targets it by id
+<form part-target="search-results" part-submit="results">
+    <input type="text" name="query" placeholder="Search..."/>
+    <button type="submit">Search</button>
+</form>
+
+// Results Part receives the query prop from the form
+<Part src={@./search.part} id="search-results"/>
+```
+
+The `part-target` attribute can be used on:
+- Forms with `part-submit`: form data is sent as props to the target Part
+- Any element with `part-click`: `part-*` attributes are sent as props
+
+**Parts JavaScript API:**
+
+For programmatic control, a global `Parts` object is available:
+
+```javascript
+// Refresh a Part with new props
+Parts.refresh("search-results", {query: "hello"});
+
+// Refresh with debounce (ideal for live search as-you-type)
+Parts.refresh("search-results", {query: input.value}, {debounce: 300});
+
+// Refresh with a different view
+Parts.refresh("counter", {count: 10}, {view: "increment"});
+
+// Get Part state
+const state = Parts.get("search-results");
+// Returns: { id, view, props, element, loading } or null
+
+// Listen for Part events
+const unsubscribe = Parts.on("search-results", "afterRefresh", (detail) => {
+    console.log("Part refreshed with:", detail.props);
+});
+
+// Events: "beforeRefresh", "afterRefresh", "error"
+// Use "*" as id to listen to all Parts
+Parts.on("*", "error", (detail) => {
+    console.error("Part error:", detail.error);
+});
+
+// Remove listener
+unsubscribe();
+
+// Remove all listeners for a Part
+Parts.off("search-results");
 ```
 
 ---

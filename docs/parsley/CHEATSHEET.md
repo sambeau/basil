@@ -94,14 +94,24 @@ let double = fn(x) { x * 2 }
 <h3>`Welcome to {name}`</h3>       // Template literal style also works
 ```
 
-### 8. String/Tag nterpolation Uses {var} Not ${var}
+### 8. Tag Attributes: Strings vs Expressions
 ```parsley
-// ❌ WRONG (JavaScript style)
-<div class="user-${id}">
+// Tag attributes have two forms:
 
-// ✅ CORRECT - no $ needed
-<div class="user-{id}">
-"Hello, {name}!"
+// 1. Quoted strings - ALWAYS literal, never interpolated
+<button onclick="alert('hello')">
+<a href="/about">
+
+// 2. Expression braces - Parsley code
+<div class={`user-{id}`}>              // Template string for dynamic class
+<button disabled={!isValid}>           // Boolean expression
+<img width={width} height={height}>
+
+// ❌ WRONG - interpolation in quoted strings
+<div class="user-{id}">               // {id} is literal text
+
+// ✅ CORRECT - use expression braces with template string
+<div class={`user-{id}`}>
 ```
 
 ### 9. Self-Closing Tags MUST Use />
@@ -180,8 +190,13 @@ let calc = `2 + 2 = {2 + 2}`    // "2 + 2 = 4"
 // ❌ Regular strings do NOT interpolate
 let msg = "Hello, {name}!"      // {name} stays literal
 
-// In attributes (interpolation in expression values)
-<div class="user-{id}">"Content"</div>
+// In tag attributes:
+// - Quoted strings are ALWAYS literal (allows JavaScript)
+// - Expression braces allow Parsley code
+<div class="static-class">       // Literal string
+<div class={dynamicClass}>       // Parsley expression  
+<div class={`user-{id}`}>        // Template string interpolation
+<button onclick="Parts.refresh('search', {query: this.value})">  // JS works!
 ```
 
 ### 3. HTML/XML as First-Class
@@ -849,6 +864,9 @@ export increment = fn(props) {
 // Basic usage
 <Part src={@~/parts/counter.part} view="default" count={0}/>
 
+// With id for cross-part targeting
+<Part src={@~/parts/results.part} id="search-results"/>
+
 // Auto-refresh every second
 <Part src={@~/parts/clock.part} part-refresh={1000}/>
 
@@ -860,11 +878,41 @@ export increment = fn(props) {
       part-lazy="loaded" part-lazy-threshold={150}/>
 ```
 
+### Cross-Part Targeting
+Target a Part from outside its boundaries (e.g., search box targeting results):
+```parsley
+// Form outside the Part targets it by id
+<form part-target="search-results" part-submit="results">
+    <input type="text" name="query"/>
+    <button type="submit">"Search"</button>
+</form>
+
+// Results Part receives the query prop
+<Part src={@~/parts/results.part} id="search-results"/>
+```
+
+### Parts JavaScript API
+```javascript
+// Refresh a Part programmatically (with debounce for live search)
+Parts.refresh("search-results", {query: "hello"}, {debounce: 300});
+
+// Get Part state
+const state = Parts.get("search-results");
+// → { id, view, props, element, loading }
+
+// Listen for Part events
+Parts.on("search-results", "afterRefresh", (detail) => {
+    console.log("Part refreshed:", detail.props);
+});
+```
+
 ### Part Attributes
 | Attribute | Element | Effect |
 |-----------|---------|--------|
+| `id` | `<Part/>` | ID for cross-part targeting |
 | `part-click="view"` | Any | Fetches view on click |
 | `part-submit="view"` | `<form>` | Fetches view on submit |
+| `part-target="id"` | Any | Target Part by id (cross-part) |
 | `part-*` | Any | Passed as props to view |
 | `part-refresh={ms}` | `<Part/>` | Auto-refresh interval |
 | `part-load="view"` | `<Part/>` | Fetch view immediately after page load |

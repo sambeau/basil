@@ -1133,6 +1133,12 @@ func partsRuntimeScript() string {
 	var lazyParts = new WeakMap();
 	var loadedParts = new WeakMap();
 
+	// Debounce timers for Parts.refresh
+	var debounceTimers = {};
+
+	// Event listeners: { "partId:eventName": [callback, ...] }
+	var listeners = {};
+
 	function parseProps(el) {
 		var propsJson = el.getAttribute('data-part-props');
 		if (!propsJson) return {};
@@ -1142,6 +1148,16 @@ func partsRuntimeScript() string {
 			console.error('Failed to parse Part props:', e);
 			return {};
 		}
+	}
+
+	// Type coercion for prop values (matches server-side coercion)
+	function coerceType(value) {
+		if (value === 'true') return true;
+		if (value === 'false') return false;
+		if (value === '') return '';
+		var num = Number(value);
+		if (!isNaN(num) && value.trim() !== '') return num;
+		return value;
 	}
 
 	function stopAutoRefresh(part) {
@@ -1175,9 +1191,31 @@ func partsRuntimeScript() string {
 		refreshIntervals.set(part, timerId);
 	}
 
+	// Emit event to listeners
+	function emitEvent(partId, eventName, detail) {
+		var key = partId + ':' + eventName;
+		var wildcardKey = '*:' + eventName;
+		
+		var callbacks = (listeners[key] || []).concat(listeners[wildcardKey] || []);
+		callbacks.forEach(function(cb) {
+			try {
+				cb(detail);
+			} catch (e) {
+				console.error('Parts event handler error:', e);
+			}
+		});
+	}
+
 	// Update a Part by fetching a new view
 	function updatePart(el, src, view, props, method, resetTimer) {
 		if (resetTimer === void 0) resetTimer = true;
+
+		var partId = el.id || null;
+
+		// Emit beforeRefresh event
+		if (partId) {
+			emitEvent(partId, 'beforeRefresh', {id: partId, view: view, props: props});
+		}
 
 		// Add loading class
 		el.classList.add('part-loading');
@@ -1236,6 +1274,11 @@ func partsRuntimeScript() string {
 				// Re-initialize event handlers for this Part (and nested Parts)
 				initParts(el);
 
+				// Emit afterRefresh event
+				if (partId) {
+					emitEvent(partId, 'afterRefresh', {id: partId, view: view, props: props});
+				}
+
 				// Restart auto-refresh if configured (check both lazy and load have completed)
 				var hasLazy = el.getAttribute('data-part-lazy');
 				var hasLoad = el.getAttribute('data-part-load');
@@ -1249,6 +1292,12 @@ func partsRuntimeScript() string {
 				console.error('Failed to update Part:', error);
 				// Remove loading class on error (leave old content)
 				el.classList.remove('part-loading');
+
+				// Emit error event
+				if (partId) {
+					emitEvent(partId, 'error', {id: partId, view: view, props: props, error: error});
+				}
+
 				// Restart auto-refresh if it was previously configured
 				var hasLazy = el.getAttribute('data-part-lazy');
 				var hasLoad = el.getAttribute('data-part-load');
@@ -1260,40 +1309,122 @@ func partsRuntimeScript() string {
 			});
 	}
 
+	// Collect part-* props from an element's attributes
+	function collectPartProps(el) {
+		var props = {};
+		var reserved = ['click', 'submit', 'load', 'lazy', 'refresh', 'lazy-threshold', 'target', 'form'];
+		Array.from(el.attributes).forEach(function(attr) {
+			if (attr.name.startsWith('part-')) {
+				var propName = attr.name.substring(5); // Remove 'part-' prefix
+				if (reserved.indexOf(propName) !== -1) return;
+				props[propName] = coerceType(attr.value);
+			}
+		});
+		return props;
+	}
+
 	function bindInteractions(el) {
 		var src = el.getAttribute('data-part-src');
 		var baseProps = parseProps(el);
 
-		// Handle part-click attributes (GET request)
-		el.querySelectorAll('[part-click]').forEach(function(clickEl) {
+		// Handle part-click attributes (GET request) - only for elements targeting this Part
+		el.querySelectorAll('[part-click]:not([part-target])').forEach(function(clickEl) {
 			var clickView = clickEl.getAttribute('part-click');
 			clickEl.onclick = function(e) {
 				e.preventDefault();
-				var clickProps = Object.assign({}, baseProps);
-				Array.from(clickEl.attributes).forEach(function(attr) {
-					if (attr.name.startsWith('part-')) {
-						var propName = attr.name.substring(5); // Remove 'part-' prefix
-						var reserved = ['click', 'submit', 'load', 'lazy', 'refresh', 'lazy-threshold'];
-						if (reserved.indexOf(propName) !== -1) return;
-						clickProps[propName] = attr.value;
-					}
-				});
+				var clickProps = Object.assign({}, baseProps, collectPartProps(clickEl));
 				updatePart(el, src, clickView, clickProps, 'GET');
 			};
 		});
 
-		// Handle part-submit on forms (POST request)
-		el.querySelectorAll('form[part-submit]').forEach(function(form) {
+		// Handle part-submit on forms (POST request) - only for forms targeting this Part
+		el.querySelectorAll('form[part-submit]:not([part-target])').forEach(function(form) {
 			var submitView = form.getAttribute('part-submit');
 			form.onsubmit = function(e) {
 				e.preventDefault();
 				var formData = new FormData(form);
 				var formProps = Object.assign({}, baseProps);
 				formData.forEach(function(value, key) {
-					formProps[key] = value;
+					formProps[key] = coerceType(value);
 				});
 				updatePart(el, src, submitView, formProps, 'POST');
 			};
+		});
+	}
+
+	// Handle part-target: elements outside Parts that target other Parts
+	function bindCrossPartTargeting() {
+		// Handle click elements with part-target
+		document.querySelectorAll('[part-target][part-click]').forEach(function(el) {
+			// Skip if already bound
+			if (el._partTargetBound) return;
+			el._partTargetBound = true;
+
+			el.addEventListener('click', function(e) {
+				e.preventDefault();
+				var targetId = el.getAttribute('part-target');
+				var view = el.getAttribute('part-click');
+				var props = collectPartProps(el);
+
+				var targetPart = document.getElementById(targetId);
+				if (!targetPart || !targetPart.getAttribute('data-part-src')) {
+					console.warn('Parts: target "' + targetId + '" not found');
+					return;
+				}
+
+				var src = targetPart.getAttribute('data-part-src');
+				var baseProps = parseProps(targetPart);
+				var mergedProps = Object.assign({}, baseProps, props);
+
+				updatePart(targetPart, src, view, mergedProps, 'GET');
+			});
+		});
+
+		// Handle forms with part-target on submit button or form itself
+		document.querySelectorAll('form').forEach(function(form) {
+			// Check if form itself has part-target
+			var formTarget = form.getAttribute('part-target');
+			var formView = form.getAttribute('part-submit');
+
+			// Or look for a submit button with part-target
+			var submitBtn = form.querySelector('[type="submit"][part-target]');
+			if (!submitBtn && !formTarget) return;
+
+			var targetId = formTarget || (submitBtn && submitBtn.getAttribute('part-target'));
+			var view = formView || (submitBtn && submitBtn.getAttribute('part-submit'));
+
+			if (!targetId || !view) return;
+
+			// Skip if already bound
+			if (form._partTargetBound) return;
+			form._partTargetBound = true;
+
+			form.addEventListener('submit', function(e) {
+				e.preventDefault();
+
+				var targetPart = document.getElementById(targetId);
+				if (!targetPart || !targetPart.getAttribute('data-part-src')) {
+					console.warn('Parts: target "' + targetId + '" not found');
+					return;
+				}
+
+				var src = targetPart.getAttribute('data-part-src');
+				var baseProps = parseProps(targetPart);
+
+				// Collect form data
+				var formData = new FormData(form);
+				var formProps = {};
+				formData.forEach(function(value, key) {
+					formProps[key] = coerceType(value);
+				});
+
+				// Collect part-* props from submit button if present
+				var buttonProps = submitBtn ? collectPartProps(submitBtn) : {};
+
+				var mergedProps = Object.assign({}, baseProps, formProps, buttonProps);
+
+				updatePart(targetPart, src, view, mergedProps, 'POST');
+			});
 		});
 	}
 
@@ -1399,6 +1530,9 @@ func partsRuntimeScript() string {
 
 		// Initialize lazy loading for all parts with part-lazy
 		initLazyLoading(scope);
+
+		// Bind cross-part targeting (elements outside parts that target them)
+		bindCrossPartTargeting();
 	}
 
 	// Pause/resume auto-refresh on tab visibility change
@@ -1418,6 +1552,106 @@ func partsRuntimeScript() string {
 			}
 		});
 	});
+
+	// ============================================================
+	// Parts Public API
+	// ============================================================
+	window.Parts = {
+		/**
+		 * Refresh a Part by ID
+		 * @param {string} id - Part element ID
+		 * @param {object} props - Props to merge with existing props
+		 * @param {object} options - Options: { view, debounce, method }
+		 */
+		refresh: function(id, props, options) {
+			options = options || {};
+			var part = document.getElementById(id);
+			if (!part || !part.getAttribute('data-part-src')) {
+				console.warn('Parts.refresh: Part "' + id + '" not found');
+				return;
+			}
+
+			var doRefresh = function() {
+				var src = part.getAttribute('data-part-src');
+				var currentView = part.getAttribute('data-part-view') || 'default';
+				var view = options.view || currentView;
+				var baseProps = parseProps(part);
+				var mergedProps = Object.assign({}, baseProps, props || {});
+				var method = options.method || 'GET';
+
+				updatePart(part, src, view, mergedProps, method);
+			};
+
+			// Handle debounce
+			if (options.debounce && options.debounce > 0) {
+				var timerKey = id;
+				if (debounceTimers[timerKey]) {
+					clearTimeout(debounceTimers[timerKey]);
+				}
+				debounceTimers[timerKey] = setTimeout(function() {
+					delete debounceTimers[timerKey];
+					doRefresh();
+				}, options.debounce);
+			} else {
+				doRefresh();
+			}
+		},
+
+		/**
+		 * Get a Part's current state
+		 * @param {string} id - Part element ID
+		 * @returns {object|null} - { id, view, props, element, loading } or null
+		 */
+		get: function(id) {
+			var part = document.getElementById(id);
+			if (!part || !part.getAttribute('data-part-src')) {
+				return null;
+			}
+
+			return {
+				id: id,
+				view: part.getAttribute('data-part-view') || 'default',
+				props: parseProps(part),
+				element: part,
+				loading: part.classList.contains('part-loading')
+			};
+		},
+
+		/**
+		 * Subscribe to Part events
+		 * @param {string} id - Part element ID (or '*' for all Parts)
+		 * @param {string} event - Event name: 'beforeRefresh', 'afterRefresh', 'error'
+		 * @param {function} callback - Callback function(detail)
+		 * @returns {function} - Unsubscribe function
+		 */
+		on: function(id, event, callback) {
+			var key = id + ':' + event;
+			if (!listeners[key]) {
+				listeners[key] = [];
+			}
+			listeners[key].push(callback);
+
+			// Return unsubscribe function
+			return function() {
+				var idx = listeners[key].indexOf(callback);
+				if (idx !== -1) {
+					listeners[key].splice(idx, 1);
+				}
+			};
+		},
+
+		/**
+		 * Remove all event listeners for a Part
+		 * @param {string} id - Part element ID
+		 */
+		off: function(id) {
+			Object.keys(listeners).forEach(function(key) {
+				if (key.startsWith(id + ':')) {
+					delete listeners[key];
+				}
+			});
+		}
+	};
 
 	// Initialize on page load
 	if (document.readyState === 'loading') {
