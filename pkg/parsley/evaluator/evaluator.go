@@ -2472,8 +2472,10 @@ func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environ
 		t = time.Date(now.Year(), now.Month(), now.Day(),
 			t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
 	} else {
-		// Check for date-only (YYYY-MM-DD) vs full datetime (YYYY-MM-DDTHH:MM:SS)
-		if len(datetimeStr) == 10 && datetimeStr[4] == '-' && datetimeStr[7] == '-' {
+		// Check for date-only vs full datetime by looking for 'T' separator
+		// Date-only: YYYY-MM-DD or YYYY-M-D (no 'T')
+		// DateTime: YYYY-MM-DDTHH:MM:SS (has 'T')
+		if !strings.Contains(datetimeStr, "T") {
 			kind = "date"
 		} else {
 			kind = "datetime"
