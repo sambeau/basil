@@ -4586,7 +4586,13 @@ func connectionBuiltins() map[string]*Builtin {
 
 				if !exists {
 					var err error
-					db, err = sql.Open("sqlite", dsn)
+					// Open with WAL mode for better concurrency and busy timeout for locking
+					// Skip pragmas for :memory: databases as WAL doesn't work with them
+					connStr := dsn
+					if dsn != ":memory:" {
+						connStr = dsn + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+					}
+					db, err = sql.Open("sqlite", connStr)
 					if err != nil {
 						return newDatabaseErrorWithDriver("DB-0003", "SQLite", err)
 					}
