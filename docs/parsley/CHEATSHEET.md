@@ -270,6 +270,10 @@ value ?? "default"           // Returns "default" only if value is null
 @now                         // Current datetime
 @today                       // Current date
 
+// Single-digit months/days are accepted (forgiving parsing)
+@2024-3-5                    // Same as @2024-03-05
+@1990-3-18                   // Same as @1990-03-18
+
 // Durations
 @1d                          // 1 day
 @2h30m                       // 2 hours 30 minutes
@@ -283,6 +287,11 @@ value ?? "default"           // Returns "default" only if value is null
 // Interpolated (dynamic)
 let month = "11"
 let date = @(2024-{month}-29)  // Builds from variables
+
+// Forgiving interpolation (works with single-digit months/days)
+let month = 3                  // No leading zero needed
+let day = 5
+let date = @(2024-{month}-{day})  // Works! Parses as 2024-03-05
 ```
 
 ---

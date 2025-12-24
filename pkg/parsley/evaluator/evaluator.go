@@ -2271,10 +2271,18 @@ func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 			// Try date-only format (2024-12-25) - interpret as UTC
 			t, err = time.ParseInLocation("2006-01-02", node.Value, time.UTC)
 			if err != nil {
-				// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
-				t, err = time.ParseInLocation("2006-01-02T15:04:05", node.Value, time.UTC)
+				// Try date with single-digit month/day (2024-3-18) - interpret as UTC
+				t, err = time.ParseInLocation("2006-1-2", node.Value, time.UTC)
 				if err != nil {
-					return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", node.Value))
+					// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
+					t, err = time.ParseInLocation("2006-01-02T15:04:05", node.Value, time.UTC)
+					if err != nil {
+						// Try datetime with single-digit month/day (2024-3-18T14:30:05) - interpret as UTC
+						t, err = time.ParseInLocation("2006-1-2T15:04:05", node.Value, time.UTC)
+						if err != nil {
+							return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", node.Value))
+						}
+					}
 				}
 			}
 		}
@@ -2477,10 +2485,18 @@ func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environ
 			// Try date-only format (2024-12-25) - interpret as UTC
 			t, err = time.ParseInLocation("2006-01-02", datetimeStr, time.UTC)
 			if err != nil {
-				// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
-				t, err = time.ParseInLocation("2006-01-02T15:04:05", datetimeStr, time.UTC)
+				// Try date with single-digit month/day (2024-3-18) - interpret as UTC
+				t, err = time.ParseInLocation("2006-1-2", datetimeStr, time.UTC)
 				if err != nil {
-					return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", datetimeStr))
+					// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
+					t, err = time.ParseInLocation("2006-01-02T15:04:05", datetimeStr, time.UTC)
+					if err != nil {
+						// Try datetime with single-digit month/day (2024-3-18T14:30:05) - interpret as UTC
+						t, err = time.ParseInLocation("2006-1-2T15:04:05", datetimeStr, time.UTC)
+						if err != nil {
+							return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", datetimeStr))
+						}
+					}
 				}
 			}
 		}
