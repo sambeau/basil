@@ -15377,7 +15377,8 @@ func rowToDict(columns []string, values []interface{}, env *Environment) *Dictio
 		pairs[col] = expr
 	}
 
-	return &Dictionary{Pairs: pairs, Env: env}
+	// Preserve column order from SQL query
+	return &Dictionary{Pairs: pairs, KeyOrder: columns, Env: env}
 }
 
 // assignQueryResult assigns query result to variables
