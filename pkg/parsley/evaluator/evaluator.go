@@ -7484,16 +7484,10 @@ func evalPrefixExpression(tok lexer.Token, operator string, right Object) Object
 }
 
 func evalBangOperatorExpression(right Object) Object {
-	switch right {
-	case TRUE:
-		return FALSE
-	case FALSE:
-		return TRUE
-	case NULL:
-		return TRUE
-	default:
+	if isTruthy(right) {
 		return FALSE
 	}
+	return TRUE
 }
 
 func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
@@ -8304,7 +8298,21 @@ func isTruthy(obj Object) bool {
 	case FALSE:
 		return false
 	default:
-		return true
+		// Python-style truthiness: empty collections and strings are falsy
+		switch v := obj.(type) {
+		case *String:
+			return v.Value != ""
+		case *Array:
+			return len(v.Elements) > 0
+		case *Dictionary:
+			return len(v.Pairs) > 0
+		case *Integer:
+			return v.Value != 0
+		case *Float:
+			return v.Value != 0.0
+		default:
+			return true
+		}
 	}
 }
 
