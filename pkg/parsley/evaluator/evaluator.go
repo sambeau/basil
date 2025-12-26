@@ -406,10 +406,19 @@ func (d *Dictionary) Inspect() string {
 			continue // Skip keys that were deleted
 		}
 		// For inspection, we show the expression with proper formatting
-		// Empty string literals need quotes to be visible
+		// Empty string literals and empty string objects need quotes to be visible
 		var valueStr string
 		if strLit, isStrLit := expr.(*ast.StringLiteral); isStrLit && strLit.Value == "" {
 			valueStr = `""`
+		} else if objLit, isObjLit := expr.(*ast.ObjectLiteralExpression); isObjLit {
+			// Check if it's an empty String object
+			if strObj, isStr := objLit.Obj.(*String); isStr && strObj.Value == "" {
+				valueStr = `""`
+			} else if objLit.Obj == nil {
+				valueStr = "null"
+			} else {
+				valueStr = expr.String()
+			}
 		} else {
 			valueStr = expr.String()
 		}
