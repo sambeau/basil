@@ -118,7 +118,7 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		if len(args) != 0 {
 			return newArityError("toTitle", len(args), 0)
 		}
-		return &String{Value: strings.ToTitle(str.Value)}
+		return &String{Value: strings.Title(str.Value)}
 
 	case "trim":
 		if len(args) != 0 {

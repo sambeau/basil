@@ -129,7 +129,7 @@ var TypeMethods = map[string][]MethodInfo{
 	"string": {
 		{Name: "toUpper", Arity: "0", Description: "Convert to uppercase"},
 		{Name: "toLower", Arity: "0", Description: "Convert to lowercase"},
-		{Name: "toTitle", Arity: "0", Description: "Convert to title case"},
+		{Name: "toTitle", Arity: "0", Description: "Convert to title case (capitalize first letter of each word)"},
 		{Name: "trim", Arity: "0", Description: "Remove leading/trailing whitespace"},
 		{Name: "split", Arity: "1", Description: "Split by delimiter into array"},
 		{Name: "replace", Arity: "2", Description: "Replace all occurrences"},
