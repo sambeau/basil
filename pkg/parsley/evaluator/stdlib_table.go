@@ -972,7 +972,7 @@ func objectToString(obj Object) string {
 					if isoStr, ok := isoVal.(*String); ok {
 						// Parse the ISO string to determine the format
 						isoString := isoStr.Value
-						
+
 						// Check what kind of datetime it is based on the kind field
 						kind := "datetime" // default
 						if kindExpr, ok := o.Pairs["kind"]; ok {
@@ -981,7 +981,7 @@ func objectToString(obj Object) string {
 								kind = kindStr.Value
 							}
 						}
-						
+
 						// Format based on kind
 						switch kind {
 						case "date":

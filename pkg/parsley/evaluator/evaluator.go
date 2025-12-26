@@ -405,8 +405,15 @@ func (d *Dictionary) Inspect() string {
 		if !ok {
 			continue // Skip keys that were deleted
 		}
-		// For inspection, we show the expression, not the evaluated value
-		pairs = append(pairs, fmt.Sprintf("%s: %s", key, expr.String()))
+		// For inspection, we show the expression with proper formatting
+		// Empty string literals need quotes to be visible
+		var valueStr string
+		if strLit, isStrLit := expr.(*ast.StringLiteral); isStrLit && strLit.Value == "" {
+			valueStr = `""`
+		} else {
+			valueStr = expr.String()
+		}
+		pairs = append(pairs, fmt.Sprintf("%s: %s", key, valueStr))
 	}
 	out.WriteString("{")
 	out.WriteString(strings.Join(pairs, ", "))
@@ -11945,15 +11952,15 @@ func parseTagProps(propsStr string, env *Environment) Object {
 		// Check for spread operator at prop level: ...expr
 		if i+3 <= len(propsStr) && propsStr[i] == '.' && propsStr[i+1] == '.' && propsStr[i+2] == '.' {
 			i += 3 // skip ...
-			
+
 			// Read the expression (identifier or complex expression)
 			exprStart := i
 			for i < len(propsStr) && !unicode.IsSpace(rune(propsStr[i])) {
 				i++
 			}
-			
+
 			exprStr := propsStr[exprStart:i]
-			
+
 			// Parse and evaluate the spread expression
 			l := lexer.NewWithFilename(exprStr, env.Filename)
 			p := parser.New(l)

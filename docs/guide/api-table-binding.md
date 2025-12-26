@@ -3,6 +3,7 @@
 This document explains the new API surface for Parsley-based JSON APIs: `std/api` route helpers plus schema-aware table bindings via `schema.table`. It includes examples (minimal and advanced) that you can copy into `*.pars` files.
 
 ## What the feature is
+
 - **API routes**: Modules exported under `/api/...` (or `type: api` routes) map HTTP methods to exports (`get`, `getById`, `post`, `put`, `patch`, `delete`). Auth defaults to **protected** unless you wrap with `api.public(...)`.
 - **Auth wrappers** (`std/api`): `public`, `auth`, `adminOnly`, `roles([...])` decorate handlers and attach metadata. Server enforces it before your function runs.
 - **Schema-aware table bindings** (`schema.table`): Given a schema, DB connection, and table name, you get CRUD helpers that validate input, auto-generate IDs, and clamp pagination.
@@ -10,12 +11,14 @@ This document explains the new API surface for Parsley-based JSON APIs: `std/api
 - **Defaults you get for free**: Auth required unless made public, rate limiting (60 req/min per user/IP), pagination defaults (`limit=20,max=100,offset=0`) on `all()`/`where()`, JSON content-type, structured errors.
 
 ## Library surface (snippets)
+
 ```parsley
 {api} = import(@std/api)
 {schema} = import(@std/schema)
 ```
 
 **Auth wrappers**
+
 ```parsley
 export get = api.public(fn(req) { {ok: true} })
 export post = api.auth(fn(req) { /* requires session */ })
@@ -24,6 +27,7 @@ export put = api.roles(["editor", "admin"], fn(req) { /* role-gated */ })
 ```
 
 **Table binding**
+
 ```parsley
 let User = schema.define("User", {
   id: schema.id(),
@@ -42,6 +46,7 @@ Users.delete("abc")      // returns {affected: n}
 ```
 
 ## Minimal example (naive but works)
+
 A single file API for `/api/todos` that only lists and creates todos in SQLite.
 
 ```parsley
@@ -65,6 +70,7 @@ export post = api.public(fn(req) {
   result
 })
 ```
+
 What you get for free here:
 - Auth defaults to required, but `api.public` made both endpoints open.
 - `Todos.insert` validates `title`, auto-generates ULID `id`, and returns the inserted row.
@@ -73,6 +79,7 @@ What you get for free here:
 - Rate limit 60 req/min per IP (or per user if authenticated).
 
 ## More advanced example (users table with role-gated update)
+
 Adds fields, role protection, and `getById`/`patch` handlers.
 
 ```parsley
@@ -116,6 +123,7 @@ export patch = api.adminOnly(fn(req) {
 // Optional per-route rate limit override (stricter for this module)
 export rateLimit = {requests: 30, window: @1m}
 ```
+
 What you get here:
 - **Auth**: all routes require login; updates require admin wrapper; `req.user` populated by server when authenticated.
 - **Validation**: email/name/role enforced; update rejects `id` changes; invalid payload returns `{valid:false, errors:[...]}` with HTTP 200 by default (you can wrap with `api.badRequest` if desired).
@@ -125,6 +133,7 @@ What you get here:
 - **Safety**: all SQL is parameterized; column names validated as identifiers.
 
 ## Tips
+
 - If you need custom error codes, return `api.error(code, status, message)` (via `APIError`) or the validation dict from `schema.validate` / table methods.
 - To disable pagination caps for a one-off list, pass `limit=0` in the query string (interpreted as "no limit").
 - For public read but protected write, wrap readers with `api.public` and writers with `api.auth`/`api.adminOnly`.
