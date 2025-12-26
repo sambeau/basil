@@ -39,7 +39,7 @@ var (
 
 // stringMethods lists all methods available on string
 var stringMethods = []string{
-	"toUpper", "toLower", "trim", "split", "replace", "length", "includes",
+	"toUpper", "toLower", "toTitle", "trim", "split", "replace", "length", "includes",
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
@@ -113,6 +113,12 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 			return newArityError("toLower", len(args), 0)
 		}
 		return &String{Value: strings.ToLower(str.Value)}
+
+	case "toTitle":
+		if len(args) != 0 {
+			return newArityError("toTitle", len(args), 0)
+		}
+		return &String{Value: strings.ToTitle(str.Value)}
 
 	case "trim":
 		if len(args) != 0 {

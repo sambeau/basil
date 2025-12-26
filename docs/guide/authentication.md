@@ -20,6 +20,7 @@ auth:
 In your Parsley handlers, use the built-in components:
 
 **Registration page (signup.pars):**
+
 ```parsley
 <basil.auth.Register
   name_placeholder="Your name"
@@ -30,6 +31,7 @@ In your Parsley handlers, use the built-in components:
 ```
 
 **Login page (login.pars):**
+
 ```parsley
 <basil.auth.Login
   button_text="Sign in"
@@ -38,6 +40,7 @@ In your Parsley handlers, use the built-in components:
 ```
 
 **Logout (anywhere):**
+
 ```parsley
 <basil.auth.Logout
   text="Sign out"
