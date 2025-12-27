@@ -1,23 +1,23 @@
 // recovery-codes.pars - Display recovery codes after registration
 
-{Page} = import(@./page.pars)
+{Page} = import @./page.pars
 
 <Page title="Recovery Codes">
   <div class="recovery-codes-page">
-    <h1>Save Your Recovery Codes</h1>
+    <h1>"Save Your Recovery Codes"</h1>
     <p>
-      These codes can be used to access your account if you lose your passkey device.
-      <strong>Save them somewhere safe!</strong> They will only be shown once.
+      `These codes can be used to access your account if you lose your passkey device.
+      <strong>Save them somewhere safe!</strong> They will only be shown once.`
     </p>
     
     <div id="recovery-codes" class="recovery-codes">
-      <p class="loading">Loading codes...</p>
+      <p class="loading">"Loading codes..."</p>
     </div>
     
     <div class="recovery-actions">
-      <button id="copy-codes" class="basil-auth-button" disabled>Copy to clipboard</button>
+      <button id="copy-codes" class="basil-auth-button" disabled>"Copy to clipboard"</button>
       <a href="/dashboard" id="continue-btn" class="basil-auth-button secondary" style="display:none">
-        I've saved my codes - Continue
+        "I've saved my codes - Continue"
       </a>
     </div>
   </div>

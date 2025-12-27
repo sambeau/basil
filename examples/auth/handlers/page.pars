@@ -7,26 +7,22 @@ export Page = fn({title, contents}) {
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>{title} | Auth Demo</title>
+    <title>title " | Auth Demo"</title>
     <link rel="stylesheet" href="/static/styles.css"/>
   </head>
   <body>
     <nav>
-      <a href="/">Home</a>
+      <a href="/">"Home"</a>
       if (auth.user) {
-        <>
-            <a href="/dashboard">Dashboard</a>
-            <a href="/logout">Sign out</a>
-        </>
+            <a href="/dashboard">"Dashboard"</a>
+            <a href="/logout">"Sign out"</a>
       } else {
-        <>
-            <a href="/login">Sign in</a>
-            <a href="/signup">Sign up</a>
-        </>
+            <a href="/login">"Sign in"</a>
+            <a href="/signup">"Sign up"</a>
       }
     </nav>
     <main>
-      {contents}
+      contents
     </main>
   </body>
   </html>

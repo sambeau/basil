@@ -1,29 +1,29 @@
 // index.pars - Landing page
 
 let {auth} = import @basil/auth
-{Page} = import(@./page.pars)
+let {Page} = import @./page.pars
 
 <Page title="Home">
-  <h1>Welcome to the Auth Demo</h1>
-  <p>This example shows Basil's passkey authentication.</p>
+  <h1>"Welcome to the Auth Demo"</h1>
+  <p>"This example shows Basil's passkey authentication."</p>
   
   if (auth.user) {
     <p>
-      Hello, {auth.user.name}!
-		<a href="/dashboard">Go to dashboard</a>
+      "Hello, " auth.user.name "! "
+		<a href="/dashboard">"Go to dashboard"</a>
 	</p>
   } else {
     <p>
-      <a href="/signup">Create an account</a> or 
-      <a href="/login">sign in</a> to get started.
+      <a href="/signup">"Create an account"</a> " or " 
+      <a href="/login">"sign in"</a>" to get started."
     </p>
   }
   
-  <h2>Features</h2>
+  <h2>"Features"</h2>
   <ul>
-    <li>Passkey-based authentication (no passwords!)</li>
-    <li>Browser-native passkey UI</li>
-    <li>Recovery codes for account recovery</li>
-    <li>Session management</li>
+    <li>"Passkey-based authentication (no passwords!)"</li>
+    <li>"Browser-native passkey UI"</li>
+    <li>"Recovery codes for account recovery"</li>
+    <li>"Session management"</li>
   </ul>
 </Page>

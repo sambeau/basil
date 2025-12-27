@@ -1,7 +1,7 @@
 // login.pars - Login page
 
 let {auth} = import @basil/auth
-{Page} = import(@./page.pars)
+let {Page} = import @./page.pars 
 
 // Redirect if already logged in
 if auth.user {
@@ -12,8 +12,8 @@ if auth.user {
   }
 } else {
   <Page title="Sign In">
-    <h1>Sign In</h1>
-    <p>Sign in with your passkey.</p>
+    <h1>"Sign In"</h1>
+    <p>"Sign in with your passkey."</p>
     
     <auth.Login
       button_text="Sign in with passkey"
@@ -22,14 +22,14 @@ if auth.user {
     />
     
     <p class="auth-note">
-      Don't have an account? <a href="/signup">Create one</a>
+      "Don't have an account? "<a href="/signup">"Create one"</a>
     </p>
     
     <details>
-      <summary>Lost your passkey?</summary>
+      <summary>"Lost your passkey?"</summary>
       <p>
-        If you've lost access to your passkey device, you can use a 
-        recovery code to sign in. Contact the site administrator for help.
+        `If you've lost access to your passkey device, you can use a 
+        recovery code to sign in. Contact the site administrator for help.`
       </p>
     </details>
   </Page>

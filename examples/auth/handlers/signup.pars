@@ -1,7 +1,7 @@
 // signup.pars - Registration page
 
 let {auth} = import @basil/auth
-{Page} = import(@./page.pars)
+let {Page} = import @./page.pars
 
 // Redirect if already logged in
 if auth.user {
@@ -12,8 +12,8 @@ if auth.user {
   }
 } else {
   <Page title="Sign Up">
-    <h1>Create Account</h1>
-    <p>Create your account using a passkey. No password needed!</p>
+    <h1>"Create Account"</h1>
+    <p>"Create your account using a passkey. No password needed!"</p>
     
     <auth.Register
       name_placeholder="Your name"
@@ -23,20 +23,20 @@ if auth.user {
       class="auth-form"
     />
     
-    <p class="auth-note">
-      Already have an account? <a href="/login">Sign in</a>
+    <p class="auth-note">``
+      "Already have an account? "<a href="/login">"Sign in"</a>
     </p>
     
     <details>
-      <summary>What is a passkey?</summary>
+      <summary>"What is a passkey?"</summary>
       <p>
-        Passkeys are a modern, secure replacement for passwords. 
+        `Passkeys are a modern, secure replacement for passwords. 
         They use your device's built-in security (fingerprint, face, or PIN) 
-        to verify your identity.
+        to verify your identity.`
       </p>
       <p>
-        Your passkey is stored securely on your device and never shared 
-        with this website.
+        `Your passkey is stored securely on your device and never shared 
+        with this website.`
       </p>
     </details>
   </Page>
