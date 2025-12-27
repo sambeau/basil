@@ -253,8 +253,14 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 	// Determine auth database path
 	dbPath := authDBPath(configFile)
 
-	// Open auth database
-	db, err := auth.OpenDB(dbPath)
+	// For 'create' command, create the database if it doesn't exist
+	// For other commands, require the database to exist
+	var db *auth.DB
+	if subCmd == "create" {
+		db, err = auth.OpenOrCreateDB(dbPath)
+	} else {
+		db, err = auth.OpenDB(dbPath)
+	}
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
 	}

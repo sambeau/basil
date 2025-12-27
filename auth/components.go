@@ -18,9 +18,11 @@ type ComponentExpander struct {
 func NewComponentExpander() *ComponentExpander {
 	return &ComponentExpander{
 		tagPatterns: map[string]*regexp.Regexp{
-			"basil.auth.Register": regexp.MustCompile(`<basil\.auth\.Register\s*([^>]*)/?>`),
-			"basil.auth.Login":    regexp.MustCompile(`<basil\.auth\.Login\s*([^>]*)/?>`),
-			"basil.auth.Logout":   regexp.MustCompile(`<basil\.auth\.Logout\s*([^>]*)/?>`),
+			// Match both <basil.auth.Register/> and <auth.Register/> patterns
+			// The latter is what Parsley code like `<auth.Register/>` produces
+			"basil.auth.Register": regexp.MustCompile(`<(?:basil\.)?auth\.Register\s*([^>]*)/?>`),
+			"basil.auth.Login":    regexp.MustCompile(`<(?:basil\.)?auth\.Login\s*([^>]*)/?>`),
+			"basil.auth.Logout":   regexp.MustCompile(`<(?:basil\.)?auth\.Logout\s*([^>]*)/?>`),
 		},
 	}
 }
@@ -127,22 +129,24 @@ func (e *ComponentExpander) expandRegister(match string) string {
         throw new Error(err.error || 'Registration failed');
       }
       
-      const options = await beginRes.json();
+      const beginData = await beginRes.json();
+      const pubKeyOptions = beginData.options.publicKey;
+      const challengeId = beginData.challenge_id;
       
       // Step 2: Browser creates credential
       const credential = await navigator.credentials.create({
         publicKey: {
-          challenge: base64ToBuffer(options.challenge),
-          rp: options.rp,
+          challenge: base64ToBuffer(pubKeyOptions.challenge),
+          rp: pubKeyOptions.rp,
           user: {
-            id: base64ToBuffer(options.user.id),
-            name: options.user.name,
-            displayName: options.user.displayName
+            id: base64ToBuffer(pubKeyOptions.user.id),
+            name: pubKeyOptions.user.name,
+            displayName: pubKeyOptions.user.displayName
           },
-          pubKeyCredParams: options.pubKeyCredParams,
-          authenticatorSelection: options.authenticatorSelection,
-          timeout: options.timeout,
-          attestation: options.attestation
+          pubKeyCredParams: pubKeyOptions.pubKeyCredParams,
+          authenticatorSelection: pubKeyOptions.authenticatorSelection,
+          timeout: pubKeyOptions.timeout,
+          attestation: pubKeyOptions.attestation
         }
       });
       
@@ -151,7 +155,7 @@ func (e *ComponentExpander) expandRegister(match string) string {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: options.session_id,
+          challenge_id: challengeId,
           response: {
             id: credential.id,
             rawId: bufferToBase64(credential.rawId),
@@ -251,16 +255,18 @@ func (e *ComponentExpander) expandLogin(match string) string {
         throw new Error(err.error || 'Login failed');
       }
       
-      const options = await beginRes.json();
+      const beginData = await beginRes.json();
+      const pubKeyOptions = beginData.options.publicKey;
+      const challengeId = beginData.challenge_id;
       
       // Step 2: Browser authenticates
       const credential = await navigator.credentials.get({
         publicKey: {
-          challenge: base64ToBuffer(options.challenge),
-          rpId: options.rpId,
-          timeout: options.timeout,
-          userVerification: options.userVerification,
-          allowCredentials: (options.allowCredentials || []).map(c => ({
+          challenge: base64ToBuffer(pubKeyOptions.challenge),
+          rpId: pubKeyOptions.rpId,
+          timeout: pubKeyOptions.timeout,
+          userVerification: pubKeyOptions.userVerification,
+          allowCredentials: (pubKeyOptions.allowCredentials || []).map(c => ({
             id: base64ToBuffer(c.id),
             type: c.type
           }))
@@ -272,7 +278,7 @@ func (e *ComponentExpander) expandLogin(match string) string {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: options.session_id,
+          challenge_id: challengeId,
           response: {
             id: credential.id,
             rawId: bufferToBase64(credential.rawId),

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -209,14 +210,14 @@ func (h *Handlers) FinishLoginHandler(w http.ResponseWriter, r *http.Request) {
 		io.NopCloser(newBytesReader(req.Response)),
 	)
 	if err != nil {
-		jsonError(w, "Invalid credential response", http.StatusBadRequest)
+		jsonError(w, fmt.Sprintf("Invalid credential response: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Complete login
 	user, err := h.webauthn.FinishLogin(req.ChallengeID, parsedResponse)
 	if err != nil {
-		jsonError(w, "Login failed", http.StatusUnauthorized)
+		jsonError(w, fmt.Sprintf("Login failed: %v", err), http.StatusUnauthorized)
 		return
 	}
 

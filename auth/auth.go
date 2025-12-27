@@ -38,6 +38,8 @@ type Credential struct {
 	SignCount       uint32    `json:"sign_count"`       // Replay protection counter
 	Transports      []string  `json:"transports"`       // e.g., ["internal", "usb"]
 	AttestationType string    `json:"attestation_type"` // e.g., "none", "packed"
+	BackupEligible  bool      `json:"backup_eligible"`  // Can be synced/backed up
+	BackupState     bool      `json:"backup_state"`     // Has been backed up
 	CreatedAt       time.Time `json:"created_at"`
 }
 

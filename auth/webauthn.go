@@ -171,21 +171,23 @@ func (m *WebAuthnManager) FinishRegistration(challengeID string, response *proto
 			return nil, nil, fmt.Errorf("fetching existing user: %w", err)
 		}
 	} else {
-		// Create new user in database
-		// Extract name from the user object we stored
+		// Create new user in database using the SAME ID we used during BeginRegistration
+		// This is critical: the passkey stores the user ID as the "user handle"
+		// and login will fail if the IDs don't match
+		userID := string(challenge.user.id)
 		name := challenge.user.displayName
 		email := ""
 		if challenge.user.name != name {
 			email = challenge.user.name
 		}
 
-		user, err = m.db.CreateUser(name, email)
+		user, err = m.db.CreateUserWithID(userID, name, email)
 		if err != nil {
 			return nil, nil, fmt.Errorf("creating user: %w", err)
 		}
 	}
 
-	// Save credential
+	// Save credential with flags for proper validation during login
 	cred := &Credential{
 		ID:              credential.ID,
 		UserID:          user.ID,
@@ -193,6 +195,8 @@ func (m *WebAuthnManager) FinishRegistration(challengeID string, response *proto
 		SignCount:       credential.Authenticator.SignCount,
 		Transports:      transportStrings(credential.Transport),
 		AttestationType: string(credential.AttestationType),
+		BackupEligible:  credential.Flags.BackupEligible,
+		BackupState:     credential.Flags.BackupState,
 		CreatedAt:       time.Now().UTC(),
 	}
 
@@ -306,13 +310,17 @@ func (m *WebAuthnManager) findUserByCredential(credentialID, userHandle []byte) 
 		return nil, err
 	}
 
-	// Convert to webauthn credentials
+	// Convert to webauthn credentials with flags for proper validation
 	var waCredentials []webauthn.Credential
 	for _, c := range creds {
 		waCredentials = append(waCredentials, webauthn.Credential{
 			ID:              c.ID,
 			PublicKey:       c.PublicKey,
 			AttestationType: c.AttestationType,
+			Flags: webauthn.CredentialFlags{
+				BackupEligible: c.BackupEligible,
+				BackupState:    c.BackupState,
+			},
 			Authenticator: webauthn.Authenticator{
 				SignCount: c.SignCount,
 			},

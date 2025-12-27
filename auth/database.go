@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"strings"
 
 	// SQLite driver
 	_ "modernc.org/sqlite"
@@ -89,22 +90,43 @@ var migrations = []string{
 	)`,
 	// Migration 3: Create api_keys index
 	`CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)`,
+	// Migration 4: Add backup flags to credentials table
+	`ALTER TABLE credentials ADD COLUMN backup_eligible INTEGER NOT NULL DEFAULT 0`,
+	// Migration 5: Add backup state to credentials table
+	`ALTER TABLE credentials ADD COLUMN backup_state INTEGER NOT NULL DEFAULT 0`,
 }
 
-// OpenDB opens the auth database, creating it if necessary.
+// OpenDB opens the auth database. Returns an error if it doesn't exist.
 // The database is stored separately from the app database for security.
-func OpenDB(basePath string) (*DB, error) {
-	// Auth database is always .basil-auth.db in the config directory
-	dbPath := filepath.Join(basePath, ".basil-auth.db")
 
-	// Create database file with restrictive permissions
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		f, err := os.OpenFile(dbPath, os.O_CREATE|os.O_RDWR, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("creating auth database: %w", err)
-		}
-		f.Close()
-	}
+func OpenDB(basePath string) (*DB, error) {
+   // Accept either a directory or a full database file path
+   dbPath := basePath
+   if !strings.HasSuffix(dbPath, ".db") {
+	   dbPath = filepath.Join(basePath, ".basil-auth.db")
+   }
+
+   // If the database file does not exist, return a user-friendly error
+   if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+	   return nil, fmt.Errorf("no authentication database found in this folder (%s)", dbPath)
+   }
+
+   return openDBInternal(dbPath)
+}
+
+// OpenOrCreateDB opens the auth database, creating it if it doesn't exist.
+func OpenOrCreateDB(basePath string) (*DB, error) {
+   // Accept either a directory or a full database file path
+   dbPath := basePath
+   if !strings.HasSuffix(dbPath, ".db") {
+	   dbPath = filepath.Join(basePath, ".basil-auth.db")
+   }
+
+   return openDBInternal(dbPath)
+}
+
+// openDBInternal is the shared implementation for opening databases.
+func openDBInternal(dbPath string) (*DB, error) {
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -182,8 +204,19 @@ func (d *DB) CreateUser(name, email string) (*User, error) {
 	return d.CreateUserWithRole(name, email, RoleEditor)
 }
 
+// CreateUserWithID creates a new user with a specific ID.
+// This is used during WebAuthn registration where the ID must match the user handle.
+func (d *DB) CreateUserWithID(id, name, email string) (*User, error) {
+	return d.createUserInternal(id, name, email, RoleEditor)
+}
+
 // CreateUserWithRole creates a new user with the specified role.
 func (d *DB) CreateUserWithRole(name, email, role string) (*User, error) {
+	return d.createUserInternal(generateID("usr"), name, email, role)
+}
+
+// createUserInternal is the internal user creation function.
+func (d *DB) createUserInternal(id, name, email, role string) (*User, error) {
 	if role == "" {
 		role = RoleEditor
 	}
@@ -192,7 +225,7 @@ func (d *DB) CreateUserWithRole(name, email, role string) (*User, error) {
 	}
 
 	user := &User{
-		ID:        generateID("usr"),
+		ID:        id,
 		Name:      name,
 		Email:     email,
 		Role:      role,
@@ -329,10 +362,11 @@ func (d *DB) SaveCredential(cred *Credential) error {
 	}
 
 	_, err := d.db.Exec(
-		`INSERT INTO credentials (id, user_id, public_key, sign_count, transports, attestation_type, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO credentials (id, user_id, public_key, sign_count, transports, attestation_type, backup_eligible, backup_state, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		cred.ID, cred.UserID, cred.PublicKey, cred.SignCount,
-		nullString(transports), nullString(cred.AttestationType), cred.CreatedAt,
+		nullString(transports), nullString(cred.AttestationType),
+		boolToInt(cred.BackupEligible), boolToInt(cred.BackupState), cred.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("saving credential: %w", err)
@@ -344,7 +378,7 @@ func (d *DB) SaveCredential(cred *Credential) error {
 // GetCredentialsByUser returns all credentials for a user.
 func (d *DB) GetCredentialsByUser(userID string) ([]*Credential, error) {
 	rows, err := d.db.Query(
-		`SELECT id, user_id, public_key, sign_count, transports, attestation_type, created_at
+		`SELECT id, user_id, public_key, sign_count, transports, attestation_type, backup_eligible, backup_state, created_at
 		 FROM credentials WHERE user_id = ?`,
 		userID,
 	)
@@ -357,14 +391,17 @@ func (d *DB) GetCredentialsByUser(userID string) ([]*Credential, error) {
 	for rows.Next() {
 		cred := &Credential{}
 		var transports, attestationType sql.NullString
+		var backupEligible, backupState int
 		if err := rows.Scan(&cred.ID, &cred.UserID, &cred.PublicKey, &cred.SignCount,
-			&transports, &attestationType, &cred.CreatedAt); err != nil {
+			&transports, &attestationType, &backupEligible, &backupState, &cred.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning credential: %w", err)
 		}
 		if transports.String != "" {
 			cred.Transports = splitString(transports.String, ",")
 		}
 		cred.AttestationType = attestationType.String
+		cred.BackupEligible = backupEligible != 0
+		cred.BackupState = backupState != 0
 		creds = append(creds, cred)
 	}
 
@@ -375,13 +412,14 @@ func (d *DB) GetCredentialsByUser(userID string) ([]*Credential, error) {
 func (d *DB) GetCredential(id []byte) (*Credential, error) {
 	cred := &Credential{}
 	var transports, attestationType sql.NullString
+	var backupEligible, backupState int
 
 	err := d.db.QueryRow(
-		`SELECT id, user_id, public_key, sign_count, transports, attestation_type, created_at
+		`SELECT id, user_id, public_key, sign_count, transports, attestation_type, backup_eligible, backup_state, created_at
 		 FROM credentials WHERE id = ?`,
 		id,
 	).Scan(&cred.ID, &cred.UserID, &cred.PublicKey, &cred.SignCount,
-		&transports, &attestationType, &cred.CreatedAt)
+		&transports, &attestationType, &backupEligible, &backupState, &cred.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -394,6 +432,8 @@ func (d *DB) GetCredential(id []byte) (*Credential, error) {
 		cred.Transports = splitString(transports.String, ",")
 	}
 	cred.AttestationType = attestationType.String
+	cred.BackupEligible = backupEligible != 0
+	cred.BackupState = backupState != 0
 	return cred, nil
 }
 
@@ -489,6 +529,14 @@ func nullString(s string) sql.NullString {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: s, Valid: true}
+}
+
+// boolToInt converts a bool to int for SQLite storage.
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // splitString splits a string by separator.
