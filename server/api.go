@@ -185,6 +185,7 @@ func (h *apiHandler) buildRequestObject(env *evaluator.Environment, r *http.Requ
 			"id":    user.ID,
 			"name":  user.Name,
 			"email": user.Email,
+			"role":  user.Role,
 		}
 		ctx["user"] = userMap
 	}
@@ -216,10 +217,18 @@ func (h *apiHandler) enforceAuth(w http.ResponseWriter, r *http.Request, handler
 		return nil, false
 	}
 
-	// Role enforcement (secure-by-default): without role data, deny admin/roles requirements
-	if meta.AuthType == "admin" || (meta.AuthType == "roles" && len(meta.Roles) > 0) {
-		h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-403", Message: "Forbidden", Status: http.StatusForbidden})
-		return nil, false
+	// Role enforcement: check user's role against required roles
+	if meta.AuthType == "admin" {
+		if user.Role != auth.RoleAdmin {
+			h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-403", Message: "Forbidden: admin role required", Status: http.StatusForbidden})
+			return nil, false
+		}
+	}
+	if meta.AuthType == "roles" && len(meta.Roles) > 0 {
+		if !sliceContains(meta.Roles, user.Role) {
+			h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-403", Message: "Forbidden: insufficient role", Status: http.StatusForbidden})
+			return nil, false
+		}
 	}
 
 	return user, true
@@ -233,6 +242,16 @@ func (h *apiHandler) enforceRateLimit(w http.ResponseWriter, r *http.Request, mo
 		return false
 	}
 	return true
+}
+
+// sliceContains checks if a slice contains a string
+func sliceContains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 func rateLimitKey(r *http.Request, user *auth.User) string {

@@ -260,6 +260,74 @@ func TestComponentExpander_NoComponents(t *testing.T) {
 	}
 }
 
+// TestComponentExpander_ShortPrefix tests that auth.Register/Login/Logout work
+// without the basil. prefix (this is what Parsley code like `<auth.Register/>` produces)
+func TestComponentExpander_ShortPrefix(t *testing.T) {
+	ResetUniqueIDCounter()
+	expander := NewComponentExpander()
+
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+	}{
+		{
+			name:  "register without basil prefix",
+			input: `<auth.Register button_text="Sign up"/>`,
+			contains: []string{
+				`class="basil-auth-register"`,
+				`>Sign up</button>`,
+				`/__auth/register/begin`,
+			},
+		},
+		{
+			name:  "login without basil prefix",
+			input: `<auth.Login button_text="Sign in"/>`,
+			contains: []string{
+				`class="basil-auth-login"`,
+				`>Sign in</button>`,
+				`/__auth/login/begin`,
+			},
+		},
+		{
+			name:  "logout without basil prefix",
+			input: `<auth.Logout text="Log out"/>`,
+			contains: []string{
+				`class="basil-auth-logout`,
+				`>Log out</button>`,
+				`/__auth/logout`,
+			},
+		},
+		{
+			name: "register with multiline attributes (Parsley output)",
+			input: `<auth.Register                                                                  name_placeholder="Your name"
+      email_placeholder="Email (optional)"
+      button_text="Create account"
+      recovery_page="/recovery-codes"
+      class="auth-form" />`,
+			contains: []string{
+				`class="basil-auth-register auth-form"`,
+				`placeholder="Your name"`,
+				`placeholder="Email (optional)"`,
+				`>Create account</button>`,
+				`window.location.href = '/recovery-codes'`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expander.ExpandComponents(tt.input)
+
+			for _, want := range tt.contains {
+				if !strings.Contains(result, want) {
+					t.Errorf("expected output to contain %q\nGot:\n%s", want, result)
+				}
+			}
+		})
+	}
+}
+
 func TestComponentExpander_EscapesHTML(t *testing.T) {
 	ResetUniqueIDCounter()
 	expander := NewComponentExpander()

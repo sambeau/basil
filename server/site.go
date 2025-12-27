@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sambeau/basil/auth"
 	"github.com/sambeau/basil/config"
 )
 
@@ -54,6 +55,22 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if info, err := os.Stat(dirPath); err == nil && info.IsDir() {
 			if _, err := os.Stat(indexPath); err == nil {
 				http.Redirect(w, r, urlPath+"/", http.StatusFound)
+				return
+			}
+		}
+	}
+
+	// Check protected paths (before serving any content)
+	if h.server.config.Auth.Enabled {
+		if pp := h.server.isProtectedPath(urlPath); pp != nil {
+			user := auth.GetUser(r)
+			if user == nil {
+				h.handleUnauthenticated(w, r)
+				return
+			}
+			// Check role requirements
+			if len(pp.Roles) > 0 && !sliceContains(pp.Roles, user.Role) {
+				h.handleForbidden(w, r)
 				return
 			}
 		}
@@ -292,4 +309,14 @@ func (h *siteHandler) servePartFile(w http.ResponseWriter, r *http.Request, part
 	// Apply auth middleware (optional auth for now)
 	finalHandler := h.server.applyAuthMiddleware(handler, "optional")
 	finalHandler.ServeHTTP(w, r)
+}
+
+// handleUnauthenticated handles requests to protected paths from unauthenticated users.
+func (h *siteHandler) handleUnauthenticated(w http.ResponseWriter, r *http.Request) {
+	h.server.handleUnauthenticated(w, r)
+}
+
+// handleForbidden handles requests from authenticated users without sufficient role.
+func (h *siteHandler) handleForbidden(w http.ResponseWriter, r *http.Request) {
+	h.server.handleForbidden(w, r)
 }

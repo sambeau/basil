@@ -222,8 +222,8 @@ func validateBasic(cfg *Config) error {
 		if r.Handler == "" {
 			errs = append(errs, fmt.Sprintf("routes[%d]: handler is required", i))
 		}
-		if r.Auth != "" && r.Auth != "required" && r.Auth != "optional" {
-			errs = append(errs, fmt.Sprintf("routes[%d]: auth must be 'required', 'optional', or empty", i))
+		if r.Auth != "" && r.Auth != "required" && r.Auth != "optional" && r.Auth != "none" {
+			errs = append(errs, fmt.Sprintf("routes[%d]: auth must be 'required', 'optional', 'none', or empty", i))
 		}
 	}
 

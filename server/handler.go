@@ -375,6 +375,7 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 			"id":      user.ID,
 			"name":    user.Name,
 			"email":   user.Email,
+			"role":    user.Role,
 			"created": user.CreatedAt,
 		}
 	} else {

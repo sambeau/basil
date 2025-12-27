@@ -1,10 +1,10 @@
 # ID Counters
 
-Last updated: 2025-12-23
+Last updated: 2025-12-27
 
 | Type | Prefix | Next ID | Last Allocated |
 |------|--------|---------|----------------|
-| Feature | FEAT | 076 | FEAT-075 (2025-12-23) |
+| Feature | FEAT | 077 | FEAT-076 (2025-12-27) |
 | Bug | BUG | 012 | BUG-011 (2025-12-11) |
-| Plan | PLAN | 047 | PLAN-046 (2025-12-17) |
+| Plan | PLAN | 048 | PLAN-047 (2025-12-27) |
 | Decision | ADR | 001 | — |

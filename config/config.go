@@ -126,9 +126,44 @@ func (s StringOrSlice) Contains(str string) bool {
 
 // AuthConfig holds authentication settings
 type AuthConfig struct {
-	Enabled      bool          `yaml:"enabled"`      // Enable authentication
-	Registration string        `yaml:"registration"` // "open" (anyone can register) or "closed" (invite only)
-	SessionTTL   time.Duration `yaml:"session_ttl"`  // Session duration (default: 24h)
+	Enabled        bool            `yaml:"enabled"`         // Enable authentication
+	Registration   string          `yaml:"registration"`    // "open" (anyone can register) or "closed" (invite only)
+	SessionTTL     time.Duration   `yaml:"session_ttl"`     // Session duration (default: 24h)
+	ProtectedPaths []ProtectedPath `yaml:"protected_paths"` // URL path prefixes that require authentication
+	LoginPath      string          `yaml:"login_path"`      // Path to redirect unauthenticated users (default: "/login")
+}
+
+// ProtectedPath represents a URL path prefix that requires authentication.
+// Supports both simple string paths and paths with role requirements.
+type ProtectedPath struct {
+	Path  string   // URL path prefix (e.g., "/dashboard")
+	Roles []string // Required roles (empty = any authenticated user)
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler to handle both string and object formats.
+// Supports:
+//   - Simple string: "/dashboard"
+//   - Object: {path: "/admin", roles: ["admin"]}
+func (p *ProtectedPath) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Try string first
+	var path string
+	if err := unmarshal(&path); err == nil {
+		p.Path = path
+		p.Roles = nil
+		return nil
+	}
+
+	// Try object format
+	var obj struct {
+		Path  string   `yaml:"path"`
+		Roles []string `yaml:"roles"`
+	}
+	if err := unmarshal(&obj); err != nil {
+		return err
+	}
+	p.Path = obj.Path
+	p.Roles = obj.Roles
+	return nil
 }
 
 // GitConfig holds Git server settings
@@ -170,7 +205,8 @@ type StaticRoute struct {
 type Route struct {
 	Path      string        `yaml:"path"`       // URL path pattern (supports * wildcard)
 	Handler   string        `yaml:"handler"`    // Path to Parsley script
-	Auth      string        `yaml:"auth"`       // "required", "optional", or empty
+	Auth      string        `yaml:"auth"`       // "required", "optional", "none", or empty
+	Roles     []string      `yaml:"roles"`      // Required roles (used with auth: required)
 	Cache     time.Duration `yaml:"cache"`      // Response cache TTL (0 = no cache)
 	PublicDir string        `yaml:"public_dir"` // Directory for static files for this route
 	Type      string        `yaml:"type"`       // Route type: "api" for API modules, empty for page handlers

@@ -107,4 +107,88 @@ Use `part-load="view"` (optionally with `part-load-threshold={px}`) on the `<Par
 
 ---
 
+## Authentication Questions
+
+### How do I protect an entire section of my site?
+
+Use `auth.protected_paths` in your `basil.yaml`:
+
+```yaml
+auth:
+  enabled: true
+  protected_paths:
+    - /dashboard
+    - /settings
+```
+
+All URLs starting with `/dashboard` or `/settings` will require authentication. Works with both site mode and routes mode.
+
+*Added: 2025-12-27*
+
+### How do I make one page public under a protected path?
+
+Use `auth: none` on the specific route:
+
+```yaml
+auth:
+  enabled: true
+  protected_paths:
+    - /admin
+
+routes:
+  - path: /admin/login
+    handler: ./handlers/admin-login.pars
+    auth: none    # Public, even though /admin is protected
+```
+
+*Added: 2025-12-27*
+
+### How do I restrict a route to admins only?
+
+Three options depending on your setup:
+
+**1. Protected paths with roles:**
+```yaml
+auth:
+  protected_paths:
+    - path: /admin
+      roles: [admin]
+```
+
+**2. Route-level roles:**
+```yaml
+routes:
+  - path: /admin/users
+    handler: ./handlers/admin-users.pars
+    auth: required
+    roles: [admin]
+```
+
+**3. API wrapper (for API routes):**
+```parsley
+let api = import @std/api
+
+export get = api.adminOnly(fn(req) {
+    {users: getAllUsers()}
+})
+```
+
+*Added: 2025-12-27*
+
+### How do I check the user's role in a handler?
+
+Access `basil.auth.user.role`:
+
+```parsley
+if (basil.auth.user && basil.auth.user.role == "admin") {
+    <AdminPanel/>
+} else {
+    <p>"Access denied"</p>
+}
+```
+
+*Added: 2025-12-27*
+
+---
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

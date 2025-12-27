@@ -373,3 +373,89 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+func TestIsProtectedPath(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Auth: config.AuthConfig{
+			Enabled: false, // Auth disabled, but protected paths can still be configured
+			ProtectedPaths: []config.ProtectedPath{
+				{Path: "/dashboard"},
+				{Path: "/admin", Roles: []string{"admin"}},
+				{Path: "/editors", Roles: []string{"admin", "editor"}},
+			},
+		},
+		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+	}
+
+	srv, err := New(cfg, "", "test", "test-commit", &bytes.Buffer{}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	tests := []struct {
+		path        string
+		wantMatch   bool
+		wantPath    string
+		wantRoles   []string
+	}{
+		// Exact matches
+		{"/dashboard", true, "/dashboard", nil},
+		{"/admin", true, "/admin", []string{"admin"}},
+		{"/editors", true, "/editors", []string{"admin", "editor"}},
+
+		// Subpath matches
+		{"/dashboard/", true, "/dashboard", nil},
+		{"/dashboard/users", true, "/dashboard", nil},
+		{"/dashboard/users/123", true, "/dashboard", nil},
+		{"/admin/settings", true, "/admin", []string{"admin"}},
+
+		// Non-matches
+		{"/", false, "", nil},
+		{"/login", false, "", nil},
+		{"/dashboardx", false, "", nil}, // /dashboardx is NOT under /dashboard
+		{"/adminpanel", false, "", nil}, // /adminpanel is NOT under /admin
+		{"/public", false, "", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			pp := srv.isProtectedPath(tt.path)
+			if tt.wantMatch {
+				if pp == nil {
+					t.Errorf("expected path %q to match protected path, got nil", tt.path)
+					return
+				}
+				if pp.Path != tt.wantPath {
+					t.Errorf("expected matched path %q, got %q", tt.wantPath, pp.Path)
+				}
+				if len(pp.Roles) != len(tt.wantRoles) {
+					t.Errorf("expected %d roles, got %d", len(tt.wantRoles), len(pp.Roles))
+				}
+			} else {
+				if pp != nil {
+					t.Errorf("expected path %q to NOT match, but matched %q", tt.path, pp.Path)
+				}
+			}
+		})
+	}
+}
+
+func TestGetLoginPath(t *testing.T) {
+	// Test default
+	cfg := &config.Config{
+		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+	}
+	srv, _ := New(cfg, "", "test", "test-commit", &bytes.Buffer{}, &bytes.Buffer{})
+	if srv.getLoginPath() != "/login" {
+		t.Errorf("expected default login path /login, got %q", srv.getLoginPath())
+	}
+
+	// Test custom
+	cfg.Auth.LoginPath = "/auth/signin"
+	srv2, _ := New(cfg, "", "test", "test-commit", &bytes.Buffer{}, &bytes.Buffer{})
+	if srv2.getLoginPath() != "/auth/signin" {
+		t.Errorf("expected custom login path /auth/signin, got %q", srv2.getLoginPath())
+	}
+}

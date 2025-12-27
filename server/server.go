@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -166,6 +167,30 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 	}
 
 	return s, nil
+}
+
+// isProtectedPath checks if a URL path matches any protected path prefix.
+// Returns the matching ProtectedPath if found, nil otherwise.
+func (s *Server) isProtectedPath(urlPath string) *config.ProtectedPath {
+	for i := range s.config.Auth.ProtectedPaths {
+		pp := &s.config.Auth.ProtectedPaths[i]
+		// Match the path exactly or as a prefix
+		// /dashboard matches /dashboard, /dashboard/, /dashboard/anything
+		if urlPath == pp.Path ||
+			strings.HasPrefix(urlPath, pp.Path+"/") ||
+			(pp.Path != "/" && urlPath+"/" == pp.Path+"/") {
+			return pp
+		}
+	}
+	return nil
+}
+
+// getLoginPath returns the configured login path or the default.
+func (s *Server) getLoginPath() string {
+	if s.config.Auth.LoginPath != "" {
+		return s.config.Auth.LoginPath
+	}
+	return "/login"
 }
 
 // initDevTools initializes dev tools (logging, etc.) in dev mode.
@@ -578,6 +603,12 @@ func (s *Server) setupRoutes() error {
 
 		finalHandler := s.applyAuthMiddleware(handler, authMode)
 
+		// Apply protected paths check for routes without explicit auth setting
+		// (auth: "none" explicitly disables protection)
+		if authMode != "none" && authMode != "required" && s.config.Auth.Enabled {
+			finalHandler = s.protectedPathMiddleware(finalHandler, route.Roles)
+		}
+
 		// Apply CSRF middleware for non-API routes with auth
 		// API routes use API keys/bearer tokens, not cookies, so CSRF doesn't apply
 		if !isAPI && (authMode == "required" || authMode == "optional") {
@@ -623,8 +654,18 @@ func isAPIRoute(route config.Route) bool {
 	return false
 }
 
-// applyAuthMiddleware wraps a handler with appropriate auth middleware
+// applyAuthMiddleware wraps a handler with appropriate auth middleware.
+// If authMode is "none", auth is explicitly disabled even for protected paths.
 func (s *Server) applyAuthMiddleware(handler http.Handler, authMode string) http.Handler {
+	// "none" explicitly disables auth for this route, even if under a protected path
+	if authMode == "none" {
+		// Still apply optional auth so user info is available if logged in
+		if s.authMW != nil {
+			return s.authMW.OptionalAuth(handler)
+		}
+		return handler
+	}
+
 	if s.authMW == nil {
 		return handler
 	}
@@ -636,6 +677,101 @@ func (s *Server) applyAuthMiddleware(handler http.Handler, authMode string) http
 	default:
 		return s.authMW.OptionalAuth(handler)
 	}
+}
+
+// protectedPathMiddleware checks if the request path is protected and enforces auth.
+// routeRoles are explicit role requirements from the route config.
+func (s *Server) protectedPathMiddleware(next http.Handler, routeRoles []string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if path is protected by config
+		pp := s.isProtectedPath(r.URL.Path)
+		
+		// Determine required roles (route config takes precedence)
+		var requiredRoles []string
+		if len(routeRoles) > 0 {
+			requiredRoles = routeRoles
+		} else if pp != nil {
+			requiredRoles = pp.Roles
+		}
+		
+		// If not protected and no route roles, continue
+		if pp == nil && len(routeRoles) == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+		
+		// Path is protected - check auth
+		user := auth.GetUser(r)
+		if user == nil {
+			s.handleUnauthenticated(w, r)
+			return
+		}
+		
+		// Check role requirements
+		if len(requiredRoles) > 0 && !sliceContains(requiredRoles, user.Role) {
+			s.handleForbidden(w, r)
+			return
+		}
+		
+		next.ServeHTTP(w, r)
+	})
+}
+
+// handleUnauthenticated handles requests to protected paths from unauthenticated users.
+func (s *Server) handleUnauthenticated(w http.ResponseWriter, r *http.Request) {
+	if isAPIRequest(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    "HTTP-401",
+				"message": "Unauthorized",
+			},
+		})
+		return
+	}
+
+	// HTML request - redirect to login
+	loginPath := s.getLoginPath()
+	nextURL := r.URL.Path
+	if r.URL.RawQuery != "" {
+		nextURL += "?" + r.URL.RawQuery
+	}
+	redirectURL := loginPath + "?next=" + nextURL
+	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+// handleForbidden handles requests from authenticated users without sufficient role.
+func (s *Server) handleForbidden(w http.ResponseWriter, r *http.Request) {
+	if isAPIRequest(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    "HTTP-403",
+				"message": "Forbidden: insufficient role",
+			},
+		})
+		return
+	}
+
+	http.Error(w, "403 Forbidden", http.StatusForbidden)
+}
+
+// isAPIRequest checks if a request expects JSON response.
+func isAPIRequest(r *http.Request) bool {
+	accept := r.Header.Get("Accept")
+	if strings.Contains(accept, "application/json") {
+		return true
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		return true
+	}
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application/json") {
+		return true
+	}
+	return false
 }
 
 // createRouteWithStaticFallback wraps a route handler with static file fallback.

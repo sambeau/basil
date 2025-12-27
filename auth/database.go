@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 	"strings"
+	"time"
 
 	// SQLite driver
 	_ "modernc.org/sqlite"
@@ -100,29 +100,29 @@ var migrations = []string{
 // The database is stored separately from the app database for security.
 
 func OpenDB(basePath string) (*DB, error) {
-   // Accept either a directory or a full database file path
-   dbPath := basePath
-   if !strings.HasSuffix(dbPath, ".db") {
-	   dbPath = filepath.Join(basePath, ".basil-auth.db")
-   }
+	// Accept either a directory or a full database file path
+	dbPath := basePath
+	if !strings.HasSuffix(dbPath, ".db") {
+		dbPath = filepath.Join(basePath, ".basil-auth.db")
+	}
 
-   // If the database file does not exist, return a user-friendly error
-   if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-	   return nil, fmt.Errorf("no authentication database found in this folder (%s)", dbPath)
-   }
+	// If the database file does not exist, return a user-friendly error
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("no authentication database found in this folder (%s)", dbPath)
+	}
 
-   return openDBInternal(dbPath)
+	return openDBInternal(dbPath)
 }
 
 // OpenOrCreateDB opens the auth database, creating it if it doesn't exist.
 func OpenOrCreateDB(basePath string) (*DB, error) {
-   // Accept either a directory or a full database file path
-   dbPath := basePath
-   if !strings.HasSuffix(dbPath, ".db") {
-	   dbPath = filepath.Join(basePath, ".basil-auth.db")
-   }
+	// Accept either a directory or a full database file path
+	dbPath := basePath
+	if !strings.HasSuffix(dbPath, ".db") {
+		dbPath = filepath.Join(basePath, ".basil-auth.db")
+	}
 
-   return openDBInternal(dbPath)
+	return openDBInternal(dbPath)
 }
 
 // openDBInternal is the shared implementation for opening databases.
