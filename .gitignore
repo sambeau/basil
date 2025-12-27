@@ -24,10 +24,20 @@ go.work.sum
 # Symlinks
 tubbo
 
-# Dev tools logs (SQLite databases)
+# Dev tools logs (SQLite databases - created at runtime)
+dev_logs.db
+dev_logs.db-wal
+dev_logs.db-shm
 dev_logs_*.db
 dev_logs_*.db-wal
 dev_logs_*.db-shm
+**/dev_logs.db
+**/dev_logs.db-wal
+**/dev_logs.db-shm
+
+# SQLite WAL/SHM files (runtime artifacts, not needed in repo)
+*.db-wal
+*.db-shm
 
 # Ulysses app metadata
 .Ulysses-Group.plist
