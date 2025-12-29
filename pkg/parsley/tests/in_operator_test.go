@@ -256,3 +256,90 @@ func TestIncludesMethodString(t *testing.T) {
 		})
 	}
 }
+
+// TestInWithNull tests that 'x in null' returns false (null-safe membership)
+func TestInWithNull(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		// Basic null cases
+		{`1 in null`, false},
+		{`"foo" in null`, false},
+		{`null in null`, false},
+		{`true in null`, false},
+
+		// With variables
+		{`let x = null; "key" in x`, false},
+		{`let roles = null; "admin" in roles`, false},
+
+		// In conditionals (common pattern)
+		{`if ("admin" in null) { true } else { false }`, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := evalIn(tt.input)
+			boolObj, ok := result.(*evaluator.Boolean)
+			if !ok {
+				t.Fatalf("expected Boolean, got %T (%s)", result, result.Inspect())
+			}
+			if boolObj.Value != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, boolObj.Value)
+			}
+		})
+	}
+}
+
+// TestNotInOperator tests the 'not in' compound operator
+func TestNotInOperator(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		// Array membership
+		{`4 not in [1, 2, 3]`, true},
+		{`2 not in [1, 2, 3]`, false},
+		{`1 not in []`, true},
+
+		// Dictionary key
+		{`"foo" not in {name: "Sam", age: 30}`, true},
+		{`"name" not in {name: "Sam", age: 30}`, false},
+		{`"key" not in {}`, true},
+
+		// Substring
+		{`"xyz" not in "hello world"`, true},
+		{`"world" not in "hello world"`, false},
+		{`"a" not in ""`, true},
+
+		// With null (null-safe)
+		{`"admin" not in null`, true},
+		{`1 not in null`, true},
+
+		// With variables
+		{`let arr = [1, 2, 3]; 5 not in arr`, true},
+		{`let arr = [1, 2, 3]; 2 not in arr`, false},
+		{`let d = {a: 1}; "b" not in d`, true},
+
+		// Combined with logical operators
+		{`4 not in [1, 2, 3] and 5 not in [4, 5, 6]`, false},
+		{`4 not in [1, 2, 3] or 5 not in [4, 5, 6]`, true},
+
+		// In conditionals
+		{`if (5 not in [1, 2, 3]) { true } else { false }`, true},
+		{`if (2 not in [1, 2, 3]) { true } else { false }`, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := evalIn(tt.input)
+			boolObj, ok := result.(*evaluator.Boolean)
+			if !ok {
+				t.Fatalf("expected Boolean, got %T (%s)", result, result.Inspect())
+			}
+			if boolObj.Value != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, boolObj.Value)
+			}
+		})
+	}
+}

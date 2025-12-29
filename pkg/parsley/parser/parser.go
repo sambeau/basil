@@ -38,6 +38,7 @@ var precedences = map[lexer.TokenType]int{
 	lexer.MATCH:        EQUALS,
 	lexer.NOT_MATCH:    EQUALS,
 	lexer.IN:           EQUALS,
+	lexer.BANG:         EQUALS, // for 'not in' operator
 	lexer.LT:           LESSGREATER,
 	lexer.GT:           LESSGREATER,
 	lexer.LTE:          LESSGREATER,
@@ -144,6 +145,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.IN, p.parseInfixExpression)
+	p.registerInfix(lexer.BANG, p.parseNotInExpression) // for 'not in' operator
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
 	p.registerInfix(lexer.RANGE, p.parseInfixExpression)
 	p.registerInfix(lexer.QUERY_ONE, p.parseInfixExpression)      // Database operators
@@ -1519,6 +1521,33 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	}
 
 	precedence := p.curPrecedence()
+	p.nextToken()
+	expression.Right = p.parseExpression(precedence)
+
+	return expression
+}
+
+// parseNotInExpression handles the 'not in' compound operator.
+// When 'not' appears in infix position and is followed by 'in',
+// it creates a 'not in' operator. Otherwise, it's a syntax error.
+func (p *Parser) parseNotInExpression(left ast.Expression) ast.Expression {
+	notToken := p.curToken
+
+	// Check if next token is 'in'
+	if !p.peekTokenIs(lexer.IN) {
+		p.addError(fmt.Sprintf("expected 'in' after 'not', got %s", p.peekToken.Type), p.peekToken.Line, p.peekToken.Column)
+		return nil
+	}
+
+	p.nextToken() // consume 'in'
+
+	expression := &ast.InfixExpression{
+		Token:    notToken,
+		Left:     left,
+		Operator: "not in",
+	}
+
+	precedence := precedences[lexer.IN]
 	p.nextToken()
 	expression.Right = p.parseExpression(precedence)
 

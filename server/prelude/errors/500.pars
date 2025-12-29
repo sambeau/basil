@@ -1,3 +1,14 @@
+// Environment variables available in this template:
+//
+// error (Dictionary)
+//   .code (Integer)          - HTTP status code (500)
+//   .message (String)        - HTTP status text ("Internal Server Error")
+//   .details (String)        - Error details (dev mode only, if available)
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

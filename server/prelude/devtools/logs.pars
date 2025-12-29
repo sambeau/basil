@@ -1,3 +1,24 @@
+// Environment variables available in this template:
+//
+// devtools (Dictionary)
+//   .route (String)          - Route filter (empty string for all routes)
+//   .logs (Array)            - Log entries as array of dictionaries
+//     Each element is a Dictionary with:
+//       .level (String)      - Log level ("info" or "warn")
+//       .filename (String)   - Base filename where log was called
+//       .line (Integer)      - Line number where log was called
+//       .timestamp (String)  - Formatted timestamp ("2006-01-02 15:04:05")
+//       .call (String)       - Function call representation
+//       .value (String)      - Logged value representation
+//   .log_count (Integer)     - Number of log entries
+//   .clear_url (String)      - URL to clear logs for this route
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+//   .go_version (String)     - Go runtime version
+//   .route_count (Integer)   - Number of configured routes
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

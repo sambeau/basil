@@ -1,3 +1,19 @@
+// Environment variables available in this template:
+//
+// devtools (Dictionary)
+//   .error (String)          - Error message if database operation failed (optional)
+//   .tables (Array)          - Database tables as array of dictionaries
+//     Each element is a Dictionary with:
+//       .name (String)       - Table name
+//       .row_count (Integer) - Number of rows in table
+//   .table_count (Integer)   - Number of tables
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+//   .go_version (String)     - Go runtime version
+//   .route_count (Integer)   - Number of configured routes
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

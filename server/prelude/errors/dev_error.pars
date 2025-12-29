@@ -1,3 +1,27 @@
+// Environment variables available in this template:
+//
+// error (Dictionary)
+//   .code (Integer)          - HTTP status code (e.g., 500)
+//   .message (String)        - HTTP status text (e.g., "Internal Server Error")
+//   .message_text (String)   - Detailed error message
+//   .details (String)        - Full error details (dev mode only)
+//   .file (String)           - Source file path where error occurred (if available)
+//   .line (Integer)          - Line number where error occurred (if available)
+//   .column (Integer)        - Column number where error occurred (if available)
+//   .source (Array)          - Source code context around the error (if available)
+//     Each element is a Dictionary with:
+//       .number (Integer)    - Line number
+//       .content (String)    - Line content
+//       .is_error (Boolean)  - true if this is the error line
+//   .request (Dictionary)    - Request information (dev mode only)
+//     .method (String)       - HTTP method (e.g., "GET")
+//     .path (String)         - Request path
+//     .query (String)        - Query string
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -125,12 +149,12 @@
 	<div class="container">
 		<h1>
 			<span class="error-code">error.code</span>
-			error.message
+			error.message.htmlEncode() 
 		</h1>
 		if (error.message_text) {
 			<div class="section">
 				<h2>"Error Details"</h2>
-				<div class="message">error.message_text</div>
+				<div class="message">error.message_text.htmlEncode() </div>
 				if (error.file) {
 					<div class="location">
 						"at " + error.file + ":" + error.line + ":" + error.column
@@ -145,9 +169,9 @@
 				<pre class="code-block">
 					for (line in error.source) {
 						if (line.is_error) {
-							<span class="line-error">line.number + " | " + line.content + " <--" + " ERROR"</span><br/>
+							<span class="line-error">line.number + " | " + line.content.htmlEncode() + " <-- ERROR"</span><br/>
 						} else {
-							<span class="line-number">line.number</span>"| " + line.content<br/>
+							<span class="line-number">line.number</span>"| " + line.content.htmlEncode()<br/>
 						}
 					}
 				</pre>	

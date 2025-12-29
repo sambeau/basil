@@ -7540,6 +7540,15 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		return evalConcatExpression(left, right)
 	case operator == "in":
 		return evalInExpression(tok, left, right)
+	case operator == "not in":
+		result := evalInExpression(tok, left, right)
+		if err, ok := result.(*Error); ok {
+			return err
+		}
+		if result == TRUE {
+			return FALSE
+		}
+		return TRUE
 	case operator == "..":
 		return evalRangeExpression(tok, left, right)
 	// Path and URL operators with strings (must come before general string concatenation)
@@ -12624,7 +12633,13 @@ func evalConcatExpression(left, right Object) Object {
 
 // evalInExpression handles the 'in' membership operator
 // Returns true if left is contained in right (array, dictionary key, or substring)
+// Returns false if right is null (null-safe membership check)
 func evalInExpression(tok lexer.Token, left, right Object) Object {
+	// Null-safe: x in null is always false
+	if right.Type() == NULL_OBJ {
+		return FALSE
+	}
+
 	switch r := right.(type) {
 	case *Array:
 		// Check if left is an element of the array

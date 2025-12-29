@@ -1,3 +1,14 @@
+// Environment variables available in this template:
+//
+// devtools (Dictionary)
+//   .has_db (Boolean)        - true if SQLite database is configured
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+//   .go_version (String)     - Go runtime version
+//   .route_count (Integer)   - Number of configured routes
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

@@ -1,3 +1,13 @@
+// Environment variables available in this template:
+//
+// error (Dictionary)
+//   .code (Integer)          - HTTP status code (404)
+//   .message (String)        - HTTP status text ("Not Found")
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+
 let NotFoundPage = fn() {
     <!DOCTYPE html>
     <html lang="en">

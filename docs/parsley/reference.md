@@ -223,6 +223,59 @@ null ?? "fallback"         // "fallback"
 a ?? b ?? c ?? "default"   // First non-null value
 ```
 
+### Membership Operators
+
+| Operator | Description | Example |
+|----------|-------------|--------|
+| `in` | Membership test | `2 in [1, 2, 3]` → `true` |
+| `not in` | Negated membership | `5 not in [1, 2, 3]` → `true` |
+
+The `in` operator tests membership in arrays, dictionary keys, and substrings:
+
+```parsley
+// Array membership
+2 in [1, 2, 3]              // true
+5 in [1, 2, 3]              // false
+
+// Dictionary key existence
+"name" in {name: "Sam"}     // true
+"age" in {name: "Sam"}      // false
+
+// Substring check
+"world" in "hello world"    // true
+"xyz" in "hello world"      // false
+```
+
+The `not in` operator is syntactic sugar for negated membership:
+
+```parsley
+// Equivalent forms
+5 not in [1, 2, 3]          // true
+!(5 in [1, 2, 3])           // true (same result)
+not (5 in [1, 2, 3])        // true (same result)
+
+// Common patterns
+if (user not in blocklist) { allowAccess() }
+if ("admin" not in roles) { redirect("/login") }
+```
+
+**Null-safe membership**: The `in` operator returns `false` when the right-hand side is `null`, enabling cleaner null-safe patterns:
+
+```parsley
+// Null-safe - no explicit null check needed
+"admin" in null             // false
+"key" in null               // false
+
+// Useful with optional data
+let user = {roles: null}
+if ("admin" in user.roles) {  // false, no error
+    showAdminPanel()
+}
+
+// Works with not in too
+"admin" not in null         // true
+```
+
 ### File I/O
 
 | Operator | Description | Example |

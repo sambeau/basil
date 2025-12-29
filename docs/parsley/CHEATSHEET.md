@@ -245,6 +245,15 @@ or
 "name" in {name: "Sam"}     // true (dict key exists)
 "ell" in "hello"            // true (substring)
 
+// Negated membership with 'not in'
+5 not in [1, 2, 3]          // true
+"foo" not in {name: "Sam"}  // true
+"xyz" not in "hello"        // true
+
+// Null-safe: 'in' with null returns false
+"admin" in null             // false (no error)
+"key" not in null           // true
+
 // Range
 1..5                         // [1, 2, 3, 4, 5]
 

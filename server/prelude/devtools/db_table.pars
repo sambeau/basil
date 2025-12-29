@@ -1,3 +1,20 @@
+// Environment variables available in this template:
+//
+// devtools (Dictionary)
+//   .table_name (String)     - Name of the table being viewed
+//   .error (String)          - Error message if query failed (optional)
+//   .columns (Array)         - Column names as array of strings
+//   .rows (Array)            - Table rows as array of arrays
+//     Each row is an Array of cell values (can include null)
+//   .row_count (Integer)     - Number of rows
+//   .column_count (Integer)  - Number of columns
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+//   .go_version (String)     - Go runtime version
+//   .route_count (Integer)   - Number of configured routes
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -41,6 +58,15 @@
 		.btn:hover {
 			background: #4ecdc4;
 			color: #1a1a2e;
+		}
+		.upload-form {
+			display: inline-block;
+		}
+		.btn-upload {
+			cursor: pointer;
+		}
+		.btn-upload input[type="file"] {
+			display: none;
 		}
 		.stats {
 			background: #16213e;
@@ -114,7 +140,16 @@
 	<div class="container">
 		<div class="header">
 			<h1>"🗄️ " + devtools.table_name</h1>
-			<a href="/__/db" class="btn">"← Back to Tables"</a>
+			<div>
+				<a href={"/__/db/download/" + devtools.table_name} class="btn" style="margin-right: 0.5rem;">"⬇️ Download CSV"</a>
+				<form action={"/__/db/upload/" + devtools.table_name} method="POST" enctype="multipart/form-data" class="upload-form" style="display: inline-block; margin-right: 0.5rem;">
+					<label class="btn btn-upload">
+						"⬆️ Replace from CSV"
+						<input type="file" name="file" accept=".csv" onchange="this.form.submit()"/>
+					</label>
+				</form>
+				<a href="/__/db" class="btn">"← Back to Tables"</a>
+			</div>
 		</div>
 
 		if (devtools.error) {
