@@ -686,7 +686,7 @@ func (s *Server) protectedPathMiddleware(next http.Handler, routeRoles []string)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if path is protected by config
 		pp := s.isProtectedPath(r.URL.Path)
-		
+
 		// Determine required roles (route config takes precedence)
 		var requiredRoles []string
 		if len(routeRoles) > 0 {
@@ -694,26 +694,26 @@ func (s *Server) protectedPathMiddleware(next http.Handler, routeRoles []string)
 		} else if pp != nil {
 			requiredRoles = pp.Roles
 		}
-		
+
 		// If not protected and no route roles, continue
 		if pp == nil && len(routeRoles) == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// Path is protected - check auth
 		user := auth.GetUser(r)
 		if user == nil {
 			s.handleUnauthenticated(w, r)
 			return
 		}
-		
+
 		// Check role requirements
 		if len(requiredRoles) > 0 && !sliceContains(requiredRoles, user.Role) {
 			s.handleForbidden(w, r)
 			return
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

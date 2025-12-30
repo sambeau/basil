@@ -812,6 +812,13 @@ auth.isLoggedIn                           // Boolean
 db <=?=> "SELECT * FROM users WHERE id = ?" [userId]
 ```
 
+**Session notes:**
+- Stored in encrypted cookies (AES-256-GCM)
+- Dev mode: `secure=false` (works with HTTP localhost)
+- Production: `secure=true` (requires HTTPS)
+- Dev mode: random secret (sessions don't persist across restarts)
+- Set `session.secret` in config for persistent dev sessions
+
 ### CSRF Protection
 ```parsley
 let {request} = import @basil/http

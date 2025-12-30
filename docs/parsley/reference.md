@@ -4214,7 +4214,7 @@ session:
   secret: "your-32-char-secret-key-here"  # Required in production
   max_age: 24h                            # Session lifetime (default: 24h)
   cookie_name: "_basil_session"           # Cookie name (default)
-  secure: true                            # HTTPS only (default in production)
+  secure: true                            # HTTPS only (see notes below)
   http_only: true                         # No JavaScript access (default)
   same_site: "Lax"                        # SameSite policy (default)
 ```
@@ -4223,6 +4223,8 @@ session:
 
 - Sessions are stored in encrypted cookies using AES-256-GCM
 - In dev mode, a random secret is generated (sessions don't persist across restarts)
+- In dev mode, `secure` defaults to `false` for HTTP localhost testing
+- In production, `secure` defaults to `true` (HTTPS required)
 - In production, `secret` must be configured explicitly
 - Session data is limited by cookie size (~4KB max)
 - Use `flash()` for one-time messages that should only appear once
