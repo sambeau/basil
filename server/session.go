@@ -20,15 +20,17 @@ type SessionStore interface {
 
 // CookieSessionStore stores sessions in encrypted cookies
 type CookieSessionStore struct {
-	config *config.SessionConfig
-	secret string
+	config  *config.SessionConfig
+	secret  string
+	devMode bool
 }
 
 // NewCookieSessionStore creates a new cookie-based session store
-func NewCookieSessionStore(cfg *config.SessionConfig, secret string) *CookieSessionStore {
+func NewCookieSessionStore(cfg *config.SessionConfig, secret string, devMode bool) *CookieSessionStore {
 	return &CookieSessionStore{
-		config: cfg,
-		secret: secret,
+		config:  cfg,
+		secret:  secret,
+		devMode: devMode,
 	}
 }
 
@@ -98,10 +100,14 @@ func (s *CookieSessionStore) Clear(w http.ResponseWriter) error {
 	return nil
 }
 
-// isSecure returns the Secure flag, defaulting to true if not explicitly set
+// isSecure returns the Secure flag.
+// Defaults to false in dev mode (for localhost HTTP), true in production.
 func (s *CookieSessionStore) isSecure() bool {
 	if s.config.Secure != nil {
 		return *s.config.Secure
+	}
+	if s.devMode {
+		return false // Default to insecure in dev mode for localhost HTTP
 	}
 	return true // Default to secure in production
 }

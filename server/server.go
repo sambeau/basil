@@ -366,9 +366,10 @@ func (s *Server) initSessions() error {
 	s.sessionSecret = secret
 
 	// Create cookie session store (default and currently only supported store)
-	s.sessionStore = NewCookieSessionStore(cfg, secret)
+	cookieStore := NewCookieSessionStore(cfg, secret, s.config.Server.Dev)
+	s.sessionStore = cookieStore
 
-	s.logInfo("sessions: cookie store initialized (max_age=%s)", cfg.MaxAge)
+	s.logInfo("sessions: cookie store initialized (max_age=%s, secure=%v)", cfg.MaxAge, cookieStore.isSecure())
 	return nil
 }
 

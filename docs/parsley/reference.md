@@ -4119,6 +4119,7 @@ basil.http.response.cookies.old_cookie = {value: "", maxAge: @0s}
 | `sameSite` | String | `"Lax"` | `"Lax"` | `"Strict"`, `"Lax"`, or `"None"` |
 
 **Security notes:**
+
 - In production, `secure` defaults to `true` (HTTPS only)
 - In dev mode, `secure` defaults to `false` for localhost testing
 - `httpOnly` always defaults to `true` to prevent XSS attacks
@@ -4134,6 +4135,7 @@ Authentication context (when auth is enabled).
 | `user` | Dict/null | Authenticated user or null |
 
 **User object (when authenticated):**
+
 ```parsley
 if (basil.auth.user != null) {
     let user = basil.auth.user
@@ -4165,6 +4167,7 @@ Server-side session storage with encrypted cookies. Sessions persist across requ
 | `regenerate()` | - | null | Mark session for new ID |
 
 **Basic usage:**
+
 ```parsley
 // Store user preferences
 basil.session.set("theme", "dark")
@@ -4186,6 +4189,7 @@ basil.session.clear()
 ```
 
 **Flash messages (one-time notifications):**
+
 ```parsley
 // On form submit handler
 basil.session.flash("success", "Your profile has been updated!")
@@ -4204,6 +4208,7 @@ if (basil.session.hasFlash()) {
 ```
 
 **Configuration (basil.yaml):**
+
 ```yaml
 session:
   secret: "your-32-char-secret-key-here"  # Required in production
@@ -4215,13 +4220,14 @@ session:
 ```
 
 **Notes:**
+
 - Sessions are stored in encrypted cookies using AES-256-GCM
 - In dev mode, a random secret is generated (sessions don't persist across restarts)
 - In production, `secret` must be configured explicitly
 - Session data is limited by cookie size (~4KB max)
 - Use `flash()` for one-time messages that should only appear once
-```
 
+```
 #### basil.csrf
 
 CSRF (Cross-Site Request Forgery) protection context.
@@ -4240,6 +4246,7 @@ CSRF (Cross-Site Request Forgery) protection context.
 ```
 
 **Usage in meta tag (for AJAX):**
+
 ```parsley
 <head>
     <meta name=csrf-token content={basil.csrf.token}/>
@@ -4247,6 +4254,7 @@ CSRF (Cross-Site Request Forgery) protection context.
 ```
 
 Then in JavaScript:
+
 ```javascript
 fetch('/submit', {
     method: 'POST',
@@ -4259,6 +4267,7 @@ fetch('/submit', {
 ```
 
 **How CSRF protection works:**
+
 - The token is stored in a cookie (`_csrf`) and must be submitted with forms
 - POST, PUT, PATCH, DELETE requests to auth routes are validated automatically
 - API routes (`type: api`) skip CSRF validation (they use API keys)

@@ -23,7 +23,7 @@ func testSessionConfig() *config.SessionConfig {
 
 func TestCookieSessionStore_NewSession(t *testing.T) {
 	cfg := testSessionConfig()
-	store := NewCookieSessionStore(cfg, "test-secret")
+	store := NewCookieSessionStore(cfg, "test-secret", true) // devMode=true for tests
 
 	// Request with no cookie
 	req := httptest.NewRequest("GET", "/", nil)
@@ -43,7 +43,7 @@ func TestCookieSessionStore_NewSession(t *testing.T) {
 func TestCookieSessionStore_SaveAndLoad(t *testing.T) {
 	cfg := testSessionConfig()
 	secret := "test-secret-key"
-	store := NewCookieSessionStore(cfg, secret)
+	store := NewCookieSessionStore(cfg, secret, true)
 
 	// Create and save a session
 	session := NewSessionData(time.Hour)
@@ -84,7 +84,7 @@ func TestCookieSessionStore_SaveAndLoad(t *testing.T) {
 
 func TestCookieSessionStore_Clear(t *testing.T) {
 	cfg := testSessionConfig()
-	store := NewCookieSessionStore(cfg, "test-secret")
+	store := NewCookieSessionStore(cfg, "test-secret", true)
 
 	w := httptest.NewRecorder()
 	if err := store.Clear(w); err != nil {
@@ -104,7 +104,7 @@ func TestCookieSessionStore_Clear(t *testing.T) {
 func TestCookieSessionStore_ExpiredSession(t *testing.T) {
 	cfg := testSessionConfig()
 	secret := "test-secret"
-	store := NewCookieSessionStore(cfg, secret)
+	store := NewCookieSessionStore(cfg, secret, true)
 
 	// Create an expired session
 	session := &SessionData{
@@ -135,7 +135,7 @@ func TestCookieSessionStore_ExpiredSession(t *testing.T) {
 
 func TestCookieSessionStore_InvalidCookie(t *testing.T) {
 	cfg := testSessionConfig()
-	store := NewCookieSessionStore(cfg, "test-secret")
+	store := NewCookieSessionStore(cfg, "test-secret", true)
 
 	// Request with invalid cookie
 	req := httptest.NewRequest("GET", "/", nil)
@@ -156,8 +156,8 @@ func TestCookieSessionStore_InvalidCookie(t *testing.T) {
 
 func TestCookieSessionStore_WrongSecret(t *testing.T) {
 	cfg := testSessionConfig()
-	store1 := NewCookieSessionStore(cfg, "secret1")
-	store2 := NewCookieSessionStore(cfg, "secret2")
+	store1 := NewCookieSessionStore(cfg, "secret1", true)
+	store2 := NewCookieSessionStore(cfg, "secret2", true)
 
 	// Save with store1
 	session := NewSessionData(time.Hour)
@@ -292,7 +292,7 @@ func TestSession_Dirty(t *testing.T) {
 
 func TestSession_Commit(t *testing.T) {
 	cfg := testSessionConfig()
-	store := NewCookieSessionStore(cfg, "test-secret")
+	store := NewCookieSessionStore(cfg, "test-secret", true)
 
 	// Test 1: Not dirty - commit should be no-op
 	data1 := NewSessionData(time.Hour)
@@ -322,7 +322,7 @@ func TestSession_Commit(t *testing.T) {
 
 func TestSession_CommitCleared(t *testing.T) {
 	cfg := testSessionConfig()
-	store := NewCookieSessionStore(cfg, "test-secret")
+	store := NewCookieSessionStore(cfg, "test-secret", true)
 
 	data := NewSessionData(time.Hour)
 	data.Data["existing"] = "data"
@@ -379,4 +379,56 @@ func TestParseSameSite(t *testing.T) {
 			t.Errorf("parseSameSite(%q) = %v, want %v", tt.input, result, tt.expected)
 		}
 	}
+}
+
+func TestCookieSessionStore_SecureFlag(t *testing.T) {
+	t.Run("dev mode defaults to insecure", func(t *testing.T) {
+		cfg := &config.SessionConfig{
+			CookieName: "_test_session",
+			MaxAge:     time.Hour,
+			// Secure not set
+		}
+		store := NewCookieSessionStore(cfg, "secret", true) // devMode=true
+		if store.isSecure() {
+			t.Error("expected Secure=false in dev mode when not explicitly set")
+		}
+	})
+
+	t.Run("production mode defaults to secure", func(t *testing.T) {
+		cfg := &config.SessionConfig{
+			CookieName: "_test_session",
+			MaxAge:     time.Hour,
+			// Secure not set
+		}
+		store := NewCookieSessionStore(cfg, "secret", false) // devMode=false
+		if !store.isSecure() {
+			t.Error("expected Secure=true in production mode when not explicitly set")
+		}
+	})
+
+	t.Run("explicit secure=true overrides dev mode", func(t *testing.T) {
+		secure := true
+		cfg := &config.SessionConfig{
+			CookieName: "_test_session",
+			MaxAge:     time.Hour,
+			Secure:     &secure,
+		}
+		store := NewCookieSessionStore(cfg, "secret", true) // devMode=true
+		if !store.isSecure() {
+			t.Error("expected Secure=true when explicitly set, even in dev mode")
+		}
+	})
+
+	t.Run("explicit secure=false overrides production mode", func(t *testing.T) {
+		secure := false
+		cfg := &config.SessionConfig{
+			CookieName: "_test_session",
+			MaxAge:     time.Hour,
+			Secure:     &secure,
+		}
+		store := NewCookieSessionStore(cfg, "secret", false) // devMode=false
+		if store.isSecure() {
+			t.Error("expected Secure=false when explicitly set, even in production mode")
+		}
+	})
 }
