@@ -3451,6 +3451,7 @@ let t = table(data)
 |--------|-------------|
 | `.where(fn)` | Filter rows where predicate returns truthy |
 | `.orderBy(col)` | Sort by column (ascending) |
+| `.orderBy(col, "asc")` | Sort by column (ascending, explicit) |
 | `.orderBy(col, "desc")` | Sort by column (descending) |
 | `.orderBy([col1, col2])` | Sort by multiple columns |
 | `.select([cols])` | Keep only specified columns |

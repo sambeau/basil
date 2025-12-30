@@ -210,6 +210,44 @@ t.rows[0].val`
 	}
 }
 
+func TestTableOrderByAsc(t *testing.T) {
+	input := `let {table} = import @std/table
+data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
+t = table(data).orderBy("val", "asc")
+t.rows[0].val`
+
+	result := evalTest(t, input)
+
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+
+	if intVal.Value != 1 {
+		t.Errorf("expected 1, got %d", intVal.Value)
+	}
+}
+
+func TestTableOrderByDynamic(t *testing.T) {
+	// Test programmatic control of sort direction
+	input := `let {table} = import @std/table
+data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
+sortDir = "desc"
+t = table(data).orderBy("val", sortDir)
+t.rows[0].val`
+
+	result := evalTest(t, input)
+
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+
+	if intVal.Value != 3 {
+		t.Errorf("expected 3, got %d", intVal.Value)
+	}
+}
+
 func TestTableSelect(t *testing.T) {
 	input := `let {table} = import @std/table
 data = [{a: 1, b: 2, c: 3}, {a: 4, b: 5, c: 6}]
