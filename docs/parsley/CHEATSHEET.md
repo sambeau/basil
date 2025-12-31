@@ -43,6 +43,17 @@ let doubled = for (n in [1,2,3]) { n * 2 }  // [2, 4, 6]
 let evens = for (n in [1,2,3,4]) {
     if (n % 2 == 0) { n }  // [2, 4]
 }
+
+// Loop control: stop and skip (not break/continue!)
+let firstTwo = for (x in 1..100) {
+    if (x > 2) stop  // Exit loop, return accumulated [1, 2]
+    x
+}
+
+let noThrees = for (x in 1..5) {
+    if (x == 3) skip  // Skip this iteration
+    x
+}  // [1, 2, 4, 5]
 ```
 
 ### 4. If  Parentheses are optional but recommended
@@ -96,13 +107,19 @@ let double = fn(x) { x * 2 }
 
 ### 8. Tag Attributes: Strings vs Expressions
 ```parsley
-// Tag attributes have two forms:
+// Tag attributes have THREE forms:
 
-// 1. Quoted strings - ALWAYS literal, never interpolated
+// 1. Double-quoted strings - literal, no interpolation
 <button onclick="alert('hello')">
 <a href="/about">
 
-// 2. Expression braces - Parsley code
+// 2. Single-quoted strings - RAW, for embedding JavaScript
+<button onclick='Parts.refresh("editor", {id: 1})'>
+// ^ Double quotes and braces stay literal - perfect for JS!
+// Use @{} for dynamic values:
+<button onclick='Parts.refresh("editor", {id: @{myId}})'>
+
+// 3. Expression braces - Parsley code
 <div class={`user-{id}`}>              // Template string for dynamic class
 <button disabled={!isValid}>           // Boolean expression
 <img width={width} height={height}>
@@ -114,7 +131,28 @@ let double = fn(x) { x * 2 }
 <div class={`user-{id}`}>
 ```
 
-### 9. Self-Closing Tags MUST Use />
+### 9. Single-Quoted Raw Strings (JavaScript Embedding)
+```parsley
+// Single quotes create raw strings - braces stay literal
+let js = 'Parts.refresh("editor", {id: 1})'
+let regex = '\d+\.\d+'              // Backslashes stay literal
+
+// Use @{} for interpolation inside raw strings
+let id = 42
+let js = 'Parts.refresh("editor", {id: @{id}})'  // id interpolated
+
+// Perfect for onclick handlers with dynamic values:
+let myId = 5
+<button onclick='Parts.refresh("editor", {id: @{myId}, view: "delete"})'/>
+
+// Static JS (no interpolation needed):
+<button onclick='Parts.refresh("editor", {id: 1, view: "delete"})'/>
+
+// Escape @ with \@ if you need a literal @
+'email: user\@domain.com'          // literal @
+```
+
+### 10. Self-Closing Tags MUST Use />
 ```parsley
 // ❌ WRONG - not self-closing
 <br>
@@ -152,6 +190,9 @@ let double = fn(x) { x * 2 }
 | Map | `arr.map(x => x*2)` | `[x*2 for x in arr]` | `for (x in arr) { x*2 }` |
 | Filter | `arr.filter(x => x>0)` | `[x for x in arr if x>0]` | `for (x in arr) { if (x>0) {x} }` |
 | Index | `arr.forEach((x,i) => )` | `for i, x in enumerate(arr):` | `for (i, x in arr) {}` |
+| Break | `break` | `break` | `stop` |
+| Continue | `continue` | `continue` | `skip` |
+| Guard | N/A | N/A | `check COND else VAL` |
 
 ### Data Types
 
@@ -159,7 +200,9 @@ let double = fn(x) { x * 2 }
 |------|-----------|--------|---------|
 | Array | `[1, 2, 3]` | `[1, 2, 3]` | `[1, 2, 3]` |
 | Dict | `{x: 1, y: 2}` | `{"x": 1, "y": 2}` | `{x: 1, y: 2}` |
-| String | `` `Hi ${x}` `` | `f"Hi {x}"` | `` `Hi {x}` `` |
+| String | `"text"` | `"text"` | `"text"` (escapes only) |
+| Template | `` `Hi ${x}` `` | `f"Hi {x}"` | `` `Hi {x}` `` |
+| Raw String | `'raw'` | `r'raw'` | `'raw @{x}'` |
 | Regex | `/abc/i` | `re.compile(r"abc", re.I)` | `/abc/i` |
 | Null | `null` | `None` | `null` |
 | Money | N/A | N/A | `$12.34`, `EUR#50.00` |

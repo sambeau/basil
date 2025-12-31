@@ -35,7 +35,9 @@ Complete reference for all Parsley types, methods, and operators.
 |------|---------|-------------|
 | Integer | `42`, `-15` | Whole numbers |
 | Float | `3.14`, `2.718` | Decimal numbers |
-| String | `"hello"`, `"world"` | Text with `{interpolation}` |
+| String | `"hello"` | Text with escape sequences |
+| Raw String | `'hello "world"'` | Literal text, `@{interpolation}` |
+| Template | `` `hello {name}` `` | Interpolated strings |
 | Boolean | `true`, `false` | Logical values |
 | Null | `null` | Absence of value |
 | Array | `[1, 2, 3]` | Ordered collections |
@@ -306,6 +308,172 @@ if ("admin" in user.roles) {  // false, no error
 | `:` | Key-value separator |
 | `.` | Property/method access |
 | `[]` | Indexing and slicing |
+
+---
+
+## Control Flow
+
+### If Expressions
+
+```parsley
+// If is an expression (returns a value)
+let status = if (age >= 18) "adult" else "minor"
+
+// Block form
+let result = if (x > 0) {
+    "positive"
+} else {
+    "non-positive"
+}
+```
+
+### For Expressions
+
+```parsley
+// For loops are expressions that return arrays
+let doubled = for (n in [1, 2, 3]) { n * 2 }     // [2, 4, 6]
+
+// With index
+let indexed = for (i, x in ["a", "b", "c"]) { `{i}: {x}` }
+
+// Filter pattern - null values are omitted
+let evens = for (n in 1..10) {
+    if (n % 2 == 0) { n }
+}  // [2, 4, 6, 8, 10]
+
+// Dictionary iteration
+for (key, val in myDict) { ... }
+```
+
+### Loop Control: stop and skip
+
+Inside for loops, use `stop` to exit early and `skip` to skip an iteration:
+
+```parsley
+// stop - exit loop immediately, return accumulated results
+let firstThree = for (x in 1..100) {
+    if (x > 3) stop    // braces optional for single keywords
+    x
+}  // [1, 2, 3]
+
+// skip - skip this iteration (produces null, filtered out)
+let noThrees = for (x in 1..5) {
+    if (x == 3) skip
+    x
+}  // [1, 2, 4, 5]
+
+// Combined example
+let result = for (x in 1..10) {
+    if (x > 5) stop        // exit when x > 5
+    if (x == 3) skip       // skip 3
+    x * 10
+}  // [10, 20, 40, 50]
+```
+
+**Note:** `stop` and `skip` can only be used inside for loops. Using them elsewhere is an error.
+
+### Precondition Checks: check
+
+The `check` statement validates a condition and exits with a value if it fails:
+
+```parsley
+// check CONDITION else VALUE
+check CONDITION else VALUE
+
+// If condition is true, execution continues
+// If condition is false, the else value is returned
+
+// Example: Input validation in a function
+let validateAge = fn(age) {
+    check age >= 0 else "Age cannot be negative"
+    check age <= 150 else "Age seems unrealistic"
+    age
+}
+
+validateAge(-5)   // "Age cannot be negative"
+validateAge(25)   // 25
+validateAge(200)  // "Age seems unrealistic"
+```
+
+In for loops, `check` can be used for filtering with custom values:
+
+```parsley
+// Replace invalid values instead of filtering
+let sanitized = for (x in [-1, 2, -3, 4]) {
+    check x > 0 else 0
+    x * 10
+}  // [0, 20, 0, 40]
+```
+
+---
+
+## String Literals
+
+Parsley has three types of string literals:
+
+### Double-Quoted Strings
+
+Standard strings with escape sequences (no interpolation):
+
+```parsley
+"hello world"                    // Simple string
+"hello\nworld"                   // Newline escape
+"tab\there"                      // Tab escape
+"She said \"hi\""                // Escaped quote
+"Value: {x}"                     // Braces are LITERAL (no interpolation!)
+```
+
+Escape sequences: `\n` (newline), `\t` (tab), `\\` (backslash), `\"` (quote)
+
+### Single-Quoted Strings (Raw)
+
+Literal strings with no standard interpolation. Use `@{...}` for explicit interpolation:
+
+```parsley
+'hello world'                    // Simple raw string
+'hello\nworld'                   // \n stays literal (not newline)
+'Value: {x}'                     // Braces stay literal (no interpolation)
+'She said "hi"'                  // Double quotes need no escaping
+'alert("hello")'                 // Perfect for JavaScript
+'Parts.refresh("editor", {id: 1})'  // Embed JS with objects
+```
+
+**`@{}` Interpolation**: Use `@{expr}` to interpolate values while keeping everything else literal:
+
+```parsley
+let id = 42
+'Parts.refresh("editor", {id: @{id}})'  // "Parts.refresh("editor", {id: 42})"
+
+let view = "delete"
+'fn({id: @{id}, view: "@{view}"})'      // "fn({id: 42, view: "delete"})"
+```
+
+**Escapes**: Only `\'` (single quote), `\\` (backslash), and `\@` (literal @) work.
+
+**Use case**: Embedding JavaScript in HTML attributes:
+```parsley
+// Static JS with literal braces
+<button onclick='Parts.refresh("editor", {id: 1, view: "delete"})'/>
+
+// Dynamic JS with @{} interpolation
+let myId = 5
+<button onclick='Parts.refresh("editor", {id: @{myId}})'/>
+```
+```
+
+### Template Literals (Backticks)
+
+Multi-line strings with `{expr}` interpolation (the ONLY string type that interpolates `{}`):
+
+```parsley
+let name = "World"
+`Hello, {name}!`                 // "Hello, World!"
+`Line 1
+Line 2`                          // Multi-line OK
+`1 + 2 = {1 + 2}`                // Expressions work too
+```
+
+Only one escape: `` \` `` (backtick)
 
 ---
 
