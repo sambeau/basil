@@ -9,30 +9,43 @@ Category: web
 function hljsDefineParsley ( hljs ) {
 	const IDENT_RE = '[a-zA-Z_][a-zA-Z0-9_]*'
 
-	// Note: highlight.js uses $pattern to match keyword candidates
-	// Keywords must be exact matches against the $pattern
 	const KEYWORDS = {
 		$pattern: /\b[a-zA-Z_][a-zA-Z0-9_]*\b/,
 		keyword: [
-			'fn',
-			'function',
-			'let',
-			'for',
-			'in',
-			'as',
-			'if',
-			'else',
-			'return',
-			'export',
-			'try',
-			'import'
-			// Note: 'and', 'or', 'not' are NOT keywords - they are operators
+			'fn', 'function', 'let', 'for', 'in', 'as',
+			'if', 'else', 'return', 'export', 'try', 'import',
+			'check', 'stop', 'skip',
+			'and', 'or', 'not'
 		],
 		literal: [
-			'true',
-			'false',
-			'null',
-			'OK' // NULL display value
+			'true', 'false', 'null'
+		],
+		built_in: [
+			// File/Data Loading
+			'JSON', 'YAML', 'CSV', 'MD', 'markdown', 'lines', 'text', 'bytes', 'SVG',
+			'file', 'dir', 'fileList',
+			// Time
+			'time', 'now',
+			// URLs
+			'url',
+			// Type Conversion
+			'toInt', 'toFloat', 'toNumber', 'toString', 'toArray', 'toDict',
+			// Introspection
+			'inspect', 'describe', 'repr', 'builtins',
+			// Output
+			'print', 'println', 'printf', 'log', 'logLine', 'toDebug',
+			// Control Flow
+			'fail',
+			// Formatting
+			'format', 'tag',
+			// Regex
+			'regex', 'match',
+			// Money
+			'money',
+			// Assets
+			'asset',
+			// Connection (used with @ literals)
+			'sqlite', 'postgres', 'mysql', 'sftp', 'shell'
 		]
 	}
 
@@ -40,102 +53,81 @@ function hljsDefineParsley ( hljs ) {
 	const AT_LITERAL = {
 		scope: 'symbol',
 		variants: [
-			// DateTime literals: @2024-12-25T14:30:00Z, @now, @today, @timeNow, @dateNow
-			{
-				match: /@\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?/
-			},
-			{
-				match: /@(now|today|timeNow|dateNow)\b/
-			},
-			// Duration literals: @2h30m, @7d, @1y6mo
-			{
-				match: /@-?\d+[yMwdhms]([0-9yMwdhms]|mo)*/
-			},
+			// DateTime literals: @2024-12-25T14:30:00Z
+			{ match: /@\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?/ },
+			// Time literals: @14:30:00
+			{ match: /@\d{1,2}:\d{2}(:\d{2})?/ },
+			// Special time literals
+			{ match: /@(now|today|timeNow|dateNow)\b/ },
+			// Duration literals: @2h30m, @7d, @1y6mo (including negative durations)
+			{ match: /@-?\d+[yMwdhms]([0-9yMwdhms]|mo)*/ },
 			// Database connection literals
-			{
-				match: /@(sqlite|postgres|mysql|DB)\b/
-			},
-			// Other literals
-			{
-				match: /@(sftp|shell)\b/
-			},
+			{ match: /@(sqlite|postgres|mysql|DB)\b/ },
+			// Other special literals
+			{ match: /@(sftp|shell)\b/ },
 			// Standard streams
-			{
-				match: /@(stdin|stdout|stderr|-)\b/
-			},
+			{ match: /@(stdin|stdout|stderr|stdio|-)\b/ },
 			// Stdlib imports: @std/module
-			{
-				match: /@std\/[a-z]+\b/
-			},
+			{ match: /@std\/(table|dev|math|valid|schema|id|api|markdown|mdDoc|html)\b/ },
+			// Just @std
+			{ match: /@std\b/ },
+			// Basil namespace: @basil, @basil/http, @basil/auth
+			{ match: /@basil(\/http|\/auth)?\b/ },
 			// URL literals: @https://example.com (must come before path literals)
-			{
-				match: /@https?:\/\/[^\s<>"{}|\\^`\[\]]*/
-			},
-			// Path literals: @./config, @../config, @/usr/local, @~/home
-			{
-				match: /@\.\.?\/[^\s<>"{}|\\^`\[\]]*/
-			},
-			{
-				match: /@\/[^\s<>"{}|\\^`\[\]]*/
-			},
-			{
-				match: /@~\/[^\s<>"{}|\\^`\[\]]*/
-			},
-			// Templated at-literals: @(expr)
-			{
-				begin: /@\(/,
-				end: /\)/
-				// Contains expressions - will be populated later
-			}
+			{ match: /@https?:\/\/[^\s<>"{}|\\^`\[\]]*/ },
+			{ match: /@ftp:\/\/[^\s<>"{}|\\^`\[\]]*/ },
+			{ match: /@file:\/\/[^\s<>"{}|\\^`\[\]]*/ },
+			// Path templates: @(./path/{expr})
+			{ match: /@\([^)]+\)/ },
+			// Path literals: @./config, @../config, @/usr/local, @~/home, @.config (dotfiles)
+			{ match: /@\.\.?\/[^\s<>"{}|\\^`\[\]]*/ },
+			{ match: /@\/[^\s<>"{}|\\^`\[\]]*/ },
+			{ match: /@~\/[^\s<>"{}|\\^`\[\]]*/ },
+			{ match: /@\.[a-zA-Z0-9_.-]+/ }  // dotfiles like @.config, @.bashrc
 		]
 	}
 
-	// Money literals: $12.34, £99.99, EUR#50.00
+	// Money literals: $99.99, £50, €25, ¥1000, EUR#100.00
 	const MONEY = {
 		scope: 'number',
-		variants: [
-			{
-				match: /[$£€¥][\d,]+\.?\d*/
-			},
-			{
-				match: /[A-Z]{3}#[\d,]+\.?\d*/
-			}
-		],
-		relevance: 5
+		match: /([$£€¥]|[A-Z]{3}#)\d+(\.\d{1,2})?/
 	}
 
-	// Operators - must use word boundaries for text operators
-	const OPERATORS = {
+	// Operators - special I/O and database operators
+	const SPECIAL_OPERATORS = {
 		scope: 'operator',
-		variants: [
-			// File I/O operators
-			{ match: /<==|<=\/=|==>|==>>/ },
-			// Database operators
-			{ match: /<=\?=>|<=\?\?=>|<=!=>/ },
-			// Process execution
-			{ match: /<=#=>/ },
-			// Comparison operators
-			{ match: /<=|>=|==|!=|!~|&&|\|\|/ },
-			// Text operators with word boundaries (must not match inside identifiers)
-			{ match: /\band\b/ },
-			{ match: /\bor\b/ },
-			{ match: /\bnot\b/ },
-			// Nullish coalescing
-			{ match: /\?\?/ },
-			// Concatenation
-			{ match: /\+\+/ },
-			// Range operators
-			{ match: /\.\.\./ },
-			{ match: /\.\./ },
-			// Basic operators
-			{ match: /[+\-*\/%<>=!&|~?]/ },
-			// Dot accessor (last so it doesn't interfere)
-			{ match: /\./ }
+		match: /<=\?\?=>|<=\?=>|<=!=>|<=#=>|<==|<=\/=|==>>?/
+	}
+
+	// Regex literals
+	const REGEX = {
+		scope: 'regexp',
+		begin: /\/(?![*/\s])/,
+		end: /\/[gimsuvy]*/,
+		contains: [
+			hljs.BACKSLASH_ESCAPE
 		]
 	}
 
-	// Template strings with ${expr} interpolation
-	const TEMPLATE_STRING = {
+	// Double-quoted strings with interpolation
+	const STRING = {
+		scope: 'string',
+		begin: '"',
+		end: '"',
+		contains: [
+			hljs.BACKSLASH_ESCAPE,
+			{
+				scope: 'subst',
+				begin: /\{/,
+				end: /\}/,
+				keywords: KEYWORDS,
+				contains: [] // Will be filled below
+			}
+		]
+	}
+
+	// Template literals (backticks)
+	const TEMPLATE = {
 		scope: 'string',
 		begin: '`',
 		end: '`',
@@ -143,162 +135,123 @@ function hljsDefineParsley ( hljs ) {
 			hljs.BACKSLASH_ESCAPE,
 			{
 				scope: 'subst',
-				begin: /\${/,
-				end: /}/,
+				begin: /\{/,
+				end: /\}/,
 				keywords: KEYWORDS,
-				contains: [] // Will be populated below
+				contains: []
 			}
 		]
 	}
 
-	// Regular strings
-	const STRING = {
+	// Raw template literals (single quotes with @{} interpolation)
+	const RAW_TEMPLATE = {
 		scope: 'string',
-		variants: [
-			hljs.QUOTE_STRING_MODE,
-			hljs.APOS_STRING_MODE
-		]
-	}
-
-	// Regex literals: /pattern/flags
-	const REGEX = {
-		scope: 'regexp',
-		begin: /\//,
-		end: /\/[gimsuvy]*/,
+		begin: "'",
+		end: "'",
 		contains: [
 			hljs.BACKSLASH_ESCAPE,
 			{
-				begin: /\[/,
-				end: /\]/,
-				contains: [ hljs.BACKSLASH_ESCAPE ]
-			}
-		]
-	}
-
-	// Numbers (integer and float)
-	const NUMBER = {
-		scope: 'number',
-		variants: [
-			{ match: /\b\d+\.\d+\b/ },
-			{ match: /\b\d+\b/ }
-		]
-	}
-
-	// JSX-like tags - use subLanguage: 'xml' similar to how highlight.js handles JSX
-	// Parsley uses {expr} interpolation within tags (like JSX)
-	const regex = hljs.regex
-
-	// Fragment tags: <> and </>
-	const FRAGMENT = {
-		begin: '<>',
-		end: '</>'
-	}
-
-	// Self-closing tags: <Component /> or <br/>
-	const XML_SELF_CLOSING = /<[A-Za-z][A-Za-z0-9._:-]*\s*\/>/
-
-	// Opening/closing tag pattern
-	const XML_TAG = {
-		begin: /<[A-Za-z][A-Za-z0-9._:-]*/,
-		end: /\/[A-Za-z0-9._:-]*>|\/>/
-	}
-
-	// The JSX/tag handling - delegates to xml sublanguage
-	const JSX_TAGS = {
-		variants: [
-			{ begin: FRAGMENT.begin, end: FRAGMENT.end },
-			{ match: XML_SELF_CLOSING },
-			{
-				begin: XML_TAG.begin,
-				end: XML_TAG.end
-			}
-		],
-		subLanguage: 'xml',
-		contains: [
-			{
-				// Handle {expr} interpolation within tags
-				begin: /\{/,
-				end: /\}/,
 				scope: 'subst',
+				begin: /@\{/,
+				end: /\}/,
 				keywords: KEYWORDS,
-				contains: [] // Will be populated with EXPRESSION_MODES
-			},
-			{
-				// Nested tags
-				begin: XML_TAG.begin,
-				end: XML_TAG.end,
-				skip: true,
-				contains: [ 'self' ]
+				contains: []
 			}
 		]
 	}
 
-	// Function definitions
-	const FUNCTION_DEF = {
-		scope: 'function',
-		begin: /\b(fn|function)\s*\(/,
-		end: /\)/,
-		keywords: KEYWORDS,
+	// JSX-like tags
+	const TAG = {
+		scope: 'tag',
+		begin: /<\/?/,
+		end: /\/?>/,
 		contains: [
 			{
-				scope: 'params',
-				begin: /\(/,
-				end: /\)/,
-				contains: [
-					{
-						scope: 'variable',
-						match: IDENT_RE
-					}
-				]
+				scope: 'name',
+				match: /[A-Za-z][A-Za-z0-9-]*/,
+				starts: {
+					endsWithParent: true,
+					contains: [
+						{
+							scope: 'attr',
+							match: /[a-zA-Z][a-zA-Z0-9_-]*(?=\s*=)/
+						},
+						STRING,
+						{
+							scope: 'subst',
+							begin: /\{/,
+							end: /\}/,
+							keywords: KEYWORDS
+						},
+						{
+							scope: 'operator',
+							match: /\.\.\.[a-zA-Z_][a-zA-Z0-9_]*/
+						}
+					]
+				}
 			}
 		]
 	}
 
-	// Comments
-	const COMMENT = hljs.COMMENT( '//', '$' )
-
-	// Define all modes that can appear in expressions
-	const EXPRESSION_MODES = [
-		COMMENT,
+	// Fill in recursive contains for interpolations
+	const INTERPOLATION_CONTAINS = [
+		hljs.C_NUMBER_MODE,
 		AT_LITERAL,
-		MONEY,
-		TEMPLATE_STRING,
-		STRING,
-		NUMBER,
-		OPERATORS
+		STRING
 	]
-
-	// Populate template string substitution
-	TEMPLATE_STRING.contains[ 1 ].contains = EXPRESSION_MODES
-
-	// Populate JSX interpolation with expression modes
-	JSX_TAGS.contains[ 0 ].contains = EXPRESSION_MODES
+	STRING.contains[ 1 ].contains = INTERPOLATION_CONTAINS
+	TEMPLATE.contains[ 1 ].contains = INTERPOLATION_CONTAINS
+	RAW_TEMPLATE.contains[ 1 ].contains = INTERPOLATION_CONTAINS
 
 	return {
 		name: 'Parsley',
-		aliases: [ 'pars' ],
-		case_insensitive: false,
+		aliases: [ 'pars', 'parsley' ],
 		keywords: KEYWORDS,
 		contains: [
-			COMMENT,
+			hljs.C_LINE_COMMENT_MODE,
+			SPECIAL_OPERATORS,
 			AT_LITERAL,
 			MONEY,
-			TEMPLATE_STRING,
-			STRING,
 			REGEX,
-			NUMBER,
-			JSX_TAGS,
-			FUNCTION_DEF,
-			OPERATORS,
+			STRING,
+			TEMPLATE,
+			RAW_TEMPLATE,
+			TAG,
+			hljs.C_NUMBER_MODE,
 			{
-				// Destructuring and object patterns
-				scope: 'variable',
-				match: /\{[a-zA-Z_][a-zA-Z0-9_,\s]*\}/
+				// Function definitions: myFunc = fn(...)
+				scope: 'function',
+				match: new RegExp( IDENT_RE + '(?=\\s*=\\s*fn\\b)' )
 			},
 			{
-				// Built-in functions
-				scope: 'built_in',
-				match: /\b(print|println|len|keys|values|type|inspect|describe|money|tag|toString|text|json|csv|sql|markdown)\b/
+				// Range operator
+				scope: 'operator',
+				match: /\.\./
+			},
+			{
+				// Spread operator
+				scope: 'operator',
+				match: /\.\.\./
+			},
+			{
+				// Nullish coalescing
+				scope: 'operator',
+				match: /\?\?/
+			},
+			{
+				// Regex match operators
+				scope: 'operator',
+				match: /!~|~/
+			},
+			{
+				// Concatenation
+				scope: 'operator',
+				match: /\+\+/
+			},
+			{
+				// Underscore as discard
+				scope: 'variable.language',
+				match: /\b_\b/
 			}
 		]
 	}
@@ -308,9 +261,6 @@ function hljsDefineParsley ( hljs ) {
 if ( typeof module !== 'undefined' && module.exports ) {
 	module.exports = hljsDefineParsley
 }
-if ( typeof exports !== 'undefined' ) {
-	exports.default = hljsDefineParsley
-}
-if ( typeof window !== 'undefined' ) {
-	window.hljsDefineParsley = hljsDefineParsley
+if ( typeof window !== 'undefined' && window.hljs ) {
+	window.hljs.registerLanguage( 'parsley', hljsDefineParsley )
 }

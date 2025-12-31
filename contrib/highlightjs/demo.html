@@ -87,11 +87,16 @@ let dynamic = @(https://api.com/{userId}/posts)
 
 // Stdlib imports
 let {table} = import @std/table
-let {basil} = import @std/basil
+let {valid} = import @std/valid
+
+// Basil namespace (for web server features)
+let {http} = import @basil/http
+let {auth} = import @basil/auth
 
 // Database connection literals
 let db = @sqlite
-let pg = @postgres</code></pre>
+let pg = @postgres
+let genericDb = @DB</code></pre>
 
 	<h2>Money Literals</h2>
 	<pre><code class="language-parsley">let price = $19.99
@@ -105,14 +110,21 @@ let discounted = price * 0.8</code></pre>
 	<h2>Template Strings</h2>
 	<pre><code class="language-parsley">let name = "World"
 let count = 42
-let message = `Hello, ${name}! You have ${count} items.`
 
+// Double-quoted strings with {expr} interpolation
+let greeting = "Hello, {name}!"
+let message = "You have {count} items."
+
+// Backtick templates also use {expr}
 let html = `
   &lt;div class="card"&gt;
-    &lt;h2&gt;${title}&lt;/h2&gt;
-    &lt;p&gt;${description}&lt;/p&gt;
+    &lt;h2&gt;{title}&lt;/h2&gt;
+    &lt;p&gt;{description}&lt;/p&gt;
   &lt;/div&gt;
-`</code></pre>
+`
+
+// Single-quoted raw templates use @{expr}
+let rawTemplate = '&lt;span&gt;Name: @{name}&lt;/span&gt;'</code></pre>
 
 	<h2>JSX-like Tags</h2>
 	<pre><code class="language-parsley">// Import a component
@@ -151,14 +163,14 @@ let items = ["Apple", "Banana", "Cherry"]
 	<h2>File I/O Operators</h2>
 	<pre><code class="language-parsley">// Read from file
 let content <== text(@./data.txt)
-let config <== json(@./config.json)
+let config <== JSON(@./config.json)
 
 // Fetch from URL
-let response </=> @https://api.example.com/data
+let response <=/= @https://api.example.com/data
 
 // Write to file
 "Hello, World!" ==> text(@./output.txt)
-{name: "Alice", age: 30} ==> json(@./user.json)
+{name: "Alice", age: 30} ==> JSON(@./user.json)
 
 // Append to file
 "Log entry" ==>> text(@./app.log)</code></pre>
@@ -202,14 +214,32 @@ for item in items {
 }
 
 for i, item in items {
-  print(`${i}: ${item}`)
+  print("{i}: {item}")
 }
 
-// Try/catch
-try {
-  let data <== json(@./config.json)
-  print("Config loaded successfully")
-}</code></pre>
+// Loop control with check/stop/skip
+for item in items {
+  // skip current iteration if condition is true
+  check (item.hidden) skip
+  
+  // stop the loop entirely if condition is true
+  check (item.isLast) stop
+  
+  // check with fallback value
+  let value = check (item.value) else "default"
+  
+  print(value)
+}
+
+// Brace-less forms work too
+for n in numbers {
+  if (n < 0) skip
+  if (n > 100) stop
+  print(n)
+}
+
+// Try expression (returns null on error)
+let data = try JSON(@./config.json)</code></pre>
 
 	<h2>Functions and Exports</h2>
 	<pre><code class="language-parsley">// Simple function

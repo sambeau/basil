@@ -4,13 +4,14 @@ This directory contains a [highlight.js](https://highlightjs.org/) language defi
 
 ## Features
 
-- **Keywords**: `fn`, `let`, `if`, `else`, `for`, `in`, `return`, `export`, `import`, `try`, `and`, `or`, `not`
-- **At-literals**: DateTime (`@2024-12-25T14:30:00Z`, `@now`), Duration (`@2h30m`), Paths (`@./config`, `@/usr/local`), URLs (`@https://example.com`), Stdlib imports (`@std/table`)
-- **Money literals**: `$12.34`, `£99.99`, `EUR#50.00`
-- **Template strings**: `` `Hello ${name}` ``
+- **Keywords**: `fn`, `function`, `let`, `if`, `else`, `for`, `in`, `as`, `return`, `export`, `import`, `try`, `check`, `stop`, `skip`, `and`, `or`, `not`
+- **At-literals**: DateTime (`@2024-12-25T14:30:00Z`, `@now`, `@today`), Duration (`@2h30m`, `@7d`), Paths (`@./config`, `@/usr/local`, `@~/home`), URLs (`@https://example.com`), Stdlib imports (`@std/table`, `@std/valid`), Basil imports (`@basil/http`, `@basil/auth`), Database (`@sqlite`, `@postgres`, `@mysql`, `@DB`), Streams (`@stdin`, `@stdout`, `@stderr`, `@-`)
+- **Money literals**: `$12.34`, `£99.99`, `EUR#50.00`, `¥1000`
+- **String interpolation**: `"Hello, {name}"` (double quotes), `` `Hello, {name}` `` (backticks), `'Raw @{name}'` (single quotes with `@{}`)
 - **Regex literals**: `/pattern/flags`
-- **JSX-like tags**: `<Component prop={value}>...</Component>`
-- **Special operators**: File I/O (`<==`, `==>`), Database (`<=?=>`, `<=??=>`), etc.
+- **JSX-like tags**: `<Component prop={value}>...</Component>` (singleton tags must be self-closing: `<br/>`)
+- **Special operators**: File I/O (`<==`, `==>`, `==>>`, `<=/=`), Database (`<=?=>`, `<=??=>`, `<=!=>`, `<=#=>`)
+- **Logical operators**: `and`, `or`, `not` (word-based, not symbols)
 
 ## Installation
 
@@ -123,8 +124,15 @@ let total = price + money(5.00, "USD")
 ### Templates
 
 ```parsley
+// Double-quoted strings use {expr} for interpolation
 let name = "World"
-let message = `Hello, ${name}!`
+let greeting = "Hello, {name}!"
+
+// Backtick templates also use {expr}
+let html = `<h1>{title}</h1>`
+
+// Single-quoted raw templates use @{expr}
+let raw = 'Value: @{value}'
 ```
 
 ### JSX-like Tags
@@ -160,6 +168,27 @@ let users <=??=> {sql: "SELECT * FROM users"}
 
 // Execute statement
 <=!=> {sql: "INSERT INTO users (name) VALUES (?)", params: ["Alice"]}
+```
+
+### Control Flow
+
+```parsley
+// check/stop/skip for loop control
+for item in items {
+  check (item.hidden) skip     // skip this iteration
+  check (item.isLast) stop     // exit the loop
+  
+  // check with fallback
+  let value = check (item.value) else "default"
+  print(value)
+}
+
+// Brace-less forms
+for n in numbers {
+  if (n < 0) skip
+  if (n > 100) stop
+  print(n)
+}
 ```
 
 ## Language Reference
