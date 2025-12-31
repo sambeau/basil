@@ -20,6 +20,7 @@ const (
 	FLOAT             // 3.14159
 	STRING            // "foobar"
 	TEMPLATE          // `template ${expr}`
+	RAW_TEMPLATE      // 'raw with @{expr}'
 	REGEX             // /pattern/flags
 	DATETIME_LITERAL  // @2024-12-25T14:30:00Z
 	DATETIME_NOW      // @now
@@ -108,6 +109,9 @@ const (
 	EXPORT   // "export"
 	TRY      // "try"
 	IMPORT   // "import"
+	CHECK    // "check"
+	STOP     // "stop"
+	SKIP     // "skip"
 )
 
 // Token represents a single token
@@ -141,6 +145,8 @@ func (tt TokenType) String() string {
 		return "STRING"
 	case TEMPLATE:
 		return "TEMPLATE"
+	case RAW_TEMPLATE:
+		return "RAW_TEMPLATE"
 	case REGEX:
 		return "REGEX"
 	case DATETIME_LITERAL:
@@ -293,6 +299,12 @@ func (tt TokenType) String() string {
 		return "TRY"
 	case IMPORT:
 		return "IMPORT"
+	case CHECK:
+		return "CHECK"
+	case STOP:
+		return "STOP"
+	case SKIP:
+		return "SKIP"
 	default:
 		return "UNKNOWN"
 	}
@@ -317,6 +329,9 @@ var keywords = map[string]TokenType{
 	"not":      BANG,
 	"try":      TRY,
 	"import":   IMPORT,
+	"check":    CHECK,
+	"stop":     STOP,
+	"skip":     SKIP,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -757,6 +772,22 @@ func (l *Lexer) NextToken() Token {
 		if !terminated {
 			tok.Type = ILLEGAL
 			tok.Literal = fmt.Sprintf("Unterminated string starting with \"%s\"", truncate(str, 20))
+		} else {
+			tok.Type = STRING
+			tok.Literal = str
+		}
+		tok.Line = line
+		tok.Column = column
+	case '\'':
+		line := l.line
+		column := l.column
+		str, terminated, hasInterpolation := l.readRawString()
+		if !terminated {
+			tok.Type = ILLEGAL
+			tok.Literal = fmt.Sprintf("Unterminated raw string starting with '%s'", truncate(str, 20))
+		} else if hasInterpolation {
+			tok.Type = RAW_TEMPLATE
+			tok.Literal = str
 		} else {
 			tok.Type = STRING
 			tok.Literal = str
@@ -1274,6 +1305,45 @@ func (l *Lexer) readString() (string, bool) {
 	return string(result), terminated
 }
 
+// readRawString reads a single-quoted raw string literal.
+// Only \' and \\ are processed as escapes; everything else is literal.
+// Returns the string content, whether it was terminated properly, and whether it contains @{} interpolation.
+func (l *Lexer) readRawString() (string, bool, bool) {
+	var result []byte
+	hasInterpolation := false
+	l.readChar() // skip opening single quote
+
+	for l.ch != '\'' && l.ch != 0 && l.ch != '\n' {
+		if l.ch == '\\' {
+			l.readChar() // consume backslash
+			switch l.ch {
+			case '\'':
+				result = append(result, '\'')
+			case '\\':
+				result = append(result, '\\')
+			case '@':
+				// \@ is literal @ (escapes the interpolation sigil)
+				result = append(result, '@')
+			default:
+				// Not a recognized escape - keep both backslash and char literal
+				result = append(result, '\\')
+				result = append(result, l.ch)
+			}
+		} else {
+			// Check for @{ interpolation marker
+			if l.ch == '@' && l.peekChar() == '{' {
+				hasInterpolation = true
+			}
+			result = append(result, l.ch)
+		}
+		l.readChar()
+	}
+
+	// Check if string was properly terminated
+	terminated := l.ch == '\''
+	return string(result), terminated, hasInterpolation
+}
+
 // readTemplate reads a template literal (backtick string)
 func (l *Lexer) readTemplate() string {
 	var result []byte
@@ -1318,7 +1388,7 @@ func (l *Lexer) readTag() string {
 			break
 		}
 
-		// Handle string literals within the tag
+		// Handle double-quoted string literals within the tag
 		if l.ch == '"' {
 			result = append(result, l.ch)
 			l.readChar()
@@ -1337,6 +1407,29 @@ func (l *Lexer) readTag() string {
 				}
 			}
 			if l.ch == '"' {
+				result = append(result, l.ch)
+				l.readChar()
+			}
+			continue
+		}
+
+		// Handle single-quoted string literals within the tag (raw - no escape processing)
+		if l.ch == '\'' {
+			result = append(result, l.ch)
+			l.readChar()
+			// Read until closing single quote - only \' needs escaping
+			for l.ch != '\'' && l.ch != 0 {
+				if l.ch == '\\' && l.peekChar() == '\'' {
+					// Escaped single quote - include just the quote
+					l.readChar() // skip backslash
+					result = append(result, l.ch)
+					l.readChar()
+				} else {
+					result = append(result, l.ch)
+					l.readChar()
+				}
+			}
+			if l.ch == '\'' {
 				result = append(result, l.ch)
 				l.readChar()
 			}
@@ -1570,7 +1663,7 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 			break
 		}
 
-		// Handle string literals within the tag
+		// Handle double-quoted string literals within the tag
 		if l.ch == '"' {
 			result = append(result, l.ch)
 			l.readChar()
@@ -1589,6 +1682,29 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 				}
 			}
 			if l.ch == '"' {
+				result = append(result, l.ch)
+				l.readChar()
+			}
+			continue
+		}
+
+		// Handle single-quoted string literals within the tag (raw - no escape processing)
+		if l.ch == '\'' {
+			result = append(result, l.ch)
+			l.readChar()
+			// Read until closing single quote - only \' needs escaping
+			for l.ch != '\'' && l.ch != 0 {
+				if l.ch == '\\' && l.peekChar() == '\'' {
+					// Escaped single quote - include just the quote
+					l.readChar() // skip backslash
+					result = append(result, l.ch)
+					l.readChar()
+				} else {
+					result = append(result, l.ch)
+					l.readChar()
+				}
+			}
+			if l.ch == '\'' {
 				result = append(result, l.ch)
 				l.readChar()
 			}

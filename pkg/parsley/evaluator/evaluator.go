@@ -113,6 +113,9 @@ const (
 	MONEY_OBJ            = "MONEY"
 	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
 	REDIRECT_OBJ         = "REDIRECT"  // HTTP redirect response
+	STOP_SIGNAL_OBJ      = "STOP_SIGNAL"
+	SKIP_SIGNAL_OBJ      = "SKIP_SIGNAL"
+	CHECK_EXIT_OBJ       = "CHECK_EXIT"
 )
 
 // Object represents all values in our language
@@ -249,6 +252,26 @@ type PrintValue struct {
 
 func (pv *PrintValue) Type() ObjectType { return PRINT_VALUE_OBJ }
 func (pv *PrintValue) Inspect() string  { return "<print>" }
+
+// StopSignal signals early exit from a for loop
+type StopSignal struct{}
+
+func (s *StopSignal) Type() ObjectType { return STOP_SIGNAL_OBJ }
+func (s *StopSignal) Inspect() string  { return "<stop>" }
+
+// SkipSignal signals skipping the current iteration in a for loop
+type SkipSignal struct{}
+
+func (s *SkipSignal) Type() ObjectType { return SKIP_SIGNAL_OBJ }
+func (s *SkipSignal) Inspect() string  { return "<skip>" }
+
+// CheckExit signals early exit from a check statement
+type CheckExit struct {
+	Value Object
+}
+
+func (c *CheckExit) Type() ObjectType { return CHECK_EXIT_OBJ }
+func (c *CheckExit) Inspect() string  { return c.Value.Inspect() }
 
 // Error represents error objects with structured error information.
 // It maintains backward compatibility while supporting the new structured error system.
@@ -6722,6 +6745,12 @@ func evalStatement(stmt ast.Statement, env *Environment) Object {
 			return val
 		}
 		return &ReturnValue{Value: val}
+	case *ast.CheckStatement:
+		return evalCheckStatement(stmt, env)
+	case *ast.StopStatement:
+		return &StopSignal{}
+	case *ast.SkipStatement:
+		return &SkipSignal{}
 	default:
 		return Eval(stmt, env)
 	}
@@ -7018,6 +7047,15 @@ func Eval(node ast.Node, env *Environment) Object {
 		}
 		return &ReturnValue{Value: val}
 
+	case *ast.CheckStatement:
+		return evalCheckStatement(node, env)
+
+	case *ast.StopStatement:
+		return &StopSignal{}
+
+	case *ast.SkipStatement:
+		return &SkipSignal{}
+
 	// Expressions
 	case *ast.IntegerLiteral:
 		return &Integer{Value: node.Value}
@@ -7030,6 +7068,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.TemplateLiteral:
 		return evalTemplateLiteral(node, env)
+
+	case *ast.RawTemplateLiteral:
+		return interpolateRawString(node.Value, env)
 
 	case *ast.RegexLiteral:
 		return evalRegexLiteral(node, env)
@@ -7347,6 +7388,27 @@ func evalProgram(stmts []ast.Statement, env *Environment) Object {
 				return result
 			}
 
+			// Stop/skip signals at program level are errors
+			if rt == STOP_SIGNAL_OBJ {
+				return &Error{
+					Class:   ClassType,
+					Code:    "LOOP-0008",
+					Message: "'stop' can only be used inside a for loop",
+				}
+			}
+			if rt == SKIP_SIGNAL_OBJ {
+				return &Error{
+					Class:   ClassType,
+					Code:    "LOOP-0009",
+					Message: "'skip' can only be used inside a for loop",
+				}
+			}
+
+			// CheckExit at program level - return the value
+			if rt == CHECK_EXIT_OBJ {
+				return result.(*CheckExit).Value
+			}
+
 			// Handle PrintValue - expand into results as strings
 			if rt == PRINT_VALUE_OBJ {
 				pv := result.(*PrintValue)
@@ -7386,6 +7448,11 @@ func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
 		if result != nil {
 			rt := result.Type()
 			if rt == RETURN_OBJ || rt == ERROR_OBJ {
+				return result
+			}
+
+			// Bubble up control flow signals (stop, skip, check exit)
+			if rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ || rt == CHECK_EXIT_OBJ {
 				return result
 			}
 
@@ -7430,6 +7497,11 @@ func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Obj
 		if result != nil {
 			rt := result.Type()
 			if rt == RETURN_OBJ || rt == ERROR_OBJ {
+				return result
+			}
+
+			// Bubble up control flow signals (stop, skip, check exit)
+			if rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ || rt == CHECK_EXIT_OBJ {
 				return result
 			}
 
@@ -8922,7 +8994,47 @@ func unwrapReturnValue(obj Object) Object {
 	if returnValue, ok := obj.(*ReturnValue); ok {
 		return returnValue.Value
 	}
+	// Unwrap CheckExit to its value (functions use it like return)
+	if checkExit, ok := obj.(*CheckExit); ok {
+		return checkExit.Value
+	}
+	// Stop/skip signals outside of for loops are errors
+	if _, ok := obj.(*StopSignal); ok {
+		return &Error{
+			Class:   ClassType,
+			Code:    "LOOP-0008",
+			Message: "'stop' can only be used inside a for loop",
+		}
+	}
+	if _, ok := obj.(*SkipSignal); ok {
+		return &Error{
+			Class:   ClassType,
+			Code:    "LOOP-0009",
+			Message: "'skip' can only be used inside a for loop",
+		}
+	}
 	return obj
+}
+
+// evalCheckStatement evaluates check statements: check CONDITION else VALUE
+// If condition is truthy, continues execution. If falsy, returns CheckExit with the else value.
+func evalCheckStatement(node *ast.CheckStatement, env *Environment) Object {
+	condition := Eval(node.Condition, env)
+	if isError(condition) {
+		return condition
+	}
+
+	if !isTruthy(condition) {
+		// Condition failed, evaluate and return the else value as CheckExit
+		elseValue := Eval(node.ElseValue, env)
+		if isError(elseValue) {
+			return elseValue
+		}
+		return &CheckExit{Value: elseValue}
+	}
+
+	// Condition passed, continue execution (return NULL to not affect result stream)
+	return NULL
 }
 
 // evalForExpression evaluates for expressions
@@ -8995,6 +9107,8 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 	result := []Object{}
 	for idx, elem := range elements {
 		var evaluated Object
+		var stopLoop bool
+		var skipIteration bool
 
 		switch f := fn.(type) {
 		case *Builtin:
@@ -9029,6 +9143,24 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 					bodyResults = append(bodyResults, evaluated)
 					break
 				}
+				// Handle stop signal - exit loop early
+				if _, ok := evaluated.(*StopSignal); ok {
+					stopLoop = true
+					evaluated = NULL
+					break
+				}
+				// Handle skip signal - skip this iteration
+				if _, ok := evaluated.(*SkipSignal); ok {
+					skipIteration = true
+					evaluated = NULL
+					break
+				}
+				// Handle check exit - use the exit value and exit the block
+				if checkExit, ok := evaluated.(*CheckExit); ok {
+					evaluated = checkExit.Value
+					bodyResults = append(bodyResults, evaluated)
+					break
+				}
 				if isError(evaluated) {
 					return evaluated
 				}
@@ -9059,9 +9191,19 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			}
 		}
 
+		// Handle skip - don't add anything to result
+		if skipIteration {
+			continue
+		}
+
 		// Skip null values (filter behavior)
 		if evaluated != NULL {
 			result = append(result, evaluated)
+		}
+
+		// Handle stop - exit after collecting any non-null result
+		if stopLoop {
+			break
 		}
 	}
 
@@ -9111,10 +9253,29 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 
 		// Evaluate all statements in the body
 		var evaluated Object
+		var stopLoop bool
+		var skipIteration bool
 		for _, stmt := range fn.Body.Statements {
 			evaluated = evalStatement(stmt, extendedEnv)
 			if returnValue, ok := evaluated.(*ReturnValue); ok {
 				evaluated = returnValue.Value
+				break
+			}
+			// Handle stop signal - exit loop early
+			if _, ok := evaluated.(*StopSignal); ok {
+				stopLoop = true
+				evaluated = NULL
+				break
+			}
+			// Handle skip signal - skip this iteration
+			if _, ok := evaluated.(*SkipSignal); ok {
+				skipIteration = true
+				evaluated = NULL
+				break
+			}
+			// Handle check exit - use the exit value and exit the block
+			if checkExit, ok := evaluated.(*CheckExit); ok {
+				evaluated = checkExit.Value
 				break
 			}
 			if isError(evaluated) {
@@ -9132,9 +9293,19 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 			}
 		}
 
+		// Handle skip - don't add anything to result
+		if skipIteration {
+			continue
+		}
+
 		// Skip null values (filter behavior)
 		if evaluated != NULL {
 			result = append(result, evaluated)
+		}
+
+		// Handle stop - exit after collecting any non-null result
+		if stopLoop {
+			break
 		}
 	}
 
@@ -11449,6 +11620,94 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			continue
 		}
 
+		// Handle single-quoted strings (raw with @{} interpolation)
+		// This must be checked before {expr} handling
+		if propsStr[i] == '\'' {
+			result.WriteByte(propsStr[i])
+			i++
+			// Read until closing single quote, handling @{} interpolation
+			for i < len(propsStr) && propsStr[i] != '\'' {
+				if propsStr[i] == '\\' && i+1 < len(propsStr) {
+					next := propsStr[i+1]
+					if next == '\'' {
+						// Escaped single quote - write just the quote
+						result.WriteByte('\'')
+						i += 2
+						continue
+					} else if next == '@' {
+						// Escaped @ - write just the @
+						result.WriteByte('@')
+						i += 2
+						continue
+					}
+				}
+				// Check for @{ interpolation
+				if propsStr[i] == '@' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
+					i += 2 // skip @{
+					braceCount := 1
+					exprStart := i
+
+					// Find closing } with brace counting
+					for i < len(propsStr) && braceCount > 0 {
+						if propsStr[i] == '{' {
+							braceCount++
+						} else if propsStr[i] == '}' {
+							braceCount--
+						}
+						if braceCount > 0 {
+							i++
+						}
+					}
+
+					if braceCount != 0 {
+						return newParseError("PARSE-0009", "raw template in tag props", nil)
+					}
+
+					exprStr := propsStr[exprStart:i]
+					i++ // skip closing }
+
+					// Evaluate the expression
+					l := lexer.NewWithFilename(exprStr, env.Filename)
+					p := parser.New(l)
+					program := p.ParseProgram()
+
+					if errs := p.StructuredErrors(); len(errs) > 0 {
+						perr := errs[0]
+						return &Error{
+							Class:   ClassParse,
+							Code:    perr.Code,
+							Message: perr.Message,
+							Hints:   perr.Hints,
+							Line:    perr.Line,
+							Column:  perr.Column,
+							File:    env.Filename,
+							Data:    perr.Data,
+						}
+					}
+
+					var evaluated Object
+					for _, stmt := range program.Statements {
+						evaluated = Eval(stmt, env)
+						if isError(evaluated) {
+							return evaluated
+						}
+					}
+
+					if evaluated != nil {
+						result.WriteString(objectToTemplateString(evaluated))
+					}
+					continue
+				}
+				result.WriteByte(propsStr[i])
+				i++
+			}
+			if i < len(propsStr) {
+				result.WriteByte(propsStr[i]) // write closing quote
+				i++
+			}
+			continue
+		}
+
 		// Look for {expr} - inline interpolation (legacy syntax)
 		if propsStr[i] == '{' {
 			// Find the closing }
@@ -11637,6 +11896,93 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 
 		// Not a spread operator - write the buffered whitespace
 		result.WriteString(propsStr[wsStart:i])
+
+		// Handle single-quoted strings (raw with @{} interpolation)
+		if propsStr[i] == '\'' {
+			result.WriteByte(propsStr[i])
+			i++
+			// Read until closing single quote, handling @{} interpolation
+			for i < len(propsStr) && propsStr[i] != '\'' {
+				if propsStr[i] == '\\' && i+1 < len(propsStr) {
+					next := propsStr[i+1]
+					if next == '\'' {
+						// Escaped single quote - write just the quote
+						result.WriteByte('\'')
+						i += 2
+						continue
+					} else if next == '@' {
+						// Escaped @ - write just the @
+						result.WriteByte('@')
+						i += 2
+						continue
+					}
+				}
+				// Check for @{ interpolation
+				if propsStr[i] == '@' && i+1 < len(propsStr) && propsStr[i+1] == '{' {
+					i += 2 // skip @{
+					braceCount := 1
+					exprStart := i
+
+					// Find closing } with brace counting
+					for i < len(propsStr) && braceCount > 0 {
+						if propsStr[i] == '{' {
+							braceCount++
+						} else if propsStr[i] == '}' {
+							braceCount--
+						}
+						if braceCount > 0 {
+							i++
+						}
+					}
+
+					if braceCount != 0 {
+						return newParseError("PARSE-0009", "raw template in standard tag props", nil)
+					}
+
+					exprStr := propsStr[exprStart:i]
+					i++ // skip closing }
+
+					// Evaluate the expression
+					l := lexer.NewWithFilename(exprStr, env.Filename)
+					p := parser.New(l)
+					program := p.ParseProgram()
+
+					if errs := p.StructuredErrors(); len(errs) > 0 {
+						perr := errs[0]
+						return &Error{
+							Class:   ClassParse,
+							Code:    perr.Code,
+							Message: perr.Message,
+							Hints:   perr.Hints,
+							Line:    perr.Line,
+							Column:  perr.Column,
+							File:    env.Filename,
+							Data:    perr.Data,
+						}
+					}
+
+					var evaluated Object
+					for _, stmt := range program.Statements {
+						evaluated = Eval(stmt, env)
+						if isError(evaluated) {
+							return evaluated
+						}
+					}
+
+					if evaluated != nil {
+						result.WriteString(objectToTemplateString(evaluated))
+					}
+					continue
+				}
+				result.WriteByte(propsStr[i])
+				i++
+			}
+			if i < len(propsStr) {
+				result.WriteByte(propsStr[i]) // write closing quote
+				i++
+			}
+			continue
+		}
 
 		// Look for {expr}
 		if propsStr[i] == '{' {

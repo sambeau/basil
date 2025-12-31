@@ -91,6 +91,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.FLOAT, p.parseFloatLiteral)
 	p.registerPrefix(lexer.STRING, p.parseStringLiteral)
 	p.registerPrefix(lexer.TEMPLATE, p.parseTemplateLiteral)
+	p.registerPrefix(lexer.RAW_TEMPLATE, p.parseRawTemplateLiteral)
 	p.registerPrefix(lexer.REGEX, p.parseRegexLiteral)
 	p.registerPrefix(lexer.DATETIME_NOW, p.parseDatetimeNow)
 	p.registerPrefix(lexer.TIME_NOW, p.parseTimeNow)
@@ -125,6 +126,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TRY, p.parseTryExpression)
 	p.registerPrefix(lexer.IMPORT, p.parseImportExpression)
 	p.registerPrefix(lexer.LBRACE, p.parseDictionaryLiteral)
+	p.registerPrefix(lexer.STOP, p.parseStopExpression)
+	p.registerPrefix(lexer.SKIP, p.parseSkipExpression)
 
 	// Initialize infix parse functions
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
@@ -274,6 +277,12 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLetStatement(false)
 	case lexer.RETURN:
 		return p.parseReturnStatement()
+	case lexer.CHECK:
+		return p.parseCheckStatement()
+	case lexer.STOP:
+		return p.parseStopStatement()
+	case lexer.SKIP:
+		return p.parseSkipStatement()
 	case lexer.LBRACE:
 		// Check if this is a dictionary destructuring assignment
 		// We need to look ahead to see if this is {a, b} = ... or just a dict literal
@@ -693,6 +702,61 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	return stmt
 }
 
+// parseCheckStatement parses check statements: check CONDITION else VALUE
+func (p *Parser) parseCheckStatement() *ast.CheckStatement {
+	stmt := &ast.CheckStatement{Token: p.curToken}
+
+	p.nextToken() // move past 'check'
+
+	stmt.Condition = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(lexer.ELSE) {
+		return nil
+	}
+
+	p.nextToken() // move past 'else'
+
+	stmt.ElseValue = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+// parseStopStatement parses stop statements
+func (p *Parser) parseStopStatement() *ast.StopStatement {
+	stmt := &ast.StopStatement{Token: p.curToken}
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+// parseSkipStatement parses skip statements
+func (p *Parser) parseSkipStatement() *ast.SkipStatement {
+	stmt := &ast.SkipStatement{Token: p.curToken}
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+// parseStopExpression parses stop as an expression (for use in: if (cond) stop)
+func (p *Parser) parseStopExpression() ast.Expression {
+	return &ast.StopStatement{Token: p.curToken}
+}
+
+// parseSkipExpression parses skip as an expression (for use in: if (cond) skip)
+func (p *Parser) parseSkipExpression() ast.Expression {
+	return &ast.SkipStatement{Token: p.curToken}
+}
+
 // parseExpressionStatement parses expression statements
 func (p *Parser) parseExpressionStatement() ast.Statement {
 	firstToken := p.curToken
@@ -842,6 +906,10 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 
 func (p *Parser) parseTemplateLiteral() ast.Expression {
 	return &ast.TemplateLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseRawTemplateLiteral() ast.Expression {
+	return &ast.RawTemplateLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseRegexLiteral() ast.Expression {
@@ -2307,6 +2375,8 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 	case lexer.STRING:
 		return "string"
 	case lexer.TEMPLATE:
+		return "string"
+	case lexer.RAW_TEMPLATE:
 		return "string"
 	case lexer.REGEX:
 		return "regex"

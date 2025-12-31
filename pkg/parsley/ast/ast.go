@@ -167,6 +167,41 @@ func (rs *ReturnStatement) String() string {
 	return out.String()
 }
 
+// CheckStatement represents 'check CONDITION else VALUE'
+type CheckStatement struct {
+	Token     lexer.Token // the 'check' token
+	Condition Expression  // the condition to check
+	ElseValue Expression  // value to return if condition is false
+}
+
+func (cs *CheckStatement) statementNode()       {}
+func (cs *CheckStatement) TokenLiteral() string { return cs.Token.Literal }
+func (cs *CheckStatement) String() string {
+	return "check " + cs.Condition.String() + " else " + cs.ElseValue.String()
+}
+
+// StopStatement represents 'stop' - exit for loop with accumulated results
+// Implements both Statement and Expression so it can be used as: if (x > 5) stop
+type StopStatement struct {
+	Token lexer.Token // the 'stop' token
+}
+
+func (ss *StopStatement) statementNode()       {}
+func (ss *StopStatement) expressionNode()      {}
+func (ss *StopStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *StopStatement) String() string       { return "stop" }
+
+// SkipStatement represents 'skip' - skip current iteration in for loop
+// Implements both Statement and Expression so it can be used as: if (x == 0) skip
+type SkipStatement struct {
+	Token lexer.Token // the 'skip' token
+}
+
+func (sk *SkipStatement) statementNode()       {}
+func (sk *SkipStatement) expressionNode()      {}
+func (sk *SkipStatement) TokenLiteral() string { return sk.Token.Literal }
+func (sk *SkipStatement) String() string       { return "skip" }
+
 // ExpressionStatement represents expression statements
 type ExpressionStatement struct {
 	Token      lexer.Token // the first token of the expression
@@ -261,6 +296,16 @@ type TemplateLiteral struct {
 func (tl *TemplateLiteral) expressionNode()      {}
 func (tl *TemplateLiteral) TokenLiteral() string { return tl.Token.Literal }
 func (tl *TemplateLiteral) String() string       { return "`" + tl.Value + "`" }
+
+// RawTemplateLiteral represents single-quoted strings with @{} interpolation
+type RawTemplateLiteral struct {
+	Token lexer.Token // the lexer.RAW_TEMPLATE token
+	Value string      // the raw template string with @{} markers
+}
+
+func (rtl *RawTemplateLiteral) expressionNode()      {}
+func (rtl *RawTemplateLiteral) TokenLiteral() string { return rtl.Token.Literal }
+func (rtl *RawTemplateLiteral) String() string       { return "'" + rtl.Value + "'" }
 
 // RegexLiteral represents regular expression literals like /pattern/flags
 type RegexLiteral struct {
