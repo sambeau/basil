@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Parsley",
+  "scopeName": "source.parsley",
   "patterns": [
     {
       "include": "#comments"
@@ -9,7 +10,7 @@
       "include": "#keywords"
     },
     {
-      "include": "#regex-literals"
+      "include": "#operators-special"
     },
     {
       "include": "#datetime-literals"
@@ -21,22 +22,31 @@
       "include": "#money-literals"
     },
     {
+      "include": "#stdlib-paths"
+    },
+    {
       "include": "#path-template-literals"
-    },
-    {
-      "include": "#url-template-literals"
-    },
-    {
-      "include": "#path-literals"
     },
     {
       "include": "#url-literals"
     },
     {
-      "include": "#strings"
+      "include": "#path-literals"
+    },
+    {
+      "include": "#special-literals"
+    },
+    {
+      "include": "#regex-literals"
+    },
+    {
+      "include": "#raw-template-literals"
     },
     {
       "include": "#template-literals"
+    },
+    {
+      "include": "#strings"
     },
     {
       "include": "#numbers"
@@ -45,7 +55,7 @@
       "include": "#constants"
     },
     {
-      "include": "#functions"
+      "include": "#builtins"
     },
     {
       "include": "#tags"
@@ -70,11 +80,11 @@
       "patterns": [
         {
           "name": "keyword.control.parsley",
-          "match": "\\b(if|else|return|for|in)\\b"
+          "match": "\\b(if|else|return|for|in|check|stop|skip|try)\\b"
         },
         {
           "name": "keyword.other.parsley",
-          "match": "\\b(let|fn|as|export)\\b"
+          "match": "\\b(let|fn|function|as|export|import|and|or|not)\\b"
         }
       ]
     },
@@ -105,11 +115,6 @@
               "name": "meta.embedded.line.parsley",
               "begin": "(?<!\\\\)\\{",
               "end": "\\}",
-              "patterns": [
-                {
-                  "include": "$self"
-                }
-              ],
               "beginCaptures": {
                 "0": {
                   "name": "punctuation.definition.template-expression.begin.parsley"
@@ -119,7 +124,12 @@
                 "0": {
                   "name": "punctuation.definition.template-expression.end.parsley"
                 }
-              }
+              },
+              "patterns": [
+                {
+                  "include": "$self"
+                }
+              ]
             }
           ]
         }
@@ -140,11 +150,6 @@
               "name": "meta.embedded.line.parsley",
               "begin": "(?<!\\\\)\\{",
               "end": "\\}",
-              "patterns": [
-                {
-                  "include": "$self"
-                }
-              ],
               "beginCaptures": {
                 "0": {
                   "name": "punctuation.definition.template-expression.begin.parsley"
@@ -154,7 +159,47 @@
                 "0": {
                   "name": "punctuation.definition.template-expression.end.parsley"
                 }
-              }
+              },
+              "patterns": [
+                {
+                  "include": "$self"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "raw-template-literals": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.raw.parsley",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.parsley",
+              "match": "\\\\([ntr\\\\'@{}])"
+            },
+            {
+              "name": "meta.embedded.line.parsley",
+              "begin": "@\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": {
+                  "name": "punctuation.definition.template-expression.begin.parsley"
+                }
+              },
+              "endCaptures": {
+                "0": {
+                  "name": "punctuation.definition.template-expression.end.parsley"
+                }
+              },
+              "patterns": [
+                {
+                  "include": "$self"
+                }
+              ]
             }
           ]
         }
@@ -176,14 +221,8 @@
       "patterns": [
         {
           "name": "string.regexp.parsley",
-          "begin": "/(?![*/])",
+          "begin": "/(?![*/\\s])",
           "end": "/[gimsuvy]*",
-          "patterns": [
-            {
-              "name": "constant.character.escape.parsley",
-              "match": "\\\\."
-            }
-          ],
           "beginCaptures": {
             "0": {
               "name": "punctuation.definition.string.begin.parsley"
@@ -193,25 +232,31 @@
             "0": {
               "name": "punctuation.definition.string.end.parsley"
             }
-          }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.parsley",
+              "match": "\\\\."
+            }
+          ]
         }
       ]
     },
     "datetime-literals": {
       "patterns": [
         {
-          "name": "constant.other.datetime.parsley",
           "comment": "Full datetime: @2024-11-26T14:30:00Z or with timezone offset",
+          "name": "constant.other.datetime.parsley",
           "match": "@\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?"
         },
         {
-          "name": "constant.other.date.parsley",
           "comment": "Date only: @2024-11-26",
+          "name": "constant.other.date.parsley",
           "match": "@\\d{4}-\\d{2}-\\d{2}(?!T)"
         },
         {
-          "name": "constant.other.time.parsley",
           "comment": "Time only: @12:30 or @12:30:45",
+          "name": "constant.other.time.parsley",
           "match": "@\\d{1,2}:\\d{2}(:\\d{2})?"
         }
       ]
@@ -219,8 +264,8 @@
     "duration-literals": {
       "patterns": [
         {
-          "name": "constant.other.duration.parsley",
           "comment": "Duration: @1d, @2h30m, @1y6mo, @-1d (negative)",
+          "name": "constant.other.duration.parsley",
           "match": "@-?\\d+[yMwdhms]([0-9yMwdhms]|mo)*"
         }
       ]
@@ -228,15 +273,30 @@
     "money-literals": {
       "patterns": [
         {
+          "comment": "Money: $100, $12.50, £99.99, €50, ¥1000, EUR#50.00",
           "name": "constant.numeric.money.parsley",
-          "comment": "Money: $100, $12.50, £99.99, €50, ¥1000",
-          "match": "[$£€¥][0-9]+(\\.[0-9]{1,2})?"
+          "match": "([$£€¥]|[A-Z]{3}#)[0-9]+(\\.[0-9]{1,2})?"
+        }
+      ]
+    },
+    "stdlib-paths": {
+      "patterns": [
+        {
+          "comment": "Standard library: @std/math, @std/table, etc.",
+          "name": "support.module.stdlib.parsley",
+          "match": "@std/(table|dev|math|valid|schema|id|api|markdown|mdDoc|html)\\b"
+        },
+        {
+          "comment": "Basil namespace: @basil/http, @basil/auth, @basil",
+          "name": "support.module.basil.parsley",
+          "match": "@basil(/http|/auth)?\\b"
         }
       ]
     },
     "path-template-literals": {
       "patterns": [
         {
+          "comment": "Path/URL templates: @(./path/{expr}), @(https://api.com/{id})",
           "name": "meta.path-template.parsley",
           "begin": "@\\(",
           "end": "\\)",
@@ -291,10 +351,12 @@
         }
       ]
     },
-    "url-template-literals": {
+    "url-literals": {
       "patterns": [
         {
-          "comment": "URL templates are handled by path-template-literals since they share the same syntax"
+          "comment": "URL literals: @https://example.com, @http://..., @ftp://...",
+          "name": "string.unquoted.url.parsley",
+          "match": "@(https?|ftp|file)://[^\\s<>\"{}|\\\\^`\\[\\]]+"
         }
       ]
     },
@@ -302,45 +364,58 @@
       "patterns": [
         {
           "comment": "Standard input/output/error streams",
-          "name": "string.unquoted.path.parsley",
-          "match": "@(-|stdin|stdout|stderr)\\b",
-          "captures": {
-            "0": {
-              "name": "constant.other.path.stdio.parsley"
-            }
-          }
+          "name": "constant.other.path.stdio.parsley",
+          "match": "@(-|stdin|stdout|stderr|stdio)\\b"
         },
         {
-          "name": "string.unquoted.path.parsley",
-          "match": "@(\\./|\\.\\./)([^\\s<>\"{}|\\\\^`\\[\\]]*)|@(/|~/)([^\\s<>\"{}|\\\\^`\\[\\]]*)",
-          "captures": {
-            "0": {
-              "name": "constant.other.path.parsley"
-            }
-          }
+          "comment": "Relative and absolute paths: @./file, @../dir, @/usr/local, @~/home",
+          "name": "constant.other.path.parsley",
+          "match": "@(\\./|\\.\\./)([^\\s<>\"{}|\\\\^`\\[\\]]*)|@(/|~/)([^\\s<>\"{}|\\\\^`\\[\\]]*)"
         }
       ]
     },
-    "url-literals": {
+    "special-literals": {
       "patterns": [
         {
-          "name": "string.unquoted.url.parsley",
-          "match": "@(https?|ftp|file)://[^\\s<>\"{}|\\\\^`\\[\\]]+",
-          "captures": {
-            "0": {
-              "name": "constant.other.url.parsley"
-            }
-          }
+          "comment": "Database literals: @sqlite, @postgres, @mysql",
+          "name": "support.constant.database.parsley",
+          "match": "@(sqlite|postgres|mysql|DB)\\b"
+        },
+        {
+          "comment": "Other special literals: @sftp, @shell",
+          "name": "support.constant.special.parsley",
+          "match": "@(sftp|shell)\\b"
+        },
+        {
+          "comment": "Time-related: @now, @today, @timeNow, @dateNow",
+          "name": "support.constant.time.parsley",
+          "match": "@(now|today|timeNow|dateNow)\\b"
         }
       ]
     },
-    "functions": {
+    "operators-special": {
       "patterns": [
         {
+          "comment": "File I/O operators: <==, <=/=, ==>, ==>>",
+          "name": "keyword.operator.io.parsley",
+          "match": "<==|<=/=|==>|==>>"
+        },
+        {
+          "comment": "Database operators: <=?=>, <=??=>, <=!=>, <=#=>",
+          "name": "keyword.operator.database.parsley",
+          "match": "<=\\?\\?=>|<=\\?=>|<=!=>|<=#=>"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "comment": "Core builtin functions",
           "name": "support.function.builtin.parsley",
-          "match": "\\b(import|len|map|filter|reduce|sort|sortBy|reverse|toString|toDebug|repr|toNumber|toInt|toFloat|toUpper|toLower|trim|log|logLine|has|keys|values|toArray|toDict|delete|sin|cos|tan|asin|acos|atan|sqrt|round|ceil|floor|abs|pow|pi|now|time|path|url|regex|replace|split|join|range|sum|min|max|any|all|contains|startsWith|endsWith|find|findIndex|unique|flatten|chunk|zip|unzip|groupBy|countBy|partition|take|drop|takeWhile|dropWhile)\\b"
+          "match": "\\b(import|now|time|url|file|JSON|YAML|CSV|lines|text|bytes|SVG|MD|markdown|dir|fileList|format|regex|match|tag|asset|repr|inspect|describe|toInt|toFloat|toNumber|toString|toDebug|log|logLine|print|println|printf|fail|toArray|toDict|money|builtins|sqlite|postgres|mysql|sftp|shell)\\b(?=\\s*\\()"
         },
         {
+          "comment": "Entity name for function definitions",
           "name": "entity.name.function.parsley",
           "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*=\\s*fn\\b)"
         }
@@ -349,8 +424,9 @@
     "tags": {
       "patterns": [
         {
+          "comment": "HTML/JSX-style tags",
           "name": "meta.tag.parsley",
-          "begin": "<(/)?([A-Z][a-zA-Z0-9]*|[a-z][a-zA-Z0-9]*|>)?",
+          "begin": "<(/)?([A-Z][a-zA-Z0-9]*|[a-z][a-zA-Z0-9-]*)?",
           "end": "/?>",
           "beginCaptures": {
             "0": {
@@ -370,8 +446,14 @@
           },
           "patterns": [
             {
+              "comment": "Tag attributes",
               "name": "entity.other.attribute-name.parsley",
               "match": "\\b[a-zA-Z][a-zA-Z0-9_-]*(?=\\s*=)"
+            },
+            {
+              "comment": "Spread operator in tags",
+              "name": "keyword.operator.spread.parsley",
+              "match": "\\.\\.\\.[a-zA-Z_][a-zA-Z0-9_]*"
             },
             {
               "include": "#strings"
@@ -380,11 +462,6 @@
               "name": "meta.embedded.expression.parsley",
               "begin": "\\{",
               "end": "\\}",
-              "patterns": [
-                {
-                  "include": "$self"
-                }
-              ],
               "beginCaptures": {
                 "0": {
                   "name": "punctuation.definition.expression.begin.parsley"
@@ -394,7 +471,12 @@
                 "0": {
                   "name": "punctuation.definition.expression.end.parsley"
                 }
-              }
+              },
+              "patterns": [
+                {
+                  "include": "$self"
+                }
+              ]
             }
           ]
         }
@@ -403,26 +485,42 @@
     "operators": {
       "patterns": [
         {
+          "comment": "Regex match operators",
           "name": "keyword.operator.regex.parsley",
-          "match": "(~|!~)"
+          "match": "(!~|~)"
         },
         {
+          "comment": "Nullish coalescing",
+          "name": "keyword.operator.nullish.parsley",
+          "match": "\\?\\?"
+        },
+        {
+          "comment": "Comparison operators",
           "name": "keyword.operator.comparison.parsley",
-          "match": "(==|!=|<=|>=|<(?![a-zA-Z])|>(?![>/]))"
+          "match": "(==|!=|<=|>=|<(?![a-zA-Z=])|>(?![>/=]))"
         },
         {
+          "comment": "Logical operators",
           "name": "keyword.operator.logical.parsley",
-          "match": "(&&|\\|\\||!)"
+          "match": "(&&|\\|\\||!(?![~=]))"
         },
         {
+          "comment": "Arithmetic operators",
           "name": "keyword.operator.arithmetic.parsley",
           "match": "(\\+\\+|\\+|-|\\*|/|%)"
         },
         {
-          "name": "keyword.operator.assignment.parsley",
-          "match": "="
+          "comment": "Range operator",
+          "name": "keyword.operator.range.parsley",
+          "match": "\\.\\."
         },
         {
+          "comment": "Assignment operator",
+          "name": "keyword.operator.assignment.parsley",
+          "match": "=(?![=>])"
+        },
+        {
+          "comment": "Spread/rest operator",
           "name": "keyword.operator.spread.parsley",
           "match": "\\.\\.\\."
         }
@@ -457,9 +555,12 @@
         {
           "name": "punctuation.separator.colon.parsley",
           "match": ":"
+        },
+        {
+          "name": "punctuation.separator.question.parsley",
+          "match": "\\?"
         }
       ]
     }
-  },
-  "scopeName": "source.parsley"
+  }
 }

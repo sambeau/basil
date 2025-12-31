@@ -1,0 +1,398 @@
+// Parsley Syntax Highlighting Test File
+// This file demonstrates all Parsley syntax features for testing the VS Code extension
+
+// ========================================
+// Keywords
+// ========================================
+let x = 5
+let double = fn(n) { n * 2 }
+let triple = function(n) { n * 3 }  // 'function' is alias for 'fn'
+export let exported = true
+
+let items = for (item in [1, 2, 3]) {
+    if (item > 1) {
+        item * 2
+    } else {
+        item
+    }
+}
+
+// New control flow keywords
+let result1 = for (y in 1..10) {
+    check y > 0 else "invalid"
+    if (y > 5) stop
+    if (y == 3) skip
+    y
+}
+
+// try expression (wraps a single expression, returns {result, error})
+let tryResult = try toInt("abc")
+let safeResult = (try toInt("42")).result
+
+// as keyword for imports
+import @std/math as M
+
+// Boolean logic keywords
+let a = true and false
+let b = true or false
+let c = not true
+
+// ========================================
+// Constants
+// ========================================
+let truthy = true
+let falsy = false
+let nothing = null
+let ignored = _
+
+// ========================================
+// Numbers
+// ========================================
+let integer = 42
+let float = 3.14159
+let negative = -100
+
+// ========================================
+// Money Literals
+// ========================================
+let dollars = $99.99
+let pounds = £50.00
+let euros = €25
+let yen = ¥1000
+let eurCode = EUR#100.00
+
+// ========================================
+// String Literals
+// ========================================
+let simple = "Hello, World!"
+let interpolated = "Value is {x}"
+let escaped = "Line 1\nLine 2\t\"quoted\""
+
+// Template literals with backticks
+let template = `
+    Multi-line
+    template with {interpolation}
+`
+
+// Raw template literals with single quotes
+let raw = 'Raw string with @{expr} interpolation'
+
+// ========================================
+// Regex Literals
+// ========================================
+let pattern = /[a-z]+/gi
+let email = /^[\w.]+@[\w.]+$/
+
+// ========================================
+// DateTime Literals
+// ========================================
+let date = @2024-12-31
+let time = @14:30:00
+let datetime = @2024-12-31T14:30:00Z
+let dateWithTz = @2024-12-31T14:30:00+05:00
+
+// Special time literals
+let now = @now
+let today = @today
+let timeNow = @timeNow
+let dateNow = @dateNow
+
+// ========================================
+// Duration Literals
+// ========================================
+let oneDay = @1d
+let twoHours = @2h30m
+let oneYear = @1y6mo
+let negDuration = @-7d
+
+// ========================================
+// Path Literals
+// ========================================
+let relative = @./config/settings.json
+let parent = @../data/file.txt
+let absolute = @/usr/local/bin/app
+let home = @~/Documents/notes.md
+
+// Standard streams
+let stdin = @stdin
+let stdout = @stdout
+let stderr = @stderr
+let dash = @-
+
+// ========================================
+// URL Literals
+// ========================================
+let website = @https://example.com/api/v1
+let local = @http://localhost:8080/path
+let ftp = @ftp://files.server.com/data
+
+// ========================================
+// Path/URL Templates
+// ========================================
+let pathTpl = @(./data/{name}/config.json)
+let urlTpl = @(https://api.example.com/users/{userId}/posts)
+
+// ========================================
+// Database Literals
+// ========================================
+let sqlite = @sqlite
+let pg = @postgres
+let mysql = @mysql
+let db = @DB
+
+// ========================================
+// Special Literals
+// ========================================
+let sftpConn = @sftp
+let shellCmd = @shell
+
+// ========================================
+// Standard Library Imports
+// ========================================
+import @std/math
+import @std/table
+import @std/valid
+import @std/schema
+import @std/id
+import @std/api
+import @std/markdown
+import @std/mdDoc
+import @std/html
+import @std/dev
+
+// Basil namespace imports
+import @basil
+import @basil/http
+import @basil/auth
+
+// ========================================
+// File I/O Operators
+// ========================================
+// let content <== file(@./data.json)         // Read from file
+// let fetched <=/= @https://api.example.com   // Fetch from URL
+// data ==> file(@./output.json)              // Write to file
+// logs ==>> file(@./app.log)                 // Append to file
+
+// ========================================
+// Database Operators
+// ========================================
+// let one = db <=?=> "SELECT * FROM users WHERE id = ?"
+// let many = db <=??=> "SELECT * FROM posts"
+// let exec = db <=!=> "INSERT INTO logs VALUES (?)"
+// let shellResult = cmd <=#=> "ls -la"
+
+// ========================================
+// Arithmetic Operators
+// ========================================
+let sum = 1 + 2
+let diff = 5 - 3
+let prod = 4 * 5
+let quot = 10 / 2
+let mod = 17 % 5
+
+// String/Array concatenation
+let concat = [1, 2] ++ [3, 4]
+
+// ========================================
+// Comparison Operators
+// ========================================
+let eq = x == 5
+let ne = x != 3
+let lt = x < 10
+let gt = x > 0
+let lte = x <= 5
+let gte = x >= 1
+
+// ========================================
+// Logical Operators
+// ========================================
+let andOp = true && false
+let orOp = true || false
+let notOp = !true
+
+// Nullish coalescing
+let value = null ?? "default"
+
+// ========================================
+// Regex Match Operators
+// ========================================
+let matches = "hello" ~ /ell/
+let noMatch = "hello" !~ /xyz/
+
+// ========================================
+// Range Operator
+// ========================================
+let range = 1..10
+let slice = arr[2..5]
+
+// ========================================
+// Spread Operator
+// ========================================
+let obj1 = {a: 1}
+let obj2 = {b: 2}
+let arr1 = [1, 2]
+let arr2 = [3, 4]
+// Array concatenation uses ++
+let combined = arr1 ++ arr2
+// Rest/spread in destructuring
+let [first, ...restArr] = [1, 2, 3, 4]
+let {a, ...restDict} = {a: 1, b: 2, c: 3}
+// Rest in function destructuring parameters
+let tail = fn([head, ...rest]) { rest }
+let extract = fn({key, ...others}) { others }
+
+// ========================================
+// Builtin Functions
+// ========================================
+// import @std/math
+// log("Hello")
+// logLine("Line")
+// print("Printing")
+// println("Print line")
+// printf("Formatted: {}", x)
+
+let num = toInt("42")
+let str = toString(42)
+let arr = toArray({a: 1})
+let dictVal = toDict([["a", 1]])
+let flt = toFloat("3.14")
+let numberVal = toNumber("100")
+let debugVal = toDebug(x)
+
+// File operations require actual files
+// let jsonFile = JSON(@./data.json)
+// let yamlFile = YAML(@./config.yaml)
+// let csvFile = CSV(@./data.csv)
+// let textFile = text(@./readme.txt)
+// let linesArr = lines(@./list.txt)
+// let binary = bytes(@./image.png)
+// let svgContent = SVG(@./icon.svg)
+// let mdContent = MD(@./doc.md)
+
+// let f = file(@./test.txt)
+// let d = dir(@./folder)
+// let list = fileList(@./folder)
+
+let re = regex("[a-z]+")
+let fmtStr = format("{} + {} = {}", 1, 2, 3)
+
+// let assetPath = asset("styles.css")
+let htmlTag = tag("div", {class: "container"}, "content")
+
+let reprVal = repr(x)
+let inspectVal = inspect(double)
+let descVal = describe(x)
+
+let builtinList = builtins()
+// fail("Error message")
+
+// ========================================
+// Tags (JSX-like syntax)
+// ========================================
+<div class="container">
+    <h1 id="title">"Hello, Parsley!"</h1>
+    <p class={dynamicClass}>
+        "Dynamic content: {value}"
+    </p>
+    <input type="text" value={inputValue} />
+    <img src="image.png" alt="An image"/>
+    <br/>
+    <Component {...props} custom={true}/>
+</div>
+
+// Self-closing tags
+<hr/>
+<meta charset="utf-8"/>
+
+// ========================================
+// Functions
+// ========================================
+let add = fn(a, b) { a + b }
+let greet = fn(name) {
+    "Hello, {name}!"
+}
+
+// Destructuring parameters
+let processUser = fn({name, age}) {
+    "{name} is {age} years old"
+}
+
+let first = fn([head, ...tail]) {
+    head
+}
+
+// ========================================
+// Dictionaries
+// ========================================
+let person = {
+    name: "Alice",
+    age: 30,
+    active: true
+}
+
+// Computed keys
+let key = "dynamic"
+let computed = {
+    [key]: "value",
+    ["key_" ++ "2"]: 42
+}
+
+// ========================================
+// Arrays
+// ========================================
+let numbers = [1, 2, 3, 4, 5]
+let mixed = ["string", 42, true, null]
+let nested = [[1, 2], [3, 4]]
+
+// ========================================
+// Method Calls (common methods)
+// ========================================
+let strVal = "hello"
+let arrVal = [1, 2, 3]
+let dictVal2 = {a: 1}
+
+let upperVal = strVal.toUpper()
+let lowerVal = strVal.toLower()
+let trimmed = strVal.trim()
+let parts = strVal.split(",")
+let joined = arrVal.join("-")
+let lenVal = arrVal.length()
+let mapped = arrVal.map(fn(v) { v * 2 })
+let filtered = arrVal.filter(fn(v) { v > 0 })
+let reduced = arrVal.reduce(fn(acc, v) { acc + v }, 0)
+let sortedVal = arrVal.sort()
+let reversedVal = arrVal.reverse()
+let hasKey = dictVal2.has("a")
+let allKeys = dictVal2.keys()
+let allVals = dictVal2.values()
+
+// ========================================
+// Complex Example (commented - requires files/context)
+// ========================================
+// import @std/table
+// import @std/valid as v
+//
+// let validateUser = fn(data) {
+//     check v.string(data.name) else { error: "Invalid name" }
+//     check v.email(data.email) else { error: "Invalid email" }
+//     check v.integer(data.age) else { error: "Invalid age" }
+//     check v.between(data.age, 0, 150) else { error: "Age out of range" }
+//     { valid: true, data: data }
+// }
+//
+// let users <== JSON(@./users.json)
+// let validUsers = for (user in users) {
+//     let result = validateUser(user)
+//     if (result.valid) {
+//         result.data
+//     } else {
+//         skip
+//     }
+// }
+//
+// let userTable = table.fromDict(validUsers, {
+//     columns: ["name", "email", "age"]
+// })
+
+// Final output - a simple valid expression
+"Syntax highlighting test complete!"
