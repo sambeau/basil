@@ -212,7 +212,7 @@ func TestMarkdownInterpolatesRawTemplates(t *testing.T) {
 	mdContent := `# @{title}
 
 Value: @{value}
-Literal: \@{skip}
+Literal: \@{escaped}
 `
 	mdPath := filepath.Join(tmpDir, "dynamic.md")
 	if err := os.WriteFile(mdPath, []byte(mdContent), 0644); err != nil {
@@ -220,7 +220,7 @@ Literal: \@{skip}
 	}
 
 	testFilePath := filepath.Join(tmpDir, "test.pars")
-	code := `let title = "Hello"; let value = 42; let skip = "ignored"; let post <== MD(@./dynamic.md); post.html`
+	code := `let title = "Hello"; let value = 42; let escaped = "ignored"; let post <== MD(@./dynamic.md); post.html`
 	result := testEvalMDWithFilename(code, testFilePath)
 
 	if result == nil {
@@ -238,9 +238,9 @@ Literal: \@{skip}
 	if !strings.Contains(html, "Value: 42") {
 		t.Errorf("Expected interpolated value, got: %s", html)
 	}
-	// \@{skip} is escaped, so it should remain as literal @{skip} in output (not interpolated)
-	if !strings.Contains(html, "Literal: @{skip}") {
-		t.Errorf("Expected literal @{skip}, got: %s", html)
+	// \@{escaped} is escaped, so it should remain as literal @{escaped} in output (not interpolated)
+	if !strings.Contains(html, "Literal: @{escaped}") {
+		t.Errorf("Expected literal @{escaped}, got: %s", html)
 	}
 }
 
