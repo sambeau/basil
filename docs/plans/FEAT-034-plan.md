@@ -114,11 +114,11 @@ Tests:
 **Estimated effort**: Medium
 
 Steps:
-1. Implement `schema.validate(schema, data)`:
+1. Implement `Schema.validate(data)` method on schema objects:
    - Iterate over schema fields
    - Apply each field's validation rules
    - Collect errors into array
-   - Return `{value: sanitizedData, errors: [...] or null}`
+   - Return `{valid: bool, errors: [...] or []}`
 2. Error format:
    ```
    {field: "email", code: "FORMAT", message: "Invalid email format", value: "bad"}

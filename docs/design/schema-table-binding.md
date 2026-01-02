@@ -26,7 +26,7 @@ let User = schema.define("User", {
 })
 
 // Use for validation (no magic, explicit)
-let {value, errors} = schema.validate(User, formData)
+let result = User.validate(formData)
 let clean = schema.sanitize(User, formData)
 ```
 
@@ -35,12 +35,14 @@ let clean = schema.sanitize(User, formData)
 ## Part 2: The Question—How to Fetch Data?
 
 ### Option 1: Raw SQL (what we have now)
+
 ```javascript
 let users = basil.sqlite.query("SELECT * FROM users WHERE role = ?", [role])
 ```
 Explicit, flexible, but no schema connection.
 
 ### Option 2: ORM-style magic
+
 ```javascript
 let users = User.findAll({where: {role: "admin"}})
 ```
@@ -98,8 +100,8 @@ Users.delete(id)                   // DELETE FROM users WHERE id = ?
     },
     insert: fn(data) {
         let clean = schema.sanitize(User, data)
-        let {errors} = schema.validate(User, clean)
-        if errors { return {error: errors} }
+        let result = User.validate(clean)
+        if !result.valid { return {error: result.errors} }
         // ... build INSERT SQL ...
         basil.sqlite.exec(sql, params)
         {value: {...clean, id: lastInsertId()}}

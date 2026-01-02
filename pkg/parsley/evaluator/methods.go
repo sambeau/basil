@@ -1379,6 +1379,16 @@ func evalExprToFloat(expr ast.Expression) float64 {
 
 // evalDictionaryMethod evaluates a method call on a Dictionary
 func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
+	// Check if this is a schema dictionary first - dispatch to schema methods
+	if IsSchemaDict(dict) {
+		result := evalSchemaMethod(dict, method, args, env)
+		// If schema method returns non-nil, use that result
+		// nil means "method not found, try dictionary methods"
+		if result != nil {
+			return result
+		}
+	}
+
 	switch method {
 	case "keys":
 		if len(args) != 0 {

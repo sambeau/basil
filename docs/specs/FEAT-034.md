@@ -44,7 +44,7 @@ As a Basil developer, I want to build JSON APIs with minimal boilerplate so that
 - [x] `schema.define(name, fields)` creates a named schema object
 - [x] Built-in types: `string`, `email`, `url`, `phone`, `integer`, `number`, `boolean`, `enum`, `date`, `datetime`, `money`, `array`, `object`, `id`
 - [x] Types include built-in validation, sanitization, and documentation
-- [x] `schema.validate(schema, data)` returns `{valid, errors}`
+- [x] `Schema.validate(data)` returns `{valid, errors}` (method-style API)
 - [ ] `schema.sanitize(schema, data)` returns sanitized data without validation
 - [ ] Schema composition via `++` merge operator
 
@@ -122,8 +122,9 @@ As a Basil developer, I want to build JSON APIs with minimal boilerplate so that
 ### New Modules to Create
 
 **pkg/parsley/stdlib/stdlib_schema.go:**
-- `schema.define()`, `schema.validate()`, `schema.sanitize()`
+- `schema.define()`, `schema.sanitize()`
 - Type functions: `schema.string()`, `schema.email()`, etc.
+- `Schema.validate(data)` method on schema objects
 - `schema.table()` for database binding
 - `schema.id()` type
 

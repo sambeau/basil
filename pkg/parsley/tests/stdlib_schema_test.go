@@ -224,7 +224,7 @@ let UserSchema = schema.define("User", {
   email: schema.email({required: true}),
   age: schema.integer({min: 0})
 })
-let result = schema.validate(UserSchema, {
+let result = UserSchema.validate({
   email: "test@example.com",
   age: 25
 })
@@ -251,7 +251,7 @@ let UserSchema = schema.define("User", {
   email: schema.email({required: true}),
   age: schema.integer({min: 0})
 })
-let result = schema.validate(UserSchema, {
+let result = UserSchema.validate({
   age: 25
 })
 result.valid`
@@ -276,7 +276,7 @@ func TestSchemaValidateInvalidEmail(t *testing.T) {
 let UserSchema = schema.define("User", {
   email: schema.email({required: true})
 })
-let result = schema.validate(UserSchema, {
+let result = UserSchema.validate({
   email: "not-an-email"
 })
 result.valid`
@@ -301,7 +301,7 @@ func TestSchemaValidateIntegerRange(t *testing.T) {
 let AgeSchema = schema.define("Age", {
   value: schema.integer({min: 0, max: 150})
 })
-let result = schema.validate(AgeSchema, {
+let result = AgeSchema.validate({
   value: -5
 })
 result.valid`
@@ -326,7 +326,7 @@ func TestSchemaValidateStringLength(t *testing.T) {
 let NameSchema = schema.define("Name", {
   name: schema.string({min: 2, max: 50})
 })
-let result = schema.validate(NameSchema, {
+let result = NameSchema.validate({
   name: "X"
 })
 result.valid`
@@ -351,7 +351,7 @@ func TestSchemaValidateErrorDetails(t *testing.T) {
 let UserSchema = schema.define("User", {
   email: schema.email({required: true})
 })
-let result = schema.validate(UserSchema, {})
+let result = UserSchema.validate({})
 result.errors[0].field`
 
 	result := evalSchemaTest(t, input)
@@ -366,5 +366,90 @@ result.errors[0].field`
 		}
 	} else {
 		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// =============================================================================
+// Method-Style API Tests
+// =============================================================================
+
+func TestSchemaValidateMethodStyle(t *testing.T) {
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  email: schema.email({required: true}),
+  age: schema.integer({min: 0})
+})
+let result = UserSchema.validate({
+  email: "test@example.com",
+  age: 25
+})
+result.valid`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("expected validation to pass with method-style API")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+func TestSchemaValidateMethodStyleWithErrors(t *testing.T) {
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  email: schema.email({required: true}),
+  age: schema.integer({min: 0, max: 150})
+})
+// Method-style validation with errors
+let result = UserSchema.validate({
+  email: "invalid-email",
+  age: 200
+})
+result.errors.length()`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if i, ok := result.(*evaluator.Integer); ok {
+		if i.Value != 2 {
+			t.Errorf("expected 2 errors (invalid email + age out of range), got %d", i.Value)
+		}
+	} else {
+		t.Errorf("expected INTEGER, got %s", result.Type())
+	}
+}
+
+func TestSchemaStillHasDictMethods(t *testing.T) {
+	// Schemas should still support regular dictionary methods like keys()
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  email: schema.email({required: true}),
+  age: schema.integer({min: 0})
+})
+// Schema dictionaries should still have dict methods
+UserSchema.keys().length()`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if i, ok := result.(*evaluator.Integer); ok {
+		// Should have "name" and "fields" keys (not __schema__ since it's internal)
+		if i.Value != 2 {
+			t.Errorf("expected 2 keys (name, fields), got %d", i.Value)
+		}
+	} else {
+		t.Errorf("expected INTEGER, got %s", result.Type())
 	}
 }

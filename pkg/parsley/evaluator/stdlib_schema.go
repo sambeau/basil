@@ -17,6 +17,39 @@ var (
 	schemaUUIDRegex  = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 )
 
+// schemaMethods lists the available methods on schema objects
+var schemaMethods = []string{"validate"}
+
+// IsSchemaDict checks if a dictionary is a schema (created by schema.define)
+func IsSchemaDict(dict *Dictionary) bool {
+	if dict == nil {
+		return false
+	}
+	if schemaMarker, ok := dict.Pairs["__schema__"]; ok {
+		markerObj := Eval(schemaMarker, dict.Env)
+		if b, ok := markerObj.(*Boolean); ok && b.Value {
+			return true
+		}
+	}
+	return false
+}
+
+// evalSchemaMethod dispatches method calls on schema dictionaries.
+// Returns nil for unknown methods to allow fallthrough to dictionary methods.
+func evalSchemaMethod(schema *Dictionary, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "validate":
+		if len(args) != 1 {
+			return newArityError("validate", len(args), 1)
+		}
+		// Reuse the existing schemaValidate logic
+		return schemaValidate(schema, args[0])
+	default:
+		// Return nil to allow fallthrough to regular dictionary methods
+		return nil
+	}
+}
+
 // loadSchemaModule returns the schema module as a StdlibModuleDict
 func loadSchemaModule(env *Environment) Object {
 	return &StdlibModuleDict{
@@ -38,9 +71,8 @@ func loadSchemaModule(env *Environment) Object {
 			"id":       &Builtin{Fn: schemaID},
 
 			// Schema operations
-			"define":   &Builtin{Fn: schemaDefine},
-			"validate": &Builtin{Fn: schemaValidate},
-			"table":    &Builtin{Fn: schemaTable},
+			"define": &Builtin{Fn: schemaDefine},
+			"table":  &Builtin{Fn: schemaTable},
 		},
 	}
 }
