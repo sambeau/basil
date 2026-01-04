@@ -104,6 +104,12 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.SFTP_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.SHELL_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.DB_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.SCHEMA_LITERAL, p.parseSchemaDeclaration)
+	p.registerPrefix(lexer.QUERY_LITERAL, p.parseQueryExpression)
+	p.registerPrefix(lexer.INSERT_LITERAL, p.parseInsertExpression)
+	p.registerPrefix(lexer.UPDATE_LITERAL, p.parseUpdateExpression)
+	p.registerPrefix(lexer.DELETE_LITERAL, p.parseDeleteExpression)
+	p.registerPrefix(lexer.TRANSACTION_LIT, p.parseTransactionExpression)
 	p.registerPrefix(lexer.MONEY, p.parseMoneyLiteral)
 	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
 	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
@@ -830,6 +836,15 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := prefix()
 
 	for !p.peekTokenIs(lexer.SEMICOLON) && precedence < p.peekPrecedence() {
+		// Special handling for DOT: only treat as infix if followed by IDENT
+		// This allows standalone DOT to be used as a terminal operator in DSL queries
+		if p.peekTokenIs(lexer.DOT) {
+			peekedAhead := p.l.PeekToken()
+			if peekedAhead.Type != lexer.IDENT {
+				return leftExp
+			}
+		}
+
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
@@ -2802,4 +2817,1155 @@ func (p *Parser) parseArrayDestructuringPattern() *ast.ArrayDestructuringPattern
 	}
 
 	return pattern
+}
+
+// parseSchemaDeclaration parses @schema Name { field: type, ... }
+func (p *Parser) parseSchemaDeclaration() ast.Expression {
+	schema := &ast.SchemaDeclaration{Token: p.curToken}
+
+	// Expect schema name
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	schema.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Expect opening brace
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	// Parse fields
+	schema.Fields = []*ast.SchemaField{}
+	for !p.peekTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.EOF) {
+		p.nextToken()
+		field := p.parseSchemaField()
+		if field != nil {
+			schema.Fields = append(schema.Fields, field)
+		}
+
+		// Check for comma or closing brace
+		if p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma
+		} else if !p.peekTokenIs(lexer.RBRACE) {
+			// Allow newline-separated fields without commas
+			if p.curTokenIs(lexer.IDENT) || p.curTokenIs(lexer.VIA) {
+				continue
+			}
+		}
+	}
+
+	// Expect closing brace
+	if !p.expectPeek(lexer.RBRACE) {
+		return nil
+	}
+
+	return schema
+}
+
+// parseSchemaField parses a field definition: name: type or name: type via fk or name: [type] via fk
+func (p *Parser) parseSchemaField() *ast.SchemaField {
+	if !p.curTokenIs(lexer.IDENT) {
+		return nil
+	}
+
+	field := &ast.SchemaField{
+		Token: p.curToken,
+		Name:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+	}
+
+	// Expect colon
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
+
+	// Check for array type [Type]
+	if p.peekTokenIs(lexer.LBRACKET) {
+		p.nextToken() // consume [
+		field.IsArray = true
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		field.TypeName = p.curToken.Literal
+		if !p.expectPeek(lexer.RBRACKET) {
+			return nil
+		}
+	} else {
+		// Regular type
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		field.TypeName = p.curToken.Literal
+	}
+
+	// Check for "via foreign_key"
+	if p.peekTokenIs(lexer.VIA) {
+		p.nextToken() // consume via
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		field.ForeignKey = p.curToken.Literal
+	}
+
+	return field
+}
+
+// parseQueryExpression parses @query(source | conditions + by group ??-> projection)
+func (p *Parser) parseQueryExpression() ast.Expression {
+	query := &ast.QueryExpression{Token: p.curToken}
+
+	// Expect opening paren
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	// Expect source identifier
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	query.Source = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Check for alias "as alias"
+	if p.peekTokenIs(lexer.AS) {
+		p.nextToken() // consume as
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		query.SourceAlias = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
+	// Parse conditions, modifiers, group by, and computed fields
+	query.Conditions = []ast.QueryConditionNode{}
+	query.Modifiers = []*ast.QueryModifier{}
+	query.ComputedFields = []*ast.QueryComputedField{}
+
+	// Main parsing loop for query clauses
+	for {
+		// Check for GROUP BY: + by
+		if p.peekTokenIs(lexer.PLUS) {
+			p.nextToken() // consume +
+			if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "by" {
+				p.nextToken() // consume "by"
+				query.GroupBy = p.parseGroupByFields()
+				continue
+			} else {
+				// Not a GROUP BY, error
+				p.addError("expected 'by' after '+' in query", p.peekToken.Line, p.peekToken.Column)
+				return nil
+			}
+		}
+
+		// Check for pipe-based clauses
+		if p.peekTokenIs(lexer.OR) {
+			p.nextToken() // consume |
+
+			// Check if this is a modifier (order, limit, with)
+			if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+				mod := p.parseQueryModifier()
+				if mod != nil {
+					query.Modifiers = append(query.Modifiers, mod)
+				}
+			} else if p.peekTokenIs(lexer.LPAREN) || p.peekTokenIs(lexer.BANG) {
+				// This is a condition group or NOT-prefixed condition
+				// Note: "not" keyword is tokenized as BANG
+				node := p.parseQueryConditionExpr()
+				if node != nil {
+					query.Conditions = append(query.Conditions, node)
+				}
+			} else if p.peekTokenIs(lexer.IDENT) {
+				// Peek ahead to determine if this is a computed field (IDENT COLON) or condition
+				// Save complete state for proper backtracking
+				savedCur := p.curToken
+				savedPeek := p.peekToken
+				savedLexerState := p.l.SaveState()
+
+				// Consume the identifier to check what follows
+				p.nextToken() // now curToken is the IDENT
+				identToken := p.curToken
+
+				if p.peekTokenIs(lexer.COLON) {
+					// This is a computed field: name: function(field)
+					cf := p.parseComputedFieldFromIdent(identToken)
+					if cf != nil {
+						query.ComputedFields = append(query.ComputedFields, cf)
+					}
+				} else {
+					// This is a condition - restore complete state and parse as condition
+					p.curToken = savedCur
+					p.peekToken = savedPeek
+					p.l.RestoreState(savedLexerState)
+					node := p.parseQueryConditionExpr()
+					if node != nil {
+						query.Conditions = append(query.Conditions, node)
+					}
+				}
+			} else {
+				// Parse condition (for other cases)
+				node := p.parseQueryConditionExpr()
+				if node != nil {
+					query.Conditions = append(query.Conditions, node)
+				}
+			}
+			continue
+		}
+
+		// No more clauses to parse
+		break
+	}
+
+	// Parse terminal
+	query.Terminal = p.parseQueryTerminal()
+
+	// Expect closing paren
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return query
+}
+
+// parseGroupByFields parses field list after "+ by"
+func (p *Parser) parseGroupByFields() []string {
+	fields := []string{}
+	if !p.expectPeek(lexer.IDENT) {
+		return fields
+	}
+	fields = append(fields, p.curToken.Literal)
+
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume comma
+		if !p.expectPeek(lexer.IDENT) {
+			return fields
+		}
+		fields = append(fields, p.curToken.Literal)
+	}
+	return fields
+}
+
+// isComputedFieldStart checks if next tokens look like "name: func(" or "name: ident"
+func (p *Parser) isComputedFieldStart() bool {
+	// Look ahead: we need IDENT COLON to identify a computed field
+	// We're currently peeking at the first IDENT
+	if !p.peekTokenIs(lexer.IDENT) {
+		return false
+	}
+
+	// Save position and look ahead
+	// The pattern is: IDENT COLON (aggregate_function | IDENT)
+	// We need to check if after the IDENT there's a COLON
+	// This is tricky without proper lookahead, so let's check if
+	// the identifier is followed by a colon by looking at peek2
+	return p.peekNTokenIs(2, lexer.COLON)
+}
+
+// parseComputedField parses "name: function(field)" or "name: count"
+func (p *Parser) parseComputedField() *ast.QueryComputedField {
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	cf := &ast.QueryComputedField{
+		Token: p.curToken,
+		Name:  p.curToken.Literal,
+	}
+
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
+
+	p.nextToken() // move to function name or field
+
+	// Check if it's an aggregate function
+	if p.curTokenIs(lexer.IDENT) {
+		switch p.curToken.Literal {
+		case "count":
+			cf.Function = "count"
+			// count can be bare or count(field)
+			if p.peekTokenIs(lexer.LPAREN) {
+				p.nextToken() // consume (
+				if p.peekTokenIs(lexer.IDENT) {
+					p.nextToken()
+					cf.Field = p.curToken.Literal
+				}
+				if !p.expectPeek(lexer.RPAREN) {
+					return nil
+				}
+			}
+		case "sum", "avg", "min", "max":
+			cf.Function = p.curToken.Literal
+			// These require a field: sum(field)
+			if !p.expectPeek(lexer.LPAREN) {
+				return nil
+			}
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			cf.Field = p.curToken.Literal
+			if !p.expectPeek(lexer.RPAREN) {
+				return nil
+			}
+		default:
+			// Just a field reference
+			cf.Field = p.curToken.Literal
+		}
+	}
+
+	return cf
+}
+
+// parseComputedFieldFromIdent parses computed field when identifier is already consumed
+func (p *Parser) parseComputedFieldFromIdent(identToken lexer.Token) *ast.QueryComputedField {
+	cf := &ast.QueryComputedField{
+		Token: identToken,
+		Name:  identToken.Literal,
+	}
+
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
+
+	p.nextToken() // move to function name or field
+
+	// Check if it's an aggregate function
+	if p.curTokenIs(lexer.IDENT) {
+		switch p.curToken.Literal {
+		case "count":
+			cf.Function = "count"
+			// count can be bare or count(field)
+			if p.peekTokenIs(lexer.LPAREN) {
+				p.nextToken() // consume (
+				if p.peekTokenIs(lexer.IDENT) {
+					p.nextToken()
+					cf.Field = p.curToken.Literal
+				}
+				if !p.expectPeek(lexer.RPAREN) {
+					return nil
+				}
+			}
+		case "sum", "avg", "min", "max":
+			cf.Function = p.curToken.Literal
+			// These require a field: sum(field)
+			if !p.expectPeek(lexer.LPAREN) {
+				return nil
+			}
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			cf.Field = p.curToken.Literal
+			if !p.expectPeek(lexer.RPAREN) {
+				return nil
+			}
+		default:
+			// Just a field reference
+			cf.Field = p.curToken.Literal
+		}
+	}
+
+	return cf
+}
+
+// parseQueryCondition parses a condition like "field == value" or "field in {values}"
+func (p *Parser) parseQueryCondition() *ast.QueryCondition {
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	cond := &ast.QueryCondition{
+		Token: p.curToken,
+		Left:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+	}
+
+	// Parse operator
+	p.nextToken()
+	switch p.curToken.Type {
+	case lexer.EQ:
+		cond.Operator = "=="
+	case lexer.NOT_EQ:
+		cond.Operator = "!="
+	case lexer.GT:
+		cond.Operator = ">"
+	case lexer.LT:
+		cond.Operator = "<"
+	case lexer.GTE:
+		cond.Operator = ">="
+	case lexer.LTE:
+		cond.Operator = "<="
+	case lexer.IN:
+		cond.Operator = "in"
+	case lexer.BANG:
+		// Handle "not in" - BANG is the token for "not" keyword
+		if p.peekTokenIs(lexer.IN) {
+			p.nextToken() // consume in
+			cond.Operator = "not in"
+		} else {
+			p.addError("expected 'in' after 'not' in query condition", p.curToken.Line, p.curToken.Column)
+			return nil
+		}
+	case lexer.IDENT:
+		// Handle "is null", "is not null", "like", "not in", "between"
+		switch p.curToken.Literal {
+		case "is":
+			if p.peekTokenIs(lexer.BANG) || (p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "not") {
+				p.nextToken() // consume not
+				if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "null" {
+					p.nextToken() // consume null
+					cond.Operator = "is not null"
+				}
+			} else if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "null" {
+				p.nextToken() // consume null
+				cond.Operator = "is null"
+			}
+		case "like":
+			cond.Operator = "like"
+		case "not":
+			if p.peekTokenIs(lexer.IN) {
+				p.nextToken() // consume in
+				cond.Operator = "not in"
+			}
+		case "between":
+			cond.Operator = "between"
+		}
+	default:
+		p.addError("expected comparison operator in query condition", p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+
+	// Parse right side (unless is null/is not null)
+	if cond.Operator != "is null" && cond.Operator != "is not null" {
+		// Check for subquery: <- Table
+		if p.peekTokenIs(lexer.ARROW_PULL) {
+			p.nextToken() // consume <-
+			cond.Right = p.parseQuerySubquery()
+		} else {
+			p.nextToken()
+			// Use INDEX precedence to stop before DOT (execute terminal) and OR (pipe delimiter)
+			// This prevents "value." from being parsed as method call when . is the terminal
+			cond.Right = p.parseExpression(INDEX)
+
+			// For "between X and Y", parse the second value after "and"
+			if cond.Operator == "between" {
+				if p.peekTokenIs(lexer.AND) {
+					p.nextToken() // consume "and"
+					p.nextToken() // move to value
+					cond.RightEnd = p.parseExpression(INDEX)
+				} else {
+					p.addError("expected 'and' after first value in 'between' condition", p.curToken.Line, p.curToken.Column)
+					return nil
+				}
+			}
+		}
+	}
+
+	return cond
+}
+
+// parseQueryConditionExpr parses a complete condition expression after a pipe.
+// This can be:
+// - A single condition: field == value
+// - A grouped condition: (a or b)
+// - A combination: (a or b) and c
+// - Complex: a and b or c (evaluates left-to-right without explicit grouping)
+func (p *Parser) parseQueryConditionExpr() ast.QueryConditionNode {
+	// Parse first term
+	first := p.parseQueryConditionNode()
+	if first == nil {
+		return nil
+	}
+
+	// Check for and/or at top level
+	// If we find them, we need to build a group containing all terms
+	// Note: lexer.OR represents BOTH "|" (pipe) and "or" (keyword)
+	// We only want to continue if it's the "or" keyword, not the pipe
+	isOrKeyword := p.peekTokenIs(lexer.OR) && p.peekToken.Literal == "or"
+	if !p.peekTokenIs(lexer.AND) && !isOrKeyword {
+		// No further terms - return the single node
+		return first
+	}
+
+	// We have more terms - create a group to hold them
+	group := &ast.QueryConditionGroup{
+		Token:      p.curToken,
+		Conditions: []ast.QueryConditionNode{first},
+		Logic:      "",
+		Negated:    false,
+	}
+
+	// Parse remaining terms
+	for p.peekTokenIs(lexer.AND) || (p.peekTokenIs(lexer.OR) && p.peekToken.Literal == "or") {
+		var logic string
+		if p.peekTokenIs(lexer.AND) {
+			p.nextToken() // consume "and"
+			logic = "and"
+		} else {
+			p.nextToken() // consume "or"
+			logic = "or"
+		}
+
+		// Parse next term
+		next := p.parseQueryConditionNode()
+		if next == nil {
+			return nil
+		}
+
+		// Set logic on the next node
+		switch n := next.(type) {
+		case *ast.QueryCondition:
+			n.Logic = logic
+		case *ast.QueryConditionGroup:
+			n.Logic = logic
+		}
+
+		group.Conditions = append(group.Conditions, next)
+	}
+
+	return group
+}
+
+// parseQueryConditionNode parses a single condition term which can be:
+// - A simple condition: field == value
+// - A NOT-prefixed condition: not field == value
+// - A parenthesized group: (condition1 or condition2)
+// - A NOT-prefixed group: not (condition1 or condition2)
+func (p *Parser) parseQueryConditionNode() ast.QueryConditionNode {
+	// Check for NOT prefix
+	// Note: "not" keyword is tokenized as BANG
+	negated := false
+	if p.peekTokenIs(lexer.BANG) {
+		negated = true
+		p.nextToken() // consume "not" or "!"
+	}
+
+	// Check for parenthesized group
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // consume "("
+		return p.parseQueryConditionGroup(negated)
+	}
+
+	// Otherwise, parse a simple condition
+	cond := p.parseQueryCondition()
+	if cond != nil {
+		cond.Negated = negated
+	}
+	return cond
+}
+
+// parseQueryConditionGroup parses a group of conditions wrapped in parentheses
+// The opening "(" has already been consumed
+func (p *Parser) parseQueryConditionGroup(negated bool) *ast.QueryConditionGroup {
+	group := &ast.QueryConditionGroup{
+		Token:      p.curToken, // the '(' token
+		Conditions: []ast.QueryConditionNode{},
+		Negated:    negated,
+	}
+
+	// Parse first condition (no logic prefix)
+	firstNode := p.parseQueryConditionNode()
+	if firstNode == nil {
+		return nil
+	}
+	group.Conditions = append(group.Conditions, firstNode)
+
+	// Parse remaining conditions with logic operators
+	for !p.peekTokenIs(lexer.RPAREN) {
+		// Require a logic operator (and/or) between conditions
+		// Note: "or" is tokenized as lexer.OR, "and" is tokenized as lexer.AND
+		var logic string
+		if p.peekTokenIs(lexer.AND) {
+			p.nextToken() // consume "and"
+			logic = "and"
+		} else if p.peekTokenIs(lexer.OR) {
+			p.nextToken() // consume "or"
+			logic = "or"
+		} else {
+			// No logic operator - might be end of group or syntax error
+			break
+		}
+
+		// Parse the next condition node
+		node := p.parseQueryConditionNode()
+		if node == nil {
+			return nil
+		}
+
+		// Set logic on the node
+		switch n := node.(type) {
+		case *ast.QueryCondition:
+			n.Logic = logic
+		case *ast.QueryConditionGroup:
+			n.Logic = logic
+		}
+
+		group.Conditions = append(group.Conditions, node)
+	}
+
+	// Expect closing paren
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return group
+}
+
+// parseQueryModifier parses ORDER BY, LIMIT, OFFSET, or WITH clauses
+func (p *Parser) parseQueryModifier() *ast.QueryModifier {
+	p.nextToken() // move to keyword
+
+	mod := &ast.QueryModifier{Token: p.curToken}
+
+	// Check keyword as identifier literal
+	switch p.curToken.Literal {
+	case "order":
+		mod.Kind = "order"
+		mod.Fields = []string{}
+		// Parse field list
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		mod.Fields = append(mod.Fields, p.curToken.Literal)
+		// Check for asc/desc
+		if p.peekTokenIs(lexer.IDENT) && (p.peekToken.Literal == "asc" || p.peekToken.Literal == "desc") {
+			p.nextToken()
+			mod.Direction = p.curToken.Literal
+		}
+	case "limit":
+		mod.Kind = "limit"
+		if !p.expectPeek(lexer.INT) {
+			return nil
+		}
+		val, _ := parseInt(p.curToken.Literal)
+		mod.Value = val
+	case "offset":
+		mod.Kind = "offset"
+		if !p.expectPeek(lexer.INT) {
+			return nil
+		}
+		val, _ := parseInt(p.curToken.Literal)
+		mod.Value = val
+	case "with":
+		mod.Kind = "with"
+		mod.Fields = []string{}
+		mod.RelationPaths = []*ast.RelationPath{}
+		// Parse relation list (supports dot-separated paths like "comments.author"
+		// and conditional syntax like "comments(approved == true | order created_at desc | limit 5)")
+		relationPath := p.parseRelationPath()
+		if relationPath == nil {
+			return nil
+		}
+		mod.RelationPaths = append(mod.RelationPaths, relationPath)
+		// For backward compatibility, also store in Fields
+		mod.Fields = append(mod.Fields, relationPath.Path)
+		for p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma
+			relationPath = p.parseRelationPath()
+			if relationPath == nil {
+				return nil
+			}
+			mod.RelationPaths = append(mod.RelationPaths, relationPath)
+			mod.Fields = append(mod.Fields, relationPath.Path)
+		}
+	}
+
+	return mod
+}
+
+// parseRelationPath parses a relation path with optional conditions
+// Syntax: relation.path or relation.path(conditions | order | limit)
+func (p *Parser) parseRelationPath() *ast.RelationPath {
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	path := p.curToken.Literal
+
+	// Parse additional segments separated by dots
+	for p.peekTokenIs(lexer.DOT) {
+		p.nextToken() // consume dot
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		path += "." + p.curToken.Literal
+	}
+
+	relationPath := &ast.RelationPath{
+		Path:       path,
+		Conditions: []ast.QueryConditionNode{},
+		Order:      []ast.QueryOrderField{},
+		Limit:      nil,
+	}
+
+	// Check for optional conditions: (cond1 | order field | limit n)
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // consume (
+
+		// Parse clauses inside parentheses
+		for !p.peekTokenIs(lexer.RPAREN) && !p.peekTokenIs(lexer.EOF) {
+			if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "order" {
+				// Parse order clause
+				p.nextToken() // consume "order"
+				p.parseRelationOrder(relationPath)
+			} else if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "limit" {
+				// Parse limit clause
+				p.nextToken() // consume "limit"
+				if p.expectPeek(lexer.INT) {
+					val, _ := parseInt(p.curToken.Literal)
+					relationPath.Limit = &val
+				}
+			} else if p.peekTokenIs(lexer.OR) && p.peekToken.Literal == "|" {
+				// Separator between clauses
+				p.nextToken() // consume |
+			} else if !p.peekTokenIs(lexer.RPAREN) {
+				// Parse condition expression
+				cond := p.parseRelationCondition()
+				if cond != nil {
+					relationPath.Conditions = append(relationPath.Conditions, cond)
+				}
+			}
+		}
+
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	}
+
+	return relationPath
+}
+
+// parseRelationOrder parses order fields inside a relation condition
+func (p *Parser) parseRelationOrder(rp *ast.RelationPath) {
+	// Order followed by field name
+	if !p.expectPeek(lexer.IDENT) {
+		return
+	}
+	orderField := ast.QueryOrderField{
+		Field: p.curToken.Literal,
+	}
+	// Optional direction
+	if p.peekTokenIs(lexer.IDENT) && (p.peekToken.Literal == "asc" || p.peekToken.Literal == "desc") {
+		p.nextToken()
+		orderField.Direction = p.curToken.Literal
+	}
+	rp.Order = append(rp.Order, orderField)
+}
+
+// parseRelationCondition parses a single condition inside a relation filter
+func (p *Parser) parseRelationCondition() ast.QueryConditionNode {
+	// Expect field name
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	leftToken := p.curToken
+	left := &ast.Identifier{Token: leftToken, Value: leftToken.Literal}
+
+	// Get operator
+	p.nextToken()
+	op := p.curToken.Literal
+
+	// Get value
+	p.nextToken()
+	var right ast.Expression
+	switch p.curToken.Type {
+	case lexer.STRING:
+		right = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+	case lexer.INT:
+		val, _ := parseInt(p.curToken.Literal)
+		right = &ast.IntegerLiteral{Token: p.curToken, Value: val}
+	case lexer.FLOAT:
+		val, _ := strconv.ParseFloat(p.curToken.Literal, 64)
+		right = &ast.FloatLiteral{Token: p.curToken, Value: val}
+	case lexer.TRUE:
+		right = &ast.Boolean{Token: p.curToken, Value: true}
+	case lexer.FALSE:
+		right = &ast.Boolean{Token: p.curToken, Value: false}
+	case lexer.IDENT:
+		right = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	default:
+		return nil
+	}
+
+	return &ast.QueryCondition{
+		Token:    leftToken,
+		Left:     left,
+		Operator: op,
+		Right:    right,
+	}
+}
+
+// isQueryModifierKeyword checks if a string is a query DSL modifier keyword
+func (p *Parser) isQueryModifierKeyword(literal string) bool {
+	switch literal {
+	case "order", "limit", "offset", "with":
+		return true
+	default:
+		return false
+	}
+}
+
+// parseQuerySubquery parses a subquery: <-Table | | cond1 | | cond2 | | ?-> field
+// The <- token has already been consumed when this is called
+func (p *Parser) parseQuerySubquery() *ast.QuerySubquery {
+	subquery := &ast.QuerySubquery{
+		Token:      p.curToken, // <- token
+		Conditions: []ast.QueryConditionNode{},
+		Modifiers:  []*ast.QueryModifier{},
+	}
+
+	// Parse table name
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	subquery.Source = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Check for optional "as alias"
+	if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "as" {
+		p.nextToken() // consume "as"
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		subquery.SourceAlias = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
+	// Parse subquery conditions and modifiers (prefixed with | |)
+	for p.peekTokenIs(lexer.OR) {
+		// Save state to check for double pipe
+		savedCur := p.curToken
+		savedPeek := p.peekToken
+		savedLexerState := p.l.SaveState()
+
+		p.nextToken() // consume first |
+
+		// Check for second | to confirm this is a subquery clause
+		if !p.peekTokenIs(lexer.OR) {
+			// Not a double pipe, restore state and break
+			p.curToken = savedCur
+			p.peekToken = savedPeek
+			p.l.RestoreState(savedLexerState)
+			break
+		}
+		p.nextToken() // consume second |
+
+		// Check for terminal first - terminals start subquery result
+		if p.peekTokenIs(lexer.RETURN_ONE) || p.peekTokenIs(lexer.RETURN_MANY) {
+			// Don't consume - let parseQueryTerminal handle it
+			break
+		}
+
+		// Check if this is a modifier or condition
+		if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+			mod := p.parseQueryModifier()
+			if mod != nil {
+				subquery.Modifiers = append(subquery.Modifiers, mod)
+			}
+		} else if p.peekTokenIs(lexer.IDENT) || p.peekTokenIs(lexer.LPAREN) || p.peekTokenIs(lexer.BANG) {
+			// Parse condition (can be simple, grouped, or NOT-prefixed)
+			node := p.parseQueryConditionExpr()
+			if node != nil {
+				subquery.Conditions = append(subquery.Conditions, node)
+			}
+		}
+	}
+
+	// Parse terminal (required for subqueries, typically ?-> field)
+	subquery.Terminal = p.parseQueryTerminal()
+
+	return subquery
+}
+
+// parseQueryTerminal parses ?-> , ??-> , . , or .-> with projection
+func (p *Parser) parseQueryTerminal() *ast.QueryTerminal {
+	// Check for terminal operator
+	if !p.peekTokenIs(lexer.RETURN_ONE) && !p.peekTokenIs(lexer.RETURN_MANY) && !p.peekTokenIs(lexer.DOT) && !p.peekTokenIs(lexer.EXEC_COUNT) {
+		return nil
+	}
+
+	p.nextToken()
+	terminal := &ast.QueryTerminal{Token: p.curToken}
+
+	switch p.curToken.Type {
+	case lexer.RETURN_ONE:
+		terminal.Type = "one"
+	case lexer.RETURN_MANY:
+		terminal.Type = "many"
+	case lexer.DOT:
+		terminal.Type = "execute"
+	case lexer.EXEC_COUNT:
+		terminal.Type = "count"
+	}
+
+	// Parse projection for non-execute terminals
+	if terminal.Type != "execute" {
+		terminal.Projection = []string{}
+		if p.peekTokenIs(lexer.ASTERISK) {
+			p.nextToken()
+			terminal.Projection = append(terminal.Projection, "*")
+		} else if p.peekTokenIs(lexer.IDENT) {
+			p.nextToken()
+			terminal.Projection = append(terminal.Projection, p.curToken.Literal)
+			for p.peekTokenIs(lexer.COMMA) {
+				p.nextToken() // consume comma
+				if !p.expectPeek(lexer.IDENT) {
+					return nil
+				}
+				terminal.Projection = append(terminal.Projection, p.curToken.Literal)
+			}
+		}
+	}
+
+	return terminal
+}
+
+// parseInsertExpression parses @insert(source |< field: value ?-> *)
+// or @insert(source * each collection -> alias |< field: value .)
+func (p *Parser) parseInsertExpression() ast.Expression {
+	insert := &ast.InsertExpression{Token: p.curToken}
+
+	// Expect opening paren
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	// Expect source identifier
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	insert.Source = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Check for batch insert "* each collection as alias"
+	if p.peekTokenIs(lexer.ASTERISK) {
+		p.nextToken() // consume *
+		if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "each" {
+			p.nextToken() // consume each
+			p.nextToken() // move to collection expression
+			insert.Batch = &ast.InsertBatch{Token: p.curToken}
+			// Use INDEX precedence to stop before AS keyword
+			insert.Batch.Collection = p.parseExpression(INDEX)
+
+			// Expect "as alias"
+			if !p.expectPeek(lexer.AS) {
+				return nil
+			}
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			insert.Batch.Alias = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		} else {
+			p.addError("expected 'each' after '*' in batch insert", p.curToken.Line, p.curToken.Column)
+			return nil
+		}
+	}
+
+	// Check for upsert "| update on key"
+	if p.peekTokenIs(lexer.OR) {
+		p.nextToken() // consume |
+		if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "update" {
+			p.nextToken() // consume update
+			if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "on" {
+				p.nextToken() // consume on
+				insert.UpsertKey = []string{}
+				if !p.expectPeek(lexer.IDENT) {
+					return nil
+				}
+				insert.UpsertKey = append(insert.UpsertKey, p.curToken.Literal)
+				for p.peekTokenIs(lexer.COMMA) {
+					p.nextToken() // consume comma
+					if !p.expectPeek(lexer.IDENT) {
+						return nil
+					}
+					insert.UpsertKey = append(insert.UpsertKey, p.curToken.Literal)
+				}
+			}
+		}
+	}
+
+	// Parse field writes
+	insert.Writes = []*ast.InsertFieldWrite{}
+	for p.peekTokenIs(lexer.PIPE_WRITE) {
+		p.nextToken() // consume |<
+		write := p.parseInsertFieldWrite()
+		if write != nil {
+			insert.Writes = append(insert.Writes, write)
+		}
+	}
+
+	// Parse terminal
+	insert.Terminal = p.parseQueryTerminal()
+
+	// Expect closing paren
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return insert
+}
+
+// parseInsertFieldWrite parses "field: value"
+func (p *Parser) parseInsertFieldWrite() *ast.InsertFieldWrite {
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	write := &ast.InsertFieldWrite{
+		Token: p.curToken,
+		Field: p.curToken.Literal,
+	}
+
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
+
+	p.nextToken()
+	// Use LOWEST precedence so that property access like person.name is fully parsed
+	// The terminal parser will look for standalone DOT not followed by IDENT
+	write.Value = p.parseExpression(LOWEST)
+
+	return write
+}
+
+// parseUpdateExpression parses @update(source | conditions |< field: value .-> count)
+func (p *Parser) parseUpdateExpression() ast.Expression {
+	update := &ast.UpdateExpression{Token: p.curToken}
+
+	// Expect opening paren
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	// Expect source identifier
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	update.Source = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Parse conditions until we hit |<
+	update.Conditions = []*ast.QueryCondition{}
+	for p.peekTokenIs(lexer.OR) && !p.peekNTokenIs(2, lexer.PIPE_WRITE) {
+		p.nextToken() // consume |
+		cond := p.parseQueryCondition()
+		if cond != nil {
+			update.Conditions = append(update.Conditions, cond)
+		}
+	}
+
+	// Parse field writes
+	update.Writes = []*ast.InsertFieldWrite{}
+	for p.peekTokenIs(lexer.PIPE_WRITE) {
+		p.nextToken() // consume |<
+		write := p.parseInsertFieldWrite()
+		if write != nil {
+			update.Writes = append(update.Writes, write)
+		}
+	}
+
+	// Parse terminal
+	update.Terminal = p.parseQueryTerminal()
+
+	// Expect closing paren
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return update
+}
+
+// parseDeleteExpression parses @delete(source | conditions .)
+func (p *Parser) parseDeleteExpression() ast.Expression {
+	del := &ast.DeleteExpression{Token: p.curToken}
+
+	// Expect opening paren
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	// Expect source identifier
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+	del.Source = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Parse conditions
+	del.Conditions = []*ast.QueryCondition{}
+	for p.peekTokenIs(lexer.OR) {
+		p.nextToken() // consume |
+		cond := p.parseQueryCondition()
+		if cond != nil {
+			del.Conditions = append(del.Conditions, cond)
+		}
+	}
+
+	// Parse terminal
+	del.Terminal = p.parseQueryTerminal()
+
+	// Expect closing paren
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return del
+}
+
+// parseTransactionExpression parses @transaction { statements }
+func (p *Parser) parseTransactionExpression() ast.Expression {
+	trans := &ast.TransactionExpression{Token: p.curToken}
+
+	// Expect opening brace
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	// Parse statements
+	trans.Statements = []ast.Statement{}
+	for !p.peekTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.EOF) {
+		p.nextToken()
+		stmt := p.parseStatement()
+		if stmt != nil {
+			trans.Statements = append(trans.Statements, stmt)
+		}
+	}
+
+	// Expect closing brace
+	if !p.expectPeek(lexer.RBRACE) {
+		return nil
+	}
+
+	return trans
+}
+
+// peekNTokenIs looks ahead N tokens from curToken
+// n=1 is the same as peekTokenIs, n=2 looks at the token after peek, etc.
+func (p *Parser) peekNTokenIs(n int, t lexer.TokenType) bool {
+	if n <= 0 {
+		return p.curTokenIs(t)
+	}
+	if n == 1 {
+		return p.peekTokenIs(t)
+	}
+
+	// For n >= 2, we need to save state, advance, check, and restore
+	// Save complete state including lexer
+	savedCur := p.curToken
+	savedPeek := p.peekToken
+	savedLexerState := p.l.SaveState()
+
+	// Advance n-1 times to get to position n
+	for i := 1; i < n; i++ {
+		p.nextToken()
+	}
+
+	// Check if peek token matches
+	result := p.peekTokenIs(t)
+
+	// Restore complete state
+	p.curToken = savedCur
+	p.peekToken = savedPeek
+	p.l.RestoreState(savedLexerState)
+
+	return result
+}
+
+// parseInt parses a string to int64
+func parseInt(s string) (int64, error) {
+	var result int64
+	for _, c := range s {
+		if c >= '0' && c <= '9' {
+			result = result*10 + int64(c-'0')
+		}
+	}
+	return result, nil
 }
