@@ -21,11 +21,26 @@ type TableBinding struct {
 func (tb *TableBinding) Type() ObjectType { return TABLE_BINDING_OBJ }
 func (tb *TableBinding) Inspect() string  { return fmt.Sprintf("TableBinding(%s)", tb.TableName) }
 
+// QueryOptions holds parsed query options for orderBy, select, limit/offset
+type QueryOptions struct {
+	OrderBy []OrderSpec // [{Column: "name", Dir: "ASC"}, ...]
+	Select  []string    // ["id", "name"] or nil for *
+	Limit   *int64      // nil = use default/no limit
+	Offset  *int64      // nil = 0
+	NoLimit bool        // explicit limit <= 0 means no limit
+}
+
+// OrderSpec specifies a column and direction for ORDER BY
+type OrderSpec struct {
+	Column string
+	Dir    string // "ASC" or "DESC"
+}
+
 // evalTableBindingMethod dispatches method calls on TableBinding instances.
 func evalTableBindingMethod(tb *TableBinding, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "all":
-		return tb.executeAll(env)
+		return tb.executeAll(args, env)
 	case "find":
 		return tb.executeFind(args, env)
 	case "where":
@@ -36,8 +51,30 @@ func evalTableBindingMethod(tb *TableBinding, method string, args []Object, env 
 		return tb.executeUpdate(args, env)
 	case "delete":
 		return tb.executeDelete(args, env)
+	case "count":
+		return tb.executeCount(args, env)
+	case "sum":
+		return tb.executeAggregate("SUM", args, env)
+	case "avg":
+		return tb.executeAggregate("AVG", args, env)
+	case "min":
+		return tb.executeAggregate("MIN", args, env)
+	case "max":
+		return tb.executeAggregate("MAX", args, env)
+	case "first":
+		return tb.executeFirst(args, env)
+	case "last":
+		return tb.executeLast(args, env)
+	case "exists":
+		return tb.executeExists(args, env)
+	case "findBy":
+		return tb.executeFindBy(args, env)
 	default:
-		return unknownMethodError(method, "TableBinding", []string{"all", "find", "where", "insert", "update", "delete"})
+		return unknownMethodError(method, "TableBinding", []string{
+			"all", "find", "where", "insert", "update", "delete",
+			"count", "sum", "avg", "min", "max",
+			"first", "last", "exists", "findBy",
+		})
 	}
 }
 
@@ -53,19 +90,177 @@ func (tb *TableBinding) ensureSQLite() *Error {
 	return nil
 }
 
+// parseQueryOptions extracts QueryOptions from a dictionary argument.
+func parseQueryOptions(dict *Dictionary) (*QueryOptions, *Error) {
+	opts := &QueryOptions{}
+
+	// Parse orderBy
+	if orderByExpr, ok := dict.Pairs["orderBy"]; ok {
+		orderByVal := Eval(orderByExpr, dict.Env)
+		if isError(orderByVal) {
+			return nil, orderByVal.(*Error)
+		}
+
+		switch v := orderByVal.(type) {
+		case *String:
+			// Simple string: {orderBy: "name"}
+			if !identifierRegex.MatchString(v.Value) {
+				return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": fmt.Sprintf("invalid column name in orderBy: %s", v.Value)})
+			}
+			dir := "ASC"
+			if orderExpr, ok := dict.Pairs["order"]; ok {
+				orderVal := Eval(orderExpr, dict.Env)
+				if str, ok := orderVal.(*String); ok {
+					upper := strings.ToUpper(str.Value)
+					if upper != "ASC" && upper != "DESC" {
+						return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "order direction", "GoError": fmt.Sprintf("order must be 'asc' or 'desc', got: %s", str.Value)})
+					}
+					dir = upper
+				}
+			}
+			opts.OrderBy = []OrderSpec{{Column: v.Value, Dir: dir}}
+
+		case *Array:
+			// Array of [col, dir] pairs: {orderBy: [["age", "desc"], ["name", "asc"]]}
+			for _, elem := range v.Elements {
+				pair, ok := elem.(*Array)
+				if !ok || len(pair.Elements) != 2 {
+					return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "orderBy array", "GoError": "orderBy array elements must be [column, direction] pairs"})
+				}
+				colObj, ok := pair.Elements[0].(*String)
+				if !ok {
+					return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "orderBy column", "GoError": "orderBy column must be a string"})
+				}
+				if !identifierRegex.MatchString(colObj.Value) {
+					return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": fmt.Sprintf("invalid column name in orderBy: %s", colObj.Value)})
+				}
+				dirObj, ok := pair.Elements[1].(*String)
+				if !ok {
+					return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "orderBy direction", "GoError": "orderBy direction must be a string"})
+				}
+				dir := strings.ToUpper(dirObj.Value)
+				if dir != "ASC" && dir != "DESC" {
+					return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "order direction", "GoError": fmt.Sprintf("order must be 'asc' or 'desc', got: %s", dirObj.Value)})
+				}
+				opts.OrderBy = append(opts.OrderBy, OrderSpec{Column: colObj.Value, Dir: dir})
+			}
+		}
+	}
+
+	// Parse select
+	if selectExpr, ok := dict.Pairs["select"]; ok {
+		selectVal := Eval(selectExpr, dict.Env)
+		if isError(selectVal) {
+			return nil, selectVal.(*Error)
+		}
+		arr, ok := selectVal.(*Array)
+		if !ok {
+			return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "select", "GoError": "select must be an array of column names"})
+		}
+		for _, elem := range arr.Elements {
+			str, ok := elem.(*String)
+			if !ok {
+				return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "select column", "GoError": "select columns must be strings"})
+			}
+			if !identifierRegex.MatchString(str.Value) {
+				return nil, newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": fmt.Sprintf("invalid column name in select: %s", str.Value)})
+			}
+			opts.Select = append(opts.Select, str.Value)
+		}
+	}
+
+	// Parse limit
+	if limitExpr, ok := dict.Pairs["limit"]; ok {
+		limitVal := Eval(limitExpr, dict.Env)
+		if isError(limitVal) {
+			return nil, limitVal.(*Error)
+		}
+		if intVal, ok := limitVal.(*Integer); ok {
+			if intVal.Value <= 0 {
+				opts.NoLimit = true
+			} else {
+				opts.Limit = &intVal.Value
+			}
+		}
+	}
+
+	// Parse offset
+	if offsetExpr, ok := dict.Pairs["offset"]; ok {
+		offsetVal := Eval(offsetExpr, dict.Env)
+		if isError(offsetVal) {
+			return nil, offsetVal.(*Error)
+		}
+		if intVal, ok := offsetVal.(*Integer); ok && intVal.Value >= 0 {
+			opts.Offset = &intVal.Value
+		}
+	}
+
+	return opts, nil
+}
+
+// buildOrderByClause generates the ORDER BY clause from QueryOptions.
+func buildOrderByClause(opts *QueryOptions) string {
+	if opts == nil || len(opts.OrderBy) == 0 {
+		return ""
+	}
+	parts := make([]string, len(opts.OrderBy))
+	for i, spec := range opts.OrderBy {
+		parts[i] = fmt.Sprintf("%s %s", spec.Column, spec.Dir)
+	}
+	return " ORDER BY " + strings.Join(parts, ", ")
+}
+
+// buildSelectClause generates the SELECT columns from QueryOptions.
+func buildSelectClause(opts *QueryOptions) string {
+	if opts == nil || len(opts.Select) == 0 {
+		return "*"
+	}
+	return strings.Join(opts.Select, ", ")
+}
+
 // executeAll selects all rows with optional pagination defaults.
-func (tb *TableBinding) executeAll(env *Environment) Object {
+func (tb *TableBinding) executeAll(args []Object, env *Environment) Object {
 	if err := tb.ensureSQLite(); err != nil {
 		return err
 	}
 
-	limit, offset, useLimit := getPagination(env)
-	query := fmt.Sprintf("SELECT * FROM %s", tb.TableName)
-	var params []Object
+	var opts *QueryOptions
+	if len(args) > 0 {
+		if dict, ok := args[0].(*Dictionary); ok {
+			var parseErr *Error
+			opts, parseErr = parseQueryOptions(dict)
+			if parseErr != nil {
+				return parseErr
+			}
+		}
+	}
 
-	if useLimit {
-		query = query + " LIMIT ? OFFSET ?"
-		params = append(params, &Integer{Value: limit}, &Integer{Value: offset})
+	// Build SELECT clause
+	selectCols := buildSelectClause(opts)
+	query := fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+
+	// Add ORDER BY if specified
+	query += buildOrderByClause(opts)
+
+	// Handle pagination
+	var params []Object
+	if opts != nil && opts.NoLimit {
+		// Explicit no-limit requested
+	} else if opts != nil && opts.Limit != nil {
+		// Use explicit limit/offset
+		offset := int64(0)
+		if opts.Offset != nil {
+			offset = *opts.Offset
+		}
+		query += " LIMIT ? OFFSET ?"
+		params = append(params, &Integer{Value: *opts.Limit}, &Integer{Value: offset})
+	} else {
+		// Use auto-pagination from request
+		limit, offset, useLimit := getPagination(env)
+		if useLimit {
+			query += " LIMIT ? OFFSET ?"
+			params = append(params, &Integer{Value: limit}, &Integer{Value: offset})
+		}
 	}
 
 	return tb.queryRows(query, params, env)
@@ -92,12 +287,13 @@ func (tb *TableBinding) executeFind(args []Object, env *Environment) Object {
 }
 
 // executeWhere selects rows matching equality conditions from a dictionary.
-// Unlike all(), where() does not apply automatic pagination.
+// Unlike all(), where() does not apply automatic pagination by default.
+// Accepts optional second argument for options (orderBy, select, limit, offset).
 func (tb *TableBinding) executeWhere(args []Object, env *Environment) Object {
 	if err := tb.ensureSQLite(); err != nil {
 		return err
 	}
-	if len(args) != 1 {
+	if len(args) < 1 || len(args) > 2 {
 		return newArityError("where", len(args), 1)
 	}
 
@@ -106,14 +302,41 @@ func (tb *TableBinding) executeWhere(args []Object, env *Environment) Object {
 		return newTypeError("TYPE-0005", "where", "a dictionary", args[0].Type())
 	}
 
+	// Parse options if provided
+	var opts *QueryOptions
+	if len(args) == 2 {
+		if optsDict, ok := args[1].(*Dictionary); ok {
+			var parseErr *Error
+			opts, parseErr = parseQueryOptions(optsDict)
+			if parseErr != nil {
+				return parseErr
+			}
+		}
+	}
+
 	conditions, params, errObj := tb.buildWhereClause(condDict)
 	if errObj != nil {
 		return errObj
 	}
 
-	query := fmt.Sprintf("SELECT * FROM %s", tb.TableName)
+	// Build SELECT clause
+	selectCols := buildSelectClause(opts)
+	query := fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
 	if conditions != "" {
 		query += " WHERE " + conditions
+	}
+
+	// Add ORDER BY if specified
+	query += buildOrderByClause(opts)
+
+	// Handle limit/offset if specified in options
+	if opts != nil && opts.Limit != nil {
+		offset := int64(0)
+		if opts.Offset != nil {
+			offset = *opts.Offset
+		}
+		query += " LIMIT ? OFFSET ?"
+		params = append(params, &Integer{Value: *opts.Limit}, &Integer{Value: offset})
 	}
 
 	return tb.queryRows(query, params, env)
@@ -414,6 +637,310 @@ func (tb *TableBinding) generateID(env *Environment) Object {
 		return idCUID()
 	default:
 		return idNew()
+	}
+}
+
+// executeCount returns the count of rows, optionally filtered by conditions.
+func (tb *TableBinding) executeCount(args []Object, env *Environment) Object {
+	if err := tb.ensureSQLite(); err != nil {
+		return err
+	}
+
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", tb.TableName)
+	var params []Object
+
+	if len(args) > 0 {
+		if condDict, ok := args[0].(*Dictionary); ok {
+			conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+			if errObj != nil {
+				return errObj
+			}
+			if conditions != "" {
+				query += " WHERE " + conditions
+			}
+			params = whereParams
+		}
+	}
+
+	return tb.querySingleValue(query, params)
+}
+
+// executeAggregate handles SUM, AVG, MIN, MAX aggregations.
+func (tb *TableBinding) executeAggregate(aggFunc string, args []Object, env *Environment) Object {
+	if err := tb.ensureSQLite(); err != nil {
+		return err
+	}
+	if len(args) < 1 {
+		return newArityError(strings.ToLower(aggFunc), len(args), 1)
+	}
+
+	// First arg must be column name
+	colStr, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0005", strings.ToLower(aggFunc), "a string (column name)", args[0].Type())
+	}
+	if !identifierRegex.MatchString(colStr.Value) {
+		return newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": fmt.Sprintf("invalid column name: %s", colStr.Value)})
+	}
+
+	query := fmt.Sprintf("SELECT %s(%s) FROM %s", aggFunc, colStr.Value, tb.TableName)
+	var params []Object
+
+	// Optional second arg is conditions dict
+	if len(args) > 1 {
+		if condDict, ok := args[1].(*Dictionary); ok {
+			conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+			if errObj != nil {
+				return errObj
+			}
+			if conditions != "" {
+				query += " WHERE " + conditions
+			}
+			params = whereParams
+		}
+	}
+
+	return tb.querySingleValue(query, params)
+}
+
+// executeFirst returns the first record(s) ordered by id ASC.
+// first() → single record or null
+// first(n) → array of up to n records
+// first({orderBy: ...}) → single record with custom order
+// first(n, {orderBy: ...}) → array with custom order
+func (tb *TableBinding) executeFirst(args []Object, env *Environment) Object {
+	if err := tb.ensureSQLite(); err != nil {
+		return err
+	}
+
+	limit := int64(1)
+	returnSingle := true
+	var opts *QueryOptions
+
+	// Parse arguments
+	for i, arg := range args {
+		switch v := arg.(type) {
+		case *Integer:
+			if i == 0 {
+				limit = v.Value
+				returnSingle = false
+			}
+		case *Dictionary:
+			var parseErr *Error
+			opts, parseErr = parseQueryOptions(v)
+			if parseErr != nil {
+				return parseErr
+			}
+		}
+	}
+
+	// Default ORDER BY id ASC if not specified
+	if opts == nil {
+		opts = &QueryOptions{}
+	}
+	if len(opts.OrderBy) == 0 {
+		opts.OrderBy = []OrderSpec{{Column: "id", Dir: "ASC"}}
+	}
+
+	selectCols := buildSelectClause(opts)
+	query := fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+	query += buildOrderByClause(opts)
+	query += " LIMIT ?"
+
+	result := tb.queryRows(query, []Object{&Integer{Value: limit}}, env)
+	if arr, ok := result.(*Array); ok {
+		if returnSingle {
+			if len(arr.Elements) == 0 {
+				return NULL
+			}
+			return arr.Elements[0]
+		}
+	}
+	return result
+}
+
+// executeLast returns the last record(s) ordered by id DESC.
+// Same signature as first() but reverses order direction.
+func (tb *TableBinding) executeLast(args []Object, env *Environment) Object {
+	if err := tb.ensureSQLite(); err != nil {
+		return err
+	}
+
+	limit := int64(1)
+	returnSingle := true
+	var opts *QueryOptions
+
+	// Parse arguments
+	for i, arg := range args {
+		switch v := arg.(type) {
+		case *Integer:
+			if i == 0 {
+				limit = v.Value
+				returnSingle = false
+			}
+		case *Dictionary:
+			var parseErr *Error
+			opts, parseErr = parseQueryOptions(v)
+			if parseErr != nil {
+				return parseErr
+			}
+		}
+	}
+
+	// Default ORDER BY id DESC if not specified
+	if opts == nil {
+		opts = &QueryOptions{}
+	}
+	if len(opts.OrderBy) == 0 {
+		opts.OrderBy = []OrderSpec{{Column: "id", Dir: "DESC"}}
+	} else {
+		// Reverse all directions for last()
+		for i := range opts.OrderBy {
+			if opts.OrderBy[i].Dir == "ASC" {
+				opts.OrderBy[i].Dir = "DESC"
+			} else {
+				opts.OrderBy[i].Dir = "ASC"
+			}
+		}
+	}
+
+	selectCols := buildSelectClause(opts)
+	query := fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+	query += buildOrderByClause(opts)
+	query += " LIMIT ?"
+
+	result := tb.queryRows(query, []Object{&Integer{Value: limit}}, env)
+	if arr, ok := result.(*Array); ok {
+		if returnSingle {
+			if len(arr.Elements) == 0 {
+				return NULL
+			}
+			return arr.Elements[0]
+		}
+	}
+	return result
+}
+
+// executeExists checks if any matching record exists. Returns boolean.
+func (tb *TableBinding) executeExists(args []Object, env *Environment) Object {
+	if err := tb.ensureSQLite(); err != nil {
+		return err
+	}
+	if len(args) != 1 {
+		return newArityError("exists", len(args), 1)
+	}
+
+	condDict, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "exists", "a dictionary", args[0].Type())
+	}
+
+	conditions, params, errObj := tb.buildWhereClause(condDict)
+	if errObj != nil {
+		return errObj
+	}
+
+	query := fmt.Sprintf("SELECT 1 FROM %s", tb.TableName)
+	if conditions != "" {
+		query += " WHERE " + conditions
+	}
+	query += " LIMIT 1"
+
+	rows, err := tb.query(query, params)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	exists := rows.Next()
+	return &Boolean{Value: exists}
+}
+
+// executeFindBy returns a single matching record or null.
+// Like where() but returns first match, not an array.
+func (tb *TableBinding) executeFindBy(args []Object, env *Environment) Object {
+	if err := tb.ensureSQLite(); err != nil {
+		return err
+	}
+	if len(args) < 1 || len(args) > 2 {
+		return newArityError("findBy", len(args), 1)
+	}
+
+	condDict, ok := args[0].(*Dictionary)
+	if !ok {
+		return newTypeError("TYPE-0005", "findBy", "a dictionary", args[0].Type())
+	}
+
+	// Parse options if provided
+	var opts *QueryOptions
+	if len(args) == 2 {
+		if optsDict, ok := args[1].(*Dictionary); ok {
+			var parseErr *Error
+			opts, parseErr = parseQueryOptions(optsDict)
+			if parseErr != nil {
+				return parseErr
+			}
+		}
+	}
+
+	conditions, params, errObj := tb.buildWhereClause(condDict)
+	if errObj != nil {
+		return errObj
+	}
+
+	selectCols := buildSelectClause(opts)
+	query := fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+	if conditions != "" {
+		query += " WHERE " + conditions
+	}
+	query += buildOrderByClause(opts)
+	query += " LIMIT 1"
+
+	result := tb.queryRows(query, params, env)
+	if arr, ok := result.(*Array); ok {
+		if len(arr.Elements) == 0 {
+			return NULL
+		}
+		return arr.Elements[0]
+	}
+	return result
+}
+
+// querySingleValue executes a query that returns a single scalar value.
+func (tb *TableBinding) querySingleValue(query string, params []Object) Object {
+	goParams := make([]interface{}, len(params))
+	for i, p := range params {
+		goParams[i] = objectToGoValue(p)
+	}
+
+	var result interface{}
+	err := tb.DB.DB.QueryRow(query, goParams...).Scan(&result)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NULL
+		}
+		tb.DB.LastError = err.Error()
+		return newDatabaseError("DB-0002", err)
+	}
+
+	if result == nil {
+		return NULL
+	}
+
+	// Convert to appropriate Parsley type
+	switch v := result.(type) {
+	case int64:
+		return &Integer{Value: v}
+	case float64:
+		return &Float{Value: v}
+	case string:
+		return &String{Value: v}
+	default:
+		// SQLite often returns int64 for COUNT, but let's handle other cases
+		if i, ok := v.(int); ok {
+			return &Integer{Value: int64(i)}
+		}
+		return &String{Value: fmt.Sprintf("%v", v)}
 	}
 }
 

@@ -801,6 +801,167 @@ if (result.affected > 0) {
 
 ---
 
+### all(options?) / where(conditions, options?)
+
+Both `all()` and `where()` accept an optional options dictionary for sorting, column selection, and pagination control.
+
+#### Options Dictionary
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `orderBy` | string \| array | none | Column name or array of `[col, dir]` pairs |
+| `order` | `"asc"` \| `"desc"` | `"asc"` | Direction when `orderBy` is a string |
+| `select` | array of strings | all columns | Column names to return |
+| `limit` | integer | auto (20) | Max rows (overrides auto-pagination) |
+| `offset` | integer | auto (0) | Skip rows |
+
+```parsley
+// Sort by name ascending
+let users = Users.all({orderBy: "name"})
+
+// Sort by age descending
+let users = Users.all({orderBy: "age", order: "desc"})
+
+// Multi-column sort: by role ASC, then by name DESC
+let users = Users.all({orderBy: [["role", "asc"], ["name", "desc"]]})
+
+// Select specific columns only
+let users = Users.all({select: ["id", "name", "email"]})
+
+// Override pagination
+let users = Users.all({limit: 50, offset: 100})
+
+// Disable pagination entirely
+let users = Users.all({limit: 0})
+
+// Combine with where()
+let admins = Users.where({role: "admin"}, {orderBy: "name"})
+let topScorers = Users.where({active: true}, {orderBy: "score", order: "desc", limit: 10})
+```
+
+---
+
+### count(conditions?)
+
+Returns the count of records, optionally filtered by conditions.
+
+```parsley
+let totalUsers = Users.count()
+// Returns: 42
+
+let adminCount = Users.count({role: "admin"})
+// Returns: 5
+```
+
+---
+
+### sum(column, conditions?)
+
+Returns the sum of a numeric column, optionally filtered. Returns `null` on empty table.
+
+```parsley
+let totalBalance = Accounts.sum("balance")
+// Returns: 15000
+
+let activeBalance = Accounts.sum("balance", {active: true})
+// Returns: 12000
+```
+
+---
+
+### avg(column, conditions?)
+
+Returns the average of a numeric column, optionally filtered. Returns `null` on empty table.
+
+```parsley
+let avgAge = Users.avg("age")
+// Returns: 32.5
+
+let avgAdminAge = Users.avg("age", {role: "admin"})
+// Returns: 35.2
+```
+
+---
+
+### min(column, conditions?) / max(column, conditions?)
+
+Returns the minimum or maximum value of a column, optionally filtered. Returns `null` on empty table.
+
+```parsley
+let oldestDate = Users.min("created_at")
+let newestDate = Users.max("created_at")
+
+let lowestScore = Users.min("score", {active: true})
+let highestScore = Users.max("score", {active: true})
+```
+
+---
+
+### first(n?, options?)
+
+Returns the first record(s) ordered by primary key. Returns a single record (or `null`) when called without `n`, or an array when `n` is specified.
+
+```parsley
+let firstUser = Users.first()
+// Returns: {id: ..., name: ..., ...} or null
+
+let firstFive = Users.first(5)
+// Returns: [{...}, {...}, {...}, {...}, {...}]
+
+// With custom ordering
+let newest = Users.first({orderBy: "created_at", order: "desc"})
+let topThree = Users.first(3, {orderBy: "score", order: "desc"})
+```
+
+---
+
+### last(n?, options?)
+
+Returns the last record(s) ordered by primary key (reversed). Same return behavior as `first()`.
+
+```parsley
+let lastUser = Users.last()
+// Returns: {id: ..., name: ..., ...} or null
+
+let lastFive = Users.last(5)
+// Returns: [{...}, {...}, {...}, {...}, {...}]
+
+// With custom ordering (direction is reversed)
+let oldest = Users.last({orderBy: "created_at"})
+// Equivalent to: orderBy: "created_at", order: "desc"
+```
+
+---
+
+### exists(conditions)
+
+Efficiently checks if any matching record exists. More efficient than `where(...).length > 0`.
+
+```parsley
+let hasAdmin = Users.exists({role: "admin"})
+// Returns: true or false
+
+if (Users.exists({email: formData.email})) {
+    // Email already taken
+}
+```
+
+---
+
+### findBy(conditions, options?)
+
+Like `where()` but returns the first matching record or `null` (not an array). Useful for lookups.
+
+```parsley
+let user = Users.findBy({email: "alice@example.com"})
+// Returns: {id: ..., name: "Alice", ...} or null
+
+// With ordering to get specific match
+let latestAdmin = Users.findBy({role: "admin"}, {orderBy: "created_at", order: "desc"})
+```
+
+---
+
 ## Extending and Customizing TableBinding
 
 TableBinding provides common CRUD operations, but real applications often need custom queries. Here's how to extend its functionality.
