@@ -1,5 +1,5 @@
 ---
-updated: 2025-12-15
+updated: 2026-01-04
 ---
 
 # Backlog
@@ -9,12 +9,18 @@ Deferred items from implementation, to be picked up in future work.
 ## High Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | Foundational change | Resolves ambiguity between columns and variables. Design states "Bare identifiers are columns, `{...}` are Parsley expressions". Affects entire DSL parsing. See FEAT-079-gaps.md. |
+| Query DSL Correlated Subqueries | PLAN-052 Phase 5 | High complexity (3-4 days) | Computed fields from subqueries: `\| comment_count <-Comments \|\| post_id == id \| count`. Requires scalar context detection, aliasing, SQL generation. See FEAT-079-gaps.md. |
+| Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |
+| Query DSL Join-like Subqueries | PLAN-052 Phase 7 | High complexity (2-3 days) | Scalar vs join subquery context (`?->` vs `??->`). Requires context propagation, row expansion semantics. See FEAT-079-gaps.md. |
+| Parameterized queries for raw SQL operators | QUERY-BUILDER-INVESTIGATION | Security | Raw operators (`<=?=>`, `<=??=>`, `<=!=>`) use string interpolation which is vulnerable to SQL injection. Need array syntax like `db <=?=> ["SELECT * FROM users WHERE id = ?", [userId]]` or working `<SQL params={...}>` with `:name` placeholders. TableBinding is safe (uses `?` params internally). Reference docs acknowledge: "Future versions will support parameterized queries". |
 | Support for `else if` in Parsley | FEAT-057 | Language feature | Currently `else if` is not supported in tag contents or other contexts. Must use nested `if` blocks or separate `{if}` conditions. Pain point discovered during DevTools template implementation. Affects readability and ergonomics. |
 | Complete structured error migration | FEAT-023 | Phase 6+ | Migrate remaining files: `builtins.go`, other `stdlib_*.go` modules (json, http, sftp, etc.). Core evaluator files done. |
 
 ## Medium Priority
 | Item | Source | Reason Deferred | Notes |
 |------|--------|-----------------|-------|
+| Include schema name in validation errors | QUERY-BUILDER-INVESTIGATION | Small improvement | Currently validation errors say "field X is required" without identifying which schema. Should say "User schema: field X is required". Schema name is already stored in `.name` property. Update `schemaValidate` in `stdlib_schema.go` to include schema name in error messages. |
 | SQLite session store | FEAT-049 | Phase 2 | Cookie sessions have ~4KB limit. SQLite store for larger session data. Server-side sessions with session ID in cookie. Includes cleanup goroutine for expired sessions. |
 | Session auth integration | FEAT-049 | Phase 3 | Auto-regenerate session ID on login/logout for security. `basil.auth.login()` and `basil.auth.logout()` should call `session.regenerate()`. |
 | Remove `@std/basil` error before Alpha | FEAT-071 | Pre-Alpha cleanup | Drop the temporary migration error so missing modules return unknown-module behavior. |
