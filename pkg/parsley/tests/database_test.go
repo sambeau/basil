@@ -162,12 +162,41 @@ func TestDBLiteralBasilOnly(t *testing.T) {
 			t.Fatalf("Expected error, got %T", result)
 		}
 
-		if !strings.Contains(errObj.Message, "@DB is only available in Basil server handlers") {
+		if !strings.Contains(errObj.Message, "@DB is only available in Basil server context") {
 			t.Fatalf("Unexpected error message: %s", errObj.Message)
 		}
 	})
 
-	t.Run("returns basil connection", func(t *testing.T) {
+	t.Run("returns ServerDB when set", func(t *testing.T) {
+		db, err := sql.Open("sqlite", ":memory:")
+		if err != nil {
+			t.Fatalf("Failed to open sqlite: %v", err)
+		}
+		defer db.Close()
+
+		env := evaluator.NewEnvironment()
+		conn := evaluator.NewManagedDBConnection(db, "sqlite")
+		env.ServerDB = conn
+
+		l := lexer.New(`@DB`)
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		result := evaluator.Eval(program, env)
+		dbConn, ok := result.(*evaluator.DBConnection)
+		if !ok {
+			t.Fatalf("Expected DBConnection, got %T: %v", result, result.Inspect())
+		}
+
+		if dbConn.Driver != "sqlite" {
+			t.Errorf("Expected driver 'sqlite', got %s", dbConn.Driver)
+		}
+		if !dbConn.Managed {
+			t.Errorf("Expected managed connection for @DB")
+		}
+	})
+
+	t.Run("falls back to BasilCtx when ServerDB is nil", func(t *testing.T) {
 		db, err := sql.Open("sqlite", ":memory:")
 		if err != nil {
 			t.Fatalf("Failed to open sqlite: %v", err)
