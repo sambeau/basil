@@ -33,6 +33,12 @@ const (
 	SFTP_LITERAL      // @sftp
 	SHELL_LITERAL     // @shell
 	DB_LITERAL        // @DB
+	SCHEMA_LITERAL    // @schema
+	QUERY_LITERAL     // @query
+	INSERT_LITERAL    // @insert
+	UPDATE_LITERAL    // @update
+	DELETE_LITERAL    // @delete
+	TRANSACTION_LIT   // @transaction
 	PATH_LITERAL      // @/usr/local, @./config
 	URL_LITERAL       // @https://example.com
 	STDLIB_PATH       // @std/table, @std/string
@@ -77,6 +83,15 @@ const (
 	QUERY_MANY // <=??=>
 	EXECUTE    // <=!=>
 
+	// Query DSL operators
+	PIPE_WRITE  // |<
+	RETURN_ONE  // ?->
+	RETURN_MANY // ??->
+	DSL_EXECUTE // . (in query context) or •
+	EXEC_COUNT  // .->
+	ARROW_PULL  // <-
+	GROUP_BY    // + by (contextual)
+
 	// Process execution operator
 	EXECUTE_WITH // <=#=>
 
@@ -112,6 +127,7 @@ const (
 	CHECK    // "check"
 	STOP     // "stop"
 	SKIP     // "skip"
+	VIA      // "via" (for schema relations)
 )
 
 // Token represents a single token
@@ -245,6 +261,20 @@ func (tt TokenType) String() string {
 		return "QUERY_MANY"
 	case EXECUTE:
 		return "EXECUTE"
+	case PIPE_WRITE:
+		return "PIPE_WRITE"
+	case RETURN_ONE:
+		return "RETURN_ONE"
+	case RETURN_MANY:
+		return "RETURN_MANY"
+	case DSL_EXECUTE:
+		return "DSL_EXECUTE"
+	case EXEC_COUNT:
+		return "EXEC_COUNT"
+	case ARROW_PULL:
+		return "ARROW_PULL"
+	case GROUP_BY:
+		return "GROUP_BY"
 	case EXECUTE_WITH:
 		return "EXECUTE_WITH"
 	case COMMA:
@@ -305,6 +335,20 @@ func (tt TokenType) String() string {
 		return "STOP"
 	case SKIP:
 		return "SKIP"
+	case VIA:
+		return "VIA"
+	case SCHEMA_LITERAL:
+		return "SCHEMA_LITERAL"
+	case QUERY_LITERAL:
+		return "QUERY_LITERAL"
+	case INSERT_LITERAL:
+		return "INSERT_LITERAL"
+	case UPDATE_LITERAL:
+		return "UPDATE_LITERAL"
+	case DELETE_LITERAL:
+		return "DELETE_LITERAL"
+	case TRANSACTION_LIT:
+		return "TRANSACTION_LIT"
 	default:
 		return "UNKNOWN"
 	}
@@ -332,6 +376,7 @@ var keywords = map[string]TokenType{
 	"check":    CHECK,
 	"stop":     STOP,
 	"skip":     SKIP,
+	"via":      VIA,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -429,6 +474,15 @@ func (l *Lexer) RestoreState(state LexerState) {
 	l.tagDepth = state.tagDepth
 	l.lastTokenType = state.lastTokenType
 	l.inRawTextTag = state.inRawTextTag
+}
+
+// PeekToken returns the next token without consuming it
+// This is used for lookahead when the parser needs to see beyond the current peek token
+func (l *Lexer) PeekToken() Token {
+	state := l.SaveState()
+	tok := l.NextToken()
+	l.RestoreState(state)
+	return tok
 }
 
 // readChar reads the next character and advances position
@@ -683,6 +737,12 @@ func (l *Lexer) NextToken() Token {
 			tok.Column = column
 			l.lastTokenType = tok.Type
 			return tok
+		} else if l.peekChar() == '-' {
+			// <- (arrow pull for DSL subqueries)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '-'
+			tok = Token{Type: ARROW_PULL, Literal: "<-", Line: line, Column: col}
 		} else {
 			tok = newToken(LT, l.ch, l.line, l.column)
 		}
@@ -711,14 +771,36 @@ func (l *Lexer) NextToken() Token {
 			col := l.column
 			l.readChar() // consume second '|'
 			tok = Token{Type: OR, Literal: string(ch) + string(l.ch), Line: line, Column: col}
+		} else if l.peekChar() == '<' {
+			// |< (pipe write for DSL)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '<'
+			tok = Token{Type: PIPE_WRITE, Literal: "|<", Line: line, Column: col}
 		} else {
 			tok = newToken(OR, l.ch, l.line, l.column)
 		}
 	case '?':
 		if l.peekChar() == '?' {
-			ch := l.ch
-			l.readChar()
-			tok = Token{Type: NULLISH, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+			// Could be ?? (nullish) or ??-> (return many)
+			line := l.line
+			col := l.column
+			l.readChar() // consume second '?'
+			if l.peekChar() == '-' && l.peekCharN(2) == '>' {
+				// ??-> (return many)
+				l.readChar() // consume '-'
+				l.readChar() // consume '>'
+				tok = Token{Type: RETURN_MANY, Literal: "??->", Line: line, Column: col}
+			} else {
+				tok = Token{Type: NULLISH, Literal: "??", Line: line, Column: col}
+			}
+		} else if l.peekChar() == '-' && l.peekCharN(2) == '>' {
+			// ?-> (return one)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '-'
+			l.readChar() // consume '>'
+			tok = Token{Type: RETURN_ONE, Literal: "?->", Line: line, Column: col}
 		} else {
 			tok = newToken(QUESTION, l.ch, l.line, l.column)
 		}
@@ -729,8 +811,15 @@ func (l *Lexer) NextToken() Token {
 	case ':':
 		tok = newToken(COLON, l.ch, l.line, l.column)
 	case '.':
-		// Check for "..." (spread/rest operator) or ".." (range)
-		if l.peekChar() == '.' {
+		// Check for "..." (spread/rest operator), ".." (range), or ".->" (exec count)
+		if l.peekChar() == '-' && l.peekCharN(2) == '>' {
+			// .-> (execute and return count)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '-'
+			l.readChar() // consume '>'
+			tok = Token{Type: EXEC_COUNT, Literal: ".->", Line: line, Column: col}
+		} else if l.peekChar() == '.' {
 			if l.readPosition+1 < len(l.input) && l.input[l.readPosition+1] == '.' {
 				// Three dots: ...
 				line := l.line
@@ -858,6 +947,24 @@ func (l *Lexer) NextToken() Token {
 		case DB_LITERAL:
 			tok.Type = DB_LITERAL
 			tok.Literal = l.readConnectionLiteral("DB")
+		case SCHEMA_LITERAL:
+			tok.Type = SCHEMA_LITERAL
+			tok.Literal = l.readDSLKeyword("schema")
+		case QUERY_LITERAL:
+			tok.Type = QUERY_LITERAL
+			tok.Literal = l.readDSLKeyword("query")
+		case INSERT_LITERAL:
+			tok.Type = INSERT_LITERAL
+			tok.Literal = l.readDSLKeyword("insert")
+		case UPDATE_LITERAL:
+			tok.Type = UPDATE_LITERAL
+			tok.Literal = l.readDSLKeyword("update")
+		case DELETE_LITERAL:
+			tok.Type = DELETE_LITERAL
+			tok.Literal = l.readDSLKeyword("delete")
+		case TRANSACTION_LIT:
+			tok.Type = TRANSACTION_LIT
+			tok.Literal = l.readDSLKeyword("transaction")
 		default:
 			tok.Type = ILLEGAL
 			tok.Literal = string(l.ch)
@@ -2337,6 +2444,23 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		}
 	}
 
+	// Check for Query DSL literals
+	for _, dsl := range []struct {
+		keyword string
+		token   TokenType
+	}{
+		{"schema", SCHEMA_LITERAL},
+		{"query", QUERY_LITERAL},
+		{"insert", INSERT_LITERAL},
+		{"update", UPDATE_LITERAL},
+		{"delete", DELETE_LITERAL},
+		{"transaction", TRANSACTION_LIT},
+	} {
+		if l.isKeywordAt(pos, dsl.keyword) {
+			return dsl.token
+		}
+	}
+
 	// Check for @- (stdin/stdout) - must be just "-" not followed by path char or digit
 	if l.input[pos] == '-' {
 		// Check next char - if it's not a digit and not a path char, it's stdin
@@ -2471,6 +2595,16 @@ func (l *Lexer) readNowLiteral(keyword string) string {
 // readConnectionLiteral consumes the @ prefix and advances past the connection keyword.
 // The returned literal is the keyword itself (e.g., "sqlite").
 func (l *Lexer) readConnectionLiteral(keyword string) string {
+	l.readChar() // skip @
+	for i := 0; i < len(keyword); i++ {
+		l.readChar()
+	}
+	return keyword
+}
+
+// readDSLKeyword consumes the @ prefix and advances past the DSL keyword.
+// The returned literal is the keyword itself (e.g., "schema", "query").
+func (l *Lexer) readDSLKeyword(keyword string) string {
 	l.readChar() // skip @
 	for i := 0; i < len(keyword); i++ {
 		l.readChar()
