@@ -1268,3 +1268,509 @@ func (ie *ImportExpression) String() string {
 	}
 	return out.String()
 }
+
+// SchemaDeclaration represents @schema Name { fields } declarations
+type SchemaDeclaration struct {
+	Token  lexer.Token    // the SCHEMA_LITERAL token
+	Name   *Identifier    // schema name
+	Fields []*SchemaField // field definitions
+}
+
+func (sd *SchemaDeclaration) expressionNode()      {}
+func (sd *SchemaDeclaration) TokenLiteral() string { return sd.Token.Literal }
+func (sd *SchemaDeclaration) String() string {
+	var out bytes.Buffer
+	out.WriteString("@schema ")
+	out.WriteString(sd.Name.Value)
+	out.WriteString(" { ")
+	for i, f := range sd.Fields {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(f.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// SchemaField represents a field definition within a schema
+type SchemaField struct {
+	Token      lexer.Token // the field name token
+	Name       *Identifier // field name
+	TypeName   string      // type name: "int", "string", "User", etc.
+	IsArray    bool        // true for [Type] (has-many relation)
+	ForeignKey string      // from "via fk_name", empty if no relation
+}
+
+func (sf *SchemaField) expressionNode()      {}
+func (sf *SchemaField) TokenLiteral() string { return sf.Token.Literal }
+func (sf *SchemaField) String() string {
+	var out bytes.Buffer
+	out.WriteString(sf.Name.Value)
+	out.WriteString(": ")
+	if sf.IsArray {
+		out.WriteString("[")
+	}
+	out.WriteString(sf.TypeName)
+	if sf.IsArray {
+		out.WriteString("]")
+	}
+	if sf.ForeignKey != "" {
+		out.WriteString(" via ")
+		out.WriteString(sf.ForeignKey)
+	}
+	return out.String()
+}
+
+// QueryExpression represents @query(source | conditions ??-> projection) expressions
+type QueryExpression struct {
+	Token          lexer.Token           // the QUERY_LITERAL token
+	Source         *Identifier           // binding/table name
+	SourceAlias    *Identifier           // optional alias from "as alias"
+	Conditions     []QueryConditionNode  // WHERE conditions (can be QueryCondition or QueryConditionGroup)
+	Modifiers      []*QueryModifier      // ORDER BY, LIMIT, WITH, etc.
+	GroupBy        []string              // GROUP BY fields
+	ComputedFields []*QueryComputedField // computed aggregations like "total: sum(amount)"
+	Terminal       *QueryTerminal        // return type and projection
+}
+
+func (qe *QueryExpression) expressionNode()      {}
+func (qe *QueryExpression) TokenLiteral() string { return qe.Token.Literal }
+func (qe *QueryExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("@query(")
+	out.WriteString(qe.Source.Value)
+	if qe.SourceAlias != nil {
+		out.WriteString(" as ")
+		out.WriteString(qe.SourceAlias.Value)
+	}
+	for _, c := range qe.Conditions {
+		out.WriteString(" | ")
+		out.WriteString(c.ConditionString())
+	}
+	if len(qe.GroupBy) > 0 {
+		out.WriteString(" + by ")
+		out.WriteString(strings.Join(qe.GroupBy, ", "))
+	}
+	for _, cf := range qe.ComputedFields {
+		out.WriteString(" | ")
+		out.WriteString(cf.String())
+	}
+	for _, m := range qe.Modifiers {
+		out.WriteString(" | ")
+		out.WriteString(m.String())
+	}
+	if qe.Terminal != nil {
+		out.WriteString(" ")
+		out.WriteString(qe.Terminal.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// QueryCondition represents a condition in a query (WHERE clause part)
+type QueryCondition struct {
+	Token    lexer.Token // first token of condition
+	Left     Expression  // column/field reference
+	Operator string      // "==", "!=", ">", "<", ">=", "<=", "in", "not in", "like", "is null", "is not null", "between"
+	Right    Expression  // value/interpolation (nil for "is null"/"is not null")
+	RightEnd Expression  // end value for "between X and Y" operator
+	Logic    string      // "and", "or" for combining with previous condition
+	Negated  bool        // true if prefixed with "not"
+}
+
+func (qc *QueryCondition) expressionNode()      {}
+func (qc *QueryCondition) TokenLiteral() string { return qc.Token.Literal }
+func (qc *QueryCondition) String() string {
+	var out bytes.Buffer
+	if qc.Logic != "" {
+		out.WriteString(qc.Logic)
+		out.WriteString(" ")
+	}
+	if qc.Negated {
+		out.WriteString("not ")
+	}
+	out.WriteString(qc.Left.String())
+	out.WriteString(" ")
+	out.WriteString(qc.Operator)
+	if qc.Right != nil {
+		out.WriteString(" ")
+		out.WriteString(qc.Right.String())
+	}
+	if qc.RightEnd != nil {
+		out.WriteString(" and ")
+		out.WriteString(qc.RightEnd.String())
+	}
+	return out.String()
+}
+
+// QueryConditionGroup represents a group of conditions wrapped in parentheses
+// Supports: | (a == 1 or b == 2) and c == 3
+type QueryConditionGroup struct {
+	Token      lexer.Token          // the opening '(' token
+	Conditions []QueryConditionNode // conditions or nested groups in this group
+	Logic      string               // "and", "or" for combining with previous condition/group
+	Negated    bool                 // true if prefixed with "not"
+}
+
+func (qcg *QueryConditionGroup) expressionNode()      {}
+func (qcg *QueryConditionGroup) TokenLiteral() string { return qcg.Token.Literal }
+func (qcg *QueryConditionGroup) String() string {
+	var out bytes.Buffer
+	if qcg.Logic != "" {
+		out.WriteString(qcg.Logic)
+		out.WriteString(" ")
+	}
+	if qcg.Negated {
+		out.WriteString("not ")
+	}
+	out.WriteString("(")
+	for i, cond := range qcg.Conditions {
+		if i > 0 {
+			out.WriteString(" ")
+		}
+		out.WriteString(cond.ConditionString())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// ConditionString returns the string representation for condition nodes
+func (qcg *QueryConditionGroup) ConditionString() string {
+	return qcg.String()
+}
+
+// QueryConditionNode is an interface for both QueryCondition and QueryConditionGroup
+type QueryConditionNode interface {
+	Expression
+	ConditionString() string
+}
+
+// ConditionString returns the string representation for QueryCondition
+func (qc *QueryCondition) ConditionString() string {
+	return qc.String()
+}
+
+// QueryModifier represents ORDER BY, LIMIT, OFFSET, WITH, or GROUP BY clauses
+type QueryModifier struct {
+	Token         lexer.Token     // keyword token (order, limit, with)
+	Kind          string          // "order", "limit", "offset", "with", "group"
+	Fields        []string        // field names (for order, with, group)
+	RelationPaths []*RelationPath // relation paths with conditions (for 'with')
+	Direction     string          // "asc" or "desc" for order (optional)
+	Value         int64           // numeric value for limit/offset
+}
+
+func (qm *QueryModifier) expressionNode()      {}
+func (qm *QueryModifier) TokenLiteral() string { return qm.Token.Literal }
+func (qm *QueryModifier) String() string {
+	var out bytes.Buffer
+	out.WriteString(qm.Kind)
+	switch qm.Kind {
+	case "order":
+		out.WriteString(" ")
+		out.WriteString(strings.Join(qm.Fields, ", "))
+		if qm.Direction != "" {
+			out.WriteString(" ")
+			out.WriteString(qm.Direction)
+		}
+	case "limit", "offset":
+		out.WriteString(" ")
+		out.WriteString(fmt.Sprintf("%d", qm.Value))
+	case "with":
+		out.WriteString(" ")
+		if len(qm.RelationPaths) > 0 {
+			var parts []string
+			for _, rp := range qm.RelationPaths {
+				parts = append(parts, rp.String())
+			}
+			out.WriteString(strings.Join(parts, ", "))
+		} else {
+			out.WriteString(strings.Join(qm.Fields, ", "))
+		}
+	case "group":
+		out.WriteString(" ")
+		out.WriteString(strings.Join(qm.Fields, ", "))
+	}
+	return out.String()
+}
+
+// RelationPath represents a relation path with optional conditions, order, and limit
+// Used in 'with' clauses like: | with comments.author(approved == true | order created_at desc | limit 5)
+type RelationPath struct {
+	Path       string               // dot-separated path like "comments.author"
+	Conditions []QueryConditionNode // filter conditions (optional)
+	Order      []QueryOrderField    // order by fields (optional)
+	Limit      *int64               // limit value (optional)
+}
+
+// QueryOrderField represents a single field in an ORDER BY clause
+type QueryOrderField struct {
+	Field     string // field name
+	Direction string // "asc" or "desc"
+}
+
+func (rp *RelationPath) String() string {
+	var out bytes.Buffer
+	out.WriteString(rp.Path)
+	if len(rp.Conditions) > 0 || len(rp.Order) > 0 || rp.Limit != nil {
+		out.WriteString("(")
+		var parts []string
+		for _, cond := range rp.Conditions {
+			parts = append(parts, cond.ConditionString())
+		}
+		if len(rp.Order) > 0 {
+			var orderParts []string
+			for _, o := range rp.Order {
+				orderStr := o.Field
+				if o.Direction != "" {
+					orderStr += " " + o.Direction
+				}
+				orderParts = append(orderParts, orderStr)
+			}
+			parts = append(parts, "order "+strings.Join(orderParts, ", "))
+		}
+		if rp.Limit != nil {
+			parts = append(parts, fmt.Sprintf("limit %d", *rp.Limit))
+		}
+		out.WriteString(strings.Join(parts, " | "))
+		out.WriteString(")")
+	}
+	return out.String()
+}
+
+// QueryComputedField represents a computed/aggregate field like "total: sum(amount)"
+type QueryComputedField struct {
+	Token    lexer.Token // the identifier token
+	Name     string      // alias name (e.g., "total")
+	Function string      // aggregate function ("count", "sum", "avg", "min", "max") or empty for plain field
+	Field    string      // field to aggregate (e.g., "amount") - empty for count without field
+}
+
+func (qc *QueryComputedField) expressionNode()      {}
+func (qc *QueryComputedField) TokenLiteral() string { return qc.Token.Literal }
+func (qc *QueryComputedField) String() string {
+	var out bytes.Buffer
+	out.WriteString(qc.Name)
+	out.WriteString(": ")
+	if qc.Function != "" {
+		out.WriteString(qc.Function)
+		if qc.Field != "" {
+			out.WriteString("(")
+			out.WriteString(qc.Field)
+			out.WriteString(")")
+		}
+	} else {
+		out.WriteString(qc.Field)
+	}
+	return out.String()
+}
+
+// QuerySubquery represents a subquery in a condition (e.g., "author_id in <-Users | | role == 'admin' | | ?-> id")
+type QuerySubquery struct {
+	Token       lexer.Token          // the <- token
+	Source      *Identifier          // table name
+	SourceAlias *Identifier          // optional alias from "as alias" (for correlated subqueries)
+	Conditions  []QueryConditionNode // WHERE conditions (prefixed with | | in syntax)
+	Modifiers   []*QueryModifier     // ORDER BY, LIMIT, etc.
+	Terminal    *QueryTerminal       // ?-> for single column (IN clause)
+}
+
+func (qs *QuerySubquery) expressionNode()      {}
+func (qs *QuerySubquery) TokenLiteral() string { return qs.Token.Literal }
+func (qs *QuerySubquery) String() string {
+	var out bytes.Buffer
+	out.WriteString("<-")
+	out.WriteString(qs.Source.Value)
+	if qs.SourceAlias != nil {
+		out.WriteString(" as ")
+		out.WriteString(qs.SourceAlias.Value)
+	}
+	for _, c := range qs.Conditions {
+		out.WriteString(" | | ")
+		out.WriteString(c.ConditionString())
+	}
+	for _, m := range qs.Modifiers {
+		out.WriteString(" | | ")
+		out.WriteString(m.String())
+	}
+	if qs.Terminal != nil {
+		out.WriteString(" ")
+		out.WriteString(qs.Terminal.String())
+	}
+	return out.String()
+}
+
+// QueryTerminal represents the return type and projection of a query
+type QueryTerminal struct {
+	Token      lexer.Token // ?-> or ??-> or . token
+	Type       string      // "one", "many", "execute", "count", "exists"
+	Projection []string    // field names, or ["*"] for all
+}
+
+func (qt *QueryTerminal) expressionNode()      {}
+func (qt *QueryTerminal) TokenLiteral() string { return qt.Token.Literal }
+func (qt *QueryTerminal) String() string {
+	var out bytes.Buffer
+	switch qt.Type {
+	case "one":
+		out.WriteString("?->")
+	case "many":
+		out.WriteString("??->")
+	case "execute":
+		out.WriteString(".")
+	case "count":
+		out.WriteString(".->")
+	}
+	if len(qt.Projection) > 0 {
+		out.WriteString(" ")
+		out.WriteString(strings.Join(qt.Projection, ", "))
+	}
+	return out.String()
+}
+
+// InsertExpression represents @insert(binding |< field: value ?-> *) expressions
+type InsertExpression struct {
+	Token     lexer.Token         // the INSERT_LITERAL token
+	Source    *Identifier         // binding/table name
+	UpsertKey []string            // fields for ON CONFLICT (from "| update on key")
+	Writes    []*InsertFieldWrite // field assignments
+	Batch     *InsertBatch        // batch operation (optional)
+	Terminal  *QueryTerminal      // return type and projection
+}
+
+func (ie *InsertExpression) expressionNode()      {}
+func (ie *InsertExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InsertExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("@insert(")
+	out.WriteString(ie.Source.Value)
+	if len(ie.UpsertKey) > 0 {
+		out.WriteString(" | update on ")
+		out.WriteString(strings.Join(ie.UpsertKey, ", "))
+	}
+	for _, w := range ie.Writes {
+		out.WriteString(" |< ")
+		out.WriteString(w.String())
+	}
+	if ie.Terminal != nil {
+		out.WriteString(" ")
+		out.WriteString(ie.Terminal.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// InsertFieldWrite represents a field assignment in an insert: field: value
+type InsertFieldWrite struct {
+	Token lexer.Token // field name token
+	Field string      // field/column name
+	Value Expression  // value expression
+}
+
+func (iw *InsertFieldWrite) expressionNode()      {}
+func (iw *InsertFieldWrite) TokenLiteral() string { return iw.Token.Literal }
+func (iw *InsertFieldWrite) String() string {
+	return iw.Field + ": " + iw.Value.String()
+}
+
+// InsertBatch represents batch insert: * each {collection} -> alias
+type InsertBatch struct {
+	Token      lexer.Token // the * token
+	Collection Expression  // the collection to iterate
+	Alias      *Identifier // loop variable name
+	IndexAlias *Identifier // optional index variable
+}
+
+func (ib *InsertBatch) expressionNode()      {}
+func (ib *InsertBatch) TokenLiteral() string { return ib.Token.Literal }
+func (ib *InsertBatch) String() string {
+	var out bytes.Buffer
+	out.WriteString("* each ")
+	out.WriteString(ib.Collection.String())
+	out.WriteString(" -> ")
+	out.WriteString(ib.Alias.Value)
+	if ib.IndexAlias != nil {
+		out.WriteString(", ")
+		out.WriteString(ib.IndexAlias.Value)
+	}
+	return out.String()
+}
+
+// UpdateExpression represents @update(binding | conditions |< field: value .-> count) expressions
+type UpdateExpression struct {
+	Token      lexer.Token         // the UPDATE_LITERAL token
+	Source     *Identifier         // binding/table name
+	Conditions []*QueryCondition   // WHERE conditions
+	Writes     []*InsertFieldWrite // field assignments
+	Terminal   *QueryTerminal      // return type
+}
+
+func (ue *UpdateExpression) expressionNode()      {}
+func (ue *UpdateExpression) TokenLiteral() string { return ue.Token.Literal }
+func (ue *UpdateExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("@update(")
+	out.WriteString(ue.Source.Value)
+	for _, c := range ue.Conditions {
+		out.WriteString(" | ")
+		out.WriteString(c.String())
+	}
+	for _, w := range ue.Writes {
+		out.WriteString(" |< ")
+		out.WriteString(w.String())
+	}
+	if ue.Terminal != nil {
+		out.WriteString(" ")
+		out.WriteString(ue.Terminal.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// DeleteExpression represents @delete(binding | conditions .) expressions
+type DeleteExpression struct {
+	Token      lexer.Token       // the DELETE_LITERAL token
+	Source     *Identifier       // binding/table name
+	Conditions []*QueryCondition // WHERE conditions
+	Terminal   *QueryTerminal    // return type
+}
+
+func (de *DeleteExpression) expressionNode()      {}
+func (de *DeleteExpression) TokenLiteral() string { return de.Token.Literal }
+func (de *DeleteExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("@delete(")
+	out.WriteString(de.Source.Value)
+	for _, c := range de.Conditions {
+		out.WriteString(" | ")
+		out.WriteString(c.String())
+	}
+	if de.Terminal != nil {
+		out.WriteString(" ")
+		out.WriteString(de.Terminal.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// TransactionExpression represents @transaction { statements } expressions
+type TransactionExpression struct {
+	Token      lexer.Token // the TRANSACTION_LIT token
+	Statements []Statement // statements to execute in transaction
+}
+
+func (te *TransactionExpression) expressionNode()      {}
+func (te *TransactionExpression) TokenLiteral() string { return te.Token.Literal }
+func (te *TransactionExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("@transaction { ")
+	for i, s := range te.Statements {
+		if i > 0 {
+			out.WriteString("; ")
+		}
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
