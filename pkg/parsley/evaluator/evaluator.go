@@ -513,8 +513,9 @@ func (t *Table) Copy() *Table {
 // DBConnection represents a database connection
 type DBConnection struct {
 	DB            *sql.DB
-	Driver        string // "sqlite", "postgres", "mysql"
-	DSN           string // Data Source Name
+	Tx            *sql.Tx // Active transaction, nil if not in transaction
+	Driver        string  // "sqlite", "postgres", "mysql"
+	DSN           string  // Data Source Name
 	InTransaction bool
 	LastError     string
 	Managed       bool // If true, connection is managed by host application (won't be closed by Parsley)
@@ -635,6 +636,7 @@ type Environment struct {
 	importStack   map[string]bool // tracks modules being imported (for circular dep detection)
 	DevLog        DevLogWriter    // Dev log writer (nil in production mode)
 	BasilCtx      Object          // Basil server context (request, db, auth, etc.)
+	ServerDB      *DBConnection   // Server-level database connection (set at startup, available to modules)
 	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
 	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
 	AssetBundle   AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
@@ -658,7 +660,7 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename, token, logger, devlog, basilctx, caches, and root path from outer environment
+	// Preserve filename, token, logger, devlog, basilctx, serverdb, caches, and root path from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.RootPath = outer.RootPath
@@ -666,6 +668,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.Logger = outer.Logger
 		env.DevLog = outer.DevLog
 		env.BasilCtx = outer.BasilCtx
+		env.ServerDB = outer.ServerDB
 		env.FragmentCache = outer.FragmentCache
 		env.AssetRegistry = outer.AssetRegistry
 		env.AssetBundle = outer.AssetBundle
@@ -2356,6 +2359,12 @@ func evalConnectionLiteral(node *ast.ConnectionLiteral, env *Environment) Object
 
 // resolveDBLiteral returns the Basil-managed database connection or an error when unavailable.
 func resolveDBLiteral(env *Environment) Object {
+	// 1. Try server-level database first (available at module load time)
+	if env != nil && env.ServerDB != nil {
+		return env.ServerDB
+	}
+
+	// 2. Fall back to BasilCtx["sqlite"] (backward compatibility)
 	var basilObj Object
 	if env != nil {
 		basilObj = env.BasilCtx
@@ -2370,8 +2379,8 @@ func resolveDBLiteral(env *Environment) Object {
 	if !ok || basilDict == nil {
 		return &Error{
 			Class:   ErrorClass("state"),
-			Message: "@DB is only available in Basil server handlers",
-			Hints:   []string{"Run inside a Basil handler with a configured database"},
+			Message: "@DB is only available in Basil server context",
+			Hints:   []string{"Run inside a Basil handler or module with a configured database"},
 		}
 	}
 
@@ -2379,8 +2388,8 @@ func resolveDBLiteral(env *Environment) Object {
 	if !ok {
 		return &Error{
 			Class:   ErrorClass("state"),
-			Message: "@DB is only available in Basil server handlers",
-			Hints:   []string{"Ensure the handler has a configured database connection"},
+			Message: "@DB is only available in Basil server context",
+			Hints:   []string{"Ensure the server has a configured database connection"},
 		}
 	}
 
@@ -2394,8 +2403,8 @@ func resolveDBLiteral(env *Environment) Object {
 	if !ok {
 		return &Error{
 			Class:   ErrorClass("state"),
-			Message: "@DB is only available in Basil server handlers",
-			Hints:   []string{"Ensure the handler has a configured database connection"},
+			Message: "@DB is only available in Basil server context",
+			Hints:   []string{"Ensure the server has a configured database connection"},
 		}
 	}
 
@@ -6821,6 +6830,59 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		}
 		return &Boolean{Value: true}
 
+	case "bind":
+		// db.bind(schema, "table_name") or db.bind(schema, "table_name", {soft_delete: "deleted_at"})
+		if len(args) < 2 || len(args) > 3 {
+			return newArityError("bind", len(args), 2)
+		}
+
+		// Get table name (second argument)
+		tableName, ok := args[1].(*String)
+		if !ok {
+			return newTypeError("TYPE-0001", "db.bind", "string (table name)", args[1].Type())
+		}
+		name := strings.TrimSpace(tableName.Value)
+		if name == "" || !identifierRegex.MatchString(name) {
+			return newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": "invalid table name"})
+		}
+
+		// Parse options if provided
+		var softDeleteColumn string
+		if len(args) == 3 {
+			optsDict, ok := args[2].(*Dictionary)
+			if !ok {
+				return newTypeError("TYPE-0001", "db.bind", "dictionary (options)", args[2].Type())
+			}
+			if sdExpr, ok := optsDict.Pairs["soft_delete"]; ok {
+				sdVal := Eval(sdExpr, optsDict.Env)
+				if sdStr, ok := sdVal.(*String); ok {
+					softDeleteColumn = sdStr.Value
+				} else {
+					return newTypeError("TYPE-0001", "db.bind soft_delete option", "string", sdVal.Type())
+				}
+			}
+		}
+
+		// Handle both DSLSchema and Dictionary schemas
+		switch schema := args[0].(type) {
+		case *DSLSchema:
+			return &TableBinding{
+				DB:               conn,
+				DSLSchema:        schema,
+				TableName:        name,
+				SoftDeleteColumn: softDeleteColumn,
+			}
+		case *Dictionary:
+			return &TableBinding{
+				DB:               conn,
+				Schema:           schema,
+				TableName:        name,
+				SoftDeleteColumn: softDeleteColumn,
+			}
+		default:
+			return newTypeError("TYPE-0001", "db.bind", "schema or dictionary", args[0].Type())
+		}
+
 	default:
 		return newUndefinedMethodError(method, "database connection")
 	}
@@ -7086,6 +7148,24 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.ConnectionLiteral:
 		return evalConnectionLiteral(node, env)
+
+	case *ast.SchemaDeclaration:
+		return evalSchemaDeclaration(node, env)
+
+	case *ast.QueryExpression:
+		return evalQueryExpression(node, env)
+
+	case *ast.InsertExpression:
+		return evalInsertExpression(node, env)
+
+	case *ast.UpdateExpression:
+		return evalUpdateExpression(node, env)
+
+	case *ast.DeleteExpression:
+		return evalDeleteExpression(node, env)
+
+	case *ast.TransactionExpression:
+		return evalTransactionExpression(node, env)
 
 	case *ast.MoneyLiteral:
 		return &Money{
@@ -8742,6 +8822,8 @@ func importModule(pathStr string, env *Environment) Object {
 	// Copy DevLog and BasilCtx for stdlib imports (std/dev) and basil namespace modules
 	moduleEnv.DevLog = env.DevLog
 	moduleEnv.BasilCtx = env.BasilCtx
+	// Copy ServerDB for module-scope database access (e.g., schema.table() at module level)
+	moduleEnv.ServerDB = env.ServerDB
 	// Copy AssetRegistry and AssetBundle for Basil server context
 	moduleEnv.AssetRegistry = env.AssetRegistry
 	moduleEnv.AssetBundle = env.AssetBundle
@@ -13371,6 +13453,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 			return val
 		}
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": node.Key, "Type": "stdlib module"})
+	}
+
+	// Handle DSLSchema property access (e.g., User.Name, User.Fields)
+	if schema, ok := left.(*DSLSchema); ok {
+		return evalDSLSchemaProperty(schema, node.Key)
 	}
 
 	// Handle Dictionary (including special types like datetime, path, url)

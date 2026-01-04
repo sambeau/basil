@@ -13,13 +13,40 @@ import (
 
 // TableBinding represents a schema-bound table helper that provides CRUD methods backed by a DB connection.
 type TableBinding struct {
-	DB        *DBConnection
-	Schema    *Dictionary
-	TableName string
+	DB               *DBConnection
+	Schema           *Dictionary // Old-style schema (Dictionary)
+	DSLSchema        *DSLSchema  // New-style schema (@schema)
+	TableName        string
+	SoftDeleteColumn string // Column name for soft deletes, empty if disabled
 }
 
 func (tb *TableBinding) Type() ObjectType { return TABLE_BINDING_OBJ }
-func (tb *TableBinding) Inspect() string  { return fmt.Sprintf("TableBinding(%s)", tb.TableName) }
+func (tb *TableBinding) Inspect() string {
+	if tb.SoftDeleteColumn != "" {
+		return fmt.Sprintf("TableBinding(%s, soft_delete: %s)", tb.TableName, tb.SoftDeleteColumn)
+	}
+	return fmt.Sprintf("TableBinding(%s)", tb.TableName)
+}
+
+// HasDSLSchema returns true if this binding uses a DSL schema
+func (tb *TableBinding) HasDSLSchema() bool {
+	return tb.DSLSchema != nil
+}
+
+// GetSchemaName returns the name of the bound schema
+func (tb *TableBinding) GetSchemaName() string {
+	if tb.DSLSchema != nil {
+		return tb.DSLSchema.Name
+	}
+	if tb.Schema != nil {
+		if nameExpr, ok := tb.Schema.Pairs["__name"]; ok {
+			if nameStr, ok := nameExpr.(*ast.StringLiteral); ok {
+				return nameStr.Value
+			}
+		}
+	}
+	return ""
+}
 
 // QueryOptions holds parsed query options for orderBy, select, limit/offset
 type QueryOptions struct {
@@ -575,7 +602,14 @@ func (tb *TableBinding) query(query string, params []Object) (*RowsWrapper, *Err
 		goParams[i] = objectToGoValue(p)
 	}
 
-	rows, err := tb.DB.DB.Query(query, goParams...)
+	// Use transaction if active, otherwise use the DB connection
+	var rows *sql.Rows
+	var err error
+	if tb.DB.Tx != nil {
+		rows, err = tb.DB.Tx.Query(query, goParams...)
+	} else {
+		rows, err = tb.DB.DB.Query(query, goParams...)
+	}
 	if err != nil {
 		tb.DB.LastError = err.Error()
 		return nil, newDatabaseError("DB-0002", err)
@@ -589,7 +623,14 @@ func (tb *TableBinding) exec(query string, params []Object) (ResultWrapper, *Err
 		goParams[i] = objectToGoValue(p)
 	}
 
-	res, err := tb.DB.DB.Exec(query, goParams...)
+	// Use transaction if active, otherwise use the DB connection
+	var res sql.Result
+	var err error
+	if tb.DB.Tx != nil {
+		res, err = tb.DB.Tx.Exec(query, goParams...)
+	} else {
+		res, err = tb.DB.DB.Exec(query, goParams...)
+	}
 	if err != nil {
 		tb.DB.LastError = err.Error()
 		return nil, newDatabaseError("DB-0011", err)
