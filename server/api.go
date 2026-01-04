@@ -78,6 +78,11 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, "", nil)
 	env.BasilCtx = basilObj
 
+	// Set server-level database (available to modules at load time)
+	if h.server.db != nil {
+		env.ServerDB = evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
+	}
+
 	// Set fragment cache, asset registry, and handler path
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry

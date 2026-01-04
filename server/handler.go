@@ -201,9 +201,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear module cache so imports see fresh basil.* values for this request
-	// Modules that access basil.http.request, basil.auth.user, etc. need current data
-	evaluator.ClearModuleCache()
+	// Module cache is preserved across requests for performance.
+	// Server resources (@DB, schemas) are cached at module scope.
+	// Modules should NOT store request-specific values (basil.http.request) at module scope.
+	// Request context is accessed via the environment, not cached in modules.
 
 	// Get or generate CSRF token and set cookie if needed
 	csrfToken, isNew := GetCSRFToken(r)
@@ -274,6 +275,12 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Use route's public_dir for this handler
 	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule)
 	env.BasilCtx = basilObj
+
+	// Set server-level database (available to modules at load time)
+	// This allows @DB to work at module scope, not just inside handler functions
+	if h.server.db != nil {
+		env.ServerDB = evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
+	}
 
 	// Set fragment cache and handler path for <basil.cache.Cache> component
 	env.FragmentCache = h.server.fragmentCache
