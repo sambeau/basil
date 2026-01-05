@@ -8,7 +8,9 @@ server:
 logging:
   level: info
   format: text
-  output: stderr
+  output: ./logs/basil.log  # Log to file (use 'stderr' for console)
+  parsley:
+    output: ./logs/parsley.log  # Parsley script log() output
 
 # HTTP response compression (enabled by default)
 # compression:

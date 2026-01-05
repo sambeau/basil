@@ -22,8 +22,10 @@ func TestInitCommand_Success(t *testing.T) {
 
 	// Verify structure
 	assertFileExists(t, filepath.Join(projectPath, "basil.yaml"))
+	assertFileExists(t, filepath.Join(projectPath, ".gitignore"))
 	assertFileExists(t, filepath.Join(projectPath, "site", "index.pars"))
 	assertDirExists(t, filepath.Join(projectPath, "public"))
+	assertDirExists(t, filepath.Join(projectPath, "logs"))
 
 	// Verify YAML content
 	yamlContent := readFile(t, filepath.Join(projectPath, "basil.yaml"))
@@ -32,6 +34,18 @@ func TestInitCommand_Success(t *testing.T) {
 	}
 	if !strings.Contains(yamlContent, "public_dir: ./public") {
 		t.Error("YAML missing public_dir config")
+	}
+	if !strings.Contains(yamlContent, "output: ./logs/basil.log") {
+		t.Error("YAML missing logs directory in logging config")
+	}
+
+	// Verify .gitignore content
+	gitignoreContent := readFile(t, filepath.Join(projectPath, ".gitignore"))
+	if !strings.Contains(gitignoreContent, "logs/") {
+		t.Error(".gitignore missing logs/ entry")
+	}
+	if !strings.Contains(gitignoreContent, "*.db") {
+		t.Error(".gitignore missing *.db entry")
 	}
 
 	// Verify index.pars content
