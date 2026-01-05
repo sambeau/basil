@@ -278,3 +278,92 @@ func TestModuleCacheIsolation(t *testing.T) {
 		t.Errorf("expected 'one-two', got %q", strResult.Value)
 	}
 }
+
+// TestDynamicAccessorInCachedModule tests that @basil/http imports at module scope
+// provide fresh values per-request even when the module is cached (BUG-014)
+func TestDynamicAccessorInCachedModule(t *testing.T) {
+	evaluator.ClearModuleCache()
+
+	// Create a module that imports @basil/http at module scope
+	tmpDir := t.TempDir()
+	modulePath := filepath.Join(tmpDir, "handler.pars")
+
+	moduleCode := `let {query} = import @basil/http
+export let getQuery = fn() { query }
+`
+	err := os.WriteFile(modulePath, []byte(moduleCode), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mainCode := `
+let handler = import @` + modulePath + `
+handler.getQuery()
+`
+
+	// Create first environment with query.name = "Alice"
+	env1 := evaluator.NewEnvironment()
+	env1.Filename = filepath.Join(tmpDir, "main.pars")
+	env1.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	// Set up BasilCtx with request data
+	env1.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{"name": "Alice"}, nil, nil)
+
+	l1 := lexer.New(mainCode)
+	p1 := parser.New(l1)
+	program1 := p1.ParseProgram()
+	if len(p1.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p1.Errors())
+	}
+
+	result1 := evaluator.Eval(program1, env1)
+	if err, ok := result1.(*evaluator.Error); ok {
+		t.Fatalf("first request error: %s", err.Inspect())
+	}
+
+	t.Logf("Result1 type: %T, value: %s", result1, result1.Inspect())
+
+	dict1, ok := result1.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected Dictionary, got %T: %s", result1, result1.Inspect())
+	}
+
+	// Verify first request got "Alice"
+	nameVal1 := evaluator.GetDictValue(dict1, "name")
+	t.Logf("First request query.name: %v", nameVal1)
+	if nameVal1 == nil || nameVal1.Inspect() != "Alice" {
+		t.Errorf("first request: expected query.name='Alice', got %v", nameVal1)
+	}
+
+	// Create second environment with query.name = "Bob" (simulating new request)
+	// The module should be CACHED, but query should be FRESH
+	env2 := evaluator.NewEnvironment()
+	env2.Filename = filepath.Join(tmpDir, "main.pars")
+	env2.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env2.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{"name": "Bob"}, nil, nil)
+
+	l2 := lexer.New(mainCode)
+	p2 := parser.New(l2)
+	program2 := p2.ParseProgram()
+	if len(p2.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p2.Errors())
+	}
+
+	result2 := evaluator.Eval(program2, env2)
+	if err, ok := result2.(*evaluator.Error); ok {
+		t.Fatalf("second request error: %s", err.Inspect())
+	}
+
+	t.Logf("Result2 type: %T, value: %s", result2, result2.Inspect())
+
+	dict2, ok := result2.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected Dictionary, got %T: %s", result2, result2.Inspect())
+	}
+
+	// Verify second request got "Bob" (not cached "Alice")
+	nameVal2 := evaluator.GetDictValue(dict2, "name")
+	t.Logf("Second request query.name: %v", nameVal2)
+	if nameVal2 == nil || nameVal2.Inspect() != "Bob" {
+		t.Errorf("second request: expected query.name='Bob', got %v (BUG-014: value cached from first request)", nameVal2)
+	}
+}

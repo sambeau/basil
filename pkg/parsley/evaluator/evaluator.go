@@ -1057,6 +1057,65 @@ func ClearDBConnections() {
 	dbConnections = make(map[string]*sql.DB)
 }
 
+// GetDictValue is an exported helper for tests to get a value from a Dictionary.
+func GetDictValue(dict *Dictionary, key string) Object {
+	expr, ok := dict.Pairs[key]
+	if !ok {
+		return nil
+	}
+	return Eval(expr, dict.Env)
+}
+
+// BuildTestBasilContext creates a BasilCtx dictionary for testing.
+// queryParams: query string parameters (?name=value)
+// route: route path segments (or nil for null route)
+// session: session data
+func BuildTestBasilContext(queryParams map[string]string, route []string, session map[string]string) Object {
+	// Build query dictionary
+	queryPairs := make(map[string]ast.Expression)
+	for k, v := range queryParams {
+		queryPairs[k] = &ast.ObjectLiteralExpression{Obj: &String{Value: v}}
+	}
+	queryDict := &Dictionary{Pairs: queryPairs}
+
+	// Build route (as string if provided, null otherwise)
+	var routeObj Object = NULL
+	if route != nil && len(route) > 0 {
+		routeObj = &String{Value: "/" + strings.Join(route, "/")}
+	}
+
+	// Build request dictionary
+	requestPairs := map[string]ast.Expression{
+		"query":  &ast.ObjectLiteralExpression{Obj: queryDict},
+		"route":  &ast.ObjectLiteralExpression{Obj: routeObj},
+		"method": &ast.ObjectLiteralExpression{Obj: &String{Value: "GET"}},
+	}
+	requestDict := &Dictionary{Pairs: requestPairs}
+
+	// Build http dictionary
+	httpPairs := map[string]ast.Expression{
+		"request":  &ast.ObjectLiteralExpression{Obj: requestDict},
+		"response": &ast.ObjectLiteralExpression{Obj: NULL},
+	}
+	httpDict := &Dictionary{Pairs: httpPairs}
+
+	// Build session dictionary
+	sessionPairs := make(map[string]ast.Expression)
+	for k, v := range session {
+		sessionPairs[k] = &ast.ObjectLiteralExpression{Obj: &String{Value: v}}
+	}
+	sessionDict := &Dictionary{Pairs: sessionPairs}
+
+	// Build basil root context
+	basilPairs := map[string]ast.Expression{
+		"http":    &ast.ObjectLiteralExpression{Obj: httpDict},
+		"session": &ast.ObjectLiteralExpression{Obj: sessionDict},
+		"auth":    &ast.ObjectLiteralExpression{Obj: NULL},
+		"sqlite":  &ast.ObjectLiteralExpression{Obj: NULL},
+	}
+	return &Dictionary{Pairs: basilPairs}
+}
+
 // naturalCompare compares two objects using natural sort order
 // Returns true if a < b in natural sort order
 func naturalCompare(a, b Object) bool {
@@ -8578,6 +8637,11 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 		}
 	}
 
+	// Resolve DynamicAccessor to current value
+	if accessor, ok := val.(*DynamicAccessor); ok {
+		return accessor.Resolve(env)
+	}
+
 	return val
 }
 
@@ -8622,9 +8686,24 @@ func applyFunction(fn Object, args []Object) Object {
 // applyMethodWithThis calls a function with 'this' bound to a dictionary.
 // This enables object-oriented style method calls like user.greet() where
 // the function can access the dictionary via 'this'.
-func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary) Object {
+// The calling environment (env) is used to copy runtime context (BasilCtx, etc.)
+// to ensure request-scoped values like @basil/http.query work correctly.
+func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *Environment) Object {
 	extendedEnv := extendFunctionEnv(fn, args)
 	extendedEnv.Set("this", thisObj)
+	// Copy runtime context from calling environment (like ApplyFunctionWithEnv does)
+	// This ensures features like <CSS/>, <Javascript/>, and request-scoped values work
+	if env != nil {
+		extendedEnv.AssetBundle = env.AssetBundle
+		extendedEnv.AssetRegistry = env.AssetRegistry
+		extendedEnv.FragmentCache = env.FragmentCache
+		extendedEnv.BasilCtx = env.BasilCtx
+		extendedEnv.DevLog = env.DevLog
+		extendedEnv.HandlerPath = env.HandlerPath
+		extendedEnv.DevMode = env.DevMode
+		extendedEnv.Security = env.Security
+		extendedEnv.Logger = env.Logger
+	}
 	evaluated := Eval(fn.Body, extendedEnv)
 	return unwrapReturnValue(evaluated)
 }
@@ -10352,7 +10431,7 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 			fnObj := Eval(fnExpr, receiver.Env)
 			if fn, ok := fnObj.(*Function); ok {
 				// Call the function with 'this' bound to the dictionary
-				return applyMethodWithThis(fn, args, receiver)
+				return applyMethodWithThis(fn, args, receiver, env)
 			}
 			// If it's not a function, return error
 			if !isError(fnObj) {
@@ -13506,6 +13585,10 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Handle StdlibModuleDict property access (e.g., math.PI)
 	if stdlibMod, ok := left.(*StdlibModuleDict); ok {
 		if val, exists := stdlibMod.Exports[node.Key]; exists {
+			// Resolve DynamicAccessor to current value
+			if accessor, ok := val.(*DynamicAccessor); ok {
+				return accessor.Resolve(env)
+			}
 			return val
 		}
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": node.Key, "Type": "stdlib module"})

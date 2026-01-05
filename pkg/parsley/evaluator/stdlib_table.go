@@ -96,6 +96,29 @@ func (smd *StdlibModuleDict) Inspect() string {
 	return fmt.Sprintf("StdlibModule{%s}", strings.Join(keys, ", "))
 }
 
+// DynamicAccessor is a value that resolves lazily from the current environment.
+// Used for @basil/http and @basil/auth exports to ensure request/session-scoped
+// values are fresh even when imported at module scope.
+type DynamicAccessor struct {
+	Name     string                      // Display name (e.g., "query", "session")
+	Resolver func(*Environment) Object   // Function to resolve the actual value
+}
+
+func (da *DynamicAccessor) Type() ObjectType { return "DYNAMIC_ACCESSOR" }
+func (da *DynamicAccessor) Inspect() string  { return fmt.Sprintf("<dynamic:%s>", da.Name) }
+
+// Resolve returns the current value by calling the resolver with the given environment.
+func (da *DynamicAccessor) Resolve(env *Environment) Object {
+	if da.Resolver == nil {
+		return NULL
+	}
+	result := da.Resolver(env)
+	if result == nil {
+		return NULL
+	}
+	return result
+}
+
 // StdlibRoot represents the root of the standard library (import @std)
 // It provides introspection for available modules
 type StdlibRoot struct {
@@ -159,13 +182,28 @@ func loadBasilRoot() *BasilRoot {
 }
 
 // getBasilCtxDict safely returns the basil context dictionary from the environment.
+// It searches up the environment chain to find the first (closest) non-nil BasilCtx,
+// which ensures that request-scoped values (from @basil/http) are always current.
+// ApplyFunctionWithEnv sets BasilCtx on the extended environment from the caller's env,
+// so we find the freshest context by looking at the closest environment first.
 func getBasilCtxDict(env *Environment) *Dictionary {
-	if env == nil || env.BasilCtx == nil {
+	if env == nil {
 		return nil
 	}
-	if dict, ok := env.BasilCtx.(*Dictionary); ok {
-		return dict
+
+	// Walk up the environment chain and return the FIRST (closest) non-nil BasilCtx
+	// This ensures we get the caller's context (set by ApplyFunctionWithEnv) rather
+	// than the stale context from a cached module's closure.
+	current := env
+	for current != nil {
+		if current.BasilCtx != nil {
+			if dict, ok := current.BasilCtx.(*Dictionary); ok {
+				return dict
+			}
+		}
+		current = current.outer
 	}
+
 	return nil
 }
 
@@ -198,61 +236,125 @@ func ensureObject(val Object) Object {
 
 // loadBasilHTTPModule returns the HTTP-related basil module
 // Exports: request, response, query (shorthand), route, method
+// All exports are DynamicAccessors to ensure fresh values per-request
+// even when imported at module scope.
 func loadBasilHTTPModule(env *Environment) Object {
-	basilDict := getBasilCtxDict(env)
-	httpObj := evalDictValue(basilDict, "http", env)
-	httpDict, _ := httpObj.(*Dictionary)
-
-	requestObj := ensureObject(evalDictValue(httpDict, "request", env))
-	responseObj := ensureObject(evalDictValue(httpDict, "response", env))
-
-	var queryObj Object = NULL
-	var routeObj Object = NULL
-	var methodObj Object = NULL
-
-	if reqDict, ok := requestObj.(*Dictionary); ok {
-		queryObj = ensureObject(evalDictValue(reqDict, "query", env))
-		routeObj = evalDictValue(reqDict, "route", env)
-		if routeObj == NULL {
-			// Backwards compatibility for older contexts
-			routeObj = evalDictValue(reqDict, "subpath", env)
-		}
-		routeObj = ensureObject(routeObj)
-		methodObj = ensureObject(evalDictValue(reqDict, "method", env))
-	}
-
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"request":  requestObj,
-			"response": responseObj,
-			"query":    queryObj,
-			"route":    routeObj,
-			"method":   methodObj,
+			"request": &DynamicAccessor{
+				Name: "request",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					httpObj := evalDictValue(basilDict, "http", e)
+					httpDict, _ := httpObj.(*Dictionary)
+					return ensureObject(evalDictValue(httpDict, "request", e))
+				},
+			},
+			"response": &DynamicAccessor{
+				Name: "response",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					httpObj := evalDictValue(basilDict, "http", e)
+					httpDict, _ := httpObj.(*Dictionary)
+					return ensureObject(evalDictValue(httpDict, "response", e))
+				},
+			},
+			"query": &DynamicAccessor{
+				Name: "query",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					if basilDict == nil {
+						return NULL
+					}
+					httpObj := evalDictValue(basilDict, "http", e)
+					if httpObj == NULL {
+						return NULL
+					}
+					httpDict, ok := httpObj.(*Dictionary)
+					if !ok {
+						return NULL
+					}
+					requestObj := evalDictValue(httpDict, "request", e)
+					if reqDict, ok := requestObj.(*Dictionary); ok {
+						return ensureObject(evalDictValue(reqDict, "query", e))
+					}
+					return NULL
+				},
+			},
+			"route": &DynamicAccessor{
+				Name: "route",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					httpObj := evalDictValue(basilDict, "http", e)
+					httpDict, _ := httpObj.(*Dictionary)
+					requestObj := evalDictValue(httpDict, "request", e)
+					if reqDict, ok := requestObj.(*Dictionary); ok {
+						routeObj := evalDictValue(reqDict, "route", e)
+						if routeObj == NULL {
+							// Backwards compatibility
+							routeObj = evalDictValue(reqDict, "subpath", e)
+						}
+						return ensureObject(routeObj)
+					}
+					return NULL
+				},
+			},
+			"method": &DynamicAccessor{
+				Name: "method",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					httpObj := evalDictValue(basilDict, "http", e)
+					httpDict, _ := httpObj.(*Dictionary)
+					requestObj := evalDictValue(httpDict, "request", e)
+					if reqDict, ok := requestObj.(*Dictionary); ok {
+						return ensureObject(evalDictValue(reqDict, "method", e))
+					}
+					return NULL
+				},
+			},
 		},
 	}
 }
 
 // loadBasilAuthModule returns the auth/database/session basil module
 // Exports: db (sqlite), session, auth (auth context), user (auth.user shortcut)
+// Session and auth exports are DynamicAccessors for per-request freshness.
+// db is also dynamic to support hot-reloading of database configuration.
 func loadBasilAuthModule(env *Environment) Object {
-	basilDict := getBasilCtxDict(env)
-
-	// Top-level basil entries
-	dbObj := ensureObject(evalDictValue(basilDict, "sqlite", env))
-	sessionObj := ensureObject(evalDictValue(basilDict, "session", env))
-	authObj := ensureObject(evalDictValue(basilDict, "auth", env))
-
-	var userObj Object = NULL
-	if authDict, ok := authObj.(*Dictionary); ok {
-		userObj = ensureObject(evalDictValue(authDict, "user", env))
-	}
-
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"db":      dbObj,
-			"session": sessionObj,
-			"auth":    authObj,
-			"user":    userObj,
+			"db": &DynamicAccessor{
+				Name: "db",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					return ensureObject(evalDictValue(basilDict, "sqlite", e))
+				},
+			},
+			"session": &DynamicAccessor{
+				Name: "session",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					return ensureObject(evalDictValue(basilDict, "session", e))
+				},
+			},
+			"auth": &DynamicAccessor{
+				Name: "auth",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					return ensureObject(evalDictValue(basilDict, "auth", e))
+				},
+			},
+			"user": &DynamicAccessor{
+				Name: "user",
+				Resolver: func(e *Environment) Object {
+					basilDict := getBasilCtxDict(e)
+					authObj := evalDictValue(basilDict, "auth", e)
+					if authDict, ok := authObj.(*Dictionary); ok {
+						return ensureObject(evalDictValue(authDict, "user", e))
+					}
+					return NULL
+				},
+			},
 		},
 	}
 }
