@@ -197,7 +197,7 @@ To access deleted rows, bind without the `soft_delete` option:
 @query(
   Posts
   | id == {postId}
-  | with author, comments
+  | with author, comments.author
   ?-> *
 )
 // → {
@@ -207,10 +207,14 @@ To access deleted rows, bind without the `soft_delete` option:
 //     user_id: 7,
 //     author: {id: 7, name: "Alice", email: "alice@example.com"},
 //     comments: [
-//       {id: 101, body: "Great post!", user_id: 3},
-//       {id: 102, body: "Thanks for sharing", user_id: 5}
+//       {id: 101, body: "Great post!", user_id: 3, author: {id: 3, name: "Bob", email: "bob@example.com"}},
+//       {id: 102, body: "Thanks for sharing", user_id: 5, author: {id: 5, name: "Carol", email: "carol@example.com"}}
 //     ]
 //   }
+//
+// Note: `comments.author` loads the author for EACH comment using dot notation.
+// This prevents N+1 queries — all comment authors are fetched in a single batch query.
+// You can nest arbitrarily deep: `comments.author.profile`, `comments.replies.author`, etc.
 
 // Count
 @query(
