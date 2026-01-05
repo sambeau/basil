@@ -3368,32 +3368,107 @@ func (p *Parser) parseQueryCondition() *ast.QueryCondition {
 }
 
 // parseQueryConditionValue parses the right-hand side of a query condition
-// This handles literals, identifiers, and dot expressions (for correlated subqueries like post.id)
+// Rule: Bare identifiers are columns. {expression} are Parsley expressions.
+// - {userId}      → QueryInterpolation (evaluate Parsley variable)
+// - "active"      → StringLiteral
+// - 42            → IntegerLiteral
+// - status        → QueryColumnRef (database column)
+// - post.id       → DotExpression (column reference with table qualifier)
+// - [1, 2, 3]     → ArrayLiteral (for IN clauses)
 func (p *Parser) parseQueryConditionValue() ast.Expression {
-	// First parse the base expression with INDEX precedence
-	// This stops before DOT so we can handle it specially
-	left := p.parseExpression(INDEX)
-	if left == nil {
-		return nil
+	// Check for interpolation: {expression}
+	if p.curTokenIs(lexer.LBRACE) {
+		return p.parseQueryInterpolation()
 	}
 
-	// Check if followed by DOT - this could be a property access like "post.id" for correlated subqueries
-	// But NOT if followed by DOT without IDENT (like the terminal ".")
-	if p.peekTokenIs(lexer.DOT) {
-		peekedAhead := p.l.PeekToken()
-		if peekedAhead.Type == lexer.IDENT {
-			// This is a property access - consume and build DotExpression
-			p.nextToken() // consume .
-			p.nextToken() // move to property name
-			return &ast.DotExpression{
-				Token: p.curToken,
-				Left:  left,
-				Key:   p.curToken.Literal,
+	// Check for array literal: [1, 2, 3] for IN clauses
+	if p.curTokenIs(lexer.LBRACKET) {
+		return p.parseSquareBracketArrayLiteral()
+	}
+
+	// Check for string literal
+	if p.curTokenIs(lexer.STRING) {
+		return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
+	// Check for integer literal
+	if p.curTokenIs(lexer.INT) {
+		value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
+		if err != nil {
+			p.addError(fmt.Sprintf("could not parse %q as integer", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+			return nil
+		}
+		return &ast.IntegerLiteral{Token: p.curToken, Value: value}
+	}
+
+	// Check for float literal
+	if p.curTokenIs(lexer.FLOAT) {
+		value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+		if err != nil {
+			p.addError(fmt.Sprintf("could not parse %q as float", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+			return nil
+		}
+		return &ast.FloatLiteral{Token: p.curToken, Value: value}
+	}
+
+	// Check for boolean literals
+	if p.curTokenIs(lexer.TRUE) {
+		return &ast.Boolean{Token: p.curToken, Value: true}
+	}
+	if p.curTokenIs(lexer.FALSE) {
+		return &ast.Boolean{Token: p.curToken, Value: false}
+	}
+
+	// Check for identifier (column reference)
+	if p.curTokenIs(lexer.IDENT) {
+		ident := p.curToken
+
+		// Check if followed by DOT - this could be "table.column" for correlated subqueries
+		if p.peekTokenIs(lexer.DOT) {
+			peekedAhead := p.l.PeekToken()
+			if peekedAhead.Type == lexer.IDENT {
+				// This is a table.column reference - keep as DotExpression
+				left := &ast.Identifier{Token: ident, Value: ident.Literal}
+				p.nextToken() // consume .
+				p.nextToken() // move to column name
+				return &ast.DotExpression{
+					Token: p.curToken,
+					Left:  left,
+					Key:   p.curToken.Literal,
+				}
 			}
+		}
+
+		// Bare identifier - this is a column reference
+		return &ast.QueryColumnRef{
+			Token:  ident,
+			Column: ident.Literal,
 		}
 	}
 
-	return left
+	p.addError(fmt.Sprintf("unexpected token in query condition value: %s", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+	return nil
+}
+
+// parseQueryInterpolation parses an interpolated expression: {expression}
+// The current token should be '{' when called
+func (p *Parser) parseQueryInterpolation() ast.Expression {
+	interp := &ast.QueryInterpolation{Token: p.curToken}
+
+	p.nextToken() // move past '{'
+
+	// Parse the contained expression
+	interp.Expression = p.parseExpression(LOWEST)
+	if interp.Expression == nil {
+		return nil
+	}
+
+	// Expect closing '}'
+	if !p.expectPeek(lexer.RBRACE) {
+		return nil
+	}
+
+	return interp
 }
 
 // parseQueryConditionExpr parses a complete condition expression after a pipe.

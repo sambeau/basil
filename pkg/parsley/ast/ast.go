@@ -1671,6 +1671,31 @@ func (cr *QueryCTERef) expressionNode()      {}
 func (cr *QueryCTERef) TokenLiteral() string { return cr.Token.Literal }
 func (cr *QueryCTERef) String() string       { return cr.Name }
 
+// QueryInterpolation represents an interpolated Parsley expression in a query condition
+// Syntax: {expression} - the expression is evaluated at query execution time
+// This is in contrast to bare identifiers which are treated as column names
+type QueryInterpolation struct {
+	Token      lexer.Token // the '{' token
+	Expression Expression  // the Parsley expression to evaluate
+}
+
+func (qi *QueryInterpolation) expressionNode()      {}
+func (qi *QueryInterpolation) TokenLiteral() string { return qi.Token.Literal }
+func (qi *QueryInterpolation) String() string {
+	return "{" + qi.Expression.String() + "}"
+}
+
+// QueryColumnRef represents a column reference in a query condition
+// This is a bare identifier that refers to a database column, not a Parsley variable
+type QueryColumnRef struct {
+	Token  lexer.Token // the identifier token
+	Column string      // column name
+}
+
+func (qcr *QueryColumnRef) expressionNode()      {}
+func (qcr *QueryColumnRef) TokenLiteral() string { return qcr.Token.Literal }
+func (qcr *QueryColumnRef) String() string       { return qcr.Column }
+
 // QueryTerminal represents the return type and projection of a query
 type QueryTerminal struct {
 	Token      lexer.Token // ?-> or ??-> or . token

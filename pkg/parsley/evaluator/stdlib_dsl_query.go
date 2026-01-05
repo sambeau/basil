@@ -1121,13 +1121,13 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 				Code:    "SYN-0003",
 			}
 		}
-		startVal := Eval(cond.Right, env)
-		if isError(startVal) {
-			return "", nil, startVal.(*Error)
+		startVal, startErr := evalConditionValue(cond.Right, env)
+		if startErr != nil {
+			return "", nil, startErr
 		}
-		endVal := Eval(cond.RightEnd, env)
-		if isError(endVal) {
-			return "", nil, endVal.(*Error)
+		endVal, endErr := evalConditionValue(cond.RightEnd, env)
+		if endErr != nil {
+			return "", nil, endErr
 		}
 		startPlaceholder := fmt.Sprintf("$%d", *paramIdx)
 		*paramIdx++
@@ -1143,8 +1143,27 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 	}
 
 	// Check for CTE reference on the right side (for "in" or "not in" operators)
-	if ident, ok := cond.Right.(*ast.Identifier); ok {
-		if cte, exists := cteNames[ident.Value]; exists {
+	// CTE references can come from:
+	// 1. QueryCTERef (explicit CTE reference from parser)
+	// 2. QueryColumnRef where the column name matches a CTE name
+	// 3. Legacy Identifier (for backward compatibility during transition)
+	cteName := ""
+	if cteRef, ok := cond.Right.(*ast.QueryCTERef); ok {
+		cteName = cteRef.Name
+	} else if colRef, ok := cond.Right.(*ast.QueryColumnRef); ok {
+		// Check if this column ref is actually a CTE name
+		if _, exists := cteNames[colRef.Column]; exists {
+			cteName = colRef.Column
+		}
+	} else if ident, ok := cond.Right.(*ast.Identifier); ok {
+		// Legacy path - bare identifier might be a CTE reference
+		if _, exists := cteNames[ident.Value]; exists {
+			cteName = ident.Value
+		}
+	}
+
+	if cteName != "" {
+		if cte, exists := cteNames[cteName]; exists {
 			// This is a CTE reference - generate "column IN (SELECT * FROM cte_name)"
 			// Determine what column to select from the CTE based on its terminal
 			selectCol := "*"
@@ -1162,7 +1181,13 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 		}
 	}
 
-	// Evaluate the right side
+	// Check if right side is a column reference (column-to-column comparison)
+	if colRef, ok := cond.Right.(*ast.QueryColumnRef); ok {
+		sqlOp := conditionOperatorToSQL(cond.Operator)
+		return fmt.Sprintf("%s %s %s", leftStr, sqlOp, colRef.Column), nil, nil
+	}
+
+	// Handle the right side value
 	if cond.Right == nil {
 		return "", nil, &Error{
 			Message: fmt.Sprintf("condition '%s %s' requires a value", leftStr, cond.Operator),
@@ -1171,9 +1196,10 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 		}
 	}
 
-	rightVal := Eval(cond.Right, env)
-	if isError(rightVal) {
-		return "", nil, rightVal.(*Error)
+	// Evaluate the right side (interpolation, literal, etc.)
+	rightVal, evalErr := evalConditionValue(cond.Right, env)
+	if evalErr != nil {
+		return "", nil, evalErr
 	}
 
 	// Convert operator to SQL
@@ -1261,13 +1287,13 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 				Code:    "SYN-0003",
 			}
 		}
-		startVal := Eval(cond.Right, env)
-		if isError(startVal) {
-			return "", nil, startVal.(*Error)
+		startVal, startErr := evalConditionValue(cond.Right, env)
+		if startErr != nil {
+			return "", nil, startErr
 		}
-		endVal := Eval(cond.RightEnd, env)
-		if isError(endVal) {
-			return "", nil, endVal.(*Error)
+		endVal, endErr := evalConditionValue(cond.RightEnd, env)
+		if endErr != nil {
+			return "", nil, endErr
 		}
 		startPlaceholder := fmt.Sprintf("$%d", *paramIdx)
 		*paramIdx++
@@ -1282,7 +1308,7 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 		return buildSubqueryCondition(leftStr, cond.Operator, subquery, env, paramIdx)
 	}
 
-	// Evaluate the right side
+	// Handle the right side value
 	if cond.Right == nil {
 		return "", nil, &Error{
 			Message: fmt.Sprintf("condition '%s %s' requires a value", leftStr, cond.Operator),
@@ -1291,9 +1317,17 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 		}
 	}
 
-	rightVal := Eval(cond.Right, env)
-	if isError(rightVal) {
-		return "", nil, rightVal.(*Error)
+	// Check if right side is a column reference (bare identifier = column-to-column comparison)
+	if colRef, ok := cond.Right.(*ast.QueryColumnRef); ok {
+		// Column-to-column comparison: price > cost
+		sqlOp := conditionOperatorToSQL(cond.Operator)
+		return fmt.Sprintf("%s %s %s", leftStr, sqlOp, colRef.Column), nil, nil
+	}
+
+	// Evaluate the right side (interpolation, literal, etc.)
+	rightVal, evalErr := evalConditionValue(cond.Right, env)
+	if evalErr != nil {
+		return "", nil, evalErr
 	}
 
 	// Convert operator to SQL
@@ -1330,6 +1364,70 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 	params = append(params, rightVal)
 
 	return fmt.Sprintf("%s %s %s", leftStr, sqlOp, placeholder), params, nil
+}
+
+// conditionOperatorToSQL converts a condition operator to SQL
+func conditionOperatorToSQL(op string) string {
+	switch op {
+	case "==":
+		return "="
+	case "!=":
+		return "<>"
+	case "like":
+		return "LIKE"
+	default:
+		return op
+	}
+}
+
+// evalConditionValue evaluates a condition value expression
+// - QueryInterpolation: evaluate the contained Parsley expression
+// - QueryColumnRef: error (should not be evaluated, used as SQL column)
+// - Literals: convert to Object
+// - Other expressions: evaluate as Parsley expression
+func evalConditionValue(expr ast.Expression, env *Environment) (Object, *Error) {
+	switch v := expr.(type) {
+	case *ast.QueryInterpolation:
+		// Evaluate the interpolated expression
+		result := Eval(v.Expression, env)
+		if isError(result) {
+			return nil, result.(*Error)
+		}
+		return result, nil
+	case *ast.QueryColumnRef:
+		// Column references should not be evaluated - they're used directly in SQL
+		return nil, &Error{
+			Message: fmt.Sprintf("column reference '%s' cannot be used as a value; did you mean {%s}?", v.Column, v.Column),
+			Class:   ClassParse,
+			Code:    "SYN-0005",
+		}
+	case *ast.StringLiteral:
+		return &String{Value: v.Value}, nil
+	case *ast.IntegerLiteral:
+		return &Integer{Value: v.Value}, nil
+	case *ast.FloatLiteral:
+		return &Float{Value: v.Value}, nil
+	case *ast.Boolean:
+		return &Boolean{Value: v.Value}, nil
+	case *ast.ArrayLiteral:
+		// Evaluate array elements
+		elements := make([]Object, len(v.Elements))
+		for i, el := range v.Elements {
+			val := Eval(el, env)
+			if isError(val) {
+				return nil, val.(*Error)
+			}
+			elements[i] = val
+		}
+		return &Array{Elements: elements}, nil
+	default:
+		// Fall back to general evaluation for other expression types
+		result := Eval(expr, env)
+		if isError(result) {
+			return nil, result.(*Error)
+		}
+		return result, nil
+	}
 }
 
 // buildSubqueryCondition builds a subquery condition (e.g., author_id IN (SELECT id FROM users WHERE role = 'admin'))

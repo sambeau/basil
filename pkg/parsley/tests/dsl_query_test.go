@@ -461,7 +461,7 @@ let _ = db <=!=> "INSERT INTO users (id, name) VALUES (2, 'Bob')"
 let Users = db.bind(User, "users")
 let targetId = 2
 
-@query(Users | id == targetId ?-> *)
+@query(Users | id == {targetId} ?-> *)
 `
 	result, err := parsley.Eval(input)
 	if err != nil {
@@ -472,6 +472,143 @@ let targetId = 2
 	// Should return Bob (id=2)
 	if !strings.Contains(output, "Bob") {
 		t.Errorf("expected Bob in result, got %s", output)
+	}
+}
+
+// TestInterpolationSyntax tests the {expression} interpolation syntax
+func TestInterpolationSyntax(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema InterpProduct {
+    id: int
+    name: string
+    price: int
+    cost: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE interp_products (id INTEGER PRIMARY KEY, name TEXT, price INTEGER, cost INTEGER)"
+let _ = db <=!=> "INSERT INTO interp_products (id, name, price, cost) VALUES (1, 'Widget', 100, 50)"
+let _ = db <=!=> "INSERT INTO interp_products (id, name, price, cost) VALUES (2, 'Gadget', 200, 80)"
+let _ = db <=!=> "INSERT INTO interp_products (id, name, price, cost) VALUES (3, 'Gizmo', 150, 150)"
+
+let InterpProducts = db.bind(InterpProduct, "interp_products")
+
+// Test 1: Interpolated variable
+let targetPrice = 100
+@query(InterpProducts | price == {targetPrice} ?-> name)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// result: Widget (price == 100)
+	if !strings.Contains(output, "Widget") {
+		t.Errorf("expected Widget in result, got %s", output)
+	}
+}
+
+// TestInterpolationExpression tests {expression} with complex expressions
+func TestInterpolationExpression(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema ExprProduct {
+    id: int
+    name: string
+    price: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE expr_products (id INTEGER PRIMARY KEY, name TEXT, price INTEGER)"
+let _ = db <=!=> "INSERT INTO expr_products (id, name, price) VALUES (1, 'Widget', 100)"
+let _ = db <=!=> "INSERT INTO expr_products (id, name, price) VALUES (2, 'Gadget', 200)"
+
+let ExprProducts = db.bind(ExprProduct, "expr_products")
+
+// Interpolated expression (50 * 2 = 100)
+let multiplier = 2
+@query(ExprProducts | price >= {50 * multiplier} ??-> name)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Both Widget and Gadget have price >= 100
+	if !strings.Contains(output, "Widget") || !strings.Contains(output, "Gadget") {
+		t.Errorf("expected Widget and Gadget in result, got %s", output)
+	}
+}
+
+// TestColumnToColumnComparison tests bare identifier column comparison
+func TestColumnToColumnComparison(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema ColProduct {
+    id: int
+    name: string
+    price: int
+    cost: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE col_products (id INTEGER PRIMARY KEY, name TEXT, price INTEGER, cost INTEGER)"
+let _ = db <=!=> "INSERT INTO col_products (id, name, price, cost) VALUES (1, 'Widget', 100, 50)"
+let _ = db <=!=> "INSERT INTO col_products (id, name, price, cost) VALUES (2, 'Gadget', 200, 80)"
+let _ = db <=!=> "INSERT INTO col_products (id, name, price, cost) VALUES (3, 'Gizmo', 150, 150)"
+
+let ColProducts = db.bind(ColProduct, "col_products")
+
+// Column-to-column comparison: price > cost
+@query(ColProducts | price > cost ??-> name)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Widget: 100 > 50, Gadget: 200 > 80 (both pass)
+	// Gizmo: 150 > 150 (fails)
+	if !strings.Contains(output, "Widget") || !strings.Contains(output, "Gadget") {
+		t.Errorf("expected Widget and Gadget in result, got %s", output)
+	}
+	if strings.Contains(output, "Gizmo") {
+		t.Errorf("should not include Gizmo (price == cost), got %s", output)
+	}
+}
+
+// TestColumnReferenceError tests that bare identifiers used as values produce error
+func TestColumnReferenceError(t *testing.T) {
+	// This test verifies that bare identifiers that should be variables
+	// but are written without {} produce a SQL column error, not a Parsley error
+	evaluator.ClearDBConnections()
+	input := `
+@schema User {
+    id: int
+    name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)"
+let _ = db <=!=> "INSERT INTO users (id, name) VALUES (1, 'Alice')"
+
+let Users = db.bind(User, "users")
+let targetName = "Alice"
+
+// This should fail because targetName is treated as a column, not a variable
+@query(Users | name == targetName ?-> *)
+`
+	_, err := parsley.Eval(input)
+	if err == nil {
+		t.Errorf("expected error for bare identifier as value, got none")
+	}
+	// The error should be about column not found
+	if !strings.Contains(err.Error(), "column") && !strings.Contains(err.Error(), "targetName") {
+		t.Errorf("expected error about column 'targetName', got: %v", err)
 	}
 }
 
@@ -2120,7 +2257,7 @@ let Products = db.bind(Product, "products")
 let minPrice = 15
 let maxPrice = 25
 
-@query(Products | price between minPrice and maxPrice ??-> *)
+@query(Products | price between {minPrice} and {maxPrice} ??-> *)
 `
 	result, err := parsley.Eval(input)
 	if err != nil {

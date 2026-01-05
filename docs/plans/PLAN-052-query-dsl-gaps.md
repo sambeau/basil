@@ -13,7 +13,7 @@ updated: 2026-01-05
 
 | Phase | Feature | Status | Date |
 |-------|---------|--------|------|
-| Phase 1 | Interpolation Syntax | ⏸️ Deferred | - |
+| Phase 1 | Interpolation Syntax | ✅ Complete | 2026-01-05 |
 | Phase 2 | Logical Grouping and NOT | ✅ Complete | 2026-01-04 |
 | Phase 3 | Nested Relations | ✅ Complete | 2026-01-04 |
 | Phase 4 | Conditional Relations | ✅ Complete | 2026-01-04 |
@@ -23,6 +23,7 @@ updated: 2026-01-05
 | Phase 8 | Documentation | ✅ Complete | 2026-01-04 |
 
 **Completed Features:**
+- Interpolation syntax: `{expression}` for Parsley expressions, bare identifiers for columns
 - NOT operator: `| not status == "draft"`
 - Parenthesized grouping: `| (a or b) and c`
 - Nested relations: `| with comments.author`
@@ -30,9 +31,6 @@ updated: 2026-01-05
 - Correlated subqueries: `| comment_count <-comments | | post_id == post.id | ?-> count`
 - CTEs (Named Subqueries): `Tags as food_tags | topic == "food" ??-> name  Posts | tags in food_tags ??-> *`
 - Join-like Subqueries: `| items <-OrderItems | | order_id == o.id | ??-> *` (row expansion via JOIN)
-
-**Deferred to Backlog:**
-- Phase 1: Foundational change affecting entire DSL, needs careful design
 
 ---
 
@@ -57,6 +55,39 @@ This plan addresses all gaps between the current FEAT-079 implementation and the
 **Priority:** High (foundational — other features depend on this)  
 **Complexity:** Medium  
 **Estimated effort:** 2-3 days
+**Status:** ✅ Complete (2026-01-05)
+
+### Implementation Notes
+
+The implementation follows a simplified approach decided during implementation:
+- **No deprecation period**: Breaking change applied immediately ("break things; fix early")
+- **No special lexer token**: Parser handles `{` detection in `parseQueryConditionValue()`
+- **Clean semantics**: Bare identifiers = columns, `{expression}` = Parsley expressions
+
+**AST Changes:**
+- Added `QueryInterpolation` type: wraps expressions that need evaluation
+- Added `QueryColumnRef` type: represents bare identifiers as column references
+
+**Parser Changes:**
+- Rewrote `parseQueryConditionValue()` to:
+  - Detect `{` and call `parseQueryInterpolation()` for Parsley expressions
+  - Treat bare identifiers as `QueryColumnRef` (columns)
+  - Handle literals (strings, numbers) as before
+
+**Evaluator Changes:**
+- Added `evalConditionValue()` function to dispatch on value type
+- `QueryInterpolation` → evaluate expression, use result as SQL parameter
+- `QueryColumnRef` → use as SQL column name (enables column-to-column comparisons)
+
+**Tests Added:**
+- `TestInterpolationSyntax`: Basic `{variable}` usage
+- `TestInterpolationExpression`: Complex `{50 * multiplier}` expressions
+- `TestColumnToColumnComparison`: `| price > cost` (both bare = columns)
+- `TestColumnReferenceError`: Verifies bare idents produce SQL error when not valid columns
+
+**Breaking Changes:**
+- Existing code using `| column == variable` must change to `| column == {variable}`
+- Fixed in tests: `TestQueryWithVariable`, `TestBetweenOperatorWithVariables`
 
 ### Rationale
 
