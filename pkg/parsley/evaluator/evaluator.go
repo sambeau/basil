@@ -518,7 +518,8 @@ type DBConnection struct {
 	DSN           string  // Data Source Name
 	InTransaction bool
 	LastError     string
-	Managed       bool // If true, connection is managed by host application (won't be closed by Parsley)
+	Managed       bool   // If true, connection is managed by host application (won't be closed by Parsley)
+	SQLiteVersion string // SQLite version string (e.g., "3.45.0"), empty for non-SQLite
 }
 
 func (dbc *DBConnection) Type() ObjectType { return DB_CONNECTION_OBJ }
@@ -4692,6 +4693,41 @@ func urlDictToString(dict *Dictionary) string {
 	return result.String()
 }
 
+// getSQLiteVersionFromDB queries the SQLite version from a database connection
+func getSQLiteVersionFromDB(db *sql.DB) string {
+	var version string
+	err := db.QueryRow("SELECT sqlite_version()").Scan(&version)
+	if err != nil {
+		return "" // Non-fatal - return empty string
+	}
+	return version
+}
+
+// sqliteSupportsReturning checks if the SQLite version supports RETURNING clause (3.35.0+)
+func sqliteSupportsReturning(version string) bool {
+	if version == "" {
+		return false // Unknown version, assume no support
+	}
+	// Parse version string (e.g., "3.45.0" or "3.35.0")
+	parts := strings.Split(version, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	major, err1 := strconv.Atoi(parts[0])
+	minor, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	// RETURNING support added in 3.35.0
+	if major > 3 {
+		return true
+	}
+	if major == 3 && minor >= 35 {
+		return true
+	}
+	return false
+}
+
 // connectionBuiltins defines callable constructors for connection literals like @sqlite and @shell.
 func connectionBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
@@ -4770,12 +4806,16 @@ func connectionBuiltins() map[string]*Builtin {
 					dbConnectionsMu.Unlock()
 				}
 
+				// Detect SQLite version for this connection
+				version := getSQLiteVersionFromDB(db)
+
 				return &DBConnection{
 					DB:            db,
 					Driver:        "sqlite",
 					DSN:           dsn,
 					InTransaction: false,
 					LastError:     "",
+					SQLiteVersion: version,
 				}
 			},
 		},
@@ -6944,6 +6984,23 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		}
 
 		return &Boolean{Value: true}
+
+	case "lastInsertId":
+		// Get the last inserted row ID (SQLite only)
+		if len(args) != 0 {
+			return newArityError("lastInsertId", len(args), 0)
+		}
+		if conn.Driver != "sqlite" {
+			return newDatabaseErrorWithDriver("DB-0001", conn.Driver, fmt.Errorf("lastInsertId only supported for SQLite"))
+		}
+
+		var id int64
+		err := conn.DB.QueryRow("SELECT last_insert_rowid()").Scan(&id)
+		if err != nil {
+			conn.LastError = err.Error()
+			return newDatabaseError("DB-0005", err)
+		}
+		return &Integer{Value: id}
 
 	case "bind":
 		// db.bind(schema, "table_name") or db.bind(schema, "table_name", {soft_delete: "deleted_at"})

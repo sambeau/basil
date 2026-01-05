@@ -365,6 +365,14 @@ let targetStatus = "active"
 // Insert and return created row
 @insert(Users |< name: "Bob" ?-> *)
 
+// Insert and return just ID
+let userId = @insert(Users |< name: "Charlie" ?-> id)
+
+// Using db.lastInsertId() as fallback (SQLite only)
+let db = @sqlite("app.db")
+@insert(Users |< name: "Diana" .)
+let userId = db.lastInsertId()
+
 // Insert with variables
 let userData = {name: "Charlie", email: "charlie@test.com"}
 @insert(Users |< name: {userData.name} |< email: {userData.email} ?-> *)
@@ -559,4 +567,27 @@ let newPost = @insert(Posts
     |< author_id: {currentUser.id}
     |< status: "draft"
     ?-> *)
+```
+
+## SQLite Compatibility
+
+### RETURNING Clause and lastInsertId()
+
+SQLite versions 3.35.0+ (March 2021) support the `RETURNING` clause. Basil automatically detects your SQLite version:
+
+- **SQLite 3.35.0+**: Uses `INSERT ... RETURNING` for `?-> id` queries
+- **Older SQLite**: Automatically falls back to `INSERT` + `SELECT last_insert_rowid()`
+
+You can also explicitly use the fallback with `db.lastInsertId()`:
+
+```parsley
+let db = @sqlite(":memory:")
+let Users = db.bind(User, "users")
+
+// This works on all SQLite versions:
+@insert(Users |< name: "Alice" .)
+let id = db.lastInsertId()  // Explicit last inserted ID
+
+// Or use ?-> id (automatic fallback on older SQLite):
+let id2 = @insert(Users |< name: "Bob" ?-> id)
 ```

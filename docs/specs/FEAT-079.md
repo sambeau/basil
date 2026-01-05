@@ -184,6 +184,8 @@ As a Parsley developer, I want a concise, readable syntax for database operation
 
 10. **NULL in conditions** — Must use `is null`/`is not null`, not `== null`. Matches SQL semantics.
 
+11. **SQLite RETURNING support** — SQLite 3.35.0+ supports `RETURNING` clause. Basil automatically detects version and falls back to `INSERT` + `SELECT last_insert_rowid()` on older versions. Users can also explicitly use `db.lastInsertId()` for maximum compatibility.
+
 ## Grammar Specification
 
 ### Terminals
