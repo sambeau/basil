@@ -343,6 +343,38 @@ INSERT INTO order_items (order_id, product_id) VALUES ($2, $3), ($2, $4), ($2, $
 COMMIT;
 ```
 
+### SQLite lastInsertId() - Modern (3.35.0+)
+```parsley
+@insert(Users |< name: "Alice" ?-> id)
+```
+```sql
+INSERT INTO users (name) VALUES ($1) RETURNING id
+-- params: ["Alice"]
+```
+
+### SQLite lastInsertId() - Legacy (< 3.35.0)
+```parsley
+@insert(Users |< name: "Alice" ?-> id)
+```
+```sql
+-- Automatic fallback for older SQLite
+INSERT INTO users (name) VALUES ($1)
+SELECT last_insert_rowid()
+-- params: ["Alice"]
+```
+
+### Explicit lastInsertId()
+```parsley
+@insert(Users |< name: "Alice" .)
+let id = db.lastInsertId()
+```
+```sql
+INSERT INTO users (name) VALUES ($1)
+-- Then:
+SELECT last_insert_rowid()
+-- params: ["Alice"]
+```
+
 ## Test Cases
 
 ### Schema Parsing

@@ -578,16 +578,58 @@ SQLite versions 3.35.0+ (March 2021) support the `RETURNING` clause. Basil autom
 - **SQLite 3.35.0+**: Uses `INSERT ... RETURNING` for `?-> id` queries
 - **Older SQLite**: Automatically falls back to `INSERT` + `SELECT last_insert_rowid()`
 
-You can also explicitly use the fallback with `db.lastInsertId()`:
+You can also explicitly use the fallback with `db.lastInsertId()`.
+
+### Three Ways to Get Last Insert ID
 
 ```parsley
-let db = @sqlite(":memory:")
+let db = @sqlite("app.db")
 let Users = db.bind(User, "users")
 
-// This works on all SQLite versions:
+// Method 1: Explicit lastInsertId() - Maximum compatibility
 @insert(Users |< name: "Alice" .)
-let id = db.lastInsertId()  // Explicit last inserted ID
+let id = db.lastInsertId()
 
-// Or use ?-> id (automatic fallback on older SQLite):
+// Method 2: Return just ID - Automatic fallback
 let id2 = @insert(Users |< name: "Bob" ?-> id)
+
+// Method 3: Return full row - Get ID from returned object
+let user = @insert(Users |< name: "Charlie" ?-> *)
+let id3 = user.id
 ```
+
+All three methods work transparently across SQLite versions (3.x to 3.45+).
+
+### Checking SQLite Version
+
+```parsley
+let db = @sqlite("app.db")
+
+// Query version directly
+let version = db <=?=> "SELECT sqlite_version() as v" ?-> v
+<p>"Using SQLite version: {version}"</p>
+
+// Version is also stored in connection
+// (available internally for fallback detection)
+```
+
+### Transaction Example with lastInsertId()
+
+```parsley
+let db = @sqlite("app.db")
+let Users = db.bind(User, "users")
+let Orders = db.bind(Order, "orders")
+
+@transaction {
+  // Insert user
+  @insert(Users |< name: "Alice" |< email: "alice@example.com" .)
+  let userId = db.lastInsertId()
+  
+  // Insert order for that user
+  @insert(Orders |< user_id: {userId} |< total: 100.00 .)
+  let orderId = db.lastInsertId()
+  
+  {userId: userId, orderId: orderId}
+}
+```
+
