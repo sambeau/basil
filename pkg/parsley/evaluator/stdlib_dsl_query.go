@@ -515,7 +515,6 @@ func buildComputedFieldSQL(cf *ast.QueryComputedField, outerTableName string, en
 	var expr string
 	var params []Object
 
-
 	// Check for correlated subquery
 	if cf.Subquery != nil {
 		subExpr, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx)
@@ -2030,13 +2029,28 @@ func evalInsertExpression(node *ast.InsertExpression, env *Environment) Object {
 		return evalBatchInsert(node, binding, env)
 	}
 
-	// 3. Build INSERT SQL
+	// 3. Validate field values against schema (if DSL schema is bound)
+	if binding.DSLSchema != nil {
+		values := make(map[string]Object)
+		for _, write := range node.Writes {
+			val := Eval(write.Value, env)
+			if isError(val) {
+				return val
+			}
+			values[write.Field] = val
+		}
+		if validationErr := ValidateSchemaFields(values, binding.DSLSchema); validationErr != nil {
+			return validationErr
+		}
+	}
+
+	// 4. Build INSERT SQL
 	sql, params, err := buildInsertSQL(node, binding, env)
 	if err != nil {
 		return err
 	}
 
-	// 4. Execute based on terminal
+	// 5. Execute based on terminal
 	if node.Terminal == nil {
 		return &Error{
 			Message: "@insert requires a terminal (., ?->, or ??->)",
@@ -2340,13 +2354,28 @@ func evalUpdateExpression(node *ast.UpdateExpression, env *Environment) Object {
 		}
 	}
 
-	// 2. Build UPDATE SQL
+	// 2. Validate field values against schema (if DSL schema is bound)
+	if binding.DSLSchema != nil && len(node.Writes) > 0 {
+		values := make(map[string]Object)
+		for _, write := range node.Writes {
+			val := Eval(write.Value, env)
+			if isError(val) {
+				return val
+			}
+			values[write.Field] = val
+		}
+		if validationErr := ValidateSchemaFields(values, binding.DSLSchema); validationErr != nil {
+			return validationErr
+		}
+	}
+
+	// 3. Build UPDATE SQL
 	sql, params, err := buildUpdateSQL(node, binding, env)
 	if err != nil {
 		return err
 	}
 
-	// 3. Execute based on terminal
+	// 4. Execute based on terminal
 	if node.Terminal == nil {
 		return &Error{
 			Message: "@update requires a terminal (., .-> count, ?->, or ??->)",

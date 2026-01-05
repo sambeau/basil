@@ -2862,15 +2862,21 @@ func (p *Parser) parseSchemaDeclaration() ast.Expression {
 	return schema
 }
 
-// parseSchemaField parses a field definition: name: type or name: type via fk or name: [type] via fk
+// parseSchemaField parses a field definition:
+// - name: type
+// - name: type(option: value, ...)
+// - name: enum("value1", "value2", ...)
+// - name: type via fk
+// - name: [type] via fk
 func (p *Parser) parseSchemaField() *ast.SchemaField {
 	if !p.curTokenIs(lexer.IDENT) {
 		return nil
 	}
 
 	field := &ast.SchemaField{
-		Token: p.curToken,
-		Name:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		Token:       p.curToken,
+		Name:        &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		TypeOptions: make(map[string]ast.Expression),
 	}
 
 	// Expect colon
@@ -2897,6 +2903,23 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 		field.TypeName = p.curToken.Literal
 	}
 
+	// Check for type options or enum values: type(...) or enum("a", "b")
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // consume (
+
+		if field.TypeName == "enum" {
+			// Parse enum values: enum("a", "b", "c")
+			field.EnumValues = p.parseEnumValues()
+		} else {
+			// Parse type options: type(min: 1, max: 100)
+			field.TypeOptions = p.parseTypeOptions()
+		}
+
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	}
+
 	// Check for "via foreign_key"
 	if p.peekTokenIs(lexer.VIA) {
 		p.nextToken() // consume via
@@ -2907,6 +2930,81 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 	}
 
 	return field
+}
+
+// parseEnumValues parses comma-separated string literals for enum: "a", "b", "c"
+func (p *Parser) parseEnumValues() []string {
+	var values []string
+
+	// Handle empty enum
+	if p.peekTokenIs(lexer.RPAREN) {
+		return values
+	}
+
+	for {
+		if !p.expectPeek(lexer.STRING) {
+			p.addError("expected string literal in enum values", p.peekToken.Line, p.peekToken.Column)
+			return values
+		}
+		values = append(values, p.curToken.Literal)
+
+		if !p.peekTokenIs(lexer.COMMA) {
+			break
+		}
+		p.nextToken() // consume comma
+	}
+
+	return values
+}
+
+// parseTypeOptions parses type options: min: 1, max: 100, unique: true
+func (p *Parser) parseTypeOptions() map[string]ast.Expression {
+	options := make(map[string]ast.Expression)
+
+	// Handle empty options
+	if p.peekTokenIs(lexer.RPAREN) {
+		return options
+	}
+
+	for {
+		// Expect option name
+		if !p.expectPeek(lexer.IDENT) {
+			return options
+		}
+		optionName := p.curToken.Literal
+
+		// Expect colon
+		if !p.expectPeek(lexer.COLON) {
+			return options
+		}
+
+		// Parse value (integer or boolean)
+		p.nextToken()
+		var value ast.Expression
+
+		switch p.curToken.Type {
+		case lexer.INT:
+			val, _ := parseInt(p.curToken.Literal)
+			value = &ast.IntegerLiteral{Token: p.curToken, Value: val}
+		case lexer.TRUE:
+			value = &ast.Boolean{Token: p.curToken, Value: true}
+		case lexer.FALSE:
+			value = &ast.Boolean{Token: p.curToken, Value: false}
+		default:
+			p.addError(fmt.Sprintf("expected integer or boolean for type option '%s'", optionName),
+				p.curToken.Line, p.curToken.Column)
+			return options
+		}
+
+		options[optionName] = value
+
+		if !p.peekTokenIs(lexer.COMMA) {
+			break
+		}
+		p.nextToken() // consume comma
+	}
+
+	return options
 }
 
 // parseQueryExpression parses @query(source | conditions + by group ??-> projection)

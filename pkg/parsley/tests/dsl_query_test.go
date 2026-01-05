@@ -3287,3 +3287,439 @@ let JNOrderItems = db.bind(JNOrderItem, "jn_order_items")
 		t.Errorf("should not include Alice (no matching items), got %s", output)
 	}
 }
+
+// ============================================================================
+// Rich Schema Types Tests (FEAT-081)
+// ============================================================================
+
+// TestSchemaWithEnumType tests parsing @schema with enum types
+func TestSchemaWithEnumType(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema UserWithRole {
+    id: int
+    name: string
+    role: enum("admin", "user", "guest")
+}
+
+UserWithRole.Name
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "UserWithRole" {
+		t.Errorf("expected UserWithRole, got %s", result.String())
+	}
+}
+
+// TestSchemaWithTypeOptions tests parsing @schema with type options
+func TestSchemaWithTypeOptions(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema UserWithConstraints {
+    id: int
+    name: string(min: 1, max: 100)
+    age: int(min: 0, max: 150)
+    email: email(unique: true)
+}
+
+UserWithConstraints.Name
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "UserWithConstraints" {
+		t.Errorf("expected UserWithConstraints, got %s", result.String())
+	}
+}
+
+// TestSchemaValidatedTypes tests that email, url, phone types are recognized
+func TestSchemaValidatedTypes(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Contact {
+    id: int
+    email: email
+    website: url
+    phone: phone
+    slug: slug
+}
+
+Contact.Name
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "Contact" {
+		t.Errorf("expected Contact, got %s", result.String())
+	}
+}
+
+// TestCreateTableWithEnumGeneratesCheckConstraint tests that enum types generate CHECK constraints
+func TestCreateTableWithEnumGeneratesCheckConstraint(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Product {
+    id: int
+    name: string
+    status: enum("active", "inactive", "draft")
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(Product)
+let schema = db <=?=> "SELECT sql FROM sqlite_master WHERE name = 'products'"
+schema
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have CHECK constraint for enum
+	if !strings.Contains(output, "CHECK") || !strings.Contains(output, "status IN") {
+		t.Errorf("expected CHECK constraint for status, got %s", output)
+	}
+}
+
+// TestCreateTableWithUniqueConstraint tests that unique: true generates UNIQUE constraint
+func TestCreateTableWithUniqueConstraint(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema UniqueUser {
+    id: int
+    email: email(unique: true)
+    username: string(unique: true)
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(UniqueUser)
+let schema = db <=?=> "SELECT sql FROM sqlite_master WHERE name = 'uniqueusers'"
+schema
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have UNIQUE constraints
+	if !strings.Contains(output, "UNIQUE") {
+		t.Errorf("expected UNIQUE constraint, got %s", output)
+	}
+}
+
+// TestCreateTableWithIntegerRangeConstraint tests int(min, max) generates CHECK constraint
+func TestCreateTableWithIntegerRangeConstraint(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Person {
+    id: int
+    age: int(min: 0, max: 150)
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(Person)
+let schema = db <=?=> "SELECT sql FROM sqlite_master WHERE name = 'persons'"
+schema
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have CHECK constraint for age range
+	if !strings.Contains(output, "CHECK") || !strings.Contains(output, "age") {
+		t.Errorf("expected CHECK constraint for age, got %s", output)
+	}
+}
+
+// TestInsertWithInvalidEmail tests that invalid email fails validation
+func TestInsertWithInvalidEmail(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema EmailUser {
+    id: int
+    email: email
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE emailusers (id INTEGER PRIMARY KEY, email TEXT)"
+let Users = db.bind(EmailUser, "emailusers")
+
+@insert(Users |< email: "invalid-email" .)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have validation error
+	if !strings.Contains(output, "VALIDATION_ERROR") || !strings.Contains(output, "email") {
+		t.Errorf("expected validation error for email, got %s", output)
+	}
+}
+
+// TestInsertWithValidEmail tests that valid email passes validation
+func TestInsertWithValidEmail(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema ValidEmailUser {
+    id: int
+    email: email
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE validemailusers (id INTEGER PRIMARY KEY, email TEXT)"
+let Users = db.bind(ValidEmailUser, "validemailusers")
+
+@insert(Users |< email: "test@example.com" .)
+let result = db <=?=> "SELECT COUNT(*) as count FROM validemailusers"
+result
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have 1 row inserted
+	if !strings.Contains(output, "1") {
+		t.Errorf("expected 1 row inserted, got %s", output)
+	}
+}
+
+// TestInsertWithInvalidEnum tests that invalid enum value fails validation
+func TestInsertWithInvalidEnum(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema EnumUser {
+    id: int
+    role: enum("admin", "user", "guest")
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE enumusers (id INTEGER PRIMARY KEY, role TEXT)"
+let Users = db.bind(EnumUser, "enumusers")
+
+@insert(Users |< role: "superuser" .)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have validation error for enum
+	if !strings.Contains(output, "VALIDATION_ERROR") || !strings.Contains(output, "role") {
+		t.Errorf("expected validation error for role, got %s", output)
+	}
+	// Should list allowed values
+	if !strings.Contains(output, "admin") || !strings.Contains(output, "user") || !strings.Contains(output, "guest") {
+		t.Errorf("expected allowed values in error message, got %s", output)
+	}
+}
+
+// TestInsertWithValidEnum tests that valid enum value passes validation
+func TestInsertWithValidEnum(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema ValidEnumUser {
+    id: int
+    role: enum("admin", "user", "guest")
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE validenumusers (id INTEGER PRIMARY KEY, role TEXT)"
+let Users = db.bind(ValidEnumUser, "validenumusers")
+
+@insert(Users |< role: "admin" .)
+let result = db <=?=> "SELECT COUNT(*) as count FROM validenumusers"
+result
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have 1 row inserted
+	if !strings.Contains(output, "1") {
+		t.Errorf("expected 1 row inserted, got %s", output)
+	}
+}
+
+// TestInsertWithInvalidURL tests that invalid URL fails validation
+func TestInsertWithInvalidURL(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema URLUser {
+    id: int
+    website: url
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE urlusers (id INTEGER PRIMARY KEY, website TEXT)"
+let Users = db.bind(URLUser, "urlusers")
+
+@insert(Users |< website: "not-a-url" .)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have validation error
+	if !strings.Contains(output, "VALIDATION_ERROR") || !strings.Contains(output, "website") {
+		t.Errorf("expected validation error for website, got %s", output)
+	}
+}
+
+// TestInsertWithValidURL tests that valid URL passes validation
+func TestInsertWithValidURL(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema ValidURLUser {
+    id: int
+    website: url
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE validurlusers (id INTEGER PRIMARY KEY, website TEXT)"
+let Users = db.bind(ValidURLUser, "validurlusers")
+
+@insert(Users |< website: "https://example.com" .)
+let result = db <=?=> "SELECT COUNT(*) as count FROM validurlusers"
+result
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have 1 row inserted
+	if !strings.Contains(output, "1") {
+		t.Errorf("expected 1 row inserted, got %s", output)
+	}
+}
+
+// TestUpdateWithValidation tests that validation also applies to @update
+func TestUpdateWithValidation(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema UpdateEmailUser {
+    id: int
+    email: email
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE updateemailusers (id INTEGER PRIMARY KEY, email TEXT)"
+let _ = db <=!=> "INSERT INTO updateemailusers (id, email) VALUES (1, 'old@example.com')"
+let Users = db.bind(UpdateEmailUser, "updateemailusers")
+
+@update(Users | id == 1 |< email: "invalid" .)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have validation error
+	if !strings.Contains(output, "VALIDATION_ERROR") {
+		t.Errorf("expected validation error for update, got %s", output)
+	}
+}
+
+// TestStringLengthValidation tests min/max length validation on strings
+func TestStringLengthValidation(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema LengthUser {
+    id: int
+    name: string(min: 3, max: 10)
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE lengthusers (id INTEGER PRIMARY KEY, name TEXT)"
+let Users = db.bind(LengthUser, "lengthusers")
+
+@insert(Users |< name: "AB" .)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have validation error for too short
+	if !strings.Contains(output, "VALIDATION_ERROR") || !strings.Contains(output, "MIN_LENGTH") {
+		t.Errorf("expected MIN_LENGTH validation error, got %s", output)
+	}
+}
+
+// TestIntegerRangeValidation tests min/max value validation on integers
+func TestIntegerRangeValidation(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema AgeUser {
+    id: int
+    age: int(min: 0, max: 150)
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE ageusers (id INTEGER PRIMARY KEY, age INTEGER)"
+let Users = db.bind(AgeUser, "ageusers")
+
+@insert(Users |< age: -5 .)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have validation error for negative age
+	if !strings.Contains(output, "VALIDATION_ERROR") || !strings.Contains(output, "MIN_VALUE") {
+		t.Errorf("expected MIN_VALUE validation error, got %s", output)
+	}
+}
+
+// TestSlugValidation tests slug type validation
+func TestSlugValidation(t *testing.T) {
+	evaluator.ClearDBConnections()
+	tests := []struct {
+		name    string
+		slug    string
+		wantErr bool
+	}{
+		{"valid simple slug", "hello-world", false},
+		{"valid single word", "hello", false},
+		{"valid with numbers", "post-123", false},
+		{"invalid uppercase", "Hello-World", true},
+		{"invalid spaces", "hello world", true},
+		{"invalid special chars", "hello_world", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluator.ClearDBConnections()
+			input := `
+@schema SlugPost {
+    id: int
+    slug: slug
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE slugposts (id INTEGER PRIMARY KEY, slug TEXT)"
+let Posts = db.bind(SlugPost, "slugposts")
+
+@insert(Posts |< slug: "` + tt.slug + `" .)
+`
+			result, err := parsley.Eval(input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			output := result.String()
+			hasErr := strings.Contains(output, "VALIDATION_ERROR")
+			if hasErr != tt.wantErr {
+				t.Errorf("slug=%q: wantErr=%v, gotErr=%v, output=%s", tt.slug, tt.wantErr, hasErr, output)
+			}
+		})
+	}
+}

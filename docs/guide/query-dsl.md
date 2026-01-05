@@ -83,6 +83,138 @@ The method maps schema types to SQL types:
 - `json` → `TEXT` (SQLite) / `JSONB` (PostgreSQL)
 - `id` field → auto-incrementing primary key
 
+### Rich Schema Types
+
+Beyond basic types, schemas support validated types and constraints:
+
+#### Validated String Types
+
+These types store as TEXT but validate format on `@insert` and `@update`:
+
+```parsley
+@schema Contact {
+    id: int
+    email: email              // validates email format
+    website: url              // validates URL format
+    phone: phone              // validates phone format (digits, spaces, +, -, parens)
+    username: slug            // validates URL-safe slug (lowercase, hyphens, numbers)
+}
+```
+
+| Type | Stores As | Validates |
+|------|-----------|-----------|
+| `email` | TEXT | Email format (user@domain.tld) |
+| `url` | TEXT | URL format (http/https) |
+| `phone` | TEXT | Phone format (digits, +, -, spaces, parens) |
+| `slug` | TEXT | URL-safe slug (lowercase letters, numbers, hyphens) |
+
+#### Enum Types
+
+Restrict a field to a set of allowed values:
+
+```parsley
+@schema User {
+    id: int
+    name: string
+    role: enum("admin", "user", "guest")
+    status: enum("active", "pending", "suspended")
+}
+```
+
+Enums generate CHECK constraints in SQL:
+```sql
+role TEXT CHECK(role IN ('admin', 'user', 'guest'))
+```
+
+Validation ensures only allowed values can be inserted or updated.
+
+#### Type Constraints
+
+Add constraints to basic types:
+
+```parsley
+@schema Product {
+    id: int
+    name: string(min: 1, max: 100)       // length between 1 and 100
+    sku: string(unique: true)            // UNIQUE constraint
+    price: int(min: 0)                   // minimum value
+    stock: int(min: 0, max: 10000)       // value range
+    email: email(unique: true)           // validated type + unique
+}
+```
+
+| Constraint | Applies To | Effect |
+|------------|------------|--------|
+| `min` | string | Minimum length |
+| `max` | string | Maximum length |
+| `min` | int | Minimum value |
+| `max` | int | Maximum value |
+| `unique` | any | UNIQUE SQL constraint |
+
+Constraints generate CHECK constraints where applicable:
+```sql
+name TEXT CHECK(length(name) >= 1 AND length(name) <= 100)
+price INTEGER CHECK(price >= 0)
+sku TEXT UNIQUE
+```
+
+#### Additional Types
+
+```parsley
+@schema Stats {
+    id: int
+    big_count: bigint         // 64-bit integer (INTEGER in SQLite, BIGINT in PostgreSQL)
+}
+```
+
+#### Validation Errors
+
+When validation fails on `@insert` or `@update`, a validation error is returned:
+
+```parsley
+// Invalid email format
+@insert(Contacts |< email: "not-an-email" .)
+// Error: Field 'email' is not a valid email address
+
+// Invalid enum value
+@insert(Users |< role: "superuser" .)
+// Error: Field 'role' must be one of: admin, user, guest
+
+// Constraint violation
+@insert(Products |< name: "" .)
+// Error: Field 'name' must be at least 1 characters
+```
+
+#### Complete Example
+
+```parsley
+@schema User {
+    id: int
+    username: slug(unique: true)
+    email: email(unique: true)
+    phone: phone
+    website: url
+    role: enum("admin", "moderator", "user")
+    bio: string(max: 500)
+    age: int(min: 13, max: 150)
+    created_at: datetime
+}
+
+let db = @sqlite(":memory:")
+db.createTable(User, "users")
+let Users = db.bind(User, "users")
+
+// This will validate all fields before inserting
+let user = @insert(Users
+    |< username: "alice-smith"
+    |< email: "alice@example.com"
+    |< phone: "+1 (555) 123-4567"
+    |< role: "user"
+    |< bio: "Hello, world!"
+    |< age: 25
+    ?-> *)
+```
+
 ## Queries
 
 ### Basic Syntax
@@ -161,9 +293,13 @@ let targetStatus = "active"
 | status in ["active", "pending"]
 | id in <-Admins | | ?-> id    // subquery
 
-// Null checks
+// Null checks (must use IS NULL / IS NOT NULL)
 | deleted_at is null
 | verified_at is not null
+
+// IMPORTANT: SQL NULL semantics differ from Parsley
+// In SQL, `column = NULL` always returns unknown (no rows)
+// Use `is null` and `is not null` instead of `== null` / `!= null`
 
 // Negation
 | not status == "banned"

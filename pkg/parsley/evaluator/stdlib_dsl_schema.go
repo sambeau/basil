@@ -2,9 +2,19 @@ package evaluator
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+)
+
+// Regex patterns for DSL schema validation (same as @std/schema)
+var (
+	dslEmailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+	dslURLRegex   = regexp.MustCompile(`^https?://[^\s/$.?#].[^\s]*$`)
+	dslPhoneRegex = regexp.MustCompile(`^[\d\s\+\-\(\)\.]+$`)
+	dslSlugRegex  = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
 // DSLSchema represents a schema declared with @schema
@@ -16,9 +26,16 @@ type DSLSchema struct {
 
 // DSLSchemaField represents a field in a DSL schema
 type DSLSchemaField struct {
-	Name     string
-	Type     string
-	Required bool
+	Name           string
+	Type           string // original type: "email", "url", "int", etc.
+	Required       bool
+	ValidationType string   // "email", "url", "phone", "slug", "enum", or "" for no validation
+	EnumValues     []string // for enum types: allowed values
+	MinLength      *int     // for string length validation
+	MaxLength      *int     // for string length validation
+	MinValue       *int64   // for integer range validation
+	MaxValue       *int64   // for integer range validation
+	Unique         bool     // whether field has UNIQUE constraint
 }
 
 // DSLSchemaRelation represents a relation in a DSL schema
@@ -121,11 +138,50 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 			}
 		} else {
 			// This is a regular field
-			schema.Fields[field.Name.Value] = &DSLSchemaField{
-				Name:     field.Name.Value,
-				Type:     field.TypeName,
-				Required: true, // Default to required for now
+			dslField := &DSLSchemaField{
+				Name:           field.Name.Value,
+				Type:           field.TypeName,
+				Required:       true, // Default to required for now
+				ValidationType: getValidationType(field.TypeName),
+				EnumValues:     field.EnumValues,
 			}
+
+			// Process type options (min, max, unique, etc.)
+			if field.TypeOptions != nil {
+				for key, valExpr := range field.TypeOptions {
+					val := Eval(valExpr, env)
+					switch key {
+					case "min":
+						if intVal, ok := val.(*Integer); ok {
+							// For string types, min means minLength
+							if isStringType(field.TypeName) {
+								minLen := int(intVal.Value)
+								dslField.MinLength = &minLen
+							} else {
+								minVal := intVal.Value
+								dslField.MinValue = &minVal
+							}
+						}
+					case "max":
+						if intVal, ok := val.(*Integer); ok {
+							// For string types, max means maxLength
+							if isStringType(field.TypeName) {
+								maxLen := int(intVal.Value)
+								dslField.MaxLength = &maxLen
+							} else {
+								maxVal := intVal.Value
+								dslField.MaxValue = &maxVal
+							}
+						}
+					case "unique":
+						if boolVal, ok := val.(*Boolean); ok {
+							dslField.Unique = boolVal.Value
+						}
+					}
+				}
+			}
+
+			schema.Fields[field.Name.Value] = dslField
 		}
 	}
 
@@ -136,10 +192,39 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 	return NULL
 }
 
+// getValidationType returns the validation type for a schema field type
+func getValidationType(typeName string) string {
+	switch strings.ToLower(typeName) {
+	case "email":
+		return "email"
+	case "url":
+		return "url"
+	case "phone":
+		return "phone"
+	case "slug":
+		return "slug"
+	case "enum":
+		return "enum"
+	default:
+		return ""
+	}
+}
+
+// isStringType returns true if the type stores as TEXT and can have length constraints
+func isStringType(typeName string) bool {
+	switch strings.ToLower(typeName) {
+	case "string", "text", "email", "url", "phone", "slug":
+		return true
+	default:
+		return false
+	}
+}
+
 // Known primitive types for schema fields
 var knownPrimitiveTypes = map[string]bool{
 	"int":      true,
 	"integer":  true,
+	"bigint":   true,
 	"string":   true,
 	"bool":     true,
 	"boolean":  true,
@@ -153,6 +238,11 @@ var knownPrimitiveTypes = map[string]bool{
 	"ulid":     true,
 	"text":     true,
 	"json":     true,
+	"email":    true,
+	"url":      true,
+	"phone":    true,
+	"slug":     true,
+	"enum":     true,
 }
 
 // isPrimitiveType checks if a type name is a known primitive type
@@ -167,19 +257,69 @@ func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) str
 	// Map schema types to SQL types based on driver
 	for name, field := range schema.Fields {
 		sqlType := schemaTypeToSQL(field.Type, driver)
-		col := fmt.Sprintf("%s %s", name, sqlType)
+		var colParts []string
+		colParts = append(colParts, name, sqlType)
 
 		// id fields get special treatment
 		if name == "id" {
 			if driver == "sqlite" {
-				col = "id INTEGER PRIMARY KEY"
+				columns = append(columns, "id INTEGER PRIMARY KEY")
+				continue
 			} else if driver == "postgres" {
-				col = "id SERIAL PRIMARY KEY"
+				columns = append(columns, "id SERIAL PRIMARY KEY")
+				continue
 			} else if driver == "mysql" {
-				col = "id INT AUTO_INCREMENT PRIMARY KEY"
+				columns = append(columns, "id INT AUTO_INCREMENT PRIMARY KEY")
+				continue
 			}
 		}
-		columns = append(columns, col)
+
+		// Add UNIQUE constraint if specified
+		if field.Unique {
+			colParts = append(colParts, "UNIQUE")
+		}
+
+		// Build CHECK constraints
+		var checks []string
+
+		// Enum CHECK constraint
+		if len(field.EnumValues) > 0 {
+			quoted := make([]string, len(field.EnumValues))
+			for i, v := range field.EnumValues {
+				// Escape single quotes in enum values
+				quoted[i] = fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
+			}
+			checks = append(checks, fmt.Sprintf("%s IN (%s)", name, strings.Join(quoted, ", ")))
+		}
+
+		// Integer range CHECK constraint
+		if field.MinValue != nil || field.MaxValue != nil {
+			if field.MinValue != nil && field.MaxValue != nil {
+				checks = append(checks, fmt.Sprintf("%s >= %d AND %s <= %d", name, *field.MinValue, name, *field.MaxValue))
+			} else if field.MinValue != nil {
+				checks = append(checks, fmt.Sprintf("%s >= %d", name, *field.MinValue))
+			} else if field.MaxValue != nil {
+				checks = append(checks, fmt.Sprintf("%s <= %d", name, *field.MaxValue))
+			}
+		}
+
+		// String length CHECK constraint
+		if field.MinLength != nil || field.MaxLength != nil {
+			if field.MinLength != nil && field.MaxLength != nil {
+				checks = append(checks, fmt.Sprintf("length(%s) >= %d AND length(%s) <= %d", name, *field.MinLength, name, *field.MaxLength))
+			} else if field.MinLength != nil {
+				checks = append(checks, fmt.Sprintf("length(%s) >= %d", name, *field.MinLength))
+			} else if field.MaxLength != nil {
+				checks = append(checks, fmt.Sprintf("length(%s) <= %d", name, *field.MaxLength))
+			}
+		}
+
+		// Add CHECK constraints
+		if len(checks) > 0 {
+			colParts = append(colParts, fmt.Sprintf("CHECK(%s)", strings.Join(checks, " AND ")))
+		}
+
+		columns = append(columns, strings.Join(colParts, " "))
 	}
 
 	// Add foreign key columns for belongs-to relations (not has-many)
@@ -201,6 +341,11 @@ func schemaTypeToSQL(schemaType string, driver string) string {
 	switch strings.ToLower(schemaType) {
 	case "int", "integer":
 		return "INTEGER"
+	case "bigint":
+		if driver == "postgres" {
+			return "BIGINT"
+		}
+		return "INTEGER" // SQLite integers are already 64-bit
 	case "string":
 		return "TEXT"
 	case "text":
@@ -236,7 +381,226 @@ func schemaTypeToSQL(schemaType string, driver string) string {
 			return "JSONB"
 		}
 		return "TEXT"
+	// Validated string types - store as TEXT, validate in Parsley
+	case "email", "url", "phone", "slug", "enum":
+		return "TEXT"
 	default:
 		return "TEXT"
+	}
+}
+
+// ============================================================================
+// Schema Field Validation
+// ============================================================================
+
+// ValidationFieldError represents a single field validation error
+type ValidationFieldError struct {
+	Field   string
+	Code    string
+	Message string
+}
+
+// ValidateSchemaField validates a value against a schema field's constraints
+// Returns nil if valid, or a ValidationFieldError if invalid
+func ValidateSchemaField(fieldName string, value Object, field *DSLSchemaField) *ValidationFieldError {
+	// Skip validation for NULL values (unless required is enforced elsewhere)
+	if value == nil || value == NULL {
+		return nil
+	}
+
+	// Validate based on validation type
+	switch field.ValidationType {
+	case "email":
+		str, ok := value.(*String)
+		if !ok {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "TYPE",
+				Message: "Expected string value for email field",
+			}
+		}
+		if !dslEmailRegex.MatchString(str.Value) {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "FORMAT",
+				Message: "Invalid email format",
+			}
+		}
+
+	case "url":
+		str, ok := value.(*String)
+		if !ok {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "TYPE",
+				Message: "Expected string value for url field",
+			}
+		}
+		if !dslURLRegex.MatchString(str.Value) {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "FORMAT",
+				Message: "Invalid URL format (must start with http:// or https://)",
+			}
+		}
+
+	case "phone":
+		str, ok := value.(*String)
+		if !ok {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "TYPE",
+				Message: "Expected string value for phone field",
+			}
+		}
+		if !dslPhoneRegex.MatchString(str.Value) {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "FORMAT",
+				Message: "Invalid phone number format",
+			}
+		}
+
+	case "slug":
+		str, ok := value.(*String)
+		if !ok {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "TYPE",
+				Message: "Expected string value for slug field",
+			}
+		}
+		if !dslSlugRegex.MatchString(str.Value) {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "FORMAT",
+				Message: "Invalid slug format (must be lowercase alphanumeric with hyphens)",
+			}
+		}
+
+	case "enum":
+		str, ok := value.(*String)
+		if !ok {
+			return &ValidationFieldError{
+				Field:   fieldName,
+				Code:    "TYPE",
+				Message: "Expected string value for enum field",
+			}
+		}
+		if len(field.EnumValues) > 0 {
+			found := false
+			for _, v := range field.EnumValues {
+				if v == str.Value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return &ValidationFieldError{
+					Field:   fieldName,
+					Code:    "ENUM",
+					Message: fmt.Sprintf("Value must be one of: %s", strings.Join(field.EnumValues, ", ")),
+				}
+			}
+		}
+	}
+
+	// Validate string length constraints
+	if field.MinLength != nil || field.MaxLength != nil {
+		str, ok := value.(*String)
+		if ok {
+			length := len(str.Value)
+			if field.MinLength != nil && length < *field.MinLength {
+				return &ValidationFieldError{
+					Field:   fieldName,
+					Code:    "MIN_LENGTH",
+					Message: fmt.Sprintf("Must be at least %d characters", *field.MinLength),
+				}
+			}
+			if field.MaxLength != nil && length > *field.MaxLength {
+				return &ValidationFieldError{
+					Field:   fieldName,
+					Code:    "MAX_LENGTH",
+					Message: fmt.Sprintf("Must be at most %d characters", *field.MaxLength),
+				}
+			}
+		}
+	}
+
+	// Validate integer range constraints
+	if field.MinValue != nil || field.MaxValue != nil {
+		intVal, ok := value.(*Integer)
+		if ok {
+			if field.MinValue != nil && intVal.Value < *field.MinValue {
+				return &ValidationFieldError{
+					Field:   fieldName,
+					Code:    "MIN_VALUE",
+					Message: fmt.Sprintf("Must be at least %d", *field.MinValue),
+				}
+			}
+			if field.MaxValue != nil && intVal.Value > *field.MaxValue {
+				return &ValidationFieldError{
+					Field:   fieldName,
+					Code:    "MAX_VALUE",
+					Message: fmt.Sprintf("Must be at most %d", *field.MaxValue),
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ValidateSchemaFields validates multiple field values against a schema
+// Returns a validation error object or nil if all valid
+func ValidateSchemaFields(values map[string]Object, schema *DSLSchema) Object {
+	var fieldErrors []ValidationFieldError
+
+	for fieldName, value := range values {
+		if field, ok := schema.Fields[fieldName]; ok {
+			if err := ValidateSchemaField(fieldName, value, field); err != nil {
+				fieldErrors = append(fieldErrors, *err)
+			}
+		}
+	}
+
+	if len(fieldErrors) > 0 {
+		return buildValidationErrorObject(fieldErrors)
+	}
+	return nil
+}
+
+// buildValidationErrorObject creates a Dictionary representing validation errors
+func buildValidationErrorObject(errors []ValidationFieldError) *Dictionary {
+	// Build the main error object
+	pairs := make(map[string]ast.Expression)
+	pairs["error"] = makeStringLiteral("VALIDATION_ERROR")
+	pairs["message"] = makeStringLiteral("Validation failed")
+	pairs["fields"] = &ast.ArrayLiteral{Elements: makeFieldErrorElements(errors)}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
+// makeFieldErrorElements creates an array of field error dictionaries
+func makeFieldErrorElements(errors []ValidationFieldError) []ast.Expression {
+	elements := make([]ast.Expression, len(errors))
+	for i, err := range errors {
+		pairs := make(map[string]ast.Expression)
+		pairs["field"] = makeStringLiteral(err.Field)
+		pairs["code"] = makeStringLiteral(err.Code)
+		pairs["message"] = makeStringLiteral(err.Message)
+		elements[i] = &ast.DictionaryLiteral{Pairs: pairs}
+	}
+	return elements
+}
+
+// makeStringLiteral creates a StringLiteral with proper Token.Literal for inspection
+func makeStringLiteral(value string) *ast.StringLiteral {
+	return &ast.StringLiteral{
+		Value: value,
+		Token: lexer.Token{
+			Type:    lexer.STRING,
+			Literal: value,
+		},
 	}
 }
