@@ -370,7 +370,7 @@ let userData = {name: "Charlie", email: "charlie@test.com"}
 @insert(Users |< name: {userData.name} |< email: {userData.email} ?-> *)
 
 // Batch insert
-@insert(Users * each userList as user |< name: {user.name} |< email: {user.email} .)
+@insert(Users * each userList as user |< name: user.name |< email: user.email .)
 
 // Upsert (insert or update)
 @insert(Settings | update on key |< key: "theme" |< value: "dark" .)
