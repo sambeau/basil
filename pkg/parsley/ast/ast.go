@@ -1585,14 +1585,19 @@ func (rp *RelationPath) String() string {
 
 // QueryComputedField represents a computed/aggregate field like "total: sum(amount)"
 // or a correlated subquery like "comments <-Comments | | post_id == post.id | ?-> count"
+// or a join-like subquery like "items <-OrderItems | | order_id == o.id | ??-> *"
 type QueryComputedField struct {
 	Token    lexer.Token // the identifier token
-	Name     string      // alias name (e.g., "total" or "comments")
+	Name     string      // alias name (e.g., "total" or "comments" or "items")
 	Function string      // aggregate function ("count", "sum", "avg", "min", "max") or empty for plain field
 	Field    string      // field to aggregate (e.g., "amount") - empty for count without field
 
 	// For correlated subqueries: name <-Table | | conditions | ?-> aggregate
 	Subquery *QuerySubquery // optional subquery (if present, Function/Field come from Subquery.Terminal)
+
+	// IsJoinSubquery is true when the subquery uses ??-> (returns multiple rows, join-like expansion)
+	// When true, generates CROSS JOIN LATERAL instead of scalar subquery
+	IsJoinSubquery bool
 }
 
 func (qc *QueryComputedField) expressionNode()      {}

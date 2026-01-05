@@ -3207,7 +3207,8 @@ func (p *Parser) parseComputedFieldFromIdent(identToken lexer.Token) *ast.QueryC
 }
 
 // parseCorrelatedSubqueryField parses a correlated subquery computed field:
-// name <-Table | | conditions | ?-> aggregate
+// name <-Table | | conditions | ?-> aggregate  (scalar, correlated subquery)
+// name <-Table | | conditions | ??-> *         (join-like, row expansion)
 // where conditions can reference the outer query alias
 func (p *Parser) parseCorrelatedSubqueryField(identToken lexer.Token, outerAlias *ast.Identifier) *ast.QueryComputedField {
 	cf := &ast.QueryComputedField{
@@ -3228,7 +3229,14 @@ func (p *Parser) parseCorrelatedSubqueryField(identToken lexer.Token, outerAlias
 
 	cf.Subquery = subquery
 
-	// Extract function from subquery terminal if present
+	// Check if this is a join-like subquery (??-> returns multiple rows)
+	if subquery.Terminal != nil && subquery.Terminal.Type == "many" {
+		cf.IsJoinSubquery = true
+		// For join subqueries, the projection specifies which columns from the subquery to include
+		// * means all columns from the joined table
+	}
+
+	// Extract function from subquery terminal if present (for scalar subqueries)
 	if subquery.Terminal != nil && len(subquery.Terminal.Projection) > 0 {
 		proj := subquery.Terminal.Projection[0]
 		switch proj {

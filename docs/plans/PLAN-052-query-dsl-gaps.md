@@ -19,7 +19,7 @@ updated: 2026-01-05
 | Phase 4 | Conditional Relations | ✅ Complete | 2026-01-04 |
 | Phase 5 | Correlated Subqueries | ✅ Complete | 2026-01-04 |
 | Phase 6 | CTEs | ✅ Complete | 2026-01-05 |
-| Phase 7 | Join-like Subqueries | ⏸️ Deferred (High Complexity) | - |
+| Phase 7 | Join-like Subqueries | ✅ Complete | 2026-01-05 |
 | Phase 8 | Documentation | ✅ Complete | 2026-01-04 |
 
 **Completed Features:**
@@ -29,10 +29,10 @@ updated: 2026-01-05
 - Conditional relations: `| with comments(approved == 1 | order created_at desc | limit 5)`
 - Correlated subqueries: `| comment_count <-comments | | post_id == post.id | ?-> count`
 - CTEs (Named Subqueries): `Tags as food_tags | topic == "food" ??-> name  Posts | tags in food_tags ??-> *`
+- Join-like Subqueries: `| items <-OrderItems | | order_id == o.id | ??-> *` (row expansion via JOIN)
 
 **Deferred to Backlog:**
 - Phase 1: Foundational change affecting entire DSL, needs careful design
-- Phase 7: HIGH complexity (2-3+ days), requires LATERAL JOIN semantics
 
 ---
 

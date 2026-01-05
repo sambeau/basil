@@ -142,19 +142,69 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	hasComputedFields := len(node.ComputedFields) > 0
 	isAggregation := hasGroupBy || hasComputedFields
 
-	// Check if any computed fields are correlated subqueries
+	// Check if any computed fields are correlated subqueries or join subqueries
 	hasCorrelatedSubquery := false
+	hasJoinSubquery := false
+	var joinSubqueries []*ast.QueryComputedField
 	for _, cf := range node.ComputedFields {
 		if cf.Subquery != nil {
-			hasCorrelatedSubquery = true
-			break
+			if cf.IsJoinSubquery {
+				hasJoinSubquery = true
+				joinSubqueries = append(joinSubqueries, cf)
+			} else {
+				hasCorrelatedSubquery = true
+			}
 		}
 	}
 
 	// Determine columns to select
 	var selectCols []string
 
-	if isAggregation && !hasCorrelatedSubquery {
+	// Determine the outer table alias (for join subqueries)
+	outerTableAlias := binding.TableName
+	if node.SourceAlias != nil {
+		outerTableAlias = node.SourceAlias.Value
+	}
+
+	if hasJoinSubquery {
+		// For join subqueries, we need to select from outer table and joined tables
+		// SELECT outer.*, joined_alias.* FROM outer JOIN ... AS joined_alias ON ...
+		if node.Terminal != nil && len(node.Terminal.Projection) > 0 &&
+			!(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			// Specific columns requested - qualify them with outer table alias
+			for _, col := range node.Terminal.Projection {
+				selectCols = append(selectCols, fmt.Sprintf("%s.%s", outerTableAlias, col))
+			}
+		} else {
+			selectCols = []string{fmt.Sprintf("%s.*", outerTableAlias)}
+		}
+
+		// Add columns from each join subquery
+		for _, cf := range joinSubqueries {
+			if cf.Subquery != nil && cf.Subquery.Terminal != nil {
+				proj := cf.Subquery.Terminal.Projection
+				if len(proj) == 1 && proj[0] == "*" {
+					selectCols = append(selectCols, fmt.Sprintf("%s.*", cf.Name))
+				} else {
+					for _, col := range proj {
+						selectCols = append(selectCols, fmt.Sprintf("%s.%s", cf.Name, col))
+					}
+				}
+			}
+		}
+
+		// Also add non-join correlated subquery fields as scalar selects
+		for _, cf := range node.ComputedFields {
+			if cf.Subquery != nil && !cf.IsJoinSubquery {
+				cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx)
+				if err != nil {
+					return "", nil, err
+				}
+				selectCols = append(selectCols, cfSQL)
+				params = append(params, cfParams...)
+			}
+		}
+	} else if isAggregation && !hasCorrelatedSubquery {
 		// For aggregation queries, build SELECT from GROUP BY fields and computed fields
 		// First add GROUP BY fields
 		selectCols = append(selectCols, node.GroupBy...)
@@ -219,6 +269,22 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	sql.WriteString(strings.Join(selectCols, ", "))
 	sql.WriteString(" FROM ")
 	sql.WriteString(binding.TableName)
+
+	// Add table alias for join subqueries
+	if hasJoinSubquery && node.SourceAlias != nil {
+		sql.WriteString(" ")
+		sql.WriteString(node.SourceAlias.Value)
+	}
+
+	// Build JOIN clauses for join subqueries
+	for _, cf := range joinSubqueries {
+		joinSQL, joinParams, err := buildJoinSubquerySQL(cf, outerTableAlias, env, &paramIdx)
+		if err != nil {
+			return "", nil, err
+		}
+		sql.WriteString(joinSQL)
+		params = append(params, joinParams...)
+	}
 
 	// Build WHERE clause from conditions (these are pre-aggregation conditions)
 	var whereClauses []string
@@ -554,6 +620,175 @@ func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName stri
 	}
 
 	return sql.String(), params, nil
+}
+
+// buildJoinSubquerySQL builds a JOIN clause for a join-like subquery (??-> terminal)
+// Example: JOIN order_items items ON items.order_id = orders.id
+// This produces row multiplication - each outer row expands to multiple rows based on the joined table
+func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	var sql strings.Builder
+	var params []Object
+
+	if cf.Subquery == nil {
+		return "", nil, &Error{Message: "join subquery requires a subquery definition"}
+	}
+
+	subquery := cf.Subquery
+	joinedTableName := subquery.Source.Value
+	joinAlias := cf.Name // The computed field name becomes the join alias
+
+	// Build JOIN clause
+	// We use INNER JOIN to match the LATERAL JOIN semantics (only include rows that have matches)
+	// Use LEFT JOIN if we want to include outer rows without matches
+	sql.WriteString(" JOIN ")
+	sql.WriteString(joinedTableName)
+	sql.WriteString(" ")
+	sql.WriteString(joinAlias)
+
+	// Build ON clause from subquery conditions
+	if len(subquery.Conditions) > 0 {
+		sql.WriteString(" ON ")
+		for i, cond := range subquery.Conditions {
+			if i > 0 {
+				// Get logic from the condition
+				logic := "AND"
+				if qc, ok := cond.(*ast.QueryCondition); ok && qc.Logic != "" {
+					logic = strings.ToUpper(qc.Logic)
+				}
+				sql.WriteString(" " + logic + " ")
+			}
+			clause, condParams, err := buildJoinConditionSQL(cond, outerTableAlias, joinAlias, env, paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			sql.WriteString(clause)
+			params = append(params, condParams...)
+		}
+	} else {
+		// No conditions - cross join (all combinations)
+		sql.WriteString(" ON 1=1")
+	}
+
+	return sql.String(), params, nil
+}
+
+// buildJoinConditionSQL builds a condition for a JOIN ON clause
+// It translates outer.field and inner.field references appropriately
+func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	switch cond := node.(type) {
+	case *ast.QueryCondition:
+		return buildJoinCondition(cond, outerTableAlias, joinAlias, env, paramIdx)
+	case *ast.QueryConditionGroup:
+		// Handle condition groups
+		var parts []string
+		var allParams []Object
+		for i, child := range cond.Conditions {
+			part, partParams, err := buildJoinConditionSQL(child, outerTableAlias, joinAlias, env, paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			if i > 0 {
+				// Get logic from child
+				logic := "AND"
+				if qc, ok := child.(*ast.QueryCondition); ok && qc.Logic != "" {
+					logic = strings.ToUpper(qc.Logic)
+				}
+				parts = append(parts, logic+" "+part)
+			} else {
+				parts = append(parts, part)
+			}
+			allParams = append(allParams, partParams...)
+		}
+		result := "(" + strings.Join(parts, " ") + ")"
+		if cond.Negated {
+			result = "NOT " + result
+		}
+		return result, allParams, nil
+	default:
+		return "", nil, &Error{Message: "unknown condition node type in join subquery"}
+	}
+}
+
+// buildJoinCondition builds a single condition for a JOIN ON clause
+// Example: order_id == o.id becomes items.order_id = o.id
+func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	var params []Object
+
+	// Get left side - bare identifier is from the joined table
+	leftStr := ""
+	if ident, ok := cond.Left.(*ast.Identifier); ok {
+		// Bare identifier belongs to the joined table
+		leftStr = joinAlias + "." + ident.Value
+	} else if dotExpr, ok := cond.Left.(*ast.DotExpression); ok {
+		// Dot expression like "outer.id" - use as-is
+		if objIdent, ok := dotExpr.Left.(*ast.Identifier); ok {
+			leftStr = objIdent.Value + "." + dotExpr.Key
+		}
+	}
+
+	// Map operator
+	sqlOp := cond.Operator
+	switch cond.Operator {
+	case "==":
+		sqlOp = "="
+	case "!=":
+		sqlOp = "<>"
+	}
+
+	// Get right side - check if it's an outer table reference
+	rightStr := ""
+	switch right := cond.Right.(type) {
+	case *ast.Identifier:
+		// Simple identifier - could be from join table (unusual in ON clause)
+		rightStr = right.Value
+	case *ast.DotExpression:
+		// Dot expression like "o.id" - references outer table
+		if objIdent, ok := right.Left.(*ast.Identifier); ok {
+			// The prefix identifies which table the column is from
+			rightStr = objIdent.Value + "." + right.Key
+		} else {
+			// Complex property access - try to evaluate
+			val := Eval(right, env)
+			if isError(val) {
+				return "", nil, val.(*Error)
+			}
+			placeholder := fmt.Sprintf("$%d", *paramIdx)
+			*paramIdx++
+			rightStr = placeholder
+			params = append(params, val)
+		}
+	case *ast.IntegerLiteral:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &Integer{Value: right.Value})
+	case *ast.StringLiteral:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &String{Value: right.Value})
+	case *ast.Boolean:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &Boolean{Value: right.Value})
+	default:
+		// Try to evaluate as expression
+		val := Eval(right, env)
+		if isError(val) {
+			return "", nil, val.(*Error)
+		}
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, val)
+	}
+
+	result := fmt.Sprintf("%s %s %s", leftStr, sqlOp, rightStr)
+	if cond.Negated {
+		result = "NOT " + result
+	}
+	return result, params, nil
 }
 
 // buildCorrelatedConditionSQL builds a condition that may reference outer query columns

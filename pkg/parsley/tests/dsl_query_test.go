@@ -2890,3 +2890,161 @@ let CteProducts = db.bind(CteProduct, "cte_products")
 		t.Errorf("should not include 'Phone' (not featured), got %s", output)
 	}
 }
+
+// TestJoinSubqueryParsing tests that join-like subquery syntax parses correctly
+func TestJoinSubqueryParsing(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name: "join_subquery_with_many_terminal",
+			input: `
+@schema JOrder {
+    id: int
+    customer: string
+}
+
+@schema JOrderItem {
+    id: int
+    order_id: int
+    product: string
+    quantity: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE j_orders (id INTEGER PRIMARY KEY, customer TEXT)"
+let _ = db <=!=> "CREATE TABLE j_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product TEXT, quantity INTEGER)"
+let _ = db <=!=> "INSERT INTO j_orders (id, customer) VALUES (1, 'Alice')"
+let _ = db <=!=> "INSERT INTO j_order_items (id, order_id, product, quantity) VALUES (1, 1, 'Apple', 3)"
+
+let JOrders = db.bind(JOrder, "j_orders")
+let JOrderItems = db.bind(JOrderItem, "j_order_items")
+
+// Join-like subquery with ??-> should expand rows
+@query(JOrders as o | items <-j_order_items | | order_id == o.id | ??-> * ??-> *)
+`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluator.ClearDBConnections()
+			_, err := parsley.Eval(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestJoinSubqueryBasic tests a basic join-like subquery with row expansion
+func TestJoinSubqueryBasic(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema JoinOrder {
+    id: int
+    customer: string
+}
+
+@schema JoinOrderItem {
+    id: int
+    order_id: int
+    product: string
+    quantity: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE join_orders (id INTEGER PRIMARY KEY, customer TEXT)"
+let _ = db <=!=> "CREATE TABLE join_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product TEXT, quantity INTEGER)"
+let _ = db <=!=> "INSERT INTO join_orders (id, customer) VALUES (1, 'Alice')"
+let _ = db <=!=> "INSERT INTO join_orders (id, customer) VALUES (2, 'Bob')"
+let _ = db <=!=> "INSERT INTO join_order_items (id, order_id, product, quantity) VALUES (1, 1, 'Apple', 3)"
+let _ = db <=!=> "INSERT INTO join_order_items (id, order_id, product, quantity) VALUES (2, 1, 'Banana', 2)"
+let _ = db <=!=> "INSERT INTO join_order_items (id, order_id, product, quantity) VALUES (3, 2, 'Cherry', 5)"
+
+let JoinOrders = db.bind(JoinOrder, "join_orders")
+let JoinOrderItems = db.bind(JoinOrderItem, "join_order_items")
+
+// Get orders with their items (join-like expansion)
+// Alice has 2 items, Bob has 1 item = 3 rows total
+@query(JoinOrders as o | items <-join_order_items | | order_id == o.id | ??-> * ??-> *)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Should have Alice mentioned (appears twice due to join)
+	if !strings.Contains(output, "Alice") {
+		t.Errorf("expected Alice in output, got %s", output)
+	}
+	// Should have Bob mentioned
+	if !strings.Contains(output, "Bob") {
+		t.Errorf("expected Bob in output, got %s", output)
+	}
+	// Should have all products
+	if !strings.Contains(output, "Apple") {
+		t.Errorf("expected Apple in output, got %s", output)
+	}
+	if !strings.Contains(output, "Banana") {
+		t.Errorf("expected Banana in output, got %s", output)
+	}
+	if !strings.Contains(output, "Cherry") {
+		t.Errorf("expected Cherry in output, got %s", output)
+	}
+}
+
+// TestJoinSubqueryNoMatches tests join-like subquery when there are no matching rows
+func TestJoinSubqueryNoMatches(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema JNOrder {
+    id: int
+    customer: string
+}
+
+@schema JNOrderItem {
+    id: int
+    order_id: int
+    product: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE jn_orders (id INTEGER PRIMARY KEY, customer TEXT)"
+let _ = db <=!=> "CREATE TABLE jn_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product TEXT)"
+let _ = db <=!=> "INSERT INTO jn_orders (id, customer) VALUES (1, 'Alice')"
+let _ = db <=!=> "INSERT INTO jn_orders (id, customer) VALUES (2, 'Bob')"
+// Only Bob has items
+let _ = db <=!=> "INSERT INTO jn_order_items (id, order_id, product) VALUES (1, 2, 'Cherry')"
+
+let JNOrders = db.bind(JNOrder, "jn_orders")
+let JNOrderItems = db.bind(JNOrderItem, "jn_order_items")
+
+// INNER JOIN - only orders with items are returned
+@query(JNOrders as o | items <-jn_order_items | | order_id == o.id | ??-> * ??-> *)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Should have Bob (has items)
+	if !strings.Contains(output, "Bob") {
+		t.Errorf("expected Bob in output, got %s", output)
+	}
+	// Alice should NOT be present (no items, INNER JOIN filters out)
+	if strings.Contains(output, "Alice") {
+		t.Errorf("should not include Alice (no matching items), got %s", output)
+	}
+}
