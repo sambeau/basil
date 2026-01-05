@@ -1024,6 +1024,28 @@ func ClearModuleCache() {
 	moduleCache.modules = make(map[string]*Dictionary)
 }
 
+// InvalidateModule removes a specific module from the cache.
+// The path can be absolute or relative - both will be tried.
+// This also invalidates any modules that might have imported the changed file.
+func InvalidateModule(path string) {
+	moduleCache.mu.Lock()
+	defer moduleCache.mu.Unlock()
+
+	// Try to find and remove the module by various path forms
+	absPath, err := filepath.Abs(path)
+	if err == nil {
+		delete(moduleCache.modules, absPath)
+	}
+	delete(moduleCache.modules, path)
+
+	// Also invalidate all modules that might have imported this one
+	// This is a conservative approach - we clear all modules that could
+	// transitively depend on the changed file
+	// For now, just clear all modules on any file change to ensure correctness
+	// TODO: Track import dependencies for selective invalidation
+	moduleCache.modules = make(map[string]*Dictionary)
+}
+
 // ClearDBConnections closes and clears all cached database connections.
 // This is primarily used in tests to ensure isolation between test cases.
 func ClearDBConnections() {

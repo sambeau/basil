@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
 )
 
 // Watcher monitors files for changes and triggers reload actions
@@ -193,7 +194,8 @@ func (w *Watcher) handleFileChange(path string) {
 	switch ext {
 	case ".pars", ".parsley":
 		w.logInfo("handler changed: %s", path)
-		// Scripts are reloaded on next request (no caching in dev mode)
+		// Invalidate module cache so the changed module is reloaded
+		evaluator.InvalidateModule(path)
 
 	case ".css", ".js":
 		w.logInfo("asset changed: %s", path)
