@@ -73,13 +73,15 @@ func evalQueryExpression(node *ast.QueryExpression, env *Environment) Object {
 	case "many":
 		result = executeQueryMany(binding, sql, params, terminal.Projection, env)
 	case "one":
-		// Check for special projections: count, exists
+		// Check for special projections: count, exists, toSQL
 		if len(terminal.Projection) == 1 {
 			switch terminal.Projection[0] {
 			case "count":
 				return executeQueryCount(binding, sql, params, env)
 			case "exists":
 				return executeQueryExists(binding, sql, params, env)
+			case "toSQL":
+				return executeQueryToSQL(binding, sql, params, env)
 			}
 		}
 		result = executeQueryOne(binding, sql, params, terminal.Projection, env)
@@ -254,6 +256,10 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 				selectCols = []string{"COUNT(*) as count"}
 			case "exists":
 				selectCols = []string{"1"}
+			case "toSQL":
+				// For toSQL, generate a normal SELECT * query
+				// The actual toSQL behavior is handled in evalQueryExpression
+				selectCols = []string{"*"}
 			default:
 				selectCols = node.Terminal.Projection
 			}
@@ -1658,6 +1664,22 @@ func executeQueryExists(binding *TableBinding, sql string, params []Object, env 
 
 	exists := rows.Next()
 	return &Boolean{Value: exists}
+}
+
+// executeQueryToSQL returns the generated SQL and parameters without executing the query
+func executeQueryToSQL(binding *TableBinding, sql string, params []Object, env *Environment) Object {
+	// Build params array
+	paramsArray := &Array{Elements: make([]Object, len(params))}
+	copy(paramsArray.Elements, params)
+
+	// Return dictionary with sql and params
+	result := &Dictionary{
+		Pairs: make(map[string]ast.Expression),
+		Env:   env,
+	}
+	result.SetKey("sql", objectToExpression(&String{Value: sql}))
+	result.SetKey("params", objectToExpression(paramsArray))
+	return result
 }
 
 // executeQueryExecute executes a query without returning results

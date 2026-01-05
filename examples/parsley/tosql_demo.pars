@@ -1,0 +1,65 @@
+// This example demonstrates how to use .toSQL() to inspect generated SQL queries
+// without executing them. This is useful for learning, debugging, and documentation.
+
+@schema User {
+	id: int
+	name: string
+	age: int
+	status: string
+}
+
+let db = @sqlite(":memory:")
+
+// Create table
+let _ = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, status TEXT)"
+
+// Bind schema to table
+let Users = db.bind(User, "users")
+
+log("=== TableBinding .toSQL() Method ===\n")
+
+// Example 1: See what SQL Users.all() generates
+log("1. Users.all() SQL:")
+let sql1 = Users.toSQL("all")
+log("   SQL: " + sql1.sql)
+log("   Params: " + sql1.params + "\n")
+
+// Example 2: See what SQL Users.all() with options generates
+log("2. Users.all({orderBy: 'name', limit: 10}) SQL:")
+let sql2 = Users.toSQL("all", {orderBy: "name", limit: 10, offset: 5})
+log("   SQL: " + sql2.sql)
+log("   Params: " + sql2.params + "\n")
+
+// Example 3: See what SQL Users.where() generates
+log("3. Users.where({status: 'active'}) SQL:")
+let sql3 = Users.toSQL("where", {status: "active"})
+log("   SQL: " + sql3.sql)
+log("   Params: " + sql3.params + "\n")
+
+// Example 4: See what SQL Users.find() generates
+log("4. Users.find(42) SQL:")
+let sql4 = Users.toSQL("find", 42)
+log("   SQL: " + sql4.sql)
+log("   Params: " + sql4.params + "\n")
+
+// Example 5: See what SQL Users.count() generates
+log("5. Users.count({status: 'active'}) SQL:")
+let sql5 = Users.toSQL("count", {status: "active"})
+log("   SQL: " + sql5.sql)
+log("   Params: " + sql5.params + "\n")
+
+log("=== DSL Query toSQL Projection ===\n")
+
+// Example 6: Use toSQL with DSL query syntax
+log("6. DSL query with toSQL projection:")
+let sql6 = @query(Users | status == "active" | age > 21 | limit 10 ?-> toSQL)
+log("   SQL: " + sql6.sql)
+log("   Params: " + sql6.params + "\n")
+
+// Example 7: Complex DSL query
+log("7. Complex DSL query with ordering:")
+let sql7 = @query(Users | status == "active" | order name | limit 5 ?-> toSQL)
+log("   SQL: " + sql7.sql)
+log("   Params: " + sql7.params + "\n")
+
+log("✓ All examples complete!")

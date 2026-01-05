@@ -96,11 +96,13 @@ func evalTableBindingMethod(tb *TableBinding, method string, args []Object, env 
 		return tb.executeExists(args, env)
 	case "findBy":
 		return tb.executeFindBy(args, env)
+	case "toSQL":
+		return tb.executeToSQL(args, env)
 	default:
 		return unknownMethodError(method, "TableBinding", []string{
 			"all", "find", "where", "insert", "update", "delete",
 			"count", "sum", "avg", "min", "max",
-			"first", "last", "exists", "findBy",
+			"first", "last", "exists", "findBy", "toSQL",
 		})
 	}
 }
@@ -1067,6 +1069,303 @@ func getRequestQuery(env *Environment) map[string]string {
 		}
 	}
 
+	return result
+}
+
+// reverseDirection reverses ASC <-> DESC for ORDER BY
+func reverseDirection(dir string) string {
+	if dir == "ASC" {
+		return "DESC"
+	}
+	return "ASC"
+}
+
+// executeToSQL returns the SQL query and parameters that would be executed
+// for the given query method, without actually executing it. Accepts method name
+// as first argument, followed by method-specific arguments.
+//
+// Usage:
+//   Users.toSQL("all", {orderBy: "name", limit: 10})
+//   Users.toSQL("where", {status: "active"})
+//   Users.toSQL("find", 42)
+//
+// Returns: {sql: "SELECT ...", params: [...]}
+func (tb *TableBinding) executeToSQL(args []Object, env *Environment) Object {
+	if len(args) < 1 {
+		return newArityError("toSQL", len(args), 1)
+	}
+
+	methodName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0005", "toSQL", "a string (method name)", args[0].Type())
+	}
+
+	methodArgs := args[1:]
+
+	// Build SQL based on method type
+	var sqlStr string
+	var params []Object
+
+	switch methodName.Value {
+	case "all":
+		// Build SELECT with optional orderBy, select, limit, offset
+		var opts *QueryOptions
+		if len(methodArgs) > 0 {
+			if dict, ok := methodArgs[0].(*Dictionary); ok {
+				var parseErr *Error
+				opts, parseErr = parseQueryOptions(dict)
+				if parseErr != nil {
+					return parseErr
+				}
+			}
+		}
+
+		selectCols := buildSelectClause(opts)
+		sqlStr = fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+		sqlStr += buildOrderByClause(opts)
+
+		// Handle pagination
+		if opts != nil && opts.NoLimit {
+			// No limit
+		} else if opts != nil && opts.Limit != nil {
+			offset := int64(0)
+			if opts.Offset != nil {
+				offset = *opts.Offset
+			}
+			sqlStr += " LIMIT ? OFFSET ?"
+			params = append(params, &Integer{Value: *opts.Limit}, &Integer{Value: offset})
+		} else {
+			// Would use auto-pagination from request in actual execution
+			limit, offset, useLimit := getPagination(env)
+			if useLimit {
+				sqlStr += " LIMIT ? OFFSET ?"
+				params = append(params, &Integer{Value: limit}, &Integer{Value: offset})
+			}
+		}
+
+	case "where":
+		// Build SELECT with WHERE clause
+		if len(methodArgs) < 1 {
+			return newArityError("where", len(methodArgs), 1)
+		}
+
+		condDict, ok := methodArgs[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0005", "where", "a dictionary", methodArgs[0].Type())
+		}
+
+		var opts *QueryOptions
+		if len(methodArgs) == 2 {
+			if optsDict, ok := methodArgs[1].(*Dictionary); ok {
+				var parseErr *Error
+				opts, parseErr = parseQueryOptions(optsDict)
+				if parseErr != nil {
+					return parseErr
+				}
+			}
+		}
+
+		conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+		if errObj != nil {
+			return errObj
+		}
+
+		selectCols := buildSelectClause(opts)
+		sqlStr = fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+		if conditions != "" {
+			sqlStr += " WHERE " + conditions
+		}
+		sqlStr += buildOrderByClause(opts)
+
+		params = whereParams
+
+		if opts != nil && opts.Limit != nil {
+			offset := int64(0)
+			if opts.Offset != nil {
+				offset = *opts.Offset
+			}
+			sqlStr += " LIMIT ? OFFSET ?"
+			params = append(params, &Integer{Value: *opts.Limit}, &Integer{Value: offset})
+		}
+
+	case "find":
+		// Build SELECT with id = ?
+		if len(methodArgs) != 1 {
+			return newArityError("find", len(methodArgs), 1)
+		}
+		sqlStr = fmt.Sprintf("SELECT * FROM %s WHERE id = ? LIMIT 1", tb.TableName)
+		params = []Object{methodArgs[0]}
+
+	case "count":
+		// Build COUNT(*) with optional WHERE
+		if len(methodArgs) == 0 {
+			sqlStr = fmt.Sprintf("SELECT COUNT(*) FROM %s", tb.TableName)
+		} else if len(methodArgs) == 1 {
+			condDict, ok := methodArgs[0].(*Dictionary)
+			if !ok {
+				return newTypeError("TYPE-0005", "count", "a dictionary", methodArgs[0].Type())
+			}
+			conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+			if errObj != nil {
+				return errObj
+			}
+			sqlStr = fmt.Sprintf("SELECT COUNT(*) FROM %s", tb.TableName)
+			if conditions != "" {
+				sqlStr += " WHERE " + conditions
+			}
+			params = whereParams
+		} else {
+			return newArityError("count", len(methodArgs), 1)
+		}
+
+	case "sum", "avg", "min", "max":
+		// Build aggregate with optional WHERE
+		if len(methodArgs) < 1 || len(methodArgs) > 2 {
+			return newArityError(methodName.Value, len(methodArgs), 1)
+		}
+
+		colName, ok := methodArgs[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0005", methodName.Value, "a string (column name)", methodArgs[0].Type())
+		}
+
+		sqlStr = fmt.Sprintf("SELECT %s(%s) FROM %s", strings.ToUpper(methodName.Value), colName.Value, tb.TableName)
+
+		if len(methodArgs) == 2 {
+			condDict, ok := methodArgs[1].(*Dictionary)
+			if !ok {
+				return newTypeError("TYPE-0005", methodName.Value, "a dictionary", methodArgs[1].Type())
+			}
+			conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+			if errObj != nil {
+				return errObj
+			}
+			if conditions != "" {
+				sqlStr += " WHERE " + conditions
+			}
+			params = whereParams
+		}
+
+	case "first":
+		// Build SELECT with ORDER BY and LIMIT 1
+		var opts *QueryOptions
+		if len(methodArgs) > 0 {
+			if dict, ok := methodArgs[0].(*Dictionary); ok {
+				var parseErr *Error
+				opts, parseErr = parseQueryOptions(dict)
+				if parseErr != nil {
+					return parseErr
+				}
+			}
+		}
+
+		selectCols := buildSelectClause(opts)
+		sqlStr = fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+		sqlStr += buildOrderByClause(opts)
+		sqlStr += " LIMIT 1"
+
+	case "last":
+		// Build SELECT with ORDER BY DESC and LIMIT 1
+		var opts *QueryOptions
+		if len(methodArgs) > 0 {
+			if dict, ok := methodArgs[0].(*Dictionary); ok {
+				var parseErr *Error
+				opts, parseErr = parseQueryOptions(dict)
+				if parseErr != nil {
+					return parseErr
+				}
+			}
+		}
+
+		selectCols := buildSelectClause(opts)
+		sqlStr = fmt.Sprintf("SELECT %s FROM %s", selectCols, tb.TableName)
+		// Reverse ORDER BY directions for last()
+		if opts != nil && len(opts.OrderBy) > 0 {
+			reversedSpecs := make([]OrderSpec, len(opts.OrderBy))
+			for i, spec := range opts.OrderBy {
+				reversedSpecs[i] = OrderSpec{
+					Column: spec.Column,
+					Dir:    reverseDirection(spec.Dir),
+				}
+			}
+			opts.OrderBy = reversedSpecs
+			sqlStr += buildOrderByClause(opts)
+		}
+		sqlStr += " LIMIT 1"
+
+	case "exists":
+		// Build SELECT 1 FROM ... LIMIT 1
+		if len(methodArgs) != 1 {
+			return newArityError("exists", len(methodArgs), 1)
+		}
+
+		condDict, ok := methodArgs[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0005", "exists", "a dictionary", methodArgs[0].Type())
+		}
+
+		conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+		if errObj != nil {
+			return errObj
+		}
+
+		sqlStr = fmt.Sprintf("SELECT 1 FROM %s", tb.TableName)
+		if conditions != "" {
+			sqlStr += " WHERE " + conditions
+		}
+		sqlStr += " LIMIT 1"
+		params = whereParams
+
+	case "findBy":
+		// Build SELECT with custom WHERE and LIMIT 1
+		if len(methodArgs) != 1 {
+			return newArityError("findBy", len(methodArgs), 1)
+		}
+
+		condDict, ok := methodArgs[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0005", "findBy", "a dictionary", methodArgs[0].Type())
+		}
+
+		conditions, whereParams, errObj := tb.buildWhereClause(condDict)
+		if errObj != nil {
+			return errObj
+		}
+
+		sqlStr = fmt.Sprintf("SELECT * FROM %s", tb.TableName)
+		if conditions != "" {
+			sqlStr += " WHERE " + conditions
+		}
+		sqlStr += " LIMIT 1"
+		params = whereParams
+
+	default:
+		return &Error{
+			Message: fmt.Sprintf("toSQL does not support method '%s'", methodName.Value),
+			Class:   ClassType,
+			Code:    "TYPE-0022",
+			Hints:   []string{"Supported methods: all, where, find, count, sum, avg, min, max, first, last, exists, findBy"},
+		}
+	}
+
+	// Build params array
+	paramsArray := &Array{Elements: make([]Object, len(params))}
+	for i, p := range params {
+		// Convert Integer objects to their values for display
+		if intObj, ok := p.(*Integer); ok {
+			paramsArray.Elements[i] = intObj
+		} else {
+			paramsArray.Elements[i] = p
+		}
+	}
+
+	// Return dictionary with sql and params
+	result := &Dictionary{
+		Pairs: make(map[string]ast.Expression),
+		Env:   env,
+	}
+	result.SetKey("sql", objectToExpression(&String{Value: sqlStr}))
+	result.SetKey("params", objectToExpression(paramsArray))
 	return result
 }
 
