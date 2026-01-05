@@ -2972,7 +2972,7 @@ func (p *Parser) parseQueryExpression() ast.Expression {
 					query.Conditions = append(query.Conditions, node)
 				}
 			} else if p.peekTokenIs(lexer.IDENT) {
-				// Peek ahead to determine if this is a computed field (IDENT COLON) or condition
+				// Peek ahead to determine if this is a computed field (IDENT COLON or IDENT <-) or condition
 				// Save complete state for proper backtracking
 				savedCur := p.curToken
 				savedPeek := p.peekToken
@@ -2985,6 +2985,12 @@ func (p *Parser) parseQueryExpression() ast.Expression {
 				if p.peekTokenIs(lexer.COLON) {
 					// This is a computed field: name: function(field)
 					cf := p.parseComputedFieldFromIdent(identToken)
+					if cf != nil {
+						query.ComputedFields = append(query.ComputedFields, cf)
+					}
+				} else if p.peekTokenIs(lexer.ARROW_PULL) {
+					// This is a correlated subquery computed field: name <-Table | | conditions | ?-> aggregate
+					cf := p.parseCorrelatedSubqueryField(identToken, query.SourceAlias)
 					if cf != nil {
 						query.ComputedFields = append(query.ComputedFields, cf)
 					}
@@ -3163,7 +3169,49 @@ func (p *Parser) parseComputedFieldFromIdent(identToken lexer.Token) *ast.QueryC
 	return cf
 }
 
+// parseCorrelatedSubqueryField parses a correlated subquery computed field:
+// name <-Table | | conditions | ?-> aggregate
+// where conditions can reference the outer query alias
+func (p *Parser) parseCorrelatedSubqueryField(identToken lexer.Token, outerAlias *ast.Identifier) *ast.QueryComputedField {
+	cf := &ast.QueryComputedField{
+		Token: identToken,
+		Name:  identToken.Literal,
+	}
+
+	// Current token is the identifier name, peek token should be <-
+	if !p.expectPeek(lexer.ARROW_PULL) {
+		return nil
+	}
+
+	// Parse the subquery, which starts at the <- token
+	subquery := p.parseQuerySubquery()
+	if subquery == nil {
+		return nil
+	}
+
+	cf.Subquery = subquery
+
+	// Extract function from subquery terminal if present
+	if subquery.Terminal != nil && len(subquery.Terminal.Projection) > 0 {
+		proj := subquery.Terminal.Projection[0]
+		switch proj {
+		case "count":
+			cf.Function = "count"
+		case "sum", "avg", "min", "max":
+			// These would be like ?-> sum(field), but our syntax uses ?-> count
+			// For now, treat as scalar projection
+			cf.Function = proj
+		default:
+			// Just a field projection
+			cf.Field = proj
+		}
+	}
+
+	return cf
+}
+
 // parseQueryCondition parses a condition like "field == value" or "field in {values}"
+// Also supports "table.field == value" for correlated subqueries
 func (p *Parser) parseQueryCondition() *ast.QueryCondition {
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
@@ -3171,7 +3219,23 @@ func (p *Parser) parseQueryCondition() *ast.QueryCondition {
 
 	cond := &ast.QueryCondition{
 		Token: p.curToken,
-		Left:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+	}
+
+	// Check if this is a dot expression (table.field for correlated subqueries)
+	if p.peekTokenIs(lexer.DOT) {
+		// Parse as dot expression: table.field
+		left := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		p.nextToken() // consume .
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		cond.Left = &ast.DotExpression{
+			Token: p.curToken,
+			Left:  left,
+			Key:   p.curToken.Literal,
+		}
+	} else {
+		cond.Left = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
 	// Parse operator
@@ -3237,16 +3301,16 @@ func (p *Parser) parseQueryCondition() *ast.QueryCondition {
 			cond.Right = p.parseQuerySubquery()
 		} else {
 			p.nextToken()
-			// Use INDEX precedence to stop before DOT (execute terminal) and OR (pipe delimiter)
-			// This prevents "value." from being parsed as method call when . is the terminal
-			cond.Right = p.parseExpression(INDEX)
+			// Parse the right side value
+			// For correlated subqueries, we may have "outer.field" so we need to handle dot expressions
+			cond.Right = p.parseQueryConditionValue()
 
 			// For "between X and Y", parse the second value after "and"
 			if cond.Operator == "between" {
 				if p.peekTokenIs(lexer.AND) {
 					p.nextToken() // consume "and"
 					p.nextToken() // move to value
-					cond.RightEnd = p.parseExpression(INDEX)
+					cond.RightEnd = p.parseQueryConditionValue()
 				} else {
 					p.addError("expected 'and' after first value in 'between' condition", p.curToken.Line, p.curToken.Column)
 					return nil
@@ -3256,6 +3320,35 @@ func (p *Parser) parseQueryCondition() *ast.QueryCondition {
 	}
 
 	return cond
+}
+
+// parseQueryConditionValue parses the right-hand side of a query condition
+// This handles literals, identifiers, and dot expressions (for correlated subqueries like post.id)
+func (p *Parser) parseQueryConditionValue() ast.Expression {
+	// First parse the base expression with INDEX precedence
+	// This stops before DOT so we can handle it specially
+	left := p.parseExpression(INDEX)
+	if left == nil {
+		return nil
+	}
+
+	// Check if followed by DOT - this could be a property access like "post.id" for correlated subqueries
+	// But NOT if followed by DOT without IDENT (like the terminal ".")
+	if p.peekTokenIs(lexer.DOT) {
+		peekedAhead := p.l.PeekToken()
+		if peekedAhead.Type == lexer.IDENT {
+			// This is a property access - consume and build DotExpression
+			p.nextToken() // consume .
+			p.nextToken() // move to property name
+			return &ast.DotExpression{
+				Token: p.curToken,
+				Left:  left,
+				Key:   p.curToken.Literal,
+			}
+		}
+	}
+
+	return left
 }
 
 // parseQueryConditionExpr parses a complete condition expression after a pipe.
@@ -3631,9 +3724,15 @@ func (p *Parser) parseQuerySubquery() *ast.QuerySubquery {
 
 		p.nextToken() // consume first |
 
+		// Check if this is a terminal (single pipe before ?-> or ??->)
+		if p.peekTokenIs(lexer.RETURN_ONE) || p.peekTokenIs(lexer.RETURN_MANY) {
+			// This is the subquery terminal - don't restore, just break to parse it
+			break
+		}
+
 		// Check for second | to confirm this is a subquery clause
 		if !p.peekTokenIs(lexer.OR) {
-			// Not a double pipe, restore state and break
+			// Not a double pipe and not a terminal, restore state and break
 			p.curToken = savedCur
 			p.peekToken = savedPeek
 			p.l.RestoreState(savedLexerState)
@@ -3641,7 +3740,7 @@ func (p *Parser) parseQuerySubquery() *ast.QuerySubquery {
 		}
 		p.nextToken() // consume second |
 
-		// Check for terminal first - terminals start subquery result
+		// Check for terminal after double pipe (| | ?->)
 		if p.peekTokenIs(lexer.RETURN_ONE) || p.peekTokenIs(lexer.RETURN_MANY) {
 			// Don't consume - let parseQueryTerminal handle it
 			break

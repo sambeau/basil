@@ -2571,3 +2571,139 @@ let Posts = db.bind(Post, "posts")
 		t.Errorf("expected 2 comments with limit, got %d in result: %s", commentCount, output)
 	}
 }
+
+// ============================================================
+// Phase 5: Correlated Subquery Tests
+// ============================================================
+
+// TestCorrelatedSubqueryParsing tests that correlated subquery syntax parses correctly
+func TestCorrelatedSubqueryParsing(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name: "correlated subquery with count",
+			input: `
+@schema Post { id: int, title: string }
+@schema Comment { id: int, post_id: int, body: string }
+Post
+`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parsley.Eval(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestCorrelatedSubqueryBasic tests a basic correlated subquery with count
+func TestCorrelatedSubqueryBasic(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Post {
+    id: int
+    title: string
+}
+
+@schema Comment {
+    id: int
+    post_id: int
+    body: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)"
+let _ = db <=!=> "CREATE TABLE comments (id INTEGER PRIMARY KEY, post_id INTEGER, body TEXT)"
+let _ = db <=!=> "INSERT INTO posts (id, title) VALUES (1, 'Popular Post')"
+let _ = db <=!=> "INSERT INTO posts (id, title) VALUES (2, 'Unpopular Post')"
+let _ = db <=!=> "INSERT INTO posts (id, title) VALUES (3, 'Medium Post')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (1, 1, 'Comment 1')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (2, 1, 'Comment 2')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (3, 1, 'Comment 3')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (4, 3, 'Comment 4')"
+
+let Posts = db.bind(Post, "posts")
+let Comments = db.bind(Comment, "comments")
+
+// Get posts with comment count - using correlated subquery
+@query(Posts as post | comment_count <-comments | | post_id == post.id | ?-> count ??-> *)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Should include all posts with their comment counts
+	if !strings.Contains(output, "Popular Post") || !strings.Contains(output, "Unpopular Post") || !strings.Contains(output, "Medium Post") {
+		t.Errorf("expected all posts in output, got %s", output)
+	}
+	// The comment_count should be present
+	if !strings.Contains(output, "comment_count") {
+		t.Errorf("expected comment_count field in output, got %s", output)
+	}
+}
+
+// TestCorrelatedSubqueryWithFilter tests filtering on correlated subquery result
+func TestCorrelatedSubqueryWithFilter(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Post {
+    id: int
+    title: string
+}
+
+@schema Comment {
+    id: int
+    post_id: int
+    body: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)"
+let _ = db <=!=> "CREATE TABLE comments (id INTEGER PRIMARY KEY, post_id INTEGER, body TEXT)"
+let _ = db <=!=> "INSERT INTO posts (id, title) VALUES (1, 'Popular Post')"
+let _ = db <=!=> "INSERT INTO posts (id, title) VALUES (2, 'Unpopular Post')"
+let _ = db <=!=> "INSERT INTO posts (id, title) VALUES (3, 'Medium Post')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (1, 1, 'Comment 1')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (2, 1, 'Comment 2')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (3, 1, 'Comment 3')"
+let _ = db <=!=> "INSERT INTO comments (id, post_id, body) VALUES (4, 3, 'Comment 4')"
+
+let Posts = db.bind(Post, "posts")
+let Comments = db.bind(Comment, "comments")
+
+// Get posts with more than 1 comment - filter on correlated subquery
+@query(Posts as post | comment_count <-comments | | post_id == post.id | ?-> count | comment_count > 1 ??-> title)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Should only include Popular Post (3 comments) - not Unpopular (0) or Medium (1)
+	if !strings.Contains(output, "Popular Post") {
+		t.Errorf("expected Popular Post in output, got %s", output)
+	}
+	if strings.Contains(output, "Unpopular Post") {
+		t.Errorf("should not include Unpopular Post (0 comments), got %s", output)
+	}
+	if strings.Contains(output, "Medium Post") {
+		t.Errorf("should not include Medium Post (1 comment), got %s", output)
+	}
+}

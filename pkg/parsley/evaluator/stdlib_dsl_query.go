@@ -114,17 +114,31 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	hasComputedFields := len(node.ComputedFields) > 0
 	isAggregation := hasGroupBy || hasComputedFields
 
+	// Check if any computed fields are correlated subqueries
+	hasCorrelatedSubquery := false
+	for _, cf := range node.ComputedFields {
+		if cf.Subquery != nil {
+			hasCorrelatedSubquery = true
+			break
+		}
+	}
+
 	// Determine columns to select
 	var selectCols []string
 
-	if isAggregation {
+	if isAggregation && !hasCorrelatedSubquery {
 		// For aggregation queries, build SELECT from GROUP BY fields and computed fields
 		// First add GROUP BY fields
 		selectCols = append(selectCols, node.GroupBy...)
 
-		// Then add computed fields
+		// Then add computed fields (simple aggregates, no correlated subqueries)
 		for _, cf := range node.ComputedFields {
-			selectCols = append(selectCols, buildComputedFieldSQL(cf))
+			cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			selectCols = append(selectCols, cfSQL)
+			params = append(params, cfParams...)
 		}
 
 		// If terminal specifies projection, filter to only those columns
@@ -134,6 +148,25 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 				// For now, trust the user knows what they're doing
 				// The database will error if columns don't exist
 			}
+		}
+	} else if hasCorrelatedSubquery {
+		// Correlated subquery computed fields: SELECT *, (SELECT ...) AS alias, ...
+		// Start with base columns
+		if node.Terminal != nil && len(node.Terminal.Projection) > 0 &&
+			!(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			selectCols = node.Terminal.Projection
+		} else {
+			selectCols = []string{"*"}
+		}
+
+		// Add correlated subquery computed fields
+		for _, cf := range node.ComputedFields {
+			cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			selectCols = append(selectCols, cfSQL)
+			params = append(params, cfParams...)
 		}
 	} else if node.Terminal != nil && len(node.Terminal.Projection) > 0 {
 		// Check for special projections
@@ -168,19 +201,33 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	}
 
 	// Add user conditions (only non-computed field conditions for WHERE)
-	// Conditions on computed fields become HAVING clauses
+	// Conditions on computed fields become HAVING clauses (or WHERE for correlated subqueries)
 	var havingClauses []string
 	computedFieldNames := make(map[string]bool)
+	correlatedFieldDefs := make(map[string]*ast.QueryComputedField)
 	for _, cf := range node.ComputedFields {
 		computedFieldNames[cf.Name] = true
+		if cf.Subquery != nil {
+			correlatedFieldDefs[cf.Name] = cf
+		}
 	}
 
 	for _, cond := range node.Conditions {
 		// Check if this condition is on a computed field
 		leftName := getConditionLeft(cond)
 
-		if computedFieldNames[leftName] {
-			// This is a HAVING condition (condition on computed field)
+		if correlatedFieldDefs[leftName] != nil {
+			// This is a condition on a correlated subquery field
+			// Generate WHERE clause with inline subquery
+			cf := correlatedFieldDefs[leftName]
+			clause, condParams, err := buildCorrelatedConditionWhereClause(cond, cf, binding.TableName, env, &paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			params = append(params, condParams...)
+			whereClauses = append(whereClauses, clause)
+		} else if computedFieldNames[leftName] {
+			// This is a HAVING condition (condition on non-correlated computed field)
 			clause, condParams, _, _, err := buildConditionNodeSQL(cond, env, &paramIdx)
 			if err != nil {
 				return "", nil, err
@@ -280,9 +327,23 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 }
 
 // buildComputedFieldSQL converts a QueryComputedField to SQL SELECT expression
-func buildComputedFieldSQL(cf *ast.QueryComputedField) string {
+// outerTableName is used for correlated subqueries to qualify column references
+func buildComputedFieldSQL(cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
 	var expr string
+	var params []Object
 
+	// Check for correlated subquery
+	if cf.Subquery != nil {
+		subExpr, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx)
+		if err != nil {
+			return "", nil, err
+		}
+		params = append(params, subParams...)
+		// Return as "(SUBQUERY) as alias"
+		return fmt.Sprintf("(%s) as %s", subExpr, cf.Name), params, nil
+	}
+
+	// Simple computed field (aggregate or field reference)
 	switch cf.Function {
 	case "count":
 		if cf.Field != "" {
@@ -304,7 +365,258 @@ func buildComputedFieldSQL(cf *ast.QueryComputedField) string {
 	}
 
 	// Return as "EXPR as alias"
-	return fmt.Sprintf("%s as %s", expr, cf.Name)
+	return fmt.Sprintf("%s as %s", expr, cf.Name), nil, nil
+}
+
+// buildCorrelatedSubquerySQL builds a correlated subquery that references the outer query
+// Example: SELECT COUNT(*) FROM comments WHERE post_id = posts.id
+func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	var sql strings.Builder
+	var params []Object
+
+	// Get the subquery table name
+	tableName := subquery.Source.Value
+
+	// Determine SELECT clause based on terminal
+	selectExpr := "*"
+	if subquery.Terminal != nil && len(subquery.Terminal.Projection) > 0 {
+		proj := subquery.Terminal.Projection[0]
+		switch proj {
+		case "count":
+			selectExpr = "COUNT(*)"
+		case "sum", "avg", "min", "max":
+			// If we have a field like sum(amount), we'd need to parse it
+			// For now, treat as-is
+			selectExpr = strings.ToUpper(proj) + "(*)"
+		default:
+			selectExpr = proj
+		}
+	}
+
+	sql.WriteString("SELECT ")
+	sql.WriteString(selectExpr)
+	sql.WriteString(" FROM ")
+	sql.WriteString(tableName)
+
+	// Build WHERE clause from conditions
+	// Conditions can reference outer table columns with table.column syntax
+	if len(subquery.Conditions) > 0 {
+		sql.WriteString(" WHERE ")
+		for i, cond := range subquery.Conditions {
+			if i > 0 {
+				// Get logic from the condition
+				logic := "AND"
+				if qc, ok := cond.(*ast.QueryCondition); ok && qc.Logic != "" {
+					logic = strings.ToUpper(qc.Logic)
+				}
+				sql.WriteString(" " + logic + " ")
+			}
+			clause, condParams, err := buildCorrelatedConditionSQL(cond, outerTableName, env, paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			sql.WriteString(clause)
+			params = append(params, condParams...)
+		}
+	}
+
+	// Build ORDER BY, LIMIT from modifiers
+	for _, mod := range subquery.Modifiers {
+		switch mod.Kind {
+		case "order":
+			sql.WriteString(fmt.Sprintf(" ORDER BY %s", strings.Join(mod.Fields, ", ")))
+			if mod.Direction != "" {
+				sql.WriteString(" " + strings.ToUpper(mod.Direction))
+			}
+		case "limit":
+			sql.WriteString(fmt.Sprintf(" LIMIT %d", mod.Value))
+		case "offset":
+			sql.WriteString(fmt.Sprintf(" OFFSET %d", mod.Value))
+		}
+	}
+
+	return sql.String(), params, nil
+}
+
+// buildCorrelatedConditionSQL builds a condition that may reference outer query columns
+// It handles column references like "post.id" which should resolve to the outer table
+func buildCorrelatedConditionSQL(node ast.QueryConditionNode, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	switch cond := node.(type) {
+	case *ast.QueryCondition:
+		return buildCorrelatedCondition(cond, outerTableName, env, paramIdx)
+	case *ast.QueryConditionGroup:
+		// Handle condition groups
+		var parts []string
+		var allParams []Object
+		for i, child := range cond.Conditions {
+			part, partParams, err := buildCorrelatedConditionSQL(child, outerTableName, env, paramIdx)
+			if err != nil {
+				return "", nil, err
+			}
+			if i > 0 {
+				// Get logic from child
+				logic := "AND"
+				if qc, ok := child.(*ast.QueryCondition); ok && qc.Logic != "" {
+					logic = strings.ToUpper(qc.Logic)
+				}
+				parts = append(parts, logic+" "+part)
+			} else {
+				parts = append(parts, part)
+			}
+			allParams = append(allParams, partParams...)
+		}
+		result := "(" + strings.Join(parts, " ") + ")"
+		if cond.Negated {
+			result = "NOT " + result
+		}
+		return result, allParams, nil
+	default:
+		return "", nil, &Error{Message: "unknown condition node type in correlated subquery"}
+	}
+}
+
+// buildCorrelatedCondition builds a single condition with outer table reference support
+func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	var params []Object
+
+	// Get left side - if it's "table.column" and table matches outer, don't parameterize
+	leftStr := ""
+	if ident, ok := cond.Left.(*ast.Identifier); ok {
+		leftStr = ident.Value
+	} else if dotExpr, ok := cond.Left.(*ast.DotExpression); ok {
+		// This is a dot expression like "post.id"
+		if objIdent, ok := dotExpr.Left.(*ast.Identifier); ok {
+			leftStr = objIdent.Value + "." + dotExpr.Key
+		}
+	}
+
+	// Map operator
+	sqlOp := cond.Operator
+	switch cond.Operator {
+	case "==":
+		sqlOp = "="
+	case "!=":
+		sqlOp = "<>"
+	}
+
+	// Get right side - check if it's an outer table reference
+	rightStr := ""
+	switch right := cond.Right.(type) {
+	case *ast.Identifier:
+		// Simple identifier - treat as column in subquery table
+		rightStr = right.Value
+	case *ast.DotExpression:
+		// Dot expression like "post.id" - qualify with outer table
+		if _, ok := right.Left.(*ast.Identifier); ok {
+			// Check if this references the outer table alias
+			// The outer table reference should use the table name, not the alias
+			rightStr = outerTableName + "." + right.Key
+		} else {
+			// Complex property access - try to evaluate
+			val := Eval(right, env)
+			if isError(val) {
+				return "", nil, val.(*Error)
+			}
+			placeholder := fmt.Sprintf("$%d", *paramIdx)
+			*paramIdx++
+			rightStr = placeholder
+			params = append(params, val)
+		}
+	case *ast.IntegerLiteral:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &Integer{Value: right.Value})
+	case *ast.StringLiteral:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &String{Value: right.Value})
+	case *ast.Boolean:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &Boolean{Value: right.Value})
+	default:
+		// Try to evaluate as expression
+		val := Eval(right, env)
+		if isError(val) {
+			return "", nil, val.(*Error)
+		}
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, val)
+	}
+
+	result := fmt.Sprintf("%s %s %s", leftStr, sqlOp, rightStr)
+	if cond.Negated {
+		result = "NOT " + result
+	}
+	return result, params, nil
+}
+
+// buildCorrelatedConditionWhereClause builds a WHERE clause condition for a correlated subquery field
+// Example: (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) > 5
+func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+	qc, ok := cond.(*ast.QueryCondition)
+	if !ok {
+		return "", nil, &Error{Message: "correlated subquery conditions must be simple conditions"}
+	}
+
+	// Build the subquery SQL
+	subSQL, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Map operator
+	sqlOp := qc.Operator
+	switch qc.Operator {
+	case "==":
+		sqlOp = "="
+	case "!=":
+		sqlOp = "<>"
+	}
+
+	// Get right side value
+	var rightStr string
+	var params []Object
+	params = append(params, subParams...)
+
+	switch right := qc.Right.(type) {
+	case *ast.IntegerLiteral:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &Integer{Value: right.Value})
+	case *ast.StringLiteral:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &String{Value: right.Value})
+	case *ast.Boolean:
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, &Boolean{Value: right.Value})
+	default:
+		// Try to evaluate as expression
+		val := Eval(right, env)
+		if isError(val) {
+			return "", nil, val.(*Error)
+		}
+		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		rightStr = placeholder
+		params = append(params, val)
+	}
+
+	result := fmt.Sprintf("(%s) %s %s", subSQL, sqlOp, rightStr)
+	if qc.Negated {
+		result = "NOT " + result
+	}
+	return result, params, nil
 }
 
 // buildConditionNodeSQL converts a QueryConditionNode (either QueryCondition or QueryConditionGroup) to SQL

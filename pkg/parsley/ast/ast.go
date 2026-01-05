@@ -1540,11 +1540,15 @@ func (rp *RelationPath) String() string {
 }
 
 // QueryComputedField represents a computed/aggregate field like "total: sum(amount)"
+// or a correlated subquery like "comments <-Comments | | post_id == post.id | ?-> count"
 type QueryComputedField struct {
 	Token    lexer.Token // the identifier token
-	Name     string      // alias name (e.g., "total")
+	Name     string      // alias name (e.g., "total" or "comments")
 	Function string      // aggregate function ("count", "sum", "avg", "min", "max") or empty for plain field
 	Field    string      // field to aggregate (e.g., "amount") - empty for count without field
+
+	// For correlated subqueries: name <-Table | | conditions | ?-> aggregate
+	Subquery *QuerySubquery // optional subquery (if present, Function/Field come from Subquery.Terminal)
 }
 
 func (qc *QueryComputedField) expressionNode()      {}
@@ -1552,16 +1556,22 @@ func (qc *QueryComputedField) TokenLiteral() string { return qc.Token.Literal }
 func (qc *QueryComputedField) String() string {
 	var out bytes.Buffer
 	out.WriteString(qc.Name)
-	out.WriteString(": ")
-	if qc.Function != "" {
-		out.WriteString(qc.Function)
-		if qc.Field != "" {
-			out.WriteString("(")
-			out.WriteString(qc.Field)
-			out.WriteString(")")
-		}
+	if qc.Subquery != nil {
+		// Correlated subquery format: name <-Table | | conditions | ?-> aggregate
+		out.WriteString(" ")
+		out.WriteString(qc.Subquery.String())
 	} else {
-		out.WriteString(qc.Field)
+		out.WriteString(": ")
+		if qc.Function != "" {
+			out.WriteString(qc.Function)
+			if qc.Field != "" {
+				out.WriteString("(")
+				out.WriteString(qc.Field)
+				out.WriteString(")")
+			}
+		} else {
+			out.WriteString(qc.Field)
+		}
 	}
 	return out.String()
 }

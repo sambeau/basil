@@ -17,7 +17,7 @@ updated: 2026-01-04
 | Phase 2 | Logical Grouping and NOT | ✅ Complete | 2026-01-04 |
 | Phase 3 | Nested Relations | ✅ Complete | 2026-01-04 |
 | Phase 4 | Conditional Relations | ✅ Complete | 2026-01-04 |
-| Phase 5 | Correlated Subqueries | ⏸️ Deferred (High Complexity) | - |
+| Phase 5 | Correlated Subqueries | ✅ Complete | 2026-01-04 |
 | Phase 6 | CTEs | ⏸️ Deferred (High Complexity) | - |
 | Phase 7 | Join-like Subqueries | ⏸️ Deferred (High Complexity) | - |
 | Phase 8 | Documentation | ✅ Complete | 2026-01-04 |
@@ -27,10 +27,11 @@ updated: 2026-01-04
 - Parenthesized grouping: `| (a or b) and c`
 - Nested relations: `| with comments.author`
 - Conditional relations: `| with comments(approved == 1 | order created_at desc | limit 5)`
+- Correlated subqueries: `| comment_count <-comments | | post_id == post.id | ?-> count`
 
 **Deferred to Backlog:**
 - Phase 1: Foundational change affecting entire DSL, needs careful design
-- Phases 5-7: HIGH complexity (3-4+ days each), recommend incremental approach
+- Phases 6-7: HIGH complexity (3-4+ days each), recommend incremental approach
 
 ---
 
