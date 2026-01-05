@@ -459,6 +459,8 @@ let userData = {name: "Charlie", email: "charlie@test.com"}
 
 ### Transactions
 
+Wrap multiple operations in `@transaction` for atomic execution:
+
 ```parsley
 @transaction {
     let user = @insert(Users |< name: "Alice" ?-> *)
@@ -466,6 +468,34 @@ let userData = {name: "Charlie", email: "charlie@test.com"}
     user
 }
 ```
+
+**Return value:** The last expression in the block (in this case, `user`).
+
+**Error handling:** If any operation fails, the entire transaction is rolled back and an error is returned:
+
+```parsley
+let result = @transaction {
+    let author = @insert(Users |< name: "Alice" .)
+    @insert(Posts |< title: "Hello", user_id: author.id .)
+}
+
+if (result.error?) {
+    // Transaction was rolled back
+    <p>"Failed: {result.message}"</p>
+} else {
+    // Success - result is the inserted Post
+    <p>"Created post: {result.title}"</p>
+}
+```
+
+**Transaction error codes:**
+
+| Code | Meaning |
+|------|---------|
+| `DB-0012` | No database operation found in transaction |
+| `DB-0013` | Nested transactions not supported |
+| `DB-0014` | Failed to begin transaction |
+| `DB-0015` | Commit failed |
 
 ## Complete Example
 
