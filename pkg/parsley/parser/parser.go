@@ -2910,116 +2910,153 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 }
 
 // parseQueryExpression parses @query(source | conditions + by group ??-> projection)
+// Also supports CTEs: @query(Source as name | conditions ??-> cols  MainSource | conditions ??-> *)
 func (p *Parser) parseQueryExpression() ast.Expression {
 	query := &ast.QueryExpression{Token: p.curToken}
+	query.CTEs = []*ast.QueryCTE{}
 
 	// Expect opening paren
 	if !p.expectPeek(lexer.LPAREN) {
 		return nil
 	}
 
-	// Expect source identifier
-	if !p.expectPeek(lexer.IDENT) {
-		return nil
-	}
-	query.Source = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	// Check for alias "as alias"
-	if p.peekTokenIs(lexer.AS) {
-		p.nextToken() // consume as
+	// Parse query blocks - CTEs followed by main query
+	// A block with "Source as alias" followed by more content is a CTE
+	// The final block (with or without alias) is the main query
+	for {
+		// Expect source identifier
 		if !p.expectPeek(lexer.IDENT) {
 			return nil
 		}
-		query.SourceAlias = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	}
+		sourceIdent := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	// Parse conditions, modifiers, group by, and computed fields
-	query.Conditions = []ast.QueryConditionNode{}
-	query.Modifiers = []*ast.QueryModifier{}
-	query.ComputedFields = []*ast.QueryComputedField{}
-
-	// Main parsing loop for query clauses
-	for {
-		// Check for GROUP BY: + by
-		if p.peekTokenIs(lexer.PLUS) {
-			p.nextToken() // consume +
-			if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "by" {
-				p.nextToken() // consume "by"
-				query.GroupBy = p.parseGroupByFields()
-				continue
-			} else {
-				// Not a GROUP BY, error
-				p.addError("expected 'by' after '+' in query", p.peekToken.Line, p.peekToken.Column)
+		// Check for alias "as alias"
+		var aliasIdent *ast.Identifier
+		if p.peekTokenIs(lexer.AS) {
+			p.nextToken() // consume as
+			if !p.expectPeek(lexer.IDENT) {
 				return nil
 			}
+			aliasIdent = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 		}
 
-		// Check for pipe-based clauses
-		if p.peekTokenIs(lexer.OR) {
-			p.nextToken() // consume |
+		// Parse conditions, modifiers, group by, and computed fields for this block
+		conditions := []ast.QueryConditionNode{}
+		modifiers := []*ast.QueryModifier{}
+		computedFields := []*ast.QueryComputedField{}
+		var groupBy []string
 
-			// Check if this is a modifier (order, limit, with)
-			if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
-				mod := p.parseQueryModifier()
-				if mod != nil {
-					query.Modifiers = append(query.Modifiers, mod)
-				}
-			} else if p.peekTokenIs(lexer.LPAREN) || p.peekTokenIs(lexer.BANG) {
-				// This is a condition group or NOT-prefixed condition
-				// Note: "not" keyword is tokenized as BANG
-				node := p.parseQueryConditionExpr()
-				if node != nil {
-					query.Conditions = append(query.Conditions, node)
-				}
-			} else if p.peekTokenIs(lexer.IDENT) {
-				// Peek ahead to determine if this is a computed field (IDENT COLON or IDENT <-) or condition
-				// Save complete state for proper backtracking
-				savedCur := p.curToken
-				savedPeek := p.peekToken
-				savedLexerState := p.l.SaveState()
-
-				// Consume the identifier to check what follows
-				p.nextToken() // now curToken is the IDENT
-				identToken := p.curToken
-
-				if p.peekTokenIs(lexer.COLON) {
-					// This is a computed field: name: function(field)
-					cf := p.parseComputedFieldFromIdent(identToken)
-					if cf != nil {
-						query.ComputedFields = append(query.ComputedFields, cf)
-					}
-				} else if p.peekTokenIs(lexer.ARROW_PULL) {
-					// This is a correlated subquery computed field: name <-Table | | conditions | ?-> aggregate
-					cf := p.parseCorrelatedSubqueryField(identToken, query.SourceAlias)
-					if cf != nil {
-						query.ComputedFields = append(query.ComputedFields, cf)
-					}
+		// Main parsing loop for query clauses
+		for {
+			// Check for GROUP BY: + by
+			if p.peekTokenIs(lexer.PLUS) {
+				p.nextToken() // consume +
+				if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "by" {
+					p.nextToken() // consume "by"
+					groupBy = p.parseGroupByFields()
+					continue
 				} else {
-					// This is a condition - restore complete state and parse as condition
-					p.curToken = savedCur
-					p.peekToken = savedPeek
-					p.l.RestoreState(savedLexerState)
-					node := p.parseQueryConditionExpr()
-					if node != nil {
-						query.Conditions = append(query.Conditions, node)
-					}
-				}
-			} else {
-				// Parse condition (for other cases)
-				node := p.parseQueryConditionExpr()
-				if node != nil {
-					query.Conditions = append(query.Conditions, node)
+					// Not a GROUP BY, error
+					p.addError("expected 'by' after '+' in query", p.peekToken.Line, p.peekToken.Column)
+					return nil
 				}
 			}
+
+			// Check for pipe-based clauses
+			if p.peekTokenIs(lexer.OR) {
+				p.nextToken() // consume |
+
+				// Check if this is a modifier (order, limit, with)
+				if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+					mod := p.parseQueryModifier()
+					if mod != nil {
+						modifiers = append(modifiers, mod)
+					}
+				} else if p.peekTokenIs(lexer.LPAREN) || p.peekTokenIs(lexer.BANG) {
+					// This is a condition group or NOT-prefixed condition
+					// Note: "not" keyword is tokenized as BANG
+					node := p.parseQueryConditionExpr()
+					if node != nil {
+						conditions = append(conditions, node)
+					}
+				} else if p.peekTokenIs(lexer.IDENT) {
+					// Peek ahead to determine if this is a computed field (IDENT COLON or IDENT <-) or condition
+					// Save complete state for proper backtracking
+					savedCur := p.curToken
+					savedPeek := p.peekToken
+					savedLexerState := p.l.SaveState()
+
+					// Consume the identifier to check what follows
+					p.nextToken() // now curToken is the IDENT
+					identToken := p.curToken
+
+					if p.peekTokenIs(lexer.COLON) {
+						// This is a computed field: name: function(field)
+						cf := p.parseComputedFieldFromIdent(identToken)
+						if cf != nil {
+							computedFields = append(computedFields, cf)
+						}
+					} else if p.peekTokenIs(lexer.ARROW_PULL) {
+						// This is a correlated subquery computed field: name <-Table | | conditions | ?-> aggregate
+						cf := p.parseCorrelatedSubqueryField(identToken, aliasIdent)
+						if cf != nil {
+							computedFields = append(computedFields, cf)
+						}
+					} else {
+						// This is a condition - restore complete state and parse as condition
+						p.curToken = savedCur
+						p.peekToken = savedPeek
+						p.l.RestoreState(savedLexerState)
+						node := p.parseQueryConditionExpr()
+						if node != nil {
+							conditions = append(conditions, node)
+						}
+					}
+				} else {
+					// Parse condition (for other cases)
+					node := p.parseQueryConditionExpr()
+					if node != nil {
+						conditions = append(conditions, node)
+					}
+				}
+				continue
+			}
+
+			// No more clauses to parse
+			break
+		}
+
+		// Parse terminal
+		terminal := p.parseQueryTerminal()
+
+		// Check if this is a CTE or the main query
+		// A CTE has an alias and is followed by another IDENT (the next query block)
+		// After parsing terminal, peek to see if there's another IDENT
+		if aliasIdent != nil && p.peekTokenIs(lexer.IDENT) {
+			// This is a CTE - save it and continue to parse the next block
+			cte := &ast.QueryCTE{
+				Token:      sourceIdent.Token,
+				Name:       aliasIdent.Value,
+				Source:     sourceIdent,
+				Conditions: conditions,
+				Modifiers:  modifiers,
+				Terminal:   terminal,
+			}
+			query.CTEs = append(query.CTEs, cte)
+			// Continue to parse the next block
 			continue
 		}
 
-		// No more clauses to parse
+		// This is the main query
+		query.Source = sourceIdent
+		query.SourceAlias = aliasIdent
+		query.Conditions = conditions
+		query.Modifiers = modifiers
+		query.GroupBy = groupBy
+		query.ComputedFields = computedFields
+		query.Terminal = terminal
 		break
 	}
-
-	// Parse terminal
-	query.Terminal = p.parseQueryTerminal()
 
 	// Expect closing paren
 	if !p.expectPeek(lexer.RPAREN) {

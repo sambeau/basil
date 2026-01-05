@@ -4,7 +4,7 @@ feature: FEAT-079
 title: "Implementation Plan: Query DSL Design Alignment"
 status: in-progress
 created: 2026-01-04
-updated: 2026-01-04
+updated: 2026-01-05
 ---
 
 # Implementation Plan: FEAT-079 Query DSL Design Alignment
@@ -18,7 +18,7 @@ updated: 2026-01-04
 | Phase 3 | Nested Relations | ✅ Complete | 2026-01-04 |
 | Phase 4 | Conditional Relations | ✅ Complete | 2026-01-04 |
 | Phase 5 | Correlated Subqueries | ✅ Complete | 2026-01-04 |
-| Phase 6 | CTEs | ⏸️ Deferred (High Complexity) | - |
+| Phase 6 | CTEs | ✅ Complete | 2026-01-05 |
 | Phase 7 | Join-like Subqueries | ⏸️ Deferred (High Complexity) | - |
 | Phase 8 | Documentation | ✅ Complete | 2026-01-04 |
 
@@ -28,10 +28,11 @@ updated: 2026-01-04
 - Nested relations: `| with comments.author`
 - Conditional relations: `| with comments(approved == 1 | order created_at desc | limit 5)`
 - Correlated subqueries: `| comment_count <-comments | | post_id == post.id | ?-> count`
+- CTEs (Named Subqueries): `Tags as food_tags | topic == "food" ??-> name  Posts | tags in food_tags ??-> *`
 
 **Deferred to Backlog:**
 - Phase 1: Foundational change affecting entire DSL, needs careful design
-- Phases 6-7: HIGH complexity (3-4+ days each), recommend incremental approach
+- Phase 7: HIGH complexity (2-3+ days), requires LATERAL JOIN semantics
 
 ---
 

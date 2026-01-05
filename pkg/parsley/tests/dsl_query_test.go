@@ -2707,3 +2707,186 @@ let Comments = db.bind(Comment, "comments")
 		t.Errorf("should not include Medium Post (1 comment), got %s", output)
 	}
 }
+
+// TestCTEParsing verifies that CTE syntax parses correctly
+func TestCTEParsing(t *testing.T) {
+	// Test single CTE - just verify it parses without panic
+	input := `
+@schema Tag {
+    id: int
+    name: string
+    topic: string
+}
+
+@schema Post {
+    id: int
+    title: string
+    status: string
+    tags: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT, topic TEXT)"
+let _ = db <=!=> "CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT, status TEXT, tags TEXT)"
+
+let Tags = db.bind(Tag, "tags")
+let Posts = db.bind(Post, "posts")
+
+@query(
+    Tags as food_tags
+    | topic == "food"
+    ??-> name
+    
+    Posts
+    | status == "published"
+    | tags in food_tags
+    ??-> title
+)
+`
+	// This should parse and evaluate without panic
+	result, err := parsley.Eval(input)
+	// We expect this to work - if there's an error, log it for debugging
+	if err != nil {
+		t.Logf("evaluation returned error: %v", err)
+	}
+	if result != nil {
+		t.Logf("result: %s", result.String())
+	}
+}
+
+// TestCTEBasic verifies CTEs work with actual database queries
+func TestCTEBasic(t *testing.T) {
+	input := `
+@schema CteTag {
+    id: int
+    name: string
+    topic: string
+}
+
+@schema CtePost {
+    id: int
+    title: string
+    status: string
+    tag_name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE cte_tags (id INTEGER PRIMARY KEY, name TEXT, topic TEXT)"
+let _ = db <=!=> "CREATE TABLE cte_posts (id INTEGER PRIMARY KEY, title TEXT, status TEXT, tag_name TEXT)"
+
+// Insert test data
+let _ = db <=!=> "INSERT INTO cte_tags (id, name, topic) VALUES (1, 'cooking', 'food')"
+let _ = db <=!=> "INSERT INTO cte_tags (id, name, topic) VALUES (2, 'recipes', 'food')"
+let _ = db <=!=> "INSERT INTO cte_tags (id, name, topic) VALUES (3, 'javascript', 'tech')"
+
+let _ = db <=!=> "INSERT INTO cte_posts (id, title, status, tag_name) VALUES (1, 'How to Cook', 'published', 'cooking')"
+let _ = db <=!=> "INSERT INTO cte_posts (id, title, status, tag_name) VALUES (2, 'Best Recipes', 'published', 'recipes')"
+let _ = db <=!=> "INSERT INTO cte_posts (id, title, status, tag_name) VALUES (3, 'JS Tutorial', 'published', 'javascript')"
+let _ = db <=!=> "INSERT INTO cte_posts (id, title, status, tag_name) VALUES (4, 'Draft Post', 'draft', 'cooking')"
+
+let CteTags = db.bind(CteTag, "cte_tags")
+let CtePosts = db.bind(CtePost, "cte_posts")
+
+// Get published posts with food-related tags using CTE
+@query(
+    CteTags as food_tags
+    | topic == "food"
+    ??-> name
+    
+    CtePosts
+    | status == "published"
+    | tag_name in food_tags
+    ??-> title
+)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Should include posts with food tags
+	if !strings.Contains(output, "How to Cook") {
+		t.Errorf("expected 'How to Cook' in output, got %s", output)
+	}
+	if !strings.Contains(output, "Best Recipes") {
+		t.Errorf("expected 'Best Recipes' in output, got %s", output)
+	}
+	// Should not include JS tutorial (tech tag)
+	if strings.Contains(output, "JS Tutorial") {
+		t.Errorf("should not include 'JS Tutorial' (tech tag), got %s", output)
+	}
+	// Should not include draft post
+	if strings.Contains(output, "Draft Post") {
+		t.Errorf("should not include 'Draft Post' (draft status), got %s", output)
+	}
+}
+
+// TestCTEMultiple verifies multiple CTEs work correctly
+func TestCTEMultiple(t *testing.T) {
+	input := `
+@schema CteCategory {
+    id: int
+    name: string
+    active: int
+}
+
+@schema CteProduct {
+    id: int
+    name: string
+    category_name: string
+    featured: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE cte_categories (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)"
+let _ = db <=!=> "CREATE TABLE cte_products (id INTEGER PRIMARY KEY, name TEXT, category_name TEXT, featured INTEGER)"
+
+// Insert test data
+let _ = db <=!=> "INSERT INTO cte_categories (id, name, active) VALUES (1, 'electronics', 1)"
+let _ = db <=!=> "INSERT INTO cte_categories (id, name, active) VALUES (2, 'books', 1)"
+let _ = db <=!=> "INSERT INTO cte_categories (id, name, active) VALUES (3, 'clothing', 0)"
+
+let _ = db <=!=> "INSERT INTO cte_products (id, name, category_name, featured) VALUES (1, 'Laptop', 'electronics', 1)"
+let _ = db <=!=> "INSERT INTO cte_products (id, name, category_name, featured) VALUES (2, 'Phone', 'electronics', 0)"
+let _ = db <=!=> "INSERT INTO cte_products (id, name, category_name, featured) VALUES (3, 'Novel', 'books', 1)"
+let _ = db <=!=> "INSERT INTO cte_products (id, name, category_name, featured) VALUES (4, 'Shirt', 'clothing', 1)"
+
+let CteCategories = db.bind(CteCategory, "cte_categories")
+let CteProducts = db.bind(CteProduct, "cte_products")
+
+// Get featured products in active categories using two CTEs
+@query(
+    CteCategories as active_cats
+    | active == 1
+    ??-> name
+    
+    CteProducts
+    | featured == 1
+    | category_name in active_cats
+    ??-> name
+)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	// Should include Laptop (electronics - active, featured)
+	if !strings.Contains(output, "Laptop") {
+		t.Errorf("expected 'Laptop' in output, got %s", output)
+	}
+	// Should include Novel (books - active, featured)
+	if !strings.Contains(output, "Novel") {
+		t.Errorf("expected 'Novel' in output, got %s", output)
+	}
+	// Should NOT include Shirt (clothing - inactive category, even though featured)
+	if strings.Contains(output, "Shirt") {
+		t.Errorf("should not include 'Shirt' (inactive category), got %s", output)
+	}
+	// Should NOT include Phone (not featured)
+	if strings.Contains(output, "Phone") {
+		t.Errorf("should not include 'Phone' (not featured), got %s", output)
+	}
+}

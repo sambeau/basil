@@ -1325,6 +1325,7 @@ func (sf *SchemaField) String() string {
 // QueryExpression represents @query(source | conditions ??-> projection) expressions
 type QueryExpression struct {
 	Token          lexer.Token           // the QUERY_LITERAL token
+	CTEs           []*QueryCTE           // Common Table Expressions (WITH clause)
 	Source         *Identifier           // binding/table name
 	SourceAlias    *Identifier           // optional alias from "as alias"
 	Conditions     []QueryConditionNode  // WHERE conditions (can be QueryCondition or QueryConditionGroup)
@@ -1334,11 +1335,54 @@ type QueryExpression struct {
 	Terminal       *QueryTerminal        // return type and projection
 }
 
+// QueryCTE represents a Common Table Expression (WITH clause subquery)
+// Syntax: Source as Name | conditions ??-> projection
+type QueryCTE struct {
+	Token      lexer.Token          // position of the CTE
+	Name       string               // CTE name (alias) - e.g., "food_tags"
+	Source     *Identifier          // binding/table name - e.g., "Tags"
+	Conditions []QueryConditionNode // WHERE conditions
+	Modifiers  []*QueryModifier     // ORDER BY, LIMIT, etc.
+	Terminal   *QueryTerminal       // projection (what columns to return)
+}
+
+func (cte *QueryCTE) expressionNode()      {}
+func (cte *QueryCTE) TokenLiteral() string { return cte.Token.Literal }
+func (cte *QueryCTE) String() string {
+	var out bytes.Buffer
+	out.WriteString(cte.Source.Value)
+	out.WriteString(" as ")
+	out.WriteString(cte.Name)
+	for _, c := range cte.Conditions {
+		out.WriteString(" | ")
+		out.WriteString(c.ConditionString())
+	}
+	for _, m := range cte.Modifiers {
+		out.WriteString(" | ")
+		out.WriteString(m.String())
+	}
+	if cte.Terminal != nil {
+		out.WriteString(" ")
+		out.WriteString(cte.Terminal.String())
+	}
+	return out.String()
+}
+
 func (qe *QueryExpression) expressionNode()      {}
 func (qe *QueryExpression) TokenLiteral() string { return qe.Token.Literal }
 func (qe *QueryExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString("@query(")
+
+	// Output CTEs first
+	for i, cte := range qe.CTEs {
+		if i > 0 {
+			out.WriteString("\n\n")
+		}
+		out.WriteString(cte.String())
+		out.WriteString("\n\n")
+	}
+
 	out.WriteString(qe.Source.Value)
 	if qe.SourceAlias != nil {
 		out.WriteString(" as ")
@@ -1610,6 +1654,17 @@ func (qs *QuerySubquery) String() string {
 	}
 	return out.String()
 }
+
+// QueryCTERef represents a reference to a CTE in a condition (e.g., "tags in food_tags")
+// This is used when a bare identifier references a CTE name
+type QueryCTERef struct {
+	Token lexer.Token // the identifier token
+	Name  string      // CTE name being referenced
+}
+
+func (cr *QueryCTERef) expressionNode()      {}
+func (cr *QueryCTERef) TokenLiteral() string { return cr.Token.Literal }
+func (cr *QueryCTERef) String() string       { return cr.Name }
 
 // QueryTerminal represents the return type and projection of a query
 type QueryTerminal struct {

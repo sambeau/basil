@@ -109,6 +109,34 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	var params []Object
 	paramIdx := 1
 
+	// Build CTE names map for resolving CTE references in conditions
+	// We build this incrementally as we process CTEs, so earlier CTEs can be referenced by later ones
+	cteNames := make(map[string]*ast.QueryCTE)
+
+	// Build WITH clause from CTEs
+	if len(node.CTEs) > 0 {
+		sql.WriteString("WITH ")
+		for i, cte := range node.CTEs {
+			if i > 0 {
+				sql.WriteString(", ")
+			}
+			// Pass the CTEs defined so far, so later CTEs can reference earlier ones
+			cteSql, cteParams, err := buildCTESQL(cte, env, &paramIdx, cteNames)
+			if err != nil {
+				return "", nil, err
+			}
+			sql.WriteString(cte.Name)
+			sql.WriteString(" AS (")
+			sql.WriteString(cteSql)
+			sql.WriteString(")")
+			params = append(params, cteParams...)
+
+			// Add this CTE to the map for subsequent CTEs and the main query
+			cteNames[cte.Name] = cte
+		}
+		sql.WriteString(" ")
+	}
+
 	// Check if this is an aggregation query (has GROUP BY or computed fields)
 	hasGroupBy := len(node.GroupBy) > 0
 	hasComputedFields := len(node.ComputedFields) > 0
@@ -228,7 +256,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 			whereClauses = append(whereClauses, clause)
 		} else if computedFieldNames[leftName] {
 			// This is a HAVING condition (condition on non-correlated computed field)
-			clause, condParams, _, _, err := buildConditionNodeSQL(cond, env, &paramIdx)
+			clause, condParams, _, _, err := buildConditionNodeSQLWithCTEs(cond, env, &paramIdx, cteNames)
 			if err != nil {
 				return "", nil, err
 			}
@@ -236,7 +264,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 			havingClauses = append(havingClauses, clause)
 		} else {
 			// This is a WHERE condition
-			clause, condParams, logic, _, err := buildConditionNodeSQL(cond, env, &paramIdx)
+			clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(cond, env, &paramIdx, cteNames)
 			if err != nil {
 				return "", nil, err
 			}
@@ -326,11 +354,101 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	return sql.String(), params, nil
 }
 
+// buildCTESQL builds a SELECT statement for a Common Table Expression
+// cteNames contains CTEs defined before this one, for inter-CTE references
+func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, *Error) {
+	var sql strings.Builder
+	var params []Object
+
+	// Get the source table name - resolve from environment if it's a binding
+	tableName := cte.Source.Value
+	sourceObj, ok := env.Get(tableName)
+	if ok {
+		if binding, isBinding := sourceObj.(*TableBinding); isBinding {
+			tableName = binding.TableName
+		}
+	}
+
+	// Determine columns to select
+	var selectCols []string
+	if cte.Terminal != nil && len(cte.Terminal.Projection) > 0 {
+		selectCols = cte.Terminal.Projection
+	} else {
+		selectCols = []string{"*"}
+	}
+
+	// Build SELECT clause
+	sql.WriteString("SELECT ")
+	sql.WriteString(strings.Join(selectCols, ", "))
+	sql.WriteString(" FROM ")
+	sql.WriteString(tableName)
+
+	// Build WHERE clause from conditions (use CTE-aware version)
+	var whereClauses []string
+	for _, cond := range cte.Conditions {
+		clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(cond, env, paramIdx, cteNames)
+		if err != nil {
+			return "", nil, err
+		}
+		params = append(params, condParams...)
+
+		if len(whereClauses) == 0 || logic == "" {
+			whereClauses = append(whereClauses, clause)
+		} else {
+			// Combine with previous using AND/OR
+			logicStr := strings.ToUpper(logic)
+			if logicStr != "AND" && logicStr != "OR" {
+				logicStr = "AND"
+			}
+			lastIdx := len(whereClauses) - 1
+			whereClauses[lastIdx] = fmt.Sprintf("(%s %s %s)", whereClauses[lastIdx], logicStr, clause)
+		}
+	}
+
+	if len(whereClauses) > 0 {
+		sql.WriteString(" WHERE ")
+		sql.WriteString(strings.Join(whereClauses, " AND "))
+	}
+
+	// Build ORDER BY, LIMIT from modifiers
+	var orderBy []string
+	var limit int64
+	hasLimit := false
+
+	for _, mod := range cte.Modifiers {
+		switch mod.Kind {
+		case "order":
+			for _, field := range mod.Fields {
+				orderSpec := field
+				if mod.Direction != "" {
+					orderSpec += " " + strings.ToUpper(mod.Direction)
+				}
+				orderBy = append(orderBy, orderSpec)
+			}
+		case "limit":
+			limit = mod.Value
+			hasLimit = true
+		}
+	}
+
+	if len(orderBy) > 0 {
+		sql.WriteString(" ORDER BY ")
+		sql.WriteString(strings.Join(orderBy, ", "))
+	}
+
+	if hasLimit {
+		sql.WriteString(fmt.Sprintf(" LIMIT %d", limit))
+	}
+
+	return sql.String(), params, nil
+}
+
 // buildComputedFieldSQL converts a QueryComputedField to SQL SELECT expression
 // outerTableName is used for correlated subqueries to qualify column references
 func buildComputedFieldSQL(cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
 	var expr string
 	var params []Object
+
 
 	// Check for correlated subquery
 	if cf.Subquery != nil {
@@ -678,6 +796,185 @@ func buildConditionGroupSQL(group *ast.QueryConditionGroup, env *Environment, pa
 		result = "NOT " + result
 	}
 	return result, params, nil
+}
+
+// buildConditionNodeSQLWithCTEs is like buildConditionNodeSQL but handles CTE references
+func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, string, bool, *Error) {
+	switch cond := node.(type) {
+	case *ast.QueryCondition:
+		clause, params, err := buildConditionSQLWithCTEs(cond, env, paramIdx, cteNames)
+		if err != nil {
+			return "", nil, "", false, err
+		}
+		// Handle negation
+		if cond.Negated {
+			clause = "NOT " + clause
+		}
+		return clause, params, cond.Logic, cond.Negated, nil
+	case *ast.QueryConditionGroup:
+		clause, params, err := buildConditionGroupSQLWithCTEs(cond, env, paramIdx, cteNames)
+		if err != nil {
+			return "", nil, "", false, err
+		}
+		return clause, params, cond.Logic, cond.Negated, nil
+	default:
+		return "", nil, "", false, &Error{
+			Message: fmt.Sprintf("unknown condition node type: %T", node),
+			Class:   ClassParse,
+			Code:    "SYN-0099",
+		}
+	}
+}
+
+// buildConditionGroupSQLWithCTEs is like buildConditionGroupSQL but handles CTE references
+func buildConditionGroupSQLWithCTEs(group *ast.QueryConditionGroup, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, *Error) {
+	var params []Object
+	var clauses []string
+
+	for i, node := range group.Conditions {
+		clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(node, env, paramIdx, cteNames)
+		if err != nil {
+			return "", nil, err
+		}
+		params = append(params, condParams...)
+
+		if i == 0 {
+			clauses = append(clauses, clause)
+		} else {
+			// Use logic from the condition/group to combine with previous
+			logicStr := "AND"
+			if logic != "" {
+				logicStr = strings.ToUpper(logic)
+			}
+			clauses = append(clauses, fmt.Sprintf("%s %s", logicStr, clause))
+		}
+	}
+
+	// Wrap in parentheses and optionally negate
+	result := "(" + strings.Join(clauses, " ") + ")"
+	if group.Negated {
+		result = "NOT " + result
+	}
+	return result, params, nil
+}
+
+// buildConditionSQLWithCTEs is like buildConditionSQL but handles CTE references
+// When the right side is an identifier that matches a CTE name, it generates a subquery reference
+func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, *Error) {
+	var params []Object
+
+	// Get the column name from the left side
+	leftStr := ""
+	if ident, ok := cond.Left.(*ast.Identifier); ok {
+		leftStr = ident.Value
+	} else {
+		leftStr = cond.Left.String()
+	}
+
+	// Handle different operators
+	switch cond.Operator {
+	case "is null":
+		return fmt.Sprintf("%s IS NULL", leftStr), nil, nil
+	case "is not null":
+		return fmt.Sprintf("%s IS NOT NULL", leftStr), nil, nil
+	case "between":
+		// Handle "between X and Y"
+		if cond.Right == nil || cond.RightEnd == nil {
+			return "", nil, &Error{
+				Message: "between operator requires two values",
+				Class:   ClassParse,
+				Code:    "SYN-0003",
+			}
+		}
+		startVal := Eval(cond.Right, env)
+		if isError(startVal) {
+			return "", nil, startVal.(*Error)
+		}
+		endVal := Eval(cond.RightEnd, env)
+		if isError(endVal) {
+			return "", nil, endVal.(*Error)
+		}
+		startPlaceholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		endPlaceholder := fmt.Sprintf("$%d", *paramIdx)
+		*paramIdx++
+		params = append(params, startVal, endVal)
+		return fmt.Sprintf("%s BETWEEN %s AND %s", leftStr, startPlaceholder, endPlaceholder), params, nil
+	}
+
+	// Check for subquery on the right side
+	if subquery, ok := cond.Right.(*ast.QuerySubquery); ok {
+		return buildSubqueryCondition(leftStr, cond.Operator, subquery, env, paramIdx)
+	}
+
+	// Check for CTE reference on the right side (for "in" or "not in" operators)
+	if ident, ok := cond.Right.(*ast.Identifier); ok {
+		if cte, exists := cteNames[ident.Value]; exists {
+			// This is a CTE reference - generate "column IN (SELECT * FROM cte_name)"
+			// Determine what column to select from the CTE based on its terminal
+			selectCol := "*"
+			if cte.Terminal != nil && len(cte.Terminal.Projection) > 0 {
+				// Use the first projected column
+				selectCol = cte.Terminal.Projection[0]
+			}
+
+			sqlOp := "IN"
+			if cond.Operator == "not in" {
+				sqlOp = "NOT IN"
+			}
+
+			return fmt.Sprintf("%s %s (SELECT %s FROM %s)", leftStr, sqlOp, selectCol, cte.Name), nil, nil
+		}
+	}
+
+	// Evaluate the right side
+	if cond.Right == nil {
+		return "", nil, &Error{
+			Message: fmt.Sprintf("condition '%s %s' requires a value", leftStr, cond.Operator),
+			Class:   ClassParse,
+			Code:    "SYN-0003",
+		}
+	}
+
+	rightVal := Eval(cond.Right, env)
+	if isError(rightVal) {
+		return "", nil, rightVal.(*Error)
+	}
+
+	// Convert operator to SQL
+	sqlOp := ""
+	switch cond.Operator {
+	case "==":
+		sqlOp = "="
+	case "!=":
+		sqlOp = "<>"
+	case ">", "<", ">=", "<=":
+		sqlOp = cond.Operator
+	case "in":
+		return buildInClause(leftStr, rightVal, paramIdx)
+	case "not in":
+		clause, inParams, err := buildInClause(leftStr, rightVal, paramIdx)
+		if err != nil {
+			return "", nil, err
+		}
+		// Convert "IN" to "NOT IN"
+		clause = strings.Replace(clause, " IN (", " NOT IN (", 1)
+		return clause, inParams, nil
+	case "like":
+		sqlOp = "LIKE"
+	default:
+		return "", nil, &Error{
+			Message: fmt.Sprintf("unknown operator: %s", cond.Operator),
+			Class:   ClassParse,
+			Code:    "SYN-0004",
+		}
+	}
+
+	placeholder := fmt.Sprintf("$%d", *paramIdx)
+	*paramIdx++
+	params = append(params, rightVal)
+
+	return fmt.Sprintf("%s %s %s", leftStr, sqlOp, placeholder), params, nil
 }
 
 // getConditionLeft extracts the left identifier name from a condition node (for computed field check)
