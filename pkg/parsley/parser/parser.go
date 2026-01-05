@@ -884,6 +884,32 @@ func (p *Parser) parseExpressionUntilBrace() ast.Expression {
 	return leftExp
 }
 
+// parseExpressionUntil parses an expression but stops when the stopCondition returns true
+// Used for parsing expressions in contexts where specific tokens signal the end
+func (p *Parser) parseExpressionUntil(precedence int, stopCondition func() bool) ast.Expression {
+	prefix := p.prefixParseFns[p.curToken.Type]
+	if prefix == nil {
+		p.noPrefixParseFnError(p.curToken.Type)
+		return nil
+	}
+
+	leftExp := prefix()
+
+	// Stop at semicolon, when stop condition is met, or when precedence is exhausted
+	for !p.peekTokenIs(lexer.SEMICOLON) && !stopCondition() && precedence < p.peekPrecedence() {
+		infix := p.infixParseFns[p.peekToken.Type]
+		if infix == nil {
+			return leftExp
+		}
+
+		p.nextToken()
+
+		leftExp = infix(leftExp)
+	}
+
+	return leftExp
+}
+
 // Parse functions for different expression types
 func (p *Parser) parseIdentifier() ast.Expression {
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -2958,6 +2984,7 @@ func (p *Parser) parseEnumValues() []string {
 }
 
 // parseTypeOptions parses type options: min: 1, max: 100, unique: true
+// Supports full expressions: min: earliestYear, max: @now.year
 func (p *Parser) parseTypeOptions() map[string]ast.Expression {
 	options := make(map[string]ast.Expression)
 
@@ -2978,20 +3005,15 @@ func (p *Parser) parseTypeOptions() map[string]ast.Expression {
 			return options
 		}
 
-		// Parse value (integer or boolean)
+		// Parse value as a full expression (supports variables, @objects, arithmetic, etc.)
 		p.nextToken()
-		var value ast.Expression
+		value := p.parseExpressionUntil(LOWEST, func() bool {
+			// Stop at comma (next option) or rparen (end of options)
+			return p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.RPAREN)
+		})
 
-		switch p.curToken.Type {
-		case lexer.INT:
-			val, _ := parseInt(p.curToken.Literal)
-			value = &ast.IntegerLiteral{Token: p.curToken, Value: val}
-		case lexer.TRUE:
-			value = &ast.Boolean{Token: p.curToken, Value: true}
-		case lexer.FALSE:
-			value = &ast.Boolean{Token: p.curToken, Value: false}
-		default:
-			p.addError(fmt.Sprintf("expected integer or boolean for type option '%s'", optionName),
+		if value == nil {
+			p.addError(fmt.Sprintf("expected expression for type option '%s'", optionName),
 				p.curToken.Line, p.curToken.Column)
 			return options
 		}

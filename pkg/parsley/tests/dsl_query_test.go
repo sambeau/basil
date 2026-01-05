@@ -3335,6 +3335,30 @@ UserWithConstraints.Name
 	}
 }
 
+// TestSchemaWithExpressionTypeOptions tests parsing @schema with expression-based type options
+func TestSchemaWithExpressionTypeOptions(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let earliestYear = @now.year - 125
+let latestYear = @now.year
+
+@schema PersonWithDynamicConstraints {
+    id: int
+    birthYear: int(min: earliestYear, max: latestYear)
+    score: int(min: 0, max: 100 * 10)
+}
+
+PersonWithDynamicConstraints.Name
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "PersonWithDynamicConstraints" {
+		t.Errorf("expected PersonWithDynamicConstraints, got %s", result.String())
+	}
+}
+
 // TestSchemaValidatedTypes tests that email, url, phone types are recognized
 func TestSchemaValidatedTypes(t *testing.T) {
 	evaluator.ClearDBConnections()
