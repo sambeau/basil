@@ -1,0 +1,8 @@
+// admin/index.pars - This file is IGNORED
+// Because admin/admin.pars exists, this file is never used
+<html>
+  <body>
+    <h1>You should never see this!</h1>
+    <p>This is admin/index.pars - it's ignored when admin/admin.pars exists</p>
+  </body>
+</html>

@@ -359,6 +359,94 @@ header
 	}
 }
 
+// TestSiteHandler_FolderNamedIndex tests the {foldername}.pars convention.
+// When a folder has both {foldername}.pars and index.pars, {foldername}.pars takes precedence.
+func TestSiteHandler_FolderNamedIndex(t *testing.T) {
+	dir := t.TempDir()
+	siteDir := filepath.Join(dir, "site")
+
+	// Create site structure with folder-named indexes:
+	// site/
+	//   index.pars             -> root
+	//   edit/
+	//     edit.pars            -> /edit/ (folder-named, takes precedence)
+	//   admin/
+	//     admin.pars           -> /admin/ (folder-named, takes precedence)
+	//     index.pars           -> ignored (folder-named file exists)
+	//   posts/
+	//     index.pars           -> /posts/ (no folder-named file)
+	//     post.pars            -> ignored (doesn't match folder name)
+
+	must(os.MkdirAll(filepath.Join(siteDir, "edit"), 0755))
+	must(os.MkdirAll(filepath.Join(siteDir, "admin"), 0755))
+	must(os.MkdirAll(filepath.Join(siteDir, "posts"), 0755))
+
+	must(os.WriteFile(filepath.Join(siteDir, "index.pars"), []byte(`"root"`), 0644))
+	must(os.WriteFile(filepath.Join(siteDir, "edit", "edit.pars"), []byte(`"edit-folder-named"`), 0644))
+	must(os.WriteFile(filepath.Join(siteDir, "admin", "admin.pars"), []byte(`"admin-folder-named"`), 0644))
+	must(os.WriteFile(filepath.Join(siteDir, "admin", "index.pars"), []byte(`"admin-index"`), 0644))
+	must(os.WriteFile(filepath.Join(siteDir, "posts", "index.pars"), []byte(`"posts-index"`), 0644))
+	must(os.WriteFile(filepath.Join(siteDir, "posts", "post.pars"), []byte(`"posts-post"`), 0644))
+
+	handler := newSiteHandler(nil, siteDir, nil)
+
+	tests := []struct {
+		name              string
+		urlPath           string
+		wantHandlerSuffix string // Expected handler filename
+		wantSubpath       string
+	}{
+		{
+			name:              "/edit/ uses edit.pars",
+			urlPath:           "/edit/",
+			wantHandlerSuffix: "edit/edit.pars",
+			wantSubpath:       "",
+		},
+		{
+			name:              "/admin/ uses admin.pars (not index.pars)",
+			urlPath:           "/admin/",
+			wantHandlerSuffix: "admin/admin.pars",
+			wantSubpath:       "",
+		},
+		{
+			name:              "/posts/ uses index.pars (no folder-named file)",
+			urlPath:           "/posts/",
+			wantHandlerSuffix: "posts/index.pars",
+			wantSubpath:       "",
+		},
+		{
+			name:              "/edit/subpath uses edit.pars",
+			urlPath:           "/edit/article/123",
+			wantHandlerSuffix: "edit/edit.pars",
+			wantSubpath:       "/article/123",
+		},
+		{
+			name:              "/admin/users uses admin.pars",
+			urlPath:           "/admin/users",
+			wantHandlerSuffix: "admin/admin.pars",
+			wantSubpath:       "/users",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handlerPath, subpath := handler.findHandler(tt.urlPath)
+
+			if handlerPath == "" {
+				t.Fatal("no handler found")
+			}
+
+			if !strings.HasSuffix(handlerPath, tt.wantHandlerSuffix) {
+				t.Errorf("handler = %q, want suffix %q", handlerPath, tt.wantHandlerSuffix)
+			}
+
+			if subpath != tt.wantSubpath {
+				t.Errorf("subpath = %q, want %q", subpath, tt.wantSubpath)
+			}
+		})
+	}
+}
+
 // must panics if err is not nil (test helper)
 func must(err error) {
 	if err != nil {

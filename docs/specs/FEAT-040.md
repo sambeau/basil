@@ -10,7 +10,13 @@ author: "@human"
 # FEAT-040: Filesystem-Based Routing
 
 ## Summary
-Add a "site mode" routing option where URL paths map to `index.pars` files in a directory tree. This provides batteries-included routing for beginners while preserving the explicit routes model for advanced users. When a path is requested, Basil walks back from the leaf toward the root until it finds an `index.pars` file, passing the remaining path segments to the handler.
+Add a "site mode" routing option where URL paths map to handler files in a directory tree. This provides batteries-included routing for beginners while preserving the explicit routes model for advanced users. When a path is requested, Basil walks back from the leaf toward the root until it finds a handler file, passing the remaining path segments to the handler.
+
+**Handler Resolution (Priority Order):**
+1. `{foldername}/{foldername}.pars` - Folder-named index (e.g., `/admin/admin.pars`)
+2. `{foldername}/index.pars` - Traditional index file (fallback)
+
+The folder-named convention makes it easier to identify files in editors when you have many folders open.
 
 ## User Story
 As a developer building a content-driven site, I want URLs to automatically map to handler files in my folder structure so that I don't need to manually configure every route.
@@ -19,12 +25,13 @@ As a developer building a content-driven site, I want URLs to automatically map 
 - [x] New `site:` config option specifies filesystem routing root
 - [x] `site:` and `routes:` are mutually exclusive (validation error if both present)
 - [x] `static:` continues to work alongside `site:` (orthogonal concerns)
-- [x] Given path `/reports/2025/Q4/`, Basil walks back looking for `index.pars`
-- [x] First `index.pars` found is executed; remaining path passed to handler
+- [x] Given path `/reports/2025/Q4/`, Basil walks back looking for a handler
+- [x] First handler found (`{folder}.pars` or `index.pars`) is executed
+- [x] Folder-named files (e.g., `admin/admin.pars`) take precedence over `index.pars`
 - [x] Remaining path available via `basil.http.request.subpath` (Path object with `.segments` array)
-- [x] Returns 404 if no `index.pars` found walking back to site root
+- [x] Returns 404 if no handler found walking back to site root
 - [x] Handlers can explicitly return 404 for paths they don't handle
-- [x] Only `index.pars` files are executed; other `.pars` files are not directly routable
+- [x] Only handler files are executed; other `.pars` files are not directly routable
 - [x] Directory requests without trailing slash redirect to trailing slash (SEO canonical)
 - [x] Query parameters (`?foo=bar`) continue to work as normal
 
@@ -32,11 +39,11 @@ As a developer building a content-driven site, I want URLs to automatically map 
 
 - **Mutually exclusive modes**: `site:` and `routes:` cannot be combined. This keeps the mental model simple—choose explicit routing or filesystem routing, not both. Users needing hybrid approaches can use filesystem routing with explicit 404 handling in their `index.pars`.
 
-- **Walk-back algorithm**: Rather than requiring an `index.pars` at every level, Basil walks up the tree from the requested path. This allows a single `index.pars` to handle an entire subtree (e.g., `/reports/index.pars` handles `/reports/2025/Q4/data.pdf`).
+- **Walk-back algorithm**: Rather than requiring a handler at every level, Basil walks up the tree from the requested path. This allows a single handler to handle an entire subtree (e.g., `/reports/index.pars` handles `/reports/2025/Q4/data.pdf`).
 
-- **Path as data**: The remaining path after the `index.pars` location becomes input data to the handler. This enables clean URL designs where the path encodes parameters (e.g., `/reports/2025/Q4/` → handler receives `["2025", "Q4"]`).
+- **Path as data**: The remaining path after the handler location becomes input data to the handler. This enables clean URL designs where the path encodes parameters (e.g., `/reports/2025/Q4/` → handler receives `["2025", "Q4"]`).
 
-- **`index.pars` is hardcoded**: Following the convention of `index.html`, we use a fixed filename. This is familiar and predictable. A config option could be added later if a compelling use case emerges.
+- **Folder-named indexes**: Files matching their folder name (e.g., `admin/admin.pars`) are checked before `index.pars`. This improves editor usability—tabs show `admin.pars`, `edit.pars` instead of multiple `index.pars` tabs. This convention is optional; `index.pars` still works as before.
 
 - **One site per server**: Multi-site/virtual host support is deferred. Use a reverse proxy (Caddy, nginx) for multi-site deployments.
 
@@ -184,6 +191,7 @@ if (year and quarter) {
 *Added during/after implementation*
 
 - **2025-12-08**: Implemented in `server/site.go` with walk-back routing algorithm
+- **2026-01-05**: Added folder-named index convention (`{folder}/{folder}.pars` checked before `index.pars`)
 - Config validation added to `config/load.go` (mutual exclusion check)
 - `basil.http.request.subpath` is a Path object with `__type: "path"`, `absolute: false`, and `segments: [...]`
 - Empty subpath (exact handler match) has empty segments array `[]`

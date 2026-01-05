@@ -1,0 +1,8 @@
+// posts/post.pars - This file is IGNORED
+// It doesn't match the folder name "posts", so it's not used as an index
+<html>
+  <body>
+    <h1>You should never see this either!</h1>
+    <p>This is post.pars - wrong name for folder-named index</p>
+  </body>
+</html>

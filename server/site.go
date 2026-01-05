@@ -145,17 +145,35 @@ func (h *siteHandler) findHandler(urlPath string) (handlerPath string, subpath s
 			checkPath = "/" + strings.Join(segments[:i], "/")
 		}
 
-		// Look for index.pars at this path
-		indexPath := filepath.Join(h.siteRoot, checkPath, "index.pars")
-		if _, err := os.Stat(indexPath); err == nil {
-			// Found a handler!
+		// First, try {foldername}.pars (e.g., /admin/admin.pars)
+		// This makes it easier to identify files in editors when you have many folders
+		var handlerPath string
+		if i > 0 {
+			// Get the folder name from the last segment in checkPath
+			folderName := segments[i-1]
+			folderIndexPath := filepath.Join(h.siteRoot, checkPath, folderName+".pars")
+			if _, err := os.Stat(folderIndexPath); err == nil {
+				handlerPath = folderIndexPath
+			}
+		}
+
+		// Fall back to index.pars if folder-named file doesn't exist
+		if handlerPath == "" {
+			indexPath := filepath.Join(h.siteRoot, checkPath, "index.pars")
+			if _, err := os.Stat(indexPath); err == nil {
+				handlerPath = indexPath
+			}
+		}
+
+		// Found a handler!
+		if handlerPath != "" {
 			// Subpath is everything after the matched portion
 			if i < len(segments) {
 				subpath = "/" + strings.Join(segments[i:], "/")
 			} else {
 				subpath = ""
 			}
-			return indexPath, subpath
+			return handlerPath, subpath
 		}
 	}
 
@@ -176,6 +194,13 @@ func (h *siteHandler) getCheckedPaths(urlPath string) []string {
 		checkPath := "/"
 		if i > 0 {
 			checkPath = "/" + strings.Join(segments[:i], "/")
+		}
+		
+		// Show both {foldername}.pars and index.pars in checked paths
+		if i > 0 {
+			folderName := segments[i-1]
+			folderIndexPath := filepath.Join(checkPath, folderName+".pars")
+			paths = append(paths, folderIndexPath)
 		}
 		indexPath := filepath.Join(checkPath, "index.pars")
 		paths = append(paths, indexPath)
