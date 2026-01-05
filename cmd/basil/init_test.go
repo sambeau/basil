@@ -26,6 +26,7 @@ func TestInitCommand_Success(t *testing.T) {
 	assertFileExists(t, filepath.Join(projectPath, "site", "index.pars"))
 	assertDirExists(t, filepath.Join(projectPath, "public"))
 	assertDirExists(t, filepath.Join(projectPath, "logs"))
+	assertDirExists(t, filepath.Join(projectPath, "db"))
 
 	// Verify YAML content
 	yamlContent := readFile(t, filepath.Join(projectPath, "basil.yaml"))
@@ -38,11 +39,17 @@ func TestInitCommand_Success(t *testing.T) {
 	if !strings.Contains(yamlContent, "output: ./logs/basil.log") {
 		t.Error("YAML missing logs directory in logging config")
 	}
+	if !strings.Contains(yamlContent, "sqlite: ./db/data.db") {
+		t.Error("YAML missing db directory in sqlite config")
+	}
 
 	// Verify .gitignore content
 	gitignoreContent := readFile(t, filepath.Join(projectPath, ".gitignore"))
 	if !strings.Contains(gitignoreContent, "logs/") {
 		t.Error(".gitignore missing logs/ entry")
+	}
+	if !strings.Contains(gitignoreContent, "db/") {
+		t.Error(".gitignore missing db/ entry")
 	}
 	if !strings.Contains(gitignoreContent, "*.db") {
 		t.Error(".gitignore missing *.db entry")

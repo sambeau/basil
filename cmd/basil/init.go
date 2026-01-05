@@ -15,6 +15,7 @@ logs/
 *.log
 
 # SQLite databases
+db/
 *.db
 *.db-shm
 *.db-wal
@@ -33,6 +34,9 @@ site: ./site
 
 # Public directory for static files (CSS, JS, images)
 public_dir: ./public
+
+# SQLite database (uncomment to enable)
+# sqlite: ./db/data.db
 
 logging:
   level: info
@@ -92,6 +96,11 @@ func runInitCommand(folderName string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("failed to create logs folder: %w", err)
 	}
 
+	dbDir := filepath.Join(absPath, "db")
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return fmt.Errorf("failed to create db folder: %w", err)
+	}
+
 	// Create index.pars
 	indexPath := filepath.Join(siteDir, "index.pars")
 	if err := os.WriteFile(indexPath, []byte(indexParsContent), 0644); err != nil {
@@ -118,6 +127,7 @@ func runInitCommand(folderName string, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "  ├── site/           Handlers (filesystem routing)\n")
 	fmt.Fprintf(stdout, "  │   └── index.pars  Homepage\n")
 	fmt.Fprintf(stdout, "  ├── public/         Static files (CSS, JS, images)\n")
+	fmt.Fprintf(stdout, "  ├── db/             SQLite databases\n")
 	fmt.Fprintf(stdout, "  └── logs/           Log files\n")
 	fmt.Fprintf(stdout, "\n")
 	fmt.Fprintf(stdout, "Get started:\n")

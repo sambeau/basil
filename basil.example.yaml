@@ -20,7 +20,7 @@ logging:
 #   zstd: false         # Enable Zstd compression (experimental)
 
 # SQLite database (path relative to config file)
-# sqlite: ./data.db
+# sqlite: ./db/data.db
 
 # Public directory for static files
 # Paths under this directory are automatically rewritten to web-root URLs
