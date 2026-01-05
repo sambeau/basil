@@ -3747,3 +3747,212 @@ let Posts = db.bind(SlugPost, "slugposts")
 		})
 	}
 }
+
+// TestQueryRowTransformSimpleBinding tests row transform with simple identifier binding
+func TestQueryRowTransformSimpleBinding(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, first TEXT, last TEXT)"
+let _ = db <=!=> "INSERT INTO people (first, last) VALUES ('John', 'Doe'), ('Jane', 'Smith')"
+
+@schema Person {
+    id: int
+    first: string
+    last: string
+}
+
+let People = db.bind(Person, "people")
+
+@query(People ??-> * as row {
+    {
+        name: row.first + " " + row.last,
+        id: row.id
+    }
+})
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have transformed results with 'name' field
+	if !strings.Contains(output, "John Doe") {
+		t.Errorf("expected 'John Doe' in output, got %s", output)
+	}
+	if !strings.Contains(output, "Jane Smith") {
+		t.Errorf("expected 'Jane Smith' in output, got %s", output)
+	}
+}
+
+// TestQueryRowTransformDestructure tests row transform with destructure binding
+func TestQueryRowTransformDestructure(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, first TEXT, last TEXT)"
+let _ = db <=!=> "INSERT INTO people (first, last) VALUES ('John', 'Doe'), ('Jane', 'Smith')"
+
+@schema Person {
+    id: int
+    first: string
+    last: string
+}
+
+let People = db.bind(Person, "people")
+
+@query(People ??-> * as {first, last, id} {
+    {
+        name: first + " " + last,
+        id: id
+    }
+})
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	if !strings.Contains(output, "John Doe") {
+		t.Errorf("expected 'John Doe' in output, got %s", output)
+	}
+	if !strings.Contains(output, "Jane Smith") {
+		t.Errorf("expected 'Jane Smith' in output, got %s", output)
+	}
+}
+
+// TestQueryRowTransformDestructureWithRest tests row transform with rest pattern
+func TestQueryRowTransformDestructureWithRest(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, first TEXT, last TEXT, age INTEGER)"
+let _ = db <=!=> "INSERT INTO people (first, last, age) VALUES ('John', 'Doe', 30)"
+
+@schema Person {
+    id: int
+    first: string
+    last: string
+    age: int
+}
+
+let People = db.bind(Person, "people")
+
+@query(People ??-> * as {first, last, ...rest} {
+    {name: first + " " + last} ++ rest
+})
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have name from transform plus age and id from rest
+	if !strings.Contains(output, "John Doe") {
+		t.Errorf("expected 'John Doe' in output, got %s", output)
+	}
+	if !strings.Contains(output, "age") {
+		t.Errorf("expected 'age' from rest in output, got %s", output)
+	}
+}
+
+// TestQueryRowTransformWithStatements tests row transform with block statements
+func TestQueryRowTransformWithStatements(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, first TEXT, last TEXT)"
+let _ = db <=!=> "INSERT INTO people (first, last) VALUES ('john', 'doe')"
+
+@schema Person {
+    id: int
+    first: string
+    last: string
+}
+
+let People = db.bind(Person, "people")
+
+@query(People ??-> * as {first, last, id} {
+    let fullName = first.toUpper() + " " + last.toUpper()
+    {
+        name: fullName,
+        id: id
+    }
+})
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should have uppercased name
+	if !strings.Contains(output, "JOHN DOE") {
+		t.Errorf("expected 'JOHN DOE' in output, got %s", output)
+	}
+}
+
+// TestQueryRowTransformEmptyResult tests row transform with empty result set
+func TestQueryRowTransformEmptyResult(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, first TEXT, last TEXT)"
+
+@schema Person {
+    id: int
+    first: string
+    last: string
+}
+
+let People = db.bind(Person, "people")
+
+let result = @query(People ??-> * as row {
+    {
+        name: row.first + " " + row.last
+    }
+})
+
+result.length()
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	// Should return 0 for empty array length
+	if output != "0" {
+		t.Errorf("expected length '0' for empty result, got %s", output)
+	}
+}
+
+// TestQueryRowTransformSingleResult tests row transform on ?-> single result
+func TestQueryRowTransformSingleResult(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, first TEXT, last TEXT)"
+let _ = db <=!=> "INSERT INTO people (first, last) VALUES ('John', 'Doe')"
+
+@schema Person {
+    id: int
+    first: string
+    last: string
+}
+
+let People = db.bind(Person, "people")
+
+@query(People | id == 1 ?-> * as row {
+    {
+        fullName: row.first + " " + row.last
+    }
+})
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := result.String()
+	if !strings.Contains(output, "fullName") || !strings.Contains(output, "John Doe") {
+		t.Errorf("expected transformed single result with 'fullName: John Doe', got %s", output)
+	}
+}

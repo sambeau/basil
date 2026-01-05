@@ -1363,6 +1363,41 @@ type QueryExpression struct {
 	GroupBy        []string              // GROUP BY fields
 	ComputedFields []*QueryComputedField // computed aggregations like "total: sum(amount)"
 	Terminal       *QueryTerminal        // return type and projection
+	RowTransform   *RowTransform         // optional post-query row transformation
+}
+
+// RowTransform represents a post-query row transformation: as binding { body }
+type RowTransform struct {
+	Token   lexer.Token     // the 'as' token
+	Binding *RowBinding     // the binding (identifier or destructure pattern)
+	Body    *BlockStatement // the transform body
+}
+
+func (rt *RowTransform) expressionNode()      {}
+func (rt *RowTransform) TokenLiteral() string { return rt.Token.Literal }
+func (rt *RowTransform) String() string {
+	var out bytes.Buffer
+	out.WriteString("as ")
+	out.WriteString(rt.Binding.String())
+	out.WriteString(" ")
+	out.WriteString(rt.Body.String())
+	return out.String()
+}
+
+// RowBinding represents the binding part of a row transform: either identifier or destructure
+type RowBinding struct {
+	Identifier  *Identifier               // simple binding: as row
+	Destructure *DictDestructuringPattern // destructure: as {a, b, ...rest}
+}
+
+func (rb *RowBinding) String() string {
+	if rb.Identifier != nil {
+		return rb.Identifier.String()
+	}
+	if rb.Destructure != nil {
+		return rb.Destructure.String()
+	}
+	return ""
 }
 
 // QueryCTE represents a Common Table Expression (WITH clause subquery)
@@ -1437,6 +1472,10 @@ func (qe *QueryExpression) String() string {
 	if qe.Terminal != nil {
 		out.WriteString(" ")
 		out.WriteString(qe.Terminal.String())
+	}
+	if qe.RowTransform != nil {
+		out.WriteString(" ")
+		out.WriteString(qe.RowTransform.String())
 	}
 	out.WriteString(")")
 	return out.String()

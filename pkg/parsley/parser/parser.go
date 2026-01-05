@@ -3175,6 +3175,15 @@ func (p *Parser) parseQueryExpression() ast.Expression {
 		query.GroupBy = groupBy
 		query.ComputedFields = computedFields
 		query.Terminal = terminal
+
+		// Check for optional row transform: as binding { body }
+		if p.peekTokenIs(lexer.AS) {
+			query.RowTransform = p.parseRowTransform()
+			if query.RowTransform == nil {
+				return nil
+			}
+		}
+
 		break
 	}
 
@@ -3202,6 +3211,47 @@ func (p *Parser) parseGroupByFields() []string {
 		fields = append(fields, p.curToken.Literal)
 	}
 	return fields
+}
+
+// parseRowTransform parses post-query row transformation: as binding { body }
+// Binding can be an identifier (as row) or a destructure pattern (as {a, b, ...rest})
+func (p *Parser) parseRowTransform() *ast.RowTransform {
+	if !p.expectPeek(lexer.AS) {
+		return nil
+	}
+
+	transform := &ast.RowTransform{Token: p.curToken}
+	transform.Binding = &ast.RowBinding{}
+
+	p.nextToken() // move past 'as'
+
+	// Check if binding is destructure pattern or identifier
+	if p.curTokenIs(lexer.LBRACE) {
+		// Destructure pattern: as {a, b, ...rest}
+		transform.Binding.Destructure = p.parseDictDestructuringPattern()
+		if transform.Binding.Destructure == nil {
+			return nil
+		}
+	} else if p.curTokenIs(lexer.IDENT) {
+		// Simple identifier: as row
+		transform.Binding.Identifier = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	} else {
+		p.addError("expected identifier or destructure pattern after 'as' in row transform", p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+
+	// Expect block statement for transform body
+	if !p.expectPeek(lexer.LBRACE) {
+		p.addError("expected '{' to start row transform body", p.peekToken.Line, p.peekToken.Column)
+		return nil
+	}
+
+	transform.Body = p.parseBlockStatement()
+	if transform.Body == nil {
+		return nil
+	}
+
+	return transform
 }
 
 // isComputedFieldStart checks if next tokens look like "name: func(" or "name: ident"
