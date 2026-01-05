@@ -39,7 +39,7 @@ public_dir: ./public
 # sqlite: ./db/data.db
 
 dev:
-  log_database: ./db/dev_logs.db  # Development logs database
+  log_database: ./logs/dev_logs.db  # Development logs database
 
 logging:
   level: info
