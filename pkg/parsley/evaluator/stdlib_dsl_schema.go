@@ -159,3 +159,84 @@ var knownPrimitiveTypes = map[string]bool{
 func isPrimitiveType(typeName string) bool {
 	return knownPrimitiveTypes[strings.ToLower(typeName)]
 }
+
+// buildCreateTableSQL generates CREATE TABLE IF NOT EXISTS SQL from a schema
+func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) string {
+	var columns []string
+
+	// Map schema types to SQL types based on driver
+	for name, field := range schema.Fields {
+		sqlType := schemaTypeToSQL(field.Type, driver)
+		col := fmt.Sprintf("%s %s", name, sqlType)
+
+		// id fields get special treatment
+		if name == "id" {
+			if driver == "sqlite" {
+				col = "id INTEGER PRIMARY KEY"
+			} else if driver == "postgres" {
+				col = "id SERIAL PRIMARY KEY"
+			} else if driver == "mysql" {
+				col = "id INT AUTO_INCREMENT PRIMARY KEY"
+			}
+		}
+		columns = append(columns, col)
+	}
+
+	// Add foreign key columns for belongs-to relations (not has-many)
+	for _, rel := range schema.Relations {
+		if !rel.IsMany {
+			// This is a belongs-to relation - the foreign key should be in this table
+			// But we only add it if it's not already a field
+			if _, exists := schema.Fields[rel.ForeignKey]; !exists {
+				columns = append(columns, fmt.Sprintf("%s INTEGER", rel.ForeignKey))
+			}
+		}
+	}
+
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", tableName, strings.Join(columns, ", "))
+}
+
+// schemaTypeToSQL converts a schema field type to SQL type
+func schemaTypeToSQL(schemaType string, driver string) string {
+	switch strings.ToLower(schemaType) {
+	case "int", "integer":
+		return "INTEGER"
+	case "string":
+		return "TEXT"
+	case "text":
+		return "TEXT"
+	case "bool", "boolean":
+		if driver == "sqlite" {
+			return "INTEGER" // SQLite uses 0/1 for bools
+		}
+		return "BOOLEAN"
+	case "float", "number":
+		return "REAL"
+	case "datetime":
+		if driver == "sqlite" {
+			return "TEXT" // SQLite stores datetimes as TEXT
+		}
+		return "TIMESTAMP"
+	case "date":
+		if driver == "sqlite" {
+			return "TEXT"
+		}
+		return "DATE"
+	case "time":
+		if driver == "sqlite" {
+			return "TEXT"
+		}
+		return "TIME"
+	case "money":
+		return "INTEGER" // Store as cents/smallest unit
+	case "uuid", "ulid":
+		return "TEXT"
+	case "json":
+		if driver == "postgres" {
+			return "JSONB"
+		}
+		return "TEXT"
+	default:
+		return "TEXT"
+	}
+}

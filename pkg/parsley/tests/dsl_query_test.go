@@ -334,6 +334,108 @@ AllPosts
 	}
 }
 
+// TestCreateTableFromSchema tests db.createTable(schema) functionality
+func TestCreateTableFromSchema(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Product {
+    id: int
+    name: string
+    price: int
+    active: bool
+}
+
+let db = @sqlite(":memory:")
+
+// Create the table from the schema
+let _ = db.createTable(Product, "products")
+
+// Bind to the newly created table
+let Products = db.bind(Product, "products")
+
+// Insert a row to verify the table was created correctly
+@insert(Products |< id: 1 |< name: "Widget" |< price: 100 |< active: true .)
+
+// Query to verify
+@query(Products ?-> *)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	if !strings.Contains(output, "Widget") {
+		t.Errorf("expected Widget in result, got %s", output)
+	}
+	if !strings.Contains(output, "100") {
+		t.Errorf("expected price 100 in result, got %s", output)
+	}
+}
+
+// TestCreateTableDefaultName tests db.createTable(schema) with auto-generated table name
+func TestCreateTableDefaultName(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema User {
+    id: int
+    name: string
+    email: string
+}
+
+let db = @sqlite(":memory:")
+
+// Create table without specifying name - should use "users" (lowercase + s)
+let _ = db.createTable(User)
+
+// Bind using the auto-generated name
+let Users = db.bind(User, "users")
+
+// Insert and query
+@insert(Users |< id: 1 |< name: "Alice" |< email: "alice@test.com" .)
+@query(Users ?-> *)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	if !strings.Contains(output, "Alice") {
+		t.Errorf("expected Alice in result, got %s", output)
+	}
+}
+
+// TestCreateTableIdempotent tests that createTable is idempotent (IF NOT EXISTS)
+func TestCreateTableIdempotent(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Item {
+    id: int
+    name: string
+}
+
+let db = @sqlite(":memory:")
+
+// Create table twice - should not error
+let _ = db.createTable(Item, "items")
+let _ = db.createTable(Item, "items")
+
+let Items = db.bind(Item, "items")
+@insert(Items |< id: 1 |< name: "Test" .)
+@query(Items ?-> *)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := result.String()
+	if !strings.Contains(output, "Test") {
+		t.Errorf("expected Test in result, got %s", output)
+	}
+}
+
 // ============================================================================
 // Phase 3: Basic Query Tests
 // ============================================================================

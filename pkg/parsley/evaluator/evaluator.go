@@ -6830,6 +6830,40 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		}
 		return &Boolean{Value: true}
 
+	case "createTable":
+		// db.createTable(schema) or db.createTable(schema, "table_name")
+		// Creates a table from a schema if it doesn't already exist
+		if len(args) < 1 || len(args) > 2 {
+			return newArityError("createTable", len(args), 1)
+		}
+
+		schema, ok := args[0].(*DSLSchema)
+		if !ok {
+			return newTypeError("TYPE-0001", "db.createTable", "schema", args[0].Type())
+		}
+
+		// Get table name: either from second arg or use schema name (lowercase)
+		tableName := strings.ToLower(schema.Name) + "s" // default: pluralize
+		if len(args) == 2 {
+			tableNameStr, ok := args[1].(*String)
+			if !ok {
+				return newTypeError("TYPE-0001", "db.createTable", "string (table name)", args[1].Type())
+			}
+			tableName = tableNameStr.Value
+		}
+
+		// Build CREATE TABLE IF NOT EXISTS SQL
+		sql := buildCreateTableSQL(schema, tableName, conn.Driver)
+
+		// Execute the SQL
+		_, err := conn.DB.Exec(sql)
+		if err != nil {
+			conn.LastError = err.Error()
+			return newDatabaseError("DB-0005", err)
+		}
+
+		return &Boolean{Value: true}
+
 	case "bind":
 		// db.bind(schema, "table_name") or db.bind(schema, "table_name", {soft_delete: "deleted_at"})
 		if len(args) < 2 || len(args) > 3 {
