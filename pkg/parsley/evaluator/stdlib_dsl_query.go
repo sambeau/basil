@@ -375,10 +375,10 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	for _, mod := range node.Modifiers {
 		switch mod.Kind {
 		case "order":
-			for _, field := range mod.Fields {
-				orderSpec := field
-				if mod.Direction != "" {
-					orderSpec += " " + strings.ToUpper(mod.Direction)
+			for _, of := range mod.OrderFields {
+				orderSpec := of.Field
+				if of.Direction != "" {
+					orderSpec += " " + strings.ToUpper(of.Direction)
 				}
 				orderBy = append(orderBy, orderSpec)
 			}
@@ -484,10 +484,10 @@ func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames ma
 	for _, mod := range cte.Modifiers {
 		switch mod.Kind {
 		case "order":
-			for _, field := range mod.Fields {
-				orderSpec := field
-				if mod.Direction != "" {
-					orderSpec += " " + strings.ToUpper(mod.Direction)
+			for _, of := range mod.OrderFields {
+				orderSpec := of.Field
+				if of.Direction != "" {
+					orderSpec += " " + strings.ToUpper(of.Direction)
 				}
 				orderBy = append(orderBy, orderSpec)
 			}
@@ -607,9 +607,17 @@ func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName stri
 	for _, mod := range subquery.Modifiers {
 		switch mod.Kind {
 		case "order":
-			sql.WriteString(fmt.Sprintf(" ORDER BY %s", strings.Join(mod.Fields, ", ")))
-			if mod.Direction != "" {
-				sql.WriteString(" " + strings.ToUpper(mod.Direction))
+			var orderParts []string
+			for _, of := range mod.OrderFields {
+				orderSpec := of.Field
+				if of.Direction != "" {
+					orderSpec += " " + strings.ToUpper(of.Direction)
+				}
+				orderParts = append(orderParts, orderSpec)
+			}
+			if len(orderParts) > 0 {
+				sql.WriteString(" ORDER BY ")
+				sql.WriteString(strings.Join(orderParts, ", "))
 			}
 		case "limit":
 			sql.WriteString(fmt.Sprintf(" LIMIT %d", mod.Value))
@@ -1471,9 +1479,16 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 	for _, mod := range subquery.Modifiers {
 		switch mod.Kind {
 		case "order":
-			subSQL += fmt.Sprintf(" ORDER BY %s", strings.Join(mod.Fields, ", "))
-			if mod.Direction != "" {
-				subSQL += " " + strings.ToUpper(mod.Direction)
+			var orderParts []string
+			for _, of := range mod.OrderFields {
+				orderSpec := of.Field
+				if of.Direction != "" {
+					orderSpec += " " + strings.ToUpper(of.Direction)
+				}
+				orderParts = append(orderParts, orderSpec)
+			}
+			if len(orderParts) > 0 {
+				subSQL += " ORDER BY " + strings.Join(orderParts, ", ")
 			}
 		case "limit":
 			subSQL += fmt.Sprintf(" LIMIT %d", mod.Value)

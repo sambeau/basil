@@ -750,6 +750,85 @@ let Users = db.bind(User, "users")
 	}
 }
 
+// TestQueryOrderByMultipleFields tests @query with comma-separated order fields (BUG-013)
+func TestQueryOrderByMultipleFields(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Person {
+    id: int
+    year: int
+    month: int
+    day: int
+    name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, year INT, month INT, day INT, name TEXT)"
+let _ = db <=!=> "INSERT INTO people (year, month, day, name) VALUES (1990, 3, 15, 'Alice')"
+let _ = db <=!=> "INSERT INTO people (year, month, day, name) VALUES (1990, 1, 20, 'Bob')"
+let _ = db <=!=> "INSERT INTO people (year, month, day, name) VALUES (1985, 6, 10, 'Charlie')"
+let _ = db <=!=> "INSERT INTO people (year, month, day, name) VALUES (1990, 3, 5, 'Diana')"
+
+let People = db.bind(Person, "people")
+
+// Order by year asc, month asc, day asc
+@query(People | order year, month, day ??-> name)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expected order: Charlie (1985), Bob (1990-1), Diana (1990-3-5), Alice (1990-3-15)
+	output := result.String()
+	charlieIdx := strings.Index(output, "Charlie")
+	bobIdx := strings.Index(output, "Bob")
+	dianaIdx := strings.Index(output, "Diana")
+	aliceIdx := strings.Index(output, "Alice")
+
+	if charlieIdx > bobIdx || bobIdx > dianaIdx || dianaIdx > aliceIdx {
+		t.Errorf("order by multiple fields failed, expected Charlie < Bob < Diana < Alice, got: %s", output)
+	}
+}
+
+// TestQueryOrderByMultipleFieldsWithDirections tests @query with per-field directions
+func TestQueryOrderByMultipleFieldsWithDirections(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Person {
+    id: int
+    year: int
+    month: int
+    name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE people (id INTEGER PRIMARY KEY, year INT, month INT, name TEXT)"
+let _ = db <=!=> "INSERT INTO people (year, month, name) VALUES (1990, 3, 'Alice')"
+let _ = db <=!=> "INSERT INTO people (year, month, name) VALUES (1990, 1, 'Bob')"
+let _ = db <=!=> "INSERT INTO people (year, month, name) VALUES (1985, 6, 'Charlie')"
+
+let People = db.bind(Person, "people")
+
+// Order by year desc, then month asc within each year
+@query(People | order year desc, month asc ??-> name)
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expected order: Bob (1990-1), Alice (1990-3), Charlie (1985)
+	output := result.String()
+	bobIdx := strings.Index(output, "Bob")
+	aliceIdx := strings.Index(output, "Alice")
+	charlieIdx := strings.Index(output, "Charlie")
+
+	if bobIdx > aliceIdx || aliceIdx > charlieIdx {
+		t.Errorf("order by with per-field directions failed, expected Bob < Alice < Charlie, got: %s", output)
+	}
+}
+
 // TestQueryNoResults tests @query returning null for ?-> when no match
 func TestQueryNoResults(t *testing.T) {
 	evaluator.ClearDBConnections()

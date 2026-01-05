@@ -3748,16 +3748,31 @@ func (p *Parser) parseQueryModifier() *ast.QueryModifier {
 	switch p.curToken.Literal {
 	case "order":
 		mod.Kind = "order"
-		mod.Fields = []string{}
-		// Parse field list
+		mod.OrderFields = []ast.QueryOrderField{}
+		// Parse first field
 		if !p.expectPeek(lexer.IDENT) {
 			return nil
 		}
-		mod.Fields = append(mod.Fields, p.curToken.Literal)
-		// Check for asc/desc
+		orderField := ast.QueryOrderField{Field: p.curToken.Literal}
+		// Check for asc/desc after first field
 		if p.peekTokenIs(lexer.IDENT) && (p.peekToken.Literal == "asc" || p.peekToken.Literal == "desc") {
 			p.nextToken()
-			mod.Direction = p.curToken.Literal
+			orderField.Direction = p.curToken.Literal
+		}
+		mod.OrderFields = append(mod.OrderFields, orderField)
+		// Parse additional comma-separated fields
+		for p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			orderField = ast.QueryOrderField{Field: p.curToken.Literal}
+			// Check for asc/desc after this field
+			if p.peekTokenIs(lexer.IDENT) && (p.peekToken.Literal == "asc" || p.peekToken.Literal == "desc") {
+				p.nextToken()
+				orderField.Direction = p.curToken.Literal
+			}
+			mod.OrderFields = append(mod.OrderFields, orderField)
 		}
 	case "limit":
 		mod.Kind = "limit"

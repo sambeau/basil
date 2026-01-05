@@ -1527,12 +1527,13 @@ func (qc *QueryCondition) ConditionString() string {
 
 // QueryModifier represents ORDER BY, LIMIT, OFFSET, WITH, or GROUP BY clauses
 type QueryModifier struct {
-	Token         lexer.Token     // keyword token (order, limit, with)
-	Kind          string          // "order", "limit", "offset", "with", "group"
-	Fields        []string        // field names (for order, with, group)
-	RelationPaths []*RelationPath // relation paths with conditions (for 'with')
-	Direction     string          // "asc" or "desc" for order (optional)
-	Value         int64           // numeric value for limit/offset
+	Token         lexer.Token       // keyword token (order, limit, with)
+	Kind          string            // "order", "limit", "offset", "with", "group"
+	Fields        []string          // field names (for order, with, group) - deprecated for order, use OrderFields
+	OrderFields   []QueryOrderField // order by fields with per-field directions
+	RelationPaths []*RelationPath   // relation paths with conditions (for 'with')
+	Direction     string            // "asc" or "desc" for order (optional) - deprecated, use OrderFields
+	Value         int64             // numeric value for limit/offset
 }
 
 func (qm *QueryModifier) expressionNode()      {}
@@ -1543,10 +1544,23 @@ func (qm *QueryModifier) String() string {
 	switch qm.Kind {
 	case "order":
 		out.WriteString(" ")
-		out.WriteString(strings.Join(qm.Fields, ", "))
-		if qm.Direction != "" {
-			out.WriteString(" ")
-			out.WriteString(qm.Direction)
+		if len(qm.OrderFields) > 0 {
+			var parts []string
+			for _, of := range qm.OrderFields {
+				part := of.Field
+				if of.Direction != "" {
+					part += " " + of.Direction
+				}
+				parts = append(parts, part)
+			}
+			out.WriteString(strings.Join(parts, ", "))
+		} else {
+			// Fallback for backwards compatibility
+			out.WriteString(strings.Join(qm.Fields, ", "))
+			if qm.Direction != "" {
+				out.WriteString(" ")
+				out.WriteString(qm.Direction)
+			}
 		}
 	case "limit", "offset":
 		out.WriteString(" ")
