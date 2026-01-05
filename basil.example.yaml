@@ -22,6 +22,13 @@ logging:
 # SQLite database (path relative to config file)
 # sqlite: ./db/data.db
 
+# Development mode settings
+# dev:
+#   log_database: ./db/dev_logs.db  # Development logs database (default: dev_logs.db in project root)
+#   log_max_size: 10MB               # Maximum log database size
+#   log_truncate_pct: 25             # Percentage to delete when truncating
+#   cache: false                     # Enable response caching in dev mode
+
 # Public directory for static files
 # Paths under this directory are automatically rewritten to web-root URLs
 # e.g., @./public/images/foo.png → /images/foo.png in HTML output

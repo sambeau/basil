@@ -38,6 +38,9 @@ public_dir: ./public
 # SQLite database (uncomment to enable)
 # sqlite: ./db/data.db
 
+dev:
+  log_database: ./db/dev_logs.db  # Development logs database
+
 logging:
   level: info
   format: text
