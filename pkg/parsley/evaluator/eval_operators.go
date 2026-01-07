@@ -350,5 +350,5 @@ func evalDictionaryIndexExpression(dict, index Object, optional bool) Object {
 	dictEnv.Set("this", dictObject)
 
 	// Evaluate the expression in the dictionary's environment
-return Eval(expr, dictEnv)
+	return Eval(expr, dictEnv)
 }

@@ -1,10 +1,12 @@
 package evaluator
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // evalPathComputedProperty returns computed properties for path dictionaries
@@ -522,3 +524,183 @@ func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 
 	return nil // Property doesn't exist
 }
+func evalDatetimeComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	switch key {
+	case "date":
+		// Just the date part as string (YYYY-MM-DD)
+		if yearExpr, ok := dict.Pairs["year"]; ok {
+			if monthExpr, ok := dict.Pairs["month"]; ok {
+				if dayExpr, ok := dict.Pairs["day"]; ok {
+					year := Eval(yearExpr, env)
+					month := Eval(monthExpr, env)
+					day := Eval(dayExpr, env)
+					if yInt, ok := year.(*Integer); ok {
+						if mInt, ok := month.(*Integer); ok {
+							if dInt, ok := day.(*Integer); ok {
+								return &String{Value: fmt.Sprintf("%04d-%02d-%02d", yInt.Value, mInt.Value, dInt.Value)}
+							}
+						}
+					}
+				}
+			}
+		}
+		return NULL
+
+	case "time":
+		// Just the time part as string (HH:MM:SS or HH:MM if seconds are zero)
+		if hourExpr, ok := dict.Pairs["hour"]; ok {
+			if minExpr, ok := dict.Pairs["minute"]; ok {
+				if secExpr, ok := dict.Pairs["second"]; ok {
+					hour := Eval(hourExpr, env)
+					minute := Eval(minExpr, env)
+					second := Eval(secExpr, env)
+					if hInt, ok := hour.(*Integer); ok {
+						if mInt, ok := minute.(*Integer); ok {
+							if sInt, ok := second.(*Integer); ok {
+								if sInt.Value == 0 {
+									return &String{Value: fmt.Sprintf("%02d:%02d", hInt.Value, mInt.Value)}
+								}
+								return &String{Value: fmt.Sprintf("%02d:%02d:%02d", hInt.Value, mInt.Value, sInt.Value)}
+							}
+						}
+					}
+				}
+			}
+		}
+		return NULL
+
+	case "format":
+		// Human-readable format: "Month DD, YYYY" or "Month DD, YYYY at HH:MM"
+		//
+		// Note: THIS IS A SIMPLE IMPLEMENTATION
+		// as it does not handle localization.
+		//
+		if yearExpr, ok := dict.Pairs["year"]; ok {
+			if monthExpr, ok := dict.Pairs["month"]; ok {
+				if dayExpr, ok := dict.Pairs["day"]; ok {
+					year := Eval(yearExpr, env)
+					month := Eval(monthExpr, env)
+					day := Eval(dayExpr, env)
+					if yInt, ok := year.(*Integer); ok {
+						if mInt, ok := month.(*Integer); ok {
+							if dInt, ok := day.(*Integer); ok {
+								monthNames := []string{
+									"January", "February", "March", "April", "May", "June",
+									"July", "August", "September", "October", "November", "December",
+								}
+								monthName := "Invalid"
+								if mInt.Value >= 1 && mInt.Value <= 12 {
+									monthName = monthNames[mInt.Value-1]
+								}
+
+								// Check if time is set (not all zeros)
+								hasTime := false
+								if hourExpr, ok := dict.Pairs["hour"]; ok {
+									if minExpr, ok := dict.Pairs["minute"]; ok {
+										hour := Eval(hourExpr, env)
+										minute := Eval(minExpr, env)
+										if hInt, ok := hour.(*Integer); ok {
+											if mInt, ok := minute.(*Integer); ok {
+												if hInt.Value != 0 || mInt.Value != 0 {
+													hasTime = true
+													timeStr := fmt.Sprintf("%02d:%02d", hInt.Value, mInt.Value)
+													return &String{Value: fmt.Sprintf("%s %d, %d at %s", monthName, dInt.Value, yInt.Value, timeStr)}
+												}
+											}
+										}
+									}
+								}
+
+								if !hasTime {
+									return &String{Value: fmt.Sprintf("%s %d, %d", monthName, dInt.Value, yInt.Value)}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return NULL
+
+	case "timestamp":
+		// Alias for unix field - more intuitive name
+		if unixExpr, ok := dict.Pairs["unix"]; ok {
+			return Eval(unixExpr, env)
+		}
+		return NULL
+
+	case "dayOfYear":
+		// Calculate day of year (1-366)
+		if unixExpr, ok := dict.Pairs["unix"]; ok {
+			unixObj := Eval(unixExpr, env)
+			if unixInt, ok := unixObj.(*Integer); ok {
+				t := time.Unix(unixInt.Value, 0).UTC()
+				return &Integer{Value: int64(t.YearDay())}
+			}
+		}
+		return NULL
+
+	case "week":
+		// ISO week number (1-53)
+		if unixExpr, ok := dict.Pairs["unix"]; ok {
+			unixObj := Eval(unixExpr, env)
+			if unixInt, ok := unixObj.(*Integer); ok {
+				t := time.Unix(unixInt.Value, 0).UTC()
+				_, week := t.ISOWeek()
+				return &Integer{Value: int64(week)}
+			}
+		}
+		return NULL
+	}
+
+	return nil // Property doesn't exist
+}
+
+// evalDurationComputedProperty returns computed properties for duration dictionaries
+// Returns nil if the property doesn't exist
+func evalDurationComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	// Get the months and seconds components
+	monthsExpr, hasMonths := dict.Pairs["months"]
+	secondsExpr, hasSeconds := dict.Pairs["seconds"]
+
+	if !hasMonths || !hasSeconds {
+		return nil
+	}
+
+	monthsObj := Eval(monthsExpr, env)
+	secondsObj := Eval(secondsExpr, env)
+
+	monthsInt, monthsOk := monthsObj.(*Integer)
+	secondsInt, secondsOk := secondsObj.(*Integer)
+
+	if !monthsOk || !secondsOk {
+		return nil
+	}
+
+	// For month-based durations, computed properties return null
+	// because months have variable lengths (28-31 days)
+	if monthsInt.Value != 0 {
+		switch key {
+		case "days", "hours", "minutes":
+			return NULL
+		}
+	}
+
+	switch key {
+	case "days":
+		// Total seconds as days (integer division)
+		return &Integer{Value: secondsInt.Value / 86400}
+
+	case "hours":
+		// Total seconds as hours (integer division)
+		return &Integer{Value: secondsInt.Value / 3600}
+
+	case "minutes":
+		// Total seconds as minutes (integer division)
+		return &Integer{Value: secondsInt.Value / 60}
+	}
+
+	return nil // Property doesn't exist
+}
+
+// getPublicDirComponents extracts public_dir components from basil config in environment
