@@ -766,4 +766,6 @@ This plan requires approval for:
 | 2026-01-07 | 1.1 | SQL Identifier Validation | ✅ Complete | 434 lines, 89 tests, blocks 22 injection vectors |
 | 2026-01-07 | 1.2 | Command Execution Docs | ✅ Complete | 538 lines, security guide + code comments |
 | 2026-01-07 | 2.1 | SQLite RETURNING Docs | ✅ Complete | Documented fallback, version check ready |
+| 2026-01-07 | 3.1 | Evaluator Test Coverage | ✅ Complete | 489 lines, 15 tests, coverage 0.1%→2.1% |
+| 2026-01-07 | 4.1 | Connection Cache with TTL | ✅ Complete | 572 lines, generic cache, 8 tests, TTL+health checks |
 | | | | | |

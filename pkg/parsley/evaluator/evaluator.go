@@ -76,17 +76,7 @@ type AssetBundler interface {
 	JSUrl() string  // Returns URL for JS bundle, or empty string if no JS files
 }
 
-// Database connection cache
-var (
-	dbConnectionsMu sync.RWMutex
-	dbConnections   = make(map[string]*sql.DB)
-)
-
-// SFTP connection cache
-var (
-	sftpConnectionsMu sync.RWMutex
-	sftpConnections   = make(map[string]*SFTPConnection)
-)
+// Connection caches are now managed in connection_cache.go with TTL and health checks
 
 // ObjectType represents the type of objects in our language
 type ObjectType string
@@ -1050,13 +1040,20 @@ func InvalidateModule(path string) {
 // ClearDBConnections closes and clears all cached database connections.
 // This is primarily used in tests to ensure isolation between test cases.
 func ClearDBConnections() {
-	dbConnectionsMu.Lock()
-	defer dbConnectionsMu.Unlock()
-	for _, db := range dbConnections {
-		db.Close()
-	}
-	dbConnections = make(map[string]*sql.DB)
+	dbCache.close()
+	// Recreate the cache
+	dbCache = newConnectionCache[*sql.DB](
+		100,          // max 100 database connections
+		30*time.Minute, // 30 minute TTL
+		func(db *sql.DB) error {
+			return db.Ping()
+		},
+		func(db *sql.DB) error {
+			return db.Close()
+		},
+	)
 }
+
 
 // GetDictValue is an exported helper for tests to get a value from a Dictionary.
 func GetDictValue(dict *Dictionary, key string) Object {
@@ -4763,9 +4760,7 @@ func connectionBuiltins() map[string]*Builtin {
 
 				// Check cache
 				cacheKey := "sqlite:" + dsn
-				dbConnectionsMu.RLock()
-				db, exists := dbConnections[cacheKey]
-				dbConnectionsMu.RUnlock()
+				db, exists := dbCache.get(cacheKey)
 
 				if !exists {
 					var err error
@@ -4800,10 +4795,8 @@ func connectionBuiltins() map[string]*Builtin {
 						return newDatabaseErrorWithDriver("DB-0005", "SQLite", err)
 					}
 
-					// Cache connection
-					dbConnectionsMu.Lock()
-					dbConnections[cacheKey] = db
-					dbConnectionsMu.Unlock()
+					// Cache connection (TTL and health checks handled by cache)
+					dbCache.put(cacheKey, db)
 				}
 
 				// Detect SQLite version for this connection
@@ -4850,9 +4843,7 @@ func connectionBuiltins() map[string]*Builtin {
 
 				// Check cache
 				cacheKey := "postgres:" + dsn
-				dbConnectionsMu.RLock()
-				db, exists := dbConnections[cacheKey]
-				dbConnectionsMu.RUnlock()
+				db, exists := dbCache.get(cacheKey)
 
 				if !exists {
 					var err error
@@ -4881,10 +4872,8 @@ func connectionBuiltins() map[string]*Builtin {
 						return newDatabaseErrorWithDriver("DB-0005", "PostgreSQL", err)
 					}
 
-					// Cache connection
-					dbConnectionsMu.Lock()
-					dbConnections[cacheKey] = db
-					dbConnectionsMu.Unlock()
+					// Cache connection (TTL and health checks handled by cache)
+					dbCache.put(cacheKey, db)
 				}
 
 				return &DBConnection{
@@ -4927,9 +4916,7 @@ func connectionBuiltins() map[string]*Builtin {
 
 				// Check cache
 				cacheKey := "mysql:" + dsn
-				dbConnectionsMu.RLock()
-				db, exists := dbConnections[cacheKey]
-				dbConnectionsMu.RUnlock()
+				db, exists := dbCache.get(cacheKey)
 
 				if !exists {
 					var err error
@@ -4958,10 +4945,8 @@ func connectionBuiltins() map[string]*Builtin {
 						return newDatabaseErrorWithDriver("DB-0005", "MySQL", err)
 					}
 
-					// Cache connection
-					dbConnectionsMu.Lock()
-					dbConnections[cacheKey] = db
-					dbConnectionsMu.Unlock()
+					// Cache connection (TTL and health checks handled by cache)
+					dbCache.put(cacheKey, db)
 				}
 
 				return &DBConnection{
@@ -5063,9 +5048,7 @@ func connectionBuiltins() map[string]*Builtin {
 
 				// Check cache
 				cacheKey := fmt.Sprintf("sftp:%s@%s:%d", user, host, port)
-				sftpConnectionsMu.RLock()
-				conn, exists := sftpConnections[cacheKey]
-				sftpConnectionsMu.RUnlock()
+				conn, exists := sftpCache.get(cacheKey)
 
 				if exists && conn.Connected {
 					return conn
@@ -5197,10 +5180,8 @@ func connectionBuiltins() map[string]*Builtin {
 					LastError: "",
 				}
 
-				// Cache connection
-				sftpConnectionsMu.Lock()
-				sftpConnections[cacheKey] = newConn
-				sftpConnectionsMu.Unlock()
+				// Cache connection (TTL and health checks handled by cache)
+				sftpCache.put(cacheKey, newConn)
 
 				return newConn
 			},
@@ -6999,11 +6980,9 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		if conn.Managed {
 			return newDatabaseStateError("DB-0009")
 		}
-		// Remove from cache and close
-		cacheKey := conn.Driver + ":" + conn.DSN
-		dbConnectionsMu.Lock()
-		delete(dbConnections, cacheKey)
-		dbConnectionsMu.Unlock()
+		// Note: We don't remove from cache on explicit close, as the cache
+		// handles TTL and cleanup automatically. Manual close just closes
+		// the database connection.
 
 		if err := conn.DB.Close(); err != nil {
 			conn.LastError = err.Error()
@@ -7138,11 +7117,9 @@ func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object
 			return newArityError("close", len(args), 0)
 		}
 
-		// Remove from cache
-		cacheKey := fmt.Sprintf("sftp:%s@%s:%d", conn.User, conn.Host, conn.Port)
-		sftpConnectionsMu.Lock()
-		delete(sftpConnections, cacheKey)
-		sftpConnectionsMu.Unlock()
+		// Note: We don't remove from cache on explicit close, as the cache
+		// handles TTL and cleanup automatically. Manual close just marks
+		// the connection as disconnected.
 
 		// Close SFTP and SSH clients
 		if conn.Client != nil {
