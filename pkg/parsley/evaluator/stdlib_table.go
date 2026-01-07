@@ -100,8 +100,8 @@ func (smd *StdlibModuleDict) Inspect() string {
 // Used for @basil/http and @basil/auth exports to ensure request/session-scoped
 // values are fresh even when imported at module scope.
 type DynamicAccessor struct {
-	Name     string                      // Display name (e.g., "query", "session")
-	Resolver func(*Environment) Object   // Function to resolve the actual value
+	Name     string                    // Display name (e.g., "query", "session")
+	Resolver func(*Environment) Object // Function to resolve the actual value
 }
 
 func (da *DynamicAccessor) Type() ObjectType { return "DYNAMIC_ACCESSOR" }

@@ -136,14 +136,14 @@ func TestInitCommand_FolderEmptyOK(t *testing.T) {
 
 func TestInitCommand_RelativePath(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Change to tmpDir so relative path works
 	oldWd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
 	defer os.Chdir(oldWd)
-	
+
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("failed to change directory: %v", err)
 	}

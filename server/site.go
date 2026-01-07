@@ -90,7 +90,7 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Parts can be located in two places:
 		// 1. Within the site/ directory (e.g., site/results.part accessed as /results.part)
 		// 2. In sibling directories at project root (e.g., parts/counter.part accessed as /parts/counter.part)
-		
+
 		// First, try within site/ directory (for Parts in same directory as handler)
 		partPath := filepath.Join(h.siteRoot, urlPath)
 		partPath = filepath.Clean(partPath)
@@ -98,7 +98,7 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.servePartFile(w, r, partPath, urlPath)
 			return
 		}
-		
+
 		// Then try at project root level (for @~/parts/ style paths)
 		partPath = filepath.Join(h.siteRoot, "..", urlPath)
 		partPath = filepath.Clean(partPath)
@@ -106,7 +106,7 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.servePartFile(w, r, partPath, urlPath)
 			return
 		}
-		
+
 		// Part file not found in either location
 		http.NotFound(w, r)
 		return
@@ -195,7 +195,7 @@ func (h *siteHandler) getCheckedPaths(urlPath string) []string {
 		if i > 0 {
 			checkPath = "/" + strings.Join(segments[:i], "/")
 		}
-		
+
 		// Show both {foldername}.pars and index.pars in checked paths
 		if i > 0 {
 			folderName := segments[i-1]

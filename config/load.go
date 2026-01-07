@@ -22,7 +22,7 @@ func Load(configPath string, getenv func(string) string) (*Config, error) {
 // LoadWithPath reads configuration and returns both the config and the resolved path.
 // This is useful when the caller needs to know the actual config file location.
 func LoadWithPath(configPath string, getenv func(string) string) (*Config, string, error) {
-	path, err := resolveConfigPath(configPath)
+	path, err := resolveConfigPath(configPath, getenv)
 	if err != nil {
 		return nil, "", err
 	}
@@ -139,13 +139,21 @@ func Warnings(cfg *Config) []string {
 }
 
 // resolveConfigPath finds the config file to use.
-// Search order: explicit path > ./basil.yaml > ~/.config/basil/basil.yaml
-func resolveConfigPath(explicit string) (string, error) {
+// Search order: explicit path > BASIL_CONFIG env > ./basil.yaml > ~/.config/basil/basil.yaml
+func resolveConfigPath(explicit string, getenv func(string) string) (string, error) {
 	if explicit != "" {
 		if _, err := os.Stat(explicit); err != nil {
 			return "", fmt.Errorf("config file not found: %s", explicit)
 		}
 		return explicit, nil
+	}
+
+	// Try BASIL_CONFIG environment variable
+	if envPath := getenv("BASIL_CONFIG"); envPath != "" {
+		if _, err := os.Stat(envPath); err != nil {
+			return "", fmt.Errorf("BASIL_CONFIG file not found: %s", envPath)
+		}
+		return envPath, nil
 	}
 
 	// Try ./basil.yaml
@@ -162,7 +170,7 @@ func resolveConfigPath(explicit string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no config file found (tried basil.yaml, ~/.config/basil/basil.yaml)")
+	return "", fmt.Errorf("no config file found (tried BASIL_CONFIG, basil.yaml, ~/.config/basil/basil.yaml)")
 }
 
 // envPattern matches ${VAR} or ${VAR:-default}

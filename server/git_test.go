@@ -107,9 +107,9 @@ func TestGitHandler_RoleCheck(t *testing.T) {
 	// but we can verify the handler properly checks roles
 
 	tmpDir := t.TempDir()
-	authDB, err := auth.OpenDB(tmpDir)
+	authDB, err := auth.OpenOrCreateDB(tmpDir)
 	if err != nil {
-		t.Fatalf("OpenDB failed: %v", err)
+		t.Fatalf("OpenOrCreateDB failed: %v", err)
 	}
 	defer authDB.Close()
 

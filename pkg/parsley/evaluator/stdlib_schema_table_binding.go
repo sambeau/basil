@@ -1085,9 +1085,10 @@ func reverseDirection(dir string) string {
 // as first argument, followed by method-specific arguments.
 //
 // Usage:
-//   Users.toSQL("all", {orderBy: "name", limit: 10})
-//   Users.toSQL("where", {status: "active"})
-//   Users.toSQL("find", 42)
+//
+//	Users.toSQL("all", {orderBy: "name", limit: 10})
+//	Users.toSQL("where", {status: "active"})
+//	Users.toSQL("find", 42)
 //
 // Returns: {sql: "SELECT ...", params: [...]}
 func (tb *TableBinding) executeToSQL(args []Object, env *Environment) Object {

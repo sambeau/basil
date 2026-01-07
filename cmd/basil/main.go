@@ -56,7 +56,7 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	var (
 		configPath  = flags.String("config", "", "Path to config file")
 		devMode     = flags.Bool("dev", false, "Development mode (HTTP on localhost)")
-		quietMode   = flags.Bool("quiet", false, "Suppress request logs (dev mode)")
+		quietMode   = flags.Bool("quiet", false, "Suppress request logs (sets log level to error)")
 		port        = flags.Int("port", 0, "Override listen port")
 		profile     = flags.String("profile", "", "Developer profile to apply")
 		initFolder  = flags.String("init", "", "Create a new Basil project in the specified folder")
@@ -166,7 +166,7 @@ Usage:
 Server Options:
   --config PATH      Path to config file (default: auto-detect)
   --dev              Development mode (HTTP on localhost)
-  --quiet            Suppress request logs (dev mode)
+  --quiet            Suppress request logs (sets log level to error)
   --port PORT        Override listen port
   --profile NAME     Apply a developer profile from config
   -as NAME           Alias for --profile
