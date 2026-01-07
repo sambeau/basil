@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -883,7 +882,7 @@ func ClearDBConnections() {
 	dbCache.close()
 	// Recreate the cache
 	dbCache = newConnectionCache[*sql.DB](
-		100,          // max 100 database connections
+		100,            // max 100 database connections
 		30*time.Minute, // 30 minute TTL
 		func(db *sql.DB) error {
 			return db.Ping()
@@ -893,7 +892,6 @@ func ClearDBConnections() {
 		},
 	)
 }
-
 
 // GetDictValue is an exported helper for tests to get a value from a Dictionary.
 func GetDictValue(dict *Dictionary, key string) Object {
@@ -1423,71 +1421,7 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 
 // Type checking helpers moved to eval_helpers.go (typeExprEquals, isRegexDict, isPathDict, isUrlDict, isFileDict, isTagDict)
 
-// compileRegex compiles a regex pattern with optional flags
-// Go's regexp doesn't support all Perl flags, so we map what we can
-func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
-	// Process flags - Go regexp supports (?flags) syntax
-	prefix := ""
-	for _, flag := range flags {
-		switch flag {
-		case 'i': // case-insensitive
-			prefix += "(?i)"
-		case 'm': // multi-line (^ and $ match line boundaries)
-			prefix += "(?m)"
-		case 's': // dot matches newline
-			prefix += "(?s)"
-			// 'g' (global) is handled by match operator, not compilation
-			// Other flags like 'x' (verbose) could be added
-		}
-	}
-
-	fullPattern := prefix + pattern
-	return regexp.Compile(fullPattern)
-}
-
-// evalMatchExpression handles string ~ regex matching
-// Returns an array of matches (with captures) or null if no match
-func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, env *Environment) Object {
-	// Extract pattern and flags from regex dictionary
-	patternExpr, ok := regexDict.Pairs["pattern"]
-	if !ok {
-		return newValidationError("VAL-0015", map[string]any{})
-	}
-	patternObj := Eval(patternExpr, env)
-	patternStr, ok := patternObj.(*String)
-	if !ok {
-		return newValidationError("VAL-0016", map[string]any{"Got": patternObj.Type()})
-	}
-
-	flagsExpr, ok := regexDict.Pairs["flags"]
-	var flags string
-	if ok {
-		flagsObj := Eval(flagsExpr, env)
-		if flagsStr, ok := flagsObj.(*String); ok {
-			flags = flagsStr.Value
-		}
-	}
-
-	// Compile the regex
-	re, err := compileRegex(patternStr.Value, flags)
-	if err != nil {
-		return newFormatError("FMT-0002", err)
-	}
-
-	// Find matches
-	matches := re.FindStringSubmatch(text)
-	if matches == nil {
-		return NULL // No match - returns null (falsy)
-	}
-
-	// Convert matches to array of strings
-	elements := make([]Object, len(matches))
-	for i, match := range matches {
-		elements[i] = &String{Value: match}
-	}
-
-	return &Array{Elements: elements}
-}
+// Regex functions moved to eval_regex.go (compileRegex, evalMatchExpression)
 
 // Path-related functions moved to eval_paths.go (cleanPathComponents, parsePathString, pathToDict, stdioToDict, fileToDict, dirToDict)
 
@@ -4505,31 +4439,31 @@ func createCommandHandle(binary string, args []string, options *Dictionary, env 
 // This function executes external commands with user-provided input. Security considerations:
 //
 // 1. SECURITY POLICY ENFORCEMENT:
-//    - env.Security MUST be set for untrusted input (production mode)
-//    - nil security policy = unrestricted access (development only)
-//    - Security check happens AFTER path resolution to catch binary location
+//   - env.Security MUST be set for untrusted input (production mode)
+//   - nil security policy = unrestricted access (development only)
+//   - Security check happens AFTER path resolution to catch binary location
 //
 // 2. ARGUMENT HANDLING:
-//    - Arguments are passed directly to exec.Command (NO shell interpretation)
-//    - Shell metacharacters in args are treated as literals (safe)
-//    - Example: arg "file; rm -rf /" is passed as single argument, NOT executed as shell
+//   - Arguments are passed directly to exec.Command (NO shell interpretation)
+//   - Shell metacharacters in args are treated as literals (safe)
+//   - Example: arg "file; rm -rf /" is passed as single argument, NOT executed as shell
 //
 // 3. BINARY PATH RESOLUTION:
-//    - Absolute/relative paths: used as-is (subject to security check)
-//    - Simple names: resolved via PATH lookup using exec.LookPath
-//    - PATH lookup can be exploited if:
-//      a) Binary name is user-controlled (attacker can reference any binary in PATH)
-//      b) PATH environment is manipulated (security policy should prevent this)
+//   - Absolute/relative paths: used as-is (subject to security check)
+//   - Simple names: resolved via PATH lookup using exec.LookPath
+//   - PATH lookup can be exploited if:
+//     a) Binary name is user-controlled (attacker can reference any binary in PATH)
+//     b) PATH environment is manipulated (security policy should prevent this)
 //
 // 4. TIMEOUT HANDLING:
-//    - Optional timeout prevents indefinite hangs
-//    - Requires proper context propagation
-//    - Timeout kills process tree (SIGKILL on Unix)
+//   - Optional timeout prevents indefinite hangs
+//   - Requires proper context propagation
+//   - Timeout kills process tree (SIGKILL on Unix)
 //
 // 5. ENVIRONMENT VARIABLES:
-//    - Custom env vars can be set via options.env
-//    - Empty env = inherit from parent process
-//    - Security risk: modified PATH, LD_PRELOAD, etc.
+//   - Custom env vars can be set via options.env
+//   - Empty env = inherit from parent process
+//   - Security risk: modified PATH, LD_PRELOAD, etc.
 //
 // AI MAINTENANCE GUIDE:
 // ---------------------
@@ -4541,25 +4475,26 @@ func createCommandHandle(binary string, args []string, options *Dictionary, env 
 //
 // ATTACK SURFACE ANALYSIS:
 // -------------------------
-// 1. Binary path traversal:
-//    execute(cmd("../../../usr/bin/evil"))
-//    Mitigation: Security policy checks resolved path
 //
-// 2. Argument injection attempts (SAFE due to exec.Command):
-//    execute(cmd("ls", "-la; rm -rf /"))
-//    Result: ls receives literal argument "-la; rm -rf /", semicolon NOT interpreted
+//  1. Binary path traversal:
+//     execute(cmd("../../../usr/bin/evil"))
+//     Mitigation: Security policy checks resolved path
 //
-// 3. Environment manipulation:
-//    execute(cmd("gcc"), {env: {("LD_PRELOAD"): "/tmp/evil.so"}})
-//    Mitigation: Security policy should block untrusted commands entirely
+//  2. Argument injection attempts (SAFE due to exec.Command):
+//     execute(cmd("ls", "-la; rm -rf /"))
+//     Result: ls receives literal argument "-la; rm -rf /", semicolon NOT interpreted
 //
-// 4. PATH manipulation (if allowed to set custom env):
-//    execute(cmd("python"), {env: {("PATH"): "/tmp/evil/path"}})
-//    Mitigation: Resolve path BEFORE applying custom env
+//  3. Environment manipulation:
+//     execute(cmd("gcc"), {env: {("LD_PRELOAD"): "/tmp/evil.so"}})
+//     Mitigation: Security policy should block untrusted commands entirely
 //
-// 5. Working directory escape:
-//    execute(cmd("cat", "flag.txt"), {dir: path("../../../etc")})
-//    Mitigation: Security policy checks dir path
+//  4. PATH manipulation (if allowed to set custom env):
+//     execute(cmd("python"), {env: {("PATH"): "/tmp/evil/path"}})
+//     Mitigation: Resolve path BEFORE applying custom env
+//
+//  5. Working directory escape:
+//     execute(cmd("cat", "flag.txt"), {dir: path("../../../etc")})
+//     Mitigation: Security policy checks dir path
 //
 // RECOMMENDED HARDENING (future):
 // --------------------------------
@@ -4567,7 +4502,6 @@ func createCommandHandle(binary string, args []string, options *Dictionary, env 
 // - Block dangerous env vars (LD_PRELOAD, DYLD_*, etc.)
 // - Add per-command argument validators
 // - Consider requiring explicit permission per binary in security policy
-//
 func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object {
 	// Extract binary
 	binaryExpr, ok := cmdDict.Pairs["binary"]
@@ -11921,9 +11855,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 
 // parseJSON parses a JSON string into Parsley objects
 
-
 // Goldmark Parsley Interpolation Extension moved to eval_parsing.go (KindParsleyInterpolation, ParsleyInterpolationNode, parsleyInterpolationParser, parsleyInterpolationRenderer, ParsleyInterpolationExtension, NewParsleyInterpolation, findMatchingBraceInBytes)
-
 
 // Markdown/YAML/JSON/CSV parsing moved to eval_parsing.go:
 // - parseMarkdown

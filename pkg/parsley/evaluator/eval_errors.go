@@ -337,8 +337,8 @@ func newStateError(code string) *Error {
 // newUndefinedComponentError creates a structured error for undefined components.
 func newUndefinedComponentError(name string) *Error {
 	perr := perrors.New("UNDEF-0003", map[string]any{
-"Name": name,
-})
+		"Name": name,
+	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,
@@ -389,8 +389,8 @@ func newOperatorErrorWithPos(tok lexer.Token, code string, data map[string]any) 
 // newLocaleError creates a structured error for invalid locale.
 func newLocaleError(locale string) *Error {
 	perr := perrors.New("FMT-0008", map[string]any{
-"Locale": locale,
-})
+		"Locale": locale,
+	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,
@@ -401,9 +401,9 @@ func newLocaleError(locale string) *Error {
 }
 
 // newFormatErrorWithPos creates a structured format error with position info.
-func newFormatErrorWithPos(code string, tok lexer.Token, err error) *Error{
+func newFormatErrorWithPos(code string, tok lexer.Token, err error) *Error {
 	perr := perrors.New(code, map[string]any{
-"GoError": err.Error(),
+		"GoError": err.Error(),
 	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
@@ -437,8 +437,8 @@ func newParseError(code string, context string, err error) *Error {
 // newConversionError creates a structured type error for value conversion failures.
 func newConversionError(code string, value string) *Error {
 	perr := perrors.New(code, map[string]any{
-"Value": value,
-})
+		"Value": value,
+	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,
@@ -451,7 +451,7 @@ func newConversionError(code string, value string) *Error {
 // newNetworkError creates a structured network error.
 func newNetworkError(code string, err error) *Error {
 	perr := perrors.New(code, map[string]any{
-"GoError": err.Error(),
+		"GoError": err.Error(),
 	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
@@ -465,9 +465,9 @@ func newNetworkError(code string, err error) *Error {
 // newSliceIndexTypeError creates a structured type error for slice index type issues.
 func newSliceIndexTypeError(position string, got string) *Error {
 	perr := perrors.New("TYPE-0018", map[string]any{
-"Position": position,
-"Got":      got,
-})
+		"Position": position,
+		"Got":      got,
+	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,

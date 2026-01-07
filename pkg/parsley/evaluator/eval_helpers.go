@@ -462,11 +462,11 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 	absPath = filepath.Clean(absPath)
 
 	// Try to resolve symlinks. If the file doesn't exist (e.g., for write operations),
-// resolve the parent directory and append the filename.
-if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
-absPath = resolved
-} else {
-// File doesn't exist - try resolving parent directory
+	// resolve the parent directory and append the filename.
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = resolved
+	} else {
+		// File doesn't exist - try resolving parent directory
 		dir := filepath.Dir(absPath)
 		base := filepath.Base(absPath)
 		if resolvedDir, err := filepath.EvalSymlinks(dir); err == nil {
