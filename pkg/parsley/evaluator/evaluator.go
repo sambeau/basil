@@ -179,31 +179,7 @@ func (m *Money) formatAmount() string {
 	return result
 }
 
-// currencyToSymbol returns the display symbol for a currency code
-func currencyToSymbol(code string) string {
-	switch code {
-	case "USD":
-		return "$"
-	case "GBP":
-		return "£"
-	case "EUR":
-		return "€"
-	case "JPY":
-		return "¥"
-	case "CAD":
-		return "CA$"
-	case "AUD":
-		return "AU$"
-	case "HKD":
-		return "HK$"
-	case "SGD":
-		return "S$"
-	case "CNY":
-		return "CN¥"
-	default:
-		return ""
-	}
-}
+// Currency helpers moved to eval_helpers.go
 
 // Boolean represents boolean objects
 type Boolean struct {
@@ -865,128 +841,7 @@ func NewDictionaryFromObjectsWithOrder(pairs map[string]Object, keyOrder []strin
 	return dict
 }
 
-// checkPathAccess validates file system access based on security policy
-func (e *Environment) checkPathAccess(path string, operation string) error {
-	if e.Security == nil {
-		// No policy = permissive defaults (for REPL and simple scripts)
-		// Read: allowed
-		// Write: allowed (changed to be permissive by default)
-		// Execute: denied (still requires explicit permission)
-		if operation == "execute" {
-			return fmt.Errorf("execute access denied (use --allow-execute or -x)")
-		}
-		return nil
-	}
-
-	// Convert to absolute path and resolve symlinks for consistent comparison
-	// This handles macOS /var -> /private/var symlinks and similar
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("invalid path: %s", err)
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Try to resolve symlinks. If the file doesn't exist (e.g., for write operations),
-	// resolve the parent directory and append the filename.
-	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
-		absPath = resolved
-	} else {
-		// File doesn't exist - try resolving parent directory
-		dir := filepath.Dir(absPath)
-		base := filepath.Base(absPath)
-		if resolvedDir, err := filepath.EvalSymlinks(dir); err == nil {
-			absPath = filepath.Join(resolvedDir, base)
-		}
-	}
-
-	switch operation {
-	case "read":
-		if e.Security.NoRead {
-			return fmt.Errorf("file read access denied: %s", path)
-		}
-		// Check blacklist
-		if isPathRestricted(absPath, e.Security.RestrictRead) {
-			return fmt.Errorf("file read restricted: %s", path)
-		}
-
-	case "write":
-		// First check if all writes are denied
-		if e.Security.NoWrite {
-			return fmt.Errorf("file write access denied: %s", path)
-		}
-		// Check blacklist (deny specific paths)
-		if isPathRestricted(absPath, e.Security.RestrictWrite) {
-			return fmt.Errorf("file write restricted: %s", path)
-		}
-		// If AllowWriteAll is true (default for pars), allow the write
-		if e.Security.AllowWriteAll {
-			return nil
-		}
-		// Otherwise check whitelist (used by basil server)
-		if !isPathAllowed(absPath, e.Security.AllowWrite) {
-			return fmt.Errorf("file write not allowed: %s", path)
-		}
-
-	case "execute":
-		if e.Security.AllowExecuteAll {
-			return nil // Unrestricted
-		}
-		if !isPathAllowed(absPath, e.Security.AllowExecute) {
-			// Include helpful debug info in error message
-			if len(e.Security.AllowExecute) > 0 {
-				allowedStr := strings.Join(e.Security.AllowExecute, ", ")
-				return fmt.Errorf("script execution not allowed: %s (resolved to: %s, allowed: %s)", path, absPath, allowedStr)
-			}
-			return fmt.Errorf("script execution not allowed: %s (no directories allowed)", path)
-		}
-	}
-
-	return nil
-}
-
-// isPathAllowed checks if a path is within any allowed directory
-func isPathAllowed(path string, allowList []string) bool {
-	// Empty allow list means nothing is allowed
-	if len(allowList) == 0 {
-		return false
-	}
-
-	// Check if path is within any allowed directory
-	for _, allowed := range allowList {
-		// Resolve symlinks in allowed path for consistent comparison
-		resolvedAllowed := allowed
-		if resolved, err := filepath.EvalSymlinks(allowed); err == nil {
-			resolvedAllowed = resolved
-		}
-		if path == resolvedAllowed || strings.HasPrefix(path, resolvedAllowed+string(filepath.Separator)) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// isPathRestricted checks if a path is within any restricted directory
-func isPathRestricted(path string, restrictList []string) bool {
-	// Empty restrict list = no restrictions
-	if len(restrictList) == 0 {
-		return false
-	}
-
-	// Check if path is within any restricted directory
-	for _, restricted := range restrictList {
-		// Resolve symlinks in restricted path for consistent comparison
-		resolvedRestricted := restricted
-		if resolved, err := filepath.EvalSymlinks(restricted); err == nil {
-			resolvedRestricted = resolved
-		}
-		if path == resolvedRestricted || strings.HasPrefix(path, resolvedRestricted+string(filepath.Separator)) {
-			return true
-		}
-	}
-
-	return false
-}
+// Path security helpers moved to eval_helpers.go (checkPathAccess, isPathAllowed, isPathRestricted)
 
 // Global constants
 var (
@@ -1255,25 +1110,7 @@ func dictToTime(dict *Dictionary, env *Environment) (time.Time, error) {
 	), nil
 }
 
-// isDatetimeDict checks if a dictionary is a datetime by looking for __type field
-func isDatetimeDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "datetime"
-		}
-	}
-	return false
-}
-
-// isDurationDict checks if a dictionary is a duration by looking for __type field
-func isDurationDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "duration"
-		}
-	}
-	return false
-}
+// Type checking helpers moved to eval_helpers.go (isDatetimeDict, isDurationDict, etc.)
 
 // getDurationComponents extracts months and seconds from a duration dictionary
 func getDurationComponents(dict *Dictionary, env *Environment) (int64, int64, error) {
@@ -2443,58 +2280,7 @@ func isDigit(ch rune) bool {
 	return ch >= '0' && ch <= '9'
 }
 
-// typeExprEquals checks if an expression represents a type marker matching the target.
-func typeExprEquals(expr ast.Expression, want string) bool {
-	switch v := expr.(type) {
-	case *ast.StringLiteral:
-		return v.Value == want
-	case *ast.ObjectLiteralExpression:
-		if strObj, ok := v.Obj.(*String); ok {
-			return strObj.Value == want
-		}
-	}
-	return false
-}
-
-// isRegexDict checks if a dictionary is a regex by looking for __type field
-func isRegexDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		return typeExprEquals(typeExpr, "regex")
-	}
-	return false
-}
-
-// isPathDict checks if a dictionary is a path by looking for __type field
-func isPathDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		return typeExprEquals(typeExpr, "path")
-	}
-	return false
-}
-
-// isUrlDict checks if a dictionary is a URL by looking for __type field
-func isUrlDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		return typeExprEquals(typeExpr, "url")
-	}
-	return false
-}
-
-// isFileDict checks if a dictionary is a file handle by looking for __type field
-func isFileDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		return typeExprEquals(typeExpr, "file")
-	}
-	return false
-}
-
-// isTagDict checks if a dictionary is a tag by looking for __type field
-func isTagDict(dict *Dictionary) bool {
-	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		return typeExprEquals(typeExpr, "tag")
-	}
-	return false
-}
+// Type checking helpers moved to eval_helpers.go (typeExprEquals, isRegexDict, isPathDict, isUrlDict, isFileDict, isTagDict)
 
 // tagDictToString converts a tag dictionary back to an HTML string
 func tagDictToString(dict *Dictionary) string {
@@ -3385,20 +3171,7 @@ func dirToDict(pathDict *Dictionary, env *Environment) *Dictionary {
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
-// isDirDict checks if a dictionary is a directory handle
-func isDirDict(dict *Dictionary) bool {
-	typeExpr, ok := dict.Pairs["__type"]
-	if !ok {
-		return false
-	}
-	if typeExprEquals(typeExpr, "dir") {
-		return true
-	}
-	if ident, ok := typeExpr.(*ast.Identifier); ok {
-		return ident.Value == "dir"
-	}
-	return false
-}
+// isDirDict moved to eval_helpers.go
 
 // fileDictToPathDict converts a file/dir dictionary to a path dictionary
 // File dicts use _pathComponents/_pathAbsolute, path dicts use components/absolute
@@ -6219,18 +5992,7 @@ func createCommandHandle(binary string, args []string, options *Dictionary, env 
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
-// isCommandHandle checks if a dictionary is a command handle
-func isCommandHandle(dict *Dictionary) bool {
-	typeExpr, ok := dict.Pairs["__type"]
-	if !ok {
-		return false
-	}
-	typeLit, ok := typeExpr.(*ast.StringLiteral)
-	if !ok {
-		return false
-	}
-	return typeLit.Value == "command"
-}
+// isCommandHandle moved to eval_helpers.go
 
 // executeCommand executes a command handle with input and returns result dictionary
 //
@@ -13649,29 +13411,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 	return NULL
 }
 
-// isRequestDict checks if a dictionary is a request handle by looking for __type field
-func isRequestDict(dict *Dictionary) bool {
-	typeExpr, ok := dict.Pairs["__type"]
-	if !ok {
-		return false
-	}
-	if typeExprEquals(typeExpr, "request") {
-		return true
-	}
-	return false
-}
-
-// isResponseDict checks if a dictionary is a response typed dictionary
-func isResponseDict(dict *Dictionary) bool {
-	typeExpr, ok := dict.Pairs["__type"]
-	if !ok {
-		return false
-	}
-	if typeExprEquals(typeExpr, "response") {
-		return true
-	}
-	return false
-}
+// isRequestDict and isResponseDict moved to eval_helpers.go
 
 // setRequestMethod clones a request dict with a new HTTP method
 func setRequestMethod(dict *Dictionary, method string, env *Environment) *Dictionary {
