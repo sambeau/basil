@@ -270,6 +270,56 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		selectCols = []string{"*"}
 	}
 
+	// Validate all column names in projection to prevent SQL injection
+	for _, col := range selectCols {
+		// Skip COUNT(*), EXISTS, wildcards, and qualified wildcards
+		if col == "*" || col == "COUNT(*) as count" || col == "1" || strings.HasSuffix(col, ".*") {
+			continue
+		}
+		
+		// For qualified names like "users.user_id", validate each part
+		parts := strings.Split(col, ".")
+		for _, part := range parts {
+			if err := validateSQLIdentifier(part); err != nil {
+				return "", nil, &Error{
+					Message: fmt.Sprintf("invalid column name in projection: %s", col),
+					Class:   ClassValue,
+					Code:    "VAL-0003",
+				}
+			}
+		}
+	}
+
+	// Validate table name and alias to prevent SQL injection
+	if err := validateSQLIdentifier(binding.TableName); err != nil {
+		return "", nil, &Error{
+			Message: fmt.Sprintf("invalid table name: %s", binding.TableName),
+			Class:   ClassValue,
+			Code:    "VAL-0003",
+		}
+	}
+	
+	if node.SourceAlias != nil {
+		if err := validateSQLIdentifier(node.SourceAlias.Value); err != nil {
+			return "", nil, &Error{
+				Message: fmt.Sprintf("invalid table alias: %s", node.SourceAlias.Value),
+				Class:   ClassValue,
+				Code:    "VAL-0003",
+			}
+		}
+	}
+	
+	// Validate soft delete column name
+	if binding.SoftDeleteColumn != "" {
+		if err := validateSQLIdentifier(binding.SoftDeleteColumn); err != nil {
+			return "", nil, &Error{
+				Message: fmt.Sprintf("invalid soft delete column: %s", binding.SoftDeleteColumn),
+				Class:   ClassValue,
+				Code:    "VAL-0003",
+			}
+		}
+	}
+
 	// Build SELECT clause
 	sql.WriteString("SELECT ")
 	sql.WriteString(strings.Join(selectCols, ", "))
