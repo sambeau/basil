@@ -1,3 +1,7 @@
+// Package server tests for Basil web server.
+//
+// This file tests request context building functionality in handler.go
+// (buildRequestContext function that populates basil.http.request).
 package server
 
 import (

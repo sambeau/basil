@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
 	githttp "github.com/AaronO/go-git-http"
 	"github.com/sambeau/basil/auth"
@@ -15,13 +16,14 @@ import (
 
 // GitHandler wraps the go-git-http handler with authentication.
 type GitHandler struct {
-	git        *githttp.GitHttp
-	authDB     *auth.DB
-	config     *config.Config
-	onPush     func() // Callback for post-push reload
-	stdout     io.Writer
-	stderr     io.Writer
-	warnedHTTP bool // Track if we've warned about non-TLS
+	git       *githttp.GitHttp
+	authDB    *auth.DB
+	config    *config.Config
+	onPush    func() // Callback for post-push reload
+	stdout    io.Writer
+	stderr    io.Writer
+	warnedIPs map[string]bool // Track which IPs we've warned about non-TLS (for audit trail)
+	warnedMu  sync.Mutex      // Protect warnedIPs map
 }
 
 // NewGitHandler creates a new Git HTTP handler.
@@ -29,12 +31,13 @@ func NewGitHandler(siteDir string, authDB *auth.DB, cfg *config.Config, onPush f
 	git := githttp.New(siteDir)
 
 	h := &GitHandler{
-		git:    git,
-		authDB: authDB,
-		config: cfg,
-		onPush: onPush,
-		stdout: stdout,
-		stderr: stderr,
+		git:       git,
+		authDB:    authDB,
+		config:    cfg,
+		onPush:    onPush,
+		stdout:    stdout,
+		stderr:    stderr,
+		warnedIPs: make(map[string]bool),
 	}
 
 	// Set up event handler for post-push reload
@@ -52,10 +55,10 @@ func NewGitHandler(siteDir string, authDB *auth.DB, cfg *config.Config, onPush f
 
 // ServeHTTP handles Git HTTP requests with authentication.
 func (h *GitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Warn once about non-TLS when auth is enabled (credentials exposed in plain text)
-	if h.config.Git.RequireAuth && r.TLS == nil && !h.isDevLocalhost(r) && !h.warnedHTTP {
-		fmt.Fprintf(h.stderr, "[git] ⚠ WARNING: Git request received over HTTP (not HTTPS). API keys are being sent in plain text!\n")
-		h.warnedHTTP = true
+	// Warn about non-TLS when auth is enabled (credentials exposed in plain text)
+	// Track per-IP for audit trail
+	if h.config.Git.RequireAuth && r.TLS == nil && !h.isDevLocalhost(r) {
+		h.warnInsecureHTTP(r)
 	}
 
 	// Check if auth is required
@@ -168,4 +171,24 @@ func (h *GitHandler) isDevLocalhost(r *http.Request) bool {
 
 	// Check for localhost addresses
 	return host == "127.0.0.1" || host == "::1" || host == "localhost"
+}
+
+// warnInsecureHTTP logs a warning about insecure HTTP connections (once per IP).
+// This provides an audit trail of which IPs sent credentials over plain HTTP.
+func (h *GitHandler) warnInsecureHTTP(r *http.Request) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+
+	h.warnedMu.Lock()
+	defer h.warnedMu.Unlock()
+
+	// Only warn once per IP (but track all IPs for audit purposes)
+	if h.warnedIPs[host] {
+		return
+	}
+
+	fmt.Fprintf(h.stderr, "[git] ⚠ WARNING: Insecure request from %s - credentials sent over plain HTTP!\n", host)
+	h.warnedIPs[host] = true
 }

@@ -1,3 +1,7 @@
+// Package server tests for Basil web server.
+//
+// This file tests cookie handling functionality implemented in handler.go
+// (cookie setting, parsing, security attributes via basil.http.response.cookies).
 package server
 
 import (

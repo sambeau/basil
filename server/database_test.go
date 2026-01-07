@@ -1,3 +1,7 @@
+// Package server tests for Basil web server.
+//
+// This file tests database initialization and connection management in server.go
+// (initDatabase, initSQLite functions and basil.sqlite access from handlers).
 package server
 
 import (

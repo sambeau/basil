@@ -1,3 +1,7 @@
+// Package server tests for Basil web server.
+//
+// This file tests redirect functionality implemented in handler.go
+// (basil.http.response.redirect and related status codes).
 package server
 
 import (
