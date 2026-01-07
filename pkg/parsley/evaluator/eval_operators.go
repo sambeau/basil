@@ -289,3 +289,46 @@ func evalStringSliceExpression(str, start, end Object) Object {
 	// Create the slice
 	return &String{Value: stringObject.Value[startIdx:endIdx]}
 }
+
+// evalPrefixExpression handles prefix operators (!, not, -)
+func evalPrefixExpression(tok lexer.Token, operator string, right Object) Object {
+	switch operator {
+	case "!":
+		return evalBangOperatorExpression(right)
+	case "not":
+		return evalBangOperatorExpression(right)
+	case "-":
+		return evalMinusPrefixOperatorExpression(tok, right)
+	default:
+		return newOperatorError("OP-0005", map[string]any{"Operator": operator, "Type": right.Type()})
+	}
+}
+
+// evalBangOperatorExpression handles the ! and 'not' operators
+func evalBangOperatorExpression(right Object) Object {
+	if isTruthy(right) {
+		return FALSE
+	}
+	return TRUE
+}
+
+// evalMinusPrefixOperatorExpression handles the unary minus operator
+func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
+	switch right.Type() {
+	case INTEGER_OBJ:
+		value := right.(*Integer).Value
+		return &Integer{Value: -value}
+	case FLOAT_OBJ:
+		value := right.(*Float).Value
+		return &Float{Value: -value}
+	case MONEY_OBJ:
+		money := right.(*Money)
+		return &Money{
+			Amount:   -money.Amount,
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	default:
+		return newOperatorError("OP-0004", map[string]any{"Type": right.Type()})
+	}
+}

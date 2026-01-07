@@ -4977,46 +4977,10 @@ func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Obj
 }
 
 // nativeBoolToParsBoolean moved to eval_helpers.go
-
-func evalPrefixExpression(tok lexer.Token, operator string, right Object) Object {
-	switch operator {
-	case "!":
-		return evalBangOperatorExpression(right)
-	case "not":
-		return evalBangOperatorExpression(right)
-	case "-":
-		return evalMinusPrefixOperatorExpression(tok, right)
-	default:
-		return newOperatorError("OP-0005", map[string]any{"Operator": operator, "Type": right.Type()})
-	}
-}
-
-func evalBangOperatorExpression(right Object) Object {
-	if isTruthy(right) {
-		return FALSE
-	}
-	return TRUE
-}
-
-func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
-	switch right.Type() {
-	case INTEGER_OBJ:
-		value := right.(*Integer).Value
-		return &Integer{Value: -value}
-	case FLOAT_OBJ:
-		value := right.(*Float).Value
-		return &Float{Value: -value}
-	case MONEY_OBJ:
-		money := right.(*Money)
-		return &Money{
-			Amount:   -money.Amount,
-			Currency: money.Currency,
-			Scale:    money.Scale,
-		}
-	default:
-		return newOperatorError("OP-0004", map[string]any{"Type": right.Type()})
-	}
-}
+// Prefix operator evaluators moved to eval_operators.go:
+// - evalPrefixExpression
+// - evalBangOperatorExpression
+// - evalMinusPrefixOperatorExpression
 
 func evalInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
 	switch {
