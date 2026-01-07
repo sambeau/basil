@@ -11857,25 +11857,7 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 	return &Null{}
 }
 
-// evalDictionaryIndexExpression handles dictionary access via dict["key"]
-// The optional parameter is accepted for API consistency but dictionaries already return NULL for missing keys
-func evalDictionaryIndexExpression(dict, index Object, optional bool) Object {
-	dictObject := dict.(*Dictionary)
-	key := index.(*String).Value
-
-	// Get the expression from the dictionary
-	expr, ok := dictObject.Pairs[key]
-	if !ok {
-		return NULL
-	}
-
-	// Create a new environment with 'this' bound to the dictionary
-	dictEnv := NewEnclosedEnvironment(dictObject.Env)
-	dictEnv.Set("this", dictObject)
-
-	// Evaluate the expression in the dictionary's environment
-	return Eval(expr, dictEnv)
-}
+// evalDictionaryIndexExpression moved to eval_operators.go
 
 // environmentToDict converts an environment's store to a Dictionary object
 // Only includes variables that are exported (either via explicit 'export' or 'let' for backward compat)

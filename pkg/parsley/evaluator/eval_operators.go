@@ -332,3 +332,23 @@ func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
 		return newOperatorError("OP-0004", map[string]any{"Type": right.Type()})
 	}
 }
+
+// evalDictionaryIndexExpression handles dictionary indexing by key
+// If optional is true, returns NULL for missing keys instead of error
+func evalDictionaryIndexExpression(dict, index Object, optional bool) Object {
+	dictObject := dict.(*Dictionary)
+	key := index.(*String).Value
+
+	// Get the expression from the dictionary
+	expr, ok := dictObject.Pairs[key]
+	if !ok {
+		return NULL
+	}
+
+	// Create a new environment with 'this' bound to the dictionary
+	dictEnv := NewEnclosedEnvironment(dictObject.Env)
+	dictEnv.Set("this", dictObject)
+
+	// Evaluate the expression in the dictionary's environment
+return Eval(expr, dictEnv)
+}
