@@ -671,3 +671,32 @@ func isResponseDict(dict *Dictionary) bool {
 	}
 	return false
 }
+
+// isTruthy evaluates an object for truthiness using Python-style semantics.
+// NULL, FALSE, empty strings, empty collections, and zero numbers are falsy.
+func isTruthy(obj Object) bool {
+	switch obj {
+	case NULL:
+		return false
+	case TRUE:
+		return true
+	case FALSE:
+		return false
+	default:
+		// Python-style truthiness: empty collections and strings are falsy
+		switch v := obj.(type) {
+		case *String:
+			return v.Value != ""
+		case *Array:
+			return len(v.Elements) > 0
+		case *Dictionary:
+			return len(v.Pairs) > 0
+		case *Integer:
+			return v.Value != 0
+		case *Float:
+			return v.Value != 0.0
+		default:
+			return true
+		}
+	}
+}
