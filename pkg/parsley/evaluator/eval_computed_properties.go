@@ -3,6 +3,7 @@ package evaluator
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -413,4 +414,111 @@ func evalFileComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 	}
 
 	return nil // Property doesn't exist
+}
+
+// evalUrlComputedProperty returns computed properties for URL dictionaries
+// Returns nil if the property doesn't exist
+func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+switch key {
+case "origin":
+// scheme://host[:port]
+var result strings.Builder
+
+if schemeExpr, ok := dict.Pairs["scheme"]; ok {
+schemeObj := Eval(schemeExpr, env)
+if str, ok := schemeObj.(*String); ok {
+result.WriteString(str.Value)
+result.WriteString("://")
+}
+}
+
+if hostExpr, ok := dict.Pairs["host"]; ok {
+hostObj := Eval(hostExpr, env)
+if str, ok := hostObj.(*String); ok {
+result.WriteString(str.Value)
+}
+}
+
+if portExpr, ok := dict.Pairs["port"]; ok {
+portObj := Eval(portExpr, env)
+if i, ok := portObj.(*Integer); ok && i.Value != 0 {
+result.WriteString(":")
+result.WriteString(strconv.FormatInt(i.Value, 10))
+}
+}
+
+return &String{Value: result.String()}
+
+case "pathname":
+// Just the path part as a string (always with leading /)
+if pathExpr, ok := dict.Pairs["path"]; ok {
+pathObj := Eval(pathExpr, env)
+if arr, ok := pathObj.(*Array); ok {
+var parts []string
+for _, elem := range arr.Elements {
+if str, ok := elem.(*String); ok && str.Value != "" {
+parts = append(parts, str.Value)
+}
+}
+// URL paths always start with /
+return &String{Value: "/" + strings.Join(parts, "/")}
+}
+}
+return &String{Value: "/"}
+
+case "hostname":
+// Alias for host
+if hostExpr, ok := dict.Pairs["host"]; ok {
+return Eval(hostExpr, env)
+}
+return &String{Value: ""}
+
+case "protocol":
+// Scheme with colon suffix (e.g., "https:")
+if schemeExpr, ok := dict.Pairs["scheme"]; ok {
+schemeObj := Eval(schemeExpr, env)
+if str, ok := schemeObj.(*String); ok {
+return &String{Value: str.Value + ":"}
+}
+}
+return &String{Value: ""}
+
+case "search":
+// Query string with ? prefix (e.g., "?key=value&foo=bar")
+if queryExpr, ok := dict.Pairs["query"]; ok {
+queryObj := Eval(queryExpr, env)
+if queryDict, ok := queryObj.(*Dictionary); ok {
+if len(queryDict.Pairs) == 0 {
+return &String{Value: ""}
+}
+var result strings.Builder
+result.WriteString("?")
+first := true
+for key, expr := range queryDict.Pairs {
+val := Eval(expr, env)
+if str, ok := val.(*String); ok {
+if !first {
+result.WriteString("&")
+}
+result.WriteString(key)
+result.WriteString("=")
+result.WriteString(str.Value)
+first = false
+}
+}
+return &String{Value: result.String()}
+}
+}
+return &String{Value: ""}
+
+case "href":
+// Full URL as string (alias for toString)
+return &String{Value: urlDictToString(dict)}
+
+case "string":
+// Full URL as string (alias for href)
+return &String{Value: urlDictToString(dict)}
+}
+
+return nil // Property doesn't exist
 }
