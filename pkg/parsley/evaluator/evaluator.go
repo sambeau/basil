@@ -4976,12 +4976,7 @@ func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Obj
 	}
 }
 
-func nativeBoolToParsBoolean(input bool) *Boolean {
-	if input {
-		return TRUE
-	}
-	return FALSE
-}
+// nativeBoolToParsBoolean moved to eval_helpers.go
 
 func evalPrefixExpression(tok lexer.Token, operator string, right Object) Object {
 	switch operator {

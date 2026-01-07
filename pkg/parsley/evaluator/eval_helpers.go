@@ -700,3 +700,11 @@ func isTruthy(obj Object) bool {
 		}
 	}
 }
+
+// nativeBoolToParsBoolean converts a Go bool to a Parsley Boolean object
+func nativeBoolToParsBoolean(input bool) *Boolean {
+	if input {
+		return TRUE
+	}
+	return FALSE
+}
