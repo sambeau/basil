@@ -864,3 +864,108 @@ func evalExpressions(exps []ast.Expression, env *Environment) []Object {
 
 	return result
 }
+func evalMoneyInfixExpression(tok lexer.Token, operator string, left, right *Money) Object {
+	// Currency must match for all operations
+	if left.Currency != right.Currency {
+		return newOperatorError("OP-0019", map[string]any{
+			"LeftCurrency":  left.Currency,
+			"RightCurrency": right.Currency,
+		})
+	}
+
+	// Promote to higher scale if needed
+	scale := left.Scale
+	if right.Scale > scale {
+		scale = right.Scale
+	}
+
+	leftAmount := promoteMoneyScale(left.Amount, left.Scale, scale)
+	rightAmount := promoteMoneyScale(right.Amount, right.Scale, scale)
+
+	switch operator {
+	case "+":
+		return &Money{
+			Amount:   leftAmount + rightAmount,
+			Currency: left.Currency,
+			Scale:    scale,
+		}
+	case "-":
+		return &Money{
+			Amount:   leftAmount - rightAmount,
+			Currency: left.Currency,
+			Scale:    scale,
+		}
+	case "<":
+		return nativeBoolToParsBoolean(leftAmount < rightAmount)
+	case ">":
+		return nativeBoolToParsBoolean(leftAmount > rightAmount)
+	case "<=":
+		return nativeBoolToParsBoolean(leftAmount <= rightAmount)
+	case ">=":
+		return nativeBoolToParsBoolean(leftAmount >= rightAmount)
+	case "==":
+		return nativeBoolToParsBoolean(leftAmount == rightAmount)
+	case "!=":
+		return nativeBoolToParsBoolean(leftAmount != rightAmount)
+	default:
+		return newOperatorError("OP-0020", map[string]any{"Operator": operator})
+	}
+}
+
+// evalMoneyScalarExpression handles Money * scalar and Money / scalar
+func evalMoneyScalarExpression(tok lexer.Token, operator string, money *Money, scalar float64) Object {
+	switch operator {
+	case "*":
+		// Multiply amount by scalar, use banker's rounding
+		result := float64(money.Amount) * scalar
+		return &Money{
+			Amount:   bankersRound(result),
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	case "/":
+		if scalar == 0 {
+			return newOperatorError("OP-0002", map[string]any{})
+		}
+		// Divide amount by scalar, use banker's rounding
+		result := float64(money.Amount) / scalar
+		return &Money{
+			Amount:   bankersRound(result),
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	default:
+		return newOperatorError("OP-0021", map[string]any{
+			"Operator": operator,
+		})
+	}
+}
+
+// evalScalarMoneyExpression handles scalar * Money (commutative with *)
+func evalScalarMoneyExpression(tok lexer.Token, operator string, scalar float64, money *Money) Object {
+	switch operator {
+	case "*":
+		// Multiply is commutative
+		result := float64(money.Amount) * scalar
+		return &Money{
+			Amount:   bankersRound(result),
+			Currency: money.Currency,
+			Scale:    money.Scale,
+		}
+	default:
+		return newOperatorError("OP-0021", map[string]any{
+			"Operator": operator,
+		})
+	}
+}
+
+// promoteMoneyScale promotes an amount to a higher scale
+func promoteMoneyScale(amount int64, fromScale, toScale int8) int64 {
+	if fromScale >= toScale {
+		return amount
+	}
+	for i := fromScale; i < toScale; i++ {
+		amount *= 10
+	}
+	return amount
+}
