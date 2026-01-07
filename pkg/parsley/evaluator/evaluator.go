@@ -1766,64 +1766,13 @@ func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 
 // fileDictToPathDict converts a file/dir dictionary to a path dictionary
 // File dicts use _pathComponents/_pathAbsolute, path dicts use components/absolute
-func fileDictToPathDict(dict *Dictionary) *Dictionary {
-	compExpr, ok := dict.Pairs["_pathComponents"]
-	if !ok {
-		return nil
-	}
-	absExpr := dict.Pairs["_pathAbsolute"]
-	if absExpr == nil {
-		absExpr = &ast.Boolean{Value: false}
-	}
+// File/path helper functions moved to eval_paths.go:
+// - fileDictToPathDict
+// - coerceToPathDict
+// - getFilePathString
+// - readDirContents
+// - inferFormatFromExtension
 
-	return &Dictionary{
-		Pairs: map[string]ast.Expression{
-			"segments": compExpr,
-			"absolute": absExpr,
-		},
-		Env: dict.Env,
-	}
-}
-
-// coerceToPathDict converts various types to a path dictionary for file factories
-// Accepts: path dict, file dict, dir dict, or string
-// Returns: path dict and environment, or nil if conversion fails
-func coerceToPathDict(arg Object, defaultEnv *Environment) (*Dictionary, *Environment) {
-	env := defaultEnv
-	if env == nil {
-		env = NewEnvironment()
-	}
-
-	switch v := arg.(type) {
-	case *Dictionary:
-		// If it's already a path dict, return it
-		if isPathDict(v) {
-			if v.Env != nil {
-				env = v.Env
-			}
-			return v, env
-		}
-		// If it's a file or dir dict, extract the path
-		if isFileDict(v) || isDirDict(v) {
-			pathDict := fileDictToPathDict(v)
-			if pathDict != nil {
-				if v.Env != nil {
-					env = v.Env
-				}
-				return pathDict, env
-			}
-		}
-		// Not a valid dict type
-		return nil, env
-	case *String:
-		// Parse string as path
-		components, isAbsolute := parsePathString(v.Value)
-		pathDict := pathToDict(components, isAbsolute, env)
-		return pathDict, env
-	default:
-		return nil, env
-	}
-}
 
 // evalDirComputedProperty returns computed properties for directory dictionaries
 func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Object {
@@ -1912,112 +1861,6 @@ func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 	return nil // Property doesn't exist
 }
 
-// readDirContents reads directory contents and returns array of file/dir handles
-func readDirContents(dirPath string, env *Environment) Object {
-	// Security check
-	if err := env.checkPathAccess(dirPath, "read"); err != nil {
-		return newSecurityError("read", err)
-	}
-
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return newIOError("IO-0003", dirPath, err)
-	}
-
-	elements := make([]Object, 0, len(entries))
-	for _, entry := range entries {
-		entryPath := filepath.Join(dirPath, entry.Name())
-		components, isAbsolute := parsePathString(entryPath)
-		pathDict := pathToDict(components, isAbsolute, env)
-
-		var handle *Dictionary
-		if entry.IsDir() {
-			handle = dirToDict(pathDict, env)
-		} else {
-			format := inferFormatFromExtension(entryPath)
-			handle = fileToDict(pathDict, format, nil, env)
-		}
-		elements = append(elements, handle)
-	}
-
-	return &Array{Elements: elements}
-}
-
-// getFilePathString extracts the filesystem path string from a file dictionary
-func getFilePathString(dict *Dictionary, env *Environment) string {
-	// Get path components
-	compExpr, ok := dict.Pairs["_pathComponents"]
-	if !ok {
-		return ""
-	}
-	if compExpr == nil {
-		return ""
-	}
-	compObj := Eval(compExpr, env)
-	arr, ok := compObj.(*Array)
-	if !ok {
-		return ""
-	}
-
-	// Get absolute flag
-	absExpr, ok := dict.Pairs["_pathAbsolute"]
-	isAbsolute := false
-	if ok && absExpr != nil {
-		absObj := Eval(absExpr, env)
-		if b, ok := absObj.(*Boolean); ok {
-			isAbsolute = b.Value
-		}
-	}
-
-	// Build path string
-	var result strings.Builder
-
-	// Add leading / for absolute paths
-	if isAbsolute {
-		result.WriteString("/")
-	}
-
-	for i, elem := range arr.Elements {
-		if str, ok := elem.(*String); ok {
-			if str.Value == "." && i == 0 && !isAbsolute {
-				result.WriteString(".")
-			} else if str.Value == "~" && i == 0 {
-				// Keep ~ unexpanded - resolveModulePath will handle it
-				// This allows ~/ to mean "handler root" in Basil context
-				result.WriteString("~")
-			} else if str.Value != "" {
-				if i > 0 || (isAbsolute && result.Len() > 1) {
-					result.WriteString("/")
-				}
-				result.WriteString(str.Value)
-			}
-		}
-	}
-
-	// Handle empty result
-	if result.Len() == 0 {
-		return "."
-	}
-
-	return result.String()
-}
-
-// inferFormatFromExtension guesses the file format from its extension
-func inferFormatFromExtension(filename string) string {
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
-	case ".json":
-		return "json"
-	case ".csv":
-		return "csv"
-	case ".txt", ".md", ".html", ".xml", ".pars":
-		return "text"
-	case ".log":
-		return "lines"
-	default:
-		return "text" // Default to text
-	}
-}
 
 // evalFileComputedProperty returns computed properties for file dictionaries
 // Returns nil if the property doesn't exist
