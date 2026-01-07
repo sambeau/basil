@@ -448,8 +448,10 @@ site: ./site
 }
 
 func TestResolveConfigPath(t *testing.T) {
+	getenv := func(key string) string { return "" } // No env vars for basic tests
+
 	// Test explicit path not found
-	_, err := resolveConfigPath("/nonexistent/path/basil.yaml")
+	_, err := resolveConfigPath("/nonexistent/path/basil.yaml", getenv)
 	if err == nil {
 		t.Error("expected error for nonexistent path")
 	}
@@ -461,12 +463,46 @@ func TestResolveConfigPath(t *testing.T) {
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
-	resolved, err := resolveConfigPath(configPath)
+	resolved, err := resolveConfigPath(configPath, getenv)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if resolved != configPath {
 		t.Errorf("expected %q, got %q", configPath, resolved)
+	}
+
+	// Test BASIL_CONFIG environment variable
+	envConfigPath := filepath.Join(dir, "env-config.yaml")
+	if err := os.WriteFile(envConfigPath, []byte(""), 0644); err != nil {
+		t.Fatalf("failed to write env config: %v", err)
+	}
+
+	getenvWithConfig := func(key string) string {
+		if key == "BASIL_CONFIG" {
+			return envConfigPath
+		}
+		return ""
+	}
+
+	resolved, err = resolveConfigPath("", getenvWithConfig)
+	if err != nil {
+		t.Errorf("unexpected error for BASIL_CONFIG: %v", err)
+	}
+	if resolved != envConfigPath {
+		t.Errorf("expected %q from BASIL_CONFIG, got %q", envConfigPath, resolved)
+	}
+
+	// Test BASIL_CONFIG with nonexistent file
+	getenvBadPath := func(key string) string {
+		if key == "BASIL_CONFIG" {
+			return "/nonexistent/config.yaml"
+		}
+		return ""
+	}
+
+	_, err = resolveConfigPath("", getenvBadPath)
+	if err == nil {
+		t.Error("expected error for nonexistent BASIL_CONFIG file")
 	}
 }
 
