@@ -306,13 +306,13 @@ func coerceToPathDict(arg Object, defaultEnv *Environment) (*Dictionary, *Enviro
 	switch v := arg.(type) {
 	case *Dictionary:
 		// If it's already a path dict, return it
-if isPathDict(v) {
-if v.Env != nil {
-env = v.Env
-}
-return v, env
-}
-// If it's a file or dir dict, extract the path
+		if isPathDict(v) {
+			if v.Env != nil {
+				env = v.Env
+			}
+			return v, env
+		}
+		// If it's a file or dir dict, extract the path
 		if isFileDict(v) || isDirDict(v) {
 			pathDict := fileDictToPathDict(v)
 			if pathDict != nil {
