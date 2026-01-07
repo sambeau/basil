@@ -764,4 +764,6 @@ This plan requires approval for:
 |------|-------|------|--------|-------|
 | 2026-01-07 | Planning | Created PLAN-054 | ✅ Complete | Awaiting approval |
 | 2026-01-07 | 1.1 | SQL Identifier Validation | ✅ Complete | 434 lines, 89 tests, blocks 22 injection vectors |
+| 2026-01-07 | 1.2 | Command Execution Docs | ✅ Complete | 538 lines, security guide + code comments |
+| 2026-01-07 | 2.1 | SQLite RETURNING Docs | ✅ Complete | Documented fallback, version check ready |
 | | | | | |
