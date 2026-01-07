@@ -6641,6 +6641,76 @@ func isCommandHandle(dict *Dictionary) bool {
 }
 
 // executeCommand executes a command handle with input and returns result dictionary
+//
+// SECURITY CRITICAL FUNCTION
+// ===========================
+//
+// This function executes external commands with user-provided input. Security considerations:
+//
+// 1. SECURITY POLICY ENFORCEMENT:
+//    - env.Security MUST be set for untrusted input (production mode)
+//    - nil security policy = unrestricted access (development only)
+//    - Security check happens AFTER path resolution to catch binary location
+//
+// 2. ARGUMENT HANDLING:
+//    - Arguments are passed directly to exec.Command (NO shell interpretation)
+//    - Shell metacharacters in args are treated as literals (safe)
+//    - Example: arg "file; rm -rf /" is passed as single argument, NOT executed as shell
+//
+// 3. BINARY PATH RESOLUTION:
+//    - Absolute/relative paths: used as-is (subject to security check)
+//    - Simple names: resolved via PATH lookup using exec.LookPath
+//    - PATH lookup can be exploited if:
+//      a) Binary name is user-controlled (attacker can reference any binary in PATH)
+//      b) PATH environment is manipulated (security policy should prevent this)
+//
+// 4. TIMEOUT HANDLING:
+//    - Optional timeout prevents indefinite hangs
+//    - Requires proper context propagation
+//    - Timeout kills process tree (SIGKILL on Unix)
+//
+// 5. ENVIRONMENT VARIABLES:
+//    - Custom env vars can be set via options.env
+//    - Empty env = inherit from parent process
+//    - Security risk: modified PATH, LD_PRELOAD, etc.
+//
+// AI MAINTENANCE GUIDE:
+// ---------------------
+// - Never construct binary name or args from unsanitized user input
+// - Always document new command features in docs/parsley/security.md
+// - Test with malicious inputs: "../../../usr/bin/evil", "arg; injection"
+// - Consider: should execute() exist at all in sandboxed/production mode?
+// - Review security policy before adding new command capabilities
+//
+// ATTACK SURFACE ANALYSIS:
+// -------------------------
+// 1. Binary path traversal:
+//    execute(cmd("../../../usr/bin/evil"))
+//    Mitigation: Security policy checks resolved path
+//
+// 2. Argument injection attempts (SAFE due to exec.Command):
+//    execute(cmd("ls", "-la; rm -rf /"))
+//    Result: ls receives literal argument "-la; rm -rf /", semicolon NOT interpreted
+//
+// 3. Environment manipulation:
+//    execute(cmd("gcc"), {env: {("LD_PRELOAD"): "/tmp/evil.so"}})
+//    Mitigation: Security policy should block untrusted commands entirely
+//
+// 4. PATH manipulation (if allowed to set custom env):
+//    execute(cmd("python"), {env: {("PATH"): "/tmp/evil/path"}})
+//    Mitigation: Resolve path BEFORE applying custom env
+//
+// 5. Working directory escape:
+//    execute(cmd("cat", "flag.txt"), {dir: path("../../../etc")})
+//    Mitigation: Security policy checks dir path
+//
+// RECOMMENDED HARDENING (future):
+// --------------------------------
+// - Add allowlist of permitted binaries (e.g., only git, make, node)
+// - Block dangerous env vars (LD_PRELOAD, DYLD_*, etc.)
+// - Add per-command argument validators
+// - Consider requiring explicit permission per binary in security policy
+//
 func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object {
 	// Extract binary
 	binaryExpr, ok := cmdDict.Pairs["binary"]
