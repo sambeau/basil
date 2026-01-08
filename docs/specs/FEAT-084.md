@@ -486,7 +486,17 @@ auth:
 **Test recipient:** sambeau@mac.com (unlimited sends allowed for testing)
 
 **Resend (Development/Testing):**
-_Credentials to be added_
+```yaml
+auth:
+  email_verification:
+    enabled: true
+    provider: resend
+    resend:
+      api_key: "re_CTmuvKDZ_Hs8QFRGe2hnRQWmPt3uq9nxJ"
+      from: "onboarding@resend.dev"
+```
+
+**Test recipient:** sambeau@mac.com (Resend test addresses also available at https://resend.com/docs/dashboard/emails/send-test-emails)
 
 ### Unit Tests
 - Token generation (entropy, uniqueness)
