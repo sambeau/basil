@@ -468,6 +468,26 @@ basil auth email-logs [--user <user_id>] [--limit 100]
 
 ## Testing Strategy
 
+### Testing Credentials
+
+**Mailgun (Development/Testing):**
+```yaml
+auth:
+  email_verification:
+    enabled: true
+    provider: mailgun
+    mailgun:
+      api_key: "8d62a15e184a96921189f2976fae04cd-f6d80573-cb1a0b2a"
+      domain: "mg.tickly.org"
+      region: "us"
+      from: "noreply@mg.tickly.org"
+```
+
+**Test recipient:** sambeau@mac.com (unlimited sends allowed for testing)
+
+**Resend (Development/Testing):**
+_Credentials to be added_
+
 ### Unit Tests
 - Token generation (entropy, uniqueness)
 - Token hashing (bcrypt)
