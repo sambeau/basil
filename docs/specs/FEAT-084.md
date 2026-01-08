@@ -17,7 +17,7 @@ completion: 95%
 **✅ Phase 2: Complete (100%)** - Verification flow implemented  
 **✅ Phase 3: Partial (60%)** - Recovery handlers complete, notification API deferred
 **✅ Phase 4: Complete (100%)** - CLI commands and dev warnings implemented
-**⏳ Phase 5: In Progress (50%)** - Unit tests complete, integration tests pending
+**⏳ Phase 5: In Progress (75%)** - Unit and integration tests complete, docs pending
 
 **Deferred**: Notification API (`basil.email.send()`) moved to future feature per ADR-001. Core verification flow is complete and functional.
 
@@ -449,8 +449,8 @@ basil auth email-logs [--user <user_id>] [--limit 100]
 ### Phase 5: Testing & Documentation (Week 2)
 - [x] Unit tests for token generation/consumption (7 tests)
 - [x] Unit tests for rate limiting (8 tests)
+- [x] Integration tests for full flows (4 comprehensive flow tests)
 - [ ] Unit tests for both email providers
-- [ ] Integration tests for full flows
 - [ ] Update authentication docs
 - [ ] Add email provider setup guides (Mailgun, Resend)
 
