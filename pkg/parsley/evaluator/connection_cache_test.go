@@ -46,7 +46,7 @@ func TestConnectionCacheTTL(t *testing.T) {
 	defer cache.close()
 
 	cache.put("key1", "value1")
-	
+
 	// Should be found immediately
 	_, found := cache.get("key1")
 	if !found {
@@ -293,7 +293,7 @@ func TestSFTPCacheIntegration(t *testing.T) {
 	// because the health check (Getwd) requires a real SSH client.
 	// The cache itself is tested in the generic tests above.
 	// Here we just verify it's initialized properly.
-	
+
 	initialSize := sftpCache.size()
 	if initialSize < 0 {
 		t.Fatal("cache size should be non-negative")

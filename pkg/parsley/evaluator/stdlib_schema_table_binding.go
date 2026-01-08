@@ -410,12 +410,12 @@ func (tb *TableBinding) executeInsert(args []Object, env *Environment) Object {
 	for i := range placeholders {
 		placeholders[i] = "?"
 	}
-	
+
 	// Build INSERT query
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tb.TableName, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
 
 	// Version check implemented, RETURNING ready but not yet enabled
-	// 
+	//
 	// SQLite 3.35.0+ supports RETURNING clause which would be more efficient:
 	//   INSERT INTO users (...) VALUES (...) RETURNING *
 	// This avoids the separate SELECT query below.
@@ -433,7 +433,7 @@ func (tb *TableBinding) executeInsert(args []Object, env *Environment) Object {
 	//
 	// Version detection already exists: sqliteSupportsReturning(tb.DB.SQLiteVersion)
 	// See: evaluator.go lines 4714-4730
-	
+
 	// Execute INSERT
 	if execErr := tb.executeMutation(query, params); execErr != nil {
 		return execErr

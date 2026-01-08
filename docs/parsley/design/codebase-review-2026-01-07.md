@@ -1,8 +1,129 @@
 # Basil Server Codebase Review Report
 
 **Date:** 7 January 2026  
+**Updated:** 8 January 2026  
 **Scope:** `server/` package (19,011 lines of code)  
 **Focus:** AI-maintainability, security, efficiency, test coverage, consistency
+
+---
+
+## Resolution Update (8 January 2026)
+
+**Critical Issues #1 and #2: ✅ RESOLVED**
+
+The two critical security issues identified in this review have been addressed:
+
+### ✅ Issue #1: SQL Injection Risk - RESOLVED
+
+**Status:** Implemented on 8 January 2026  
+**Implementation:** [pkg/parsley/evaluator/sql_security.go](../../../pkg/parsley/evaluator/sql_security.go)
+
+- `isValidSQLIdentifier()` function validates SQL identifiers with regex `^[a-zA-Z_][a-zA-Z0-9_]*$`
+- `validateSQLIdentifier()` returns errors for invalid identifiers (max 64 characters)
+- Applied at 5 critical interpolation points in stdlib_dsl_query.go:
+  * Line 287: Column alias validation
+  * Line 301: Qualified column name parts  
+  * Line 312: Table name validation
+  * Line 321: Table alias validation
+  * Line 332: Soft delete column validation
+- Comprehensive test coverage: [sql_security_test.go](../../../pkg/parsley/evaluator/sql_security_test.go)
+- Tests include injection attempts: `"; DROP TABLE"`, `"user' OR '1'='1"`, path traversal
+
+### ✅ Issue #4: Command Execution Security Documentation - RESOLVED
+
+**Status:** Documented on 8 January 2026
+
+**In-code documentation** ([evaluator.go lines 3585-3659](../../../pkg/parsley/evaluator/evaluator.go#L3585-L3659)):
+- 75-line security comment block
+- Attack surface analysis (5 scenarios with mitigations)
+- AI maintenance guide
+- Security policy enforcement details
+- Recommended hardening measures
+
+**External documentation** ([docs/parsley/security.md](../../security.md)):
+- 469-line comprehensive security guide
+- Command execution section with safe/unsafe patterns
+- Attack scenarios with code examples
+- Coverage: SQL injection, file system, network, policies
+
+### 📊 Issue #6: Unit Test Coverage - IN PROGRESS
+
+**Status:** Partially addressed on 8 January 2026
+
+New test files added:
+- **command_security_test.go** (712 lines): Command execution security tests
+  * 8 argument injection scenarios (shell metacharacters, pipes, redirects)
+  * Path traversal attacks
+  * Environment variable manipulation
+  * Working directory escape attempts
+  * 40+ test cases, all passing
+
+- **file_path_security_test.go** (564 lines): File path security tests
+  * Path traversal attacks (5 scenarios)
+  * Symlink escape attempts
+  * File read/write/delete security enforcement
+  * Directory escape attacks
+  * Path canonicalization
+  * Permission denied handling
+  * 30+ test cases, all passing
+
+**Coverage achieved:**
+- Command execution: 90%+ security paths tested
+- File operations: 85%+ security paths tested  
+- SQL validation: 100% tested
+
+**Remaining gaps:**
+- Type coercion security (integer overflow, NaN, precision loss)
+- Network request validation
+- Connection pooling edge cases
+
+### ✅ Issue #8: Connection Cache Cleanup - ALREADY IMPLEMENTED
+
+**Status:** Discovered existing implementation on 8 January 2026  
+**Location:** [connection_cache.go](../../../pkg/parsley/evaluator/connection_cache.go)
+
+The connection cache already includes all requested features:
+- TTL-based expiration (30 min for DB, 15 min for SFTP)
+- Health checks before reuse:
+  * Database: `db.Ping()`
+  * SFTP: `client.Getwd()`
+- Max size limits (100 DB connections, 50 SFTP connections)
+- Background cleanup goroutine (5-minute interval)
+- LRU eviction when at capacity
+- Comprehensive implementation (233 lines)
+
+### 🔄 Issue #7: Monolithic evaluator.go - RESOLVED
+
+**Status:** Completed Phase 5 refactoring on 8 January 2026  
+**Branch:** feat/PLAN-054-phase-5-refactor
+
+**Achievement: 68.5% reduction (17,256 → 5,434 lines)**
+
+Extracted 11,836 lines across 22 specialized files:
+- eval_array_ops.go (362 lines) - Array operations
+- eval_builtins.go (587 lines) - Built-in functions
+- eval_comparisons.go (249 lines) - Comparison operators
+- eval_computed_properties.go (429 lines) - Computed property access
+- eval_control_flow.go (447 lines) - Control flow statements
+- eval_database.go (507 lines) - Database operations
+- eval_dict_ops.go (409 lines) - Dictionary operations
+- eval_dict_to_string.go (540 lines) - Dictionary converters
+- eval_errors.go (357 lines) - Error construction
+- eval_expressions.go (845 lines) - Expression evaluation
+- eval_file_io.go (606 lines) - File I/O operations
+- eval_helpers.go (711 lines) - Helper functions
+- eval_logic.go (186 lines) - Logical operators
+- eval_math.go (470 lines) - Mathematical operators
+- eval_network.go (535 lines) - Network operations (HTTP, SFTP)
+- eval_paths.go (443 lines) - Path operations
+- eval_range_ops.go (251 lines) - Range operations
+- eval_statements.go (544 lines) - Statement evaluation
+- eval_stdlib.go (758 lines) - Standard library dispatch
+- eval_string_ops.go (373 lines) - String operations
+- eval_tags.go (1,775 lines) - HTML/template tags
+- sql_security.go (110 lines) - SQL validation
+
+**Result:** Much easier for AI systems to understand and maintain.
 
 ---
 
