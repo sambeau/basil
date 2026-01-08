@@ -83,3 +83,26 @@ func GetUserFromContext(ctx context.Context) *User {
 	}
 	return user
 }
+
+// RequireEmailVerification returns middleware that checks email verification
+// Requires authentication first (use after RequireAuth)
+func (m *Middleware) RequireEmailVerification(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := GetUser(r)
+		if user == nil {
+			// Not authenticated - should not reach here if RequireAuth is used first
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Check if email is verified (skip if no email)
+		if user.Email != "" && user.EmailVerifiedAt == nil {
+			// Email not verified - redirect to verification required page
+			http.Redirect(w, r, "/__auth/verify-email-required", http.StatusSeeOther)
+			return
+		}
+
+		// Email verified or no email - allow access
+		next.ServeHTTP(w, r)
+	})
+}

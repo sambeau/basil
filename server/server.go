@@ -467,7 +467,21 @@ func (s *Server) initAuth() error {
 	secure := !s.config.Server.Dev // Secure cookies in production
 	regOpen := s.config.Auth.Registration == "open"
 
-	s.authHandlers = auth.NewHandlers(authDB, webauthn, sessionTTL, secure, regOpen)
+	// Initialize email service if enabled (FEAT-084)
+	var emailService *auth.EmailService
+	if s.config.Auth.EmailVerification.Enabled {
+		emailService, err = auth.NewEmailService(&s.config.Auth.EmailVerification, authDB, origin)
+		if err != nil {
+			s.logWarn("failed to initialize email service: %v", err)
+			emailService = nil
+		} else {
+			s.logInfo("email verification enabled (provider: %s)", s.config.Auth.EmailVerification.Provider)
+		}
+	}
+
+	requireVerif := s.config.Auth.EmailVerification.RequireVerification
+
+	s.authHandlers = auth.NewHandlers(authDB, webauthn, emailService, sessionTTL, secure, regOpen, requireVerif)
 	s.authMW = auth.NewMiddleware(authDB)
 
 	s.logInfo("authentication enabled (registration: %s)", s.config.Auth.Registration)
@@ -545,6 +559,12 @@ func (s *Server) setupRoutes() error {
 		s.mux.HandleFunc("/__auth/logout", s.authHandlers.LogoutHandler)
 		s.mux.HandleFunc("/__auth/recover", s.authHandlers.RecoverHandler)
 		s.mux.HandleFunc("/__auth/me", s.authHandlers.MeHandler)
+		// Email verification endpoints (FEAT-084)
+		s.mux.HandleFunc("/__auth/verify-email", s.authHandlers.VerifyEmailHandler)
+		s.mux.HandleFunc("/__auth/resend-verification", s.authHandlers.ResendVerificationHandler)
+		s.mux.HandleFunc("/__auth/verify-email-required", s.authHandlers.VerificationRequiredHandler)
+		s.mux.HandleFunc("/__auth/recover/email", s.authHandlers.RecoverEmailHandler)
+		s.mux.HandleFunc("/__auth/recover/verify", s.authHandlers.RecoverVerifyHandler)
 	}
 
 	// Register Git server if enabled

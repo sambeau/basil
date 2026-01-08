@@ -12,21 +12,25 @@ import (
 
 // Handlers provides HTTP handlers for authentication endpoints.
 type Handlers struct {
-	db         *DB
-	webauthn   *WebAuthnManager
-	sessionTTL time.Duration
-	secure     bool // Use secure cookies (HTTPS)
-	regOpen    bool // Registration open to public
+	db           *DB
+	webauthn     *WebAuthnManager
+	emailService *EmailService
+	sessionTTL   time.Duration
+	secure       bool // Use secure cookies (HTTPS)
+	regOpen      bool // Registration open to public
+	requireVerif bool // Require email verification for protected routes
 }
 
 // NewHandlers creates a new auth handlers instance.
-func NewHandlers(db *DB, webauthn *WebAuthnManager, sessionTTL time.Duration, secure, regOpen bool) *Handlers {
+func NewHandlers(db *DB, webauthn *WebAuthnManager, emailService *EmailService, sessionTTL time.Duration, secure, regOpen, requireVerif bool) *Handlers {
 	return &Handlers{
-		db:         db,
-		webauthn:   webauthn,
-		sessionTTL: sessionTTL,
-		secure:     secure,
-		regOpen:    regOpen,
+		db:           db,
+		webauthn:     webauthn,
+		emailService: emailService,
+		sessionTTL:   sessionTTL,
+		secure:       secure,
+		regOpen:      regOpen,
+		requireVerif: requireVerif,
 	}
 }
 
@@ -145,6 +149,17 @@ func (h *Handlers) FinishRegisterHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Send verification email if enabled and user has email
+	var emailSent bool
+	if h.emailService != nil && user.Email != "" {
+		if err := h.emailService.SendVerificationEmail(r.Context(), user); err != nil {
+			// Log error but don't fail registration
+			fmt.Printf("Failed to send verification email: %v\n", err)
+		} else {
+			emailSent = true
+		}
+	}
+
 	// Create session
 	session, err := h.db.CreateSession(user.ID, h.sessionTTL)
 	if err != nil {
@@ -156,10 +171,15 @@ func (h *Handlers) FinishRegisterHandler(w http.ResponseWriter, r *http.Request)
 	SetSessionCookie(w, session, h.secure)
 
 	// Return user and recovery codes
-	jsonResponse(w, map[string]any{
+	response := map[string]any{
 		"user":           user,
 		"recovery_codes": codes,
-	})
+	}
+	if emailSent {
+		response["email_verification_sent"] = true
+	}
+
+	jsonResponse(w, response)
 }
 
 // --- Login endpoints ---
@@ -331,6 +351,220 @@ func (h *Handlers) MeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, map[string]any{"user": user})
+}
+
+// --- Email Verification endpoints (FEAT-084) ---
+
+// VerifyEmailHandler handles GET /__auth/verify-email?token=xxx
+func (h *Handlers) VerifyEmailHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusBadRequest)
+		return
+	}
+
+	// Look up token
+	verification, err := h.db.LookupVerificationToken(r.Context(), token)
+	if err != nil {
+		// Token not found or expired - show error page with resend option
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head><title>Verification Failed</title></head>
+<body>
+<h1>Email Verification Failed</h1>
+<p>This verification link is invalid or has expired.</p>
+<p><a href="/__auth/resend-verification">Request a new verification email</a></p>
+</body>
+</html>`)
+		return
+	}
+
+	// Mark email as verified
+	if err := h.db.MarkEmailVerified(r.Context(), verification.UserID); err != nil {
+		http.Error(w, "Failed to verify email", http.StatusInternalServerError)
+		return
+	}
+
+	// Consume token
+	if err := h.db.ConsumeVerificationToken(r.Context(), verification.ID); err != nil {
+		// Log error but continue - email is verified
+		fmt.Printf("Failed to consume token: %v\n", err)
+	}
+
+	// Show success page with redirect
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head>
+<title>Email Verified</title>
+<meta http-equiv="refresh" content="3;url=/">
+</head>
+<body>
+<h1>Email Verified!</h1>
+<p>Your email address has been successfully verified.</p>
+<p>Redirecting to dashboard...</p>
+</body>
+</html>`)
+}
+
+// ResendVerificationHandler handles POST /__auth/resend-verification
+func (h *Handlers) ResendVerificationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get current session
+	sessionToken := GetSessionToken(r)
+	if sessionToken == "" {
+		jsonError(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.db.ValidateSession(sessionToken)
+	if err != nil || user == nil {
+		jsonError(w, "Invalid session", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if already verified
+	if user.EmailVerifiedAt != nil {
+		jsonError(w, "Email already verified", http.StatusBadRequest)
+		return
+	}
+
+	// Check if user has email
+	if user.Email == "" {
+		jsonError(w, "No email address on file", http.StatusBadRequest)
+		return
+	}
+
+	// Send verification email (includes rate limiting)
+	if err := h.emailService.SendVerificationEmail(r.Context(), user); err != nil {
+		jsonError(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
+
+	jsonResponse(w, map[string]any{
+		"success": true,
+		"message": "Verification email sent",
+	})
+}
+
+// VerificationRequiredHandler handles GET /__auth/verify-email-required
+func (h *Handlers) VerificationRequiredHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusForbidden)
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head><title>Email Verification Required</title></head>
+<body>
+<h1>Email Verification Required</h1>
+<p>Please verify your email address to access this page.</p>
+<form method="POST" action="/__auth/resend-verification">
+<button type="submit">Resend Verification Email</button>
+</form>
+<p><a href="/__auth/logout">Logout</a></p>
+</body>
+</html>`)
+}
+
+// RecoverEmailHandler handles POST /__auth/recover/email
+func (h *Handlers) RecoverEmailHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Always return success to prevent email enumeration
+	// Perform checks and send email only if valid
+
+	if req.Email != "" {
+		user, _ := h.db.GetUserByEmail(req.Email)
+		// Only send if user exists and email is verified
+		if user != nil && user.EmailVerifiedAt != nil {
+			// Send recovery email (errors are logged but not exposed)
+			_ = h.emailService.SendRecoveryEmail(r.Context(), user)
+		}
+	}
+
+	// Constant-time response
+	time.Sleep(100 * time.Millisecond)
+
+	jsonResponse(w, map[string]any{
+		"success": true,
+		"message": "If this email is registered and verified, a recovery link has been sent.",
+	})
+}
+
+// RecoverVerifyHandler handles GET /__auth/recover/verify?token=xxx
+func (h *Handlers) RecoverVerifyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusBadRequest)
+		return
+	}
+
+	// Look up token
+	verification, err := h.db.LookupVerificationToken(r.Context(), token)
+	if err != nil {
+		// Token not found or expired
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head><title>Recovery Failed</title></head>
+<body>
+<h1>Account Recovery Failed</h1>
+<p>This recovery link is invalid or has expired.</p>
+<p><a href="/__auth/recover">Try recovery codes instead</a></p>
+</body>
+</html>`)
+		return
+	}
+
+	// Get user
+	user, err := h.db.GetUser(verification.UserID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Consume token
+	if err := h.db.ConsumeVerificationToken(r.Context(), verification.ID); err != nil {
+		http.Error(w, "Failed to consume token", http.StatusInternalServerError)
+		return
+	}
+
+	// Create session
+	session, err := h.db.CreateSession(user.ID, h.sessionTTL)
+	if err != nil {
+		http.Error(w, "Failed to create session", http.StatusInternalServerError)
+		return
+	}
+
+	// Set session cookie
+	SetSessionCookie(w, session, h.secure)
+
+	// Redirect to register new passkey
+	http.Redirect(w, r, "/?recovery=true", http.StatusSeeOther)
 }
 
 // --- Helpers ---
