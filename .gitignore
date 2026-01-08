@@ -40,5 +40,7 @@ dev_logs_*.db-shm
 *.db-shm
 
 # Ulysses app metadata
+.Ulysses*
 .Ulysses-Group.plist
 setup
+docs/plans/.Ulysses-Group.plist
