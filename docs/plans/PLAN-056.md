@@ -818,6 +818,45 @@ Tests:
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
 | 2026-01-08 | Plan created | ✅ Complete | Ready to begin implementation |
+| 2026-01-08 | Phase 1 complete | ✅ Complete | All infrastructure in place |
+| 2026-01-08 | Phase 2 complete | ✅ Complete | Verification flow working |
+| 2026-01-08 | Phase 3 partial | 🔄 In Progress | Notification API pending Parsley integration |
+
+## Implementation Status
+
+### ✅ Phase 1: Core Infrastructure - COMPLETE
+- Database migrations (3 tables, 9 indexes)
+- Email provider interface
+- Mailgun and Resend adapters
+- Configuration structures
+- Email templates
+- Dependencies (mailgun-go/v4, resend-go/v2)
+
+### ✅ Phase 2: Verification Flow - COMPLETE  
+- Token generation (32-byte cryptographic random)
+- Token storage, lookup, consumption
+- Rate limiting (per-user cooldown, daily limits)
+- Email logging for audit
+- EmailService for sending emails
+- Handlers: verify-email, resend-verification, verify-email-required
+- Recovery handlers: recover/email, recover/verify
+- Email verification middleware
+- Integration with signup flow
+- All endpoints registered
+
+### 🔄 Phase 3: Remaining Work
+**Recovery Configuration** - Config structures added, needs CLI integration
+**Notification API** - Requires Parsley/prelude integration (complex)
+  - Create `basil.email` namespace in Parsley runtime
+  - Expose send() function to handler scripts
+  - Add developer email rate limiting
+  - Implement RFC 5322 email validation
+
+### ⏳ Phase 4: CLI Commands - TODO
+All CLI commands need implementation in cmd/basil/
+
+### ⏳ Phase 5: Testing & Documentation - TODO
+Critical for production readiness
 
 ## Deferred Items
 Items to add to BACKLOG.md after V1 implementation:

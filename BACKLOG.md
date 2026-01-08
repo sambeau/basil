@@ -13,6 +13,7 @@ Deferred items from implementation, to be picked up in future work.
 | #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | High complexity (3-4 days) | Computed fields from subqueries: `\| comment_count <-Comments \|\| post_id == id \| count`. Requires scalar context detection, aliasing, SQL generation. See FEAT-079-gaps.md. |
 | #3 | Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |
 | #4 | Query DSL Join-like Subqueries | PLAN-052 Phase 7 | High complexity (2-3 days) | Scalar vs join subquery context (`?->` vs `??->`). Requires context propagation, row expansion semantics. See FEAT-079-gaps.md. |
+| #5 | Notification API (basil.email.send) | FEAT-084 Phase 3 | Parsley integration complexity | Developer-initiated emails from Parsley handlers. Requires: (1) Parsley namespace design (`basil.email`), (2) Go function exposure to evaluator, (3) Thread-safe EmailService access, (4) Developer rate limiting (50/hr, 200/day). See ADR-001. Core verification flow is complete; this is enhancement for custom emails. |
 | #7 | Complete structured error migration | FEAT-023 | Phase 6+ | Migrate remaining files: other `stdlib_*.go` modules (not present yet). Core evaluator files and stdlib_table.go done. Note: `builtins.go` has been removed/refactored. |
 
 ## Medium Priority
