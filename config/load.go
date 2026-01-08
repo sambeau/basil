@@ -132,6 +132,46 @@ func Warnings(cfg *Config) []string {
 		warnings = append(warnings, "no routes configured - the server will return 404 for all requests")
 	}
 
+	// Email verification warnings
+	if cfg.Auth.Enabled && cfg.Auth.EmailVerification.Enabled {
+		// Warn about sandbox/test domains in production
+		if !cfg.Server.Dev {
+			if cfg.Auth.EmailVerification.Provider == "mailgun" {
+				domain := cfg.Auth.EmailVerification.Mailgun.Domain
+				if strings.Contains(domain, "sandbox") || strings.HasPrefix(domain, "mg.") && strings.HasSuffix(domain, ".mailgun.org") {
+					warnings = append(warnings, "email verification: using Mailgun sandbox domain in production mode - emails will only be delivered to authorized recipients")
+				}
+			}
+			if cfg.Auth.EmailVerification.Provider == "resend" {
+				from := cfg.Auth.EmailVerification.Resend.From
+				if strings.Contains(from, "onboarding@resend.dev") {
+					warnings = append(warnings, "email verification: using Resend test domain (onboarding@resend.dev) in production mode")
+				}
+			}
+		}
+
+		// Warn if verification enabled but no HTTPS configured (verification links need HTTPS)
+		if !cfg.Server.Dev && !cfg.Server.HTTPS.Auto && cfg.Server.HTTPS.Cert == "" {
+			warnings = append(warnings, "email verification: enabled but HTTPS not configured - verification links will use HTTP which is insecure")
+		}
+
+		// Warn if provider not properly configured
+		switch cfg.Auth.EmailVerification.Provider {
+		case "mailgun":
+			if cfg.Auth.EmailVerification.Mailgun.APIKey == "" || cfg.Auth.EmailVerification.Mailgun.Domain == "" {
+				warnings = append(warnings, "email verification: Mailgun selected but api_key or domain not configured")
+			}
+		case "resend":
+			if cfg.Auth.EmailVerification.Resend.APIKey == "" {
+				warnings = append(warnings, "email verification: Resend selected but api_key not configured")
+			}
+		case "":
+			warnings = append(warnings, "email verification: enabled but no provider specified (mailgun or resend)")
+		default:
+			warnings = append(warnings, fmt.Sprintf("email verification: unknown provider %q (supported: mailgun, resend)", cfg.Auth.EmailVerification.Provider))
+		}
+	}
+
 	// Warn if routes exist but none have handlers that exist
 	// (This would be caught at runtime, but an early warning is helpful)
 
