@@ -10,9 +10,9 @@ import (
 func TestOpenDB(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := OpenDB(tmpDir)
+	db, err := OpenOrCreateDB(tmpDir)
 	if err != nil {
-		t.Fatalf("OpenDB failed: %v", err)
+		t.Fatalf("OpenOrCreateDB failed: %v", err)
 	}
 	defer db.Close()
 
@@ -31,9 +31,9 @@ func TestOpenDB(t *testing.T) {
 func TestOpenDB_Permissions(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	db, err := OpenDB(tmpDir)
+	db, err := OpenOrCreateDB(tmpDir)
 	if err != nil {
-		t.Fatalf("OpenDB failed: %v", err)
+		t.Fatalf("OpenOrCreateDB failed: %v", err)
 	}
 	db.Close()
 
@@ -484,9 +484,9 @@ func setupTestDB(t *testing.T) *DB {
 	t.Helper()
 	tmpDir := t.TempDir()
 
-	db, err := OpenDB(tmpDir)
+	db, err := OpenOrCreateDB(tmpDir)
 	if err != nil {
-		t.Fatalf("OpenDB failed: %v", err)
+		t.Fatalf("OpenOrCreateDB failed: %v", err)
 	}
 
 	return db

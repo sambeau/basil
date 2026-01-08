@@ -165,6 +165,12 @@ func openDBInternal(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("applying migrations: %w", err)
 	}
 
+	// Set secure file permissions (0600 = owner read/write only)
+	if err := os.Chmod(dbPath, 0600); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("setting database permissions: %w", err)
+	}
+
 	return d, nil
 }
 
