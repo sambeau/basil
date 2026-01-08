@@ -40,6 +40,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 			return runUsersCommand(args[1:], stdout, stderr, getenv)
 		case "apikey":
 			return runAPIKeyCommand(args[1:], stdout, stderr, getenv)
+		case "auth":
+			return runAuthCommand(args[1:], stdout, stderr, getenv)
 		}
 	}
 
@@ -752,5 +754,372 @@ func apiKeyRevokeCmd(db *auth.DB, keyID string, stdout io.Writer) error {
 	}
 
 	fmt.Fprintf(stdout, "✓ Revoked API key %q\n", key.Name)
+	return nil
+}
+
+// runAuthCommand handles auth-related subcommands
+func runAuthCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil auth", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	var (
+		configPath = flags.String("config", "", "Path to config file")
+		force      = flags.Bool("force", false, "Skip rate limits (for resend-verification)")
+		limit      = flags.Int("limit", 100, "Maximum results to show (for email-logs)")
+	)
+
+	if len(args) == 0 {
+		printAuthUsage(stderr)
+		return fmt.Errorf("missing auth subcommand")
+	}
+
+	subCmd := args[0]
+
+	if err := flags.Parse(args[1:]); err != nil {
+		printAuthUsage(stderr)
+		return err
+	}
+
+	// Load config
+	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	if !cfg.Auth.Enabled {
+		return fmt.Errorf("authentication is not enabled in config")
+	}
+
+	dbPath := authDBPath(configFile)
+	db, err := auth.OpenDB(dbPath)
+	if err != nil {
+		return fmt.Errorf("opening auth database: %w", err)
+	}
+	defer db.Close()
+
+	// Execute subcommand
+	switch subCmd {
+	case "verify-email":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing user ID")
+		}
+		return authVerifyEmailCmd(db, flags.Arg(0), stdout)
+	case "resend-verification":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing user ID")
+		}
+		return authResendVerificationCmd(db, cfg, flags.Arg(0), *force, stdout, stderr)
+	case "reset-verification":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing user ID")
+		}
+		return authResetVerificationCmd(db, flags.Arg(0), stdout)
+	case "status":
+		if flags.NArg() == 0 {
+			return fmt.Errorf("missing user ID")
+		}
+		return authStatusCmd(db, flags.Arg(0), stdout)
+	case "email-logs":
+		userID := ""
+		if flags.NArg() > 0 {
+			userID = flags.Arg(0)
+		}
+		return authEmailLogsCmd(db, userID, *limit, stdout)
+	default:
+		printAuthUsage(stderr)
+		return fmt.Errorf("unknown auth subcommand: %s", subCmd)
+	}
+}
+
+func printAuthUsage(w io.Writer) {
+	fmt.Fprintf(w, `basil auth - Manage email verification
+
+Usage:
+  basil auth <command> [options] [args]
+
+Commands:
+  verify-email <user_id>           Manually verify a user's email
+  resend-verification <user_id>    Resend verification email
+  reset-verification <user_id>     Clear verification state
+  status <user_id>                 Show user verification status
+  email-logs [user_id]             View email audit logs
+
+Options:
+  --config PATH     Path to config file
+  --force           Skip rate limits (for resend-verification)
+  --limit N         Maximum results (default: 100, for email-logs)
+
+Examples:
+  basil auth verify-email usr_abc123
+  basil auth resend-verification usr_abc123
+  basil auth resend-verification --force usr_abc123
+  basil auth reset-verification usr_abc123
+  basil auth status usr_abc123
+  basil auth email-logs
+  basil auth email-logs usr_abc123
+  basil auth email-logs --limit 50
+
+`)
+}
+
+// authVerifyEmailCmd manually verifies a user's email
+func authVerifyEmailCmd(db *auth.DB, userID string, stdout io.Writer) error {
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+	
+	if user.Email == "" {
+		return fmt.Errorf("user has no email address")
+	}
+	
+	if user.EmailVerifiedAt != nil {
+		fmt.Fprintf(stdout, "✓ Email already verified: %s\n", user.Email)
+		return nil
+	}
+	
+	ctx := context.Background()
+	if err := db.MarkEmailVerified(ctx, userID); err != nil {
+		return fmt.Errorf("marking email verified: %w", err)
+	}
+	
+	// Invalidate any pending verification tokens
+	if err := db.InvalidateUserVerificationTokens(ctx, userID); err != nil {
+		// Log but don't fail - verification succeeded
+		fmt.Fprintf(stdout, "Warning: failed to invalidate pending tokens: %v\n", err)
+	}
+	
+	fmt.Fprintf(stdout, "✓ Manually verified email: %s\n", user.Email)
+	return nil
+}
+
+// authResendVerificationCmd resends a verification email
+func authResendVerificationCmd(db *auth.DB, cfg *config.Config, userID string, force bool, stdout, stderr io.Writer) error {
+	ctx := context.Background()
+	
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+	
+	if user.Email == "" {
+		return fmt.Errorf("user has no email address")
+	}
+	
+	if user.EmailVerifiedAt != nil {
+		return fmt.Errorf("email already verified")
+	}
+	
+	// Check email verification is enabled
+	if !cfg.Auth.EmailVerification.Enabled {
+		return fmt.Errorf("email verification is not enabled in config")
+	}
+	
+	// Check rate limits unless --force
+	if !force {
+		result, err := db.CheckVerificationRateLimit(ctx, userID, user.Email,
+			cfg.Auth.EmailVerification.ResendCooldown,
+			cfg.Auth.EmailVerification.MaxSendsPerDay)
+		if err != nil {
+			return fmt.Errorf("checking rate limit: %w", err)
+		}
+		if !result.Allowed {
+			if result.Reason == "cooldown" {
+				return fmt.Errorf("rate limit: please wait until %s (use --force to bypass)", result.NextAvailable.Format("15:04:05"))
+			}
+			return fmt.Errorf("rate limit: %s (use --force to bypass)", result.Reason)
+		}
+	}
+	
+	// Build origin/baseURL for email links
+	var origin string
+	if cfg.Server.Dev {
+		port := cfg.Server.Port
+		if port == 0 || port == 443 {
+			port = 8080
+		}
+		origin = fmt.Sprintf("http://localhost:%d", port)
+	} else if cfg.Server.HTTPS.Auto || cfg.Server.HTTPS.Cert != "" {
+		host := cfg.Server.Host
+		if host == "" {
+			host = "localhost"
+		}
+		origin = fmt.Sprintf("https://%s", host)
+		if cfg.Server.Port != 443 {
+			origin = fmt.Sprintf("%s:%d", origin, cfg.Server.Port)
+		}
+	} else {
+		return fmt.Errorf("unable to determine base URL - configure HTTPS or use dev mode")
+	}
+	
+	// Initialize email service
+	emailService, err := auth.NewEmailService(&cfg.Auth.EmailVerification, db, origin)
+	if err != nil {
+		return fmt.Errorf("initializing email service: %w", err)
+	}
+	
+	// Send verification email
+	if err := emailService.SendVerificationEmail(ctx, user); err != nil {
+		return fmt.Errorf("sending verification email: %w", err)
+	}
+	
+	fmt.Fprintf(stdout, "✓ Sent verification email to: %s\n", user.Email)
+	return nil
+}
+
+// authResetVerificationCmd clears verification state
+func authResetVerificationCmd(db *auth.DB, userID string, stdout io.Writer) error {
+	ctx := context.Background()
+	
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+	
+	// Unverify the email (direct SQL since there's no UnverifyEmail method)
+	_, err = db.GetDB().Exec(`UPDATE users SET email_verified_at = NULL WHERE id = ?`, userID)
+	if err != nil {
+		return fmt.Errorf("resetting verification: %w", err)
+	}
+	
+	// Invalidate pending tokens
+	if err := db.InvalidateUserVerificationTokens(ctx, userID); err != nil {
+		fmt.Fprintf(stdout, "Warning: failed to invalidate tokens: %v\n", err)
+	}
+	
+	fmt.Fprintf(stdout, "✓ Reset verification state for: %s\n", user.Email)
+	return nil
+}
+
+// authStatusCmd shows user verification status
+func authStatusCmd(db *auth.DB, userID string, stdout io.Writer) error {
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+	
+	fmt.Fprintf(stdout, "User: %s (%s)\n", user.Name, userID)
+	fmt.Fprintf(stdout, "Email: %s\n", user.Email)
+	
+	if user.Email == "" {
+		fmt.Fprintf(stdout, "Status: No email address\n")
+		return nil
+	}
+	
+	if user.EmailVerifiedAt != nil {
+		fmt.Fprintf(stdout, "Status: ✓ Verified\n")
+		fmt.Fprintf(stdout, "Verified at: %s\n", user.EmailVerifiedAt.Format("2006-01-02 15:04:05"))
+	} else {
+		fmt.Fprintf(stdout, "Status: ✗ Not verified\n")
+		
+		// Check for pending verification tokens
+		rows, err := db.GetDB().Query(`
+			SELECT id, created_at, expires_at, send_count, consumed_at
+			FROM email_verifications
+			WHERE user_id = ? AND consumed_at IS NULL
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, userID)
+		if err != nil {
+			return fmt.Errorf("checking tokens: %w", err)
+		}
+		defer rows.Close()
+		
+		if rows.Next() {
+			var tokenID string
+			var createdAt, expiresAt string
+			var sendCount int
+			var consumedAt *string
+			
+			if err := rows.Scan(&tokenID, &createdAt, &expiresAt, &sendCount, &consumedAt); err != nil {
+				return fmt.Errorf("scanning token: %w", err)
+			}
+			
+			fmt.Fprintf(stdout, "Pending token: %s\n", tokenID)
+			fmt.Fprintf(stdout, "  Created: %s\n", createdAt)
+			fmt.Fprintf(stdout, "  Expires: %s\n", expiresAt)
+			fmt.Fprintf(stdout, "  Sends: %d\n", sendCount)
+		}
+	}
+	
+	return nil
+}
+
+// authEmailLogsCmd shows email audit logs
+func authEmailLogsCmd(db *auth.DB, userID string, limit int, stdout io.Writer) error {
+	ctx := context.Background()
+	
+	var logs []auth.EmailLog
+	var err error
+	
+	if userID != "" {
+		// Verify user exists
+		user, err := db.GetUser(userID)
+		if err != nil {
+			return fmt.Errorf("getting user: %w", err)
+		}
+		if user == nil {
+			return fmt.Errorf("user not found: %s", userID)
+		}
+		logs, err = db.GetEmailLogs(ctx, &userID, limit)
+	} else {
+		logs, err = db.GetEmailLogs(ctx, nil, limit)
+	}
+	
+	if err != nil {
+		return fmt.Errorf("getting email logs: %w", err)
+	}
+	
+	if len(logs) == 0 {
+		fmt.Fprintf(stdout, "No email logs found\n")
+		return nil
+	}
+	
+	// Print header
+	fmt.Fprintf(stdout, "%-36s %-25s %-15s %-10s %-8s %s\n",
+		"ID", "Recipient", "Type", "Provider", "Status", "Created")
+	fmt.Fprintf(stdout, "%s\n", strings.Repeat("-", 120))
+	
+	// Print logs
+	for _, log := range logs {
+		userIDStr := ""
+		if log.UserID != nil {
+			userIDStr = *log.UserID
+			if len(userIDStr) > 12 {
+				userIDStr = userIDStr[:12]
+			}
+		}
+		
+		recipient := log.Recipient
+		if len(recipient) > 25 {
+			recipient = recipient[:22] + "..."
+		}
+		
+		fmt.Fprintf(stdout, "%-36s %-25s %-15s %-10s %-8s %s\n",
+			userIDStr,
+			recipient,
+			log.EmailType,
+			log.Provider,
+			log.Status,
+			log.CreatedAt.Format("2006-01-02 15:04"))
+		
+		if log.Error != nil && *log.Error != "" {
+			fmt.Fprintf(stdout, "  Error: %s\n", *log.Error)
+		}
+	}
+	
+	fmt.Fprintf(stdout, "\nShowing %d of up to %d logs\n", len(logs), limit)
 	return nil
 }

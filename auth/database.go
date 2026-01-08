@@ -231,6 +231,12 @@ func (d *DB) Path() string {
 	return d.path
 }
 
+// GetDB returns the underlying SQL database connection.
+// This is provided for advanced operations like direct SQL queries in CLI commands.
+func (d *DB) GetDB() *sql.DB {
+	return d.db
+}
+
 // generateID creates a random ID with the given prefix.
 func generateID(prefix string) string {
 	b := make([]byte, 16)

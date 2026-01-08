@@ -11,10 +11,10 @@ import (
 
 // EmailService handles email sending and verification
 type EmailService struct {
-	provider  email.Provider
-	db        *DB
-	config    *config.EmailVerificationConfig
-	baseURL   string
+	provider email.Provider
+	db       *DB
+	config   *config.EmailVerificationConfig
+	baseURL  string
 }
 
 // NewEmailService creates a new email service
