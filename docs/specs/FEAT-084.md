@@ -1,13 +1,30 @@
 ---
 id: FEAT-084
 title: "Email Verification for Passkey Authentication"
-status: draft
+status: implemented
 priority: medium
 created: 2026-01-08
 author: "@sambeau"
+implemented: 2026-01-08
+completion: 85%
 ---
 
 # FEAT-084: Email Verification for Passkey Authentication
+
+## Implementation Status
+
+**✅ Phase 1: Complete (100%)** - Core infrastructure working
+**✅ Phase 2: Complete (100%)** - Verification flow implemented  
+**✅ Phase 3: Partial (60%)** - Recovery handlers complete, notification API deferred
+**⏳ Phase 4: Not Started** - CLI commands pending
+**⏳ Phase 5: Not Started** - Testing and documentation pending
+
+**Deferred**: Notification API (`basil.email.send()`) moved to future feature per ADR-001. Core verification flow is complete and functional.
+
+**Related**: 
+- [PLAN-056](../plans/PLAN-056.md) - Implementation plan
+- [ADR-001](../decisions/ADR-001-notification-api-defer.md) - Notification API deferral decision
+- [BACKLOG.md](../../BACKLOG.md#5) - Notification API backlog entry
 
 ## Summary
 
