@@ -126,11 +126,60 @@ func (s StringOrSlice) Contains(str string) bool {
 
 // AuthConfig holds authentication settings
 type AuthConfig struct {
-	Enabled        bool            `yaml:"enabled"`         // Enable authentication
-	Registration   string          `yaml:"registration"`    // "open" (anyone can register) or "closed" (invite only)
-	SessionTTL     time.Duration   `yaml:"session_ttl"`     // Session duration (default: 24h)
-	ProtectedPaths []ProtectedPath `yaml:"protected_paths"` // URL path prefixes that require authentication
-	LoginPath      string          `yaml:"login_path"`      // Path to redirect unauthenticated users (default: "/login")
+	Enabled             bool                  `yaml:"enabled"`              // Enable authentication
+	Registration        string                `yaml:"registration"`         // "open" (anyone can register) or "closed" (invite only)
+	SessionTTL          time.Duration         `yaml:"session_ttl"`          // Session duration (default: 24h)
+	ProtectedPaths      []ProtectedPath       `yaml:"protected_paths"`      // URL path prefixes that require authentication
+	LoginPath           string                `yaml:"login_path"`           // Path to redirect unauthenticated users (default: "/login")
+	EmailVerification   EmailVerificationConfig `yaml:"email_verification"` // Email verification settings (FEAT-084)
+	Recovery            RecoveryConfig        `yaml:"recovery"`             // Recovery method settings (FEAT-084)
+}
+
+// EmailVerificationConfig holds email verification settings (FEAT-084)
+type EmailVerificationConfig struct {
+	Enabled            bool                `yaml:"enabled"`             // Enable email verification
+	Provider           string              `yaml:"provider"`            // "mailgun" or "resend"
+	Mailgun            MailgunConfig       `yaml:"mailgun"`             // Mailgun-specific settings
+	Resend             ResendConfig        `yaml:"resend"`              // Resend-specific settings
+	RequireVerification bool               `yaml:"require_verification"` // Block protected routes until verified
+	TokenTTL           time.Duration       `yaml:"token_ttl"`           // Verification token lifetime (default: 1h)
+	ResendCooldown     time.Duration       `yaml:"resend_cooldown"`     // Minimum time between resend requests (default: 5m)
+	MaxSendsPerDay     int                 `yaml:"max_sends_per_day"`   // Per user/email abuse limit (default: 10)
+	TemplateVars       EmailTemplateVars   `yaml:"template_vars"`       // Template variables
+	DeveloperEmails    DeveloperEmailsConfig `yaml:"developer_emails"`  // Developer notification API settings
+}
+
+// MailgunConfig holds Mailgun-specific settings
+type MailgunConfig struct {
+	APIKey string `yaml:"api_key"` // Mailgun API key
+	Domain string `yaml:"domain"`  // Mailgun domain
+	Region string `yaml:"region"`  // "us" or "eu"
+	From   string `yaml:"from"`    // From email address
+}
+
+// ResendConfig holds Resend-specific settings
+type ResendConfig struct {
+	APIKey string `yaml:"api_key"` // Resend API key
+	From   string `yaml:"from"`    // From email address
+}
+
+// EmailTemplateVars holds email template variables
+type EmailTemplateVars struct {
+	SiteName string `yaml:"site_name"` // Site name for email templates
+	SiteURL  string `yaml:"site_url"`  // Site URL for email templates
+}
+
+// DeveloperEmailsConfig holds settings for developer notification API
+type DeveloperEmailsConfig struct {
+	Enabled     bool `yaml:"enabled"`       // Enable developer email API (default: true)
+	MaxPerHour  int  `yaml:"max_per_hour"`  // Per-site rate limit (default: 50)
+	MaxPerDay   int  `yaml:"max_per_day"`   // Per-site rate limit (default: 200)
+}
+
+// RecoveryConfig holds recovery method settings (FEAT-084)
+type RecoveryConfig struct {
+	CodesEnabled bool `yaml:"codes_enabled"` // Enable recovery codes (default: true)
+	EmailEnabled bool `yaml:"email_enabled"` // Enable email recovery (requires verified email)
 }
 
 // ProtectedPath represents a URL path prefix that requires authentication.

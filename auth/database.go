@@ -94,6 +94,44 @@ var migrations = []string{
 	`ALTER TABLE credentials ADD COLUMN backup_eligible INTEGER NOT NULL DEFAULT 0`,
 	// Migration 5: Add backup state to credentials table
 	`ALTER TABLE credentials ADD COLUMN backup_state INTEGER NOT NULL DEFAULT 0`,
+	// Migration 6: Add email verification column to users table (FEAT-084)
+	`ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMP`,
+	// Migration 7: Create email_verifications table (FEAT-084)
+	`CREATE TABLE IF NOT EXISTS email_verifications (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		email TEXT NOT NULL,
+		token_hash TEXT NOT NULL,
+		expires_at TIMESTAMP NOT NULL,
+		consumed_at TIMESTAMP,
+		send_count INTEGER DEFAULT 1,
+		last_sent_at TIMESTAMP NOT NULL,
+		created_at TIMESTAMP NOT NULL
+	)`,
+	// Migration 8: Create email_verifications indexes (FEAT-084)
+	`CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token_hash)`,
+	// Migration 9: Create email_verifications user index (FEAT-084)
+	`CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id)`,
+	// Migration 10: Create email_verifications expires index (FEAT-084)
+	`CREATE INDEX IF NOT EXISTS idx_email_verifications_expires ON email_verifications(expires_at)`,
+	// Migration 11: Create email_logs table (FEAT-084)
+	`CREATE TABLE IF NOT EXISTS email_logs (
+		id TEXT PRIMARY KEY,
+		user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+		recipient TEXT NOT NULL,
+		email_type TEXT NOT NULL,
+		provider TEXT NOT NULL,
+		provider_message_id TEXT,
+		status TEXT NOT NULL,
+		error TEXT,
+		created_at TIMESTAMP NOT NULL
+	)`,
+	// Migration 12: Create email_logs indexes (FEAT-084)
+	`CREATE INDEX IF NOT EXISTS idx_email_logs_user ON email_logs(user_id)`,
+	// Migration 13: Create email_logs created index (FEAT-084)
+	`CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs(created_at)`,
+	// Migration 14: Create email_logs type index (FEAT-084)
+	`CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs(email_type)`,
 }
 
 // OpenDB opens the auth database. Returns an error if it doesn't exist.
