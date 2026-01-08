@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -275,6 +276,14 @@ func schemaValidate(args ...Object) Object {
 		return newTypeError("TYPE-0001", "schema.validate", "dictionary (schema)", args[0].Type())
 	}
 
+	// Get schema name (optional, but used for error context)
+	schemaName := ""
+	if nameExpr, ok := schema.Pairs["name"]; ok {
+		if nameObj, ok := Eval(nameExpr, schema.Env).(*String); ok {
+			schemaName = nameObj.Value
+		}
+	}
+
 	data, ok := args[1].(*Dictionary)
 	if !ok {
 		return newTypeError("TYPE-0001", "schema.validate", "dictionary (data)", args[1].Type())
@@ -314,7 +323,7 @@ func schemaValidate(args ...Object) Object {
 			reqObj := Eval(reqExpr, spec.Env)
 			if req, ok := reqObj.(*Boolean); ok && req.Value {
 				if value == NULL || (value.Type() == STRING_OBJ && value.(*String).Value == "") {
-					errors = append(errors, createValidationError(fieldName, "REQUIRED", "Field is required"))
+					errors = append(errors, createValidationError(schemaName, fieldName, "REQUIRED", "Field is required"))
 					continue
 				}
 			}
@@ -337,7 +346,7 @@ func schemaValidate(args ...Object) Object {
 		}
 
 		// Type-specific validation
-		fieldErrors := validateFieldType(fieldName, typeStr.Value, value, spec)
+		fieldErrors := validateFieldType(schemaName, fieldName, typeStr.Value, value, spec)
 		errors = append(errors, fieldErrors...)
 	}
 
@@ -384,43 +393,43 @@ func schemaTable(args ...Object) Object {
 }
 
 // validateFieldType validates a value against a type specification
-func validateFieldType(fieldName, typeName string, value Object, spec *Dictionary) []Object {
+func validateFieldType(schemaName, fieldName, typeName string, value Object, spec *Dictionary) []Object {
 	var errors []Object
 
 	switch typeName {
 	case "string":
 		if _, ok := value.(*String); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected string"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected string"))
 		} else {
-			errors = append(errors, validateStringConstraints(fieldName, value.(*String), spec)...)
+			errors = append(errors, validateStringConstraints(schemaName, fieldName, value.(*String), spec)...)
 		}
 
 	case "email":
 		if str, ok := value.(*String); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected string"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected string"))
 		} else if !schemaEmailRegex.MatchString(str.Value) {
-			errors = append(errors, createValidationError(fieldName, "FORMAT", "Invalid email format"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "FORMAT", "Invalid email format"))
 		}
 
 	case "url":
 		if str, ok := value.(*String); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected string"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected string"))
 		} else if !schemaURLRegex.MatchString(str.Value) {
-			errors = append(errors, createValidationError(fieldName, "FORMAT", "Invalid URL format"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "FORMAT", "Invalid URL format"))
 		}
 
 	case "phone":
 		if str, ok := value.(*String); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected string"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected string"))
 		} else if !schemaPhoneRegex.MatchString(str.Value) {
-			errors = append(errors, createValidationError(fieldName, "FORMAT", "Invalid phone format"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "FORMAT", "Invalid phone format"))
 		}
 
 	case "integer":
 		if _, ok := value.(*Integer); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected integer"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected integer"))
 		} else {
-			errors = append(errors, validateIntegerConstraints(fieldName, value.(*Integer), spec)...)
+			errors = append(errors, validateIntegerConstraints(schemaName, fieldName, value.(*Integer), spec)...)
 		}
 
 	case "number":
@@ -428,12 +437,12 @@ func validateFieldType(fieldName, typeName string, value Object, spec *Dictionar
 		case *Integer, *Float:
 			// OK
 		default:
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected number"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected number"))
 		}
 
 	case "boolean":
 		if _, ok := value.(*Boolean); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected boolean"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected boolean"))
 		}
 
 	case "enum":
@@ -448,16 +457,16 @@ func validateFieldType(fieldName, typeName string, value Object, spec *Dictionar
 					}
 				}
 				if !found {
-					errors = append(errors, createValidationError(fieldName, "ENUM", "Value not in allowed set"))
+					errors = append(errors, createValidationError(schemaName, fieldName, "ENUM", "Value not in allowed set"))
 				}
 			}
 		}
 
 	case "date":
 		if str, ok := value.(*String); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected date string"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected date string"))
 		} else if !schemaDateRegex.MatchString(str.Value) {
-			errors = append(errors, createValidationError(fieldName, "FORMAT", "Invalid date format (expected YYYY-MM-DD)"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "FORMAT", "Invalid date format (expected YYYY-MM-DD)"))
 		}
 
 	case "id":
@@ -469,27 +478,27 @@ func validateFieldType(fieldName, typeName string, value Object, spec *Dictionar
 					switch format.Value {
 					case "ulid":
 						if !schemaULIDRegex.MatchString(str.Value) {
-							errors = append(errors, createValidationError(fieldName, "FORMAT", "Invalid ULID format"))
+							errors = append(errors, createValidationError(schemaName, fieldName, "FORMAT", "Invalid ULID format"))
 						}
 					case "uuid", "uuidv4", "uuidv7":
 						if !schemaUUIDRegex.MatchString(str.Value) {
-							errors = append(errors, createValidationError(fieldName, "FORMAT", "Invalid UUID format"))
+							errors = append(errors, createValidationError(schemaName, fieldName, "FORMAT", "Invalid UUID format"))
 						}
 					}
 				}
 			}
 		} else {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected string"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected string"))
 		}
 
 	case "array":
 		if _, ok := value.(*Array); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected array"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected array"))
 		}
 
 	case "object":
 		if _, ok := value.(*Dictionary); !ok {
-			errors = append(errors, createValidationError(fieldName, "TYPE", "Expected object"))
+			errors = append(errors, createValidationError(schemaName, fieldName, "TYPE", "Expected object"))
 		}
 	}
 
@@ -497,7 +506,7 @@ func validateFieldType(fieldName, typeName string, value Object, spec *Dictionar
 }
 
 // validateStringConstraints validates string-specific constraints
-func validateStringConstraints(fieldName string, value *String, spec *Dictionary) []Object {
+func validateStringConstraints(schemaName, fieldName string, value *String, spec *Dictionary) []Object {
 	var errors []Object
 
 	// Min length
@@ -505,7 +514,7 @@ func validateStringConstraints(fieldName string, value *String, spec *Dictionary
 		minObj := Eval(minExpr, spec.Env)
 		if min, ok := minObj.(*Integer); ok {
 			if int64(len(value.Value)) < min.Value {
-				errors = append(errors, createValidationError(fieldName, "MIN_LENGTH", "String too short"))
+				errors = append(errors, createValidationError(schemaName, fieldName, "MIN_LENGTH", "String too short"))
 			}
 		}
 	}
@@ -515,7 +524,7 @@ func validateStringConstraints(fieldName string, value *String, spec *Dictionary
 		maxObj := Eval(maxExpr, spec.Env)
 		if max, ok := maxObj.(*Integer); ok {
 			if int64(len(value.Value)) > max.Value {
-				errors = append(errors, createValidationError(fieldName, "MAX_LENGTH", "String too long"))
+				errors = append(errors, createValidationError(schemaName, fieldName, "MAX_LENGTH", "String too long"))
 			}
 		}
 	}
@@ -526,7 +535,7 @@ func validateStringConstraints(fieldName string, value *String, spec *Dictionary
 		if pattern, ok := patternObj.(*String); ok {
 			re, err := regexp.Compile(pattern.Value)
 			if err == nil && !re.MatchString(value.Value) {
-				errors = append(errors, createValidationError(fieldName, "PATTERN", "Value does not match pattern"))
+				errors = append(errors, createValidationError(schemaName, fieldName, "PATTERN", "Value does not match pattern"))
 			}
 		}
 	}
@@ -535,7 +544,7 @@ func validateStringConstraints(fieldName string, value *String, spec *Dictionary
 }
 
 // validateIntegerConstraints validates integer-specific constraints
-func validateIntegerConstraints(fieldName string, value *Integer, spec *Dictionary) []Object {
+func validateIntegerConstraints(schemaName, fieldName string, value *Integer, spec *Dictionary) []Object {
 	var errors []Object
 
 	// Min value
@@ -543,7 +552,7 @@ func validateIntegerConstraints(fieldName string, value *Integer, spec *Dictiona
 		minObj := Eval(minExpr, spec.Env)
 		if min, ok := minObj.(*Integer); ok {
 			if value.Value < min.Value {
-				errors = append(errors, createValidationError(fieldName, "MIN_VALUE", "Value too small"))
+				errors = append(errors, createValidationError(schemaName, fieldName, "MIN_VALUE", "Value too small"))
 			}
 		}
 	}
@@ -553,7 +562,7 @@ func validateIntegerConstraints(fieldName string, value *Integer, spec *Dictiona
 		maxObj := Eval(maxExpr, spec.Env)
 		if max, ok := maxObj.(*Integer); ok {
 			if value.Value > max.Value {
-				errors = append(errors, createValidationError(fieldName, "MAX_VALUE", "Value too large"))
+				errors = append(errors, createValidationError(schemaName, fieldName, "MAX_VALUE", "Value too large"))
 			}
 		}
 	}
@@ -562,10 +571,18 @@ func validateIntegerConstraints(fieldName string, value *Integer, spec *Dictiona
 }
 
 // createValidationError creates a validation error object
-func createValidationError(field, code, message string) Object {
+func createValidationError(schemaName, field, code, message string) Object {
+	fullMessage := message
+	if schemaName != "" {
+		fullMessage = fmt.Sprintf("%s schema: %s", schemaName, message)
+	}
+
 	pairs := make(map[string]ast.Expression)
+	if schemaName != "" {
+		pairs["schema"] = objectToExpression(&String{Value: schemaName})
+	}
 	pairs["field"] = objectToExpression(&String{Value: field})
 	pairs["code"] = objectToExpression(&String{Value: code})
-	pairs["message"] = objectToExpression(&String{Value: message})
+	pairs["message"] = objectToExpression(&String{Value: fullMessage})
 	return &Dictionary{Pairs: pairs}
 }

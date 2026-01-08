@@ -352,7 +352,8 @@ let UserSchema = schema.define("User", {
   email: schema.email({required: true})
 })
 let result = UserSchema.validate({})
-result.errors[0].field`
+let err = result.errors[0]
+err.schema + "|" + err.field + "|" + err.message`
 
 	result := evalSchemaTest(t, input)
 
@@ -361,8 +362,9 @@ result.errors[0].field`
 	}
 
 	if str, ok := result.(*evaluator.String); ok {
-		if str.Value != "email" {
-			t.Errorf("expected error field 'email', got '%s'", str.Value)
+		expected := "User|email|User schema: Field is required"
+		if str.Value != expected {
+			t.Errorf("expected '%s', got '%s'", expected, str.Value)
 		}
 	} else {
 		t.Errorf("expected STRING, got %s", result.Type())
