@@ -213,3 +213,81 @@ These do **NOT** need manual testing (automated coverage exists):
 - Root path alias (`@~/`)
 - Public dir path rewriting
 - Valid/invalid table name validation
+
+## Email Verification (FEAT-084)
+
+### Test Environment Setup
+
+Use provided test credentials:
+
+**Mailgun:**
+```yaml
+email_verification:
+  provider: mailgun
+  mailgun:
+    api_key: "8d62a15e184a96921189f2976fae04cd-f6d80573-cb1a0b2a"
+    domain: "mg.tickly.org"
+    from: "test@mg.tickly.org"
+```
+
+**Resend:**
+```yaml
+email_verification:
+  provider: resend
+  resend:
+    api_key: "re_CTmuvKDZ_Hs8QFRGe2hnRQWmPt3uq9nxJ"
+    from: "onboarding@resend.dev"
+```
+
+**Test email:** `sambeau@mac.com`
+
+### Manual Test Cases
+
+- [ ] **Basic verification flow** — Register with email, receive verification link, click link, verify email marked as verified
+- [ ] **Parsley context** — Test `basil.auth.user.email_verified_at` and `email_verification_pending` in templates
+- [ ] **Resend with cooldown** — Register, try immediate resend (blocked), wait 5min, resend (succeeds)
+- [ ] **Force resend** — Use `basil auth resend-verification --force` to bypass cooldown
+- [ ] **Daily rate limit** — Send 10 verification emails, verify 11th blocked with "daily limit exceeded"
+- [ ] **Manual verification** — Use `basil auth verify-email <user_id>` to verify without clicking link
+- [ ] **Reset verification** — Use `basil auth reset-verification <user_id>` to unverify user
+- [ ] **Email audit logs** — Use `basil auth email-logs` to view sent emails, filter by user
+- [ ] **Require verification (blocking)** — Set `require_verification: true`, verify unverified users redirected
+- [ ] **Token expiry** — Set `token_ttl: 1m`, wait 2min, click link (should fail)
+- [ ] **Dev mode warnings** — Test sandbox domain, missing HTTPS, incomplete config warnings
+- [ ] **Provider switch** — Start with Mailgun, switch to Resend, verify emails send correctly
+- [ ] **Multiple users** — Register 3 users, verify each gets separate emails and status
+- [ ] **Real provider** — Test with your own Mailgun or Resend account and domain
+- [ ] **Spam folder** — Check if verification emails land in spam (deliverability test)
+- [ ] **Email formatting** — Verify email template renders correctly in multiple email clients
+- [ ] **Mobile email** — Click verification link from mobile device email client
+- [ ] **Link expiry message** — Click expired token, verify clear error message shown
+- [ ] **Invalid token** — Manually edit token in URL, verify error message
+- [ ] **DNS configuration** — Set up custom domain with SPF/DKIM, test deliverability
+- [ ] **Production HTTPS** — Test verification with HTTPS in production (link must use HTTPS)
+
+### CLI Commands to Test
+
+```bash
+# Check user status
+./basil auth status <user_id>
+
+# Manually verify email
+./basil auth verify-email <user_id>
+
+# Resend verification (bypass rate limits)
+./basil auth resend-verification --force <user_id>
+
+# Reset verification state
+./basil auth reset-verification <user_id>
+
+# View email audit logs
+./basil auth email-logs --limit 10
+./basil auth email-logs --user <user_id>
+```
+
+### Documentation to Review
+
+- [Email Verification Guide](./guide/email-verification.md)
+- [Mailgun Setup Guide](./guide/email-providers/mailgun.md)
+- [Resend Setup Guide](./guide/email-providers/resend.md)
+- [FEAT-084 Specification](./specs/FEAT-084.md)
