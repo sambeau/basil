@@ -378,13 +378,26 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 	// Add authenticated user if present
 	user := auth.GetUser(r)
 	if user != nil {
-		authCtx["user"] = map[string]interface{}{
+		userMap := map[string]interface{}{
 			"id":      user.ID,
 			"name":    user.Name,
 			"email":   user.Email,
 			"role":    user.Role,
 			"created": user.CreatedAt,
 		}
+		
+		// Add email verification status if email exists
+		if user.Email != "" {
+			if user.EmailVerifiedAt != nil {
+				userMap["email_verified_at"] = *user.EmailVerifiedAt
+				userMap["email_verification_pending"] = false
+			} else {
+				userMap["email_verified_at"] = nil
+				userMap["email_verification_pending"] = true
+			}
+		}
+		
+		authCtx["user"] = userMap
 	} else {
 		authCtx["user"] = nil
 	}
