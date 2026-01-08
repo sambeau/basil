@@ -292,11 +292,12 @@ func (d *DB) GetUser(id string) (*User, error) {
 	user := &User{}
 	var email sql.NullString
 	var role sql.NullString
+	var emailVerifiedAt sql.NullTime
 
 	err := d.db.QueryRow(
-		"SELECT id, name, email, role, created_at FROM users WHERE id = ?",
+		"SELECT id, name, email, role, email_verified_at, created_at FROM users WHERE id = ?",
 		id,
-	).Scan(&user.ID, &user.Name, &email, &role, &user.CreatedAt)
+	).Scan(&user.ID, &user.Name, &email, &role, &emailVerifiedAt, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -310,6 +311,9 @@ func (d *DB) GetUser(id string) (*User, error) {
 	if user.Role == "" {
 		user.Role = RoleEditor // Default for old records without role
 	}
+	if emailVerifiedAt.Valid {
+		user.EmailVerifiedAt = &emailVerifiedAt.Time
+	}
 	return user, nil
 }
 
@@ -318,11 +322,12 @@ func (d *DB) GetUserByEmail(email string) (*User, error) {
 	user := &User{}
 	var emailVal sql.NullString
 	var role sql.NullString
+	var emailVerifiedAt sql.NullTime
 
 	err := d.db.QueryRow(
-		"SELECT id, name, email, role, created_at FROM users WHERE email = ?",
+		"SELECT id, name, email, role, email_verified_at, created_at FROM users WHERE email = ?",
 		email,
-	).Scan(&user.ID, &user.Name, &emailVal, &role, &user.CreatedAt)
+	).Scan(&user.ID, &user.Name, &emailVal, &role, &emailVerifiedAt, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -335,6 +340,9 @@ func (d *DB) GetUserByEmail(email string) (*User, error) {
 	user.Role = role.String
 	if user.Role == "" {
 		user.Role = RoleEditor
+	}
+	if emailVerifiedAt.Valid {
+		user.EmailVerifiedAt = &emailVerifiedAt.Time
 	}
 	return user, nil
 }

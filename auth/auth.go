@@ -5,11 +5,12 @@ import "time"
 
 // User represents an authenticated user.
 type User struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email,omitempty"` // Optional
-	Role      string    `json:"role"`            // "admin" or "editor"
-	CreatedAt time.Time `json:"created_at"`
+	ID               string     `json:"id"`
+	Name             string     `json:"name"`
+	Email            string     `json:"email,omitempty"`         // Optional
+	EmailVerifiedAt  *time.Time `json:"email_verified_at,omitempty"` // FEAT-084: Email verification timestamp
+	Role             string     `json:"role"`                    // "admin" or "editor"
+	CreatedAt        time.Time  `json:"created_at"`
 }
 
 // APIKey represents an API key for a user.
