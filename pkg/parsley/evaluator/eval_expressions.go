@@ -1,14 +1,14 @@
 package evaluator
 
 import (
-"fmt"
-"os"
-"strings"
+	"fmt"
+	"os"
+	"strings"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-perrors "github.com/sambeau/basil/pkg/parsley/errors"
-"github.com/sambeau/basil/pkg/parsley/lexer"
-"github.com/sambeau/basil/pkg/parsley/parser"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // Expression evaluation: function application, parameter handling, assignments, destructuring
@@ -842,4 +842,3 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 	// Destructuring assignments return NULL (excluded from block concatenation)
 	return NULL
 }
-

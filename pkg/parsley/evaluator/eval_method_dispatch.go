@@ -1,8 +1,8 @@
 package evaluator
 
 import (
-"fmt"
-"strings"
+	"fmt"
+	"strings"
 )
 
 // Method dispatch operations: dispatchMethodCall, evalDBConnectionMethod
