@@ -169,13 +169,13 @@ func TestCheckDeveloperEmailRateLimit(t *testing.T) {
 	// Log 50 notification emails in the past hour (at the hourly limit)
 	for i := 0; i < 50; i++ {
 		log := &EmailLog{
-			ID:          generateID("log"),
-			UserID:      &user.ID,
-			Recipient:   "recipient@example.com",
-			EmailType:   "notification",
-			Provider:    "mailgun",
-			Status:      "sent",
-			CreatedAt:   time.Now().Add(-30 * time.Minute),
+			ID:        generateID("log"),
+			UserID:    &user.ID,
+			Recipient: "recipient@example.com",
+			EmailType: "notification",
+			Provider:  "mailgun",
+			Status:    "sent",
+			CreatedAt: time.Now().Add(-30 * time.Minute),
 		}
 		db.LogEmail(ctx, log)
 	}
@@ -206,13 +206,13 @@ func TestCheckDeveloperEmailRateLimit_DailyLimit(t *testing.T) {
 	// Log 200 notification emails in the past 24 hours (at the daily limit)
 	for i := 0; i < 200; i++ {
 		log := &EmailLog{
-			ID:          generateID("log"),
-			UserID:      &user.ID,
-			Recipient:   "recipient@example.com",
-			EmailType:   "notification",
-			Provider:    "mailgun",
-			Status:      "sent",
-			CreatedAt:   time.Now().Add(-12 * time.Hour),
+			ID:        generateID("log"),
+			UserID:    &user.ID,
+			Recipient: "recipient@example.com",
+			EmailType: "notification",
+			Provider:  "mailgun",
+			Status:    "sent",
+			CreatedAt: time.Now().Add(-12 * time.Hour),
 		}
 		db.LogEmail(ctx, log)
 	}

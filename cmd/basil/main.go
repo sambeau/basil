@@ -871,27 +871,27 @@ func authVerifyEmailCmd(db *auth.DB, userID string, stdout io.Writer) error {
 	if user == nil {
 		return fmt.Errorf("user not found: %s", userID)
 	}
-	
+
 	if user.Email == "" {
 		return fmt.Errorf("user has no email address")
 	}
-	
+
 	if user.EmailVerifiedAt != nil {
 		fmt.Fprintf(stdout, "✓ Email already verified: %s\n", user.Email)
 		return nil
 	}
-	
+
 	ctx := context.Background()
 	if err := db.MarkEmailVerified(ctx, userID); err != nil {
 		return fmt.Errorf("marking email verified: %w", err)
 	}
-	
+
 	// Invalidate any pending verification tokens
 	if err := db.InvalidateUserVerificationTokens(ctx, userID); err != nil {
 		// Log but don't fail - verification succeeded
 		fmt.Fprintf(stdout, "Warning: failed to invalidate pending tokens: %v\n", err)
 	}
-	
+
 	fmt.Fprintf(stdout, "✓ Manually verified email: %s\n", user.Email)
 	return nil
 }
@@ -899,7 +899,7 @@ func authVerifyEmailCmd(db *auth.DB, userID string, stdout io.Writer) error {
 // authResendVerificationCmd resends a verification email
 func authResendVerificationCmd(db *auth.DB, cfg *config.Config, userID string, force bool, stdout, stderr io.Writer) error {
 	ctx := context.Background()
-	
+
 	user, err := db.GetUser(userID)
 	if err != nil {
 		return fmt.Errorf("getting user: %w", err)
@@ -907,20 +907,20 @@ func authResendVerificationCmd(db *auth.DB, cfg *config.Config, userID string, f
 	if user == nil {
 		return fmt.Errorf("user not found: %s", userID)
 	}
-	
+
 	if user.Email == "" {
 		return fmt.Errorf("user has no email address")
 	}
-	
+
 	if user.EmailVerifiedAt != nil {
 		return fmt.Errorf("email already verified")
 	}
-	
+
 	// Check email verification is enabled
 	if !cfg.Auth.EmailVerification.Enabled {
 		return fmt.Errorf("email verification is not enabled in config")
 	}
-	
+
 	// Check rate limits unless --force
 	if !force {
 		result, err := db.CheckVerificationRateLimit(ctx, userID, user.Email,
@@ -936,7 +936,7 @@ func authResendVerificationCmd(db *auth.DB, cfg *config.Config, userID string, f
 			return fmt.Errorf("rate limit: %s (use --force to bypass)", result.Reason)
 		}
 	}
-	
+
 	// Build origin/baseURL for email links
 	var origin string
 	if cfg.Server.Dev {
@@ -957,18 +957,18 @@ func authResendVerificationCmd(db *auth.DB, cfg *config.Config, userID string, f
 	} else {
 		return fmt.Errorf("unable to determine base URL - configure HTTPS or use dev mode")
 	}
-	
+
 	// Initialize email service
 	emailService, err := auth.NewEmailService(&cfg.Auth.EmailVerification, db, origin)
 	if err != nil {
 		return fmt.Errorf("initializing email service: %w", err)
 	}
-	
+
 	// Send verification email
 	if err := emailService.SendVerificationEmail(ctx, user); err != nil {
 		return fmt.Errorf("sending verification email: %w", err)
 	}
-	
+
 	fmt.Fprintf(stdout, "✓ Sent verification email to: %s\n", user.Email)
 	return nil
 }
@@ -976,7 +976,7 @@ func authResendVerificationCmd(db *auth.DB, cfg *config.Config, userID string, f
 // authResetVerificationCmd clears verification state
 func authResetVerificationCmd(db *auth.DB, userID string, stdout io.Writer) error {
 	ctx := context.Background()
-	
+
 	user, err := db.GetUser(userID)
 	if err != nil {
 		return fmt.Errorf("getting user: %w", err)
@@ -984,18 +984,18 @@ func authResetVerificationCmd(db *auth.DB, userID string, stdout io.Writer) erro
 	if user == nil {
 		return fmt.Errorf("user not found: %s", userID)
 	}
-	
+
 	// Unverify the email (direct SQL since there's no UnverifyEmail method)
 	_, err = db.GetDB().Exec(`UPDATE users SET email_verified_at = NULL WHERE id = ?`, userID)
 	if err != nil {
 		return fmt.Errorf("resetting verification: %w", err)
 	}
-	
+
 	// Invalidate pending tokens
 	if err := db.InvalidateUserVerificationTokens(ctx, userID); err != nil {
 		fmt.Fprintf(stdout, "Warning: failed to invalidate tokens: %v\n", err)
 	}
-	
+
 	fmt.Fprintf(stdout, "✓ Reset verification state for: %s\n", user.Email)
 	return nil
 }
@@ -1009,21 +1009,21 @@ func authStatusCmd(db *auth.DB, userID string, stdout io.Writer) error {
 	if user == nil {
 		return fmt.Errorf("user not found: %s", userID)
 	}
-	
+
 	fmt.Fprintf(stdout, "User: %s (%s)\n", user.Name, userID)
 	fmt.Fprintf(stdout, "Email: %s\n", user.Email)
-	
+
 	if user.Email == "" {
 		fmt.Fprintf(stdout, "Status: No email address\n")
 		return nil
 	}
-	
+
 	if user.EmailVerifiedAt != nil {
 		fmt.Fprintf(stdout, "Status: ✓ Verified\n")
 		fmt.Fprintf(stdout, "Verified at: %s\n", user.EmailVerifiedAt.Format("2006-01-02 15:04:05"))
 	} else {
 		fmt.Fprintf(stdout, "Status: ✗ Not verified\n")
-		
+
 		// Check for pending verification tokens
 		rows, err := db.GetDB().Query(`
 			SELECT id, created_at, expires_at, send_count, consumed_at
@@ -1036,34 +1036,34 @@ func authStatusCmd(db *auth.DB, userID string, stdout io.Writer) error {
 			return fmt.Errorf("checking tokens: %w", err)
 		}
 		defer rows.Close()
-		
+
 		if rows.Next() {
 			var tokenID string
 			var createdAt, expiresAt string
 			var sendCount int
 			var consumedAt *string
-			
+
 			if err := rows.Scan(&tokenID, &createdAt, &expiresAt, &sendCount, &consumedAt); err != nil {
 				return fmt.Errorf("scanning token: %w", err)
 			}
-			
+
 			fmt.Fprintf(stdout, "Pending token: %s\n", tokenID)
 			fmt.Fprintf(stdout, "  Created: %s\n", createdAt)
 			fmt.Fprintf(stdout, "  Expires: %s\n", expiresAt)
 			fmt.Fprintf(stdout, "  Sends: %d\n", sendCount)
 		}
 	}
-	
+
 	return nil
 }
 
 // authEmailLogsCmd shows email audit logs
 func authEmailLogsCmd(db *auth.DB, userID string, limit int, stdout io.Writer) error {
 	ctx := context.Background()
-	
+
 	var logs []auth.EmailLog
 	var err error
-	
+
 	if userID != "" {
 		// Verify user exists
 		user, err := db.GetUser(userID)
@@ -1077,21 +1077,21 @@ func authEmailLogsCmd(db *auth.DB, userID string, limit int, stdout io.Writer) e
 	} else {
 		logs, err = db.GetEmailLogs(ctx, nil, limit)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("getting email logs: %w", err)
 	}
-	
+
 	if len(logs) == 0 {
 		fmt.Fprintf(stdout, "No email logs found\n")
 		return nil
 	}
-	
+
 	// Print header
 	fmt.Fprintf(stdout, "%-36s %-25s %-15s %-10s %-8s %s\n",
 		"ID", "Recipient", "Type", "Provider", "Status", "Created")
 	fmt.Fprintf(stdout, "%s\n", strings.Repeat("-", 120))
-	
+
 	// Print logs
 	for _, log := range logs {
 		userIDStr := ""
@@ -1101,12 +1101,12 @@ func authEmailLogsCmd(db *auth.DB, userID string, limit int, stdout io.Writer) e
 				userIDStr = userIDStr[:12]
 			}
 		}
-		
+
 		recipient := log.Recipient
 		if len(recipient) > 25 {
 			recipient = recipient[:22] + "..."
 		}
-		
+
 		fmt.Fprintf(stdout, "%-36s %-25s %-15s %-10s %-8s %s\n",
 			userIDStr,
 			recipient,
@@ -1114,12 +1114,12 @@ func authEmailLogsCmd(db *auth.DB, userID string, limit int, stdout io.Writer) e
 			log.Provider,
 			log.Status,
 			log.CreatedAt.Format("2006-01-02 15:04"))
-		
+
 		if log.Error != nil && *log.Error != "" {
 			fmt.Fprintf(stdout, "  Error: %s\n", *log.Error)
 		}
 	}
-	
+
 	fmt.Fprintf(stdout, "\nShowing %d of up to %d logs\n", len(logs), limit)
 	return nil
 }

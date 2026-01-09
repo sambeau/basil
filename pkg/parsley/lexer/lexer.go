@@ -33,6 +33,7 @@ const (
 	SFTP_LITERAL      // @sftp
 	SHELL_LITERAL     // @shell
 	DB_LITERAL        // @DB
+	SEARCH_LITERAL    // @SEARCH
 	SCHEMA_LITERAL    // @schema
 	QUERY_LITERAL     // @query
 	INSERT_LITERAL    // @insert
@@ -947,6 +948,9 @@ func (l *Lexer) NextToken() Token {
 		case DB_LITERAL:
 			tok.Type = DB_LITERAL
 			tok.Literal = l.readConnectionLiteral("DB")
+		case SEARCH_LITERAL:
+			tok.Type = SEARCH_LITERAL
+			tok.Literal = l.readConnectionLiteral("SEARCH")
 		case SCHEMA_LITERAL:
 			tok.Type = SCHEMA_LITERAL
 			tok.Literal = l.readDSLKeyword("schema")
@@ -2438,6 +2442,7 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		{"sftp", SFTP_LITERAL},
 		{"shell", SHELL_LITERAL},
 		{"DB", DB_LITERAL},
+		{"SEARCH", SEARCH_LITERAL},
 	} {
 		if l.isKeywordAt(pos, conn.keyword) {
 			return conn.token

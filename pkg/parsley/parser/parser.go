@@ -104,6 +104,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.SFTP_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.SHELL_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.DB_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.SEARCH_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.SCHEMA_LITERAL, p.parseSchemaDeclaration)
 	p.registerPrefix(lexer.QUERY_LITERAL, p.parseQueryExpression)
 	p.registerPrefix(lexer.INSERT_LITERAL, p.parseInsertExpression)
@@ -1130,6 +1131,8 @@ func (p *Parser) parseConnectionLiteral() ast.Expression {
 		kind = "shell"
 	case lexer.DB_LITERAL:
 		kind = "db"
+	case lexer.SEARCH_LITERAL:
+		kind = "search"
 	}
 
 	return &ast.ConnectionLiteral{

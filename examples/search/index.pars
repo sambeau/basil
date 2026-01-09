@@ -1,0 +1,84 @@
+// Phase 2 Auto-Indexing Example
+// Demonstrates automatic indexing from filesystem: @SEARCH({watch: @./docs}).query("hello")
+
+// Create a search instance that watches the ./docs directory
+// The index is automatically populated on first query
+search = @SEARCH({
+  watch: @./docs,
+  path: "search.db",
+  tokenizer: "porter",
+  weights: {
+    title: 10.0,
+    headings: 5.0,
+    tags: 3.0,
+    content: 1.0
+  }
+})
+
+// No manual indexing needed! The search engine automatically:
+// - Scans the ./docs directory for markdown files
+// - Parses YAML frontmatter (title, tags, date)
+// - Extracts headings for better ranking
+// - Indexes all content on first query
+
+// Query the search index
+query = @query["q"] || "basil"
+results = search.query(query, {limit: 10, offset: 0})
+
+// Get statistics
+stats = search.stats()
+
+<html>
+<head>
+  <title>Search Example</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    .search-box { margin-bottom: 20px; }
+    .search-box input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+    .stats { background: #f5f5f5; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; color: #666; }
+    .result { border-bottom: 1px solid #eee; padding: 20px 0; }
+    .result:last-child { border-bottom: none; }
+    .result h3 { margin: 0 0 5px 0; }
+    .result h3 a { color: #1a0dab; text-decoration: none; }
+    .result h3 a:hover { text-decoration: underline; }
+    .result .url { color: #006621; font-size: 14px; }
+    .result .snippet { margin: 5px 0; color: #545454; line-height: 1.4; }
+    .result .meta { font-size: 12px; color: #999; margin-top: 5px; }
+    .no-results { text-align: center; padding: 40px; color: #999; }
+    mark { background: #ffeb3b; padding: 0 2px; }
+  </style>
+</head>
+<body>
+  <h1>Search Documentation</h1>
+  
+  <div class="search-box">
+    <form method="get">
+      <input type="search" name="q" value={query} placeholder="Search..." autofocus/>
+    </form>
+  </div>
+
+  <div class="stats">
+    Found {results.total} results in {results.query_time}ms
+    • Index: {stats.documents} documents, {stats.size}
+  </div>
+
+  @if results.total > 0 {
+    @for result in results.results {
+      <div class="result">
+        <h3><a href={result.url}>{result.title}</a></h3>
+        <div class="url">{result.url}</div>
+        <div class="snippet">{@html(result.snippet)}</div>
+        <div class="meta">
+          Score: {result.score} • Rank: {result.rank}
+          @if result.date { • {result.date} }
+        </div>
+      </div>
+    }
+  } @else {
+    <div class="no-results">
+      <p>No results found for "{query}"</p>
+      <p>Try different keywords or check your spelling.</p>
+    </div>
+  }
+</body>
+</html>

@@ -1122,11 +1122,32 @@ func evalConnectionLiteral(node *ast.ConnectionLiteral, env *Environment) Object
 		return resolveDBLiteral(env)
 	}
 
+	if node.Kind == "search" {
+		return resolveSearchLiteral(env)
+	}
+
 	builtin := connectionBuiltins()[node.Kind]
 	if builtin == nil {
 		return newInternalError("INTERNAL-0002", map[string]any{"Type": "connection literal"})
 	}
 	return builtin
+}
+
+// resolveSearchLiteral returns the @SEARCH builtin factory or an error when unavailable.
+func resolveSearchLiteral(env *Environment) Object {
+	// @SEARCH is only available in Basil server context
+	// It's registered as a protected variable in the environment
+	if env != nil {
+		if searchBuiltin, ok := env.Get("SEARCH"); ok {
+			return searchBuiltin
+		}
+	}
+
+	return &Error{
+		Class:   ErrorClass("state"),
+		Message: "@SEARCH is only available in Basil server context",
+		Hints:   []string{"Run inside a Basil handler", "@SEARCH requires the Basil server environment"},
+	}
 }
 
 // resolveDBLiteral returns the Basil-managed database connection or an error when unavailable.

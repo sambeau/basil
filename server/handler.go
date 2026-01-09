@@ -293,6 +293,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
 
+	// Inject @SEARCH built-in for full-text search
+	env.SetProtected("SEARCH", NewSearchBuiltin(env))
+
 	// Set dev log writer on environment (available to stdlib dev module via import)
 	// nil in production mode - dev functions become no-ops
 	if h.server.devLog != nil {
@@ -385,7 +388,7 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 			"role":    user.Role,
 			"created": user.CreatedAt,
 		}
-		
+
 		// Add email verification status if email exists
 		if user.Email != "" {
 			if user.EmailVerifiedAt != nil {
@@ -396,7 +399,7 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 				userMap["email_verification_pending"] = true
 			}
 		}
-		
+
 		authCtx["user"] = userMap
 	} else {
 		authCtx["user"] = nil
