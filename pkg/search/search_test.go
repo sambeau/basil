@@ -2,7 +2,6 @@ package search
 
 import (
 	"database/sql"
-	"os"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -436,8 +435,76 @@ func TestStats(t *testing.T) {
 	}
 }
 
-func TestMain(m *testing.M) {
-	// Run tests
-	code := m.Run()
-	os.Exit(code)
+func TestReindex(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	idx, err := NewFTS5Index(db, "porter", DefaultWeights())
+	if err != nil {
+		t.Fatalf("failed to create index: %v", err)
+	}
+
+	// Index initial documents
+	initialDocs := []*Document{
+		{URL: "/doc1", Title: "Original 1", Content: "Original content 1"},
+		{URL: "/doc2", Title: "Original 2", Content: "Original content 2"},
+	}
+	if err := idx.BatchIndex(initialDocs); err != nil {
+		t.Fatalf("initial batch index failed: %v", err)
+	}
+
+	// Verify initial documents are indexed
+	results, err := idx.Search("Original", DefaultSearchOptions())
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if results.Total != 2 {
+		t.Fatalf("expected 2 initial results, got %d", results.Total)
+	}
+
+	// Call Reindex (drops and recreates tables)
+	if err := idx.Reindex(); err != nil {
+		t.Fatalf("reindex failed: %v", err)
+	}
+
+	// Verify index is now empty
+	results2, err := idx.Search("Original", DefaultSearchOptions())
+	if err != nil {
+		t.Fatalf("search after reindex failed: %v", err)
+	}
+	if results2.Total != 0 {
+		t.Errorf("expected 0 results after reindex, got %d", results2.Total)
+	}
+
+	// Re-index with new documents
+	newDocs := []*Document{
+		{URL: "/doc3", Title: "New 1", Content: "New content 1"},
+		{URL: "/doc4", Title: "New 2", Content: "New content 2"},
+		{URL: "/doc5", Title: "New 3", Content: "New content 3"},
+	}
+	if err := idx.BatchIndex(newDocs); err != nil {
+		t.Fatalf("reindex batch failed: %v", err)
+	}
+
+	// Verify new documents are indexed
+	results3, err := idx.Search("New", DefaultSearchOptions())
+	if err != nil {
+		t.Fatalf("search for new docs failed: %v", err)
+	}
+	if results3.Total != 3 {
+		t.Errorf("expected 3 results after reindexing, got %d", results3.Total)
+	}
+
+	// Verify old documents are not found
+	results4, err := idx.Search("Original", DefaultSearchOptions())
+	if err != nil {
+		t.Fatalf("search for old docs failed: %v", err)
+	}
+	if results4.Total != 0 {
+		t.Errorf("expected 0 results for old docs, got %d", results4.Total)
+	}
 }
+

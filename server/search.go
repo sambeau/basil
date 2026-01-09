@@ -903,8 +903,45 @@ func searchStatsMethod(instance *SearchInstance, args []evaluator.Object, env *e
 }
 
 func searchReindexMethod(instance *SearchInstance, args []evaluator.Object, env *evaluator.Environment) evaluator.Object {
-	return &evaluator.Error{
-		Class:   evaluator.ErrorClass("unimplemented"),
-		Message: "reindex() method not yet implemented (Phase 2/3)",
+	if len(args) != 0 {
+		return &evaluator.Error{
+			Class:   evaluator.ErrorClass("arity"),
+			Message: fmt.Sprintf("reindex() takes no arguments (got %d)", len(args)),
+		}
 	}
+
+	// Only works with watch paths
+	if len(instance.options.Watch) == 0 {
+		return &evaluator.Error{
+			Class:   evaluator.ErrorClass("runtime"),
+			Message: "reindex() requires watch paths to be configured",
+			Hints:   []string{"reindex() rebuilds the index from watched folders", "For manual indexing, use add() to re-add documents"},
+		}
+	}
+
+	// Lock to prevent concurrent reindexing
+	instance.initMutex.Lock()
+	defer instance.initMutex.Unlock()
+
+	// Drop and recreate tables
+	if err := instance.index.Reindex(); err != nil {
+		return &evaluator.Error{
+			Class:   evaluator.ErrorClass("runtime"),
+			Message: fmt.Sprintf("failed to reindex tables: %v", err),
+		}
+	}
+
+	// Reset initialization state
+	instance.initialized = false
+	instance.lastCheck = time.Time{}
+
+	// Re-run auto indexing
+	if err := instance.autoIndex(); err != nil {
+		return &evaluator.Error{
+			Class:   evaluator.ErrorClass("runtime"),
+			Message: fmt.Sprintf("failed to reindex documents: %v", err),
+		}
+	}
+
+	return &evaluator.Boolean{Value: true}
 }

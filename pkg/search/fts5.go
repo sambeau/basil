@@ -113,6 +113,21 @@ func (idx *FTS5Index) DropTables() error {
 	return nil
 }
 
+// Reindex drops and recreates all tables (full rebuild)
+func (idx *FTS5Index) Reindex() error {
+	// Drop existing tables
+	if err := idx.DropTables(); err != nil {
+		return fmt.Errorf("failed to drop tables: %w", err)
+	}
+
+	// Recreate tables
+	if err := idx.createTables(); err != nil {
+		return fmt.Errorf("failed to recreate tables: %w", err)
+	}
+
+	return nil
+}
+
 // DB returns the underlying database connection
 func (idx *FTS5Index) DB() *sql.DB {
 	return idx.db

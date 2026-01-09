@@ -388,6 +388,145 @@ Unique static content xyzabc789.
 	}
 }
 
+func TestSearchReindexMethod(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Create a test markdown file
+	docsDir := filepath.Join(tmpDir, "docs")
+	if err := os.MkdirAll(docsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	mdContent := `---
+title: Original Document
+tags: [test]
+---
+
+Original content here.
+`
+	mdPath := filepath.Join(docsDir, "doc.md")
+	if err := os.WriteFile(mdPath, []byte(mdContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create search instance with watch folder
+	instance, cleanup := createTestSearchInstanceWithWatch(t, dbPath, docsDir)
+	defer cleanup()
+
+	env := evaluator.NewEnvironment()
+
+	// Trigger initial indexing
+	if err := instance.ensureInitialized(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify initial document is indexed
+	queryDict := evaluator.NewDictionaryFromObjects(map[string]evaluator.Object{})
+	queryDict.Env = env
+	searchResult := searchQueryMethod(instance, []evaluator.Object{
+		&evaluator.String{Value: "Original"},
+		queryDict,
+	}, env)
+
+	resultsDict, ok := searchResult.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("Expected dictionary result, got %T", searchResult)
+	}
+
+	totalObj := evaluator.Eval(resultsDict.Pairs["total"], env)
+	total, ok := totalObj.(*evaluator.Integer)
+	if !ok || total.Value < 1 {
+		t.Fatalf("Expected at least 1 result initially, got %v", totalObj)
+	}
+
+	// Get initial count for comparison later
+	initialTotal := total.Value
+
+	// Modify the file
+	mdContent2 := `---
+title: Updated Document
+tags: [test, updated]
+---
+
+Updated content with new information.
+`
+	if err := os.WriteFile(mdPath, []byte(mdContent2), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Call reindex
+	result := searchReindexMethod(instance, []evaluator.Object{}, env)
+	if _, ok := result.(*evaluator.Boolean); !ok {
+		t.Fatalf("Expected boolean result, got %T: %v", result, result)
+	}
+
+	// Verify updated content is now indexed
+	searchResult2 := searchQueryMethod(instance, []evaluator.Object{
+		&evaluator.String{Value: "Updated"},
+		queryDict,
+	}, env)
+
+	resultsDict2, ok := searchResult2.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("Expected dictionary result, got %T", searchResult2)
+	}
+
+	totalObj2 := evaluator.Eval(resultsDict2.Pairs["total"], env)
+	total2, ok := totalObj2.(*evaluator.Integer)
+	if !ok || total2.Value < 1 {
+		t.Errorf("Expected at least 1 result for updated content, got %v", totalObj2)
+	}
+
+	// Verify old content is not found after reindex
+	searchResult3 := searchQueryMethod(instance, []evaluator.Object{
+		&evaluator.String{Value: "Original"},
+		queryDict,
+	}, env)
+
+	resultsDict3, ok := searchResult3.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("Expected dictionary result, got %T", searchResult3)
+	}
+
+	totalObj3 := evaluator.Eval(resultsDict3.Pairs["total"], env)
+	total3, ok := totalObj3.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("Expected integer for total, got %T", totalObj3)
+	}
+
+	// After reindex, searching for "Original" should find 0 results
+	if total3.Value != 0 {
+		t.Errorf("Expected 0 results for old content after reindex, got %d (initial was %d)", total3.Value, initialTotal)
+	}
+}
+
+func TestSearchReindexMethodNoWatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Create search instance WITHOUT watch folder (manual only)
+	instance, cleanup := createTestSearchInstance(t, dbPath)
+	defer cleanup()
+
+	env := evaluator.NewEnvironment()
+
+	// Attempt to call reindex without watch paths
+	result := searchReindexMethod(instance, []evaluator.Object{}, env)
+
+	// Should return error
+	if err, ok := result.(*evaluator.Error); ok {
+		if string(err.Class) != "runtime" {
+			t.Errorf("Expected runtime error, got %s", err.Class)
+		}
+		if err.Message != "reindex() requires watch paths to be configured" {
+			t.Errorf("Expected specific error message, got: %s", err.Message)
+		}
+	} else {
+		t.Errorf("Expected error for reindex without watch, got %T", result)
+	}
+}
+
 // Helper functions
 
 func createTestSearchInstance(t *testing.T, dbPath string) (*SearchInstance, func()) {
