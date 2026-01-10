@@ -61,7 +61,7 @@ Visit your handler and search! The index builds automatically on the first query
 - Multi-language stemming (beyond English)
 - Fuzzy/typo-tolerant search
 - Distributed search across servers
-- Scanned PDFs or image-based documents (no OCR)
+- Scanned/image-based PDFs (no OCR — only text-based PDFs are supported)
 
 For those needs, use Meilisearch or Elasticsearch instead.
 
@@ -114,8 +114,9 @@ search = @SEARCH({
 
 **extensions** — File types to index:
 - Default: `[".md"]`
-- Common: `[".md", ".html", ".txt", ".docx"]`
+- Common: `[".md", ".html", ".txt", ".docx", ".pdf"]`
 - DOCX support extracts text, headings, and metadata (title, keywords, dates)
+- PDF support extracts plain text (text-based PDFs only, no OCR for scanned documents)
 - Case-insensitive matching
 
 **weights** — Field importance for ranking:

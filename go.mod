@@ -1,6 +1,6 @@
 module github.com/sambeau/basil
 
-go 1.24.0
+go 1.24.1
 
 toolchain go1.24.10
 
@@ -10,6 +10,7 @@ require (
 	github.com/go-webauthn/webauthn v0.15.0
 	github.com/goodsign/monday v1.0.2
 	github.com/klauspost/compress v1.18.2
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/peterh/liner v1.2.2
 	github.com/pkg/sftp v1.13.10

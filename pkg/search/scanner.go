@@ -95,6 +95,13 @@ func ScanFolder(folderPath string, opts *ScanOptions) ([]*Document, error) {
 				scanErrors = append(scanErrors, fmt.Errorf("error processing DOCX %s: %w", path, err))
 				return nil
 			}
+		} else if IsPDF(path) {
+			// Process PDF file (binary format)
+			doc, err = ProcessPDF(path, mtime)
+			if err != nil {
+				scanErrors = append(scanErrors, fmt.Errorf("error processing PDF %s: %w", path, err))
+				return nil
+			}
 		} else {
 			// Process text-based files (markdown, HTML, etc.)
 			content, err := os.ReadFile(path)
