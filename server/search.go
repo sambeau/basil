@@ -700,10 +700,16 @@ func searchResultsToDict(results *search.SearchResults, env *evaluator.Environme
 		itemPairs["rank"] = &evaluator.Integer{Value: int64(r.Rank)}
 
 		if !r.Date.IsZero() {
-			// Create date dictionary
+			// Create datetime dictionary with __type and date components
 			datePairs := make(map[string]evaluator.Object)
-			datePairs["type"] = &evaluator.String{Value: "datetime"}
-			datePairs["value"] = &evaluator.String{Value: r.Date.Format("2006-01-02T15:04:05Z07:00")}
+			datePairs["__type"] = &evaluator.String{Value: "datetime"}
+			datePairs["kind"] = &evaluator.String{Value: "date"}
+			datePairs["year"] = &evaluator.Integer{Value: int64(r.Date.Year())}
+			datePairs["month"] = &evaluator.Integer{Value: int64(r.Date.Month())}
+			datePairs["day"] = &evaluator.Integer{Value: int64(r.Date.Day())}
+			datePairs["hour"] = &evaluator.Integer{Value: int64(r.Date.Hour())}
+			datePairs["minute"] = &evaluator.Integer{Value: int64(r.Date.Minute())}
+			datePairs["second"] = &evaluator.Integer{Value: int64(r.Date.Second())}
 			itemPairs["date"] = evaluator.NewDictionaryFromObjects(datePairs)
 		}
 

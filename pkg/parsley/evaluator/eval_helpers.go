@@ -583,8 +583,14 @@ func typeExprEquals(expr ast.Expression, want string) bool {
 // isDatetimeDict checks if a dictionary is a datetime by looking for __type field
 func isDatetimeDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		// Try AST literal first
 		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
 			return strLit.Value == "datetime"
+		}
+		// Fall back to evaluation for runtime-created dictionaries
+		typeObj := Eval(typeExpr, dict.Env)
+		if strObj, ok := typeObj.(*String); ok {
+			return strObj.Value == "datetime"
 		}
 	}
 	return false
