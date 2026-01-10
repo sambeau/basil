@@ -703,7 +703,14 @@ func searchResultsToDict(results *search.SearchResults, env *evaluator.Environme
 			// Create datetime dictionary with __type and date components
 			datePairs := make(map[string]evaluator.Object)
 			datePairs["__type"] = &evaluator.String{Value: "datetime"}
-			datePairs["kind"] = &evaluator.String{Value: "date"}
+			
+			// Determine kind based on whether time components are present
+			if r.Date.Hour() == 0 && r.Date.Minute() == 0 && r.Date.Second() == 0 {
+				datePairs["kind"] = &evaluator.String{Value: "date"}
+			} else {
+				datePairs["kind"] = &evaluator.String{Value: "datetime"}
+			}
+			
 			datePairs["year"] = &evaluator.Integer{Value: int64(r.Date.Year())}
 			datePairs["month"] = &evaluator.Integer{Value: int64(r.Date.Month())}
 			datePairs["day"] = &evaluator.Integer{Value: int64(r.Date.Day())}
