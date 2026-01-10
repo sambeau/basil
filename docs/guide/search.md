@@ -30,10 +30,10 @@ results = search.query("hello world", {
 })
 
 <ul>
-  @for result in results.results {
+  for (result in results.results) {
     <li>
-      <a href={result.url}>{result.title}</a>
-      <p>{@html(result.snippet)}</p>
+      <a href={result.url}>`{result.title}`</a>
+      <p>`{result.snippet.html}`</p>
     </li>
   }
 </ul>
@@ -309,16 +309,16 @@ results = search.query(query, {limit: 20})
   <input type="search" name="q" value={query} placeholder="Search docs..."/>
 </form>
 
-@if results.total > 0 {
-  <p>Found {results.total} results</p>
-  @for result in results.results {
+if (results.total > 0) {
+  <p>`Found {results.total} results`</p>
+  for (result in results.results) {
     <article>
-      <h3><a href={result.url}>{result.title}</a></h3>
-      <p>{@html(result.snippet)}</p>
+      <h3><a href={result.url}>`{result.title}`</a></h3>
+      <p>`{result.snippet.html}`</p>
     </article>
   }
-} @else {
-  <p>No results found. Try different keywords.</p>
+} else {
+  <p>"No results found. Try different keywords."</p>
 }
 ```
 
@@ -341,7 +341,7 @@ tag = @query["tag"]
 query = @query["q"] || ""
 
 filters = {}
-@if tag {
+if (tag) {
   filters.tags = [tag]
 }
 
@@ -354,11 +354,11 @@ results = search.query(query, {
 <form method="get">
   <input type="search" name="q" value={query}/>
   <select name="tag">
-    <option value="">All tags</option>
-    <option value="tutorial">Tutorials</option>
-    <option value="news">News</option>
+    <option value="">"All tags"</option>
+    <option value="tutorial">"Tutorials"</option>
+    <option value="news">"News"</option>
   </select>
-  <button>Search</button>
+  <button>"Search"</button>
 </form>
 ```
 
@@ -377,7 +377,7 @@ search = @SEARCH({
 db = @DB(@./app.db)
 posts = db.query("SELECT * FROM posts WHERE published = 1")
 
-@for post in posts {
+for (post in posts) {
   search.add({
     url: "/blog/" + post.slug,
     title: post.title,
@@ -417,7 +417,7 @@ productSearch = @SEARCH({
 
 db = @DB(@./app.db)
 products = db.query("SELECT * FROM products WHERE active = 1")
-@for product in products {
+for (product in products) {
   productSearch.add({
     url: "/products/" + product.id,
     title: product.name,
@@ -427,11 +427,11 @@ products = db.query("SELECT * FROM products WHERE active = 1")
 }
 
 // Use appropriate search based on context
-@if @path.startsWith("/docs") {
+if (@path.startsWith("/docs")) {
   results = docsSearch.query(@query["q"])
-} @elif @path.startsWith("/blog") {
+} elif (@path.startsWith("/blog")) {
   results = blogSearch.query(@query["q"])
-} @else {
+} else {
   results = productSearch.query(@query["q"])
 }
 ```
@@ -456,7 +456,7 @@ totalPages = (results.total + perPage - 1) / perPage
 
 <html>
 <head>
-  <title>{@if query {"Search: " + query} @else {"Search"}}</title>
+  <title>`{if (query) {"Search: " + query} else {"Search"}}`</title>
   <style>
     body { max-width: 800px; margin: 40px auto; font-family: sans-serif; }
     .search-box input { width: 100%; padding: 12px; font-size: 16px; }
@@ -472,56 +472,56 @@ totalPages = (results.total + perPage - 1) / perPage
   </style>
 </head>
 <body>
-  <h1>Search</h1>
+  <h1>"Search"</h1>
   
   <div class="search-box">
     <form method="get">
       <input type="search" name="q" value={query} 
-             placeholder="Search {stats.documents} documents..." autofocus/>
+             placeholder={`Search {stats.documents} documents...`} autofocus/>
     </form>
   </div>
 
-  @if query {
+  if (query) {
     <div class="stats">
-      Found {results.total} results in {results.query_time}ms
+      `Found {results.total} results in {results.query_time}ms`
     </div>
 
-    @if results.total > 0 {
-      @for result in results.results {
+    if (results.total > 0) {
+      for (result in results.results) {
         <div class="result">
-          <h3><a href={result.url}>{result.title}</a></h3>
-          <div class="url" style="color: #006621; font-size: 14px;">{result.url}</div>
-          <p class="snippet">{@html(result.snippet)}</p>
-          @if result.date {
-            <div style="color: #999; font-size: 12px;">{result.date}</div>
+          <h3><a href={result.url}>`{result.title}`</a></h3>
+          <div class="url" style="color: #006621; font-size: 14px;">`{result.url}`</div>
+          <p class="snippet">`{result.snippet.html}`</p>
+          if (result.date) {
+            <div style="color: #999; font-size: 12px;">`{result.date}`</div>
           }
         </div>
       }
 
-      @if totalPages > 1 {
+      if (totalPages > 1) {
         <div class="pagination">
-          @if page > 1 {
-            <a href="?q={query}&page={(page - 1)}">← Previous</a>
+          if (page > 1) {
+            <a href={`?q={query}&page={page - 1}`}>"← Previous"</a>
           }
           
-          @for i in range(1, totalPages + 1) {
-            @if i == page {
-              <a class="active" href="?q={query}&page={i}">{i}</a>
-            } @else {
-              <a href="?q={query}&page={i}">{i}</a>
+          for (i in range(1, totalPages + 1)) {
+            if (i == page) {
+              <a class="active" href={`?q={query}&page={i}`}>`{i}`</a>
+            } else {
+              <a href={`?q={query}&page={i}`}>`{i}`</a>
             }
           }
           
-          @if page < totalPages {
-            <a href="?q={query}&page={(page + 1)}">Next →</a>
+          if (page < totalPages) {
+            <a href={`?q={query}&page={page + 1}`}>"Next →"</a>
           }
         </div>
       }
-    } @else {
-      <p>No results found for "{query}". Try different keywords.</p>
+    } else {
+      <p>`No results found for "{query}". Try different keywords.`</p>
     }
-  } @else {
-    <p>Enter a search query above to find content.</p>
+  } else {
+    <p>"Enter a search query above to find content."</p>
   }
 </body>
 </html>
@@ -657,11 +657,11 @@ esSearch = @SEARCH({watch: @./docs/es, tokenizer: "unicode61"})
 frSearch = @SEARCH({watch: @./docs/fr, tokenizer: "unicode61"})
 
 // Route based on language
-@if @query["lang"] == "es" {
+if (@query["lang"] == "es") {
   results = esSearch.query(@query["q"])
-} @elif @query["lang"] == "fr" {
+} elif (@query["lang"] == "fr") {
   results = frSearch.query(@query["q"])
-} @else {
+} else {
   results = enSearch.query(@query["q"])
 }
 ```
@@ -808,7 +808,7 @@ results = search.query(@query["q"], {raw: true})
 **Or:** Validate user input:
 ```parsley
 query = @query["q"] || ""
-@if query.length > 100 {
+if (query.length > 100) {
   query = query.substring(0, 100)  // Limit length
 }
 results = search.query(query)
