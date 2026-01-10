@@ -3,7 +3,14 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
+)
+
+// Precompiled regex for case-insensitive tag matching
+var (
+	bodyTagRe = regexp.MustCompile(`(?i)</body>`)
+	htmlTagRe = regexp.MustCompile(`(?i)</html>`)
 )
 
 // liveReloadScript is injected into HTML responses in dev mode
@@ -123,26 +130,39 @@ func (w *liveReloadResponseWriter) flush() {
 	}
 
 	// Inject script before </body> or at end
-	content := string(w.buffer)
+	content := w.buffer
 	injected := false
 
+	// Use regex for case-insensitive search - this returns correct indices
+	// into the original byte slice without any length-changing transformations
+
 	// Try to inject before </body>
-	if idx := strings.LastIndex(strings.ToLower(content), "</body>"); idx != -1 {
-		content = content[:idx] + liveReloadScript + content[idx:]
+	if loc := bodyTagRe.FindIndex(content); loc != nil {
+		idx := loc[0] // Start of the match
+		newContent := make([]byte, 0, len(content)+len(liveReloadScript))
+		newContent = append(newContent, content[:idx]...)
+		newContent = append(newContent, []byte(liveReloadScript)...)
+		newContent = append(newContent, content[idx:]...)
+		content = newContent
 		injected = true
 	}
 
 	// Fallback: inject before </html>
 	if !injected {
-		if idx := strings.LastIndex(strings.ToLower(content), "</html>"); idx != -1 {
-			content = content[:idx] + liveReloadScript + content[idx:]
+		if loc := htmlTagRe.FindIndex(content); loc != nil {
+			idx := loc[0]
+			newContent := make([]byte, 0, len(content)+len(liveReloadScript))
+			newContent = append(newContent, content[:idx]...)
+			newContent = append(newContent, []byte(liveReloadScript)...)
+			newContent = append(newContent, content[idx:]...)
+			content = newContent
 			injected = true
 		}
 	}
 
 	// Fallback: append at end
 	if !injected {
-		content = content + liveReloadScript
+		content = append(content, []byte(liveReloadScript)...)
 	}
 
 	// Update content length and write
@@ -153,5 +173,5 @@ func (w *liveReloadResponseWriter) flush() {
 			w.ResponseWriter.WriteHeader(w.statusCode)
 		}
 	}
-	w.ResponseWriter.Write([]byte(content))
+	w.ResponseWriter.Write(content)
 }

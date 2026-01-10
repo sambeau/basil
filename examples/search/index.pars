@@ -7,7 +7,7 @@ let {query as queryParams} = import @basil/http
 // The index is automatically populated on first query
 {search, error} = @SEARCH({
   watch: @./docs,
-  // path: "search.db",
+  extensions: [".md", ".docx"],  // path: "search.db",
   // tokenizer: "porter",
   // weights: {
   //   title: 10.0,
