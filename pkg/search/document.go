@@ -56,6 +56,7 @@ func StripMarkdown(content string) string {
 }
 
 // IndexDocument inserts a document into the FTS5 index
+// If a document with the same URL exists, it is replaced.
 func (idx *FTS5Index) IndexDocument(doc *Document) error {
 	if err := doc.Validate(); err != nil {
 		return err
@@ -72,6 +73,11 @@ func (idx *FTS5Index) IndexDocument(doc *Document) error {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
+
+	// Delete existing document with same URL (FTS5 doesn't support REPLACE)
+	if _, err := tx.Exec("DELETE FROM documents_fts WHERE url = ?", doc.URL); err != nil {
+		return fmt.Errorf("failed to delete existing document: %w", err)
+	}
 
 	// Insert into FTS5 table
 	tagsStr := strings.Join(doc.Tags, " ")
@@ -197,6 +203,7 @@ func (idx *FTS5Index) UpdateDocument(url string, updates map[string]interface{})
 }
 
 // BatchIndex indexes multiple documents in a single transaction
+// If a document with the same URL exists, it is replaced.
 func (idx *FTS5Index) BatchIndex(docs []*Document) error {
 	if len(docs) == 0 {
 		return nil
@@ -207,6 +214,13 @@ func (idx *FTS5Index) BatchIndex(docs []*Document) error {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
+
+	// Prepare delete statement for removing existing documents (FTS5 doesn't support REPLACE)
+	deleteStmt, err := tx.Prepare("DELETE FROM documents_fts WHERE url = ?")
+	if err != nil {
+		return fmt.Errorf("failed to prepare delete statement: %w", err)
+	}
+	defer deleteStmt.Close()
 
 	ftsStmt, err := tx.Prepare(`
 		INSERT INTO documents_fts(title, headings, tags, content, url, date)
@@ -231,6 +245,11 @@ func (idx *FTS5Index) BatchIndex(docs []*Document) error {
 	for _, doc := range docs {
 		if err := doc.Validate(); err != nil {
 			return fmt.Errorf("invalid document %s: %w", doc.URL, err)
+		}
+
+		// Delete existing document with same URL (FTS5 doesn't support REPLACE)
+		if _, err := deleteStmt.Exec(doc.URL); err != nil {
+			return fmt.Errorf("failed to delete existing document %s: %w", doc.URL, err)
 		}
 
 		// Clean content
