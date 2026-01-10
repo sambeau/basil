@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-08
+updated: 2026-01-10
 ---
 
 # Backlog
@@ -48,6 +48,7 @@ Deferred items from implementation, to be picked up in future work.
 |----|------|--------|-----------------|-------|
 | #35 | Full CLDR compact number formatting | FEAT-048 | Library limitation | `humanize()` uses English suffixes (K, M, B) with locale-aware decimal formatting. True CLDR would give locale-specific suffixes (German "Mio.", Japanese "万"). Go's `golang.org/x/text` doesn't expose CLDR compact forms directly. K/M/B is industry standard (YouTube, Twitter, GitHub). Revisit if CJK locale support becomes important. |
 | #36 | Fragment cache DevTools integration | FEAT-037 | Not MVP | Add `/__/cache` page showing cache stats (entries, hits, misses, hit rate, size) with clear button. `FragmentCacheStats` and `Stats()` method already exist in `fragment_cache.go`. |
+| #37 | Search benchmark tests | FEAT-085 | Not blocking release | Add Go benchmark tests for search performance validation: BenchmarkIndexDocument, BenchmarkBatchIndex, BenchmarkSearchSimple, BenchmarkSearchComplex, BenchmarkSearchScale (100/1K/10K docs). Validates <10ms query target. Add `make bench` to Makefile. Estimated 2-4 hours. Not blocking production since manual testing shows all targets met. |
 | #37 | std/math: Advanced statistics | FEAT-031 | Niche | percentile, quartile, correlation, z-score - add based on demand from data-focused users |
 | #38 | std/math: Hyperbolic functions | FEAT-031 | Niche | sinh, cosh, tanh - rare use case for most users |
 | #39 | std/math: Special functions | FEAT-031 | Niche | gamma, factorial - mathematical niche |
