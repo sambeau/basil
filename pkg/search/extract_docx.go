@@ -14,13 +14,20 @@ import (
 const (
 	// MaxDOCXSize is the maximum file size we'll attempt to process (50MB)
 	MaxDOCXSize = 50 * 1024 * 1024
+
+	// XML namespaces used in DOCX
+	nsWordML = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+	nsDCTerms = "http://purl.org/dc/terms/"
+	nsDC      = "http://purl.org/dc/elements/1.1/"
 )
 
 // DOCX XML structures for parsing word/document.xml
 // We only extract text content, ignoring formatting, images, etc.
+// Note: DOCX uses namespaced XML (w: prefix = WordprocessingML namespace)
 
 type docxDocument struct {
-	Body docxBody `xml:"body"`
+	XMLName xml.Name `xml:"document"`
+	Body    docxBody `xml:"body"`
 }
 
 type docxBody struct {
@@ -29,8 +36,12 @@ type docxBody struct {
 }
 
 type docxParagraph struct {
-	Style docxParagraphStyle `xml:"pPr>pStyle"`
-	Runs  []docxRun          `xml:"r"`
+	Properties docxParagraphProps `xml:"pPr"`
+	Runs       []docxRun          `xml:"r"`
+}
+
+type docxParagraphProps struct {
+	Style docxParagraphStyle `xml:"pStyle"`
 }
 
 type docxParagraphStyle struct {
@@ -203,7 +214,7 @@ func extractDocumentContent(f *zip.File) (string, []string, error) {
 			paragraphs = append(paragraphs, text)
 
 			// Check if this is a heading style
-			style := strings.ToLower(p.Style.Val)
+			style := strings.ToLower(p.Properties.Style.Val)
 			if strings.HasPrefix(style, "heading") || strings.HasPrefix(style, "title") {
 				headings = append(headings, text)
 			}
