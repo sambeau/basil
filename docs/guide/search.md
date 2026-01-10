@@ -32,8 +32,8 @@ results = search.query("hello world", {
 <ul>
   for (result in results.results) {
     <li>
-      <a href={result.url}>`{result.title}`</a>
-      <p>`{result.snippet.html}`</p>
+      <a href={result.url}>{result.title}</a>
+      <p>{result.snippet}</p>
     </li>
   }
 </ul>
@@ -296,13 +296,15 @@ search.reindex()
 **Scenario:** Search across markdown documentation.
 
 ```parsley
+let {query: urlQuery} = import @basil/http
+
 search = @SEARCH({
   watch: @./docs,
   path: "search.db"
 })
 
 // In your search page
-query = @query["q"] || ""
+query = urlQuery["q"] || ""
 results = search.query(query, {limit: 20})
 
 <form method="get">
@@ -313,8 +315,8 @@ if (results.total > 0) {
   <p>`Found {results.total} results`</p>
   for (result in results.results) {
     <article>
-      <h3><a href={result.url}>`{result.title}`</a></h3>
-      <p>`{result.snippet.html}`</p>
+      <h3><a href={result.url}>{result.title}</a></h3>
+      <p>{result.snippet}</p>
     </article>
   }
 } else {
@@ -327,6 +329,8 @@ if (results.total > 0) {
 **Scenario:** Search blog posts, filter by tags and date.
 
 ```parsley
+let {query: urlQuery} = import @basil/http
+
 search = @SEARCH({
   watch: @./posts,
   path: "blog.db",
@@ -337,8 +341,8 @@ search = @SEARCH({
 })
 
 // Filter by tag from URL
-tag = @query["tag"]
-query = @query["q"] || ""
+tag = urlQuery["tag"]
+query = urlQuery["q"] || ""
 
 filters = {}
 if (tag) {
@@ -367,6 +371,8 @@ results = search.query(query, {
 **Scenario:** Search both markdown files and database records.
 
 ```parsley
+let {query: urlQuery} = import @basil/http
+
 // Auto-index markdown files
 search = @SEARCH({
   watch: @./docs,
@@ -388,7 +394,7 @@ for (post in posts) {
 }
 
 // Search everything together
-results = search.query(@query["q"], {limit: 10})
+results = search.query(urlQuery["q"], {limit: 10})
 ```
 
 ### Multiple Search Indexes
@@ -427,12 +433,14 @@ for (product in products) {
 }
 
 // Use appropriate search based on context
-if (@path.startsWith("/docs")) {
-  results = docsSearch.query(@query["q"])
-} elif (@path.startsWith("/blog")) {
-  results = blogSearch.query(@query["q"])
+let {request, query: urlQuery} = import @basil/http
+
+if (request.path.startsWith("/docs")) {
+  results = docsSearch.query(urlQuery["q"])
+} else if (request.path.startsWith("/blog")) {
+  results = blogSearch.query(urlQuery["q"])
 } else {
-  results = productSearch.query(@query["q"])
+  results = productSearch.query(urlQuery["q"])
 }
 ```
 
@@ -441,9 +449,11 @@ if (@path.startsWith("/docs")) {
 **Scenario:** Full-featured search UI.
 
 ```parsley
+let {query: urlQuery} = import @basil/http
+
 search = @SEARCH({watch: @./content, path: "search.db"})
-query = @query["q"] || ""
-page = (@query["page"] || "1").toInt()
+query = urlQuery["q"] || ""
+page = (urlQuery["page"] || "1").toInt()
 perPage = 20
 
 results = search.query(query, {
@@ -456,7 +466,7 @@ totalPages = (results.total + perPage - 1) / perPage
 
 <html>
 <head>
-  <title>`{if (query) {"Search: " + query} else {"Search"}}`</title>
+  <title>{if (query) {"Search: " + query} else {"Search"}}</title>
   <style>
     body { max-width: 800px; margin: 40px auto; font-family: sans-serif; }
     .search-box input { width: 100%; padding: 12px; font-size: 16px; }
@@ -489,11 +499,11 @@ totalPages = (results.total + perPage - 1) / perPage
     if (results.total > 0) {
       for (result in results.results) {
         <div class="result">
-          <h3><a href={result.url}>`{result.title}`</a></h3>
-          <div class="url" style="color: #006621; font-size: 14px;">`{result.url}`</div>
-          <p class="snippet">`{result.snippet.html}`</p>
+          <h3><a href={result.url}>{result.title}</a></h3>
+          <div class="url" style="color: #006621; font-size: 14px;">{result.url}</div>
+          <p class="snippet">{result.snippet}</p>
           if (result.date) {
-            <div style="color: #999; font-size: 12px;">`{result.date}`</div>
+            <div style="color: #999; font-size: 12px;">{result.date}</div>
           }
         </div>
       }
@@ -506,9 +516,9 @@ totalPages = (results.total + perPage - 1) / perPage
           
           for (i in range(1, totalPages + 1)) {
             if (i == page) {
-              <a class="active" href={`?q={query}&page={i}`}>`{i}`</a>
+              <a class="active" href={`?q={query}&page={i}`}>{i}</a>
             } else {
-              <a href={`?q={query}&page={i}`}>`{i}`</a>
+              <a href={`?q={query}&page={i}`}>{i}</a>
             }
           }
           
@@ -651,18 +661,20 @@ search = @SEARCH({
 
 **Multiple languages:**
 ```parsley
+let {query: urlQuery} = import @basil/http
+
 // Separate indexes per language
 enSearch = @SEARCH({watch: @./docs/en, tokenizer: "porter"})
 esSearch = @SEARCH({watch: @./docs/es, tokenizer: "unicode61"})
 frSearch = @SEARCH({watch: @./docs/fr, tokenizer: "unicode61"})
 
 // Route based on language
-if (@query["lang"] == "es") {
-  results = esSearch.query(@query["q"])
-} elif (@query["lang"] == "fr") {
-  results = frSearch.query(@query["q"])
+if (urlQuery["lang"] == "es") {
+  results = esSearch.query(urlQuery["q"])
+} else if (urlQuery["lang"] == "fr") {
+  results = frSearch.query(urlQuery["q"])
 } else {
-  results = enSearch.query(@query["q"])
+  results = enSearch.query(urlQuery["q"])
 }
 ```
 
@@ -798,16 +810,19 @@ search = @SEARCH({
 
 **Solution:** Use default query processing (not raw):
 ```parsley
+let {query: urlQuery} = import @basil/http
+
 // Good: Auto-sanitized
-results = search.query(@query["q"])
+results = search.query(urlQuery["q"])
 
 // Bad: Can break on special chars
-results = search.query(@query["q"], {raw: true})
+results = search.query(urlQuery["q"], {raw: true})
 ```
 
 **Or:** Validate user input:
 ```parsley
-query = @query["q"] || ""
+let {query: urlQuery} = import @basil/http
+query = urlQuery["q"] || ""
 if (query.length > 100) {
   query = query.substring(0, 100)  // Limit length
 }
