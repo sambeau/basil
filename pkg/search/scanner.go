@@ -78,13 +78,6 @@ func ScanFolder(folderPath string, opts *ScanOptions) ([]*Document, error) {
 			return nil
 		}
 
-		// Read file contents
-		content, err := os.ReadFile(path)
-		if err != nil {
-			scanErrors = append(scanErrors, fmt.Errorf("error reading %s: %w", path, err))
-			return nil
-		}
-
 		// Get file modification time
 		fileInfo, err := d.Info()
 		if err != nil {
@@ -93,11 +86,27 @@ func ScanFolder(folderPath string, opts *ScanOptions) ([]*Document, error) {
 		}
 		mtime := fileInfo.ModTime()
 
-		// Process markdown file
-		doc, err := ProcessMarkdown(string(content), path, mtime)
-		if err != nil {
-			scanErrors = append(scanErrors, fmt.Errorf("error processing %s: %w", path, err))
-			return nil
+		// Process file based on extension
+		var doc *Document
+		if IsDOCX(path) {
+			// Process DOCX file (binary format)
+			doc, err = ProcessDOCX(path, mtime)
+			if err != nil {
+				scanErrors = append(scanErrors, fmt.Errorf("error processing DOCX %s: %w", path, err))
+				return nil
+			}
+		} else {
+			// Process text-based files (markdown, HTML, etc.)
+			content, err := os.ReadFile(path)
+			if err != nil {
+				scanErrors = append(scanErrors, fmt.Errorf("error reading %s: %w", path, err))
+				return nil
+			}
+			doc, err = ProcessMarkdown(string(content), path, mtime)
+			if err != nil {
+				scanErrors = append(scanErrors, fmt.Errorf("error processing %s: %w", path, err))
+				return nil
+			}
 		}
 
 		documents = append(documents, doc)

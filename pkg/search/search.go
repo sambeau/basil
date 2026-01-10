@@ -26,7 +26,7 @@ type SearchFilters struct {
 // SearchResult represents a single search result
 type SearchResult struct {
 	URL       string
-	Path      string    // Source file path (empty for manual docs)
+	Path      string // Source file path (empty for manual docs)
 	Title     string
 	Snippet   string
 	Score     float64

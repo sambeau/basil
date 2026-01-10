@@ -61,7 +61,7 @@ Visit your handler and search! The index builds automatically on the first query
 - Multi-language stemming (beyond English)
 - Fuzzy/typo-tolerant search
 - Distributed search across servers
-- Binary file content (PDF, DOCX)
+- Scanned PDFs or image-based documents (no OCR)
 
 For those needs, use Meilisearch or Elasticsearch instead.
 
@@ -114,7 +114,8 @@ search = @SEARCH({
 
 **extensions** — File types to index:
 - Default: `[".md"]`
-- Common: `[".md", ".html", ".txt"]`
+- Common: `[".md", ".html", ".txt", ".docx"]`
+- DOCX support extracts text, headings, and metadata (title, keywords, dates)
 - Case-insensitive matching
 
 **weights** — Field importance for ranking:
@@ -839,7 +840,7 @@ results = search.query(query)
 A: Not directly. Use raw queries with FTS5 column syntax: `{title}: hello {content}: world`
 
 **Q: Does search work with non-markdown files?**  
-A: Yes, add extensions: `extensions: [".md", ".html", ".txt"]`. Frontmatter only parses in markdown.
+A: Yes! Add extensions: `extensions: [".md", ".html", ".txt", ".docx"]`. DOCX files extract text content, headings, and metadata (title, keywords). Frontmatter parsing only applies to markdown.
 
 **Q: Can I exclude certain files from indexing?**  
 A: Not yet. Workaround: use separate watch folders or manual `.add()` with filtering.
