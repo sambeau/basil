@@ -32,8 +32,8 @@ results = search.query("hello world", {
 <ul>
   for (result in results.results) {
     <li>
-      <a href={result.url}>{result.title}</a>
-      <p>{result.snippet}</p>
+      <a href={result.url}>result.title</a>
+      <p>result.snippet</p>
     </li>
   }
 </ul>
@@ -315,8 +315,8 @@ if (results.total > 0) {
   <p>`Found {results.total} results`</p>
   for (result in results.results) {
     <article>
-      <h3><a href={result.url}>{result.title}</a></h3>
-      <p>{result.snippet}</p>
+      <h3><a href={result.url}>result.title</a></h3>
+      <p>result.snippet</p>
     </article>
   }
 } else {
@@ -499,11 +499,11 @@ totalPages = (results.total + perPage - 1) / perPage
     if (results.total > 0) {
       for (result in results.results) {
         <div class="result">
-          <h3><a href={result.url}>{result.title}</a></h3>
-          <div class="url" style="color: #006621; font-size: 14px;">{result.url}</div>
-          <p class="snippet">{result.snippet}</p>
+          <h3><a href={result.url}>result.title</a></h3>
+          <div class="url" style="color: #006621; font-size: 14px;">result.url</div>
+          <p class="snippet">result.snippet</p>
           if (result.date) {
-            <div style="color: #999; font-size: 12px;">{result.date}</div>
+            <div style="color: #999; font-size: 12px;">result.date</div>
           }
         </div>
       }

@@ -1,6 +1,8 @@
 // Phase 2 Auto-Indexing Example
 // Demonstrates automatic indexing from filesystem: @SEARCH({watch: @./docs}).query("hello")
 
+let {query} = import @basil/http
+
 // Create a search instance that watches the ./docs directory
 // The index is automatically populated on first query
 search = @SEARCH({
@@ -22,8 +24,8 @@ search = @SEARCH({
 // - Indexes all content on first query
 
 // Query the search index
-query = @query["q"] || "basil"
-results = search.query(query, {limit: 10, offset: 0})
+searchQuery = query["q"] || "basil"
+results = search.query(searchQuery, {limit: 10, offset: 0})
 
 // Get statistics
 stats = search.stats()
@@ -53,31 +55,31 @@ stats = search.stats()
   
   <div class="search-box">
     <form method="get">
-      <input type="search" name="q" value={query} placeholder="Search..." autofocus/>
+      <input type="search" name="q" value={searchQuery} placeholder="Search..." autofocus/>
     </form>
   </div>
 
   <div class="stats">
-    Found {results.total} results in {results.query_time}ms
-    • Index: {stats.documents} documents, {stats.size}
+    `Found {results.total} results in {results.query_time}ms
+    • Index: {stats.documents} documents, {stats.size}`
   </div>
 
-  @if results.total > 0 {
-    @for result in results.results {
+  if (results.total > 0) {
+    for (result in results.results) {
       <div class="result">
-        <h3><a href={result.url}>{result.title}</a></h3>
-        <div class="url">{result.url}</div>
-        <div class="snippet">{@html(result.snippet)}</div>
+        <h3><a href={result.url}>result.title</a></h3>
+        <div class="url">result.url</div>
+        <div class="snippet">result.snippet</div>
         <div class="meta">
-          Score: {result.score} • Rank: {result.rank}
-          @if result.date { • {result.date} }
+          `Score: {result.score} • Rank: {result.rank}`
+          if (result.date) { ` • {result.date}` }
         </div>
       </div>
     }
-  } @else {
+  } else {
     <div class="no-results">
-      <p>No results found for "{query}"</p>
-      <p>Try different keywords or check your spelling.</p>
+      <p>`No results found for "{searchQuery}"`</p>
+      <p>"Try different keywords or check your spelling."</p>
     </div>
   }
 </body>
