@@ -238,49 +238,57 @@ func getDatetimeUnix(dict *Dictionary, env *Environment) (int64, error) {
 // datetimeDictToString converts a datetime dictionary to a human-friendly ISO 8601 string.
 // Uses the "kind" field to determine output format: "datetime", "date", or "time"
 func datetimeDictToString(dict *Dictionary) string {
-	// Check for kind field to determine output format
-	kind := "datetime" // default
-	if kindExpr, ok := dict.Pairs["kind"]; ok {
-		if kindLit, ok := kindExpr.(*ast.StringLiteral); ok {
-			kind = kindLit.Value
+	// Helper to extract int64 from expression (handles both AST literals and evaluated objects)
+	getInt := func(key string) int64 {
+		expr, ok := dict.Pairs[key]
+		if !ok {
+			return 0
 		}
+		// Try AST literal first
+		if lit, ok := expr.(*ast.IntegerLiteral); ok {
+			return lit.Value
+		}
+		// Fall back to evaluation
+		obj := Eval(expr, dict.Env)
+		if i, ok := obj.(*Integer); ok {
+			return i.Value
+		}
+		return 0
+	}
+
+	// Helper to extract string from expression
+	getString := func(key string) string {
+		expr, ok := dict.Pairs[key]
+		if !ok {
+			return ""
+		}
+		// Try AST literal first
+		if lit, ok := expr.(*ast.StringLiteral); ok {
+			return lit.Value
+		}
+		// Fall back to evaluation
+		obj := Eval(expr, dict.Env)
+		if s, ok := obj.(*String); ok {
+			return s.Value
+		}
+		return ""
+	}
+
+	// Check for kind field to determine output format
+	kind := getString("kind")
+	if kind == "" {
+		kind = "datetime" // default
 	}
 
 	// Extract time components
-	var hour, minute, second int64
-	if hExpr, ok := dict.Pairs["hour"]; ok {
-		if hLit, ok := hExpr.(*ast.IntegerLiteral); ok {
-			hour = hLit.Value
-		}
-	}
-	if minExpr, ok := dict.Pairs["minute"]; ok {
-		if minLit, ok := minExpr.(*ast.IntegerLiteral); ok {
-			minute = minLit.Value
-		}
-	}
-	if sExpr, ok := dict.Pairs["second"]; ok {
-		if sLit, ok := sExpr.(*ast.IntegerLiteral); ok {
-			second = sLit.Value
-		}
-	}
+	hour := getInt("hour")
+	minute := getInt("minute")
+	second := getInt("second")
 
 	// Extract date components
-	var year, month, day int64
-	if yearExpr, ok := dict.Pairs["year"]; ok {
-		if yLit, ok := yearExpr.(*ast.IntegerLiteral); ok {
-			year = yLit.Value
-		}
-	}
-	if mExpr, ok := dict.Pairs["month"]; ok {
-		if mLit, ok := mExpr.(*ast.IntegerLiteral); ok {
-			month = mLit.Value
-		}
-	}
-	if dExpr, ok := dict.Pairs["day"]; ok {
-		if dLit, ok := dExpr.(*ast.IntegerLiteral); ok {
-			day = dLit.Value
-		}
-	}
+	year := getInt("year")
+	month := getInt("month")
+	day := getInt("day")
 
 	// Format based on kind
 	switch kind {
