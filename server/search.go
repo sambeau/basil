@@ -692,7 +692,25 @@ func searchResultsToDict(results *search.SearchResults, env *evaluator.Environme
 	items := &evaluator.Array{Elements: make([]evaluator.Object, len(results.Results))}
 	for i, r := range results.Results {
 		itemPairs := make(map[string]evaluator.Object)
-		itemPairs["url"] = &evaluator.String{Value: r.URL}
+
+		// Build path object from path string
+		if r.Path != "" {
+			pathPairs := make(map[string]evaluator.Object)
+			pathPairs["__type"] = &evaluator.String{Value: "path"}
+			pathPairs["absolute"] = &evaluator.Boolean{Value: strings.HasPrefix(r.Path, "/")}
+
+			// Split path into segments
+			pathStr := strings.TrimPrefix(r.Path, "/")
+			var segments []evaluator.Object
+			if pathStr != "" {
+				for _, seg := range strings.Split(pathStr, "/") {
+					segments = append(segments, &evaluator.String{Value: seg})
+				}
+			}
+			pathPairs["segments"] = &evaluator.Array{Elements: segments}
+			itemPairs["path"] = evaluator.NewDictionaryFromObjects(pathPairs)
+		}
+
 		itemPairs["title"] = &evaluator.String{Value: r.Title}
 		itemPairs["snippet"] = &evaluator.String{Value: r.Snippet}
 		itemPairs["highlight"] = &evaluator.String{Value: r.Highlight}

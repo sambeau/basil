@@ -30,9 +30,9 @@ results = search.query("hello world", {
 })
 
 <ul>
-  for (result in results.results) {
+  for (result in results.items) {
     <li>
-      <a href={result.url}>result.title</a>
+      <a href={`/{result.path}`}>result.title</a>
       <p>result.snippet</p>
     </li>
   }
@@ -166,21 +166,25 @@ results = search.query("hello world", {
 **Returns:**
 ```parsley
 {
-  results: [
+  items: [
     {
-      url: "/docs/getting-started",
+      path: @./docs/getting-started.md,  // Path object to source file
       title: "Getting Started",
       snippet: "...learn how to <mark>hello</mark> <mark>world</mark>...",
+      highlight: "<mark>hello</mark> <mark>world</mark>",
       score: 3.14,
       rank: 1,
-      date: @2024-01-15,
-      tags: ["tutorial"]
+      date: @2024-01-15
     }
   ],
   total: 42,
-  query_time: 5      // Milliseconds
+  query: "hello world",
+  limit: 10,
+  offset: 0
 }
 ```
+
+**Note:** `path` is a path object, so you can use path methods like `.basename()`, `.extension()`, `.parent()` etc. To create a URL from the path, use string interpolation: `` `/{result.path}` ``
 
 **Pagination:**
 ```parsley
@@ -313,9 +317,9 @@ results = search.query(query, {limit: 20})
 
 if (results.total > 0) {
   <p>`Found {results.total} results`</p>
-  for (result in results.results) {
+  for (result in results.items) {
     <article>
-      <h3><a href={result.url}>result.title</a></h3>
+      <h3><a href={`/{result.path}`}>result.title</a></h3>
       <p>result.snippet</p>
     </article>
   }
@@ -497,10 +501,10 @@ totalPages = (results.total + perPage - 1) / perPage
     </div>
 
     if (results.total > 0) {
-      for (result in results.results) {
+      for (result in results.items) {
         <div class="result">
-          <h3><a href={result.url}>result.title</a></h3>
-          <div class="url" style="color: #006621; font-size: 14px;">result.url</div>
+          <h3><a href={`/{result.path}`}>result.title</a></h3>
+          <div class="url" style="color: #006621; font-size: 14px;">`/{result.path}`</div>
           <p class="snippet">result.snippet</p>
           if (result.date) {
             <div style="color: #999; font-size: 12px;">result.date</div>

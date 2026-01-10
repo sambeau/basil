@@ -26,6 +26,7 @@ type SearchFilters struct {
 // SearchResult represents a single search result
 type SearchResult struct {
 	URL       string
+	Path      string    // Source file path (empty for manual docs)
 	Title     string
 	Snippet   string
 	Score     float64
@@ -105,10 +106,14 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 		var r SearchResult
 		var dateStr string
 		var snippet string
+		var pathNull *string // Path may be null for manual docs
 
-		err := rows.Scan(&r.URL, &r.Title, &snippet, &r.Score, &dateStr)
+		err := rows.Scan(&r.URL, &r.Title, &snippet, &r.Score, &dateStr, &pathNull)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan result: %w", err)
+		}
+		if pathNull != nil {
+			r.Path = *pathNull
 		}
 
 		// Parse date
@@ -213,12 +218,14 @@ func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (strin
 
 	query := fmt.Sprintf(`
 		SELECT 
-			url,
+			documents_fts.url,
 			title,
 			snippet(documents_fts, 3, '<mark>', '</mark>', '...', 64) as snippet,
 			%s as score,
-			date
+			date,
+			search_metadata.path
 		FROM documents_fts
+		LEFT JOIN search_metadata ON documents_fts.url = search_metadata.url
 		WHERE %s
 		ORDER BY score
 		LIMIT ? OFFSET ?
