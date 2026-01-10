@@ -363,6 +363,10 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 				// Call the function with 'this' bound to the dictionary
 				return applyMethodWithThis(fn, args, receiver, env)
 			}
+			// Check if it's a StdlibBuiltin (e.g., from @SEARCH, @DB, etc.)
+			if builtin, ok := fnObj.(*StdlibBuiltin); ok {
+				return builtin.Fn(args, env)
+			}
 			// If it's not a function, return error
 			if !isError(fnObj) {
 				return newStructuredError("TYPE-0021", map[string]any{"Name": method})

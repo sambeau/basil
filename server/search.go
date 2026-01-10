@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -79,34 +80,40 @@ func generateCacheKey(opts SearchOptions) string {
 }
 
 // NewSearchBuiltin creates the @SEARCH built-in function factory
+// Returns {search, error} tuple following the standard error pattern
 func NewSearchBuiltin(env *evaluator.Environment) evaluator.Object {
 	return &evaluator.StdlibBuiltin{
 		Name: "SEARCH",
 		Fn: func(args []evaluator.Object, env *evaluator.Environment) evaluator.Object {
+			// Helper to create result tuple
+			makeResult := func(searchObj evaluator.Object, errObj evaluator.Object) evaluator.Object {
+				result := evaluator.NewDictionaryFromObjects(map[string]evaluator.Object{
+					"search": searchObj,
+					"error":  errObj,
+				})
+				result.Env = env
+				return result
+			}
+
 			if len(args) != 1 {
-				return &evaluator.Error{
-					Class:   evaluator.ErrorClass("arity"),
-					Message: fmt.Sprintf("@SEARCH takes exactly 1 argument (got %d)", len(args)),
-					Hints:   []string{"Usage: @SEARCH({watch: @./docs})"},
-				}
+				return makeResult(evaluator.NULL, &evaluator.String{
+					Value: fmt.Sprintf("@SEARCH takes exactly 1 argument (got %d)", len(args)),
+				})
 			}
 
 			// Parse options dictionary
 			optsDict, ok := args[0].(*evaluator.Dictionary)
 			if !ok {
-				return &evaluator.Error{
-					Class:   evaluator.ErrorClass("type"),
-					Message: "@SEARCH requires a dictionary argument",
-					Hints:   []string{"Usage: @SEARCH({watch: @./docs, backend: @./search.db})"},
-				}
+				return makeResult(evaluator.NULL, &evaluator.String{
+					Value: "@SEARCH requires a dictionary argument",
+				})
 			}
 
 			opts, err := parseSearchOptions(optsDict, env)
 			if err != nil {
-				return &evaluator.Error{
-					Class:   evaluator.ErrorClass("argument"),
-					Message: fmt.Sprintf("invalid @SEARCH options: %v", err),
-				}
+				return makeResult(evaluator.NULL, &evaluator.String{
+					Value: fmt.Sprintf("invalid @SEARCH options: %v", err),
+				})
 			}
 
 			// Check cache
@@ -114,7 +121,7 @@ func NewSearchBuiltin(env *evaluator.Environment) evaluator.Object {
 			searchCacheMutex.RLock()
 			if cached, exists := searchCache[cacheKey]; exists {
 				searchCacheMutex.RUnlock()
-				return createSearchObject(cached, env)
+				return makeResult(createSearchObject(cached, env), evaluator.NULL)
 			}
 			searchCacheMutex.RUnlock()
 
@@ -124,19 +131,18 @@ func NewSearchBuiltin(env *evaluator.Environment) evaluator.Object {
 
 			// Double-check after acquiring write lock
 			if cached, exists := searchCache[cacheKey]; exists {
-				return createSearchObject(cached, env)
+				return makeResult(createSearchObject(cached, env), evaluator.NULL)
 			}
 
 			instance, err := createSearchInstance(opts, env)
 			if err != nil {
-				return &evaluator.Error{
-					Class:   evaluator.ErrorClass("runtime"),
-					Message: fmt.Sprintf("failed to create search instance: %v", err),
-				}
+				return makeResult(evaluator.NULL, &evaluator.String{
+					Value: fmt.Sprintf("failed to create search instance: %v", err),
+				})
 			}
 
 			searchCache[cacheKey] = instance
-			return createSearchObject(instance, env)
+			return makeResult(createSearchObject(instance, env), evaluator.NULL)
 		},
 	}
 }
@@ -171,20 +177,31 @@ func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environme
 	if watchExpr, ok := optsDict.Pairs["watch"]; ok {
 		watch := evaluator.Eval(watchExpr, optsDict.Env)
 
-		// Single path
+		// Single path literal
 		if pathDict, ok := watch.(*evaluator.Dictionary); ok && isPathDict(pathDict) {
-			opts.Watch = []string{pathDictToString(pathDict)}
+			pathStr := pathDictToString(pathDict)
+			fmt.Printf("[DEBUG] Watch path (single path literal): %q\n", pathStr)
+			opts.Watch = []string{pathStr}
+		} else if str, ok := watch.(*evaluator.String); ok {
+			// String path
+			fmt.Printf("[DEBUG] Watch path (string): %q\n", str.Value)
+			opts.Watch = []string{str.Value}
 		} else if arr, ok := watch.(*evaluator.Array); ok {
 			// Array of paths
 			for _, elem := range arr.Elements {
 				if pathDict, ok := elem.(*evaluator.Dictionary); ok && isPathDict(pathDict) {
-					opts.Watch = append(opts.Watch, pathDictToString(pathDict))
+					pathStr := pathDictToString(pathDict)
+					fmt.Printf("[DEBUG] Watch path from array (path literal): %q\n", pathStr)
+					opts.Watch = append(opts.Watch, pathStr)
+				} else if str, ok := elem.(*evaluator.String); ok {
+					fmt.Printf("[DEBUG] Watch path from array (string): %q\n", str.Value)
+					opts.Watch = append(opts.Watch, str.Value)
 				} else {
-					return opts, fmt.Errorf("watch array must contain paths")
+					return opts, fmt.Errorf("watch array must contain paths or strings")
 				}
 			}
 		} else {
-			return opts, fmt.Errorf("watch must be a path or array of paths")
+			return opts, fmt.Errorf("watch must be a path, string, or array of paths/strings")
 		}
 	}
 
@@ -367,7 +384,7 @@ func createSearchObject(instance *SearchInstance, env *evaluator.Environment) ev
 
 // Helper functions for path dictionaries
 func isPathDict(dict *evaluator.Dictionary) bool {
-	if typeVal, ok := dict.Pairs["type"]; ok {
+	if typeVal, ok := dict.Pairs["__type"]; ok {
 		// Evaluate the expression to get the object
 		if dict.Env != nil {
 			typeObj := evaluator.Eval(typeVal, dict.Env)
@@ -380,13 +397,50 @@ func isPathDict(dict *evaluator.Dictionary) bool {
 }
 
 func pathDictToString(dict *evaluator.Dictionary) string {
-	if valueExpr, ok := dict.Pairs["value"]; ok {
-		value := evaluator.Eval(valueExpr, dict.Env)
-		if str, ok := value.(*evaluator.String); ok {
-			return str.Value
+	// Check for stdio special paths
+	if stdioExpr, ok := dict.Pairs["__stdio"]; ok {
+		stdioVal := evaluator.Eval(stdioExpr, dict.Env)
+		if stdioStr, ok := stdioVal.(*evaluator.String); ok {
+			if stdioStr.Value == "stdio" {
+				return "-"
+			}
+			return stdioStr.Value
 		}
 	}
-	return ""
+
+	// Get segments
+	segmentsExpr, ok := dict.Pairs["segments"]
+	if !ok {
+		return ""
+	}
+	segments := evaluator.Eval(segmentsExpr, dict.Env)
+	segmentsArr, ok := segments.(*evaluator.Array)
+	if !ok {
+		return ""
+	}
+
+	// Get absolute flag
+	isAbsolute := false
+	if absExpr, ok := dict.Pairs["absolute"]; ok {
+		absVal := evaluator.Eval(absExpr, dict.Env)
+		if absBool, ok := absVal.(*evaluator.Boolean); ok {
+			isAbsolute = absBool.Value
+		}
+	}
+
+	// Build path string
+	var parts []string
+	for _, elem := range segmentsArr.Elements {
+		if str, ok := elem.(*evaluator.String); ok {
+			parts = append(parts, str.Value)
+		}
+	}
+
+	pathStr := strings.Join(parts, "/")
+	if isAbsolute {
+		return "/" + pathStr
+	}
+	return pathStr
 }
 
 // ensureInitialized checks if the search index is initialized and performs auto-indexing if needed

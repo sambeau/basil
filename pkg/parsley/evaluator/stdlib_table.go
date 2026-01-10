@@ -1064,55 +1064,61 @@ func objectToString(obj Object) string {
 	case *Null:
 		return ""
 	case *Dictionary:
-		// Check if it's a datetime object
+		// Check if it's a special object type
 		if typeExpr, ok := o.Pairs["__type"]; ok {
 			typeVal := Eval(typeExpr, o.Env)
-			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "datetime" {
-				// It's a datetime - format it nicely
-				if isoExpr, ok := o.Pairs["iso"]; ok {
-					isoVal := Eval(isoExpr, o.Env)
-					if isoStr, ok := isoVal.(*String); ok {
-						// Parse the ISO string to determine the format
-						isoString := isoStr.Value
+			if typeStr, ok := typeVal.(*String); ok {
+				switch typeStr.Value {
+				case "path":
+					// Convert path dictionary to path string
+					return pathDictToString(o)
+				case "datetime":
+					// It's a datetime - format it nicely
+					if isoExpr, ok := o.Pairs["iso"]; ok {
+						isoVal := Eval(isoExpr, o.Env)
+						if isoStr, ok := isoVal.(*String); ok {
+							// Parse the ISO string to determine the format
+							isoString := isoStr.Value
 
-						// Check what kind of datetime it is based on the kind field
-						kind := "datetime" // default
-						if kindExpr, ok := o.Pairs["kind"]; ok {
-							kindVal := Eval(kindExpr, o.Env)
-							if kindStr, ok := kindVal.(*String); ok {
-								kind = kindStr.Value
-							}
-						}
-
-						// Format based on kind
-						switch kind {
-						case "date":
-							// Date only: 2025-12-24
-							if len(isoString) >= 10 {
-								return isoString[:10]
-							}
-						case "time", "time_seconds":
-							// Time only: 14:30:05 or 14:30
-							if strings.Contains(isoString, "T") {
-								parts := strings.Split(isoString, "T")
-								if len(parts) == 2 {
-									timePart := strings.TrimSuffix(parts[1], "Z")
-									return timePart
+							// Check what kind of datetime it is based on the kind field
+							kind := "datetime" // default
+							if kindExpr, ok := o.Pairs["kind"]; ok {
+								kindVal := Eval(kindExpr, o.Env)
+								if kindStr, ok := kindVal.(*String); ok {
+									kind = kindStr.Value
 								}
 							}
-						default:
-							// Full datetime: 2025-12-24 14:30:05
-							// Convert from ISO format (2025-12-24T14:30:05Z) to readable format
-							isoString = strings.TrimSuffix(isoString, "Z")
-							isoString = strings.Replace(isoString, "T", " ", 1)
+
+							// Format based on kind
+							switch kind {
+							case "date":
+								// Date only: 2025-12-24
+								if len(isoString) >= 10 {
+									return isoString[:10]
+								}
+							case "time", "time_seconds":
+								// Time only: 14:30:05 or 14:30
+								if strings.Contains(isoString, "T") {
+									parts := strings.Split(isoString, "T")
+									if len(parts) == 2 {
+										timePart := strings.TrimSuffix(parts[1], "Z")
+										return timePart
+									}
+								}
+							default:
+								// Full datetime: 2025-12-24 14:30:05
+								// Convert from ISO format (2025-12-24T14:30:05Z) to readable format
+								isoString = strings.TrimSuffix(isoString, "Z")
+								isoString = strings.Replace(isoString, "T", " ", 1)
+								return isoString
+							}
 							return isoString
 						}
-						return isoString
 					}
 				}
 			}
 		}
-		// Not a datetime or couldn't format - fall through to default
+		// Not a special type or couldn't format - fall through to default
 		return obj.Inspect()
 	default:
 		return obj.Inspect()

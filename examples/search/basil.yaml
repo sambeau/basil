@@ -1,0 +1,12 @@
+# Search Example Configuration
+# Demonstrates full-text search with @SEARCH factory function
+
+server:
+  port: 3000
+  dev: true
+  dir: examples/search
+
+routes:
+  - path: /
+    handler: index.pars
+    description: "Full-text search interface with auto-indexing"
