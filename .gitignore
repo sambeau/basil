@@ -39,6 +39,11 @@ dev_logs_*.db-shm
 *.db-wal
 *.db-shm
 
+# Search index databases (generated at runtime)
+*_search.db
+examples/search/search.db
+examples/search/._search.db
+
 # Ulysses app metadata
 .Ulysses*
 .Ulysses-Group.plist
