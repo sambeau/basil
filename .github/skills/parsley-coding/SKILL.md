@@ -262,9 +262,10 @@ let myId = 5
 // Dictionaries iterate in insertion order by default
 for (k, v in {b: 2, a: 1}) { k }  // ["b", "a"]
 
-// Use KeyOrder pseudo-type for sorted iteration
-let {KeyOrder} = import @std/table
-for (k, v in KeyOrder({b: 2, a: 1})) { k }  // ["a", "b"]
+// To iterate in sorted key order, extract and sort keys first
+let d = {b: 2, a: 1}
+let sortedKeys = (for (k, _ in d) { k }).sort()
+for (k in sortedKeys) { d[k] }  // values in key order: [1, 2]
 ```
 
 ### 13. Use .length() to find the length of something
@@ -292,8 +293,8 @@ $5.type() // => "money"
 export myFunc = fn(x) { x * 2 }
 export myVar = 42
 
-// Or export multiple at once
-export {myFunc, myVar}
+// Each export must be declared separately
+// (no "export {a, b}" shorthand)
 
 // let without export is file-local (private)
 let private = 123        // Not available to importers
@@ -305,18 +306,19 @@ export default = fn(props) { <div>props.text</div> }
 
 ### 16. Standard Library Modules (@std/*)
 
-These work in both Parsley and Basil:
-
 ```parsley
+// Works everywhere (standalone pars and Basil handlers)
 import @std/mdDoc        // Markdown (mdDoc pseudo-type)
-import @std/table        // Table DSL and KeyOrder
+import @std/table        // Table DSL
 import @std/math         // Math functions
 import @std/valid        // Validation functions
 import @std/schema       // Schema validation
 import @std/id           // ID generation (UUID, ULID, etc)
-import @std/api          // API helpers (redirect, notFound, etc)
-import @std/html         // HTML components
 import @std/dev          // Dev tools
+
+// Requires Basil server (not available in standalone pars)
+import @std/api          // API helpers (redirect, notFound, etc)
+import @std/html         // HTML components (Page, Button, etc.)
 
 // ❌ DEPRECATED/REMOVED - don't use these:
 // @std/markdown - removed, use @std/mdDoc
@@ -338,7 +340,7 @@ import @basil/auth       // db, session, auth, user
 // Works everywhere
 @now                     // Current datetime
 @now.year                // 2026
-@now.format()            // "2026-01-11 14:30:00"
+@now.format()            // "January 11, 2026" (human-readable)
 @env.HOME                // Environment variables
 @env.PATH
 
