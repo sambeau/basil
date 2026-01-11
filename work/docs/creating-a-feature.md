@@ -28,7 +28,7 @@ Or attach the prompt file and describe what you want.
 
 The AI will:
 1. Allocate an ID (e.g., `FEAT-002`)
-2. Create `docs/specs/FEAT-002.md`
+2. Create `work/specs/FEAT-002.md`
 3. Fill in what it understands
 
 You'll see a spec with:
@@ -38,7 +38,7 @@ You'll see a spec with:
 
 ## Step 3: Review the Spec
 
-Open `docs/specs/FEAT-002.md` and check:
+Open `work/specs/FEAT-002.md` and check:
 
 - [ ] Does the Summary capture your intent?
 - [ ] Is the User Story accurate?
@@ -56,7 +56,7 @@ Spec looks good, please create the implementation plan
 
 ## Step 4: AI Creates Plan
 
-The AI creates `docs/plans/FEAT-002-plan.md` with:
+The AI creates `work/plans/FEAT-002-plan.md` with:
 - High-level checklist
 - Detailed steps with files to modify
 - Dependencies and risks
@@ -88,7 +88,7 @@ The AI will:
 4. Commit with conventional messages
 5. Update progress in the plan
 
-You can watch progress in `docs/plans/FEAT-002-plan.md`.
+You can watch progress in `work/plans/FEAT-002-plan.md`.
 
 ## Step 7: Review and Merge
 

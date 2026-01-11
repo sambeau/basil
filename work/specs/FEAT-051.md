@@ -459,4 +459,4 @@ Components are loaded via `std/html` import, which pulls from preludeASTs.
 
 - **FEAT-050**: Built-in JavaScript Assets (now part of prelude)
 - **FEAT-046**: HTML Components (consumes prelude components)
-- **Design doc**: `docs/design/html-components.md`
+- **Design doc**: `work/design/html-components.md`

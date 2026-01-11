@@ -3,7 +3,7 @@ id: PLAN-054
 title: "Parsley Production Readiness - Security & Maintainability"
 status: draft
 created: 2026-01-07
-review: docs/parsley/design/codebase-review-2026-01-07.md
+review: work/parsley/design/codebase-review-2026-01-07.md
 ---
 
 # Implementation Plan: Parsley Production Readiness
@@ -12,7 +12,7 @@ review: docs/parsley/design/codebase-review-2026-01-07.md
 
 This plan addresses critical security vulnerabilities, test coverage gaps, and maintainability issues identified in the Parsley codebase review. The focus is on making Parsley production-ready with emphasis on AI maintainability.
 
-**Review Document:** `docs/parsley/design/codebase-review-2026-01-07.md`
+**Review Document:** `work/parsley/design/codebase-review-2026-01-07.md`
 
 **Primary Goals:**
 1. Eliminate critical security vulnerabilities (SQL injection risk, command execution)
@@ -579,7 +579,7 @@ This plan addresses critical security vulnerabilities, test coverage gaps, and m
 
 **Files:** 
 - `docs/guide/query-dsl.md`
-- `docs/specs/FEAT-079.md`
+- `work/specs/FEAT-079.md`
 
 **Steps:**
 1. Update RETURNING clause documentation to match implementation

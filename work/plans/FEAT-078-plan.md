@@ -271,7 +271,7 @@ Steps:
 ---
 
 #### Task 4.2: Update Documentation
-**Files**: `docs/specs/FEAT-078.md`, `docs/parsley/reference.md`
+**Files**: `work/specs/FEAT-078.md`, `docs/parsley/reference.md`
 **Estimated effort**: Small
 
 Steps:

@@ -103,7 +103,7 @@ For each column:
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-021-plan.md`
+- Plan: `work/plans/FEAT-021-plan.md`
 - Similar: FEAT-019 (Dev Tools - Logs)
 
 ## Future Enhancements (not in scope)

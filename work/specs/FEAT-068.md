@@ -99,5 +99,5 @@ parser.WithHeadingAttribute()  // Preserve existing attributes
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-068-plan.md`
+- Plan: `work/plans/FEAT-068-plan.md`
 - Related: FEAT-067 (Markdown String Parsing)

@@ -172,5 +172,5 @@ let withMiddle = users.insertColAfter("first", "middle", ["M.", "R."])
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-027-plan.md`
+- Plan: `work/plans/FEAT-027-plan.md`
 - Depends on: FEAT-026 (Ordered Dictionaries)

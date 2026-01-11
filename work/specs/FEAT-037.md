@@ -184,7 +184,7 @@ Defer **wildcards** to future enhancement if needed:
 *Added during/after implementation*
 
 ## Related
-- Design doc: `docs/parsley/design/fragment-caching.md`
+- Design doc: `work/parsley/design/fragment-caching.md`
 - FEAT-038: Basil Namespace Cleanup (establishes `basil.cache.*` pattern)
 - FEAT-039: Enhanced Import Syntax (allows `{Cache} = import @basil/cache`)
 - FEAT-008: Response caching (HTTP-level, different layer)

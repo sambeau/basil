@@ -215,4 +215,4 @@ mux.HandleFunc("/__/js/", s.handleJSAsset)
 ## Related
 
 - **Parent**: FEAT-046 (HTML Components) - consumes this infrastructure
-- **Design doc**: `docs/design/html-components.md`
+- **Design doc**: `work/design/html-components.md`

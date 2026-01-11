@@ -188,7 +188,7 @@ Steps:
 ---
 
 ### Task 9: Document Findings and Recommendation
-**Files**: `docs/specs/FEAT-022.md`
+**Files**: `work/specs/FEAT-022.md`
 **Estimated effort**: Small
 
 Steps:

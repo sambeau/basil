@@ -85,4 +85,4 @@ See: https://en.wikipedia.org/wiki/Fisher–Yates_shuffle
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-008-plan.md`
+- Plan: `work/plans/FEAT-008-plan.md`

@@ -30,8 +30,8 @@ As Parsley is a concatenative language at heart, composability and `type-complet
 
 Please reference the following documents when considering a design:
 
-- docs/design/Database Design.md
-- docs/design/plan-fileIoApi.prompt.md
-- docs/design/plan-fileSystemSecurity.prompt.md
-- docs/design/Design Philosophy.md
+- work/parsley/design/Database Design.md
+- work/parsley/design/plan-fileIoApi.prompt.md
+- work/parsley/design/plan-fileSystemSecurity.prompt.md
+- work/parsley/design/Design Philosophy.md
 - docs/reference.md

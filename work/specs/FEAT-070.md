@@ -258,5 +258,5 @@ Both render custom elements (`<local-time>`, `<time-range>`) that JavaScript enh
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-070-plan.md` (to be created)
+- Plan: `work/plans/FEAT-070-plan.md` (to be created)
 - Related: Datetime manual page (`docs/manual/builtins/datetime.md`)

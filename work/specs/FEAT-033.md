@@ -225,4 +225,4 @@ s = strings.Trim(s, "-")
 
 ## Related
 - FEAT-032: std/valid Standard Library Module (complementary)
-- Plan: `docs/plans/FEAT-033-plan.md` (to be created)
+- Plan: `work/plans/FEAT-033-plan.md` (to be created)

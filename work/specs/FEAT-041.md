@@ -263,6 +263,6 @@ let user = basil.sqlite <=?=> "SELECT * FROM users WHERE id = 1"
 - Errors use existing error classes (state, security, type, arity)
 
 ## Related
-- Design doc: `docs/parsley/design/Public files.md`
+- Design doc: `work/parsley/design/Public files.md`
 - FEAT-040: Filesystem-Based Routing (different approach to same problem space)
 - FEAT-037: Fragment Caching (similar caching patterns)

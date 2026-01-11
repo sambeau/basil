@@ -64,5 +64,5 @@ As a developer, I want to parse markdown content directly from a string so that 
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-067-plan.md`
+- Plan: `work/plans/FEAT-067-plan.md`
 - Related: FEAT-068 (Markdown Heading IDs)

@@ -278,7 +278,7 @@ let time = @timeNow      // Time only
 ```
 
 ## Related
-- Plan: `docs/plans/FEAT-054-plan.md` (to be created)
+- Plan: `work/plans/FEAT-054-plan.md` (to be created)
 - Related: Datetime literal parsing in `lexer.go` and `parser.go`
 - Context: Part of namespace cleanup and builtin reorganization
 - Deprecates: `now()` builtin function

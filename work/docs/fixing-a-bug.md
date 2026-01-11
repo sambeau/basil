@@ -29,7 +29,7 @@ Provide as much detail as you can:
 
 The AI will:
 1. Allocate an ID (e.g., `BUG-001`)
-2. Create `docs/bugs/BUG-001.md`
+2. Create `work/bugs/BUG-001.md`
 3. Try to reproduce the issue
 4. Analyze the root cause
 
@@ -41,7 +41,7 @@ You'll see updates in the bug report:
 
 ## Step 3: Approve Fix Strategy
 
-Review the AI's analysis in `docs/bugs/BUG-001.md`:
+Review the AI's analysis in `work/bugs/BUG-001.md`:
 
 - [ ] Does the root cause make sense?
 - [ ] Is the fix strategy appropriate?

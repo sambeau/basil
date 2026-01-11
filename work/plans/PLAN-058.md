@@ -1136,7 +1136,7 @@ search = @SEARCH({
    - Supports optional fields (headings, tags, date)
    - Sets source='manual' for tracking
 
-2. **docs/plans/PLAN-058.md** - Added Phase 4 implementation log
+2. **work/plans/PLAN-058.md** - Added Phase 4 implementation log
 
 ### Task Breakdown (Phase 4)
 
@@ -1342,7 +1342,7 @@ github.com/sambeau/basil/server 2.967s - includes 9 new manual indexing tests
 ### Documentation Updates (Phase 4)
 
 **Files Updated:**
-- docs/plans/PLAN-058.md - This implementation log
+- work/plans/PLAN-058.md - This implementation log
 
 **Documentation Needed (Future):**
 - User guide example for manual indexing

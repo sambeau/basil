@@ -3,7 +3,7 @@ id: PLAN-055
 title: "Basil Server Production Readiness - Test Fixes & Quality Improvements"
 status: draft
 created: 2026-01-07
-review: docs/parsley/design/basil-server-review-2026-01-07.md
+review: work/parsley/design/basil-server-review-2026-01-07.md
 ---
 
 # Implementation Plan: Basil Server Production Readiness
@@ -12,7 +12,7 @@ review: docs/parsley/design/basil-server-review-2026-01-07.md
 
 This plan addresses the one critical failing test and minor quality improvements identified in the Basil Server codebase review. The server is already in excellent shape with strong security, good test coverage (60.4%), and excellent AI maintainability.
 
-**Review Document:** `docs/parsley/design/basil-server-review-2026-01-07.md`
+**Review Document:** `work/parsley/design/basil-server-review-2026-01-07.md`
 
 **Current Status:** 🟢 Near production-ready (one failing test)
 

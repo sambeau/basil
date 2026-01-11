@@ -244,4 +244,4 @@ Recommend: **Contextual keyword** (less breaking)
 ## Related
 - FEAT-038: Basil Namespace Cleanup (benefits from this)
 - FEAT-037: Fragment Caching (can use `{Cache} = import @basil/cache`)
-- `docs/parsley/design/modules.md` — Existing module design doc (if any)
+- `work/parsley/design/modules.md` — Existing module design doc (if any)

@@ -172,7 +172,7 @@ type DatabaseConfig struct {
 3. **Error messages** - Some error messages may reference old syntax. Update them.
 
 ## Related
-- Design: `docs/design/namespace-cleanup.md` (superset - this does immediate items only)
+- Design: `work/design/namespace-cleanup.md` (superset - this does immediate items only)
 - Deferred: `std/format`, `std/fs` modules (BACKLOG - not part of this cleanup)
 
 ## Dependencies

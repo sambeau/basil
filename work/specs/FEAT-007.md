@@ -110,6 +110,6 @@ basil/
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-007-plan.md`
+- Plan: `work/plans/FEAT-007-plan.md`
 - This is a one-time migration task
 

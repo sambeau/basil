@@ -201,5 +201,5 @@ if (year and quarter) {
 - Site handler uses existing `parsleyHandler` infrastructure for executing `index.pars` files
 
 ## Related
-- Design doc: `docs/parsley/design/Filepath routing.md`
+- Design doc: `work/parsley/design/Filepath routing.md`
 - Related: FEAT-041 (Public files) — component-local assets

@@ -455,7 +455,7 @@ SELECT last_insert_rowid()
 
 ## Related
 
-- Design: `docs/design/QUERY-DSL-DESIGN-v2.md`
-- Plan: `docs/plans/FEAT-079-plan.md` (to be created)
+- Design: `work/design/QUERY-DSL-DESIGN-v2.md`
+- Plan: `work/plans/FEAT-079-plan.md` (to be created)
 - FEAT-078: TableBinding API (related binding concepts)
 - FEAT-034: Schema Validation (schema infrastructure)

@@ -517,5 +517,5 @@ export default = fn(q) {
 ## Related
 
 - Depends on: FEAT-061 (Parts V1), FEAT-062 (Parts V1.1)
-- Design: `docs/design/DESIGN-parts.md`
+- Design: `work/design/DESIGN-parts.md`
 - Updates needed: Parts runtime in `server/handler.go`

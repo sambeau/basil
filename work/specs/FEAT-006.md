@@ -143,5 +143,5 @@ This eliminates regex extraction for parse errors — they now flow through the 
 ## Related
 - FEAT-023: Structured Error Objects — provides structured error data
 - FEAT-028: API Routes — handles JSON error responses for APIs
-- Plan: `docs/plans/FEAT-006-plan.md` (not created — spec was detailed enough)
+- Plan: `work/plans/FEAT-006-plan.md` (not created — spec was detailed enough)
 

@@ -19,8 +19,8 @@ Implement Parts — reloadable HTML fragments with multiple views. This involves
 
 ## Prerequisites
 
-- [ ] Design document reviewed: `docs/design/DESIGN-parts.md`
-- [ ] Spec approved: `docs/specs/FEAT-061.md`
+- [ ] Design document reviewed: `work/design/DESIGN-parts.md`
+- [ ] Spec approved: `work/specs/FEAT-061.md`
 - [ ] Understand existing module loading in `pkg/parsley/evaluator/`
 - [ ] Understand existing component handling in evaluator
 - [ ] Understand Basil server request handling in `server/`

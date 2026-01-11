@@ -308,4 +308,4 @@ Or leave it explicit for developer control.
 ## Related
 
 - Depends on: None
-- Related: `docs/design/DESIGN-asset-bundling.md` (discussion document)
+- Related: `work/design/DESIGN-asset-bundling.md` (discussion document)

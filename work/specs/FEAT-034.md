@@ -219,7 +219,7 @@ api:
 
 ## Related
 
-- Design: `docs/design/api-design-summary.md`
-- Plan: `docs/plans/FEAT-034-plan.md` (to be created)
+- Design: `work/design/api-design-summary.md`
+- Plan: `work/plans/FEAT-034-plan.md` (to be created)
 - Auth: FEAT-004
 - Database: FEAT-002

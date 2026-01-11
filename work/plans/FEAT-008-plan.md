@@ -1,7 +1,7 @@
 # Implementation Plan: FEAT-008
 
 **Feature**: Array Randomization Methods (pick, take, shuffle)
-**Spec**: `docs/specs/FEAT-008.md`
+**Spec**: `work/specs/FEAT-008.md`
 **Plan ID**: PLAN-006
 
 ## Overview

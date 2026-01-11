@@ -402,4 +402,4 @@ Modify `FinishRegistration` to skip user creation if `existingUser` is set.
 
 - FEAT-004: Authentication (Phase 2 API Keys web components)
 - FEAT-035: Git over HTTPS (uses API keys for auth)
-- Design: `docs/design/remote-workflow-design.md`
+- Design: `work/design/remote-workflow-design.md`

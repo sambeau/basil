@@ -112,6 +112,6 @@ func isASCII(s string) bool {
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-072-plan.md`
+- Plan: `work/plans/FEAT-072-plan.md`
 - Wikipedia: https://en.wikipedia.org/wiki/Natural_sort_order
 - Reference: https://sourcefrog.net/projects/natsort/

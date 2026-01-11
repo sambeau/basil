@@ -246,7 +246,7 @@ Auto-refresh, deferred loading, and lazy loading capabilities:
 - Auto-refresh pauses when tab hidden, resets on manual interactions
 - Both load modes defer auto-refresh until content loads
 
-**See:** `docs/specs/FEAT-062.md` for complete specification
+**See:** `work/specs/FEAT-062.md` for complete specification
 
 ### V1.2 (Future)
 
@@ -255,8 +255,8 @@ Auto-refresh, deferred loading, and lazy loading capabilities:
 
 ## Related
 
-- Design: `docs/design/DESIGN-parts.md`
-- Plan: `docs/plans/FEAT-061-plan.md` ✅ Complete
+- Design: `work/design/DESIGN-parts.md`
+- Plan: `work/plans/FEAT-061-plan.md` ✅ Complete
 - Documentation:
   - `docs/parsley/CHEATSHEET.md` - Parts syntax and gotchas
   - `docs/parsley/reference.md` - Complete Parts reference

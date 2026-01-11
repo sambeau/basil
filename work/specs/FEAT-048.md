@@ -205,5 +205,5 @@ assert((-1500).humanize() == "-1.5K")
 
 ## Related
 
-- Design: `docs/design/rails-inspired-ux.md` — Original discussion
+- Design: `work/design/rails-inspired-ux.md` — Original discussion
 - Similar: `.format()`, `.currency()`, `.percent()` — Existing locale-aware methods

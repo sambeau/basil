@@ -281,4 +281,4 @@ After this feature completes, the global namespace will contain:
 - **FEAT-052**: Phase 1 - Removed method-duplicate builtins ✅
 - **FEAT-053**: `string.render()` method (parallel work)
 - **FEAT-054**: `now()` → `@now` datetime literals (prerequisite for `@` pattern)
-- **Design Doc**: `docs/design/namespace-cleanup.md` (source document)
+- **Design Doc**: `work/design/namespace-cleanup.md` (source document)

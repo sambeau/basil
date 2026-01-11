@@ -59,5 +59,5 @@ As a Basil developer, I want intuitive access to HTTP request data so that I can
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-071-plan.md` (if created)
+- Plan: `work/plans/FEAT-071-plan.md` (if created)
 - Backlog: Remove `@std/basil` deprecation error before Alpha release

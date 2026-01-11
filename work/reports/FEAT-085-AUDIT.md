@@ -371,7 +371,7 @@ func BenchmarkSearchSimpleQuery(b *testing.B) {
 **Issue:** .reindex() is a stub  
 **Risk:** User confusion when method returns error  
 **Action:** Either implement or update docs to mark as "coming soon"  
-**Files:** `docs/specs/FEAT-085.md`, `docs/guide/search.md`  
+**Files:** `work/specs/FEAT-085.md`, `docs/guide/search.md`  
 **Effort:** 1 hour (docs) or 4-6 hours (implementation)  
 
 ### 5.2 Medium Priority (Nice to Have)

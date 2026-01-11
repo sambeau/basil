@@ -196,5 +196,5 @@ basil --init /Users/sam/projects/website
 *To be added during implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-065-plan.md` (to be created)
+- Plan: `work/plans/FEAT-065-plan.md` (to be created)
 - Similar: Rails `rails new`, Hugo `hugo new site`, etc.

@@ -148,7 +148,7 @@ Steps:
 ---
 
 ### Task 8: Update Documentation
-**Files**: `docs/parsley/reference.md`, `docs/parsley/CHEATSHEET.md`, `docs/specs/FEAT-040.md`
+**Files**: `docs/parsley/reference.md`, `docs/parsley/CHEATSHEET.md`, `work/specs/FEAT-040.md`
 **Estimated effort**: Small
 
 Steps:

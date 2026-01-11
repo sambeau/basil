@@ -102,4 +102,4 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-069-plan.md`
+- Plan: `work/plans/FEAT-069-plan.md`

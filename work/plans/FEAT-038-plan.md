@@ -127,7 +127,7 @@ Steps:
 ---
 
 ### Task 5: Update Specs/Plans (Housekeeping)
-**Files**: `docs/specs/FEAT-004.md`, `docs/plans/FEAT-004-plan.md`, other docs
+**Files**: `work/specs/FEAT-004.md`, `work/plans/FEAT-004-plan.md`, other docs
 **Estimated effort**: Small
 
 Steps:

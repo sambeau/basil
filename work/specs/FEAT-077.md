@@ -250,4 +250,4 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 
 ## Related
 
-- Plan: `docs/plans/FEAT-077-plan.md` (to be created)
+- Plan: `work/plans/FEAT-077-plan.md` (to be created)

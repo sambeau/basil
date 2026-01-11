@@ -1027,7 +1027,7 @@ Steps:
 
 ## Related
 
-- Design: `docs/design/sortable-list-component.md` - detailed design exploration
-- Design: `docs/design/sortable-list-syntax.md` - syntax alternatives explored
-- Design: `docs/design/sortable-lists.md` - early prototypes (native and SortableJS)
-- Plan: `docs/plans/FEAT-073-plan.md` (to be created from this spec)
+- Design: `work/design/sortable-list-component.md` - detailed design exploration
+- Design: `work/design/sortable-list-syntax.md` - syntax alternatives explored
+- Design: `work/design/sortable-lists.md` - early prototypes (native and SortableJS)
+- Plan: `work/plans/FEAT-073-plan.md` (to be created from this spec)

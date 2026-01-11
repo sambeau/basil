@@ -207,7 +207,7 @@ Test cases:
 12. Print in function body
 
 ### Task 9: Update Spec with Implementation Notes
-**File:** `docs/specs/FEAT-024.md`  
+**File:** `work/specs/FEAT-024.md`  
 **Effort:** 15 min
 
 Document chosen architecture and any deviations from original spec.

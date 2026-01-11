@@ -63,5 +63,5 @@ Implemented 2025-12-08:
 *To be added during implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-042-plan.md` (to be created)
+- Plan: `work/plans/FEAT-042-plan.md` (to be created)
 - Similar to: Dictionary destructuring `{a, b, ...rest}` implementation

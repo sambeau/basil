@@ -82,10 +82,10 @@ Structure:
 **Blocking:** No
 
 **Steps:**
-1. Move specs/: `git mv docs/specs/* work/specs/`
-2. Move plans/: `git mv docs/plans/* work/plans/`
-3. Move bugs/: `git mv docs/bugs/* work/bugs/`
-4. Move design/: `git mv docs/design/* work/design/`
+1. Move specs/: `git mv work/specs/* work/specs/`
+2. Move plans/: `git mv work/plans/* work/plans/`
+3. Move bugs/: `git mv work/bugs/* work/bugs/`
+4. Move design/: `git mv work/design/* work/design/`
 6. Move Parsley workflow docs:
    ```bash
    git mv docs/parsley/design work/parsley/
@@ -100,7 +100,7 @@ Structure:
    ```
 8. Move walkthrough guides:
    ```bash
-   git mv docs/guide/walkthroughs/* work/docs/
+   git mv work/docs/* work/docs/
    rmdir docs/guide/walkthroughs
    ```
 8. Move decisions/ content to design/:
@@ -181,7 +181,7 @@ Git mv used to preserve history.
 # Test AI workflow commands in GitHub Copilot Chat:
 # 1. Try: /new-feature [describe something simple]
 # 2. Try: /fix-bug [describe something]
-# 3. Verify specs get created in work/specs/ not docs/specs/
+# 3. Verify specs get created in work/specs/ not work/specs/
 # 4. Check that templates reference correct paths
 
 # Manual checks - should return NO results:
@@ -210,12 +210,12 @@ refactor: update workflow files for work/ structure
 
 Updated all .github/ files and AGENTS.md to reference new work/
 directory structure:
-- docs/specs/ → work/specs/
-- docs/plans/ → work/plans/
-- docs/bugs/ → work/bugs/
-- docs/design/ → work/design/
+- work/specs/ → work/specs/
+- work/plans/ → work/plans/
+- work/bugs/ → work/bugs/
+- work/design/ → work/design/
 - docs/decisions/ → work/design/ (ADRs merged into design)
-- docs/guide/walkthroughs/ → work/docs/
+- work/docs/ → work/docs/
 
 Files updated:
 - AGENTS.md (project structure, workflow rules, kept in root)
@@ -239,27 +239,27 @@ All AI instructions updated for work/ID_COUNTER.md and work/BACKLOG.md locations
 1. Batch find-replace in work/ files:
    ```bash
    # Update spec references
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/docs/specs/|/work/specs/|g' {} +
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|docs/specs/|work/specs/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/work/specs/|/work/specs/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|work/specs/|work/specs/|g' {} +
    
    # Update plan references
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/docs/plans/|/work/plans/|g' {} +
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|docs/plans/|work/plans/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/work/plans/|/work/plans/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|work/plans/|work/plans/|g' {} +
    
    # Update bug references
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/docs/bugs/|/work/bugs/|g' {} +
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|docs/bugs/|work/bugs/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/work/bugs/|/work/bugs/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|work/bugs/|work/bugs/|g' {} +
    
    # Update design references
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/docs/design/|/work/design/|g' {} +
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|docs/design/|work/design/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/work/design/|/work/design/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|work/design/|work/design/|g' {} +
    
    # Update parsley design references
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/docs/parsley/design/|/work/parsley/design/|g' {} +
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|docs/parsley/design/|work/parsley/design/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|/work/parsley/design/|/work/parsley/design/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|work/parsley/design/|work/parsley/design/|g' {} +
    
    # Update walkthrough references
-   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|docs/guide/walkthroughs/|work/docs/|g' {} +
+   find work/specs work/plans work/bugs work/design -type f -name "*.md" -exec sed -i '' 's|work/docs/|work/docs/|g' {} +
    ```
 
 2. Manual review of key files:
@@ -273,10 +273,10 @@ All AI instructions updated for work/ID_COUNTER.md and work/BACKLOG.md locations
 **Validation:**
 ```bash
 # Search for remaining old paths (should be minimal/none)
-grep -r "docs/specs/" work/
-grep -r "docs/plans/" work/
-grep -r "docs/bugs/" work/
-grep -r "docs/design/" work/
+grep -r "work/specs/" work/
+grep -r "work/plans/" work/
+grep -r "work/bugs/" work/
+grep -r "work/design/" work/
 grep -r "docs/guide/walkthroughs" work/
 
 # Check BACKLOG.md
@@ -288,12 +288,12 @@ grep -n "docs/" work/BACKLOG.md
 refactor: update internal cross-references in work/
 
 Batch updated ~100+ cross-references in workflow documents:
-- docs/specs/ → work/specs/
-- docs/plans/ → work/plans/
-- docs/bugs/ → work/bugs/
-- docs/design/ → work/design/
-- docs/parsley/design/ → work/parsley/design/
-- docs/guide/walkthroughs/ → work/docs/
+- work/specs/ → work/specs/
+- work/plans/ → work/plans/
+- work/bugs/ → work/bugs/
+- work/design/ → work/design/
+- work/parsley/design/ → work/parsley/design/
+- work/docs/ → work/docs/
 
 Manual review of key specs and design docs completed.
 ```
@@ -576,7 +576,7 @@ All tests pass. Ready for public alpha.
 ### After Phase 3 (Critical Workflow Files)
 - [ ] `/new-feature` prompt works and creates specs in work/specs/
 - [ ] `/fix-bug` prompt works and creates bugs in work/bugs/
-- [ ] .github/ files have no references to old docs/specs/, docs/plans/, etc.
+- [ ] .github/ files have no references to old work/specs/, work/plans/, etc.
 - [ ] AGENTS.md reflects new structure
 
 ### After Phase 6 (Breaking Changes)

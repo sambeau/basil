@@ -165,7 +165,7 @@ When a developer does these naïve things, are they protected?
 
 Cookies are foundational — needed for CSRF, sessions, and general state management.
 
-See `docs/specs/FEAT-043.md` for full specification.
+See `work/specs/FEAT-043.md` for full specification.
 
 **Summary:**
 ```parsley
@@ -190,7 +190,7 @@ basil.http.response.cookies.remember = {
 
 ### Core Protection
 
-See `docs/specs/FEAT-044.md` for full specification.
+See `work/specs/FEAT-044.md` for full specification.
 
 **Summary:**
 ```parsley

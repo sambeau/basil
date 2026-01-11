@@ -257,8 +257,8 @@ All tests pass successfully.
 - `server/devtools.go`: Added download/upload handlers, helper functions
 - `server/devtools_test.go`: Added comprehensive test coverage
 - `server/prelude/devtools/db.pars`: Updated UI with download/upload controls
-- `docs/specs/FEAT-066.md`: This specification
-- `docs/plans/FEAT-066-plan.md`: Implementation plan
+- `work/specs/FEAT-066.md`: This specification
+- `work/plans/FEAT-066-plan.md`: Implementation plan
 
 ### Commit
 
@@ -274,5 +274,5 @@ feat: add database download/upload to dev tools (FEAT-066)
 ```
 
 ## Related
-- Plan: `docs/plans/FEAT-066-plan.md`
+- Plan: `work/plans/FEAT-066-plan.md`
 - Similar: Existing CSV import/export on `/__/db` page (per-table operations)

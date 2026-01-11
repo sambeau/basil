@@ -27,9 +27,9 @@
 
 Please reference the following documents when considering a design:
 
-- docs/design/plan-fileIoApi.prompt.md
-- docs/design/Database Design.md
-- docs/design/Design Philosophy.md
+- work/parsley/design/plan-fileIoApi.prompt.md
+- work/parsley/design/Database Design.md
+- work/parsley/design/Design Philosophy.md
 - docs/reference.md
 
 Online docs for Go's client

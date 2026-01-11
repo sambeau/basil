@@ -189,8 +189,8 @@ No server changes required. All loading modes are client-side features that use 
 
 ## Related
 
-- Depends on: `docs/specs/FEAT-061.md` (Parts V1) ✅ Complete
-- Design: `docs/design/DESIGN-parts.md`
+- Depends on: `work/specs/FEAT-061.md` (Parts V1) ✅ Complete
+- Design: `work/design/DESIGN-parts.md`
 
 ## Implementation Notes
 

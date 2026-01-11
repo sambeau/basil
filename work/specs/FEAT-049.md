@@ -312,6 +312,6 @@ basil.session.huge = "x" * 10000  // Should error
 ## Related
 
 - **Depends on**: FEAT-043 (Cookies)
-- **Design doc**: `docs/design/sessions-state.md`
+- **Design doc**: `work/design/sessions-state.md`
 - **Related**: FEAT-044 (CSRF) — May use session for CSRF tokens
-- **Related**: `docs/design/html-components.md` — FlashMessages component
+- **Related**: `work/design/html-components.md` — FlashMessages component

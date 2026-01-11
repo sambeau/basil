@@ -49,7 +49,7 @@ Implement the `std/api` module for Basil, providing schema-based validation, dat
 
 - [x] Existing auth system working (FEAT-004)
 - [x] SQLite database support working (FEAT-002)
-- [x] Review `docs/design/api-design-summary.md` for full context
+- [x] Review `work/design/api-design-summary.md` for full context
 
 ## Phase 1: Core Schema System ✅ COMPLETED
 
@@ -461,7 +461,7 @@ Tests:
 - [ ] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
 - [ ] Documentation updated
-- [ ] `docs/design/api-design-summary.md` reflects final implementation
+- [ ] `work/design/api-design-summary.md` reflects final implementation
 - [ ] BACKLOG.md updated with deferrals
 
 ## Progress Log

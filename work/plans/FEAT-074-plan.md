@@ -722,7 +722,7 @@ Add formal documentation of spreading syntax.
 ---
 
 #### Task 5.3: Update Component Documentation
-**Files**: `docs/specs/FEAT-073.md`, `docs/manual/stdlib/html.md`
+**Files**: `work/specs/FEAT-073.md`, `docs/manual/stdlib/html.md`
 **Estimated effort**: Small (1-2 hours)
 
 Update component documentation with new spread-based APIs.

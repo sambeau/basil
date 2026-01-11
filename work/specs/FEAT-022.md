@@ -161,7 +161,7 @@ return &Array{Elements: result}
 
 ## Related
 
-- Plan: `docs/plans/FEAT-022-plan.md`
+- Plan: `work/plans/FEAT-022-plan.md`
 - Similar: `for` loop already implements concatenation semantics
 
 ---

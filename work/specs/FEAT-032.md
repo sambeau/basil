@@ -284,4 +284,4 @@ These should be added as **string methods** (not in std/valid):
 - "Falsehoods Programmers Believe About Names": https://www.kalzumeus.com/2010/06/17/falsehoods-programmers-believe-about-names/
 
 ## Related
-- Plan: `docs/plans/FEAT-032-plan.md` (to be created)
+- Plan: `work/plans/FEAT-032-plan.md` (to be created)

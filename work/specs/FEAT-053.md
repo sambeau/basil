@@ -365,7 +365,7 @@ return &String{Value: html}
 This allows markdown files to use `@{...}` for dynamic content while keeping literal `{...}` (useful for code blocks showing JSON, CSS, etc.).
 
 ## Related
-- Plan: `docs/plans/FEAT-053-plan.md` (to be created)
+- Plan: `work/plans/FEAT-053-plan.md` (to be created)
 - Similar: `evalTemplateLiteral()` in `evaluator.go` (line 9756)
 - Context: Raw text mode in `<style>`/`<script>` uses same `@{...}` syntax
 - Integration: `markdown()` builtin in `evaluator.go`ided; `printf()` doesn't support no-args form (always requires dict)
@@ -375,6 +375,6 @@ This allows markdown files to use `@{...}` for dynamic content while keeping lit
 *To be added during implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-053-plan.md` (to be created)
+- Plan: `work/plans/FEAT-053-plan.md` (to be created)
 - Similar: `evalTemplateLiteral()` in `evaluator.go` (line 9756)
 - Context: Raw text mode in `<style>`/`<script>` uses same `@{...}` syntax

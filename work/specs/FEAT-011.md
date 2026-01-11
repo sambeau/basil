@@ -126,4 +126,4 @@ After script execution:
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-011-plan.md`
+- Plan: `work/plans/FEAT-011-plan.md`

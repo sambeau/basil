@@ -180,5 +180,5 @@ git.EventHandler = func(ev githttp.Event) {
 
 ## Related
 
-- Design: `docs/design/remote-workflow-design.md`
+- Design: `work/design/remote-workflow-design.md`
 - Prerequisite: FEAT-004 Phase 2 (API Keys)

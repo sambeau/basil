@@ -204,4 +204,4 @@ cors:
 *Added during/after implementation*
 
 ## Related
-- Security design doc: `docs/design/security-features.md`
+- Security design doc: `work/design/security-features.md`

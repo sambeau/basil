@@ -52,22 +52,22 @@ Specification: [FEAT-001](../specs/FEAT-001.md)
 **Status:** Complete
 
 ### Step 5: FEAT-001 Specification ✓
-**Files:** `docs/specs/FEAT-001.md`
+**Files:** `work/specs/FEAT-001.md`
 **Action:** Create from "Plan for a Plan" requirements
 **Status:** Complete
 
 ### Step 6: Implementation Plan ✓
-**Files:** `docs/plans/FEAT-001-plan.md`
+**Files:** `work/plans/FEAT-001-plan.md`
 **Action:** Create (this file)
 **Status:** Complete
 
 ### Step 7: Guide Documentation ✓
-**Files:** `docs/guide/README.md`, `docs/guide/quick-start.md`, `docs/guide/cheatsheet.md`, `docs/guide/faq.md`, `docs/guide/walkthroughs/*.md`
+**Files:** `docs/guide/README.md`, `docs/guide/quick-start.md`, `docs/guide/cheatsheet.md`, `docs/guide/faq.md`, `work/docs/*.md`
 **Action:** Create
 **Status:** Complete
 
 ### Step 8: Empty Placeholder Folders ✓
-**Files:** `docs/bugs/.gitkeep`, `docs/decisions/.gitkeep`
+**Files:** `work/bugs/.gitkeep`, `docs/decisions/.gitkeep`
 **Action:** Create
 **Status:** Complete
 

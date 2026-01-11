@@ -83,4 +83,4 @@ As a Parsley developer, I want to import modules using a root-relative path so t
 *To be added during implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-017-plan.md` (to be created)
+- Plan: `work/plans/FEAT-017-plan.md` (to be created)

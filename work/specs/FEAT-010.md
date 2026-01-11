@@ -44,4 +44,4 @@ As a developer or operator, I want to see the Basil version in the startup logs 
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-010-plan.md` (if needed)
+- Plan: `work/plans/FEAT-010-plan.md` (if needed)

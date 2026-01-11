@@ -76,7 +76,7 @@ Potential additions not in this design:
 
 ---
 
-Please save this content as `/Users/samphillips/Dev/parsley/docs/design/Enhanced Operators.md`## Performance Considerations
+Please save this content as `/Users/samphillips/Dev/parsley/work/parsley/design/Enhanced Operators.md`## Performance Considerations
 
 1. **Hash Maps:** Use `map[string]bool` with `Inspect()` output as keys for O(n) lookups in set operations
 
@@ -153,4 +153,4 @@ Potential additions not in this design:
 
 ---
 
-Please save this content as `/Users/samphillips/Dev/parsley/docs/design/Enhanced Operators.md`
+Please save this content as `/Users/samphillips/Dev/parsley/work/parsley/design/Enhanced Operators.md`

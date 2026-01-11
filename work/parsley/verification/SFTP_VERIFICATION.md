@@ -6,7 +6,7 @@
 
 ## Verification Against Plan Document
 
-This document verifies that the SFTP implementation matches the approved plan in `docs/design/plan-sftpSupport.md`.
+This document verifies that the SFTP implementation matches the approved plan in `work/parsley/design/plan-sftpSupport.md`.
 
 ---
 

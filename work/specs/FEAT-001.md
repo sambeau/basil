@@ -44,9 +44,9 @@ As a developer working with AI assistance, I want a structured development proce
 - `.github/prompts/` — New folder for workflow prompts  
 - `.github/templates/` — New folder for document scaffolds
 - `docs/guide/` — New folder for human documentation
-- `docs/specs/` — New folder for feature specifications
-- `docs/plans/` — New folder for implementation plans
-- `docs/bugs/` — New folder for bug reports
+- `work/specs/` — New folder for feature specifications
+- `work/plans/` — New folder for implementation plans
+- `work/bugs/` — New folder for bug reports
 - `docs/decisions/` — New folder for ADRs
 - `AGENTS.md` — New file at root
 - `ID_COUNTER.md` — New file at root
