@@ -1,76 +1,16 @@
 # Parsley Language Reference
 
-> Generated from source code audit (January 2026)
+> Verified against source code (January 2026)
 
 ## Table of Contents
 
 1. [Literals](#1-literals)
-   - [Numbers](#11-numbers)
-   - [Strings](#12-strings)
-   - [Booleans and Null](#13-booleans-and-null)
-   - [Arrays](#14-arrays)
-   - [Dictionaries](#15-dictionaries)
-   - [Functions](#16-functions)
-   - [DateTime Literals](#17-datetime-literals)
-   - [Duration Literals](#18-duration-literals)
-   - [Path Literals](#19-path-literals)
-   - [URL Literals](#110-url-literals)
-   - [Money Literals](#111-money-literals)
-   - [Regex Literals](#112-regex-literals)
-   - [Connection Literals](#113-connection-literals)
 2. [Operators](#2-operators)
-   - [Arithmetic](#21-arithmetic)
-   - [Comparison](#22-comparison)
-   - [Logical](#23-logical)
-   - [Membership](#24-membership)
-   - [Pattern Matching](#25-pattern-matching)
-   - [Range](#26-range)
-   - [Concatenation](#27-concatenation)
-   - [Null Coalescing](#28-null-coalescing)
-   - [File I/O](#29-file-io-operators)
-   - [Database](#210-database-operators)
-   - [Precedence Table](#211-precedence-table)
 3. [Control Flow](#3-control-flow)
-   - [If Expressions](#31-if-expressions)
-   - [For Expressions](#32-for-expressions)
-   - [Try Expressions](#33-try-expressions)
-   - [Check Guard](#34-check-guard)
 4. [Statements](#4-statements)
-   - [Let Binding](#41-let-binding)
-   - [Assignment](#42-assignment)
-   - [Export](#43-export)
-   - [Import](#44-import)
-   - [Return, Stop, Skip](#45-return-stop-skip)
 5. [Type Methods](#5-type-methods)
-   - [Universal Methods](#50-universal-methods)
-   - [String Methods](#51-string-methods)
-   - [Array Methods](#52-array-methods)
-   - [Dictionary Methods](#53-dictionary-methods)
-   - [Number Methods](#54-number-methods)
-   - [DateTime Methods](#55-datetime-methods)
-   - [Duration Methods](#56-duration-methods)
-   - [Path Methods](#57-path-methods)
-   - [URL Methods](#58-url-methods)
-   - [Regex Methods](#59-regex-methods)
-   - [Money Methods](#510-money-methods)
-   - [File Methods](#511-file-methods)
 6. [Builtin Functions](#6-builtin-functions)
-   - [File Loading](#61-file-loading)
-   - [Type Conversion](#62-type-conversion)
-   - [Output](#63-output)
-   - [Introspection](#64-introspection)
-   - [Formatting](#65-formatting)
-   - [Other Builtins](#66-other-builtins)
 7. [Standard Library](#7-standard-library)
-   - [@std/math](#71-stdmath)
-   - [@std/valid](#72-stdvalid)
-   - [@std/id](#73-stdid)
-   - [@std/schema](#74-stdschema)
-   - [@std/api](#75-stdapi)
-   - [@std/dev](#76-stddev)
-   - [@std/table](#77-stdtable)
-   - [@std/html](#78-stdhtml)
-   - [@std/mdDoc](#79-stdmddoc)
 8. [Tags (HTML/XML)](#8-tags-htmlxml)
 9. [Error Handling](#9-error-handling)
 10. [Comments](#10-comments)
@@ -104,8 +44,6 @@
 ---
 
 ### 1.2 Strings
-
-Parsley has three string types with different behaviors:
 
 #### Double-Quoted Strings (`"..."`)
 
@@ -157,8 +95,6 @@ let id = 42
 // Escape @ with \@
 'email: user\@example.com'         // Literal @
 ```
-
-**Best for**: JavaScript embedding, regex patterns, file paths.
 
 ---
 
@@ -221,7 +157,6 @@ let [_, second] = arr              // Skip first element
 ```parsley
 dict.name                          // Dot notation
 dict["name"]                       // Bracket notation
-dict?.name                         // Optional: null if dict is null
 dict.missing                       // Returns null (no error)
 ```
 
@@ -544,12 +479,16 @@ value ?? "default"                 // Returns "default" if value is null
 a ?? b ?? c                        // First non-null
 ```
 
-#### Optional Chaining
+#### Optional Index Access
+
+Use `[?index]` syntax (question mark inside brackets):
 
 ```parsley
-user?.name                         // null if user is null
-items?[0]                          // null if items is null
+arr[?99]                           // null if out of bounds
+dict[?"missing"]                   // null if key missing
 ```
+
+**Note**: `?.` optional chaining is NOT supported. Use `[?key]` instead.
 
 ---
 
@@ -588,7 +527,7 @@ let result = db <=!=> "INSERT INTO users (name) VALUES (?)"(name)
 
 ---
 
-### 2.10.1 Process Execution
+### 2.11 Process Execution
 
 | Operator | Description |
 |----------|-------------|
@@ -596,23 +535,21 @@ let result = db <=!=> "INSERT INTO users (name) VALUES (?)"(name)
 
 ---
 
-### 2.11 Precedence Table
+### 2.12 Precedence Table
 
-From highest to lowest:
+From lowest to highest:
 
 | Level | Operators |
 |-------|-----------|
-| 1 | `?.`, `.`, `[`, `(` (access/call) |
-| 2 | `-`, `!`, `not` (prefix) |
-| 3 | `*`, `/`, `%` |
-| 4 | `+`, `-` |
-| 5 | `++`, `..` |
-| 6 | `~`, `!~` |
-| 7 | `<`, `>`, `<=`, `>=`, `in`, `not in` |
-| 8 | `==`, `!=` |
-| 9 | `&&`, `and` |
-| 10 | `\|\|`, `or` |
-| 11 | `??` |
+| 1 | `??`, `\|\|`, `or` |
+| 2 | `&&`, `and` |
+| 3 | `==`, `!=`, `~`, `!~`, `in`, `not in` |
+| 4 | `<`, `>`, `<=`, `>=` |
+| 5 | `+`, `-`, `..` |
+| 6 | `++` |
+| 7 | `*`, `/`, `%` |
+| 8 | `-`, `!`, `not` (prefix) |
+| 9 | `.`, `[]`, `()` (access/call) |
 
 ---
 
@@ -811,50 +748,31 @@ null.type()                        // "null"
 | `.length()` | Character count |
 | `.toUpper()` | Uppercase |
 | `.toLower()` | Lowercase |
-| `.capitalize()` | Capitalize first letter |
-| `.title()` / `.toTitle()` | Title Case Each Word |
+| `.toTitle()` | Title Case Each Word |
 | `.trim()` | Remove surrounding whitespace |
-| `.trimStart()` | Remove leading whitespace |
-| `.trimEnd()` | Remove trailing whitespace |
-| `.stripSpace()` | Remove all whitespace |
 | `.split(delim)` | Split to array |
-| `.replace(old, new)` | Replace first occurrence |
-| `.replaceAll(old, new)` | Replace all occurrences |
+| `.replace(old, new)` | Replace occurrences |
 | `.includes(substr)` | Contains substring? |
-| `.startsWith(prefix)` | Starts with? |
-| `.endsWith(suffix)` | Ends with? |
-| `.indexOf(substr)` | Position of substring (-1 if not found) |
-| `.slice(start, end?)` | Substring |
-| `.pad(len, char?)` | Pad both sides |
-| `.padStart(len, char?)` | Pad left |
-| `.padEnd(len, char?)` | Pad right |
-| `.repeat(n)` | Repeat string |
-| `.reverse()` | Reverse characters |
-| `.chars()` | Split to character array |
-| `.words()` | Split on whitespace |
-| `.lines()` | Split on newlines |
-| `.slug()` | URL-safe slug |
-| `.digits()` | Extract only digits |
-| `.letters()` | Extract only letters |
+| `.highlight(phrase, tag?)` | Wrap matches in HTML tag |
+| `.paragraphs()` | Convert plain text to HTML paragraphs |
+| `.render(dict?)` | Render `@{...}` interpolation |
+| `.parseMarkdown(options?)` | Parse markdown to dict |
+| `.parseJSON()` | Parse as JSON |
+| `.parseCSV(header?)` | Parse as CSV |
+| `.collapse()` | Collapse whitespace to single spaces |
+| `.normalizeSpace()` | Collapse + trim |
+| `.stripSpace()` | Remove all whitespace |
 | `.stripHtml()` | Remove HTML tags |
-| `.escapeHtml()` | Escape for HTML |
-| `.unescapeHtml()` / `.htmlDecode()` | Decode HTML entities |
-| `.urlEncode()` | URL encode (query string style) |
+| `.digits()` | Extract only digits |
+| `.slug()` | URL-safe slug |
+| `.htmlEncode()` | Escape for HTML |
+| `.htmlDecode()` | Decode HTML entities |
+| `.urlEncode()` | URL encode (query string) |
 | `.urlDecode()` | URL decode |
 | `.urlPathEncode()` | URL encode for path segments |
 | `.urlQueryEncode()` | URL encode for query values |
-| `.highlight(term, tag?)` | Wrap matches in tag |
-| `.paragraphs()` | Convert to HTML paragraphs |
-| `.collapse()` | Collapse whitespace |
-| `.normalizeSpace()` | Collapse + trim |
-| `.parseJSON()` | Parse as JSON |
-| `.parseCSV(header?)` | Parse as CSV |
-| `.render(dict?)` | Render `@{...}` interpolation |
-| `.match(regex)` | Match regex |
-| `.matchAll(regex)` | All regex matches |
 | `.outdent()` | Remove common leading whitespace |
 | `.indent(n)` | Add n spaces to line starts |
-| `.parseMarkdown(options?)` | Parse markdown to dict |
 
 ---
 
@@ -863,35 +781,24 @@ null.type()                        // "null"
 | Method | Description |
 |--------|-------------|
 | `.length()` | Element count |
-| `.first()` | First element (null if empty) |
-| `.last()` | Last element (null if empty) |
-| `.has(item)` | Contains item? |
-| `.hasAny(arr)` | Contains any of items? |
-| `.hasAll(arr)` | Contains all items? |
-| `.indexOf(item)` | Index of item (-1 if not found) |
-| `.slice(start, end?)` | Subarray |
-| `.insert(i, value)` | Insert at index |
-| `.sort()` | Sort ascending |
-| `.sortBy(fn)` | Sort by key function |
 | `.reverse()` | Reverse order |
+| `.sort(options?)` | Sort (natural order by default) |
+| `.sortBy(fn)` | Sort by key function |
+| `.map(fn)` | Transform elements |
+| `.filter(fn)` | Keep matching elements |
+| `.reduce(fn, init)` | Reduce to single value |
+| `.format(style?, locale?)` | Format as prose list |
+| `.join(sep?)` | Join to string |
+| `.toJSON()` | Convert to JSON string |
+| `.toCSV(header?)` | Convert to CSV string |
 | `.shuffle()` | Random order |
 | `.pick()` | Random element |
 | `.pick(n)` | n random elements (with replacement) |
 | `.take(n)` | n unique random elements |
-| `.map(fn)` | Transform each element |
-| `.filter(fn)` | Keep matching elements |
-| `.find(fn)` | First matching element |
-| `.findIndex(fn)` | Index of first match |
-| `.every(fn)` | All match predicate? |
-| `.some(fn)` | Any match predicate? |
-| `.reduce(fn, init)` | Reduce to single value |
-| `.flatten()` | Flatten nested arrays |
-| `.unique()` | Remove duplicates |
-| `.slice(start, end?)` | Subarray |
-| `.join(sep?)` | Join to string |
-| `.format(style?, locale?)` | Format as prose list |
-| `.toJSON()` | Convert to JSON string |
-| `.toCSV(header?)` | Convert to CSV string |
+| `.insert(i, value)` | Insert at index |
+| `.has(item)` | Contains item? |
+| `.hasAny(arr)` | Contains any of items? |
+| `.hasAll(arr)` | Contains all items? |
 
 ---
 
@@ -903,16 +810,11 @@ null.type()                        // "null"
 | `.values()` | Array of values |
 | `.entries(k?, v?)` | Array of {key, value} dicts |
 | `.has(key)` | Key exists? |
-| `.get(key, default?)` | Get with optional default |
-| `.delete(key)` | Remove key |
-| `.merge(other)` | Merge dictionaries |
-| `.without(keys...)` | Remove keys |
-| `.pick(keys...)` | Keep only specified keys |
-| `.insertBefore(key, newKey, value)` | Insert before key |
-| `.insertAfter(key, newKey, value)` | Insert after key |
-| `.toJSON()` | Convert to JSON string |
-| `.toYAML()` | Convert to YAML string |
+| `.delete(key)` | Remove key (mutates) |
+| `.insertAfter(after, key, val)` | Insert after existing key |
+| `.insertBefore(before, key, val)` | Insert before existing key |
 | `.render(template)` | Render template with values |
+| `.toJSON()` | Convert to JSON string |
 
 ---
 
@@ -922,18 +824,16 @@ null.type()                        // "null"
 |--------|-------------|
 | `.format(locale?)` | Locale-formatted string |
 | `.currency(code, locale?)` | Currency format |
-| `.percent(decimals?)` | Percentage format |
+| `.percent(locale?)` | Percentage format |
 | `.humanize(locale?)` | Compact format (1.2M) |
-| `.abs()` | Absolute value |
-| `.round()` | Round to nearest integer |
-| `.floor()` | Round down |
-| `.ceil()` | Round up |
+
+**Note**: For math operations like `abs()`, `round()`, `floor()`, `ceil()`, use `@std/math`.
 
 ---
 
-### 5.5 DateTime Methods
+### 5.5 DateTime Properties & Methods
 
-#### Properties
+DateTime values have these properties:
 
 | Property | Description |
 |----------|-------------|
@@ -943,90 +843,75 @@ null.type()                        // "null"
 | `.hour` | Hour (0-23) |
 | `.minute` | Minute (0-59) |
 | `.second` | Second (0-59) |
-| `.weekday` | Day name ("Monday") |
-| `.weekdayShort` | Short day ("Mon") |
-| `.monthName` | Month name ("January") |
-| `.monthShort` | Short month ("Jan") |
+| `.weekday` | Day name ("Wednesday") |
 | `.dayOfYear` | Day of year (1-366) |
 | `.week` | ISO week number |
-| `.timestamp` | Unix timestamp (alias) |
-| `.unix` | Unix timestamp |
+| `.unix` / `.timestamp` | Unix timestamp |
 | `.iso` | ISO 8601 string |
-
-#### Methods
 
 | Method | Description |
 |--------|-------------|
-| `.format(pattern?, locale?)` | Format datetime |
-| `.toDate()` | Extract date only |
-| `.toTime()` | Extract time only |
-| `.startOf(unit)` | Start of day/month/year |
-| `.endOf(unit)` | End of day/month/year |
-| `.add(duration)` | Add duration |
-| `.sub(duration)` | Subtract duration |
+| `.format(style?, locale?)` | Format datetime |
 | `.toDict()` | Return raw dictionary |
+
+**DateTime arithmetic**: Use operators `+` and `-` with durations:
+```parsley
+@now + @1d                         // Tomorrow
+@now - @1w                         // One week ago
+```
 
 ---
 
-### 5.6 Duration Methods
+### 5.6 Duration Properties & Methods
 
-#### Properties
+Duration values have these properties:
 
 | Property | Description |
 |----------|-------------|
-| `.years` | Years component |
 | `.months` | Months component |
-| `.weeks` | Weeks component |
-| `.days` | Days component |
-| `.hours` | Hours component |
-| `.minutes` | Minutes component |
 | `.seconds` | Seconds component |
 | `.totalSeconds` | Total as seconds |
 | `.totalMinutes` | Total as minutes |
 | `.totalHours` | Total as hours |
 | `.totalDays` | Total as days |
 
-#### Methods
-
 | Method | Description |
 |--------|-------------|
 | `.format(locale?)` | Human-readable format |
-| `.abs()` | Absolute duration |
-| `.negate()` | Negate duration |
 | `.toDict()` | Return raw dictionary |
 
 ---
 
-### 5.7 Path Methods
+### 5.7 Path Properties
 
-| Property/Method | Description |
-|-----------------|-------------|
+Path values have these properties:
+
+| Property | Description |
+|----------|-------------|
 | `.path` | Full path string |
-| `.base` / `.name` | Filename with extension |
+| `.base` | Filename with extension |
 | `.ext` | Extension (with dot) |
-| `.dir` / `.parent` | Directory portion |
+| `.dir` | Directory portion |
 | `.absolute` | Whether path is absolute |
-| `.isAbsolute()` | Check if absolute path |
-| `.isRelative()` | Check if relative path |
-| `.exists()` | File exists? |
-| `.isFile()` | Is a file? |
-| `.isDir()` | Is a directory? |
-| `.public()` | Get public URL for asset |
-| `.toURL(prefix)` | Convert to URL with prefix |
+
+| Method | Description |
+|--------|-------------|
 | `.match(pattern)` | Match route pattern |
 | `.toDict()` | Return raw dictionary |
 
 ---
 
-### 5.8 URL Methods
+### 5.8 URL Properties & Methods
+
+URL values have these properties:
 
 | Property | Description |
 |----------|-------------|
 | `.scheme` | Protocol (http, https) |
 | `.host` | Hostname |
 | `.port` | Port number |
-| `.path` | Path component |
-| `.query` | Query string |
+| `.path` | Path segments (array) |
+| `.query` | Query parameters (dict) |
 | `.fragment` | Fragment/hash |
 | `.username` | Username if present |
 | `.password` | Password if present |
@@ -1052,7 +937,9 @@ null.type()                        // "null"
 
 ---
 
-### 5.10 Money Methods
+### 5.10 Money Properties & Methods
+
+Money values have these properties:
 
 | Property | Description |
 |----------|-------------|
@@ -1063,29 +950,8 @@ null.type()                        // "null"
 | Method | Description |
 |--------|-------------|
 | `.format(locale?)` | Formatted string |
-| `.split(n)` | Split into n parts |
+| `.split(n)` | Split into n parts (penny-accurate) |
 | `.abs()` | Absolute value |
-| `.negate()` | Negate amount |
-| `.convert(currency, rate)` | Convert currency |
-| `.toDict()` | Return raw dictionary |
-
----
-
-### 5.11 File Methods
-
-| Property | Description |
-|----------|-------------|
-| `.path` | File path |
-| `.format` | File format |
-| `.data` | File contents |
-| `.error` | Error if read failed |
-
-| Method | Description |
-|--------|-------------|
-| `.toDict()` | Return raw dictionary |
-| `.remove()` | Delete file from filesystem |
-| `.mkdir(opts?)` | Create directory |
-| `.rmdir(opts?)` | Remove directory |
 
 ---
 
@@ -1130,8 +996,6 @@ null.type()                        // "null"
 | `println(values...)` | Print with newline |
 | `printf(template, dict)` | Formatted print |
 | `log(values...)` | Log to stdout |
-| `logLine(values...)` | Log with newline |
-| `toDebug(values...)` | Convert to debug string |
 
 ---
 
@@ -1161,7 +1025,6 @@ null.type()                        // "null"
 | Function | Description |
 |----------|-------------|
 | `time(input, delta?)` | Create datetime |
-| `now()` | Current datetime (deprecated: use `@now`) |
 | `url(string)` | Parse URL |
 | `regex(pattern, flags?)` | Create regex |
 | `match(path, pattern)` | Match path pattern |
@@ -1362,10 +1225,10 @@ import @std/dev
 
 dev.log(value)                     // Log to dev panel
 dev.log("label", value)            // Log with label
-dev.clearLog()                     // Clear log
-dev.logPage("/route", value)       // Log to specific route
-dev.setLogRoute("/api")            // Set default route
-dev.clearLogPage("/route")         // Clear route log
+dev.clearLog()                     // Clear dev log
+dev.logPage("/route", value)       // Log to specific page route
+dev.setLogRoute("/api")            // Set default log route
+dev.clearLogPage("/route")         // Clear log for specific page
 ```
 
 ---
@@ -1417,15 +1280,6 @@ Pre-built accessible HTML components:
 | `A` | Anchor link |
 | `Time` | Time element |
 | `DataTable` | Data table |
-| `SrOnly` | Screen reader only |
-| `Abbr` | Abbreviation |
-| `Icon` | Icon |
-
----
-
-### 7.9 @std/mdDoc
-
-Markdown documentation utilities.
 
 ---
 
