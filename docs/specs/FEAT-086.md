@@ -55,10 +55,12 @@ As a Parsley developer, I want common inputs (environment, arguments, request pa
 
 ### Keep `import @basil/http` available
 **Rationale**: Edge cases may need:
-- Separate `query` vs `form` access
+- Full request object with all fields
 - HTTP headers
 - Request method
 - Raw request body
+
+Note: `query` export removed from `@basil/http` in favor of `@params`. Use `request.query` if you need GET params specifically.
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -106,7 +108,8 @@ tags = @params["tags[]"]         // Rails-style array param
 value = @params[fieldName]       // Dynamic key
 
 // For edge cases, import still works
-let {query, form, headers, method, body} = import @basil/http
+let {request, headers, method, body} = import @basil/http
+// Use request.query for GET-only params (not merged)
 ```
 
 ### Merge Implementation
@@ -183,11 +186,18 @@ Before:
 ```parsley
 let {query, form} = import @basil/http
 name = query["name"] ?? form["name"]
+// or
+let {query} = import @basil/http
+name = query.name
 ```
 
 After:
 ```parsley
 name = @params.name
+
+// If you need GET params specifically (not merged):
+let {request} = import @basil/http
+name = request.query.name
 ```
 
 ### Parsley scripts (pars)

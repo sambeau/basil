@@ -794,7 +794,7 @@ func describeBasilRoot(root *BasilRoot) Object {
 	}
 
 	sb.WriteString("\nUsage: import @basil/<module>\n")
-	sb.WriteString("Example: let { query, route } = import @basil/http\n")
+	sb.WriteString("Example: let { route, method } = import @basil/http\n")
 
 	return &String{Value: sb.String()}
 }
@@ -812,7 +812,7 @@ var StdlibModuleDescriptions = map[string]string{
 
 // BasilModuleDescriptions contains descriptions for each basil namespace module
 var BasilModuleDescriptions = map[string]string{
-	"http": "HTTP request context (request, response, query, route, method)",
+	"http": "HTTP request context (request, response, route, method). Use @params for query/form data.",
 	"auth": "Auth context, db, session, and user shortcuts",
 }
 

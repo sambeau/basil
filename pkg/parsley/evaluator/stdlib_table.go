@@ -235,9 +235,10 @@ func ensureObject(val Object) Object {
 }
 
 // loadBasilHTTPModule returns the HTTP-related basil module
-// Exports: request, response, query (shorthand), route, method
+// Exports: request, response, route, method
 // All exports are DynamicAccessors to ensure fresh values per-request
 // even when imported at module scope.
+// Note: query has been removed; use @params instead.
 func loadBasilHTTPModule(env *Environment) Object {
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
@@ -257,28 +258,6 @@ func loadBasilHTTPModule(env *Environment) Object {
 					httpObj := evalDictValue(basilDict, "http", e)
 					httpDict, _ := httpObj.(*Dictionary)
 					return ensureObject(evalDictValue(httpDict, "response", e))
-				},
-			},
-			"query": &DynamicAccessor{
-				Name: "query",
-				Resolver: func(e *Environment) Object {
-					basilDict := getBasilCtxDict(e)
-					if basilDict == nil {
-						return NULL
-					}
-					httpObj := evalDictValue(basilDict, "http", e)
-					if httpObj == NULL {
-						return NULL
-					}
-					httpDict, ok := httpObj.(*Dictionary)
-					if !ok {
-						return NULL
-					}
-					requestObj := evalDictValue(httpDict, "request", e)
-					if reqDict, ok := requestObj.(*Dictionary); ok {
-						return ensureObject(evalDictValue(reqDict, "query", e))
-					}
-					return NULL
 				},
 			},
 			"route": &DynamicAccessor{

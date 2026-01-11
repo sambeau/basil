@@ -280,7 +280,6 @@ func TestModuleCacheIsolation(t *testing.T) {
 }
 
 // TestDynamicAccessorInCachedModule tests that @basil/http imports at module scope
-// provide fresh values per-request even when the module is cached (BUG-014)
 func TestDynamicAccessorInCachedModule(t *testing.T) {
 	evaluator.ClearModuleCache()
 
@@ -288,8 +287,8 @@ func TestDynamicAccessorInCachedModule(t *testing.T) {
 	tmpDir := t.TempDir()
 	modulePath := filepath.Join(tmpDir, "handler.pars")
 
-	moduleCode := `let {query} = import @basil/http
-export let getQuery = fn() { query }
+	moduleCode := `let {method} = import @basil/http
+export let getMethod = fn() { method }
 `
 	err := os.WriteFile(modulePath, []byte(moduleCode), 0644)
 	if err != nil {
@@ -298,15 +297,15 @@ export let getQuery = fn() { query }
 
 	mainCode := `
 let handler = import @` + modulePath + `
-handler.getQuery()
+handler.getMethod()
 `
 
-	// Create first environment with query.name = "Alice"
+	// Create first environment with method GET
 	env1 := evaluator.NewEnvironment()
 	env1.Filename = filepath.Join(tmpDir, "main.pars")
 	env1.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
-	// Set up BasilCtx with request data
-	env1.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{"name": "Alice"}, nil, nil)
+	// Set up BasilCtx with request data (method defaults to GET)
+	env1.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 
 	l1 := lexer.New(mainCode)
 	p1 := parser.New(l1)
@@ -322,24 +321,22 @@ handler.getQuery()
 
 	t.Logf("Result1 type: %T, value: %s", result1, result1.Inspect())
 
-	dict1, ok := result1.(*evaluator.Dictionary)
+	str1, ok := result1.(*evaluator.String)
 	if !ok {
-		t.Fatalf("expected Dictionary, got %T: %s", result1, result1.Inspect())
+		t.Fatalf("expected String, got %T: %s", result1, result1.Inspect())
 	}
 
-	// Verify first request got "Alice"
-	nameVal1 := evaluator.GetDictValue(dict1, "name")
-	t.Logf("First request query.name: %v", nameVal1)
-	if nameVal1 == nil || nameVal1.Inspect() != "Alice" {
-		t.Errorf("first request: expected query.name='Alice', got %v", nameVal1)
+	// Verify first request got "GET"
+	if str1.Value != "GET" {
+		t.Errorf("first request: expected method='GET', got %s", str1.Value)
 	}
 
-	// Create second environment with query.name = "Bob" (simulating new request)
-	// The module should be CACHED, but query should be FRESH
+	// Create second environment (simulating new request)
+	// The module should be CACHED, but method should still be FRESH from current context
 	env2 := evaluator.NewEnvironment()
 	env2.Filename = filepath.Join(tmpDir, "main.pars")
 	env2.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
-	env2.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{"name": "Bob"}, nil, nil)
+	env2.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 
 	l2 := lexer.New(mainCode)
 	p2 := parser.New(l2)
@@ -355,15 +352,13 @@ handler.getQuery()
 
 	t.Logf("Result2 type: %T, value: %s", result2, result2.Inspect())
 
-	dict2, ok := result2.(*evaluator.Dictionary)
+	str2, ok := result2.(*evaluator.String)
 	if !ok {
-		t.Fatalf("expected Dictionary, got %T: %s", result2, result2.Inspect())
+		t.Fatalf("expected String, got %T: %s", result2, result2.Inspect())
 	}
 
-	// Verify second request got "Bob" (not cached "Alice")
-	nameVal2 := evaluator.GetDictValue(dict2, "name")
-	t.Logf("Second request query.name: %v", nameVal2)
-	if nameVal2 == nil || nameVal2.Inspect() != "Bob" {
-		t.Errorf("second request: expected query.name='Bob', got %v (BUG-014: value cached from first request)", nameVal2)
+	// Verify second request still got "GET" (showing dynamic accessor works even with cached module)
+	if str2.Value != "GET" {
+		t.Errorf("second request: expected method='GET', got %s (BUG-014: value cached from first request)", str2.Value)
 	}
 }

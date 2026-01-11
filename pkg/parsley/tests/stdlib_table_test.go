@@ -845,13 +845,13 @@ func TestBasilHttpModuleWithContext(t *testing.T) {
 		assert func(t *testing.T, obj evaluator.Object)
 	}{
 		{
-			name: "query flag",
-			src: `let {query} = import @basil/http
-query.flag`,
+			name: "request.query access",
+			src: `let {request} = import @basil/http
+request.query.flag`,
 			assert: func(t *testing.T, obj evaluator.Object) {
 				b, ok := obj.(*evaluator.Boolean)
 				if !ok || b.Value != true {
-					t.Fatalf("expected query.flag true, got %s", obj.Inspect())
+					t.Fatalf("expected request.query.flag true, got %s", obj.Inspect())
 				}
 			},
 		},
