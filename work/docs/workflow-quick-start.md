@@ -1,6 +1,8 @@
-# Quick Start Guide
+# Workflow Quick Start Guide
 
-Get up and running with the Basil development process in 5 minutes.
+Get up and running with the Basil development workflow process in 5 minutes.
+
+For getting started with **using Basil as a web framework**, see [Basil Quick Start](../../docs/guide/basil-quick-start.md).
 
 ## Prerequisites
 - VS Code with GitHub Copilot extension
@@ -16,14 +18,14 @@ Open Copilot Chat and type:
 ```
 
 ### 2. Review the Spec
-The AI will create a spec file at `docs/specs/FEAT-XXX.md`. 
+The AI will create a spec file at `work/specs/FEAT-XXX.md`. 
 
 **Your job:** Read the top section (Summary, User Story, Acceptance Criteria) and either:
 - ✅ Approve to continue
 - ✏️ Request changes
 
 ### 3. Review the Plan
-The AI creates an implementation plan at `docs/plans/FEAT-XXX-plan.md`.
+The AI creates an implementation plan at `work/plans/FEAT-XXX-plan.md`.
 
 **Your job:** Check the Checklist section and approve or request changes.
 
@@ -68,11 +70,13 @@ Same as features — review, test, merge.
 
 | Looking for... | Check... |
 |----------------|----------|
-| What's being worked on | `docs/plans/` |
-| What's been deferred | `BACKLOG.md` |
+| What's being worked on | `work/plans/` |
+| What's been deferred | `work/BACKLOG.md` |
 | What's been released | `CHANGELOG.md` |
-| How something works | `docs/guide/faq.md` |
+| How workflow works | `work/docs/workflow-faq.md` |
+| How to use Basil | `docs/guide/faq.md` |
 
 ## Need Help?
-- Check the [FAQ](faq.md)
-- Ask the AI — it'll answer and add to the FAQ for next time
+- **Workflow questions?** Check the [Workflow FAQ](workflow-faq.md)
+- **Basil/Parsley questions?** Check the [Basil FAQ](../../docs/guide/faq.md)
+- Ask the AI — it'll answer and add to the appropriate FAQ

@@ -77,15 +77,15 @@ basil/
 ├── docs/
 │   ├── guide/                   # User guides for Basil framework
 │   │   ├── README.md
-│   │   ├── quick-start.md
+│   │   ├── basil-quick-start.md
 │   │   ├── cheatsheet.md
 │   │   └── faq.md
 │   └── parsley/                 # Parsley language reference
 │       ├── README.md
 │       └── manual/              # Builtins and stdlib docs
 └── work/
-    ├── docs/                    # Workflow process guides
-    ├── specs/                   # Feature specifications (FEAT-XXX.md)
+    ├── docs/                    # Workflow process guides    │   ├── workflow-quick-start.md
+    │   └── workflow-faq.md    ├── specs/                   # Feature specifications (FEAT-XXX.md)
     ├── plans/                   # Implementation plans (PLAN-XXX.md)
     ├── bugs/                    # Bug reports (BUG-XXX.md)
     ├── design/                  # Design documents
@@ -134,7 +134,9 @@ basil/
 ## Documentation Updates
 When answering a "how do I..." question from human:
 1. Answer the question
-2. If not already in `docs/guide/faq.md`, add it
+2. Add to appropriate FAQ:
+   - **Workflow/process questions**: `work/docs/workflow-faq.md`
+   - **Basil/Parsley usage**: `docs/guide/faq.md`
 3. If it reveals a gap in walkthroughs, note in work/BACKLOG.md
 
 ## Common Pitfalls

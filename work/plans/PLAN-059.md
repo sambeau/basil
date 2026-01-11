@@ -641,9 +641,13 @@ Items to handle separately (not part of this reorganization):
    - Remove SQLite `.db` files from examples
    - Verify binaries are gitignored
 
-3. **docs/guide/ duplication**:
-   - Resolve quick-start.md vs basil-quick-start.md
-   - Clarify faq.md audience (user vs contributor questions)
+3. **docs/guide/ duplication**: ✅ **RESOLVED 2026-01-11**
+   - ✅ Moved quick-start.md → work/docs/workflow-quick-start.md (workflow documentation)
+   - ✅ Kept basil-quick-start.md in docs/guide/ (user documentation)
+   - ✅ Split faq.md:
+     - Workflow questions → work/docs/workflow-faq.md
+     - Basil/Parsley questions → docs/guide/faq.md (renamed to Basil Framework FAQ)
+   - ✅ Updated AGENTS.md with new paths and FAQ routing rules
 
 ## Notes
 
