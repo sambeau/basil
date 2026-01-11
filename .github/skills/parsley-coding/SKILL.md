@@ -176,10 +176,16 @@ let double = fn(x) { x * 2 }
 <div class={`user-{id}`}>
 ```
 
-### 10. Single-Quoted Raw Strings (JavaScript Embedding)
+### 10. Three String Types: "", '', ``
 
 ```parsley
-// Single quotes create raw strings - braces stay literal
+// Double quotes: Normal strings with {var} interpolation
+let msg = "Hello {name}"
+
+// Backticks: Template literals (JavaScript style)
+let msg = `Hello {name}`
+
+// Single quotes: RAW strings - {braces} stay literal
 let js = 'Parts.refresh("editor", {id: 1})'
 let regex = '\d+\.\d+'              // Backslashes stay literal
 
@@ -201,15 +207,35 @@ let myId = 5
 ### 11. Singleton Tags MUST Self-Close, Paired Tags Can Be Empty
 
 ```parsley
-// ❌ WRONG - not self-closing
+// Singleton tags (HTML void elements) MUST self-close:
+// ❌ WRONG
 <br>
 <img src="photo.jpg">
+<input type="text">
 <Part src={@./foo.part}>
 
-// ✅ CORRECT - self-closing tags need />
+// ✅ CORRECT - singleton tags need />
 <br/>
 <img src="photo.jpg"/>
+<input type="text"/>
 <Part src={@./foo.part}/>
+
+// Paired tags can be empty (no /> needed):
+// ✅ CORRECT
+<div></div>
+<script></script>
+<button></button>
+```
+
+### 12. Dictionary Iteration Order
+
+```parsley
+// Dictionaries iterate in insertion order by default
+for (k, v in {b: 2, a: 1}) { k }  // ["b", "a"]
+
+// Use KeyOrder pseudo-type for sorted iteration
+let {KeyOrder} = import @std/table
+for (k, v in KeyOrder({b: 2, a: 1})) { k }  // ["a", "b"]
 ```
 
 ### 13. Use .length() to find the length of something
