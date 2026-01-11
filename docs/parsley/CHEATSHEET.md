@@ -9,13 +9,12 @@ Quick reference for beginners and AI agents developing Parsley. Focus on key dif
 ### 1. Output Functions
 ```parsley
 // ❌ WRONG (JavaScript/Python style)
-print("hello")
-println("hello")
-console.log("hello")
+console.log("hello")   // No console object exists
 
-// ✅ CORRECT
-log("hello")           // Most common - concatenates args with spaces
-logLine("hello")       // Includes line number - USE FOR DEBUGGING
+// ✅ CORRECT - Multiple options exist
+print("hello")         // Print without newline (returns PrintValue)
+println("hello")       // Print with newline
+log("hello")           // Log to stdout immediately
 ```
 
 ### 2. Comments
@@ -418,7 +417,7 @@ let response <=/= JSON(@https://api.example.com/users, {
 
 ### Database (SQLite)
 ```parsley
-let db = SQLITE(@./data.db)
+let db = @sqlite(@./data.db)
 
 // Query single row (returns dict or null)
 let user = db <=?=> "SELECT * FROM users WHERE id = 1"
@@ -454,9 +453,12 @@ $10.00 + £5.00               // Error!
 
 // Properties and methods
 $12.34.currency              // "USD"
-$12.34.amount                // 1234 (in cents)
-$1234.56.format()            // "$ 1,234.56"
+$12.34.amount                // 1234 (in cents/minor units)
+$12.34.scale                 // 2 (decimal places)
+$1234.56.format()            // "$1,234.56"
+$1234.56.format("de-DE")     // "1.234,56 $" (German locale)
 $100.00.split(3)             // [$33.34, $33.33, $33.33]
+$50.00.convert("EUR", 0.92)  // Convert with exchange rate
 ```
 
 ---
@@ -700,18 +702,18 @@ unauthorized("Login required")      // 401 error
 ### Schema Module (`@std/schema`)
 ```parsley
 let {string, email, integer, number, boolean,
-     object, array, define, validate} = import @std/schema
+     object, array, define} = import @std/schema
 
-// Define a schema
-let UserSchema = define({
-    name: string().minLen(1),
+// Define a schema with name and fields
+let UserSchema = define("User", {
+    name: string({minLen: 1}),
     email: email(),
-    age: integer().min(0).max(150),
+    age: integer({min: 0, max: 150}),
     active: boolean()
 })
 
-// Validate data
-let {valid, errors} = validate(UserSchema, {
+// Validate data using schema method
+let {valid, errors} = UserSchema.validate({
     name: "Alice",
     email: "alice@example.com",
     age: 30,
@@ -721,22 +723,27 @@ let {valid, errors} = validate(UserSchema, {
 
 ### ID Module (`@std/id`)
 ```parsley
-let {new, uuid, uuidv7, nanoid, cuid} = import @std/id
+let {new, uuid, uuidv4, uuidv7, nanoid, cuid} = import @std/id
 
-new()                              // ULID-like (sortable, URL-safe)
-uuid()                             // UUID v4
+new()                              // ULID-like (26 chars, sortable, URL-safe)
+uuid()                             // UUID v4 (alias for uuidv4)
+uuidv4()                           // UUID v4 (random)
 uuidv7()                           // UUID v7 (time-sortable)
-nanoid()                           // NanoID
-cuid()                             // CUID
+nanoid()                           // NanoID (default 21 chars)
+nanoid(16)                         // NanoID with custom length
+cuid()                             // CUID2-like (secure, collision-resistant)
 ```
 
 ### Dev Module (`@std/dev`)
 ```parsley
-let {dev} = import @std/dev
+import @std/dev                    // Imports as 'dev'
 
-dev.log("Debug info")              // Log to dev console
+dev.log("Debug info")              // Log to dev panel
+dev.log("label", value)            // Log with label
 dev.clearLog()                     // Clear dev log
-dev.logPage()                      // Get log page HTML
+dev.logPage("/route", value)       // Log to specific route
+dev.setLogRoute("/api")            // Set default route
+dev.clearLogPage("/route")         // Clear log for route
 ```
 
 ---
@@ -1031,33 +1038,67 @@ let icon = publicUrl(@./icon.svg)
 | `.length()` | String length | `"hello".length()` → `5` |
 | `.toUpper()` | Uppercase | `"hello".toUpper()` → `"HELLO"` |
 | `.toLower()` | Lowercase | `"HELLO".toLower()` → `"hello"` |
+| `.capitalize()` | Capitalize first | `"hello".capitalize()` → `"Hello"` |
+| `.title()` | Title Case | `"hello world".title()` → `"Hello World"` |
 | `.trim()` | Remove whitespace | `"  hi  ".trim()` → `"hi"` |
+| `.trimStart()` | Trim left | `"  hi".trimStart()` → `"hi"` |
+| `.trimEnd()` | Trim right | `"hi  ".trimEnd()` → `"hi"` |
 | `.split(delim)` | Split to array | `"a,b".split(",")` → `["a","b"]` |
-| `.replace(old, new)` | Replace text | `"hi".replace("i", "o")` → `"ho"` |
+| `.replace(old, new)` | Replace first | `"hi hi".replace("i", "o")` → `"ho hi"` |
+| `.replaceAll(old, new)` | Replace all | `"hi hi".replaceAll("i", "o")` → `"ho ho"` |
 | `.includes(substr)` | Contains check | `"hello".includes("ell")` → `true` |
+| `.startsWith(prefix)` | Starts with? | `"hello".startsWith("he")` → `true` |
+| `.endsWith(suffix)` | Ends with? | `"hello".endsWith("lo")` → `true` |
+| `.indexOf(substr)` | Find position | `"hello".indexOf("l")` → `2` |
 | `.slug()` | URL-safe slug | `"Hello World!".slug()` → `"hello-world"` |
 | `.digits()` | Extract digits | `"(555) 123".digits()` → `"555123"` |
 | `.stripHtml()` | Remove HTML tags | `"<p>Hi</p>".stripHtml()` → `"Hi"` |
+| `.escapeHtml()` | Escape for HTML | `"<b>".escapeHtml()` → `"&lt;b&gt;"` |
 | `.highlight(term)` | Wrap matches | `"hi".highlight("h")` → `"<mark>h</mark>i"` |
 | `.paragraphs()` | Text to HTML `<p>` | See reference |
 | `.parseJSON()` | Parse JSON string | `'{"a":1}'.parseJSON()` → `{a: 1}` |
 | `.parseCSV(header?)` | Parse CSV string | `"a,b\n1,2".parseCSV(true)` |
+| `.pad(len, char?)` | Pad both sides | `"hi".pad(6)` → `"  hi  "` |
+| `.padStart(len, char?)` | Pad left | `"5".padStart(3, "0")` → `"005"` |
+| `.padEnd(len, char?)` | Pad right | `"hi".padEnd(5)` → `"hi   "` |
 
 ### Array Methods
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.length()` | Array length | `[1,2,3].length()` → `3` |
+| `.first()` | First element | `[1,2,3].first()` → `1` |
+| `.last()` | Last element | `[1,2,3].last()` → `3` |
 | `.sort()` | Sort ascending | `[3,1,2].sort()` → `[1,2,3]` |
+| `.sortBy(fn)` | Sort by key | `users.sortBy(fn(u){u.age})` |
 | `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
 | `.shuffle()` | Random order | `[1,2,3].shuffle()` |
 | `.pick()` | Random element | `[1,2,3].pick()` → `2` |
 | `.take(n)` | n random unique | `[1,2,3,4,5].take(3)` → `[4,1,3]` |
 | `.map(fn)` | Transform each | `[1,2].map(fn(x){x*2})` → `[2,4]` |
 | `.filter(fn)` | Keep matching | `[1,2,3].filter(fn(x){x>1})` → `[2,3]` |
+| `.find(fn)` | Find first match | `[1,2,3].find(fn(x){x>1})` → `2` |
+| `.findIndex(fn)` | Index of first match | `[1,2,3].findIndex(fn(x){x>1})` → `1` |
+| `.every(fn)` | All match? | `[2,4,6].every(fn(x){x%2==0})` → `true` |
+| `.some(fn)` | Any match? | `[1,2,3].some(fn(x){x>2})` → `true` |
 | `.join(sep?)` | Join to string | `["a","b"].join(",")` → `"a,b"` |
 | `.has(item)` | Contains check | `[1,2,3].has(2)` → `true` |
+| `.flatten()` | Flatten nested | `[[1,2],[3]].flatten()` → `[1,2,3]` |
+| `.unique()` | Remove dupes | `[1,1,2,2].unique()` → `[1,2]` |
 | `.toJSON()` | To JSON string | `[1,2].toJSON()` → `"[1,2]"` |
 | `.toCSV(header?)` | To CSV string | See reference |
+
+### Dictionary Methods
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.keys()` | Get all keys | `{a:1, b:2}.keys()` → `["a", "b"]` |
+| `.values()` | Get all values | `{a:1, b:2}.values()` → `[1, 2]` |
+| `.has(key)` | Key exists? | `{a:1}.has("a")` → `true` |
+| `.get(key, default?)` | Get with default | `{a:1}.get("b", 0)` → `0` |
+| `.merge(other)` | Merge dicts | `{a:1}.merge({b:2})` → `{a:1, b:2}` |
+| `.without(keys...)` | Remove keys | `{a:1, b:2}.without("b")` → `{a:1}` |
+| `.pick(keys...)` | Keep only keys | `{a:1, b:2, c:3}.pick("a","c")` → `{a:1, c:3}` |
+| `.toJSON()` | To JSON string | `{a:1}.toJSON()` → `"{\"a\":1}"` |
+| `.type()` | Get type name | `{a:1}.type()` → `"dictionary"` |
 
 ### Number Methods
 | Method | Description | Example |
@@ -1157,14 +1198,16 @@ if (error) {
 
 ## 📝 Testing/Debugging Tips
 
-1. **Use `logLine()` in multi-line scripts** - shows line numbers
-2. **Check types with `type()`** when confused
-3. **Remember `for` returns an array** - don't expect side effects
-4. **Use error capture** `{data, error}` for file/network ops
-5. **Path literals need @** - `@./file` not `"./file"`
-6. **Comments are //** not #
-7. **Output is `log()`** not `print()` or `console.log()`
+1. **Use `inspect(value)`** - returns introspection data as dictionary
+2. **Use `describe(value)`** - human-readable description of any value
+3. **Check types with `.type()`** method when confused - `x.type()` → `"string"`
+4. **Remember `for` returns an array** - don't expect side effects
+5. **Use error capture** `{data, error}` for file/network ops
+6. **Path literals need @** - `@./file` not `"./file"`
+7. **Comments are //** not #
 8. **Strings in HTML need quotes** - `<p>"text"</p>` not `<p>text</p>`
 9. **Self-closing tags need />** - `<br/>` not `<br>`
-10. **Code between tags does not need `{}` - ``<p>text</p>`` not ``<p>{text}</p>``
+10. **Code between tags does not need `{}`** - `<p>text</p>` not `<p>{text}</p>`
+11. **Use `repr(value)`** - returns code representation for debugging
+12. **Use `builtins()`** - list all available builtin functions
 
