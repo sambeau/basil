@@ -611,12 +611,16 @@ func NewEnvironmentWithArgs(args []string) *Environment {
 
 	// Populate @env from environment variables
 	envPairs := make(map[string]ast.Expression)
+	envKeys := make([]string, 0, len(os.Environ()))
 	for _, e := range os.Environ() {
 		if key, value, ok := strings.Cut(e, "="); ok {
 			envPairs[key] = &ast.ObjectLiteralExpression{Obj: &String{Value: value}}
+			envKeys = append(envKeys, key)
 		}
 	}
-	env.store["@env"] = &Dictionary{Pairs: envPairs, Env: env}
+	// Sort keys for deterministic iteration order
+	sort.Strings(envKeys)
+	env.store["@env"] = &Dictionary{Pairs: envPairs, KeyOrder: envKeys, Env: env}
 
 	// Populate @args from provided arguments (or empty array)
 	var argElements []Object

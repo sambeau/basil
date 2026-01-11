@@ -165,3 +165,89 @@ func TestBuiltinEnvReassignmentBlocked(t *testing.T) {
 		t.Errorf("expected error for @env reassignment, got %s", result.Type())
 	}
 }
+
+// TestBuiltinEnvIteration tests that @env can be iterated over with for-in loops
+func TestBuiltinEnvIteration(t *testing.T) {
+	// Set a test environment variable
+	testKey := "PARSLEY_TEST_ITERATION_12345"
+	testValue := "test_value"
+	os.Setenv(testKey, testValue)
+	defer os.Unsetenv(testKey)
+
+	tests := []struct {
+		name     string
+		input    string
+		validate func(t *testing.T, result evaluator.Object)
+	}{
+		{
+			name:  "iterate over @env with two-param function",
+			input: `for(k,v in @env){ if k == "PARSLEY_TEST_ITERATION_12345" { v } }`,
+			validate: func(t *testing.T, result evaluator.Object) {
+				arr, ok := result.(*evaluator.Array)
+				if !ok {
+					t.Fatalf("expected Array, got %T", result)
+				}
+				// Should have found our test variable
+				found := false
+				for _, elem := range arr.Elements {
+					if str, ok := elem.(*evaluator.String); ok && str.Value == testValue {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("did not find test environment variable in iteration")
+				}
+			},
+		},
+		{
+			name:  "count @env variables",
+			input: `let count = 0; for(k,v in @env){ count = count + 1; null }; count`,
+			validate: func(t *testing.T, result evaluator.Object) {
+				// The result will be an array containing the count
+				arr, ok := result.(*evaluator.Array)
+				if !ok {
+					t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+				}
+				// Get the last element (count)
+				if len(arr.Elements) == 0 {
+					t.Fatalf("expected array with elements, got empty array")
+				}
+				num, ok := arr.Elements[len(arr.Elements)-1].(*evaluator.Integer)
+				if !ok {
+					t.Fatalf("expected last element to be Integer, got %T", arr.Elements[len(arr.Elements)-1])
+				}
+				// Should have at least our test variable
+				if num.Value < 1 {
+					t.Errorf("expected at least 1 env var, got %d", num.Value)
+				}
+			},
+		},
+		{
+			name:  "@env iteration returns array",
+			input: `for(k,v in @env){ k }`,
+			validate: func(t *testing.T, result evaluator.Object) {
+				arr, ok := result.(*evaluator.Array)
+				if !ok {
+					t.Fatalf("expected Array from for loop, got %T", result)
+				}
+				// Array should have elements (environment variables)
+				if len(arr.Elements) == 0 {
+					t.Errorf("expected non-empty array from @env iteration")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalWithArgs(tt.input, nil)
+
+			if errObj, ok := result.(*evaluator.Error); ok {
+				t.Fatalf("unexpected error: %s", errObj.Message)
+			}
+
+			tt.validate(t, result)
+		})
+	}
+}
