@@ -18,6 +18,29 @@ Use this skill when you need to:
 - Creating workflow docs: designs, specs, plans, bugs, reports
 - Creating documentation that has Parsley code examples
 
+## Parsley vs Basil Context
+
+**Important distinction:**
+- **Parsley** is the language - works standalone with `./pars`
+- **Basil** is the web framework - adds server context (request, response, sessions, etc.)
+
+**Basil-only features** (not available in standalone Parsley):
+- `@params` - URL/form parameters
+- `import @basil/http` - request, response, query, route, method
+- `import @basil/auth` - db, session, auth, user
+- HTTP-specific functionality (cookies, headers, sessions)
+
+**Parsley features** work everywhere:
+- Core language (for, if, fn, etc.)
+- `import @std/*` modules (math, valid, schema, etc.)
+- File I/O, JSON, CSV operations
+- All basic data types and operators
+
+When writing code, consider:
+- **For tests/examples**: Use `./pars` to test pure Parsley code
+- **For handlers**: Basil context available, can use `@basil/*` imports
+- **For documentation**: Mark Basil-specific features clearly
+
 ## Writing code
 
 1. Read ``docs/parsley/CHEATSHEET.md`` to learn Parsley code especially common mistakes
@@ -66,9 +89,15 @@ export Table = fn({rows, hidden, ...props}){
 ### 2. Import syntax uses path literals and destructuring
 
 ```parsley
-let {query} = import @basil/http
-let {session} = import @basil/auth
-let {Page as BasilPage} = import @std/html
+// Standard library (works everywhere)
+let {floor, ceil} = import @std/math
+let {Page} = import @std/html
+
+// Basil context (handler-only)
+let {query} = import @basil/http        // Basil-only
+let {session} = import @basil/auth      // Basil-only
+
+// Local modules (works everywhere)
 let {People} = import @~/schema/birthdays.pars
 ```
 
@@ -271,19 +300,19 @@ let private = 123        // Not available to importers
 export public = 456      // Available to importers
 
 // Default export
-export default = fn() { "I'm the default" }
-```
-
-### 16. Standard Library Modules (Current)
-
-```parsley
-// Standard library modules (as of 2026-01-11)
+export default = fn(- works in both Parsley and Basil (as of 2026-01-11)
 import @std/mdDoc        // ✅ Markdown (mdDoc pseudo-type)
-import @std/table        // Table DSL
+import @std/table        // Table DSL and KeyOrder
 import @std/math         // Math functions
-import @std/valid        // Validation
+import @std/valid        // Validation functions
 import @std/schema       // Schema validation
 import @std/id           // ID generation (UUID, ULID, etc)
+import @std/api          // API helpers (redirect, notFound, etc)
+import @std/html         // HTML components
+import @std/dev          // Dev tools
+
+// Basil framework - ONLY available in Basil handlers, NOT in standalone pars
+import @basil/http       // request, response, query, route, method
 import @std/api          // API helpers (redirect, notFound, etc)
 import @std/html         // HTML components
 import @std/dev          // Dev tools
@@ -294,17 +323,18 @@ import @basil/auth       // db, session, auth, user
 
 // ❌ DEPRECATED/REMOVED - don't use these:
 // @std/markdown - removed, use @std/mdDoc
-// now() builtin - removed, use @now magic variable
-```
-
-### 17. Magic Variables with @
-
-```parsley
-// Current datetime
+// now() builtin -  (works everywhere)
 @now                     // Current datetime
 @now.year                // 2026
 @now.format()            // "2026-01-11 14:30:00"
 
+// Environment variables (works everywhere)
+@env.HOME                // "/Users/username"
+@env.PATH                // System PATH
+
+// Basil-only magic variables (ONLY in handlers)
+@params                  // URL/form parameters (Basil-only)
+@params.id               // Individual parameter (Basil-only
 // Environment variables
 @env.HOME                // "/Users/username"
 @env.PATH                // System PATH
