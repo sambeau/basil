@@ -1,9 +1,0 @@
-server:
-  host: localhost
-  port: 3456
-  https:
-    auto: false
-
-routes:
-  - path: /
-    handler: test-dev-error/index.pars
