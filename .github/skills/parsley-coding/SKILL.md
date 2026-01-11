@@ -300,8 +300,15 @@ let private = 123        // Not available to importers
 export public = 456      // Available to importers
 
 // Default export
-export default = fn(- works in both Parsley and Basil (as of 2026-01-11)
-import @std/mdDoc        // ✅ Markdown (mdDoc pseudo-type)
+export default = fn(props) { <div>props.text</div> }
+```
+
+### 16. Standard Library Modules (@std/*)
+
+These work in both Parsley and Basil:
+
+```parsley
+import @std/mdDoc        // Markdown (mdDoc pseudo-type)
 import @std/table        // Table DSL and KeyOrder
 import @std/math         // Math functions
 import @std/valid        // Validation functions
@@ -311,36 +318,33 @@ import @std/api          // API helpers (redirect, notFound, etc)
 import @std/html         // HTML components
 import @std/dev          // Dev tools
 
-// Basil framework - ONLY available in Basil handlers, NOT in standalone pars
-import @basil/http       // request, response, query, route, method
-import @std/api          // API helpers (redirect, notFound, etc)
-import @std/html         // HTML components
-import @std/dev          // Dev tools
-
-// Basil context (available in handlers)
-import @basil/http       // request, response, query, route
-import @basil/auth       // db, session, auth, user
-
 // ❌ DEPRECATED/REMOVED - don't use these:
 // @std/markdown - removed, use @std/mdDoc
-// now() builtin -  (works everywhere)
+// now() builtin - removed, use @now
+```
+
+### 17. Basil Framework Imports (@basil/*)
+
+ONLY available in Basil handlers, NOT in standalone pars:
+
+```parsley
+import @basil/http       // request, response, query, route, method
+import @basil/auth       // db, session, auth, user
+```
+
+### 18. Magic Variables
+
+```parsley
+// Works everywhere
 @now                     // Current datetime
 @now.year                // 2026
 @now.format()            // "2026-01-11 14:30:00"
+@env.HOME                // Environment variables
+@env.PATH
 
-// Environment variables (works everywhere)
-@env.HOME                // "/Users/username"
-@env.PATH                // System PATH
-
-// Basil-only magic variables (ONLY in handlers)
-@params                  // URL/form parameters (Basil-only)
-@params.id               // Individual parameter (Basil-only
-// Environment variables
-@env.HOME                // "/Users/username"
-@env.PATH                // System PATH
-
-// Special values
-@params                  // URL/form parameters (in Basil handlers)
+// Basil-only (ONLY in handlers)
+@params                  // URL/form parameters
+@params.id               // Individual parameter
 ```
 
 ## Running pars
@@ -348,10 +352,12 @@ import @basil/auth       // db, session, auth, user
 To test Parsley code locally:
 
 ```bash
-./pars filename.pars              # Run a script
-./pars -e "1 + 2"                 # Evaluate expression
-./pars -w script.pars              # Allow file writes
-./pars -x script.pars              # Allow imports
+./pars                            # Start interactive REPL
+./pars script.pars                # Execute a script
+./pars -pp page.pars              # Pretty-print HTML output
+./pars -x script.pars             # Allow imports/executes
+./pars --no-write script.pars     # Deny file writes
+./pars --restrict-read=/etc script.pars  # Deny reads from path
 ```
 
 ## Testing Context
