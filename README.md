@@ -87,14 +87,45 @@ Basil includes production-ready security features:
 - Development tools with database inspection
 - Git authentication audit trail
 
+## Documentation
+
+Documentation is organized by audience:
+
+- **[docs/](docs/)** — User-facing documentation
+  - **[docs/guide/](docs/guide/)** — Basil framework user guides (quick start, FAQ, etc.)
+  - **[docs/parsley/](docs/parsley/)** — Parsley language reference and manual
+- **[work/](work/)** — Workflow and contributor documentation
+  - Feature specifications, implementation plans, bug reports
+  - Design documents, audits, and Parsley implementation notes
+  - See [work/README.md](work/README.md) for details
+
+For AI agents and contributors, see [AGENTS.md](AGENTS.md) for workflow rules and project structure.
+
 ## Project Structure
 
 ```
 basil/
-├── .github/
-│   └── copilot-instructions.md
+├── cmd/               # Command-line tools
+│   ├── basil/        # Basil server
+│   └── pars/         # Parsley REPL
+├── server/           # Server implementation
+│   ├── auth/         # Authentication
+│   ├── config/       # Configuration
+│   └── search/       # Full-text search
+├── pkg/              # Reusable packages
+│   └── parsley/      # Parsley language implementation
+├── docs/             # User documentation
+│   ├── guide/        # Framework guides
+│   └── parsley/      # Language reference
+├── work/             # Contributor documentation
+│   ├── specs/        # Feature specifications
+│   ├── plans/        # Implementation plans
+│   └── ...           # Design docs, bug reports, etc.
+├── examples/         # Example projects
+├── .github/          # AI instructions and templates
+├── AGENTS.md         # AI workflow rules
+├── CHANGELOG.md      # Release history
 ├── go.mod
-├── main.go
 └── README.md
 ```
 

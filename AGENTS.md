@@ -60,8 +60,6 @@ basil/
 ├── auth/                        # Basil authentication
 ├── config/                      # Basil configuration
 ├── AGENTS.md                    # This file - agent operational context
-├── ID_COUNTER.md                # Auto-incrementing ID tracker
-├── BACKLOG.md                   # Deferred items
 ├── CHANGELOG.md                 # Release history
 ├── .github/
 │   ├── copilot-instructions.md  # Repository-wide AI instructions
@@ -76,24 +74,32 @@ basil/
 │       ├── FEATURE_SPEC.md
 │       ├── BUG_REPORT.md
 │       └── IMPLEMENTATION_PLAN.md
-└── docs/
-    ├── guide/                   # Human-friendly documentation
-    │   ├── README.md
-    │   ├── quick-start.md
-    │   ├── cheatsheet.md
-    │   ├── faq.md
-    │   └── walkthroughs/
+├── docs/
+│   ├── guide/                   # User guides for Basil framework
+│   │   ├── README.md
+│   │   ├── quick-start.md
+│   │   ├── cheatsheet.md
+│   │   └── faq.md
+│   └── parsley/                 # Parsley language reference
+│       ├── README.md
+│       └── manual/              # Builtins and stdlib docs
+└── work/
+    ├── docs/                    # Workflow process guides
     ├── specs/                   # Feature specifications (FEAT-XXX.md)
-    ├── plans/                   # Implementation plans
+    ├── plans/                   # Implementation plans (PLAN-XXX.md)
     ├── bugs/                    # Bug reports (BUG-XXX.md)
-    └── decisions/               # Architecture Decision Records
+    ├── design/                  # Design documents
+    ├── reports/                 # Audits and investigations
+    ├── parsley/                 # Parsley implementation docs
+    ├── ID_COUNTER.md            # Auto-incrementing ID tracker
+    └── BACKLOG.md               # Deferred items
 ```
 
 ## Workflow Rules
 
 ### Before Starting Any Task
-1. Read the relevant spec/bug report
-2. Check BACKLOG.md for related deferred items
+1. Read the relevant spec/bug report from work/
+2. Check work/BACKLOG.md for related deferred items
 3. Use the appropriate prompt file (`/new-feature` or `/fix-bug`)
 
 ### During Implementation
@@ -102,7 +108,7 @@ basil/
 - Run tests after each significant change
 
 ### After Implementation
-- Update BACKLOG.md with any deferred items
+- Update work/BACKLOG.md with any deferred items
 - Update spec/bug with implementation notes
 - Ensure all tests pass
 
@@ -110,10 +116,9 @@ basil/
 - Features: `FEAT-001`, `FEAT-002`, ...
 - Bugs: `BUG-001`, `BUG-002`, ...
 - Plans: `PLAN-001` (linked to FEAT or BUG)
-- Decisions: `ADR-001`, `ADR-002`, ...
 
 ## ID Allocation Rules
-- Always read `ID_COUNTER.md` before creating new specs/bugs
+- Always read `work/ID_COUNTER.md` before creating new specs/bugs
 - Always update the counter immediately after creating the document
 - Use zero-padded 3-digit format: `001`, `002`, ... `999`
 - If counter shows `999`, alert human (unlikely but handles edge case)
@@ -130,7 +135,7 @@ basil/
 When answering a "how do I..." question from human:
 1. Answer the question
 2. If not already in `docs/guide/faq.md`, add it
-3. If it reveals a gap in walkthroughs, note in BACKLOG.md
+3. If it reveals a gap in walkthroughs, note in work/BACKLOG.md
 
 ## Common Pitfalls
 - Always run `go mod tidy` after adding dependencies

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestRenderDevErrorPage_ParseError(t *testing.T) {

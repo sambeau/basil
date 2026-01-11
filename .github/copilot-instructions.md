@@ -5,7 +5,7 @@ Basil is a Go web server for the Parsley programming language.
 
 ## Before Any Task
 1. Read `AGENTS.md` at the repository root — it contains build commands, project structure, and workflow rules
-2. Check `BACKLOG.md` for related deferred items
+2. Check `work/BACKLOG.md` for related deferred items
 3. Use the appropriate prompt file for your task type
 
 ## Writing Parsley Code
@@ -19,10 +19,10 @@ Before writing any Parsley code (handlers, tests, examples):
 - **Release**: Use `/release` prompt
 
 ## Key Conventions
-- Features: `FEAT-XXX` in `docs/specs/`
-- Bugs: `BUG-XXX` in `docs/bugs/`
-- Plans: `docs/plans/`
-- IDs: Managed via `ID_COUNTER.md`
+- Features: `FEAT-XXX` in `work/specs/`
+- Bugs: `BUG-XXX` in `work/bugs/`
+- Plans: `work/plans/`
+- IDs: Managed via `work/ID_COUNTER.md`
 
 ## Git Rules
 - AI commits to feature/bug branches
@@ -38,7 +38,7 @@ Before writing any Parsley code (handlers, tests, examples):
 
 ## Documentation
 - Update `docs/guide/faq.md` when answering "how do I..." questions
-- Add deferred items to `BACKLOG.md`
+- Add deferred items to `work/BACKLOG.md`
 
 ## Parsley Documentation
 When documenting Parsley language features:

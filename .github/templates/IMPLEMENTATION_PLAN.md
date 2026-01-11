@@ -50,7 +50,7 @@ Tests:
 - [ ] Build succeeds: `go build -o basil .`
 - [ ] Linter passes: `golangci-lint run`
 - [ ] Documentation updated
-- [ ] BACKLOG.md updated with deferrals (if any)
+- [ ] work/BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 | Date | Task | Status | Notes |
@@ -59,6 +59,6 @@ Tests:
 | YYYY-MM-DD | Task 2 | 🔄 In Progress | Blocked by X |
 
 ## Deferred Items
-Items to add to BACKLOG.md after implementation:
+Items to add to work/BACKLOG.md after implementation:
 - Item 1 — Reason for deferral
 - Item 2 — Reason for deferral

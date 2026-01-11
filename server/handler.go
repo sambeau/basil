@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sambeau/basil/auth"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/auth"
+	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"

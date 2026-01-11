@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
-	"github.com/sambeau/basil/pkg/search"
+	"github.com/sambeau/basil/server/search"
 )
 
 func TestSearchAddMethod(t *testing.T) {

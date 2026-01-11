@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
 )

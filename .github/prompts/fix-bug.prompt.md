@@ -18,9 +18,9 @@ If reproduction steps are unclear, ask for more detail.
 
 ## Phase 2: Create Bug Report
 
-1. Read `ID_COUNTER.md` and allocate the next BUG ID
-2. Update `ID_COUNTER.md` immediately (increment Next ID, update Last Allocated)
-3. Create `docs/bugs/BUG-XXX.md` using `.github/templates/BUG_REPORT.md`
+1. Read `work/ID_COUNTER.md` and allocate the next BUG ID
+2. Update `work/ID_COUNTER.md` immediately (increment Next ID, update Last Allocated)
+3. Create `work/bugs/BUG-XXX.md` using `.github/templates/BUG_REPORT.md`
 4. Document the bug with all gathered information
 5. Present the report to the user for confirmation
 
@@ -54,7 +54,7 @@ If reproduction steps are unclear, ask for more detail.
 
 1. Update bug report with resolution notes
 2. Change bug report status to `resolved`
-3. Add any deferred items to `BACKLOG.md`
+3. Add any deferred items to `work/BACKLOG.md`
 4. Summarize the fix and what's ready for review
 5. Remind user to review and merge to main
 
@@ -64,7 +64,7 @@ If reproduction steps are unclear, ask for more detail.
 
 | Action | File |
 |--------|------|
-| Allocate ID | `ID_COUNTER.md` |
-| Create bug report | `docs/bugs/BUG-XXX.md` |
-| Track deferrals | `BACKLOG.md` |
+| Allocate ID | `work/ID_COUNTER.md` |
+| Create bug report | `work/bugs/BUG-XXX.md` |
+| Track deferrals | `work/BACKLOG.md` |
 | Build & test | `go build -o basil . && go test ./...` |

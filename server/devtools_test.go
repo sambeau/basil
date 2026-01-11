@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestDevToolsIndex(t *testing.T) {

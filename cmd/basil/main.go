@@ -12,8 +12,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sambeau/basil/auth"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/auth"
+	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/server"
 )
 
