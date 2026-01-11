@@ -566,7 +566,6 @@ let {email, minLen, url} = import @std/valid
 let {string, object, validate} = import @std/schema
 let {uuid, nanoid, new} = import @std/id
 let {notFound, redirect} = import @std/api
-let {md} = import @std/markdown
 let {mdDoc} = import @std/mdDoc
 
 // Basil context (available in handlers)
@@ -729,26 +728,6 @@ uuid()                             // UUID v4
 uuidv7()                           // UUID v7 (time-sortable)
 nanoid()                           // NanoID
 cuid()                             // CUID
-```
-
-### Markdown Module (`@std/markdown`)
-```parsley
-let {md} = import @std/markdown
-
-let doc = md.parse("# Hello\n\nWorld")
-
-// Query
-doc.title()                        // "Hello"
-doc.headings()                     // [{level: 1, text: "Hello"}]
-doc.links()                        // Array of links
-doc.codeBlocks()                   // Array of code blocks
-doc.toc()                          // Table of contents
-doc.wordCount()                    // Word count
-doc.text()                         // Plain text
-
-// Convert
-doc.toHTML()                       // HTML string
-doc.toMarkdown()                   // Markdown string
 ```
 
 ### Dev Module (`@std/dev`)

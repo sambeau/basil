@@ -284,7 +284,7 @@
         {
           "comment": "Standard library: @std/math, @std/table, etc.",
           "name": "support.module.stdlib.parsley",
-          "match": "@std/(table|dev|math|valid|schema|id|api|markdown|mdDoc|html)\\b"
+          "match": "@std/(table|dev|math|valid|schema|id|api|mdDoc|html)\\b"
         },
         {
           "comment": "Basil namespace: @basil/http, @basil/auth, @basil",

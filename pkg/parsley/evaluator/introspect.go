@@ -439,8 +439,6 @@ func getObjectTypeString(obj Object) string {
 		return "module"
 	case *TableModule:
 		return "module"
-	case *MarkdownModule:
-		return "module"
 	case *StdlibRoot:
 		return "module"
 	case *BasilRoot:

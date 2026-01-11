@@ -37,7 +37,7 @@ func TestDatetimeKindField(t *testing.T) {
 		{`@2024-12-25T14:30:00-05:00.kind`, "datetime"},
 		// time() builtin returns datetime
 		{`time("2024-12-25").kind`, "datetime"},
-		{`now().kind`, "datetime"},
+		{`@now.kind`, "datetime"},
 	}
 
 	for _, tt := range tests {
@@ -257,10 +257,10 @@ func TestKindPreservationInArithmetic(t *testing.T) {
 
 // TestTimeOnlyUsesCurrentDate tests that time-only literals use today's date internally
 func TestTimeOnlyUsesCurrentDate(t *testing.T) {
-	// Get today's date components from now()
-	nowYear := testEvalKind(`now().year`)
-	nowMonth := testEvalKind(`now().month`)
-	nowDay := testEvalKind(`now().day`)
+	// Get today's date components from @now
+	nowYear := testEvalKind(`@now.year`)
+	nowMonth := testEvalKind(`@now.month`)
+	nowDay := testEvalKind(`@now.day`)
 
 	// Time-only literal should have the same date components
 	timeYear := testEvalKind(`@12:30.year`)
@@ -271,19 +271,19 @@ func TestTimeOnlyUsesCurrentDate(t *testing.T) {
 	nowYearVal := nowYear.(*evaluator.Integer).Value
 	timeYearVal := timeYear.(*evaluator.Integer).Value
 	if nowYearVal != timeYearVal {
-		t.Errorf("Expected time literal year=%d (from now()), got %d", nowYearVal, timeYearVal)
+		t.Errorf("Expected time literal year=%d (from @now), got %d", nowYearVal, timeYearVal)
 	}
 
 	nowMonthVal := nowMonth.(*evaluator.Integer).Value
 	timeMonthVal := timeMonth.(*evaluator.Integer).Value
 	if nowMonthVal != timeMonthVal {
-		t.Errorf("Expected time literal month=%d (from now()), got %d", nowMonthVal, timeMonthVal)
+		t.Errorf("Expected time literal month=%d (from @now), got %d", nowMonthVal, timeMonthVal)
 	}
 
 	nowDayVal := nowDay.(*evaluator.Integer).Value
 	timeDayVal := timeDay.(*evaluator.Integer).Value
 	if nowDayVal != timeDayVal {
-		t.Errorf("Expected time literal day=%d (from now()), got %d", nowDayVal, timeDayVal)
+		t.Errorf("Expected time literal day=%d (from @now), got %d", nowDayVal, timeDayVal)
 	}
 }
 

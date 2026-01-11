@@ -1,162 +1,25 @@
 package evaluator
 
 import (
-	"fmt"
-	"regexp"
-	"strings"
-	"unicode"
+"fmt"
+"regexp"
+"strings"
+"unicode"
 
-	"github.com/sambeau/basil/pkg/parsley/ast"
-	"github.com/yuin/goldmark"
-	gmast "github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/extension"
-	extast "github.com/yuin/goldmark/extension/ast"
-	goldmarkParser "github.com/yuin/goldmark/parser"
-	"github.com/yuin/goldmark/text"
+"github.com/sambeau/basil/pkg/parsley/ast"
+"github.com/yuin/goldmark"
+gmast "github.com/yuin/goldmark/ast"
+"github.com/yuin/goldmark/extension"
+extast "github.com/yuin/goldmark/extension/ast"
+goldmarkParser "github.com/yuin/goldmark/parser"
+"github.com/yuin/goldmark/text"
 )
 
-// loadMarkdownModule returns the markdown module as a dictionary
-// Export name is "md" to avoid clash with markdown() file factory builtin
-func loadMarkdownModule(env *Environment) Object {
-	return &StdlibModuleDict{
-		Exports: map[string]Object{
-			"md": &MarkdownModule{},
-		},
-	}
-}
-
-// MarkdownModule represents the markdown module with AST and rendering functions
-type MarkdownModule struct{}
-
-func (mm *MarkdownModule) Type() ObjectType { return BUILTIN_OBJ }
-func (mm *MarkdownModule) Inspect() string  { return "md" }
-
-// evalMarkdownModuleMethod handles method calls on the markdown module
-func evalMarkdownModuleMethod(mm *MarkdownModule, method string, args []Object, env *Environment) Object {
-	switch method {
-	// Core methods
-	case "parse":
-		return markdownParse(args, env)
-	case "toMarkdown":
-		return markdownRender(args, env)
-	case "toHTML":
-		return markdownToHTML(args, env)
-
-	// Query methods
-	case "findAll":
-		return markdownFindAll(args, env)
-	case "findFirst":
-		return markdownFindFirst(args, env)
-	case "headings":
-		return markdownHeadings(args, env)
-	case "links":
-		return markdownLinks(args, env)
-	case "images":
-		return markdownImages(args, env)
-	case "codeBlocks":
-		return markdownCodeBlocks(args, env)
-
-	// Convenience methods
-	case "title":
-		return markdownTitle(args, env)
-	case "toc":
-		return markdownTOC(args, env)
-	case "text":
-		return markdownText(args, env)
-	case "wordCount":
-		return markdownWordCount(args, env)
-
-	// Transform methods
-	case "walk":
-		return markdownWalk(args, env)
-	case "map":
-		return markdownMap(args, env)
-	case "filter":
-		return markdownFilter(args, env)
-
-	default:
-		return unknownMethodError(method, "markdown module", []string{
-			"parse", "toMarkdown", "toHTML",
-			"findAll", "findFirst", "headings", "links", "images", "codeBlocks",
-			"title", "toc", "text", "wordCount",
-			"walk", "map", "filter",
-		})
-	}
-}
-
-// markdownParse parses markdown source and returns an AST
-// Usage: markdown.parse(source) or markdown.parse(file)
-func markdownParse(args []Object, env *Environment) Object {
-	if len(args) < 1 {
-		return newArityErrorRange("markdown.parse", len(args), 1, 1)
-	}
-
-	var source string
-
-	switch arg := args[0].(type) {
-	case *String:
-		source = arg.Value
-	case *Dictionary:
-		// Could be a file dict with content
-		if contentExpr, ok := arg.Pairs["content"]; ok {
-			contentObj := Eval(contentExpr, arg.Env)
-			if str, ok := contentObj.(*String); ok {
-				source = str.Value
-			} else {
-				return newTypeError("TYPE-0005", "markdown.parse", "string content", contentObj.Type())
-			}
-		} else if rawExpr, ok := arg.Pairs["raw"]; ok {
-			rawObj := Eval(rawExpr, arg.Env)
-			if str, ok := rawObj.(*String); ok {
-				source = str.Value
-			} else {
-				return newTypeError("TYPE-0005", "markdown.parse", "string raw content", rawObj.Type())
-			}
-		} else {
-			return newTypeError("TYPE-0005", "markdown.parse", "a string or file dictionary with content", "dictionary without content")
-		}
-	default:
-		return newTypeError("TYPE-0005", "markdown.parse", "string or file dictionary", arg.Type())
-	}
-
-	return parseMarkdownToAST([]byte(source), env)
-}
-
-// markdownRender renders an AST back to markdown
-// Usage: markdown.toMarkdown(ast)
-func markdownRender(args []Object, env *Environment) Object {
-	if len(args) != 1 {
-		return newArityError("markdown.toMarkdown", len(args), 1)
-	}
-
-	node, ok := args[0].(*Dictionary)
-	if !ok {
-		return newTypeError("TYPE-0005", "markdown.toMarkdown", "markdown AST dictionary", args[0].Type())
-	}
-
-	var buf strings.Builder
-	renderMarkdownNode(&buf, node, 0, env)
-	return &String{Value: strings.TrimSpace(buf.String())}
-}
-
-// markdownToHTML renders an AST to HTML
-// Usage: markdown.toHTML(ast)
-func markdownToHTML(args []Object, env *Environment) Object {
-	if len(args) != 1 {
-		return newArityError("markdown.toHTML", len(args), 1)
-	}
-
-	node, ok := args[0].(*Dictionary)
-	if !ok {
-		return newTypeError("TYPE-0005", "markdown.toHTML", "markdown AST dictionary", args[0].Type())
-	}
-
-	var buf strings.Builder
-	renderHTMLNode(&buf, node, env)
-	return &String{Value: buf.String()}
-}
-
-// parseMarkdownToAST parses markdown source and returns a Parsley AST representation
+// ============================================================================
+// Markdown Helper Functions
+// These functions support @std/mdDoc and were extracted from the deprecated
+// @std/markdown module. They provide core markdown parsing and rendering.
+// ============================================================================
 func parseMarkdownToAST(source []byte, env *Environment) Object {
 	md := goldmark.New(
 		goldmark.WithExtensions(extension.GFM),

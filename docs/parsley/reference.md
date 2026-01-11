@@ -816,7 +816,6 @@ asin(x), acos(x), atan(x)
 @timeNow                                  // Current time (kind: "time")
 @dateNow                                  // Current date (kind: "date")
 @today                                    // Synonym for @dateNow
-now()                                    // Deprecated: use @now
 time("2024-11-26")                       // Parse ISO date
 time("2024-11-26T15:30:00")              // With time
 time(1732579200)                         // Unix timestamp

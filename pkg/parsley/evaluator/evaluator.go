@@ -2277,20 +2277,6 @@ func getBuiltins() map[string]*Builtin {
 				return newInternalError("INTERNAL-0001", map[string]any{"Context": "import()"})
 			},
 		},
-		"now": {
-			FnWithEnv: func(env *Environment, args ...Object) Object {
-				if len(args) != 0 {
-					return newArityError("now", len(args), 0)
-				}
-
-				if env == nil {
-					env = NewEnvironment()
-				}
-
-				logDeprecation(env, "now()", "@now")
-				return timeToDictWithKind(time.Now(), "datetime", env)
-			},
-		},
 		"time": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {

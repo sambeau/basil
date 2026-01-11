@@ -37,8 +37,8 @@ func TestDatetimeNow(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "now() with no arguments",
-			code:    `let dt = now(); log(dt.year, dt.month, dt.day);`,
+			name:    "@now with no arguments",
+			code:    `let dt = @now; log(dt.year, dt.month, dt.day);`,
 			wantErr: false,
 		},
 		{
@@ -48,7 +48,7 @@ func TestDatetimeNow(t *testing.T) {
 		},
 		{
 			name:    "access datetime fields",
-			code:    `let dt = now(); log(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.weekday, dt.unix, dt.iso);`,
+			code:    `let dt = @now; log(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.weekday, dt.unix, dt.iso);`,
 			wantErr: false,
 		},
 	}
@@ -204,8 +204,8 @@ func TestDatetimeDelta(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "delta with now()",
-			code:    `let dt = time(now(), {days: 7}); log(dt.year);`,
+			name:    "delta with @now",
+			code:    `let dt = time(@now, {days: 7}); log(dt.year);`,
 			wantErr: false,
 		},
 	}
@@ -323,10 +323,10 @@ func TestDatetimeErrors(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name:    "now() with arguments",
-			code:    `let dt = now(123);`,
+			name:    "now() is removed (use @now instead)",
+			code:    `let dt = now();`,
 			wantErr: true,
-			errMsg:  "wrong number of arguments",
+			errMsg:  "Identifier not found: now",
 		},
 		{
 			name:    "time() with no arguments",
@@ -567,7 +567,7 @@ func TestDatetimeTypeField(t *testing.T) {
 	}{
 		{
 			name:     "check __type field exists",
-			code:     `let dt = now(); dt.__type`,
+			code:     `let dt = @now; dt.__type`,
 			expected: "datetime",
 		},
 		{

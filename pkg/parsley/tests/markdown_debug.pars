@@ -1,9 +1,0 @@
-let {markdown} = import @std/markdown
-let doc = markdown.parse("# Hello")
-print("doc:", doc)
-print("")
-print("children:", doc.children)
-print("")
-let h = doc.children[0]
-print("h:", h)
-print("h.level:", h.level)

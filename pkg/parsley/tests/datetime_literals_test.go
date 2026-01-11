@@ -201,8 +201,8 @@ func TestDatetimeNowLiterals(t *testing.T) {
 		{"@dateNow.__type", "datetime"},
 		{"@today.kind", "date"},
 		{"@today.__type", "datetime"},
-		{"now().kind", "datetime"},
-		{"now().__type", "datetime"},
+		{"@now.kind", "datetime"},
+		{"@now.__type", "datetime"},
 	}
 
 	for _, tt := range tests {

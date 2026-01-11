@@ -195,8 +195,6 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return evalDevModuleMethod(receiver, method, args, env)
 	case *TableModule:
 		return evalTableModuleMethod(receiver, method, args, env)
-	case *MarkdownModule:
-		return evalMarkdownModuleMethod(receiver, method, args, env)
 	case *Table:
 		return EvalTableMethod(receiver, method, args, env)
 	case *TableBinding:
