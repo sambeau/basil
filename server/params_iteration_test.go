@@ -25,7 +25,7 @@ func evalWithParams(input string, req *http.Request) evaluator.Object {
 	env := evaluator.NewEnvironment()
 	params := buildParams(req, env)
 	env.Set("@params", params)
-	
+
 	return evaluator.Eval(program, env)
 }
 
@@ -169,7 +169,7 @@ func TestParamsIterationEmpty(t *testing.T) {
 	if len(arr.Elements) == 0 {
 		t.Fatalf("expected array with elements, got empty array")
 	}
-	
+
 	num, ok := arr.Elements[len(arr.Elements)-1].(*evaluator.Integer)
 	if !ok {
 		t.Fatalf("expected last element to be Integer, got %T", arr.Elements[len(arr.Elements)-1])
