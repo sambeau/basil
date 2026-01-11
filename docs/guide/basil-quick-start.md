@@ -113,6 +113,14 @@ basil --dev --config basil.yaml
 
 Now that you have a basic app running, explore:
 
+### Configuration Options
+See [configuration-example.yaml](configuration-example.yaml) for all available options including:
+- Database configuration
+- Authentication settings
+- Compression and caching
+- Developer profiles
+- Git integration
+
 ### Dev Mode
 Use `--dev` for local development:
 - Runs HTTP on localhost (no HTTPS required)
