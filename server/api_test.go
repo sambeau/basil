@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sambeau/basil/auth"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/auth"
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestAPIRouteMapping(t *testing.T) {

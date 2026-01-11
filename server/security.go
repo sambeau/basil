@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 // securityHeaders wraps an http.Handler to add security headers to all responses.

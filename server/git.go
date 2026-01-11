@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	githttp "github.com/AaronO/go-git-http"
-	"github.com/sambeau/basil/auth"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/auth"
+	"github.com/sambeau/basil/server/config"
 )
 
 // GitHandler wraps the go-git-http handler with authentication.

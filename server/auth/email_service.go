@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sambeau/basil/auth/email"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/auth/email"
+	"github.com/sambeau/basil/server/config"
 )
 
 // EmailService handles email sending and verification

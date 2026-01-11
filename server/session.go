@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 // SessionStore defines the interface for session storage backends

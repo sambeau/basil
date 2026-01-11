@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sambeau/basil/auth"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/auth"
+	"github.com/sambeau/basil/server/config"
 	"golang.org/x/crypto/acme/autocert"
 
 	// SQLite driver (pure Go, no CGO required)

@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestQueryToMapFlags(t *testing.T) {

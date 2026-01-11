@@ -14,7 +14,7 @@ import (
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
-	"github.com/sambeau/basil/pkg/search"
+	"github.com/sambeau/basil/server/search"
 	_ "modernc.org/sqlite"
 )
 

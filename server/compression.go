@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/klauspost/compress/gzhttp"
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 // newCompressionHandler wraps an HTTP handler with gzip/zstd compression middleware.

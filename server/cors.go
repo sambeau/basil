@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sambeau/basil/config"
+	"github.com/sambeau/basil/server/config"
 )
 
 // CORSMiddleware handles Cross-Origin Resource Sharing (CORS) headers
