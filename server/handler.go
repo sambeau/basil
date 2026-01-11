@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -756,7 +757,14 @@ func buildParams(r *http.Request, env *evaluator.Environment) *evaluator.Diction
 		}
 	}
 
-	return &evaluator.Dictionary{Pairs: params, Env: env}
+	// Build KeyOrder for iteration support
+	keyOrder := make([]string, 0, len(params))
+	for key := range params {
+		keyOrder = append(keyOrder, key)
+	}
+	sort.Strings(keyOrder) // Deterministic order
+
+	return &evaluator.Dictionary{Pairs: params, KeyOrder: keyOrder, Env: env}
 }
 
 // goValueToObject converts a Go value to a Parsley Object
@@ -788,7 +796,13 @@ func goValueToObject(v interface{}) evaluator.Object {
 		for k, vv := range val {
 			pairs[k] = &ast.ObjectLiteralExpression{Obj: goValueToObject(vv)}
 		}
-		return &evaluator.Dictionary{Pairs: pairs}
+		// Build KeyOrder for iteration support
+		keyOrder := make([]string, 0, len(pairs))
+		for k := range pairs {
+			keyOrder = append(keyOrder, k)
+		}
+		sort.Strings(keyOrder) // Deterministic order
+		return &evaluator.Dictionary{Pairs: pairs, KeyOrder: keyOrder}
 	default:
 		// Unknown type - convert to string
 		return &evaluator.String{Value: fmt.Sprintf("%v", v)}

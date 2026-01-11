@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -124,7 +125,14 @@ func (h *parsleyHandler) parsePartProps(r *http.Request, env *evaluator.Environm
 		}
 	}
 
-	return &evaluator.Dictionary{Pairs: props, Env: env}, nil
+	// Build KeyOrder for iteration support
+	keyOrder := make([]string, 0, len(props))
+	for key := range props {
+		keyOrder = append(keyOrder, key)
+	}
+	sort.Strings(keyOrder) // Deterministic order
+
+	return &evaluator.Dictionary{Pairs: props, KeyOrder: keyOrder, Env: env}, nil
 }
 
 // coerceFormValue applies type coercion to form values
