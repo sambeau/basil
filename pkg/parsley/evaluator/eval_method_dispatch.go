@@ -182,6 +182,14 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 // Network I/O operations (evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement) are in eval_network_io.go
 
 func dispatchMethodCall(left Object, method string, args []Object, env *Environment) Object {
+	// Universal .type() method - works on all objects
+	if method == "type" {
+		if len(args) != 0 {
+			return newArityError("type", len(args), 0)
+		}
+		return &String{Value: getObjectTypeString(left)}
+	}
+
 	switch receiver := left.(type) {
 	case *DevModule:
 		return evalDevModuleMethod(receiver, method, args, env)

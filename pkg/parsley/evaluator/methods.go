@@ -39,7 +39,7 @@ var (
 
 // stringMethods lists all methods available on string
 var stringMethods = []string{
-	"toUpper", "toLower", "toTitle", "trim", "split", "replace", "length", "includes",
+	"type", "toUpper", "toLower", "toTitle", "trim", "split", "replace", "length", "includes",
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
@@ -48,23 +48,23 @@ var stringMethods = []string{
 
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
-	"length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
+	"type", "length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
 	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll",
 }
 
 // integerMethods lists all methods available on integer
 var integerMethods = []string{
-	"abs", "format", "humanize",
+	"type", "abs", "format", "humanize",
 }
 
 // floatMethods lists all methods available on float
 var floatMethods = []string{
-	"abs", "format", "round", "floor", "ceil", "humanize",
+	"type", "abs", "format", "round", "floor", "ceil", "humanize",
 }
 
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
-	"keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON",
+	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint

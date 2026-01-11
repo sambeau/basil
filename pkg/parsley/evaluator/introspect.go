@@ -401,6 +401,103 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 // Type Detection
 // ============================================================================
 
+// getObjectTypeString returns a user-facing type name string for .type() method
+// Returns lowercase semantic type names consistent with pseudo-type __type fields
+func getObjectTypeString(obj Object) string {
+	switch o := obj.(type) {
+	case *String:
+		return "string"
+	case *Integer:
+		return "integer"
+	case *Float:
+		return "float"
+	case *Boolean:
+		return "boolean"
+	case *Array:
+		return "array"
+	case *Function:
+		return "function"
+	case *Builtin:
+		return "builtin"
+	case *StdlibBuiltin:
+		return "builtin"
+	case *Money:
+		return "money"
+	case *Table:
+		return "table"
+	case *TableBinding:
+		return "table"
+	case *DBConnection:
+		return "database"
+	case *SFTPConnection:
+		return "sftp"
+	case *SFTPFileHandle:
+		return "file"
+	case *SessionModule:
+		return "session"
+	case *DevModule:
+		return "module"
+	case *TableModule:
+		return "module"
+	case *MarkdownModule:
+		return "module"
+	case *StdlibRoot:
+		return "module"
+	case *BasilRoot:
+		return "module"
+	case *StdlibModuleDict:
+		return "module"
+	case *MdDoc:
+		return "markdown"
+	case *DSLSchema:
+		return "schema"
+	case *Dictionary:
+		// For dictionaries with __type field, return that value
+		if typeExpr, ok := o.Pairs["__type"]; ok {
+			if typeStr, ok := typeExpr.(*ast.StringLiteral); ok {
+				return typeStr.Value
+			}
+		}
+		// Check for pseudo-types without evaluating (for efficiency)
+		if isDatetimeDict(o) {
+			return "datetime"
+		}
+		if isDurationDict(o) {
+			return "duration"
+		}
+		if isPathDict(o) {
+			return "path"
+		}
+		if isUrlDict(o) {
+			return "url"
+		}
+		if isRegexDict(o) {
+			return "regex"
+		}
+		if isFileDict(o) {
+			return "file"
+		}
+		if isDirDict(o) {
+			return "dir"
+		}
+		if isRequestDict(o) {
+			return "request"
+		}
+		if isResponseDict(o) {
+			return "response"
+		}
+		// Regular dictionary
+		return "dictionary"
+	case *Null:
+		return "null"
+	case *Error:
+		return "error"
+	default:
+		// Fallback to ObjectType string
+		return strings.ToLower(string(obj.Type()))
+	}
+}
+
 // getObjectTypeName returns the type name and subtype (for typed dicts) of an object
 func getObjectTypeName(obj Object, env *Environment) (typeName string, subType string) {
 	switch o := obj.(type) {

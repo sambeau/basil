@@ -4316,8 +4316,11 @@ func Eval(node ast.Node, env *Environment) Object {
 				return left
 			}
 
+			method := dotExpr.Key
+
 			// Null propagation: method calls on null return null
-			if left == NULL || left == nil {
+			// EXCEPT for .type() which works on all objects including null
+			if (left == NULL || left == nil) && method != "type" {
 				return NULL
 			}
 
@@ -4326,8 +4329,6 @@ func Eval(node ast.Node, env *Environment) Object {
 			if len(args) == 1 && isError(args[0]) {
 				return args[0]
 			}
-
-			method := dotExpr.Key
 
 			// Dispatch based on receiver type and enrich errors with position
 			result := dispatchMethodCall(left, method, args, env)

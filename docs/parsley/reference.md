@@ -56,6 +56,76 @@ Complete reference for all Parsley types, methods, and operators.
 
 ---
 
+## Universal Methods
+
+All Parsley values have these methods:
+
+### `.type()` - Get Type as String
+
+Returns a lowercase string representing the value's type. This method works consistently across all types, including `null`.
+
+```parsley
+"hello".type()           // "string"
+42.type()                // "integer"
+3.14.type()              // "float"
+true.type()              // "boolean"
+null.type()              // "null"
+[1, 2, 3].type()         // "array"
+{a: 1}.type()            // "dictionary"
+fn(x) { x }.type()       // "function"
+regex("test").type()     // "regex"
+url("https://example.com").type()  // "url"
+@2024-11-26T15:30:00.type()       // "datetime"
+@1d.type()               // "duration"
+@./file.txt.type()       // "path"
+$12.34.type()            // "money"
+```
+
+**Type-based Dispatch:**
+
+```parsley
+let process = fn(val) {
+  if val.type() == "string" {
+    "Text: " + val
+  } else if val.type() == "integer" {
+    "Number: " + repr(val)
+  } else if val.type() == "array" {
+    "List with " + repr(val.length()) + " items"
+  } else {
+    "Unknown type: " + val.type()
+  }
+}
+
+process("hello")   // "Text: hello"
+process(42)        // "Number: 42"
+process([1, 2, 3]) // "List with 3 items"
+```
+
+**Consistent with Pseudo-types:**
+
+For pseudo-types (datetime, duration, path, url, regex, file, dir), `.type()` returns the same value as the `__type` field:
+
+```parsley
+let dt = @2024-11-26T15:30:00
+dt.type()            // "datetime"
+dt.__type            // "datetime" (same)
+
+let u = url("https://example.com")
+u.type()             // "url"
+u.__type             // "url" (same)
+```
+
+**Null Safety:**
+
+Unlike other methods, `.type()` works on `null` values (does not propagate null):
+
+```parsley
+null.type()          // "null" (not null propagation)
+null.length()        // null (normal null propagation)
+```
+
+---
+
 ## Operators
 
 ### Arithmetic
@@ -481,6 +551,7 @@ Only one escape: `` \` `` (backtick)
 
 | Method | Description | Example |
 |--------|-------------|---------|
+| `.type()` | Get type as string | `"hello".type()` → `"string"` |
 | `.length()` | String length | `"hello".length()` → `5` |
 | `.toUpper()` | Uppercase | `"hello".toUpper()` → `"HELLO"` |
 | `.toLower()` | Lowercase | `"HELLO".toLower()` → `"hello"` |
@@ -543,6 +614,7 @@ printf("Hi @{name}!", {name: "Ada"}) // Builtin synonym
 
 | Method | Description | Example |
 |--------|-------------|---------|
+| `.type()` | Get type as string | `[1,2,3].type()` → `"array"` |
 | `.length()` | Array length | `[1,2,3].length()` → `3` |
 | `.insert(i, v)` | Insert before index | `[1,3].insert(1, 2)` → `[1,2,3]` |
 | `.has(item)` | Check if item exists | `[1,2,3].has(2)` → `true` |
@@ -660,6 +732,7 @@ arr[?-99]    // null
 
 | Method | Description | Example |
 |--------|-------------|---------|
+| `.type()` | Get type as string | `{a:1}.type()` → `"dictionary"` |
 | `.keys()` | All keys | `{a:1}.keys()` → `["a"]` |
 | `.values()` | All values | `{a:1}.values()` → `[1]` |
 | `.has(key)` | Key exists | `{a:1}.has("a")` → `true` |
@@ -712,6 +785,7 @@ let config = {
 
 | Method | Description | Example |
 |--------|-------------|---------|
+| `.type()` | Get type as string | `42.type()` → `"integer"`, `3.14.type()` → `"float"` |
 | `.format()` | Locale format | `1234567.format()` → `"1,234,567"` |
 | `.format(locale)` | With locale | `1234.format("de-DE")` → `"1.234"` |
 | `.currency(code)` | Currency format | `99.currency("USD")` → `"$99.00"` |
