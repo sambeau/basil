@@ -16,7 +16,7 @@ const (
 	MaxDOCXSize = 50 * 1024 * 1024
 
 	// XML namespaces used in DOCX
-	nsWordML = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+	nsWordML  = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 	nsDCTerms = "http://purl.org/dc/terms/"
 	nsDC      = "http://purl.org/dc/elements/1.1/"
 )

@@ -57,8 +57,10 @@ func main() {
 	// Get filename from remaining args
 	args := flag.Args()
 	var filename string
+	var scriptArgs []string
 	if len(args) > 0 {
 		filename = args[0]
+		scriptArgs = args[1:] // Everything after filename goes to @args
 	}
 
 	// Determine pretty print setting
@@ -66,7 +68,7 @@ func main() {
 
 	if filename != "" {
 		// File execution mode
-		executeFile(filename, prettyPrint)
+		executeFile(filename, scriptArgs, prettyPrint)
 	} else {
 		// REPL mode
 		repl.Start(os.Stdin, os.Stdout, Version)
@@ -109,7 +111,7 @@ For more information, visit: https://github.com/sambeau/parsley
 }
 
 // executeFile reads and executes a pars source file
-func executeFile(filename string, prettyPrint bool) {
+func executeFile(filename string, scriptArgs []string, prettyPrint bool) {
 	// Build security policy (always create one to enable default restrictions)
 	policy, err := buildSecurityPolicy()
 	if err != nil {
@@ -135,8 +137,8 @@ func executeFile(filename string, prettyPrint bool) {
 		os.Exit(1)
 	}
 
-	// Evaluate the program
-	env := evaluator.NewEnvironment()
+	// Evaluate the program with @env and @args populated
+	env := evaluator.NewEnvironmentWithArgs(scriptArgs)
 	env.Filename = filename
 	env.Security = policy
 	evaluated := evaluator.Eval(program, env)

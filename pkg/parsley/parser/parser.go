@@ -105,6 +105,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.SHELL_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.DB_LITERAL, p.parseConnectionLiteral)
 	p.registerPrefix(lexer.SEARCH_LITERAL, p.parseConnectionLiteral)
+	p.registerPrefix(lexer.ENV_LITERAL, p.parseBuiltinGlobal)
+	p.registerPrefix(lexer.ARGS_LITERAL, p.parseBuiltinGlobal)
+	p.registerPrefix(lexer.PARAMS_LITERAL, p.parseBuiltinGlobal)
 	p.registerPrefix(lexer.SCHEMA_LITERAL, p.parseSchemaDeclaration)
 	p.registerPrefix(lexer.QUERY_LITERAL, p.parseQueryExpression)
 	p.registerPrefix(lexer.INSERT_LITERAL, p.parseInsertExpression)
@@ -1138,6 +1141,16 @@ func (p *Parser) parseConnectionLiteral() ast.Expression {
 	return &ast.ConnectionLiteral{
 		Token: p.curToken,
 		Kind:  kind,
+	}
+}
+
+// parseBuiltinGlobal parses @env, @args, and @params as identifier lookups.
+// These tokens resolve to built-in variables in the environment.
+func (p *Parser) parseBuiltinGlobal() ast.Expression {
+	// Return an identifier that will be looked up in the environment
+	return &ast.Identifier{
+		Token: p.curToken,
+		Value: p.curToken.Literal, // "@env", "@args", or "@params"
 	}
 }
 

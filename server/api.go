@@ -94,6 +94,9 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
 
+	// Inject @params - merged query+form params (POST wins)
+	env.Set("@params", buildParams(r, env))
+
 	if h.server.devLog != nil {
 		env.DevLog = h.server.devLog
 	}

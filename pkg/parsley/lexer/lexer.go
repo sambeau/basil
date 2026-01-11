@@ -34,6 +34,9 @@ const (
 	SHELL_LITERAL     // @shell
 	DB_LITERAL        // @DB
 	SEARCH_LITERAL    // @SEARCH
+	ENV_LITERAL       // @env
+	ARGS_LITERAL      // @args
+	PARAMS_LITERAL    // @params
 	SCHEMA_LITERAL    // @schema
 	QUERY_LITERAL     // @query
 	INSERT_LITERAL    // @insert
@@ -188,6 +191,12 @@ func (tt TokenType) String() string {
 		return "SHELL_LITERAL"
 	case DB_LITERAL:
 		return "DB_LITERAL"
+	case ENV_LITERAL:
+		return "ENV_LITERAL"
+	case ARGS_LITERAL:
+		return "ARGS_LITERAL"
+	case PARAMS_LITERAL:
+		return "PARAMS_LITERAL"
 	case PATH_LITERAL:
 		return "PATH_LITERAL"
 	case URL_LITERAL:
@@ -951,6 +960,27 @@ func (l *Lexer) NextToken() Token {
 		case SEARCH_LITERAL:
 			tok.Type = SEARCH_LITERAL
 			tok.Literal = l.readConnectionLiteral("SEARCH")
+		case ENV_LITERAL:
+			tok.Type = ENV_LITERAL
+			tok.Literal = "@env"
+			l.readChar()             // skip @
+			for i := 0; i < 3; i++ { // consume "env"
+				l.readChar()
+			}
+		case ARGS_LITERAL:
+			tok.Type = ARGS_LITERAL
+			tok.Literal = "@args"
+			l.readChar()             // skip @
+			for i := 0; i < 4; i++ { // consume "args"
+				l.readChar()
+			}
+		case PARAMS_LITERAL:
+			tok.Type = PARAMS_LITERAL
+			tok.Literal = "@params"
+			l.readChar()             // skip @
+			for i := 0; i < 6; i++ { // consume "params"
+				l.readChar()
+			}
 		case SCHEMA_LITERAL:
 			tok.Type = SCHEMA_LITERAL
 			tok.Literal = l.readDSLKeyword("schema")
@@ -2443,6 +2473,9 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		{"shell", SHELL_LITERAL},
 		{"DB", DB_LITERAL},
 		{"SEARCH", SEARCH_LITERAL},
+		{"env", ENV_LITERAL},
+		{"args", ARGS_LITERAL},
+		{"params", PARAMS_LITERAL},
 	} {
 		if l.isKeywordAt(pos, conn.keyword) {
 			return conn.token

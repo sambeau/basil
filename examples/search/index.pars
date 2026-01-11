@@ -1,8 +1,6 @@
 // Phase 2 Auto-Indexing Example
 // Demonstrates automatic indexing from filesystem: @SEARCH({watch: @./docs}).query("hello")
 
-let {query as queryParams} = import @basil/http
-
 // Create a search instance that watches the docs directory
 // The index is automatically populated on first query
 {search, error} = @SEARCH({
@@ -25,8 +23,8 @@ if (error) {
   </body>
   </html>
 } else {
-  // Get the search query from URL parameters
-  searchQuery = if (queryParams["q"]) queryParams["q"] else ""
+  // Get the search query from URL parameters using @params
+  searchQuery = @params.q ?? ""
 
   // Query the search index
   results = search.query(searchQuery, {limit: 10, offset: 0})

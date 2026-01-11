@@ -160,6 +160,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			RestrictRead:  []string{"/etc", "/var", "/root"},
 		}
 
+		// Inject @params for Part requests
+		env.Set("@params", buildParams(r, env))
+
 		// Handle the Part request
 		h.handlePartRequest(w, r, h.scriptPath, env)
 		return
@@ -289,6 +292,9 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
+
+	// Inject @params - merged query+form params (POST wins)
+	env.Set("@params", buildParams(r, env))
 
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
@@ -673,6 +679,120 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 	}
 
 	return ctx
+}
+
+// buildParams creates the @params dictionary by merging query and form parameters.
+// POST/form values take precedence over GET/query values (Rails convention).
+// Returns an evaluator.Dictionary suitable for injection into the environment.
+func buildParams(r *http.Request, env *evaluator.Environment) *evaluator.Dictionary {
+	params := make(map[string]ast.Expression)
+
+	// First, add query parameters (GET)
+	for key, values := range r.URL.Query() {
+		if len(values) == 1 {
+			params[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: values[0]}}
+		} else {
+			// Multiple values - create array
+			elements := make([]evaluator.Object, len(values))
+			for i, v := range values {
+				elements[i] = &evaluator.String{Value: v}
+			}
+			params[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.Array{Elements: elements}}
+		}
+	}
+
+	// Then, add form parameters (POST/PUT/PATCH)
+	// These override query params with the same name
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
+		contentType := r.Header.Get("Content-Type")
+
+		if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+			// Parse form if not already parsed
+			if r.PostForm == nil {
+				_ = r.ParseForm()
+			}
+			for key, values := range r.PostForm {
+				if len(values) == 1 {
+					params[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: values[0]}}
+				} else {
+					elements := make([]evaluator.Object, len(values))
+					for i, v := range values {
+						elements[i] = &evaluator.String{Value: v}
+					}
+					params[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.Array{Elements: elements}}
+				}
+			}
+		} else if strings.HasPrefix(contentType, "multipart/form-data") {
+			// Parse multipart if not already parsed
+			if r.MultipartForm == nil {
+				_ = r.ParseMultipartForm(32 << 20)
+			}
+			if r.MultipartForm != nil {
+				for key, values := range r.MultipartForm.Value {
+					if len(values) == 1 {
+						params[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: values[0]}}
+					} else {
+						elements := make([]evaluator.Object, len(values))
+						for i, v := range values {
+							elements[i] = &evaluator.String{Value: v}
+						}
+						params[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.Array{Elements: elements}}
+					}
+				}
+			}
+		} else if strings.HasPrefix(contentType, "application/json") {
+			// For JSON, parse the body and merge top-level keys as params
+			if r.Body != nil {
+				body, _ := io.ReadAll(r.Body)
+				// Restore body for subsequent reads
+				r.Body = io.NopCloser(strings.NewReader(string(body)))
+				var data map[string]interface{}
+				if json.Unmarshal(body, &data) == nil {
+					for key, value := range data {
+						params[key] = &ast.ObjectLiteralExpression{Obj: goValueToObject(value)}
+					}
+				}
+			}
+		}
+	}
+
+	return &evaluator.Dictionary{Pairs: params, Env: env}
+}
+
+// goValueToObject converts a Go value to a Parsley Object
+func goValueToObject(v interface{}) evaluator.Object {
+	switch val := v.(type) {
+	case string:
+		return &evaluator.String{Value: val}
+	case float64:
+		return &evaluator.Float{Value: val}
+	case int:
+		return &evaluator.Integer{Value: int64(val)}
+	case int64:
+		return &evaluator.Integer{Value: val}
+	case bool:
+		if val {
+			return evaluator.TRUE
+		}
+		return evaluator.FALSE
+	case nil:
+		return evaluator.NULL
+	case []interface{}:
+		elements := make([]evaluator.Object, len(val))
+		for i, elem := range val {
+			elements[i] = goValueToObject(elem)
+		}
+		return &evaluator.Array{Elements: elements}
+	case map[string]interface{}:
+		pairs := make(map[string]ast.Expression)
+		for k, vv := range val {
+			pairs[k] = &ast.ObjectLiteralExpression{Obj: goValueToObject(vv)}
+		}
+		return &evaluator.Dictionary{Pairs: pairs}
+	default:
+		// Unknown type - convert to string
+		return &evaluator.String{Value: fmt.Sprintf("%v", v)}
+	}
 }
 
 // parseRequestBody parses the request body based on content type

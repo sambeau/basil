@@ -594,12 +594,43 @@ type Environment struct {
 
 // NewEnvironment creates a new environment
 func NewEnvironment() *Environment {
+	return NewEnvironmentWithArgs(nil)
+}
+
+// NewEnvironmentWithArgs creates a new environment with @env and @args globals populated.
+// This is the primary constructor for creating Parsley environments.
+// - @env: dictionary of environment variables (read from os.Environ)
+// - @args: array of command-line arguments (passed in, or empty if nil)
+func NewEnvironmentWithArgs(args []string) *Environment {
 	s := make(map[string]Object)
 	l := make(map[string]bool)
 	x := make(map[string]bool)
 	p := make(map[string]bool)
 	i := make(map[string]bool)
-	return &Environment{store: s, outer: nil, letBindings: l, exports: x, protected: p, importStack: i, Logger: DefaultLogger}
+	env := &Environment{store: s, outer: nil, letBindings: l, exports: x, protected: p, importStack: i, Logger: DefaultLogger}
+
+	// Populate @env from environment variables
+	envPairs := make(map[string]ast.Expression)
+	for _, e := range os.Environ() {
+		if key, value, ok := strings.Cut(e, "="); ok {
+			envPairs[key] = &ast.ObjectLiteralExpression{Obj: &String{Value: value}}
+		}
+	}
+	env.store["@env"] = &Dictionary{Pairs: envPairs, Env: env}
+
+	// Populate @args from provided arguments (or empty array)
+	var argElements []Object
+	if args != nil {
+		argElements = make([]Object, len(args))
+		for i, arg := range args {
+			argElements[i] = &String{Value: arg}
+		}
+	} else {
+		argElements = []Object{}
+	}
+	env.store["@args"] = &Array{Elements: argElements}
+
+	return env
 }
 
 // NewEnclosedEnvironment creates a new environment with outer reference
