@@ -46,5 +46,5 @@ Document any significant choices made during design:
 *Added during/after implementation*
 
 ## Related
-- Plan: `docs/plans/FEAT-XXX-plan.md`
-- ADRs: List any related architecture decisions
+- Plan: `work/plans/FEAT-XXX-plan.md`
+- Design docs: Link any related design documents from work/design/
