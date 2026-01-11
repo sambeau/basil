@@ -22,7 +22,7 @@ This addresses the current issue where docs/ mixes user documentation with workf
 
 **Branch:** `feat/docs-reorganization`  
 **Estimated Total Time:** 10-12 hours  
-**Files Affected:** ~249 documentation files + 2 package moves (auth, config) + ~20 .github files
+**Files Affected:** ~249 documentation files + 3 package moves (auth, config, search) + ~20 .github files
 
 ## Prerequisites
 
@@ -379,13 +379,21 @@ Archive files (CHEATSHEET.old.md, etc.) deferred to human review before 1.0.
    git mv config server/config
    ```
 
-3. Update imports in all Go files:
+3. Move pkg/search/ to server/search/:
+   ```bash
+   git mv pkg/search server/search
+   ```
+
+4. Update imports in all Go files:
    ```bash
    # Update auth imports
    find . -name "*.go" -exec sed -i '' 's|"github.com/sambeau/basil/auth"|"github.com/sambeau/basil/server/auth"|g' {} +
    
    # Update config imports
    find . -name "*.go" -exec sed -i '' 's|"github.com/sambeau/basil/config"|"github.com/sambeau/basil/server/config"|g' {} +
+   
+   # Update search imports
+   find . -name "*.go" -exec sed -i '' 's|"github.com/sambeau/basil/pkg/search"|"github.com/sambeau/basil/server/search"|g' {} +
    ```
 
 4. Run go mod tidy:
@@ -417,6 +425,7 @@ cd examples/auth && ../../basil &
 # 5. Check for any remaining old imports
 grep -r '"github.com/sambeau/basil/auth"' --include="*.go" .
 grep -r '"github.com/sambeau/basil/config"' --include="*.go" .
+grep -r '"github.com/sambeau/basil/pkg/search"' --include="*.go" .
 # Should return NO results
 ```
 
@@ -424,18 +433,20 @@ grep -r '"github.com/sambeau/basil/config"' --include="*.go" .
 
 **Commit message:**
 ```
-refactor: move auth/ and config/ to server/
+refactor: move auth/, config/, and search/ to server/
 
 Relocated server-specific packages to server/ directory:
 - auth/ → server/auth/
 - config/ → server/config/
+- pkg/search/ → server/search/
 
 These are Basil-server-specific implementations, not reusable
-packages, so they belong under server/ rather than root.
+packages, so they belong under server/ rather than root/pkg/.
 
 Updated all imports:
 - github.com/sambeau/basil/auth → github.com/sambeau/basil/server/auth
 - github.com/sambeau/basil/config → github.com/sambeau/basil/server/config
+- github.com/sambeau/basil/pkg/search → github.com/sambeau/basil/server/search
 
 Breaking change: External imports of these packages will need updating.
 
@@ -522,7 +533,7 @@ All tests pass. Ready for merge to main.
    Major changes:
    - Moved 249 workflow files to work/
    - Updated all .github/ workflow files
-   - Moved auth/ and config/ to server/ (breaking change)
+   - Moved auth/, config/, and search/ to server/ (breaking change)
    - Updated 100+ internal cross-references
    - Cleaned up metadata and archive files
    
@@ -551,7 +562,7 @@ Completed comprehensive documentation reorganization to separate:
 Major changes:
 - Moved 249 workflow files to work/
 - Updated all .github/ workflow files
-- Moved auth/ and config/ to server/ (breaking change)
+- Moved auth/, config/, and search/ to server/ (breaking change)
 - Updated 100+ internal cross-references
 - Cleaned up metadata and archive files
 
@@ -641,7 +652,7 @@ Items to handle separately (not part of this reorganization):
 - **ID_COUNTER.md Location:** Moved to work/ID_COUNTER.md since it's workflow-only. All .github/ files updated to reference new location.
 - **BACKLOG.md Location:** Moved to work/BACKLOG.md since it's workflow-only (tracks deferred items during feature implementation). All .github/ files updated to reference new location.
 - **CHANGELOG.md Location:** Stays in root (user-facing release history, not workflow tracking).
-- **Breaking Changes:** Phase 6 moves auth/ and config/ packages. External projects importing these will need to update their imports (unlikely before 1.0).
+- **Breaking Changes:** Phase 6 moves auth/, config/, and search/ packages. External projects importing these will need to update their imports (unlikely before 1.0). search/ was in pkg/ but is server-specific, not a reusable library.
 - **Critical Testing Points:** Phase 3 (AI workflows) and Phase 6 (Go imports/tests)
 - **Time Estimate:** 10-12 hours total, can be done over 2-3 sessions
 - **Safety:** Feature branch approach allows easy rollback
