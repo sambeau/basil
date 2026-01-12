@@ -18,8 +18,8 @@ When writing Parsley code in Basil handlers, tests, or examples, consult this re
 **Tags don't need quotes** - they are first-class syntax:
 ```parsley
 // ✅ CORRECT - Tags are native syntax
-<p>Hello</p>
-<div class="card">Content</div>
+<p>"Hello"</p>
+<div class="card">"Content"</div>
 
 // ❌ WRONG - Don't quote tags
 "<p>Hello</p>"
@@ -58,7 +58,6 @@ console.log("hello")
 ```parsley
 // ✅ CORRECT
 // This is a comment
-/* Multi-line comment */
 
 // ❌ WRONG - Will error
 # This is not a comment
@@ -68,7 +67,7 @@ console.log("hello")
 ```parsley
 // ✅ CORRECT
 let name = "Alice"
-"Hello, {name}!"
+`Hello, {name}!`
 
 // ❌ WRONG
 "Hello, ${name}!"
@@ -127,7 +126,7 @@ let Page = fn({title, contents}) {
 // In Page.pars - export the component
 export Page = fn({title, contents}) {
     <html>
-    <head><title>{title}</title></head>
+    <head><title>title</title></head>
     <body>contents</body>
     </html>
 }
@@ -173,6 +172,6 @@ export Page = fn({title, contents}) {
 | If expr | `if (x) "yes" else "no"` |
 | For loop | `for (x in arr) { x * 2 }` |
 | Dictionary | `{x: 1, y: 2}` |
-| String interp | `"Hello {name}"` |
+| String interp | ` `Hello {name}` ` or `'Hello @{name}'` |
 | Null | `null` |
 | Comment | `// comment` |
