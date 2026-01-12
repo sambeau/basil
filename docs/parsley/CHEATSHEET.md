@@ -572,7 +572,7 @@ let {mdDoc} = import @std/mdDoc
 
 // Basil context (available in handlers)
 let {request, response, query, route, method} = import @basil/http
-let {db, session, auth, user} = import @basil/auth
+let {session, auth, user} = import @basil/auth
 ```
 
 ### Math Module (`@std/math`)
@@ -812,7 +812,7 @@ response.cookies.session = {
 
 ### Sessions & Auth (`@basil/auth`)
 ```parsley
-let {db, session, auth, user} = import @basil/auth
+let {session, auth, user} = import @basil/auth
 
 // Session: store values
 session.set("user_id", 123)
@@ -837,8 +837,8 @@ user                                      // Current user (auth.user shortcut)
 auth.user                                 // Same as above
 auth.isLoggedIn                           // Boolean
 
-// Database
-db <=?=> "SELECT * FROM users WHERE id = ?" [userId]
+// Database - use @DB magic variable instead
+@DB <=?=> `SELECT * FROM users WHERE id = {userId}`
 ```
 
 **Session notes:**

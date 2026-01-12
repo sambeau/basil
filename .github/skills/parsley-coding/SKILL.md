@@ -27,7 +27,7 @@ Use this skill when you need to:
 **Basil-only features** (not available in standalone Parsley):
 - `@params` - URL/form parameters
 - `import @basil/http` - request, response, query, route, method
-- `import @basil/auth` - db, session, auth, user
+- `import @basil/auth` - session, auth, user
 - HTTP-specific functionality (cookies, headers, sessions)
 
 **Parsley features** work everywhere:

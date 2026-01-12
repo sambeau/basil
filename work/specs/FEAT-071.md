@@ -17,7 +17,7 @@ As a Basil developer, I want intuitive access to HTTP request data so that I can
 
 ## Acceptance Criteria
 - [x] `import @basil/http` provides `{request, response, query, route, method}`
-- [x] `import @basil/auth` provides `{db, session}`
+- [x] `import @basil/auth` provides `{session, auth, user}`
 - [x] `import @basil` shows available modules via introspection (`.?`)
 - [x] `import @std` shows available modules via introspection (`.?`)
 - [x] Query params `?flag` (no value) return `true` instead of `""`

@@ -934,17 +934,6 @@ func TestBasilAuthModuleWithContext(t *testing.T) {
 		assert func(t *testing.T, obj evaluator.Object)
 	}{
 		{
-			name: "db",
-			src: `let {db} = import @basil/auth
-db`,
-			assert: func(t *testing.T, obj evaluator.Object) {
-				s, ok := obj.(*evaluator.String)
-				if !ok || s.Value != "db-conn" {
-					t.Fatalf("expected db-conn, got %s", obj.Inspect())
-				}
-			},
-		},
-		{
 			name: "session",
 			src: `let {session} = import @basil/auth
 session.id`,

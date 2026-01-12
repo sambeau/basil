@@ -295,19 +295,12 @@ func loadBasilHTTPModule(env *Environment) Object {
 }
 
 // loadBasilAuthModule returns the auth/database/session basil module
-// Exports: db (sqlite), session, auth (auth context), user (auth.user shortcut)
-// Session and auth exports are DynamicAccessors for per-request freshness.
-// db is also dynamic to support hot-reloading of database configuration.
+// Exports: session, auth (auth context), user (auth.user shortcut)
+// All exports are DynamicAccessors for per-request freshness.
+// Note: Database access has been moved to @DB magic variable.
 func loadBasilAuthModule(env *Environment) Object {
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
-			"db": &DynamicAccessor{
-				Name: "db",
-				Resolver: func(e *Environment) Object {
-					basilDict := getBasilCtxDict(e)
-					return ensureObject(evalDictValue(basilDict, "sqlite", e))
-				},
-			},
 			"session": &DynamicAccessor{
 				Name: "session",
 				Resolver: func(e *Environment) Object {

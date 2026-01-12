@@ -85,7 +85,7 @@ Steps:
 4. Handle missing context gracefully
 
 Tests:
-- `let {db, session} = import @basil/auth` works
+- `let {session} = import @basil/auth` works
 - Works outside handler context
 
 ---

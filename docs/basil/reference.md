@@ -742,24 +742,12 @@ if (method == "POST") {
 **Server-only**: Available when auth is configured in `basil.yaml`.
 
 ```parsley
-let {db, session, auth, user} = import @basil/auth
+let {session, auth, user} = import @basil/auth
 ```
 
 All exports are dynamic accessors for per-request freshness.
 
-### 6.1 db
-
-Server-configured database connection.
-
-**Type:** `DBConnection` (managed—cannot be closed by scripts)
-
-**Example:**
-```parsley
-let {db} = import @basil/auth
-let users = db <=??=> "SELECT * FROM users"
-```
-
-### 6.2 session
+### 6.1 session
 
 Current session module (see Section 7 for methods).
 
