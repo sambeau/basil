@@ -1,9 +1,21 @@
 ---
 name: basil-development
-description: Develop and test Basil web applications with HTTP handlers, routing, sessions, authentication, databases, and interactive components (Parts). Use when building Basil web apps, configuring basil.yaml, testing handlers with curl, working with @basil/http or @basil/auth context, or debugging routing and Parts.
+description: Develop and test Basil web applications with HTTP handlers, routing, sessions, authentication, databases, and interactive components (Parts). 
 ---
 
 # Basil Development
+
+## When to use this skill
+
+Use when:
+- building Basil web apps, 
+- configuring basil.yaml, 
+- testing handlers with curl, 
+- working with @basil/http 
+- working with @basil/auth context, 
+- debugging routing and Parts.
+
+Use this skill when you need to:
 
 ## What is Basil?
 
