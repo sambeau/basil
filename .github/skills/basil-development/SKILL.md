@@ -33,12 +33,10 @@ Parsley files that handle HTTP requests.
 
 ```parsley
 // site/index.pars
-let {query} = import @basil/http
-
 <html>
 <body>
   <h1>"Welcome!"</h1>
-  <p>"Search: {query.q ?? 'none'}"</p>
+  <p>"Search: {@params.q ?? 'none'}"</p>
 </body>
 </html>
 ```
@@ -89,9 +87,9 @@ routes:
 ### HTTP Context (@basil/http)
 
 ```parsley
-let {request, response, query, method} = import @basil/http
+let {request, response, method} = import @basil/http
 
-query           // URL params: {id: "123"}
+@params         // URL/form params: {id: "123"}
 method          // "GET", "POST", etc.
 request.form    // POST form data
 request.path    // "/api/users/123"
@@ -150,14 +148,14 @@ let users = db <=??=> "SELECT * FROM users ORDER BY name"
 ### JSON API Handler
 
 ```parsley
-let {method, query} = import @basil/http
+let {method} = import @basil/http
 let {db} = import @basil/auth
 
 if (method == "GET") {
   let users = db <=??=> "SELECT id, name FROM users"
   {users: users}
 } else if (method == "POST") {
-  let result = db <=!=> "INSERT INTO users (name) VALUES (?)" [query.name]
+  let result = db <=!=> "INSERT INTO users (name) VALUES (?)" [@params.name]
   {id: result.lastId}
 }
 ```
@@ -237,7 +235,7 @@ auth:
 ### Import Essentials
 
 ```parsley
-let {query, method, request, response} = import @basil/http
+let {method, request, response} = import @basil/http
 let {db, session, user} = import @basil/auth
 let {redirect, notFound} = import @std/api
 ```

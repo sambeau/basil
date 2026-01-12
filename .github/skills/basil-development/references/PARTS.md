@@ -123,7 +123,7 @@ export add = fn(props) {
 ### With ID (for targeted updates)
 
 ```parsley
-<Part src={@~/parts/search-results.part} id="results" query=""/>
+<Part src={@~/parts/search-results.part} id="results" q={@params.q}/>
 ```
 
 ### With Auto-Refresh
