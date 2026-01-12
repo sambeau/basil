@@ -331,7 +331,7 @@ ONLY available in Basil handlers, NOT in standalone pars:
 
 ```parsley
 import @basil/http       // request, response, query, route, method
-import @basil/auth       // db, session, auth, user
+import @basil/auth       // session, auth, user
 ```
 
 ### 18. Magic Variables
@@ -371,6 +371,13 @@ When writing tests and examples:
 - **Examples**: Create in `examples/*/handlers/*.pars`
 - **Quick validation**: Use `./pars` to test snippets before documenting
 - **Handler testing**: Run `./basil --dev` and test in browser
+
+## Detailed Documentation
+
+For comprehensive guides, see:
+
+- **Parsley**: `docs/parsley/CHEATSHEET.md` and `docs/parsley/reference.md`
+- **Basil API**: `docs/basil/reference.md` - Full language reference with all operators and builtins
 
 ## Best practices
 

@@ -21,7 +21,7 @@ export default = fn(props) {
   let count = props.count ?? 0
   
   <div id="counter">
-    <p>"Count: {count}"</p>
+    <p>`Count: {count}`</p>
     <button part-click="increment" part-count={count + 1}>"Increment"</button>
     <button part-click="decrement" part-count={count - 1}>"Decrement"</button>
     <button part-click="reset" part-count={0}>"Reset"</button>
@@ -47,62 +47,6 @@ export reset = fn(props) {
 - `part-click` attributes trigger state transitions
 - `part-*` attributes become props for the next render
 
-### Part with Database
-
-```parsley
-// parts/todos.part
-let {db} = import @basil/auth
-
-export default = fn(props) {
-  let todos = db <=??=> "SELECT * FROM todos WHERE done = 0 ORDER BY created"
-  
-  <div>
-    <h3>"To-Do List"</h3>
-    <ul>
-      for (todo in todos) {
-        <li>
-          todo.title
-          <button part-click="complete" part-id={todo.id}>"✓"</button>
-        </li>
-      }
-    </ul>
-  </div>
-}
-
-export complete = fn(props) {
-  let _ = db <=!=> "UPDATE todos SET done = 1 WHERE id = ?" [props.id]
-  default(props)  // Re-render after update
-}
-```
-
-### Part with Form
-
-```parsley
-// parts/add-todo.part
-let {db} = import @basil/auth
-
-export default = fn(props) {
-  <div>
-    <form part-submit="add">
-      <input name="title" placeholder="New todo" required/>
-      <button type="submit">"Add"</button>
-    </form>
-  </div>
-}
-
-export add = fn(props) {
-  // props contains form data
-  let _ = db <=!=> "INSERT INTO todos (title) VALUES (?)" [props.title]
-  
-  <div>
-    <form part-submit="add">
-      <input name="title" placeholder="New todo" value="" required/>
-      <button type="submit">"Add"</button>
-    </form>
-    <p class="success">"Todo added!"</p>
-  </div>
-}
-```
 
 ## Using Parts in Handlers
 
@@ -214,8 +158,6 @@ export toggle = fn(props) {
 
 ```parsley
 // parts/search.part
-let {db} = import @basil/auth
-
 export default = fn(props) {
   <form part-submit="search">
     <input name="q" placeholder="Search..."/>
@@ -224,7 +166,7 @@ export default = fn(props) {
 }
 
 export search = fn(props) {
-  let results = db <=??=> "SELECT * FROM items WHERE name LIKE ?" ["%{props.q}%"]
+  let results = @DB <=??=> `SELECT * FROM items WHERE name LIKE '%{props.q}%'`
   
   <div>
     <form part-submit="search">

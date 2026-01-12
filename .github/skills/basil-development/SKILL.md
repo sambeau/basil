@@ -36,7 +36,7 @@ Parsley files that handle HTTP requests.
 <html>
 <body>
   <h1>"Welcome!"</h1>
-  <p>"Search: {@params.q ?? 'none'}"</p>
+  <p>`Search: {@params.q ?? 'none'}`</p>
 </body>
 </html>
 ```
@@ -60,7 +60,7 @@ session:
 export default = fn(props) {
   let count = props.count ?? 0
   <div>
-    <p>"Count: {count}"</p>
+    <p>`Count: {count}`</p>
     <button part-click="increment" part-count={count + 1}>"++"</button>
   </div>
 }
@@ -97,15 +97,10 @@ response.status = 404
 response.redirect("/dashboard")
 ```
 
-### Database & Auth (@basil/auth)
+### Auth Context (@basil/auth)
 
 ```parsley
-let {db, session, user} = import @basil/auth
-
-// Database (see docs/basil/reference.md for complete API)
-let user = db <=?=> "SELECT * FROM users WHERE id = ?" [123]  // One row
-let users = db <=??=> "SELECT * FROM users"                    // All rows
-let result = db <=!=> "INSERT INTO users (name) VALUES (?)" ["Alice"]  // Mutation
+let {session, user} = import @basil/auth
 
 // Sessions
 session.set("cart", ["item1", "item2"])
@@ -121,8 +116,22 @@ user.role  // "admin", "user", etc.
 
 ```parsley
 @params         // URL/form parameters
+@DB             // Server database (configured in basil.yaml)
 @now            // Current datetime
 @env.HOME       // Environment variables
+```
+
+### Database Operations
+
+```parsley
+// Use @DB magic variable for database access
+let id = 123
+let user = @DB <=?=> `SELECT * FROM users WHERE id = {id}`  // One row
+let users = @DB <=??=> "SELECT * FROM users"                    // All rows
+let name = "Alice"
+let result = @DB <=!=> `INSERT INTO users (name) VALUES ('{name}')`  // Mutation
+
+// See docs/basil/reference.md for complete database API
 ```
 
 ## Common Handler Patterns
@@ -130,15 +139,13 @@ user.role  // "admin", "user", etc.
 ### Database Query Handler
 
 ```parsley
-let {db} = import @basil/auth
-
-let users = db <=??=> "SELECT * FROM users ORDER BY name"
+let users = @DB <=??=> "SELECT * FROM users ORDER BY name"
 
 <html>
 <body>
   <ul>
     for (user in users) {
-      <li>"{user.name}"</li>
+      <li>user.name</li>
     }
   </ul>
 </body>
@@ -149,13 +156,12 @@ let users = db <=??=> "SELECT * FROM users ORDER BY name"
 
 ```parsley
 let {method} = import @basil/http
-let {db} = import @basil/auth
 
 if (method == "GET") {
-  let users = db <=??=> "SELECT id, name FROM users"
+  let users = @DB <=??=> "SELECT id, name FROM users"
   {users: users}
 } else if (method == "POST") {
-  let result = db <=!=> "INSERT INTO users (name) VALUES (?)" [@params.name]
+  let result = @DB <=!=> `INSERT INTO users (name) VALUES ('{@params.name}')`
   {id: result.lastId}
 }
 ```
@@ -236,7 +242,7 @@ auth:
 
 ```parsley
 let {method, request, response} = import @basil/http
-let {db, session, user} = import @basil/auth
+let {session, user} = import @basil/auth
 let {redirect, notFound} = import @std/api
 ```
 

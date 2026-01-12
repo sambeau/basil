@@ -7,39 +7,39 @@
 ### Database Operators
 
 ```parsley
-let {db} = import @basil/auth
-
 // Query one row (returns dict or null)
-let user = db <=?=> "SELECT * FROM users WHERE id = ?" [userId]
+let userId = 123
+let user = @DB <=?=> `SELECT * FROM users WHERE id = {userId}`
 
 // Query many rows (returns array)
-let users = db <=??=> "SELECT * FROM users WHERE active = ?" [true]
+let active = true
+let users = @DB <=??=> `SELECT * FROM users WHERE active = {active}`
 
 // Execute mutation (returns {affected, lastId})
-let result = db <=!=> "INSERT INTO users (name, email) VALUES (?, ?)" [name, email]
+let name = "Alice"
+let email = "alice@example.com"
+let result = @DB <=!=> `INSERT INTO users (name, email) VALUES ('{name}', '{email}')`
 ```
 
 ### Connection Properties
 
 ```parsley
-let {db} = import @basil/auth
-
-db.driver          // "sqlite", "postgres", or "mysql"
-db.inTransaction   // true if in transaction
-db.lastError       // Error message from last operation
+@DB.driver          // "sqlite", "postgres", or "mysql"
+@DB.inTransaction   // true if in transaction
+@DB.lastError       // Error message from last operation
 ```
 
 ### Connection Methods
 
 ```parsley
 // Transactions
-db.begin()
-db.commit()
-db.rollback()
+@DB.begin()
+@DB.commit()
+@DB.rollback()
 
 // Status
-db.ping()          // Test connection
-db.close()         // Close (not allowed on managed @DB)
+@DB.ping()          // Test connection
+@DB.close()         // Close (not allowed on managed @DB)
 ```
 
 ## Examples
@@ -47,10 +47,8 @@ db.close()         // Close (not allowed on managed @DB)
 ### Basic Queries
 
 ```parsley
-let {db} = import @basil/auth
-
 // Find one user
-let user = db <=?=> "SELECT * FROM users WHERE email = ?" ["alice@example.com"]
+let user = @DB <=?=> "SELECT * FROM users WHERE email = ?" ["alice@example.com"]
 
 if (!user) {
   "User not found"
@@ -59,7 +57,7 @@ if (!user) {
 }
 
 // Get all active users
-let users = db <=??=> "SELECT * FROM users WHERE active = 1 ORDER BY name"
+let users = @DB <=??=> "SELECT * FROM users WHERE active = 1 ORDER BY name"
 
 for (user in users) {
   user.name
@@ -69,39 +67,40 @@ for (user in users) {
 ### Insert/Update/Delete
 
 ```parsley
-let {db} = import @basil/auth
-
 // Insert
-let result = db <=!=> "INSERT INTO users (name, email) VALUES (?, ?)" ["Alice", "alice@example.com"]
+let name = "Alice"
+let email = "alice@example.com"
+let result = @DB <=!=> `INSERT INTO users (name, email) VALUES ('{name}', '{email}')`
 result.lastId    // ID of inserted row
 result.affected  // Number of rows affected (1)
 
 // Update
-let result = db <=!=> "UPDATE users SET active = 1 WHERE id = ?" [userId]
+let userId = 123
+let result = @DB <=!=> `UPDATE users SET active = 1 WHERE id = {userId}`
 result.affected  // Number of rows updated
 
 // Delete
-let result = db <=!=> "DELETE FROM users WHERE id = ?" [userId]
+let result = @DB <=!=> `DELETE FROM users WHERE id = {userId}`
 result.affected  // Number of rows deleted
 ```
 
 ### Transactions
 
 ```parsley
-let {db} = import @basil/auth
+@DB.begin()
 
-db.begin()
+let name = "Alice"
+let _ = @DB <=!=> `INSERT INTO users (name) VALUES ('{name}')`
+let userId = @DB.lastInsertId()
 
-let _ = db <=!=> "INSERT INTO users (name) VALUES (?)" ["Alice"]
-let userId = db.lastInsertId()
-
-let _ = db <=!=> "INSERT INTO profiles (user_id, bio) VALUES (?, ?)" [userId, "Developer"]
+let bio = "Developer"
+let _ = @DB <=!=> `INSERT INTO profiles (user_id, bio) VALUES ({userId}, '{bio}')`
 
 if (someCondition) {
-  db.commit()
+  @DB.commit()
   "Success"
 } else {
-  db.rollback()
+  @DB.rollback()
   "Rolled back"
 }
 ```
@@ -109,22 +108,22 @@ if (someCondition) {
 ### Error Handling
 
 ```parsley
-let {db} = import @basil/auth
-
 // Check for null
-let user = db <=?=> "SELECT * FROM users WHERE id = ?" [userId]
+let userId = 123
+let user = @DB <=?=> `SELECT * FROM users WHERE id = {userId}`
 if (!user) {
   "User not found"
 }
 
 // Check affected rows
-let result = db <=!=> "DELETE FROM users WHERE id = ?" [userId]
+let result = @DB <=!=> `DELETE FROM users WHERE id = {userId}`
 if (result.affected == 0) {
   "No user found with that ID"
 }
 
 // Use try for error capture
-let {result, error} = try (db <=!=> "INSERT INTO users (name) VALUES (?)" [name])
+let name = "Alice"
+let {result, error} = try (@DB <=!=> `INSERT INTO users (name) VALUES ('{name}')`)
 if (error) {
   `Database error: {error}`
 }
@@ -161,10 +160,7 @@ sqlite: ./myapp.db
 ```
 
 ```parsley
-// In handler
-let {db} = import @basil/auth  // db is @DB from config
-
-// Or use directly
+// In handler - use @DB directly
 let users = @DB <=??=> "SELECT * FROM users"
 ```
 
