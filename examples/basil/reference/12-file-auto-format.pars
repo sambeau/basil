@@ -1,0 +1,9 @@
+// Test: file() with auto format detection
+// Expected: Auto-detect JSON format from extension
+
+// Create a JSON file
+{test: "value"} ==> JSON(@./auto-detect.json)
+
+// Read with file() - should auto-detect JSON
+let data <== file(@./auto-detect.json)
+data.test

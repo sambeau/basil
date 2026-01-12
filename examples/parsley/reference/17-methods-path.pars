@@ -1,0 +1,13 @@
+// === SECTION 6.7: Path Properties and Methods ===
+
+let p = @./src/components/Button.tsx
+
+// Path renders as string
+p
+
+// toDict shows all properties
+p.toDict()
+
+// Match pattern
+let route = @./users/123/profile
+route.match("/users/:id/profile")

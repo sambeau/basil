@@ -1,0 +1,30 @@
+// === SECTION 6.5: DateTime Properties and Methods ===
+
+let dt = @2024-12-25T14:30:00
+
+// Properties
+dt.year
+dt.month
+dt.day
+dt.hour
+dt.minute
+dt.second
+dt.weekday
+dt.dayOfYear
+dt.week
+dt.unix
+dt.iso
+
+// Format method
+dt.format()
+dt.format("short")
+dt.format("medium")
+dt.format("full")
+
+// DateTime arithmetic
+@now + @1d
+@now - @1w
+@2024-12-25 - @2024-12-20
+
+// Combine date and time
+@2024-12-25 && @14:30

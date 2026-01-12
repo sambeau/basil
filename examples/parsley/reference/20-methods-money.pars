@@ -1,0 +1,19 @@
+// === SECTION 6.10: Money Methods ===
+
+let m = $100.00
+
+// Format
+m.format()
+
+// Arithmetic
+$100.00 + $50.00
+$100.00 - $25.00
+$100.00 * 3
+$100.00 / 4
+
+// Split (for fair division)
+$100.00.split(3)
+
+// Absolute value
+let negative = $0.00 - $50.00
+negative.abs()

@@ -1,0 +1,11 @@
+// === SECTION 8.3: @std/id ===
+
+let id = import @std/id
+
+// Generate IDs
+id.new()
+id.uuid()
+id.uuidv4()
+id.uuidv7()
+id.nanoid()
+id.cuid()

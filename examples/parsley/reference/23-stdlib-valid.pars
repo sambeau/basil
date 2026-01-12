@@ -1,0 +1,30 @@
+// === SECTION 8.2: @std/valid ===
+
+let valid = import @std/valid
+
+// Type validators
+valid.string("hello")
+valid.number(42)
+valid.integer(42)
+valid.boolean(true)
+valid.array([1, 2, 3])
+valid.dict({a: 1})
+
+// String validators
+valid.empty("")
+valid.empty("   ")
+valid.minLen("hello", 3)
+valid.maxLen("hi", 5)
+
+// Number validators
+valid.min(10, 5)
+valid.max(10, 20)
+valid.between(10, 5, 15)
+valid.positive(5)
+valid.negative(-5)
+
+// Format validators
+valid.email("user@example.com")
+valid.email("invalid")
+valid.url("https://example.com")
+valid.uuid("123e4567-e89b-12d3-a456-426614174000")

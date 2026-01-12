@@ -1,0 +1,8 @@
+// Test: SQLite query many rows
+// Expected: Query multiple rows with <=??=>
+
+let db = @sqlite("./test.db")
+
+// Query all rows
+let users = db <=??=> "SELECT * FROM users ORDER BY id"
+users.length()

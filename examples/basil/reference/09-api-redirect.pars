@@ -1,0 +1,7 @@
+// Test: @std/api redirect helper
+// Expected: Create redirect response object
+
+let {redirect} = import @std/api
+
+let response = redirect("/new-path")
+response

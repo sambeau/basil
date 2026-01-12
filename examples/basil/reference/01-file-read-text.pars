@@ -1,0 +1,9 @@
+// Test: File read operator with text format
+// Expected: Read file content as string
+
+// Create a test file first
+"Hello, World!" ==> text(@./test-output.txt)
+
+// Read it back
+let content <== text(@./test-output.txt)
+content

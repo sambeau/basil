@@ -1,0 +1,47 @@
+// === SECTION 7: Builtin Functions ===
+
+// --- 7.1 Type Conversion ---
+toInt("42")
+toFloat("3.14")
+toNumber("123")
+toString(42)
+
+// toArray (dict to key-value pairs)
+let d = {a: 1, b: 2}
+toArray(d)
+
+// toDict (key-value pairs to dict)
+let pairs = [["x", 10], ["y", 20]]
+toDict(pairs)
+
+// --- 7.2 Output ---
+print("hello")
+println(" world")
+
+// --- 7.3 Introspection ---
+describe(42)
+describe("hello")
+describe([1, 2, 3])
+
+repr(42)
+repr("hello")
+
+// --- 7.4 Formatting ---
+let list = ["a", "b", "c"]
+format(list)
+format(list, "or")
+
+// --- 7.5 Control ---
+let safeOp = fn() {
+    fail("something went wrong")
+}
+let result = try safeOp()
+result
+
+// --- 7.6 Regex ---
+let pattern = regex("\\d+", "g")
+pattern
+
+// --- 7.7 Money creation ---
+money(1234, "USD")
+money(5000, "JPY", 0)

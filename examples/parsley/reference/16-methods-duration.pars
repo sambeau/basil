@@ -1,0 +1,20 @@
+// === SECTION 6.6: Duration Properties and Methods ===
+
+let dur = @2h30m
+
+// Properties
+dur.hours
+dur.minutes
+dur.seconds
+dur.totalSeconds
+dur.totalMinutes
+dur.totalHours
+
+// Format
+dur.format()
+
+// Longer duration
+let longDur = @1y6mo
+longDur.years
+longDur.months
+longDur.format()

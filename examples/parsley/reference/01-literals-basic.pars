@@ -1,0 +1,19 @@
+// === SECTION 1: Basic Literals ===
+
+// --- 1.1 Integers ---
+42
+-15
+0
+
+// --- 1.2 Floats ---
+3.14159
+-2.718
+0.5
+
+// --- 1.3 Booleans ---
+true
+false
+
+// --- 1.4 Null ---
+// null outputs nothing, so we test it in an expression
+null == null

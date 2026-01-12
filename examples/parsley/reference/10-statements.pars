@@ -1,0 +1,46 @@
+// === SECTION 5: Statements ===
+
+// --- 5.1 Let binding ---
+let x = 5
+let name = "Alice"
+x
+name
+
+// --- Let with destructuring (array) ---
+let arr = [1, 2, 3]
+let [a, b, c] = arr
+a
+b
+c
+
+// --- Let with destructuring (dict) ---
+let person = {name: "Bob", age: 25}
+let {name, age} = person
+name
+age
+
+// --- Let with rest ---
+let [first, ...rest] = [1, 2, 3, 4]
+first
+rest
+
+// --- 5.2 Assignment ---
+let y = 10
+y = 20
+y
+
+// --- Property assignment ---
+let obj = {a: 1}
+obj.b = 2
+obj
+
+// --- Index assignment ---
+let nums = [1, 2, 3]
+nums[0] = 99
+nums
+
+// --- 5.3 Return ---
+let multiply = fn(a, b) {
+    return a * b
+}
+multiply(3, 4)

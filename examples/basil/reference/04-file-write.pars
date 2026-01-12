@@ -1,0 +1,12 @@
+// Test: File write operator
+// Expected: Write content to file
+
+// Write text
+"First line\n" ==> text(@./write-test.txt)
+
+// Append more
+"Second line\n" ==>> text(@./write-test.txt)
+
+// Read back to verify
+let content <== text(@./write-test.txt)
+content

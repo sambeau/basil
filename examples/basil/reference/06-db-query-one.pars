@@ -1,0 +1,15 @@
+// Test: SQLite database connection and query
+// Expected: Query single row with <=?=>
+
+let db = @sqlite("./test.db")
+
+// Create table
+let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+
+// Insert data
+let _ = db <=!=> "INSERT OR REPLACE INTO users (id, name, age) VALUES (1, 'Alice', 30)"
+let _ = db <=!=> "INSERT OR REPLACE INTO users (id, name, age) VALUES (2, 'Bob', 25)"
+
+// Query single row
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+user.name

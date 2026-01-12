@@ -1,0 +1,19 @@
+// === SECTION 6.4: Number Methods ===
+
+let n = 1234567
+let f = 1234567.89
+
+// Formatting
+n.format()
+f.format()
+
+// Currency
+n.currency("USD")
+f.currency("EUR")
+
+// Percent
+let pct = 0.1234
+pct.percent()
+
+// Humanize (compact)
+n.humanize()

@@ -1,0 +1,31 @@
+// === SECTION 8.1: @std/math ===
+
+let {floor, ceil, round, abs, min, max, sum, sqrt, pow, random, PI} = import @std/math
+
+// Rounding
+floor(3.7)
+ceil(3.2)
+round(3.5)
+
+// Absolute value
+abs(-42)
+
+// Min/Max
+min(3, 7)
+max(3, 7)
+
+// Array aggregation
+let nums = [1, 2, 3, 4, 5]
+sum(nums)
+min(nums)
+max(nums)
+
+// Powers
+sqrt(16)
+pow(2, 10)
+
+// Constants
+PI
+
+// Random
+random()

@@ -1,0 +1,17 @@
+// === SECTION 2.3-2.4: Money and Regex ===
+
+// --- Money (symbol format) ---
+$12.34
+$99.99
+
+// --- Money (CODE# format) ---
+EUR#50.00
+GBP#25.00
+
+// --- Regex (must be in expression context) ---
+let r1 = /hello/
+let r2 = /\d+/
+let r3 = /pattern/i
+r1
+r2
+r3

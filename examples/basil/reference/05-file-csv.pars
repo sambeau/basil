@@ -1,0 +1,13 @@
+// Test: CSV format factory
+// Expected: Read CSV as array of dicts
+
+// Create CSV content (array of dicts)
+let data = [
+    {name: "Alice", age: 30},
+    {name: "Bob", age: 25}
+]
+data ==> CSV(@./test-data.csv)
+
+// Read it back
+let rows <== CSV(@./test-data.csv)
+rows[0].name

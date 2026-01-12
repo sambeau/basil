@@ -1,0 +1,9 @@
+// Test: SQLite parameterized queries
+// Expected: Use parameters via string interpolation
+
+let db = @sqlite("./test.db")
+
+// Query with parameter using template string
+let name = "Alice"
+let user = db <=?=> `SELECT * FROM users WHERE name = '{name}'`
+user.age

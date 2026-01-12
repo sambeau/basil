@@ -1,0 +1,41 @@
+// === SECTION 6.2: Array Methods ===
+
+let arr = [3, 1, 4, 1, 5, 9, 2, 6]
+
+arr.length()
+arr.reverse()
+arr.sort()
+
+// Functional methods
+let doubled = arr.map(fn(x) { x * 2 })
+doubled
+
+let big = arr.filter(fn(x) { x > 3 })
+big
+
+let sum = arr.reduce(fn(acc, x) { acc + x }, 0)
+sum
+
+// Formatting
+let items = ["apple", "banana", "cherry"]
+items.format()
+items.format("or")
+items.join(", ")
+
+// Random
+let nums = [1, 2, 3, 4, 5]
+nums.shuffle()
+nums.pick()
+nums.take(3)
+
+// Membership
+let small = [1, 2, 3]
+small.has(2)
+small.hasAny([2, 5])
+small.hasAll([1, 2])
+
+// Insert
+small.insert(1, 99)
+
+// Conversion
+small.toJSON()

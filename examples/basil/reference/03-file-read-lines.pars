@@ -1,0 +1,9 @@
+// Test: File read operator with lines format
+// Expected: Read file as array of lines
+
+// Create a file with multiple lines
+["line 1", "line 2", "line 3"] ==> lines(@./test-lines.txt)
+
+// Read it back
+let data <== lines(@./test-lines.txt)
+data.length()

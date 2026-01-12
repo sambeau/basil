@@ -1,0 +1,26 @@
+// === SECTION 1.6-1.7: Arrays and Dictionaries ===
+
+// --- Arrays ---
+[1, 2, 3]
+let empty = []
+empty
+
+// --- Array indexing ---
+let arr = [10, 20, 30, 40, 50]
+arr[0]
+arr[-1]
+arr[1:3]
+arr[:2]
+arr[2:]
+arr[?99]
+
+// --- Dictionaries ---
+{name: "Alice", age: 30}
+let emptyDict = {}
+emptyDict
+
+// --- Dictionary access ---
+let person = {name: "Bob", age: 25}
+person.name
+person["age"]
+person.missing

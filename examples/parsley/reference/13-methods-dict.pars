@@ -1,0 +1,25 @@
+// === SECTION 6.3: Dictionary Methods ===
+
+let d = {name: "Alice", age: 30, city: "NYC"}
+
+d.keys()
+d.values()
+d.entries()
+d.has("name")
+d.has("missing")
+
+// Insertion
+d.insertAfter("name", "email", "alice@example.com")
+d.insertBefore("city", "country", "USA")
+
+// Render template
+let tmpl = "Hello, @{name}! You are @{age}."
+d.render(tmpl)
+
+// Conversion
+d.toJSON()
+
+// Delete (mutates)
+let copy = {a: 1, b: 2, c: 3}
+copy.delete("b")
+copy

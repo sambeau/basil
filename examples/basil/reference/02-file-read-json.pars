@@ -1,0 +1,9 @@
+// Test: File read operator with JSON format
+// Expected: Read and parse JSON file
+
+// Create a JSON file
+{name: "Alice", age: 30} ==> JSON(@./test-data.json)
+
+// Read it back
+let data <== JSON(@./test-data.json)
+data.name

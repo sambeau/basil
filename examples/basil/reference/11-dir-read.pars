@@ -1,0 +1,6 @@
+// Test: Directory listing with dir()
+// Expected: Read directory contents
+
+let d = dir(@./)
+let entries <== d
+entries.length() > 0

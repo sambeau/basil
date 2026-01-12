@@ -1,0 +1,11 @@
+// === SECTION 6.9: Regex Methods ===
+
+let r = /\d+/
+
+// Test if matches
+r.test("hello123")
+r.test("hello")
+
+// Replace with regex
+let r2 = /\d+/
+r2.replace("abc123def456", "X")

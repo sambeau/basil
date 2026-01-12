@@ -1,0 +1,9 @@
+// === SECTION 6.8: URL Properties and Methods ===
+
+let u = @https://example.com:8080/api/users?page=1&limit=10
+
+// URL renders as string
+u
+
+// toDict shows all properties
+u.toDict()

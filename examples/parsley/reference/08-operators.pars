@@ -1,0 +1,75 @@
+// === SECTION 3: Operators ===
+
+// --- 3.1 Arithmetic ---
+5 + 3
+10 - 4
+6 * 7
+20 / 4
+17 % 5
+-42
+
+// --- String concatenation ---
+"Hello" + " " + "World"
+
+// --- String repetition ---
+"ab" * 3
+
+// --- Array repetition (returns concatenated array) ---
+let repeated = [1, 2] * 2
+repeated
+
+// --- Array chunking ---
+let chunked = [1,2,3,4,5,6] / 2
+chunked.toJSON()
+
+// --- 3.2 Comparison ---
+5 == 5
+5 != 3
+3 < 5
+5 > 3
+3 <= 3
+5 >= 5
+
+// --- 3.3 Logical ---
+true && true
+false || true
+let notResult = !false
+notResult
+
+// --- Word aliases ---
+true and true
+false or true
+
+// --- Set operations on arrays ---
+([1,2,3] && [2,3,4]).toJSON()
+let union = [1,2] | [2,3]
+union.toJSON()
+
+// --- 3.4 Membership ---
+2 in [1, 2, 3]
+"name" in {name: "Sam"}
+"ell" in "hello"
+"x" not in [1, 2, 3]
+
+// --- 3.5 Pattern matching ---
+"hello123" ~ /\d+/
+"hello" !~ /\d+/
+
+// --- 3.6 Range ---
+let range = 1..5
+range
+
+// --- 3.7 Concatenation ---
+let concat = [1, 2] ++ [3, 4]
+concat.toJSON()
+let merged = {a: 1} ++ {b: 2}
+merged.toJSON()
+
+// --- 3.8 Null coalescing ---
+null ?? "default"
+"value" ?? "default"
+
+// --- 3.9 Optional index ---
+let arr = [1, 2, 3]
+arr[?99]
+arr[?0]

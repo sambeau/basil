@@ -1,0 +1,20 @@
+// === SECTION 2.5-2.6: Paths and URLs ===
+
+// --- Paths ---
+@./relative/path
+@~/from/root
+
+// --- Path interpolation ---
+let file = "config"
+@(./data/{file}.json)
+
+// --- URLs ---
+@https://example.com
+@http://localhost:3000
+
+// --- URL interpolation ---
+let id = 123
+@(https://api.example.com/users/{id})
+
+// --- Standard library paths ---
+@std/math

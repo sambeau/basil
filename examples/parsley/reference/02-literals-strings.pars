@@ -1,0 +1,19 @@
+// === SECTION 1.5: String Literals ===
+
+// --- Double-quoted strings (escapes, no interpolation) ---
+"Hello, World!"
+"Line1\nLine2"
+"Tab\there"
+"Quote: \"hi\""
+"Backslash: \\"
+
+// --- Template strings (interpolation with {expr}) ---
+let name = "Alice"
+`Hello, {name}!`
+`2 + 2 = {2 + 2}`
+
+// --- Raw strings (backslashes literal, @{} interpolation) ---
+'C:\Users\name'
+'regex: \d+\.\d+'
+let id = 42
+'id = @{id}'

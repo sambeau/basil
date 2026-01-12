@@ -1,0 +1,6 @@
+// Test: @std/api error helpers
+// Expected: Create API error objects
+
+let api = import @std/api
+
+api.notFound("Resource not found")

@@ -1,0 +1,79 @@
+// === SECTION 9: Tags (HTML/XML) ===
+
+// --- Self-closing tags ---
+<br/>
+<hr/>
+<img src="photo.jpg" alt="A photo"/>
+
+// --- Pair tags with quoted content ---
+<p>"Hello, World!"</p>
+<h1>"Welcome"</h1>
+
+// --- Attributes ---
+<div class="container">"Content"</div>
+<a href="/about">"About Us"</a>
+
+// --- Expression attributes ---
+let className = "active"
+<div class={className}>"Dynamic class"</div>
+
+let isDisabled = true
+<button disabled={isDisabled}>"Click"</button>
+
+// --- Variable content ---
+let message = "Hello from variable"
+<p>message</p>
+
+// --- Method calls as content ---
+let name = "alice"
+<span>name.toTitle()</span>
+
+// --- Control flow as content ---
+<ul>
+    for (i in 1..3) {
+        <li>i</li>
+    }
+</ul>
+
+let score = 95
+<div>
+    if (score > 90) {
+        <span>"Excellent"</span>
+    } else {
+        <span>"Good"</span>
+    }
+</div>
+
+// --- Expression attributes ---
+let count = 5
+<div class={"item-" + toString(count)}>"test"</div>
+
+// --- Nested tags ---
+<div class="card">
+    <h2>"Title"</h2>
+    <p>"Body text"</p>
+</div>
+
+// --- Spread attributes ---
+let attrs = {class: "btn", id: "submit"}
+<button ...attrs>"Submit"</button>
+
+// --- Components (functions that return tags) ---
+let Card = fn(props) {
+    let title = props.title
+    let body = props.body
+    <div class="card">
+        <h3>title</h3>
+        <p>body</p>
+    </div>
+}
+<Card title="My Card" body="Card content"/>
+
+// --- Components with tag pair syntax (uses props.contents) ---
+let Card2 = fn({title, contents}) {
+    <div class="card">
+        <h3>title</h3>
+        <p>contents</p>
+    </div>
+}
+<Card2 title="My Card">"Card content"</Card2>

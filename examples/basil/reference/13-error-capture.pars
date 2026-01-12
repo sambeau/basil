@@ -1,0 +1,9 @@
+// Test: Error capture with destructuring
+// Expected: Capture read errors in {data, error} pattern
+
+let {data, error} <== JSON(@./nonexistent-file.json)
+if (error) {
+    "Error captured"
+} else {
+    "No error"
+}

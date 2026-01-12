@@ -1,0 +1,10 @@
+// === SECTION 10: Comments ===
+
+// This is a single-line comment
+let x = 5  // End of line comment
+
+// Multiple comments
+// Line 1
+// Line 2
+
+x + 1
