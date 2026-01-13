@@ -1,3 +1,6 @@
+---
+applyTo: "**/*.par,**/*.part"
+---
 # Parsley Language Reference for AI Agents
 
 When writing Parsley code in Basil handlers, tests, or examples, consult this reference.
