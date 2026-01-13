@@ -9,7 +9,7 @@ log(doubled)
 
 let page = <html>
     <body>
-        <h1>Welcome to Parsley!</h1>
+        <h1>"Welcome to Parsley!"</h1>
     </body>
 </html>
 log(page)

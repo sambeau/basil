@@ -1,10 +1,10 @@
 // edit/edit.pars - Folder-named index (takes precedence over index.pars)
 <html>
-  <head><title>Edit Section</title></head>
+  <head><title>"Edit Section"</title></head>
   <body>
-    <h1>Edit Section</h1>
-    <p>This handler is <code>edit/edit.pars</code></p>
-    <p>Notice the filename matches the folder name!</p>
-    <p><a href="/">← Back to home</a></p>
+    <h1>"Edit Section"</h1>
+    <p>"This handler is <code>edit/edit.pars</code>"</p>
+    <p>"Notice the filename matches the folder name!"</p>
+    <p><a href="/">"← Back to home"</a></p>
   </body>
 </html>

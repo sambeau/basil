@@ -6,13 +6,13 @@
 
 // Now you can use hyphenated tag names like custom web components
 <my-app>
-    <my-header>Welcome to My App</my-header>
+    <my-header>"Welcome to My App"</my-header>
     <my-content>
         <custom-element id="demo">
-            This is custom element content
+            "This is custom element content"
         </custom-element>
     </my-content>
-    <my-footer>Footer content</my-footer>
+    <my-footer>"Footer content"</my-footer>
 </my-app>
 
 // =========================================
@@ -22,7 +22,7 @@
 // XML comments are now skipped during parsing
 <div>
     <!-- This comment will be removed -->
-    <p>Visible content</p>
+    <p>"Visible content"</p>
     <!-- Another comment -->
 </div>
 

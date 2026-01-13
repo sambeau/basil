@@ -2,6 +2,6 @@
 
 export default = fn() {
     <div class="clock">
-        <strong>Server time:</strong> {@now}
+        <strong>"Server time:"</strong> @now
     </div>
 }

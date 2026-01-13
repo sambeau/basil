@@ -11,6 +11,6 @@ let Arrow <== SVG(@./icons/arrow.svg)
 
 // You can use it multiple times
 <nav class="toolbar">
-  <button><Arrow/> Previous</button>
-  <button>Next <Arrow/></button>
+  <button><Arrow/>" Previous"</button>
+  <button>"Next "<Arrow/></button>
 </nav>

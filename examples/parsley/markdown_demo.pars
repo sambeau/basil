@@ -7,18 +7,18 @@ let post <== MD(@./blog_post.md)
 let BlogPost = fn({title, author, date, tags, html}) {
     <article class="blog-post">
         <header>
-            <h1>{title}</h1>
+            <h1>title</h1>
             <p class="meta">
-                By {author} on {date}
+                `By {author} on {date}`
             </p>
             <div class="tags">
                 {for (tag in tags) {
-                    <span class="tag">{tag}</span>
+                    <span class="tag">tag</span>
                 }}
             </div>
         </header>
         <div class="content">
-            {html}
+            html
         </div>
     </article>
 }

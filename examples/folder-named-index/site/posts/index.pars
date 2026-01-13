@@ -1,11 +1,11 @@
 // posts/index.pars - Traditional index file (no folder-named alternative)
 <html>
-  <head><title>Posts Section</title></head>
+  <head><title>"Posts Section"</title></head>
   <body>
-    <h1>Posts Section</h1>
-    <p>This handler is <code>posts/index.pars</code></p>
-    <p>No <code>posts/posts.pars</code> exists, so this traditional index.pars is used.</p>
-    <p>Note: <code>posts/post.pars</code> exists but isn't used (doesn't match folder name)</p>
-    <p><a href="/">← Back to home</a></p>
+    <h1>"Posts Section"</h1>
+    <p>"This handler is <code>posts/index.pars</code>"</p>
+    <p>"No <code>posts/posts.pars</code> exists, so this traditional index.pars is used."</p>
+    <p>"Note: <code>posts/post.pars</code> exists but isn't used (doesn't match folder name)"</p>
+    <p><a href="/">"← Back to home"</a></p>
   </body>
 </html>

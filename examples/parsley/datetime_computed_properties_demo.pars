@@ -37,10 +37,10 @@ log("  .week        : " + newYear.week)
 log("\n=== Using in HTML Templates ===")
 let event = time({year: 2024, month: 12, day: 31, hour: 23, minute: 59})
 log(<div class="event">
-  <h3>New Year's Eve Party</h3>
-  <p>Date: {event.date}</p>
-  <p>Time: {event.time}</p>
-  <p>Full: {event.format}</p>
+  <h3>"New Year's Eve Party"</h3>
+  <p>`Date: {event.date}`</p>
+  <p>`Time: {event.time}`</p>
+  <p>`Full: {event.format}`</p>
 </div>)
 
 // Formatting dates nicely

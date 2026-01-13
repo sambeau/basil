@@ -23,7 +23,7 @@ Parsley is a **minimalist language** for generating HTML/XML with first-class fi
 
 ```parsley
 let name = "World"
-<h1>Hello {name}</h1>
+<h1>`Hello {name}`</h1>
 ```
 
 That's all for now!

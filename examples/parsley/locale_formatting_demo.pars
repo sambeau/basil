@@ -37,5 +37,5 @@ let price = 99.99
 let currency = "EUR"
 let locale = "de-DE"
 log(<div class="price">
-    <span class="amount">{price.currency(currency, locale)}</span>
+    <span class="amount">price.currency(currency, locale)</span>
 </div>)

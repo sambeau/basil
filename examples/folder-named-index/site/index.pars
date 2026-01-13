@@ -1,13 +1,13 @@
 <html>
-  <head><title>Home</title></head>
+  <head><title>"Home"</title></head>
   <body>
-    <h1>Folder-Named Index Demo</h1>
-    <p>Root handler at <code>site/index.pars</code></p>
+    <h1>"Folder-Named Index Demo"</h1>
+    <p>"Root handler at <code>site/index.pars"</code></p>
     <nav>
       <ul>
-        <li><a href="/edit/">Edit Section</a> (uses edit/edit.pars)</li>
-        <li><a href="/admin/">Admin Section</a> (uses admin/admin.pars)</li>
-        <li><a href="/posts/">Posts Section</a> (uses posts/index.pars)</li>
+        <li><a href="/edit/">"Edit Section"</a>" (uses edit/edit.pars)"</li>
+        <li><a href="/admin/">"Admin Section"</a>" (uses admin/admin.pars)"</li>
+        <li><a href="/posts/">"Posts Section"</a>" (uses posts/index.pars)"</li>
       </ul>
     </nav>
   </body>

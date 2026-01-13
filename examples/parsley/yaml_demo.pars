@@ -31,10 +31,10 @@ let loaded <== YAML(@./temp/config.yaml)
 
 // Access nested values
 <article>
-    <h1>Configuration Loaded</h1>
-    <p>App: {loaded.app.name} v{loaded.app.version}</p>
-    <p>Server: {loaded.server.host}:{loaded.server.port}</p>
-    <p>SSL Enabled: {loaded.server.ssl.enabled}</p>
-    <p>Database Pool: {loaded.database.pool_size} connections</p>
-    <p>Features: {loaded.features[0]}, {loaded.features[1]}, {loaded.features[2]}</p>
+    <h1>"Configuration Loaded"</h1>
+    <p>`App: {loaded.app.name} v{loaded.app.version}`</p>
+    <p>`Server: {loaded.server.host}:{loaded.server.port}`</p>
+    <p>`SSL Enabled: {loaded.server.ssl.enabled}`</p>
+    <p>`Database Pool: {loaded.database.pool_size} connections`</p>
+    <p>`Features: {loaded.features[0]}, {loaded.features[1]}, {loaded.features[2]}`</p>
 </article>

@@ -1,11 +1,11 @@
 // admin/admin.pars - Folder-named index
 // This takes precedence over admin/index.pars (if it exists)
 <html>
-  <head><title>Admin Section</title></head>
+  <head><title>"Admin Section"</title></head>
   <body>
-    <h1>Admin Section</h1>
-    <p>This handler is <code>admin/admin.pars</code></p>
-    <p>Even though <code>admin/index.pars</code> exists, this file takes precedence!</p>
-    <p><a href="/">← Back to home</a></p>
+    <h1>"Admin Section"</h1>
+    <p>"This handler is <code>admin/admin.pars</code>"</p>
+    <p>"Even though <code>admin/index.pars</code> exists, this file takes precedence!"</p>
+    <p><a href="/">"← Back to home"</a></p>
   </body>
 </html>
