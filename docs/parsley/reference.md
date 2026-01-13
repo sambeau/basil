@@ -67,17 +67,22 @@ Standard strings with escape sequences. **No interpolation**.
 
 #### Template Strings (`` `...` ``)
 
-Interpolated strings using `{expression}` syntax.
+Interpolated strings using `{expression}` syntax. Any valid Parsley expression can be used inside the braces.
+
+**Note**: Unlike JavaScript template literals, Parsley uses `{expr}` not `${expr}`.
 
 ```parsley
 let name = "Alice"
 `Hello, {name}!`        // "Hello, Alice!"
 `2 + 2 = {2 + 2}`       // "2 + 2 = 4"
+`{name.toUpper()}`      // "ALICE"
 ```
 
 #### Raw Strings (`'...'`)
 
-Backslashes are literal. Interpolation only with `@{expression}`.
+Backslashes are literal (no escape sequences). Interpolation only with `@{expression}`.
+
+**Use for**: Regular expressions, file paths, SQL patterns.
 
 ```parsley
 'C:\Users\name'                 // Backslashes literal
@@ -96,17 +101,53 @@ false
 null
 ```
 
-**Truthy**: Everything except `false`, `null`, `0`, `0.0`, `""`, `[]`
+#### Truthiness
 
-**Falsy**: `false`, `null`, `0`, `0.0`, `""` (empty string), `[]` (empty array)
+Parsley has Python-style truthiness:
+
+**Falsy values:**
+- `false`
+- `null`
+- `0` (integer)
+- `0.0` (float)
+- `""` (empty string)
+- `[]` (empty array)
+- `{}` (empty dictionary)
+
+**Everything else is truthy**, including:
+- `true`
+- Non-zero numbers
+- Non-empty strings, arrays, and dictionaries
+
+This matches the behavior of Python, PHP, and Perl, and avoids JavaScript's confusing inconsistency where empty arrays/objects are truthy. The design makes Parsley more intuitive for common web development patterns like form validation and collection checking:
+
+```parsley
+// Intuitive for form validation
+if (username) { ... }      // fails for ""
+if (items) { ... }         // fails for []
+if (config) { ... }        // fails for {}
+if (count) { ... }         // fails for 0
+```
 
 ---
 
 ### 1.4 Arrays
 
+Arrays are ordered, zero-indexed collections that can hold values of any type.
+
 ```parsley
 [1, 2, 3]
 let empty = []
+```
+
+#### Nested Arrays
+
+Arrays can contain other arrays, useful for matrices and tabular data:
+
+```parsley
+let matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+matrix[1][0]                    // 4 (second row, first column)
+matrix[0]                       // [1, 2, 3] (first row)
 ```
 
 #### Indexing
@@ -132,6 +173,8 @@ let [first, ...rest] = [1, 2, 3, 4]  // first=1, rest=[2,3,4]
 
 ### 1.5 Dictionaries
 
+Dictionaries are unordered key-value collections. Keys must be strings (quotes optional if valid identifiers).
+
 ```parsley
 {name: "Alice", age: 30}
 let emptyDict = {}
@@ -148,13 +191,26 @@ person.missing                  // null (no error)
 
 #### Destructuring
 
+Extract specific fields by name:
+
 ```parsley
 let {name, age} = person        // Extract fields
+```
+
+Use `...rest` to collect remaining fields into a new dictionary:
+
+```parsley
+let person = {name: "Bob", age: 25, city: "NYC"}
+let {name, ...rest} = person    // name="Bob", rest={age: 25, city: "NYC"}
 ```
 
 ---
 
 ### 1.6 Functions
+
+Functions are defined with the `fn` keyword (or `function` as an alias).
+
+**Note**: Arrow function syntax (`x => x * 2`) is **not supported**. Always use `fn(x) { x * 2 }`.
 
 ```parsley
 let double = fn(x) { x * 2 }
@@ -167,7 +223,7 @@ let constant = fn() { 42 }
 constant()                      // 42
 ```
 
-**Implicit return**: The last expression is returned automatically.
+**Implicit return**: The last expression is returned automatically. Unlike JavaScript, you don't need `return` for single expressions.
 
 ```parsley
 let complex = fn(x) {
@@ -231,6 +287,8 @@ let day = 25
 
 ### 1.9 Money Literals
 
+Parsley has first-class support for monetary values with precise decimal handling.
+
 #### Symbol Format
 
 ```parsley
@@ -238,11 +296,35 @@ $12.34                          // USD
 $99.99
 ```
 
+#### Unicode Currency Symbols
+
+Parsley recognizes common currency symbols directly:
+
+```parsley
+€123.45                         // Euro (EUR)
+£99.99                          // British Pound (GBP)
+¥5000                           // Japanese Yen (JPY)
+```
+
+#### Compound Symbols
+
+```parsley
+CA$50.00                        // Canadian Dollar (CAD)
+AU$75.00                        // Australian Dollar (AUD)
+HK$100.00                       // Hong Kong Dollar (HKD)
+S$88.00                         // Singapore Dollar (SGD)
+CN¥200.00                       // Chinese Yuan (CNY)
+```
+
 #### CODE# Format
+
+For currencies without symbols, use the ISO 4217 code followed by `#`:
 
 ```parsley
 EUR#50.00                       // Euro
 GBP#25.00                       // British Pound
+CHF#100.00                      // Swiss Franc
+INR#1000.00                     // Indian Rupee
 ```
 
 ---
@@ -348,9 +430,16 @@ let chunked = [1,2,3,4,5,6] / 2 // [[1,2], [3,4], [5,6]]
 | `<=` | Less than or equal |
 | `>=` | Greater than or equal |
 
+Standard boolean operators, e.g.:
+
+```parsley
+let age = 20
+let status = if (age >= 18) "adult" else "minor"  // "adult"
+```
+
 ---
 
-### 2.3 Logical
+### 2.3 Logical / Set Operations
 
 | Operator | Description |
 |----------|-------------|
@@ -359,6 +448,10 @@ let chunked = [1,2,3,4,5,6] / 2 // [[1,2], [3,4], [5,6]]
 | `!` | Logical NOT |
 | `and` | Keyword alias for `&&` |
 | `or` | Keyword alias for `\|\|` |
+
+#### Boolean Logic
+
+For boolean values, these operators work as expected:
 
 ```parsley
 true && true                    // true
@@ -370,10 +463,23 @@ false or true                   // true
 
 #### Set Operations on Collections
 
+The logical operators are overloaded to perform set operations when applied to arrays: AND corresponds to intersection; OR corresponds to union.
+
+| Operator | Set Operation | Description |
+|----------|---------------|-------------|
+| `&&` | Intersection | Elements present in both arrays |
+| `\|\|` or `\|` | Union | Elements present in either array (duplicates removed) |
+
 ```parsley
-([1,2,3] && [2,3,4]).toJSON()   // [2,3] (intersection)
-let union = [1,2] | [2,3]       // [1,2,3] (union)
+// Intersection: elements in BOTH arrays
+([1, 2, 3] && [2, 3, 4]).toJSON()    // [2, 3]
+
+// Union: elements in EITHER array (duplicates removed)
+([1, 2, 3] || [3, 4, 5]).toJSON()    // [1, 2, 3, 4, 5]
+([1, 2] | [2, 3]).toJSON()           // [1, 2, 3]
 ```
+
+This is useful for filtering, merging lists, and finding common elements without writing explicit loops.
 
 ---
 
@@ -395,22 +501,35 @@ let union = [1,2] | [2,3]       // [1,2,3] (union)
 
 ### 2.5 Pattern Matching
 
+The `~` and `!~` operators perform regex matching, similar to Perl's pattern matching syntax.
+
 | Operator | Description |
 |----------|-------------|
-| `~` | Regex match (returns match or null) |
+| `~` | Regex match (returns first match or null) |
 | `!~` | Regex not match (returns boolean) |
 
 ```parsley
-"hello123" ~ /\d+/              // "123"
-"hello" !~ /\d+/                // true
+"hello123" ~ /\d+/              // "123" (first match)
+"hello" ~ /\d+/                 // null (no match)
+"hello" !~ /\d+/                // true (does not match)
+"abc123" !~ /\d+/               // false (does match)
 ```
 
 ---
 
 ### 2.6 Range
 
+The range operator `..` creates an inclusive sequence of integers from start to end.
+
 ```parsley
 let range = 1..5                // [1, 2, 3, 4, 5]
+let countdown = 5..1            // [5, 4, 3, 2, 1] (descending)
+```
+
+**Eager Evaluation**: Ranges are evaluated immediately into arrays. The entire sequence is generated in memory when the expression is evaluated, not lazily on demand. For very large ranges, be mindful of memory usage.
+
+```parsley
+1..1000000                      // Creates array with 1 million elements
 ```
 
 ---
@@ -426,31 +545,69 @@ let merged = {a: 1} ++ {b: 2}   // {a: 1, b: 2}
 
 ### 2.8 Null Coalescing
 
+The `??` operator returns the right-hand value when the left-hand value is `null`. This provides a concise way to supply default values.
+
 ```parsley
-null ?? "default"               // "default"
-"value" ?? "default"            // "value"
+null ?? "default"               // "default" (left is null, use right)
+"value" ?? "default"            // "value" (left is not null, use left)
+0 ?? "default"                  // 0 (0 is not null)
+"" ?? "default"                 // "" (empty string is not null)
 ```
+
+**Note**: Unlike truthiness checks, `??` only triggers on `null`, not on other falsy values like `0`, `""`, or `[]`.
 
 #### Optional Index Access
 
-Use `[?index]` syntax (question mark inside brackets):
+Use `[?index]` syntax to safely access array or dictionary elements without errors when the index/key doesn't exist, or is out of range:
 
 ```parsley
 let arr = [1, 2, 3]
-arr[?99]                        // null (no error)
-arr[?0]                         // 1
+arr[?99]                        // null (index out of bounds, no error)
+arr[?0]                         // 1 (valid index)
+
+let user = {name: "Alice"}
+user[?"email"]                  // null (key doesn't exist, no error)
 ```
+
+Without `?`, out-of-bounds access would produce an error.
 
 ---
 
 ### 2.9 DateTime Arithmetic
 
+Parsley supports arithmetic operations on dates, times, and durations with sensible rules.
+
+#### Valid Operations
+
+| Operation | Result | Example |
+|-----------|--------|--------|
+| datetime + duration | datetime | `@now + @1d` → tomorrow |
+| datetime - duration | datetime | `@now - @1w` → one week ago |
+| datetime - datetime | duration | `@2024-12-25 - @2024-12-20` → 5 days |
+| duration + duration | duration | `@1d + @2h` → 1 day 2 hours |
+| duration - duration | duration | `@1w - @2d` → 5 days |
+| duration * number | duration | `@1d * 3` → 3 days |
+| date && time | datetime | `@2024-12-25 && @14:30` → datetime |
+
 ```parsley
 @now + @1d                      // Tomorrow
 @now - @1w                      // One week ago
 @2024-12-25 - @2024-12-20       // 5 days (duration)
-@2024-12-25 && @14:30           // Combine date + time
+@2024-12-25 && @14:30           // 2024-12-25T14:30:00
+@1d + @1d                       // 2 days
+@1d * 3                         // 3 days
 ```
+
+#### Invalid Operations
+
+Some operations don't make sense and will produce errors:
+
+```parsley
+@2024-12-25 + @2024-12-20       // Error: can't add two dates
+3 * @1d                         // Error: number must be on the right
+```
+
+**Tip**: Think of durations as time offsets. You can add/subtract offsets from dates, or multiply offsets by numbers, but adding two absolute dates together is meaningless.
 
 ---
 
@@ -474,17 +631,31 @@ arr[?0]                         // 1
 
 ### 3.1 If Expression
 
-If is an **expression** that returns a value.
+`if` is an **expression** that returns a value, similar to the ternary operator (`? :`) in C-family languages. Unlike imperative if statements, Parsley's `if` always produces a result.
+
+#### Compact Form (Ternary Style)
+
+When you use parentheses around the condition, you can omit the braces for single expressions:
 
 ```parsley
 let age = 20
-if (age >= 18) { "adult" } else { "minor" }
+let status = if (age >= 18) "adult" else "minor"
 ```
 
-Parentheses are optional:
+#### Block Form
+
+When you omit parentheses, you must use braces:
 
 ```parsley
-if age >= 18 { "adult" }
+let status = if age >= 18 { "adult" } else { "minor" }
+```
+
+**Syntax Rule**: Either parentheses `()` around the condition OR braces `{}` around the body are required—the parser needs one to know where the condition ends.
+
+```parsley
+if (cond) expr else other       // OK: parens delimit condition
+if cond { expr } else { other } // OK: braces delimit body
+if cond expr else other         // ERROR: ambiguous
 ```
 
 #### If-Else-If Chain
@@ -506,17 +677,56 @@ if (score >= 90) {
 
 ### 3.2 For Expression
 
-For is an **expression** that returns an array (like `map`).
+`for` is an **expression** that returns an array (like `map` in functional languages). This is fundamentally different from imperative for loops in most languages.
+
+**Key behavior**: 
+- Each iteration's result is collected into the output array
+- `null` results are automatically filtered out (implicit filter)
+- Use `stop` to break early, `skip` to skip an iteration
 
 ```parsley
 let nums = [1, 2, 3, 4, 5]
 for (n in nums) { n * 2 }       // [2, 4, 6, 8, 10]
 ```
 
+#### Map Pattern
+
+Transform every element:
+
+```parsley
+let names = ["alice", "bob", "charlie"]
+for (name in names) { name.toUpper() }
+// ["ALICE", "BOB", "CHARLIE"]
+```
+
+#### Filter Pattern
+
+Return `null` (or use `skip`) to exclude elements. Because `for` automatically filters out `null` values, you can use an `if` without `else` to filter:
+
+```parsley
+let nums = [1, 2, 3, 4, 5, 6]
+for (n in nums) { if (n % 2 == 0) n }   // [2, 4, 6] (odds return null, filtered out)
+```
+
+#### Map + Filter Combined
+
+Transform and filter in one pass:
+
+```parsley
+let nums = [1, 2, 3, 4, 5, 6]
+for (n in nums) { 
+    if (n % 2 == 0) n * 10 
+}
+// [20, 40, 60] (filter evens, then multiply by 10)
+```
+
 #### With Index
+
+Use two variables to get both index and value:
 
 ```parsley
 for (i, n in nums) { `{i}: {n}` }
+// ["0: 1", "1: 2", "2: 3", "3: 4", "4: 5"]
 ```
 
 #### With Range
@@ -525,58 +735,119 @@ for (i, n in nums) { `{i}: {n}` }
 for (x in 1..3) { x * x }       // [1, 4, 9]
 ```
 
+#### Iterating Dictionaries
+
+For dictionaries, the first variable is the key, second is the value:
+
+```parsley
+let person = {name: "Alice", age: 30}
+for (k, v in person) { `{k}={v}` }  // ["name=Alice", "age=30"]
+```
+
 ---
 
 ### 3.3 Loop Control
 
-| Keyword | Description |
-|---------|-------------|
-| `stop` | Exit loop (like `break`) |
-| `skip` | Skip iteration (like `continue`) |
+Parsley provides two keywords for controlling loop execution:
+
+- **`stop`** — Exit the loop immediately (like `break` in C, Java, JavaScript, Python, Ruby)
+- **`skip`** — Skip to the next iteration (like `continue` in those languages)
+
+If you're familiar with C-family or Python loops, `stop` = `break` and `skip` = `continue`. Note that stop and skip are subtly different as ``for`` generates an array.
 
 ```parsley
+// stop: exit loop early
 let firstThree = for (x in 1..10) {
-    if (x > 3) { stop }
+    if (x > 3) stop
     x
 }
 // [1, 2, 3]
 
+// skip: skip this iteration
 let evens = for (x in 1..6) {
-    if (x % 2 != 0) { skip }
+    if (x % 2 != 0) skip
     x
 }
 // [2, 4, 6]
+```
+
+**Note**: When used with `if`, both `stop` and `skip` can be written without braces:
+
+```parsley
+for x in 1..10 {
+    if (x > 5) stop     // No braces needed
+    x
+}\
+// [1, 2, 3, 4, 5]
 ```
 
 ---
 
 ### 3.4 Try Expression
 
-Capture errors as values.
+The `try` expression captures errors as values instead of stopping execution. It wraps the result in a dictionary with `result` and `error` fields.
 
 ```parsley
 let safeDivide = fn(a, b) {
     check b != 0 else fail("division by zero")
     a / b
 }
+
 let result = try safeDivide(10, 0)
 // {result: null, error: "division by zero"}
+
+let result = try safeDivide(10, 2)
+// {result: 5, error: null}
+```
+
+#### The `fail` Function
+
+Use `fail(message)` to create a catchable error. Unlike runtime errors, `fail` produces a "value-class" error that can be captured by `try`. This is typically used with `check...else` for validation:
+
+```parsley
+let validate = fn(email) {
+    check email.includes("@") else fail("invalid email")
+    email
+}
+
+let result = try validate("bad-email")
+// {result: null, error: "invalid email"}
 ```
 
 ---
 
 ### 3.5 Check Guard
 
-Early return if condition fails.
+`check` is a guard statement for early returns. If the condition is false, the function immediately returns the `else` value instead of continuing execution. This is cleaner than nested `if` statements for validation.
 
 ```parsley
 let validate = fn(x) {
     check x > 0 else "must be positive"
+    check x < 100 else "must be less than 100"
     x * 2
 }
 validate(5)                     // 10
 validate(-1)                    // "must be positive"
+validate(200)                   // "must be less than 100"
 ```
+
+#### How `else` Works
+
+The `else` clause specifies what to return when the check fails:
+
+- **Return a value**: `check x > 0 else "error message"` — returns the string
+- **Return null**: `check x > 0 else null` — returns null
+- **Throw error**: `check x > 0 else fail("error")` — creates a catchable error (use with `try`)
+
+```parsley
+let process = fn(data) {
+    check data else null        // Early return null if data is falsy
+    check data.valid else fail("invalid data")  // Throw catchable error
+    data.value
+}
+```
+
+**Tip**: Prefer `check...else` over `return` for guard patterns. It makes the intent clearer and reads as "check this condition, else return early."
 
 ---
 
@@ -584,21 +855,29 @@ validate(-1)                    // "must be positive"
 
 ### 4.1 Let Binding
 
+The `let` keyword declares and initializes a variable.
+
 ```parsley
 let x = 5
 let name = "Alice"
 ```
 
-#### Destructuring
+**Note**: `let` is technically optional for simple assignments (`x = 5` works), but using it is recommended for clarity. The keyword is reserved for potential future features like block-scoping or immutability.
+
+#### Destructuring Arrays
 
 ```parsley
 let arr = [1, 2, 3]
-let [a, b, c] = arr
+let [a, b, c] = arr             // a=1, b=2, c=3
+let [first, ...rest] = [1, 2, 3, 4]  // first=1, rest=[2,3,4]
+```
 
-let person = {name: "Bob", age: 25}
-let {name, age} = person
+#### Destructuring Dictionaries
 
-let [first, ...rest] = [1, 2, 3, 4]
+```parsley
+let person = {name: "Bob", age: 25, city: "NYC"}
+let {name, age} = person        // name="Bob", age=25
+let {name, ...rest} = person    // name="Bob", rest={age: 25, city: "NYC"}
 ```
 
 ---
@@ -616,9 +895,35 @@ let nums = [1, 2, 3]
 nums[0] = 99                    // Index assignment
 ```
 
+#### Scope and Binding
+
+Parsley uses **lexical scoping** with **closure semantics**:
+
+1. **Variables are visible** in the scope where they're defined and all nested scopes
+2. **Inner scopes can modify** outer variables (closures capture by reference)
+3. **Inner variables don't leak** to outer scopes
+
+```parsley
+let x = 5
+let f = fn() { 
+    x = 10                      // Modifies outer x
+}
+f()
+x                               // 10 (modified by closure)
+
+let g = fn() {
+    let y = 20                  // Local to g
+    y
+}
+g()                             // 20
+// y                            // Error: y not defined in outer scope
+```
+
 ---
 
 ### 4.3 Return
+
+The `return` keyword explicitly returns a value from a function.
 
 ```parsley
 let multiply = fn(a, b) {
@@ -626,24 +931,94 @@ let multiply = fn(a, b) {
 }
 ```
 
+**Note**: In Parsley, `return` is usually **redundant**. Functions are expressions, and the last expression's value is automatically returned:
+
+```parsley
+let multiply = fn(a, b) {
+    a * b                       // Automatically returned
+}
+```
+
+For early returns (guard patterns), prefer `check...else` which is more idiomatic:
+
+```parsley
+// Less idiomatic:
+let validate = fn(x) {
+    if (x <= 0) { return "must be positive" }
+    x * 2
+}
+
+// More idiomatic:
+let validate = fn(x) {
+    check x > 0 else "must be positive"
+    x * 2
+}
+```
+
 ---
 
 ### 4.4 Export
 
+The `export` keyword makes values available to other files that import the module.
+
 ```parsley
 export let greeting = "Hello"
 export PI = 3.14159
+export double = fn(x) { x * 2 }
+```
+
+#### Module System Overview
+
+Parsley modules are simply `.pars` files. Any file can be imported by another, and only `export`ed values are visible to the importer. Non-exported values remain private.
+
+**Example module** (`mathutils.pars`):
+
+```parsley
+// Private helper (not exported)
+let internalHelper = fn(x) { x * x }
+
+// Public API (exported)
+export PI = 3.14159
+export square = fn(x) { internalHelper(x) }
+export cube = fn(x) { x * x * x }
 ```
 
 ---
 
 ### 4.5 Import
 
+The `import` statement loads a module and makes its exports available.
+
+#### Standard Library Imports
+
 ```parsley
-import @std/math
-import @std/math as M
-let {floor, ceil} = import @std/math
+import @std/math                      // Import as `math.floor()`, etc.
+import @std/math as M                 // Import with alias as `M.floor()`
+let {floor, ceil} = import @std/math  // Destructure specific exports
 ```
+
+#### Custom Module Imports
+
+Import your own `.pars` files using path literals:
+
+```parsley
+// Import the module from section 4.4
+import @./mathutils.pars              // Relative to current file
+import @./mathutils.pars as Utils     // With alias
+let {PI, square} = import @./mathutils.pars  // Destructure exports
+
+square(4)                             // 16
+PI                                    // 3.14159
+Utils.cube(3)                         // 27
+```
+
+#### Import Paths
+
+| Path Type | Example | Description |
+|-----------|---------|-------------|
+| Standard lib | `@std/math` | Built-in standard library module |
+| Relative | `@./utils.pars` | Relative to current file |
+| Project root | `@~/lib/utils.pars` | Relative to project root |
 
 ---
 
@@ -651,7 +1026,13 @@ let {floor, ceil} = import @std/math
 
 Methods are called on values using dot notation: `value.method(args)`.
 
-**Return Value Convention**: Most methods return a new value and do not modify the original. Exception: `delete()` on dictionaries mutates in place.
+**Return Value Convention**: Most methods return a new value and do not modify the original. You must assign the result to use it. Exception: `delete()` on dictionaries mutates in place.
+
+```parsley
+let name = "alice"
+name.toUpper()                  // Returns "ALICE", but name is still "alice"
+let upper = name.toUpper()      // Assign to use the result
+```
 
 ---
 
@@ -780,7 +1161,9 @@ Methods are called on values using dot notation: `value.method(args)`.
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `string` | Convert to CSV string |
 
-**Format styles**: `"and"` (default), `"or"`, or any string like `"unit"`.
+**Format styles**: `"and"` (default), `"or"`, or any custom conjunction string.
+
+**Available locales**: `en`, `en-US`, `en-GB`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `ru`, `ja`, `zh`, `ko`. Falls back to `en` for unrecognized locales.
 
 ```parsley
 let arr = [3, 1, 4, 1, 5]
@@ -792,6 +1175,9 @@ arr.reduce(fn(acc, x) { acc + x }, 0)  // 14
 let items = ["apple", "banana", "cherry"]
 items.format()                  // "apple, banana, and cherry"
 items.format("or")              // "apple, banana, or cherry"
+items.format("and", "de")       // "apple, banana und cherry"
+items.format("and", "fr")       // "apple, banana et cherry"
+items.format("and", "ja")       // "apple、banana、cherry"
 items.join(", ")                // "apple, banana, cherry"
 
 [1, 2, 3].has(2)                // true
@@ -818,6 +1204,17 @@ items.join(", ")                // "apple, banana, cherry"
 
 **Note**: `.delete()` is the only method that mutates the original. All others return new dictionaries.
 
+#### The `.render()` Method
+
+The `render` method interprets a raw string template and substitutes `@{...}` placeholders with values from the dictionary. Unlike simple key substitution, the content inside `@{...}` is a **full Parsley expression** evaluated with the dictionary's keys available as variables.
+
+```parsley
+let data = {name: "Sam", bananas: 10}
+data.render("@{name} has @{bananas + 2} bananas.")  // "Sam has 12 bananas."
+```
+
+This is the same interpolation syntax used in raw strings (`'...'`) and `<script>` tags—use `@{expr}` for substitution and `\@` to escape a literal `@`.
+
 ```parsley
 let d = {name: "Alice", age: 30}
 d.keys()                        // ["name", "age"]
@@ -826,12 +1223,14 @@ d.has("name")                   // true
 d.entries()                     // [{key: "name", value: "Alice"}, {key: "age", value: 30}]
 d.entries("k", "v")             // [{k: "name", v: "Alice"}, {k: "age", v: 30}]
 
-let tmpl = "Hello, @{name}!"
-d.render(tmpl)                  // "Hello, Alice!"
+// Template rendering with expressions
+let person = {first: "Ada", last: "Lovelace", born: 1815}
+person.render("@{first} @{last} was born in @{born}.")
+// "Ada Lovelace was born in 1815."
 
 // Ordered insertion
-let person = {first: "Alice", last: "Smith"}
-person.insertAfter("first", "middle", "Jane")
+let record = {first: "Alice", last: "Smith"}
+record.insertAfter("first", "middle", "Jane")
 // {first: "Alice", middle: "Jane", last: "Smith"}
 ```
 
@@ -839,7 +1238,7 @@ person.insertAfter("first", "middle", "Jane")
 
 ### 5.4 Number Methods
 
-Both `integer` and `float` types share these methods:
+Integer and float types share formatting methods. For mathematical operations like `abs()`, `floor()`, etc., use `@std/math`.
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
@@ -847,6 +1246,8 @@ Both `integer` and `float` types share these methods:
 | `.currency(code, locale?)` | `code: string`, `locale?: string` | `string` | Currency format |
 | `.percent(locale?)` | `locale?: string` | `string` | Percentage format |
 | `.humanize(locale?)` | `locale?: string` | `string` | Compact format (1.2K, 3.4M) |
+
+**Note**: Numbers do not have `.abs()`, `.round()`, etc. as methods. Use `@std/math` functions instead: `math.abs(-5)`, `math.round(3.7)`.
 
 ```parsley
 let n = 1234567
@@ -864,7 +1265,13 @@ pct.percent()                   // "12%"
 
 ### 5.5 DateTime Properties & Methods
 
-DateTime values are dictionaries with special properties and methods. They are created from datetime literals (`@2024-12-25`) or the `time()` function.
+DateTime values are dictionaries with special properties and methods. They are created from datetime literals (`@2024-12-25`), the special `@now` literal for the current moment, or the `time()` function.
+
+```parsley
+@now                            // Current datetime
+@now.year                       // Current year
+@now.format("full")             // e.g., "Tuesday, January 13, 2026"
+```
 
 #### Properties
 
@@ -1115,7 +1522,33 @@ $100.00.split(3)                // [$33.34, $33.33, $33.33]
 
 ### 5.11 Table Properties & Methods
 
-Table values represent structured tabular data with rows and columns. They are created from CSV files using the `CSV()` function or by parsing CSV strings with `.parseCSV()`.
+Table values represent structured tabular data with named columns and typed rows. Tables provide SQL-like query, aggregation, and mutation methods that operate immutably (returning new tables).
+
+**Important:** CSV parsing (`parseCSV()`, `CSV()` file access) returns an **Array of Dictionary**, not a Table. To get Table methods, wrap in `table.table()` from the `@std/table` module.
+
+#### Creating Tables
+
+```parsley
+import @std/table
+
+// From array of dictionaries (most common)
+let data = [
+    {name: "Alice", age: 30},
+    {name: "Bob", age: 25}
+]
+let t = table.table(data)
+
+// From CSV file - CSV() returns Array, wrap to get Table
+let rows <== CSV(@./sales.csv)    // Array of Dictionary
+let sales = table.table(rows)     // Now a Table
+
+// From CSV string - same pattern
+let csvRows = "name,age\nAlice,30\nBob,25".parseCSV()  // Array of Dictionary
+let people = table.table(csvRows)                       // Now a Table
+
+// From single dictionary (each key becomes a row)
+let config = table.fromDict({debug: true, port: 8080})
+```
 
 #### Properties
 
@@ -1123,9 +1556,10 @@ Table values represent structured tabular data with rows and columns. They are c
 |----------|------|-------------|
 | `.row` | `dictionary\|null` | First row as dictionary, or `null` if empty |
 | `.rows` | `array` | All rows as array of dictionaries |
-| `.columns` | `array` | Column names as array of strings |
 
 #### Query Methods
+
+All query methods return new tables (immutable operations):
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
@@ -1147,6 +1581,8 @@ Table values represent structured tabular data with rows and columns. They are c
 
 #### Mutation Methods
 
+All return new tables (immutable—original unchanged):
+
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.appendRow(row)` | `row: dictionary` | `table` | Add row at end |
@@ -1159,7 +1595,7 @@ Table values represent structured tabular data with rows and columns. They are c
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.rowCount()` | none | `integer` | Number of rows |
+| `.rowCount()` | none | `integer` | Number of rows (same as `.count()`) |
 | `.columnCount()` | none | `integer` | Number of columns |
 
 #### Output Methods
@@ -1172,9 +1608,13 @@ Table values represent structured tabular data with rows and columns. They are c
 | `.toJSON()` | none | `string` | Convert to JSON array |
 
 ```parsley
-let data <== CSV(@./sales.csv)
+import @std/table
 
-// Query operations
+// Load CSV and convert to Table
+let rows <== CSV(@./sales.csv)
+let data = table.table(rows)
+
+// Query operations (chainable)
 let filtered = data.where(fn(r) { r.amount > 100 })
 let sorted = data.orderBy("date", "desc")
 let projected = data.select("name", "total")
@@ -1186,14 +1626,26 @@ data.sum("amount")                  // 12500.00
 data.avg("price")                   // 49.99
 data.column("name")                 // ["Alice", "Bob", ...]
 
-// Chaining
+// Method chaining
 let result = data
     .where(fn(r) { r.region == "North" })
     .orderBy("sales", "desc")
     .limit(5)
 
-// Output
+// Output to HTML
 <div>result.toHTML()</div>
+```
+
+**Common Mistake:** Calling Table methods on CSV data without wrapping:
+```parsley
+// WRONG - parseCSV returns Array, not Table
+let rows = csvString.parseCSV()
+rows.count()          // Error: Unknown method 'count' for array
+
+// CORRECT - wrap in table.table()
+import @std/table
+let t = table.table(csvString.parseCSV())
+t.count()             // Works: returns row count
 ```
 
 ---
@@ -1236,7 +1688,7 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 |----------|-----------|---------|-------------|
 | `print(vals...)` | `vals: any...` | `null` | Print without newline |
 | `println(vals...)` | `vals: any...` | `null` | Print with newline |
-| `printf(fmt, vals...)` | `fmt: string`, `vals: any...` | `null` | Print with format string |
+| `printf(template, dict)` | `template: string`, `dict: dictionary` | `null` | Print template with `@{key}` placeholders |
 | `log(vals...)` | `vals: any...` | `null` | Log values (first string unquoted) |
 | `logLine(vals...)` | `vals: any...` | `null` | Log with newline |
 | `toDebug(val)` | `val: any` | `string` | Convert value to debug string |
@@ -1245,10 +1697,16 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 
 **`log()` behavior**: First argument is displayed without quotes if it's a string (as a label), subsequent values use debug format.
 
+**`printf()` syntax**: Unlike C-style printf, Parsley's `printf` uses template interpolation with `@{key}` placeholders that are replaced with values from the dictionary argument.
+
 ```parsley
 log("user", currentUser)        // "user {name: 'Alice', ...}"
 log(42, "hello")                // "42, hello"
 toDebug({a: 1, b: 2})           // "{a: 1, b: 2}"
+
+// printf uses @{key} placeholders
+printf("Hello @{name}, you are @{age} years old", {name: "Alice", age: 30})
+// Output: Hello Alice, you are 30 years old
 ```
 
 ---
@@ -1458,153 +1916,775 @@ import @std/math
 let {floor, ceil} = import @std/math
 ```
 
+**Available modules:**
+
+| Module | Description |
+|--------|-------------|
+| `@std/math` | Mathematical functions and constants |
+| `@std/valid` | Validation predicates |
+| `@std/id` | ID generation (ULID, UUID, NanoID) |
+| `@std/table` | SQL-like table operations |
+| `@std/schema` | Data validation schemas |
+| `@std/api` | HTTP API utilities (auth wrappers, error helpers) |
+| `@std/mdDoc` | Markdown document analysis |
+| `@std/dev` | Development logging (server only) |
+| `@std/html` | Pre-built HTML components (server only) |
+
 ---
 
 ### 7.1 @std/math
 
+Mathematical functions and constants. All trigonometric functions use radians.
+
 #### Constants
 
-| Name | Value |
-|------|-------|
-| `PI` | 3.14159... |
-| `E` | 2.71828... |
-| `TAU` | 6.28318... |
+| Name | Value | Description |
+|------|-------|-------------|
+| `PI` | 3.14159... | Pi (π) |
+| `E` | 2.71828... | Euler's number |
+| `TAU` | 6.28318... | Tau (2π) |
 
-#### Functions
+#### Rounding Functions
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `floor(n)` | `n: number` | Round down to integer |
+| `ceil(n)` | `n: number` | Round up to integer |
+| `round(n, decimals?)` | `n: number`, `decimals?: integer` | Round to nearest (optional decimal places) |
+| `trunc(n)` | `n: number` | Truncate toward zero |
+
+#### Comparison & Clamping
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `abs(n)` | `n: number` | Absolute value |
+| `sign(n)` | `n: number` | Returns -1, 0, or 1 |
+| `clamp(n, min, max)` | `n, min, max: number` | Clamp value to range |
+| `min(a, b)` / `min(arr)` | Two numbers or array | Minimum value |
+| `max(a, b)` / `max(arr)` | Two numbers or array | Maximum value |
+
+#### Aggregation
+
+All accept two arguments or an array.
 
 | Function | Description |
 |----------|-------------|
-| `floor(n)` | Round down |
-| `ceil(n)` | Round up |
-| `round(n)` | Round to nearest |
-| `abs(n)` | Absolute value |
-| `min(a, b)` / `min(arr)` | Minimum |
-| `max(a, b)` / `max(arr)` | Maximum |
-| `sum(arr)` | Sum of array |
-| `sqrt(n)` | Square root |
-| `pow(base, exp)` | Power |
-| `random()` | Random 0-1 |
+| `sum(...)` | Sum of values |
+| `avg(...)` / `mean(...)` | Average (mean is alias) |
+| `product(...)` | Product of values |
+| `count(arr)` | Count elements |
+
+#### Statistics (Array Only)
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `median(arr)` | `arr: array` | Median value |
+| `mode(arr)` | `arr: array` | Most frequent value |
+| `stddev(arr)` | `arr: array` | Standard deviation |
+| `variance(arr)` | `arr: array` | Variance |
+| `range(arr)` | `arr: array` | max - min |
+
+#### Random
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `random()` | none | Random float 0.0-1.0 |
+| `randomInt(max)` | `max: integer` | Random integer 0 to max-1 |
+| `randomInt(min, max)` | `min, max: integer` | Random integer min to max-1 |
+| `seed(n)` | `n: integer` | Seed the random generator |
+
+#### Powers & Logarithms
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `sqrt(n)` | `n: number` | Square root |
+| `pow(base, exp)` | `base, exp: number` | Power (base^exp) |
+| `exp(n)` | `n: number` | e^n |
+| `log(n)` | `n: number` | Natural logarithm |
+| `log10(n)` | `n: number` | Base-10 logarithm |
+
+#### Trigonometry
+
+All use radians. Use `degrees()` and `radians()` for conversion.
+
+| Function | Description |
+|----------|-------------|
+| `sin(n)` | Sine |
+| `cos(n)` | Cosine |
+| `tan(n)` | Tangent |
+| `asin(n)` | Arc sine |
+| `acos(n)` | Arc cosine |
+| `atan(n)` | Arc tangent |
+| `atan2(y, x)` | Arc tangent of y/x |
+
+#### Angular Conversion
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `degrees(radians)` | `radians: number` | Convert radians to degrees |
+| `radians(degrees)` | `degrees: number` | Convert degrees to radians |
+
+#### Geometry & Interpolation
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `hypot(a, b)` | `a, b: number` | Hypotenuse length: √(a² + b²) |
+| `dist(x1, y1, x2, y2)` | Four numbers | Distance between points |
+| `lerp(a, b, t)` | `a, b, t: number` | Linear interpolation: a + (b-a)*t |
+| `map(n, inMin, inMax, outMin, outMax)` | Five numbers | Map value from one range to another |
 
 ```parsley
-let {floor, ceil, round, abs, min, max, sum, sqrt, pow, random, PI} = import @std/math
+let math = import @std/math
 
-floor(3.7)                      // 3
-ceil(3.2)                       // 4
-round(3.5)                      // 4
-abs(-42)                        // 42
-min(3, 7)                       // 3
-max(3, 7)                       // 7
+// Rounding
+math.floor(3.7)                 // 3
+math.ceil(3.2)                  // 4
+math.round(3.567, 2)            // 3.57
+math.trunc(-3.7)                // -3
 
+// Comparison
+math.abs(-42)                   // 42
+math.sign(-5)                   // -1
+math.clamp(15, 0, 10)           // 10
+
+// Aggregation
 let nums = [1, 2, 3, 4, 5]
-sum(nums)                       // 15
-min(nums)                       // 1
-max(nums)                       // 5
+math.sum(nums)                  // 15
+math.avg(nums)                  // 3
+math.min(3, 7)                  // 3
+math.max(nums)                  // 5
 
-sqrt(16)                        // 4
-pow(2, 10)                      // 1024
-PI                              // 3.141592653589793
-random()                        // 0.314... (random)
+// Statistics
+math.median([1, 2, 3, 4, 100])  // 3
+math.stddev([1, 2, 3, 4, 5])    // ~1.41
+
+// Random
+math.random()                   // 0.314... (random)
+math.randomInt(10)              // 0-9 (random)
+math.randomInt(5, 10)           // 5-9 (random)
+
+// Powers
+math.sqrt(16)                   // 4
+math.pow(2, 10)                 // 1024
+
+// Trigonometry
+math.sin(math.PI / 2)           // 1
+math.degrees(math.PI)           // 180
+
+// Interpolation
+math.lerp(0, 100, 0.5)          // 50
+math.map(5, 0, 10, 0, 100)      // 50
 ```
 
 ---
 
 ### 7.2 @std/valid
 
+Validation functions that return `true` or `false`. All validators are pure functions with no side effects.
+
 #### Type Validators
 
-| Function | Description |
-|----------|-------------|
-| `string(v)` | Is string? |
-| `number(v)` | Is number? |
-| `integer(v)` | Is integer? |
-| `boolean(v)` | Is boolean? |
-| `array(v)` | Is array? |
-| `dict(v)` | Is dictionary? |
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `string(v)` | `v: any` | Is string? |
+| `number(v)` | `v: any` | Is number (integer or float)? |
+| `integer(v)` | `v: any` | Is integer? |
+| `boolean(v)` | `v: any` | Is boolean? |
+| `array(v)` | `v: any` | Is array? |
+| `dict(v)` | `v: any` | Is dictionary? |
 
 #### String Validators
 
-| Function | Description |
-|----------|-------------|
-| `empty(s)` | Is empty/whitespace? |
-| `minLen(s, n)` | Minimum length? |
-| `maxLen(s, n)` | Maximum length? |
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `empty(s)` | `s: string` | Is empty or whitespace only? |
+| `minLen(s, n)` | `s: string`, `n: integer` | Has at least n characters? |
+| `maxLen(s, n)` | `s: string`, `n: integer` | Has at most n characters? |
+| `length(s, min, max)` | `s: string`, `min, max: integer` | Length in range? |
+| `matches(s, pattern)` | `s: string`, `pattern: string\|regex` | Matches pattern? |
+| `alpha(s)` | `s: string` | Only letters? |
+| `alphanumeric(s)` | `s: string` | Only letters and numbers? |
+| `numeric(s)` | `s: string` | Only digits? |
 
 #### Number Validators
 
-| Function | Description |
-|----------|-------------|
-| `min(n, min)` | At least min? |
-| `max(n, max)` | At most max? |
-| `between(n, min, max)` | In range? |
-| `positive(n)` | Positive? |
-| `negative(n)` | Negative? |
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `min(n, min)` | `n, min: number` | At least min? |
+| `max(n, max)` | `n, max: number` | At most max? |
+| `between(n, min, max)` | `n, min, max: number` | In range [min, max]? |
+| `positive(n)` | `n: number` | Greater than 0? |
+| `negative(n)` | `n: number` | Less than 0? |
 
 #### Format Validators
 
-| Function | Description |
-|----------|-------------|
-| `email(s)` | Valid email? |
-| `url(s)` | Valid URL? |
-| `uuid(s)` | Valid UUID? |
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `email(s)` | `s: string` | Valid email format? |
+| `url(s)` | `s: string` | Valid URL format? |
+| `uuid(s)` | `s: string` | Valid UUID format? |
+| `phone(s, locale?)` | `s: string`, `locale?: string` | Valid phone number? |
+| `creditCard(s)` | `s: string` | Valid credit card (Luhn check)? |
+| `date(s, format?)` | `s: string`, `format?: string` | Valid date? |
+| `time(s)` | `s: string` | Valid time (HH:MM or HH:MM:SS)? |
+| `postalCode(s, locale?)` | `s: string`, `locale?: string` | Valid postal code? |
+
+#### Collection Validators
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `contains(arr, item)` | `arr: array`, `item: any` | Array contains item? |
+| `oneOf(value, options)` | `value: any`, `options: array` | Value is one of options? |
 
 ```parsley
 let valid = import @std/valid
 
+// Type checking
 valid.string("hello")           // true
 valid.number(42)                // true
-valid.email("user@example.com") // true
-valid.email("invalid")          // false
+valid.integer(3.14)             // false
+
+// String validation
+valid.empty("   ")              // true
+valid.minLen("hello", 3)        // true
+valid.alpha("Hello")            // true
+valid.alphanumeric("abc123")    // true
+
+// Number validation
 valid.positive(5)               // true
 valid.between(10, 5, 15)        // true
+
+// Format validation
+valid.email("user@example.com") // true
+valid.email("invalid")          // false
+valid.uuid("550e8400-e29b-41d4-a716-446655440000")  // true
+valid.phone("+1-555-123-4567")  // true
+
+// Collection validation
+valid.oneOf("red", ["red", "green", "blue"])  // true
 ```
 
 ---
 
 ### 7.3 @std/id
 
-| Function | Description |
-|----------|-------------|
-| `new()` | ULID-like (26 chars, sortable) |
-| `uuid()` | UUID v4 (random) |
-| `uuidv4()` | UUID v4 (random) |
-| `uuidv7()` | UUID v7 (time-sortable) |
-| `nanoid()` | NanoID (21 chars) |
-| `cuid()` | CUID2-like |
+ID generation functions for creating unique identifiers. All functions return strings and are thread-safe.
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `new()` | none | ULID-like ID (26 chars, time-sortable, Crockford Base32) |
+| `uuid()` | none | UUID v4 (random, 36 chars with dashes) |
+| `uuidv4()` | none | Alias for `uuid()` |
+| `uuidv7()` | none | UUID v7 (time-sortable, 36 chars with dashes) |
+| `nanoid(length?)` | `length?: integer` (default: 21) | NanoID (URL-safe, compact) |
+| `cuid()` | none | CUID2-like (collision-resistant) |
+
+**When to use which:**
+- `new()` / `uuidv7()`: When you need sortable IDs (databases, logs)
+- `uuid()` / `uuidv4()`: Standard random UUID for interoperability
+- `nanoid()`: Compact URLs, short codes
+- `cuid()`: Horizontal scaling, distributed systems
 
 ```parsley
 let id = import @std/id
 
-id.new()                        // "01KEQAT4553AQS0P93..."
-id.uuid()                       // "5856b07-37fc-4881-..."
-id.uuidv7()                     // "019baead-10a5-734c-..."
-id.nanoid()                     // "7YoNclTbwXecv1mFxZp6t"
+id.new()                        // "01KEQAT4553AQS0P93DXYZ"
+id.uuid()                       // "550e8400-e29b-41d4-a716-446655440000"
+id.uuidv7()                     // "019baead-10a5-734c-8d7e-446655440000"
+id.nanoid()                     // "V1StGXR8_Z5jdHi6B-myT"
+id.nanoid(10)                   // "IRFa-VaY2b"
 ```
+
+---
+
+### 7.4 @std/table
+
+The table module provides SQL-like data manipulation for arrays of dictionaries. Tables are immutable—all operations return new tables.
+
+#### Constructors
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `table.table(arr)` | `arr: array` | Create table from array of dictionaries |
+| `table.table.fromDict(dict, keyCol?, valCol?)` | `dict: dictionary` | Create table from dictionary entries |
+
+#### Query Methods
+
+All query methods return a new Table.
+
+| Method | Arguments | Description |
+|--------|-----------|-------------|
+| `where(fn)` | `fn: (row) → boolean` | Filter rows matching predicate |
+| `orderBy(col, dir?)` | `col: string`, `dir?: "asc"\|"desc"` | Sort by column (default: "asc") |
+| `select(cols)` | `cols: array` | Select specific columns |
+| `limit(n)` | `n: integer` | Take first n rows |
+
+#### Aggregation Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `count()` | none | integer | Number of rows |
+| `sum(col)` | `col: string` | number | Sum of column values |
+| `avg(col)` | `col: string` | number | Average of column values |
+| `min(col)` | `col: string` | number | Minimum column value |
+| `max(col)` | `col: string` | number | Maximum column value |
+
+#### Access Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `rowCount()` | none | integer | Number of rows |
+| `columnCount()` | none | integer | Number of columns |
+| `column(name)` | `name: string` | array | Extract column as array |
+
+#### Mutation Methods
+
+All mutation methods return a new Table.
+
+| Method | Arguments | Description |
+|--------|-----------|-------------|
+| `appendRow(row)` | `row: dictionary` | Add row at end |
+| `insertRowAt(index, row)` | `index: integer`, `row: dictionary` | Insert row at position |
+| `appendCol(name, values)` | `name: string`, `values: array` | Add column at end |
+| `insertColAfter(after, name, values)` | `after, name: string`, `values: array` | Insert column after another |
+| `insertColBefore(before, name, values)` | `before, name: string`, `values: array` | Insert column before another |
+
+#### Export Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `toCSV()` | none | string | Export as CSV |
+| `toJSON()` | none | string | Export as JSON array |
+| `toMarkdown()` | none | string | Export as Markdown table |
+| `toHTML()` | none | tag | Export as HTML table |
+
+```parsley
+let table = import @std/table
+
+let data = [
+    {name: "Alice", age: 30, dept: "Eng"},
+    {name: "Bob", age: 25, dept: "Sales"},
+    {name: "Carol", age: 35, dept: "Eng"}
+]
+
+let t = table.table(data)
+
+// Query
+let engineers = t.where(fn(row) { row.dept == "Eng" })
+engineers.count()               // 2
+
+let sorted = t.orderBy("age", "asc")
+sorted.column("name")[0]        // "Bob"
+
+let subset = t.select(["name", "age"])
+subset.columnCount()            // 2
+
+// Aggregation
+t.sum("age")                    // 90
+t.avg("age")                    // 30
+t.min("age")                    // 25
+t.max("age")                    // 35
+
+// Export
+t.toCSV()                       // "name,age,dept\nAlice,30,Eng\n..."
+t.toMarkdown()                  // "| name | age | dept |\n..."
+
+// From dictionary
+let counts = {a: 1, b: 2, c: 3}
+let t2 = table.table.fromDict(counts, "letter", "count")
+t2.toCSV()                      // "letter,count\na,1\nb,2\nc,3"
+```
+
+---
+
+### 7.5 @std/schema
+
+Schema definitions for data validation. Define reusable schemas and validate data against them.
+
+#### Type Factories
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `string(opts?)` | `opts?: {minLength?, maxLength?}` | String type |
+| `email(opts?)` | `opts?: dictionary` | Email format |
+| `url(opts?)` | `opts?: dictionary` | URL format |
+| `phone(opts?)` | `opts?: dictionary` | Phone number format |
+| `integer(opts?)` | `opts?: {min?, max?}` | Integer type |
+| `number(opts?)` | `opts?: {min?, max?}` | Number type (integer or float) |
+| `boolean(opts?)` | `opts?: dictionary` | Boolean type |
+| `enum(values...)` | `values: string...` | One of specified values |
+| `date(opts?)` | `opts?: dictionary` | Date string (YYYY-MM-DD) |
+| `datetime(opts?)` | `opts?: dictionary` | Datetime string (ISO 8601) |
+| `money(opts?)` | `opts?: dictionary` | Monetary value |
+| `array(itemType)` | `itemType: type` | Array of specified type |
+| `object(schema)` | `schema: dictionary` | Nested object |
+| `id(opts?)` | `opts?: dictionary` | ID string |
+
+#### Schema Operations
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `define(name, fields)` | `name: string`, `fields: dictionary` | Schema | Define a named schema |
+| `table(schema)` | `schema: Schema` | Table | Create table with schema validation |
+
+#### Schema Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.validate(data)` | `data: dictionary` | ValidationResult | Validate data against schema |
+| `.name` | none | string | Schema name |
+
+#### ValidationResult
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `valid` | boolean | Whether validation passed |
+| `errors` | array | List of `{field, message}` errors |
+
+```parsley
+let schema = import @std/schema
+
+let User = schema.define("User", {
+    name: schema.string({minLength: 1, maxLength: 50}),
+    email: schema.email(),
+    age: schema.integer({min: 0, max: 150}),
+    role: schema.enum("user", "admin", "guest"),
+    active: schema.boolean()
+})
+
+// Valid data
+let result = User.validate({
+    name: "Alice",
+    email: "alice@example.com",
+    age: 30,
+    role: "user",
+    active: true
+})
+result.valid                    // true
+
+// Invalid data
+let bad = User.validate({
+    email: "not-an-email",
+    age: -5
+})
+bad.valid                       // false
+bad.errors.length()             // 2
+bad.errors[0].field             // "email"
+bad.errors[0].message           // "User schema: Invalid email format"
+```
+
+---
+
+### 7.6 @std/api
+
+HTTP API utilities for Basil handlers. Provides auth wrappers and error helpers.
+
+#### Auth Wrappers
+
+Wrap handler functions to add authentication requirements.
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `public(fn)` | `fn: function` | No authentication required |
+| `adminOnly(fn)` | `fn: function` | Requires admin role |
+| `roles(roles, fn)` | `roles: array`, `fn: function` | Requires any of specified roles |
+| `auth(fn)` | `fn: function` | Requires any authenticated user |
+
+#### Error Helpers
+
+Return special error objects that Basil converts to HTTP responses.
+
+| Function | Arguments | HTTP Status | Description |
+|----------|-----------|-------------|-------------|
+| `notFound(msg?)` | `msg?: string` | 404 | Resource not found |
+| `forbidden(msg?)` | `msg?: string` | 403 | Access denied |
+| `badRequest(msg?)` | `msg?: string` | 400 | Invalid request |
+| `unauthorized(msg?)` | `msg?: string` | 401 | Authentication required |
+| `conflict(msg?)` | `msg?: string` | 409 | Resource conflict |
+| `serverError(msg?)` | `msg?: string` | 500 | Internal server error |
+
+#### Redirect Helper
+
+| Function | Arguments | Description |
+|----------|-----------|-------------|
+| `redirect(url, status?)` | `url: string`, `status?: integer` | HTTP redirect (default: 302) |
+
+```parsley
+let api = import @std/api
+
+// Auth wrappers (used in route definitions)
+let getUsers = api.public(fn(req) {
+    // Anyone can access
+    return users
+})
+
+let deleteUser = api.adminOnly(fn(req) {
+    // Only admins
+    return {ok: true}
+})
+
+let editProfile = api.auth(fn(req) {
+    // Any logged-in user
+    return profile
+})
+
+// Error responses
+fn getUser(req) {
+    let user = findUser(req.params.id)
+    if (user == null) {
+        return api.notFound("User not found")
+    }
+    return user
+}
+
+// Redirects
+fn handleLogin(req) {
+    // ... authenticate ...
+    return api.redirect("/dashboard")
+}
+
+fn handleOldUrl(req) {
+    return api.redirect("/new-url", 301)  // Permanent redirect
+}
+```
+
+---
+
+### 7.7 @std/mdDoc
+
+Markdown document analysis and manipulation. Parse markdown into a queryable document object.
+
+#### Constructor
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `mdDoc.mdDoc(markdown)` | `markdown: string` | MdDoc | Parse markdown string |
+
+#### Rendering Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `toMarkdown()` | none | string | Render back to markdown |
+| `toHTML()` | none | string | Render to HTML |
+
+#### Query Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `findAll(type)` | `type: string\|array` | array | Find all nodes of type(s) |
+| `findFirst(type)` | `type: string` | node\|null | Find first node of type |
+| `headings()` | none | array | All headings with `{level, text, id}` |
+| `links()` | none | array | All links with `{url, title, text}` |
+| `images()` | none | array | All images with `{url, alt, title}` |
+| `codeBlocks()` | none | array | All code blocks with `{language, code}` |
+
+#### Convenience Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `title()` | none | string\|null | First h1 text |
+| `toc()` | none | array | Table of contents entries |
+| `text()` | none | string | Plain text content |
+| `wordCount()` | none | integer | Word count |
+
+#### Transform Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `walk(fn)` | `fn: (node) → void` | void | Visit each node |
+| `map(fn)` | `fn: (node) → node` | MdDoc | Transform nodes |
+| `filter(fn)` | `fn: (node) → boolean` | MdDoc | Filter nodes |
+
+#### AST Access
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `ast` | none | dictionary | Raw AST |
+
+```parsley
+let mdDoc = import @std/mdDoc
+
+let markdown = `# Welcome to My Doc
+
+This is a **test** with [a link](https://example.com).
+
+## Section One
+
+Some content here.
+
+## Section Two
+
+![Image](photo.png "A photo")
+`
+
+let doc = mdDoc.mdDoc(markdown)
+
+// Basic info
+doc.title()                     // "Welcome to My Doc"
+doc.wordCount()                 // 17
+doc.text()                      // "Welcome to My Doc This is a test..."
+
+// Extract elements
+doc.headings()                  // [{level: 1, text: "Welcome to My Doc", id: "..."}, ...]
+doc.links()                     // [{url: "https://example.com", title: "", text: "a link"}]
+doc.images()                    // [{url: "photo.png", alt: "Image", title: "A photo"}]
+
+// Render
+doc.toHTML()                    // "<h1 id=\"welcome...\">Welcome...</h1>..."
+doc.toMarkdown()                // Original markdown (reformatted)
+```
+
+---
+
+### 7.8 @std/dev
+
+Development logging utilities. **Requires Basil server context**—not available in standalone Parsley scripts.
+
+#### Methods
+
+| Method | Arguments | Description |
+|--------|-----------|-------------|
+| `dev.log(label, value)` | `label: string`, `value: any` | Log a value with label |
+| `dev.clearLog()` | none | Clear all log entries |
+| `dev.logPage()` | none | Get log page HTML |
+| `dev.setLogRoute(route)` | `route: string` | Set dev log route |
+| `dev.clearLogPage()` | none | Clear and return log page |
+
+```parsley
+// In a Basil handler
+let dev = import @std/dev
+
+fn handleRequest(req) {
+    dev.log("request", req.params)
+    dev.log("user", currentUser)
+    // ...
+    return response
+}
+```
+
+> **Note:** The dev module is for debugging during development. Log output is visible at the configured dev log route (typically `/_dev/log`).
+
+---
+
+### 7.9 @std/html
+
+Pre-built HTML components. **Requires Basil server context**—not available in standalone Parsley scripts.
+
+#### Layout Components
+
+| Component | Description |
+|-----------|-------------|
+| `Page` | Full HTML page wrapper |
+| `Head` | HTML `<head>` section |
+
+#### Form Components
+
+| Component | Description |
+|-----------|-------------|
+| `Form` | Form wrapper |
+| `TextField` | Text input with label |
+| `TextareaField` | Multi-line text input |
+| `SelectField` | Dropdown select |
+| `RadioGroup` | Radio button group |
+| `CheckboxGroup` | Checkbox group |
+| `Checkbox` | Single checkbox |
+| `Button` | Button element |
+
+#### Navigation Components
+
+| Component | Description |
+|-----------|-------------|
+| `Nav` | Navigation wrapper |
+| `Breadcrumb` | Breadcrumb navigation |
+| `SkipLink` | Accessibility skip link |
+
+#### Media Components
+
+| Component | Description |
+|-----------|-------------|
+| `Img` | Image with accessibility |
+| `Iframe` | Embedded iframe |
+| `Figure` | Figure with caption |
+| `Blockquote` | Block quotation |
+
+#### Utility Components
+
+| Component | Description |
+|-----------|-------------|
+| `A` | Anchor link |
+| `Abbr` | Abbreviation |
+| `Icon` | Icon element |
+| `SrOnly` | Screen reader only text |
+
+#### Time Components
+
+| Component | Description |
+|-----------|-------------|
+| `Time` | Time element |
+| `LocalTime` | Localized time |
+| `TimeRange` | Time range display |
+| `RelativeTime` | Relative time (e.g., "2 hours ago") |
+
+#### Data Components
+
+| Component | Description |
+|-----------|-------------|
+| `DataTable` | Data table with sorting/pagination |
+
+```parsley
+// In a Basil template
+let html = import @std/html
+
+<html.Page title="My App">
+    <html.Head>
+        <link rel="stylesheet" href="/styles.css"/>
+    </html.Head>
+    <main>
+        <html.Form action="/submit" method="post">
+            <html.TextField name="email" label="Email" type="email" required=true/>
+            <html.TextareaField name="message" label="Message"/>
+            <html.Button type="submit">"Send"</html.Button>
+        </html.Form>
+    </main>
+</html.Page>
+```
+
+> **Note:** See the Basil HTML Components documentation for detailed component props and usage.
 
 ---
 
 ## 8. Tags (HTML/XML)
 
-Tags are first-class values that render to HTML strings.
+Tags are first-class values that render to HTML strings. Unlike JSX (React), Parsley tags do not require quotes around attribute values for simple strings, and string content inside tags must be quoted.
+
+**Key differences from JSX/React:**
+- Attribute values don't need `{...}` for simple strings: `class="container"` not `class={"container"}`
+- String content must be quoted: `<p>"Hello"</p>` not `<p>Hello</p>`
+- Self-closing tags MUST use `/>`: `<br/>` not `<br>`
 
 ### 8.1 Self-Closing Tags
 
-**Must use `/>` syntax:**
+**Must use `/>` syntax** (unlike HTML5 where `<br>` is valid):
 
 ```parsley
 <br/>
 <hr/>
 <img src="photo.jpg" alt="A photo"/>
+<input type="text" name="email"/>
 ```
 
 ---
 
 ### 8.2 Pair Tags
 
-Text content must be quoted:
+Text content must be quoted. Unquoted text is interpreted as variable references:
 
 ```parsley
-<p>"Hello, World!"</p>
-<h1>"Welcome"</h1>
+<p>"Hello, World!"</p>         // Literal string
+<h1>"Welcome"</h1>             // Literal string
+
+let message = "Dynamic content"
+<p>message</p>                  // Variable reference
 ```
 
 ---
@@ -1761,120 +2841,170 @@ let x = 5  // End of line comment
 
 ## 10. Error Handling
 
-Parsley uses structured errors with error codes for consistent handling.
+Parsley provides structured error handling through the `try` expression and `fail` function.
 
-### 10.1 Error Categories
+### 10.1 The `try` Expression
 
-| Category | Code Pattern | Description |
-|----------|--------------|-------------|
-| Parse | `PARSE-0xxx` | Syntax errors during parsing |
-| Type | `TYPE-0xxx` | Type mismatch errors |
-| Arity | `ARITY-0xxx` | Wrong number of arguments |
-| Undefined | `UNDEF-0xxx` | Unknown identifier, method, or property |
-| Index | `INDEX-0xxx` | Array/dictionary index errors |
-| Format | `FMT-0xxx` | Formatting/parsing errors |
-| Validation | `VAL-0xxx` | Value validation failures |
-| I/O | `IO-0xxx` | File and network errors |
+The `try` expression catches certain errors and returns them as values instead of terminating execution. It wraps the result in a dictionary with `result` and `error` fields.
 
-### 10.2 Common Errors
-
-#### Type Errors (`TYPE-0xxx`)
+**Syntax**: `try` only accepts **function calls** or **method calls**, not arbitrary expressions or blocks.
 
 ```parsley
-// TYPE-0001: Expected type mismatch
-"hello".split(123)              // Expected string, got integer
-
-// TYPE-0012: Argument type mismatch
-[1, 2, 3].take("two")           // Argument must be an integer
-
-// TYPE-0007: Cannot iterate
-for (x in 42) { x }             // Cannot iterate over integer
-```
-
-#### Arity Errors (`ARITY-0xxx`)
-
-```parsley
-// ARITY-0001: Wrong number of arguments
-"hello".split()                 // Missing required argument
-"hello".split("l", "extra")     // Too many arguments
-
-// ARITY-0004: Outside valid range
-[1, 2, 3].format("and", "en", "extra")  // Expects 0-2 arguments
-```
-
-#### Undefined Errors (`UNDEF-0xxx`)
-
-```parsley
-// UNDEF-0001: Identifier not found
-unknownVariable                 // Identifier not found: unknownVariable
-
-// UNDEF-0002: Unknown method
-"hello".unknownMethod()         // Unknown method 'unknownMethod' for string
-
-// UNDEF-0004: Unknown property
-@now.unknownProp                // Unknown property 'unknownProp' on datetime
-```
-
-#### Index Errors (`INDEX-0xxx`)
-
-```parsley
-// INDEX-0001: Out of bounds
-let arr = [1, 2, 3]
-arr[10]                         // Index 10 out of bounds
-
-// INDEX-0005: Key not found
-let d = {a: 1}
-d.insertAfter("missing", "b", 2)  // Key 'missing' not found
-```
-
-### 10.3 Handling Errors with `try`
-
-Use `try` to catch errors and return a result dictionary:
-
-```parsley
-let result = try {
-    riskyOperation()
-}
+let result = try someFunction(args)
 // Returns: {result: value, error: null} on success
-// Returns: {result: null, error: "message"} on failure
+// Returns: {result: null, error: "message"} on catchable error
+
+let result2 = try obj.method(args)
+// Same pattern for method calls
 ```
 
-**Pattern: Check and handle**
+#### Success Case
+
+When the function succeeds, `result` contains the return value and `error` is `null`:
 
 ```parsley
-let result = try parseJSON(userInput)
-if (result.error) {
-    <div class="error">"Invalid JSON: " + result.error</div>
+let add = fn(a, b) { a + b }
+let res = try add(2, 3)
+res.result                      // 5
+res.error                       // null
+```
+
+#### Error Case
+
+When a catchable error occurs, `result` is `null` and `error` contains the error message:
+
+```parsley
+let validate = fn(x) {
+    check x > 0 else fail("must be positive")
+    x * 2
+}
+
+let res = try validate(-5)
+res.result                      // null
+res.error                       // "must be positive"
+```
+
+#### Pattern: Check and Handle
+
+Use destructuring with conditionals for clean error handling:
+
+```parsley
+let {result, error} = try riskyOperation()
+if (error) {
+    <div class="error">"Operation failed: " + error</div>
 } else {
-    <pre>result.result.toJSON()</pre>
+    <div class="success">"Result: " + toString(result)</div>
 }
 ```
 
-### 10.4 Throwing Errors with `fail`
+#### Pattern: Default with Null Coalescing
 
-Use `fail()` to throw catchable errors:
+Use `??` to provide fallback values:
 
 ```parsley
-let validateAge = fn(age) {
-    check age >= 0 else fail("Age cannot be negative")
-    check age < 150 else fail("Age is unrealistic")
-    age
-}
-
-let result = try validateAge(-5)
-result.error                    // "Age cannot be negative"
+let result = (try parseJSON(input)).result ?? {}
+let data = (try loadConfig()).result ?? {default: true}
 ```
 
-### 10.5 Error Prevention
+---
+
+### 10.2 The `fail` Function
+
+Use `fail(message)` to create a catchable error. This is the primary way to signal errors in validation and business logic.
+
+```parsley
+let validateEmail = fn(email) {
+    check email.includes("@") else fail("Invalid email format")
+    check email.length() > 3 else fail("Email too short")
+    email
+}
+
+let result = try validateEmail("bad")
+result.error                    // "Email too short"
+```
+
+**Important**: `fail()` creates **catchable** errors (class: "value"). They can be caught by `try` expressions.
+
+---
+
+### 10.3 Catchable vs Non-Catchable Errors
+
+Not all errors can be caught by `try`. Parsley distinguishes between:
+
+- **Catchable errors** — External/runtime errors that may occur despite correct code (network failures, invalid user input, file not found)
+- **Non-catchable errors** — Developer errors that indicate bugs (type mismatches, wrong number of arguments, undefined variables)
+
+#### Catchable Error Classes
+
+These errors **can** be caught by `try`:
+
+| Class | Examples |
+|-------|----------|
+| **Value** | Created by `fail()`, empty required fields |
+| **Format** | Invalid URL, malformed JSON, bad date string |
+| **IO** | File not found, permission denied |
+| **Network** | HTTP request failure, timeout |
+| **Database** | Connection failed, query error |
+| **Security** | Access denied, authentication required |
+
+```parsley
+// These CAN be caught:
+try url("not a valid url")      // Format error - invalid URL
+try fail("custom error")         // Value error
+try readFile(@./missing.txt)    // IO error - file not found
+```
+
+#### Non-Catchable Errors
+
+These errors **cannot** be caught by `try` — they propagate and terminate execution:
+
+| Class | Examples |
+|-------|----------|
+| **Type** | Wrong type passed to function or method |
+| **Arity** | Wrong number of function arguments |
+| **Undefined** | Variable, function, or method not found |
+| **Index** | Array index out of bounds |
+| **Operator** | Invalid operation (e.g., adding incompatible types) |
+| **State** | Invalid state transition |
+
+```parsley
+// These CANNOT be caught - they propagate:
+try unknownFunction()           // Undefined error - propagates
+try "text".split(123)           // Type error - propagates
+try someFunc()                  // Arity error if wrong args - propagates
+```
+
+**Why?** Non-catchable errors indicate bugs in your code. They should fail loudly during development so you fix them, not be silently caught at runtime.
+
+---
+
+### 10.4 Error Prevention
+
+#### Check Guards
+
+Use `check...else` for validation with early returns:
+
+```parsley
+let processOrder = fn(order) {
+    check order else fail("Order required")
+    check order.items else fail("Order must have items")
+    check order.total > 0 else fail("Order total must be positive")
+    // Process order...
+}
+```
 
 #### Optional Index Access
 
-Use `[?index]` to return `null` instead of error for missing indices:
+Use `[?index]` to return `null` instead of erroring on missing indices:
 
 ```parsley
 let arr = [1, 2, 3]
 arr[?99]                        // null (no error)
 arr[99]                         // Error: index out of bounds
+
+let user = {name: "Alice"}
+user[?"email"]                  // null (no error)
+user.email                      // null (null propagation, no error)
 ```
 
 #### Null Coalescing
@@ -1884,18 +3014,6 @@ Use `??` to provide default values:
 ```parsley
 let name = user.name ?? "Anonymous"
 let config = loadConfig() ?? {default: true}
-```
-
-#### Check Guards
-
-Use `check` for early validation:
-
-```parsley
-let processUser = fn(user) {
-    check user != null else "User required"
-    check user.email else "Email required"
-    // Continue with valid user...
-}
 ```
 
 ---
@@ -1923,11 +3041,13 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `function` | `fn(x) { x }` | — | — |
 | `datetime` | `@2024-12-25` | `year`, `month`, `day`, etc. | `format` |
 | `duration` | `@1d`, `@2h30m` | `months`, `seconds`, etc. | `format` |
-| `money` | `$12.34`, `EUR#50` | `amount`, `currency`, `scale` | `format`, `split`, `abs` |
+| `money` | `$12.34`, `EUR#50` | `amount`, `currency`, `scale` | `format`, `split`, `abs`, `negate` |
 | `path` | `@./file.txt` | `segments`, `extension`, etc. | `match`, `toURL` |
 | `url` | `@https://...` | `scheme`, `host`, `query`, etc. | `origin`, `pathname` |
 | `regex` | `/pattern/flags` | `pattern`, `flags` | `test`, `replace` |
 | `table` | `CSV(@./data.csv)` | `row`, `rows`, `columns` | `where`, `orderBy`, `toHTML` |
+
+**Note**: Numbers do not have math methods like `abs()`. Use `@std/math` for mathematical operations.
 
 ---
 

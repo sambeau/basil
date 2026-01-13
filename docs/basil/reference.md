@@ -29,10 +29,16 @@ Connection literals create database and service connections.
 ```parsley
 let db = @sqlite("./database.db")
 let db = @sqlite(":memory:")
+let db = @sqlite("./database.db", {maxOpenConns: 10})
 ```
 
 **Arguments:**
-- `path` (string): File path to the database, or `":memory:"` for an in-memory database
+- `path` (String) — File path to the database, or `":memory:"` for an in-memory database
+- `options` (Dictionary, optional):
+  - `maxOpenConns` (Integer) — Maximum number of open connections
+  - `maxIdleConns` (Integer) — Maximum number of idle connections
+
+**Connection Settings:** SQLite connections automatically use WAL mode and a 5000ms busy timeout for better concurrency (except for `:memory:` databases where WAL is not supported).
 
 **Returns:** `DBConnection` object with the following properties:
 - `driver` — `"sqlite"`
@@ -44,10 +50,14 @@ let db = @sqlite(":memory:")
 
 ```parsley
 let db = @postgres("postgres://user:pass@host:5432/dbname")
+let db = @postgres("postgres://user:pass@host:5432/dbname", {maxOpenConns: 25})
 ```
 
 **Arguments:**
-- `dsn` (string): PostgreSQL connection string
+- `dsn` (String) — PostgreSQL connection string (URL format)
+- `options` (Dictionary, optional):
+  - `maxOpenConns` (Integer) — Maximum number of open connections
+  - `maxIdleConns` (Integer) — Maximum number of idle connections
 
 **Returns:** `DBConnection` object with:
 - `driver` — `"postgres"`
@@ -58,10 +68,14 @@ let db = @postgres("postgres://user:pass@host:5432/dbname")
 
 ```parsley
 let db = @mysql("user:pass@tcp(host:3306)/dbname")
+let db = @mysql("user:pass@tcp(host:3306)/dbname", {maxOpenConns: 25})
 ```
 
 **Arguments:**
-- `dsn` (string): MySQL connection string in Go database/sql format
+- `dsn` (String) — MySQL connection string in Go database/sql format
+- `options` (Dictionary, optional):
+  - `maxOpenConns` (Integer) — Maximum number of open connections
+  - `maxIdleConns` (Integer) — Maximum number of idle connections
 
 **Returns:** `DBConnection` object with:
 - `driver` — `"mysql"`
@@ -70,15 +84,24 @@ let db = @mysql("user:pass@tcp(host:3306)/dbname")
 
 ### 1.4 SFTP
 
+Creates an SFTP connection for remote file operations over SSH.
+
 ```parsley
-let sftp = @sftp("user@host:22")
+let sftp = @sftp("sftp://user@host:22")
+let sftp = @sftp("sftp://user:password@host:22")
+let sftp = @sftp("sftp://user@host:22", {keyFile: @~/.ssh/id_rsa})
 ```
 
 **Arguments:**
-- `address` (string): SSH address in `user@host:port` format
+- `url` (String): SFTP URL in `sftp://user@host:port` format. The `sftp://` scheme is required.
 - `options` (Dictionary, optional):
+  - `keyFile` (path|string) — Path to SSH private key file
+  - `passphrase` (String) — Passphrase for encrypted private key
+  - `password` (String) — Password for password authentication
   - `knownHostsFile` (path|string) — Path to known_hosts file for host key verification
   - `timeout` (duration) — Connection timeout
+
+**Authentication:** Supports SSH key authentication (via `keyFile` option) or password authentication (via URL or `password` option). At least one authentication method must be provided.
 
 **Returns:** `SFTPConnection` object with properties:
 - `host` (String) — Remote hostname
@@ -87,7 +110,7 @@ let sftp = @sftp("user@host:22")
 - `connected` (Boolean) — `true` if connection is active
 - `lastError` (String) — Error message from last failed operation
 
-**Authentication:** Uses SSH agent for key-based authentication.
+**Errors:** `SEC-0006` (no authentication method provided), `NET-0003` (SSH connection failed), `NET-0008` (host key verification failed), `NET-0009` (SFTP client failed)
 
 #### SFTP Connection Methods
 
@@ -100,7 +123,7 @@ let sftp = @sftp("user@host:22")
 Access remote files by indexing the connection:
 
 ```parsley
-let sftp = @sftp("user@host:22")
+let sftp = @sftp("sftp://user@host:22", {keyFile: @~/.ssh/id_rsa})
 let remoteFile = sftp[@./path/to/file.txt]
 ```
 
@@ -115,7 +138,7 @@ This creates an `SFTPFileHandle` with methods:
 **Reading/Writing Remote Files:**
 
 ```parsley
-let sftp = @sftp("user@host:22")
+let sftp = @sftp("sftp://user@host:22", {keyFile: @~/.ssh/id_rsa})
 
 // Read remote file
 let content <== text(sftp[@./remote/file.txt])
@@ -126,8 +149,6 @@ let content <== text(sftp[@./remote/file.txt])
 // Create remote directory
 sftp[@./remote/newdir].mkdir({parents: true})
 ```
-
-**Errors:** `NET-0003` (SSH connection failed), `NET-0008` (host key verification failed), `NET-0009` (SFTP client failed)
 
 ### 1.5 Shell
 
@@ -332,6 +353,26 @@ let users = db <=??=> <SearchUsers term="Ali%"/>
 | `.lastInsertId()` | none | `integer` | Get last inserted row ID (SQLite only) |
 | `.createTable(schema, name?)` | `schema: Schema`, `name?: string` | `boolean` | Create table from schema if not exists |
 | `.bind(schema, name, opts?)` | `schema: Schema`, `name: string`, `opts?: dict` | `TableBinding` | Bind schema to table |
+
+#### createTable Details
+
+```parsley
+db.createTable(UserSchema)           // Table name defaults to "userschemas" (pluralized lowercase)
+db.createTable(UserSchema, "users")  // Explicit table name
+```
+
+When no table name is provided, it defaults to the schema name lowercased and pluralized with "s".
+
+#### bind Options
+
+The `bind` method accepts an optional third argument for configuration:
+
+```parsley
+let Users = db.bind(UserSchema, "users", {soft_delete: "deleted_at"})
+```
+
+**Options:**
+- `soft_delete` (String) — Column name for soft delete timestamp. Records won't be physically deleted; instead, this column will be set.
 
 #### Transaction Example
 
@@ -670,6 +711,8 @@ Access to the current HTTP request.
 - `query` (Dictionary) — Query string parameters (e.g., `?name=foo` → `{name: "foo"}`)
 - `headers` (Dictionary) — Request headers (lowercase keys)
 - `body` (String|Dictionary) — Request body (for POST/PUT). JSON bodies are auto-parsed.
+- `form` (Dictionary) — Form data (for POST/PUT/PATCH with form-encoded body)
+- `files` (Dictionary) — Uploaded files (for multipart/form-data requests)
 
 **Example:**
 ```parsley
@@ -753,7 +796,7 @@ Current session module (see Section 7 for methods).
 
 **Type:** `SessionModule`
 
-### 6.3 auth
+### 6.2 auth
 
 Authentication context dictionary.
 
@@ -771,7 +814,7 @@ if (auth.required && !auth.user) {
 }
 ```
 
-### 6.4 user
+### 6.3 user
 
 Shortcut to `auth.user`—the currently authenticated user.
 
@@ -976,9 +1019,15 @@ Create an HTTP redirect response.
 
 **Returns:** `Redirect` object (handled specially by Basil server)
 
-**Valid status codes:** 301, 302, 303, 307, 308
+**Valid status codes:** Any 3xx status code (300–399). Common codes:
+- 301 — Moved Permanently
+- 302 — Found (default)
+- 303 — See Other
+- 304 — Not Modified
+- 307 — Temporary Redirect
+- 308 — Permanent Redirect
 
-**Errors:** `VALUE-0001` (empty URL), `VALUE-0002` (invalid status code)
+**Errors:** `VALUE-0001` (empty URL), `VALUE-0002` (invalid status code — must be 3xx)
 
 ```parsley
 redirect("/dashboard")          // 302 Found (default)
@@ -1116,7 +1165,9 @@ export profile = api.auth(fn() {
 let {dev} = import @std/dev
 ```
 
-Dev tools are for development debugging. All functions are **no-ops in production mode** (when `dev: false` in `basil.yaml`), so they can safely remain in production code.
+Dev tools are for development debugging. All functions are **no-ops in production mode** (when `dev: false` in `basil.yaml`) and when running in `pars` CLI outside a Basil server context, so they can safely remain in production code.
+
+**Important:** Route validation only occurs when dev tools are active (inside Basil server with dev mode enabled). In `pars` CLI or production mode, all dev functions silently return `null` without validation.
 
 ### 9.1 dev.log(value) / dev.log(label, value) / dev.log(label, value, options)
 
@@ -1154,7 +1205,7 @@ dev.clearLog()
 Log to a specific route's dev panel.
 
 **Arguments:**
-- `route` (String) — Route path (must start with `/`)
+- `route` (String) — Route identifier (alphanumeric, `-`, `_` only — no `/` or other special characters)
 - `value` (any) — Value to log
 - `label` (String, optional) — Label for the log entry
 - `options` (Dictionary, optional):
@@ -1175,7 +1226,7 @@ dev.logPage("/admin", "error", err, {level: "error"})
 Set default route for subsequent `dev.log()` calls.
 
 **Arguments:**
-- `route` (String) — Route path (must start with `/`), or empty string to reset
+- `route` (String) — Route identifier (alphanumeric, `-`, `_` only), or empty string to reset
 
 **Returns:** `null`
 
@@ -1192,11 +1243,11 @@ dev.setLogRoute("")              // Reset to current route
 Clear logs for a specific route.
 
 **Arguments:**
-- `route` (String) — Route path to clear logs for
+- `route` (String) — Route identifier (alphanumeric, `-`, `_` only)
 
 **Returns:** `null`
 
-**Errors:** `VAL-0009` (invalid route format)
+**Errors:** `VAL-0009` (invalid route format — route contains invalid characters)
 
 ```parsley
 dev.clearLogPage("/admin")
@@ -1364,6 +1415,10 @@ When operations fail, Basil returns an `Error` object with:
 | `NET-0002` | HTTP request failed |
 | `NET-0003` | SSH connection failed |
 | `NET-0004` | Non-2xx HTTP status returned |
+| `NET-0006` | Failed to read SSH key file |
+| `NET-0007` | Failed to parse SSH key |
+| `NET-0008` | Host key verification failed |
+| `NET-0009` | SFTP client creation failed |
 
 #### Security Errors (SEC-0xxx)
 
@@ -1374,6 +1429,7 @@ When operations fail, Basil returns an `Error` object with:
 | `SEC-0003` | Write access denied |
 | `SEC-0004` | Execute access denied |
 | `SEC-0005` | Network access denied |
+| `SEC-0006` | No authentication method provided (SFTP) |
 
 ### 12.4 Error Handling Patterns
 
@@ -1448,8 +1504,8 @@ if (user.role != "admin") {
 | Format factories | ✓ | ✓ | |
 | @env | ✓ | ✓ | |
 | @args | ✓ | — | Empty in server context |
-| @std/api | ✓ | ✓ | Redirect/errors are no-ops in pars |
-| @std/dev | no-op | ✓ | Dev panel requires server |
+| @std/api | ✓ | ✓ | Returns objects in pars, handled by server |
+| @std/dev | no-op | ✓ | Dev panel requires server; silently returns null in pars |
 | @basil/http | — | ✓ | Request context only |
 | @basil/auth | — | ✓ | Requires auth config |
 | @params | — | ✓ | Query + form data |
@@ -1463,7 +1519,7 @@ if (user.role != "admin") {
 | Type | Description | Example |
 |------|-------------|---------|
 | `DBConnection` | Database connection handle | `@sqlite("./db.sqlite")` |
-| `SFTPConnection` | SFTP connection handle | `@sftp("user@host:22")` |
+| `SFTPConnection` | SFTP connection handle | `@sftp("sftp://user@host:22", {...})` |
 | `SessionModule` | Session data wrapper | `import @basil/auth` |
 | `Redirect` | HTTP redirect response | `redirect("/path")` |
 | `APIError` | HTTP error response | `notFound()` |

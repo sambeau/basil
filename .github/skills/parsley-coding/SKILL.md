@@ -17,6 +17,7 @@ Use this skill when you need to:
 - Discussing new features and how they might fit into Parsley/Basil ecosystem
 - Creating workflow docs: designs, specs, plans, bugs, reports
 - Creating documentation that has Parsley code examples
+- Creating or editing: *.pars or *.part files
 
 ## Parsley vs Basil Context
 
@@ -26,7 +27,7 @@ Use this skill when you need to:
 
 **Basil-only features** (not available in standalone Parsley):
 - `@params` - URL/form parameters
-- `import @basil/http` - request, response, query, route, method
+- `import @basil/http` - request, response, route, method (query removed; use @params)
 - `import @basil/auth` - session, auth, user
 - HTTP-specific functionality (cookies, headers, sessions)
 
@@ -48,8 +49,8 @@ When writing code, consider:
 
 ### Notes:
 
-- Parsely code looks like Javascript, but it is expression-based
-- Parsely code looks like React/JSX code, but tags and code co-exist — code is not interpolated inside { } brackets
+- Parsley code looks like Javascript, but it is expression-based
+- Parsley code looks like React/JSX code, but tags and code co-exist — code is not interpolated inside { } brackets
 - ``if`` and ``for`` are expressions that return values
 - functions (``fn``) return everything by default, so do not need ``return`` statement 
 - Parsley has rich pseudo-types for dates, times, money with their own literals with `@` constructors
@@ -91,11 +92,11 @@ export Table = fn({rows, hidden, ...props}){
 ```parsley
 // Standard library (works everywhere)
 let {floor, ceil} = import @std/math
-let {Page} = import @std/html
+let {table} = import @std/table
 
 // Basil context (handler-only)
-let {query} = import @basil/http        // Basil-only
-let {session} = import @basil/auth      // Basil-only
+let {request, response, route, method} = import @basil/http  // Basil-only
+let {session, auth, user} = import @basil/auth               // Basil-only
 
 // Local modules (works everywhere)
 let {People} = import @~/schema/birthdays.pars
@@ -106,10 +107,11 @@ let {People} = import @~/schema/birthdays.pars
 ```parsley
 let doubled = for (n in [1,2,3]) { n * 2 }  // [2, 4, 6]
 
-// Filter pattern - if returns null, omitted from result
+// Filter pattern - if returns null, element is omitted from result
 let evens = for (n in [1,2,3,4]) {
-    if (n % 2 == 0) { n }  // [2, 4]
+    if (n % 2 == 0) { n }
 }
+// evens => [2, 4]
 ```
 
 ### 4. If  Parentheses are optional but recommended
@@ -130,7 +132,7 @@ let rootPath = @~/components/nav   // Relative to project root (Basil)
 // ❌ WRONG
 let path = "./config.json"  // This is just a string
 
-// Other litreals
+// Other literals
 let url = @https://example.com
 let date = @2024-11-29
 let time = @14:30
@@ -208,10 +210,10 @@ let double = fn(x) { x * 2 }
 ### 10. Three String Types: "", '', ``
 
 ```parsley
-// Double quotes: Normal strings with {var} interpolation
-let msg = "Hello {name}"
+// Double quotes: Plain strings (no interpolation)
+let msg = "Hello {name}"              // literal braces, no interpolation
 
-// Backticks: Template literals (JavaScript style)
+// Backticks: Template literals (JavaScript style, with interpolation)
 let msg = `Hello {name}`
 
 // Single quotes: RAW strings - {braces} stay literal
@@ -330,7 +332,7 @@ import @std/html         // HTML components (Page, Button, etc.)
 ONLY available in Basil handlers, NOT in standalone pars:
 
 ```parsley
-import @basil/http       // request, response, query, route, method
+import @basil/http       // request, response, route, method
 import @basil/auth       // session, auth, user
 ```
 
@@ -357,10 +359,15 @@ To test Parsley code locally:
 ./pars                            # Start interactive REPL
 ./pars script.pars                # Execute a script
 ./pars -pp page.pars              # Pretty-print HTML output
-./pars -x script.pars             # Allow imports/executes
+./pars -x script.pars             # Allow unrestricted script execution
 ./pars --no-write script.pars     # Deny file writes
 ./pars --restrict-read=/etc script.pars  # Deny reads from path
 ```
+
+NOTE: that .pars converts values to their default string representation and concatenates them:
+- ``[1,2,3]`` -> ``123``
+- ``["a","b","c"] - > ``abc``
+- ``s = fn(){"Sam" "Was" "Here"}; s()`` -> ``SamWasHere``
 
 ## Testing Context
 
@@ -371,6 +378,21 @@ When writing tests and examples:
 - **Examples**: Create in `examples/*/handlers/*.pars`
 - **Quick validation**: Use `./pars` to test snippets before documenting
 - **Handler testing**: Run `./basil --dev` and test in browser
+
+## Query DSL Documentation for @schema{}, @query(), etc.
+
+For comprehensive guide to:
+
+- `@schema{}` 
+- `@query()`
+- `@insert()`
+- `@update()`
+- `@delete()`
+- `@transaction{}`
+
+See the Query DSL SKILL:
+
+- `.../parsley-query-dsl/SKILL.md`
 
 ## Detailed Documentation
 

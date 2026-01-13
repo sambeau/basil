@@ -48,7 +48,8 @@ let result = @DB <=!=> `INSERT INTO users (name, email) VALUES ('{name}', '{emai
 
 ```parsley
 // Find one user
-let user = @DB <=?=> "SELECT * FROM users WHERE email = ?" ["alice@example.com"]
+let email = "alice@example.com"
+let user = @DB <=?=> `SELECT * FROM users WHERE email = '{email}'`
 
 if (!user) {
   "User not found"

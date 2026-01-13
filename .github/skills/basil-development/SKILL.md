@@ -100,13 +100,14 @@ routes:
 
 ```parsley
 let {request, response, method} = import @basil/http
+let {redirect} = import @std/api
 
 @params         // URL/form params: {id: "123"}
 method          // "GET", "POST", etc.
-request.form    // POST form data
+request.body    // Request body (JSON auto-parsed)
 request.path    // "/api/users/123"
 response.status = 404
-response.redirect("/dashboard")
+redirect("/dashboard")    // Returns redirect response
 ```
 
 ### Auth Context (@basil/auth)

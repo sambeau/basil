@@ -179,8 +179,6 @@ let userId = 42
 
 ## Insert Operations
 
-### Basic Insert
-
 **Insert without return:**
 ```parsley
 @insert(Users |< name: `Alice` |< email: `alice@test.com` .)
@@ -419,11 +417,26 @@ let Posts = db.bind(Post, `posts`, {soft_delete: `deleted_at`})
 
 ## Important Rules
 
-### Interpolation
-- **Use backticks for string values:** `` `text` `` not `"text"`
-- **Use `{}` for Parsley expressions:** `{variable}` not bare `variable`
-- **Column names are bare:** `| status == value` (status is column)
-- **Values need braces:** `| status == {value}` (value is Parsley variable)
+### Interpolation in Query DSL
+Query DSL has special parsing rules different from regular Parsley:
+
+- **Bare identifiers = SQL columns:** `price`, `status`, `user_id` → column names
+- **`{expr}` = Parsley expressions:** `{userId}`, `{name}` → evaluates variable, becomes SQL parameter
+- **String literals work normally:** `"active"` or `` `active` `` → string values
+
+**Why this matters:**
+```parsley
+// Column-to-column comparison (both sides are columns)
+@query(Products | price > cost ??-> *)  // SQL: WHERE price > cost
+
+// Variable comparison (right side is Parsley variable)
+let targetPrice = 100
+@query(Products | price > {targetPrice} ??-> *)  // SQL: WHERE price > $1 (parameterized)
+```
+
+### String Types
+- **Double quotes** `"text"` → Plain string (no interpolation)
+- **Backticks** `` `text` `` → Template string (use `{expr}` for interpolation)
 
 ### NULL Handling
 - **Use `is null` / `is not null`:** Not `== null` / `!= null`
@@ -437,16 +450,6 @@ When building SQL with values, use backticks with `{}`:
 
 ## Anti-Patterns to Avoid
 
-❌ **Don't use double quotes for strings:**
-```parsley
-@query(Users | status == "active" ??-> *)  // Wrong
-```
-
-✅ **Use backticks:**
-```parsley
-@query(Users | status == `active` ??-> *)  // Correct
-```
-
 ❌ **Don't use `== null` for NULL checks:**
 ```parsley
 @query(Posts | deleted_at == null ??-> *)  // Wrong
@@ -457,24 +460,35 @@ When building SQL with values, use backticks with `{}`:
 @query(Posts | deleted_at is null ??-> *)  // Correct
 ```
 
-❌ **Don't forget braces for variables:**
+❌ **Don't forget braces for variables (causes "column not found" error):**
 ```parsley
-@query(Users | id == userId ??-> *)  // Wrong - treats userId as column
+let userId = 42
+@query(Users | id == userId ??-> *)  // Wrong - treats userId as column name!
+// Error: column 'userId' not found
 ```
 
-✅ **Use `{}` for variables:**
+✅ **Use `{}` for Parsley variables:**
 ```parsley
-@query(Users | id == {userId} ??-> *)  // Correct
+let userId = 42
+@query(Users | id == {userId} ??-> *)  // Correct - evaluates userId variable
+```
+
+✅ **Bare identifiers ARE valid for column-to-column comparisons:**
+```parsley
+// Comparing two columns - both are bare identifiers
+@query(Products | price > cost ??-> *)  // Correct: compares price column to cost column
 ```
 
 ## Type Reference
 
 ### Schema Types
-- `int` - Integer
+- `int` / `integer` - Integer
+- `bigint` - 64-bit integer
 - `string` - Text (short)
 - `text` - Text (long)
-- `bool` - Boolean
-- `float` - Floating point
+- `bool` / `boolean` - Boolean
+- `float` / `number` - Floating point
+- `money` - Integer cents storage
 - `datetime` - Timestamp
 - `date` - Date only
 - `time` - Time only
@@ -483,6 +497,7 @@ When building SQL with values, use backticks with `{}`:
 - `phone` - Validated phone
 - `slug` - URL-safe string
 - `json` - JSON data
+- `uuid` / `ulid` - Identifier strings
 - `enum("a", "b")` - Enumerated values
 
 ### Query Operators

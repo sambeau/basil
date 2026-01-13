@@ -73,13 +73,9 @@ security:
     - ./data
     - ./uploads
     - ./logs
-  allow_read:               # Whitelist directories for file reads (optional)
-    - ./data
-    - ./config
-  allow_execute:            # Whitelist executable paths (for @shell)
-    - ./scripts
-    - /usr/bin
 ```
+
+**Note:** Read access and shell command execution are controlled via CLI flags (`--restrict-read`, `--allow-execute`) rather than config file.
 
 ## Logging
 
@@ -116,9 +112,11 @@ server:
   host: 0.0.0.0           # Listen on all interfaces
   port: 443
   https:
-    enabled: true
     cert: /etc/ssl/certs/myapp.crt
     key: /etc/ssl/private/myapp.key
+    # Or for Let's Encrypt:
+    # auto: true
+    # email: admin@example.com
 site: ./site
 sqlite: /var/lib/myapp/production.db
 session:
