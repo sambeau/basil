@@ -479,21 +479,15 @@ Wrap multiple operations in `@transaction` for atomic execution:
 
 **Return value:** The last expression in the block (in this case, `user`).
 
-**Error handling:** If any operation fails, the entire transaction is rolled back and an error is returned:
+**Error handling:** If any operation fails, the entire transaction is rolled back and an error is returned. On success, the last expression in the block is returned.
 
 ```parsley
 let result = @transaction {
-    let author = @insert(Users |< name: "Alice" .)
-    @insert(Posts |< title: "Hello", user_id: author.id .)
+    let author = @insert(Users |< name: "Alice" ?-> *)
+    @insert(Posts |< title: "Hello", user_id: {author.id} ?-> *)
 }
-
-if (result.error?) {
-    // Transaction was rolled back
-    <p>"Failed: {result.message}"</p>
-} else {
-    // Success - result is the inserted Post
-    <p>"Created post: {result.title}"</p>
-}
+// result will be the last expression (the inserted Post) on success
+// or an Error object if the transaction failed
 ```
 
 **Transaction error codes:**

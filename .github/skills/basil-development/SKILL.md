@@ -120,8 +120,10 @@ let cart = session.get("cart", [])
 session.flash("success", "Saved!")  // Show-once message
 
 // Current user (null if not logged in)
-user.email
-user.role  // "admin", "user", etc.
+if (user) {
+  user.email
+  user.role  // "admin", "user", etc.
+}
 ```
 
 ### Magic Variables
@@ -174,7 +176,8 @@ if (method == "GET") {
   {users: users}
 } else if (method == "POST") {
   let result = @DB <=!=> `INSERT INTO users (name) VALUES ('{@params.name}')`
-  {id: result.lastId}
+  let id = @DB.lastInsertId()
+  {id: id}
 }
 ```
 

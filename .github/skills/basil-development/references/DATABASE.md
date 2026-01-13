@@ -71,8 +71,8 @@ for (user in users) {
 let name = "Alice"
 let email = "alice@example.com"
 let result = @DB <=!=> `INSERT INTO users (name, email) VALUES ('{name}', '{email}')`
-result.lastId    // ID of inserted row
 result.affected  // Number of rows affected (1)
+let userId = @DB.lastInsertId()  // ID of inserted row (SQLite only)
 
 // Update
 let userId = 123
@@ -90,7 +90,7 @@ result.affected  // Number of rows deleted
 @DB.begin()
 
 let name = "Alice"
-let _ = @DB <=!=> `INSERT INTO users (name) VALUES ('{name}')`
+let result = @DB <=!=> `INSERT INTO users (name) VALUES ('{name}')`
 let userId = @DB.lastInsertId()
 
 let bio = "Developer"
