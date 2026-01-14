@@ -1236,6 +1236,8 @@ let upper = name.toUpper()      // Assign to use the result
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `string` | Convert to CSV string |
 | `.toBox(opts?)` | `opts?: {direction, align, style, title, maxWidth}` | `string` | Render array in a box |
+| `.toHTML()` | none | `string` | Convert to HTML unordered list |
+| `.toMarkdown()` | none | `string` | Convert to Markdown list |
 
 **Format styles**: `"and"` (default), `"or"`, or any custom conjunction string.
 
@@ -1285,6 +1287,8 @@ items.join(", ")                // "apple, banana, cherry"
 | `.render(template)` | `template: string` | `string` | Render template with `@{key}` placeholders |
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toBox(opts?)` | `opts?: {align, keys, style, title, maxWidth}` | `string` | Render dictionary in a box |
+| `.toHTML()` | none | `string` | Convert to HTML definition list |
+| `.toMarkdown()` | none | `string` | Convert to Markdown table |
 
 **Note**: `.delete()` is the only method that mutates the original. All others return new dictionaries.
 
@@ -1389,7 +1393,8 @@ DateTime values are dictionaries with special properties and methods. They are c
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format datetime |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 **Format styles**: `"short"`, `"medium"`, `"long"` (default), `"full"`, or a custom Go format string.
 
@@ -1435,7 +1440,8 @@ Duration values represent time spans and are created from duration literals (`@1
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.format(locale?)` | `locale?: string` | `string` | Human-readable relative time |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 ```parsley
 let dur = @2h30m
@@ -1474,7 +1480,8 @@ Path values represent filesystem paths and are created from path literals (`@./f
 | `.match(pattern)` | `pattern: string` | `dictionary\|null` | Match against route pattern (returns captures or `null`) |
 | `.toURL(prefix)` | `prefix: string` | `string` | Convert to URL with prefix |
 | `.public()` | none | `string` | Get public URL (for web serving) |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 **Pattern syntax**: Use `:param` for single segments, `*splat` for multiple.
 
@@ -1515,7 +1522,8 @@ URL values represent web addresses and are created from URL literals (`@https://
 | `.pathname()` | none | `string` | Get path as string (`"/path/to/resource"`) |
 | `.href()` | none | `string` | Get full URL string |
 | `.search()` | none | `string` | Get query string (`"?key=value"` or `""`) |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 ```parsley
 let u = @https://example.com:8080/api/users?page=1&limit=10#section
@@ -1549,7 +1557,8 @@ Regex values are created from regex literals (`/pattern/flags`) or the `regex()`
 | `.test(str)` | `str: string` | `boolean` | Check if pattern matches anywhere in string |
 | `.replace(str, repl)` | `str: string`, `repl: string\|function` | `string` | Replace matches in string |
 | `.format(style?)` | `style?: string` | `string` | Format regex for display |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 **Format styles**: `"pattern"` (pattern only), `"literal"` (default, with `/` delimiters), `"verbose"` (pattern and flags separately).
 
@@ -1590,7 +1599,9 @@ Money values represent currency amounts with arbitrary precision. They are creat
 | `.abs()` | none | `money` | Absolute value |
 | `.negate()` | none | `money` | Negate amount |
 | `.split(n)` | `n: integer` | `array` | Split into n parts (handles rounding) |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.repr()` | none | `string` | Get parseable literal (e.g., `"$50.00"`) |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get debug dictionary with `__type` and raw values |
 
 **Arithmetic**: Money supports `+`, `-` (same currency only), and `*`, `/` by numbers.
 
@@ -1797,7 +1808,6 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 | `printf(template, dict)` | `template: string`, `dict: dictionary` | `null` | Print template with `@{key}` placeholders |
 | `log(vals...)` | `vals: any...` | `null` | Log values (first string unquoted) |
 | `logLine(vals...)` | `vals: any...` | `null` | Log with newline |
-| `toDebug(val)` | `val: any` | `string` | Convert value to debug string |
 
 **Note**: These write to stdout. In web context, output typically doesn't appear to users.
 
@@ -1808,7 +1818,6 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 ```parsley
 log("user", currentUser)        // "user {name: 'Alice', ...}"
 log(42, "hello")                // "42, hello"
-toDebug({a: 1, b: 2})           // "{a: 1, b: 2}"
 
 // printf uses @{key} placeholders
 printf("Hello @{name}, you are @{age} years old", {name: "Alice", age: 30})
@@ -1891,7 +1900,26 @@ money(1000, "EUR")              // €10.00
 
 ---
 
-### 6.7 Control Flow
+### 6.7 Path
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `path(str)` | `str: string` | `path` | Create path from string |
+
+Create path values programmatically from strings. Prefer path literals (`@./file.txt`, `@~/config`) for static paths.
+
+```parsley
+let p = path("/home/user/file.txt")
+p.isAbsolute                    // true
+p.components                    // ["home", "user", "file.txt"]
+
+// Use when path comes from dynamic source
+let userPath = path(request.query.file)
+```
+
+---
+
+### 6.8 Control Flow
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1914,7 +1942,7 @@ let good = try safeDivide(10, 2)
 
 ---
 
-### 6.8 DateTime
+### 6.9 DateTime
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1938,7 +1966,7 @@ time("2024-12-25", {days: 1})   // Add 1 day
 
 ---
 
-### 6.9 URL
+### 6.10 URL
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1954,7 +1982,7 @@ u.query.key                     // "value"
 
 ---
 
-### 6.10 Duration
+### 6.11 Duration
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1988,7 +2016,7 @@ let nextYear = @now + duration({years: 1})
 
 ---
 
-### 6.11 File Operations
+### 6.12 File Operations
 
 These functions create file handles for reading and writing.
 

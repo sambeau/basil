@@ -290,10 +290,21 @@ dt.format("full", "es-ES")  // "miércoles, 25 de diciembre de 2024"
 
 ### toDict()
 
-Returns the raw dictionary representation for debugging:
+Returns a clean dictionary for reconstruction (without `__type`):
 
 ```parsley
 @2024-12-25.toDict()
+// {kind: "date", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0}
+```
+
+Useful for serialization or passing datetime data to other systems.
+
+### inspect()
+
+Returns the full dictionary representation with `__type` for debugging:
+
+```parsley
+@2024-12-25.inspect()
 // {__type: "datetime", kind: "date", year: 2024, month: 12, day: 25, ...}
 ```
 
