@@ -356,3 +356,213 @@ func objectToDebugString(obj Object) string {
 		return obj.Inspect()
 	}
 }
+
+// objectToReprString converts an object to its Parsley-parseable literal representation.
+// This is the reverse of parsing - the output can be parsed back to recreate the value.
+// Use this for roundtripping, serialization, and debugging where you need valid Parsley syntax.
+func objectToReprString(obj Object) string {
+	return objectToReprStringWithSeen(obj, make(map[Object]bool))
+}
+
+// objectToReprStringWithSeen handles cycle detection for recursive structures
+func objectToReprStringWithSeen(obj Object, seen map[Object]bool) string {
+	// Check for cycles in compound types
+	switch obj := obj.(type) {
+	case *Array, *Dictionary:
+		if seen[obj] {
+			return "<circular>"
+		}
+		seen[obj] = true
+		defer delete(seen, obj)
+	}
+
+	switch obj := obj.(type) {
+	case *Null:
+		return "null"
+	case *Boolean:
+		if obj.Value {
+			return "true"
+		}
+		return "false"
+	case *Integer:
+		return strconv.FormatInt(obj.Value, 10)
+	case *Float:
+		return fmt.Sprintf("%g", obj.Value)
+	case *String:
+		// Escape special characters and wrap in quotes
+		escaped := escapeStringForRepr(obj.Value)
+		return fmt.Sprintf("\"%s\"", escaped)
+	case *Array:
+		var result strings.Builder
+		result.WriteString("[")
+		for i, elem := range obj.Elements {
+			if i > 0 {
+				result.WriteString(", ")
+			}
+			result.WriteString(objectToReprStringWithSeen(elem, seen))
+		}
+		result.WriteString("]")
+		return result.String()
+	case *Dictionary:
+		// Check for special pseudo-types
+		if isDatetimeDict(obj) {
+			return datetimeToReprString(obj)
+		}
+		if isDurationDict(obj) {
+			return durationToReprString(obj)
+		}
+		if isMoneyDict(obj) {
+			return moneyDictToReprString(obj)
+		}
+		if isPathDict(obj) {
+			return pathToReprString(obj)
+		}
+		if isUrlDict(obj) {
+			return urlToReprString(obj)
+		}
+		if isRegexDict(obj) {
+			return regexToReprString(obj)
+		}
+		// Regular dictionary
+		var result strings.Builder
+		result.WriteString("{")
+		first := true
+		for key, valExpr := range obj.Pairs {
+			if !first {
+				result.WriteString(", ")
+			}
+			first = false
+			// Key: use quotes if needed for non-identifier keys
+			if needsQuotes(key) {
+				result.WriteString(fmt.Sprintf("\"%s\"", escapeStringForRepr(key)))
+			} else {
+				result.WriteString(key)
+			}
+			result.WriteString(": ")
+			// Value: need to evaluate the expression first
+			if val, ok := valExpr.(Object); ok {
+				result.WriteString(objectToReprStringWithSeen(val, seen))
+			} else {
+				result.WriteString("<unevaluated>")
+			}
+		}
+		result.WriteString("}")
+		return result.String()
+	case *Money:
+		return obj.Inspect() // Money.Inspect() already returns parseable form
+	case *Function:
+		return "<function>"
+	case *Builtin:
+		return "<builtin>"
+	default:
+		// For unknown types, return a non-parseable marker
+		return fmt.Sprintf("<%s>", obj.Type())
+	}
+}
+
+// escapeStringForRepr escapes special characters for repr output
+func escapeStringForRepr(s string) string {
+	var result strings.Builder
+	for _, r := range s {
+		switch r {
+		case '\\':
+			result.WriteString("\\\\")
+		case '"':
+			result.WriteString("\\\"")
+		case '\n':
+			result.WriteString("\\n")
+		case '\r':
+			result.WriteString("\\r")
+		case '\t':
+			result.WriteString("\\t")
+		default:
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
+// needsQuotes returns true if a dictionary key needs to be quoted
+func needsQuotes(key string) bool {
+	if len(key) == 0 {
+		return true
+	}
+	// Check if it's a valid identifier
+	for i, r := range key {
+		if i == 0 {
+			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_') {
+				return true
+			}
+		} else {
+			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// datetimeToReprString converts a datetime dictionary to its literal form
+func datetimeToReprString(dict *Dictionary) string {
+	// Get the ISO format representation
+	iso := datetimeDictToString(dict)
+	return "@" + iso
+}
+
+// durationToReprString converts a duration dictionary to its literal form
+func durationToReprString(dict *Dictionary) string {
+	// Get the duration string representation
+	dur := durationDictToString(dict)
+	return "@" + dur
+}
+
+// moneyDictToReprString converts a money dictionary to its literal form
+func moneyDictToReprString(dict *Dictionary) string {
+	// This shouldn't normally be called since Money is its own type
+	// but handle dict representation just in case
+	if currency, ok := dict.Pairs["currency"].(Object); ok {
+		if currStr, ok := currency.(*String); ok {
+			if amount, ok := dict.Pairs["amount"].(Object); ok {
+				symbol := currencyToSymbol(currStr.Value)
+				if symbol != "" {
+					return symbol + objectToReprStringWithSeen(amount, make(map[Object]bool))
+				}
+				return currStr.Value + "#" + objectToReprStringWithSeen(amount, make(map[Object]bool))
+			}
+		}
+	}
+	return "<money>"
+}
+
+// pathToReprString converts a path dictionary to its literal form
+func pathToReprString(dict *Dictionary) string {
+	path := pathDictToString(dict)
+	return "@" + path
+}
+
+// urlToReprString converts a URL dictionary to its literal form
+func urlToReprString(dict *Dictionary) string {
+	url := urlDictToString(dict)
+	return "@" + url
+}
+
+// regexToReprString converts a regex dictionary to its literal form
+func regexToReprString(dict *Dictionary) string {
+	return regexDictToString(dict) // Already returns /pattern/flags format
+}
+
+// isMoneyDict checks if a dictionary represents a Money value
+func isMoneyDict(dict *Dictionary) bool {
+	_, hasCurrency := dict.Pairs["currency"]
+	_, hasAmount := dict.Pairs["amount"]
+	_, hasScale := dict.Pairs["scale"]
+	_, hasType := dict.Pairs["__type"]
+	if hasType {
+		if typeVal, ok := dict.Pairs["__type"].(Object); ok {
+			if typeStr, ok := typeVal.(*String); ok {
+				return typeStr.Value == "money"
+			}
+		}
+	}
+	return hasCurrency && hasAmount && hasScale
+}

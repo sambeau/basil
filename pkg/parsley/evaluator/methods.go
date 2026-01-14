@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -43,28 +44,30 @@ var stringMethods = []string{
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
-	"outdent", "indent",
+	"outdent", "indent", "toBox", "repr", "toJSON",
 }
 
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
 	"type", "length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
-	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll",
+	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll", "toBox",
+	"repr", "toHTML", "toMarkdown",
 }
 
 // integerMethods lists all methods available on integer
 var integerMethods = []string{
-	"type", "abs", "format", "humanize",
+	"type", "format", "humanize", "toBox", "repr", "toJSON",
 }
 
 // floatMethods lists all methods available on float
 var floatMethods = []string{
-	"type", "abs", "format", "round", "floor", "ceil", "humanize",
+	"type", "format", "humanize", "toBox", "repr", "toJSON",
 }
 
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
-	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON",
+	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON", "toBox",
+	"repr", "toHTML", "toMarkdown",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -394,6 +397,27 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 			return newTypeError("TYPE-0012", "indent", "an integer", args[0].Type())
 		}
 		return &String{Value: indentString(str.Value, int(spaces.Value))}
+
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(str.Value)}
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(str)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// JSON encode the string
+		jsonBytes, _ := json.Marshal(str.Value)
+		return &String{Value: string(jsonBytes)}
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)
@@ -1008,6 +1032,21 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		}
 		return TRUE
 
+	case "toBox":
+		return arrayToBox(arr, args, env)
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(arr)}
+
+	case "toHTML":
+		return arrayToHTML(arr, args)
+
+	case "toMarkdown":
+		return arrayToMarkdown(arr, args)
+
 	default:
 		return unknownMethodError(method, "array", arrayMethods)
 	}
@@ -1556,6 +1595,21 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		}
 		return &String{Value: string(jsonBytes)}
 
+	case "toBox":
+		return dictToBox(dict, args, env)
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(dict)}
+
+	case "toHTML":
+		return dictToHTML(dict, args, env)
+
+	case "toMarkdown":
+		return dictToMarkdown(dict, args, env)
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
@@ -1609,6 +1663,46 @@ func insertDictKeyBefore(dict *Dictionary, beforeKey, newKey string, value Objec
 		Pairs:    newPairs,
 		KeyOrder: newKeyOrder,
 		Env:      env,
+	}
+}
+
+// ============================================================================
+// Boolean Methods
+// ============================================================================
+
+// booleanMethods lists all methods available on boolean
+var booleanMethods = []string{"type", "toBox"}
+
+// evalBooleanMethod evaluates a method call on a Boolean
+func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
+	switch method {
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(b.Inspect())}
+
+	default:
+		return unknownMethodError(method, "boolean", booleanMethods)
+	}
+}
+
+// nullMethods lists all methods available on null
+var nullMethods = []string{"type", "toBox"}
+
+// evalNullMethod evaluates a method call on Null
+func evalNullMethod(method string, args []Object) Object {
+	switch method {
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue("null")}
+
+	default:
+		return unknownMethodError(method, "null", nullMethods)
 	}
 }
 
@@ -1683,6 +1777,25 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		}
 		return &String{Value: humanizeNumber(float64(num.Value), localeStr)}
 
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(num.Inspect())}
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(num)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		return &String{Value: strconv.FormatInt(num.Value, 10)}
+
 	default:
 		return unknownMethodError(method, "integer", integerMethods)
 	}
@@ -1755,6 +1868,25 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 		}
 		return &String{Value: humanizeNumber(num.Value, localeStr)}
 
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(num.Inspect())}
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(num)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		return &String{Value: fmt.Sprintf("%g", num.Value)}
+
 	default:
 		return unknownMethodError(method, "float", floatMethods)
 	}
@@ -1768,9 +1900,23 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -1820,10 +1966,28 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		}
 		return evalDatetimeComputedProperty(dict, "timestamp", env)
 
+	case "toJSON":
+		// toJSON() - returns ISO 8601 string in JSON format
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Get the ISO string representation and return as JSON string
+		isoStr := datetimeToReprString(dict)
+		// Remove the @ prefix
+		if strings.HasPrefix(isoStr, "@") {
+			isoStr = isoStr[1:]
+		}
+		jsonBytes, _ := json.Marshal(isoStr)
+		return &String{Value: string(jsonBytes)}
+
+	case "toBox":
+		// toBox(opts?) - render datetime as ASCII box
+		return datetimeToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "datetime", []string{
-			"format", "year", "month", "day", "hour", "minute", "second",
-			"weekday", "week", "timestamp",
+			"toDict", "inspect", "format", "year", "month", "day", "hour", "minute", "second",
+			"weekday", "week", "timestamp", "toJSON", "toBox",
 		})
 	}
 }
@@ -1836,9 +2000,23 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -1868,8 +2046,35 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		result := locale.DurationToRelativeTime(months, seconds, localeStr)
 		return &String{Value: result}
 
+	case "toJSON":
+		// toJSON() - returns duration as JSON object with components
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Build JSON object with duration components
+		months, seconds, err := getDurationComponents(dict, env)
+		if err != nil {
+			return newValidationError("VAL-0007", map[string]any{"GoError": err.Error()})
+		}
+		// Return as object with years, months, days, hours, minutes, seconds
+		years := months / 12
+		months = months % 12
+		days := seconds / (24 * 3600)
+		seconds = seconds % (24 * 3600)
+		hours := seconds / 3600
+		seconds = seconds % 3600
+		minutes := seconds / 60
+		seconds = seconds % 60
+		result := fmt.Sprintf(`{"years":%d,"months":%d,"days":%d,"hours":%d,"minutes":%d,"seconds":%d}`,
+			years, months, days, hours, minutes, seconds)
+		return &String{Value: result}
+
+	case "toBox":
+		// toBox(opts?) - render duration as ASCII box
+		return durationToBox(dict, args, env)
+
 	default:
-		return unknownMethodError(method, "duration", []string{"format"})
+		return unknownMethodError(method, "duration", []string{"toDict", "inspect", "format", "toJSON", "toBox"})
 	}
 }
 
@@ -1881,9 +2086,23 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -1971,9 +2190,22 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 
+	case "toJSON":
+		// toJSON() - returns path string as JSON string
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		pathStr := pathDictToString(dict)
+		jsonBytes, _ := json.Marshal(pathStr)
+		return &String{Value: string(jsonBytes)}
+
+	case "toBox":
+		// toBox(opts?) - render path as ASCII box
+		return pathToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "path", []string{
-			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match",
+			"toDict", "inspect", "toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox",
 		})
 	}
 }
@@ -1986,9 +2218,23 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2083,9 +2329,22 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 		// href = full URL string representation
 		return &String{Value: urlDictToString(dict)}
 
+	case "toJSON":
+		// toJSON() - returns URL string as JSON string
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		urlStr := urlDictToString(dict)
+		jsonBytes, _ := json.Marshal(urlStr)
+		return &String{Value: string(jsonBytes)}
+
+	case "toBox":
+		// toBox(opts?) - render URL as ASCII box
+		return urlToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "url", []string{
-			"toDict", "toString", "query", "href",
+			"toDict", "inspect", "toString", "query", "href", "toJSON", "toBox",
 		})
 	}
 }
@@ -2098,9 +2357,23 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2199,9 +2472,39 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		}
 		return regexReplaceOnString(str.Value, dict, args[1], env)
 
+	case "toJSON":
+		// toJSON() - returns regex as JSON object with pattern and flags
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Get pattern and flags
+		var pattern, flags string
+		if patternExpr, ok := dict.Pairs["pattern"]; ok {
+			if p := Eval(patternExpr, env); p != nil {
+				if s, ok := p.(*String); ok {
+					pattern = s.Value
+				}
+			}
+		}
+		if flagsExpr, ok := dict.Pairs["flags"]; ok {
+			if f := Eval(flagsExpr, env); f != nil {
+				if s, ok := f.(*String); ok {
+					flags = s.Value
+				}
+			}
+		}
+		// Return as JSON object
+		patternJSON, _ := json.Marshal(pattern)
+		flagsJSON, _ := json.Marshal(flags)
+		return &String{Value: fmt.Sprintf(`{"pattern":%s,"flags":%s}`, patternJSON, flagsJSON)}
+
+	case "toBox":
+		// toBox(opts?) - render regex as ASCII box
+		return regexToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "regex", []string{
-			"toDict", "toString", "test", "exec", "execAll", "matches", "replace",
+			"toDict", "inspect", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON", "toBox",
 		})
 	}
 }
@@ -2214,9 +2517,23 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2326,9 +2643,23 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2499,7 +2830,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 
 // moneyMethods lists all methods available on money
 var moneyMethods = []string{
-	"format", "abs", "split",
+	"format", "abs", "split", "toJSON", "toBox", "repr", "toDict", "inspect",
 }
 
 // evalMoneyProperty handles property access on Money values
@@ -2566,6 +2897,58 @@ func evalMoneyMethod(money *Money, method string, args []Object) Object {
 		}
 
 		return splitMoney(money, n)
+
+	case "toJSON":
+		// toJSON() - returns money as JSON object with amount (as string to preserve precision) and currency
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Format the amount as a decimal string to preserve precision
+		amountStr := money.formatAmount()
+		currencyJSON, _ := json.Marshal(money.Currency)
+		return &String{Value: fmt.Sprintf(`{"amount":"%s","currency":%s}`, amountStr, currencyJSON)}
+
+	case "toBox":
+		// toBox(opts?) - render money as ASCII box
+		return moneyToBox(money, args)
+
+	case "repr":
+		// repr() - returns Parsley-parseable literal (e.g., "$50.00")
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: money.Inspect()}
+
+	case "toDict":
+		// toDict() - returns clean dictionary for reconstruction via money(dict)
+		if len(args) != 0 {
+			return newArityError("toDict", len(args), 0)
+		}
+		// Calculate user-friendly amount (e.g., 50.00 not 5000)
+		divisor := math.Pow10(int(money.Scale))
+		amount := float64(money.Amount) / divisor
+		return &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"amount":   createLiteralExpression(&Float{Value: amount}),
+				"currency": createLiteralExpression(&String{Value: money.Currency}),
+			},
+			Env: NewEnvironment(),
+		}
+
+	case "inspect":
+		// inspect() - returns debug dictionary with __type and raw internal values
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
+		}
+		return &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"__type":   createLiteralExpression(&String{Value: "money"}),
+				"amount":   createLiteralExpression(&Integer{Value: money.Amount}),
+				"currency": createLiteralExpression(&String{Value: money.Currency}),
+				"scale":    createLiteralExpression(&Integer{Value: int64(money.Scale)}),
+			},
+			Env: NewEnvironment(),
+		}
 
 	default:
 		return unknownMethodError(method, "money", moneyMethods)
@@ -2785,4 +3168,170 @@ func humanizeNumber(value float64, localeStr string) string {
 		return p.Sprintf("%.0f", rounded) + suffix
 	}
 	return p.Sprintf("%.1f", rounded) + suffix
+}
+
+// ============================================================================
+// Array/Dictionary HTML and Markdown Methods
+// ============================================================================
+
+// arrayToHTML converts an array to an HTML list
+func arrayToHTML(arr *Array, args []Object) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toHTML", len(args), 0, 1)
+	}
+
+	ordered := false
+	if len(args) == 1 {
+		opts, ok := args[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "toHTML", "a dictionary", args[0].Type())
+		}
+		if orderedExpr, exists := opts.Pairs["ordered"]; exists {
+			// Need to evaluate the expression to get the actual value
+			if orderedObj, ok := orderedExpr.(Object); ok {
+				if orderedVal, ok := orderedObj.(*Boolean); ok {
+					ordered = orderedVal.Value
+				}
+			}
+		}
+	}
+
+	var result strings.Builder
+	if ordered {
+		result.WriteString("<ol>")
+	} else {
+		result.WriteString("<ul>")
+	}
+
+	for _, elem := range arr.Elements {
+		result.WriteString("<li>")
+		result.WriteString(html.EscapeString(objectToPrintString(elem)))
+		result.WriteString("</li>")
+	}
+
+	if ordered {
+		result.WriteString("</ol>")
+	} else {
+		result.WriteString("</ul>")
+	}
+
+	return &String{Value: result.String()}
+}
+
+// arrayToMarkdown converts an array to a Markdown list
+func arrayToMarkdown(arr *Array, args []Object) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toMarkdown", len(args), 0, 1)
+	}
+
+	ordered := false
+	if len(args) == 1 {
+		opts, ok := args[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "toMarkdown", "a dictionary", args[0].Type())
+		}
+		if orderedExpr, exists := opts.Pairs["ordered"]; exists {
+			// Need to evaluate the expression to get the actual value
+			if orderedObj, ok := orderedExpr.(Object); ok {
+				if orderedVal, ok := orderedObj.(*Boolean); ok {
+					ordered = orderedVal.Value
+				}
+			}
+		}
+	}
+
+	var result strings.Builder
+	for i, elem := range arr.Elements {
+		if ordered {
+			result.WriteString(fmt.Sprintf("%d. ", i+1))
+		} else {
+			result.WriteString("- ")
+		}
+		result.WriteString(objectToPrintString(elem))
+		result.WriteString("\n")
+	}
+
+	return &String{Value: strings.TrimSuffix(result.String(), "\n")}
+}
+
+// dictToHTML converts a dictionary to an HTML definition list or table
+func dictToHTML(dict *Dictionary, args []Object, env *Environment) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toHTML", len(args), 0, 1)
+	}
+
+	useTable := false
+	if len(args) == 1 {
+		opts, ok := args[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "toHTML", "a dictionary", args[0].Type())
+		}
+		if tableExpr, exists := opts.Pairs["table"]; exists {
+			// Need to evaluate the expression to get the actual value
+			if tableObj, ok := tableExpr.(Object); ok {
+				if tableVal, ok := tableObj.(*Boolean); ok {
+					useTable = tableVal.Value
+				}
+			}
+		}
+	}
+
+	var result strings.Builder
+
+	if useTable {
+		result.WriteString("<table><tr><th>Key</th><th>Value</th></tr>")
+		for _, key := range dict.Keys() {
+			if valExpr, exists := dict.Pairs[key]; exists {
+				val := Eval(valExpr, env)
+				result.WriteString("<tr><td>")
+				result.WriteString(html.EscapeString(key))
+				result.WriteString("</td><td>")
+				result.WriteString(html.EscapeString(objectToPrintString(val)))
+				result.WriteString("</td></tr>")
+			}
+		}
+		result.WriteString("</table>")
+	} else {
+		result.WriteString("<dl>")
+		for _, key := range dict.Keys() {
+			if valExpr, exists := dict.Pairs[key]; exists {
+				val := Eval(valExpr, env)
+				result.WriteString("<dt>")
+				result.WriteString(html.EscapeString(key))
+				result.WriteString("</dt><dd>")
+				result.WriteString(html.EscapeString(objectToPrintString(val)))
+				result.WriteString("</dd>")
+			}
+		}
+		result.WriteString("</dl>")
+	}
+
+	return &String{Value: result.String()}
+}
+
+// dictToMarkdown converts a dictionary to a Markdown table
+func dictToMarkdown(dict *Dictionary, args []Object, env *Environment) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toMarkdown", len(args), 0, 1)
+	}
+
+	var result strings.Builder
+	result.WriteString("| Key | Value |\n")
+	result.WriteString("|-----|-------|\n")
+
+	for _, key := range dict.Keys() {
+		if valExpr, exists := dict.Pairs[key]; exists {
+			val := Eval(valExpr, env)
+			// Escape pipe characters in markdown
+			escapedKey := strings.ReplaceAll(key, "|", "\\|")
+			escapedVal := strings.ReplaceAll(objectToPrintString(val), "|", "\\|")
+			result.WriteString("| ")
+			result.WriteString(escapedKey)
+			result.WriteString(" | ")
+			result.WriteString(escapedVal)
+			result.WriteString(" |\n")
+		}
+	}
+
+	return &String{Value: strings.TrimSuffix(result.String(), "\n")}
 }

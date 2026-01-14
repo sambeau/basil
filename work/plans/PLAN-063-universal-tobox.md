@@ -2,7 +2,7 @@
 id: PLAN-063
 feature: FEAT-088
 title: "Implementation Plan for Universal toBox() Method"
-status: draft
+status: complete
 created: 2026-01-14
 ---
 
@@ -202,24 +202,24 @@ Add `{maxWidth: N}` option with ellipsis truncation.
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run`
-- [ ] Documentation updated
-- [ ] work/BACKLOG.md updated with Phase 2 items
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Linter passes: `golangci-lint run` (no new issues from toBox; pre-existing issues unrelated)
+- [x] Documentation updated
+- [x] work/BACKLOG.md updated with Phase 2 items (#61-64)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Box utilities | ⬜ | |
-| | Task 2: Scalar toBox | ⬜ | |
-| | Task 3: Array vertical | ⬜ | |
-| | Task 4: Array horizontal | ⬜ | |
-| | Task 5: Array grid | ⬜ | |
-| | Task 6: Dictionary toBox | ⬜ | |
-| | Task 7: Alignment | ⬜ | |
-| | Task 8: Refactor Table | ⬜ | |
-| | Task 9: Documentation | ⬜ | |
+| 2026-01-14 | Task 1: Box utilities | ✅ | Created eval_box.go with BoxRenderer |
+| 2026-01-14 | Task 2: Scalar toBox | ✅ | String, Integer, Float, Boolean, Null |
+| 2026-01-14 | Task 3: Array vertical | ✅ | Default direction |
+| 2026-01-14 | Task 4: Array horizontal | ✅ | `{direction: "horizontal"}` |
+| 2026-01-14 | Task 5: Array grid | ✅ | Auto-detect or `{direction: "grid"}` |
+| 2026-01-14 | Task 6: Dictionary toBox | ✅ | Key-value pairs, `{keys: true}` option |
+| 2026-01-14 | Task 7: Alignment | ✅ | `{align: "left"|"right"|"center"}` |
+| 2026-01-14 | Task 8: Refactor Table | ✅ | Table.toBox() uses shared BoxRenderer |
+| 2026-01-14 | Task 9: Documentation | ✅ | Updated reference.md |
 
 ## Deferred Items
 Items to add to work/BACKLOG.md after implementation:

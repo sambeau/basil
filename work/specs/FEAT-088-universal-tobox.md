@@ -1,7 +1,7 @@
 ---
 id: FEAT-088
 title: "Universal toBox() Method"
-status: draft
+status: complete
 priority: medium
 created: 2026-01-14
 author: "@human"
@@ -18,14 +18,14 @@ As a Parsley developer building CLI tools, I want to render any value as an ASCI
 ## Acceptance Criteria
 
 ### Phase 1: Core Implementation
-- [ ] Arrays render vertically by default with `toBox()`
-- [ ] Arrays render horizontally with `toBox({direction: "horizontal"})`
-- [ ] Arrays of arrays render as grids
-- [ ] Dictionaries render as key-value rows with `toBox()`
-- [ ] Dictionaries render keys only with `toBox({keys: true})`
-- [ ] Scalar values (string, number, bool, null) render in a single box
-- [ ] Nested complex values display as inline summaries (not recursive boxes)
-- [ ] Alignment option: `{align: "left" | "right" | "center"}`
+- [x] Arrays render vertically by default with `toBox()`
+- [x] Arrays render horizontally with `toBox({direction: "horizontal"})`
+- [x] Arrays of arrays render as grids
+- [x] Dictionaries render as key-value rows with `toBox()`
+- [x] Dictionaries render keys only with `toBox({keys: true})`
+- [x] Scalar values (string, number, bool, null) render in a single box
+- [x] Nested complex values display as inline summaries (not recursive boxes)
+- [x] Alignment option: `{align: "left" | "right" | "center"}`
 
 ### Phase 2: Polish (Nice-to-Have)
 - [ ] Style options: `{style: "single" | "double" | "ascii" | "rounded"}`

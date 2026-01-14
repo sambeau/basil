@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-13
+updated: 2026-01-14
 ---
 
 # Backlog
@@ -47,6 +47,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #65 | toBox() Phase 3 color option | FEAT-089 | Terminal complexity | `{color: true}` enables ANSI color output with TTY detection. Deferred due to terminal compatibility complexity. |
 | #52 | Commutative duration multiplication | Reference audit | Quick fix | `@1d * 3` works but `3 * @1d` fails. Multiplication should be commutative for duration × integer. Fix in `evalInfixExpression` to handle integer * duration same as duration * integer. |
 | #53 | Dictionary insert methods: dictionary value form | Reference audit | Enhancement | `dict.insertAfter(col, {key: val})` and `dict.insertBefore(col, {key: val})` should accept a dictionary to insert multiple key-value pairs at once. Since dictionaries are ordered, this enables merging one dict into another at a specific position: `dict.insertAfter("name", {middle: "Jane", suffix: "Jr"})`. |
 | #54 | Builtin Table type | Reference audit | Language design | Make Table a builtin type rather than requiring `import @std/table`. Benefits: (1) `CSV()` and `parseCSV()` could return Table directly instead of Array of Dictionary, (2) Column type checking and validation, (3) Implementation flexibility—Go representation could be array-of-maps, map-of-arrays, or array-of-arrays with key access, (4) Cleaner API without import boilerplate. Currently users must do `table.table(csv.parseCSV())` which is awkward. Would require: new Table object type in evaluator, updating CSV parsing to return Table, migrating @std/table methods to builtin methods. |
@@ -71,7 +72,6 @@ Deferred items from implementation, to be picked up in future work.
 | #49 | Dev logs: `.json` modifier for formatted JSON | FEAT-019 | Not MVP | `dev.log(data, {json: true})` renders value as formatted/syntax-highlighted JSON. |
 | #50 | Error code validation tests | FEAT-023 | Phase 6+ | Test suite to ensure all error codes in errors.go are actually used, and all newStructuredError calls use valid codes. Prevents drift between defined and used codes. |
 | #51 | Function methods | API Design | Future exploration | Allow methods on functions for composition, introspection, memoization. Examples: `f.arity`, `f.params`, `f.then(g)`, `f.memoize()`, `f.partial(arg)`. Would enable fluent auth syntax like `fn(req){...}.public()`. Implementation: functions as "callable dictionaries" with `__call__` property. Low priority - wrapper functions work fine. |
-| #59 | Add `path()` dynamic constructor | FEAT-087 | Consistency | Add `path(string)` builtin to dynamically create paths from strings, matching pattern of `time()`, `money()`, `regex()`, `url()`, `table()`. Currently no way to create path from variable—must use literals like `@./path`. |
 
 ## Completed (Archive)
 <!-- Move items here when done, with completion date -->
@@ -85,4 +85,6 @@ Deferred items from implementation, to be picked up in future work.
 | #5 | Parameterized queries for raw SQL operators | QUERY-BUILDER-INVESTIGATION | 2026-01-08 | ✅ **ALREADY IMPLEMENTED** - The raw SQL operators (`<=?=>`, `<=??=>`, `<=!=>`) DO support parameterized queries via `<SQL>` tag. See eval_database.go lines 211-232: `extractSQLAndParams()` extracts both SQL string and params dict. The `<SQL params={...}>` syntax works correctly. Documentation in security.md line 392. Query DSL (TableBinding) also uses `?` params internally. Item was based on outdated understanding. |
 | #8 | Include schema name in validation errors | QUERY-BUILDER-INVESTIGATION | 2026-01-08 | ✅ Implemented in [stdlib_schema.go](pkg/parsley/evaluator/stdlib_schema.go#L268-L587). Schema name extracted from `.name` property and threaded through all validation functions. Errors now include `schema` field and prefixed messages (e.g., "User schema: Field is required"). Tests updated in [stdlib_schema_test.go](pkg/parsley/tests/stdlib_schema_test.go#L349-L371). |
 | #16a | Array rest destructuring | API Design | 2026-01-08 | ✅ Array rest destructuring is supported via `parseArrayDestructuringPattern` ([pkg/parsley/parser/parser.go#L2788-L2834](pkg/parsley/parser/parser.go#L2788-L2834)). Dict rest destructuring already works; literal spreads remain out-of-scope (use `++` for merges). |
+| #59 | Add `path()` dynamic constructor | FEAT-087/FEAT-090 | 2026-01-14 | ✅ Implemented in evaluator.go as part of FEAT-090 Phase 7. Accepts string argument, creates path via parsePathString(). |
 | #60 | Add `duration()` dynamic constructor | FEAT-087 | 2026-01-14 | ✅ Implemented in evaluator.go. Accepts string (`duration("1d2h")`) or dictionary (`duration({days: 1})`). Tests in duration_test.go. Docs in reference.md section 6.10. |
+| #61-64 | toBox() Phase 2 options (style, title, maxWidth) | FEAT-089 | 2026-01-14 | ✅ Implemented in eval_box.go. Style presets (single/double/ascii/rounded), title row, maxWidth truncation. Color deferred to Phase 3 (#65). Tests in tobox_options_test.go. Docs updated in reference.md. |

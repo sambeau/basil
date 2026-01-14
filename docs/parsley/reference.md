@@ -1147,6 +1147,34 @@ let upper = name.toUpper()      // Assign to use the result
 |--------|-----------|---------|-------------|
 | `.render(dict?)` | `dict?: dictionary` | `string` | Interpolate `@{key}` placeholders with dict values |
 
+#### Display
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | `string` | Render value in a box with box-drawing characters |
+
+**toBox options:**
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate content to this width (adds `...`)
+- `align`: `"left"` (default), `"right"`, `"center"` - text alignment
+
+```parsley
+"hello".toBox()                 // ┌───────┐
+                                // │ hello │
+                                // └───────┘
+
+"hello".toBox({style: "double"})  // ╔═══════╗
+                                  // ║ hello ║
+                                  // ╚═══════╝
+
+"hello".toBox({title: "Greeting"})  // ┌──────────┐
+                                    // │ Greeting │
+                                    // ├──────────┤
+                                    // │  hello   │
+                                    // └──────────┘
+```
+
 ```parsley
 "  Hello, World!  ".trim()      // "Hello, World!"
 "hello world".toTitle()         // "Hello World"
@@ -1207,10 +1235,20 @@ let upper = name.toUpper()      // Assign to use the result
 | `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format as prose list |
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `string` | Convert to CSV string |
+| `.toBox(opts?)` | `opts?: {direction, align, style, title, maxWidth}` | `string` | Render array in a box |
+| `.toHTML()` | none | `string` | Convert to HTML unordered list |
+| `.toMarkdown()` | none | `string` | Convert to Markdown list |
 
 **Format styles**: `"and"` (default), `"or"`, or any custom conjunction string.
 
 **Available locales**: `en`, `en-US`, `en-GB`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `ru`, `ja`, `zh`, `ko`. Falls back to `en` for unrecognized locales.
+
+**toBox options:**
+- `direction`: `"vertical"` (default), `"horizontal"`, `"grid"` (auto for array-of-arrays)
+- `align`: `"left"` (default), `"right"`, `"center"`
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate content to this width (adds `...`)
 
 ```parsley
 let arr = [3, 1, 4, 1, 5]
@@ -1248,8 +1286,18 @@ items.join(", ")                // "apple, banana, cherry"
 | `.insertBefore(before, key, val)` | `before, key: string`, `val: any` | `dictionary` | New dict with key inserted before `before` |
 | `.render(template)` | `template: string` | `string` | Render template with `@{key}` placeholders |
 | `.toJSON()` | none | `string` | Convert to JSON string |
+| `.toBox(opts?)` | `opts?: {align, keys, style, title, maxWidth}` | `string` | Render dictionary in a box |
+| `.toHTML()` | none | `string` | Convert to HTML definition list |
+| `.toMarkdown()` | none | `string` | Convert to Markdown table |
 
 **Note**: `.delete()` is the only method that mutates the original. All others return new dictionaries.
+
+**toBox options:**
+- `align`: `"left"` (default), `"right"`, `"center"`
+- `keys`: `boolean` - if true, renders only keys in a horizontal row
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate values to this width (adds `...`)
 
 #### The `.render()` Method
 
@@ -1293,6 +1341,7 @@ Integer and float types share formatting methods. For mathematical operations li
 | `.currency(code, locale?)` | `code: string`, `locale?: string` | `string` | Currency format |
 | `.percent(locale?)` | `locale?: string` | `string` | Percentage format |
 | `.humanize(locale?)` | `locale?: string` | `string` | Compact format (1.2K, 3.4M) |
+| `.toBox()` | none | `string` | Render number in a box |
 
 **Note**: Numbers do not have `.abs()`, `.round()`, etc. as methods. Use `@std/math` functions instead: `math.abs(-5)`, `math.round(3.7)`.
 
@@ -1344,7 +1393,8 @@ DateTime values are dictionaries with special properties and methods. They are c
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format datetime |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 **Format styles**: `"short"`, `"medium"`, `"long"` (default), `"full"`, or a custom Go format string.
 
@@ -1390,7 +1440,8 @@ Duration values represent time spans and are created from duration literals (`@1
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.format(locale?)` | `locale?: string` | `string` | Human-readable relative time |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 ```parsley
 let dur = @2h30m
@@ -1429,7 +1480,8 @@ Path values represent filesystem paths and are created from path literals (`@./f
 | `.match(pattern)` | `pattern: string` | `dictionary\|null` | Match against route pattern (returns captures or `null`) |
 | `.toURL(prefix)` | `prefix: string` | `string` | Convert to URL with prefix |
 | `.public()` | none | `string` | Get public URL (for web serving) |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 **Pattern syntax**: Use `:param` for single segments, `*splat` for multiple.
 
@@ -1470,7 +1522,8 @@ URL values represent web addresses and are created from URL literals (`@https://
 | `.pathname()` | none | `string` | Get path as string (`"/path/to/resource"`) |
 | `.href()` | none | `string` | Get full URL string |
 | `.search()` | none | `string` | Get query string (`"?key=value"` or `""`) |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 ```parsley
 let u = @https://example.com:8080/api/users?page=1&limit=10#section
@@ -1504,7 +1557,8 @@ Regex values are created from regex literals (`/pattern/flags`) or the `regex()`
 | `.test(str)` | `str: string` | `boolean` | Check if pattern matches anywhere in string |
 | `.replace(str, repl)` | `str: string`, `repl: string\|function` | `string` | Replace matches in string |
 | `.format(style?)` | `style?: string` | `string` | Format regex for display |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
 
 **Format styles**: `"pattern"` (pattern only), `"literal"` (default, with `/` delimiters), `"verbose"` (pattern and flags separately).
 
@@ -1545,7 +1599,9 @@ Money values represent currency amounts with arbitrary precision. They are creat
 | `.abs()` | none | `money` | Absolute value |
 | `.negate()` | none | `money` | Negate amount |
 | `.split(n)` | `n: integer` | `array` | Split into n parts (handles rounding) |
-| `.toDict()` | none | `dictionary` | Get raw dictionary for debugging |
+| `.repr()` | none | `string` | Get parseable literal (e.g., `"$50.00"`) |
+| `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
+| `.inspect()` | none | `dictionary` | Get debug dictionary with `__type` and raw values |
 
 **Arithmetic**: Money supports `+`, `-` (same currency only), and `*`, `/` by numbers.
 
@@ -1660,9 +1716,15 @@ All return new tables (immutable—original unchanged):
 | `.toHTML(footer?)` | `footer?: string\|dictionary` | `string` | Convert to HTML `<table>` |
 | `.toCSV()` | none | `string` | Convert to CSV string |
 | `.toMarkdown()` | none | `string` | Convert to Markdown table |
-| `.toBox()` | none | `string` | Convert to box-drawing table (CLI style) |
+| `.toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | `string` | Convert to box-drawing table (CLI style) |
 | `.toJSON()` | none | `string` | Convert to JSON array |
 | `.toArray()` | none | `array` | Convert to array of dictionaries |
+
+**toBox options** (same as String/Array/Dictionary):
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate cell content to this width (adds `...`)
+- `align`: `"left"` (default), `"right"`, `"center"` - text alignment
 
 ```parsley
 // Load CSV (returns Table directly)
@@ -1746,7 +1808,6 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 | `printf(template, dict)` | `template: string`, `dict: dictionary` | `null` | Print template with `@{key}` placeholders |
 | `log(vals...)` | `vals: any...` | `null` | Log values (first string unquoted) |
 | `logLine(vals...)` | `vals: any...` | `null` | Log with newline |
-| `toDebug(val)` | `val: any` | `string` | Convert value to debug string |
 
 **Note**: These write to stdout. In web context, output typically doesn't appear to users.
 
@@ -1757,7 +1818,6 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 ```parsley
 log("user", currentUser)        // "user {name: 'Alice', ...}"
 log(42, "hello")                // "42, hello"
-toDebug({a: 1, b: 2})           // "{a: 1, b: 2}"
 
 // printf uses @{key} placeholders
 printf("Hello @{name}, you are @{age} years old", {name: "Alice", age: 30})
@@ -1840,7 +1900,26 @@ money(1000, "EUR")              // €10.00
 
 ---
 
-### 6.7 Control Flow
+### 6.7 Path
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `path(str)` | `str: string` | `path` | Create path from string |
+
+Create path values programmatically from strings. Prefer path literals (`@./file.txt`, `@~/config`) for static paths.
+
+```parsley
+let p = path("/home/user/file.txt")
+p.isAbsolute                    // true
+p.components                    // ["home", "user", "file.txt"]
+
+// Use when path comes from dynamic source
+let userPath = path(request.query.file)
+```
+
+---
+
+### 6.8 Control Flow
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1863,7 +1942,7 @@ let good = try safeDivide(10, 2)
 
 ---
 
-### 6.8 DateTime
+### 6.9 DateTime
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1887,7 +1966,7 @@ time("2024-12-25", {days: 1})   // Add 1 day
 
 ---
 
-### 6.9 URL
+### 6.10 URL
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1903,7 +1982,7 @@ u.query.key                     // "value"
 
 ---
 
-### 6.10 Duration
+### 6.11 Duration
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -1937,7 +2016,7 @@ let nextYear = @now + duration({years: 1})
 
 ---
 
-### 6.11 File Operations
+### 6.12 File Operations
 
 These functions create file handles for reading and writing.
 
@@ -2345,7 +2424,7 @@ All mutation methods return a new Table.
 | `toCSV()` | none | string | Export as CSV |
 | `toJSON()` | none | string | Export as JSON array |
 | `toMarkdown()` | none | string | Export as Markdown table |
-| `toBox()` | none | string | Export as box-drawing table (CLI style) |
+| `toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | string | Export as box-drawing table (CLI style) |
 | `toHTML()` | none | tag | Export as HTML table |
 
 ```parsley
@@ -3143,7 +3222,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 
 ## Appendix B: Method Reference
 
-### String Methods (26 methods)
+### String Methods (27 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3174,8 +3253,9 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `urlQueryEncode()` | 0 | Encode query value |
 | `outdent()` | 0 | Remove common indent |
 | `indent(n)` | 1 | Add n spaces to lines |
+| `toBox(opts?)` | 0-1 | Render in box |
 
-### Array Methods (18 methods)
+### Array Methods (19 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3190,6 +3270,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `join(sep?)` | 0-1 | Join to string |
 | `toJSON()` | 0 | Convert to JSON |
 | `toCSV(hasHeader?)` | 0-1 | Convert to CSV |
+| `toBox(opts?)` | 0-1 | Render in box (direction, align, style, title, maxWidth) |
 | `shuffle()` | 0 | Random order |
 | `pick(n?)` | 0-1 | Random element(s) |
 | `take(n)` | 1 | n unique random |
@@ -3198,7 +3279,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `hasAll(arr)` | 1 | Contains all? |
 | `insert(i, val)` | 2 | Insert at index |
 
-### Dictionary Methods (10 methods)
+### Dictionary Methods (11 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3211,8 +3292,9 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `insertBefore(before, k, v)` | 3 | Insert before key |
 | `render(template)` | 1 | Render template |
 | `toJSON()` | 0 | Convert to JSON |
+| `toBox(opts?)` | 0-1 | Render in box (align, keys, style, title, maxWidth) |
 
-### Number Methods (4 methods)
+### Number Methods (5 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3220,6 +3302,19 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `currency(code, locale?)` | 1-2 | Currency format |
 | `percent(locale?)` | 0-1 | Percentage format |
 | `humanize(locale?)` | 0-1 | Compact format (1.2K) |
+| `toBox(opts?)` | 0-1 | Render in box |
+
+### Boolean Methods (1 method)
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `toBox()` | 0 | Render in box |
+
+### Null Methods (1 method)
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `toBox()` | 0 | Render in box |
 
 ### Table Methods (22 methods)
 

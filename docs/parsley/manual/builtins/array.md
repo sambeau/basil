@@ -459,6 +459,102 @@ Pretty-print with indentation:
 
 **Result:** JSON string with proper formatting
 
+### toBox
+
+Render the array in a box with box-drawing characters. Useful for CLI output and debugging:
+
+```parsley
+["apple", "banana", "cherry"].toBox()
+```
+
+**Result:**
+
+```
+┌────────┐
+│ apple  │
+├────────┤
+│ banana │
+├────────┤
+│ cherry │
+└────────┘
+```
+
+#### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `direction` | string | `"vertical"` | Layout: `"vertical"`, `"horizontal"`, `"grid"` |
+| `align` | string | `"left"` | Text alignment: `"left"`, `"right"`, `"center"` |
+| `style` | string | `"single"` | Box border style: `"single"`, `"double"`, `"ascii"`, `"rounded"` |
+| `title` | string | none | Title row centered at top of box |
+| `maxWidth` | integer | none | Truncate content to this width (adds `...`) |
+
+#### Direction Examples
+
+Horizontal layout:
+
+```parsley
+[1, 2, 3].toBox({direction: "horizontal"})
+```
+
+**Result:**
+
+```
+┌───┬───┬───┐
+│ 1 │ 2 │ 3 │
+└───┴───┴───┘
+```
+
+Grid layout (auto-detected for array of arrays):
+
+```parsley
+[[1, 2, 3], [4, 5, 6]].toBox()
+```
+
+**Result:**
+
+```
+┌───┬───┬───┐
+│ 1 │ 2 │ 3 │
+├───┼───┼───┤
+│ 4 │ 5 │ 6 │
+└───┴───┴───┘
+```
+
+#### Style Examples
+
+```parsley
+["A", "B", "C"].toBox({style: "double", direction: "horizontal"})
+```
+
+**Result:**
+
+```
+╔═══╦═══╦═══╗
+║ A ║ B ║ C ║
+╚═══╩═══╩═══╝
+```
+
+#### Title Example
+
+```parsley
+[1, 2, 3].toBox({title: "Numbers"})
+```
+
+**Result:**
+
+```
+┌─────────┐
+│ Numbers │
+├─────────┤
+│    1    │
+├─────────┤
+│    2    │
+├─────────┤
+│    3    │
+└─────────┘
+```
+
 ## Examples
 
 ### Processing a List of Numbers

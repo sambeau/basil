@@ -350,6 +350,9 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	// === URLs ===
 	"url": {Name: "url", Arity: "1", Description: "Parse URL string into components", Params: []string{"urlString"}, Category: "url"},
 
+	// === Paths ===
+	"path": {Name: "path", Arity: "1", Description: "Create path from string", Params: []string{"pathString"}, Category: "path"},
+
 	// === Type Conversion ===
 	"toInt":    {Name: "toInt", Arity: "1", Description: "Convert value to integer", Params: []string{"value"}, Category: "conversion"},
 	"toFloat":  {Name: "toFloat", Arity: "1", Description: "Convert value to float", Params: []string{"value"}, Category: "conversion"},
@@ -361,7 +364,7 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	// === Type Introspection ===
 	"inspect":  {Name: "inspect", Arity: "1", Description: "Get introspection data for value", Params: []string{"value"}, Category: "introspection"},
 	"describe": {Name: "describe", Arity: "1", Description: "Get human-readable description of value", Params: []string{"value"}, Category: "introspection"},
-	"repr":     {Name: "repr", Arity: "1", Description: "Get code representation of value", Params: []string{"value"}, Category: "introspection"},
+	"repr":     {Name: "repr", Arity: "1", Description: "Convert value to Parsley-parseable literal string", Params: []string{"value"}, Category: "conversion"},
 	"builtins": {Name: "builtins", Arity: "0-1", Description: "List all builtin functions by category", Params: []string{"category?"}, Category: "introspection"},
 
 	// === Output ===
@@ -370,7 +373,6 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"printf":  {Name: "printf", Arity: "1+", Description: "Print formatted string", Params: []string{"format", "values..."}, Category: "output"},
 	"log":     {Name: "log", Arity: "1+", Description: "Log message", Params: []string{"values..."}, Category: "output"},
 	"logLine": {Name: "logLine", Arity: "1+", Description: "Log message with newline", Params: []string{"values..."}, Category: "output"},
-	"toDebug": {Name: "toDebug", Arity: "1", Description: "Convert value to debug string", Params: []string{"value"}, Category: "output"},
 
 	// === Control Flow ===
 	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message", Params: []string{"message"}, Category: "control"},

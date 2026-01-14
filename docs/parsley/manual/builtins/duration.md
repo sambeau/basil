@@ -334,13 +334,27 @@ Format with a specific locale:
 
 ### toDict()
 
-Returns the raw dictionary representation for debugging:
+Returns a clean dictionary for reconstruction (without `__type`):
 
 ```parsley
 @2h30m.toDict()
-// {__type: "duration", months: 0, seconds: 9000, totalSeconds: 9000}
+// {months: 0, seconds: 9000}
 
 @1y6mo.toDict()
+// {months: 18, seconds: 0}
+```
+
+Useful for serialization or passing duration data to other systems.
+
+### inspect()
+
+Returns the full dictionary representation with `__type` for debugging:
+
+```parsley
+@2h30m.inspect()
+// {__type: "duration", months: 0, seconds: 9000}
+
+@1y6mo.inspect()
 // {__type: "duration", months: 18, seconds: 0}
 ```
 

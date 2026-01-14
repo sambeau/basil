@@ -205,6 +205,50 @@ let parts = $100.00.split(3)
 parts[0] + parts[1] + parts[2]  // $100.00
 ```
 
+### repr()
+
+Returns a parseable literal representation of the money value:
+
+```parsley
+$50.00.repr()       // "$50.00"
+EUR#25.50.repr()    // "€25.50"
+JPY#1000.repr()     // "¥1000"
+```
+
+### toDict()
+
+Returns a clean dictionary for reconstruction (without `__type`):
+
+```parsley
+$50.00.toDict()
+// {amount: 50.0, currency: "USD"}
+
+EUR#25.50.toDict()
+// {amount: 25.5, currency: "EUR"}
+```
+
+You can use this for round-trip reconstruction:
+
+```parsley
+let original = $50.00
+let reconstructed = money(original.toDict())
+original == reconstructed  // true
+```
+
+### inspect()
+
+Returns a debug dictionary with `__type` and raw values (amount in smallest unit):
+
+```parsley
+$50.00.inspect()
+// {__type: "money", amount: 5000, currency: "USD", scale: 2}
+
+EUR#25.50.inspect()
+// {__type: "money", amount: 2550, currency: "EUR", scale: 2}
+```
+
+Note: The `amount` in `inspect()` is in the smallest currency unit (cents), while `toDict()` returns a user-friendly decimal amount.
+
 ## Currency Scales
 
 Parsley knows the correct decimal scale for major world currencies per ISO 4217:
