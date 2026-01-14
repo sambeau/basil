@@ -49,3 +49,4 @@ examples/search/._search.db
 .Ulysses-Group.plist
 setup
 docs/plans/.Ulysses-Group.plist
+test.db
