@@ -1295,13 +1295,15 @@ func (sd *SchemaDeclaration) String() string {
 
 // SchemaField represents a field definition within a schema
 type SchemaField struct {
-	Token       lexer.Token           // the field name token
-	Name        *Identifier           // field name
-	TypeName    string                // type name: "int", "string", "User", "enum", etc.
-	IsArray     bool                  // true for [Type] (has-many relation)
-	ForeignKey  string                // from "via fk_name", empty if no relation
-	TypeOptions map[string]Expression // options like {min: 1, max: 100, unique: true}
-	EnumValues  []string              // for enum type: ["admin", "user", "guest"]
+	Token        lexer.Token           // the field name token
+	Name         *Identifier           // field name
+	TypeName     string                // type name: "int", "string", "User", "enum", etc.
+	IsArray      bool                  // true for [Type] (has-many relation)
+	Nullable     bool                  // true for type? (nullable field)
+	DefaultValue Expression            // default value expression, or nil
+	ForeignKey   string                // from "via fk_name", empty if no relation
+	TypeOptions  map[string]Expression // options like {min: 1, max: 100, unique: true}
+	EnumValues   []string              // for enum type: ["admin", "user", "guest"]
 }
 
 func (sf *SchemaField) expressionNode()      {}
@@ -1316,6 +1318,9 @@ func (sf *SchemaField) String() string {
 	out.WriteString(sf.TypeName)
 	if sf.IsArray {
 		out.WriteString("]")
+	}
+	if sf.Nullable {
+		out.WriteString("?")
 	}
 	// Show enum values
 	if len(sf.EnumValues) > 0 {
@@ -1348,6 +1353,10 @@ func (sf *SchemaField) String() string {
 	if sf.ForeignKey != "" {
 		out.WriteString(" via ")
 		out.WriteString(sf.ForeignKey)
+	}
+	if sf.DefaultValue != nil {
+		out.WriteString(" = ")
+		out.WriteString(sf.DefaultValue.String())
 	}
 	return out.String()
 }

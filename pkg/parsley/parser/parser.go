@@ -2945,6 +2945,12 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 		field.TypeName = p.curToken.Literal
 	}
 
+	// Check for nullable marker: type?
+	if p.peekTokenIs(lexer.QUESTION) {
+		p.nextToken() // consume ?
+		field.Nullable = true
+	}
+
 	// Check for type options or enum values: type(...) or enum("a", "b")
 	if p.peekTokenIs(lexer.LPAREN) {
 		p.nextToken() // consume (
@@ -2969,6 +2975,13 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 			return nil
 		}
 		field.ForeignKey = p.curToken.Literal
+	}
+
+	// Check for default value: = expression
+	if p.peekTokenIs(lexer.ASSIGN) {
+		p.nextToken() // consume =
+		p.nextToken() // move to expression start
+		field.DefaultValue = p.parseExpression(LOWEST)
 	}
 
 	return field

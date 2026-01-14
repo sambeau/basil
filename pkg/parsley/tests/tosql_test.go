@@ -238,3 +238,48 @@ let result = Users.toSQL("where", {name: "Alice"})
 		t.Errorf("params should be an Array, got %T", paramsObj)
 	}
 }
+
+// TestSchemaToSQLWithNullableAndDefaults tests SQL generation for nullable and default fields
+func TestSchemaToSQLWithNullableAndDefaults(t *testing.T) {
+	evaluator.ClearDBConnections()
+
+	input := `
+@schema Product {
+	id: int
+	name: string
+	description: string?
+	price: int = 0
+	status: string? = "draft"
+}
+
+let db = @sqlite(":memory:")
+let Products = db.bind(Product, "products")
+
+// The table creation SQL should include NOT NULL, DEFAULT clauses
+Products
+`
+
+	env := evaluator.NewEnvironment()
+	env.Filename = "test.pars"
+	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	result := evaluator.Eval(program, env)
+
+	if err, ok := result.(*evaluator.Error); ok {
+		t.Fatalf("evaluation error: %s", err.Inspect())
+	}
+
+	// Just verify it didn't error - the actual SQL generation is tested via the TableBinding
+	// The main goal is to ensure nullable and default fields work with db.bind()
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+}

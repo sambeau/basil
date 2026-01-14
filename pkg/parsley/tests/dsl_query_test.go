@@ -59,6 +59,41 @@ Empty
 `,
 			wantErr: false,
 		},
+		{
+			name: "schema with nullable field",
+			input: `
+@schema User {
+    id: int
+    name: string
+    bio: string?
+}
+User
+`,
+			wantErr: false,
+		},
+		{
+			name: "schema with default value",
+			input: `
+@schema User {
+    id: int
+    name: string
+    status: string = "active"
+}
+User
+`,
+			wantErr: false,
+		},
+		{
+			name: "schema with nullable and default",
+			input: `
+@schema Settings {
+    theme: string? = "light"
+    count: int = 0
+}
+Settings
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -111,6 +146,116 @@ User.Name
 	output := result.String()
 	if output != "User" {
 		t.Errorf("expected User, got %s", output)
+	}
+}
+
+// TestSchemaNullableAndDefaultFields tests @schema nullable (?) and default (= value) syntax
+func TestSchemaNullableAndDefaultFields(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		fieldName        string
+		expectedNullable bool
+		expectedRequired bool
+		expectedDefault  string // empty string means no default
+	}{
+		{
+			name: "required field (no nullable, no default)",
+			input: `
+@schema Test { name: string }
+Test`,
+			fieldName:        "name",
+			expectedNullable: false,
+			expectedRequired: true,
+			expectedDefault:  "",
+		},
+		{
+			name: "nullable field",
+			input: `
+@schema Test { bio: string? }
+Test`,
+			fieldName:        "bio",
+			expectedNullable: true,
+			expectedRequired: false,
+			expectedDefault:  "",
+		},
+		{
+			name: "field with default value (still required)",
+			input: `
+@schema Test { status: string = "active" }
+Test`,
+			fieldName:        "status",
+			expectedNullable: false,
+			expectedRequired: true,
+			expectedDefault:  "active", // DefaultExpr is the value, not the quoted form
+		},
+		{
+			name: "nullable field with default value",
+			input: `
+@schema Test { theme: string? = "light" }
+Test`,
+			fieldName:        "theme",
+			expectedNullable: true,
+			expectedRequired: false,
+			expectedDefault:  "light", // DefaultExpr is the value, not the quoted form
+		},
+		{
+			name: "integer default",
+			input: `
+@schema Test { count: int = 42 }
+Test`,
+			fieldName:        "count",
+			expectedNullable: false,
+			expectedRequired: true,
+			expectedDefault:  "42",
+		},
+		{
+			name: "boolean default",
+			input: `
+@schema Test { active: bool = true }
+Test`,
+			fieldName:        "active",
+			expectedNullable: false,
+			expectedRequired: true,
+			expectedDefault:  "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parsley.Eval(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			schema, ok := result.Value.(*evaluator.DSLSchema)
+			if !ok {
+				t.Fatalf("expected DSLSchema, got %T", result.Value)
+			}
+
+			field, ok := schema.Fields[tt.fieldName]
+			if !ok {
+				t.Fatalf("field %q not found in schema", tt.fieldName)
+			}
+
+			if field.Nullable != tt.expectedNullable {
+				t.Errorf("field %q: expected nullable=%v, got %v", tt.fieldName, tt.expectedNullable, field.Nullable)
+			}
+
+			if field.Required != tt.expectedRequired {
+				t.Errorf("field %q: expected required=%v, got %v", tt.fieldName, tt.expectedRequired, field.Required)
+			}
+
+			if tt.expectedDefault == "" {
+				if field.DefaultExpr != "" {
+					t.Errorf("field %q: expected no default, got %q", tt.fieldName, field.DefaultExpr)
+				}
+			} else {
+				if field.DefaultExpr != tt.expectedDefault {
+					t.Errorf("field %q: expected default=%q, got %q", tt.fieldName, tt.expectedDefault, field.DefaultExpr)
+				}
+			}
+		})
 	}
 }
 

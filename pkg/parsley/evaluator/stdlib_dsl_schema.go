@@ -29,6 +29,9 @@ type DSLSchemaField struct {
 	Name           string
 	Type           string // original type: "email", "url", "int", etc.
 	Required       bool
+	Nullable       bool     // true if type ends with ?
+	DefaultValue   Object   // parsed default value, or nil
+	DefaultExpr    string   // original expression (for SQL generation)
 	ValidationType string   // "email", "url", "phone", "slug", "enum", or "" for no validation
 	EnumValues     []string // for enum types: allowed values
 	MinLength      *int     // for string length validation
@@ -85,11 +88,15 @@ func evalDSLSchemaProperty(schema *DSLSchema, key string) Object {
 		// Return a dictionary of field definitions
 		pairs := make(map[string]ast.Expression)
 		for name, field := range schema.Fields {
-			// Create a dict for each field with name, type, required
+			// Create a dict for each field with name, type, required, nullable, default
 			fieldPairs := make(map[string]ast.Expression)
 			fieldPairs["name"] = &ast.StringLiteral{Value: field.Name}
 			fieldPairs["type"] = &ast.StringLiteral{Value: field.Type}
 			fieldPairs["required"] = &ast.Boolean{Value: field.Required}
+			fieldPairs["nullable"] = &ast.Boolean{Value: field.Nullable}
+			if field.DefaultExpr != "" {
+				fieldPairs["default"] = &ast.StringLiteral{Value: field.DefaultExpr}
+			}
 			pairs[name] = &ast.DictionaryLiteral{Pairs: fieldPairs}
 		}
 		return &Dictionary{Pairs: pairs}
@@ -141,9 +148,16 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 			dslField := &DSLSchemaField{
 				Name:           field.Name.Value,
 				Type:           field.TypeName,
-				Required:       true, // Default to required for now
+				Required:       !field.Nullable, // Required unless nullable
+				Nullable:       field.Nullable,
 				ValidationType: getValidationType(field.TypeName),
 				EnumValues:     field.EnumValues,
+			}
+
+			// Evaluate default value if present
+			if field.DefaultValue != nil {
+				dslField.DefaultValue = Eval(field.DefaultValue, env)
+				dslField.DefaultExpr = field.DefaultValue.String()
 			}
 
 			// Process type options (min, max, unique, etc.)
@@ -279,6 +293,19 @@ func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) str
 			colParts = append(colParts, "UNIQUE")
 		}
 
+		// Add NOT NULL for required (non-nullable) fields
+		if !field.Nullable {
+			colParts = append(colParts, "NOT NULL")
+		}
+
+		// Add DEFAULT clause if present
+		if field.DefaultExpr != "" {
+			defaultSQL := objectToSQLDefault(field.DefaultValue)
+			if defaultSQL != "" {
+				colParts = append(colParts, "DEFAULT", defaultSQL)
+			}
+		}
+
 		// Build CHECK constraints
 		var checks []string
 
@@ -386,6 +413,31 @@ func schemaTypeToSQL(schemaType string, driver string) string {
 		return "TEXT"
 	default:
 		return "TEXT"
+	}
+}
+
+// objectToSQLDefault converts a Parsley Object to a SQL DEFAULT value string
+func objectToSQLDefault(obj Object) string {
+	if obj == nil || obj == NULL {
+		return "NULL"
+	}
+	switch v := obj.(type) {
+	case *String:
+		// Escape single quotes for SQL
+		escaped := strings.ReplaceAll(v.Value, "'", "''")
+		return fmt.Sprintf("'%s'", escaped)
+	case *Integer:
+		return fmt.Sprintf("%d", v.Value)
+	case *Float:
+		return fmt.Sprintf("%g", v.Value)
+	case *Boolean:
+		if v.Value {
+			return "1" // SQLite-compatible
+		}
+		return "0"
+	default:
+		// Complex types can't be SQL defaults easily
+		return ""
 	}
 }
 

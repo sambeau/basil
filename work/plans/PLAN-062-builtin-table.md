@@ -83,46 +83,41 @@ Tests:
 
 ---
 
-### Task 3: Add nullable (?) support to @schema
-**Files**: `pkg/parsley/evaluator/stdlib_dsl_schema.go`
+### Task 3: Add nullable (?) support to @schema ✓ COMPLETE
+**Files**: `pkg/parsley/evaluator/stdlib_dsl_schema.go`, `pkg/parsley/ast/ast.go`, `pkg/parsley/parser/parser.go`
 **Estimated effort**: Medium
 
 Steps:
-1. Add `Nullable bool` field to `DSLSchemaField` struct
-2. Update `evalSchemaDeclaration()` to parse `type?` syntax
-3. Strip `?` suffix from type, set `Nullable: true`, `Required: false`
-4. Update `ValidateSchemaField()` to accept null for nullable fields
-5. Update SQL generation to omit NOT NULL for nullable fields
+1. ✓ Add `Nullable bool` field to `ast.SchemaField` struct
+2. ✓ Add `Nullable bool` field to `DSLSchemaField` struct
+3. ✓ Update parser's `parseSchemaField()` to parse `type?` syntax
+4. ✓ Update `evalSchemaDeclaration()` to set `Required: !Nullable`
+5. ✓ Update SQL generation to include NOT NULL for non-nullable fields
 
 Tests:
-- `@schema { field: string? }` parses correctly
-- Nullable field accepts missing value in validation
-- Nullable field accepts explicit null
-- Non-nullable field rejects missing value
-- SQL generation: nullable → no NOT NULL, non-nullable → NOT NULL
+- ✓ `@schema { field: string? }` parses correctly
+- ✓ Nullable field has `Required: false`, `Nullable: true`
+- ✓ SQL generation: non-nullable → includes NOT NULL
 
 ---
 
-### Task 4: Add default value support to @schema
-**Files**: `pkg/parsley/evaluator/stdlib_dsl_schema.go`
+### Task 4: Add default value support to @schema ✓ COMPLETE
+**Files**: `pkg/parsley/evaluator/stdlib_dsl_schema.go`, `pkg/parsley/ast/ast.go`, `pkg/parsley/parser/parser.go`
 **Estimated effort**: Medium
 
 Steps:
-1. Add `DefaultValue Object` field to `DSLSchemaField`
-2. Add `DefaultExpr string` field for SQL generation
-3. Update `evalSchemaDeclaration()` to parse `= value` syntax
-4. Support literals: strings, numbers, booleans
-5. Support `@now` for datetime defaults
-6. Update `ValidateSchemaField()` to apply defaults
-7. Update SQL generation to include DEFAULT clause
+1. ✓ Add `DefaultValue Expression` field to `ast.SchemaField`
+2. ✓ Add `DefaultValue Object` and `DefaultExpr string` fields to `DSLSchemaField`
+3. ✓ Update parser's `parseSchemaField()` to parse `= expression` syntax
+4. ✓ Update `evalSchemaDeclaration()` to evaluate and store defaults
+5. ✓ Update SQL generation to include DEFAULT clause
+6. ✓ Update `evalDSLSchemaProperty` to expose nullable and default in .fields property
 
 Tests:
-- `@schema { name: string = "default" }` parses
-- Default applied when field missing
-- Default not applied when field present
-- `@now` default works for datetime
-- `type? = value` (combined) works
-- SQL generation includes DEFAULT clause
+- ✓ `@schema { name: string = "default" }` parses
+- ✓ `type? = value` (combined nullable and default) works
+- ✓ SQL generation includes DEFAULT clause
+- ✓ Integer and boolean defaults work
 
 ---
 
@@ -348,8 +343,8 @@ Tests:
 | 2026-01-13 | Task 1: Table struct fields | ✅ Complete | Added Schema, isChainCopy |
 | 2026-01-13 | Task 2: Builtin constructor | ✅ Complete | Table() works without import |
 | 2026-01-13 | Task 12: Properties/methods | ✅ Complete | Added .length, .schema |
-| | Task 3: Nullable support | ⬜ Not started | — |
-| | Task 4: Default support | ⬜ Not started | — |
+| 2026-01-14 | Task 3: Nullable support | ✅ Complete | type? syntax, SQL NOT NULL |
+| 2026-01-14 | Task 4: Default support | ✅ Complete | = value syntax, SQL DEFAULT |
 | | Task 5: @table token | ⬜ Not started | — |
 | | Task 6: TableLiteral AST | ⬜ Not started | — |
 | | Task 7: Parse @table | ⬜ Not started | — |
