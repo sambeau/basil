@@ -390,6 +390,53 @@ let id = 123
 
 ---
 
+### 1.14 Table Literals
+
+Table literals create structured tabular data with named columns. Tables can be created from arrays of dictionaries, arrays of arrays (with header row), or with an optional schema.
+
+#### Basic Syntax
+
+```parsley
+// From array of dictionaries (columns inferred from keys)
+@table [
+    {name: "Alice", age: 30},
+    {name: "Bob", age: 25}
+]
+
+// From array of arrays (first row is header)
+@table [
+    ["name", "age"],
+    ["Alice", 30],
+    ["Bob", 25]
+]
+```
+
+#### With Schema
+
+Tables can reference a schema for validation and defaults:
+
+```parsley
+@schema Person { name: string, age: integer = 0 }
+
+// Schema validates and applies defaults
+@table(Person) [
+    {name: "Alice", age: 30},
+    {name: "Bob"}              // age defaults to 0
+]
+```
+
+#### Empty Tables
+
+```parsley
+// Empty table with no columns
+@table []
+
+// Empty table with schema (has columns but no rows)
+@table(Person) []
+```
+
+---
+
 ## 2. Operators
 
 ### 2.1 Arithmetic
@@ -1524,29 +1571,34 @@ $100.00.split(3)                // [$33.34, $33.33, $33.33]
 
 Table values represent structured tabular data with named columns and typed rows. Tables provide SQL-like query, aggregation, and mutation methods that operate immutably (returning new tables).
 
-**Important:** CSV parsing (`parseCSV()`, `CSV()` file access) returns an **Array of Dictionary**, not a Table. To get Table methods, wrap in `table.table()` from the `@std/table` module.
-
 #### Creating Tables
 
 ```parsley
-import @std/table
-
-// From array of dictionaries (most common)
-let data = [
+// Table literal (preferred) - from array of dictionaries
+let t = @table [
     {name: "Alice", age: 30},
     {name: "Bob", age: 25}
 ]
-let t = table.table(data)
 
-// From CSV file - CSV() returns Array, wrap to get Table
-let rows <== CSV(@./sales.csv)    // Array of Dictionary
-let sales = table.table(rows)     // Now a Table
+// Table literal - from array of arrays (first row is headers)
+let t = @table [
+    ["name", "age"],
+    ["Alice", 30],
+    ["Bob", 25]
+]
 
-// From CSV string - same pattern
-let csvRows = "name,age\nAlice,30\nBob,25".parseCSV()  // Array of Dictionary
-let people = table.table(csvRows)                       // Now a Table
+// CSV parsing returns Table directly
+let data = "name,age\nAlice,30\nBob,25".parseCSV()  // Returns Table
+let rows <== CSV(@./sales.csv)                       // Returns Table
+
+// Database queries return Table
+let users <=??=> db <SQL>SELECT * FROM users</SQL>   // Returns Table
+
+// Table() builtin constructor
+let t = Table([{name: "Alice"}, {name: "Bob"}])
 
 // From single dictionary (each key becomes a row)
+let {table} = import @std/table
 let config = table.fromDict({debug: true, port: 8080})
 ```
 
@@ -1556,6 +1608,9 @@ let config = table.fromDict({debug: true, port: 8080})
 |----------|------|-------------|
 | `.row` | `dictionary\|null` | First row as dictionary, or `null` if empty |
 | `.rows` | `array` | All rows as array of dictionaries |
+| `.columns` | `array` | Column names as array of strings |
+| `.length` | `integer` | Number of rows |
+| `.schema` | `schema\|null` | Associated schema, or `null` |
 
 #### Query Methods
 
@@ -1606,13 +1661,11 @@ All return new tables (immutable—original unchanged):
 | `.toCSV()` | none | `string` | Convert to CSV string |
 | `.toMarkdown()` | none | `string` | Convert to Markdown table |
 | `.toJSON()` | none | `string` | Convert to JSON array |
+| `.toArray()` | none | `array` | Convert to array of dictionaries |
 
 ```parsley
-import @std/table
-
-// Load CSV and convert to Table
-let rows <== CSV(@./sales.csv)
-let data = table.table(rows)
+// Load CSV (returns Table directly)
+let data <== CSV(@./sales.csv)
 
 // Query operations (chainable)
 let filtered = data.where(fn(r) { r.amount > 100 })
@@ -1636,16 +1689,17 @@ let result = data
 <div>result.toHTML()</div>
 ```
 
-**Common Mistake:** Calling Table methods on CSV data without wrapping:
-```parsley
-// WRONG - parseCSV returns Array, not Table
-let rows = csvString.parseCSV()
-rows.count()          // Error: Unknown method 'count' for array
+**Note:** `parseCSV()` returns a Table when `hasHeader=true` (the default). To get a raw array of arrays, use `parseCSV(false)`.
 
-// CORRECT - wrap in table.table()
-import @std/table
-let t = table.table(csvString.parseCSV())
-t.count()             // Works: returns row count
+```parsley
+// With header (default) - returns Table
+let t = csvString.parseCSV()
+t.count()                    // Works: returns row count
+t.rows[0].name               // Access first row's name column
+
+// Without header - returns Array of Arrays
+let arr = csvString.parseCSV(false)
+arr[0]                       // First row as array: ["name", "age"]
 ```
 
 ---

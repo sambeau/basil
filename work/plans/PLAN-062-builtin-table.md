@@ -341,7 +341,7 @@ Tests:
 | 2026-01-14 | Task 10: CSV returns Table | ✅ Complete | parseCSV() returns Table with columns |
 | 2026-01-14 | Task 11: DB returns Table | ✅ Complete | <=??=> returns Table with columns |
 | 2026-01-14 | Task 13: @std/table alias | ✅ Complete | Added deprecation notes |
-| | Task 14: Documentation | ⬜ Not started | — |
+| 2026-01-14 | Task 14: Documentation | ✅ Complete | reference.md, CHEATSHEET.md updated |
 
 ## Suggested Implementation Order
 

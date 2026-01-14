@@ -561,7 +561,6 @@ M.floor(3.7)
 
 ```parsley
 // Standard library
-let {table} = import @std/table
 let {dev} = import @std/dev
 let {PI, sin, cos, floor} = import @std/math
 let {email, minLen, url} = import @std/valid
@@ -569,6 +568,9 @@ let {string, object, validate} = import @std/schema
 let {uuid, nanoid, new} = import @std/id
 let {notFound, redirect} = import @std/api
 let {mdDoc} = import @std/mdDoc
+
+// Tables - use @table literal instead of @std/table
+let t = @table [{name: "Alice"}, {name: "Bob"}]
 
 // Basil context (available in handlers)
 let {request, response, query, route, method} = import @basil/http
@@ -648,13 +650,40 @@ date("12/25/2024", "US")           // true
 date("25/12/2024", "GB")           // true
 ```
 
-### Table Module (`@std/table`)
+### Tables
+
+#### Creating Tables
 ```parsley
-let {table} = import @std/table
+// @table literal (preferred)
+let t = @table [
+    {name: "Alice", age: 30},
+    {name: "Bob", age: 25}
+]
 
-let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-let t = table(data)
+// From arrays (first row is header)
+let t = @table [
+    ["name", "age"],
+    ["Alice", 30],
+    ["Bob", 25]
+]
 
+// With schema for validation/defaults
+@schema Person { name: string, age: integer = 0 }
+let t = @table(Person) [
+    {name: "Alice", age: 30},
+    {name: "Bob"}              // age defaults to 0
+]
+
+// CSV returns Table directly
+let t = "name,age\nAlice,30".parseCSV()
+let t <== CSV(@./data.csv)
+
+// Table() builtin
+let t = Table([{name: "Alice"}, {name: "Bob"}])
+```
+
+#### Table Operations
+```parsley
 // Filtering
 t.where(fn(row) { row.age > 25 }).rows
 
@@ -666,9 +695,15 @@ t.count()                          // 2
 t.sum("age")                       // 55
 t.avg("age")                       // 27.5
 
+// Properties
+t.rows                             // Array of dictionaries
+t.columns                          // ["name", "age"]
+t.length                           // 2
+
 // Output
 t.toHTML()                         // HTML <table> string
 t.toCSV()                          // CSV string
+t.toArray()                        // Array of dictionaries
 ```
 
 ### HTML Components (`@std/html`)
