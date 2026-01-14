@@ -1,9 +1,10 @@
 ---
 id: FEAT-090
 title: "Universal Builtin Interface"
-status: draft
+status: implemented
 priority: medium
 created: 2026-01-14
+implemented: 2026-01-14
 author: "@copilot"
 ---
 
