@@ -1952,10 +1952,24 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		}
 		return evalDatetimeComputedProperty(dict, "timestamp", env)
 
+	case "toJSON":
+		// toJSON() - returns ISO 8601 string in JSON format
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Get the ISO string representation and return as JSON string
+		isoStr := datetimeToReprString(dict)
+		// Remove the @ prefix
+		if strings.HasPrefix(isoStr, "@") {
+			isoStr = isoStr[1:]
+		}
+		jsonBytes, _ := json.Marshal(isoStr)
+		return &String{Value: string(jsonBytes)}
+
 	default:
 		return unknownMethodError(method, "datetime", []string{
 			"format", "year", "month", "day", "hour", "minute", "second",
-			"weekday", "week", "timestamp",
+			"weekday", "week", "timestamp", "toJSON",
 		})
 	}
 }
@@ -2000,8 +2014,31 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		result := locale.DurationToRelativeTime(months, seconds, localeStr)
 		return &String{Value: result}
 
+	case "toJSON":
+		// toJSON() - returns duration as JSON object with components
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Build JSON object with duration components
+		months, seconds, err := getDurationComponents(dict, env)
+		if err != nil {
+			return newValidationError("VAL-0007", map[string]any{"GoError": err.Error()})
+		}
+		// Return as object with years, months, days, hours, minutes, seconds
+		years := months / 12
+		months = months % 12
+		days := seconds / (24 * 3600)
+		seconds = seconds % (24 * 3600)
+		hours := seconds / 3600
+		seconds = seconds % 3600
+		minutes := seconds / 60
+		seconds = seconds % 60
+		result := fmt.Sprintf(`{"years":%d,"months":%d,"days":%d,"hours":%d,"minutes":%d,"seconds":%d}`,
+			years, months, days, hours, minutes, seconds)
+		return &String{Value: result}
+
 	default:
-		return unknownMethodError(method, "duration", []string{"format"})
+		return unknownMethodError(method, "duration", []string{"format", "toJSON"})
 	}
 }
 
@@ -2103,9 +2140,18 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 
+	case "toJSON":
+		// toJSON() - returns path string as JSON string
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		pathStr := pathDictToString(dict)
+		jsonBytes, _ := json.Marshal(pathStr)
+		return &String{Value: string(jsonBytes)}
+
 	default:
 		return unknownMethodError(method, "path", []string{
-			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match",
+			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON",
 		})
 	}
 }
@@ -2215,9 +2261,18 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 		// href = full URL string representation
 		return &String{Value: urlDictToString(dict)}
 
+	case "toJSON":
+		// toJSON() - returns URL string as JSON string
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		urlStr := urlDictToString(dict)
+		jsonBytes, _ := json.Marshal(urlStr)
+		return &String{Value: string(jsonBytes)}
+
 	default:
 		return unknownMethodError(method, "url", []string{
-			"toDict", "toString", "query", "href",
+			"toDict", "toString", "query", "href", "toJSON",
 		})
 	}
 }
@@ -2331,9 +2386,35 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		}
 		return regexReplaceOnString(str.Value, dict, args[1], env)
 
+	case "toJSON":
+		// toJSON() - returns regex as JSON object with pattern and flags
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Get pattern and flags
+		var pattern, flags string
+		if patternExpr, ok := dict.Pairs["pattern"]; ok {
+			if p := Eval(patternExpr, env); p != nil {
+				if s, ok := p.(*String); ok {
+					pattern = s.Value
+				}
+			}
+		}
+		if flagsExpr, ok := dict.Pairs["flags"]; ok {
+			if f := Eval(flagsExpr, env); f != nil {
+				if s, ok := f.(*String); ok {
+					flags = s.Value
+				}
+			}
+		}
+		// Return as JSON object
+		patternJSON, _ := json.Marshal(pattern)
+		flagsJSON, _ := json.Marshal(flags)
+		return &String{Value: fmt.Sprintf(`{"pattern":%s,"flags":%s}`, patternJSON, flagsJSON)}
+
 	default:
 		return unknownMethodError(method, "regex", []string{
-			"toDict", "toString", "test", "exec", "execAll", "matches", "replace",
+			"toDict", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON",
 		})
 	}
 }
@@ -2631,7 +2712,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 
 // moneyMethods lists all methods available on money
 var moneyMethods = []string{
-	"format", "abs", "split",
+	"format", "abs", "split", "toJSON",
 }
 
 // evalMoneyProperty handles property access on Money values
@@ -2698,6 +2779,16 @@ func evalMoneyMethod(money *Money, method string, args []Object) Object {
 		}
 
 		return splitMoney(money, n)
+
+	case "toJSON":
+		// toJSON() - returns money as JSON object with amount (as string to preserve precision) and currency
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// Format the amount as a decimal string to preserve precision
+		amountStr := money.formatAmount()
+		currencyJSON, _ := json.Marshal(money.Currency)
+		return &String{Value: fmt.Sprintf(`{"amount":"%s","currency":%s}`, amountStr, currencyJSON)}
 
 	default:
 		return unknownMethodError(method, "money", moneyMethods)
