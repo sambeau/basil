@@ -34,10 +34,11 @@ let sales = @table [
 sales
     .where(fn(r) { r.region == "South" })
     .orderBy("amount", "desc")
-    .select("product", "amount")
+    .select(["product", "amount"])
 ```
 
 **Result:**
+
 ```
 ┌─────────┬────────┐
 │ product │ amount │
@@ -195,32 +196,47 @@ Combine `@table` with `@schema` for validated, typed tables with defaults:
     discount: number = 0
 }
 
+// Schema defaults are applied when fields are missing from ALL rows
 let products = @table(Product) [
     {sku: "A001", name: "Widget", price: $9.99},
-    {sku: "A002", name: "Gadget", price: $19.99, in_stock: false}
+    {sku: "A002", name: "Gadget", price: $19.99}
 ]
 
 products[0].in_stock  // true (default applied)
 products[0].discount  // 0 (default applied)
-products[1].in_stock  // false (explicit value)
+products[1].in_stock  // true (default applied)
+```
+
+> **Note:** All rows in a `@table` must have the same columns. To override a default, include the field in every row:
+
+```parsley
+let products = @table(Product) [
+    {sku: "A001", name: "Widget", price: $9.99, in_stock: true, discount: 0},
+    {sku: "A002", name: "Gadget", price: $19.99, in_stock: false, discount: 10}
+]
 ```
 
 ### Nullable Fields
 
-Use `?` suffix for optional fields:
+Use `?` suffix for optional fields. Nullable fields can hold `null` values:
 
 ```parsley
 @schema Contact {
     name: string
     email: email
-    phone: phone?  // nullable — can be missing or null
+    phone: phone?  // nullable — can hold null
 }
 
 let contacts = @table(Contact) [
     {name: "Alice", email: "alice@example.com", phone: "555-1234"},
-    {name: "Bob", email: "bob@example.com"}  // phone is null
+    {name: "Bob", email: "bob@example.com", phone: null}
 ]
+
+contacts[0].phone  // "555-1234"
+contacts[1].phone  // null
 ```
+
+> **Note:** All rows must include all columns. Use `null` explicitly for missing nullable values.
 
 ### Required Field Validation
 
@@ -407,9 +423,9 @@ Sort by multiple columns using arrays:
 employees.orderBy(["department", "asc"], ["salary", "desc"])
 ```
 
-### select(columns...)
+### select(columns)
 
-Pick specific columns:
+Pick specific columns (pass an array of column names):
 
 ```parsley
 let users = @table [
@@ -417,7 +433,7 @@ let users = @table [
     {id: 2, name: "Bob", email: "bob@example.com", role: "user"}
 ]
 
-users.select("name", "email")
+users.select(["name", "email"])
 ```
 
 **Result:**
@@ -464,7 +480,7 @@ let topWidgets = orders
     .where(fn(r) { r.product == "Widget" })
     .orderBy("amount", "desc")
     .limit(3)
-    .select("customer", "amount")
+    .select(["customer", "amount"])
 ```
 
 **Result:**
@@ -487,7 +503,7 @@ Table method chains map directly to SQL:
 | `.where(fn(r) { r.x > 10 })` | `WHERE x > 10` |
 | `.orderBy("name")` | `ORDER BY name ASC` |
 | `.orderBy("name", "desc")` | `ORDER BY name DESC` |
-| `.select("a", "b")` | `SELECT a, b` |
+| `.select(["a", "b"])` | `SELECT a, b` |
 | `.limit(10)` | `LIMIT 10` |
 | `.offset(20)` | `OFFSET 20` |
 | `.count()` | `SELECT COUNT(*)` |
@@ -500,7 +516,7 @@ Table method chains map directly to SQL:
 let result = orders
     .where(fn(r) { r.date >= @2024-01-16 && r.amount > $100 })
     .orderBy("amount", "desc")
-    .select("customer", "product", "amount")
+    .select(["customer", "product", "amount"])
     .limit(5)
 ```
 
@@ -778,7 +794,7 @@ let result = original
     .where(fn(r) { r.x > 1 })   // Copy made here
     .orderBy("x", "desc")        // Same copy modified
     .limit(3)                    // Same copy modified
-    .select("x")                 // Same copy modified
+    .select(["x"])               // Same copy modified
 ```
 
 The original table is **never modified**:
@@ -869,7 +885,7 @@ let summary = sales
     .where(fn(r) { r.region == "EMEA" })
     .orderBy("revenue", "desc")
     .limit(10)
-    .select("product", "revenue", "units_sold")
+    .select(["product", "revenue", "units_sold"])
 
 // Export for stakeholders
 <h2>"Top 10 EMEA Products"</h2>
@@ -887,7 +903,7 @@ let orders = Orders
     <h3>"Pending Orders This Week"</h3>
     <p>"Total: " orders.sum("total")</p>
     <p>"Count: " orders.count()</p>
-    orders.select("id", "customer_name", "total").toHTML()
+    orders.select(["id", "customer_name", "total"]).toHTML()
 </div>
 ```
 
@@ -902,7 +918,7 @@ let report = transactions
     .where(fn(t) { t.amount > 0 })
     .appendCol("category", fn(t) { categorize(t.description) })
     .orderBy([["category", "asc"], ["amount", "desc"]])
-    .select("date", "category", "description", "amount")
+    .select(["date", "category", "description", "amount"])
 
 // Save as CSV
 report.toCSV().writeFile("report.csv")
