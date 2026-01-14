@@ -258,6 +258,7 @@ Use this checklist to verify implementation is complete:
 - [ ] All example files in `examples/` execute without errors
 
 ## Related
+- Plan: [PLAN-065](../plans/PLAN-065-FEAT-090.md)
 - Backlog: #59 (path constructor)
 - Backlog: #65 (toBox color - Phase 3)
 - Prior art: FEAT-089 (toBox Phase 2)
