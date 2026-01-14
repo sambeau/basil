@@ -1748,3 +1748,30 @@ func TestTableWithSchemaMissingRequired(t *testing.T) {
 		t.Errorf("expected error about missing 'name' field, got: %s", errMsg)
 	}
 }
+
+// TestTableToBox tests .toBox() method renders box-drawing table
+func TestTableToBox(t *testing.T) {
+	input := `Table([{name: "Alice", age: 30}, {name: "Bob", age: 25}]).toBox()`
+	result := evalTest(t, input)
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	// Check for box-drawing characters
+	if !strings.Contains(str.Value, "┌") || !strings.Contains(str.Value, "┐") {
+		t.Errorf("expected box-drawing corners, got: %s", str.Value)
+	}
+	if !strings.Contains(str.Value, "│") {
+		t.Errorf("expected vertical box lines, got: %s", str.Value)
+	}
+	if !strings.Contains(str.Value, "─") {
+		t.Errorf("expected horizontal box lines, got: %s", str.Value)
+	}
+	// Check content is present
+	if !strings.Contains(str.Value, "Alice") || !strings.Contains(str.Value, "Bob") {
+		t.Errorf("expected row data in output, got: %s", str.Value)
+	}
+	if !strings.Contains(str.Value, "name") || !strings.Contains(str.Value, "age") {
+		t.Errorf("expected column headers in output, got: %s", str.Value)
+	}
+}

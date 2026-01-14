@@ -778,6 +778,28 @@ t.toMarkdown()
 | Bob | 25 |
 ```
 
+### toBox()
+
+Export as a box-drawing table (like SQL CLI output):
+
+```parsley
+let t = @table [
+    {name: "Alice", age: 30, city: "London"},
+    {name: "Bob", age: 25, city: "Paris"}
+]
+t.toBox()
+```
+
+**Result:**
+```
+┌───────┬─────┬────────┐
+│ name  │ age │ city   │
+├───────┼─────┼────────┤
+│ Alice │ 30  │ London │
+│ Bob   │ 25  │ Paris  │
+└───────┴─────┴────────┘
+```
+
 ---
 
 ## Efficiency: Copy-on-Chain
@@ -935,7 +957,7 @@ Tables are Parsley's answer to structured data manipulation:
 - **Validate** with `@schema` for typed, defaulted, nullable fields
 - **Query** using chainable SQL-like methods: `where`, `orderBy`, `select`, `limit`
 - **Aggregate** with `sum`, `avg`, `min`, `max`, `count`
-- **Export** to JSON, CSV, HTML, or Markdown
+- **Export** to JSON, CSV, HTML, Markdown, or box-drawing format
 - **Efficient** thanks to copy-on-chain optimization
 
 Tables bridge the gap between raw data and polished output—whether you're building reports, dashboards, or data pipelines.

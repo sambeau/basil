@@ -1403,6 +1403,115 @@ func markdownEscape(s string) string {
 	return s
 }
 
+// tableToBox renders the table using box-drawing characters (like SQL CLI output)
+func tableToBox(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("toBox", len(args), 0)
+	}
+
+	if len(t.Columns) == 0 {
+		return &String{Value: ""}
+	}
+
+	// Calculate column widths (minimum width is the header length)
+	colWidths := make([]int, len(t.Columns))
+	for i, col := range t.Columns {
+		colWidths[i] = len(col)
+	}
+
+	// Check each row for wider values
+	for _, row := range t.Rows {
+		for i, col := range t.Columns {
+			val := getDictValue(row, col)
+			valStr := boxEscape(objectToString(val))
+			if len(valStr) > colWidths[i] {
+				colWidths[i] = len(valStr)
+			}
+		}
+	}
+
+	var sb strings.Builder
+
+	// Box-drawing characters
+	const (
+		topLeft     = "┌"
+		topRight    = "┐"
+		bottomLeft  = "└"
+		bottomRight = "┘"
+		horizontal  = "─"
+		vertical    = "│"
+		leftT       = "├"
+		rightT      = "┤"
+		topT        = "┬"
+		bottomT     = "┴"
+		cross       = "┼"
+	)
+
+	// Helper to write a horizontal line
+	writeHLine := func(left, mid, right, fill string) {
+		sb.WriteString(left)
+		for i, w := range colWidths {
+			sb.WriteString(strings.Repeat(fill, w+2)) // +2 for padding
+			if i < len(colWidths)-1 {
+				sb.WriteString(mid)
+			}
+		}
+		sb.WriteString(right)
+		sb.WriteString("\n")
+	}
+
+	// Helper to write a data row
+	writeRow := func(values []string) {
+		sb.WriteString(vertical)
+		for i, val := range values {
+			sb.WriteString(" ")
+			sb.WriteString(val)
+			sb.WriteString(strings.Repeat(" ", colWidths[i]-len(val)))
+			sb.WriteString(" ")
+			sb.WriteString(vertical)
+		}
+		sb.WriteString("\n")
+	}
+
+	// Top border
+	writeHLine(topLeft, topT, topRight, horizontal)
+
+	// Header row
+	headers := make([]string, len(t.Columns))
+	for i, col := range t.Columns {
+		headers[i] = col
+	}
+	writeRow(headers)
+
+	// Header separator
+	writeHLine(leftT, cross, rightT, horizontal)
+
+	// Data rows
+	for _, row := range t.Rows {
+		values := make([]string, len(t.Columns))
+		for i, col := range t.Columns {
+			val := getDictValue(row, col)
+			values[i] = boxEscape(objectToString(val))
+		}
+		writeRow(values)
+	}
+
+	// Bottom border
+	writeHLine(bottomLeft, bottomT, bottomRight, horizontal)
+
+	return &String{Value: sb.String()}
+}
+
+// boxEscape escapes characters that would break box formatting
+func boxEscape(s string) string {
+	// Replace newlines with spaces
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	// Replace tabs with spaces
+	s = strings.ReplaceAll(s, "\t", " ")
+	return s
+}
+
 // tableToJSON renders the table as a JSON array of objects
 func tableToJSON(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 0 {
@@ -1882,6 +1991,8 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableToCSV(t, args, env)
 	case "toMarkdown":
 		return tableToMarkdown(t, args, env)
+	case "toBox":
+		return tableToBox(t, args, env)
 	case "toJSON":
 		return tableToJSON(t, args, env)
 	case "appendRow":
@@ -1909,7 +2020,7 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
-			"toHTML", "toCSV", "toMarkdown", "toJSON", "toArray", "copy",
+			"toHTML", "toCSV", "toMarkdown", "toBox", "toJSON", "toArray", "copy",
 			"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
 			"rowCount", "columnCount", "column",
 		})
