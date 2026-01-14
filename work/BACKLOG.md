@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-10
+updated: 2026-01-13
 ---
 
 # Backlog
@@ -41,6 +41,7 @@ Deferred items from implementation, to be picked up in future work.
 | #29 | Table column transforms | FEAT-018 | Not MVP | `transform(col, fn)`, `addColumn(name, fn)` |
 | #30 | Table.distinct() | FEAT-018 | Not MVP | Deduplication |
 | #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access |
+| #58 | Local module imports should not require `-x` | Examples audit | Sandbox policy needs revision | `-x` should only allow @shell execution; Parsley module imports (e.g., `import @./modules/foo.pars`) should be permitted without execute mode. Update sandbox semantics accordingly. |
 | #34 | Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
 
 ## Low Priority / Nice to Have
