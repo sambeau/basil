@@ -3469,10 +3469,10 @@ func getBuiltins() map[string]*Builtin {
 				return dict
 			},
 		},
-		// Table() - create a Table from an array of dictionaries
-		// Table() - empty table
-		// Table(array) - table from array of dictionaries with rectangular validation
-		"Table": {
+		// table() - create a Table from an array of dictionaries
+		// table() - empty table
+		// table(array) - table from array of dictionaries with rectangular validation
+		"table": {
 			Fn: func(args ...Object) Object {
 				env := NewEnvironment()
 				return TableConstructor(args, env)

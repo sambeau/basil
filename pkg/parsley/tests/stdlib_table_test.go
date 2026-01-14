@@ -64,7 +64,7 @@ func assertNoNilExpressions(t *testing.T, dict *evaluator.Dictionary, prefix str
 	}
 }
 
-// TestTableBuiltinConstructor tests the Table() builtin (no import needed)
+// TestTableBuiltinConstructor tests the table() builtin (no import needed)
 func TestTableBuiltinConstructor(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -75,46 +75,46 @@ func TestTableBuiltinConstructor(t *testing.T) {
 	}{
 		{
 			name:       "basic table",
-			input:      `Table([{a: 1, b: 2}, {a: 3, b: 4}])`,
+			input:      `table([{a: 1, b: 2}, {a: 3, b: 4}])`,
 			expectRows: 2,
 			expectCols: []string{"a", "b"},
 		},
 		{
 			name:       "empty array",
-			input:      `Table([])`,
+			input:      `table([])`,
 			expectRows: 0,
 			expectCols: []string{},
 		},
 		{
 			name:       "no args",
-			input:      `Table()`,
+			input:      `table()`,
 			expectRows: 0,
 			expectCols: []string{},
 		},
 		{
 			name:       "single row",
-			input:      `Table([{x: 1}])`,
+			input:      `table([{x: 1}])`,
 			expectRows: 1,
 			expectCols: []string{"x"},
 		},
 		{
 			name:        "not array",
-			input:       `Table("string")`,
+			input:       `table("string")`,
 			expectError: "requires an array",
 		},
 		{
 			name:        "not dictionary",
-			input:       `Table([1, 2, 3])`,
+			input:       `table([1, 2, 3])`,
 			expectError: "expected dictionary",
 		},
 		{
 			name:        "column mismatch - missing",
-			input:       `Table([{a: 1}, {b: 2}])`,
+			input:       `table([{a: 1}, {b: 2}])`,
 			expectError: "missing columns",
 		},
 		{
 			name:        "column mismatch - extra",
-			input:       `Table([{a: 1}, {a: 2, b: 3}])`,
+			input:       `table([{a: 1}, {a: 2, b: 3}])`,
 			expectError: "unexpected columns",
 		},
 	}
@@ -169,22 +169,22 @@ func TestTableBuiltinProperties(t *testing.T) {
 	}{
 		{
 			name:     "length",
-			input:    `Table([{a: 1}, {a: 2}]).length`,
+			input:    `table([{a: 1}, {a: 2}]).length`,
 			expected: "2",
 		},
 		{
 			name:     "columns",
-			input:    `Table([{x: 1, y: 2}]).columns`,
+			input:    `table([{x: 1, y: 2}]).columns`,
 			expected: "[x, y]",
 		},
 		{
 			name:     "schema is null",
-			input:    `Table([{a: 1}]).schema`,
+			input:    `table([{a: 1}]).schema`,
 			expected: "null",
 		},
 		{
 			name:     "empty table length",
-			input:    `Table([]).length`,
+			input:    `table([]).length`,
 			expected: "0",
 		},
 	}
@@ -1310,7 +1310,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after where",
 			input: `
-				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				data = table([{x: 1}, {x: 2}, {x: 3}])
 				filtered = data.where(fn(r) { r.x > 1 })
 				data.length
 			`,
@@ -1319,7 +1319,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after orderBy",
 			input: `
-				data = Table([{x: 3}, {x: 1}, {x: 2}])
+				data = table([{x: 3}, {x: 1}, {x: 2}])
 				sorted = data.orderBy("x")
 				data.rows[0].x
 			`,
@@ -1328,7 +1328,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after select",
 			input: `
-				data = Table([{x: 1, y: 2}, {x: 3, y: 4}])
+				data = table([{x: 1, y: 2}, {x: 3, y: 4}])
 				projected = data.select(["x"])
 				data.columns.length()
 			`,
@@ -1337,7 +1337,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after limit",
 			input: `
-				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				data = table([{x: 1}, {x: 2}, {x: 3}])
 				limited = data.limit(1)
 				data.length
 			`,
@@ -1346,7 +1346,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "chained operations work correctly",
 			input: `
-				data = Table([{x: 3, y: "c"}, {x: 1, y: "a"}, {x: 2, y: "b"}])
+				data = table([{x: 3, y: "c"}, {x: 1, y: "a"}, {x: 2, y: "b"}])
 				data.where(fn(r) { r.x > 1 }).orderBy("x").limit(1).rows[0].x
 			`,
 			expected: 2, // x:2 is the first after filtering x>1 and ordering
@@ -1354,7 +1354,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "long chain preserves original",
 			input: `
-				data = Table([{x: 1}, {x: 2}, {x: 3}, {x: 4}, {x: 5}])
+				data = table([{x: 1}, {x: 2}, {x: 3}, {x: 4}, {x: 5}])
 				result = data.where(fn(r) { r.x > 1 }).where(fn(r) { r.x < 5 }).orderBy("x").limit(2)
 				data.length
 			`,
@@ -1363,7 +1363,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "two independent chains from same source - original preserved",
 			input: `
-				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				data = table([{x: 1}, {x: 2}, {x: 3}])
 				a = data.where(fn(r) { r.x == 1 })
 				b = data.where(fn(r) { r.x == 2 })
 				data.length
@@ -1373,7 +1373,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "two independent chains - first chain result",
 			input: `
-				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				data = table([{x: 1}, {x: 2}, {x: 3}])
 				a = data.where(fn(r) { r.x == 1 })
 				b = data.where(fn(r) { r.x == 2 })
 				a.length
@@ -1383,7 +1383,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "two independent chains - second chain result",
 			input: `
-				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				data = table([{x: 1}, {x: 2}, {x: 3}])
 				a = data.where(fn(r) { r.x == 1 })
 				b = data.where(fn(r) { r.x == 2 })
 				b.length
@@ -1424,7 +1424,7 @@ func TestTableCopyOnChain(t *testing.T) {
 func TestTableCopyOnChainAssignment(t *testing.T) {
 	// Test that data is unchanged
 	input1 := `
-		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		data = table([{x: 1}, {x: 2}, {x: 3}])
 		filtered = data.where(fn(r) { r.x > 1 })
 		sorted = filtered.orderBy("x", "desc")
 		data.length
@@ -1436,7 +1436,7 @@ func TestTableCopyOnChainAssignment(t *testing.T) {
 
 	// Test that filtered has 2 rows
 	input2 := `
-		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		data = table([{x: 1}, {x: 2}, {x: 3}])
 		filtered = data.where(fn(r) { r.x > 1 })
 		sorted = filtered.orderBy("x", "desc")
 		filtered.length
@@ -1448,7 +1448,7 @@ func TestTableCopyOnChainAssignment(t *testing.T) {
 
 	// Test that sorted has correct ordering (first row should be x:3)
 	input3 := `
-		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		data = table([{x: 1}, {x: 2}, {x: 3}])
 		filtered = data.where(fn(r) { r.x > 1 })
 		sorted = filtered.orderBy("x", "desc")
 		sorted.rows[0].x
@@ -1466,7 +1466,7 @@ func TestTableCopyOnChainFunctionArg(t *testing.T) {
 			tbl.length
 		}
 		
-		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		data = table([{x: 1}, {x: 2}, {x: 3}])
 		filtered = data.where(fn(r) { r.x > 1 })
 		
 		// Pass to function - should end chain
@@ -1506,22 +1506,22 @@ func TestTableIndexing(t *testing.T) {
 	}{
 		{
 			name:     "first element",
-			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[0].a`,
+			input:    `table([{a: 1}, {a: 2}, {a: 3}])[0].a`,
 			expected: 1,
 		},
 		{
 			name:     "second element",
-			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[1].a`,
+			input:    `table([{a: 1}, {a: 2}, {a: 3}])[1].a`,
 			expected: 2,
 		},
 		{
 			name:     "last element via negative index",
-			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[-1].a`,
+			input:    `table([{a: 1}, {a: 2}, {a: 3}])[-1].a`,
 			expected: 3,
 		},
 		{
 			name:     "second to last",
-			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[-2].a`,
+			input:    `table([{a: 1}, {a: 2}, {a: 3}])[-2].a`,
 			expected: 2,
 		},
 	}
@@ -1548,11 +1548,11 @@ func TestTableIndexingError(t *testing.T) {
 	}{
 		{
 			name:  "out of bounds positive",
-			input: `Table([{a: 1}])[5]`,
+			input: `table([{a: 1}])[5]`,
 		},
 		{
 			name:  "out of bounds negative",
-			input: `Table([{a: 1}])[-10]`,
+			input: `table([{a: 1}])[-10]`,
 		},
 	}
 
@@ -1577,7 +1577,7 @@ func TestTableIndexingError(t *testing.T) {
 func TestTableIteration(t *testing.T) {
 	// The for loop returns an array of body results
 	input := `
-let t = Table([{a: 1}, {a: 2}, {a: 3}])
+let t = table([{a: 1}, {a: 2}, {a: 3}])
 let results = for (row in t) {
 	row.a
 }
@@ -1595,7 +1595,7 @@ results[2]  // Third element (0-indexed)
 
 // TestTableToArray tests .toArray() method
 func TestTableToArray(t *testing.T) {
-	input := `Table([{a: 1}, {a: 2}]).toArray()`
+	input := `table([{a: 1}, {a: 2}]).toArray()`
 	result := evalTest(t, input)
 	arr, ok := result.(*evaluator.Array)
 	if !ok {
@@ -1609,7 +1609,7 @@ func TestTableToArray(t *testing.T) {
 // TestTableCopyMethod tests .copy() method creates independent copy
 func TestTableCopyMethod(t *testing.T) {
 	input := `
-let original = Table([{a: 1}, {a: 2}])
+let original = table([{a: 1}, {a: 2}])
 let copied = original.copy()
 copied.length
 `
@@ -1625,7 +1625,7 @@ copied.length
 
 // TestTableOffsetMethod tests .offset() standalone method
 func TestTableOffsetMethod(t *testing.T) {
-	input := `Table([{a: 1}, {a: 2}, {a: 3}]).offset(1).length`
+	input := `table([{a: 1}, {a: 2}, {a: 3}]).offset(1).length`
 	result := evalTest(t, input)
 	intVal, ok := result.(*evaluator.Integer)
 	if !ok {
@@ -1638,7 +1638,7 @@ func TestTableOffsetMethod(t *testing.T) {
 
 // TestTableToMarkdown tests .toMarkdown() method
 func TestTableToMarkdown(t *testing.T) {
-	input := `Table([{name: "Alice", age: 30}, {name: "Bob", age: 25}]).toMarkdown()`
+	input := `table([{name: "Alice", age: 30}, {name: "Bob", age: 25}]).toMarkdown()`
 	result := evalTest(t, input)
 	strVal, ok := result.(*evaluator.String)
 	if !ok {
@@ -1659,7 +1659,7 @@ func TestTableToMarkdown(t *testing.T) {
 
 // TestTableToJSONMethod tests .toJSON() method on Table
 func TestTableToJSONMethod(t *testing.T) {
-	input := `Table([{a: 1}, {a: 2}]).toJSON()`
+	input := `table([{a: 1}, {a: 2}]).toJSON()`
 	result := evalTest(t, input)
 	strVal, ok := result.(*evaluator.String)
 	if !ok {
@@ -1676,7 +1676,7 @@ func TestTableToJSONMethod(t *testing.T) {
 
 // TestTableColumnMethod tests .column(name) method
 func TestTableColumnMethod(t *testing.T) {
-	input := `Table([{x: 1, y: 2}, {x: 3, y: 4}, {x: 5, y: 6}]).column("x")`
+	input := `table([{x: 1, y: 2}, {x: 3, y: 4}, {x: 5, y: 6}]).column("x")`
 	result := evalTest(t, input)
 	arr, ok := result.(*evaluator.Array)
 	if !ok {
@@ -1701,7 +1701,7 @@ func TestTableColumnMethod(t *testing.T) {
 
 // TestTableRowCount tests .rowCount() method
 func TestTableRowCount(t *testing.T) {
-	input := `Table([{a: 1}, {a: 2}, {a: 3}]).rowCount()`
+	input := `table([{a: 1}, {a: 2}, {a: 3}]).rowCount()`
 	result := evalTest(t, input)
 	intVal, ok := result.(*evaluator.Integer)
 	if !ok {
@@ -1714,7 +1714,7 @@ func TestTableRowCount(t *testing.T) {
 
 // TestTableColumnCount tests .columnCount() method
 func TestTableColumnCount(t *testing.T) {
-	input := `Table([{a: 1, b: 2, c: 3}]).columnCount()`
+	input := `table([{a: 1, b: 2, c: 3}]).columnCount()`
 	result := evalTest(t, input)
 	intVal, ok := result.(*evaluator.Integer)
 	if !ok {
@@ -1751,7 +1751,7 @@ func TestTableWithSchemaMissingRequired(t *testing.T) {
 
 // TestTableToBox tests .toBox() method renders box-drawing table
 func TestTableToBox(t *testing.T) {
-	input := `Table([{name: "Alice", age: 30}, {name: "Bob", age: 25}]).toBox()`
+	input := `table([{name: "Alice", age: 30}, {name: "Bob", age: 25}]).toBox()`
 	result := evalTest(t, input)
 	str, ok := result.(*evaluator.String)
 	if !ok {

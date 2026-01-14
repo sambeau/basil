@@ -96,21 +96,21 @@ let bad = @table [
 ]
 ```
 
-### The `Table()` Constructor
+### The `table()` Constructor
 
-For dynamic data, use the `Table()` constructor:
+For dynamic data, use the `table()` constructor:
 
 ```parsley
 let data = [{x: 1}, {x: 2}, {x: 3}]
-let t = Table(data)
+let t = table(data)
 ```
 
 The constructor validates at **runtime**:
 
 ```parsley
-Table([{a: 1}, {b: 2}])  // Error: column mismatch
-Table("not an array")    // Error: requires array
-Table([1, 2, 3])         // Error: elements must be dictionaries
+table([{a: 1}, {b: 2}])  // Error: column mismatch
+table("not an array")    // Error: requires array
+table([1, 2, 3])         // Error: elements must be dictionaries
 ```
 
 ### Empty Tables
@@ -119,7 +119,7 @@ Both syntaxes support empty tables:
 
 ```parsley
 let empty1 = @table []
-let empty2 = Table([])
+let empty2 = table([])
 
 empty1.length    // 0
 empty1.columns   // []
@@ -176,7 +176,7 @@ JSON APIs return arrays by default. Convert to Table explicitly:
 
 ```parsley
 let response <=/= fetch("https://api.example.com/users")
-let users = Table(response.json)
+let users = table(response.json)
 ```
 
 ---
@@ -360,6 +360,7 @@ orders.where(fn(r) { r.total > $100 })
 ```
 
 **Result:**
+
 ```
 ┌────┬──────────┬───────┐
 │ id │ customer │ total │
@@ -390,6 +391,7 @@ products.orderBy("price")
 ```
 
 **Result:**
+
 ```
 ┌────────┬───────┐
 │ name   │ price │
@@ -407,6 +409,7 @@ products.orderBy("price", "desc")
 ```
 
 **Result:**
+
 ```
 ┌────────┬───────┐
 │ name   │ price │
@@ -437,6 +440,7 @@ users.select(["name", "email"])
 ```
 
 **Result:**
+
 ```
 ┌───────┬───────────────────┐
 │ name  │ email             │
@@ -484,6 +488,7 @@ let topWidgets = orders
 ```
 
 **Result:**
+
 ```
 ┌──────────┬────────┐
 │ customer │ amount │
@@ -521,6 +526,7 @@ let result = orders
 ```
 
 **Equivalent SQL:**
+
 ```sql
 SELECT customer, product, amount
 FROM orders
@@ -680,6 +686,7 @@ products.appendCol("total", fn(r) { r.price * r.qty })
 ```
 
 **Result:**
+
 ```
 ┌────────┬───────┬─────┬───────┐
 │ name   │ price │ qty │ total │
@@ -735,6 +742,7 @@ t.toCSV()
 ```
 
 **Result:**
+
 ```
 name,age
 Alice,30
@@ -751,6 +759,7 @@ t.toHTML()
 ```
 
 **Result:**
+
 ```html
 <table>
 <thead><tr><th>name</th></tr></thead>
@@ -771,6 +780,7 @@ t.toMarkdown()
 ```
 
 **Result:**
+
 ```
 | name | age |
 |------|-----|
@@ -791,6 +801,7 @@ t.toBox()
 ```
 
 **Result:**
+
 ```
 ┌───────┬─────┬────────┐
 │ name  │ age │ city   │
@@ -934,7 +945,7 @@ let orders = Orders
 ```parsley
 // Transform raw API data into a report
 let raw <=/= fetch("https://api.example.com/transactions")
-let transactions = Table(raw.json)
+let transactions = table(raw.json)
 
 let report = transactions
     .where(fn(t) { t.amount > 0 })
@@ -952,7 +963,7 @@ report.toCSV().writeFile("report.csv")
 
 Tables are Parsley's answer to structured data manipulation:
 
-- **Create** with `@table [...]` literals or `Table()` constructor
+- **Create** with `@table [...]` literals or `table()` constructor
 - **Import** from CSV files, database queries, or JSON APIs
 - **Validate** with `@schema` for typed, defaulted, nullable fields
 - **Query** using chainable SQL-like methods: `where`, `orderBy`, `select`, `limit`

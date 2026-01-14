@@ -1594,8 +1594,8 @@ let rows <== CSV(@./sales.csv)                       // Returns Table
 // Database queries return Table
 let users <=??=> db <SQL>SELECT * FROM users</SQL>   // Returns Table
 
-// Table() builtin constructor
-let t = Table([{name: "Alice"}, {name: "Bob"}])
+// table() builtin constructor
+let t = table([{name: "Alice"}, {name: "Bob"}])
 
 // From single dictionary (each key becomes a row)
 let {table} = import @std/table

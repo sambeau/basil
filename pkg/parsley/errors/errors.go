@@ -977,8 +977,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"TABLE-0001": {
 		Class:    ClassType,
-		Template: "Table() requires an array, got {{.Got}}",
-		Hints:    []string{"Create a table from an array of dictionaries: Table([{a: 1}, {a: 2}])"},
+		Template: "table() requires an array, got {{.Got}}",
+		Hints:    []string{"Create a table from an array of dictionaries: table([{a: 1}, {a: 2}])"},
 	},
 	"TABLE-0002": {
 		Class:    ClassType,
