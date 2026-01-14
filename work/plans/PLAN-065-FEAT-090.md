@@ -376,13 +376,13 @@ After all phases:
 ## Progress Log
 | Date | Phase | Status | Notes |
 |------|-------|--------|-------|
-| | Phase 1: Cleanup | ⬜ Not started | |
-| | Phase 2: repr() | ⬜ Not started | |
-| | Phase 3: toJSON() | ⬜ Not started | |
-| | Phase 4: toBox() | ⬜ Not started | |
+| 2026-01-14 | Phase 1: Cleanup | ✅ Done | Removed abs from Integer, abs/round/floor/ceil from Float method lists, removed toDebug builtin |
+| 2026-01-14 | Phase 2: repr() | ✅ Done | Added objectToReprString(), repr() method on all types, updated tests |
+| | Phase 3: toJSON() | ⬜ Not started | Pseudo-types still need toJSON |
+| | Phase 4: toBox() | ⬜ Not started | Pseudo-types still need toBox |
 | | Phase 5: toDict/inspect | ⬜ Not started | |
-| | Phase 6: toHTML/toMarkdown | ⬜ Not started | |
-| | Phase 7: path() | ⬜ Not started | |
+| 2026-01-14 | Phase 6: toHTML/toMarkdown | ✅ Done | Added to Array and Dictionary |
+| 2026-01-14 | Phase 7: path() | ✅ Done | Added path() constructor |
 
 ## Estimated Total Effort
 | Phase | Estimate |

@@ -151,36 +151,41 @@ r.toDict()`)
 
 func TestReprDuration(t *testing.T) {
 	result := evalStringConv("repr(@1d)")
-	if !strings.Contains(result, "__type") || !strings.Contains(result, "duration") {
-		t.Errorf("repr should return dict string with __type: duration, got %q", result)
+	// repr() returns parseable Parsley literal, not dict representation
+	if result != "@1d" && !strings.HasPrefix(result, "@") {
+		t.Errorf("repr should return parseable duration literal, got %q", result)
 	}
 }
 
 func TestReprPath(t *testing.T) {
 	result := evalStringConv("repr(@./src/main.go)")
-	if !strings.Contains(result, "__type") || !strings.Contains(result, "path") {
-		t.Errorf("repr should return dict string with __type: path, got %q", result)
+	// repr() returns parseable Parsley literal, not dict representation
+	if result != "@./src/main.go" {
+		t.Errorf("repr should return parseable path literal, got %q", result)
 	}
 }
 
 func TestReprURL(t *testing.T) {
 	result := evalStringConv("repr(@https://example.com)")
-	if !strings.Contains(result, "__type") || !strings.Contains(result, "url") {
-		t.Errorf("repr should return dict string with __type: url, got %q", result)
+	// repr() returns parseable Parsley literal, not dict representation
+	if result != "@https://example.com" {
+		t.Errorf("repr should return parseable URL literal, got %q", result)
 	}
 }
 
 func TestReprDatetime(t *testing.T) {
 	result := evalStringConv("repr(@2024-12-25)")
-	if !strings.Contains(result, "__type") || !strings.Contains(result, "datetime") {
-		t.Errorf("repr should return dict string with __type: datetime, got %q", result)
+	// repr() returns parseable Parsley literal, not dict representation
+	if !strings.HasPrefix(result, "@2024-12-25") {
+		t.Errorf("repr should return parseable datetime literal, got %q", result)
 	}
 }
 
 func TestReprRegex(t *testing.T) {
 	result := evalStringConv("repr(/test/i)")
-	if !strings.Contains(result, "__type") || !strings.Contains(result, "regex") {
-		t.Errorf("repr should return dict string with __type: regex, got %q", result)
+	// repr() returns parseable Parsley literal, not dict representation
+	if result != "/test/i" {
+		t.Errorf("repr should return parseable regex literal, got %q", result)
 	}
 }
 

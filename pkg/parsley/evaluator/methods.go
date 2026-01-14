@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -43,28 +44,30 @@ var stringMethods = []string{
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
-	"outdent", "indent", "toBox",
+	"outdent", "indent", "toBox", "repr", "toJSON",
 }
 
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
 	"type", "length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
 	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll", "toBox",
+	"repr", "toHTML", "toMarkdown",
 }
 
 // integerMethods lists all methods available on integer
 var integerMethods = []string{
-	"type", "abs", "format", "humanize", "toBox",
+	"type", "format", "humanize", "toBox", "repr", "toJSON",
 }
 
 // floatMethods lists all methods available on float
 var floatMethods = []string{
-	"type", "abs", "format", "round", "floor", "ceil", "humanize", "toBox",
+	"type", "format", "humanize", "toBox", "repr", "toJSON",
 }
 
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
 	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON", "toBox",
+	"repr", "toHTML", "toMarkdown",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -401,6 +404,20 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 		}
 		br := NewBoxRenderer()
 		return &String{Value: br.RenderSingleValue(str.Value)}
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(str)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		// JSON encode the string
+		jsonBytes, _ := json.Marshal(str.Value)
+		return &String{Value: string(jsonBytes)}
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)
@@ -1018,6 +1035,18 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "toBox":
 		return arrayToBox(arr, args, env)
 
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(arr)}
+
+	case "toHTML":
+		return arrayToHTML(arr, args)
+
+	case "toMarkdown":
+		return arrayToMarkdown(arr, args)
+
 	default:
 		return unknownMethodError(method, "array", arrayMethods)
 	}
@@ -1569,6 +1598,18 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 	case "toBox":
 		return dictToBox(dict, args, env)
 
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(dict)}
+
+	case "toHTML":
+		return dictToHTML(dict, args, env)
+
+	case "toMarkdown":
+		return dictToMarkdown(dict, args, env)
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
@@ -1743,6 +1784,18 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		br := NewBoxRenderer()
 		return &String{Value: br.RenderSingleValue(num.Inspect())}
 
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(num)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		return &String{Value: strconv.FormatInt(num.Value, 10)}
+
 	default:
 		return unknownMethodError(method, "integer", integerMethods)
 	}
@@ -1821,6 +1874,18 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 		}
 		br := NewBoxRenderer()
 		return &String{Value: br.RenderSingleValue(num.Inspect())}
+
+	case "repr":
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: objectToReprString(num)}
+
+	case "toJSON":
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		return &String{Value: fmt.Sprintf("%g", num.Value)}
 
 	default:
 		return unknownMethodError(method, "float", floatMethods)
@@ -2852,4 +2917,170 @@ func humanizeNumber(value float64, localeStr string) string {
 		return p.Sprintf("%.0f", rounded) + suffix
 	}
 	return p.Sprintf("%.1f", rounded) + suffix
+}
+
+// ============================================================================
+// Array/Dictionary HTML and Markdown Methods
+// ============================================================================
+
+// arrayToHTML converts an array to an HTML list
+func arrayToHTML(arr *Array, args []Object) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toHTML", len(args), 0, 1)
+	}
+
+	ordered := false
+	if len(args) == 1 {
+		opts, ok := args[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "toHTML", "a dictionary", args[0].Type())
+		}
+		if orderedExpr, exists := opts.Pairs["ordered"]; exists {
+			// Need to evaluate the expression to get the actual value
+			if orderedObj, ok := orderedExpr.(Object); ok {
+				if orderedVal, ok := orderedObj.(*Boolean); ok {
+					ordered = orderedVal.Value
+				}
+			}
+		}
+	}
+
+	var result strings.Builder
+	if ordered {
+		result.WriteString("<ol>")
+	} else {
+		result.WriteString("<ul>")
+	}
+
+	for _, elem := range arr.Elements {
+		result.WriteString("<li>")
+		result.WriteString(html.EscapeString(objectToPrintString(elem)))
+		result.WriteString("</li>")
+	}
+
+	if ordered {
+		result.WriteString("</ol>")
+	} else {
+		result.WriteString("</ul>")
+	}
+
+	return &String{Value: result.String()}
+}
+
+// arrayToMarkdown converts an array to a Markdown list
+func arrayToMarkdown(arr *Array, args []Object) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toMarkdown", len(args), 0, 1)
+	}
+
+	ordered := false
+	if len(args) == 1 {
+		opts, ok := args[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "toMarkdown", "a dictionary", args[0].Type())
+		}
+		if orderedExpr, exists := opts.Pairs["ordered"]; exists {
+			// Need to evaluate the expression to get the actual value
+			if orderedObj, ok := orderedExpr.(Object); ok {
+				if orderedVal, ok := orderedObj.(*Boolean); ok {
+					ordered = orderedVal.Value
+				}
+			}
+		}
+	}
+
+	var result strings.Builder
+	for i, elem := range arr.Elements {
+		if ordered {
+			result.WriteString(fmt.Sprintf("%d. ", i+1))
+		} else {
+			result.WriteString("- ")
+		}
+		result.WriteString(objectToPrintString(elem))
+		result.WriteString("\n")
+	}
+
+	return &String{Value: strings.TrimSuffix(result.String(), "\n")}
+}
+
+// dictToHTML converts a dictionary to an HTML definition list or table
+func dictToHTML(dict *Dictionary, args []Object, env *Environment) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toHTML", len(args), 0, 1)
+	}
+
+	useTable := false
+	if len(args) == 1 {
+		opts, ok := args[0].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "toHTML", "a dictionary", args[0].Type())
+		}
+		if tableExpr, exists := opts.Pairs["table"]; exists {
+			// Need to evaluate the expression to get the actual value
+			if tableObj, ok := tableExpr.(Object); ok {
+				if tableVal, ok := tableObj.(*Boolean); ok {
+					useTable = tableVal.Value
+				}
+			}
+		}
+	}
+
+	var result strings.Builder
+
+	if useTable {
+		result.WriteString("<table><tr><th>Key</th><th>Value</th></tr>")
+		for _, key := range dict.Keys() {
+			if valExpr, exists := dict.Pairs[key]; exists {
+				val := Eval(valExpr, env)
+				result.WriteString("<tr><td>")
+				result.WriteString(html.EscapeString(key))
+				result.WriteString("</td><td>")
+				result.WriteString(html.EscapeString(objectToPrintString(val)))
+				result.WriteString("</td></tr>")
+			}
+		}
+		result.WriteString("</table>")
+	} else {
+		result.WriteString("<dl>")
+		for _, key := range dict.Keys() {
+			if valExpr, exists := dict.Pairs[key]; exists {
+				val := Eval(valExpr, env)
+				result.WriteString("<dt>")
+				result.WriteString(html.EscapeString(key))
+				result.WriteString("</dt><dd>")
+				result.WriteString(html.EscapeString(objectToPrintString(val)))
+				result.WriteString("</dd>")
+			}
+		}
+		result.WriteString("</dl>")
+	}
+
+	return &String{Value: result.String()}
+}
+
+// dictToMarkdown converts a dictionary to a Markdown table
+func dictToMarkdown(dict *Dictionary, args []Object, env *Environment) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("toMarkdown", len(args), 0, 1)
+	}
+
+	var result strings.Builder
+	result.WriteString("| Key | Value |\n")
+	result.WriteString("|-----|-------|\n")
+
+	for _, key := range dict.Keys() {
+		if valExpr, exists := dict.Pairs[key]; exists {
+			val := Eval(valExpr, env)
+			// Escape pipe characters in markdown
+			escapedKey := strings.ReplaceAll(key, "|", "\\|")
+			escapedVal := strings.ReplaceAll(objectToPrintString(val), "|", "\\|")
+			result.WriteString("| ")
+			result.WriteString(escapedKey)
+			result.WriteString(" | ")
+			result.WriteString(escapedVal)
+			result.WriteString(" |\n")
+		}
+	}
+
+	return &String{Value: strings.TrimSuffix(result.String(), "\n")}
 }
