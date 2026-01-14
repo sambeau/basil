@@ -54,8 +54,10 @@ func loadStdlibModule(name string, env *Environment) Object {
 
 // loadTableModule returns the Table module as a dictionary
 // DEPRECATED: Prefer using @table literal syntax directly, e.g.:
-//   @table [["name", "age"], ["Alice", 30]]
-//   @table [ {name: "Alice", age: 30} ]
+//
+//	@table [["name", "age"], ["Alice", 30]]
+//	@table [ {name: "Alice", age: 30} ]
+//
 // The @std/table import is maintained for backward compatibility.
 func loadTableModule(env *Environment) Object {
 	// Return stdlib module dict with table constructor
@@ -421,7 +423,7 @@ func TableConstructor(args []Object, env *Environment) Object {
 		} else {
 			// Validate subsequent rows have same columns
 			rowKeys := getDictKeys(dict, env)
-			
+
 			// Check for missing columns
 			var missing []string
 			for _, col := range columns {
@@ -436,7 +438,7 @@ func TableConstructor(args []Object, env *Environment) Object {
 					missing = append(missing, col)
 				}
 			}
-			
+
 			// Check for extra columns
 			var extra []string
 			for _, k := range rowKeys {
@@ -444,14 +446,14 @@ func TableConstructor(args []Object, env *Environment) Object {
 					extra = append(extra, k)
 				}
 			}
-			
+
 			if len(missing) > 0 {
 				return newStructuredError("TABLE-0003", map[string]any{
 					"Row":     i + 1,
 					"Missing": strings.Join(missing, ", "),
 				})
 			}
-			
+
 			if len(extra) > 0 {
 				return newStructuredError("TABLE-0004", map[string]any{
 					"Row":   i + 1,
@@ -459,7 +461,7 @@ func TableConstructor(args []Object, env *Environment) Object {
 				})
 			}
 		}
-		
+
 		rows = append(rows, dict)
 	}
 

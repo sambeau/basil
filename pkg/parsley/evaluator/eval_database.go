@@ -1,12 +1,12 @@
 package evaluator
 
 import (
-"sort"
-"strconv"
+	"sort"
+	"strconv"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-perrors "github.com/sambeau/basil/pkg/parsley/errors"
-"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
 // Database query operations and SQL execution
