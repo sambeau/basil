@@ -299,13 +299,14 @@ func TestCSVFormatMethods(t *testing.T) {
 			input:   `"name,age\nAlice,30".parseCSV()`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
-				arr, ok := obj.(*evaluator.Array)
-				if !ok || len(arr.Elements) == 0 {
+				// CSV with headers now returns Table
+				tbl, ok := obj.(*evaluator.Table)
+				if !ok || len(tbl.Rows) == 0 {
 					return false
 				}
 				// First row should be a dictionary with keys from header
-				dict, ok := arr.Elements[0].(*evaluator.Dictionary)
-				return ok && len(dict.Pairs) == 2
+				dict := tbl.Rows[0]
+				return len(dict.Pairs) == 2
 			},
 		},
 		{
@@ -313,13 +314,14 @@ func TestCSVFormatMethods(t *testing.T) {
 			input:   `"name,age\nAlice,30".parseCSV(true)`,
 			wantErr: false,
 			check: func(obj evaluator.Object) bool {
-				arr, ok := obj.(*evaluator.Array)
-				if !ok || len(arr.Elements) == 0 {
+				// CSV with headers now returns Table
+				tbl, ok := obj.(*evaluator.Table)
+				if !ok || len(tbl.Rows) == 0 {
 					return false
 				}
 				// First row should be a dictionary with keys from header
-				dict, ok := arr.Elements[0].(*evaluator.Dictionary)
-				return ok && len(dict.Pairs) == 2
+				dict := tbl.Rows[0]
+				return len(dict.Pairs) == 2
 			},
 		},
 		{

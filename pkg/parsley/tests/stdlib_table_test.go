@@ -695,10 +695,9 @@ table(data).max("val")`
 
 // TestTableWhereWithCSVData tests where() with type-coerced CSV data
 func TestTableWhereWithCSVData(t *testing.T) {
-	input := `let {table} = import @std/table
-let data = "name,value\na,10\nb,20\nc,5\nd,15".parseCSV()
-let t = table(data)
-t.where(fn(row) { row.value > 10 }).count()`
+	// parseCSV() now returns Table directly, so no need to wrap in table()
+	input := `let data = "name,value\na,10\nb,20\nc,5\nd,15".parseCSV()
+data.where(fn(row) { row.value > 10 }).count()`
 
 	result := evalTest(t, input)
 
@@ -715,9 +714,8 @@ t.where(fn(row) { row.value > 10 }).count()`
 
 // TestTableOrderByWithCSVData tests orderBy() with type-coerced CSV data
 func TestTableOrderByWithCSVData(t *testing.T) {
-	input := `let {table} = import @std/table
-let data = "name,value\na,10\nb,2\nc,100".parseCSV()
-let t = table(data).orderBy("value")
+	// parseCSV() now returns Table directly, so no need to wrap in table()
+	input := `let t = "name,value\na,10\nb,2\nc,100".parseCSV().orderBy("value")
 t.rows[0].value`
 
 	result := evalTest(t, input)
@@ -735,10 +733,9 @@ t.rows[0].value`
 
 // TestTableAggregatesWithCSVData tests all aggregate functions with CSV data
 func TestTableAggregatesWithCSVData(t *testing.T) {
+	// parseCSV() now returns Table directly, so no need to wrap in table()
 	// Test sum
-	input := `let {table} = import @std/table
-let data = "value\n10\n20\n30\n40".parseCSV()
-table(data).sum("value")`
+	input := `"value\n10\n20\n30\n40".parseCSV().sum("value")`
 
 	result := evalTest(t, input)
 	sumVal := result.(*evaluator.Integer).Value
@@ -747,9 +744,7 @@ table(data).sum("value")`
 	}
 
 	// Test avg
-	input = `let {table} = import @std/table
-let data = "value\n10\n20\n30\n40".parseCSV()
-table(data).avg("value")`
+	input = `"value\n10\n20\n30\n40".parseCSV().avg("value")`
 
 	result = evalTest(t, input)
 	avgVal := result.(*evaluator.Float).Value
@@ -758,9 +753,7 @@ table(data).avg("value")`
 	}
 
 	// Test min
-	input = `let {table} = import @std/table
-let data = "value\n10\n20\n30\n40".parseCSV()
-table(data).min("value")`
+	input = `"value\n10\n20\n30\n40".parseCSV().min("value")`
 
 	result = evalTest(t, input)
 	minVal := result.(*evaluator.Integer).Value
@@ -769,9 +762,7 @@ table(data).min("value")`
 	}
 
 	// Test max
-	input = `let {table} = import @std/table
-let data = "value\n10\n20\n30\n40".parseCSV()
-table(data).max("value")`
+	input = `"value\n10\n20\n30\n40".parseCSV().max("value")`
 
 	result = evalTest(t, input)
 	maxVal := result.(*evaluator.Integer).Value
@@ -780,9 +771,7 @@ table(data).max("value")`
 	}
 
 	// Test count
-	input = `let {table} = import @std/table
-let data = "value\n10\n20\n30\n40".parseCSV()
-table(data).count()`
+	input = `"value\n10\n20\n30\n40".parseCSV().count()`
 
 	result = evalTest(t, input)
 	countVal := result.(*evaluator.Integer).Value

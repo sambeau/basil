@@ -53,6 +53,10 @@ func loadStdlibModule(name string, env *Environment) Object {
 }
 
 // loadTableModule returns the Table module as a dictionary
+// DEPRECATED: Prefer using @table literal syntax directly, e.g.:
+//   @table [["name", "age"], ["Alice", 30]]
+//   @table [ {name: "Alice", age: 30} ]
+// The @std/table import is maintained for backward compatibility.
 func loadTableModule(env *Environment) Object {
 	// Return stdlib module dict with table constructor
 	// The table export is a TableModule which is both callable and has methods
@@ -65,6 +69,7 @@ func loadTableModule(env *Environment) Object {
 
 // TableModule represents the table constructor with methods like fromDict
 // It can be called directly as table(arr) or used as table.fromDict(dict, ...)
+// DEPRECATED: Prefer @table literal syntax. The module is kept for backward compatibility.
 type TableModule struct{}
 
 func (tm *TableModule) Type() ObjectType { return BUILTIN_OBJ }

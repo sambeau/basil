@@ -118,7 +118,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 	}
 
 	// Scan all rows
-	var results []Object
+	var results []*Dictionary
 	for rows.Next() {
 		values := make([]interface{}, len(columns))
 		valuePtrs := make([]interface{}, len(columns))
@@ -140,8 +140,9 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 		return newDatabaseError("DB-0002", rowsErr)
 	}
 
-	resultArray := &Array{Elements: results}
-	return assignQueryResult(node.Names, resultArray, env, node.IsLet)
+	// Return a Table with column info
+	resultTable := &Table{Rows: results, Columns: columns}
+	return assignQueryResult(node.Names, resultTable, env, node.IsLet)
 }
 
 // evalExecuteStatement evaluates the <=!=> operator to execute mutations

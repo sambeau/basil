@@ -92,17 +92,17 @@ func TestReadOperatorBasic(t *testing.T) {
 		},
 		{
 			name:     "read CSV file",
-			code:     `let rows <== CSV("` + csvPath + `"); rows.length()`,
+			code:     `let data <== CSV("` + csvPath + `"); data.rows.length()`,
 			expected: "2",
 		},
 		{
 			name:     "read CSV file first row name",
-			code:     `let rows <== CSV("` + csvPath + `"); rows[0].name`,
+			code:     `let data <== CSV("` + csvPath + `"); data.rows[0].name`,
 			expected: "Alice",
 		},
 		{
 			name:     "read CSV file second row age",
-			code:     `let rows <== CSV("` + csvPath + `"); rows[1].age`,
+			code:     `let data <== CSV("` + csvPath + `"); data.rows[1].age`,
 			expected: "25",
 		},
 		{

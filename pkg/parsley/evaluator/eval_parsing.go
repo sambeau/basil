@@ -522,7 +522,7 @@ func parseMarkdown(content string, options *Dictionary, env *Environment) (Objec
 	return &Dictionary{Pairs: pairs, Env: env}, nil
 }
 
-// parseCSV parses CSV data into an array of dictionaries (if header) or array of arrays
+// parseCSV parses CSV data into a Table (if header) or array of arrays
 func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 	reader := csv.NewReader(strings.NewReader(string(data)))
 	records, err := reader.ReadAll()
@@ -531,13 +531,17 @@ func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 	}
 
 	if len(records) == 0 {
+		if hasHeader {
+			// Empty CSV with headers returns empty Table
+			return &Table{Rows: []*Dictionary{}, Columns: []string{}}, nil
+		}
 		return &Array{Elements: []Object{}}, nil
 	}
 
 	if hasHeader {
-		// First row is headers
+		// First row is headers (column names)
 		headers := records[0]
-		rows := make([]Object, 0, len(records)-1)
+		rows := make([]*Dictionary, 0, len(records)-1)
 
 		for _, record := range records[1:] {
 			pairs := make(map[string]ast.Expression)
@@ -548,7 +552,8 @@ func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 			}
 			rows = append(rows, &Dictionary{Pairs: pairs, Env: NewEnvironment()})
 		}
-		return &Array{Elements: rows}, nil
+		// Return Table instead of Array
+		return &Table{Rows: rows, Columns: headers}, nil
 	}
 
 	// No header - return array of arrays
