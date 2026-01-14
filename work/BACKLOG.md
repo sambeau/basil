@@ -72,7 +72,7 @@ Deferred items from implementation, to be picked up in future work.
 | #49 | Dev logs: `.json` modifier for formatted JSON | FEAT-019 | Not MVP | `dev.log(data, {json: true})` renders value as formatted/syntax-highlighted JSON. |
 | #50 | Error code validation tests | FEAT-023 | Phase 6+ | Test suite to ensure all error codes in errors.go are actually used, and all newStructuredError calls use valid codes. Prevents drift between defined and used codes. |
 | #51 | Function methods | API Design | Future exploration | Allow methods on functions for composition, introspection, memoization. Examples: `f.arity`, `f.params`, `f.then(g)`, `f.memoize()`, `f.partial(arg)`. Would enable fluent auth syntax like `fn(req){...}.public()`. Implementation: functions as "callable dictionaries" with `__call__` property. Low priority - wrapper functions work fine. |
-| #59 | Add `path()` dynamic constructor | FEAT-087 | Consistency | Add `path(string)` builtin to dynamically create paths from strings, matching pattern of `time()`, `money()`, `regex()`, `url()`, `table()`. Currently no way to create path from variable—must use literals like `@./path`. |
+| #59 | Add `path()` dynamic constructor | FEAT-087 | Consistency | Add `path(string)` builtin to dynamically create paths from strings, matching pattern of `time()`, `money()`, `regex()`, `url()`, `table()`. Currently no way to create path from variable—must use literals like `@./path`. **Scheduled for FEAT-090 Phase 7.** |
 
 ## Completed (Archive)
 <!-- Move items here when done, with completion date -->
