@@ -3550,8 +3550,95 @@ func getBuiltins() map[string]*Builtin {
 		// money() - create a Money value from amount and currency
 		// money(amount, currency) - amount is integer/float, currency is 3-letter code
 		// money(amount, currency, scale) - explicit scale (decimal places)
+		// money(dict) - create from dictionary with "amount" and "currency" keys
 		"money": {
 			Fn: func(args ...Object) Object {
+				// Handle dictionary form: money({amount: 50.00, currency: "USD"})
+				if len(args) == 1 {
+					dict, ok := args[0].(*Dictionary)
+					if !ok {
+						return newTypeError("TYPE-0012", "money", "a dictionary or (amount, currency)", args[0].Type())
+					}
+
+					// Extract amount
+					amountExpr, hasAmount := dict.Pairs["amount"]
+					if !hasAmount {
+						return newValidationError("VAL-0008", map[string]any{"Type": "money dictionary missing 'amount' key"})
+					}
+					var amountObj Object
+					if obj, isObj := amountExpr.(Object); isObj {
+						amountObj = obj
+					} else {
+						// Need to evaluate the expression
+						amountObj = Eval(amountExpr, dict.Env)
+						if isError(amountObj) {
+							return amountObj
+						}
+					}
+
+					// Extract currency
+					currencyExpr, hasCurrency := dict.Pairs["currency"]
+					if !hasCurrency {
+						return newValidationError("VAL-0008", map[string]any{"Type": "money dictionary missing 'currency' key"})
+					}
+					var currencyObj Object
+					if obj, isObj := currencyExpr.(Object); isObj {
+						currencyObj = obj
+					} else {
+						currencyObj = Eval(currencyExpr, dict.Env)
+						if isError(currencyObj) {
+							return currencyObj
+						}
+					}
+
+					// Parse the extracted values directly (inline, don't recurse)
+					var amountCents int64
+					var inferredScale int8 = 2
+
+					switch a := amountObj.(type) {
+					case *Integer:
+						amountCents = a.Value * 100 // Convert to cents
+					case *Float:
+						floatStr := fmt.Sprintf("%g", a.Value)
+						if dotIdx := strings.Index(floatStr, "."); dotIdx >= 0 {
+							inferredScale = int8(len(floatStr) - dotIdx - 1)
+						}
+						multiplier := math.Pow10(int(inferredScale))
+						amountCents = int64(math.Round(a.Value * multiplier))
+					default:
+						return newTypeError("TYPE-0012", "money", "a number for amount", amountObj.Type())
+					}
+
+					currencyStr, ok := currencyObj.(*String)
+					if !ok {
+						return newTypeError("TYPE-0012", "money", "a currency code string", currencyObj.Type())
+					}
+					currency := strings.ToUpper(currencyStr.Value)
+					if len(currency) != 3 {
+						return newStructuredError("VAL-0019", map[string]any{"Got": currencyStr.Value})
+					}
+
+					// Use known currency scale if available
+					scale := inferredScale
+					if knownScale, ok := lexer.CurrencyScales[currency]; ok {
+						if inferredScale != knownScale {
+							diff := int(knownScale - inferredScale)
+							if diff > 0 {
+								amountCents *= int64(math.Pow10(diff))
+							} else {
+								amountCents /= int64(math.Pow10(-diff))
+							}
+						}
+						scale = knownScale
+					}
+
+					return &Money{
+						Amount:   amountCents,
+						Currency: currency,
+						Scale:    scale,
+					}
+				}
+
 				if len(args) < 2 || len(args) > 3 {
 					return newArityErrorRange("money", len(args), 2, 3)
 				}

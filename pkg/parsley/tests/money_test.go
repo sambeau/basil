@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 )
 
@@ -523,5 +524,171 @@ func TestMoneyInDictionaries(t *testing.T) {
 	for _, tt := range tests {
 		evaluated := testEvalMoney(tt.input)
 		testExpectedMoney(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Money Methods: repr, toDict, inspect
+// ============================================================================
+
+func TestMoneyReprMethod(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`$50.00.repr()`, `$50.00`},
+		{`£99.99.repr()`, `£99.99`},
+		{`¥1000.repr()`, `¥1000`},
+		// EUR gets normalized to € symbol
+		{`EUR#25.50.repr()`, `€25.50`},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalMoney(tt.input)
+		str, ok := evaluated.(*evaluator.String)
+		if !ok {
+			t.Errorf("For input '%s': expected string, got %T", tt.input, evaluated)
+			continue
+		}
+		if str.Value != tt.expected {
+			t.Errorf("For input '%s': expected '%s', got '%s'", tt.input, tt.expected, str.Value)
+		}
+	}
+}
+
+func TestMoneyToDictMethod(t *testing.T) {
+	// toDict returns clean dict for reconstruction (user-friendly amount)
+	result := testEvalMoney(`$50.00.toDict()`)
+	dict, ok := result.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected dictionary, got %T: %s", result, result.Inspect())
+	}
+
+	// Check amount is user-friendly (50.0, not 5000)
+	amountExpr, hasAmount := dict.Pairs["amount"]
+	if !hasAmount {
+		t.Fatal("toDict should have 'amount' key")
+	}
+	// Dictionary pairs store ast.Expression (FloatLiteral)
+	floatLit, ok := amountExpr.(*ast.FloatLiteral)
+	if !ok {
+		t.Fatalf("amount should be FloatLiteral, got %T", amountExpr)
+	}
+	if floatLit.Value != 50.0 {
+		t.Errorf("amount should be 50.0, got %f", floatLit.Value)
+	}
+
+	// Check currency
+	currencyExpr, hasCurrency := dict.Pairs["currency"]
+	if !hasCurrency {
+		t.Fatal("toDict should have 'currency' key")
+	}
+	strLit, ok := currencyExpr.(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("currency should be StringLiteral, got %T", currencyExpr)
+	}
+	if strLit.Value != "USD" {
+		t.Errorf("currency should be 'USD', got '%s'", strLit.Value)
+	}
+
+	// Should NOT have __type
+	if _, hasType := dict.Pairs["__type"]; hasType {
+		t.Error("toDict should NOT have __type key")
+	}
+}
+
+func TestMoneyInspectMethod(t *testing.T) {
+	// inspect returns debug dict with __type and raw internal values
+	result := testEvalMoney(`$50.00.inspect()`)
+	dict, ok := result.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected dictionary, got %T: %s", result, result.Inspect())
+	}
+
+	// Should have __type
+	typeExpr, hasType := dict.Pairs["__type"]
+	if !hasType {
+		t.Fatal("inspect should have '__type' key")
+	}
+	typeLit, ok := typeExpr.(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("__type should be StringLiteral, got %T", typeExpr)
+	}
+	if typeLit.Value != "money" {
+		t.Errorf("__type should be 'money', got '%s'", typeLit.Value)
+	}
+
+	// Check amount is raw cents (5000, not 50.0)
+	amountExpr, hasAmount := dict.Pairs["amount"]
+	if !hasAmount {
+		t.Fatal("inspect should have 'amount' key")
+	}
+	intLit, ok := amountExpr.(*ast.IntegerLiteral)
+	if !ok {
+		t.Fatalf("amount should be IntegerLiteral (raw cents), got %T", amountExpr)
+	}
+	if intLit.Value != 5000 {
+		t.Errorf("amount should be 5000 (cents), got %d", intLit.Value)
+	}
+
+	// Check scale
+	scaleExpr, hasScale := dict.Pairs["scale"]
+	if !hasScale {
+		t.Fatal("inspect should have 'scale' key")
+	}
+	scaleLit, ok := scaleExpr.(*ast.IntegerLiteral)
+	if !ok {
+		t.Fatalf("scale should be IntegerLiteral, got %T", scaleExpr)
+	}
+	if scaleLit.Value != 2 {
+		t.Errorf("scale should be 2, got %d", scaleLit.Value)
+	}
+}
+
+// ============================================================================
+// Money Constructor from Dictionary
+// ============================================================================
+
+func TestMoneyConstructorFromDict(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// Basic dict constructor
+		{`money({amount: 50.00, currency: "USD"})`, `$50.00`},
+		{`money({amount: 99.99, currency: "GBP"})`, `£99.99`},
+		{`money({amount: 1000, currency: "JPY"})`, `¥1000`},
+
+		// Round-trip: value -> toDict() -> money(dict)
+		{`money($50.00.toDict())`, `$50.00`},
+		{`money(£99.99.toDict())`, `£99.99`},
+		{`money(¥1000.toDict())`, `¥1000`},
+		{`money(EUR#25.50.toDict())`, `€25.50`},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalMoney(tt.input)
+		testExpectedMoney(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestMoneyConstructorFromDictErrors(t *testing.T) {
+	tests := []struct {
+		input           string
+		expectedContain string
+	}{
+		// Missing amount
+		{`money({currency: "USD"})`, "missing"},
+		// Missing currency
+		{`money({amount: 50.00})`, "missing"},
+		// Wrong type for amount
+		{`money({amount: "fifty", currency: "USD"})`, "number"},
+		// Wrong type for currency
+		{`money({amount: 50.00, currency: 123})`, "string"},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalMoney(tt.input)
+		testExpectedError(t, tt.input, evaluated, tt.expectedContain)
 	}
 }

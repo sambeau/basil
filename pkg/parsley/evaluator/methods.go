@@ -2830,7 +2830,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 
 // moneyMethods lists all methods available on money
 var moneyMethods = []string{
-	"format", "abs", "split", "toJSON", "toBox",
+	"format", "abs", "split", "toJSON", "toBox", "repr", "toDict", "inspect",
 }
 
 // evalMoneyProperty handles property access on Money values
@@ -2911,6 +2911,44 @@ func evalMoneyMethod(money *Money, method string, args []Object) Object {
 	case "toBox":
 		// toBox(opts?) - render money as ASCII box
 		return moneyToBox(money, args)
+
+	case "repr":
+		// repr() - returns Parsley-parseable literal (e.g., "$50.00")
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: money.Inspect()}
+
+	case "toDict":
+		// toDict() - returns clean dictionary for reconstruction via money(dict)
+		if len(args) != 0 {
+			return newArityError("toDict", len(args), 0)
+		}
+		// Calculate user-friendly amount (e.g., 50.00 not 5000)
+		divisor := math.Pow10(int(money.Scale))
+		amount := float64(money.Amount) / divisor
+		return &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"amount":   createLiteralExpression(&Float{Value: amount}),
+				"currency": createLiteralExpression(&String{Value: money.Currency}),
+			},
+			Env: NewEnvironment(),
+		}
+
+	case "inspect":
+		// inspect() - returns debug dictionary with __type and raw internal values
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
+		}
+		return &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"__type":   createLiteralExpression(&String{Value: "money"}),
+				"amount":   createLiteralExpression(&Integer{Value: money.Amount}),
+				"currency": createLiteralExpression(&String{Value: money.Currency}),
+				"scale":    createLiteralExpression(&Integer{Value: int64(money.Scale)}),
+			},
+			Env: NewEnvironment(),
+		}
 
 	default:
 		return unknownMethodError(method, "money", moneyMethods)
