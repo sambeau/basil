@@ -37,7 +37,6 @@ FEATURE                              BUG
 | Feature | `FEAT-XXX` | FEAT-001 |
 | Bug | `BUG-XXX` | BUG-001 |
 | Plan | `PLAN-XXX` | PLAN-001 |
-| Decision | `ADR-XXX` | ADR-001 |
 
 ## Git Branches
 
@@ -78,8 +77,7 @@ basil/
     ├── guide/         # You are here
     ├── specs/         # FEAT-XXX.md files
     ├── plans/         # Implementation plans
-    ├── bugs/          # BUG-XXX.md files
-    └── decisions/     # ADR-XXX.md files
+    └── bugs/          # BUG-XXX.md files
 ```
 
 ## Status Values
