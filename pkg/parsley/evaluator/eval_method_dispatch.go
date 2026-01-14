@@ -217,6 +217,10 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return evalIntegerMethod(receiver, method, args)
 	case *Float:
 		return evalFloatMethod(receiver, method, args)
+	case *Boolean:
+		return evalBooleanMethod(receiver, method, args)
+	case *Null:
+		return evalNullMethod(method, args)
 	case *Money:
 		return evalMoneyMethod(receiver, method, args)
 	case *Dictionary:

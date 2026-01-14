@@ -1147,6 +1147,18 @@ let upper = name.toUpper()      // Assign to use the result
 |--------|-----------|---------|-------------|
 | `.render(dict?)` | `dict?: dictionary` | `string` | Interpolate `@{key}` placeholders with dict values |
 
+#### Display
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.toBox()` | `opts?: {align}` | `string` | Render value in a box with box-drawing characters |
+
+```parsley
+"hello".toBox()                 // ┌───────┐
+                                // │ hello │
+                                // └───────┘
+```
+
 ```parsley
 "  Hello, World!  ".trim()      // "Hello, World!"
 "hello world".toTitle()         // "Hello World"
@@ -1207,10 +1219,15 @@ let upper = name.toUpper()      // Assign to use the result
 | `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format as prose list |
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `string` | Convert to CSV string |
+| `.toBox(opts?)` | `opts?: {direction, align}` | `string` | Render array in a box |
 
 **Format styles**: `"and"` (default), `"or"`, or any custom conjunction string.
 
 **Available locales**: `en`, `en-US`, `en-GB`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `ru`, `ja`, `zh`, `ko`. Falls back to `en` for unrecognized locales.
+
+**toBox directions**: `"vertical"` (default), `"horizontal"`, `"grid"` (auto for array-of-arrays).
+
+**toBox align**: `"left"` (default), `"right"`, `"center"`.
 
 ```parsley
 let arr = [3, 1, 4, 1, 5]
@@ -1248,8 +1265,13 @@ items.join(", ")                // "apple, banana, cherry"
 | `.insertBefore(before, key, val)` | `before, key: string`, `val: any` | `dictionary` | New dict with key inserted before `before` |
 | `.render(template)` | `template: string` | `string` | Render template with `@{key}` placeholders |
 | `.toJSON()` | none | `string` | Convert to JSON string |
+| `.toBox(opts?)` | `opts?: {align, keys}` | `string` | Render dictionary in a box |
 
 **Note**: `.delete()` is the only method that mutates the original. All others return new dictionaries.
+
+**toBox options**: `{align: "left"|"right"|"center", keys: boolean}`.
+- Default renders key-value pairs in two columns
+- `{keys: true}` renders only keys in a horizontal row
 
 #### The `.render()` Method
 
@@ -1293,6 +1315,7 @@ Integer and float types share formatting methods. For mathematical operations li
 | `.currency(code, locale?)` | `code: string`, `locale?: string` | `string` | Currency format |
 | `.percent(locale?)` | `locale?: string` | `string` | Percentage format |
 | `.humanize(locale?)` | `locale?: string` | `string` | Compact format (1.2K, 3.4M) |
+| `.toBox()` | none | `string` | Render number in a box |
 
 **Note**: Numbers do not have `.abs()`, `.round()`, etc. as methods. Use `@std/math` functions instead: `math.abs(-5)`, `math.round(3.7)`.
 
@@ -3143,7 +3166,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 
 ## Appendix B: Method Reference
 
-### String Methods (26 methods)
+### String Methods (27 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3174,8 +3197,9 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `urlQueryEncode()` | 0 | Encode query value |
 | `outdent()` | 0 | Remove common indent |
 | `indent(n)` | 1 | Add n spaces to lines |
+| `toBox()` | 0 | Render in box |
 
-### Array Methods (18 methods)
+### Array Methods (19 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3190,6 +3214,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `join(sep?)` | 0-1 | Join to string |
 | `toJSON()` | 0 | Convert to JSON |
 | `toCSV(hasHeader?)` | 0-1 | Convert to CSV |
+| `toBox(opts?)` | 0-1 | Render in box |
 | `shuffle()` | 0 | Random order |
 | `pick(n?)` | 0-1 | Random element(s) |
 | `take(n)` | 1 | n unique random |
@@ -3198,7 +3223,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `hasAll(arr)` | 1 | Contains all? |
 | `insert(i, val)` | 2 | Insert at index |
 
-### Dictionary Methods (10 methods)
+### Dictionary Methods (11 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3211,8 +3236,9 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `insertBefore(before, k, v)` | 3 | Insert before key |
 | `render(template)` | 1 | Render template |
 | `toJSON()` | 0 | Convert to JSON |
+| `toBox(opts?)` | 0-1 | Render in box |
 
-### Number Methods (4 methods)
+### Number Methods (5 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3220,6 +3246,19 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `currency(code, locale?)` | 1-2 | Currency format |
 | `percent(locale?)` | 0-1 | Percentage format |
 | `humanize(locale?)` | 0-1 | Compact format (1.2K) |
+| `toBox()` | 0 | Render in box |
+
+### Boolean Methods (1 method)
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `toBox()` | 0 | Render in box |
+
+### Null Methods (1 method)
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `toBox()` | 0 | Render in box |
 
 ### Table Methods (22 methods)
 

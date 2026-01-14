@@ -43,28 +43,28 @@ var stringMethods = []string{
 	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
 	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
 	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
-	"outdent", "indent",
+	"outdent", "indent", "toBox",
 }
 
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
 	"type", "length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
-	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll",
+	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll", "toBox",
 }
 
 // integerMethods lists all methods available on integer
 var integerMethods = []string{
-	"type", "abs", "format", "humanize",
+	"type", "abs", "format", "humanize", "toBox",
 }
 
 // floatMethods lists all methods available on float
 var floatMethods = []string{
-	"type", "abs", "format", "round", "floor", "ceil", "humanize",
+	"type", "abs", "format", "round", "floor", "ceil", "humanize", "toBox",
 }
 
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
-	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON",
+	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON", "toBox",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -394,6 +394,13 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 			return newTypeError("TYPE-0012", "indent", "an integer", args[0].Type())
 		}
 		return &String{Value: indentString(str.Value, int(spaces.Value))}
+
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(str.Value)}
 
 	default:
 		return unknownMethodError(method, "string", stringMethods)
@@ -1008,6 +1015,9 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		}
 		return TRUE
 
+	case "toBox":
+		return arrayToBox(arr, args, env)
+
 	default:
 		return unknownMethodError(method, "array", arrayMethods)
 	}
@@ -1556,6 +1566,9 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		}
 		return &String{Value: string(jsonBytes)}
 
+	case "toBox":
+		return dictToBox(dict, args, env)
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
@@ -1609,6 +1622,46 @@ func insertDictKeyBefore(dict *Dictionary, beforeKey, newKey string, value Objec
 		Pairs:    newPairs,
 		KeyOrder: newKeyOrder,
 		Env:      env,
+	}
+}
+
+// ============================================================================
+// Boolean Methods
+// ============================================================================
+
+// booleanMethods lists all methods available on boolean
+var booleanMethods = []string{"type", "toBox"}
+
+// evalBooleanMethod evaluates a method call on a Boolean
+func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
+	switch method {
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(b.Inspect())}
+
+	default:
+		return unknownMethodError(method, "boolean", booleanMethods)
+	}
+}
+
+// nullMethods lists all methods available on null
+var nullMethods = []string{"type", "toBox"}
+
+// evalNullMethod evaluates a method call on Null
+func evalNullMethod(method string, args []Object) Object {
+	switch method {
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue("null")}
+
+	default:
+		return unknownMethodError(method, "null", nullMethods)
 	}
 }
 
@@ -1683,6 +1736,13 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		}
 		return &String{Value: humanizeNumber(float64(num.Value), localeStr)}
 
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(num.Inspect())}
+
 	default:
 		return unknownMethodError(method, "integer", integerMethods)
 	}
@@ -1754,6 +1814,13 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 			localeStr = loc.Value
 		}
 		return &String{Value: humanizeNumber(num.Value, localeStr)}
+
+	case "toBox":
+		if len(args) != 0 {
+			return newArityError("toBox", len(args), 0)
+		}
+		br := NewBoxRenderer()
+		return &String{Value: br.RenderSingleValue(num.Inspect())}
 
 	default:
 		return unknownMethodError(method, "float", floatMethods)

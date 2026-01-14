@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-13
+updated: 2026-01-14
 ---
 
 # Backlog
@@ -47,6 +47,10 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #61 | toBox() style option | FEAT-088 Phase 2 | Polish | Add `{style: "single"\|"double"\|"ascii"\|"rounded"}` option to toBox(). Infrastructure exists in BoxStyle presets (eval_box.go). Default is "single". |
+| #62 | toBox() title option | FEAT-088 Phase 2 | Polish | Add `{title: "My Data"}` option to render a title row at the top of the box. Would require extending BoxRenderer with title rendering logic. |
+| #63 | toBox() maxWidth truncation | FEAT-088 Phase 2 | Polish | Add `{maxWidth: N}` option with ellipsis truncation for long values. Helps with terminal output when values are very long. |
+| #64 | toBox() color support | FEAT-088 Phase 2 | Complexity | Add `{color: true}` option for ANSI color output. Terminal compatibility issues—would need to detect terminal capabilities or make opt-in. |
 | #52 | Commutative duration multiplication | Reference audit | Quick fix | `@1d * 3` works but `3 * @1d` fails. Multiplication should be commutative for duration × integer. Fix in `evalInfixExpression` to handle integer * duration same as duration * integer. |
 | #53 | Dictionary insert methods: dictionary value form | Reference audit | Enhancement | `dict.insertAfter(col, {key: val})` and `dict.insertBefore(col, {key: val})` should accept a dictionary to insert multiple key-value pairs at once. Since dictionaries are ordered, this enables merging one dict into another at a specific position: `dict.insertAfter("name", {middle: "Jane", suffix: "Jr"})`. |
 | #54 | Builtin Table type | Reference audit | Language design | Make Table a builtin type rather than requiring `import @std/table`. Benefits: (1) `CSV()` and `parseCSV()` could return Table directly instead of Array of Dictionary, (2) Column type checking and validation, (3) Implementation flexibility—Go representation could be array-of-maps, map-of-arrays, or array-of-arrays with key access, (4) Cleaner API without import boilerplate. Currently users must do `table.table(csv.parseCSV())` which is awkward. Would require: new Table object type in evaluator, updating CSV parsing to return Table, migrating @std/table methods to builtin methods. |
