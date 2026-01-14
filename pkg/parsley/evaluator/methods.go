@@ -1900,9 +1900,23 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -1972,7 +1986,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 
 	default:
 		return unknownMethodError(method, "datetime", []string{
-			"format", "year", "month", "day", "hour", "minute", "second",
+			"toDict", "inspect", "format", "year", "month", "day", "hour", "minute", "second",
 			"weekday", "week", "timestamp", "toJSON", "toBox",
 		})
 	}
@@ -1986,9 +2000,23 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2046,7 +2074,7 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		return durationToBox(dict, args, env)
 
 	default:
-		return unknownMethodError(method, "duration", []string{"format", "toJSON", "toBox"})
+		return unknownMethodError(method, "duration", []string{"toDict", "inspect", "format", "toJSON", "toBox"})
 	}
 }
 
@@ -2058,9 +2086,23 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2163,7 +2205,7 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 	default:
 		return unknownMethodError(method, "path", []string{
-			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox",
+			"toDict", "inspect", "toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox",
 		})
 	}
 }
@@ -2176,9 +2218,23 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2288,7 +2344,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	default:
 		return unknownMethodError(method, "url", []string{
-			"toDict", "toString", "query", "href", "toJSON", "toBox",
+			"toDict", "inspect", "toString", "query", "href", "toJSON", "toBox",
 		})
 	}
 }
@@ -2301,9 +2357,23 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2434,7 +2504,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 
 	default:
 		return unknownMethodError(method, "regex", []string{
-			"toDict", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON", "toBox",
+			"toDict", "inspect", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON", "toBox",
 		})
 	}
 }
@@ -2447,9 +2517,23 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
@@ -2559,9 +2643,23 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
+		// toDict() - returns clean dictionary for reconstruction (no __type)
 		if len(args) != 0 {
 			return newArityError("toDict", len(args), 0)
+		}
+		// Return dict without __type marker
+		cleanPairs := make(map[string]ast.Expression)
+		for key, val := range dict.Pairs {
+			if key != "__type" {
+				cleanPairs[key] = val
+			}
+		}
+		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
+
+	case "inspect":
+		// inspect() - returns full dictionary with __type for debugging
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
 		}
 		return dict
 
