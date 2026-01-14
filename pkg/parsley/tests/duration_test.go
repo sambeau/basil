@@ -471,3 +471,184 @@ func TestDurationErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestDurationConstructor(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		// String parsing
+		{
+			name:     "constructor from string - seconds",
+			code:     `duration("30s").seconds`,
+			expected: "30",
+		},
+		{
+			name:     "constructor from string - minutes",
+			code:     `duration("5m").seconds`,
+			expected: "300",
+		},
+		{
+			name:     "constructor from string - hours",
+			code:     `duration("2h").seconds`,
+			expected: "7200",
+		},
+		{
+			name:     "constructor from string - days",
+			code:     `duration("1d").seconds`,
+			expected: "86400",
+		},
+		{
+			name:     "constructor from string - weeks",
+			code:     `duration("1w").seconds`,
+			expected: "604800",
+		},
+		{
+			name:     "constructor from string - months",
+			code:     `duration("6mo").months`,
+			expected: "6",
+		},
+		{
+			name:     "constructor from string - years",
+			code:     `duration("2y").months`,
+			expected: "24",
+		},
+		{
+			name:     "constructor from string - mixed",
+			code:     `duration("1d2h30m").seconds`,
+			expected: "95400", // 86400 + 7200 + 1800
+		},
+		{
+			name:     "constructor from string - negative",
+			code:     `duration("-1d").seconds`,
+			expected: "-86400",
+		},
+		// Dictionary input
+		{
+			name:     "constructor from dict - seconds",
+			code:     `duration({seconds: 30}).seconds`,
+			expected: "30",
+		},
+		{
+			name:     "constructor from dict - minutes",
+			code:     `duration({minutes: 5}).seconds`,
+			expected: "300",
+		},
+		{
+			name:     "constructor from dict - hours",
+			code:     `duration({hours: 2}).seconds`,
+			expected: "7200",
+		},
+		{
+			name:     "constructor from dict - days",
+			code:     `duration({days: 1}).seconds`,
+			expected: "86400",
+		},
+		{
+			name:     "constructor from dict - weeks",
+			code:     `duration({weeks: 1}).seconds`,
+			expected: "604800",
+		},
+		{
+			name:     "constructor from dict - months",
+			code:     `duration({months: 6}).months`,
+			expected: "6",
+		},
+		{
+			name:     "constructor from dict - years",
+			code:     `duration({years: 2}).months`,
+			expected: "24",
+		},
+		{
+			name:     "constructor from dict - mixed time",
+			code:     `duration({days: 1, hours: 2, minutes: 30}).seconds`,
+			expected: "95400",
+		},
+		{
+			name:     "constructor from dict - mixed calendar",
+			code:     `duration({years: 1, months: 6}).months`,
+			expected: "18",
+		},
+		// Format method works
+		{
+			name:     "format method on constructor result",
+			code:     `duration("2h30m").format()`,
+			expected: "in 2 hours",
+		},
+		{
+			name:     "format method on dict constructor",
+			code:     `duration({hours: 2, minutes: 30}).format()`,
+			expected: "in 2 hours",
+		},
+		// Arithmetic with constructed durations
+		{
+			name:     "add constructed durations",
+			code:     `(duration("1d") + duration("2h")).seconds`,
+			expected: "93600", // 86400 + 7200
+		},
+		{
+			name:     "constructed equals literal",
+			code:     `duration("1d2h30m") == @1d2h30m`,
+			expected: "true",
+		},
+		{
+			name:     "dict constructed equals literal",
+			code:     `duration({days: 1, hours: 2, minutes: 30}) == @1d2h30m`,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDurationCode(tt.code)
+			if hasErr {
+				t.Fatalf("unexpected error: %v", result)
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestDurationConstructorErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		code string
+	}{
+		{
+			name: "invalid string format",
+			code: `duration("invalid")`,
+		},
+		{
+			name: "wrong argument type - number",
+			code: `duration(123)`,
+		},
+		{
+			name: "wrong argument type - array",
+			code: `duration([1, 2, 3])`,
+		},
+		{
+			name: "no arguments",
+			code: `duration()`,
+		},
+		{
+			name: "too many arguments",
+			code: `duration("1d", "2h")`,
+		},
+		{
+			name: "dict with non-integer value",
+			code: `duration({days: "one"})`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, hasErr := testDurationCode(tt.code)
+			if !hasErr {
+				t.Errorf("expected error for %s", tt.code)
+			}
+		})
+	}
+}

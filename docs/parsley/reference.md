@@ -1903,7 +1903,41 @@ u.query.key                     // "value"
 
 ---
 
-### 6.10 File Operations
+### 6.10 Duration
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `duration(str)` | `str: string` | `duration` | Parse duration string |
+| `duration(dict)` | `dict: dictionary` | `duration` | Create duration from components |
+
+**String format**: `[sign][components]` where components use: `y` (years), `mo` (months), `w` (weeks), `d` (days), `h` (hours), `m` (minutes), `s` (seconds)
+
+```parsley
+// From string
+let d1 = duration("1d")              // 1 day
+let d2 = duration("2h30m")           // 2 hours 30 minutes
+let d3 = duration("1y6mo")           // 1 year 6 months
+let d4 = duration("-1w")             // negative 1 week
+
+// From dictionary
+let d5 = duration({days: 1})
+let d6 = duration({hours: 2, minutes: 30})
+let d7 = duration({years: 1, months: 6})
+
+// Access components
+d2.seconds                           // 9000
+d7.months                            // 18
+
+// Arithmetic
+let tomorrow = @now + duration("1d")
+let nextYear = @now + duration({years: 1})
+```
+
+**Note**: Prefer duration literals (`@1d`, `@2h30m`) for static durations. Use `duration()` when parsing dynamic input.
+
+---
+
+### 6.11 File Operations
 
 These functions create file handles for reading and writing.
 
@@ -1947,7 +1981,7 @@ let all = fileList(@./src, "*.pars")  // All .pars files recursively
 
 ---
 
-### 6.11 Assets
+### 6.12 Assets
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|

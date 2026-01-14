@@ -2399,6 +2399,102 @@ func getBuiltins() map[string]*Builtin {
 				return urlDict
 			},
 		},
+		// duration() - create a Duration from a string or dictionary
+		// duration("1d2h30m") - parse duration string
+		// duration({days: 1, hours: 2}) - from components
+		// duration({months: 6, seconds: 3600}) - raw months/seconds
+		"duration": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newArityError("duration", len(args), 1)
+				}
+
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *String:
+					// Parse duration string like "1d2h30m"
+					months, seconds, err := parseDurationString(arg.Value)
+					if err != nil {
+						return newFormatError("FMT-0009", err)
+					}
+					return durationToDict(months, seconds, env)
+
+				case *Dictionary:
+					// From dictionary with components
+					var months int64
+					var seconds int64
+
+					// Check for raw months/seconds first
+					if monthsExpr, ok := arg.Pairs["months"]; ok {
+						monthsObj := Eval(monthsExpr, arg.Env)
+						if monthsInt, ok := monthsObj.(*Integer); ok {
+							months = monthsInt.Value
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for months", monthsObj.Type())
+						}
+					}
+					if secondsExpr, ok := arg.Pairs["seconds"]; ok {
+						secondsObj := Eval(secondsExpr, arg.Env)
+						if secondsInt, ok := secondsObj.(*Integer); ok {
+							seconds = secondsInt.Value
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for seconds", secondsObj.Type())
+						}
+					}
+
+					// Handle named components: years, months, weeks, days, hours, minutes, seconds
+					if yearsExpr, ok := arg.Pairs["years"]; ok {
+						yearsObj := Eval(yearsExpr, arg.Env)
+						if yearsInt, ok := yearsObj.(*Integer); ok {
+							months += yearsInt.Value * 12
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for years", yearsObj.Type())
+						}
+					}
+					// Note: "months" already handled above for raw value
+
+					if weeksExpr, ok := arg.Pairs["weeks"]; ok {
+						weeksObj := Eval(weeksExpr, arg.Env)
+						if weeksInt, ok := weeksObj.(*Integer); ok {
+							seconds += weeksInt.Value * 7 * 24 * 60 * 60
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for weeks", weeksObj.Type())
+						}
+					}
+					if daysExpr, ok := arg.Pairs["days"]; ok {
+						daysObj := Eval(daysExpr, arg.Env)
+						if daysInt, ok := daysObj.(*Integer); ok {
+							seconds += daysInt.Value * 24 * 60 * 60
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for days", daysObj.Type())
+						}
+					}
+					if hoursExpr, ok := arg.Pairs["hours"]; ok {
+						hoursObj := Eval(hoursExpr, arg.Env)
+						if hoursInt, ok := hoursObj.(*Integer); ok {
+							seconds += hoursInt.Value * 60 * 60
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for hours", hoursObj.Type())
+						}
+					}
+					if minutesExpr, ok := arg.Pairs["minutes"]; ok {
+						minutesObj := Eval(minutesExpr, arg.Env)
+						if minutesInt, ok := minutesObj.(*Integer); ok {
+							seconds += minutesInt.Value * 60
+						} else {
+							return newTypeError("TYPE-0012", "duration", "an integer for minutes", minutesObj.Type())
+						}
+					}
+					// Note: "seconds" already handled above for raw value
+
+					return durationToDict(months, seconds, env)
+
+				default:
+					return newTypeError("TYPE-0012", "duration", "a string or dictionary", args[0].Type())
+				}
+			},
+		},
 		// File handle factories
 		"file": {
 			Fn: func(args ...Object) Object {
