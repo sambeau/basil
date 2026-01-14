@@ -51,7 +51,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 		return evalForDictExpression(node, dict, env)
 	}
 
-	// Convert to array (handle strings as rune arrays)
+	// Convert to array (handle strings as rune arrays, tables as row arrays)
 	var elements []Object
 	switch arr := iterableObj.(type) {
 	case *Array:
@@ -62,6 +62,12 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 		elements = make([]Object, len(runes))
 		for i, r := range runes {
 			elements[i] = &String{Value: string(r)}
+		}
+	case *Table:
+		// Convert table rows to array of dictionaries
+		elements = make([]Object, len(arr.Rows))
+		for i, row := range arr.Rows {
+			elements[i] = row
 		}
 	default:
 		return newLoopErrorWithPos(node.Token, "LOOP-0001", map[string]any{"Type": strings.ToLower(string(iterableObj.Type()))})

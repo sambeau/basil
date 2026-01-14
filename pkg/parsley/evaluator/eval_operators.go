@@ -121,6 +121,8 @@ func evalIndexExpression(tok lexer.Token, left, index Object, optional bool) Obj
 		return evalStringIndexExpression(tok, left, index, optional)
 	case left.Type() == DICTIONARY_OBJ && index.Type() == STRING_OBJ:
 		return evalDictionaryIndexExpression(left, index, optional)
+	case left.Type() == TABLE_OBJ && index.Type() == INTEGER_OBJ:
+		return evalTableIndexExpression(tok, left, index, optional)
 	default:
 		return newIndexTypeError(tok, left.Type(), index.Type())
 	}
@@ -168,6 +170,28 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 	}
 
 	return &String{Value: string(stringObject.Value[idx])}
+}
+
+// evalTableIndexExpression handles table row indexing with support for negative indices
+// If optional is true, returns NULL instead of error for out-of-bounds access
+func evalTableIndexExpression(tok lexer.Token, table, index Object, optional bool) Object {
+	tableObject := table.(*Table)
+	idx := index.(*Integer).Value
+	max := int64(len(tableObject.Rows))
+
+	// Handle negative indices
+	if idx < 0 {
+		idx = max + idx
+	}
+
+	if idx < 0 || idx >= max {
+		if optional {
+			return NULL
+		}
+		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
+	}
+
+	return tableObject.Rows[idx]
 }
 
 // evalSliceExpression handles array and string slicing

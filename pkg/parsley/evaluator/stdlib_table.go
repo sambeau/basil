@@ -837,6 +837,56 @@ func tableLimit(t *Table, args []Object, env *Environment) Object {
 	return result
 }
 
+// tableOffset skips the first n rows
+// Uses copy-on-chain: first call in chain creates copy, subsequent calls reuse it
+func tableOffset(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("offset", len(args), 1)
+	}
+
+	n, ok := args[0].(*Integer)
+	if !ok {
+		return newTypeError("TYPE-0005", "offset", "an integer", args[0].Type())
+	}
+	if n.Value < 0 {
+		return newValidationError("VAL-0004", map[string]any{"Method": "offset", "Got": n.Value})
+	}
+
+	// Get chain copy (creates one if needed, reuses if already in chain)
+	result := t.ensureChainCopy()
+
+	// Calculate slice start
+	start := int(n.Value)
+	if start > len(result.Rows) {
+		start = len(result.Rows)
+	}
+
+	// Mutate the chain copy in place
+	result.Rows = result.Rows[start:]
+	return result
+}
+
+// tableToArray returns the table rows as an array of dictionaries
+func tableToArray(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("toArray", len(args), 0)
+	}
+
+	elements := make([]Object, len(t.Rows))
+	for i, row := range t.Rows {
+		elements[i] = row
+	}
+	return &Array{Elements: elements}
+}
+
+// tableCopy returns an explicit deep copy of the table (not a chain copy)
+func tableCopy(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("copy", len(args), 0)
+	}
+	return t.Copy()
+}
+
 // tableCount returns the number of rows
 func tableCount(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 0 {
@@ -1842,10 +1892,17 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableColumnCount(t, args, env)
 	case "column":
 		return tableColumn(t, args, env)
+	case "toArray":
+		return tableToArray(t, args, env)
+	case "copy":
+		return tableCopy(t, args, env)
+	case "offset":
+		return tableOffset(t, args, env)
 	default:
 		return unknownMethodError(method, "Table", []string{
-			"where", "orderBy", "select", "limit", "count", "sum", "avg", "min", "max",
-			"toHTML", "toCSV", "toMarkdown", "toJSON", "appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+			"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
+			"toHTML", "toCSV", "toMarkdown", "toJSON", "toArray", "copy",
+			"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
 			"rowCount", "columnCount", "column",
 		})
 	}

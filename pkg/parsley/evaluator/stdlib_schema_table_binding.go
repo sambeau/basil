@@ -306,11 +306,12 @@ func (tb *TableBinding) executeFind(args []Object, env *Environment) Object {
 
 	query := fmt.Sprintf("SELECT * FROM %s WHERE id = ? LIMIT 1", tb.TableName)
 	result := tb.queryRows(query, []Object{args[0]}, env)
-	if arr, ok := result.(*Array); ok {
-		if len(arr.Elements) == 0 {
+	// queryRows now returns Table, extract first row
+	if tbl, ok := result.(*Table); ok {
+		if len(tbl.Rows) == 0 {
 			return NULL
 		}
-		return arr.Elements[0]
+		return tbl.Rows[0]
 	}
 	return result
 }
@@ -588,7 +589,7 @@ func (tb *TableBinding) queryRows(query string, params []Object, env *Environmen
 		return newDatabaseError("DB-0008", colErr)
 	}
 
-	var results []Object
+	var results []*Dictionary
 	for rows.Next() {
 		values := make([]interface{}, len(columns))
 		ptrs := make([]interface{}, len(columns))
@@ -607,7 +608,8 @@ func (tb *TableBinding) queryRows(query string, params []Object, env *Environmen
 		return newDatabaseError("DB-0002", rowsErr)
 	}
 
-	return &Array{Elements: results}
+	// Return Table with schema from TableBinding
+	return &Table{Rows: results, Columns: columns, Schema: tb.DSLSchema}
 }
 
 func (tb *TableBinding) executeMutation(query string, params []Object) *Error {
@@ -814,12 +816,13 @@ func (tb *TableBinding) executeFirst(args []Object, env *Environment) Object {
 	query += " LIMIT ?"
 
 	result := tb.queryRows(query, []Object{&Integer{Value: limit}}, env)
-	if arr, ok := result.(*Array); ok {
+	// queryRows now returns Table
+	if tbl, ok := result.(*Table); ok {
 		if returnSingle {
-			if len(arr.Elements) == 0 {
+			if len(tbl.Rows) == 0 {
 				return NULL
 			}
-			return arr.Elements[0]
+			return tbl.Rows[0]
 		}
 	}
 	return result
@@ -876,12 +879,13 @@ func (tb *TableBinding) executeLast(args []Object, env *Environment) Object {
 	query += " LIMIT ?"
 
 	result := tb.queryRows(query, []Object{&Integer{Value: limit}}, env)
-	if arr, ok := result.(*Array); ok {
+	// queryRows now returns Table
+	if tbl, ok := result.(*Table); ok {
 		if returnSingle {
-			if len(arr.Elements) == 0 {
+			if len(tbl.Rows) == 0 {
 				return NULL
 			}
-			return arr.Elements[0]
+			return tbl.Rows[0]
 		}
 	}
 	return result
@@ -963,11 +967,12 @@ func (tb *TableBinding) executeFindBy(args []Object, env *Environment) Object {
 	query += " LIMIT 1"
 
 	result := tb.queryRows(query, params, env)
-	if arr, ok := result.(*Array); ok {
-		if len(arr.Elements) == 0 {
+	// queryRows now returns Table
+	if tbl, ok := result.(*Table); ok {
+		if len(tbl.Rows) == 0 {
 			return NULL
 		}
-		return arr.Elements[0]
+		return tbl.Rows[0]
 	}
 	return result
 }

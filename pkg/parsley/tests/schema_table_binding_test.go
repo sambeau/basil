@@ -104,21 +104,21 @@ let basil = {http: {request: {query: {limit: "1", offset: "1"}}}}
 	result := evalTest(t, input)
 	dict := result.(*evaluator.Dictionary)
 
-	filtered := evaluator.Eval(dict.Pairs["filtered"], dict.Env).(*evaluator.Array)
-	if len(filtered.Elements) != 1 {
-		t.Fatalf("expected 1 filtered row, got %d", len(filtered.Elements))
+	filtered := evaluator.Eval(dict.Pairs["filtered"], dict.Env).(*evaluator.Table)
+	if len(filtered.Rows) != 1 {
+		t.Fatalf("expected 1 filtered row, got %d", len(filtered.Rows))
 	}
-	row := filtered.Elements[0].(*evaluator.Dictionary)
+	row := filtered.Rows[0]
 	age := evaluator.Eval(row.Pairs["age"], row.Env).(*evaluator.Integer).Value
 	if age != 25 {
 		t.Fatalf("expected age 25, got %d", age)
 	}
 
-	paged := evaluator.Eval(dict.Pairs["paged"], dict.Env).(*evaluator.Array)
-	if len(paged.Elements) != 1 {
-		t.Fatalf("expected paginated result length 1, got %d", len(paged.Elements))
+	paged := evaluator.Eval(dict.Pairs["paged"], dict.Env).(*evaluator.Table)
+	if len(paged.Rows) != 1 {
+		t.Fatalf("expected paginated result length 1, got %d", len(paged.Rows))
 	}
-	second := paged.Elements[0].(*evaluator.Dictionary)
+	second := paged.Rows[0]
 	name := evaluator.Eval(second.Pairs["name"], second.Env).(*evaluator.String).Value
 	if name != "Bob" {
 		t.Fatalf("expected second row Bob, got %s", name)
@@ -200,17 +200,17 @@ let _ = Users.insert({name: "Bob", age: 35})
 	result := evalTest(t, input)
 	dict := result.(*evaluator.Dictionary)
 
-	byName := evaluator.Eval(dict.Pairs["byName"], dict.Env).(*evaluator.Array)
-	if len(byName.Elements) != 3 {
-		t.Fatalf("expected 3 rows, got %d", len(byName.Elements))
+	byName := evaluator.Eval(dict.Pairs["byName"], dict.Env).(*evaluator.Table)
+	if len(byName.Rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(byName.Rows))
 	}
-	firstName := evaluator.Eval(byName.Elements[0].(*evaluator.Dictionary).Pairs["name"], nil).(*evaluator.String).Value
+	firstName := evaluator.Eval(byName.Rows[0].Pairs["name"], nil).(*evaluator.String).Value
 	if firstName != "Alice" {
 		t.Fatalf("expected first row to be Alice, got %s", firstName)
 	}
 
-	byAgeDesc := evaluator.Eval(dict.Pairs["byAgeDesc"], dict.Env).(*evaluator.Array)
-	firstAge := evaluator.Eval(byAgeDesc.Elements[0].(*evaluator.Dictionary).Pairs["age"], nil).(*evaluator.Integer).Value
+	byAgeDesc := evaluator.Eval(dict.Pairs["byAgeDesc"], dict.Env).(*evaluator.Table)
+	firstAge := evaluator.Eval(byAgeDesc.Rows[0].Pairs["age"], nil).(*evaluator.Integer).Value
 	if firstAge != 35 {
 		t.Fatalf("expected first row age to be 35, got %d", firstAge)
 	}
@@ -234,13 +234,13 @@ let _ = Users.insert({name: "Alice", age: 25})
 Users.all({orderBy: [["name", "asc"], ["age", "desc"]], limit: 0})
 `
 	result := evalTest(t, input)
-	arr := result.(*evaluator.Array)
-	if len(arr.Elements) != 3 {
-		t.Fatalf("expected 3 rows, got %d", len(arr.Elements))
+	tbl := result.(*evaluator.Table)
+	if len(tbl.Rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(tbl.Rows))
 	}
 
 	// First should be Alice age 30 (name asc, then age desc)
-	first := arr.Elements[0].(*evaluator.Dictionary)
+	first := tbl.Rows[0]
 	name := evaluator.Eval(first.Pairs["name"], nil).(*evaluator.String).Value
 	age := evaluator.Eval(first.Pairs["age"], nil).(*evaluator.Integer).Value
 	if name != "Alice" || age != 30 {
@@ -264,12 +264,12 @@ let _ = Users.insert({name: "Alice", age: 30})
 Users.all({select: ["id", "name"], limit: 0})
 `
 	result := evalTest(t, input)
-	arr := result.(*evaluator.Array)
-	if len(arr.Elements) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(arr.Elements))
+	tbl := result.(*evaluator.Table)
+	if len(tbl.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(tbl.Rows))
 	}
 
-	row := arr.Elements[0].(*evaluator.Dictionary)
+	row := tbl.Rows[0]
 	if _, hasName := row.Pairs["name"]; !hasName {
 		t.Fatal("expected 'name' in result")
 	}
@@ -297,13 +297,13 @@ let _ = Users.insert({name: "Carol", age: 35})
 Users.all({orderBy: "name", limit: 2, offset: 1})
 `
 	result := evalTest(t, input)
-	arr := result.(*evaluator.Array)
-	if len(arr.Elements) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(arr.Elements))
+	tbl := result.(*evaluator.Table)
+	if len(tbl.Rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(tbl.Rows))
 	}
 
 	// With orderBy name ASC, offset 1: should get Bob and Carol
-	firstName := evaluator.Eval(arr.Elements[0].(*evaluator.Dictionary).Pairs["name"], nil).(*evaluator.String).Value
+	firstName := evaluator.Eval(tbl.Rows[0].Pairs["name"], nil).(*evaluator.String).Value
 	if firstName != "Bob" {
 		t.Fatalf("expected Bob, got %s", firstName)
 	}
@@ -328,13 +328,13 @@ let _ = Users.insert({name: "Carol", age: 35, role: "user"})
 Users.where({role: "admin"}, {orderBy: "age", order: "desc"})
 `
 	result := evalTest(t, input)
-	arr := result.(*evaluator.Array)
-	if len(arr.Elements) != 2 {
-		t.Fatalf("expected 2 admins, got %d", len(arr.Elements))
+	tbl := result.(*evaluator.Table)
+	if len(tbl.Rows) != 2 {
+		t.Fatalf("expected 2 admins, got %d", len(tbl.Rows))
 	}
 
 	// Should be Bob (30) then Alice (25) due to age DESC
-	firstName := evaluator.Eval(arr.Elements[0].(*evaluator.Dictionary).Pairs["name"], nil).(*evaluator.String).Value
+	firstName := evaluator.Eval(tbl.Rows[0].Pairs["name"], nil).(*evaluator.String).Value
 	if firstName != "Bob" {
 		t.Fatalf("expected Bob first (older), got %s", firstName)
 	}
@@ -487,10 +487,10 @@ let _ = Users.insert({name: "Carol", age: 35})
 		t.Fatal("expected single result")
 	}
 
-	// first(2) returns array
-	multiple := evaluator.Eval(dict.Pairs["multiple"], dict.Env).(*evaluator.Array)
-	if len(multiple.Elements) != 2 {
-		t.Fatalf("expected 2 elements, got %d", len(multiple.Elements))
+	// first(2) returns table
+	multiple := evaluator.Eval(dict.Pairs["multiple"], dict.Env).(*evaluator.Table)
+	if len(multiple.Rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(multiple.Rows))
 	}
 
 	// first with orderBy

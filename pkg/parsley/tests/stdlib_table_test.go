@@ -1496,3 +1496,142 @@ func TestTableCopyOnChainFunctionArg(t *testing.T) {
 		t.Errorf("expected 2, got %d", intResult.Value)
 	}
 }
+
+// TestTableIndexing tests table[n] indexing with positive and negative indices
+func TestTableIndexing(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected int64
+	}{
+		{
+			name:     "first element",
+			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[0].a`,
+			expected: 1,
+		},
+		{
+			name:     "second element",
+			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[1].a`,
+			expected: 2,
+		},
+		{
+			name:     "last element via negative index",
+			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[-1].a`,
+			expected: 3,
+		},
+		{
+			name:     "second to last",
+			input:    `Table([{a: 1}, {a: 2}, {a: 3}])[-2].a`,
+			expected: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalTest(t, tt.input)
+			intVal, ok := result.(*evaluator.Integer)
+			if !ok {
+				t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+			}
+			if intVal.Value != tt.expected {
+				t.Errorf("expected %d, got %d", tt.expected, intVal.Value)
+			}
+		})
+	}
+}
+
+// TestTableIndexingError tests bounds checking on table indexing
+func TestTableIndexingError(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "out of bounds positive",
+			input: `Table([{a: 1}])[5]`,
+		},
+		{
+			name:  "out of bounds negative",
+			input: `Table([{a: 1}])[-10]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+			if result.Type() != evaluator.ERROR_OBJ {
+				t.Fatalf("expected error, got %s: %s", result.Type(), result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableIteration tests for (row in table) { ... } iteration
+func TestTableIteration(t *testing.T) {
+	// The for loop returns an array of body results
+	input := `
+let t = Table([{a: 1}, {a: 2}, {a: 3}])
+let results = for (row in t) {
+	row.a
+}
+results[2]  // Third element (0-indexed)
+`
+	result := evalTest(t, input)
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+	if intVal.Value != 3 {
+		t.Errorf("expected results[2] = 3, got %d", intVal.Value)
+	}
+}
+
+// TestTableToArray tests .toArray() method
+func TestTableToArray(t *testing.T) {
+	input := `Table([{a: 1}, {a: 2}]).toArray()`
+	result := evalTest(t, input)
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %s: %s", result.Type(), result.Inspect())
+	}
+	if len(arr.Elements) != 2 {
+		t.Errorf("expected 2 elements, got %d", len(arr.Elements))
+	}
+}
+
+// TestTableCopyMethod tests .copy() method creates independent copy
+func TestTableCopyMethod(t *testing.T) {
+	input := `
+let original = Table([{a: 1}, {a: 2}])
+let copied = original.copy()
+copied.length
+`
+	result := evalTest(t, input)
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+	if intVal.Value != 2 {
+		t.Errorf("expected 2, got %d", intVal.Value)
+	}
+}
+
+// TestTableOffsetMethod tests .offset() standalone method
+func TestTableOffsetMethod(t *testing.T) {
+	input := `Table([{a: 1}, {a: 2}, {a: 3}]).offset(1).length`
+	result := evalTest(t, input)
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+	if intVal.Value != 2 {
+		t.Errorf("expected 2 rows after offset(1), got %d", intVal.Value)
+	}
+}
