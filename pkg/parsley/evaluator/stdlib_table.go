@@ -526,16 +526,22 @@ func evalTableLiteral(node *ast.TableLiteral, env *Environment) Object {
 
 		// If schema specified, validate and apply defaults
 		if schema != nil {
-			// Apply defaults for missing fields
+			// Apply defaults for missing fields and validate required fields
 			for fieldName, field := range schema.Fields {
-				if _, exists := dict.Pairs[fieldName]; !exists && field.DefaultValue != nil {
-					// Add default value to the row
-					dict.Pairs[fieldName] = objectToExpression(field.DefaultValue)
+				_, exists := dict.Pairs[fieldName]
+				if !exists {
+					if field.DefaultValue != nil {
+						// Add default value to the row
+						dict.Pairs[fieldName] = objectToExpression(field.DefaultValue)
+					} else if field.Required && !field.Nullable {
+						// Required field is missing with no default
+						return newStructuredError("TABLE-0005", map[string]any{
+							"Row":   i + 1,
+							"Field": fieldName,
+						})
+					}
 				}
 			}
-
-			// Validate field types (optional - could be strict mode)
-			// For now, we trust the schema validation at insert time
 		}
 
 		rows = append(rows, dict)

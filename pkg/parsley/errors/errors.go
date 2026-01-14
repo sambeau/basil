@@ -995,6 +995,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Table row {{.Row}}: unexpected columns [{{.Extra}}]",
 		Hints:    []string{"All rows must have the same columns as the first row"},
 	},
+	"TABLE-0005": {
+		Class:    ClassType,
+		Template: "Table row {{.Row}}: missing required field '{{.Field}}'",
+		Hints:    []string{"Required schema fields must be provided or have a default value"},
+	},
 
 	// ========================================
 	// Destructuring errors (DEST-0xxx)

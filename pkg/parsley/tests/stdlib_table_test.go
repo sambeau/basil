@@ -1635,3 +1635,116 @@ func TestTableOffsetMethod(t *testing.T) {
 		t.Errorf("expected 2 rows after offset(1), got %d", intVal.Value)
 	}
 }
+
+// TestTableToMarkdown tests .toMarkdown() method
+func TestTableToMarkdown(t *testing.T) {
+	input := `Table([{name: "Alice", age: 30}, {name: "Bob", age: 25}]).toMarkdown()`
+	result := evalTest(t, input)
+	strVal, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	md := strVal.Value
+	// Check for Markdown table structure
+	if !strings.Contains(md, "| age | name |") && !strings.Contains(md, "| name | age |") {
+		t.Errorf("expected header row, got: %s", md)
+	}
+	if !strings.Contains(md, "| --- |") {
+		t.Errorf("expected separator row, got: %s", md)
+	}
+	if !strings.Contains(md, "Alice") || !strings.Contains(md, "Bob") {
+		t.Errorf("expected data rows, got: %s", md)
+	}
+}
+
+// TestTableToJSONMethod tests .toJSON() method on Table
+func TestTableToJSONMethod(t *testing.T) {
+	input := `Table([{a: 1}, {a: 2}]).toJSON()`
+	result := evalTest(t, input)
+	strVal, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	json := strVal.Value
+	if !strings.Contains(json, `"a": 1`) || !strings.Contains(json, `"a": 2`) {
+		t.Errorf("expected JSON array with rows, got: %s", json)
+	}
+	if !strings.HasPrefix(json, "[") || !strings.HasSuffix(strings.TrimSpace(json), "]") {
+		t.Errorf("expected JSON array format, got: %s", json)
+	}
+}
+
+// TestTableColumnMethod tests .column(name) method
+func TestTableColumnMethod(t *testing.T) {
+	input := `Table([{x: 1, y: 2}, {x: 3, y: 4}, {x: 5, y: 6}]).column("x")`
+	result := evalTest(t, input)
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %s: %s", result.Type(), result.Inspect())
+	}
+	if len(arr.Elements) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(arr.Elements))
+	}
+	// Check values are 1, 3, 5
+	expected := []int64{1, 3, 5}
+	for i, elem := range arr.Elements {
+		intVal, ok := elem.(*evaluator.Integer)
+		if !ok {
+			t.Errorf("element %d: expected Integer, got %s", i, elem.Type())
+			continue
+		}
+		if intVal.Value != expected[i] {
+			t.Errorf("element %d: expected %d, got %d", i, expected[i], intVal.Value)
+		}
+	}
+}
+
+// TestTableRowCount tests .rowCount() method
+func TestTableRowCount(t *testing.T) {
+	input := `Table([{a: 1}, {a: 2}, {a: 3}]).rowCount()`
+	result := evalTest(t, input)
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+	if intVal.Value != 3 {
+		t.Errorf("expected 3, got %d", intVal.Value)
+	}
+}
+
+// TestTableColumnCount tests .columnCount() method
+func TestTableColumnCount(t *testing.T) {
+	input := `Table([{a: 1, b: 2, c: 3}]).columnCount()`
+	result := evalTest(t, input)
+	intVal, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+	}
+	if intVal.Value != 3 {
+		t.Errorf("expected 3 columns, got %d", intVal.Value)
+	}
+}
+
+// TestTableWithSchemaMissingRequired tests validation error for missing required field
+func TestTableWithSchemaMissingRequired(t *testing.T) {
+	input := `
+@schema Person { name: string, age: int }
+@table(Person) [{age: 30}]
+`
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+	env := evaluator.NewEnvironment()
+	result := evaluator.Eval(program, env)
+	if result.Type() != evaluator.ERROR_OBJ {
+		t.Fatalf("expected error for missing required field, got %s: %s", result.Type(), result.Inspect())
+	}
+	errMsg := result.(*evaluator.Error).Message
+	// Check error mentions missing field and field name
+	if !strings.Contains(errMsg, "name") || !strings.Contains(errMsg, "missing required field") {
+		t.Errorf("expected error about missing 'name' field, got: %s", errMsg)
+	}
+}
