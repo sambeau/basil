@@ -12,6 +12,22 @@ author: "@copilot"
 ## Summary
 Standardize the method interface across all Parsley builtin types to ensure consistent introspection, serialization, and debugging capabilities. This includes adding universal methods like `repr()`, removing dead code, and filling gaps in type converters.
 
+**This spec serves dual purposes:**
+1. **Implementation guide** — Defines the work to be done
+2. **Verification checklist** — Used to verify implementation completeness
+3. **Documentation source** — Drives updates to reference docs, manuals, and examples
+
+## Philosophy: Break, Don't Deprecate
+
+**We prefer breaking changes over deprecation.** When removing or changing methods:
+
+- **Remove immediately** — Don't leave deprecated methods lingering
+- **Fix all tests** — Update test files to use new APIs
+- **Fix all documentation** — Update guides, examples, and reference docs
+- **Fix all examples** — Ensure example code uses current APIs
+
+Deprecation warnings encourage bad patterns to propagate through examples and user code. A clean break forces immediate migration and keeps the codebase consistent.
+
 ## User Story
 As a Parsley developer, I want all types to have consistent introspection and conversion methods so that debugging is predictable and I can easily serialize any value.
 
@@ -24,7 +40,9 @@ As a Parsley developer, I want all types to have consistent introspection and co
 - [ ] Dead method declarations removed (Integer `abs`, Float `abs/round/floor/ceil`)
 - [ ] `toDebug()` builtin removed (replaced by `repr()`)
 - [ ] `path()` constructor added (backlog #59)
-- [ ] Documentation updated for all changes
+- [ ] All tests pass (including updates for removed methods)
+- [ ] All documentation updated
+- [ ] All examples updated
 
 ## Design Decisions
 
@@ -96,6 +114,26 @@ Options for `toHTML`/`toMarkdown`:
 
 ## Technical Context
 
+### Breaking Changes Checklist
+
+When removing methods/builtins, audit and fix these locations:
+
+**Tests** (must all pass after changes):
+- `pkg/parsley/tests/*.go` — Unit tests for removed methods
+- `pkg/parsley/evaluator/*_test.go` — Evaluator tests
+- `server/*_test.go` — Server integration tests
+
+**Documentation** (must be updated):
+- `docs/parsley/reference.md` — Remove/update method signatures
+- `docs/parsley/CHEATSHEET.md` — Update if removed methods mentioned
+- `docs/parsley/manual/builtins/*.md` — Update type manual pages
+- `docs/guide/*.md` — Check for usage in guides
+
+**Examples** (must use current APIs):
+- `examples/parsley/*.pars` — Standalone Parsley examples
+- `examples/basil/**/*.pars` — Basil handler examples
+- `examples/parts/**/*.pars` — Parts examples
+
 ### Affected Components
 
 **Phase 1: Cleanup**
@@ -132,6 +170,54 @@ Options for `toHTML`/`toMarkdown`:
 - `pkg/parsley/evaluator/evaluator.go` — Add `path()` builtin
 - Resolves backlog #59
 
+### Test Work Required
+
+Each phase requires corresponding test updates:
+
+| Phase | Test Files | Work |
+|-------|-----------|------|
+| 1 (Cleanup) | `methods_test.go` | Remove tests for `abs`, `round`, `floor`, `ceil` on numeric types; remove `toDebug` tests |
+| 2 (repr) | `repr_test.go` (new) | Comprehensive tests for all types: primitives, pseudo-types, collections, edge cases (cycles, functions) |
+| 3 (toJSON) | `json_test.go` or per-type tests | Add tests for types that didn't have toJSON |
+| 4 (toBox) | `tobox_test.go` | Add tests for DateTime, Money, Duration, Path, URL, Regex |
+| 5 (toDict/inspect) | Per-type test files | Verify toDict returns reconstructible data, inspect includes `__type` |
+| 6 (toHTML/toMarkdown) | `array_test.go`, `dictionary_test.go` | Test output format, options handling |
+| 7 (path constructor) | `path_test.go` | Constructor with valid/invalid strings, sandbox restrictions |
+
+**Test verification command:** `make test` must pass after each phase.
+
+### Documentation Work Required
+
+| Phase | Documentation Updates |
+|-------|----------------------|
+| 1 (Cleanup) | Remove `abs`, `round`, `floor`, `ceil` from Integer/Float in reference.md and manual pages; remove `toDebug` from builtins list; add note about `@std/math` for math operations |
+| 2 (repr) | Add `repr()` to all type sections in reference.md; create `docs/parsley/manual/builtins/repr.md` or add to each type's manual page |
+| 3 (toJSON) | Update type manual pages to show toJSON availability |
+| 4 (toBox) | Update pseudo-type manual pages with toBox examples |
+| 5 (toDict/inspect) | Document difference between toDict and inspect; update each pseudo-type manual page |
+| 6 (toHTML/toMarkdown) | Add to Array and Dictionary manual pages with examples |
+| 7 (path constructor) | Add `path()` to constructors section in reference.md; create manual page if warranted |
+
+**Documentation locations:**
+- `docs/parsley/reference.md` — Comprehensive reference (all changes)
+- `docs/parsley/CHEATSHEET.md` — Quick reference (key changes only)
+- `docs/parsley/manual/builtins/*.md` — Per-type detailed docs
+
+### Example Updates Required
+
+Search and update any examples using removed methods:
+
+```bash
+# Find uses of removed methods
+grep -r "\.abs\(\)" examples/
+grep -r "\.round\(\)" examples/
+grep -r "\.floor\(\)" examples/
+grep -r "\.ceil\(\)" examples/
+grep -r "toDebug\(" examples/
+```
+
+Replace with `@std/math` equivalents or `repr()` as appropriate.
+
 ### Dependencies
 - Depends on: None
 - Blocks: None
@@ -146,6 +232,30 @@ Options for `toHTML`/`toMarkdown`:
 
 ## Implementation Notes
 *Added during/after implementation*
+
+## Verification Checklist
+
+Use this checklist to verify implementation is complete:
+
+### Code Verification
+- [ ] `grep -r "abs.*Integer\|Integer.*abs" pkg/` returns no method declarations
+- [ ] `grep -r "round.*Float\|Float.*round" pkg/` returns no method declarations  
+- [ ] `grep -r "toDebug" pkg/` returns no builtin definitions
+- [ ] `grep -r "\.repr()" pkg/parsley/tests/` shows tests for all types
+- [ ] `make test` passes
+- [ ] `make check` passes (build + test + lint)
+
+### Documentation Verification
+- [ ] `grep -r "\.abs()" docs/` returns no hits (or only @std/math references)
+- [ ] `grep -r "toDebug" docs/` returns no hits
+- [ ] `docs/parsley/reference.md` includes `repr()` for all types
+- [ ] `docs/parsley/reference.md` includes `path()` constructor
+- [ ] Each pseudo-type manual page documents `toDict()` and `inspect()`
+
+### Example Verification
+- [ ] `grep -r "\.abs()\|\.round()\|\.floor()\|\.ceil()" examples/` returns no hits
+- [ ] `grep -r "toDebug" examples/` returns no hits
+- [ ] All example files in `examples/` execute without errors
 
 ## Related
 - Backlog: #59 (path constructor)
