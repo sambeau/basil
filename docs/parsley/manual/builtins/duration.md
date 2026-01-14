@@ -74,6 +74,64 @@ Prefix with `-` for negative durations (time in the past):
 @-1y         // 1 year ago
 ```
 
+## Constructor
+
+The `duration()` function creates durations dynamically from strings or dictionaries. Use this when parsing user input or building durations from variables.
+
+### From String
+
+Parse a duration string using the same format as literals (without the `@` prefix):
+
+```parsley
+duration("30s")          // 30 seconds
+duration("2h30m")        // 2 hours 30 minutes
+duration("1y6mo")        // 1 year 6 months
+duration("-1d")          // negative 1 day
+```
+
+### From Dictionary
+
+Create a duration from named components:
+
+```parsley
+duration({seconds: 30})
+duration({hours: 2, minutes: 30})
+duration({years: 1, months: 6})
+duration({days: 7})
+```
+
+Available keys: `years`, `months`, `weeks`, `days`, `hours`, `minutes`, `seconds`
+
+```parsley
+// All keys example
+duration({
+    years: 1,
+    months: 2,
+    weeks: 3,
+    days: 4,
+    hours: 5,
+    minutes: 6,
+    seconds: 7
+})
+```
+
+### When to Use
+
+Prefer literals for static durations; use `duration()` for dynamic values:
+
+```parsley
+// Static: use literals
+let timeout = @30s
+let deadline = @now + @7d
+
+// Dynamic: use constructor
+let userInput = "2h30m"
+let parsed = duration(userInput)
+
+let config = {hours: 8, minutes: 30}
+let workday = duration(config)
+```
+
 ## Operators
 
 ### Addition (+)
