@@ -368,15 +368,23 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 	return NULL
 }
 
-// TableConstructor creates a new Table from an array of dictionaries
+// TableConstructor creates a new Table from an array of dictionaries.
+// Validates that all rows have the same columns (rectangular shape).
 func TableConstructor(args []Object, env *Environment) Object {
+	// Handle 0 args (empty table)
+	if len(args) == 0 {
+		return &Table{Rows: []*Dictionary{}, Columns: []string{}}
+	}
+
 	if len(args) != 1 {
-		return newArityError("Table", len(args), 1)
+		return newArityErrorRange("Table", len(args), 0, 1)
 	}
 
 	arr, ok := args[0].(*Array)
 	if !ok {
-		return newTypeError("TYPE-0012", "Table", "an array", args[0].Type())
+		return newStructuredError("TABLE-0001", map[string]any{
+			"Got": string(args[0].Type()),
+		})
 	}
 
 	// Handle empty array
@@ -387,18 +395,67 @@ func TableConstructor(args []Object, env *Environment) Object {
 	// Validate all elements are dictionaries and collect rows
 	rows := make([]*Dictionary, 0, len(arr.Elements))
 	var columns []string
+	var columnSet map[string]bool
 
 	for i, elem := range arr.Elements {
 		dict, ok := elem.(*Dictionary)
 		if !ok {
-			return newStructuredError("TYPE-0019", map[string]any{"Function": "Table", "Index": i, "Expected": "dictionary", "Got": elem.Type()})
+			return newStructuredError("TABLE-0002", map[string]any{
+				"Row": i + 1,
+				"Got": string(elem.Type()),
+			})
 		}
-		rows = append(rows, dict)
 
 		// Get columns from first row
 		if i == 0 {
 			columns = getDictKeys(dict, env)
+			columnSet = make(map[string]bool, len(columns))
+			for _, col := range columns {
+				columnSet[col] = true
+			}
+		} else {
+			// Validate subsequent rows have same columns
+			rowKeys := getDictKeys(dict, env)
+			
+			// Check for missing columns
+			var missing []string
+			for _, col := range columns {
+				found := false
+				for _, k := range rowKeys {
+					if k == col {
+						found = true
+						break
+					}
+				}
+				if !found {
+					missing = append(missing, col)
+				}
+			}
+			
+			// Check for extra columns
+			var extra []string
+			for _, k := range rowKeys {
+				if !columnSet[k] {
+					extra = append(extra, k)
+				}
+			}
+			
+			if len(missing) > 0 {
+				return newStructuredError("TABLE-0003", map[string]any{
+					"Row":     i + 1,
+					"Missing": strings.Join(missing, ", "),
+				})
+			}
+			
+			if len(extra) > 0 {
+				return newStructuredError("TABLE-0004", map[string]any{
+					"Row":   i + 1,
+					"Extra": strings.Join(extra, ", "),
+				})
+			}
 		}
+		
+		rows = append(rows, dict)
 	}
 
 	return &Table{Rows: rows, Columns: columns}
@@ -1707,6 +1764,13 @@ func EvalTableProperty(t *Table, property string) Object {
 		return tableColumns(t)
 	case "row":
 		return tableRow(t)
+	case "length":
+		return &Integer{Value: int64(len(t.Rows))}
+	case "schema":
+		if t.Schema != nil {
+			return t.Schema
+		}
+		return NULL
 	default:
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}

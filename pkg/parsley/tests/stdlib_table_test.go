@@ -64,6 +64,144 @@ func assertNoNilExpressions(t *testing.T, dict *evaluator.Dictionary, prefix str
 	}
 }
 
+// TestTableBuiltinConstructor tests the Table() builtin (no import needed)
+func TestTableBuiltinConstructor(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectRows  int
+		expectCols  []string
+		expectError string
+	}{
+		{
+			name:       "basic table",
+			input:      `Table([{a: 1, b: 2}, {a: 3, b: 4}])`,
+			expectRows: 2,
+			expectCols: []string{"a", "b"},
+		},
+		{
+			name:       "empty array",
+			input:      `Table([])`,
+			expectRows: 0,
+			expectCols: []string{},
+		},
+		{
+			name:       "no args",
+			input:      `Table()`,
+			expectRows: 0,
+			expectCols: []string{},
+		},
+		{
+			name:       "single row",
+			input:      `Table([{x: 1}])`,
+			expectRows: 1,
+			expectCols: []string{"x"},
+		},
+		{
+			name:        "not array",
+			input:       `Table("string")`,
+			expectError: "requires an array",
+		},
+		{
+			name:        "not dictionary",
+			input:       `Table([1, 2, 3])`,
+			expectError: "expected dictionary",
+		},
+		{
+			name:        "column mismatch - missing",
+			input:       `Table([{a: 1}, {b: 2}])`,
+			expectError: "missing columns",
+		},
+		{
+			name:        "column mismatch - extra",
+			input:       `Table([{a: 1}, {a: 2, b: 3}])`,
+			expectError: "unexpected columns",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if tt.expectError != "" {
+				if result.Type() != evaluator.ERROR_OBJ {
+					t.Fatalf("expected error containing %q, got %s", tt.expectError, result.Type())
+				}
+				errMsg := result.(*evaluator.Error).Message
+				if !strings.Contains(errMsg, tt.expectError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectError, errMsg)
+				}
+				return
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("unexpected error: %s", result.Inspect())
+			}
+
+			if result.Type() != evaluator.TABLE_OBJ {
+				t.Fatalf("expected TABLE, got %s: %s", result.Type(), result.Inspect())
+			}
+
+			table := result.(*evaluator.Table)
+			if len(table.Rows) != tt.expectRows {
+				t.Errorf("expected %d rows, got %d", tt.expectRows, len(table.Rows))
+			}
+			if len(table.Columns) != len(tt.expectCols) {
+				t.Errorf("expected %d columns, got %d", len(tt.expectCols), len(table.Columns))
+			}
+		})
+	}
+}
+
+// TestTableBuiltinProperties tests .length, .columns, .schema properties
+func TestTableBuiltinProperties(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "length",
+			input:    `Table([{a: 1}, {a: 2}]).length`,
+			expected: "2",
+		},
+		{
+			name:     "columns",
+			input:    `Table([{x: 1, y: 2}]).columns`,
+			expected: "[x, y]",
+		},
+		{
+			name:     "schema is null",
+			input:    `Table([{a: 1}]).schema`,
+			expected: "null",
+		},
+		{
+			name:     "empty table length",
+			input:    `Table([]).length`,
+			expected: "0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("unexpected error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
 func TestTableConstructor(t *testing.T) {
 	input := `let {table} = import @std/table
 data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
@@ -100,8 +238,8 @@ func TestTableInvalidInput(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`let {table} = import @std/table; table("not array")`, "must be an array"},
-		{`let {table} = import @std/table; table([1, 2, 3])`, "must be dictionary"},
+		{`let {table} = import @std/table; table("not array")`, "requires an array"},
+		{`let {table} = import @std/table; table([1, 2, 3])`, "expected dictionary"},
 	}
 
 	for _, tt := range tests {

@@ -437,12 +437,17 @@ func (d *Dictionary) DeleteKey(key string) {
 // Table represents a tabular data structure wrapping an array of dictionaries.
 // Provides SQL-like operations (where, orderBy, select, etc.) with immutable semantics.
 type Table struct {
-	Rows    []*Dictionary // Array of dictionaries (each row is a dict)
-	Columns []string      // Column order (from first row or select())
+	Rows        []*Dictionary // Array of dictionaries (each row is a dict)
+	Columns     []string      // Column order (from first row or select())
+	Schema      *DSLSchema    // Optional: attached schema for typed tables
+	isChainCopy bool          // Internal: true if this is a copy created for method chaining
 }
 
 func (t *Table) Type() ObjectType { return TABLE_OBJ }
 func (t *Table) Inspect() string {
+	if t.Schema != nil {
+		return fmt.Sprintf("Table<%s>(%d rows)", t.Schema.Name, len(t.Rows))
+	}
 	return fmt.Sprintf("Table(%d rows)", len(t.Rows))
 }
 
@@ -452,7 +457,12 @@ func (t *Table) Copy() *Table {
 	copy(newRows, t.Rows) // Shallow copy of slice - rows themselves are immutable dicts
 	newColumns := make([]string, len(t.Columns))
 	copy(newColumns, t.Columns)
-	return &Table{Rows: newRows, Columns: newColumns}
+	return &Table{
+		Rows:        newRows,
+		Columns:     newColumns,
+		Schema:      t.Schema,      // Schema is shared (immutable)
+		isChainCopy: false,         // New copy starts fresh chain
+	}
 }
 
 // DBConnection represents a database connection
@@ -3413,6 +3423,15 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return dict
+			},
+		},
+		// Table() - create a Table from an array of dictionaries
+		// Table() - empty table
+		// Table(array) - table from array of dictionaries with rectangular validation
+		"Table": {
+			Fn: func(args ...Object) Object {
+				env := NewEnvironment()
+				return TableConstructor(args, env)
 			},
 		},
 		// money() - create a Money value from amount and currency

@@ -973,6 +973,30 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 
 	// ========================================
+	// Table errors (TABLE-0xxx)
+	// ========================================
+	"TABLE-0001": {
+		Class:    ClassType,
+		Template: "Table() requires an array, got {{.Got}}",
+		Hints:    []string{"Create a table from an array of dictionaries: Table([{a: 1}, {a: 2}])"},
+	},
+	"TABLE-0002": {
+		Class:    ClassType,
+		Template: "Table row {{.Row}}: expected dictionary, got {{.Got}}",
+		Hints:    []string{"Each row in a table must be a dictionary with consistent keys"},
+	},
+	"TABLE-0003": {
+		Class:    ClassType,
+		Template: "Table row {{.Row}}: missing columns [{{.Missing}}]",
+		Hints:    []string{"All rows must have the same columns as the first row"},
+	},
+	"TABLE-0004": {
+		Class:    ClassType,
+		Template: "Table row {{.Row}}: unexpected columns [{{.Extra}}]",
+		Hints:    []string{"All rows must have the same columns as the first row"},
+	},
+
+	// ========================================
 	// Destructuring errors (DEST-0xxx)
 	// ========================================
 	"DEST-0001": {
