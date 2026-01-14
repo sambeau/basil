@@ -1,6 +1,6 @@
 ---
 id: FEAT-089
-title: "toBox() Phase 2: Style, Title, Width, and Color Options"
+title: "toBox() Phase 2: Style, Title, and Width Options"
 status: draft
 priority: low
 created: 2026-01-14
@@ -11,7 +11,7 @@ related: FEAT-088
 # FEAT-089: toBox() Phase 2 Options
 
 ## Summary
-Extend the `toBox()` method with additional formatting options: alternate box styles, titled boxes, width control with truncation, and optional ANSI color output. These are polish features building on the core toBox() implementation from FEAT-088.
+Extend the `toBox()` method with additional formatting options: alternate box styles, titled boxes, and width control with truncation. These are polish features building on the core toBox() implementation from FEAT-088. Color support is deferred to Phase 3.
 
 ## User Story
 As a Parsley developer building CLI tools, I want to customize box appearance with different styles, titles, and width limits so that I can create polished, readable terminal output that fits my application's visual design.
@@ -39,12 +39,14 @@ As a Parsley developer building CLI tools, I want to customize box appearance wi
 - [ ] Works with all value types
 - [ ] `maxWidth` of 0 or negative is ignored (no limit)
 
-### Color Support
+### Phase 3: Color Support (Nice-to-Have)
 - [ ] `{color: true}` enables ANSI color output
 - [ ] Type-based coloring: strings (cyan), numbers (yellow), booleans (green/red), null (dim gray)
 - [ ] Box borders remain uncolored (default terminal color)
 - [ ] Color codes are properly escaped/stripped when output is piped (not a TTY)
 - [ ] `{color: false}` (default) produces plain text output
+
+*Deferred: Terminal compatibility complexity. Implement after core Phase 2 options are stable.*
 
 ## Design Decisions
 
