@@ -345,8 +345,9 @@ Tests:
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
 | 2026-01-13 | Plan created | ✅ Complete | — |
-| | Task 1: Table struct fields | ⬜ Not started | — |
-| | Task 2: Builtin constructor | ⬜ Not started | — |
+| 2026-01-13 | Task 1: Table struct fields | ✅ Complete | Added Schema, isChainCopy |
+| 2026-01-13 | Task 2: Builtin constructor | ✅ Complete | Table() works without import |
+| 2026-01-13 | Task 12: Properties/methods | ✅ Complete | Added .length, .schema |
 | | Task 3: Nullable support | ⬜ Not started | — |
 | | Task 4: Default support | ⬜ Not started | — |
 | | Task 5: @table token | ⬜ Not started | — |
@@ -356,7 +357,6 @@ Tests:
 | | Task 9: Copy-on-chain | ⬜ Not started | — |
 | | Task 10: CSV returns Table | ⬜ Not started | — |
 | | Task 11: DB returns Table | ⬜ Not started | — |
-| | Task 12: Properties/methods | ⬜ Not started | — |
 | | Task 13: @std/table alias | ⬜ Not started | — |
 | | Task 14: Documentation | ⬜ Not started | — |
 
