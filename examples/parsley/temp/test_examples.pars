@@ -3,8 +3,8 @@
 log("=== Web Page Generator Example ===")
 let page = fn(title, content) {
     <html>
-        <head><title>{title}</title></head>
-        <body>{content}</body>
+        <head><title>title</title></head>
+        <body>content</body>
     </html>
 }
 
@@ -52,7 +52,7 @@ let validators = {
     min_length: fn(min) {
         fn(value) {
             if (value.length() < min) {
-                "Must be at least ${min} characters"
+                `Must be at least {min} characters`
             } else {
                 false
             }

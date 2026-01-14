@@ -1,4 +1,4 @@
-let counter = import(@./counter.pars)
+let counter = import @./counter.pars
 log(counter.increment())  // 1
 log(counter.increment())  // 2
 log(counter.count)        // 0 (original value, not modified)

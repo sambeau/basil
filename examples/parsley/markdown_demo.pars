@@ -5,6 +5,7 @@ let post <== MD(@./blog_post.md)
 
 // Create a blog post template
 let BlogPost = fn({title, author, date, tags, html}) {
+    let tagsList = tags ?? []
     <article class="blog-post">
         <header>
             <h1>title</h1>
@@ -12,9 +13,9 @@ let BlogPost = fn({title, author, date, tags, html}) {
                 `By {author} on {date}`
             </p>
             <div class="tags">
-                {for (tag in tags) {
+                for (tag in tagsList) {
                     <span class="tag">tag</span>
-                }}
+                }
             </div>
         </header>
         <div class="content">

@@ -27,7 +27,7 @@ if (email_matches) {
 }
 
 // replace() with regex
-let result = replace("abc123def456", /\d+/, "X")
+let result = "abc123def456".replace(/\d+/, "X")
 log("replace result:", result)
 
 // split() with regex

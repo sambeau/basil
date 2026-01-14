@@ -9,7 +9,7 @@ log("Birthday:", birthday.iso);
 log("Meeting:", meeting.year, meeting.month, meeting.day, "at", meeting.hour, ":", meeting.minute);
 
 // Comparison (returns boolean)
-let is_future = @2024-12-25 > now();
+let is_future = @2024-12-25 > @now;
 log("Christmas in future:", is_future);
 
 // Array of dates

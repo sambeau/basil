@@ -3,5 +3,5 @@
 
 {
   message: "Hello from the Basil API!",
-  timestamp: now()
+  timestamp: @now
 }

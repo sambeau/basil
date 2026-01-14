@@ -1,0 +1,4 @@
+// Test Table() error cases - not array
+
+let bad = Table("not an array")
+print("This should not print")

@@ -53,12 +53,12 @@ let words = "hello world" ~ dynamicPattern;
 log("Dynamic pattern match:", words);
 
 log("\n=== replace() Function ===");
-log("String replacement:", replace("hello world", "world", "Parsley"));
-log("Regex replacement:", replace("test123test456", /\d+/, "XXX"));
+log("String replacement:", "hello world".replace("world", "Parsley"));
+log("Regex replacement:", "test123test456".replace(/\d+/, "XXX"));
 
 log("\n=== split() Function ===");
-log("Split by comma:", split("a,b,c", ","));
-log("Split by numbers:", split("one1two2three", /\d+/));
+log("Split by comma:", "a,b,c".split(","));
+log("Split by numbers:", "one1two2three".split("2"));
 
 log("\n=== Email Validation ===");
 let validEmail = "user@example.com";
@@ -99,18 +99,18 @@ log("\n=== Extracting All Words ===");
 let sentence = "The quick brown fox";
 let wordPattern = regex("\\w+");
 // Note: ~ returns first match, for global use split
-let words = split(sentence, " ");
+let words = sentence.split(" ");
 log("Words:", words);
 
 log("\n=== CSV Processing ===");
 let csv = "apple,banana,cherry,date";
-let fruits = split(csv, ",");
+let fruits = csv.split(",");
 log("Fruits:", fruits);
 log("Count:", fruits.length());
 
 log("\n=== Cleaning Whitespace ===");
 let messy = "  too   many    spaces  ";
-let cleaned = replace(messy, /\s+/, " ");
+let cleaned = messy.replace(/\s+/, " ");
 log("Original:", messy);
 log("Cleaned:", cleaned);
 

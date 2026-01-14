@@ -47,7 +47,7 @@ log("\n=== Practical Examples ===\n");
 
 // Check if event has passed
 let eventDate = time("2024-12-25T00:00:00Z");
-let today = now();
+let today = @now;
 log("Event date:", eventDate.iso);
 log("Today:", today.iso);
 log("Has Christmas 2024 passed?", today > eventDate);

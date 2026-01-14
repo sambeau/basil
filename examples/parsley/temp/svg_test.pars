@@ -50,10 +50,10 @@ log(svg9)
 log("\n=== Test 10: Dynamic SVG generation ===")
 let data = [30, 50, 80, 40, 60]
 let bars = for (i, val in data) {
-    <rect x="{i * 25}" y="{100 - val}" width="20" height="{val}" fill="steelblue" />
+    <rect x={i * 25} y={100 - val} width=20 height={val} fill="steelblue" />
 }
 let chart = <svg width="150" height="100">
-    {bars}
+    for (bar in bars) { bar }
 </svg>
 log(chart)
 

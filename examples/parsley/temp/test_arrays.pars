@@ -16,6 +16,6 @@ let doubled = for (n in nums) { n * 2 }
 log("doubled:", doubled)
 
 log("len:", [1, 2, 3].length())
-log("sort:", sort([3, 1, 2]))
-log("reverse:", reverse([1, 2, 3]))
-log("map:", map(fn(x) { x * 2 }, nums))
+log("sort:", [3, 1, 2].sort())
+log("reverse:", [1, 2, 3].reverse())
+log("map:", nums.map(fn(x) { x * 2 }))

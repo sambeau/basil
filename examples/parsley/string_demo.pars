@@ -1,33 +1,23 @@
-a = 5
-b = 10
+let a = 5
+let b = 10
 
-"Regular string concatenation: " + (a + b)
+log("Concat: " + (a + b))
+log("Newline example:\nLine 2")
+log("Tabs example:\tindent")
 
-"String with newline:\nLine 2"
+log(`Template literal: {a + b}`)
+log(`Number literal: {42}`)
+log(`Boolean literal: {true}`)
 
-"String with\ttabs"
+log(`Fifteen is {a + b} and
+not {2 * a + b}.`)
 
-`Basic template: Sam was here!`
+log(`Array literal style: {["Sam","was","here!"]}`)
+log(`String concat: {"Hello" + " " + "World"}`)
 
-`Template with number: {42}`
+log("Escaped backtick: \`")
+log("Escaped brace: \{not interpolated}")
 
-`Template with boolean: {true}`
-
-`Template with expression: {a + b}`
-
-a = 5
-b = 10
-`Fifteen is {a + b} and
-not {2 * a + b}.`
-
-`Array without commas: {"Sam","was","here!"}`
-
-`String concat: {"Hello" + " " + "World"}`
-
-`Escaped backtick: \``
-
-`Escaped brace: \{not interpolated}`
-
-name = "Pars"
-version = "0.1.0"
-`Welcome to {name} v{version}!`
+let name = "Pars"
+let version = "0.1.0"
+log(`Welcome to {name} v{version}!`)

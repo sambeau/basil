@@ -1,6 +1,6 @@
 // Test: Strings
 let name = "Parsley"
-let greeting = "Hello, ${name}!"
+let greeting = `Hello, {name}!`
 log(greeting)
 
 let multiline = `
@@ -14,8 +14,8 @@ log(combined)
 
 let text = "Hello World"
 log("length:", text.length())
-log("toUpper:", toUpper(text))
-log("toLower:", toLower(text))
+log("toUpper:", text.toUpper())
+log("toLower:", text.toLower())
 log("slice:", text[0:5])
-log("split:", split(text, " "))
-log("replace:", replace(text, "World", "Parsley"))
+log("split:", text.split(" "))
+log("replace:", text.replace("World", "Parsley"))

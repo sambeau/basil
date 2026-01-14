@@ -17,27 +17,27 @@ log(card)
 
 // Dynamic content
 let name = "Alice"
-let user_greeting = <div>"Hello, ${name}!"</div>
+let user_greeting = <div>`Hello, {name}!`</div>
 log(user_greeting)
 
 // Arrays in tags
 let items = ["apple", "banana", "orange"]
-let list = <ul>{
+let list = <ul>
     for (item in items) {
-        <li>{item}</li>
+        <li>item</li>
     }
-}</ul>
+</ul>
 log(list)
 
 // Conditionals in tags
 let show_warning = true
-let message = <div>{
+let message = <div>
     if (show_warning) {
         <p class="warning">"Warning!"</p>
     } else {
         <p>"All good"</p>
     }
-}</div>
+</div>
 log(message)
 
 // Self-closing tags
