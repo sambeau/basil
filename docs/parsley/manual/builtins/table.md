@@ -788,7 +788,7 @@ t.toMarkdown()
 | Bob | 25 |
 ```
 
-### toBox()
+### toBox(opts?)
 
 Export as a box-drawing table (like SQL CLI output):
 
@@ -809,6 +809,74 @@ t.toBox()
 │ Alice │ 30  │ London │
 │ Bob   │ 25  │ Paris  │
 └───────┴─────┴────────┘
+```
+
+#### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `style` | string | `"single"` | Box border style: `"single"`, `"double"`, `"ascii"`, `"rounded"` |
+| `title` | string | none | Title row centered at top of box |
+| `maxWidth` | integer | none | Truncate cell content to this width (adds `...`) |
+| `align` | string | `"left"` | Text alignment: `"left"`, `"right"`, `"center"` |
+
+#### Style Examples
+
+```parsley
+t.toBox({style: "double"})
+```
+
+**Result:**
+
+```
+╔═══════╦═════╦════════╗
+║ name  ║ age ║ city   ║
+╠═══════╬═════╬════════╣
+║ Alice ║ 30  ║ London ║
+║ Bob   ║ 25  ║ Paris  ║
+╚═══════╩═════╩════════╝
+```
+
+ASCII style for maximum compatibility:
+
+```parsley
+t.toBox({style: "ascii"})
+```
+
+**Result:**
+
+```
++-------+-----+--------+
+| name  | age | city   |
++-------+-----+--------+
+| Alice | 30  | London |
+| Bob   | 25  | Paris  |
++-------+-----+--------+
+```
+
+#### Title Example
+
+```parsley
+t.toBox({title: "User Directory"})
+```
+
+**Result:**
+
+```
+┌────────────────────────┐
+│    User Directory      │
+├───────┬─────┬──────────┤
+│ name  │ age │ city     │
+├───────┼─────┼──────────┤
+│ Alice │ 30  │ London   │
+│ Bob   │ 25  │ Paris    │
+└───────┴─────┴──────────┘
+```
+
+#### Combined Options
+
+```parsley
+t.toBox({style: "rounded", title: "Users", maxWidth: 15})
 ```
 
 ---
