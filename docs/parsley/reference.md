@@ -1660,6 +1660,7 @@ All return new tables (immutable—original unchanged):
 | `.toHTML(footer?)` | `footer?: string\|dictionary` | `string` | Convert to HTML `<table>` |
 | `.toCSV()` | none | `string` | Convert to CSV string |
 | `.toMarkdown()` | none | `string` | Convert to Markdown table |
+| `.toBox()` | none | `string` | Convert to box-drawing table (CLI style) |
 | `.toJSON()` | none | `string` | Convert to JSON array |
 | `.toArray()` | none | `array` | Convert to array of dictionaries |
 
@@ -2310,6 +2311,7 @@ All mutation methods return a new Table.
 | `toCSV()` | none | string | Export as CSV |
 | `toJSON()` | none | string | Export as JSON array |
 | `toMarkdown()` | none | string | Export as Markdown table |
+| `toBox()` | none | string | Export as box-drawing table (CLI style) |
 | `toHTML()` | none | tag | Export as HTML table |
 
 ```parsley
