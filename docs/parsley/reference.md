@@ -1151,12 +1151,28 @@ let upper = name.toUpper()      // Assign to use the result
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.toBox()` | `opts?: {align}` | `string` | Render value in a box with box-drawing characters |
+| `.toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | `string` | Render value in a box with box-drawing characters |
+
+**toBox options:**
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate content to this width (adds `...`)
+- `align`: `"left"` (default), `"right"`, `"center"` - text alignment
 
 ```parsley
 "hello".toBox()                 // ┌───────┐
                                 // │ hello │
                                 // └───────┘
+
+"hello".toBox({style: "double"})  // ╔═══════╗
+                                  // ║ hello ║
+                                  // ╚═══════╝
+
+"hello".toBox({title: "Greeting"})  // ┌──────────┐
+                                    // │ Greeting │
+                                    // ├──────────┤
+                                    // │  hello   │
+                                    // └──────────┘
 ```
 
 ```parsley
@@ -1219,15 +1235,18 @@ let upper = name.toUpper()      // Assign to use the result
 | `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format as prose list |
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `string` | Convert to CSV string |
-| `.toBox(opts?)` | `opts?: {direction, align}` | `string` | Render array in a box |
+| `.toBox(opts?)` | `opts?: {direction, align, style, title, maxWidth}` | `string` | Render array in a box |
 
 **Format styles**: `"and"` (default), `"or"`, or any custom conjunction string.
 
 **Available locales**: `en`, `en-US`, `en-GB`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `ru`, `ja`, `zh`, `ko`. Falls back to `en` for unrecognized locales.
 
-**toBox directions**: `"vertical"` (default), `"horizontal"`, `"grid"` (auto for array-of-arrays).
-
-**toBox align**: `"left"` (default), `"right"`, `"center"`.
+**toBox options:**
+- `direction`: `"vertical"` (default), `"horizontal"`, `"grid"` (auto for array-of-arrays)
+- `align`: `"left"` (default), `"right"`, `"center"`
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate content to this width (adds `...`)
 
 ```parsley
 let arr = [3, 1, 4, 1, 5]
@@ -1265,13 +1284,16 @@ items.join(", ")                // "apple, banana, cherry"
 | `.insertBefore(before, key, val)` | `before, key: string`, `val: any` | `dictionary` | New dict with key inserted before `before` |
 | `.render(template)` | `template: string` | `string` | Render template with `@{key}` placeholders |
 | `.toJSON()` | none | `string` | Convert to JSON string |
-| `.toBox(opts?)` | `opts?: {align, keys}` | `string` | Render dictionary in a box |
+| `.toBox(opts?)` | `opts?: {align, keys, style, title, maxWidth}` | `string` | Render dictionary in a box |
 
 **Note**: `.delete()` is the only method that mutates the original. All others return new dictionaries.
 
-**toBox options**: `{align: "left"|"right"|"center", keys: boolean}`.
-- Default renders key-value pairs in two columns
-- `{keys: true}` renders only keys in a horizontal row
+**toBox options:**
+- `align`: `"left"` (default), `"right"`, `"center"`
+- `keys`: `boolean` - if true, renders only keys in a horizontal row
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate values to this width (adds `...`)
 
 #### The `.render()` Method
 
@@ -1683,9 +1705,15 @@ All return new tables (immutable—original unchanged):
 | `.toHTML(footer?)` | `footer?: string\|dictionary` | `string` | Convert to HTML `<table>` |
 | `.toCSV()` | none | `string` | Convert to CSV string |
 | `.toMarkdown()` | none | `string` | Convert to Markdown table |
-| `.toBox()` | none | `string` | Convert to box-drawing table (CLI style) |
+| `.toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | `string` | Convert to box-drawing table (CLI style) |
 | `.toJSON()` | none | `string` | Convert to JSON array |
 | `.toArray()` | none | `array` | Convert to array of dictionaries |
+
+**toBox options** (same as String/Array/Dictionary):
+- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
+- `title`: `string` - optional title row at top of box
+- `maxWidth`: `integer` - truncate cell content to this width (adds `...`)
+- `align`: `"left"` (default), `"right"`, `"center"` - text alignment
 
 ```parsley
 // Load CSV (returns Table directly)
@@ -2368,7 +2396,7 @@ All mutation methods return a new Table.
 | `toCSV()` | none | string | Export as CSV |
 | `toJSON()` | none | string | Export as JSON array |
 | `toMarkdown()` | none | string | Export as Markdown table |
-| `toBox()` | none | string | Export as box-drawing table (CLI style) |
+| `toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | string | Export as box-drawing table (CLI style) |
 | `toHTML()` | none | tag | Export as HTML table |
 
 ```parsley
@@ -3197,7 +3225,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `urlQueryEncode()` | 0 | Encode query value |
 | `outdent()` | 0 | Remove common indent |
 | `indent(n)` | 1 | Add n spaces to lines |
-| `toBox()` | 0 | Render in box |
+| `toBox(opts?)` | 0-1 | Render in box |
 
 ### Array Methods (19 methods)
 
@@ -3214,7 +3242,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `join(sep?)` | 0-1 | Join to string |
 | `toJSON()` | 0 | Convert to JSON |
 | `toCSV(hasHeader?)` | 0-1 | Convert to CSV |
-| `toBox(opts?)` | 0-1 | Render in box |
+| `toBox(opts?)` | 0-1 | Render in box (direction, align, style, title, maxWidth) |
 | `shuffle()` | 0 | Random order |
 | `pick(n?)` | 0-1 | Random element(s) |
 | `take(n)` | 1 | n unique random |
@@ -3236,7 +3264,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `insertBefore(before, k, v)` | 3 | Insert before key |
 | `render(template)` | 1 | Render template |
 | `toJSON()` | 0 | Convert to JSON |
-| `toBox(opts?)` | 0-1 | Render in box |
+| `toBox(opts?)` | 0-1 | Render in box (align, keys, style, title, maxWidth) |
 
 ### Number Methods (5 methods)
 
@@ -3246,7 +3274,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `currency(code, locale?)` | 1-2 | Currency format |
 | `percent(locale?)` | 0-1 | Percentage format |
 | `humanize(locale?)` | 0-1 | Compact format (1.2K) |
-| `toBox()` | 0 | Render in box |
+| `toBox(opts?)` | 0-1 | Render in box |
 
 ### Boolean Methods (1 method)
 

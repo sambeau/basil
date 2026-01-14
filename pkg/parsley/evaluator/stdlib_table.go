@@ -1405,8 +1405,10 @@ func markdownEscape(s string) string {
 
 // tableToBox renders the table using box-drawing characters (like SQL CLI output)
 func tableToBox(t *Table, args []Object, env *Environment) Object {
-	if len(args) != 0 {
-		return newArityError("toBox", len(args), 0)
+	// Parse options
+	opts, optErr := parseBoxOptions(args)
+	if optErr != nil {
+		return optErr
 	}
 
 	if len(t.Columns) == 0 {
@@ -1424,8 +1426,12 @@ func tableToBox(t *Table, args []Object, env *Environment) Object {
 		rows[i] = rowData
 	}
 
-	// Use shared BoxRenderer
+	// Use shared BoxRenderer with options
 	br := NewBoxRenderer()
+	br.Style = opts.Style
+	br.Align = opts.Align
+	br.Title = opts.Title
+	br.MaxWidth = opts.MaxWidth
 	return &String{Value: br.RenderTable(t.Columns, rows)}
 }
 

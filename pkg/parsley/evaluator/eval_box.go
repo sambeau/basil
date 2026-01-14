@@ -91,15 +91,19 @@ const (
 
 // BoxRenderer handles rendering values as ASCII box tables
 type BoxRenderer struct {
-	Style BoxStyle
-	Align BoxAlign
+	Style    BoxStyle
+	Align    BoxAlign
+	Title    string
+	MaxWidth int
 }
 
 // NewBoxRenderer creates a new BoxRenderer with default settings
 func NewBoxRenderer() *BoxRenderer {
 	return &BoxRenderer{
-		Style: BoxStyleSingle,
-		Align: BoxAlignLeft,
+		Style:    BoxStyleSingle,
+		Align:    BoxAlignLeft,
+		Title:    "",
+		MaxWidth: 0,
 	}
 }
 
@@ -132,7 +136,18 @@ func (br *BoxRenderer) padString(s string, width int) string {
 // RenderSingleValue renders a single value in a box
 func (br *BoxRenderer) RenderSingleValue(value string) string {
 	value = boxEscapeString(value)
+	if br.MaxWidth > 0 {
+		value = truncateToWidth(value, br.MaxWidth)
+	}
 	width := displayWidth(value)
+
+	// If title is set, ensure box is wide enough for title
+	if br.Title != "" {
+		titleWidth := displayWidth(br.Title)
+		if titleWidth > width {
+			width = titleWidth
+		}
+	}
 
 	var sb strings.Builder
 	s := br.Style
@@ -143,10 +158,26 @@ func (br *BoxRenderer) RenderSingleValue(value string) string {
 	sb.WriteString(s.TopRight)
 	sb.WriteString("\n")
 
+	// Title row (if set)
+	if br.Title != "" {
+		sb.WriteString(s.Vertical)
+		sb.WriteString(" ")
+		sb.WriteString(br.centerString(br.Title, width))
+		sb.WriteString(" ")
+		sb.WriteString(s.Vertical)
+		sb.WriteString("\n")
+
+		// Title separator
+		sb.WriteString(s.LeftT)
+		sb.WriteString(strings.Repeat(s.Horizontal, width+2))
+		sb.WriteString(s.RightT)
+		sb.WriteString("\n")
+	}
+
 	// Value row
 	sb.WriteString(s.Vertical)
 	sb.WriteString(" ")
-	sb.WriteString(value)
+	sb.WriteString(br.padString(value, width))
 	sb.WriteString(" ")
 	sb.WriteString(s.Vertical)
 	sb.WriteString("\n")
@@ -159,20 +190,43 @@ func (br *BoxRenderer) RenderSingleValue(value string) string {
 	return sb.String()
 }
 
+// centerString centers a string within a given width
+func (br *BoxRenderer) centerString(s string, width int) string {
+	sWidth := displayWidth(s)
+	if sWidth >= width {
+		return s
+	}
+	padding := width - sWidth
+	leftPad := padding / 2
+	rightPad := padding - leftPad
+	return strings.Repeat(" ", leftPad) + s + strings.Repeat(" ", rightPad)
+}
+
 // RenderVerticalList renders an array of values vertically
 func (br *BoxRenderer) RenderVerticalList(values []string) string {
 	if len(values) == 0 {
 		return br.RenderSingleValue("(empty)")
 	}
 
-	// Escape all values and calculate max width
+	// Escape all values, apply maxWidth, and calculate max width
 	escaped := make([]string, len(values))
 	maxWidth := 0
 	for i, v := range values {
 		escaped[i] = boxEscapeString(v)
+		if br.MaxWidth > 0 {
+			escaped[i] = truncateToWidth(escaped[i], br.MaxWidth)
+		}
 		w := displayWidth(escaped[i])
 		if w > maxWidth {
 			maxWidth = w
+		}
+	}
+
+	// If title is set, ensure box is wide enough
+	if br.Title != "" {
+		titleWidth := displayWidth(br.Title)
+		if titleWidth > maxWidth {
+			maxWidth = titleWidth
 		}
 	}
 
@@ -184,6 +238,22 @@ func (br *BoxRenderer) RenderVerticalList(values []string) string {
 	sb.WriteString(strings.Repeat(s.Horizontal, maxWidth+2))
 	sb.WriteString(s.TopRight)
 	sb.WriteString("\n")
+
+	// Title row (if set)
+	if br.Title != "" {
+		sb.WriteString(s.Vertical)
+		sb.WriteString(" ")
+		sb.WriteString(br.centerString(br.Title, maxWidth))
+		sb.WriteString(" ")
+		sb.WriteString(s.Vertical)
+		sb.WriteString("\n")
+
+		// Title separator
+		sb.WriteString(s.LeftT)
+		sb.WriteString(strings.Repeat(s.Horizontal, maxWidth+2))
+		sb.WriteString(s.RightT)
+		sb.WriteString("\n")
+	}
 
 	// Value rows
 	for i, val := range escaped {
@@ -217,27 +287,71 @@ func (br *BoxRenderer) RenderHorizontalList(values []string) string {
 		return br.RenderSingleValue("(empty)")
 	}
 
-	// Escape all values and calculate widths
+	// Escape all values, apply maxWidth, and calculate widths
 	escaped := make([]string, len(values))
 	widths := make([]int, len(values))
+	totalWidth := 0
 	for i, v := range values {
 		escaped[i] = boxEscapeString(v)
+		if br.MaxWidth > 0 {
+			escaped[i] = truncateToWidth(escaped[i], br.MaxWidth)
+		}
 		widths[i] = displayWidth(escaped[i])
+		totalWidth += widths[i] + 2 // +2 for padding
 	}
+	totalWidth += len(values) - 1 // Add separators
 
 	var sb strings.Builder
 	s := br.Style
 
+	// Calculate title row width if needed
+	titleRowWidth := 0
+	if br.Title != "" {
+		titleWidth := displayWidth(br.Title)
+		if titleWidth > totalWidth {
+			titleRowWidth = titleWidth
+		}
+	}
+
 	// Top border
 	sb.WriteString(s.TopLeft)
-	for i, w := range widths {
-		sb.WriteString(strings.Repeat(s.Horizontal, w+2))
-		if i < len(widths)-1 {
-			sb.WriteString(s.TopT)
+	if titleRowWidth > 0 {
+		sb.WriteString(strings.Repeat(s.Horizontal, titleRowWidth+2))
+	} else {
+		for i, w := range widths {
+			sb.WriteString(strings.Repeat(s.Horizontal, w+2))
+			if i < len(widths)-1 {
+				sb.WriteString(s.TopT)
+			}
 		}
 	}
 	sb.WriteString(s.TopRight)
 	sb.WriteString("\n")
+
+	// Title row (if set)
+	if br.Title != "" {
+		rowWidth := titleRowWidth
+		if rowWidth == 0 {
+			rowWidth = totalWidth
+		}
+		sb.WriteString(s.Vertical)
+		sb.WriteString(" ")
+		sb.WriteString(br.centerString(br.Title, rowWidth))
+		sb.WriteString(" ")
+		sb.WriteString(s.Vertical)
+		sb.WriteString("\n")
+
+		// Title separator with column dividers
+		sb.WriteString(s.LeftT)
+		for i, w := range widths {
+			sb.WriteString(strings.Repeat(s.Horizontal, w+2))
+			if i < len(widths)-1 {
+				sb.WriteString(s.TopT)
+			}
+		}
+		sb.WriteString(s.RightT)
+		sb.WriteString("\n")
+	}
 
 	// Value row
 	sb.WriteString(s.Vertical)
@@ -280,7 +394,7 @@ func (br *BoxRenderer) RenderGrid(rows [][]string) string {
 		return br.RenderSingleValue("(empty)")
 	}
 
-	// Escape all values and calculate column widths
+	// Escape all values, apply maxWidth, and calculate column widths
 	escaped := make([][]string, len(rows))
 	colWidths := make([]int, maxCols)
 
@@ -289,6 +403,9 @@ func (br *BoxRenderer) RenderGrid(rows [][]string) string {
 		for j := 0; j < maxCols; j++ {
 			if j < len(row) {
 				escaped[i][j] = boxEscapeString(row[j])
+				if br.MaxWidth > 0 {
+					escaped[i][j] = truncateToWidth(escaped[i][j], br.MaxWidth)
+				}
 			} else {
 				escaped[i][j] = "" // Pad jagged arrays
 			}
@@ -299,8 +416,24 @@ func (br *BoxRenderer) RenderGrid(rows [][]string) string {
 		}
 	}
 
+	// Calculate total row width
+	totalWidth := 0
+	for _, w := range colWidths {
+		totalWidth += w + 2 // +2 for padding
+	}
+	totalWidth += len(colWidths) - 1 // Add separators
+
 	var sb strings.Builder
 	s := br.Style
+
+	// Calculate title row width if needed
+	titleRowWidth := 0
+	if br.Title != "" {
+		titleWidth := displayWidth(br.Title)
+		if titleWidth > totalWidth {
+			titleRowWidth = titleWidth
+		}
+	}
 
 	// Helper to write horizontal line
 	writeHLine := func(left, mid, right string) {
@@ -316,7 +449,31 @@ func (br *BoxRenderer) RenderGrid(rows [][]string) string {
 	}
 
 	// Top border
-	writeHLine(s.TopLeft, s.TopT, s.TopRight)
+	if titleRowWidth > 0 {
+		sb.WriteString(s.TopLeft)
+		sb.WriteString(strings.Repeat(s.Horizontal, titleRowWidth+2))
+		sb.WriteString(s.TopRight)
+		sb.WriteString("\n")
+	} else {
+		writeHLine(s.TopLeft, s.TopT, s.TopRight)
+	}
+
+	// Title row (if set)
+	if br.Title != "" {
+		rowWidth := titleRowWidth
+		if rowWidth == 0 {
+			rowWidth = totalWidth
+		}
+		sb.WriteString(s.Vertical)
+		sb.WriteString(" ")
+		sb.WriteString(br.centerString(br.Title, rowWidth))
+		sb.WriteString(" ")
+		sb.WriteString(s.Vertical)
+		sb.WriteString("\n")
+
+		// Title separator with column dividers
+		writeHLine(s.LeftT, s.TopT, s.RightT)
+	}
 
 	// Data rows
 	for i, row := range escaped {
@@ -362,6 +519,9 @@ func (br *BoxRenderer) RenderTable(headers []string, rows [][]string) string {
 		for j := 0; j < numCols; j++ {
 			if j < len(row) {
 				escapedRows[i][j] = boxEscapeString(row[j])
+				if br.MaxWidth > 0 {
+					escapedRows[i][j] = truncateToWidth(escapedRows[i][j], br.MaxWidth)
+				}
 			} else {
 				escapedRows[i][j] = ""
 			}
@@ -382,7 +542,23 @@ func (br *BoxRenderer) RenderTable(headers []string, rows [][]string) string {
 		}
 	}
 
+	// Calculate total row width
+	totalWidth := 0
+	for _, w := range colWidths {
+		totalWidth += w + 2 // +2 for padding
+	}
+	totalWidth += numCols - 1 // Add separators
+
 	var sb strings.Builder
+
+	// Calculate title row width if needed
+	titleRowWidth := 0
+	if br.Title != "" {
+		titleWidth := displayWidth(br.Title)
+		if titleWidth > totalWidth {
+			titleRowWidth = titleWidth
+		}
+	}
 
 	// Helper to write a horizontal line
 	writeHLine := func(left, mid, right string) {
@@ -410,7 +586,31 @@ func (br *BoxRenderer) RenderTable(headers []string, rows [][]string) string {
 	}
 
 	// Top border
-	writeHLine(s.TopLeft, s.TopT, s.TopRight)
+	if titleRowWidth > 0 {
+		sb.WriteString(s.TopLeft)
+		sb.WriteString(strings.Repeat(s.Horizontal, titleRowWidth+2))
+		sb.WriteString(s.TopRight)
+		sb.WriteString("\n")
+	} else {
+		writeHLine(s.TopLeft, s.TopT, s.TopRight)
+	}
+
+	// Title row (if set)
+	if br.Title != "" {
+		rowWidth := titleRowWidth
+		if rowWidth == 0 {
+			rowWidth = totalWidth
+		}
+		sb.WriteString(s.Vertical)
+		sb.WriteString(" ")
+		sb.WriteString(br.centerString(br.Title, rowWidth))
+		sb.WriteString(" ")
+		sb.WriteString(s.Vertical)
+		sb.WriteString("\n")
+
+		// Title separator with column dividers
+		writeHLine(s.LeftT, s.TopT, s.RightT)
+	}
 
 	// Header row
 	writeRow(escapedHeaders)
@@ -446,6 +646,11 @@ func (br *BoxRenderer) RenderKeyValue(keys []string, values []string) string {
 		escapedKeys[i] = boxEscapeString(keys[i])
 		escapedVals[i] = boxEscapeString(values[i])
 
+		// Apply maxWidth to values (not keys)
+		if br.MaxWidth > 0 {
+			escapedVals[i] = truncateToWidth(escapedVals[i], br.MaxWidth)
+		}
+
 		kw := displayWidth(escapedKeys[i])
 		vw := displayWidth(escapedVals[i])
 
@@ -457,8 +662,20 @@ func (br *BoxRenderer) RenderKeyValue(keys []string, values []string) string {
 		}
 	}
 
+	// Calculate total row width
+	totalWidth := keyWidth + valWidth + 5 // +5 for padding and separator
+
 	var sb strings.Builder
 	s := br.Style
+
+	// Calculate title row width if needed
+	titleRowWidth := 0
+	if br.Title != "" {
+		titleWidth := displayWidth(br.Title)
+		if titleWidth > totalWidth {
+			titleRowWidth = titleWidth
+		}
+	}
 
 	// Helper to write horizontal line
 	writeHLine := func(left, mid, right string) {
@@ -471,7 +688,31 @@ func (br *BoxRenderer) RenderKeyValue(keys []string, values []string) string {
 	}
 
 	// Top border
-	writeHLine(s.TopLeft, s.TopT, s.TopRight)
+	if titleRowWidth > 0 {
+		sb.WriteString(s.TopLeft)
+		sb.WriteString(strings.Repeat(s.Horizontal, titleRowWidth+2))
+		sb.WriteString(s.TopRight)
+		sb.WriteString("\n")
+	} else {
+		writeHLine(s.TopLeft, s.TopT, s.TopRight)
+	}
+
+	// Title row (if set)
+	if br.Title != "" {
+		rowWidth := titleRowWidth
+		if rowWidth == 0 {
+			rowWidth = totalWidth
+		}
+		sb.WriteString(s.Vertical)
+		sb.WriteString(" ")
+		sb.WriteString(br.centerString(br.Title, rowWidth))
+		sb.WriteString(" ")
+		sb.WriteString(s.Vertical)
+		sb.WriteString("\n")
+
+		// Title separator with column divider
+		writeHLine(s.LeftT, s.TopT, s.RightT)
+	}
 
 	// Key-value rows
 	for i := range escapedKeys {
@@ -511,11 +752,44 @@ func boxEscapeString(s string) string {
 	return s
 }
 
+// truncateToWidth truncates a string to maxWidth characters, adding ellipsis if needed
+// Returns the original string if maxWidth <= 3 (can't fit meaningful content + ellipsis)
+func truncateToWidth(s string, maxWidth int) string {
+	if maxWidth <= 3 {
+		return s // Too small to truncate meaningfully
+	}
+	if displayWidth(s) <= maxWidth {
+		return s
+	}
+	// Truncate by runes to handle unicode properly
+	runes := []rune(s)
+	if len(runes) <= maxWidth-3 {
+		return s
+	}
+	return string(runes[:maxWidth-3]) + "..."
+}
+
+// BoxOptions holds parsed toBox options
+type BoxOptions struct {
+	Direction string
+	Align     BoxAlign
+	KeysOnly  bool
+	Style     BoxStyle
+	Title     string
+	MaxWidth  int
+}
+
 // parseBoxOptions parses toBox options from arguments
-func parseBoxOptions(args []Object) (direction string, align BoxAlign, keysOnly bool, err Object) {
-	direction = "vertical"
-	align = BoxAlignLeft
-	keysOnly = false
+func parseBoxOptions(args []Object) (opts BoxOptions, err Object) {
+	// Set defaults
+	opts = BoxOptions{
+		Direction: "vertical",
+		Align:     BoxAlignLeft,
+		KeysOnly:  false,
+		Style:     BoxStyleSingle,
+		Title:     "",
+		MaxWidth:  0,
+	}
 
 	if len(args) == 0 {
 		return
@@ -526,18 +800,18 @@ func parseBoxOptions(args []Object) (direction string, align BoxAlign, keysOnly 
 		return
 	}
 
-	opts, ok := args[0].(*Dictionary)
+	optsDict, ok := args[0].(*Dictionary)
 	if !ok {
 		err = newTypeError("TYPE-0001", "toBox", "dictionary", args[0].Type())
 		return
 	}
 
 	// Parse direction
-	if dirVal := getDictValue(opts, "direction"); dirVal != nil && dirVal != NULL {
+	if dirVal := getDictValue(optsDict, "direction"); dirVal != nil && dirVal != NULL {
 		if dirStr, ok := dirVal.(*String); ok {
 			switch dirStr.Value {
 			case "vertical", "horizontal", "grid":
-				direction = dirStr.Value
+				opts.Direction = dirStr.Value
 			default:
 				err = newValueError("VALUE-0001", map[string]any{
 					"Message": "direction must be 'vertical', 'horizontal', or 'grid'",
@@ -548,15 +822,15 @@ func parseBoxOptions(args []Object) (direction string, align BoxAlign, keysOnly 
 	}
 
 	// Parse align
-	if alignVal := getDictValue(opts, "align"); alignVal != nil && alignVal != NULL {
+	if alignVal := getDictValue(optsDict, "align"); alignVal != nil && alignVal != NULL {
 		if alignStr, ok := alignVal.(*String); ok {
 			switch alignStr.Value {
 			case "left":
-				align = BoxAlignLeft
+				opts.Align = BoxAlignLeft
 			case "right":
-				align = BoxAlignRight
+				opts.Align = BoxAlignRight
 			case "center":
-				align = BoxAlignCenter
+				opts.Align = BoxAlignCenter
 			default:
 				err = newValueError("VALUE-0001", map[string]any{
 					"Message": "align must be 'left', 'right', or 'center'",
@@ -567,9 +841,55 @@ func parseBoxOptions(args []Object) (direction string, align BoxAlign, keysOnly 
 	}
 
 	// Parse keys (for dictionaries)
-	if keysVal := getDictValue(opts, "keys"); keysVal != nil && keysVal != NULL {
+	if keysVal := getDictValue(optsDict, "keys"); keysVal != nil && keysVal != NULL {
 		if keysBool, ok := keysVal.(*Boolean); ok {
-			keysOnly = keysBool.Value
+			opts.KeysOnly = keysBool.Value
+		}
+	}
+
+	// Parse style
+	if styleVal := getDictValue(optsDict, "style"); styleVal != nil && styleVal != NULL {
+		if styleStr, ok := styleVal.(*String); ok {
+			switch styleStr.Value {
+			case "single":
+				opts.Style = BoxStyleSingle
+			case "double":
+				opts.Style = BoxStyleDouble
+			case "ascii":
+				opts.Style = BoxStyleASCII
+			case "rounded":
+				opts.Style = BoxStyleRounded
+			default:
+				err = &Error{Message: "toBox: invalid style '" + styleStr.Value + "', must be 'single', 'double', 'ascii', or 'rounded'"}
+				return
+			}
+		} else {
+			err = &Error{Message: "toBox: style option must be a string, got " + string(styleVal.Type())}
+			return
+		}
+	}
+
+	// Parse title
+	if titleVal := getDictValue(optsDict, "title"); titleVal != nil && titleVal != NULL {
+		if titleStr, ok := titleVal.(*String); ok {
+			opts.Title = titleStr.Value
+		} else {
+			err = &Error{Message: "toBox: title option must be a string, got " + string(titleVal.Type())}
+			return
+		}
+	}
+
+	// Parse maxWidth
+	if maxWidthVal := getDictValue(optsDict, "maxWidth"); maxWidthVal != nil && maxWidthVal != NULL {
+		if maxWidthInt, ok := maxWidthVal.(*Integer); ok {
+			if maxWidthInt.Value < 0 {
+				err = &Error{Message: "toBox: maxWidth must be a non-negative integer"}
+				return
+			}
+			opts.MaxWidth = int(maxWidthInt.Value)
+		} else {
+			err = &Error{Message: "toBox: maxWidth option must be an integer, got " + string(maxWidthVal.Type())}
+			return
 		}
 	}
 
@@ -636,16 +956,19 @@ func isArrayOfArrays(arr *Array) bool {
 
 // arrayToBox renders an array as a box
 func arrayToBox(arr *Array, args []Object, env *Environment) Object {
-	direction, align, _, err := parseBoxOptions(args)
+	opts, err := parseBoxOptions(args)
 	if err != nil {
 		return err
 	}
 
 	br := NewBoxRenderer()
-	br.Align = align
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.Title = opts.Title
+	br.MaxWidth = opts.MaxWidth
 
 	// Grid mode: explicit direction or auto-detect array of arrays
-	if direction == "grid" || isArrayOfArrays(arr) {
+	if opts.Direction == "grid" || isArrayOfArrays(arr) {
 		rows := make([][]string, len(arr.Elements))
 		for i, el := range arr.Elements {
 			if innerArr, ok := el.(*Array); ok {
@@ -669,7 +992,7 @@ func arrayToBox(arr *Array, args []Object, env *Environment) Object {
 	}
 
 	// Render based on direction
-	if direction == "horizontal" {
+	if opts.Direction == "horizontal" {
 		return &String{Value: br.RenderHorizontalList(values)}
 	}
 	return &String{Value: br.RenderVerticalList(values)}
@@ -677,18 +1000,21 @@ func arrayToBox(arr *Array, args []Object, env *Environment) Object {
 
 // dictToBox renders a dictionary as a box
 func dictToBox(dict *Dictionary, args []Object, env *Environment) Object {
-	_, align, keysOnly, err := parseBoxOptions(args)
+	opts, err := parseBoxOptions(args)
 	if err != nil {
 		return err
 	}
 
 	br := NewBoxRenderer()
-	br.Align = align
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.Title = opts.Title
+	br.MaxWidth = opts.MaxWidth
 
 	// Get keys in order
 	keys := dict.Keys()
 
-	if keysOnly {
+	if opts.KeysOnly {
 		return &String{Value: br.RenderKeysOnly(keys)}
 	}
 

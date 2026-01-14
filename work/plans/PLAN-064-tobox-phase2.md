@@ -2,8 +2,9 @@
 id: PLAN-064
 feature: FEAT-089
 title: "Implementation Plan for toBox() Phase 2 Options"
-status: draft
+status: complete
 created: 2026-01-14
+completed: 2026-01-14
 ---
 
 # Implementation Plan: FEAT-089
@@ -160,21 +161,21 @@ Deferred due to terminal compatibility complexity.
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run` (no new issues)
-- [ ] Documentation updated
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Linter passes: `golangci-lint run` (no new issues)
+- [x] Documentation updated
 - [ ] FEAT-089 spec updated with implementation notes
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Style option | ⬜ | |
-| | Task 2: maxWidth option | ⬜ | |
-| | Task 3: Title option | ⬜ | |
-| | Task 4: Combined options | ⬜ | |
-| | Task 5: Table.toBox() options | ⬜ | |
-| | Task 6: Documentation | ⬜ | |
+| 2026-01-14 | Task 1: Style option | ✅ | Wired up existing BoxStyle presets |
+| 2026-01-14 | Task 2: maxWidth option | ✅ | Added truncateToWidth() with ellipsis |
+| 2026-01-14 | Task 3: Title option | ✅ | Added centered title row to all render methods |
+| 2026-01-14 | Task 4: Combined options | ✅ | All options work together |
+| 2026-01-14 | Task 5: Table.toBox() options | ✅ | Updated tableToBox() to parse options |
+| 2026-01-14 | Task 6: Documentation | ✅ | Updated reference.md |
 
 ## Estimated Total Effort
 - Task 1: ~30 min (Small)
@@ -184,3 +185,21 @@ Deferred due to terminal compatibility complexity.
 - Task 5: ~30 min (Small)
 - Task 6: ~30 min (Small)
 - **Total: ~4 hours**
+
+## Implementation Notes
+
+### Files Modified
+- `pkg/parsley/evaluator/eval_box.go` - Main implementation
+  - Added `BoxOptions` struct with Style, Title, MaxWidth fields
+  - Updated `parseBoxOptions()` to parse new options with type validation
+  - Added `truncateToWidth()` helper for maxWidth truncation
+  - Added `centerString()` method to BoxRenderer
+  - Updated all render methods: RenderSingleValue, RenderVerticalList, RenderHorizontalList, RenderGrid, RenderKeyValue, RenderTable
+- `pkg/parsley/evaluator/stdlib_table.go` - Table integration
+  - Updated `tableToBox()` to accept and pass options to BoxRenderer
+- `pkg/parsley/tests/tobox_options_test.go` - New test file
+  - Comprehensive tests for style, title, maxWidth options
+  - Error handling tests for invalid option values
+- `docs/parsley/reference.md` - Documentation updates
+  - Added new options to String, Array, Dictionary, Table toBox() sections
+  - Updated method reference tables

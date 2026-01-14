@@ -1,11 +1,13 @@
 ---
 id: FEAT-089
 title: "toBox() Phase 2: Style, Title, and Width Options"
-status: draft
+status: complete
 priority: low
 created: 2026-01-14
+completed: 2026-01-14
 author: "@human"
 related: FEAT-088
+plan: PLAN-064
 ---
 
 # FEAT-089: toBox() Phase 2 Options
@@ -19,25 +21,25 @@ As a Parsley developer building CLI tools, I want to customize box appearance wi
 ## Acceptance Criteria
 
 ### Style Option
-- [ ] `{style: "single"}` renders with single-line box characters (default, current behavior)
-- [ ] `{style: "double"}` renders with double-line box characters (╔═╗║╚╝)
-- [ ] `{style: "ascii"}` renders with ASCII-only characters (+|-) for maximum compatibility
-- [ ] `{style: "rounded"}` renders with rounded corners (╭╮╰╯)
-- [ ] Style option works with all value types (scalar, array, dictionary, table)
+- [x] `{style: "single"}` renders with single-line box characters (default, current behavior)
+- [x] `{style: "double"}` renders with double-line box characters (╔═╗║╚╝)
+- [x] `{style: "ascii"}` renders with ASCII-only characters (+|-) for maximum compatibility
+- [x] `{style: "rounded"}` renders with rounded corners (╭╮╰╯)
+- [x] Style option works with all value types (scalar, array, dictionary, table)
 
 ### Title Option
-- [ ] `{title: "My Data"}` renders a title row at the top of the box
-- [ ] Title is centered within the box width
-- [ ] Title row uses appropriate separators based on style
-- [ ] Works with all toBox variants (vertical, horizontal, grid, key-value)
-- [ ] Empty string title `{title: ""}` is ignored (no title row)
+- [x] `{title: "My Data"}` renders a title row at the top of the box
+- [x] Title is centered within the box width
+- [x] Title row uses appropriate separators based on style
+- [x] Works with all toBox variants (vertical, horizontal, grid, key-value)
+- [x] Empty string title `{title: ""}` is ignored (no title row)
 
 ### Width Control
-- [ ] `{maxWidth: N}` limits column width to N characters
-- [ ] Values exceeding maxWidth are truncated with ellipsis (`...`)
-- [ ] Truncation preserves box structure (doesn't break borders)
-- [ ] Works with all value types
-- [ ] `maxWidth` of 0 or negative is ignored (no limit)
+- [x] `{maxWidth: N}` limits column width to N characters
+- [x] Values exceeding maxWidth are truncated with ellipsis (`...`)
+- [x] Truncation preserves box structure (doesn't break borders)
+- [x] Works with all value types
+- [x] `maxWidth` of 0 or negative is ignored (no limit)
 
 ### Phase 3: Color Support (Nice-to-Have)
 - [ ] `{color: true}` enables ANSI color output
