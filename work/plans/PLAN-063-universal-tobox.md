@@ -204,9 +204,9 @@ Add `{maxWidth: N}` option with ellipsis truncation.
 ## Validation Checklist
 - [x] All tests pass: `go test ./...`
 - [x] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run`
+- [x] Linter passes: `golangci-lint run` (no new issues from toBox; pre-existing issues unrelated)
 - [x] Documentation updated
-- [ ] work/BACKLOG.md updated with Phase 2 items
+- [x] work/BACKLOG.md updated with Phase 2 items (#61-64)
 
 ## Progress Log
 | Date | Task | Status | Notes |
