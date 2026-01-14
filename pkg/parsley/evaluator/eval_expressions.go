@@ -504,7 +504,8 @@ func extendFunctionEnv(fn *Function, args []Object) *Environment {
 		if paramIdx >= len(args) {
 			break
 		}
-		arg := args[paramIdx]
+		// End any active table chain when passing as argument
+		arg := endTableChain(args[paramIdx])
 
 		// Handle different parameter types
 		if param.DictPattern != nil {

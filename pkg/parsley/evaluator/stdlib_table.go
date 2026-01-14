@@ -613,6 +613,7 @@ func getDictValue(dict *Dictionary, key string) Object {
 }
 
 // tableWhere filters rows where predicate returns truthy
+// Uses copy-on-chain: first call in chain creates copy, subsequent calls reuse it
 func tableWhere(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
 		return newArityError("where", len(args), 1)
@@ -623,37 +624,40 @@ func tableWhere(t *Table, args []Object, env *Environment) Object {
 		return newTypeError("TYPE-0012", "where", "a function", args[0].Type())
 	}
 
+	// Get chain copy (creates one if needed, reuses if already in chain)
+	result := t.ensureChainCopy()
 	filteredRows := make([]*Dictionary, 0)
 
-	for _, row := range t.Rows {
+	for _, row := range result.Rows {
 		// Use extendFunctionEnv to properly bind the row to the function parameter
 		extendedEnv := extendFunctionEnv(fn, []Object{row})
 
 		// Evaluate the function body
-		var result Object
+		var evalResult Object
 		for _, stmt := range fn.Body.Statements {
-			result = evalStatement(stmt, extendedEnv)
-			if returnValue, ok := result.(*ReturnValue); ok {
-				result = returnValue.Value
+			evalResult = evalStatement(stmt, extendedEnv)
+			if returnValue, ok := evalResult.(*ReturnValue); ok {
+				evalResult = returnValue.Value
 				break
 			}
-			if isError(result) {
-				return result
+			if isError(evalResult) {
+				return evalResult
 			}
 		}
 
 		// Check if truthy
-		if isTruthy(result) {
+		if isTruthy(evalResult) {
 			filteredRows = append(filteredRows, row)
 		}
 	}
 
-	newColumns := make([]string, len(t.Columns))
-	copy(newColumns, t.Columns)
-	return &Table{Rows: filteredRows, Columns: newColumns}
+	// Mutate the chain copy in place
+	result.Rows = filteredRows
+	return result
 }
 
 // tableOrderBy sorts rows by column(s)
+// Uses copy-on-chain: first call in chain creates copy, subsequent calls reuse it
 func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 	if len(args) < 1 || len(args) > 2 {
 		return newArityErrorRange("orderBy", len(args), 1, 2)
@@ -714,15 +718,14 @@ func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 		return newValidationError("VAL-0011", map[string]any{"Function": "orderBy"})
 	}
 
-	// Copy rows for sorting
-	sortedRows := make([]*Dictionary, len(t.Rows))
-	copy(sortedRows, t.Rows)
+	// Get chain copy (creates one if needed, reuses if already in chain)
+	result := t.ensureChainCopy()
 
-	// Sort using stable sort to preserve order of equal elements
-	sort.SliceStable(sortedRows, func(i, j int) bool {
+	// Sort in place on the chain copy
+	sort.SliceStable(result.Rows, func(i, j int) bool {
 		for _, spec := range specs {
-			valI := getDictValue(sortedRows[i], spec.column)
-			valJ := getDictValue(sortedRows[j], spec.column)
+			valI := getDictValue(result.Rows[i], spec.column)
+			valJ := getDictValue(result.Rows[j], spec.column)
 
 			cmp := compareObjects(valI, valJ)
 			if cmp != 0 {
@@ -735,12 +738,11 @@ func tableOrderBy(t *Table, args []Object, env *Environment) Object {
 		return false // Equal
 	})
 
-	newColumns := make([]string, len(t.Columns))
-	copy(newColumns, t.Columns)
-	return &Table{Rows: sortedRows, Columns: newColumns}
+	return result
 }
 
 // tableSelect projects specific columns
+// Uses copy-on-chain: first call in chain creates copy, subsequent calls reuse it
 func tableSelect(t *Table, args []Object, env *Environment) Object {
 	if len(args) != 1 {
 		return newArityError("select", len(args), 1)
@@ -761,9 +763,12 @@ func tableSelect(t *Table, args []Object, env *Environment) Object {
 		columns = append(columns, str.Value)
 	}
 
+	// Get chain copy (creates one if needed, reuses if already in chain)
+	result := t.ensureChainCopy()
+
 	// Project each row to only include selected columns
-	projectedRows := make([]*Dictionary, 0, len(t.Rows))
-	for _, row := range t.Rows {
+	projectedRows := make([]*Dictionary, 0, len(result.Rows))
+	for _, row := range result.Rows {
 		newPairs := make(map[string]ast.Expression)
 		for _, col := range columns {
 			if expr, ok := row.Pairs[col]; ok {
@@ -776,10 +781,14 @@ func tableSelect(t *Table, args []Object, env *Environment) Object {
 		projectedRows = append(projectedRows, &Dictionary{Pairs: newPairs, Env: row.Env})
 	}
 
-	return &Table{Rows: projectedRows, Columns: columns}
+	// Mutate the chain copy in place
+	result.Rows = projectedRows
+	result.Columns = columns
+	return result
 }
 
 // tableLimit limits the number of rows
+// Uses copy-on-chain: first call in chain creates copy, subsequent calls reuse it
 func tableLimit(t *Table, args []Object, env *Environment) Object {
 	if len(args) < 1 || len(args) > 2 {
 		return newArityErrorRange("limit", len(args), 1, 2)
@@ -805,22 +814,22 @@ func tableLimit(t *Table, args []Object, env *Environment) Object {
 		offset = off.Value
 	}
 
+	// Get chain copy (creates one if needed, reuses if already in chain)
+	result := t.ensureChainCopy()
+
 	// Calculate slice bounds
 	start := int(offset)
-	if start > len(t.Rows) {
-		start = len(t.Rows)
+	if start > len(result.Rows) {
+		start = len(result.Rows)
 	}
 	end := start + int(n.Value)
-	if end > len(t.Rows) {
-		end = len(t.Rows)
+	if end > len(result.Rows) {
+		end = len(result.Rows)
 	}
 
-	limitedRows := make([]*Dictionary, end-start)
-	copy(limitedRows, t.Rows[start:end])
-
-	newColumns := make([]string, len(t.Columns))
-	copy(newColumns, t.Columns)
-	return &Table{Rows: limitedRows, Columns: newColumns}
+	// Mutate the chain copy in place
+	result.Rows = result.Rows[start:end]
+	return result
 }
 
 // tableCount returns the number of rows

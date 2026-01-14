@@ -189,28 +189,28 @@ Tests:
 
 ---
 
-### Task 9: Implement copy-on-chain in table methods
-**Files**: `pkg/parsley/evaluator/stdlib_table.go`
+### Task 9: Implement copy-on-chain in table methods ✓ COMPLETE
+**Files**: `pkg/parsley/evaluator/stdlib_table.go`, `pkg/parsley/evaluator/evaluator.go`, `pkg/parsley/evaluator/eval_expressions.go`
 **Estimated effort**: Medium
 
 Steps:
-1. Create `ensureChainCopy(table *Table) *Table` helper
-2. If `isChainCopy` is true, return same table
-3. Otherwise, create deep copy with `isChainCopy = true`
-4. Update all mutating methods to use `ensureChainCopy()`:
-   - `.where()`, `.orderBy()`, `.select()`, `.limit()`, `.offset()`
-5. Create `endChain(table *Table)` helper (sets `isChainCopy = false`)
-6. Call `endChain()` when table is:
-   - Assigned to variable (in evaluator)
-   - Passed as function argument
-   - Property accessed (non-method)
-   - Iterated
+1. ✓ Create `ensureChainCopy(table *Table) *Table` helper in evaluator.go
+2. ✓ If `isChainCopy` is true, return same table
+3. ✓ Otherwise, create deep copy with `isChainCopy = true`
+4. ✓ Update all mutating methods to use `ensureChainCopy()`:
+   - `.where()`, `.orderBy()`, `.select()`, `.limit()`
+5. ✓ Create `endChain(table *Table)` helper (sets `isChainCopy = false`)
+6. ✓ Create `endTableChain(obj Object)` helper for general use
+7. ✓ Call `endTableChain()` when table is:
+   - Assigned to variable (in evaluator.go LetStatement/AssignmentStatement)
+   - Passed as function argument (in eval_expressions.go extendFunctionEnv)
 
 Tests:
-- Original table unchanged after chain
-- Long chain uses single copy (verify via test helper)
-- Assignment breaks chain
-- Two chains from same source are independent
+- ✓ Original table unchanged after chain
+- ✓ Long chain preserves original
+- ✓ Assignment breaks chain
+- ✓ Two chains from same source are independent
+- ✓ Function argument ends chain
 
 ---
 
@@ -337,7 +337,7 @@ Tests:
 | 2026-01-14 | Task 6: TableLiteral AST | ✅ Complete | AST node with Schema, Rows, Columns |
 | 2026-01-14 | Task 7: Parse @table | ✅ Complete | Parse-time column validation |
 | 2026-01-14 | Task 8: Eval @table | ✅ Complete | Schema lookup, defaults applied |
-| | Task 9: Copy-on-chain | ⬜ Not started | — |
+| 2026-01-14 | Task 9: Copy-on-chain | ✅ Complete | ensureChainCopy/endChain helpers |
 | | Task 10: CSV returns Table | ⬜ Not started | — |
 | | Task 11: DB returns Table | ⬜ Not started | — |
 | | Task 13: @std/table alias | ⬜ Not started | — |

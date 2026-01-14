@@ -460,9 +460,53 @@ func (t *Table) Copy() *Table {
 	return &Table{
 		Rows:        newRows,
 		Columns:     newColumns,
-		Schema:      t.Schema,      // Schema is shared (immutable)
-		isChainCopy: false,         // New copy starts fresh chain
+		Schema:      t.Schema, // Schema is shared (immutable)
+		isChainCopy: false,    // New copy starts fresh chain
 	}
+}
+
+// ensureChainCopy returns a copy for method chaining.
+// If this table is already a chain copy, returns itself (avoiding redundant copies).
+// Otherwise, creates a new copy marked as a chain copy.
+// This enables efficient chaining: table.where(...).orderBy(...).limit(...)
+// creates only ONE copy regardless of chain length.
+func (t *Table) ensureChainCopy() *Table {
+	if t.isChainCopy {
+		return t // Already a chain copy, reuse it
+	}
+	// Create new copy for the chain
+	newRows := make([]*Dictionary, len(t.Rows))
+	copy(newRows, t.Rows)
+	newColumns := make([]string, len(t.Columns))
+	copy(newColumns, t.Columns)
+	return &Table{
+		Rows:        newRows,
+		Columns:     newColumns,
+		Schema:      t.Schema,
+		isChainCopy: true, // Mark as chain copy
+	}
+}
+
+// endChain returns a table with the chain flag cleared.
+// Called when a table is assigned to a variable, passed as argument, or iterated.
+// This ensures subsequent operations on the result create new copies.
+func (t *Table) endChain() *Table {
+	if !t.isChainCopy {
+		return t // Not a chain copy, nothing to do
+	}
+	t.isChainCopy = false
+	return t
+}
+
+// endTableChain ends any active chain on a Table.
+// If obj is a Table with isChainCopy=true, clears the flag.
+// Returns the (possibly modified) object unchanged for non-Tables.
+// Call this when storing a table (assignment) or passing as argument.
+func endTableChain(obj Object) Object {
+	if t, ok := obj.(*Table); ok {
+		return t.endChain()
+	}
+	return obj
 }
 
 // DBConnection represents a database connection
@@ -3994,6 +4038,9 @@ func Eval(node ast.Node, env *Environment) Object {
 			return val
 		}
 
+		// End any active table chain when storing
+		val = endTableChain(val)
+
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
 			return evalDictDestructuringAssignment(node.DictPattern, val, env, true, node.Export)
@@ -4021,6 +4068,9 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
+
+		// End any active table chain when storing
+		val = endTableChain(val)
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {

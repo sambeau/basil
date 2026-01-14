@@ -1310,3 +1310,200 @@ t.rows[0].enabled
 		})
 	}
 }
+
+// TestTableCopyOnChain tests that method chaining uses copy-on-chain semantics
+func TestTableCopyOnChain(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected int64
+	}{
+		{
+			name: "original unchanged after where",
+			input: `
+				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				filtered = data.where(fn(r) { r.x > 1 })
+				data.length
+			`,
+			expected: 3, // data unchanged
+		},
+		{
+			name: "original unchanged after orderBy",
+			input: `
+				data = Table([{x: 3}, {x: 1}, {x: 2}])
+				sorted = data.orderBy("x")
+				data.rows[0].x
+			`,
+			expected: 3, // first row should still be x:3
+		},
+		{
+			name: "original unchanged after select",
+			input: `
+				data = Table([{x: 1, y: 2}, {x: 3, y: 4}])
+				projected = data.select(["x"])
+				data.columns.length()
+			`,
+			expected: 2, // should still have 2 columns
+		},
+		{
+			name: "original unchanged after limit",
+			input: `
+				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				limited = data.limit(1)
+				data.length
+			`,
+			expected: 3, // data unchanged
+		},
+		{
+			name: "chained operations work correctly",
+			input: `
+				data = Table([{x: 3, y: "c"}, {x: 1, y: "a"}, {x: 2, y: "b"}])
+				data.where(fn(r) { r.x > 1 }).orderBy("x").limit(1).rows[0].x
+			`,
+			expected: 2, // x:2 is the first after filtering x>1 and ordering
+		},
+		{
+			name: "long chain preserves original",
+			input: `
+				data = Table([{x: 1}, {x: 2}, {x: 3}, {x: 4}, {x: 5}])
+				result = data.where(fn(r) { r.x > 1 }).where(fn(r) { r.x < 5 }).orderBy("x").limit(2)
+				data.length
+			`,
+			expected: 5, // original unchanged
+		},
+		{
+			name: "two independent chains from same source - original preserved",
+			input: `
+				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				a = data.where(fn(r) { r.x == 1 })
+				b = data.where(fn(r) { r.x == 2 })
+				data.length
+			`,
+			expected: 3, // original unchanged
+		},
+		{
+			name: "two independent chains - first chain result",
+			input: `
+				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				a = data.where(fn(r) { r.x == 1 })
+				b = data.where(fn(r) { r.x == 2 })
+				a.length
+			`,
+			expected: 1, // a has 1 row
+		},
+		{
+			name: "two independent chains - second chain result",
+			input: `
+				data = Table([{x: 1}, {x: 2}, {x: 3}])
+				a = data.where(fn(r) { r.x == 1 })
+				b = data.where(fn(r) { r.x == 2 })
+				b.length
+			`,
+			expected: 1, // b has 1 row
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("unexpected error: %s", result.Inspect())
+			}
+
+			intResult, ok := result.(*evaluator.Integer)
+			if !ok {
+				t.Fatalf("expected Integer, got %s: %s", result.Type(), result.Inspect())
+			}
+
+			if intResult.Value != tt.expected {
+				t.Errorf("expected %d, got %d", tt.expected, intResult.Value)
+			}
+		})
+	}
+}
+
+// TestTableCopyOnChainAssignment tests that assignment ends a chain
+func TestTableCopyOnChainAssignment(t *testing.T) {
+	// Test that data is unchanged
+	input1 := `
+		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		filtered = data.where(fn(r) { r.x > 1 })
+		sorted = filtered.orderBy("x", "desc")
+		data.length
+	`
+	result1 := evalTest(t, input1)
+	if intVal, ok := result1.(*evaluator.Integer); !ok || intVal.Value != 3 {
+		t.Errorf("data should have 3 rows, got %s", result1.Inspect())
+	}
+
+	// Test that filtered has 2 rows
+	input2 := `
+		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		filtered = data.where(fn(r) { r.x > 1 })
+		sorted = filtered.orderBy("x", "desc")
+		filtered.length
+	`
+	result2 := evalTest(t, input2)
+	if intVal, ok := result2.(*evaluator.Integer); !ok || intVal.Value != 2 {
+		t.Errorf("filtered should have 2 rows, got %s", result2.Inspect())
+	}
+
+	// Test that sorted has correct ordering (first row should be x:3)
+	input3 := `
+		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		filtered = data.where(fn(r) { r.x > 1 })
+		sorted = filtered.orderBy("x", "desc")
+		sorted.rows[0].x
+	`
+	result3 := evalTest(t, input3)
+	if intVal, ok := result3.(*evaluator.Integer); !ok || intVal.Value != 3 {
+		t.Errorf("sorted first row x should be 3, got %s", result3.Inspect())
+	}
+}
+
+// TestTableCopyOnChainFunctionArg tests that passing table as argument ends chain
+func TestTableCopyOnChainFunctionArg(t *testing.T) {
+	input := `
+		getLength = fn(tbl) {
+			tbl.length
+		}
+		
+		data = Table([{x: 1}, {x: 2}, {x: 3}])
+		filtered = data.where(fn(r) { r.x > 1 })
+		
+		// Pass to function - should end chain
+		getLength(filtered)
+	`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	result := evaluator.Eval(program, env)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("unexpected error: %s", result.Inspect())
+	}
+
+	intResult, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %s", result.Type())
+	}
+
+	if intResult.Value != 2 {
+		t.Errorf("expected 2, got %d", intResult.Value)
+	}
+}
