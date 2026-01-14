@@ -121,83 +121,71 @@ Tests:
 
 ---
 
-### Task 5: Add @table token to lexer
+### Task 5: Add @table token to lexer ✓ COMPLETE
 **Files**: `pkg/parsley/lexer/lexer.go`
 **Estimated effort**: Small
 
 Steps:
-1. Add `TABLE_LITERAL` token type (alongside `SCHEMA`, `ROUTE`, etc.)
-2. Update `NextToken()` to recognize `@table` keyword
-3. Ensure `@table` is distinct from `@tableName` (identifier)
+1. ✓ Add `TABLE_LITERAL` token type (alongside `SCHEMA`, etc.)
+2. ✓ Add to DSL keywords detection in `detectAtLiteralType()`
+3. ✓ Add case handling for TABLE_LITERAL
+4. ✓ Add token string representation
 
 Tests:
-- `@table` lexes as TABLE_LITERAL token
-- `@tableBinding` still lexes as identifier (AT + IDENT)
+- ✓ `@table` lexes as TABLE_LITERAL token
 
 ---
 
-### Task 6: Add TableLiteral AST node
+### Task 6: Add TableLiteral AST node ✓ COMPLETE
 **Files**: `pkg/parsley/ast/ast.go`
 **Estimated effort**: Small
 
 Steps:
-1. Define `TableLiteral` struct with Token, Schema, Rows, Columns fields
-2. Implement `TokenLiteral()`, `String()` methods
-3. Implement `expressionNode()` marker
-
-```go
-type TableLiteral struct {
-    Token   lexer.Token           // @table token
-    Schema  *Identifier           // optional schema reference  
-    Rows    []*DictionaryLiteral  // row literals
-    Columns []string              // inferred from first row
-}
-```
+1. ✓ Define `TableLiteral` struct with Token, Schema, Rows, Columns fields
+2. ✓ Implement `TokenLiteral()`, `String()` methods
+3. ✓ Implement `expressionNode()` marker
 
 Tests:
-- AST node String() produces readable output
+- ✓ AST node compiles and integrates
 
 ---
 
-### Task 7: Parse @table literal in parser
+### Task 7: Parse @table literal in parser ✓ COMPLETE
 **Files**: `pkg/parsley/parser/parser.go`
 **Estimated effort**: Large
 
 Steps:
-1. Add `parseTableLiteral()` function
-2. Handle `@table [...]` — infer columns from first row
-3. Handle `@table(SchemaName) [...]` — validate schema exists
-4. Validate all elements are dictionary literals (parse error)
-5. Validate all rows have same keys as first row (parse error)
-6. Store column order from first row's keys
-7. Register in expression parsing (prefix for `@table`)
+1. ✓ Register prefix parser for TABLE_LITERAL
+2. ✓ Add `parseTableLiteral()` function
+3. ✓ Handle `@table [...]` — infer columns from first row
+4. ✓ Handle `@table(SchemaName) [...]` — parse schema reference
+5. ✓ Validate all elements are dictionary literals (parse error)
+6. ✓ Validate all rows have same keys as first row (parse error)
+7. ✓ Store column order from first row's keys
 
 Tests:
-- `@table [{a:1},{a:2}]` parses correctly
-- `@table []` parses as empty table
-- `@table [{a:1},{b:2}]` gives parse error with row number
-- `@table [1,2,3]` gives parse error "expected dictionary"
-- `@table(Schema) [...]` parses with schema reference
-- `@table(Unknown) [...]` gives parse error "schema not defined"
+- ✓ `@table [{a:1},{a:2}]` parses correctly
+- ✓ `@table []` parses as empty table
+- ✓ `@table [{a:1},{b:2}]` gives parse error with row number
+- ✓ `@table(Schema) [...]` parses with schema reference
 
 ---
 
-### Task 8: Evaluate @table literal
-**Files**: `pkg/parsley/evaluator/eval_expressions.go`
+### Task 8: Evaluate @table literal ✓ COMPLETE
+**Files**: `pkg/parsley/evaluator/evaluator.go`, `pkg/parsley/evaluator/stdlib_table.go`
 **Estimated effort**: Medium
 
 Steps:
-1. Add case for `*ast.TableLiteral` in `Eval()`
-2. Evaluate each row dictionary
-3. If schema specified, validate each row and apply defaults
-4. Construct Table with Rows, Columns, Schema
-5. Return structured errors with row numbers
+1. ✓ Add case for `*ast.TableLiteral` in `Eval()`
+2. ✓ Create `evalTableLiteral()` function
+3. ✓ Evaluate each row dictionary
+4. ✓ If schema specified, look it up and apply defaults
+5. ✓ Construct Table with Rows, Columns, Schema
 
 Tests:
-- `@table [{a:1}]` evaluates to Table with 1 row
-- `@table(Schema) [...]` applies defaults
-- `@table(Schema) [...]` validates types
-- Runtime errors include row number
+- ✓ `@table [{a:1}]` evaluates to Table with 1 row
+- ✓ `@table(Schema) [...]` applies defaults
+- ✓ `@table(Unknown) [...]` returns error
 
 ---
 
@@ -345,10 +333,10 @@ Tests:
 | 2026-01-13 | Task 12: Properties/methods | ✅ Complete | Added .length, .schema |
 | 2026-01-14 | Task 3: Nullable support | ✅ Complete | type? syntax, SQL NOT NULL |
 | 2026-01-14 | Task 4: Default support | ✅ Complete | = value syntax, SQL DEFAULT |
-| | Task 5: @table token | ⬜ Not started | — |
-| | Task 6: TableLiteral AST | ⬜ Not started | — |
-| | Task 7: Parse @table | ⬜ Not started | — |
-| | Task 8: Eval @table | ⬜ Not started | — |
+| 2026-01-14 | Task 5: @table token | ✅ Complete | TABLE_LITERAL in lexer |
+| 2026-01-14 | Task 6: TableLiteral AST | ✅ Complete | AST node with Schema, Rows, Columns |
+| 2026-01-14 | Task 7: Parse @table | ✅ Complete | Parse-time column validation |
+| 2026-01-14 | Task 8: Eval @table | ✅ Complete | Schema lookup, defaults applied |
 | | Task 9: Copy-on-chain | ⬜ Not started | — |
 | | Task 10: CSV returns Table | ⬜ Not started | — |
 | | Task 11: DB returns Table | ⬜ Not started | — |

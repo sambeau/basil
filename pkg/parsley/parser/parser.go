@@ -109,6 +109,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.ARGS_LITERAL, p.parseBuiltinGlobal)
 	p.registerPrefix(lexer.PARAMS_LITERAL, p.parseBuiltinGlobal)
 	p.registerPrefix(lexer.SCHEMA_LITERAL, p.parseSchemaDeclaration)
+	p.registerPrefix(lexer.TABLE_LITERAL, p.parseTableLiteral)
 	p.registerPrefix(lexer.QUERY_LITERAL, p.parseQueryExpression)
 	p.registerPrefix(lexer.INSERT_LITERAL, p.parseInsertExpression)
 	p.registerPrefix(lexer.UPDATE_LITERAL, p.parseUpdateExpression)
@@ -2985,6 +2986,125 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 	}
 
 	return field
+}
+
+// parseTableLiteral parses @table [...] or @table(Schema) [...]
+func (p *Parser) parseTableLiteral() ast.Expression {
+	table := &ast.TableLiteral{Token: p.curToken}
+
+	// Check for optional schema reference: @table(Schema)
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // consume (
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		table.Schema = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	}
+
+	// Expect opening bracket for row array
+	if !p.expectPeek(lexer.LBRACKET) {
+		return nil
+	}
+
+	// Parse rows (array of dictionaries)
+	table.Rows = []*ast.DictionaryLiteral{}
+	rowIndex := 0
+
+	for !p.peekTokenIs(lexer.RBRACKET) && !p.peekTokenIs(lexer.EOF) {
+		p.nextToken()
+		rowIndex++
+
+		// Each element must be a dictionary literal
+		if !p.curTokenIs(lexer.LBRACE) {
+			p.addError(
+				fmt.Sprintf("@table row %d: expected dictionary literal, got %s", rowIndex, p.curToken.Type),
+				p.curToken.Line, p.curToken.Column,
+			)
+			return nil
+		}
+
+		dict := p.parseDictionaryLiteral()
+		if dict == nil {
+			return nil
+		}
+
+		dictLit, ok := dict.(*ast.DictionaryLiteral)
+		if !ok {
+			p.addError(
+				fmt.Sprintf("@table row %d: expected dictionary literal", rowIndex),
+				p.curToken.Line, p.curToken.Column,
+			)
+			return nil
+		}
+
+		// Extract column names from first row
+		if rowIndex == 1 {
+			table.Columns = make([]string, 0, len(dictLit.Pairs))
+			for key := range dictLit.Pairs {
+				table.Columns = append(table.Columns, key)
+			}
+		} else {
+			// Validate subsequent rows have same columns
+			rowKeys := make(map[string]bool)
+			for key := range dictLit.Pairs {
+				rowKeys[key] = true
+			}
+
+			// Check for missing columns
+			var missing []string
+			for _, col := range table.Columns {
+				if !rowKeys[col] {
+					missing = append(missing, col)
+				}
+			}
+			if len(missing) > 0 {
+				p.addError(
+					fmt.Sprintf("@table row %d: missing columns: %s", rowIndex, strings.Join(missing, ", ")),
+					p.curToken.Line, p.curToken.Column,
+				)
+				return nil
+			}
+
+			// Check for extra columns
+			var extra []string
+			for key := range rowKeys {
+				found := false
+				for _, col := range table.Columns {
+					if col == key {
+						found = true
+						break
+					}
+				}
+				if !found {
+					extra = append(extra, key)
+				}
+			}
+			if len(extra) > 0 {
+				p.addError(
+					fmt.Sprintf("@table row %d: extra columns not in first row: %s", rowIndex, strings.Join(extra, ", ")),
+					p.curToken.Line, p.curToken.Column,
+				)
+				return nil
+			}
+		}
+
+		table.Rows = append(table.Rows, dictLit)
+
+		// Check for comma between rows
+		if p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma
+		}
+	}
+
+	// Expect closing bracket
+	if !p.expectPeek(lexer.RBRACKET) {
+		return nil
+	}
+
+	return table
 }
 
 // parseEnumValues parses comma-separated string literals for enum: "a", "b", "c"

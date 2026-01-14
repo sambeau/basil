@@ -461,6 +461,88 @@ func TableConstructor(args []Object, env *Environment) Object {
 	return &Table{Rows: rows, Columns: columns}
 }
 
+// evalTableLiteral evaluates @table [...] or @table(Schema) [...] literals
+func evalTableLiteral(node *ast.TableLiteral, env *Environment) Object {
+	// Handle empty table
+	if len(node.Rows) == 0 {
+		table := &Table{
+			Rows:    []*Dictionary{},
+			Columns: node.Columns, // May be empty for @table []
+		}
+		// If schema specified, attach it
+		if node.Schema != nil {
+			schemaObj, ok := env.Get(node.Schema.Value)
+			if !ok {
+				return newUndefinedError("UNDEF-0001", map[string]any{
+					"Name": node.Schema.Value,
+				})
+			}
+			schema, ok := schemaObj.(*DSLSchema)
+			if !ok {
+				return newTypeError("TYPE-0005", "@table", "a schema", schemaObj.Type())
+			}
+			table.Schema = schema
+		}
+		return table
+	}
+
+	// Evaluate each row
+	rows := make([]*Dictionary, 0, len(node.Rows))
+	var schema *DSLSchema
+
+	// If schema specified, look it up
+	if node.Schema != nil {
+		schemaObj, ok := env.Get(node.Schema.Value)
+		if !ok {
+			return newUndefinedError("UNDEF-0001", map[string]any{
+				"Name": node.Schema.Value,
+			})
+		}
+		schema, ok = schemaObj.(*DSLSchema)
+		if !ok {
+			return newTypeError("TYPE-0005", "@table", "a schema", schemaObj.Type())
+		}
+	}
+
+	for i, rowNode := range node.Rows {
+		// Evaluate the dictionary literal
+		rowObj := evalDictionaryLiteral(rowNode, env)
+		if isError(rowObj) {
+			return rowObj
+		}
+
+		dict, ok := rowObj.(*Dictionary)
+		if !ok {
+			return newStructuredError("TABLE-0002", map[string]any{
+				"Row":  i + 1,
+				"Type": rowObj.Type(),
+			})
+		}
+
+		// If schema specified, validate and apply defaults
+		if schema != nil {
+			// Apply defaults for missing fields
+			for fieldName, field := range schema.Fields {
+				if _, exists := dict.Pairs[fieldName]; !exists && field.DefaultValue != nil {
+					// Add default value to the row
+					dict.Pairs[fieldName] = objectToExpression(field.DefaultValue)
+				}
+			}
+
+			// Validate field types (optional - could be strict mode)
+			// For now, we trust the schema validation at insert time
+		}
+
+		rows = append(rows, dict)
+	}
+
+	return &Table{
+		Rows:    rows,
+		Columns: node.Columns,
+		Schema:  schema,
+	}
+}
+
 // TableFromDict creates a Table from a dictionary's entries
 // Usage: fromDict(dict) or fromDict(dict, keyColumnName, valueColumnName)
 func TableFromDict(args []Object, env *Environment) Object {

@@ -38,6 +38,7 @@ const (
 	ARGS_LITERAL      // @args
 	PARAMS_LITERAL    // @params
 	SCHEMA_LITERAL    // @schema
+	TABLE_LITERAL     // @table
 	QUERY_LITERAL     // @query
 	INSERT_LITERAL    // @insert
 	UPDATE_LITERAL    // @update
@@ -349,6 +350,8 @@ func (tt TokenType) String() string {
 		return "VIA"
 	case SCHEMA_LITERAL:
 		return "SCHEMA_LITERAL"
+	case TABLE_LITERAL:
+		return "TABLE_LITERAL"
 	case QUERY_LITERAL:
 		return "QUERY_LITERAL"
 	case INSERT_LITERAL:
@@ -984,6 +987,9 @@ func (l *Lexer) NextToken() Token {
 		case SCHEMA_LITERAL:
 			tok.Type = SCHEMA_LITERAL
 			tok.Literal = l.readDSLKeyword("schema")
+		case TABLE_LITERAL:
+			tok.Type = TABLE_LITERAL
+			tok.Literal = l.readDSLKeyword("table")
 		case QUERY_LITERAL:
 			tok.Type = QUERY_LITERAL
 			tok.Literal = l.readDSLKeyword("query")
@@ -2488,6 +2494,7 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		token   TokenType
 	}{
 		{"schema", SCHEMA_LITERAL},
+		{"table", TABLE_LITERAL},
 		{"query", QUERY_LITERAL},
 		{"insert", INSERT_LITERAL},
 		{"update", UPDATE_LITERAL},

@@ -1361,6 +1361,35 @@ func (sf *SchemaField) String() string {
 	return out.String()
 }
 
+// TableLiteral represents @table [...] or @table(Schema) [...] literals
+type TableLiteral struct {
+	Token   lexer.Token          // the TABLE_LITERAL token
+	Schema  *Identifier          // optional schema reference
+	Rows    []*DictionaryLiteral // row literals
+	Columns []string             // column names (inferred from first row)
+}
+
+func (tl *TableLiteral) expressionNode()      {}
+func (tl *TableLiteral) TokenLiteral() string { return tl.Token.Literal }
+func (tl *TableLiteral) String() string {
+	var out bytes.Buffer
+	out.WriteString("@table")
+	if tl.Schema != nil {
+		out.WriteString("(")
+		out.WriteString(tl.Schema.Value)
+		out.WriteString(")")
+	}
+	out.WriteString(" [")
+	for i, row := range tl.Rows {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(row.String())
+	}
+	out.WriteString("]")
+	return out.String()
+}
+
 // QueryExpression represents @query(source | conditions ??-> projection) expressions
 type QueryExpression struct {
 	Token          lexer.Token           // the QUERY_LITERAL token

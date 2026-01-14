@@ -4118,6 +4118,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.SchemaDeclaration:
 		return evalSchemaDeclaration(node, env)
 
+	case *ast.TableLiteral:
+		return evalTableLiteral(node, env)
+
 	case *ast.QueryExpression:
 		return evalQueryExpression(node, env)
 

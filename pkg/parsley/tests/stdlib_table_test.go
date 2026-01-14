@@ -1122,3 +1122,191 @@ user.email`,
 		tc.assert(t, result)
 	}
 }
+
+// TestTableLiteralSyntax tests the @table [...] literal syntax
+func TestTableLiteralSyntax(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectRows  int
+		expectCols  int
+		expectError string
+	}{
+		{
+			name:       "basic @table literal",
+			input:      `@table [{a: 1, b: 2}, {a: 3, b: 4}]`,
+			expectRows: 2,
+			expectCols: 2,
+		},
+		{
+			name:       "empty @table",
+			input:      `@table []`,
+			expectRows: 0,
+			expectCols: 0,
+		},
+		{
+			name:       "single row @table",
+			input:      `@table [{x: 1, y: 2, z: 3}]`,
+			expectRows: 1,
+			expectCols: 3,
+		},
+		{
+			name:       "@table length property",
+			input:      `@table [{a: 1}, {a: 2}, {a: 3}].length`,
+			expectRows: -1, // special case: checking property
+		},
+		{
+			name:        "@table with missing column",
+			input:       `@table [{a: 1}, {b: 2}]`,
+			expectError: "missing columns",
+		},
+		{
+			name:        "@table with extra column",
+			input:       `@table [{a: 1}, {a: 2, b: 3}]`,
+			expectError: "extra columns",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			// Check for parse errors
+			if len(p.Errors()) > 0 {
+				if tt.expectError != "" {
+					// Check if any error contains expected message
+					for _, err := range p.Errors() {
+						if strings.Contains(err, tt.expectError) {
+							return // expected error found
+						}
+					}
+				}
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if tt.expectError != "" {
+				if result.Type() != evaluator.ERROR_OBJ {
+					t.Fatalf("expected error containing %q, got %s", tt.expectError, result.Type())
+				}
+				errMsg := result.(*evaluator.Error).Message
+				if !strings.Contains(errMsg, tt.expectError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectError, errMsg)
+				}
+				return
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("unexpected error: %s", result.Inspect())
+			}
+
+			// Special case for property access
+			if tt.expectRows == -1 {
+				if result.Type() != evaluator.INTEGER_OBJ {
+					t.Fatalf("expected INTEGER, got %s", result.Type())
+				}
+				return
+			}
+
+			if result.Type() != evaluator.TABLE_OBJ {
+				t.Fatalf("expected TABLE, got %s: %s", result.Type(), result.Inspect())
+			}
+
+			table := result.(*evaluator.Table)
+			if len(table.Rows) != tt.expectRows {
+				t.Errorf("expected %d rows, got %d", tt.expectRows, len(table.Rows))
+			}
+			if len(table.Columns) != tt.expectCols {
+				t.Errorf("expected %d columns, got %d", tt.expectCols, len(table.Columns))
+			}
+		})
+	}
+}
+
+// TestTableLiteralWithSchema tests @table(Schema) [...] syntax
+func TestTableLiteralWithSchema(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectRows  int
+		expectError string
+	}{
+		{
+			name: "table with schema",
+			input: `
+@schema User { name: string, age: int }
+@table(User) [{name: "Alice", age: 30}]
+`,
+			expectRows: 1,
+		},
+		{
+			name: "table with schema applies defaults",
+			input: `
+@schema Config { name: string, enabled: bool = true }
+let t = @table(Config) [{name: "test"}]
+t.rows[0].enabled
+`,
+			expectRows: -1, // checking default was applied
+		},
+		{
+			name: "table with undefined schema",
+			input: `
+@table(UnknownSchema) [{a: 1}]
+`,
+			expectError: "Identifier not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if tt.expectError != "" {
+				if result.Type() != evaluator.ERROR_OBJ {
+					t.Fatalf("expected error containing %q, got %s: %s", tt.expectError, result.Type(), result.Inspect())
+				}
+				errMsg := result.(*evaluator.Error).Message
+				if !strings.Contains(errMsg, tt.expectError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectError, errMsg)
+				}
+				return
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("unexpected error: %s", result.Inspect())
+			}
+
+			// Special case for checking default value
+			if tt.expectRows == -1 {
+				if result.Type() != evaluator.BOOLEAN_OBJ {
+					t.Fatalf("expected BOOLEAN (default value), got %s: %s", result.Type(), result.Inspect())
+				}
+				if !result.(*evaluator.Boolean).Value {
+					t.Error("expected default value true to be applied")
+				}
+				return
+			}
+
+			if result.Type() != evaluator.TABLE_OBJ {
+				t.Fatalf("expected TABLE, got %s: %s", result.Type(), result.Inspect())
+			}
+
+			table := result.(*evaluator.Table)
+			if len(table.Rows) != tt.expectRows {
+				t.Errorf("expected %d rows, got %d", tt.expectRows, len(table.Rows))
+			}
+		})
+	}
+}
