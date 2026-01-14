@@ -1966,10 +1966,14 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		jsonBytes, _ := json.Marshal(isoStr)
 		return &String{Value: string(jsonBytes)}
 
+	case "toBox":
+		// toBox(opts?) - render datetime as ASCII box
+		return datetimeToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "datetime", []string{
 			"format", "year", "month", "day", "hour", "minute", "second",
-			"weekday", "week", "timestamp", "toJSON",
+			"weekday", "week", "timestamp", "toJSON", "toBox",
 		})
 	}
 }
@@ -2037,8 +2041,12 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 			years, months, days, hours, minutes, seconds)
 		return &String{Value: result}
 
+	case "toBox":
+		// toBox(opts?) - render duration as ASCII box
+		return durationToBox(dict, args, env)
+
 	default:
-		return unknownMethodError(method, "duration", []string{"format", "toJSON"})
+		return unknownMethodError(method, "duration", []string{"format", "toJSON", "toBox"})
 	}
 }
 
@@ -2149,9 +2157,13 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 		jsonBytes, _ := json.Marshal(pathStr)
 		return &String{Value: string(jsonBytes)}
 
+	case "toBox":
+		// toBox(opts?) - render path as ASCII box
+		return pathToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "path", []string{
-			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON",
+			"toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox",
 		})
 	}
 }
@@ -2270,9 +2282,13 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 		jsonBytes, _ := json.Marshal(urlStr)
 		return &String{Value: string(jsonBytes)}
 
+	case "toBox":
+		// toBox(opts?) - render URL as ASCII box
+		return urlToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "url", []string{
-			"toDict", "toString", "query", "href", "toJSON",
+			"toDict", "toString", "query", "href", "toJSON", "toBox",
 		})
 	}
 }
@@ -2412,9 +2428,13 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		flagsJSON, _ := json.Marshal(flags)
 		return &String{Value: fmt.Sprintf(`{"pattern":%s,"flags":%s}`, patternJSON, flagsJSON)}
 
+	case "toBox":
+		// toBox(opts?) - render regex as ASCII box
+		return regexToBox(dict, args, env)
+
 	default:
 		return unknownMethodError(method, "regex", []string{
-			"toDict", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON",
+			"toDict", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON", "toBox",
 		})
 	}
 }
@@ -2712,7 +2732,7 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 
 // moneyMethods lists all methods available on money
 var moneyMethods = []string{
-	"format", "abs", "split", "toJSON",
+	"format", "abs", "split", "toJSON", "toBox",
 }
 
 // evalMoneyProperty handles property access on Money values
@@ -2789,6 +2809,10 @@ func evalMoneyMethod(money *Money, method string, args []Object) Object {
 		amountStr := money.formatAmount()
 		currencyJSON, _ := json.Marshal(money.Currency)
 		return &String{Value: fmt.Sprintf(`{"amount":"%s","currency":%s}`, amountStr, currencyJSON)}
+
+	case "toBox":
+		// toBox(opts?) - render money as ASCII box
+		return moneyToBox(money, args)
 
 	default:
 		return unknownMethodError(method, "money", moneyMethods)

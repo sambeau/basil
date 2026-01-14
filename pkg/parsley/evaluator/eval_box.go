@@ -1027,3 +1027,259 @@ func dictToBox(dict *Dictionary, args []Object, env *Environment) Object {
 
 	return &String{Value: br.RenderKeyValue(keys, values)}
 }
+
+// datetimeToBox renders a datetime value as a box
+func datetimeToBox(dict *Dictionary, args []Object, env *Environment) Object {
+	opts, err := parseBoxOptions(args)
+	if err != nil {
+		return err
+	}
+
+	br := NewBoxRenderer()
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.MaxWidth = opts.MaxWidth
+
+	// Set title to "datetime" if not specified
+	if opts.Title != "" {
+		br.Title = opts.Title
+	} else {
+		br.Title = "datetime"
+	}
+
+	// Get datetime components
+	keys := []string{"year", "month", "day", "hour", "minute", "second", "weekday", "timezone"}
+	values := make([]string, 0, len(keys))
+	actualKeys := make([]string, 0, len(keys))
+
+	for _, key := range keys {
+		if expr, ok := dict.Pairs[key]; ok {
+			val := Eval(expr, env)
+			if val != nil && val != NULL {
+				actualKeys = append(actualKeys, key)
+				values = append(values, objectToBoxString(val))
+			}
+		}
+	}
+
+	return &String{Value: br.RenderKeyValue(actualKeys, values)}
+}
+
+// durationToBox renders a duration value as a box
+func durationToBox(dict *Dictionary, args []Object, env *Environment) Object {
+	opts, err := parseBoxOptions(args)
+	if err != nil {
+		return err
+	}
+
+	br := NewBoxRenderer()
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.MaxWidth = opts.MaxWidth
+
+	if opts.Title != "" {
+		br.Title = opts.Title
+	} else {
+		br.Title = "duration"
+	}
+
+	// Get duration components - show only non-zero values
+	months, seconds, _ := getDurationComponents(dict, env)
+
+	keys := []string{}
+	values := []string{}
+
+	years := months / 12
+	months = months % 12
+	days := seconds / (24 * 3600)
+	seconds = seconds % (24 * 3600)
+	hours := seconds / 3600
+	seconds = seconds % 3600
+	minutes := seconds / 60
+	seconds = seconds % 60
+
+	if years > 0 {
+		keys = append(keys, "years")
+		values = append(values, strconv.FormatInt(years, 10))
+	}
+	if months > 0 {
+		keys = append(keys, "months")
+		values = append(values, strconv.FormatInt(months, 10))
+	}
+	if days > 0 {
+		keys = append(keys, "days")
+		values = append(values, strconv.FormatInt(days, 10))
+	}
+	if hours > 0 {
+		keys = append(keys, "hours")
+		values = append(values, strconv.FormatInt(hours, 10))
+	}
+	if minutes > 0 {
+		keys = append(keys, "minutes")
+		values = append(values, strconv.FormatInt(minutes, 10))
+	}
+	if seconds > 0 || len(keys) == 0 {
+		keys = append(keys, "seconds")
+		values = append(values, strconv.FormatInt(seconds, 10))
+	}
+
+	return &String{Value: br.RenderKeyValue(keys, values)}
+}
+
+// pathToBox renders a path value as a box
+func pathToBox(dict *Dictionary, args []Object, env *Environment) Object {
+	opts, err := parseBoxOptions(args)
+	if err != nil {
+		return err
+	}
+
+	br := NewBoxRenderer()
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.MaxWidth = opts.MaxWidth
+
+	if opts.Title != "" {
+		br.Title = opts.Title
+	} else {
+		br.Title = "path"
+	}
+
+	// Get path components
+	pathStr := pathDictToString(dict)
+	keys := []string{"path"}
+	values := []string{pathStr}
+
+	// Add computed properties
+	if absExpr, ok := dict.Pairs["absolute"]; ok {
+		val := Eval(absExpr, env)
+		if b, ok := val.(*Boolean); ok {
+			keys = append(keys, "absolute")
+			values = append(values, b.Inspect())
+		}
+	}
+	if extExpr, ok := dict.Pairs["extension"]; ok {
+		val := Eval(extExpr, env)
+		if s, ok := val.(*String); ok && s.Value != "" {
+			keys = append(keys, "extension")
+			values = append(values, s.Value)
+		}
+	}
+
+	return &String{Value: br.RenderKeyValue(keys, values)}
+}
+
+// urlToBox renders a URL value as a box
+func urlToBox(dict *Dictionary, args []Object, env *Environment) Object {
+	opts, err := parseBoxOptions(args)
+	if err != nil {
+		return err
+	}
+
+	br := NewBoxRenderer()
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.MaxWidth = opts.MaxWidth
+
+	if opts.Title != "" {
+		br.Title = opts.Title
+	} else {
+		br.Title = "url"
+	}
+
+	// Get URL components
+	urlStr := urlDictToString(dict)
+	keys := []string{"url"}
+	values := []string{urlStr}
+
+	// Add individual components
+	components := []string{"scheme", "host", "port", "path", "fragment"}
+	for _, comp := range components {
+		if expr, ok := dict.Pairs[comp]; ok {
+			val := Eval(expr, env)
+			if val != nil && val != NULL {
+				switch v := val.(type) {
+				case *String:
+					if v.Value != "" {
+						keys = append(keys, comp)
+						values = append(values, v.Value)
+					}
+				case *Integer:
+					if v.Value > 0 {
+						keys = append(keys, comp)
+						values = append(values, strconv.FormatInt(v.Value, 10))
+					}
+				case *Array:
+					if len(v.Elements) > 0 {
+						keys = append(keys, comp)
+						values = append(values, objectToBoxString(v))
+					}
+				}
+			}
+		}
+	}
+
+	return &String{Value: br.RenderKeyValue(keys, values)}
+}
+
+// regexToBox renders a regex value as a box
+func regexToBox(dict *Dictionary, args []Object, env *Environment) Object {
+	opts, err := parseBoxOptions(args)
+	if err != nil {
+		return err
+	}
+
+	br := NewBoxRenderer()
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.MaxWidth = opts.MaxWidth
+
+	if opts.Title != "" {
+		br.Title = opts.Title
+	} else {
+		br.Title = "regex"
+	}
+
+	keys := []string{}
+	values := []string{}
+
+	if patternExpr, ok := dict.Pairs["pattern"]; ok {
+		val := Eval(patternExpr, env)
+		if s, ok := val.(*String); ok {
+			keys = append(keys, "pattern")
+			values = append(values, s.Value)
+		}
+	}
+	if flagsExpr, ok := dict.Pairs["flags"]; ok {
+		val := Eval(flagsExpr, env)
+		if s, ok := val.(*String); ok && s.Value != "" {
+			keys = append(keys, "flags")
+			values = append(values, s.Value)
+		}
+	}
+
+	return &String{Value: br.RenderKeyValue(keys, values)}
+}
+
+// moneyToBox renders a money value as a box
+func moneyToBox(money *Money, args []Object) Object {
+	opts, err := parseBoxOptions(args)
+	if err != nil {
+		return err
+	}
+
+	br := NewBoxRenderer()
+	br.Align = opts.Align
+	br.Style = opts.Style
+	br.MaxWidth = opts.MaxWidth
+
+	if opts.Title != "" {
+		br.Title = opts.Title
+	} else {
+		br.Title = "money"
+	}
+
+	keys := []string{"amount", "currency"}
+	values := []string{money.formatAmount(), money.Currency}
+
+	return &String{Value: br.RenderKeyValue(keys, values)}
+}

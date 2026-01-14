@@ -379,7 +379,7 @@ After all phases:
 | 2026-01-14 | Phase 1: Cleanup | ✅ Done | Removed abs from Integer, abs/round/floor/ceil from Float method lists, removed toDebug builtin |
 | 2026-01-14 | Phase 2: repr() | ✅ Done | Added objectToReprString(), repr() method on all types, updated tests |
 | 2026-01-14 | Phase 3: toJSON() | ✅ Done | Added toJSON to DateTime, Duration, Path, URL, Regex, Money |
-| | Phase 4: toBox() | ⬜ Not started | Pseudo-types still need toBox |
+| 2026-01-14 | Phase 4: toBox() | ✅ Done | Added toBox to DateTime, Duration, Path, URL, Regex, Money |
 | | Phase 5: toDict/inspect | ⬜ Not started | |
 | 2026-01-14 | Phase 6: toHTML/toMarkdown | ✅ Done | Added to Array and Dictionary |
 | 2026-01-14 | Phase 7: path() | ✅ Done | Added path() constructor |
