@@ -193,6 +193,50 @@ func (r *Record) ToDictionary() *Dictionary {
 	}
 }
 
+// ToDictionaryWithErrors converts the Record to a Dictionary including validation errors.
+// Used for storing validated rows in typed tables.
+func (r *Record) ToDictionaryWithErrors() *Dictionary {
+	pairs := make(map[string]ast.Expression, len(r.Data)+1)
+	for k, v := range r.Data {
+		pairs[k] = v
+	}
+
+	keyOrder := make([]string, len(r.KeyOrder))
+	copy(keyOrder, r.KeyOrder)
+
+	// Store errors if present
+	if r.Validated && len(r.Errors) > 0 {
+		errorPairs := make(map[string]ast.Expression)
+		errorKeys := make([]string, 0, len(r.Errors))
+		for field, err := range r.Errors {
+			errorPairs[field] = &ast.ObjectLiteralExpression{
+				Obj: &Dictionary{
+					Pairs: map[string]ast.Expression{
+						"code":    &ast.ObjectLiteralExpression{Obj: &String{Value: err.Code}},
+						"message": &ast.ObjectLiteralExpression{Obj: &String{Value: err.Message}},
+					},
+					KeyOrder: []string{"code", "message"},
+					Env:      r.Env,
+				},
+			}
+			errorKeys = append(errorKeys, field)
+		}
+		pairs["__errors__"] = &ast.ObjectLiteralExpression{
+			Obj: &Dictionary{
+				Pairs:    errorPairs,
+				KeyOrder: errorKeys,
+				Env:      r.Env,
+			},
+		}
+	}
+
+	return &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: keyOrder,
+		Env:      r.Env,
+	}
+}
+
 // CreateRecord creates a new Record from a schema and dictionary data.
 // It applies defaults and filters unknown fields.
 func CreateRecord(schema *DSLSchema, data *Dictionary, env *Environment) *Record {
@@ -372,18 +416,84 @@ func evalSchemaCall(schema *DSLSchema, args []Object, env *Environment) Object {
 		// Dictionary → Record
 		return CreateRecord(schema, v, env)
 	case *Array:
-		// Array → Table of Records (Phase 3 - for now, return error)
-		return &Error{
-			Message: fmt.Sprintf("schema %s with array argument will create a Table (not yet implemented)", schema.Name),
-			Class:   ClassType,
-		}
+		// Array → Table of Records
+		return CreateTypedTable(schema, v, env)
 	case *Record:
 		// Record → Re-bind to this schema (with type casting)
 		return CreateRecord(schema, v.ToDictionary(), env)
+	case *Table:
+		// Table → Typed Table (bind schema to existing table)
+		return BindSchemaToTable(schema, v, env)
 	default:
 		return &Error{
 			Message: fmt.Sprintf("schema %s expects a dictionary or array, got %s", schema.Name, v.Type()),
 			Class:   ClassType,
 		}
+	}
+}
+
+// CreateTypedTable creates a Table from an array of dictionaries, binding a schema.
+// Each element becomes a Record (unvalidated) in the table.
+// Implements SPEC-TBL-001, SPEC-TBL-002, SPEC-TBL-003.
+func CreateTypedTable(schema *DSLSchema, arr *Array, env *Environment) Object {
+	rows := make([]*Dictionary, 0, len(arr.Elements))
+
+	for i, elem := range arr.Elements {
+		// Each element must be a dictionary
+		dict, ok := elem.(*Dictionary)
+		if !ok {
+			return &Error{
+				Message: fmt.Sprintf("schema %s array element at index %d must be a dictionary, got %s", schema.Name, i, elem.Type()),
+				Class:   ClassType,
+			}
+		}
+
+		// Create a Record for this row (unvalidated)
+		// CreateRecord returns *Record directly (never errors during creation)
+		rec := CreateRecord(schema, dict, env)
+		rowDict := rec.ToDictionary()
+		rowDict.Env = env
+		rows = append(rows, rowDict)
+	}
+
+	// Determine columns from schema fields (sorted for consistent order)
+	columns := make([]string, 0, len(schema.Fields))
+	for name := range schema.Fields {
+		columns = append(columns, name)
+	}
+	sort.Strings(columns)
+
+	return &Table{
+		Rows:    rows,
+		Columns: columns,
+		Schema:  schema,
+	}
+}
+
+// BindSchemaToTable binds a schema to an existing table, converting rows to Records.
+// Implements SPEC-TBL-005 for table(data).as(Schema) syntax.
+func BindSchemaToTable(schema *DSLSchema, t *Table, env *Environment) Object {
+	rows := make([]*Dictionary, 0, len(t.Rows))
+
+	for _, row := range t.Rows {
+		// Create a Record for this row (unvalidated)
+		// CreateRecord returns *Record directly (never errors during creation)
+		rec := CreateRecord(schema, row, env)
+		rowDict := rec.ToDictionary()
+		rowDict.Env = env
+		rows = append(rows, rowDict)
+	}
+
+	// Use sorted schema field names for columns
+	columns := make([]string, 0, len(schema.Fields))
+	for name := range schema.Fields {
+		columns = append(columns, name)
+	}
+	sort.Strings(columns)
+
+	return &Table{
+		Rows:    rows,
+		Columns: columns,
+		Schema:  schema,
 	}
 }

@@ -67,7 +67,7 @@ var floatMethods = []string{
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
 	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON", "toBox",
-	"repr", "toHTML", "toMarkdown",
+	"repr", "toHTML", "toMarkdown", "as",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -1609,6 +1609,18 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 
 	case "toMarkdown":
 		return dictToMarkdown(dict, args, env)
+
+	case "as":
+		// dict.as(Schema) → Record
+		// Implements SPEC-REC-006, SPEC-REC-007
+		if len(args) != 1 {
+			return newArityError("as", len(args), 1)
+		}
+		schema, ok := args[0].(*DSLSchema)
+		if !ok {
+			return newTypeError("TYPE-0001", "as", "a schema", args[0].Type())
+		}
+		return CreateRecord(schema, dict, env)
 
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked

@@ -841,11 +841,12 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := prefix()
 
 	for !p.peekTokenIs(lexer.SEMICOLON) && precedence < p.peekPrecedence() {
-		// Special handling for DOT: only treat as infix if followed by IDENT
+		// Special handling for DOT: only treat as infix if followed by IDENT or AS keyword
 		// This allows standalone DOT to be used as a terminal operator in DSL queries
+		// AS is allowed since 'as' can be a method name like dict.as(Schema)
 		if p.peekTokenIs(lexer.DOT) {
 			peekedAhead := p.l.PeekToken()
-			if peekedAhead.Type != lexer.IDENT {
+			if peekedAhead.Type != lexer.IDENT && peekedAhead.Type != lexer.AS {
 				return leftExp
 			}
 		}
@@ -2705,9 +2706,12 @@ func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
 		Left:  left,
 	}
 
-	if !p.expectPeek(lexer.IDENT) {
+	// Accept IDENT or AS keyword (since 'as' can be a method name like dict.as(Schema))
+	if !p.peekTokenIs(lexer.IDENT) && !p.peekTokenIs(lexer.AS) {
+		p.peekError(lexer.IDENT)
 		return nil
 	}
+	p.nextToken()
 
 	dotExpr.Key = p.curToken.Literal
 	return dotExpr

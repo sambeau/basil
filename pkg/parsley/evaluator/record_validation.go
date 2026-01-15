@@ -361,6 +361,7 @@ func toTitleCase(s string) string {
 		// Check for camelCase boundary (lowercase followed by uppercase)
 		if i > 0 && unicode.IsUpper(r) && !wordStart {
 			result.WriteRune(' ')
+			wordStart = true // Start of new word
 		}
 
 		if wordStart {

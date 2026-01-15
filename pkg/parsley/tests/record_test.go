@@ -735,7 +735,7 @@ func TestRecordSchemaMetadata(t *testing.T) {
 }
 let record = MetaTitle1({firstName: "Alice"})
 record.title("firstName")`,
-			expected: "First name", // camelCase to Title case
+			expected: "First Name", // camelCase to Title Case (both words capitalized)
 		},
 		{
 			name: "title returns simple field name capitalized",
@@ -1375,6 +1375,615 @@ record.schema().meta("non_existent", "title") == null`,
 let record = Empty({name: "test"})
 record.format("non_existent") == null`,
 			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Phase 3: Table Integration Tests
+// =============================================================================
+
+// TestSchemaArrayCreatesTable tests P3-001: Schema([...]) creates Table
+func TestSchemaArrayCreatesTable(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "schema with array creates table",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let users = User([
+    {name: "Alice", age: 30},
+    {name: "Bob", age: 25}
+])
+users.length`,
+			expected: "2",
+		},
+		{
+			name: "typed table has schema attached",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let users = User([{name: "Alice", age: 30}])
+users.schema != null`,
+			expected: "true",
+		},
+		{
+			name: "typed table schema name matches",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let users = User([{name: "Alice", age: 30}])
+users.schema.name`,
+			expected: "User",
+		},
+		{
+			name: "empty array creates empty table",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([])
+users.length`,
+			expected: "0",
+		},
+		{
+			name: "typed table filters unknown fields",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice", extra: "ignored"}])
+let row = users[0]
+row.name`,
+			expected: "Alice",
+		},
+		{
+			name: "typed table applies defaults",
+			input: `
+@schema User {
+    name: string
+    role: string = "member"
+}
+let users = User([{name: "Alice"}])
+users[0].role`,
+			expected: "member",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTypedTableLiteral tests P3-002: @table(Schema) [...] literal
+func TestTypedTableLiteral(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "table literal with schema",
+			input: `
+@schema Product {
+    sku: string
+    price: int
+}
+let products = @table(Product) [
+    {sku: "A001", price: 100},
+    {sku: "A002", price: 200}
+]
+products.length`,
+			expected: "2",
+		},
+		{
+			name: "table literal with schema has schema attached",
+			input: `
+@schema Product {
+    sku: string
+}
+let products = @table(Product) [{sku: "A001"}]
+products.schema.name`,
+			expected: "Product",
+		},
+		{
+			name: "table literal applies defaults",
+			input: `
+@schema Product {
+    sku: string
+    stock: int = 0
+}
+let products = @table(Product) [{sku: "A001"}]
+products[0].stock`,
+			expected: "0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestDictAsSchemaCreatesRecord tests P3-003: {...}.as(Schema) creates Record
+func TestDictAsSchemaCreatesRecord(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "dict.as(Schema) creates record",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let data = {name: "Alice", age: 30}
+let record = data.as(User)
+record.name`,
+			expected: "Alice",
+		},
+		{
+			name: "dict.as(Schema) type is record",
+			input: `
+@schema User {
+    name: string
+}
+let data = {name: "Alice"}
+let record = data.as(User)
+record.type()`,
+			expected: "record",
+		},
+		{
+			name: "dict.as(Schema) applies defaults",
+			input: `
+@schema User {
+    name: string
+    role: string = "guest"
+}
+let data = {name: "Alice"}
+let record = data.as(User)
+record.role`,
+			expected: "guest",
+		},
+		{
+			name: "dict.as(Schema) filters unknown fields",
+			input: `
+@schema User {
+    name: string
+}
+let data = {name: "Alice", extra: "ignored"}
+let record = data.as(User)
+record.extra`,
+			expected: "null",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableAsSchemaCreatesTypedTable tests P3-004: table(data).as(Schema) creates Table
+func TestTableAsSchemaCreatesTypedTable(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "table.as(Schema) creates typed table",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let data = @table [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+let users = data.as(User)
+users.schema.name`,
+			expected: "User",
+		},
+		{
+			name: "table.as(Schema) preserves row count",
+			input: `
+@schema User {
+    name: string
+}
+let data = @table [{name: "Alice"}, {name: "Bob"}]
+let users = data.as(User)
+users.length`,
+			expected: "2",
+		},
+		{
+			name: "table.as(Schema) applies defaults",
+			input: `
+@schema User {
+    name: string
+    role: string = "member"
+}
+let data = @table [{name: "Alice"}]
+let users = data.as(User)
+users[0].role`,
+			expected: "member",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableValidation tests P3-005, P3-006: table.validate() and table.isValid()
+func TestTableValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "validate all rows",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let users = User([
+    {name: "Alice", age: 30},
+    {age: 25}
+])
+let validated = users.validate()
+validated.isValid()`,
+			expected: "false",
+		},
+		{
+			name: "all valid rows returns true",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}, {name: "Bob"}])
+let validated = users.validate()
+validated.isValid()`,
+			expected: "true",
+		},
+		{
+			name: "unvalidated table with invalid data",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{}])
+users.isValid()`,
+			expected: "false",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableErrors tests P3-007: table.errors() with row indices
+func TestTableErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "errors returns array with row indices",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([
+    {name: "Alice"},
+    {},
+    {name: "Carol"}
+])
+let validated = users.validate()
+let errs = validated.errors()
+errs.length()`,
+			expected: "1",
+		},
+		{
+			name: "error row index is zero-based",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}, {}])
+let validated = users.validate()
+let errs = validated.errors()
+errs[0].row`,
+			expected: "1",
+		},
+		{
+			name: "error contains field name",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{}])
+let validated = users.validate()
+let errs = validated.errors()
+errs[0].field`,
+			expected: "name",
+		},
+		{
+			name: "error contains code",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{}])
+let validated = users.validate()
+let errs = validated.errors()
+errs[0].code`,
+			expected: "REQUIRED",
+		},
+		{
+			name: "no errors returns empty array",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}])
+let validated = users.validate()
+validated.errors().length()`,
+			expected: "0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableValidInvalidRows tests P3-008, P3-009: table.validRows() and table.invalidRows()
+func TestTableValidInvalidRows(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "validRows returns only valid rows",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}, {}, {name: "Carol"}])
+let validated = users.validate()
+validated.validRows().length`,
+			expected: "2",
+		},
+		{
+			name: "invalidRows returns only invalid rows",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}, {}, {}])
+let validated = users.validate()
+validated.invalidRows().length`,
+			expected: "2",
+		},
+		{
+			name: "validRows on all-valid table",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}, {name: "Bob"}])
+let validated = users.validate()
+validated.validRows().length`,
+			expected: "2",
+		},
+		{
+			name: "invalidRows on all-valid table",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}])
+let validated = users.validate()
+validated.invalidRows().length`,
+			expected: "0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableSchemaMethod tests P3-010: table.schema()
+func TestTableSchemaMethod(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "typed table has schema property",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}])
+users.schema.name`,
+			expected: "User",
+		},
+		{
+			name: "untyped table schema is null",
+			input: `
+let users = @table [{name: "Alice"}]
+users.schema == null`,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestTableRowReturnsRecord tests P3-011: table[n] returns Record
+func TestTableRowReturnsRecord(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "typed table row is a record",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}])
+let row = users[0]
+row.type()`,
+			expected: "record",
+		},
+		{
+			name: "typed table row has schema",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}])
+let row = users[0]
+row.schema().name`,
+			expected: "User",
+		},
+		{
+			name: "typed table row data access",
+			input: `
+@schema User {
+    name: string
+    age: int
+}
+let users = User([{name: "Alice", age: 30}])
+users[0].name`,
+			expected: "Alice",
+		},
+		{
+			name: "negative indexing works for typed tables",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{name: "Alice"}, {name: "Bob"}])
+users[-1].name`,
+			expected: "Bob",
+		},
+		{
+			name: "validated row has errors accessible",
+			input: `
+@schema User {
+    name: string
+}
+let users = User([{}])
+let validated = users.validate()
+let row = validated[0]
+row.isValid()`,
+			expected: "false",
+		},
+		{
+			name: "untyped table row is dictionary",
+			input: `
+let users = @table [{name: "Alice"}]
+let row = users[0]
+row.type()`,
+			expected: "dictionary",
 		},
 	}
 

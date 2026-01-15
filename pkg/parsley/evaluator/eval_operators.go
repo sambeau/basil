@@ -174,6 +174,7 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 
 // evalTableIndexExpression handles table row indexing with support for negative indices
 // If optional is true, returns NULL instead of error for out-of-bounds access
+// For typed tables (with schema), returns a Record instead of a Dictionary
 func evalTableIndexExpression(tok lexer.Token, table, index Object, optional bool) Object {
 	tableObject := table.(*Table)
 	idx := index.(*Integer).Value
@@ -191,7 +192,66 @@ func evalTableIndexExpression(tok lexer.Token, table, index Object, optional boo
 		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
 	}
 
-	return tableObject.Rows[idx]
+	row := tableObject.Rows[idx]
+
+	// For typed tables, return a Record instead of Dictionary
+	// Implements SPEC-TBL-ROW-001
+	if tableObject.Schema != nil {
+		// Create a Record from the row, using any stored errors
+		record := &Record{
+			Schema:    tableObject.Schema,
+			Data:      make(map[string]ast.Expression),
+			KeyOrder:  make([]string, 0, len(row.KeyOrder)),
+			Errors:    nil,
+			Validated: false,
+			Env:       row.Env,
+		}
+
+		// Copy data (excluding __errors__)
+		for _, key := range row.KeyOrder {
+			if key != "__errors__" {
+				if expr, ok := row.Pairs[key]; ok {
+					record.Data[key] = expr
+					record.KeyOrder = append(record.KeyOrder, key)
+				}
+			}
+		}
+
+		// Restore errors if present
+		if errorsExpr, hasErrors := row.Pairs["__errors__"]; hasErrors {
+			errorsObj := Eval(errorsExpr, row.Env)
+			if errDict, ok := errorsObj.(*Dictionary); ok && len(errDict.Pairs) > 0 {
+				record.Validated = true
+				record.Errors = make(map[string]*RecordError)
+				for field, errExpr := range errDict.Pairs {
+					errObj := Eval(errExpr, errDict.Env)
+					if errEntry, ok := errObj.(*Dictionary); ok {
+						code := ""
+						message := ""
+						if codeExpr, hasCode := errEntry.Pairs["code"]; hasCode {
+							if codeObj := Eval(codeExpr, errEntry.Env); codeObj != nil {
+								if codeStr, ok := codeObj.(*String); ok {
+									code = codeStr.Value
+								}
+							}
+						}
+						if msgExpr, hasMsg := errEntry.Pairs["message"]; hasMsg {
+							if msgObj := Eval(msgExpr, errEntry.Env); msgObj != nil {
+								if msgStr, ok := msgObj.(*String); ok {
+									message = msgStr.Value
+								}
+							}
+						}
+						record.Errors[field] = &RecordError{Code: code, Message: message}
+					}
+				}
+			}
+		}
+
+		return record
+	}
+
+	return row
 }
 
 // evalSliceExpression handles array and string slicing

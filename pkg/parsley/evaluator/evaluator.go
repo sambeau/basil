@@ -645,6 +645,7 @@ type Environment struct {
 	HandlerPath   string          // Current handler path for cache key namespacing
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
 	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
+	FormContext   *FormContext    // Current form context for @record/@field binding (FEAT-091)
 }
 
 // NewEnvironment creates a new environment
@@ -712,6 +713,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.HandlerPath = outer.HandlerPath
 		env.DevMode = outer.DevMode
 		env.ContainsParts = outer.ContainsParts
+		env.FormContext = outer.FormContext // Propagate form context (FEAT-091)
 	}
 	return env
 }

@@ -526,32 +526,48 @@ func evalTableLiteral(node *ast.TableLiteral, env *Environment) Object {
 			})
 		}
 
-		// If schema specified, validate and apply defaults
+		// If schema specified, create a Record from the dictionary
+		// This applies defaults, filters unknown fields, and casts types
 		if schema != nil {
-			// Apply defaults for missing fields and validate required fields
-			for fieldName, field := range schema.Fields {
-				_, exists := dict.Pairs[fieldName]
-				if !exists {
-					if field.DefaultValue != nil {
-						// Add default value to the row
-						dict.Pairs[fieldName] = objectToExpression(field.DefaultValue)
-					} else if field.Required && !field.Nullable {
-						// Required field is missing with no default
+			// CreateRecord returns *Record directly (never errors during creation)
+			rec := CreateRecord(schema, dict, env)
+
+			// For @table(Schema) literal, validate immediately and error on invalid
+			// This preserves backward compatibility where missing required fields error
+			validated := ValidateRecord(rec, env)
+			if len(validated.Errors) > 0 {
+				// Return first error for the row
+				for field, fieldErr := range validated.Errors {
+					if fieldErr != nil {
 						return newStructuredError("TABLE-0005", map[string]any{
-							"Row":   i + 1,
-							"Field": fieldName,
+							"Row":   i,
+							"Field": field,
 						})
 					}
 				}
 			}
-		}
 
-		rows = append(rows, dict)
+			rowDict := rec.ToDictionary()
+			rowDict.Env = env
+			rows = append(rows, rowDict)
+		} else {
+			rows = append(rows, dict)
+		}
+	}
+
+	// For typed tables, use sorted schema field names for columns
+	columns := node.Columns
+	if schema != nil && len(schema.Fields) > 0 {
+		columns = make([]string, 0, len(schema.Fields))
+		for name := range schema.Fields {
+			columns = append(columns, name)
+		}
+		sort.Strings(columns)
 	}
 
 	return &Table{
 		Rows:    rows,
-		Columns: node.Columns,
+		Columns: columns,
 		Schema:  schema,
 	}
 }
@@ -1963,12 +1979,26 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableCopy(t, args, env)
 	case "offset":
 		return tableOffset(t, args, env)
+	// Phase 3: Table validation methods for typed tables
+	case "as":
+		return tableAs(t, args, env)
+	case "validate":
+		return tableValidate(t, args, env)
+	case "isValid":
+		return tableIsValid(t, args, env)
+	case "errors":
+		return tableErrors(t, args, env)
+	case "validRows":
+		return tableValidRows(t, args, env)
+	case "invalidRows":
+		return tableInvalidRows(t, args, env)
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
 			"toHTML", "toCSV", "toMarkdown", "toBox", "toJSON", "toArray", "copy",
 			"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
 			"rowCount", "columnCount", "column",
+			"as", "validate", "isValid", "errors", "validRows", "invalidRows",
 		})
 	}
 }
@@ -2000,4 +2030,246 @@ func tableRow(t *Table) Object {
 		return NULL
 	}
 	return t.Rows[0]
+}
+
+// ============================================================================
+// Phase 3: Table Validation Methods for Typed Tables
+// ============================================================================
+
+// tableAs implements table.as(Schema) → typed Table
+// Implements SPEC-TBL-005
+func tableAs(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("as", len(args), 1)
+	}
+	schema, ok := args[0].(*DSLSchema)
+	if !ok {
+		return newTypeError("TYPE-0001", "as", "a schema", args[0].Type())
+	}
+	return BindSchemaToTable(schema, t, env)
+}
+
+// tableValidate implements table.validate() → Table
+// Validates all rows and returns a new table with validation state.
+// Implements SPEC-TBL-MTD-001
+func tableValidate(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("validate", len(args), 0)
+	}
+	if t.Schema == nil {
+		return &Error{
+			Message: "validate() requires a typed table (use Schema([...]) or table.as(Schema))",
+			Class:   ClassType,
+		}
+	}
+
+	// Create new table with validated rows
+	newRows := make([]*Dictionary, 0, len(t.Rows))
+	for _, row := range t.Rows {
+		// Create a record from the row
+		// CreateRecord and ValidateRecord return *Record directly
+		rec := CreateRecord(t.Schema, row, env)
+		validatedRec := ValidateRecord(rec, env)
+
+		// Convert back to dictionary, storing validation state
+		rowDict := validatedRec.ToDictionaryWithErrors()
+		rowDict.Env = env
+		newRows = append(newRows, rowDict)
+	}
+
+	return &Table{
+		Rows:    newRows,
+		Columns: t.Columns,
+		Schema:  t.Schema,
+	}
+}
+
+// tableIsValid implements table.isValid() → Boolean
+// Returns true if ALL rows are valid.
+// Implements SPEC-TBL-MTD-001
+func tableIsValid(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("isValid", len(args), 0)
+	}
+	if t.Schema == nil {
+		return FALSE
+	}
+
+	// Check each row
+	for _, row := range t.Rows {
+		// Check if row has stored errors
+		if errorsExpr, hasErrors := row.Pairs["__errors__"]; hasErrors {
+			errorsObj := Eval(errorsExpr, row.Env)
+			if errDict, ok := errorsObj.(*Dictionary); ok && len(errDict.Pairs) > 0 {
+				return FALSE
+			}
+		} else {
+			// If no stored errors, validate the row
+			rec := CreateRecord(t.Schema, row, env)
+			validatedRec := ValidateRecord(rec, env)
+			if len(validatedRec.Errors) > 0 {
+				return FALSE
+			}
+		}
+	}
+
+	return TRUE
+}
+
+// tableErrors implements table.errors() → [{row, field, code, message}]
+// Returns all validation errors with row indices.
+// Implements SPEC-TBL-ERR-001, SPEC-TBL-ERR-002
+func tableErrors(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("errors", len(args), 0)
+	}
+	if t.Schema == nil {
+		return &Array{Elements: []Object{}}
+	}
+
+	var allErrors []Object
+	for rowIdx, row := range t.Rows {
+		// Get errors for this row
+		var rowErrors map[string]*RecordError
+
+		if errorsExpr, hasErrors := row.Pairs["__errors__"]; hasErrors {
+			// Use stored errors
+			errorsObj := Eval(errorsExpr, row.Env)
+			if errDict, ok := errorsObj.(*Dictionary); ok {
+				rowErrors = dictToRecordErrors(errDict, row.Env)
+			}
+		} else {
+			// Validate the row to get errors
+			rec := CreateRecord(t.Schema, row, env)
+			validatedRec := ValidateRecord(rec, env)
+			rowErrors = validatedRec.Errors
+		}
+
+		// Add each error with row index
+		for field, err := range rowErrors {
+			errorEntry := &Dictionary{
+				Pairs: map[string]ast.Expression{
+					"row":     objectToExpression(&Integer{Value: int64(rowIdx)}),
+					"field":   objectToExpression(&String{Value: field}),
+					"code":    objectToExpression(&String{Value: err.Code}),
+					"message": objectToExpression(&String{Value: err.Message}),
+				},
+				KeyOrder: []string{"row", "field", "code", "message"},
+				Env:      env,
+			}
+			allErrors = append(allErrors, errorEntry)
+		}
+	}
+
+	return &Array{Elements: allErrors}
+}
+
+// tableValidRows implements table.validRows() → Table
+// Returns a new table with only valid rows.
+// Implements SPEC-TBL-MTD-001
+func tableValidRows(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("validRows", len(args), 0)
+	}
+	if t.Schema == nil {
+		return t // No schema means no validation, return as-is
+	}
+
+	var validRows []*Dictionary
+	for _, row := range t.Rows {
+		isValid := true
+
+		if errorsExpr, hasErrors := row.Pairs["__errors__"]; hasErrors {
+			errorsObj := Eval(errorsExpr, row.Env)
+			if errDict, ok := errorsObj.(*Dictionary); ok && len(errDict.Pairs) > 0 {
+				isValid = false
+			}
+		} else {
+			// Validate the row
+			rec := CreateRecord(t.Schema, row, env)
+			validatedRec := ValidateRecord(rec, env)
+			if len(validatedRec.Errors) > 0 {
+				isValid = false
+			}
+		}
+
+		if isValid {
+			validRows = append(validRows, row)
+		}
+	}
+
+	return &Table{
+		Rows:    validRows,
+		Columns: t.Columns,
+		Schema:  t.Schema,
+	}
+}
+
+// tableInvalidRows implements table.invalidRows() → Table
+// Returns a new table with only invalid rows.
+// Implements SPEC-TBL-MTD-001
+func tableInvalidRows(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 0 {
+		return newArityError("invalidRows", len(args), 0)
+	}
+	if t.Schema == nil {
+		return &Table{Rows: []*Dictionary{}, Columns: t.Columns, Schema: nil}
+	}
+
+	var invalidRows []*Dictionary
+	for _, row := range t.Rows {
+		isInvalid := false
+
+		if errorsExpr, hasErrors := row.Pairs["__errors__"]; hasErrors {
+			errorsObj := Eval(errorsExpr, row.Env)
+			if errDict, ok := errorsObj.(*Dictionary); ok && len(errDict.Pairs) > 0 {
+				isInvalid = true
+			}
+		} else {
+			// Validate the row
+			rec := CreateRecord(t.Schema, row, env)
+			validatedRec := ValidateRecord(rec, env)
+			if len(validatedRec.Errors) > 0 {
+				isInvalid = true
+			}
+		}
+
+		if isInvalid {
+			invalidRows = append(invalidRows, row)
+		}
+	}
+
+	return &Table{
+		Rows:    invalidRows,
+		Columns: t.Columns,
+		Schema:  t.Schema,
+	}
+}
+
+// dictToRecordErrors converts a dictionary of errors to RecordError map
+func dictToRecordErrors(errDict *Dictionary, env *Environment) map[string]*RecordError {
+	errors := make(map[string]*RecordError)
+	for field, errExpr := range errDict.Pairs {
+		errObj := Eval(errExpr, env)
+		if errEntry, ok := errObj.(*Dictionary); ok {
+			code := ""
+			message := ""
+			if codeExpr, hasCode := errEntry.Pairs["code"]; hasCode {
+				if codeObj := Eval(codeExpr, errEntry.Env); codeObj != nil {
+					if codeStr, ok := codeObj.(*String); ok {
+						code = codeStr.Value
+					}
+				}
+			}
+			if msgExpr, hasMsg := errEntry.Pairs["message"]; hasMsg {
+				if msgObj := Eval(msgExpr, errEntry.Env); msgObj != nil {
+					if msgStr, ok := msgObj.(*String); ok {
+						message = msgStr.Value
+					}
+				}
+			}
+			errors[field] = &RecordError{Code: code, Message: message}
+		}
+	}
+	return errors
 }

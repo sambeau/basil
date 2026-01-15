@@ -883,6 +883,10 @@ Test categories (TEST-DB-001 through TEST-DB-008):
 | Date | Phase | Status | Notes |
 |------|-------|--------|-------|
 | 2026-01-15 | - | Planning | Plan created |
+| 2026-01-16 | Phase 1 | Complete | Core Record type (commit a82f3e9) |
+| 2026-01-16 | Phase 2 | Complete | Schema metadata (commit ff608c8) |
+| 2026-01-16 | Phase 3 | Complete | Table integration (commit c327009) |
+| 2026-01-16 | Phase 4 | Complete | Form binding: @record context, @field input rewriting, Label/Error/Meta/Select components |
 
 ---
 

@@ -626,9 +626,46 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	result.WriteByte('<')
 	result.WriteString(node.Name)
 
+	// Check for @record attribute on <form> tags (FEAT-091 form binding)
+	var formRecord *Record
+	workingProps := node.Props
+	if node.Name == "form" && strings.Contains(node.Props, "@record") {
+		// Parse and evaluate @record expression
+		recordExpr, err := parseFormAtRecord(node.Props, env)
+		if err != nil {
+			return &Error{
+				Class:   ClassValue,
+				Code:    "FORM-0005",
+				Message: err.Error(),
+				Line:    node.Token.Line,
+				Column:  node.Token.Column,
+			}
+		}
+		if recordExpr != nil {
+			recordObj := Eval(recordExpr, env)
+			if isError(recordObj) {
+				return recordObj
+			}
+			var ok bool
+			formRecord, ok = recordObj.(*Record)
+			if !ok {
+				return &Error{
+					Class:   ClassType,
+					Code:    "FORM-0006",
+					Message: fmt.Sprintf("@record must be a Record, got %s", recordObj.Type()),
+					Hints:   []string{"Use a Record created from a schema: @record={Schema({...})}"},
+					Line:    node.Token.Line,
+					Column:  node.Token.Column,
+				}
+			}
+			// Remove @record from props so it doesn't render
+			workingProps = removeAtRecord(node.Props)
+		}
+	}
+
 	// Process props with interpolation (similar to singleton tags)
-	if node.Props != "" {
-		propsResult := evalTagProps(node.Props, env)
+	if workingProps != "" {
+		propsResult := evalTagProps(workingProps, env)
 		if isError(propsResult) {
 			return propsResult
 		}
@@ -736,8 +773,15 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	result.WriteByte('>')
 
+	// Create form context if @record was specified (FEAT-091)
+	contentsEnv := env
+	if formRecord != nil {
+		contentsEnv = NewEnclosedEnvironment(env)
+		contentsEnv.FormContext = &FormContext{Record: formRecord}
+	}
+
 	// Evaluate and append contents
-	contentsObj := evalTagContents(node.Contents, env)
+	contentsObj := evalTagContents(node.Contents, contentsEnv)
 	if isError(contentsObj) {
 		return contentsObj
 	}
@@ -755,6 +799,22 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Special handling for <SQL> tags
 	if node.Name == "SQL" {
 		return evalSQLTag(node, env)
+	}
+
+	// Special handling for <Label>...</Label> form component (FEAT-091)
+	if node.Name == "Label" {
+		// Evaluate contents
+		contentsObj := evalTagContentsAsArray(node.Contents, env)
+		if isError(contentsObj) {
+			return contentsObj
+		}
+		var contents []Object
+		if contentsArray, ok := contentsObj.(*Array); ok {
+			contents = contentsArray.Elements
+		} else {
+			contents = []Object{contentsObj}
+		}
+		return evalLabelComponent(node.Props, contents, false, env)
 	}
 
 	// Look up the component variable/function
@@ -1284,6 +1344,169 @@ func createLiteralExpression(obj Object) ast.Expression {
 
 // evalStandardTag evaluates a standard (lowercase) tag as an interpolated string
 func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env *Environment) Object {
+	// Handle @field attribute for form binding (FEAT-091)
+	if tagName == "input" && strings.Contains(propsStr, "@field") {
+		fieldName := parseFieldAttribute(propsStr)
+		if fieldName != "" {
+			formCtx := getFormContext(env)
+			if formCtx == nil {
+				return &Error{
+					Class:   ClassValue,
+					Code:    "FORM-0002",
+					Message: "Input with @field must be inside a <form @record={...}> context",
+					Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><input @field="name"/></form>`},
+					Line:    node.Token.Line,
+					Column:  node.Token.Column,
+				}
+			}
+
+			record := formCtx.Record
+			if record == nil || record.Schema == nil {
+				return &Error{
+					Class:   ClassValue,
+					Code:    "FORM-0003",
+					Message: "Form context has no valid record or schema",
+					Line:    node.Token.Line,
+					Column:  node.Token.Column,
+				}
+			}
+
+			// Get existing type attribute (if any)
+			existingType := parseExistingType(propsStr)
+
+			// Build the input tag with generated attributes
+			var result strings.Builder
+			result.WriteString("<input")
+
+			// Add auto-generated attributes based on schema
+			if existingType == "checkbox" {
+				result.WriteString(buildCheckboxAttributes(record, fieldName))
+			} else if existingType == "radio" {
+				radioValue := parseExistingValue(propsStr)
+				result.WriteString(buildRadioAttributes(record, fieldName, radioValue))
+			} else {
+				result.WriteString(buildInputAttributes(record, fieldName, existingType))
+			}
+
+			// Add remaining props (without @field)
+			cleanedProps := removeFieldAttribute(propsStr)
+			// Also remove name and value as we generate them
+			cleanedProps = removeAttr(cleanedProps, "name")
+			if existingType != "radio" { // Keep value for radio inputs
+				cleanedProps = removeAttr(cleanedProps, "value")
+			}
+
+			if cleanedProps = strings.TrimSpace(cleanedProps); cleanedProps != "" {
+				// Process remaining props with interpolation
+				propsResult := evalTagProps(cleanedProps, env)
+				if isError(propsResult) {
+					return propsResult
+				}
+				propsStrClean := propsResult.(*String).Value
+				if propsStrClean != "" {
+					result.WriteByte(' ')
+					result.WriteString(propsStrClean)
+				}
+			}
+
+			result.WriteString("/>")
+			return &String{Value: result.String()}
+		}
+	}
+
+	// Handle @field attribute for textarea (FEAT-091)
+	if tagName == "textarea" && strings.Contains(propsStr, "@field") {
+		fieldName := parseFieldAttribute(propsStr)
+		if fieldName != "" {
+			formCtx := getFormContext(env)
+			if formCtx == nil {
+				return &Error{
+					Class:   ClassValue,
+					Code:    "FORM-0002",
+					Message: "Textarea with @field must be inside a <form @record={...}> context",
+					Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><textarea @field="bio"/></form>`},
+					Line:    node.Token.Line,
+					Column:  node.Token.Column,
+				}
+			}
+
+			record := formCtx.Record
+			if record == nil || record.Schema == nil {
+				return &Error{
+					Class:   ClassValue,
+					Code:    "FORM-0003",
+					Message: "Form context has no valid record or schema",
+					Line:    node.Token.Line,
+					Column:  node.Token.Column,
+				}
+			}
+
+			// Build textarea tag
+			var result strings.Builder
+			result.WriteString("<textarea")
+			result.WriteString(fmt.Sprintf(` name="%s"`, fieldName))
+
+			// Add validation attributes from schema
+			field := record.Schema.Fields[fieldName]
+			if field != nil {
+				if field.Required {
+					result.WriteString(` required`)
+					result.WriteString(` aria-required="true"`)
+				}
+				if field.MinLength != nil {
+					result.WriteString(fmt.Sprintf(` minlength="%d"`, *field.MinLength))
+				}
+				if field.MaxLength != nil {
+					result.WriteString(fmt.Sprintf(` maxlength="%d"`, *field.MaxLength))
+				}
+				if field.Metadata != nil {
+					if placeholder, ok := field.Metadata["placeholder"]; ok {
+						if strVal, ok := placeholder.(*String); ok {
+							result.WriteString(fmt.Sprintf(` placeholder="%s"`, escapeAttrValue(strVal.Value)))
+						}
+					}
+				}
+			}
+
+			// Add ARIA validation state
+			hasError := record.Errors != nil && record.Errors[fieldName] != nil
+			if hasError {
+				result.WriteString(` aria-invalid="true"`)
+				result.WriteString(fmt.Sprintf(` aria-describedby="%s-error"`, fieldName))
+			} else if record.Validated {
+				result.WriteString(` aria-invalid="false"`)
+			}
+
+			// Add remaining props
+			cleanedProps := removeFieldAttribute(propsStr)
+			cleanedProps = removeAttr(cleanedProps, "name")
+
+			if cleanedProps = strings.TrimSpace(cleanedProps); cleanedProps != "" {
+				propsResult := evalTagProps(cleanedProps, env)
+				if isError(propsResult) {
+					return propsResult
+				}
+				propsStrClean := propsResult.(*String).Value
+				if propsStrClean != "" {
+					result.WriteByte(' ')
+					result.WriteString(propsStrClean)
+				}
+			}
+
+			result.WriteString(">")
+
+			// Add value as content
+			value := record.Get(fieldName, record.Env)
+			if value != nil && value != NULL {
+				valueStr := objectToTemplateString(value)
+				result.WriteString(escapeHTMLText(valueStr))
+			}
+
+			result.WriteString("</textarea>")
+			return &String{Value: result.String()}
+		}
+	}
+
 	var result strings.Builder
 	result.WriteByte('<')
 	result.WriteString(tagName)
@@ -1697,6 +1920,20 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 			return &String{Value: ""} // No basil.js URL available
 		}
 		return &String{Value: fmt.Sprintf(`<script src="%s"></script>`, env.BasilJSURL)}
+	}
+
+	// Special handling for form binding components (FEAT-091)
+	if tagName == "Label" {
+		return evalLabelComponent(propsStr, nil, true, env)
+	}
+	if tagName == "Error" {
+		return evalErrorComponent(propsStr, env)
+	}
+	if tagName == "Meta" {
+		return evalMetaComponent(propsStr, env)
+	}
+	if tagName == "Select" {
+		return evalSelectComponent(propsStr, env)
 	}
 
 	// Look up the variable/function
