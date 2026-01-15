@@ -30,16 +30,16 @@ type DSLSchemaField struct {
 	Name           string
 	Type           string // original type: "email", "url", "int", etc.
 	Required       bool
-	Nullable       bool     // true if type ends with ?
-	DefaultValue   Object   // parsed default value, or nil
-	DefaultExpr    string   // original expression (for SQL generation)
-	ValidationType string   // "email", "url", "phone", "slug", "enum", or "" for no validation
-	EnumValues     []string // for enum types: allowed values
-	MinLength      *int     // for string length validation
-	MaxLength      *int     // for string length validation
-	MinValue       *int64   // for integer range validation
-	MaxValue       *int64   // for integer range validation
-	Unique         bool     // whether field has UNIQUE constraint
+	Nullable       bool              // true if type ends with ?
+	DefaultValue   Object            // parsed default value, or nil
+	DefaultExpr    string            // original expression (for SQL generation)
+	ValidationType string            // "email", "url", "phone", "slug", "enum", or "" for no validation
+	EnumValues     []string          // for enum types: allowed values
+	MinLength      *int              // for string length validation
+	MaxLength      *int              // for string length validation
+	MinValue       *int64            // for integer range validation
+	MaxValue       *int64            // for integer range validation
+	Unique         bool              // whether field has UNIQUE constraint
 	Metadata       map[string]Object // metadata from pipe syntax: {title: "...", ...}
 }
 

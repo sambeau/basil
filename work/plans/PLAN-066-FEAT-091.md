@@ -887,6 +887,7 @@ Test categories (TEST-DB-001 through TEST-DB-008):
 | 2026-01-16 | Phase 2 | Complete | Schema metadata (commit ff608c8) |
 | 2026-01-16 | Phase 3 | Complete | Table integration (commit c327009) |
 | 2026-01-16 | Phase 4 | Complete | Form binding: @record context, @field input rewriting, Label/Error/Meta/Select components |
+| 2026-01-17 | Phase 5 | In Progress | Core DB integration: find/first/last/findBy → Record, all/where → Table, auto-validation. P5-001/002/003/008 complete. |
 
 ---
 

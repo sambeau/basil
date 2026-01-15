@@ -296,6 +296,8 @@ func (tb *TableBinding) executeAll(args []Object, env *Environment) Object {
 }
 
 // executeFind selects a single row by id.
+// Returns a Record if schema is bound, Dictionary otherwise.
+// Implements SPEC-DB-001
 func (tb *TableBinding) executeFind(args []Object, env *Environment) Object {
 	if err := tb.ensureSQLite(); err != nil {
 		return err
@@ -305,15 +307,7 @@ func (tb *TableBinding) executeFind(args []Object, env *Environment) Object {
 	}
 
 	query := fmt.Sprintf("SELECT * FROM %s WHERE id = ? LIMIT 1", tb.TableName)
-	result := tb.queryRows(query, []Object{args[0]}, env)
-	// queryRows now returns Table, extract first row
-	if tbl, ok := result.(*Table); ok {
-		if len(tbl.Rows) == 0 {
-			return NULL
-		}
-		return tbl.Rows[0]
-	}
-	return result
+	return tb.querySingleRow(query, []Object{args[0]}, env)
 }
 
 // executeWhere selects rows matching equality conditions from a dictionary.
@@ -392,12 +386,32 @@ func (tb *TableBinding) executeInsert(args []Object, env *Environment) Object {
 		}
 	}
 
-	// Validate
-	validation := schemaValidate(tb.Schema, data)
-	if dict, ok := validation.(*Dictionary); ok {
-		if validExpr, hasValid := dict.Pairs["valid"]; hasValid {
-			if validObj := Eval(validExpr, dict.Env); validObj.Type() == BOOLEAN_OBJ && !validObj.(*Boolean).Value {
-				return dict
+	// Validate based on schema type
+	if tb.DSLSchema != nil {
+		// For DSL schemas, use Record-based validation
+		record := CreateRecord(tb.DSLSchema, data, env)
+		validated := ValidateRecord(record, env)
+		if len(validated.Errors) > 0 {
+			// Return validation result as dictionary for backward compatibility
+			errorsDict := &Dictionary{Pairs: make(map[string]ast.Expression)}
+			for field, err := range validated.Errors {
+				errorsDict.Pairs[field] = objectToExpression(&String{Value: err.Message})
+			}
+			return &Dictionary{
+				Pairs: map[string]ast.Expression{
+					"valid":  objectToExpression(FALSE),
+					"errors": objectToExpression(errorsDict),
+				},
+			}
+		}
+	} else if tb.Schema != nil {
+		// For old-style dictionary schemas, use schemaValidate
+		validation := schemaValidate(tb.Schema, data)
+		if dict, ok := validation.(*Dictionary); ok {
+			if validExpr, hasValid := dict.Pairs["valid"]; hasValid {
+				if validObj := Eval(validExpr, dict.Env); validObj.Type() == BOOLEAN_OBJ && !validObj.(*Boolean).Value {
+					return dict
+				}
 			}
 		}
 	}
@@ -609,7 +623,44 @@ func (tb *TableBinding) queryRows(query string, params []Object, env *Environmen
 	}
 
 	// Return Table with schema from TableBinding
-	return &Table{Rows: results, Columns: columns, Schema: tb.DSLSchema}
+	// FromDB=true indicates data came from database (records are auto-validated)
+	return &Table{Rows: results, Columns: columns, Schema: tb.DSLSchema, FromDB: true}
+}
+
+// rowDictToRecord converts a Dictionary row to a validated Record.
+// Records from database queries are auto-validated (SPEC-DB-VAL-001/002/003).
+// The fromDB flag indicates the data came from the database (trusted).
+func (tb *TableBinding) rowDictToRecord(dict *Dictionary, env *Environment, fromDB bool) Object {
+	if tb.DSLSchema == nil {
+		return dict // No schema, return as dictionary
+	}
+
+	// Create a Record from the dictionary
+	record := CreateRecord(tb.DSLSchema, dict, env)
+
+	if fromDB {
+		// Data from database is trusted - mark as validated with no errors
+		// Implements SPEC-DB-VAL-001, SPEC-DB-VAL-002, SPEC-DB-VAL-003
+		record.Validated = true
+		record.Errors = nil // No errors for trusted DB data
+	}
+
+	return record
+}
+
+// querySingleRow executes a query and returns a single Record (or null).
+// This is used by find(), first(), last(), findBy() methods.
+// Implements SPEC-DB-001: Query ?-> * returns Record
+func (tb *TableBinding) querySingleRow(query string, params []Object, env *Environment) Object {
+	result := tb.queryRows(query, params, env)
+	if tbl, ok := result.(*Table); ok {
+		if len(tbl.Rows) == 0 {
+			return NULL
+		}
+		// Convert first row to Record if schema is available
+		return tb.rowDictToRecord(tbl.Rows[0], env, true)
+	}
+	return result
 }
 
 func (tb *TableBinding) executeMutation(query string, params []Object) *Error {
@@ -667,6 +718,37 @@ func (tb *TableBinding) exec(query string, params []Object) (ResultWrapper, *Err
 
 // generateID creates an id based on the schema's id format. Defaults to ulid.
 func (tb *TableBinding) generateID(env *Environment) Object {
+	// For DSL schemas (@schema), determine ID format from field type
+	if tb.DSLSchema != nil {
+		idField, ok := tb.DSLSchema.Fields["id"]
+		if !ok {
+			return nil
+		}
+
+		// Map DSL schema type to ID format
+		format := idField.Type
+		switch format {
+		case "uuid", "uuidv4":
+			return idUUID()
+		case "uuidv7":
+			return idUUIDv7()
+		case "nanoid":
+			return idNanoID()
+		case "cuid":
+			return idCUID()
+		case "ulid", "id", "":
+			return idNew()
+		default:
+			// For other types like "int", don't generate an ID
+			return nil
+		}
+	}
+
+	// For old-style dictionary schemas (schema.define)
+	if tb.Schema == nil {
+		return nil
+	}
+
 	fieldsExpr, ok := tb.Schema.Pairs["fields"]
 	if !ok {
 		return nil
@@ -776,6 +858,7 @@ func (tb *TableBinding) executeAggregate(aggFunc string, args []Object, env *Env
 // first(n) → array of up to n records
 // first({orderBy: ...}) → single record with custom order
 // first(n, {orderBy: ...}) → array with custom order
+// Returns Record(s) if schema is bound. Implements SPEC-DB-001.
 func (tb *TableBinding) executeFirst(args []Object, env *Environment) Object {
 	if err := tb.ensureSQLite(); err != nil {
 		return err
@@ -822,7 +905,8 @@ func (tb *TableBinding) executeFirst(args []Object, env *Environment) Object {
 			if len(tbl.Rows) == 0 {
 				return NULL
 			}
-			return tbl.Rows[0]
+			// Return Record if schema is bound
+			return tb.rowDictToRecord(tbl.Rows[0], env, true)
 		}
 	}
 	return result
@@ -830,6 +914,7 @@ func (tb *TableBinding) executeFirst(args []Object, env *Environment) Object {
 
 // executeLast returns the last record(s) ordered by id DESC.
 // Same signature as first() but reverses order direction.
+// Returns Record(s) if schema is bound. Implements SPEC-DB-001.
 func (tb *TableBinding) executeLast(args []Object, env *Environment) Object {
 	if err := tb.ensureSQLite(); err != nil {
 		return err
@@ -885,7 +970,8 @@ func (tb *TableBinding) executeLast(args []Object, env *Environment) Object {
 			if len(tbl.Rows) == 0 {
 				return NULL
 			}
-			return tbl.Rows[0]
+			// Return Record if schema is bound
+			return tb.rowDictToRecord(tbl.Rows[0], env, true)
 		}
 	}
 	return result
@@ -928,6 +1014,7 @@ func (tb *TableBinding) executeExists(args []Object, env *Environment) Object {
 
 // executeFindBy returns a single matching record or null.
 // Like where() but returns first match, not an array.
+// Returns Record if schema is bound. Implements SPEC-DB-001.
 func (tb *TableBinding) executeFindBy(args []Object, env *Environment) Object {
 	if err := tb.ensureSQLite(); err != nil {
 		return err
@@ -972,7 +1059,8 @@ func (tb *TableBinding) executeFindBy(args []Object, env *Environment) Object {
 		if len(tbl.Rows) == 0 {
 			return NULL
 		}
-		return tbl.Rows[0]
+		// Return Record if schema is bound
+		return tb.rowDictToRecord(tbl.Rows[0], env, true)
 	}
 	return result
 }

@@ -441,6 +441,7 @@ type Table struct {
 	Rows        []*Dictionary // Array of dictionaries (each row is a dict)
 	Columns     []string      // Column order (from first row or select())
 	Schema      *DSLSchema    // Optional: attached schema for typed tables
+	FromDB      bool          // True if data came from a database query (records are auto-validated)
 	isChainCopy bool          // Internal: true if this is a copy created for method chaining
 }
 

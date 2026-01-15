@@ -613,9 +613,9 @@ func TestFormSelectComponent(t *testing.T) {
 // TEST-FORM-010: Error handling for @field outside form
 func TestFormFieldOutsideForm(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		errText  string // Error message should contain this text
+		name    string
+		input   string
+		errText string // Error message should contain this text
 	}{
 		{
 			name: "input @field outside form is error",
@@ -642,7 +642,7 @@ func TestFormFieldOutsideForm(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := parsley.Eval(tt.input)
-			
+
 			// Check for error in result value
 			if err == nil && result != nil && result.Value != nil {
 				errObj, isErr := result.Value.(*evaluator.Error)
@@ -655,7 +655,7 @@ func TestFormFieldOutsideForm(t *testing.T) {
 				// Not an error at all
 				t.Fatalf("expected error but got: %s", result.Value.Inspect())
 			}
-			
+
 			// Check for parsing error
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errText) {

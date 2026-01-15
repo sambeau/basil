@@ -175,6 +175,7 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 // evalTableIndexExpression handles table row indexing with support for negative indices
 // If optional is true, returns NULL instead of error for out-of-bounds access
 // For typed tables (with schema), returns a Record instead of a Dictionary
+// For database tables (FromDB=true), Records are auto-validated (SPEC-DB-VAL-001)
 func evalTableIndexExpression(tok lexer.Token, table, index Object, optional bool) Object {
 	tableObject := table.(*Table)
 	idx := index.(*Integer).Value
@@ -203,7 +204,7 @@ func evalTableIndexExpression(tok lexer.Token, table, index Object, optional boo
 			Data:      make(map[string]ast.Expression),
 			KeyOrder:  make([]string, 0, len(row.KeyOrder)),
 			Errors:    nil,
-			Validated: false,
+			Validated: tableObject.FromDB, // Auto-validated if from database (SPEC-DB-VAL-001)
 			Env:       row.Env,
 		}
 
