@@ -1,0 +1,10 @@
+site:
+  title: "Form Binding Examples"
+  description: "Demonstrating Record-based form binding"
+
+server:
+  port: 3000
+  host: "localhost"
+
+handlers: "./handlers"
+public: "./public"

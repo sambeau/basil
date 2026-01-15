@@ -1,0 +1,108 @@
+// Contact form example - demonstrates basic form binding with validation
+let {method} = import @basil/http
+
+// Define schema with validation and metadata
+@schema Contact {
+    name: string(title: "Full Name", placeholder: "Enter your name", min: 2)
+    email: email(title: "Email Address", placeholder: "you@example.com")
+    subject: string(title: "Subject", placeholder: "What's this about?")
+    message: string(title: "Message", placeholder: "Enter your message...", min: 10)
+}
+
+// Handle form submission
+let result = if method == "POST" then {
+    // Bind form data to schema and validate
+    let contact = Contact(@params).validate()
+    
+    if contact.isValid() then {
+        // Would normally save or email here
+        {success: true, contact: contact}
+    } else {
+        {success: false, contact: contact}
+    }
+} else {
+    // Initial empty form
+    {success: null, contact: Contact({})}
+}
+
+let contact = result.contact
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>"Contact Form"</title>
+    <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+    <nav>
+        <a href="/">"← Back to Examples"</a>
+    </nav>
+    
+    <h1>"Contact Form"</h1>
+    
+    // Success message
+    {if result.success == true then
+        <div class="success">
+            "Thank you for your message! We'll be in touch soon."
+        </div>
+    }
+    
+    // Error summary
+    {if result.success == false then
+        <div class="error-summary">
+            "Please fix the errors below and try again."
+        </div>
+    }
+    
+    <form @record={contact} method="post">
+        <div class="form-group">
+            <label for="name">{contact.title("name")}</label>
+            <input 
+                @field="name" 
+                class={if contact.hasError("name") then "error" else ""}
+            />
+            {if contact.hasError("name") then
+                <div class="error-message">{contact.error("name")}</div>
+            }
+        </div>
+        
+        <div class="form-group">
+            <label for="email">{contact.title("email")}</label>
+            <input 
+                @field="email" 
+                class={if contact.hasError("email") then "error" else ""}
+            />
+            {if contact.hasError("email") then
+                <div class="error-message">{contact.error("email")}</div>
+            }
+        </div>
+        
+        <div class="form-group">
+            <label for="subject">{contact.title("subject")}</label>
+            <input 
+                @field="subject"
+                class={if contact.hasError("subject") then "error" else ""}
+            />
+            {if contact.hasError("subject") then
+                <div class="error-message">{contact.error("subject")}</div>
+            }
+        </div>
+        
+        <div class="form-group">
+            <label for="message">{contact.title("message")}</label>
+            <textarea 
+                @field="message" 
+                rows="5"
+                class={if contact.hasError("message") then "error" else ""}
+            />
+            {if contact.hasError("message") then
+                <div class="error-message">{contact.error("message")}</div>
+            }
+            <div class="help-text">"Minimum 10 characters"</div>
+        </div>
+        
+        <button type="submit">"Send Message"</button>
+    </form>
+</body>
+</html>

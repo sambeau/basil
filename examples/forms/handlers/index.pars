@@ -1,0 +1,31 @@
+// Index page - navigation to form examples
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>"Form Binding Examples"</title>
+    <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+    <h1>"Form Binding Examples"</h1>
+    
+    <p>"These examples demonstrate Record-based form binding in Basil."</p>
+    
+    <h2>"Examples"</h2>
+    
+    <ul>
+        <li><a href="/contact">"Contact Form"</a>" - Basic form with validation"</li>
+        <li><a href="/users">"User List"</a>" - Database-backed CRUD with forms"</li>
+    </ul>
+    
+    <h2>"Key Features"</h2>
+    
+    <ul>
+        <li>"Schema-driven form rendering with "@record" attribute"</li>
+        <li>"Automatic field binding with "@field" attribute"</li>
+        <li>"Built-in validation with error display"</li>
+        <li>"Metadata access (title, placeholder) from schema"</li>
+        <li>"Database integration with Record type preservation"</li>
+    </ul>
+</body>
+</html>
