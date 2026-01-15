@@ -47,7 +47,7 @@ func evalQueryExpression(node *ast.QueryExpression, env *Environment) Object {
 	terminal := node.Terminal
 	if terminal == nil {
 		return &Error{
-			Message: "@query requires a terminal (?->, ??->, or .)",
+			Message: "@query requires a terminal (?->, ??->, ?!->, ??!->, or .)",
 			Class:   ClassParse,
 			Code:    "SYN-0001",
 		}
@@ -71,7 +71,7 @@ func evalQueryExpression(node *ast.QueryExpression, env *Environment) Object {
 	var result Object
 	switch terminal.Type {
 	case "many":
-		result = executeQueryMany(binding, sql, params, terminal.Projection, env)
+		result = executeQueryMany(binding, sql, params, terminal, env)
 	case "one":
 		// Check for special projections: count, exists, toSQL
 		if len(terminal.Projection) == 1 {
@@ -84,7 +84,7 @@ func evalQueryExpression(node *ast.QueryExpression, env *Environment) Object {
 				return executeQueryToSQL(binding, sql, params, env)
 			}
 		}
-		result = executeQueryOne(binding, sql, params, terminal.Projection, env)
+		result = executeQueryOne(binding, sql, params, terminal, env)
 	case "execute":
 		return executeQueryExecute(binding, sql, params, env)
 	case "count":
@@ -1606,8 +1606,63 @@ func buildInClause(column string, value Object, paramIdx *int) (string, []Object
 	return fmt.Sprintf("%s IN (%s)", column, strings.Join(placeholders, ", ")), params, nil
 }
 
-// executeQueryMany executes a query and returns an array of dictionaries
-func executeQueryMany(binding *TableBinding, sql string, params []Object, projection []string, env *Environment) Object {
+// columnsSubsetOfSchema checks if all columns are defined in the schema.
+// Returns true if all columns are in schema (or projection is *), false otherwise.
+// Also returns a list of columns not in schema for error messages.
+func columnsSubsetOfSchema(columns []string, schema *DSLSchema) (bool, []string) {
+	if schema == nil {
+		return false, nil
+	}
+
+	var missing []string
+	for _, col := range columns {
+		if col == "*" {
+			continue // * is always valid
+		}
+		if _, ok := schema.Fields[col]; !ok {
+			missing = append(missing, col)
+		}
+	}
+
+	return len(missing) == 0, missing
+}
+
+// shouldReturnRecord determines if the query result should be a Record/Table
+// based on the terminal type and projection columns.
+// Implements SPEC-DB-003, SPEC-DB-004, SPEC-DB-005, SPEC-DB-006.
+func shouldReturnRecord(terminal *ast.QueryTerminal, columns []string, binding *TableBinding) (bool, *Error) {
+	schema := binding.DSLSchema
+	if schema == nil {
+		// No schema, always return Dictionary/Array
+		return false, nil
+	}
+
+	// For * projection with schema, always return Record
+	if len(terminal.Projection) == 1 && terminal.Projection[0] == "*" {
+		return true, nil
+	}
+
+	// Check if projected columns are all in schema
+	isSubset, missingCols := columnsSubsetOfSchema(columns, schema)
+
+	if terminal.Explicit {
+		// Explicit terminal (?!-> or ??!->): error if any column not in schema
+		if !isSubset {
+			return false, &Error{
+				Message: fmt.Sprintf("explicit query projection contains columns not in schema: %s", strings.Join(missingCols, ", ")),
+				Class:   ClassType,
+				Code:    "VAL-0020",
+			}
+		}
+		return true, nil
+	}
+
+	// Auto-detect mode (?-> or ??->): Record if columns ⊆ schema, Dict otherwise
+	return isSubset, nil
+}
+
+// executeQueryMany executes a query and returns an array of dictionaries or a Table of Records
+func executeQueryMany(binding *TableBinding, sql string, params []Object, terminal *ast.QueryTerminal, env *Environment) Object {
 	rows, err := binding.query(sql, params)
 	if err != nil {
 		return err
@@ -1623,7 +1678,13 @@ func executeQueryMany(binding *TableBinding, sql string, params []Object, projec
 		}
 	}
 
-	results := []Object{}
+	// Check if we should return Records (Table) or Dictionaries (Array)
+	returnRecords, schemaErr := shouldReturnRecord(terminal, columns, binding)
+	if schemaErr != nil {
+		return schemaErr
+	}
+
+	var dictResults []*Dictionary
 	for rows.Next() {
 		values := make([]interface{}, len(columns))
 		ptrs := make([]interface{}, len(columns))
@@ -1639,7 +1700,7 @@ func executeQueryMany(binding *TableBinding, sql string, params []Object, projec
 			}
 		}
 
-		results = append(results, rowToDict(columns, values, env))
+		dictResults = append(dictResults, rowToDict(columns, values, env))
 	}
 
 	if rows.Err() != nil {
@@ -1650,11 +1711,21 @@ func executeQueryMany(binding *TableBinding, sql string, params []Object, projec
 		}
 	}
 
+	// Return Table with schema if returning Records (SPEC-DB-002)
+	if returnRecords && binding.DSLSchema != nil {
+		return &Table{Rows: dictResults, Columns: columns, Schema: binding.DSLSchema, FromDB: true}
+	}
+
+	// Return plain Array of Dictionaries
+	results := make([]Object, len(dictResults))
+	for i, d := range dictResults {
+		results[i] = d
+	}
 	return &Array{Elements: results}
 }
 
-// executeQueryOne executes a query and returns a single dictionary or null
-func executeQueryOne(binding *TableBinding, sql string, params []Object, projection []string, env *Environment) Object {
+// executeQueryOne executes a query and returns a single Record/dictionary or null
+func executeQueryOne(binding *TableBinding, sql string, params []Object, terminal *ast.QueryTerminal, env *Environment) Object {
 	rows, err := binding.query(sql, params)
 	if err != nil {
 		return err
@@ -1668,6 +1739,12 @@ func executeQueryOne(binding *TableBinding, sql string, params []Object, project
 			Class:   ClassDatabase,
 			Code:    "DB-0004",
 		}
+	}
+
+	// Check if we should return Record or Dictionary
+	returnRecord, schemaErr := shouldReturnRecord(terminal, columns, binding)
+	if schemaErr != nil {
+		return schemaErr
 	}
 
 	if !rows.Next() {
@@ -1695,7 +1772,18 @@ func executeQueryOne(binding *TableBinding, sql string, params []Object, project
 		}
 	}
 
-	return rowToDict(columns, values, env)
+	dict := rowToDict(columns, values, env)
+
+	// Return Record if returning typed result (SPEC-DB-001)
+	if returnRecord && binding.DSLSchema != nil {
+		record := CreateRecord(binding.DSLSchema, dict, env)
+		// Data from database is trusted - mark as validated (SPEC-DB-VAL-001/002/003)
+		record.Validated = true
+		record.Errors = nil
+		return record
+	}
+
+	return dict
 }
 
 // executeQueryCount executes a COUNT query and returns an integer
@@ -1782,6 +1870,23 @@ func loadRelations(result Object, binding *TableBinding, relations []*ast.Relati
 		return loadRelationsForRecord(dict, binding, relations, env)
 	}
 
+	// Handle single Record result - convert to Dictionary, load relations, then merge back
+	if rec, ok := result.(*Record); ok {
+		// Create a temporary dictionary with the Record's data
+		tempDict := &Dictionary{
+			Pairs:    rec.Data,
+			KeyOrder: rec.KeyOrder,
+		}
+		loaded := loadRelationsForRecord(tempDict, binding, relations, env)
+		if isError(loaded) {
+			return loaded
+		}
+		// The relations were added to tempDict.Pairs (same map as rec.Data)
+		// and tempDict.KeyOrder was updated - sync back to Record
+		rec.KeyOrder = tempDict.KeyOrder
+		return rec
+	}
+
 	// Handle array of results
 	if arr, ok := result.(*Array); ok {
 		if len(arr.Elements) == 0 {
@@ -1797,6 +1902,24 @@ func loadRelations(result Object, binding *TableBinding, relations []*ast.Relati
 			}
 		}
 		return arr
+	}
+
+	// Handle Table of Dictionaries
+	if tbl, ok := result.(*Table); ok {
+		if len(tbl.Rows) == 0 {
+			return tbl
+		}
+		// Load relations for each dictionary in the table
+		for i, dict := range tbl.Rows {
+			loaded := loadRelationsForRecord(dict, binding, relations, env)
+			if isError(loaded) {
+				return loaded
+			}
+			if loadedDict, ok := loaded.(*Dictionary); ok {
+				tbl.Rows[i] = loadedDict
+			}
+		}
+		return tbl
 	}
 
 	return result

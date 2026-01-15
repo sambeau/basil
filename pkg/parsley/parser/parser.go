@@ -4192,10 +4192,12 @@ func (p *Parser) parseQuerySubquery() *ast.QuerySubquery {
 	return subquery
 }
 
-// parseQueryTerminal parses ?-> , ??-> , . , or .-> with projection
+// parseQueryTerminal parses ?-> , ??-> , ?!-> , ??!-> , . , or .-> with projection
 func (p *Parser) parseQueryTerminal() *ast.QueryTerminal {
 	// Check for terminal operator
-	if !p.peekTokenIs(lexer.RETURN_ONE) && !p.peekTokenIs(lexer.RETURN_MANY) && !p.peekTokenIs(lexer.DOT) && !p.peekTokenIs(lexer.EXEC_COUNT) {
+	if !p.peekTokenIs(lexer.RETURN_ONE) && !p.peekTokenIs(lexer.RETURN_MANY) &&
+		!p.peekTokenIs(lexer.RETURN_ONE_EXPLICIT) && !p.peekTokenIs(lexer.RETURN_MANY_EXPLICIT) &&
+		!p.peekTokenIs(lexer.DOT) && !p.peekTokenIs(lexer.EXEC_COUNT) {
 		return nil
 	}
 
@@ -4205,8 +4207,16 @@ func (p *Parser) parseQueryTerminal() *ast.QueryTerminal {
 	switch p.curToken.Type {
 	case lexer.RETURN_ONE:
 		terminal.Type = "one"
+		terminal.Explicit = false
 	case lexer.RETURN_MANY:
 		terminal.Type = "many"
+		terminal.Explicit = false
+	case lexer.RETURN_ONE_EXPLICIT:
+		terminal.Type = "one"
+		terminal.Explicit = true
+	case lexer.RETURN_MANY_EXPLICIT:
+		terminal.Type = "many"
+		terminal.Explicit = true
 	case lexer.DOT:
 		terminal.Type = "execute"
 	case lexer.EXEC_COUNT:

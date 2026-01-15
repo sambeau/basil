@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -12,7 +13,7 @@ import (
 var recordMethods = []string{
 	"validate", "update", "errors", "error", "errorCode", "errorList",
 	"isValid", "hasError", "schema", "data", "keys", "withError",
-	"title", "placeholder", "meta", "enumValues", "format",
+	"title", "placeholder", "meta", "enumValues", "format", "toJSON",
 }
 
 // evalRecordMethod dispatches method calls on Record objects.
@@ -52,6 +53,8 @@ func evalRecordMethod(record *Record, method string, args []Object, env *Environ
 		return recordEnumValues(record, args, env)
 	case "format":
 		return recordFormat(record, args, env)
+	case "toJSON":
+		return recordToJSON(record, args)
 	default:
 		// Check if it's a data field access via method syntax (shouldn't happen normally)
 		return unknownMethodError(method, "Record", recordMethods)
@@ -277,6 +280,23 @@ func recordKeys(record *Record, args []Object) Object {
 	}
 
 	return &Array{Elements: elements}
+}
+
+// recordToJSON implements record.toJSON() → String
+// Encodes only the data fields (not schema, errors, or metadata)
+// Implements SPEC-DC-003
+func recordToJSON(record *Record, args []Object) Object {
+	if len(args) != 0 {
+		return newArityError("toJSON", len(args), 0)
+	}
+
+	// Use ToDictionary() which returns only data fields
+	dict := record.ToDictionary()
+	jsonBytes, err := json.Marshal(objectToGo(dict))
+	if err != nil {
+		return newFormatError("FMT-0005", err)
+	}
+	return &String{Value: string(jsonBytes)}
 }
 
 // recordWithError implements record.withError(field, msg) or record.withError(field, code, msg)

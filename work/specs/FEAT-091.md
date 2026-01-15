@@ -1227,13 +1227,13 @@ SCENARIO-006: Form with custom validation
 | P5-001 | Query ?-> * returns Record | ✓ | ✓ | ☐ |
 | P5-002 | Query ??-> * returns Table | ✓ | ✓ | ☐ |
 | P5-003 | Query Record auto-validated | ✓ | ✓ | ☐ |
-| P5-004 | Projection auto-detect | ☐ | ☐ | ☐ |
-| P5-005 | ?!-> explicit terminal | ☐ | ☐ | ☐ |
-| P5-006 | ??!-> explicit terminal | ☐ | ☐ | ☐ |
-| P5-007 | Error on non-schema column | ☐ | ☐ | ☐ |
-| P5-008 | Batch insert validation | ✓ | ☐ | ☐ |
-| P5-009 | Partial record validation | ☐ | ☐ | ☐ |
-| P5-010 | Relations return Dictionaries | ☐ | ☐ | ☐ |
+| P5-004 | Projection auto-detect | ✓ | ✓ | ☐ |
+| P5-005 | ?!-> explicit terminal | ✓ | ✓ | ☐ |
+| P5-006 | ??!-> explicit terminal | ✓ | ✓ | ☐ |
+| P5-007 | Error on non-schema column | ✓ | ✓ | ☐ |
+| P5-008 | Batch insert validation | ✓ | ✓ | ☐ |
+| P5-009 | Partial record validation | ✓ | ✓ | ☐ |
+| P5-010 | Relations return Dictionaries | ✓ | ✓ | ☐ |
 
 ---
 

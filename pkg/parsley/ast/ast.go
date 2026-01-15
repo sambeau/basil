@@ -1785,9 +1785,10 @@ func (qcr *QueryColumnRef) String() string       { return qcr.Column }
 
 // QueryTerminal represents the return type and projection of a query
 type QueryTerminal struct {
-	Token      lexer.Token // ?-> or ??-> or . token
+	Token      lexer.Token // ?-> or ??-> or ?!-> or ??!-> or . token
 	Type       string      // "one", "many", "execute", "count", "exists"
 	Projection []string    // field names, or ["*"] for all
+	Explicit   bool        // true for ?!-> and ??!-> (strict schema checking)
 }
 
 func (qt *QueryTerminal) expressionNode()      {}
@@ -1796,9 +1797,17 @@ func (qt *QueryTerminal) String() string {
 	var out bytes.Buffer
 	switch qt.Type {
 	case "one":
-		out.WriteString("?->")
+		if qt.Explicit {
+			out.WriteString("?!->")
+		} else {
+			out.WriteString("?->")
+		}
 	case "many":
-		out.WriteString("??->")
+		if qt.Explicit {
+			out.WriteString("??!->")
+		} else {
+			out.WriteString("??->")
+		}
 	case "execute":
 		out.WriteString(".")
 	case "count":

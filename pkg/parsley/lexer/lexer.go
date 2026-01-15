@@ -89,13 +89,15 @@ const (
 	EXECUTE    // <=!=>
 
 	// Query DSL operators
-	PIPE_WRITE  // |<
-	RETURN_ONE  // ?->
-	RETURN_MANY // ??->
-	DSL_EXECUTE // . (in query context) or •
-	EXEC_COUNT  // .->
-	ARROW_PULL  // <-
-	GROUP_BY    // + by (contextual)
+	PIPE_WRITE           // |<
+	RETURN_ONE           // ?->
+	RETURN_MANY          // ??->
+	RETURN_ONE_EXPLICIT  // ?!->
+	RETURN_MANY_EXPLICIT // ??!->
+	DSL_EXECUTE          // . (in query context) or •
+	EXEC_COUNT           // .->
+	ARROW_PULL           // <-
+	GROUP_BY             // + by (contextual)
 
 	// Process execution operator
 	EXECUTE_WITH // <=#=>
@@ -278,6 +280,10 @@ func (tt TokenType) String() string {
 		return "RETURN_ONE"
 	case RETURN_MANY:
 		return "RETURN_MANY"
+	case RETURN_ONE_EXPLICIT:
+		return "RETURN_ONE_EXPLICIT"
+	case RETURN_MANY_EXPLICIT:
+		return "RETURN_MANY_EXPLICIT"
 	case DSL_EXECUTE:
 		return "DSL_EXECUTE"
 	case EXEC_COUNT:
@@ -796,11 +802,17 @@ func (l *Lexer) NextToken() Token {
 		}
 	case '?':
 		if l.peekChar() == '?' {
-			// Could be ?? (nullish) or ??-> (return many)
+			// Could be ?? (nullish), ??-> (return many), or ??!-> (explicit return many)
 			line := l.line
 			col := l.column
 			l.readChar() // consume second '?'
-			if l.peekChar() == '-' && l.peekCharN(2) == '>' {
+			if l.peekChar() == '!' && l.peekCharN(2) == '-' && l.peekCharN(3) == '>' {
+				// ??!-> (explicit return many)
+				l.readChar() // consume '!'
+				l.readChar() // consume '-'
+				l.readChar() // consume '>'
+				tok = Token{Type: RETURN_MANY_EXPLICIT, Literal: "??!->", Line: line, Column: col}
+			} else if l.peekChar() == '-' && l.peekCharN(2) == '>' {
 				// ??-> (return many)
 				l.readChar() // consume '-'
 				l.readChar() // consume '>'
@@ -808,6 +820,14 @@ func (l *Lexer) NextToken() Token {
 			} else {
 				tok = Token{Type: NULLISH, Literal: "??", Line: line, Column: col}
 			}
+		} else if l.peekChar() == '!' && l.peekCharN(2) == '-' && l.peekCharN(3) == '>' {
+			// ?!-> (explicit return one)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '!'
+			l.readChar() // consume '-'
+			l.readChar() // consume '>'
+			tok = Token{Type: RETURN_ONE_EXPLICIT, Literal: "?!->", Line: line, Column: col}
 		} else if l.peekChar() == '-' && l.peekCharN(2) == '>' {
 			// ?-> (return one)
 			line := l.line

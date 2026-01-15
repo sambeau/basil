@@ -857,6 +857,75 @@ let attrs = record.data()
 	}
 }
 
+// TEST-DICT-002: JSON encoding encodes data only (SPEC-DC-003)
+func TestRecordJSONEncoding(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+		excludes []string
+	}{
+		{
+			name: "toJSON encodes Record data fields",
+			input: `
+@schema JSONPerson {
+    name: string
+    age: int
+}
+let record = JSONPerson({name: "Alice", age: 30})
+record.toJSON()`,
+			contains: []string{`"name"`, `"Alice"`, `"age"`, `30`},
+			excludes: []string{`schema`, `validated`, `errors`},
+		},
+		{
+			name: "validated Record JSON still only contains data",
+			input: `
+@schema JSONUser {
+    name: string
+    email: email
+}
+let record = JSONUser({name: "Bob", email: "bob@example.com"}).validate()
+record.toJSON()`,
+			contains: []string{`"name"`, `"Bob"`, `"email"`, `"bob@example.com"`},
+			excludes: []string{`validated`, `errors`, `schema`},
+		},
+		{
+			name: "Record with validation errors JSON only contains data",
+			input: `
+@schema JSONInvalid {
+    name: string(min: 10)
+}
+let record = JSONInvalid({name: "AB"}).validate()
+record.toJSON()`,
+			contains: []string{`"name"`, `"AB"`},
+			excludes: []string{`errors`, `MIN_LENGTH`, `validated`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+
+			jsonStr := result.Inspect()
+
+			for _, s := range tt.contains {
+				if !strings.Contains(jsonStr, s) {
+					t.Errorf("expected JSON to contain %q, got: %s", s, jsonStr)
+				}
+			}
+
+			for _, s := range tt.excludes {
+				if strings.Contains(jsonStr, s) {
+					t.Errorf("expected JSON NOT to contain %q (metadata), got: %s", s, jsonStr)
+				}
+			}
+		})
+	}
+}
+
 // =============================================================================
 // Schema Method Tests
 // =============================================================================

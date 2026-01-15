@@ -1002,8 +1002,8 @@ let Users = db.bind(User, "users")
 	}
 }
 
-// TestQueryEmptyArrayForNoResults tests @query returning [] for ??-> when no match
-func TestQueryEmptyArrayForNoResults(t *testing.T) {
+// TestQueryEmptyTableForNoResults tests @query returning Table with 0 rows for ??-> when no match
+func TestQueryEmptyTableForNoResults(t *testing.T) {
 	evaluator.ClearDBConnections()
 	input := `
 @schema User {
@@ -1024,13 +1024,13 @@ let Users = db.bind(User, "users")
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Check it's an array with no elements
-	arr, ok := result.Value.(*evaluator.Array)
+	// With schema bound, @query returns Table (SPEC-DB-002)
+	tbl, ok := result.Value.(*evaluator.Table)
 	if !ok {
-		t.Fatalf("expected Array, got %T", result.Value)
+		t.Fatalf("expected Table, got %T", result.Value)
 	}
-	if len(arr.Elements) != 0 {
-		t.Errorf("expected empty array for no match, got %d elements", len(arr.Elements))
+	if len(tbl.Rows) != 0 {
+		t.Errorf("expected empty table for no match, got %d rows", len(tbl.Rows))
 	}
 }
 

@@ -271,6 +271,13 @@ func objectToPrintString(obj Object) string {
 			result.WriteString(objectToPrintString(elem))
 		}
 		return result.String()
+	case *Table:
+		// Tables: recursively print each row without any separators
+		var result strings.Builder
+		for _, row := range obj.Rows {
+			result.WriteString(objectToPrintString(row))
+		}
+		return result.String()
 	case *Dictionary:
 		// Check for special dictionary types
 		if isPathDict(obj) {

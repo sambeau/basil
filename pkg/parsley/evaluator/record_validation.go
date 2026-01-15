@@ -34,6 +34,19 @@ var errorTemplates = map[string]string{
 // ValidateRecord validates a record against its schema and returns a new Record
 // with validation errors populated. The original record is unchanged.
 func ValidateRecord(record *Record, env *Environment) *Record {
+	return validateRecordInternal(record, env, false)
+}
+
+// ValidatePartialRecord validates a record against its schema but skips required
+// checks for fields that are missing from the record data. This is used for
+// partial records from projections (SPEC-DB-PART-001).
+func ValidatePartialRecord(record *Record, env *Environment) *Record {
+	return validateRecordInternal(record, env, true)
+}
+
+// validateRecordInternal is the internal implementation of record validation.
+// If partial is true, required checks are skipped for missing fields.
+func validateRecordInternal(record *Record, env *Environment, partial bool) *Record {
 	if record == nil || record.Schema == nil {
 		return record
 	}
@@ -42,7 +55,7 @@ func ValidateRecord(record *Record, env *Environment) *Record {
 
 	// Validate each field defined in the schema
 	for fieldName, field := range record.Schema.Fields {
-		if err := validateField(record, fieldName, field, env); err != nil {
+		if err := validateFieldInternal(record, fieldName, field, env, partial); err != nil {
 			errors[fieldName] = err
 		}
 	}
@@ -62,14 +75,27 @@ func ValidateRecord(record *Record, env *Environment) *Record {
 // Returns nil if the field is valid.
 // Validation order: required → type → format → constraints → enum
 func validateField(record *Record, fieldName string, field *DSLSchemaField, env *Environment) *RecordError {
+	return validateFieldInternal(record, fieldName, field, env, false)
+}
+
+// validateFieldInternal validates a single field with optional partial mode.
+// In partial mode, required checks are skipped for fields not present in the record.
+func validateFieldInternal(record *Record, fieldName string, field *DSLSchemaField, env *Environment, partial bool) *RecordError {
 	// Get the field value
 	value := record.Get(fieldName, env)
 
 	// Get title for error messages
 	title := getFieldTitle(fieldName, field)
 
-	// 1. Required check
+	// Check if the field is present in the record data
+	_, fieldPresent := record.Data[fieldName]
+
+	// 1. Required check (skip in partial mode if field not present)
 	if field.Required {
+		if partial && !fieldPresent {
+			// In partial mode, skip required check for missing fields (SPEC-DB-PART-001)
+			return nil
+		}
 		if isNullOrMissing(value) {
 			return &RecordError{
 				Code:    ErrCodeRequired,

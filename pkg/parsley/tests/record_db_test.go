@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -684,3 +685,436 @@ table.schema.name`
 		t.Errorf("expected schema name ItemTableSchema, got %s", result.Inspect())
 	}
 }
+
+// =============================================================================
+// P5-004: Projection auto-detect (columns ⊆ schema returns Record)
+// =============================================================================
+
+func TestProjectionAutoDetect(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "projection with schema columns returns Record",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
+
+@schema User {
+    id: uuid
+    name: string
+    age: int
+}
+
+let Users = db.bind(User, "users")
+let _ = Users.insert({name: "Alice", age: 30})
+let result = @query(Users ?-> name, age)
+result.type()`,
+			expected: "record",
+		},
+		{
+			name: "projection with non-schema column returns Dictionary",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
+
+@schema User2 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User2, "users")
+let _ = db <=!=> "INSERT INTO users (id, name, extra) VALUES ('abc', 'Alice', 'data')"
+let result = @query(Users ?-> name, extra)
+result.type()`,
+			expected: "dictionary",
+		},
+		{
+			name: "many query with schema columns returns Table",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
+
+@schema User3 {
+    id: uuid
+    name: string
+    age: int
+}
+
+let Users = db.bind(User3, "users")
+let _ = Users.insert({name: "Alice", age: 30})
+let _ = Users.insert({name: "Bob", age: 25})
+let result = @query(Users ??-> name, age)
+result.type()`,
+			expected: "table",
+		},
+		{
+			name: "many query with non-schema column returns Array",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
+
+@schema User4 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User4, "users")
+let _ = db <=!=> "INSERT INTO users (id, name, extra) VALUES ('abc', 'Alice', 'data')"
+let result = @query(Users ??-> name, extra)
+result.type()`,
+			expected: "array",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordDBTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// =============================================================================
+// P5-005: ?!-> explicit terminal returns Record
+// =============================================================================
+
+func TestExplicitReturnOneTerminal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "?!-> with schema columns returns Record",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
+
+@schema User {
+    id: uuid
+    name: string
+    age: int
+}
+
+let Users = db.bind(User, "users")
+let _ = Users.insert({name: "Alice", age: 30})
+let result = @query(Users ?!-> name, age)
+result.type()`,
+			expected: "record",
+		},
+		{
+			name: "?!-> with * returns Record",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
+
+@schema User2 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User2, "users")
+let _ = Users.insert({name: "Alice"})
+let result = @query(Users ?!-> *)
+result.type()`,
+			expected: "record",
+		},
+		{
+			name: "?!-> Record has correct data",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
+
+@schema User3 {
+    id: uuid
+    name: string
+    age: int
+}
+
+let Users = db.bind(User3, "users")
+let _ = Users.insert({name: "Alice", age: 30})
+let result = @query(Users ?!-> name)
+result.name`,
+			expected: "Alice",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordDBTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// =============================================================================
+// P5-006: ??!-> explicit terminal returns Table of Records
+// =============================================================================
+
+func TestExplicitReturnManyTerminal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "??!-> with schema columns returns Table",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
+
+@schema User {
+    id: uuid
+    name: string
+    age: int
+}
+
+let Users = db.bind(User, "users")
+let _ = Users.insert({name: "Alice", age: 30})
+let _ = Users.insert({name: "Bob", age: 25})
+let result = @query(Users ??!-> name, age)
+result.type()`,
+			expected: "table",
+		},
+		{
+			name: "??!-> Table rows are Records",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
+
+@schema User2 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User2, "users")
+let _ = Users.insert({name: "Alice"})
+let result = @query(Users ??!-> name)
+result[0].type()`,
+			expected: "record",
+		},
+		{
+			name: "??!-> Table has schema",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
+
+@schema User3 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User3, "users")
+let _ = Users.insert({name: "Alice"})
+let result = @query(Users ??!-> *)
+result.schema.name`,
+			expected: "User3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordDBTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// =============================================================================
+// P5-007: Error on non-schema column with explicit terminal
+// =============================================================================
+
+func TestExplicitTerminalErrorOnNonSchemaColumn(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "?!-> with non-schema column errors",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
+
+@schema User {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User, "users")
+let _ = db <=!=> "INSERT INTO users (id, name, extra) VALUES ('abc', 'Alice', 'data')"
+@query(Users ?!-> name, extra)`,
+			expectError:   true,
+			errorContains: "not in schema",
+		},
+		{
+			name: "??!-> with non-schema column errors",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
+
+@schema User2 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User2, "users")
+let _ = db <=!=> "INSERT INTO users (id, name, extra) VALUES ('abc', 'Alice', 'data')"
+@query(Users ??!-> name, extra)`,
+			expectError:   true,
+			errorContains: "not in schema",
+		},
+		{
+			name: "?!-> with only schema columns succeeds",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
+
+@schema User3 {
+    id: uuid
+    name: string
+}
+
+let Users = db.bind(User3, "users")
+let _ = Users.insert({name: "Alice"})
+@query(Users ?!-> name).type()`,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluator.ClearDBConnections()
+			result, err := parsley.Eval(tt.input)
+
+			if tt.expectError {
+				// Check for parse/eval error or Error object
+				if err != nil {
+					if !strings.Contains(err.Error(), tt.errorContains) {
+						t.Errorf("expected error containing %q, got: %s", tt.errorContains, err.Error())
+					}
+					return
+				}
+				if result != nil && result.Value != nil {
+					if result.Value.Type() == evaluator.ERROR_OBJ {
+						errObj := result.Value.(*evaluator.Error)
+						if !strings.Contains(errObj.Message, tt.errorContains) {
+							t.Errorf("expected error containing %q, got: %s", tt.errorContains, errObj.Message)
+						}
+						return
+					}
+				}
+				t.Errorf("expected error containing %q but got no error", tt.errorContains)
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if result == nil || result.Value == nil {
+					t.Fatal("result is nil")
+				}
+				if result.Value.Type() == evaluator.ERROR_OBJ {
+					t.Fatalf("unexpected error: %s", result.Value.Inspect())
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// P5-009: Partial record validation (missing fields skip required check)
+// =============================================================================
+
+func TestPartialRecordValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "partial projection Record is valid (missing required fields allowed)",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT)"
+
+@schema User {
+    id: uuid
+    name: string
+    email: email
+}
+
+let Users = db.bind(User, "users")
+let _ = Users.insert({name: "Alice", email: "alice@example.com"})
+let result = @query(Users ?!-> name)
+result.isValid()`,
+			expected: "true",
+		},
+		{
+			name: "partial Record only has projected fields",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT)"
+
+@schema User2 {
+    id: uuid
+    name: string
+    email: email
+}
+
+let Users = db.bind(User2, "users")
+let _ = Users.insert({name: "Alice", email: "alice@example.com"})
+let result = @query(Users ?!-> name)
+result.email == null`,
+			expected: "true",
+		},
+		{
+			name: "partial Table Records are valid",
+			input: `
+let db = @sqlite(":memory:")
+let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
+
+@schema User3 {
+    id: uuid
+    name: string
+    age: int
+}
+
+let Users = db.bind(User3, "users")
+let _ = Users.insert({name: "Alice", age: 30})
+let result = @query(Users ??!-> name)
+result[0].isValid()`,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordDBTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
