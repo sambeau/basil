@@ -296,6 +296,66 @@ let record = SlugField2({slug: "Has Spaces"}).validate()
 record.isValid()`,
 			expectValid: false,
 		},
+		{
+			name: "valid UUID format",
+			input: `
+@schema UUIDField {
+    id: uuid
+}
+let record = UUIDField({id: "123e4567-e89b-12d3-a456-426614174000"}).validate()
+record.isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "invalid UUID format - wrong length",
+			input: `
+@schema UUIDField2 {
+    id: uuid
+}
+let record = UUIDField2({id: "123e4567-e89b-12d3"}).validate()
+record.isValid()`,
+			expectValid: false,
+		},
+		{
+			name: "invalid UUID format - missing dashes",
+			input: `
+@schema UUIDField3 {
+    id: uuid
+}
+let record = UUIDField3({id: "123e4567e89b12d3a456426614174000"}).validate()
+record.isValid()`,
+			expectValid: false,
+		},
+		{
+			name: "valid ULID format",
+			input: `
+@schema ULIDField {
+    id: ulid
+}
+let record = ULIDField({id: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}).validate()
+record.isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "invalid ULID format - wrong length",
+			input: `
+@schema ULIDField2 {
+    id: ulid
+}
+let record = ULIDField2({id: "01ARZ3NDEKTSV4RR"}).validate()
+record.isValid()`,
+			expectValid: false,
+		},
+		{
+			name: "invalid ULID format - invalid characters",
+			input: `
+@schema ULIDField3 {
+    id: ulid
+}
+let record = ULIDField3({id: "01ARZ3NDEKTSV4RRFFQ69G5FAI"}).validate()
+record.isValid()`,
+			expectValid: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -862,6 +922,28 @@ let record = WithErrEmail3({email: "test@example.com"})
 let _ = record.withError("email", "Error")
 record.hasError("email")`,
 			expected: "false",
+		},
+		{
+			name: "withError with custom code (3-arg)",
+			input: `
+@schema WithErrEmail4 {
+    email: string
+}
+let record = WithErrEmail4({email: "test@example.com"})
+let withErr = record.withError("email", "DUPLICATE", "Email already exists")
+withErr.errorCode("email")`,
+			expected: "DUPLICATE",
+		},
+		{
+			name: "withError with custom code preserves message",
+			input: `
+@schema WithErrEmail5 {
+    email: string
+}
+let record = WithErrEmail5({email: "test@example.com"})
+let withErr = record.withError("email", "DB_CONSTRAINT", "Unique constraint violated")
+withErr.error("email")`,
+			expected: "Unique constraint violated",
 		},
 	}
 
