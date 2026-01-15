@@ -548,7 +548,19 @@ func formatRecordDate(value Object, env *Environment) Object {
 func formatRecordDatetime(value Object, env *Environment) Object {
 	// Handle datetime dictionary
 	if dict, ok := value.(*Dictionary); ok && isDatetimeDict(dict) {
-		return formatDateWithStyleAndLocale(dict, "long", "en-US", env)
+		// Extract time from datetime dictionary and format with time
+		var t time.Time
+		if unixExpr, ok := dict.Pairs["unix"]; ok {
+			evalEnv := dict.Env
+			if evalEnv == nil {
+				evalEnv = env
+			}
+			unixObj := Eval(unixExpr, evalEnv)
+			if unixInt, ok := unixObj.(*Integer); ok {
+				t = time.Unix(unixInt.Value, 0).UTC()
+			}
+		}
+		return &String{Value: t.Format("Jan 2, 2006 3:04 PM")}
 	}
 
 	// Handle ISO datetime string

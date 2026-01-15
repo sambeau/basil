@@ -1252,6 +1252,130 @@ let record = Dates({created: "2025-01-15"})
 record.format("created")`,
 			expected: "Jan 15, 2025",
 		},
+		{
+			name: "format datetime from datetime literal",
+			input: `
+@schema Events {
+    when: datetime | {format: "datetime"}
+}
+let record = Events({when: @2025-01-15T14:30:00})
+record.format("when")`,
+			expected: "Jan 15, 2025 2:30 PM",
+		},
+		{
+			name: "format with unknown hint returns string",
+			input: `
+@schema Custom {
+    value: int | {format: "unknown_format"}
+}
+let record = Custom({value: 42})
+record.format("value")`,
+			expected: "42",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestRecordEnumValuesMethods tests record.enumValues() shorthand
+func TestRecordEnumValuesMethods(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "record.enumValues returns enum options",
+			input: `
+@schema Role {
+    role: enum("admin", "user", "guest")
+}
+let record = Role({role: "admin"})
+record.enumValues("role").length()`,
+			expected: "3",
+		},
+		{
+			name: "record.enumValues returns empty for non-enum",
+			input: `
+@schema Plain {
+    name: string
+}
+let record = Plain({name: "test"})
+record.enumValues("name").length()`,
+			expected: "0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestSchemaMethodsEdgeCases tests edge cases for schema methods
+func TestSchemaMethodsEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "schema.title on non-existent field returns titlecase",
+			input: `
+@schema Empty {
+    name: string
+}
+let record = Empty({name: "test"})
+record.schema().title("non_existent_field")`,
+			expected: "Non Existent Field",
+		},
+		{
+			name: "schema.placeholder on non-existent field returns null",
+			input: `
+@schema Empty {
+    name: string
+}
+let record = Empty({name: "test"})
+record.schema().placeholder("non_existent") == null`,
+			expected: "true",
+		},
+		{
+			name: "schema.meta on non-existent field returns null",
+			input: `
+@schema Empty {
+    name: string
+}
+let record = Empty({name: "test"})
+record.schema().meta("non_existent", "title") == null`,
+			expected: "true",
+		},
+		{
+			name: "record.format on non-existent field returns null",
+			input: `
+@schema Empty {
+    name: string
+}
+let record = Empty({name: "test"})
+record.format("non_existent") == null`,
+			expected: "true",
+		},
 	}
 
 	for _, tt := range tests {
