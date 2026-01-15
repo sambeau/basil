@@ -72,6 +72,7 @@ const (
 	BUILTIN_OBJ          = "BUILTIN"
 	ARRAY_OBJ            = "ARRAY"
 	DICTIONARY_OBJ       = "DICTIONARY"
+	RECORD_OBJ           = "RECORD" // Schema-bound data with validation
 	DB_CONNECTION_OBJ    = "DB_CONNECTION"
 	SFTP_CONNECTION_OBJ  = "SFTP_CONNECTION"
 	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
@@ -5130,6 +5131,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Handle DSLSchema property access (e.g., User.Name, User.Fields)
 	if schema, ok := left.(*DSLSchema); ok {
 		return evalDSLSchemaProperty(schema, node.Key)
+	}
+
+	// Handle Record property access (direct data field access)
+	if record, ok := left.(*Record); ok {
+		return evalRecordProperty(record, node.Key, env)
 	}
 
 	// Handle Dictionary (including special types like datetime, path, url)

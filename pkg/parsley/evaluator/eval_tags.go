@@ -1,17 +1,17 @@
 package evaluator
 
 import (
-"encoding/json"
-"fmt"
-"path/filepath"
-"strings"
-"time"
-"unicode"
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
+	"unicode"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-perrors "github.com/sambeau/basil/pkg/parsley/errors"
-"github.com/sambeau/basil/pkg/parsley/lexer"
-"github.com/sambeau/basil/pkg/parsley/parser"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	perrors "github.com/sambeau/basil/pkg/parsley/errors"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // Tag evaluation functions: evalTagLiteral, evalTagPair, evalCacheTag, evalPartTag,
@@ -651,9 +651,15 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 			return spreadObj
 		}
 
-		// Verify it's a dictionary
-		dict, ok := spreadObj.(*Dictionary)
-		if !ok {
+		// Get dictionary to spread (Record spreads its data)
+		var dict *Dictionary
+		switch v := spreadObj.(type) {
+		case *Dictionary:
+			dict = v
+		case *Record:
+			// Record spreads its data fields only
+			dict = v.ToDictionary()
+		default:
 			perr := perrors.New("SPREAD-0001", map[string]any{
 				"Got": spreadObj.Type(),
 			})
@@ -1575,9 +1581,15 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			return spreadObj
 		}
 
-		// Verify it's a dictionary
-		dict, ok := spreadObj.(*Dictionary)
-		if !ok {
+		// Get dictionary to spread (Record spreads its data)
+		var dict *Dictionary
+		switch v := spreadObj.(type) {
+		case *Dictionary:
+			dict = v
+		case *Record:
+			// Record spreads its data fields only
+			dict = v.ToDictionary()
+		default:
 			perr := perrors.New("SPREAD-0001", map[string]any{
 				"Got": spreadObj.Type(),
 			})
@@ -1779,22 +1791,28 @@ func parseTagProps(propsStr string, env *Environment) Object {
 						return spreadObj
 					}
 
-					// If it's a dictionary, merge its properties
-					if spreadDict, ok := spreadObj.(*Dictionary); ok {
-						// Evaluate each property in the spread dict's environment
-						// and wrap it as a literal expression for the new dictionary
-						for key, expr := range spreadDict.Pairs {
-							// Evaluate in the spread dict's environment to get the actual value
-							value := Eval(expr, spreadDict.Env)
-							if isError(value) {
-								return value
-							}
-							// Wrap the evaluated value as a literal expression
-							pairs[key] = objectToExpression(value)
-						}
-					} else {
+					// Get dictionary to spread (Record spreads its data)
+					var spreadDict *Dictionary
+					switch v := spreadObj.(type) {
+					case *Dictionary:
+						spreadDict = v
+					case *Record:
+						spreadDict = v.ToDictionary()
+					default:
 						perr := perrors.New("SPREAD-0001", map[string]any{"Got": string(spreadObj.Type())})
 						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+					}
+
+					// Evaluate each property in the spread dict's environment
+					// and wrap it as a literal expression for the new dictionary
+					for key, expr := range spreadDict.Pairs {
+						// Evaluate in the spread dict's environment to get the actual value
+						value := Eval(expr, spreadDict.Env)
+						if isError(value) {
+							return value
+						}
+						// Wrap the evaluated value as a literal expression
+						pairs[key] = objectToExpression(value)
 					}
 				}
 			}
@@ -1909,22 +1927,28 @@ func parseTagProps(propsStr string, env *Environment) Object {
 							return spreadObj
 						}
 
-						// If it's a dictionary, merge its properties
-						if spreadDict, ok := spreadObj.(*Dictionary); ok {
-							// Evaluate each property in the spread dict's environment
-							// and wrap it as a literal expression for the new dictionary
-							for key, expr := range spreadDict.Pairs {
-								// Evaluate in the spread dict's environment to get the actual value
-								value := Eval(expr, spreadDict.Env)
-								if isError(value) {
-									return value
-								}
-								// Wrap the evaluated value as a literal expression
-								pairs[key] = objectToExpression(value)
-							}
-						} else {
+						// Get dictionary to spread (Record spreads its data)
+						var spreadDict *Dictionary
+						switch v := spreadObj.(type) {
+						case *Dictionary:
+							spreadDict = v
+						case *Record:
+							spreadDict = v.ToDictionary()
+						default:
 							perr := perrors.New("SPREAD-0001", map[string]any{"Got": string(spreadObj.Type())})
 							return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+						}
+
+						// Evaluate each property in the spread dict's environment
+						// and wrap it as a literal expression for the new dictionary
+						for key, expr := range spreadDict.Pairs {
+							// Evaluate in the spread dict's environment to get the actual value
+							value := Eval(expr, spreadDict.Env)
+							if isError(value) {
+								return value
+							}
+							// Wrap the evaluated value as a literal expression
+							pairs[key] = objectToExpression(value)
 						}
 					}
 				}
@@ -2006,4 +2030,3 @@ func parseTagProps(propsStr string, env *Environment) Object {
 // - objectToPrintString
 // - ObjectToPrintString (exported)
 // - objectToDebugString
-

@@ -121,6 +121,13 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			return enrichErrorWithPos(result, env.LastToken)
 		}
 		return result
+	case *DSLSchema:
+		// DSLSchema is callable: Schema({...}) creates a Record, Schema([...]) creates a Table
+		result := evalSchemaCall(fn, args, env)
+		if isError(result) {
+			return enrichErrorWithPos(result, env.LastToken)
+		}
+		return result
 	case *DevModule:
 		// DevModule is not directly callable, only used as a namespace
 		return enrichErrorWithPos(newCallError("CALL-0003", nil), env.LastToken)

@@ -1500,6 +1500,29 @@ func objectToJSON(obj Object) string {
 		}
 		sb.WriteString("]")
 		return sb.String()
+	case *Record:
+		// Record encodes as its data fields (like Dictionary)
+		return objectToJSON(o.ToDictionary())
+	case *Dictionary:
+		// Dictionary encodes as JSON object
+		var sb strings.Builder
+		sb.WriteString("{")
+		first := true
+		for _, key := range o.KeyOrder {
+			if expr, ok := o.Pairs[key]; ok {
+				if !first {
+					sb.WriteString(", ")
+				}
+				first = false
+				sb.WriteString("\"")
+				sb.WriteString(jsonEscape(key))
+				sb.WriteString("\": ")
+				val := Eval(expr, o.Env)
+				sb.WriteString(objectToJSON(val))
+			}
+		}
+		sb.WriteString("}")
+		return sb.String()
 	default:
 		// For other types, use string representation in quotes
 		return "\"" + jsonEscape(obj.Inspect()) + "\""
