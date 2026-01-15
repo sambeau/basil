@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -39,6 +40,7 @@ type DSLSchemaField struct {
 	MinValue       *int64   // for integer range validation
 	MaxValue       *int64   // for integer range validation
 	Unique         bool     // whether field has UNIQUE constraint
+	Metadata       map[string]Object // metadata from pipe syntax: {title: "...", ...}
 }
 
 // DSLSchemaRelation represents a relation in a DSL schema
@@ -69,14 +71,191 @@ func (s *DSLSchema) Inspect() string {
 }
 
 // dslSchemaMethods lists available methods on DSL schema objects
-var dslSchemaMethods = []string{}
+var dslSchemaMethods = []string{
+	"title", "placeholder", "meta", "fields", "visibleFields", "enumValues",
+}
 
 // evalDSLSchemaMethod dispatches method calls on DSL schema objects
 func evalDSLSchemaMethod(schema *DSLSchema, method string, args []Object, env *Environment) Object {
 	switch method {
+	case "title":
+		return schemaTitle(schema, args)
+	case "placeholder":
+		return schemaPlaceholder(schema, args)
+	case "meta":
+		return schemaMeta(schema, args)
+	case "fields":
+		return schemaFields(schema, args)
+	case "visibleFields":
+		return schemaVisibleFields(schema, args)
+	case "enumValues":
+		return schemaEnumValues(schema, args)
 	default:
-		return &Error{Message: fmt.Sprintf("unknown method '%s' for DSL_SCHEMA", method)}
+		return unknownMethodError(method, "Schema", dslSchemaMethods)
 	}
+}
+
+// schemaTitle implements schema.title(field) → String
+// Returns metadata.title or titlecase of field name
+func schemaTitle(schema *DSLSchema, args []Object) Object {
+	if len(args) != 1 {
+		return newArityError("title", len(args), 1)
+	}
+
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Schema.title", "string", args[0].Type())
+	}
+
+	field, exists := schema.Fields[fieldName.Value]
+	if !exists {
+		return &String{Value: toTitleCase(fieldName.Value)}
+	}
+
+	// Check metadata for explicit title
+	if field.Metadata != nil {
+		if title, ok := field.Metadata["title"]; ok {
+			if strTitle, ok := title.(*String); ok {
+				return strTitle
+			}
+		}
+	}
+
+	// Fall back to titlecase of field name
+	return &String{Value: toTitleCase(fieldName.Value)}
+}
+
+// schemaPlaceholder implements schema.placeholder(field) → String or null
+func schemaPlaceholder(schema *DSLSchema, args []Object) Object {
+	if len(args) != 1 {
+		return newArityError("placeholder", len(args), 1)
+	}
+
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Schema.placeholder", "string", args[0].Type())
+	}
+
+	field, exists := schema.Fields[fieldName.Value]
+	if !exists {
+		return NULL
+	}
+
+	if field.Metadata != nil {
+		if placeholder, ok := field.Metadata["placeholder"]; ok {
+			return placeholder
+		}
+	}
+
+	return NULL
+}
+
+// schemaMeta implements schema.meta(field, key) → Any or null
+func schemaMeta(schema *DSLSchema, args []Object) Object {
+	if len(args) != 2 {
+		return newArityError("meta", len(args), 2)
+	}
+
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Schema.meta", "string (field)", args[0].Type())
+	}
+
+	key, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Schema.meta", "string (key)", args[1].Type())
+	}
+
+	field, exists := schema.Fields[fieldName.Value]
+	if !exists {
+		return NULL
+	}
+
+	if field.Metadata != nil {
+		if value, ok := field.Metadata[key.Value]; ok {
+			return value
+		}
+	}
+
+	return NULL
+}
+
+// schemaFields implements schema.fields() → Array<String>
+func schemaFields(schema *DSLSchema, args []Object) Object {
+	if len(args) != 0 {
+		return newArityError("fields", len(args), 0)
+	}
+
+	// Collect and sort field names for consistent ordering
+	names := make([]string, 0, len(schema.Fields))
+	for name := range schema.Fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	elements := make([]Object, len(names))
+	for i, name := range names {
+		elements[i] = &String{Value: name}
+	}
+
+	return &Array{Elements: elements}
+}
+
+// schemaVisibleFields implements schema.visibleFields() → Array<String>
+// Returns fields where hidden != true
+func schemaVisibleFields(schema *DSLSchema, args []Object) Object {
+	if len(args) != 0 {
+		return newArityError("visibleFields", len(args), 0)
+	}
+
+	// Collect visible field names
+	names := make([]string, 0, len(schema.Fields))
+	for name, field := range schema.Fields {
+		// Check if field is hidden
+		hidden := false
+		if field.Metadata != nil {
+			if hiddenVal, ok := field.Metadata["hidden"]; ok {
+				if boolVal, ok := hiddenVal.(*Boolean); ok {
+					hidden = boolVal.Value
+				}
+			}
+		}
+		if !hidden {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+
+	elements := make([]Object, len(names))
+	for i, name := range names {
+		elements[i] = &String{Value: name}
+	}
+
+	return &Array{Elements: elements}
+}
+
+// schemaEnumValues implements schema.enumValues(field) → Array<String>
+func schemaEnumValues(schema *DSLSchema, args []Object) Object {
+	if len(args) != 1 {
+		return newArityError("enumValues", len(args), 1)
+	}
+
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Schema.enumValues", "string", args[0].Type())
+	}
+
+	field, exists := schema.Fields[fieldName.Value]
+	if !exists || len(field.EnumValues) == 0 {
+		return &Array{Elements: []Object{}}
+	}
+
+	elements := make([]Object, len(field.EnumValues))
+	for i, val := range field.EnumValues {
+		elements[i] = &String{Value: val}
+	}
+
+	return &Array{Elements: elements}
 }
 
 // evalDSLSchemaProperty evaluates property access on a DSLSchema
@@ -192,6 +371,14 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 							dslField.Unique = boolVal.Value
 						}
 					}
+				}
+			}
+
+			// Process metadata from pipe syntax
+			if field.Metadata != nil {
+				dslField.Metadata = make(map[string]Object)
+				for key, valExpr := range field.Metadata.Pairs {
+					dslField.Metadata[key] = Eval(valExpr, env)
 				}
 			}
 

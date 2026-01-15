@@ -1015,3 +1015,254 @@ record.bio == null`,
 		})
 	}
 }
+
+// =============================================================================
+// Schema Metadata Tests (Phase 2 - FEAT-091)
+// =============================================================================
+
+func TestSchemaMetadataPipeSyntax(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "schema field with title metadata",
+			input: `
+@schema Person {
+    name: string | {title: "Full Name"}
+}
+let record = Person({name: "Alice"})
+record.schema().title("name")`,
+			expected: "Full Name",
+		},
+		{
+			name: "schema field with placeholder metadata",
+			input: `
+@schema LoginForm {
+    email: email | {placeholder: "Enter your email"}
+}
+let record = LoginForm({email: "test@test.com"})
+record.schema().placeholder("email")`,
+			expected: "Enter your email",
+		},
+		{
+			name: "schema field with multiple metadata",
+			input: `
+@schema Contact {
+    phone: phone | {title: "Phone Number", placeholder: "555-1234", help: "Include area code"}
+}
+let record = Contact({phone: "555-1234"})
+record.schema().meta("phone", "help")`,
+			expected: "Include area code",
+		},
+		{
+			name: "title fallback to title case",
+			input: `
+@schema Item {
+    first_name: string
+}
+let record = Item({first_name: "test"})
+record.schema().title("first_name")`,
+			expected: "First Name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestSchemaFieldsMethods(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "schema.fields returns all field names",
+			input: `
+@schema User {
+    name: string
+    age: int
+    email: email
+}
+let record = User({name: "test", age: 1, email: "a@b.com"})
+record.schema().fields().length()`,
+			expected: "3",
+		},
+		{
+			name: "schema.visibleFields excludes hidden",
+			input: `
+@schema Profile {
+    name: string
+    id: int | {hidden: true}
+}
+let record = Profile({name: "test", id: 1})
+record.schema().visibleFields().length()`,
+			expected: "1",
+		},
+		{
+			name: "schema.enumValues returns options",
+			input: `
+@schema Status {
+    status: enum("active", "inactive", "pending")
+}
+let record = Status({status: "active"})
+record.schema().enumValues("status").length()`,
+			expected: "3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestRecordMetadataMethods(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "record.title returns field title",
+			input: `
+@schema UserForm {
+    full_name: string | {title: "Your Name"}
+}
+let record = UserForm({full_name: "Alice"})
+record.title("full_name")`,
+			expected: "Your Name",
+		},
+		{
+			name: "record.placeholder returns field placeholder",
+			input: `
+@schema EmailForm {
+    email: email | {placeholder: "you@example.com"}
+}
+let record = EmailForm({email: "test@test.com"})
+record.placeholder("email")`,
+			expected: "you@example.com",
+		},
+		{
+			name: "record.meta returns custom metadata",
+			input: `
+@schema HelpForm {
+    field: string | {help: "This is helpful"}
+}
+let record = HelpForm({field: "value"})
+record.meta("field", "help")`,
+			expected: "This is helpful",
+		},
+		{
+			name: "record.title fallback to title case",
+			input: `
+@schema FallbackForm {
+    user_name: string
+}
+let record = FallbackForm({user_name: "test"})
+record.title("user_name")`,
+			expected: "User Name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestRecordFormatMethod(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "format currency",
+			input: `
+@schema Invoice {
+    amount: int | {format: "currency"}
+}
+let record = Invoice({amount: 1234})
+record.format("amount")`,
+			expected: "$ 1,234.00",
+		},
+		{
+			name: "format percent",
+			input: `
+@schema Stats {
+    rate: float | {format: "percent"}
+}
+let record = Stats({rate: 0.15})
+record.format("rate")`,
+			expected: "15%",
+		},
+		{
+			name: "format number with thousands",
+			input: `
+@schema BigNumbers {
+    count: int | {format: "number"}
+}
+let record = BigNumbers({count: 1234567})
+record.format("count")`,
+			expected: "1,234,567",
+		},
+		{
+			name: "format with no hint returns string",
+			input: `
+@schema Plain {
+    value: int
+}
+let record = Plain({value: 42})
+record.format("value")`,
+			expected: "42",
+		},
+		{
+			name: "format date from string",
+			input: `
+@schema Dates {
+    created: string | {format: "date"}
+}
+let record = Dates({created: "2025-01-15"})
+record.format("created")`,
+			expected: "Jan 15, 2025",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

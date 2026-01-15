@@ -1304,6 +1304,7 @@ type SchemaField struct {
 	ForeignKey   string                // from "via fk_name", empty if no relation
 	TypeOptions  map[string]Expression // options like {min: 1, max: 100, unique: true}
 	EnumValues   []string              // for enum type: ["admin", "user", "guest"]
+	Metadata     *DictionaryLiteral    // metadata from pipe syntax: | {title: "...", ...}
 }
 
 func (sf *SchemaField) expressionNode()      {}
@@ -1349,6 +1350,10 @@ func (sf *SchemaField) String() string {
 			first = false
 		}
 		out.WriteString(")")
+	}
+	if sf.Metadata != nil {
+		out.WriteString(" | ")
+		out.WriteString(sf.Metadata.String())
 	}
 	if sf.ForeignKey != "" {
 		out.WriteString(" via ")

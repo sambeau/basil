@@ -1,7 +1,9 @@
 package evaluator
 
 import (
+	"fmt"
 	"sort"
+	"time"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
@@ -10,7 +12,7 @@ import (
 var recordMethods = []string{
 	"validate", "update", "errors", "error", "errorCode", "errorList",
 	"isValid", "hasError", "schema", "data", "keys", "withError",
-	"title", "placeholder", "meta", "enumValues",
+	"title", "placeholder", "meta", "enumValues", "format",
 }
 
 // evalRecordMethod dispatches method calls on Record objects.
@@ -48,6 +50,8 @@ func evalRecordMethod(record *Record, method string, args []Object, env *Environ
 		return recordMeta(record, args, env)
 	case "enumValues":
 		return recordEnumValues(record, args, env)
+	case "format":
+		return recordFormat(record, args, env)
 	default:
 		// Check if it's a data field access via method syntax (shouldn't happen normally)
 		return unknownMethodError(method, "Record", recordMethods)
@@ -357,8 +361,26 @@ func recordPlaceholder(record *Record, args []Object, env *Environment) Object {
 		return newArityError("placeholder", len(args), 1)
 	}
 
-	// TODO: When metadata is implemented, check schema field metadata
-	// For now, return null
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Record.placeholder", "string", args[0].Type())
+	}
+
+	if record.Schema == nil {
+		return NULL
+	}
+
+	field, exists := record.Schema.Fields[fieldName.Value]
+	if !exists {
+		return NULL
+	}
+
+	if field.Metadata != nil {
+		if placeholder, ok := field.Metadata["placeholder"]; ok {
+			return placeholder
+		}
+	}
+
 	return NULL
 }
 
@@ -369,8 +391,31 @@ func recordMeta(record *Record, args []Object, env *Environment) Object {
 		return newArityError("meta", len(args), 2)
 	}
 
-	// TODO: When metadata is implemented, look up metadata from schema field
-	// For now, return null
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Record.meta", "string (field)", args[0].Type())
+	}
+
+	key, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Record.meta", "string (key)", args[1].Type())
+	}
+
+	if record.Schema == nil {
+		return NULL
+	}
+
+	field, exists := record.Schema.Fields[fieldName.Value]
+	if !exists {
+		return NULL
+	}
+
+	if field.Metadata != nil {
+		if value, ok := field.Metadata[key.Value]; ok {
+			return value
+		}
+	}
+
 	return NULL
 }
 
@@ -417,4 +462,167 @@ func evalRecordProperty(record *Record, key string, env *Environment) Object {
 
 	// Not a data field - return null (per spec: direct property access for data only)
 	return NULL
+}
+
+// recordFormat implements record.format(field) → String
+// Formats a field value based on schema metadata "format" hint
+// Built-in formats: date, datetime, currency, percent, number
+func recordFormat(record *Record, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("format", len(args), 1)
+	}
+
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Record.format", "string", args[0].Type())
+	}
+
+	// Get the field value
+	expr, exists := record.Data[fieldName.Value]
+	if !exists {
+		return NULL
+	}
+
+	evalEnv := record.Env
+	if evalEnv == nil {
+		evalEnv = env
+	}
+	value := Eval(expr, evalEnv)
+
+	// Get format hint from schema metadata
+	formatHint := ""
+	if record.Schema != nil {
+		if field, ok := record.Schema.Fields[fieldName.Value]; ok && field.Metadata != nil {
+			if fmtObj, ok := field.Metadata["format"]; ok {
+				if fmtStr, ok := fmtObj.(*String); ok {
+					formatHint = fmtStr.Value
+				}
+			}
+		}
+	}
+
+	// If no format hint, just return string representation
+	if formatHint == "" {
+		return &String{Value: objectToString(value)}
+	}
+
+	// Apply format based on hint
+	switch formatHint {
+	case "date":
+		return formatRecordDate(value, env)
+	case "datetime":
+		return formatRecordDatetime(value, env)
+	case "currency":
+		return formatRecordCurrency(value)
+	case "percent":
+		return formatRecordPercent(value)
+	case "number":
+		return formatRecordNumber(value)
+	default:
+		// Unknown format, return string representation
+		return &String{Value: objectToString(value)}
+	}
+}
+
+// formatRecordDate formats a value as a date string "Jan 2, 2006"
+func formatRecordDate(value Object, env *Environment) Object {
+	// Handle datetime dictionary
+	if dict, ok := value.(*Dictionary); ok && isDatetimeDict(dict) {
+		return formatDateWithStyleAndLocale(dict, "long", "en-US", env)
+	}
+
+	// Handle ISO date string
+	if str, ok := value.(*String); ok {
+		// Parse ISO date string
+		t, err := parseISODate(str.Value)
+		if err != nil {
+			return &String{Value: str.Value}
+		}
+		return &String{Value: t.Format("Jan 2, 2006")}
+	}
+
+	return &String{Value: objectToString(value)}
+}
+
+// formatRecordDatetime formats a value as a datetime string "Jan 2, 2006 3:04 PM"
+func formatRecordDatetime(value Object, env *Environment) Object {
+	// Handle datetime dictionary
+	if dict, ok := value.(*Dictionary); ok && isDatetimeDict(dict) {
+		return formatDateWithStyleAndLocale(dict, "long", "en-US", env)
+	}
+
+	// Handle ISO datetime string
+	if str, ok := value.(*String); ok {
+		t, err := parseISODate(str.Value)
+		if err != nil {
+			return &String{Value: str.Value}
+		}
+		return &String{Value: t.Format("Jan 2, 2006 3:04 PM")}
+	}
+
+	return &String{Value: objectToString(value)}
+}
+
+// formatRecordCurrency formats a numeric value as currency "$1,234.00"
+func formatRecordCurrency(value Object) Object {
+	var num float64
+	switch v := value.(type) {
+	case *Integer:
+		num = float64(v.Value)
+	case *Float:
+		num = v.Value
+	default:
+		return &String{Value: objectToString(value)}
+	}
+
+	return formatCurrencyWithLocale(num, "USD", "en-US")
+}
+
+// formatRecordPercent formats a decimal as percentage "15%"
+func formatRecordPercent(value Object) Object {
+	var num float64
+	switch v := value.(type) {
+	case *Integer:
+		num = float64(v.Value)
+	case *Float:
+		num = v.Value
+	default:
+		return &String{Value: objectToString(value)}
+	}
+
+	return formatPercentWithLocale(num, "en-US")
+}
+
+// formatRecordNumber formats a number with thousands separators "1,234,567"
+func formatRecordNumber(value Object) Object {
+	var num float64
+	switch v := value.(type) {
+	case *Integer:
+		num = float64(v.Value)
+	case *Float:
+		num = v.Value
+	default:
+		return &String{Value: objectToString(value)}
+	}
+
+	return formatNumberWithLocale(num, "en-US")
+}
+
+// parseISODate attempts to parse an ISO date/datetime string
+func parseISODate(s string) (time.Time, error) {
+	// Try various ISO formats
+	formats := []string{
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, s); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", s)
 }

@@ -2289,6 +2289,10 @@ func (p *Parser) peekTokenIs(t lexer.TokenType) bool {
 	return p.peekToken.Type == t
 }
 
+func (p *Parser) peekTokenLiteral() string {
+	return p.peekToken.Literal
+}
+
 func (p *Parser) expectPeek(t lexer.TokenType) bool {
 	if p.peekTokenIs(t) {
 		p.nextToken()
@@ -2966,6 +2970,19 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 
 		if !p.expectPeek(lexer.RPAREN) {
 			return nil
+		}
+	}
+
+	// Check for metadata pipe syntax: | {title: "...", placeholder: "..."}
+	// We use OR token since single | is lexed as OR
+	if p.peekTokenIs(lexer.OR) && p.peekTokenLiteral() == "|" {
+		p.nextToken() // consume |
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+		meta := p.parseDictionaryLiteral()
+		if dictLit, ok := meta.(*ast.DictionaryLiteral); ok {
+			field.Metadata = dictLit
 		}
 	}
 

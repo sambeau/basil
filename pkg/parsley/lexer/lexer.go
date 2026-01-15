@@ -791,6 +791,7 @@ func (l *Lexer) NextToken() Token {
 			l.readChar() // consume '<'
 			tok = Token{Type: PIPE_WRITE, Literal: "|<", Line: line, Column: col}
 		} else {
+			// Single | is also OR (shorthand)
 			tok = newToken(OR, l.ch, l.line, l.column)
 		}
 	case '?':

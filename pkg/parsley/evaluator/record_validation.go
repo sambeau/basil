@@ -329,8 +329,15 @@ func validateEnum(value Object, field *DSLSchemaField, title string) *RecordErro
 // getFieldTitle returns the display title for a field.
 // Priority: explicit title in metadata → titlecase of field name
 func getFieldTitle(fieldName string, field *DSLSchemaField) string {
-	// TODO: Check field.Metadata for explicit title when metadata is implemented
-	// For now, convert field name to title case
+	// Check field.Metadata for explicit title
+	if field != nil && field.Metadata != nil {
+		if titleObj, ok := field.Metadata["title"]; ok {
+			if titleStr, ok := titleObj.(*String); ok {
+				return titleStr.Value
+			}
+		}
+	}
+	// Fallback to titlecase of field name
 	return toTitleCase(fieldName)
 }
 

@@ -225,6 +225,8 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		return evalMoneyMethod(receiver, method, args)
 	case *Record:
 		return evalRecordMethod(receiver, method, args, env)
+	case *DSLSchema:
+		return evalDSLSchemaMethod(receiver, method, args, env)
 	case *Dictionary:
 		// Check for special dictionary types first
 		if isDatetimeDict(receiver) {
