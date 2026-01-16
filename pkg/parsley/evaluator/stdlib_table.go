@@ -358,7 +358,13 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 		if exportedVal, exists := mod.Exports[keyName]; exists {
 			value = exportedVal
 		} else {
-			return newUndefinedError("UNDEF-0006", map[string]any{"Name": keyName})
+			err := newUndefinedError("UNDEF-0006", map[string]any{"Name": keyName})
+			err.Line = keyPattern.Token.Line
+			err.Column = keyPattern.Token.Column
+			if env != nil && env.Filename != "" {
+				err.File = env.Filename
+			}
+			return err
 		}
 
 		// Determine the target variable name (alias or original key)

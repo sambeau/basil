@@ -777,7 +777,13 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 	// Type check: value must be a dictionary
 	dict, ok := val.(*Dictionary)
 	if !ok {
-		return newDestructuringError("DEST-0001", val)
+		err := newDestructuringError("DEST-0001", val)
+		err.Line = pattern.Token.Line
+		err.Column = pattern.Token.Column
+		if env != nil && env.Filename != "" {
+			err.File = env.Filename
+		}
+		return err
 	}
 
 	// Track which keys we've extracted (for rest operator)
