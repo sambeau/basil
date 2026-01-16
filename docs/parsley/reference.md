@@ -437,6 +437,133 @@ Tables can reference a schema for validation and defaults:
 
 ---
 
+### 1.15 Schema Literals
+
+Schemas define the structure of records and tables. They specify field names, types, validation rules, default values, and metadata. Schemas are used for database table bindings, form validation, and typed data structures.
+
+#### Basic Syntax
+
+```parsley
+@schema Person {
+    name: string
+    age: integer
+    email: email
+}
+```
+
+#### Field Types
+
+| Type | Description | SQL Type |
+|------|-------------|----------|
+| `string` | Text data | `TEXT` |
+| `text` | Long text data | `TEXT` |
+| `int`, `integer` | Whole numbers | `INTEGER` |
+| `bigint` | Large integers | `BIGINT` |
+| `float`, `number` | Decimal numbers | `REAL` |
+| `bool`, `boolean` | True/false | `INTEGER` (0/1) |
+| `datetime` | Date and time | `DATETIME` |
+| `date` | Date only | `DATE` |
+| `time` | Time only | `TIME` |
+| `money` | Monetary values | `REAL` |
+| `uuid` | UUID strings | `TEXT` |
+| `ulid` | ULID strings | `TEXT` |
+| `json` | JSON data | `TEXT` |
+| `email` | Email (validated) | `TEXT` |
+| `url` | URL (validated) | `TEXT` |
+| `phone` | Phone number | `TEXT` |
+| `slug` | URL slug (validated) | `TEXT` |
+| `enum` | One of specified values | `TEXT` |
+
+#### Nullable Fields
+
+Append `?` to make a field nullable:
+
+```parsley
+@schema User {
+    name: string           // Required
+    nickname: string?      // Optional (nullable)
+    email: email?          // Optional email
+}
+```
+
+#### Default Values
+
+Use `=` to specify default values:
+
+```parsley
+@schema Post {
+    title: string
+    status: string = "draft"
+    views: integer = 0
+    published: boolean = false
+    createdAt: datetime = @now
+}
+```
+
+#### Enum Types
+
+Define allowed values inline:
+
+```parsley
+@schema Task {
+    title: string
+    priority: enum("low", "medium", "high") = "medium"
+    status: enum("todo", "in-progress", "done")
+}
+```
+
+#### Type Constraints
+
+Add constraints using `<>` syntax:
+
+```parsley
+@schema Profile {
+    username: string<min: 3, max: 20, unique: true>
+    age: integer<min: 0, max: 150>
+    bio: text<max: 500>
+}
+```
+
+| Constraint | Applies To | Description |
+|------------|------------|-------------|
+| `min` | string, integer | Minimum length or value |
+| `max` | string, integer | Maximum length or value |
+| `unique` | any | UNIQUE constraint in SQL |
+
+#### Field Metadata (Pipe Syntax)
+
+Add UI metadata using the pipe `|` syntax:
+
+```parsley
+@schema Contact {
+    name: string | {title: "Full Name", placeholder: "Enter your name"}
+    email: email | {title: "Email Address", hidden: false}
+    notes: text | {title: "Notes", placeholder: "Optional notes...", hidden: true}
+}
+```
+
+Common metadata keys:
+- `title` — Display label for forms/tables
+- `placeholder` — Input placeholder text
+- `hidden` — Hide field in auto-generated UIs
+
+#### Complete Example
+
+```parsley
+@schema User {
+    id: integer
+    username: string<min: 3, max: 30, unique: true> | {title: "Username"}
+    email: email<unique: true> | {title: "Email Address", placeholder: "user@example.com"}
+    password: string | {hidden: true}
+    role: enum("user", "admin", "moderator") = "user" | {title: "Role"}
+    bio: text? | {title: "Biography", placeholder: "Tell us about yourself..."}
+    active: boolean = true
+    createdAt: datetime = @now | {title: "Created", hidden: true}
+}
+```
+
+---
+
 ## 2. Operators
 
 ### 2.1 Arithmetic
@@ -1820,6 +1947,180 @@ t.rows[0].name               // Access first row's name column
 // Without header - returns Array of Arrays
 let arr = csvString.parseCSV(false)
 arr[0]                       // First row as array: ["name", "age"]
+```
+
+---
+
+### 5.12 Schema Properties & Methods
+
+Schemas are first-class objects that can be introspected and queried at runtime.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `.name` | `string` | Schema name |
+| `.fields` | `dictionary` | Field definitions with type info |
+| `.relations` | `dictionary` | Relation definitions |
+| `.[fieldName]` | `string` | Direct access returns field type |
+
+```parsley
+@schema User {
+    name: string
+    age: integer
+    email: email
+}
+
+User.name                       // "User"
+User.age                        // "integer" (shorthand field access)
+User.fields                     // {name: {type: "string", ...}, age: {...}, ...}
+```
+
+#### Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.title(field)` | `field: string` | `string` | Get display title for field |
+| `.placeholder(field)` | `field: string` | `string\|null` | Get placeholder text for field |
+| `.meta(field, key)` | `field, key: string` | `any\|null` | Get metadata value for field |
+| `.fields()` | none | `array<string>` | Get all field names |
+| `.visibleFields()` | none | `array<string>` | Get non-hidden field names |
+| `.enumValues(field)` | `field: string` | `array<string>` | Get enum values for field |
+
+#### title(field)
+
+Returns the display title for a field. Uses metadata `title` if set, otherwise converts the field name to title case.
+
+```parsley
+@schema Contact {
+    firstName: string | {title: "First Name"}
+    lastName: string
+}
+
+Contact.title("firstName")      // "First Name" (from metadata)
+Contact.title("lastName")       // "Last Name" (auto title-cased)
+```
+
+#### placeholder(field)
+
+Returns the placeholder text for a field, or `null` if not set.
+
+```parsley
+@schema Login {
+    email: email | {placeholder: "you@example.com"}
+    password: string
+}
+
+Login.placeholder("email")      // "you@example.com"
+Login.placeholder("password")   // null
+```
+
+#### meta(field, key)
+
+Returns any metadata value for a field. Useful for custom metadata beyond title/placeholder/hidden.
+
+```parsley
+@schema Product {
+    price: money | {currency: "USD", min: 0}
+}
+
+Product.meta("price", "currency")   // "USD"
+Product.meta("price", "min")        // 0
+Product.meta("price", "missing")    // null
+```
+
+#### fields()
+
+Returns all field names as an array (alphabetically sorted).
+
+```parsley
+@schema Person { name: string, age: integer, city: string }
+
+Person.fields()                 // ["age", "city", "name"]
+```
+
+#### visibleFields()
+
+Returns field names where `hidden` metadata is not `true`. Useful for auto-generating forms and tables.
+
+```parsley
+@schema User {
+    id: integer | {hidden: true}
+    name: string
+    password: string | {hidden: true}
+    email: email
+}
+
+User.visibleFields()            // ["email", "name"]
+```
+
+#### enumValues(field)
+
+Returns the allowed values for an enum field, or an empty array if not an enum.
+
+```parsley
+@schema Task {
+    status: enum("todo", "doing", "done")
+    title: string
+}
+
+Task.enumValues("status")       // ["todo", "doing", "done"]
+Task.enumValues("title")        // []
+```
+
+#### Practical Example: Dynamic Form Generation
+
+```parsley
+@schema Contact {
+    name: string | {title: "Full Name", placeholder: "John Doe"}
+    email: email | {title: "Email", placeholder: "john@example.com"}
+    phone: phone? | {title: "Phone", placeholder: "(555) 555-5555"}
+    notes: text | {title: "Notes", hidden: true}
+}
+
+// Generate form fields for visible fields only
+for (field in Contact.visibleFields()) {
+    <div class="form-group">
+        <label>{Contact.title(field)}</label>
+        <input 
+            name={field} 
+            placeholder={Contact.placeholder(field) ?? ""}
+        />
+    </div>
+}
+```
+
+#### Practical Example: Dynamic Table Headers
+
+```parsley
+@schema Product {
+    sku: string | {title: "SKU", hidden: true}
+    name: string | {title: "Product Name"}
+    price: money | {title: "Price"}
+    stock: integer | {title: "In Stock"}
+}
+
+let products = @table(Product) [...]
+
+// Generate table with proper column headers
+<table>
+    <thead>
+        <tr>
+            for (col in Product.visibleFields()) {
+                <th>{Product.title(col)}</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        for (row in products.rows) {
+            <tr>
+                for (col in Product.visibleFields()) {
+                    <td>{row[col]}</td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
 ```
 
 ---
