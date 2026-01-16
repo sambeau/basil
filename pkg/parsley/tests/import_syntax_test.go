@@ -319,3 +319,133 @@ func TestImportASTString(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// BUG-016: Import error position information
+// =============================================================================
+
+// TestImportErrorPositions verifies that import errors include correct line/column info
+// instead of showing 0:0
+func TestImportErrorPositions(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantError    string
+		wantLine     int
+		wantColumn   int
+	}{
+		{
+			name:       "missing export shows position",
+			input:      "{nonexistent} = import @std/math",
+			wantError:  "Module does not export 'nonexistent'",
+			wantLine:   1,
+			wantColumn: 2, // position of 'nonexistent' in the pattern
+		},
+		{
+			name:       "missing export on line 2",
+			input:      "let x = 1\n{badexport} = import @std/math",
+			wantError:  "Module does not export 'badexport'",
+			wantLine:   2,
+			wantColumn: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() != evaluator.ERROR_OBJ {
+				t.Fatalf("expected error, got %s: %s", result.Type(), result.Inspect())
+			}
+
+			err := result.(*evaluator.Error)
+
+			// Check error message
+			if err.Message != tt.wantError {
+				t.Errorf("wrong error message: got %q, want %q", err.Message, tt.wantError)
+			}
+
+			// Check line number
+			if err.Line != tt.wantLine {
+				t.Errorf("wrong line: got %d, want %d", err.Line, tt.wantLine)
+			}
+
+			// Check column number
+			if err.Column != tt.wantColumn {
+				t.Errorf("wrong column: got %d, want %d", err.Column, tt.wantColumn)
+			}
+		})
+	}
+}
+
+// TestDestructuringTypeErrorPosition verifies that destructuring type mismatch errors
+// include correct line/column info
+func TestDestructuringTypeErrorPosition(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantError  string
+		wantLine   int
+		wantColumn int
+	}{
+		{
+			name:       "destructure string shows position",
+			input:      `{x} = "not a dict"`,
+			wantError:  "Dictionary destructuring requires a dictionary value, got string",
+			wantLine:   1,
+			wantColumn: 1, // position of '{' token
+		},
+		{
+			name:       "destructure on line 2",
+			input:      "let s = \"hello\"\n{x} = s",
+			wantError:  "Dictionary destructuring requires a dictionary value, got string",
+			wantLine:   2,
+			wantColumn: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() != evaluator.ERROR_OBJ {
+				t.Fatalf("expected error, got %s: %s", result.Type(), result.Inspect())
+			}
+
+			err := result.(*evaluator.Error)
+
+			// Check error message
+			if err.Message != tt.wantError {
+				t.Errorf("wrong error message: got %q, want %q", err.Message, tt.wantError)
+			}
+
+			// Check line number
+			if err.Line != tt.wantLine {
+				t.Errorf("wrong line: got %d, want %d", err.Line, tt.wantLine)
+			}
+
+			// Check column number
+			if err.Column != tt.wantColumn {
+				t.Errorf("wrong column: got %d, want %d", err.Column, tt.wantColumn)
+			}
+		})
+	}
+}
