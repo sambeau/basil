@@ -41,6 +41,7 @@ type DSLSchemaField struct {
 	MinValue       *int64            // for integer range validation
 	MaxValue       *int64            // for integer range validation
 	Unique         bool              // whether field has UNIQUE constraint
+	Primary        bool              // whether this field is the primary key
 	Metadata       map[string]Object // metadata from pipe syntax: {title: "...", ...}
 }
 
@@ -69,6 +70,16 @@ func (s *DSLSchema) Inspect() string {
 		fields = append(fields, fmt.Sprintf("%s: %s via %s", name, typeName, r.ForeignKey))
 	}
 	return fmt.Sprintf("@schema %s { %s }", s.Name, strings.Join(fields, ", "))
+}
+
+// PrimaryKey returns the name of the primary key field, or empty string if none.
+func (s *DSLSchema) PrimaryKey() string {
+	for name, field := range s.Fields {
+		if field.Primary {
+			return name
+		}
+	}
+	return ""
 }
 
 // dslSchemaMethods lists available methods on DSL schema objects
@@ -353,6 +364,7 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 				Nullable:       field.Nullable,
 				ValidationType: getValidationType(field.TypeName),
 				EnumValues:     field.EnumValues,
+				Primary:        field.Name.Value == "id", // Convention: "id" field is primary key
 			}
 
 			// Evaluate default value if present

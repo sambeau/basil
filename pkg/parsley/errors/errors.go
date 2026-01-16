@@ -976,6 +976,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassValue,
 		Template: "{{.Function}}() requires {{.Expected}}, got {{.Got}}",
 	},
+	"VAL-0022": {
+		Class:    ClassType,
+		Template: "Schema mismatch: expected {{.Expected}}, got {{.Got}}",
+		Hints:    []string{"Ensure the record or table schema matches the bound table's schema."},
+	},
 
 	// ========================================
 	// Table errors (TABLE-0xxx)
@@ -1052,6 +1057,16 @@ var ErrorCatalog = map[string]ErrorDef{
 	"DB-0012": {
 		Class:    ClassType,
 		Template: "{{.Operator}} requires a database connection, got {{.Got}}",
+	},
+	"DB-0016": {
+		Class:    ClassState,
+		Template: "Cannot update: record has no primary key value",
+		Hints:    []string{"Ensure the record has an 'id' field, or the schema has a primary key defined."},
+	},
+	"DB-0017": {
+		Class:    ClassState,
+		Template: "Cannot delete: record has no primary key value",
+		Hints:    []string{"Ensure the record has an 'id' field, or the schema has a primary key defined."},
 	},
 
 	// ========================================
