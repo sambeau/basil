@@ -441,3 +441,210 @@ func TestDatetimeTemplateVsPathTemplate(t *testing.T) {
 		})
 	}
 }
+
+// TestDatetimeTemplateErrorPositions tests that errors in interpolations report correct positions
+func TestDatetimeTemplateErrorPositions(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantLine   int
+		wantColumn int
+	}{
+		{
+			// @(2024-{Year}-15) starts at column 1
+			// Content starts after @( at column 3
+			// {Year} is at index 5 in content "2024-{Year}-15"
+			// So Year identifier is at column 3 + 5 + 1 = 9
+			name:       "undefined var in datetime template - first interpolation",
+			input:      `@(2024-{Year}-15)`,
+			wantLine:   1,
+			wantColumn: 9,
+		},
+		{
+			// let x = 1 is 9 chars plus newline, then @(2024-{Year}-15) on line 2
+			// Content starts at column 3, {Year} at index 5
+			// Year identifier at column 3 + 5 + 1 = 9
+			name:       "undefined var on line 2",
+			input:      "let x = 1\n@(2024-{Year}-15)",
+			wantLine:   2,
+			wantColumn: 9,
+		},
+		{
+			// @(./path/{name}/file) path template
+			// Content: "./path/{name}/file"
+			// {name} starts at index 8
+			// name identifier at column 3 + 8 + 1 = 12
+			// But actual behavior gives 11, which points to the identifier start
+			name:       "undefined var in path template",
+			input:      `@(./path/{name}/file)`,
+			wantLine:   1,
+			wantColumn: 11,
+		},
+		{
+			// @(https://api.com/{ver}/users) URL template
+			// Content: "https://api.com/{ver}/users"
+			// {ver} starts at index 17
+			// ver identifier at column 3 + 17 + 1 = 21
+			// But actual behavior gives 20
+			name:       "undefined var in url template",
+			input:      `@(https://api.com/{ver}/users)`,
+			wantLine:   1,
+			wantColumn: 20,
+		},
+		{
+			// let month = "06"; @(2024-{month}-{Day})
+			// "let month = "06"; " is 18 chars, @ is at column 19
+			// Content starts at column 21
+			// {Day} is at index 13 in content "2024-{month}-{Day}"
+			// Day identifier at column 21 + 13 + 1 = 35
+			name:       "undefined var in second interpolation",
+			input:      `let month = "06"; @(2024-{month}-{Day})`,
+			wantLine:   1,
+			wantColumn: 35,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			errObj, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected error, got %T: %v", result, result)
+			}
+
+			if !strings.Contains(strings.ToLower(errObj.Message), "identifier not found") {
+				t.Fatalf("expected 'identifier not found' error, got: %s", errObj.Message)
+			}
+
+			if errObj.Line != tt.wantLine {
+				t.Errorf("wrong line: got %d, want %d", errObj.Line, tt.wantLine)
+			}
+
+			if errObj.Column != tt.wantColumn {
+				t.Errorf("wrong column: got %d, want %d", errObj.Column, tt.wantColumn)
+			}
+		})
+	}
+}
+
+// TestTemplateLiteralErrorPositions tests that errors in backtick template interpolations report correct positions
+func TestTemplateLiteralErrorPositions(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantLine   int
+		wantColumn int
+	}{
+		{
+			// `hello {name}` - backtick is at column 1, content starts at column 2
+			// {name} is at index 6 in "hello {name}"
+			// name identifier at column 2 + 6 + 1 = 9
+			name:       "undefined var in backtick template",
+			input:      "`hello {name}`",
+			wantLine:   1,
+			wantColumn: 9,
+		},
+		{
+			// let x = 1 then newline, then `{foo}` on line 2
+			// foo identifier at column 2 + 0 + 1 = 3
+			name:       "undefined var on line 2 backtick",
+			input:      "let x = 1\n`{foo}`",
+			wantLine:   2,
+			wantColumn: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			errObj, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected error, got %T: %v", result, result)
+			}
+
+			if !strings.Contains(strings.ToLower(errObj.Message), "identifier not found") {
+				t.Fatalf("expected 'identifier not found' error, got: %s", errObj.Message)
+			}
+
+			if errObj.Line != tt.wantLine {
+				t.Errorf("wrong line: got %d, want %d", errObj.Line, tt.wantLine)
+			}
+
+			if errObj.Column != tt.wantColumn {
+				t.Errorf("wrong column: got %d, want %d", errObj.Column, tt.wantColumn)
+			}
+		})
+	}
+}
+
+// TestRawTemplateLiteralErrorPositions tests that errors in single-quoted raw template interpolations report correct positions
+func TestRawTemplateLiteralErrorPositions(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantLine   int
+		wantColumn int
+	}{
+		{
+			// 'hello @{name}' - quote is at column 1, content starts at column 2
+			// @{name} is at index 6 in "hello @{name}"
+			// name identifier at column 2 + 6 + 2 = 10 (extra +2 for @{)
+			name:       "undefined var in raw template",
+			input:      `'hello @{name}'`,
+			wantLine:   1,
+			wantColumn: 10,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			errObj, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected error, got %T: %v", result, result)
+			}
+
+			if !strings.Contains(strings.ToLower(errObj.Message), "identifier not found") {
+				t.Fatalf("expected 'identifier not found' error, got: %s", errObj.Message)
+			}
+
+			if errObj.Line != tt.wantLine {
+				t.Errorf("wrong line: got %d, want %d", errObj.Line, tt.wantLine)
+			}
+
+			if errObj.Column != tt.wantColumn {
+				t.Errorf("wrong column: got %d, want %d", errObj.Column, tt.wantColumn)
+			}
+		})
+	}
+}

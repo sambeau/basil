@@ -1334,7 +1334,8 @@ func evalUrlLiteral(node *ast.UrlLiteral, env *Environment) Object {
 // evalPathTemplateLiteral evaluates an interpolated path template like @(./path/{name}/file)
 func evalPathTemplateLiteral(node *ast.PathTemplateLiteral, env *Environment) Object {
 	// First, interpolate the template
-	interpolated := interpolatePathUrlTemplate(node.Value, env)
+	// Position offset: token points to @, content starts after @(, so column + 2
+	interpolated := interpolatePathUrlTemplate(node.Value, env, node.Token.Line, node.Token.Column+2)
 	if isError(interpolated) {
 		return interpolated
 	}
@@ -1352,7 +1353,8 @@ func evalPathTemplateLiteral(node *ast.PathTemplateLiteral, env *Environment) Ob
 // evalUrlTemplateLiteral evaluates an interpolated URL template like @(https://api.com/{version}/users)
 func evalUrlTemplateLiteral(node *ast.UrlTemplateLiteral, env *Environment) Object {
 	// First, interpolate the template
-	interpolated := interpolatePathUrlTemplate(node.Value, env)
+	// Position offset: token points to @, content starts after @(, so column + 2
+	interpolated := interpolatePathUrlTemplate(node.Value, env, node.Token.Line, node.Token.Column+2)
 	if isError(interpolated) {
 		return interpolated
 	}
@@ -1372,7 +1374,8 @@ func evalUrlTemplateLiteral(node *ast.UrlTemplateLiteral, env *Environment) Obje
 // evalDatetimeTemplateLiteral evaluates an interpolated datetime template like @(2024-{month}-{day})
 func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environment) Object {
 	// First, interpolate the template
-	interpolated := interpolatePathUrlTemplate(node.Value, env)
+	// Position offset: token points to @, content starts after @(, so column + 2
+	interpolated := interpolatePathUrlTemplate(node.Value, env, node.Token.Line, node.Token.Column+2)
 	if isError(interpolated) {
 		return interpolated
 	}
@@ -1443,14 +1446,20 @@ func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environ
 }
 
 // interpolatePathUrlTemplate processes {expr} interpolations in path/URL templates
-// This is similar to evalTemplateLiteral but returns a String object
-func interpolatePathUrlTemplate(template string, env *Environment) Object {
+// This is similar to evalTemplateLiteral but returns a String object.
+// baseLine and baseCol specify the position of the template content start (after @()
+// so that errors within interpolations can report correct source positions.
+func interpolatePathUrlTemplate(template string, env *Environment, baseLine, baseCol int) Object {
 	var result strings.Builder
 
 	i := 0
 	for i < len(template) {
 		// Look for {
 		if template[i] == '{' {
+			// Record position of the opening brace for error reporting
+			// The expression starts after the {, so add 1 to the offset
+			exprOffset := i + 1
+
 			// Find the closing }
 			i++ // skip {
 			braceCount := 1
@@ -1486,15 +1495,19 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
-				// Return first parse error with file info preserved
+				// Return first parse error with adjusted position
 				perr := errs[0]
+				// Adjust position: add template offset to error position
+				// The error's line/column are relative to the expression string (starting at 1,1)
+				// We need to adjust based on where in the template this expression appears
+				adjustedCol := baseCol + exprOffset + (perr.Column - 1)
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    baseLine,
+					Column:  adjustedCol,
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
@@ -1505,6 +1518,17 @@ func interpolatePathUrlTemplate(template string, env *Environment) Object {
 			for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
+					// Adjust error position for runtime errors too
+					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+						errObj.Line = baseLine
+						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
+						if errObj.Column < baseCol+exprOffset {
+							errObj.Column = baseCol + exprOffset
+						}
+						if errObj.File == "" {
+							errObj.File = env.Filename
+						}
+					}
 					return evaluated
 				}
 			}
@@ -4308,7 +4332,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalTemplateLiteral(node, env)
 
 	case *ast.RawTemplateLiteral:
-		return interpolateRawString(node.Value, env)
+		return evalRawTemplateLiteral(node, env)
 
 	case *ast.RegexLiteral:
 		return evalRegexLiteral(node, env)
@@ -4826,10 +4850,17 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 	template := node.Value
 	var result strings.Builder
 
+	// Base position for error reporting - template content starts after the opening backtick
+	baseLine := node.Token.Line
+	baseCol := node.Token.Column + 1
+
 	i := 0
 	for i < len(template) {
 		// Look for {
 		if template[i] == '{' {
+			// Record position for error reporting
+			exprOffset := i + 1
+
 			// Find the closing }
 			i++ // skip {
 			braceCount := 1
@@ -4860,15 +4891,16 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
-				// Return first parse error with file info preserved
+				// Return first parse error with adjusted position
 				perr := errs[0]
+				adjustedCol := baseCol + exprOffset + (perr.Column - 1)
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    baseLine,
+					Column:  adjustedCol,
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
@@ -4879,6 +4911,17 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
+					// Adjust error position for runtime errors too
+					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+						errObj.Line = baseLine
+						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
+						if errObj.Column < baseCol+exprOffset {
+							errObj.Column = baseCol + exprOffset
+						}
+						if errObj.File == "" {
+							errObj.File = env.Filename
+						}
+					}
 					return evaluated
 				}
 			}
@@ -4892,6 +4935,107 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			result.WriteByte(template[i])
 			i++
 		}
+	}
+
+	return &String{Value: result.String()}
+}
+
+// evalRawTemplateLiteral evaluates a raw template literal (single-quoted string with @{} interpolation)
+func evalRawTemplateLiteral(node *ast.RawTemplateLiteral, env *Environment) Object {
+	template := node.Value
+
+	if env == nil {
+		env = NewEnvironment()
+	}
+
+	// Base position for error reporting - content starts after the opening quote
+	baseLine := node.Token.Line
+	baseCol := node.Token.Column + 1
+
+	var result strings.Builder
+	i := 0
+	for i < len(template) {
+		// Handle escaped @
+		if template[i] == '\\' && i+1 < len(template) && template[i+1] == '@' {
+			result.WriteByte('@')
+			i += 2
+			continue
+		}
+
+		// Look for @{
+		if i < len(template)-1 && template[i] == '@' && template[i+1] == '{' {
+			// Record position for error reporting - expression starts after @{
+			exprOffset := i + 2
+
+			i += 2 // skip @{
+			braceCount := 1
+			exprStart := i
+
+			for i < len(template) && braceCount > 0 {
+				if template[i] == '{' {
+					braceCount++
+				} else if template[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newParseError("PARSE-0009", "raw template", nil)
+			}
+
+			exprStr := template[exprStart:i]
+			i++ // skip closing }
+
+			l := lexer.NewWithFilename(exprStr, env.Filename)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if errs := p.StructuredErrors(); len(errs) > 0 {
+				// Return first parse error with adjusted position
+				perr := errs[0]
+				adjustedCol := baseCol + exprOffset + (perr.Column - 1)
+				return &Error{
+					Class:   ClassParse,
+					Code:    perr.Code,
+					Message: perr.Message,
+					Hints:   perr.Hints,
+					Line:    baseLine,
+					Column:  adjustedCol,
+					File:    env.Filename,
+					Data:    perr.Data,
+				}
+			}
+
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					// Adjust error position for runtime errors too
+					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+						errObj.Line = baseLine
+						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
+						if errObj.Column < baseCol+exprOffset {
+							errObj.Column = baseCol + exprOffset
+						}
+						if errObj.File == "" {
+							errObj.File = env.Filename
+						}
+					}
+					return evaluated
+				}
+			}
+
+			if evaluated != nil {
+				result.WriteString(objectToTemplateString(evaluated))
+			}
+			continue
+		}
+
+		result.WriteByte(template[i])
+		i++
 	}
 
 	return &String{Value: result.String()}
