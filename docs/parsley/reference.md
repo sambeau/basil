@@ -2125,6 +2125,151 @@ let products = @table(Product) [...]
 
 ---
 
+### 5.13 TableBinding Properties & Methods
+
+TableBinding represents a database table bound to a schema. It provides query and mutation methods for database operations.
+
+#### Creating a TableBinding
+
+```parsley
+@schema User {
+    id: integer
+    name: string
+    email: email
+}
+
+let db = @sqlite(":memory:")
+db.createTable(User, "users")        // Create table from schema
+let users = db.bind(User, "users")   // Bind schema to table
+```
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `.schema` | `schema` | The bound schema |
+| `.tableName` | `string` | Database table name |
+
+#### Query Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.all()` | none | `Table` | All rows as Table |
+| `.where(cond)` | `cond: dictionary` | `TableBinding` | Filter by conditions |
+| `.find(id)` | `id: any` | `Record\|null` | Find row by primary key |
+| `.first()` | none | `Record\|null` | First matching row |
+
+```parsley
+let allUsers = users.all()
+let active = users.where({status: "active"}).all()
+let user = users.find("abc-123")
+```
+
+#### Schema-Driven Mutation Methods
+
+TableBindings support method-based CRUD operations that accept Record or Table objects directly. The `id` field is used as the primary key for update, save, and delete operations.
+
+| Method | Argument | Returns | Description |
+|--------|----------|---------|-------------|
+| `.insert(record)` | Record | Record | Insert single row, return with generated ID |
+| `.insert(table)` | Table | `{inserted: N}` | Insert all rows, return count |
+| `.update(record)` | Record | Record | Update row by ID |
+| `.update(table)` | Table | `{updated: N}` | Update all rows by ID |
+| `.save(record)` | Record | Record | Upsert single row (insert or update) |
+| `.save(table)` | Table | `{inserted: N, updated: M}` | Upsert all rows |
+| `.delete(record)` | Record | `{deleted: 1}` | Delete row by ID |
+| `.delete(table)` | Table | `{deleted: N}` | Delete all rows by ID |
+
+##### insert(record) / insert(table)
+
+Insert a Record (id auto-generated) or all rows from a Table:
+
+```parsley
+// Insert single Record
+let user = User({name: "Alice", email: "alice@example.com"})
+let inserted = users.insert(user)
+log(inserted.id)                     // Generated ID
+
+// Insert Table (bulk)
+let newUsers = table([
+    {name: "Bob", email: "bob@example.com"},
+    {name: "Carol", email: "carol@example.com"}
+])
+let result = users.insert(newUsers)  // {inserted: 2}
+```
+
+##### update(record) / update(table)
+
+Update rows by their `id` field:
+
+```parsley
+// Update single Record
+let user = users.find("abc-123")
+users.update(user.update({name: "Alice Smith"}))
+
+// Update Table (bulk)
+let toUpdate = table([
+    {id: "abc-123", name: "Alice Smith"},
+    {id: "def-456", name: "Bob Jones"}
+])
+users.update(toUpdate)               // {updated: 2}
+```
+
+**Error**: If Record has no `id` field, raises `DB-0016`.
+
+##### save(record) / save(table)
+
+Upsert—inserts if `id` is missing or null, updates if `id` exists:
+
+```parsley
+// Save new record (no id)
+let user = User({name: "Alice", email: "alice@example.com"})
+let saved = users.save(user)         // Inserts, returns with generated ID
+
+// Save existing record (has id)
+let user = users.find("abc-123")
+users.save(user.update({name: "Alice Smith"}))  // Updates
+
+// Bulk save (mixed insert/update)
+let mixed = table([
+    {name: "New User", email: "new@example.com"},        // Will insert
+    {id: "abc-123", name: "Updated", email: "a@b.com"}   // Will update
+])
+users.save(mixed)                    // {inserted: 1, updated: 1}
+```
+
+##### delete(record) / delete(table)
+
+Delete rows by their `id` field:
+
+```parsley
+// Delete single Record
+let user = users.find("abc-123")
+users.delete(user)                   // {deleted: 1}
+
+// Delete Table (bulk)
+let inactive = users.where({status: "inactive"}).all()
+users.delete(inactive)               // {deleted: N}
+```
+
+**Error**: If Record has no `id` field, raises `DB-0017`.
+
+#### Schema Matching
+
+When passing a Record or Table with an attached schema, it must match the binding's schema:
+
+```parsley
+@schema Product { id: integer, name: string, price: money }
+let product = Product({name: "Widget", price: $9.99})
+
+// Error VAL-0022: Schema mismatch
+users.insert(product)
+```
+
+Plain dictionaries are always accepted (backward compatible).
+
+---
+
 ## 6. Builtin Functions
 
 Builtin functions are globally available without import.
@@ -3709,3 +3854,16 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `toCSV()` | 0 | Convert to CSV |
 | `toMarkdown()` | 0 | Convert to Markdown |
 | `toJSON()` | 0 | Convert to JSON |
+
+### TableBinding Methods (8 methods)
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `all()` | 0 | Get all rows as Table |
+| `where(cond)` | 1 | Filter by conditions |
+| `find(id)` | 1 | Find row by primary key |
+| `first()` | 0 | First matching row |
+| `insert(record\|table)` | 1 | Insert Record or Table |
+| `update(record\|table)` | 1 | Update by ID |
+| `save(record\|table)` | 1 | Upsert (insert or update) |
+| `delete(record\|table)` | 1 | Delete by ID |

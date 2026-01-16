@@ -410,6 +410,134 @@ let userData = {name: "Charlie", email: "charlie@test.com"}
 @delete(Posts | id == {postId} .)  // Sets deleted_at, doesn't remove row
 ```
 
+### Schema-Driven Mutations
+
+In addition to the Query DSL syntax (`@insert`, `@update`, `@delete`), bound tables support **method-based mutations** that accept Record or Table objects directly. This provides a more object-oriented approach when working with typed data.
+
+#### Setup
+
+```parsley
+@schema User {
+    id: integer
+    name: string
+    email: email
+}
+
+let db = @sqlite(":memory:")
+db.createTable(User, "users")
+let users = db.bind(User, "users")
+```
+
+#### insert(record) / insert(table)
+
+Insert a Record or all rows from a Table:
+
+```parsley
+// Insert a single Record
+let user = User({name: "Alice", email: "alice@example.com"})
+let inserted = users.insert(user)  // Returns Record with generated id
+
+// Insert multiple rows from a Table
+let newUsers = table([
+    {name: "Bob", email: "bob@example.com"},
+    {name: "Carol", email: "carol@example.com"}
+])
+let result = users.insert(newUsers)  // Returns {inserted: 2}
+```
+
+When inserting a Record, the `id` field is auto-generated if not provided or if set to `null`. The returned Record includes the generated ID.
+
+#### update(record) / update(table)
+
+Update rows using Records that have an `id` field:
+
+```parsley
+// Update a single Record
+let user = users.find("123")
+users.update(user.update({name: "Alice Smith"}))  // Updates by id
+
+// Update multiple rows from a Table
+let updatedUsers = table([
+    {id: "123", name: "Alice Smith"},
+    {id: "456", name: "Bob Jones"}
+])
+users.update(updatedUsers)  // Returns {updated: 2}
+```
+
+**Error**: If a Record has no `id` field, raises error `DB-0016`.
+
+#### save(record) / save(table)
+
+Upsert operation—inserts if new, updates if exists (based on `id`):
+
+```parsley
+// Save a new record (no id or id is null)
+let user = User({name: "Alice", email: "alice@example.com"})
+let saved = users.save(user)  // Inserts, returns Record with generated id
+
+// Save an existing record (has id)
+let user = users.find("123")
+let updated = users.save(user.update({name: "Alice Smith"}))  // Updates
+
+// Bulk save from Table
+let mixedUsers = table([
+    {name: "New User", email: "new@example.com"},       // Will insert
+    {id: "123", name: "Updated Name", email: "a@b.com"} // Will update
+])
+let result = users.save(mixedUsers)  // Returns {inserted: 1, updated: 1}
+```
+
+The `save` method determines whether to insert or update based on:
+1. If the Record has no `id` field → insert
+2. If `id` is `null` → insert  
+3. If `id` has a value → update
+
+#### delete(record) / delete(table)
+
+Delete rows by their `id`:
+
+```parsley
+// Delete a single Record
+let user = users.find("123")
+users.delete(user)  // Deletes row with id "123"
+
+// Delete multiple rows from a Table
+let toDelete = users.where({status: "inactive"}).all()
+users.delete(toDelete)  // Returns {deleted: N}
+```
+
+**Error**: If a Record has no `id` field, raises error `DB-0017`.
+
+#### Schema Validation
+
+When using schema-driven mutations:
+
+- If the Record/Table has a schema attached, it must match the binding's schema
+- Mismatched schemas raise error `VAL-0022`
+- Plain dictionaries can also be used (backward compatible)
+
+```parsley
+// Schema mismatch example
+@schema Product { id: integer, name: string, price: money }
+let product = Product({name: "Widget", price: $9.99})
+
+// This fails - Product schema doesn't match User schema
+users.insert(product)  // Error VAL-0022: Schema mismatch
+```
+
+#### Comparison: Query DSL vs Method Syntax
+
+| Operation | Query DSL | Method Syntax |
+|-----------|-----------|---------------|
+| Insert | `@insert(Users \|< name: "Alice" ?-> *)` | `users.insert(record)` |
+| Update | `@update(Users \| id == {id} \|< name: "Alice" .)` | `users.update(record)` |
+| Upsert | `@insert(Users \| update on id \|< ... .)` | `users.save(record)` |
+| Delete | `@delete(Users \| id == {id} .)` | `users.delete(record)` |
+
+**When to use each:**
+- **Query DSL**: Complex conditions, bulk updates by criteria, joins
+- **Method syntax**: Working with Record objects, simple CRUD, typed operations
+
 ## Advanced Features
 
 ### Aggregations

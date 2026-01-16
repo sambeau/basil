@@ -524,6 +524,73 @@ The schema:
 - Validates data types
 - Adds constraints (UNIQUE, NOT NULL)
 
+### Primary Key Convention
+
+The field named `id` is automatically treated as the primary key. This convention enables schema-driven mutations (insert, update, save, delete with Record/Table arguments) to identify rows for update and delete operations.
+
+```parsley
+@schema Product {
+    id: integer        // Automatically marked as primary key
+    name: string
+    price: money
+}
+```
+
+### Schema-Driven Mutations
+
+Bound tables support method-based CRUD operations that accept Record or Table objects directly:
+
+```parsley
+let db = @sqlite(":memory:")
+db.createTable(User, "users")
+let users = db.bind(User, "users")
+
+// Insert a Record (id auto-generated)
+let user = User({name: "Alice", email: "alice@example.com"})
+let inserted = users.insert(user)
+log(inserted.id)  // Generated ID
+
+// Update using Record
+let updated = users.update(user.update({name: "Alice Smith"}))
+
+// Save (upsert) - inserts if new, updates if exists
+let saved = users.save(User({id: inserted.id, name: "Alice Jones"}))
+
+// Delete by Record
+users.delete(user)
+```
+
+#### Bound Table Mutation Methods
+
+| Method | Argument | Returns | Description |
+|--------|----------|---------|-------------|
+| `insert(record)` | Record | Record | Insert single row, return with generated ID |
+| `insert(table)` | Table | `{inserted: N}` | Insert all rows, return count |
+| `update(record)` | Record | Record | Update row by ID |
+| `update(table)` | Table | `{updated: N}` | Update all rows by ID |
+| `save(record)` | Record | Record | Upsert single row |
+| `save(table)` | Table | `{inserted: N, updated: M}` | Upsert all rows |
+| `delete(record)` | Record | `{deleted: 1}` | Delete row by ID |
+| `delete(table)` | Table | `{deleted: N}` | Delete all rows by ID |
+
+#### Schema Matching
+
+When a Record or Table has an attached schema, it must match the binding's schema:
+
+```parsley
+@schema Product { id: integer, name: string }
+let product = Product({name: "Widget"})
+
+// Error VAL-0022: Schema mismatch
+users.insert(product)  // User binding can't accept Product
+```
+
+Plain dictionaries can always be inserted (backward compatible):
+
+```parsley
+users.insert({name: "Bob", email: "bob@example.com"})  // Works
+```
+
 ---
 
 ## Practical Examples
