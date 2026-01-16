@@ -2163,3 +2163,79 @@ row.keys()
 		}
 	}
 }
+
+func TestSchemaFieldsPreservesOrder(t *testing.T) {
+	// schema.fields() should return fields in declaration order, not alphabetical
+	input := `
+@schema Person {
+    id: id
+    Name: string
+    Firstname: string
+    Surname: string
+    Birthday: date
+    Age: int
+}
+
+Person.fields()
+`
+	result := evalRecordTest(t, input)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+	}
+
+	// Verify field order matches schema declaration order
+	expectedOrder := []string{"id", "Name", "Firstname", "Surname", "Birthday", "Age"}
+	if len(arr.Elements) != len(expectedOrder) {
+		t.Fatalf("expected %d fields, got %d", len(expectedOrder), len(arr.Elements))
+	}
+
+	for i, expected := range expectedOrder {
+		actual := arr.Elements[i].Inspect()
+		if actual != expected {
+			t.Errorf("field %d: expected %q, got %q", i, expected, actual)
+		}
+	}
+}
+
+func TestSchemaVisibleFieldsPreservesOrder(t *testing.T) {
+	// schema.visibleFields() should return visible fields in declaration order, not alphabetical
+	input := `
+@schema Person {
+    id: id | {hidden: true}
+    Name: string
+    Firstname: string
+    Surname: string | {hidden: true}
+    Birthday: date
+    Age: int
+}
+
+Person.visibleFields()
+`
+	result := evalRecordTest(t, input)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+	}
+
+	// Verify visible fields in declaration order (id and Surname are hidden)
+	expectedOrder := []string{"Name", "Firstname", "Birthday", "Age"}
+	if len(arr.Elements) != len(expectedOrder) {
+		t.Fatalf("expected %d visible fields, got %d: %s", len(expectedOrder), len(arr.Elements), result.Inspect())
+	}
+
+	for i, expected := range expectedOrder {
+		actual := arr.Elements[i].Inspect()
+		if actual != expected {
+			t.Errorf("visible field %d: expected %q, got %q", i, expected, actual)
+		}
+	}
+}

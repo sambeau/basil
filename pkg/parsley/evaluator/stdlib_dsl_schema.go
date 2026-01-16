@@ -187,12 +187,18 @@ func schemaFields(schema *DSLSchema, args []Object) Object {
 		return newArityError("fields", len(args), 0)
 	}
 
-	// Collect and sort field names for consistent ordering
-	names := make([]string, 0, len(schema.Fields))
-	for name := range schema.Fields {
-		names = append(names, name)
+	// Use FieldOrder to preserve declaration order
+	var names []string
+	if len(schema.FieldOrder) > 0 {
+		names = schema.FieldOrder
+	} else {
+		// Fallback for schemas without FieldOrder (backwards compatibility)
+		names = make([]string, 0, len(schema.Fields))
+		for name := range schema.Fields {
+			names = append(names, name)
+		}
+		sort.Strings(names)
 	}
-	sort.Strings(names)
 
 	elements := make([]Object, len(names))
 	for i, name := range names {
@@ -209,9 +215,23 @@ func schemaVisibleFields(schema *DSLSchema, args []Object) Object {
 		return newArityError("visibleFields", len(args), 0)
 	}
 
-	// Collect visible field names
-	names := make([]string, 0, len(schema.Fields))
-	for name, field := range schema.Fields {
+	// Use FieldOrder if available, otherwise fall back to map iteration
+	var orderedNames []string
+	if len(schema.FieldOrder) > 0 {
+		orderedNames = schema.FieldOrder
+	} else {
+		// Fallback for schemas without FieldOrder (backwards compatibility)
+		orderedNames = make([]string, 0, len(schema.Fields))
+		for name := range schema.Fields {
+			orderedNames = append(orderedNames, name)
+		}
+		sort.Strings(orderedNames)
+	}
+
+	// Filter to visible fields, preserving order
+	names := make([]string, 0, len(orderedNames))
+	for _, name := range orderedNames {
+		field := schema.Fields[name]
 		// Check if field is hidden
 		hidden := false
 		if field.Metadata != nil {
@@ -225,7 +245,6 @@ func schemaVisibleFields(schema *DSLSchema, args []Object) Object {
 			names = append(names, name)
 		}
 	}
-	sort.Strings(names)
 
 	elements := make([]Object, len(names))
 	for i, name := range names {
