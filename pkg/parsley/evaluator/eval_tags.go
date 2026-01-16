@@ -665,7 +665,9 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	// Process props with interpolation (similar to singleton tags)
 	if workingProps != "" {
-		propsResult := evalTagProps(workingProps, env)
+		// Calculate props position: tag column + "<" + tag name + space
+		propsCol := node.Token.Column + 1 + len(node.Name) + 1
+		propsResult := evalTagProps(workingProps, env, node.Token.Line, propsCol)
 		if isError(propsResult) {
 			return propsResult
 		}
@@ -950,8 +952,9 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 	}
 }
 
-// evalTagProps evaluates tag props string with interpolations
-func evalTagProps(propsStr string, env *Environment) Object {
+// evalTagProps evaluates tag props string with interpolations.
+// baseLine and baseCol specify the position of the props string start for error reporting.
+func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Object {
 	var result strings.Builder
 
 	i := 0
@@ -1026,7 +1029,8 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 			// Extract and evaluate the expression
 			exprStr := propsStr[exprStart:i]
-			i++ // skip closing }
+			exprOffset := exprStart // offset of expression within props string
+			i++                     // skip closing }
 
 			// Parse and evaluate the expression
 			l := lexer.NewWithFilename(exprStr, env.Filename)
@@ -1035,13 +1039,15 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
 				perr := errs[0]
+				// Adjust position: add props offset to error position
+				adjustedCol := baseCol + exprOffset + (perr.Column - 1)
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    baseLine,
+					Column:  adjustedCol,
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
@@ -1052,6 +1058,17 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
+					// Adjust error position for runtime errors
+					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+						errObj.Line = baseLine
+						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
+						if errObj.Column < baseCol+exprOffset {
+							errObj.Column = baseCol + exprOffset
+						}
+						if errObj.File == "" {
+							errObj.File = env.Filename
+						}
+					}
 					return evaluated
 				}
 			}
@@ -1149,7 +1166,8 @@ func evalTagProps(propsStr string, env *Environment) Object {
 					}
 
 					exprStr := propsStr[exprStart:i]
-					i++ // skip closing }
+					exprOffset := exprStart // offset within props string
+					i++                     // skip closing }
 
 					// Evaluate the expression
 					l := lexer.NewWithFilename(exprStr, env.Filename)
@@ -1158,13 +1176,15 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 					if errs := p.StructuredErrors(); len(errs) > 0 {
 						perr := errs[0]
+						// Adjust position: add props offset to error position
+						adjustedCol := baseCol + exprOffset + (perr.Column - 1)
 						return &Error{
 							Class:   ClassParse,
 							Code:    perr.Code,
 							Message: perr.Message,
 							Hints:   perr.Hints,
-							Line:    perr.Line,
-							Column:  perr.Column,
+							Line:    baseLine,
+							Column:  adjustedCol,
 							File:    env.Filename,
 							Data:    perr.Data,
 						}
@@ -1174,6 +1194,17 @@ func evalTagProps(propsStr string, env *Environment) Object {
 					for _, stmt := range program.Statements {
 						evaluated = Eval(stmt, env)
 						if isError(evaluated) {
+							// Adjust error position for runtime errors
+							if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+								errObj.Line = baseLine
+								errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
+								if errObj.Column < baseCol+exprOffset {
+									errObj.Column = baseCol + exprOffset
+								}
+								if errObj.File == "" {
+									errObj.File = env.Filename
+								}
+							}
 							return evaluated
 						}
 					}
@@ -1232,7 +1263,8 @@ func evalTagProps(propsStr string, env *Environment) Object {
 
 			// Extract and evaluate the expression
 			exprStr := propsStr[exprStart:i]
-			i++ // skip closing }
+			exprOffset := exprStart // offset within props string
+			i++                     // skip closing }
 
 			// Parse and evaluate the expression (with filename for error reporting)
 			l := lexer.NewWithFilename(exprStr, env.Filename)
@@ -1240,15 +1272,16 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
-				// Return first parse error with file info preserved
+				// Return first parse error with adjusted position
 				perr := errs[0]
+				adjustedCol := baseCol + exprOffset + (perr.Column - 1)
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    baseLine,
+					Column:  adjustedCol,
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
@@ -1259,6 +1292,17 @@ func evalTagProps(propsStr string, env *Environment) Object {
 			for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
+					// Adjust error position for runtime errors
+					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+						errObj.Line = baseLine
+						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
+						if errObj.Column < baseCol+exprOffset {
+							errObj.Column = baseCol + exprOffset
+						}
+						if errObj.File == "" {
+							errObj.File = env.Filename
+						}
+					}
 					return evaluated
 				}
 			}
@@ -1398,7 +1442,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 
 			if cleanedProps = strings.TrimSpace(cleanedProps); cleanedProps != "" {
 				// Process remaining props with interpolation
-				propsResult := evalTagProps(cleanedProps, env)
+				propsResult := evalTagProps(cleanedProps, env, node.Token.Line, node.Token.Column)
 				if isError(propsResult) {
 					return propsResult
 				}
@@ -1482,7 +1526,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			cleanedProps = removeAttr(cleanedProps, "name")
 
 			if cleanedProps = strings.TrimSpace(cleanedProps); cleanedProps != "" {
-				propsResult := evalTagProps(cleanedProps, env)
+				propsResult := evalTagProps(cleanedProps, env, node.Token.Line, node.Token.Column)
 				if isError(propsResult) {
 					return propsResult
 				}
@@ -1602,8 +1646,8 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 							Code:    perr.Code,
 							Message: perr.Message,
 							Hints:   perr.Hints,
-							Line:    perr.Line,
-							Column:  perr.Column,
+							Line:    node.Token.Line,
+							Column:  node.Token.Column + exprStart + (perr.Column - 1),
 							File:    env.Filename,
 							Data:    perr.Data,
 						}
@@ -1613,6 +1657,14 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					for _, stmt := range program.Statements {
 						evaluated = Eval(stmt, env)
 						if isError(evaluated) {
+							// Adjust error position for runtime errors
+							if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+								errObj.Line = node.Token.Line
+								errObj.Column = node.Token.Column + exprStart + (errObj.Column - 1)
+								if errObj.File == "" {
+									errObj.File = env.Filename
+								}
+							}
 							return evaluated
 						}
 					}
@@ -1678,7 +1730,8 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 
 			// Extract and evaluate the expression
 			exprStr := propsStr[exprStart:i]
-			i++ // skip closing }
+			exprOffset := exprStart // offset within propsStr
+			i++                     // skip closing }
 
 			// Parse and evaluate the expression (with filename for error reporting)
 			l := lexer.NewWithFilename(exprStr, env.Filename)
@@ -1686,15 +1739,15 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			program := p.ParseProgram()
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
-				// Return first parse error with file info preserved
+				// Return first parse error with adjusted position
 				perr := errs[0]
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    node.Token.Line,
+					Column:  node.Token.Column + exprOffset + (perr.Column - 1),
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
@@ -1705,6 +1758,14 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			for _, stmt := range program.Statements {
 				evaluated = Eval(stmt, env)
 				if isError(evaluated) {
+					// Adjust error position for runtime errors
+					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
+						errObj.Line = node.Token.Line
+						errObj.Column = node.Token.Column + exprOffset + (errObj.Column - 1)
+						if errObj.File == "" {
+							errObj.File = env.Filename
+						}
+					}
 					return evaluated
 				}
 			}
