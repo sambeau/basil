@@ -38,7 +38,8 @@ func setFormContext(env *Environment, ctx *FormContext) {
 
 // parseFormAtRecord parses the @record attribute from props string.
 // Returns the expression if found, nil if not present.
-func parseFormAtRecord(propsStr string, env *Environment) (ast.Expression, error) {
+// baseLine and baseCol are the position of the props string start for error reporting.
+func parseFormAtRecord(propsStr string, env *Environment, baseLine, baseCol int) (ast.Expression, *Error) {
 	// Look for @record= in props
 	idx := strings.Index(propsStr, "@record=")
 	if idx == -1 {
@@ -54,12 +55,27 @@ func parseFormAtRecord(propsStr string, env *Environment) (ast.Expression, error
 		valueStart++
 	}
 	if valueStart >= len(propsStr) {
-		return nil, fmt.Errorf("@record attribute has no value")
+		return nil, &Error{
+			Class:   ClassParse,
+			Code:    "FORM-0005",
+			Message: "@record attribute has no value",
+			Line:    baseLine,
+			Column:  baseCol + idx,
+			File:    env.Filename,
+		}
 	}
 
 	// Parse the value - must be a brace expression {expr}
 	if propsStr[valueStart] != '{' {
-		return nil, fmt.Errorf("@record attribute must use brace syntax: @record={expression}")
+		return nil, &Error{
+			Class:   ClassParse,
+			Code:    "FORM-0005",
+			Message: "@record attribute must use brace syntax: @record={expression}",
+			Hints:   []string{"Use @record={myRecord} instead of @record=myRecord"},
+			Line:    baseLine,
+			Column:  baseCol + valueStart,
+			File:    env.Filename,
+		}
 	}
 
 	// Find matching closing brace
@@ -76,11 +92,19 @@ func parseFormAtRecord(propsStr string, env *Environment) (ast.Expression, error
 	}
 
 	if braceDepth != 0 {
-		return nil, fmt.Errorf("@record attribute has unmatched braces")
+		return nil, &Error{
+			Class:   ClassParse,
+			Code:    "PARSE-0009",
+			Message: "@record attribute has unmatched braces",
+			Line:    baseLine,
+			Column:  baseCol + valueStart,
+			File:    env.Filename,
+		}
 	}
 
 	// Extract expression (without braces)
 	exprStr := propsStr[valueStart+1 : valueEnd-1]
+	exprOffset := valueStart + 1 // offset of expression content within propsStr
 
 	// Parse the expression
 	l := lexer.NewWithFilename(exprStr, env.Filename)
@@ -88,16 +112,40 @@ func parseFormAtRecord(propsStr string, env *Environment) (ast.Expression, error
 	program := p.ParseProgram()
 
 	if errs := p.StructuredErrors(); len(errs) > 0 {
-		return nil, fmt.Errorf("invalid @record expression: %s", errs[0].Message)
+		perr := errs[0]
+		return nil, &Error{
+			Class:   ClassParse,
+			Code:    perr.Code,
+			Message: "invalid @record expression: " + perr.Message,
+			Hints:   perr.Hints,
+			Line:    baseLine,
+			Column:  baseCol + exprOffset + (perr.Column - 1),
+			File:    env.Filename,
+			Data:    perr.Data,
+		}
 	}
 
 	if len(program.Statements) == 0 {
-		return nil, fmt.Errorf("@record expression is empty")
+		return nil, &Error{
+			Class:   ClassParse,
+			Code:    "FORM-0005",
+			Message: "@record expression is empty",
+			Line:    baseLine,
+			Column:  baseCol + exprOffset,
+			File:    env.Filename,
+		}
 	}
 
 	exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement)
 	if !ok {
-		return nil, fmt.Errorf("@record must be an expression")
+		return nil, &Error{
+			Class:   ClassParse,
+			Code:    "FORM-0005",
+			Message: "@record must be an expression",
+			Line:    baseLine,
+			Column:  baseCol + exprOffset,
+			File:    env.Filename,
+		}
 	}
 
 	return exprStmt.Expression, nil

@@ -74,7 +74,8 @@ func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
 // It short-circuits child evaluation on cache hit, or caches the result on miss.
 func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 	// Parse props to get key and maxAge
-	propsDict := parseTagProps(node.Props, env)
+	propsCol := node.Token.Column + 1 + len(node.Name) + 1
+	propsDict := parseTagProps(node.Props, env, node.Token.Line, propsCol)
 	if isError(propsDict) {
 		return propsDict
 	}
@@ -205,7 +206,9 @@ func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 // with data attributes for JavaScript runtime interactivity.
 func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	// Parse props to extract src, view, and additional props
-	propsDict := parseTagProps(propsStr, env)
+	// Note: propsStr is everything after "Part " in the tag, so offset is len("Part ")
+	propsCol := token.Column + 1 + 4 + 1 // "<" + "Part" + " "
+	propsDict := parseTagProps(propsStr, env, token.Line, propsCol)
 	if isError(propsDict) {
 		return propsDict
 	}
@@ -631,31 +634,47 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	workingProps := node.Props
 	if node.Name == "form" && strings.Contains(node.Props, "@record") {
 		// Parse and evaluate @record expression
-		recordExpr, err := parseFormAtRecord(node.Props, env)
-		if err != nil {
-			return &Error{
-				Class:   ClassValue,
-				Code:    "FORM-0005",
-				Message: err.Error(),
-				Line:    node.Token.Line,
-				Column:  node.Token.Column,
-			}
+		// Calculate props position: tag column + "<" + tag name + space
+		propsCol := node.Token.Column + 1 + len(node.Name) + 1
+		recordExpr, parseErr := parseFormAtRecord(node.Props, env, node.Token.Line, propsCol)
+		if parseErr != nil {
+			return parseErr
 		}
 		if recordExpr != nil {
 			recordObj := Eval(recordExpr, env)
 			if isError(recordObj) {
+				// Adjust error position for runtime errors in @record expression
+				if errObj, ok := recordObj.(*Error); ok && errObj.Line <= 1 {
+					// Find @record position in props
+					atRecordIdx := strings.Index(node.Props, "@record=")
+					if atRecordIdx == -1 {
+						atRecordIdx = strings.Index(node.Props, "@record =")
+					}
+					exprOffset := atRecordIdx + len("@record={")
+					errObj.Line = node.Token.Line
+					errObj.Column = propsCol + exprOffset + (errObj.Column - 1)
+					if errObj.File == "" {
+						errObj.File = env.Filename
+					}
+				}
 				return recordObj
 			}
 			var ok bool
 			formRecord, ok = recordObj.(*Record)
 			if !ok {
+				// Find @record position for error
+				atRecordIdx := strings.Index(node.Props, "@record=")
+				if atRecordIdx == -1 {
+					atRecordIdx = strings.Index(node.Props, "@record =")
+				}
 				return &Error{
 					Class:   ClassType,
 					Code:    "FORM-0006",
 					Message: fmt.Sprintf("@record must be a Record, got %s", recordObj.Type()),
 					Hints:   []string{"Use a Record created from a schema: @record={Schema({...})}"},
 					Line:    node.Token.Line,
-					Column:  node.Token.Column,
+					Column:  propsCol + atRecordIdx,
+					File:    env.Filename,
 				}
 			}
 			// Remove @record from props so it doesn't render
@@ -832,7 +851,8 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	}
 
 	// Parse props into a dictionary and add contents
-	propsDict := parseTagProps(node.Props, env)
+	propsCol := node.Token.Column + 1 + len(node.Name) + 1
+	propsDict := parseTagProps(node.Props, env, node.Token.Line, propsCol)
 	if isError(propsDict) {
 		return propsDict
 	}
@@ -917,7 +937,8 @@ func evalTagContentsAsArray(contents []ast.Node, env *Environment) Object {
 // evalSQLTag handles <SQL params={...}>...</SQL> tags
 func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 	// Parse props to get params
-	propsDict := parseTagProps(node.Props, env)
+	propsCol := node.Token.Column + 1 + len(node.Name) + 1
+	propsDict := parseTagProps(node.Props, env, node.Token.Line, propsCol)
 	if isError(propsDict) {
 		return propsDict
 	}
@@ -2019,7 +2040,9 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	}
 
 	// Parse props into a dictionary
-	props := parseTagProps(propsStr, env)
+	// propsStr is everything after the tag name, calculate props column
+	propsCol := tok.Column + 1 + len(tagName) + 1 // "<" + tagName + " "
+	props := parseTagProps(propsStr, env, tok.Line, propsCol)
 	if isError(props) {
 		return props
 	}
@@ -2037,7 +2060,17 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 }
 
 // parseTagProps parses tag properties into a dictionary
-func parseTagProps(propsStr string, env *Environment) Object {
+// baseLine and baseCol are optional position offsets for error reporting (default 0)
+func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
+	baseLine := 0
+	baseCol := 0
+	if len(basePos) >= 1 {
+		baseLine = basePos[0]
+	}
+	if len(basePos) >= 2 {
+		baseCol = basePos[1]
+	}
+
 	pairs := make(map[string]ast.Expression)
 
 	i := 0
@@ -2069,13 +2102,19 @@ func parseTagProps(propsStr string, env *Environment) Object {
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
 				perr := errs[0]
+				errLine := perr.Line
+				errCol := perr.Column
+				if baseLine > 0 {
+					errLine = baseLine
+					errCol = baseCol + exprStart + (perr.Column - 1)
+				}
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    errLine,
+					Column:  errCol,
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
@@ -2086,6 +2125,14 @@ func parseTagProps(propsStr string, env *Environment) Object {
 					// Evaluate the spread expression
 					spreadObj := Eval(exprStmt.Expression, env)
 					if isError(spreadObj) {
+						// Adjust runtime error position
+						if errObj, ok := spreadObj.(*Error); ok && baseLine > 0 && errObj.Line <= 1 {
+							errObj.Line = baseLine
+							errObj.Column = baseCol + exprStart + (errObj.Column - 1)
+							if errObj.File == "" {
+								errObj.File = env.Filename
+							}
+						}
 						return spreadObj
 					}
 
@@ -2098,7 +2145,13 @@ func parseTagProps(propsStr string, env *Environment) Object {
 						spreadDict = v.ToDictionary()
 					default:
 						perr := perrors.New("SPREAD-0001", map[string]any{"Got": string(spreadObj.Type())})
-						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
+						errLine := 0
+						errCol := 0
+						if baseLine > 0 {
+							errLine = baseLine
+							errCol = baseCol + exprStart
+						}
+						return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Line: errLine, Column: errCol, File: env.Filename, Data: perr.Data}
 					}
 
 					// Evaluate each property in the spread dict's environment
@@ -2203,15 +2256,21 @@ func parseTagProps(propsStr string, env *Environment) Object {
 				program := p.ParseProgram()
 
 				if errs := p.StructuredErrors(); len(errs) > 0 {
-					// Return first parse error with file info preserved
+					// Return first parse error with adjusted position
 					perr := errs[0]
+					errLine := perr.Line
+					errCol := perr.Column
+					if baseLine > 0 {
+						errLine = baseLine
+						errCol = baseCol + exprStart + (perr.Column - 1)
+					}
 					return &Error{
 						Class:   ClassParse,
 						Code:    perr.Code,
 						Message: perr.Message,
 						Hints:   perr.Hints,
-						Line:    perr.Line,
-						Column:  perr.Column,
+						Line:    errLine,
+						Column:  errCol,
 						File:    env.Filename,
 						Data:    perr.Data,
 					}
@@ -2222,6 +2281,14 @@ func parseTagProps(propsStr string, env *Environment) Object {
 						// Evaluate the spread expression immediately
 						spreadObj := Eval(exprStmt.Expression, env)
 						if isError(spreadObj) {
+							// Adjust runtime error position
+							if errObj, ok := spreadObj.(*Error); ok && baseLine > 0 && errObj.Line <= 1 {
+								errObj.Line = baseLine
+								errObj.Column = baseCol + exprStart + (errObj.Column - 1)
+								if errObj.File == "" {
+									errObj.File = env.Filename
+								}
+							}
 							return spreadObj
 						}
 
@@ -2295,15 +2362,21 @@ func parseTagProps(propsStr string, env *Environment) Object {
 			program := p.ParseProgram()
 
 			if errs := p.StructuredErrors(); len(errs) > 0 {
-				// Return first parse error with file info preserved
+				// Return first parse error with adjusted position
 				perr := errs[0]
+				errLine := perr.Line
+				errCol := perr.Column
+				if baseLine > 0 {
+					errLine = baseLine
+					errCol = baseCol + exprStart + (perr.Column - 1)
+				}
 				return &Error{
 					Class:   ClassParse,
 					Code:    perr.Code,
 					Message: perr.Message,
 					Hints:   perr.Hints,
-					Line:    perr.Line,
-					Column:  perr.Column,
+					Line:    errLine,
+					Column:  errCol,
 					File:    env.Filename,
 					Data:    perr.Data,
 				}
