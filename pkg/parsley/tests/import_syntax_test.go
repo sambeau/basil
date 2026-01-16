@@ -328,11 +328,11 @@ func TestImportASTString(t *testing.T) {
 // instead of showing 0:0
 func TestImportErrorPositions(t *testing.T) {
 	tests := []struct {
-		name         string
-		input        string
-		wantError    string
-		wantLine     int
-		wantColumn   int
+		name       string
+		input      string
+		wantError  string
+		wantLine   int
+		wantColumn int
 	}{
 		{
 			name:       "missing export shows position",

@@ -706,9 +706,9 @@ products.insertColAfter("price", "tax", fn(r) { r.price * 0.1 })
 
 ---
 
-## Array-like Methods
+## Collection Methods
 
-Tables provide array-like methods for transformation and searching, similar to JavaScript/Python array operations.
+Tables provide functional-style methods for transformation, searching, and aggregation—similar to array methods in JavaScript/Python but operating on table rows.
 
 ### map(fn)
 
@@ -778,6 +778,56 @@ let products = @table [
 let allInStock = products.all(fn(p) { p.stock > 0 })
 // Returns: false (Gizmo has 0 stock)
 ```
+
+### reduce(fn, initial)
+
+Fold all rows into a single accumulated value. The function receives the accumulator and the current row, and returns the new accumulator value.
+
+```parsley
+let orders = @table [
+    {product: "Widget", amount: 100},
+    {product: "Gadget", amount: 250},
+    {product: "Gizmo", amount: 150}
+]
+
+// Sum all amounts
+let total = orders.reduce(fn(acc, row) { acc + row.amount }, 0)
+// Returns: 500
+
+// Build a comma-separated list of products
+let productList = orders.reduce(fn(acc, row) {
+    if (acc == "") row.product else acc + ", " + row.product
+}, "")
+// Returns: "Widget, Gadget, Gizmo"
+
+// Find the row with maximum amount
+let maxOrder = orders.reduce(fn(best, row) {
+    if (best == null || row.amount > best.amount) row else best
+}, null)
+// Returns: {product: "Gadget", amount: 250}
+```
+
+### sortBy(fn)
+
+Sort rows by a computed key. The function receives a row and returns a value to sort by.
+
+```parsley
+let users = @table [
+    {name: "Carol", score: 85},
+    {name: "Alice", score: 92},
+    {name: "Bob", score: 78}
+]
+
+// Sort by name length
+let byNameLength = users.sortBy(fn(u) { u.name.length() })
+// Result: Bob, Alice, Carol
+
+// Sort by score (descending - negate the value)
+let byScoreDesc = users.sortBy(fn(u) { -u.score })
+// Result: Alice (92), Carol (85), Bob (78)
+```
+
+**Note:** `sortBy` always sorts in ascending order. For descending order with numbers, negate the value. For other types, use `orderBy` with direction parameter.
 
 ---
 
@@ -1213,7 +1263,7 @@ Tables are Parsley's answer to structured data manipulation:
 - **Validate** with `@schema` for typed, defaulted, nullable fields
 - **Query** using chainable SQL-like methods: `where`, `orderBy`, `select`, `limit`
 - **Aggregate** with `sum`, `avg`, `min`, `max`, `count`
-- **Transform** with array-like methods: `map`, `find`, `any`, `all`
+- **Transform** with collection methods: `map`, `find`, `any`, `all`, `reduce`, `sortBy`
 - **Manipulate** data with `unique`, `renameCol`, `dropCol`, `groupBy`
 - **Export** to JSON, CSV, HTML, Markdown, or box-drawing format
 - **Efficient** thanks to copy-on-chain optimization
