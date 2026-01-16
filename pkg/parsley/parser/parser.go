@@ -2977,9 +2977,34 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 		}
 	}
 
+	// Check for default value: = expression
+	// This must come BEFORE metadata pipe check because the syntax is:
+	// type = default | {metadata}
+	if p.peekTokenIs(lexer.ASSIGN) {
+		p.nextToken() // consume =
+		p.nextToken() // move to expression start
+		expr := p.parseExpression(LOWEST)
+
+		// Check if the expression is a binary OR with a dictionary on the right.
+		// This happens when the user writes: type = default | {metadata}
+		// The expression parser sees this as: default | {metadata}
+		// We need to split it: default becomes DefaultValue, {metadata} becomes Metadata
+		if infixExpr, ok := expr.(*ast.InfixExpression); ok && infixExpr.Operator == "|" {
+			if dictLit, ok := infixExpr.Right.(*ast.DictionaryLiteral); ok {
+				field.DefaultValue = infixExpr.Left
+				field.Metadata = dictLit
+			} else {
+				field.DefaultValue = expr
+			}
+		} else {
+			field.DefaultValue = expr
+		}
+	}
+
 	// Check for metadata pipe syntax: | {title: "...", placeholder: "..."}
+	// This handles the case with no default value: type | {metadata}
 	// We use OR token since single | is lexed as OR
-	if p.peekTokenIs(lexer.OR) && p.peekTokenLiteral() == "|" {
+	if field.Metadata == nil && p.peekTokenIs(lexer.OR) && p.peekTokenLiteral() == "|" {
 		p.nextToken() // consume |
 		if !p.expectPeek(lexer.LBRACE) {
 			return nil
@@ -2997,13 +3022,6 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 			return nil
 		}
 		field.ForeignKey = p.curToken.Literal
-	}
-
-	// Check for default value: = expression
-	if p.peekTokenIs(lexer.ASSIGN) {
-		p.nextToken() // consume =
-		p.nextToken() // move to expression start
-		field.DefaultValue = p.parseExpression(LOWEST)
 	}
 
 	return field

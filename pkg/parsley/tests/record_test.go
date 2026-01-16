@@ -2239,3 +2239,59 @@ Person.visibleFields()
 		}
 	}
 }
+
+func TestSchemaMetadataWithDefaultValue(t *testing.T) {
+	// BUG-018: Schema field metadata was ignored when field also had a default value
+	// The syntax `type = default | {metadata}` should work correctly
+	input := `
+@schema Event {
+    name: string
+    createdAt: datetime = @now | {hidden: true}
+    status: string = "draft" | {title: "Status", hidden: false}
+}
+
+Event.visibleFields()
+`
+	result := evalRecordTest(t, input)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+	}
+
+	// createdAt should be hidden, name and status should be visible
+	expectedOrder := []string{"name", "status"}
+	if len(arr.Elements) != len(expectedOrder) {
+		t.Fatalf("expected %d visible fields, got %d: %s", len(expectedOrder), len(arr.Elements), result.Inspect())
+	}
+
+	for i, expected := range expectedOrder {
+		actual := arr.Elements[i].Inspect()
+		if actual != expected {
+			t.Errorf("visible field %d: expected %q, got %q", i, expected, actual)
+		}
+	}
+}
+
+func TestSchemaMetadataTitleWithDefault(t *testing.T) {
+	// BUG-018: Verify metadata like title works with default values
+	input := `
+@schema Config {
+    timeout: int = 30 | {title: "Timeout (seconds)"}
+}
+
+Config.title("timeout")
+`
+	result := evalRecordTest(t, input)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	expected := "Timeout (seconds)"
+	if result.Inspect() != expected {
+		t.Errorf("expected %q, got %q", expected, result.Inspect())
+	}
+}

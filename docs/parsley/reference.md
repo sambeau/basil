@@ -558,7 +558,7 @@ Common metadata keys:
     role: enum("user", "admin", "moderator") = "user" | {title: "Role"}
     bio: text? | {title: "Biography", placeholder: "Tell us about yourself..."}
     active: boolean = true
-    createdAt: datetime | {title: "Created", hidden: true}
+    createdAt: datetime = @now | {title: "Created", hidden: true}
 }
 ```
 

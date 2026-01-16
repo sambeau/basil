@@ -29,13 +29,13 @@ Schemas define the structure of records and tables in Parsley. They specify fiel
     email: email(unique: true) | {placeholder: "you@example.com"}
     role: enum("user", "admin") = "user"
     active: boolean = true
-    createdAt: datetime | {hidden: true}
+    createdAt: datetime = @now | {hidden: true}
 }
 
 // Use with tables
 let users = @table(User) [
-    {id: 1, name: "Alice", email: "alice@example.com", createdAt: @now},
-    {id: 2, name: "Bob", email: "bob@example.com", role: "admin", createdAt: @now}
+    {id: 1, name: "Alice", email: "alice@example.com"},
+    {id: 2, name: "Bob", email: "bob@example.com", role: "admin"}
 ]
 
 // Access schema metadata
