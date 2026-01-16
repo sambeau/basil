@@ -420,8 +420,12 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 		}
 	}
 
-	// Register schema in environment
-	env.Set(node.Name.Value, schema)
+	// Register schema in environment (with export if flagged)
+	if node.Export {
+		env.SetExport(node.Name.Value, schema)
+	} else {
+		env.Set(node.Name.Value, schema)
+	}
 
 	// Declarations return NULL (excluded from block concatenation)
 	return NULL

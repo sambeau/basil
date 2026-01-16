@@ -369,3 +369,149 @@ func formatString(format string, args ...string) string {
 	}
 	return result
 }
+
+// TestExportSchema tests exporting schemas
+func TestExportSchema(t *testing.T) {
+	// Create a temporary directory for module files
+	tmpDir, err := os.MkdirTemp("", "parsley-export-schema-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	tests := []struct {
+		name           string
+		moduleCode     string
+		mainCode       string
+		expectedOutput string
+		expectError    bool
+	}{
+		{
+			name: "export @schema inline",
+			moduleCode: `
+export @schema Person {
+    name: string,
+    age: integer
+}
+`,
+			mainCode:       `let mod = import @%s; mod.Person.name`,
+			expectedOutput: "Person",
+		},
+		{
+			name: "export schema with bare export",
+			moduleCode: `
+@schema Birthday {
+    id: integer,
+    name: string
+}
+export Birthday
+`,
+			mainCode:       `let mod = import @%s; mod.Birthday.name`,
+			expectedOutput: "Birthday",
+		},
+		{
+			name: "bare export of variable",
+			moduleCode: `
+PI = 3.14159
+export PI
+`,
+			mainCode:       `let mod = import @%s; mod.PI`,
+			expectedOutput: "3.14159",
+		},
+		{
+			name: "bare export of let variable",
+			moduleCode: `
+let VERSION = "1.0.0"
+export VERSION
+`,
+			mainCode:       `let mod = import @%s; mod.VERSION`,
+			expectedOutput: "1.0.0",
+		},
+		{
+			name: "export schema and use as type",
+			moduleCode: `
+export @schema User {
+    id: integer,
+    name: string,
+    email: email
+}
+`,
+			mainCode:       `let {User} = import @%s; User({name: "Alice", email: "alice@test.com"}).name`,
+			expectedOutput: "Alice",
+		},
+		{
+			name: "export schema with metadata",
+			moduleCode: `
+export @schema Contact {
+    name: string | {title: "Full Name"},
+    phone: phone?
+}
+`,
+			mainCode:       `let mod = import @%s; mod.Contact.title("name")`,
+			expectedOutput: "Full Name",
+		},
+		{
+			name: "multiple bare exports",
+			moduleCode: `
+@schema Person { name: string }
+@schema Address { city: string }
+export Person
+export Address
+`,
+			mainCode:       `let mod = import @%s; mod.Person.name + "-" + mod.Address.name`,
+			expectedOutput: "Person-Address",
+		},
+		{
+			name: "schema not exported is inaccessible",
+			moduleCode: `
+@schema Internal { name: string }
+export @schema Public { name: string }
+`,
+			mainCode:       `let mod = import @%s; mod.Public.name`,
+			expectedOutput: "Public",
+		},
+		{
+			name: "bare export of undefined fails",
+			moduleCode: `
+export UndefinedThing
+`,
+			mainCode:    `let mod = import @%s; mod.UndefinedThing`,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Write module file
+			sanitizedName := strings.ReplaceAll(tt.name, " ", "_")
+			moduleFile := filepath.Join(tmpDir, sanitizedName+".pars")
+			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
+			if err != nil {
+				t.Fatalf("Failed to write module file: %v", err)
+			}
+
+			// Format main code with module path
+			mainCode := formatString(tt.mainCode, moduleFile)
+
+			// Create a dummy main file path in the same directory
+			mainFile := filepath.Join(tmpDir, "main.pars")
+			result := evalExport(mainCode, mainFile)
+
+			if tt.expectError {
+				if result.Type() != evaluator.ERROR_OBJ {
+					t.Errorf("expected error, got %s (%s)", result.Type(), result.Inspect())
+				}
+				return
+			}
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Errorf("unexpected error: %s", result.Inspect())
+				return
+			}
+
+			if result.Inspect() != tt.expectedOutput {
+				t.Errorf("expected %s, got %s", tt.expectedOutput, result.Inspect())
+			}
+		})
+	}
+}

@@ -4278,6 +4278,16 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Assignments return NULL (excluded from block concatenation)
 		return NULL
 
+	case *ast.ExportNameStatement:
+		// Export an already-defined binding: 'export Name'
+		val, ok := env.Get(node.Name.Value)
+		if !ok {
+			return &Error{Message: fmt.Sprintf("undefined identifier for export: %s", node.Name.Value)}
+		}
+		// Mark as exported (value already in environment)
+		env.SetExport(node.Name.Value, val)
+		return NULL
+
 	case *ast.IndexAssignmentStatement:
 		return evalIndexAssignment(node, env)
 

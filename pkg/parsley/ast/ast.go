@@ -125,6 +125,18 @@ func (as *AssignmentStatement) String() string {
 	return out.String()
 }
 
+// ExportNameStatement represents 'export Name' to export an already-defined binding
+type ExportNameStatement struct {
+	Token lexer.Token // the EXPORT token
+	Name  *Identifier // the name to export
+}
+
+func (es *ExportNameStatement) statementNode()       {}
+func (es *ExportNameStatement) TokenLiteral() string { return es.Token.Literal }
+func (es *ExportNameStatement) String() string {
+	return "export " + es.Name.String() + ";"
+}
+
 // IndexAssignmentStatement represents assignment to index/property expressions like 'dict["key"] = value' or 'obj.prop = value'
 type IndexAssignmentStatement struct {
 	Token  lexer.Token // the '=' token
@@ -1274,6 +1286,7 @@ type SchemaDeclaration struct {
 	Token  lexer.Token    // the SCHEMA_LITERAL token
 	Name   *Identifier    // schema name
 	Fields []*SchemaField // field definitions
+	Export bool           // true if exported via 'export @schema'
 }
 
 func (sd *SchemaDeclaration) expressionNode()      {}

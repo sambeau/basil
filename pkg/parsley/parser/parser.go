@@ -360,19 +360,44 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 }
 
-// parseExportStatement parses export statements like 'export let x = 5' or 'export x = 5'
+// parseExportStatement parses export statements:
+// - export let x = 5
+// - export x = 5
+// - export Name (bare export of already-defined binding)
+// - export @schema Name { ... }
 func (p *Parser) parseExportStatement() ast.Statement {
+	exportToken := p.curToken
+
 	// Move past 'export'
 	p.nextToken()
 
-	// Check if next is 'let' or an identifier
+	// Check if next is 'let'
 	if p.curTokenIs(lexer.LET) {
 		return p.parseLetStatement(true)
 	}
 
-	// Handle 'export x = 5' (assignment without let)
+	// Handle 'export @schema Name { ... }'
+	if p.curTokenIs(lexer.SCHEMA_LITERAL) {
+		schema := p.parseSchemaDeclaration()
+		if schema == nil {
+			return nil
+		}
+		// Mark schema for export and wrap in expression statement
+		if schemaDecl, ok := schema.(*ast.SchemaDeclaration); ok {
+			schemaDecl.Export = true
+		}
+		return &ast.ExpressionStatement{Token: exportToken, Expression: schema}
+	}
+
+	// Handle 'export x = 5' (assignment) or 'export x' (bare export)
 	if p.curTokenIs(lexer.IDENT) {
-		return p.parseAssignmentStatement(true)
+		// Peek ahead to see if there's an assignment
+		if p.peekTokenIs(lexer.ASSIGN) {
+			return p.parseAssignmentStatement(true)
+		}
+		// Bare export: 'export Name'
+		name := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		return &ast.ExportNameStatement{Token: exportToken, Name: name}
 	}
 
 	// Handle 'export {a, b} = ...' (dict destructuring)
