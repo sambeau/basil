@@ -1701,6 +1701,63 @@ All return new tables (immutable—original unchanged):
 | `.appendCol(name, vals)` | `name: string`, `vals: array` | `table` | Add column at end |
 | `.insertColAfter(after, name, vals)` | `after, name: string`, `vals: array` | `table` | Insert column after another |
 | `.insertColBefore(before, name, vals)` | `before, name: string`, `vals: array` | `table` | Insert column before another |
+| `.renameCol(old, new)` | `old, new: string` | `table` | Rename a column |
+| `.dropCol(col)` | `col: string` | `table` | Remove a column |
+
+#### Collection Methods
+
+Functional-style methods for transforming and querying table data:
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.map(fn)` | `fn: function(row)` | `table` | Transform each row |
+| `.find(fn)` | `fn: function(row)` | `dictionary\|null` | First row matching predicate |
+| `.any(fn)` | `fn: function(row)` | `boolean` | True if any row matches |
+| `.all(fn)` | `fn: function(row)` | `boolean` | True if all rows match |
+| `.reduce(fn, init)` | `fn: function(acc, row)`, `init: any` | `any` | Fold rows to accumulator |
+| `.groupBy(fn\|col)` | `fn: function(row)` or `col: string` | `dictionary` | Group rows by key (values are Tables) |
+| `.unique(col?)` | `col?: string` | `table` | Remove duplicate rows |
+| `.sortBy(fn)` | `fn: function(row)` | `table` | Sort by computed key |
+
+**Schema behavior with collection methods:**
+- `map(fn)`: If fn returns Records of same schema → preserves schema. If different schema → adopts new. If plain dicts → clears schema.
+- `groupBy`: Returns `{key: Table, ...}` where each group Table has same schema as source.
+- `renameCol`, `dropCol`: Clear schema (structure changed).
+
+```parsley
+let users = @table [
+    {name: "Alice", age: 30, dept: "Engineering"},
+    {name: "Bob", age: 25, dept: "Sales"},
+    {name: "Carol", age: 35, dept: "Engineering"}
+]
+
+// Transform rows
+let withBonus = users.map(fn(r) { r ++ {bonus: r.age * 100} })
+
+// Find first match
+let alice = users.find(fn(r) { r.name == "Alice" })
+// {name: "Alice", age: 30, dept: "Engineering"}
+
+// Check conditions
+users.any(fn(r) { r.age > 30 })     // true
+users.all(fn(r) { r.age >= 25 })    // true
+
+// Reduce to single value
+let totalAge = users.reduce(fn(acc, r) { acc + r.age }, 0)  // 90
+
+// Group by column
+let byDept = users.groupBy("dept")
+// {Engineering: Table[2 rows], Sales: Table[1 row]}
+
+// Group by computed key
+let byAgeGroup = users.groupBy(fn(r) { if (r.age >= 30) "senior" else "junior" })
+
+// Remove duplicates
+let uniqueDepts = users.unique("dept")  // 2 rows (Engineering, Sales)
+
+// Sort by computed key
+let byNameLength = users.sortBy(fn(r) { r.name.length() })
+```
 
 #### Inspection Methods
 
@@ -3316,7 +3373,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 |--------|-------|-------------|
 | `toBox()` | 0 | Render in box |
 
-### Table Methods (22 methods)
+### Table Methods (32 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -3335,6 +3392,16 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `appendCol(name, vals)` | 2 | Add column at end |
 | `insertColAfter(after, name, vals)` | 3 | Insert column after |
 | `insertColBefore(before, name, vals)` | 3 | Insert column before |
+| `renameCol(old, new)` | 2 | Rename a column |
+| `dropCol(col)` | 1 | Remove a column |
+| `map(fn)` | 1 | Transform each row |
+| `find(fn)` | 1 | First row matching predicate |
+| `any(fn)` | 1 | True if any row matches |
+| `all(fn)` | 1 | True if all rows match |
+| `reduce(fn, init)` | 2 | Fold rows to accumulator |
+| `groupBy(fn\|col)` | 1 | Group rows by key |
+| `unique(col?)` | 0-1 | Remove duplicate rows |
+| `sortBy(fn)` | 1 | Sort by computed key |
 | `rowCount()` | 0 | Number of rows |
 | `columnCount()` | 0 | Number of columns |
 | `toHTML(footer?)` | 0-1 | Convert to HTML |
