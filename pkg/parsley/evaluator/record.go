@@ -484,12 +484,18 @@ func BindSchemaToTable(schema *DSLSchema, t *Table, env *Environment) Object {
 		rows = append(rows, rowDict)
 	}
 
-	// Use sorted schema field names for columns
-	columns := make([]string, 0, len(schema.Fields))
-	for name := range schema.Fields {
-		columns = append(columns, name)
+	// Use schema field order for columns (preserves declaration order)
+	var columns []string
+	if len(schema.FieldOrder) > 0 {
+		columns = schema.FieldOrder
+	} else {
+		// Fallback for schemas without FieldOrder (backwards compatibility)
+		columns = make([]string, 0, len(schema.Fields))
+		for name := range schema.Fields {
+			columns = append(columns, name)
+		}
+		sort.Strings(columns)
 	}
-	sort.Strings(columns)
 
 	return &Table{
 		Rows:    rows,

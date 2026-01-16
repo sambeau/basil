@@ -20,9 +20,10 @@ var (
 
 // DSLSchema represents a schema declared with @schema
 type DSLSchema struct {
-	Name      string
-	Fields    map[string]*DSLSchemaField
-	Relations map[string]*DSLSchemaRelation
+	Name       string
+	Fields     map[string]*DSLSchemaField
+	FieldOrder []string // preserves declaration order
+	Relations  map[string]*DSLSchemaRelation
 }
 
 // DSLSchemaField represents a field in a DSL schema
@@ -307,13 +308,15 @@ func evalDSLSchemaProperty(schema *DSLSchema, key string) Object {
 // evalSchemaDeclaration evaluates a @schema declaration
 func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object {
 	schema := &DSLSchema{
-		Name:      node.Name.Value,
-		Fields:    make(map[string]*DSLSchemaField),
-		Relations: make(map[string]*DSLSchemaRelation),
+		Name:       node.Name.Value,
+		Fields:     make(map[string]*DSLSchemaField),
+		FieldOrder: make([]string, 0, len(node.Fields)),
+		Relations:  make(map[string]*DSLSchemaRelation),
 	}
 
-	// Process fields
+	// Process fields (preserving declaration order)
 	for _, field := range node.Fields {
+		schema.FieldOrder = append(schema.FieldOrder, field.Name.Value)
 		if field.ForeignKey != "" {
 			// This is a relation
 			schema.Relations[field.Name.Value] = &DSLSchemaRelation{
