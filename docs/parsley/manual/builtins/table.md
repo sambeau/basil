@@ -706,6 +706,183 @@ products.insertColAfter("price", "tax", fn(r) { r.price * 0.1 })
 
 ---
 
+## Array-like Methods
+
+Tables provide array-like methods for transformation and searching, similar to JavaScript/Python array operations.
+
+### map(fn)
+
+Transform each row using a function. The function receives a row (dictionary or Record) and must return a dictionary or Record.
+
+```parsley
+let data = @table [
+    {name: "Alice", salary: 50000},
+    {name: "Bob", salary: 60000}
+]
+
+let withBonus = data.map(fn(row) {
+    {name: row.name, salary: row.salary, bonus: row.salary * 0.1}
+})
+// Adds a 'bonus' column to each row
+```
+
+**Schema preservation:**
+- If the function returns Records with the same schema → schema is preserved
+- If the function returns Records with different schemas → adopts the new schema
+- If the function returns plain dictionaries → schema is cleared
+
+### find(fn)
+
+Find the first row that matches a predicate. Returns the row (as dictionary or Record if table has schema) or `null` if not found.
+
+```parsley
+let users = @table [
+    {id: 1, name: "Alice"},
+    {id: 2, name: "Bob"},
+    {id: 3, name: "Carol"}
+]
+
+let bob = users.find(fn(u) { u.name == "Bob" })
+// Returns: {id: 2, name: "Bob"}
+
+let missing = users.find(fn(u) { u.id == 99 })
+// Returns: null
+```
+
+### any(fn)
+
+Check if any row matches a predicate. Returns `true` if at least one row matches, `false` otherwise.
+
+```parsley
+let orders = @table [
+    {id: 1, status: "pending"},
+    {id: 2, status: "shipped"},
+    {id: 3, status: "delivered"}
+]
+
+let hasPending = orders.any(fn(o) { o.status == "pending" })
+// Returns: true
+```
+
+### all(fn)
+
+Check if all rows match a predicate. Returns `true` if all rows match, `false` otherwise. Returns `true` for empty tables.
+
+```parsley
+let products = @table [
+    {name: "Widget", stock: 50},
+    {name: "Gadget", stock: 30},
+    {name: "Gizmo", stock: 0}
+]
+
+let allInStock = products.all(fn(p) { p.stock > 0 })
+// Returns: false (Gizmo has 0 stock)
+```
+
+---
+
+## Data Manipulation Methods
+
+### unique(columns?)
+
+Remove duplicate rows. If no columns are specified, considers all columns for uniqueness. If column names are provided (string or array), only those columns are used to determine uniqueness.
+
+```parsley
+// Remove exact duplicates
+let data = @table [
+    {id: 1, name: "Alice"},
+    {id: 2, name: "Bob"},
+    {id: 1, name: "Alice"}  // duplicate
+]
+data.unique()  // 2 rows: id 1 and id 2
+
+// Remove duplicates by specific column
+let emails = @table [
+    {user_id: 1, email: "alice@example.com"},
+    {user_id: 2, email: "bob@example.com"},
+    {user_id: 3, email: "alice@example.com"}  // same email
+]
+emails.unique("email")  // 2 rows: keeps first occurrence of each email
+```
+
+### renameCol(oldName, newName)
+
+Rename a column in the table. Returns a new table with the renamed column.
+
+```parsley
+let data = @table [{old_name: 1, value: 100}]
+let renamed = data.renameCol("old_name", "new_name")
+// Columns are now: ["new_name", "value"]
+```
+
+### dropCol(column...)
+
+Remove one or more columns from the table. Accepts multiple column names as separate arguments.
+
+```parsley
+let data = @table [{a: 1, b: 2, c: 3, d: 4}]
+
+// Drop single column
+data.dropCol("b")  // Columns: ["a", "c", "d"]
+
+// Drop multiple columns
+data.dropCol("b", "d")  // Columns: ["a", "c"]
+```
+
+### groupBy(columns, aggregationFn?)
+
+Group rows by one or more columns. Returns a Table with grouped results.
+
+**Without aggregation function** — returns group keys and a `rows` array for each group:
+
+```parsley
+let sales = @table [
+    {region: "North", product: "Widget", amount: 100},
+    {region: "South", product: "Gadget", amount: 200},
+    {region: "North", product: "Gizmo", amount: 150}
+]
+
+let grouped = sales.groupBy("region")
+// Result:
+// ┌────────┬─────────────────────────┐
+// │ region │ rows                    │
+// ├────────┼─────────────────────────┤
+// │ North  │ [{...}, {...}]          │
+// │ South  │ [{...}]                 │
+// └────────┴─────────────────────────┘
+```
+
+**With aggregation function** — function receives array of rows for each group:
+
+```parsley
+let totals = sales.groupBy("region", fn(rows) {
+    let sum = 0
+    for (row in rows) {
+        sum = sum + row.amount
+    }
+    {total: sum, count: len(rows)}
+})
+// Result:
+// ┌────────┬───────┬───────┐
+// │ region │ total │ count │
+// ├────────┼───────┼───────┤
+// │ North  │ 250   │ 2     │
+// │ South  │ 200   │ 1     │
+// └────────┴───────┴───────┘
+```
+
+**Group by multiple columns:**
+
+```parsley
+sales.groupBy(["region", "product"], fn(rows) {
+    let sum = 0
+    for (row in rows) { sum = sum + row.amount }
+    {total: sum}
+})
+```
+
+---
+
 ## Export Methods
 
 ### toArray()
@@ -1036,6 +1213,8 @@ Tables are Parsley's answer to structured data manipulation:
 - **Validate** with `@schema` for typed, defaulted, nullable fields
 - **Query** using chainable SQL-like methods: `where`, `orderBy`, `select`, `limit`
 - **Aggregate** with `sum`, `avg`, `min`, `max`, `count`
+- **Transform** with array-like methods: `map`, `find`, `any`, `all`
+- **Manipulate** data with `unique`, `renameCol`, `dropCol`, `groupBy`
 - **Export** to JSON, CSV, HTML, Markdown, or box-drawing format
 - **Efficient** thanks to copy-on-chain optimization
 

@@ -273,6 +273,16 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "rowCount", Arity: "0", Description: "Get number of rows"},
 		{Name: "columnCount", Arity: "0", Description: "Get number of columns"},
 		{Name: "column", Arity: "1", Description: "Get array of values from column"},
+		// Array-like methods
+		{Name: "map", Arity: "1", Description: "Transform each row (fn) - preserves schema if Records returned"},
+		{Name: "find", Arity: "1", Description: "Find first row matching predicate (fn) - returns row or null"},
+		{Name: "any", Arity: "1", Description: "Check if any row matches predicate (fn) - returns boolean"},
+		{Name: "all", Arity: "1", Description: "Check if all rows match predicate (fn) - returns boolean"},
+		// Data manipulation methods
+		{Name: "unique", Arity: "0-1", Description: "Remove duplicate rows (columns?)"},
+		{Name: "renameCol", Arity: "2", Description: "Rename column (oldName, newName)"},
+		{Name: "dropCol", Arity: "1+", Description: "Remove columns (col1, col2, ...)"},
+		{Name: "groupBy", Arity: "1-2", Description: "Group rows by column(s) (cols, aggregationFn?)"},
 	},
 	"dbconnection": {
 		{Name: "begin", Arity: "0", Description: "Begin transaction"},

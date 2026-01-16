@@ -1936,6 +1936,578 @@ func createTableWithNewColumn(t *Table, colName string, values []Object, insertP
 	return &Table{Rows: newRows, Columns: newColumns}
 }
 
+// tableMap applies a function to each row and returns a new table
+// Schema preservation: If fn returns Records with same schema → preserve; if different schema → adopt new; if plain dicts → clear schema
+func tableMap(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("map", len(args), 1)
+	}
+
+	fn, ok := args[0].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0012", "map", "a function", args[0].Type())
+	}
+
+	// Get chain copy
+	result := t.ensureChainCopy()
+	mappedRows := make([]*Dictionary, 0, len(result.Rows))
+	
+	var detectedSchema *DSLSchema
+	schemaConsistent := true
+
+	for i, row := range result.Rows {
+		extendedEnv := extendFunctionEnv(fn, []Object{row})
+
+		// Evaluate the function body
+		var evalResult Object
+		for _, stmt := range fn.Body.Statements {
+			evalResult = evalStatement(stmt, extendedEnv)
+			if returnValue, ok := evalResult.(*ReturnValue); ok {
+				evalResult = returnValue.Value
+				break
+			}
+			if isError(evalResult) {
+				return evalResult
+			}
+		}
+
+		// Convert result to dictionary
+		var rowDict *Dictionary
+		if record, ok := evalResult.(*Record); ok {
+			// It's a Record - check schema consistency
+			if i == 0 {
+				detectedSchema = record.Schema
+			} else if detectedSchema != nil && record.Schema != detectedSchema {
+				// Different schema detected
+				schemaConsistent = false
+				detectedSchema = record.Schema
+			}
+			// Convert Record.Data to Dictionary
+			rowDict = &Dictionary{
+				Pairs:    record.Data,
+				KeyOrder: record.KeyOrder,
+				Env:      record.Env,
+			}
+		} else if dict, ok := evalResult.(*Dictionary); ok {
+			// Plain dictionary - clear schema
+			rowDict = dict
+			detectedSchema = nil
+			schemaConsistent = false
+		} else {
+			return newTypeError("TYPE-0012", "map callback", "a dictionary or Record", evalResult.Type())
+		}
+
+		mappedRows = append(mappedRows, rowDict)
+	}
+
+	// Update columns from first row
+	var newColumns []string
+	if len(mappedRows) > 0 {
+		newColumns = make([]string, 0, len(mappedRows[0].Pairs))
+		for col := range mappedRows[0].Pairs {
+			newColumns = append(newColumns, col)
+		}
+	}
+
+	// Schema preservation logic
+	var finalSchema *DSLSchema
+	if schemaConsistent && detectedSchema != nil {
+		finalSchema = detectedSchema
+	}
+
+	result.Rows = mappedRows
+	result.Columns = newColumns
+	result.Schema = finalSchema
+	return result
+}
+
+// tableFind returns the first row that matches the predicate, or null
+func tableFind(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("find", len(args), 1)
+	}
+
+	fn, ok := args[0].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0012", "find", "a function", args[0].Type())
+	}
+
+	for _, row := range t.Rows {
+		extendedEnv := extendFunctionEnv(fn, []Object{row})
+
+		// Evaluate the function body
+		var evalResult Object
+		for _, stmt := range fn.Body.Statements {
+			evalResult = evalStatement(stmt, extendedEnv)
+			if returnValue, ok := evalResult.(*ReturnValue); ok {
+				evalResult = returnValue.Value
+				break
+			}
+			if isError(evalResult) {
+				return evalResult
+			}
+		}
+
+		// Check if truthy
+		if isTruthy(evalResult) {
+			// Return as Record if table has schema
+			if t.Schema != nil {
+				return &Record{
+					Schema:    t.Schema,
+					Data:      row.Pairs,
+					KeyOrder:  row.KeyOrder,
+					Validated: t.FromDB,
+					Errors:    make(map[string]*RecordError),
+					Env:       row.Env,
+				}
+			}
+			return row
+		}
+	}
+
+	return NULL
+}
+
+// tableAny returns true if any row matches the predicate
+func tableAny(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("any", len(args), 1)
+	}
+
+	fn, ok := args[0].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0012", "any", "a function", args[0].Type())
+	}
+
+	for _, row := range t.Rows {
+		extendedEnv := extendFunctionEnv(fn, []Object{row})
+
+		// Evaluate the function body
+		var evalResult Object
+		for _, stmt := range fn.Body.Statements {
+			evalResult = evalStatement(stmt, extendedEnv)
+			if returnValue, ok := evalResult.(*ReturnValue); ok {
+				evalResult = returnValue.Value
+				break
+			}
+			if isError(evalResult) {
+				return evalResult
+			}
+		}
+
+		// Check if truthy
+		if isTruthy(evalResult) {
+			return &Boolean{Value: true}
+		}
+	}
+
+	return &Boolean{Value: false}
+}
+
+// tableAll returns true if all rows match the predicate
+func tableAll(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("all", len(args), 1)
+	}
+
+	fn, ok := args[0].(*Function)
+	if !ok {
+		return newTypeError("TYPE-0012", "all", "a function", args[0].Type())
+	}
+
+	for _, row := range t.Rows {
+		extendedEnv := extendFunctionEnv(fn, []Object{row})
+
+		// Evaluate the function body
+		var evalResult Object
+		for _, stmt := range fn.Body.Statements {
+			evalResult = evalStatement(stmt, extendedEnv)
+			if returnValue, ok := evalResult.(*ReturnValue); ok {
+				evalResult = returnValue.Value
+				break
+			}
+			if isError(evalResult) {
+				return evalResult
+			}
+		}
+
+		// Check if falsy
+		if !isTruthy(evalResult) {
+			return &Boolean{Value: false}
+		}
+	}
+
+	return &Boolean{Value: true}
+}
+
+// tableUnique returns a table with duplicate rows removed
+// If column names are provided, only those columns are used for uniqueness
+func tableUnique(t *Table, args []Object, env *Environment) Object {
+	if len(args) > 1 {
+		return newArityErrorRange("unique", len(args), 0, 1)
+	}
+
+	// Get chain copy
+	result := t.ensureChainCopy()
+
+	// Determine which columns to use for uniqueness
+	var keyCols []string
+	if len(args) == 1 {
+		// Column names provided
+		switch arg := args[0].(type) {
+		case *String:
+			keyCols = []string{arg.Value}
+		case *Array:
+			keyCols = make([]string, 0, len(arg.Elements))
+			for _, elem := range arg.Elements {
+				str, ok := elem.(*String)
+				if !ok {
+					return newTypeError("TYPE-0012", "unique", "string column names", elem.Type())
+				}
+				keyCols = append(keyCols, str.Value)
+			}
+		default:
+			return newTypeError("TYPE-0012", "unique", "a string or array of strings", args[0].Type())
+		}
+	} else {
+		// No args - use all columns
+		keyCols = result.Columns
+	}
+
+	// Track seen rows using a map of key string -> bool
+	seen := make(map[string]bool)
+	uniqueRows := make([]*Dictionary, 0)
+
+	for _, row := range result.Rows {
+		// Build key from specified columns
+		var keyParts []string
+		for _, col := range keyCols {
+			expr, exists := row.Pairs[col]
+			if exists && expr != nil {
+				// Evaluate expression to get value
+				obj := Eval(expr, row.Env)
+				if obj != nil && obj.Type() != ERROR_OBJ {
+					keyParts = append(keyParts, obj.Inspect())
+				} else {
+					keyParts = append(keyParts, "NULL")
+				}
+			} else {
+				keyParts = append(keyParts, "NULL")
+			}
+		}
+		key := strings.Join(keyParts, "\x00") // Use null byte as separator
+
+		if !seen[key] {
+			seen[key] = true
+			uniqueRows = append(uniqueRows, row)
+		}
+	}
+
+	result.Rows = uniqueRows
+	return result
+}
+
+// tableRenameCol renames a column in the table
+func tableRenameCol(t *Table, args []Object, env *Environment) Object {
+	if len(args) != 2 {
+		return newArityError("renameCol", len(args), 2)
+	}
+
+	oldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "renameCol", "a string (old column name)", args[0].Type())
+	}
+
+	newName, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "renameCol", "a string (new column name)", args[1].Type())
+	}
+
+	// Check if old column exists
+	found := false
+	for _, col := range t.Columns {
+		if col == oldName.Value {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return newValidationError("VAL-0012", map[string]any{
+			"Column": oldName.Value,
+			"Table":  "table",
+		})
+	}
+
+	// Get chain copy
+	result := t.ensureChainCopy()
+
+	// Rename in columns list
+	newColumns := make([]string, len(result.Columns))
+	for i, col := range result.Columns {
+		if col == oldName.Value {
+			newColumns[i] = newName.Value
+		} else {
+			newColumns[i] = col
+		}
+	}
+	result.Columns = newColumns
+
+	// Rename in each row
+	newRows := make([]*Dictionary, len(result.Rows))
+	for i, row := range result.Rows {
+		newPairs := make(map[string]ast.Expression, len(row.Pairs))
+		newKeyOrder := make([]string, len(row.KeyOrder))
+		for j, k := range row.KeyOrder {
+			if k == oldName.Value {
+				newKeyOrder[j] = newName.Value
+				newPairs[newName.Value] = row.Pairs[k]
+			} else {
+				newKeyOrder[j] = k
+				newPairs[k] = row.Pairs[k]
+			}
+		}
+		newRows[i] = &Dictionary{
+			Pairs:    newPairs,
+			KeyOrder: newKeyOrder,
+			Env:      row.Env,
+		}
+	}
+	result.Rows = newRows
+
+	return result
+}
+
+// tableDropCol removes one or more columns from the table
+func tableDropCol(t *Table, args []Object, env *Environment) Object {
+	if len(args) == 0 {
+		return newArityError("dropCol", len(args), 1)
+	}
+
+	// Collect column names to drop
+	colsToDrop := make(map[string]bool)
+	for _, arg := range args {
+		str, ok := arg.(*String)
+		if !ok {
+			return newTypeError("TYPE-0012", "dropCol", "string column name(s)", arg.Type())
+		}
+		colsToDrop[str.Value] = true
+	}
+
+	// Get chain copy
+	result := t.ensureChainCopy()
+
+	// Filter columns list
+	newColumns := make([]string, 0, len(result.Columns))
+	for _, col := range result.Columns {
+		if !colsToDrop[col] {
+			newColumns = append(newColumns, col)
+		}
+	}
+	result.Columns = newColumns
+
+	// Filter each row
+	newRows := make([]*Dictionary, len(result.Rows))
+	for i, row := range result.Rows {
+		newPairs := make(map[string]ast.Expression)
+		newKeyOrder := make([]string, 0)
+		for _, k := range row.KeyOrder {
+			if !colsToDrop[k] {
+				newKeyOrder = append(newKeyOrder, k)
+				newPairs[k] = row.Pairs[k]
+			}
+		}
+		newRows[i] = &Dictionary{
+			Pairs:    newPairs,
+			KeyOrder: newKeyOrder,
+			Env:      row.Env,
+		}
+	}
+	result.Rows = newRows
+
+	return result
+}
+
+// tableGroupBy groups rows by column value(s) and returns a Table with group key and arrays
+func tableGroupBy(t *Table, args []Object, env *Environment) Object {
+	if len(args) < 1 || len(args) > 2 {
+		return newArityErrorRange("groupBy", len(args), 1, 2)
+	}
+
+	// Parse group-by column(s)
+	var groupCols []string
+	switch arg := args[0].(type) {
+	case *String:
+		groupCols = []string{arg.Value}
+	case *Array:
+		groupCols = make([]string, 0, len(arg.Elements))
+		for _, elem := range arg.Elements {
+			str, ok := elem.(*String)
+			if !ok {
+				return newTypeError("TYPE-0012", "groupBy", "string column name(s)", elem.Type())
+			}
+			groupCols = append(groupCols, str.Value)
+		}
+	default:
+		return newTypeError("TYPE-0012", "groupBy", "a string or array of strings", args[0].Type())
+	}
+
+	// Optional: aggregation function
+	var aggFn *Function
+	if len(args) == 2 {
+		fn, ok := args[1].(*Function)
+		if !ok {
+			return newTypeError("TYPE-0012", "groupBy", "a function (aggregation)", args[1].Type())
+		}
+		aggFn = fn
+	}
+
+	// Group rows by key
+	type groupKey struct {
+		key    string
+		values []Object  // Store actual values, not strings
+	}
+	groups := make(map[string]*groupKey)
+	groupOrder := []string{} // Preserve insertion order
+	groupedRows := make(map[string][]*Dictionary)
+
+	for _, row := range t.Rows {
+		// Build group key
+		var keyParts []string
+		var valueParts []Object
+		for _, col := range groupCols {
+			expr, exists := row.Pairs[col]
+			if exists && expr != nil {
+				// Evaluate expression to get value
+				obj := Eval(expr, row.Env)
+				if obj != nil && obj.Type() != ERROR_OBJ {
+					keyParts = append(keyParts, obj.Inspect())
+					valueParts = append(valueParts, obj)
+				} else {
+					keyParts = append(keyParts, "NULL")
+					valueParts = append(valueParts, NULL)
+				}
+			} else {
+				keyParts = append(keyParts, "NULL")
+				valueParts = append(valueParts, NULL)
+			}
+		}
+		key := strings.Join(keyParts, "\x00")
+
+		if _, exists := groups[key]; !exists {
+			groups[key] = &groupKey{key: key, values: valueParts}
+			groupOrder = append(groupOrder, key)
+			groupedRows[key] = make([]*Dictionary, 0)
+		}
+		groupedRows[key] = append(groupedRows[key], row)
+	}
+
+	// Build result table
+	var resultRows []*Dictionary
+	var resultColumns []string
+
+	if aggFn != nil {
+		// With aggregation function - call it for each group
+		for _, key := range groupOrder {
+			groupData := groupedRows[key]
+			groupArray := &Array{Elements: make([]Object, len(groupData))}
+			for i, row := range groupData {
+				groupArray.Elements[i] = row
+			}
+
+			// Call aggregation function with the group array
+			extendedEnv := extendFunctionEnv(aggFn, []Object{groupArray})
+			var evalResult Object
+			for _, stmt := range aggFn.Body.Statements {
+				evalResult = evalStatement(stmt, extendedEnv)
+				if returnValue, ok := evalResult.(*ReturnValue); ok {
+					evalResult = returnValue.Value
+					break
+				}
+				if isError(evalResult) {
+					return evalResult
+				}
+			}
+
+			// Result should be a dictionary or value
+			resultPairs := make(map[string]ast.Expression)
+			resultKeyOrder := make([]string, 0)
+			
+			// Add group key columns
+			gk := groups[key]
+			for i, col := range groupCols {
+				if i < len(gk.values) {
+					resultPairs[col] = &ast.ObjectLiteralExpression{Obj: gk.values[i]}
+					resultKeyOrder = append(resultKeyOrder, col)
+				}
+			}
+
+			// Add aggregation result
+			if dict, ok := evalResult.(*Dictionary); ok {
+				// Merge aggregation result
+				for _, k := range dict.KeyOrder {
+					resultPairs[k] = dict.Pairs[k]
+					resultKeyOrder = append(resultKeyOrder, k)
+				}
+			} else {
+				// Single value - use "value" as column name
+				resultPairs["value"] = &ast.ObjectLiteralExpression{Obj: evalResult}
+				resultKeyOrder = append(resultKeyOrder, "value")
+			}
+
+			resultRows = append(resultRows, &Dictionary{
+				Pairs:    resultPairs,
+				KeyOrder: resultKeyOrder,
+				Env:      env,
+			})
+		}
+
+		// Determine columns from first row
+		if len(resultRows) > 0 {
+			resultColumns = resultRows[0].KeyOrder
+		}
+	} else {
+		// No aggregation - return group keys and rows array
+		resultColumns = append(groupCols, "rows")
+
+		for _, key := range groupOrder {
+			groupData := groupedRows[key]
+			gk := groups[key]
+			
+			resultPairs := make(map[string]ast.Expression)
+			resultKeyOrder := make([]string, 0)
+			
+			// Add group key columns
+			for i, col := range groupCols {
+				if i < len(gk.values) {
+					resultPairs[col] = &ast.ObjectLiteralExpression{Obj: gk.values[i]}
+					resultKeyOrder = append(resultKeyOrder, col)
+				}
+			}
+
+			// Add rows array
+			rowsArray := &Array{Elements: make([]Object, len(groupData))}
+			for i, row := range groupData {
+				rowsArray.Elements[i] = row
+			}
+			resultPairs["rows"] = &ast.ObjectLiteralExpression{Obj: rowsArray}
+			resultKeyOrder = append(resultKeyOrder, "rows")
+
+			resultRows = append(resultRows, &Dictionary{
+				Pairs:    resultPairs,
+				KeyOrder: resultKeyOrder,
+				Env:      env,
+			})
+		}
+	}
+
+	return &Table{
+		Rows:        resultRows,
+		Columns:     resultColumns,
+		Schema:      nil, // Grouped tables don't preserve schema
+		isChainCopy: false,
+	}
+}
+
 // EvalTableMethod dispatches method calls on Table objects
 func EvalTableMethod(t *Table, method string, args []Object, env *Environment) Object {
 	switch method {
@@ -2002,6 +2574,24 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 		return tableValidRows(t, args, env)
 	case "invalidRows":
 		return tableInvalidRows(t, args, env)
+	// Array-like methods
+	case "map":
+		return tableMap(t, args, env)
+	case "find":
+		return tableFind(t, args, env)
+	case "any":
+		return tableAny(t, args, env)
+	case "all":
+		return tableAll(t, args, env)
+	// Data manipulation methods
+	case "unique":
+		return tableUnique(t, args, env)
+	case "renameCol":
+		return tableRenameCol(t, args, env)
+	case "dropCol":
+		return tableDropCol(t, args, env)
+	case "groupBy":
+		return tableGroupBy(t, args, env)
 	default:
 		return unknownMethodError(method, "Table", []string{
 			"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
@@ -2009,6 +2599,7 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 			"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
 			"rowCount", "columnCount", "column",
 			"as", "validate", "isValid", "errors", "validRows", "invalidRows",
+			"map", "find", "any", "all", "unique", "renameCol", "dropCol", "groupBy",
 		})
 	}
 }
