@@ -26,21 +26,21 @@ Schemas define the structure of records and tables in Parsley. They specify fiel
 @schema User {
     id: integer
     name: string | {title: "Full Name"}
-    email: email<unique: true> | {placeholder: "you@example.com"}
+    email: email(unique: true) | {placeholder: "you@example.com"}
     role: enum("user", "admin") = "user"
     active: boolean = true
-    createdAt: datetime = @now | {hidden: true}
+    createdAt: datetime | {hidden: true}
 }
 
 // Use with tables
 let users = @table(User) [
-    {id: 1, name: "Alice", email: "alice@example.com"},
-    {id: 2, name: "Bob", email: "bob@example.com", role: "admin"}
+    {id: 1, name: "Alice", email: "alice@example.com", createdAt: @now},
+    {id: 2, name: "Bob", email: "bob@example.com", role: "admin", createdAt: @now}
 ]
 
 // Access schema metadata
 User.title("name")              // "Full Name"
-User.visibleFields()            // ["active", "email", "id", "name", "role"]
+User.visibleFields()            // ["id", "name", "email", "role", "active"]
 ```
 
 ## Why Schemas?
@@ -145,13 +145,13 @@ Task.enumValues("status")       // ["todo", "in-progress", "blocked", "done"]
 
 ## Type Constraints
 
-Add constraints using `<key: value>` syntax after the type:
+Add constraints using `(key: value)` syntax after the type:
 
 ```parsley
 @schema Registration {
-    username: string<min: 3, max: 20, unique: true>
-    password: string<min: 8>
-    age: integer<min: 13, max: 120>
+    username: string(min: 3, max: 20, unique: true)
+    password: string(min: 8)
+    age: integer(min: 13, max: 120)
 }
 ```
 
@@ -166,18 +166,18 @@ Add constraints using `<key: value>` syntax after the type:
 ```parsley
 // String length constraints
 @schema Comment {
-    body: text<min: 1, max: 10000>
+    body: text(min: 1, max: 10000)
 }
 
 // Numeric range constraints
 @schema Product {
-    price: money<min: 0>
-    quantity: integer<min: 0, max: 999>
+    price: money(min: 0)
+    quantity: integer(min: 0, max: 999)
 }
 
 // Unique constraint for database
 @schema User {
-    email: email<unique: true>
+    email: email(unique: true)
 }
 ```
 
@@ -361,7 +361,7 @@ Settings.meta("theme", "nonexistent")   // null
 
 #### Usage: fields()
 
-Returns an array of all field names (alphabetically sorted).
+Returns an array of all field names in declaration order.
 
 ```parsley
 @schema Person {
@@ -370,7 +370,7 @@ Returns an array of all field names (alphabetically sorted).
     city: string
 }
 
-Person.fields()                 // ["age", "city", "name"]
+Person.fields()                 // ["name", "age", "city"]
 ```
 
 ---
@@ -390,8 +390,8 @@ Returns an array of field names where the `hidden` metadata is not `true`. This 
     createdAt: datetime | {hidden: true}
 }
 
-User.fields()                   // ["createdAt", "email", "id", "name", "passwordHash"]
-User.visibleFields()            // ["email", "name"]
+User.fields()                   // ["id", "name", "email", "passwordHash", "createdAt"]
+User.visibleFields()            // ["name", "email"]
 ```
 
 **Common use case**: Generate a table showing only user-facing columns:
@@ -469,7 +469,7 @@ Tables remember their schema via the `.schema` property:
 ```parsley
 products.schema                 // The Product schema
 products.schema.title("name")   // "Name"
-products.schema.visibleFields() // ["inStock", "name", "price"]
+products.schema.visibleFields() // ["name", "price", "inStock"]
 ```
 
 ### Schema-Aware Row Iteration
@@ -502,8 +502,8 @@ Schemas power Parsley's database table bindings:
 ```parsley
 @schema User {
     id: integer
-    name: string<unique: true>
-    email: email<unique: true>
+    name: string(unique: true)
+    email: email(unique: true)
     createdAt: datetime = @now
 }
 

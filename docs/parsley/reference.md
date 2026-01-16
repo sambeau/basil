@@ -514,13 +514,13 @@ Define allowed values inline:
 
 #### Type Constraints
 
-Add constraints using `<>` syntax:
+Add constraints using `(key: value)` syntax:
 
 ```parsley
 @schema Profile {
-    username: string<min: 3, max: 20, unique: true>
-    age: integer<min: 0, max: 150>
-    bio: text<max: 500>
+    username: string(min: 3, max: 20, unique: true)
+    age: integer(min: 0, max: 150)
+    bio: text(max: 500)
 }
 ```
 
@@ -552,13 +552,13 @@ Common metadata keys:
 ```parsley
 @schema User {
     id: integer
-    username: string<min: 3, max: 30, unique: true> | {title: "Username"}
-    email: email<unique: true> | {title: "Email Address", placeholder: "user@example.com"}
+    username: string(min: 3, max: 30, unique: true) | {title: "Username"}
+    email: email(unique: true) | {title: "Email Address", placeholder: "user@example.com"}
     password: string | {hidden: true}
     role: enum("user", "admin", "moderator") = "user" | {title: "Role"}
     bio: text? | {title: "Biography", placeholder: "Tell us about yourself..."}
     active: boolean = true
-    createdAt: datetime = @now | {title: "Created", hidden: true}
+    createdAt: datetime | {title: "Created", hidden: true}
 }
 ```
 
