@@ -2116,3 +2116,50 @@ typed.columns
 		}
 	}
 }
+
+// TestSchemaRowFieldOrderPreserved verifies that accessing .rows preserves schema field order
+func TestSchemaRowFieldOrderPreserved(t *testing.T) {
+	// BUG-015 follow-up: The table.rows property was returning dictionaries
+	// with alphabetical key order instead of schema declaration order
+	input := `
+@schema Person {
+    id: id
+    Name: string
+    Firstname: string
+    Surname: string
+    Birthday: date
+    Age: int
+}
+
+let data = @table [
+    {id: 1, Name: "Solly Phillips", Firstname: "Solly", Surname: "Phillips", Birthday: "2005-04-22", Age: 20}
+]
+
+let typed = data.as(Person)
+let rows = typed.rows
+let row = rows[0]
+row.keys()
+`
+	result := evalRecordTest(t, input)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+	}
+
+	// Verify key order matches schema declaration order
+	expectedOrder := []string{"id", "Name", "Firstname", "Surname", "Birthday", "Age"}
+	if len(arr.Elements) != len(expectedOrder) {
+		t.Fatalf("expected %d keys, got %d: %s", len(expectedOrder), len(arr.Elements), result.Inspect())
+	}
+
+	for i, expected := range expectedOrder {
+		actual := arr.Elements[i].Inspect()
+		if actual != expected {
+			t.Errorf("key %d: expected %q, got %q", i, expected, actual)
+		}
+	}
+}

@@ -271,13 +271,25 @@ func CreateRecord(schema *DSLSchema, data *Dictionary, env *Environment) *Record
 		}
 	}
 
-	// Sort KeyOrder by schema field order for consistency
-	sortedKeys := make([]string, 0, len(schema.Fields))
-	for fieldName := range schema.Fields {
-		sortedKeys = append(sortedKeys, fieldName)
+	// Use schema field order for KeyOrder (preserves declaration order)
+	if len(schema.FieldOrder) > 0 {
+		// Use the schema's declared field order
+		orderedKeys := make([]string, 0, len(schema.FieldOrder))
+		for _, fieldName := range schema.FieldOrder {
+			if _, exists := record.Data[fieldName]; exists {
+				orderedKeys = append(orderedKeys, fieldName)
+			}
+		}
+		record.KeyOrder = orderedKeys
+	} else {
+		// Fallback: sort alphabetically for backwards compatibility
+		sortedKeys := make([]string, 0, len(schema.Fields))
+		for fieldName := range schema.Fields {
+			sortedKeys = append(sortedKeys, fieldName)
+		}
+		sort.Strings(sortedKeys)
+		record.KeyOrder = sortedKeys
 	}
-	sort.Strings(sortedKeys)
-	record.KeyOrder = sortedKeys
 
 	return record
 }
