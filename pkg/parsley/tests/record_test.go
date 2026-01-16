@@ -2068,3 +2068,51 @@ row.type()`,
 		})
 	}
 }
+
+// =============================================================================
+// BUG-015: Schema column order preservation
+// =============================================================================
+
+func TestSchemaFieldOrderPreserved(t *testing.T) {
+	// BUG-015: Applying a schema via .as() was sorting columns alphabetically
+	// instead of preserving the schema's declaration order
+	input := `
+@schema Person {
+    id: id
+    Name: string
+    Firstname: string
+    Surname: string
+    Birthday: date
+    Age: int
+}
+
+let data = @table [
+    {id: 1, Name: "Solly Phillips", Firstname: "Solly", Surname: "Phillips", Birthday: "2005-04-22", Age: 20}
+]
+
+let typed = data.as(Person)
+typed.columns
+`
+	result := evalRecordTest(t, input)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	arr, ok := result.(*evaluator.Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+	}
+
+	// Verify column order matches schema declaration order
+	expectedOrder := []string{"id", "Name", "Firstname", "Surname", "Birthday", "Age"}
+	if len(arr.Elements) != len(expectedOrder) {
+		t.Fatalf("expected %d columns, got %d", len(expectedOrder), len(arr.Elements))
+	}
+
+	for i, expected := range expectedOrder {
+		actual := arr.Elements[i].Inspect()
+		if actual != expected {
+			t.Errorf("column %d: expected %q, got %q", i, expected, actual)
+		}
+	}
+}

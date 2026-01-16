@@ -1951,7 +1951,7 @@ func tableMap(t *Table, args []Object, env *Environment) Object {
 	// Get chain copy
 	result := t.ensureChainCopy()
 	mappedRows := make([]*Dictionary, 0, len(result.Rows))
-	
+
 	var detectedSchema *DSLSchema
 	schemaConsistent := true
 
@@ -2364,7 +2364,7 @@ func tableGroupBy(t *Table, args []Object, env *Environment) Object {
 	// Group rows by key
 	type groupKey struct {
 		key    string
-		values []Object  // Store actual values, not strings
+		values []Object // Store actual values, not strings
 	}
 	groups := make(map[string]*groupKey)
 	groupOrder := []string{} // Preserve insertion order
@@ -2431,7 +2431,7 @@ func tableGroupBy(t *Table, args []Object, env *Environment) Object {
 			// Result should be a dictionary or value
 			resultPairs := make(map[string]ast.Expression)
 			resultKeyOrder := make([]string, 0)
-			
+
 			// Add group key columns
 			gk := groups[key]
 			for i, col := range groupCols {
@@ -2472,10 +2472,10 @@ func tableGroupBy(t *Table, args []Object, env *Environment) Object {
 		for _, key := range groupOrder {
 			groupData := groupedRows[key]
 			gk := groups[key]
-			
+
 			resultPairs := make(map[string]ast.Expression)
 			resultKeyOrder := make([]string, 0)
-			
+
 			// Add group key columns
 			for i, col := range groupCols {
 				if i < len(gk.values) {
