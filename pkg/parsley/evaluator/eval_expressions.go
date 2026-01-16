@@ -58,6 +58,10 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *
 		extendedEnv.DevMode = env.DevMode
 		extendedEnv.Security = env.Security
 		extendedEnv.Logger = env.Logger
+		// Copy @params from calling environment so methods can access request params
+		if params, ok := env.Get("@params"); ok {
+			extendedEnv.Set("@params", params)
+		}
 	}
 	evaluated := Eval(fn.Body, extendedEnv)
 	return unwrapReturnValue(evaluated)
@@ -82,6 +86,11 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			extendedEnv.DevMode = env.DevMode
 			extendedEnv.Security = env.Security
 			extendedEnv.Logger = env.Logger
+			// Copy @params from calling environment so modules can access request params
+			// via `let {params} = import @basil/http`
+			if params, ok := env.Get("@params"); ok {
+				extendedEnv.Set("@params", params)
+			}
 		}
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)

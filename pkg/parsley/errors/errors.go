@@ -386,6 +386,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassUndefined,
 		Template: "Unknown basil module: @basil/{{.Module}}",
 	},
+	"UNDEF-0010": {
+		Class:    ClassUndefined,
+		Template: "@params is not available at module scope",
+		// Hints added in evalIdentifier
+	},
 
 	// ========================================
 	// I/O errors (IO-0xxx)

@@ -820,6 +820,22 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 			return builtin
 		}
 
+		// Special error for @params at module scope
+		if node.Value == "@params" {
+			return &Error{
+				Message: "@params is not available at module scope",
+				Class:   "UndefinedError",
+				Code:    "UNDEF-0010",
+				Hints: []string{
+					"@params is request-scoped and only available inside functions",
+					"Move this code inside an exported function, or use `let {params} = import @basil/http` inside the function",
+				},
+				Line:   node.Token.Line,
+				Column: node.Token.Column,
+				File:   env.Filename,
+			}
+		}
+
 		// Create a structured error with fuzzy matching
 		parsleyErr := perrors.NewUndefinedIdentifier(node.Value, env.AllIdentifiers())
 		parsleyErr.Line = node.Token.Line

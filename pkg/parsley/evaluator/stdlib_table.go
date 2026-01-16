@@ -241,13 +241,23 @@ func ensureObject(val Object) Object {
 }
 
 // loadBasilHTTPModule returns the HTTP-related basil module
-// Exports: request, response, route, method
+// Exports: request, response, route, method, params
 // All exports are DynamicAccessors to ensure fresh values per-request
 // even when imported at module scope.
-// Note: query has been removed; use @params instead.
 func loadBasilHTTPModule(env *Environment) Object {
 	return &StdlibModuleDict{
 		Exports: map[string]Object{
+			"params": &DynamicAccessor{
+				Name: "params",
+				Resolver: func(e *Environment) Object {
+					// Walk up environment chain to find @params
+					// (set by handler.go for each request)
+					if val, ok := e.Get("@params"); ok {
+						return ensureObject(val)
+					}
+					return NULL
+				},
+			},
 			"request": &DynamicAccessor{
 				Name: "request",
 				Resolver: func(e *Environment) Object {
