@@ -2295,3 +2295,330 @@ Config.title("timeout")
 		t.Errorf("expected %q, got %q", expected, result.Inspect())
 	}
 }
+
+// =============================================================================
+// FEAT-094: Schema Enhancements Tests
+// =============================================================================
+
+// TestPatternConstraint tests string(pattern: /regex/) validation (SPEC-PAT-*)
+func TestPatternConstraint(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectValid bool
+		errorCode   string
+	}{
+		{
+			name: "TEST-PAT-001: valid pattern match",
+			input: `
+@schema T1 { name: string(pattern: /^[A-Z][a-z]+$/) }
+T1({name: "Alice"}).validate().isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "TEST-PAT-002: invalid pattern match",
+			input: `
+@schema T2 { name: string(pattern: /^[A-Z][a-z]+$/) }
+T2({name: "alice"}).validate().isValid()`,
+			expectValid: false,
+		},
+		{
+			name: "TEST-PAT-003: empty string passes pattern (SPEC-PAT-003)",
+			input: `
+@schema T3 { name: string(pattern: /^[A-Z][a-z]+$/) }
+T3({name: ""}).validate().isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "TEST-PAT-004: pattern with min constraint - empty fails MIN_LENGTH first",
+			input: `
+@schema T4 { name: string(min: 1, pattern: /^[A-Z][a-z]+$/) }
+let r = T4({name: ""}).validate()
+r.errorCode("name")`,
+			errorCode: "MIN_LENGTH",
+		},
+		{
+			name: "pattern error code is PATTERN (SPEC-PAT-005)",
+			input: `
+@schema T5 { name: string(pattern: /^[A-Z]+$/) }
+T5({name: "abc"}).validate().errorCode("name")`,
+			errorCode: "PATTERN",
+		},
+		{
+			name: "complex pattern - slug format",
+			input: `
+@schema T6 { slug: string(pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/) }
+T6({slug: "hello-world-123"}).validate().isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "complex pattern - slug invalid",
+			input: `
+@schema T7 { slug: string(pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/) }
+T7({slug: "Hello_World"}).validate().isValid()`,
+			expectValid: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+
+			if tt.errorCode != "" {
+				// Expecting a specific error code (string result without quotes)
+				if result.Inspect() != tt.errorCode {
+					t.Errorf("expected error code %s, got %s", tt.errorCode, result.Inspect())
+				}
+			} else if tt.expectValid {
+				if result.Inspect() != "true" {
+					t.Errorf("expected valid, got %s", result.Inspect())
+				}
+			} else {
+				if result.Inspect() != "false" {
+					t.Errorf("expected invalid, got %s", result.Inspect())
+				}
+			}
+		})
+	}
+}
+
+// TestIDTypeAlias tests that id type is an alias for ulid (SPEC-ID-002)
+func TestIDTypeAlias(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "TEST-ID-001: id type expands to ulid",
+			input: `
+@schema T1 { id: id(auto) }
+T1.fields.id.type`,
+			expected: `ulid`,
+		},
+		{
+			name: "uuid type is uuid",
+			input: `
+@schema T2 { id: uuid(auto) }
+T2.fields.id.type`,
+			expected: `uuid`,
+		},
+		{
+			name: "ulid type is ulid",
+			input: `
+@schema T3 { id: ulid(auto) }
+T3.fields.id.type`,
+			expected: `ulid`,
+		},
+		{
+			name: "int auto type is int",
+			input: `
+@schema T4 { id: int(auto) }
+T4.fields.id.type`,
+			expected: `int`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestIDValidationWithoutAuto tests UUID/ULID format validation when not auto
+func TestIDValidationWithoutAuto(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectValid bool
+	}{
+		{
+			name: "TEST-ID-002: invalid uuid format fails validation",
+			input: `
+@schema T1 { id: uuid }
+T1({id: "not-a-uuid"}).validate().isValid()`,
+			expectValid: false,
+		},
+		{
+			name: "valid uuid format passes",
+			input: `
+@schema T2 { id: uuid }
+T2({id: "550e8400-e29b-41d4-a716-446655440000"}).validate().isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "TEST-ID-003: invalid ulid format fails validation",
+			input: `
+@schema T3 { id: ulid }
+T3({id: "not-a-ulid"}).validate().isValid()`,
+			expectValid: false,
+		},
+		{
+			name: "valid ulid format passes",
+			input: `
+@schema T4 { id: ulid }
+T4({id: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}).validate().isValid()`,
+			expectValid: true,
+		},
+		{
+			name: "TEST-ID-004: auto field skips validation",
+			input: `
+@schema T5 { id: ulid(auto), name: string }
+T5({name: "Alice"}).validate().isValid()`,
+			expectValid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if tt.expectValid {
+				if result.Inspect() != "true" {
+					t.Errorf("expected valid, got %s", result.Inspect())
+				}
+			} else {
+				if result.Inspect() != "false" {
+					t.Errorf("expected invalid, got %s", result.Inspect())
+				}
+			}
+		})
+	}
+}
+
+// TestMoneyCurrencyMetadata tests currency metadata for money fields (SPEC-CUR-*)
+func TestMoneyCurrencyMetadata(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "TEST-CUR-001: currency in metadata",
+			input: `
+@schema T1 { price: money | {currency: "USD"} }
+T1.meta("price", "currency")`,
+			expected: `USD`,
+		},
+		{
+			name: "TEST-CUR-002: format with USD currency",
+			input: `
+@schema T2 { price: money | {currency: "USD"} }
+let p = T2({price: $19.99})
+p.format("price")`,
+			expected: `$19.99`,
+		},
+		{
+			name: "format with EUR currency",
+			input: `
+@schema T3 { price: money | {currency: "EUR"} }
+let p = T3({price: €19.99})
+p.format("price")`,
+			expected: `€19.99`,
+		},
+		{
+			name: "format with JPY currency (no decimals)",
+			input: `
+@schema T4 { price: money | {currency: "JPY"} }
+let p = T4({price: ¥5000})
+p.format("price")`,
+			expected: `¥5000`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestMoneySchemaType tests that money fields in schemas work correctly
+// with the Money type - storing as integers and retrieving as Money objects.
+func TestMoneySchemaType(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "money field stores Integer Amount",
+			input: `
+@schema Product { price: money | {currency: "USD"} }
+let p = Product({price: $19.99})
+p.price.amount`,
+			expected: `1999`,
+		},
+		{
+			name: "money field preserves Money type",
+			input: `
+@schema Product { price: money | {currency: "USD"} }
+let p = Product({price: $50.00})
+p.price`,
+			expected: `$50.00`,
+		},
+		{
+			name: "money field accepts Money literal",
+			input: `
+@schema Order { total: money | {currency: "GBP"} }
+let o = Order({total: £99.99})
+o.total.currency`,
+			expected: `GBP`,
+		},
+		{
+			name: "money field from integer (cents) roundtrip",
+			input: `
+@schema Product { price: money | {currency: "USD"} }
+// Integer input is treated as cents (minor units)
+let p = Product({price: 1999})
+p.price`,
+			expected: `$19.99`,
+		},
+		{
+			name: "money field with EUR currency",
+			input: `
+@schema Invoice { amount: money | {currency: "EUR"} }
+let inv = Invoice({amount: €100.50})
+inv.amount`,
+			expected: `€100.50`,
+		},
+		{
+			name: "money field with JPY (no decimals)",
+			input: `
+@schema Payment { amount: money | {currency: "JPY"} }
+let p = Payment({amount: ¥5000})
+p.amount.scale`,
+			expected: `0`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

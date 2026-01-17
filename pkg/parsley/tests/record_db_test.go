@@ -49,7 +49,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -69,7 +69,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -89,7 +89,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, priority INTEGER)"
 
 @schema Item {
-    id: uuid
+    id: uuid(auto)
     name: string
     priority: int
 }
@@ -107,7 +107,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, priority INTEGER)"
 
 @schema Item2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     priority: int
 }
@@ -124,7 +124,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, priority INTEGER)"
 
 @schema Item3 {
-    id: uuid
+    id: uuid(auto)
     name: string
     priority: int
 }
@@ -142,7 +142,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, priority INTEGER)"
 
 @schema Item4 {
-    id: uuid
+    id: uuid(auto)
     name: string
     priority: int
 }
@@ -159,7 +159,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE people (id TEXT PRIMARY KEY, name TEXT, city TEXT)"
 
 @schema Person {
-    id: uuid
+    id: uuid(auto)
     name: string
     city: string
 }
@@ -177,7 +177,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE people (id TEXT PRIMARY KEY, name TEXT, city TEXT)"
 
 @schema Person2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     city: string
 }
@@ -220,7 +220,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT, price REAL)"
 
 @schema Product {
-    id: uuid
+    id: uuid(auto)
     name: string
     price: float
 }
@@ -238,7 +238,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT, price REAL)"
 
 @schema Product2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     price: float
 }
@@ -256,7 +256,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT, price REAL)"
 
 @schema Product3 {
-    id: uuid
+    id: uuid(auto)
     name: string
     price: float
 }
@@ -273,7 +273,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT, price REAL)"
 
 @schema Product4 {
-    id: uuid
+    id: uuid(auto)
     name: string
     price: float
 }
@@ -291,7 +291,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT, price REAL)"
 
 @schema Product5 {
-    id: uuid
+    id: uuid(auto)
     name: string
     price: float
 }
@@ -334,7 +334,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema UserVal {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -354,7 +354,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema UserVal2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -374,7 +374,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema ItemVal {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -390,7 +390,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema ItemVal2 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -406,7 +406,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema ItemVal3 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -447,7 +447,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, qty INTEGER)"
 
 @schema ItemRow {
-    id: uuid
+    id: uuid(auto)
     name: string
     qty: int
 }
@@ -466,7 +466,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, qty INTEGER)"
 
 @schema ItemRow2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     qty: int
 }
@@ -485,7 +485,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT, qty INTEGER)"
 
 @schema ItemRow3 {
-    id: uuid
+    id: uuid(auto)
     name: string
     qty: int
 }
@@ -503,7 +503,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema ItemSchema {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -546,7 +546,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema UserErr {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -565,7 +565,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema UserErr2 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -582,7 +582,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema UserErr3 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -617,7 +617,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema UserType {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -645,7 +645,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema UserMissing {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -668,7 +668,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema ItemTableSchema {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -703,7 +703,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -721,7 +721,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
 
 @schema User2 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -738,7 +738,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User3 {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -757,7 +757,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
 
 @schema User4 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -799,7 +799,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -817,7 +817,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema User2 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -834,7 +834,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User3 {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -877,7 +877,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }
@@ -896,7 +896,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema User2 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -913,7 +913,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema User3 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -956,7 +956,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
 
 @schema User {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -973,7 +973,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, extra TEXT)"
 
 @schema User2 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -990,7 +990,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 
 @schema User3 {
-    id: uuid
+    id: uuid(auto)
     name: string
 }
 
@@ -1056,7 +1056,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT)"
 
 @schema User {
-    id: uuid
+    id: uuid(auto)
     name: string
     email: email
 }
@@ -1074,7 +1074,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT)"
 
 @schema User2 {
-    id: uuid
+    id: uuid(auto)
     name: string
     email: email
 }
@@ -1092,7 +1092,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, age INTEGER)"
 
 @schema User3 {
-    id: uuid
+    id: uuid(auto)
     name: string
     age: int
 }

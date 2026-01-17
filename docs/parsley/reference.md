@@ -528,6 +528,7 @@ Add constraints using `(key: value)` syntax:
 |------------|------------|-------------|
 | `min` | string, integer | Minimum length or value |
 | `max` | string, integer | Maximum length or value |
+| `pattern` | string | Regex pattern for validation |
 | `required` | any | Field must have a non-null value |
 | `auto` | any | Database/server generates this value |
 | `readOnly` | any | Field cannot be set from client/form input |
@@ -2009,7 +2010,7 @@ User.fields                     // {name: {type: "string", ...}, age: {...}, ...
 | `.placeholder(field)` | `field: string` | `string\|null` | Get placeholder text for field |
 | `.meta(field, key)` | `field, key: string` | `any\|null` | Get metadata value for field |
 | `.fields()` | none | `array<string>` | Get all field names |
-| `.visibleFields()` | none | `array<string>` | Get non-hidden field names |
+| `.visibleFields()` | none | `array<string>` | Get non-hidden, non-auto field names |
 | `.enumValues(field)` | `field: string` | `array<string>` | Get enum values for field |
 
 #### title(field)
@@ -2066,13 +2067,13 @@ Person.fields()                 // ["age", "city", "name"]
 
 #### visibleFields()
 
-Returns field names where `hidden` metadata is not `true`. Useful for auto-generating forms and tables.
+Returns field names excluding `hidden` metadata fields and `auto` constraint fields. Useful for auto-generating forms and tables where auto-generated IDs and hidden fields should not appear.
 
 ```parsley
 @schema User {
-    id: integer | {hidden: true}
+    id: ulid(auto)                        // excluded (auto)
     name: string
-    password: string | {hidden: true}
+    password: string | {hidden: true}     // excluded (hidden)
     email: email
 }
 

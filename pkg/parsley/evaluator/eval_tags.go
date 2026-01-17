@@ -591,6 +591,7 @@ func encodePropsToJSON(props *Dictionary) string {
 }
 
 // objectToGoValue converts a Parsley object to a Go value for JSON marshaling
+// For database storage, Money values are converted to their integer Amount (cents/minor units).
 func objectToGoValue(obj Object) interface{} {
 	switch v := obj.(type) {
 	case *Integer:
@@ -601,6 +602,9 @@ func objectToGoValue(obj Object) interface{} {
 		return v.Value
 	case *String:
 		return v.Value
+	case *Money:
+		// Store as integer (cents/minor units) - consistent with Money type storage
+		return v.Amount
 	case *Array:
 		arr := make([]interface{}, len(v.Elements))
 		for i, elem := range v.Elements {

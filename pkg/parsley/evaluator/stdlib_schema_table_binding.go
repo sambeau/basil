@@ -1241,6 +1241,11 @@ func (tb *TableBinding) generateID(env *Environment) Object {
 			return nil
 		}
 
+		// SPEC-ID-004: Only auto-generate ID if field has auto constraint
+		if !idField.Auto {
+			return nil
+		}
+
 		// Map DSL schema type to ID format
 		format := idField.Type
 		switch format {

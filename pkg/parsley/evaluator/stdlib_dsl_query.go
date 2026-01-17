@@ -2313,8 +2313,12 @@ func buildInsertSQL(node *ast.InsertExpression, binding *TableBinding, env *Envi
 	var columns []string
 	var placeholders []string
 
+	// Track which fields were explicitly written
+	writtenFields := make(map[string]bool)
+
 	for _, write := range node.Writes {
 		columns = append(columns, write.Field)
+		writtenFields[write.Field] = true
 
 		// Evaluate the value
 		val := Eval(write.Value, env)
@@ -2325,6 +2329,29 @@ func buildInsertSQL(node *ast.InsertExpression, binding *TableBinding, env *Envi
 		placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
 		paramIdx++
 		params = append(params, val)
+	}
+
+	// SPEC-ID-004/005: Generate auto IDs for ULID/UUID fields not explicitly provided
+	if binding.DSLSchema != nil {
+		for fieldName, field := range binding.DSLSchema.Fields {
+			if field.Auto && !writtenFields[fieldName] {
+				baseType := strings.ToLower(field.Type)
+				var idVal Object
+				switch baseType {
+				case "ulid":
+					idVal = idNew() // Generate ULID
+				case "uuid":
+					idVal = idUUID() // Generate UUID v4
+				}
+				if idVal != nil {
+					columns = append(columns, fieldName)
+					placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
+					paramIdx++
+					params = append(params, idVal)
+				}
+				// Note: int/bigint auto fields are handled by database auto-increment
+			}
+		}
 	}
 
 	if len(columns) == 0 {

@@ -164,6 +164,35 @@ let myId = 5
 <Part src={@./foo.part}/>
 ```
 
+### 11. Schema ID Types Require `auto` for Generation
+```parsley
+// ❌ WRONG - id: id without auto expects valid ULID format
+@schema User {
+    id: id                 // Requires valid ULID if provided!
+    name: string
+}
+User({name: "Alice"})      // Missing id!
+User({id: "my-id"})        // "my-id" is not a valid ULID format!
+
+// ✅ CORRECT - use auto for server-generated IDs
+@schema User {
+    id: ulid(auto)         // Auto-generated ULID
+    name: string
+}
+User({name: "Alice"})      // ID generated on insert
+
+// id type is alias for ulid:
+// id(auto) = ulid(auto)
+// id       = ulid (validates format)
+
+// For arbitrary string IDs:
+@schema User {
+    id: string             // No format validation
+    name: string
+}
+User({id: "my-custom-id"}) // Any string works
+```
+
 ---
 
 ## 📊 Syntax Quick Reference

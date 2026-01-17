@@ -526,13 +526,29 @@ func recordFormat(record *Record, args []Object, env *Environment) Object {
 	}
 	value := Eval(expr, evalEnv)
 
-	// Get format hint from schema metadata
+	// Get format hint from schema metadata and check for money type with currency
 	formatHint := ""
+	currency := "USD" // Default currency
 	if record.Schema != nil {
-		if field, ok := record.Schema.Fields[fieldName.Value]; ok && field.Metadata != nil {
-			if fmtObj, ok := field.Metadata["format"]; ok {
-				if fmtStr, ok := fmtObj.(*String); ok {
-					formatHint = fmtStr.Value
+		if field, ok := record.Schema.Fields[fieldName.Value]; ok {
+			// Check for money type with currency metadata (SPEC-CUR-007, SPEC-CUR-008)
+			if field.Type == "money" && field.Metadata != nil {
+				if curObj, ok := field.Metadata["currency"]; ok {
+					if curStr, ok := curObj.(*String); ok {
+						currency = curStr.Value
+						// Auto-set format hint for money fields
+						if formatHint == "" {
+							formatHint = "currency"
+						}
+					}
+				}
+			}
+			// Check explicit format metadata
+			if field.Metadata != nil {
+				if fmtObj, ok := field.Metadata["format"]; ok {
+					if fmtStr, ok := fmtObj.(*String); ok {
+						formatHint = fmtStr.Value
+					}
 				}
 			}
 		}
@@ -550,7 +566,7 @@ func recordFormat(record *Record, args []Object, env *Environment) Object {
 	case "datetime":
 		return formatRecordDatetime(value, env)
 	case "currency":
-		return formatRecordCurrency(value)
+		return formatRecordCurrencyWithCode(value, currency)
 	case "percent":
 		return formatRecordPercent(value)
 	case "number":
@@ -612,8 +628,14 @@ func formatRecordDatetime(value Object, env *Environment) Object {
 	return &String{Value: objectToString(value)}
 }
 
-// formatRecordCurrency formats a numeric value as currency "$1,234.00"
+// formatRecordCurrency formats a numeric value as currency "$1,234.00" (USD default)
 func formatRecordCurrency(value Object) Object {
+	return formatRecordCurrencyWithCode(value, "USD")
+}
+
+// formatRecordCurrencyWithCode formats a numeric value as currency with specified currency code
+// SPEC-CUR-007, SPEC-CUR-008: Money fields use currency metadata for formatting
+func formatRecordCurrencyWithCode(value Object, currency string) Object {
 	var num float64
 	switch v := value.(type) {
 	case *Integer:
@@ -624,7 +646,7 @@ func formatRecordCurrency(value Object) Object {
 		return &String{Value: objectToString(value)}
 	}
 
-	return formatCurrencyWithLocale(num, "USD", "en-US")
+	return formatCurrencyWithLocale(num, currency, "en-US")
 }
 
 // formatRecordPercent formats a decimal as percentage "15%"

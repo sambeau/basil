@@ -960,3 +960,202 @@ func TestFormRecordShorthandMethods(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// FEAT-094: Auto Field Form Handling Tests (SPEC-ID-007, SPEC-ID-008)
+// =============================================================================
+
+// TestAutoFieldsExcludedFromVisibleFields tests SPEC-ID-008
+func TestAutoFieldsExcludedFromVisibleFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "SPEC-ID-008: visibleFields excludes auto fields",
+			input: `
+				@schema User {
+					id: ulid(auto)
+					name: string
+					email: email
+				}
+				User.visibleFields()
+			`,
+			expected: `[name, email]`,
+		},
+		{
+			name: "visibleFields excludes multiple auto fields",
+			input: `
+				@schema Article {
+					id: id(auto)
+					title: string
+					createdAt: datetime(auto)
+					updatedAt: datetime(auto)
+				}
+				Article.visibleFields()
+			`,
+			expected: `[title]`,
+		},
+		{
+			name: "visibleFields excludes both auto and hidden",
+			input: `
+				@schema Product {
+					id: int(auto)
+					name: string
+					internalCode: string | {hidden: true}
+					price: money
+				}
+				Product.visibleFields()
+			`,
+			expected: `[name, price]`,
+		},
+		{
+			name: "fields() includes auto fields (not visibleFields)",
+			input: `
+				@schema User {
+					id: ulid(auto)
+					name: string
+				}
+				User.fields()
+			`,
+			expected: `[id, name]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := evalFormTest(t, tt.input)
+			if errObj, isErr := evaluated.(*evaluator.Error); isErr {
+				t.Fatalf("unexpected error: %s", errObj.Message)
+			}
+
+			result := evaluated.Inspect()
+			if result != tt.expected {
+				t.Errorf("expected %s but got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestAutoFieldRendersAsHidden tests SPEC-ID-007
+func TestAutoFieldRendersAsHidden(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+	}{
+		{
+			name: "SPEC-ID-007: auto field renders as hidden input",
+			input: `
+				@schema User {
+					id: ulid(auto)
+					name: string
+				}
+				let user = User({id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", name: "Alice"})
+				<form @record={user}>
+					<input @field="id"/>
+					<input @field="name"/>
+				</form>
+			`,
+			contains: []string{`type="hidden"`, `name="id"`, `readonly`, `name="name"`, `value="Alice"`},
+		},
+		{
+			name: "auto field includes value when present",
+			input: `
+				@schema Article {
+					id: int(auto)
+					title: string
+				}
+				let article = Article({id: 42, title: "Hello"})
+				<form @record={article}>
+					<input @field="id"/>
+				</form>
+			`,
+			contains: []string{`type="hidden"`, `name="id"`, `value="42"`, `readonly`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := evalFormTest(t, tt.input)
+			if errObj, isErr := evaluated.(*evaluator.Error); isErr {
+				t.Fatalf("unexpected error: %s", errObj.Message)
+			}
+
+			result := evaluated.(*evaluator.String).Value
+
+			for _, expected := range tt.contains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("expected result to contain %q\ngot: %s", expected, result)
+				}
+			}
+		})
+	}
+}
+
+// TestFormPatternAttribute tests SPEC-PAT-008, SPEC-PAT-009
+func TestFormPatternAttribute(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+	}{
+		{
+			name: "SPEC-PAT-008: pattern generates HTML pattern attribute",
+			input: `
+				@schema User {
+					username: string(pattern: /^[a-z][a-z0-9_]*$/)
+				}
+				let user = User({username: ""})
+				<form @record={user}>
+					<input @field="username"/>
+				</form>
+			`,
+			contains: []string{`pattern="^[a-z][a-z0-9_]*$"`, `name="username"`},
+		},
+		{
+			name: "pattern with length constraints",
+			input: `
+				@schema Registration {
+					code: string(min: 4, max: 8, pattern: /^[A-Z0-9]+$/)
+				}
+				let reg = Registration({code: ""})
+				<form @record={reg}>
+					<input @field="code"/>
+				</form>
+			`,
+			contains: []string{`pattern="^[A-Z0-9]+$"`, `minlength="4"`, `maxlength="8"`},
+		},
+		{
+			name: "complex pattern - slug format",
+			input: `
+				@schema Post {
+					slug: string(pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+				}
+				let post = Post({slug: ""})
+				<form @record={post}>
+					<input @field="slug"/>
+				</form>
+			`,
+			contains: []string{`pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := evalFormTest(t, tt.input)
+			if errObj, isErr := evaluated.(*evaluator.Error); isErr {
+				t.Fatalf("unexpected error: %s", errObj.Message)
+			}
+
+			result := evaluated.(*evaluator.String).Value
+
+			for _, expected := range tt.contains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("expected result to contain %q\ngot: %s", expected, result)
+				}
+			}
+		})
+	}
+}

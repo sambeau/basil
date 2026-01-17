@@ -88,6 +88,61 @@ This specification defines the **Record type** for Parsley with sufficient preci
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
 
+### 1.4 Design Principle: Schema as Single Source of Truth
+
+A schema serves as the **single source of truth** that flows to three destinations:
+
+```
+                    ┌─────────────────┐
+                    │     @schema     │
+                    │  (single truth) │
+                    └────────┬────────┘
+                             │
+           ┌─────────────────┼─────────────────┐
+           ▼                 ▼                 ▼
+    ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+    │  Database   │   │ Validation  │   │    Forms    │
+    │   (DDL)     │   │ (server +   │   │  (HTML +    │
+    │             │   │  client)    │   │  attributes)│
+    └─────────────┘   └─────────────┘   └─────────────┘
+```
+
+**PRINCIPLE-001:** Every schema feature SHOULD be evaluated against all three destinations.
+
+**PRINCIPLE-002:** Features MAY serve only one or two destinations, but this MUST be documented.
+
+#### Feature Mapping Table
+
+| Feature | Database (DDL) | Validation | Forms (HTML) |
+|---------|----------------|------------|--------------|
+| `string` | `TEXT` | Type check | `<input type="text">` |
+| `string(min:N, max:M)` | `CHECK(length(...))` | Length check | `minlength`, `maxlength` |
+| `string(pattern:/.../)` | ❌ | Regex match | `pattern` attr |
+| `email` | `TEXT` | Email format | `<input type="email">` |
+| `int` | `INTEGER` | Numeric check | `<input type="number">` |
+| `int(min:N, max:M)` | `CHECK(x >= N AND x <= M)` | Range check | `min`, `max` attrs |
+| `int(auto)` | `INTEGER PRIMARY KEY` | Skip on insert | Hidden/readonly |
+| `ulid(auto)` | `TEXT PRIMARY KEY` | ULID format | Hidden/readonly |
+| `uuid(auto)` | `TEXT PRIMARY KEY` | UUID format | Hidden/readonly |
+| `enum["a","b"]` | `CHECK(x IN ('a','b'))` | Value check | `<select>` options |
+| `required` | `NOT NULL` | Non-empty check | `required` attr |
+| `unique` | `UNIQUE` | ❌ (DB enforced) | ❌ |
+| `readOnly` | ❌ | Filter input | `readonly` or omit |
+| `default: x` | `DEFAULT x` | Apply if missing | Pre-fill value |
+| `{title}` | ❌ | ❌ | `<label>` text |
+| `{placeholder}` | ❌ | ❌ | `placeholder` attr |
+| `{hidden}` | ❌ | ❌ | `type="hidden"` |
+
+#### Destination-Specific Features
+
+Some features intentionally serve only one destination:
+
+- **Database-only:** `unique` (requires query to validate in code)
+- **Validation-only:** `pattern` (most databases don't support regex constraints)
+- **Forms-only:** `{placeholder}`, `{title}`, `{hidden}` (display metadata)
+
+When adding new schema features, document which destinations are served and why others are excluded.
+
 ---
 
 ## 2. Type System
@@ -1480,6 +1535,7 @@ post "/admin/users/:id" {
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2026-01-17 | - | Add "Schema as Single Source of Truth" design principle (section 1.4) with feature mapping table |
 | 1.3 | 2026-01-17 | - | Implement `readOnly` constraint (SPEC-READONLY-*): schema-level filtering in CreateRecord and record.update() |
 | 1.2 | 2026-01-17 | - | Design `readOnly` constraint (Appendix C.1): schema-level enforcement, multi-schema pattern |
 | 1.1 | 2026-01-17 | - | Add `auto` constraint (SPEC-AUTO-*), add Appendix C for future considerations |

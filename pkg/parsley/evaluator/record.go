@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
 // Record represents a schema-bound data container with validation state.
@@ -324,6 +325,8 @@ func castFieldValue(value Object, field *DSLSchemaField) Object {
 		return castToBoolean(value)
 	case "string", "text", "email", "url", "phone", "slug", "uuid", "ulid":
 		return castToString(value)
+	case "money":
+		return castToMoney(value, field)
 	default:
 		// No casting needed
 		return value
@@ -407,6 +410,60 @@ func castToString(value Object) Object {
 	default:
 		return value
 	}
+}
+
+// castToMoney casts a value to Money.
+// Integer values are assumed to be in cents/minor units (consistent with DB storage).
+// Money values pass through unchanged.
+// Float values are converted (assumed to be in major units like dollars).
+func castToMoney(value Object, field *DSLSchemaField) Object {
+	// Get currency from field metadata, default to USD
+	currency := "USD"
+	scale := int8(2)
+	if field.Metadata != nil {
+		if curObj, ok := field.Metadata["currency"]; ok {
+			if curStr, ok := curObj.(*String); ok {
+				currency = curStr.Value
+				scale = getCurrencyScale(currency)
+			}
+		}
+	}
+
+	switch v := value.(type) {
+	case *Money:
+		return v
+	case *Integer:
+		// Integer from DB is in minor units (cents) - use directly
+		return &Money{Amount: v.Value, Currency: currency, Scale: scale}
+	case *Float:
+		// Float is in major units (dollars) - convert to minor units
+		multiplier := int64(1)
+		for i := int8(0); i < scale; i++ {
+			multiplier *= 10
+		}
+		return &Money{Amount: int64(v.Value * float64(multiplier)), Currency: currency, Scale: scale}
+	case *String:
+		// Try to parse as a number
+		if f, err := parseFloat(v.Value); err == nil {
+			multiplier := int64(1)
+			for i := int8(0); i < scale; i++ {
+				multiplier *= 10
+			}
+			return &Money{Amount: int64(f * float64(multiplier)), Currency: currency, Scale: scale}
+		}
+		return value
+	default:
+		return value
+	}
+}
+
+// getCurrencyScale returns the decimal scale (decimal places) for a currency code.
+// Uses the lexer's CurrencyScales map, defaulting to 2 for unknown currencies.
+func getCurrencyScale(currency string) int8 {
+	if scale, ok := lexer.CurrencyScales[currency]; ok {
+		return scale
+	}
+	return 2 // Default to 2 decimal places
 }
 
 // Helper functions for parsing (use existing strconv if available)

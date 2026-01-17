@@ -16,6 +16,7 @@ const (
 	ErrCodeMaxLength = "MAX_LENGTH"
 	ErrCodeMinValue  = "MIN_VALUE"
 	ErrCodeMaxValue  = "MAX_VALUE"
+	ErrCodePattern   = "PATTERN"
 	ErrCodeCustom    = "CUSTOM"
 )
 
@@ -29,6 +30,7 @@ var errorTemplates = map[string]string{
 	ErrCodeMaxLength: "{title} must be at most {max} characters",
 	ErrCodeMinValue:  "{title} must be at least {min}",
 	ErrCodeMaxValue:  "{title} must be at most {max}",
+	ErrCodePattern:   "{title} does not match the required format",
 }
 
 // ValidateRecord validates a record against its schema and returns a new Record
@@ -130,7 +132,12 @@ func validateFieldInternal(record *Record, fieldName string, field *DSLSchemaFie
 		return err
 	}
 
-	// 5. Enum check
+	// 5. Pattern check for regex validation (SPEC-PAT-004)
+	if err := validatePattern(value, field, title); err != nil {
+		return err
+	}
+
+	// 6. Enum check
 	if err := validateEnum(value, field, title); err != nil {
 		return err
 	}
@@ -326,6 +333,36 @@ func validateConstraints(value Object, field *DSLSchemaField, title string) *Rec
 					"max":   fmt.Sprintf("%d", *field.MaxValue),
 				}),
 			}
+		}
+	}
+
+	return nil
+}
+
+// validatePattern checks if value matches the pattern constraint.
+// SPEC-PAT-003: Empty strings pass pattern validation (use required for non-empty).
+// SPEC-PAT-004: Validation fails if string doesn't match pattern.
+// SPEC-PAT-005: Error code is PATTERN.
+// SPEC-PAT-006: Error message is "{title} does not match the required format".
+func validatePattern(value Object, field *DSLSchemaField, title string) *RecordError {
+	if field.Pattern == nil {
+		return nil
+	}
+
+	strVal, ok := value.(*String)
+	if !ok {
+		return nil // Pattern only applies to strings
+	}
+
+	// SPEC-PAT-003: Empty strings pass pattern validation
+	if strVal.Value == "" {
+		return nil
+	}
+
+	if !field.Pattern.MatchString(strVal.Value) {
+		return &RecordError{
+			Code:    ErrCodePattern,
+			Message: formatErrorMessage(ErrCodePattern, map[string]string{"title": title}),
 		}
 	}
 

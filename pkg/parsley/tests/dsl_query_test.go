@@ -3971,3 +3971,151 @@ let Posts = db.bind(SlugPost, "slugposts")
 		})
 	}
 }
+
+// =============================================================================
+// FEAT-094: SQL Generation for ID Types Tests (SPEC-ID-003 through SPEC-ID-005)
+// =============================================================================
+
+// TestCreateTableWithULIDAutoID tests ulid(auto) generates correct DDL
+func TestCreateTableWithULIDAutoID(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema UserULID {
+    id: ulid(auto)
+    name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(UserULID, "users_ulid")
+
+// Verify table was created and we can insert (ID should auto-generate)
+let Users = db.bind(UserULID, "users_ulid")
+let inserted = Users.insert({name: "Alice"})
+inserted.id.length()  // ULID is 26 chars
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "26" {
+		t.Errorf("expected ULID to be 26 chars, got: %s", result.String())
+	}
+}
+
+// TestCreateTableWithUUIDAutoID tests uuid(auto) generates correct DDL
+func TestCreateTableWithUUIDAutoID(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema UserUUID {
+    id: uuid(auto)
+    name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(UserUUID, "users_uuid")
+
+// Verify table was created and we can insert (ID should auto-generate)
+let Users = db.bind(UserUUID, "users_uuid")
+let inserted = Users.insert({name: "Bob"})
+inserted.id.length()  // UUID is 36 chars with dashes
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "36" {
+		t.Errorf("expected UUID to be 36 chars, got: %s", result.String())
+	}
+}
+
+// TestCreateTableWithIntAutoID tests int(auto) generates INTEGER PRIMARY KEY (SQLite implicit autoincrement)
+func TestCreateTableWithIntAutoID(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Counter {
+    id: int(auto)
+    value: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(Counter, "counters")
+
+// Verify auto-increment works via query after insert
+// Note: int(auto) relies on SQLite INTEGER PRIMARY KEY autoincrement,
+// which requires RETURNING or last_insert_rowid() to get the ID back
+let Counters = db.bind(Counter, "counters")
+let _ = Counters.insert({value: 100})
+let _ = Counters.insert({value: 200})
+let _ = Counters.insert({value: 300})
+
+// Query count to verify IDs were generated
+Counters.count()  // Should have 3 rows
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Verify we have 3 rows inserted
+	if result.String() != "3" {
+		t.Errorf("expected 3 rows, got: %s", result.String())
+	}
+}
+
+// TestCreateTableWithIDTypeAlias tests id type (alias for ulid) with auto
+func TestCreateTableWithIDTypeAlias(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema Item {
+    id: id(auto)
+    name: string
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(Item, "items_id_alias")
+
+// Verify table was created and id type expanded to ulid
+let Items = db.bind(Item, "items_id_alias")
+let inserted = Items.insert({name: "Widget"})
+
+// id type should behave like ulid (26 chars)
+inserted.id.length()
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "26" {
+		t.Errorf("expected id type to behave like ULID (26 chars), got: %s", result.String())
+	}
+}
+
+// TestCreateTableWithBigintAutoID tests bigint(auto) generates correct DDL
+func TestCreateTableWithBigintAutoID(t *testing.T) {
+	evaluator.ClearDBConnections()
+	input := `
+@schema BigCounter {
+    id: bigint(auto)
+    value: int
+}
+
+let db = @sqlite(":memory:")
+let _ = db.createTable(BigCounter, "big_counters")
+
+// Verify auto-increment works via query after insert
+// Note: bigint(auto) also relies on SQLite INTEGER PRIMARY KEY autoincrement
+let Counters = db.bind(BigCounter, "big_counters")
+let _ = Counters.insert({value: 100})
+let _ = Counters.insert({value: 200})
+
+// Query count to verify rows were inserted with auto-generated IDs
+Counters.count()  // Should have 2 rows
+`
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Verify we have 2 rows inserted
+	if result.String() != "2" {
+		t.Errorf("expected 2 rows, got: %s", result.String())
+	}
+}

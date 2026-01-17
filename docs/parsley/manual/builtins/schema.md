@@ -88,6 +88,7 @@ Parsley supports these built-in types:
 | `date` | Date only | `DATE` | ISO format |
 | `time` | Time only | `TIME` | Time format |
 | `money` | Monetary values | `REAL` | Currency |
+| `id` | ID alias for `ulid` | `TEXT` | ULID format |
 | `uuid` | UUID strings | `TEXT` | UUID format |
 | `ulid` | ULID strings | `TEXT` | ULID format |
 | `json` | JSON data | `TEXT` | Valid JSON |
@@ -161,6 +162,7 @@ Add constraints using `(key: value)` syntax after the type:
 | `min` | `integer`, `number` | Minimum numeric value |
 | `max` | `string` | Maximum string length |
 | `max` | `integer`, `number` | Maximum numeric value |
+| `pattern` | `string` | Regex pattern for validation |
 | `required` | Any | Field must have a non-null value |
 | `auto` | Any | Database/server generates this value |
 | `readOnly` | Any | Field cannot be set from client/form input |
@@ -214,8 +216,74 @@ user.update({id: "new-id"})          // Error: cannot update auto field 'id'
 | `@insert` | Database/server generates value |
 | `record.update()` | Immutable (error if changed) |
 | `@query` result | Always present |
+| `visibleFields()` | Excluded (not in list) |
+| `@field` form binding | Renders as `type="hidden"` with `readonly` |
 
 **Note:** `auto` and `required` cannot be combined on the same field — they are contradictory (auto fields are generated, not provided).
+
+### ID Types
+
+Parsley provides several ID types for primary keys. The `id` type is an alias for `ulid`:
+
+| Type | Format | Sortable | Use Case |
+|------|--------|----------|----------|
+| `id` | ULID (alias) | ✅ Time-based | Default, recommended |
+| `ulid` | 26 chars, base32 | ✅ Time-based | Distributed systems |
+| `uuid` | 36 chars, hex | ❌ Random | UUID compatibility |
+| `int(auto)` | Integer | ✅ Sequential | Simple auto-increment |
+| `bigint(auto)` | 64-bit integer | ✅ Sequential | Large tables |
+
+**Why `id` = `ulid`?** ULIDs are time-sortable (better for database indexing), URL-safe, don't expose business information, and work in distributed systems without coordination.
+
+```parsley
+// Recommended: explicit ID type with auto
+@schema User {
+    id: ulid(auto)       // Generates ULID on insert
+    name: string
+}
+
+// Alternatives
+@schema Product {
+    id: uuid(auto)       // Generates UUID v4 on insert
+    name: string
+}
+
+@schema Counter {
+    id: int(auto)        // Database auto-increment
+    value: int
+}
+
+// The 'id' type is an alias for 'ulid'
+@schema Item {
+    id: id(auto)         // Same as ulid(auto)
+    name: string
+}
+```
+
+**Database Mapping:**
+
+| Type | SQLite | PostgreSQL |
+|------|--------|------------|
+| `uuid(auto)` | `TEXT PRIMARY KEY` | `UUID PRIMARY KEY DEFAULT gen_random_uuid()` |
+| `ulid(auto)` | `TEXT PRIMARY KEY` | `TEXT PRIMARY KEY` |
+| `int(auto)` | `INTEGER PRIMARY KEY` | `SERIAL PRIMARY KEY` |
+| `bigint(auto)` | `INTEGER PRIMARY KEY` | `BIGSERIAL PRIMARY KEY` |
+
+**Validation:**
+
+When `auto` is **not** specified, the field must contain a valid format:
+
+```parsley
+@schema Reference {
+    id: ulid              // Not auto - must provide valid ULID
+}
+
+// Valid ULID format
+Reference({id: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}).validate().isValid()  // true
+
+// Invalid format
+Reference({id: "not-a-ulid"}).validate().isValid()  // false (FORMAT error)
+```
 
 ### The `readOnly` Constraint
 
@@ -287,6 +355,63 @@ admin.role  // "admin"
 
 ---
 
+### The `pattern` Constraint
+
+The `pattern` constraint validates string fields against a regular expression:
+
+```parsley
+@schema User {
+    name: string(pattern: /^[A-Za-z\s\-']+$/)
+    username: string(min: 3, max: 20, pattern: /^[a-z][a-z0-9_]*$/)
+    slug: string(pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+}
+
+// Valid
+User({name: "Alice O'Brien", username: "alice_123", slug: "hello-world"})
+    .validate().isValid()  // true
+
+// Invalid - pattern mismatch
+User({username: "Alice"}).validate().errorCode("username")  // "PATTERN"
+```
+
+**Important:** Empty strings **pass** pattern validation. Use `min: 1` or `required` for non-empty:
+
+```parsley
+@schema Profile {
+    // Empty string passes pattern
+    slug: string(pattern: /^[a-z0-9-]+$/)
+    
+    // Combine with min for non-empty + pattern
+    username: string(min: 1, pattern: /^[a-z0-9_]+$/)
+}
+
+Profile({slug: ""}).validate().isValid()      // true (empty passes)
+Profile({username: ""}).validate().isValid()  // false (fails MIN_LENGTH first)
+```
+
+**Behavior:**
+
+| Input | Pattern | Result |
+|-------|---------|--------|
+| `""` | Any | ✅ Valid (empty passes) |
+| `"Alice"` | `/^[A-Z][a-z]+$/` | ✅ Valid |
+| `"alice"` | `/^[A-Z][a-z]+$/` | ❌ PATTERN error |
+| `"Hello!"` | `/^[A-Za-z]+$/` | ❌ PATTERN error |
+
+**HTML Form Integration:**
+
+When using `@field` for form binding, the pattern is converted to a JavaScript-compatible regex and applied as an HTML `pattern` attribute:
+
+```parsley
+@schema Contact {
+    phone: string(pattern: /^\+?[0-9\s\-]+$/)
+}
+
+@field phone: Contact.phone  // <input pattern="^\+?[0-9\s\-]+$" ...>
+```
+
+---
+
 ## Field Metadata (Pipe Syntax)
 
 Add UI metadata using the pipe `|` syntax followed by a dictionary:
@@ -307,6 +432,7 @@ Add UI metadata using the pipe `|` syntax followed by a dictionary:
 | `title` | `string` | Display label for forms and table headers |
 | `placeholder` | `string` | Input placeholder text |
 | `hidden` | `boolean` | Exclude from auto-generated UIs |
+| `currency` | `string` | Currency code for `money` fields (e.g., "USD", "EUR") |
 
 ### Custom Metadata
 
@@ -327,6 +453,26 @@ Product.meta("price", "currency")   // "USD"
 Product.meta("price", "step")       // 0.01
 Product.meta("price", "helpText")   // "Enter the retail price"
 ```
+
+### Currency Metadata for Money Fields
+
+When a `money` field has `currency` metadata, `record.format()` uses it for locale-aware formatting:
+
+```parsley
+@schema Product {
+    price: money | {currency: "USD"}
+    cost: money | {currency: "EUR"}
+    fee: money | {currency: "JPY"}
+}
+
+let p = Product({price: 1999, cost: 1500, fee: 5000})
+
+p.format("price")  // "$ 1,999.00" (USD)
+p.format("cost")   // "€ 1,500.00" (EUR)
+p.format("fee")    // "¥ 5,000" (JPY, no decimals)
+```
+
+Without `currency` metadata, `format()` uses the default locale currency symbol.
 
 ---
 
@@ -483,15 +629,19 @@ Person.fields()                 // ["name", "age", "city"]
 
 #### Usage: visibleFields()
 
-Returns an array of field names where the `hidden` metadata is not `true`. This is the key method for auto-generating forms and tables that respect hidden fields.
+Returns an array of field names excluding:
+- Fields with `hidden: true` metadata
+- Fields with `auto` constraint (e.g., `id: ulid(auto)`)
+
+This is the key method for auto-generating forms and tables that respect hidden and auto-generated fields.
 
 ```parsley
 @schema User {
-    id: integer | {hidden: true}
+    id: ulid(auto)                          // excluded (auto)
     name: string
     email: email
-    passwordHash: string | {hidden: true}
-    createdAt: datetime | {hidden: true}
+    passwordHash: string | {hidden: true}   // excluded (hidden)
+    createdAt: datetime | {hidden: true}    // excluded (hidden)
 }
 
 User.fields()                   // ["id", "name", "email", "passwordHash", "createdAt"]

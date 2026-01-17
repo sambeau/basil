@@ -33,7 +33,7 @@ func evalMutationTest(t *testing.T, input string) evaluator.Object {
 func TestInsertRecord(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
     email: email
 }
@@ -43,7 +43,7 @@ let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, email TEXT
 let users = db.bind(User, "users")
 
 // Create a record and insert it
-let user = User({name: "Alice", email: "alice@example.com"})
+let user = User({id: "user-1", name: "Alice", email: "alice@example.com"})
 let inserted = users.insert(user)
 inserted.name
 `
@@ -56,7 +56,7 @@ inserted.name
 func TestInsertRecordWithExplicitID(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -77,7 +77,7 @@ inserted.id
 func TestInsertTable(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -86,9 +86,9 @@ let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 let users = db.bind(User, "users")
 
 let newUsers = table([
-    {name: "Alice"},
-    {name: "Bob"},
-    {name: "Charlie"}
+    {id: "1", name: "Alice"},
+    {id: "2", name: "Bob"},
+    {id: "3", name: "Charlie"}
 ])
 let result = users.insert(newUsers)
 result.inserted
@@ -106,7 +106,7 @@ result.inserted
 func TestUpdateRecord(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
     email: email
 }
@@ -132,7 +132,7 @@ updated.name
 func TestUpdateTable(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
     verified: bool
 }
@@ -162,7 +162,7 @@ result.updated
 func TestUpdateRecordWithoutPrimaryKey(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -194,7 +194,7 @@ users.update(user)
 func TestSaveNewRecord(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -216,7 +216,7 @@ saved.name
 func TestSaveExistingRecord(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -241,7 +241,7 @@ saved.name
 func TestSaveTable(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -273,7 +273,7 @@ result.total
 func TestDeleteRecord(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -296,7 +296,7 @@ result.affected
 func TestDeleteTable(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -323,7 +323,7 @@ result.affected
 func TestDeleteRecordWithoutPrimaryKey(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -355,12 +355,12 @@ users.delete(user)
 func TestInsertSchemaMismatch(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
 @schema Product {
-    id: id
+    id: string
     title: string
 }
 
@@ -393,7 +393,7 @@ func TestPrimaryKeyFieldDetection(t *testing.T) {
 	// Verify that field named "id" is marked as primary key
 	input := `
 @schema User {
-    id: id
+    id: ulid(auto)
     name: string
 }
 
@@ -420,7 +420,7 @@ inserted.id.length() > 0
 func TestInsertDictionaryStillWorks(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: ulid(auto)
     name: string
 }
 
@@ -428,7 +428,7 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)"
 let users = db.bind(User, "users")
 
-// Old-style dictionary insert still works
+// Old-style dictionary insert still works (with auto ID generation)
 let inserted = users.insert({name: "Alice"})
 inserted.name
 `
@@ -441,7 +441,7 @@ inserted.name
 func TestUpdateByIdStillWorks(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
@@ -464,7 +464,7 @@ updated.name
 func TestDeleteByIdStillWorks(t *testing.T) {
 	input := `
 @schema User {
-    id: id
+    id: string
     name: string
 }
 
