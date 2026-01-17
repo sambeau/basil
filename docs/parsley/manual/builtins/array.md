@@ -13,7 +13,7 @@ keywords:
   - collection
   - sequence
   - iteration
-  - functional programming
+  - sort
 ---
 
 # Arrays
@@ -103,7 +103,7 @@ numbers[1:3]
 Slice from the beginning:
 
 ```parsley
-numbers[0:2]
+numbers[:2]
 ```
 
 **Result:** `[10, 20]`
@@ -111,7 +111,7 @@ numbers[0:2]
 Slice to the end of the array:
 
 ```parsley
-numbers[2:5]
+numbers[2:]
 ```
 
 **Result:** `[30, 40, 50]`
@@ -156,6 +156,14 @@ Returns a new array containing only elements where the predicate function return
 
 **Result:** `[3, 4, 5]`
 
+Filter using ``for``:
+
+```parsley
+for(x in [1, 2, 3, 4, 5]) { if(x > 2){x} }
+```
+
+**Result:** `[3, 4, 5]`
+
 Filter strings:
 
 ```parsley
@@ -188,7 +196,15 @@ Using `"unit"` style:
 [1, 2, 3].format("unit")
 ```
 
-**Result:** `"1, 2, and 3"`
+**Result:** `"1, 2, 3"`
+
+In French:
+
+```parsley
+["Alice", "Bob", "Charlie"].format("and","Fr")
+```
+
+**Result:** `"Alice, Bob et Charlie"`
 
 ### insert
 
@@ -275,6 +291,13 @@ Transform each element using a function. Returns a new array with the transforme
 ```parsley
 [1, 2, 3].map(fn(x) { x * 2 })
 ```
+**Result:** `[2, 4, 6]`
+
+The same, buty using ``for`` style:
+
+```parsley
+for(x in [1,2,3]){x * 2}
+```
 
 **Result:** `[2, 4, 6]`
 
@@ -295,7 +318,8 @@ Select random elements from the array *with replacement* (same element can be pi
 [1, 2, 3].pick(2)
 ```
 
-**Result:** Two random elements (may include duplicates)
+**Result:** Two random elements (may include duplicates), 
+e.g. ⚡️<code>@{repr([1, 2, 3].pick(2))}</code>
 
 Pick from a list of options:
 
@@ -303,7 +327,8 @@ Pick from a list of options:
 ["red", "green", "blue"].pick(1)
 ```
 
-**Result:** One random color
+**Result:** An array of one random color, e.g. 
+⚡️<code>@{repr(["red", "green", "blue"].pick(1))}</code>
 
 ### reduce
 
@@ -357,7 +382,9 @@ Randomly shuffle the array using the Fisher-Yates algorithm:
 [1, 2, 3, 4, 5].shuffle()
 ```
 
-**Result:** Array with elements in random order (e.g., `[3, 1, 5, 2, 4]`)
+**Result:** Array with elements in random order
+e.g. ⚡️<code>@{repr( [1, 2, 3, 4, 5].shuffle() )}</code>
+
 
 Shuffle a list of names:
 
@@ -366,6 +393,7 @@ Shuffle a list of names:
 ```
 
 **Result:** Names in random order
+e.g. ⚡️<code>@{repr( ["Alice", "Bob", "Charlie", "Diana"].shuffle() )}</code>
 
 ### sort
 
@@ -384,6 +412,14 @@ Sort strings:
 ```
 
 **Result:** `["apple", "banana", "cherry"]`
+
+⚠️ Sort uses [Natural sort](https://en.wikipedia.org/wiki/Natural_sort_order):
+
+```parsley
+["10 banana", "9 apple", "100 cherry"].sort()
+```
+
+**Result:** `["1 apple", "10 banana", "16 cherry"]`
 
 ### sortBy
 
@@ -404,6 +440,17 @@ Sort by string length:
 
 **Result:** `["a", "hello", "goodbye"]`
 
+Sort is stable:
+
+```parsley
+users = [{name: "Bob", age: 30}, {name: "Alice", age: 25},
+         {name: "Bob", age: 40}, {name: "Alice", age: 50}]
+users.sortBy(fn(u) { u.age }).sort()
+```
+
+**Result:** `[{name: Alice, age: 25}, {name: Alice, age: 50}, {name: Bob, age: 30}, {name: Bob, age: 40}]`
+
+
 ### take
 
 Select random elements from the array *without replacement* (each element picked at most once):
@@ -412,7 +459,9 @@ Select random elements from the array *without replacement* (each element picked
 [1, 2, 3, 4, 5].take(3)
 ```
 
-**Result:** Three distinct random elements (no duplicates)
+**Result:** Three distinct random elements (no duplicates) 
+e.g. ⚡️<code>@{repr( [1, 2, 3, 4, 5].take(3) )}</code>
+
 
 Deal cards from a deck:
 
@@ -421,7 +470,9 @@ suits = ["♠", "♥", "♦", "♣"]
 suits.take(2)
 ```
 
-**Result:** Two random distinct suits
+**Result:** Two random distinct suits, 
+e.g. ⚡️<code>@{repr( ["♠", "♥", "♦", "♣"].take(2) )}</code>
+
 
 ### toCSV
 
@@ -433,6 +484,11 @@ Convert the array to CSV format (with proper quoting and escaping):
 
 **Result:** CSV string with proper formatting
 
+```csv
+  Name,Age
+  Alice,30
+  Bob,25
+```
 Simple array:
 
 ```parsley
@@ -449,15 +505,21 @@ Convert the array to JSON format:
 [1, 2, {"name": "Alice"}].toJSON()
 ```
 
-**Result:** `"[1,2,{\"name\":\"Alice\"}]"`
+**Result:** 
+```json
+[1, 2, {"name": "Alice"}].toJSON()
+```
 
-Pretty-print with indentation:
+JSON table:
 
 ```parsley
 [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}].toJSON()
 ```
 
-**Result:** JSON string with proper formatting
+**Result:**
+```json
+[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]
+```
 
 ### toBox
 
@@ -596,7 +658,8 @@ jedi = ["Yoda", "Luke", "Leia", "Obi-Wan", "Mace"]
 chosen = jedi.pick(1)
 ```
 
-**Result:** One randomly selected Jedi name
+**Result:** One randomly selected Jedi name,
+e.g. <code>chosen = @{repr( ["Yoda", "Luke", "Leia", "Obi-Wan", "Mace"].pick(1) )}</code>
 
 Select a team of 3 distinct Avengers:
 
@@ -605,7 +668,9 @@ avengers = ["Iron Man", "Captain America", "Thor", "Black Widow", "Hawkeye"]
 team = avengers.take(3)
 ```
 
-**Result:** Three distinct random Avengers
+**Result:** Three distinct random Avengers,
+e.g. <code>chosen = @{repr( ["Iron Man", "Captain America", "Thor", "Black Widow", "Hawkeye"].take(3) )}</code>
+
 
 ### Array Manipulation
 
@@ -616,7 +681,8 @@ items = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 pairs = items / 2
 ```
 
-**Result:** Groups of 2 elements (last group may be smaller)
+**Result:** Groups of 2 elements (last group may be smaller),
+`[[1, 2], [3, 4], [5, 6], [7, 8], [9]]`
 
 Combine multiple lists:
 
@@ -649,6 +715,15 @@ announcement = "Congratulations to " ++ winners.format("and") ++ "!"
 
 **Result:** `"Congratulations to Alice, Bob, and Charlie!"`
 
+In German:
+
+```parsley
+winners = ["Anna", "Bernd", "Claudia"]
+announcement = "Herzlichen Glückwunsch " ++ winners.format("and", "DE") ++ "!"
+```
+
+**Result:** `Herzlichen Glückwunsch an Alice, Bob und Charlie!`
+
 ### Advanced: Custom Sorting
 
 Sort movies by release year, then by title:
@@ -675,4 +750,5 @@ deck = ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "10♠",
 hand = deck.shuffle().take(5)
 ```
 
-**Result:** Five random distinct cards from the shuffled deck
+**Result:** Five random distinct cards from the shuffled deck,
+e.g. ⚡️<code>@{repr( ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "10♠", "J♠", "Q♠", "K♠", "A♠"].shuffle().take(5) )}</code>

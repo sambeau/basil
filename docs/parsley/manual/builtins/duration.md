@@ -105,13 +105,13 @@ Available keys: `years`, `months`, `weeks`, `days`, `hours`, `minutes`, `seconds
 ```parsley
 // All keys example
 duration({
-    years: 1,
-    months: 2,
-    weeks: 3,
-    days: 4,
-    hours: 5,
-    minutes: 6,
-    seconds: 7
+	years: 1,
+	months: 2,
+	weeks: 3,
+	days: 4,
+	hours: 5,
+	minutes: 6,
+	seconds: 7
 })
 ```
 

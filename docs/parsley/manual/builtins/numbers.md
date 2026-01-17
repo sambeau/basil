@@ -200,7 +200,7 @@ Float formatting shows appropriate decimals:
 Large numbers get thousand separators:
 
 ```parsley
-(1000000).format()
+1000000.format()
 ```
 
 **Result:** `"1,000,000"`
@@ -232,7 +232,7 @@ y.currency("EUR")
 Format a number in compact notation, useful for large numbers (e.g., "1.2M", "5K").
 
 ```parsley
-(3500000).humanize()
+3500000.humanize()
 ```
 
 **Result:** `"3.5M"`
@@ -240,7 +240,7 @@ Format a number in compact notation, useful for large numbers (e.g., "1.2M", "5K
 Thousands:
 
 ```parsley
-(1500).humanize()
+1500.humanize()
 ```
 
 **Result:** `"1.5K"`
@@ -248,12 +248,11 @@ Thousands:
 Billions:
 
 ```parsley
-(2500000000).humanize()
+2500000000.humanize()
 ```
 
 **Result:** `"2.5B"`
 
-**Note:** Float literals need parentheses when calling methods directly. Use `(1234.5).format()` instead of `1234.5.format()`
 
 ## Math Module
 
