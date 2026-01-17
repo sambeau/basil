@@ -1,0 +1,23 @@
+feat(schema): add readOnly constraint and change enum syntax to brackets
+
+- Change enum syntax from enum("a", "b") to enum["a", "b"]
+  - Enables future type constraints: enum["a", "b"](serverOnly)
+  - Parser now handles enum values in square brackets
+  - Type options now support bare boolean flags: string(required)
+
+- Implement readOnly constraint (SPEC-READONLY-001 through -004)
+  - Fields marked readOnly are filtered during record creation
+  - Fields marked readOnly are filtered during record.update()
+  - readOnly fields remain readable via normal property access
+  - Schema-level enforcement enables multi-schema pattern
+
+- Implement auto constraint (SPEC-AUTO-001 through -005)
+  - Auto fields skipped during validation
+  - Auto fields immutable on update (error if changed)
+  - auto and required cannot be combined (error)
+  - auto and default may be combined
+
+- Add comprehensive tests for auto and readOnly constraints
+- Update all documentation and examples for new enum syntax
+
+Refs: FEAT-091

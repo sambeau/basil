@@ -455,3 +455,441 @@ UserSchema.keys().length()`
 		t.Errorf("expected INTEGER, got %s", result.Type())
 	}
 }
+
+// =============================================================================
+// Auto Constraint Tests (SPEC-AUTO-001 through SPEC-AUTO-005)
+// =============================================================================
+
+// SPEC-AUTO-001: Auto fields should be skipped during validation (schema.define API)
+func TestSchemaAutoFieldSkippedDuringValidation(t *testing.T) {
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  id: schema.integer({auto: true}),
+  email: schema.email({required: true})
+})
+// Validate without providing id - should pass because id is auto
+let result = UserSchema.validate({
+  email: "test@example.com"
+})
+result.valid`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("SPEC-AUTO-001: expected validation to pass when auto field is missing")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// SPEC-AUTO-001: Auto fields should also be skipped even with null value (schema.define API)
+func TestSchemaAutoFieldWithNullSkipsValidation(t *testing.T) {
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  id: schema.integer({auto: true}),
+  name: schema.string({required: true})
+})
+// Validate with null id - should pass because id is auto
+let result = UserSchema.validate({
+  id: null,
+  name: "Alice"
+})
+result.valid`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("SPEC-AUTO-001: expected validation to pass when auto field is null")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// SPEC-AUTO-005: auto and default MAY be combined (schema.define API)
+func TestSchemaAutoWithDefault(t *testing.T) {
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  id: schema.integer({auto: true, default: 0}),
+  name: schema.string({required: true})
+})
+UserSchema.name`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("SPEC-AUTO-005: expected auto+default to be allowed, got error: %s", result.Inspect())
+	}
+
+	if str, ok := result.(*evaluator.String); ok {
+		if str.Value != "User" {
+			t.Errorf("expected 'User', got '%s'", str.Value)
+		}
+	} else {
+		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// Test that auto field shows up in schema.define() field specs
+func TestSchemaAutoFieldAccessible(t *testing.T) {
+	input := `let schema = import @std/schema
+let UserSchema = schema.define("User", {
+  id: schema.integer({auto: true}),
+  name: schema.string()
+})
+UserSchema.fields.id.auto`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("expected auto to be true for id field")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// =============================================================================
+// Auto Constraint Tests with @schema syntax
+// =============================================================================
+
+// SPEC-AUTO-001: Auto fields skipped during validation (@schema syntax)
+func TestSchemaDeclarationAutoFieldSkipped(t *testing.T) {
+	input := `@schema UserAuto1 {
+  id: id(auto)
+  email: email(required)
+}
+// Create record without id - should be valid because id is auto
+let user = UserAuto1({email: "test@example.com"})
+user.validate().isValid()`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("SPEC-AUTO-001: expected record to be valid when auto field is missing")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// SPEC-AUTO-003: Auto fields MUST be immutable on update operations
+func TestSchemaAutoFieldImmutableOnUpdate(t *testing.T) {
+	input := `@schema UpdateUser {
+  id: id(auto)
+  name: string
+}
+let user = UpdateUser({name: "Alice"})
+user.update({id: "new-id"})`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() != evaluator.ERROR_OBJ {
+		t.Fatal("SPEC-AUTO-003: expected error when trying to update auto field")
+	}
+
+	err := result.(*evaluator.Error)
+	if err.Code != "RECORD-0001" {
+		t.Errorf("expected error code RECORD-0001, got %s", err.Code)
+	}
+}
+
+// Test that updating non-auto fields works normally
+func TestSchemaAutoFieldAllowsNonAutoUpdate(t *testing.T) {
+	input := `@schema UpdateUser2 {
+  id: id(auto)
+  name: string
+}
+let user = UpdateUser2({name: "Alice"})
+let updated = user.update({name: "Bob"})
+updated.name`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if str, ok := result.(*evaluator.String); ok {
+		if str.Value != "Bob" {
+			t.Errorf("expected 'Bob', got '%s'", str.Value)
+		}
+	} else {
+		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// SPEC-AUTO-004: auto and required MUST NOT be combined (@schema syntax)
+func TestSchemaAutoAndRequiredError(t *testing.T) {
+	input := `@schema BadSchema {
+  id: id(auto, required)
+}`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() != evaluator.ERROR_OBJ {
+		t.Fatal("SPEC-AUTO-004: expected error when combining auto and required")
+	}
+
+	err := result.(*evaluator.Error)
+	if err.Code != "SCHEMA-0001" {
+		t.Errorf("expected error code SCHEMA-0001, got %s", err.Code)
+	}
+}
+
+// Test bare auto syntax: id(auto) instead of id(auto: true)
+func TestSchemaBareBooleanAuto(t *testing.T) {
+	input := `@schema BareUser {
+  id: id(auto)
+  name: string(required)
+}
+BareUser.fields.id.auto`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("expected auto to be true with bare boolean syntax")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// Test bare required syntax: string(required) instead of string(required: true)
+func TestSchemaBareBooleanRequired(t *testing.T) {
+	input := `@schema BareUser2 {
+  name: string(required)
+}
+BareUser2.fields.name.required`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("expected required to be true with bare boolean syntax")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// =============================================================================
+// ReadOnly Constraint Tests
+// =============================================================================
+
+// Test that readOnly constraint is parsed and stored
+func TestSchemaReadOnlyFieldParsed(t *testing.T) {
+	input := `@schema RoleUser {
+  id: id(auto)
+  name: string
+  role: enum["user", "admin"](readOnly, default: "user")
+}
+RoleUser.fields.role.readOnly`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("expected readOnly to be true for role field")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}
+
+// Test that readOnly fields are silently filtered during record creation
+func TestSchemaReadOnlyFilteredOnCreate(t *testing.T) {
+	input := `@schema ProtectedUser {
+  name: string
+  role: enum["user", "admin"](readOnly, default: "user")
+}
+// Try to set role to "admin" - should be filtered, default "user" applied
+let user = ProtectedUser({name: "Alice", role: "admin"})
+user.role`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if str, ok := result.(*evaluator.String); ok {
+		if str.Value != "user" {
+			t.Errorf("expected 'user' (default), got '%s' - readOnly field should filter input", str.Value)
+		}
+	} else {
+		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// Test that readOnly fields are silently filtered during record.update()
+func TestSchemaReadOnlyFilteredOnUpdate(t *testing.T) {
+	input := `@schema ProtectedUser2 {
+  name: string
+  role: enum["user", "admin"](readOnly, default: "user")
+}
+let user = ProtectedUser2({name: "Alice"})
+// Try to change role via update - should be silently ignored
+let updated = user.update({name: "Bob", role: "admin"})
+updated.role`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if str, ok := result.(*evaluator.String); ok {
+		if str.Value != "user" {
+			t.Errorf("expected 'user' (unchanged), got '%s' - readOnly field should be filtered on update", str.Value)
+		}
+	} else {
+		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// Test that readOnly fields are still readable
+func TestSchemaReadOnlyFieldsReadable(t *testing.T) {
+	input := `@schema ReadableUser {
+  name: string
+  role: string(readOnly, default: "user")
+}
+let user = ReadableUser({name: "Alice"})
+user.role`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if str, ok := result.(*evaluator.String); ok {
+		if str.Value != "user" {
+			t.Errorf("expected 'user', got '%s'", str.Value)
+		}
+	} else {
+		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// Test multi-schema pattern: different schemas, different permissions
+func TestSchemaMultiSchemaPattern(t *testing.T) {
+	// Public schema with readOnly role
+	input1 := `@schema PublicUser {
+  name: string
+  role: enum["user", "admin"](readOnly, default: "user")
+}
+let user = PublicUser({name: "Alice", role: "admin"})
+user.role`
+
+	result1 := evalSchemaTest(t, input1)
+	if result1.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result1.Inspect())
+	}
+	if str, ok := result1.(*evaluator.String); ok {
+		if str.Value != "user" {
+			t.Errorf("PublicUser: expected 'user', got '%s'", str.Value)
+		}
+	}
+
+	// Admin schema without readOnly - can set role
+	input2 := `@schema AdminUser {
+  name: string
+  role: enum["user", "admin"](default: "user")
+}
+let user = AdminUser({name: "Alice", role: "admin"})
+user.role`
+
+	result2 := evalSchemaTest(t, input2)
+	if result2.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result2.Inspect())
+	}
+	if str, ok := result2.(*evaluator.String); ok {
+		if str.Value != "admin" {
+			t.Errorf("AdminUser: expected 'admin', got '%s'", str.Value)
+		}
+	}
+}
+
+// Test that non-readOnly fields can still be updated normally
+func TestSchemaReadOnlyDoesNotAffectOtherFields(t *testing.T) {
+	input := `@schema MixedUser {
+  name: string
+  role: string(readOnly, default: "user")
+}
+let user = MixedUser({name: "Alice"})
+let updated = user.update({name: "Bob"})
+updated.name`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if str, ok := result.(*evaluator.String); ok {
+		if str.Value != "Bob" {
+			t.Errorf("expected 'Bob', got '%s'", str.Value)
+		}
+	} else {
+		t.Errorf("expected STRING, got %s", result.Type())
+	}
+}
+
+// Test readOnly with no default - should be null
+func TestSchemaReadOnlyNoDefault(t *testing.T) {
+	input := `@schema NoDefaultRole {
+  name: string
+  internalId: string(readOnly)
+}
+let user = NoDefaultRole({name: "Alice", internalId: "hacked"})
+user.internalId == null`
+
+	result := evalSchemaTest(t, input)
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if b, ok := result.(*evaluator.Boolean); ok {
+		if !b.Value {
+			t.Error("expected internalId to be null (readOnly with no default)")
+		}
+	} else {
+		t.Errorf("expected BOOLEAN, got %s", result.Type())
+	}
+}

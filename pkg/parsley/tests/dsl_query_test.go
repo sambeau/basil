@@ -3523,7 +3523,7 @@ func TestSchemaWithEnumType(t *testing.T) {
 @schema UserWithRole {
     id: int
     name: string
-    role: enum("admin", "user", "guest")
+    role: enum["admin", "user", "guest"]
 }
 
 UserWithRole.Name
@@ -3613,7 +3613,7 @@ func TestCreateTableWithEnumGeneratesCheckConstraint(t *testing.T) {
 @schema Product {
     id: int
     name: string
-    status: enum("active", "inactive", "draft")
+    status: enum["active", "inactive", "draft"]
 }
 
 let db = @sqlite(":memory:")
@@ -3743,7 +3743,7 @@ func TestInsertWithInvalidEnum(t *testing.T) {
 	input := `
 @schema EnumUser {
     id: int
-    role: enum("admin", "user", "guest")
+    role: enum["admin", "user", "guest"]
 }
 
 let db = @sqlite(":memory:")
@@ -3773,7 +3773,7 @@ func TestInsertWithValidEnum(t *testing.T) {
 	input := `
 @schema ValidEnumUser {
     id: int
-    role: enum("admin", "user", "guest")
+    role: enum["admin", "user", "guest"]
 }
 
 let db = @sqlite(":memory:")

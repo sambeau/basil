@@ -238,7 +238,7 @@ func (r *Record) ToDictionaryWithErrors() *Dictionary {
 }
 
 // CreateRecord creates a new Record from a schema and dictionary data.
-// It applies defaults and filters unknown fields.
+// It applies defaults, filters unknown fields, and filters readOnly fields.
 func CreateRecord(schema *DSLSchema, data *Dictionary, env *Environment) *Record {
 	record := &Record{
 		Schema:    schema,
@@ -253,6 +253,18 @@ func CreateRecord(schema *DSLSchema, data *Dictionary, env *Environment) *Record
 	for fieldName, field := range schema.Fields {
 		// Check if data has this field
 		if expr, ok := data.Pairs[fieldName]; ok {
+			// Skip readOnly fields - they cannot be set from input data
+			// (use the default value or null instead)
+			if field.ReadOnly {
+				if field.DefaultValue != nil {
+					record.Data[fieldName] = &ast.ObjectLiteralExpression{Obj: field.DefaultValue}
+					record.KeyOrder = append(record.KeyOrder, fieldName)
+				} else {
+					record.Data[fieldName] = &ast.ObjectLiteralExpression{Obj: NULL}
+					record.KeyOrder = append(record.KeyOrder, fieldName)
+				}
+				continue
+			}
 			// Evaluate and cast the value
 			value := Eval(expr, env)
 			if !isError(value) {

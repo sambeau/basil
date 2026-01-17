@@ -283,7 +283,7 @@ func TestFormRadioBinding(t *testing.T) {
 			name: "radio checked when value matches",
 			input: `
 				@schema User {
-					status: enum("active", "inactive")
+					status: enum["active", "inactive"]
 				}
 				let user = User({status: "active"})
 				<form @record={user}>
@@ -547,7 +547,7 @@ func TestFormSelectComponent(t *testing.T) {
 			name: "Select renders options from enum",
 			input: `
 				@schema User {
-					status: enum("active", "pending", "inactive")
+					status: enum["active", "pending", "inactive"]
 				}
 				let user = User({status: "pending"})
 				<form @record={user}>
@@ -566,7 +566,7 @@ func TestFormSelectComponent(t *testing.T) {
 			name: "Select with placeholder",
 			input: `
 				@schema User {
-					status: enum("active", "inactive")
+					status: enum["active", "inactive"]
 				}
 				let user = User({status: ""})
 				<form @record={user}>
@@ -581,7 +581,7 @@ func TestFormSelectComponent(t *testing.T) {
 			name: "Select with required field",
 			input: `
 				@schema User {
-					status: enum("active", "inactive")
+					status: enum["active", "inactive"]
 				}
 				let user = User({status: ""})
 				<form @record={user}>
@@ -936,7 +936,7 @@ func TestFormRecordShorthandMethods(t *testing.T) {
 			name: "record.enumValues() shorthand",
 			input: `
 				@schema User {
-					status: enum("active", "pending")
+					status: enum["active", "pending"]
 				}
 				let user = User({status: "active"})
 				user.enumValues("status")

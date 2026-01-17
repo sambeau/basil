@@ -498,7 +498,7 @@ func TestRecordValidationEnum(t *testing.T) {
 			name: "valid enum value",
 			input: `
 @schema EnumStatus {
-    status: enum("draft", "published", "archived")
+    status: enum["draft", "published", "archived"]
 }
 let record = EnumStatus({status: "published"}).validate()
 record.isValid()`,
@@ -508,7 +508,7 @@ record.isValid()`,
 			name: "invalid enum value",
 			input: `
 @schema EnumStatus2 {
-    status: enum("draft", "published", "archived")
+    status: enum["draft", "published", "archived"]
 }
 let record = EnumStatus2({status: "deleted"}).validate()
 record.isValid()`,
@@ -751,7 +751,7 @@ record.title("name")`,
 			name: "enumValues returns enum options",
 			input: `
 @schema MetaEnum {
-    status: enum("draft", "published")
+    status: enum["draft", "published"]
 }
 let record = MetaEnum({status: "draft"})
 let values = record.enumValues("status")
@@ -1183,7 +1183,7 @@ record.schema().visibleFields().length()`,
 			name: "schema.enumValues returns options",
 			input: `
 @schema Status {
-    status: enum("active", "inactive", "pending")
+    status: enum["active", "inactive", "pending"]
 }
 let record = Status({status: "active"})
 record.schema().enumValues("status").length()`,
@@ -1367,7 +1367,7 @@ func TestRecordEnumValuesMethods(t *testing.T) {
 			name: "record.enumValues returns enum options",
 			input: `
 @schema Role {
-    role: enum("admin", "user", "guest")
+    role: enum["admin", "user", "guest"]
 }
 let record = Role({role: "admin"})
 record.enumValues("role").length()`,

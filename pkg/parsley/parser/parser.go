@@ -2941,7 +2941,8 @@ func (p *Parser) parseSchemaDeclaration() ast.Expression {
 // parseSchemaField parses a field definition:
 // - name: type
 // - name: type(option: value, ...)
-// - name: enum("value1", "value2", ...)
+// - name: enum["value1", "value2", ...]
+// - name: enum["value1", "value2"](option: value, ...)
 // - name: type via fk
 // - name: [type] via fk
 func (p *Parser) parseSchemaField() *ast.SchemaField {
@@ -2985,17 +2986,19 @@ func (p *Parser) parseSchemaField() *ast.SchemaField {
 		field.Nullable = true
 	}
 
-	// Check for type options or enum values: type(...) or enum("a", "b")
+	// Check for enum values in square brackets: enum["a", "b", "c"]
+	if field.TypeName == "enum" && p.peekTokenIs(lexer.LBRACKET) {
+		p.nextToken() // consume [
+		field.EnumValues = p.parseEnumValues()
+		if !p.expectPeek(lexer.RBRACKET) {
+			return nil
+		}
+	}
+
+	// Check for type options: type(min: 1, max: 100) or enum["a", "b"](serverOnly)
 	if p.peekTokenIs(lexer.LPAREN) {
 		p.nextToken() // consume (
-
-		if field.TypeName == "enum" {
-			// Parse enum values: enum("a", "b", "c")
-			field.EnumValues = p.parseEnumValues()
-		} else {
-			// Parse type options: type(min: 1, max: 100)
-			field.TypeOptions = p.parseTypeOptions()
-		}
+		field.TypeOptions = p.parseTypeOptions()
 
 		if !p.expectPeek(lexer.RPAREN) {
 			return nil
@@ -3172,11 +3175,12 @@ func (p *Parser) parseTableLiteral() ast.Expression {
 }
 
 // parseEnumValues parses comma-separated string literals for enum: "a", "b", "c"
+// Called after [ is consumed, returns before ] is consumed
 func (p *Parser) parseEnumValues() []string {
 	var values []string
 
 	// Handle empty enum
-	if p.peekTokenIs(lexer.RPAREN) {
+	if p.peekTokenIs(lexer.RBRACKET) {
 		return values
 	}
 
@@ -3213,25 +3217,37 @@ func (p *Parser) parseTypeOptions() map[string]ast.Expression {
 		}
 		optionName := p.curToken.Literal
 
-		// Expect colon
-		if !p.expectPeek(lexer.COLON) {
+		// Check if this is a bare boolean flag (no colon follows)
+		// e.g., string(required) or id(auto)
+		if p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.RPAREN) {
+			// Bare identifier = boolean true
+			options[optionName] = &ast.Boolean{
+				Token: lexer.Token{Type: lexer.TRUE, Literal: "true"},
+				Value: true,
+			}
+		} else if p.peekTokenIs(lexer.COLON) {
+			// Option with value: name: value
+			p.nextToken() // consume colon
+
+			// Parse value as a full expression (supports variables, @objects, arithmetic, etc.)
+			p.nextToken()
+			value := p.parseExpressionUntil(LOWEST, func() bool {
+				// Stop at comma (next option) or rparen (end of options)
+				return p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.RPAREN)
+			})
+
+			if value == nil {
+				p.addError(fmt.Sprintf("expected expression for type option '%s'", optionName),
+					p.curToken.Line, p.curToken.Column)
+				return options
+			}
+
+			options[optionName] = value
+		} else {
+			p.addError(fmt.Sprintf("expected ':' or ',' after option '%s'", optionName),
+				p.peekToken.Line, p.peekToken.Column)
 			return options
 		}
-
-		// Parse value as a full expression (supports variables, @objects, arithmetic, etc.)
-		p.nextToken()
-		value := p.parseExpressionUntil(LOWEST, func() bool {
-			// Stop at comma (next option) or rparen (end of options)
-			return p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.RPAREN)
-		})
-
-		if value == nil {
-			p.addError(fmt.Sprintf("expected expression for type option '%s'", optionName),
-				p.curToken.Line, p.curToken.Column)
-			return options
-		}
-
-		options[optionName] = value
 
 		if !p.peekTokenIs(lexer.COMMA) {
 			break

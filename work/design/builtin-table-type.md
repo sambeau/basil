@@ -311,7 +311,7 @@ let t = @table [
     name: string
     email: email
     age: int(min: 0, max: 150)
-    role: enum("user", "admin")
+    role: enum["user", "admin"]
 }
 ```
 
@@ -344,7 +344,7 @@ The existing `DSLSchemaField` struct already supports:
 @schema User {
     id: ulid
     name: string
-    role: enum("user", "admin") = "user"   // defaults to "user"
+    role: enum["user", "admin"] = "user"   // defaults to "user"
     active: bool = true                     // defaults to true
     created_at: datetime = @now             // defaults to current time
 }
@@ -357,7 +357,7 @@ The existing `DSLSchemaField` struct already supports:
     title: string(min: 1, max: 200)
     body: text
     author_id: ulid
-    status: enum("draft", "published", "archived") = "draft"
+    status: enum["draft", "published", "archived"] = "draft"
     published_at: datetime?                 // nullable, no default
     view_count: int = 0                     // not nullable, defaults to 0
 }
@@ -374,7 +374,7 @@ The existing `DSLSchemaField` struct already supports:
     id: ulid
     email: email
     name: string?              // → TEXT (allows NULL)
-    role: enum("user","admin") = "user"  // → TEXT DEFAULT 'user'
+    role: enum["user","admin"] = "user"  // → TEXT DEFAULT 'user'
     created_at: datetime = @now           // → TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 }
 
@@ -420,7 +420,7 @@ post "/contact" {
 @schema CreateUserRequest {
     email: email
     name: string
-    role: enum("user", "admin") = "user"  // API consumers can omit
+    role: enum["user", "admin"] = "user"  // API consumers can omit
     preferences: json = {}                 // default empty object
 }
 

@@ -116,8 +116,8 @@ Restrict a field to a set of allowed values:
 @schema User {
     id: int
     name: string
-    role: enum("admin", "user", "guest")
-    status: enum("active", "pending", "suspended")
+    role: enum["admin", "user", "guest"]
+    status: enum["active", "pending", "suspended"]
 }
 ```
 
@@ -194,7 +194,7 @@ When validation fails on `@insert` or `@update`, a validation error is returned:
     email: email(unique: true)
     phone: phone
     website: url
-    role: enum("admin", "moderator", "user")
+    role: enum["admin", "moderator", "user"]
     bio: string(max: 500)
     age: int(min: 13, max: 150)
     created_at: datetime
