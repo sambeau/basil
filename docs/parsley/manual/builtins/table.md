@@ -5,7 +5,7 @@ system: parsley
 type: builtin
 name: table
 created: 2026-01-14
-version: 0.15.3
+version: 0.16.0
 author: Basil Team
 keywords:
   - table
@@ -392,880 +392,178 @@ products.orderBy("price")
 
 **Result:**
 
-```
-┌────────┬───────┐
-│ name   │ price │
-├────────┼───────┤
-│ Banana │ $1.50 │
-│ Apple  │ $2.00 │
-│ Cherry │ $3.50 │
-└────────┴───────┘
-```
+# Tables
 
-Sort descending:
-
-```parsley
-products.orderBy("price", "desc")
-```
-
-**Result:**
-
-```
-┌────────┬───────┐
-│ name   │ price │
-├────────┼───────┤
-│ Cherry │ $3.50 │
-│ Apple  │ $2.00 │
-│ Banana │ $1.50 │
-└────────┴───────┘
-```
-
-Sort by multiple columns using arrays:
-
-```parsley
-employees.orderBy(["department", "asc"], ["salary", "desc"])
-```
-
-### select(columns)
-
-Pick specific columns (pass an array of column names):
-
-```parsley
-let users = @table [
-    {id: 1, name: "Alice", email: "alice@example.com", role: "admin"},
-    {id: 2, name: "Bob", email: "bob@example.com", role: "user"}
-]
-
-users.select(["name", "email"])
-```
-
-**Result:**
-
-```
-┌───────┬───────────────────┐
-│ name  │ email             │
-├───────┼───────────────────┤
-│ Alice │ alice@example.com │
-│ Bob   │ bob@example.com   │
-└───────┴───────────────────┘
-```
-
-### limit(n) / offset(n)
-
-Paginate results:
-
-```parsley
-let items = @table [
-    {id: 1}, {id: 2}, {id: 3}, {id: 4}, {id: 5}
-]
-
-items.limit(3)          // First 3 rows
-items.offset(2)         // Skip first 2 rows
-items.offset(2).limit(2) // Rows 3 and 4 (pagination)
-```
-
----
-
-## Chaining: Building SQL-Like Queries
-
-The real power of Tables comes from **method chaining**. Combine operations to build complex queries in a readable, declarative style:
-
-```parsley
-let orders = @table [
-    {id: 1, customer: "Alice", product: "Widget", amount: $120, date: @2024-01-15},
-    {id: 2, customer: "Bob", product: "Gadget", amount: $85, date: @2024-01-16},
-    {id: 3, customer: "Alice", product: "Gadget", amount: $200, date: @2024-01-17},
-    {id: 4, customer: "Carol", product: "Widget", amount: $150, date: @2024-01-18},
-    {id: 5, customer: "Bob", product: "Widget", amount: $95, date: @2024-01-19}
-]
-
-// "Top 3 Widget orders by amount"
-let topWidgets = orders
-    .where(fn(r) { r.product == "Widget" })
-    .orderBy("amount", "desc")
-    .limit(3)
-    .select(["customer", "amount"])
-```
-
-**Result:**
-
-```
-┌──────────┬────────┐
-│ customer │ amount │
-├──────────┼────────┤
-│ Carol    │ $150   │
-│ Alice    │ $120   │
-│ Bob      │ $95    │
-└──────────┴────────┘
-```
-
-### SQL Equivalence
-
-Table method chains map directly to SQL:
-
-| Parsley | SQL |
-|---------|-----|
-| `.where(fn(r) { r.x > 10 })` | `WHERE x > 10` |
-| `.orderBy("name")` | `ORDER BY name ASC` |
-| `.orderBy("name", "desc")` | `ORDER BY name DESC` |
-| `.select(["a", "b"])` | `SELECT a, b` |
-| `.limit(10)` | `LIMIT 10` |
-| `.offset(20)` | `OFFSET 20` |
-| `.count()` | `SELECT COUNT(*)` |
-| `.sum("total")` | `SELECT SUM(total)` |
-
-**Example: Complex query**
-
-```parsley
-// Parsley
-let result = orders
-    .where(fn(r) { r.date >= @2024-01-16 && r.amount > $100 })
-    .orderBy("amount", "desc")
-    .select(["customer", "product", "amount"])
-    .limit(5)
-```
-
-**Equivalent SQL:**
-
-```sql
-SELECT customer, product, amount
-FROM orders
-WHERE date >= '2024-01-16' AND amount > 100
-ORDER BY amount DESC
-LIMIT 5
-```
-
----
-
-## Aggregation Methods
-
-### count()
-
-Count rows:
-
-```parsley
-let t = @table [{x: 1}, {x: 2}, {x: 3}]
-t.count()
-```
-
-**Result:** `3`
-
-Count filtered rows:
-
-```parsley
-orders.where(fn(r) { r.amount > $100 }).count()
-```
-
-### sum(column)
-
-Sum a numeric column:
+Tables are Parsley's rectangular data type: each row is a dictionary and every row has the same columns. They power CSV handling, database results, reporting, and any place you would normally reach for SQL-style transforms.
 
 ```parsley
 let sales = @table [
-    {product: "A", amount: $100},
-    {product: "B", amount: $250},
-    {product: "C", amount: $150}
+    {product: "Widget", region: "North", amount: $1200},
+    {product: "Gadget", region: "South", amount: $800},
+    {product: "Widget", region: "South", amount: $1500},
+    {product: "Gadget", region: "North", amount: $950}
 ]
 
-sales.sum("amount")
-```
-
-**Result:** `$500.00`
-
-### avg(column)
-
-Calculate the average:
-
-```parsley
-sales.avg("amount")
-```
-
-**Result:** `$166.67`
-
-### min(column) / max(column)
-
-Find minimum and maximum values:
-
-```parsley
-sales.min("amount")  // $100.00
-sales.max("amount")  // $250.00
-```
-
-### Filtered Aggregations
-
-Combine with `.where()` for conditional aggregations:
-
-```parsley
-let orders = @table [
-    {region: "North", sales: $1000},
-    {region: "South", sales: $1500},
-    {region: "North", sales: $800},
-    {region: "South", sales: $2000}
-]
-
-// Total sales for South region
-orders.where(fn(r) { r.region == "South" }).sum("sales")
-```
-
-**Result:** `$3,500.00`
-
----
-
-## Column Operations
-
-### column(name)
-
-Extract a single column as an array:
-
-```parsley
-let users = @table [
-    {name: "Alice", score: 85},
-    {name: "Bob", score: 92},
-    {name: "Carol", score: 78}
-]
-
-users.column("name")
-```
-
-**Result:** `["Alice", "Bob", "Carol"]`
-
-Useful for further array operations:
-
-```parsley
-let avgScore = users.column("score").reduce(fn(a, b) { a + b }, 0) / users.length
-```
-
-### rowCount() / columnCount()
-
-Get table dimensions:
-
-```parsley
-let t = @table [{a: 1, b: 2}, {a: 3, b: 4}]
-
-t.rowCount()     // 2
-t.columnCount()  // 2
+sales
+    .where(fn(r) { r.region == "South" })
+    .orderBy("amount", "desc")
+    .select(["product", "amount"])
 ```
 
 ---
 
-## Row and Column Modification
+## Ways to Create a Table
 
-### appendRow(dict)
+- **Literal `@table [...]`** — Parse-time rectangular validation. Every element must be a dictionary and every row must have exactly the first row's keys; missing/extra columns raise parse errors.
+- **Typed literal `@table(Schema) [...]`** — Rows are cast to the schema immediately. Defaults are applied, unknown fields are dropped, and missing required fields raise `TABLE-0005` with the row/field. Column order uses sorted schema field names.
+- **Constructor `table(array)`** — Runtime validation. `TABLE-0001` if the input is not an array; `TABLE-0002` if a row is not a dictionary; `TABLE-0003/0004` for missing/extra columns. `table()` with no args yields an empty table.
+- **Schema call `Schema([...])`** — Calling a schema with an array returns a typed (unvalidated) table with defaults applied. Column order uses sorted schema field names (schema declaration order is not preserved in this call).
+- **`parseCSV(hasHeader=true)`** — When `hasHeader` is true (default), returns a Table whose columns come from the header row and values are coerced to int/float/bool/string. With `hasHeader=false`, returns an array-of-arrays instead of a Table.
+- **Database/query DSL** — `Users.all()`, `Users.where(...)`, and `@query` results are Tables with an attached schema and `FromDB=true`; indexing them returns Records marked validated (no revalidation is run on access).
+- **Compat: `import @std/table`** — Provides the legacy `table` module and `table.fromDict(dict, keyName?, valueName?)` helper; prefer literals or `table()`.
 
-Add a row to the end:
+Empty tables are allowed in all forms: `@table []` and `table([])` both produce `length = 0` and `columns = []`.
 
-```parsley
-let t = @table [{x: 1}]
-t.appendRow({x: 2})
-```
+---
 
-**Result:** Table with rows `[{x: 1}, {x: 2}]`
+## Shape, Access, and Properties
 
-### insertRowAt(index, dict)
+- **Column order**
+  - `@table [...]` and `table([...])`: from the first row's keys (insertion order, excluding keys starting with `__`).
+- `@table(Schema) [...]`: sorted schema field names.
+- `table(...).as(Schema)`: `schema.FieldOrder` if present, else sorted schema field names.
+- `Schema([...])`: sorted schema field names (ignores schema declaration order).
+- **Indexing**: `table[0]`, `table[-1]`, etc. Negative indices count from the end. Typed tables return a `Record` when indexed; database tables return validated Records.
+- **Iteration**: `for (row in table) { ... }` iterates dictionaries or Records.
+- **Properties**
+  - `rows`: array of dictionaries (not a deep copy)
+  - `row`: first row or `null` if empty
+  - `columns`: array of column names
+  - `length`: number of rows
+  - `schema`: attached schema or `null`
 
-Insert a row at a specific position:
+---
 
-```parsley
-let t = @table [{x: 1}, {x: 3}]
-t.insertRowAt(1, {x: 2})
-```
+## Copy-on-Chain
 
-**Result:** Table with rows `[{x: 1}, {x: 2}, {x: 3}]`
+The first mutating-style method in a chain makes one copy; later calls in the same chain reuse it. The chain ends when you assign, pass as an argument, iterate, or access a property. Use `.copy()` for an explicit non-chain copy.
 
-### appendCol(name, fn)
+---
 
-Add a computed column:
+## Core Query Methods
 
-```parsley
-let products = @table [
-    {name: "Widget", price: $10, qty: 5},
-    {name: "Gadget", price: $20, qty: 3}
-]
+- `where(fn(row))` — Keep rows where the predicate is truthy.
+- `orderBy(col | [spec,...], dir?)` — Sort by a column, or by multiple specs (string or `[col, dir]`). `dir` is `"asc"` (default) or `"desc"`.
+- `select([cols])` — Project to specific columns; missing columns become `null`.
+- `limit(count, offset=0)` — Non-negative count/offset; slices rows.
+- `offset(count)` — Skip rows; non-negative.
 
-products.appendCol("total", fn(r) { r.price * r.qty })
-```
-
-**Result:**
-
-```
-┌────────┬───────┬─────┬───────┐
-│ name   │ price │ qty │ total │
-├────────┼───────┼─────┼───────┤
-│ Widget │ $10   │ 5   │ $50   │
-│ Gadget │ $20   │ 3   │ $60   │
-└────────┴───────┴─────┴───────┘
-```
-
-### insertColAfter(afterCol, name, fn) / insertColBefore(beforeCol, name, fn)
-
-Insert a column at a specific position:
+Example:
 
 ```parsley
-products.insertColAfter("price", "tax", fn(r) { r.price * 0.1 })
+let top = sales
+    .where(fn(r) { r.region == "South" })
+    .orderBy("amount", "desc")
+    .limit(2)
+    .select(["product", "amount"])
 ```
 
 ---
 
-## Collection Methods
+## Aggregations
 
-Tables provide functional-style methods for transformation, searching, and aggregation—similar to array methods in JavaScript/Python but operating on table rows.
-
-### map(fn)
-
-Transform each row using a function. The function receives a row (dictionary or Record) and must return a dictionary or Record.
-
-```parsley
-let data = @table [
-    {name: "Alice", salary: 50000},
-    {name: "Bob", salary: 60000}
-]
-
-let withBonus = data.map(fn(row) {
-    {name: row.name, salary: row.salary, bonus: row.salary * 0.1}
-})
-// Adds a 'bonus' column to each row
-```
-
-**Schema preservation:**
-- If the function returns Records with the same schema → schema is preserved
-- If the function returns Records with different schemas → adopts the new schema
-- If the function returns plain dictionaries → schema is cleared
-
-### find(fn)
-
-Find the first row that matches a predicate. Returns the row (as dictionary or Record if table has schema) or `null` if not found.
-
-```parsley
-let users = @table [
-    {id: 1, name: "Alice"},
-    {id: 2, name: "Bob"},
-    {id: 3, name: "Carol"}
-]
-
-let bob = users.find(fn(u) { u.name == "Bob" })
-// Returns: {id: 2, name: "Bob"}
-
-let missing = users.find(fn(u) { u.id == 99 })
-// Returns: null
-```
-
-### any(fn)
-
-Check if any row matches a predicate. Returns `true` if at least one row matches, `false` otherwise.
-
-```parsley
-let orders = @table [
-    {id: 1, status: "pending"},
-    {id: 2, status: "shipped"},
-    {id: 3, status: "delivered"}
-]
-
-let hasPending = orders.any(fn(o) { o.status == "pending" })
-// Returns: true
-```
-
-### all(fn)
-
-Check if all rows match a predicate. Returns `true` if all rows match, `false` otherwise. Returns `true` for empty tables.
-
-```parsley
-let products = @table [
-    {name: "Widget", stock: 50},
-    {name: "Gadget", stock: 30},
-    {name: "Gizmo", stock: 0}
-]
-
-let allInStock = products.all(fn(p) { p.stock > 0 })
-// Returns: false (Gizmo has 0 stock)
-```
-
-### reduce(fn, initial)
-
-Fold all rows into a single accumulated value. The function receives the accumulator and the current row, and returns the new accumulator value.
-
-```parsley
-let orders = @table [
-    {product: "Widget", amount: 100},
-    {product: "Gadget", amount: 250},
-    {product: "Gizmo", amount: 150}
-]
-
-// Sum all amounts
-let total = orders.reduce(fn(acc, row) { acc + row.amount }, 0)
-// Returns: 500
-
-// Build a comma-separated list of products
-let productList = orders.reduce(fn(acc, row) {
-    if (acc == "") row.product else acc + ", " + row.product
-}, "")
-// Returns: "Widget, Gadget, Gizmo"
-
-// Find the row with maximum amount
-let maxOrder = orders.reduce(fn(best, row) {
-    if (best == null || row.amount > best.amount) row else best
-}, null)
-// Returns: {product: "Gadget", amount: 250}
-```
-
-### sortBy(fn)
-
-Sort rows by a computed key. The function receives a row and returns a value to sort by.
-
-```parsley
-let users = @table [
-    {name: "Carol", score: 85},
-    {name: "Alice", score: 92},
-    {name: "Bob", score: 78}
-]
-
-// Sort by name length
-let byNameLength = users.sortBy(fn(u) { u.name.length() })
-// Result: Bob, Alice, Carol
-
-// Sort by score (descending - negate the value)
-let byScoreDesc = users.sortBy(fn(u) { -u.score })
-// Result: Alice (92), Carol (85), Bob (78)
-```
-
-**Note:** `sortBy` always sorts in ascending order. For descending order with numbers, negate the value. For other types, use `orderBy` with direction parameter.
+- `count()` — Row count.
+- `sum(col)` — Adds integers/floats; parses numeric strings; sums Money in a single currency. Mixing Money with other numeric types or multiple currencies returns an error.
+- `avg(col)` — Average of numbers or Money (single currency). Returns `null` on empty input.
+- `min(col)` / `max(col)` — Ignores `null`; string values are coerced to numbers when possible; returns `null` if nothing compares.
 
 ---
 
-## Data Manipulation Methods
+## Column and Group Helpers
 
-### unique(columns?)
+- `column(name)` — Array of values; errors if the column is missing.
+- `rowCount()` / `columnCount()` — Dimensions.
+- `unique(colOrCols?)` — Removes duplicates; when columns are provided (string or array), uniqueness is based on those fields, otherwise all columns.
+- `groupBy(colOrCols, fn(rows)? )`
+  - Without `fn`: returns rows with the group keys plus a `rows` array.
+  - With `fn`: `fn` receives an array of group rows and should return a dictionary (merged) or a single value stored under `value`.
+  - Grouped tables do not preserve schemas.
 
-Remove duplicate rows. If no columns are specified, considers all columns for uniqueness. If column names are provided (string or array), only those columns are used to determine uniqueness.
-
-```parsley
-// Remove exact duplicates
-let data = @table [
-    {id: 1, name: "Alice"},
-    {id: 2, name: "Bob"},
-    {id: 1, name: "Alice"}  // duplicate
-]
-data.unique()  // 2 rows: id 1 and id 2
-
-// Remove duplicates by specific column
-let emails = @table [
-    {user_id: 1, email: "alice@example.com"},
-    {user_id: 2, email: "bob@example.com"},
-    {user_id: 3, email: "alice@example.com"}  // same email
-]
-emails.unique("email")  // 2 rows: keeps first occurrence of each email
-```
-
-### renameCol(oldName, newName)
-
-Rename a column in the table. Returns a new table with the renamed column.
+Example with aggregation:
 
 ```parsley
-let data = @table [{old_name: 1, value: 100}]
-let renamed = data.renameCol("old_name", "new_name")
-// Columns are now: ["new_name", "value"]
-```
-
-### dropCol(column...)
-
-Remove one or more columns from the table. Accepts multiple column names as separate arguments.
-
-```parsley
-let data = @table [{a: 1, b: 2, c: 3, d: 4}]
-
-// Drop single column
-data.dropCol("b")  // Columns: ["a", "c", "d"]
-
-// Drop multiple columns
-data.dropCol("b", "d")  // Columns: ["a", "c"]
-```
-
-### groupBy(columns, aggregationFn?)
-
-Group rows by one or more columns. Returns a Table with grouped results.
-
-**Without aggregation function** — returns group keys and a `rows` array for each group:
-
-```parsley
-let sales = @table [
-    {region: "North", product: "Widget", amount: 100},
-    {region: "South", product: "Gadget", amount: 200},
-    {region: "North", product: "Gizmo", amount: 150}
-]
-
-let grouped = sales.groupBy("region")
-// Result:
-// ┌────────┬─────────────────────────┐
-// │ region │ rows                    │
-// ├────────┼─────────────────────────┤
-// │ North  │ [{...}, {...}]          │
-// │ South  │ [{...}]                 │
-// └────────┴─────────────────────────┘
-```
-
-**With aggregation function** — function receives array of rows for each group:
-
-```parsley
-let totals = sales.groupBy("region", fn(rows) {
+let totals = sales.groupBy(["region", "product"], fn(rows) {
     let sum = 0
-    for (row in rows) {
-        sum = sum + row.amount
-    }
-    {total: sum, count: len(rows)}
-})
-// Result:
-// ┌────────┬───────┬───────┐
-// │ region │ total │ count │
-// ├────────┼───────┼───────┤
-// │ North  │ 250   │ 2     │
-// │ South  │ 200   │ 1     │
-// └────────┴───────┴───────┘
-```
-
-**Group by multiple columns:**
-
-```parsley
-sales.groupBy(["region", "product"], fn(rows) {
-    let sum = 0
-    for (row in rows) { sum = sum + row.amount }
+    for (r in rows) { sum = sum + r.amount }
     {total: sum}
 })
 ```
 
 ---
 
-## Export Methods
+## Functional Helpers
 
-### toArray()
+- `map(fn(row))` — Returns a new table built from the callback's dictionaries or Records. Schema is preserved only if every result is a Record with the same schema; otherwise the schema is cleared.
+- `find(fn(row))` — First matching row (Record for typed tables) or `null`.
+- `any(fn(row))` / `all(fn(row))` — Boolean checks (`all` is `true` for empty tables).
 
-Convert back to an array of dictionaries:
+---
+
+## Building and Editing Rows/Columns
+
+- `appendRow(dict)` — Requires columns to match existing columns (or defines columns if the table was empty).
+- `insertRowAt(index, dict)` — Zero-based; negative indices allowed; bounds checked; column validation like `appendRow`.
+- `appendCol(name, valuesOrFn)` — `valuesOrFn` is an array matching row count **or** a function called per row. New column name must be unique.
+- `insertColAfter(existing, name, valuesOrFn)` / `insertColBefore(existing, name, valuesOrFn)` — Insert at a position; validates existing column and unique new name.
+- `renameCol(old, new)` — Errors if `old` is missing.
+- `dropCol(name, ...)` — Remove one or more columns.
+
+All of these return new tables (chain copies when part of a chain).
+
+---
+
+## Validation and Typed Tables
+
+- `table.as(Schema)` — Attaches a schema, applying defaults and casting types (no validation yet). Column order follows schema.
+- `validate()` — Validates every row of a typed table; returns a new typed table with `__errors__` stored per row.
+- `isValid()` — `true` only if every row is valid; uses stored errors when present, otherwise revalidates.
+- `errors()` — Array of dictionaries `{row, field, code, message}` (row indices are zero-based). Empty array when untyped.
+- `validRows()` / `invalidRows()` — Filtered typed tables using stored errors when present, otherwise revalidating.
+
+Example:
 
 ```parsley
-let t = @table [{a: 1}, {a: 2}]
-let arr = t.toArray()
-// arr is [{a: 1}, {a: 2}]
+@schema User { id: ulid, email: email }
+
+let raw = table([
+    {id: "01H7...", email: "alice@example.com"},
+    {id: "01H8...", email: "not-an-email"}
+]).as(User)
+
+let checked = raw.validate()
+checked.isValid()    // false
+checked.errors()     // [{row: 1, field: "email", ...}]
+checked.validRows()  // only the valid row
 ```
 
-### toJSON()
+---
 
-Export as a JSON string:
+## Export and Presentation
 
-```parsley
-let t = @table [{name: "Alice", age: 30}]
-t.toJSON()
-```
+- `toArray()` — Array of row dictionaries.
+- `toJSON()` — JSON string with pretty newlines and indentation for readability.
+- `toCSV()` — RFC 4180 CSV with a header row; uses CRLF line endings.
+- `toMarkdown()` — GitHub-flavored table; returns `""` if there are no columns.
+- `toHTML(footer?)` — HTML `<table>` with `<thead>` and `<tbody>`. Optional footer:
+  - string footer: inserted raw inside `<tfoot>`
+  - dictionary footer: values aligned to columns; consecutive empty cells are collapsed with `colspan`
+- `toBox(opts?)` — Box-drawing table. Options: `style` (`single`/`double`/`ascii`/`rounded`), `align` (`left`/`right`/`center`), `title` (string), `maxWidth` (non-negative integer). Other `parseBoxOptions` fields are ignored for tables.
 
-**Result:** `[{"name":"Alice","age":30}]`
+---
 
-### toCSV()
+## Interop Notes
 
-Export as CSV:
-
-```parsley
-let t = @table [
-    {name: "Alice", age: 30},
-    {name: "Bob", age: 25}
+- Indexing a typed table (including database/query results) returns a `Record`; database-backed tables mark records as already validated when indexed.
+- `parseCSV` with a header returns a Table directly; without a header you get an array-of-arrays, so wrap with `table()` if you need Table methods.
+- The `table` module from `@std/table` remains for backward compatibility but is no longer required; prefer `@table [...]`, `table(...)`, and schema calls.
 ]
-t.toCSV()
-```
-
-**Result:**
-
-```
-name,age
-Alice,30
-Bob,25
-```
-
-### toHTML()
-
-Export as an HTML table:
-
-```parsley
-let t = @table [{name: "Alice"}, {name: "Bob"}]
-t.toHTML()
-```
-
-**Result:**
-
-```html
-<table>
-<thead><tr><th>name</th></tr></thead>
-<tbody>
-<tr><td>Alice</td></tr>
-<tr><td>Bob</td></tr>
-</tbody>
-</table>
-```
-
-### toMarkdown()
-
-Export as a Markdown table:
-
-```parsley
-let t = @table [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-t.toMarkdown()
-```
-
-**Result:**
-
-```
-| name | age |
-|------|-----|
-| Alice | 30 |
-| Bob | 25 |
-```
-
-### toBox(opts?)
-
-Export as a box-drawing table (like SQL CLI output):
-
-```parsley
-let t = @table [
-    {name: "Alice", age: 30, city: "London"},
-    {name: "Bob", age: 25, city: "Paris"}
-]
-t.toBox()
-```
-
-**Result:**
-
-```
-┌───────┬─────┬────────┐
-│ name  │ age │ city   │
-├───────┼─────┼────────┤
-│ Alice │ 30  │ London │
-│ Bob   │ 25  │ Paris  │
-└───────┴─────┴────────┘
-```
-
-#### Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `style` | string | `"single"` | Box border style: `"single"`, `"double"`, `"ascii"`, `"rounded"` |
-| `title` | string | none | Title row centered at top of box |
-| `maxWidth` | integer | none | Truncate cell content to this width (adds `...`) |
-| `align` | string | `"left"` | Text alignment: `"left"`, `"right"`, `"center"` |
-
-#### Style Examples
-
-```parsley
-t.toBox({style: "double"})
-```
-
-**Result:**
-
-```
-╔═══════╦═════╦════════╗
-║ name  ║ age ║ city   ║
-╠═══════╬═════╬════════╣
-║ Alice ║ 30  ║ London ║
-║ Bob   ║ 25  ║ Paris  ║
-╚═══════╩═════╩════════╝
-```
-
-ASCII style for maximum compatibility:
-
-```parsley
-t.toBox({style: "ascii"})
-```
-
-**Result:**
-
-```
-+-------+-----+--------+
-| name  | age | city   |
-+-------+-----+--------+
-| Alice | 30  | London |
-| Bob   | 25  | Paris  |
-+-------+-----+--------+
-```
-
-#### Title Example
-
-```parsley
-t.toBox({title: "User Directory"})
-```
-
-**Result:**
-
-```
-┌────────────────────────┐
-│    User Directory      │
-├───────┬─────┬──────────┤
-│ name  │ age │ city     │
-├───────┼─────┼──────────┤
-│ Alice │ 30  │ London   │
-│ Bob   │ 25  │ Paris    │
-└───────┴─────┴──────────┘
-```
-
-#### Combined Options
-
-```parsley
-t.toBox({style: "rounded", title: "Users", maxWidth: 15})
-```
-
----
-
-## Efficiency: Copy-on-Chain
-
-Tables use a **copy-on-chain** optimization for memory efficiency. When you chain methods, only one copy is made at the start of the chain—subsequent operations modify that same copy.
-
-### How It Works
-
-```parsley
-let original = @table [{x: 1}, {x: 2}, {x: 3}, {x: 4}, {x: 5}]
-
-// This chain creates ONE copy, not four:
-let result = original
-    .where(fn(r) { r.x > 1 })   // Copy made here
-    .orderBy("x", "desc")        // Same copy modified
-    .limit(3)                    // Same copy modified
-    .select(["x"])               // Same copy modified
-```
-
-The original table is **never modified**:
-
-```parsley
-original.length  // Still 5
-result.length    // 3
-```
-
-### Chain-Ending Operations
-
-A chain ends when the result is:
-- **Assigned to a variable**: `let x = table.where(...)`
-- **Passed to a function**: `fn(table.where(...))`
-- **Iterated**: `for (row in table.where(...))`
-- **Accessed for a property**: `table.where(...).length`
-
-### Multiple Independent Chains
-
-Multiple chains from the same source create separate copies:
-
-```parsley
-let data = @table [{x: 1}, {x: 2}, {x: 3}]
-
-let small = data.where(fn(r) { r.x < 2 })  // Copy 1
-let large = data.where(fn(r) { r.x > 2 })  // Copy 2 (independent)
-```
-
-### Explicit Copying
-
-Use `.copy()` when you need an explicit copy outside a chain:
-
-```parsley
-let backup = original.copy()
-```
-
-### Memory Considerations
-
-| Pattern | Copies Created | Memory |
-|---------|---------------|--------|
-| `t.where(...).orderBy(...).limit(...)` | 1 | Efficient |
-| `let a = t.where(...); let b = a.orderBy(...)` | 2 | Separate chains |
-| `t.where(...).length` | 1 | Property ends chain |
-| Multiple chains from same source | N | Independent copies |
-
----
-
-## Integration with @query
-
-Tables work seamlessly with Basil's `@query` DSL for database access:
-
-```parsley
-@query users {
-    select: [name, email, created_at]
-    where: active == true
-    orderBy: created_at desc
-    limit: 10
-}
-
-// Result is a Table
-users.toHTML()
-```
-
-Database bindings return Tables with schema information:
-
-```parsley
-let users = Users.all()  // Returns Table
-
-// Schema-aware column access
-users.schema.columns  // ["id", "name", "email", "active", "created_at"]
-
-// Further filtering (still a Table)
-let recent = users.where(fn(u) { u.created_at > @now.addDays(-7) })
-```
-
----
-
-## Real-World Examples
-
-### CSV Report Processing
-
-```parsley
-// Load sales data
-let sales <== CSV("quarterly_sales.csv")
-
-// Generate summary report
-let summary = sales
-    .where(fn(r) { r.region == "EMEA" })
-    .orderBy("revenue", "desc")
-    .limit(10)
-    .select(["product", "revenue", "units_sold"])
-
-// Export for stakeholders
-<h2>"Top 10 EMEA Products"</h2>
-summary.toHTML()
-```
-
-### Database Dashboard
-
-```parsley
-let orders = Orders
-    .where(fn(o) { o.status == "pending" && o.created_at > @now.addDays(-7) })
-    .orderBy("total", "desc")
-
-<div class="dashboard">
-    <h3>"Pending Orders This Week"</h3>
-    <p>"Total: " orders.sum("total")</p>
-    <p>"Count: " orders.count()</p>
-    orders.select(["id", "customer_name", "total"]).toHTML()
-</div>
-```
-
-### Data Transformation Pipeline
-
-```parsley
-// Transform raw API data into a report
-let raw <=/= fetch("https://api.example.com/transactions")
-let transactions = table(raw.json)
-
-let report = transactions
-    .where(fn(t) { t.amount > 0 })
-    .appendCol("category", fn(t) { categorize(t.description) })
-    .orderBy([["category", "asc"], ["amount", "desc"]])
-    .select(["date", "category", "description", "amount"])
-
-// Save as CSV
-report.toCSV().writeFile("report.csv")
-```
-
----
-
-## Summary
-
-Tables are Parsley's answer to structured data manipulation:
-
-- **Create** with `@table [...]` literals or `table()` constructor
-- **Import** from CSV files, database queries, or JSON APIs
-- **Validate** with `@schema` for typed, defaulted, nullable fields
-- **Query** using chainable SQL-like methods: `where`, `orderBy`, `select`, `limit`
-- **Aggregate** with `sum`, `avg`, `min`, `max`, `count`
-- **Transform** with collection methods: `map`, `find`, `any`, `all`, `reduce`, `sortBy`
-- **Manipulate** data with `unique`, `renameCol`, `dropCol`, `groupBy`
-- **Export** to JSON, CSV, HTML, Markdown, or box-drawing format
-- **Efficient** thanks to copy-on-chain optimization
-
-Tables bridge the gap between raw data and polished output—whether you're building reports, dashboards, or data pipelines.
