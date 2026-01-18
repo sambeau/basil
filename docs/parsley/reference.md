@@ -699,7 +699,64 @@ This is useful for filtering, merging lists, and finding common elements without
 
 ---
 
-### 2.5 Pattern Matching
+### 2.5 Schema Checking
+
+The `is` and `is not` operators check whether a value is a Record or Table bound to a specific schema.
+
+| Operator | Description |
+|----------|-------------|
+| `is` | Schema identity check (returns boolean) |
+| `is not` | Negated schema check (returns boolean) |
+
+```parsley
+@schema User { name: string }
+@schema Product { sku: string }
+
+let user = User({name: "Alice"})
+
+user is User                    // true
+user is Product                 // false
+user is not Product             // true
+```
+
+**Identity comparison**: Schema checking uses pointer identity, not structural matching. Two schemas with identical fields are still different schemas:
+
+```parsley
+@schema UserA { name: string }
+@schema UserB { name: string }  // Same fields, different schema
+
+let record = UserA({name: "Bob"})
+record is UserA                 // true
+record is UserB                 // false (different schema)
+```
+
+**Works with Tables too**:
+
+```parsley
+@schema Point { x: int, y: int }
+let points = @table(Point) [{x: 1, y: 2}]
+
+points is Point                 // true
+```
+
+**Non-record values**: For values that aren't Records or Tables (strings, numbers, plain dicts, arrays, etc.), `is` safely returns `false`:
+
+```parsley
+"hello" is User                 // false
+42 is User                      // false
+{name: "Alice"} is User         // false (plain dict, not a Record)
+```
+
+**Error case**: The right-hand side must be a schema. Using a non-schema value produces a TypeError:
+
+```parsley
+user is 42                      // Error: 'is' requires a schema
+user is "User"                  // Error: 'is' requires a schema
+```
+
+---
+
+### 2.6 Pattern Matching
 
 The `~` and `!~` operators perform regex matching, similar to Perl's pattern matching syntax.
 
@@ -717,7 +774,7 @@ The `~` and `!~` operators perform regex matching, similar to Perl's pattern mat
 
 ---
 
-### 2.6 Range
+### 2.7 Range
 
 The range operator `..` creates an inclusive sequence of integers from start to end.
 
@@ -734,7 +791,7 @@ let countdown = 5..1            // [5, 4, 3, 2, 1] (descending)
 
 ---
 
-### 2.7 Concatenation
+### 2.8 Concatenation
 
 ```parsley
 let concat = [1, 2] ++ [3, 4]   // [1, 2, 3, 4]
@@ -743,7 +800,7 @@ let merged = {a: 1} ++ {b: 2}   // {a: 1, b: 2}
 
 ---
 
-### 2.8 Null Coalescing
+### 2.9 Null Coalescing
 
 The `??` operator returns the right-hand value when the left-hand value is `null`. This provides a concise way to supply default values.
 
@@ -773,7 +830,7 @@ Without `?`, out-of-bounds access would produce an error.
 
 ---
 
-### 2.9 DateTime Arithmetic
+### 2.10 DateTime Arithmetic
 
 Parsley supports arithmetic operations on dates, times, and durations with sensible rules.
 
@@ -811,13 +868,13 @@ Some operations don't make sense and will produce errors:
 
 ---
 
-### 2.10 Precedence Table (Lowest to Highest)
+### 2.11 Precedence Table (Lowest to Highest)
 
 | Level | Operators |
 |-------|-----------|
 | 1 | `??`, `\|\|`, `or` |
 | 2 | `&&`, `and` |
-| 3 | `==`, `!=`, `~`, `!~`, `in`, `not in` |
+| 3 | `==`, `!=`, `~`, `!~`, `in`, `not in`, `is`, `is not` |
 | 4 | `<`, `>`, `<=`, `>=` |
 | 5 | `+`, `-`, `..` |
 | 6 | `++` |

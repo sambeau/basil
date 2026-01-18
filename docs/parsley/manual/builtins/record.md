@@ -409,6 +409,74 @@ This provides security by default — malicious fields can't sneak through.
 
 ---
 
+## Schema Checking
+
+Use the `is` and `is not` operators to check whether a value is a Record bound to a specific schema. This is useful when working with mixed data or implementing type-safe dispatch.
+
+### Basic Usage
+
+```parsley
+@schema User { name: string }
+@schema Product { sku: string }
+
+let user = User({name: "Alice"})
+
+user is User                    // true
+user is Product                 // false
+user is not Product             // true
+```
+
+### Identity Comparison
+
+Schema checking uses **pointer identity**, not structural matching. Two schemas with identical fields are still different schemas:
+
+```parsley
+@schema UserA { name: string }
+@schema UserB { name: string }  // Same fields, different schema
+
+let record = UserA({name: "Bob"})
+record is UserA                 // true
+record is UserB                 // false
+```
+
+### Filtering by Schema
+
+A common use case is filtering mixed arrays by schema:
+
+```parsley
+@schema User { name: string }
+@schema Product { sku: string }
+
+let items = [
+    User({name: "Alice"}),
+    Product({sku: "A001"}),
+    User({name: "Bob"})
+]
+
+// Get only users
+let users = items.filter(fn(x) { x is User })
+users.length()                  // 2
+
+// Get non-users
+let nonUsers = items.filter(fn(x) { x is not User })
+nonUsers.length()               // 1
+```
+
+### Safe Type Checking
+
+For non-record values (strings, numbers, plain dicts), `is` safely returns `false`:
+
+```parsley
+"hello" is User                 // false
+42 is User                      // false
+{name: "Alice"} is User         // false (plain dict, not a Record)
+null is User                    // false
+```
+
+This makes `is` safe to use without prior type checking.
+
+---
+
 ## Updating Records
 
 Records are **immutable**. The `update()` method returns a new record with merged fields and **auto-revalidates**:

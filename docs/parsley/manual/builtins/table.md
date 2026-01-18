@@ -302,6 +302,26 @@ let points = @table(Point) [{x: 1, y: 2}]
 points.schema  // Point schema object
 ```
 
+### Schema Checking with `is`
+
+Use the `is` and `is not` operators to check whether a Table is bound to a specific schema:
+
+```parsley
+@schema User { name: string }
+@schema Product { sku: string }
+
+let users = @table(User) [{name: "Alice"}]
+let products = @table(Product) [{sku: "A001"}]
+let untyped = @table [{name: "Bob"}]
+
+users is User                   // true
+users is Product                // false
+products is Product             // true
+untyped is User                 // false (no schema)
+```
+
+This is useful when you need to dispatch based on table type or validate that data has the expected schema.
+
 ---
 
 ## Indexing and Iteration

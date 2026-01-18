@@ -221,6 +221,7 @@ User({id: "my-custom-id"}) // Any string works
 | Break | `break` | `break` | `stop` |
 | Continue | `continue` | `continue` | `skip` |
 | Guard | N/A | N/A | `check COND else VAL` |
+| Type check | `x instanceof Class` | `isinstance(x, Class)` | `record is Schema` |
 
 ### Data Types
 
@@ -320,6 +321,13 @@ or
 5 not in [1, 2, 3]          // true
 "foo" not in {name: "Sam"}  // true
 "xyz" not in "hello"        // true
+
+// Schema checking with 'is' / 'is not'
+@schema User { name: string }
+let user = User({name: "Alice"})
+user is User                // true (record has User schema)
+user is not User            // false
+"hello" is User             // false (non-records safely return false)
 
 // Null-safe: 'in' with null returns false
 "admin" in null             // false (no error)
