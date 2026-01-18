@@ -14,20 +14,35 @@ func evalConcatExpression(left, right Object) Object {
 		leftDict := left.(*Dictionary)
 		rightDict := right.(*Dictionary)
 
-		// Create new dictionary with merged pairs
+		// Create new dictionary with merged pairs and preserved key order
 		merged := &Dictionary{
-			Pairs: make(map[string]ast.Expression),
-			Env:   leftDict.Env, // Use left dict's environment
+			Pairs:    make(map[string]ast.Expression),
+			KeyOrder: make([]string, 0, len(leftDict.Pairs)+len(rightDict.Pairs)),
+			Env:      leftDict.Env, // Use left dict's environment
 		}
 
-		// Copy left dictionary pairs
-		for k, v := range leftDict.Pairs {
-			merged.Pairs[k] = v
+		// Track which keys we've seen (for deduplication)
+		seen := make(map[string]bool)
+
+		// Copy left dictionary pairs in order
+		for _, k := range leftDict.Keys() {
+			if v, ok := leftDict.Pairs[k]; ok {
+				merged.Pairs[k] = v
+				merged.KeyOrder = append(merged.KeyOrder, k)
+				seen[k] = true
+			}
 		}
 
-		// Copy right dictionary pairs (overwrites left if keys match)
-		for k, v := range rightDict.Pairs {
-			merged.Pairs[k] = v
+		// Copy right dictionary pairs (overwrites left values if keys match, appends new keys)
+		for _, k := range rightDict.Keys() {
+			if v, ok := rightDict.Pairs[k]; ok {
+				merged.Pairs[k] = v
+				// Only add to KeyOrder if this is a new key
+				if !seen[k] {
+					merged.KeyOrder = append(merged.KeyOrder, k)
+					seen[k] = true
+				}
+			}
 		}
 
 		return merged

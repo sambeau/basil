@@ -160,8 +160,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.IN, p.parseInfixExpression)
-	p.registerInfix(lexer.IS, p.parseIsExpression)                // for 'is' / 'is not' schema checking
-	p.registerInfix(lexer.BANG, p.parseNotInExpression)           // for 'not in' operator
+	p.registerInfix(lexer.IS, p.parseIsExpression)      // for 'is' / 'is not' schema checking
+	p.registerInfix(lexer.BANG, p.parseNotInExpression) // for 'not in' operator
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
 	p.registerInfix(lexer.RANGE, p.parseInfixExpression)
 	p.registerInfix(lexer.QUERY_ONE, p.parseInfixExpression)      // Database operators

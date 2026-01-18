@@ -174,7 +174,13 @@ Merge two dictionaries with the `++` operator. When keys conflict, the right dic
 
 **Result:** `{a: 1, b: 3, c: 4}`
 
-**Note:** The `++` operator creates a new dictionary with all keys from both inputs. Key order in the result may be alphabetically sorted rather than preserving the original insertion order.
+The result preserves order: keys from the left dictionary come first (in their original order), followed by new keys from the right:
+
+```parsley
+{z: 1, a: 2} ++ {m: 3, a: 99}
+```
+
+**Result:** `{z: 1, a: 99, m: 3}`
 
 ### `in` (Key Membership)
 
@@ -596,9 +602,8 @@ d.keys()
 Order is preserved through:
 - Iteration with `for`
 - `.keys()`, `.values()`, `.entries()` methods
+- Concatenation with `++`
 - `.insertAfter()` and `.insertBefore()` methods
-
-**Note:** The `++` merge operator may not preserve key order from the source dictionaries.
 
 ---
 
