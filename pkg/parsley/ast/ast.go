@@ -582,6 +582,32 @@ func (oe *InfixExpression) String() string {
 	return out.String()
 }
 
+// IsExpression represents schema checking expressions: 'record is Schema' or 'record is not Schema'
+type IsExpression struct {
+	Token   lexer.Token // the 'is' token
+	Value   Expression  // left side (record/table/any value)
+	Schema  Expression  // right side (schema identifier)
+	Negated bool        // true for "is not"
+}
+
+func (ie *IsExpression) expressionNode()      {}
+func (ie *IsExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IsExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(ie.Value.String())
+	if ie.Negated {
+		out.WriteString(" is not ")
+	} else {
+		out.WriteString(" is ")
+	}
+	out.WriteString(ie.Schema.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // IfExpression represents if expressions
 type IfExpression struct {
 	Token       lexer.Token // the 'if' token

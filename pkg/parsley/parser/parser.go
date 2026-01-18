@@ -38,6 +38,7 @@ var precedences = map[lexer.TokenType]int{
 	lexer.MATCH:        EQUALS,
 	lexer.NOT_MATCH:    EQUALS,
 	lexer.IN:           EQUALS,
+	lexer.IS:           EQUALS, // for 'is' / 'is not' schema checking
 	lexer.BANG:         EQUALS, // for 'not in' operator
 	lexer.LT:           LESSGREATER,
 	lexer.GT:           LESSGREATER,
@@ -159,7 +160,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.IN, p.parseInfixExpression)
-	p.registerInfix(lexer.BANG, p.parseNotInExpression) // for 'not in' operator
+	p.registerInfix(lexer.IS, p.parseIsExpression)                // for 'is' / 'is not' schema checking
+	p.registerInfix(lexer.BANG, p.parseNotInExpression)           // for 'not in' operator
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
 	p.registerInfix(lexer.RANGE, p.parseInfixExpression)
 	p.registerInfix(lexer.QUERY_ONE, p.parseInfixExpression)      // Database operators
@@ -1702,6 +1704,29 @@ func (p *Parser) parseNotInExpression(left ast.Expression) ast.Expression {
 	precedence := precedences[lexer.IN]
 	p.nextToken()
 	expression.Right = p.parseExpression(precedence)
+
+	return expression
+}
+
+// parseIsExpression handles the 'is' and 'is not' schema checking operators.
+// Syntax: value is Schema, value is not Schema
+func (p *Parser) parseIsExpression(left ast.Expression) ast.Expression {
+	isToken := p.curToken
+
+	expression := &ast.IsExpression{
+		Token: isToken,
+		Value: left,
+	}
+
+	// Check if next token is 'not' for 'is not' form
+	if p.peekTokenIs(lexer.BANG) {
+		p.nextToken() // consume 'not'
+		expression.Negated = true
+	}
+
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expression.Schema = p.parseExpression(precedence)
 
 	return expression
 }

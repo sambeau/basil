@@ -1094,7 +1094,170 @@ Schema metadata (pipe syntax) is **preserved but ignored** by the Query DSL:
 
 ---
 
-## 11. Implementation Phases
+## 11. Schema Checking (Runtime)
+
+### 11.1 The Problem
+
+When functions receive records as arguments, there's no compile-time guarantee they have the expected schema. A function expecting a `User` record might receive a `Product` record, leading to subtle bugs or crashes.
+
+```parsley
+fn saveUser(record) {
+    @insert(Users |< ...record .)  // What if record isn't a User?
+}
+
+saveUser(Product({sku: "A001"}))   // Oops
+```
+
+### 11.2 The `is` Operator
+
+The `is` operator provides runtime schema checking:
+
+```parsley
+record is User       // true if record's schema is User
+table is Product     // true if table's schema is Product
+record is not User   // negation
+```
+
+**Semantics:**
+
+| Expression | Returns |
+|------------|---------|
+| `record is Schema` | `true` if `record.schema() == Schema` |
+| `table is Schema` | `true` if `table.schema() == Schema` |
+| `value is Schema` | `false` for non-Record/non-Table values |
+| `null is Schema` | `false` |
+| `{...} is Schema` | `false` (plain dict, no schema) |
+
+### 11.3 Guard Pattern with `check`
+
+Use `is` with Parsley's `check` statement for clean precondition guards:
+
+```parsley
+fn saveUser(record) {
+    check record is User else {
+        return {error: "Expected User record, got " + record.schema().name}
+    }
+    @insert(Users |< ...record .)
+}
+```
+
+Multiple guards:
+
+```parsley
+fn processOrder(order, user) {
+    check order is Order else error("Expected Order record")
+    check user is User else error("Expected User record")
+    check order.items.length() > 0 else error("Empty order")
+    
+    // Happy path...
+    submitOrder(order, user)
+}
+```
+
+### 11.4 Conditional Branching
+
+Use `is` for type-based branching:
+
+```parsley
+fn process(record) {
+    if (record is User) {
+        processUser(record)
+    } else if (record is Product) {
+        processProduct(record)
+    } else {
+        error("Unknown record type: " + record.schema().name)
+    }
+}
+```
+
+### 11.5 Filtering Collections
+
+Filter arrays of mixed records:
+
+```parsley
+let items = [User({...}), Product({...}), User({...})]
+
+let users = items.filter(fn(x) { x is User })
+let products = items.filter(fn(x) { x is Product })
+```
+
+Use with `for` loops:
+
+```parsley
+for (item in items) {
+    if (item is not User) skip
+    processUser(item)
+}
+```
+
+### 11.6 Schema Identity vs Name
+
+The `is` operator compares schema **identity**, not name strings:
+
+```parsley
+@schema User { name: string }
+@schema UserCopy { name: string }  // Same fields, different schema
+
+let u = User({name: "Alice"})
+u is User       // true
+u is UserCopy   // false (different schema identity)
+```
+
+For schema name access (e.g., error messages):
+
+```parsley
+record.schema().name    // "User" (string)
+```
+
+### 11.7 Edge Cases
+
+```parsley
+// Non-record values
+null is User                      // false
+"hello" is User                   // false
+42 is User                        // false
+{name: "Alice"} is User           // false (plain dict)
+
+// Untyped collections
+table([...]) is User              // false (no schema bound)
+[] is User                        // false
+
+// After .as() binding
+{name: "Alice"}.as(User) is User  // true
+table(data).as(User) is User      // true
+```
+
+### 11.8 Why Not Static Checking?
+
+Static schema checking (type annotations on function parameters) was considered but rejected for V1:
+
+```parsley
+// Hypothetical — NOT implemented
+fn process(record: User) { ... }
+```
+
+**Reasons:**
+
+1. **Requires type inference**: Partial static checking without full inference creates false confidence
+2. **Dynamic nature of Parsley**: Records can be constructed conditionally, returned from functions, stored in arrays
+3. **Annotation without enforcement is confusing**: If `fn(r: User)` doesn't catch mistakes at compile time, why have it?
+4. **Runtime `is` is sufficient**: Covers all practical use cases cleanly
+
+The door remains open for future opt-in static checking via a linter or `--strict` mode.
+
+### 11.9 Summary
+
+| Need | Solution |
+|------|----------|
+| Guard function input | `check record is User else {...}` |
+| Branch on schema | `if (record is User) {...}` |
+| Filter collections | `items.filter(fn(x) { x is User })` |
+| Skip in loops | `if (item is not User) skip` |
+| Get schema name | `record.schema().name` |
+
+---
+
+## 12. Implementation Phases
 
 ### Phase 1: Core Record Type
 - Record struct with schema, data, errors, validated flag
@@ -1134,6 +1297,13 @@ Schema metadata (pipe syntax) is **preserved but ignored** by the Query DSL:
 - Projection auto-detect (Record if columns ⊆ schema)
 - `?!->` / `??!->` explicit Record terminals
 - Batch insert validation, Table type support
+
+### Phase 6: Schema Checking
+- `is` / `is not` operators for Records and Tables
+- `record is Schema` → boolean
+- `record is not Schema` → boolean
+- `table is Schema` → boolean
+- Integration with `check` guards
 
 ---
 
@@ -1242,3 +1412,24 @@ export save = fn(props) {
 | `@query(Users ??-> *)` | Table of Records |
 | `@query(Users ?-> a, b)` | Record if a,b in schema, else Dict |
 | `@query(Users ?!-> a, b)` | Record (error if not in schema) |
+
+### Schema Checking
+
+```parsley
+// The is operator
+record is User              // true if schema matches
+record is not User          // negation
+table is Product            // works on tables too
+
+// Guard pattern
+check record is User else error("Expected User")
+
+// Branching
+if (record is User) { ... }
+
+// Filtering
+items.filter(fn(x) { x is User })
+
+// Schema name for errors
+record.schema().name        // "User"
+```

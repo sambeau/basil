@@ -135,6 +135,7 @@ const (
 	STOP     // "stop"
 	SKIP     // "skip"
 	VIA      // "via" (for schema relations)
+	IS       // "is" (for schema checking)
 )
 
 // Token represents a single token
@@ -354,6 +355,8 @@ func (tt TokenType) String() string {
 		return "SKIP"
 	case VIA:
 		return "VIA"
+	case IS:
+		return "IS"
 	case SCHEMA_LITERAL:
 		return "SCHEMA_LITERAL"
 	case TABLE_LITERAL:
@@ -396,6 +399,7 @@ var keywords = map[string]TokenType{
 	"stop":     STOP,
 	"skip":     SKIP,
 	"via":      VIA,
+	"is":       IS,
 }
 
 // LookupIdent checks if an identifier is a keyword

@@ -4428,6 +4428,9 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Simply evaluate the inner expression
 		return Eval(node.Inner, env)
 
+	case *ast.IsExpression:
+		return evalIsExpression(node, env)
+
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, env)
 		if isError(right) {
