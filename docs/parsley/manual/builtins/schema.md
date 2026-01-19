@@ -353,6 +353,30 @@ admin.role  // "admin"
 - `isBanned` — Server sets via admin action
 - `createdBy` — Server sets from session user
 
+> **⚠️ Important: `readOnly` and Delete/Update Operations**
+>
+> When you mark `id` as `readOnly`, it gets filtered to `null` when creating a Record from form data. This means you **cannot** use that record for delete or update operations (which require the primary key).
+>
+> ```parsley
+> @schema Person {
+>     id: int(auto, readOnly)  // readOnly filters form input!
+>     name: string
+> }
+>
+> // ❌ This will FAIL:
+> let person = Person(formData)    // id is null (filtered)
+> People.delete(person)            // Error: no primary key value
+>
+> // ✅ Solution 1: Pass the ID directly
+> People.delete(formData.id)       // Works!
+>
+> // ✅ Solution 2: Load from database first
+> let person = People.find(formData.id)
+> People.delete(person)            // Works - has real ID from DB
+> ```
+>
+> The `readOnly` constraint is designed to prevent clients from *setting* protected fields, not from *using* them. For delete/update operations, use the ID from the request parameters or load the record from the database.
+
 ---
 
 ### The `pattern` Constraint
@@ -826,6 +850,15 @@ users.delete(user)
 | `save(table)` | Table | `{inserted: N, updated: M}` | Upsert all rows |
 | `delete(record)` | Record | `{deleted: 1}` | Delete row by ID |
 | `delete(table)` | Table | `{deleted: N}` | Delete all rows by ID |
+| `delete(id)` | String/Int | `{deleted: 1}` | Delete row by ID value |
+
+> **Note:** The `delete(record)` form requires the record to have a non-null primary key (`id` field). If you're constructing records from form data where `id` is marked `readOnly`, the ID will be filtered to `null`. In this case, use `delete(id)` directly:
+>
+> ```parsley
+> // When id is readOnly, pass ID directly instead of a record:
+> People.delete(params.id)         // ✅ Works
+> People.delete(Person(formData))  // ❌ Fails - id is null
+> ```
 
 #### Schema Matching
 

@@ -407,6 +407,30 @@ record.data()  // {name: "Alice", email: "a@b.com"}
 
 This provides security by default — malicious fields can't sneak through.
 
+### `readOnly` Field Filtering
+
+Fields marked `readOnly` in the schema are also filtered during record creation. This prevents clients from setting protected values, but has an important implication for delete operations:
+
+```parsley
+@schema Person {
+    id: int(auto, readOnly)      // Protected from client input
+    name: string
+}
+
+// Form submits {id: "123", name: "Alice"}
+let person = Person(formData)
+person.id                        // null (filtered!)
+
+// This FAILS — id is null
+People.delete(person)            // Error: no primary key value
+
+// Solutions:
+People.delete(formData.id)       // ✅ Pass ID directly
+People.delete(params.id)         // ✅ Use URL parameter
+let p = People.find(params.id)
+People.delete(p)                 // ✅ Load from DB first
+```
+
 ---
 
 ## Schema Checking
