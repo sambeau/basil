@@ -3613,6 +3613,68 @@ let Card = fn({title, contents}) {
 <Card title="My Card">"Card content"</Card>
 ```
 
+---
+
+### 8.8 Form Binding
+
+Parsley provides special attributes to bind HTML form elements to schema-validated records.
+
+#### Form Context with `@record`
+
+The `@record` attribute establishes a form context:
+
+```parsley
+<form @record={userRecord} method="POST">
+    // Form elements can now use @field binding
+</form>
+```
+
+The `@record` attribute is removed from output — it's a compile-time directive.
+
+#### Input Binding with `@field`
+
+The `@field` attribute binds an input to a schema field:
+
+```parsley
+<form @record={form} method="POST">
+    <input @field="name"/>
+    <input @field="email"/>
+</form>
+```
+
+This automatically sets: `name`, `value`, `type` (from schema), constraint attributes (`required`, `minlength`, etc.), and accessibility attributes (`aria-invalid`, `aria-describedby`).
+
+#### Form Binding Elements
+
+| Element | Purpose | Example |
+|---------|---------|---------|
+| `<input @field="name"/>` | Text input bound to field | Sets name, value, type, constraints |
+| `<label @field="name"/>` | Label from field metadata | Renders `<label for="name">Full Name</label>` |
+| `<error @field="name"/>` | Validation error (if any) | Renders `<span class="error">...</span>` or nothing |
+| `<select @field="status"/>` | Dropdown for enum fields | Auto-generates `<option>` elements |
+| `<val @field="name" @key="help"/>` | Metadata value | Renders help text, hints, etc. |
+
+**Example:**
+
+```parsley
+<form @record={form} method="POST">
+    <div class="field">
+        <label @field="email"/>
+        <input @field="email"/>
+        <error @field="email"/>
+        <val @field="email" @key="help" @tag="small"/>
+    </div>
+</form>
+```
+
+Use `@tag` to change the output element type:
+
+```parsley
+<label @field="email" @tag="span"/>   // Renders <span>Email</span>
+<error @field="email" @tag="div"/>    // Renders <div class="error">...</div>
+```
+
+See the [Record manual page](manual/builtins/record.md#form-binding) for complete documentation.
 
 ---
 

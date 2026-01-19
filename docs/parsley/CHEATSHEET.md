@@ -814,6 +814,42 @@ let {valid, errors} = UserSchema.validate({
 })
 ```
 
+### Form Binding
+
+Form binding connects schema-validated records to HTML forms:
+
+```parsley
+@schema User {
+    name: string(min: 2, required) | {title: "Full Name"}
+    email: email(required)
+    role: enum["user", "admin"]
+}
+
+let form = User({name: "Alice"})
+
+// @record establishes form context, @field binds elements
+<form @record={form} method="POST">
+    <label @field="name"/>           // <label for="name">Full Name</label>
+    <input @field="name"/>           // Sets name, value, type, constraints, ARIA
+    <error @field="name"/>           // Shows validation error (or nothing)
+    
+    <select @field="role"/>          // Auto-generates <option> from enum
+    
+    <button type="submit">"Save"</button>
+</form>
+```
+
+#### Form Binding Elements
+| Element | Purpose |
+|---------|---------|
+| `<input @field="x"/>` | Bound input (auto-sets name, value, type, constraints) |
+| `<label @field="x"/>` | Label from schema title metadata |
+| `<error @field="x"/>` | Validation error (renders only if error exists) |
+| `<select @field="x"/>` | Dropdown for enum fields |
+| `<val @field="x" @key="help"/>` | Schema metadata value (help text, hints) |
+
+Use `@tag` to change output element: `<error @field="name" @tag="div"/>`
+
 ### ID Module (`@std/id`)
 ```parsley
 let {new, uuid, uuidv4, uuidv7, nanoid, cuid} = import @std/id

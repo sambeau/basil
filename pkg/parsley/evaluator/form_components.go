@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// evalLabelComponent handles <Label @field="name"/> and <Label @field="name">...</Label>
+// evalLabelComponent handles <label @field="name"/> and <label @field="name">...</label>
 // Returns HTML label element with field title and accessibility attributes.
 func evalLabelComponent(props string, contents []Object, isSelfClosing bool, env *Environment) Object {
 	// Get field name from @field attribute
@@ -14,8 +14,8 @@ func evalLabelComponent(props string, contents []Object, isSelfClosing bool, env
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0001",
-			Message: "Label component requires @field attribute",
-			Hints:   []string{`Add @field attribute: <Label @field="fieldName"/>`},
+			Message: "label element requires @field attribute",
+			Hints:   []string{`Add @field attribute: <label @field="fieldName"/>`},
 		}
 	}
 
@@ -25,8 +25,8 @@ func evalLabelComponent(props string, contents []Object, isSelfClosing bool, env
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0002",
-			Message: "Label component must be inside a <form @record={...}> context",
-			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><Label @field="name"/></form>`},
+			Message: "label element must be inside a <form @record={...}> context",
+			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><label @field="name"/></form>`},
 		}
 	}
 
@@ -90,17 +90,17 @@ func evalLabelComponent(props string, contents []Object, isSelfClosing bool, env
 	return &String{Value: result.String()}
 }
 
-// evalErrorComponent handles <Error @field="name"/>
+// evalErrorComponent handles <error @field="name"/> and <error @field="name">...</error>
 // Returns error message if field has error, null otherwise.
-func evalErrorComponent(props string, env *Environment) Object {
+func evalErrorComponent(props string, contents []Object, isSelfClosing bool, env *Environment) Object {
 	// Get field name from @field attribute
 	fieldName := parseFieldAttribute(props)
 	if fieldName == "" {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0001",
-			Message: "Error component requires @field attribute",
-			Hints:   []string{`Add @field attribute: <Error @field="fieldName"/>`},
+			Message: "error element requires @field attribute",
+			Hints:   []string{`Add @field attribute: <error @field="fieldName"/>`},
 		}
 	}
 
@@ -110,8 +110,8 @@ func evalErrorComponent(props string, env *Environment) Object {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0002",
-			Message: "Error component must be inside a <form @record={...}> context",
-			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><Error @field="name"/></form>`},
+			Message: "error element must be inside a <form @record={...}> context",
+			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><error @field="name"/></form>`},
 		}
 	}
 
@@ -156,6 +156,17 @@ func evalErrorComponent(props string, env *Environment) Object {
 	errorMsg := record.Errors[fieldName].Message
 	result.WriteString(escapeHTMLText(errorMsg))
 
+	// For tag pairs, add contents after error message
+	if !isSelfClosing && len(contents) > 0 {
+		for _, content := range contents {
+			if strContent, ok := content.(*String); ok {
+				result.WriteString(strContent.Value)
+			} else {
+				result.WriteString(content.Inspect())
+			}
+		}
+	}
+
 	// Close tag
 	result.WriteString("</")
 	result.WriteString(tagName)
@@ -164,17 +175,24 @@ func evalErrorComponent(props string, env *Environment) Object {
 	return &String{Value: result.String()}
 }
 
-// evalMetaComponent handles <Meta @field="name" @key="help"/>
+// evalMetaComponent handles <Meta @field="name" @key="help"/> (DEPRECATED)
 // Returns metadata value if present, null otherwise.
+// Deprecated: Use <val @field="name" @key="help"/> instead.
 func evalMetaComponent(props string, env *Environment) Object {
+	return evalValComponent(props, nil, true, env)
+}
+
+// evalValComponent handles <val @field="name" @key="help"/> and <val @field="name" @key="help">...</val>
+// Returns metadata value if present, null otherwise.
+func evalValComponent(props string, contents []Object, isSelfClosing bool, env *Environment) Object {
 	// Get field name from @field attribute
 	fieldName := parseFieldAttribute(props)
 	if fieldName == "" {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0001",
-			Message: "Meta component requires @field attribute",
-			Hints:   []string{`Add @field attribute: <Meta @field="fieldName" @key="help"/>`},
+			Message: "val element requires @field attribute",
+			Hints:   []string{`Add @field attribute: <val @field="fieldName" @key="help"/>`},
 		}
 	}
 
@@ -184,8 +202,8 @@ func evalMetaComponent(props string, env *Environment) Object {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0004",
-			Message: "Meta component requires @key attribute",
-			Hints:   []string{`Add @key attribute: <Meta @field="fieldName" @key="help"/>`},
+			Message: "val element requires @key attribute",
+			Hints:   []string{`Add @key attribute: <val @field="fieldName" @key="help"/>`},
 		}
 	}
 
@@ -195,8 +213,8 @@ func evalMetaComponent(props string, env *Environment) Object {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0002",
-			Message: "Meta component must be inside a <form @record={...}> context",
-			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><Meta @field="name" @key="help"/></form>`},
+			Message: "val element must be inside a <form @record={...}> context",
+			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><val @field="name" @key="help"/></form>`},
 		}
 	}
 
@@ -227,7 +245,7 @@ func evalMetaComponent(props string, env *Environment) Object {
 		tagName = "span"
 	}
 
-	// Build the meta element
+	// Build the val element
 	var result strings.Builder
 	result.WriteString("<")
 	result.WriteString(tagName)
@@ -248,6 +266,17 @@ func evalMetaComponent(props string, env *Environment) Object {
 		result.WriteString(escapeHTMLText(objectToTemplateString(value)))
 	}
 
+	// For tag pairs, add contents after metadata value
+	if !isSelfClosing && len(contents) > 0 {
+		for _, content := range contents {
+			if strContent, ok := content.(*String); ok {
+				result.WriteString(strContent.Value)
+			} else {
+				result.WriteString(content.Inspect())
+			}
+		}
+	}
+
 	// Close tag
 	result.WriteString("</")
 	result.WriteString(tagName)
@@ -256,7 +285,7 @@ func evalMetaComponent(props string, env *Environment) Object {
 	return &String{Value: result.String()}
 }
 
-// evalSelectComponent handles <Select @field="name"/>
+// evalSelectComponent handles <select @field="name"/>
 // Returns a <select> element with options from enum values.
 func evalSelectComponent(props string, env *Environment) Object {
 	// Get field name from @field attribute
@@ -265,8 +294,8 @@ func evalSelectComponent(props string, env *Environment) Object {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0001",
-			Message: "Select component requires @field attribute",
-			Hints:   []string{`Add @field attribute: <Select @field="fieldName"/>`},
+			Message: "select element requires @field attribute",
+			Hints:   []string{`Add @field attribute: <select @field="fieldName"/>`},
 		}
 	}
 
@@ -276,8 +305,8 @@ func evalSelectComponent(props string, env *Environment) Object {
 		return &Error{
 			Class:   ClassValue,
 			Code:    "FORM-0002",
-			Message: "Select component must be inside a <form @record={...}> context",
-			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><Select @field="status"/></form>`},
+			Message: "select element must be inside a <form @record={...}> context",
+			Hints:   []string{`Wrap in a form with @record: <form @record={myRecord}><select @field="status"/></form>`},
 		}
 	}
 

@@ -1409,7 +1409,12 @@ func partsRuntimeScript() string {
 		fetch(url.toString(), fetchOptions)
 			.then(function(response) {
 				if (!response.ok) {
-					throw new Error('HTTP ' + response.status);
+					// Read the error message from response body
+					return response.text().then(function(errorText) {
+						var error = new Error(errorText || 'HTTP ' + response.status);
+						error.status = response.status;
+						throw error;
+					});
 				}
 				return response.text();
 			})

@@ -618,17 +618,17 @@ Override with an explicit type attribute if needed:
 // First is checked if form.role == "admin"
 ```
 
-### The `<Label>` Component
+### The `<label>` Element
 
-`<Label>` renders a label with the field's title from metadata:
+`<label @field>` renders a label with the field's title from metadata:
 
 ```parsley
 // Self-closing form (generates for attribute)
-<Label @field="email"/>
+<label @field="email"/>
 // Renders: <label for="email">Email Address</label>
 
 // With children (wraps content)
-<Label @field="name">" (required)"</Label>
+<label @field="name">" (required)"</label>
 // Renders: <label for="name">Full Name (required)</label>
 ```
 
@@ -639,16 +639,16 @@ If no `title` metadata exists, the field name is title-cased automatically:
 Use `@tag` to change the element type:
 
 ```parsley
-<Label @field="email" @tag="span"/>
+<label @field="email" @tag="span"/>
 // Renders: <span>Email Address</span>
 ```
 
-### The `<Error>` Component
+### The `<error>` Element
 
-`<Error>` conditionally renders validation errors:
+`<error @field>` conditionally renders validation errors:
 
 ```parsley
-<Error @field="email"/>
+<error @field="email"/>
 // When error exists: <span id="email-error" class="error" role="alert">Invalid email</span>
 // When no error: (nothing rendered)
 ```
@@ -658,16 +658,16 @@ The `id` matches `aria-describedby` on the input, connecting them for screen rea
 Use `@tag` to change the element:
 
 ```parsley
-<Error @field="email" @tag="div"/>
-<Error @field="email" @tag="small"/>
+<error @field="email" @tag="div"/>
+<error @field="email" @tag="small"/>
 ```
 
-### The `<Meta>` Component
+### The `<val>` Element
 
-`<Meta>` renders any metadata value:
+`<val @field @key>` renders any metadata value:
 
 ```parsley
-<Meta @field="email" @key="help"/>
+<val @field="email" @key="help"/>
 // Renders: <span>We'll never share your email</span>
 // Or nothing if key doesn't exist
 ```
@@ -675,20 +675,20 @@ Use `@tag` to change the element:
 Use for help text, hints, or custom metadata:
 
 ```parsley
-<Meta @field="email" @key="help" @tag="small"/>
+<val @field="email" @key="help" @tag="small"/>
 // Renders: <small>We'll never share your email</small>
 ```
 
-### The `<Select>` Component
+### The `<select>` Element
 
-`<Select>` auto-generates options for enum fields:
+`<select @field>` auto-generates options for enum fields:
 
 ```parsley
 @schema User {
     status: enum["active", "pending", "inactive"]
 }
 
-<Select @field="status"/>
+<select @field="status"/>
 ```
 
 Renders:
@@ -705,7 +705,7 @@ Renders:
 Custom placeholder:
 
 ```parsley
-<Select @field="status" placeholder="Choose a status..."/>
+<select @field="status" placeholder="Choose a status..."/>
 ```
 
 For complex cases (optgroups, custom labels), build manually:
@@ -747,23 +747,23 @@ export default = fn(props) {
     
     <form @record={form} method="POST" action="save">
         <div class="field">
-            <Label @field="name"/>
+            <label @field="name"/>
             <input @field="name"/>
-            <Error @field="name"/>
-            <Meta @field="name" @key="help" @tag="small"/>
+            <error @field="name"/>
+            <val @field="name" @key="help" @tag="small"/>
         </div>
         
         <div class="field">
-            <Label @field="email"/>
+            <label @field="email"/>
             <input @field="email"/>
-            <Error @field="email"/>
-            <Meta @field="email" @key="help" @tag="small"/>
+            <error @field="email"/>
+            <val @field="email" @key="help" @tag="small"/>
         </div>
         
         <div class="field">
-            <Label @field="role"/>
-            <Select @field="role"/>
-            <Error @field="role"/>
+            <label @field="role"/>
+            <select @field="role"/>
+            <error @field="role"/>
         </div>
         
         <button type="submit">"Save"</button>
@@ -950,17 +950,17 @@ validated.error("name")     // Error message or null
 
 // Build form
 <form @record={validated} method="POST">
-    <Label @field="name"/>
+    <label @field="name"/>
     <input @field="name"/>
-    <Error @field="name"/>
+    <error @field="name"/>
     
-    <Label @field="email"/>
+    <label @field="email"/>
     <input @field="email"/>
-    <Error @field="email"/>
+    <error @field="email"/>
     
-    <Label @field="role"/>
-    <Select @field="role"/>
-    <Error @field="role"/>
+    <label @field="role"/>
+    <select @field="role"/>
+    <error @field="role"/>
     
     <button type="submit">"Save"</button>
 </form>

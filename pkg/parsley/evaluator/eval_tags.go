@@ -638,6 +638,51 @@ func objectToGoValue(obj Object) interface{} {
 
 // evalStandardTagPair evaluates a standard (lowercase) tag pair as HTML string
 func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
+	// Handle <label @field="...">...</label> for form binding (FEAT-091)
+	if node.Name == "label" && strings.Contains(node.Props, "@field") {
+		contentsObj := evalTagContentsAsArray(node.Contents, env)
+		if isError(contentsObj) {
+			return contentsObj
+		}
+		var contents []Object
+		if contentsArray, ok := contentsObj.(*Array); ok {
+			contents = contentsArray.Elements
+		} else {
+			contents = []Object{contentsObj}
+		}
+		return evalLabelComponent(node.Props, contents, false, env)
+	}
+
+	// Handle <error @field="...">...</error> for form binding (FEAT-091)
+	if node.Name == "error" && strings.Contains(node.Props, "@field") {
+		contentsObj := evalTagContentsAsArray(node.Contents, env)
+		if isError(contentsObj) {
+			return contentsObj
+		}
+		var contents []Object
+		if contentsArray, ok := contentsObj.(*Array); ok {
+			contents = contentsArray.Elements
+		} else {
+			contents = []Object{contentsObj}
+		}
+		return evalErrorComponent(node.Props, contents, false, env)
+	}
+
+	// Handle <val @field="..." @key="...">...</val> for form binding (FEAT-091)
+	if node.Name == "val" && strings.Contains(node.Props, "@field") {
+		contentsObj := evalTagContentsAsArray(node.Contents, env)
+		if isError(contentsObj) {
+			return contentsObj
+		}
+		var contents []Object
+		if contentsArray, ok := contentsObj.(*Array); ok {
+			contents = contentsArray.Elements
+		} else {
+			contents = []Object{contentsObj}
+		}
+		return evalValComponent(node.Props, contents, false, env)
+	}
+
 	var result strings.Builder
 
 	result.WriteByte('<')
@@ -1586,6 +1631,26 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 		}
 	}
 
+	// Handle <label @field="..."/> for form binding (FEAT-091)
+	if tagName == "label" && strings.Contains(propsStr, "@field") {
+		return evalLabelComponent(propsStr, nil, true, env)
+	}
+
+	// Handle <select @field="..."/> for form binding (FEAT-091)
+	if tagName == "select" && strings.Contains(propsStr, "@field") {
+		return evalSelectComponent(propsStr, env)
+	}
+
+	// Handle <error @field="..."/> for form binding (FEAT-091)
+	if tagName == "error" && strings.Contains(propsStr, "@field") {
+		return evalErrorComponent(propsStr, nil, true, env)
+	}
+
+	// Handle <val @field="..." @key="..."/> for form binding (FEAT-091)
+	if tagName == "val" && strings.Contains(propsStr, "@field") {
+		return evalValComponent(propsStr, nil, true, env)
+	}
+
 	var result strings.Builder
 	result.WriteByte('<')
 	result.WriteString(tagName)
@@ -2019,11 +2084,13 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	}
 
 	// Special handling for form binding components (FEAT-091)
+	// Note: These uppercase components are deprecated in favor of lowercase versions
+	// <Label @field> -> <label @field>, <Error @field> -> <error @field>, etc.
 	if tagName == "Label" {
 		return evalLabelComponent(propsStr, nil, true, env)
 	}
 	if tagName == "Error" {
-		return evalErrorComponent(propsStr, env)
+		return evalErrorComponent(propsStr, nil, true, env)
 	}
 	if tagName == "Meta" {
 		return evalMetaComponent(propsStr, env)
