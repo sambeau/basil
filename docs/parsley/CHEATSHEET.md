@@ -577,6 +577,12 @@ export let greet = fn(name) { "Hello, {name}!" }
 export PI = 3.14159
 export Logo = <img src="logo.png" alt="Logo"/>
 
+// Computed exports (recalculate on each access)
+export computed timestamp = @now
+export computed users {
+    @DB.query("SELECT * FROM users")
+}
+
 // Import with destructuring (recommended)
 let {greet, PI} = import @./utils
 let {floor, ceil} = import @std/math
@@ -588,6 +594,21 @@ math.floor(3.7)
 // With alias
 import @std/math as M
 M.floor(3.7)
+```
+
+#### ⚠️ Computed Export Pitfall
+```parsley
+// Computed exports ALWAYS recalculate
+export computed users = @DB.query("SELECT * FROM users")
+
+// BAD: This queries the database twice!
+for (user in users) { print(user.name) }
+for (user in users) { print(user.email) }
+
+// GOOD: Cache if you need to iterate multiple times
+let snapshot = users
+for (user in snapshot) { print(user.name) }
+for (user in snapshot) { print(user.email) }
 ```
 
 ---

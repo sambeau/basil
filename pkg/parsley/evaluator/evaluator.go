@@ -4288,6 +4288,28 @@ func Eval(node ast.Node, env *Environment) Object {
 		env.SetExport(node.Name.Value, val)
 		return NULL
 
+	case *ast.ComputedExportStatement:
+		// Create a DynamicAccessor that evaluates the body on each access
+		// Capture the module environment for the body evaluation
+		moduleEnv := env
+		accessor := &DynamicAccessor{
+			Name: node.Name.Value,
+			Resolver: func(accessEnv *Environment) Object {
+				// Create a new environment for evaluation that:
+				// 1. Uses the module's scope for variable lookups
+				// 2. Inherits BasilCtx from the access environment (for @basil/http etc.)
+				evalEnv := NewEnclosedEnvironment(moduleEnv)
+				if accessEnv != nil {
+					evalEnv.BasilCtx = accessEnv.BasilCtx
+					evalEnv.DevLog = accessEnv.DevLog
+					evalEnv.ServerDB = accessEnv.ServerDB
+				}
+				return Eval(node.Body, evalEnv)
+			},
+		}
+		env.SetExport(node.Name.Value, accessor)
+		return NULL
+
 	case *ast.IndexAssignmentStatement:
 		return evalIndexAssignment(node, env)
 
@@ -5383,7 +5405,14 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	dictEnv.Set("this", dict)
 
 	// Evaluate the expression in the dictionary's environment
-	return Eval(expr, dictEnv)
+	val := Eval(expr, dictEnv)
+
+	// Resolve DynamicAccessor to current value (for computed exports)
+	if accessor, ok := val.(*DynamicAccessor); ok {
+		return accessor.Resolve(env)
+	}
+
+	return val
 }
 
 // evalReadStatement evaluates the <== operator to read file content

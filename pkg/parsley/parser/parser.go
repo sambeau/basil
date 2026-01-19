@@ -367,6 +367,8 @@ func (p *Parser) parseStatement() ast.Statement {
 // - export x = 5
 // - export Name (bare export of already-defined binding)
 // - export @schema Name { ... }
+// - export computed Name = expr
+// - export computed Name { body }
 func (p *Parser) parseExportStatement() ast.Statement {
 	exportToken := p.curToken
 
@@ -376,6 +378,11 @@ func (p *Parser) parseExportStatement() ast.Statement {
 	// Check if next is 'let'
 	if p.curTokenIs(lexer.LET) {
 		return p.parseLetStatement(true)
+	}
+
+	// Handle 'export computed Name = expr' or 'export computed Name { body }'
+	if p.curTokenIs(lexer.COMPUTED) {
+		return p.parseComputedExportStatement(exportToken)
 	}
 
 	// Handle 'export @schema Name { ... }'
@@ -433,6 +440,52 @@ func (p *Parser) parseExportStatement() ast.Statement {
 
 	p.peekError(lexer.LET)
 	return nil
+}
+
+// parseComputedExportStatement parses 'export computed Name = expr' or 'export computed Name { body }'
+func (p *Parser) parseComputedExportStatement(exportToken lexer.Token) ast.Statement {
+	// Current token is COMPUTED, move past it
+	p.nextToken()
+
+	// Expect identifier (the export name)
+	if !p.curTokenIs(lexer.IDENT) {
+		p.addStructuredError("PARSE-0001", p.curToken.Line, p.curToken.Column, map[string]any{
+			"Expected": "identifier",
+			"Got":      p.curToken.Literal,
+		})
+		return nil
+	}
+
+	name := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	stmt := &ast.ComputedExportStatement{
+		Token: exportToken,
+		Name:  name,
+	}
+
+	p.nextToken()
+
+	// Check for '=' (expression form) or '{' (block form)
+	if p.curTokenIs(lexer.ASSIGN) {
+		// Expression form: export computed name = expr
+		p.nextToken()
+		stmt.Body = p.parseExpression(LOWEST)
+	} else if p.curTokenIs(lexer.LBRACE) {
+		// Block form: export computed name { body }
+		stmt.Body = p.parseBlockStatement()
+	} else {
+		p.addStructuredError("PARSE-0001", p.curToken.Line, p.curToken.Column, map[string]any{
+			"Expected": "'=' or '{'",
+			"Got":      p.curToken.Literal,
+		})
+		return nil
+	}
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
 }
 
 // parseLetStatement parses let statements

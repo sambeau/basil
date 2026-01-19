@@ -1224,6 +1224,43 @@ export PI = 3.14159
 export double = fn(x) { x * 2 }
 ```
 
+#### Computed Exports
+
+Use `export computed` to create exports that recalculate on each access. This is useful for exposing "live" data like database queries or current timestamps.
+
+**Expression form:**
+```parsley
+export computed timestamp = @now
+export computed count = items.length()
+```
+
+**Block form:**
+```parsley
+export computed activeUsers {
+    let query = "SELECT * FROM users WHERE active = true"
+    @DB.query(query)
+}
+```
+
+Computed exports:
+- Recalculate on **every access** (never cached)
+- Look like regular exports to consumers
+- Cannot accept parameters (use functions for that)
+
+**Consumer caching:**
+```parsley
+import {activeUsers} from @./data.pars
+
+// Each access recalculates
+for (user in activeUsers) { print(user.name) }  // Query 1
+for (user in activeUsers) { print(user.email) } // Query 2
+
+// Cache by assigning to a variable
+let snapshot = activeUsers                       // Query 3
+for (user in snapshot) { print(user.name) }     // Uses snapshot
+for (user in snapshot) { print(user.email) }    // Uses snapshot
+```
+
 #### Module System Overview
 
 Parsley modules are simply `.pars` files. Any file can be imported by another, and only `export`ed values are visible to the importer. Non-exported values remain private.

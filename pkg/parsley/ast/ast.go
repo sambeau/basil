@@ -137,6 +137,31 @@ func (es *ExportNameStatement) String() string {
 	return "export " + es.Name.String() + ";"
 }
 
+// ComputedExportStatement represents 'export computed Name = expr' or 'export computed Name { body }'
+// These exports are recalculated on each access (using DynamicAccessor).
+type ComputedExportStatement struct {
+	Token lexer.Token // the EXPORT token
+	Name  *Identifier // the export name
+	Body  Node        // Expression (for = form) or *BlockStatement (for { } form)
+}
+
+func (ces *ComputedExportStatement) statementNode()       {}
+func (ces *ComputedExportStatement) TokenLiteral() string { return ces.Token.Literal }
+func (ces *ComputedExportStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("export computed ")
+	out.WriteString(ces.Name.String())
+	// Check if body is a BlockStatement to format appropriately
+	if _, isBlock := ces.Body.(*BlockStatement); isBlock {
+		out.WriteString(" ")
+		out.WriteString(ces.Body.String())
+	} else {
+		out.WriteString(" = ")
+		out.WriteString(ces.Body.String())
+	}
+	return out.String()
+}
+
 // IndexAssignmentStatement represents assignment to index/property expressions like 'dict["key"] = value' or 'obj.prop = value'
 type IndexAssignmentStatement struct {
 	Token  lexer.Token // the '=' token
