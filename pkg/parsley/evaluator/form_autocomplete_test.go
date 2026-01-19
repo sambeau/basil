@@ -326,15 +326,15 @@ func TestAutocompletePatternCoverage(t *testing.T) {
 	// Verify all documented patterns are present
 	expectedPatterns := map[string]string{
 		// Names
-		"name":            "name",
-		"fullname":        "name",
-		"firstname":       "given-name",
-		"givenname":       "given-name",
-		"lastname":        "family-name",
-		"familyname":      "family-name",
-		"surname":         "family-name",
-		"middlename":      "additional-name",
-		"nickname":        "nickname",
+		"name":       "name",
+		"fullname":   "name",
+		"firstname":  "given-name",
+		"givenname":  "given-name",
+		"lastname":   "family-name",
+		"familyname": "family-name",
+		"surname":    "family-name",
+		"middlename": "additional-name",
+		"nickname":   "nickname",
 
 		// Account
 		"username":        "username",
@@ -343,43 +343,43 @@ func TestAutocompletePatternCoverage(t *testing.T) {
 		"confirmpassword": "new-password",
 
 		// Contact
-		"email":           "email",
-		"phone":           "tel",
-		"mobile":          "tel",
+		"email":  "email",
+		"phone":  "tel",
+		"mobile": "tel",
 
 		// Address
-		"street":          "street-address",
-		"streetaddress":   "street-address",
-		"address":         "street-address",
-		"addressline2":    "address-line2",
-		"city":            "address-level2",
-		"state":           "address-level1",
-		"province":        "address-level1",
-		"zip":             "postal-code",
-		"zipcode":         "postal-code",
-		"postalcode":      "postal-code",
-		"country":         "country-name",
-		"countrycode":     "country",
+		"street":        "street-address",
+		"streetaddress": "street-address",
+		"address":       "street-address",
+		"addressline2":  "address-line2",
+		"city":          "address-level2",
+		"state":         "address-level1",
+		"province":      "address-level1",
+		"zip":           "postal-code",
+		"zipcode":       "postal-code",
+		"postalcode":    "postal-code",
+		"country":       "country-name",
+		"countrycode":   "country",
 
 		// Organization
-		"organization":    "organization",
-		"company":         "organization",
-		"jobtitle":        "organization-title",
-		"title":           "organization-title",
+		"organization": "organization",
+		"company":      "organization",
+		"jobtitle":     "organization-title",
+		"title":        "organization-title",
 
 		// Credit card
-		"cardnumber":      "cc-number",
-		"creditcard":      "cc-number",
-		"cardname":        "cc-name",
-		"cardexpiry":      "cc-exp",
-		"cvv":             "cc-csc",
-		"cvc":             "cc-csc",
+		"cardnumber": "cc-number",
+		"creditcard": "cc-number",
+		"cardname":   "cc-name",
+		"cardexpiry": "cc-exp",
+		"cvv":        "cc-csc",
+		"cvc":        "cc-csc",
 
 		// Other
-		"birthday":        "bday",
-		"dob":             "bday",
-		"language":        "language",
-		"otp":             "one-time-code",
+		"birthday":         "bday",
+		"dob":              "bday",
+		"language":         "language",
+		"otp":              "one-time-code",
 		"verificationcode": "one-time-code",
 	}
 

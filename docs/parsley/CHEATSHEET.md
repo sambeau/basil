@@ -850,6 +850,13 @@ let form = User({name: "Alice"})
 
 Use `@tag` to change output element: `<error @field="name" @tag="div"/>`
 
+#### Auto-inserted Hidden ID
+When a record has a non-null `id`, `<form @record={...}>` auto-inserts:
+```html
+<input type="hidden" name="id" value="..."/>
+```
+This enables edit forms to identify which record to update.
+
 #### Autocomplete Auto-Derivation
 - **By type**: `email` → `autocomplete="email"`, `phone` → `"tel"`
 - **By field name**: `firstName` → `"given-name"`, `password` → `"current-password"`

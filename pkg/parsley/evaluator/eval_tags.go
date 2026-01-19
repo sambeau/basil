@@ -858,6 +858,18 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	if formRecord != nil {
 		contentsEnv = NewEnclosedEnvironment(env)
 		contentsEnv.FormContext = &FormContext{Record: formRecord}
+
+		// Auto-insert hidden id field if record has a non-null id (FEAT-098)
+		// This enables form submissions to identify the record being updated
+		idValue := formRecord.Get("id", formRecord.Env)
+		if idValue != nil && idValue != NULL {
+			idStr := objectToTemplateString(idValue)
+			if idStr != "" {
+				result.WriteString(`<input type="hidden" name="id" value="`)
+				result.WriteString(escapeAttrValue(idStr))
+				result.WriteString(`"/>`)
+			}
+		}
 	}
 
 	// Evaluate and append contents

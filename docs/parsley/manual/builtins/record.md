@@ -543,6 +543,32 @@ The `@record` attribute establishes form context:
 
 The `@record` attribute itself is removed from the output — it's a compile-time directive.
 
+#### Automatic Hidden ID Field
+
+When a record has a non-null `id` field, Basil automatically inserts a hidden input at the start of the form:
+
+```parsley
+@schema User {
+    id: int(auto)
+    name: string
+}
+let user = User({id: 42, name: "Alice"})
+<form @record={user} method="POST" action="/save">
+    <input @field="name"/>
+</form>
+```
+
+Renders to:
+
+```html
+<form method="POST" action="/save">
+    <input type="hidden" name="id" value="42"/>
+    <input name="name" value="Alice" type="text"/>
+</form>
+```
+
+This enables edit forms to identify which record is being updated. For new records (where `id` is null), no hidden field is inserted.
+
 ### Input Binding with `@field`
 
 The `@field` attribute binds an input to a schema field:

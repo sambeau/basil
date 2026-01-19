@@ -1350,3 +1350,142 @@ func TestFormAutocomplete(t *testing.T) {
 		})
 	}
 }
+
+// TEST-FORM-012: Form @record auto-inserts hidden id field (FEAT-098)
+func TestFormHiddenIdField(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+		excludes []string
+	}{
+		{
+			name: "form with id inserts hidden input",
+			input: `
+				@schema User {
+					id: int(auto)
+					name: string
+				}
+				let user = User({id: 42, name: "Alice"})
+				<form @record={user}>
+					<input @field="name"/>
+				</form>
+			`,
+			contains: []string{
+				`<input type="hidden" name="id" value="42"/>`,
+				`name="name"`,
+			},
+		},
+		{
+			name: "form without id field does not insert hidden input",
+			input: `
+				@schema User {
+					name: string
+				}
+				let user = User({name: "Alice"})
+				<form @record={user}>
+					<input @field="name"/>
+				</form>
+			`,
+			excludes: []string{`type="hidden"`},
+		},
+		{
+			name: "form with null id does not insert hidden input",
+			input: `
+				@schema User {
+					id: int(auto)
+					name: string
+				}
+				let user = User({name: "Alice"})
+				<form @record={user}>
+					<input @field="name"/>
+				</form>
+			`,
+			excludes: []string{`type="hidden"`},
+		},
+		{
+			name: "form with uuid id",
+			input: `
+				@schema Product {
+					id: uuid(auto)
+					name: string
+				}
+				let product = Product({id: "550e8400-e29b-41d4-a716-446655440000", name: "Widget"})
+				<form @record={product}>
+					<input @field="name"/>
+				</form>
+			`,
+			contains: []string{`<input type="hidden" name="id" value="550e8400-e29b-41d4-a716-446655440000"/>`},
+		},
+		{
+			name: "hidden id appears before form contents",
+			input: `
+				@schema User {
+					id: int(auto)
+					name: string
+				}
+				let user = User({id: 99, name: "Bob"})
+				<form @record={user}>
+					<input @field="name"/>
+				</form>
+			`,
+			// Hidden input should come right after opening tag
+			contains: []string{`<form><input type="hidden" name="id" value="99"/>`},
+		},
+		{
+			name: "hidden id escapes special characters",
+			input: `
+				@schema Doc {
+					id: string
+					title: string
+				}
+				let doc = Doc({id: "a&b<c>d\"e", title: "Test"})
+				<form @record={doc}>
+					<input @field="title"/>
+				</form>
+			`,
+			contains: []string{`value="a&amp;b&lt;c&gt;d&quot;e"`},
+		},
+		{
+			name: "form with other attributes and id",
+			input: `
+				@schema User {
+					id: int(auto)
+					name: string
+				}
+				let user = User({id: 1, name: "Test"})
+				<form @record={user} method="post" action="/save">
+					<input @field="name"/>
+				</form>
+			`,
+			contains: []string{
+				`method="post"`,
+				`action="/save"`,
+				`<input type="hidden" name="id" value="1"/>`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := evalFormTest(t, tt.input)
+			if errObj, isErr := evaluated.(*evaluator.Error); isErr {
+				t.Fatalf("unexpected error: %s", errObj.Message)
+			}
+
+			result := evaluated.(*evaluator.String).Value
+
+			for _, expected := range tt.contains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("expected result to contain %q\ngot: %s", expected, result)
+				}
+			}
+
+			for _, excluded := range tt.excludes {
+				if strings.Contains(result, excluded) {
+					t.Errorf("expected result NOT to contain %q\ngot: %s", excluded, result)
+				}
+			}
+		})
+	}
+}
