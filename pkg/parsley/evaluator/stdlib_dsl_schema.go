@@ -344,6 +344,12 @@ func evalDSLSchemaProperty(schema *DSLSchema, key string) Object {
 		if rel, ok := schema.Relations[key]; ok {
 			return &String{Value: rel.TargetSchema}
 		}
+		// Check if it's a method name - provide helpful error
+		for _, m := range dslSchemaMethods {
+			if m == key {
+				return methodAsPropertyError(key, "Schema")
+			}
+		}
 		return NULL
 	}
 }

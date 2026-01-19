@@ -5369,6 +5369,12 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	// Get the expression from the dictionary
 	expr, ok := dict.Pairs[node.Key]
 	if !ok {
+		// Check if it's a dictionary method name - provide helpful error
+		for _, m := range dictionaryMethods {
+			if m == node.Key {
+				return methodAsPropertyError(node.Key, "Dictionary")
+			}
+		}
 		return NULL
 	}
 

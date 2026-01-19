@@ -81,6 +81,17 @@ func unknownMethodError(method, typeName string, availableMethods []string) *Err
 	}
 }
 
+// methodAsPropertyError creates an error when a method is accessed as a property
+func methodAsPropertyError(method, typeName string) *Error {
+	parsleyErr := errors.NewMethodAsProperty(method, typeName)
+	return &Error{
+		Message: parsleyErr.Message,
+		Class:   parsleyErr.Class,
+		Code:    parsleyErr.Code,
+		Hints:   parsleyErr.Hints,
+	}
+}
+
 // buildRenderEnv creates an environment seeded with the provided dictionary's evaluated values.
 // Values are evaluated in the dictionary's own environment, then bound in a new environment that
 // encloses the provided base environment so callers retain outer-scope access.
@@ -2855,6 +2866,12 @@ func evalMoneyProperty(money *Money, key string) Object {
 	case "scale":
 		return &Integer{Value: int64(money.Scale)}
 	default:
+		// Check if it's a method name - provide helpful error
+		for _, m := range moneyMethods {
+			if m == key {
+				return methodAsPropertyError(key, "Money")
+			}
+		}
 		return unknownMethodError(key, "money", append([]string{"currency", "amount", "scale"}, moneyMethods...))
 	}
 }

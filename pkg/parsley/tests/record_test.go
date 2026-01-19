@@ -2622,3 +2622,72 @@ p.amount.scale`,
 		})
 	}
 }
+
+// =============================================================================
+// Method as Property Error Tests
+// =============================================================================
+
+func TestRecordMethodAsPropertyError(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		errorCode string
+		contains  string
+	}{
+		{
+			name: "record.data without parentheses",
+			input: `
+@schema User { name: string }
+let record = User({name: "Alice"})
+record.data`,
+			errorCode: "UNDEF-0008",
+			contains:  "data",
+		},
+		{
+			name: "record.keys without parentheses",
+			input: `
+@schema User { name: string }
+let record = User({name: "Alice"})
+record.keys`,
+			errorCode: "UNDEF-0008",
+			contains:  "keys",
+		},
+		{
+			name: "record.validate without parentheses",
+			input: `
+@schema User { name: string }
+let record = User({name: "Alice"})
+record.validate`,
+			errorCode: "UNDEF-0008",
+			contains:  "validate",
+		},
+		{
+			name: "record.isValid without parentheses",
+			input: `
+@schema User { name: string }
+let record = User({name: "Alice"})
+record.isValid`,
+			errorCode: "UNDEF-0008",
+			contains:  "isValid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := parsley.Eval(tt.input)
+			if result == nil || result.Value == nil {
+				t.Fatal("result is nil")
+			}
+			errObj, ok := result.Value.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected Error, got %T: %s", result.Value, result.Value.Inspect())
+			}
+			if errObj.Code != tt.errorCode {
+				t.Errorf("expected error code %s, got %s: %s", tt.errorCode, errObj.Code, errObj.Message)
+			}
+			if !strings.Contains(errObj.Message, tt.contains) {
+				t.Errorf("expected error to contain %q: %s", tt.contains, errObj.Message)
+			}
+		})
+	}
+}

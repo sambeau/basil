@@ -195,6 +195,7 @@ Not found errors.
 | UNDEF-0004 | `unknown property '{{.Property}}' on {{.Type}}` | Unknown property |
 | UNDEF-0005 | `unknown standard library module: @std/{{.Module}}` | Unknown stdlib module |
 | UNDEF-0006 | `module does not export '{{.Name}}'` | Missing export |
+| UNDEF-0008 | `'{{.Method}}' is a method on {{.Type}}, not a property` | Method accessed as property |
 
 ---
 

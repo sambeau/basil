@@ -497,6 +497,13 @@ func evalRecordProperty(record *Record, key string, env *Environment) Object {
 		return Eval(expr, evalEnv)
 	}
 
+	// Check if it's a method name - provide helpful error
+	for _, m := range recordMethods {
+		if m == key {
+			return methodAsPropertyError(key, "Record")
+		}
+	}
+
 	// Not a data field - return null (per spec: direct property access for data only)
 	return NULL
 }

@@ -530,3 +530,65 @@ func TestDictionaryEagerEvaluation(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Method as Property Error Tests
+// =============================================================================
+
+func TestDictionaryMethodAsPropertyError(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		errorCode string
+		contains  string
+	}{
+		{
+			name:      "dict.keys without parentheses",
+			input:     `let d = {a: 1, b: 2}; d.keys`,
+			errorCode: "UNDEF-0008",
+			contains:  "keys",
+		},
+		{
+			name:      "dict.values without parentheses",
+			input:     `let d = {a: 1}; d.values`,
+			errorCode: "UNDEF-0008",
+			contains:  "values",
+		},
+		{
+			name:      "dict.entries without parentheses",
+			input:     `let d = {a: 1}; d.entries`,
+			errorCode: "UNDEF-0008",
+			contains:  "entries",
+		},
+		{
+			name:      "dict with keys property overrides method check",
+			input:     `let d = {keys: [1, 2, 3]}; d.keys`,
+			errorCode: "", // No error - property takes precedence
+			contains:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalInput(tt.input)
+			if tt.errorCode == "" {
+				// Expect success
+				if result.Type() == evaluator.ERROR_OBJ {
+					t.Errorf("unexpected error: %s", result.Inspect())
+				}
+			} else {
+				// Expect error
+				errObj, ok := result.(*evaluator.Error)
+				if !ok {
+					t.Fatalf("expected Error, got %T: %s", result, result.Inspect())
+				}
+				if errObj.Code != tt.errorCode {
+					t.Errorf("expected error code %s, got %s: %s", tt.errorCode, errObj.Code, errObj.Message)
+				}
+				if !strings.Contains(errObj.Message, tt.contains) {
+					t.Errorf("expected error to contain %q: %s", tt.contains, errObj.Message)
+				}
+			}
+		})
+	}
+}

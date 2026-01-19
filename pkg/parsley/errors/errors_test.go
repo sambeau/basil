@@ -476,6 +476,23 @@ func TestNewUndefinedMethod(t *testing.T) {
 	}
 }
 
+func TestNewMethodAsProperty(t *testing.T) {
+	err := NewMethodAsProperty("data", "Record")
+	if err.Code != "UNDEF-0008" {
+		t.Errorf("Code = %q, want UNDEF-0008", err.Code)
+	}
+	if !strings.Contains(err.Message, "data") {
+		t.Errorf("Message should contain 'data': %s", err.Message)
+	}
+	// Type names are normalized to lowercase
+	if !strings.Contains(err.Message, "record") {
+		t.Errorf("Message should contain 'record' (lowercase): %s", err.Message)
+	}
+	if len(err.Hints) == 0 || !strings.Contains(err.Hints[0], "data()") {
+		t.Errorf("Should have hint suggesting parentheses: %v", err.Hints)
+	}
+}
+
 func TestParsleyKeywords(t *testing.T) {
 	// Verify we have all the expected keywords
 	expected := map[string]bool{

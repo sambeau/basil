@@ -2599,18 +2599,21 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 	case "groupBy":
 		return tableGroupBy(t, args, env)
 	default:
-		return unknownMethodError(method, "Table", []string{
-			"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
-			"toHTML", "toCSV", "toMarkdown", "toBox", "toJSON", "toArray", "copy",
-			"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
-			"rowCount", "columnCount", "column",
-			"as", "validate", "isValid", "errors", "validRows", "invalidRows",
-			"map", "find", "any", "all", "unique", "renameCol", "dropCol", "groupBy",
-		})
+		return unknownMethodError(method, "Table", tableMethods)
 	}
 }
 
 // EvalTableProperty handles property access on Table objects
+// tableMethods lists all methods available on Table objects
+var tableMethods = []string{
+	"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
+	"toHTML", "toCSV", "toMarkdown", "toBox", "toJSON", "toArray", "copy",
+	"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
+	"rowCount", "columnCount", "column",
+	"as", "validate", "isValid", "errors", "validRows", "invalidRows",
+	"map", "find", "any", "all", "unique", "renameCol", "dropCol", "groupBy",
+}
+
 func EvalTableProperty(t *Table, property string) Object {
 	switch property {
 	case "rows":
@@ -2627,6 +2630,12 @@ func EvalTableProperty(t *Table, property string) Object {
 		}
 		return NULL
 	default:
+		// Check if it's a method name - provide helpful error
+		for _, m := range tableMethods {
+			if m == property {
+				return methodAsPropertyError(property, "Table")
+			}
+		}
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}
 }

@@ -386,6 +386,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassUndefined,
 		Template: "Unknown basil module: @basil/{{.Module}}",
 	},
+	"UNDEF-0008": {
+		Class:    ClassUndefined,
+		Template: "'{{.Method}}' is a method on {{.Type}}, not a property",
+		// Hint about using parentheses added dynamically
+	},
 	"UNDEF-0010": {
 		Class:    ClassUndefined,
 		Template: "@params is not available at module scope",
@@ -1506,6 +1511,18 @@ func NewUndefinedMethod(method, typeName string, availableMethods []string) *Par
 		err.Hints = append(err.Hints, "Did you mean `"+suggestion+"`?")
 	}
 
+	return err
+}
+
+// NewMethodAsProperty creates an error for accessing a method as if it were a property.
+// This catches mistakes like `record.data` when the user meant `record.data()`.
+func NewMethodAsProperty(method, typeName string) *ParsleyError {
+	data := map[string]any{
+		"Method": method,
+		"Type":   typeName,
+	}
+	err := New("UNDEF-0008", data)
+	err.Hints = append(err.Hints, "Methods require parentheses: `"+method+"()`")
 	return err
 }
 
