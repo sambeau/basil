@@ -842,13 +842,19 @@ let form = User({name: "Alice"})
 #### Form Binding Elements
 | Element | Purpose |
 |---------|---------|
-| `<input @field="x"/>` | Bound input (auto-sets name, value, type, constraints) |
+| `<input @field="x"/>` | Bound input (auto-sets name, value, type, constraints, autocomplete) |
 | `<label @field="x"/>` | Label from schema title metadata |
 | `<error @field="x"/>` | Validation error (renders only if error exists) |
 | `<select @field="x"/>` | Dropdown for enum fields |
 | `<val @field="x" @key="help"/>` | Schema metadata value (help text, hints) |
 
 Use `@tag` to change output element: `<error @field="name" @tag="div"/>`
+
+#### Autocomplete Auto-Derivation
+- **By type**: `email` → `autocomplete="email"`, `phone` → `"tel"`
+- **By field name**: `firstName` → `"given-name"`, `password` → `"current-password"`
+- **Override**: `street: string | {autocomplete: "shipping street-address"}`
+- **Disable**: `captcha: string | {autocomplete: "off"}`
 
 ### ID Module (`@std/id`)
 ```parsley

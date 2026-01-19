@@ -361,6 +361,13 @@ func evalSelectComponent(props string, env *Environment) Object {
 		result.WriteString(` aria-invalid="false"`)
 	}
 
+	// Add autocomplete attribute (FEAT-097)
+	if field != nil {
+		if autocomplete := getAutocomplete(fieldName, field.Type, field.Metadata); autocomplete != "" {
+			result.WriteString(fmt.Sprintf(` autocomplete="%s"`, escapeAttrValue(autocomplete)))
+		}
+	}
+
 	// Add any additional props (excluding @field, @tag, @key, placeholder)
 	cleanedProps := removeComponentAttributes(props)
 	// Also remove placeholder

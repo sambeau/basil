@@ -382,6 +382,11 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 		}
 	}
 
+	// Add autocomplete attribute (FEAT-097)
+	if autocomplete := getAutocomplete(fieldName, field.Type, field.Metadata); autocomplete != "" {
+		attrs.WriteString(fmt.Sprintf(` autocomplete="%s"`, escapeAttrValue(autocomplete)))
+	}
+
 	// Add ARIA attributes for validation state
 	hasError := record.Errors != nil && record.Errors[fieldName] != nil
 	if hasError {

@@ -3642,7 +3642,15 @@ The `@field` attribute binds an input to a schema field:
 </form>
 ```
 
-This automatically sets: `name`, `value`, `type` (from schema), constraint attributes (`required`, `minlength`, etc.), and accessibility attributes (`aria-invalid`, `aria-describedby`).
+This automatically sets: `name`, `value`, `type` (from schema), constraint attributes (`required`, `minlength`, etc.), accessibility attributes (`aria-invalid`, `aria-describedby`), and `autocomplete` (derived from type/field name or metadata).
+
+#### Autocomplete Derivation
+
+The `autocomplete` attribute is automatically derived:
+
+- **By type**: `email` → `"email"`, `phone` → `"tel"`, `url` → `"url"`
+- **By field name**: `firstName` → `"given-name"`, `password` → `"current-password"`, etc.
+- **By metadata**: Override with `| {autocomplete: "shipping street-address"}`
 
 #### Form Binding Elements
 

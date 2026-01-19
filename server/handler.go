@@ -15,14 +15,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sambeau/basil/server/auth"
-	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	perrors "github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
+	"github.com/sambeau/basil/server/auth"
+	"github.com/sambeau/basil/server/config"
 )
 
 // scriptCache caches compiled Parsley ASTs for production performance.

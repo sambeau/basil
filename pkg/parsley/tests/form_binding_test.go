@@ -1159,3 +1159,194 @@ func TestFormPatternAttribute(t *testing.T) {
 		})
 	}
 }
+
+// TEST-FORM-015: Autocomplete attribute derivation (FEAT-097)
+func TestFormAutocomplete(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+		excludes []string
+	}{
+		{
+			name: "email type derives autocomplete email",
+			input: `
+				@schema User {
+					email: email
+				}
+				let user = User({email: ""})
+				<form @record={user}>
+					<input @field="email"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="email"`},
+		},
+		{
+			name: "firstName field name derives autocomplete",
+			input: `
+				@schema User {
+					firstName: string
+				}
+				let user = User({firstName: ""})
+				<form @record={user}>
+					<input @field="firstName"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="given-name"`},
+		},
+		{
+			name: "password field derives current-password",
+			input: `
+				@schema Login {
+					password: string
+				}
+				let login = Login({password: ""})
+				<form @record={login}>
+					<input @field="password" type="password"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="current-password"`},
+		},
+		{
+			name: "newPassword field derives new-password",
+			input: `
+				@schema Registration {
+					newPassword: string
+				}
+				let reg = Registration({newPassword: ""})
+				<form @record={reg}>
+					<input @field="newPassword" type="password"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="new-password"`},
+		},
+		{
+			name: "explicit metadata override",
+			input: `
+				@schema Shipping {
+					street: string | {autocomplete: "shipping street-address"}
+				}
+				let shipping = Shipping({street: ""})
+				<form @record={shipping}>
+					<input @field="street"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="shipping street-address"`},
+		},
+		{
+			name: "autocomplete off via metadata",
+			input: `
+				@schema Form {
+					captcha: string | {autocomplete: "off"}
+				}
+				let form = Form({captcha: ""})
+				<form @record={form}>
+					<input @field="captcha"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="off"`},
+		},
+		{
+			name: "unknown field has no autocomplete",
+			input: `
+				@schema Form {
+					favoriteColor: string
+				}
+				let form = Form({favoriteColor: ""})
+				<form @record={form}>
+					<input @field="favoriteColor"/>
+				</form>
+			`,
+			excludes: []string{`autocomplete=`},
+		},
+		{
+			name: "phone type derives tel",
+			input: `
+				@schema Contact {
+					phone: phone
+				}
+				let contact = Contact({phone: ""})
+				<form @record={contact}>
+					<input @field="phone"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="tel"`},
+		},
+		{
+			name: "address fields derive correct values",
+			input: `
+				@schema Address {
+					street: string
+					city: string
+					state: string
+					zipCode: string
+					country: string
+				}
+				let addr = Address({street: "", city: "", state: "", zipCode: "", country: ""})
+				<form @record={addr}>
+					<input @field="street"/>
+					<input @field="city"/>
+					<input @field="state"/>
+					<input @field="zipCode"/>
+					<input @field="country"/>
+				</form>
+			`,
+			contains: []string{
+				`autocomplete="street-address"`,
+				`autocomplete="address-level2"`,
+				`autocomplete="address-level1"`,
+				`autocomplete="postal-code"`,
+				`autocomplete="country-name"`,
+			},
+		},
+		{
+			name: "select with autocomplete",
+			input: `
+				@schema Checkout {
+					country: string | {autocomplete: "country-name"} = "US" | "CA" | "UK"
+				}
+				let checkout = Checkout({country: "US"})
+				<form @record={checkout}>
+					<select @field="country"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="country-name"`},
+		},
+		{
+			name: "textarea with autocomplete",
+			input: `
+				@schema Profile {
+					address: string | {autocomplete: "street-address"}
+				}
+				let profile = Profile({address: ""})
+				<form @record={profile}>
+					<textarea @field="address"/>
+				</form>
+			`,
+			contains: []string{`autocomplete="street-address"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := evalFormTest(t, tt.input)
+			if errObj, isErr := evaluated.(*evaluator.Error); isErr {
+				t.Fatalf("unexpected error: %s", errObj.Message)
+			}
+
+			result := evaluated.(*evaluator.String).Value
+
+			for _, expected := range tt.contains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("expected result to contain %q\ngot: %s", expected, result)
+				}
+			}
+
+			for _, excluded := range tt.excludes {
+				if strings.Contains(result, excluded) {
+					t.Errorf("expected result NOT to contain %q\ngot: %s", excluded, result)
+				}
+			}
+		})
+	}
+}

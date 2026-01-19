@@ -1590,6 +1590,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 						}
 					}
 				}
+				// Add autocomplete attribute (FEAT-097)
+				if autocomplete := getAutocomplete(fieldName, field.Type, field.Metadata); autocomplete != "" {
+					result.WriteString(fmt.Sprintf(` autocomplete="%s"`, escapeAttrValue(autocomplete)))
+				}
 			}
 
 			// Add ARIA validation state

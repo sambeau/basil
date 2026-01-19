@@ -731,6 +731,89 @@ Form binding automatically adds ARIA attributes for screen readers:
 
 **Note:** `aria-invalid="false"` is explicitly set (not omitted) so CSS selectors like `[aria-invalid="true"]` and `[aria-invalid="false"]` can style valid/invalid states.
 
+### Autocomplete
+
+Form binding automatically derives `autocomplete` attributes to enable browser autofill. Values are derived based on:
+
+1. **Explicit metadata** — Always wins
+2. **Field name patterns** — Common naming conventions (case-insensitive)
+3. **Schema type** — Type-based defaults
+
+#### Type-Based Autocomplete
+
+| Schema Type | Autocomplete Value |
+|-------------|-------------------|
+| `email` | `"email"` |
+| `phone`, `tel` | `"tel"` |
+| `url` | `"url"` |
+
+#### Field Name Patterns
+
+Common field names are automatically mapped:
+
+| Field Name | Autocomplete Value |
+|------------|-------------------|
+| `firstName`, `givenName` | `"given-name"` |
+| `lastName`, `familyName`, `surname` | `"family-name"` |
+| `username` | `"username"` |
+| `password` | `"current-password"` |
+| `newPassword`, `confirmPassword` | `"new-password"` |
+| `street`, `address` | `"street-address"` |
+| `city` | `"address-level2"` |
+| `state`, `province` | `"address-level1"` |
+| `zip`, `zipCode`, `postalCode` | `"postal-code"` |
+| `country` | `"country-name"` |
+| `organization`, `company` | `"organization"` |
+| `cardNumber` | `"cc-number"` |
+| `birthday`, `dob` | `"bday"` |
+
+#### Explicit Override
+
+Use the `autocomplete` metadata key to override or disable:
+
+```parsley
+@schema Checkout {
+    // Auto-derived from type: autocomplete="email"
+    email: email
+    
+    // Explicit shipping context
+    shippingStreet: string | {autocomplete: "shipping street-address"}
+    shippingCity: string | {autocomplete: "shipping address-level2"}
+    
+    // Disable autocomplete
+    captcha: string | {autocomplete: "off"}
+}
+```
+
+#### Examples
+
+**Login form** — auto-derived:
+
+```parsley
+@schema Login {
+    email: email       // autocomplete="email"
+    password: string   // autocomplete="current-password"
+}
+```
+
+**Registration form** — explicit for new password:
+
+```parsley
+@schema Registration {
+    email: email                                    // autocomplete="email"
+    password: string | {autocomplete: "new-password"}
+}
+```
+
+**Checkout form** — shipping/billing sections:
+
+```parsley
+@schema Checkout {
+    shippingStreet: string | {autocomplete: "shipping street-address"}
+    billingStreet: string | {autocomplete: "billing street-address"}
+}
+```
+
 ### Complete Form Example
 
 Here's a complete form with validation:

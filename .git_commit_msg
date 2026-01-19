@@ -1,0 +1,29 @@
+feat(form): add autocomplete attribute auto-derivation (FEAT-097)
+
+Add HTML autocomplete attribute support to form input binding. Values are
+automatically derived from schema types and field names, with explicit
+metadata override available.
+
+Auto-derivation priority:
+1. Explicit metadata: | {autocomplete: "shipping street-address"}
+2. Field name patterns: firstName -> given-name, password -> current-password
+3. Schema type: email -> email, phone -> tel, url -> url
+4. No match: no attribute added (browser decides)
+
+Implementation:
+- New form_autocomplete.go with 60+ field name patterns
+- buildInputAttributes() adds autocomplete for <input @field>
+- evalSelectComponent() adds autocomplete for <select @field>
+- textarea @field adds autocomplete attribute
+
+Testing:
+- Unit tests for getAutocomplete() function
+- Integration tests for input, select, textarea elements
+- Pattern coverage tests
+
+Documentation:
+- record.md: New Autocomplete section in Form Binding
+- reference.md: Updated Input Binding section
+- CHEATSHEET.md: Autocomplete derivation quick reference
+
+Refs: FEAT-097
