@@ -289,6 +289,16 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	// Import the Part module
 	partModule := importModule(pathStr, env)
 	if isError(partModule) {
+		// Enrich error with position information from the Part tag
+		if err, ok := partModule.(*Error); ok {
+			if err.Line == 0 && err.Column == 0 {
+				err.Line = token.Line
+				err.Column = token.Column
+				if err.File == "" && env != nil && env.Filename != "" {
+					err.File = env.Filename
+				}
+			}
+		}
 		return partModule
 	}
 

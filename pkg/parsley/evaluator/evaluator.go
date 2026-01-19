@@ -4547,7 +4547,11 @@ func Eval(node ast.Node, env *Environment) Object {
 			if len(args) == 1 && isError(args[0]) {
 				return args[0]
 			}
-			return evalImport(args, env)
+			result := evalImport(args, env)
+			if isError(result) {
+				return withPosition(result, node.Token, env)
+			}
+			return result
 		}
 
 		// Check if this is a call to log (needs env for Logger)

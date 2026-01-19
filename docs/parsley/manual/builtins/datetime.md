@@ -65,8 +65,8 @@ Time-only values (uses current UTC date internally):
 ```parsley
 @now            // Current datetime
 @today          // Current date (synonym for @dateNow)
-@dateNow        // Current date only
-@timeNow        // Current time only
+@dateNow        // Current date only (synonym for @now.date)
+@timeNow        // Current time only (synonym for @now.time)
 ```
 
 ### Interpolated Datetime Templates

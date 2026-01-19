@@ -503,6 +503,7 @@ Render the dictionary as an ASCII box:
 ```
 
 **Result:**
+
 ```
 ┌───────┬───────┐
 │ name  │ Alice │
@@ -517,6 +518,7 @@ Options:
 ```
 
 **Result:**
+
 ```
 ╭───────────────╮
 │     User      │
@@ -567,6 +569,7 @@ Convert the dictionary to a Markdown table:
 ```
 
 **Result:**
+
 ```
 | Key | Value |
 |-----|-------|

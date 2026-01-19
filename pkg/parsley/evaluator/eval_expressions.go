@@ -217,7 +217,8 @@ func evalImportExpression(node *ast.ImportExpression, env *Environment) Object {
 	// Load the module using the shared import logic
 	module := importModule(pathStr, env)
 	if isError(module) {
-		return module
+		// Enrich error with position information from the import statement
+		return withPosition(module, node.Token, env)
 	}
 
 	// NOTE: Auto-binding to BindName is NOT done here.

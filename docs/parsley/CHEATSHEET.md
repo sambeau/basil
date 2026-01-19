@@ -12,8 +12,8 @@ Quick reference for beginners and AI agents developing Parsley. Focus on key dif
 console.log("hello")   // No console object exists
 
 // ✅ CORRECT - Multiple options exist
-print("hello")         // Print without newline (returns PrintValue)
-println("hello")       // Print with newline
+"hello"         // Print without newline
+"hello\n"       // Print with newline
 log("hello")           // Log to stdout immediately
 ```
 
