@@ -3136,21 +3136,40 @@ func evalTransactionExpression(node *ast.TransactionExpression, env *Environment
 			return result
 		}
 
-		// Check for return statements
-		if returnVal, ok := result.(*ReturnValue); ok {
-			// Commit before returning
-			if commitErr := tx.Commit(); commitErr != nil {
+		// Check for control flow signals - commit and propagate
+		if result != nil {
+			rt := result.Type()
+			// Return statements
+			if returnVal, ok := result.(*ReturnValue); ok {
+				// Commit before returning
+				if commitErr := tx.Commit(); commitErr != nil {
+					dbConn.Tx = nil
+					dbConn.InTransaction = false
+					return &Error{
+						Message: fmt.Sprintf("transaction commit failed: %s", commitErr.Error()),
+						Class:   ClassDatabase,
+						Code:    "DB-0015",
+					}
+				}
 				dbConn.Tx = nil
 				dbConn.InTransaction = false
-				return &Error{
-					Message: fmt.Sprintf("transaction commit failed: %s", commitErr.Error()),
-					Class:   ClassDatabase,
-					Code:    "DB-0015",
-				}
+				return returnVal.Value
 			}
-			dbConn.Tx = nil
-			dbConn.InTransaction = false
-			return returnVal.Value
+			// CheckExit, StopSignal, SkipSignal - commit and propagate the signal
+			if rt == CHECK_EXIT_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+				if commitErr := tx.Commit(); commitErr != nil {
+					dbConn.Tx = nil
+					dbConn.InTransaction = false
+					return &Error{
+						Message: fmt.Sprintf("transaction commit failed: %s", commitErr.Error()),
+						Class:   ClassDatabase,
+						Code:    "DB-0015",
+					}
+				}
+				dbConn.Tx = nil
+				dbConn.InTransaction = false
+				return result
+			}
 		}
 
 		lastResult = result

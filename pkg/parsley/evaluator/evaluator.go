@@ -4357,6 +4357,12 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
+		// Bubble up control flow signals
+		if val != nil {
+			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+				return val
+			}
+		}
 		return &ReturnValue{Value: val}
 
 	case *ast.CheckStatement:
