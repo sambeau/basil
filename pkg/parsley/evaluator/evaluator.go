@@ -4172,6 +4172,12 @@ func evalStatement(stmt ast.Statement, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
+		// Bubble up control flow signals
+		if val != nil {
+			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+				return val
+			}
+		}
 		return &ReturnValue{Value: val}
 	case *ast.CheckStatement:
 		return evalCheckStatement(stmt, env)
@@ -4221,6 +4227,12 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
+		// Bubble up control flow signals (check exit should propagate, not be stored)
+		if val != nil {
+			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == RETURN_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+				return val
+			}
+		}
 
 		// End any active table chain when storing
 		val = endTableChain(val)
@@ -4251,6 +4263,12 @@ func Eval(node ast.Node, env *Environment) Object {
 		val := Eval(node.Value, env)
 		if isError(val) {
 			return val
+		}
+		// Bubble up control flow signals (check exit should propagate, not be stored)
+		if val != nil {
+			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == RETURN_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+				return val
+			}
 		}
 
 		// End any active table chain when storing

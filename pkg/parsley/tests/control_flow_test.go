@@ -383,3 +383,49 @@ func TestBracelessStopSkip(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckExitPropagation tests that CheckExit signals propagate correctly
+// and don't get stored as variable values (regression test for wrong line number bug)
+func TestCheckExitPropagation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "check exit propagates through let",
+			input:    `let test = fn() { let result = if(true) { check false else "early"; "late" }; result }; test()`,
+			expected: "early",
+		},
+		{
+			name:     "check exit propagates through assignment",
+			input:    `let test = fn() { let result = ""; result = if(true) { check false else "early"; "late" }; result }; test()`,
+			expected: "early",
+		},
+		{
+			name:     "check exit propagates through nested blocks",
+			input:    `let test = fn() { let x = if(true) { let y = if(true) { check false else "inner"; "never" }; y }; x }; test()`,
+			expected: "inner",
+		},
+		{
+			name:     "check exit propagates through return",
+			input:    `let test = fn() { return if(true) { check false else "returned"; "not returned" } }; test()`,
+			expected: "returned",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalControlFlow(tt.input)
+			if result == nil {
+				t.Fatalf("result is nil")
+			}
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("got error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
