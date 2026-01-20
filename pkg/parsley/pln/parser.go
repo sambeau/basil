@@ -373,12 +373,20 @@ func (p *Parser) parseRecord() evaluator.Object {
 	}
 
 	if schema == nil {
-		// Return a dict with __schema field if schema not found
-		dataDict.Pairs["__schema"] = &ast.ObjectLiteralExpression{
-			Obj: &evaluator.String{Value: schemaName},
+		// Create a minimal schema stub with the schema name
+		// This allows Records to survive round-trips even without full schema definition
+		// The data fields are inferred from the parsed dictionary
+		schema = &evaluator.DSLSchema{
+			Name:   schemaName,
+			Fields: make(map[string]*evaluator.DSLSchemaField),
 		}
-		dataDict.KeyOrder = append(dataDict.KeyOrder, "__schema")
-		return dataDict
+		// Infer fields from the data
+		for key := range dataDict.Pairs {
+			schema.Fields[key] = &evaluator.DSLSchemaField{
+				Name: key,
+				Type: "any", // Unknown type, but preserves the field
+			}
+		}
 	}
 
 	// Create a Record

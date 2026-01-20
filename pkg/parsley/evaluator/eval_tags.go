@@ -457,7 +457,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 
 	// Build data attributes for JavaScript runtime
 	// Encode props as JSON for the data-part-props attribute
-	propsJSON := encodePropsToJSON(viewPropsDict)
+	propsJSON := EncodePropsToJSON(viewPropsDict)
 
 	// Resolve the absolute path for the Part file
 	absPath, err := resolveModulePath(pathStr, env.Filename, env.RootPath)
@@ -579,15 +579,16 @@ func htmlEscape(s string) string {
 	return s
 }
 
-// encodePropsToJSON encodes a props dictionary to JSON for data-part-props attribute.
+// EncodePropsToJSON encodes a props dictionary to JSON for data-part-props attribute.
 // Complex types (Records, datetimes, paths, URLs) are serialized to PLN and HMAC-signed.
-func encodePropsToJSON(props *Dictionary) string {
+// Exported for testing.
+func EncodePropsToJSON(props *Dictionary) string {
 	// Build a map of evaluated prop values
 	propsMap := make(map[string]interface{})
 	for key, expr := range props.Pairs {
 		// Evaluate the expression
 		val := Eval(expr, props.Env)
-		
+
 		// Check if this value needs PLN serialization
 		if NeedsPLNSerialization(val) {
 			plnStr, err := serializeToPLNForProps(val, props.Env)

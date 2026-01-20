@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 )
 
@@ -150,34 +149,30 @@ func TestSchemaResolution(t *testing.T) {
 	}
 }
 
-func TestUnknownSchemaBecomesDict(t *testing.T) {
-	// Without a resolver, records become dicts with __schema
+func TestUnknownSchemaBecomesRecord(t *testing.T) {
+	// Without a resolver, records still become Records with inferred schema
+	// This allows Records to survive round-trips even without full schema definitions
 	obj, err := Deserialize(`@UnknownType({x: 1})`, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	dict, ok := obj.(*evaluator.Dictionary)
+	record, ok := obj.(*evaluator.Record)
 	if !ok {
-		t.Fatalf("expected Dictionary for unknown schema, got %T", obj)
+		t.Fatalf("expected Record for unknown schema, got %T", obj)
 	}
 
-	// Check for __schema field
-	schemaExpr, ok := dict.Pairs["__schema"]
-	if !ok {
-		t.Fatal("expected __schema field in dict")
+	// Check schema was inferred
+	if record.Schema == nil {
+		t.Fatal("expected schema to be set")
+	}
+	if record.Schema.Name != "UnknownType" {
+		t.Errorf("expected schema name 'UnknownType', got %q", record.Schema.Name)
 	}
 
-	if ole, ok := schemaExpr.(*ast.ObjectLiteralExpression); ok {
-		if strObj, ok := ole.Obj.(*evaluator.String); ok {
-			if strObj.Value != "UnknownType" {
-				t.Errorf("expected __schema to be 'UnknownType', got %q", strObj.Value)
-			}
-		} else {
-			t.Fatalf("expected String in ObjectLiteralExpression, got %T", ole.Obj)
-		}
-	} else {
-		t.Fatalf("expected ObjectLiteralExpression, got %T", schemaExpr)
+	// Check data field was preserved
+	if _, hasX := record.Data["x"]; !hasX {
+		t.Error("expected 'x' field in record data")
 	}
 }
 

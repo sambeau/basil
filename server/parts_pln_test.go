@@ -9,6 +9,8 @@ import (
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // testServer creates a Server suitable for testing with stderr set
@@ -149,7 +151,7 @@ func TestParsePartPropsPLN(t *testing.T) {
 	// JSON-encode the PLN marker
 	jsonMarker := `{"__pln":"` + signedPLN + `"}`
 	jsonValue := url.QueryEscape(jsonMarker)
-	
+
 	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
 
 	env := evaluator.NewEnvironment()
@@ -253,9 +255,9 @@ func TestParsePartPropsPost(t *testing.T) {
 
 func TestJSONToObject(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    interface{}
-		checkFn  func(evaluator.Object) bool
+		name    string
+		input   interface{}
+		checkFn func(evaluator.Object) bool
 	}{
 		{
 			"null",
@@ -396,5 +398,94 @@ func TestNeedsPLNSerialization(t *testing.T) {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
 		})
+	}
+}
+
+// TestParsePartPropsNestedDict tests that nested dictionaries are properly
+// deserialized and can be accessed with dot notation
+func TestParsePartPropsNestedDict(t *testing.T) {
+	h := &parsleyHandler{
+		server: testServer(),
+	}
+
+	// Simulate what JavaScript sends: a nested object JSON-stringified
+	jsonValue := url.QueryEscape(`{"Firstname":"John","Surname":"Smith"}`)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	env := evaluator.NewEnvironment()
+
+	props, err := h.parsePartProps(req, env)
+	if err != nil {
+		t.Fatalf("parsePartProps failed: %v", err)
+	}
+
+	// Check that person is a dictionary
+	personExpr := props.Pairs["person"]
+	if personExpr == nil {
+		t.Fatal("person prop not found")
+	}
+
+	personObj := evaluator.Eval(personExpr, env)
+	t.Logf("personObj type: %T", personObj)
+
+	personDict, ok := personObj.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected Dictionary for person, got %T: %v", personObj, personObj)
+	}
+
+	// Check that we can access nested properties
+	firstnameExpr := personDict.Pairs["Firstname"]
+	if firstnameExpr == nil {
+		t.Fatal("Firstname not found in person dict")
+	}
+
+	firstnameObj := evaluator.Eval(firstnameExpr, personDict.Env)
+	if strObj, ok := firstnameObj.(*evaluator.String); ok {
+		if strObj.Value != "John" {
+			t.Errorf("expected Firstname='John', got %q", strObj.Value)
+		}
+	} else {
+		t.Errorf("expected String for Firstname, got %T", firstnameObj)
+	}
+}
+
+// TestParsePartPropsNestedDictDotNotation tests full evaluation with dot notation
+func TestParsePartPropsNestedDictDotNotation(t *testing.T) {
+	h := &parsleyHandler{
+		server: testServer(),
+	}
+
+	// Simulate what JavaScript sends
+	jsonValue := url.QueryEscape(`{"Firstname":"John","Surname":"Smith"}`)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	env := evaluator.NewEnvironment()
+
+	props, err := h.parsePartProps(req, env)
+	if err != nil {
+		t.Fatalf("parsePartProps failed: %v", err)
+	}
+
+	// Set props in environment so we can use it in eval
+	env.Set("props", props)
+
+	// Try to evaluate props.person.Firstname using Parsley
+	code := `props.person.Firstname`
+	l := lexer.New(code)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse error: %v", p.Errors())
+	}
+
+	result := evaluator.Eval(program, env)
+	if errObj, ok := result.(*evaluator.Error); ok {
+		t.Fatalf("eval error: %s", errObj.Message)
+	}
+
+	if strObj, ok := result.(*evaluator.String); ok {
+		if strObj.Value != "John" {
+			t.Errorf("expected 'John', got %q", strObj.Value)
+		}
+	} else {
+		t.Errorf("expected String, got %T: %v", result, result)
 	}
 }

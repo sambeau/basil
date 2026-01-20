@@ -235,20 +235,17 @@ func TestParseRecordWithoutSchema(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Without a schema resolver, should return a dict with __schema
-	dict, ok := obj.(*evaluator.Dictionary)
+	// Without a schema resolver, should still return a Record with an inferred schema
+	record, ok := obj.(*evaluator.Record)
 	if !ok {
-		t.Fatalf("expected Dictionary, got %T", obj)
+		t.Fatalf("expected Record, got %T", obj)
 	}
 
-	schemaExpr, ok := dict.Pairs["__schema"]
-	if !ok {
-		t.Fatal("missing __schema key")
+	if record.Schema == nil {
+		t.Fatal("expected schema to be set")
 	}
-	schemaObjLit := schemaExpr.(*ast.ObjectLiteralExpression)
-	schemaStr, ok := schemaObjLit.Obj.(*evaluator.String)
-	if !ok || schemaStr.Value != "Person" {
-		t.Errorf("expected __schema='Person', got %v", schemaObjLit.Obj)
+	if record.Schema.Name != "Person" {
+		t.Errorf("expected schema name 'Person', got %q", record.Schema.Name)
 	}
 }
 
@@ -261,15 +258,19 @@ func TestParseRecordWithErrors(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Without resolver, returns dict
-	dict, ok := obj.(*evaluator.Dictionary)
+	// Without resolver, should still return a Record with errors
+	record, ok := obj.(*evaluator.Record)
 	if !ok {
-		t.Fatalf("expected Dictionary, got %T", obj)
+		t.Fatalf("expected Record, got %T", obj)
 	}
 
-	// Check __schema is there
-	if _, ok := dict.Pairs["__schema"]; !ok {
-		t.Error("missing __schema key")
+	if record.Schema == nil || record.Schema.Name != "Person" {
+		t.Error("expected schema name 'Person'")
+	}
+
+	// Check errors were parsed
+	if record.Errors == nil || len(record.Errors) != 2 {
+		t.Errorf("expected 2 errors, got %v", record.Errors)
 	}
 }
 
