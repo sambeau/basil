@@ -647,3 +647,111 @@ func TestTableMethodChaining(t *testing.T) {
 		t.Errorf("Expected 2 rows after chaining, got %d", len(table.Rows))
 	}
 }
+
+// TestTypedTableCallbacksReceiveRecords tests that callbacks receive Records when table has schema
+func TestTypedTableCallbacksReceiveRecords(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "where callback receives Record",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}, {name: "B", price: 20}])
+				// Row type should be record
+				items.where(fn(row) { row.type() == "record" }).count()
+			`,
+			expected: "2", // All rows pass because they're all records
+		},
+		{
+			name: "map callback receives Record",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}])
+				// Access record to verify it's a Record
+				items.map(fn(row) { {name: row.name, isRecord: row.type() == "record"} })[0].isRecord
+			`,
+			expected: "true",
+		},
+		{
+			name: "find callback receives Record",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}, {name: "B", price: 20}])
+				let found = items.find(fn(row) { row.type() == "record" and row.name == "B" })
+				found.name
+			`,
+			expected: "B",
+		},
+		{
+			name: "any callback receives Record",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}])
+				items.any(fn(row) { row.type() == "record" })
+			`,
+			expected: "true",
+		},
+		{
+			name: "all callback receives Record",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}, {name: "B", price: 20}])
+				items.all(fn(row) { row.type() == "record" })
+			`,
+			expected: "true",
+		},
+		{
+			name: "appendCol callback receives Record",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}])
+				items.appendCol("isRecord", fn(row) { row.type() == "record" })[0].isRecord
+			`,
+			expected: "true",
+		},
+		{
+			name: "untyped table callback receives Dictionary",
+			input: `
+				let items = table([{name: "A", price: 10}])
+				// Untyped table should pass dictionaries (type is "dictionary")
+				items.where(fn(row) { row.type() == "dictionary" }).count()
+			`,
+			expected: "1",
+		},
+		{
+			name: "destructuring works with Record callbacks",
+			input: `
+				@schema Item { name: string, price: int }
+				let items = Item([{name: "A", price: 10}, {name: "B", price: 20}])
+				// Destructuring now works with Records!
+				items.where(fn({price}) { price > 15 }).count()
+			`,
+			expected: "1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

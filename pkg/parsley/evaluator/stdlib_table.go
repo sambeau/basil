@@ -657,6 +657,22 @@ func getDictValue(dict *Dictionary, key string) Object {
 	return Eval(expr, dict.Env)
 }
 
+// rowToCallbackArg converts a table row to the appropriate type for callback functions.
+// If the table has a schema, returns a Record; otherwise returns the Dictionary row.
+func rowToCallbackArg(row *Dictionary, t *Table) Object {
+	if t.Schema != nil {
+		return &Record{
+			Schema:    t.Schema,
+			Data:      row.Pairs,
+			KeyOrder:  row.KeyOrder,
+			Validated: t.FromDB,
+			Errors:    make(map[string]*RecordError),
+			Env:       row.Env,
+		}
+	}
+	return row
+}
+
 // tableWhere filters rows where predicate returns truthy
 // Uses copy-on-chain: first call in chain creates copy, subsequent calls reuse it
 func tableWhere(t *Table, args []Object, env *Environment) Object {
@@ -674,8 +690,9 @@ func tableWhere(t *Table, args []Object, env *Environment) Object {
 	filteredRows := make([]*Dictionary, 0)
 
 	for _, row := range result.Rows {
-		// Use extendFunctionEnv to properly bind the row to the function parameter
-		extendedEnv := extendFunctionEnv(fn, []Object{row})
+		// Pass Record if table has schema, otherwise pass Dictionary
+		callbackArg := rowToCallbackArg(row, t)
+		extendedEnv := extendFunctionEnv(fn, []Object{callbackArg})
 
 		// Evaluate the function body
 		var evalResult Object
@@ -1888,7 +1905,9 @@ func getColumnValues(arg Object, t *Table, env *Environment, methodName string) 
 		// Compute values by calling function with each row
 		values := make([]Object, len(t.Rows))
 		for i, row := range t.Rows {
-			extendedEnv := extendFunctionEnv(v, []Object{row})
+			// Pass Record if table has schema, otherwise pass Dictionary
+			callbackArg := rowToCallbackArg(row, t)
+			extendedEnv := extendFunctionEnv(v, []Object{callbackArg})
 			var result Object
 			for _, stmt := range v.Body.Statements {
 				result = evalStatement(stmt, extendedEnv)
@@ -1962,7 +1981,9 @@ func tableMap(t *Table, args []Object, env *Environment) Object {
 	schemaConsistent := true
 
 	for i, row := range result.Rows {
-		extendedEnv := extendFunctionEnv(fn, []Object{row})
+		// Pass Record if table has schema, otherwise pass Dictionary
+		callbackArg := rowToCallbackArg(row, t)
+		extendedEnv := extendFunctionEnv(fn, []Object{callbackArg})
 
 		// Evaluate the function body
 		var evalResult Object
@@ -2039,7 +2060,9 @@ func tableFind(t *Table, args []Object, env *Environment) Object {
 	}
 
 	for _, row := range t.Rows {
-		extendedEnv := extendFunctionEnv(fn, []Object{row})
+		// Pass Record if table has schema, otherwise pass Dictionary
+		callbackArg := rowToCallbackArg(row, t)
+		extendedEnv := extendFunctionEnv(fn, []Object{callbackArg})
 
 		// Evaluate the function body
 		var evalResult Object
@@ -2086,7 +2109,9 @@ func tableAny(t *Table, args []Object, env *Environment) Object {
 	}
 
 	for _, row := range t.Rows {
-		extendedEnv := extendFunctionEnv(fn, []Object{row})
+		// Pass Record if table has schema, otherwise pass Dictionary
+		callbackArg := rowToCallbackArg(row, t)
+		extendedEnv := extendFunctionEnv(fn, []Object{callbackArg})
 
 		// Evaluate the function body
 		var evalResult Object
@@ -2122,7 +2147,9 @@ func tableAll(t *Table, args []Object, env *Environment) Object {
 	}
 
 	for _, row := range t.Rows {
-		extendedEnv := extendFunctionEnv(fn, []Object{row})
+		// Pass Record if table has schema, otherwise pass Dictionary
+		callbackArg := rowToCallbackArg(row, t)
+		extendedEnv := extendFunctionEnv(fn, []Object{callbackArg})
 
 		// Evaluate the function body
 		var evalResult Object
