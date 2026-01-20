@@ -4172,10 +4172,15 @@ func evalStatement(stmt ast.Statement, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
-		// Bubble up control flow signals
+		// Propagate stop/skip signals, but unwrap CheckExit (its value becomes the return value)
 		if val != nil {
-			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+			rt := val.Type()
+			if rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
 				return val
+			}
+			// Unwrap CheckExit - check exits the expression, its value is returned
+			if checkExit, ok := val.(*CheckExit); ok {
+				val = checkExit.Value
 			}
 		}
 		return &ReturnValue{Value: val}
@@ -4227,10 +4232,15 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
-		// Bubble up control flow signals (check exit should propagate, not be stored)
+		// Propagate return/stop/skip signals (but NOT CheckExit - that gets unwrapped)
 		if val != nil {
-			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == RETURN_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+			rt := val.Type()
+			if rt == RETURN_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
 				return val
+			}
+			// Unwrap CheckExit to its value - check exits the block, value is stored
+			if checkExit, ok := val.(*CheckExit); ok {
+				val = checkExit.Value
 			}
 		}
 
@@ -4264,10 +4274,15 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
-		// Bubble up control flow signals (check exit should propagate, not be stored)
+		// Propagate return/stop/skip signals (but NOT CheckExit - that gets unwrapped)
 		if val != nil {
-			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == RETURN_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+			rt := val.Type()
+			if rt == RETURN_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
 				return val
+			}
+			// Unwrap CheckExit to its value - check exits the block, value is stored
+			if checkExit, ok := val.(*CheckExit); ok {
+				val = checkExit.Value
 			}
 		}
 
@@ -4357,10 +4372,15 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
-		// Bubble up control flow signals
+		// Propagate stop/skip signals, but unwrap CheckExit (its value becomes the return value)
 		if val != nil {
-			if rt := val.Type(); rt == CHECK_EXIT_OBJ || rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
+			rt := val.Type()
+			if rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ {
 				return val
+			}
+			// Unwrap CheckExit - check exits the expression, its value is returned
+			if checkExit, ok := val.(*CheckExit); ok {
+				val = checkExit.Value
 			}
 		}
 		return &ReturnValue{Value: val}

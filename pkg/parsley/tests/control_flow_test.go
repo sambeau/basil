@@ -412,6 +412,16 @@ func TestCheckExitPropagation(t *testing.T) {
 			input:    `let test = fn() { return if(true) { check false else "returned"; "not returned" } }; test()`,
 			expected: "returned",
 		},
+		{
+			name:     "check inside nested if assigned to variable",
+			input:    `let error = if(true) { if(true) { check false else "hello"; "success" } }; error`,
+			expected: "hello",
+		},
+		{
+			name:     "check inside nested if with code after",
+			input:    `let error = if(true) { if(true) { check false else "hello"; "success" } }; "page:" + error`,
+			expected: "page:hello",
+		},
 	}
 
 	for _, tt := range tests {
