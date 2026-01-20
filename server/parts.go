@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -98,7 +99,7 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 }
 
 // parsePartProps parses props from query parameters and form body
-// Applies the same type coercion as form handling
+// Applies the same type coercion as form handling, with PLN deserialization for complex types
 func (h *parsleyHandler) parsePartProps(r *http.Request, env *evaluator.Environment) (*evaluator.Dictionary, error) {
 	props := make(map[string]ast.Expression)
 
@@ -108,7 +109,8 @@ func (h *parsleyHandler) parsePartProps(r *http.Request, env *evaluator.Environm
 			continue // Skip the special _view parameter
 		}
 		if len(values) > 0 {
-			props[key] = createLiteralFromValue(coerceFormValue(values[0]))
+			obj := h.parsePartPropValue(values[0], env)
+			props[key] = createLiteralFromValue(obj)
 		}
 	}
 
@@ -120,7 +122,8 @@ func (h *parsleyHandler) parsePartProps(r *http.Request, env *evaluator.Environm
 
 		for key, values := range r.PostForm {
 			if len(values) > 0 {
-				props[key] = createLiteralFromValue(coerceFormValue(values[0]))
+				obj := h.parsePartPropValue(values[0], env)
+				props[key] = createLiteralFromValue(obj)
 			}
 		}
 	}
@@ -133,6 +136,72 @@ func (h *parsleyHandler) parsePartProps(r *http.Request, env *evaluator.Environm
 	sort.Strings(keyOrder) // Deterministic order
 
 	return &evaluator.Dictionary{Pairs: props, KeyOrder: keyOrder, Env: env}, nil
+}
+
+// parsePartPropValue parses a single prop value, handling PLN-encoded complex types
+func (h *parsleyHandler) parsePartPropValue(value string, env *evaluator.Environment) evaluator.Object {
+	// Check if value looks like JSON (starts with { or [)
+	if len(value) > 0 && (value[0] == '{' || value[0] == '[') {
+		// Try to parse as JSON
+		var jsonValue interface{}
+		if err := json.Unmarshal([]byte(value), &jsonValue); err == nil {
+			// Check if it's a PLN marker: {"__pln": "signed_pln_string"}
+			if obj, ok := jsonValue.(map[string]interface{}); ok {
+				if plnSigned, ok := obj["__pln"].(string); ok {
+					// Deserialize PLN prop
+					if evaluator.DeserializePLNProp != nil && env.PLNSecret != "" {
+						plnObj, err := evaluator.DeserializePLNProp(plnSigned, env.PLNSecret, env)
+						if err == nil {
+							return plnObj
+						}
+						// Log error but continue with string fallback
+						h.server.logError("PLN deserialization failed: %v", err)
+					}
+				}
+			}
+			// Not a PLN marker - convert JSON back to Parsley object
+			return jsonToObject(jsonValue)
+		}
+	}
+
+	// Fall back to standard coercion
+	return coerceFormValue(value)
+}
+
+// jsonToObject converts a JSON-parsed value to a Parsley object
+func jsonToObject(value interface{}) evaluator.Object {
+	if value == nil {
+		return &evaluator.Null{}
+	}
+	switch v := value.(type) {
+	case bool:
+		return &evaluator.Boolean{Value: v}
+	case float64:
+		// JSON numbers are float64
+		if v == float64(int64(v)) {
+			return &evaluator.Integer{Value: int64(v)}
+		}
+		return &evaluator.Float{Value: v}
+	case string:
+		return &evaluator.String{Value: v}
+	case []interface{}:
+		elements := make([]evaluator.Object, len(v))
+		for i, elem := range v {
+			elements[i] = jsonToObject(elem)
+		}
+		return &evaluator.Array{Elements: elements}
+	case map[string]interface{}:
+		pairs := make(map[string]ast.Expression)
+		keyOrder := make([]string, 0, len(v))
+		for key, val := range v {
+			pairs[key] = &ast.ObjectLiteralExpression{Obj: jsonToObject(val)}
+			keyOrder = append(keyOrder, key)
+		}
+		sort.Strings(keyOrder)
+		return &evaluator.Dictionary{Pairs: pairs, KeyOrder: keyOrder}
+	default:
+		return &evaluator.String{Value: fmt.Sprintf("%v", value)}
+	}
 }
 
 // coerceFormValue applies type coercion to form values
@@ -171,6 +240,11 @@ func createLiteralFromValue(obj evaluator.Object) ast.Expression {
 		return &ast.Boolean{Value: v.Value}
 	case *evaluator.String:
 		return &ast.StringLiteral{Value: v.Value}
+	case *evaluator.Null:
+		return &ast.ObjectLiteralExpression{Obj: &evaluator.Null{}}
+	case *evaluator.Dictionary, *evaluator.Array, *evaluator.Record, *evaluator.Money:
+		// Complex types need to be wrapped in ObjectLiteralExpression
+		return &ast.ObjectLiteralExpression{Obj: obj}
 	default:
 		return &ast.StringLiteral{Value: obj.Inspect()}
 	}

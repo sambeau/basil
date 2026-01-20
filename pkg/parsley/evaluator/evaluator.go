@@ -647,6 +647,7 @@ type Environment struct {
 	DevMode       bool            // Whether dev mode is enabled (affects caching)
 	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
 	FormContext   *FormContext    // Current form context for @record/@field binding (FEAT-091)
+	PLNSecret     string          // Secret for HMAC signing PLN in Part props (FEAT-098)
 }
 
 // NewEnvironment creates a new environment
@@ -2646,6 +2647,40 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, "yaml", options, env)
 			},
 		},
+		"PLN": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newArityErrorRange("PLN", len(args), 1, 2)
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newTypeError("TYPE-0005", "PLN", "a path", DICTIONARY_OBJ)
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newTypeError("TYPE-0005", "PLN", "a path or string", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "pln", options, env)
+			},
+		},
 		"CSV": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
@@ -3564,6 +3599,28 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return dict
+			},
+		},
+		// serialize() - convert value to PLN string
+		"serialize": {
+			FnWithEnv: func(env *Environment, args ...Object) Object {
+				if len(args) != 1 {
+					return newArityError("serialize", len(args), 1)
+				}
+				return SerializeToPLN(args[0], env)
+			},
+		},
+		// deserialize() - parse PLN string to value
+		"deserialize": {
+			FnWithEnv: func(env *Environment, args ...Object) Object {
+				if len(args) != 1 {
+					return newArityError("deserialize", len(args), 1)
+				}
+				str, ok := args[0].(*String)
+				if !ok {
+					return newTypeError("TYPE-0012", "deserialize", "a string", args[0].Type())
+				}
+				return DeserializeFromPLN(str.Value, env)
 			},
 		},
 		// table() - create a Table from an array of dictionaries
@@ -5558,6 +5615,11 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		// Parse YAML
 		content := string(data)
 		return parseYAML(content)
+
+	case "pln":
+		// Parse PLN (Parsley Literal Notation)
+		content := string(data)
+		return parsePLN(content, env)
 
 	case "csv":
 		// Parse CSV with header

@@ -215,3 +215,86 @@ func TestGenerateRandomSecret(t *testing.T) {
 		t.Error("generated secrets should be unique")
 	}
 }
+
+func TestSignPLN(t *testing.T) {
+	secret := "test-secret-key"
+	pln := `{name: "Alice", age: 30}`
+
+	signed := SignPLN(pln, secret)
+
+	// Should contain a colon separator
+	if !containsColon(signed) {
+		t.Error("signed PLN should contain colon separator")
+	}
+
+	// Should be able to verify
+	verified, err := VerifyPLN(signed, secret)
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+
+	if verified != pln {
+		t.Errorf("expected %q, got %q", pln, verified)
+	}
+}
+
+func TestSignPLNWithRecord(t *testing.T) {
+	secret := "test-secret"
+	pln := `@Person({name: "Alice", age: 30}) @errors {name: "required"}`
+
+	signed := SignPLN(pln, secret)
+	verified, err := VerifyPLN(signed, secret)
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+
+	if verified != pln {
+		t.Errorf("expected %q, got %q", pln, verified)
+	}
+}
+
+func TestVerifyPLNWrongSecret(t *testing.T) {
+	secret1 := "secret-1"
+	secret2 := "secret-2"
+	pln := `{name: "Alice"}`
+
+	signed := SignPLN(pln, secret1)
+
+	_, err := VerifyPLN(signed, secret2)
+	if err == nil {
+		t.Error("expected verification to fail with wrong secret")
+	}
+}
+
+func TestVerifyPLNTampered(t *testing.T) {
+	secret := "test-secret"
+	pln := `{name: "Alice"}`
+
+	signed := SignPLN(pln, secret)
+
+	// Tamper with the signature
+	tampered := "x" + signed[1:]
+	_, err := VerifyPLN(tampered, secret)
+	if err == nil {
+		t.Error("expected verification to fail with tampered signature")
+	}
+}
+
+func TestVerifyPLNInvalidFormat(t *testing.T) {
+	secret := "test-secret"
+
+	// Missing colon
+	_, err := VerifyPLN("nocolonhere", secret)
+	if err == nil {
+		t.Error("expected error for invalid format")
+	}
+}
+
+func containsColon(s string) bool {
+	for _, c := range s {
+		if c == ':' {
+			return true
+		}
+	}
+	return false
+}

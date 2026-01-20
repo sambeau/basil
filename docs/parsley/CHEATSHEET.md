@@ -392,6 +392,7 @@ file(@path)      // Auto-detect format from extension
 JSON(@path)      // Parse as JSON
 CSV(@path)       // Parse as CSV
 YAML(@path)      // Parse as YAML
+PLN(@path)       // Parse as PLN (Parsley Literal Notation)
 MD(@path)  // Markdown with @{...} rendering + frontmatter
 text(@path)      // Plain text
 lines(@path)     // Array of lines
@@ -403,6 +404,19 @@ dir(@path)       // Directory listing
 // e.g.
 
 markdown("# hello").html // --> <h1>hello</h1>
+```
+
+### Serialization
+```parsley
+// Serialize Parsley values to PLN strings
+serialize({name: "Alice", age: 30})  // '{name: "Alice", age: 30}'
+serialize([1, 2, 3])                 // "[1, 2, 3]"
+
+// Deserialize PLN strings back to values
+deserialize('{name: "Bob"}')         // {name: "Bob"}
+
+// PLN is safe - rejects expressions/code
+deserialize("1 + 1")                 // Error! No expressions allowed
 ```
 
 ### Read/Write Operators

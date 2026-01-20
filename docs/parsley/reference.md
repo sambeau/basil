@@ -2647,6 +2647,7 @@ These functions create file handles for reading and writing.
 |----------|-----------|---------|-------------|
 | `JSON(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | JSON file handle |
 | `YAML(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | YAML file handle |
+| `PLN(path, opts?)` | `path: path`, `opts?: dict` | `file` | PLN file handle (Parsley Literal Notation) |
 | `CSV(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | CSV file handle (returns table) |
 | `text(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | Plain text file handle |
 | `lines(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | Lines file handle (returns array) |
@@ -2695,6 +2696,50 @@ let all = fileList(@./src, "*.pars")  // All .pars files recursively
 ```
 
 **Note**: `asset()` is primarily useful in Basil server context for cache-busting.
+
+---
+
+### 6.14 Serialization
+
+Functions for serializing and deserializing Parsley values to/from PLN (Parsley Literal Notation).
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `serialize(value)` | `value: any` | `string` | Convert value to PLN string |
+| `deserialize(pln)` | `pln: string` | `any` | Parse PLN string to value |
+
+**PLN** is a safe data format that uses Parsley syntax but only allows values—no expressions or code execution.
+
+```parsley
+// Serialize values to PLN strings
+serialize(42)                   // "42"
+serialize("hello")              // "\"hello\""
+serialize([1, 2, 3])            // "[1, 2, 3]"
+serialize({name: "Alice"})      // '{name: "Alice"}'
+
+// Deserialize PLN strings back to values
+deserialize("42")               // 42
+deserialize("[1, 2, 3]")        // [1, 2, 3]
+deserialize('{name: "Alice"}')  // {name: "Alice"}
+
+// Round-trip example
+let original = {user: "Bob", active: true}
+let pln = serialize(original)
+let restored = deserialize(pln)
+// restored.user == "Bob"
+
+// Security: expressions are rejected
+deserialize("1 + 1")            // Error
+deserialize("print(42)")        // Error
+```
+
+**Non-serializable types** (will produce an error):
+- Functions
+- File handles
+- Database connections
+- Modules
+
+See [PLN manual page](manual/pln.md) for complete syntax reference.
 
 ---
 

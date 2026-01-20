@@ -180,6 +180,53 @@ export increment = fn(props) {
 }
 ```
 
+### Complex Props (Records, DateTime, etc.)
+
+Parts can pass complex types like Records, DateTimes, and nested dictionaries. These are automatically serialized to PLN (Parsley Literal Notation) and HMAC-signed for security.
+
+```parsley
+schema User {
+    name: String
+    email: String
+}
+
+let user = User({ name: "Alice", email: "alice@example.com" })
+
+<Part 
+    src={@./profile.part} 
+    view="show" 
+    user={user}              // Record - auto-serialized to PLN
+    lastLogin={@now}         // DateTime - auto-serialized
+    settings={{ theme: "dark", notifications: true }}  // Dictionary - auto-serialized
+/>
+```
+
+In the Part view function, these props are automatically deserialized back to their original types:
+
+```parsley
+// profile.part
+export show = fn(props) {
+    <div>
+        <h1>{props.user.name}</h1>           // user is a User record
+        <p>Last login: {props.lastLogin.format("date")}</p>  // DateTime
+        <p>Theme: {props.settings.theme}</p>  // Dictionary
+    </div>
+}
+```
+
+**Security**: Complex props are HMAC-signed using the session secret. Tampered props are rejected, preventing injection attacks. The signature is transparent - you don't need to do anything special.
+
+**Supported types for auto-serialization**:
+- Records (with or without validation errors)
+- DateTime values
+- Paths and URLs
+- Nested dictionaries and arrays containing any of the above
+
+**Not supported** (will cause an error):
+- Functions
+- Database connections
+- File handles
+
 ## Routing Configuration
 
 Parts need routes in `basil.yaml`:

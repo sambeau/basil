@@ -432,6 +432,8 @@ func inferFormatFromExtension(filename string) string {
 		return "json"
 	case ".csv":
 		return "csv"
+	case ".pln":
+		return "pln"
 	case ".txt", ".md", ".html", ".xml", ".pars":
 		return "text"
 	case ".log":

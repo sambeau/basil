@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-14
+updated: 2026-01-15
 ---
 
 # Backlog
@@ -53,6 +53,8 @@ Deferred items from implementation, to be picked up in future work.
 | #68 | DevTools computed export visibility | FEAT-096 | Enhancement | DevTools module inspector could distinguish computed exports from static exports (e.g., icon or badge). Would help debugging by showing which values recalculate vs are cached. Requires DevTools to introspect DynamicAccessor type. |
 | #69 | `autofocus` metadata for form binding | FEAT-097 | Related UX feature | Add `autofocus` metadata key (e.g., `| {autofocus: true}`) to auto-add HTML autofocus attribute. Related to form UX but separate scope from autocomplete. |
 | #70 | `inputmode` metadata for form binding | FEAT-097 | Mobile enhancement | Add `inputmode` metadata for mobile keyboard hints (e.g., `| {inputmode: "numeric"}`). Related to form UX but separate scope from autocomplete. |
+| #75 | PLN pretty-print CLI tool | FEAT-098 | Enhancement | Add `pars fmt file.pln` command for formatting PLN files with consistent indentation. |
+| #76 | PLN VS Code syntax highlighting | FEAT-098 | Tooling | Update contrib/highlightjs/parsley.js for PLN syntax. May need separate PLN mode or extend Parsley mode. |
 | #52 | Commutative duration multiplication | Reference audit | Quick fix | `@1d * 3` works but `3 * @1d` fails. Multiplication should be commutative for duration × integer. Fix in `evalInfixExpression` to handle integer * duration same as duration * integer. |
 | #53 | Dictionary insert methods: dictionary value form | Reference audit | Enhancement | `dict.insertAfter(col, {key: val})` and `dict.insertBefore(col, {key: val})` should accept a dictionary to insert multiple key-value pairs at once. Since dictionaries are ordered, this enables merging one dict into another at a specific position: `dict.insertAfter("name", {middle: "Jane", suffix: "Jr"})`. |
 | #54 | Builtin Table type | Reference audit | Language design | Make Table a builtin type rather than requiring `import @std/table`. Benefits: (1) `CSV()` and `parseCSV()` could return Table directly instead of Array of Dictionary, (2) Column type checking and validation, (3) Implementation flexibility—Go representation could be array-of-maps, map-of-arrays, or array-of-arrays with key access, (4) Cleaner API without import boilerplate. Currently users must do `table.table(csv.parseCSV())` which is awkward. Would require: new Table object type in evaluator, updating CSV parsing to return Table, migrating @std/table methods to builtin methods. |
@@ -93,3 +95,7 @@ Deferred items from implementation, to be picked up in future work.
 | #59 | Add `path()` dynamic constructor | FEAT-087/FEAT-090 | 2026-01-14 | ✅ Implemented in evaluator.go as part of FEAT-090 Phase 7. Accepts string argument, creates path via parsePathString(). |
 | #60 | Add `duration()` dynamic constructor | FEAT-087 | 2026-01-14 | ✅ Implemented in evaluator.go. Accepts string (`duration("1d2h")`) or dictionary (`duration({days: 1})`). Tests in duration_test.go. Docs in reference.md section 6.10. |
 | #61-64 | toBox() Phase 2 options (style, title, maxWidth) | FEAT-089 | 2026-01-14 | ✅ Implemented in eval_box.go. Style presets (single/double/ascii/rounded), title row, maxWidth truncation. Color deferred to Phase 3 (#65). Tests in tobox_options_test.go. Docs updated in reference.md. |
+| #71 | PLN Part props auto-serialization | FEAT-098 | 2026-01-15 | ✅ Auto-serialize complex Part props to PLN, deserialize on receipt. HMAC signing in session_crypto.go, PLN encoding in eval_tags.go, JS runtime updates in handler.go, PLN deserialization in parts.go. |
+| #72 | PLN Record serialization (@Schema syntax) | FEAT-098 | 2026-01-14 | ✅ Records serialize as `@Schema({...})`. Implemented in PLN Phase 3 (serializer.go). |
+| #73 | PLN DateTime serialization (@ISO format) | FEAT-098 | 2026-01-14 | ✅ Datetimes serialize as `@2024-01-20T10:30:00Z`. Implemented in PLN Phase 3. |
+| #74 | PLN Path/URL serialization (@ prefix) | FEAT-098 | 2026-01-14 | ✅ Paths as `@/path/to/file`, URLs as `@https://example.com`. Implemented in PLN Phase 3. |

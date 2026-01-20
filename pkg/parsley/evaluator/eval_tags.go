@@ -579,15 +579,30 @@ func htmlEscape(s string) string {
 	return s
 }
 
-// encodePropsToJSON encodes a props dictionary to JSON for data-part-props attribute
+// encodePropsToJSON encodes a props dictionary to JSON for data-part-props attribute.
+// Complex types (Records, datetimes, paths, URLs) are serialized to PLN and HMAC-signed.
 func encodePropsToJSON(props *Dictionary) string {
 	// Build a map of evaluated prop values
 	propsMap := make(map[string]interface{})
 	for key, expr := range props.Pairs {
 		// Evaluate the expression
 		val := Eval(expr, props.Env)
-		// Convert to Go type for JSON marshaling
-		propsMap[key] = objectToGoValue(val)
+		
+		// Check if this value needs PLN serialization
+		if NeedsPLNSerialization(val) {
+			plnStr, err := serializeToPLNForProps(val, props.Env)
+			if err == nil && props.Env.PLNSecret != "" {
+				// Sign and encode as PLN marker
+				signed := signPLNProp(plnStr, props.Env.PLNSecret)
+				propsMap[key] = map[string]string{"__pln": signed}
+			} else {
+				// Fallback to JSON representation if serialization fails or no secret
+				propsMap[key] = objectToGoValue(val)
+			}
+		} else {
+			// Convert to Go type for JSON marshaling
+			propsMap[key] = objectToGoValue(val)
+		}
 	}
 
 	// Marshal to JSON
@@ -598,6 +613,70 @@ func encodePropsToJSON(props *Dictionary) string {
 	}
 
 	return string(jsonBytes)
+}
+
+// NeedsPLNSerialization returns true if the object should be serialized as PLN
+// rather than plain JSON (Records, datetimes, paths, URLs).
+// Exported for testing.
+func NeedsPLNSerialization(obj Object) bool {
+	switch v := obj.(type) {
+	case *Record:
+		return true
+	case *Dictionary:
+		// Check for special type dictionaries (datetime, path, url)
+		if isDatetimeDict(v) || isPathDict(v) || isUrlDict(v) {
+			return true
+		}
+		// Check if any nested value needs PLN
+		for _, expr := range v.Pairs {
+			val := Eval(expr, v.Env)
+			if NeedsPLNSerialization(val) {
+				return true
+			}
+		}
+		return false
+	case *Array:
+		// Check if any element needs PLN
+		for _, elem := range v.Elements {
+			if NeedsPLNSerialization(elem) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+// serializeToPLNForProps serializes an object to PLN string using the pln package.
+// This function is set by the pln package at init time to avoid import cycles.
+var serializeToPLNForProps func(obj Object, env *Environment) (string, error)
+
+// signPLNProp signs a PLN string for Part prop transport.
+// This function is set by the server package at init time.
+var signPLNProp func(pln string, secret string) string
+
+// DeserializePLNProp verifies and deserializes a signed PLN string.
+// This function is set by the server package at init time.
+// Exported for use by server/parts.go.
+var DeserializePLNProp func(signed string, secret string, env *Environment) (Object, error)
+
+// RegisterPLNPropFunctions registers the PLN serialization functions.
+// Called from the pln package at init time.
+func RegisterPLNPropFunctions(
+	serialize func(obj Object, env *Environment) (string, error),
+) {
+	serializeToPLNForProps = serialize
+}
+
+// RegisterPLNSigningFunctions registers the HMAC signing functions.
+// Called from the server package at init time.
+func RegisterPLNSigningFunctions(
+	sign func(pln string, secret string) string,
+	deserialize func(signed string, secret string, env *Environment) (Object, error),
+) {
+	signPLNProp = sign
+	DeserializePLNProp = deserialize
 }
 
 // objectToGoValue converts a Parsley object to a Go value for JSON marshaling

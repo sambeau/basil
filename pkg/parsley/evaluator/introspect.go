@@ -342,6 +342,7 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	// === File/Data Loading ===
 	"JSON":     {Name: "JSON", Arity: "1-2", Description: "Load JSON from path or URL", Params: []string{"source", "options?"}, Category: "file"},
 	"YAML":     {Name: "YAML", Arity: "1-2", Description: "Load YAML from path or URL", Params: []string{"source", "options?"}, Category: "file"},
+	"PLN":      {Name: "PLN", Arity: "1-2", Description: "Load PLN (Parsley Literal Notation) from path", Params: []string{"path", "options?"}, Category: "file"},
 	"CSV":      {Name: "CSV", Arity: "1-2", Description: "Load CSV from path or URL as table", Params: []string{"source", "options?"}, Category: "file"},
 	"MD":       {Name: "MD", Arity: "1-2", Description: "Load markdown file and render to HTML", Params: []string{"path", "options?"}, Category: "file"},
 	"markdown": {Name: "markdown", Arity: "1-2", Description: "Load markdown file with frontmatter", Params: []string{"path", "options?"}, Category: "file"},
@@ -370,6 +371,10 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"toString": {Name: "toString", Arity: "1", Description: "Convert value to string", Params: []string{"value"}, Category: "conversion"},
 	"toArray":  {Name: "toArray", Arity: "1", Description: "Convert value to array", Params: []string{"value"}, Category: "conversion"},
 	"toDict":   {Name: "toDict", Arity: "1", Description: "Convert array of [key,value] pairs to dictionary", Params: []string{"pairs"}, Category: "conversion"},
+
+	// === Serialization (PLN) ===
+	"serialize":   {Name: "serialize", Arity: "1", Description: "Convert value to PLN string", Params: []string{"value"}, Category: "serialization"},
+	"deserialize": {Name: "deserialize", Arity: "1", Description: "Parse PLN string to value", Params: []string{"plnString"}, Category: "serialization"},
 
 	// === Type Introspection ===
 	"inspect":  {Name: "inspect", Arity: "1", Description: "Get introspection data for value", Params: []string{"value"}, Category: "introspection"},

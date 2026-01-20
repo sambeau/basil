@@ -160,6 +160,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			AllowExecute:  []string{rootPath},
 			RestrictRead:  []string{"/etc", "/var", "/root"},
 		}
+		env.PLNSecret = h.server.sessionSecret // For HMAC verifying PLN in Part props (FEAT-098)
 
 		// Inject @params for Part requests
 		env.Set("@params", buildParams(r, env))
@@ -293,6 +294,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
 	env.DevMode = h.server.config.Server.Dev
+	env.PLNSecret = h.server.sessionSecret // For HMAC signing PLN in Part props (FEAT-098)
 
 	// Inject @params - merged query+form params (POST wins)
 	env.Set("@params", buildParams(r, env))
@@ -1392,16 +1394,31 @@ func partsRuntimeScript() string {
 			credentials: 'same-origin'
 		};
 
+		// Helper to encode prop value for transmission
+		function encodeValue(value) {
+			if (value === null || value === undefined) return '';
+			if (typeof value === 'object') {
+				// JSON-encode objects (including PLN markers)
+				return JSON.stringify(value);
+			}
+			return String(value);
+		}
+
 		if (method === 'POST') {
 			// POST: send props in body
 			fetchOptions.headers = {
 				'Content-Type': 'application/x-www-form-urlencoded'
 			};
-			fetchOptions.body = new URLSearchParams(props).toString();
+			// Encode object values as JSON
+			var params = new URLSearchParams();
+			Object.keys(props || {}).forEach(function(key) {
+				params.set(key, encodeValue(props[key]));
+			});
+			fetchOptions.body = params.toString();
 		} else {
 			// GET: send props as query params
 			Object.keys(props || {}).forEach(function(key) {
-				url.searchParams.set(key, props[key]);
+				url.searchParams.set(key, encodeValue(props[key]));
 			});
 		}
 

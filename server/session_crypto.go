@@ -3,12 +3,14 @@ package server
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -138,4 +140,45 @@ func generateRandomSecret() (string, error) {
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(bytes), nil
+}
+
+// SignPLN signs a PLN string with HMAC-SHA256 for secure transport.
+// Returns: "hmac:base64(pln)" where hmac is base64-encoded HMAC-SHA256.
+func SignPLN(pln string, secret string) string {
+	key := deriveKey(secret)
+	h := hmac.New(sha256.New, key)
+	h.Write([]byte(pln))
+	sig := base64.StdEncoding.EncodeToString(h.Sum(nil))
+	plnEncoded := base64.StdEncoding.EncodeToString([]byte(pln))
+	return sig + ":" + plnEncoded
+}
+
+// VerifyPLN verifies and extracts a signed PLN string.
+// Returns the original PLN string if valid, or an error if invalid.
+func VerifyPLN(signed string, secret string) (string, error) {
+	parts := strings.SplitN(signed, ":", 2)
+	if len(parts) != 2 {
+		return "", errors.New("invalid signed PLN format")
+	}
+
+	sig, plnEncoded := parts[0], parts[1]
+
+	// Decode the PLN
+	plnBytes, err := base64.StdEncoding.DecodeString(plnEncoded)
+	if err != nil {
+		return "", errors.New("invalid PLN encoding")
+	}
+	pln := string(plnBytes)
+
+	// Verify HMAC
+	key := deriveKey(secret)
+	h := hmac.New(sha256.New, key)
+	h.Write([]byte(pln))
+	expectedSig := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	if !hmac.Equal([]byte(sig), []byte(expectedSig)) {
+		return "", errors.New("PLN signature verification failed")
+	}
+
+	return pln, nil
 }
