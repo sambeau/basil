@@ -2691,3 +2691,96 @@ record.isValid`,
 		})
 	}
 }
+
+// =============================================================================
+// Record Destructuring Tests
+// =============================================================================
+
+func TestRecordDestructuring(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "basic record destructuring",
+			input: `
+@schema Person {
+    name: string
+    age: int
+}
+let person = Person({name: "Alice", age: 30})
+let {name, age} = person
+name`,
+			expected: "Alice",
+		},
+		{
+			name: "record destructuring access second field",
+			input: `
+@schema Person {
+    name: string
+    age: int
+}
+let person = Person({name: "Bob", age: 25})
+let {name, age} = person
+age`,
+			expected: "25",
+		},
+		{
+			name: "record destructuring with alias",
+			input: `
+@schema User {
+    email: string
+    active: bool
+}
+let user = User({email: "test@example.com", active: true})
+let {email as userEmail} = user
+userEmail`,
+			expected: "test@example.com",
+		},
+		{
+			name: "record destructuring with rest",
+			input: `
+@schema Data {
+    a: int
+    b: int
+    c: int
+}
+let data = Data({a: 1, b: 2, c: 3})
+let {a, ...rest} = data
+rest.b`,
+			expected: "2",
+		},
+		{
+			name: "record destructuring in function parameter",
+			input: `
+@schema Point {
+    x: int
+    y: int
+}
+let greet = fn({x, y}) { x + y }
+greet(Point({x: 10, y: 20}))`,
+			expected: "30",
+		},
+		{
+			name: "record destructuring missing field becomes null",
+			input: `
+@schema Partial {
+    a: int
+}
+let p = Partial({a: 1})
+let {a, b} = p
+b`,
+			expected: "null",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

@@ -400,14 +400,14 @@ func TestDestructuringTypeErrorPosition(t *testing.T) {
 		{
 			name:       "destructure string shows position",
 			input:      `{x} = "not a dict"`,
-			wantError:  "Dictionary destructuring requires a dictionary value, got string",
+			wantError:  "Destructuring requires a dictionary or record, got string",
 			wantLine:   1,
 			wantColumn: 1, // position of '{' token
 		},
 		{
 			name:       "destructure on line 2",
 			input:      "let s = \"hello\"\n{x} = s",
-			wantError:  "Dictionary destructuring requires a dictionary value, got string",
+			wantError:  "Destructuring requires a dictionary or record, got string",
 			wantLine:   2,
 			wantColumn: 1,
 		},

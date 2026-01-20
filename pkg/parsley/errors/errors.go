@@ -1021,7 +1021,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"DEST-0001": {
 		Class:    ClassType,
-		Template: "Dictionary destructuring requires a dictionary value, got {{.Got}}",
+		Template: "Destructuring requires a dictionary or record, got {{.Got}}",
 	},
 	"DEST-0002": {
 		Class:    ClassState,

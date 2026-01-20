@@ -63,7 +63,7 @@ func TestRenderDevErrorPage_RuntimeError(t *testing.T) {
 		Type:    "runtime",
 		File:    "/app/handler.pars",
 		Line:    25,
-		Message: "dictionary destructuring requires a dictionary value, got BUILTIN",
+		Message: "destructuring requires a dictionary or record, got BUILTIN",
 	}
 
 	w := httptest.NewRecorder()
@@ -75,7 +75,7 @@ func TestRenderDevErrorPage_RuntimeError(t *testing.T) {
 		t.Error("expected 'runtime error' in output")
 	}
 
-	if !strings.Contains(body, "dictionary destructuring") {
+	if !strings.Contains(body, "destructuring requires") {
 		t.Error("expected error message in output")
 	}
 }

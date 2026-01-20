@@ -768,16 +768,26 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 	return NULL
 }
 
-// evalDictDestructuringAssignment evaluates dictionary destructuring patterns
+// evalDictDestructuringAssignment evaluates dictionary/record destructuring patterns
 func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool, export bool) Object {
 	// Handle StdlibModuleDict (from @std/ imports)
 	if stdlibMod, ok := val.(*StdlibModuleDict); ok {
 		return evalStdlibModuleDestructuring(pattern, stdlibMod, env, isLet, export)
 	}
 
-	// Type check: value must be a dictionary
-	dict, ok := val.(*Dictionary)
-	if !ok {
+	// Type check: value must be a dictionary or record
+	// Extract pairs and env from either type
+	var pairs map[string]ast.Expression
+	var valEnv *Environment
+
+	switch v := val.(type) {
+	case *Dictionary:
+		pairs = v.Pairs
+		valEnv = v.Env
+	case *Record:
+		pairs = v.Data
+		valEnv = v.Env
+	default:
 		err := newDestructuringError("DEST-0001", val)
 		err.Line = pattern.Token.Line
 		err.Column = pattern.Token.Column
@@ -795,11 +805,11 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 		keyName := keyPattern.Key.Value
 		extractedKeys[keyName] = true
 
-		// Get expression from dictionary and evaluate it
+		// Get expression from dictionary/record and evaluate it
 		var value Object
-		if expr, exists := dict.Pairs[keyName]; exists {
-			// Evaluate the expression in the dictionary's environment
-			value = Eval(expr, dict.Env)
+		if expr, exists := pairs[keyName]; exists {
+			// Evaluate the expression in the value's environment
+			value = Eval(expr, valEnv)
 			if isError(value) {
 				return value
 			}
@@ -843,13 +853,13 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 	// Handle rest operator
 	if pattern.Rest != nil {
 		restPairs := make(map[string]ast.Expression)
-		for key, expr := range dict.Pairs {
+		for key, expr := range pairs {
 			if !extractedKeys[key] {
 				restPairs[key] = expr
 			}
 		}
 
-		restDict := &Dictionary{Pairs: restPairs, Env: dict.Env}
+		restDict := &Dictionary{Pairs: restPairs, Env: valEnv}
 		if pattern.Rest.Value != "_" {
 			if export && isLet {
 				env.SetLetExport(pattern.Rest.Value, restDict)
