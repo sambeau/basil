@@ -716,6 +716,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.DevMode = outer.DevMode
 		env.ContainsParts = outer.ContainsParts
 		env.FormContext = outer.FormContext // Propagate form context (FEAT-091)
+		env.PLNSecret = outer.PLNSecret     // Propagate PLN secret for Record serialization
 	}
 	return env
 }
