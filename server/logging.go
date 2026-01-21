@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -58,8 +59,9 @@ func newRequestLogger(handler http.Handler, output io.Writer, format string) *re
 }
 
 func (rl *requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Skip logging for internal dev endpoints
-	if r.URL.Path == "/__livereload" {
+	// Skip logging for internal dev endpoints (devtools, livereload)
+	// These are auto-refreshing or internal and would spam the logs
+	if strings.HasPrefix(r.URL.Path, "/__") {
 		rl.handler.ServeHTTP(w, r)
 		return
 	}

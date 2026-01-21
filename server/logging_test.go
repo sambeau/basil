@@ -161,27 +161,38 @@ func TestRequestLoggerDefaultFormat(t *testing.T) {
 	}
 }
 
-func TestRequestLoggerSkipsLivereload(t *testing.T) {
+func TestRequestLoggerSkipsDevtools(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"seq":1}`))
+		w.Write([]byte(`OK`))
 	})
 
 	var buf bytes.Buffer
 	logger := newRequestLogger(handler, &buf, "text")
 
-	// Request to /__livereload should not be logged
-	req := httptest.NewRequest("GET", "/__livereload", nil)
-	rec := httptest.NewRecorder()
-	logger.ServeHTTP(rec, req)
-
-	// Response should still work
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", rec.Code)
+	// All /__* paths should not be logged
+	devPaths := []string{
+		"/__livereload",
+		"/__/logs",
+		"/__/db",
+		"/__/env",
+		"/__",
 	}
 
-	// But log should be empty
-	if buf.Len() != 0 {
-		t.Errorf("expected no log output for /__livereload, got: %s", buf.String())
+	for _, path := range devPaths {
+		buf.Reset()
+		req := httptest.NewRequest("GET", path, nil)
+		rec := httptest.NewRecorder()
+		logger.ServeHTTP(rec, req)
+
+		// Response should still work
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s: expected status 200, got %d", path, rec.Code)
+		}
+
+		// But log should be empty
+		if buf.Len() != 0 {
+			t.Errorf("%s: expected no log output, got: %s", path, buf.String())
+		}
 	}
 }
