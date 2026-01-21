@@ -334,6 +334,8 @@ func importModule(pathStr string, env *Environment) Object {
 	// Copy AssetRegistry and AssetBundle for Basil server context
 	moduleEnv.AssetRegistry = env.AssetRegistry
 	moduleEnv.AssetBundle = env.AssetBundle
+	// Copy PLNSecret for Record serialization in Parts (FEAT-098)
+	moduleEnv.PLNSecret = env.PLNSecret
 
 	// Copy basil context to module environment (if present)
 	// This allows modules to access basil.http, basil.auth, basil.sqlite etc.

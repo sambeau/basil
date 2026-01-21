@@ -4,11 +4,14 @@ import (
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // TestPartPropsRecordRoundTrip tests that a Record survives being passed through Part props
@@ -204,4 +207,78 @@ func TestRecordInterpolationRoundTrip(t *testing.T) {
 	if priceInt, ok := price.(*evaluator.Integer); !ok || priceInt.Value != 999 {
 		t.Errorf("Expected price=999, got %v", price)
 	}
+}
+
+// TestPLNSecretPropagatesInImportedModules tests that PLNSecret propagates to
+// functions defined in imported modules. This is important for Records created
+// by functions like birthdayToPerson that are defined in helper modules.
+func TestPLNSecretPropagatesInImportedModules(t *testing.T) {
+	// Create temp directory for test module
+	tmpDir := t.TempDir()
+
+	// Write a helper module that defines a function returning a Record
+	helperContent := `
+@schema Person { Firstname: string, Surname: string }
+
+export createPerson = fn(data) {
+	data.as(Person)
+}
+`
+	helperPath := tmpDir + "/helpers.pars"
+	if err := os.WriteFile(helperPath, []byte(helperContent), 0644); err != nil {
+		t.Fatalf("Failed to write helper module: %v", err)
+	}
+
+	// Main program that imports and uses the helper
+	mainContent := `
+let {createPerson} = import @(` + helperPath + `)
+
+let person = createPerson({Firstname: "John", Surname: "Doe"})
+person
+`
+
+	l := lexer.NewWithFilename(mainContent, tmpDir+"/main.pars")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	// Create environment with PLNSecret set
+	env := evaluator.NewEnvironment()
+	env.Filename = tmpDir + "/main.pars"
+	env.RootPath = tmpDir
+	env.PLNSecret = "test-secret"
+	env.Security = &evaluator.SecurityPolicy{
+		AllowExecute: []string{tmpDir},
+	}
+
+	// Clear module cache to ensure fresh evaluation
+	evaluator.ClearModuleCache()
+
+	// Evaluate
+	result := evaluator.Eval(program, env)
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("Evaluation error: %v", result.Inspect())
+	}
+
+	// Result should be a Record
+	record, ok := result.(*evaluator.Record)
+	if !ok {
+		t.Fatalf("Expected Record, got %T: %v", result, result.Inspect())
+	}
+
+	// The Record's environment should have PLNSecret
+	if record.Env == nil {
+		t.Fatal("Record.Env is nil")
+	}
+	if record.Env.PLNSecret == "" {
+		t.Fatal("Record.Env.PLNSecret is empty - PLNSecret did not propagate to imported module")
+	}
+	if record.Env.PLNSecret != "test-secret" {
+		t.Errorf("Record.Env.PLNSecret = %q, want %q", record.Env.PLNSecret, "test-secret")
+	}
+
+	t.Logf("Record.Env.PLNSecret: %q (correctly propagated)", record.Env.PLNSecret)
 }
