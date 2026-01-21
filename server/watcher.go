@@ -159,6 +159,11 @@ func (w *Watcher) eventLoop(ctx context.Context) {
 				continue
 			}
 
+			// Check if this is a file we care about before updating changeSeq
+			if !w.shouldTriggerReload(event.Name) {
+				continue
+			}
+
 			// Debounce rapid changes
 			w.mu.Lock()
 			if time.Since(w.lastChange) < debounce {
@@ -177,6 +182,26 @@ func (w *Watcher) eventLoop(ctx context.Context) {
 			}
 			w.logError("watcher error: %v", err)
 		}
+	}
+}
+
+// shouldTriggerReload returns true if the file change should trigger a browser reload.
+// This filters out files like database files that should not cause a reload.
+func (w *Watcher) shouldTriggerReload(path string) bool {
+	// Config file always triggers reload
+	if w.configPath != "" && filepath.Base(path) == filepath.Base(w.configPath) {
+		return true
+	}
+
+	// Check file extension
+	ext := strings.ToLower(filepath.Ext(path))
+
+	switch ext {
+	case ".pars", ".parsley", ".css", ".js", ".html", ".htm":
+		return true
+	default:
+		// Ignore database files, log files, etc.
+		return false
 	}
 }
 
