@@ -176,8 +176,8 @@ func Start(in io.Reader, out io.Writer, version string) {
 			} else if evaluated.Type() == evaluator.NULL_OBJ {
 				io.WriteString(out, "OK\n")
 			} else {
-				// Use ObjectToPrintString for consistent output with script mode
-				result := evaluator.ObjectToPrintString(evaluated)
+				// Use ObjectToReprString for parseable Parsley literal output
+				result := evaluator.ObjectToReprString(evaluated)
 				if result != "" {
 					io.WriteString(out, result)
 					io.WriteString(out, "\n")

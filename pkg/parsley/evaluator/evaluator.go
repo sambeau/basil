@@ -385,9 +385,6 @@ func (d *Dictionary) Inspect() string {
 				valueStr = `""`
 			} else if objLit.Obj == nil {
 				valueStr = "null"
-			} else if nestedDict, isDict := objLit.Obj.(*Dictionary); isDict {
-				// Check for special typed dictionaries - display compact representation
-				valueStr = inspectNestedDict(nestedDict)
 			} else {
 				valueStr = expr.String()
 			}
@@ -400,34 +397,6 @@ func (d *Dictionary) Inspect() string {
 	out.WriteString(strings.Join(pairs, ", "))
 	out.WriteString("}")
 	return out.String()
-}
-
-// inspectNestedDict returns a compact string for special typed dictionaries,
-// or falls back to full Inspect() for regular dictionaries.
-func inspectNestedDict(dict *Dictionary) string {
-	if isDatetimeDict(dict) {
-		return datetimeDictToString(dict)
-	}
-	if isDurationDict(dict) {
-		return durationDictToString(dict)
-	}
-	if isPathDict(dict) {
-		return pathDictToString(dict)
-	}
-	if isUrlDict(dict) {
-		return urlDictToString(dict)
-	}
-	if isRegexDict(dict) {
-		return regexDictToString(dict)
-	}
-	if isFileDict(dict) {
-		return fileDictToString(dict)
-	}
-	if isDirDict(dict) {
-		return dirDictToString(dict)
-	}
-	// Regular dictionary - use full Inspect()
-	return dict.Inspect()
 }
 
 // Keys returns the keys in insertion order (or sorted if KeyOrder not set)

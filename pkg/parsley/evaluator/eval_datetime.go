@@ -313,6 +313,92 @@ func datetimeDictToString(dict *Dictionary) string {
 	}
 }
 
+// datetimeDictToLiteral converts a datetime dictionary to a Parsley literal (@2026-01-21T15:30:00Z)
+func datetimeDictToLiteral(dict *Dictionary) string {
+	return "@" + datetimeDictToString(dict)
+}
+
+// durationDictToLiteral converts a duration dictionary to a Parsley literal (@2w, @1y6mo, etc)
+func durationDictToLiteral(dict *Dictionary) string {
+	var months, seconds int64
+
+	// Get months
+	if monthsExpr, ok := dict.Pairs["months"]; ok {
+		monthsObj := Eval(monthsExpr, dict.Env)
+		if i, ok := monthsObj.(*Integer); ok {
+			months = i.Value
+		}
+	}
+
+	// Get seconds
+	if secondsExpr, ok := dict.Pairs["seconds"]; ok {
+		secondsObj := Eval(secondsExpr, dict.Env)
+		if i, ok := secondsObj.(*Integer); ok {
+			seconds = i.Value
+		}
+	}
+
+	// Handle zero duration
+	if months == 0 && seconds == 0 {
+		return "@0s"
+	}
+
+	var result strings.Builder
+	result.WriteString("@")
+
+	isNegative := months < 0 || seconds < 0
+	if isNegative {
+		result.WriteString("-")
+	}
+
+	// Handle negative values
+	if months < 0 {
+		months = -months
+	}
+	if seconds < 0 {
+		seconds = -seconds
+	}
+
+	// Convert months to years and months
+	years := months / 12
+	months = months % 12
+
+	if years > 0 {
+		result.WriteString(fmt.Sprintf("%dy", years))
+	}
+	if months > 0 {
+		result.WriteString(fmt.Sprintf("%dmo", months))
+	}
+
+	// Convert seconds to weeks, days, hours, minutes, seconds
+	weeks := seconds / (7 * 86400)
+	seconds = seconds % (7 * 86400)
+	days := seconds / 86400
+	seconds = seconds % 86400
+	hours := seconds / 3600
+	seconds = seconds % 3600
+	minutes := seconds / 60
+	seconds = seconds % 60
+
+	if weeks > 0 {
+		result.WriteString(fmt.Sprintf("%dw", weeks))
+	}
+	if days > 0 {
+		result.WriteString(fmt.Sprintf("%dd", days))
+	}
+	if hours > 0 {
+		result.WriteString(fmt.Sprintf("%dh", hours))
+	}
+	if minutes > 0 {
+		result.WriteString(fmt.Sprintf("%dm", minutes))
+	}
+	if seconds > 0 {
+		result.WriteString(fmt.Sprintf("%ds", seconds))
+	}
+
+	return result.String()
+}
+
 // durationDictToString converts a duration dictionary to a human-readable string
 func durationDictToString(dict *Dictionary) string {
 	var months, seconds int64

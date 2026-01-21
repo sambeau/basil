@@ -285,6 +285,11 @@ func tagDictToString(dict *Dictionary) string {
 	return result.String()
 }
 
+// pathDictToLiteral converts a path dictionary to a Parsley literal (@/path/to/file)
+func pathDictToLiteral(dict *Dictionary) string {
+	return "@" + pathDictToString(dict)
+}
+
 // pathDictToString converts a path dictionary back to a string
 func pathDictToString(dict *Dictionary) string {
 	// Get components array
@@ -437,4 +442,19 @@ func urlDictToString(dict *Dictionary) string {
 	}
 
 	return result.String()
+}
+
+// urlDictToLiteral converts a URL dictionary to a Parsley literal (@https://example.com)
+func urlDictToLiteral(dict *Dictionary) string {
+	return "@" + urlDictToString(dict)
+}
+
+// fileDictToLiteral converts a file dictionary to a Parsley literal (@/path/to/file)
+func fileDictToLiteral(dict *Dictionary) string {
+	return "@" + fileDictToString(dict)
+}
+
+// dirDictToLiteral converts a dir dictionary to a Parsley literal (@/path/to/dir)
+func dirDictToLiteral(dict *Dictionary) string {
+	return "@" + dirDictToString(dict)
 }

@@ -350,6 +350,12 @@ func ObjectToPrintString(obj Object) string {
 	return objectToPrintString(obj)
 }
 
+// ObjectToReprString returns a Parsley literal representation that can be parsed back.
+// This is the exported version for use by the REPL.
+func ObjectToReprString(obj Object) string {
+	return objectToReprString(obj)
+}
+
 // objectToDebugString converts an object to its debug string representation
 // Strings are wrapped in quotes, arrays use JSON-style brackets with separators.
 func objectToDebugString(obj Object) string {
@@ -451,11 +457,22 @@ func objectToReprStringWithSeen(obj Object, seen map[Object]bool) string {
 		if isRegexDict(obj) {
 			return regexToReprString(obj)
 		}
+		if isFileDict(obj) {
+			return fileDictToLiteral(obj)
+		}
+		if isDirDict(obj) {
+			return dirDictToLiteral(obj)
+		}
 		// Regular dictionary
 		var result strings.Builder
 		result.WriteString("{")
 		first := true
-		for key, valExpr := range obj.Pairs {
+		keys := obj.Keys() // Use ordered keys
+		for _, key := range keys {
+			valExpr, ok := obj.Pairs[key]
+			if !ok {
+				continue
+			}
 			if !first {
 				result.WriteString(", ")
 			}
@@ -467,11 +484,18 @@ func objectToReprStringWithSeen(obj Object, seen map[Object]bool) string {
 				result.WriteString(key)
 			}
 			result.WriteString(": ")
-			// Value: need to evaluate the expression first
-			if val, ok := valExpr.(Object); ok {
+			// Value: evaluate the expression if needed
+			var val Object
+			if v, ok := valExpr.(Object); ok {
+				val = v
+			} else {
+				// It's an AST expression, evaluate it
+				val = Eval(valExpr, obj.Env)
+			}
+			if val != nil {
 				result.WriteString(objectToReprStringWithSeen(val, seen))
 			} else {
-				result.WriteString("<unevaluated>")
+				result.WriteString("null")
 			}
 		}
 		result.WriteString("}")
@@ -537,11 +561,10 @@ func datetimeToReprString(dict *Dictionary) string {
 	return "@" + iso
 }
 
-// durationToReprString converts a duration dictionary to its literal form
+// durationToReprString converts a duration dictionary to its literal form (@2w, @1y6mo, etc)
 func durationToReprString(dict *Dictionary) string {
-	// Get the duration string representation
-	dur := durationDictToString(dict)
-	return "@" + dur
+	// Use the compact literal format
+	return durationDictToLiteral(dict)
 }
 
 // moneyDictToReprString converts a money dictionary to its literal form
