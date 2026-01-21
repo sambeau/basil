@@ -162,6 +162,11 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		env.PLNSecret = h.server.sessionSecret // For HMAC verifying PLN in Part props (FEAT-098)
 
+		// Set dev log writer on environment for dev.log() in Parts
+		if h.server.devLog != nil {
+			env.DevLog = h.server.devLog
+		}
+
 		// Inject @params for Part requests
 		env.Set("@params", buildParams(r, env))
 
