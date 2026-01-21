@@ -296,8 +296,22 @@ type Function struct {
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
 func (f *Function) Inspect() string {
+	// Format parameters as comma-separated list
+	params := make([]string, len(f.Params))
+	for i, p := range f.Params {
+		params[i] = p.String()
+	}
+	paramStr := strings.Join(params, ", ")
+
+	// Get body string
 	body := f.Body.String()
-	// Indent each line of the body
+
+	// For single-line bodies, keep it compact
+	if !strings.Contains(body, "\n") && len(body) < 60 {
+		return fmt.Sprintf("fn(%s) { %s }", paramStr, body)
+	}
+
+	// For multi-line bodies, indent each line
 	lines := strings.Split(body, "\n")
 	for i, line := range lines {
 		if line != "" {
@@ -305,7 +319,7 @@ func (f *Function) Inspect() string {
 		}
 	}
 	indentedBody := strings.Join(lines, "\n")
-	return fmt.Sprintf("fn(%v) {\n%s\n}", f.Params, indentedBody)
+	return fmt.Sprintf("fn(%s) {\n%s\n}", paramStr, indentedBody)
 }
 
 // ParamCount returns the number of parameters for this function
