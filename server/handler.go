@@ -1510,23 +1510,26 @@ func partsRuntimeScript() string {
 
 	function bindInteractions(el) {
 		var src = el.getAttribute('data-part-src');
-		var baseProps = parseProps(el);
 
 		// Handle part-click attributes (GET request) - only for elements targeting this Part
+		// Note: part-click does NOT inherit baseProps - it only uses explicitly specified part-* props
+		// This ensures view switches start fresh. To carry state forward, explicitly pass it.
 		el.querySelectorAll('[part-click]:not([part-target])').forEach(function(clickEl) {
 			var clickView = clickEl.getAttribute('part-click');
 			clickEl.onclick = function(e) {
 				e.preventDefault();
-				var clickProps = Object.assign({}, baseProps, collectPartProps(clickEl));
+				var clickProps = collectPartProps(clickEl);
 				updatePart(el, src, clickView, clickProps, 'GET');
 			};
 		});
 
 		// Handle part-submit on forms (POST request) - only for forms targeting this Part
+		// Forms DO include baseProps since form fields supplement the Part's current state
 		el.querySelectorAll('form[part-submit]:not([part-target])').forEach(function(form) {
 			var submitView = form.getAttribute('part-submit');
 			form.onsubmit = function(e) {
 				e.preventDefault();
+				var baseProps = parseProps(el);  // Read fresh at submit time
 				var formData = new FormData(form);
 				var formProps = Object.assign({}, baseProps);
 				formData.forEach(function(value, key) {
