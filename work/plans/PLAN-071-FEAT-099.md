@@ -2,8 +2,9 @@
 id: PLAN-071
 feature: FEAT-099
 title: "Implementation Plan for Flexible Date/Time Parsing"
-status: draft
+status: complete
 created: 2026-01-21
+completed: 2026-01-21
 ---
 
 # Implementation Plan: FEAT-099 Flexible Date/Time Parsing
@@ -428,17 +429,17 @@ Steps:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Add dependency | ⬜ Not started | |
-| | Task 2: Error codes | ⬜ Not started | |
-| | Task 3: Locale config | ⬜ Not started | |
-| | Task 4: Core parsing | ⬜ Not started | |
-| | Task 5: date() | ⬜ Not started | |
-| | Task 6: time() | ⬜ Not started | |
-| | Task 7: datetime() | ⬜ Not started | |
-| | Task 8: Introspect | ⬜ Not started | |
-| | Task 9: Update tests | ⬜ Not started | |
-| | Task 10: New tests | ⬜ Not started | |
-| | Task 11: Documentation | ⬜ Not started | |
+| 2026-01-21 | Task 1: Add dependency | ✅ Complete | Added github.com/araddon/dateparse |
+| 2026-01-21 | Task 2: Error codes | ✅ Complete | Added FMT-0011, FMT-0012 to errors.go |
+| 2026-01-21 | Task 3: Locale config | ✅ Complete | 5 locales: en-US, en-GB, fr-FR, de-DE, es-ES |
+| 2026-01-21 | Task 4: Core parsing | ✅ Complete | parseFlexibleDateTime with locale & timezone |
+| 2026-01-21 | Task 5: date() | ✅ Complete | Returns Date kind with options |
+| 2026-01-21 | Task 6: time() | ✅ Complete | Time-only parsing (breaking change) |
+| 2026-01-21 | Task 7: datetime() | ✅ Complete | Replaces old time() behavior |
+| 2026-01-21 | Task 8: Introspect | ✅ Complete | Updated metadata for all 3 functions |
+| 2026-01-21 | Task 9: Update tests | ✅ Complete | 7 test files updated time()→datetime() |
+| 2026-01-21 | Task 10: New tests | ✅ Complete | flexible_datetime_test.go with 30+ tests |
+| 2026-01-21 | Task 11: Documentation | ✅ Complete | Updated reference.md and CHEATSHEET.md |
 
 ## Deferred Items
 Items to add to work/BACKLOG.md after implementation:

@@ -1,9 +1,10 @@
 ---
 id: FEAT-099
 title: "Flexible Date/Time/Duration Parsing"
-status: draft
+status: implemented
 priority: high
 created: 2026-01-21
+completed: 2026-01-21
 author: "@human"
 ---
 
