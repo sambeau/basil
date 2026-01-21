@@ -358,6 +358,50 @@ if (isEmailTaken(form.email)) {
 }
 ```
 
+### State-Only Errors (No Message)
+
+Sometimes you want to highlight multiple fields as invalid without showing individual error messages—for example, when validating composite fields or checking for duplicate records. Use `withError(field)` with just the field name:
+
+```parsley
+@schema Person {
+    firstName: string(required)
+    lastName: string(required)
+    day: int(min: 1, max: 31)
+    month: int(min: 1, max: 12)
+    year: int(min: 1900, max: 2100)
+}
+
+let form = Person(props).validate()
+
+// Check if person already exists (multi-field validation)
+if (personExists(form.firstName, form.lastName)) {
+    // Flag both name fields as having errors, but show one combined message
+    form = form
+        .withError("firstName")   // State only - no individual message
+        .withError("lastName")    // State only - no individual message
+        .withError("_form", "A person with this name already exists")
+}
+
+// Check if date fields form a valid date
+if (not valid.date(`{form.year}-{form.month}-{form.day}`)) {
+    // Highlight all three date fields
+    form = form
+        .withError("day")
+        .withError("month")
+        .withError("year")
+        .withError("_form", "Please enter a valid date")
+}
+```
+
+**How it works:**
+
+- `withError(field)` — Sets `aria-invalid="true"` on the input, but `<error @field>` renders nothing
+- `withError(field, msg)` — Sets error state AND displays the message
+- `record.hasError(field)` returns `true` for both forms
+- `record.error(field)` returns `""` (empty string) for state-only errors
+
+This lets you show a single general error message while visually highlighting all the affected fields.
+
 ### Type Casting
 
 Schema types drive automatic casting when creating records:
@@ -1009,8 +1053,9 @@ let admins = @query(Users | role == "admin" ??-> *)
 | `errorCode(field)` | String or null | Error code for field |
 | `errorList()` | Array | Errors as: `[{field, code, message}]` |
 | `hasError(field)` | Boolean | True if field has error |
-| `withError(field, msg)` | Record | Add custom error |
-| `withError(field, code, msg)` | Record | Add custom error with code |
+| `withError(field)` | Record | Flag field as error state (no message) |
+| `withError(field, msg)` | Record | Add custom error with message |
+| `withError(field, code, msg)` | Record | Add custom error with code and message |
 
 ### Metadata Methods
 
