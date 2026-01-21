@@ -503,7 +503,7 @@ func objectToReprStringWithSeen(obj Object, seen map[Object]bool) string {
 	case *Money:
 		return obj.Inspect() // Money.Inspect() already returns parseable form
 	case *Function:
-		return "<function>"
+		return obj.Inspect() // Function.Inspect() returns fn(...) {...} form
 	case *Builtin:
 		return "<builtin>"
 	default:
