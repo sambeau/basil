@@ -35,8 +35,8 @@ func TestDatetimeKindField(t *testing.T) {
 		// Datetime with timezone
 		{`@2024-12-25T14:30:00Z.kind`, "datetime"},
 		{`@2024-12-25T14:30:00-05:00.kind`, "datetime"},
-		// time() builtin returns datetime
-		{`time("2024-12-25").kind`, "datetime"},
+		// datetime() builtin returns datetime
+		{`datetime("2024-12-25").kind`, "datetime"},
 		{`@now.kind`, "datetime"},
 	}
 

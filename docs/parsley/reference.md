@@ -1608,12 +1608,16 @@ pct.percent()                   // "12%"
 
 ### 5.5 DateTime Properties & Methods
 
-DateTime values are dictionaries with special properties and methods. They are created from datetime literals (`@2024-12-25`), the special `@now` literal for the current moment, or the `time()` function.
+DateTime values are dictionaries with special properties and methods. They are created from datetime literals (`@2024-12-25`), the special `@now` literal for the current moment, or the `date()`, `time()`, and `datetime()` functions.
 
 ```parsley
 @now                            // Current datetime
 @now.year                       // Current year
 @now.format("full")             // e.g., "Tuesday, January 13, 2026"
+
+// Parse flexible date formats
+date("22 April 2005")           // Natural language date
+datetime("May 8, 2009 5:57 PM") // Natural language datetime
 ```
 
 #### Properties
@@ -2569,23 +2573,42 @@ let good = try safeDivide(10, 2)
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `time(input, delta?)` | `input: string\|integer\|dict`, `delta?: dict` | `datetime` | Create datetime from various inputs |
+| `date(input, options?)` | `input: string`, `options?: dict` | `date` | Parse date string with locale support |
+| `time(input)` | `input: string` | `time` | Parse time-only string |
+| `datetime(input, options?)` | `input: string\|integer\|dict`, `options?: dict` | `datetime` | Parse datetime from various inputs with locale support |
 
-**Input types**:
-- `string` — ISO 8601 date/datetime string (`"2024-12-25"`, `"2024-12-25T14:30:00"`)
+**Input types for datetime()**:
+- `string` — Flexible date/time string (`"22 April 2005"`, `"2024-12-25T14:30:00"`)
 - `integer` — Unix timestamp (seconds since 1970-01-01)
 - `dictionary` — Date components (`{year: 2024, month: 12, day: 25, ...}`)
 
-**Delta**: Optional dictionary to add/subtract time (`{days: 1}`, `{hours: -2}`).
+**Options** (for `date()` and `datetime()`):
+- `locale` — Format interpretation (`"en-US"`, `"en-GB"`, `"fr-FR"`, `"de-DE"`, `"es-ES"`)
+- `timezone` — IANA timezone for UTC offset (`"America/New_York"`, default: `"UTC"`)
+- `strict` — Error on ambiguous dates (default: `false`)
 
 ```parsley
-time("2024-12-25")              // DateTime from string
-time(1735142400)                // DateTime from Unix timestamp
-time({year: 2024, month: 12, day: 25})  // DateTime from components
-time("2024-12-25", {days: 1})   // Add 1 day
+// date() - date-only parsing
+date("22 April 2005")                    // Natural language
+date("2005-04-22")                       // ISO format
+date("01/02/2005")                       // January 2nd (US default)
+date("01/02/2005", {locale: "en-GB"})    // February 1st (UK)
+date("22 avril 2005", {locale: "fr-FR"}) // French month names
+
+// time() - time-only parsing
+time("3:45 PM")                          // 12-hour format
+time("15:45")                            // 24-hour format
+time("15:45:30")                         // With seconds
+
+// datetime() - full datetime parsing
+datetime("April 22, 2005 3:45 PM")       // Natural language
+datetime("2024-12-25T14:30:00Z")         // ISO 8601
+datetime(1735142400)                     // Unix timestamp
+datetime({year: 2024, month: 12, day: 25})  // From components
+datetime("01/02/2005 3pm", {locale: "en-GB"})  // UK locale
 ```
 
-**Note**: Prefer datetime literals (`@2024-12-25`, `@now`) for static dates. Use `time()` when parsing dynamic input.
+**Note**: Prefer datetime literals (`@2024-12-25`, `@now`) for static dates. Use `date()`/`datetime()` when parsing dynamic user input.
 
 ---
 

@@ -2361,52 +2361,161 @@ func getBuiltins() map[string]*Builtin {
 				return newInternalError("INTERNAL-0001", map[string]any{"Context": "import()"})
 			},
 		},
-		"time": {
+		// date() - Parse a date string with flexible format support
+		// date("22 April 2005") - Natural language date
+		// date("2005-04-22") - ISO format
+		// date("04/22/2005") - US format (default)
+		// date("22/04/2005", {locale: "en-GB"}) - UK format
+		"date": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("time", len(args), 1, 2)
+					return newArityErrorRange("date", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
+
+				// Parse input string
+				input, ok := args[0].(*String)
+				if !ok {
+					return newTypeError("TYPE-0012", "date", "a string", args[0].Type())
+				}
+
+				// Extract options
+				locale := "en-US"
+				strict := false
+				timezone := "UTC"
+				if len(args) == 2 {
+					opts, ok := args[1].(*Dictionary)
+					if !ok {
+						return newTypeError("TYPE-0006", "date", "a dictionary", args[1].Type())
+					}
+					locale, strict, timezone = extractParseOptions(opts, env)
+					_ = strict // strict mode handled in parseFlexibleDateTime
+				}
+
+				// Parse with locale awareness
+				localeConfig := getLocaleConfig(locale)
+				t, _, err := parseFlexibleDateTime(input.Value, localeConfig, timezone, strict)
+				if err != nil {
+					return newStructuredError("FMT-0011", map[string]any{
+						"Input":   input.Value,
+						"GoError": err.Error(),
+					})
+				}
+
+				// Return as date (strip time component to midnight)
+				dateOnly := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+				return timeToDictWithKind(dateOnly, "date", env)
+			},
+		},
+		// time() - Parse a time-only string
+		// time("3:45 PM") - 12-hour format
+		// time("15:45") - 24-hour format
+		// time("15:45:30.123") - With seconds and milliseconds
+		"time": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newArityError("time", len(args), 1)
+				}
+
+				env := NewEnvironment()
+
+				input, ok := args[0].(*String)
+				if !ok {
+					return newTypeError("TYPE-0012", "time", "a string", args[0].Type())
+				}
+
+				// Parse time-only
+				t, err := parseTimeOnly(input.Value)
+				if err != nil {
+					return newStructuredError("FMT-0011", map[string]any{
+						"Input":   input.Value,
+						"GoError": err.Error(),
+					})
+				}
+
+				return timeToDictWithKind(t, "time", env)
+			},
+		},
+		// datetime() - Parse a full datetime with flexible format support
+		// datetime("April 22, 2005 3:45 PM") - Natural language
+		// datetime("2005-04-22T15:45:00Z") - ISO 8601
+		// datetime(1682157900) - Unix timestamp
+		// datetime({year: 2005, month: 4, day: 22}) - From dict
+		// datetime("01/02/2005 3pm", {locale: "en-GB"}) - With locale
+		"datetime": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newArityErrorRange("datetime", len(args), 1, 2)
+				}
+
+				env := NewEnvironment()
+
+				// Extract options if provided
+				locale := "en-US"
+				strict := false
+				timezone := "UTC"
+				var delta *Dictionary
+
+				if len(args) == 2 {
+					opts, ok := args[1].(*Dictionary)
+					if !ok {
+						return newTypeError("TYPE-0006", "datetime", "a dictionary", args[1].Type())
+					}
+
+					// Check if it's options or a delta dict
+					// Options have: locale, strict, timezone
+					// Delta has: years, months, days, hours, minutes, seconds
+					_, hasLocale := opts.Pairs["locale"]
+					_, hasStrict := opts.Pairs["strict"]
+					_, hasTimezone := opts.Pairs["timezone"]
+					_, hasYears := opts.Pairs["years"]
+					_, hasMonths := opts.Pairs["months"]
+					_, hasDays := opts.Pairs["days"]
+					_, hasHours := opts.Pairs["hours"]
+					_, hasMinutes := opts.Pairs["minutes"]
+					_, hasSeconds := opts.Pairs["seconds"]
+
+					if hasLocale || hasStrict || hasTimezone {
+						locale, strict, timezone = extractParseOptions(opts, env)
+					} else if hasYears || hasMonths || hasDays || hasHours || hasMinutes || hasSeconds {
+						delta = opts
+					}
+				}
+
 				var t time.Time
 				var err error
 
 				switch arg := args[0].(type) {
 				case *String:
-					// Try parsing as ISO 8601 first, then fall back to date-only format
-					t, err = time.Parse(time.RFC3339, arg.Value)
+					// Parse with locale awareness
+					localeConfig := getLocaleConfig(locale)
+					t, _, err = parseFlexibleDateTime(arg.Value, localeConfig, timezone, strict)
 					if err != nil {
-						t, err = time.Parse("2006-01-02", arg.Value)
-					}
-					if err != nil {
-						t, err = time.Parse("2006-01-02T15:04:05", arg.Value)
-					}
-					if err != nil {
-						return newFormatError("FMT-0004", fmt.Errorf("cannot parse %q", arg.Value))
+						return newStructuredError("FMT-0011", map[string]any{
+							"Input":   arg.Value,
+							"GoError": err.Error(),
+						})
 					}
 				case *Integer:
 					// Unix timestamp
 					t = time.Unix(arg.Value, 0).UTC()
 				case *Dictionary:
-					// From dictionary
+					// From dictionary components
 					t, err = dictToTime(arg, env)
 					if err != nil {
 						return newFormatError("FMT-0004", err)
 					}
 				default:
-					return newTypeError("TYPE-0012", "time", "a string, integer, or dictionary", args[0].Type())
+					return newTypeError("TYPE-0012", "datetime", "a string, integer, or dictionary", args[0].Type())
 				}
 
 				// Apply delta if provided
-				if len(args) == 2 {
-					delta, ok := args[1].(*Dictionary)
-					if !ok {
-						return newTypeError("TYPE-0006", "time", "a dictionary", args[1].Type())
-					}
+				if delta != nil {
 					t = applyDelta(t, delta, env)
 				}
 
-				return timeToDict(t, env)
+				return timeToDictWithKind(t, "datetime", env)
 			},
 		},
 		"url": {

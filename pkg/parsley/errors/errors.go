@@ -629,6 +629,14 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassFormat,
 		Template: "Failed to convert markdown: {{.GoError}}",
 	},
+	"FMT-0011": {
+		Class:    ClassFormat,
+		Template: "Cannot parse date/time: {{.Input}}{{if .GoError}} - {{.GoError}}{{end}}",
+	},
+	"FMT-0012": {
+		Class:    ClassFormat,
+		Template: "Ambiguous date: {{.Input}} could be {{.Interpretation1}} or {{.Interpretation2}}. Use {locale: \"{{.SuggestedLocale}}\"} to specify format",
+	},
 
 	// ========================================
 	// Value errors (VALUE-0xxx)

@@ -201,28 +201,28 @@ func TestFormatDate(t *testing.T) {
 		contains string
 	}{
 		// US English formats
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format()`, "December 25, 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("short")`, "12/25/24"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("medium")`, "Dec 25, 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long")`, "December 25, 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full")`, "December 25, 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format()`, "December 25, 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("short")`, "12/25/24"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("medium")`, "Dec 25, 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long")`, "December 25, 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("full")`, "December 25, 2024"},
 
 		// French formats
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "fr-FR")`, "25 décembre 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("medium", "fr-FR")`, "25 déc 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full", "fr-FR")`, "mercredi"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", "fr-FR")`, "25 décembre 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("medium", "fr-FR")`, "25 déc 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("full", "fr-FR")`, "mercredi"},
 
 		// German formats
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "de-DE")`, "25. Dezember 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("short", "de-DE")`, "25.12.24"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full", "de-DE")`, "Mittwoch"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", "de-DE")`, "25. Dezember 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("short", "de-DE")`, "25.12.24"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("full", "de-DE")`, "Mittwoch"},
 
 		// Japanese formats
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "ja-JP")`, "2024年12月25日"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", "ja-JP")`, "2024年12月25日"},
 
 		// Spanish formats
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", "es-ES")`, "25 de diciembre de 2024"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("full", "es-ES")`, "miércoles"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", "es-ES")`, "25 de diciembre de 2024"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("full", "es-ES")`, "miércoles"},
 	}
 
 	for _, tt := range tests {
@@ -250,9 +250,9 @@ func TestFormatDateErrors(t *testing.T) {
 		errContains string
 	}{
 		{`"not_a_date".format()`, "unknown method"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format(123)`, "string"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("long", 456)`, "string"},
-		{`let d = time({year: 2024, month: 12, day: 25}); d.format("invalid")`, "invalid style"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format(123)`, "string"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", 456)`, "string"},
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("invalid")`, "invalid style"},
 	}
 
 	for _, tt := range tests {

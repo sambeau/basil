@@ -7,9 +7,11 @@ package evaluator
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/araddon/dateparse"
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
@@ -408,4 +410,322 @@ func durationDictToString(dict *Dictionary) string {
 		return "-" + result
 	}
 	return result
+}
+
+// ============================================================================
+// Locale-aware Date/Time Parsing
+// ============================================================================
+
+// LocaleConfig defines locale-specific parsing behavior
+type LocaleConfig struct {
+	DayFirst   bool           // DD/MM vs MM/DD for ambiguous dates
+	MonthNames map[string]int // Localized month name → number (1-12)
+}
+
+// English month names (used by en-US and en-GB)
+var englishMonths = map[string]int{
+	"january": 1, "jan": 1,
+	"february": 2, "feb": 2,
+	"march": 3, "mar": 3,
+	"april": 4, "apr": 4,
+	"may": 5,
+	"june": 6, "jun": 6,
+	"july": 7, "jul": 7,
+	"august": 8, "aug": 8,
+	"september": 9, "sep": 9, "sept": 9,
+	"october": 10, "oct": 10,
+	"november": 11, "nov": 11,
+	"december": 12, "dec": 12,
+}
+
+// French month names
+var frenchMonths = map[string]int{
+	"janvier": 1, "janv": 1,
+	"février": 2, "fevrier": 2, "fév": 2, "fev": 2,
+	"mars": 3,
+	"avril": 4, "avr": 4,
+	"mai": 5,
+	"juin": 6,
+	"juillet": 7, "juil": 7,
+	"août": 8, "aout": 8,
+	"septembre": 9, "sept": 9,
+	"octobre": 10, "oct": 10,
+	"novembre": 11, "nov": 11,
+	"décembre": 12, "decembre": 12, "déc": 12, "dec": 12,
+}
+
+// German month names
+var germanMonths = map[string]int{
+	"januar": 1, "jan": 1,
+	"februar": 2, "feb": 2,
+	"märz": 3, "marz": 3, "mär": 3, "mar": 3,
+	"april": 4, "apr": 4,
+	"mai": 5,
+	"juni": 6, "jun": 6,
+	"juli": 7, "jul": 7,
+	"august": 8, "aug": 8,
+	"september": 9, "sep": 9, "sept": 9,
+	"oktober": 10, "okt": 10,
+	"november": 11, "nov": 11,
+	"dezember": 12, "dez": 12,
+}
+
+// Spanish month names
+var spanishMonths = map[string]int{
+	"enero": 1, "ene": 1,
+	"febrero": 2, "feb": 2,
+	"marzo": 3, "mar": 3,
+	"abril": 4, "abr": 4,
+	"mayo": 5, "may": 5,
+	"junio": 6, "jun": 6,
+	"julio": 7, "jul": 7,
+	"agosto": 8, "ago": 8,
+	"septiembre": 9, "sep": 9, "sept": 9,
+	"octubre": 10, "oct": 10,
+	"noviembre": 11, "nov": 11,
+	"diciembre": 12, "dic": 12,
+}
+
+// localeConfigs maps locale codes to their configurations
+var localeConfigs = map[string]*LocaleConfig{
+	"en-US": {DayFirst: false, MonthNames: englishMonths},
+	"en-GB": {DayFirst: true, MonthNames: englishMonths},
+	"fr-FR": {DayFirst: true, MonthNames: frenchMonths},
+	"de-DE": {DayFirst: true, MonthNames: germanMonths},
+	"es-ES": {DayFirst: true, MonthNames: spanishMonths},
+}
+
+// getLocaleConfig returns the configuration for a locale, defaulting to en-US
+func getLocaleConfig(locale string) *LocaleConfig {
+	if config, ok := localeConfigs[locale]; ok {
+		return config
+	}
+	return localeConfigs["en-US"]
+}
+
+// mergeMonthNames creates a combined map of all month names from multiple locales
+func mergeMonthNames(configs ...*LocaleConfig) map[string]int {
+	result := make(map[string]int)
+	for _, config := range configs {
+		for name, num := range config.MonthNames {
+			result[name] = num
+		}
+	}
+	return result
+}
+
+// allMonthNames is a combined map for recognizing month names from any supported locale
+var allMonthNames = mergeMonthNames(
+	localeConfigs["en-US"],
+	localeConfigs["fr-FR"],
+	localeConfigs["de-DE"],
+	localeConfigs["es-ES"],
+)
+
+// normalizeMonthNames replaces localized month names with English equivalents
+func normalizeMonthNames(input string, locale *LocaleConfig) string {
+	// Build a regex pattern to match any month name from the locale
+	if locale == nil || len(locale.MonthNames) == 0 {
+		return input
+	}
+
+	// Collect month names that need translation (non-English)
+	englishNames := map[string]bool{
+		"january": true, "jan": true,
+		"february": true, "feb": true,
+		"march": true, "mar": true,
+		"april": true, "apr": true,
+		"may": true,
+		"june": true, "jun": true,
+		"july": true, "jul": true,
+		"august": true, "aug": true,
+		"september": true, "sep": true, "sept": true,
+		"october": true, "oct": true,
+		"november": true, "nov": true,
+		"december": true, "dec": true,
+	}
+
+	// English month names for replacement (full names)
+	monthToEnglish := []string{
+		"", "January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December",
+	}
+
+	result := input
+	for monthName, monthNum := range locale.MonthNames {
+		// Skip if it's already an English name
+		if englishNames[strings.ToLower(monthName)] {
+			continue
+		}
+
+		// Create case-insensitive replacement
+		pattern := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(monthName) + `\b`)
+		result = pattern.ReplaceAllString(result, monthToEnglish[monthNum])
+	}
+
+	return result
+}
+
+// ParsedDateKind indicates what components were found in the parsed string
+type ParsedDateKind string
+
+const (
+	KindDate     ParsedDateKind = "date"
+	KindTime     ParsedDateKind = "time"
+	KindDatetime ParsedDateKind = "datetime"
+)
+
+// parseFlexibleDateTime parses a date/time string with locale awareness
+func parseFlexibleDateTime(input string, locale *LocaleConfig, tzName string, strict bool) (time.Time, ParsedDateKind, error) {
+	if input == "" {
+		return time.Time{}, "", fmt.Errorf("empty input")
+	}
+
+	// 1. Normalize localized month names to English
+	normalized := normalizeMonthNames(input, locale)
+
+	// 2. Load timezone (default UTC)
+	loc := time.UTC
+	if tzName != "" && tzName != "UTC" {
+		var err error
+		loc, err = time.LoadLocation(tzName)
+		if err != nil {
+			return time.Time{}, "", fmt.Errorf("unknown timezone: %s", tzName)
+		}
+	}
+
+	// 3. Configure dateparse options based on locale
+	var opts []dateparse.ParserOption
+	if locale != nil {
+		opts = append(opts, dateparse.PreferMonthFirst(!locale.DayFirst))
+	} else {
+		opts = append(opts, dateparse.PreferMonthFirst(true))
+	}
+
+	// 4. Parse with dateparse
+	t, err := dateparse.ParseIn(normalized, loc, opts...)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	// 5. Detect kind based on what was parsed
+	kind := detectParsedKind(normalized, t)
+
+	return t, kind, nil
+}
+
+// detectParsedKind tries to determine if the input was date-only, time-only, or full datetime
+func detectParsedKind(input string, t time.Time) ParsedDateKind {
+	lower := strings.ToLower(strings.TrimSpace(input))
+
+	// Time-only patterns: starts with digit and contains : but no date-like separators
+	timeOnlyPattern := regexp.MustCompile(`^(\d{1,2}:\d{2}|\d{1,2}\s*(am|pm|a\.m\.|p\.m\.))`)
+	if timeOnlyPattern.MatchString(lower) && !containsDateIndicator(lower) {
+		return KindTime
+	}
+
+	// Check if time components are all zero (likely date-only input)
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && !containsTimeIndicator(lower) {
+		return KindDate
+	}
+
+	return KindDatetime
+}
+
+// containsDateIndicator checks if input contains date-like patterns
+func containsDateIndicator(input string) bool {
+	// Check for date separators with numbers
+	datePattern := regexp.MustCompile(`\d+[/\-\.]\d+[/\-\.]\d+|\d+\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|` +
+		`(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+`)
+	return datePattern.MatchString(input)
+}
+
+// containsTimeIndicator checks if input explicitly contains time indicators
+func containsTimeIndicator(input string) bool {
+	// Check for time patterns
+	timePattern := regexp.MustCompile(`\d{1,2}:\d{2}|am|pm|a\.m\.|p\.m\.`)
+	return timePattern.MatchString(input)
+}
+
+// parseTimeOnly parses a time-only string (no date component)
+func parseTimeOnly(input string) (time.Time, error) {
+	if input == "" {
+		return time.Time{}, fmt.Errorf("empty input")
+	}
+
+	// Try various time formats
+	formats := []string{
+		"15:04:05.999999999",
+		"15:04:05",
+		"15:04",
+		"3:04:05 PM",
+		"3:04:05 pm",
+		"3:04 PM",
+		"3:04 pm",
+		"3:04PM",
+		"3:04pm",
+		"3PM",
+		"3pm",
+		"3 PM",
+		"3 pm",
+	}
+
+	input = strings.TrimSpace(input)
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, input); err == nil {
+			// Return with a zero date (just the time component)
+			return time.Date(0, 1, 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.UTC), nil
+		}
+	}
+
+	// Fall back to dateparse but verify it looks like time-only
+	t, err := dateparse.ParseAny(input)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("cannot parse time: %s", input)
+	}
+
+	// Check if the result has a meaningful date - if so, it wasn't time-only input
+	if t.Year() != 0 && t.Year() != time.Now().Year() {
+		return time.Time{}, fmt.Errorf("expected time-only, got date: %s", input)
+	}
+
+	return time.Date(0, 1, 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.UTC), nil
+}
+
+// extractParseOptions extracts locale, strict, and timezone from an options dictionary
+func extractParseOptions(opts *Dictionary, env *Environment) (locale string, strict bool, timezone string) {
+	locale = "en-US"
+	strict = false
+	timezone = "UTC"
+
+	if opts == nil {
+		return
+	}
+
+	// Extract locale
+	if localeExpr, ok := opts.Pairs["locale"]; ok {
+		localeObj := Eval(localeExpr, env)
+		if localeStr, ok := localeObj.(*String); ok {
+			locale = localeStr.Value
+		}
+	}
+
+	// Extract strict
+	if strictExpr, ok := opts.Pairs["strict"]; ok {
+		strictObj := Eval(strictExpr, env)
+		if strictBool, ok := strictObj.(*Boolean); ok {
+			strict = strictBool.Value
+		}
+	}
+
+	// Extract timezone
+	if tzExpr, ok := opts.Pairs["timezone"]; ok {
+		tzObj := Eval(tzExpr, env)
+		if tzStr, ok := tzObj.(*String); ok {
+			timezone = tzStr.Value
+		}
+	}
+
+	return
 }

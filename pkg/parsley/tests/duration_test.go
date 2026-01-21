@@ -236,62 +236,62 @@ func TestDatetimeDurationOperations(t *testing.T) {
 	}{
 		{
 			name:     "add duration to datetime",
-			code:     `let dt = time("2024-01-15T00:00:00Z") + @2d; dt.day`,
+			code:     `let dt = datetime("2024-01-15T00:00:00Z") + @2d; dt.day`,
 			expected: "17",
 		},
 		{
 			name:     "add hours to datetime",
-			code:     `let dt = time("2024-01-15T10:00:00Z") + @3h; dt.hour`,
+			code:     `let dt = datetime("2024-01-15T10:00:00Z") + @3h; dt.hour`,
 			expected: "13",
 		},
 		{
 			name:     "subtract duration from datetime",
-			code:     `let dt = time("2024-01-15T00:00:00Z") - @2d; dt.day`,
+			code:     `let dt = datetime("2024-01-15T00:00:00Z") - @2d; dt.day`,
 			expected: "13",
 		},
 		{
 			name:     "add months to datetime",
-			code:     `let dt = time("2024-01-31T00:00:00Z") + @1mo; dt.month`,
+			code:     `let dt = datetime("2024-01-31T00:00:00Z") + @1mo; dt.month`,
 			expected: "3", // Jan 31 + 1 month = Mar 2 (Feb 31 doesn't exist)
 		},
 		{
 			name:     "add months to datetime (day normalization)",
-			code:     `let dt = time("2024-01-31T00:00:00Z") + @1mo; dt.day`,
+			code:     `let dt = datetime("2024-01-31T00:00:00Z") + @1mo; dt.day`,
 			expected: "2", // Normalized from Feb 31 to Mar 2
 		},
 		{
 			name:     "add years to datetime",
-			code:     `let dt = time("2024-06-15T00:00:00Z") + @1y; dt.year`,
+			code:     `let dt = datetime("2024-06-15T00:00:00Z") + @1y; dt.year`,
 			expected: "2025",
 		},
 		{
 			name:     "duration plus datetime is commutative",
-			code:     `let dt = @2d + time("2024-01-15T00:00:00Z"); dt.day`,
+			code:     `let dt = @2d + datetime("2024-01-15T00:00:00Z"); dt.day`,
 			expected: "17",
 		},
 		{
 			name:     "duration plus datetime equals datetime plus duration",
-			code:     `let d = @1y2mo; let dt = time("2024-01-01T00:00:00Z"); (d + dt) == (dt + d)`,
+			code:     `let d = @1y2mo; let dt = datetime("2024-01-01T00:00:00Z"); (d + dt) == (dt + d)`,
 			expected: "true",
 		},
 		{
 			name:     "add compound duration to datetime",
-			code:     `let dt = time("2024-01-01T00:00:00Z") + @1y2mo3d; dt.month`,
+			code:     `let dt = datetime("2024-01-01T00:00:00Z") + @1y2mo3d; dt.month`,
 			expected: "3", // Jan + 14 months = March of next year
 		},
 		{
 			name:     "datetime minus datetime returns duration",
-			code:     `let diff = time("2024-01-20T00:00:00Z") - time("2024-01-15T00:00:00Z"); diff.seconds`,
+			code:     `let diff = datetime("2024-01-20T00:00:00Z") - datetime("2024-01-15T00:00:00Z"); diff.seconds`,
 			expected: "432000", // 5 days
 		},
 		{
 			name:     "datetime minus datetime has no months",
-			code:     `let diff = time("2024-01-20T00:00:00Z") - time("2024-01-15T00:00:00Z"); diff.months`,
+			code:     `let diff = datetime("2024-01-20T00:00:00Z") - datetime("2024-01-15T00:00:00Z"); diff.months`,
 			expected: "0",
 		},
 		{
 			name:     "datetime minus datetime totalSeconds",
-			code:     `let diff = time("2024-01-20T00:00:00Z") - time("2024-01-15T00:00:00Z"); diff.totalSeconds`,
+			code:     `let diff = datetime("2024-01-20T00:00:00Z") - datetime("2024-01-15T00:00:00Z"); diff.totalSeconds`,
 			expected: "432000",
 		},
 	}
@@ -408,7 +408,7 @@ func TestDurationDivision(t *testing.T) {
 		},
 		{
 			name:     "age calculation example",
-			code:     `let birthdate = @1990-05-15; let today = time("2024-12-15T00:00:00Z"); (today - birthdate) / @1y`,
+			code:     `let birthdate = @1990-05-15; let today = datetime("2024-12-15T00:00:00Z"); (today - birthdate) / @1y`,
 			expected: "34.58797921928582",
 		},
 		{
@@ -444,7 +444,7 @@ func TestDurationErrors(t *testing.T) {
 		},
 		{
 			name:        "cannot subtract datetime from duration",
-			code:        `@1d - time("2024-01-01T00:00:00Z")`,
+			code:        `@1d - datetime("2024-01-01T00:00:00Z")`,
 			expectError: true,
 		},
 		{

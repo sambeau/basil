@@ -372,6 +372,12 @@ value ?? "default"           // Returns "default" only if value is null
 @now - @2024-01-01           // Duration between dates
 @2024-11-21 && @12:30        // Combine date + time → datetime
 
+// Flexible parsing (100+ formats supported)
+datetime("22 April 2005")    // Human-readable date
+date("March 14, 2024")       // Returns date only
+time("3:45 PM")              // Returns time only
+datetime("22/04/2005", {locale: "en-GB"})  // Day-first parsing
+
 // Interpolated (dynamic)
 let month = "11"
 let date = @(2024-{month}-29)  // Builds from variables
@@ -534,7 +540,7 @@ if (error != null) {
 }
 
 // With null coalescing for defaults
-let parsed = (try time("maybe-invalid")).result ?? @now
+let parsed = (try datetime("maybe-invalid")).result ?? @now
 ```
 
 **User-defined errors with `fail()`:**

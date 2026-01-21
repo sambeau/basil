@@ -163,15 +163,15 @@ func TestDatetimeLiteralSubtraction(t *testing.T) {
 }
 
 func TestDatetimeLiteralEquivalence(t *testing.T) {
-	// Test that @syntax and time() represent the same point in time
+	// Test that @syntax and datetime() represent the same point in time
 	// Note: kind field differs (date vs datetime) but unix timestamp is equal
 	tests := []struct {
 		literal  string
 		function string
 	}{
-		{`@2024-12-25.unix`, `time("2024-12-25").unix`},
-		{`@2024-12-25T14:30:00.unix`, `time("2024-12-25T14:30:00").unix`},
-		{`@2024-01-15T09:45:30Z.unix`, `time("2024-01-15T09:45:30Z").unix`},
+		{`@2024-12-25.unix`, `datetime("2024-12-25").unix`},
+		{`@2024-12-25T14:30:00.unix`, `datetime("2024-12-25T14:30:00").unix`},
+		{`@2024-01-15T09:45:30Z.unix`, `datetime("2024-01-15T09:45:30Z").unix`},
 	}
 
 	for _, tt := range tests {
