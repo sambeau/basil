@@ -190,6 +190,19 @@ func TestFormAriaAttributes(t *testing.T) {
 			`,
 			contains: []string{`aria-invalid="false"`},
 		},
+		{
+			name: "state-only error (no message) still has aria-invalid",
+			input: `
+				@schema User {
+					name: string
+				}
+				let user = User({name: "Alice"}).withError("name")
+				<form @record={user}>
+					<input @field="name"/>
+				</form>
+			`,
+			contains: []string{`aria-invalid="true"`},
+		},
 	}
 
 	for _, tt := range tests {
@@ -441,6 +454,19 @@ func TestFormErrorComponent(t *testing.T) {
 				</form>
 			`,
 			contains: []string{`<div id="name-error"`},
+		},
+		{
+			name: "Error renders nothing when error has no message (state-only error)",
+			input: `
+				@schema User {
+					name: string
+				}
+				let user = User({name: "Alice"}).withError("name")
+				<form @record={user}>
+					<Error @field="name"/>
+				</form>
+			`,
+			isEmpty: true,
 		},
 	}
 

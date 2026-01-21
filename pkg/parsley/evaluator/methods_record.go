@@ -316,11 +316,14 @@ func recordToJSON(record *Record, args []Object) Object {
 	return &String{Value: string(jsonBytes)}
 }
 
-// recordWithError implements record.withError(field, msg) or record.withError(field, code, msg)
+// recordWithError implements record.withError(field), record.withError(field, msg), or record.withError(field, code, msg)
 // Adds a custom error without revalidation
+// - withError(field) - flags field as having error state (no message displayed)
+// - withError(field, msg) - adds error with message
+// - withError(field, code, msg) - adds error with custom code and message
 func recordWithError(record *Record, args []Object) Object {
-	if len(args) < 2 || len(args) > 3 {
-		return newArityError("withError", len(args), 2)
+	if len(args) < 1 || len(args) > 3 {
+		return newArityError("withError", len(args), 1)
 	}
 
 	fieldName, ok := args[0].(*String)
@@ -330,7 +333,11 @@ func recordWithError(record *Record, args []Object) Object {
 
 	var code, message string
 
-	if len(args) == 2 {
+	if len(args) == 1 {
+		// withError(field) - flag as error state only (empty message)
+		code = ErrCodeCustom
+		message = ""
+	} else if len(args) == 2 {
 		// withError(field, msg) - use CUSTOM code
 		msg, ok := args[1].(*String)
 		if !ok {

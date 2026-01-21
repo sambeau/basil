@@ -1014,6 +1014,39 @@ let withErr = record.withError("email", "DB_CONSTRAINT", "Unique constraint viol
 withErr.error("email")`,
 			expected: "Unique constraint violated",
 		},
+		{
+			name: "withError single arg flags error state without message",
+			input: `
+@schema WithErrEmail6 {
+    email: string
+}
+let record = WithErrEmail6({email: "test@example.com"})
+let withErr = record.withError("email")
+withErr.hasError("email")`,
+			expected: "true",
+		},
+		{
+			name: "withError single arg has empty error message",
+			input: `
+@schema WithErrEmail7 {
+    email: string
+}
+let record = WithErrEmail7({email: "test@example.com"})
+let withErr = record.withError("email")
+withErr.error("email")`,
+			expected: "",
+		},
+		{
+			name: "withError single arg uses CUSTOM code",
+			input: `
+@schema WithErrEmail8 {
+    email: string
+}
+let record = WithErrEmail8({email: "test@example.com"})
+let withErr = record.withError("email")
+withErr.errorCode("email")`,
+			expected: "CUSTOM",
+		},
 	}
 
 	for _, tt := range tests {

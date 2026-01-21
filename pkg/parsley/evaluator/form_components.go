@@ -129,6 +129,12 @@ func evalErrorComponent(props string, contents []Object, isSelfClosing bool, env
 		return NULL // No error - render nothing
 	}
 
+	// Check if error has a message (empty message = state-only error)
+	errorMsg := record.Errors[fieldName].Message
+	if errorMsg == "" {
+		return NULL // Error state only, no message to display
+	}
+
 	// Get optional @tag override (default is "span")
 	tagName := parseTagAttribute(props)
 	if tagName == "" {
@@ -152,8 +158,7 @@ func evalErrorComponent(props string, contents []Object, isSelfClosing bool, env
 
 	result.WriteString(">")
 
-	// Add error message
-	errorMsg := record.Errors[fieldName].Message
+	// Add error message (already retrieved above)
 	result.WriteString(escapeHTMLText(errorMsg))
 
 	// For tag pairs, add contents after error message
