@@ -112,3 +112,96 @@ func extractPLNValue(propsJSON string) string {
 	}
 	return propsJSON[start : start+end]
 }
+
+// TestRecordInterpolationRoundTrip tests that a Record interpolated via @{row}
+// survives the round-trip through Parts.refresh JavaScript call
+func TestRecordInterpolationRoundTrip(t *testing.T) {
+	// Create a Record with PLN secret
+	schema := &evaluator.DSLSchema{
+		Name: "Item",
+		Fields: map[string]*evaluator.DSLSchemaField{
+			"id":    {Name: "id", Type: "int"},
+			"name":  {Name: "name", Type: "string"},
+			"price": {Name: "price", Type: "int"},
+		},
+	}
+
+	env := evaluator.NewEnvironment()
+	env.PLNSecret = "test-secret"
+
+	record := &evaluator.Record{
+		Schema: schema,
+		Data: map[string]ast.Expression{
+			"id":    &ast.ObjectLiteralExpression{Obj: &evaluator.Integer{Value: 42}},
+			"name":  &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: "Widget"}},
+			"price": &ast.ObjectLiteralExpression{Obj: &evaluator.Integer{Value: 999}},
+		},
+		KeyOrder: []string{"id", "name", "price"},
+		Env:      env,
+	}
+
+	// Simulate what @{row} produces when interpolated in a JavaScript context
+	// This uses evaluator.objectToTemplateString, not server.objectToTemplateString
+	// We need to use the actual Parsley evaluation path
+	// For testing, we'll use EncodePropsToJSON which uses the same PLN encoding logic
+	propsDict := &evaluator.Dictionary{
+		Pairs:    map[string]ast.Expression{"record": &ast.ObjectLiteralExpression{Obj: record}},
+		KeyOrder: []string{"record"},
+		Env:      env,
+	}
+	interpolated := evaluator.EncodePropsToJSON(propsDict)
+	t.Logf("Encoded Props JSON: %s", interpolated)
+
+	// Extract just the record value from {"record":{...}}
+	// The encoded JSON looks like: {"record":{"__pln":"..."}}
+	// When JavaScript sends it back, it sends: record={"__pln":"..."}
+	plnValue := extractPLNValue(interpolated)
+	if plnValue == "" {
+		t.Fatalf("Expected PLN encoding in Record, got: %s", interpolated)
+	}
+
+	// Now simulate JavaScript sending this back: record={"__pln":"..."}
+	jsonValue := url.QueryEscape(`{"__pln":"` + plnValue + `"}`)
+	req := httptest.NewRequest("GET", "/?_view=test&record="+jsonValue, nil)
+
+	h := &parsleyHandler{
+		server: &Server{
+			stderr: io.Discard,
+		},
+	}
+
+	parsedEnv := evaluator.NewEnvironment()
+	parsedEnv.PLNSecret = "test-secret"
+
+	props, err := h.parsePartProps(req, parsedEnv)
+	if err != nil {
+		t.Fatalf("parsePartProps error: %v", err)
+	}
+
+	// Evaluate the record prop
+	recordObj := evaluator.Eval(props.Pairs["record"], props.Env)
+	t.Logf("Parsed record type: %T", recordObj)
+	t.Logf("Parsed record value: %v", recordObj.Inspect())
+
+	// Should be a Record
+	parsedRecord, ok := recordObj.(*evaluator.Record)
+	if !ok {
+		t.Fatalf("Expected Record after round-trip, got %T: %v", recordObj, recordObj.Inspect())
+	}
+
+	// Verify field values
+	id := parsedRecord.Get("id", parsedEnv)
+	if idInt, ok := id.(*evaluator.Integer); !ok || idInt.Value != 42 {
+		t.Errorf("Expected id=42, got %v", id)
+	}
+
+	name := parsedRecord.Get("name", parsedEnv)
+	if nameStr, ok := name.(*evaluator.String); !ok || nameStr.Value != "Widget" {
+		t.Errorf("Expected name=Widget, got %v", name)
+	}
+
+	price := parsedRecord.Get("price", parsedEnv)
+	if priceInt, ok := price.(*evaluator.Integer); !ok || priceInt.Value != 999 {
+		t.Errorf("Expected price=999, got %v", price)
+	}
+}

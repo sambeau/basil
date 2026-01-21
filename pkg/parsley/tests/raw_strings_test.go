@@ -7,6 +7,8 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
+	_ "github.com/sambeau/basil/pkg/parsley/pln" // Register PLN hooks
+	_ "github.com/sambeau/basil/server"          // Register signing functions
 )
 
 // TestRawStringBasics tests single-quoted raw string literals
@@ -405,5 +407,127 @@ func TestRawTemplateInPairedTagAttributes(t *testing.T) {
 				t.Errorf("Expected output to contain %q, got %q", tt.contains, str.Value)
 			}
 		})
+	}
+}
+
+// TestRawTemplateRecordInterpolation tests @{} interpolation with Record values
+func TestRawTemplateRecordInterpolation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains string
+	}{
+		{
+			name: "Record serializes as JSON object",
+			input: `
+@schema Person { id: int, name: string }
+let row = Person({id: 1, name: "Alice"})
+'Parts.refresh("editor", {record: @{row}})'
+`,
+			contains: `{"id":1,"name":"Alice"}`,
+		},
+		{
+			name: "Record field access still works",
+			input: `
+@schema Item { id: int, price: int }
+let item = Item({id: 42, price: 100})
+'Parts.refresh("cart", {id: @{item.id}, price: @{item.price}})'
+`,
+			contains: `{id: 42, price: 100}`,
+		},
+		{
+			name: "Record in onclick attribute",
+			input: `
+@schema Product { sku: string, qty: int }
+let product = Product({sku: "ABC", qty: 5})
+<button onclick='handleProduct(@{product})'/>
+`,
+			contains: `onclick='handleProduct({"qty":5,"sku":"ABC"})'`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := testEvalHelper(tt.input)
+			str, ok := evaluated.(*evaluator.String)
+			if !ok {
+				t.Fatalf("Expected String, got %T (%v)", evaluated, evaluated)
+			}
+			if !strings.Contains(str.Value, tt.contains) {
+				t.Errorf("Expected output to contain %q, got %q", tt.contains, str.Value)
+			}
+		})
+	}
+}
+
+// TestRawTemplateRecordPLNEncoding tests that Records are PLN-encoded when secret is set
+func TestRawTemplateRecordPLNEncoding(t *testing.T) {
+	input := `
+@schema Person { id: int, name: string }
+let row = Person({id: 1, name: "Alice"})
+'Parts.refresh("editor", {record: @{row}})'
+`
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	// Test with PLN secret - should use PLN encoding
+	env := evaluator.NewEnvironment()
+	env.PLNSecret = "test-secret"
+	result := evaluator.Eval(program, env)
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("Expected String, got %T (%v)", result, result)
+	}
+
+	// Should contain __pln marker
+	if !strings.Contains(str.Value, `"__pln"`) {
+		t.Errorf("Expected PLN encoding with secret, got: %s", str.Value)
+	}
+
+	// Should NOT contain raw schema name
+	if strings.Contains(str.Value, "Person(") {
+		t.Errorf("Should not contain raw Record Inspect output, got: %s", str.Value)
+	}
+}
+
+// TestRawTemplateRecordWithoutSecret tests Records without PLN secret use JSON
+func TestRawTemplateRecordWithoutSecret(t *testing.T) {
+	input := `
+@schema Person { id: int, name: string }
+let row = Person({id: 1, name: "Alice"})
+'Parts.refresh("editor", {record: @{row}})'
+`
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	// Test without PLN secret - should use plain JSON
+	env := evaluator.NewEnvironment()
+	// No PLNSecret set
+	result := evaluator.Eval(program, env)
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("Expected String, got %T (%v)", result, result)
+	}
+
+	// Should contain JSON data
+	if !strings.Contains(str.Value, `"id":1`) || !strings.Contains(str.Value, `"name":"Alice"`) {
+		t.Errorf("Expected JSON data, got: %s", str.Value)
+	}
+
+	// Should NOT contain __pln marker
+	if strings.Contains(str.Value, `"__pln"`) {
+		t.Errorf("Should not contain PLN marker without secret, got: %s", str.Value)
 	}
 }

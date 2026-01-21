@@ -708,6 +708,9 @@ func objectToGoValue(obj Object) interface{} {
 			m[key] = objectToGoValue(val)
 		}
 		return m
+	case *Record:
+		// Records convert to their data dictionary for JSON marshaling
+		return objectToGoValue(v.ToDictionary())
 	case *Null:
 		return nil
 	default:

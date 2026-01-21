@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -59,6 +60,26 @@ func objectToTemplateString(obj Object) string {
 			return requestDictToString(obj)
 		}
 		return obj.Inspect()
+	case *Record:
+		// Records are serialized as JSON objects for JavaScript compatibility.
+		// If the record has a PLN secret, use PLN encoding for round-trip support.
+		if obj.Env != nil && obj.Env.PLNSecret != "" && serializeToPLNForProps != nil {
+			plnStr, err := serializeToPLNForProps(obj, obj.Env)
+			if err == nil && signPLNProp != nil {
+				signed := signPLNProp(plnStr, obj.Env.PLNSecret)
+				// Return as JSON object with __pln marker
+				jsonBytes, _ := json.Marshal(map[string]string{"__pln": signed})
+				return string(jsonBytes)
+			}
+		}
+		// Fallback: convert to JSON object (data only)
+		dict := obj.ToDictionary()
+		goVal := objectToGoValue(dict)
+		jsonBytes, err := json.Marshal(goVal)
+		if err != nil {
+			return obj.Inspect() // Last resort fallback
+		}
+		return string(jsonBytes)
 	case *Null:
 		return ""
 	default:

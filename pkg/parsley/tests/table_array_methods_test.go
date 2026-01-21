@@ -469,9 +469,9 @@ func TestTableRenameCol(t *testing.T) {
 // TestTableDropCol tests the dropCol() method
 func TestTableDropCol(t *testing.T) {
 	tests := []struct {
-		name         string
-		input        string
-		expectCols   []string
+		name          string
+		input         string
+		expectCols    []string
 		notExpectCols []string
 	}{
 		{
@@ -480,7 +480,7 @@ func TestTableDropCol(t *testing.T) {
 				let data = table([{a: 1, b: 2, c: 3}])
 				data.dropCol("b")
 			`,
-			expectCols:   []string{"a", "c"},
+			expectCols:    []string{"a", "c"},
 			notExpectCols: []string{"b"},
 		},
 		{
@@ -489,7 +489,7 @@ func TestTableDropCol(t *testing.T) {
 				let data = table([{a: 1, b: 2, c: 3, d: 4}])
 				data.dropCol("b", "d")
 			`,
-			expectCols:   []string{"a", "c"},
+			expectCols:    []string{"a", "c"},
 			notExpectCols: []string{"b", "d"},
 		},
 	}
