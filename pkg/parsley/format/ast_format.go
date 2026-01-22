@@ -171,8 +171,12 @@ func (p *Printer) formatProgram(prog *ast.Program) {
 		p.formatStatement(stmt)
 
 		// Add extra blank line for visual separation after functions/schemas (but not at end)
+		// Only if next statement doesn't already have a blank line from source
 		if i < len(prog.Statements)-1 && needsBlankLineAfter(stmt) {
-			p.newline()
+			nextTok := getStatementToken(prog.Statements[i+1])
+			if nextTok == nil || nextTok.BlankLinesBefore == 0 {
+				p.newline()
+			}
 		}
 	}
 }
@@ -1679,7 +1683,7 @@ func formatQueryExpressionValue(expr ast.Expression) string {
 	case *ast.QueryColumnRef:
 		return e.Column
 	case *ast.QueryInterpolation:
-		return "{" + e.Expression.String() + "}"
+		return "{" + nodeString(e.Expression) + "}"
 	case *ast.Identifier:
 		return e.Value
 	case *ast.DotExpression:
