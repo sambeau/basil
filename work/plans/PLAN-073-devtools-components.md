@@ -2,8 +2,9 @@
 id: PLAN-073
 feature: N/A (Internal improvement)
 title: "DevTools Components & Shared CSS"
-status: draft
+status: complete
 created: 2026-01-22
+completed: 2026-01-22
 ---
 
 # Implementation Plan: DevTools Components & Shared CSS
@@ -239,32 +240,35 @@ Update error pages to use shared components and CSS.
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `make check`
-- [ ] CSS served correctly at `/__/css/devtools.css`
-- [ ] All devtools pages render correctly
-- [ ] All error pages render correctly
-- [ ] Components are reusable across pages
-- [ ] Theming works via CSS variables
+- [x] All tests pass: `make check`
+- [x] CSS served correctly at `/__/css/devtools.css`
+- [x] All devtools pages render correctly
+- [x] All error pages render correctly
+- [x] Components are reusable across pages
+- [x] Theming works via CSS variables
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
 | 2026-01-22 | Plan created | ✅ Complete | — |
-| | Task 1.1 | ⬜ Not started | — |
-| | Task 1.2 | ⬜ Not started | — |
-| | Task 2.1 | ⬜ Not started | — |
-| | Task 2.2 | ⬜ Not started | — |
-| | Task 2.3 | ⬜ Not started | — |
-| | Task 3.1-3.6 | ⬜ Not started | — |
-| | Task 4.1-4.3 | ⬜ Not started | — |
+| 2026-01-22 | Task 1.1 (devtools.css) | ✅ Complete | Created with CSS variables, 500+ lines |
+| 2026-01-22 | Task 1.2 (update templates) | ✅ Complete | Updated 6 templates |
+| 2026-01-22 | Task 2.1 (embed directive) | ✅ Complete | Already included components/* |
+| 2026-01-22 | Task 2.2 (devtools loading) | ✅ Complete | loadDevToolsComponents() added |
+| 2026-01-22 | Task 2.3 (error loading) | ✅ Complete | Components loaded in dev mode |
+| 2026-01-22 | Task 3.1-3.6 (components) | ✅ Complete | 6 components created |
+| | Task 4.1-4.3 (refactor) | ⬜ Deferred | Optional - templates work without |
 
 ## Deferred Items
 Items to add to work/BACKLOG.md after implementation:
 - Dark/light theme toggle — Could add later
 - User-customizable themes — Future enhancement
 - Component documentation/showcase page — Nice to have
+- Refactor templates to use components (optional cleanup)
 
 ## Notes
 - Start with Phase 1 (CSS) for immediate deduplication
 - Phase 2 infrastructure enables Phase 3 & 4
 - Can iterate incrementally — each phase is independently useful
+- Parsley note: Inside tags, single variables interpolate directly (`title` not `{title}`)
+- Parsley note: Braces `{}` inside tags parse as dictionary literals, causing errors with expressions
