@@ -28,113 +28,20 @@
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
 	<title>"Error " + error.code</title>
+	<link rel="stylesheet" href="/__/css/devtools.css"/>
 	<style>
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-			background: #1a1a2e;
-			color: #eee;
-			padding: 2rem;
-			min-height: 100vh;
-		}
-		.container {
-			max-width: 1000px;
-			margin: 0 auto;
-		}
+		/* Error page overrides */
 		h1 {
-			font-size: 1.5rem;
-			margin-bottom: 1.5rem;
-			color: #ff6b6b;
-		}
-		.error-code {
-			display: inline-block;
-			background: #ff6b6b;
-			color: #1a1a2e;
-			padding: 0.2rem 0.5rem;
-			border-radius: 4px;
-			font-size: 0.75rem;
-			font-weight: 600;
-			margin-right: 0.5rem;
+			color: var(--dt-danger);
 		}
 		.section {
-			background: #16213e;
-			border-radius: 8px;
-			padding: 1rem 1.25rem;
-			margin-bottom: 1rem;
-			border-left: 4px solid #ff6b6b;
-		}
-		.section h2 {
-			font-size: 0.875rem;
-			text-transform: uppercase;
-			color: #7f8c8d;
-			margin-bottom: 0.75rem;
-		}
-		.message {
-			color: #eee;
-			font-size: 1rem;
-			line-height: 1.5;
-			margin-bottom: 0.5rem;
-		}
-		.location {
-			color: #7f8c8d;
-			font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-			font-size: 0.875rem;
-			margin-top: 0.5rem;
-		}
-		.code-block {
-			background: #0f1419;
-			padding: 1rem;
-			border-radius: 4px;
-			font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-			font-size: 0.875rem;
-			overflow-x: auto;
-			line-height: 1.6;
-		}
-		.line-number {
-			color: #7f8c8d;
-			margin-right: 0.5rem;
-		}
-		.line-error {
-			color: #ff6b6b;
-			font-weight: 600;
-			background: rgba(255, 107, 107, 0.1);
-			display: inline-block;
-			width: 100%;
-		}
-		.details {
-			background: #0f1419;
-			padding: 1rem;
-			border-radius: 4px;
-			font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-			font-size: 0.875rem;
-			color: #f39c12;
-			overflow-x: auto;
-			white-space: pre-wrap;
-			word-break: break-word;
-		}
-		.request-info {
-			display: grid;
-			gap: 0.5rem;
-		}
-		.request-row {
-			display: flex;
-			gap: 1rem;
-		}
-		.request-label {
-			color: #7f8c8d;
-			min-width: 80px;
-			font-weight: 600;
-		}
-		.request-value {
-			color: #f39c12;
-			font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-			font-size: 0.875rem;
+			border-left-color: var(--dt-danger);
 		}
 		.stack {
-			background: #0f1419;
+			background: var(--dt-bg-code);
 			padding: 1rem;
-			border-radius: 4px;
-			font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+			border-radius: var(--dt-radius-sm);
+			font-family: var(--dt-font-mono);
 			font-size: 0.875rem;
 			overflow-x: auto;
 			white-space: pre;

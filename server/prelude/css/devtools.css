@@ -1,0 +1,622 @@
+/*
+ * Basil DevTools Shared Stylesheet
+ * Used by: /__/, /__/logs, /__/db, /__/env, error pages (dev mode)
+ */
+
+/* ============================================
+   CSS Variables - Theme Colors
+   ============================================ */
+:root {
+    /* Backgrounds */
+    --dt-bg-primary: #1a1a2e;
+    --dt-bg-secondary: #16213e;
+    --dt-bg-code: #0f1419;
+    
+    /* Text */
+    --dt-text-primary: #eee;
+    --dt-text-secondary: #bbb;
+    --dt-text-muted: #7f8c8d;
+    
+    /* Accent colors */
+    --dt-accent: #4ecdc4;
+    --dt-accent-hover: #3db8af;
+    --dt-danger: #ff6b6b;
+    --dt-danger-hover: #ff5252;
+    --dt-success: #2ecc71;
+    --dt-warning: #f39c12;
+    
+    /* Typography */
+    --dt-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --dt-font-mono: 'Monaco', 'Courier New', monospace;
+    
+    /* Spacing */
+    --dt-radius: 8px;
+    --dt-radius-sm: 4px;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--dt-font-sans);
+    background: var(--dt-bg-primary);
+    color: var(--dt-text-primary);
+    padding: 2rem;
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* ============================================
+   Layout
+   ============================================ */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+h1 {
+    font-size: 1.5rem;
+    color: var(--dt-accent);
+}
+
+h1.large {
+    font-size: 2rem;
+}
+
+h2 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    color: var(--dt-text-muted);
+    margin-bottom: 0.75rem;
+}
+
+.version {
+    color: var(--dt-text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+}
+
+/* ============================================
+   Buttons & Links
+   ============================================ */
+.btn {
+    background: var(--dt-bg-secondary);
+    color: var(--dt-text-primary);
+    padding: 0.5rem 1rem;
+    border-radius: var(--dt-radius-sm);
+    text-decoration: none;
+    font-size: 0.875rem;
+    border: 1px solid var(--dt-accent);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    display: inline-block;
+}
+
+.btn:hover {
+    background: var(--dt-accent);
+    color: var(--dt-bg-primary);
+}
+
+.btn-danger {
+    border-color: var(--dt-danger);
+}
+
+.btn-danger:hover {
+    background: var(--dt-danger);
+    color: #fff;
+}
+
+.btn-primary {
+    background: var(--dt-accent);
+    color: var(--dt-bg-primary);
+    border-color: var(--dt-accent);
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background: var(--dt-accent-hover);
+}
+
+.actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+/* ============================================
+   Panels / Sections
+   ============================================ */
+.panel {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--dt-accent);
+}
+
+.panel-danger {
+    border-left-color: var(--dt-danger);
+}
+
+.panel-warning {
+    border-left-color: var(--dt-warning);
+}
+
+.panel-title {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    color: var(--dt-text-muted);
+    margin-bottom: 0.75rem;
+}
+
+/* Alias for backwards compatibility */
+.section {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--dt-accent);
+}
+
+.section h2 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    color: var(--dt-text-muted);
+    margin-bottom: 0.75rem;
+}
+
+/* ============================================
+   Stats Bar
+   ============================================ */
+.stats {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--dt-accent);
+    color: var(--dt-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   Empty State
+   ============================================ */
+.empty-state {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 3rem;
+    text-align: center;
+    color: var(--dt-text-muted);
+}
+
+.empty-state code {
+    background: var(--dt-bg-primary);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--dt-radius-sm);
+    color: var(--dt-accent);
+}
+
+/* ============================================
+   Error State
+   ============================================ */
+.error-state {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 2rem;
+    border-left: 4px solid var(--dt-danger);
+}
+
+.error-title {
+    color: var(--dt-danger);
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+}
+
+.error-message {
+    color: var(--dt-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   Info Grid (Key-Value Display)
+   ============================================ */
+.info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+}
+
+.info-label {
+    color: var(--dt-text-muted);
+    font-size: 0.875rem;
+}
+
+.info-value {
+    color: var(--dt-text-primary);
+    font-size: 0.875rem;
+    font-family: var(--dt-font-mono);
+}
+
+/* ============================================
+   Tool Cards (Index Page)
+   ============================================ */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.tool-card {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    border-left: 4px solid var(--dt-accent);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.tool-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--dt-danger);
+}
+
+.tool-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.tool-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--dt-accent);
+}
+
+.tool-card:hover .tool-title {
+    color: var(--dt-danger);
+}
+
+.tool-desc {
+    color: var(--dt-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+/* ============================================
+   Log Entries
+   ============================================ */
+.log-entry {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-left: 4px solid var(--dt-accent);
+}
+
+.log-entry.warn {
+    border-left-color: var(--dt-danger);
+}
+
+.log-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--dt-text-muted);
+    flex-wrap: wrap;
+}
+
+.log-icon {
+    font-size: 1rem;
+}
+
+.log-file,
+.log-time {
+    font-family: var(--dt-font-mono);
+}
+
+.log-call {
+    color: var(--dt-accent);
+    font-family: var(--dt-font-mono);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.log-value {
+    color: var(--dt-text-primary);
+    font-family: var(--dt-font-mono);
+    font-size: 0.875rem;
+    padding: 0.5rem;
+    background: var(--dt-bg-primary);
+    border-radius: var(--dt-radius-sm);
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+
+.copy-btn {
+    background: transparent;
+    border: 1px solid var(--dt-accent);
+    border-radius: var(--dt-radius-sm);
+    color: var(--dt-accent);
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    margin-left: auto;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    background: var(--dt-accent);
+    color: var(--dt-bg-primary);
+}
+
+.copy-btn.copied {
+    background: var(--dt-success);
+    border-color: var(--dt-success);
+    color: #fff;
+}
+
+/* ============================================
+   Table Cards (Database Browser)
+   ============================================ */
+.table-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.table-card {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    padding: 1.25rem;
+    border-left: 4px solid var(--dt-accent);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.table-card:hover {
+    transform: translateX(4px);
+    border-color: var(--dt-danger);
+}
+
+.table-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--dt-accent);
+    margin-bottom: 0.5rem;
+    font-family: var(--dt-font-mono);
+}
+
+.table-card:hover .table-name {
+    color: var(--dt-danger);
+}
+
+.table-info {
+    color: var(--dt-text-muted);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   Data Tables
+   ============================================ */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--dt-bg-primary);
+}
+
+.data-table th {
+    background: var(--dt-bg-primary);
+    color: var(--dt-accent);
+    font-weight: 600;
+    font-family: var(--dt-font-mono);
+    position: sticky;
+    top: 0;
+}
+
+.data-table td {
+    font-family: var(--dt-font-mono);
+    color: var(--dt-text-primary);
+}
+
+.data-table tr:hover td {
+    background: rgba(78, 205, 196, 0.1);
+}
+
+.data-table td.null {
+    color: var(--dt-text-muted);
+    font-style: italic;
+}
+
+/* ============================================
+   Code Blocks
+   ============================================ */
+.code-block {
+    background: var(--dt-bg-code);
+    padding: 1rem;
+    border-radius: var(--dt-radius-sm);
+    font-family: var(--dt-font-mono);
+    font-size: 0.875rem;
+    overflow-x: auto;
+    line-height: 1.6;
+}
+
+.code-block code {
+    color: var(--dt-text-primary);
+}
+
+.line-number {
+    color: var(--dt-text-muted);
+    margin-right: 0.5rem;
+    user-select: none;
+}
+
+.line-error {
+    color: var(--dt-danger);
+    font-weight: 600;
+    background: rgba(255, 107, 107, 0.1);
+    display: inline-block;
+    width: 100%;
+}
+
+/* ============================================
+   Dev Error Page Specific
+   ============================================ */
+.error-code {
+    display: inline-block;
+    background: var(--dt-danger);
+    color: var(--dt-bg-primary);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--dt-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+}
+
+.message {
+    color: var(--dt-text-primary);
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+}
+
+.location {
+    color: var(--dt-text-muted);
+    font-family: var(--dt-font-mono);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.details {
+    background: var(--dt-bg-code);
+    padding: 1rem;
+    border-radius: var(--dt-radius-sm);
+    font-family: var(--dt-font-mono);
+    font-size: 0.875rem;
+    color: var(--dt-warning);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.request-info {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.request-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.request-label {
+    color: var(--dt-text-muted);
+    min-width: 80px;
+    font-weight: 600;
+}
+
+.request-value {
+    color: var(--dt-warning);
+    font-family: var(--dt-font-mono);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   Form Elements (Database Actions)
+   ============================================ */
+.db-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.file-input {
+    display: none;
+}
+
+.file-label {
+    background: var(--dt-bg-secondary);
+    color: var(--dt-text-primary);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--dt-radius-sm);
+    font-size: 0.875rem;
+    border: 1px solid var(--dt-accent);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.file-label:hover {
+    background: var(--dt-accent);
+    color: var(--dt-bg-primary);
+}
+
+.file-name {
+    font-size: 0.875rem;
+    color: var(--dt-text-secondary);
+}
+
+.upload-message {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border-radius: var(--dt-radius-sm);
+    font-size: 0.875rem;
+    display: none;
+}
+
+.upload-message.success {
+    background: var(--dt-success);
+    color: #fff;
+    display: block;
+}
+
+.upload-message.error {
+    background: var(--dt-danger);
+    color: #fff;
+    display: block;
+}
+
+/* ============================================
+   Table Wrapper (Scrollable)
+   ============================================ */
+.table-wrapper {
+    background: var(--dt-bg-secondary);
+    border-radius: var(--dt-radius);
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.table-scroll {
+    overflow-x: auto;
+    max-height: 600px;
+    overflow-y: auto;
+}
