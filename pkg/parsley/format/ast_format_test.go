@@ -516,6 +516,16 @@ func TestFormatTagLiteral(t *testing.T) {
 			input:    `<i onclick='doSomething()' class="icon"/>`,
 			expected: `<i onclick='doSomething()' class="icon"/>`,
 		},
+		{
+			name:     "tag with @ attribute (form binding)",
+			input:    `<input @field="Firstname"/>`,
+			expected: `<input @field="Firstname"/>`,
+		},
+		{
+			name:     "tag with @record attribute",
+			input:    `<form @record={person} action="/edit/" method="POST"></form>`,
+			expected: `<form @record={person} action="/edit/" method="POST"></form>`,
+		},
 	}
 
 	for _, tt := range tests {

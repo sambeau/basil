@@ -1566,8 +1566,9 @@ func isIdentChar(ch byte) bool {
 }
 
 // isAttrNameChar returns true if the character can be part of an HTML attribute name
+// Includes @ for Parsley special attributes like @field, @record
 func isAttrNameChar(ch byte) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-' || ch == ':'
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-' || ch == ':' || ch == '@'
 }
 
 // parseTagAttributes parses raw tag props into structured TagAttribute nodes
