@@ -253,18 +253,24 @@ func printEnvironment(env *evaluator.Environment, out io.Writer) {
 
 // filterCompletions returns completion suggestions based on current input
 func filterCompletions(line string) []string {
+	// Don't complete if line is empty or only whitespace
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return nil
+	}
+
+	// Don't complete if line ends with whitespace (including tabs from pasting)
+	if len(line) > 0 && (line[len(line)-1] == ' ' || line[len(line)-1] == '\t') {
+		return nil
+	}
+
 	// Get the last word being typed
 	words := strings.Fields(line)
 	if len(words) == 0 {
-		return completionWords
+		return nil
 	}
 
 	lastWord := words[len(words)-1]
-
-	// If line ends with space, no completion
-	if len(line) > 0 && line[len(line)-1] == ' ' {
-		return nil
-	}
 
 	var matches []string
 	for _, word := range completionWords {
