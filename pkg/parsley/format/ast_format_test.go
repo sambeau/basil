@@ -405,6 +405,11 @@ func TestFormatComments(t *testing.T) {
 			input:    "let f = fn() { // comment\n\tlet x = 1\n}",
 			expected: "let f = fn() { // comment\n\tlet x = 1\n}",
 		},
+		{
+			name:     "comment inside tag content",
+			input:    "<div>\n\t// comment\n\t<span>x</span>\n</div>",
+			expected: "<div>\n\t// comment\n\t<span>x</span>\n</div>",
+		},
 	}
 
 	for _, tt := range tests {

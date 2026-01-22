@@ -37,6 +37,19 @@ func getStatementToken(stmt ast.Statement) *lexer.Token {
 	return nil
 }
 
+// getNodeToken extracts the first token from any AST node (for comment/blank line info)
+func getNodeToken(node ast.Node) *lexer.Token {
+	switch n := node.(type) {
+	case ast.Statement:
+		return getStatementToken(n)
+	case ast.Expression:
+		return getExpressionToken(n)
+	case *ast.TextNode:
+		return &n.Token
+	}
+	return nil
+}
+
 // getExpressionToken extracts the first token from an expression
 func getExpressionToken(expr ast.Expression) *lexer.Token {
 	switch e := expr.(type) {
@@ -1300,6 +1313,9 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 					p.newline()
 				}
 			default:
+				// Check for leading comments on this content
+				tok := getNodeToken(content)
+				p.writeComments(tok)
 				p.writeIndent()
 				p.indentInc()
 				p.formatNode(content)
@@ -1312,7 +1328,18 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 		// Multiline content
 		p.newline()
 		p.indentInc()
-		for _, content := range tp.Contents {
+		for i, content := range tp.Contents {
+			// Check for leading comments and blank lines on this content
+			tok := getNodeToken(content)
+			
+			// Blank line separator (but not before first child)
+			if i > 0 && tok != nil && tok.BlankLinesBefore > 0 {
+				p.newline()
+			}
+			
+			// Leading comments
+			p.writeComments(tok)
+			
 			p.writeIndent()
 			p.formatNode(content)
 			p.newline()
