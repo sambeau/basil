@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"mime"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -27,6 +29,12 @@ var preludeASTs map[string]*ast.Program
 
 // jsAssetHash is the version hash for basil.js (commit or content hash)
 var jsAssetHash string
+
+// preludeDevMode enables live reloading of prelude files from disk
+var preludeDevMode bool
+
+// preludeBasePath is the path to server/prelude/ when in dev mode
+var preludeBasePath string
 
 // initPrelude parses all .pars files in the prelude directory at server startup.
 // Returns an error if any parse fails (fail-fast).
@@ -69,6 +77,38 @@ func initPrelude(commit string) error {
 	})
 }
 
+// EnablePreludeDevMode enables live reloading of prelude files from disk.
+// basePath should be the path to the server/prelude directory.
+func EnablePreludeDevMode(basePath string) {
+	preludeDevMode = true
+	preludeBasePath = basePath
+}
+
+// parsePreludeFromDisk reads and parses a prelude file from disk (dev mode)
+func parsePreludeFromDisk(relativePath string) *ast.Program {
+	if preludeBasePath == "" {
+		return nil
+	}
+
+	fullPath := filepath.Join(preludeBasePath, relativePath)
+	source, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil
+	}
+
+	l := lexer.New(string(source))
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		// In dev mode, log parse errors but return nil
+		fmt.Printf("prelude dev: parse error in %s: %v\n", relativePath, p.Errors())
+		return nil
+	}
+
+	return program
+}
+
 // initJSHash initializes the version hash for basil.js
 func initJSHash(commit string) {
 	if commit != "" && commit != "unknown" {
@@ -96,13 +136,24 @@ func JSAssetURL() string {
 	return fmt.Sprintf("/__/js/basil.%s.js", jsAssetHash)
 }
 
-// GetPreludeAST returns the parsed AST for a prelude file, or nil if not found
+// GetPreludeAST returns the parsed AST for a prelude file, or nil if not found.
+// In dev mode, this re-reads and re-parses the file from disk on each call.
 func GetPreludeAST(relativePath string) *ast.Program {
+	if preludeDevMode {
+		// Dev mode: always read from disk for live reload
+		return parsePreludeFromDisk(relativePath)
+	}
 	return preludeASTs[relativePath]
 }
 
 // HasPreludeAST checks if a prelude AST exists for the given path
 func HasPreludeAST(relativePath string) bool {
+	if preludeDevMode {
+		// In dev mode, check if file exists on disk
+		fullPath := filepath.Join(preludeBasePath, relativePath)
+		_, err := os.Stat(fullPath)
+		return err == nil
+	}
 	_, exists := preludeASTs[relativePath]
 	return exists
 }
@@ -138,10 +189,17 @@ func (s *Server) handlePreludeAsset(w http.ResponseWriter, r *http.Request) {
 		filename = "basil.js"
 	}
 
-	filepath := "prelude/" + dir + "/" + filename
+	relPath := dir + "/" + filename
 
-	// Read file from embedded filesystem
-	data, err := preludeFS.ReadFile(filepath)
+	// Read file - from disk in dev mode, otherwise from embedded FS
+	var data []byte
+	var err error
+	if preludeDevMode && preludeBasePath != "" {
+		fullPath := filepath.Join(preludeBasePath, relPath)
+		data, err = os.ReadFile(fullPath)
+	} else {
+		data, err = preludeFS.ReadFile("prelude/" + relPath)
+	}
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -159,14 +217,19 @@ func (s *Server) handlePreludeAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 
 	// Set caching headers
-	// For basil.js with hash in original request path, use immutable caching
-	originalFilename := strings.TrimPrefix(r.URL.Path, "/__/"+dir+"/")
-	if isVersionedAsset(originalFilename) {
-		// Versioned assets: cache forever (immutable)
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	// In dev mode, disable caching for live reload
+	if preludeDevMode {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	} else {
-		// Unversioned assets: cache for 1 hour
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		// For basil.js with hash in original request path, use immutable caching
+		originalFilename := strings.TrimPrefix(r.URL.Path, "/__/"+dir+"/")
+		if isVersionedAsset(originalFilename) {
+			// Versioned assets: cache forever (immutable)
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			// Unversioned assets: cache for 1 hour
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+		}
 	}
 
 	w.Write(data)

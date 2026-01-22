@@ -98,6 +98,11 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		return nil, fmt.Errorf("initializing prelude: %w", err)
 	}
 
+	// In dev mode, check if we're in the basil repo and enable prelude live reload
+	if cfg.Server.Dev {
+		s.initPreludeDevMode()
+	}
+
 	// Initialize CORS middleware if configured
 	if len(cfg.CORS.Origins) > 0 {
 		s.corsMW = NewCORSMiddleware(cfg.CORS)
@@ -1126,4 +1131,25 @@ func (s *Server) runHTTPRedirect(manager *autocert.Manager) {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		s.logError("HTTP redirect server error: %v", err)
 	}
+}
+
+// initPreludeDevMode enables live reloading of prelude files from disk
+// if BASIL_PRELUDE_PATH is set. This allows editing devtools styling
+// without recompiling the server.
+//
+// Usage: BASIL_PRELUDE_PATH=/path/to/basil/server/prelude ./basil ...
+func (s *Server) initPreludeDevMode() {
+	preludePath := os.Getenv("BASIL_PRELUDE_PATH")
+	if preludePath == "" {
+		return
+	}
+
+	// Verify the path exists
+	if info, err := os.Stat(preludePath); err != nil || !info.IsDir() {
+		s.logWarn("BASIL_PRELUDE_PATH=%s does not exist or is not a directory", preludePath)
+		return
+	}
+
+	EnablePreludeDevMode(preludePath)
+	s.logInfo("prelude dev mode: live reload enabled from %s", preludePath)
 }
