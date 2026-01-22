@@ -146,8 +146,9 @@ type Token struct {
 	Literal          string
 	Line             int
 	Column           int
-	BlankLinesBefore int    // Number of blank lines before this token (for formatting)
+	BlankLinesBefore int      // Number of blank lines before this token (for formatting)
 	LeadingComments  []string // Comments before this token (for formatting)
+	TrailingComment  string   // Comment on same line after this token (for formatting)
 }
 
 // String returns a string representation of the token
@@ -426,15 +427,17 @@ type Lexer struct {
 	position             int       // current position in input (points to current char)
 	readPosition         int       // current reading position in input (after current char)
 	ch                   byte      // current char under examination
-	line                 int       // current line number
-	column               int       // current column number
-	inTagContent         bool      // whether we're currently lexing tag content
-	tagDepth             int       // nesting depth of tags (for proper TAG_END matching)
-	lastTokenType        TokenType // last token type for regex context detection
-	inRawTextTag         string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
-	inRawTextInterpolate bool      // true when inside @{} interpolation within a raw text tag
-	pendingComments      []string  // comments collected before the next token
-	pendingBlankLines    int       // blank lines counted before the next token
+	line                   int       // current line number
+	column                 int       // current column number
+	inTagContent           bool      // whether we're currently lexing tag content
+	tagDepth               int       // nesting depth of tags (for proper TAG_END matching)
+	lastTokenType          TokenType // last token type for regex context detection
+	inRawTextTag           string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
+	inRawTextInterpolate   bool      // true when inside @{} interpolation within a raw text tag
+	pendingComments        []string  // comments collected before the next token
+	pendingBlankLines      int       // blank lines counted before the next token
+	pendingTrailingComment string    // trailing comment from previous line (for the PREVIOUS token's statement)
+	lastToken              *Token    // pointer to the last emitted token (for attaching trailing comments)
 }
 
 // truncate returns the first n characters of a string, adding "..." if truncated.
@@ -471,17 +474,18 @@ func NewWithFilename(input string, filename string) *Lexer {
 
 // LexerState holds the state of a lexer for save/restore
 type LexerState struct {
-	position          int
-	readPosition      int
-	ch                byte
-	line              int
-	column            int
-	inTagContent      bool
-	tagDepth          int
-	lastTokenType     TokenType
-	inRawTextTag      string
-	pendingComments   []string
-	pendingBlankLines int
+	position               int
+	readPosition           int
+	ch                     byte
+	line                   int
+	column                 int
+	inTagContent           bool
+	tagDepth               int
+	lastTokenType          TokenType
+	inRawTextTag           string
+	pendingComments        []string
+	pendingBlankLines      int
+	pendingTrailingComment string
 }
 
 // SaveState saves the current lexer state for potential restoration
@@ -490,17 +494,18 @@ func (l *Lexer) SaveState() LexerState {
 	commentsCopy := make([]string, len(l.pendingComments))
 	copy(commentsCopy, l.pendingComments)
 	return LexerState{
-		position:          l.position,
-		readPosition:      l.readPosition,
-		ch:                l.ch,
-		line:              l.line,
-		column:            l.column,
-		inTagContent:      l.inTagContent,
-		tagDepth:          l.tagDepth,
-		lastTokenType:     l.lastTokenType,
-		inRawTextTag:      l.inRawTextTag,
-		pendingComments:   commentsCopy,
-		pendingBlankLines: l.pendingBlankLines,
+		position:               l.position,
+		readPosition:           l.readPosition,
+		ch:                     l.ch,
+		line:                   l.line,
+		column:                 l.column,
+		inTagContent:           l.inTagContent,
+		tagDepth:               l.tagDepth,
+		lastTokenType:          l.lastTokenType,
+		inRawTextTag:           l.inRawTextTag,
+		pendingComments:        commentsCopy,
+		pendingBlankLines:      l.pendingBlankLines,
+		pendingTrailingComment: l.pendingTrailingComment,
 	}
 }
 
@@ -517,6 +522,7 @@ func (l *Lexer) RestoreState(state LexerState) {
 	l.inRawTextTag = state.inRawTextTag
 	l.pendingComments = state.pendingComments
 	l.pendingBlankLines = state.pendingBlankLines
+	l.pendingTrailingComment = state.pendingTrailingComment
 }
 
 // PeekToken returns the next token without consuming it
@@ -2192,7 +2198,19 @@ func (l *Lexer) EnterTagContentMode() {
 
 // collectTrivia collects whitespace (counting blank lines) and comments
 // before the next token. This loop handles alternating whitespace and comments.
+// It also detects trailing comments (comments on same line as previous token).
 func (l *Lexer) collectTrivia() {
+	// First, check for trailing comment (comment before any newline)
+	// Only check if we've already emitted at least one token (lastTokenType != ILLEGAL)
+	// Otherwise, any comment at the start of input is a leading comment, not trailing
+	if l.lastTokenType != ILLEGAL {
+		l.skipHorizontalWhitespace()
+		if l.ch == '/' && l.peekChar() == '/' {
+			l.captureTrailingComment()
+		}
+	}
+
+	// Now collect any remaining trivia (newlines, blank lines, leading comments)
 	for {
 		// Skip whitespace (counting blank lines)
 		l.skipWhitespace()
@@ -2208,13 +2226,39 @@ func (l *Lexer) collectTrivia() {
 	}
 }
 
+// skipHorizontalWhitespace skips spaces and tabs only (not newlines)
+func (l *Lexer) skipHorizontalWhitespace() {
+	for l.ch == ' ' || l.ch == '\t' {
+		l.readChar()
+	}
+}
+
+// captureTrailingComment captures a comment that's on the same line as the previous token
+func (l *Lexer) captureTrailingComment() {
+	startPos := l.position
+
+	// Skip the two slashes
+	l.readChar()
+	l.readChar()
+
+	// Read until end of line or EOF
+	for l.ch != '\n' && l.ch != 0 {
+		l.readChar()
+	}
+
+	// Store as pending trailing comment (will be attached to previous token's statement)
+	l.pendingTrailingComment = l.input[startPos:l.position]
+}
+
 // attachPendingTrivia attaches any pending comments and blank line count to a token,
 // then clears the pending state.
 func (l *Lexer) attachPendingTrivia(tok Token) Token {
 	tok.LeadingComments = l.pendingComments
 	tok.BlankLinesBefore = l.pendingBlankLines
+	tok.TrailingComment = l.pendingTrailingComment // This is the trailing comment from the PREVIOUS line
 	l.pendingComments = nil
 	l.pendingBlankLines = 0
+	l.pendingTrailingComment = ""
 	return tok
 }
 

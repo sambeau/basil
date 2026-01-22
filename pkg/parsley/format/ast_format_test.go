@@ -390,6 +390,16 @@ func TestFormatComments(t *testing.T) {
 			input:    "let x = 1\n// comment\nlet y = 2",
 			expected: "let x = 1\n// comment\nlet y = 2",
 		},
+		{
+			name:     "trailing comment",
+			input:    "let x = 1 // trailing\nlet y = 2",
+			expected: "let x = 1 // trailing\nlet y = 2",
+		},
+		{
+			name:     "trailing and leading comments",
+			input:    "let x = 1 // trailing\n// leading\nlet y = 2",
+			expected: "let x = 1 // trailing\n// leading\nlet y = 2",
+		},
 	}
 
 	for _, tt := range tests {

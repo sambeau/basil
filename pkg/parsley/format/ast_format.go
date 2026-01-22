@@ -88,6 +88,16 @@ func (p *Printer) writeComments(tok *lexer.Token) {
 	}
 }
 
+// writeTrailingComment outputs a trailing comment (from previous statement) inline
+func (p *Printer) writeTrailingComment(tok *lexer.Token) {
+	if tok == nil || tok.TrailingComment == "" {
+		return
+	}
+	// Trailing comment goes on same line as previous statement, with a space
+	p.write(" ")
+	p.write(tok.TrailingComment)
+}
+
 // writeBlankLineIfNeeded outputs a blank line if the token had one before it
 func (p *Printer) writeBlankLineIfNeeded(tok *lexer.Token) {
 	if tok != nil && tok.BlankLinesBefore > 0 {
@@ -121,35 +131,48 @@ func (p *Printer) formatProgram(prog *ast.Program) {
 	for i, stmt := range prog.Statements {
 		tok := getStatementToken(stmt)
 
-		// For statements after the first, check if we need a blank line separator
-		if i > 0 {
-			if tok != nil && tok.BlankLinesBefore > 0 {
-				// Source had a blank line - output it
-				p.newline()
-			} else if needsBlankLineBefore(stmt, prog.Statements[i-1]) {
-				// Fallback: Add blank line BEFORE certain statements (like exported function defs)
+		// For the first statement, handle leading comments and blank lines
+		if i == 0 {
+			// Output any leading comments for this statement
+			p.writeComments(tok)
+
+			// If there was a blank line between comments and code, preserve it
+			if tok != nil && tok.BlankLinesBefore > 0 && len(tok.LeadingComments) > 0 {
 				p.newline()
 			}
+
+			p.formatStatement(stmt)
+			continue
 		}
 
-		// Output any leading comments for this statement
+		// For subsequent statements:
+		// 1. First, output trailing comment from previous statement (on same line)
+		if tok != nil && tok.TrailingComment != "" {
+			p.write(" ")
+			p.write(tok.TrailingComment)
+		}
+
+		// 2. Newline after previous statement
+		p.newline()
+
+		// 3. Blank line separator if needed
+		if tok != nil && tok.BlankLinesBefore > 0 {
+			// Source had a blank line - output it
+			p.newline()
+		} else if needsBlankLineBefore(stmt, prog.Statements[i-1]) {
+			// Fallback: Add blank line BEFORE certain statements (like exported function defs)
+			p.newline()
+		}
+
+		// 4. Output any leading comments for this statement
 		p.writeComments(tok)
 
-		// For the first statement, if there was a blank line between comments and code, preserve it
-		// (For subsequent statements, this is already handled by the separator logic above)
-		if i == 0 && tok != nil && tok.BlankLinesBefore > 0 && len(tok.LeadingComments) > 0 {
-			p.newline()
-		}
-
+		// 5. Format the statement
 		p.formatStatement(stmt)
 
-		// Add blank lines between top-level definitions
-		if i < len(prog.Statements)-1 {
+		// Add extra blank line for visual separation after functions/schemas (but not at end)
+		if i < len(prog.Statements)-1 && needsBlankLineAfter(stmt) {
 			p.newline()
-			// Add extra blank line for visual separation after functions/schemas
-			if needsBlankLineAfter(stmt) {
-				p.newline()
-			}
 		}
 	}
 }
@@ -386,11 +409,15 @@ func (p *Printer) formatBlockStatement(bs *ast.BlockStatement) {
 			if containsControlFlow(es.Expression) {
 				// Fall through to multiline
 			} else {
-				inline := fmt.Sprintf("{ %s }", nodeString(es.Expression))
-				// Use position-aware check to avoid overly long lines when nested
-				if p.fitsOnLine(inline, MaxLineWidth) && !containsNewline(es.Expression) {
-					p.write(inline)
-					return
+				// Don't inline if there are comments
+				tok := getStatementToken(es)
+				if tok == nil || (len(tok.LeadingComments) == 0 && tok.TrailingComment == "") {
+					inline := fmt.Sprintf("{ %s }", nodeString(es.Expression))
+					// Use position-aware check to avoid overly long lines when nested
+					if p.fitsOnLine(inline, MaxLineWidth) && !containsNewline(es.Expression) {
+						p.write(inline)
+						return
+					}
 				}
 			}
 		}
@@ -401,9 +428,46 @@ func (p *Printer) formatBlockStatement(bs *ast.BlockStatement) {
 	p.newline()
 	p.indentInc()
 
-	for _, stmt := range bs.Statements {
+	for i, stmt := range bs.Statements {
+		tok := getStatementToken(stmt)
+
+		// For the first statement in block
+		if i == 0 {
+			// Output any leading comments
+			p.writeComments(tok)
+			p.writeIndent()
+			p.formatStatement(stmt)
+			continue
+		}
+
+		// For subsequent statements:
+		// 1. Output trailing comment from previous statement
+		if tok != nil && tok.TrailingComment != "" {
+			p.write(" ")
+			p.write(tok.TrailingComment)
+		}
+
+		// 2. Newline
+		p.newline()
+
+		// 3. Blank line if source had one
+		if tok != nil && tok.BlankLinesBefore > 0 {
+			p.newline()
+		}
+
+		// 4. Leading comments
+		p.writeComments(tok)
+
+		// 5. Statement
 		p.writeIndent()
 		p.formatStatement(stmt)
+	}
+
+	// Handle trailing comment on last statement
+	if len(bs.Statements) > 0 {
+		// We need to check if there's a trailing comment that belongs to the last statement
+		// This would be on the closing brace token, but we don't have access to it here
+		// For now, just add the newline
 		p.newline()
 	}
 
