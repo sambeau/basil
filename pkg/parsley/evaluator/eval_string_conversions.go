@@ -411,6 +411,8 @@ func objectToFormattedReprStringWithSeen(obj Object, seen map[Object]bool, inden
 		return functionToFormattedReprString(obj, indent)
 	case *Record:
 		return recordToFormattedReprString(obj, seen, indent)
+	case *Table:
+		return tableToFormattedReprString(obj, seen, indent)
 	case *Builtin:
 		return "<builtin>"
 	default:
@@ -696,6 +698,47 @@ func recordToInlineReprString(rec *Record, schemaName string, keys []string, see
 	}
 	result.WriteString("}")
 	return result.String()
+}
+
+// tableToFormattedReprString formats a table with multiline support
+func tableToFormattedReprString(tbl *Table, seen map[Object]bool, indent int) string {
+	if len(tbl.Rows) == 0 {
+		return "table([])"
+	}
+
+	// Convert rows to an array for formatting
+	elements := make([]Object, len(tbl.Rows))
+	for i, row := range tbl.Rows {
+		elements[i] = row
+	}
+	arr := &Array{Elements: elements}
+
+	// Format the array
+	arrStr := arrayToFormattedReprString(arr, seen, indent)
+
+	// Check if inline fits
+	inline := "table(" + arrStr + ")"
+	if len(inline) <= format.ArrayThreshold && !strings.Contains(arrStr, "\n") {
+		return inline
+	}
+
+	// Multiline: table(\n  [...]\n)
+	// We need to re-indent the array if it's multiline
+	if strings.Contains(arrStr, "\n") {
+		lines := strings.Split(arrStr, "\n")
+		indentStr := strings.Repeat(format.IndentString, indent+1)
+		for i := 0; i < len(lines); i++ {
+			if i == 0 {
+				lines[i] = indentStr + lines[i]
+			} else if lines[i] != "" {
+				lines[i] = indentStr + lines[i]
+			}
+		}
+		arrStr = strings.Join(lines, "\n")
+		return "table(\n" + arrStr + "\n" + strings.Repeat(format.IndentString, indent) + ")"
+	}
+
+	return inline
 }
 
 // objectToDebugString converts an object to its debug string representation
