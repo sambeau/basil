@@ -279,7 +279,7 @@ func (p *Printer) formatFunctionObject(obj TypedObject) {
 		for i, param := range params {
 			p.writeIndent()
 			p.write(param)
-			if TrailingCommaMultiline || i < len(params)-1 {
+			if TrailingCommaFuncParams || i < len(params)-1 {
 				p.write(",")
 			}
 			p.newline()

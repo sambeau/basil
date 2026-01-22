@@ -678,7 +678,7 @@ func (p *Printer) formatFunctionLiteral(fl *ast.FunctionLiteral) {
 		for i, param := range fl.Params {
 			p.writeIndent()
 			p.write(param.String())
-			if TrailingCommaMultiline || i < len(fl.Params)-1 {
+			if TrailingCommaFuncParams || i < len(fl.Params)-1 {
 				p.write(",")
 			}
 			p.newline()
@@ -727,7 +727,7 @@ func (p *Printer) formatCallExpression(ce *ast.CallExpression) {
 	for i, arg := range ce.Arguments {
 		p.writeIndent()
 		p.formatExpression(arg)
-		if TrailingCommaMultiline || i < len(ce.Arguments)-1 {
+		if TrailingCommaFuncCalls || i < len(ce.Arguments)-1 {
 			p.write(",")
 		}
 		p.newline()

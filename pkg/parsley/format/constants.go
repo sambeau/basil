@@ -43,4 +43,6 @@ const (
 )
 
 // Trailing commas - whether to add trailing comma on multiline structures
-const TrailingCommaMultiline = true
+const TrailingCommaMultiline = true      // For arrays and objects
+const TrailingCommaFuncCalls = false     // For function call arguments
+const TrailingCommaFuncParams = false    // For function parameter lists
