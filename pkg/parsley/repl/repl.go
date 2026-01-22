@@ -16,6 +16,7 @@ import (
 )
 
 const PROMPT = ">> "
+const PROMPT_RAW = ":> "
 const CONTINUATION_PROMPT = ".. "
 
 const PARSER_LOGO = `
@@ -91,9 +92,14 @@ func Start(in io.Reader, out io.Writer, version string) {
 	fmt.Fprintln(out, "")
 
 	var inputBuffer strings.Builder
-	currentPrompt := PROMPT
+	rawMode := false // When true, output is like running a .pars script
+	basePrompt := PROMPT
 
 	for {
+		currentPrompt := basePrompt
+		if inputBuffer.Len() > 0 {
+			currentPrompt = CONTINUATION_PROMPT
+		}
 		input, err := line.Prompt(currentPrompt)
 		if err != nil {
 			// Ctrl+D or Ctrl+C
@@ -105,7 +111,6 @@ func Start(in io.Reader, out io.Writer, version string) {
 					fmt.Fprintln(out, "^C")
 				}
 				inputBuffer.Reset()
-				currentPrompt = PROMPT
 				continue
 			}
 			if err == io.EOF {
@@ -126,7 +131,15 @@ func Start(in io.Reader, out io.Writer, version string) {
 
 		// Handle REPL commands (start with :)
 		if inputBuffer.Len() == 0 && strings.HasPrefix(trimmed, ":") {
-			handleReplCommand(trimmed, env, out)
+			newRawMode, handled := handleReplCommand(trimmed, env, out, rawMode)
+			if handled {
+				rawMode = newRawMode
+				if rawMode {
+					basePrompt = PROMPT_RAW
+				} else {
+					basePrompt = PROMPT
+				}
+			}
 			continue
 		}
 
@@ -145,12 +158,10 @@ func Start(in io.Reader, out io.Writer, version string) {
 		fullInput := inputBuffer.String()
 		if needsMoreInput(fullInput) {
 			// Continue multi-line input
-			currentPrompt = CONTINUATION_PROMPT
 			continue
 		}
 
 		// Input is complete - parse and evaluate
-		currentPrompt = PROMPT
 
 		// Add complete input to history
 		if trimmed != "" {
@@ -174,15 +185,29 @@ func Start(in io.Reader, out io.Writer, version string) {
 			if errObj, ok := evaluated.(*evaluator.Error); ok {
 				printRuntimeError(out, errObj)
 			} else if evaluated.Type() == evaluator.NULL_OBJ {
-				io.WriteString(out, "OK\n")
-			} else {
-				// Use ObjectToFormattedReprString for pretty-printed Parsley literal output
-				result := evaluator.ObjectToFormattedReprString(evaluated)
-				if result != "" {
-					io.WriteString(out, result)
-					io.WriteString(out, "\n")
-				} else {
+				if !rawMode {
 					io.WriteString(out, "OK\n")
+				}
+			} else {
+				if rawMode {
+					// Raw mode: output like running a .pars script
+					result := evaluator.ObjectToPrintString(evaluated)
+					if result != "" {
+						io.WriteString(out, result)
+						// Add newline if the output doesn't end with one
+						if !strings.HasSuffix(result, "\n") {
+							io.WriteString(out, "\n")
+						}
+					}
+				} else {
+					// Normal mode: pretty-printed Parsley literal output
+					result := evaluator.ObjectToFormattedReprString(evaluated)
+					if result != "" {
+						io.WriteString(out, result)
+						io.WriteString(out, "\n")
+					} else {
+						io.WriteString(out, "OK\n")
+					}
 				}
 			}
 		}
@@ -193,25 +218,44 @@ func Start(in io.Reader, out io.Writer, version string) {
 }
 
 // handleReplCommand handles REPL meta-commands that start with ':'
-func handleReplCommand(cmd string, env *evaluator.Environment, out io.Writer) {
+// Returns (newRawMode, handled) - if handled is true, the command was recognized
+func handleReplCommand(cmd string, env *evaluator.Environment, out io.Writer, rawMode bool) (bool, bool) {
 	switch cmd {
 	case ":help", ":h", ":?":
 		fmt.Fprintln(out, "REPL Commands:")
 		fmt.Fprintln(out, "  :help, :h, :?   Show this help")
 		fmt.Fprintln(out, "  :env            Show variables in scope")
 		fmt.Fprintln(out, "  :clear          Clear all user variables")
+		fmt.Fprintln(out, "  :raw            Toggle raw output mode (script-style output)")
 		fmt.Fprintln(out, "  exit, quit      Exit the REPL")
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "Output Modes:")
+		fmt.Fprintln(out, "  >> (normal)     Shows Parsley literals (strings quoted, etc.)")
+		fmt.Fprintln(out, "  :> (raw)        Shows output like running a .pars script")
+		return rawMode, true
 
 	case ":env":
 		printEnvironment(env, out)
+		return rawMode, true
 
 	case ":clear":
 		// Create a fresh environment
 		*env = *evaluator.NewEnvironment()
 		fmt.Fprintln(out, "Environment cleared")
+		return rawMode, true
+
+	case ":raw":
+		newMode := !rawMode
+		if newMode {
+			fmt.Fprintln(out, "Raw output mode ON (script-style output)")
+		} else {
+			fmt.Fprintln(out, "Raw output mode OFF (Parsley literal output)")
+		}
+		return newMode, true
 
 	default:
 		fmt.Fprintf(out, "Unknown command: %s (type :help for commands)\n", cmd)
+		return rawMode, true
 	}
 }
 
