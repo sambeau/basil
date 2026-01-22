@@ -502,6 +502,7 @@ func (tg *TagLiteral) String() string       { return "<" + tg.Raw + " />" }
 // TagPairExpression represents paired tags like <div>content</div>
 type TagPairExpression struct {
 	Token    lexer.Token   // the lexer.TAG_START token
+	EndToken lexer.Token   // the lexer.TAG_END token (for blank lines before closing tag)
 	Name     string        // tag name (empty string for grouping tags <>)
 	Props    string        // raw props content
 	Spreads  []*SpreadExpr // spread expressions like ...attrs

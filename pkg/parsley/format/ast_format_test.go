@@ -410,6 +410,16 @@ func TestFormatComments(t *testing.T) {
 			input:    "<div>\n\t// comment\n\t<span>x</span>\n</div>",
 			expected: "<div>\n\t// comment\n\t<span>x</span>\n</div>",
 		},
+		{
+			name:     "blank line after opening tag preserved",
+			input:    "<form>\n\n\t<fieldset>\"x\"</fieldset>\n</form>",
+			expected: "<form>\n\n\t<fieldset>\"x\"</fieldset>\n</form>",
+		},
+		{
+			name:     "blank line before closing tag preserved",
+			input:    "<fieldset>\n\t<label>\"x\"</label>\n\n</fieldset>",
+			expected: "<fieldset>\n\t<label>\"x\"</label>\n\n</fieldset>",
+		},
 	}
 
 	for _, tt := range tests {
@@ -447,6 +457,11 @@ func TestFormatBlankLines(t *testing.T) {
 			name:     "blank line after comment before first statement",
 			input:    "// header comment\n\nlet x = 1",
 			expected: "// header comment\n\nlet x = 1",
+		},
+		{
+			name:     "blank line preserved between check statements",
+			input:    "if (x) {\n\n\tcheck (a) else {err: 1}\n\n\tlet y = 2\n\n\tcheck (b) else {err: 2}\n}",
+			expected: "if (x) {\n\n\tcheck (a) else {err: 1}\n\n\tlet y = 2\n\n\tcheck (b) else {err: 2}\n}",
 		},
 	}
 

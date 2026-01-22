@@ -33,6 +33,8 @@ func getStatementToken(stmt ast.Statement) *lexer.Token {
 		return &s.Token
 	case *ast.SkipStatement:
 		return &s.Token
+	case *ast.CheckStatement:
+		return &s.Token
 	}
 	return nil
 }
@@ -1328,22 +1330,30 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 		// Multiline content
 		p.newline()
 		p.indentInc()
-		for i, content := range tp.Contents {
+		for _, content := range tp.Contents {
 			// Check for leading comments and blank lines on this content
 			tok := getNodeToken(content)
-			
-			// Blank line separator (but not before first child)
-			if i > 0 && tok != nil && tok.BlankLinesBefore > 0 {
+
+			// Blank line separator
+			// For first child (i == 0): blank line after opening tag
+			// For subsequent children: blank line between siblings
+			if tok != nil && tok.BlankLinesBefore > 0 {
 				p.newline()
 			}
-			
+
 			// Leading comments
 			p.writeComments(tok)
-			
+
 			p.writeIndent()
 			p.formatNode(content)
 			p.newline()
 		}
+
+		// Blank line before closing tag (if source had one)
+		if tp.EndToken.BlankLinesBefore > 0 {
+			p.newline()
+		}
+
 		p.indentDec()
 		p.writeIndent()
 	}

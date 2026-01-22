@@ -1335,6 +1335,9 @@ func (p *Parser) parseTagPair() ast.Expression {
 		return nil
 	}
 
+	// Capture the closing tag token for blank line preservation
+	tagExpr.EndToken = p.curToken
+
 	return tagExpr
 }
 
