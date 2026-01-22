@@ -422,11 +422,11 @@ func LookupIdent(ident string) TokenType {
 
 // Lexer represents the lexical analyzer
 type Lexer struct {
-	filename             string
-	input                string
-	position             int       // current position in input (points to current char)
-	readPosition         int       // current reading position in input (after current char)
-	ch                   byte      // current char under examination
+	filename               string
+	input                  string
+	position               int       // current position in input (points to current char)
+	readPosition           int       // current reading position in input (after current char)
+	ch                     byte      // current char under examination
 	line                   int       // current line number
 	column                 int       // current column number
 	inTagContent           bool      // whether we're currently lexing tag content

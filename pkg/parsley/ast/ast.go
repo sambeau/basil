@@ -488,11 +488,37 @@ func (dt *DatetimeTemplateLiteral) expressionNode()      {}
 func (dt *DatetimeTemplateLiteral) TokenLiteral() string { return dt.Token.Literal }
 func (dt *DatetimeTemplateLiteral) String() string       { return "@(" + dt.Value + ")" }
 
+// TagAttribute represents a single attribute on a tag
+// Can be: name=value, name={expr}, name (boolean), or ...spread
+type TagAttribute struct {
+	Name       string     // attribute name (empty for spread)
+	Value      string     // raw string value for string attrs (e.g., "text")
+	Expression Expression // parsed expression for {expr} attrs
+	IsSpread   bool       // true for ...spread
+	IsBoolean  bool       // true for boolean attributes like disabled
+}
+
+// String returns the attribute as a string
+func (ta *TagAttribute) String() string {
+	if ta.IsSpread {
+		return "..." + ta.Expression.String()
+	}
+	if ta.IsBoolean {
+		return ta.Name
+	}
+	if ta.Expression != nil {
+		return ta.Name + "={" + ta.Expression.String() + "}"
+	}
+	return ta.Name + "=" + ta.Value
+}
+
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
-	Token   lexer.Token   // the lexer.TAG token
-	Raw     string        // the raw tag content (everything between < and />)
-	Spreads []*SpreadExpr // spread expressions like ...attrs
+	Token      lexer.Token     // the lexer.TAG token
+	Raw        string          // the raw tag content (everything between < and />)
+	Name       string          // tag name (e.g., "input")
+	Attributes []*TagAttribute // parsed attributes
+	Spreads    []*SpreadExpr   // spread expressions like ...attrs (deprecated, use Attributes)
 }
 
 func (tg *TagLiteral) expressionNode()      {}
@@ -501,12 +527,13 @@ func (tg *TagLiteral) String() string       { return "<" + tg.Raw + " />" }
 
 // TagPairExpression represents paired tags like <div>content</div>
 type TagPairExpression struct {
-	Token    lexer.Token   // the lexer.TAG_START token
-	EndToken lexer.Token   // the lexer.TAG_END token (for blank lines before closing tag)
-	Name     string        // tag name (empty string for grouping tags <>)
-	Props    string        // raw props content
-	Spreads  []*SpreadExpr // spread expressions like ...attrs
-	Contents []Node        // mixed content: text nodes, expressions, nested tags
+	Token      lexer.Token     // the lexer.TAG_START token
+	EndToken   lexer.Token     // the lexer.TAG_END token (for blank lines before closing tag)
+	Name       string          // tag name (empty string for grouping tags <>)
+	Props      string          // raw props content (deprecated, use Attributes)
+	Attributes []*TagAttribute // parsed attributes
+	Spreads    []*SpreadExpr   // spread expressions like ...attrs (deprecated, use Attributes)
+	Contents   []Node          // mixed content: text nodes, expressions, nested tags
 }
 
 func (tp *TagPairExpression) expressionNode()      {}

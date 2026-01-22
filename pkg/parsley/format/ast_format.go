@@ -1258,24 +1258,39 @@ func (p *Printer) formatCheckStatement(cs *ast.CheckStatement) {
 // formatTagLiteral formats self-closing tags: <input type=text/>
 func (p *Printer) formatTagLiteral(tl *ast.TagLiteral) {
 	p.write("<")
-	// Raw already contains all attributes including spreads
-	p.write(tl.Raw)
+	p.write(tl.Name)
+
+	// Format attributes - use structured attributes if available
+	multiline := false
+	if len(tl.Attributes) > 0 {
+		multiline = p.formatTagAttributes(tl.Attributes)
+	}
+
+	if multiline {
+		p.writeIndent()
+	}
 	p.write("/>")
 }
 
 // formatTagPairExpression formats paired tags: <div>content</div>
 func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
+	// Track whether attributes use multiline format
+	multilineAttrs := false
+
 	// Opening tag
 	if tp.Name == "" {
 		p.write("<>")
 	} else {
 		p.write("<")
 		p.write(tp.Name)
-		// Props already contains the raw attributes including spreads
-		// So we just output Props as-is (spreads are NOT separate)
-		if tp.Props != "" {
-			p.write(" ")
-			p.write(tp.Props)
+
+		// Format attributes - use structured attributes if available
+		if len(tp.Attributes) > 0 {
+			multilineAttrs = p.formatTagAttributes(tp.Attributes)
+		}
+
+		if multilineAttrs {
+			p.writeIndent()
 		}
 		p.write(">")
 	}
@@ -1284,7 +1299,8 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 	isPreformattedTag := tp.Name == "style" || tp.Name == "script"
 
 	// Check if contents can fit inline
-	hasComplexContent := false
+	// If attributes were multiline, always use multiline content
+	hasComplexContent := multilineAttrs
 	for _, content := range tp.Contents {
 		switch c := content.(type) {
 		case *ast.TextNode:
@@ -1366,6 +1382,79 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 		p.write(tp.Name)
 		p.write(">")
 	}
+}
+
+// formatTagAttributes formats tag attributes, breaking to multiline if too long
+// Returns true if attributes were formatted multiline
+func (p *Printer) formatTagAttributes(attrs []*ast.TagAttribute) bool {
+	if len(attrs) == 0 {
+		return false
+	}
+
+	// Calculate total length of all attributes inline
+	var totalLen int
+	for _, attr := range attrs {
+		totalLen += len(p.formatAttributeString(attr)) + 1 // +1 for space
+	}
+
+	// Use 80 char threshold for multiline (leaving room for <tag and /> or >)
+	// Account for current indent + tag name (~20 chars average)
+	const threshold = 60
+
+	if totalLen <= threshold {
+		// Inline: all attributes on same line
+		for _, attr := range attrs {
+			p.write(" ")
+			p.formatAttribute(attr)
+		}
+		return false
+	}
+	// Multiline: each attribute on its own line
+	p.newline()
+	p.indentInc()
+	for _, attr := range attrs {
+		p.writeIndent()
+		p.formatAttribute(attr)
+		p.newline()
+	}
+	p.indentDec()
+	return true
+}
+
+// formatAttribute formats a single tag attribute
+func (p *Printer) formatAttribute(attr *ast.TagAttribute) {
+	if attr.IsSpread {
+		p.write("...")
+		p.formatExpression(attr.Expression)
+		return
+	}
+	if attr.IsBoolean {
+		p.write(attr.Name)
+		return
+	}
+	p.write(attr.Name)
+	p.write("=")
+	if attr.Expression != nil {
+		p.write("{")
+		p.formatExpression(attr.Expression)
+		p.write("}")
+	} else {
+		p.write(attr.Value)
+	}
+}
+
+// formatAttributeString returns the string representation of an attribute for length calculation
+func (p *Printer) formatAttributeString(attr *ast.TagAttribute) string {
+	if attr.IsSpread {
+		return "..." + attr.Expression.String()
+	}
+	if attr.IsBoolean {
+		return attr.Name
+	}
+	if attr.Expression != nil {
+		return attr.Name + "={" + attr.Expression.String() + "}"
+	}
+	return attr.Name + "=" + attr.Value
 }
 
 // formatSchemaDeclaration formats schema definitions: @schema Name { fields }

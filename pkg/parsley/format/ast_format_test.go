@@ -343,13 +343,13 @@ func TestFormatTableLiteral(t *testing.T) {
 			expected: `let t = @table [{id: 1, name: "X"}]`,
 		},
 		{
-			name:  "multiline multiple rows",
-			input: `let t = @table [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]`,
+			name:     "multiline multiple rows",
+			input:    `let t = @table [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]`,
 			expected: "let t = @table [\n\t{id: 1, name: \"Alice\"},\n\t{id: 2, name: \"Bob\"},\n]",
 		},
 		{
-			name:  "with schema",
-			input: `let t = @table(User) [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]`,
+			name:     "with schema",
+			input:    `let t = @table(User) [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]`,
 			expected: "let t = @table(User) [\n\t{id: 1, name: \"Alice\"},\n\t{id: 2, name: \"Bob\"},\n]",
 		},
 	}
@@ -472,5 +472,149 @@ func TestFormatBlankLines(t *testing.T) {
 				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestFormatTagLiteral(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple tag no attributes",
+			input:    "<br/>",
+			expected: "<br/>",
+		},
+		{
+			name:     "tag with string attribute",
+			input:    `<input type="text"/>`,
+			expected: `<input type="text"/>`,
+		},
+		{
+			name:     "tag with boolean attribute",
+			input:    `<input disabled/>`,
+			expected: `<input disabled/>`,
+		},
+		{
+			name:     "tag with expression attribute",
+			input:    `<input value={name}/>`,
+			expected: `<input value={name}/>`,
+		},
+		{
+			name:     "tag with spread",
+			input:    `<input ...attrs/>`,
+			expected: `<input ...attrs/>`,
+		},
+		{
+			name:     "tag with multiple attributes inline",
+			input:    `<input type="text" name="foo"/>`,
+			expected: `<input type="text" name="foo"/>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseAndFormat(t, tt.input)
+			if result != tt.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFormatTagPairExpression(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple pair tag",
+			input:    "<div>content</div>",
+			expected: "<div>content</div>",
+		},
+		{
+			name:     "pair tag with string attribute",
+			input:    `<div class="foo">content</div>`,
+			expected: `<div class="foo">content</div>`,
+		},
+		{
+			name:     "pair tag with expression attribute",
+			input:    `<div id={myId}>content</div>`,
+			expected: `<div id={myId}>content</div>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseAndFormat(t, tt.input)
+			if result != tt.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFormatTagAttributesMultiline(t *testing.T) {
+	// This tests the multiline attribute formatting when line exceeds threshold
+	// Tags with many attributes should break to multiline
+	input := `<Part view="form" id="editor" action={@params.action} method="post" class="container"/>`
+
+	result := parseAndFormat(t, input)
+
+	// Should break to multiline since total attr length > 60
+	if !contains(result, "\n") {
+		t.Errorf("expected multiline output for long tag, got:\n%s", result)
+	}
+
+	// Should have proper indentation
+	if !contains(result, "\t") {
+		t.Errorf("expected indented attributes, got:\n%s", result)
+	}
+
+	// Should preserve all attributes
+	if !contains(result, "view=") {
+		t.Errorf("expected view attribute, got:\n%s", result)
+	}
+	if !contains(result, "action={@params.action}") {
+		t.Errorf("expected action attribute with expression, got:\n%s", result)
+	}
+}
+
+func TestFormatTagAttributesMultilineExact(t *testing.T) {
+	// Test exact output format for multiline tag attributes
+	input := `<Part view="form" id="editor" action={@params.action} method="post" class="container"/>`
+	expected := `<Part
+	view="form"
+	id="editor"
+	action={@params.action}
+	method="post"
+	class="container"
+/>`
+
+	result := parseAndFormat(t, input)
+	if result != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, result)
+	}
+}
+
+func TestFormatTagPairAttributesMultiline(t *testing.T) {
+	// Test multiline attributes on paired tags too
+	input := `<Form method="post" action="/api/users" class="form-container" enctype="multipart/form-data">
+	<input type="text"/>
+</Form>`
+	expected := `<Form
+	method="post"
+	action="/api/users"
+	class="form-container"
+	enctype="multipart/form-data"
+>
+	<input type="text"/>
+</Form>`
+
+	result := parseAndFormat(t, input)
+	if result != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, result)
 	}
 }

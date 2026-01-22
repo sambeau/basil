@@ -1285,10 +1285,14 @@ func (p *Parser) parseDatetimeTemplateLiteral() ast.Expression {
 }
 
 func (p *Parser) parseTagLiteral() ast.Expression {
+	raw := p.curToken.Literal
+	name, props := parseTagNameAndProps(raw)
 	tag := &ast.TagLiteral{
-		Token:   p.curToken,
-		Raw:     p.curToken.Literal,
-		Spreads: extractSpreadExpressions(p.curToken.Literal),
+		Token:      p.curToken,
+		Raw:        raw,
+		Name:       name,
+		Attributes: parseTagAttributes(props),
+		Spreads:    extractSpreadExpressions(raw),
 	}
 	return tag
 }
@@ -1307,6 +1311,9 @@ func (p *Parser) parseTagPair() ast.Expression {
 	// Format: "tagname attr1="value" attr2={expr}" or empty string for <>
 	raw := p.curToken.Literal
 	tagExpr.Name, tagExpr.Props = parseTagNameAndProps(raw)
+
+	// Parse attributes into structured form
+	tagExpr.Attributes = parseTagAttributes(tagExpr.Props)
 
 	// Extract spread expressions from props
 	tagExpr.Spreads = extractSpreadExpressions(tagExpr.Props)
@@ -1556,6 +1563,171 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 // isIdentChar returns true if the character can be part of an identifier
 func isIdentChar(ch byte) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
+}
+
+// isAttrNameChar returns true if the character can be part of an HTML attribute name
+func isAttrNameChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-' || ch == ':'
+}
+
+// parseTagAttributes parses raw tag props into structured TagAttribute nodes
+// Handles: name=value, name="value", name={expr}, name (boolean), ...spread
+func parseTagAttributes(raw string) []*ast.TagAttribute {
+	var attrs []*ast.TagAttribute
+	i := 0
+
+	for i < len(raw) {
+		// Skip whitespace
+		for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n' || raw[i] == '\r') {
+			i++
+		}
+		if i >= len(raw) {
+			break
+		}
+
+		// Check for spread: ...identifier
+		if i+3 <= len(raw) && raw[i:i+3] == "..." {
+			i += 3
+			// Skip whitespace after ...
+			for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n' || raw[i] == '\r') {
+				i++
+			}
+			// Read identifier
+			start := i
+			for i < len(raw) && isIdentChar(raw[i]) {
+				i++
+			}
+			if i > start {
+				identName := raw[start:i]
+				attrs = append(attrs, &ast.TagAttribute{
+					IsSpread: true,
+					Expression: &ast.Identifier{
+						Token: lexer.Token{Type: lexer.IDENT, Literal: identName},
+						Value: identName,
+					},
+				})
+			}
+			continue
+		}
+
+		// Read attribute name
+		nameStart := i
+		for i < len(raw) && isAttrNameChar(raw[i]) {
+			i++
+		}
+		if i == nameStart {
+			// No attribute name found, skip unknown character
+			i++
+			continue
+		}
+		attrName := raw[nameStart:i]
+
+		// Skip whitespace after name
+		for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t') {
+			i++
+		}
+
+		// Check for = (value assignment)
+		if i >= len(raw) || raw[i] != '=' {
+			// Boolean attribute (no value)
+			attrs = append(attrs, &ast.TagAttribute{
+				Name:      attrName,
+				IsBoolean: true,
+			})
+			continue
+		}
+		i++ // skip =
+
+		// Skip whitespace after =
+		for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t') {
+			i++
+		}
+		if i >= len(raw) {
+			// Attribute with = but no value
+			attrs = append(attrs, &ast.TagAttribute{
+				Name:      attrName,
+				IsBoolean: true,
+			})
+			break
+		}
+
+		// Parse value: quoted string, {expression}, or bare word
+		if raw[i] == '"' {
+			// Quoted string value
+			i++ // skip opening quote
+			valueStart := i
+			for i < len(raw) && raw[i] != '"' {
+				if raw[i] == '\\' && i+1 < len(raw) {
+					i += 2 // skip escaped char
+				} else {
+					i++
+				}
+			}
+			value := `"` + raw[valueStart:i] + `"`
+			if i < len(raw) {
+				i++ // skip closing quote
+			}
+			attrs = append(attrs, &ast.TagAttribute{
+				Name:  attrName,
+				Value: value,
+			})
+		} else if raw[i] == '{' {
+			// Expression value {expr}
+			exprStart := i + 1 // after {
+			depth := 1
+			i++
+			for i < len(raw) && depth > 0 {
+				if raw[i] == '{' {
+					depth++
+				} else if raw[i] == '}' {
+					depth--
+				} else if raw[i] == '"' {
+					// Skip string contents
+					i++
+					for i < len(raw) && raw[i] != '"' {
+						if raw[i] == '\\' && i+1 < len(raw) {
+							i += 2
+						} else {
+							i++
+						}
+					}
+				}
+				if depth > 0 {
+					i++
+				}
+			}
+			exprContent := raw[exprStart:i]
+			if i < len(raw) {
+				i++ // skip closing }
+			}
+			// Parse the expression content
+			expr := parseExpressionFromString(exprContent)
+			attrs = append(attrs, &ast.TagAttribute{
+				Name:       attrName,
+				Expression: expr,
+			})
+		} else {
+			// Bare word value (unquoted)
+			valueStart := i
+			for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r' {
+				i++
+			}
+			attrs = append(attrs, &ast.TagAttribute{
+				Name:  attrName,
+				Value: raw[valueStart:i],
+			})
+		}
+	}
+
+	return attrs
+}
+
+// parseExpressionFromString parses a Parsley expression from a string
+func parseExpressionFromString(input string) ast.Expression {
+	l := lexer.New(input)
+	p := New(l)
+	expr := p.parseExpression(LOWEST)
+	return expr
 }
 
 // isVoidElement returns true if the tag is a void/singleton element that must be self-closing

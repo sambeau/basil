@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-21
+updated: 2026-01-22
 ---
 
 # Backlog
@@ -9,7 +9,6 @@ Deferred items from implementation, to be picked up in future work.
 ## High Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
-| #85 | Pretty-printer: Tag attribute multiline | FEAT-100 | AST limitation | Tag attributes stored as raw strings (`TagLiteral.Raw`, `TagPairExpression.Props`) not parsed structures. To intelligently break attributes across lines requires: (1) parse attributes into individual AST nodes, (2) add attribute AST types, (3) modify formatter for attribute layout. Multiline tags are preserved as-is but not reformatted. |
 | #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | Foundational change | Resolves ambiguity between columns and variables. Design states "Bare identifiers are columns, `{...}` are Parsley expressions". Affects entire DSL parsing. See FEAT-079-gaps.md. |
 | #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | High complexity (3-4 days) | Computed fields from subqueries: `\| comment_count <-Comments \|\| post_id == id \| count`. Requires scalar context detection, aliasing, SQL generation. See FEAT-079-gaps.md. |
 | #3 | Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |
@@ -86,6 +85,7 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #85 | Pretty-printer: Tag attribute multiline | FEAT-100 | 2026-01-22 | ✅ Added `TagAttribute` AST type, parser extracts attributes into structured nodes, formatter breaks long attribute lists to multiline with each attribute on its own line. Tags with multiline attributes also use multiline content. Implemented in ast.go, parser.go, ast_format.go. |
 | #84 | Pretty-printer: Comment preservation | FEAT-100 | 2026-01-21 | ✅ Lexer now captures comments in `Token.LeadingComments` and blank lines in `Token.BlankLinesBefore`. Formatter outputs comments and preserves single blank lines (collapses multiple to 1 like gofmt). |
 | #86 | Pretty-printer: @table formatting | FEAT-100 | 2026-01-21 | ✅ Format `@table` and `@table(Schema)` literals with multiline rows. Single short rows inline, multiple rows each on own line. Implemented in ast_format.go formatTableLiteral(). |
 | #81 | Pretty-printer: Query DSL formatting | FEAT-100 | 2026-01-21 | ✅ Format `@query()`, `@insert()`, `@update()`, `@delete()`, `@transaction` with multiline rules. Table on own line, clauses indented, string values properly quoted. Implemented in ast_format.go. |
