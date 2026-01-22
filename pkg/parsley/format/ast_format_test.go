@@ -400,6 +400,11 @@ func TestFormatComments(t *testing.T) {
 			input:    "let x = 1 // trailing\n// leading\nlet y = 2",
 			expected: "let x = 1 // trailing\n// leading\nlet y = 2",
 		},
+		{
+			name:     "trailing comment on opening brace",
+			input:    "let f = fn() { // comment\n\tlet x = 1\n}",
+			expected: "let f = fn() { // comment\n\tlet x = 1\n}",
+		},
 	}
 
 	for _, tt := range tests {

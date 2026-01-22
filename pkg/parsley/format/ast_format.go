@@ -425,6 +425,16 @@ func (p *Printer) formatBlockStatement(bs *ast.BlockStatement) {
 
 	// Multiline format
 	p.write("{")
+
+	// Check if first statement has a trailing comment (which belongs to the { line)
+	if len(bs.Statements) > 0 {
+		tok := getStatementToken(bs.Statements[0])
+		if tok != nil && tok.TrailingComment != "" {
+			p.write(" ")
+			p.write(tok.TrailingComment)
+		}
+	}
+
 	p.newline()
 	p.indentInc()
 
@@ -433,6 +443,10 @@ func (p *Printer) formatBlockStatement(bs *ast.BlockStatement) {
 
 		// For the first statement in block
 		if i == 0 {
+			// Blank line if source had one (after the { line)
+			if tok != nil && tok.BlankLinesBefore > 0 {
+				p.newline()
+			}
 			// Output any leading comments
 			p.writeComments(tok)
 			p.writeIndent()
