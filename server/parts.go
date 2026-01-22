@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -20,6 +21,16 @@ func isPartRequest(r *http.Request) bool {
 	return r.URL.Query().Get("_view") != ""
 }
 
+// logPartError logs a Part error to the dev log if available
+func (h *parsleyHandler) logPartError(scriptPath, viewName, errMsg string) {
+	if h.server.devLog == nil {
+		return
+	}
+	filename := filepath.Base(scriptPath)
+	callRepr := fmt.Sprintf("Part error: %s → %s()", filename, viewName)
+	_ = h.server.devLog.LogFromEvaluator("", "warn", scriptPath, 0, callRepr, errMsg)
+}
+
 // handlePartRequest handles requests for Part views
 // Returns HTML fragment (no wrapper div - JS will replace innerHTML)
 func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Request, scriptPath string, env *evaluator.Environment) {
@@ -33,7 +44,9 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 	// Read and parse the Part file
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to read Part file: %v", err), http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Failed to read Part file: %v", err)
+		h.logPartError(scriptPath, viewName, errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
 
@@ -42,7 +55,9 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 	program := p.ParseProgram()
 
 	if len(p.Errors()) > 0 {
-		http.Error(w, fmt.Sprintf("Parse error: %s", p.Errors()[0]), http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Parse error: %s", p.Errors()[0])
+		h.logPartError(scriptPath, viewName, errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
 
@@ -50,6 +65,7 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 	result := evaluator.Eval(program, env)
 	if result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
+		h.logPartError(scriptPath, viewName, errObj.Message)
 		http.Error(w, errObj.Message, http.StatusInternalServerError)
 		return
 	}
@@ -57,20 +73,26 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 	// Get the view function from the environment (exports are in env.store)
 	viewObj, hasView := env.Get(viewName)
 	if !hasView {
-		http.Error(w, fmt.Sprintf("Part does not export view '%s'", viewName), http.StatusNotFound)
+		errMsg := fmt.Sprintf("Part does not export view '%s'", viewName)
+		h.logPartError(scriptPath, viewName, errMsg)
+		http.Error(w, errMsg, http.StatusNotFound)
 		return
 	}
 
 	fnObj, ok := viewObj.(*evaluator.Function)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Part view '%s' is not a function", viewName), http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Part view '%s' is not a function", viewName)
+		h.logPartError(scriptPath, viewName, errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
 
 	// Parse props from query params and form body
 	props, err := h.parsePartProps(r, env)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse props: %v", err), http.StatusBadRequest)
+		errMsg := fmt.Sprintf("Failed to parse props: %v", err)
+		h.logPartError(scriptPath, viewName, errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -85,6 +107,7 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		errObj := result.(*evaluator.Error)
+		h.logPartError(scriptPath, viewName, errObj.Message)
 		http.Error(w, errObj.Message, http.StatusInternalServerError)
 		return
 	}
