@@ -511,6 +511,11 @@ func TestFormatTagLiteral(t *testing.T) {
 			input:    `<input type="text" name="foo"/>`,
 			expected: `<input type="text" name="foo"/>`,
 		},
+		{
+			name:     "tag with single-quoted onclick",
+			input:    `<i onclick='doSomething()' class="icon"/>`,
+			expected: `<i onclick='doSomething()' class="icon"/>`,
+		},
 	}
 
 	for _, tt := range tests {

@@ -1653,7 +1653,7 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 
 		// Parse value: quoted string, {expression}, or bare word
 		if raw[i] == '"' {
-			// Quoted string value
+			// Double-quoted string value
 			i++ // skip opening quote
 			valueStart := i
 			for i < len(raw) && raw[i] != '"' {
@@ -1664,6 +1664,25 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				}
 			}
 			value := `"` + raw[valueStart:i] + `"`
+			if i < len(raw) {
+				i++ // skip closing quote
+			}
+			attrs = append(attrs, &ast.TagAttribute{
+				Name:  attrName,
+				Value: value,
+			})
+		} else if raw[i] == '\'' {
+			// Single-quoted string value (common for onclick handlers with JS)
+			i++ // skip opening quote
+			valueStart := i
+			for i < len(raw) && raw[i] != '\'' {
+				if raw[i] == '\\' && i+1 < len(raw) {
+					i += 2 // skip escaped char
+				} else {
+					i++
+				}
+			}
+			value := `'` + raw[valueStart:i] + `'`
 			if i < len(raw) {
 				i++ // skip closing quote
 			}
