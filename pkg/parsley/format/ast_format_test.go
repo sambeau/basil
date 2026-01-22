@@ -225,6 +225,50 @@ func TestFormatSchemaDeclaration(t *testing.T) {
 	}
 }
 
+func TestFormatSchemaMetadata_SingleItem(t *testing.T) {
+	// Single short metadata item stays inline
+	input := `@schema User {
+    active: bool | {hidden: true}
+}`
+	result := parseAndFormat(t, input)
+	if !contains(result, "| {hidden: true}") {
+		t.Errorf("expected single metadata to stay inline, got %q", result)
+	}
+}
+
+func TestFormatSchemaMetadata_MultipleItems(t *testing.T) {
+	// Multiple metadata items always go multiline
+	input := `@schema User {
+    name: string | {title: "Name", placeholder: "Enter name"}
+}`
+	result := parseAndFormat(t, input)
+	// Should be multiline
+	if !contains(result, "| {\n") {
+		t.Errorf("expected multiline metadata for multiple items, got %q", result)
+	}
+	// Should have title and placeholder on separate lines
+	if !contains(result, `title: "Name"`) {
+		t.Errorf("expected title in metadata, got %q", result)
+	}
+	if !contains(result, `placeholder: "Enter name"`) {
+		t.Errorf("expected placeholder in metadata, got %q", result)
+	}
+}
+
+func TestFormatSchemaBlankLinePreserved(t *testing.T) {
+	// Blank line after schema should be preserved
+	input := `@schema User {
+    id: int
+}
+
+let x = 1`
+	result := parseAndFormat(t, input)
+	// Should have blank line between schema and let
+	if !contains(result, "}\n\nlet") {
+		t.Errorf("expected blank line after schema to be preserved, got %q", result)
+	}
+}
+
 func TestFormatNode_Nil(t *testing.T) {
 	result := FormatNode(nil)
 	if result != "" {

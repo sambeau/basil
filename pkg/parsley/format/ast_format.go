@@ -1534,7 +1534,7 @@ func (p *Printer) formatSchemaField(sf *ast.SchemaField) {
 	// Metadata
 	if sf.Metadata != nil {
 		p.write(" | ")
-		p.formatDictionaryLiteral(sf.Metadata)
+		p.formatSchemaMetadata(sf.Metadata)
 	}
 
 	// Foreign key
@@ -1548,6 +1548,67 @@ func (p *Printer) formatSchemaField(sf *ast.SchemaField) {
 		p.write(" = ")
 		p.formatExpression(sf.DefaultValue)
 	}
+}
+
+// formatSchemaMetadata formats schema field metadata with stricter multiline rules
+// Multiple metadata items always format multiline for readability
+func (p *Printer) formatSchemaMetadata(dl *ast.DictionaryLiteral) {
+	hasEntries := len(dl.KeyOrder) > 0 || len(dl.ComputedPairs) > 0
+	if !hasEntries {
+		p.write("{}")
+		return
+	}
+
+	totalItems := len(dl.KeyOrder) + len(dl.ComputedPairs)
+
+	// Single item: use inline format if short (60% of MaxLineWidth)
+	if totalItems == 1 {
+		inline := formatDictLiteralInline(dl)
+		// 60% rule: more conservative threshold for schema metadata
+		if p.fitsOnLine(inline, MaxLineWidth*60/100) {
+			p.write(inline)
+			return
+		}
+	}
+
+	// Multiple items or single item that's too long: multiline format
+	p.write("{")
+	p.newline()
+	p.indentInc()
+
+	idx := 0
+	for _, key := range dl.KeyOrder {
+		p.writeIndent()
+		p.write(formatDictKey(key))
+		p.write(": ")
+		if val, ok := dl.Pairs[key]; ok {
+			p.formatExpression(val)
+		} else {
+			p.write("null")
+		}
+		if TrailingCommaMultiline || idx < totalItems-1 {
+			p.write(",")
+		}
+		p.newline()
+		idx++
+	}
+
+	for _, cp := range dl.ComputedPairs {
+		p.writeIndent()
+		p.write("[")
+		p.formatExpression(cp.Key)
+		p.write("]: ")
+		p.formatExpression(cp.Value)
+		if TrailingCommaMultiline || idx < totalItems-1 {
+			p.write(",")
+		}
+		p.newline()
+		idx++
+	}
+
+	p.indentDec()
+	p.writeIndent()
+	p.write("}")
 }
 
 // ============================================================================
