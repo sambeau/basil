@@ -408,7 +408,7 @@ func objectToFormattedReprStringWithSeen(obj Object, seen map[Object]bool, inden
 	case *Money:
 		return obj.Inspect()
 	case *Function:
-		return functionToFormattedReprString(obj)
+		return functionToFormattedReprString(obj, indent)
 	case *Record:
 		return recordToFormattedReprString(obj, seen, indent)
 	case *Builtin:
@@ -576,7 +576,7 @@ func dictToInlineReprString(dict *Dictionary, seen map[Object]bool) string {
 }
 
 // functionToFormattedReprString formats a function using the AST formatter
-func functionToFormattedReprString(fn *Function) string {
+func functionToFormattedReprString(fn *Function, indent int) string {
 	// Construct a FunctionLiteral AST node from the Function object
 	fnLit := &ast.FunctionLiteral{
 		Token:  lexer.Token{Type: lexer.FUNCTION, Literal: "fn"},
@@ -584,7 +584,19 @@ func functionToFormattedReprString(fn *Function) string {
 		Body:   fn.Body,
 	}
 	// Use the formatter to produce well-formatted output
-	return format.FormatNode(fnLit)
+	formatted := format.FormatNode(fnLit)
+
+	// If we're nested (indent > 0) and the output is multiline,
+	// we need to indent all lines after the first
+	if indent > 0 && strings.Contains(formatted, "\n") {
+		lines := strings.Split(formatted, "\n")
+		indentStr := strings.Repeat(format.IndentString, indent)
+		for i := 1; i < len(lines); i++ {
+			lines[i] = indentStr + lines[i]
+		}
+		return strings.Join(lines, "\n")
+	}
+	return formatted
 }
 
 // recordToFormattedReprString formats a record with multiline support
