@@ -648,6 +648,98 @@ func (p *Printer) formatDictionaryLiteral(dl *ast.DictionaryLiteral) {
 	p.write("}")
 }
 
+// formatDictionaryLiteralForced formats a dictionary literal, with option to force multiline
+func (p *Printer) formatDictionaryLiteralForced(dl *ast.DictionaryLiteral, forceMultiline bool) {
+	hasEntries := len(dl.KeyOrder) > 0 || len(dl.ComputedPairs) > 0
+	if !hasEntries {
+		p.write("{}")
+		return
+	}
+
+	// Try inline format if not forced multiline
+	if !forceMultiline {
+		inline := formatDictLiteralInline(dl)
+		if p.fitsOnLine(inline, MaxLineWidth) {
+			p.write(inline)
+			return
+		}
+	}
+
+	// Multiline format
+	p.write("{")
+	p.newline()
+	p.indentInc()
+
+	totalItems := len(dl.KeyOrder) + len(dl.ComputedPairs)
+	idx := 0
+
+	for _, key := range dl.KeyOrder {
+		p.writeIndent()
+		p.write(formatDictKey(key))
+		p.write(": ")
+		if val, ok := dl.Pairs[key]; ok {
+			p.formatExpression(val)
+		} else {
+			p.write("null")
+		}
+		if TrailingCommaMultiline || idx < totalItems-1 {
+			p.write(",")
+		}
+		p.newline()
+		idx++
+	}
+
+	for _, cp := range dl.ComputedPairs {
+		p.writeIndent()
+		p.write("[")
+		p.formatExpression(cp.Key)
+		p.write("]: ")
+		p.formatExpression(cp.Value)
+		if TrailingCommaMultiline || idx < totalItems-1 {
+			p.write(",")
+		}
+		p.newline()
+		idx++
+	}
+
+	p.indentDec()
+	p.writeIndent()
+	p.write("}")
+}
+
+// formatArrayLiteralForced formats an array literal, with option to force multiline
+func (p *Printer) formatArrayLiteralForced(al *ast.ArrayLiteral, forceMultiline bool) {
+	if len(al.Elements) == 0 {
+		p.write("[]")
+		return
+	}
+
+	// Try inline format if not forced multiline
+	if !forceMultiline {
+		inline := formatArrayLiteralInline(al)
+		if p.fitsOnLine(inline, MaxLineWidth) && !strings.Contains(inline, "\n") {
+			p.write(inline)
+			return
+		}
+	}
+
+	// Multiline format
+	p.write("[")
+	p.newline()
+	p.indentInc()
+	for i, elem := range al.Elements {
+		p.writeIndent()
+		p.formatExpression(elem)
+		if TrailingCommaMultiline || i < len(al.Elements)-1 {
+			p.write(",")
+		}
+		p.newline()
+	}
+	p.indentDec()
+	p.writeIndent()
+	p.write("]")
+}
+
 // formatDictLiteralInline formats a dictionary as a single line
 func formatDictLiteralInline(dl *ast.DictionaryLiteral) string {
 	parts := make([]string, 0, len(dl.KeyOrder)+len(dl.ComputedPairs))
@@ -735,8 +827,43 @@ func (p *Printer) formatCallExpression(ce *ast.CallExpression) {
 			p.formatMethodChain(chain)
 			return
 		}
-		// Single method call, not a chain - fall through to normal formatting
-		_ = dot // silence unused warning
+
+		// Single method call (e.g., dict.as(Type)) - check if we need special handling
+		// If base is a dictionary/array and line is too long, break the base, not the args
+		inline := formatChainInline(chain)
+		if !p.fitsOnLine(inline, MaxLineWidth) {
+			if _, isDict := dot.Left.(*ast.DictionaryLiteral); isDict {
+				// Format dict multiline, then keep .method(args) inline
+				p.formatDictionaryLiteralForced(dot.Left.(*ast.DictionaryLiteral), true)
+				p.write(".")
+				p.write(dot.Key)
+				p.write("(")
+				for i, arg := range ce.Arguments {
+					if i > 0 {
+						p.write(", ")
+					}
+					p.formatExpression(arg)
+				}
+				p.write(")")
+				return
+			}
+			if _, isArray := dot.Left.(*ast.ArrayLiteral); isArray {
+				// Format array multiline, then keep .method(args) inline
+				p.formatArrayLiteralForced(dot.Left.(*ast.ArrayLiteral), true)
+				p.write(".")
+				p.write(dot.Key)
+				p.write("(")
+				for i, arg := range ce.Arguments {
+					if i > 0 {
+						p.write(", ")
+					}
+					p.formatExpression(arg)
+				}
+				p.write(")")
+				return
+			}
+		}
+		// Fall through to normal formatting for other cases
 	}
 
 	// Format the function being called
@@ -822,8 +949,7 @@ func (p *Printer) formatMethodChain(chain []chainLink) {
 	// Base expression on first line
 	p.formatExpression(chain[0].base)
 	p.newline()
-	p.indentInc()
-	p.indentInc() // Extra indent for chain continuation
+	p.indentInc() // Single extra indent for chain continuation
 	for i, link := range chain {
 		p.writeIndent()
 		p.write(".")
@@ -831,11 +957,36 @@ func (p *Printer) formatMethodChain(chain []chainLink) {
 		if link.call != nil {
 			p.write("(")
 			if len(link.call.Arguments) > 0 {
-				argStrs := make([]string, len(link.call.Arguments))
-				for j, arg := range link.call.Arguments {
-					argStrs[j] = nodeString(arg)
+				// Check if any argument is complex (function, dict, etc.)
+				hasComplexArg := false
+				for _, arg := range link.call.Arguments {
+					switch arg.(type) {
+					case *ast.FunctionLiteral, *ast.DictionaryLiteral, *ast.ArrayLiteral:
+						// Check if the arg would be multiline
+						argStr := nodeString(arg)
+						if strings.Contains(argStr, "\n") || len(argStr) > 40 {
+							hasComplexArg = true
+							break
+						}
+					}
 				}
-				p.write(strings.Join(argStrs, ", "))
+
+				if hasComplexArg {
+					// Format arguments with proper multiline handling
+					for j, arg := range link.call.Arguments {
+						if j > 0 {
+							p.write(", ")
+						}
+						p.formatExpression(arg)
+					}
+				} else {
+					// Simple args - inline
+					argStrs := make([]string, len(link.call.Arguments))
+					for j, arg := range link.call.Arguments {
+						argStrs[j] = nodeString(arg)
+					}
+					p.write(strings.Join(argStrs, ", "))
+				}
 			}
 			p.write(")")
 		}
@@ -844,7 +995,6 @@ func (p *Printer) formatMethodChain(chain []chainLink) {
 			p.newline()
 		}
 	}
-	p.indentDec()
 	p.indentDec()
 }
 

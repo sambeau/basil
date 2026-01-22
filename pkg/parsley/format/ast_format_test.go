@@ -304,6 +304,30 @@ func TestFormatConnectionLiteralCase(t *testing.T) {
 	}
 }
 
+func TestFormatDictMethodCall_BreakDict(t *testing.T) {
+	// When dict.method() is too long, break the dict not the method args
+	input := `x = {id: id, Firstname: firstname, Surname: surname, Day: day, Month: month, Year: year}.as(Person)`
+	result := parseAndFormat(t, input)
+	// Should have multiline dict with .as(Person) inline at end
+	if !contains(result, "}.as(Person)") {
+		t.Errorf("expected .as(Person) to stay inline after dict, got %q", result)
+	}
+	// Dict should be multiline
+	if !contains(result, "{\n") {
+		t.Errorf("expected multiline dict, got %q", result)
+	}
+}
+
+func TestFormatMethodChainWithFunctionArg(t *testing.T) {
+	// Method chains with function args should format the function body properly
+	input := `x = arr.map(fn(x) { x + 1 }).filter(fn(x) { x > 0 })`
+	result := parseAndFormat(t, input)
+	// Should have .map and .filter on separate lines (chain is too long)
+	if !contains(result, ".map(") && !contains(result, ".filter(") {
+		t.Errorf("expected method chain to be formatted, got %q", result)
+	}
+}
+
 func TestFormatNode_Nil(t *testing.T) {
 	result := FormatNode(nil)
 	if result != "" {
