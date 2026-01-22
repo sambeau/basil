@@ -618,7 +618,7 @@ func recordToFormattedReprString(rec *Record, seen map[Object]bool, indent int) 
 	}
 
 	if len(keys) == 0 {
-		return schemaName + "{}"
+		return schemaName + "({})"
 	}
 
 	// Try inline first
@@ -630,7 +630,7 @@ func recordToFormattedReprString(rec *Record, seen map[Object]bool, indent int) 
 	// Multiline format
 	var result strings.Builder
 	result.WriteString(schemaName)
-	result.WriteString("{\n")
+	result.WriteString("({\n")
 	indentStr := strings.Repeat(format.IndentString, indent+1)
 	for i, key := range keys {
 		valExpr, ok := rec.Data[key]
@@ -661,7 +661,7 @@ func recordToFormattedReprString(rec *Record, seen map[Object]bool, indent int) 
 		result.WriteString("\n")
 	}
 	result.WriteString(strings.Repeat(format.IndentString, indent))
-	result.WriteString("}")
+	result.WriteString("})")
 	return result.String()
 }
 
@@ -669,7 +669,7 @@ func recordToFormattedReprString(rec *Record, seen map[Object]bool, indent int) 
 func recordToInlineReprString(rec *Record, schemaName string, keys []string, seen map[Object]bool) string {
 	var result strings.Builder
 	result.WriteString(schemaName)
-	result.WriteString("{")
+	result.WriteString("({")
 	for i, key := range keys {
 		valExpr, ok := rec.Data[key]
 		if !ok {
@@ -696,7 +696,7 @@ func recordToInlineReprString(rec *Record, schemaName string, keys []string, see
 			result.WriteString("null")
 		}
 	}
-	result.WriteString("}")
+	result.WriteString("})")
 	return result.String()
 }
 
