@@ -897,6 +897,11 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator.Environment {
 	env := evaluator.NewEnvironment()
 
+	// Load shared devtools components (for dev error pages)
+	if s.config.Server.Dev {
+		loadDevToolsComponents(env)
+	}
+
 	// Basic error information
 	errorMap := map[string]interface{}{
 		"code":    code,

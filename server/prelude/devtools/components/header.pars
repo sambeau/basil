@@ -1,0 +1,31 @@
+// DevTools Header Component
+// A page header with title and optional action buttons
+//
+// Parameters:
+//   title (String)             - Page title text
+//   back (String, optional)    - Back link URL
+//   actions (Array, optional)  - Array of action elements
+//   contents (Any, optional)   - Additional content in actions area
+//
+// Usage:
+//   <Header title="Page Title" back="/__/"/>
+//   <Header title="Title" actions={[<a href="..." class="btn">"Action"</a>]}/>
+
+let Header = fn({title, back, actions, contents}) {
+    <div class="header">
+        <h1>title</h1>
+        <div class="actions">
+            if (back) {
+                <a href={back} class="btn">"← Back"</a>
+            }
+            if (actions) {
+                for (action in actions) {
+                    action
+                }
+            }
+            if (contents) {
+                contents
+            }
+        </div>
+    </div>
+}

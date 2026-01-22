@@ -1,0 +1,18 @@
+// DevTools InfoGrid Component  
+// A two-column grid for displaying key-value pairs
+//
+// Parameters:
+//   items (Array)  - Array of {label, value} dictionaries
+//
+// Usage:
+//   <InfoGrid items={[{label: "Version", value: "1.0"}, {label: "Status", value: "OK"}]}/>
+
+let InfoGrid = fn({items}) {
+    <div class="info-grid">
+        for (item in items) {
+            let labelText = item.label + ":"
+            <span class="info-label">labelText</span>
+            <span class="info-value">item.value</span>
+        }
+    </div>
+}

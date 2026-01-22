@@ -1,0 +1,14 @@
+// DevTools Stats Component
+// A simple stats/count display bar
+//
+// Parameters:
+//   contents (Any)  - The stats text content
+//
+// Usage:
+//   <Stats>"5 items found"</Stats>
+
+let Stats = fn({contents}) {
+    <div class="stats">
+        contents
+    </div>
+}

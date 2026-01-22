@@ -1,0 +1,22 @@
+// DevTools Panel Component
+// A styled panel/section with optional title
+//
+// Parameters:
+//   title (String, optional)    - Panel header text
+//   level (String, optional)    - "danger" | "warning" for colored border
+//   contents (Any)              - Panel body content (passed as children)
+//
+// Usage:
+//   <Panel title="My Title">"content here"</Panel>
+//   <Panel level="danger">"error content"</Panel>
+
+let Panel = fn({title, level, class, contents}) {
+    let levelClass = if (level) " panel-" + level else ""
+    let extraClass = if (class) " " + class else ""
+    <div class={"panel" + levelClass + extraClass}>
+        if (title) {
+            <h2 class="panel-title">title</h2>
+        }
+        contents
+    </div>
+}

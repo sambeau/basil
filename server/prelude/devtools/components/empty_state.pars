@@ -1,0 +1,14 @@
+// DevTools EmptyState Component
+// A centered message for empty/no-data states
+//
+// Parameters:
+//   contents (Any)  - The message content
+//
+// Usage:
+//   <EmptyState>"No items found."</EmptyState>
+
+let EmptyState = fn({contents}) {
+    <div class="empty-state">
+        contents
+    </div>
+}

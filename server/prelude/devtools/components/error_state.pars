@@ -1,0 +1,16 @@
+// DevTools ErrorState Component
+// An error display panel with title and message
+//
+// Parameters:
+//   title (String)    - Error title (e.g., "Database Error")
+//   message (String)  - Error message/details
+//
+// Usage:
+//   <ErrorState title="Connection Failed" message={error_msg}/>
+
+let ErrorState = fn({title, message}) {
+    <div class="error-state">
+        <div class="error-title">title</div>
+        <div class="error-message">message</div>
+    </div>
+}

@@ -1600,9 +1600,33 @@ const devToolsDBErrorHTML = `<!DOCTYPE html>
 </html>
 `
 
+// devToolsComponents lists the shared component files to load into the environment
+var devToolsComponents = []string{
+	"panel.pars",
+	"header.pars",
+	"info_grid.pars",
+	"empty_state.pars",
+	"stats.pars",
+	"error_state.pars",
+}
+
+// loadDevToolsComponents loads shared component definitions into the environment
+func loadDevToolsComponents(env *evaluator.Environment) {
+	for _, file := range devToolsComponents {
+		program := GetPreludeAST("devtools/components/" + file)
+		if program != nil {
+			// Evaluate to define the component function in env
+			evaluator.Eval(program, env)
+		}
+	}
+}
+
 // createDevToolsEnv creates an environment for rendering DevTools pages
 func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evaluator.Environment {
 	env := evaluator.NewEnvironment()
+
+	// Load shared components
+	loadDevToolsComponents(env)
 
 	// Add Basil metadata
 	version := h.server.version
