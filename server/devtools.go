@@ -190,7 +190,7 @@ func (h *devToolsHandler) serveLogsHTML(w http.ResponseWriter, entries []LogEntr
 		logsHTML.WriteString(`<div class="empty-state">No logs yet. Use <code>let {dev} = import @std/dev</code> then <code>dev.log(value)</code> in your handlers.</div>`)
 	} else {
 		// Entries are already newest-first, keep that for HTML display
-		for _, e := range entries {
+		for i, e := range entries {
 			icon := "ℹ️"
 			levelClass := "info"
 			if e.Level == "warn" {
@@ -198,19 +198,25 @@ func (h *devToolsHandler) serveLogsHTML(w http.ResponseWriter, entries []LogEntr
 				levelClass = "warn"
 			}
 
+			// Create unique ID for copy functionality
+			logID := fmt.Sprintf("log-%d", i)
+
 			logsHTML.WriteString(fmt.Sprintf(`
 				<div class="log-entry %s">
 					<div class="log-header">
 						<span class="log-icon">%s</span>
 						<span class="log-file">📁 %s:%d</span>
 						<span class="log-time">🕐 %s</span>
+						<button class="copy-btn" onclick="copyValue('%s')" title="Copy value">📋</button>
 					</div>
 					<div class="log-call">💻 %s</div>
-					<div class="log-value">%s</div>
+					<div class="log-value" id="%s">%s</div>
 				</div>
 			`, levelClass, icon, html.EscapeString(filepath.Base(e.Filename)), e.Line,
 				e.Timestamp.Format("2006-01-02 15:04:05"),
+				logID,
 				html.EscapeString(e.CallRepr),
+				logID,
 				html.EscapeString(e.ValueRepr)))
 		}
 	}
@@ -904,6 +910,24 @@ const devToolsLogsHTML = `<!DOCTYPE html>
       font-size: 0.8rem;
       color: #5c6370;
     }
+    .copy-btn {
+      background: transparent;
+      border: 1px solid #2d2d44;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      font-size: 0.75rem;
+      margin-left: auto;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .copy-btn:hover {
+      opacity: 1;
+      background: #2d2d44;
+    }
+    .copy-btn.copied {
+      background: #2d5a3a;
+    }
   </style>
 </head>
 <body>
@@ -923,6 +947,25 @@ const devToolsLogsHTML = `<!DOCTYPE html>
       Add <code>?text</code> to URL for plain text output.
     </div>
   </div>
+  <script>
+    function copyValue(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const text = el.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        // Find the copy button for this log entry
+        const btn = document.querySelector('button[onclick="copyValue(\'' + id + '\')"]');
+        if (btn) {
+          btn.textContent = '✓';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '📋';
+            btn.classList.remove('copied');
+          }, 1500);
+        }
+      });
+    }
+  </script>
 </body>
 </html>
 `

@@ -1,7 +1,9 @@
 package evaluator
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -97,9 +99,6 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 		level = extractLevel(args[2], env)
 	}
 
-	// Build call representation
-	callRepr := buildCallRepr("dev.log", label, value)
-
 	// Get file/line info from environment
 	filename := env.Filename
 	line := 0
@@ -107,7 +106,16 @@ func (dm *DevModule) evalLog(args []Object, env *Environment) Object {
 		line = env.LastToken.Line
 	}
 
-	if err := env.DevLog.LogFromEvaluator(dm.defaultRoute, level, filename, line, callRepr, value.Inspect()); err != nil {
+	// Build call representation: show actual source line if available, else synthetic
+	callRepr := readSourceLine(filename, line)
+	if callRepr == "" {
+		callRepr = buildCallRepr("dev.log", label, value)
+	}
+
+	// Format value using the new formatter for nice output
+	valueRepr := ObjectToFormattedReprString(value)
+
+	if err := env.DevLog.LogFromEvaluator(dm.defaultRoute, level, filename, line, callRepr, valueRepr); err != nil {
 		// Don't fail the script, just log to stderr
 		fmt.Printf("[WARN] dev.log failed: %v\n", err)
 	}
@@ -174,9 +182,6 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 		level = extractLevel(args[3], env)
 	}
 
-	// Build call representation
-	callRepr := buildCallRepr("dev.logPage", label, value)
-
 	// Get file/line info from environment
 	filename := env.Filename
 	line := 0
@@ -184,7 +189,16 @@ func (dm *DevModule) evalLogPage(args []Object, env *Environment) Object {
 		line = env.LastToken.Line
 	}
 
-	if err := env.DevLog.LogFromEvaluator(route, level, filename, line, callRepr, value.Inspect()); err != nil {
+	// Build call representation: show actual source line if available, else synthetic
+	callRepr := readSourceLine(filename, line)
+	if callRepr == "" {
+		callRepr = buildCallRepr("dev.logPage", label, value)
+	}
+
+	// Format value using the new formatter for nice output
+	valueRepr := ObjectToFormattedReprString(value)
+
+	if err := env.DevLog.LogFromEvaluator(route, level, filename, line, callRepr, valueRepr); err != nil {
 		fmt.Printf("[WARN] dev.logPage failed: %v\n", err)
 	}
 
@@ -296,6 +310,30 @@ func buildCallRepr(fn string, label string, value Object) string {
 		return fmt.Sprintf("%s(\"%s\", %s)", fn, label, truncateRepr(value.Inspect(), 50))
 	}
 	return fmt.Sprintf("%s(%s)", fn, truncateRepr(value.Inspect(), 50))
+}
+
+// readSourceLine reads a specific line from a file and returns it trimmed.
+// Returns empty string if the file cannot be read or line doesn't exist.
+func readSourceLine(filename string, lineNum int) string {
+	if filename == "" || lineNum <= 0 {
+		return ""
+	}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	currentLine := 0
+	for scanner.Scan() {
+		currentLine++
+		if currentLine == lineNum {
+			return strings.TrimSpace(scanner.Text())
+		}
+	}
+	return ""
 }
 
 func truncateRepr(s string, maxLen int) string {

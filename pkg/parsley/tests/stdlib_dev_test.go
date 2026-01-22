@@ -47,7 +47,7 @@ func TestDevLog(t *testing.T) {
 		expectedLabel string
 	}{
 		{`dev.log(42)`, "42", ""},
-		{`dev.log("hello")`, `hello`, ""}, // String.Inspect() returns value without quotes
+		{`dev.log("hello")`, `"hello"`, ""}, // ObjectToFormattedReprString quotes strings
 		{`dev.log([1, 2, 3])`, "[1, 2, 3]", ""},
 		{`dev.log({a: 1, b: 2})`, "", ""}, // Dict order may vary
 	}
