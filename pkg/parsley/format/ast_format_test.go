@@ -368,3 +368,69 @@ func TestFormatTableLiteral(t *testing.T) {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr)))
 }
+
+func TestFormatComments(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "single leading comment",
+			input:    "// comment\nlet x = 1",
+			expected: "// comment\nlet x = 1",
+		},
+		{
+			name:     "multiple leading comments",
+			input:    "// comment 1\n// comment 2\nlet x = 1",
+			expected: "// comment 1\n// comment 2\nlet x = 1",
+		},
+		{
+			name:     "comment between statements",
+			input:    "let x = 1\n// comment\nlet y = 2",
+			expected: "let x = 1\n// comment\nlet y = 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseAndFormat(t, tt.input)
+			if result != tt.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFormatBlankLines(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "single blank line preserved",
+			input:    "let x = 1\n\nlet y = 2",
+			expected: "let x = 1\n\nlet y = 2",
+		},
+		{
+			name:     "multiple blank lines collapse to one",
+			input:    "let x = 1\n\n\n\nlet y = 2",
+			expected: "let x = 1\n\nlet y = 2",
+		},
+		{
+			name:     "blank line with comment",
+			input:    "let x = 1\n\n// comment\nlet y = 2",
+			expected: "let x = 1\n\n// comment\nlet y = 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseAndFormat(t, tt.input)
+			if result != tt.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, result)
+			}
+		})
+	}
+}

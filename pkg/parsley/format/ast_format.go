@@ -7,7 +7,93 @@ import (
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
+
+// getStatementToken extracts the first token from a statement for comment/blank line info
+func getStatementToken(stmt ast.Statement) *lexer.Token {
+	switch s := stmt.(type) {
+	case *ast.LetStatement:
+		return &s.Token
+	case *ast.AssignmentStatement:
+		return &s.Token
+	case *ast.ReturnStatement:
+		return &s.Token
+	case *ast.ExpressionStatement:
+		return getExpressionToken(s.Expression)
+	case *ast.ExportNameStatement:
+		return &s.Token
+	case *ast.ComputedExportStatement:
+		return &s.Token
+	case *ast.BlockStatement:
+		return &s.Token
+	case *ast.IndexAssignmentStatement:
+		return getExpressionToken(s.Target)
+	case *ast.StopStatement:
+		return &s.Token
+	case *ast.SkipStatement:
+		return &s.Token
+	}
+	return nil
+}
+
+// getExpressionToken extracts the first token from an expression
+func getExpressionToken(expr ast.Expression) *lexer.Token {
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		return &e.Token
+	case *ast.IntegerLiteral:
+		return &e.Token
+	case *ast.FloatLiteral:
+		return &e.Token
+	case *ast.StringLiteral:
+		return &e.Token
+	case *ast.Boolean:
+		return &e.Token
+	case *ast.FunctionLiteral:
+		return &e.Token
+	case *ast.IfExpression:
+		return &e.Token
+	case *ast.ForExpression:
+		return &e.Token
+	case *ast.TagLiteral:
+		return &e.Token
+	case *ast.TagPairExpression:
+		return &e.Token
+	case *ast.CallExpression:
+		return getExpressionToken(e.Function)
+	case *ast.InfixExpression:
+		return getExpressionToken(e.Left)
+	case *ast.PrefixExpression:
+		return &e.Token
+	case *ast.ArrayLiteral:
+		return &e.Token
+	case *ast.DictionaryLiteral:
+		return &e.Token
+	case *ast.SchemaDeclaration:
+		return &e.Token
+	}
+	return nil
+}
+
+// writeComments outputs any leading comments for a token
+func (p *Printer) writeComments(tok *lexer.Token) {
+	if tok == nil {
+		return
+	}
+	for _, comment := range tok.LeadingComments {
+		p.writeIndent()
+		p.write(comment)
+		p.newline()
+	}
+}
+
+// writeBlankLineIfNeeded outputs a blank line if the token had one before it
+func (p *Printer) writeBlankLineIfNeeded(tok *lexer.Token) {
+	if tok != nil && tok.BlankLinesBefore > 0 {
+		p.newline()
+	}
+}
 
 // FormatNode formats any AST node into well-formatted Parsley code.
 // This is the main entry point for AST-based formatting.
@@ -33,10 +119,18 @@ func FormatProgram(prog *ast.Program) string {
 // formatProgram formats a program with proper spacing between statements
 func (p *Printer) formatProgram(prog *ast.Program) {
 	for i, stmt := range prog.Statements {
-		// Add blank line BEFORE certain statements (like exported function defs)
-		if i > 0 && needsBlankLineBefore(stmt, prog.Statements[i-1]) {
+		tok := getStatementToken(stmt)
+
+		// Output blank line if source had one (collapsed to max 1 by lexer)
+		if i > 0 && tok != nil && tok.BlankLinesBefore > 0 {
+			p.newline()
+		} else if i > 0 && needsBlankLineBefore(stmt, prog.Statements[i-1]) {
+			// Fallback: Add blank line BEFORE certain statements (like exported function defs)
 			p.newline()
 		}
+
+		// Output any leading comments for this statement
+		p.writeComments(tok)
 
 		p.formatStatement(stmt)
 

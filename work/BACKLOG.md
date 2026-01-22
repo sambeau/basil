@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-15
+updated: 2026-01-21
 ---
 
 # Backlog
@@ -9,12 +9,14 @@ Deferred items from implementation, to be picked up in future work.
 ## High Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #85 | Pretty-printer: Tag attribute multiline | FEAT-100 | AST limitation | Tag attributes stored as raw strings (`TagLiteral.Raw`, `TagPairExpression.Props`) not parsed structures. To intelligently break attributes across lines requires: (1) parse attributes into individual AST nodes, (2) add attribute AST types, (3) modify formatter for attribute layout. Multiline tags are preserved as-is but not reformatted. |
 | #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | Foundational change | Resolves ambiguity between columns and variables. Design states "Bare identifiers are columns, `{...}` are Parsley expressions". Affects entire DSL parsing. See FEAT-079-gaps.md. |
 | #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | High complexity (3-4 days) | Computed fields from subqueries: `\| comment_count <-Comments \|\| post_id == id \| count`. Requires scalar context detection, aliasing, SQL generation. See FEAT-079-gaps.md. |
 | #3 | Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |
 | #4 | Query DSL Join-like Subqueries | PLAN-052 Phase 7 | High complexity (2-3 days) | Scalar vs join subquery context (`?->` vs `??->`). Requires context propagation, row expansion semantics. See FEAT-079-gaps.md. |
 | #5 | Notification API (basil.email.send) | FEAT-084 Phase 3 | Parsley integration complexity | Developer-initiated emails from Parsley handlers. Requires: (1) Parsley namespace design (`basil.email`), (2) Go function exposure to evaluator, (3) Thread-safe EmailService access, (4) Developer rate limiting (50/hr, 200/day). See ADR-001. Core verification flow is complete; this is enhancement for custom emails. |
 | #7 | Complete structured error migration | FEAT-023 | Phase 6+ | Migrate remaining files: other `stdlib_*.go` modules (not present yet). Core evaluator files and stdlib_table.go done. Note: `builtins.go` has been removed/refactored. |
+
 
 ## Medium Priority
 | ID | Item | Source | Reason Deferred | Notes |
@@ -84,6 +86,15 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #84 | Pretty-printer: Comment preservation | FEAT-100 | 2026-01-21 | ✅ Lexer now captures comments in `Token.LeadingComments` and blank lines in `Token.BlankLinesBefore`. Formatter outputs comments and preserves single blank lines (collapses multiple to 1 like gofmt). |
+| #86 | Pretty-printer: @table formatting | FEAT-100 | 2026-01-21 | ✅ Format `@table` and `@table(Schema)` literals with multiline rows. Single short rows inline, multiple rows each on own line. Implemented in ast_format.go formatTableLiteral(). |
+| #81 | Pretty-printer: Query DSL formatting | FEAT-100 | 2026-01-21 | ✅ Format `@query()`, `@insert()`, `@update()`, `@delete()`, `@transaction` with multiline rules. Table on own line, clauses indented, string values properly quoted. Implemented in ast_format.go. |
+| #83 | `pars fmt` CLI command | FEAT-100 | 2026-01-21 | ✅ Format Parsley source files via CLI. Supports `-w` (write), `-d` (diff), `-l` (list). Integrated in cmd/pars/main.go. |
+| #77 | Pretty-printer: Control flow formatting | FEAT-100 | 2026-01-21 | ✅ if/else, for expressions with threshold-based inline/multiline. Implemented in ast_format.go. |
+| #78 | Pretty-printer: Method chain formatting | FEAT-100 | 2026-01-21 | ✅ Format `a.b().c()` chains with 60-char threshold. Multiline chains break after each method. Implemented in ast_format.go. |
+| #79 | Pretty-printer: Tag formatting | FEAT-100 | 2026-01-21 | ✅ TagLiteral and TagPairExpression formatting with content detection for inline/multiline. Implemented in ast_format.go. |
+| #80 | Pretty-printer: Schema definition formatting | FEAT-100 | 2026-01-21 | ✅ @schema declarations with one field per line. Implemented in ast_format.go formatSchemaDeclaration(). |
+| #82 | Pretty-printer: REPL integration | FEAT-100 | 2026-01-21 | ✅ `ObjectToFormattedReprString()` in eval_string_conversions.go, REPL updated in repl.go. Arrays/dicts/functions now pretty-print with multiline support when exceeding 60-char threshold. |
 | #6 | Support for `else if` in Parsley | FEAT-057 | 2025-12 | ✅ Implemented in parser.go line 1841-1856. Parser recursively handles `else if` chains. |
 | #11 | Remove `@std/basil` error before Alpha | FEAT-071 | 2025-12 | ✅ Implemented in stdlib_table.go line 37-42. Now returns proper import error directing users to `@basil/http` or `@basil/auth`. |
 | #21 | Form validation/sanitization | FEAT-002/FEAT-032 | 2025-12 | ✅ Implemented as `@std/valid` module with comprehensive validators. See FEAT-032.md. |

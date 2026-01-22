@@ -13,6 +13,7 @@ const (
 	// Special tokens
 	ILLEGAL TokenType = iota
 	EOF
+	COMMENT // // single line comment
 
 	// Identifiers and literals
 	IDENT             // add, foobar, x, y, ...
@@ -141,10 +142,12 @@ const (
 
 // Token represents a single token
 type Token struct {
-	Type    TokenType
-	Literal string
-	Line    int
-	Column  int
+	Type             TokenType
+	Literal          string
+	Line             int
+	Column           int
+	BlankLinesBefore int    // Number of blank lines before this token (for formatting)
+	LeadingComments  []string // Comments before this token (for formatting)
 }
 
 // String returns a string representation of the token
@@ -160,6 +163,8 @@ func (tt TokenType) String() string {
 		return "ILLEGAL"
 	case EOF:
 		return "EOF"
+	case COMMENT:
+		return "COMMENT"
 	case IDENT:
 		return "IDENT"
 	case INT:
@@ -428,6 +433,8 @@ type Lexer struct {
 	lastTokenType        TokenType // last token type for regex context detection
 	inRawTextTag         string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
 	inRawTextInterpolate bool      // true when inside @{} interpolation within a raw text tag
+	pendingComments      []string  // comments collected before the next token
+	pendingBlankLines    int       // blank lines counted before the next token
 }
 
 // truncate returns the first n characters of a string, adding "..." if truncated.
@@ -464,29 +471,36 @@ func NewWithFilename(input string, filename string) *Lexer {
 
 // LexerState holds the state of a lexer for save/restore
 type LexerState struct {
-	position      int
-	readPosition  int
-	ch            byte
-	line          int
-	column        int
-	inTagContent  bool
-	tagDepth      int
-	lastTokenType TokenType
-	inRawTextTag  string
+	position          int
+	readPosition      int
+	ch                byte
+	line              int
+	column            int
+	inTagContent      bool
+	tagDepth          int
+	lastTokenType     TokenType
+	inRawTextTag      string
+	pendingComments   []string
+	pendingBlankLines int
 }
 
 // SaveState saves the current lexer state for potential restoration
 func (l *Lexer) SaveState() LexerState {
+	// Copy the pending comments slice
+	commentsCopy := make([]string, len(l.pendingComments))
+	copy(commentsCopy, l.pendingComments)
 	return LexerState{
-		position:      l.position,
-		readPosition:  l.readPosition,
-		ch:            l.ch,
-		line:          l.line,
-		column:        l.column,
-		inTagContent:  l.inTagContent,
-		tagDepth:      l.tagDepth,
-		lastTokenType: l.lastTokenType,
-		inRawTextTag:  l.inRawTextTag,
+		position:          l.position,
+		readPosition:      l.readPosition,
+		ch:                l.ch,
+		line:              l.line,
+		column:            l.column,
+		inTagContent:      l.inTagContent,
+		tagDepth:          l.tagDepth,
+		lastTokenType:     l.lastTokenType,
+		inRawTextTag:      l.inRawTextTag,
+		pendingComments:   commentsCopy,
+		pendingBlankLines: l.pendingBlankLines,
 	}
 }
 
@@ -501,6 +515,8 @@ func (l *Lexer) RestoreState(state LexerState) {
 	l.tagDepth = state.tagDepth
 	l.lastTokenType = state.lastTokenType
 	l.inRawTextTag = state.inRawTextTag
+	l.pendingComments = state.pendingComments
+	l.pendingBlankLines = state.pendingBlankLines
 }
 
 // PeekToken returns the next token without consuming it
@@ -553,10 +569,12 @@ func (l *Lexer) NextToken() Token {
 
 	// Special handling when inside tag content
 	if l.inTagContent {
-		return l.nextTagContentToken()
+		tok = l.nextTagContentToken()
+		return l.attachPendingTrivia(tok)
 	}
 
-	l.skipWhitespace()
+	// Collect whitespace, blank lines, and comments before the next token
+	l.collectTrivia()
 
 	switch l.ch {
 	case '=':
@@ -605,7 +623,9 @@ func (l *Lexer) NextToken() Token {
 		tok = newToken(MATCH, l.ch, l.line, l.column)
 	case '/':
 		if l.peekChar() == '/' {
-			l.skipComment()
+			// This shouldn't happen since collectTrivia handles comments,
+			// but if we somehow get here, capture the comment and recurse
+			l.skipAndCaptureComment()
 			return l.NextToken()
 		} else if l.shouldTreatAsRegex(l.lastTokenType) {
 			// This is a regex literal
@@ -617,7 +637,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		}
 		tok = newToken(SLASH, l.ch, l.line, l.column)
 	case '%':
@@ -691,7 +711,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		} else if l.peekChar() == '!' {
 			// Could be XML comment <!-- -->, CDATA <![CDATA[]]>, or DOCTYPE <!DOCTYPE>
 			if l.peekCharN(2) == '-' && l.peekCharN(3) == '-' {
@@ -709,7 +729,7 @@ func (l *Lexer) NextToken() Token {
 					tok.Line = line
 					tok.Column = column
 					l.lastTokenType = tok.Type
-					return tok
+					return l.attachPendingTrivia(tok)
 				}
 			} else if l.peekCharN(2) == 'D' || l.peekCharN(2) == 'd' {
 				// DOCTYPE declaration - pass through as string
@@ -721,7 +741,7 @@ func (l *Lexer) NextToken() Token {
 				tok.Line = line
 				tok.Column = column
 				l.lastTokenType = tok.Type
-				return tok
+				return l.attachPendingTrivia(tok)
 			}
 			// Not a comment, CDATA, or DOCTYPE - treat < as less-than
 			tok = newToken(LT, l.ch, l.line, l.column)
@@ -738,7 +758,7 @@ func (l *Lexer) NextToken() Token {
 				l.tagDepth--
 			}
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		} else if isLetter(l.peekChar()) || l.peekChar() == '>' {
 			// Could be a tag start <tag> or singleton <tag />
 			line := l.line
@@ -763,7 +783,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		} else if l.peekChar() == '-' {
 			// <- (arrow pull for DSL subqueries)
 			line := l.line
@@ -1041,7 +1061,7 @@ func (l *Lexer) NextToken() Token {
 		tok.Line = line
 		tok.Column = column
 		l.lastTokenType = tok.Type
-		return tok
+		return l.attachPendingTrivia(tok)
 	case '$':
 		// Could be $, CA$, AU$, HK$, S$ followed by a number
 		line := l.line
@@ -1050,7 +1070,7 @@ func (l *Lexer) NextToken() Token {
 		tok.Line = line
 		tok.Column = column
 		l.lastTokenType = tok.Type
-		return tok
+		return l.attachPendingTrivia(tok)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
@@ -1065,7 +1085,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		} else if l.ch == 0xE2 && l.peekChar() == 0x82 && l.peekCharN(2) == 0xAC { // € (EUR)
 			line := l.line
 			column := l.column
@@ -1073,7 +1093,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		} else if l.ch == 0xC2 && l.peekChar() == 0xA5 { // ¥ (JPY)
 			line := l.line
 			column := l.column
@@ -1081,7 +1101,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok
+			return l.attachPendingTrivia(tok)
 		} else if isLetter(l.ch) {
 			// Check for CODE# money syntax (e.g., USD#12.34)
 			if l.isCurrencyCodeStart() {
@@ -1091,7 +1111,7 @@ func (l *Lexer) NextToken() Token {
 				tok.Line = line
 				tok.Column = column
 				l.lastTokenType = tok.Type
-				return tok
+				return l.attachPendingTrivia(tok)
 			}
 			// Check for compound currency symbols (CA$, AU$, HK$, S$, CN¥)
 			if l.isCompoundCurrencySymbol() {
@@ -1101,7 +1121,7 @@ func (l *Lexer) NextToken() Token {
 				tok.Line = line
 				tok.Column = column
 				l.lastTokenType = tok.Type
-				return tok
+				return l.attachPendingTrivia(tok)
 			}
 			// Save position before reading
 			line := l.line
@@ -1111,7 +1131,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok // early return to avoid readChar()
+			return l.attachPendingTrivia(tok) // early return to avoid readChar()
 		} else if isDigit(l.ch) {
 			// Save position before reading
 			line := l.line
@@ -1126,7 +1146,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Line = line
 			tok.Column = column
 			l.lastTokenType = tok.Type
-			return tok // early return to avoid readChar()
+			return l.attachPendingTrivia(tok) // early return to avoid readChar()
 		} else {
 			tok = newToken(ILLEGAL, l.ch, l.line, l.column)
 		}
@@ -1134,7 +1154,7 @@ func (l *Lexer) NextToken() Token {
 
 	l.readChar()
 	l.lastTokenType = tok.Type
-	return tok
+	return l.attachPendingTrivia(tok)
 }
 
 // newToken creates a new token with the given parameters
@@ -2048,7 +2068,7 @@ func (l *Lexer) nextTagContentToken() Token {
 		// In normal mode, skip Parsley comments //
 		// In raw mode (style/script), keep // as literal text (valid JS comments)
 		if !inRawMode && l.peekChar() == '/' {
-			l.skipComment()
+			l.skipAndCaptureComment()
 			return l.nextTagContentToken()
 		}
 		// Not a comment (or in raw mode), treat as regular text
@@ -2118,9 +2138,9 @@ func (l *Lexer) readTagText() string {
 	var result []byte
 
 	for l.ch != 0 && l.ch != '<' && l.ch != '{' {
-		// Skip Parsley comments (//)
+		// Skip Parsley comments (//) and capture them
 		if l.ch == '/' && l.peekChar() == '/' {
-			l.skipComment()
+			l.skipAndCaptureComment()
 			continue
 		}
 		result = append(result, l.ch)
@@ -2170,14 +2190,72 @@ func (l *Lexer) EnterTagContentMode() {
 	}
 }
 
-// skipWhitespace skips whitespace characters
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
-		l.readChar()
+// collectTrivia collects whitespace (counting blank lines) and comments
+// before the next token. This loop handles alternating whitespace and comments.
+func (l *Lexer) collectTrivia() {
+	for {
+		// Skip whitespace (counting blank lines)
+		l.skipWhitespace()
+
+		// Check for comment
+		if l.ch == '/' && l.peekChar() == '/' {
+			l.skipAndCaptureComment()
+			continue // Keep collecting - there may be more whitespace/comments
+		}
+
+		// No more trivia to collect
+		break
 	}
 }
 
-// skipComment skips single-line comments starting with //
+// attachPendingTrivia attaches any pending comments and blank line count to a token,
+// then clears the pending state.
+func (l *Lexer) attachPendingTrivia(tok Token) Token {
+	tok.LeadingComments = l.pendingComments
+	tok.BlankLinesBefore = l.pendingBlankLines
+	l.pendingComments = nil
+	l.pendingBlankLines = 0
+	return tok
+}
+
+// skipWhitespace skips whitespace characters and counts blank lines.
+// A blank line is defined as two or more consecutive newlines (possibly with
+// whitespace between them). This is used to preserve intentional spacing.
+func (l *Lexer) skipWhitespace() {
+	newlineCount := 0
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+		if l.ch == '\n' {
+			newlineCount++
+		}
+		l.readChar()
+	}
+	// Two newlines = one blank line, three newlines = two blank lines, etc.
+	// But we collapse multiple blank lines to just one (like gofmt)
+	if newlineCount >= 2 {
+		l.pendingBlankLines = 1
+	}
+}
+
+// skipAndCaptureComment reads a single-line comment and captures its text.
+// The comment text is added to pendingComments for attachment to the next token.
+func (l *Lexer) skipAndCaptureComment() {
+	startPos := l.position
+
+	// Skip the two slashes
+	l.readChar()
+	l.readChar()
+
+	// Read until end of line or EOF
+	for l.ch != '\n' && l.ch != 0 {
+		l.readChar()
+	}
+
+	// Capture the comment text (including the //)
+	commentText := l.input[startPos:l.position]
+	l.pendingComments = append(l.pendingComments, commentText)
+}
+
+// skipComment skips single-line comments starting with // (legacy, use skipAndCaptureComment)
 func (l *Lexer) skipComment() {
 	// Skip the two slashes
 	l.readChar()

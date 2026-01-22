@@ -9,6 +9,7 @@ import (
 
 	"github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/format"
 	"github.com/sambeau/basil/pkg/parsley/formatter"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
@@ -38,6 +39,15 @@ var (
 )
 
 func main() {
+	// Check for subcommands first (before flag parsing)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "fmt":
+			fmtCommand(os.Args[2:])
+			return
+		}
+	}
+
 	// Customize flag usage message
 	flag.Usage = printHelp
 	flag.Parse()
@@ -80,6 +90,10 @@ func printHelp() {
 
 Usage:
   pars [options] [file]
+  pars fmt [options] <file>...
+
+Commands:
+  fmt                   Format Parsley source files
 
 Display Options:
   -h, --help            Show this help message
@@ -105,6 +119,8 @@ Examples:
   pars                      Start interactive REPL
   pars script.pars          Execute a Parsley script
   pars -pp page.pars        Execute and pretty-print HTML output
+  pars fmt script.pars      Format a Parsley file (print to stdout)
+  pars fmt -w script.pars   Format a Parsley file in place
 
 For more information, visit: https://github.com/sambeau/parsley
 `, Version)
@@ -334,4 +350,153 @@ func parseAndResolvePaths(pathList string) ([]string, error) {
 	}
 
 	return resolved, nil
+}
+
+// fmtCommand handles the 'pars fmt' subcommand
+func fmtCommand(args []string) {
+	fmtFlags := flag.NewFlagSet("fmt", flag.ExitOnError)
+	writeFlag := fmtFlags.Bool("w", false, "Write result to source file instead of stdout")
+	diffFlag := fmtFlags.Bool("d", false, "Display diffs instead of rewriting files (implies -w behavior check)")
+	listFlag := fmtFlags.Bool("l", false, "List files whose formatting differs from pars fmt's")
+
+	fmtFlags.Usage = func() {
+		fmt.Fprintf(os.Stderr, `pars fmt - format Parsley source files
+
+Usage:
+  pars fmt [options] <file>...
+
+Options:
+  -w    Write result to source file instead of stdout
+  -d    Display diffs instead of rewriting files
+  -l    List files whose formatting differs from pars fmt's
+
+Examples:
+  pars fmt script.pars           Print formatted output to stdout
+  pars fmt -w script.pars        Format file in place
+  pars fmt -l *.pars             List files that need formatting
+  pars fmt -d script.pars        Show what would change
+`)
+	}
+
+	if err := fmtFlags.Parse(args); err != nil {
+		os.Exit(1)
+	}
+
+	files := fmtFlags.Args()
+	if len(files) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: no files specified")
+		fmtFlags.Usage()
+		os.Exit(1)
+	}
+
+	exitCode := 0
+	for _, filename := range files {
+		if err := formatFile(filename, *writeFlag, *diffFlag, *listFlag); err != nil {
+			fmt.Fprintf(os.Stderr, "Error formatting %s: %v\n", filename, err)
+			exitCode = 1
+		}
+	}
+	os.Exit(exitCode)
+}
+
+// formatFile formats a single Parsley file
+func formatFile(filename string, write, diff, list bool) error {
+	// Read the file
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("reading file: %w", err)
+	}
+
+	source := string(content)
+
+	// Create lexer and parser
+	l := lexer.NewWithFilename(source, filename)
+	p := parser.New(l)
+
+	// Parse the program
+	program := p.ParseProgram()
+	if errs := p.StructuredErrors(); len(errs) != 0 {
+		// Print parse errors
+		lines := strings.Split(source, "\n")
+		for _, err := range errs {
+			fmt.Fprintln(os.Stderr, err.PrettyString())
+			printSourceContext(lines, err.Line, err.Column)
+		}
+		return fmt.Errorf("parse errors")
+	}
+
+	// Format the AST
+	formatted := format.FormatProgram(program)
+
+	// Ensure file ends with newline
+	if !strings.HasSuffix(formatted, "\n") {
+		formatted += "\n"
+	}
+
+	// Check if formatting changed anything
+	changed := formatted != source
+
+	if list {
+		// List mode: just print filename if it would change
+		if changed {
+			fmt.Println(filename)
+		}
+		return nil
+	}
+
+	if diff {
+		// Diff mode: show what would change
+		if changed {
+			showDiff(filename, source, formatted)
+		}
+		return nil
+	}
+
+	if write {
+		// Write mode: update file in place
+		if changed {
+			if err := os.WriteFile(filename, []byte(formatted), 0644); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+		}
+		return nil
+	}
+
+	// Default: print to stdout
+	fmt.Print(formatted)
+	return nil
+}
+
+// showDiff displays a simple diff between original and formatted content
+func showDiff(filename, original, formatted string) {
+	fmt.Printf("diff %s\n", filename)
+
+	origLines := strings.Split(original, "\n")
+	fmtLines := strings.Split(formatted, "\n")
+
+	// Simple line-by-line diff (not a full unified diff, but useful)
+	maxLines := len(origLines)
+	if len(fmtLines) > maxLines {
+		maxLines = len(fmtLines)
+	}
+
+	for i := 0; i < maxLines; i++ {
+		origLine := ""
+		fmtLine := ""
+		if i < len(origLines) {
+			origLine = origLines[i]
+		}
+		if i < len(fmtLines) {
+			fmtLine = fmtLines[i]
+		}
+
+		if origLine != fmtLine {
+			if origLine != "" {
+				fmt.Printf("-%d: %s\n", i+1, origLine)
+			}
+			if fmtLine != "" {
+				fmt.Printf("+%d: %s\n", i+1, fmtLine)
+			}
+		}
+	}
 }

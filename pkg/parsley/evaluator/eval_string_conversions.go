@@ -3,8 +3,11 @@ package evaluator
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/sambeau/basil/pkg/parsley/format"
 )
 
 // objectToTemplateString converts an object to its string representation for template interpolation
@@ -354,6 +357,358 @@ func ObjectToPrintString(obj Object) string {
 // This is the exported version for use by the REPL.
 func ObjectToReprString(obj Object) string {
 	return objectToReprString(obj)
+}
+
+// ObjectToFormattedReprString returns a pretty-printed Parsley literal representation.
+// Unlike ObjectToReprString, this uses the format package to add multiline formatting
+// when the output would exceed thresholds. Use this for REPL display.
+func ObjectToFormattedReprString(obj Object) string {
+	if obj == nil {
+		return "null"
+	}
+	return objectToFormattedReprStringWithSeen(obj, make(map[Object]bool), 0)
+}
+
+// objectToFormattedReprStringWithSeen handles pretty-printing with cycle detection
+func objectToFormattedReprStringWithSeen(obj Object, seen map[Object]bool, indent int) string {
+	if obj == nil {
+		return "null"
+	}
+	// Check for cycles in compound types
+	switch obj := obj.(type) {
+	case *Array, *Dictionary:
+		if seen[obj] {
+			return "<circular>"
+		}
+		seen[obj] = true
+		defer delete(seen, obj)
+	}
+
+	switch obj := obj.(type) {
+	case *Null:
+		return "null"
+	case *Boolean:
+		if obj.Value {
+			return "true"
+		}
+		return "false"
+	case *Integer:
+		return strconv.FormatInt(obj.Value, 10)
+	case *Float:
+		return fmt.Sprintf("%g", obj.Value)
+	case *String:
+		escaped := escapeStringForRepr(obj.Value)
+		return fmt.Sprintf("\"%s\"", escaped)
+	case *Array:
+		return arrayToFormattedReprString(obj, seen, indent)
+	case *Dictionary:
+		return dictToFormattedReprString(obj, seen, indent)
+	case *Money:
+		return obj.Inspect()
+	case *Function:
+		return functionToFormattedReprString(obj)
+	case *Record:
+		return recordToFormattedReprString(obj, seen, indent)
+	case *Builtin:
+		return "<builtin>"
+	default:
+		return fmt.Sprintf("<%s>", obj.Type())
+	}
+}
+
+// arrayToFormattedReprString formats an array with multiline support
+func arrayToFormattedReprString(arr *Array, seen map[Object]bool, indent int) string {
+	if len(arr.Elements) == 0 {
+		return "[]"
+	}
+
+	// Try inline first
+	inline := arrayToInlineReprString(arr, seen)
+	if len(inline) <= format.ArrayThreshold && !strings.Contains(inline, "\n") {
+		return inline
+	}
+
+	// Multiline format
+	var result strings.Builder
+	result.WriteString("[\n")
+	indentStr := strings.Repeat(format.IndentString, indent+1)
+	for i, elem := range arr.Elements {
+		result.WriteString(indentStr)
+		result.WriteString(objectToFormattedReprStringWithSeen(elem, seen, indent+1))
+		if format.TrailingCommaMultiline || i < len(arr.Elements)-1 {
+			result.WriteString(",")
+		}
+		result.WriteString("\n")
+	}
+	result.WriteString(strings.Repeat(format.IndentString, indent))
+	result.WriteString("]")
+	return result.String()
+}
+
+// arrayToInlineReprString formats array inline (no newlines)
+func arrayToInlineReprString(arr *Array, seen map[Object]bool) string {
+	var result strings.Builder
+	result.WriteString("[")
+	for i, elem := range arr.Elements {
+		if i > 0 {
+			result.WriteString(", ")
+		}
+		result.WriteString(objectToReprStringWithSeen(elem, seen))
+	}
+	result.WriteString("]")
+	return result.String()
+}
+
+// dictToFormattedReprString formats a dictionary with multiline support
+func dictToFormattedReprString(dict *Dictionary, seen map[Object]bool, indent int) string {
+	// Check for special pseudo-types first
+	if isDatetimeDict(dict) {
+		return datetimeToReprString(dict)
+	}
+	if isDurationDict(dict) {
+		return durationToReprString(dict)
+	}
+	if isMoneyDict(dict) {
+		return moneyDictToReprString(dict)
+	}
+	if isPathDict(dict) {
+		return pathToReprString(dict)
+	}
+	if isUrlDict(dict) {
+		return urlToReprString(dict)
+	}
+	if isRegexDict(dict) {
+		return regexToReprString(dict)
+	}
+	if isFileDict(dict) {
+		return fileDictToLiteral(dict)
+	}
+	if isDirDict(dict) {
+		return dirDictToLiteral(dict)
+	}
+
+	keys := dict.Keys()
+	if len(keys) == 0 {
+		return "{}"
+	}
+
+	// Try inline first
+	inline := dictToInlineReprString(dict, seen)
+	if len(inline) <= format.DictThreshold && !strings.Contains(inline, "\n") {
+		return inline
+	}
+
+	// Multiline format
+	var result strings.Builder
+	result.WriteString("{\n")
+	indentStr := strings.Repeat(format.IndentString, indent+1)
+	for i, key := range keys {
+		valExpr, ok := dict.Pairs[key]
+		if !ok {
+			continue
+		}
+		result.WriteString(indentStr)
+		// Key
+		if needsQuotes(key) {
+			result.WriteString(fmt.Sprintf("\"%s\"", escapeStringForRepr(key)))
+		} else {
+			result.WriteString(key)
+		}
+		result.WriteString(": ")
+		// Value
+		var val Object
+		if v, ok := valExpr.(Object); ok {
+			val = v
+		} else {
+			val = Eval(valExpr, dict.Env)
+		}
+		if val != nil {
+			result.WriteString(objectToFormattedReprStringWithSeen(val, seen, indent+1))
+		} else {
+			result.WriteString("null")
+		}
+		if format.TrailingCommaMultiline || i < len(keys)-1 {
+			result.WriteString(",")
+		}
+		result.WriteString("\n")
+	}
+	result.WriteString(strings.Repeat(format.IndentString, indent))
+	result.WriteString("}")
+	return result.String()
+}
+
+// dictToInlineReprString formats dictionary inline (no newlines)
+func dictToInlineReprString(dict *Dictionary, seen map[Object]bool) string {
+	var result strings.Builder
+	result.WriteString("{")
+	first := true
+	for _, key := range dict.Keys() {
+		valExpr, ok := dict.Pairs[key]
+		if !ok {
+			continue
+		}
+		if !first {
+			result.WriteString(", ")
+		}
+		first = false
+		if needsQuotes(key) {
+			result.WriteString(fmt.Sprintf("\"%s\"", escapeStringForRepr(key)))
+		} else {
+			result.WriteString(key)
+		}
+		result.WriteString(": ")
+		var val Object
+		if v, ok := valExpr.(Object); ok {
+			val = v
+		} else {
+			val = Eval(valExpr, dict.Env)
+		}
+		if val != nil {
+			result.WriteString(objectToReprStringWithSeen(val, seen))
+		} else {
+			result.WriteString("null")
+		}
+	}
+	result.WriteString("}")
+	return result.String()
+}
+
+// functionToFormattedReprString formats a function with multiline support
+func functionToFormattedReprString(fn *Function) string {
+	params := make([]string, len(fn.Params))
+	for i, p := range fn.Params {
+		params[i] = p.String()
+	}
+	paramStr := strings.Join(params, ", ")
+	body := fn.Body.String()
+
+	// Strip outer braces if present
+	bodyTrimmed := strings.TrimSpace(body)
+	if strings.HasPrefix(bodyTrimmed, "{") && strings.HasSuffix(bodyTrimmed, "}") {
+		bodyTrimmed = strings.TrimSpace(bodyTrimmed[1 : len(bodyTrimmed)-1])
+	}
+
+	// Try inline
+	inline := fmt.Sprintf("fn(%s) { %s }", paramStr, bodyTrimmed)
+	if len(inline) <= format.FuncArgsThreshold && !strings.Contains(bodyTrimmed, "\n") {
+		return inline
+	}
+
+	// Multiline format
+	var result strings.Builder
+	result.WriteString("fn(")
+	result.WriteString(paramStr)
+	result.WriteString(") {\n")
+	lines := strings.Split(bodyTrimmed, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			result.WriteString(format.IndentString)
+			result.WriteString(trimmed)
+			result.WriteString("\n")
+		}
+	}
+	result.WriteString("}")
+	return result.String()
+}
+
+// recordToFormattedReprString formats a record with multiline support
+func recordToFormattedReprString(rec *Record, seen map[Object]bool, indent int) string {
+	schemaName := "?"
+	if rec.Schema != nil {
+		schemaName = rec.Schema.Name
+	}
+
+	keys := rec.KeyOrder
+	if len(keys) == 0 && len(rec.Data) > 0 {
+		keys = make([]string, 0, len(rec.Data))
+		for key := range rec.Data {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+	}
+
+	if len(keys) == 0 {
+		return schemaName + "{}"
+	}
+
+	// Try inline first
+	inline := recordToInlineReprString(rec, schemaName, keys, seen)
+	if len(inline) <= format.DictThreshold && !strings.Contains(inline, "\n") {
+		return inline
+	}
+
+	// Multiline format
+	var result strings.Builder
+	result.WriteString(schemaName)
+	result.WriteString("{\n")
+	indentStr := strings.Repeat(format.IndentString, indent+1)
+	for i, key := range keys {
+		valExpr, ok := rec.Data[key]
+		if !ok {
+			continue
+		}
+		result.WriteString(indentStr)
+		if needsQuotes(key) {
+			result.WriteString(fmt.Sprintf("\"%s\"", escapeStringForRepr(key)))
+		} else {
+			result.WriteString(key)
+		}
+		result.WriteString(": ")
+		var val Object
+		if v, ok := valExpr.(Object); ok {
+			val = v
+		} else {
+			val = Eval(valExpr, nil)
+		}
+		if val != nil {
+			result.WriteString(objectToFormattedReprStringWithSeen(val, seen, indent+1))
+		} else {
+			result.WriteString("null")
+		}
+		if format.TrailingCommaMultiline || i < len(keys)-1 {
+			result.WriteString(",")
+		}
+		result.WriteString("\n")
+	}
+	result.WriteString(strings.Repeat(format.IndentString, indent))
+	result.WriteString("}")
+	return result.String()
+}
+
+// recordToInlineReprString formats a record inline
+func recordToInlineReprString(rec *Record, schemaName string, keys []string, seen map[Object]bool) string {
+	var result strings.Builder
+	result.WriteString(schemaName)
+	result.WriteString("{")
+	for i, key := range keys {
+		valExpr, ok := rec.Data[key]
+		if !ok {
+			continue
+		}
+		if i > 0 {
+			result.WriteString(", ")
+		}
+		if needsQuotes(key) {
+			result.WriteString(fmt.Sprintf("\"%s\"", escapeStringForRepr(key)))
+		} else {
+			result.WriteString(key)
+		}
+		result.WriteString(": ")
+		var val Object
+		if v, ok := valExpr.(Object); ok {
+			val = v
+		} else {
+			val = Eval(valExpr, nil)
+		}
+		if val != nil {
+			result.WriteString(objectToReprStringWithSeen(val, seen))
+		} else {
+			result.WriteString("null")
+		}
+	}
+	result.WriteString("}")
+	return result.String()
 }
 
 // objectToDebugString converts an object to its debug string representation
