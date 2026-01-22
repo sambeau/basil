@@ -423,6 +423,11 @@ func TestFormatBlankLines(t *testing.T) {
 			input:    "let x = 1\n\n// comment\nlet y = 2",
 			expected: "let x = 1\n\n// comment\nlet y = 2",
 		},
+		{
+			name:     "blank line after comment before first statement",
+			input:    "// header comment\n\nlet x = 1",
+			expected: "// header comment\n\nlet x = 1",
+		},
 	}
 
 	for _, tt := range tests {

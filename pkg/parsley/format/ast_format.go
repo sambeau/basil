@@ -121,16 +121,25 @@ func (p *Printer) formatProgram(prog *ast.Program) {
 	for i, stmt := range prog.Statements {
 		tok := getStatementToken(stmt)
 
-		// Output blank line if source had one (collapsed to max 1 by lexer)
-		if i > 0 && tok != nil && tok.BlankLinesBefore > 0 {
-			p.newline()
-		} else if i > 0 && needsBlankLineBefore(stmt, prog.Statements[i-1]) {
-			// Fallback: Add blank line BEFORE certain statements (like exported function defs)
-			p.newline()
+		// For statements after the first, check if we need a blank line separator
+		if i > 0 {
+			if tok != nil && tok.BlankLinesBefore > 0 {
+				// Source had a blank line - output it
+				p.newline()
+			} else if needsBlankLineBefore(stmt, prog.Statements[i-1]) {
+				// Fallback: Add blank line BEFORE certain statements (like exported function defs)
+				p.newline()
+			}
 		}
 
 		// Output any leading comments for this statement
 		p.writeComments(tok)
+
+		// For the first statement, if there was a blank line between comments and code, preserve it
+		// (For subsequent statements, this is already handled by the separator logic above)
+		if i == 0 && tok != nil && tok.BlankLinesBefore > 0 && len(tok.LeadingComments) > 0 {
+			p.newline()
+		}
 
 		p.formatStatement(stmt)
 
