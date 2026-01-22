@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/format"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
 // objectToTemplateString converts an object to its string representation for template interpolation
@@ -573,43 +575,16 @@ func dictToInlineReprString(dict *Dictionary, seen map[Object]bool) string {
 	return result.String()
 }
 
-// functionToFormattedReprString formats a function with multiline support
+// functionToFormattedReprString formats a function using the AST formatter
 func functionToFormattedReprString(fn *Function) string {
-	params := make([]string, len(fn.Params))
-	for i, p := range fn.Params {
-		params[i] = p.String()
+	// Construct a FunctionLiteral AST node from the Function object
+	fnLit := &ast.FunctionLiteral{
+		Token:  lexer.Token{Type: lexer.FUNCTION, Literal: "fn"},
+		Params: fn.Params,
+		Body:   fn.Body,
 	}
-	paramStr := strings.Join(params, ", ")
-	body := fn.Body.String()
-
-	// Strip outer braces if present
-	bodyTrimmed := strings.TrimSpace(body)
-	if strings.HasPrefix(bodyTrimmed, "{") && strings.HasSuffix(bodyTrimmed, "}") {
-		bodyTrimmed = strings.TrimSpace(bodyTrimmed[1 : len(bodyTrimmed)-1])
-	}
-
-	// Try inline
-	inline := fmt.Sprintf("fn(%s) { %s }", paramStr, bodyTrimmed)
-	if len(inline) <= format.FuncArgsThreshold && !strings.Contains(bodyTrimmed, "\n") {
-		return inline
-	}
-
-	// Multiline format
-	var result strings.Builder
-	result.WriteString("fn(")
-	result.WriteString(paramStr)
-	result.WriteString(") {\n")
-	lines := strings.Split(bodyTrimmed, "\n")
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			result.WriteString(format.IndentString)
-			result.WriteString(trimmed)
-			result.WriteString("\n")
-		}
-	}
-	result.WriteString("}")
-	return result.String()
+	// Use the formatter to produce well-formatted output
+	return format.FormatNode(fnLit)
 }
 
 // recordToFormattedReprString formats a record with multiline support
