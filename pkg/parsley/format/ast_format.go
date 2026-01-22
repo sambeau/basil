@@ -699,6 +699,26 @@ func (p *Printer) formatFunctionLiteral(fl *ast.FunctionLiteral) {
 
 // formatCallExpression formats function calls with threshold-based formatting
 func (p *Printer) formatCallExpression(ce *ast.CallExpression) {
+	// Check if this is a method call that's part of a chain
+	if dot, ok := ce.Function.(*ast.DotExpression); ok {
+		chain := collectMethodChain(ce)
+		if len(chain) > 1 {
+			// This is a method chain - check if it fits inline
+			// Break chains with >2 method calls for readability, or if line is too long
+			inline := formatChainInline(chain)
+			methodCallCount := countMethodCalls(chain)
+			if methodCallCount <= 2 && p.fitsOnLine(inline, MaxLineWidth) && !strings.Contains(inline, "\n") {
+				p.write(inline)
+				return
+			}
+			// Doesn't fit or too many calls - format as multiline chain
+			p.formatMethodChain(chain)
+			return
+		}
+		// Single method call, not a chain - fall through to normal formatting
+		_ = dot // silence unused warning
+	}
+
 	// Format the function being called
 	p.formatExpression(ce.Function)
 	p.write("(")
@@ -754,17 +774,37 @@ func (p *Printer) formatDotExpression(de *ast.DotExpression) {
 	}
 
 	// Format as chain - check if it fits inline (position-aware)
+	// Break chains with >2 method calls for readability, or if line is too long
 	inline := formatChainInline(chain)
-	if p.fitsOnLine(inline, MaxLineWidth) && !strings.Contains(inline, "\n") {
+	methodCallCount := countMethodCalls(chain)
+	if methodCallCount <= 2 && p.fitsOnLine(inline, MaxLineWidth) && !strings.Contains(inline, "\n") {
 		p.write(inline)
 		return
 	}
 
-	// Multiline chain - base on first line, rest indented
+	// Doesn't fit or too many calls - format as multiline chain
+	p.formatMethodChain(chain)
+}
+
+// countMethodCalls counts how many links in the chain are method calls (not property accesses)
+func countMethodCalls(chain []chainLink) int {
+	count := 0
+	for _, link := range chain {
+		if link.call != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// formatMethodChain formats a method chain with one call per line
+func (p *Printer) formatMethodChain(chain []chainLink) {
+	// Base expression on first line
 	p.formatExpression(chain[0].base)
 	p.newline()
 	p.indentInc()
-	for _, link := range chain {
+	p.indentInc() // Extra indent for chain continuation
+	for i, link := range chain {
 		p.writeIndent()
 		p.write(".")
 		p.write(link.property)
@@ -772,15 +812,19 @@ func (p *Printer) formatDotExpression(de *ast.DotExpression) {
 			p.write("(")
 			if len(link.call.Arguments) > 0 {
 				argStrs := make([]string, len(link.call.Arguments))
-				for i, arg := range link.call.Arguments {
-					argStrs[i] = nodeString(arg)
+				for j, arg := range link.call.Arguments {
+					argStrs[j] = nodeString(arg)
 				}
 				p.write(strings.Join(argStrs, ", "))
 			}
 			p.write(")")
 		}
-		p.newline()
+		// Only add newline between links, not after the last one
+		if i < len(chain)-1 {
+			p.newline()
+		}
 	}
+	p.indentDec()
 	p.indentDec()
 }
 
