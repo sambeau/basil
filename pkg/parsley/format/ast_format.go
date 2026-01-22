@@ -1410,6 +1410,69 @@ func (p *Printer) formatCheckStatement(cs *ast.CheckStatement) {
 	p.formatExpression(cs.ElseValue)
 }
 
+// inlineTypographyTags are HTML tags that typically stay inline with their content
+var inlineTypographyTags = map[string]bool{
+	"a": true, "abbr": true, "b": true, "bdi": true, "bdo": true,
+	"cite": true, "code": true, "del": true, "dfn": true, "em": true,
+	"i": true, "ins": true, "kbd": true, "mark": true, "q": true,
+	"s": true, "samp": true, "small": true, "span": true, "strong": true,
+	"sub": true, "sup": true, "time": true, "u": true, "var": true,
+}
+
+// isShortInlineTag checks if a tag pair is a short inline typography tag
+// that should stay on one line with its content
+func isShortInlineTag(tp *ast.TagPairExpression) bool {
+	// Must be a known inline tag
+	if !inlineTypographyTags[tp.Name] {
+		return false
+	}
+
+	// Must have simple content (strings, text nodes, or other short inline tags)
+	for _, content := range tp.Contents {
+		switch c := content.(type) {
+		case *ast.StringLiteral, *ast.TextNode, *ast.Identifier:
+			// Simple content, ok
+		case *ast.TagPairExpression:
+			// Nested tag must also be short inline
+			if !isShortInlineTag(c) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+
+	// Check total length
+	inline := tagPairInlineString(tp)
+	return len(inline) < 60 && !strings.Contains(inline, "\n")
+}
+
+// tagPairInlineString returns the inline string representation of a tag pair
+func tagPairInlineString(tp *ast.TagPairExpression) string {
+	var sb strings.Builder
+
+	// Opening tag
+	sb.WriteString("<")
+	sb.WriteString(tp.Name)
+	if tp.Props != "" {
+		sb.WriteString(" ")
+		sb.WriteString(tp.Props)
+	}
+	sb.WriteString(">")
+
+	// Contents
+	for _, content := range tp.Contents {
+		sb.WriteString(nodeString(content))
+	}
+
+	// Closing tag
+	sb.WriteString("</")
+	sb.WriteString(tp.Name)
+	sb.WriteString(">")
+
+	return sb.String()
+}
+
 // formatTagLiteral formats self-closing tags: <input type=text/>
 func (p *Printer) formatTagLiteral(tl *ast.TagLiteral) {
 	p.write("<")
@@ -1456,19 +1519,49 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 	// Check if contents can fit inline
 	// If attributes were multiline, always use multiline content
 	hasComplexContent := multilineAttrs
+
+	// Check if any content has comments or blank lines that need preserving
+	hasCommentsOrBlanks := false
+	for _, content := range tp.Contents {
+		tok := getNodeToken(content)
+		if tok != nil && (len(tok.LeadingComments) > 0 || tok.BlankLinesBefore > 0) {
+			hasCommentsOrBlanks = true
+			break
+		}
+	}
+	// Also check for blank line before closing tag
+	if tp.EndToken.BlankLinesBefore > 0 {
+		hasCommentsOrBlanks = true
+	}
+
 	for _, content := range tp.Contents {
 		switch c := content.(type) {
 		case *ast.TextNode:
 			if strings.Contains(c.Value, "\n") {
 				hasComplexContent = true
 			}
-		case *ast.ForExpression, *ast.IfExpression, *ast.TagPairExpression, *ast.InterpolationBlock:
+		case *ast.ForExpression, *ast.IfExpression, *ast.InterpolationBlock:
 			hasComplexContent = true
+		case *ast.TagPairExpression:
+			// Nested tags are complex unless they're short inline typography
+			if !isShortInlineTag(c) {
+				hasComplexContent = true
+			}
 		}
 	}
 
-	if !hasComplexContent && len(tp.Contents) <= 1 {
-		// Inline content
+	// Even if content seems complex, check if everything fits on one line
+	// This keeps short inline content like <p><strong>"Bold"</strong></p> together
+	// BUT preserve comments and blank lines - those require multiline formatting
+	if hasComplexContent && !multilineAttrs && !hasCommentsOrBlanks {
+		inline := tagPairInlineString(tp)
+		if p.fitsOnLine(inline, MaxLineWidth) && !strings.Contains(inline, "\n") {
+			hasComplexContent = false
+		}
+	}
+
+	if !hasComplexContent && len(tp.Contents) <= 3 && !hasCommentsOrBlanks {
+		// Inline content - format all contents on the same line
 		for _, content := range tp.Contents {
 			p.formatNode(content)
 		}
