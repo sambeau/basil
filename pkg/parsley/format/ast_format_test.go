@@ -268,8 +268,8 @@ func TestFormatQueryExpression_Multiline(t *testing.T) {
 	if !contains(result, "\n") {
 		t.Errorf("expected multiline output for complex query, got %q", result)
 	}
-	// Should have proper indentation
-	if !contains(result, "    Users") {
+	// Should have proper indentation (tab)
+	if !contains(result, "\tUsers") {
 		t.Errorf("expected indented table name, got %q", result)
 	}
 	// String values should be quoted
@@ -294,8 +294,8 @@ func TestFormatInsertExpression_Multiline(t *testing.T) {
 	if !contains(result, "\n") {
 		t.Errorf("expected multiline output, got %q", result)
 	}
-	// Should have proper indentation
-	if !contains(result, "    Users") {
+	// Should have proper indentation (tab)
+	if !contains(result, "\tUsers") {
 		t.Errorf("expected indented table name, got %q", result)
 	}
 }
@@ -345,18 +345,12 @@ func TestFormatTableLiteral(t *testing.T) {
 		{
 			name:  "multiline multiple rows",
 			input: `let t = @table [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]`,
-			expected: `let t = @table [
-    {id: 1, name: "Alice"},
-    {id: 2, name: "Bob"},
-]`,
+			expected: "let t = @table [\n\t{id: 1, name: \"Alice\"},\n\t{id: 2, name: \"Bob\"},\n]",
 		},
 		{
 			name:  "with schema",
 			input: `let t = @table(User) [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]`,
-			expected: `let t = @table(User) [
-    {id: 1, name: "Alice"},
-    {id: 2, name: "Bob"},
-]`,
+			expected: "let t = @table(User) [\n\t{id: 1, name: \"Alice\"},\n\t{id: 2, name: \"Bob\"},\n]",
 		},
 	}
 

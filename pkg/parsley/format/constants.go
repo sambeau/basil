@@ -30,10 +30,10 @@ const (
 	QueryInlineThreshold  = 50 // Max chars for inline query (was 60)
 )
 
-// Indentation
+// Indentation - gofmt style: tabs for indentation, spaces for alignment
 const (
-	IndentWidth  = 4
-	IndentString = "    " // 4 spaces
+	IndentWidth  = 1
+	IndentString = "\t" // tab character
 )
 
 // Structure

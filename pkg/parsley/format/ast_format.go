@@ -1036,6 +1036,9 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 		p.write(">")
 	}
 
+	// Special handling for style/script tags - normalize whitespace in text content
+	isPreformattedTag := tp.Name == "style" || tp.Name == "script"
+
 	// Check if contents can fit inline
 	hasComplexContent := false
 	for _, content := range tp.Contents {
@@ -1054,6 +1057,28 @@ func (p *Printer) formatTagPairExpression(tp *ast.TagPairExpression) {
 		for _, content := range tp.Contents {
 			p.formatNode(content)
 		}
+	} else if isPreformattedTag {
+		// For style/script tags, normalize whitespace in text content
+		p.newline()
+		for _, content := range tp.Contents {
+			switch c := content.(type) {
+			case *ast.TextNode:
+				// Dedent the text, then re-indent at current level + 1
+				dedented := strings.TrimSpace(dedentText(c.Value))
+				if dedented != "" {
+					reindented := reindentText(dedented, p.indent+1)
+					p.write(reindented)
+					p.newline()
+				}
+			default:
+				p.writeIndent()
+				p.indentInc()
+				p.formatNode(content)
+				p.indentDec()
+				p.newline()
+			}
+		}
+		p.writeIndent()
 	} else {
 		// Multiline content
 		p.newline()
@@ -1795,4 +1820,78 @@ func (p *Printer) formatTransactionExpression(te *ast.TransactionExpression) {
 	p.newline()
 	p.writeIndent()
 	p.write("}")
+}
+
+// dedentText removes common leading whitespace from all lines in text.
+// This is used to normalize CSS/script content inside tags.
+// It finds the minimum indentation across all non-empty lines and removes it.
+func dedentText(text string) string {
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return text
+	}
+
+	// Find minimum indentation (ignoring empty lines)
+	minIndent := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := 0
+		for _, ch := range line {
+			if ch == ' ' {
+				indent++
+			} else if ch == '\t' {
+				indent++ // Count tabs as 1 for comparison purposes
+			} else {
+				break
+			}
+		}
+		if minIndent == -1 || indent < minIndent {
+			minIndent = indent
+		}
+	}
+
+	if minIndent <= 0 {
+		return text
+	}
+
+	// Remove the minimum indentation from each line
+	var result []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			result = append(result, "")
+		} else {
+			// Remove minIndent characters from start
+			remaining := minIndent
+			i := 0
+			for i < len(line) && remaining > 0 {
+				if line[i] == ' ' || line[i] == '\t' {
+					remaining--
+					i++
+				} else {
+					break
+				}
+			}
+			result = append(result, line[i:])
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
+// reindentText takes dedented text and adds the specified indentation level.
+// It adds one tab per indent level to the start of each non-empty line.
+func reindentText(text string, indentLevel int) string {
+	lines := strings.Split(text, "\n")
+	indent := strings.Repeat(IndentString, indentLevel)
+
+	var result []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			result = append(result, "")
+		} else {
+			result = append(result, indent+line)
+		}
+	}
+	return strings.Join(result, "\n")
 }
