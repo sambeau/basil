@@ -446,7 +446,7 @@ type ConnectionLiteral struct {
 
 func (cl *ConnectionLiteral) expressionNode()      {}
 func (cl *ConnectionLiteral) TokenLiteral() string { return cl.Token.Literal }
-func (cl *ConnectionLiteral) String() string       { return "@" + cl.Kind }
+func (cl *ConnectionLiteral) String() string       { return "@" + cl.Token.Literal }
 
 // StdlibPathLiteral represents standard library imports like @std/table
 type StdlibPathLiteral struct {

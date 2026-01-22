@@ -20,6 +20,11 @@ func getStatementToken(stmt ast.Statement) *lexer.Token {
 	case *ast.ReturnStatement:
 		return &s.Token
 	case *ast.ExpressionStatement:
+		// For expression statements, prefer the statement's token if it has comments
+		// (e.g., 'export @schema' where 'export' token has the leading comment)
+		if len(s.Token.LeadingComments) > 0 || s.Token.BlankLinesBefore > 0 {
+			return &s.Token
+		}
 		return getExpressionToken(s.Expression)
 	case *ast.ExportNameStatement:
 		return &s.Token

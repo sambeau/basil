@@ -269,6 +269,41 @@ let x = 1`
 	}
 }
 
+func TestFormatExportAssignmentBlankLinePreserved(t *testing.T) {
+	// Blank line before export assignment after schema should be preserved
+	input := `export @schema Person {
+    id: int
+}
+
+export People = @DB.bind(Person, "People")`
+	result := parseAndFormat(t, input)
+	// Should have blank line between schema and export
+	if !contains(result, "}\n\nexport People") {
+		t.Errorf("expected blank line before export to be preserved, got %q", result)
+	}
+}
+
+func TestFormatExportSchemaCommentPreserved(t *testing.T) {
+	// Leading comment before export @schema should be preserved
+	input := `// TODO: fix this
+export @schema Person {
+    id: int
+}`
+	result := parseAndFormat(t, input)
+	if !contains(result, "// TODO: fix this") {
+		t.Errorf("expected leading comment to be preserved, got %q", result)
+	}
+}
+
+func TestFormatConnectionLiteralCase(t *testing.T) {
+	// @DB should preserve case (not become @db)
+	input := `People = @DB.bind(Person, "People")`
+	result := parseAndFormat(t, input)
+	if !contains(result, "@DB") {
+		t.Errorf("expected @DB to preserve case, got %q", result)
+	}
+}
+
 func TestFormatNode_Nil(t *testing.T) {
 	result := FormatNode(nil)
 	if result != "" {

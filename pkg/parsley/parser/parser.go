@@ -329,7 +329,7 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		// Check if this is an assignment statement (= or <== or <=/= or <=?=> or <=??=> or <=!=>)
 		if p.peekTokenIs(lexer.ASSIGN) || p.peekTokenIs(lexer.READ_FROM) || p.peekTokenIs(lexer.FETCH_FROM) || p.peekTokenIs(lexer.QUERY_ONE) || p.peekTokenIs(lexer.QUERY_MANY) || p.peekTokenIs(lexer.EXECUTE) {
-			return p.parseAssignmentStatement(false)
+			return p.parseAssignmentStatement(false, nil)
 		}
 		// Check for potential destructuring: IDENT followed by COMMA
 		// We need to peek further to determine if this is `x,y = ...` or just `x,y` expression
@@ -342,7 +342,7 @@ func (p *Parser) parseStatement() ast.Statement {
 			savedStructuredErrors := len(p.structuredErrors)
 			savedLexerState := p.l.SaveState()
 
-			stmt := p.parseAssignmentStatement(false)
+			stmt := p.parseAssignmentStatement(false, nil)
 
 			// If parsing failed (no = found), restore and parse as expression
 			if stmt == nil || len(p.structuredErrors) > savedStructuredErrors {
@@ -402,7 +402,7 @@ func (p *Parser) parseExportStatement() ast.Statement {
 	if p.curTokenIs(lexer.IDENT) {
 		// Peek ahead to see if there's an assignment
 		if p.peekTokenIs(lexer.ASSIGN) {
-			return p.parseAssignmentStatement(true)
+			return p.parseAssignmentStatement(true, &exportToken)
 		}
 		// Bare export: 'export Name'
 		name := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -662,8 +662,12 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 }
 
 // parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x <== file(...)'
-func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
+// If exportToken is non-nil, it's an exported assignment and we use the export token as the statement token.
+func (p *Parser) parseAssignmentStatement(export bool, exportToken *lexer.Token) ast.Statement {
 	firstToken := p.curToken
+	if exportToken != nil {
+		firstToken = *exportToken
+	}
 
 	// Single identifier only (no comma-separated destructuring - use [a, b] = ... syntax instead)
 	name := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
