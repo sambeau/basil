@@ -33,10 +33,23 @@ func (p *Printer) write(s string) {
 	p.output.WriteString(s)
 	// Update line position - handle embedded newlines
 	if idx := strings.LastIndex(s, "\n"); idx >= 0 {
-		p.linePos = len(s) - idx - 1
+		p.linePos = displayWidth(s[idx+1:])
 	} else {
-		p.linePos += len(s)
+		p.linePos += displayWidth(s)
 	}
+}
+
+// displayWidth returns the display width of a string, counting tabs as TabWidth chars
+func displayWidth(s string) int {
+	width := 0
+	for _, ch := range s {
+		if ch == '\t' {
+			width += TabWidth
+		} else {
+			width++
+		}
+	}
+	return width
 }
 
 // writeln appends a string followed by a newline
@@ -80,7 +93,7 @@ func (p *Printer) fitsOnLine(s string, threshold int) bool {
 	if strings.Contains(s, "\n") {
 		return false
 	}
-	return p.linePos+len(s) <= threshold
+	return p.linePos+displayWidth(s) <= threshold
 }
 
 // fitsInThreshold checks if a string fits within the given threshold from start of line
@@ -89,7 +102,7 @@ func fitsInThreshold(s string, threshold int) bool {
 	if strings.Contains(s, "\n") {
 		return false
 	}
-	return len(s) <= threshold
+	return displayWidth(s) <= threshold
 }
 
 // wouldFitOnLine checks if a string would fit starting from indent position
@@ -97,5 +110,5 @@ func (p *Printer) wouldFitOnLine(s string, threshold int) bool {
 	if strings.Contains(s, "\n") {
 		return false
 	}
-	return p.currentIndentWidth()+len(s) <= threshold
+	return p.currentIndentWidth()+displayWidth(s) <= threshold
 }

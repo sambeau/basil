@@ -32,7 +32,8 @@ const (
 
 // Indentation - gofmt style: tabs for indentation, spaces for alignment
 const (
-	IndentWidth  = 1
+	TabWidth     = 4    // Display width of a tab character
+	IndentWidth  = TabWidth // Each indent level is one tab = 4 display chars
 	IndentString = "\t" // tab character
 )
 
