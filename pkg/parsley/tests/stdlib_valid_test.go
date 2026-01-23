@@ -830,7 +830,11 @@ func TestValidDateISO(t *testing.T) {
 		expected bool
 	}{
 		{"valid ISO", `let valid = import @std/valid; valid.date("2024-12-25")`, true},
+		{"valid ISO single digit day", `let valid = import @std/valid; valid.date("2024-12-1")`, true},
+		{"valid ISO single digit month", `let valid = import @std/valid; valid.date("2024-1-25")`, true},
+		{"valid ISO single digit both", `let valid = import @std/valid; valid.date("2024-1-5")`, true},
 		{"valid leap year", `let valid = import @std/valid; valid.date("2024-02-29")`, true},
+		{"valid leap year single digit", `let valid = import @std/valid; valid.date("2024-2-29")`, true},
 		{"invalid Feb 30", `let valid = import @std/valid; valid.date("2024-02-30")`, false},
 		{"invalid leap year", `let valid = import @std/valid; valid.date("2023-02-29")`, false},
 		{"invalid month", `let valid = import @std/valid; valid.date("2024-13-01")`, false},

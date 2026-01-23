@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,7 +19,7 @@ var (
 	phoneRegex    = regexp.MustCompile(`^[\d\s\+\-\(\)\.]+$`)
 	usPostalRegex = regexp.MustCompile(`^\d{5}(-\d{4})?$`)
 	gbPostalRegex = regexp.MustCompile(`(?i)^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$`)
-	isoDateRegex  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	isoDateRegex  = regexp.MustCompile(`^\d{4}-\d{1,2}-\d{1,2}$`)
 	usDateRegex   = regexp.MustCompile(`^\d{1,2}/\d{1,2}/\d{4}$`)
 	gbDateRegex   = regexp.MustCompile(`^\d{1,2}/\d{1,2}/\d{4}$`)
 )
@@ -479,7 +480,7 @@ func parseAndValidateDate(dateStr, locale string) (time.Time, bool) {
 		layout = "2/1/2006"
 		datePattern = gbDateRegex
 	case "ISO", "":
-		layout = "2006-01-02"
+		layout = "2006-1-2"
 		datePattern = isoDateRegex
 	default:
 		return time.Time{}, false
@@ -494,18 +495,26 @@ func parseAndValidateDate(dateStr, locale string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 
-	// Verify the parsed date matches input (catches invalid dates like Feb 30)
-	// For US/GB formats, we need to handle single digit months/days
-	var formatted string
+	// Verify the parsed date is valid by checking that format->parse roundtrips
+	// This catches invalid dates like Feb 30 where Go would roll over to Mar 2
+	formatted := t.Format(layout)
+	roundtrip, _ := time.Parse(layout, formatted)
+	if !roundtrip.Equal(t) {
+		return time.Time{}, false
+	}
+
+	// Also verify the input parses to the same date (catches rollover)
+	// by checking year/month/day components match
+	var year, month, day int
 	switch locale {
 	case "US":
-		formatted = t.Format("1/2/2006")
+		fmt.Sscanf(dateStr, "%d/%d/%d", &month, &day, &year)
 	case "GB":
-		formatted = t.Format("2/1/2006")
+		fmt.Sscanf(dateStr, "%d/%d/%d", &day, &month, &year)
 	default:
-		formatted = t.Format("2006-01-02")
+		fmt.Sscanf(dateStr, "%d-%d-%d", &year, &month, &day)
 	}
-	if formatted != dateStr {
+	if t.Year() != year || int(t.Month()) != month || t.Day() != day {
 		return time.Time{}, false
 	}
 

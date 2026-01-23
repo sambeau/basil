@@ -19,66 +19,96 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<meta http-equiv="refresh" content="2"/>
-	<title>"Basil Logs" + if (devtools.route) { ": " + devtools.route } else { "" }</title>
-	<link rel="stylesheet" href="/__/css/devtools.css"/>
-</head>
-<body>
-	<div class="container">
-		<div class="header">
-			<h1>"📋 Basil Logs" + if (devtools.route)  ": " + devtools.route  else  "" </h1>
-			<div class="actions">
-				<a href="/__/" class="btn">"← Back"</a>
-				if (devtools.log_count > 0) {
-					<a href={devtools.clear_url} class="btn btn-danger">"Clear Logs"</a>
+let levelIcon = fn(level) {
+	if (level == "warn") { <i class="fa-solid fa-triangle-exclamation"></i> } else {
+		<i class="fa-solid fa-circle-info"></i>
+	}
+}
+let Sp = fn() { "&nbsp;&nbsp;" }
+
+let {log_count, logs} = devtools
+
+<Page title="">
+	<header class="box fixed">
+		<div class="grid">
+			<div class="big-header">"🌿Logs"</div>
+			<div style="text-align:right;align-self: center">
+				<small>basil.version</small>
+			</div>
+		</div>
+
+		<div class="grid" style="margin:1rem 0.5rem;">
+			<div style="text-align:left;align-self: center;"><a href="/__/" class="btn">"← Back"</a></div>
+			<div style="text-align:right;align-self: center;">
+				if (log_count > 0) {
+					<a href={devtools.clear_url} data-tooltip="Clear logs"><i class="fa-regular fa-trash-can"></i></a>
+				} else {
+					<i class="fa-regular fa-trash-can" style="opacity:0.33"></i>
+
 				}
 			</div>
-		</div>
 
-		<div class="stats">
-			devtools.log_count + " log " + if (devtools.log_count == 1) "entry"  else "entries" 
 		</div>
-
-		if (devtools.log_count == 0) {
-			<div class="empty-state">
-				"No logs yet. Use " <code>"let {dev} = import @std/dev"</code> " then " <code>"dev.log(value)"</code> " in your handlers."
-			</div>
-		} else {
-			for (i, log in devtools.logs) {
-				<div class={"log-entry" + if (log.level == "warn") " warn"  else  ""}>
-					<div class="log-header">
-						<span class="log-icon">if (log.level == "warn")  "⚠️"  else  "ℹ️"</span>
-						<span class="log-file">"📁 " + log.filename + ":" + log.line</span>
-						<span class="log-time">"🕐 " + log.timestamp</span>
-						<button class="copy-btn" onclick={"copyValue('log-" + i + "')"} title="Copy value">"📋 Copy"</button>
+	</header>
+	<div class="scroll">
+	if (log_count == 0) { <section class="box"><p>"No logs."</p></section> } else {
+		for (i, log in logs) {
+			{level, filename, line, timestamp, call, value} = log
+			let when = (datetime(timestamp) - @now).format()
+			<section class="box">
+				<div class="grid">
+					<div>
+						<i class="fa-regular fa-file" style="color:grey"></i>
+						<Sp/>
+						filename
+						<Sp/>
+						<i class="fa-solid fa-angles-right" style="color:grey"></i>
+						<Sp/>
+						line
 					</div>
-					<div class="log-call">"💻 " + log.call</div>
-					<div class="log-value" id={"log-" + i}>log.value</div>
+					<div style="text-align:right">
+						<small data-tooltip={timestamp} style="border-bottom:none"><i class="fa-regular fa-clock" style="color:grey"></i><Sp/>when</small>
+					</div>
 				</div>
-			}
+				<div><p><pre style="color:rgb(2, 154, 232)">call</pre></p></div>
+				<div
+					style="border:0.5px solid rgba(255,255,255,0.125); margin-bottom:1rem"
+				>
+				</div>
+				<div class="grid">
+					<div><pre id={"log-" + i}>value</pre></div>
+					<div style="text-align:right">
+						<p>
+							<a
+								href="#"
+								onclick={"copyValue('log-" + i + "')"}
+								data-tooltip="Copy to cliboard"
+							>
+								<i class="fa-regular fa-copy copy-btn" style="color:grey"></i>
+							</a>
+						</p>
+					</div>
+				</div>
+
+			</section>
 		}
+	}
 	</div>
 	<script>
-	function copyValue(id) {
-		const el = document.getElementById(id);
-		if (!el) return;
-		navigator.clipboard.writeText(el.textContent).then(() => {
-			const btn = el.closest('.log-entry').querySelector('.copy-btn');
-			if (btn) {
-				btn.textContent = '✓ Copied';
-				btn.classList.add('copied');
-				setTimeout(() => {
-					btn.textContent = '📋 Copy';
-					btn.classList.remove('copied');
-				}, 1500);
-			}
-		});
-	}
+		function copyValue(id) {
+			const el = document.getElementById(id);
+			if (!el) return;
+			navigator.clipboard.writeText(el.textContent).then(() => {
+				const btn = el.closest('.log-entry').querySelector('.copy-btn');
+				if (btn) {
+					btn.textContent = '✓ Copied';
+					btn.classList.add('copied');
+					setTimeout(() => {
+						btn.textContent = '📋 Copy';
+						btn.classList.remove('copied');
+					}, 1500);
+				}
+			});
+		}
 	</script>
-</body>
-</html>
+</Page>

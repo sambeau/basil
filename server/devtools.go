@@ -1602,6 +1602,7 @@ const devToolsDBErrorHTML = `<!DOCTYPE html>
 
 // devToolsComponents lists the shared component files to load into the environment
 var devToolsComponents = []string{
+	"page.pars",
 	"panel.pars",
 	"header.pars",
 	"info_grid.pars",
