@@ -16,6 +16,56 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
+// devToolsLiveRefreshJS is the JavaScript for live-refresh polling with pause/play.
+// Use in templates via: <script>devtools.live_refresh_js</script>
+// Toggle pause with: window.basilLiveRefresh.toggle() or .pause() / .resume()
+const devToolsLiveRefreshJS = `
+(function() {
+  let lastSeq = -1;
+  let paused = false;
+  const pollInterval = 1000;
+  const pollURL = '/__/logs/poll';
+
+  async function checkForChanges() {
+    if (paused) {
+      setTimeout(checkForChanges, pollInterval);
+      return;
+    }
+    try {
+      const resp = await fetch(pollURL);
+      const data = await resp.json();
+      if (lastSeq === -1) {
+        lastSeq = data.seq;
+      } else if (data.seq !== lastSeq) {
+        console.log('[DevTools] Log change detected, refreshing...');
+        location.reload();
+      }
+    } catch (e) {
+      // Server might be restarting, retry
+    }
+    setTimeout(checkForChanges, pollInterval);
+  }
+
+  // Public API for pause/resume
+  window.basilLiveRefresh = {
+    pause: function() { paused = true; console.log('[DevTools] Live refresh paused'); },
+    resume: function() { paused = false; console.log('[DevTools] Live refresh resumed'); },
+    toggle: function() { paused = !paused; console.log('[DevTools] Live refresh ' + (paused ? 'paused' : 'resumed')); return !paused; },
+    isPaused: function() { return paused; }
+  };
+
+  if (document.readyState === 'complete') {
+    checkForChanges();
+    console.log('[DevTools] Live refresh connected');
+  } else {
+    window.addEventListener('load', function() {
+      checkForChanges();
+      console.log('[DevTools] Live refresh connected');
+    });
+  }
+})();
+`
+
 // devToolsHandler serves dev tool pages at /__/* routes.
 type devToolsHandler struct {
 	server *Server
@@ -41,6 +91,8 @@ func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleDevToolsWithPrelude(w, r, "index.pars")
 	case path == "/__/env" || path == "/__/env/":
 		h.handleDevToolsWithPrelude(w, r, "env.pars")
+	case path == "/__/logs/poll":
+		h.serveLogsPoll(w, r)
 	case path == "/__/logs" || path == "/__/logs/":
 		h.serveLogs(w, r, "")
 	case strings.HasPrefix(path, "/__/logs/"):
@@ -147,6 +199,19 @@ func (h *devToolsHandler) serveLogs(w http.ResponseWriter, r *http.Request, rout
 	}
 
 	h.handleDevToolsWithPrelude(w, r, "logs.pars")
+}
+
+// serveLogsPoll serves the logs polling endpoint for live refresh.
+// Returns JSON with the current log sequence number.
+func (h *devToolsHandler) serveLogsPoll(w http.ResponseWriter, r *http.Request) {
+	seq := uint64(0)
+	if h.server.devLog != nil {
+		seq = h.server.devLog.GetSeq()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	fmt.Fprintf(w, `{"seq":%d}`, seq)
 }
 
 // serveLogsText serves logs in plain text format.
@@ -1693,6 +1758,9 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			clearURL = fmt.Sprintf("/__/logs/%s?clear", route)
 		}
 		devtoolsMap["clear_url"] = clearURL
+
+		// Add live refresh JavaScript
+		devtoolsMap["live_refresh_js"] = devToolsLiveRefreshJS
 
 	case path == "/__/db" || path == "/__/db/":
 		// Database overview page

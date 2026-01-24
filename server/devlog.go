@@ -17,8 +17,9 @@ type DevLog struct {
 	mu          sync.RWMutex
 	db          *sql.DB
 	path        string
-	maxSize     int64 // Maximum database size in bytes (default 10MB)
-	truncatePct int   // Percentage to delete when truncating (default 25)
+	maxSize     int64  // Maximum database size in bytes (default 10MB)
+	truncatePct int    // Percentage to delete when truncating (default 25)
+	seq         uint64 // Sequence number, incremented on each log write
 }
 
 // LogEntry represents a single log entry.
@@ -143,6 +144,10 @@ func (dl *DevLog) Log(entry LogEntry) error {
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, entry.Route, entry.Level, entry.Filename, entry.Line, entry.CallRepr, entry.ValueRepr)
 
+	if err == nil {
+		dl.seq++
+	}
+
 	return err
 }
 
@@ -156,6 +161,14 @@ func (dl *DevLog) LogFromEvaluator(route, level, filename string, line int, call
 		CallRepr:  callRepr,
 		ValueRepr: valueRepr,
 	})
+}
+
+// GetSeq returns the current sequence number for polling.
+// The sequence increments each time a log entry is written.
+func (dl *DevLog) GetSeq() uint64 {
+	dl.mu.RLock()
+	defer dl.mu.RUnlock()
+	return dl.seq
 }
 
 // GetLogs retrieves log entries, optionally filtered by route.

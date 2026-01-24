@@ -97,6 +97,76 @@ func TestDevToolsLogsHTML(t *testing.T) {
 	}
 }
 
+func TestDevToolsLogsPoll(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.Defaults()
+	cfg.BaseDir = tmpDir
+	cfg.Server.Dev = true
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	defer s.Close()
+
+	handler := newDevToolsHandler(s)
+
+	// First poll - should return seq 0
+	req := httptest.NewRequest("GET", "/__/logs/poll", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", ct)
+	}
+	if !strings.Contains(w.Body.String(), `"seq":0`) {
+		t.Errorf("expected seq:0, got %s", w.Body.String())
+	}
+
+	// Add a log entry
+	s.devLog.Log(LogEntry{
+		Route:     "",
+		Level:     "info",
+		Filename:  "test.pars",
+		Line:      42,
+		CallRepr:  "dev.log(x)",
+		ValueRepr: "test",
+	})
+
+	// Second poll - should return seq 1
+	req = httptest.NewRequest("GET", "/__/logs/poll", nil)
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if !strings.Contains(w.Body.String(), `"seq":1`) {
+		t.Errorf("expected seq:1, got %s", w.Body.String())
+	}
+
+	// Add another log entry
+	s.devLog.Log(LogEntry{
+		Route:     "",
+		Level:     "warn",
+		Filename:  "test.pars",
+		Line:      50,
+		CallRepr:  "dev.log(y)",
+		ValueRepr: "test2",
+	})
+
+	// Third poll - should return seq 2
+	req = httptest.NewRequest("GET", "/__/logs/poll", nil)
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if !strings.Contains(w.Body.String(), `"seq":2`) {
+		t.Errorf("expected seq:2, got %s", w.Body.String())
+	}
+}
+
 func TestDevToolsLogsText(t *testing.T) {
 	tmpDir := t.TempDir()
 
