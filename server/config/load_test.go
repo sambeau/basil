@@ -863,3 +863,111 @@ routes:
 		}
 	})
 }
+
+func TestLoadWithMeta(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "basil.yaml")
+	configContent := `server:
+  host: localhost
+  port: 8080
+  dev: true
+
+meta:
+  name: "My Test Site"
+  tagline: "Testing metadata"
+  features:
+    dark_mode: true
+    comments: false
+  limits:
+    posts_per_page: 10
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	cfg, err := Load(configPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	if cfg.Meta == nil {
+		t.Fatal("expected Meta to be set")
+	}
+
+	if cfg.Meta["name"] != "My Test Site" {
+		t.Errorf("expected meta.name 'My Test Site', got %v", cfg.Meta["name"])
+	}
+
+	features, ok := cfg.Meta["features"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected meta.features to be a map, got %T", cfg.Meta["features"])
+	}
+	if features["dark_mode"] != true {
+		t.Errorf("expected meta.features.dark_mode true, got %v", features["dark_mode"])
+	}
+}
+
+func TestLoadWithSecretTag(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "basil.yaml")
+	configContent := `server:
+  host: localhost
+  port: 8080
+  dev: true
+
+session:
+  store: cookie
+  secret: !secret my-secret-value
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	cfg, err := Load(configPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	if !cfg.Session.Secret.IsSecret() {
+		t.Error("expected session.secret to be marked as secret")
+	}
+
+	if cfg.Session.Secret.Value() != "my-secret-value" {
+		t.Errorf("expected session.secret value 'my-secret-value', got %q", cfg.Session.Secret.Value())
+	}
+
+	// Check that it was tracked
+	if !cfg.Secrets.IsSecret("session.secret") {
+		t.Error("expected session.secret to be tracked in SecretTracker")
+	}
+}
+
+func TestLoadWithSecretAuto(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "basil.yaml")
+	configContent := `server:
+  host: localhost
+  port: 8080
+  dev: true
+
+session:
+  store: cookie
+  secret: !secret auto
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	cfg, err := Load(configPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	if !cfg.Session.Secret.IsSecret() {
+		t.Error("expected session.secret to be marked as secret")
+	}
+
+	if !cfg.Session.Secret.IsAuto() {
+		t.Error("expected session.secret to be marked as auto")
+	}
+}

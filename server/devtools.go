@@ -1836,10 +1836,37 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 	case path == "/__/env" || path == "/__/env/":
 		// Environment info page
+		cfg := h.server.config
 		configArray := []interface{}{
-			map[string]interface{}{"name": "Port", "value": fmt.Sprintf("%d", h.server.config.Server.Port)},
-			map[string]interface{}{"name": "Dev Mode", "value": fmt.Sprintf("%v", h.server.config.Server.Dev)},
+			map[string]interface{}{"name": "Port", "value": fmt.Sprintf("%d", cfg.Server.Port)},
+			map[string]interface{}{"name": "Host", "value": cfg.Server.Host},
+			map[string]interface{}{"name": "Dev Mode", "value": fmt.Sprintf("%v", cfg.Server.Dev)},
+			map[string]interface{}{"name": "Base Dir", "value": cfg.BaseDir},
 		}
+
+		// Add SQLite path if configured
+		if cfg.SQLite != "" {
+			configArray = append(configArray, map[string]interface{}{
+				"name": "SQLite", "value": cfg.SQLite,
+			})
+		}
+
+		// Add session config (hide secret)
+		sessionSecret := "●●●●●●●●"
+		if cfg.Session.Secret.IsAuto() {
+			sessionSecret = "(auto-generated)"
+		}
+		configArray = append(configArray,
+			map[string]interface{}{"name": "Session Store", "value": cfg.Session.Store},
+			map[string]interface{}{"name": "Session Secret", "value": sessionSecret},
+		)
+
+		// Add meta if configured
+		if cfg.Meta != nil && len(cfg.Meta) > 0 {
+			devtoolsMap["has_meta"] = true
+			devtoolsMap["meta"] = cfg.Meta
+		}
+
 		devtoolsMap["config"] = configArray
 	}
 

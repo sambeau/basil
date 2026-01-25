@@ -5,6 +5,26 @@ server:
   host: localhost
   port: 8080
 
+# Custom site metadata - accessible in Parsley handlers as meta.*
+# meta:
+#   name: "My Awesome Blog"
+#   tagline: "Thoughts on code and coffee"
+#   contact_email: "hello@example.com"
+#   social:
+#     twitter: "@myblog"
+#     github: "myblog"
+#   features:
+#     comments: true
+#     dark_mode: false
+
+# Session configuration
+# session:
+#   store: cookie                     # "cookie" (default) or "sqlite"
+#   secret: !secret auto              # Auto-generate secret (recommended)
+#   # secret: !secret ${SESSION_SECRET}  # Use env var for multi-instance deployments
+#   max_age: 24h
+#   cookie_name: "_basil_session"
+
 logging:
   level: info
   format: text
@@ -83,3 +103,19 @@ public_dir: ./public
 #   alex:
 #     port: 3002
 #     sqlite: alex.db
+
+# Environment Variables and Secrets
+# ---------------------------------
+# You can use ${VAR} or ${VAR:-default} anywhere in the config to
+# interpolate environment variables. Combine with !secret to mark
+# values as sensitive (hidden in DevTools).
+#
+# Examples:
+#   port: ${PORT:-8080}                    # Default to 8080 if PORT not set
+#   database:
+#     url: !secret ${DATABASE_URL}         # Required env var, marked secret
+#   meta:
+#     api_url: ${PUBLIC_API_URL:-https://api.example.com}
+#
+# The !secret tag hides values in DevTools but does NOT encrypt them.
+# For session secrets, use "!secret auto" to auto-generate a secure value.

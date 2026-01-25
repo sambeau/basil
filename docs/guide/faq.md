@@ -149,4 +149,76 @@ Useful for learning SQL, debugging queries, and documentation.
 
 ---
 
+## Configuration Questions
+
+### How do I add custom metadata accessible in Parsley handlers?
+
+Use the `meta:` section in `basil.yaml`:
+
+```yaml
+meta:
+  name: "My Awesome Blog"
+  tagline: "Thoughts on code and coffee"
+  social:
+    twitter: "@myblog"
+  features:
+    comments: true
+```
+
+Then access in Parsley as `meta.name`, `meta.social.twitter`, etc.:
+
+```parsley
+<title>meta.name</title>
+<p>meta.tagline</p>
+```
+
+*Added: 2026-01-25*
+
+### How do I use environment variables in basil.yaml?
+
+Use `${VAR}` or `${VAR:-default}` syntax anywhere in the config:
+
+```yaml
+server:
+  port: ${PORT:-8080}
+
+meta:
+  api_url: ${PUBLIC_API_URL:-https://api.example.com}
+```
+
+This is processed before YAML parsing, so you can use it in any value.
+
+*Added: 2026-01-25*
+
+### How do I hide sensitive values from DevTools?
+
+Use the `!secret` YAML tag to mark values as sensitive:
+
+```yaml
+session:
+  secret: !secret ${SESSION_SECRET:-auto}
+
+auth:
+  api_key: !secret ${API_KEY}
+```
+
+Secret-marked values show as `●●●●●●●●` in the DevTools environment page. Note: `!secret` only affects display; it doesn't encrypt values.
+
+*Added: 2026-01-25*
+
+### How do I generate a secure session secret?
+
+Use `!secret auto`:
+
+```yaml
+session:
+  secret: !secret auto
+```
+
+This auto-generates a cryptographically random secret on server startup. For multi-instance deployments, set `SESSION_SECRET` environment variable to ensure all instances use the same secret.
+
+*Added: 2026-01-25*
+
+---
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

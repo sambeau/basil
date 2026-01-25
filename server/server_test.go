@@ -394,10 +394,10 @@ func TestIsProtectedPath(t *testing.T) {
 	}
 
 	tests := []struct {
-		path        string
-		wantMatch   bool
-		wantPath    string
-		wantRoles   []string
+		path      string
+		wantMatch bool
+		wantPath  string
+		wantRoles []string
 	}{
 		// Exact matches
 		{"/dashboard", true, "/dashboard", nil},
@@ -457,5 +457,56 @@ func TestGetLoginPath(t *testing.T) {
 	srv2, _ := New(cfg, "", "test", "test-commit", &bytes.Buffer{}, &bytes.Buffer{})
 	if srv2.getLoginPath() != "/auth/signin" {
 		t.Errorf("expected custom login path /auth/signin, got %q", srv2.getLoginPath())
+	}
+}
+
+// TestMetaInjection verifies that meta section from config is accessible in Parsley handlers
+func TestMetaInjection(t *testing.T) {
+	// Create temp directory with a Parsley script that reads meta
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "meta_test.parsley")
+	// Script that outputs meta values
+	scriptContent := `<p>meta.name</p><p>meta.features.dark_mode</p>`
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+		t.Fatalf("failed to write script: %v", err)
+	}
+
+	cfg := config.Defaults()
+	cfg.Server.Dev = true
+	cfg.Meta = map[string]interface{}{
+		"name": "Test Site",
+		"features": map[string]interface{}{
+			"dark_mode": true,
+		},
+	}
+	cfg.Routes = []config.Route{
+		{Path: "/test", Handler: scriptPath},
+	}
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	srv, err := New(cfg, "", "test", "test-commit", stdout, stderr)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer srv.Close()
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rec := httptest.NewRecorder()
+
+	srv.mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+		t.Logf("body: %s", rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !containsString(body, "Test Site") {
+		t.Errorf("expected body to contain 'Test Site', got %q", body)
+	}
+	if !containsString(body, "true") {
+		t.Errorf("expected body to contain 'true' for dark_mode, got %q", body)
 	}
 }

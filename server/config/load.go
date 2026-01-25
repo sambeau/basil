@@ -47,6 +47,11 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		return nil, "", fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	// Track secrets after loading
+	if cfg.Session.Secret.IsSecret() {
+		cfg.Secrets.MarkSecret("session.secret")
+	}
+
 	// Set base directory for resolving relative paths
 	cfg.BaseDir = baseDir
 

@@ -310,6 +310,14 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Inject @SEARCH built-in for full-text search
 	env.SetProtected("SEARCH", NewSearchBuiltin(env))
 
+	// Inject meta from config (FEAT-102)
+	if h.server.config.Meta != nil {
+		metaObj, err := parsley.ToParsley(h.server.config.Meta)
+		if err == nil {
+			env.SetProtected("meta", metaObj)
+		}
+	}
+
 	// Set dev log writer on environment (available to stdlib dev module via import)
 	// nil in production mode - dev functions become no-ops
 	if h.server.devLog != nil {

@@ -350,13 +350,17 @@ func (s *Server) Close() {
 func (s *Server) initSessions() error {
 	cfg := &s.config.Session
 
-	// Determine session secret
-	secret := cfg.Secret
+	// Determine session secret using SecretString resolution
+	// This handles: !secret auto (generate), !secret ${VAR} (env var), or literal value
+	secret, err := config.ResolveSecretValue(cfg.Secret, os.Getenv("SESSION_SECRET"))
+	if err != nil {
+		return fmt.Errorf("resolving session secret: %w", err)
+	}
+
 	if secret == "" {
 		if s.config.Server.Dev {
 			// In dev mode, generate a random secret (sessions won't persist across restarts)
-			var err error
-			secret, err = generateRandomSecret()
+			secret, err = config.GenerateSecureSecret()
 			if err != nil {
 				return fmt.Errorf("generating dev session secret: %w", err)
 			}
@@ -366,6 +370,8 @@ func (s *Server) initSessions() error {
 			s.logWarn("sessions: no secret configured, sessions disabled")
 			return nil
 		}
+	} else if cfg.Secret.IsAuto() {
+		s.logInfo("sessions: using auto-generated secret")
 	}
 
 	s.sessionSecret = secret

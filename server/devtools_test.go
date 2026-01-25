@@ -455,6 +455,8 @@ func TestDevToolsEnvNoSecrets(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
+	// Set a real session secret to test it gets masked
+	cfg.Session.Secret = config.NewSecretString("my-super-secret-key")
 
 	var stdout, stderr bytes.Buffer
 	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
@@ -470,9 +472,13 @@ func TestDevToolsEnvNoSecrets(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	body := w.Body.String()
-	// Should not contain full paths or secrets
-	if strings.Contains(body, tmpDir) {
-		t.Error("should not expose full path")
+	// Session secret should be masked
+	if strings.Contains(body, "my-super-secret-key") {
+		t.Error("should not expose session secret")
+	}
+	// Should show masked version
+	if !strings.Contains(body, "●●●●●●●●") {
+		t.Error("should show masked session secret")
 	}
 }
 
