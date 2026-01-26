@@ -43,16 +43,22 @@ These top-level YAML keys are already in use and must be avoided:
 
 ### Complete Grammar
 
+The default value syntax follows **POSIX shell parameter expansion** convention:
+
+- `${VAR:-default}` — Use default if VAR is unset **or empty** (colon-hyphen)
+- This matches Bash, Docker Compose, Kubernetes, and most CI systems
+- The hyphen distinguishes it from other shell expansions like `${VAR:=default}` (assign)
+
 ```yaml
 # Literal values
 key: value                           # literal string/number/bool
 key: !secret value                   # literal, marked as secret
 
-# Environment variable interpolation
+# Environment variable interpolation (POSIX shell syntax)
 key: ${VAR}                          # env var (null if unset)
-key: ${VAR:-default}                  # env var with default
+key: ${VAR:-default}                 # env var with default (POSIX syntax)
 key: !secret ${VAR}                  # env var, marked as secret
-key: !secret ${VAR:-default}          # env var with default, marked as secret
+key: !secret ${VAR:-default}         # env var with default, marked as secret
 
 # String concatenation (env vars within strings)
 key: "https://${HOST}:${PORT}/api"   # multiple interpolations
@@ -63,7 +69,7 @@ key: "https://${HOST}:${PORT}/api"   # multiple interpolations
 | Feature | Syntax | Purpose |
 |---------|--------|---------|
 | Env interpolation | `${VAR}` | Insert environment variable value |
-| Default value | `${VAR:-default}` | Fallback if env var unset |
+| Default value | `${VAR:-default}` | Fallback if env var unset (POSIX) |
 | Secret marker | `!secret` | Hide value in DevTools |
 
 The two features are orthogonal and compose naturally:
@@ -108,18 +114,18 @@ meta:
 Environment variables can be interpolated anywhere in the config:
 
 ```yaml
-port: ${PORT:8080}
-dev: ${DEV:false}
+port: ${PORT:-8080}
+dev: ${DEV:-false}
 
 database:
   url: !secret ${DATABASE_URL}
-  pool_size: ${DB_POOL:10}
+  pool_size: ${DB_POOL:-10}
 
 meta:
-  api_url: ${PUBLIC_API_URL:https://api.example.com}
+  api_url: ${PUBLIC_API_URL:-https://api.example.com}
 ```
 
-**Type coercion:** Inferred from YAML context. `port: ${PORT:8080}` parses as integer because `8080` is an integer in YAML.
+**Type coercion:** Inferred from YAML context. `port: ${PORT:-8080}` parses as integer because `8080` is an integer in YAML.
 
 ### 3. Secrets
 
@@ -140,7 +146,7 @@ internal:
 ```
 
 **Behavior:**
-- DevTools `/__/env` page shows `[hidden]` instead of value
+- DevTools `/__/env` page shows `●●●●●●●●` instead of value
 - Value is still usable in Parsley code
 - No actual encryption (see Security section)
 
@@ -159,7 +165,7 @@ auth:
 - Override with `SESSION_SECRET` env var for multi-instance deployments:
   ```yaml
   auth:
-    session_secret: !secret ${SESSION_SECRET:auto}
+    session_secret: !secret ${SESSION_SECRET:-auto}
   ```
 
 The existing `session_secret` config field is removed.
@@ -169,21 +175,21 @@ The existing `session_secret` config field is removed.
 ```yaml
 # basil.yaml
 
-port: ${PORT:8080}
-dev: ${DEV:false}
-data_dir: ${DATA_DIR:./data}
+port: ${PORT:-8080}
+dev: ${DEV:-false}
+data_dir: ${DATA_DIR:-./data}
 
 database:
   url: !secret ${DATABASE_URL}
-  pool_size: ${DB_POOL:10}
+  pool_size: ${DB_POOL:-10}
 
 auth:
   enabled: true
-  session_secret: !secret ${SESSION_SECRET:auto}
+  session_secret: !secret ${SESSION_SECRET:-auto}
   session_duration: 24h
   
   google:
-    enabled: ${GOOGLE_AUTH_ENABLED:false}
+    enabled: ${GOOGLE_AUTH_ENABLED:-false}
     client_id: ${GOOGLE_CLIENT_ID}
     client_secret: !secret ${GOOGLE_CLIENT_SECRET}
 
@@ -196,7 +202,7 @@ meta:
   name: "My Blog"
   tagline: "Thoughts on code and coffee"
   contact_email: "hello@example.com"
-  base_url: ${SITE_URL:http://localhost:8080}
+  base_url: ${SITE_URL:-http://localhost:8080}
   
   social:
     twitter: "@myblog"
@@ -204,12 +210,12 @@ meta:
   
   features:
     comments: true
-    newsletter: ${NEWSLETTER_ENABLED:false}
+    newsletter: ${NEWSLETTER_ENABLED:-false}
     dark_mode: true
   
   limits:
     posts_per_page: 10
-    max_upload_mb: ${MAX_UPLOAD:5}
+    max_upload_mb: ${MAX_UPLOAD:-5}
 ```
 
 ## DevTools Display
@@ -229,9 +235,9 @@ Configuration
 ─────────────────────────────────────────────────────────────
 Key                     Value                    Source
 port                    8080                     PORT (default)
-database.url            [hidden]                 DATABASE_URL
+database.url            ●●●●●●●●                 DATABASE_URL
 database.pool_size      10                       DB_POOL (default)
-auth.session_secret     [hidden]                 auto-generated
+auth.session_secret     (auto-generated)         auto
 auth.google.client_id   "123456..."              GOOGLE_CLIENT_ID
 auth.google.client_secret [hidden]               GOOGLE_CLIENT_SECRET
 stripe.publishable_key  "pk_live_..."            STRIPE_PK

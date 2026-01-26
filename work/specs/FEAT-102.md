@@ -21,9 +21,9 @@ As a Basil developer, I want to store custom metadata and use environment variab
 
 - [ ] `meta:` section in basil.yaml accessible as `meta.*` in Parsley
 - [ ] `${VAR}` syntax interpolates environment variables anywhere in config
-- [ ] `${VAR:default}` syntax provides fallback when env var is unset
+- [ ] `${VAR:-default}` syntax provides fallback when env var is unset (POSIX convention)
 - [ ] `!secret` YAML tag marks values as sensitive
-- [ ] `!secret` values show `[hidden]` in DevTools `/__/env` page
+- [ ] `!secret` values show `●●●●●●●●` in DevTools `/__/env` page
 - [ ] `!secret auto` auto-generates a secure random value (for session secrets)
 - [ ] Session secret auto-generated if not provided (remove config field)
 - [ ] Type coercion from env vars inferred from YAML context
@@ -54,9 +54,10 @@ As a Basil developer, I want to store custom metadata and use environment variab
 key: value                           # literal
 key: !secret value                   # literal, marked secret
 
-# Environment variable interpolation (already implemented)
+# Environment variable interpolation
+# Uses POSIX shell syntax: ${VAR:-default} (hyphen required)
 key: ${VAR}                          # env var (empty string if unset)
-key: ${VAR:-default}                 # env var with default
+key: ${VAR:-default}                 # env var with default (POSIX syntax)
 key: !secret ${VAR}                  # env var, marked secret
 key: !secret ${VAR:-default}         # env var with default, marked secret
 
@@ -78,7 +79,7 @@ key: "https://${HOST}:${PORT}/api"   # multiple interpolations
 ### Processing Order
 
 1. Read `basil.yaml` as raw text
-2. Pre-process `${VAR}` and `${VAR:default}` interpolations
+2. Pre-process `${VAR}` and `${VAR:-default}` interpolations (POSIX syntax)
 3. Parse resulting YAML with custom `!secret` tag handler
 4. Validate structure against Config schema
 5. Track which values are marked secret (for DevTools)
@@ -100,8 +101,8 @@ type ConfigSecrets struct {
 ### Env Var Interpolation
 
 ```go
-// Match ${VAR} or ${VAR:default}
-var envVarRegex = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)(?::([^}]*))?\}`)
+// Match ${VAR} or ${VAR:-default} (POSIX shell syntax)
+var envVarRegex = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
 
 func interpolateEnvVars(content string) string {
     return envVarRegex.ReplaceAllStringFunc(content, func(match string) string {
@@ -128,7 +129,7 @@ func interpolateEnvVars(content string) string {
 2. **Env var value contains YAML special chars** — Could break parsing; document that values should be quoted if containing `:`, `#`, etc.
 3. **Nested `${...}` in env var value** — Not recursively expanded (single pass)
 4. **`!secret` on non-scalar** — Allowed on maps/arrays, entire subtree marked secret
-5. **Type coercion** — `port: ${PORT:8080}` infers int from default; `port: ${PORT}` with `PORT=8080` infers string unless quoted
+5. **Type coercion** — `port: ${PORT:-8080}` infers int from default; `port: ${PORT}` with `PORT=8080` infers string unless quoted
 
 ### Migration
 
