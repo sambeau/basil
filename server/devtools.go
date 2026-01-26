@@ -1670,6 +1670,7 @@ var devToolsComponents = []string{
 	"page.pars",
 	"panel.pars",
 	"header.pars",
+	"logo.pars",
 	"info_grid.pars",
 	"empty_state.pars",
 	"stats.pars",
@@ -1835,39 +1836,238 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		}
 
 	case path == "/__/env" || path == "/__/env/":
-		// Environment info page
+		// Environment info page - organized by section with descriptions
 		cfg := h.server.config
-		configArray := []interface{}{
-			map[string]interface{}{"name": "Port", "value": fmt.Sprintf("%d", cfg.Server.Port)},
-			map[string]interface{}{"name": "Host", "value": cfg.Server.Host},
-			map[string]interface{}{"name": "Dev Mode", "value": fmt.Sprintf("%v", cfg.Server.Dev)},
-			map[string]interface{}{"name": "Base Dir", "value": cfg.BaseDir},
+
+		// Helper to create a setting entry
+		setting := func(name, value, help string) map[string]interface{} {
+			return map[string]interface{}{"name": name, "value": value, "help": help}
 		}
 
-		// Add SQLite path if configured
-		if cfg.SQLite != "" {
-			configArray = append(configArray, map[string]interface{}{
-				"name": "SQLite", "value": cfg.SQLite,
-			})
+		// Helper to format boolean
+		boolStr := func(b bool) string {
+			if b {
+				return "true"
+			}
+			return "false"
 		}
 
-		// Add session config (hide secret)
+		// Helper to format optional string
+		optStr := func(s string) string {
+			if s == "" {
+				return "(empty)"
+			}
+			return s
+		}
+
+		// Helper to format duration
+		durStr := func(d time.Duration) string {
+			if d == 0 {
+				return "(not set)"
+			}
+			return d.String()
+		}
+
+		// Build grouped config sections
+		configGroups := []interface{}{}
+
+		// Server section
+		serverSettings := []interface{}{
+			setting("Host", optStr(cfg.Server.Host), "Bind address"),
+			setting("Port", fmt.Sprintf("%d", cfg.Server.Port), "Listen port"),
+			setting("Dev Mode", boolStr(cfg.Server.Dev), "Development mode enabled"),
+			setting("Base Dir", cfg.BaseDir, "Configuration base directory"),
+		}
+		if cfg.Server.HTTPS.Auto || cfg.Server.HTTPS.Cert != "" {
+			serverSettings = append(serverSettings,
+				setting("HTTPS Auto", boolStr(cfg.Server.HTTPS.Auto), "Let's Encrypt auto-certificates"),
+				setting("HTTPS Cert", optStr(cfg.Server.HTTPS.Cert), "Manual certificate path"),
+			)
+		}
+		if cfg.Server.Proxy.Trusted {
+			serverSettings = append(serverSettings,
+				setting("Proxy Trusted", "true", "Trust X-Forwarded-* headers"),
+			)
+		}
+		configGroups = append(configGroups, map[string]interface{}{
+			"name":        "Server",
+			"description": "Core server settings",
+			"settings":    serverSettings,
+		})
+
+		// Session section
 		sessionSecret := "●●●●●●●●"
 		if cfg.Session.Secret.IsAuto() {
 			sessionSecret = "(auto-generated)"
 		}
-		configArray = append(configArray,
-			map[string]interface{}{"name": "Session Store", "value": cfg.Session.Store},
-			map[string]interface{}{"name": "Session Secret", "value": sessionSecret},
-		)
+		sessionSettings := []interface{}{
+			setting("Store", cfg.Session.Store, "Session storage backend"),
+			setting("Secret", sessionSecret, "Encryption secret"),
+			setting("Max Age", durStr(cfg.Session.MaxAge), "Session lifetime"),
+			setting("Cookie Name", cfg.Session.CookieName, "Session cookie name"),
+			setting("SameSite", cfg.Session.SameSite, "Cookie SameSite policy"),
+		}
+		if cfg.Session.Store == "sqlite" {
+			sessionSettings = append(sessionSettings,
+				setting("Table", cfg.Session.Table, "SQLite table name"),
+				setting("Cleanup", durStr(cfg.Session.Cleanup), "Expired session cleanup interval"),
+			)
+		}
+		configGroups = append(configGroups, map[string]interface{}{
+			"name":        "Session",
+			"description": "Session storage and cookie settings",
+			"settings":    sessionSettings,
+		})
+
+		// Database section (if configured)
+		if cfg.SQLite != "" {
+			configGroups = append(configGroups, map[string]interface{}{
+				"name":        "Database",
+				"description": "SQLite database settings",
+				"settings": []interface{}{
+					setting("SQLite", cfg.SQLite, "Database file path"),
+				},
+			})
+		}
+
+		// Security section
+		securitySettings := []interface{}{
+			setting("Content-Type-Options", optStr(cfg.Security.ContentTypeOptions), "X-Content-Type-Options header"),
+			setting("Frame-Options", optStr(cfg.Security.FrameOptions), "X-Frame-Options header"),
+			setting("XSS-Protection", optStr(cfg.Security.XSSProtection), "X-XSS-Protection header"),
+			setting("Referrer-Policy", optStr(cfg.Security.ReferrerPolicy), "Referrer-Policy header"),
+		}
+		if cfg.Security.CSP != "" {
+			securitySettings = append(securitySettings,
+				setting("CSP", cfg.Security.CSP, "Content-Security-Policy header"),
+			)
+		}
+		if cfg.Security.HSTS.Enabled {
+			securitySettings = append(securitySettings,
+				setting("HSTS Enabled", "true", "HTTP Strict Transport Security"),
+				setting("HSTS Max-Age", cfg.Security.HSTS.MaxAge, "HSTS max-age directive"),
+			)
+		}
+		configGroups = append(configGroups, map[string]interface{}{
+			"name":        "Security",
+			"description": "Security headers and policies",
+			"settings":    securitySettings,
+		})
+
+		// CORS section (if configured)
+		if len(cfg.CORS.Origins) > 0 {
+			corsOrigins := "(none)"
+			if len(cfg.CORS.Origins) > 0 {
+				corsOrigins = strings.Join(cfg.CORS.Origins, ", ")
+			}
+			configGroups = append(configGroups, map[string]interface{}{
+				"name":        "CORS",
+				"description": "Cross-Origin Resource Sharing",
+				"settings": []interface{}{
+					setting("Origins", corsOrigins, "Allowed origins"),
+					setting("Credentials", boolStr(cfg.CORS.Credentials), "Allow credentials"),
+				},
+			})
+		}
+
+		// Compression section
+		configGroups = append(configGroups, map[string]interface{}{
+			"name":        "Compression",
+			"description": "Response compression settings",
+			"settings": []interface{}{
+				setting("Enabled", boolStr(cfg.Compression.Enabled), "Compression enabled"),
+				setting("Level", cfg.Compression.Level, "Compression level"),
+				setting("Min Size", fmt.Sprintf("%d bytes", cfg.Compression.MinSize), "Minimum response size"),
+				setting("Zstd", boolStr(cfg.Compression.Zstd), "Zstd compression support"),
+			},
+		})
+
+		// Auth section (if enabled)
+		if cfg.Auth.Enabled {
+			authSettings := []interface{}{
+				setting("Enabled", "true", "Authentication enabled"),
+				setting("Registration", cfg.Auth.Registration, "Registration mode"),
+				setting("Session TTL", durStr(cfg.Auth.SessionTTL), "Auth session lifetime"),
+				setting("Login Path", cfg.Auth.LoginPath, "Login redirect path"),
+			}
+			if cfg.Auth.EmailVerification.Enabled {
+				authSettings = append(authSettings,
+					setting("Email Verification", "true", "Email verification enabled"),
+					setting("Email Provider", cfg.Auth.EmailVerification.Provider, "Email service provider"),
+				)
+			}
+			configGroups = append(configGroups, map[string]interface{}{
+				"name":        "Authentication",
+				"description": "User authentication settings",
+				"settings":    authSettings,
+			})
+		}
+
+		// Git section (if enabled)
+		if cfg.Git.Enabled {
+			configGroups = append(configGroups, map[string]interface{}{
+				"name":        "Git",
+				"description": "Git HTTP server settings",
+				"settings": []interface{}{
+					setting("Enabled", "true", "Git server enabled"),
+					setting("Require Auth", boolStr(cfg.Git.RequireAuth), "Require API key"),
+				},
+			})
+		}
+
+		// Routing section
+		routingSettings := []interface{}{}
+		if cfg.Site != "" {
+			routingSettings = append(routingSettings,
+				setting("Site", cfg.Site, "Filesystem-based routing directory"),
+			)
+			if cfg.SiteCache > 0 {
+				routingSettings = append(routingSettings,
+					setting("Site Cache", durStr(cfg.SiteCache), "Response cache TTL"),
+				)
+			}
+		}
+		if cfg.PublicDir != "" {
+			routingSettings = append(routingSettings,
+				setting("Public Dir", cfg.PublicDir, "Static files directory"),
+			)
+		}
+		if len(cfg.Routes) > 0 {
+			routingSettings = append(routingSettings,
+				setting("Routes", fmt.Sprintf("%d configured", len(cfg.Routes)), "Explicit route definitions"),
+			)
+		}
+		if len(cfg.Static) > 0 {
+			routingSettings = append(routingSettings,
+				setting("Static Routes", fmt.Sprintf("%d configured", len(cfg.Static)), "Static file mappings"),
+			)
+		}
+		if len(routingSettings) > 0 {
+			configGroups = append(configGroups, map[string]interface{}{
+				"name":        "Routing",
+				"description": "URL routing configuration",
+				"settings":    routingSettings,
+			})
+		}
+
+		// Logging section
+		loggingSettings := []interface{}{
+			setting("Level", cfg.Logging.Level, "Log verbosity"),
+			setting("Format", cfg.Logging.Format, "Log output format"),
+		}
+		configGroups = append(configGroups, map[string]interface{}{
+			"name":        "Logging",
+			"description": "Log output settings",
+			"settings":    loggingSettings,
+		})
+
+		devtoolsMap["config"] = configGroups
 
 		// Add meta if configured
 		if cfg.Meta != nil && len(cfg.Meta) > 0 {
 			devtoolsMap["has_meta"] = true
 			devtoolsMap["meta"] = cfg.Meta
 		}
-
-		devtoolsMap["config"] = configArray
 	}
 
 	devtoolsObj, _ := parsley.ToParsley(devtoolsMap)

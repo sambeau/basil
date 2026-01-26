@@ -1,0 +1,24 @@
+let Page = fn({title, contents}){
+	"<!DOCTYPE html>\n"
+	<html lang="en" data-theme="dark">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta
+				name="viewport"
+				content="width=device-width, initial-scale=1.0"
+			/>
+			// <meta http-equiv="refresh" content="2"/>
+			<link rel="stylesheet" href="/__/css/pico.colors.min.css"/>
+			<link rel="stylesheet" href="/__/css/pico.min.css"/>
+			<link rel="stylesheet" href="/__/css/fontawesome.css"/>
+			<link rel="stylesheet" href="/__/css/fontawesome.css"/>
+			<link rel="stylesheet" href="/__/css/regular.min.css"/>
+			<link rel="stylesheet" href="/__/css/solid.min.css"/>
+			<link rel="stylesheet" href="/__/css/basil.css"/>
+			<title>title</title>
+		</head>
+		<body class="container-fluid">
+			contents
+		</body>
+	</html>
+}

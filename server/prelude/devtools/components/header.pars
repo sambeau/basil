@@ -11,21 +11,27 @@
 //   <Header title="Page Title" back="/__/"/>
 //   <Header title="Title" actions={[<a href="..." class="btn">"Action"</a>]}/>
 
-let Header = fn({title, back, actions, contents}) {
-    <div class="header">
-        <h1>title</h1>
-        <div class="actions">
-            if (back) {
-                <a href={back} class="btn">"← Back"</a>
-            }
-            if (actions) {
-                for (action in actions) {
-                    action
-                }
-            }
-            if (contents) {
-                contents
-            }
-        </div>
-    </div>
+let Header = fn({title, info, back, subtitle, actions}) {
+	<header class="header">
+		<div class="header-row">
+			<div class="left"></div>
+			<div class="middle big-header"><Logo height="32" />title</div>
+			<div class="right">
+				<small>info</small>
+			</div>
+		</div>
+
+		<div class="header-row">
+			<div class="left">
+				<a href={back} class="btn" style="font-size:150%" data-tooltip="Back">
+					<i class="fa-solid fa-circle-arrow-left"></i>
+				</a>
+			</div>
+			<div class="middle">subtitle</div>
+			<div class="right">
+                actions
+			</div>
+
+		</div>
+	</header>
 }

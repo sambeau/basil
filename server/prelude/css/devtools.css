@@ -11,12 +11,12 @@
     --dt-bg-primary: #1a1a2e;
     --dt-bg-secondary: #16213e;
     --dt-bg-code: #0f1419;
-    
+
     /* Text */
     --dt-text-primary: #eee;
     --dt-text-secondary: #bbb;
     --dt-text-muted: #7f8c8d;
-    
+
     /* Accent colors */
     --dt-accent: #4ecdc4;
     --dt-accent-hover: #3db8af;
@@ -24,11 +24,11 @@
     --dt-danger-hover: #ff5252;
     --dt-success: #2ecc71;
     --dt-warning: #f39c12;
-    
+
     /* Typography */
     --dt-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --dt-font-mono: 'Monaco', 'Courier New', monospace;
-    
+
     /* Spacing */
     --dt-radius: 8px;
     --dt-radius-sm: 4px;
