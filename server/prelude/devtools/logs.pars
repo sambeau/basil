@@ -22,7 +22,7 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-let Sp =  "&nbsp;&nbsp;"
+// let Sp =  "&nbsp;&nbsp;"
 let Hr = <><div style="border:0.5px solid rgba(255,255,255,0.125); margin-bottom:1rem"></div></>
 
 let {log_count, logs, route} = devtools

@@ -18,10 +18,11 @@ type TableInfo struct {
 
 // ColumnInfo represents a column in a database table.
 type ColumnInfo struct {
-	Name    string
-	Type    string
-	NotNull bool
-	PK      bool
+	Name         string
+	Type         string
+	NotNull      bool
+	PK           bool
+	DefaultValue sql.NullString
 }
 
 // getTableList returns all user tables (excludes sqlite_* system tables).
@@ -153,10 +154,11 @@ func getTableColumns(db *sql.DB, tableName string) ([]ColumnInfo, error) {
 		}
 
 		columns = append(columns, ColumnInfo{
-			Name:    name,
-			Type:    colType,
-			NotNull: notNull == 1,
-			PK:      pk == 1,
+			Name:         name,
+			Type:         colType,
+			NotNull:      notNull == 1,
+			PK:           pk == 1,
+			DefaultValue: dfltValue,
 		})
 	}
 	return columns, rows.Err()

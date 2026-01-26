@@ -1783,9 +1783,28 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 						h.server.logError("failed to get table info for %s: %v", name, err)
 						continue
 					}
+					// Build columns array for this table
+					columnsArray := make([]interface{}, 0, len(info.Columns))
+					for _, col := range info.Columns {
+						colMap := map[string]interface{}{
+							"name":     col.Name,
+							"type":     col.Type,
+							"not_null": col.NotNull,
+							"pk":       col.PK,
+						}
+						if col.DefaultValue.Valid {
+							colMap["default"] = col.DefaultValue.String
+						} else {
+							colMap["default"] = nil
+						}
+						columnsArray = append(columnsArray, colMap)
+					}
+
 					tablesArray = append(tablesArray, map[string]interface{}{
-						"name":      info.Name,
-						"row_count": info.RowCount,
+						"name":         info.Name,
+						"row_count":    info.RowCount,
+						"columns":      columnsArray,
+						"column_count": len(info.Columns),
 					})
 				}
 				devtoolsMap["tables"] = tablesArray

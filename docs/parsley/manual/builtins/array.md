@@ -356,6 +356,35 @@ Sum prices:
 
 **Result:** `£27.75`
 
+### reorder
+
+Apply `.reorder()` to each dictionary element in the array. Returns a new array where each dictionary has been reordered (and optionally renamed).
+
+**With an array argument** — select and reorder keys in each dictionary:
+
+```parsley
+let users = [{name: "Alice", age: 30, city: "London"}, {name: "Bob", age: 25, city: "Paris"}]
+users.reorder(["city", "name"])
+```
+
+**Result:** `[{city: "London", name: "Alice"}, {city: "Paris", name: "Bob"}]`
+
+**With a dictionary argument** — rename and reorder keys:
+
+```parsley
+let data = [{first_name: "Alice", last_name: "Smith"}, {first_name: "Bob", last_name: "Jones"}]
+data.reorder({name: "first_name", surname: "last_name"})
+```
+
+**Result:** `[{name: "Alice", surname: "Smith"}, {name: "Bob", surname: "Jones"}]`
+
+This is useful for:
+- Preparing data for display or export
+- Renaming columns from a database or API to match your template
+- Selecting a subset of fields from each row
+
+**Note:** Non-dictionary elements in the array are left unchanged.
+
 ### reverse
 
 Reverse the order of elements:

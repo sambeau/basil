@@ -4,8 +4,16 @@
 //   .error (String)          - Error message if database operation failed (optional)
 //   .tables (Array)          - Database tables as array of dictionaries
 //     Each element is a Dictionary with:
-//       .name (String)       - Table name
-//       .row_count (Integer) - Number of rows in table
+//       .name (String)         - Table name
+//       .row_count (Integer)   - Number of rows in table
+//       .column_count (Integer)- Number of columns in table
+//       .columns (Array)       - Column schema as array of dictionaries
+//         Each column is a Dictionary with:
+//           .name (String)     - Column name
+//           .type (String)     - SQLite type (e.g., "INTEGER", "TEXT", "REAL", "BLOB")
+//           .pk (Boolean)      - true if this column is a primary key
+//           .not_null (Boolean)- true if column has NOT NULL constraint
+//           .default (String|null) - Default value if specified, null otherwise
 //   .table_count (Integer)   - Number of tables
 //
 // basil (Dictionary)
@@ -14,13 +22,50 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>"Database Browser"</title>
-	<link rel="stylesheet" href="/__/css/devtools.css"/>
+shortVersion = basil.version ~ /v\d+\.\d+\.\d+/
+
+old_actions = <div class="db-actions">
+			<a href="/__/db/download" class="btn-download">"📥"</a>
+			<form class="upload-form" id="uploadForm" enctype="multipart/form-data">
+				<input type="file" id="fileInput" name="database" accept=".db,.sqlite,.sqlite3" class="file-input"/>
+				<label for="fileInput" class="file-label">"📤"</label>
+				<span class="file-name" id="fileName"></span>
+				<button type="submit" class="btn-upload" id="uploadBtn">"Upload"</button>
+			</form>
+		</div>
+
+subtitle = if (!devtools.error && devtools.table_count > 0) {
+				devtools.table_count + " " + if (devtools.table_count == 1) { "table" } else { "tables" }
+			} else if (devtools.error){
+				<span style="color:red">"⚠️ Error"</span>
+			} else if (devtools.table_count > 0){
+				"No tables"
+			}
+
+actions = <>
+	<a
+		href="#"
+		onclick=""
+		data-tooltip="Upload database file"
+		style="font-size:150%"
+		id="live-refresh-toggle"
+	>
+		<i class="fa-solid fa-upload"></i>
+	</a>
+	<Sp/>
+	<Sp/>
+	<a
+		 href="/__/db/download"
+		onclick=""
+		data-tooltip="Download database file"
+		style="font-size:150%"
+		id="live-refresh-toggle"
+	>
+		<i class="fa-solid fa-download"></i>
+	</a>
+</>
+
+<Page>
 	<style>
 		/* Page-specific styles for upload form */
 		.upload-form {
@@ -44,15 +89,6 @@
 			background: var(--dt-accent-hover);
 		}
 		.btn-upload {
-			background: var(--dt-danger);
-			color: #fff;
-			padding: 0.75rem 1.5rem;
-			border-radius: var(--dt-radius-sm);
-			font-size: 0.875rem;
-			font-weight: 600;
-			border: none;
-			cursor: pointer;
-			transition: background 0.2s;
 			display: none;
 		}
 		.btn-upload:hover {
@@ -62,23 +98,16 @@
 			display: block;
 		}
 	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="header">
-			<h1>"🗄️ Database Browser"</h1>
-			<a href="/__/" class="btn">"← Back"</a>
-		</div>
+	<Header
+		title="@DB"
+		info={}
+		back="/__/"
+		subtitle={subtitle}
+		actions={actions}
+	/>
 
-		<div class="db-actions">
-			<a href="/__/db/download" class="btn-download">"📥 Download Database"</a>
-			<form class="upload-form" id="uploadForm" enctype="multipart/form-data">
-				<input type="file" id="fileInput" name="database" accept=".db,.sqlite,.sqlite3" class="file-input"/>
-				<label for="fileInput" class="file-label">"📤 Choose Database File"</label>
-				<span class="file-name" id="fileName"></span>
-				<button type="submit" class="btn-upload" id="uploadBtn">"Upload"</button>
-			</form>
-		</div>
+	<div class="scroll">
+
 		<div id="uploadMessage" class="upload-message"></div>
 
 		if (devtools.error) {
@@ -93,16 +122,27 @@
 			</div>
 		}
 		if (!devtools.error && devtools.table_count > 0) {
-			<div class="stats">
-				devtools.table_count + " " + if (devtools.table_count == 1) { "table" } else { "tables" } + " in database"
-			</div>
 
 			<div class="table-list">
-				for (table in devtools.tables) {
-					<a href={"/__/db/view/" + table.name} class="table-card">
-						<div class="table-name">table.name</div>
-						<div class="table-info">table.row_count + " " + if (table.row_count == 1) { "row" } else { "rows" }</div>
-					</a>
+				for (t in devtools.tables) {
+					columns = table(t.columns).map(fn(row){{
+						"Name": row.name,
+						"Type": row.type,
+						"Default": (row.default ?? "-"),
+						"Null": if(row.not_null) "-" else "✅",
+						"Primary": if(row.pk) "✅" else "-",
+					}})
+					<div class="box">
+							<h4><a href={"/__/db/view/" + t.name} class=""><i class="fa-solid fa-table"></i>
+								<Sp/>
+								t.name
+								</a>
+							</h4>
+							<div class="table-info">t.row_count + " " + 
+								if (t.row_count == 1) { "row" } else { "rows" }
+							</div><br/>
+							columns.toHTML()
+					</div>
 				}
 			</div>
 		}
@@ -161,5 +201,4 @@
 			}
 		});
 	</script>
-</body>
-</html>
+</Page>

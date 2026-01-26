@@ -2027,13 +2027,10 @@ func tableMap(t *Table, args []Object, env *Environment) Object {
 		mappedRows = append(mappedRows, rowDict)
 	}
 
-	// Update columns from first row
+	// Update columns from first row (preserving key order)
 	var newColumns []string
 	if len(mappedRows) > 0 {
-		newColumns = make([]string, 0, len(mappedRows[0].Pairs))
-		for col := range mappedRows[0].Pairs {
-			newColumns = append(newColumns, col)
-		}
+		newColumns = mappedRows[0].Keys()
 	}
 
 	// Schema preservation logic

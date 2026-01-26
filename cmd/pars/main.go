@@ -14,6 +14,9 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/sambeau/basil/pkg/parsley/repl"
+
+	// Import pln for init() to register serialize/deserialize functions
+	_ "github.com/sambeau/basil/pkg/parsley/pln"
 )
 
 // Version is set at compile time via -ldflags

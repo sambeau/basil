@@ -361,6 +361,43 @@ data.as(User).validate().isValid()
 
 ---
 
+### reorder()
+
+Reorder and optionally rename dictionary keys. Returns a new dictionary.
+
+**With an array argument** — select and reorder keys:
+
+```parsley
+let d = {a: 1, b: 2, c: 3, d: 4}
+d.reorder(["c", "a"])
+```
+
+**Result:** `{c: 3, a: 1}`
+
+Only keys listed in the array are included, in the specified order. Keys not in the array are dropped.
+
+**With a dictionary argument** — rename and reorder keys:
+
+```parsley
+let user = {first_name: "Alice", last_name: "Smith", age: 30}
+user.reorder({name: "first_name", surname: "last_name"})
+```
+
+**Result:** `{name: "Alice", surname: "Smith"}`
+
+The dictionary maps new key names to old key names (`{newKey: "oldKey"}`). Keys are output in the order specified in the mapping. Keys not in the mapping are dropped.
+
+This is useful for:
+- Reordering columns when preparing data for display
+- Renaming fields to match an API or schema
+- Selecting a subset of keys in a specific order
+
+**Errors:**
+- If an array element references a non-existent key, an error is raised
+- If a dictionary value references a non-existent key, an error is raised
+
+---
+
 ### delete()
 
 Remove a key from the dictionary. **This is the only method that mutates the original dictionary.**

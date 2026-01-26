@@ -1463,6 +1463,7 @@ let upper = name.toUpper()      // Assign to use the result
 | `.filter(fn)` | `fn: function(elem)` | `array` | Keep elements where fn returns truthy |
 | `.reduce(fn, init)` | `fn: function(acc, elem)`, `init: any` | `any` | Reduce to single value |
 | `.insert(index, val)` | `index: integer`, `val: any` | `array` | New array with val inserted at index |
+| `.reorder(spec)` | `spec: array` or `dictionary` | `array` | Reorder/rename keys in each dictionary element |
 
 #### Random Selection
 
@@ -1531,6 +1532,7 @@ items.join(", ")                // "apple, banana, cherry"
 | `.delete(key)` | `key: string` | `null` | Remove key (**mutates in place**) |
 | `.insertAfter(after, key, val)` | `after, key: string`, `val: any` | `dictionary` | New dict with key inserted after `after` |
 | `.insertBefore(before, key, val)` | `before, key: string`, `val: any` | `dictionary` | New dict with key inserted before `before` |
+| `.reorder(spec)` | `spec: array` or `dictionary` | `dictionary` | Reorder and/or rename keys |
 | `.render(template)` | `template: string` | `string` | Render template with `@{key}` placeholders |
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toBox(opts?)` | `opts?: {align, keys, style, title, maxWidth}` | `string` | Render dictionary in a box |
@@ -1574,6 +1576,15 @@ person.render("@{first} @{last} was born in @{born}.")
 let record = {first: "Alice", last: "Smith"}
 record.insertAfter("first", "middle", "Jane")
 // {first: "Alice", middle: "Jane", last: "Smith"}
+
+// Reorder keys with an array (keeps only listed keys, in order)
+let d = {a: 1, b: 2, c: 3}
+d.reorder(["c", "a"])           // {c: 3, a: 1}
+
+// Reorder and rename with a dictionary {newKey: "oldKey"}
+let user = {first_name: "Alice", last_name: "Smith", age: 30}
+user.reorder({name: "first_name", surname: "last_name"})
+// {name: "Alice", surname: "Smith"}
 ```
 
 ---
@@ -4016,7 +4027,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `indent(n)` | 1 | Add n spaces to lines |
 | `toBox(opts?)` | 0-1 | Render in box |
 
-### Array Methods (19 methods)
+### Array Methods (20 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -4027,6 +4038,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `map(fn)` | 1 | Transform elements |
 | `filter(fn)` | 1 | Filter by predicate |
 | `reduce(fn, init)` | 2 | Reduce to value |
+| `reorder(spec)` | 1 | Reorder/rename dict keys |
 | `format(style?, locale?)` | 0-2 | Format as list |
 | `join(sep?)` | 0-1 | Join to string |
 | `toJSON()` | 0 | Convert to JSON |
@@ -4040,7 +4052,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `hasAll(arr)` | 1 | Contains all? |
 | `insert(i, val)` | 2 | Insert at index |
 
-### Dictionary Methods (11 methods)
+### Dictionary Methods (12 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -4051,6 +4063,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `delete(key)` | 1 | Remove key (mutates) |
 | `insertAfter(after, k, v)` | 3 | Insert after key |
 | `insertBefore(before, k, v)` | 3 | Insert before key |
+| `reorder(spec)` | 1 | Reorder/rename keys |
 | `render(template)` | 1 | Render template |
 | `toJSON()` | 0 | Convert to JSON |
 | `toBox(opts?)` | 0-1 | Render in box (align, keys, style, title, maxWidth) |

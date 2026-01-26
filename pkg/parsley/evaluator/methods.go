@@ -51,7 +51,7 @@ var stringMethods = []string{
 var arrayMethods = []string{
 	"type", "length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
 	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll", "toBox",
-	"repr", "toHTML", "toMarkdown",
+	"repr", "toHTML", "toMarkdown", "reorder",
 }
 
 // integerMethods lists all methods available on integer
@@ -67,7 +67,7 @@ var floatMethods = []string{
 // dictionaryMethods lists all methods available on dictionary
 var dictionaryMethods = []string{
 	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON", "toBox",
-	"repr", "toHTML", "toMarkdown", "as",
+	"repr", "toHTML", "toMarkdown", "as", "reorder",
 }
 
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
@@ -1058,6 +1058,9 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "toMarkdown":
 		return arrayToMarkdown(arr, args)
 
+	case "reorder":
+		return arrayReorder(arr, args, env)
+
 	default:
 		return unknownMethodError(method, "array", arrayMethods)
 	}
@@ -1161,6 +1164,35 @@ func filterArrayWithFunction(arr *Array, fn *Function, env *Environment) Object 
 		if isTruthy(evaluated) {
 			result = append(result, elem)
 		}
+	}
+
+	return &Array{Elements: result}
+}
+
+// arrayReorder reorders and optionally renames keys in each dictionary element of an array
+// With array: reorder(["key1", "key2"]) - reorders keys in each dict, ignoring non-existent keys
+// With dictionary: reorder({newName: "oldName"}) - reorders and renames keys in each dict
+func arrayReorder(arr *Array, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("reorder", len(args), 1)
+	}
+
+	result := make([]Object, 0, len(arr.Elements))
+
+	for _, elem := range arr.Elements {
+		dict, ok := elem.(*Dictionary)
+		if !ok {
+			// Non-dictionary elements pass through unchanged
+			result = append(result, elem)
+			continue
+		}
+
+		// Reorder the dictionary using the same logic as dict.reorder()
+		reordered := dictReorder(dict, args, env)
+		if isError(reordered) {
+			return reordered
+		}
+		result = append(result, reordered)
 	}
 
 	return &Array{Elements: result}
@@ -1633,6 +1665,9 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		}
 		return CreateRecord(schema, dict, env)
 
+	case "reorder":
+		return dictReorder(dict, args, env)
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
@@ -1686,6 +1721,75 @@ func insertDictKeyBefore(dict *Dictionary, beforeKey, newKey string, value Objec
 		Pairs:    newPairs,
 		KeyOrder: newKeyOrder,
 		Env:      env,
+	}
+}
+
+// dictReorder reorders and optionally renames dictionary keys
+// With array: reorder(["key1", "key2"]) - reorders keys, ignoring non-existent keys (also filters)
+// With dictionary: reorder({newName: "oldName"}) - reorders and renames, key order in dict is significant
+func dictReorder(dict *Dictionary, args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("reorder", len(args), 1)
+	}
+
+	switch arg := args[0].(type) {
+	case *Array:
+		// Array form: reorder(["key1", "key2", ...])
+		// Creates new dict with only these keys in this order
+		// Non-existent keys are silently ignored (acts as filter)
+		newKeyOrder := make([]string, 0, len(arg.Elements))
+		newPairs := make(map[string]ast.Expression)
+
+		for _, elem := range arg.Elements {
+			str, ok := elem.(*String)
+			if !ok {
+				return newTypeError("TYPE-0019", "reorder", "string", elem.Type())
+			}
+			// Only include keys that exist in the original dict
+			if expr, exists := dict.Pairs[str.Value]; exists {
+				newKeyOrder = append(newKeyOrder, str.Value)
+				newPairs[str.Value] = expr
+			}
+		}
+
+		return &Dictionary{
+			Pairs:    newPairs,
+			KeyOrder: newKeyOrder,
+			Env:      env,
+		}
+
+	case *Dictionary:
+		// Dictionary form: reorder({newName: "oldName", ...})
+		// Creates new dict with renamed keys in the order of the mapping dict
+		newKeyOrder := make([]string, 0, len(arg.Pairs))
+		newPairs := make(map[string]ast.Expression)
+
+		// Iterate in key order of the mapping dictionary
+		for _, newKey := range arg.Keys() {
+			// Get the old key name from the mapping
+			oldKeyExpr := arg.Pairs[newKey]
+			oldKeyObj := Eval(oldKeyExpr, env)
+			oldKeyStr, ok := oldKeyObj.(*String)
+			if !ok {
+				return newTypeError("TYPE-0019", "reorder", "string value for key mapping", oldKeyObj.Type())
+			}
+			oldKey := oldKeyStr.Value
+
+			// Only include if old key exists in the original dict
+			if expr, exists := dict.Pairs[oldKey]; exists {
+				newKeyOrder = append(newKeyOrder, newKey)
+				newPairs[newKey] = expr
+			}
+		}
+
+		return &Dictionary{
+			Pairs:    newPairs,
+			KeyOrder: newKeyOrder,
+			Env:      env,
+		}
+
+	default:
+		return newTypeError("TYPE-0012", "reorder", "an array or dictionary", arg.Type())
 	}
 }
 

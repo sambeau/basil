@@ -92,6 +92,9 @@ func (s *Serializer) serialize(obj evaluator.Object) (string, error) {
 	case *evaluator.Record:
 		return s.serializeRecord(v)
 
+	case *evaluator.Table:
+		return s.serializeTable(v)
+
 	case *evaluator.Function:
 		return "", fmt.Errorf("cannot serialize function")
 
@@ -172,12 +175,8 @@ func (s *Serializer) serializeDict(d *evaluator.Dictionary) (string, error) {
 		return "{}", nil
 	}
 
-	// Get keys in sorted order for deterministic output
-	keys := make([]string, 0, len(d.Pairs))
-	for k := range d.Pairs {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	// Get keys in insertion order (preserving dictionary order)
+	keys := d.Keys()
 
 	var parts []string
 	s.depth++
@@ -225,7 +224,8 @@ func (s *Serializer) exprToObject(expr ast.Expression, dictEnv *evaluator.Enviro
 		env = dictEnv
 	}
 	if env == nil {
-		return nil, fmt.Errorf("cannot serialize dictionary with lazy expressions without environment")
+		// No environment available - create a minimal one for basic expressions
+		env = evaluator.NewEnvironment()
 	}
 
 	// Evaluate the expression
@@ -349,6 +349,41 @@ func (s *Serializer) serializeRecord(r *evaluator.Record) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func (s *Serializer) serializeTable(t *evaluator.Table) (string, error) {
+	// Check for circular reference
+	ptr := getPointer(t)
+	if s.visited[ptr] {
+		return "", fmt.Errorf("circular reference detected in table")
+	}
+	s.visited[ptr] = true
+	defer delete(s.visited, ptr)
+
+	// Serialize as an array of dictionaries (the Rows)
+	if len(t.Rows) == 0 {
+		return "[]", nil
+	}
+
+	var parts []string
+	s.depth++
+	for _, row := range t.Rows {
+		// Ensure the row has an environment for evaluation
+		if row.Env == nil && s.env != nil {
+			row.Env = s.env
+		}
+		rowStr, err := s.serializeDict(row)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, rowStr)
+	}
+	s.depth--
+
+	if s.pretty {
+		return s.formatArrayPretty(parts), nil
+	}
+	return "[" + strings.Join(parts, ", ") + "]", nil
 }
 
 func (s *Serializer) serializeDatetime(d *evaluator.Dictionary) (string, error) {
