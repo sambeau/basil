@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -362,7 +363,7 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	h := &parsleyHandler{
 		server:     s,
 		scriptPath: "/test/handler.pars",
@@ -400,7 +401,7 @@ func TestHandleScriptErrorWithLocation_ModuleError(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg, configPath: "/app/basil.yaml"}
+	s := &Server{config: cfg, stderr: io.Discard, configPath: "/app/basil.yaml"}
 	h := &parsleyHandler{
 		server:     s,
 		scriptPath: "/app/app.pars", // The parent handler
@@ -437,7 +438,7 @@ func TestHandleScriptErrorWithLocation_ModuleNotFound(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg, configPath: "/app/basil.yaml"}
+	s := &Server{config: cfg, stderr: io.Discard, configPath: "/app/basil.yaml"}
 	h := &parsleyHandler{
 		server: s,
 	}
@@ -548,7 +549,7 @@ func TestHandleScriptError_ProdMode(t *testing.T) {
 			Dev: false,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	h := &parsleyHandler{
 		server:     s,
 		scriptPath: "/test/handler.pars",
@@ -593,7 +594,7 @@ func TestCreateErrorEnv(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	req := httptest.NewRequest("GET", "/test/path?foo=bar", nil)
 	err := fmt.Errorf("test error")
 
@@ -625,7 +626,7 @@ func TestRenderPreludeError_404(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/missing", nil)
 	err := fmt.Errorf("not found")
@@ -669,7 +670,7 @@ func TestRenderPreludeError_500(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/error", nil)
 	err := fmt.Errorf("server error")
@@ -713,7 +714,7 @@ func TestHandle404(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/missing", nil)
 
@@ -749,7 +750,7 @@ func TestHandle500(t *testing.T) {
 			Dev: true,
 		},
 	}
-	s := &Server{config: cfg}
+	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/error", nil)
 	err := fmt.Errorf("test error")

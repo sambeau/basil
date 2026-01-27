@@ -9,6 +9,7 @@ Deferred items from implementation, to be picked up in future work.
 ## High Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #87 | Fix error handler tests (expect HTML, get plain text) | Code cleanup | Tests incorrect for current behavior | Tests `TestHandleScriptError_DevMode`, `TestHandleScriptErrorWithLocation_*`, `TestRenderPreludeError_*`, `TestHandle500` expect HTML responses but code returns plain text when prelude templates fail to render. Either tests need updating to match current plain-text fallback behavior, or code needs fixing to return HTML in all cases. Tests also needed `stderr: io.Discard` fix for nil pointer. |
 | #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | Foundational change | Resolves ambiguity between columns and variables. Design states "Bare identifiers are columns, `{...}` are Parsley expressions". Affects entire DSL parsing. See FEAT-079-gaps.md. |
 | #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | High complexity (3-4 days) | Computed fields from subqueries: `\| comment_count <-Comments \|\| post_id == id \| count`. Requires scalar context detection, aliasing, SQL generation. See FEAT-079-gaps.md. |
 | #3 | Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |

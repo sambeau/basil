@@ -889,23 +889,6 @@ func (s *Server) createRootHandler() http.Handler {
 		}
 
 		// No handler - 404
-		if s.config.Server.Dev {
-			// Styled 404 in dev mode
-			info := Dev404Info{
-				RequestPath: r.URL.Path,
-				StaticRoot:  staticRoot,
-				HasHandler:  rootHandler != nil,
-				RoutePath:   "/",
-				BasePath:    filepath.Dir(s.configPath),
-			}
-			// Add checked paths
-			if staticRoot != "" && r.URL.Path != "/" {
-				relStatic := makeRelativePath(staticRoot, info.BasePath)
-				info.CheckedPaths = append(info.CheckedPaths, relStatic+r.URL.Path)
-			}
-			s.handle404(w, r)
-			return
-		}
 		s.handle404(w, r)
 	})
 }
