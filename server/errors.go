@@ -1088,6 +1088,16 @@ func (s *Server) handle404(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handle500(w http.ResponseWriter, r *http.Request, err error) {
 	// Try prelude error page first
 	if !s.renderPreludeError(w, r, http.StatusInternalServerError, err) {
+		// Fallback - in dev mode, check if dev_error.pars itself has errors
+		if s.config.Server.Dev {
+			if _, parseErr := GetPreludeASTWithError("errors/dev_error.pars"); parseErr != nil {
+				// dev_error.pars has a parse error - show both errors
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "Handler Error:\n%v\n\n---\n\nAdditionally, dev_error.pars failed to render:\n%v\n", err, parseErr)
+				return
+			}
+		}
 		// Fallback to plain text
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
