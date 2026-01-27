@@ -17,6 +17,12 @@
 //     .method (String)       - HTTP method (e.g., "GET")
 //     .path (String)         - Request path
 //     .query (String)        - Query string
+//   .params (Array)          - Request parameters (dev mode only)
+//     Each element is a Dictionary with:
+//       .name (String)       - Parameter name
+//       .value (String)      - Parameter value (redacted if sensitive, truncated if long)
+//       .source (String)     - Source: "query", "form", "json", or "file"
+//       .redacted (Boolean)  - true if value was redacted for security
 //
 // basil (Dictionary)
 //   .version (String)        - Basil version
@@ -121,6 +127,57 @@
 					if (error.request.query) {
 						<tr><td>"Query"</td><td><code style="background:none">error.request.query</code></td></tr>
 					}
+				</table>
+				<br/>
+			</div>
+		}
+
+		if (error.params && error.params.length() > 0) {
+			// Helper to get icon for param source
+			let sourceIcon = fn(source) {
+				if (source == "query") { "🔍" }
+				else if (source == "form") { "📝" }
+				else if (source == "json") { "📦" }
+				else if (source == "file") { "📎" }
+				else { "❓" }
+			}
+			<div class="box">
+				<h5><i class="fa-solid fa-sliders"></i><Sp/>"Parameters"</h5>
+				<table class="tight striped" style="width: 100%">
+					<thead>
+						<tr>
+							<th>"Source"</th>
+							<th>"Name"</th>
+							<th>"Value"</th>
+						</tr>
+					</thead>
+					<tbody>
+						for (param in error.params) {
+							<tr>
+								<td>
+									<span data-tooltip={param.source} style="border-bottom:none">
+										sourceIcon(param.source)
+									</span>
+								</td>
+								<td><code style="background:none">param.name</code></td>
+								<td>
+									if (param.redacted) {
+										<span style="color:#e06c75" data-tooltip="Redacted for security" data-placement="left">
+											<i class="fa-solid fa-lock"></i>
+											" "
+											param.value
+										</span>
+									} else if (param.source == "file") {
+										<span style="color:#61afef">
+											param.value
+										</span>
+									} else {
+										<code style="background:none">param.value.htmlEncode()</code>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
 				</table>
 				<br/>
 			</div>

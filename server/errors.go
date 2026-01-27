@@ -2,8 +2,10 @@ package server
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -798,6 +800,9 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 			"path":   r.URL.Path,
 			"query":  r.URL.RawQuery,
 		}
+
+		// Add params (sanitized for display)
+		errorMap["params"] = extractSanitizedParams(r)
 	}
 
 	errorObj, _ := parsley.ToParsley(errorMap)
@@ -813,6 +818,122 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	env.Set("basil", env.BasilCtx)
 
 	return env
+}
+
+// sensitiveParamPatterns are field names that should be redacted in error displays
+var sensitiveParamPatterns = []string{
+	"password", "passwd", "pwd",
+	"secret", "token", "key", "auth",
+	"credential", "api_key", "apikey",
+	"private", "session",
+}
+
+// isSensitiveParam checks if a parameter name looks sensitive
+func isSensitiveParam(name string) bool {
+	lower := strings.ToLower(name)
+	for _, pattern := range sensitiveParamPatterns {
+		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// truncateValue truncates long values for display
+func truncateValue(value string, maxLen int) string {
+	if len(value) <= maxLen {
+		return value
+	}
+	return value[:maxLen] + "…"
+}
+
+// extractSanitizedParams extracts request params for error display
+// Redacts sensitive fields and truncates long values
+func extractSanitizedParams(r *http.Request) []map[string]interface{} {
+	const maxValueLen = 200
+	params := make([]map[string]interface{}, 0)
+
+	// Helper to add a param
+	addParam := func(name, value, source string) {
+		displayValue := value
+		redacted := false
+		if isSensitiveParam(name) {
+			displayValue = "••••••••"
+			redacted = true
+		} else {
+			displayValue = truncateValue(value, maxValueLen)
+		}
+		params = append(params, map[string]interface{}{
+			"name":     name,
+			"value":    displayValue,
+			"source":   source,
+			"redacted": redacted,
+		})
+	}
+
+	// Query parameters
+	for key, values := range r.URL.Query() {
+		for _, v := range values {
+			addParam(key, v, "query")
+		}
+	}
+
+	// Form parameters (POST/PUT/PATCH)
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
+		contentType := r.Header.Get("Content-Type")
+
+		if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+			// Parse form if not already parsed
+			if r.PostForm == nil {
+				_ = r.ParseForm()
+			}
+			for key, values := range r.PostForm {
+				for _, v := range values {
+					addParam(key, v, "form")
+				}
+			}
+		} else if strings.HasPrefix(contentType, "multipart/form-data") {
+			// Parse multipart if not already parsed
+			if r.MultipartForm == nil {
+				_ = r.ParseMultipartForm(32 << 20)
+			}
+			if r.MultipartForm != nil {
+				// Text values only (not file uploads)
+				for key, values := range r.MultipartForm.Value {
+					for _, v := range values {
+						addParam(key, v, "form")
+					}
+				}
+				// Note file uploads (without content)
+				for key, files := range r.MultipartForm.File {
+					for _, fh := range files {
+						params = append(params, map[string]interface{}{
+							"name":     key,
+							"value":    fmt.Sprintf("[file: %s, %d bytes]", fh.Filename, fh.Size),
+							"source":   "file",
+							"redacted": false,
+						})
+					}
+				}
+			}
+		} else if strings.HasPrefix(contentType, "application/json") {
+			// For JSON, try to extract top-level keys
+			if r.Body != nil {
+				body, _ := io.ReadAll(r.Body)
+				// Restore body for subsequent reads
+				r.Body = io.NopCloser(strings.NewReader(string(body)))
+				var data map[string]interface{}
+				if json.Unmarshal(body, &data) == nil {
+					for key, value := range data {
+						valueStr := fmt.Sprintf("%v", value)
+						addParam(key, valueStr, "json")
+					}
+				}
+			}
+		}
+	}
+
+	return params
 }
 
 // getSourceContext extracts source lines around an error line

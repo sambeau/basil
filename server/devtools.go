@@ -1466,7 +1466,7 @@ func (h *devToolsHandler) renderRawDevToolsError(w http.ResponseWriter, r *http.
 func (h *devToolsHandler) renderDoubleError(w http.ResponseWriter, errorType string, originalErr string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(500)
-	
+
 	// Check what went wrong with dev_error.pars
 	_, devErrorParseErr := GetPreludeASTWithError("errors/dev_error.pars")
 	if devErrorParseErr != nil {
