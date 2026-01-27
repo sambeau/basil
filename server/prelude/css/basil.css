@@ -110,9 +110,56 @@ hl small {
 td,
 th {
 	background: var(--pico-color-azure-950);
-	/* border-color: rgba(255, 255, 255, 0.125); */
 }
 
 td {
 	border-bottom: 0;
+}
+
+table.code td {
+	padding: 4px;
+}
+
+table.code td:first-child {
+	border-top-left-radius: var(--pico-border-radius);
+	border-bottom-left-radius: var(--pico-border-radius);
+}
+
+table.code td:last-child {
+	border-top-right-radius: var(--pico-border-radius);
+	border-bottom-right-radius: var(--pico-border-radius);
+}
+
+table.code pre {
+	margin: 0;
+}
+
+table.code tr.error td {
+	background-color: rgba(from var(--pico-primary) r g b / 0.25) !important;
+}
+
+table.code tr.error td pre {
+	color: white;
+}
+
+table.code.striped tr.empty {
+	background-color: var(--pico-color-azure-950) !important;
+	height: 0;
+}
+
+table.code.striped tr.empty td {
+	background-color: var(--pico-color-azure-950) !important;
+	height: 1rem;
+}
+
+.error-message {
+	color: var(--pico-primary);
+}
+
+.marker {
+	color: var(--pico-color-red-500);
+}
+
+table.tight td {
+	padding: 4px;
 }

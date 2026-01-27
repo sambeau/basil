@@ -26,65 +26,100 @@
 	<div class="scroll">
 		<Header
 			title={error.code}
-			info={}
+			info=""
 			back=""
-			subtitle={if (error.file) (path(error.file ).basename ) + " : " + error.line else ""}
+			subtitle={error.message}
 			actions=""
 		/>
 		<div class="box">
-			<h3>error.code<Sp/>error.message.htmlEncode()</h3>
+			// <h4>error.code<Sp/>error.message.htmlEncode()</h4>
 			if (error.message_text) {
-				<hr/>
-				<h4>"Error"</h4>
-				if (error.file) {
-					<div class="location">"@ " + error.file + " >> " + error.line + " : " + error.column</div>
-				}
-				<div class="box"><p><code style="background:none">error.message_text.htmlEncode()</code></p></div>
-
+				// <hr/>
+				<h4><i class="fa-solid fa-triangle-exclamation"></i><Sp/>"Error"</h4>
+				<div class="box">
+					<pre class="error-message" style="background:none;">error
+						.message_text
+						.htmlEncode()</pre>
+				</div>
 			}
 
 			if (error.source) {
 				lines = error.source
 				finalLineWidth = toString(lines[-1].number).length()
-				<hr/>
-				<h3>"Source Code"</h3>
-				<pre class="code-block">
+				errorPath = path(error.file)
+				errorDir = errorPath.segments[:-1].join(" / ")
+				filename = errorPath.filename
+				<h5><i class="fa-solid fa-code"></i><Sp/>"Source Code"</h5>
+				if (error.file) {
+					<div class="location">
+							<Sp/>
+							<i class="fa-solid fa-file"></i>
+							<Sp/>
+							errorDir + " / " + <span class="bright">filename</span>
+							<Sp/>
+							<i class="fa-solid fa-angles-right"></i>
+							<Sp/>
+							<small>
+								<span class="bright">error.line</span>
+								" : "
+								error.column
+							</small>
+					</div>
+				}
+				<table class="striped code">
+					<tr class="empty"><td></td><td></td><td></td></tr>
 					for (line in lines) {
 						thisLineWidth = toString(line.number).length()
 						let pad = if (thisLineWidth < finalLineWidth) " " else ""
+						let codeLine = line.content.htmlEncode()
 						if (line.is_error) {
-							<span class="line-error">pad + line.number + "| " + line
-								.content
-								.htmlEncode() + " <-- ERROR"</span>
-							<br/>
+							<tr class="error">
+								<td align="right">
+									"&nbsp;"
+									<i class="fa-solid fa-play fa-beat-fade marker"></i>
+								</td>
+								<td align="right">
+									<pre style="background:none !important">pad + line.number</pre>
+								</td>
+								<td>
+									<pre style="background:none !important;position:relative;">codeLine</pre>
+								</td>
+								<td></td>
+							</tr>
 						} else {
-							<span class="line-number">pad + line.number</span>
-							"| " + line.content.htmlEncode()
-							<br/>
+							<tr>
+								<td></td>
+								<td align="right">
+									<pre style="background:none !important">pad + line.number</pre>
+								</td>
+								<td>
+									<pre style="background:none !important">codeLine</pre>
+								</td>
+								<td></td>
+							</tr>
 						}
 					}
-				</pre>
+				</table>
 			}
 			<br/>
 
 		</div>
 		if (error.request) {
 			<div class="box">
-				<h3>"Request"</h3>
-				<table style="width: 0 !important">
+				<h5><i class="fa-solid fa-circle-question"></i><Sp/>"Request"</h5>
+				<table class="tight" style="width: 0 !important">
 					<tr>
 						<td>"Method"</td>
-						<td><code style="background:none">error.request.method</code></td>
+						<td>
+							<code style="background:none">error.request.method</code>
+						</td>
 					</tr>
 					<tr>
 						<td>"Path"</td>
 						<td><code style="background:none">error.request.path</code></td>
 					</tr>
 					if (error.request.query) {
-						<tr>
-							<td>"Query"</td>
-							<td>error.request.query</td>
-						</tr>
+						<tr><td>"Query"</td><td>error.request.query</td></tr>
 					}
 				</table>
 				<br/>
@@ -92,17 +127,17 @@
 		}
 
 		<div class="box">
-			<h3>"Server"</h3>
-				<table style="width: 0 !important">
+			<h5><Logo height="28"/>"&nbsp;Basil"</h5>
+				<table class="tight" style="width: 0 !important">
 				<tr>
 					<td>"Version"</td>
-					<td><code style="background:none">basil.version</code></td>
+					<td><code style="background:none">"Basil " + (basil.version ~ /^version (.*?)$/)[1]</code></td>
 				</tr>
 				<tr>
 					<td>"Mode"</td>
 					<td><code style="background:none">"development"</code></td>
 				</tr>
-				</table>
+			</table>
 			<br/>
 		</div>
 	</div>
