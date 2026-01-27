@@ -13,7 +13,7 @@
 //       .number (Integer)    - Line number
 //       .content (String)    - Line content
 //       .is_error (Boolean)  - true if this is the error line
-//   .request (Dictionary)    - Request information (dev mode only)
+//   .request (Dictionary)    - Request (dev mode only)
 //     .method (String)       - HTTP method (e.g., "GET")
 //     .path (String)         - Request path
 //     .query (String)        - Query string
@@ -22,78 +22,88 @@
 //   .version (String)        - Basil version
 //   .dev (Boolean)           - true if in development mode
 
-<<Page>
-	<div class="container">
-		<h1>
-			<span class="error-code">error.code</span>
-			error.message.htmlEncode() 
-		</h1>
-		if (error.message_text) {
-			<div class="section">
-				<h2>"Error Details"</h2>
-				<div class="message">error.message_text.htmlEncode() </div>
+<Page>
+	<div class="scroll">
+		<Header
+			title={error.code}
+			info={}
+			back=""
+			subtitle={if (error.file) (path(error.file ).basename ) + " : " + error.line else ""}
+			actions=""
+		/>
+		<div class="box">
+			<h3>error.code<Sp/>error.message.htmlEncode()</h3>
+			if (error.message_text) {
+				<hr/>
+				<h4>"Error"</h4>
 				if (error.file) {
-					<div class="location">
-						"at " + error.file + ":" + error.line + ":" + error.column
-					</div>
+					<div class="location">"@ " + error.file + " >> " + error.line + " : " + error.column</div>
 				}
-			</div>
-		}
-		
-		if (error.source) {
-			lines = error.source
-			finalLineWidth = toString(lines[-1].number).length()
-			<div class="section">
-				<h2>"Source Code"</h2>
+				<div class="box"><p><code style="background:none">error.message_text.htmlEncode()</code></p></div>
+
+			}
+
+			if (error.source) {
+				lines = error.source
+				finalLineWidth = toString(lines[-1].number).length()
+				<hr/>
+				<h3>"Source Code"</h3>
 				<pre class="code-block">
 					for (line in lines) {
 						thisLineWidth = toString(line.number).length()
 						let pad = if (thisLineWidth < finalLineWidth) " " else ""
 						if (line.is_error) {
-							<span class="line-error">pad + line.number + "| " + line.content.htmlEncode() + " <-- ERROR"</span><br/>
+							<span class="line-error">pad + line.number + "| " + line
+								.content
+								.htmlEncode() + " <-- ERROR"</span>
+							<br/>
 						} else {
-							<span class="line-number">pad + line.number</span>"| " + line.content.htmlEncode()<br/>
+							<span class="line-number">pad + line.number</span>
+							"| " + line.content.htmlEncode()
+							<br/>
 						}
 					}
-				</pre>	
-			</div>
-		}
-		
+				</pre>
+			}
+			<br/>
+
+		</div>
 		if (error.request) {
-			<div class="section">
-				<h2>"Request Information"</h2>
-				<div class="request-info">
-					<div class="request-row">
-						<div class="request-label">"Method:"</div>
-						<div class="request-value">error.request.method</div>
-					</div>
-					<div class="request-row">
-						<div class="request-label">"Path:"</div>
-						<div class="request-value">error.request.path</div>
-					</div>
+			<div class="box">
+				<h3>"Request"</h3>
+				<table style="width: 0 !important">
+					<tr>
+						<td>"Method"</td>
+						<td><code style="background:none">error.request.method</code></td>
+					</tr>
+					<tr>
+						<td>"Path"</td>
+						<td><code style="background:none">error.request.path</code></td>
+					</tr>
 					if (error.request.query) {
-						<div class="request-row">
-							<div class="request-label">"Query:"</div>
-							<div class="request-value">error.request.query</div>
-						</div>
+						<tr>
+							<td>"Query"</td>
+							<td>error.request.query</td>
+						</tr>
 					}
-				</div>
+				</table>
+				<br/>
 			</div>
 		}
-		
-		<div class="section">
-			<h2>"Server Information"</h2>
-			<div class="request-info">
-				<div class="request-row">
-					<div class="request-label">"Version:"</div>
-					<div class="request-value">basil.version</div>
-				</div>
-				<div class="request-row">
-					<div class="request-label">"Mode:"</div>
-					<div class="request-value">"development"</div>
-				</div>
-			</div>
+
+		<div class="box">
+			<h3>"Server"</h3>
+				<table style="width: 0 !important">
+				<tr>
+					<td>"Version"</td>
+					<td><code style="background:none">basil.version</code></td>
+				</tr>
+				<tr>
+					<td>"Mode"</td>
+					<td><code style="background:none">"development"</code></td>
+				</tr>
+				</table>
+			<br/>
 		</div>
 	</div>
-<Page>
-
+</Page>

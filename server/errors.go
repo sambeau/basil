@@ -931,11 +931,17 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 		errorMap["message_text"] = errMsg
 
 		if file != "" {
-			errorMap["file"] = file
+			// Make file path relative to base directory for cleaner display
+			displayFile := file
+			if s.config.BaseDir != "" && strings.HasPrefix(file, s.config.BaseDir) {
+				displayFile = strings.TrimPrefix(file, s.config.BaseDir)
+				displayFile = strings.TrimPrefix(displayFile, "/")
+			}
+			errorMap["file"] = displayFile
 			errorMap["line"] = line
 			errorMap["column"] = col
 
-			// Try to get source context
+			// Try to get source context (use original absolute path)
 			if sourceLines := s.getSourceContext(file, line, 3); len(sourceLines) > 0 {
 				// Convert to array of maps for Parsley
 				linesArray := make([]interface{}, len(sourceLines))
