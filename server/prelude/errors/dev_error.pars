@@ -119,7 +119,7 @@
 						<td><code style="background:none">error.request.path</code></td>
 					</tr>
 					if (error.request.query) {
-						<tr><td>"Query"</td><td>error.request.query</td></tr>
+						<tr><td>"Query"</td><td><code style="background:none">error.request.query</code></td></tr>
 					}
 				</table>
 				<br/>
