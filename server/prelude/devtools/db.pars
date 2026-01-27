@@ -2,6 +2,8 @@
 //
 // devtools (Dictionary)
 //   .error (String)          - Error message if database operation failed (optional)
+//   .db_filename (String)    - Base filename of the SQLite database (e.g., "data.db")
+//   .db_size (Integer)       - Size of the database file in bytes
 //   .tables (Array)          - Database tables as array of dictionaries
 //     Each element is a Dictionary with:
 //       .name (String)         - Table name
@@ -25,22 +27,34 @@
 shortVersion = basil.version ~ /v\d+\.\d+\.\d+/
 
 old_actions = <div class="db-actions">
-			<a href="/__/db/download" class="btn-download">"📥"</a>
-			<form class="upload-form" id="uploadForm" enctype="multipart/form-data">
-				<input type="file" id="fileInput" name="database" accept=".db,.sqlite,.sqlite3" class="file-input"/>
-				<label for="fileInput" class="file-label">"📤"</label>
-				<span class="file-name" id="fileName"></span>
-				<button type="submit" class="btn-upload" id="uploadBtn">"Upload"</button>
-			</form>
-		</div>
+	<a href="/__/db/download" class="btn-download">"📥"</a>
+	<form
+		class="upload-form"
+		id="uploadForm"
+		enctype="multipart/form-data"
+	>
+		<input
+			type="file"
+			id="fileInput"
+			name="database"
+			accept=".db,.sqlite,.sqlite3"
+			class="file-input"
+		/>
+		<label for="fileInput" class="file-label">"📤"</label>
+		<span class="file-name" id="fileName"></span>
+		<button type="submit" class="btn-upload" id="uploadBtn">"Upload"</button>
+	</form>
+</div>
 
-subtitle = if (!devtools.error && devtools.table_count > 0) {
-				devtools.table_count + " " + if (devtools.table_count == 1) { "table" } else { "tables" }
-			} else if (devtools.error){
-				<span style="color:red">"⚠️ Error"</span>
-			} else if (devtools.table_count > 0){
-				"No tables"
-			}
+subtitle = <>
+	<i class="fa-solid fa-database"></i>
+	<Sp/>
+	if (!devtools.error && devtools.table_count > 0) {
+		devtools.table_count + " " + if (devtools.table_count == 1) "table" else "tables"
+	} else if (devtools.error) { <span style="color:red">"⚠️ Error"</span> } else if (devtools.table_count > 0) {
+		"No tables"
+	}
+</>
 
 actions = <>
 	<a
@@ -50,18 +64,19 @@ actions = <>
 		style="font-size:150%"
 		id="live-refresh-toggle"
 	>
-		<i class="fa-solid fa-upload"></i>
+		<i class="fa-solid fa-arrow-up-from-bracket"></i>
 	</a>
 	<Sp/>
 	<Sp/>
 	<a
-		 href="/__/db/download"
+		href="/__/db/download"
 		onclick=""
 		data-tooltip="Download database file"
+		data-placement="left"
 		style="font-size:150%"
 		id="live-refresh-toggle"
 	>
-		<i class="fa-solid fa-download"></i>
+		<i class="fa-solid fa-arrow-right-to-bracket fa-rotate-90"></i>
 	</a>
 </>
 
@@ -99,8 +114,8 @@ actions = <>
 		}
 	</style>
 	<Header
-		title="@DB"
-		info={}
+		title="DB"
+		info={`{devtools.db_filename} ({devtools.db_size.humanize()}B)`}
 		back="/__/"
 		subtitle={subtitle}
 		actions={actions}
@@ -117,31 +132,41 @@ actions = <>
 			</div>
 		}
 		if (!devtools.error && devtools.table_count == 0) {
-			<div class="empty-state">
-				"No tables found in database."
-			</div>
+			<div class="empty-state">"No tables found in database."</div>
 		}
 		if (!devtools.error && devtools.table_count > 0) {
 
 			<div class="table-list">
 				for (t in devtools.tables) {
-					columns = table(t.columns).map(fn(row){{
-						"Name": row.name,
-						"Type": row.type,
-						"Default": (row.default ?? "-"),
-						"Null": if(row.not_null) "-" else "✅",
-						"Primary": if(row.pk) "✅" else "-",
-					}})
+					columns = table(t.columns).map(
+						fn(row) {
+							{
+								Name: row.name,
+								Type: row.type,
+								Default: (row.default ?? "-"),
+								Null: if (row.not_null) "-" else "✅",
+								Primary: if (row.pk) "✅" else "-",
+							}
+						}
+					)
 					<div class="box">
-							<h4><a href={"/__/db/view/" + t.name} class=""><i class="fa-solid fa-table"></i>
+						<h4>
+							<a
+								href={"/__/db/view/" + t.name}
+								style="text-decoration: none !important;"
+							>
+								<i class="fa-solid fa-table"></i>
 								<Sp/>
 								t.name
-								</a>
-							</h4>
-							<div class="table-info">t.row_count + " " + 
-								if (t.row_count == 1) { "row" } else { "rows" }
-							</div><br/>
-							columns.toHTML()
+								<Sp/>
+								<i class="fa-solid fa-chevron-right"></i>
+							</a>
+						</h4>
+						<div class="table-info">t.row_count + " " + if (t.row_count == 1) {
+							"row"
+						} else { "rows" }</div>
+						<br/>
+						columns.toHTML()
 					</div>
 				}
 			</div>
@@ -167,7 +192,7 @@ actions = <>
 		// Handle form submission
 		document.getElementById('uploadForm').addEventListener('submit', async function(e) {
 			e.preventDefault();
-			
+
 			const file = fileInput.files[0];
 			if (!file) return;
 

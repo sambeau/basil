@@ -30,26 +30,26 @@
 	<title>"Error " + error.code</title>
 	<link rel="stylesheet" href="/__/css/devtools.css"/>
 	<style>
-		/* Error page overrides */
-		h1 {
-			color: var(--dt-danger);
-		}
-		.section {
-			border-left-color: var(--dt-danger);
-		}
-		.stack {
-			background: var(--dt-bg-code);
-			padding: 1rem;
-			border-radius: var(--dt-radius-sm);
-			font-family: var(--dt-font-mono);
-			font-size: 0.875rem;
-			overflow-x: auto;
-			white-space: pre;
-		}
-		.stack-line {
-			line-height: 1.5;
-			color: #95a5a6;
-		}
+		// /* Error page overrides */
+		// h1 {
+		// 	color: var(--dt-danger);
+		// }
+		// .section {
+		// 	border-left-color: var(--dt-danger);
+		// }
+		// .stack {
+		// 	background: var(--dt-bg-code);
+		// 	padding: 1rem;
+		// 	border-radius: var(--dt-radius-sm);
+		// 	font-family: var(--dt-font-mono);
+		// 	font-size: 0.875rem;
+		// 	overflow-x: auto;
+		// 	white-space: pre;
+		// }
+		// .stack-line {
+		// 	line-height: 1.5;
+		// 	color: #95a5a6;
+		// }
 	</style>
 </head>
 <body>
@@ -71,14 +71,18 @@
 		}
 		
 		if (error.source) {
+			lines = error.source
+			finalLineWidth = toString(lines[-1].number).length()
 			<div class="section">
 				<h2>"Source Code"</h2>
 				<pre class="code-block">
-					for (line in error.source) {
+					for (line in lines) {
+						thisLineWidth = toString(line.number).length()
+						let pad = if (thisLineWidth < finalLineWidth) " " else ""
 						if (line.is_error) {
-							<span class="line-error">line.number + " | " + line.content.htmlEncode() + " <-- ERROR"</span><br/>
+							<span class="line-error">pad + line.number + "| " + line.content.htmlEncode() + " <-- ERROR"</span><br/>
 						} else {
-							<span class="line-number">line.number</span>"| " + line.content.htmlEncode()<br/>
+							<span class="line-number">pad + line.number</span>"| " + line.content.htmlEncode()<br/>
 						}
 					}
 				</pre>	

@@ -86,14 +86,21 @@ func EnablePreludeDevMode(basePath string) {
 
 // parsePreludeFromDisk reads and parses a prelude file from disk (dev mode)
 func parsePreludeFromDisk(relativePath string) *ast.Program {
+	program, _ := parsePreludeFromDiskWithError(relativePath)
+	return program
+}
+
+// parsePreludeFromDiskWithError reads and parses a prelude file from disk (dev mode)
+// Returns the AST and any parse error that occurred
+func parsePreludeFromDiskWithError(relativePath string) (*ast.Program, error) {
 	if preludeBasePath == "" {
-		return nil
+		return nil, fmt.Errorf("prelude dev mode not enabled")
 	}
 
 	fullPath := filepath.Join(preludeBasePath, relativePath)
 	source, err := os.ReadFile(fullPath)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("reading %s: %w", relativePath, err)
 	}
 
 	l := lexer.New(string(source))
@@ -101,12 +108,13 @@ func parsePreludeFromDisk(relativePath string) *ast.Program {
 	program := p.ParseProgram()
 
 	if len(p.Errors()) > 0 {
-		// In dev mode, log parse errors but return nil
-		fmt.Printf("prelude dev: parse error in %s: %v\n", relativePath, p.Errors())
-		return nil
+		// In dev mode, log parse errors and return the error
+		errMsg := fmt.Sprintf("parse error in %s: %v", relativePath, p.Errors())
+		fmt.Printf("prelude dev: %s\n", errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
-	return program
+	return program, nil
 }
 
 // initJSHash initializes the version hash for basil.js
@@ -144,6 +152,20 @@ func GetPreludeAST(relativePath string) *ast.Program {
 		return parsePreludeFromDisk(relativePath)
 	}
 	return preludeASTs[relativePath]
+}
+
+// GetPreludeASTWithError returns the parsed AST and any error that occurred.
+// In dev mode, this re-reads and re-parses the file from disk on each call.
+func GetPreludeASTWithError(relativePath string) (*ast.Program, error) {
+	if preludeDevMode {
+		// Dev mode: always read from disk for live reload
+		return parsePreludeFromDiskWithError(relativePath)
+	}
+	program, exists := preludeASTs[relativePath]
+	if !exists {
+		return nil, fmt.Errorf("template not found: %s", relativePath)
+	}
+	return program, nil
 }
 
 // HasPreludeAST checks if a prelude AST exists for the given path

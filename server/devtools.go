@@ -1765,6 +1765,25 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 	case path == "/__/db" || path == "/__/db/":
 		// Database overview page
+		// Add database file info
+		dbPath := h.server.config.SQLite
+		if dbPath != "" {
+			devtoolsMap["db_filename"] = filepath.Base(dbPath)
+			// Resolve to absolute path for stat
+			absPath := dbPath
+			if !filepath.IsAbs(dbPath) {
+				absPath = filepath.Join(h.server.config.BaseDir, dbPath)
+			}
+			if stat, err := os.Stat(absPath); err == nil {
+				devtoolsMap["db_size"] = stat.Size()
+			} else {
+				devtoolsMap["db_size"] = 0
+			}
+		} else {
+			devtoolsMap["db_filename"] = ""
+			devtoolsMap["db_size"] = 0
+		}
+
 		db, err := h.openAppDB()
 		if err != nil {
 			devtoolsMap["error"] = err.Error()
@@ -2097,10 +2116,10 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 // handleDevToolsWithPrelude renders DevTools pages using Parsley templates from prelude
 func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *http.Request, templateName string) {
-	// Get the prelude AST
-	ast := GetPreludeAST("devtools/" + templateName)
-	if ast == nil {
-		http.Error(w, fmt.Sprintf("Template not found: %s", templateName), http.StatusInternalServerError)
+	// Get the prelude AST with error context
+	ast, parseErr := GetPreludeASTWithError("devtools/" + templateName)
+	if parseErr != nil {
+		h.renderRawDevToolsError(w, parseErr.Error())
 		return
 	}
 
@@ -2110,7 +2129,7 @@ func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *ht
 	// Evaluate
 	result := evaluator.Eval(ast, env)
 	if err, ok := result.(*evaluator.Error); ok {
-		http.Error(w, fmt.Sprintf("Template error: %s", err.Message), http.StatusInternalServerError)
+		h.renderDevToolsError(w, r, templateName, err)
 		return
 	}
 
@@ -2131,4 +2150,63 @@ func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *ht
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, output)
+}
+
+// renderDevToolsError renders an error that occurred in a devtools template.
+// It tries to use dev_error.pars for nice formatting, but falls back to a raw <pre>
+// block if that's not possible (e.g., if dev_error.pars itself has the error).
+func (h *devToolsHandler) renderDevToolsError(w http.ResponseWriter, r *http.Request, templateName string, err *evaluator.Error) {
+	// Build error message with context
+	errDetails := fmt.Sprintf("DevTools template error in: devtools/%s\n\n%s", templateName, err.Message)
+	if err.File != "" {
+		errDetails += fmt.Sprintf("\n\nFile: %s", err.File)
+		if err.Line > 0 {
+			errDetails += fmt.Sprintf(":%d", err.Line)
+			if err.Column > 0 {
+				errDetails += fmt.Sprintf(":%d", err.Column)
+			}
+		}
+	}
+	for _, hint := range err.Hints {
+		errDetails += fmt.Sprintf("\nHint: %s", hint)
+	}
+
+	// Don't try to use dev_error.pars to render its own errors (infinite recursion)
+	if templateName == "errors/dev_error.pars" || strings.HasSuffix(templateName, "/dev_error.pars") {
+		h.renderRawDevToolsError(w, errDetails)
+		return
+	}
+
+	// Try to render using the standard error page system
+	wrappedErr := fmt.Errorf("%s at %s:%d:%d", err.Message, err.File, err.Line, err.Column)
+	if h.server.renderPreludeError(w, r, 500, wrappedErr) {
+		return
+	}
+
+	// Fallback to raw <pre> block
+	h.renderRawDevToolsError(w, errDetails)
+}
+
+// renderRawDevToolsError renders a minimal error page with just a <pre> block.
+// Used when dev_error.pars cannot be used (e.g., when it's the one with the error).
+func (h *devToolsHandler) renderRawDevToolsError(w http.ResponseWriter, errDetails string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(500)
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head>
+<title>DevTools Error</title>
+<style>
+body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 2rem; }
+h1 { color: #ff6b6b; }
+pre { background: #16213e; padding: 1.5rem; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; border-left: 4px solid #ff6b6b; }
+a { color: #4ecdc4; }
+</style>
+</head>
+<body>
+<h1>⚠️ DevTools Template Error</h1>
+<pre>%s</pre>
+<p><a href="/__/">← Back to DevTools</a></p>
+</body>
+</html>`, html.EscapeString(errDetails))
 }

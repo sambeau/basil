@@ -2627,6 +2627,13 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 		literal = tokenTypeToReadableName(t)
 	}
 
+	// For ILLEGAL tokens, always report at the token's actual location
+	// since the error is the token itself, not a missing expression
+	if t == lexer.ILLEGAL {
+		p.addError(literal, p.curToken.Line, p.curToken.Column)
+		return
+	}
+
 	// If curToken is on a new line compared to prevToken,
 	// report the error at the previous token (where the expression should have been)
 	line := p.curToken.Line
@@ -2641,12 +2648,7 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 		column = p.prevToken.Column + len(p.prevToken.Literal)
 	}
 
-	// ILLEGAL tokens already contain a descriptive error message, use it directly
-	if t == lexer.ILLEGAL {
-		p.addError(literal, line, column)
-	} else {
-		p.addError(fmt.Sprintf("unexpected '%s'", literal), line, column)
-	}
+	p.addError(fmt.Sprintf("unexpected '%s'", literal), line, column)
 }
 
 // checkKeywordTypo checks if an identifier is a common misspelling of a keyword

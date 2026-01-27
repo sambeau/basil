@@ -23,7 +23,7 @@ let Header = fn({title, info, back, subtitle, actions}) {
 
 		<div class="header-row">
 			<div class="left">
-				<a href={back} class="btn" style="font-size:150%" data-tooltip="Back">
+                if (back) <a href={back} class="btn" style="font-size:155%" data-tooltip="Back">
 					<i class="fa-solid fa-circle-arrow-left"></i>
 				</a>
 			</div>

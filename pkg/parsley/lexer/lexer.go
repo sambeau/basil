@@ -1221,6 +1221,18 @@ var CurrencyScales = map[string]int8{
 	"SAR": 2, "QAR": 2, "EGP": 2, "PKR": 2, "NGN": 2,
 }
 
+// currencySymbolToDisplay converts a currency code to its display symbol if known
+func currencySymbolToDisplay(code string) string {
+	// Reverse lookup from symbolToCurrency
+	for symbol, c := range symbolToCurrency {
+		if c == code {
+			return symbol
+		}
+	}
+	// If not found, return the code itself
+	return code
+}
+
 // isCurrencyCodeStart checks if current position starts a CODE# money literal
 func (l *Lexer) isCurrencyCodeStart() bool {
 	// Must be uppercase letter
@@ -1355,7 +1367,8 @@ func (l *Lexer) readMoneyLiteral() Token {
 	// Read the number
 	numStr := l.readNumber()
 	if numStr == "" {
-		return Token{Type: ILLEGAL, Literal: currency}
+		// Currency symbol found but no valid number follows
+		return Token{Type: ILLEGAL, Literal: fmt.Sprintf("currency symbol '%s' must be followed by a number", currencySymbolToDisplay(currency))}
 	}
 
 	// Calculate scale from decimal places in the literal
@@ -1379,11 +1392,11 @@ func (l *Lexer) readMoneyLiteral() Token {
 		scale = knownScale
 		// Validate: currencies like JPY shouldn't have decimals in literal
 		if literalScale > 0 && knownScale == 0 {
-			return Token{Type: ILLEGAL, Literal: currency + "#" + numStr}
+			return Token{Type: ILLEGAL, Literal: fmt.Sprintf("%s does not allow decimal places (got %s)", currency, numStr)}
 		}
 		// Validate: literal can't have more decimal places than currency allows
 		if literalScale > knownScale {
-			return Token{Type: ILLEGAL, Literal: currency + "#" + numStr}
+			return Token{Type: ILLEGAL, Literal: fmt.Sprintf("%s allows max %d decimal places (got %d in %s)", currency, knownScale, literalScale, numStr)}
 		}
 	}
 

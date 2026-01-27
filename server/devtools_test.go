@@ -39,8 +39,8 @@ func TestDevToolsIndex(t *testing.T) {
 	}
 
 	body := w.Body.String()
-	if !strings.Contains(body, "Basil Dev Tools") {
-		t.Error("expected index page to contain 'Basil Dev Tools'")
+	if !strings.Contains(body, "Basil") {
+		t.Errorf("expected index page to contain 'Basil', got: %s", body[:min(500, len(body))])
 	}
 	if !strings.Contains(body, "/__/logs") {
 		t.Error("expected index page to contain link to logs")
@@ -444,8 +444,8 @@ func TestDevToolsEnv(t *testing.T) {
 	if !strings.Contains(body, "8080") {
 		t.Error("expected port to be displayed")
 	}
-	if !strings.Contains(body, "Environment") {
-		t.Error("expected Environment title")
+	if !strings.Contains(body, "ENV") {
+		t.Error("expected ENV title")
 	}
 }
 

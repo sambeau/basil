@@ -15,104 +15,83 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>"Table: " + devtools.table_name</title>
-	<link rel="stylesheet" href="/__/css/devtools.css"/>
-	<style>
-		/* Page-specific styles for table page */
-		h1 {
-			font-family: var(--dt-font-mono);
-		}
-		.upload-form {
-			display: inline-block;
-		}
-		.btn-upload {
-			cursor: pointer;
-		}
-		.btn-upload input[type="file"] {
-			display: none;
-		}
-		.table-wrapper {
-			overflow-x: auto;
-			background: var(--dt-bg-secondary);
-			border-radius: var(--dt-radius);
-			padding: 1rem;
-		}
-		table {
-			width: 100%;
-			border-collapse: collapse;
-			font-size: 0.875rem;
-		}
-		th {
-			background: var(--dt-bg-primary);
-			color: var(--dt-accent);
-			padding: 0.75rem;
-			text-align: left;
-			font-weight: 600;
-			border-bottom: 2px solid var(--dt-accent);
-			white-space: nowrap;
-		}
-		td {
-			padding: 0.75rem;
-			border-bottom: 1px solid #0f3460;
-			font-family: var(--dt-font-mono);
-		}
-		tr:last-child td {
-			border-bottom: none;
-		}
-		tr:hover {
-			background: var(--dt-bg-primary);
-		}
-		.null-value {
-			color: var(--dt-text-muted);
-			font-style: italic;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="header">
-			<h1>"🗄️ " + devtools.table_name</h1>
-			<div>
-				<a href={"/__/db/download/" + devtools.table_name} class="btn" style="margin-right: 0.5rem;">"⬇️ Download CSV"</a>
-				<form action={"/__/db/upload/" + devtools.table_name} method="POST" enctype="multipart/form-data" class="upload-form" style="display: inline-block; margin-right: 0.5rem;">
-					<label class="btn btn-upload">
-						"⬆️ Replace from CSV"
-						<input type="file" name="file" accept=".csv" onchange="this.form.submit()"/>
-					</label>
-				</form>
-				<a href="/__/db" class="btn">"← Back to Tables"</a>
-			</div>
-		</div>
+old_header = <div class="header">
+	<h1>"🗄️ " + devtools.table_name</h1>
+	<div>
+		<a
+			href={"/__/db/download/" + devtools.table_name}
+			class="btn"
+			style="margin-right: 0.5rem;"
+		>
+			"⬇️ Download CSV"
+		</a>
+		<form
+			action={"/__/db/upload/" + devtools.table_name}
+			method="POST"
+			enctype="multipart/form-data"
+			class="upload-form"
+			style="display: inline-block; margin-right: 0.5rem;"
+		>
+			<label class="btn btn-upload">"⬆️ Replace from CSV"<input
+				type="file"
+				name="file"
+				accept=".csv"
+				onchange="this.form.submit()"
+			/></label>
+		</form>
+		<a href="/__/db" class="btn">"← Back to Tables"</a>
+	</div>
+</div>
 
+rows = devtools.row_count + " " + if (devtools.row_count == 1) "row" else "rows"
+actions = <>
+	<a
+		href="#"
+		onclick=""
+		data-tooltip="Upload CSV file"
+		style="font-size:150%"
+		id="live-refresh-toggle"
+	>
+		<i class="fa-solid fa-arrow-up-from-bracket"></i>
+	</a>
+	<Sp/>
+	<Sp/>
+	<a
+		href={"/__/db/download/" + devtools.table_name}
+		onclick=""
+		data-tooltip="Download CSV file"
+		data-placement="left"
+		style="font-size:150%"
+		id="live-refresh-toggle"
+	>
+		<i class="fa-solid fa-arrow-right-to-bracket fa-rotate-90"></i>
+	</a>
+</>
+<Page title="">
+
+	<Header
+		title={devtools.table_name}
+		info={devtools.table_name + ".csv"}
+		back="/__/db"
+		subtitle={<><i class="fa-solid fa-table"></i><Sp/>rows</>}
+		actions={actions}
+	/>
+
+	<div class="scroll">
 		if (devtools.error) {
-			<div class="error-state">
+			<div class="box">
 				<div class="error-title">"Database Error"</div>
 				<div class="error-message">devtools.error</div>
 			</div>
 		}
 		if (!devtools.error && devtools.row_count == 0) {
-			<div class="empty-state">
-				"No rows in this table."
-			</div>
+			<div class="box">"No rows in this table."</div>
 		}
 		if (!devtools.error && devtools.row_count > 0) {
-			<div class="stats">
-				devtools.row_count + " " + if (devtools.row_count == 1) { "row" } else { "rows" } + " • " + devtools.column_count + " " + if (devtools.column_count == 1) { "column" } else { "columns" }
-			</div>
-
-			<div class="table-wrapper">
-				<table>
+			<div class="box">
+				<table class="striped">
 					<thead>
-						<tr>
-							for (col in devtools.columns) {
-								<th>col</th>
-							}
-						</tr>
+						<tr>for (col in devtools.columns) { <th>col</th> }</tr>
 					</thead>
 					<tbody>
 						for (row in devtools.rows) {
@@ -120,10 +99,8 @@
 								for (cell in row) {
 									<td>
 										if (cell == null) {
-											<span class="null-value">"NULL"</span>
-										} else {
-											cell
-										}
+											<span class="null-value">"–"</span>
+										} else { cell }
 									</td>
 								}
 							</tr>
@@ -133,5 +110,4 @@
 			</div>
 		}
 	</div>
-</body>
-</html>
+</Page>

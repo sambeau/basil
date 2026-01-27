@@ -64,6 +64,7 @@ The auth database (`.basil-auth.db`) is completely separate:
 - All credential management happens in Go
 
 **Security model:**
+
 ```
 ┌─────────────────────────────────────────┐
 │  Parsley Handler                        │
@@ -132,6 +133,7 @@ Registration form with WebAuthn:
 ```
 
 Renders semantic HTML:
+
 ```html
 <form class="basil-auth-register my-form-class">
   <input type="text" name="name" class="basil-auth-input" placeholder="Your name" required/>
@@ -155,6 +157,7 @@ Login button with WebAuthn:
 ```
 
 Renders:
+
 ```html
 <div class="basil-auth-login login-btn">
   <button type="button" class="basil-auth-button">Sign in</button>
@@ -438,6 +441,7 @@ Shows the user's existing API keys with revoke buttons:
 ```
 
 Renders:
+
 ```html
 <div class="basil-apikey-list my-key-list">
   <table>
