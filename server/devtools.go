@@ -2119,7 +2119,12 @@ func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *ht
 	// Get the prelude AST with error context
 	ast, parseErr := GetPreludeASTWithError("devtools/" + templateName)
 	if parseErr != nil {
-		h.renderRawDevToolsError(w, parseErr.Error())
+		// Try to render using dev_error.pars, fall back to plain text
+		wrappedErr := fmt.Errorf("%s", parseErr.Error())
+		if !h.server.renderPreludeError(w, r, 500, wrappedErr) {
+			// dev_error.pars also failed - output plain text
+			h.renderPlainTextError(w, parseErr.Error())
+		}
 		return
 	}
 
@@ -2173,7 +2178,7 @@ func (h *devToolsHandler) renderDevToolsError(w http.ResponseWriter, r *http.Req
 
 	// Don't try to use dev_error.pars to render its own errors (infinite recursion)
 	if templateName == "errors/dev_error.pars" || strings.HasSuffix(templateName, "/dev_error.pars") {
-		h.renderRawDevToolsError(w, errDetails)
+		h.renderRawDevToolsError(w, r, errDetails)
 		return
 	}
 
@@ -2184,29 +2189,25 @@ func (h *devToolsHandler) renderDevToolsError(w http.ResponseWriter, r *http.Req
 	}
 
 	// Fallback to raw <pre> block
-	h.renderRawDevToolsError(w, errDetails)
+	h.renderRawDevToolsError(w, r, errDetails)
 }
 
 // renderRawDevToolsError renders a minimal error page with just a <pre> block.
 // Used when dev_error.pars cannot be used (e.g., when it's the one with the error).
-func (h *devToolsHandler) renderRawDevToolsError(w http.ResponseWriter, errDetails string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+func (h *devToolsHandler) renderRawDevToolsError(w http.ResponseWriter, r *http.Request, errDetails string) {
+	// Try to render using dev_error.pars first
+	wrappedErr := fmt.Errorf("%s", errDetails)
+	if h.server.renderPreludeError(w, r, 500, wrappedErr) {
+		return
+	}
+	// dev_error.pars also failed - output plain text
+	h.renderPlainTextError(w, errDetails)
+}
+
+// renderPlainTextError renders a plain text error response.
+// Used as ultimate fallback when all templates fail.
+func (h *devToolsHandler) renderPlainTextError(w http.ResponseWriter, errDetails string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(500)
-	fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head>
-<title>DevTools Error</title>
-<style>
-body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 2rem; }
-h1 { color: #ff6b6b; }
-pre { background: #16213e; padding: 1.5rem; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; border-left: 4px solid #ff6b6b; }
-a { color: #4ecdc4; }
-</style>
-</head>
-<body>
-<h1>⚠️ DevTools Template Error</h1>
-<pre>%s</pre>
-<p><a href="/__/">← Back to DevTools</a></p>
-</body>
-</html>`, html.EscapeString(errDetails))
+	fmt.Fprintf(w, "DevTools Error\n\n%s\n", errDetails)
 }
