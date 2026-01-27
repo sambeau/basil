@@ -22,38 +22,7 @@
 //   .version (String)        - Basil version
 //   .dev (Boolean)           - true if in development mode
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>"Error " + error.code</title>
-	<link rel="stylesheet" href="/__/css/devtools.css"/>
-	<style>
-		/* Error page overrides */
-		h1 {
-			color: var(--dt-danger);
-		}
-		.section {
-			border-left-color: var(--dt-danger);
-		}
-		.stack {
-			background: var(--dt-bg-code);
-			padding: 1rem;
-			border-radius: var(--dt-radius-sm);
-			font-family: var(--dt-font-mono);
-			font-size: 0.875rem;
-			overflow-x: auto;
-			white-space: pre;
-		}
-		.stack-line {
-			line-height: 1.5;
-			color: #95a5a6;
-		}
-	</style>
-</head>
-<body>%^&*()_
-
+<<Page>
 	<div class="container">
 		<h1>
 			<span class="error-code">error.code</span>
@@ -126,6 +95,5 @@
 			</div>
 		</div>
 	</div>
-</body>
-</html>
+<Page>
 

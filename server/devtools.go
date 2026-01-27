@@ -2119,11 +2119,11 @@ func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *ht
 	// Get the prelude AST with error context
 	ast, parseErr := GetPreludeASTWithError("devtools/" + templateName)
 	if parseErr != nil {
-		// Try to render using dev_error.pars, fall back to plain text
+		// Try to render using dev_error.pars, fall back to plain text with both errors
 		wrappedErr := fmt.Errorf("%s", parseErr.Error())
 		if !h.server.renderPreludeError(w, r, 500, wrappedErr) {
-			// dev_error.pars also failed - output plain text
-			h.renderPlainTextError(w, parseErr.Error())
+			// dev_error.pars also failed - show both errors
+			h.renderDoubleError(w, "DevTools Template Error", parseErr.Error())
 		}
 		return
 	}
@@ -2200,8 +2200,24 @@ func (h *devToolsHandler) renderRawDevToolsError(w http.ResponseWriter, r *http.
 	if h.server.renderPreludeError(w, r, 500, wrappedErr) {
 		return
 	}
-	// dev_error.pars also failed - output plain text
-	h.renderPlainTextError(w, errDetails)
+	// dev_error.pars also failed - show both errors
+	h.renderDoubleError(w, "DevTools Template Error", errDetails)
+}
+
+// renderDoubleError renders both the original error and the dev_error.pars error.
+// Used when dev_error.pars itself has errors.
+func (h *devToolsHandler) renderDoubleError(w http.ResponseWriter, errorType string, originalErr string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(500)
+	
+	// Check what went wrong with dev_error.pars
+	_, devErrorParseErr := GetPreludeASTWithError("errors/dev_error.pars")
+	if devErrorParseErr != nil {
+		fmt.Fprintf(w, "%s:\n%s\n\n---\n\nAdditionally, dev_error.pars failed to render:\n%v\n", errorType, originalErr, devErrorParseErr)
+	} else {
+		// dev_error.pars parsed OK but evaluation failed - just show original error
+		fmt.Fprintf(w, "%s:\n%s\n", errorType, originalErr)
+	}
 }
 
 // renderPlainTextError renders a plain text error response.
