@@ -116,6 +116,10 @@ td {
 	border-bottom: 0;
 }
 
+.box table {
+	margin-bottom: 0;
+}
+
 table.code td {
 	padding: 4px;
 }

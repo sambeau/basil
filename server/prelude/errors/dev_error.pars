@@ -41,7 +41,7 @@
 			// <h4>error.code<Sp/>error.message.htmlEncode()</h4>
 			if (error.message_text) {
 				// <hr/>
-				<h4><i class="fa-solid fa-triangle-exclamation"></i><Sp/>"Error"</h4>
+				<h4><i class="fa-regular fa-triangle-exclamation"></i><Sp/>"Error"</h4>
 				<div class="box">
 					<pre class="error-message" style="background:none;">error
 						.message_text
@@ -72,7 +72,7 @@
 							</small>
 					</div>
 				}
-				<table class="striped code">
+				<table class="striped code overflow-auto">
 					<tr class="empty"><td></td><td></td><td></td></tr>
 					for (line in lines) {
 						thisLineWidth = toString(line.number).length()
@@ -80,8 +80,7 @@
 						let codeLine = line.content.htmlEncode()
 						if (line.is_error) {
 							<tr class="error">
-								<td align="right">
-									"&nbsp;"
+								<td style="text-align:right; vertical-align:middle;">
 									<i class="fa-solid fa-play fa-beat-fade marker"></i>
 								</td>
 								<td align="right">
@@ -112,8 +111,8 @@
 		</div>
 		if (error.request) {
 			<div class="box">
-				<h5><i class="fa-solid fa-circle-question"></i><Sp/>"Request"</h5>
-				<table class="tight" style="width: 0 !important">
+				<h5><i class="fa-regular fa-circle-question"></i><Sp/>"Request"</h5>
+				<table class="tight overflow-auto" style="width: 0 !important">
 					<tr>
 						<td>"Method"</td>
 						<td>
@@ -135,18 +134,18 @@
 		if (error.params && error.params.length() > 0) {
 			// Helper to get icon for param source
 			let sourceIcon = fn(source) {
-				if (source == "query") { "🔍" }
-				else if (source == "form") { "📝" }
-				else if (source == "json") { "📦" }
-				else if (source == "file") { "📎" }
+				if (source == "query") { <i class="fa-regular fa-circle-question"></i> }
+				else if (source == "form") { <i class="fa-regular fa-rectangle-list"></i> }
+				else if (source == "json") { <i class="fa-solid fa-bars-staggered"></i> }
+				else if (source == "file") { <i class="fa-solid fa-file-arrow-up"></i> }
 				else { "❓" }
 			}
 			<div class="box">
-				<h5><i class="fa-solid fa-sliders"></i><Sp/>"Parameters"</h5>
-				<table class="tight striped" style="width: 100%">
+				<h5><i class="fa-solid fa-sliders"></i><Sp/>"@params"</h5>
+				<table class="tight striped overflow-auto" style="width: 0">
 					<thead>
 						<tr>
-							<th>"Source"</th>
+							<th></th>
 							<th>"Name"</th>
 							<th>"Value"</th>
 						</tr>
@@ -159,7 +158,7 @@
 										sourceIcon(param.source)
 									</span>
 								</td>
-								<td><code style="background:none">param.name</code></td>
+								<td><code class="bright" style="background:none">param.name</code></td>
 								<td>
 									if (param.redacted) {
 										<span style="color:#e06c75" data-tooltip="Redacted for security" data-placement="left">
@@ -185,7 +184,7 @@
 
 		<div class="box">
 			<h5><Logo height="28"/>"&nbsp;Basil"</h5>
-				<table class="tight" style="width: 0 !important">
+				<table class="tight overflow-auto" style="width: 0 !important">
 				<tr>
 					<td>"Version"</td>
 					<td><code style="background:none">"Basil " + (basil.version ~ /^version (.*?)$/)[1]</code></td>
