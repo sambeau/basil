@@ -343,9 +343,20 @@ func inferColumnType(rows [][]string, colIndex int) string {
 
 // replaceTableFromCSV drops existing table and creates new one from CSV data.
 // The operation is atomic (uses transaction).
+// Schema preservation: if the table exists, column types, PRIMARY KEY, and NOT NULL
+// constraints are preserved for columns that match by name. New columns in the CSV
+// have their types inferred. If no "id" column exists, one is added as PRIMARY KEY.
 func replaceTableFromCSV(db *sql.DB, tableName string, r io.Reader) error {
 	if !isValidTableName(tableName) {
 		return fmt.Errorf("invalid table name: %s", tableName)
+	}
+
+	// Capture existing schema before we do anything
+	existingCols, _ := getTableColumns(db, tableName) // ignore error - table may not exist
+	schemaMap := make(map[string]ColumnInfo)
+	for _, col := range existingCols {
+		// Case-insensitive matching for column names
+		schemaMap[strings.ToLower(col.Name)] = col
 	}
 
 	// Parse CSV
@@ -373,14 +384,49 @@ func replaceTableFromCSV(db *sql.DB, tableName string, r io.Reader) error {
 
 	dataRows := records[1:]
 
-	// Infer column types
-	columns := inferColumnTypes(headers, dataRows)
-
-	// Build CREATE TABLE statement
-	var colDefs []string
-	for _, col := range columns {
-		colDefs = append(colDefs, fmt.Sprintf("%q %s", col.Name, col.Type))
+	// Check if CSV has an "id" column
+	hasIDColumn := false
+	for _, h := range headers {
+		if strings.ToLower(h) == "id" {
+			hasIDColumn = true
+			break
+		}
 	}
+
+	// Build column definitions, preserving existing schema where possible
+	var colDefs []string
+	colTypes := make([]string, len(headers)) // for value conversion
+
+	// If no id column, add one as auto-increment PRIMARY KEY
+	if !hasIDColumn {
+		colDefs = append(colDefs, `"id" INTEGER PRIMARY KEY AUTOINCREMENT`)
+	}
+
+	for i, header := range headers {
+		headerLower := strings.ToLower(header)
+
+		if existingCol, found := schemaMap[headerLower]; found {
+			// Preserve existing schema
+			colDef := fmt.Sprintf("%q %s", header, existingCol.Type)
+			if existingCol.PK {
+				colDef += " PRIMARY KEY"
+			}
+			if existingCol.NotNull && !existingCol.PK {
+				colDef += " NOT NULL"
+			}
+			if existingCol.DefaultValue.Valid {
+				colDef += fmt.Sprintf(" DEFAULT %s", existingCol.DefaultValue.String)
+			}
+			colDefs = append(colDefs, colDef)
+			colTypes[i] = existingCol.Type
+		} else {
+			// New column - infer type
+			inferredType := inferColumnType(dataRows, i)
+			colDefs = append(colDefs, fmt.Sprintf("%q %s", header, inferredType))
+			colTypes[i] = inferredType
+		}
+	}
+
 	createSQL := fmt.Sprintf("CREATE TABLE %q (%s)", tableName, strings.Join(colDefs, ", "))
 
 	// Begin transaction
@@ -421,10 +467,10 @@ func replaceTableFromCSV(db *sql.DB, tableName string, r io.Reader) error {
 				row = append(row, "")
 			}
 
-			// Convert values based on inferred types
+			// Convert values based on column types (preserved or inferred)
 			args := make([]interface{}, len(headers))
 			for i, val := range row[:len(headers)] {
-				args[i], err = convertValue(val, columns[i].Type)
+				args[i], err = convertValue(val, colTypes[i])
 				if err != nil {
 					return fmt.Errorf("row %d, column %q: %w", rowNum+2, headers[i], err)
 				}

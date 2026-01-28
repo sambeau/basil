@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
 	"golang.org/x/crypto/acme/autocert"
@@ -427,6 +428,28 @@ func (s *Server) initSQLite(path string) error {
 	s.dbDriver = "sqlite"
 
 	s.logInfo("connected to SQLite database: %s", path)
+	return nil
+}
+
+// ReloadDatabase closes the current database connection and reopens it.
+// This is necessary after the database file is replaced (e.g., by upload).
+func (s *Server) ReloadDatabase() error {
+	if s.db == nil {
+		return nil // No database configured
+	}
+
+	// Close existing connection
+	if err := s.db.Close(); err != nil {
+		s.logWarn("error closing database during reload: %v", err)
+	}
+	s.db = nil
+
+	// Reopen the database
+	if err := s.initDatabase(); err != nil {
+		return fmt.Errorf("reopening database: %w", err)
+	}
+
+	s.logInfo("database connection reloaded")
 	return nil
 }
 
@@ -902,6 +925,7 @@ func (s *Server) ReloadScripts() {
 	s.responseCache.Clear()
 	s.fragmentCache.Clear()
 	s.assetRegistry.Clear()
+	evaluator.ClearModuleCache() // Clear cached modules that may hold stale DB connections
 	// Rebuild asset bundle
 	if s.assetBundle != nil {
 		if err := s.assetBundle.Rebuild(); err != nil {

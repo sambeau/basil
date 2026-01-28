@@ -470,3 +470,118 @@ func TestCreateEmptyTableInvalidName(t *testing.T) {
 		t.Error("expected error for invalid table name")
 	}
 }
+
+func TestReplaceTableFromCSVPreservesSchema(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Create a table with specific schema (PRIMARY KEY, NOT NULL, custom types)
+	_, err := db.Exec(`CREATE TABLE people (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		email VARCHAR(255),
+		score REAL
+	)`)
+	if err != nil {
+		t.Fatalf("create table failed: %v", err)
+	}
+
+	// Upload CSV with same columns
+	csv := "id,name,email,score\n1,Alice,alice@example.com,95.5\n2,Bob,bob@example.com,87.0"
+	err = replaceTableFromCSV(db, "people", strings.NewReader(csv))
+	if err != nil {
+		t.Fatalf("replaceTableFromCSV failed: %v", err)
+	}
+
+	// Verify schema was preserved
+	columns, err := getTableColumns(db, "people")
+	if err != nil {
+		t.Fatalf("getTableColumns failed: %v", err)
+	}
+
+	// Check id column
+	idCol := findColumn(columns, "id")
+	if idCol == nil {
+		t.Fatal("id column not found")
+	}
+	if !idCol.PK {
+		t.Error("id column should be PRIMARY KEY")
+	}
+
+	// Check name column - should preserve NOT NULL
+	nameCol := findColumn(columns, "name")
+	if nameCol == nil {
+		t.Fatal("name column not found")
+	}
+	if !nameCol.NotNull {
+		t.Error("name column should be NOT NULL")
+	}
+
+	// Check email column - should preserve VARCHAR(255)
+	emailCol := findColumn(columns, "email")
+	if emailCol == nil {
+		t.Fatal("email column not found")
+	}
+	if emailCol.Type != "VARCHAR(255)" {
+		t.Errorf("email type should be VARCHAR(255), got %s", emailCol.Type)
+	}
+
+	// Check score column - should preserve REAL
+	scoreCol := findColumn(columns, "score")
+	if scoreCol == nil {
+		t.Fatal("score column not found")
+	}
+	if scoreCol.Type != "REAL" {
+		t.Errorf("score type should be REAL, got %s", scoreCol.Type)
+	}
+
+	// Verify data was inserted
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM people").Scan(&count)
+	if count != 2 {
+		t.Errorf("expected 2 rows, got %d", count)
+	}
+}
+
+func TestReplaceTableFromCSVAddsIDColumn(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Upload CSV without id column
+	csv := "name,email\nAlice,alice@example.com\nBob,bob@example.com"
+	err := replaceTableFromCSV(db, "people", strings.NewReader(csv))
+	if err != nil {
+		t.Fatalf("replaceTableFromCSV failed: %v", err)
+	}
+
+	// Verify id column was added
+	columns, err := getTableColumns(db, "people")
+	if err != nil {
+		t.Fatalf("getTableColumns failed: %v", err)
+	}
+
+	idCol := findColumn(columns, "id")
+	if idCol == nil {
+		t.Fatal("id column should have been added")
+	}
+	if !idCol.PK {
+		t.Error("id column should be PRIMARY KEY")
+	}
+
+	// Verify auto-increment worked (ids should be 1 and 2)
+	var id1, id2 int
+	db.QueryRow("SELECT id FROM people WHERE name = 'Alice'").Scan(&id1)
+	db.QueryRow("SELECT id FROM people WHERE name = 'Bob'").Scan(&id2)
+	if id1 != 1 || id2 != 2 {
+		t.Errorf("expected ids 1 and 2, got %d and %d", id1, id2)
+	}
+}
+
+func findColumn(columns []ColumnInfo, name string) *ColumnInfo {
+	for i := range columns {
+		if strings.EqualFold(columns[i].Name, name) {
+			return &columns[i]
+		}
+	}
+	return nil
+}

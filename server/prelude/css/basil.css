@@ -18,7 +18,8 @@ html {
 }
 
 .box,
-.card {
+.card,
+.upload-message {
 	background: var(--pico-color-azure-950);
 	padding: 1rem 1.5rem 0 1.5rem;
 	border: var(--pico-border-width) solid var(--pico-muted-border-color);
@@ -169,4 +170,41 @@ table.tight td {
 
 .setting-help {
 	font-weight: 300;
+}
+
+.upload-message {
+	display: none;
+	padding-bottom: 1rem;
+}
+
+.upload-message.show {
+	display: block;
+}
+
+.upload-message.error {
+	background-color: var(--pico-color-red-500);
+}
+
+.upload-message.success {
+	background-color: var(--pico-color-green-500);
+}
+
+
+dialog article {
+	border: var(--pico-border-width) solid var(--pico-muted-border-color);
+	background-color: var(--pico-color-azure-950);
+}
+
+dialog article .dialog-body {
+	margin: 2rem 2rem;
+}
+
+dialog article #fileInput {
+	margin-bottom: 0 !important;
+}
+
+dialog article>footer,
+dialog article>header {
+	/* background-color: var(--pico-color-azure-950); */
+	background-color: var(--pico-table-row-stripped-background-color);
 }

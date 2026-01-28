@@ -110,7 +110,7 @@
 				errorPath = path(error.file)
 				errorDir = errorPath.segments[:-1].join(" / ")
 				filename = errorPath.filename
-				<h5><i class="fa-solid fa-location-dot"></i><Sp/>"Location"</h5>
+				<h5><i class="fa-solid fa-code"></i><Sp/>"Location"</h5>
 				<div class="location">
 					<Sp/>
 					<i class="fa-solid fa-file"></i>
@@ -129,6 +129,7 @@
 						</small>
 					}
 				</div>
+				<br/>
 			}
 		</div>
 
