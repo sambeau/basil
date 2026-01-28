@@ -215,19 +215,14 @@ func (b *AssetBundle) JSUrl() string {
 	return fmt.Sprintf("/__site.js?v=%s", b.jsHash)
 }
 
-// ServeCSS serves the CSS bundle.
-func (b *AssetBundle) ServeCSS(w http.ResponseWriter, r *http.Request) {
-	b.mu.RLock()
-	content := b.cssContent
-	hash := b.cssHash
-	b.mu.RUnlock()
-
+// serveBundle serves bundled content with appropriate caching headers.
+func (b *AssetBundle) serveBundle(w http.ResponseWriter, r *http.Request, contentType string, content []byte, hash string) {
 	if len(content) == 0 {
 		http.NotFound(w, r)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.Header().Set("Content-Type", contentType)
 
 	// In dev mode, don't use ETags - just serve fresh content every time
 	// This prevents browser caching issues during development
@@ -254,6 +249,16 @@ func (b *AssetBundle) ServeCSS(w http.ResponseWriter, r *http.Request) {
 	w.Write(content)
 }
 
+// ServeCSS serves the CSS bundle.
+func (b *AssetBundle) ServeCSS(w http.ResponseWriter, r *http.Request) {
+	b.mu.RLock()
+	content := b.cssContent
+	hash := b.cssHash
+	b.mu.RUnlock()
+
+	b.serveBundle(w, r, "text/css; charset=utf-8", content, hash)
+}
+
 // ServeJS serves the JS bundle.
 func (b *AssetBundle) ServeJS(w http.ResponseWriter, r *http.Request) {
 	b.mu.RLock()
@@ -261,34 +266,5 @@ func (b *AssetBundle) ServeJS(w http.ResponseWriter, r *http.Request) {
 	hash := b.jsHash
 	b.mu.RUnlock()
 
-	if len(content) == 0 {
-		http.NotFound(w, r)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-
-	// In dev mode, don't use ETags - just serve fresh content every time
-	// This prevents browser caching issues during development
-	if b.devMode {
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
-		w.WriteHeader(http.StatusOK)
-		w.Write(content)
-		return
-	}
-
-	// Production mode: use ETags and long-term caching
-	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, hash))
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
-
-	// Handle ETag caching
-	if match := r.Header.Get("If-None-Match"); match == fmt.Sprintf(`"%s"`, hash) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
-	w.WriteHeader(http.StatusOK)
-	w.Write(content)
+	b.serveBundle(w, r, "application/javascript; charset=utf-8", content, hash)
 }

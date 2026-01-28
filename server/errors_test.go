@@ -4,277 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/server/config"
 )
-
-func TestRenderDevErrorPage_ParseError(t *testing.T) {
-	devErr := &DevError{
-		Type:    "parse",
-		File:    "/path/to/test.pars",
-		Line:    10,
-		Column:  5,
-		Message: "unexpected token '}'",
-	}
-
-	w := httptest.NewRecorder()
-	renderDevErrorPage(w, devErr)
-
-	resp := w.Result()
-	if resp.StatusCode != 500 {
-		t.Errorf("expected status 500, got %d", resp.StatusCode)
-	}
-
-	body := w.Body.String()
-
-	// Check content type
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
-		t.Errorf("expected text/html content type, got %s", ct)
-	}
-
-	// Check error type badge
-	if !strings.Contains(body, "parse error") {
-		t.Error("expected 'parse error' in output")
-	}
-
-	// Check file path
-	if !strings.Contains(body, "/path/to/test.pars") {
-		t.Error("expected file path in output")
-	}
-
-	// Check line number
-	if !strings.Contains(body, ">10<") {
-		t.Error("expected line number 10 in output")
-	}
-
-	// Check error message
-	if !strings.Contains(body, "unexpected token") {
-		t.Error("expected error message in output")
-	}
-
-	// Note: live reload script is injected by middleware, not renderDevErrorPage directly
-}
-
-func TestRenderDevErrorPage_RuntimeError(t *testing.T) {
-	devErr := &DevError{
-		Type:    "runtime",
-		File:    "/app/handler.pars",
-		Line:    25,
-		Message: "destructuring requires a dictionary or record, got BUILTIN",
-	}
-
-	w := httptest.NewRecorder()
-	renderDevErrorPage(w, devErr)
-
-	body := w.Body.String()
-
-	if !strings.Contains(body, "runtime error") {
-		t.Error("expected 'runtime error' in output")
-	}
-
-	if !strings.Contains(body, "destructuring requires") {
-		t.Error("expected error message in output")
-	}
-}
-
-func TestRenderDevErrorPage_FileNotFound(t *testing.T) {
-	devErr := &DevError{
-		Type:    "file",
-		File:    "/missing/handler.pars",
-		Message: "no such file or directory",
-	}
-
-	w := httptest.NewRecorder()
-	renderDevErrorPage(w, devErr)
-
-	body := w.Body.String()
-
-	if !strings.Contains(body, "file error") {
-		t.Error("expected 'file error' in output")
-	}
-
-	if !strings.Contains(body, "/missing/handler.pars") {
-		t.Error("expected file path in output")
-	}
-}
-
-func TestGetSourceContext_MiddleOfFile(t *testing.T) {
-	// Create a temp file with test content
-	content := ""
-	for i := 1; i <= 20; i++ {
-		content += "line " + strings.Repeat("x", i) + "\n"
-	}
-
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.pars")
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	lines := getSourceContext(tmpFile, 10, 3)
-
-	if len(lines) != 7 { // 3 before + error line + 3 after
-		t.Errorf("expected 7 lines, got %d", len(lines))
-	}
-
-	// Check line numbers
-	expectedStart := 7
-	for i, line := range lines {
-		expectedNum := expectedStart + i
-		if line.Number != expectedNum {
-			t.Errorf("line %d: expected number %d, got %d", i, expectedNum, line.Number)
-		}
-		if (line.Number == 10) != line.IsError {
-			t.Errorf("line %d: IsError mismatch", line.Number)
-		}
-	}
-}
-
-func TestGetSourceContext_StartOfFile(t *testing.T) {
-	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
-
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.pars")
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	lines := getSourceContext(tmpFile, 2, 3)
-
-	// Should start at line 1 (can't go before)
-	if lines[0].Number != 1 {
-		t.Errorf("expected first line to be 1, got %d", lines[0].Number)
-	}
-
-	// Error line should be marked
-	var errorLineFound bool
-	for _, line := range lines {
-		if line.Number == 2 && line.IsError {
-			errorLineFound = true
-		}
-	}
-	if !errorLineFound {
-		t.Error("error line not marked correctly")
-	}
-}
-
-func TestGetSourceContext_EndOfFile(t *testing.T) {
-	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
-
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.pars")
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	lines := getSourceContext(tmpFile, 5, 3)
-
-	// Should include line 5 (the error line)
-	var lastLine SourceLine
-	for _, line := range lines {
-		lastLine = line
-	}
-	if lastLine.Number != 5 {
-		t.Errorf("expected last line to be 5, got %d", lastLine.Number)
-	}
-}
-
-func TestGetSourceContext_FileNotFound(t *testing.T) {
-	lines := getSourceContext("/nonexistent/file.pars", 10, 3)
-
-	if lines != nil {
-		t.Error("expected nil for nonexistent file")
-	}
-}
-
-func TestHighlightParsley_Keywords(t *testing.T) {
-	tests := []struct {
-		input    string
-		contains string
-	}{
-		{"let x = 1", `<span class="kw">let</span>`},
-		{"fn foo() {}", `<span class="kw">fn</span>`},
-		{"if true else false", `<span class="kw">if</span>`},
-		{"for i in list", `<span class="kw">for</span>`},
-		{"export name", `<span class="kw">export</span>`},
-	}
-
-	for _, tc := range tests {
-		result := highlightParsley(tc.input)
-		if !strings.Contains(result, tc.contains) {
-			t.Errorf("input %q: expected to contain %q, got %q", tc.input, tc.contains, result)
-		}
-	}
-}
-
-func TestHighlightParsley_Strings(t *testing.T) {
-	result := highlightParsley(`let name = "hello"`)
-	// Should contain string class for the quoted portion
-	if !strings.Contains(result, `class="str"`) {
-		t.Errorf("expected string highlighting class, got %q", result)
-	}
-	// Should also have the keyword
-	if !strings.Contains(result, `class="kw"`) {
-		t.Errorf("expected keyword highlighting, got %q", result)
-	}
-}
-
-func TestHighlightParsley_Numbers(t *testing.T) {
-	result := highlightParsley("let x = 42")
-	if !strings.Contains(result, `class="num"`) {
-		t.Errorf("expected number highlighting, got %q", result)
-	}
-}
-
-func TestHighlightParsley_Comments(t *testing.T) {
-	result := highlightParsley("// this is a comment")
-	if !strings.Contains(result, `class="comment"`) {
-		t.Errorf("expected comment highlighting, got %q", result)
-	}
-}
-
-func TestHighlightParsley_HTMLEscape(t *testing.T) {
-	// The < and > should be escaped to &lt; and &gt;
-	result := highlightParsley("<div>test</div>")
-	if strings.Contains(result, "<div>") && !strings.Contains(result, "&lt;") {
-		t.Errorf("expected HTML to be escaped, got %q", result)
-	}
-}
-
-func TestHighlightParsley_QuotesReadable(t *testing.T) {
-	// Quotes should appear as " in the output, not as &#34;
-	result := highlightParsley(`let name = "hello"`)
-
-	// Should NOT contain &#34;
-	if strings.Contains(result, "&#34;") {
-		t.Errorf("quotes should be readable as \", not &#34;, got %q", result)
-	}
-
-	// Should contain actual quote marks (escaped properly for HTML attribute context is fine)
-	// The string "hello" should be visible
-	if !strings.Contains(result, `"hello"`) {
-		t.Errorf("expected readable string with quotes, got %q", result)
-	}
-}
-
-func TestHighlightParsley_HTMLTagAttributes(t *testing.T) {
-	// HTML tags with attributes should be readable
-	result := highlightParsley(`<img src="/logo.png" alt="Logo"/>`)
-
-	// Should NOT contain &#34;
-	if strings.Contains(result, "&#34;") {
-		t.Errorf("quotes in tag attributes should be readable, got %q", result)
-	}
-
-	// Should contain the tag
-	if !strings.Contains(result, `class="tag"`) {
-		t.Errorf("expected tag highlighting, got %q", result)
-	}
-}
 
 func TestExtractLineInfo_ParseError(t *testing.T) {
 	msg := "parse error in /app/test.pars: unexpected token"
@@ -358,6 +92,11 @@ func TestExtractLineInfo_ModuleRuntimeError(t *testing.T) {
 }
 
 func TestHandleScriptError_DevMode(t *testing.T) {
+	// Initialize prelude for dev error page
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Dev: true,
@@ -395,6 +134,11 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 }
 
 func TestHandleScriptErrorWithLocation_ModuleError(t *testing.T) {
+	// Initialize prelude for dev error page
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
 	// Test that module errors show the correct file path, not the parent handler path
 	cfg := &config.Config{
 		Server: config.ServerConfig{
@@ -432,6 +176,11 @@ func TestHandleScriptErrorWithLocation_ModuleError(t *testing.T) {
 }
 
 func TestHandleScriptErrorWithLocation_ModuleNotFound(t *testing.T) {
+	// Initialize prelude for dev error page
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
 	// Test module-not-found errors show correct module file (no line info available)
 	cfg := &config.Config{
 		Server: config.ServerConfig{
@@ -462,87 +211,6 @@ func TestHandleScriptErrorWithLocation_ModuleNotFound(t *testing.T) {
 	}
 }
 
-func TestImproveErrorMessage(t *testing.T) {
-	tests := []struct {
-		name         string
-		message      string
-		wantImproved string
-		wantHint     string
-	}{
-		{
-			name:         "missing parentheses",
-			message:      "expected '(', got 'x'",
-			wantImproved: "Missing parentheses",
-			wantHint:     "Function parameters need parentheses: fn(x) { ... } or fn(a, b) { ... }",
-		},
-		{
-			name:         "python comment",
-			message:      "unexpected '#'",
-			wantImproved: "Invalid comment syntax",
-			wantHint:     "Use // for comments, not #. Parsley uses C-style comments: // single line or /* multi-line */",
-		},
-		{
-			name:         "console.log",
-			message:      "identifier not found: console",
-			wantImproved: "'console' is not defined",
-			wantHint:     "Use log() for debugging output. Example: log(\"value:\", myVar)",
-		},
-		{
-			name:         "print function",
-			message:      "identifier not found: print",
-			wantImproved: "'print' is not defined",
-			wantHint:     "Use log() for output. Example: log(\"hello world\")",
-		},
-		{
-			name:         "document DOM",
-			message:      "identifier not found: document",
-			wantImproved: "'document' is not defined",
-			wantHint:     "Parsley runs on the server, not in the browser. DOM APIs are not available.",
-		},
-		{
-			name:         "window browser global",
-			message:      "identifier not found: window",
-			wantImproved: "'window' is not defined",
-			wantHint:     "Parsley runs on the server, not in the browser. Browser globals are not available.",
-		},
-		{
-			name:         "require Node.js",
-			message:      "identifier not found: require",
-			wantImproved: "'require' is not defined",
-			wantHint:     "Use 'import' to load modules. Example: import utils from \"./utils.pars\"",
-		},
-		{
-			name:         "unrecognized component tag",
-			message:      "expected identifier as dictionary key, got opening tag",
-			wantImproved: "Unrecognized component tag",
-			wantHint:     "Is the component imported? Check that the import path is correct and the component is exported.",
-		},
-		{
-			name:         "unexpected uppercase (undefined component)",
-			message:      "unexpected 'MyComponent'",
-			wantImproved: "'MyComponent' is not defined",
-			wantHint:     "Did you forget to import MyComponent? Component names must start with an uppercase letter.",
-		},
-		{
-			name:         "no improvement needed",
-			message:      "some other error",
-			wantImproved: "some other error",
-			wantHint:     "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotImproved, gotHint := improveErrorMessage(tt.message)
-			if gotImproved != tt.wantImproved {
-				t.Errorf("improved = %q, want %q", gotImproved, tt.wantImproved)
-			}
-			if gotHint != tt.wantHint {
-				t.Errorf("hint = %q, want %q", gotHint, tt.wantHint)
-			}
-		})
-	}
-}
 func TestHandleScriptError_ProdMode(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{

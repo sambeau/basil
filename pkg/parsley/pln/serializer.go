@@ -545,7 +545,8 @@ func isValidIdent(s string) bool {
 	return true
 }
 
-func isDatetimeDict(obj evaluator.Object) bool {
+// isTypedDict checks if an object is a dictionary with a specific __type value.
+func isTypedDict(obj evaluator.Object, typeName string) bool {
 	d, ok := obj.(*evaluator.Dictionary)
 	if !ok {
 		return false
@@ -557,44 +558,22 @@ func isDatetimeDict(obj evaluator.Object) bool {
 	// Check if it's an ObjectLiteralExpression wrapping a String
 	if ole, ok := typeExpr.(*ast.ObjectLiteralExpression); ok {
 		if strObj, ok := ole.Obj.(*evaluator.String); ok {
-			return strObj.Value == "datetime"
+			return strObj.Value == typeName
 		}
 	}
 	return false
+}
+
+func isDatetimeDict(obj evaluator.Object) bool {
+	return isTypedDict(obj, "datetime")
 }
 
 func isPathDict(obj evaluator.Object) bool {
-	d, ok := obj.(*evaluator.Dictionary)
-	if !ok {
-		return false
-	}
-	typeExpr, ok := d.Pairs["__type"]
-	if !ok {
-		return false
-	}
-	if ole, ok := typeExpr.(*ast.ObjectLiteralExpression); ok {
-		if strObj, ok := ole.Obj.(*evaluator.String); ok {
-			return strObj.Value == "path"
-		}
-	}
-	return false
+	return isTypedDict(obj, "path")
 }
 
 func isURLDict(obj evaluator.Object) bool {
-	d, ok := obj.(*evaluator.Dictionary)
-	if !ok {
-		return false
-	}
-	typeExpr, ok := d.Pairs["__type"]
-	if !ok {
-		return false
-	}
-	if ole, ok := typeExpr.(*ast.ObjectLiteralExpression); ok {
-		if strObj, ok := ole.Obj.(*evaluator.String); ok {
-			return strObj.Value == "url"
-		}
-	}
-	return false
+	return isTypedDict(obj, "url")
 }
 
 func getPointer(obj evaluator.Object) uintptr {

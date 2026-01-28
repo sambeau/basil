@@ -105,6 +105,30 @@
 						}
 					}
 				</table>
+			} else if (error.file) {
+				// Show file/line info even when source is not available
+				errorPath = path(error.file)
+				errorDir = errorPath.segments[:-1].join(" / ")
+				filename = errorPath.filename
+				<h5><i class="fa-solid fa-location-dot"></i><Sp/>"Location"</h5>
+				<div class="location">
+					<Sp/>
+					<i class="fa-solid fa-file"></i>
+					<Sp/>
+					errorDir + " / " + <span class="bright">filename</span>
+					if (error.line) {
+						<Sp/>
+						<i class="fa-solid fa-angles-right"></i>
+						<Sp/>
+						<small>
+							<span class="bright">error.line</span>
+							if (error.column) {
+								" : "
+								error.column
+							}
+						</small>
+					}
+				</div>
 			}
 		</div>
 
@@ -184,7 +208,17 @@
 				<table class="tight overflow-auto" style="width: 0 !important">
 				<tr>
 					<td>"Version"</td>
-					<td><code style="background:none">"Basil " + (basil.version ~ /^version (.*?)$/)[1]</code></td>
+					<td>
+						// Handle both "version X.Y.Z" format and plain "vX.Y.Z" format
+						let versionMatch = basil.version ~ /^version (.*?)$/
+						<code style="background:none">
+							if (versionMatch) {
+								"Basil " + versionMatch[1]
+							} else {
+								"Basil " + basil.version
+							}
+						</code>
+					</td>
 				</tr>
 				<tr>
 					<td>"Mode"</td>

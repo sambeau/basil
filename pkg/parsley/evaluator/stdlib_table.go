@@ -1089,22 +1089,28 @@ func tableAvg(t *Table, args []Object, env *Environment) Object {
 	return &Float{Value: sum / float64(count)}
 }
 
-// tableMin returns the minimum value of a column
-func tableMin(t *Table, args []Object, env *Environment) Object {
+// tableExtreme returns the minimum or maximum value of a column.
+// When findMin is true, returns the minimum; otherwise returns the maximum.
+func tableExtreme(t *Table, args []Object, env *Environment, findMin bool) Object {
+	funcName := "max"
+	if findMin {
+		funcName = "min"
+	}
+
 	if len(args) != 1 {
-		return newArityError("min", len(args), 1)
+		return newArityError(funcName, len(args), 1)
 	}
 
 	col, ok := args[0].(*String)
 	if !ok {
-		return newTypeError("TYPE-0012", "min", "a column name string", args[0].Type())
+		return newTypeError("TYPE-0012", funcName, "a column name string", args[0].Type())
 	}
 
 	if len(t.Rows) == 0 {
 		return NULL
 	}
 
-	var minVal Object = nil
+	var extremeVal Object = nil
 	for _, row := range t.Rows {
 		val := getDictValue(row, col.Value)
 		if val.Type() == NULL_OBJ {
@@ -1112,49 +1118,30 @@ func tableMin(t *Table, args []Object, env *Environment) Object {
 		}
 		// Try to coerce strings to numbers for comparison
 		val = coerceToNumber(val)
-		if minVal == nil || compareObjects(val, minVal) < 0 {
-			minVal = val
+		if extremeVal == nil {
+			extremeVal = val
+		} else {
+			cmp := compareObjects(val, extremeVal)
+			if (findMin && cmp < 0) || (!findMin && cmp > 0) {
+				extremeVal = val
+			}
 		}
 	}
 
-	if minVal == nil {
+	if extremeVal == nil {
 		return NULL
 	}
-	return minVal
+	return extremeVal
+}
+
+// tableMin returns the minimum value of a column
+func tableMin(t *Table, args []Object, env *Environment) Object {
+	return tableExtreme(t, args, env, true)
 }
 
 // tableMax returns the maximum value of a column
 func tableMax(t *Table, args []Object, env *Environment) Object {
-	if len(args) != 1 {
-		return newArityError("max", len(args), 1)
-	}
-
-	col, ok := args[0].(*String)
-	if !ok {
-		return newTypeError("TYPE-0012", "max", "a column name string", args[0].Type())
-	}
-
-	if len(t.Rows) == 0 {
-		return NULL
-	}
-
-	var maxVal Object = nil
-	for _, row := range t.Rows {
-		val := getDictValue(row, col.Value)
-		if val.Type() == NULL_OBJ {
-			continue
-		}
-		// Try to coerce strings to numbers for comparison
-		val = coerceToNumber(val)
-		if maxVal == nil || compareObjects(val, maxVal) > 0 {
-			maxVal = val
-		}
-	}
-
-	if maxVal == nil {
-		return NULL
-	}
-	return maxVal
+	return tableExtreme(t, args, env, false)
 }
 
 // coerceToNumber attempts to convert a string to a number if possible
