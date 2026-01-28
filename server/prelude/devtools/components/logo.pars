@@ -22,3 +22,8 @@ let Logo = fn({width, height}) {
 		/></g>
 	</svg>
 }
+
+// 
+// Credit to add to thanks page somewhere.
+// leaf by Studio Danro from <a href="https://thenounproject.com/browse/icons/term/leaf/" target="_blank" title="leaf Icons">Noun Project</a> (CC BY 3.0)
+//
