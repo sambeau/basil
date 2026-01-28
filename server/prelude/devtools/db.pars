@@ -26,26 +26,6 @@
 
 shortVersion = basil.version ~ /v\d+\.\d+\.\d+/
 
-old_actions = <div class="db-actions">
-	<a href="/__/db/download" class="btn-download">"📥"</a>
-	<form
-		class="upload-form"
-		id="uploadForm"
-		enctype="multipart/form-data"
-	>
-		<input
-			type="file"
-			id="fileInput"
-			name="database"
-			accept=".db,.sqlite,.sqlite3"
-			class="file-input"
-		/>
-		<label for="fileInput" class="file-label">"📤"</label>
-		<span class="file-name" id="fileName"></span>
-		<button type="submit" class="btn-upload" id="uploadBtn">"Upload"</button>
-	</form>
-</div>
-
 subtitle = <>
 	<i class="fa-solid fa-database"></i>
 	<Sp/>
@@ -59,10 +39,20 @@ subtitle = <>
 actions = <>
 	<a
 		href="#"
-		onclick=""
+		onclick="window.location.reload()"
+		data-tooltip="Refresh page"
+		style="font-size:150%"
+	>
+		<i class="fa-solid fa-arrow-rotate-right"></i>
+	</a>
+	<Sp/>
+	<Sp/>
+	<a
+		href="#"
+		data-target="modal-upload"
+		onclick="toggleModal(event)"
 		data-tooltip="Upload database file"
 		style="font-size:150%"
-		id="live-refresh-toggle"
 	>
 		<i class="fa-solid fa-arrow-up-from-bracket"></i>
 	</a>
@@ -74,45 +64,12 @@ actions = <>
 		data-tooltip="Download database file"
 		data-placement="left"
 		style="font-size:150%"
-		id="live-refresh-toggle"
 	>
 		<i class="fa-solid fa-arrow-right-to-bracket fa-rotate-90"></i>
 	</a>
 </>
 
 <Page>
-	<style>
-		/* Page-specific styles for upload form */
-		.upload-form {
-			display: flex;
-			gap: 0.5rem;
-			align-items: center;
-		}
-		.btn-download {
-			background: var(--dt-accent);
-			color: var(--dt-bg-primary);
-			padding: 0.75rem 1.5rem;
-			border-radius: var(--dt-radius-sm);
-			text-decoration: none;
-			font-size: 0.875rem;
-			font-weight: 600;
-			border: none;
-			cursor: pointer;
-			transition: background 0.2s;
-		}
-		.btn-download:hover {
-			background: var(--dt-accent-hover);
-		}
-		.btn-upload {
-			display: none;
-		}
-		.btn-upload:hover {
-			background: var(--dt-danger-hover);
-		}
-		.btn-upload.visible {
-			display: block;
-		}
-	</style>
 	<Header
 		title="DB"
 		info={`{devtools.db_filename} ({devtools.db_size.humanize()}B)`}
@@ -172,22 +129,58 @@ actions = <>
 			</div>
 		}
 	</div>
+	<form
+		class="upload-form"
+		id="uploadForm"
+		enctype="multipart/form-data"
+	>
+		<dialog id="modal-upload">
+
+			<article>
+				<header>
+					<button
+						aria-label="Close"
+						rel="prev"
+						data-target="modal-upload"
+						onclick="toggleModal(event)"
+					>
+					</button>
+					<h3><i class="fa-solid fa-arrow-up-from-bracket"></i><Sp/>"Upload database file"</h3>
+				</header>
+				<div class="dialog-body">
+					<p>`Choose an SQLite file to upload (.db,.sqlite,.sqlite3).`</p>
+					<input
+						type="file"
+						id="fileInput"
+						name="database"
+						accept=".db,.sqlite,.sqlite3"
+						class="file-input"
+					/>
+				</div>
+				<footer>
+					<button
+						role="button"
+						class="secondary"
+						data-target="modal-upload"
+						onclick="toggleModal(event)"
+					>
+						"Cancel"
+					</button>
+					<button type="submit" autofocus style="width:auto;margin-bottom:0;">"Upload"</button>
+				</footer>
+			</article>
+		</dialog>
+	</form>
+
+	<script src="/__/js/modal.js"></script>
+
 	<script>
 		// Handle file selection
 		const fileInput = document.getElementById('fileInput');
-		const fileName = document.getElementById('fileName');
-		const uploadBtn = document.getElementById('uploadBtn');
+		// const fileName = document.getElementById('fileName');
+		// const uploadBtn = document.getElementById('uploadBtn');
 		const uploadMessage = document.getElementById('uploadMessage');
 
-		fileInput.addEventListener('change', function(e) {
-			if (e.target.files.length > 0) {
-				fileName.textContent = e.target.files[0].name;
-				uploadBtn.classList.add('visible');
-			} else {
-				fileName.textContent = '';
-				uploadBtn.classList.remove('visible');
-			}
-		});
 
 		// Handle form submission
 		document.getElementById('uploadForm').addEventListener('submit', async function(e) {
@@ -196,9 +189,12 @@ actions = <>
 			const file = fileInput.files[0];
 			if (!file) return;
 
-			uploadMessage.className = 'upload-message';
+			// Close the modal
+			const modal = document.getElementById('modal-upload');
+			if (modal) closeModal(modal);
+
+			uploadMessage.className = 'upload-message show';
 			uploadMessage.textContent = 'Uploading...';
-			uploadMessage.style.display = 'block';
 
 			const formData = new FormData();
 			formData.append('database', file);
@@ -209,19 +205,22 @@ actions = <>
 					body: formData
 				});
 
-				const result = await response.json();
+				const text = await response.text();
 
 				if (response.ok) {
-					uploadMessage.className = 'upload-message success';
+					// Success response is JSON
+					const result = JSON.parse(text);
+					uploadMessage.className = 'upload-message show success';
 					uploadMessage.textContent = result.message || 'Database uploaded successfully';
 					// Reload page after 1 second
 					setTimeout(() => window.location.reload(), 1000);
 				} else {
-					uploadMessage.className = 'upload-message error';
-					uploadMessage.textContent = result.message || 'Upload failed';
+					// Error response is plain text
+					uploadMessage.className = 'upload-message show error';
+					uploadMessage.textContent = text || 'Upload failed';
 				}
 			} catch (error) {
-				uploadMessage.className = 'upload-message error';
+				uploadMessage.className = 'upload-message show error';
 				uploadMessage.textContent = 'Upload failed: ' + error.message;
 			}
 		});

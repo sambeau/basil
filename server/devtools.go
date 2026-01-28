@@ -353,31 +353,40 @@ func (h *devToolsHandler) serveDBUpload(w http.ResponseWriter, r *http.Request, 
 
 	// Parse multipart form (max 32MB)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		h.serveDBError(w, "Upload Error", "Failed to parse form: "+err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"success": false, "message": "Failed to parse form: %s"}`, err.Error())
 		return
 	}
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		h.serveDBError(w, "Upload Error", "No file provided: "+err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"success": false, "message": "No file provided: %s"}`, err.Error())
 		return
 	}
 	defer file.Close()
 
 	db, err := h.openAppDB()
 	if err != nil {
-		h.serveDBError(w, "Database Error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `{"success": false, "message": "Database error: %s"}`, err.Error())
 		return
 	}
 	defer db.Close()
 
 	if err := replaceTableFromCSV(db, tableName, file); err != nil {
-		h.serveDBError(w, "Import Error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"success": false, "message": "%s"}`, err.Error())
 		return
 	}
 
-	// Re-render the database page directly (avoids Safari redirect bug)
-	h.serveDB(w, r)
+	// Return JSON success response
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"success": true, "message": "CSV uploaded successfully"}`)
 }
 
 // serveDBCreate handles creating a new table.
@@ -522,19 +531,51 @@ func (h *devToolsHandler) handleDevDBFileUpload(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Track whether we had an active database connection
+	hadDBConnection := h.server.db != nil
+
+	// Close the database connection BEFORE replacing the file
+	// SQLite locks the file while connected
+	if hadDBConnection {
+		if err := h.server.db.Close(); err != nil {
+			h.server.logWarn("error closing database before upload: %v", err)
+		}
+		h.server.db = nil
+	}
+
 	// Write uploaded file to database path
 	outFile, err := os.Create(dbPath)
 	if err != nil {
+		// Try to reopen the old database if we had one
+		if hadDBConnection {
+			_ = h.server.initDatabase()
+		}
 		http.Error(w, "Failed to create database file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer outFile.Close()
 
 	if _, err := io.Copy(outFile, file); err != nil {
-		// Try to restore from backup
+		outFile.Close()
+		// Try to restore from backup and reopen
 		_ = copyFile(backupPath, dbPath)
+		if hadDBConnection {
+			_ = h.server.initDatabase()
+		}
 		http.Error(w, "Failed to write database: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+	outFile.Close()
+
+	// Reopen the database with the new file (only if we had a connection before)
+	if hadDBConnection {
+		if err := h.server.initDatabase(); err != nil {
+			h.server.logWarn("failed to reopen database after upload: %v", err)
+			// Try to restore from backup
+			_ = copyFile(backupPath, dbPath)
+			_ = h.server.initDatabase()
+			http.Error(w, "Failed to reopen database: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Invalidate caches

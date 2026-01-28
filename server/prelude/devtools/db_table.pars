@@ -15,42 +15,24 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-old_header = <div class="header">
-	<h1>"🗄️ " + devtools.table_name</h1>
-	<div>
-		<a
-			href={"/__/db/download/" + devtools.table_name}
-			class="btn"
-			style="margin-right: 0.5rem;"
-		>
-			"⬇️ Download CSV"
-		</a>
-		<form
-			action={"/__/db/upload/" + devtools.table_name}
-			method="POST"
-			enctype="multipart/form-data"
-			class="upload-form"
-			style="display: inline-block; margin-right: 0.5rem;"
-		>
-			<label class="btn btn-upload">"⬆️ Replace from CSV"<input
-				type="file"
-				name="file"
-				accept=".csv"
-				onchange="this.form.submit()"
-			/></label>
-		</form>
-		<a href="/__/db" class="btn">"← Back to Tables"</a>
-	</div>
-</div>
-
 rows = devtools.row_count + " " + if (devtools.row_count == 1) "row" else "rows"
 actions = <>
 	<a
 		href="#"
-		onclick=""
+		onclick="window.location.reload()"
+		data-tooltip="Refresh page"
+		style="font-size:150%"
+	>
+		<i class="fa-solid fa-arrow-rotate-right"></i>
+	</a>
+	<Sp/>
+	<Sp/>
+	<a
+		href="#"
+		data-target="modal-upload"
+		onclick="toggleModal(event)"
 		data-tooltip="Upload CSV file"
 		style="font-size:150%"
-		id="live-refresh-toggle"
 	>
 		<i class="fa-solid fa-arrow-up-from-bracket"></i>
 	</a>
@@ -62,7 +44,6 @@ actions = <>
 		data-tooltip="Download CSV file"
 		data-placement="left"
 		style="font-size:150%"
-		id="live-refresh-toggle"
 	>
 		<i class="fa-solid fa-arrow-right-to-bracket fa-rotate-90"></i>
 	</a>
@@ -78,6 +59,8 @@ actions = <>
 	/>
 
 	<div class="scroll">
+		<div id="uploadMessage" class="upload-message"></div>
+
 		if (devtools.error) {
 			<div class="box">
 				<div class="error-title">"Database Error"</div>
@@ -110,4 +93,98 @@ actions = <>
 			</div>
 		}
 	</div>
+
+	<form
+		class="upload-form"
+		id="uploadForm"
+		enctype="multipart/form-data"
+	>
+		<dialog id="modal-upload">
+
+			<article>
+				<header>
+					<button
+						aria-label="Close"
+						rel="prev"
+						data-target="modal-upload"
+						onclick="toggleModal(event)"
+					>
+					</button>
+					<h3><i class="fa-solid fa-arrow-up-from-bracket"></i><Sp/>"Upload CSV file"</h3>
+				</header>
+				<div class="dialog-body">
+					<p>`Choose a CSV file to upload (.csv).`</p>
+					<input
+						type="file"
+						id="fileInput"
+						name="file"
+						accept=".csv"
+						class="file-input"
+					/>
+					<input type="hidden" id="tableName" value={devtools.table_name}/>
+				</div>
+				<footer>
+					<button
+						role="button"
+						class="secondary"
+						data-target="modal-upload"
+						onclick="toggleModal(event)"
+					>
+						"Cancel"
+					</button>
+					<button type="submit" autofocus style="width:auto;margin-bottom:0;">"Upload"</button>
+				</footer>
+			</article>
+		</dialog>
+	</form>
+
+	<script src="/__/js/modal.js"></script>
+
+	<script>
+		// Handle file selection
+		const fileInput = document.getElementById('fileInput');
+		const tableName = document.getElementById('tableName').value;
+		const uploadMessage = document.getElementById('uploadMessage');
+
+		// Handle form submission
+		document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+			e.preventDefault();
+
+			const file = fileInput.files[0];
+			if (!file) return;
+
+			// Close the modal
+			const modal = document.getElementById('modal-upload');
+			if (modal) closeModal(modal);
+
+			uploadMessage.className = 'upload-message show';
+			uploadMessage.textContent = 'Uploading...';
+
+			const formData = new FormData();
+			formData.append('file', file);
+
+			try {
+				const response = await fetch('/__/db/upload/' + tableName, {
+					method: 'POST',
+					body: formData
+				});
+
+				const result = await response.json();
+
+				if (response.ok) {
+					uploadMessage.className = 'upload-message show success';
+					uploadMessage.textContent = result.message || 'CSV uploaded successfully';
+					// Reload page after 1 second
+					setTimeout(() => window.location.reload(), 1000);
+				} else {
+					uploadMessage.className = 'upload-message show error';
+					uploadMessage.textContent = result.message || 'Upload failed';
+				}
+			} catch (error) {
+				uploadMessage.className = 'upload-message show error';
+				uploadMessage.textContent = 'Upload failed: ' + error.message;
+			}
+		});
+	</script>
+
 </Page>
