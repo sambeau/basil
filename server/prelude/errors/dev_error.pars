@@ -106,9 +106,8 @@
 					}
 				</table>
 			}
-			<br/>
-
 		</div>
+
 		if (error.request) {
 			<div class="box">
 				<h5><i class="fa-regular fa-circle-question"></i><Sp/>"Request"</h5>
@@ -127,7 +126,6 @@
 						<tr><td>"Query"</td><td><code style="background:none">error.request.query</code></td></tr>
 					}
 				</table>
-				<br/>
 			</div>
 		}
 
@@ -178,7 +176,6 @@
 						}
 					</tbody>
 				</table>
-				<br/>
 			</div>
 		}
 
@@ -194,7 +191,6 @@
 					<td><code style="background:none">"development"</code></td>
 				</tr>
 			</table>
-			<br/>
 		</div>
 	</div>
 </Page>

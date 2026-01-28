@@ -116,10 +116,6 @@ td {
 	border-bottom: 0;
 }
 
-.box table {
-	margin-bottom: 0;
-}
-
 table.code td {
 	padding: 4px;
 }
@@ -166,4 +162,8 @@ table.code.striped tr.empty td {
 
 table.tight td {
 	padding: 4px;
+}
+
+.setting-help {
+	font-weight: 300;
 }
