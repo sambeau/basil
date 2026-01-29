@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-const indexParsContent = `<h1>🌿 Hello from Basil 👋</h1>
+const indexParsContent = `<h1>"🌿 Hello from Basil 👋"</h1>
 `
 
 const gitignoreContent = `# Basil log files

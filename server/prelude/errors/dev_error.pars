@@ -41,7 +41,7 @@
 			// <h4>error.code<Sp/>error.message.htmlEncode()</h4>
 			if (error.message_text) {
 				// <hr/>
-				<h4><i class="fa-regular fa-triangle-exclamation"></i><Sp/>"Error"</h4>
+				<h4><i class="fa-solid fa-exclamation-triangle"></i><Sp/>"Error"</h4>
 				<div class="box">
 					<pre class="error-message" style="background:none;">error
 						.message_text

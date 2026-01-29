@@ -57,7 +57,7 @@ func TestInitCommand_Success(t *testing.T) {
 
 	// Verify index.pars content
 	indexContent := readFile(t, filepath.Join(projectPath, "site", "index.pars"))
-	if indexContent != "<h1>🌿 Hello from Basil 👋</h1>\n" {
+	if indexContent != "<h1>\"🌿 Hello from Basil 👋\"</h1>\n" {
 		t.Errorf("unexpected index.pars content: %q", indexContent)
 	}
 
@@ -221,7 +221,7 @@ func TestInitCommand_IndexContent(t *testing.T) {
 	}
 
 	indexContent := readFile(t, filepath.Join(projectPath, "site", "index.pars"))
-	expected := "<h1>🌿 Hello from Basil 👋</h1>\n"
+	expected := "<h1>\"🌿 Hello from Basil 👋\"</h1>\n"
 
 	if indexContent != expected {
 		t.Errorf("index.pars content incorrect.\nExpected: %q\nGot: %q", expected, indexContent)
