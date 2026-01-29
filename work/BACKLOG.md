@@ -21,6 +21,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Medium Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #88 | Unicode identifier support (hybrid lexer) | FEAT-103 | ~1 day work | Enable `let π = 3.14` with hybrid byte/rune lexer. Performance-gated: benchmark before, implement on branch, benchmark after—merge only if <5% regression. See `work/specs/FEAT-103.md` and `work/reports/LEXER-UNICODE-ANALYSIS.md`. |
 | #9 | SQLite session store | FEAT-049 | Phase 2 | Cookie sessions have ~4KB limit. SQLite store for larger session data. Server-side sessions with session ID in cookie. Includes cleanup goroutine for expired sessions. |
 | #10 | Session auth integration | FEAT-049 | Phase 3 | Auto-regenerate session ID on login/logout for security. `basil.auth.login()` and `basil.auth.logout()` should call `session.regenerate()`. |
 | #12 | Form `target=` partial updates (Turbo-style) | Rails UX | Needs design | Allow `<Form target="#id">` to replace element content without full page reload. Challenges: (1) How handler knows to return fragment vs full page, (2) Layout wrapping behavior, (3) Works differently for filepath vs config routing, (4) Where/how to inject the ~20 lines of JS. High UX value but needs architectural thought. See `work/design/rails-inspired-ux.md`. |
