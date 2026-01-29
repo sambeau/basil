@@ -426,7 +426,9 @@ type Lexer struct {
 	input                  string
 	position               int       // current position in input (points to current char)
 	readPosition           int       // current reading position in input (after current char)
-	ch                     byte      // current char under examination
+	ch                     byte      // current char under examination (first byte)
+	chRune                 rune      // current character as a rune (for Unicode support)
+	chSize                 int       // byte size of current character (1 for ASCII, 1-4 for UTF-8)
 	line                   int       // current line number
 	column                 int       // current column number
 	inTagContent           bool      // whether we're currently lexing tag content
@@ -477,6 +479,8 @@ type LexerState struct {
 	position               int
 	readPosition           int
 	ch                     byte
+	chRune                 rune
+	chSize                 int
 	line                   int
 	column                 int
 	inTagContent           bool
@@ -497,6 +501,8 @@ func (l *Lexer) SaveState() LexerState {
 		position:               l.position,
 		readPosition:           l.readPosition,
 		ch:                     l.ch,
+		chRune:                 l.chRune,
+		chSize:                 l.chSize,
 		line:                   l.line,
 		column:                 l.column,
 		inTagContent:           l.inTagContent,
@@ -514,6 +520,8 @@ func (l *Lexer) RestoreState(state LexerState) {
 	l.position = state.position
 	l.readPosition = state.readPosition
 	l.ch = state.ch
+	l.chRune = state.chRune
+	l.chSize = state.chSize
 	l.line = state.line
 	l.column = state.column
 	l.inTagContent = state.inTagContent
@@ -534,22 +542,77 @@ func (l *Lexer) PeekToken() Token {
 	return tok
 }
 
-// readChar reads the next character and advances position
+// readChar reads the next character and advances position.
+// Uses a hybrid approach: ASCII fast-path for single-byte characters,
+// UTF-8 decoding for multi-byte characters (to support Unicode identifiers).
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0 // ASCII NUL character represents EOF
-	} else {
-		l.ch = l.input[l.readPosition]
+		l.chRune = 0
+		l.chSize = 0
+		l.position = l.readPosition
+		// Don't increment readPosition past end
+		return
 	}
-	l.position = l.readPosition
-	l.readPosition++
 
-	if l.ch == '\n' {
-		l.line++
-		l.column = 0
-	} else {
-		l.column++
+	b := l.input[l.readPosition]
+
+	// ASCII fast-path: single-byte characters (most common case)
+	if b < utf8.RuneSelf {
+		l.ch = b
+		l.chRune = rune(b)
+		l.chSize = 1
+		l.position = l.readPosition
+		l.readPosition++
+
+		if l.ch == '\n' {
+			l.line++
+			l.column = 0
+		} else {
+			l.column++
+		}
+		return
 	}
+
+	// Non-ASCII: decode the full UTF-8 rune
+	r, size := utf8.DecodeRuneInString(l.input[l.readPosition:])
+	l.ch = b // Keep first byte for backward compatibility
+	l.chRune = r
+	l.chSize = size
+	l.position = l.readPosition
+	l.readPosition += size
+
+	l.column++
+}
+
+// setCurrentChar sets l.ch, l.chRune, and l.chSize from the byte at the given position.
+// Used when manually adjusting position (e.g., backing up one character).
+func (l *Lexer) setCurrentChar(pos int) {
+	if pos >= len(l.input) {
+		l.ch = 0
+		l.chRune = 0
+		l.chSize = 0
+		return
+	}
+	b := l.input[pos]
+	l.ch = b
+	if b < utf8.RuneSelf {
+		l.chRune = rune(b)
+		l.chSize = 1
+	} else {
+		r, size := utf8.DecodeRuneInString(l.input[pos:])
+		l.chRune = r
+		l.chSize = size
+	}
+}
+
+// appendCurrentChar appends the current character (all bytes for multi-byte UTF-8) to the given slice.
+func (l *Lexer) appendCurrentChar(result []byte) []byte {
+	if l.chSize == 1 {
+		return append(result, l.ch)
+	}
+	// Multi-byte character: get the bytes from input
+	return append(result, l.input[l.position:l.position+l.chSize]...)
 }
 
 // peekChar returns the next character without advancing position
@@ -558,6 +621,20 @@ func (l *Lexer) peekChar() byte {
 		return 0
 	}
 	return l.input[l.readPosition]
+}
+
+// peekCharRune returns the next character as a rune without advancing position.
+// This properly handles multi-byte UTF-8 characters.
+func (l *Lexer) peekCharRune() rune {
+	if l.readPosition >= len(l.input) {
+		return 0
+	}
+	b := l.input[l.readPosition]
+	if b < utf8.RuneSelf {
+		return rune(b)
+	}
+	r, _ := utf8.DecodeRuneInString(l.input[l.readPosition:])
+	return r
 }
 
 // peekCharN returns the character n positions ahead without advancing position
@@ -765,8 +842,8 @@ func (l *Lexer) NextToken() Token {
 			}
 			l.lastTokenType = tok.Type
 			return l.attachPendingTrivia(tok)
-		} else if isLetter(l.peekChar()) || l.peekChar() == '>' {
-			// Could be a tag start <tag> or singleton <tag />
+		} else if isLetter(l.peekChar()) || l.peekChar() == '>' || isLetterRune(l.peekCharRune()) {
+			// Could be a tag start <tag> or singleton <tag /> or Unicode tag <Π/>
 			line := l.line
 			column := l.column
 			tagContent, isSingleton := l.readTagStartOrSingleton()
@@ -1084,7 +1161,7 @@ func (l *Lexer) NextToken() Token {
 		tok.Column = l.column
 	default:
 		// Check for Unicode currency symbols (£, €, ¥)
-		if l.ch == 0xC2 && l.peekChar() == 0xA3 { // £ (GBP)
+		if l.chRune == '£' { // £ (GBP)
 			line := l.line
 			column := l.column
 			tok = l.readMoneyLiteral()
@@ -1092,7 +1169,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Column = column
 			l.lastTokenType = tok.Type
 			return l.attachPendingTrivia(tok)
-		} else if l.ch == 0xE2 && l.peekChar() == 0x82 && l.peekCharN(2) == 0xAC { // € (EUR)
+		} else if l.chRune == '€' { // € (EUR)
 			line := l.line
 			column := l.column
 			tok = l.readMoneyLiteral()
@@ -1100,7 +1177,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Column = column
 			l.lastTokenType = tok.Type
 			return l.attachPendingTrivia(tok)
-		} else if l.ch == 0xC2 && l.peekChar() == 0xA5 { // ¥ (JPY)
+		} else if l.chRune == '¥' { // ¥ (JPY)
 			line := l.line
 			column := l.column
 			tok = l.readMoneyLiteral()
@@ -1108,7 +1185,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Column = column
 			l.lastTokenType = tok.Type
 			return l.attachPendingTrivia(tok)
-		} else if isLetter(l.ch) {
+		} else if isLetterRune(l.chRune) {
 			// Check for CODE# money syntax (e.g., USD#12.34)
 			if l.isCurrencyCodeStart() {
 				line := l.line
@@ -1168,10 +1245,11 @@ func newToken(tokenType TokenType, ch byte, line, column int) Token {
 	return Token{Type: tokenType, Literal: string(ch), Line: line, Column: column}
 }
 
-// readIdentifier reads an identifier or keyword
+// readIdentifier reads an identifier or keyword.
+// Supports Unicode identifiers (e.g., π, α, 日本語) via isLetterRune.
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) || isDigit(l.ch) {
+	for isLetterRune(l.chRune) || isDigit(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
@@ -1329,26 +1407,29 @@ func (l *Lexer) readMoneyLiteral() Token {
 		l.readChar() // S
 		l.readChar() // $
 		currency = "SGD"
-	case l.ch == 0xC2 && l.peekChar() == 0xA3: // £
-		l.readChar() // first byte of £
-		l.readChar() // second byte of £
+	case l.chRune == '£': // £ (GBP)
+		l.readChar() // consume £ (now a single readChar for multi-byte)
 		currency = "GBP"
-	case l.ch == 0xE2 && l.peekChar() == 0x82 && l.peekCharN(2) == 0xAC: // €
-		l.readChar() // first byte of €
-		l.readChar() // second byte of €
-		l.readChar() // third byte of €
+	case l.chRune == '€': // € (EUR)
+		l.readChar() // consume € (now a single readChar for multi-byte)
 		currency = "EUR"
-	case l.ch == 0xC2 && l.peekChar() == 0xA5: // ¥
-		l.readChar() // first byte of ¥
-		l.readChar() // second byte of ¥
+	case l.chRune == '¥': // ¥ (JPY)
+		l.readChar() // consume ¥ (now a single readChar for multi-byte)
 		currency = "JPY"
 	case l.ch == 'C' && l.peekChar() == 'N': // Check for CN¥
-		if l.peekCharN(2) == 0xC2 && l.peekCharN(3) == 0xA5 {
-			l.readChar() // C
-			l.readChar() // N
-			l.readChar() // first byte of ¥
-			l.readChar() // second byte of ¥
-			currency = "CNY"
+		// Need to check for CN¥ - peek past CN to see if ¥ follows
+		// Since readChar now advances by rune size, we need a different approach
+		if l.readPosition+1 < len(l.input) {
+			r, _ := utf8.DecodeRuneInString(l.input[l.readPosition+1:])
+			if r == '¥' {
+				l.readChar() // C
+				l.readChar() // N
+				l.readChar() // ¥
+				currency = "CNY"
+			} else {
+				// Must be CODE# format
+				currency = l.readCurrencyCode()
+			}
 		} else {
 			// Must be CODE# format
 			currency = l.readCurrencyCode()
@@ -1510,7 +1591,7 @@ func (l *Lexer) readString() (string, bool) {
 				result = append(result, l.ch)
 			}
 		} else {
-			result = append(result, l.ch)
+			result = l.appendCurrentChar(result)
 		}
 		l.readChar()
 	}
@@ -1549,7 +1630,7 @@ func (l *Lexer) readRawString() (string, bool, bool) {
 			if l.ch == '@' && l.peekChar() == '{' {
 				hasInterpolation = true
 			}
-			result = append(result, l.ch)
+			result = l.appendCurrentChar(result)
 		}
 		l.readChar()
 	}
@@ -1576,7 +1657,7 @@ func (l *Lexer) readTemplate() string {
 				result = append(result, l.ch)
 			}
 		} else {
-			result = append(result, l.ch)
+			result = l.appendCurrentChar(result)
 		}
 		l.readChar()
 	}
@@ -1613,11 +1694,11 @@ func (l *Lexer) readTag() string {
 					result = append(result, l.ch)
 					l.readChar()
 					if l.ch != 0 {
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1640,7 +1721,7 @@ func (l *Lexer) readTag() string {
 					result = append(result, l.ch)
 					l.readChar()
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1671,12 +1752,12 @@ func (l *Lexer) readTag() string {
 							result = append(result, l.ch)
 							l.readChar()
 							if l.ch != 0 {
-								result = append(result, l.ch)
+								result = l.appendCurrentChar(result)
 								l.readChar()
 							}
 							continue
 						}
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 					if l.ch == '"' {
@@ -1685,13 +1766,13 @@ func (l *Lexer) readTag() string {
 					}
 					continue
 				}
-				result = append(result, l.ch)
+				result = l.appendCurrentChar(result)
 				l.readChar()
 			}
 			continue
 		}
 
-		result = append(result, l.ch)
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
@@ -1823,9 +1904,9 @@ func (l *Lexer) readTagEnd() string {
 	l.readChar() // skip <
 	l.readChar() // skip /
 
-	// Read tag name (allow hyphens for web components like my-component, dots for namespaced components like basil.cache.Cache)
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '-' || l.ch == '.' {
-		result = append(result, l.ch)
+	// Read tag name (allow Unicode letters, hyphens for web components like my-component, dots for namespaced components like basil.cache.Cache)
+	for isLetterRune(l.chRune) || isDigit(l.ch) || l.ch == '-' || l.ch == '.' {
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
@@ -1888,11 +1969,11 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 					result = append(result, l.ch)
 					l.readChar()
 					if l.ch != 0 {
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1915,7 +1996,7 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 					result = append(result, l.ch)
 					l.readChar()
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1946,12 +2027,12 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 							result = append(result, l.ch)
 							l.readChar()
 							if l.ch != 0 {
-								result = append(result, l.ch)
+								result = l.appendCurrentChar(result)
 								l.readChar()
 							}
 							continue
 						}
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 					if l.ch == '"' {
@@ -1960,13 +2041,13 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 					}
 					continue
 				}
-				result = append(result, l.ch)
+				result = l.appendCurrentChar(result)
 				l.readChar()
 			}
 			continue
 		}
 
-		result = append(result, l.ch)
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
@@ -2324,10 +2405,17 @@ func (l *Lexer) skipComment() {
 	}
 }
 
-// isLetter checks if the character is a letter
+// isLetter checks if a byte represents a letter (ASCII fast-path).
+// For non-ASCII bytes (>=0x80), this returns false - use isLetterRune for Unicode.
 func isLetter(ch byte) bool {
-	r, _ := utf8.DecodeRune([]byte{ch})
-	return unicode.IsLetter(r) || ch == '_'
+	// ASCII fast-path: handles a-z, A-Z, _
+	return ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+// isLetterRune checks if a rune is a valid identifier character (letter or underscore).
+// This supports Unicode letters like π, α, 日本語, etc.
+func isLetterRune(r rune) bool {
+	return r == '_' || unicode.IsLetter(r)
 }
 
 // isDigit checks if the character is a digit
@@ -2377,14 +2465,6 @@ func (l *Lexer) readRegex() (string, string) {
 	for isLetter(l.ch) {
 		flags = append(flags, l.ch)
 		l.readChar()
-	}
-
-	// Back up one char since we consumed one too many
-	l.position = l.readPosition - 1
-	if l.position < len(l.input) {
-		l.ch = l.input[l.position]
-	} else {
-		l.ch = 0
 	}
 
 	return string(pattern), string(flags)
@@ -2481,14 +2561,6 @@ func (l *Lexer) readDatetimeLiteral() string {
 	_ = isTimeOnly
 	_ = startPos
 
-	// Back up one char since we consumed one too many
-	l.position = l.readPosition - 1
-	if l.position < len(l.input) {
-		l.ch = l.input[l.position]
-	} else {
-		l.ch = 0
-	}
-
 	return string(datetime)
 }
 
@@ -2562,14 +2634,6 @@ func (l *Lexer) readDurationLiteral() string {
 			duration = append(duration, l.ch)
 			l.readChar()
 		}
-	}
-
-	// Back up one char since we consumed one too many
-	l.position = l.readPosition - 1
-	if l.position < len(l.input) {
-		l.ch = l.input[l.position]
-	} else {
-		l.ch = 0
 	}
 
 	return string(duration)

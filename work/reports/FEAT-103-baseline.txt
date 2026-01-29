@@ -1,0 +1,13 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/sambeau/basil/pkg/parsley/lexer
+cpu: Apple M2
+BenchmarkLexer_Simple-8              	 4394971	       256.4 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4665474	       259.0 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4688839	       257.3 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4669771	       256.8 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4530658	       257.7 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4637104	       259.2 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4491969	       268.4 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	 4331088	       376.9 ns/op	      12 B/op	       3 allocs/op
+BenchmarkLexer_Simple-8              	
