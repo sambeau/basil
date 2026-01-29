@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	perrors "github.com/sambeau/basil/pkg/parsley/errors"
@@ -2630,7 +2631,25 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 	// For ILLEGAL tokens, always report at the token's actual location
 	// since the error is the token itself, not a missing expression
 	if t == lexer.ILLEGAL {
-		p.addError(literal, p.curToken.Line, p.curToken.Column)
+		// Check if the literal represents a high-byte character that was created
+		// from a multi-byte UTF-8 sequence being read byte-by-byte.
+		// When string(byte(0xF0)) is done, Go interprets 0xF0 as Unicode code point U+00F0 ("ð")
+		// and encodes it as UTF-8. This results in characters in the range U+0080-U+00FF
+		// which are typically the result of corrupted multi-byte sequences (emojis, etc.)
+		if len(literal) > 0 {
+			r, _ := utf8.DecodeRuneInString(literal)
+			// Characters in the Latin-1 Supplement range (U+0080 to U+00FF) that aren't
+			// common punctuation are likely corrupted multi-byte characters
+			if r >= 0x80 && r <= 0xFF {
+				p.addError("unexpected character (possibly an emoji or special character that needs to be in a string)", p.curToken.Line, p.curToken.Column)
+				return
+			}
+		}
+		if literal == "" {
+			p.addError("unexpected character", p.curToken.Line, p.curToken.Column)
+		} else {
+			p.addError(fmt.Sprintf("unexpected character '%s'", literal), p.curToken.Line, p.curToken.Column)
+		}
 		return
 	}
 
