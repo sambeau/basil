@@ -623,6 +623,20 @@ func (l *Lexer) peekChar() byte {
 	return l.input[l.readPosition]
 }
 
+// peekCharRune returns the next character as a rune without advancing position.
+// This properly handles multi-byte UTF-8 characters.
+func (l *Lexer) peekCharRune() rune {
+	if l.readPosition >= len(l.input) {
+		return 0
+	}
+	b := l.input[l.readPosition]
+	if b < utf8.RuneSelf {
+		return rune(b)
+	}
+	r, _ := utf8.DecodeRuneInString(l.input[l.readPosition:])
+	return r
+}
+
 // peekCharN returns the character n positions ahead without advancing position
 func (l *Lexer) peekCharN(n int) byte {
 	pos := l.readPosition + n - 1
@@ -828,8 +842,8 @@ func (l *Lexer) NextToken() Token {
 			}
 			l.lastTokenType = tok.Type
 			return l.attachPendingTrivia(tok)
-		} else if isLetter(l.peekChar()) || l.peekChar() == '>' {
-			// Could be a tag start <tag> or singleton <tag />
+		} else if isLetter(l.peekChar()) || l.peekChar() == '>' || isLetterRune(l.peekCharRune()) {
+			// Could be a tag start <tag> or singleton <tag /> or Unicode tag <Π/>
 			line := l.line
 			column := l.column
 			tagContent, isSingleton := l.readTagStartOrSingleton()
@@ -1680,11 +1694,11 @@ func (l *Lexer) readTag() string {
 					result = append(result, l.ch)
 					l.readChar()
 					if l.ch != 0 {
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1707,7 +1721,7 @@ func (l *Lexer) readTag() string {
 					result = append(result, l.ch)
 					l.readChar()
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1738,12 +1752,12 @@ func (l *Lexer) readTag() string {
 							result = append(result, l.ch)
 							l.readChar()
 							if l.ch != 0 {
-								result = append(result, l.ch)
+								result = l.appendCurrentChar(result)
 								l.readChar()
 							}
 							continue
 						}
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 					if l.ch == '"' {
@@ -1752,13 +1766,13 @@ func (l *Lexer) readTag() string {
 					}
 					continue
 				}
-				result = append(result, l.ch)
+				result = l.appendCurrentChar(result)
 				l.readChar()
 			}
 			continue
 		}
 
-		result = append(result, l.ch)
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
@@ -1890,9 +1904,9 @@ func (l *Lexer) readTagEnd() string {
 	l.readChar() // skip <
 	l.readChar() // skip /
 
-	// Read tag name (allow hyphens for web components like my-component, dots for namespaced components like basil.cache.Cache)
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '-' || l.ch == '.' {
-		result = append(result, l.ch)
+	// Read tag name (allow Unicode letters, hyphens for web components like my-component, dots for namespaced components like basil.cache.Cache)
+	for isLetterRune(l.chRune) || isDigit(l.ch) || l.ch == '-' || l.ch == '.' {
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
@@ -1955,11 +1969,11 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 					result = append(result, l.ch)
 					l.readChar()
 					if l.ch != 0 {
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -1982,7 +1996,7 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 					result = append(result, l.ch)
 					l.readChar()
 				} else {
-					result = append(result, l.ch)
+					result = l.appendCurrentChar(result)
 					l.readChar()
 				}
 			}
@@ -2013,12 +2027,12 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 							result = append(result, l.ch)
 							l.readChar()
 							if l.ch != 0 {
-								result = append(result, l.ch)
+								result = l.appendCurrentChar(result)
 								l.readChar()
 							}
 							continue
 						}
-						result = append(result, l.ch)
+						result = l.appendCurrentChar(result)
 						l.readChar()
 					}
 					if l.ch == '"' {
@@ -2027,13 +2041,13 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 					}
 					continue
 				}
-				result = append(result, l.ch)
+				result = l.appendCurrentChar(result)
 				l.readChar()
 			}
 			continue
 		}
 
-		result = append(result, l.ch)
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 

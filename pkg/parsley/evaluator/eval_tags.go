@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	perrors "github.com/sambeau/basil/pkg/parsley/errors"
@@ -21,21 +22,30 @@ import (
 func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
 	raw := node.Raw
 
-	// Parse tag name (first word)
+	// Parse tag name (first word) - use range to properly iterate UTF-8 runes
 	i := 0
-	for i < len(raw) && !unicode.IsSpace(rune(raw[i])) {
-		i++
+	for pos, ch := range raw {
+		if unicode.IsSpace(ch) {
+			i = pos
+			break
+		}
+		i = pos + utf8.RuneLen(ch) // Set i to byte position after current rune
 	}
+	// If we never broke (no space found), i is already at end of string
 	tagName := raw[:i]
-	rest := raw[i:]
+	rest := ""
+	if i < len(raw) {
+		rest = raw[i:]
+	}
 
 	// Special handling for Part component
 	if tagName == "Part" {
 		return evalPartTag(node.Token, rest, env)
 	}
 
-	// Check if it's a custom tag (starts with uppercase)
-	isCustom := len(tagName) > 0 && unicode.IsUpper(rune(tagName[0]))
+	// Check if it's a custom tag (starts with uppercase letter, including Unicode)
+	firstRune, _ := utf8.DecodeRuneInString(tagName)
+	isCustom := len(tagName) > 0 && unicode.IsUpper(firstRune)
 
 	if isCustom {
 		// Custom tag - call function with props dictionary
@@ -58,8 +68,9 @@ func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		return evalCacheTag(node, env)
 	}
 
-	// Check if it's a custom component (starts with uppercase)
-	isCustom := len(node.Name) > 0 && unicode.IsUpper(rune(node.Name[0]))
+	// Check if it's a custom component (starts with uppercase letter, including Unicode)
+	firstRune, _ := utf8.DecodeRuneInString(node.Name)
+	isCustom := len(node.Name) > 0 && unicode.IsUpper(firstRune)
 
 	if isCustom {
 		// Custom component - call function with props dictionary including contents
