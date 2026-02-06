@@ -2289,16 +2289,110 @@ let users = db.bind(User, "users")   // Bind schema to table
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.all()` | none | `Table` | All rows as Table |
-| `.where(cond)` | `cond: dictionary` | `TableBinding` | Filter by conditions |
+| `.all(options?)` | `options?: dictionary` | `Table` | All rows with optional sorting, selection, pagination |
+| `.where(cond, options?)` | `cond: dictionary, options?: dictionary` | `Table` | Filter by conditions with optional sorting, selection |
 | `.find(id)` | `id: any` | `Record\|null` | Find row by primary key |
-| `.first()` | none | `Record\|null` | First matching row |
+| `.first(n?, options?)` | `n?: integer, options?: dictionary` | `Record\|null` or `Table` | First row(s), optionally sorted |
+| `.last(n?, options?)` | `n?: integer, options?: dictionary` | `Record\|null` or `Table` | Last row(s), optionally sorted |
+| `.findBy(cond, options?)` | `cond: dictionary, options?: dictionary` | `Record\|null` | Find first matching row |
+| `.exists(cond)` | `cond: dictionary` | `boolean` | Check if any matching row exists |
+
+##### Basic Queries
 
 ```parsley
 let allUsers = users.all()
-let active = users.where({status: "active"}).all()
+let active = users.where({status: "active"})
 let user = users.find("abc-123")
 ```
+
+##### Query Options (FEAT-078)
+
+Both `all()` and `where()` accept an optional options dictionary with:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `orderBy` | `string` or `array` | none | Column name or array of `[col, dir]` pairs |
+| `order` | `"asc"` or `"desc"` | `"asc"` | Direction when `orderBy` is string |
+| `select` | `array` | all columns | Column names to return |
+| `limit` | `integer` | auto (20) | Max rows to return |
+| `offset` | `integer` | auto (0) | Rows to skip |
+
+```parsley
+// Sort by single column
+users.all({orderBy: "name"})
+users.all({orderBy: "created_at", order: "desc"})
+
+// Sort by multiple columns
+users.all({orderBy: [["age", "desc"], ["name", "asc"]]})
+
+// Select specific columns only
+users.all({select: ["id", "name", "email"]})
+
+// Custom pagination
+users.all({limit: 10, offset: 20})
+
+// Combine options
+users.where({active: true}, {
+  orderBy: "name",
+  select: ["id", "name"],
+  limit: 5
+})
+```
+
+##### Convenience Methods (FEAT-078)
+
+```parsley
+// first() - get first record(s) by id
+let firstUser = users.first()           // Single record or null
+let firstFive = users.first(5)          // Array of up to 5 records
+let oldest = users.first({orderBy: "age", order: "desc"})
+
+// last() - get last record(s) by id (reversed)
+let lastUser = users.last()             // Last by id DESC
+let lastThree = users.last(3)           // Last 3 by id DESC
+
+// findBy() - find first matching record
+let admin = users.findBy({role: "admin"})
+let newest = users.findBy({status: "active"}, {orderBy: "created_at", order: "desc"})
+
+// exists() - check if any match exists (efficient)
+if (users.exists({email: "alice@example.com"})) {
+  log("Email already taken")
+}
+```
+
+#### Aggregation Methods (FEAT-078)
+
+TableBinding provides SQL aggregation methods that return scalar values:
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.count(cond?)` | `cond?: dictionary` | `integer` | Count rows, optionally filtered |
+| `.sum(column, cond?)` | `column: string, cond?: dictionary` | `number\|null` | Sum column values |
+| `.avg(column, cond?)` | `column: string, cond?: dictionary` | `number\|null` | Average column values |
+| `.min(column, cond?)` | `column: string, cond?: dictionary` | `any\|null` | Minimum column value |
+| `.max(column, cond?)` | `column: string, cond?: dictionary` | `any\|null` | Maximum column value |
+
+```parsley
+// Count all rows
+let total = users.count()               // e.g., 150
+
+// Count with filter
+let admins = users.count({role: "admin"})  // e.g., 5
+
+// Sum numeric column
+let totalBalance = accounts.sum("balance")
+let activeBalance = accounts.sum("balance", {status: "active"})
+
+// Average
+let avgAge = users.avg("age")           // e.g., 32.5
+
+// Min/Max
+let oldest = users.max("age")           // e.g., 67
+let newest = users.max("created_at")    // e.g., 2026-01-15T...
+```
+
+**Note**: Aggregations return `null` on empty result sets (except `count()` which returns `0`).
 
 #### Schema-Driven Mutation Methods
 

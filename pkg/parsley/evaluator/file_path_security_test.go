@@ -86,7 +86,7 @@ func TestFilePathTraversalAttacks(t *testing.T) {
 			if tt.withSecurity {
 				env.Security = &SecurityPolicy{
 					AllowWrite:    tt.allowedPaths,
-					AllowWriteAll: false,      // Require whitelist for writes
+					AllowWriteAll: false,                            // Require whitelist for writes
 					RestrictRead:  []string{"/etc", "/private/etc"}, // Blacklist system directories
 				}
 			}

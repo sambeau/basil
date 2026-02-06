@@ -1,10 +1,10 @@
 package evaluator
 
 import (
-"strings"
+	"strings"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
 // Collection operations: set operations, chunking, repetition, ranges

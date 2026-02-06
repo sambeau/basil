@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestBuildRequestContext_Cookies(t *testing.T) {

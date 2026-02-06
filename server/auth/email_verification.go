@@ -20,15 +20,15 @@ const (
 
 // EmailVerification represents an email verification token
 type EmailVerification struct {
-	ID          string
-	UserID      string
-	Email       string
-	TokenHash   string
-	ExpiresAt   time.Time
-	ConsumedAt  *time.Time
-	SendCount   int
-	LastSentAt  time.Time
-	CreatedAt   time.Time
+	ID         string
+	UserID     string
+	Email      string
+	TokenHash  string
+	ExpiresAt  time.Time
+	ConsumedAt *time.Time
+	SendCount  int
+	LastSentAt time.Time
+	CreatedAt  time.Time
 }
 
 // GenerateVerificationToken generates a cryptographically random verification token

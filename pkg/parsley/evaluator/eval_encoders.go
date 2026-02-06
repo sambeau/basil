@@ -1,14 +1,14 @@
 package evaluator
 
 import (
-"encoding/csv"
-"encoding/json"
-"fmt"
-"sort"
-"strings"
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-"gopkg.in/yaml.v3"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"gopkg.in/yaml.v3"
 )
 
 // File encoding functions for various output formats

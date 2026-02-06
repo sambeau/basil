@@ -1,18 +1,18 @@
 package evaluator
 
 import (
-"fmt"
-"regexp"
-"strings"
-"unicode"
+	"fmt"
+	"regexp"
+	"strings"
+	"unicode"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-"github.com/yuin/goldmark"
-gmast "github.com/yuin/goldmark/ast"
-"github.com/yuin/goldmark/extension"
-extast "github.com/yuin/goldmark/extension/ast"
-goldmarkParser "github.com/yuin/goldmark/parser"
-"github.com/yuin/goldmark/text"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/yuin/goldmark"
+	gmast "github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	extast "github.com/yuin/goldmark/extension/ast"
+	goldmarkParser "github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 )
 
 // ============================================================================

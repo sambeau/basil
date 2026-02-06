@@ -32,9 +32,9 @@ const (
 
 // Indentation - gofmt style: tabs for indentation, spaces for alignment
 const (
-	TabWidth     = 4    // Display width of a tab character
+	TabWidth     = 4        // Display width of a tab character
 	IndentWidth  = TabWidth // Each indent level is one tab = 4 display chars
-	IndentString = "\t" // tab character
+	IndentString = "\t"     // tab character
 )
 
 // Structure
@@ -43,6 +43,6 @@ const (
 )
 
 // Trailing commas - whether to add trailing comma on multiline structures
-const TrailingCommaMultiline = true      // For arrays and objects
-const TrailingCommaFuncCalls = false     // For function call arguments
-const TrailingCommaFuncParams = false    // For function parameter lists
+const TrailingCommaMultiline = true   // For arrays and objects
+const TrailingCommaFuncCalls = false  // For function call arguments
+const TrailingCommaFuncParams = false // For function parameter lists

@@ -507,4 +507,3 @@ func TestReindex(t *testing.T) {
 		t.Errorf("expected 0 results for old docs, got %d", results4.Total)
 	}
 }
-

@@ -142,9 +142,9 @@ func TestQuoteSQLIdentifier(t *testing.T) {
 // TestIsSQLKeyword tests SQL keyword detection
 func TestIsSQLKeyword(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		isKeyword  bool
+		name      string
+		input     string
+		isKeyword bool
 	}{
 		{"SELECT uppercase", "SELECT", true},
 		{"select lowercase", "select", true},
@@ -178,33 +178,33 @@ func TestSQLInjectionVectors(t *testing.T) {
 		"admin'--",
 		"admin' #",
 		"admin'/*",
-		
+
 		// UNION-based injection
 		"' UNION SELECT NULL--",
 		"' UNION ALL SELECT",
 		"1' UNION SELECT * FROM users--",
-		
+
 		// Boolean-based blind injection
 		"1' AND '1'='1",
 		"1' AND '1'='2",
-		
+
 		// Time-based blind injection
 		"1' AND SLEEP(5)--",
 		"1'; WAITFOR DELAY '00:00:05'--",
-		
+
 		// Stacked queries
 		"1'; DROP TABLE users;--",
 		"1'; DELETE FROM users WHERE '1'='1",
-		
+
 		// Comment injection
 		"user/**/name",
 		"user--name",
 		"user#name",
-		
+
 		// Encoded injection
 		"user%27%20OR%20",
 		"user%00",
-		
+
 		// NoSQL-style injection attempts
 		"user[$ne]",
 		"user{$ne:null}",
@@ -232,20 +232,20 @@ func TestSQLIdentifierEdgeCases(t *testing.T) {
 		{"single underscore", "_", true},
 		{"double underscore", "__", true},
 		{"triple underscore", "___private", true},
-		
+
 		// Case sensitivity
 		{"all caps", "USERS", true},
 		{"all lowercase", "users", true},
 		{"camelCase", "userId", true},
 		{"PascalCase", "UserId", true},
 		{"snake_case", "user_id", true},
-		
+
 		// Numbers
 		{"trailing number", "user1", true},
 		{"middle number", "u1ser", true},
 		{"leading number", "1user", false},
 		{"all numbers", "12345", false},
-		
+
 		// Whitespace variations
 		{"leading space", " users", false},
 		{"trailing space", "users ", false},
@@ -253,12 +253,12 @@ func TestSQLIdentifierEdgeCases(t *testing.T) {
 		{"tab", "user\tname", false},
 		{"newline", "user\nname", false},
 		{"carriage return", "user\rname", false},
-		
+
 		// Control characters
 		{"null byte", "user\x00", false},
 		{"bell", "user\x07", false},
 		{"backspace", "user\x08", false},
-		
+
 		// Empty and nil-like
 		{"empty string", "", false},
 		{"just spaces", "   ", false},

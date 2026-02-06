@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/sambeau/basil/server"
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
-	"github.com/sambeau/basil/server"
 )
 
 // Version information, set at build time via -ldflags

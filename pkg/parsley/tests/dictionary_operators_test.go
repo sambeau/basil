@@ -25,9 +25,9 @@ func evalDictOp(input string) evaluator.Object {
 // TestDictionaryIntersection tests dictionary intersection operator
 func TestDictionaryIntersection(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		checkKeys []string
+		name         string
+		input        string
+		checkKeys    []string
 		checkNotKeys []string
 	}{
 		{
@@ -340,10 +340,10 @@ func TestDictionaryOperatorsPracticalUseCase(t *testing.T) {
 					commonSettings`,
 			check: func(result string) bool {
 				// Should only have 'timeout' (common key)
-				return strings.Contains(result, "timeout:") && 
-					   !strings.Contains(result, "retries:") && 
-					   !strings.Contains(result, "logging:") &&
-					   !strings.Contains(result, "cache:")
+				return strings.Contains(result, "timeout:") &&
+					!strings.Contains(result, "retries:") &&
+					!strings.Contains(result, "logging:") &&
+					!strings.Contains(result, "cache:")
 			},
 		},
 		{
@@ -353,10 +353,10 @@ func TestDictionaryOperatorsPracticalUseCase(t *testing.T) {
 					cleaned`,
 			check: func(result string) bool {
 				// Should have id and name, not password or token
-				return strings.Contains(result, "id:") && 
-					   strings.Contains(result, "name:") &&
-					   !strings.Contains(result, "password:") &&
-					   !strings.Contains(result, "token:")
+				return strings.Contains(result, "id:") &&
+					strings.Contains(result, "name:") &&
+					!strings.Contains(result, "password:") &&
+					!strings.Contains(result, "token:")
 			},
 		},
 	}
