@@ -329,7 +329,7 @@ Or use the `<SQL>` tag for complex queries with positional parameters:
 
 ```parsley
 let SearchUsers = fn(term) {
-    <SQL params={name: term}>
+    <SQL name={term}>
         "SELECT * FROM users WHERE name LIKE ?"
     </SQL>
 }
@@ -337,7 +337,7 @@ let users = db <=??=> <SearchUsers term="Ali%"/>
 ```
 
 **`<SQL>` Tag Attributes:**
-- `params` (Dictionary) — Named parameters, passed as positional `?` placeholders in sorted key order
+- All attributes are treated as query parameters, bound as positional `?` placeholders in sorted key order
 
 **Note:** Template strings are convenient but the `<SQL>` tag provides explicit parameter binding when needed.
 
