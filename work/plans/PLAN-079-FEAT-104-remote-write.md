@@ -2,7 +2,7 @@
 id: PLAN-079
 feature: FEAT-104
 title: "Implementation Plan: Remote Write Operator (=/=> and =/=>>)"
-status: draft
+status: complete
 created: 2026-02-07
 ---
 
@@ -317,22 +317,36 @@ Tasks 9, 10, 11, 12 can be done in parallel once the implementation (Tasks 1–7
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
-- [ ] No `==>` with network targets anywhere in codebase (grep check)
-- [ ] `sftp_demo.pars` parses without error
-- [ ] All FEAT-104 acceptance criteria checked off
-- [ ] Documentation updated (network.md, CHEATSHEET.md, reference.md ×2, urls.md, highlightjs, CHANGELOG)
+- [x] No `==>` with network targets anywhere in codebase (grep check)
+- [x] `sftp_demo.pars` parses without error
+- [x] All FEAT-104 acceptance criteria checked off
+- [x] Documentation updated (network.md, CHEATSHEET.md, reference.md ×2, urls.md, highlightjs, CHANGELOG)
 - [ ] work/BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-02-07 | Task 1: Lexer tokens | ✅ Done | REMOTE_WRITE, REMOTE_APPEND tokens added |
+| 2026-02-07 | Task 2: AST node | ✅ Done | RemoteWriteStatement with Append flag |
+| 2026-02-07 | Task 3: Parser support | ✅ Done | parseExpressionStatement extended |
+| 2026-02-07 | Task 4: Evaluator — new operator | ✅ Done | evalRemoteWriteStatement in eval_network_io.go |
+| 2026-02-07 | Task 5: Breaking change to ==> | ✅ Done | evalWriteStatement rejects HTTP/SFTP targets |
+| 2026-02-07 | Task 6: SFTP tests | ✅ Done | Parse-level tests unskipped; integration tests remain skipped |
+| 2026-02-07 | Task 7: Example file | ✅ Done | sftp_demo.pars updated and parses cleanly |
+| 2026-02-07 | Task 8: Highlight.js | ✅ Done | Added =\/=>>? to operator regex |
+| 2026-02-07 | Task 9: Docs — network.md | ✅ Done | Remote write section, error handling, SFTP, key differences |
+| 2026-02-07 | Task 10: Docs — cheatsheet | ✅ Done | HTTP examples and gotcha #10 added |
+| 2026-02-07 | Task 11: Docs — reference pages | ✅ Done | basil ref (3.5, 3.6, appendix), parsley ref (precedence, examples), urls.md |
+| 2026-02-07 | Task 12: CHANGELOG | ✅ Done | Breaking change + Added entries |
+| 2026-02-07 | Task 13: Final validation | ✅ Done | Builds pass, tests pass, grep clean |
 
 ## Deferred Items
 
 Items to add to work/BACKLOG.md after implementation:
-- (none anticipated — this is a self-contained feature)
+- Assignment-capture patterns for statement-level operators (e.g., `result = data =/=> target`) are not supported by the parser. The spec describes error-capture patterns but they require parser-level changes to support assignment around statement-level operators. This applies equally to `==>`.
+- `golangci-lint run` not yet verified (tool not confirmed available in environment)
+- SFTP integration tests remain skipped (require live SFTP server)

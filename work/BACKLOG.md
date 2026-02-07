@@ -1,5 +1,5 @@
 ---
-updated: 2026-01-22
+updated: 2026-02-07
 ---
 
 # Backlog
@@ -46,6 +46,8 @@ Deferred items from implementation, to be picked up in future work.
 | #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access |
 | #58 | Local module imports should not require `-x` | Examples audit | Sandbox policy needs revision | `-x` should only allow @shell execution; Parsley module imports (e.g., `import @./modules/foo.pars`) should be permitted without execute mode. Update sandbox semantics accordingly. |
 | #34 | Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
+
+| #89 | Assignment-capture patterns for statement-level I/O operators | FEAT-104 | Parser architecture change | Patterns like `result = data =/=> target` don't parse because write operators (`==>`, `=/=>`, etc.) are statement-level, not infix expressions. Supporting assignment-capture would require parser changes to allow assignment around statement-level operators. Applies equally to `==>`. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
