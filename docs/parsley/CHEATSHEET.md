@@ -151,7 +151,20 @@ let myId = 5
 'email: user\@domain.com'          // literal @
 ```
 
-### 10. Self-Closing Tags MUST Use />
+### 10. Local vs Network Write Operators
+```parsley
+// ❌ WRONG — ==> is for local files only
+data ==> JSON(@https://api.example.com/users)
+// ERROR: operator ==> is for local file writes; use =/=> for network writes
+
+// ✅ CORRECT — use =/=> for network writes
+data =/=> JSON(@https://api.example.com/users)
+
+// ✅ CORRECT — ==> for local files
+data ==> JSON(@./output.json)
+```
+
+### 11. Self-Closing Tags MUST Use />
 ```parsley
 // ❌ WRONG - not self-closing
 <br>
@@ -164,7 +177,7 @@ let myId = 5
 <Part src={@./foo.part}/>
 ```
 
-### 11. Schema ID Types Require `auto` for Generation
+### 12. Schema ID Types Require `auto` for Generation
 ```parsley
 // ❌ WRONG - id: id without auto expects valid ULID format
 @schema User {
@@ -464,12 +477,21 @@ let users <=/= JSON(@https://api.example.com/users)
 // With error handling
 let {data, error, status} <=/= JSON(@https://api.example.com/data)
 
-// POST with body
+// POST with body (via fetch options)
 let response <=/= JSON(@https://api.example.com/users, {
     method: "POST",
     body: {name: "Alice"},
     headers: {"Authorization": "Bearer token"}
 })
+
+// POST with remote write operator
+{name: "Alice"} =/=> JSON(@https://api.example.com/users)
+
+// PUT
+data =/=> JSON(@https://api.example.com/users/1).put
+
+// PATCH
+patch =/=> JSON(@https://api.example.com/users/1).patch
 ```
 
 ### Database (SQLite)

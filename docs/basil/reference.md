@@ -144,7 +144,7 @@ let sftp = @sftp("sftp://user@host:22", {keyFile: @~/.ssh/id_rsa})
 let content <== text(sftp[@./remote/file.txt])
 
 // Write to remote file
-"data" ==> text(sftp[@./remote/file.txt])
+"data" =/=> text(sftp[@./remote/file.txt])
 
 // Create remote directory
 sftp[@./remote/newdir].mkdir({parents: true})
@@ -488,7 +488,44 @@ let data <=/= JSON(@https://api.example.com/users)
 
 **Errors:** `NET-0002` (request failed), `NET-0004` (non-2xx status)
 
-### 3.5 Error Capture Pattern
+### 3.5 Remote Write (`=/=>`)
+
+Sends data to a network target (HTTP endpoint or SFTP server).
+
+**Grammar:** `expression =/=> expression`
+
+```parsley
+{name: "Alice"} =/=> JSON(@https://api.example.com/users)
+```
+
+**Arguments:**
+- Left: Value to send (becomes request body for HTTP, file content for SFTP)
+- Right: Network handle (HTTP request handle or SFTP file handle)
+
+**HTTP behavior:** Defaults method to POST. Use `.put` or `.patch` accessors for other methods.
+**Returns:** Response dictionary (HTTP) or `null` (SFTP success) or error
+
+**Errors:** `NET-0002` (request failed)
+
+### 3.6 Remote Append (`=/=>>`)
+
+Appends data to a remote file via SFTP.
+
+**Grammar:** `expression =/=>> expression`
+
+```parsley
+"log entry\n" =/=>> text(sftp[@./var/log/app.log])
+```
+
+**Arguments:**
+- Left: Value to append
+- Right: SFTP file handle
+
+Not supported for HTTP targets (HTTP has no append semantic).
+
+**Returns:** `null` on success
+
+### 3.7 Error Capture Pattern
 
 Use `{data, error}` destructuring to capture errors instead of failing:
 
@@ -1500,6 +1537,7 @@ if (user.role != "admin") {
 |---------|----------|--------------|-------|
 | File I/O (`<==`, `==>`, `==>>`) | ✓ | ✓ | |
 | URL Fetch (`<=/=`) | ✓ | ✓ | Requires `--allow-net` in pars |
+| Remote Write (`=/=>`, `=/=>>`) | ✓ | ✓ | Requires `--allow-net` in pars |
 | Database operators | ✓ | ✓ | |
 | Format factories | ✓ | ✓ | |
 | @env | ✓ | ✓ | |

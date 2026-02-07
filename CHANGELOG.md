@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+- **`==>` and `==>>` no longer accept network targets.** HTTP request dictionaries and SFTP file handles must now use the dedicated network write operators `=/=>` and `=/=>>`. Using `==>` with a network target produces a clear error message with the fix. This enforces a visible distinction between local file I/O and network I/O, matching the existing read-side separation (`<==` vs `<=/=`).
+
 ### Added
-- None
+- **Remote write operator `=/=>`** — Sends data to HTTP endpoints or SFTP servers. Defaults to POST for HTTP; use `.put` or `.patch` accessors for other methods. Counterpart to the fetch operator `<=/=`.
+- **Remote append operator `=/=>>`** — Appends data to remote files via SFTP. Not supported for HTTP (HTTP has no append semantic).
 
 ### Changed
 - None

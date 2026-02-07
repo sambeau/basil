@@ -168,5 +168,5 @@ let response <=/= @https://api.example.com/data
 
 - [Paths](paths.md) — filesystem path literals and manipulation
 - [File I/O](../features/file-io.md) — reading from URL-based file handles
-- [Operators](../fundamentals/operators.md) — `+` URL joining, `<==` read, `<=/=` fetch
+- [Operators](../fundamentals/operators.md) — `+` URL joining, `<==` read, `<=/=` fetch, `=/=>` remote write
 - [HTTP & Networking](../features/network.md) — HTTP requests and responses

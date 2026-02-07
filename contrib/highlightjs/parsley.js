@@ -96,7 +96,7 @@ function hljsDefineParsley ( hljs ) {
 	// Operators - special I/O and database operators
 	const SPECIAL_OPERATORS = {
 		scope: 'operator',
-		match: /<=\?\?=>|<=\?=>|<=!=>|<=#=>|<==|<=\/=|==>>?/
+		match: /<=\?\?=>|<=\?=>|<=!=>|<=#=>|<==|<=\/=|=\/=>>?|==>>?/
 	}
 
 	// Regex literals

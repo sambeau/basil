@@ -100,54 +100,96 @@ Without the `{data, error}` pattern, a failed fetch produces a network-class err
 
 ## HTTP Methods
 
-The default HTTP method is GET. To use other methods, construct a request dictionary with a `method` field. The simplest way is to use a URL handle and set properties:
+The default HTTP method is GET. To use other methods, pass an **options dictionary** as the second argument to a format factory function, or use the **write operator** (`==>`) with **method accessors**.
+
+### Options Dictionary
+
+Pass `method`, `body`, `headers`, and `timeout` as a second argument to any format factory:
 
 ```parsley
 // POST with JSON body
-let createUser = {
-    url: @https://api.example.com/users,
+let {data, error} <=/= JSON(@https://api.example.com/users, {
     method: "POST",
-    format: "json",
     body: {name: "Alice", email: "alice@example.com"},
-    headers: {
-        Authorization: "Bearer token123"
-    }
-}
-let response <=/= createUser
+    headers: {Authorization: "Bearer token123"}
+})
 ```
 
-### Request Dictionary Fields
-
-| Field | Type | Default | Description |
+| Option | Type | Default | Description |
 |---|---|---|---|
-| `url` | URL | required | Target URL |
-| `method` | string | `"GET"` | HTTP method (GET, POST, PUT, DELETE) |
-| `format` | string | `"text"` | Response format (json, yaml, text, lines, bytes) |
+| `method` | string | `"GET"` | HTTP method (GET, POST, PUT, DELETE, PATCH) |
 | `body` | any | none | Request body (dictionaries/arrays auto-serialized as JSON) |
 | `headers` | dictionary | none | Custom request headers |
 | `timeout` | integer | `30000` | Timeout in milliseconds |
 
 When `body` is a dictionary or array, it is automatically JSON-encoded and `Content-Type` is set to `application/json` (unless you override it in headers).
 
+### Method Accessors
+
+Format factory handles have `.get`, `.post`, `.put`, `.patch`, and `.delete` accessors that return a new request handle with the method set:
+
+```parsley
+let api = JSON(@https://api.example.com/users)
+api.get                              // GET request handle
+api.post                             // POST request handle
+api.put                              // PUT request handle
+api.delete                           // DELETE request handle
+```
+
+| Accessor | Method | Use with |
+|---|---|---|
+| `.get` | GET | `<=/=` (default, rarely needed) |
+| `.post` | POST | `=/=>` (default, rarely needed) |
+| `.put` | PUT | `=/=>` |
+| `.patch` | PATCH | `=/=>` |
+| `.delete` | DELETE | `<=/=` |
+
+### The Remote Write Operator (`=/=>`)
+
+Use `=/=>` to send data to a network target. The left side is the data to send (becomes the request body). The right side is a URL handle. The method defaults to POST unless the handle specifies PUT or PATCH:
+
+```parsley
+// POST (default)
+{name: "Alice", email: "alice@example.com"} =/=> JSON(@https://api.example.com/users)
+
+// PUT (explicit via accessor)
+{name: "Alice Smith"} =/=> JSON(@https://api.example.com/users/123).put
+
+// PATCH
+{age: 31} =/=> JSON(@https://api.example.com/users/123).patch
+```
+
+The `=/=>` operator only accepts network targets (HTTP request handles or SFTP file handles). For local file writes, use `==>`.
+
+### Error Handling for Remote Writes
+
+```parsley
+// Capture the full response
+let response = payload =/=> JSON(@https://api.example.com/items)
+if (!response.ok) {
+    log("Failed:", response.status, response.error)
+}
+
+// Destructured capture
+let {data, error} = payload =/=> JSON(@https://api.example.com/items)
+if (error) {
+    log("Error:", error)
+}
+```
+
 ### Examples
 
 ```parsley
-// PUT
-let updateUser = {
-    url: @https://api.example.com/users/123,
+// PUT with options dictionary
+let {data, error} <=/= JSON(@https://api.example.com/users/123, {
     method: "PUT",
-    format: "json",
     body: {name: "Alice Smith"}
-}
-let {data, error} <=/= updateUser
+})
 
-// DELETE
-let deleteUser = {
-    url: @https://api.example.com/users/123,
-    method: "DELETE",
-    format: "json"
-}
-let {data, error} <=/= deleteUser
+// DELETE (no body needed)
+let {data, error} <=/= JSON(@https://api.example.com/users/123, {
+    method: "DELETE"
+})
 ```
 
 ## Interpolated URLs
@@ -185,14 +227,17 @@ At least one authentication method (key file or password) must be provided.
 
 ### Reading and Writing via SFTP
 
-Use file handles with the SFTP connection to read and write remote files:
+Use the network I/O operators with SFTP connections:
 
 ```parsley
-// Read a remote JSON file
+// Read a remote JSON file (network read)
 let config <=/= JSON(sftp, "/etc/app/config.json")
 
-// Write to a remote file
-"new content" ==> text(sftp, "/var/data/output.txt")
+// Write to a remote file (network write)
+"new content" =/=> text(sftp, "/var/data/output.txt")
+
+// Append to a remote log (network append)
+"log entry\n" =/=>> text(sftp, "/var/log/app.log")
 ```
 
 ### Connection Methods
@@ -241,6 +286,7 @@ let config = if (error) { defaults } else { data }
 - **Error capture pattern** — `{data, error}` destructuring catches network failures without try/catch blocks.
 - **No async/await** — fetch is synchronous. There are no promises or callbacks.
 - **Auto-serialization** — dictionary and array request bodies are automatically JSON-encoded.
+- **Local vs network writes** — `==>` writes to local files, `=/=>` writes to network targets. The `/` in the operator visually signals that data crosses a network boundary. This matches the read side: `<==` reads files, `<=/=` fetches URLs.
 
 ## See Also
 

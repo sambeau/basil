@@ -881,6 +881,7 @@ Some operations don't make sense and will produce errors:
 | 7 | `*`, `/`, `%` |
 | 8 | `-`, `!` (prefix) |
 | 9 | `.`, `[]`, `()` (access/call) |
+| — | `<==`, `==>`, `==>>`, `<=/=`, `=/=>`, `=/=>>` (I/O, statement-level) |
 
 ---
 
@@ -2702,10 +2703,14 @@ let data <== CSV(@./data.csv)
 let content <== text(@./readme.txt)
 let files <== dir(@./uploads)
 
-// Writing
+// Writing (local files)
 {name: "Alice"} ==> JSON(@./output.json)
 "Hello" ==> text(@./message.txt)
 "More" ==>> text(@./log.txt)    // Append
+
+// Network writes (HTTP)
+{name: "Alice"} =/=> JSON(@https://api.example.com/users)            // POST
+{name: "Alice"} =/=> JSON(@https://api.example.com/users/1).put      // PUT
 
 // Markdown with frontmatter
 let doc <== markdown(@./post.md)
