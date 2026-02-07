@@ -29,7 +29,7 @@ Create a file called `hello.pars`:
 
 ```parsley
 let name = "world"
-log("Hello, " + name + "!")
+"Hello, " + name + "!"
 ```
 
 Run it:
@@ -39,7 +39,7 @@ $ pars hello.pars
 Hello, world!
 ```
 
-`let` creates a variable. `log()` prints a value. The `+` operator concatenates strings.
+`let` creates a variable. The `+` operator concatenates strings. Parsley outputs the result of the last expression — no `print()` needed.
 
 ---
 
@@ -59,10 +59,10 @@ Arithmetic works as you'd expect:
 ```parsley
 let x = 10
 let y = 3
-log(x + y)       // 13
-log(x * y)       // 30
-log(x / y)       // 3.333...
-log(x % y)       // 1 (remainder)
+x + y       // 13
+x * y       // 30
+x / y       // 3.333...
+x % y       // 1 (remainder)
 ```
 
 **See:** [Variables & Binding](fundamentals/variables.md) · [Types](fundamentals/types.md) · [Operators](fundamentals/operators.md)
@@ -83,17 +83,16 @@ Backtick strings use `{expr}` for interpolation. Single-quoted strings use `@{ex
 
 ```parsley
 let user = "Alice"
-let greeting = `Welcome, {user}!`
-log(greeting)    // Welcome, Alice!
+`Welcome, {user}!`    // Welcome, Alice!
 ```
 
 Strings have many useful methods:
 
 ```parsley
-log("hello".toUpper())       // HELLO
-log("  hi  ".trim())         // hi
-log("hello world".split(" ")) // ["hello", "world"]
-log("banana".includes("nan")) // true
+"hello".toUpper()        // HELLO
+"  hi  ".trim()          // hi
+"hello world".split(" ") // ["hello", "world"]
+"banana".includes("nan") // true
 ```
 
 **See:** [Strings](builtins/strings.md)
@@ -106,9 +105,9 @@ Arrays are ordered collections. Create them with square brackets:
 
 ```parsley
 let fruits = ["apple", "banana", "cherry"]
-log(fruits[0])          // apple
-log(fruits[-1])         // cherry (last element)
-log(fruits.length())    // 3
+fruits[0]           // apple
+fruits[-1]          // cherry (last element)
+fruits.length()     // 3
 ```
 
 Use `.map()` to transform and `.filter()` to select:
@@ -116,17 +115,15 @@ Use `.map()` to transform and `.filter()` to select:
 ```parsley
 let nums = [1, 2, 3, 4, 5]
 
-let doubled = nums.map(fn(n) { n * 2 })
-log(doubled)    // [2, 4, 6, 8, 10]
+nums.map(fn(n) { n * 2 })      // [2, 4, 6, 8, 10]
 
-let big = nums.filter(fn(n) { n > 3 })
-log(big)        // [4, 5]
+nums.filter(fn(n) { n > 3 })   // [4, 5]
 ```
 
 Concatenate arrays with `++`:
 
 ```parsley
-log([1, 2] ++ [3, 4])  // [1, 2, 3, 4]
+[1, 2] ++ [3, 4]   // [1, 2, 3, 4]
 ```
 
 **See:** [Arrays](builtins/array.md)
@@ -139,8 +136,8 @@ Dictionaries are key-value pairs — Parsley's equivalent of objects or maps:
 
 ```parsley
 let person = {name: "Alice", age: 30, city: "London"}
-log(person.name)    // Alice
-log(person.age)     // 30
+person.name     // Alice
+person.age      // 30
 ```
 
 Merge dictionaries with `++`:
@@ -148,15 +145,15 @@ Merge dictionaries with `++`:
 ```parsley
 let defaults = {theme: "light", lang: "en"}
 let prefs = {theme: "dark"}
-log(defaults ++ prefs)  // {theme: "dark", lang: "en"}
+defaults ++ prefs   // {theme: "dark", lang: "en"}
 ```
 
 Destructure to extract values:
 
 ```parsley
 let {name, age} = {name: "Bob", age: 25, role: "admin"}
-log(name)   // Bob
-log(age)    // 25
+name    // Bob
+age     // 25
 ```
 
 **See:** [Dictionaries](builtins/dictionary.md)
@@ -169,10 +166,10 @@ Functions are created with `fn`. The last expression is the return value:
 
 ```parsley
 let double = fn(x) { x * 2 }
-log(double(5))      // 10
+double(5)       // 10
 
 let add = fn(a, b) { a + b }
-log(add(3, 4))      // 7
+add(3, 4)       // 7
 ```
 
 Functions can have default parameters:
@@ -181,15 +178,15 @@ Functions can have default parameters:
 let greet = fn(name, greeting = "Hello") {
     `{greeting}, {name}!`
 }
-log(greet("Alice"))            // Hello, Alice!
-log(greet("Bob", "Hey"))       // Hey, Bob!
+greet("Alice")          // Hello, Alice!
+greet("Bob", "Hey")     // Hey, Bob!
 ```
 
 Functions are values — you can pass them to other functions:
 
 ```parsley
 let apply = fn(f, x) { f(x) }
-log(apply(double, 21))  // 42
+apply(double, 21)   // 42
 ```
 
 **See:** [Functions](fundamentals/functions.md)
@@ -205,16 +202,16 @@ log(apply(double, 21))  // 42
 ```parsley
 let age = 20
 let status = if (age >= 18) "adult" else "minor"
-log(status)     // adult
+status      // adult
 ```
 
 Or with blocks:
 
 ```parsley
 if (age >= 18) {
-    log("Welcome!")
+    "Welcome!"
 } else {
-    log("Too young")
+    "Too young"
 }
 ```
 
@@ -226,7 +223,7 @@ if (age >= 18) {
 let nums = [1, 2, 3, 4, 5]
 
 let squares = for (n in nums) { n * n }
-log(squares)    // [1, 4, 9, 16, 25]
+squares     // [1, 4, 9, 16, 25]
 ```
 
 Filter by returning values only from an `if`:
@@ -235,7 +232,7 @@ Filter by returning values only from an `if`:
 let evens = for (n in nums) {
     if (n % 2 == 0) { n }
 }
-log(evens)      // [2, 4]
+evens       // [2, 4]
 ```
 
 Iterate over dictionaries:
@@ -252,13 +249,55 @@ for (name, score in scores) {
 
 ---
 
+## CSV to Table in One Line
+
+Parsley makes data processing simple. Parse a CSV string, and you get a table with typed columns. Chain `.toBox()` to see it formatted:
+
+```parsley
+let csv = "name,age,role\nAlice,30,Engineer\nBob,25,Designer\nCarol,35,Manager"
+csv.parseCSV().toBox()
+```
+
+**Result:**
+
+```
+┌───────┬─────┬──────────┐
+│ name  │ age │ role     │
+├───────┼─────┼──────────┤
+│ Alice │ 30  │ Engineer │
+│ Bob   │ 25  │ Designer │
+│ Carol │ 35  │ Manager  │
+└───────┴─────┴──────────┘
+```
+
+Tables support SQL-like operations, so you can filter, sort, and aggregate before displaying:
+
+```parsley
+csv.parseCSV()
+    .where(fn(row) { row.age >= 30 })
+    .orderBy("name")
+    .toBox()
+```
+
+```
+┌───────┬─────┬──────────┐
+│ name  │ age │ role     │
+├───────┼─────┼──────────┤
+│ Alice │ 30  │ Engineer │
+│ Carol │ 35  │ Manager  │
+└───────┴─────┴──────────┘
+```
+
+**See:** [Data Formats](features/data-formats.md) · [Tables](builtins/table.md)
+
+---
+
 ## Building HTML with Tags
 
 Parsley has first-class HTML tag syntax. Tags are values, not strings:
 
 ```parsley
-let heading = <h1>"Hello!"</h1>
-log(heading)    // <h1>Hello!</h1>
+<h1>"Hello!"</h1>      // <h1>Hello!</h1>
 ```
 
 > **Important:** Text content inside tags must be quoted. Tag attributes don't need quotes for simple values.
@@ -392,6 +431,8 @@ let process = fn(input) {
 }
 ```
 
+> **Note:** `log()` is Parsley's debug output function — use it when you need to inspect values mid-execution (inside loops, conditionals, or complex expressions). For normal output, just let the expression be the result.
+
 **See:** [Error Handling](fundamentals/errors.md)
 
 ---
@@ -417,7 +458,8 @@ If you're coming from JavaScript, Python, or similar languages, watch out for th
 
 | Concept | Parsley | Other languages |
 |---------|---------|-----------------|
-| Output | `log()` | `print()`, `console.log()` |
+| Output | Last expression is the result | `print()`, `console.log()` |
+| Debug output | `log()` (for debugging only) | Same as output in most languages |
 | Comments | `//` only | `#` in Python |
 | String interpolation | `` `Hello {name}` `` | `${}` in JS, `f""` in Python |
 | For loops | Return arrays (like `map`) | Statements (no return value) |
