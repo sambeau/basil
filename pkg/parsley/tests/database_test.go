@@ -375,18 +375,18 @@ func TestSQLTag(t *testing.T) {
 		check func(*testing.T, evaluator.Object)
 	}{
 		{
-			name: "SQL tag with params",
+			name: "SQL tag without params in component",
 			input: `
 				let db = @sqlite(":memory:")
 				let _ = db <=!=> "DROP TABLE IF EXISTS tag_users"
 				let _ = db <=!=> "CREATE TABLE tag_users (id INTEGER PRIMARY KEY, name TEXT)"
-				
+
 				let InsertUser = fn(props) {
 					<SQL>
 						"INSERT INTO tag_users (name) VALUES ('Alice')"
 					</SQL>
 				}
-				
+
 				let result = db <=!=> <InsertUser />
 				result
 			`,
@@ -403,6 +403,122 @@ func TestSQLTag(t *testing.T) {
 				affectedInt, ok := affected.(*evaluator.Integer)
 				if !ok || affectedInt.Value != 1 {
 					t.Errorf("Expected affected=1, got %v", affected.Inspect())
+				}
+			},
+		},
+		{
+			name: "SQL tag with params in component - insert",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS tag_users"
+				let _ = db <=!=> "CREATE TABLE tag_users (id INTEGER PRIMARY KEY, name TEXT)"
+
+				let InsertUser = fn(props) {
+					<SQL name={props.name}>
+						"INSERT INTO tag_users (name) VALUES (?)"
+					</SQL>
+				}
+
+				let _ = db <=!=> <InsertUser name="Alice" />
+				let users = db <=??=> "SELECT * FROM tag_users"
+				users
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				arr, ok := result.(*evaluator.Array)
+				if !ok {
+					t.Fatalf("Expected Array, got %T", result)
+				}
+				if len(arr.Elements) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(arr.Elements))
+				}
+				row, ok := arr.Elements[0].(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary row, got %T", arr.Elements[0])
+				}
+				nameExpr, ok := row.Pairs["name"]
+				if !ok {
+					t.Fatal("Row should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, row.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Alice" {
+					t.Errorf("Expected name='Alice', got %v", name.Inspect())
+				}
+			},
+		},
+		{
+			name: "SQL tag with params in component - query",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS tag_users"
+				let _ = db <=!=> "CREATE TABLE tag_users (id INTEGER PRIMARY KEY, name TEXT)"
+				let _ = db <=!=> "INSERT INTO tag_users (id, name) VALUES (1, 'Alice')"
+				let _ = db <=!=> "INSERT INTO tag_users (id, name) VALUES (2, 'Bob')"
+
+				let GetUser = fn(props) {
+					<SQL id={props.id}>
+						"SELECT * FROM tag_users WHERE id = ?"
+					</SQL>
+				}
+
+				let user = db <=?=> <GetUser id={2} />
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Bob" {
+					t.Errorf("Expected name='Bob', got %v", name.Inspect())
+				}
+			},
+		},
+		{
+			name: "SQL tag with multiple params in component",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS tag_users"
+				let _ = db <=!=> "CREATE TABLE tag_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+
+				let InsertUser = fn(props) {
+					<SQL age={props.age} name={props.name}>
+						"INSERT INTO tag_users (age, name) VALUES (?, ?)"
+					</SQL>
+				}
+
+				let _ = db <=!=> <InsertUser name="Alice" age={30} />
+				let user = db <=?=> "SELECT * FROM tag_users WHERE id = 1"
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Alice" {
+					t.Errorf("Expected name='Alice', got %v", name.Inspect())
+				}
+				ageExpr, ok := dict.Pairs["age"]
+				if !ok {
+					t.Fatal("Result should have 'age' column")
+				}
+				age := evaluator.Eval(ageExpr, dict.Env)
+				ageInt, ok := age.(*evaluator.Integer)
+				if !ok || ageInt.Value != 30 {
+					t.Errorf("Expected age=30, got %v", age.Inspect())
 				}
 			},
 		},

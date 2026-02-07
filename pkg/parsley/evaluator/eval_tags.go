@@ -1099,9 +1099,10 @@ func evalTagContentsAsArray(contents []ast.Node, env *Environment) Object {
 	return &Array{Elements: elements}
 }
 
-// evalSQLTag handles <SQL params={...}>...</SQL> tags
+// evalSQLTag handles <SQL name={val} ...>...</SQL> tags.
+// All attributes are treated as query parameters, evaluated eagerly.
 func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
-	// Parse props to get params
+	// Parse props — all attributes become query params
 	propsCol := node.Token.Column + 1 + len(node.Name) + 1
 	propsDict := parseTagProps(node.Props, env, node.Token.Line, propsCol)
 	if isError(propsDict) {
@@ -1125,10 +1126,22 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 		"sql": &ast.StringLiteral{Value: sqlStr.Value},
 	}
 
-	// Add params if provided
+	// Evaluate all props eagerly as query params so variable references
+	// (e.g. props.id inside a component) resolve in the current scope
 	if dict, ok := propsDict.(*Dictionary); ok {
-		if paramsExpr, hasParams := dict.Pairs["params"]; hasParams {
-			resultPairs["params"] = paramsExpr
+		if len(dict.Pairs) > 0 {
+			paramPairs := make(map[string]ast.Expression, len(dict.Pairs))
+			for key, expr := range dict.Pairs {
+				val := Eval(expr, env)
+				if isError(val) {
+					return val
+				}
+				paramPairs[key] = createLiteralExpression(val)
+			}
+			resultPairs["params"] = &ast.DictionaryLiteral{
+				Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+				Pairs: paramPairs,
+			}
 		}
 	}
 
