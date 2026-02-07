@@ -3,12 +3,145 @@ package tests
 import (
 	"testing"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // SFTP tests are skipped until we have a working SFTP server for integration testing.
 // To run these tests, set up an SFTP server and remove the t.Skip() calls.
 // See docs/TODO.md for integration testing setup requirements.
+
+// ============================================================================
+// Parse-Level Tests (un-skipped) — verify =/=> and =/=>> syntax is accepted
+// ============================================================================
+
+// TestSFTPWriteOperatorParses verifies that =/=> syntax parses without error
+func TestSFTPWriteOperatorParses(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "write JSON to SFTP",
+			input: `{name: "test"} =/=> conn`,
+		},
+		{
+			name:  "write text to SFTP",
+			input: `"Hello World" =/=> conn`,
+		},
+		{
+			name:  "write with error capture syntax",
+			input: `{test: 123} =/=> conn`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+			if len(program.Statements) != 1 {
+				t.Fatalf("expected 1 statement, got %d", len(program.Statements))
+			}
+			rws, ok := program.Statements[0].(*ast.RemoteWriteStatement)
+			if !ok {
+				t.Fatalf("expected RemoteWriteStatement, got %T", program.Statements[0])
+			}
+			if rws.Append {
+				t.Error("expected Append=false for =/=>")
+			}
+		})
+	}
+}
+
+// TestSFTPAppendOperatorParses verifies that =/=>> syntax parses without error
+func TestSFTPAppendOperatorParses(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "append to text file",
+			input: `"New line\n" =/=>> conn`,
+		},
+		{
+			name:  "append line",
+			input: `"Log entry" =/=>> conn`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+			if len(program.Statements) != 1 {
+				t.Fatalf("expected 1 statement, got %d", len(program.Statements))
+			}
+			rws, ok := program.Statements[0].(*ast.RemoteWriteStatement)
+			if !ok {
+				t.Fatalf("expected RemoteWriteStatement, got %T", program.Statements[0])
+			}
+			if !rws.Append {
+				t.Error("expected Append=true for =/=>>")
+			}
+		})
+	}
+}
+
+// TestSFTPFormatEncodingParses verifies format-specific SFTP write syntax parses
+func TestSFTPFormatEncodingParses(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "JSON encoding",
+			input: `{a: 1, b: [2, 3]} =/=> conn`,
+		},
+		{
+			name:  "text encoding",
+			input: `"Hello\nWorld" =/=> conn`,
+		},
+		{
+			name:  "array encoding",
+			input: `["line1", "line2", "line3"] =/=> conn`,
+		},
+		{
+			name:  "bytes encoding",
+			input: `[72, 101, 108, 108, 111] =/=> conn`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+			if len(program.Statements) != 1 {
+				t.Fatalf("expected 1 statement, got %d", len(program.Statements))
+			}
+			if _, ok := program.Statements[0].(*ast.RemoteWriteStatement); !ok {
+				t.Fatalf("expected RemoteWriteStatement, got %T", program.Statements[0])
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Integration Tests (skipped — require SFTP server)
+// ============================================================================
 
 // TestSFTPConnectionCreation tests () builtin connection creation
 func TestSFTPConnectionCreation(t *testing.T) {

@@ -79,10 +79,12 @@ const (
 	NOT_MATCH // !~
 
 	// File I/O operators
-	READ_FROM  // <==
-	FETCH_FROM // <=/=
-	WRITE_TO   // ==>
-	APPEND_TO  // ==>>
+	READ_FROM     // <==
+	FETCH_FROM    // <=/=
+	WRITE_TO      // ==>
+	APPEND_TO     // ==>>
+	REMOTE_WRITE  // =/=>
+	REMOTE_APPEND // =/=>>
 
 	// Database operators
 	QUERY_ONE  // <=?=>
@@ -276,6 +278,10 @@ func (tt TokenType) String() string {
 		return "WRITE_TO"
 	case APPEND_TO:
 		return "APPEND_TO"
+	case REMOTE_WRITE:
+		return "REMOTE_WRITE"
+	case REMOTE_APPEND:
+		return "REMOTE_APPEND"
 	case QUERY_ONE:
 		return "QUERY_ONE"
 	case QUERY_MANY:
@@ -661,7 +667,20 @@ func (l *Lexer) NextToken() Token {
 
 	switch l.ch {
 	case '=':
-		if l.peekChar() == '=' {
+		if l.peekChar() == '/' && l.peekCharN(2) == '=' && l.peekCharN(3) == '>' {
+			// =/=> (remote write) and =/=>> (remote append)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '/'
+			l.readChar() // consume '='
+			l.readChar() // consume '>'
+			if l.peekChar() == '>' {
+				l.readChar() // consume second '>'
+				tok = Token{Type: REMOTE_APPEND, Literal: "=/=>>", Line: line, Column: col}
+			} else {
+				tok = Token{Type: REMOTE_WRITE, Literal: "=/=>", Line: line, Column: col}
+			}
+		} else if l.peekChar() == '=' {
 			ch := l.ch
 			line := l.line
 			col := l.column

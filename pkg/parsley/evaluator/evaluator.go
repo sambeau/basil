@@ -4539,6 +4539,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.WriteStatement:
 		return evalWriteStatement(node, env)
 
+	case *ast.RemoteWriteStatement:
+		return evalRemoteWriteStatement(node, env)
+
 	case *ast.QueryOneStatement:
 		return evalQueryOneStatement(node, env)
 

@@ -819,4 +819,47 @@ func makeDataErrorDict(data Object, errorMsg string, env *Environment) *Dictiona
 	return &Dictionary{Pairs: pairs}
 }
 
-// readFileContent reads the content of a file based on its format
+// evalRemoteWriteStatement handles =/=> (remote write) and =/=>> (remote append) operators
+func evalRemoteWriteStatement(node *ast.RemoteWriteStatement, env *Environment) Object {
+	value := Eval(node.Value, env)
+	if isError(value) {
+		return value
+	}
+
+	target := Eval(node.Target, env)
+	if isError(target) {
+		return target
+	}
+
+	op := "=/=>"
+	if node.Append {
+		op = "=/=>>"
+	}
+
+	// SFTP file handle
+	if sftpHandle, ok := target.(*SFTPFileHandle); ok {
+		err := evalSFTPWrite(sftpHandle, value, node.Append, env)
+		if err != nil {
+			return err
+		}
+		return NULL
+	}
+
+	// HTTP request dictionary
+	if reqDict, ok := target.(*Dictionary); ok && isRequestDict(reqDict) {
+		if node.Append {
+			return newErrorWithClass(ClassOperator, "operator =/=>> (remote append) is not supported for HTTP — HTTP has no append semantic")
+		}
+		return evalHTTPWrite(reqDict, value, env)
+	}
+
+	// Reject local file handles with helpful message
+	if fileDict, ok := target.(*Dictionary); ok && isFileDict(fileDict) {
+		if node.Append {
+			return newErrorWithClass(ClassOperator, "operator =/=>> is for remote appends; use ==>> for local file appends")
+		}
+		return newErrorWithClass(ClassOperator, "operator =/=> is for network writes; use ==> for local file writes")
+	}
+
+	return newErrorWithClass(ClassType, "operator %s requires an HTTP request handle or SFTP file handle, got %s", op, strings.ToLower(string(target.Type())))
+}

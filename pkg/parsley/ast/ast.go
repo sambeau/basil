@@ -1068,6 +1068,35 @@ func (ws *WriteStatement) String() string {
 	return out.String()
 }
 
+// RemoteWriteStatement represents remote write statements like 'value =/=> target' or 'value =/=>> target'
+type RemoteWriteStatement struct {
+	Token  lexer.Token // the =/=> or =/=>> token
+	Value  Expression  // the data to write (left side)
+	Target Expression  // the network handle (right side)
+	Append bool        // true for =/=>> (append), false for =/=> (write)
+}
+
+func (rw *RemoteWriteStatement) statementNode()       {}
+func (rw *RemoteWriteStatement) TokenLiteral() string { return rw.Token.Literal }
+func (rw *RemoteWriteStatement) String() string {
+	var out bytes.Buffer
+
+	if rw.Value != nil {
+		out.WriteString(rw.Value.String())
+	}
+	if rw.Append {
+		out.WriteString(" =/=>> ")
+	} else {
+		out.WriteString(" =/=> ")
+	}
+	if rw.Target != nil {
+		out.WriteString(rw.Target.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
 // QueryOneStatement represents query-one-row statements like 'let user = db <=?=> <GetUser id={1} />'
 type QueryOneStatement struct {
 	Token      lexer.Token   // the <=?=> token

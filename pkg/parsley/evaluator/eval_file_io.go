@@ -162,24 +162,26 @@ func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
 		return target
 	}
 
-	// Check if it's an SFTP file handle
-	if sftpHandle, ok := target.(*SFTPFileHandle); ok {
-		err := evalSFTPWrite(sftpHandle, value, node.Append, env)
-		if err != nil {
-			return err
+	// Reject HTTP request dictionaries — must use =/=>
+	if reqDict, ok := target.(*Dictionary); ok && isRequestDict(reqDict) {
+		if node.Append {
+			return newErrorWithClass(ClassOperator, "operator ==>> is for local file appends; use =/=>> for remote appends")
 		}
-		return NULL
+		return newErrorWithClass(ClassOperator, "operator ==> is for local file writes; use =/=> for network writes")
 	}
 
-	// Check if it's a request dictionary (HTTP request)
-	if reqDict, ok := target.(*Dictionary); ok && isRequestDict(reqDict) {
-		return evalHTTPWrite(reqDict, value, env)
+	// Reject SFTP file handles — must use =/=> or =/=>>
+	if _, ok := target.(*SFTPFileHandle); ok {
+		if node.Append {
+			return newErrorWithClass(ClassOperator, "operator ==>> is for local file appends; use =/=>> for remote appends")
+		}
+		return newErrorWithClass(ClassOperator, "operator ==> is for local file writes; use =/=> for network writes")
 	}
 
 	// The target should be a file dictionary
 	fileDict, ok := target.(*Dictionary)
 	if !ok || !isFileDict(fileDict) {
-		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "write operator ==>", "Expected": "a file handle or HTTP request", "Got": string(target.Type())})
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "write operator ==>", "Expected": "a file handle", "Got": string(target.Type())})
 	}
 
 	// Write the file content based on format

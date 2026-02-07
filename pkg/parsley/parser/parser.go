@@ -896,6 +896,23 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 		return writeStmt
 	}
 
+	// Check for remote write operators =/=> or =/=>>
+	if p.peekTokenIs(lexer.REMOTE_WRITE) || p.peekTokenIs(lexer.REMOTE_APPEND) {
+		p.nextToken() // consume =/=> or =/=>>
+		stmt := &ast.RemoteWriteStatement{
+			Token:  p.curToken,
+			Value:  expr,
+			Append: p.curToken.Type == lexer.REMOTE_APPEND,
+		}
+		p.nextToken() // move to target expression
+		stmt.Target = p.parseExpression(LOWEST)
+
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return stmt
+	}
+
 	stmt := &ast.ExpressionStatement{Token: firstToken}
 	stmt.Expression = expr
 
@@ -2842,6 +2859,10 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'==>'"
 	case lexer.APPEND_TO:
 		return "'==>>'"
+	case lexer.REMOTE_WRITE:
+		return "'=/=>'"
+	case lexer.REMOTE_APPEND:
+		return "'=/=>>'"
 
 	// Database operators
 	case lexer.QUERY_ONE:
