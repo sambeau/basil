@@ -354,6 +354,8 @@ export default = fn(req) {
 
 ## See Also
 
-- [file()](/docs/parsley/manual/file.md) — File loading builtins
-- [Records](/docs/parsley/manual/records.md) — Schema-bound records
-- [DateTime](/docs/parsley/manual/datetime.md) — Date and time handling
+- [File I/O](features/file-io.md) — file handles and I/O operators
+- [Records](builtins/record.md) — schema-bound records with validation
+- [DateTime](builtins/datetime.md) — date and time handling
+- [Security Model](features/security.md) — PLN safety and deserialization security
+- [Data Formats](features/data-formats.md) — JSON, CSV, and Markdown parsing
