@@ -586,4 +586,16 @@ checked.validRows()  // only the valid row
 - Indexing a typed table (including database/query results) returns a `Record`; database-backed tables mark records as already validated when indexed.
 - `parseCSV` with a header returns a Table directly; without a header you get an array-of-arrays, so wrap with `table()` if you need Table methods.
 - The `table` module from `@std/table` remains for backward compatibility but is no longer required; prefer `@table [...]`, `table(...)`, and schema calls.
-]
+
+## See Also
+
+- [Schemas](schema.md) — declaring data shapes for typed tables
+- [Records](record.md) — schema-bound dictionaries returned when indexing typed tables
+- [Dictionaries](dictionary.md) — tables are arrays of dictionaries
+- [Arrays](array.md) — array methods that also apply to table rows
+- [Data Model](../fundamentals/data-model.md) — how schemas, records, and tables fit together
+- [Database](../features/database.md) — database queries return tables
+- [Query DSL](../features/query-dsl.md) — declarative queries with table results
+- [Data Formats](../features/data-formats.md) — CSV parsing returns tables
+- [@std/table](../stdlib/table.md) — SQL-like table constructor and operations
+- [@std/math](../stdlib/math.md) — aggregation functions for numeric arrays

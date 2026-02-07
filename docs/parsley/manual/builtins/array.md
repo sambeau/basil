@@ -293,7 +293,7 @@ Transform each element using a function. Returns a new array with the transforme
 ```
 **Result:** `[2, 4, 6]`
 
-The same, buty using ``for`` style:
+The same, but using ``for`` style:
 
 ```parsley
 for(x in [1,2,3]){x * 2}
@@ -318,8 +318,7 @@ Select random elements from the array *with replacement* (same element can be pi
 [1, 2, 3].pick(2)
 ```
 
-**Result:** Two random elements (may include duplicates), 
-e.g. ⚡️<code>@{repr([1, 2, 3].pick(2))}</code>
+**Result:** Two random elements (may include duplicates), e.g. `[3, 1]`
 
 Pick from a list of options:
 
@@ -327,8 +326,7 @@ Pick from a list of options:
 ["red", "green", "blue"].pick(1)
 ```
 
-**Result:** An array of one random color, e.g. 
-⚡️<code>@{repr(["red", "green", "blue"].pick(1))}</code>
+**Result:** An array of one random color, e.g. `["green"]`
 
 ### reduce
 
@@ -411,8 +409,7 @@ Randomly shuffle the array using the Fisher-Yates algorithm:
 [1, 2, 3, 4, 5].shuffle()
 ```
 
-**Result:** Array with elements in random order
-e.g. ⚡️<code>@{repr( [1, 2, 3, 4, 5].shuffle() )}</code>
+**Result:** Array with elements in random order, e.g. `[3, 5, 1, 4, 2]`
 
 
 Shuffle a list of names:
@@ -421,8 +418,7 @@ Shuffle a list of names:
 ["Alice", "Bob", "Charlie", "Diana"].shuffle()
 ```
 
-**Result:** Names in random order
-e.g. ⚡️<code>@{repr( ["Alice", "Bob", "Charlie", "Diana"].shuffle() )}</code>
+**Result:** Names in random order, e.g. `["Charlie", "Diana", "Alice", "Bob"]`
 
 ### sort
 
@@ -448,7 +444,7 @@ Sort strings:
 ["10 banana", "9 apple", "100 cherry"].sort()
 ```
 
-**Result:** `["1 apple", "10 banana", "16 cherry"]`
+**Result:** `["9 apple", "10 banana", "100 cherry"]`
 
 ### sortBy
 
@@ -488,8 +484,7 @@ Select random elements from the array *without replacement* (each element picked
 [1, 2, 3, 4, 5].take(3)
 ```
 
-**Result:** Three distinct random elements (no duplicates) 
-e.g. ⚡️<code>@{repr( [1, 2, 3, 4, 5].take(3) )}</code>
+**Result:** Three distinct random elements (no duplicates), e.g. `[4, 1, 5]`
 
 
 Deal cards from a deck:
@@ -499,8 +494,7 @@ suits = ["♠", "♥", "♦", "♣"]
 suits.take(2)
 ```
 
-**Result:** Two random distinct suits, 
-e.g. ⚡️<code>@{repr( ["♠", "♥", "♦", "♣"].take(2) )}</code>
+**Result:** Two random distinct suits, e.g. `["♥", "♣"]`
 
 
 ### toCSV
@@ -687,8 +681,7 @@ jedi = ["Yoda", "Luke", "Leia", "Obi-Wan", "Mace"]
 chosen = jedi.pick(1)
 ```
 
-**Result:** One randomly selected Jedi name,
-e.g. <code>chosen = @{repr( ["Yoda", "Luke", "Leia", "Obi-Wan", "Mace"].pick(1) )}</code>
+**Result:** One randomly selected Jedi name, e.g. `chosen = ["Obi-Wan"]`
 
 Select a team of 3 distinct Avengers:
 
@@ -697,8 +690,7 @@ avengers = ["Iron Man", "Captain America", "Thor", "Black Widow", "Hawkeye"]
 team = avengers.take(3)
 ```
 
-**Result:** Three distinct random Avengers,
-e.g. <code>chosen = @{repr( ["Iron Man", "Captain America", "Thor", "Black Widow", "Hawkeye"].take(3) )}</code>
+**Result:** Three distinct random Avengers, e.g. `team = ["Thor", "Iron Man", "Hawkeye"]`
 
 
 ### Array Manipulation
@@ -780,4 +772,15 @@ hand = deck.shuffle().take(5)
 ```
 
 **Result:** Five random distinct cards from the shuffled deck,
-e.g. ⚡️<code>@{repr( ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "10♠", "J♠", "Q♠", "K♠", "A♠"].shuffle().take(5) )}</code>
+e.g. `["J♠", "4♠", "A♠", "7♠", "9♠"]`
+
+## See Also
+
+- [Dictionaries](dictionary.md) — key-value pairs; arrays of dictionaries form tables
+- [Strings](strings.md) — `.split()` returns arrays; `.join()` concatenates array elements
+- [Control Flow](../fundamentals/control-flow.md) — `for` loops return arrays
+- [Operators](../fundamentals/operators.md) — `++` concatenation, `*` repetition, `/` chunking
+- [Types](../fundamentals/types.md) — array in the type system
+- [@std/table](../stdlib/table.md) — SQL-like operations on arrays of dictionaries
+- [@std/math](../stdlib/math.md) — `sum`, `avg`, `median`, and other aggregation functions
+- [Data Formats](../features/data-formats.md) — CSV parsing returns arrays/tables

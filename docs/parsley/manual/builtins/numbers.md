@@ -799,3 +799,12 @@ gb_size
 - **Number methods on literals need careful parsing:** Direct method calls on number literals may need parentheses (e.g., `(3.14).format()` for floats)
 - **Math module requires import:** Must `import @std/math` before using functions like `sqrt()`, `pow()`, `PI`, etc.
 - **Rounding functions are in Math module:** Use `math.floor()`, `math.ceil()`, `math.round()`, `math.trunc()` (not direct methods on numbers)
+
+## See Also
+
+- [Operators](../fundamentals/operators.md) — arithmetic, comparison, and assignment operators
+- [Money](money.md) — exact decimal arithmetic for currency values
+- [Strings](strings.md) — `.toNumber()` for parsing, number interpolation
+- [Types](../fundamentals/types.md) — integer and float in the type system
+- [@std/math](../stdlib/math.md) — math functions, constants, statistics, and trigonometry
+- [@std/valid](../stdlib/valid.md) — number validation predicates

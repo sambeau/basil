@@ -977,5 +977,9 @@ SortableTable(employees)
 ## See Also
 
 - [Tables](./table.md) — Using schemas with tables
-- [@std/schema](../std/schema.md) — Runtime schema validation
-- [Database Bindings](../../guide/query-dsl.md) — Schema-driven database access
+- [Records](./record.md) — Schema-bound dictionaries with validation
+- [@std/table](../stdlib/table.md) — SQL-like data manipulation with schema validation
+- [@std/valid](../stdlib/valid.md) — Validation predicates for values
+- [Data Model](../fundamentals/data-model.md) — Schemas, records, and tables overview
+- [Query DSL](../features/query-dsl.md) — Schema-driven database queries
+- [Database](../features/database.md) — Database connections and table bindings

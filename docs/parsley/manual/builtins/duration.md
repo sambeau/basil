@@ -510,3 +510,10 @@ ago.format()    // "5 days ago" (depends on current date)
 | `datetime - datetime` | Duration |
 | `integer + datetime` | Datetime |
 | `datetime + integer` | Datetime |
+
+## See Also
+
+- [DateTime](datetime.md) — date and time values, formatting, and arithmetic
+- [Numbers](numbers.md) — numeric types used in duration components
+- [Operators](../fundamentals/operators.md) — arithmetic operators with durations
+- [Types](../fundamentals/types.md) — duration in the type system

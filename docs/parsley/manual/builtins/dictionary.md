@@ -102,6 +102,37 @@ let keyName = "status"
 
 **Result:** `{id: 1, status: "active"}`
 
+### Function Values and `this`
+
+Dictionaries can contain functions as values. When a function is called as a method on a dictionary, `this` is automatically bound to the dictionary:
+
+```parsley
+let user = {name: "Sam", greet: fn() { "Hi, " + this.name }}
+user.greet()
+```
+
+**Result:** `"Hi, Sam"`
+
+Methods can accept arguments and reference multiple properties:
+
+```parsley
+let calc = {value: 10, add: fn(x) { this.value + x }}
+calc.add(5)
+```
+
+**Result:** `15`
+
+Methods can call other methods on the same dictionary:
+
+```parsley
+let p = {name: "Bob", greet: fn() { "Hi " + this.name }, hello: fn() { this.greet() + "!" }}
+p.hello()
+```
+
+**Result:** `"Hi Bob!"`
+
+Built-in methods (`.keys()`, `.has()`, etc.) continue to work alongside user-defined methods.
+
 ---
 
 ## Accessing Values
@@ -804,17 +835,13 @@ result
 
 ---
 
-## @stdlib
-
-Standard library functions that work with dictionaries:
-
-- [@std/json.parse()](/manual/std/json) — Parse JSON string to dictionary
-- [@std/json.stringify()](/manual/std/json) — Convert dictionary to JSON (same as `.toJSON()`)
-
----
-
 ## See Also
 
 - [Records](record.md) — Schema-bound dictionaries with validation
 - [Tables](table.md) — Arrays of dictionaries with tabular operations
 - [Schema](schema.md) — Defining data shapes for Records and Tables
+- [Variables & Binding](../fundamentals/variables.md) — Destructuring and variable binding
+- [Functions](../fundamentals/functions.md) — Function values and closures
+- [Types](../fundamentals/types.md) — Parsley's type system and `typeof`
+- [Data Model](../fundamentals/data-model.md) — Schemas, records, and tables overview
+- [@std/table](../stdlib/table.md) — SQL-like operations on arrays of dictionaries

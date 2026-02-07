@@ -298,3 +298,11 @@ let total = usd1 + usd2  // $75.00
 // ❌ Error - different currencies
 let mixed = $50.00 + £25.00  // Error!
 ```
+
+## See Also
+
+- [Numbers](numbers.md) — integer and float arithmetic
+- [Operators](../fundamentals/operators.md) — arithmetic operators with money values
+- [Types](../fundamentals/types.md) — money in the type system
+- [Strings](strings.md) — money formatting and interpolation
+- [@std/valid](../stdlib/valid.md) — number validation predicates
