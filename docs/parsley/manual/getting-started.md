@@ -75,8 +75,8 @@ Strings can be written with double quotes, single quotes, or backticks:
 
 ```parsley
 let s1 = "double quoted"
-let s2 = 'single quoted — @{1 + 1} interpolation'
-let s3 = `backtick — {1 + 1} interpolation`
+let s2 = `backtick — {1 + 1} interpolation`
+let s3 = 'single quoted — @{1 + 1} interpolation'
 ```
 
 Backtick strings use `{expr}` for interpolation. Single-quoted strings use `@{expr}`:
@@ -85,6 +85,8 @@ Backtick strings use `{expr}` for interpolation. Single-quoted strings use `@{ex
 let user = "Alice"
 `Welcome, {user}!`    // Welcome, Alice!
 ```
+
+Having three types of interpolation will make sense, when you start making real-world scripts, especially for the web.
 
 Strings have many useful methods:
 
@@ -172,14 +174,15 @@ let add = fn(a, b) { a + b }
 add(3, 4)       // 7
 ```
 
-Functions can have default parameters:
+Use dictionary destructuring with `??` for optional parameters:
 
 ```parsley
-let greet = fn(name, greeting = "Hello") {
-    `{greeting}, {name}!`
+let greet = fn({name, greeting}) {
+    let g = greeting ?? "Hello"
+    `{g}, {name}!`
 }
-greet("Alice")          // Hello, Alice!
-greet("Bob", "Hey")     // Hey, Bob!
+greet({name: "Alice"})                    // Hello, Alice!
+greet({name: "Bob", greeting: "Hey"})     // Hey, Bob!
 ```
 
 Functions are values — you can pass them to other functions:
@@ -389,7 +392,7 @@ export Layout = fn({title, contents}) {
 
 ```parsley
 // routes/index.pars
-{Layout} = import(@./components/Layout.pars)
+let {Layout} = import @./components/Layout.pars
 
 let items = ["Learn Parsley", "Build with Basil", "Ship it!"]
 
