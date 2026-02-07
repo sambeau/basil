@@ -1,3 +1,5 @@
+<!-- Style guide: .github/instructions/docs.instructions.md -->
+
 ---
 id: man-(pars|bas)-(builtin-name) e.g. (man-pars-std-math)
 title: “Manual Page Title" e.g. "Std/Math"
