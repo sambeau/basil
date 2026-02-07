@@ -1,14 +1,13 @@
 package evaluator
 
 import (
-"encoding/csv"
-"encoding/json"
-"fmt"
-"sort"
-"strings"
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"strings"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-"gopkg.in/yaml.v3"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"gopkg.in/yaml.v3"
 )
 
 // File encoding functions for various output formats
@@ -152,14 +151,13 @@ func encodeCSV(value Object, hasHeader bool) ([]byte, error) {
 	firstDict, isDict := arr.Elements[0].(*Dictionary)
 
 	if isDict && hasHeader {
-		// Write header from dictionary keys
+		// Write header from dictionary keys (preserving insertion order)
 		var headers []string
-		for key := range firstDict.Pairs {
+		for _, key := range firstDict.Keys() {
 			if !strings.HasPrefix(key, "_") {
 				headers = append(headers, key)
 			}
 		}
-		sort.Strings(headers) // Consistent ordering
 		if err := writer.Write(headers); err != nil {
 			return nil, err
 		}

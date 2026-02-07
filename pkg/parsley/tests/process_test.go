@@ -333,6 +333,18 @@ func TestCSVFormatMethods(t *testing.T) {
 				return ok && strings.Contains(str.Value, "a,b")
 			},
 		},
+		{
+			name:    "toCSV preserves dictionary insertion order (BUG-019)",
+			input:   `[{name: "Alice", age: 30}, {name: "Bob", age: 25}].toCSV()`,
+			wantErr: false,
+			check: func(obj evaluator.Object) bool {
+				str, ok := obj.(*evaluator.String)
+				if !ok {
+					return false
+				}
+				return strings.HasPrefix(str.Value, "name,age\n")
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -138,10 +138,8 @@ let people = [
     {name: "Bob", age: 25}
 ]
 people.toCSV()
-// "age,name\n30,Alice\n25,Bob\n"
+// "name,age\nAlice,30\nBob,25\n"
 ```
-
-> ⚠️ Dictionary keys are sorted alphabetically in the header row, so column order may differ from insertion order.
 
 Without header:
 
