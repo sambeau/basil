@@ -33,7 +33,7 @@ Core language concepts — start here to learn how Parsley works.
 | [Variables & Binding](fundamentals/variables.md) | `let`, destructuring, scope, and reassignment |
 | [Types](fundamentals/types.md) | All types, coercion rules, `typeof`, and `is` |
 | [Operators](fundamentals/operators.md) | Arithmetic, comparison, logical, and special operators |
-| [Functions](fundamentals/functions.md) | Function expressions, closures, default parameters, and rest args |
+| [Functions](fundamentals/functions.md) | Function expressions, closures, destructuring, and `this` binding |
 | [Control Flow](fundamentals/control-flow.md) | `if`/`else`, `for`, `while`, `match`, and `guard` |
 | [Error Handling](fundamentals/errors.md) | `try`/`catch`, `check`, `fail`, and error objects |
 | [Modules](fundamentals/modules.md) | `import`, `export`, and module resolution |
