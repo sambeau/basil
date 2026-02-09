@@ -157,13 +157,11 @@ func (h *apiHandler) dispatchModule(w http.ResponseWriter, r *http.Request, modu
 	reqObj := h.buildRequestObject(module.Env, r, idVal, user)
 	result := evaluator.CallWithEnv(handler, []evaluator.Object{reqObj}, module.Env)
 
-	// Auth wrappers can return APIError directly
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		h.writeAPIError(w, apiErr)
-		return
-	}
-
 	if errObj, ok := result.(*evaluator.Error); ok {
+		if errObj.UserDict != nil {
+			h.writeUnifiedError(w, errObj)
+			return
+		}
 		h.server.logError("runtime error in %s: %s", h.scriptPath, errObj.Inspect())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -221,20 +219,20 @@ func (h *apiHandler) enforceAuth(w http.ResponseWriter, r *http.Request, handler
 	}
 
 	if user == nil {
-		h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-401", Message: "Unauthorized", Status: http.StatusUnauthorized})
+		h.writeUnifiedError(w, evaluator.ApiFailError("HTTP-401", "Unauthorized", http.StatusUnauthorized))
 		return nil, false
 	}
 
 	// Role enforcement: check user's role against required roles
 	if meta.AuthType == "admin" {
 		if user.Role != auth.RoleAdmin {
-			h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-403", Message: "Forbidden: admin role required", Status: http.StatusForbidden})
+			h.writeUnifiedError(w, evaluator.ApiFailError("HTTP-403", "Forbidden: admin role required", http.StatusForbidden))
 			return nil, false
 		}
 	}
 	if meta.AuthType == "roles" && len(meta.Roles) > 0 {
 		if !sliceContains(meta.Roles, user.Role) {
-			h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-403", Message: "Forbidden: insufficient role", Status: http.StatusForbidden})
+			h.writeUnifiedError(w, evaluator.ApiFailError("HTTP-403", "Forbidden: insufficient role", http.StatusForbidden))
 			return nil, false
 		}
 	}
@@ -246,7 +244,7 @@ func (h *apiHandler) enforceRateLimit(w http.ResponseWriter, r *http.Request, mo
 	limit, window := h.getRateLimit(module)
 	key := rateLimitKey(r, user)
 	if !h.server.rateLimiter.Allow(key, limit, window) {
-		h.writeAPIError(w, &evaluator.APIError{Code: "HTTP-429", Message: "Too Many Requests", Status: http.StatusTooManyRequests})
+		h.writeUnifiedError(w, evaluator.ApiFailError("HTTP-429", "Too Many Requests", http.StatusTooManyRequests))
 		return false
 	}
 	return true
@@ -430,9 +428,6 @@ func (h *apiHandler) writeAPIResponse(w http.ResponseWriter, obj evaluator.Objec
 	}
 
 	switch v := obj.(type) {
-	case *evaluator.APIError:
-		h.writeAPIError(w, v)
-		return
 	case *evaluator.Dictionary:
 		status := http.StatusOK
 		body := evaluator.Object(v)
@@ -476,10 +471,35 @@ func (h *apiHandler) writeAPIResponse(w http.ResponseWriter, obj evaluator.Objec
 	}
 }
 
-func (h *apiHandler) writeAPIError(w http.ResponseWriter, err *evaluator.APIError) {
+func (h *apiHandler) writeUnifiedError(w http.ResponseWriter, err *evaluator.Error) {
+	status := 500
+	if err.UserDict != nil {
+		if statusExpr, ok := err.UserDict.Pairs["status"]; ok {
+			if iv, ok := evaluator.Eval(statusExpr, err.UserDict.Env).(*evaluator.Integer); ok {
+				status = int(iv.Value)
+			}
+		}
+	}
+
+	// Wrap in {error: <dict>} envelope
+	errorDict := err.UserDict
+	if errorDict == nil {
+		errorDict = evaluator.NewDictionaryFromObjectsWithOrder(
+			map[string]evaluator.Object{
+				"code":    &evaluator.String{Value: err.Code},
+				"message": &evaluator.String{Value: err.Message},
+			},
+			[]string{"code", "message"},
+		)
+	}
+	envelope := evaluator.NewDictionaryFromObjectsWithOrder(
+		map[string]evaluator.Object{"error": errorDict},
+		[]string{"error"},
+	)
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(err.Status)
-	h.writeJSONDict(w, err.ToDict())
+	w.WriteHeader(status)
+	h.writeJSONDict(w, envelope)
 }
 
 func (h *apiHandler) writeAsJSONOrText(w http.ResponseWriter, status int, obj evaluator.Object) {

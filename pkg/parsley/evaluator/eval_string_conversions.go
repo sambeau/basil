@@ -64,6 +64,13 @@ func objectToTemplateString(obj Object) string {
 		if isRequestDict(obj) {
 			return requestDictToString(obj)
 		}
+		// Error dict coercion: plain dict with "message" key → message string
+		if msgExpr, ok := obj.Pairs["message"]; ok {
+			msgObj := Eval(msgExpr, obj.Env)
+			if msgStr, ok := msgObj.(*String); ok {
+				return msgStr.Value
+			}
+		}
 		return obj.Inspect()
 	case *Record:
 		// Records are serialized as JSON objects for JavaScript compatibility.

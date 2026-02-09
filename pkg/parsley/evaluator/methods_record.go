@@ -14,6 +14,7 @@ var recordMethods = []string{
 	"validate", "update", "errors", "error", "errorCode", "errorList",
 	"isValid", "hasError", "schema", "data", "keys", "withError",
 	"title", "placeholder", "meta", "enumValues", "format", "toJSON",
+	"failIfInvalid",
 }
 
 // evalRecordMethod dispatches method calls on Record objects.
@@ -55,6 +56,8 @@ func evalRecordMethod(record *Record, method string, args []Object, env *Environ
 		return recordFormat(record, args, env)
 	case "toJSON":
 		return recordToJSON(record, args)
+	case "failIfInvalid":
+		return recordFailIfInvalid(record, args)
 	default:
 		// Check if it's a data field access via method syntax (shouldn't happen normally)
 		return unknownMethodError(method, "Record", recordMethods)
@@ -250,6 +253,40 @@ func recordHasError(record *Record, args []Object, env *Environment) Object {
 
 	_, exists := record.Errors[fieldName.Value]
 	return &Boolean{Value: exists}
+}
+
+// recordFailIfInvalid implements record.failIfInvalid() → Record | Error
+// Returns the record if valid (or not yet validated), fails with structured error if invalid.
+func recordFailIfInvalid(record *Record, args []Object) Object {
+	if len(args) != 0 {
+		return newArityError("failIfInvalid", len(args), 0)
+	}
+
+	// If not validated or valid, return record for chaining
+	if !record.Validated || len(record.Errors) == 0 {
+		return record
+	}
+
+	// Build fields array from errorList
+	fields := recordErrorList(record, nil).(*Array)
+
+	// Build unified error dict
+	pairs := make(map[string]ast.Expression)
+	pairs["status"] = objectToExpression(&Integer{Value: 400})
+	pairs["code"] = objectToExpression(&String{Value: "VALIDATION"})
+	pairs["message"] = objectToExpression(&String{Value: "Validation failed"})
+	pairs["fields"] = objectToExpression(fields)
+	dict := &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: []string{"status", "code", "message", "fields"},
+	}
+
+	return &Error{
+		Class:    ClassValue,
+		Code:     "VALIDATION",
+		Message:  "Validation failed",
+		UserDict: dict,
+	}
 }
 
 // recordSchema implements record.schema() → Schema

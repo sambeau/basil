@@ -81,8 +81,7 @@ const (
 	MDDOC_OBJ            = "MDDOC"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
-	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
-	REDIRECT_OBJ         = "REDIRECT"  // HTTP redirect response
+	REDIRECT_OBJ         = "REDIRECT" // HTTP redirect response
 	STOP_SIGNAL_OBJ      = "STOP_SIGNAL"
 	SKIP_SIGNAL_OBJ      = "SKIP_SIGNAL"
 	CHECK_EXIT_OBJ       = "CHECK_EXIT"
@@ -226,11 +225,12 @@ type Error struct {
 	Line    int
 	Column  int
 	// New structured error fields
-	Class ErrorClass     // Error category (default: ClassType)
-	Code  string         // Error code (e.g., "TYPE-0001")
-	Hints []string       // Suggestions for fixing the error
-	File  string         // File path (if known)
-	Data  map[string]any // Template variables for custom rendering
+	Class    ErrorClass     // Error category (default: ClassType)
+	Code     string         // Error code (e.g., "TYPE-0001")
+	Hints    []string       // Suggestions for fixing the error
+	File     string         // File path (if known)
+	Data     map[string]any // Template variables for custom rendering
+	UserDict *Dictionary    // User-facing error dict for unified error model
 }
 
 // ErrorClass categorizes errors for filtering and templating.
@@ -3610,16 +3610,50 @@ func getBuiltins() map[string]*Builtin {
 					return newArityError("fail", len(args), 1)
 				}
 
-				msg, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0005", "fail", "a string", args[0].Type())
-				}
+				switch arg := args[0].(type) {
+				case *String:
+					// Backward compat: wrap string in error dict
+					pairs := make(map[string]ast.Expression)
+					pairs["message"] = objectToExpression(arg)
+					pairs["code"] = objectToExpression(&String{Value: "USER-0001"})
+					dict := &Dictionary{
+						Pairs:    pairs,
+						KeyOrder: []string{"message", "code"},
+					}
+					return &Error{
+						Class:    ClassValue,
+						Code:     "USER-0001",
+						Message:  arg.Value,
+						UserDict: dict,
+					}
+				case *Dictionary:
+					// Dict must have "message" key with string value
+					msgExpr, ok := arg.Pairs["message"]
+					if !ok {
+						return newTypeError("TYPE-0005", "fail", "a string or dictionary with 'message' key", arg.Type())
+					}
+					msgObj := Eval(msgExpr, arg.Env)
+					msgStr, ok := msgObj.(*String)
+					if !ok {
+						return newTypeError("TYPE-0005", "fail", "a string 'message' value", msgObj.Type())
+					}
 
-				// Create a Value-class catchable error
-				return &Error{
-					Class:   ClassValue,
-					Code:    "USER-0001",
-					Message: msg.Value,
+					// Extract optional code
+					code := "USER-0001"
+					if codeExpr, ok := arg.Pairs["code"]; ok {
+						if codeObj, ok := Eval(codeExpr, arg.Env).(*String); ok {
+							code = codeObj.Value
+						}
+					}
+
+					return &Error{
+						Class:    ClassValue,
+						Code:     code,
+						Message:  msgStr.Value,
+						UserDict: arg,
+					}
+				default:
+					return newTypeError("TYPE-0005", "fail", "a string or dictionary", args[0].Type())
 				}
 			},
 		},
@@ -4430,6 +4464,10 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
+			// Convert typed response dict to legacy {data, error, status, headers} for error-capture patterns
+			if isErrorCapturePattern(node.DictPattern) && isResponseTypedDict(val) {
+				val = responseTypedDictToLegacy(val.(*Dictionary), env)
+			}
 			return evalDictDestructuringAssignment(node.DictPattern, val, env, true, node.Export)
 		}
 
@@ -4472,6 +4510,10 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
+			// Convert typed response dict to legacy {data, error, status, headers} for error-capture patterns
+			if isErrorCapturePattern(node.DictPattern) && isResponseTypedDict(val) {
+				val = responseTypedDictToLegacy(val.(*Dictionary), env)
+			}
 			return evalDictDestructuringAssignment(node.DictPattern, val, env, false, node.Export)
 		}
 
@@ -4535,6 +4577,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.FetchStatement:
 		return evalFetchStatement(node, env)
+
+	case *ast.FetchExpression:
+		return evalFetchExpression(node, env)
 
 	case *ast.WriteStatement:
 		return evalWriteStatement(node, env)

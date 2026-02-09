@@ -133,118 +133,69 @@ handler`
 }
 
 // =============================================================================
-// Error Helper Tests
+// Error Helper Tests (unified error model — api.* returns *Error with UserDict)
 // =============================================================================
 
-func TestAPINotFound(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.notFound("User not found")
-err`
-
-	result := evalAPITest(t, input)
-
-	// Should return an APIError
-	if _, ok := result.(*evaluator.APIError); !ok {
-		if result.Type() == evaluator.ERROR_OBJ {
-			t.Fatalf("evaluation error: %s", result.Inspect())
-		}
-		t.Errorf("expected APIError, got %s", result.Type())
-	}
+// apiErrorTestCase defines a test for an api error helper
+type apiErrorTestCase struct {
+	name           string
+	helperCall     string
+	expectedCode   string
+	expectedMsg    string
+	expectedStatus int64
 }
 
-func TestAPINotFoundDefault(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.notFound()
-err`
-
-	result := evalAPITest(t, input)
-
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		if apiErr.Status != 404 {
-			t.Errorf("expected status 404, got %d", apiErr.Status)
-		}
-	} else if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
-	}
+var apiErrorTests = []apiErrorTestCase{
+	{"notFound custom", `api.notFound("User not found")`, "HTTP-404", "User not found", 404},
+	{"notFound default", `api.notFound()`, "HTTP-404", "Not found", 404},
+	{"forbidden custom", `api.forbidden("Access denied")`, "HTTP-403", "Access denied", 403},
+	{"badRequest custom", `api.badRequest("Invalid input")`, "HTTP-400", "Invalid input", 400},
+	{"unauthorized custom", `api.unauthorized("Not logged in")`, "HTTP-401", "Not logged in", 401},
+	{"conflict custom", `api.conflict("Resource already exists")`, "HTTP-409", "Resource already exists", 409},
+	{"serverError custom", `api.serverError("Something went wrong")`, "HTTP-500", "Something went wrong", 500},
 }
 
-func TestAPIForbidden(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.forbidden("Access denied")
-err`
+func TestAPIErrorHelpers(t *testing.T) {
+	for _, tt := range apiErrorTests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := `let api = import @std/api
+let {error} = try fn() { ` + tt.helperCall + ` }()
+error`
 
-	result := evalAPITest(t, input)
+			result := evalAPITest(t, input)
 
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		if apiErr.Status != 403 {
-			t.Errorf("expected status 403, got %d", apiErr.Status)
-		}
-	} else if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
-	}
-}
+			dict, ok := result.(*evaluator.Dictionary)
+			if !ok {
+				t.Fatalf("expected error dict, got %s: %s", result.Type(), result.Inspect())
+			}
 
-func TestAPIBadRequest(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.badRequest("Invalid input")
-err`
+			// Check code
+			codeObj := evaluator.GetDictValue(dict, "code")
+			if codeObj == nil {
+				t.Fatal("error dict missing 'code' key")
+			}
+			if codeStr, ok := codeObj.(*evaluator.String); !ok || codeStr.Value != tt.expectedCode {
+				t.Errorf("expected code %q, got %s", tt.expectedCode, codeObj.Inspect())
+			}
 
-	result := evalAPITest(t, input)
+			// Check message
+			msgObj := evaluator.GetDictValue(dict, "message")
+			if msgObj == nil {
+				t.Fatal("error dict missing 'message' key")
+			}
+			if msgStr, ok := msgObj.(*evaluator.String); !ok || msgStr.Value != tt.expectedMsg {
+				t.Errorf("expected message %q, got %s", tt.expectedMsg, msgObj.Inspect())
+			}
 
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		if apiErr.Status != 400 {
-			t.Errorf("expected status 400, got %d", apiErr.Status)
-		}
-	} else if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
-	}
-}
-
-func TestAPIUnauthorized(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.unauthorized("Not logged in")
-err`
-
-	result := evalAPITest(t, input)
-
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		if apiErr.Status != 401 {
-			t.Errorf("expected status 401, got %d", apiErr.Status)
-		}
-	} else if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
-	}
-}
-
-func TestAPIConflict(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.conflict("Resource already exists")
-err`
-
-	result := evalAPITest(t, input)
-
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		if apiErr.Status != 409 {
-			t.Errorf("expected status 409, got %d", apiErr.Status)
-		}
-	} else if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
-	}
-}
-
-func TestAPIServerError(t *testing.T) {
-	input := `let api = import @std/api
-let err = api.serverError("Something went wrong")
-err`
-
-	result := evalAPITest(t, input)
-
-	if apiErr, ok := result.(*evaluator.APIError); ok {
-		if apiErr.Status != 500 {
-			t.Errorf("expected status 500, got %d", apiErr.Status)
-		}
-	} else if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
+			// Check status
+			statusObj := evaluator.GetDictValue(dict, "status")
+			if statusObj == nil {
+				t.Fatal("error dict missing 'status' key")
+			}
+			if statusInt, ok := statusObj.(*evaluator.Integer); !ok || statusInt.Value != tt.expectedStatus {
+				t.Errorf("expected status %d, got %s", tt.expectedStatus, statusObj.Inspect())
+			}
+		})
 	}
 }
 

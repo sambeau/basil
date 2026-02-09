@@ -198,6 +198,29 @@ func (f *AuthWrappedFunction) GetAuthMetadata() *Dictionary {
 // Error Helpers
 // =============================================================================
 
+// apiFailError builds a unified *Error with a UserDict containing code, message, and status.
+func apiFailError(code string, message string, status int) *Error {
+	pairs := make(map[string]ast.Expression)
+	pairs["code"] = objectToExpression(&String{Value: code})
+	pairs["message"] = objectToExpression(&String{Value: message})
+	pairs["status"] = objectToExpression(&Integer{Value: int64(status)})
+	dict := &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: []string{"code", "message", "status"},
+	}
+	return &Error{
+		Class:    ClassValue,
+		Code:     code,
+		Message:  message,
+		UserDict: dict,
+	}
+}
+
+// ApiFailError is the exported version of apiFailError for use by the server package.
+func ApiFailError(code string, message string, status int) *Error {
+	return apiFailError(code, message, status)
+}
+
 // apiNotFound creates a 404 Not Found error
 func apiNotFound(args ...Object) Object {
 	msg := "Not found"
@@ -206,7 +229,7 @@ func apiNotFound(args ...Object) Object {
 			msg = str.Value
 		}
 	}
-	return &APIError{Code: "HTTP-404", Message: msg, Status: 404}
+	return apiFailError("HTTP-404", msg, 404)
 }
 
 // apiForbidden creates a 403 Forbidden error
@@ -217,7 +240,7 @@ func apiForbidden(args ...Object) Object {
 			msg = str.Value
 		}
 	}
-	return &APIError{Code: "HTTP-403", Message: msg, Status: 403}
+	return apiFailError("HTTP-403", msg, 403)
 }
 
 // apiBadRequest creates a 400 Bad Request error
@@ -228,7 +251,7 @@ func apiBadRequest(args ...Object) Object {
 			msg = str.Value
 		}
 	}
-	return &APIError{Code: "HTTP-400", Message: msg, Status: 400}
+	return apiFailError("HTTP-400", msg, 400)
 }
 
 // apiUnauthorized creates a 401 Unauthorized error
@@ -239,7 +262,7 @@ func apiUnauthorized(args ...Object) Object {
 			msg = str.Value
 		}
 	}
-	return &APIError{Code: "HTTP-401", Message: msg, Status: 401}
+	return apiFailError("HTTP-401", msg, 401)
 }
 
 // apiConflict creates a 409 Conflict error
@@ -250,7 +273,7 @@ func apiConflict(args ...Object) Object {
 			msg = str.Value
 		}
 	}
-	return &APIError{Code: "HTTP-409", Message: msg, Status: 409}
+	return apiFailError("HTTP-409", msg, 409)
 }
 
 // apiServerError creates a 500 Internal Server Error
@@ -261,34 +284,7 @@ func apiServerError(args ...Object) Object {
 			msg = str.Value
 		}
 	}
-	return &APIError{Code: "HTTP-500", Message: msg, Status: 500}
-}
-
-// APIError represents an API error with HTTP status
-type APIError struct {
-	Code    string
-	Message string
-	Status  int
-	Field   string // Optional field name for validation errors
-}
-
-func (e *APIError) Type() ObjectType { return API_ERROR_OBJ }
-func (e *APIError) Inspect() string  { return e.Code + ": " + e.Message }
-
-// ToDict converts the error to a dictionary for JSON response
-func (e *APIError) ToDict() *Dictionary {
-	pairs := make(map[string]ast.Expression)
-	errorPairs := make(map[string]ast.Expression)
-
-	errorPairs["code"] = objectToExpression(&String{Value: e.Code})
-	errorPairs["message"] = objectToExpression(&String{Value: e.Message})
-	if e.Field != "" {
-		errorPairs["field"] = objectToExpression(&String{Value: e.Field})
-	}
-
-	pairs["error"] = objectToExpression(&Dictionary{Pairs: errorPairs})
-
-	return &Dictionary{Pairs: pairs}
+	return apiFailError("HTTP-500", msg, 500)
 }
 
 // =============================================================================
