@@ -1020,7 +1020,7 @@ func BuildTestBasilContext(queryParams map[string]string, route []string, sessio
 
 	// Build route (as string if provided, null otherwise)
 	var routeObj Object = NULL
-	if route != nil && len(route) > 0 {
+	if len(route) > 0 {
 		routeObj = &String{Value: "/" + strings.Join(route, "/")}
 	}
 

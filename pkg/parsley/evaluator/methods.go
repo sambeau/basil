@@ -1204,7 +1204,7 @@ func typeOrder(obj Object) int {
 	if obj == nil || obj == NULL {
 		return 0
 	}
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *Integer, *Float:
 		return 1
 	case *String:
@@ -1213,16 +1213,14 @@ func typeOrder(obj Object) int {
 		return 3
 	case *Dictionary:
 		// Check for special dictionary types
-		if dict, ok := obj.(*Dictionary); ok {
-			if isDatetime(dict) {
-				return 4
-			}
-			if isDuration(dict) {
-				return 5
-			}
-			if isMoney(dict) {
-				return 6
-			}
+		if isDatetime(obj) {
+			return 4
+		}
+		if isDuration(obj) {
+			return 5
+		}
+		if isMoney(obj) {
+			return 6
 		}
 		return 8
 	case *Array:
@@ -2101,9 +2099,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		// Get the ISO string representation and return as JSON string
 		isoStr := datetimeToReprString(dict)
 		// Remove the @ prefix
-		if strings.HasPrefix(isoStr, "@") {
-			isoStr = isoStr[1:]
-		}
+		isoStr = strings.TrimPrefix(isoStr, "@")
 		jsonBytes, _ := json.Marshal(isoStr)
 		return &String{Value: string(jsonBytes)}
 
