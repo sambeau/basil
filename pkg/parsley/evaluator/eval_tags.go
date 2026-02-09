@@ -925,15 +925,16 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		// Get string value and escape
 		strVal := objectToTemplateString(value.(Object))
 		for _, c := range strVal {
-			if c == '"' {
+			switch c {
+			case '"':
 				result.WriteString("&quot;")
-			} else if c == '&' {
+			case '&':
 				result.WriteString("&amp;")
-			} else if c == '<' {
+			case '<':
 				result.WriteString("&lt;")
-			} else if c == '>' {
+			case '>':
 				result.WriteString("&gt;")
-			} else {
+			default:
 				result.WriteRune(c)
 			}
 		}
@@ -1208,9 +1209,10 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -1343,9 +1345,10 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 
 					// Find closing } with brace counting
 					for i < len(propsStr) && braceCount > 0 {
-						if propsStr[i] == '{' {
+						switch propsStr[i] {
+						case '{':
 							braceCount++
-						} else if propsStr[i] == '}' {
+						case '}':
 							braceCount--
 						}
 						if braceCount > 0 {
@@ -1436,9 +1439,10 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -1609,12 +1613,13 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			result.WriteString("<input")
 
 			// Add auto-generated attributes based on schema
-			if existingType == "checkbox" {
+			switch existingType {
+			case "checkbox":
 				result.WriteString(buildCheckboxAttributes(record, fieldName))
-			} else if existingType == "radio" {
+			case "radio":
 				radioValue := parseExistingValue(propsStr)
 				result.WriteString(buildRadioAttributes(record, fieldName, radioValue))
-			} else {
+			default:
 				result.WriteString(buildInputAttributes(record, fieldName, existingType))
 			}
 
@@ -1827,9 +1832,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 
 					// Find closing } with brace counting
 					for i < len(propsStr) && braceCount > 0 {
-						if propsStr[i] == '{' {
+						switch propsStr[i] {
+						case '{':
 							braceCount++
-						} else if propsStr[i] == '}' {
+						case '}':
 							braceCount--
 						}
 						if braceCount > 0 {
@@ -1924,9 +1930,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -2037,15 +2044,16 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 							strVal := objectToTemplateString(evaluated)
 							// Escape quotes in the value
 							for _, c := range strVal {
-								if c == '"' {
+								switch c {
+								case '"':
 									result.WriteString("&quot;")
-								} else if c == '&' {
+								case '&':
 									result.WriteString("&amp;")
-								} else if c == '<' {
+								case '<':
 									result.WriteString("&lt;")
-								} else if c == '>' {
+								case '>':
 									result.WriteString("&gt;")
-								} else {
+								default:
 									result.WriteRune(c)
 								}
 							}
@@ -2142,15 +2150,16 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 		// Get string value and escape
 		strVal := objectToTemplateString(value.(Object))
 		for _, c := range strVal {
-			if c == '"' {
+			switch c {
+			case '"':
 				result.WriteString("&quot;")
-			} else if c == '&' {
+			case '&':
 				result.WriteString("&amp;")
-			} else if c == '<' {
+			case '<':
 				result.WriteString("&lt;")
-			} else if c == '>' {
+			case '>':
 				result.WriteString("&gt;")
-			} else {
+			default:
 				result.WriteRune(c)
 			}
 		}
@@ -2424,9 +2433,10 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 				braceCount := 1
 
 				for i < len(propsStr) && braceCount > 0 {
-					if propsStr[i] == '{' {
+					switch propsStr[i] {
+					case '{':
 						braceCount++
-					} else if propsStr[i] == '}' {
+					case '}':
 						braceCount--
 					}
 					if braceCount > 0 {
@@ -2530,9 +2540,10 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {

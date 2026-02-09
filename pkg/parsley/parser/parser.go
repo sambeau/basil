@@ -1593,7 +1593,8 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 			// Skip to next whitespace or potential spread
 			for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r' {
 				// Also check for quotes - need to skip content inside quotes
-				if raw[i] == '"' {
+				switch raw[i] {
+				case '"':
 					i++
 					for i < len(raw) && raw[i] != '"' {
 						if raw[i] == '\\' && i+1 < len(raw) {
@@ -1605,19 +1606,20 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 					if i < len(raw) {
 						i++ // skip closing quote
 					}
-				} else if raw[i] == '{' {
+				case '{':
 					// Skip interpolation expressions
 					depth := 1
 					i++
 					for i < len(raw) && depth > 0 {
-						if raw[i] == '{' {
+						switch raw[i] {
+						case '{':
 							depth++
-						} else if raw[i] == '}' {
+						case '}':
 							depth--
 						}
 						i++
 					}
-				} else {
+				default:
 					i++
 				}
 			}
@@ -1720,7 +1722,8 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 		}
 
 		// Parse value: quoted string, {expression}, or bare word
-		if raw[i] == '"' {
+		switch raw[i] {
+		case '"':
 			// Double-quoted string value
 			i++ // skip opening quote
 			valueStart := i
@@ -1739,7 +1742,7 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				Name:  attrName,
 				Value: value,
 			})
-		} else if raw[i] == '\'' {
+		case '\'':
 			// Single-quoted string value (common for onclick handlers with JS)
 			i++ // skip opening quote
 			valueStart := i
@@ -1758,17 +1761,18 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				Name:  attrName,
 				Value: value,
 			})
-		} else if raw[i] == '{' {
+		case '{':
 			// Expression value {expr}
 			exprStart := i + 1 // after {
 			depth := 1
 			i++
 			for i < len(raw) && depth > 0 {
-				if raw[i] == '{' {
+				switch raw[i] {
+				case '{':
 					depth++
-				} else if raw[i] == '}' {
+				case '}':
 					depth--
-				} else if raw[i] == '"' {
+				case '"':
 					// Skip string contents
 					i++
 					for i < len(raw) && raw[i] != '"' {
@@ -1793,7 +1797,7 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				Name:       attrName,
 				Expression: expr,
 			})
-		} else {
+		default:
 			// Bare word value (unquoted)
 			valueStart := i
 			for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r' {
@@ -4177,9 +4181,10 @@ func (p *Parser) parseQueryConditionNode() ast.QueryConditionNode {
 
 	// Otherwise, parse a simple condition
 	cond := p.parseQueryCondition()
-	if cond != nil {
-		cond.Negated = negated
+	if cond == nil {
+		return nil // Return nil interface, not nil pointer in interface
 	}
+	cond.Negated = negated
 	return cond
 }
 

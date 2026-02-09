@@ -52,9 +52,7 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 		if _, after, ok := strings.Cut(errMsg, " in "); ok {
 			rest := after
 			// Handle "module ./path:" format
-			if strings.HasPrefix(rest, "module ") {
-				rest = rest[7:] // skip "module "
-			}
+			rest = strings.TrimPrefix(rest, "module ")
 			// Find the colon after the path (could be ": " or ":\n")
 			if before, after, ok := strings.Cut(rest, ":"); ok {
 				file = before

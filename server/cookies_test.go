@@ -355,10 +355,8 @@ func TestExtractResponseMeta_Cookies(t *testing.T) {
 
 	if themeCookie == nil {
 		t.Error("expected theme cookie")
-	} else {
-		if themeCookie.Value != "dark" {
-			t.Errorf("theme cookie value: expected 'dark', got %q", themeCookie.Value)
-		}
+	} else if themeCookie.Value != "dark" {
+		t.Errorf("theme cookie value: expected 'dark', got %q", themeCookie.Value)
 	}
 
 	if sessionCookie == nil {

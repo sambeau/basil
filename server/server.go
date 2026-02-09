@@ -823,10 +823,7 @@ func isAPIRequest(r *http.Request) bool {
 		return true
 	}
 	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "application/json") {
-		return true
-	}
-	return false
+	return strings.HasPrefix(contentType, "application/json")
 }
 
 // createRouteWithStaticFallback wraps a route handler with static file fallback.

@@ -2491,11 +2491,12 @@ func dedentText(text string) string {
 		}
 		indent := 0
 		for _, ch := range line {
-			if ch == ' ' {
+			switch ch {
+			case ' ':
 				indent++
-			} else if ch == '\t' {
+			case '\t':
 				indent++ // Count tabs as 1 for comparison purposes
-			} else {
+			default:
 				break
 			}
 		}

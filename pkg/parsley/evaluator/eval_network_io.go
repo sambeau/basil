@@ -87,14 +87,11 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 			}
 		}
 
-		var err error
-		if recursive {
-			// Recursively remove directory and contents
-			err = handle.Connection.Client.RemoveDirectory(handle.Path)
-		} else {
-			// Remove empty directory only
-			err = handle.Connection.Client.RemoveDirectory(handle.Path)
-		}
+		// Note: SFTP RemoveDirectory only removes empty directories.
+		// The recursive option is parsed but not yet implemented.
+		// TODO: implement recursive directory removal if needed.
+		_ = recursive
+		err := handle.Connection.Client.RemoveDirectory(handle.Path)
 
 		if err != nil {
 			return newIOError("IO-0010", handle.Path, err)

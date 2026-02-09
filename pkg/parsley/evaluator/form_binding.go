@@ -182,7 +182,8 @@ func parseFieldAttribute(propsStr string) string {
 	}
 
 	// Must be quoted or braced
-	if propsStr[valueStart] == '"' {
+	switch propsStr[valueStart] {
+	case '"':
 		// Find closing quote
 		valueEnd := valueStart + 1
 		for valueEnd < len(propsStr) && propsStr[valueEnd] != '"' {
@@ -192,7 +193,7 @@ func parseFieldAttribute(propsStr string) string {
 			valueEnd++
 		}
 		return propsStr[valueStart+1 : valueEnd]
-	} else if propsStr[valueStart] == '{' {
+	case '{':
 		// Brace expression - find closing brace
 		braceDepth := 1
 		valueEnd := valueStart + 1

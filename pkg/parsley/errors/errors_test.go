@@ -422,11 +422,12 @@ func TestFindTopMatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FindTopMatches(tt.input, identifiers, tt.n)
 			// Verify the function doesn't panic and returns reasonable results
-			if tt.input == "" || tt.input == "xyz" {
+			switch tt.input {
+			case "", "xyz":
 				if len(got) != 0 {
 					t.Errorf("FindTopMatches(%q) = %v, want empty", tt.input, got)
 				}
-			} else if tt.input == "pritn" {
+			case "pritn":
 				if len(got) == 0 {
 					t.Errorf("FindTopMatches(%q) should return matches", tt.input)
 				}

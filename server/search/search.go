@@ -162,7 +162,7 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 	total := len(results) + opts.Offset
 	if len(results) >= opts.Limit {
 		// There might be more results
-		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM documents_fts WHERE documents_fts MATCH ?")
+		countQuery := "SELECT COUNT(*) FROM documents_fts WHERE documents_fts MATCH ?"
 		countArgs := []any{ftsQuery}
 		if err := idx.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
 			// Non-fatal, use estimate

@@ -1678,11 +1678,8 @@ func (l *Lexer) skipXMLComment() bool {
 	l.readChar() // skip -
 
 	// Read until we find -->
-	for {
-		if l.ch == 0 {
-			// Unexpected EOF
-			break
-		}
+	for l.ch != 0 {
+
 		if l.ch == '-' && l.peekChar() == '-' && l.peekCharN(2) == '>' {
 			l.readChar() // skip -
 			l.readChar() // skip -
@@ -1711,11 +1708,8 @@ func (l *Lexer) readCDATA() (string, bool) {
 
 	var content []byte
 	// Read until we find ]]>
-	for {
-		if l.ch == 0 {
-			// Unexpected EOF
-			break
-		}
+	for l.ch != 0 {
+
 		if l.ch == ']' && l.peekChar() == ']' && l.peekCharN(2) == '>' {
 			l.readChar() // skip ]
 			l.readChar() // skip ]
@@ -1738,11 +1732,8 @@ func (l *Lexer) readProcessingInstruction() string {
 	l.readChar() // skip ?
 
 	// Read until we find ?>
-	for {
-		if l.ch == 0 {
-			// Unexpected EOF
-			break
-		}
+	for l.ch != 0 {
+
 		if l.ch == '?' && l.peekChar() == '>' {
 			result = append(result, '?', '>')
 			l.readChar() // skip ?
@@ -1765,11 +1756,8 @@ func (l *Lexer) readDoctype() string {
 	l.readChar() // skip !
 
 	// Read until we find >
-	for {
-		if l.ch == 0 {
-			// Unexpected EOF
-			break
-		}
+	for l.ch != 0 {
+
 		if l.ch == '>' {
 			result = append(result, '>')
 			l.readChar() // skip >
@@ -1823,11 +1811,7 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 
 	// Read until we find > or />
 	isSingleton := false
-	for {
-		if l.ch == 0 {
-			// Unexpected EOF
-			break
-		}
+	for l.ch != 0 {
 
 		// Check for closing />
 		if l.ch == '/' && l.peekChar() == '>' {
@@ -2412,10 +2396,11 @@ func (l *Lexer) readDatetimeLiteral() string {
 		}
 
 		// Check for timezone: Z or +05:00 or -05:00
-		if l.ch == 'Z' {
+		switch l.ch {
+		case 'Z':
 			datetime = append(datetime, l.ch)
 			l.readChar()
-		} else if l.ch == '+' || l.ch == '-' {
+		case '+', '-':
 			// Only consume if followed by digit (timezone offset)
 			if isDigit(l.peekChar()) {
 				datetime = append(datetime, l.ch)
@@ -2450,11 +2435,8 @@ func (l *Lexer) readDurationLiteral() string {
 	}
 
 	// Read pairs of number + unit
-	for {
+	for isDigit(l.ch) {
 		// Read number
-		if !isDigit(l.ch) {
-			break
-		}
 
 		for isDigit(l.ch) {
 			duration = append(duration, l.ch)

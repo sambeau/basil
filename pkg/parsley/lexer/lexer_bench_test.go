@@ -57,7 +57,7 @@ fn area(r) = x * r * r
 )
 
 func BenchmarkLexer_Simple(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		l := New(simpleCode)
 		for tok := l.NextToken(); tok.Type != EOF; tok = l.NextToken() {
 		}
@@ -65,7 +65,7 @@ func BenchmarkLexer_Simple(b *testing.B) {
 }
 
 func BenchmarkLexer_Medium(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		l := New(mediumCode)
 		for tok := l.NextToken(); tok.Type != EOF; tok = l.NextToken() {
 		}
@@ -73,7 +73,7 @@ func BenchmarkLexer_Medium(b *testing.B) {
 }
 
 func BenchmarkLexer_Complex(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		l := New(complexCode)
 		for tok := l.NextToken(); tok.Type != EOF; tok = l.NextToken() {
 		}
@@ -83,7 +83,7 @@ func BenchmarkLexer_Complex(b *testing.B) {
 func BenchmarkLexer_UnicodeEquivalent(b *testing.B) {
 	// ASCII-only equivalent of what will become Unicode code
 	// Used to compare apples-to-apples before/after
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		l := New(unicodeCode)
 		for tok := l.NextToken(); tok.Type != EOF; tok = l.NextToken() {
 		}

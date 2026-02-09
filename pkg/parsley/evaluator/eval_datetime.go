@@ -356,7 +356,7 @@ func durationDictToLiteral(dict *Dictionary) string {
 
 	// Convert months to years and months
 	years := months / 12
-	months = months % 12
+	months %= 12
 
 	if years > 0 {
 		result.WriteString(fmt.Sprintf("%dy", years))
@@ -367,13 +367,13 @@ func durationDictToLiteral(dict *Dictionary) string {
 
 	// Convert seconds to weeks, days, hours, minutes, seconds
 	weeks := seconds / (7 * 86400)
-	seconds = seconds % (7 * 86400)
+	seconds %= (7 * 86400)
 	days := seconds / 86400
-	seconds = seconds % 86400
+	seconds %= 86400
 	hours := seconds / 3600
-	seconds = seconds % 3600
+	seconds %= 3600
 	minutes := seconds / 60
-	seconds = seconds % 60
+	seconds %= 60
 
 	if weeks > 0 {
 		result.WriteString(fmt.Sprintf("%dw", weeks))
@@ -432,7 +432,7 @@ func durationDictToString(dict *Dictionary) string {
 
 	// Convert months to years and months
 	years := months / 12
-	months = months % 12
+	months %= 12
 
 	if years > 0 {
 		if years == 1 {
@@ -451,11 +451,11 @@ func durationDictToString(dict *Dictionary) string {
 
 	// Convert seconds to days, hours, minutes, seconds
 	days := seconds / 86400
-	seconds = seconds % 86400
+	seconds %= 86400
 	hours := seconds / 3600
-	seconds = seconds % 3600
+	seconds %= 3600
 	minutes := seconds / 60
-	seconds = seconds % 60
+	seconds %= 60
 
 	if days > 0 {
 		if days == 1 {

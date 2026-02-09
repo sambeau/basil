@@ -171,7 +171,7 @@ func (s *Serializer) serializeDict(d *evaluator.Dictionary) (string, error) {
 	s.visited[ptr] = true
 	defer delete(s.visited, ptr)
 
-	if d.Pairs == nil || len(d.Pairs) == 0 {
+	if len(d.Pairs) == 0 {
 		return "{}", nil
 	}
 
@@ -321,7 +321,7 @@ func (s *Serializer) serializeRecord(r *evaluator.Record) (string, error) {
 	sb.WriteString(")")
 
 	// Serialize errors if present
-	if r.Errors != nil && len(r.Errors) > 0 {
+	if len(r.Errors) > 0 {
 		errParts := []string{}
 		errKeys := make([]string, 0, len(r.Errors))
 		for k := range r.Errors {

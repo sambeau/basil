@@ -172,7 +172,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		// For join subqueries, we need to select from outer table and joined tables
 		// SELECT outer.*, joined_alias.* FROM outer JOIN ... AS joined_alias ON ...
 		if node.Terminal != nil && len(node.Terminal.Projection) > 0 &&
-			!(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			(len(node.Terminal.Projection) != 1 || node.Terminal.Projection[0] != "*") {
 			// Specific columns requested - qualify them with outer table alias
 			for _, col := range node.Terminal.Projection {
 				selectCols = append(selectCols, fmt.Sprintf("%s.%s", outerTableAlias, col))
@@ -223,7 +223,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 
 		// If terminal specifies projection, filter to only those columns
 		if node.Terminal != nil && len(node.Terminal.Projection) > 0 {
-			if !(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			if len(node.Terminal.Projection) != 1 || node.Terminal.Projection[0] != "*" {
 				// User specified specific columns - validate they exist in our select
 				// For now, trust the user knows what they're doing
 				// The database will error if columns don't exist
@@ -233,7 +233,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		// Correlated subquery computed fields: SELECT *, (SELECT ...) AS alias, ...
 		// Start with base columns
 		if node.Terminal != nil && len(node.Terminal.Projection) > 0 &&
-			!(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			(len(node.Terminal.Projection) != 1 || node.Terminal.Projection[0] != "*") {
 			selectCols = node.Terminal.Projection
 		} else {
 			selectCols = []string{"*"}

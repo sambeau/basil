@@ -523,7 +523,7 @@ func renderMarkdownNode(buf *strings.Builder, node *Dictionary, depth int, env *
 		}
 		for i, child := range children {
 			if ordered {
-				buf.WriteString(fmt.Sprintf("%d. ", int(start)+i))
+				fmt.Fprintf(buf, "%d. ", int(start)+i)
 			} else {
 				buf.WriteString("- ")
 			}
@@ -623,7 +623,7 @@ func renderListItemContent(buf *strings.Builder, node *Dictionary, depth int, en
 		for i, child := range children {
 			buf.WriteString(indent)
 			if ordered {
-				buf.WriteString(fmt.Sprintf("%d. ", i+1))
+				fmt.Fprintf(buf, "%d. ", i+1)
 			} else {
 				buf.WriteString("- ")
 			}
@@ -646,9 +646,10 @@ func renderMarkdownTable(buf *strings.Builder, children []*Dictionary, env *Envi
 
 	for _, child := range children {
 		childType := getDictString(child, "type", env)
-		if childType == "table_header" {
+		switch childType {
+		case "table_header":
 			header = child
-		} else if childType == "table_row" {
+		case "table_row":
 			rows = append(rows, child)
 		}
 	}
@@ -726,15 +727,15 @@ func renderHTMLNode(buf *strings.Builder, node *Dictionary, env *Environment) {
 	case "heading":
 		level := getDictInt(node, "level", env)
 		id := getDictString(node, "id", env)
-		buf.WriteString(fmt.Sprintf("<h%d", level))
+		fmt.Fprintf(buf, "<h%d", level)
 		if id != "" {
-			buf.WriteString(fmt.Sprintf(` id="%s"`, id))
+			fmt.Fprintf(buf, ` id="%s"`, id)
 		}
 		buf.WriteString(">")
 		for _, child := range children {
 			renderHTMLNode(buf, child, env)
 		}
-		buf.WriteString(fmt.Sprintf("</h%d>\n", level))
+		fmt.Fprintf(buf, "</h%d>\n", level)
 
 	case "paragraph":
 		buf.WriteString("<p>")
@@ -837,7 +838,7 @@ func renderHTMLNode(buf *strings.Builder, node *Dictionary, env *Environment) {
 		if ordered {
 			start := getDictInt(node, "start", env)
 			if start != 1 && start != 0 {
-				buf.WriteString(fmt.Sprintf(`<ol start="%d">`, start))
+				fmt.Fprintf(buf, `<ol start="%d">`, start)
 			} else {
 				buf.WriteString("<ol>")
 			}
@@ -906,7 +907,7 @@ func renderHTMLNode(buf *strings.Builder, node *Dictionary, env *Environment) {
 			align := getDictString(cell, "alignment", env)
 			buf.WriteString("<th")
 			if align != "" && align != "none" {
-				buf.WriteString(fmt.Sprintf(` style="text-align: %s"`, align))
+				fmt.Fprintf(buf, ` style="text-align: %s"`, align)
 			}
 			buf.WriteString(">")
 			renderHTMLNode(buf, cell, env)
@@ -920,7 +921,7 @@ func renderHTMLNode(buf *strings.Builder, node *Dictionary, env *Environment) {
 			align := getDictString(cell, "alignment", env)
 			buf.WriteString("<td")
 			if align != "" && align != "none" {
-				buf.WriteString(fmt.Sprintf(` style="text-align: %s"`, align))
+				fmt.Fprintf(buf, ` style="text-align: %s"`, align)
 			}
 			buf.WriteString(">")
 			renderHTMLNode(buf, cell, env)

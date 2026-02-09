@@ -1400,7 +1400,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		devtoolsMap["config"] = configGroups
 
 		// Add meta if configured
-		if cfg.Meta != nil && len(cfg.Meta) > 0 {
+		if len(cfg.Meta) > 0 {
 			devtoolsMap["has_meta"] = true
 			devtoolsMap["meta"] = cfg.Meta
 		}

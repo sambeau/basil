@@ -344,9 +344,10 @@ func findMatchingBraceInBytes(input []byte, startPos int) int {
 
 		// Only count braces outside of strings
 		if !inString && !inChar && !inRawString {
-			if ch == '{' {
+			switch ch {
+			case '{':
 				depth++
-			} else if ch == '}' {
+			case '}':
 				depth--
 				if depth == 0 {
 					return i

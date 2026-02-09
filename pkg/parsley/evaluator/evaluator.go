@@ -1468,9 +1468,10 @@ func interpolatePathUrlTemplate(template string, env *Environment, baseLine, bas
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -1637,7 +1638,7 @@ func timeToDatetimeDict(t time.Time, env *Environment) *Dictionary {
 	if strings.HasSuffix(iso, "+00:00") || strings.HasSuffix(iso, "-00:00") {
 		iso = strings.TrimSuffix(iso, "+00:00")
 		iso = strings.TrimSuffix(iso, "-00:00")
-		iso = iso + "Z"
+		iso += "Z"
 	}
 	pairs["iso"] = &ast.StringLiteral{
 		Token: lexer.Token{Type: lexer.STRING, Literal: iso},
@@ -5112,9 +5113,10 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -5214,9 +5216,10 @@ func evalRawTemplateLiteral(node *ast.RawTemplateLiteral, env *Environment) Obje
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -5304,9 +5307,10 @@ func interpolateRawString(template string, env *Environment) Object {
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {

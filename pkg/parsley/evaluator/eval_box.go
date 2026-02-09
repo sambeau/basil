@@ -1090,13 +1090,13 @@ func durationToBox(dict *Dictionary, args []Object, env *Environment) Object {
 	values := []string{}
 
 	years := months / 12
-	months = months % 12
+	months %= 12
 	days := seconds / (24 * 3600)
-	seconds = seconds % (24 * 3600)
+	seconds %= (24 * 3600)
 	hours := seconds / 3600
-	seconds = seconds % 3600
+	seconds %= 3600
 	minutes := seconds / 60
-	seconds = seconds % 60
+	seconds %= 60
 
 	if years > 0 {
 		keys = append(keys, "years")

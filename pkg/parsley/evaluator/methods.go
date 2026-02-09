@@ -2171,13 +2171,13 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		}
 		// Return as object with years, months, days, hours, minutes, seconds
 		years := months / 12
-		months = months % 12
+		months %= 12
 		days := seconds / (24 * 3600)
-		seconds = seconds % (24 * 3600)
+		seconds %= (24 * 3600)
 		hours := seconds / 3600
-		seconds = seconds % 3600
+		seconds %= 3600
 		minutes := seconds / 60
-		seconds = seconds % 60
+		seconds %= 60
 		result := fmt.Sprintf(`{"years":%d,"months":%d,"days":%d,"hours":%d,"minutes":%d,"seconds":%d}`,
 			years, months, days, hours, minutes, seconds)
 		return &String{Value: result}
@@ -3261,7 +3261,7 @@ func humanizeNumber(value float64, localeStr string) string {
 	}
 
 	var divisor float64 = 1
-	var suffix string = ""
+	var suffix = ""
 
 	for _, u := range units {
 		if absValue >= u.threshold {

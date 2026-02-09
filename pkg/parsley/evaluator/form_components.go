@@ -180,8 +180,9 @@ func evalErrorComponent(props string, contents []Object, isSelfClosing bool, env
 	return &String{Value: result.String()}
 }
 
-// evalMetaComponent handles <Meta @field="name" @key="help"/> (DEPRECATED)
+// evalMetaComponent handles <Meta @field="name" @key="help"/>
 // Returns metadata value if present, null otherwise.
+//
 // Deprecated: Use <val @field="name" @key="help"/> instead.
 func evalMetaComponent(props string, env *Environment) Object {
 	return evalValComponent(props, nil, true, env)

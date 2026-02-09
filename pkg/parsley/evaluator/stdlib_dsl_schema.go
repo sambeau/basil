@@ -584,20 +584,22 @@ func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) str
 			switch baseType {
 			case "int", "integer":
 				// SPEC-ID-003: Integer primary keys use implicit autoincrement
-				if driver == "sqlite" {
+				switch driver {
+				case "sqlite":
 					columns = append(columns, fmt.Sprintf("%s INTEGER PRIMARY KEY", name))
-				} else if driver == "postgres" {
+				case "postgres":
 					columns = append(columns, fmt.Sprintf("%s SERIAL PRIMARY KEY", name))
-				} else if driver == "mysql" {
+				case "mysql":
 					columns = append(columns, fmt.Sprintf("%s INT AUTO_INCREMENT PRIMARY KEY", name))
 				}
 				continue
 			case "bigint":
-				if driver == "sqlite" {
+				switch driver {
+				case "sqlite":
 					columns = append(columns, fmt.Sprintf("%s INTEGER PRIMARY KEY", name))
-				} else if driver == "postgres" {
+				case "postgres":
 					columns = append(columns, fmt.Sprintf("%s BIGSERIAL PRIMARY KEY", name))
-				} else if driver == "mysql" {
+				case "mysql":
 					columns = append(columns, fmt.Sprintf("%s BIGINT AUTO_INCREMENT PRIMARY KEY", name))
 				}
 				continue
