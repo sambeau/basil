@@ -1004,6 +1004,23 @@ func (rs *ReadStatement) String() string {
 	return out.String()
 }
 
+// FetchExpression represents a bare fetch expression like '<=/= JSON(url(...))' that returns the response
+type FetchExpression struct {
+	Token  lexer.Token // the <=/= token
+	Source Expression  // the URL/request handle expression
+}
+
+func (fe *FetchExpression) expressionNode()      {}
+func (fe *FetchExpression) TokenLiteral() string { return fe.Token.Literal }
+func (fe *FetchExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("<=/= ")
+	if fe.Source != nil {
+		out.WriteString(fe.Source.String())
+	}
+	return out.String()
+}
+
 // FetchStatement represents fetch-from-URL statements like 'let x <=/= jsonFile(@https://...)' or '{data, error} <=/= jsonFile(@url)'
 type FetchStatement struct {
 	Token        lexer.Token                // the <=/= token
@@ -1048,6 +1065,7 @@ type WriteStatement struct {
 }
 
 func (ws *WriteStatement) statementNode()       {}
+func (ws *WriteStatement) expressionNode()      {}
 func (ws *WriteStatement) TokenLiteral() string { return ws.Token.Literal }
 func (ws *WriteStatement) String() string {
 	var out bytes.Buffer
@@ -1077,6 +1095,7 @@ type RemoteWriteStatement struct {
 }
 
 func (rw *RemoteWriteStatement) statementNode()       {}
+func (rw *RemoteWriteStatement) expressionNode()      {}
 func (rw *RemoteWriteStatement) TokenLiteral() string { return rw.Token.Literal }
 func (rw *RemoteWriteStatement) String() string {
 	var out bytes.Buffer

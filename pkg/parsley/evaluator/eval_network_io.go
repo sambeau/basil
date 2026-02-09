@@ -12,7 +12,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
-// Network I/O operations: evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement + helpers
+// Network I/O operations: evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement, evalFetchExpression + helpers
 // Extracted from evaluator.go - Phase 5 Extraction 29
 
 func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object, env *Environment) Object {
@@ -790,6 +790,124 @@ func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dic
 
 // isErrorCapturePattern checks if a dict destructuring pattern contains "data" or "error" keys
 // which indicates the user wants to use the error capture pattern
+// evalFetchExpression evaluates a bare <=/= expression (used in assignment capture like `let x = <=/= source`)
+func evalFetchExpression(node *ast.FetchExpression, env *Environment) Object {
+	source := Eval(node.Source, env)
+	if isError(source) {
+		return source
+	}
+
+	// SFTP file handle — return content directly
+	if sftpHandle, ok := source.(*SFTPFileHandle); ok {
+		content, err := evalSFTPRead(sftpHandle, env)
+		if err != nil {
+			return err
+		}
+		return content
+	}
+
+	// Must be a request or URL dictionary
+	sourceDict, ok := source.(*Dictionary)
+	if !ok {
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": string(source.Type())})
+	}
+
+	var reqDict *Dictionary
+	if isRequestDict(sourceDict) {
+		reqDict = sourceDict
+	} else if isUrlDict(sourceDict) {
+		reqDict = urlToRequestDict(sourceDict, "text", nil, env)
+	} else {
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": "dictionary"})
+	}
+
+	info := fetchUrlContentFull(reqDict, env)
+
+	if info.Error != "" {
+		return newHTTPErrorMessage("HTTP-0006", info.Error)
+	}
+
+	return makeResponseTypedDict(
+		info.Content,
+		info.Format,
+		info.StatusCode,
+		info.StatusText,
+		info.OK,
+		info.FinalURL,
+		info.Headers,
+		"",
+		env,
+	)
+}
+
+// isResponseTypedDict checks whether a value is a typed response dictionary (has __type = "response")
+func isResponseTypedDict(obj Object) bool {
+	dict, ok := obj.(*Dictionary)
+	if !ok {
+		return false
+	}
+	typeExpr, exists := dict.Pairs["__type"]
+	if !exists {
+		return false
+	}
+	if sl, ok := typeExpr.(*ast.StringLiteral); ok {
+		return sl.Value == "response"
+	}
+	if ole, ok := typeExpr.(*ast.ObjectLiteralExpression); ok {
+		if s, ok := ole.Obj.(*String); ok {
+			return s.Value == "response"
+		}
+	}
+	return false
+}
+
+// responseTypedDictToLegacy converts a typed response dict (__type, __data, __response)
+// to the legacy {data, error, status, headers} shape expected by error-capture destructuring.
+func responseTypedDictToLegacy(dict *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Extract __data
+	if dataExpr, ok := dict.Pairs["__data"]; ok {
+		pairs["data"] = dataExpr
+	} else {
+		pairs["data"] = &ast.ObjectLiteralExpression{Obj: NULL}
+	}
+
+	// Extract fields from __response sub-dict
+	var status int64
+	var errorMsg string
+	var headers *Dictionary
+
+	if responseExpr, ok := dict.Pairs["__response"]; ok {
+		responseObj := Eval(responseExpr, env)
+		if responseDict, ok := responseObj.(*Dictionary); ok {
+			// status
+			if statusExpr, ok := responseDict.Pairs["status"]; ok {
+				statusObj := Eval(statusExpr, env)
+				if statusInt, ok := statusObj.(*Integer); ok {
+					status = statusInt.Value
+				}
+			}
+			// error
+			if errorExpr, ok := responseDict.Pairs["error"]; ok {
+				errorObj := Eval(errorExpr, env)
+				if errorStr, ok := errorObj.(*String); ok {
+					errorMsg = errorStr.Value
+				}
+			}
+			// headers
+			if headersExpr, ok := responseDict.Pairs["headers"]; ok {
+				headersObj := Eval(headersExpr, env)
+				if h, ok := headersObj.(*Dictionary); ok {
+					headers = h
+				}
+			}
+		}
+	}
+
+	return makeFetchResponseDict(Eval(pairs["data"], env), errorMsg, status, headers, env)
+}
+
 func isErrorCapturePattern(pattern *ast.DictDestructuringPattern) bool {
 	for _, key := range pattern.Keys {
 		if key.Key != nil {

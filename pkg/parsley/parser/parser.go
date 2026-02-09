@@ -30,35 +30,39 @@ const (
 
 // precedences maps tokens to their precedence
 var precedences = map[lexer.TokenType]int{
-	lexer.COMMA:        COMMA_PREC,
-	lexer.OR:           LOGIC_OR,
-	lexer.NULLISH:      LOGIC_OR,
-	lexer.AND:          LOGIC_AND,
-	lexer.EQ:           EQUALS,
-	lexer.NOT_EQ:       EQUALS,
-	lexer.MATCH:        EQUALS,
-	lexer.NOT_MATCH:    EQUALS,
-	lexer.IN:           EQUALS,
-	lexer.IS:           EQUALS, // for 'is' / 'is not' schema checking
-	lexer.BANG:         EQUALS, // for 'not in' operator
-	lexer.LT:           LESSGREATER,
-	lexer.GT:           LESSGREATER,
-	lexer.LTE:          LESSGREATER,
-	lexer.GTE:          LESSGREATER,
-	lexer.PLUS:         SUM,
-	lexer.MINUS:        SUM,
-	lexer.RANGE:        SUM,
-	lexer.PLUSPLUS:     CONCAT,
-	lexer.SLASH:        PRODUCT,
-	lexer.ASTERISK:     PRODUCT,
-	lexer.PERCENT:      PRODUCT,
-	lexer.LBRACKET:     INDEX,
-	lexer.DOT:          INDEX,
-	lexer.LPAREN:       CALL,
-	lexer.QUERY_ONE:    EQUALS, // Database query operators
-	lexer.QUERY_MANY:   EQUALS,
-	lexer.EXECUTE:      EQUALS,
-	lexer.EXECUTE_WITH: EQUALS, // Process execution operator
+	lexer.COMMA:         COMMA_PREC,
+	lexer.WRITE_TO:      COMMA_PREC, // ==> (write operators bind very loosely)
+	lexer.APPEND_TO:     COMMA_PREC, // ==>>
+	lexer.REMOTE_WRITE:  COMMA_PREC, // =/=>
+	lexer.REMOTE_APPEND: COMMA_PREC, // =/=>>
+	lexer.OR:            LOGIC_OR,
+	lexer.NULLISH:       LOGIC_OR,
+	lexer.AND:           LOGIC_AND,
+	lexer.EQ:            EQUALS,
+	lexer.NOT_EQ:        EQUALS,
+	lexer.MATCH:         EQUALS,
+	lexer.NOT_MATCH:     EQUALS,
+	lexer.IN:            EQUALS,
+	lexer.IS:            EQUALS, // for 'is' / 'is not' schema checking
+	lexer.BANG:          EQUALS, // for 'not in' operator
+	lexer.LT:            LESSGREATER,
+	lexer.GT:            LESSGREATER,
+	lexer.LTE:           LESSGREATER,
+	lexer.GTE:           LESSGREATER,
+	lexer.PLUS:          SUM,
+	lexer.MINUS:         SUM,
+	lexer.RANGE:         SUM,
+	lexer.PLUSPLUS:      CONCAT,
+	lexer.SLASH:         PRODUCT,
+	lexer.ASTERISK:      PRODUCT,
+	lexer.PERCENT:       PRODUCT,
+	lexer.LBRACKET:      INDEX,
+	lexer.DOT:           INDEX,
+	lexer.LPAREN:        CALL,
+	lexer.QUERY_ONE:     EQUALS, // Database query operators
+	lexer.QUERY_MANY:    EQUALS,
+	lexer.EXECUTE:       EQUALS,
+	lexer.EXECUTE_WITH:  EQUALS, // Process execution operator
 }
 
 // Parser represents the parser
@@ -129,6 +133,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(lexer.READ_FROM, p.parseReadExpression)
+	p.registerPrefix(lexer.FETCH_FROM, p.parseFetchExpression)
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
 	p.registerPrefix(lexer.FALSE, p.parseBoolean)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
@@ -859,6 +864,21 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 
 	expr := p.parseExpression(LOWEST)
 
+	// If parseExpression already consumed a write/remote-write operator (due to precedence),
+	// return it directly as a statement rather than wrapping in ExpressionStatement.
+	if ws, ok := expr.(*ast.WriteStatement); ok {
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return ws
+	}
+	if rw, ok := expr.(*ast.RemoteWriteStatement); ok {
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return rw
+	}
+
 	// Check for index/property assignment: expr[key] = value or expr.prop = value
 	if p.peekTokenIs(lexer.ASSIGN) {
 		if p.isAssignableExpression(expr) {
@@ -943,6 +963,30 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := prefix()
 
 	for !p.peekTokenIs(lexer.SEMICOLON) && precedence < p.peekPrecedence() {
+		// Allow write operators to be parsed as expressions for assignment capture
+		if p.peekTokenIs(lexer.WRITE_TO) || p.peekTokenIs(lexer.APPEND_TO) {
+			p.nextToken() // consume ==> or ==>>
+			writeExpr := &ast.WriteStatement{
+				Token:  p.curToken,
+				Value:  leftExp,
+				Append: p.curToken.Type == lexer.APPEND_TO,
+			}
+			p.nextToken() // move to target expression
+			writeExpr.Target = p.parseExpression(LOWEST)
+			return writeExpr
+		}
+		if p.peekTokenIs(lexer.REMOTE_WRITE) || p.peekTokenIs(lexer.REMOTE_APPEND) {
+			p.nextToken() // consume =/=> or =/=>>
+			remoteExpr := &ast.RemoteWriteStatement{
+				Token:  p.curToken,
+				Value:  leftExp,
+				Append: p.curToken.Type == lexer.REMOTE_APPEND,
+			}
+			p.nextToken() // move to target expression
+			remoteExpr.Target = p.parseExpression(LOWEST)
+			return remoteExpr
+		}
+
 		// Special handling for DOT: only treat as infix if followed by IDENT or AS keyword
 		// This allows standalone DOT to be used as a terminal operator in DSL queries
 		// AS is allowed since 'as' can be a method name like dict.as(Schema)
@@ -1927,6 +1971,19 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 // parseReadExpression parses bare <== expressions like '<== file(...)'
 func (p *Parser) parseReadExpression() ast.Expression {
 	expression := &ast.ReadExpression{
+		Token: p.curToken,
+	}
+
+	p.nextToken()
+
+	expression.Source = p.parseExpression(PREFIX)
+
+	return expression
+}
+
+// parseFetchExpression parses bare <=/= expressions like '<=/= JSON(url(...))'
+func (p *Parser) parseFetchExpression() ast.Expression {
+	expression := &ast.FetchExpression{
 		Token: p.curToken,
 	}
 
