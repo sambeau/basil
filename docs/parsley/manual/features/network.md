@@ -33,6 +33,28 @@ let response <=/= JSON(@https://api.example.com/users)
 
 The left side is a variable binding. The right side is a URL handle (a format function wrapping a URL literal) or a plain URL.
 
+### Fetch as an Expression
+
+The fetch operator can also be used as a standalone expression on the right side of an assignment. In this form, `<=/=` is a prefix operator — the result is captured into a variable:
+
+```parsley
+let response = <=/= JSON(@https://api.example.com/users)
+response.data                    // the parsed content
+response.ok                      // true if status 200–299
+```
+
+This is equivalent to the statement form (`let response <=/= ...`) but works anywhere an expression is expected — in function arguments, conditionals, or chained operations:
+
+```parsley
+// Use in a conditional
+if ((<=/= JSON(@https://api.example.com/health)).ok) {
+    log("API is up")
+}
+
+// Pass directly to a function
+processUsers(<=/= JSON(@https://api.example.com/users))
+```
+
 ## URL Handles
 
 Wrap a URL literal in a format function to control how the response is parsed:
@@ -161,6 +183,26 @@ Use `=/=>` to send data to a network target. The left side is the data to send (
 
 The `=/=>` operator only accepts network targets (HTTP request handles or SFTP file handles). For local file writes, use `==>`.
 
+The append variant `=/=>>` works the same way but signals append semantics (relevant for SFTP targets):
+
+```parsley
+"log entry\n" =/=>> text(sftp, "/var/log/app.log")
+```
+
+### Remote Write as an Expression
+
+Like fetch, the remote write operator is a true expression — it returns a response object that you can capture:
+
+```parsley
+// Capture the full response
+let response = payload =/=> JSON(@https://api.example.com/items)
+response.data                    // response body (parsed)
+response.status                  // HTTP status code
+response.ok                      // true if status 200–299
+```
+
+This works for all remote write variants (`=/=>` and `=/=>>`).
+
 ### Error Handling for Remote Writes
 
 ```parsley
@@ -176,6 +218,8 @@ if (error) {
     log("Error:", error)
 }
 ```
+
+When using `{data, error}` destructuring on a remote write expression, the typed response is automatically converted to the legacy `{data, error, status, headers}` shape for compatibility.
 
 ### Examples
 
@@ -282,6 +326,7 @@ let config = if (error) { defaults } else { data }
 ## Key Differences from Other Languages
 
 - **Operator, not function** — `<=/=` replaces `fetch()` or `http.get()`. The operator syntax mirrors the file read operator `<==`, making the data flow direction clear.
+- **True expressions** — both `<=/=` and `=/=>` return values, so `let r = <=/= url` and `let r = data =/=> url` work anywhere an expression is expected.
 - **Format-aware handles** — `JSON(@https://...)` auto-parses the response. No manual `response.json()` step.
 - **Error capture pattern** — `{data, error}` destructuring catches network failures without try/catch blocks.
 - **No async/await** — fetch is synchronous. There are no promises or callbacks.

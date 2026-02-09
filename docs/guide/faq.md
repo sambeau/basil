@@ -221,4 +221,46 @@ This auto-generates a cryptographically random secret on server startup. For mul
 
 ---
 
+### How do I return structured errors from API handlers?
+
+Use `fail()` with a dictionary containing `message`, `code`, and `status` fields. The server automatically uses `status` for the HTTP response code and wraps the error in `{error: {...}}` JSON:
+
+```parsley
+let api = import @std/api
+
+export post = fn(req) {
+    check req.body.name else fail({
+        message: "Name is required",
+        code: "MISSING_NAME",
+        status: 400
+    })
+    // ... process request
+}
+```
+
+You can also use the `api.*` helpers for standard HTTP errors:
+
+```parsley
+api.notFound("User not found")       // → HTTP 404
+api.badRequest("Invalid input")      // → HTTP 400
+api.forbidden("Access denied")       // → HTTP 403
+```
+
+For schema validation, use `failIfInvalid()` to convert validation errors into a structured API error in one line:
+
+```parsley
+export post = fn(req) {
+    let user = User(req.body).validate().failIfInvalid()
+    // If invalid → HTTP 400 with {error: {code: "VALIDATION", message: "Validation failed", fields: [...]}}
+    // If valid → continues with the validated record
+    Users.insert(user)
+}
+```
+
+When caught with `try`, the `error` slot is a dictionary — use `error.message`, `error.code`, `error.status`, etc. String coercion works too: `"" + error` yields `error.message`.
+
+*Added: 2026-02-08*
+
+---
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

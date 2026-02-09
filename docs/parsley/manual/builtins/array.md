@@ -18,347 +18,180 @@ keywords:
 
 # Arrays
 
-Arrays are ordered collections of values of any type. They form the foundation of data processing in Parsley, supporting indexing, slicing, functional operations (map, filter, reduce), and convenient methods for sorting, formatting, and random selection.
-
-## Literals
-
-Create arrays using square brackets with comma-separated elements:
+Arrays are ordered, mixed-type collections and the workhorse of data processing in Parsley. They support indexing, slicing, functional operations, set algebra, random sampling, locale-aware formatting, and more.
 
 ```parsley
-[1, 2, 3]
+[1, "hello", true, null, £5.00]     // mixed types, including money
+[[1, 2], [3, 4]]                     // nested arrays
+[]                                   // empty (falsy)
 ```
-
-**Result:** `[1, 2, 3]`
-
-Arrays can contain any mix of types:
-
-```parsley
-[1, "hello", true, null, £5.00]
-```
-
-**Result:** `[1, "hello", true, null, £5.00]`
-
-Create an empty array:
-
-```parsley
-[]
-```
-
-**Result:** `[]`
-
-Arrays can be nested:
-
-```parsley
-[[1, 2], [3, 4], [5, 6]]
-```
-
-**Result:** `[[1, 2], [3, 4], [5, 6]]`
 
 ## Operators
 
-### Indexing
-
-Access elements by position using bracket notation. Positions are zero-indexed:
+### Indexing & Slicing
 
 ```parsley
-cities = ["London", "Paris", "Tokyo"]
-cities[0]
+let cities = ["London", "Paris", "Tokyo"]
+cities[0]                            // "London"
+cities[-1]                           // "Tokyo" (negative = from end)
+cities[?10]                          // null (optional access, no error)
+
+let n = [10, 20, 30, 40, 50]
+n[1:3]                               // [20, 30] (start inclusive, end exclusive)
+n[:2]                                // [10, 20]
+n[2:]                                // [30, 40, 50]
 ```
 
-**Result:** `"London"`
+> ⚠️ **Optional indexing** `[?n]` returns `null` instead of an error on out-of-bounds access. Most languages don't have this.
 
-Access from the end using negative indices. The last element is `-1`:
+### Concatenation & Repetition
 
 ```parsley
-cities[-1]
+[1, 2] ++ [3, 4]                    // [1, 2, 3, 4]
+[1, 2] * 3                          // [1, 2, 1, 2, 1, 2]
 ```
 
-**Result:** `"Tokyo"`
+> ⚠️ **`++` concatenates arrays, `+` does not.** `"a" ++ "b"` produces `["a", "b"]` — the `++` operator always creates/extends arrays. Use `+` for string concatenation.
+
+### Chunking with `/`
+
+The division operator chunks an array into groups — unique to Parsley:
 
 ```parsley
-cities[-2]
+[1, 2, 3, 4, 5, 6, 7, 8, 9] / 3    // [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+[1, 2, 3, 4, 5] / 2                 // [[1, 2], [3, 4], [5]]
 ```
 
-**Result:** `"Paris"`
+This is useful for pagination, grid layouts, and batch processing.
 
-Use optional indexing to safely access out-of-bounds positions (returns `null`):
+### Set Operations
+
+Logical operators become set operations on arrays:
 
 ```parsley
-cities[?10]
+[1, 2, 3] && [2, 3, 4]              // [2, 3] (intersection)
+[1, 2] || [2, 3]                    // [1, 2, 3] (union)
+[1, 2, 3] - [2]                     // [1, 3] (subtraction)
 ```
 
-**Result:** `null`
-
-### Slicing
-
-Extract a range of elements using slice notation `[start:end]`. The slice is inclusive of start and exclusive of end:
+### Membership
 
 ```parsley
-numbers = [10, 20, 30, 40, 50]
-numbers[1:3]
+2 in [1, 2, 3]                      // true
+5 not in [1, 2, 3]                   // true
+"admin" in null                      // false (null-safe, no error)
 ```
 
-**Result:** `[20, 30]`
+### Ranges
 
-Slice from the beginning:
+The `..` operator creates arrays of sequential integers:
 
 ```parsley
-numbers[:2]
+1..5                                 // [1, 2, 3, 4, 5]
 ```
 
-**Result:** `[10, 20]`
+## `for` Loops Return Arrays
 
-Slice to the end of the array:
+This is one of Parsley's most distinctive features: `for` is an **expression** that returns an array, making it a built-in `map` and `filter`:
 
 ```parsley
-numbers[2:]
+let doubled = for (n in [1, 2, 3]) { n * 2 }       // [2, 4, 6]
+
+let evens = for (n in 1..10) { if (n % 2 == 0) { n } }  // [2, 4, 6, 8, 10]
+
+// With index
+let labeled = for (i, city in ["London", "Paris"]) {
+    `{i + 1}. {city}`
+}
+// ["1. London", "2. Paris"]
 ```
 
-**Result:** `[30, 40, 50]`
+> ⚠️ If the body returns `null` (e.g. an `if` with no `else`), that element is **omitted** from the result — this is how filtering works. Use `stop` and `skip` instead of `break` and `continue`.
 
-### Concatenation
-
-Combine arrays with the `++` operator:
-
-```parsley
-[1, 2] ++ [3, 4]
-```
-
-**Result:** `[1, 2, 3, 4]`
-
-Concatenate multiple arrays:
-
-```parsley
-["a"] ++ ["b", "c"] ++ ["d"]
-```
-
-**Result:** `["a", "b", "c", "d"]`
-
-### Repetition
-
-Repeat an array using the `*` operator:
-
-```parsley
-[1, 2] * 3
-```
-
-**Result:** `[1, 2, 1, 2, 1, 2]`
+Throughout the methods below, many examples show both `.method(fn)` and `for` style — use whichever reads better for your case.
 
 ## Methods
 
 ### filter
 
-Returns a new array containing only elements where the predicate function returns true:
-
 ```parsley
-[1, 2, 3, 4, 5].filter(fn(x) { x > 2 })
+[1, 2, 3, 4, 5].filter(fn(x) { x > 2 })            // [3, 4, 5]
+
+// Equivalent with for:
+for (x in [1, 2, 3, 4, 5]) { if (x > 2) { x } }    // [3, 4, 5]
 ```
-
-**Result:** `[3, 4, 5]`
-
-Filter using ``for``:
-
-```parsley
-for(x in [1, 2, 3, 4, 5]) { if(x > 2){x} }
-```
-
-**Result:** `[3, 4, 5]`
-
-Filter strings:
-
-```parsley
-["apple", "banana", "apricot"].filter(fn(s) { s[0] == "a" })
-```
-
-**Result:** `["apple", "apricot"]`
 
 ### format
 
-Format the array as a readable list in the user's locale. Supports styles: `"and"`, `"or"`, and `"unit"`:
+Format an array as a human-readable list, with locale support. This is unusual — most languages require a library for this:
 
 ```parsley
-["Alice", "Bob", "Charlie"].format("and")
+["Alice", "Bob", "Charlie"].format("and")             // "Alice, Bob, and Charlie"
+["coffee", "tea", "milk"].format("or")                 // "coffee, tea, or milk"
+[1, 2, 3].format("unit")                              // "1, 2, 3"
+
+// Locale-aware:
+["Alice", "Bob", "Charlie"].format("and", "Fr")        // "Alice, Bob et Charlie"
 ```
-
-**Result:** `"Alice, Bob, and Charlie"`
-
-Using `"or"` style:
-
-```parsley
-["coffee", "tea", "milk"].format("or")
-```
-
-**Result:** `"coffee, tea, or milk"`
-
-Using `"unit"` style:
-
-```parsley
-[1, 2, 3].format("unit")
-```
-
-**Result:** `"1, 2, 3"`
-
-In French:
-
-```parsley
-["Alice", "Bob", "Charlie"].format("and","Fr")
-```
-
-**Result:** `"Alice, Bob et Charlie"`
 
 ### insert
 
 Insert an element at a specific index, returning a new array. Supports negative indices:
 
 ```parsley
-["a", "c"].insert(1, "b")
+["a", "c"].insert(1, "b")                             // ["a", "b", "c"]
+["a", "b"].insert(-1, "x")                            // ["a", "x", "b"]
 ```
-
-**Result:** `["a", "b", "c"]`
-
-Insert at the beginning with index 0:
-
-```parsley
-[2, 3].insert(0, 1)
-```
-
-**Result:** `[1, 2, 3]`
-
-Insert at the end using index equal to array length:
-
-```parsley
-[1, 2].insert(2, 3)
-```
-
-**Result:** `[1, 2, 3]`
-
-Insert using negative index (inserts *before* that position):
-
-```parsley
-["a", "b"].insert(-1, "x")
-```
-
-**Result:** `["a", "x", "b"]`
 
 ### join
 
-Concatenate all elements into a single string, separated by a delimiter:
-
 ```parsley
-["Hello", "world"].join(" ")
+["Hello", "world"].join(" ")                           // "Hello world"
+[1, 2, 3].join("-")                                    // "1-2-3"
 ```
-
-**Result:** `"Hello world"`
-
-Join with empty string:
-
-```parsley
-["a", "b", "c"].join("")
-```
-
-**Result:** `"abc"`
-
-Join numbers:
-
-```parsley
-[1, 2, 3].join("-")
-```
-
-**Result:** `"1-2-3"`
 
 ### length
 
-Get the number of elements in the array:
-
 ```parsley
-[10, 20, 30].length()
+[10, 20, 30].length()                                 // 3
 ```
-
-**Result:** `3`
-
-Empty array:
-
-```parsley
-[].length()
-```
-
-**Result:** `0`
 
 ### map
 
-Transform each element using a function. Returns a new array with the transformed elements:
-
 ```parsley
-[1, 2, 3].map(fn(x) { x * 2 })
+[1, 2, 3].map(fn(x) { x * 2 })                       // [2, 4, 6]
+
+// Equivalent with for:
+for (x in [1, 2, 3]) { x * 2 }                        // [2, 4, 6]
+
+// Extract fields from dictionaries:
+let users = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+users.map(fn(u) { u.name })                            // ["Alice", "Bob"]
 ```
-**Result:** `[2, 4, 6]`
-
-The same, but using ``for`` style:
-
-```parsley
-for(x in [1,2,3]){x * 2}
-```
-
-**Result:** `[2, 4, 6]`
-
-Extract properties from objects:
-
-```parsley
-users = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-users.map(fn(u) { u.name })
-```
-
-**Result:** `["Alice", "Bob"]`
 
 ### pick
 
-Select random elements from the array *with replacement* (same element can be picked multiple times):
+Select random elements **with replacement** (duplicates possible):
 
 ```parsley
-[1, 2, 3].pick(2)
+["red", "green", "blue"].pick(2)                       // e.g. ["green", "red"]
 ```
-
-**Result:** Two random elements (may include duplicates), e.g. `[3, 1]`
-
-Pick from a list of options:
-
-```parsley
-["red", "green", "blue"].pick(1)
-```
-
-**Result:** An array of one random color, e.g. `["green"]`
 
 ### reduce
 
-Accumulate values using a function that takes the accumulator and current element, starting from an initial value:
+Accumulate a result across elements. Works naturally with Parsley's money type:
 
 ```parsley
-[1, 2, 3, 4].reduce(fn(sum, x) { sum + x }, 0)
+[1, 2, 3, 4].reduce(fn(sum, x) { sum + x }, 0)       // 10
+
+[£10.50, £5.25, £12.00].reduce(fn(total, p) { total + p }, £0.00)  // £27.75
 ```
-
-**Result:** `10`
-
-Build a string:
-
-```parsley
-["a", "b", "c"].reduce(fn(str, x) { str ++ x }, "")
-```
-
-**Result:** `"abc"`
-
-Sum prices:
-
-```parsley
-[£10.50, £5.25, £12.00].reduce(fn(total, price) { total + price }, £0.00)
-```
-
-**Result:** `£27.75`
 
 ### reorder
 
-Apply `.reorder()` to each dictionary element in the array. Returns a new array where each dictionary has been reordered (and optionally renamed).
+Reshape arrays of dictionaries — reorder, select, or rename keys in bulk. Useful for preparing database/API results for display or export:
 
-**With an array argument** — select and reorder keys in each dictionary:
+**With an array argument** — select and reorder keys:
 
 ```parsley
 let users = [{name: "Alice", age: 30, city: "London"}, {name: "Bob", age: 25, city: "Paris"}]
@@ -367,7 +200,7 @@ users.reorder(["city", "name"])
 
 **Result:** `[{city: "London", name: "Alice"}, {city: "Paris", name: "Bob"}]`
 
-**With a dictionary argument** — rename and reorder keys:
+**With a dictionary argument** — rename and reorder:
 
 ```parsley
 let data = [{first_name: "Alice", last_name: "Smith"}, {first_name: "Bob", last_name: "Jones"}]
@@ -376,173 +209,74 @@ data.reorder({name: "first_name", surname: "last_name"})
 
 **Result:** `[{name: "Alice", surname: "Smith"}, {name: "Bob", surname: "Jones"}]`
 
-This is useful for:
-- Preparing data for display or export
-- Renaming columns from a database or API to match your template
-- Selecting a subset of fields from each row
-
-**Note:** Non-dictionary elements in the array are left unchanged.
+Non-dictionary elements in the array are left unchanged.
 
 ### reverse
 
-Reverse the order of elements:
-
 ```parsley
-[1, 2, 3].reverse()
+[1, 2, 3].reverse()                                   // [3, 2, 1]
 ```
-
-**Result:** `[3, 2, 1]`
-
-Reverse strings:
-
-```parsley
-["first", "second", "third"].reverse()
-```
-
-**Result:** `["third", "second", "first"]`
 
 ### shuffle
 
-Randomly shuffle the array using the Fisher-Yates algorithm:
+Randomly reorder elements (Fisher-Yates):
 
 ```parsley
-[1, 2, 3, 4, 5].shuffle()
+[1, 2, 3, 4, 5].shuffle()                             // e.g. [3, 5, 1, 4, 2]
 ```
-
-**Result:** Array with elements in random order, e.g. `[3, 5, 1, 4, 2]`
-
-
-Shuffle a list of names:
-
-```parsley
-["Alice", "Bob", "Charlie", "Diana"].shuffle()
-```
-
-**Result:** Names in random order, e.g. `["Charlie", "Diana", "Alice", "Bob"]`
 
 ### sort
 
-Sort the array in natural order (numbers ascending, strings alphabetically):
+Sort in natural order:
 
 ```parsley
-[3, 1, 4, 1, 5, 9].sort()
+[3, 1, 4, 1, 5].sort()                                // [1, 1, 3, 4, 5]
+["banana", "apple", "cherry"].sort()                   // ["apple", "banana", "cherry"]
 ```
 
-**Result:** `[1, 1, 3, 4, 5, 9]`
-
-Sort strings:
-
-```parsley
-["banana", "apple", "cherry"].sort()
-```
-
-**Result:** `["apple", "banana", "cherry"]`
-
-⚠️ Sort uses [Natural sort](https://en.wikipedia.org/wiki/Natural_sort_order):
-
-```parsley
-["10 banana", "9 apple", "100 cherry"].sort()
-```
-
-**Result:** `["9 apple", "10 banana", "100 cherry"]`
+> ⚠️ **Natural sort order:** `["10 banana", "9 apple", "100 cherry"].sort()` → `["9 apple", "10 banana", "100 cherry"]`. Numbers embedded in strings are compared numerically, not lexicographically. This is almost always what you want but differs from most languages.
 
 ### sortBy
 
-Sort the array by a derived key function:
+Sort by a derived key. Sort is stable — equal elements preserve their original order:
 
 ```parsley
-users = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+let users = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 users.sortBy(fn(u) { u.age })
-```
+// [{name: "Bob", age: 25}, {name: "Alice", age: 30}]
 
-**Result:** `[{name: "Bob", age: 25}, {name: "Alice", age: 30}]`
-
-Sort by string length:
-
-```parsley
 ["hello", "a", "goodbye"].sortBy(fn(s) { s.length() })
+// ["a", "hello", "goodbye"]
 ```
-
-**Result:** `["a", "hello", "goodbye"]`
-
-Sort is stable:
-
-```parsley
-users = [{name: "Bob", age: 30}, {name: "Alice", age: 25},
-         {name: "Bob", age: 40}, {name: "Alice", age: 50}]
-users.sortBy(fn(u) { u.age }).sort()
-```
-
-**Result:** `[{name: Alice, age: 25}, {name: Alice, age: 50}, {name: Bob, age: 30}, {name: Bob, age: 40}]`
-
 
 ### take
 
-Select random elements from the array *without replacement* (each element picked at most once):
+Select random elements **without replacement** (each picked at most once):
 
 ```parsley
-[1, 2, 3, 4, 5].take(3)
+["♠", "♥", "♦", "♣"].take(2)                          // e.g. ["♥", "♣"]
 ```
-
-**Result:** Three distinct random elements (no duplicates), e.g. `[4, 1, 5]`
-
-
-Deal cards from a deck:
-
-```parsley
-suits = ["♠", "♥", "♦", "♣"]
-suits.take(2)
-```
-
-**Result:** Two random distinct suits, e.g. `["♥", "♣"]`
-
 
 ### toCSV
-
-Convert the array to CSV format (with proper quoting and escaping):
 
 ```parsley
 [["Name", "Age"], ["Alice", 30], ["Bob", 25]].toCSV()
 ```
 
-**Result:** CSV string with proper formatting
-
-```csv
-  Name,Age
-  Alice,30
-  Bob,25
+**Result:**
+```/dev/null/output.csv#L1-3
+Name,Age
+Alice,30
+Bob,25
 ```
-Simple array:
-
-```parsley
-["John", "Jane", "Jack"].toCSV()
-```
-
-**Result:** `"John,Jane,Jack"`
 
 ### toJSON
-
-Convert the array to JSON format:
-
-```parsley
-[1, 2, {"name": "Alice"}].toJSON()
-```
-
-**Result:** 
-```json
-[1, 2, {"name": "Alice"}].toJSON()
-```
-
-JSON table:
 
 ```parsley
 [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}].toJSON()
 ```
 
-**Result:**
-```json
-[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]
-```
+**Result:** `[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]`
 
 ### toBox
 
@@ -554,7 +288,7 @@ Render the array in a box with box-drawing characters. Useful for CLI output and
 
 **Result:**
 
-```
+```/dev/null/output.txt#L1-7
 ┌────────┐
 │ apple  │
 ├────────┤
@@ -576,15 +310,11 @@ Render the array in a box with box-drawing characters. Useful for CLI output and
 
 #### Direction Examples
 
-Horizontal layout:
-
 ```parsley
 [1, 2, 3].toBox({direction: "horizontal"})
 ```
 
-**Result:**
-
-```
+```/dev/null/output.txt#L1-3
 ┌───┬───┬───┐
 │ 1 │ 2 │ 3 │
 └───┴───┴───┘
@@ -596,9 +326,7 @@ Grid layout (auto-detected for array of arrays):
 [[1, 2, 3], [4, 5, 6]].toBox()
 ```
 
-**Result:**
-
-```
+```/dev/null/output.txt#L1-5
 ┌───┬───┬───┐
 │ 1 │ 2 │ 3 │
 ├───┼───┼───┤
@@ -612,9 +340,7 @@ Grid layout (auto-detected for array of arrays):
 ["A", "B", "C"].toBox({style: "double", direction: "horizontal"})
 ```
 
-**Result:**
-
-```
+```/dev/null/output.txt#L1-3
 ╔═══╦═══╦═══╗
 ║ A ║ B ║ C ║
 ╚═══╩═══╩═══╝
@@ -626,9 +352,7 @@ Grid layout (auto-detected for array of arrays):
 [1, 2, 3].toBox({title: "Numbers"})
 ```
 
-**Result:**
-
-```
+```/dev/null/output.txt#L1-9
 ┌─────────┐
 │ Numbers │
 ├─────────┤
@@ -642,137 +366,90 @@ Grid layout (auto-detected for array of arrays):
 
 ## Examples
 
-### Processing a List of Numbers
-
-Calculate the sum and average of prices:
+### Chaining Operations
 
 ```parsley
-prices = [£10.00, £15.50, £8.25, £12.75]
-total = prices.reduce(fn(sum, p) { sum + p }, £0.00)
-average = total / prices.length()
-```
-
-**Result:** `average = £11.63`
-
-### Filtering and Transforming Data
-
-Extract names of people over 25 and sort alphabetically:
-
-```parsley
-people = [
+let people = [
   {name: "Alice", age: 30},
   {name: "Charlie", age: 22},
   {name: "Bob", age: 28}
 ]
-adults = people
+let adults = people
   .filter(fn(p) { p.age > 25 })
   .map(fn(p) { p.name })
   .sort()
+// ["Alice", "Bob"]
 ```
 
-**Result:** `["Alice", "Bob"]`
+### Money Arithmetic
+
+```parsley
+let prices = [£10.00, £15.50, £8.25, £12.75]
+let total = prices.reduce(fn(sum, p) { sum + p }, £0.00)
+let average = total / prices.length()
+// average = £11.63
+```
 
 ### Random Selection
 
-Pick a random Jedi for the mission:
-
 ```parsley
-jedi = ["Yoda", "Luke", "Leia", "Obi-Wan", "Mace"]
-chosen = jedi.pick(1)
+let jedi = ["Yoda", "Luke", "Leia", "Obi-Wan", "Mace"]
+let chosen = jedi.pick(1)                // with replacement: e.g. ["Obi-Wan"]
+
+let deck = ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "10♠", "J♠", "Q♠", "K♠", "A♠"]
+let hand = deck.shuffle().take(5)        // without replacement: 5 distinct cards
 ```
 
-**Result:** One randomly selected Jedi name, e.g. `chosen = ["Obi-Wan"]`
-
-Select a team of 3 distinct Avengers:
+### Locale-Aware Presentation
 
 ```parsley
-avengers = ["Iron Man", "Captain America", "Thor", "Black Widow", "Hawkeye"]
-team = avengers.take(3)
+let winners = ["Alice", "Bob", "Charlie"]
+`Congratulations to {winners.format("and")}!`
+// "Congratulations to Alice, Bob, and Charlie!"
+
+// German:
+`Herzlichen Glückwunsch {winners.format("and", "DE")}!`
 ```
 
-**Result:** Three distinct random Avengers, e.g. `team = ["Thor", "Iron Man", "Hawkeye"]`
-
-
-### Array Manipulation
-
-Chunk an array into groups:
+### Chunking for Layouts
 
 ```parsley
-items = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-pairs = items / 2
+let items = ["A", "B", "C", "D", "E", "F"]
+let rows = items / 3
+// [["A", "B", "C"], ["D", "E", "F"]]
+
+// Render as a grid:
+<table>
+    for (row in rows) {
+        <tr>for (cell in row) { <td>cell</td> }</tr>
+    }
+</table>
 ```
 
-**Result:** Groups of 2 elements (last group may be smaller),
-`[[1, 2], [3, 4], [5, 6], [7, 8], [9]]`
-
-Combine multiple lists:
+### Set Algebra
 
 ```parsley
-breakfast = ["eggs", "toast", "bacon"]
-lunch = ["sandwich", "fruit"]
-dinner = ["pasta", "salad", "bread"]
-meals = breakfast ++ lunch ++ dinner
+let admins = ["alice", "bob", "carol"]
+let editors = ["bob", "carol", "dave"]
+
+let both = admins && editors             // ["bob", "carol"]
+let either = admins || editors           // ["alice", "bob", "carol", "dave"]
+let adminsOnly = admins - editors        // ["alice"]
 ```
 
-**Result:** `["eggs", "toast", "bacon", "sandwich", "fruit", "pasta", "salad", "bread"]`
+## Key Differences from Other Languages
 
-### Counting and Summarizing
-
-Count specific items:
-
-```parsley
-votes = ["Alice", "Bob", "Alice", "Charlie", "Alice", "Bob"]
-alice_votes = votes.filter(fn(v) { v == "Alice" }).length()
-```
-
-**Result:** `3`
-
-Format a list for presentation:
-
-```parsley
-winners = ["Alice", "Bob", "Charlie"]
-announcement = "Congratulations to " ++ winners.format("and") ++ "!"
-```
-
-**Result:** `"Congratulations to Alice, Bob, and Charlie!"`
-
-In German:
-
-```parsley
-winners = ["Anna", "Bernd", "Claudia"]
-announcement = "Herzlichen Glückwunsch " ++ winners.format("and", "DE") ++ "!"
-```
-
-**Result:** `Herzlichen Glückwunsch an Alice, Bob und Charlie!`
-
-### Advanced: Custom Sorting
-
-Sort movies by release year, then by title:
-
-```parsley
-movies = [
-  {title: "The Force Awakens", year: 2015},
-  {title: "A New Hope", year: 1977},
-  {title: "The Last Jedi", year: 2017}
-]
-sorted = movies
-  .sortBy(fn(m) { m.year })
-  .sortBy(fn(m) { m.title })
-```
-
-**Result:** Movies sorted by year, then alphabetically within each year
-
-### Random Shuffle with Sampling
-
-Shuffle a deck and deal cards:
-
-```parsley
-deck = ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "10♠", "J♠", "Q♠", "K♠", "A♠"]
-hand = deck.shuffle().take(5)
-```
-
-**Result:** Five random distinct cards from the shuffled deck,
-e.g. `["J♠", "4♠", "A♠", "7♠", "9♠"]`
+| Concept | Parsley | Other languages |
+|---------|---------|-----------------|
+| `for` loops | Return arrays (like `map`) | Statements (no return value) |
+| `++` | Array concatenation | Not common (JS uses `.concat()`) |
+| `/` on arrays | Chunking | Not available |
+| `&&` `\|\|` `-` on arrays | Set intersection, union, subtraction | Not available |
+| Sort order | Natural sort (`"file2" < "file10"`) | Lexicographic |
+| `[?n]` | Optional access (returns `null`) | Throws error |
+| `pick` / `take` | Built-in random sampling | Requires library |
+| `format` | Locale-aware list formatting | Requires library |
+| `stop` / `skip` | Loop control | `break` / `continue` |
 
 ## See Also
 

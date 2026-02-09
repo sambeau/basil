@@ -172,7 +172,7 @@ Wraps a function or method call and catches recoverable errors. Returns a dictio
 let risky = fn() { fail("oops") }
 
 let outcome = try risky()
-// {result: null, error: "oops"}
+// {result: null, error: {message: "oops", code: "USER-0001"}}
 
 let safe = fn() { 42 }
 let outcome = try safe()
@@ -184,7 +184,7 @@ Destructure for clean error handling:
 ```parsley
 let {result, error} = try risky()
 if (error) {
-    log("Failed: " + error)
+    log("Failed: " + error.message)
 } else {
     log("Got: " + result)
 }
@@ -205,7 +205,17 @@ Non-catchable errors (logic bugs) propagate through `try` and halt execution. Th
 
 ## fail
 
-Creates a catchable error with a message string. Useful for signalling application-level error conditions that callers can handle with `try`:
+Creates a catchable error. Accepts a string message or a dictionary with structured error data. Useful for signalling application-level error conditions that callers can handle with `try`:
+
+```parsley
+// String form — wraps in {message: ..., code: "USER-0001"}
+fail("division by zero")
+
+// Dictionary form — must have a string "message" key
+fail({message: "Out of stock", code: "NO_STOCK", status: 400})
+```
+
+Example with `check` guard:
 
 ```parsley
 let divide = fn(a, b) {
@@ -214,10 +224,10 @@ let divide = fn(a, b) {
 }
 
 let {result, error} = try divide(10, 0)
-error                                       // "division by zero"
+error.message                               // "division by zero"
 ```
 
-`fail` creates a `Value`-class error, which is always catchable by `try`.
+`fail` creates a `Value`-class error, which is always catchable by `try`. The `error` slot in the `try` result is a dictionary — use `error.message` to get the message string. String coercion also works: `"" + error` yields `error.message`.
 
 ## Key Differences from Other Languages
 

@@ -5,7 +5,7 @@ system: parsley
 type: fundamentals
 name: errors
 created: 2026-02-05
-version: 0.2.0
+version: 0.3.0
 author: Basil Team
 keywords:
   - error
@@ -18,6 +18,9 @@ keywords:
   - error handling
   - optional access
   - null coalescing
+  - error dict
+  - failIfInvalid
+  - structured errors
 ---
 
 # Error Handling
@@ -32,7 +35,7 @@ There are no try/catch blocks. Instead, `try` wraps a single function or method 
 
 ```parsley
 let risky = fn() { fail("oops") }
-try risky()                      // {result: null, error: "oops"}
+try risky()                      // {result: null, error: {message: "oops", code: "USER-0001"}}
 
 let safe = fn() { 42 }
 try safe()                       // {result: 42, error: null}
@@ -56,20 +59,86 @@ if (error) {
 | Call outcome | `result` | `error` |
 |---|---|---|
 | Success | The return value | `null` |
-| Catchable error | `null` | Error message string |
+| Catchable error | `null` | Dictionary with at least `message` and `code` |
 | Non-catchable error | *(never reached — error propagates)* | |
 
-The `error` field is a plain string (the error message), not an error object. This keeps destructured handling simple — test with `if (error)`.
+The `error` field is a dictionary with at least a `message` key (string). Most errors also include a `code` key. API errors include a `status` key with the HTTP status code.
+
+To test whether an error occurred, use `if (error)` — dictionaries are truthy, `null` is falsy.
+
+### Accessing Error Fields
+
+```parsley
+let {result, error} = try riskyOperation()
+if (error) {
+    error.message                // "Something went wrong" (always present)
+    error.code                   // "USER-0001" (usually present)
+    error.status                 // 404 (present on API errors)
+}
+```
+
+### String Coercion
+
+Error dictionaries (any dictionary with a `message` key) automatically coerce to the message string when used in string context:
+
+```parsley
+let {error} = try riskyOperation()
+if (error) {
+    log("Failed: " + error)     // uses error.message automatically
+    // equivalent to:
+    log("Failed: " + error.message)
+}
+```
+
+This keeps code concise and provides backward compatibility. The coercion applies to any plain dictionary with a `message` key — it does not affect special typed dictionaries (paths, URLs, datetimes, etc.).
 
 ## fail
 
-Creates a catchable error with a message string. The error has class `value` and code `USER-0001`:
+Creates a catchable error. Accepts either a string message or a dictionary with structured error data.
+
+### String Form
+
+The simplest form — pass a message string:
 
 ```parsley
 fail("something went wrong")
 ```
 
-`fail` takes exactly one argument, which must be a string. Combine with `check` for validation-style guards:
+This creates an error with class `value`, code `USER-0001`, and a `UserDict` of `{message: "something went wrong", code: "USER-0001"}`.
+
+### Dictionary Form
+
+Pass a dictionary for structured errors with custom fields. The dictionary **must** contain a `message` key with a string value:
+
+```parsley
+fail({
+    message: "Out of stock",
+    code: "NO_STOCK",
+    status: 400,
+    product: "Widget"
+})
+```
+
+The `code` field is optional — if omitted, it defaults to `USER-0001`. Any additional keys are preserved and available when the error is caught by `try`.
+
+### Validation Rules
+
+- **String argument**: always valid
+- **Dictionary argument**: must have a `message` key with a string value
+- **Any other type** (integer, boolean, array, etc.): produces a TYPE-0005 error
+
+```parsley
+fail("ok")                       // ✅ Valid
+fail({message: "ok"})            // ✅ Valid
+fail({message: "ok", status: 400}) // ✅ Valid
+fail({code: "X"})                // ❌ TYPE-0005 — missing message key
+fail({message: 123})             // ❌ TYPE-0005 — message must be string
+fail(123)                        // ❌ TYPE-0005 — must be string or dict
+```
+
+### Using fail with check
+
+Combine with `check` for validation-style guards:
 
 ```parsley
 let divide = fn(a, b) {
@@ -78,11 +147,29 @@ let divide = fn(a, b) {
 }
 
 let {result, error} = try divide(10, 0)
-error                            // "division by zero"
+error.message                    // "division by zero"
 
 let {result, error} = try divide(10, 2)
 result                           // 5
 ```
+
+### Structured API Errors
+
+For API handlers, include `status` and `code` for proper HTTP error responses:
+
+```parsley
+let getUser = fn(id) {
+    let user = db.find(id)
+    check user else fail({
+        message: "User not found",
+        code: "USER_NOT_FOUND",
+        status: 404
+    })
+    user
+}
+```
+
+When this error reaches the server dispatch, the `status` field determines the HTTP status code and the full error dictionary is returned as JSON in the `{error: {...}}` envelope.
 
 ## Error Classes
 
@@ -96,7 +183,7 @@ Every error belongs to a class. The class determines whether `try` can catch it.
 | `network` | HTTP error, connection refused, timeout |
 | `database` | Query failed, connection lost |
 | `format` | Invalid JSON/CSV/markdown, parse failure |
-| `value` | Invalid value, `fail()` errors |
+| `value` | Invalid value, `fail()` errors, `api.*` errors |
 | `security` | Access denied by security policy |
 
 ### Non-catchable (logic bugs)
@@ -124,6 +211,100 @@ The rationale: a type mismatch or undefined variable is a bug in your code, not 
 ## Error Codes
 
 Errors carry a code like `TYPE-0001` or `IO-0003` that identifies the specific error. Codes follow the pattern `PREFIX-NNNN`. See the [Error Codes Reference](../../error-codes.md) for the full catalog.
+
+## API Error Helpers
+
+The `@std/api` module provides helpers that create structured errors with appropriate HTTP status codes. These are catchable `value`-class errors:
+
+```parsley
+let api = import @std/api
+
+api.notFound("User not found")      // {code: "HTTP-404", message: "User not found", status: 404}
+api.badRequest("Invalid input")     // {code: "HTTP-400", message: "Invalid input", status: 400}
+api.forbidden("Access denied")      // {code: "HTTP-403", message: "Access denied", status: 403}
+api.unauthorized("Not logged in")   // {code: "HTTP-401", message: "Not logged in", status: 401}
+api.conflict("Already exists")      // {code: "HTTP-409", message: "Already exists", status: 409}
+api.serverError("Internal error")   // {code: "HTTP-500", message: "Internal error", status: 500}
+```
+
+Each helper accepts an optional message string. If omitted, a default message is used. API errors are catchable with `try`:
+
+```parsley
+let {result, error} = try fn() { api.notFound("User not found") }()
+error.message                    // "User not found"
+error.code                       // "HTTP-404"
+error.status                     // 404
+```
+
+When an API error reaches the server dispatch (not caught by `try`), the server writes an HTTP response using the `status` field and wraps the error dict in `{error: {...}}` JSON.
+
+## Validation Bridge — failIfInvalid()
+
+The `failIfInvalid()` method on validated records converts validation errors into a structured catchable error, bridging schema validation with the unified error model.
+
+```parsley
+@schema User { name: string(required), email: email(required) }
+
+let user = User({name: null, email: "bad"}).validate()
+
+// Without failIfInvalid — manual checking:
+if (!user.isValid()) {
+    fail({message: "Validation failed", status: 400, fields: user.errorList()})
+}
+
+// With failIfInvalid — one-liner:
+user.failIfInvalid()
+```
+
+### Behavior
+
+| Record state | Return value |
+|---|---|
+| Not yet validated | The record (no-op) |
+| Valid (no errors) | The record (enables chaining) |
+| Invalid (has errors) | Catchable error with structured dict |
+
+### Error Shape
+
+When validation fails, `failIfInvalid()` returns an error with:
+
+```parsley
+{
+    status: 400,
+    code: "VALIDATION",
+    message: "Validation failed",
+    fields: [
+        {field: "name", code: "REQUIRED", message: "Name is required"},
+        {field: "email", code: "FORMAT", message: "Email is not a valid email"}
+    ]
+}
+```
+
+### Chaining
+
+Because `failIfInvalid()` returns the record when valid, you can chain it into processing pipelines:
+
+```parsley
+let user = User(formData).validate().failIfInvalid()
+// If we get here, user is valid — proceed with confidence
+db.insert(user)
+```
+
+### Catching Validation Errors
+
+```parsley
+let {result, error} = try fn() {
+    User(formData).validate().failIfInvalid()
+}()
+
+if (error) {
+    error.code                   // "VALIDATION"
+    error.status                 // 400
+    error.fields                 // array of field errors
+}
+```
+
+The existing validation methods (`isValid()`, `errorList()`, `hasError()`, `error()`, `errorCode()`) continue to work unchanged. `failIfInvalid()` is a convenience that composes them into a single catchable error.
 
 ## Error Prevention
 
@@ -189,7 +370,7 @@ When combined with `fail`, the guard produces a catchable error instead of a pla
 ```parsley
 let process = fn(items) {
     check items.length() > 0 else fail("empty list")
-    // ... if called via try, caller gets {result: null, error: "empty list"}
+    // ... if called via try, caller gets {result: null, error: {message: "empty list", ...}}
 }
 ```
 
@@ -230,7 +411,41 @@ let createUser = fn(name, email) {
 }
 
 let {result, error} = try createUser("", "a@b.com")
-error                            // "name required"
+error.message                    // "name required"
+```
+
+### Structured API Error Handling
+
+Return rich error data from API handlers:
+
+```parsley
+let api = import @std/api
+
+export post = fn(req) {
+    let user = User(req.body).validate().failIfInvalid()
+    let saved = Users.insert(user)
+    {user: saved}
+}
+// If validation fails → HTTP 400 with {error: {code: "VALIDATION", message: "...", fields: [...]}}
+// If insert fails → error propagates to server dispatch
+```
+
+### Inspecting Error Details
+
+When you need to branch on error type:
+
+```parsley
+let {result, error} = try fetchData()
+if (error) {
+    if (error.code == "HTTP-404") {
+        // Handle not found
+    } else if (error.status >= 500) {
+        // Handle server error
+    } else {
+        // Handle other errors
+        log("Unexpected: " + error.message)
+    }
+}
 ```
 
 ## Key Differences from Other Languages
@@ -238,7 +453,8 @@ error                            // "name required"
 - **No try/catch/finally blocks** — `try` is an expression that returns `{result, error}`.
 - **Not all errors are catchable** — logic bugs (type, arity, undefined) always halt. Only external/runtime errors are catchable.
 - **`fail()` is the only way to throw** — and it only creates `value`-class (catchable) errors.
-- **Error result is a plain string** — not an error object. No stack traces or error hierarchies.
+- **Error is a dictionary** — the `error` slot from `try` is a dictionary with at least `message` and `code` keys, not a plain string. Use `error.message` to get the message.
+- **String coercion** — `"" + error` yields `error.message`, so string concatenation works naturally.
 - **Prevention over recovery** — optional access `[?]`, null coalescing `??`, `in` checks, and `check` guards handle most cases without `try`.
 
 ## See Also
@@ -247,4 +463,5 @@ error                            // "name required"
 - [Booleans & Null](../builtins/booleans.md) — truthiness rules, `??` null coalescing
 - [Operators](operators.md) — `??`, `in`, `[?]` optional access
 - [@std/api](../stdlib/api.md) — HTTP error helpers (`notFound`, `badRequest`, etc.)
+- [Schemas](../builtins/schema.md) — `failIfInvalid()` and record validation
 - [Security Model](../features/security.md) — security errors and policy enforcement

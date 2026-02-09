@@ -72,6 +72,31 @@ let id = 42
 
 Raw strings are ideal for file paths, regex patterns, SQL, and templates. Use `\@` to escape a literal `@` when followed by `{`.
 
+#### Raw Strings in `<script>` and `<style>` Tags
+
+The content inside `<script>` and `<style>` tags uses the same raw string rules — braces `{` and `}` are **literal characters**, and interpolation uses `@{expr}`. This is by design: CSS and JavaScript both use `{` `}` as core syntax (CSS rule blocks, JS code blocks), so treating them as literal avoids conflicts:
+
+```parsley
+<style>
+    .card { border: 1px solid #ccc; }
+    .card:hover { background: lightblue; }
+</style>
+```
+
+Use `@{expr}` when you need dynamic values:
+
+```parsley
+let accent = "tomato"
+<style>
+    .highlight { color: @{accent}; }
+</style>
+
+let endpoint = "/api/data"
+<script>
+    fetch("@{endpoint}").then(function(r) { return r.json(); });
+</script>
+```
+
 ### Choosing a String Type
 
 | Need | Use | Why |
