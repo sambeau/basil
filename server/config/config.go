@@ -1,5 +1,7 @@
 package config
 
+import "slices"
+
 import "time"
 
 // Config represents the complete Basil configuration
@@ -21,7 +23,7 @@ type Config struct {
 	Routes      []Route                    `yaml:"routes"`
 	Logging     LoggingConfig              `yaml:"logging"`
 	Developers  map[string]DeveloperConfig `yaml:"developers"` // Named developer profiles for per-developer overrides
-	Meta        map[string]interface{}     `yaml:"meta"`       // Custom metadata accessible as meta.* in Parsley
+	Meta        map[string]any             `yaml:"meta"`       // Custom metadata accessible as meta.* in Parsley
 	Secrets     *SecretTracker             `yaml:"-"`          // Tracks which config paths contain secrets (for DevTools)
 }
 
@@ -101,7 +103,7 @@ type CompressionConfig struct {
 type StringOrSlice []string
 
 // UnmarshalYAML implements yaml.Unmarshaler to handle both string and []string
-func (s *StringOrSlice) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *StringOrSlice) UnmarshalYAML(unmarshal func(any) error) error {
 	var single string
 	if err := unmarshal(&single); err == nil {
 		*s = []string{single}
@@ -118,12 +120,7 @@ func (s *StringOrSlice) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // Contains checks if the slice contains the given string
 func (s StringOrSlice) Contains(str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, str)
 }
 
 // AuthConfig holds authentication settings
@@ -195,7 +192,7 @@ type ProtectedPath struct {
 // Supports:
 //   - Simple string: "/dashboard"
 //   - Object: {path: "/admin", roles: ["admin"]}
-func (p *ProtectedPath) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (p *ProtectedPath) UnmarshalYAML(unmarshal func(any) error) error {
 	// Try string first
 	var path string
 	if err := unmarshal(&path); err == nil {

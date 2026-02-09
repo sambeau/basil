@@ -252,8 +252,17 @@ These operators are syntactic sugar for file and database operations. They are c
 | `<=/=` | Fetch from URL | `data <=/= @https://api.example.com` |
 | `==>` | Write to file | `data ==> @./output.txt` |
 | `==>>` | Append to file | `line ==>> @./log.txt` |
+| `=/=>` | Write to network target | `payload =/=> JSON(@https://api.example.com)` |
+| `=/=>>` | Append to network target | `line =/=>> text(sftp, "/var/log/app.log")` |
 
-See [File I/O](../features/file-io.md).
+`<=/=`, `=/=>`, and `=/=>>` are also usable as **expressions** — they return a response value that can be captured with `let` or used inline:
+
+```parsley
+let response = <=/= JSON(@https://api.example.com/users)
+let result = payload =/=> JSON(@https://api.example.com/items)
+```
+
+See [File I/O](../features/file-io.md) and [HTTP & Networking](../features/network.md).
 
 ### Database
 

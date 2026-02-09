@@ -25,11 +25,11 @@ type assetRegistry struct {
 	mu     sync.RWMutex
 	byHash map[string]string     // hash -> absolute filepath
 	cache  map[string]assetEntry // filepath -> cached hash info
-	logger func(format string, args ...interface{})
+	logger func(format string, args ...any)
 }
 
 // newAssetRegistry creates a new asset registry
-func newAssetRegistry(logger func(format string, args ...interface{})) *assetRegistry {
+func newAssetRegistry(logger func(format string, args ...any)) *assetRegistry {
 	return &assetRegistry{
 		byHash: make(map[string]string),
 		cache:  make(map[string]assetEntry),

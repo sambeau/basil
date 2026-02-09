@@ -34,12 +34,19 @@ Parsley uses **file handles** and **I/O operators** for reading and writing file
 | `<==` | Read | Read file contents into a variable |
 | `==>` | Write | Write data to a file (overwrites) |
 | `==>>` | Append | Append data to a file |
+| `=/=>` | Remote Write | Write data to a network target (HTTP/SFTP) |
+| `=/=>>` | Remote Append | Append data to a network target (SFTP) |
 
 ```parsley
 let config <== JSON(@./config.json)       // read
 {name: "Alice"} ==> JSON(@./output.json)  // write
 "log entry\n" ==>> text(@./app.log)       // append
+
+// Network targets use =/=> instead of ==>
+{name: "Alice"} =/=> JSON(@https://api.example.com/users)  // remote write
 ```
+
+> **Note**: For network targets (HTTP URLs and SFTP connections), use `=/=>` and `=/=>>` instead of `==>` and `==>>`. The `/` in the operator visually signals that data crosses a network boundary. Both fetch (`<=/=`) and remote write (`=/=>`, `=/=>>`) can also be used as expressions — see [HTTP & Networking](network.md) for details.
 
 ## File Handles
 
@@ -211,5 +218,6 @@ The `asset()` builtin converts a file path to a web-accessible URL with cache-bu
 
 - [Paths](../builtins/paths.md) — path literals and path manipulation
 - [URLs](../builtins/urls.md) — URL literals used as file handle sources
+- [HTTP & Networking](network.md) — `<=/=` fetch, `=/=>` remote write, and `=/=>>` remote append operators
 - [Error Handling](../fundamentals/errors.md) — `{data, error}` destructuring pattern
 - [Data Formats](data-formats.md) — CSV and Markdown parsing details

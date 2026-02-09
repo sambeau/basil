@@ -143,13 +143,11 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 				// Handle stop signal - exit loop early
 				if _, ok := evaluated.(*StopSignal); ok {
 					stopLoop = true
-					evaluated = NULL
 					break
 				}
 				// Handle skip signal - skip this iteration
 				if _, ok := evaluated.(*SkipSignal); ok {
 					skipIteration = true
-					evaluated = NULL
 					break
 				}
 				// Handle check exit - use the exit value and exit the block
@@ -292,13 +290,11 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 			// Handle stop signal - exit loop early
 			if _, ok := evaluated.(*StopSignal); ok {
 				stopLoop = true
-				evaluated = NULL
 				break
 			}
 			// Handle skip signal - skip this iteration
 			if _, ok := evaluated.(*SkipSignal); ok {
 				skipIteration = true
-				evaluated = NULL
 				break
 			}
 			// Handle check exit
@@ -364,10 +360,25 @@ func evalTryExpression(node *ast.TryExpression, env *Environment) Object {
 		// Convert evaluator.Error class to perrors.ErrorClass to check catchability
 		perrClass := perrors.ErrorClass(err.Class)
 		if perrClass.IsCatchable() {
-			// Wrap in {result: null, error: <message>} dictionary
+			// Build error dict: use UserDict if present, otherwise wrap message+code
+			var errorObj Object
+			if err.UserDict != nil {
+				errorObj = err.UserDict
+			} else {
+				errPairs := make(map[string]ast.Expression)
+				errPairs["message"] = &ast.ObjectLiteralExpression{Obj: &String{Value: err.Message}}
+				errPairs["code"] = &ast.ObjectLiteralExpression{Obj: &String{Value: err.Code}}
+				errorObj = &Dictionary{
+					Pairs:    errPairs,
+					KeyOrder: []string{"message", "code"},
+					Env:      env,
+				}
+			}
+
+			// Wrap in {result: null, error: <dict>} dictionary
 			pairs := make(map[string]ast.Expression)
 			pairs["result"] = &ast.ObjectLiteralExpression{Obj: NULL}
-			pairs["error"] = &ast.ObjectLiteralExpression{Obj: &String{Value: err.Message}}
+			pairs["error"] = &ast.ObjectLiteralExpression{Obj: errorObj}
 			return &Dictionary{
 				Pairs:    pairs,
 				KeyOrder: []string{"result", "error"},

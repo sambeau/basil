@@ -40,7 +40,7 @@ type Result struct {
 }
 
 // GoValue converts the result to a Go value using FromParsley
-func (r *Result) GoValue() interface{} {
+func (r *Result) GoValue() any {
 	if r.Value == nil {
 		return nil
 	}

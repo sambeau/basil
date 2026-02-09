@@ -376,15 +376,6 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.writeResponseWithCache(w, r, &parsley.Result{Value: result}, responseMeta, env)
 }
 
-// setEnvVar converts a Go value to Parsley and sets it in the environment.
-func setEnvVar(env *evaluator.Environment, name string, value interface{}) {
-	obj, err := parsley.ToParsley(value)
-	if err != nil {
-		return // Silently ignore conversion errors
-	}
-	env.Set(name, obj)
-}
-
 // responseMeta holds response metadata set by the script via basil.http.response
 type responseMeta struct {
 	status  int
@@ -394,16 +385,16 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]interface{}, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string, sessionModule *evaluator.SessionModule) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]any, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string, sessionModule *evaluator.SessionModule) evaluator.Object {
 	// Build auth context
-	authCtx := map[string]interface{}{
+	authCtx := map[string]any{
 		"required": route.Auth == "required",
 	}
 
 	// Add authenticated user if present
 	user := auth.GetUser(r)
 	if user != nil {
-		userMap := map[string]interface{}{
+		userMap := map[string]any{
 			"id":      user.ID,
 			"name":    user.Name,
 			"email":   user.Email,
@@ -428,19 +419,19 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]in
 	}
 
 	// Build the basil namespace (without sqlite - that's added separately)
-	basilMap := map[string]interface{}{
-		"http": map[string]interface{}{
+	basilMap := map[string]any{
+		"http": map[string]any{
 			"request": reqCtx,
-			"response": map[string]interface{}{
+			"response": map[string]any{
 				"status":  int64(200),
-				"headers": map[string]interface{}{},
-				"cookies": map[string]interface{}{},
+				"headers": map[string]any{},
+				"cookies": map[string]any{},
 			},
 		},
 		"auth":       authCtx,
-		"context":    map[string]interface{}{}, // Empty dict for user-defined globals
-		"public_dir": publicDir,                // Public directory for path rewriting
-		"csrf": map[string]interface{}{
+		"context":    map[string]any{}, // Empty dict for user-defined globals
+		"public_dir": publicDir,        // Public directory for path rewriting
+		"csrf": map[string]any{
 			"token": csrfToken,
 		},
 	}
@@ -488,18 +479,18 @@ func extractResponseMeta(env *evaluator.Environment, devMode bool) *responseMeta
 	}
 
 	// Convert to Go map using parsley's conversion
-	basilMap, ok := parsley.FromParsley(basilObj).(map[string]interface{})
+	basilMap, ok := parsley.FromParsley(basilObj).(map[string]any)
 	if !ok {
 		return meta
 	}
 
 	// Navigate to basil.http.response
-	httpMap, ok := basilMap["http"].(map[string]interface{})
+	httpMap, ok := basilMap["http"].(map[string]any)
 	if !ok {
 		return meta
 	}
 
-	responseMap, ok := httpMap["response"].(map[string]interface{})
+	responseMap, ok := httpMap["response"].(map[string]any)
 	if !ok {
 		return meta
 	}
@@ -517,14 +508,14 @@ func extractResponseMeta(env *evaluator.Environment, devMode bool) *responseMeta
 	}
 
 	// Extract headers
-	if headers, ok := responseMap["headers"].(map[string]interface{}); ok {
+	if headers, ok := responseMap["headers"].(map[string]any); ok {
 		for k, v := range headers {
 			meta.headers[k] = fmt.Sprintf("%v", v)
 		}
 	}
 
 	// Extract cookies
-	if cookies, ok := responseMap["cookies"].(map[string]interface{}); ok {
+	if cookies, ok := responseMap["cookies"].(map[string]any); ok {
 		for name, value := range cookies {
 			cookie := buildCookie(name, value, devMode)
 			if cookie != nil {
@@ -548,7 +539,7 @@ func extractResponseMeta(env *evaluator.Environment, devMode bool) *responseMeta
 //   - secure: bool (default: false in dev, true in prod)
 //   - httpOnly: bool (default: true)
 //   - sameSite: string ("Strict", "Lax", "None") (default: "Lax")
-func buildCookie(name string, value interface{}, devMode bool) *http.Cookie {
+func buildCookie(name string, value any, devMode bool) *http.Cookie {
 	cookie := &http.Cookie{
 		Name:     name,
 		Path:     "/",
@@ -565,7 +556,7 @@ func buildCookie(name string, value interface{}, devMode bool) *http.Cookie {
 	case string:
 		// Simple string value
 		cookie.Value = v
-	case map[string]interface{}:
+	case map[string]any:
 		// Dict with options
 		if val, ok := v["value"].(string); ok {
 			cookie.Value = val
@@ -579,7 +570,7 @@ func buildCookie(name string, value interface{}, devMode bool) *http.Cookie {
 		}
 
 		// expires is a datetime dict
-		if expires, ok := v["expires"].(map[string]interface{}); ok {
+		if expires, ok := v["expires"].(map[string]any); ok {
 			if unix, ok := expires["unix"].(int64); ok {
 				cookie.Expires = time.Unix(unix, 0)
 			}
@@ -628,7 +619,7 @@ func buildCookie(name string, value interface{}, devMode bool) *http.Cookie {
 
 // durationToSeconds converts a Parsley duration value to seconds.
 // Accepts duration dicts (with months/seconds or totalSeconds) or int64.
-func durationToSeconds(value interface{}) int {
+func durationToSeconds(value any) int {
 	switch v := value.(type) {
 	case int64:
 		return int(v)
@@ -636,7 +627,7 @@ func durationToSeconds(value interface{}) int {
 		return v
 	case float64:
 		return int(v)
-	case map[string]interface{}:
+	case map[string]any:
 		// Parsley duration dict - check for totalSeconds first
 		if totalSeconds, ok := v["totalSeconds"].(int64); ok {
 			return int(totalSeconds)
@@ -655,7 +646,7 @@ func durationToSeconds(value interface{}) int {
 }
 
 // buildRequestContext creates the request object passed to Parsley scripts
-func buildRequestContext(r *http.Request, route config.Route) map[string]interface{} {
+func buildRequestContext(r *http.Request, route config.Route) map[string]any {
 	headers := make(map[string]string)
 	for k, v := range r.Header {
 		if len(v) > 0 {
@@ -664,12 +655,12 @@ func buildRequestContext(r *http.Request, route config.Route) map[string]interfa
 	}
 
 	// Parse cookies into a simple name→value map
-	cookies := make(map[string]interface{})
+	cookies := make(map[string]any)
 	for _, c := range r.Cookies() {
 		cookies[c.Name] = c.Value
 	}
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"query":      queryToMap(r.URL.RawQuery),
@@ -762,7 +753,7 @@ func buildParams(r *http.Request, env *evaluator.Environment) *evaluator.Diction
 				body, _ := io.ReadAll(r.Body)
 				// Restore body for subsequent reads
 				r.Body = io.NopCloser(strings.NewReader(string(body)))
-				var data map[string]interface{}
+				var data map[string]any
 				if json.Unmarshal(body, &data) == nil {
 					for key, value := range data {
 						params[key] = &ast.ObjectLiteralExpression{Obj: goValueToObject(value)}
@@ -783,7 +774,7 @@ func buildParams(r *http.Request, env *evaluator.Environment) *evaluator.Diction
 }
 
 // goValueToObject converts a Go value to a Parsley Object
-func goValueToObject(v interface{}) evaluator.Object {
+func goValueToObject(v any) evaluator.Object {
 	switch val := v.(type) {
 	case string:
 		return &evaluator.String{Value: val}
@@ -800,13 +791,13 @@ func goValueToObject(v interface{}) evaluator.Object {
 		return evaluator.FALSE
 	case nil:
 		return evaluator.NULL
-	case []interface{}:
+	case []any:
 		elements := make([]evaluator.Object, len(val))
 		for i, elem := range val {
 			elements[i] = goValueToObject(elem)
 		}
 		return &evaluator.Array{Elements: elements}
-	case map[string]interface{}:
+	case map[string]any:
 		pairs := make(map[string]ast.Expression)
 		for k, vv := range val {
 			pairs[k] = &ast.ObjectLiteralExpression{Obj: goValueToObject(vv)}
@@ -826,7 +817,7 @@ func goValueToObject(v interface{}) evaluator.Object {
 
 // parseRequestBody parses the request body based on content type
 // Returns: raw body (string), form data (map), file uploads (map)
-func parseRequestBody(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+func parseRequestBody(r *http.Request) (string, map[string]any, map[string]any) {
 	contentType := r.Header.Get("Content-Type")
 
 	// Handle multipart form data (file uploads)
@@ -849,14 +840,14 @@ func parseRequestBody(r *http.Request) (string, map[string]interface{}, map[stri
 }
 
 // parseMultipartForm handles multipart/form-data (file uploads)
-func parseMultipartForm(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+func parseMultipartForm(r *http.Request) (string, map[string]any, map[string]any) {
 	// 32MB max memory, rest goes to temp files
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		return "", nil, nil
 	}
 
-	form := make(map[string]interface{})
-	files := make(map[string]interface{})
+	form := make(map[string]any)
+	files := make(map[string]any)
 
 	// Extract form values
 	if r.MultipartForm != nil {
@@ -870,9 +861,9 @@ func parseMultipartForm(r *http.Request) (string, map[string]interface{}, map[st
 
 		// Extract file metadata (not the actual file contents for safety)
 		for k, fileHeaders := range r.MultipartForm.File {
-			fileList := make([]map[string]interface{}, 0, len(fileHeaders))
+			fileList := make([]map[string]any, 0, len(fileHeaders))
 			for _, fh := range fileHeaders {
-				fileList = append(fileList, map[string]interface{}{
+				fileList = append(fileList, map[string]any{
 					"filename": fh.Filename,
 					"size":     fh.Size,
 					"headers":  headerToMap(fh.Header),
@@ -890,12 +881,12 @@ func parseMultipartForm(r *http.Request) (string, map[string]interface{}, map[st
 }
 
 // parseURLEncodedForm handles application/x-www-form-urlencoded
-func parseURLEncodedForm(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+func parseURLEncodedForm(r *http.Request) (string, map[string]any, map[string]any) {
 	if err := r.ParseForm(); err != nil {
 		return "", nil, nil
 	}
 
-	form := make(map[string]interface{})
+	form := make(map[string]any)
 	for k, v := range r.PostForm {
 		if len(v) == 1 {
 			form[k] = v[0]
@@ -908,11 +899,11 @@ func parseURLEncodedForm(r *http.Request) (string, map[string]interface{}, map[s
 }
 
 // parseJSONBody handles application/json
-func parseJSONBody(r *http.Request) (string, map[string]interface{}, map[string]interface{}) {
+func parseJSONBody(r *http.Request) (string, map[string]any, map[string]any) {
 	body := parseRawBody(r)
 
 	// Try to parse as JSON map
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(body), &data); err == nil {
 		return body, data, nil
 	}
@@ -952,8 +943,8 @@ func headerToMap(h map[string][]string) map[string]string {
 //	?a&b=1&c     -> {a: true, b: "1", c: true}
 //	?x=1&x=2     -> {x: ["1", "2"]}
 //	?x&x=2       -> {x: [true, "2"]}
-func queryToMap(rawQuery string) map[string]interface{} {
-	result := make(map[string]interface{})
+func queryToMap(rawQuery string) map[string]any {
+	result := make(map[string]any)
 
 	if rawQuery == "" {
 		return result
@@ -961,7 +952,7 @@ func queryToMap(rawQuery string) map[string]interface{} {
 
 	// Preserve order and distinguish between "key" and "key=" tokens
 	tokens := strings.Split(rawQuery, "&")
-	accumulated := make(map[string][]interface{})
+	accumulated := make(map[string][]any)
 
 	for _, token := range tokens {
 		if token == "" {
@@ -1013,19 +1004,19 @@ func queryToMap(rawQuery string) map[string]interface{} {
 // buildRouteObject creates a Path object for the route (formerly subpath) in site routing.
 // The route is the portion of the URL path not consumed by the matched handler.
 // Returns a map that will be converted to a Parsley Path dictionary via ToParsley.
-func buildRouteObject(subpath string) map[string]interface{} {
+func buildRouteObject(subpath string) map[string]any {
 	// Parse segments from subpath (e.g., "/2025/Q4" -> ["2025", "Q4"])
-	segments := []interface{}{}
+	segments := []any{}
 	if subpath != "" && subpath != "/" {
-		parts := strings.Split(strings.Trim(subpath, "/"), "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(strings.Trim(subpath, "/"), "/")
+		for part := range parts {
 			if part != "" {
 				segments = append(segments, part)
 			}
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"__type":   "path",
 		"absolute": false, // Routes from site mode are always relative
 		"segments": segments,
@@ -1099,16 +1090,14 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 		}
 		fmt.Fprint(w, output)
 
-	case map[string]interface{}:
+	case map[string]any:
 		// Check for special response object format (legacy support)
 		if status, ok := v["status"].(int64); ok {
 			w.WriteHeader(int(status))
-			customStatus = false // Already written
 		} else if customStatus {
 			w.WriteHeader(meta.status)
-			customStatus = false
 		}
-		if headers, ok := v["headers"].(map[string]interface{}); ok {
+		if headers, ok := v["headers"].(map[string]any); ok {
 			for k, hv := range headers {
 				w.Header().Set(k, fmt.Sprintf("%v", hv))
 			}
@@ -1137,7 +1126,7 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 
 	default:
 		// Check if it's an array of strings (HTML fragments to concatenate)
-		if arr, ok := value.([]interface{}); ok {
+		if arr, ok := value.([]any); ok {
 			var allStrings = true
 			var builder strings.Builder
 			for _, item := range arr {
@@ -1175,7 +1164,7 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 }
 
 // writeJSON writes a JSON response
-func (h *parsleyHandler) writeJSON(w http.ResponseWriter, r *http.Request, value interface{}) {
+func (h *parsleyHandler) writeJSON(w http.ResponseWriter, r *http.Request, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	data, err := json.Marshal(value)
 	if err != nil {
@@ -1242,11 +1231,6 @@ func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, r *http.Re
 		file = filePath
 	}
 
-	// Determine error type from class if available
-	if errObj.Class == evaluator.ClassParse {
-		errType = "parse"
-	}
-
 	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", errObj.Message, file, errObj.Line, errObj.Column))
 }
 
@@ -1263,11 +1247,6 @@ func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, r 
 	extractedFile, extractedLine, extractedCol, cleanMsg := extractLineInfo(message)
 	if extractedFile != "" {
 		filePath = extractedFile
-		// If we extracted a file from a "parse errors in module" message,
-		// this is really a parse error, not a runtime error
-		if strings.Contains(message, "parse error") {
-			errType = "parse"
-		}
 	}
 	if extractedLine > 0 {
 		line = extractedLine
@@ -1368,7 +1347,7 @@ func partsRuntimeScript() string {
 	function emitEvent(partId, eventName, detail) {
 		var key = partId + ':' + eventName;
 		var wildcardKey = '*:' + eventName;
-		
+
 		var callbacks = (listeners[key] || []).concat(listeners[wildcardKey] || []);
 		callbacks.forEach(function(cb) {
 			try {
@@ -1646,7 +1625,7 @@ func partsRuntimeScript() string {
 	// Lazy loading: fetch view when scrolled into viewport
 	function initLazyLoading(root) {
 		var lazyParts_found = (root || document).querySelectorAll('[data-part-lazy]');
-		
+
 		lazyParts_found.forEach(function(part) {
 			// If already loaded, skip
 			if (lazyParts.get(part)) {
@@ -1709,7 +1688,7 @@ func partsRuntimeScript() string {
 		}
 
 		var allParts = scope.querySelectorAll('[data-part-src]');
-		
+
 		allParts.forEach(function(el) {
 			bindInteractions(el);
 
@@ -1868,29 +1847,29 @@ type scriptLogCapture struct {
 	output []string
 }
 
-func (l *scriptLogCapture) Log(args ...interface{}) {
+func (l *scriptLogCapture) Log(args ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.output = append(l.output, fmt.Sprint(args...))
 }
 
-func (l *scriptLogCapture) LogLine(args ...interface{}) {
+func (l *scriptLogCapture) LogLine(args ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.output = append(l.output, fmt.Sprintln(args...))
 }
 
 // logInfo logs an info message
-func (s *Server) logInfo(format string, args ...interface{}) {
+func (s *Server) logInfo(format string, args ...any) {
 	fmt.Fprintf(s.stdout, "[INFO] "+format+"\n", args...)
 }
 
 // logWarn logs a warning message
-func (s *Server) logWarn(format string, args ...interface{}) {
+func (s *Server) logWarn(format string, args ...any) {
 	fmt.Fprintf(s.stderr, "[WARN] "+format+"\n", args...)
 }
 
 // logError logs an error message
-func (s *Server) logError(format string, args ...interface{}) {
+func (s *Server) logError(format string, args ...any) {
 	fmt.Fprintf(s.stderr, "[ERROR] "+format+"\n", args...)
 }

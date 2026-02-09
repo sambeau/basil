@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -319,22 +320,22 @@ func TestTagBuiltin(t *testing.T) {
 					t.Fatalf("Expected Dictionary, got %T", result)
 				}
 				// Verify name
-				nameExpr, _ := dict.Pairs["name"]
+				nameExpr := dict.Pairs["name"]
 				nameObj := evaluator.Eval(nameExpr, evaluator.NewEnvironment())
 				if nameObj.Inspect() != "a" {
 					t.Errorf("Expected name='a', got %s", nameObj.Inspect())
 				}
 				// Verify attrs has href
-				attrsExpr, _ := dict.Pairs["attrs"]
+				attrsExpr := dict.Pairs["attrs"]
 				attrsObj := evaluator.Eval(attrsExpr, evaluator.NewEnvironment())
 				attrsDict := attrsObj.(*evaluator.Dictionary)
-				hrefExpr, _ := attrsDict.Pairs["href"]
+				hrefExpr := attrsDict.Pairs["href"]
 				hrefObj := evaluator.Eval(hrefExpr, evaluator.NewEnvironment())
 				if hrefObj.Inspect() != "/home" {
 					t.Errorf("Expected href='/home', got %s", hrefObj.Inspect())
 				}
 				// Verify contents
-				contentsExpr, _ := dict.Pairs["contents"]
+				contentsExpr := dict.Pairs["contents"]
 				contentsObj := evaluator.Eval(contentsExpr, evaluator.NewEnvironment())
 				if contentsObj.Inspect() != "Click here" {
 					t.Errorf("Expected contents='Click here', got %s", contentsObj.Inspect())
@@ -429,13 +430,7 @@ func TestTagToString(t *testing.T) {
 			}
 
 			// Check if result matches any of the expected values
-			found := false
-			for _, exp := range tt.expected {
-				if str.Value == exp {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(tt.expected, str.Value)
 			if !found {
 				t.Errorf("Expected one of %v, got %q", tt.expected, str.Value)
 			}

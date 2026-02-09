@@ -117,9 +117,10 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 			return evalDictionarySubtraction(leftDict, rightDict)
 		}
 		// Fall through to default comparison for non-datetime dicts
-		if operator == "==" {
+		switch operator {
+		case "==":
 			return nativeBoolToParsBoolean(left == right)
-		} else if operator == "!=" {
+		case "!=":
 			return nativeBoolToParsBoolean(left != right)
 		}
 		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
@@ -890,10 +891,7 @@ func evalMoneyInfixExpression(tok lexer.Token, operator string, left, right *Mon
 	}
 
 	// Promote to higher scale if needed
-	scale := left.Scale
-	if right.Scale > scale {
-		scale = right.Scale
-	}
+	scale := max(right.Scale, left.Scale)
 
 	leftAmount := promoteMoneyScale(left.Amount, left.Scale, scale)
 	rightAmount := promoteMoneyScale(right.Amount, right.Scale, scale)

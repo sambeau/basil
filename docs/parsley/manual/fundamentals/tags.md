@@ -156,6 +156,39 @@ let active = true
 // <div class="on">test</div>
 ```
 
+## Script and Style Tags
+
+Content inside `<script>` and `<style>` tags uses **raw string rules** — the same rules as single-quoted strings (`'...'`). Braces `{` and `}` are **literal characters**, and interpolation uses `@{expr}`. This is by design: CSS and JavaScript both use `{` `}` as core syntax, so treating them as literal avoids conflicts.
+
+```parsley
+<style>
+    .card { border: 1px solid #ccc; }
+    .card:hover { background: lightblue; }
+</style>
+
+<script>
+    document.querySelectorAll(".tab").forEach(function(el) {
+        el.addEventListener("click", function() { el.classList.toggle("active"); });
+    });
+</script>
+```
+
+Use `@{expr}` to interpolate dynamic values:
+
+```parsley
+let accent = "tomato"
+<style>
+    .highlight { color: @{accent}; }
+</style>
+
+let endpoint = "/api/data"
+<script>
+    fetch("@{endpoint}").then(function(r) { return r.json(); });
+</script>
+```
+
+> ⚠️ **`{` is literal inside `<script>` and `<style>`** — don't use `{expr}` (template string syntax) here. Use `@{expr}` (raw string syntax) instead. See [Strings](../builtins/strings.md) for more on the three string types.
+
 ## Nested Tags
 
 Tags nest naturally:
@@ -256,6 +289,8 @@ let Page = fn({title, contents}) {
 
 ## Special Tags
 
+> Some special tags are **Basil-only** — they require the Basil web server and are not available in standalone `pars` scripts. These are marked below.
+
 ### SQL
 
 The `<SQL>` tag builds parameterized queries. Content is the SQL text; parameters are passed as attributes:
@@ -268,9 +303,9 @@ The `<SQL>` tag builds parameterized queries. Content is the SQL text; parameter
 
 Parameters use `@name` syntax inside the SQL. This prevents SQL injection — values are bound as parameters, never interpolated.
 
-### Cache
+### Cache <small>(Basil only)</small>
 
-The `<Cache>` tag caches rendered fragments by key:
+The `<Cache>` tag caches rendered fragments by key. Requires the Basil server — in standalone `pars`, the tag still renders its content but caching is a no-op.
 
 ```parsley
 <Cache key="sidebar" maxAge={300}>
@@ -286,9 +321,9 @@ The `<Cache>` tag caches rendered fragments by key:
 | `maxAge` | integer | TTL in seconds (required) |
 | `enabled` | boolean | Enable/disable caching (default: `true`) |
 
-### Part
+### Part <small>(Basil only)</small>
 
-The `<Part>` tag creates an AJAX-loadable fragment:
+The `<Part>` tag creates an AJAX-loadable fragment. Requires the Basil server and a route configured in `basil.yaml`.
 
 ```parsley
 <Part src={@./sidebar.part} view="default"/>

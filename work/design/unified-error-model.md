@@ -1,7 +1,7 @@
 # Unified Error Model
 
-**Status:** Draft
-**Date:** February 2026
+**Status:** Approved
+**Date:** 2026-02-08
 **Purpose:** Design summary for unifying Parsley's error systems around a single `{result, error}` pattern
 
 ---
@@ -199,15 +199,15 @@ This is the only migration required. All other patterns are unchanged:
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Should `api.*` helpers remain or become redundant?** They're convenient (`api.notFound("msg")` vs `fail({status: 404, ...})`), but maintaining two ways to do the same thing has a cost.
+1. **Should `api.*` helpers remain or become redundant?** **Keep them as sugar.** `api.notFound("msg")` is more readable than `fail({status: 404, code: "HTTP-404", message: "msg"})`. Internally they change from returning `*APIError` to delegating to `fail()` with pre-filled `status`/`code`/`message` fields. The maintenance cost is near-zero since they just wrap `fail()`. User-facing API is unchanged.
 
-2. **Validation bridge convenience.** Should Record have a built-in method like `record.failIfInvalid()` or `record.toError()`? Or is the manual pattern clear enough?
+2. **Validation bridge convenience.** **Add `record.failIfInvalid()`.** The existing manual `validate()` → `isValid()` → `errorList()` pattern is unchanged and remains the way to do custom error handling. `failIfInvalid()` is additive sugar for the common case: it returns the record if valid (enabling chaining), or calls `fail({status: 400, code: "VALIDATION", message: "Validation failed", fields: record.errorList()})` if invalid.
 
-3. **String coercion.** Should `"" + error` produce `error.message` via Parsley's string coercion? This would reduce the migration burden to near-zero.
+3. **String coercion.** **Yes.** `"" + error` produces `error.message` via Parsley's string coercion rules. This reduces the migration burden for existing code that concatenates the error value to near-zero.
 
-4. **Error dict immutability.** Should the error dict be a regular mutable dictionary or a frozen/special type?
+4. **Error dict immutability.** **Regular mutable dictionary.** Parsley does not currently have immutable types. The error dict is a plain dictionary — no special type needed.
 
 ---
 

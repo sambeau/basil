@@ -345,7 +345,7 @@ func TestUpdateDocument(t *testing.T) {
 	}
 
 	// Update it
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"title":   "Updated Title",
 		"content": "Updated content with new information",
 	}
@@ -507,4 +507,3 @@ func TestReindex(t *testing.T) {
 		t.Errorf("expected 0 results for old docs, got %d", results4.Total)
 	}
 }
-

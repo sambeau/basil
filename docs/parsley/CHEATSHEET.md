@@ -206,6 +206,24 @@ User({name: "Alice"})      // ID generated on insert
 User({id: "my-custom-id"}) // Any string works
 ```
 
+### 13. `try` Error Is a Dictionary, Not a String
+```parsley
+// ❌ WRONG - error is no longer a plain string
+let {result, error} = try riskyFn()
+if (error == "not found") { ... }    // Won't match — error is a dict
+
+// ✅ CORRECT - access .message for the string
+let {result, error} = try riskyFn()
+if (error) {
+    error.message                    // "not found" (string)
+    error.code                       // "USER-0001" or "HTTP-404" etc.
+    error.status                     // 404 (present on API errors)
+}
+
+// String coercion works: "" + error yields error.message
+log("Failed: " + error)             // uses error.message automatically
+```
+
 ---
 
 ## 📊 Syntax Quick Reference
@@ -263,6 +281,10 @@ let squares = for (n in 1..5) { n * n }  // [1, 4, 9, 16, 25]
 
 // Tags return strings
 let html = <p>"Hello"</p>  // "<p>Hello</p>"
+
+// Fetch and remote write return response objects
+let response = <=/= JSON(@https://api.example.com/users)
+let result = payload =/=> JSON(@https://api.example.com/items)
 ```
 
 ### 2. String Interpolation
@@ -484,8 +506,24 @@ let response <=/= JSON(@https://api.example.com/users, {
     headers: {"Authorization": "Bearer token"}
 })
 
+// Fetch as expression (capture response object)
+let response = <=/= JSON(@https://api.example.com/users)
+response.data                    // parsed content
+response.status                  // 200
+response.ok                      // true
+
+// Destructured expression form
+let {data, error} = <=/= JSON(@https://api.example.com/users)
+
 // POST with remote write operator
 {name: "Alice"} =/=> JSON(@https://api.example.com/users)
+
+// Remote write as expression (capture response)
+let result = {name: "Alice"} =/=> JSON(@https://api.example.com/users)
+if (!result.ok) { log("Failed:", result.status) }
+
+// Destructured remote write
+let {data, error} = payload =/=> JSON(@https://api.example.com/items)
 
 // PUT
 data =/=> JSON(@https://api.example.com/users/1).put
@@ -557,8 +595,9 @@ if (error) {
 **For function calls, use `try` expression:**
 ```parsley
 let {result, error} = try url("user-input")
-if (error != null) {
-    log("Invalid URL:", error)
+if (error) {
+    log("Invalid URL:", error.message)
+    error.code                   // e.g. "FORMAT-0001"
 }
 
 // With null coalescing for defaults
@@ -567,12 +606,26 @@ let parsed = (try datetime("maybe-invalid")).result ?? @now
 
 **User-defined errors with `fail()`:**
 ```parsley
+// String form — wrapped in {message: ..., code: "USER-0001"}
 let validate = fn(x) {
   if (x < 0) { fail("must be non-negative") }
   x * 2
 }
 let {result, error} = try validate(-5)
-// error = "must be non-negative"
+error.message                    // "must be non-negative"
+
+// Dictionary form — structured errors with custom fields
+fail({message: "Out of stock", code: "NO_STOCK", status: 400})
+```
+
+**⚠️ `error` from `try` is a dictionary, not a string.** Use `error.message` to get the message. String coercion works too: `"" + error` yields `error.message`.
+
+**Validation bridge — `failIfInvalid()`:**
+```parsley
+// One-liner: validate and fail with structured error if invalid
+let user = User(formData).validate().failIfInvalid()
+// If invalid → catchable error: {status: 400, code: "VALIDATION", message: "Validation failed", fields: [...]}
+// If valid → returns the record (chainable)
 ```
 
 ### Map/Filter

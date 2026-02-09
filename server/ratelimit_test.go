@@ -10,7 +10,7 @@ func TestRateLimiter_Allow(t *testing.T) {
 	rl := newRateLimiter(3, time.Second)
 
 	// Should allow first 3 requests
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if !rl.Allow("user1", 0, 0) {
 			t.Errorf("request %d should be allowed", i+1)
 		}
@@ -96,11 +96,11 @@ func TestRateLimiter_ConcurrentAccess(t *testing.T) {
 	errors := make(chan error, 10)
 
 	// Spawn 10 goroutines making 10 requests each
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < 10; j++ {
+			for range 10 {
 				rl.Allow("concurrent_user", 0, 0)
 			}
 		}(i)

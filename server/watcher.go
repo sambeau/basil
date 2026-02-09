@@ -280,10 +280,10 @@ func (w *Watcher) Close() error {
 	return w.watcher.Close()
 }
 
-func (w *Watcher) logInfo(format string, args ...interface{}) {
+func (w *Watcher) logInfo(format string, args ...any) {
 	fmt.Fprintf(w.stdout, "[WATCH] "+format+"\n", args...)
 }
 
-func (w *Watcher) logError(format string, args ...interface{}) {
+func (w *Watcher) logError(format string, args ...any) {
 	fmt.Fprintf(w.stderr, "[WATCH ERROR] "+format+"\n", args...)
 }

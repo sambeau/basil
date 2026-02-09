@@ -117,7 +117,7 @@ func TestModuleCacheThreadSafety(t *testing.T) {
 	errors := make(chan error, 100)
 	results := make(chan int64, 100)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -202,17 +202,17 @@ func TestModuleCacheConcurrentClearAndImport(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			evaluator.ClearModuleCache()
 		}
 	}()
 
 	// Goroutines that import
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 20; j++ {
+			for range 20 {
 				input := `let mod = import @` + modulePath + `; mod.num`
 
 				env := evaluator.NewEnvironment()

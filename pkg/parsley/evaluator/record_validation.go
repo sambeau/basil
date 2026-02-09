@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -71,13 +72,6 @@ func validateRecordInternal(record *Record, env *Environment, partial bool) *Rec
 		Validated: true,
 		Env:       record.Env,
 	}
-}
-
-// validateField validates a single field and returns an error if validation fails.
-// Returns nil if the field is valid.
-// Validation order: required → type → format → constraints → enum
-func validateField(record *Record, fieldName string, field *DSLSchemaField, env *Environment) *RecordError {
-	return validateFieldInternal(record, fieldName, field, env, false)
 }
 
 // validateFieldInternal validates a single field with optional partial mode.
@@ -380,10 +374,8 @@ func validateEnum(value Object, field *DSLSchemaField, title string) *RecordErro
 		return nil // Enum only applies to strings
 	}
 
-	for _, allowed := range field.EnumValues {
-		if strVal.Value == allowed {
-			return nil // Found a match
-		}
+	if slices.Contains(field.EnumValues, strVal.Value) {
+		return nil // Found a match
 	}
 
 	return &RecordError{

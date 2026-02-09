@@ -180,8 +180,9 @@ func evalErrorComponent(props string, contents []Object, isSelfClosing bool, env
 	return &String{Value: result.String()}
 }
 
-// evalMetaComponent handles <Meta @field="name" @key="help"/> (DEPRECATED)
+// evalMetaComponent handles <Meta @field="name" @key="help"/>
 // Returns metadata value if present, null otherwise.
+//
 // Deprecated: Use <val @field="name" @key="help"/> instead.
 func evalMetaComponent(props string, env *Environment) Object {
 	return evalValComponent(props, nil, true, env)
@@ -336,7 +337,7 @@ func evalSelectComponent(props string, env *Environment) Object {
 
 	// Get placeholder (from props, metadata, or empty)
 	placeholder := ""
-	if idx := strings.Index(props, "placeholder="); idx != -1 {
+	if found := strings.Contains(props, "placeholder="); found {
 		placeholder = parseAttrValue(props, "placeholder")
 	} else if field != nil && field.Metadata != nil {
 		if ph, ok := field.Metadata["placeholder"]; ok {

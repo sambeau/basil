@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -345,10 +346,8 @@ func evalDSLSchemaProperty(schema *DSLSchema, key string) Object {
 			return &String{Value: rel.TargetSchema}
 		}
 		// Check if it's a method name - provide helpful error
-		for _, m := range dslSchemaMethods {
-			if m == key {
-				return methodAsPropertyError(key, "Schema")
-			}
+		if slices.Contains(dslSchemaMethods, key) {
+			return methodAsPropertyError(key, "Schema")
 		}
 		return NULL
 	}
@@ -569,37 +568,6 @@ func isStringType(typeName string) bool {
 	}
 }
 
-// Known primitive types for schema fields
-var knownPrimitiveTypes = map[string]bool{
-	"int":      true,
-	"integer":  true,
-	"bigint":   true,
-	"string":   true,
-	"bool":     true,
-	"boolean":  true,
-	"float":    true,
-	"number":   true,
-	"datetime": true,
-	"date":     true,
-	"time":     true,
-	"money":    true,
-	"uuid":     true,
-	"ulid":     true,
-	"id":       true, // alias for ulid (SPEC-ID-002)
-	"text":     true,
-	"json":     true,
-	"email":    true,
-	"url":      true,
-	"phone":    true,
-	"slug":     true,
-	"enum":     true,
-}
-
-// isPrimitiveType checks if a type name is a known primitive type
-func isPrimitiveType(typeName string) bool {
-	return knownPrimitiveTypes[strings.ToLower(typeName)]
-}
-
 // buildCreateTableSQL generates CREATE TABLE IF NOT EXISTS SQL from a schema
 func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) string {
 	var columns []string
@@ -616,20 +584,22 @@ func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) str
 			switch baseType {
 			case "int", "integer":
 				// SPEC-ID-003: Integer primary keys use implicit autoincrement
-				if driver == "sqlite" {
+				switch driver {
+				case "sqlite":
 					columns = append(columns, fmt.Sprintf("%s INTEGER PRIMARY KEY", name))
-				} else if driver == "postgres" {
+				case "postgres":
 					columns = append(columns, fmt.Sprintf("%s SERIAL PRIMARY KEY", name))
-				} else if driver == "mysql" {
+				case "mysql":
 					columns = append(columns, fmt.Sprintf("%s INT AUTO_INCREMENT PRIMARY KEY", name))
 				}
 				continue
 			case "bigint":
-				if driver == "sqlite" {
+				switch driver {
+				case "sqlite":
 					columns = append(columns, fmt.Sprintf("%s INTEGER PRIMARY KEY", name))
-				} else if driver == "postgres" {
+				case "postgres":
 					columns = append(columns, fmt.Sprintf("%s BIGSERIAL PRIMARY KEY", name))
-				} else if driver == "mysql" {
+				case "mysql":
 					columns = append(columns, fmt.Sprintf("%s BIGINT AUTO_INCREMENT PRIMARY KEY", name))
 				}
 				continue
@@ -909,13 +879,7 @@ func ValidateSchemaField(fieldName string, value Object, field *DSLSchemaField) 
 			}
 		}
 		if len(field.EnumValues) > 0 {
-			found := false
-			for _, v := range field.EnumValues {
-				if v == str.Value {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(field.EnumValues, str.Value)
 			if !found {
 				return &ValidationFieldError{
 					Field:   fieldName,

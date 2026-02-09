@@ -6,11 +6,13 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -81,8 +83,7 @@ const (
 	MDDOC_OBJ            = "MDDOC"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
-	API_ERROR_OBJ        = "API_ERROR" // API errors (not runtime errors)
-	REDIRECT_OBJ         = "REDIRECT"  // HTTP redirect response
+	REDIRECT_OBJ         = "REDIRECT" // HTTP redirect response
 	STOP_SIGNAL_OBJ      = "STOP_SIGNAL"
 	SKIP_SIGNAL_OBJ      = "SKIP_SIGNAL"
 	CHECK_EXIT_OBJ       = "CHECK_EXIT"
@@ -226,11 +227,12 @@ type Error struct {
 	Line    int
 	Column  int
 	// New structured error fields
-	Class ErrorClass     // Error category (default: ClassType)
-	Code  string         // Error code (e.g., "TYPE-0001")
-	Hints []string       // Suggestions for fixing the error
-	File  string         // File path (if known)
-	Data  map[string]any // Template variables for custom rendering
+	Class    ErrorClass     // Error category (default: ClassType)
+	Code     string         // Error code (e.g., "TYPE-0001")
+	Hints    []string       // Suggestions for fixing the error
+	File     string         // File path (if known)
+	Data     map[string]any // Template variables for custom rendering
+	UserDict *Dictionary    // User-facing error dict for unified error model
 }
 
 // ErrorClass categorizes errors for filtering and templating.
@@ -608,14 +610,14 @@ type SecurityPolicy struct {
 
 // Logger interface for log()/logLine() output
 type Logger interface {
-	Log(values ...interface{})
-	LogLine(values ...interface{})
+	Log(values ...any)
+	LogLine(values ...any)
 }
 
 // defaultStdoutLogger is the default logger that writes to stdout
 type defaultStdoutLogger struct{}
 
-func (l *defaultStdoutLogger) Log(values ...interface{}) {
+func (l *defaultStdoutLogger) Log(values ...any) {
 	for i, v := range values {
 		if i > 0 {
 			fmt.Print(" ")
@@ -624,7 +626,7 @@ func (l *defaultStdoutLogger) Log(values ...interface{}) {
 	}
 }
 
-func (l *defaultStdoutLogger) LogLine(values ...interface{}) {
+func (l *defaultStdoutLogger) LogLine(values ...any) {
 	for i, v := range values {
 		if i > 0 {
 			fmt.Print(" ")
@@ -733,23 +735,6 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.PLNSecret = outer.PLNSecret     // Propagate PLN secret for Record serialization
 	}
 	return env
-}
-
-func logDeprecation(env *Environment, callRepr, suggestion string) {
-	if env == nil || env.DevLog == nil {
-		return
-	}
-
-	filename := env.Filename
-	line := 0
-	if env.LastToken != nil {
-		line = env.LastToken.Line
-	}
-
-	message := fmt.Sprintf("%s is deprecated; use %s", callRepr, suggestion)
-	if err := env.DevLog.LogFromEvaluator(env.HandlerPath, "warn", filename, line, callRepr, message); err != nil {
-		fmt.Printf("[WARN] deprecation log failed: %v\n", err)
-	}
 }
 
 // Get retrieves a value from the environment
@@ -994,6 +979,7 @@ func ClearDBConnections() {
 		func(db *sql.DB) error {
 			return db.Close()
 		},
+		nil, // no logger available at package level
 	)
 }
 
@@ -1020,7 +1006,7 @@ func BuildTestBasilContext(queryParams map[string]string, route []string, sessio
 
 	// Build route (as string if provided, null otherwise)
 	var routeObj Object = NULL
-	if route != nil && len(route) > 0 {
+	if len(route) > 0 {
 		routeObj = &String{Value: "/" + strings.Join(route, "/")}
 	}
 
@@ -1482,9 +1468,10 @@ func interpolatePathUrlTemplate(template string, env *Environment, baseLine, bas
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -1537,10 +1524,7 @@ func interpolatePathUrlTemplate(template string, env *Environment, baseLine, bas
 					// Adjust error position for runtime errors too
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}
@@ -1654,7 +1638,7 @@ func timeToDatetimeDict(t time.Time, env *Environment) *Dictionary {
 	if strings.HasSuffix(iso, "+00:00") || strings.HasSuffix(iso, "-00:00") {
 		iso = strings.TrimSuffix(iso, "+00:00")
 		iso = strings.TrimSuffix(iso, "-00:00")
-		iso = iso + "Z"
+		iso += "Z"
 	}
 	pairs["iso"] = &ast.StringLiteral{
 		Token: lexer.Token{Type: lexer.STRING, Literal: iso},
@@ -1665,52 +1649,6 @@ func timeToDatetimeDict(t time.Time, env *Environment) *Dictionary {
 }
 
 // Datetime and duration computed property evaluators are in eval_computed_properties.go
-
-// getPublicDirComponents extracts public_dir components from basil config in environment
-// Returns nil if basil.public_dir is not set or path is outside public_dir
-func getPublicDirComponents(env *Environment) []string {
-	if env == nil {
-		return nil
-	}
-
-	// Get basil object from environment
-	basilObj, ok := env.Get("basil")
-	if !ok || basilObj == nil {
-		return nil
-	}
-
-	// Extract basil.public_dir
-	basilDict, ok := basilObj.(*Dictionary)
-	if !ok {
-		return nil
-	}
-
-	publicDirExpr, ok := basilDict.Pairs["public_dir"]
-	if !ok {
-		return nil
-	}
-
-	publicDirObj := Eval(publicDirExpr, env)
-	publicDirStr, ok := publicDirObj.(*String)
-	if !ok || publicDirStr.Value == "" {
-		return nil
-	}
-
-	// Parse public_dir into components (e.g., "./public" → ["public"])
-	publicDir := publicDirStr.Value
-
-	// Clean the path and split into components
-	// Handle "./public", "public", "./public/assets" etc.
-	publicDir = strings.TrimPrefix(publicDir, "./")
-	publicDir = strings.TrimPrefix(publicDir, "/")
-	publicDir = strings.TrimSuffix(publicDir, "/")
-
-	if publicDir == "" {
-		return nil
-	}
-
-	return strings.Split(publicDir, "/")
-}
 
 // pathToWebURL transforms a path under public_dir to a web URL
 // e.g., ./public/images/foo.png -> /images/foo.png (when public_dir is ./public)
@@ -1824,7 +1762,7 @@ func getSQLiteVersionFromDB(db *sql.DB) string {
 }
 
 // sqliteSupportsReturning checks if the SQLite version supports RETURNING clause (3.35.0+)
-func sqliteSupportsReturning(version string) bool {
+func sqliteSupportsReturning(version string) bool { //nolint:unused // referenced in stdlib_schema_table_binding.go TODO
 	if version == "" {
 		return false // Unknown version, assume no support
 	}
@@ -2140,10 +2078,10 @@ func connectionBuiltins() map[string]*Builtin {
 					parsedURL = parsedURL[atIndex+1:]
 
 					// Check for password in user:pass format
-					colonIndex := strings.Index(userPass, ":")
-					if colonIndex >= 0 {
-						user = userPass[:colonIndex]
-						password = userPass[colonIndex+1:]
+					before, after, ok := strings.Cut(userPass, ":")
+					if ok {
+						user = before
+						password = after
 					} else {
 						user = userPass
 					}
@@ -2152,10 +2090,10 @@ func connectionBuiltins() map[string]*Builtin {
 				}
 
 				// Extract host and port
-				slashIndex := strings.Index(parsedURL, "/")
+				before, _, ok := strings.Cut(parsedURL, "/")
 				hostPort := parsedURL
-				if slashIndex >= 0 {
-					hostPort = parsedURL[:slashIndex]
+				if ok {
+					hostPort = before
 				}
 
 				colonIndex := strings.LastIndex(hostPort, ":")
@@ -3354,9 +3292,7 @@ func getBuiltins() map[string]*Builtin {
 					case *Dictionary:
 						// Copy attributes from the provided dictionary
 						attrs := make(map[string]ast.Expression)
-						for key, expr := range attrArg.Pairs {
-							attrs[key] = expr
-						}
+						maps.Copy(attrs, attrArg.Pairs)
 						// Store as nested dictionary for attributes
 						attrDict := &Dictionary{Pairs: attrs, Env: NewEnvironment()}
 						pairs["attrs"] = createLiteralExpression(attrDict)
@@ -3610,16 +3546,50 @@ func getBuiltins() map[string]*Builtin {
 					return newArityError("fail", len(args), 1)
 				}
 
-				msg, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0005", "fail", "a string", args[0].Type())
-				}
+				switch arg := args[0].(type) {
+				case *String:
+					// Backward compat: wrap string in error dict
+					pairs := make(map[string]ast.Expression)
+					pairs["message"] = objectToExpression(arg)
+					pairs["code"] = objectToExpression(&String{Value: "USER-0001"})
+					dict := &Dictionary{
+						Pairs:    pairs,
+						KeyOrder: []string{"message", "code"},
+					}
+					return &Error{
+						Class:    ClassValue,
+						Code:     "USER-0001",
+						Message:  arg.Value,
+						UserDict: dict,
+					}
+				case *Dictionary:
+					// Dict must have "message" key with string value
+					msgExpr, ok := arg.Pairs["message"]
+					if !ok {
+						return newTypeError("TYPE-0005", "fail", "a string or dictionary with 'message' key", arg.Type())
+					}
+					msgObj := Eval(msgExpr, arg.Env)
+					msgStr, ok := msgObj.(*String)
+					if !ok {
+						return newTypeError("TYPE-0005", "fail", "a string 'message' value", msgObj.Type())
+					}
 
-				// Create a Value-class catchable error
-				return &Error{
-					Class:   ClassValue,
-					Code:    "USER-0001",
-					Message: msg.Value,
+					// Extract optional code
+					code := "USER-0001"
+					if codeExpr, ok := arg.Pairs["code"]; ok {
+						if codeObj, ok := Eval(codeExpr, arg.Env).(*String); ok {
+							code = codeObj.Value
+						}
+					}
+
+					return &Error{
+						Class:    ClassValue,
+						Code:     code,
+						Message:  msgStr.Value,
+						UserDict: arg,
+					}
+				default:
+					return newTypeError("TYPE-0005", "fail", "a string or dictionary", args[0].Type())
 				}
 			},
 		},
@@ -4029,9 +3999,7 @@ func createCommandHandle(binary string, args []string, options *Dictionary, env 
 	if options != nil {
 		// Copy options to ast expressions
 		optPairs := make(map[string]ast.Expression)
-		for k, v := range options.Pairs {
-			optPairs[k] = v
-		}
+		maps.Copy(optPairs, options.Pairs)
 		pairs["options"] = &ast.DictionaryLiteral{
 			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
 			Pairs: optPairs,
@@ -4430,6 +4398,10 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
+			// Convert typed response dict to legacy {data, error, status, headers} for error-capture patterns
+			if isErrorCapturePattern(node.DictPattern) && isResponseTypedDict(val) {
+				val = responseTypedDictToLegacy(val.(*Dictionary), env)
+			}
 			return evalDictDestructuringAssignment(node.DictPattern, val, env, true, node.Export)
 		}
 
@@ -4472,6 +4444,10 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
+			// Convert typed response dict to legacy {data, error, status, headers} for error-capture patterns
+			if isErrorCapturePattern(node.DictPattern) && isResponseTypedDict(val) {
+				val = responseTypedDictToLegacy(val.(*Dictionary), env)
+			}
 			return evalDictDestructuringAssignment(node.DictPattern, val, env, false, node.Export)
 		}
 
@@ -4535,6 +4511,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.FetchStatement:
 		return evalFetchStatement(node, env)
+
+	case *ast.FetchExpression:
+		return evalFetchExpression(node, env)
 
 	case *ast.WriteStatement:
 		return evalWriteStatement(node, env)
@@ -5134,9 +5113,10 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -5181,10 +5161,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 					// Adjust error position for runtime errors too
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}
@@ -5239,9 +5216,10 @@ func evalRawTemplateLiteral(node *ast.RawTemplateLiteral, env *Environment) Obje
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -5283,10 +5261,7 @@ func evalRawTemplateLiteral(node *ast.RawTemplateLiteral, env *Environment) Obje
 					// Adjust error position for runtime errors too
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}
@@ -5332,9 +5307,10 @@ func interpolateRawString(template string, env *Environment) Object {
 			exprStart := i
 
 			for i < len(template) && braceCount > 0 {
-				if template[i] == '{' {
+				switch template[i] {
+				case '{':
 					braceCount++
-				} else if template[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -5620,10 +5596,8 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	expr, ok := dict.Pairs[node.Key]
 	if !ok {
 		// Check if it's a dictionary method name - provide helpful error
-		for _, m := range dictionaryMethods {
-			if m == node.Key {
-				return methodAsPropertyError(node.Key, "Dictionary")
-			}
+		if slices.Contains(dictionaryMethods, node.Key) {
+			return methodAsPropertyError(node.Key, "Dictionary")
 		}
 		return NULL
 	}
@@ -5662,7 +5636,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 				if readErr != nil {
 					return nil, newStdioError("STDIO-0003", map[string]any{"GoError": readErr.Error()})
 				}
-				pathStr = "-"
+
 			case "stdout", "stderr":
 				return nil, newStdioError("STDIO-0004", map[string]any{"Stream": stdioStr.Value})
 			default:
@@ -5874,13 +5848,7 @@ func evalIndexAssignment(node *ast.IndexAssignmentStatement, env *Environment) O
 			// Convert Object to ast.Expression for storage
 			obj.Pairs[key.Value] = objectToExpression(value)
 			// Add to order if new key
-			found := false
-			for _, k := range obj.KeyOrder {
-				if k == key.Value {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(obj.KeyOrder, key.Value)
 			if !found {
 				obj.KeyOrder = append(obj.KeyOrder, key.Value)
 			}
@@ -5934,13 +5902,7 @@ func evalIndexAssignment(node *ast.IndexAssignmentStatement, env *Environment) O
 			// Convert Object to ast.Expression for storage
 			obj.Pairs[dotExpr.Key] = objectToExpression(value)
 			// Add to order if new key
-			found := false
-			for _, k := range obj.KeyOrder {
-				if k == dotExpr.Key {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(obj.KeyOrder, dotExpr.Key)
 			if !found {
 				obj.KeyOrder = append(obj.KeyOrder, dotExpr.Key)
 			}
@@ -6066,7 +6028,7 @@ func bankersRound(x float64) int64 {
 // matchPathPattern matches a URL path against a pattern with :param and *glob segments
 // Returns map of captured values on match, nil on no match
 // :name captures a single segment, *name captures remaining segments as []string
-func matchPathPattern(path, pattern string) map[string]interface{} {
+func matchPathPattern(path, pattern string) map[string]any {
 	// Normalize: trim trailing slashes for comparison
 	path = strings.TrimSuffix(path, "/")
 	pattern = strings.TrimSuffix(pattern, "/")
@@ -6091,7 +6053,7 @@ func matchPathPattern(path, pattern string) map[string]interface{} {
 		patternSegs = patternSegs[1:]
 	}
 
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	pi := 0 // pattern index
 	for i := 0; i < len(pathSegs); i++ {

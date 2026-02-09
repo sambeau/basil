@@ -54,7 +54,7 @@ func (d *DB) LogEmail(ctx context.Context, log *EmailLog) error {
 // GetEmailLogs retrieves email logs with optional filtering
 func (d *DB) GetEmailLogs(ctx context.Context, userID *string, limit int) ([]EmailLog, error) {
 	var query string
-	var args []interface{}
+	var args []any
 
 	if userID != nil {
 		query = `
@@ -64,7 +64,7 @@ func (d *DB) GetEmailLogs(ctx context.Context, userID *string, limit int) ([]Ema
 			ORDER BY created_at DESC
 			LIMIT ?
 		`
-		args = []interface{}{*userID, limit}
+		args = []any{*userID, limit}
 	} else {
 		query = `
 			SELECT id, user_id, recipient, email_type, provider, provider_message_id, status, error, created_at
@@ -72,7 +72,7 @@ func (d *DB) GetEmailLogs(ctx context.Context, userID *string, limit int) ([]Ema
 			ORDER BY created_at DESC
 			LIMIT ?
 		`
-		args = []interface{}{limit}
+		args = []any{limit}
 	}
 
 	rows, err := d.db.QueryContext(ctx, query, args...)

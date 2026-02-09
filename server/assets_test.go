@@ -240,7 +240,7 @@ func TestAssetRegistry_Warning(t *testing.T) {
 	}
 
 	var warned bool
-	logger := func(format string, args ...interface{}) {
+	logger := func(format string, args ...any) {
 		warned = true
 	}
 

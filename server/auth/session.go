@@ -107,10 +107,7 @@ func generateSessionToken() (string, error) {
 
 // SetSessionCookie sets the session cookie on the response.
 func SetSessionCookie(w http.ResponseWriter, session *Session, secure bool) {
-	maxAge := int(time.Until(session.ExpiresAt).Seconds())
-	if maxAge < 0 {
-		maxAge = 0
-	}
+	maxAge := max(int(time.Until(session.ExpiresAt).Seconds()), 0)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,

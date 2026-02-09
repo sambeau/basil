@@ -5,12 +5,12 @@ import "time"
 
 // User represents an authenticated user.
 type User struct {
-	ID               string     `json:"id"`
-	Name             string     `json:"name"`
-	Email            string     `json:"email,omitempty"`         // Optional
-	EmailVerifiedAt  *time.Time `json:"email_verified_at,omitempty"` // FEAT-084: Email verification timestamp
-	Role             string     `json:"role"`                    // "admin" or "editor"
-	CreatedAt        time.Time  `json:"created_at"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Email           string     `json:"email,omitempty"`             // Optional
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"` // FEAT-084: Email verification timestamp
+	Role            string     `json:"role"`                        // "admin" or "editor"
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 // APIKey represents an API key for a user.
@@ -57,7 +57,7 @@ type RecoveryCode struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`
 	CodeHash  string    `json:"-"` // bcrypt hash, never exposed
-	UsedAt    time.Time `json:"used_at,omitempty"`
+	UsedAt    time.Time `json:"used_at"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

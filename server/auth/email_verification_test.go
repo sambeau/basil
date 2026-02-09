@@ -9,7 +9,7 @@ import (
 func TestGenerateVerificationToken(t *testing.T) {
 	// Generate multiple tokens to verify uniqueness
 	tokens := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		token, err := GenerateVerificationToken()
 		if err != nil {
 			t.Fatalf("GenerateVerificationToken failed: %v", err)

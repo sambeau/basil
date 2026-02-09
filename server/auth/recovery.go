@@ -123,9 +123,9 @@ func (d *DB) GetRecoveryCodeCount(userID string) (int, error) {
 // generateRecoveryCode creates a single recovery code in format XXXX-XXXX-XXXX.
 func generateRecoveryCode() string {
 	segments := make([]string, RecoveryCodeSegments)
-	for i := 0; i < RecoveryCodeSegments; i++ {
+	for i := range RecoveryCodeSegments {
 		segment := make([]byte, RecoveryCodeSegmentLength)
-		for j := 0; j < RecoveryCodeSegmentLength; j++ {
+		for j := range RecoveryCodeSegmentLength {
 			idx := randByte() % byte(len(recoveryCodeChars))
 			segment[j] = recoveryCodeChars[idx]
 		}

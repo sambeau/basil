@@ -46,7 +46,7 @@ A string containing the PLN representation of the value.
 
 #### Errors
 
-- Throws if the value contains non-serializable types (functions, file handles, database connections)
+Fails if the value contains non-serializable types (functions, file handles, database connections)
 
 #### Example
 
@@ -93,7 +93,7 @@ The Parsley value represented by the PLN string.
 
 #### Errors
 
-- Throws if the PLN string is invalid or contains expressions/code
+Fails if the PLN string is invalid or contains expressions/code
 
 #### Example
 
@@ -292,7 +292,7 @@ PLN is designed for safe data exchange:
 
 3. **No function calls**: Syntax like `Schema({...})` is rejected; records must use `@Schema({...})`.
 
-4. **Safe deserialization**: Unlike JSON with eval(), PLN cannot execute arbitrary code.
+4. **Safe deserialization**: PLN cannot execute arbitrary code.
 
 ```parsley
 // These will all fail:

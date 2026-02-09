@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -274,7 +275,7 @@ func (m *WebAuthnManager) FinishLogin(challengeID string, response *protocol.Par
 
 	// Update sign count for replay protection
 	if err := m.db.UpdateCredentialSignCount(credential.ID, credential.Authenticator.SignCount); err != nil {
-		// Log but don't fail login
+		log.Printf("webauthn: failed to update sign count: %v", err)
 	}
 
 	// Get the user from the credential

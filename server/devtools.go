@@ -998,7 +998,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	if version == "" {
 		version = "dev"
 	}
-	basilMap := map[string]interface{}{
+	basilMap := map[string]any{
 		"version":     version,
 		"commit":      "unknown", // commit hash not stored in Server struct
 		"dev":         h.server.config.Server.Dev,
@@ -1010,7 +1010,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	env.Set("basil", env.BasilCtx)
 
 	// Add DevTools-specific data
-	devtoolsMap := map[string]interface{}{}
+	devtoolsMap := map[string]any{}
 
 	// Determine which page we're rendering
 	switch {
@@ -1021,8 +1021,8 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	case strings.HasPrefix(path, "/__/logs"):
 		// Logs page
 		route := ""
-		if strings.HasPrefix(path, "/__/logs/") {
-			route = strings.TrimPrefix(path, "/__/logs/")
+		if after, ok := strings.CutPrefix(path, "/__/logs/"); ok {
+			route = after
 			route = strings.TrimSuffix(route, "/")
 		}
 		devtoolsMap["route"] = route
@@ -1038,9 +1038,9 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		}
 
 		// Convert to Parsley-friendly format
-		logsArray := make([]interface{}, len(entries))
+		logsArray := make([]any, len(entries))
 		for i, e := range entries {
-			logsArray[i] = map[string]interface{}{
+			logsArray[i] = map[string]any{
 				"level":     e.Level,
 				"filename":  filepath.Base(e.Filename),
 				"line":      e.Line,
@@ -1093,7 +1093,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 				devtoolsMap["error"] = err.Error()
 			} else {
 				// Get info for each table
-				tablesArray := make([]interface{}, 0, len(tables))
+				tablesArray := make([]any, 0, len(tables))
 				for _, name := range tables {
 					info, err := getTableInfo(db, name)
 					if err != nil {
@@ -1101,9 +1101,9 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 						continue
 					}
 					// Build columns array for this table
-					columnsArray := make([]interface{}, 0, len(info.Columns))
+					columnsArray := make([]any, 0, len(info.Columns))
 					for _, col := range info.Columns {
-						colMap := map[string]interface{}{
+						colMap := map[string]any{
 							"name":     col.Name,
 							"type":     col.Type,
 							"not_null": col.NotNull,
@@ -1117,7 +1117,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 						columnsArray = append(columnsArray, colMap)
 					}
 
-					tablesArray = append(tablesArray, map[string]interface{}{
+					tablesArray = append(tablesArray, map[string]any{
 						"name":         info.Name,
 						"row_count":    info.RowCount,
 						"columns":      columnsArray,
@@ -1146,9 +1146,9 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 				devtoolsMap["error"] = err.Error()
 			} else {
 				// Convert to Parsley-friendly format
-				rowsArray := make([]interface{}, len(rows))
+				rowsArray := make([]any, len(rows))
 				for i, row := range rows {
-					cellsArray := make([]interface{}, len(row))
+					cellsArray := make([]any, len(row))
 					for j, val := range row {
 						if val == nil {
 							cellsArray[j] = nil
@@ -1159,7 +1159,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 					rowsArray[i] = cellsArray
 				}
 
-				columnsArray := make([]interface{}, len(columns))
+				columnsArray := make([]any, len(columns))
 				for i, col := range columns {
 					columnsArray[i] = col
 				}
@@ -1176,8 +1176,8 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		cfg := h.server.config
 
 		// Helper to create a setting entry
-		setting := func(name, value, help string) map[string]interface{} {
-			return map[string]interface{}{"name": name, "value": value, "help": help}
+		setting := func(name, value, help string) map[string]any {
+			return map[string]any{"name": name, "value": value, "help": help}
 		}
 
 		// Helper to format boolean
@@ -1205,10 +1205,10 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		}
 
 		// Build grouped config sections
-		configGroups := []interface{}{}
+		configGroups := []any{}
 
 		// Server section
-		serverSettings := []interface{}{
+		serverSettings := []any{
 			setting("Host", optStr(cfg.Server.Host), "Bind address"),
 			setting("Port", fmt.Sprintf("%d", cfg.Server.Port), "Listen port"),
 			setting("Dev Mode", boolStr(cfg.Server.Dev), "Development mode enabled"),
@@ -1225,7 +1225,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 				setting("Proxy Trusted", "true", "Trust X-Forwarded-* headers"),
 			)
 		}
-		configGroups = append(configGroups, map[string]interface{}{
+		configGroups = append(configGroups, map[string]any{
 			"name":        "Server",
 			"description": "Core server settings",
 			"settings":    serverSettings,
@@ -1236,7 +1236,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		if cfg.Session.Secret.IsAuto() {
 			sessionSecret = "(auto-generated)"
 		}
-		sessionSettings := []interface{}{
+		sessionSettings := []any{
 			setting("Store", cfg.Session.Store, "Session storage backend"),
 			setting("Secret", sessionSecret, "Encryption secret"),
 			setting("Max Age", durStr(cfg.Session.MaxAge), "Session lifetime"),
@@ -1249,7 +1249,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 				setting("Cleanup", durStr(cfg.Session.Cleanup), "Expired session cleanup interval"),
 			)
 		}
-		configGroups = append(configGroups, map[string]interface{}{
+		configGroups = append(configGroups, map[string]any{
 			"name":        "Session",
 			"description": "Session storage and cookie settings",
 			"settings":    sessionSettings,
@@ -1257,17 +1257,17 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 		// Database section (if configured)
 		if cfg.SQLite != "" {
-			configGroups = append(configGroups, map[string]interface{}{
+			configGroups = append(configGroups, map[string]any{
 				"name":        "Database",
 				"description": "SQLite database settings",
-				"settings": []interface{}{
+				"settings": []any{
 					setting("SQLite", cfg.SQLite, "Database file path"),
 				},
 			})
 		}
 
 		// Security section
-		securitySettings := []interface{}{
+		securitySettings := []any{
 			setting("Content-Type-Options", optStr(cfg.Security.ContentTypeOptions), "X-Content-Type-Options header"),
 			setting("Frame-Options", optStr(cfg.Security.FrameOptions), "X-Frame-Options header"),
 			setting("XSS-Protection", optStr(cfg.Security.XSSProtection), "X-XSS-Protection header"),
@@ -1284,7 +1284,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 				setting("HSTS Max-Age", cfg.Security.HSTS.MaxAge, "HSTS max-age directive"),
 			)
 		}
-		configGroups = append(configGroups, map[string]interface{}{
+		configGroups = append(configGroups, map[string]any{
 			"name":        "Security",
 			"description": "Security headers and policies",
 			"settings":    securitySettings,
@@ -1296,10 +1296,10 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			if len(cfg.CORS.Origins) > 0 {
 				corsOrigins = strings.Join(cfg.CORS.Origins, ", ")
 			}
-			configGroups = append(configGroups, map[string]interface{}{
+			configGroups = append(configGroups, map[string]any{
 				"name":        "CORS",
 				"description": "Cross-Origin Resource Sharing",
-				"settings": []interface{}{
+				"settings": []any{
 					setting("Origins", corsOrigins, "Allowed origins"),
 					setting("Credentials", boolStr(cfg.CORS.Credentials), "Allow credentials"),
 				},
@@ -1307,10 +1307,10 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		}
 
 		// Compression section
-		configGroups = append(configGroups, map[string]interface{}{
+		configGroups = append(configGroups, map[string]any{
 			"name":        "Compression",
 			"description": "Response compression settings",
-			"settings": []interface{}{
+			"settings": []any{
 				setting("Enabled", boolStr(cfg.Compression.Enabled), "Compression enabled"),
 				setting("Level", cfg.Compression.Level, "Compression level"),
 				setting("Min Size", fmt.Sprintf("%d bytes", cfg.Compression.MinSize), "Minimum response size"),
@@ -1320,7 +1320,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 		// Auth section (if enabled)
 		if cfg.Auth.Enabled {
-			authSettings := []interface{}{
+			authSettings := []any{
 				setting("Enabled", "true", "Authentication enabled"),
 				setting("Registration", cfg.Auth.Registration, "Registration mode"),
 				setting("Session TTL", durStr(cfg.Auth.SessionTTL), "Auth session lifetime"),
@@ -1332,7 +1332,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 					setting("Email Provider", cfg.Auth.EmailVerification.Provider, "Email service provider"),
 				)
 			}
-			configGroups = append(configGroups, map[string]interface{}{
+			configGroups = append(configGroups, map[string]any{
 				"name":        "Authentication",
 				"description": "User authentication settings",
 				"settings":    authSettings,
@@ -1341,10 +1341,10 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 		// Git section (if enabled)
 		if cfg.Git.Enabled {
-			configGroups = append(configGroups, map[string]interface{}{
+			configGroups = append(configGroups, map[string]any{
 				"name":        "Git",
 				"description": "Git HTTP server settings",
-				"settings": []interface{}{
+				"settings": []any{
 					setting("Enabled", "true", "Git server enabled"),
 					setting("Require Auth", boolStr(cfg.Git.RequireAuth), "Require API key"),
 				},
@@ -1352,7 +1352,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		}
 
 		// Routing section
-		routingSettings := []interface{}{}
+		routingSettings := []any{}
 		if cfg.Site != "" {
 			routingSettings = append(routingSettings,
 				setting("Site", cfg.Site, "Filesystem-based routing directory"),
@@ -1379,7 +1379,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			)
 		}
 		if len(routingSettings) > 0 {
-			configGroups = append(configGroups, map[string]interface{}{
+			configGroups = append(configGroups, map[string]any{
 				"name":        "Routing",
 				"description": "URL routing configuration",
 				"settings":    routingSettings,
@@ -1387,11 +1387,11 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		}
 
 		// Logging section
-		loggingSettings := []interface{}{
+		loggingSettings := []any{
 			setting("Level", cfg.Logging.Level, "Log verbosity"),
 			setting("Format", cfg.Logging.Format, "Log output format"),
 		}
-		configGroups = append(configGroups, map[string]interface{}{
+		configGroups = append(configGroups, map[string]any{
 			"name":        "Logging",
 			"description": "Log output settings",
 			"settings":    loggingSettings,
@@ -1400,7 +1400,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		devtoolsMap["config"] = configGroups
 
 		// Add meta if configured
-		if cfg.Meta != nil && len(cfg.Meta) > 0 {
+		if len(cfg.Meta) > 0 {
 			devtoolsMap["has_meta"] = true
 			devtoolsMap["meta"] = cfg.Meta
 		}
@@ -1441,7 +1441,7 @@ func (h *devToolsHandler) handleDevToolsWithPrelude(w http.ResponseWriter, r *ht
 
 	// Handle array results (join like error pages)
 	var output string
-	if arr, ok := val.([]interface{}); ok {
+	if arr, ok := val.([]any); ok {
 		parts := make([]string, len(arr))
 		for i, item := range arr {
 			parts[i] = fmt.Sprintf("%v", item)
@@ -1516,12 +1516,4 @@ func (h *devToolsHandler) renderDoubleError(w http.ResponseWriter, errorType str
 		// dev_error.pars parsed OK but evaluation failed - just show original error
 		fmt.Fprintf(w, "%s:\n%s\n", errorType, originalErr)
 	}
-}
-
-// renderPlainTextError renders a plain text error response.
-// Used as ultimate fallback when all templates fail.
-func (h *devToolsHandler) renderPlainTextError(w http.ResponseWriter, errDetails string) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(500)
-	fmt.Fprintf(w, "DevTools Error\n\n%s\n", errDetails)
 }

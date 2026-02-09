@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -30,35 +31,39 @@ const (
 
 // precedences maps tokens to their precedence
 var precedences = map[lexer.TokenType]int{
-	lexer.COMMA:        COMMA_PREC,
-	lexer.OR:           LOGIC_OR,
-	lexer.NULLISH:      LOGIC_OR,
-	lexer.AND:          LOGIC_AND,
-	lexer.EQ:           EQUALS,
-	lexer.NOT_EQ:       EQUALS,
-	lexer.MATCH:        EQUALS,
-	lexer.NOT_MATCH:    EQUALS,
-	lexer.IN:           EQUALS,
-	lexer.IS:           EQUALS, // for 'is' / 'is not' schema checking
-	lexer.BANG:         EQUALS, // for 'not in' operator
-	lexer.LT:           LESSGREATER,
-	lexer.GT:           LESSGREATER,
-	lexer.LTE:          LESSGREATER,
-	lexer.GTE:          LESSGREATER,
-	lexer.PLUS:         SUM,
-	lexer.MINUS:        SUM,
-	lexer.RANGE:        SUM,
-	lexer.PLUSPLUS:     CONCAT,
-	lexer.SLASH:        PRODUCT,
-	lexer.ASTERISK:     PRODUCT,
-	lexer.PERCENT:      PRODUCT,
-	lexer.LBRACKET:     INDEX,
-	lexer.DOT:          INDEX,
-	lexer.LPAREN:       CALL,
-	lexer.QUERY_ONE:    EQUALS, // Database query operators
-	lexer.QUERY_MANY:   EQUALS,
-	lexer.EXECUTE:      EQUALS,
-	lexer.EXECUTE_WITH: EQUALS, // Process execution operator
+	lexer.COMMA:         COMMA_PREC,
+	lexer.WRITE_TO:      COMMA_PREC, // ==> (write operators bind very loosely)
+	lexer.APPEND_TO:     COMMA_PREC, // ==>>
+	lexer.REMOTE_WRITE:  COMMA_PREC, // =/=>
+	lexer.REMOTE_APPEND: COMMA_PREC, // =/=>>
+	lexer.OR:            LOGIC_OR,
+	lexer.NULLISH:       LOGIC_OR,
+	lexer.AND:           LOGIC_AND,
+	lexer.EQ:            EQUALS,
+	lexer.NOT_EQ:        EQUALS,
+	lexer.MATCH:         EQUALS,
+	lexer.NOT_MATCH:     EQUALS,
+	lexer.IN:            EQUALS,
+	lexer.IS:            EQUALS, // for 'is' / 'is not' schema checking
+	lexer.BANG:          EQUALS, // for 'not in' operator
+	lexer.LT:            LESSGREATER,
+	lexer.GT:            LESSGREATER,
+	lexer.LTE:           LESSGREATER,
+	lexer.GTE:           LESSGREATER,
+	lexer.PLUS:          SUM,
+	lexer.MINUS:         SUM,
+	lexer.RANGE:         SUM,
+	lexer.PLUSPLUS:      CONCAT,
+	lexer.SLASH:         PRODUCT,
+	lexer.ASTERISK:      PRODUCT,
+	lexer.PERCENT:       PRODUCT,
+	lexer.LBRACKET:      INDEX,
+	lexer.DOT:           INDEX,
+	lexer.LPAREN:        CALL,
+	lexer.QUERY_ONE:     EQUALS, // Database query operators
+	lexer.QUERY_MANY:    EQUALS,
+	lexer.EXECUTE:       EQUALS,
+	lexer.EXECUTE_WITH:  EQUALS, // Process execution operator
 }
 
 // Parser represents the parser
@@ -129,6 +134,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(lexer.READ_FROM, p.parseReadExpression)
+	p.registerPrefix(lexer.FETCH_FROM, p.parseFetchExpression)
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
 	p.registerPrefix(lexer.FALSE, p.parseBoolean)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
@@ -859,6 +865,21 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 
 	expr := p.parseExpression(LOWEST)
 
+	// If parseExpression already consumed a write/remote-write operator (due to precedence),
+	// return it directly as a statement rather than wrapping in ExpressionStatement.
+	if ws, ok := expr.(*ast.WriteStatement); ok {
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return ws
+	}
+	if rw, ok := expr.(*ast.RemoteWriteStatement); ok {
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return rw
+	}
+
 	// Check for index/property assignment: expr[key] = value or expr.prop = value
 	if p.peekTokenIs(lexer.ASSIGN) {
 		if p.isAssignableExpression(expr) {
@@ -943,6 +964,30 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := prefix()
 
 	for !p.peekTokenIs(lexer.SEMICOLON) && precedence < p.peekPrecedence() {
+		// Allow write operators to be parsed as expressions for assignment capture
+		if p.peekTokenIs(lexer.WRITE_TO) || p.peekTokenIs(lexer.APPEND_TO) {
+			p.nextToken() // consume ==> or ==>>
+			writeExpr := &ast.WriteStatement{
+				Token:  p.curToken,
+				Value:  leftExp,
+				Append: p.curToken.Type == lexer.APPEND_TO,
+			}
+			p.nextToken() // move to target expression
+			writeExpr.Target = p.parseExpression(LOWEST)
+			return writeExpr
+		}
+		if p.peekTokenIs(lexer.REMOTE_WRITE) || p.peekTokenIs(lexer.REMOTE_APPEND) {
+			p.nextToken() // consume =/=> or =/=>>
+			remoteExpr := &ast.RemoteWriteStatement{
+				Token:  p.curToken,
+				Value:  leftExp,
+				Append: p.curToken.Type == lexer.REMOTE_APPEND,
+			}
+			p.nextToken() // move to target expression
+			remoteExpr.Target = p.parseExpression(LOWEST)
+			return remoteExpr
+		}
+
 		// Special handling for DOT: only treat as infix if followed by IDENT or AS keyword
 		// This allows standalone DOT to be used as a terminal operator in DSL queries
 		// AS is allowed since 'as' can be a method name like dict.as(Schema)
@@ -1159,14 +1204,14 @@ func (p *Parser) parseMoneyLiteral() ast.Expression {
 	literal := p.curToken.Literal
 
 	// Find the # separator
-	hashIdx := strings.Index(literal, "#")
-	if hashIdx == -1 {
+	before, after, ok := strings.Cut(literal, "#")
+	if !ok {
 		p.addError(fmt.Sprintf("invalid money literal: %s", literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
-	currency := literal[:hashIdx]
-	numStr := literal[hashIdx+1:]
+	currency := before
+	numStr := after
 
 	// Calculate scale from decimal places
 	scale := int8(0)
@@ -1548,7 +1593,8 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 			// Skip to next whitespace or potential spread
 			for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r' {
 				// Also check for quotes - need to skip content inside quotes
-				if raw[i] == '"' {
+				switch raw[i] {
+				case '"':
 					i++
 					for i < len(raw) && raw[i] != '"' {
 						if raw[i] == '\\' && i+1 < len(raw) {
@@ -1560,19 +1606,20 @@ func extractSpreadExpressions(raw string) []*ast.SpreadExpr {
 					if i < len(raw) {
 						i++ // skip closing quote
 					}
-				} else if raw[i] == '{' {
+				case '{':
 					// Skip interpolation expressions
 					depth := 1
 					i++
 					for i < len(raw) && depth > 0 {
-						if raw[i] == '{' {
+						switch raw[i] {
+						case '{':
 							depth++
-						} else if raw[i] == '}' {
+						case '}':
 							depth--
 						}
 						i++
 					}
-				} else {
+				default:
 					i++
 				}
 			}
@@ -1675,7 +1722,8 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 		}
 
 		// Parse value: quoted string, {expression}, or bare word
-		if raw[i] == '"' {
+		switch raw[i] {
+		case '"':
 			// Double-quoted string value
 			i++ // skip opening quote
 			valueStart := i
@@ -1694,7 +1742,7 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				Name:  attrName,
 				Value: value,
 			})
-		} else if raw[i] == '\'' {
+		case '\'':
 			// Single-quoted string value (common for onclick handlers with JS)
 			i++ // skip opening quote
 			valueStart := i
@@ -1713,17 +1761,18 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				Name:  attrName,
 				Value: value,
 			})
-		} else if raw[i] == '{' {
+		case '{':
 			// Expression value {expr}
 			exprStart := i + 1 // after {
 			depth := 1
 			i++
 			for i < len(raw) && depth > 0 {
-				if raw[i] == '{' {
+				switch raw[i] {
+				case '{':
 					depth++
-				} else if raw[i] == '}' {
+				case '}':
 					depth--
-				} else if raw[i] == '"' {
+				case '"':
 					// Skip string contents
 					i++
 					for i < len(raw) && raw[i] != '"' {
@@ -1748,7 +1797,7 @@ func parseTagAttributes(raw string) []*ast.TagAttribute {
 				Name:       attrName,
 				Expression: expr,
 			})
-		} else {
+		default:
 			// Bare word value (unquoted)
 			valueStart := i
 			for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r' {
@@ -1927,6 +1976,19 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 // parseReadExpression parses bare <== expressions like '<== file(...)'
 func (p *Parser) parseReadExpression() ast.Expression {
 	expression := &ast.ReadExpression{
+		Token: p.curToken,
+	}
+
+	p.nextToken()
+
+	expression.Source = p.parseExpression(PREFIX)
+
+	return expression
+}
+
+// parseFetchExpression parses bare <=/= expressions like '<=/= JSON(url(...))'
+func (p *Parser) parseFetchExpression() ast.Expression {
+	expression := &ast.FetchExpression{
 		Token: p.curToken,
 	}
 
@@ -2262,33 +2324,6 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit.Body = p.parseBlockStatement()
 
 	return lit
-}
-
-func (p *Parser) parseFunctionParameters() []*ast.Identifier {
-	identifiers := []*ast.Identifier{}
-
-	if p.peekTokenIs(lexer.RPAREN) {
-		p.nextToken()
-		return identifiers
-	}
-
-	p.nextToken()
-
-	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	identifiers = append(identifiers, ident)
-
-	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken()
-		p.nextToken()
-		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-		identifiers = append(identifiers, ident)
-	}
-
-	if !p.expectPeek(lexer.RPAREN) {
-		return nil
-	}
-
-	return identifiers
 }
 
 // parseFunctionParametersNew parses function parameters with destructuring support
@@ -3457,13 +3492,7 @@ func (p *Parser) parseTableLiteral() ast.Expression {
 			// Check for extra columns
 			var extra []string
 			for key := range rowKeys {
-				found := false
-				for _, col := range table.Columns {
-					if col == key {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(table.Columns, key)
 				if !found {
 					extra = append(extra, key)
 				}
@@ -3750,77 +3779,6 @@ func (p *Parser) parseGroupByFields() []string {
 		fields = append(fields, p.curToken.Literal)
 	}
 	return fields
-}
-
-// isComputedFieldStart checks if next tokens look like "name: func(" or "name: ident"
-func (p *Parser) isComputedFieldStart() bool {
-	// Look ahead: we need IDENT COLON to identify a computed field
-	// We're currently peeking at the first IDENT
-	if !p.peekTokenIs(lexer.IDENT) {
-		return false
-	}
-
-	// Save position and look ahead
-	// The pattern is: IDENT COLON (aggregate_function | IDENT)
-	// We need to check if after the IDENT there's a COLON
-	// This is tricky without proper lookahead, so let's check if
-	// the identifier is followed by a colon by looking at peek2
-	return p.peekNTokenIs(2, lexer.COLON)
-}
-
-// parseComputedField parses "name: function(field)" or "name: count"
-func (p *Parser) parseComputedField() *ast.QueryComputedField {
-	if !p.expectPeek(lexer.IDENT) {
-		return nil
-	}
-
-	cf := &ast.QueryComputedField{
-		Token: p.curToken,
-		Name:  p.curToken.Literal,
-	}
-
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
-
-	p.nextToken() // move to function name or field
-
-	// Check if it's an aggregate function
-	if p.curTokenIs(lexer.IDENT) {
-		switch p.curToken.Literal {
-		case "count":
-			cf.Function = "count"
-			// count can be bare or count(field)
-			if p.peekTokenIs(lexer.LPAREN) {
-				p.nextToken() // consume (
-				if p.peekTokenIs(lexer.IDENT) {
-					p.nextToken()
-					cf.Field = p.curToken.Literal
-				}
-				if !p.expectPeek(lexer.RPAREN) {
-					return nil
-				}
-			}
-		case "sum", "avg", "min", "max":
-			cf.Function = p.curToken.Literal
-			// These require a field: sum(field)
-			if !p.expectPeek(lexer.LPAREN) {
-				return nil
-			}
-			if !p.expectPeek(lexer.IDENT) {
-				return nil
-			}
-			cf.Field = p.curToken.Literal
-			if !p.expectPeek(lexer.RPAREN) {
-				return nil
-			}
-		default:
-			// Just a field reference
-			cf.Field = p.curToken.Literal
-		}
-	}
-
-	return cf
 }
 
 // parseComputedFieldFromIdent parses computed field when identifier is already consumed
@@ -4223,9 +4181,10 @@ func (p *Parser) parseQueryConditionNode() ast.QueryConditionNode {
 
 	// Otherwise, parse a simple condition
 	cond := p.parseQueryCondition()
-	if cond != nil {
-		cond.Negated = negated
+	if cond == nil {
+		return nil // Return nil interface, not nil pointer in interface
 	}
+	cond.Negated = negated
 	return cond
 }
 
@@ -4369,7 +4328,8 @@ func (p *Parser) parseRelationPath() *ast.RelationPath {
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
-	path := p.curToken.Literal
+	var path strings.Builder
+	path.WriteString(p.curToken.Literal)
 
 	// Parse additional segments separated by dots
 	for p.peekTokenIs(lexer.DOT) {
@@ -4377,11 +4337,11 @@ func (p *Parser) parseRelationPath() *ast.RelationPath {
 		if !p.expectPeek(lexer.IDENT) {
 			return nil
 		}
-		path += "." + p.curToken.Literal
+		path.WriteString("." + p.curToken.Literal)
 	}
 
 	relationPath := &ast.RelationPath{
-		Path:       path,
+		Path:       path.String(),
 		Conditions: []ast.QueryConditionNode{},
 		Order:      []ast.QueryOrderField{},
 		Limit:      nil,

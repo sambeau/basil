@@ -18,7 +18,7 @@ func TestSessionModule_GetSet(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "set and get string",
@@ -316,7 +316,7 @@ func evaluateCode(code string, env *evaluator.Environment) evaluator.Object {
 }
 
 // Helper to convert Parsley object to Go value
-func toGoValue(obj evaluator.Object) interface{} {
+func toGoValue(obj evaluator.Object) any {
 	switch o := obj.(type) {
 	case *evaluator.Null:
 		return nil

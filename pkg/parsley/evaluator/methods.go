@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"maps"
 	"math"
 	"math/rand"
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1080,11 +1082,6 @@ func sortArrayWithOptions(arr *Array, natural bool) *Array {
 	return &Array{Elements: elements}
 }
 
-// naturalSortArray performs a natural sort on an array
-func naturalSortArray(arr *Array) *Array {
-	return sortArrayWithOptions(arr, true)
-}
-
 // sortArrayByFunction sorts an array using a key function
 func sortArrayByFunction(arr *Array, fn *Function, env *Environment) Object {
 	// Make a copy of elements
@@ -1204,7 +1201,7 @@ func typeOrder(obj Object) int {
 	if obj == nil || obj == NULL {
 		return 0
 	}
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *Integer, *Float:
 		return 1
 	case *String:
@@ -1213,16 +1210,14 @@ func typeOrder(obj Object) int {
 		return 3
 	case *Dictionary:
 		// Check for special dictionary types
-		if dict, ok := obj.(*Dictionary); ok {
-			if isDatetime(dict) {
-				return 4
-			}
-			if isDuration(dict) {
-				return 5
-			}
-			if isMoney(dict) {
-				return 6
-			}
+		if isDatetime(obj) {
+			return 4
+		}
+		if isDuration(obj) {
+			return 5
+		}
+		if isMoney(obj) {
+			return 6
 		}
 		return 8
 	case *Array:
@@ -1361,11 +1356,8 @@ func compareObjectsWithOptions(a, b Object, natural bool) int {
 	case *Array:
 		if bv, ok := b.(*Array); ok {
 			// Compare arrays element by element
-			minLen := len(av.Elements)
-			if len(bv.Elements) < minLen {
-				minLen = len(bv.Elements)
-			}
-			for i := 0; i < minLen; i++ {
+			minLen := min(len(bv.Elements), len(av.Elements))
+			for i := range minLen {
 				cmp := compareObjectsWithOptions(av.Elements[i], bv.Elements[i], natural)
 				if cmp != 0 {
 					return cmp
@@ -1687,9 +1679,7 @@ func insertDictKeyAfter(dict *Dictionary, afterKey, newKey string, value Object,
 
 	// Copy pairs and add new pair
 	newPairs := make(map[string]ast.Expression, len(dict.Pairs)+1)
-	for k, v := range dict.Pairs {
-		newPairs[k] = v
-	}
+	maps.Copy(newPairs, dict.Pairs)
 	newPairs[newKey] = objectToExpression(value)
 
 	return &Dictionary{
@@ -1712,9 +1702,7 @@ func insertDictKeyBefore(dict *Dictionary, beforeKey, newKey string, value Objec
 
 	// Copy pairs and add new pair
 	newPairs := make(map[string]ast.Expression, len(dict.Pairs)+1)
-	for k, v := range dict.Pairs {
-		newPairs[k] = v
-	}
+	maps.Copy(newPairs, dict.Pairs)
 	newPairs[newKey] = objectToExpression(value)
 
 	return &Dictionary{
@@ -2101,9 +2089,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		// Get the ISO string representation and return as JSON string
 		isoStr := datetimeToReprString(dict)
 		// Remove the @ prefix
-		if strings.HasPrefix(isoStr, "@") {
-			isoStr = isoStr[1:]
-		}
+		isoStr = strings.TrimPrefix(isoStr, "@")
 		jsonBytes, _ := json.Marshal(isoStr)
 		return &String{Value: string(jsonBytes)}
 
@@ -2185,13 +2171,13 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		}
 		// Return as object with years, months, days, hours, minutes, seconds
 		years := months / 12
-		months = months % 12
+		months %= 12
 		days := seconds / (24 * 3600)
-		seconds = seconds % (24 * 3600)
+		seconds %= (24 * 3600)
 		hours := seconds / 3600
-		seconds = seconds % 3600
+		seconds %= 3600
 		minutes := seconds / 60
-		seconds = seconds % 60
+		seconds %= 60
 		result := fmt.Sprintf(`{"years":%d,"months":%d,"days":%d,"hours":%d,"minutes":%d,"seconds":%d}`,
 			years, months, days, hours, minutes, seconds)
 		return &String{Value: result}
@@ -2971,10 +2957,8 @@ func evalMoneyProperty(money *Money, key string) Object {
 		return &Integer{Value: int64(money.Scale)}
 	default:
 		// Check if it's a method name - provide helpful error
-		for _, m := range moneyMethods {
-			if m == key {
-				return methodAsPropertyError(key, "Money")
-			}
+		if slices.Contains(moneyMethods, key) {
+			return methodAsPropertyError(key, "Money")
 		}
 		return unknownMethodError(key, "money", append([]string{"currency", "amount", "scale"}, moneyMethods...))
 	}
@@ -3132,7 +3116,7 @@ func splitMoney(money *Money, n int64) Object {
 	elements := make([]Object, n)
 
 	// Distribute: first |remainder| parts get +1 or -1 (depending on sign)
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		amount := baseAmount
 		if remainder > 0 {
 			amount++
@@ -3277,7 +3261,7 @@ func humanizeNumber(value float64, localeStr string) string {
 	}
 
 	var divisor float64 = 1
-	var suffix string = ""
+	var suffix = ""
 
 	for _, u := range units {
 		if absValue >= u.threshold {

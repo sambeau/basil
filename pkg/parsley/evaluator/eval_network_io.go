@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
-// Network I/O operations: evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement + helpers
+// Network I/O operations: evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement, evalFetchExpression + helpers
 // Extracted from evaluator.go - Phase 5 Extraction 29
 
 func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object, env *Environment) Object {
@@ -86,14 +87,11 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 			}
 		}
 
-		var err error
-		if recursive {
-			// Recursively remove directory and contents
-			err = handle.Connection.Client.RemoveDirectory(handle.Path)
-		} else {
-			// Remove empty directory only
-			err = handle.Connection.Client.RemoveDirectory(handle.Path)
-		}
+		// Note: SFTP RemoveDirectory only removes empty directories.
+		// The recursive option is parsed but not yet implemented.
+		// TODO: implement recursive directory removal if needed.
+		_ = recursive
+		err := handle.Connection.Client.RemoveDirectory(handle.Path)
 
 		if err != nil {
 			return newIOError("IO-0010", handle.Path, err)
@@ -244,9 +242,7 @@ func setRequestMethod(dict *Dictionary, method string, env *Environment) *Dictio
 	pairs := make(map[string]ast.Expression)
 
 	// Copy all existing pairs
-	for key, expr := range dict.Pairs {
-		pairs[key] = expr
-	}
+	maps.Copy(pairs, dict.Pairs)
 
 	// Set the method
 	pairs["method"] = &ast.StringLiteral{
@@ -635,161 +631,126 @@ func fetchUrlContentFull(reqDict *Dictionary, env *Environment) *HTTPResponseInf
 	return info
 }
 
-// fetchUrlContent fetches content from a URL based on the request configuration
-// (Legacy function - kept for backward compatibility with error capture pattern)
-func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dictionary, *Error) {
-	// Get the URL string
-	urlStr := getRequestUrlString(reqDict, env)
-	if urlStr == "" {
-		return nil, 0, nil, newHTTPStateError("HTTP-0001")
-	}
-
-	// Get method
-	method := "GET"
-	if methodExpr, ok := reqDict.Pairs["method"]; ok {
-		methodObj := Eval(methodExpr, env)
-		if methodStr, ok := methodObj.(*String); ok {
-			method = strings.ToUpper(methodStr.Value)
-		}
-	}
-
-	// Get format
-	format := "text"
-	if formatExpr, ok := reqDict.Pairs["format"]; ok {
-		formatObj := Eval(formatExpr, env)
-		if formatStr, ok := formatObj.(*String); ok {
-			format = formatStr.Value
-		}
-	}
-
-	// Get timeout (default 30 seconds)
-	timeout := 30 * time.Second
-	if timeoutExpr, ok := reqDict.Pairs["timeout"]; ok {
-		timeoutObj := Eval(timeoutExpr, env)
-		if timeoutInt, ok := timeoutObj.(*Integer); ok {
-			timeout = time.Duration(timeoutInt.Value) * time.Millisecond
-		}
-	}
-
-	// Prepare request body
-	var bodyReader io.Reader
-	if bodyExpr, ok := reqDict.Pairs["body"]; ok {
-		bodyObj := Eval(bodyExpr, env)
-		if bodyObj != nil && bodyObj != NULL {
-			// Encode body based on content type (default to JSON for objects)
-			switch v := bodyObj.(type) {
-			case *String:
-				bodyReader = strings.NewReader(v.Value)
-			case *Dictionary, *Array:
-				jsonBytes, err := encodeJSON(bodyObj)
-				if err != nil {
-					return nil, 0, nil, newHTTPError("HTTP-0002", err)
-				}
-				bodyReader = bytes.NewReader(jsonBytes)
-			default:
-				bodyReader = strings.NewReader(bodyObj.Inspect())
-			}
-		}
-	}
-
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: timeout,
-	}
-
-	// Create request
-	req, err := http.NewRequest(method, urlStr, bodyReader)
-	if err != nil {
-		return nil, 0, nil, newHTTPError("HTTP-0003", err)
-	}
-
-	// Set headers
-	if headersExpr, ok := reqDict.Pairs["headers"]; ok {
-		headersObj := Eval(headersExpr, env)
-		if headersDict, ok := headersObj.(*Dictionary); ok {
-			for key, valExpr := range headersDict.Pairs {
-				valObj := Eval(valExpr, env)
-				if valStr, ok := valObj.(*String); ok {
-					req.Header.Set(key, valStr.Value)
-				}
-			}
-		}
-	}
-
-	// Set default Content-Type for POST/PUT with body
-	if bodyReader != nil && req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	// Execute request
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, 0, nil, newHTTPError("HTTP-0004", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response body
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, int64(resp.StatusCode), nil, newHTTPError("HTTP-0005", err)
-	}
-
-	// Convert response headers to dictionary
-	respHeaders := &Dictionary{Pairs: make(map[string]ast.Expression), Env: env}
-	for key, values := range resp.Header {
-		if len(values) > 0 {
-			respHeaders.Pairs[key] = &ast.StringLiteral{
-				Token: lexer.Token{Type: lexer.STRING, Literal: values[0]},
-				Value: values[0],
-			}
-		}
-	}
-
-	// Decode based on format
-	var content Object
-	var parseErr *Error
-
-	switch format {
-	case "text":
-		content = &String{Value: string(data)}
-
-	case "json":
-		content, parseErr = parseJSON(string(data))
-		if parseErr != nil {
-			return nil, int64(resp.StatusCode), respHeaders, parseErr
-		}
-
-	case "yaml":
-		content, parseErr = parseYAML(string(data))
-		if parseErr != nil {
-			return nil, int64(resp.StatusCode), respHeaders, parseErr
-		}
-
-	case "lines":
-		lines := strings.Split(string(data), "\n")
-		elements := make([]Object, len(lines))
-		for i, line := range lines {
-			elements[i] = &String{Value: line}
-		}
-		content = &Array{Elements: elements}
-
-	case "bytes":
-		elements := make([]Object, len(data))
-		for i, b := range data {
-			elements[i] = &Integer{Value: int64(b)}
-		}
-		content = &Array{Elements: elements}
-
-	default:
-		// Default to text
-		content = &String{Value: string(data)}
-	}
-
-	return content, int64(resp.StatusCode), respHeaders, nil
-}
-
 // isErrorCapturePattern checks if a dict destructuring pattern contains "data" or "error" keys
 // which indicates the user wants to use the error capture pattern
+// evalFetchExpression evaluates a bare <=/= expression (used in assignment capture like `let x = <=/= source`)
+func evalFetchExpression(node *ast.FetchExpression, env *Environment) Object {
+	source := Eval(node.Source, env)
+	if isError(source) {
+		return source
+	}
+
+	// SFTP file handle — return content directly
+	if sftpHandle, ok := source.(*SFTPFileHandle); ok {
+		content, err := evalSFTPRead(sftpHandle, env)
+		if err != nil {
+			return err
+		}
+		return content
+	}
+
+	// Must be a request or URL dictionary
+	sourceDict, ok := source.(*Dictionary)
+	if !ok {
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": string(source.Type())})
+	}
+
+	var reqDict *Dictionary
+	if isRequestDict(sourceDict) {
+		reqDict = sourceDict
+	} else if isUrlDict(sourceDict) {
+		reqDict = urlToRequestDict(sourceDict, "text", nil, env)
+	} else {
+		return newFileOpError("FILEOP-0007", map[string]any{"Operator": "fetch operator <=/>=", "Expected": "a request or URL handle", "Got": "dictionary"})
+	}
+
+	info := fetchUrlContentFull(reqDict, env)
+
+	if info.Error != "" {
+		return newHTTPErrorMessage("HTTP-0006", info.Error)
+	}
+
+	return makeResponseTypedDict(
+		info.Content,
+		info.Format,
+		info.StatusCode,
+		info.StatusText,
+		info.OK,
+		info.FinalURL,
+		info.Headers,
+		"",
+		env,
+	)
+}
+
+// isResponseTypedDict checks whether a value is a typed response dictionary (has __type = "response")
+func isResponseTypedDict(obj Object) bool {
+	dict, ok := obj.(*Dictionary)
+	if !ok {
+		return false
+	}
+	typeExpr, exists := dict.Pairs["__type"]
+	if !exists {
+		return false
+	}
+	if sl, ok := typeExpr.(*ast.StringLiteral); ok {
+		return sl.Value == "response"
+	}
+	if ole, ok := typeExpr.(*ast.ObjectLiteralExpression); ok {
+		if s, ok := ole.Obj.(*String); ok {
+			return s.Value == "response"
+		}
+	}
+	return false
+}
+
+// responseTypedDictToLegacy converts a typed response dict (__type, __data, __response)
+// to the legacy {data, error, status, headers} shape expected by error-capture destructuring.
+func responseTypedDictToLegacy(dict *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Extract __data
+	if dataExpr, ok := dict.Pairs["__data"]; ok {
+		pairs["data"] = dataExpr
+	} else {
+		pairs["data"] = &ast.ObjectLiteralExpression{Obj: NULL}
+	}
+
+	// Extract fields from __response sub-dict
+	var status int64
+	var errorMsg string
+	var headers *Dictionary
+
+	if responseExpr, ok := dict.Pairs["__response"]; ok {
+		responseObj := Eval(responseExpr, env)
+		if responseDict, ok := responseObj.(*Dictionary); ok {
+			// status
+			if statusExpr, ok := responseDict.Pairs["status"]; ok {
+				statusObj := Eval(statusExpr, env)
+				if statusInt, ok := statusObj.(*Integer); ok {
+					status = statusInt.Value
+				}
+			}
+			// error
+			if errorExpr, ok := responseDict.Pairs["error"]; ok {
+				errorObj := Eval(errorExpr, env)
+				if errorStr, ok := errorObj.(*String); ok {
+					errorMsg = errorStr.Value
+				}
+			}
+			// headers
+			if headersExpr, ok := responseDict.Pairs["headers"]; ok {
+				headersObj := Eval(headersExpr, env)
+				if h, ok := headersObj.(*Dictionary); ok {
+					headers = h
+				}
+			}
+		}
+	}
+
+	return makeFetchResponseDict(Eval(pairs["data"], env), errorMsg, status, headers, env)
+}
+
 func isErrorCapturePattern(pattern *ast.DictDestructuringPattern) bool {
 	for _, key := range pattern.Keys {
 		if key.Key != nil {

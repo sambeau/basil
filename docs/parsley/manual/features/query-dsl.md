@@ -25,7 +25,7 @@ keywords:
 
 # Query DSL
 
-Parsley's Query DSL provides declarative syntax for database operations through table bindings. Instead of writing SQL strings, you compose queries using `@query`, `@insert`, `@update`, and `@delete` expressions with a pipe-based syntax that generates parameterized SQL under the hood.
+Parsley's Query DSL provides declarative syntax for database operations through table bindings. Instead of writing SQL strings, you compose queries using `@query`, `@insert`, `@update`, and `@delete` expressions with a pipe-based syntax that generates parameterized SQL under the hood. It is designed to be minimalist, graphical and to express the flow of data passing through multiple steps.
 
 All DSL operations require a **TableBinding** — a schema bound to a database table via `db.bind()`. See [Database](database.md) for connection setup and binding creation.
 
@@ -68,6 +68,17 @@ Read data from a table binding. The general form is:
 
 ```
 @query(Binding | conditions | modifiers terminal)
+```
+
+Or if separated on to multiple lines:
+
+```
+@query(
+	Binding 
+	| conditions 
+	| modifiers 
+	terminal
+)
 ```
 
 ### Select All Rows
@@ -140,6 +151,25 @@ Multiple `|` clauses combine with AND:
 @query(Users | status == "active" | id > 1 ??-> *)
 ```
 
+Once you have more than one clause, we recommend using a multi-line query:
+
+```parsley
+@query(
+	Users
+	| status == "active"
+	| id > 1
+	??-> *)
+```
+
+Which can re read as:
+
+```parsley
+FIND
+	Users
+	WHERE status == "active"
+	AND id > 1
+	AS AN ARRAY-> OF '*' (i.e. all columns)
+```
 ### BETWEEN
 
 ```parsley
@@ -173,13 +203,20 @@ Prefix a condition group with `!` to negate:
 Parentheses create OR groups:
 
 ```parsley
-@query(Users | (status == "active" | status == "pending") ??-> *)
+@query(
+	Users 
+	| (status == "active" | status == "pending") 
+	??-> *)
 ```
 
 Combine groups with other conditions:
 
 ```parsley
-@query(Users | (status == "active" | status == "pending") | id > 5 ??-> *)
+@query(
+	Users 
+	| (status == "active" | status == "pending") 
+	| id > 5 
+	??-> *)
 ```
 
 ## Modifiers
@@ -198,7 +235,13 @@ Modifiers control ordering, limits, and eager loading. Each is prefixed with `|`
 
 ```parsley
 @query(Users | order id asc | limit 10 ??-> *)
-@query(Users | order id asc | limit 10 | offset 20 ??-> *)
+
+@query(
+	Users
+	| order id asc
+	| limit 10
+	| offset 20 
+	??-> *)
 ```
 
 ### Eager Loading (with)
@@ -223,10 +266,18 @@ let Authors = db.bind(Author, "authors")
 let Posts = db.bind(Post, "posts")
 
 // Eager-load the author for each post
-@query(Posts | id == 1 | with author ?-> *)
+@query(
+	Posts 
+	| id == 1 
+	| with author 
+	?-> *)
 
 // Eager-load all posts for an author
-@query(Authors | id == 1 | with posts ?-> *)
+@query(
+	Authors 
+	| id == 1 
+	| with posts 
+	?-> *)
 ```
 
 Nested relations use dot notation:
@@ -238,7 +289,13 @@ Nested relations use dot notation:
 You can add conditions, ordering, and limits to eager-loaded relations:
 
 ```parsley
-@query(Authors | with posts | status == "published" | order created_at desc | limit 5 ?-> *)
+@query(
+	Authors 
+	| with posts 
+	| status == "published" 
+	| order created_at desc 
+	| limit 5 
+	?-> *)
 ```
 
 ## Group By and Aggregation
@@ -246,7 +303,11 @@ You can add conditions, ordering, and limits to eager-loaded relations:
 Use `+ by` to group rows. Computed fields define aggregations:
 
 ```parsley
-@query(Orders + by status | order_count: count ??-> status, order_count)
+@query(
+	Orders 
+	+ by status 
+	| order_count: count 
+	??-> status, order_count)
 ```
 
 ### Aggregate Functions
@@ -260,8 +321,17 @@ Use `+ by` to group rows. Computed fields define aggregations:
 | `max(field)` | Maximum field value |
 
 ```parsley
-@query(Orders + by customer_id | total: sum(amount) ??-> customer_id, total)
-@query(Orders + by customer_id | average: avg(amount) ??-> customer_id, average)
+@query(
+	Orders 
+	+ by customer_id 
+	| total: sum(amount) 
+	??-> customer_id, total)
+
+@query(
+	Orders 
+	+ by customer_id 
+	| average: avg(amount) 
+	??-> customer_id, average)
 ```
 
 Aggregates also work without `+ by` to compute over the entire table:
@@ -275,7 +345,12 @@ Aggregates also work without `+ by` to compute over the entire table:
 Insert rows into a table binding. Fields are written with `|<` (pipe-write):
 
 ```parsley
-@insert(Users |< name: "Alice" |< email: "alice@test.com" .)
+@insert(
+	Users 
+	|< name: "Alice" 
+	|< email: "alice@test.com" 
+	.
+)
 ```
 
 ### Return the Inserted Row
@@ -289,7 +364,11 @@ user.id                                             // auto-generated ID
 
 ```parsley
 let userName = "Carol"
-@insert(Users |< name: {userName} |< email: "carol@test.com" .)
+@insert(
+	Users 
+	|< name: {userName} 
+	|< email: "carol@test.com" 
+	.)
 ```
 
 ### Batch Insert
@@ -303,7 +382,12 @@ let people = [
     {name: "Carol", age: 35}
 ]
 
-@insert(Users * each people as person |< name: person.name |< age: person.age .)
+@insert(
+	Users 
+	* each people as person 
+	|< name: person.name 
+	|< age: person.age 
+	.)
 ```
 
 ### Upsert
@@ -311,7 +395,12 @@ let people = [
 Insert or update on conflict using `| update on`:
 
 ```parsley
-@insert(Settings | update on key |< key: "theme" |< value: "dark" .)
+@insert(
+	Settings 
+	| update on key 
+	|< key: "theme" 
+	|< value: "dark" 
+	.)
 ```
 
 If a row with the same `key` exists, it updates; otherwise it inserts.
@@ -321,25 +410,42 @@ If a row with the same `key` exists, it updates; otherwise it inserts.
 Update rows matching conditions. Conditions come before `|<` writes:
 
 ```parsley
-@update(Users | status == "old" |< status: "updated" .)
+@update(
+	Users 
+	| status == "old" 
+	|< status: "updated" 
+	.)
 ```
 
 ### Return Affected Count
 
 ```parsley
-@update(Users | status == "old" |< status: "updated" .-> count)  // 2
+@update(
+	Users 
+	| status == "old" 
+	|< status: "updated" 
+	.-> count)  // 2
 ```
 
 ### Return the Updated Row
 
 ```parsley
-let user = @update(Users | id == 1 |< score: 200 ?-> *)
+let user = @update(
+	Users 
+	| id == 1 
+	|< score: 200 
+	?-> *)
 ```
 
 ### Multiple Field Updates
 
 ```parsley
-@update(Users | id == 1 |< name: "Alice Smith" |< email: "alice.smith@test.com" .)
+@update(
+	Users 
+	| id == 1 
+	|< name: "Alice Smith" 
+	|< email: "alice.smith@test.com" 
+	.)
 ```
 
 ## @delete
@@ -371,6 +477,8 @@ let Posts = db.bind(Post, "posts", {soft_delete: "deleted_at"})
 
 ## Subqueries
 
+*You’re probably not going to need subqueries. But Parsely’s Query DSL does support them:-*
+
 Use `<-table_name` with double-pipe delimiters to embed a subquery as a condition value:
 
 ```parsley
@@ -380,10 +488,27 @@ Use `<-table_name` with double-pipe delimiters to embed a subquery as a conditio
 
 The subquery `<-users | | role == "admin" | | ?-> id` generates a `SELECT id FROM users WHERE role = 'admin'` and uses it in an `IN` clause. Note the double `|` delimiters that bracket the subquery's own conditions.
 
+The double-pipe makes more sense when you see it written across multiple lines:
+
+```parsley
+// Posts by admins
+@query(
+	Posts
+	| author_id in <-users
+	| | role == "admin"
+	| | ?-> id 
+	??-> title)
+```
+
 ### NOT IN
 
 ```parsley
-@query(Posts | author_id not in <-users | | role == "admin" | | ?-> id ??-> title)
+@query(
+	Posts
+	| author_id not in <-users 
+	| | role == "admin" 
+	| | ?-> id 
+	??-> title)
 ```
 
 ## Correlated Subqueries
@@ -391,9 +516,12 @@ The subquery `<-users | | role == "admin" | | ?-> id` generates a `SELECT id FRO
 A correlated subquery computes a value for each row in the outer query. Use `as alias` on the outer query and `<-` with the alias reference:
 
 ```parsley
-@query(Posts as post
-    | comment_count <-comments | | post_id == post.id | ?-> count
-    ??-> *)
+@query(
+	Posts as post
+	| comment_count <-comments 
+	| | post_id == post.id 
+	| ?-> count
+	??-> *)
 ```
 
 This adds a `comment_count` computed field to each post, containing the count of related comments.
@@ -402,7 +530,10 @@ This adds a `comment_count` computed field to each post, containing the count of
 
 ```parsley
 @query(Posts as post
-    | recent_count <-comments | | post_id == post.id | created_at > "2024-01-01" | ?-> count
+    | recent_count <-comments 
+    | | post_id == post.id 
+    | | created_at > "2024-01-01" 
+    | ?-> count
     ??-> *)
 ```
 
@@ -445,8 +576,11 @@ Multiple CTEs:
 Use a correlated subquery with `??->` (return many) to produce join-like row expansion:
 
 ```parsley
-@query(Orders as o
-    | items <-order_items | | order_id == o.id | ??-> *
+@query(
+	Orders as o
+    | items <-order_items 
+    | | order_id == o.id 
+    | ??-> *
     ??-> *)
 ```
 
@@ -520,7 +654,7 @@ The DSL validates inserted and updated values against the schema. Type-constrain
 ## Key Differences from Other Languages
 
 - **No SQL strings** — the DSL generates parameterized SQL from a declarative syntax. You never concatenate values into query strings.
-- **Pipe-based composition** — conditions (`|`), field writes (`|<`), and modifiers (`| order`, `| limit`) chain naturally. The syntax reads left to right.
+- **Pipe-based composition** — conditions (`|`), field writes (`|<`), and modifiers (`| order`, `| limit`) chain naturally. The syntax reads left to right; up to down.
 - **Terminals control return shape** — `?->` for one, `??->` for many, `.` for fire-and-forget. The terminal is always the last thing before `)`.
 - **Schema-aware** — the DSL validates values against the bound schema's type constraints before generating SQL.
 - **Subqueries and CTEs** — complex multi-table queries compose within a single `@query()` expression rather than requiring raw SQL.

@@ -62,7 +62,7 @@ func TestShuffleMethod(t *testing.T) {
 
 	t.Run("shuffle contains same elements", func(t *testing.T) {
 		// Run multiple times to verify elements are preserved
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			result := evalRandomTest(`[1,2,3].shuffle().sort()`)
 			if result.Inspect() != "[1, 2, 3]" {
 				t.Errorf("Shuffled array has different elements: %s", result.Inspect())
@@ -82,7 +82,7 @@ func TestShuffleMethod(t *testing.T) {
 func TestPickMethod(t *testing.T) {
 	t.Run("pick from array returns element", func(t *testing.T) {
 		// Run multiple times - should always return one of the elements
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			result := evalRandomTest(`[1,2,3].pick()`)
 			val := result.Inspect()
 			if val != "1" && val != "2" && val != "3" {
@@ -121,7 +121,7 @@ func TestPickMethod(t *testing.T) {
 
 	t.Run("pick(n) elements are from original array", func(t *testing.T) {
 		// All picked elements should be a, b, or c
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			result := evalRandomTest(`
 				let picked = ["a","b","c"].pick(5)
 				picked.filter(fn(x) { x == "a" || x == "b" || x == "c" }).length() == 5
@@ -192,7 +192,7 @@ func TestTakeMethod(t *testing.T) {
 
 	t.Run("take(n) where n == length returns all elements shuffled", func(t *testing.T) {
 		// Should return all elements, just shuffled
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			result := evalRandomTest(`[1,2,3].take(3).sort()`)
 			if result.Inspect() != "[1, 2, 3]" {
 				t.Errorf("take(3) from [1,2,3] should contain all elements: %s", result.Inspect())
@@ -202,7 +202,7 @@ func TestTakeMethod(t *testing.T) {
 
 	t.Run("take(n) elements are unique", func(t *testing.T) {
 		// Take 3 from array of 5 - when sorted, should have 3 distinct values
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			result := evalRandomTest(`
 				let taken = [1,2,3,4,5].take(3)
 				// If all unique, sorting and checking adjacent pairs should show no duplicates

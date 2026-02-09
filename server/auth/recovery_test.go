@@ -190,7 +190,7 @@ func TestNormalizeCode(t *testing.T) {
 
 func TestGenerateRecoveryCode_Format(t *testing.T) {
 	// Generate many codes and check they're all valid format
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		code := generateRecoveryCode()
 
 		parts := strings.Split(code, "-")

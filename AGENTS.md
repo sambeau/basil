@@ -29,15 +29,45 @@ make test
 # Or: go test ./...
 ```
 
-### Lint
+### Lint (new issues only)
 ```bash
 golangci-lint run
+```
+This uses the baseline in `.golangci.yml` to only report issues in new/changed code.
+
+### Lint (all issues)
+```bash
+golangci-lint run --new-from-rev=""
 ```
 
 ### Full Validation (run before committing)
 ```bash
 make check
 # Or: go build -o basil ./cmd/basil && go build -o pars ./cmd/pars && go test ./...
+```
+
+## Linting Guidelines
+
+**Run the linter regularly** — at minimum before each commit and after significant changes.
+
+### Incremental Linting (Default)
+The project uses a baseline commit in `.golangci.yml` (`new-from-rev`). By default, `golangci-lint run` only reports issues introduced after the baseline. This allows gradual improvement without requiring all legacy issues to be fixed.
+
+### What to Fix
+- **Always fix**: Issues in code you wrote or modified
+- **Encouraged**: Fixing nearby legacy issues while you're in a file
+- **Don't block on**: Legacy issues in unrelated code
+
+### Enabled Linters
+- `errcheck`, `govet`, `ineffassign`, `staticcheck`, `unused` (defaults)
+- `modernize` — Modern Go idioms (any, min/max, range int, slices/maps)
+- `gocritic` — Style and diagnostic checks
+
+### Updating the Baseline
+After a bulk cleanup of legacy issues, update the baseline in `.golangci.yml`:
+```yaml
+issues:
+  new-from-rev: <new-commit-sha>
 ```
 
 ## Project Structure
@@ -143,6 +173,7 @@ When answering a "how do I..." question from human:
 - Always run `go mod tidy` after adding dependencies
 - The `internal/` directory is not importable externally
 - Tests must not depend on external services
+- Run `golangci-lint run` before committing to catch issues early
 
 ## Trust These Instructions
 Follow the instructions in this file and referenced procedure documents. Only search the codebase if instructions are incomplete or incorrect.

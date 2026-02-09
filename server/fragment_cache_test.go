@@ -284,7 +284,7 @@ func TestFragmentCache_LRUEviction(t *testing.T) {
 	cache := newFragmentCache(false, 10)
 
 	// Fill the cache
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		key := "/test:" + string(rune('a'+i))
 		cache.Set(key, "content", 5*time.Minute)
 	}

@@ -107,18 +107,27 @@ func TestTryCatchableFormatError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := evalTryHelper(tt.input)
 
-			// Result should NOT be null - should have an error string
+			// Result should NOT be null - should have an error dict
 			if result == evaluator.NULL {
-				t.Fatal("expected error string, got NULL")
+				t.Fatal("expected error dict, got NULL")
 			}
 
-			str, ok := result.(*evaluator.String)
+			dict, ok := result.(*evaluator.Dictionary)
 			if !ok {
-				t.Fatalf("expected String (error message), got %T: %s", result, result.Inspect())
+				t.Fatalf("expected Dictionary (error dict), got %T: %s", result, result.Inspect())
 			}
 
-			if !strings.Contains(strings.ToLower(str.Value), strings.ToLower(tt.expectedInError)) {
-				t.Errorf("expected error containing %q, got: %s", tt.expectedInError, str.Value)
+			msgObj := evaluator.GetDictValue(dict, "message")
+			if msgObj == nil {
+				t.Fatal("error dict missing 'message' key")
+			}
+			msgStr, ok := msgObj.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected string message, got %T: %s", msgObj, msgObj.Inspect())
+			}
+
+			if !strings.Contains(strings.ToLower(msgStr.Value), strings.ToLower(tt.expectedInError)) {
+				t.Errorf("expected error containing %q, got: %s", tt.expectedInError, msgStr.Value)
 			}
 		})
 	}
@@ -417,13 +426,13 @@ let validate = fn(x) {
 }
 
 let {result, error} = try validate(-5)
-error
+error.message
 `
 	result := evalTryHelper(input)
 
 	strVal, ok := result.(*evaluator.String)
 	if !ok {
-		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+		t.Fatalf("expected string error message, got %T: %s", result, result.Inspect())
 	}
 
 	if strVal.Value != "must be non-negative" {
@@ -467,7 +476,7 @@ func TestFailArityError(t *testing.T) {
 	}
 }
 
-// TestFailTypeError tests that fail() with non-string produces Type error
+// TestFailTypeError tests that fail() with unsupported type produces Type error
 func TestFailTypeError(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -475,7 +484,7 @@ func TestFailTypeError(t *testing.T) {
 	}{
 		{"integer", `fail(123)`},
 		{"array", `fail([1, 2, 3])`},
-		{"dictionary", `fail({a: 1})`},
+		{"dict_no_message", `fail({a: 1})`},
 		{"null", `fail(null)`},
 	}
 
@@ -504,13 +513,13 @@ let middle = fn() { inner() }
 let outer = fn() { middle() }
 
 let {result, error} = try outer()
-error
+error.message
 `
 	result := evalTryHelper(input)
 
 	strVal, ok := result.(*evaluator.String)
 	if !ok {
-		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+		t.Fatalf("expected string error message, got %T: %s", result, result.Inspect())
 	}
 
 	if strVal.Value != "deep error" {
@@ -528,13 +537,13 @@ let {result, error} = try items.map(fn(x) {
   }
   x * 2
 })
-error
+error.message
 `
 	result := evalTryHelper(input)
 
 	strVal, ok := result.(*evaluator.String)
 	if !ok {
-		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+		t.Fatalf("expected string error message, got %T: %s", result, result.Inspect())
 	}
 
 	if strVal.Value != "found 3" {
@@ -544,12 +553,12 @@ error
 
 // TestFailEmptyMessage tests that fail("") is valid
 func TestFailEmptyMessage(t *testing.T) {
-	input := `let {result, error} = try fail(""); error`
+	input := `let {result, error} = try fail(""); error.message`
 	result := evalTryHelper(input)
 
 	strVal, ok := result.(*evaluator.String)
 	if !ok {
-		t.Fatalf("expected string error, got %T: %s", result, result.Inspect())
+		t.Fatalf("expected string error message, got %T: %s", result, result.Inspect())
 	}
 
 	if strVal.Value != "" {

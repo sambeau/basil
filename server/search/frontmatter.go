@@ -47,7 +47,7 @@ func ParseFrontmatter(content string) (*Frontmatter, string, error) {
 	yamlContent := strings.Join(yamlLines, "\n")
 
 	// Parse YAML
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := yaml.Unmarshal([]byte(yamlContent), &raw); err != nil {
 		// Invalid YAML - log but don't fail
 		// Return empty frontmatter and full content
@@ -63,7 +63,7 @@ func ParseFrontmatter(content string) (*Frontmatter, string, error) {
 	}
 
 	// Extract tags (can be array or comma-separated string)
-	if tags, ok := raw["tags"].([]interface{}); ok {
+	if tags, ok := raw["tags"].([]any); ok {
 		fm.Tags = make([]string, 0, len(tags))
 		for _, tag := range tags {
 			if tagStr, ok := tag.(string); ok {
@@ -105,7 +105,7 @@ func ParseFrontmatter(content string) (*Frontmatter, string, error) {
 	}
 
 	// Extract authors (optional)
-	if authors, ok := raw["authors"].([]interface{}); ok {
+	if authors, ok := raw["authors"].([]any); ok {
 		fm.Authors = make([]string, 0, len(authors))
 		for _, author := range authors {
 			if authorStr, ok := author.(string); ok {

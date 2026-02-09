@@ -9,6 +9,7 @@ package evaluator
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
@@ -19,21 +20,21 @@ import (
 // Note: 'g' (global) is handled by match operator, not compilation
 func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
 	// Process flags - Go regexp supports (?flags) syntax
-	prefix := ""
+	var prefix strings.Builder
 	for _, flag := range flags {
 		switch flag {
 		case 'i': // case-insensitive
-			prefix += "(?i)"
+			prefix.WriteString("(?i)")
 		case 'm': // multi-line (^ and $ match line boundaries)
-			prefix += "(?m)"
+			prefix.WriteString("(?m)")
 		case 's': // dot matches newline
-			prefix += "(?s)"
+			prefix.WriteString("(?s)")
 			// 'g' (global) is handled by match operator, not compilation
 			// Other flags like 'x' (verbose) could be added
 		}
 	}
 
-	fullPattern := prefix + pattern
+	fullPattern := prefix.String() + pattern
 	return regexp.Compile(fullPattern)
 }
 

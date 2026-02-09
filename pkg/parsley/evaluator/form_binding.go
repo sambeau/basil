@@ -30,12 +30,6 @@ func getFormContext(env *Environment) *FormContext {
 	return nil
 }
 
-// setFormContext sets a form context in the environment.
-// The context is stored on this environment level only.
-func setFormContext(env *Environment, ctx *FormContext) {
-	env.FormContext = ctx
-}
-
 // parseFormAtRecord parses the @record attribute from props string.
 // Returns the expression if found, nil if not present.
 // baseLine and baseCol are the position of the props string start for error reporting.
@@ -188,7 +182,8 @@ func parseFieldAttribute(propsStr string) string {
 	}
 
 	// Must be quoted or braced
-	if propsStr[valueStart] == '"' {
+	switch propsStr[valueStart] {
+	case '"':
 		// Find closing quote
 		valueEnd := valueStart + 1
 		for valueEnd < len(propsStr) && propsStr[valueEnd] != '"' {
@@ -198,7 +193,7 @@ func parseFieldAttribute(propsStr string) string {
 			valueEnd++
 		}
 		return propsStr[valueStart+1 : valueEnd]
-	} else if propsStr[valueStart] == '{' {
+	case '{':
 		// Brace expression - find closing brace
 		braceDepth := 1
 		valueEnd := valueStart + 1

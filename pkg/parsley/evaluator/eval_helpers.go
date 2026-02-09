@@ -13,67 +13,6 @@ import (
 // perform evaluation. This includes natural sorting, type comparison, path security,
 // currency formatting, and type checking helpers.
 
-// naturalCompare compares two objects using natural sort order
-// Returns true if a < b in natural sort order
-func naturalCompare(a, b Object) bool {
-	// Type-based ordering: numbers < strings
-	aType := getTypeOrder(a)
-	bType := getTypeOrder(b)
-
-	if aType != bType {
-		return aType < bType
-	}
-
-	// Both are numbers
-	if aType == 0 {
-		return compareNumbers(a, b)
-	}
-
-	// Both are strings - use natural string comparison
-	if aType == 1 {
-		aStr := a.(*String).Value
-		bStr := b.(*String).Value
-		return NaturalCompare(aStr, bStr) < 0
-	}
-
-	// Other types (shouldn't happen with current implementation)
-	return false
-}
-
-// getTypeOrder returns a sort order for types
-// 0 = numbers (Integer, Float)
-// 1 = strings
-// 2 = other
-func getTypeOrder(obj Object) int {
-	switch obj.Type() {
-	case INTEGER_OBJ, FLOAT_OBJ:
-		return 0
-	case STRING_OBJ:
-		return 1
-	default:
-		return 2
-	}
-}
-
-// compareNumbers compares two numeric objects
-func compareNumbers(a, b Object) bool {
-	aVal := getNumericValue(a)
-	bVal := getNumericValue(b)
-	return aVal < bVal
-}
-
-// getNumericValue extracts numeric value as float64
-func getNumericValue(obj Object) float64 {
-	switch obj := obj.(type) {
-	case *Integer:
-		return float64(obj.Value)
-	case *Float:
-		return obj.Value
-	default:
-		return 0
-	}
-}
-
 // NaturalCompare compares two strings using natural sort order.
 // Returns -1 if a < b, 0 if a == b, 1 if a > b.
 // Uses ASCII fast path for performance, falls back to Unicode for international text.

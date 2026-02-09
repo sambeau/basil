@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/sambeau/basil/server/auth"
@@ -180,35 +181,6 @@ func (h *siteHandler) findHandler(urlPath string) (handlerPath string, subpath s
 	return "", ""
 }
 
-// getCheckedPaths returns the list of paths checked during handler lookup (for dev 404 page).
-func (h *siteHandler) getCheckedPaths(urlPath string) []string {
-	urlPath = filepath.Clean(urlPath)
-	if !strings.HasPrefix(urlPath, "/") {
-		urlPath = "/" + urlPath
-	}
-
-	segments := splitPath(urlPath)
-	var paths []string
-
-	for i := len(segments); i >= 0; i-- {
-		checkPath := "/"
-		if i > 0 {
-			checkPath = "/" + strings.Join(segments[:i], "/")
-		}
-
-		// Show both {foldername}.pars and index.pars in checked paths
-		if i > 0 {
-			folderName := segments[i-1]
-			folderIndexPath := filepath.Join(checkPath, folderName+".pars")
-			paths = append(paths, folderIndexPath)
-		}
-		indexPath := filepath.Join(checkPath, "index.pars")
-		paths = append(paths, indexPath)
-	}
-
-	return paths
-}
-
 // serveWithHandler executes the found handler with the calculated subpath.
 func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, handlerPath string, subpath string) {
 	// Calculate the route path (URL path minus subpath) for publicUrl() context
@@ -263,19 +235,14 @@ func splitPath(path string) []string {
 // containsPathTraversal checks if a path contains .. components.
 func containsPathTraversal(path string) bool {
 	segments := strings.Split(path, "/")
-	for _, seg := range segments {
-		if seg == ".." {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(segments, "..")
 }
 
 // containsDotfile checks if any path segment starts with a dot (hidden files).
 // Excludes the empty segment from "/path" which would be before the first slash.
 func containsDotfile(path string) bool {
-	segments := strings.Split(strings.Trim(path, "/"), "/")
-	for _, seg := range segments {
+	segments := strings.SplitSeq(strings.Trim(path, "/"), "/")
+	for seg := range segments {
 		if seg != "" && strings.HasPrefix(seg, ".") {
 			return true
 		}

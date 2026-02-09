@@ -62,11 +62,9 @@ func CheckForChanges(db *sql.DB, watchFolders []string, extensions []string) (*C
 		if !exists {
 			// New file
 			changeset.New = append(changeset.New, *doc)
-		} else {
+		} else if doc.Mtime != meta.Mtime {
 			// Check if mtime has changed
-			if doc.Mtime != meta.Mtime {
-				changeset.Changed = append(changeset.Changed, *doc)
-			}
+			changeset.Changed = append(changeset.Changed, *doc)
 		}
 	}
 

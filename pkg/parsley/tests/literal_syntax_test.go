@@ -48,7 +48,7 @@ func TestPathLiterals(t *testing.T) {
 func TestUrlLiterals(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"let u = @https://example.com/api; toString(u)", "https://example.com/api"},
 		{"let u = @http://localhost:8080/test; toString(u)", "http://localhost:8080/test"},

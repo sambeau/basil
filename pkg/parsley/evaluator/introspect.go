@@ -392,7 +392,7 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"logLine": {Name: "logLine", Arity: "1+", Description: "Log message with newline", Params: []string{"values..."}, Category: "output"},
 
 	// === Control Flow ===
-	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message", Params: []string{"message"}, Category: "control"},
+	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message string or error dictionary (must have 'message' key)", Params: []string{"message_or_dict"}, Category: "control"},
 
 	// === Formatting ===
 	"format": {Name: "format", Arity: "2+", Description: "Format string with placeholders", Params: []string{"template", "values..."}, Category: "format"},

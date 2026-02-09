@@ -898,7 +898,7 @@ meta:
 		t.Errorf("expected meta.name 'My Test Site', got %v", cfg.Meta["name"])
 	}
 
-	features, ok := cfg.Meta["features"].(map[string]interface{})
+	features, ok := cfg.Meta["features"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected meta.features to be a map, got %T", cfg.Meta["features"])
 	}

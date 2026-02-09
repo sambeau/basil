@@ -149,7 +149,7 @@ func TestDecryptTamperedData(t *testing.T) {
 func TestSessionExpiration(t *testing.T) {
 	// Create expired session
 	session := &SessionData{
-		Data:      make(map[string]interface{}),
+		Data:      make(map[string]any),
 		Flash:     make(map[string]string),
 		ExpiresAt: time.Now().Add(-time.Hour), // 1 hour ago
 	}

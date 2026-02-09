@@ -602,7 +602,6 @@ func evalDatetimeComputedProperty(dict *Dictionary, key string, env *Environment
 										if hInt, ok := hour.(*Integer); ok {
 											if mInt, ok := minute.(*Integer); ok {
 												if hInt.Value != 0 || mInt.Value != 0 {
-													hasTime = true
 													timeStr := fmt.Sprintf("%02d:%02d", hInt.Value, mInt.Value)
 													return &String{Value: fmt.Sprintf("%s %d, %d at %s", monthName, dInt.Value, yInt.Value, timeStr)}
 												}

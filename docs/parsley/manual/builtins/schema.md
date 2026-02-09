@@ -20,6 +20,8 @@ keywords:
 
 # Schemas
 
+Parsley is untyped. Instead, it provides Schema to protect the integrity of data.
+
 Schemas define the structure of records and tables in Parsley. They specify field names, types, validation rules, default values, and metadata for UI generation. Schemas are central to Parsley's approach to structured data—they drive database table creation, form validation, and auto-generated UIs.
 
 ```parsley
@@ -718,6 +720,42 @@ Issue.enumValues("description") // [] (not an enum)
     }
 </select>
 ```
+
+---
+
+### failIfInvalid()
+
+#### Usage: record.failIfInvalid()
+
+Converts validation errors into a single catchable error, bridging schema validation with the unified error model. Returns the record if valid (enabling chaining), or throws a structured error if invalid.
+
+```parsley
+@schema User { name: string(required), email: email(required) }
+
+// Chain into processing — fails automatically if invalid
+let user = User(formData).validate().failIfInvalid()
+db.insert(user)
+
+// Catch with try for custom handling
+let {result, error} = try fn() {
+    User(formData).validate().failIfInvalid()
+}()
+if (error) {
+    error.code                   // "VALIDATION"
+    error.status                 // 400
+    error.fields                 // [{field: "name", code: "REQUIRED", message: "Name is required"}, ...]
+}
+```
+
+**Behavior by record state:**
+
+| Record state | Return value |
+|---|---|
+| Not yet validated | The record (no-op) |
+| Valid (no errors) | The record (enables chaining) |
+| Invalid (has errors) | Catchable error with `{status: 400, code: "VALIDATION", message: "Validation failed", fields: [...]}` |
+
+The existing validation methods (`isValid()`, `errorList()`, `hasError()`, `error()`, `errorCode()`) continue to work unchanged. `failIfInvalid()` is a convenience that composes them into a single catchable error.
 
 ---
 

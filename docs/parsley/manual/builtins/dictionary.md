@@ -76,7 +76,7 @@ Dictionaries can contain other dictionaries:
 ```parsley
 {
     user: {name: "Alice", id: 42},
-    settings: {theme: "dark", notifications: true}
+    settings: {theme: "dark", notifications: true},
 }
 ```
 

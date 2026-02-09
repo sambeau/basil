@@ -186,8 +186,8 @@ func TestUrlOperatorWithProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEvalOperator(tt.input)
-		switch expected := tt.expected; {
-		case expected == "api.github.com" || expected == "example.com":
+		switch expected := tt.expected; expected {
+		case "api.github.com", "example.com":
 			str, ok := result.(*evaluator.String)
 			if !ok {
 				t.Errorf("For input '%s': expected String, got %T (%+v)", tt.input, result, result)

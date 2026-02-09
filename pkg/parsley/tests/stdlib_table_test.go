@@ -926,22 +926,22 @@ func TestStdBasilImportFailsWithError(t *testing.T) {
 func TestBasilHttpModuleWithContext(t *testing.T) {
 	env := evaluator.NewEnvironment()
 
-	basilMap := map[string]interface{}{
-		"http": map[string]interface{}{
-			"request": map[string]interface{}{
+	basilMap := map[string]any{
+		"http": map[string]any{
+			"request": map[string]any{
 				"method": "GET",
 				"path":   "/users/42",
-				"query":  map[string]interface{}{"flag": true},
-				"route": map[string]interface{}{
+				"query":  map[string]any{"flag": true},
+				"route": map[string]any{
 					"__type":   "path",
 					"absolute": false,
-					"segments": []interface{}{"users", "42"},
+					"segments": []any{"users", "42"},
 				},
 			},
-			"response": map[string]interface{}{},
+			"response": map[string]any{},
 		},
-		"auth": map[string]interface{}{
-			"user": map[string]interface{}{"id": "u1"},
+		"auth": map[string]any{
+			"user": map[string]any{"id": "u1"},
 		},
 	}
 
@@ -1026,12 +1026,12 @@ method`,
 func TestBasilAuthModuleWithContext(t *testing.T) {
 	env := evaluator.NewEnvironment()
 
-	basilMap := map[string]interface{}{
-		"auth": map[string]interface{}{
-			"user": map[string]interface{}{"email": "user@example.com"},
+	basilMap := map[string]any{
+		"auth": map[string]any{
+			"user": map[string]any{"email": "user@example.com"},
 		},
 		"sqlite":  "db-conn",
-		"session": map[string]interface{}{"id": "sess-1"},
+		"session": map[string]any{"id": "sess-1"},
 	}
 
 	basilObj, err := parsley.ToParsley(basilMap)

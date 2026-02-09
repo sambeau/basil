@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -595,7 +596,7 @@ func htmlEscape(s string) string {
 // Exported for testing.
 func EncodePropsToJSON(props *Dictionary) string {
 	// Build a map of evaluated prop values
-	propsMap := make(map[string]interface{})
+	propsMap := make(map[string]any)
 	for key, expr := range props.Pairs {
 		// Evaluate the expression
 		val := Eval(expr, props.Env)
@@ -649,12 +650,7 @@ func NeedsPLNSerialization(obj Object) bool {
 		return false
 	case *Array:
 		// Check if any element needs PLN
-		for _, elem := range v.Elements {
-			if NeedsPLNSerialization(elem) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(v.Elements, NeedsPLNSerialization)
 	default:
 		return false
 	}
@@ -693,7 +689,7 @@ func RegisterPLNSigningFunctions(
 
 // objectToGoValue converts a Parsley object to a Go value for JSON marshaling
 // For database storage, Money values are converted to their integer Amount (cents/minor units).
-func objectToGoValue(obj Object) interface{} {
+func objectToGoValue(obj Object) any {
 	switch v := obj.(type) {
 	case *Integer:
 		return v.Value
@@ -707,13 +703,13 @@ func objectToGoValue(obj Object) interface{} {
 		// Store as integer (cents/minor units) - consistent with Money type storage
 		return v.Amount
 	case *Array:
-		arr := make([]interface{}, len(v.Elements))
+		arr := make([]any, len(v.Elements))
 		for i, elem := range v.Elements {
 			arr[i] = objectToGoValue(elem)
 		}
 		return arr
 	case *Dictionary:
-		m := make(map[string]interface{})
+		m := make(map[string]any)
 		for key, expr := range v.Pairs {
 			val := Eval(expr, v.Env)
 			m[key] = objectToGoValue(val)
@@ -929,15 +925,16 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		// Get string value and escape
 		strVal := objectToTemplateString(value.(Object))
 		for _, c := range strVal {
-			if c == '"' {
+			switch c {
+			case '"':
 				result.WriteString("&quot;")
-			} else if c == '&' {
+			case '&':
 				result.WriteString("&amp;")
-			} else if c == '<' {
+			case '<':
 				result.WriteString("&lt;")
-			} else if c == '>' {
+			case '>':
 				result.WriteString("&gt;")
-			} else {
+			default:
 				result.WriteRune(c)
 			}
 		}
@@ -1212,9 +1209,10 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -1260,10 +1258,7 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					// Adjust error position for runtime errors
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}
@@ -1350,9 +1345,10 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 
 					// Find closing } with brace counting
 					for i < len(propsStr) && braceCount > 0 {
-						if propsStr[i] == '{' {
+						switch propsStr[i] {
+						case '{':
 							braceCount++
-						} else if propsStr[i] == '}' {
+						case '}':
 							braceCount--
 						}
 						if braceCount > 0 {
@@ -1396,10 +1392,7 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 							// Adjust error position for runtime errors
 							if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 								errObj.Line = baseLine
-								errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-								if errObj.Column < baseCol+exprOffset {
-									errObj.Column = baseCol + exprOffset
-								}
+								errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 								if errObj.File == "" {
 									errObj.File = env.Filename
 								}
@@ -1446,9 +1439,10 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -1494,10 +1488,7 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					// Adjust error position for runtime errors
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}
@@ -1622,12 +1613,13 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			result.WriteString("<input")
 
 			// Add auto-generated attributes based on schema
-			if existingType == "checkbox" {
+			switch existingType {
+			case "checkbox":
 				result.WriteString(buildCheckboxAttributes(record, fieldName))
-			} else if existingType == "radio" {
+			case "radio":
 				radioValue := parseExistingValue(propsStr)
 				result.WriteString(buildRadioAttributes(record, fieldName, radioValue))
-			} else {
+			default:
 				result.WriteString(buildInputAttributes(record, fieldName, existingType))
 			}
 
@@ -1840,9 +1832,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 
 					// Find closing } with brace counting
 					for i < len(propsStr) && braceCount > 0 {
-						if propsStr[i] == '{' {
+						switch propsStr[i] {
+						case '{':
 							braceCount++
-						} else if propsStr[i] == '}' {
+						case '}':
 							braceCount--
 						}
 						if braceCount > 0 {
@@ -1937,9 +1930,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {
@@ -2050,15 +2044,16 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 							strVal := objectToTemplateString(evaluated)
 							// Escape quotes in the value
 							for _, c := range strVal {
-								if c == '"' {
+								switch c {
+								case '"':
 									result.WriteString("&quot;")
-								} else if c == '&' {
+								case '&':
 									result.WriteString("&amp;")
-								} else if c == '<' {
+								case '<':
 									result.WriteString("&lt;")
-								} else if c == '>' {
+								case '>':
 									result.WriteString("&gt;")
-								} else {
+								default:
 									result.WriteRune(c)
 								}
 							}
@@ -2155,15 +2150,16 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 		// Get string value and escape
 		strVal := objectToTemplateString(value.(Object))
 		for _, c := range strVal {
-			if c == '"' {
+			switch c {
+			case '"':
 				result.WriteString("&quot;")
-			} else if c == '&' {
+			case '&':
 				result.WriteString("&amp;")
-			} else if c == '<' {
+			case '<':
 				result.WriteString("&lt;")
-			} else if c == '>' {
+			case '>':
 				result.WriteString("&gt;")
-			} else {
+			default:
 				result.WriteRune(c)
 			}
 		}
@@ -2437,9 +2433,10 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 				braceCount := 1
 
 				for i < len(propsStr) && braceCount > 0 {
-					if propsStr[i] == '{' {
+					switch propsStr[i] {
+					case '{':
 						braceCount++
-					} else if propsStr[i] == '}' {
+					case '}':
 						braceCount--
 					}
 					if braceCount > 0 {
@@ -2543,9 +2540,10 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 					}
 					continue
 				}
-				if propsStr[i] == '{' {
+				switch propsStr[i] {
+				case '{':
 					braceCount++
-				} else if propsStr[i] == '}' {
+				case '}':
 					braceCount--
 				}
 				if braceCount > 0 {

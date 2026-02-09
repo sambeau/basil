@@ -172,7 +172,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		// For join subqueries, we need to select from outer table and joined tables
 		// SELECT outer.*, joined_alias.* FROM outer JOIN ... AS joined_alias ON ...
 		if node.Terminal != nil && len(node.Terminal.Projection) > 0 &&
-			!(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			(len(node.Terminal.Projection) != 1 || node.Terminal.Projection[0] != "*") {
 			// Specific columns requested - qualify them with outer table alias
 			for _, col := range node.Terminal.Projection {
 				selectCols = append(selectCols, fmt.Sprintf("%s.%s", outerTableAlias, col))
@@ -223,7 +223,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 
 		// If terminal specifies projection, filter to only those columns
 		if node.Terminal != nil && len(node.Terminal.Projection) > 0 {
-			if !(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			if len(node.Terminal.Projection) != 1 || node.Terminal.Projection[0] != "*" {
 				// User specified specific columns - validate they exist in our select
 				// For now, trust the user knows what they're doing
 				// The database will error if columns don't exist
@@ -233,7 +233,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		// Correlated subquery computed fields: SELECT *, (SELECT ...) AS alias, ...
 		// Start with base columns
 		if node.Terminal != nil && len(node.Terminal.Projection) > 0 &&
-			!(len(node.Terminal.Projection) == 1 && node.Terminal.Projection[0] == "*") {
+			(len(node.Terminal.Projection) != 1 || node.Terminal.Projection[0] != "*") {
 			selectCols = node.Terminal.Projection
 		} else {
 			selectCols = []string{"*"}
@@ -296,8 +296,8 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		}
 
 		// For qualified names like "users.user_id", validate each part
-		parts := strings.Split(col, ".")
-		for _, part := range parts {
+		parts := strings.SplitSeq(col, ".")
+		for part := range parts {
 			if err := validateSQLIdentifier(part); err != nil {
 				return "", nil, &Error{
 					Message: fmt.Sprintf("invalid column name in projection: %s", col),
@@ -1330,17 +1330,6 @@ func getConditionLeft(node ast.QueryConditionNode) string {
 	return ""
 }
 
-// getConditionLogic extracts the logic operator from a condition node
-func getConditionLogic(node ast.QueryConditionNode) string {
-	switch cond := node.(type) {
-	case *ast.QueryCondition:
-		return cond.Logic
-	case *ast.QueryConditionGroup:
-		return cond.Logic
-	}
-	return ""
-}
-
 // buildConditionSQL converts a QueryCondition to SQL
 func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int) (string, []Object, *Error) {
 	var params []Object
@@ -1525,7 +1514,8 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 	}
 
 	// Build the subquery SQL
-	subSQL := fmt.Sprintf("SELECT %s FROM %s", selectColumn, tableName)
+	var subSQL strings.Builder
+	subSQL.WriteString(fmt.Sprintf("SELECT %s FROM %s", selectColumn, tableName))
 
 	// Build WHERE clause from conditions
 	if len(subquery.Conditions) > 0 {
@@ -1546,7 +1536,7 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 			}
 			params = append(params, condParams...)
 		}
-		subSQL += " WHERE " + strings.Join(whereClauses, " ")
+		subSQL.WriteString(" WHERE " + strings.Join(whereClauses, " "))
 	}
 
 	// Build ORDER BY, LIMIT from modifiers
@@ -1562,12 +1552,12 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 				orderParts = append(orderParts, orderSpec)
 			}
 			if len(orderParts) > 0 {
-				subSQL += " ORDER BY " + strings.Join(orderParts, ", ")
+				subSQL.WriteString(" ORDER BY " + strings.Join(orderParts, ", "))
 			}
 		case "limit":
-			subSQL += fmt.Sprintf(" LIMIT %d", mod.Value)
+			subSQL.WriteString(fmt.Sprintf(" LIMIT %d", mod.Value))
 		case "offset":
-			subSQL += fmt.Sprintf(" OFFSET %d", mod.Value)
+			subSQL.WriteString(fmt.Sprintf(" OFFSET %d", mod.Value))
 		}
 	}
 
@@ -1577,7 +1567,7 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 		sqlOp = "NOT IN"
 	}
 
-	return fmt.Sprintf("%s %s (%s)", column, sqlOp, subSQL), params, nil
+	return fmt.Sprintf("%s %s (%s)", column, sqlOp, subSQL.String()), params, nil
 }
 
 // buildInClause builds an IN clause for arrays
@@ -1686,8 +1676,8 @@ func executeQueryMany(binding *TableBinding, sql string, params []Object, termin
 
 	var dictResults []*Dictionary
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		ptrs := make([]any, len(columns))
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
@@ -1758,8 +1748,8 @@ func executeQueryOne(binding *TableBinding, sql string, params []Object, termina
 		return NULL
 	}
 
-	values := make([]interface{}, len(columns))
-	ptrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	ptrs := make([]any, len(columns))
 	for i := range values {
 		ptrs[i] = &values[i]
 	}
@@ -2077,13 +2067,14 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 	}
 
 	// Build query: SELECT * FROM related_table WHERE foreign_key = parent_id
-	sql := fmt.Sprintf("SELECT * FROM %s WHERE %s = $1", relatedBinding.TableName, relation.ForeignKey)
+	var sql strings.Builder
+	sql.WriteString(fmt.Sprintf("SELECT * FROM %s WHERE %s = $1", relatedBinding.TableName, relation.ForeignKey))
 	params := []Object{parentID}
 	paramIndex := 2
 
 	// Add soft delete filter if configured
 	if relatedBinding.SoftDeleteColumn != "" {
-		sql += fmt.Sprintf(" AND %s IS NULL", relatedBinding.SoftDeleteColumn)
+		sql.WriteString(fmt.Sprintf(" AND %s IS NULL", relatedBinding.SoftDeleteColumn))
 	}
 
 	// Add filter conditions
@@ -2092,7 +2083,7 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 		if err != nil {
 			return nil, err
 		}
-		sql += " AND " + condSQL
+		sql.WriteString(" AND " + condSQL)
 		params = append(params, condParams...)
 	}
 
@@ -2106,15 +2097,15 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 			}
 			orderParts = append(orderParts, orderStr)
 		}
-		sql += " ORDER BY " + strings.Join(orderParts, ", ")
+		sql.WriteString(" ORDER BY " + strings.Join(orderParts, ", "))
 	}
 
 	// Add LIMIT if specified
 	if limit != nil {
-		sql += fmt.Sprintf(" LIMIT %d", *limit)
+		sql.WriteString(fmt.Sprintf(" LIMIT %d", *limit))
 	}
 
-	rows, err := relatedBinding.query(sql, params)
+	rows, err := relatedBinding.query(sql.String(), params)
 	if err != nil {
 		return nil, err
 	}
@@ -2131,8 +2122,8 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 
 	results := []Object{}
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		ptrs := make([]any, len(columns))
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
@@ -2187,8 +2178,8 @@ func loadBelongsToRelation(parentBinding *TableBinding, relation *DSLSchemaRelat
 		return NULL, nil
 	}
 
-	values := make([]interface{}, len(columns))
-	ptrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	ptrs := make([]any, len(columns))
 	for i := range values {
 		ptrs[i] = &values[i]
 	}
@@ -2427,8 +2418,8 @@ func executeInsertReturning(binding *TableBinding, sql string, params []Object, 
 		return NULL
 	}
 
-	values := make([]interface{}, len(columns))
-	ptrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	ptrs := make([]any, len(columns))
 	for i := range values {
 		ptrs[i] = &values[i]
 	}
@@ -2776,8 +2767,8 @@ func executeUpdateReturningOne(binding *TableBinding, sql string, params []Objec
 		return NULL
 	}
 
-	values := make([]interface{}, len(columns))
-	ptrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	ptrs := make([]any, len(columns))
 	for i := range values {
 		ptrs[i] = &values[i]
 	}
@@ -2812,8 +2803,8 @@ func executeUpdateReturningMany(binding *TableBinding, sql string, params []Obje
 
 	results := []Object{}
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		ptrs := make([]any, len(columns))
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
@@ -3004,8 +2995,8 @@ func executeDeleteReturningOne(binding *TableBinding, sql string, params []Objec
 		return NULL
 	}
 
-	values := make([]interface{}, len(columns))
-	ptrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	ptrs := make([]any, len(columns))
 	for i := range values {
 		ptrs[i] = &values[i]
 	}
@@ -3040,8 +3031,8 @@ func executeDeleteReturningMany(binding *TableBinding, sql string, params []Obje
 
 	results := []Object{}
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		ptrs := make([]any, len(columns))
 		for i := range values {
 			ptrs[i] = &values[i]
 		}

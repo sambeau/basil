@@ -3,6 +3,8 @@ package evaluator
 import (
 	"fmt"
 	"html"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,8 +54,9 @@ func loadStdlibModule(name string, env *Environment) Object {
 	return loader(env)
 }
 
-// loadTableModule returns the Table module as a dictionary
-// DEPRECATED: Prefer using @table literal syntax directly, e.g.:
+// loadTableModule returns the Table module as a dictionary.
+//
+// Deprecated: Prefer using @table literal syntax directly, e.g.:
 //
 //	@table [["name", "age"], ["Alice", 30]]
 //	@table [ {name: "Alice", age: 30} ]
@@ -69,9 +72,10 @@ func loadTableModule(env *Environment) Object {
 	}
 }
 
-// TableModule represents the table constructor with methods like fromDict
+// TableModule represents the table constructor with methods like fromDict.
 // It can be called directly as table(arr) or used as table.fromDict(dict, ...)
-// DEPRECATED: Prefer @table literal syntax. The module is kept for backward compatibility.
+//
+// Deprecated: Prefer @table literal syntax. The module is kept for backward compatibility.
 type TableModule struct{}
 
 func (tm *TableModule) Type() ObjectType { return BUILTIN_OBJ }
@@ -443,13 +447,7 @@ func TableConstructor(args []Object, env *Environment) Object {
 			// Check for missing columns
 			var missing []string
 			for _, col := range columns {
-				found := false
-				for _, k := range rowKeys {
-					if k == col {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(rowKeys, col)
 				if !found {
 					missing = append(missing, col)
 				}
@@ -880,14 +878,8 @@ func tableLimit(t *Table, args []Object, env *Environment) Object {
 	result := t.ensureChainCopy()
 
 	// Calculate slice bounds
-	start := int(offset)
-	if start > len(result.Rows) {
-		start = len(result.Rows)
-	}
-	end := start + int(n.Value)
-	if end > len(result.Rows) {
-		end = len(result.Rows)
-	}
+	start := min(int(offset), len(result.Rows))
+	end := min(start+int(n.Value), len(result.Rows))
 
 	// Mutate the chain copy in place
 	result.Rows = result.Rows[start:end]
@@ -913,10 +905,7 @@ func tableOffset(t *Table, args []Object, env *Environment) Object {
 	result := t.ensureChainCopy()
 
 	// Calculate slice start
-	start := int(n.Value)
-	if start > len(result.Rows) {
-		start = len(result.Rows)
-	}
+	start := min(int(n.Value), len(result.Rows))
 
 	// Mutate the chain copy in place
 	result.Rows = result.Rows[start:]
@@ -1605,13 +1594,7 @@ func tableColumn(t *Table, args []Object, env *Environment) Object {
 	}
 
 	// Check if column exists
-	columnExists := false
-	for _, col := range t.Columns {
-		if col == colName.Value {
-			columnExists = true
-			break
-		}
-	}
+	columnExists := slices.Contains(t.Columns, colName.Value)
 	if !columnExists {
 		return newIndexError("INDEX-0005", map[string]any{
 			"Key": colName.Value,
@@ -1746,10 +1729,8 @@ func tableAppendCol(t *Table, args []Object, env *Environment) Object {
 	}
 
 	// Check column doesn't already exist
-	for _, col := range t.Columns {
-		if col == colName.Value {
-			return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
-		}
+	if slices.Contains(t.Columns, colName.Value) {
+		return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
 	}
 
 	// Get column values (either from array or by computing with function)
@@ -1791,10 +1772,8 @@ func tableInsertColAfter(t *Table, args []Object, env *Environment) Object {
 	}
 
 	// Check new column doesn't already exist
-	for _, col := range t.Columns {
-		if col == colName.Value {
-			return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
-		}
+	if slices.Contains(t.Columns, colName.Value) {
+		return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
 	}
 
 	// Get column values
@@ -1835,10 +1814,8 @@ func tableInsertColBefore(t *Table, args []Object, env *Environment) Object {
 	}
 
 	// Check new column doesn't already exist
-	for _, col := range t.Columns {
-		if col == colName.Value {
-			return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
-		}
+	if slices.Contains(t.Columns, colName.Value) {
+		return newStructuredError("TYPE-0023", map[string]any{"Key": colName.Value})
 	}
 
 	// Get column values
@@ -1928,9 +1905,7 @@ func createTableWithNewColumn(t *Table, colName string, values []Object, insertP
 	for i, row := range t.Rows {
 		// Copy existing pairs
 		newPairs := make(map[string]ast.Expression, len(row.Pairs)+1)
-		for k, v := range row.Pairs {
-			newPairs[k] = v
-		}
+		maps.Copy(newPairs, row.Pairs)
 		// Add new column value
 		newPairs[colName] = objectToExpression(values[i])
 
@@ -2241,13 +2216,7 @@ func tableRenameCol(t *Table, args []Object, env *Environment) Object {
 	}
 
 	// Check if old column exists
-	found := false
-	for _, col := range t.Columns {
-		if col == oldName.Value {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(t.Columns, oldName.Value)
 	if !found {
 		return newValidationError("VAL-0012", map[string]any{
 			"Column": oldName.Value,
@@ -2642,10 +2611,8 @@ func EvalTableProperty(t *Table, property string) Object {
 		return NULL
 	default:
 		// Check if it's a method name - provide helpful error
-		for _, m := range tableMethods {
-			if m == property {
-				return methodAsPropertyError(property, "Table")
-			}
+		if slices.Contains(tableMethods, property) {
+			return methodAsPropertyError(property, "Table")
 		}
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})
 	}

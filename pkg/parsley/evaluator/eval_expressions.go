@@ -244,14 +244,14 @@ func importModule(pathStr string, env *Environment) Object {
 	}
 
 	// Check for standard library imports (std/modulename)
-	if strings.HasPrefix(pathStr, "std/") {
-		moduleName := strings.TrimPrefix(pathStr, "std/")
+	if after, ok := strings.CutPrefix(pathStr, "std/"); ok {
+		moduleName := after
 		return loadStdlibModule(moduleName, env)
 	}
 
 	// Check for basil namespace imports (basil/modulename)
-	if strings.HasPrefix(pathStr, "basil/") {
-		moduleName := strings.TrimPrefix(pathStr, "basil/")
+	if after, ok := strings.CutPrefix(pathStr, "basil/"); ok {
+		moduleName := after
 		return loadBasilModule(moduleName, env)
 	}
 

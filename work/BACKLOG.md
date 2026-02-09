@@ -1,5 +1,5 @@
 ---
-updated: 2026-02-07
+updated 2026-02-08
 ---
 
 # Backlog
@@ -48,6 +48,10 @@ Deferred items from implementation, to be picked up in future work.
 | #34 | Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
 
 | #89 | Assignment-capture patterns for statement-level I/O operators | FEAT-104 | Parser architecture change | Patterns like `result = data =/=> target` don't parse because write operators (`==>`, `=/=>`, etc.) are statement-level, not infix expressions. Supporting assignment-capture would require parser changes to allow assignment around statement-level operators. Applies equally to `==>`. |
+| #90 | Custom message for `record.failIfInvalid(msg)` | FEAT-105 | Follow-up enhancement | Allow overriding the default "Validation failed" message: `record.failIfInvalid("Invalid user data")`. Currently hardcoded. |
+| #91 | `record.toError()` — non-failing error conversion | FEAT-105 | Follow-up enhancement | Return the validation error dict without calling `fail()`, for cases where you want to inspect/modify before failing. E.g., `let errDict = record.toError()` then `errDict.message = "Custom"` then `fail(errDict)`. |
+| #92 | Error catalog entry for VALIDATION code | FEAT-105 | Follow-up | `VALIDATION` code from `failIfInvalid()` is currently hardcoded. Could be registered in the error catalog for consistency with other error codes. |
+| #93 | Enforce non-empty `message` in `fail(dict)` | FEAT-105 | Follow-up | `fail({message: ""})` currently succeeds — only checks key exists and type is string. Consider enforcing non-empty string for the `message` value. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |

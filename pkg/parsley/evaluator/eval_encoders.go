@@ -75,7 +75,7 @@ func encodeJSON(value Object) ([]byte, error) {
 }
 
 // objectToGo converts a Parsley Object to a Go interface{} for JSON encoding
-func objectToGo(obj Object) interface{} {
+func objectToGo(obj Object) any {
 	switch v := obj.(type) {
 	case *Null:
 		return nil
@@ -88,13 +88,13 @@ func objectToGo(obj Object) interface{} {
 	case *String:
 		return v.Value
 	case *Array:
-		result := make([]interface{}, len(v.Elements))
+		result := make([]any, len(v.Elements))
 		for i, elem := range v.Elements {
 			result[i] = objectToGo(elem)
 		}
 		return result
 	case *Dictionary:
-		result := make(map[string]interface{})
+		result := make(map[string]any)
 		for key, expr := range v.Pairs {
 			// Skip internal fields
 			if strings.HasPrefix(key, "_") {

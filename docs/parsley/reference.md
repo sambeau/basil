@@ -881,7 +881,8 @@ Some operations don't make sense and will produce errors:
 | 7 | `*`, `/`, `%` |
 | 8 | `-`, `!` (prefix) |
 | 9 | `.`, `[]`, `()` (access/call) |
-| — | `<==`, `==>`, `==>>`, `<=/=`, `=/=>`, `=/=>>` (I/O, statement-level) |
+| — | `<==`, `==>`, `==>>` (file I/O, statement-level) |
+| — | `<=/=` (fetch, statement or expression), `=/=>`, `=/=>>` (remote write, statement or expression) |
 
 ---
 
@@ -1043,7 +1044,7 @@ for x in 1..10 {
 
 ### 3.4 Try Expression
 
-The `try` expression captures errors as values instead of stopping execution. It wraps the result in a dictionary with `result` and `error` fields.
+The `try` expression captures errors as values instead of stopping execution. It wraps the result in a dictionary with `result` and `error` fields. The `error` slot is a dictionary with at least `message` and `code` keys (or `null` on success).
 
 ```parsley
 let safeDivide = fn(a, b) {
@@ -1052,7 +1053,7 @@ let safeDivide = fn(a, b) {
 }
 
 let result = try safeDivide(10, 0)
-// {result: null, error: "division by zero"}
+// {result: null, error: {message: "division by zero", code: "USER-0001"}}
 
 let result = try safeDivide(10, 2)
 // {result: 5, error: null}
@@ -1060,16 +1061,20 @@ let result = try safeDivide(10, 2)
 
 #### The `fail` Function
 
-Use `fail(message)` to create a catchable error. Unlike runtime errors, `fail` produces a "value-class" error that can be captured by `try`. This is typically used with `check...else` for validation:
+Use `fail(message)` or `fail(dict)` to create a catchable error. Unlike runtime errors, `fail` produces a "value-class" error that can be captured by `try`. This is typically used with `check...else` for validation:
 
 ```parsley
+// String form — wrapped in {message: ..., code: "USER-0001"}
 let validate = fn(email) {
     check email.includes("@") else fail("invalid email")
     email
 }
 
 let result = try validate("bad-email")
-// {result: null, error: "invalid email"}
+// {result: null, error: {message: "invalid email", code: "USER-0001"}}
+
+// Dictionary form — must have a string "message" key
+fail({message: "Out of stock", code: "NO_STOCK", status: 400})
 ```
 
 ---
@@ -2562,7 +2567,7 @@ let userPath = path(request.query.file)
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `fail(message)` | `message: string` | never | Throw a catchable error |
+| `fail(message_or_dict)` | `string` or `dict` with `message` key | never | Throw a catchable error |
 
 Use with `try` to handle errors gracefully:
 
@@ -2573,10 +2578,13 @@ let safeDivide = fn(a, b) {
 }
 
 let result = try safeDivide(10, 0)
-// {result: null, error: "division by zero"}
+// {result: null, error: {message: "division by zero", code: "USER-0001"}}
 
 let good = try safeDivide(10, 2)
 // {result: 5, error: null}
+
+// Dictionary form with structured error data
+fail({message: "Out of stock", code: "NO_STOCK", status: 400})
 ```
 
 ---
@@ -2708,9 +2716,22 @@ let files <== dir(@./uploads)
 "Hello" ==> text(@./message.txt)
 "More" ==>> text(@./log.txt)    // Append
 
+// Network fetch (expression form — captures response)
+let response = <=/= JSON(@https://api.example.com/users)
+response.data                                                         // parsed JSON
+response.status                                                       // 200
+
 // Network writes (HTTP)
 {name: "Alice"} =/=> JSON(@https://api.example.com/users)            // POST
 {name: "Alice"} =/=> JSON(@https://api.example.com/users/1).put      // PUT
+
+// Network write (expression form — captures response)
+let result = {name: "Alice"} =/=> JSON(@https://api.example.com/users)
+result.ok                                                             // true
+
+// Destructured capture (works with both fetch and remote write)
+let {data, error} = <=/= JSON(@https://api.example.com/users)
+let {data, error} = payload =/=> JSON(@https://api.example.com/items)
 
 // Markdown with frontmatter
 let doc <== markdown(@./post.md)
@@ -3791,14 +3812,14 @@ Parsley provides structured error handling through the `try` expression and `fai
 
 ### 10.1 The `try` Expression
 
-The `try` expression catches certain errors and returns them as values instead of terminating execution. It wraps the result in a dictionary with `result` and `error` fields.
+The `try` expression catches certain errors and returns them as values instead of terminating execution. It wraps the result in a dictionary with `result` and `error` fields. The `error` slot is a dictionary (with at least `message` and `code`) on failure, or `null` on success.
 
 **Syntax**: `try` only accepts **function calls** or **method calls**, not arbitrary expressions or blocks.
 
 ```parsley
 let result = try someFunction(args)
 // Returns: {result: value, error: null} on success
-// Returns: {result: null, error: "message"} on catchable error
+// Returns: {result: null, error: {message: "...", code: "..."}} on catchable error
 
 let result2 = try obj.method(args)
 // Same pattern for method calls
@@ -3817,7 +3838,7 @@ res.error                       // null
 
 #### Error Case
 
-When a catchable error occurs, `result` is `null` and `error` contains the error message:
+When a catchable error occurs, `result` is `null` and `error` is a dictionary:
 
 ```parsley
 let validate = fn(x) {
@@ -3827,7 +3848,8 @@ let validate = fn(x) {
 
 let res = try validate(-5)
 res.result                      // null
-res.error                       // "must be positive"
+res.error                       // {message: "must be positive", code: "USER-0001"}
+res.error.message               // "must be positive"
 ```
 
 #### Pattern: Check and Handle
@@ -3837,11 +3859,13 @@ Use destructuring with conditionals for clean error handling:
 ```parsley
 let {result, error} = try riskyOperation()
 if (error) {
-    <div class="error">"Operation failed: " + error</div>
+    <div class="error">"Operation failed: " + error.message</div>
 } else {
     <div class="success">"Result: " + toString(result)</div>
 }
 ```
+
+> 💡 String coercion: `"" + error` automatically yields `error.message`, so `"Failed: " + error` also works.
 
 #### Pattern: Default with Null Coalescing
 
@@ -3856,7 +3880,9 @@ let data = (try loadConfig()).result ?? {default: true}
 
 ### 10.2 The `fail` Function
 
-Use `fail(message)` to create a catchable error. This is the primary way to signal errors in validation and business logic.
+Use `fail(message)` or `fail(dict)` to create a catchable error. This is the primary way to signal errors in validation and business logic.
+
+#### String Form
 
 ```parsley
 let validateEmail = fn(email) {
@@ -3866,8 +3892,23 @@ let validateEmail = fn(email) {
 }
 
 let result = try validateEmail("bad")
-result.error                    // "Email too short"
+result.error.message            // "Email too short"
 ```
+
+#### Dictionary Form
+
+Pass a dictionary with at least a `message` key (string). Optional `code` and `status` fields control error identity and HTTP status:
+
+```parsley
+fail({
+    message: "Out of stock",
+    code: "NO_STOCK",
+    status: 400,
+    product: "Widget"
+})
+```
+
+All fields in the dictionary are preserved and available when caught by `try`.
 
 **Important**: `fail()` creates **catchable** errors (class: "value"). They can be caught by `try` expressions.
 
@@ -3886,7 +3927,7 @@ These errors **can** be caught by `try`:
 
 | Class | Examples |
 |-------|----------|
-| **Value** | Created by `fail()`, empty required fields |
+| **Value** | Created by `fail()`, `api.*` helpers, empty required fields |
 | **Format** | Invalid URL, malformed JSON, bad date string |
 | **IO** | File not found, permission denied |
 | **Network** | HTTP request failure, timeout |

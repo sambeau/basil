@@ -14,7 +14,7 @@ import (
 )
 
 // newErrorWithClass creates a simple error with a class (no error code or catalog).
-func newErrorWithClass(class ErrorClass, format string, a ...interface{}) *Error {
+func newErrorWithClass(class ErrorClass, format string, a ...any) *Error {
 	return &Error{
 		Class:   class,
 		Message: fmt.Sprintf(format, a...),
@@ -22,7 +22,7 @@ func newErrorWithClass(class ErrorClass, format string, a ...interface{}) *Error
 }
 
 // newErrorWithClassAndPos creates an error with class and position information.
-func newErrorWithClassAndPos(class ErrorClass, tok lexer.Token, format string, a ...interface{}) *Error {
+func newErrorWithClassAndPos(class ErrorClass, tok lexer.Token, format string, a ...any) *Error {
 	return &Error{
 		Class:   class,
 		Message: fmt.Sprintf(format, a...),
@@ -39,20 +39,6 @@ func newStructuredError(code string, data map[string]any) *Error {
 		Code:    perr.Code,
 		Message: perr.Message,
 		Hints:   perr.Hints,
-		Data:    perr.Data,
-	}
-}
-
-// newStructuredErrorWithPos creates a structured error with position information.
-func newStructuredErrorWithPos(code string, tok lexer.Token, data map[string]any) *Error {
-	perr := perrors.New(code, data)
-	return &Error{
-		Class:   ErrorClass(perr.Class),
-		Code:    perr.Code,
-		Message: perr.Message,
-		Hints:   perr.Hints,
-		Line:    tok.Line,
-		Column:  tok.Column,
 		Data:    perr.Data,
 	}
 }
@@ -240,22 +226,6 @@ func newArityErrorExact(function string, got, choice1, choice2 int) *Error {
 		"Got":      got,
 		"Choice1":  choice1,
 		"Choice2":  choice2,
-	})
-	return &Error{
-		Class:   ErrorClass(perr.Class),
-		Code:    perr.Code,
-		Message: perr.Message,
-		Hints:   perr.Hints,
-		Data:    perr.Data,
-	}
-}
-
-// newArityErrorMin creates a structured error for minimum arguments required.
-func newArityErrorMin(function string, got, min int) *Error {
-	perr := perrors.New("ARITY-0005", map[string]any{
-		"Function": function,
-		"Got":      got,
-		"Min":      min,
 	})
 	return &Error{
 		Class:   ErrorClass(perr.Class),
@@ -515,18 +485,6 @@ func newCommandError(code string, data map[string]any) *Error {
 	}
 }
 
-// newLoopError creates a structured loop/iteration error.
-func newLoopError(code string, data map[string]any) *Error {
-	perr := perrors.New(code, data)
-	return &Error{
-		Class:   ErrorClass(perr.Class),
-		Code:    perr.Code,
-		Message: perr.Message,
-		Hints:   perr.Hints,
-		Data:    perr.Data,
-	}
-}
-
 // newLoopErrorWithPos creates a structured loop/iteration error with position info.
 func newLoopErrorWithPos(tok lexer.Token, code string, data map[string]any) *Error {
 	perr := perrors.New(code, data)
@@ -572,34 +530,6 @@ func newDestructuringError(code string, val Object) *Error {
 		data["Got"] = string(val.Type())
 	}
 	perr := perrors.New(code, data)
-	return &Error{
-		Class:   ErrorClass(perr.Class),
-		Code:    perr.Code,
-		Message: perr.Message,
-		Hints:   perr.Hints,
-		Data:    perr.Data,
-	}
-}
-
-// newHTTPError creates a structured HTTP error.
-func newHTTPError(code string, err error) *Error {
-	data := map[string]any{}
-	if err != nil {
-		data["GoError"] = err.Error()
-	}
-	perr := perrors.New(code, data)
-	return &Error{
-		Class:   ErrorClass(perr.Class),
-		Code:    perr.Code,
-		Message: perr.Message,
-		Hints:   perr.Hints,
-		Data:    perr.Data,
-	}
-}
-
-// newHTTPStateError creates a structured HTTP state error (no underlying error).
-func newHTTPStateError(code string) *Error {
-	perr := perrors.New(code, nil)
 	return &Error{
 		Class:   ErrorClass(perr.Class),
 		Code:    perr.Code,

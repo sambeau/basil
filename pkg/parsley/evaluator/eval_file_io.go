@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -197,9 +198,7 @@ func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
 func evalHTTPWrite(reqDict *Dictionary, value Object, env *Environment) Object {
 	// Set the body to the value being written
 	pairs := make(map[string]ast.Expression)
-	for key, expr := range reqDict.Pairs {
-		pairs[key] = expr
-	}
+	maps.Copy(pairs, reqDict.Pairs)
 
 	// Encode the value as the request body
 	pairs["body"] = &ast.ObjectLiteralExpression{Obj: value}

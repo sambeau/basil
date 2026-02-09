@@ -110,9 +110,10 @@ func (b *AssetBundle) discoverAssets() (cssFiles, jsFiles []string, err error) {
 		// Only process .css and .js files
 		if !d.IsDir() {
 			ext := strings.ToLower(filepath.Ext(name))
-			if ext == ".css" {
+			switch ext {
+			case ".css":
 				entries = append(entries, fileEntry{path: path, isCSS: true})
-			} else if ext == ".js" {
+			case ".js":
 				entries = append(entries, fileEntry{path: path, isCSS: false})
 			}
 		}

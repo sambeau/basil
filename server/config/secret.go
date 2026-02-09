@@ -60,7 +60,7 @@ func (s *SecretString) UnmarshalYAML(node *yaml.Node) error {
 }
 
 // MarshalYAML implements yaml.Marshaler.
-func (s SecretString) MarshalYAML() (interface{}, error) {
+func (s SecretString) MarshalYAML() (any, error) {
 	if s.isSecret {
 		// Return a node with the !secret tag
 		return &yaml.Node{

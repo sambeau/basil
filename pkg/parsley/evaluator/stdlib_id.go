@@ -33,9 +33,6 @@ const ulidAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 // NanoID default alphabet
 const nanoidAlphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-"
 
-// CUID alphabet (no l, o, u to avoid confusion)
-const cuidAlphabet = "0123456789abcdefghijkmnpqrstvwxyz"
-
 // Counter for CUID (thread-safe)
 var (
 	cuidCounter uint32

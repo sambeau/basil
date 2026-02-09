@@ -3,6 +3,7 @@ package evaluator
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -14,6 +15,7 @@ var recordMethods = []string{
 	"validate", "update", "errors", "error", "errorCode", "errorList",
 	"isValid", "hasError", "schema", "data", "keys", "withError",
 	"title", "placeholder", "meta", "enumValues", "format", "toJSON",
+	"failIfInvalid",
 }
 
 // evalRecordMethod dispatches method calls on Record objects.
@@ -55,6 +57,8 @@ func evalRecordMethod(record *Record, method string, args []Object, env *Environ
 		return recordFormat(record, args, env)
 	case "toJSON":
 		return recordToJSON(record, args)
+	case "failIfInvalid":
+		return recordFailIfInvalid(record, args)
 	default:
 		// Check if it's a data field access via method syntax (shouldn't happen normally)
 		return unknownMethodError(method, "Record", recordMethods)
@@ -113,13 +117,7 @@ func recordUpdate(record *Record, args []Object, env *Environment) Object {
 				castedValue := castFieldValue(value, field)
 				newRecord.Data[key] = &ast.ObjectLiteralExpression{Obj: castedValue}
 				// Add to KeyOrder if not already present
-				found := false
-				for _, k := range newRecord.KeyOrder {
-					if k == key {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(newRecord.KeyOrder, key)
 				if !found {
 					newRecord.KeyOrder = append(newRecord.KeyOrder, key)
 				}
@@ -250,6 +248,40 @@ func recordHasError(record *Record, args []Object, env *Environment) Object {
 
 	_, exists := record.Errors[fieldName.Value]
 	return &Boolean{Value: exists}
+}
+
+// recordFailIfInvalid implements record.failIfInvalid() → Record | Error
+// Returns the record if valid (or not yet validated), fails with structured error if invalid.
+func recordFailIfInvalid(record *Record, args []Object) Object {
+	if len(args) != 0 {
+		return newArityError("failIfInvalid", len(args), 0)
+	}
+
+	// If not validated or valid, return record for chaining
+	if !record.Validated || len(record.Errors) == 0 {
+		return record
+	}
+
+	// Build fields array from errorList
+	fields := recordErrorList(record, nil).(*Array)
+
+	// Build unified error dict
+	pairs := make(map[string]ast.Expression)
+	pairs["status"] = objectToExpression(&Integer{Value: 400})
+	pairs["code"] = objectToExpression(&String{Value: "VALIDATION"})
+	pairs["message"] = objectToExpression(&String{Value: "Validation failed"})
+	pairs["fields"] = objectToExpression(fields)
+	dict := &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: []string{"status", "code", "message", "fields"},
+	}
+
+	return &Error{
+		Class:    ClassValue,
+		Code:     "VALIDATION",
+		Message:  "Validation failed",
+		UserDict: dict,
+	}
 }
 
 // recordSchema implements record.schema() → Schema
@@ -505,10 +537,8 @@ func evalRecordProperty(record *Record, key string, env *Environment) Object {
 	}
 
 	// Check if it's a method name - provide helpful error
-	for _, m := range recordMethods {
-		if m == key {
-			return methodAsPropertyError(key, "Record")
-		}
+	if slices.Contains(recordMethods, key) {
+		return methodAsPropertyError(key, "Record")
 	}
 
 	// Not a data field - return null (per spec: direct property access for data only)
@@ -640,11 +670,6 @@ func formatRecordDatetime(value Object, env *Environment) Object {
 	}
 
 	return &String{Value: objectToString(value)}
-}
-
-// formatRecordCurrency formats a numeric value as currency "$1,234.00" (USD default)
-func formatRecordCurrency(value Object) Object {
-	return formatRecordCurrencyWithCode(value, "USD")
 }
 
 // formatRecordCurrencyWithCode formats a numeric value as currency with specified currency code

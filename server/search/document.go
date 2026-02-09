@@ -133,7 +133,7 @@ func (idx *FTS5Index) RemoveDocument(url string) error {
 }
 
 // UpdateDocument updates specific fields of a document
-func (idx *FTS5Index) UpdateDocument(url string, updates map[string]interface{}) error {
+func (idx *FTS5Index) UpdateDocument(url string, updates map[string]any) error {
 	// First check if document exists
 	var exists bool
 	err := idx.db.QueryRow("SELECT 1 FROM documents_fts WHERE url = ?", url).Scan(&exists)
@@ -145,7 +145,7 @@ func (idx *FTS5Index) UpdateDocument(url string, updates map[string]interface{})
 
 	// Build UPDATE query dynamically based on provided fields
 	var setClauses []string
-	var values []interface{}
+	var values []any
 
 	if title, ok := updates["title"]; ok {
 		if titleStr, ok := title.(string); ok {

@@ -432,10 +432,8 @@ func TestIsProtectedPath(t *testing.T) {
 				if len(pp.Roles) != len(tt.wantRoles) {
 					t.Errorf("expected %d roles, got %d", len(tt.wantRoles), len(pp.Roles))
 				}
-			} else {
-				if pp != nil {
-					t.Errorf("expected path %q to NOT match, but matched %q", tt.path, pp.Path)
-				}
+			} else if pp != nil {
+				t.Errorf("expected path %q to NOT match, but matched %q", tt.path, pp.Path)
 			}
 		})
 	}
@@ -473,9 +471,9 @@ func TestMetaInjection(t *testing.T) {
 
 	cfg := config.Defaults()
 	cfg.Server.Dev = true
-	cfg.Meta = map[string]interface{}{
+	cfg.Meta = map[string]any{
 		"name": "Test Site",
-		"features": map[string]interface{}{
+		"features": map[string]any{
 			"dark_mode": true,
 		},
 	}

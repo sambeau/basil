@@ -408,14 +408,14 @@ func (d *DB) UserCount() (int, error) {
 
 // SaveCredential stores a WebAuthn credential for a user.
 func (d *DB) SaveCredential(cred *Credential) error {
-	transports := ""
+	var transports strings.Builder
 	if len(cred.Transports) > 0 {
 		// Simple join for storage
 		for i, t := range cred.Transports {
 			if i > 0 {
-				transports += ","
+				transports.WriteString(",")
 			}
-			transports += t
+			transports.WriteString(t)
 		}
 	}
 
@@ -423,7 +423,7 @@ func (d *DB) SaveCredential(cred *Credential) error {
 		`INSERT INTO credentials (id, user_id, public_key, sign_count, transports, attestation_type, backup_eligible, backup_state, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		cred.ID, cred.UserID, cred.PublicKey, cred.SignCount,
-		nullString(transports), nullString(cred.AttestationType),
+		nullString(transports.String()), nullString(cred.AttestationType),
 		boolToInt(cred.BackupEligible), boolToInt(cred.BackupState), cred.CreatedAt,
 	)
 	if err != nil {
@@ -514,7 +514,7 @@ func (d *DB) UpdateUser(id, name, email string) error {
 
 	// Build update query dynamically
 	query := "UPDATE users SET "
-	var args []interface{}
+	var args []any
 
 	if name != "" {
 		query += "name = ?"

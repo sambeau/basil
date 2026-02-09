@@ -122,7 +122,7 @@ func isDigit(ch rune) bool {
 
 // parseJSON parses a JSON string into Parsley objects
 func parseJSON(content string) (Object, *Error) {
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(content), &data); err != nil {
 		return nil, newFormatError("FMT-0005", err)
 	}
@@ -131,7 +131,7 @@ func parseJSON(content string) (Object, *Error) {
 
 // parseYAML parses a YAML string into Parsley objects
 func parseYAML(content string) (Object, *Error) {
-	var data interface{}
+	var data any
 	if err := yaml.Unmarshal([]byte(content), &data); err != nil {
 		return nil, newFormatError("FMT-0006", err)
 	}
@@ -139,7 +139,7 @@ func parseYAML(content string) (Object, *Error) {
 }
 
 // jsonToObject converts a Go interface{} (from JSON) to a Parsley Object
-func jsonToObject(data interface{}) Object {
+func jsonToObject(data any) Object {
 	switch v := data.(type) {
 	case nil:
 		return NULL
@@ -153,13 +153,13 @@ func jsonToObject(data interface{}) Object {
 		return &Float{Value: v}
 	case string:
 		return &String{Value: v}
-	case []interface{}:
+	case []any:
 		elements := make([]Object, len(v))
 		for i, elem := range v {
 			elements[i] = jsonToObject(elem)
 		}
 		return &Array{Elements: elements}
-	case map[string]interface{}:
+	case map[string]any:
 		pairs := make(map[string]ast.Expression)
 		for key, val := range v {
 			obj := jsonToObject(val)
@@ -172,7 +172,7 @@ func jsonToObject(data interface{}) Object {
 }
 
 // yamlToObject converts a YAML value to a Parsley Object
-func yamlToObject(value interface{}) Object {
+func yamlToObject(value any) Object {
 	switch v := value.(type) {
 	case nil:
 		return NULL
@@ -198,13 +198,13 @@ func yamlToObject(value interface{}) Object {
 			}
 		}
 		return &String{Value: v}
-	case []interface{}:
+	case []any:
 		elements := make([]Object, len(v))
 		for i, elem := range v {
 			elements[i] = yamlToObject(elem)
 		}
 		return &Array{Elements: elements}
-	case map[string]interface{}:
+	case map[string]any:
 		pairs := make(map[string]ast.Expression)
 		for key, val := range v {
 			obj := yamlToObject(val)
@@ -344,9 +344,10 @@ func findMatchingBraceInBytes(input []byte, startPos int) int {
 
 		// Only count braces outside of strings
 		if !inString && !inChar && !inRawString {
-			if ch == '{' {
+			switch ch {
+			case '{':
 				depth++
-			} else if ch == '}' {
+			case '}':
 				depth--
 				if depth == 0 {
 					return i
@@ -464,14 +465,14 @@ func parseMarkdown(content string, options *Dictionary, env *Environment) (Objec
 		trimmed := strings.TrimSpace(content)
 		rest := trimmed[3:] // Skip opening ---
 
-		endIndex := strings.Index(rest, "\n---")
-		if endIndex != -1 {
+		before, after, ok := strings.Cut(rest, "\n---")
+		if ok {
 			// Extract frontmatter YAML
-			frontmatterYAML := rest[:endIndex]
-			body = strings.TrimSpace(rest[endIndex+4:]) // Skip closing ---\n
+			frontmatterYAML := before
+			body = strings.TrimSpace(after) // Skip closing ---\n
 
 			// Parse YAML frontmatter
-			var frontmatter map[string]interface{}
+			var frontmatter map[string]any
 			if err := yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter); err != nil {
 				return nil, newFormatError("FMT-0006", err)
 			}

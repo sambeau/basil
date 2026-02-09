@@ -3,6 +3,7 @@ package server
 import (
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/sambeau/basil/server/config"
@@ -163,13 +164,7 @@ func ClientIP(r *http.Request, proxyCfg config.ProxyConfig) string {
 		// Check if request came through trusted proxy
 		if len(proxyCfg.TrustedIPs) > 0 {
 			remoteIP := extractIP(r.RemoteAddr)
-			trusted := false
-			for _, ip := range proxyCfg.TrustedIPs {
-				if ip == remoteIP {
-					trusted = true
-					break
-				}
-			}
+			trusted := slices.Contains(proxyCfg.TrustedIPs, remoteIP)
 			if !trusted {
 				return extractIP(r.RemoteAddr)
 			}

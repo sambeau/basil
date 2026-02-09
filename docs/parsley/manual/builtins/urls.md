@@ -157,6 +157,21 @@ The `<=/=` operator performs an HTTP fetch from a URL handle:
 let response <=/= @https://api.example.com/data
 ```
 
+`<=/=` is also a true expression, so it can appear on the right side of an assignment or anywhere a value is expected:
+
+```parsley
+let response = <=/= JSON(@https://api.example.com/data)
+let {data, error} = <=/= JSON(@https://api.example.com/data)
+```
+
+The remote write operator `=/=>` works the same way — it sends data and returns a response:
+
+```parsley
+let result = payload =/=> JSON(@https://api.example.com/items)
+```
+
+See [HTTP & Networking](../features/network.md) for full details on fetch and remote write expressions.
+
 ## Key Differences from Other Languages
 
 - **URLs are objects, not strings** — they have typed properties (`.scheme`, `.host`, `.query` as a dictionary) and methods. No manual string parsing needed.

@@ -47,7 +47,7 @@ func TestCheckVerificationRateLimit_DailyLimitPerUser(t *testing.T) {
 	user, _ := db.CreateUser("Test User", "test@example.com")
 
 	// Create 10 tokens sent in the past (older than cooldown)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		token, _ := GenerateVerificationToken()
 		hash, _ := HashToken(token)
 		tokenID, _ := db.StoreVerificationToken(ctx, user.ID, user.Email, hash, time.Now().Add(1*time.Hour))
@@ -84,7 +84,7 @@ func TestCheckVerificationRateLimit_DailyLimitPerEmail(t *testing.T) {
 	email := "victim@example.com"
 
 	// Create multiple users sending to same email (spam attack simulation)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		user, _ := db.CreateUser("User "+string(rune(i)), email)
 		token, _ := GenerateVerificationToken()
 		hash, _ := HashToken(token)
@@ -167,7 +167,7 @@ func TestCheckDeveloperEmailRateLimit(t *testing.T) {
 	user, _ := db.CreateUser("Test User", "test@example.com")
 
 	// Log 50 notification emails in the past hour (at the hourly limit)
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		log := &EmailLog{
 			ID:        generateID("log"),
 			UserID:    &user.ID,
@@ -204,7 +204,7 @@ func TestCheckDeveloperEmailRateLimit_DailyLimit(t *testing.T) {
 	user, _ := db.CreateUser("Test User", "test@example.com")
 
 	// Log 200 notification emails in the past 24 hours (at the daily limit)
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		log := &EmailLog{
 			ID:        generateID("log"),
 			UserID:    &user.ID,

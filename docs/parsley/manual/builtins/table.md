@@ -412,6 +412,16 @@ products.orderBy("price")
 
 **Result:**
 
+```
+┌────────┬───────┐
+│ name   │ price │
+├────────┼───────┤
+│ Banana │ $1.50 │
+│ Apple  │ $2.00 │
+│ Cherry │ $3.50 │
+└────────┴───────┘
+```
+
 # Tables
 
 Tables are Parsley's rectangular data type: each row is a dictionary and every row has the same columns. They power CSV handling, database results, reporting, and any place you would normally reach for SQL-style transforms.
@@ -465,6 +475,8 @@ Empty tables are allowed in all forms: `@table []` and `table([])` both produce 
 ---
 
 ## Copy-on-Chain
+
+Chaining is efficient: it only makes one copy. 
 
 The first mutating-style method in a chain makes one copy; later calls in the same chain reuse it. The chain ends when you assign, pass as an argument, iterate, or access a property. Use `.copy()` for an explicit non-chain copy.
 

@@ -1,6 +1,7 @@
 package pln
 
 import (
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,7 +15,13 @@ func makeDict(pairs map[string]evaluator.Object) *evaluator.Dictionary {
 		Pairs:    make(map[string]ast.Expression),
 		KeyOrder: []string{},
 	}
-	for k, v := range pairs {
+	keys := make([]string, 0, len(pairs))
+	for k := range pairs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := pairs[k]
 		d.Pairs[k] = &ast.ObjectLiteralExpression{Obj: v}
 		d.KeyOrder = append(d.KeyOrder, k)
 	}

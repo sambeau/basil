@@ -214,7 +214,7 @@ func TestCommandExecutionPathTraversal(t *testing.T) {
 			gotError := exitCodeLit.Value != 0
 
 			if gotError != tt.expectError {
-				stderrExpr, _ := resultDict.Pairs["stderr"]
+				stderrExpr := resultDict.Pairs["stderr"]
 				stderrLit, _ := stderrExpr.(*ast.StringLiteral)
 				stderr := ""
 				if stderrLit != nil {
@@ -376,7 +376,7 @@ func TestCommandExecutionWorkingDirectoryEscape(t *testing.T) {
 			gotError := exitCodeLit.Value != 0
 
 			if gotError != tt.expectError {
-				stderrExpr, _ := resultDict.Pairs["stderr"]
+				stderrExpr := resultDict.Pairs["stderr"]
 				stderrLit, _ := stderrExpr.(*ast.StringLiteral)
 				stderr := ""
 				if stderrLit != nil {
@@ -521,7 +521,7 @@ func TestCommandExecutionBinaryNameInjection(t *testing.T) {
 			gotError := exitCodeLit.Value != 0
 
 			if gotError != tt.expectError {
-				stderrExpr, _ := resultDict.Pairs["stderr"]
+				stderrExpr := resultDict.Pairs["stderr"]
 				stderrLit, _ := stderrExpr.(*ast.StringLiteral)
 				stderr := ""
 				if stderrLit != nil {
