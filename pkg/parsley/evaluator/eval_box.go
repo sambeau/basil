@@ -516,7 +516,7 @@ func (br *BoxRenderer) RenderTable(headers []string, rows [][]string) string {
 	escapedRows := make([][]string, len(rows))
 	for i, row := range rows {
 		escapedRows[i] = make([]string, numCols)
-		for j := 0; j < numCols; j++ {
+		for j := range numCols {
 			if j < len(row) {
 				escapedRows[i][j] = boxEscapeString(row[j])
 				if br.MaxWidth > 0 {

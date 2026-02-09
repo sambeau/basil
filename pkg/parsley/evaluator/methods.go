@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"maps"
 	"math"
 	"math/rand"
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1080,11 +1082,6 @@ func sortArrayWithOptions(arr *Array, natural bool) *Array {
 	return &Array{Elements: elements}
 }
 
-// naturalSortArray performs a natural sort on an array
-func naturalSortArray(arr *Array) *Array {
-	return sortArrayWithOptions(arr, true)
-}
-
 // sortArrayByFunction sorts an array using a key function
 func sortArrayByFunction(arr *Array, fn *Function, env *Environment) Object {
 	// Make a copy of elements
@@ -1359,11 +1356,8 @@ func compareObjectsWithOptions(a, b Object, natural bool) int {
 	case *Array:
 		if bv, ok := b.(*Array); ok {
 			// Compare arrays element by element
-			minLen := len(av.Elements)
-			if len(bv.Elements) < minLen {
-				minLen = len(bv.Elements)
-			}
-			for i := 0; i < minLen; i++ {
+			minLen := min(len(bv.Elements), len(av.Elements))
+			for i := range minLen {
 				cmp := compareObjectsWithOptions(av.Elements[i], bv.Elements[i], natural)
 				if cmp != 0 {
 					return cmp
@@ -1685,9 +1679,7 @@ func insertDictKeyAfter(dict *Dictionary, afterKey, newKey string, value Object,
 
 	// Copy pairs and add new pair
 	newPairs := make(map[string]ast.Expression, len(dict.Pairs)+1)
-	for k, v := range dict.Pairs {
-		newPairs[k] = v
-	}
+	maps.Copy(newPairs, dict.Pairs)
 	newPairs[newKey] = objectToExpression(value)
 
 	return &Dictionary{
@@ -1710,9 +1702,7 @@ func insertDictKeyBefore(dict *Dictionary, beforeKey, newKey string, value Objec
 
 	// Copy pairs and add new pair
 	newPairs := make(map[string]ast.Expression, len(dict.Pairs)+1)
-	for k, v := range dict.Pairs {
-		newPairs[k] = v
-	}
+	maps.Copy(newPairs, dict.Pairs)
 	newPairs[newKey] = objectToExpression(value)
 
 	return &Dictionary{
@@ -2967,10 +2957,8 @@ func evalMoneyProperty(money *Money, key string) Object {
 		return &Integer{Value: int64(money.Scale)}
 	default:
 		// Check if it's a method name - provide helpful error
-		for _, m := range moneyMethods {
-			if m == key {
-				return methodAsPropertyError(key, "Money")
-			}
+		if slices.Contains(moneyMethods, key) {
+			return methodAsPropertyError(key, "Money")
 		}
 		return unknownMethodError(key, "money", append([]string{"currency", "amount", "scale"}, moneyMethods...))
 	}
@@ -3128,7 +3116,7 @@ func splitMoney(money *Money, n int64) Object {
 	elements := make([]Object, n)
 
 	// Distribute: first |remainder| parts get +1 or -1 (depending on sign)
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		amount := baseAmount
 		if remainder > 0 {
 			amount++

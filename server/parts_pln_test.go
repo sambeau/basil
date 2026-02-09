@@ -256,7 +256,7 @@ func TestParsePartPropsPost(t *testing.T) {
 func TestJSONToObject(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		checkFn func(evaluator.Object) bool
 	}{
 		{
@@ -301,7 +301,7 @@ func TestJSONToObject(t *testing.T) {
 		},
 		{
 			"array",
-			[]interface{}{float64(1), float64(2), float64(3)},
+			[]any{float64(1), float64(2), float64(3)},
 			func(o evaluator.Object) bool {
 				a, ok := o.(*evaluator.Array)
 				return ok && len(a.Elements) == 3
@@ -309,7 +309,7 @@ func TestJSONToObject(t *testing.T) {
 		},
 		{
 			"object",
-			map[string]interface{}{"a": float64(1)},
+			map[string]any{"a": float64(1)},
 			func(o evaluator.Object) bool {
 				d, ok := o.(*evaluator.Dictionary)
 				return ok && len(d.Pairs) == 1

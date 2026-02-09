@@ -223,7 +223,7 @@ func TestDatabaseLargeResultSet(t *testing.T) {
 	evaluator.Eval(program, env)
 
 	// Insert 100 rows individually
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		insertSQL := fmt.Sprintf(`let _ = db <=!=> "INSERT INTO test_large (value) VALUES (%d)"`, i)
 		l2 := lexer.New(insertSQL)
 		p2 := parser.New(l2)

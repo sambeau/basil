@@ -14,11 +14,6 @@ import (
 const (
 	// MaxDOCXSize is the maximum file size we'll attempt to process (50MB)
 	MaxDOCXSize = 50 * 1024 * 1024
-
-	// XML namespaces used in DOCX
-	nsWordML  = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-	nsDCTerms = "http://purl.org/dc/terms/"
-	nsDC      = "http://purl.org/dc/elements/1.1/"
 )
 
 // DOCX XML structures for parsing word/document.xml

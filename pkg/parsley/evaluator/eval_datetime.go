@@ -313,11 +313,6 @@ func datetimeDictToString(dict *Dictionary) string {
 	}
 }
 
-// datetimeDictToLiteral converts a datetime dictionary to a Parsley literal (@2026-01-21T15:30:00Z)
-func datetimeDictToLiteral(dict *Dictionary) string {
-	return "@" + datetimeDictToString(dict)
-}
-
 // durationDictToLiteral converts a duration dictionary to a Parsley literal (@2w, @1y6mo, etc)
 func durationDictToLiteral(dict *Dictionary) string {
 	var months, seconds int64
@@ -588,25 +583,6 @@ func getLocaleConfig(locale string) *LocaleConfig {
 	}
 	return localeConfigs["en-US"]
 }
-
-// mergeMonthNames creates a combined map of all month names from multiple locales
-func mergeMonthNames(configs ...*LocaleConfig) map[string]int {
-	result := make(map[string]int)
-	for _, config := range configs {
-		for name, num := range config.MonthNames {
-			result[name] = num
-		}
-	}
-	return result
-}
-
-// allMonthNames is a combined map for recognizing month names from any supported locale
-var allMonthNames = mergeMonthNames(
-	localeConfigs["en-US"],
-	localeConfigs["fr-FR"],
-	localeConfigs["de-DE"],
-	localeConfigs["es-ES"],
-)
 
 // normalizeMonthNames replaces localized month names with English equivalents
 func normalizeMonthNames(input string, locale *LocaleConfig) string {

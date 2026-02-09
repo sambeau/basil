@@ -39,27 +39,27 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 	if strings.HasPrefix(errMsg, "in module ") {
 		rest := errMsg[10:] // skip "in module "
 		// Find the colon after the path
-		if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
-			file = rest[:colonIdx]
+		if before, after, ok := strings.Cut(rest, ":"); ok {
+			file = before
 			// Clean message starts after the colon (and any whitespace)
-			remaining := rest[colonIdx+1:]
+			remaining := after
 			cleanMsg = strings.TrimLeft(remaining, " \n\t")
 		}
 	}
 
 	// Pattern: "error[s] in [module] <path>: <message>"
 	if file == "" {
-		if idx := strings.Index(errMsg, " in "); idx != -1 {
-			rest := errMsg[idx+4:]
+		if _, after, ok := strings.Cut(errMsg, " in "); ok {
+			rest := after
 			// Handle "module ./path:" format
 			if strings.HasPrefix(rest, "module ") {
 				rest = rest[7:] // skip "module "
 			}
 			// Find the colon after the path (could be ": " or ":\n")
-			if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
-				file = rest[:colonIdx]
+			if before, after, ok := strings.Cut(rest, ":"); ok {
+				file = before
 				// Clean message starts after the colon (and any whitespace)
-				remaining := rest[colonIdx+1:]
+				remaining := after
 				cleanMsg = strings.TrimLeft(remaining, " \n\t")
 			}
 		}
@@ -137,7 +137,7 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	}
 
 	// Basic error information
-	errorMap := map[string]interface{}{
+	errorMap := map[string]any{
 		"code":    code,
 		"message": http.StatusText(code),
 	}
@@ -178,9 +178,9 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 			// Try to get source context (use original absolute path)
 			if sourceLines := s.getSourceContext(file, line, 3); len(sourceLines) > 0 {
 				// Convert to array of maps for Parsley
-				linesArray := make([]interface{}, len(sourceLines))
+				linesArray := make([]any, len(sourceLines))
 				for i, sl := range sourceLines {
-					linesArray[i] = map[string]interface{}{
+					linesArray[i] = map[string]any{
 						"number":   sl.Number,
 						"content":  sl.Content,
 						"is_error": sl.IsError,
@@ -191,7 +191,7 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 		}
 
 		// Add request information
-		errorMap["request"] = map[string]interface{}{
+		errorMap["request"] = map[string]any{
 			"method": r.Method,
 			"path":   r.URL.Path,
 			"query":  r.URL.RawQuery,
@@ -205,7 +205,7 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	env.Set("error", errorObj)
 
 	// Add Basil metadata for error templates and expose as `basil`
-	basilMap := map[string]interface{}{
+	basilMap := map[string]any{
 		"version": s.version,
 		"dev":     s.config.Server.Dev,
 	}
@@ -245,13 +245,13 @@ func truncateValue(value string, maxLen int) string {
 
 // extractSanitizedParams extracts request params for error display
 // Redacts sensitive fields and truncates long values
-func extractSanitizedParams(r *http.Request) []map[string]interface{} {
+func extractSanitizedParams(r *http.Request) []map[string]any {
 	const maxValueLen = 200
-	params := make([]map[string]interface{}, 0)
+	params := make([]map[string]any, 0)
 
 	// Helper to add a param
 	addParam := func(name, value, source string) {
-		displayValue := value
+		var displayValue string
 		redacted := false
 		if isSensitiveParam(name) {
 			displayValue = "••••••••"
@@ -259,7 +259,7 @@ func extractSanitizedParams(r *http.Request) []map[string]interface{} {
 		} else {
 			displayValue = truncateValue(value, maxValueLen)
 		}
-		params = append(params, map[string]interface{}{
+		params = append(params, map[string]any{
 			"name":     name,
 			"value":    displayValue,
 			"source":   source,
@@ -303,7 +303,7 @@ func extractSanitizedParams(r *http.Request) []map[string]interface{} {
 				// Note file uploads (without content)
 				for key, files := range r.MultipartForm.File {
 					for _, fh := range files {
-						params = append(params, map[string]interface{}{
+						params = append(params, map[string]any{
 							"name":     key,
 							"value":    fmt.Sprintf("[file: %s, %d bytes]", fh.Filename, fh.Size),
 							"source":   "file",
@@ -318,7 +318,7 @@ func extractSanitizedParams(r *http.Request) []map[string]interface{} {
 				body, _ := io.ReadAll(r.Body)
 				// Restore body for subsequent reads
 				r.Body = io.NopCloser(strings.NewReader(string(body)))
-				var data map[string]interface{}
+				var data map[string]any
 				if json.Unmarshal(body, &data) == nil {
 					for key, value := range data {
 						valueStr := fmt.Sprintf("%v", value)
@@ -343,10 +343,7 @@ func (s *Server) getSourceContext(filePath string, errorLine, contextLines int) 
 	var lines []SourceLine
 	scanner := bufio.NewScanner(file)
 	lineNum := 1
-	startLine := errorLine - contextLines
-	if startLine < 1 {
-		startLine = 1
-	}
+	startLine := max(errorLine-contextLines, 1)
 	endLine := errorLine + contextLines
 
 	for scanner.Scan() {
@@ -411,7 +408,7 @@ func (s *Server) renderPreludeError(w http.ResponseWriter, r *http.Request, code
 	switch v := value.(type) {
 	case string:
 		html = v
-	case []interface{}:
+	case []any:
 		// Join array elements into a string
 		var parts []string
 		for _, item := range v {

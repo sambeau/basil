@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestBuildRequestContext_Cookies(t *testing.T) {
@@ -61,7 +61,7 @@ func TestBuildRequestContext_Cookies(t *testing.T) {
 			route := config.Route{Path: "/test"}
 			ctx := buildRequestContext(req, route)
 
-			cookies, ok := ctx["cookies"].(map[string]interface{})
+			cookies, ok := ctx["cookies"].(map[string]any)
 			if !ok {
 				t.Fatal("cookies should be a map")
 			}
@@ -115,7 +115,7 @@ func TestBuildCookie_SimpleString(t *testing.T) {
 }
 
 func TestBuildCookie_WithOptions(t *testing.T) {
-	opts := map[string]interface{}{
+	opts := map[string]any{
 		"value":    "token123",
 		"path":     "/admin",
 		"domain":   "example.com",
@@ -151,7 +151,7 @@ func TestBuildCookie_WithOptions(t *testing.T) {
 
 func TestBuildCookie_SameSiteNone(t *testing.T) {
 	// SameSite=None should force Secure=true
-	opts := map[string]interface{}{
+	opts := map[string]any{
 		"value":    "cross-site-data",
 		"sameSite": "None",
 		"secure":   false, // Explicitly set to false
@@ -168,7 +168,7 @@ func TestBuildCookie_SameSiteNone(t *testing.T) {
 
 func TestBuildCookie_Duration(t *testing.T) {
 	// Test with duration dict (like what Parsley produces)
-	durationDict := map[string]interface{}{
+	durationDict := map[string]any{
 		"days":         int64(7),
 		"hours":        int64(0),
 		"minutes":      int64(0),
@@ -179,7 +179,7 @@ func TestBuildCookie_Duration(t *testing.T) {
 		"kind":         "duration",
 	}
 
-	opts := map[string]interface{}{
+	opts := map[string]any{
 		"value":  "remember-token",
 		"maxAge": durationDict,
 	}
@@ -193,7 +193,7 @@ func TestBuildCookie_Duration(t *testing.T) {
 func TestBuildCookie_Expires(t *testing.T) {
 	// Test with datetime dict (like what Parsley produces)
 	futureTime := time.Now().Add(24 * time.Hour)
-	datetimeDict := map[string]interface{}{
+	datetimeDict := map[string]any{
 		"year":   int64(futureTime.Year()),
 		"month":  int64(futureTime.Month()),
 		"day":    int64(futureTime.Day()),
@@ -204,7 +204,7 @@ func TestBuildCookie_Expires(t *testing.T) {
 		"unix":   futureTime.Unix(),
 	}
 
-	opts := map[string]interface{}{
+	opts := map[string]any{
 		"value":   "session-token",
 		"expires": datetimeDict,
 	}
@@ -222,7 +222,7 @@ func TestBuildCookie_Expires(t *testing.T) {
 
 func TestBuildCookie_DeleteCookie(t *testing.T) {
 	// Setting maxAge to 0 should delete the cookie
-	opts := map[string]interface{}{
+	opts := map[string]any{
 		"value":  "",
 		"maxAge": int64(0),
 	}
@@ -239,7 +239,7 @@ func TestBuildCookie_DeleteCookie(t *testing.T) {
 func TestDurationToSeconds(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected int
 	}{
 		{
@@ -259,7 +259,7 @@ func TestDurationToSeconds(t *testing.T) {
 		},
 		{
 			name: "duration dict with totalSeconds",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"days":         int64(7),
 				"hours":        int64(0),
 				"minutes":      int64(0),
@@ -271,14 +271,14 @@ func TestDurationToSeconds(t *testing.T) {
 		},
 		{
 			name: "duration dict with seconds only",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"seconds": int64(3600),
 			},
 			expected: 3600,
 		},
 		{
 			name: "duration dict with months (approximation)",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"months":  int64(1),
 				"seconds": int64(0),
 			},
@@ -310,15 +310,15 @@ func TestExtractResponseMeta_Cookies(t *testing.T) {
 	// Create an environment with basil.http.response.cookies
 	env := evaluator.NewEnvironment()
 
-	basilMap := map[string]interface{}{
-		"http": map[string]interface{}{
-			"request": map[string]interface{}{},
-			"response": map[string]interface{}{
+	basilMap := map[string]any{
+		"http": map[string]any{
+			"request": map[string]any{},
+			"response": map[string]any{
 				"status":  int64(200),
-				"headers": map[string]interface{}{},
-				"cookies": map[string]interface{}{
+				"headers": map[string]any{},
+				"cookies": map[string]any{
 					"theme": "dark",
-					"session": map[string]interface{}{
+					"session": map[string]any{
 						"value":    "abc123",
 						"maxAge":   int64(86400),
 						"httpOnly": true,
@@ -384,7 +384,7 @@ func TestExtractResponseMeta_Cookies(t *testing.T) {
 
 func TestCookieDefaults_DevVsProd(t *testing.T) {
 	// Test that secure defaults differ between dev and prod mode
-	opts := map[string]interface{}{
+	opts := map[string]any{
 		"value": "test",
 	}
 

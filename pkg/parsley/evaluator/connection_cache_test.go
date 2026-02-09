@@ -15,6 +15,7 @@ func TestConnectionCacheBasic(t *testing.T) {
 		1*time.Minute,
 		nil, // no health check
 		func(s string) error { return nil },
+		nil, // no logger
 	)
 	defer cache.close()
 
@@ -42,6 +43,7 @@ func TestConnectionCacheTTL(t *testing.T) {
 		100*time.Millisecond, // very short TTL for testing
 		nil,
 		func(s string) error { return nil },
+		nil,
 	)
 	defer cache.close()
 
@@ -76,6 +78,7 @@ func TestConnectionCacheHealthCheck(t *testing.T) {
 			return nil
 		},
 		func(s string) error { return nil },
+		nil,
 	)
 	defer cache.close()
 
@@ -107,6 +110,7 @@ func TestConnectionCacheMaxSize(t *testing.T) {
 		1*time.Minute,
 		nil,
 		func(i int) error { return nil },
+		nil,
 	)
 	defer cache.close()
 
@@ -157,6 +161,7 @@ func TestConnectionCacheConcurrent(t *testing.T) {
 		1*time.Minute,
 		nil,
 		func(i int) error { return nil },
+		nil,
 	)
 	defer cache.close()
 
@@ -164,7 +169,7 @@ func TestConnectionCacheConcurrent(t *testing.T) {
 	iterations := 100
 
 	// Concurrent puts
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		wg.Add(1)
 		go func(val int) {
 			defer wg.Done()
@@ -173,7 +178,7 @@ func TestConnectionCacheConcurrent(t *testing.T) {
 	}
 
 	// Concurrent gets
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -198,6 +203,7 @@ func TestConnectionCacheCleanup(t *testing.T) {
 		100*time.Millisecond, // short TTL
 		nil,
 		func(s string) error { return nil },
+		nil,
 	)
 	cache.cleanupTick = 50 * time.Millisecond // fast cleanup for testing
 	defer cache.close()
@@ -230,6 +236,7 @@ func TestConnectionCacheClose(t *testing.T) {
 			closeCount++
 			return nil
 		},
+		nil,
 	)
 
 	cache.put("key1", "value1")

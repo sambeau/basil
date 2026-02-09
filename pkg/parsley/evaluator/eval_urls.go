@@ -27,12 +27,12 @@ func parseUrlString(urlStr string, env *Environment) (*Dictionary, error) {
 	}
 
 	// Parse scheme
-	schemeEnd := strings.Index(urlStr, "://")
-	if schemeEnd == -1 {
+	before, after, ok := strings.Cut(urlStr, "://")
+	if !ok {
 		return nil, fmt.Errorf("invalid URL: missing scheme (expected scheme://...)")
 	}
-	scheme := urlStr[:schemeEnd]
-	rest := urlStr[schemeEnd+3:]
+	scheme := before
+	rest := after
 
 	pairs["scheme"] = &ast.StringLiteral{
 		Token: lexer.Token{Type: lexer.STRING, Literal: scheme},
@@ -53,7 +53,7 @@ func parseUrlString(urlStr string, env *Environment) (*Dictionary, error) {
 		rest = rest[:queryIdx]
 
 		// Parse query parameters
-		for _, param := range strings.Split(queryStr, "&") {
+		for param := range strings.SplitSeq(queryStr, "&") {
 			if param == "" {
 				continue
 			}
@@ -104,18 +104,18 @@ func parseUrlString(urlStr string, env *Environment) (*Dictionary, error) {
 		userinfo := rest[:atIdx]
 		rest = rest[atIdx+1:]
 
-		if colonIdx := strings.Index(userinfo, ":"); colonIdx != -1 {
-			username = userinfo[:colonIdx]
-			password = userinfo[colonIdx+1:]
+		if before, after, ok := strings.Cut(userinfo, ":"); ok {
+			username = before
+			password = after
 		} else {
 			username = userinfo
 		}
 	}
 
 	// Parse host:port
-	if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
-		host = rest[:colonIdx]
-		portStr := rest[colonIdx+1:]
+	if before, after, ok := strings.Cut(rest, ":"); ok {
+		host = before
+		portStr := after
 		if p, err := strconv.ParseInt(portStr, 10, 64); err == nil {
 			port = p
 		}

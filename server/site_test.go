@@ -240,13 +240,13 @@ func TestSiteHandler_StaticFiles(t *testing.T) {
 func TestBuildRouteObject(t *testing.T) {
 	tests := []struct {
 		subpath  string
-		wantSegs []interface{}
+		wantSegs []any
 	}{
-		{"", []interface{}{}},
-		{"/", []interface{}{}},
-		{"/2025", []interface{}{"2025"}},
-		{"/2025/Q4", []interface{}{"2025", "Q4"}},
-		{"/a/b/c", []interface{}{"a", "b", "c"}},
+		{"", []any{}},
+		{"/", []any{}},
+		{"/2025", []any{"2025"}},
+		{"/2025/Q4", []any{"2025", "Q4"}},
+		{"/a/b/c", []any{"a", "b", "c"}},
 	}
 
 	for _, tt := range tests {
@@ -260,7 +260,7 @@ func TestBuildRouteObject(t *testing.T) {
 				t.Errorf("expected absolute=false, got %v", obj["absolute"])
 			}
 
-			segs, ok := obj["segments"].([]interface{})
+			segs, ok := obj["segments"].([]any)
 			if !ok {
 				t.Fatalf("expected segments to be []interface{}, got %T", obj["segments"])
 			}

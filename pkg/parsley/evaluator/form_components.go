@@ -336,7 +336,7 @@ func evalSelectComponent(props string, env *Environment) Object {
 
 	// Get placeholder (from props, metadata, or empty)
 	placeholder := ""
-	if idx := strings.Index(props, "placeholder="); idx != -1 {
+	if found := strings.Contains(props, "placeholder="); found {
 		placeholder = parseAttrValue(props, "placeholder")
 	} else if field != nil && field.Metadata != nil {
 		if ph, ok := field.Metadata["placeholder"]; ok {

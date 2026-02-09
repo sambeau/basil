@@ -73,8 +73,8 @@ func generateCacheKey(opts SearchOptions) string {
 	}
 
 	// Include weights
-	h.Write([]byte(fmt.Sprintf("%.2f,%.2f,%.2f,%.2f",
-		opts.Weights.Title, opts.Weights.Headings, opts.Weights.Tags, opts.Weights.Content)))
+	h.Write(fmt.Appendf(nil, "%.2f,%.2f,%.2f,%.2f",
+		opts.Weights.Title, opts.Weights.Headings, opts.Weights.Tags, opts.Weights.Content))
 
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -703,7 +703,7 @@ func searchResultsToDict(results *search.SearchResults, env *evaluator.Environme
 			pathStr := strings.TrimPrefix(r.Path, "/")
 			var segments []evaluator.Object
 			if pathStr != "" {
-				for _, seg := range strings.Split(pathStr, "/") {
+				for seg := range strings.SplitSeq(pathStr, "/") {
 					segments = append(segments, &evaluator.String{Value: seg})
 				}
 			}

@@ -273,10 +273,7 @@ func printSourceContext(lines []string, lineNum, colNum int) {
 		}
 
 		// Adjust pointer position by subtracting trimmed columns
-		adjustedCol := visualCol - trimCount
-		if adjustedCol < 0 {
-			adjustedCol = 0
-		}
+		adjustedCol := max(visualCol-trimCount, 0)
 
 		pointer := strings.Repeat(" ", adjustedCol) + "^"
 		fmt.Fprintf(os.Stderr, "    %s\n", pointer)
@@ -478,12 +475,9 @@ func showDiff(filename, original, formatted string) {
 	fmtLines := strings.Split(formatted, "\n")
 
 	// Simple line-by-line diff (not a full unified diff, but useful)
-	maxLines := len(origLines)
-	if len(fmtLines) > maxLines {
-		maxLines = len(fmtLines)
-	}
+	maxLines := max(len(fmtLines), len(origLines))
 
-	for i := 0; i < maxLines; i++ {
+	for i := range maxLines {
 		origLine := ""
 		fmtLine := ""
 		if i < len(origLines) {

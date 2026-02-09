@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -1203,14 +1204,14 @@ func (p *Parser) parseMoneyLiteral() ast.Expression {
 	literal := p.curToken.Literal
 
 	// Find the # separator
-	hashIdx := strings.Index(literal, "#")
-	if hashIdx == -1 {
+	before, after, ok := strings.Cut(literal, "#")
+	if !ok {
 		p.addError(fmt.Sprintf("invalid money literal: %s", literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
 
-	currency := literal[:hashIdx]
-	numStr := literal[hashIdx+1:]
+	currency := before
+	numStr := after
 
 	// Calculate scale from decimal places
 	scale := int8(0)
@@ -2319,33 +2320,6 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit.Body = p.parseBlockStatement()
 
 	return lit
-}
-
-func (p *Parser) parseFunctionParameters() []*ast.Identifier {
-	identifiers := []*ast.Identifier{}
-
-	if p.peekTokenIs(lexer.RPAREN) {
-		p.nextToken()
-		return identifiers
-	}
-
-	p.nextToken()
-
-	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	identifiers = append(identifiers, ident)
-
-	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken()
-		p.nextToken()
-		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-		identifiers = append(identifiers, ident)
-	}
-
-	if !p.expectPeek(lexer.RPAREN) {
-		return nil
-	}
-
-	return identifiers
 }
 
 // parseFunctionParametersNew parses function parameters with destructuring support
@@ -3514,13 +3488,7 @@ func (p *Parser) parseTableLiteral() ast.Expression {
 			// Check for extra columns
 			var extra []string
 			for key := range rowKeys {
-				found := false
-				for _, col := range table.Columns {
-					if col == key {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(table.Columns, key)
 				if !found {
 					extra = append(extra, key)
 				}
@@ -3807,77 +3775,6 @@ func (p *Parser) parseGroupByFields() []string {
 		fields = append(fields, p.curToken.Literal)
 	}
 	return fields
-}
-
-// isComputedFieldStart checks if next tokens look like "name: func(" or "name: ident"
-func (p *Parser) isComputedFieldStart() bool {
-	// Look ahead: we need IDENT COLON to identify a computed field
-	// We're currently peeking at the first IDENT
-	if !p.peekTokenIs(lexer.IDENT) {
-		return false
-	}
-
-	// Save position and look ahead
-	// The pattern is: IDENT COLON (aggregate_function | IDENT)
-	// We need to check if after the IDENT there's a COLON
-	// This is tricky without proper lookahead, so let's check if
-	// the identifier is followed by a colon by looking at peek2
-	return p.peekNTokenIs(2, lexer.COLON)
-}
-
-// parseComputedField parses "name: function(field)" or "name: count"
-func (p *Parser) parseComputedField() *ast.QueryComputedField {
-	if !p.expectPeek(lexer.IDENT) {
-		return nil
-	}
-
-	cf := &ast.QueryComputedField{
-		Token: p.curToken,
-		Name:  p.curToken.Literal,
-	}
-
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
-
-	p.nextToken() // move to function name or field
-
-	// Check if it's an aggregate function
-	if p.curTokenIs(lexer.IDENT) {
-		switch p.curToken.Literal {
-		case "count":
-			cf.Function = "count"
-			// count can be bare or count(field)
-			if p.peekTokenIs(lexer.LPAREN) {
-				p.nextToken() // consume (
-				if p.peekTokenIs(lexer.IDENT) {
-					p.nextToken()
-					cf.Field = p.curToken.Literal
-				}
-				if !p.expectPeek(lexer.RPAREN) {
-					return nil
-				}
-			}
-		case "sum", "avg", "min", "max":
-			cf.Function = p.curToken.Literal
-			// These require a field: sum(field)
-			if !p.expectPeek(lexer.LPAREN) {
-				return nil
-			}
-			if !p.expectPeek(lexer.IDENT) {
-				return nil
-			}
-			cf.Field = p.curToken.Literal
-			if !p.expectPeek(lexer.RPAREN) {
-				return nil
-			}
-		default:
-			// Just a field reference
-			cf.Field = p.curToken.Literal
-		}
-	}
-
-	return cf
 }
 
 // parseComputedFieldFromIdent parses computed field when identifier is already consumed
@@ -4426,7 +4323,8 @@ func (p *Parser) parseRelationPath() *ast.RelationPath {
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
-	path := p.curToken.Literal
+	var path strings.Builder
+	path.WriteString(p.curToken.Literal)
 
 	// Parse additional segments separated by dots
 	for p.peekTokenIs(lexer.DOT) {
@@ -4434,11 +4332,11 @@ func (p *Parser) parseRelationPath() *ast.RelationPath {
 		if !p.expectPeek(lexer.IDENT) {
 			return nil
 		}
-		path += "." + p.curToken.Literal
+		path.WriteString("." + p.curToken.Literal)
 	}
 
 	relationPath := &ast.RelationPath{
-		Path:       path,
+		Path:       path.String(),
 		Conditions: []ast.QueryConditionNode{},
 		Order:      []ast.QueryOrderField{},
 		Limit:      nil,

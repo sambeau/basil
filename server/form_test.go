@@ -18,7 +18,7 @@ func TestParseURLEncodedForm(t *testing.T) {
 	route := config.Route{Path: "/submit", Handler: "test.pars"}
 	ctx := buildRequestContext(req, route)
 
-	form, ok := ctx["form"].(map[string]interface{})
+	form, ok := ctx["form"].(map[string]any)
 	if !ok {
 		t.Fatal("form should be a map")
 	}
@@ -53,7 +53,7 @@ func TestParseJSONBody(t *testing.T) {
 	}
 
 	// Parsed form should have JSON data
-	form, ok := ctx["form"].(map[string]interface{})
+	form, ok := ctx["form"].(map[string]any)
 	if !ok {
 		t.Fatal("form should be a map for JSON")
 	}
@@ -94,7 +94,7 @@ func TestParseMultipartForm(t *testing.T) {
 	ctx := buildRequestContext(req, route)
 
 	// Check form fields
-	form, ok := ctx["form"].(map[string]interface{})
+	form, ok := ctx["form"].(map[string]any)
 	if !ok {
 		t.Fatal("form should be a map")
 	}
@@ -103,12 +103,12 @@ func TestParseMultipartForm(t *testing.T) {
 	}
 
 	// Check file metadata
-	files, ok := ctx["files"].(map[string]interface{})
+	files, ok := ctx["files"].(map[string]any)
 	if !ok {
 		t.Fatal("files should be a map")
 	}
 
-	avatar, ok := files["avatar"].(map[string]interface{})
+	avatar, ok := files["avatar"].(map[string]any)
 	if !ok {
 		t.Fatal("avatar should be a file map")
 	}
@@ -136,7 +136,7 @@ func TestParseRawBody(t *testing.T) {
 	// form and files should be nil for plain text
 	if form := ctx["form"]; form != nil {
 		// Check if it's an empty map (which is fine) vs a populated map
-		if formMap, ok := form.(map[string]interface{}); ok && len(formMap) > 0 {
+		if formMap, ok := form.(map[string]any); ok && len(formMap) > 0 {
 			t.Error("form should be nil or empty for plain text")
 		}
 	}

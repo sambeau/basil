@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -10,12 +11,7 @@ import (
 
 // Helper function to check if a slice contains a string
 func containsColumn(slice []string, str string) bool {
-	for _, s := range slice {
-		if s == str {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, str)
 }
 
 // TestTableMap tests the map() method with various scenarios

@@ -890,10 +890,7 @@ func evalMoneyInfixExpression(tok lexer.Token, operator string, left, right *Mon
 	}
 
 	// Promote to higher scale if needed
-	scale := left.Scale
-	if right.Scale > scale {
-		scale = right.Scale
-	}
+	scale := max(right.Scale, left.Scale)
 
 	leftAmount := promoteMoneyScale(left.Amount, left.Scale, scale)
 	rightAmount := promoteMoneyScale(right.Amount, right.Scale, scale)

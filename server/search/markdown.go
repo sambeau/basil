@@ -5,6 +5,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var (
@@ -42,7 +45,7 @@ func ProcessMarkdown(content string, filePath string, mtime time.Time) (*Documen
 		// Convert dashes/underscores to spaces and title case
 		title = strings.ReplaceAll(title, "-", " ")
 		title = strings.ReplaceAll(title, "_", " ")
-		title = strings.Title(title)
+		title = cases.Title(language.English).String(title)
 	}
 
 	// Extract all headings

@@ -125,9 +125,7 @@ func ScanFolder(folderPath string, opts *ScanOptions) ([]*Document, error) {
 	}
 
 	// Log scan errors but don't fail the whole operation
-	if len(scanErrors) > 0 {
-		// TODO: Add proper logging when available
-		// For now, just collect errors
+	if len(scanErrors) > 0 { //nolint:staticcheck // TODO: Add proper logging when available
 	}
 
 	return documents, nil

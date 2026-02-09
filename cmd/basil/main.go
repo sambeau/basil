@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/sambeau/basil/server"
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
-	"github.com/sambeau/basil/server"
 )
 
 // Version information, set at build time via -ldflags
@@ -1066,7 +1066,8 @@ func authEmailLogsCmd(db *auth.DB, userID string, limit int, stdout io.Writer) e
 
 	if userID != "" {
 		// Verify user exists
-		user, err := db.GetUser(userID)
+		var user *auth.User
+		user, err = db.GetUser(userID)
 		if err != nil {
 			return fmt.Errorf("getting user: %w", err)
 		}

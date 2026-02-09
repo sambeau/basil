@@ -108,7 +108,7 @@ func TestCookieSessionStore_ExpiredSession(t *testing.T) {
 
 	// Create an expired session
 	session := &SessionData{
-		Data:      map[string]interface{}{"test": "value"},
+		Data:      map[string]any{"test": "value"},
 		Flash:     make(map[string]string),
 		ExpiresAt: time.Now().Add(-time.Hour), // Expired
 	}

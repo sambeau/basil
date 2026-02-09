@@ -59,8 +59,8 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 	}
 
 	// Scan the row into a map
-	values := make([]interface{}, len(columns))
-	valuePtrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	valuePtrs := make([]any, len(columns))
 	for i := range values {
 		valuePtrs[i] = &values[i]
 	}
@@ -120,8 +120,8 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 	// Scan all rows
 	var results []*Dictionary
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		valuePtrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		valuePtrs := make([]any, len(columns))
 		for i := range values {
 			valuePtrs[i] = &values[i]
 		}
@@ -201,7 +201,7 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 }
 
 // extractSQLAndParams extracts SQL string and parameters from a query object
-func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface{}, *Error) {
+func extractSQLAndParams(queryObj Object, env *Environment) (string, []any, *Error) {
 	// If it's a string, use it directly with no params
 	if str, ok := queryObj.(*String); ok {
 		return str.Value, nil, nil
@@ -224,7 +224,7 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface
 		}
 
 		// Get params if present
-		var params []interface{}
+		var params []any
 		if paramsExpr, hasParams := dict.Pairs["params"]; hasParams {
 			paramsObj := Eval(paramsExpr, env)
 			if isError(paramsObj) {
@@ -242,8 +242,8 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface
 }
 
 // dictToNamedParams converts a dictionary to a slice of named parameters
-func dictToNamedParams(dict *Dictionary, env *Environment) []interface{} {
-	params := make([]interface{}, 0, len(dict.Pairs))
+func dictToNamedParams(dict *Dictionary, env *Environment) []any {
+	params := make([]any, 0, len(dict.Pairs))
 
 	// Sort keys for consistent order
 	keys := make([]string, 0, len(dict.Pairs))
@@ -323,8 +323,8 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 	}
 
 	// Scan the row into a map
-	values := make([]interface{}, len(columns))
-	valuePtrs := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
+	valuePtrs := make([]any, len(columns))
 	for i := range values {
 		valuePtrs[i] = &values[i]
 	}
@@ -370,8 +370,8 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 	// Scan all rows
 	var results []Object
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		valuePtrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		valuePtrs := make([]any, len(columns))
 		for i := range values {
 			valuePtrs[i] = &values[i]
 		}

@@ -20,7 +20,7 @@ type TypedObject interface {
 
 // FormatValue formats any value for display.
 // This is the main entry point - it accepts interface{} for flexibility.
-func FormatValue(v interface{}) string {
+func FormatValue(v any) string {
 	if v == nil {
 		return "null"
 	}
@@ -295,8 +295,8 @@ func (p *Printer) formatFunctionObject(obj TypedObject) {
 	p.indentInc()
 
 	// Write body lines
-	lines := strings.Split(bodyTrimmed, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(bodyTrimmed, "\n")
+	for line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed != "" {
 			p.writeIndent()

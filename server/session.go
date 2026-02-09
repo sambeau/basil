@@ -143,12 +143,12 @@ func NewSession(data *SessionData, store SessionStore, w http.ResponseWriter) *S
 }
 
 // Get retrieves a value from the session
-func (s *Session) Get(key string) interface{} {
+func (s *Session) Get(key string) any {
 	return s.data.Data[key]
 }
 
 // Set stores a value in the session
-func (s *Session) Set(key string, value interface{}) {
+func (s *Session) Set(key string, value any) {
 	s.data.Data[key] = value
 	s.dirty = true
 }
@@ -161,14 +161,14 @@ func (s *Session) Delete(key string) {
 
 // Clear removes all session data
 func (s *Session) Clear() {
-	s.data.Data = make(map[string]interface{})
+	s.data.Data = make(map[string]any)
 	s.data.Flash = make(map[string]string)
 	s.cleared = true
 	s.dirty = true
 }
 
 // All returns all session data
-func (s *Session) All() map[string]interface{} {
+func (s *Session) All() map[string]any {
 	return s.data.Data
 }
 

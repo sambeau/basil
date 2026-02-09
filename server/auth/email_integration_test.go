@@ -280,7 +280,7 @@ func TestRateLimiting_DailyLimit(t *testing.T) {
 	dailyLimit := 10
 
 	// Send 10 emails (at limit)
-	for i := 0; i < dailyLimit; i++ {
+	for i := range dailyLimit {
 		// Backdate tokens to bypass cooldown
 		if i > 0 {
 			query := `UPDATE email_verifications SET last_sent_at = ? WHERE user_id = ?`

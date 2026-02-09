@@ -16,22 +16,22 @@ func TestQueryToMapFlags(t *testing.T) {
 	tests := []struct {
 		name   string
 		raw    string
-		expect map[string]interface{}
+		expect map[string]any
 	}{
 		{
 			name:   "flag without value",
 			raw:    "flag",
-			expect: map[string]interface{}{"flag": true},
+			expect: map[string]any{"flag": true},
 		},
 		{
 			name:   "flag explicit empty",
 			raw:    "flag=",
-			expect: map[string]interface{}{"flag": ""},
+			expect: map[string]any{"flag": ""},
 		},
 		{
 			name: "mixed flags",
 			raw:  "a&b=1&c",
-			expect: map[string]interface{}{
+			expect: map[string]any{
 				"a": true,
 				"b": "1",
 				"c": true,
@@ -40,8 +40,8 @@ func TestQueryToMapFlags(t *testing.T) {
 		{
 			name: "mixed multi value",
 			raw:  "flag=1&flag",
-			expect: map[string]interface{}{
-				"flag": []interface{}{"1", true},
+			expect: map[string]any{
+				"flag": []any{"1", true},
 			},
 		},
 	}
@@ -66,7 +66,7 @@ func TestBuildRequestContextAddsRoute(t *testing.T) {
 		t.Fatalf("expected subpath to be absent")
 	}
 
-	routeVal, ok := ctx["route"].(map[string]interface{})
+	routeVal, ok := ctx["route"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected route map, got %T", ctx["route"])
 	}
@@ -75,7 +75,7 @@ func TestBuildRequestContextAddsRoute(t *testing.T) {
 		t.Fatalf("expected __type path, got %v", routeVal["__type"])
 	}
 
-	segs, ok := routeVal["segments"].([]interface{})
+	segs, ok := routeVal["segments"].([]any)
 	if !ok {
 		t.Fatalf("expected segments slice, got %T", routeVal["segments"])
 	}

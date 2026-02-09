@@ -7,6 +7,7 @@
 package evaluator
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -234,9 +235,7 @@ func fileToDict(pathDict *Dictionary, format string, options *Dictionary, env *E
 	if options != nil {
 		// Copy options to ast expressions
 		optPairs := make(map[string]ast.Expression)
-		for k, v := range options.Pairs {
-			optPairs[k] = v
-		}
+		maps.Copy(optPairs, options.Pairs)
 		pairs["options"] = &ast.DictionaryLiteral{
 			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
 			Pairs: optPairs,

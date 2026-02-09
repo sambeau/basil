@@ -121,7 +121,7 @@ func TestEvalBooleanLiteral(t *testing.T) {
 func TestEvalPrefixOperators(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"!true", false},
 		{"!false", true},
@@ -133,7 +133,7 @@ func TestEvalPrefixOperators(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		switch expected := tt.expected.(type) {
 		case bool:
 			if result.Type() != BOOLEAN_OBJ {
@@ -161,7 +161,7 @@ func TestEvalPrefixOperators(t *testing.T) {
 func TestEvalInfixOperators(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// Integer arithmetic
 		{"5 + 5", int64(10)},
@@ -169,13 +169,13 @@ func TestEvalInfixOperators(t *testing.T) {
 		{"2 * 3", int64(6)},
 		{"10 / 2", int64(5)},
 		{"5 + 2 * 3", int64(11)}, // Precedence
-		
+
 		// Float arithmetic
 		{"3.0 + 2.0", 5.0},
 		{"5.5 - 2.5", 3.0},
 		{"2.5 * 4.0", 10.0},
 		{"9.0 / 3.0", 3.0},
-		
+
 		// Comparisons
 		{"5 == 5", true},
 		{"5 != 5", false},
@@ -183,23 +183,23 @@ func TestEvalInfixOperators(t *testing.T) {
 		{"5 < 3", false},
 		{"5 >= 5", true},
 		{"5 <= 5", true},
-		
+
 		// Boolean logic
 		{"true == true", true},
 		{"true != false", true},
-		
+
 		// String concatenation
 		{`"hello" + " " + "world"`, "hello world"},
 	}
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		if isError(result) {
 			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
 			continue
 		}
-		
+
 		switch expected := tt.expected.(type) {
 		case int64:
 			if result.Type() != INTEGER_OBJ {
@@ -245,10 +245,10 @@ func TestEvalInfixOperators(t *testing.T) {
 func TestEvalIfExpression(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"if (true) { 10 }", int64(10)},
-		{"if (false) { 10 }", nil}, // NULL
+		{"if (false) { 10 }", nil},   // NULL
 		{"if (1) { 10 }", int64(10)}, // Truthy
 		{"if (1 < 2) { 10 }", int64(10)},
 		{"if (1 > 2) { 10 }", nil},
@@ -258,19 +258,19 @@ func TestEvalIfExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		if isError(result) {
 			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
 			continue
 		}
-		
+
 		if tt.expected == nil {
 			if result.Type() != NULL_OBJ {
 				t.Errorf("Expected NULL, got %s for input %q", result.Type(), tt.input)
 			}
 			continue
 		}
-		
+
 		switch expected := tt.expected.(type) {
 		case int64:
 			if result.Type() != INTEGER_OBJ {
@@ -299,17 +299,17 @@ func TestEvalLetStatements(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		if isError(result) {
 			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
 			continue
 		}
-		
+
 		if result.Type() != INTEGER_OBJ {
 			t.Errorf("Expected INTEGER, got %s for input %q", result.Type(), tt.input)
 			continue
 		}
-		
+
 		intObj := result.(*Integer)
 		if intObj.Value != tt.expected {
 			t.Errorf("Expected %d, got %d for input %q", tt.expected, intObj.Value, tt.input)
@@ -321,16 +321,16 @@ func TestEvalLetStatements(t *testing.T) {
 func TestEvalFunctionObject(t *testing.T) {
 	input := "fn(x) { x + 2; }"
 	result := testEval(input)
-	
+
 	if result.Type() != FUNCTION_OBJ {
 		t.Fatalf("Expected FUNCTION, got %s", result.Type())
 	}
-	
+
 	fn := result.(*Function)
 	if len(fn.Params) != 1 {
 		t.Fatalf("Expected 1 parameter, got %d", len(fn.Params))
 	}
-	
+
 	if fn.Params[0].Ident.Value != "x" {
 		t.Fatalf("Expected parameter 'x', got %q", fn.Params[0].Ident.Value)
 	}
@@ -352,17 +352,17 @@ func TestEvalFunctionApplication(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		if isError(result) {
 			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
 			continue
 		}
-		
+
 		if result.Type() != INTEGER_OBJ {
 			t.Errorf("Expected INTEGER, got %s for input %q", result.Type(), tt.input)
 			continue
 		}
-		
+
 		intObj := result.(*Integer)
 		if intObj.Value != tt.expected {
 			t.Errorf("Expected %d, got %d for input %q", tt.expected, intObj.Value, tt.input)
@@ -380,15 +380,15 @@ let addTwo = newAdder(2);
 addTwo(3);
 `
 	result := testEval(input)
-	
+
 	if isError(result) {
 		t.Fatalf("Unexpected error: %s", result.(*Error).Message)
 	}
-	
+
 	if result.Type() != INTEGER_OBJ {
 		t.Fatalf("Expected INTEGER, got %s", result.Type())
 	}
-	
+
 	intObj := result.(*Integer)
 	if intObj.Value != 5 {
 		t.Fatalf("Expected 5, got %d", intObj.Value)
@@ -399,16 +399,16 @@ addTwo(3);
 func TestEvalArrayLiterals(t *testing.T) {
 	input := "[1, 2 * 2, 3 + 3]"
 	result := testEval(input)
-	
+
 	if result.Type() != ARRAY_OBJ {
 		t.Fatalf("Expected ARRAY, got %s", result.Type())
 	}
-	
+
 	arr := result.(*Array)
 	if len(arr.Elements) != 3 {
 		t.Fatalf("Expected 3 elements, got %d", len(arr.Elements))
 	}
-	
+
 	testIntegerObject(t, arr.Elements[0], 1)
 	testIntegerObject(t, arr.Elements[1], 4)
 	testIntegerObject(t, arr.Elements[2], 6)
@@ -418,7 +418,7 @@ func TestEvalArrayLiterals(t *testing.T) {
 func TestEvalArrayIndexExpressions(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"[1, 2, 3][0]", int64(1)},
 		{"[1, 2, 3][1]", int64(2)},
@@ -432,7 +432,7 @@ func TestEvalArrayIndexExpressions(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		if isError(result) {
 			// Out of bounds should return error
 			if tt.expected == nil {
@@ -441,14 +441,14 @@ func TestEvalArrayIndexExpressions(t *testing.T) {
 			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
 			continue
 		}
-		
+
 		if tt.expected == nil {
 			if result.Type() != NULL_OBJ {
 				t.Errorf("Expected NULL, got %s for input %q", result.Type(), tt.input)
 			}
 			continue
 		}
-		
+
 		testIntegerObject(t, result, tt.expected.(int64))
 	}
 }
@@ -457,15 +457,15 @@ func TestEvalArrayIndexExpressions(t *testing.T) {
 func TestEvalDictionaryLiterals(t *testing.T) {
 	input := `{"name": "Alice", "age": 30}`
 	result := testEval(input)
-	
+
 	if isError(result) {
 		t.Fatalf("Unexpected error: %s", result.(*Error).Message)
 	}
-	
+
 	if result.Type() != DICTIONARY_OBJ {
 		t.Fatalf("Expected DICTIONARY, got %s", result.Type())
 	}
-	
+
 	dict := result.(*Dictionary)
 	if len(dict.Pairs) != 2 {
 		t.Fatalf("Expected 2 pairs, got %d", len(dict.Pairs))
@@ -478,7 +478,7 @@ func testIntegerObject(t *testing.T, obj Object, expected int64) {
 		t.Errorf("Expected INTEGER, got %s", obj.Type())
 		return
 	}
-	
+
 	intObj := obj.(*Integer)
 	if intObj.Value != expected {
 		t.Errorf("Expected %d, got %d", expected, intObj.Value)
@@ -501,12 +501,12 @@ func TestEvalErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		result := testEval(tt.input)
-		
+
 		if !isError(result) {
 			t.Errorf("Expected error for input %q, got %s", tt.input, result.Type())
 			continue
 		}
-		
+
 		errObj := result.(*Error)
 		// Just check that error message contains expected substring
 		// (not checking exact message to be flexible with error format changes)

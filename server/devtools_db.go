@@ -76,7 +76,7 @@ func getTableInfo(db *sql.DB, tableName string) (*TableInfo, error) {
 }
 
 // getTableData returns all rows from a table (up to 1000 rows).
-func getTableData(db *sql.DB, tableName string) ([]string, [][]interface{}, error) {
+func getTableData(db *sql.DB, tableName string) ([]string, [][]any, error) {
 	// Validate table name to prevent SQL injection
 	if !isValidTableName(tableName) {
 		return nil, nil, fmt.Errorf("invalid table name: %s", tableName)
@@ -97,11 +97,11 @@ func getTableData(db *sql.DB, tableName string) ([]string, [][]interface{}, erro
 	}
 
 	// Read all rows
-	var data [][]interface{}
+	var data [][]any
 	for rows.Next() {
 		// Create a slice of interface{} to hold the row values
-		values := make([]interface{}, len(columns))
-		valuePtrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		valuePtrs := make([]any, len(columns))
 		for i := range values {
 			valuePtrs[i] = &values[i]
 		}
@@ -111,7 +111,7 @@ func getTableData(db *sql.DB, tableName string) ([]string, [][]interface{}, erro
 		}
 
 		// Convert []byte to string for display
-		row := make([]interface{}, len(columns))
+		row := make([]any, len(columns))
 		for i, v := range values {
 			if b, ok := v.([]byte); ok {
 				row[i] = string(b)
@@ -224,8 +224,8 @@ func exportTableCSV(db *sql.DB, tableName string, w io.Writer) error {
 	}
 
 	// Data rows
-	values := make([]interface{}, len(exportCols))
-	valuePtrs := make([]interface{}, len(exportCols))
+	values := make([]any, len(exportCols))
+	valuePtrs := make([]any, len(exportCols))
 	for i := range values {
 		valuePtrs[i] = &values[i]
 	}
@@ -258,7 +258,7 @@ func quoteColumns(cols []string) string {
 }
 
 // formatValue converts a database value to a string for CSV.
-func formatValue(v interface{}) string {
+func formatValue(v any) string {
 	if v == nil {
 		return ""
 	}
@@ -468,7 +468,7 @@ func replaceTableFromCSV(db *sql.DB, tableName string, r io.Reader) error {
 			}
 
 			// Convert values based on column types (preserved or inferred)
-			args := make([]interface{}, len(headers))
+			args := make([]any, len(headers))
 			for i, val := range row[:len(headers)] {
 				args[i], err = convertValue(val, colTypes[i])
 				if err != nil {
@@ -505,7 +505,7 @@ func isValidColumnName(name string) bool {
 }
 
 // convertValue converts a CSV string value to the appropriate Go type.
-func convertValue(val string, colType string) (interface{}, error) {
+func convertValue(val string, colType string) (any, error) {
 	val = strings.TrimSpace(val)
 	if val == "" {
 		return nil, nil // NULL

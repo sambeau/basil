@@ -1,38 +1,12 @@
 package evaluator
 
 import (
-	"strings"
-
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
 // PreludeLoader is a function that loads a prelude AST by path.
 // This is set by the server package to allow the evaluator to access prelude files.
 var PreludeLoader func(path string) *ast.Program
-
-// fileToComponentName converts a filename to a PascalCase component name.
-// Examples:
-//   - "text_field.pars" -> "TextField"
-//   - "sr_only.pars" -> "SrOnly"
-//   - "data_table.pars" -> "DataTable"
-func fileToComponentName(filename string) string {
-	// Remove .pars extension
-	name := strings.TrimSuffix(filename, ".pars")
-
-	// Split on underscores and capitalize each part
-	parts := strings.Split(name, "_")
-	var result strings.Builder
-	for _, part := range parts {
-		if len(part) > 0 {
-			// Capitalize first letter
-			result.WriteString(strings.ToUpper(part[:1]))
-			if len(part) > 1 {
-				result.WriteString(part[1:])
-			}
-		}
-	}
-	return result.String()
-}
 
 // componentFiles maps component filenames to their export names.
 // This list defines which components are loaded from the prelude.

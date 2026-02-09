@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -124,9 +125,7 @@ func (r *Record) Get(key string, env *Environment) Object {
 // The original Record is unchanged (immutability).
 func (r *Record) Set(key string, value Object) *Record {
 	newData := make(map[string]ast.Expression, len(r.Data))
-	for k, v := range r.Data {
-		newData[k] = v
-	}
+	maps.Copy(newData, r.Data)
 	newData[key] = &ast.ObjectLiteralExpression{Obj: value}
 
 	// Preserve or update key order
@@ -155,17 +154,13 @@ func (r *Record) Set(key string, value Object) *Record {
 // Clone creates a shallow copy of the Record.
 func (r *Record) Clone() *Record {
 	newData := make(map[string]ast.Expression, len(r.Data))
-	for k, v := range r.Data {
-		newData[k] = v
-	}
+	maps.Copy(newData, r.Data)
 
 	newKeyOrder := make([]string, len(r.KeyOrder))
 	copy(newKeyOrder, r.KeyOrder)
 
 	newErrors := make(map[string]*RecordError, len(r.Errors))
-	for k, v := range r.Errors {
-		newErrors[k] = v
-	}
+	maps.Copy(newErrors, r.Errors)
 
 	return &Record{
 		Schema:    r.Schema,
@@ -180,9 +175,7 @@ func (r *Record) Clone() *Record {
 // ToDictionary converts the Record to a Dictionary (data only).
 func (r *Record) ToDictionary() *Dictionary {
 	pairs := make(map[string]ast.Expression, len(r.Data))
-	for k, v := range r.Data {
-		pairs[k] = v
-	}
+	maps.Copy(pairs, r.Data)
 
 	keyOrder := make([]string, len(r.KeyOrder))
 	copy(keyOrder, r.KeyOrder)
@@ -198,9 +191,7 @@ func (r *Record) ToDictionary() *Dictionary {
 // Used for storing validated rows in typed tables.
 func (r *Record) ToDictionaryWithErrors() *Dictionary {
 	pairs := make(map[string]ast.Expression, len(r.Data)+1)
-	for k, v := range r.Data {
-		pairs[k] = v
-	}
+	maps.Copy(pairs, r.Data)
 
 	keyOrder := make([]string, len(r.KeyOrder))
 	copy(keyOrder, r.KeyOrder)

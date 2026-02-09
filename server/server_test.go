@@ -473,9 +473,9 @@ func TestMetaInjection(t *testing.T) {
 
 	cfg := config.Defaults()
 	cfg.Server.Dev = true
-	cfg.Meta = map[string]interface{}{
+	cfg.Meta = map[string]any{
 		"name": "Test Site",
-		"features": map[string]interface{}{
+		"features": map[string]any{
 			"dark_mode": true,
 		},
 	}

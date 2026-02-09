@@ -3,6 +3,7 @@ package evaluator
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -116,13 +117,7 @@ func recordUpdate(record *Record, args []Object, env *Environment) Object {
 				castedValue := castFieldValue(value, field)
 				newRecord.Data[key] = &ast.ObjectLiteralExpression{Obj: castedValue}
 				// Add to KeyOrder if not already present
-				found := false
-				for _, k := range newRecord.KeyOrder {
-					if k == key {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(newRecord.KeyOrder, key)
 				if !found {
 					newRecord.KeyOrder = append(newRecord.KeyOrder, key)
 				}
@@ -542,10 +537,8 @@ func evalRecordProperty(record *Record, key string, env *Environment) Object {
 	}
 
 	// Check if it's a method name - provide helpful error
-	for _, m := range recordMethods {
-		if m == key {
-			return methodAsPropertyError(key, "Record")
-		}
+	if slices.Contains(recordMethods, key) {
+		return methodAsPropertyError(key, "Record")
 	}
 
 	// Not a data field - return null (per spec: direct property access for data only)
@@ -677,11 +670,6 @@ func formatRecordDatetime(value Object, env *Environment) Object {
 	}
 
 	return &String{Value: objectToString(value)}
-}
-
-// formatRecordCurrency formats a numeric value as currency "$1,234.00" (USD default)
-func formatRecordCurrency(value Object) Object {
-	return formatRecordCurrencyWithCode(value, "USD")
 }
 
 // formatRecordCurrencyWithCode formats a numeric value as currency with specified currency code

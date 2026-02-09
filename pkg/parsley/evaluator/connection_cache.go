@@ -8,15 +8,16 @@ import (
 
 // connectionCache manages a cache of database connections with TTL and health checks
 type connectionCache[T any] struct {
-	mu           sync.RWMutex
-	conns        map[string]*cachedConn[T]
-	maxSize      int
-	ttl          time.Duration
-	cleanupTick  time.Duration
-	healthCheck  func(T) error
-	closeFunc    func(T) error
-	cleanupOnce  sync.Once
-	stopCleanup  chan struct{}
+	mu          sync.RWMutex
+	conns       map[string]*cachedConn[T]
+	maxSize     int
+	ttl         time.Duration
+	cleanupTick time.Duration
+	healthCheck func(T) error
+	closeFunc   func(T) error
+	logErr      func(string, ...any)
+	cleanupOnce sync.Once
+	stopCleanup chan struct{}
 }
 
 // cachedConn wraps a connection with metadata
@@ -27,15 +28,16 @@ type cachedConn[T any] struct {
 }
 
 // newConnectionCache creates a new connection cache with the specified configuration
-func newConnectionCache[T any](maxSize int, ttl time.Duration, healthCheck func(T) error, closeFunc func(T) error) *connectionCache[T] {
+func newConnectionCache[T any](maxSize int, ttl time.Duration, healthCheck func(T) error, closeFunc func(T) error, logErr func(string, ...any)) *connectionCache[T] {
 	return &connectionCache[T]{
-		conns:        make(map[string]*cachedConn[T]),
-		maxSize:      maxSize,
-		ttl:          ttl,
-		cleanupTick:  5 * time.Minute,
-		healthCheck:  healthCheck,
-		closeFunc:    closeFunc,
-		stopCleanup:  make(chan struct{}),
+		conns:       make(map[string]*cachedConn[T]),
+		maxSize:     maxSize,
+		ttl:         ttl,
+		cleanupTick: 5 * time.Minute,
+		healthCheck: healthCheck,
+		closeFunc:   closeFunc,
+		logErr:      logErr,
+		stopCleanup: make(chan struct{}),
 	}
 }
 
@@ -52,12 +54,12 @@ func (c *connectionCache[T]) get(key string) (T, bool) {
 	}
 
 	now := time.Now()
-	
+
 	// Check if connection has expired
 	if now.Sub(cached.createdAt) > c.ttl {
 		c.mu.Lock()
-		if err := c.closeFunc(cached.conn); err != nil {
-			// Log error but continue with eviction
+		if err := c.closeFunc(cached.conn); err != nil && c.logErr != nil {
+			c.logErr("connection cache: close error during TTL eviction: %v", err)
 		}
 		delete(c.conns, key)
 		c.mu.Unlock()
@@ -69,8 +71,8 @@ func (c *connectionCache[T]) get(key string) (T, bool) {
 	if c.healthCheck != nil {
 		if err := c.healthCheck(cached.conn); err != nil {
 			c.mu.Lock()
-			if err := c.closeFunc(cached.conn); err != nil {
-				// Log error but continue with eviction
+			if err := c.closeFunc(cached.conn); err != nil && c.logErr != nil {
+				c.logErr("connection cache: close error during health check eviction: %v", err)
 			}
 			delete(c.conns, key)
 			c.mu.Unlock()
@@ -126,8 +128,8 @@ func (c *connectionCache[T]) evictLRU() {
 
 	if oldestKey != "" {
 		if cached, exists := c.conns[oldestKey]; exists {
-			if err := c.closeFunc(cached.conn); err != nil {
-				// Log error but continue with eviction
+			if err := c.closeFunc(cached.conn); err != nil && c.logErr != nil {
+				c.logErr("connection cache: close error during LRU eviction: %v", err)
 			}
 			delete(c.conns, oldestKey)
 		}
@@ -157,8 +159,8 @@ func (c *connectionCache[T]) evictStale() {
 	now := time.Now()
 	for key, cached := range c.conns {
 		if now.Sub(cached.createdAt) > c.ttl {
-			if err := c.closeFunc(cached.conn); err != nil {
-				// Log error but continue with eviction
+			if err := c.closeFunc(cached.conn); err != nil && c.logErr != nil {
+				c.logErr("connection cache: close error during stale eviction: %v", err)
 			}
 			delete(c.conns, key)
 		}
@@ -193,7 +195,7 @@ func (c *connectionCache[T]) size() int {
 
 // Database connection cache with TTL
 var dbCache = newConnectionCache[*sql.DB](
-	100,          // max 100 database connections
+	100,            // max 100 database connections
 	30*time.Minute, // 30 minute TTL
 	func(db *sql.DB) error {
 		return db.Ping()
@@ -201,11 +203,12 @@ var dbCache = newConnectionCache[*sql.DB](
 	func(db *sql.DB) error {
 		return db.Close()
 	},
+	nil, // no logger available at package level
 )
 
 // SFTP connection cache with TTL
 var sftpCache = newConnectionCache[*SFTPConnection](
-	50,           // max 50 SFTP connections
+	50,             // max 50 SFTP connections
 	15*time.Minute, // 15 minute TTL
 	func(conn *SFTPConnection) error {
 		// Health check: try to stat a known path
@@ -224,4 +227,5 @@ var sftpCache = newConnectionCache[*SFTPConnection](
 		}
 		return nil
 	},
+	nil, // no logger available at package level
 )

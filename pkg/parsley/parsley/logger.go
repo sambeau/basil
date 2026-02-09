@@ -13,18 +13,6 @@ import (
 // Logger is an alias for evaluator.Logger for convenience
 type Logger = evaluator.Logger
 
-// stdoutLogger writes to stdout (default behavior)
-// This is provided as a convenience - evaluator.DefaultLogger can also be used
-type stdoutLogger struct{}
-
-func (l *stdoutLogger) Log(values ...interface{}) {
-	fmt.Print(formatLogValues(values...))
-}
-
-func (l *stdoutLogger) LogLine(values ...interface{}) {
-	fmt.Println(formatLogValues(values...))
-}
-
 // StdoutLogger returns a logger that writes to stdout (default for CLI/REPL)
 func StdoutLogger() Logger {
 	return evaluator.DefaultLogger
@@ -35,11 +23,11 @@ type writerLogger struct {
 	w io.Writer
 }
 
-func (l *writerLogger) Log(values ...interface{}) {
+func (l *writerLogger) Log(values ...any) {
 	fmt.Fprint(l.w, formatLogValues(values...))
 }
 
-func (l *writerLogger) LogLine(values ...interface{}) {
+func (l *writerLogger) LogLine(values ...any) {
 	fmt.Fprintln(l.w, formatLogValues(values...))
 }
 
@@ -62,13 +50,13 @@ func NewBufferedLogger() *BufferedLogger {
 	}
 }
 
-func (l *BufferedLogger) Log(values ...interface{}) {
+func (l *BufferedLogger) Log(values ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.buf.WriteString(formatLogValues(values...))
 }
 
-func (l *BufferedLogger) LogLine(values ...interface{}) {
+func (l *BufferedLogger) LogLine(values ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	// Flush any pending buffer content as a line
@@ -113,8 +101,8 @@ func (l *BufferedLogger) Reset() {
 // nullLogger discards all output
 type nullLogger struct{}
 
-func (l *nullLogger) Log(values ...interface{})     {}
-func (l *nullLogger) LogLine(values ...interface{}) {}
+func (l *nullLogger) Log(values ...any)     {}
+func (l *nullLogger) LogLine(values ...any) {}
 
 // NullLogger returns a logger that discards all output
 func NullLogger() Logger {
@@ -122,7 +110,7 @@ func NullLogger() Logger {
 }
 
 // formatLogValues formats values for logging, similar to existing behavior
-func formatLogValues(values ...interface{}) string {
+func formatLogValues(values ...any) string {
 	if len(values) == 0 {
 		return ""
 	}

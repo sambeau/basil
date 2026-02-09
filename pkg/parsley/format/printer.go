@@ -52,12 +52,6 @@ func displayWidth(s string) int {
 	return width
 }
 
-// writeln appends a string followed by a newline
-func (p *Printer) writeln(s string) {
-	p.write(s)
-	p.newline()
-}
-
 // newline writes a newline character and resets line position
 func (p *Printer) newline() {
 	p.output.WriteString("\n")
@@ -82,11 +76,6 @@ func (p *Printer) indentDec() {
 	}
 }
 
-// currentIndentWidth returns the current indentation width in characters
-func (p *Printer) currentIndentWidth() int {
-	return p.indent * IndentWidth
-}
-
 // fitsOnLine checks if a string would fit on the current line within the given threshold
 func (p *Printer) fitsOnLine(s string, threshold int) bool {
 	// Don't count embedded newlines - if string has newlines, it doesn't fit
@@ -103,12 +92,4 @@ func fitsInThreshold(s string, threshold int) bool {
 		return false
 	}
 	return displayWidth(s) <= threshold
-}
-
-// wouldFitOnLine checks if a string would fit starting from indent position
-func (p *Printer) wouldFitOnLine(s string, threshold int) bool {
-	if strings.Contains(s, "\n") {
-		return false
-	}
-	return p.currentIndentWidth()+displayWidth(s) <= threshold
 }

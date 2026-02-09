@@ -1,16 +1,16 @@
 package evaluator
 
 import (
-"fmt"
-"strconv"
+	"fmt"
+	"strconv"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
 // Data conversion functions for SQL rows, environments, and exports
 
-func rowToDict(columns []string, values []interface{}, env *Environment) *Dictionary {
+func rowToDict(columns []string, values []any, env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
 
 	for i, col := range columns {

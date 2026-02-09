@@ -352,8 +352,8 @@ func ParseSize(s string) (int64, error) {
 	}
 
 	for _, sf := range suffixes {
-		if strings.HasSuffix(s, sf.suffix) {
-			numStr := strings.TrimSuffix(s, sf.suffix)
+		if before, ok := strings.CutSuffix(s, sf.suffix); ok {
+			numStr := before
 			numStr = strings.TrimSpace(numStr)
 			var num int64
 			if _, err := fmt.Sscanf(numStr, "%d", &num); err != nil {

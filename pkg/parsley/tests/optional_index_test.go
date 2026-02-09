@@ -20,7 +20,7 @@ func testEvalOptionalIndex(input string) evaluator.Object {
 func TestOptionalArrayIndexing(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// Basic optional indexing - returns value when in bounds
 		{`[1, 2, 3][?0]`, 1},
@@ -86,7 +86,7 @@ func TestOptionalArrayIndexing(t *testing.T) {
 func TestOptionalStringIndexing(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// Basic optional indexing on strings
 		{`"hello"[?0]`, "h"},
@@ -132,7 +132,7 @@ func TestOptionalStringIndexing(t *testing.T) {
 func TestOptionalDictionaryIndexing(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// Dictionaries already return null for missing keys, but [?] should work too
 		{`{a: 1, b: 2}[?"a"]`, 1},

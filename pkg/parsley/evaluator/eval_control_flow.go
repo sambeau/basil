@@ -143,13 +143,11 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 				// Handle stop signal - exit loop early
 				if _, ok := evaluated.(*StopSignal); ok {
 					stopLoop = true
-					evaluated = NULL
 					break
 				}
 				// Handle skip signal - skip this iteration
 				if _, ok := evaluated.(*SkipSignal); ok {
 					skipIteration = true
-					evaluated = NULL
 					break
 				}
 				// Handle check exit - use the exit value and exit the block
@@ -292,13 +290,11 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 			// Handle stop signal - exit loop early
 			if _, ok := evaluated.(*StopSignal); ok {
 				stopLoop = true
-				evaluated = NULL
 				break
 			}
 			// Handle skip signal - skip this iteration
 			if _, ok := evaluated.(*SkipSignal); ok {
 				skipIteration = true
-				evaluated = NULL
 				break
 			}
 			// Handle check exit

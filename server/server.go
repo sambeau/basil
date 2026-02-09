@@ -777,8 +777,8 @@ func (s *Server) handleUnauthenticated(w http.ResponseWriter, r *http.Request) {
 	if isAPIRequest(r) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"code":    "HTTP-401",
 				"message": "Unauthorized",
 			},
@@ -801,8 +801,8 @@ func (s *Server) handleForbidden(w http.ResponseWriter, r *http.Request) {
 	if isAPIRequest(r) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"code":    "HTTP-403",
 				"message": "Forbidden: insufficient role",
 			},

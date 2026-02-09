@@ -16,7 +16,7 @@ import (
 func TestStringMethods(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// upper()
 		{`"hello".toUpper()`, "HELLO"},
@@ -159,7 +159,7 @@ func TestStringMethods(t *testing.T) {
 func TestArrayMethods(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// length()
 		{`[1, 2, 3].length()`, int64(3)},
@@ -289,7 +289,7 @@ func TestArrayMethods(t *testing.T) {
 func TestDictionaryMethods(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 		check    string // "bool" for boolean, "contains" for array containment
 	}{
 		// keys()
@@ -373,7 +373,7 @@ func TestDictionaryMethods(t *testing.T) {
 func TestPathMethods(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 		check    string // "bool" for boolean, "string" for string
 	}{
 		// isAbsolute()
@@ -602,7 +602,7 @@ func TestDurationMethods(t *testing.T) {
 func TestMethodChaining(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		// String chaining
 		{`"  hello world  ".trim().toUpper()`, "HELLO WORLD"},

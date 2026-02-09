@@ -1,6 +1,7 @@
 package pln
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -10,7 +11,7 @@ import (
 func TestParsePrimitives(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"42", int64(42)},
 		{"-42", int64(-42)},
@@ -404,16 +405,16 @@ func TestParseComments(t *testing.T) {
 
 func TestParseDeepNesting(t *testing.T) {
 	// Create deeply nested structure
-	input := ""
-	for i := 0; i < MaxNestingDepth+5; i++ {
-		input += "["
+	var input strings.Builder
+	for range MaxNestingDepth + 5 {
+		input.WriteString("[")
 	}
-	input += "1"
-	for i := 0; i < MaxNestingDepth+5; i++ {
-		input += "]"
+	input.WriteString("1")
+	for range MaxNestingDepth + 5 {
+		input.WriteString("]")
 	}
 
-	p := NewParser(input)
+	p := NewParser(input.String())
 	_, err := p.Parse()
 	if err == nil {
 		t.Error("expected error for deep nesting, got nil")

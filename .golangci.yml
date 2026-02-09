@@ -1,0 +1,19 @@
+version: "2"
+
+linters:
+  enable:
+    - modernize
+    - gocritic
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+    disabled-checks:
+      - hugeParam
+      - rangeValCopy
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

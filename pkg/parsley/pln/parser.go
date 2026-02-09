@@ -57,7 +57,7 @@ func (p *Parser) Errors() []string {
 }
 
 // addError adds an error message
-func (p *Parser) addError(format string, args ...interface{}) {
+func (p *Parser) addError(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	p.errors = append(p.errors, fmt.Sprintf("line %d, column %d: %s",
 		p.curToken.Line, p.curToken.Column, msg))

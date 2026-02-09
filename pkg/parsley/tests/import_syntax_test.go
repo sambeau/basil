@@ -14,7 +14,7 @@ func TestNewImportSyntax(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "import stdlib with new syntax",
@@ -82,7 +82,7 @@ func TestImportDestructuring(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "destructure single export",
@@ -145,7 +145,7 @@ func TestDestructuringImportDoesNotShadow(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "let destructure does not bind path name",

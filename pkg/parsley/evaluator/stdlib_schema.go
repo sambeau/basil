@@ -18,9 +18,6 @@ var (
 	schemaUUIDRegex  = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 )
 
-// schemaMethods lists the available methods on schema objects
-var schemaMethods = []string{"validate"}
-
 // IsSchemaDict checks if a dictionary is a schema (created by schema.define)
 func IsSchemaDict(dict *Dictionary) bool {
 	if dict == nil {

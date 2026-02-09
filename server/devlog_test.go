@@ -99,7 +99,7 @@ func TestDevLogRead(t *testing.T) {
 	defer dl.Close()
 
 	// Write multiple entries
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		entry := LogEntry{
 			Route:     "",
 			Level:     "info",
@@ -194,7 +194,7 @@ func TestDevLogClear(t *testing.T) {
 	defer dl.Close()
 
 	// Write some entries
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		entry := LogEntry{
 			Route:     "",
 			Level:     "info",

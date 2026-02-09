@@ -101,7 +101,7 @@ func objectToTemplateString(obj Object) string {
 
 // evalDictionarySpread evaluates a dictionary and writes its key-value pairs
 // as HTML attributes to the builder. It handles null/false omission and boolean attributes.
-func evalDictionarySpread(dict *Dictionary, builder *strings.Builder, env *Environment) error {
+func evalDictionarySpread(dict *Dictionary, builder *strings.Builder, env *Environment) error { //nolint:unused // pre-built for FEAT-074 (Dictionary Spreading in HTML Tags)
 	if dict == nil {
 		return nil
 	}
@@ -114,7 +114,7 @@ func evalDictionarySpread(dict *Dictionary, builder *strings.Builder, env *Envir
 
 	// Sort keys alphabetically
 	sortKeys := func(keys []string) {
-		for i := 0; i < len(keys); i++ {
+		for i := range keys {
 			for j := i + 1; j < len(keys); j++ {
 				if keys[i] > keys[j] {
 					keys[i], keys[j] = keys[j], keys[i]
@@ -734,7 +734,7 @@ func tableToFormattedReprString(tbl *Table, seen map[Object]bool, indent int) st
 	if strings.Contains(arrStr, "\n") {
 		lines := strings.Split(arrStr, "\n")
 		indentStr := strings.Repeat(format.IndentString, indent+1)
-		for i := 0; i < len(lines); i++ {
+		for i := range lines {
 			if i == 0 {
 				lines[i] = indentStr + lines[i]
 			} else if lines[i] != "" {

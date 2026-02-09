@@ -52,7 +52,7 @@ export getById = api.public(fn(req) { {id: req.params.id} })
 		t.Fatalf("expected 200 for collection, got %d", rec.Code)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("failed to parse JSON: %v", err)
 	}
@@ -68,7 +68,7 @@ export getById = api.public(fn(req) { {id: req.params.id} })
 		t.Fatalf("expected 200 for getById, got %d", recID.Code)
 	}
 
-	var bodyID map[string]interface{}
+	var bodyID map[string]any
 	if err := json.Unmarshal(recID.Body.Bytes(), &bodyID); err != nil {
 		t.Fatalf("failed to parse JSON: %v", err)
 	}

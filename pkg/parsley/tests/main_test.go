@@ -83,9 +83,9 @@ func TestVariableAssignment(t *testing.T) {
 		var result evaluator.Object
 
 		// Handle multiple statements separated by semicolon
-		statements := strings.Split(tt.input, ";")
+		statements := strings.SplitSeq(tt.input, ";")
 
-		for _, stmt := range statements {
+		for stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue

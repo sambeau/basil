@@ -12,7 +12,7 @@ func TestEval(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"integer", "42", int64(42)},
 		{"float", "3.14", 3.14},
@@ -20,8 +20,8 @@ func TestEval(t *testing.T) {
 		{"boolean true", "true", true},
 		{"boolean false", "false", false},
 		{"addition", "1 + 2", int64(3)},
-		{"string concat", `"a" ++ "b"`, []interface{}{"a", "b"}}, // ++ creates array
-		{"array", "[1, 2, 3]", []interface{}{int64(1), int64(2), int64(3)}},
+		{"string concat", `"a" ++ "b"`, []any{"a", "b"}}, // ++ creates array
+		{"array", "[1, 2, 3]", []any{int64(1), int64(2), int64(3)}},
 	}
 
 	for _, tt := range tests {
@@ -33,8 +33,8 @@ func TestEval(t *testing.T) {
 			got := result.GoValue()
 
 			// Compare arrays specially
-			if expectedArr, ok := tt.expected.([]interface{}); ok {
-				gotArr, ok := got.([]interface{})
+			if expectedArr, ok := tt.expected.([]any); ok {
+				gotArr, ok := got.([]any)
 				if !ok {
 					t.Fatalf("expected array, got %T", got)
 				}
@@ -125,7 +125,7 @@ func TestRuntimeError(t *testing.T) {
 func TestToParsley(t *testing.T) {
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		check func(parsley.Object) bool
 	}{
 		{"int", 42, func(o parsley.Object) bool {
@@ -167,7 +167,7 @@ func TestFromParsley(t *testing.T) {
 	tests := []struct {
 		name     string
 		obj      parsley.Object
-		expected interface{}
+		expected any
 	}{
 		{"integer", &parsley.Integer{Value: 42}, int64(42)},
 		{"float", &parsley.Float{Value: 3.14}, 3.14},

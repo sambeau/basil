@@ -132,7 +132,7 @@ func TestPartComponentWithProps(t *testing.T) {
 	propsJSON = strings.ReplaceAll(propsJSON, "&lt;", "<")
 	propsJSON = strings.ReplaceAll(propsJSON, "&gt;", ">")
 
-	var props map[string]interface{}
+	var props map[string]any
 	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
 		t.Fatalf("failed to parse props JSON: %v (JSON: %s)", err, propsJSON)
 	}
@@ -189,7 +189,7 @@ func TestPartComponentWithRefreshAndLoad(t *testing.T) {
 	propsJSON = strings.ReplaceAll(propsJSON, "&lt;", "<")
 	propsJSON = strings.ReplaceAll(propsJSON, "&gt;", ">")
 
-	var props map[string]interface{}
+	var props map[string]any
 	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
 		t.Fatalf("failed to parse props JSON: %v (JSON: %s)", err, propsJSON)
 	}
@@ -249,7 +249,7 @@ func TestPartComponentWithLazy(t *testing.T) {
 	propsJSON = strings.ReplaceAll(propsJSON, "&lt;", "<")
 	propsJSON = strings.ReplaceAll(propsJSON, "&gt;", ">")
 
-	var props map[string]interface{}
+	var props map[string]any
 	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
 		t.Fatalf("failed to parse props JSON: %v (JSON: %s)", err, propsJSON)
 	}
@@ -385,7 +385,7 @@ func TestPartComponentWithId(t *testing.T) {
 	propsJSON = strings.ReplaceAll(propsJSON, "&lt;", "<")
 	propsJSON = strings.ReplaceAll(propsJSON, "&gt;", ">")
 
-	var props map[string]interface{}
+	var props map[string]any
 	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
 		t.Fatalf("failed to parse props JSON: %v (JSON: %s)", err, propsJSON)
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -595,7 +596,7 @@ func htmlEscape(s string) string {
 // Exported for testing.
 func EncodePropsToJSON(props *Dictionary) string {
 	// Build a map of evaluated prop values
-	propsMap := make(map[string]interface{})
+	propsMap := make(map[string]any)
 	for key, expr := range props.Pairs {
 		// Evaluate the expression
 		val := Eval(expr, props.Env)
@@ -649,12 +650,7 @@ func NeedsPLNSerialization(obj Object) bool {
 		return false
 	case *Array:
 		// Check if any element needs PLN
-		for _, elem := range v.Elements {
-			if NeedsPLNSerialization(elem) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(v.Elements, NeedsPLNSerialization)
 	default:
 		return false
 	}
@@ -693,7 +689,7 @@ func RegisterPLNSigningFunctions(
 
 // objectToGoValue converts a Parsley object to a Go value for JSON marshaling
 // For database storage, Money values are converted to their integer Amount (cents/minor units).
-func objectToGoValue(obj Object) interface{} {
+func objectToGoValue(obj Object) any {
 	switch v := obj.(type) {
 	case *Integer:
 		return v.Value
@@ -707,13 +703,13 @@ func objectToGoValue(obj Object) interface{} {
 		// Store as integer (cents/minor units) - consistent with Money type storage
 		return v.Amount
 	case *Array:
-		arr := make([]interface{}, len(v.Elements))
+		arr := make([]any, len(v.Elements))
 		for i, elem := range v.Elements {
 			arr[i] = objectToGoValue(elem)
 		}
 		return arr
 	case *Dictionary:
-		m := make(map[string]interface{})
+		m := make(map[string]any)
 		for key, expr := range v.Pairs {
 			val := Eval(expr, v.Env)
 			m[key] = objectToGoValue(val)
@@ -1260,10 +1256,7 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					// Adjust error position for runtime errors
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}
@@ -1396,10 +1389,7 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 							// Adjust error position for runtime errors
 							if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 								errObj.Line = baseLine
-								errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-								if errObj.Column < baseCol+exprOffset {
-									errObj.Column = baseCol + exprOffset
-								}
+								errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 								if errObj.File == "" {
 									errObj.File = env.Filename
 								}
@@ -1494,10 +1484,7 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					// Adjust error position for runtime errors
 					if errObj, ok := evaluated.(*Error); ok && errObj.Line <= 1 {
 						errObj.Line = baseLine
-						errObj.Column = baseCol + exprOffset + (errObj.Column - 1)
-						if errObj.Column < baseCol+exprOffset {
-							errObj.Column = baseCol + exprOffset
-						}
+						errObj.Column = max(baseCol+exprOffset+(errObj.Column-1), baseCol+exprOffset)
 						if errObj.File == "" {
 							errObj.File = env.Filename
 						}

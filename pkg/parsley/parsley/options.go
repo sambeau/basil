@@ -19,7 +19,7 @@ type Config struct {
 	Security      *evaluator.SecurityPolicy
 	Logger        evaluator.Logger
 	Filename      string
-	Vars          map[string]interface{}
+	Vars          map[string]any
 	DBConnections map[string]*DBConnectionConfig // Injected database connections
 }
 
@@ -56,10 +56,10 @@ func WithFilename(name string) Option {
 
 // WithVar pre-populates a variable in the environment.
 // The value is converted from Go types to Parsley types using ToParsley().
-func WithVar(name string, value interface{}) Option {
+func WithVar(name string, value any) Option {
 	return func(c *Config) {
 		if c.Vars == nil {
-			c.Vars = make(map[string]interface{})
+			c.Vars = make(map[string]any)
 		}
 		c.Vars[name] = value
 	}

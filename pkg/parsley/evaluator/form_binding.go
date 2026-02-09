@@ -30,12 +30,6 @@ func getFormContext(env *Environment) *FormContext {
 	return nil
 }
 
-// setFormContext sets a form context in the environment.
-// The context is stored on this environment level only.
-func setFormContext(env *Environment, ctx *FormContext) {
-	env.FormContext = ctx
-}
-
 // parseFormAtRecord parses the @record attribute from props string.
 // Returns the expression if found, nil if not present.
 // baseLine and baseCol are the position of the props string start for error reporting.

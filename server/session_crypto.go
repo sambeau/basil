@@ -16,15 +16,15 @@ import (
 
 // SessionData represents the encrypted session payload
 type SessionData struct {
-	Data      map[string]interface{} `json:"d"`           // Session data
-	Flash     map[string]string      `json:"f,omitempty"` // Flash messages
-	ExpiresAt time.Time              `json:"e"`           // Expiration time
+	Data      map[string]any    `json:"d"`           // Session data
+	Flash     map[string]string `json:"f,omitempty"` // Flash messages
+	ExpiresAt time.Time         `json:"e"`           // Expiration time
 }
 
 // NewSessionData creates a new empty session with the given expiration
 func NewSessionData(maxAge time.Duration) *SessionData {
 	return &SessionData{
-		Data:      make(map[string]interface{}),
+		Data:      make(map[string]any),
 		Flash:     make(map[string]string),
 		ExpiresAt: time.Now().Add(maxAge),
 	}
@@ -123,7 +123,7 @@ func decryptSession(encoded string, secret string) (*SessionData, error) {
 
 	// Initialize maps if nil (empty JSON objects)
 	if data.Data == nil {
-		data.Data = make(map[string]interface{})
+		data.Data = make(map[string]any)
 	}
 	if data.Flash == nil {
 		data.Flash = make(map[string]string)

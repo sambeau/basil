@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -166,10 +167,10 @@ func (h *parsleyHandler) parsePartPropValue(value string, env *evaluator.Environ
 	// Check if value looks like JSON (starts with { or [)
 	if len(value) > 0 && (value[0] == '{' || value[0] == '[') {
 		// Try to parse as JSON
-		var jsonValue interface{}
+		var jsonValue any
 		if err := json.Unmarshal([]byte(value), &jsonValue); err == nil {
 			// Check if it's a PLN marker: {"__pln": "signed_pln_string"}
-			if obj, ok := jsonValue.(map[string]interface{}); ok {
+			if obj, ok := jsonValue.(map[string]any); ok {
 				if plnSigned, ok := obj["__pln"].(string); ok {
 					// Deserialize PLN prop
 					if evaluator.DeserializePLNProp != nil && env.PLNSecret != "" {
@@ -192,7 +193,7 @@ func (h *parsleyHandler) parsePartPropValue(value string, env *evaluator.Environ
 }
 
 // jsonToObject converts a JSON-parsed value to a Parsley object
-func jsonToObject(value interface{}) evaluator.Object {
+func jsonToObject(value any) evaluator.Object {
 	if value == nil {
 		return &evaluator.Null{}
 	}
@@ -207,13 +208,13 @@ func jsonToObject(value interface{}) evaluator.Object {
 		return &evaluator.Float{Value: v}
 	case string:
 		return &evaluator.String{Value: v}
-	case []interface{}:
+	case []any:
 		elements := make([]evaluator.Object, len(v))
 		for i, elem := range v {
 			elements[i] = jsonToObject(elem)
 		}
 		return &evaluator.Array{Elements: elements}
-	case map[string]interface{}:
+	case map[string]any:
 		pairs := make(map[string]ast.Expression)
 		keyOrder := make([]string, 0, len(v))
 		for key, val := range v {
@@ -289,11 +290,11 @@ func objectToTemplateString(obj evaluator.Object) string {
 		return "false"
 	case *evaluator.Array:
 		// Concatenate array elements (for multiple expressions in block)
-		var result string
+		var result strings.Builder
 		for _, elem := range v.Elements {
-			result += objectToTemplateString(elem)
+			result.WriteString(objectToTemplateString(elem))
 		}
-		return result
+		return result.String()
 	default:
 		return obj.Inspect()
 	}

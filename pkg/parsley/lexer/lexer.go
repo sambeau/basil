@@ -445,7 +445,7 @@ type Lexer struct {
 	pendingComments        []string  // comments collected before the next token
 	pendingBlankLines      int       // blank lines counted before the next token
 	pendingTrailingComment string    // trailing comment from previous line (for the PREVIOUS token's statement)
-	lastToken              *Token    // pointer to the last emitted token (for attaching trailing comments)
+
 }
 
 // truncate returns the first n characters of a string, adding "..." if truncated.
@@ -589,27 +589,6 @@ func (l *Lexer) readChar() {
 	l.readPosition += size
 
 	l.column++
-}
-
-// setCurrentChar sets l.ch, l.chRune, and l.chSize from the byte at the given position.
-// Used when manually adjusting position (e.g., backing up one character).
-func (l *Lexer) setCurrentChar(pos int) {
-	if pos >= len(l.input) {
-		l.ch = 0
-		l.chRune = 0
-		l.chSize = 0
-		return
-	}
-	b := l.input[pos]
-	l.ch = b
-	if b < utf8.RuneSelf {
-		l.chRune = rune(b)
-		l.chSize = 1
-	} else {
-		r, size := utf8.DecodeRuneInString(l.input[pos:])
-		l.chRune = r
-		l.chSize = size
-	}
 }
 
 // appendCurrentChar appends the current character (all bytes for multi-byte UTF-8) to the given slice.
@@ -1117,22 +1096,22 @@ func (l *Lexer) NextToken() Token {
 		case ENV_LITERAL:
 			tok.Type = ENV_LITERAL
 			tok.Literal = "@env"
-			l.readChar()             // skip @
-			for i := 0; i < 3; i++ { // consume "env"
+			l.readChar()  // skip @
+			for range 3 { // consume "env"
 				l.readChar()
 			}
 		case ARGS_LITERAL:
 			tok.Type = ARGS_LITERAL
 			tok.Literal = "@args"
-			l.readChar()             // skip @
-			for i := 0; i < 4; i++ { // consume "args"
+			l.readChar()  // skip @
+			for range 4 { // consume "args"
 				l.readChar()
 			}
 		case PARAMS_LITERAL:
 			tok.Type = PARAMS_LITERAL
 			tok.Literal = "@params"
-			l.readChar()             // skip @
-			for i := 0; i < 6; i++ { // consume "params"
+			l.readChar()  // skip @
+			for range 6 { // consume "params"
 				l.readChar()
 			}
 		case SCHEMA_LITERAL:
@@ -1562,7 +1541,7 @@ func buildMoneyLiteral(currency string, amount int64, scale int8) string {
 
 	// Calculate whole and fractional parts
 	divisor := int64(1)
-	for i := int8(0); i < scale; i++ {
+	for range scale {
 		divisor *= 10
 	}
 
@@ -1684,120 +1663,6 @@ func (l *Lexer) readTemplate() string {
 	return string(result)
 }
 
-// readTag reads a singleton tag like <input type="text" />
-func (l *Lexer) readTag() string {
-	var result []byte
-	l.readChar() // skip opening <
-
-	// Read until we find />
-	for {
-		if l.ch == 0 {
-			// Unexpected EOF
-			break
-		}
-
-		// Check for closing />
-		if l.ch == '/' && l.peekChar() == '>' {
-			l.readChar() // consume /
-			l.readChar() // consume >
-			break
-		}
-
-		// Handle double-quoted string literals within the tag
-		if l.ch == '"' {
-			result = append(result, l.ch)
-			l.readChar()
-			// Read until closing quote
-			for l.ch != '"' && l.ch != 0 {
-				if l.ch == '\\' {
-					result = append(result, l.ch)
-					l.readChar()
-					if l.ch != 0 {
-						result = l.appendCurrentChar(result)
-						l.readChar()
-					}
-				} else {
-					result = l.appendCurrentChar(result)
-					l.readChar()
-				}
-			}
-			if l.ch == '"' {
-				result = append(result, l.ch)
-				l.readChar()
-			}
-			continue
-		}
-
-		// Handle single-quoted string literals within the tag (raw - no escape processing)
-		if l.ch == '\'' {
-			result = append(result, l.ch)
-			l.readChar()
-			// Read until closing single quote - only \' needs escaping
-			for l.ch != '\'' && l.ch != 0 {
-				if l.ch == '\\' && l.peekChar() == '\'' {
-					// Escaped single quote - include just the quote
-					l.readChar() // skip backslash
-					result = append(result, l.ch)
-					l.readChar()
-				} else {
-					result = l.appendCurrentChar(result)
-					l.readChar()
-				}
-			}
-			if l.ch == '\'' {
-				result = append(result, l.ch)
-				l.readChar()
-			}
-			continue
-		}
-
-		// Handle interpolation braces {}
-		if l.ch == '{' {
-			result = append(result, l.ch)
-			l.readChar()
-			braceDepth := 1
-			// Read until matching closing brace
-			for braceDepth > 0 && l.ch != 0 {
-				if l.ch == '{' {
-					braceDepth++
-				} else if l.ch == '}' {
-					braceDepth--
-				} else if l.ch == '"' {
-					// Handle string inside interpolation
-					result = append(result, l.ch)
-					l.readChar()
-					for l.ch != '"' && l.ch != 0 {
-						if l.ch == '\\' {
-							result = append(result, l.ch)
-							l.readChar()
-							if l.ch != 0 {
-								result = l.appendCurrentChar(result)
-								l.readChar()
-							}
-							continue
-						}
-						result = l.appendCurrentChar(result)
-						l.readChar()
-					}
-					if l.ch == '"' {
-						result = append(result, l.ch)
-						l.readChar()
-					}
-					continue
-				}
-				result = l.appendCurrentChar(result)
-				l.readChar()
-			}
-			continue
-		}
-
-		result = l.appendCurrentChar(result)
-		l.readChar()
-	}
-
-	return string(result)
-}
-
 // skipXMLComment skips an XML comment <!-- ... -->
 // Returns true if a comment was successfully skipped
 func (l *Lexer) skipXMLComment() bool {
@@ -1840,7 +1705,7 @@ func (l *Lexer) readCDATA() (string, bool) {
 	}
 
 	// Skip the <![CDATA[
-	for i := 0; i < 9; i++ {
+	for range 9 {
 		l.readChar()
 	}
 
@@ -2412,18 +2277,6 @@ func (l *Lexer) skipAndCaptureComment() {
 	l.pendingComments = append(l.pendingComments, commentText)
 }
 
-// skipComment skips single-line comments starting with // (legacy, use skipAndCaptureComment)
-func (l *Lexer) skipComment() {
-	// Skip the two slashes
-	l.readChar()
-	l.readChar()
-
-	// Read until end of line or EOF
-	for l.ch != '\n' && l.ch != 0 {
-		l.readChar()
-	}
-}
-
 // isLetter checks if a byte represents a letter (ASCII fast-path).
 // For non-ASCII bytes (>=0x80), this returns false - use isLetterRune for Unicode.
 func isLetter(ch byte) bool {
@@ -2581,35 +2434,6 @@ func (l *Lexer) readDatetimeLiteral() string {
 	_ = startPos
 
 	return string(datetime)
-}
-
-// isDatetimeLiteral checks if the @ symbol is followed by a datetime pattern (YYYY-MM-DD)
-// rather than a duration pattern (like 2h30m or 7d)
-func (l *Lexer) isDatetimeLiteral() bool {
-	// Look ahead to check the pattern
-	// Datetime starts with 4 digits (year)
-	// Duration starts with digits followed by a unit letter
-	pos := l.readPosition
-
-	// Skip @ (already at current position)
-	if pos >= len(l.input) {
-		return false
-	}
-
-	// Count consecutive digits
-	digitCount := 0
-	for pos < len(l.input) && isDigit(l.input[pos]) {
-		digitCount++
-		pos++
-	}
-
-	// If we have 4 digits followed by '-', it's a datetime (YYYY-MM-DD)
-	if digitCount == 4 && pos < len(l.input) && l.input[pos] == '-' {
-		return true
-	}
-
-	// Otherwise, it's a duration
-	return false
 }
 
 // readDurationLiteral reads a duration literal after @

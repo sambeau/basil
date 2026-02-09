@@ -1121,8 +1121,8 @@ func (tb *TableBinding) queryRows(query string, params []Object, env *Environmen
 
 	var results []*Dictionary
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
+		ptrs := make([]any, len(columns))
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
@@ -1191,7 +1191,7 @@ func (tb *TableBinding) executeMutation(query string, params []Object) *Error {
 }
 
 func (tb *TableBinding) query(query string, params []Object) (*RowsWrapper, *Error) {
-	goParams := make([]interface{}, len(params))
+	goParams := make([]any, len(params))
 	for i, p := range params {
 		goParams[i] = objectToGoValue(p)
 	}
@@ -1212,7 +1212,7 @@ func (tb *TableBinding) query(query string, params []Object) (*RowsWrapper, *Err
 }
 
 func (tb *TableBinding) exec(query string, params []Object) (ResultWrapper, *Error) {
-	goParams := make([]interface{}, len(params))
+	goParams := make([]any, len(params))
 	for i, p := range params {
 		goParams[i] = objectToGoValue(p)
 	}
@@ -1588,12 +1588,12 @@ func (tb *TableBinding) executeFindBy(args []Object, env *Environment) Object {
 
 // querySingleValue executes a query that returns a single scalar value.
 func (tb *TableBinding) querySingleValue(query string, params []Object) Object {
-	goParams := make([]interface{}, len(params))
+	goParams := make([]any, len(params))
 	for i, p := range params {
 		goParams[i] = objectToGoValue(p)
 	}
 
-	var result interface{}
+	var result any
 	err := tb.DB.DB.QueryRow(query, goParams...).Scan(&result)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -2012,11 +2012,11 @@ type RowsWrapper struct {
 	Rows *sql.Rows
 }
 
-func (rw *RowsWrapper) Columns() ([]string, error)     { return rw.Rows.Columns() }
-func (rw *RowsWrapper) Next() bool                     { return rw.Rows.Next() }
-func (rw *RowsWrapper) Scan(dest ...interface{}) error { return rw.Rows.Scan(dest...) }
-func (rw *RowsWrapper) Err() error                     { return rw.Rows.Err() }
-func (rw *RowsWrapper) Close() error                   { return rw.Rows.Close() }
+func (rw *RowsWrapper) Columns() ([]string, error) { return rw.Rows.Columns() }
+func (rw *RowsWrapper) Next() bool                 { return rw.Rows.Next() }
+func (rw *RowsWrapper) Scan(dest ...any) error     { return rw.Rows.Scan(dest...) }
+func (rw *RowsWrapper) Err() error                 { return rw.Rows.Err() }
+func (rw *RowsWrapper) Close() error               { return rw.Rows.Close() }
 
 // ResultWrapper mirrors sql.Result for testability and decoupling.
 type ResultWrapper interface {

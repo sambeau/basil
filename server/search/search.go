@@ -2,7 +2,6 @@ package search
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 )
@@ -164,7 +163,7 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 	if len(results) >= opts.Limit {
 		// There might be more results
 		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM documents_fts WHERE documents_fts MATCH ?")
-		countArgs := []interface{}{ftsQuery}
+		countArgs := []any{ftsQuery}
 		if err := idx.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
 			// Non-fatal, use estimate
 			total = len(results) + opts.Offset
@@ -181,7 +180,7 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 }
 
 // buildSearchSQL builds the SQL query with filters and ranking
-func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (string, []interface{}) {
+func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (string, []any) {
 	w := idx.weights
 
 	// BM25 with custom weights
@@ -190,7 +189,7 @@ func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (strin
 
 	// Build WHERE clauses
 	whereClauses := []string{"documents_fts MATCH ?"}
-	args := []interface{}{ftsQuery}
+	args := []any{ftsQuery}
 
 	// Add tag filter
 	if len(opts.Filters.Tags) > 0 {
@@ -217,7 +216,7 @@ func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (strin
 	whereClause := strings.Join(whereClauses, " AND ")
 
 	query := fmt.Sprintf(`
-		SELECT 
+		SELECT
 			documents_fts.url,
 			title,
 			snippet(documents_fts, 3, '<mark>', '</mark>', '...', 64) as snippet,
@@ -243,8 +242,8 @@ func wrapSnippet(snippet string) string {
 }
 
 // Stats returns search index statistics
-func (idx *FTS5Index) Stats() (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
+func (idx *FTS5Index) Stats() (map[string]any, error) {
+	stats := make(map[string]any)
 
 	// Count documents
 	var count int
@@ -293,13 +292,4 @@ func formatBytes(bytes int) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
-// normalize normalizes a score to 0-1 range
-func normalize(score, min, max float64) float64 {
-	if max == min {
-		return 1.0
-	}
-	normalized := (score - min) / (max - min)
-	return math.Max(0, math.Min(1, normalized))
 }

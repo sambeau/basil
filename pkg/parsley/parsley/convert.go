@@ -22,7 +22,7 @@ import (
 //   - time.Time → DateTime dictionary
 //   - time.Duration → Duration dictionary
 //   - nil → Null
-func ToParsley(v interface{}) (evaluator.Object, error) {
+func ToParsley(v any) (evaluator.Object, error) {
 	if v == nil {
 		return evaluator.NULL, nil
 	}
@@ -65,9 +65,9 @@ func ToParsley(v interface{}) (evaluator.Object, error) {
 		return timeToParsley(val), nil
 	case time.Duration:
 		return durationToParsley(val), nil
-	case []interface{}:
+	case []any:
 		return sliceToParsley(val)
-	case map[string]interface{}:
+	case map[string]any:
 		return mapToParsley(val)
 	default:
 		// Use reflection for other slice and map types
@@ -97,7 +97,7 @@ func ToParsley(v interface{}) (evaluator.Object, error) {
 //   - Array → []interface{}
 //   - Dictionary → map[string]interface{}
 //   - Null → nil
-func FromParsley(obj evaluator.Object) interface{} {
+func FromParsley(obj evaluator.Object) any {
 	if obj == nil {
 		return nil
 	}
@@ -171,7 +171,7 @@ func durationToParsley(d time.Duration) *evaluator.Dictionary {
 	return evaluator.NewDictionaryFromObjects(pairs)
 }
 
-func sliceToParsley(slice []interface{}) (*evaluator.Array, error) {
+func sliceToParsley(slice []any) (*evaluator.Array, error) {
 	elements := make([]evaluator.Object, len(slice))
 	for i, v := range slice {
 		obj, err := ToParsley(v)
@@ -195,7 +195,7 @@ func reflectSliceToParsley(rv reflect.Value) (*evaluator.Array, error) {
 	return &evaluator.Array{Elements: elements}, nil
 }
 
-func mapToParsley(m map[string]interface{}) (*evaluator.Dictionary, error) {
+func mapToParsley(m map[string]any) (*evaluator.Dictionary, error) {
 	pairs := make(map[string]evaluator.Object)
 	for k, v := range m {
 		obj, err := ToParsley(v)
@@ -226,16 +226,16 @@ func reflectMapToParsley(rv reflect.Value) (*evaluator.Dictionary, error) {
 	return evaluator.NewDictionaryFromObjects(pairs), nil
 }
 
-func arrayToGo(arr *evaluator.Array) []interface{} {
-	result := make([]interface{}, len(arr.Elements))
+func arrayToGo(arr *evaluator.Array) []any {
+	result := make([]any, len(arr.Elements))
 	for i, elem := range arr.Elements {
 		result[i] = FromParsley(elem)
 	}
 	return result
 }
 
-func dictToGo(dict *evaluator.Dictionary) map[string]interface{} {
-	result := make(map[string]interface{})
+func dictToGo(dict *evaluator.Dictionary) map[string]any {
+	result := make(map[string]any)
 
 	// Dictionaries store expressions that need to be evaluated
 	// We create a temporary environment to evaluate them

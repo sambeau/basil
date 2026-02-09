@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -171,23 +172,23 @@ func (h *apiHandler) dispatchModule(w http.ResponseWriter, r *http.Request, modu
 }
 
 // buildAPIRequestContext mirrors buildRequestContext but adds params when present.
-func buildAPIRequestContext(r *http.Request, route config.Route) map[string]interface{} {
+func buildAPIRequestContext(r *http.Request, route config.Route) map[string]any {
 	ctx := buildRequestContext(r, route)
 	// params will be populated later when building the request object
-	ctx["params"] = map[string]interface{}{}
+	ctx["params"] = map[string]any{}
 	return ctx
 }
 
 func (h *apiHandler) buildRequestObject(env *evaluator.Environment, r *http.Request, id string, user *auth.User) evaluator.Object {
 	ctx := buildRequestContext(r, h.route)
-	params := map[string]interface{}{}
+	params := map[string]any{}
 	if id != "" {
 		params["id"] = id
 	}
 	ctx["params"] = params
 
 	if user != nil {
-		userMap := map[string]interface{}{
+		userMap := map[string]any{
 			"id":    user.ID,
 			"name":  user.Name,
 			"email": user.Email,
@@ -252,12 +253,7 @@ func (h *apiHandler) enforceRateLimit(w http.ResponseWriter, r *http.Request, mo
 
 // sliceContains checks if a slice contains a string
 func sliceContains(slice []string, s string) bool {
-	for _, v := range slice {
-		if v == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, s)
 }
 
 func rateLimitKey(r *http.Request, user *auth.User) string {
@@ -371,11 +367,11 @@ func matchRoute(routes *evaluator.Dictionary, subPath string) (evaluator.Object,
 	for key, expr := range routes.Pairs {
 		// Keys are stored as expressions; evaluate the key literal name
 		routePath := key
-		if strings.HasPrefix(trimmed, routePath) {
+		if after, ok := strings.CutPrefix(trimmed, routePath); ok {
 			if len(routePath) > bestLen {
 				bestLen = len(routePath)
 				bestVal = evaluator.Eval(expr, routes.Env)
-				bestRest = strings.TrimPrefix(trimmed, routePath)
+				bestRest = after
 				if bestRest == "" {
 					bestRest = "/"
 				}

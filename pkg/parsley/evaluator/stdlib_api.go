@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
@@ -186,9 +187,7 @@ func (f *AuthWrappedFunction) GetAuthMetadata() *Dictionary {
 	}
 
 	if f.Options != nil {
-		for k, v := range f.Options.Pairs {
-			pairs[k] = v
-		}
+		maps.Copy(pairs, f.Options.Pairs)
 	}
 
 	return &Dictionary{Pairs: pairs}

@@ -1,10 +1,10 @@
 package evaluator
 
 import (
-"strings"
+	"strings"
 
-"github.com/sambeau/basil/pkg/parsley/ast"
-"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
 // Collection operations: set operations, chunking, repetition, ranges
@@ -119,10 +119,7 @@ func evalArrayChunking(tok lexer.Token, array *Array, size *Integer) Object {
 
 	result := []Object{}
 	for i := 0; i < len(array.Elements); i += chunkSize {
-		end := i + chunkSize
-		if end > len(array.Elements) {
-			end = len(array.Elements)
-		}
+		end := min(i+chunkSize, len(array.Elements))
 		chunk := &Array{Elements: array.Elements[i:end]}
 		result = append(result, chunk)
 	}
@@ -140,7 +137,7 @@ func evalStringRepetition(str *String, count *Integer) Object {
 
 	var builder strings.Builder
 	builder.Grow(len(str.Value) * n)
-	for i := 0; i < n; i++ {
+	for range n {
 		builder.WriteString(str.Value)
 	}
 
@@ -156,7 +153,7 @@ func evalArrayRepetition(array *Array, count *Integer) Object {
 	}
 
 	result := make([]Object, 0, len(array.Elements)*n)
-	for i := 0; i < n; i++ {
+	for range n {
 		result = append(result, array.Elements...)
 	}
 

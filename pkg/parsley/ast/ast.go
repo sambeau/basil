@@ -1327,7 +1327,7 @@ func (adp *ArrayDestructuringPattern) String() string {
 // ObjectLiteralExpression wraps an evaluator Object as an AST expression
 // This is used internally by the module system to convert environment values to expressions
 type ObjectLiteralExpression struct {
-	Obj interface{} // stores evaluator.Object, but we use interface{} to avoid circular import
+	Obj any // stores evaluator.Object, but we use interface{} to avoid circular import
 }
 
 func (ole *ObjectLiteralExpression) expressionNode()      {}

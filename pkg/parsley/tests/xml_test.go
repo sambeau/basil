@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -429,13 +430,7 @@ func TestTagToString(t *testing.T) {
 			}
 
 			// Check if result matches any of the expected values
-			found := false
-			for _, exp := range tt.expected {
-				if str.Value == exp {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(tt.expected, str.Value)
 			if !found {
 				t.Errorf("Expected one of %v, got %q", tt.expected, str.Value)
 			}

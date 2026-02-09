@@ -49,10 +49,10 @@ func getNodeToken(node ast.Node) *lexer.Token {
 	switch n := node.(type) {
 	case ast.Statement:
 		return getStatementToken(n)
-	case ast.Expression:
-		return getExpressionToken(n)
 	case *ast.TextNode:
 		return &n.Token
+	case ast.Expression:
+		return getExpressionToken(n)
 	}
 	return nil
 }
@@ -104,23 +104,6 @@ func (p *Printer) writeComments(tok *lexer.Token) {
 	for _, comment := range tok.LeadingComments {
 		p.writeIndent()
 		p.write(comment)
-		p.newline()
-	}
-}
-
-// writeTrailingComment outputs a trailing comment (from previous statement) inline
-func (p *Printer) writeTrailingComment(tok *lexer.Token) {
-	if tok == nil || tok.TrailingComment == "" {
-		return
-	}
-	// Trailing comment goes on same line as previous statement, with a space
-	p.write(" ")
-	p.write(tok.TrailingComment)
-}
-
-// writeBlankLineIfNeeded outputs a blank line if the token had one before it
-func (p *Printer) writeBlankLineIfNeeded(tok *lexer.Token) {
-	if tok != nil && tok.BlankLinesBefore > 0 {
 		p.newline()
 	}
 }
@@ -2040,17 +2023,18 @@ func (p *Printer) queryExpressionInline(qe *ast.QueryExpression) string {
 		clauses = append(clauses, "| "+modifierToString(mod))
 	}
 
-	result := "@query(" + parts[0]
+	var result strings.Builder
+	result.WriteString("@query(" + parts[0])
 	for _, clause := range clauses {
-		result += " " + clause
+		result.WriteString(" " + clause)
 	}
 
 	if qe.Terminal != nil {
-		result += " " + terminalToString(qe.Terminal)
+		result.WriteString(" " + terminalToString(qe.Terminal))
 	}
-	result += ")"
+	result.WriteString(")")
 
-	return result
+	return result.String()
 }
 
 // formatQueryCTE formats a Common Table Expression
@@ -2218,11 +2202,12 @@ func joinStrings(strs []string, sep string) string {
 	if len(strs) == 0 {
 		return ""
 	}
-	result := strs[0]
+	var result strings.Builder
+	result.WriteString(strs[0])
 	for _, s := range strs[1:] {
-		result += sep + s
+		result.WriteString(sep + s)
 	}
-	return result
+	return result.String()
 }
 
 // insertClauseCount counts clauses in an insert expression
@@ -2302,29 +2287,30 @@ func (p *Printer) formatInsertExpression(ie *ast.InsertExpression) {
 
 // insertExpressionInline returns a single-line representation of the insert
 func (p *Printer) insertExpressionInline(ie *ast.InsertExpression) string {
-	result := "@insert(" + ie.Source.Value
+	var result strings.Builder
+	result.WriteString("@insert(" + ie.Source.Value)
 
 	if len(ie.UpsertKey) > 0 {
-		result += " | update on " + joinStrings(ie.UpsertKey, ", ")
+		result.WriteString(" | update on " + joinStrings(ie.UpsertKey, ", "))
 	}
 
 	if ie.Batch != nil {
-		result += " * each " + formatQueryExpressionValue(ie.Batch.Collection) + " -> " + ie.Batch.Alias.Value
+		result.WriteString(" * each " + formatQueryExpressionValue(ie.Batch.Collection) + " -> " + ie.Batch.Alias.Value)
 		if ie.Batch.IndexAlias != nil {
-			result += ", " + ie.Batch.IndexAlias.Value
+			result.WriteString(", " + ie.Batch.IndexAlias.Value)
 		}
 	}
 
 	for _, w := range ie.Writes {
-		result += " |< " + w.Field + ": " + formatQueryExpressionValue(w.Value)
+		result.WriteString(" |< " + w.Field + ": " + formatQueryExpressionValue(w.Value))
 	}
 
 	if ie.Terminal != nil {
-		result += " " + terminalToString(ie.Terminal)
+		result.WriteString(" " + terminalToString(ie.Terminal))
 	}
-	result += ")"
+	result.WriteString(")")
 
-	return result
+	return result.String()
 }
 
 // updateClauseCount counts clauses in an update expression
@@ -2387,22 +2373,23 @@ func (p *Printer) formatUpdateExpression(ue *ast.UpdateExpression) {
 
 // updateExpressionInline returns a single-line representation of the update
 func (p *Printer) updateExpressionInline(ue *ast.UpdateExpression) string {
-	result := "@update(" + ue.Source.Value
+	var result strings.Builder
+	result.WriteString("@update(" + ue.Source.Value)
 
 	for _, cond := range ue.Conditions {
-		result += " | " + formatQueryConditionString(cond)
+		result.WriteString(" | " + formatQueryConditionString(cond))
 	}
 
 	for _, w := range ue.Writes {
-		result += " |< " + w.Field + ": " + formatQueryExpressionValue(w.Value)
+		result.WriteString(" |< " + w.Field + ": " + formatQueryExpressionValue(w.Value))
 	}
 
 	if ue.Terminal != nil {
-		result += " " + terminalToString(ue.Terminal)
+		result.WriteString(" " + terminalToString(ue.Terminal))
 	}
-	result += ")"
+	result.WriteString(")")
 
-	return result
+	return result.String()
 }
 
 // deleteClauseCount counts clauses in a delete expression
@@ -2455,18 +2442,19 @@ func (p *Printer) formatDeleteExpression(de *ast.DeleteExpression) {
 
 // deleteExpressionInline returns a single-line representation of the delete
 func (p *Printer) deleteExpressionInline(de *ast.DeleteExpression) string {
-	result := "@delete(" + de.Source.Value
+	var result strings.Builder
+	result.WriteString("@delete(" + de.Source.Value)
 
 	for _, cond := range de.Conditions {
-		result += " | " + formatQueryConditionString(cond)
+		result.WriteString(" | " + formatQueryConditionString(cond))
 	}
 
 	if de.Terminal != nil {
-		result += " " + terminalToString(de.Terminal)
+		result.WriteString(" " + terminalToString(de.Terminal))
 	}
-	result += ")"
+	result.WriteString(")")
 
-	return result
+	return result.String()
 }
 
 // formatTransactionExpression formats @transaction { statements } expressions

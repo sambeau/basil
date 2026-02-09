@@ -12,7 +12,7 @@ const SESSION_MODULE_OBJ = "SESSION_MODULE"
 
 // SessionModule wraps session data and provides methods for Parsley scripts
 type SessionModule struct {
-	Data    map[string]interface{}
+	Data    map[string]any
 	Flash   map[string]string
 	Dirty   bool
 	Cleared bool
@@ -29,9 +29,9 @@ func (sm *SessionModule) Eq(other Object) bool {
 }
 
 // NewSessionModule creates a new session module with the given data
-func NewSessionModule(data map[string]interface{}, flash map[string]string, maxAge time.Duration) *SessionModule {
+func NewSessionModule(data map[string]any, flash map[string]string, maxAge time.Duration) *SessionModule {
 	if data == nil {
-		data = make(map[string]interface{})
+		data = make(map[string]any)
 	}
 	if flash == nil {
 		flash = make(map[string]string)
@@ -157,7 +157,7 @@ func sessionHas(sm *SessionModule, args []Object) Object {
 // sessionClear removes all session data
 // Usage: basil.session.clear()
 func sessionClear(sm *SessionModule) Object {
-	sm.Data = make(map[string]interface{})
+	sm.Data = make(map[string]any)
 	sm.Flash = make(map[string]string)
 	sm.Dirty = true
 	sm.Cleared = true
@@ -259,7 +259,7 @@ func sessionRegenerate(sm *SessionModule) Object {
 
 // sessionGoToObject converts a Go value to a Parsley Object
 // This is a local helper to avoid import cycles with parsley package
-func sessionGoToObject(v interface{}) Object {
+func sessionGoToObject(v any) Object {
 	if v == nil {
 		return NULL
 	}
@@ -274,13 +274,13 @@ func sessionGoToObject(v interface{}) Object {
 		return &Float{Value: val}
 	case string:
 		return &String{Value: val}
-	case []interface{}:
+	case []any:
 		elements := make([]Object, len(val))
 		for i, elem := range val {
 			elements[i] = sessionGoToObject(elem)
 		}
 		return &Array{Elements: elements}
-	case map[string]interface{}:
+	case map[string]any:
 		pairs := make(map[string]ast.Expression)
 		for k, elem := range val {
 			obj := sessionGoToObject(elem)
