@@ -5,15 +5,25 @@ linters:
     - modernize
     - gocritic
 
-linters-settings:
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-    disabled-checks:
-      - hugeParam
-      - rangeValCopy
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+
+  # Baseline commit for incremental linting.
+  # Only issues introduced after this commit will be reported when using:
+  #   golangci-lint run
+  # Or for CI on feature branches:
+  #   golangci-lint run --new-from-merge-base=main
+  #
+  # This allows gradual adoption without fixing all legacy issues.
+  # Baseline established: 2026-02-09 (after modernize + gocritic cleanup)
+  #
+  # To run full lint (all issues): golangci-lint run --new-from-rev=""
+  # To run incremental (new issues only): golangci-lint run
+  new-from-rev: 923431e
