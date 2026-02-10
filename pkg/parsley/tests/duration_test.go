@@ -199,6 +199,31 @@ func TestDurationArithmetic(t *testing.T) {
 			expected: "21600", // 7200 * 3
 		},
 		{
+			name:     "multiply integer by duration (commutative)",
+			code:     `let d = 3 * @2h; d.seconds`,
+			expected: "21600", // 3 * 7200
+		},
+		{
+			name:     "multiply integer by simple duration",
+			code:     `let d = 3 * @1d; d.seconds`,
+			expected: "259200", // 3 * 86400
+		},
+		{
+			name:     "multiply integer by compound duration",
+			code:     `let d = 2 * @2h30m; d.seconds`,
+			expected: "18000", // 2 * 9000
+		},
+		{
+			name:     "multiply negative integer by duration",
+			code:     `let d = -2 * @1d; d.seconds`,
+			expected: "-172800", // -2 * 86400
+		},
+		{
+			name:     "commutativity: duration * int equals int * duration",
+			code:     `(@2h * 3) == (3 * @2h)`,
+			expected: "true",
+		},
+		{
 			name:     "divide duration by integer",
 			code:     `let d = @1d / 2; d.seconds`,
 			expected: "43200", // 86400 / 2
@@ -455,6 +480,11 @@ func TestDurationErrors(t *testing.T) {
 		{
 			name:        "division by zero duration",
 			code:        `@1d / @0s`,
+			expectError: true,
+		},
+		{
+			name:        "integer divided by duration is not supported",
+			code:        `3 / @1d`,
 			expectError: true,
 		},
 	}

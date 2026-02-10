@@ -136,6 +136,13 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if dict := right.(*Dictionary); isDatetimeDict(dict) {
 			return evalIntegerDatetimeInfixExpression(tok, operator, left.(*Integer), dict)
 		}
+		if dict := right.(*Dictionary); isDurationDict(dict) {
+			// For multiplication, just swap operands (commutative)
+			if operator == "*" {
+				return evalDurationIntegerInfixExpression(tok, operator, dict, left.(*Integer))
+			}
+			// integer / duration doesn't make sense, fall through to error
+		}
 		return newOperatorErrorWithPos(tok, "OP-0001", map[string]any{"LeftType": left.Type(), "Operator": operator, "RightType": right.Type()})
 	// Array subtraction
 	case operator == "-" && left.Type() == ARRAY_OBJ && right.Type() == ARRAY_OBJ:
