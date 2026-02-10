@@ -261,9 +261,9 @@ func importModule(pathStr string, env *Environment) Object {
 		return newImportError("IMPORT-0004", map[string]any{"GoError": err.Error()})
 	}
 
-	// Security check
-	if err := env.checkPathAccess(absPath, "execute"); err != nil {
-		return newSecurityError("execute", err)
+	// Security check - module imports are reads, not executes
+	if err := env.checkPathAccess(absPath, "read"); err != nil {
+		return newSecurityError("read", err)
 	}
 
 	// Check if module is currently being loaded in THIS request (circular dependency)

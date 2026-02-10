@@ -29,7 +29,7 @@ func TestModuleCacheClear(t *testing.T) {
 
 	env := evaluator.NewEnvironment()
 	env.Filename = filepath.Join(tmpDir, "main.pars")
-	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env.Security = &evaluator.SecurityPolicy{}
 
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -58,7 +58,7 @@ func TestModuleCacheClear(t *testing.T) {
 	// Without clearing cache, should still get old value
 	env2 := evaluator.NewEnvironment()
 	env2.Filename = filepath.Join(tmpDir, "main.pars")
-	env2.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env2.Security = &evaluator.SecurityPolicy{}
 
 	l2 := lexer.New(input)
 	p2 := parser.New(l2)
@@ -81,7 +81,7 @@ func TestModuleCacheClear(t *testing.T) {
 	// Should get new value
 	env3 := evaluator.NewEnvironment()
 	env3.Filename = filepath.Join(tmpDir, "main.pars")
-	env3.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env3.Security = &evaluator.SecurityPolicy{}
 
 	l3 := lexer.New(input)
 	p3 := parser.New(l3)
@@ -126,7 +126,7 @@ func TestModuleCacheThreadSafety(t *testing.T) {
 
 			env := evaluator.NewEnvironment()
 			env.Filename = filepath.Join(tmpDir, "test.pars")
-			env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+			env.Security = &evaluator.SecurityPolicy{}
 
 			l := lexer.New(input)
 			p := parser.New(l)
@@ -217,7 +217,7 @@ func TestModuleCacheConcurrentClearAndImport(t *testing.T) {
 
 				env := evaluator.NewEnvironment()
 				env.Filename = filepath.Join(tmpDir, "test.pars")
-				env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+				env.Security = &evaluator.SecurityPolicy{}
 
 				l := lexer.New(input)
 				p := parser.New(l)
@@ -258,7 +258,7 @@ func TestModuleCacheIsolation(t *testing.T) {
 
 	env := evaluator.NewEnvironment()
 	env.Filename = filepath.Join(tmpDir, "main.pars")
-	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env.Security = &evaluator.SecurityPolicy{}
 
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -304,7 +304,7 @@ handler.getMethod()
 	// Create first environment with method GET
 	env1 := evaluator.NewEnvironment()
 	env1.Filename = filepath.Join(tmpDir, "main.pars")
-	env1.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env1.Security = &evaluator.SecurityPolicy{}
 	// Set up BasilCtx with request data (method defaults to GET)
 	env1.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 
@@ -336,7 +336,7 @@ handler.getMethod()
 	// The module should be CACHED, but method should still be FRESH from current context
 	env2 := evaluator.NewEnvironment()
 	env2.Filename = filepath.Join(tmpDir, "main.pars")
-	env2.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env2.Security = &evaluator.SecurityPolicy{}
 	env2.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 
 	l2 := lexer.New(mainCode)
@@ -389,7 +389,7 @@ handler.getOrderBy()
 	// Create first environment with @params containing orderBy=name
 	env1 := evaluator.NewEnvironment()
 	env1.Filename = filepath.Join(tmpDir, "main.pars")
-	env1.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env1.Security = &evaluator.SecurityPolicy{}
 	env1.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 	// Set @params directly (as handler.go does)
 	env1.Set("@params", &evaluator.Dictionary{
@@ -423,7 +423,7 @@ handler.getOrderBy()
 	// The module should be CACHED, but params should be FRESH from current env
 	env2 := evaluator.NewEnvironment()
 	env2.Filename = filepath.Join(tmpDir, "main.pars")
-	env2.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env2.Security = &evaluator.SecurityPolicy{}
 	env2.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 	env2.Set("@params", &evaluator.Dictionary{
 		Pairs: map[string]ast.Expression{
@@ -479,7 +479,7 @@ handler.getOrderBy()
 	// Create environment with @params
 	env := evaluator.NewEnvironment()
 	env.Filename = filepath.Join(tmpDir, "main.pars")
-	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env.Security = &evaluator.SecurityPolicy{}
 	env.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 	env.Set("@params", &evaluator.Dictionary{
 		Pairs: map[string]ast.Expression{
@@ -535,7 +535,7 @@ handler.getOrder()
 	// Create environment with @params set (simulating Basil server)
 	env := evaluator.NewEnvironment()
 	env.Filename = filepath.Join(tmpDir, "main.pars")
-	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
+	env.Security = &evaluator.SecurityPolicy{}
 	env.BasilCtx = evaluator.BuildTestBasilContext(map[string]string{}, nil, nil)
 	env.Set("@params", &evaluator.Dictionary{
 		Pairs: map[string]ast.Expression{

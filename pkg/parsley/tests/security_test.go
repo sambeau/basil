@@ -194,18 +194,18 @@ func TestSecurityNoRead(t *testing.T) {
 	}
 }
 
-// TestSecurityExecuteDefault tests that module imports are denied by default
+// TestSecurityExecuteDefault tests that module imports use read permission (BUG-022 fix)
 func TestSecurityExecuteDefault(t *testing.T) {
 	// Create temporary module file
 	tempDir := t.TempDir()
 	moduleFile := filepath.Join(tempDir, "module.pars")
-	os.WriteFile(moduleFile, []byte("let x = 42"), 0644)
+	os.WriteFile(moduleFile, []byte("export let x = 42"), 0644)
 
-	code := `import @` + moduleFile
+	code := `let mod = import @` + moduleFile + `; mod.x`
 
 	env := evaluator.NewEnvironment()
-	env.Security = &evaluator.SecurityPolicy{} // Default policy
-	env.Filename = "test.pars"
+	env.Security = &evaluator.SecurityPolicy{} // Default policy allows reads
+	env.Filename = filepath.Join(tempDir, "test.pars")
 
 	l := lexer.New(code)
 	p := parser.New(l)
@@ -217,14 +217,19 @@ func TestSecurityExecuteDefault(t *testing.T) {
 
 	result := evaluator.Eval(program, env)
 
-	// Should get error about execute access denied
-	if result.Type() != evaluator.ERROR_OBJ {
-		t.Errorf("Expected error, got %s", result.Type())
+	// Should succeed - imports now use read permission, not execute
+	if result.Type() == evaluator.ERROR_OBJ {
+		errObj := result.(*evaluator.Error)
+		t.Errorf("Import should succeed with default policy, got error: %s", errObj.Message)
 	}
 
-	errObj := result.(*evaluator.Error)
-	if !strings.Contains(errObj.Message, "execute") && !strings.Contains(errObj.Message, "script execution") {
-		t.Errorf("Expected execute-related error, got: %s", errObj.Message)
+	// Verify the import worked
+	intObj, ok := result.(*evaluator.Integer)
+	if !ok {
+		t.Fatalf("Expected Integer result, got %s", result.Type())
+	}
+	if intObj.Value != 42 {
+		t.Errorf("Expected 42, got %d", intObj.Value)
 	}
 }
 
