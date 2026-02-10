@@ -2744,7 +2744,93 @@ let all = fileList(@./src, "*.pars")  // All .pars files recursively
 
 ---
 
-### 6.12 Assets
+### 6.13 Database Connections
+
+Functions for creating database connections. Connections are cached and reused automatically.
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `@sqlite(path, opts?)` | `path: string`, `opts?: dict` | `DBConnection` | SQLite database connection |
+| `@postgres(dsn, opts?)` | `dsn: string`, `opts?: dict` | `DBConnection` | PostgreSQL database connection |
+| `@mysql(dsn, opts?)` | `dsn: string`, `opts?: dict` | `DBConnection` | MySQL database connection |
+
+**Connection options** (optional second argument):
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `maxOpenConns` | `integer` | 0 (unlimited) | Maximum number of open connections |
+| `maxIdleConns` | `integer` | 2 | Maximum number of idle connections |
+
+**SQLite**:
+
+```parsley
+// In-memory database
+let db = @sqlite(":memory:")
+
+// File-based database
+let db = @sqlite("./data/app.db")
+
+// With connection options
+let db = @sqlite("./data/app.db", {maxOpenConns: 5})
+```
+
+**PostgreSQL**:
+
+```parsley
+// Basic connection
+let db = @postgres("postgres://user:password@localhost:5432/dbname")
+
+// With SSL disabled (development)
+let db = @postgres("postgres://user:pass@localhost/mydb?sslmode=disable")
+
+// With connection pooling
+let db = @postgres("postgres://user:pass@host/db", {
+    maxOpenConns: 10,
+    maxIdleConns: 5
+})
+
+// Key-value format (alternative DSN format)
+let db = @postgres("host=localhost port=5432 user=myuser password=mypass dbname=mydb sslmode=require")
+```
+
+**MySQL**:
+
+```parsley
+// Basic connection
+let db = @mysql("user:password@tcp(localhost:3306)/dbname")
+
+// With TLS enabled
+let db = @mysql("user:pass@tcp(host:3306)/db?tls=true")
+
+// With connection pooling
+let db = @mysql("user:pass@tcp(localhost:3306)/mydb", {
+    maxOpenConns: 20,
+    maxIdleConns: 10
+})
+```
+
+**Database operations**:
+
+Once connected, use database query operators or the TableBinding methods:
+
+```parsley
+// Query operators (see Section 5.11 Table, Section 5.13 TableBinding)
+let users <=??=> db <SQL>SELECT * FROM users</SQL>
+let user <=?=> db <SQL>SELECT * FROM users WHERE id = 1</SQL>
+result <==!=> db <SQL>INSERT INTO users (name) VALUES ('Alice')</SQL>
+
+// Schema-driven table binding (see Section 5.13)
+let usersTable = db.bind(UserSchema, "users")
+usersTable.insert({name: "Alice", email: "alice@example.com"})
+```
+
+**Connection caching**:
+
+Database connections are automatically cached and reused. The same DSN will return the same connection instance. Connections have automatic health checks and TTL management.
+
+---
+
+### 6.14 Assets
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -2759,7 +2845,7 @@ let all = fileList(@./src, "*.pars")  // All .pars files recursively
 
 ---
 
-### 6.14 Serialization
+### 6.15 Serialization
 
 Functions for serializing and deserializing Parsley values to/from PLN (Parsley Literal Notation).
 
