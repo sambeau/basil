@@ -85,6 +85,11 @@
         {
           "name": "keyword.other.parsley",
           "match": "\\b(let|fn|function|as|export|import|and|or|not)\\b"
+        },
+        {
+          "comment": "Computed export keyword",
+          "name": "keyword.other.computed.parsley",
+          "match": "\\b(computed)\\b"
         }
       ]
     },
@@ -390,6 +395,21 @@
           "comment": "Time-related: @now, @today, @timeNow, @dateNow",
           "name": "support.constant.time.parsley",
           "match": "@(now|today|timeNow|dateNow)\\b"
+        },
+        {
+          "comment": "Schema and table literals",
+          "name": "support.constant.schema.parsley",
+          "match": "@(schema|table)\\b"
+        },
+        {
+          "comment": "Query DSL literals",
+          "name": "support.constant.query.parsley",
+          "match": "@(query|insert|update|delete|transaction)\\b"
+        },
+        {
+          "comment": "Runtime context literals",
+          "name": "support.constant.context.parsley",
+          "match": "@(SEARCH|env|args|params)\\b"
         }
       ]
     },
@@ -404,6 +424,11 @@
           "comment": "Database operators: <=?=>, <=??=>, <=!=>, <=#=>",
           "name": "keyword.operator.database.parsley",
           "match": "<=\\?\\?=>|<=\\?=>|<=!=>|<=#=>"
+        },
+        {
+          "comment": "Query DSL operators: ??->, ?->, .->, |<, |>, <-",
+          "name": "keyword.operator.query.parsley",
+          "match": "\\?\\?->|\\?->|\\.->|\\|<|\\|>|<-"
         }
       ]
     },
