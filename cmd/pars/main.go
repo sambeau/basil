@@ -31,6 +31,11 @@ var (
 	prettyPrintFlag = flag.Bool("pp", false, "Pretty-print HTML output")
 	prettyLongFlag  = flag.Bool("pretty", false, "Pretty-print HTML output")
 
+	// Evaluation flags
+	evalFlag     = flag.String("e", "", "Evaluate code string")
+	evalLongFlag = flag.String("eval", "", "Evaluate code string")
+	checkFlag    = flag.Bool("check", false, "Check syntax without executing")
+
 	// Security flags
 	restrictReadFlag     = flag.String("restrict-read", "", "Comma-separated read blacklist paths")
 	noReadFlag           = flag.Bool("no-read", false, "Deny all file reads")
@@ -67,22 +72,34 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Get filename from remaining args
-	args := flag.Args()
-	var filename string
-	var scriptArgs []string
-	if len(args) > 0 {
-		filename = args[0]
-		scriptArgs = args[1:] // Everything after filename goes to @args
-	}
-
 	// Determine pretty print setting
 	prettyPrint := *prettyPrintFlag || *prettyLongFlag
 
-	if filename != "" {
+	// Get eval code (prefer -e over --eval if both set)
+	evalCode := *evalFlag
+	if evalCode == "" {
+		evalCode = *evalLongFlag
+	}
+
+	// Mode dispatch
+	switch {
+	case evalCode != "":
+		// Inline evaluation mode
+		executeInline(evalCode, flag.Args(), prettyPrint)
+	case *checkFlag:
+		// Syntax check mode
+		files := flag.Args()
+		if len(files) == 0 {
+			fmt.Fprintln(os.Stderr, "Error: --check requires at least one file")
+			os.Exit(2)
+		}
+		os.Exit(checkFiles(files))
+	case len(flag.Args()) > 0:
 		// File execution mode
+		filename := flag.Args()[0]
+		scriptArgs := flag.Args()[1:]
 		executeFile(filename, scriptArgs, prettyPrint)
-	} else {
+	default:
 		// REPL mode
 		repl.Start(os.Stdin, os.Stdout, Version)
 	}
@@ -92,7 +109,9 @@ func printHelp() {
 	fmt.Printf(`pars - Parsley language interpreter version %s
 
 Usage:
-  pars [options] [file]
+  pars [options] [file] [args...]
+  pars -e "code" [args...]
+  pars --check <file>...
   pars fmt [options] <file>...
 
 Commands:
@@ -102,6 +121,10 @@ Display Options:
   -h, --help            Show this help message
   -V, --version         Show version information
   -pp, --pretty         Pretty-print HTML output with proper indentation
+
+Evaluation Options:
+  -e, --eval <code>     Evaluate code string instead of file
+  --check               Check syntax without executing (can specify multiple files)
 
 Security Options:
   --restrict-read=PATHS     Deny reading from comma-separated paths
@@ -122,11 +145,83 @@ Examples:
   pars                      Start interactive REPL
   pars script.pars          Execute a Parsley script
   pars -pp page.pars        Execute and pretty-print HTML output
+  pars -e "1 + 2"           Evaluate inline code
+  pars -e '@args' foo bar   Evaluate code with arguments
+  pars --check script.pars  Check syntax without executing
+  pars --check *.pars       Check multiple files
   pars fmt script.pars      Format a Parsley file (print to stdout)
   pars fmt -w script.pars   Format a Parsley file in place
 
 For more information, visit: https://github.com/sambeau/parsley
 `, Version)
+}
+
+// executeInline evaluates inline code provided via -e flag
+func executeInline(code string, args []string, prettyPrint bool) {
+	policy, err := buildSecurityPolicy()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
+	}
+
+	l := lexer.NewWithFilename(code, "<eval>")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if errs := p.StructuredErrors(); len(errs) != 0 {
+		printStructuredErrors("<eval>", code, errs)
+		os.Exit(1)
+	}
+
+	env := evaluator.NewEnvironmentWithArgs(args)
+	env.Filename = "<eval>"
+	env.Security = policy
+	evaluated := evaluator.Eval(program, env)
+
+	if evaluated != nil && evaluated.Type() == evaluator.ERROR_OBJ {
+		errObj, ok := evaluated.(*evaluator.Error)
+		if ok {
+			printRuntimeError("<eval>", code, errObj)
+		} else {
+			fmt.Fprintf(os.Stderr, "%s\n", evaluated.Inspect())
+		}
+		os.Exit(1)
+	}
+
+	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ && evaluated.Type() != evaluator.NULL_OBJ {
+		output := evaluator.ObjectToPrintString(evaluated)
+		if prettyPrint {
+			output = formatter.FormatHTML(output)
+		}
+		fmt.Println(output)
+	}
+}
+
+// checkFiles checks the syntax of one or more files without executing them
+func checkFiles(files []string) int {
+	hasErrors := false
+
+	for _, filename := range files {
+		content, err := os.ReadFile(filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", filename, err)
+			return 2 // File error
+		}
+
+		l := lexer.NewWithFilename(string(content), filename)
+		p := parser.New(l)
+		_ = p.ParseProgram()
+
+		if errs := p.StructuredErrors(); len(errs) != 0 {
+			printStructuredErrors(filename, string(content), errs)
+			hasErrors = true
+		}
+	}
+
+	if hasErrors {
+		return 1 // Syntax errors
+	}
+	return 0 // Success
 }
 
 // executeFile reads and executes a pars source file
