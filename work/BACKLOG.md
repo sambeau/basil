@@ -1,5 +1,5 @@
 ---
-updated 2026-02-09
+updated 2026-02-11
 ---
 
 # Backlog
@@ -55,6 +55,7 @@ Deferred items from implementation, to be picked up in future work.
 | #94 | Multiple `-e` flags for pars CLI | FEAT-106 | Enhancement | Support `pars -e "let x=1" -e "x+1"` to evaluate multiple code snippets in sequence. Currently can use semicolons within single `-e` argument. Would require concatenating code or evaluating sequentially with shared environment. |
 | #95 | `pars --check` with stdin input | FEAT-106 | Enhancement | Support `pars --check -` to read and validate Parsley code from stdin. Useful for editor integration and pipelines. Would require detecting `-` as special filename. |
 | #96 | JSON output format for `--check` | FEAT-106 | Tooling enhancement | Add `pars --check --json file.pars` to output structured error information in JSON format for tool integration (editors, CI/CD). Would need to serialize ParsleyError structs to JSON. |
+| #97 | Named capture groups should return dictionaries | Backlog | Enhancement | Regex named capture groups like `(?P<name>\w+)` currently return an array (ignoring names). Should return a dictionary with named keys so results can be destructured: `let {first, last} = str ~ /(?P<first>\w+)\s+(?P<last>\w+)/`. Currently returns `["full match", "first", "last"]` instead of `{first: "...", last: "..."}`. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
