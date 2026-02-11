@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test Grammar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tree-sitter-cli
+        run: npm install -g tree-sitter-cli
+
+      - name: Generate parser
+        run: tree-sitter generate
+
+      - name: Run tests
+        run: tree-sitter test
+
+      - name: Parse sample files
+        run: |
+          # Create a sample file to test parsing
+          cat > /tmp/sample.pars << 'EOF'
+          // Sample Parsley file
+          let db = @sqlite("test.db")
+          let now = @now
+          let duration = @2h30m
+
+          export greeting = fn(name) "Hello, {name}!"
+
+          export computed data = @query |> "SELECT * FROM users"
+
+          let result = if condition {
+            "yes"
+          } else {
+            "no"
+          }
+
+          <div class="container">
+            <h1>{title}</h1>
+            {for items { <li>{it}</li> }}
+          </div>
+          EOF
+
+          tree-sitter parse /tmp/sample.pars
+
+  build-node:
+    name: Build Node.js Binding
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build --if-present
+
+  build-rust:
+    name: Build Rust Binding
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Setup Node.js (for tree-sitter generate)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tree-sitter-cli
+        run: npm install -g tree-sitter-cli
+
+      - name: Generate parser
+        run: tree-sitter generate
+
+      - name: Build Rust binding
+        run: cargo build --release
+
+      - name: Test Rust binding
+        run: cargo test
