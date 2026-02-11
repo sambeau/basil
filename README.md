@@ -22,6 +22,8 @@ Parsley is an expression-oriented scripting language designed for munging data a
 - **Schemas and records** — define data shapes, validate input, and bind forms with minimal ceremony
 - **Batteries included** — string manipulation, date arithmetic, table queries, CSV, JSON, Markdown, SQL, search, SFTP, Git and more without importing anything
 
+**Examples:**
+
 ```parsley
 // A simple page component
 
@@ -40,7 +42,11 @@ let Page = fn({title, users}) {
         </body>
     </html>
 }
+```
 
+Loading from database:
+
+```parsley
 // Query a database and render the result
 // ('Users' schema has already been bound to users table in @db)
 
@@ -50,6 +56,40 @@ let users = @query(
     ??-> name, email) // ?? means expect an array
 
 <Page title="Active Users" users={users}/>
+```
+
+Using data:
+
+```parsley
+ <Page title="Active Users" users={[{name:"Robert Foo", email:"foo@example..com"}]}/>
+```
+
+Outputs:
+
+```html
+<html><head><title>Active Users</title></head><body><h1>Hello</h1><ul><li><b>Robert Foo: </b>foo@example..com</li></ul></body></html>
+```
+
+From a CSV file:
+
+```CSV
+name,email
+Luke,luke@example.com
+Leia,leia@example.com
+Han,han@example.com
+Chewy,chewy@example.com
+```
+
+Load and show:
+
+```parsley
+emailList <== CSV(@/path/to/email-list.csv)
+<Page title="Active Users" users={emailList}/>
+```
+
+Outputs:
+```html
+<html><head><title>Active Users</title></head><body><h1>Active Users</h1><ul><li><b>Luke: </b>luke@example.com</li><li><b>Leia: </b>leia@example.com</li><li><b>Han: </b>han@example.com</li><li><b>Chewy: </b>chewy@example.com</li></ul></body></html>
 ```
 
 ### The `pars` CLI
