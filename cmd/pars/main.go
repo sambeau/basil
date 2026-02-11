@@ -165,7 +165,7 @@ For more information, visit: https://github.com/sambeau/parsley
 }
 
 // executeInline evaluates inline code provided via -e flag
-func executeInline(code string, args []string, prettyPrint bool, raw bool) {
+func executeInline(code string, args []string, prettyPrint, raw bool) {
 	policy, err := buildSecurityPolicy()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
