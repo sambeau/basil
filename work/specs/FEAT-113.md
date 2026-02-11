@@ -1,76 +1,79 @@
 ---
 id: FEAT-113
-title: "CLI Debug Flag for Expression Inspection"
+title: "CLI: Change -e to Output PLN by Default"
 status: draft
 priority: medium
 created: 2026-02-11
 author: "@human"
 ---
 
-# FEAT-113: CLI Debug Flag for Expression Inspection
+# FEAT-113: CLI: Change -e to Output PLN by Default
 
 ## Summary
-Add a debug/inspect flag to the `pars` CLI that outputs the PLN (Parsley Literal Notation) representation of an expression's result, making it easier to debug and inspect values without manually wrapping expressions in `log()`.
+Change the `-e` flag to output PLN (Parsley Literal Notation) by default, matching REPL behavior. Add a `--raw` flag for when file-like output is needed.
 
 ## User Story
-As a developer debugging Parsley code, I want to quickly see the PLN representation of an expression's result so that I can understand its structure without having to wrap it in `let x = ...; log(x)`.
+As a developer debugging Parsley code with `-e`, I want to see the PLN representation of results so that I can understand the structure of values without having to wrap expressions in `log()`.
 
 ## Motivation
-Currently, to inspect the structure of a value in Parsley, you need to:
+The `-e` flag is primarily used for quick testing and debugging—the same use case as the REPL. However, `-e` currently outputs "print string" format (like file execution), which loses structural information:
 
 ```bash
-go run ./cmd/pars -e 'let m = "hello world" ~ /(\w+)/; log(m)'
+# Current behavior (unhelpful for debugging)
+pars -e '[1, 2, 3]'        # Output: 123
+pars -e '{a: 1, b: 2}'     # Output: a1b2
+pars -e '"hello" ~ /(\w+)/' # Output: hellohello
+
+# REPL behavior (what we want)
+> [1, 2, 3]
+[1, 2, 3]
+> {a: 1, b: 2}
+{a: 1, b: 2}
 ```
 
-This is verbose for quick debugging. A simpler option would be:
-
-```bash
-go run ./cmd/pars -d '"hello world" ~ /(\w+)/'
-# or
-go run ./cmd/pars --inspect '"hello world" ~ /(\w+)/'
-```
+By making `-e` match REPL behavior, the common case (debugging) becomes easy, and users don't have to discover a separate `-d` flag.
 
 ## Acceptance Criteria
-- [ ] `pars -d "expression"` evaluates the expression and outputs PLN representation
-- [ ] `pars --debug "expression"` (long form) works the same
-- [ ] Output shows the full PLN structure (arrays as `[...]`, dictionaries as `{...}`, etc.)
-- [ ] Works with `-e` flag: `pars -e "code" -d` outputs PLN for the final result
-- [ ] Null results are shown explicitly (e.g., `null`) rather than producing no output
-- [ ] Flag is documented in `pars --help`
+- [ ] `pars -e "expression"` outputs PLN representation (like REPL)
+- [ ] `pars -e "expression" --raw` outputs print string (like file execution)
+- [ ] `-r` works as short form of `--raw`
+- [ ] Null results display as `null` (not silent)
+- [ ] `--raw` works with `-pp` for pretty-printed HTML
+- [ ] Help text updated to document new behavior
+- [ ] REPL behavior unchanged
 
 ## Design Decisions
 
-### Flag naming options
+### Why change `-e` instead of adding `-d`?
 
-| Option | Pros | Cons |
-|--------|------|------|
-| `-d` / `--debug` | Short, memorable | Could imply other debug behavior |
-| `-i` / `--inspect` | Clear meaning | `-i` often means "interactive" |
-| `-p` / `--print` | Matches Ruby `-p` | Could be confused with pretty-print |
-| `--pln` | Explicit about format | Longer, less intuitive |
-| `-v` / `--verbose` | Common flag | Usually means more logging |
+1. **Discoverability** — Users (and AIs) reach for `-e` first. If it doesn't show structure, they're confused and must hunt for another flag.
 
-**Recommendation**: `-d` / `--debug` — short and memorable, clearly indicates "show me what's happening"
+2. **Use case alignment** — `-e` is for quick testing/debugging, same as REPL. Show what you got, don't render it.
 
-### Behavior with `-e`
+3. **REPL precedent** — The REPL already made this choice: interactive = exploration = show PLN.
 
-Two possible interpretations:
+4. **Simplicity** — One flag to learn, not two.
 
-1. **Separate flag**: `-d "expr"` is shorthand for `-e "expr"` with PLN output
-2. **Modifier flag**: `-e "code" -d` adds PLN output to any `-e` evaluation
+### `--raw` for file-like output
 
-**Recommendation**: Support both:
-- `pars -d "expr"` — evaluate and show PLN (implies `-e`)
-- `pars -e "code" -d` — evaluate code, show PLN of result
+For scripting or when you genuinely want rendered output:
 
-### Output format
+```bash
+pars -e '"<html><body>Hello</body></html>"' --raw
+# Output: <html><body>Hello</body></html>
 
-The output should be the PLN representation as produced by `log()`:
+pars -e '"<html><body>Hello</body></html>"' --raw -pp
+# Output: (pretty-printed HTML)
+```
+
+### Output format (PLN)
+
+Same as REPL and `log()`:
 - Strings: `"hello"` (quoted)
 - Numbers: `42`, `3.14`
 - Booleans: `true`, `false`
 - Null: `null`
-- Arrays: `["a", "b", "c"]`
+- Arrays: `[1, 2, 3]`
 - Dictionaries: `{key: "value", num: 42}`
 
 ---
@@ -78,41 +81,43 @@ The output should be the PLN representation as produced by `log()`:
 ## Technical Context
 
 ### Affected Components
-- `cmd/pars/main.go` — Add flag definition and dispatch logic
+- `cmd/pars/main.go` — Modify `executeInline()`, add `--raw` flag
 
 ### Implementation Sketch
 
 ```go
 var (
     // ... existing flags ...
-    debugFlag     = flag.Bool("d", false, "Output PLN representation of result")
-    debugLongFlag = flag.Bool("debug", false, "Output PLN representation of result")
+    rawFlag     = flag.Bool("r", false, "Output raw print string instead of PLN")
+    rawLongFlag = flag.Bool("raw", false, "Output raw print string instead of PLN")
 )
 
-func main() {
-    // ...
-    
-    debug := *debugFlag || *debugLongFlag
-    
-    switch {
-    case evalCode != "" || debug:
-        // If -d is used alone, treat remaining args as code
-        if evalCode == "" && debug && len(flag.Args()) > 0 {
-            evalCode = flag.Args()[0]
-        }
-        executeInline(evalCode, flag.Args(), prettyPrint, debug)
-    // ...
-    }
-}
-
-func executeInline(code string, args []string, prettyPrint bool, debug bool) {
+func executeInline(code string, args []string, prettyPrint bool, raw bool) {
     // ... existing evaluation code ...
     
-    if debug {
-        // Always output PLN, even for null
+    if evaluated == nil {
+        if !raw {
+            fmt.Println("null")
+        }
+        return
+    }
+    
+    if evaluated.Type() == evaluator.ERROR_OBJ {
+        // ... error handling unchanged ...
+    }
+    
+    if raw {
+        // File-like behavior (current)
+        if evaluated.Type() != evaluator.NULL_OBJ {
+            output := evaluator.ObjectToPrintString(evaluated)
+            if prettyPrint {
+                output = formatter.FormatHTML(output)
+            }
+            fmt.Println(output)
+        }
+    } else {
+        // REPL-like behavior (new default)
         fmt.Println(evaluated.Inspect())
-    } else if evaluated != nil && evaluated.Type() != evaluator.NULL_OBJ {
-        // ... existing output logic ...
     }
 }
 ```
@@ -125,15 +130,26 @@ func executeInline(code string, args []string, prettyPrint bool, debug bool) {
 
 | Test Case | Command | Expected |
 |-----------|---------|----------|
-| Simple expression | `pars -d "1 + 2"` | `3` |
-| String | `pars -d '"hello"'` | `"hello"` |
-| Array | `pars -d "[1, 2, 3]"` | `[1, 2, 3]` |
-| Dictionary | `pars -d "{a: 1, b: 2}"` | `{a: 1, b: 2}` |
-| Regex match | `pars -d '"hello" ~ /(\w+)/'` | `["hello", "hello"]` |
-| Null result | `pars -d "null"` | `null` |
-| With -e | `pars -e "let x = 1" -d` | `null` (let returns null) |
-| Long flag | `pars --debug "[1,2,3]"` | `[1, 2, 3]` |
+| Number | `pars -e "1 + 2"` | `3` |
+| String | `pars -e '"hello"'` | `"hello"` |
+| Array | `pars -e "[1, 2, 3]"` | `[1, 2, 3]` |
+| Dictionary | `pars -e "{a: 1}"` | `{a: 1}` |
+| Regex match | `pars -e '"hi" ~ /(\w+)/'` | `["hi", "hi"]` |
+| Null | `pars -e "null"` | `null` |
+| Raw string | `pars -e '"hello"' --raw` | `hello` |
+| Raw array | `pars -e "[1,2,3]" --raw` | `123` |
+| Raw HTML | `pars -e '"<b>hi</b>"' -r` | `<b>hi</b>` |
+| Raw + pretty | `pars -e '"<div>x</div>"' -r -pp` | Pretty HTML |
+| Raw null | `pars -e "null" --raw` | (no output) |
+
+## Migration Notes
+
+This is a **breaking change** for anyone relying on `-e` output format in scripts. However:
+
+1. `-e` is primarily used interactively, not in scripts
+2. Scripts needing raw output can add `--raw`
+3. The new behavior is more useful for the primary use case
 
 ## Related
-- FEAT-106: CLI `-e` flag (foundation for this feature)
+- FEAT-106: CLI `-e` flag implementation
 - PLN format: `docs/parsley/manual/pln.md`
