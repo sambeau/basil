@@ -34,6 +34,8 @@ var (
 	// Evaluation flags
 	evalFlag     = flag.String("e", "", "Evaluate code string")
 	evalLongFlag = flag.String("eval", "", "Evaluate code string")
+	rawFlag      = flag.Bool("r", false, "Output raw print string instead of PLN")
+	rawLongFlag  = flag.Bool("raw", false, "Output raw print string instead of PLN")
 	checkFlag    = flag.Bool("check", false, "Check syntax without executing")
 
 	// Security flags
@@ -75,6 +77,9 @@ func main() {
 	// Determine pretty print setting
 	prettyPrint := *prettyPrintFlag || *prettyLongFlag
 
+	// Determine raw output setting
+	raw := *rawFlag || *rawLongFlag
+
 	// Get eval code (prefer -e over --eval if both set)
 	evalCode := *evalFlag
 	if evalCode == "" {
@@ -85,7 +90,7 @@ func main() {
 	switch {
 	case evalCode != "":
 		// Inline evaluation mode
-		executeInline(evalCode, flag.Args(), prettyPrint)
+		executeInline(evalCode, flag.Args(), prettyPrint, raw)
 	case *checkFlag:
 		// Syntax check mode
 		files := flag.Args()
@@ -123,7 +128,8 @@ Display Options:
   -pp, --pretty         Pretty-print HTML output with proper indentation
 
 Evaluation Options:
-  -e, --eval <code>     Evaluate code string instead of file
+  -e, --eval <code>     Evaluate code string (outputs PLN representation)
+  -r, --raw             Output raw print string instead of PLN (with -e)
   --check               Check syntax without executing (can specify multiple files)
 
 Security Options:
@@ -145,7 +151,9 @@ Examples:
   pars                      Start interactive REPL
   pars script.pars          Execute a Parsley script
   pars -pp page.pars        Execute and pretty-print HTML output
-  pars -e "1 + 2"           Evaluate inline code
+  pars -e "1 + 2"           Evaluate inline code (outputs: 3)
+  pars -e "[1, 2, 3]"       Evaluate array (outputs: [1, 2, 3])
+  pars -e "[1,2,3]" --raw   Raw output for scripting (outputs: 123)
   pars -e '@args' foo bar   Evaluate code with arguments
   pars --check script.pars  Check syntax without executing
   pars --check *.pars       Check multiple files
@@ -157,7 +165,7 @@ For more information, visit: https://github.com/sambeau/parsley
 }
 
 // executeInline evaluates inline code provided via -e flag
-func executeInline(code string, args []string, prettyPrint bool) {
+func executeInline(code string, args []string, prettyPrint, raw bool) {
 	policy, err := buildSecurityPolicy()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -178,7 +186,16 @@ func executeInline(code string, args []string, prettyPrint bool) {
 	env.Security = policy
 	evaluated := evaluator.Eval(program, env)
 
-	if evaluated != nil && evaluated.Type() == evaluator.ERROR_OBJ {
+	// Handle nil evaluation result
+	if evaluated == nil {
+		if !raw {
+			fmt.Println("null")
+		}
+		return
+	}
+
+	// Handle errors
+	if evaluated.Type() == evaluator.ERROR_OBJ {
 		errObj, ok := evaluated.(*evaluator.Error)
 		if ok {
 			printRuntimeError("<eval>", code, errObj)
@@ -188,12 +205,23 @@ func executeInline(code string, args []string, prettyPrint bool) {
 		os.Exit(1)
 	}
 
-	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ && evaluated.Type() != evaluator.NULL_OBJ {
-		output := evaluator.ObjectToPrintString(evaluated)
-		if prettyPrint {
-			output = formatter.FormatHTML(output)
+	// Handle output based on mode
+	if raw {
+		// File-like behavior (current)
+		if evaluated.Type() != evaluator.NULL_OBJ {
+			output := evaluator.ObjectToPrintString(evaluated)
+			if prettyPrint {
+				output = formatter.FormatHTML(output)
+			}
+			fmt.Println(output)
 		}
-		fmt.Println(output)
+	} else {
+		// REPL-like behavior (new default)
+		if evaluated.Type() == evaluator.NULL_OBJ {
+			fmt.Println("null")
+		} else {
+			fmt.Println(evaluator.ObjectToFormattedReprString(evaluated))
+		}
 	}
 }
 
