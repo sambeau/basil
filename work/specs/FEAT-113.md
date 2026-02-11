@@ -1,7 +1,7 @@
 ---
 id: FEAT-113
 title: "CLI: Change -e to Output PLN by Default"
-status: draft
+status: implemented
 priority: medium
 created: 2026-02-11
 author: "@human"
@@ -34,13 +34,13 @@ pars -e '"hello" ~ /(\w+)/' # Output: hellohello
 By making `-e` match REPL behavior, the common case (debugging) becomes easy, and users don't have to discover a separate `-d` flag.
 
 ## Acceptance Criteria
-- [ ] `pars -e "expression"` outputs PLN representation (like REPL)
-- [ ] `pars -e "expression" --raw` outputs print string (like file execution)
-- [ ] `-r` works as short form of `--raw`
-- [ ] Null results display as `null` (not silent)
-- [ ] `--raw` works with `-pp` for pretty-printed HTML
-- [ ] Help text updated to document new behavior
-- [ ] REPL behavior unchanged
+- [x] `pars -e "expression"` outputs PLN representation (like REPL)
+- [x] `pars -e "expression" --raw` outputs print string (like file execution)
+- [x] `-r` works as short form of `--raw`
+- [x] Null results display as `null` (not silent)
+- [x] `--raw` works with `-pp` for pretty-printed HTML
+- [x] Help text updated to document new behavior
+- [x] REPL behavior unchanged
 
 ## Design Decisions
 
@@ -153,3 +153,27 @@ This is a **breaking change** for anyone relying on `-e` output format in script
 ## Related
 - FEAT-106: CLI `-e` flag implementation
 - PLN format: `docs/parsley/manual/pln.md`
+
+---
+
+## Implementation Notes
+
+**Status**: Implemented in PLAN-086 (2026-02-11)
+
+**Branch**: `feat/FEAT-113-cli-pln-output`
+
+**Changes Made**:
+1. Added `--raw` and `-r` flags to `cmd/pars/main.go`
+2. Modified `executeInline()` to use `ObjectToFormattedReprString()` for PLN output (default)
+3. Preserved `ObjectToPrintString()` for raw output (with `--raw` flag)
+4. Updated help text with new flag documentation and examples
+5. Added comprehensive integration tests in `cmd/pars/main_test.go`
+
+**Key Implementation Detail**:
+- PLN output uses `evaluator.ObjectToFormattedReprString()` (same as REPL)
+- Raw output uses `evaluator.ObjectToPrintString()` (original behavior)
+- Null displays as `null` in PLN mode, silent in raw mode
+- All test cases from spec passing
+
+**Breaking Change**:
+This changes the default output format for `-e`. Users relying on the current behavior in scripts must add `--raw` flag.

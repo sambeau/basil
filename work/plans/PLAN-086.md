@@ -2,7 +2,7 @@
 id: PLAN-086
 feature: FEAT-113
 title: "Implementation Plan: CLI -e to Output PLN by Default"
-status: draft
+status: complete
 created: 2026-02-11
 ---
 
@@ -144,20 +144,20 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `make test`
-- [ ] Build succeeds: `make dev`
-- [ ] Linter passes: `golangci-lint run`
-- [ ] Help text updated
-- [ ] Manual testing of all test cases from spec
-- [ ] work/BACKLOG.md updated with deferrals (if any)
+- [x] All tests pass: `make test` (CLI and Parsley tests passing)
+- [x] Build succeeds: `make dev`
+- [x] Linter passes: `golangci-lint run` (no new issues in changed code)
+- [x] Help text updated
+- [x] Manual testing of all test cases from spec
+- [x] work/BACKLOG.md updated with deferrals (if any)
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Add flags | ⬜ Not started | — |
-| | Task 2: Modify executeInline | ⬜ Not started | — |
-| | Task 3: Update help text | ⬜ Not started | — |
-| | Task 4: Add tests | ⬜ Not started | — |
+| 2026-02-11 | Task 1: Add flags | ✅ Complete | Added --raw and -r flags |
+| 2026-02-11 | Task 2: Modify executeInline | ✅ Complete | PLN output using ObjectToFormattedReprString |
+| 2026-02-11 | Task 3: Update help text | ✅ Complete | Updated examples and flag descriptions |
+| 2026-02-11 | Task 4: Add tests | ✅ Complete | All test cases passing |
 
 ## Deferred Items
 None anticipated.
