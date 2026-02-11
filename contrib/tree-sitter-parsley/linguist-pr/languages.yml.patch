@@ -1,0 +1,14 @@
+# Patch for lib/linguist/languages.yml
+# Add this entry in alphabetical order (after "ParseTree" and before "Pascal")
+
+Parsley:
+  type: programming
+  color: "#3B6EA5"
+  extensions:
+    - ".pars"
+    - ".part"
+  tm_scope: source.parsley
+  ace_mode: text
+  codemirror_mode: null
+  codemirror_mime_type: null
+  language_id: 1234567890  # Will be assigned by linguist maintainers

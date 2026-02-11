@@ -1,0 +1,95 @@
+// Parsley - A scripting language for web applications
+// This sample demonstrates core language features
+
+// === Literals ===
+let number = 42
+let decimal = 3.14
+let text = "Hello, {name}!"
+let template = `Multi-line
+template string`
+let raw = 'Raw string with @{interpolation}'
+let regex = /\w+@\w+\.\w+/i
+let money = $99.99
+let boolean = true
+let nothing = null
+
+// === At-Literals ===
+let db = @sqlite("app.db")
+let now = @now
+let date = @2024-01-15
+let time = @14:30:00
+let duration = @2h30m
+let path = @./data/config.json
+let url = @https://api.example.com/v1
+let env = @env.DATABASE_URL
+let std = @std/json
+
+// === Functions ===
+let greet = fn(name) "Hello, {name}!"
+
+let add = fn(a, b = 0) a + b
+
+let sum = fn(...numbers) {
+  let total = 0
+  for n in numbers {
+    total = total + n
+  }
+  return total
+}
+
+// === Control Flow ===
+let result = if score >= 90 {
+  "A"
+} else if score >= 80 {
+  "B"
+} else {
+  "C"
+}
+
+let doubled = for item in items {
+  item * 2
+}
+
+// === Destructuring ===
+let [first, second, ...rest] = array
+let {name, age, address: {city}} = person
+
+// === Database Operations ===
+export computed users = @query |> "SELECT * FROM users WHERE active = true"
+
+let user = db <=?=> "SELECT * FROM users WHERE id = ?" <| [userId]
+
+// === File I/O ===
+let config = @./config.json <== @std/json.parse
+let output = data ==> @./output.txt
+
+// === JSX-like Tags ===
+export page = fn(title, items)
+  <html>
+    <head>
+      <title>{title}</title>
+      <link rel="stylesheet" href="/styles.css"/>
+    </head>
+    <body>
+      <main class="container">
+        <h1>{title}</h1>
+        <ul>
+          {for item in items {
+            <li class={item.class}>
+              {item.name}
+            </li>
+          }}
+        </ul>
+      </main>
+    </body>
+  </html>
+
+// === Error Handling ===
+let data = try fetchData(url)
+check data != null {
+  return <Error message="Failed to fetch data"/>
+}
+
+// === Exports ===
+export greeting = greet("World")
+export computed timestamp = @now
