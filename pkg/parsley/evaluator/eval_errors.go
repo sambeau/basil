@@ -236,6 +236,22 @@ func newArityErrorExact(function string, got, choice1, choice2 int) *Error {
 	}
 }
 
+// newArityErrorMin creates a structured error for minimum argument count (variadic).
+func newArityErrorMin(function string, got, minArgs int) *Error {
+	perr := perrors.New("ARITY-0005", map[string]any{
+		"Function": function,
+		"Got":      got,
+		"Min":      minArgs,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // newIOError creates a structured error for I/O operations.
 func newIOError(code string, path string, err error) *Error {
 	perr := perrors.New(code, map[string]any{

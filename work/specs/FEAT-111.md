@@ -1,7 +1,7 @@
 ---
 id: FEAT-111
 title: "Declarative Method Registry"
-status: draft
+status: in-progress
 priority: high
 created: 2025-01-15
 author: "@human"
@@ -19,13 +19,32 @@ As a Parsley maintainer, I want method definitions to be self-documenting so tha
 As a Parsley developer, I want `describe(type)` to always show accurate, up-to-date method information so that I can trust the introspection output.
 
 ## Acceptance Criteria
-- [ ] Method dispatch uses registry lookup instead of switch statements
-- [ ] Each method entry includes: function reference, arity, and description
-- [ ] `TypeMethods` map in `introspect.go` is removed (now redundant)
-- [ ] Introspection reads directly from the method registries
-- [ ] All existing method tests continue to pass
+- [x] Method dispatch uses registry lookup instead of switch statements
+- [x] Each method entry includes: function reference, arity, and description
+- [~] `TypeMethods` map in `introspect.go` is removed (now redundant) — entries for migrated types (string, integer, float, money) removed; map remains for unmigrated types
+- [x] Introspection reads directly from the method registries
+- [x] All existing method tests continue to pass
 - [ ] No performance regression in method dispatch
-- [ ] Adding a new method requires only one code change (registry entry)
+- [x] Adding a new method requires only one code change (registry entry)
+
+## Implementation Progress
+
+**Migrated Types (4/15):**
+- ✅ string (31 methods)
+- ✅ integer (8 methods)
+- ✅ float (11 methods)
+- ✅ money (9 methods)
+
+**Cleanup (migrated types):**
+- ✅ Stale `TypeMethods` entries removed for string, integer, float, money
+- ✅ Fixed `float.format()` arity from `"0-2"` to `"0-1"` (2nd arg was never implemented)
+- ✅ `describe()` now shows full, accurate method lists from registries for all migrated types
+
+**Remaining Types (in spec):**
+- array, dictionary, boolean, null, datetime, duration, path, url, regex, file, directory
+
+**Additional types (not in original spec, exist in codebase):**
+- table, record, session, dev, tablemodule, DSLSchema, MdDoc, sftpfile, sftpconnection, dbconnection
 
 ## Design Decisions
 

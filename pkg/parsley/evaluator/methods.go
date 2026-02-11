@@ -9,12 +9,9 @@ import (
 	"maps"
 	"math"
 	"math/rand"
-	"net/url"
 	"os"
 	"regexp"
-	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -40,30 +37,11 @@ var (
 // Available Methods for Fuzzy Matching
 // ============================================================================
 
-// stringMethods lists all methods available on string
-var stringMethods = []string{
-	"type", "toUpper", "toLower", "toTitle", "trim", "split", "replace", "length", "includes",
-	"render", "highlight", "paragraphs", "parseJSON", "parseCSV",
-	"collapse", "normalizeSpace", "stripSpace", "stripHtml", "digits", "slug",
-	"htmlEncode", "htmlDecode", "urlEncode", "urlDecode", "urlPathEncode", "urlQueryEncode",
-	"outdent", "indent", "toBox", "repr", "toJSON",
-}
-
 // arrayMethods lists all methods available on array
 var arrayMethods = []string{
 	"type", "length", "reverse", "sort", "sortBy", "map", "filter", "reduce", "format", "join",
 	"toJSON", "toCSV", "shuffle", "pick", "take", "insert", "has", "hasAny", "hasAll", "toBox",
 	"repr", "toHTML", "toMarkdown", "reorder",
-}
-
-// integerMethods lists all methods available on integer
-var integerMethods = []string{
-	"type", "format", "humanize", "toBox", "repr", "toJSON",
-}
-
-// floatMethods lists all methods available on float
-var floatMethods = []string{
-	"type", "format", "humanize", "toBox", "repr", "toJSON",
 }
 
 // dictionaryMethods lists all methods available on dictionary
@@ -115,326 +93,13 @@ func buildRenderEnv(baseEnv *Environment, dict *Dictionary) (*Environment, Objec
 // String Methods
 // ============================================================================
 
-// evalStringMethod evaluates a method call on a String
+// evalStringMethod evaluates a method call on a String using the registry.
 func evalStringMethod(str *String, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toUpper":
-		if len(args) != 0 {
-			return newArityError("toUpper", len(args), 0)
-		}
-		return &String{Value: strings.ToUpper(str.Value)}
-
-	case "toLower":
-		if len(args) != 0 {
-			return newArityError("toLower", len(args), 0)
-		}
-		return &String{Value: strings.ToLower(str.Value)}
-
-	case "toTitle":
-		if len(args) != 0 {
-			return newArityError("toTitle", len(args), 0)
-		}
-		return &String{Value: strings.Title(str.Value)}
-
-	case "trim":
-		if len(args) != 0 {
-			return newArityError("trim", len(args), 0)
-		}
-		return &String{Value: strings.TrimSpace(str.Value)}
-
-	case "split":
-		if len(args) != 1 {
-			return newArityError("split", len(args), 1)
-		}
-		delim, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "split", "a string", args[0].Type())
-		}
-		parts := strings.Split(str.Value, delim.Value)
-		elements := make([]Object, len(parts))
-		for i, part := range parts {
-			elements[i] = &String{Value: part}
-		}
-		return &Array{Elements: elements}
-
-	case "replace":
-		// replace(search, replacement) - replace all occurrences
-		// search can be a string or regex
-		// replacement can be a string or function
-		if len(args) != 2 {
-			return newArityError("replace", len(args), 2)
-		}
-
-		switch search := args[0].(type) {
-		case *String:
-			// String search - replace all occurrences
-			switch replacement := args[1].(type) {
-			case *String:
-				// Simple string replacement
-				return &String{Value: strings.ReplaceAll(str.Value, search.Value, replacement.Value)}
-			case *Function:
-				// Functional replacement - call function for each match
-				return stringReplaceWithFunction(str.Value, search.Value, replacement, env)
-			default:
-				return newTypeError("TYPE-0006", "replace", "a string or function", args[1].Type())
-			}
-
-		case *Dictionary:
-			// Check if it's a regex
-			if !isRegexDict(search) {
-				return newTypeError("TYPE-0005", "replace", "a string or regex", "dictionary")
-			}
-			// Regex replacement
-			return regexReplaceOnString(str.Value, search, args[1], env)
-
-		default:
-			return newTypeError("TYPE-0005", "replace", "a string or regex", args[0].Type())
-		}
-
-	case "length":
-		if len(args) != 0 {
-			return newArityError("length", len(args), 0)
-		}
-		// Return rune count for proper Unicode support
-		return &Integer{Value: int64(len([]rune(str.Value)))}
-
-	case "includes":
-		// includes(substring) - returns true if string contains the substring
-		if len(args) != 1 {
-			return newArityError("includes", len(args), 1)
-		}
-		substr, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "includes", "a string", args[0].Type())
-		}
-		if strings.Contains(str.Value, substr.Value) {
-			return TRUE
-		}
-		return FALSE
-
-	case "highlight":
-		// highlight(phrase, tag?) - wrap search matches in HTML tag with XSS protection
-		if len(args) < 1 || len(args) > 2 {
-			return newArityErrorRange("highlight", len(args), 1, 2)
-		}
-		phrase, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "highlight", "a string", args[0].Type())
-		}
-		tag := "mark" // default tag
-		if len(args) == 2 {
-			tagArg, ok := args[1].(*String)
-			if !ok {
-				return newTypeError("TYPE-0013", "highlight", "a string", args[1].Type())
-			}
-			tag = tagArg.Value
-		}
-		return &String{Value: highlightString(str.Value, phrase.Value, tag)}
-
-	case "paragraphs":
-		// paragraphs() - convert plain text with blank lines to HTML paragraphs
-		if len(args) != 0 {
-			return newArityError("paragraphs", len(args), 0)
-		}
-		return &String{Value: textToParagraphs(str.Value)}
-
-	case "render":
-		if len(args) > 1 {
-			return newArityErrorRange("render", len(args), 0, 1)
-		}
-
-		if env == nil {
-			env = NewEnvironment()
-		}
-
-		renderEnv := env
-		if len(args) == 1 {
-			dict, ok := args[0].(*Dictionary)
-			if !ok {
-				return newTypeError("TYPE-0012", "render", "a dictionary", args[0].Type())
-			}
-
-			var errObj Object
-			renderEnv, errObj = buildRenderEnv(env, dict)
-			if errObj != nil {
-				return errObj
-			}
-		}
-
-		return interpolateRawString(str.Value, renderEnv)
-
-	case "parseMarkdown":
-		// parseMarkdown(options?) - parse markdown string to {html, raw, md}
-		if len(args) > 1 {
-			return newArityErrorRange("parseMarkdown", len(args), 0, 1)
-		}
-
-		var options *Dictionary
-		if len(args) == 1 {
-			optDict, ok := args[0].(*Dictionary)
-			if !ok {
-				return newTypeError("TYPE-0012", "parseMarkdown", "a dictionary", args[0].Type())
-			}
-			options = optDict
-		}
-
-		result, err := parseMarkdown(str.Value, options, env)
-		if err != nil {
-			return err
-		}
+	result := dispatchFromRegistry(StringMethodRegistry, "string", str, method, args, env)
+	if result != nil {
 		return result
-
-	case "parseJSON":
-		if len(args) != 0 {
-			return newArityError("parseJSON", len(args), 0)
-		}
-		result, err := parseJSON(str.Value)
-		if err != nil {
-			return err
-		}
-		return result
-
-	case "parseCSV":
-		if len(args) > 1 {
-			return newArityErrorRange("parseCSV", len(args), 0, 1)
-		}
-		hasHeader := true
-		if len(args) == 1 {
-			flag, ok := args[0].(*Boolean)
-			if !ok {
-				return newTypeError("TYPE-0004", "parseCSV", "a boolean", args[0].Type())
-			}
-			hasHeader = flag.Value
-		}
-
-		result, err := parseCSV([]byte(str.Value), hasHeader)
-		if err != nil {
-			return err
-		}
-		return result
-
-	case "collapse":
-		if len(args) != 0 {
-			return newArityError("collapse", len(args), 0)
-		}
-		return &String{Value: whitespaceRegex.ReplaceAllString(str.Value, " ")}
-
-	case "normalizeSpace":
-		if len(args) != 0 {
-			return newArityError("normalizeSpace", len(args), 0)
-		}
-		collapsed := whitespaceRegex.ReplaceAllString(str.Value, " ")
-		return &String{Value: strings.TrimSpace(collapsed)}
-
-	case "stripSpace":
-		if len(args) != 0 {
-			return newArityError("stripSpace", len(args), 0)
-		}
-		return &String{Value: whitespaceRegex.ReplaceAllString(str.Value, "")}
-
-	case "stripHtml":
-		if len(args) != 0 {
-			return newArityError("stripHtml", len(args), 0)
-		}
-		stripped := htmlTagRegex.ReplaceAllString(str.Value, "")
-		return &String{Value: html.UnescapeString(stripped)}
-
-	case "digits":
-		if len(args) != 0 {
-			return newArityError("digits", len(args), 0)
-		}
-		return &String{Value: nonDigitRegex.ReplaceAllString(str.Value, "")}
-
-	case "slug":
-		if len(args) != 0 {
-			return newArityError("slug", len(args), 0)
-		}
-		lower := strings.ToLower(str.Value)
-		return &String{Value: strings.Trim(nonSlugRegex.ReplaceAllString(lower, "-"), "-")}
-
-	case "htmlEncode":
-		if len(args) != 0 {
-			return newArityError("htmlEncode", len(args), 0)
-		}
-		return &String{Value: html.EscapeString(str.Value)}
-
-	case "htmlDecode":
-		if len(args) != 0 {
-			return newArityError("htmlDecode", len(args), 0)
-		}
-		return &String{Value: html.UnescapeString(str.Value)}
-
-	case "urlEncode":
-		if len(args) != 0 {
-			return newArityError("urlEncode", len(args), 0)
-		}
-		// QueryEscape uses + for spaces (application/x-www-form-urlencoded)
-		return &String{Value: url.QueryEscape(str.Value)}
-
-	case "urlDecode":
-		if len(args) != 0 {
-			return newArityError("urlDecode", len(args), 0)
-		}
-		decoded, err := url.QueryUnescape(str.Value)
-		if err != nil {
-			return newFormatError("FMT-0011", err)
-		}
-		return &String{Value: decoded}
-
-	case "urlPathEncode":
-		if len(args) != 0 {
-			return newArityError("urlPathEncode", len(args), 0)
-		}
-		// PathEscape encodes path segments (including /)
-		return &String{Value: url.PathEscape(str.Value)}
-
-	case "urlQueryEncode":
-		if len(args) != 0 {
-			return newArityError("urlQueryEncode", len(args), 0)
-		}
-		// QueryEscape encodes query values (& and = are encoded)
-		return &String{Value: url.QueryEscape(str.Value)}
-
-	case "outdent":
-		if len(args) != 0 {
-			return newArityError("outdent", len(args), 0)
-		}
-		return &String{Value: outdentString(str.Value)}
-
-	case "indent":
-		if len(args) != 1 {
-			return newArityError("indent", len(args), 1)
-		}
-		spaces, ok := args[0].(*Integer)
-		if !ok {
-			return newTypeError("TYPE-0012", "indent", "an integer", args[0].Type())
-		}
-		return &String{Value: indentString(str.Value, int(spaces.Value))}
-
-	case "toBox":
-		if len(args) != 0 {
-			return newArityError("toBox", len(args), 0)
-		}
-		br := NewBoxRenderer()
-		return &String{Value: br.RenderSingleValue(str.Value)}
-
-	case "repr":
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: objectToReprString(str)}
-
-	case "toJSON":
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		// JSON encode the string
-		jsonBytes, _ := json.Marshal(str.Value)
-		return &String{Value: string(jsonBytes)}
-
-	default:
-		return unknownMethodError(method, "string", stringMethods)
 	}
+	return unknownMethodError(method, "string", StringMethodRegistry.Names())
 }
 
 // stringReplaceWithFunction replaces all occurrences of a string using a function
@@ -1825,186 +1490,22 @@ func evalNullMethod(method string, args []Object) Object {
 // Number Methods (Integer and Float)
 // ============================================================================
 
-// evalIntegerMethod evaluates a method call on an Integer
+// evalIntegerMethod evaluates a method call on an Integer using the registry.
 func evalIntegerMethod(num *Integer, method string, args []Object) Object {
-	switch method {
-	case "format":
-		// format(locale?)
-		if len(args) > 1 {
-			return newArityErrorRange("format", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			loc, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
-			}
-			localeStr = loc.Value
-		}
-		return formatNumberWithLocale(float64(num.Value), localeStr)
-
-	case "currency":
-		// currency(code, locale?)
-		if len(args) < 1 || len(args) > 2 {
-			return newArityErrorRange("currency", len(args), 1, 2)
-		}
-		code, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0005", "currency", "a string (currency code)", args[0].Type())
-		}
-		localeStr := "en-US"
-		if len(args) == 2 {
-			loc, ok := args[1].(*String)
-			if !ok {
-				return newTypeError("TYPE-0006", "currency", "a string (locale)", args[1].Type())
-			}
-			localeStr = loc.Value
-		}
-		return formatCurrencyWithLocale(float64(num.Value), code.Value, localeStr)
-
-	case "percent":
-		// percent(locale?)
-		if len(args) > 1 {
-			return newArityErrorRange("percent", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			loc, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "percent", "a string", args[0].Type())
-			}
-			localeStr = loc.Value
-		}
-		return formatPercentWithLocale(float64(num.Value), localeStr)
-
-	case "humanize":
-		// humanize(locale?) - compact number format (1K, 1.2M, etc.)
-		if len(args) > 1 {
-			return newArityErrorRange("humanize", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			loc, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "humanize", "a string", args[0].Type())
-			}
-			localeStr = loc.Value
-		}
-		return &String{Value: humanizeNumber(float64(num.Value), localeStr)}
-
-	case "toBox":
-		if len(args) != 0 {
-			return newArityError("toBox", len(args), 0)
-		}
-		br := NewBoxRenderer()
-		return &String{Value: br.RenderSingleValue(num.Inspect())}
-
-	case "repr":
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: objectToReprString(num)}
-
-	case "toJSON":
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		return &String{Value: strconv.FormatInt(num.Value, 10)}
-
-	default:
-		return unknownMethodError(method, "integer", integerMethods)
+	result := dispatchFromRegistry(IntegerMethodRegistry, "integer", num, method, args, nil)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "integer", IntegerMethodRegistry.Names())
 }
 
-// evalFloatMethod evaluates a method call on a Float
+// evalFloatMethod evaluates a method call on a Float using the registry.
 func evalFloatMethod(num *Float, method string, args []Object) Object {
-	switch method {
-	case "format":
-		// format(locale?)
-		if len(args) > 1 {
-			return newArityErrorRange("format", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			loc, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
-			}
-			localeStr = loc.Value
-		}
-		return formatNumberWithLocale(num.Value, localeStr)
-
-	case "currency":
-		// currency(code, locale?)
-		if len(args) < 1 || len(args) > 2 {
-			return newArityErrorRange("currency", len(args), 1, 2)
-		}
-		code, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0005", "currency", "a string (currency code)", args[0].Type())
-		}
-		localeStr := "en-US"
-		if len(args) == 2 {
-			loc, ok := args[1].(*String)
-			if !ok {
-				return newTypeError("TYPE-0006", "currency", "a string (locale)", args[1].Type())
-			}
-			localeStr = loc.Value
-		}
-		return formatCurrencyWithLocale(num.Value, code.Value, localeStr)
-
-	case "percent":
-		// percent(locale?)
-		if len(args) > 1 {
-			return newArityErrorRange("percent", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			loc, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "percent", "a string", args[0].Type())
-			}
-			localeStr = loc.Value
-		}
-		return formatPercentWithLocale(num.Value, localeStr)
-
-	case "humanize":
-		// humanize(locale?) - compact number format (1K, 1.2M, etc.)
-		if len(args) > 1 {
-			return newArityErrorRange("humanize", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			loc, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "humanize", "a string", args[0].Type())
-			}
-			localeStr = loc.Value
-		}
-		return &String{Value: humanizeNumber(num.Value, localeStr)}
-
-	case "toBox":
-		if len(args) != 0 {
-			return newArityError("toBox", len(args), 0)
-		}
-		br := NewBoxRenderer()
-		return &String{Value: br.RenderSingleValue(num.Inspect())}
-
-	case "repr":
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: objectToReprString(num)}
-
-	case "toJSON":
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		return &String{Value: fmt.Sprintf("%g", num.Value)}
-
-	default:
-		return unknownMethodError(method, "float", floatMethods)
+	result := dispatchFromRegistry(FloatMethodRegistry, "float", num, method, args, nil)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "float", FloatMethodRegistry.Names())
 }
 
 // ============================================================================
@@ -2941,11 +2442,6 @@ func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Env
 // Money Methods
 // ============================================================================
 
-// moneyMethods lists all methods available on money
-var moneyMethods = []string{
-	"format", "abs", "split", "toJSON", "toBox", "repr", "toDict", "inspect",
-}
-
 // evalMoneyProperty handles property access on Money values
 func evalMoneyProperty(money *Money, key string) Object {
 	switch key {
@@ -2957,119 +2453,21 @@ func evalMoneyProperty(money *Money, key string) Object {
 		return &Integer{Value: int64(money.Scale)}
 	default:
 		// Check if it's a method name - provide helpful error
-		if slices.Contains(moneyMethods, key) {
+		methodNames := MoneyMethodRegistry.Names()
+		if _, ok := MoneyMethodRegistry[key]; ok {
 			return methodAsPropertyError(key, "Money")
 		}
-		return unknownMethodError(key, "money", append([]string{"currency", "amount", "scale"}, moneyMethods...))
+		return unknownMethodError(key, "money", append([]string{"currency", "amount", "scale"}, methodNames...))
 	}
 }
 
-// evalMoneyMethod evaluates a method call on a Money value
+// evalMoneyMethod evaluates a method call on a Money value using the registry.
 func evalMoneyMethod(money *Money, method string, args []Object) Object {
-	switch method {
-	case "format":
-		// format() or format(locale)
-		if len(args) > 1 {
-			return newArityErrorRange("format", len(args), 0, 1)
-		}
-
-		localeStr := "en-US" // default locale
-		if len(args) == 1 {
-			localeArg, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
-			}
-			localeStr = localeArg.Value
-		}
-
-		return formatMoney(money, localeStr)
-
-	case "abs":
-		// abs() - returns absolute value
-		if len(args) != 0 {
-			return newArityError("abs", len(args), 0)
-		}
-		amount := money.Amount
-		if amount < 0 {
-			amount = -amount
-		}
-		return &Money{
-			Amount:   amount,
-			Currency: money.Currency,
-			Scale:    money.Scale,
-		}
-
-	case "split":
-		// split(n) - split into n parts that sum to original
-		if len(args) != 1 {
-			return newArityError("split", len(args), 1)
-		}
-		nArg, ok := args[0].(*Integer)
-		if !ok {
-			return newTypeError("TYPE-0012", "split", "an integer", args[0].Type())
-		}
-		n := nArg.Value
-		if n <= 0 {
-			return newStructuredError("VAL-0021", map[string]any{"Function": "split", "Expected": "a positive integer", "Got": n})
-		}
-
-		return splitMoney(money, n)
-
-	case "toJSON":
-		// toJSON() - returns money as JSON object with amount (as string to preserve precision) and currency
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		// Format the amount as a decimal string to preserve precision
-		amountStr := money.formatAmount()
-		currencyJSON, _ := json.Marshal(money.Currency)
-		return &String{Value: fmt.Sprintf(`{"amount":"%s","currency":%s}`, amountStr, currencyJSON)}
-
-	case "toBox":
-		// toBox(opts?) - render money as ASCII box
-		return moneyToBox(money, args)
-
-	case "repr":
-		// repr() - returns Parsley-parseable literal (e.g., "$50.00")
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: money.Inspect()}
-
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction via money(dict)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Calculate user-friendly amount (e.g., 50.00 not 5000)
-		divisor := math.Pow10(int(money.Scale))
-		amount := float64(money.Amount) / divisor
-		return &Dictionary{
-			Pairs: map[string]ast.Expression{
-				"amount":   createLiteralExpression(&Float{Value: amount}),
-				"currency": createLiteralExpression(&String{Value: money.Currency}),
-			},
-			Env: NewEnvironment(),
-		}
-
-	case "inspect":
-		// inspect() - returns debug dictionary with __type and raw internal values
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return &Dictionary{
-			Pairs: map[string]ast.Expression{
-				"__type":   createLiteralExpression(&String{Value: "money"}),
-				"amount":   createLiteralExpression(&Integer{Value: money.Amount}),
-				"currency": createLiteralExpression(&String{Value: money.Currency}),
-				"scale":    createLiteralExpression(&Integer{Value: int64(money.Scale)}),
-			},
-			Env: NewEnvironment(),
-		}
-
-	default:
-		return unknownMethodError(method, "money", moneyMethods)
+	result := dispatchFromRegistry(MoneyMethodRegistry, "money", money, method, args, nil)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "money", MoneyMethodRegistry.Names())
 }
 
 // formatMoney formats a Money value with locale-aware formatting
