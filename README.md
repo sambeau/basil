@@ -36,7 +36,8 @@ let Page = fn({title, users}) {
                 for (user in users) {
                     {name, email} = user 
                     <li>
-                        <b>name +": "</b>email</li>
+                        <b>name +": "</b>email
+                    </li>
                 }
             </ul>
         </body>
