@@ -1,5 +1,5 @@
 ---
-updated 2026-02-08
+updated 2026-02-09
 ---
 
 # Backlog
@@ -52,6 +52,9 @@ Deferred items from implementation, to be picked up in future work.
 | #91 | `record.toError()` — non-failing error conversion | FEAT-105 | Follow-up enhancement | Return the validation error dict without calling `fail()`, for cases where you want to inspect/modify before failing. E.g., `let errDict = record.toError()` then `errDict.message = "Custom"` then `fail(errDict)`. |
 | #92 | Error catalog entry for VALIDATION code | FEAT-105 | Follow-up | `VALIDATION` code from `failIfInvalid()` is currently hardcoded. Could be registered in the error catalog for consistency with other error codes. |
 | #93 | Enforce non-empty `message` in `fail(dict)` | FEAT-105 | Follow-up | `fail({message: ""})` currently succeeds — only checks key exists and type is string. Consider enforcing non-empty string for the `message` value. |
+| #94 | Multiple `-e` flags for pars CLI | FEAT-106 | Enhancement | Support `pars -e "let x=1" -e "x+1"` to evaluate multiple code snippets in sequence. Currently can use semicolons within single `-e` argument. Would require concatenating code or evaluating sequentially with shared environment. |
+| #95 | `pars --check` with stdin input | FEAT-106 | Enhancement | Support `pars --check -` to read and validate Parsley code from stdin. Useful for editor integration and pipelines. Would require detecting `-` as special filename. |
+| #96 | JSON output format for `--check` | FEAT-106 | Tooling enhancement | Add `pars --check --json file.pars` to output structured error information in JSON format for tool integration (editors, CI/CD). Would need to serialize ParsleyError structs to JSON. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
