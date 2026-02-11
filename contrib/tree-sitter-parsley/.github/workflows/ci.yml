@@ -33,24 +33,38 @@ jobs:
           # Create a sample file to test parsing
           cat > /tmp/sample.pars << 'EOF'
           // Sample Parsley file
-          let db = @sqlite("test.db")
-          let now = @now
+          let timestamp = @now
           let duration = @2h30m
+          let date = @2024-01-15
 
-          export greeting = fn(name) "Hello, {name}!"
-
-          export computed data = @query |> "SELECT * FROM users"
-
-          let result = if condition {
-            "yes"
-          } else {
-            "no"
+          let greet = fn(name) {
+              "Hello, {name}!"
           }
 
-          <div class="container">
-            <h1>{title}</h1>
-            {for items { <li>{it}</li> }}
-          </div>
+          let score = 85
+          let result = if (score >= 80) {
+              "pass"
+          } else {
+              "fail"
+          }
+
+          let numbers = [1, 2, 3]
+          let doubled = for (n in numbers) {
+              n * 2
+          }
+
+          let Page = fn({title, items}) {
+              <div class="container">
+                  <h1>title</h1>
+                  <ul>
+                      for (item in items) {
+                          <li>item</li>
+                      }
+                  </ul>
+              </div>
+          }
+
+          export greeting = greet("World")
           EOF
 
           tree-sitter parse /tmp/sample.pars
