@@ -54,7 +54,7 @@ Using an array of dictionaries:
 Outputs:
 
 ```html
-<html><head><title>Active Users</title></head><body><h1>Hello</h1><ul><li><b>Robert Foo: </b>foo@example..com</li></ul></body></html>
+<html><head><title>Active Users</title></head><body><h1>Hello</h1><ul><li><b>Robert Foo: </b>foo@example.com</li></ul></body></html>
 ```
 
 From a CSV file:
