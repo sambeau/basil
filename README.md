@@ -145,11 +145,11 @@ Basil is a web server that runs Parsley handlers. Drop a `.pars` file in a direc
 
 **Core features:**
 
-- **File-based routing** — or a react-like single file handler
+- **File-based routing** — or a React-like single file handler
 - **Built-in SQL Database** — in-process, super-fast, SQLite database 
 - **Hot reload** — edit a handler and your browser refreshes
 - **Parts** – dynamic components from reloadable HTML fragments
-- **Built-in authentication** — sessions, users, roles, API keys, and ***Passkeys!***
+- **Built-in authentication** — sessions, users, roles, API keys, and **Passkeys**
 - **Full-text search** — point it at a directory and query your content
 - **Built-in Git server** — push-to-deploy
 - **Development tools** — database inspector, request logging, and web-based error pages
