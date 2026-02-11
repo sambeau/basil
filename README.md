@@ -16,7 +16,13 @@ Parsley is an expression-oriented scripting language designed for munging data a
 
 - **Everything is an expression** — `if`, `for`, and `try` all return values
 - **First-class HTML** — JSX/PHP-like tag syntax is built into the language, not bolted on
-- **Rich literals** — dates (`@2024-01-15`), durations (`@2h30m`), money (`$99.99`), paths (`@./config.json`), URLs (`@https://api.example.com`), and regex (`/pattern/`) are all native types
+- **Rich literals** — These are all native types:
+    - dates (`@2024-01-15`),
+    - durations (`@2h30m`),
+    - money (`$99.99`),
+    - paths (`@./config.json`),
+    - URLs (`@https://api.example.com`),
+    - regex (`/pattern/`)
 - **Declarative I/O** — read/write files, query databases, and fetch URLs with operators rather than method chains
 - **Data Formats** – slurp CSV in; spit JSON or Markdown out
 - **Schemas and records** — define data shapes, validate input, and bind forms with minimal ceremony
