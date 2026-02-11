@@ -1,0 +1,25 @@
+{
+  "grammars": [
+    {
+      "name": "parsley",
+      "camelcase": "Parsley",
+      "scope": "source.parsley",
+      "path": ".",
+      "file-types": ["pars", "part"],
+      "injection-regex": "^(parsley|pars)$",
+      "highlights": "queries/highlights.scm"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "authors": [
+      {
+        "name": "Basil Contributors"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/sambeau/tree-sitter-parsley"
+    }
+  }
+}

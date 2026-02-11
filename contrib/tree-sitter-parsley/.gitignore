@@ -1,0 +1,31 @@
+# Build artifacts
+/target/
+/build/
+/prebuilds/
+node_modules/
+
+# Generated parser files (can be regenerated with `tree-sitter generate`)
+/src/parser.c
+/src/tree_sitter/
+/src/node-types.json
+/src/grammar.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Lock files (we want fresh installs)
+package-lock.json
+yarn.lock
+Cargo.lock

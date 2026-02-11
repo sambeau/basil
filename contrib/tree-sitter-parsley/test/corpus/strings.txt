@@ -1,0 +1,179 @@
+================================================================================
+Simple string
+================================================================================
+
+"hello world"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (string)))
+
+================================================================================
+String with escape sequences
+================================================================================
+
+"hello\nworld"
+"tab\there"
+"quote\"here"
+"backslash\\"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (string (escape_sequence)))
+  (expression_statement (string (escape_sequence)))
+  (expression_statement (string (escape_sequence)))
+  (expression_statement (string (escape_sequence))))
+
+================================================================================
+String with interpolation
+================================================================================
+
+"Hello {name}!"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (string
+      (interpolation (identifier)))))
+
+================================================================================
+String with multiple interpolations
+================================================================================
+
+"{greeting}, {name}! You have {count} messages."
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (string
+      (interpolation (identifier))
+      (interpolation (identifier))
+      (interpolation (identifier)))))
+
+================================================================================
+String with expression interpolation
+================================================================================
+
+"Total: {a + b}"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (string
+      (interpolation
+        (binary_expression
+          left: (identifier)
+          right: (identifier))))))
+
+================================================================================
+Template string - simple
+================================================================================
+
+`hello world`
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (template_string)))
+
+================================================================================
+Template string with interpolation
+================================================================================
+
+`Hello {name}!`
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (template_string
+      (interpolation (identifier)))))
+
+================================================================================
+Template string multiline
+================================================================================
+
+`line one
+line two
+line three`
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (template_string)))
+
+================================================================================
+Raw string - simple
+================================================================================
+
+'hello world'
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (raw_string)))
+
+================================================================================
+Raw string with raw interpolation
+================================================================================
+
+'Hello @{name}!'
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (raw_string
+      (raw_interpolation (identifier)))))
+
+================================================================================
+Raw string with @ that is not interpolation
+================================================================================
+
+'email@example.com'
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (raw_string)))
+
+================================================================================
+Empty strings
+================================================================================
+
+""
+``
+''
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (string))
+  (expression_statement (template_string))
+  (expression_statement (raw_string)))
+
+================================================================================
+Nested interpolation in string
+================================================================================
+
+"outer {items.map(fn(x) "{x}")}"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (string
+      (interpolation
+        (call_expression
+          function: (member_expression
+            object: (identifier)
+            property: (identifier))
+          arguments: (arguments
+            (function_expression
+              parameters: (parameter_list (identifier))
+              body: (string (interpolation (identifier))))))))))

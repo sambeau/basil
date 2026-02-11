@@ -1,0 +1,57 @@
+{
+  "name": "tree-sitter-parsley",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the Parsley programming language",
+  "main": "bindings/node",
+  "types": "bindings/node",
+  "keywords": [
+    "parser",
+    "tree-sitter",
+    "parsley",
+    "basil"
+  ],
+  "author": "Basil Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sambeau/tree-sitter-parsley.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sambeau/tree-sitter-parsley/issues"
+  },
+  "homepage": "https://github.com/sambeau/tree-sitter-parsley#readme",
+  "dependencies": {
+    "node-addon-api": "^8.3.0",
+    "node-gyp-build": "^4.8.4"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.26.0",
+    "prebuildify": "^6.0.0"
+  },
+  "scripts": {
+    "build": "tree-sitter generate && node-gyp rebuild",
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse",
+    "highlight": "tree-sitter highlight"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.parsley",
+      "injection-regex": "^(parsley|pars)$",
+      "file-types": [
+        "pars",
+        "part"
+      ],
+      "highlights": "queries/highlights.scm"
+    }
+  ],
+  "files": [
+    "grammar.js",
+    "binding.gyp",
+    "prebuilds/**",
+    "bindings/node/*",
+    "queries/*",
+    "src/**"
+  ]
+}

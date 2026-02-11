@@ -1,0 +1,379 @@
+================================================================================
+Let statement - simple
+================================================================================
+
+let x = 42
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (number)))
+
+================================================================================
+Let statement - string value
+================================================================================
+
+let name = "hello"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (string)))
+
+================================================================================
+Let statement - array destructuring
+================================================================================
+
+let [a, b, c] = items
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (array_pattern (identifier) (identifier) (identifier))
+    value: (identifier)))
+
+================================================================================
+Let statement - dictionary destructuring
+================================================================================
+
+let {name, age} = person
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (dictionary_pattern (identifier) (identifier))
+    value: (identifier)))
+
+================================================================================
+Let statement - rest in array
+================================================================================
+
+let [first, ...rest] = items
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (array_pattern (identifier) (identifier))
+    value: (identifier)))
+
+================================================================================
+Export statement - simple
+================================================================================
+
+export greeting = "Hello"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (export_statement
+    name: (identifier)
+    value: (string)))
+
+================================================================================
+Export statement - computed
+================================================================================
+
+export computed total = a + b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (export_statement
+    name: (identifier)
+    value: (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Import expression - simple
+================================================================================
+
+import @std/math
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import))))
+
+================================================================================
+Import expression - with alias
+================================================================================
+
+import @std/table as t
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import)
+      alias: (identifier))))
+
+================================================================================
+Import expression - local file
+================================================================================
+
+import @./utils.pars as utils
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (path_literal)
+      alias: (identifier))))
+
+================================================================================
+Import expression - in let statement
+================================================================================
+
+let {Page} = import @./page.pars
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (dictionary_pattern
+      (identifier))
+    value: (import_expression
+      source: (path_literal))))
+
+================================================================================
+Return statement - with value
+================================================================================
+
+return 42
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (return_statement (number)))
+
+================================================================================
+Return statement - with expression
+================================================================================
+
+return x + y
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (return_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Check statement - simple
+================================================================================
+
+check isValid
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (check_statement
+    condition: (identifier)))
+
+================================================================================
+Check statement - with body
+================================================================================
+
+check condition {
+  return error
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (check_statement
+    condition: (identifier)
+    body: (block
+      (return_statement (identifier)))))
+
+================================================================================
+Expression statement - function call
+================================================================================
+
+print("hello")
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (identifier)
+      arguments: (arguments (string)))))
+
+================================================================================
+Expression statement - method call
+================================================================================
+
+items.map(fn(x) x * 2)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (member_expression
+        object: (identifier)
+        property: (identifier))
+      arguments: (arguments
+        (function_expression
+          parameters: (parameter_list (identifier))
+          body: (binary_expression
+            left: (identifier)
+            right: (number)))))))
+
+================================================================================
+Multiple statements
+================================================================================
+
+let x = 1
+let y = 2
+export result = x + y
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (number))
+  (let_statement
+    pattern: (identifier)
+    value: (number))
+  (export_statement
+    name: (identifier)
+    value: (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+If expression - simple
+================================================================================
+
+if condition {
+  result
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (identifier)
+      consequence: (block
+        (expression_statement (identifier))))))
+
+================================================================================
+If expression - with else
+================================================================================
+
+if x > 0 {
+  positive
+} else {
+  negative
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (binary_expression
+        left: (identifier)
+        right: (number))
+      consequence: (block
+        (expression_statement (identifier)))
+      alternative: (block
+        (expression_statement (identifier))))))
+
+================================================================================
+If expression - else if chain
+================================================================================
+
+if x > 0 {
+  positive
+} else if x < 0 {
+  negative
+} else {
+  zero
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (binary_expression
+        left: (identifier)
+        right: (number))
+      consequence: (block
+        (expression_statement (identifier)))
+      alternative: (if_expression
+        condition: (binary_expression
+          left: (identifier)
+          right: (number))
+        consequence: (block
+          (expression_statement (identifier)))
+        alternative: (block
+          (expression_statement (identifier)))))))
+
+================================================================================
+For expression - simple iteration
+================================================================================
+
+for items
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (for_expression
+      iterable: (identifier))))
+
+================================================================================
+For expression - with pattern
+================================================================================
+
+for item in items {
+  process(item)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (for_expression
+      pattern: (identifier)
+      iterable: (identifier)
+      body: (block
+        (expression_statement
+          (call_expression
+            function: (identifier)
+            arguments: (arguments (identifier))))))))
+
+================================================================================
+Try expression
+================================================================================
+
+try fetchData()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (try_expression
+      (call_expression
+        function: (identifier)
+        arguments: (arguments)))))

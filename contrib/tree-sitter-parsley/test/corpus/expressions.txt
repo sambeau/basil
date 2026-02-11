@@ -1,0 +1,868 @@
+================================================================================
+Binary expression - addition
+================================================================================
+
+1 + 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (number))))
+
+================================================================================
+Binary expression - subtraction
+================================================================================
+
+10 - 5
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (number))))
+
+================================================================================
+Binary expression - multiplication
+================================================================================
+
+3 * 4
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (number))))
+
+================================================================================
+Binary expression - division
+================================================================================
+
+10 / 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (number))))
+
+================================================================================
+Binary expression - modulo
+================================================================================
+
+10 % 3
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (number))))
+
+================================================================================
+Binary expression - precedence (mult before add)
+================================================================================
+
+1 + 2 * 3
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (binary_expression
+        left: (number)
+        right: (number)))))
+
+================================================================================
+Binary expression - comparison equals
+================================================================================
+
+a == b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - comparison not equals
+================================================================================
+
+a != b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - comparison less than
+================================================================================
+
+a < b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - comparison greater than
+================================================================================
+
+a > b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - comparison less than or equal
+================================================================================
+
+a <= b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - comparison greater than or equal
+================================================================================
+
+a >= b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - logical and (keyword)
+================================================================================
+
+a and b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - logical or (keyword)
+================================================================================
+
+a or b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - logical and (symbol)
+================================================================================
+
+a && b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - logical or (symbol)
+================================================================================
+
+a || b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - regex match
+================================================================================
+
+text ~ /pattern/
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (regex))))
+
+================================================================================
+Binary expression - regex not match
+================================================================================
+
+text !~ /pattern/
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (regex))))
+
+================================================================================
+Binary expression - nullish coalescing
+================================================================================
+
+a ?? b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Binary expression - range
+================================================================================
+
+1..10
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (number)
+      right: (number))))
+
+================================================================================
+Binary expression - concatenation
+================================================================================
+
+a ++ b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Unary expression - negation
+================================================================================
+
+-x
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (unary_expression
+      operand: (identifier))))
+
+================================================================================
+Unary expression - not (symbol)
+================================================================================
+
+!x
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (unary_expression
+      operand: (identifier))))
+
+================================================================================
+Unary expression - not (keyword)
+================================================================================
+
+not x
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (unary_expression
+      operand: (identifier))))
+
+================================================================================
+Ternary expression
+================================================================================
+
+condition ? yes : no
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (ternary_expression
+      condition: (identifier)
+      consequence: (identifier)
+      alternative: (identifier))))
+
+================================================================================
+Call expression - no arguments
+================================================================================
+
+func()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (identifier)
+      arguments: (arguments))))
+
+================================================================================
+Call expression - one argument
+================================================================================
+
+func(x)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (identifier)
+      arguments: (arguments (identifier)))))
+
+================================================================================
+Call expression - multiple arguments
+================================================================================
+
+func(a, b, c)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (identifier)
+      arguments: (arguments (identifier) (identifier) (identifier)))))
+
+================================================================================
+Call expression - spread argument
+================================================================================
+
+func(...args)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (identifier)
+      arguments: (arguments (spread_element (identifier))))))
+
+================================================================================
+Index expression
+================================================================================
+
+arr[0]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (index_expression
+      object: (identifier)
+      index: (number))))
+
+================================================================================
+Index expression - string key
+================================================================================
+
+obj["key"]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (index_expression
+      object: (identifier)
+      index: (string))))
+
+================================================================================
+Member expression
+================================================================================
+
+obj.property
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (member_expression
+      object: (identifier)
+      property: (identifier))))
+
+================================================================================
+Chained member expression
+================================================================================
+
+a.b.c.d
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (member_expression
+      object: (member_expression
+        object: (member_expression
+          object: (identifier)
+          property: (identifier))
+        property: (identifier))
+      property: (identifier))))
+
+================================================================================
+Array literal - empty
+================================================================================
+
+[]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (array_literal)))
+
+================================================================================
+Array literal - with elements
+================================================================================
+
+[1, 2, 3]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (array_literal
+      (number)
+      (number)
+      (number))))
+
+================================================================================
+Array literal - with spread
+================================================================================
+
+[1, ...rest, 2]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (array_literal
+      (number)
+      (spread_element (identifier))
+      (number))))
+
+================================================================================
+Dictionary literal - empty
+================================================================================
+
+{}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (dictionary_literal)))
+
+================================================================================
+Dictionary literal - with pairs
+================================================================================
+
+{name: "John", age: 30}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (dictionary_literal
+      (pair
+        key: (identifier)
+        value: (string))
+      (pair
+        key: (identifier)
+        value: (number)))))
+
+================================================================================
+Dictionary literal - shorthand property
+================================================================================
+
+{name, age}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (dictionary_literal
+      (shorthand_property (identifier))
+      (shorthand_property (identifier)))))
+
+================================================================================
+Dictionary literal - with spread
+================================================================================
+
+{...base, extra: 1}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (dictionary_literal
+      (spread_element (identifier))
+      (pair
+        key: (identifier)
+        value: (number)))))
+
+================================================================================
+Function expression - simple
+================================================================================
+
+fn(x) x * 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list (identifier))
+      body: (binary_expression
+        left: (identifier)
+        right: (number)))))
+
+================================================================================
+Function expression - multiple parameters
+================================================================================
+
+fn(a, b) a + b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list (identifier) (identifier))
+      body: (binary_expression
+        left: (identifier)
+        right: (identifier)))))
+
+================================================================================
+Function expression - with default
+================================================================================
+
+fn(x, y = 0) x + y
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier)
+        (identifier) (number))
+      body: (binary_expression
+        left: (identifier)
+        right: (identifier)))))
+
+================================================================================
+Function expression - using function keyword
+================================================================================
+
+function(x) x
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list (identifier))
+      body: (identifier))))
+
+================================================================================
+Parenthesized expression
+================================================================================
+
+(1 + 2) * 3
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (parenthesized_expression
+        (binary_expression
+          left: (number)
+          right: (number)))
+      right: (number))))
+
+================================================================================
+Assignment expression
+================================================================================
+
+x = 42
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (assignment_expression
+      left: (identifier)
+      right: (number))))
+
+================================================================================
+File I/O - read from
+================================================================================
+
+data <== @./file.txt
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (path_literal))))
+
+================================================================================
+File I/O - write to
+================================================================================
+
+data ==> @./output.txt
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (path_literal))))
+
+================================================================================
+File I/O - append to
+================================================================================
+
+data ==>> @./log.txt
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (path_literal))))
+
+================================================================================
+Database operator - query one
+================================================================================
+
+query <=?=> db
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Database operator - query many
+================================================================================
+
+query <=??=> db
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Database operator - execute
+================================================================================
+
+query <=!=> db
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Query DSL - return one
+================================================================================
+
+data ?-> result
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Query DSL - return many
+================================================================================
+
+data ??-> results
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Query DSL - exec count
+================================================================================
+
+data .-> count
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Query DSL - pipe write
+================================================================================
+
+data |< target
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Query DSL - read projection
+================================================================================
+
+data |> projection
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Query DSL - arrow pull
+================================================================================
+
+source <- data
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (binary_expression
+      left: (identifier)
+      right: (identifier))))
+
+================================================================================
+Complex expression - method chain
+================================================================================
+
+items.filter(fn(x) x > 0).map(fn(x) x * 2).reduce(fn(a, b) a + b, 0)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (call_expression
+      function: (member_expression
+        object: (call_expression
+          function: (member_expression
+            object: (call_expression
+              function: (member_expression
+                object: (identifier)
+                property: (identifier))
+              arguments: (arguments
+                (function_expression
+                  parameters: (parameter_list (identifier))
+                  body: (binary_expression
+                    left: (identifier)
+                    right: (number)))))
+            property: (identifier))
+          arguments: (arguments
+            (function_expression
+              parameters: (parameter_list (identifier))
+              body: (binary_expression
+                left: (identifier)
+                right: (number)))))
+        property: (identifier))
+      arguments: (arguments
+        (function_expression
+          parameters: (parameter_list (identifier) (identifier))
+          body: (binary_expression
+            left: (identifier)
+            right: (identifier)))
+        (number)))))

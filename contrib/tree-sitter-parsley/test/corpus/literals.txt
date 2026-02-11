@@ -1,0 +1,267 @@
+================================================================================
+Numbers - integers
+================================================================================
+
+42
+0
+123456
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (number))
+  (expression_statement (number))
+  (expression_statement (number)))
+
+================================================================================
+Numbers - floats
+================================================================================
+
+3.14
+0.5
+123.456
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (number))
+  (expression_statement (number))
+  (expression_statement (number)))
+
+================================================================================
+Booleans
+================================================================================
+
+true
+false
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (boolean))
+  (expression_statement (boolean)))
+
+================================================================================
+Null
+================================================================================
+
+null
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (null)))
+
+================================================================================
+Money literals
+================================================================================
+
+$100
+$12.50
+£99.99
+€50
+¥1000
+EUR#100.00
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (money))
+  (expression_statement (money))
+  (expression_statement (money))
+  (expression_statement (money))
+  (expression_statement (money))
+  (expression_statement (money)))
+
+================================================================================
+Regex literals
+================================================================================
+
+/pattern/
+/test/g
+/[a-z]+/gi
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (regex))
+  (expression_statement (regex))
+  (expression_statement (regex)))
+
+================================================================================
+Connection literals
+================================================================================
+
+@sqlite
+@postgres
+@mysql
+@sftp
+@shell
+@DB
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (connection_literal))
+  (expression_statement (connection_literal))
+  (expression_statement (connection_literal))
+  (expression_statement (connection_literal))
+  (expression_statement (connection_literal))
+  (expression_statement (connection_literal)))
+
+================================================================================
+Time now literals
+================================================================================
+
+@now
+@today
+@timeNow
+@dateNow
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (time_now_literal))
+  (expression_statement (time_now_literal))
+  (expression_statement (time_now_literal))
+  (expression_statement (time_now_literal)))
+
+================================================================================
+Datetime literals
+================================================================================
+
+@2024-01-15
+@2024-12-25T14:30:00
+@2024-01-01T00:00:00Z
+@12:30
+@14:30:00
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (datetime_literal))
+  (expression_statement (datetime_literal))
+  (expression_statement (datetime_literal))
+  (expression_statement (datetime_literal))
+  (expression_statement (datetime_literal)))
+
+================================================================================
+Duration literals
+================================================================================
+
+@1d
+@2h30m
+@1y6mo
+@-7d
+@30s
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (duration_literal))
+  (expression_statement (duration_literal))
+  (expression_statement (duration_literal))
+  (expression_statement (duration_literal))
+  (expression_statement (duration_literal)))
+
+================================================================================
+Schema and table literals
+================================================================================
+
+@schema
+@table
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (schema_literal))
+  (expression_statement (table_literal)))
+
+================================================================================
+Query DSL literals
+================================================================================
+
+@query
+@insert
+@update
+@delete
+@transaction
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (query_literal))
+  (expression_statement (query_literal))
+  (expression_statement (query_literal))
+  (expression_statement (query_literal))
+  (expression_statement (query_literal)))
+
+================================================================================
+Context literals
+================================================================================
+
+@SEARCH
+@env
+@args
+@params
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (context_literal))
+  (expression_statement (context_literal))
+  (expression_statement (context_literal))
+  (expression_statement (context_literal)))
+
+================================================================================
+Stdlib imports
+================================================================================
+
+@std
+@std/math
+@std/table
+@basil
+@basil/http
+@basil/auth
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (stdlib_import))
+  (expression_statement (stdlib_import))
+  (expression_statement (stdlib_import))
+  (expression_statement (stdlib_import))
+  (expression_statement (stdlib_import))
+  (expression_statement (stdlib_import)))
+
+================================================================================
+Stdio literals
+================================================================================
+
+@-
+@stdin
+@stdout
+@stderr
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (stdio_literal))
+  (expression_statement (stdio_literal))
+  (expression_statement (stdio_literal))
+  (expression_statement (stdio_literal)))
+
+================================================================================
+URL literals
+================================================================================
+
+@https://example.com
+@http://localhost:8080/path
+@ftp://files.example.com
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement (url_literal))
+  (expression_statement (url_literal))
+  (expression_statement (url_literal)))
