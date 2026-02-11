@@ -25,14 +25,16 @@ Parsley is an expression-oriented scripting language designed for munging data a
 ```parsley
 // A simple page component
 
-let Page = fn({title, items}) {
+let Page = fn({title, users}) {
     <html>
         <head><title>title</title></head>
         <body>
             <h1>title</h1>
             <ul>
-                for (item in items) {
-                    <li>item</li>
+                for (user in users) {
+                    {name, email} = user 
+                    <li>
+                        <b>name +": "</b>email</li>
                 }
             </ul>
         </body>
@@ -40,10 +42,14 @@ let Page = fn({title, items}) {
 }
 
 // Query a database and render the result
+// ('Users' schema has already been bound to users table in @db)
 
-let users = @query(Users | status == "active" ??-> name)
+let users = @query(
+    Users 
+    | status == "active" 
+    ??-> name, email) // ?? means expect an array
 
-<Page title="Active Users" items={names}/>
+<Page title="Active Users" users={users}/>
 ```
 
 ### The `pars` CLI
@@ -52,7 +58,7 @@ The `pars` command runs Parsley scripts and includes an interactive REPL for exp
 
 ```bash
 pars script.pars          # Run a script
-pars -e 'log(@now)'       # Evaluate an expression
+pars -e '@now + @7d'      # Evaluate an expression
 pars                      # Start the REPL
 ```
 
@@ -65,6 +71,7 @@ Basil is a web server that runs Parsley handlers. Drop a `.pars` file in a direc
 **Core features:**
 
 - **File-based routing** — or a react-like single file handler
+- **Built-in SQL Database** — in-process, super-fast, SQLite database 
 - **Hot reload** — edit a handler and your browser refreshes
 - **Parts** – dynamic components from reloadable HTML fragments
 - **Built-in authentication** — sessions, users, roles, API keys, and ***Passkeys!***
