@@ -1,9 +1,10 @@
 ---
 id: FEAT-112
 title: "Unified Help System"
-status: draft
+status: complete
 priority: high
 created: 2025-01-15
+completed: 2026-02-11
 author: "@human"
 blocking: false
 ---
@@ -21,25 +22,25 @@ As an AI coding assistant, I want a consistent interface to query Parsley's capa
 ## Acceptance Criteria
 
 ### CLI
-- [ ] `pars describe <topic>` displays help for the given topic
-- [ ] `pars describe string` shows string methods
-- [ ] `pars describe @std/math` shows module exports
-- [ ] `pars describe builtins` lists all builtins by category
-- [ ] `pars describe operators` lists all operators
-- [ ] `pars describe JSON` shows help for specific builtin
-- [ ] `pars describe --json <topic>` outputs machine-readable JSON (optional, for AI tooling)
-- [ ] Unknown topic produces helpful error message
+- [x] `pars describe <topic>` displays help for the given topic
+- [x] `pars describe string` shows string methods
+- [x] `pars describe @std/math` shows module exports
+- [x] `pars describe builtins` lists all builtins by category
+- [x] `pars describe operators` lists all operators
+- [x] `pars describe JSON` shows help for specific builtin
+- [x] `pars describe --json <topic>` outputs machine-readable JSON (optional, for AI tooling)
+- [x] Unknown topic produces helpful error message
 
 ### REPL
-- [ ] `:describe <topic>` works identically to CLI
-- [ ] Output is formatted for terminal width
-- [ ] `:describe` with no argument shows usage help
+- [x] `:describe <topic>` works identically to CLI
+- [x] Output is formatted for terminal width
+- [x] `:describe` with no argument shows usage help
 
 ### Output Quality
-- [ ] Output is consistent between CLI and REPL (identical content)
-- [ ] Methods show arity and description
-- [ ] Builtins show parameters and category
-- [ ] Module exports show type and description
+- [x] Output is consistent between CLI and REPL (identical content)
+- [x] Methods show arity and description
+- [x] Builtins show parameters and category
+- [x] Module exports show type and description
 
 ## Design Decisions
 

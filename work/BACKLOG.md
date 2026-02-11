@@ -97,6 +97,7 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #98 | Fix introspection drift: 6 missing methods | FEAT-110 | 2026-02-11 | ✅ Implemented all 6 missing methods: `integer.abs()`, `float.abs()`, `float.round(decimals?)`, `float.floor()`, `float.ceil()`, `money.negate()`. Added comprehensive tests in methods_missing_test.go. All validation tests now pass. Methods work correctly with chaining and error handling. |
 | #85 | Pretty-printer: Tag attribute multiline | FEAT-100 | 2026-01-22 | ✅ Added `TagAttribute` AST type, parser extracts attributes into structured nodes, formatter breaks long attribute lists to multiline with each attribute on its own line. Tags with multiline attributes also use multiline content. Implemented in ast.go, parser.go, ast_format.go. |
 | #84 | Pretty-printer: Comment preservation | FEAT-100 | 2026-01-21 | ✅ Lexer now captures comments in `Token.LeadingComments` and blank lines in `Token.BlankLinesBefore`. Formatter outputs comments and preserves single blank lines (collapses multiple to 1 like gofmt). |
 | #86 | Pretty-printer: @table formatting | FEAT-100 | 2026-01-21 | ✅ Format `@table` and `@table(Schema)` literals with multiline rows. Single short rows inline, multiple rows each on own line. Implemented in ast_format.go formatTableLiteral(). |

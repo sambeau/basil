@@ -11,6 +11,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/format"
 	"github.com/sambeau/basil/pkg/parsley/formatter"
+	"github.com/sambeau/basil/pkg/parsley/help"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 	"github.com/sambeau/basil/pkg/parsley/repl"
@@ -54,6 +55,9 @@ func main() {
 		switch os.Args[1] {
 		case "fmt":
 			fmtCommand(os.Args[2:])
+			return
+		case "describe":
+			describeCommand(os.Args[2:])
 			return
 		}
 	}
@@ -118,9 +122,11 @@ Usage:
   pars -e "code" [args...]
   pars --check <file>...
   pars fmt [options] <file>...
+  pars describe <topic>
 
 Commands:
   fmt                   Format Parsley source files
+  describe <topic>      Show help for a type, builtin, module, or operator
 
 Display Options:
   -h, --help            Show this help message
@@ -159,9 +165,68 @@ Examples:
   pars --check *.pars       Check multiple files
   pars fmt script.pars      Format a Parsley file (print to stdout)
   pars fmt -w script.pars   Format a Parsley file in place
+  pars describe string      Show help for string type
+  pars describe builtins    List all builtin functions
+  pars describe operators   List all operators
+  pars describe @std/math   Show help for a module
 
 For more information, visit: https://github.com/sambeau/parsley
 `, Version)
+}
+
+// describeCommand implements the 'pars describe <topic>' subcommand
+func describeCommand(args []string) {
+	// Check for --json flag
+	jsonOutput := false
+	var topic string
+
+	for _, arg := range args {
+		if arg == "--json" {
+			jsonOutput = true
+		} else if !strings.HasPrefix(arg, "-") {
+			topic = arg
+		}
+	}
+
+	if topic == "" {
+		fmt.Fprintln(os.Stderr, `Usage: pars describe [--json] <topic>
+
+Topics:
+  types              List all available types
+  builtins           List all builtin functions by category
+  operators          List all operators
+  <type>             Help for a specific type (string, array, dictionary, ...)
+  <builtin>          Help for a specific builtin (JSON, CSV, now, ...)
+  @std/<module>      Help for a stdlib module (@std/math, @std/table, ...)
+  @basil/<module>    Help for a basil module (@basil/http, @basil/auth)
+
+Examples:
+  pars describe string
+  pars describe array
+  pars describe @std/math
+  pars describe builtins
+  pars describe operators
+  pars describe JSON
+  pars describe --json string`)
+		os.Exit(1)
+	}
+
+	result, err := help.DescribeTopic(topic)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if jsonOutput {
+		data, err := help.FormatJSON(result)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(data))
+	} else {
+		fmt.Print(help.FormatText(result, 80))
+	}
 }
 
 // executeInline evaluates inline code provided via -e flag

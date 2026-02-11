@@ -14,26 +14,26 @@ import (
 
 // MethodInfo holds metadata about a method
 type MethodInfo struct {
-	Name        string
-	Arity       string // e.g., "0", "1", "0-1", "1+"
-	Description string
+	Name        string `json:"name"`
+	Arity       string `json:"arity"`
+	Description string `json:"description"`
 }
 
 // BuiltinInfo holds metadata about a builtin function
 type BuiltinInfo struct {
-	Name        string
-	Arity       string // e.g., "1", "1-2", "0+", "1+"
-	Description string
-	Params      []string // Parameter names, "?" suffix for optional
-	Category    string   // Grouping: "file", "time", "conversion", etc.
-	Deprecated  string   // If non-empty, deprecation message
+	Name        string   `json:"name"`
+	Arity       string   `json:"arity"`
+	Description string   `json:"description"`
+	Params      []string `json:"params"`
+	Category    string   `json:"category"`
+	Deprecated  string   `json:"deprecated,omitempty"`
 }
 
 // PropertyInfo holds metadata about a property
 type PropertyInfo struct {
-	Name        string
-	Type        string // Return type, e.g., "array", "dictionary"
-	Description string
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 // TypeProperties maps type names to their available properties
@@ -124,37 +124,11 @@ var TypeProperties = map[string][]PropertyInfo{
 	},
 }
 
-// TypeMethods maps type names to their available methods
+// TypeMethods maps type names to their method metadata for introspection.
+// Migrated types (string, integer, float, money) are served by registries
+// in method_registry.go and no longer need entries here.
+// See FEAT-111 for migration progress.
 var TypeMethods = map[string][]MethodInfo{
-	"string": {
-		{Name: "toUpper", Arity: "0", Description: "Convert to uppercase"},
-		{Name: "toLower", Arity: "0", Description: "Convert to lowercase"},
-		{Name: "toTitle", Arity: "0", Description: "Convert to title case (capitalize first letter of each word)"},
-		{Name: "trim", Arity: "0", Description: "Remove leading/trailing whitespace"},
-		{Name: "split", Arity: "1", Description: "Split by delimiter into array"},
-		{Name: "replace", Arity: "2", Description: "Replace all occurrences"},
-		{Name: "length", Arity: "0", Description: "Get character count"},
-		{Name: "includes", Arity: "1", Description: "Check if contains substring"},
-		{Name: "highlight", Arity: "1-2", Description: "Wrap matches in HTML tag"},
-		{Name: "paragraphs", Arity: "0", Description: "Convert blank lines to <p> tags"},
-		{Name: "render", Arity: "0-1", Description: "Interpolate template with values"},
-		{Name: "parseJSON", Arity: "0", Description: "Parse as JSON"},
-		{Name: "parseCSV", Arity: "0-1", Description: "Parse as CSV"},
-		{Name: "collapse", Arity: "0", Description: "Collapse whitespace to single spaces"},
-		{Name: "normalizeSpace", Arity: "0", Description: "Collapse and trim whitespace"},
-		{Name: "stripSpace", Arity: "0", Description: "Remove all whitespace"},
-		{Name: "stripHtml", Arity: "0", Description: "Remove HTML tags"},
-		{Name: "digits", Arity: "0", Description: "Extract only digits"},
-		{Name: "slug", Arity: "0", Description: "Convert to URL-safe slug"},
-		{Name: "htmlEncode", Arity: "0", Description: "Encode HTML entities (<, >, &, etc.)"},
-		{Name: "htmlDecode", Arity: "0", Description: "Decode HTML entities"},
-		{Name: "urlEncode", Arity: "0", Description: "URL encode (spaces become +)"},
-		{Name: "urlDecode", Arity: "0", Description: "Decode URL-encoded string"},
-		{Name: "urlPathEncode", Arity: "0", Description: "Encode URL path segment (/ becomes %2F)"},
-		{Name: "urlQueryEncode", Arity: "0", Description: "Encode URL query value (& and = encoded)"},
-		{Name: "outdent", Arity: "0", Description: "Remove common leading whitespace from all lines"},
-		{Name: "indent", Arity: "1", Description: "Add spaces to beginning of all non-blank lines"},
-	},
 	"array": {
 		{Name: "length", Arity: "0", Description: "Get element count"},
 		{Name: "reverse", Arity: "0", Description: "Reverse order"},
@@ -172,19 +146,6 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "take", Arity: "1", Description: "Take n unique random elements"},
 		{Name: "insert", Arity: "2", Description: "Insert at index"},
 	},
-	"integer": {
-		{Name: "abs", Arity: "0", Description: "Absolute value"},
-		{Name: "format", Arity: "0-1", Description: "Format with locale"},
-		{Name: "humanize", Arity: "0", Description: "Human-readable format (1K, 1M)"},
-	},
-	"float": {
-		{Name: "abs", Arity: "0", Description: "Absolute value"},
-		{Name: "format", Arity: "0-2", Description: "Format with decimals and locale"},
-		{Name: "round", Arity: "0-1", Description: "Round to n decimals"},
-		{Name: "floor", Arity: "0", Description: "Round down"},
-		{Name: "ceil", Arity: "0", Description: "Round up"},
-		{Name: "humanize", Arity: "0", Description: "Human-readable format (1K, 1M)"},
-	},
 	"dictionary": {
 		{Name: "keys", Arity: "0", Description: "Get all keys"},
 		{Name: "values", Arity: "0", Description: "Get all values"},
@@ -195,12 +156,6 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "insertBefore", Arity: "2", Description: "Insert before key"},
 		{Name: "render", Arity: "0-1", Description: "Render template with values"},
 		{Name: "toJSON", Arity: "0", Description: "Convert to JSON string"},
-	},
-	"money": {
-		{Name: "format", Arity: "0-1", Description: "Format with locale"},
-		{Name: "abs", Arity: "0", Description: "Absolute value"},
-		{Name: "negate", Arity: "0", Description: "Negate amount"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
 	},
 	"datetime": {
 		{Name: "format", Arity: "0-2", Description: "Format with style and locale"},
@@ -331,6 +286,79 @@ var TypeMethods = map[string][]MethodInfo{
 	"null": {
 		// Null has no methods
 	},
+}
+
+// ============================================================================
+// Operator Metadata
+// ============================================================================
+
+// OperatorInfo holds metadata about an operator
+type OperatorInfo struct {
+	Symbol      string `json:"symbol"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Example     string `json:"example,omitempty"`
+}
+
+// OperatorMetadata contains metadata for all operators
+var OperatorMetadata = map[string]OperatorInfo{
+	// Arithmetic
+	"+":  {Symbol: "+", Name: "Addition", Description: "Add numbers or concatenate strings", Category: "arithmetic", Example: "1 + 2, \"a\" + \"b\""},
+	"-":  {Symbol: "-", Name: "Subtraction", Description: "Subtract numbers or compute set difference", Category: "arithmetic", Example: "5 - 3, [1,2,3] - [2]"},
+	"*":  {Symbol: "*", Name: "Multiplication", Description: "Multiply numbers or repeat strings/arrays", Category: "arithmetic", Example: "2 * 3, \"ab\" * 3"},
+	"/":  {Symbol: "/", Name: "Division", Description: "Divide numbers or chunk arrays", Category: "arithmetic", Example: "10 / 2, [1,2,3,4] / 2"},
+	"%":  {Symbol: "%", Name: "Modulo", Description: "Remainder after division", Category: "arithmetic", Example: "10 % 3"},
+	"**": {Symbol: "**", Name: "Exponentiation", Description: "Raise to power", Category: "arithmetic", Example: "2 ** 3"},
+
+	// Comparison
+	"==": {Symbol: "==", Name: "Equal", Description: "Check equality", Category: "comparison", Example: "a == b"},
+	"!=": {Symbol: "!=", Name: "Not Equal", Description: "Check inequality", Category: "comparison", Example: "a != b"},
+	"<":  {Symbol: "<", Name: "Less Than", Description: "Check if less than", Category: "comparison", Example: "a < b"},
+	">":  {Symbol: ">", Name: "Greater Than", Description: "Check if greater than", Category: "comparison", Example: "a > b"},
+	"<=": {Symbol: "<=", Name: "Less or Equal", Description: "Check if less than or equal", Category: "comparison", Example: "a <= b"},
+	">=": {Symbol: ">=", Name: "Greater or Equal", Description: "Check if greater than or equal", Category: "comparison", Example: "a >= b"},
+
+	// Logical
+	"&&":  {Symbol: "&&", Name: "Logical AND", Description: "Logical AND or set intersection", Category: "logical", Example: "a && b, [1,2] & [2,3]"},
+	"and": {Symbol: "and", Name: "Logical AND", Description: "Logical AND (keyword form)", Category: "logical", Example: "a and b"},
+	"||":  {Symbol: "||", Name: "Logical OR", Description: "Logical OR or set union", Category: "logical", Example: "a || b, [1,2] | [3,4]"},
+	"or":  {Symbol: "or", Name: "Logical OR", Description: "Logical OR (keyword form)", Category: "logical", Example: "a or b"},
+	"!":   {Symbol: "!", Name: "Logical NOT", Description: "Negate boolean value", Category: "logical", Example: "!flag"},
+
+	// Collection
+	"++":     {Symbol: "++", Name: "Concatenation", Description: "Concatenate strings, arrays, or dictionaries", Category: "collection", Example: "[1,2] ++ [3,4]"},
+	"in":     {Symbol: "in", Name: "Membership", Description: "Check if value is in collection", Category: "collection", Example: "x in [1,2,3]"},
+	"not in": {Symbol: "not in", Name: "Non-membership", Description: "Check if value is not in collection", Category: "collection", Example: "x not in [1,2,3]"},
+	"..":     {Symbol: "..", Name: "Range", Description: "Create inclusive range", Category: "collection", Example: "1..10"},
+
+	// Regex
+	"~":  {Symbol: "~", Name: "Regex Match", Description: "Match string against regex, returns captures or null", Category: "regex", Example: "str ~ /pattern/"},
+	"!~": {Symbol: "!~", Name: "Regex Non-match", Description: "Check if string does not match regex", Category: "regex", Example: "str !~ /pattern/"},
+
+	// Pipe
+	"|>": {Symbol: "|>", Name: "Pipe", Description: "Pass left value as first argument to right function", Category: "pipe", Example: "data |> transform"},
+
+	// Null coalescing
+	"??": {Symbol: "??", Name: "Null Coalescing", Description: "Return left if not null, otherwise right", Category: "null", Example: "value ?? default"},
+
+	// Ternary (documented as pattern, not single operator)
+	"?:": {Symbol: "?:", Name: "Ternary", Description: "Conditional expression: condition ? then : else", Category: "control", Example: "x > 0 ? \"pos\" : \"neg\""},
+}
+
+// GetOperatorsByCategory returns operators grouped by category
+func GetOperatorsByCategory() map[string][]OperatorInfo {
+	result := make(map[string][]OperatorInfo)
+	for _, info := range OperatorMetadata {
+		result[info.Category] = append(result[info.Category], info)
+	}
+	// Sort within each category by symbol
+	for cat := range result {
+		sort.Slice(result[cat], func(i, j int) bool {
+			return result[cat][i].Symbol < result[cat][j].Symbol
+		})
+	}
+	return result
 }
 
 // ============================================================================
@@ -736,10 +764,12 @@ func inspectStdlibModule(mod *StdlibModuleDict) Object {
 			"type": createLiteralExpression(&String{Value: exportType}),
 		}
 
-		// Check if we have metadata for this export
-		if info, ok := StdlibExports[name]; ok {
-			pairs["arity"] = createLiteralExpression(&String{Value: info.Arity})
-			pairs["description"] = createLiteralExpression(&String{Value: info.Description})
+		// Check if we have metadata for this export via module's own Meta
+		if mod.Meta != nil {
+			if info, ok := mod.Meta.Exports[name]; ok {
+				pairs["arity"] = createLiteralExpression(&String{Value: info.Arity})
+				pairs["description"] = createLiteralExpression(&String{Value: info.Description})
+			}
 		}
 
 		exports[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
@@ -815,12 +845,11 @@ func inspectStdlibRoot(root *StdlibRoot) Object {
 	// Build modules array
 	modules := make([]Object, len(root.Modules))
 	for i, name := range root.Modules {
-		info, hasInfo := StdlibModuleDescriptions[name]
 		pairs := map[string]ast.Expression{
 			"name": createLiteralExpression(&String{Value: name}),
 		}
-		if hasInfo {
-			pairs["description"] = createLiteralExpression(&String{Value: info})
+		if meta := GetStdlibModuleMeta(name); meta != nil {
+			pairs["description"] = createLiteralExpression(&String{Value: meta.Description})
 		}
 		modules[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 	}
@@ -838,12 +867,11 @@ func inspectStdlibRoot(root *StdlibRoot) Object {
 func inspectBasilRoot(root *BasilRoot) Object {
 	modules := make([]Object, len(root.Modules))
 	for i, name := range root.Modules {
-		info, hasInfo := BasilModuleDescriptions[name]
 		pairs := map[string]ast.Expression{
 			"name": createLiteralExpression(&String{Value: name}),
 		}
-		if hasInfo {
-			pairs["description"] = createLiteralExpression(&String{Value: info})
+		if meta := GetBasilModuleMeta(name); meta != nil {
+			pairs["description"] = createLiteralExpression(&String{Value: meta.Description})
 		}
 		modules[i] = &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 	}
@@ -872,8 +900,8 @@ func describeStdlibRoot(root *StdlibRoot) Object {
 
 	for _, name := range root.Modules {
 		padding := strings.Repeat(" ", maxNameLen-len(name)+2)
-		if desc, ok := StdlibModuleDescriptions[name]; ok {
-			sb.WriteString(fmt.Sprintf("  @std/%s%s- %s\n", name, padding, desc))
+		if meta := GetStdlibModuleMeta(name); meta != nil {
+			sb.WriteString(fmt.Sprintf("  @std/%s%s- %s\n", name, padding, meta.Description))
 		} else {
 			sb.WriteString(fmt.Sprintf("  @std/%s\n", name))
 		}
@@ -900,8 +928,8 @@ func describeBasilRoot(root *BasilRoot) Object {
 
 	for _, name := range root.Modules {
 		padding := strings.Repeat(" ", maxNameLen-len(name)+2)
-		if desc, ok := BasilModuleDescriptions[name]; ok {
-			sb.WriteString(fmt.Sprintf("  @basil/%s%s- %s\n", name, padding, desc))
+		if meta := GetBasilModuleMeta(name); meta != nil {
+			sb.WriteString(fmt.Sprintf("  @basil/%s%s- %s\n", name, padding, meta.Description))
 		} else {
 			sb.WriteString(fmt.Sprintf("  @basil/%s\n", name))
 		}
@@ -911,23 +939,6 @@ func describeBasilRoot(root *BasilRoot) Object {
 	sb.WriteString("Example: let { route, method } = import @basil/http\n")
 
 	return &String{Value: sb.String()}
-}
-
-// StdlibModuleDescriptions contains descriptions for each stdlib module
-var StdlibModuleDescriptions = map[string]string{
-	"api":    "HTTP client for API requests",
-	"dev":    "Development tools (logging, debugging)",
-	"id":     "ID generation (UUID, nanoid, etc.)",
-	"math":   "Mathematical functions and constants",
-	"schema": "Schema validation and type checking",
-	"table":  "Table data structure with query methods",
-	"valid":  "Validation functions for strings, numbers, formats",
-}
-
-// BasilModuleDescriptions contains descriptions for each basil namespace module
-var BasilModuleDescriptions = map[string]string{
-	"http": "HTTP request context (request, response, route, method). Use @params for query/form data.",
-	"auth": "Auth context, db, session, and user shortcuts",
 }
 
 // describeBuiltin returns human-readable documentation for a builtin function
@@ -1074,9 +1085,16 @@ func builtinDescribe(args ...Object) Object {
 		}
 	}
 
-	// Methods
-	methodInfos, ok := TypeMethods[methodKey]
-	if !ok || len(methodInfos) == 0 {
+	// Methods - first check registry, fall back to TypeMethods for non-migrated types
+	var methodInfos []MethodInfo
+	if registry := GetRegistryForType(methodKey); registry != nil {
+		// Use registry (migrated types: string, integer, float, money)
+		methodInfos = registry.ToMethodInfos()
+	} else {
+		// Fall back to TypeMethods (non-migrated types)
+		methodInfos = TypeMethods[methodKey]
+	}
+	if len(methodInfos) == 0 {
 		sb.WriteString("Methods: (none)\n")
 	} else {
 		sb.WriteString("\nMethods:\n")
@@ -1157,10 +1175,13 @@ func describeStdlibModule(mod *StdlibModuleDict) Object {
 	// Find max name length for alignment
 	maxNameLen := 0
 	for _, name := range keys {
-		info, hasInfo := StdlibExports[name]
 		var display string
-		if hasInfo && info.Arity != "" {
-			display = fmt.Sprintf("%s(%s)", name, arityToParams(info.Arity))
+		if mod.Meta != nil {
+			if info, ok := mod.Meta.Exports[name]; ok && info.Arity != "" {
+				display = fmt.Sprintf("%s(%s)", name, arityToParams(info.Arity))
+			} else {
+				display = name
+			}
 		} else {
 			display = name
 		}
@@ -1184,15 +1205,17 @@ func describeStdlibModule(mod *StdlibModuleDict) Object {
 	if len(functions) > 0 {
 		sb.WriteString("  Functions:\n")
 		for _, name := range functions {
-			info, hasInfo := StdlibExports[name]
 			var display string
 			var desc string
-			if hasInfo {
-				display = fmt.Sprintf("%s(%s)", name, arityToParams(info.Arity))
-				desc = info.Description
+			if mod.Meta != nil {
+				if info, ok := mod.Meta.Exports[name]; ok {
+					display = fmt.Sprintf("%s(%s)", name, arityToParams(info.Arity))
+					desc = info.Description
+				} else {
+					display = name + "(...)"
+				}
 			} else {
 				display = name + "(...)"
-				desc = ""
 			}
 			padding := strings.Repeat(" ", maxNameLen-len(display)+2)
 			if desc != "" {
@@ -1204,115 +1227,4 @@ func describeStdlibModule(mod *StdlibModuleDict) Object {
 	}
 
 	return &String{Value: sb.String()}
-}
-
-// ============================================================================
-// Stdlib Export Metadata
-// ============================================================================
-
-// StdlibExports contains metadata for stdlib module exports
-var StdlibExports = map[string]MethodInfo{
-	// math module - Constants
-	"PI":  {Arity: "", Description: "Pi (3.14159...)"},
-	"E":   {Arity: "", Description: "Euler's number (2.71828...)"},
-	"TAU": {Arity: "", Description: "Tau (2*Pi)"},
-
-	// math module - Rounding
-	"floor": {Arity: "1", Description: "Round down to integer"},
-	"ceil":  {Arity: "1", Description: "Round up to integer"},
-	"round": {Arity: "1-2", Description: "Round to nearest (decimals?)"},
-	"trunc": {Arity: "1", Description: "Truncate to integer"},
-
-	// math module - Comparison & Clamping
-	"abs":   {Arity: "1", Description: "Absolute value"},
-	"sign":  {Arity: "1", Description: "Sign (-1, 0, or 1)"},
-	"clamp": {Arity: "3", Description: "Clamp value between min and max"},
-
-	// math module - Aggregation
-	"min":     {Arity: "1+", Description: "Minimum of values or array"},
-	"max":     {Arity: "1+", Description: "Maximum of values or array"},
-	"sum":     {Arity: "1+", Description: "Sum of values or array"},
-	"avg":     {Arity: "1+", Description: "Average of values or array"},
-	"mean":    {Arity: "1+", Description: "Mean (alias for avg)"},
-	"product": {Arity: "1+", Description: "Product of values or array"},
-	"count":   {Arity: "1", Description: "Count elements in array"},
-
-	// math module - Statistics
-	"median":   {Arity: "1", Description: "Median of array"},
-	"mode":     {Arity: "1", Description: "Mode of array"},
-	"stddev":   {Arity: "1", Description: "Standard deviation"},
-	"variance": {Arity: "1", Description: "Variance"},
-	"range":    {Arity: "1", Description: "Range (max - min)"},
-
-	// math module - Random
-	"random":    {Arity: "0", Description: "Random float 0-1"},
-	"randomInt": {Arity: "1-2", Description: "Random int (max) or (min, max)"},
-	"seed":      {Arity: "1", Description: "Seed random generator"},
-
-	// math module - Powers & Logarithms
-	"sqrt":  {Arity: "1", Description: "Square root"},
-	"pow":   {Arity: "2", Description: "Power (base, exponent)"},
-	"exp":   {Arity: "1", Description: "e^x"},
-	"log":   {Arity: "1", Description: "Natural logarithm"},
-	"log10": {Arity: "1", Description: "Base-10 logarithm"},
-
-	// math module - Trigonometry
-	"sin":   {Arity: "1", Description: "Sine (radians)"},
-	"cos":   {Arity: "1", Description: "Cosine (radians)"},
-	"tan":   {Arity: "1", Description: "Tangent (radians)"},
-	"asin":  {Arity: "1", Description: "Arc sine"},
-	"acos":  {Arity: "1", Description: "Arc cosine"},
-	"atan":  {Arity: "1", Description: "Arc tangent"},
-	"atan2": {Arity: "2", Description: "Arc tangent of y/x"},
-
-	// math module - Angular Conversion
-	"degrees": {Arity: "1", Description: "Radians to degrees"},
-	"radians": {Arity: "1", Description: "Degrees to radians"},
-
-	// math module - Geometry & Interpolation
-	"hypot": {Arity: "2", Description: "Hypotenuse length"},
-	"dist":  {Arity: "4", Description: "Distance between points"},
-	"lerp":  {Arity: "3", Description: "Linear interpolation"},
-	"map":   {Arity: "5", Description: "Map value from one range to another"},
-
-	// valid module - Type validators
-	"string":  {Arity: "1", Description: "Check if value is string"},
-	"number":  {Arity: "1", Description: "Check if value is number"},
-	"integer": {Arity: "1", Description: "Check if value is integer"},
-	"boolean": {Arity: "1", Description: "Check if value is boolean"},
-	"array":   {Arity: "1", Description: "Check if value is array"},
-	"dict":    {Arity: "1", Description: "Check if value is dictionary"},
-
-	// valid module - String validators
-	"empty":        {Arity: "1", Description: "Check if string is empty"},
-	"minLen":       {Arity: "2", Description: "Check minimum length"},
-	"maxLen":       {Arity: "2", Description: "Check maximum length"},
-	"length":       {Arity: "2-3", Description: "Check length (exact or range)"},
-	"matches":      {Arity: "2", Description: "Check regex match"},
-	"alpha":        {Arity: "1", Description: "Check if only letters"},
-	"alphanumeric": {Arity: "1", Description: "Check if only letters/numbers"},
-	"numeric":      {Arity: "1", Description: "Check if only digits"},
-
-	// valid module - Number validators
-	// "min" and "max" already defined in math
-	"between":  {Arity: "3", Description: "Check if number in range"},
-	"positive": {Arity: "1", Description: "Check if positive"},
-	"negative": {Arity: "1", Description: "Check if negative"},
-
-	// valid module - Format validators
-	"email":      {Arity: "1", Description: "Check email format"},
-	"url":        {Arity: "1", Description: "Check URL format"},
-	"uuid":       {Arity: "1", Description: "Check UUID format"},
-	"phone":      {Arity: "1-2", Description: "Check phone format (locale?)"},
-	"creditCard": {Arity: "1", Description: "Check credit card format"},
-	"date":       {Arity: "1-2", Description: "Check date format"},
-	"time":       {Arity: "1", Description: "Check time format"},
-
-	// valid module - Locale-aware validators
-	"postalCode": {Arity: "1-2", Description: "Check postal code (locale?)"},
-	"parseDate":  {Arity: "1-2", Description: "Parse date string (locale?)"},
-
-	// valid module - Collection validators
-	"contains": {Arity: "2", Description: "Check if array contains value"},
-	"oneOf":    {Arity: "2", Description: "Check if value is one of array"},
 }

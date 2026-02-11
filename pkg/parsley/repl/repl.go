@@ -11,6 +11,7 @@ import (
 	"github.com/peterh/liner"
 	"github.com/sambeau/basil/pkg/parsley/errors"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
+	"github.com/sambeau/basil/pkg/parsley/help"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
 )
@@ -46,6 +47,14 @@ var completionWords = []string{
 	"range", "glob", "toString",
 	// Common values
 	"true", "false", "null",
+	// REPL commands
+	":help", ":describe", ":d", ":env", ":clear", ":raw",
+	// Describe topics
+	"types", "builtins", "operators",
+	"string", "integer", "float", "boolean", "array", "dictionary",
+	"datetime", "duration", "money", "path", "url", "regex", "table",
+	"@std/math", "@std/table", "@std/valid", "@std/schema", "@std/api", "@std/id",
+	"@basil/http", "@basil/auth",
 }
 
 // Start starts the REPL with line editing, history, and tab completion
@@ -220,18 +229,46 @@ func Start(in io.Reader, out io.Writer, version string) {
 // handleReplCommand handles REPL meta-commands that start with ':'
 // Returns (newRawMode, handled) - if handled is true, the command was recognized
 func handleReplCommand(cmd string, env *evaluator.Environment, out io.Writer, rawMode bool) (bool, bool) {
+	// Handle :describe and :d with arguments
+	if strings.HasPrefix(cmd, ":describe ") || strings.HasPrefix(cmd, ":d ") {
+		parts := strings.Fields(cmd)
+		if len(parts) < 2 {
+			fmt.Fprintln(out, "Usage: :describe <topic>")
+			fmt.Fprintln(out, "Topics: types, builtins, operators, string, array, @std/math, JSON, ...")
+			return rawMode, true
+		}
+		topic := parts[1]
+		result, err := help.DescribeTopic(topic)
+		if err != nil {
+			fmt.Fprintf(out, "Error: %v\n", err)
+			return rawMode, true
+		}
+		fmt.Fprint(out, help.FormatText(result, 80))
+		return rawMode, true
+	}
+
 	switch cmd {
 	case ":help", ":h", ":?":
 		fmt.Fprintln(out, "REPL Commands:")
-		fmt.Fprintln(out, "  :help, :h, :?   Show this help")
-		fmt.Fprintln(out, "  :env            Show variables in scope")
-		fmt.Fprintln(out, "  :clear          Clear all user variables")
-		fmt.Fprintln(out, "  :raw            Toggle raw output mode (script-style output)")
-		fmt.Fprintln(out, "  exit, quit      Exit the REPL")
+		fmt.Fprintln(out, "  :help, :h, :?        Show this help")
+		fmt.Fprintln(out, "  :describe <topic>    Show help for type, builtin, module, or operator")
+		fmt.Fprintln(out, "  :d <topic>           Short form of :describe")
+		fmt.Fprintln(out, "  :env                 Show variables in scope")
+		fmt.Fprintln(out, "  :clear               Clear all user variables")
+		fmt.Fprintln(out, "  :raw                 Toggle raw output mode (script-style output)")
+		fmt.Fprintln(out, "  exit, quit           Exit the REPL")
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "Describe Topics:")
+		fmt.Fprintln(out, "  types, builtins, operators, string, array, @std/math, JSON, ...")
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "Output Modes:")
 		fmt.Fprintln(out, "  >> (normal)     Shows Parsley literals (strings quoted, etc.)")
 		fmt.Fprintln(out, "  :> (raw)        Shows output like running a .pars script")
+		return rawMode, true
+
+	case ":describe", ":d":
+		fmt.Fprintln(out, "Usage: :describe <topic>")
+		fmt.Fprintln(out, "Topics: types, builtins, operators, string, array, @std/math, JSON, ...")
 		return rawMode, true
 
 	case ":env":
