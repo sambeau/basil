@@ -1,7 +1,7 @@
 ---
 id: FEAT-110
 title: "Introspection Validation Tests"
-status: draft
+status: complete
 priority: high
 created: 2025-01-15
 author: "@human"
@@ -17,12 +17,12 @@ Create validation tests that verify the `TypeMethods` and `TypeProperties` maps 
 As a Parsley maintainer, I want automated tests that fail when introspection metadata falls out of sync with actual method implementations so that users can trust `describe()` output.
 
 ## Acceptance Criteria
-- [ ] Test file `introspect_validation_test.go` exists
-- [ ] Tests verify every method in `TypeMethods` actually exists on the corresponding type
-- [ ] Tests verify method arity matches documented arity
-- [ ] Tests fail with clear messages when methods are missing or mismatched
-- [ ] Tests run as part of normal `go test` suite
-- [ ] CI catches introspection drift on PRs
+- [x] Test file `introspect_validation_test.go` exists
+- [x] Tests verify every method in `TypeMethods` actually exists on the corresponding type
+- [x] Tests verify method arity matches documented arity
+- [x] Tests fail with clear messages when methods are missing or mismatched
+- [x] Tests run as part of normal `go test` suite
+- [x] CI catches introspection drift on PRs (tests successfully detected 6 real drift issues)
 
 ## Design Decisions
 
@@ -221,7 +221,92 @@ func makeMinArgs(arity string) []Object {
 ---
 
 ## Implementation Notes
-*To be added during implementation*
+
+### Phase 1: Validation Tests - Complete: 2025-02-11
+
+Created `pkg/parsley/evaluator/introspect_validation_test.go` with comprehensive validation tests.
+
+**File Structure:**
+- 484 lines total
+- Test value factory for all testable types
+- Method existence validation
+- Arity bounds validation
+- Property existence validation
+- Helper functions for parsing and error checking
+
+**Tests Successfully Detect Drift:**
+
+The validation tests immediately caught 6 real discrepancies between documentation and implementation:
+
+1. **`integer.abs()`** - Documented in TypeMethods but missing from evalIntegerMethod
+2. **`float.abs()`** - Documented in TypeMethods but missing from evalFloatMethod
+3. **`float.round()`** - Documented in TypeMethods but missing from evalFloatMethod
+4. **`float.floor()`** - Documented in TypeMethods but missing from evalFloatMethod
+5. **`float.ceil()`** - Documented in TypeMethods but missing from evalFloatMethod
+6. **`money.negate()`** - Documented in TypeMethods but missing from evalMoneyMethod
+
+**Validation Coverage:**
+- ✅ All primitive types (string, integer, float, boolean, null)
+- ✅ All collection types (array, dictionary, table)
+- ✅ All typed dictionaries (datetime, duration, path, url, regex, file, directory)
+- ✅ Direct struct types (money, table)
+- ⏭️ Skipped types requiring external resources (dbconnection, sftpconnection, session, dev, tablemodule)
+
+**Test Execution:**
+```bash
+go test ./pkg/parsley/evaluator/... -run TestTypeMethods -v
+go test ./pkg/parsley/evaluator/... -run TestTypeProperties -v
+```
+
+### Phase 2: Missing Method Implementation - Complete: 2025-02-11
+
+All 6 missing methods have been implemented in `pkg/parsley/evaluator/methods.go`:
+
+**`integer.abs()`** - Returns absolute value of integer
+- Arity: 0
+- Returns: `Integer`
+- Example: `(-42).abs()` → `42`
+
+**`float.abs()`** - Returns absolute value of float
+- Arity: 0
+- Returns: `Float`
+- Example: `(-3.14).abs()` → `3.14`
+
+**`float.round(decimals?)`** - Rounds to specified decimal places
+- Arity: 0-1
+- Returns: `Float`
+- Default: 0 decimal places
+- Example: `(3.14159).round(2)` → `3.14`
+
+**`float.floor()`** - Rounds down to nearest integer
+- Arity: 0
+- Returns: `Float`
+- Example: `(3.7).floor()` → `3.0`
+
+**`float.ceil()`** - Rounds up to nearest integer
+- Arity: 0
+- Returns: `Float`
+- Example: `(3.2).ceil()` → `4.0`
+
+**`money.negate()`** - Returns negated money value
+- Arity: 0
+- Returns: `Money`
+- Example: `($50.00).negate()` → `$-50.00`
+
+**Test Coverage:**
+- Created `pkg/parsley/evaluator/methods_missing_test.go` (260 lines)
+- Tests for all 6 methods with positive and negative cases
+- Arity validation tests
+- Type error tests
+- Method chaining tests
+- All tests pass ✅
+
+**Validation:**
+- All introspection validation tests now pass
+- No drift between `TypeMethods` and implementation
+- Methods work correctly in REPL and CLI
+- Full test suite passes
+- Linter passes with zero issues
 
 ## Related
 - Report: `work/reports/PARSLEY-1.0-ALPHA-READINESS.md` (Section 2)
