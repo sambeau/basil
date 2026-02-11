@@ -267,8 +267,8 @@ let title = post.meta.title
 let html = post.content
 
 <article>
-    <h1>{title}</h1>
-    {html}
+    <h1>title</h1>
+    html
 </article>
 ```
 
