@@ -1,133 +1,107 @@
-# Basil
+# Basil & Parsley
 
-A web server for the Parsley programming language.
+**Basil** is a web server. **Parsley** is a programming language. Together they make building web applications surprisingly pleasant.
 
-## Prerequisites
+> ⚠️ **Work in Progress** — This repository has been made public so I can use the [tree-sitter grammar](https://github.com/sambeau/tree-sitter-parsley) in my editor. A proper launch with documentation and a website is coming soon at [herbaceous.net](http://herbaceous.net).
+>
+> **Please don't post this to Hacker News yet!** This has been months of work and I'd like to present it properly when it's ready. That said, if you've stumbled across this and want to poke around, you're very welcome — the [language manual](docs/parsley/manual/index.md) is pretty much complete.
 
-- [Go](https://golang.org/dl/) 1.24 or later
+---
 
-## Quick Start
+## Parsley Language
 
-Create a new project:
+Parsley is an expression-oriented scripting language designed for munging data and building web applications. It aims to be expressive, powerful, familiar … and fun.
+
+**Core features:**
+
+- **Everything is an expression** — `if`, `for`, and `try` all return values
+- **First-class HTML** — JSX/PHP-like tag syntax is built into the language, not bolted on
+- **Rich literals** — dates (`@2024-01-15`), durations (`@2h30m`), money (`$99.99`), paths (`@./config.json`), URLs (`@https://api.example.com`), and regex (`/pattern/`) are all native types
+- **Declarative I/O** — read/write files, query databases, and fetch URLs with operators rather than method chains
+- **Data Formats** – slurp CSV in; spit JSON or Markdown out
+- **Schemas and records** — define data shapes, validate input, and bind forms with minimal ceremony
+- **Batteries included** — string manipulation, date arithmetic, table queries, CSV, JSON, Markdown, SQL, search, SFTP, Git and more without importing anything
+
+```parsley
+// A simple page component
+let Page = fn({title, items}) {
+    <html>
+        <head><title>title</title></head>
+        <body>
+            <h1>title</h1>
+            <ul>
+                for (item in items) {
+                    <li>item</li>
+                }
+            </ul>
+        </body>
+    </html>
+}
+
+// Query a database and render the result
+let db = @sqlite("app.db")
+let users = db <=??=> "SELECT * FROM users WHERE active = true"
+
+<Page title="Active Users" items={users.map(fn(u) { u.name })}/>
+```
+
+### The `pars` CLI
+
+The `pars` command runs Parsley scripts and includes an interactive REPL for experimentation:
 
 ```bash
-basil --init myproject
-cd myproject
-basil
+pars script.pars          # Run a script
+pars -e 'log(@now)'       # Evaluate an expression
+pars                      # Start the REPL
 ```
 
-Your site will be running at http://localhost:8080
+---
 
-## Getting Started
+## Basil Server
 
-### Build
+Basil is a web server that runs Parsley handlers. Drop a `.pars` file in a directory and it becomes a route. Single binary install; almost no configuration; no build step.
 
-```bash
-go build -o basil .
+**Core features:**
+
+- **File-based routing** — or a react-like single file handler
+- **Hot reload** — edit a handler and your browser refreshes
+- **Built-in authentication** — sessions, users, roles, API keys, and ***Passkeys!***
+- **Full-text search** — point it at a directory and query your content
+- **Built-in Git server** — push-to-deploy
+- **Development tools** — database inspector, request logging, and web-based error pages
+
+Basil is still under active development and not *quite* ready for public use.
+
+---
+
+## Embedding Parsley
+
+Parsley can be embedded in any Go application with just a few lines:
+
+```go
+import "github.com/sambeau/basil/pkg/parsley"
+
+result, err := parsley.Eval(`"Hello, " ++ name ++ "!"`, parsley.Env{
+    "name": "World",
+})
 ```
 
-### Run
+See the [embedding documentation](pkg/parsley/README.md) for details.
 
-```bash
-go run .
-```
+---
 
-Or after building:
+## Current Status
 
-```bash
-./basil
-```
+- **Parsley**: Final stages of 1.0 alpha release
+- **Basil**: Work in progress, coming *very* soon
 
-### Test
+---
 
-```bash
-go test ./...
-```
+## Want to Know More?
 
-Run tests with coverage:
+If you're interested in how Parsley and Basil were designed and built, I'd be happy to chat. Feel free to contact me.
 
-```bash
-go test -cover ./...
-```
-
-Current test coverage:
-- **Server package**: 60.7% (25 implementation files, 26 test files)
-- **Auth package**: Comprehensive coverage of authentication and authorization
-- **Config package**: Full configuration loading and validation coverage
-
-The test suite includes:
-- Unit tests for core functionality
-- HTTP handler tests using httptest
-- Concurrent access tests for thread safety
-- Security component tests (rate limiting, CSRF, sessions)
-- Integration tests for server lifecycle
-
-### Security Features
-
-Basil includes production-ready security features:
-
-**Authentication & Authorization**
-- Database-backed user authentication
-- Session management with secure cookies
-- Role-based access control (RBAC)
-- API key authentication
-- WebAuthn support for passwordless authentication
-- Git HTTP server with role-based repository access
-
-**Request Protection**
-- CSRF protection with token validation
-- Rate limiting with per-user token buckets
-- CORS configuration with credential support
-- Secure session encryption (AES-256-GCM)
-- HTTP security headers (Content-Security-Policy, etc.)
-
-**Audit & Monitoring**
-- Per-IP tracking for insecure HTTP requests
-- Comprehensive request logging
-- Development tools with database inspection
-- Git authentication audit trail
-
-## Documentation
-
-Documentation is organized by audience:
-
-- **[docs/](docs/)** — User-facing documentation
-  - **[docs/guide/](docs/guide/)** — Basil framework user guides (quick start, FAQ, etc.)
-  - **[docs/parsley/](docs/parsley/)** — Parsley language reference and manual
-- **[work/](work/)** — Workflow and contributor documentation
-  - Feature specifications, implementation plans, bug reports
-  - Design documents, audits, and Parsley implementation notes
-  - See [work/README.md](work/README.md) for details
-
-For AI agents and contributors, see [AGENTS.md](AGENTS.md) for workflow rules and project structure.
-
-## Project Structure
-
-```
-basil/
-├── cmd/               # Command-line tools
-│   ├── basil/        # Basil server
-│   └── pars/         # Parsley REPL
-├── server/           # Server implementation
-│   ├── auth/         # Authentication
-│   ├── config/       # Configuration
-│   └── search/       # Full-text search
-├── pkg/              # Reusable packages
-│   └── parsley/      # Parsley language implementation
-├── docs/             # User documentation
-│   ├── guide/        # Framework guides
-│   └── parsley/      # Language reference
-├── work/             # Contributor documentation
-│   ├── specs/        # Feature specifications
-│   ├── plans/        # Implementation plans
-│   └── ...           # Design docs, bug reports, etc.
-├── examples/         # Example projects
-├── .github/          # AI instructions and templates
-├── AGENTS.md         # AI workflow rules
-├── CHANGELOG.md      # Release history
-├── go.mod
-└── README.md
-```
+---
 
 ## License
 
