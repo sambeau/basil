@@ -13,6 +13,16 @@ Before writing any Parsley code (handlers, tests, examples):
 - Read `.github/instructions/parsley.instructions.md` for syntax rules
 - Key points: tags don't need quotes, singleton tags MUST be self-closing (`<br/>` not `<br>`), use `{var}` for interpolation (not `${var}`)
 
+## Debugging and Testing Parsley Code
+Use `pars -e` to quickly test and debug Parsley expressions:
+- Outputs PLN (Parsley Literal Notation) format by default, showing structure
+- Examples:
+  - `pars -e "[1, 2, 3]"` → outputs `[1, 2, 3]`
+  - `pars -e '"hello"'` → outputs `"hello"`
+  - `pars -e "{a: 1, b: 2}"` → outputs `{a: 1, b: 2}`
+- Use `--raw` or `-r` for file-like output (e.g., for HTML rendering)
+- Matches REPL behavior for consistency
+
 ## Workflow Entry Points
 - **New Feature**: Use `/new-feature` prompt
 - **Bug Fix**: Use `/fix-bug` prompt  
