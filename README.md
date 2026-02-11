@@ -44,21 +44,7 @@ let Page = fn({title, users}) {
 }
 ```
 
-Loading from database:
-
-```parsley
-// Query a database and render the result
-// ('Users' schema has already been bound to users table in @db)
-
-let users = @query(
-    Users 
-    | status == "active" 
-    ??-> name, email) // ?? means expect an array
-
-<Page title="Active Users" users={users}/>
-```
-
-Using data:
+Using an array of dictionaries:
 
 ```parsley
  <Page title="Active Users" users={[{name:"Robert Foo", email:"foo@example..com"}]}/>
@@ -90,6 +76,48 @@ emailList <== CSV(@/path/to/email-list.csv)
 Outputs:
 ```html
 <html><head><title>Active Users</title></head><body><h1>Active Users</h1><ul><li><b>Luke: </b>luke@example.com</li><li><b>Leia: </b>leia@example.com</li><li><b>Han: </b>han@example.com</li><li><b>Chewy: </b>chewy@example.com</li></ul></body></html>
+```
+
+``emailList`` is loaded in as a table:
+
+```parsley
+emailList.toBox()
+┌───────┬───────────────────┐
+│ name  │ email             │
+├───────┼───────────────────┤
+│ Luke  │ luke@example.com  │
+│ Leia  │ leia@example.com  │
+│ Han   │ han@example.com   │
+│ Chewy │ chewy@example.com │
+└───────┴───────────────────┘
+``` 
+
+Loading from database:
+
+```parsley
+// Query a database and render the result
+
+let users = @query(
+    Users 
+    | status == "active" 
+    ??-> name, email) // ?? means output a table
+
+<Page title="Active Users" users={users}/>
+```
+
+``Users`` is a binding of a ``User`` schema to a database table:
+
+```parsely
+@schema User {
+    id: int
+    name: string
+    email: string
+    status: string
+}
+
+let db = @sqlite(":memory:")       // or a file
+db.createTable(User, "users")      // if not already created
+let Users = db.bind(User, "users") // 'Users' can now be queried
 ```
 
 ### The `pars` CLI
