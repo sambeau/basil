@@ -24,6 +24,7 @@ Parsley is an expression-oriented scripting language designed for munging data a
 
 ```parsley
 // A simple page component
+
 let Page = fn({title, items}) {
     <html>
         <head><title>title</title></head>
@@ -39,10 +40,10 @@ let Page = fn({title, items}) {
 }
 
 // Query a database and render the result
-let db = @sqlite("app.db")
-let users = db <=??=> "SELECT * FROM users WHERE active = true"
 
-<Page title="Active Users" items={users.map(fn(u) { u.name })}/>
+let users = @query(Users | status == "active" ??-> name)
+
+<Page title="Active Users" items={names}/>
 ```
 
 ### The `pars` CLI
