@@ -33,12 +33,20 @@ func NewDevModule() *DevModule {
 func (dm *DevModule) Type() ObjectType { return BUILTIN_OBJ }
 func (dm *DevModule) Inspect() string  { return "dev" }
 
+var devModuleMeta = ModuleMeta{
+	Description: "Development tools (logging, debugging)",
+	Exports: map[string]ExportMeta{
+		"dev": {Kind: "module", Description: "Development tools (log, clearLog, logPage, etc.)"},
+	},
+}
+
 // loadDevModule returns the dev module for stdlib import
 // The DevLogWriter is read from env.DevLog at call time (not import time).
 // This allows modules to be imported at top-level and still log when called from handlers.
 func loadDevModule(env *Environment) Object {
 	devModule := NewDevModule()
 	return &StdlibModuleDict{
+		Meta: &devModuleMeta,
 		Exports: map[string]Object{
 			"dev": devModule,
 		},

@@ -24,9 +24,52 @@ var (
 	gbDateRegex   = regexp.MustCompile(`^\d{1,2}/\d{1,2}/\d{4}$`)
 )
 
+var validModuleMeta = ModuleMeta{
+	Description: "Validation functions for strings, numbers, formats",
+	Exports: map[string]ExportMeta{
+		// Type validators
+		"string":  {Kind: "function", Arity: "1", Description: "Check if value is string"},
+		"number":  {Kind: "function", Arity: "1", Description: "Check if value is number"},
+		"integer": {Kind: "function", Arity: "1", Description: "Check if value is integer"},
+		"boolean": {Kind: "function", Arity: "1", Description: "Check if value is boolean"},
+		"array":   {Kind: "function", Arity: "1", Description: "Check if value is array"},
+		"dict":    {Kind: "function", Arity: "1", Description: "Check if value is dictionary"},
+		// String validators
+		"empty":        {Kind: "function", Arity: "1", Description: "Check if string is empty"},
+		"minLen":       {Kind: "function", Arity: "2", Description: "Check minimum length"},
+		"maxLen":       {Kind: "function", Arity: "2", Description: "Check maximum length"},
+		"length":       {Kind: "function", Arity: "2-3", Description: "Check length (exact or range)"},
+		"matches":      {Kind: "function", Arity: "2", Description: "Check regex match"},
+		"alpha":        {Kind: "function", Arity: "1", Description: "Check if only letters"},
+		"alphanumeric": {Kind: "function", Arity: "1", Description: "Check if only letters/numbers"},
+		"numeric":      {Kind: "function", Arity: "1", Description: "Check if only digits"},
+		// Number validators
+		"min":      {Kind: "function", Arity: "2", Description: "Check minimum value"},
+		"max":      {Kind: "function", Arity: "2", Description: "Check maximum value"},
+		"between":  {Kind: "function", Arity: "3", Description: "Check if number in range"},
+		"positive": {Kind: "function", Arity: "1", Description: "Check if positive"},
+		"negative": {Kind: "function", Arity: "1", Description: "Check if negative"},
+		// Format validators
+		"email":      {Kind: "function", Arity: "1", Description: "Check email format"},
+		"url":        {Kind: "function", Arity: "1", Description: "Check URL format"},
+		"uuid":       {Kind: "function", Arity: "1", Description: "Check UUID format"},
+		"phone":      {Kind: "function", Arity: "1-2", Description: "Check phone format (locale?)"},
+		"creditCard": {Kind: "function", Arity: "1", Description: "Check credit card format"},
+		"date":       {Kind: "function", Arity: "1-2", Description: "Check date format"},
+		"time":       {Kind: "function", Arity: "1", Description: "Check time format"},
+		// Locale-aware validators
+		"postalCode": {Kind: "function", Arity: "1-2", Description: "Check postal code (locale?)"},
+		"parseDate":  {Kind: "function", Arity: "1-2", Description: "Parse date string (locale?)"},
+		// Collection validators
+		"contains": {Kind: "function", Arity: "2", Description: "Check if array contains value"},
+		"oneOf":    {Kind: "function", Arity: "2", Description: "Check if value is one of array"},
+	},
+}
+
 // loadValidModule returns the valid module as a StdlibModuleDict
 func loadValidModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &validModuleMeta,
 		Exports: map[string]Object{
 			// Type validators
 			"string":  &Builtin{Fn: validString},

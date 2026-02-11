@@ -54,6 +54,13 @@ func loadStdlibModule(name string, env *Environment) Object {
 	return loader(env)
 }
 
+var tableModuleMeta = ModuleMeta{
+	Description: "Table data structure with query methods",
+	Exports: map[string]ExportMeta{
+		"table": {Kind: "function", Arity: "1+", Description: "Create table from data"},
+	},
+}
+
 // loadTableModule returns the Table module as a dictionary.
 //
 // Deprecated: Prefer using @table literal syntax directly, e.g.:
@@ -66,6 +73,7 @@ func loadTableModule(env *Environment) Object {
 	// Return stdlib module dict with table constructor
 	// The table export is a TableModule which is both callable and has methods
 	return &StdlibModuleDict{
+		Meta: &tableModuleMeta,
 		Exports: map[string]Object{
 			"table": &TableModule{},
 		},
@@ -94,6 +102,7 @@ func evalTableModuleMethod(tm *TableModule, method string, args []Object, env *E
 // StdlibModuleDict represents a standard library module's exported values
 type StdlibModuleDict struct {
 	Exports map[string]Object
+	Meta    *ModuleMeta
 }
 
 func (smd *StdlibModuleDict) Type() ObjectType { return DICTIONARY_OBJ }
@@ -248,8 +257,20 @@ func ensureObject(val Object) Object {
 // Exports: request, response, route, method, params
 // All exports are DynamicAccessors to ensure fresh values per-request
 // even when imported at module scope.
+var basilHTTPModuleMeta = ModuleMeta{
+	Description: "HTTP request context (request, response, route, method). Use @params for query/form data.",
+	Exports: map[string]ExportMeta{
+		"params":   {Kind: "accessor", Description: "HTTP query/form parameters"},
+		"request":  {Kind: "accessor", Description: "HTTP request object"},
+		"response": {Kind: "accessor", Description: "HTTP response object"},
+		"route":    {Kind: "accessor", Description: "Current route path"},
+		"method":   {Kind: "accessor", Description: "HTTP request method"},
+	},
+}
+
 func loadBasilHTTPModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &basilHTTPModuleMeta,
 		Exports: map[string]Object{
 			"params": &DynamicAccessor{
 				Name: "params",
@@ -319,8 +340,18 @@ func loadBasilHTTPModule(env *Environment) Object {
 // Exports: session, auth (auth context), user (auth.user shortcut)
 // All exports are DynamicAccessors for per-request freshness.
 // Note: Database access has been moved to @DB magic variable.
+var basilAuthModuleMeta = ModuleMeta{
+	Description: "Auth context, db, session, and user shortcuts",
+	Exports: map[string]ExportMeta{
+		"session": {Kind: "accessor", Description: "Current session"},
+		"auth":    {Kind: "accessor", Description: "Auth context"},
+		"user":    {Kind: "accessor", Description: "Current authenticated user"},
+	},
+}
+
 func loadBasilAuthModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &basilAuthModuleMeta,
 		Exports: map[string]Object{
 			"session": &DynamicAccessor{
 				Name: "session",

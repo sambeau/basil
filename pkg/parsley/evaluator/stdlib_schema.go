@@ -48,9 +48,34 @@ func evalSchemaMethod(schema *Dictionary, method string, args []Object, env *Env
 	}
 }
 
+var schemaModuleMeta = ModuleMeta{
+	Description: "Schema validation and type checking",
+	Exports: map[string]ExportMeta{
+		// Type factories
+		"string":   {Kind: "function", Arity: "0-1", Description: "Create string schema validator"},
+		"email":    {Kind: "function", Arity: "0", Description: "Create email schema validator"},
+		"url":      {Kind: "function", Arity: "0", Description: "Create URL schema validator"},
+		"phone":    {Kind: "function", Arity: "0", Description: "Create phone schema validator"},
+		"integer":  {Kind: "function", Arity: "0-1", Description: "Create integer schema validator"},
+		"number":   {Kind: "function", Arity: "0-1", Description: "Create number schema validator"},
+		"boolean":  {Kind: "function", Arity: "0", Description: "Create boolean schema validator"},
+		"enum":     {Kind: "function", Arity: "1+", Description: "Create enum schema validator"},
+		"date":     {Kind: "function", Arity: "0", Description: "Create date schema validator"},
+		"datetime": {Kind: "function", Arity: "0-1", Description: "Create datetime schema validator"},
+		"money":    {Kind: "function", Arity: "0-1", Description: "Create money schema validator"},
+		"array":    {Kind: "function", Arity: "1", Description: "Create array schema validator"},
+		"object":   {Kind: "function", Arity: "1", Description: "Create object schema validator"},
+		"id":       {Kind: "function", Arity: "0", Description: "Create ID schema validator"},
+		// Schema operations
+		"define": {Kind: "function", Arity: "2", Description: "Define named schema"},
+		"table":  {Kind: "function", Arity: "1", Description: "Create table schema validator"},
+	},
+}
+
 // loadSchemaModule returns the schema module as a StdlibModuleDict
 func loadSchemaModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &schemaModuleMeta,
 		Exports: map[string]Object{
 			// Type factories
 			"string":   &Builtin{Fn: schemaString},

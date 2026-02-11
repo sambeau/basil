@@ -19,9 +19,69 @@ func init() {
 	mathRNG = rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
 }
 
+var mathModuleMeta = ModuleMeta{
+	Description: "Mathematical functions and constants",
+	Exports: map[string]ExportMeta{
+		// Constants
+		"PI":  {Kind: "constant", Description: "Pi (3.14159...)"},
+		"E":   {Kind: "constant", Description: "Euler's number (2.71828...)"},
+		"TAU": {Kind: "constant", Description: "Tau (2*Pi)"},
+		// Rounding
+		"floor": {Kind: "function", Arity: "1", Description: "Round down to integer"},
+		"ceil":  {Kind: "function", Arity: "1", Description: "Round up to integer"},
+		"round": {Kind: "function", Arity: "1-2", Description: "Round to nearest (decimals?)"},
+		"trunc": {Kind: "function", Arity: "1", Description: "Truncate to integer"},
+		// Comparison & Clamping
+		"abs":   {Kind: "function", Arity: "1", Description: "Absolute value"},
+		"sign":  {Kind: "function", Arity: "1", Description: "Sign (-1, 0, or 1)"},
+		"clamp": {Kind: "function", Arity: "3", Description: "Clamp value between min and max"},
+		// Aggregation
+		"min":     {Kind: "function", Arity: "1+", Description: "Minimum of values or array"},
+		"max":     {Kind: "function", Arity: "1+", Description: "Maximum of values or array"},
+		"sum":     {Kind: "function", Arity: "1+", Description: "Sum of values or array"},
+		"avg":     {Kind: "function", Arity: "1+", Description: "Average of values or array"},
+		"mean":    {Kind: "function", Arity: "1+", Description: "Mean (alias for avg)"},
+		"product": {Kind: "function", Arity: "1+", Description: "Product of values or array"},
+		"count":   {Kind: "function", Arity: "1", Description: "Count elements in array"},
+		// Statistics
+		"median":   {Kind: "function", Arity: "1", Description: "Median of array"},
+		"mode":     {Kind: "function", Arity: "1", Description: "Mode of array"},
+		"stddev":   {Kind: "function", Arity: "1", Description: "Standard deviation"},
+		"variance": {Kind: "function", Arity: "1", Description: "Variance"},
+		"range":    {Kind: "function", Arity: "1", Description: "Range (max - min)"},
+		// Random
+		"random":    {Kind: "function", Arity: "0", Description: "Random float 0-1"},
+		"randomInt": {Kind: "function", Arity: "1-2", Description: "Random int (max) or (min, max)"},
+		"seed":      {Kind: "function", Arity: "1", Description: "Seed random generator"},
+		// Powers & Logarithms
+		"sqrt":  {Kind: "function", Arity: "1", Description: "Square root"},
+		"pow":   {Kind: "function", Arity: "2", Description: "Power (base, exponent)"},
+		"exp":   {Kind: "function", Arity: "1", Description: "e^x"},
+		"log":   {Kind: "function", Arity: "1", Description: "Natural logarithm"},
+		"log10": {Kind: "function", Arity: "1", Description: "Base-10 logarithm"},
+		// Trigonometry
+		"sin":   {Kind: "function", Arity: "1", Description: "Sine (radians)"},
+		"cos":   {Kind: "function", Arity: "1", Description: "Cosine (radians)"},
+		"tan":   {Kind: "function", Arity: "1", Description: "Tangent (radians)"},
+		"asin":  {Kind: "function", Arity: "1", Description: "Arc sine"},
+		"acos":  {Kind: "function", Arity: "1", Description: "Arc cosine"},
+		"atan":  {Kind: "function", Arity: "1", Description: "Arc tangent"},
+		"atan2": {Kind: "function", Arity: "2", Description: "Arc tangent of y/x"},
+		// Angular Conversion
+		"degrees": {Kind: "function", Arity: "1", Description: "Radians to degrees"},
+		"radians": {Kind: "function", Arity: "1", Description: "Degrees to radians"},
+		// Geometry & Interpolation
+		"hypot": {Kind: "function", Arity: "2", Description: "Hypotenuse length"},
+		"dist":  {Kind: "function", Arity: "4", Description: "Distance between points"},
+		"lerp":  {Kind: "function", Arity: "3", Description: "Linear interpolation"},
+		"map":   {Kind: "function", Arity: "5", Description: "Map value from one range to another"},
+	},
+}
+
 // loadMathModule returns the math module as a StdlibModuleDict
 func loadMathModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &mathModuleMeta,
 		Exports: map[string]Object{
 			// Constants
 			"PI":  &Float{Value: math.Pi},

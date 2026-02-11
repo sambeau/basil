@@ -7,9 +7,30 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
+var apiModuleMeta = ModuleMeta{
+	Description: "HTTP client for API requests",
+	Exports: map[string]ExportMeta{
+		// Auth wrappers
+		"public":    {Kind: "function", Arity: "1-2", Description: "Mark handler as public (no auth required)"},
+		"adminOnly": {Kind: "function", Arity: "1", Description: "Require admin role for handler"},
+		"roles":     {Kind: "function", Arity: "2", Description: "Require specific role(s) for handler"},
+		"auth":      {Kind: "function", Arity: "1-2", Description: "Require authentication for handler"},
+		// Error helpers
+		"notFound":     {Kind: "function", Arity: "0-1", Description: "Return 404 Not Found error"},
+		"forbidden":    {Kind: "function", Arity: "0-1", Description: "Return 403 Forbidden error"},
+		"badRequest":   {Kind: "function", Arity: "0-1", Description: "Return 400 Bad Request error"},
+		"unauthorized": {Kind: "function", Arity: "0-1", Description: "Return 401 Unauthorized error"},
+		"conflict":     {Kind: "function", Arity: "0-1", Description: "Return 409 Conflict error"},
+		"serverError":  {Kind: "function", Arity: "0-1", Description: "Return 500 Internal Server Error"},
+		// Redirect
+		"redirect": {Kind: "function", Arity: "1-2", Description: "Redirect to URL (status?)"},
+	},
+}
+
 // loadAPIModule returns the api module as a StdlibModuleDict
 func loadAPIModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &apiModuleMeta,
 		Exports: map[string]Object{
 			// Auth wrappers - use StdlibBuiltin so they can be called
 			"public":    &StdlibBuiltin{Fn: apiPublic},

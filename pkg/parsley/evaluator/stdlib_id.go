@@ -9,9 +9,22 @@ import (
 	"time"
 )
 
+var idModuleMeta = ModuleMeta{
+	Description: "ID generation (UUID, nanoid, etc.)",
+	Exports: map[string]ExportMeta{
+		"new":    {Kind: "function", Arity: "0", Description: "Generate new unique ID"},
+		"uuid":   {Kind: "function", Arity: "0", Description: "Generate UUID v4"},
+		"uuidv4": {Kind: "function", Arity: "0", Description: "Generate UUID v4"},
+		"uuidv7": {Kind: "function", Arity: "0", Description: "Generate UUID v7"},
+		"nanoid": {Kind: "function", Arity: "0-1", Description: "Generate nanoid (length?)"},
+		"cuid":   {Kind: "function", Arity: "0", Description: "Generate CUID"},
+	},
+}
+
 // loadIDModule returns the id module as a StdlibModuleDict
 func loadIDModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &idModuleMeta,
 		Exports: map[string]Object{
 			"new":    &Builtin{Fn: idNew},
 			"uuid":   &Builtin{Fn: idUUID},
