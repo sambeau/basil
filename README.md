@@ -137,6 +137,19 @@ pars -e '@now + @7d'      # Evaluate an expression
 pars                      # Start the REPL
 ```
 
+A fun example:
+
+```bash
+pars --raw -e "(<==CSV(@/path/to/email-list.csv)).toBox()"  
+┌───────┬───────────────────┐
+│ name  │ email             │
+├───────┼───────────────────┤
+│ Luke  │ luke@example.com  │
+│ Leia  │ leia@example.com  │
+│ Han   │ han@example.com   │
+│ Chewy │ chewy@example.com │
+└───────┴───────────────────┘
+```
 ---
 
 ## Basil Server
