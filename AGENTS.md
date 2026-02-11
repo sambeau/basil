@@ -114,8 +114,10 @@ basil/
 │       ├── README.md
 │       └── manual/              # Builtins and stdlib docs
 └── work/
-    ├── docs/                    # Workflow process guides    │   ├── workflow-quick-start.md
-    │   └── workflow-faq.md    ├── specs/                   # Feature specifications (FEAT-XXX.md)
+    ├── docs/                    # Workflow process guides
+    │   ├── workflow-quick-start.md
+    │   └── workflow-faq.md
+    ├── specs/                   # Feature specifications (FEAT-XXX.md)
     ├── plans/                   # Implementation plans (PLAN-XXX.md)
     ├── bugs/                    # Bug reports (BUG-XXX.md)
     ├── design/                  # Design documents
