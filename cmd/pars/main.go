@@ -128,7 +128,8 @@ Display Options:
   -pp, --pretty         Pretty-print HTML output with proper indentation
 
 Evaluation Options:
-  -e, --eval <code>     Evaluate code string instead of file
+  -e, --eval <code>     Evaluate code string (outputs PLN representation)
+  -r, --raw             Output raw print string instead of PLN (with -e)
   --check               Check syntax without executing (can specify multiple files)
 
 Security Options:
@@ -150,7 +151,9 @@ Examples:
   pars                      Start interactive REPL
   pars script.pars          Execute a Parsley script
   pars -pp page.pars        Execute and pretty-print HTML output
-  pars -e "1 + 2"           Evaluate inline code
+  pars -e "1 + 2"           Evaluate inline code (outputs: 3)
+  pars -e "[1, 2, 3]"       Evaluate array (outputs: [1, 2, 3])
+  pars -e "[1,2,3]" --raw   Raw output for scripting (outputs: 123)
   pars -e '@args' foo bar   Evaluate code with arguments
   pars --check script.pars  Check syntax without executing
   pars --check *.pars       Check multiple files
