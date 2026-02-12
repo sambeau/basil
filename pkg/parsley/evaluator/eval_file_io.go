@@ -533,6 +533,9 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	case "yaml":
 		data, encodeErr = encodeYAML(value)
 
+	case "pln":
+		data, encodeErr = encodePLN(value, env, appendMode)
+
 	default:
 		return newFileOpError("FILEOP-0005", map[string]any{"Operation": "writing", "Format": formatStr.Value})
 	}
