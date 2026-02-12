@@ -1076,6 +1076,8 @@ let admins = @query(Users | role == "admin" ??-> *)
 | `schema()` | Schema or null | The bound schema |
 | `toJSON()` | String | JSON encoding of data |
 
+> **Tip:** `toJSON()` converts dates to strings and money to numbers. For lossless record serialization, use PLN: `user ==> PLN(@./user.pln)`. See [Data Formats](../features/data-formats.md#pln-parsley-literal-notation).
+
 ### Update Methods
 
 | Method | Returns | Description |
