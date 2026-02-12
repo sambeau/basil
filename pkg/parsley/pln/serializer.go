@@ -95,6 +95,9 @@ func (s *Serializer) serialize(obj evaluator.Object) (string, error) {
 	case *evaluator.Table:
 		return s.serializeTable(v)
 
+	case *evaluator.Money:
+		return s.serializeMoney(v)
+
 	case *evaluator.Function:
 		return "", fmt.Errorf("cannot serialize function")
 
@@ -451,6 +454,49 @@ func (s *Serializer) serializeDatetime(d *evaluator.Dictionary) (string, error) 
 }
 
 func (s *Serializer) serializePath(d *evaluator.Dictionary) (string, error) {
+	// Path dicts have "segments" (array) and "absolute" (bool) fields
+	segmentsExpr, hasSegments := d.Pairs["segments"]
+	absoluteExpr, hasAbsolute := d.Pairs["absolute"]
+
+	if hasSegments && hasAbsolute {
+		// New format: segments + absolute
+		segmentsObj, err := s.exprToObject(segmentsExpr, d.Env)
+		if err != nil {
+			return "", fmt.Errorf("path segments error: %w", err)
+		}
+		segmentsArr, ok := segmentsObj.(*evaluator.Array)
+		if !ok {
+			return "", fmt.Errorf("path segments must be array")
+		}
+
+		absoluteObj, err := s.exprToObject(absoluteExpr, d.Env)
+		if err != nil {
+			return "", fmt.Errorf("path absolute error: %w", err)
+		}
+		absoluteBool, ok := absoluteObj.(*evaluator.Boolean)
+		if !ok {
+			return "", fmt.Errorf("path absolute must be boolean")
+		}
+
+		// Build path string from segments
+		var parts []string
+		for _, elem := range segmentsArr.Elements {
+			if str, ok := elem.(*evaluator.String); ok {
+				parts = append(parts, str.Value)
+			}
+		}
+
+		var pathStr string
+		if absoluteBool.Value {
+			pathStr = "/" + strings.Join(parts, "/")
+		} else {
+			pathStr = strings.Join(parts, "/")
+		}
+
+		return "@" + pathStr, nil
+	}
+
+	// Fallback: old format with "value" field
 	pathObj, err := s.exprToObject(d.Pairs["value"], d.Env)
 	if err != nil || pathObj == nil {
 		return "", fmt.Errorf("path missing value field")
@@ -464,16 +510,148 @@ func (s *Serializer) serializePath(d *evaluator.Dictionary) (string, error) {
 }
 
 func (s *Serializer) serializeURL(d *evaluator.Dictionary) (string, error) {
-	urlObj, err := s.exprToObject(d.Pairs["value"], d.Env)
-	if err != nil || urlObj == nil {
-		return "", fmt.Errorf("URL missing value field")
-	}
-	urlStr, ok := urlObj.(*evaluator.String)
-	if !ok {
-		return "", fmt.Errorf("URL value must be string")
+	// URL dicts have: scheme, host, port, path (array), query (dict), fragment, username, password
+
+	// Get scheme (required)
+	schemeExpr, hasScheme := d.Pairs["scheme"]
+	if !hasScheme {
+		// Fallback: old format with "value" field
+		urlObj, err := s.exprToObject(d.Pairs["value"], d.Env)
+		if err != nil || urlObj == nil {
+			return "", fmt.Errorf("URL missing scheme or value field")
+		}
+		urlStr, ok := urlObj.(*evaluator.String)
+		if !ok {
+			return "", fmt.Errorf("URL value must be string")
+		}
+		return "@" + urlStr.Value, nil
 	}
 
-	return "@" + urlStr.Value, nil
+	schemeObj, err := s.exprToObject(schemeExpr, d.Env)
+	if err != nil {
+		return "", fmt.Errorf("URL scheme error: %w", err)
+	}
+	scheme, ok := schemeObj.(*evaluator.String)
+	if !ok {
+		return "", fmt.Errorf("URL scheme must be string")
+	}
+
+	// Get host (required)
+	hostObj, err := s.exprToObject(d.Pairs["host"], d.Env)
+	if err != nil {
+		return "", fmt.Errorf("URL host error: %w", err)
+	}
+	host, ok := hostObj.(*evaluator.String)
+	if !ok {
+		return "", fmt.Errorf("URL host must be string")
+	}
+
+	// Build URL string
+	var sb strings.Builder
+	sb.WriteString(scheme.Value)
+	sb.WriteString("://")
+
+	// Add userinfo if present
+	if usernameExpr, ok := d.Pairs["username"]; ok {
+		usernameObj, _ := s.exprToObject(usernameExpr, d.Env)
+		if username, ok := usernameObj.(*evaluator.String); ok && username.Value != "" {
+			sb.WriteString(username.Value)
+			if passwordExpr, ok := d.Pairs["password"]; ok {
+				passwordObj, _ := s.exprToObject(passwordExpr, d.Env)
+				if password, ok := passwordObj.(*evaluator.String); ok && password.Value != "" {
+					sb.WriteString(":")
+					sb.WriteString(password.Value)
+				}
+			}
+			sb.WriteString("@")
+		}
+	}
+
+	sb.WriteString(host.Value)
+
+	// Add port if non-zero
+	if portExpr, ok := d.Pairs["port"]; ok {
+		portObj, _ := s.exprToObject(portExpr, d.Env)
+		if port, ok := portObj.(*evaluator.Integer); ok && port.Value > 0 {
+			sb.WriteString(":")
+			sb.WriteString(fmt.Sprintf("%d", port.Value))
+		}
+	}
+
+	// Add path if present
+	if pathExpr, ok := d.Pairs["path"]; ok {
+		pathObj, _ := s.exprToObject(pathExpr, d.Env)
+		if pathArr, ok := pathObj.(*evaluator.Array); ok && len(pathArr.Elements) > 0 {
+			var parts []string
+			for _, elem := range pathArr.Elements {
+				if str, ok := elem.(*evaluator.String); ok {
+					parts = append(parts, str.Value)
+				}
+			}
+			if len(parts) > 0 {
+				sb.WriteString("/")
+				sb.WriteString(strings.Join(parts, "/"))
+			}
+		}
+	}
+
+	// Add query if present
+	if queryExpr, ok := d.Pairs["query"]; ok {
+		queryObj, _ := s.exprToObject(queryExpr, d.Env)
+		if queryDict, ok := queryObj.(*evaluator.Dictionary); ok && len(queryDict.Pairs) > 0 {
+			var params []string
+			for key, valExpr := range queryDict.Pairs {
+				valObj, _ := s.exprToObject(valExpr, queryDict.Env)
+				if valStr, ok := valObj.(*evaluator.String); ok {
+					params = append(params, key+"="+valStr.Value)
+				}
+			}
+			if len(params) > 0 {
+				sb.WriteString("?")
+				sb.WriteString(strings.Join(params, "&"))
+			}
+		}
+	}
+
+	// Add fragment if present
+	if fragmentExpr, ok := d.Pairs["fragment"]; ok {
+		fragmentObj, _ := s.exprToObject(fragmentExpr, d.Env)
+		if fragment, ok := fragmentObj.(*evaluator.String); ok && fragment.Value != "" {
+			sb.WriteString("#")
+			sb.WriteString(fragment.Value)
+		}
+	}
+
+	return "@" + sb.String(), nil
+}
+
+func (s *Serializer) serializeMoney(m *evaluator.Money) (string, error) {
+	// Serialize as literal: CODE#amount.decimals (e.g., USD#19.99, JPY#500)
+	if m.Scale == 0 {
+		return fmt.Sprintf("%s#%d", m.Currency, m.Amount), nil
+	}
+
+	negative := m.Amount < 0
+	amount := m.Amount
+	if negative {
+		amount = -amount
+	}
+
+	divisor := int64(1)
+	for i := int8(0); i < m.Scale; i++ {
+		divisor *= 10
+	}
+
+	whole := amount / divisor
+	frac := amount % divisor
+
+	format := fmt.Sprintf("%%s#%%d.%%0%dd", m.Scale)
+	result := fmt.Sprintf(format, m.Currency, whole, frac)
+
+	if negative {
+		return m.Currency + "#-" + result[len(m.Currency)+1:], nil
+	}
+	return result, nil
 }
 
 // Helper functions
@@ -560,6 +738,10 @@ func isTypedDict(obj evaluator.Object, typeName string) bool {
 		if strObj, ok := ole.Obj.(*evaluator.String); ok {
 			return strObj.Value == typeName
 		}
+	}
+	// Also check for ast.StringLiteral (used by evaluator for datetime/path/url)
+	if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+		return strLit.Value == typeName
 	}
 	return false
 }

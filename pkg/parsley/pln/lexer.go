@@ -30,6 +30,7 @@ const (
 	DATETIME // 2024-01-20T10:30:00Z (after @)
 	PATH     // /path/to/file (after @)
 	URL      // https://example.com (after @)
+	MONEY    // $19.99, £50.00, EUR#100.00
 
 	// Delimiters
 	LBRACE   // {
@@ -81,6 +82,8 @@ func (t TokenType) String() string {
 		return "PATH"
 	case URL:
 		return "URL"
+	case MONEY:
+		return "MONEY"
 	case LBRACE:
 		return "LBRACE"
 	case RBRACE:
@@ -193,6 +196,9 @@ func (l *Lexer) NextToken() Token {
 	case '@':
 		tok = l.readAtToken()
 		return tok
+	case '$':
+		tok = l.readMoneyLiteral()
+		return tok
 	case '"':
 		tok.Type = STRING
 		tok.Literal = l.readString()
@@ -203,7 +209,24 @@ func (l *Lexer) NextToken() Token {
 	default:
 		if isDigit(l.ch) || (l.ch == '-' && isDigit(l.peekChar())) {
 			return l.readNumber()
+		} else if l.ch == 0xC2 || l.ch == 0xA3 || l.ch == 0xA5 {
+			// Check for UTF-8 encoded £ (C2 A3), € (E2 82 AC), or ¥ (C2 A5)
+			if l.isUnicodeCurrencySymbol() {
+				tok = l.readMoneyLiteral()
+				return tok
+			}
+			tok.Type = ILLEGAL
+			tok.Literal = string(l.ch)
+		} else if l.ch == 0xE2 && l.peekChar() == 0x82 && l.peekAhead(2) == 0xAC {
+			// € (E2 82 AC)
+			tok = l.readMoneyLiteral()
+			return tok
 		} else if isLetter(l.ch) {
+			// Check for CODE# money syntax (e.g., USD#12.34)
+			if l.isCurrencyCodeStart() {
+				tok = l.readMoneyLiteral()
+				return tok
+			}
 			tok.Literal = l.readIdentifier()
 			tok.Type = lookupIdent(tok.Literal)
 			return tok
@@ -513,6 +536,234 @@ func isPathTerminator(ch byte) bool {
 func isURLTerminator(ch byte) bool {
 	return ch == 0 || ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ||
 		ch == ')' || ch == ']' || ch == '}' || ch == ','
+}
+
+// isUnicodeCurrencySymbol checks if current position is a Unicode currency symbol
+func (l *Lexer) isUnicodeCurrencySymbol() bool {
+	// £ is C2 A3 in UTF-8
+	if l.ch == 0xC2 && l.peekChar() == 0xA3 {
+		return true
+	}
+	// ¥ is C2 A5 in UTF-8
+	if l.ch == 0xC2 && l.peekChar() == 0xA5 {
+		return true
+	}
+	// € is E2 82 AC in UTF-8
+	if l.ch == 0xE2 && l.peekChar() == 0x82 && l.peekAhead(2) == 0xAC {
+		return true
+	}
+	return false
+}
+
+// isCurrencyCodeStart checks if current position starts a CODE# money literal
+func (l *Lexer) isCurrencyCodeStart() bool {
+	// Must be uppercase letter
+	if l.ch < 'A' || l.ch > 'Z' {
+		return false
+	}
+
+	// Look for pattern: 2-3 uppercase letters followed by #
+	pos := 0
+	for {
+		ch := l.peekAhead(pos + 1)
+		if ch >= 'A' && ch <= 'Z' {
+			pos++
+			if pos > 3 {
+				return false
+			}
+			continue
+		}
+		if ch == '#' && pos >= 2 {
+			return true
+		}
+		return false
+	}
+}
+
+// CurrencyScales contains known currency decimal places from ISO 4217
+var CurrencyScales = map[string]int8{
+	"USD": 2, "EUR": 2, "GBP": 2, "JPY": 0, "CHF": 2,
+	"CAD": 2, "AUD": 2, "CNY": 2, "HKD": 2, "SGD": 2,
+	"KRW": 0, "INR": 2, "BRL": 2, "KWD": 3, "BHD": 3,
+	"OMR": 3, "JOD": 3, "MXN": 2, "NZD": 2, "SEK": 2,
+	"NOK": 2, "DKK": 2, "ZAR": 2, "RUB": 2, "PLN": 2,
+	"THB": 2, "MYR": 2, "PHP": 2, "IDR": 2, "VND": 0,
+	"CLP": 0, "COP": 2, "PEN": 2, "ARS": 2, "CZK": 2,
+	"HUF": 2, "ILS": 2, "TRY": 2, "TWD": 2, "AED": 2,
+	"SAR": 2, "QAR": 2, "EGP": 2, "PKR": 2, "NGN": 2,
+}
+
+// readMoneyLiteral reads a money literal and returns a MONEY token
+// Handles: $12.34, £99.99, EUR#50.00, etc.
+func (l *Lexer) readMoneyLiteral() Token {
+	tok := Token{Line: l.line, Column: l.column}
+	var currency string
+
+	// Handle currency symbol or CODE# prefix
+	switch {
+	case l.ch == '$':
+		l.readChar()
+		currency = "USD"
+	case l.ch == 0xC2 && l.peekChar() == 0xA3: // £
+		l.readChar()
+		l.readChar()
+		currency = "GBP"
+	case l.ch == 0xC2 && l.peekChar() == 0xA5: // ¥
+		l.readChar()
+		l.readChar()
+		currency = "JPY"
+	case l.ch == 0xE2 && l.peekChar() == 0x82 && l.peekAhead(2) == 0xAC: // €
+		l.readChar()
+		l.readChar()
+		l.readChar()
+		currency = "EUR"
+	default:
+		// Must be CODE# format (e.g., USD#, EUR#)
+		currency = l.readCurrencyCode()
+	}
+
+	// Handle optional negative sign after currency symbol (or after # for CODE# format)
+	negative := false
+	if l.ch == '-' {
+		negative = true
+		l.readChar()
+	}
+
+	// Read the number (may also detect negative sign after # for CODE# format)
+	numStr, literalScale, numNegative := l.readMoneyNumber()
+	if numStr == "" {
+		tok.Type = ILLEGAL
+		tok.Literal = "currency symbol must be followed by a number"
+		return tok
+	}
+
+	// Combine negative flags (either before or after #)
+	if numNegative {
+		negative = true
+	}
+
+	// Determine the scale
+	scale := int8(2) // Default for unknown currencies
+	if knownScale, ok := CurrencyScales[currency]; ok {
+		scale = knownScale
+		// Validate: currencies like JPY shouldn't have decimals
+		if literalScale > 0 && knownScale == 0 {
+			tok.Type = ILLEGAL
+			tok.Literal = fmt.Sprintf("%s does not allow decimal places", currency)
+			return tok
+		}
+		if literalScale > knownScale {
+			tok.Type = ILLEGAL
+			tok.Literal = fmt.Sprintf("%s allows max %d decimal places", currency, knownScale)
+			return tok
+		}
+	}
+
+	// Convert to integer amount (smallest unit)
+	amount := parseMoneyAmount(numStr, literalScale, scale)
+	if negative {
+		amount = -amount
+	}
+
+	// Build the literal string: CODE#amount.decimals
+	tok.Type = MONEY
+	tok.Literal = buildMoneyLiteral(currency, amount, scale)
+	return tok
+}
+
+// readCurrencyCode reads a 3-letter currency code followed by #
+func (l *Lexer) readCurrencyCode() string {
+	var code []byte
+	for l.ch >= 'A' && l.ch <= 'Z' && len(code) < 3 {
+		code = append(code, l.ch)
+		l.readChar()
+	}
+	if l.ch == '#' {
+		l.readChar() // consume the #
+	}
+	return string(code)
+}
+
+// readMoneyNumber reads the numeric part of a money literal
+// Returns the number string, the number of decimal places, and whether it's negative
+func (l *Lexer) readMoneyNumber() (string, int8, bool) {
+	var sb strings.Builder
+	var decimalPlaces int8 = -1
+
+	// Handle negative sign that may appear after # in CODE# format
+	negative := false
+	if l.ch == '-' {
+		negative = true
+		l.readChar()
+	}
+
+	for isDigit(l.ch) || l.ch == '.' {
+		if l.ch == '.' {
+			if decimalPlaces >= 0 {
+				break // Already saw a decimal point
+			}
+			decimalPlaces = 0
+		} else if decimalPlaces >= 0 {
+			decimalPlaces++
+		}
+		sb.WriteByte(l.ch)
+		l.readChar()
+	}
+
+	if decimalPlaces < 0 {
+		decimalPlaces = 0
+	}
+
+	return sb.String(), decimalPlaces, negative
+}
+
+// parseMoneyAmount converts a number string to an integer amount in smallest units
+func parseMoneyAmount(numStr string, literalScale, targetScale int8) int64 {
+	var result int64
+
+	for _, ch := range numStr {
+		if ch == '.' {
+			continue
+		}
+		if ch >= '0' && ch <= '9' {
+			result = result*10 + int64(ch-'0')
+		}
+	}
+
+	// Scale up if literal has fewer decimal places than target
+	for i := literalScale; i < targetScale; i++ {
+		result *= 10
+	}
+
+	return result
+}
+
+// buildMoneyLiteral creates a display string for a money literal
+func buildMoneyLiteral(currency string, amount int64, scale int8) string {
+	if scale == 0 {
+		return fmt.Sprintf("%s#%d", currency, amount)
+	}
+
+	negative := amount < 0
+	if negative {
+		amount = -amount
+	}
+
+	divisor := int64(1)
+	for i := int8(0); i < scale; i++ {
+		divisor *= 10
+	}
+
+	whole := amount / divisor
+	frac := amount % divisor
+
+	format := fmt.Sprintf("%%s#%%d.%%0%dd", scale)
+	result := fmt.Sprintf(format, currency, whole, frac)
+
+	if negative {
+		return currency + "#-" + result[len(currency)+1:]
+	}
+	return result
 }
 
 // Unused but kept for potential future Unicode support
