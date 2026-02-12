@@ -35,6 +35,9 @@ module.exports = grammar({
 
   word: ($) => $.identifier,
 
+  // External scanner tokens — see src/scanner.c
+  externals: ($) => [$.raw_text, $.raw_text_interpolation_start],
+
   conflicts: ($) => [
     // { — dictionary literal vs block
     [$.dictionary_literal, $.block],
@@ -599,36 +602,73 @@ module.exports = grammar({
 
     // parser.go L1354-1365 (parseTagLiteral), L1367-1528 (parseTagPair, parseTagContents)
     // Tag content is repeat(_statement) — full Parsley code, NOT text with interpolation
+    // Exception: <style> and <script> tags use raw text mode with @{} interpolation
     tag_expression: ($) =>
       prec(
         PREC.TAG,
         choice(
           $.self_closing_tag,
+          $.style_tag,
+          $.script_tag,
           seq($.open_tag, repeat($._tag_child), $.close_tag),
           // Grouping tags: <>...</>
           seq("<>", repeat($._tag_child), "</>"),
         ),
       ),
 
+    // Style tag with raw text content and @{} interpolation
+    // Uses token with higher precedence to ensure <style wins over generic tag_start
+    style_tag: ($) =>
+      seq(
+        token(prec(PREC.TAG + 1, "<style")),
+        repeat(choice($.tag_attribute, $.tag_spread_attribute)),
+        ">",
+        repeat($._raw_text_content),
+        token(prec(PREC.TAG + 1, "</style>")),
+      ),
+
+    // Script tag with raw text content and @{} interpolation
+    // Uses token with higher precedence to ensure <script wins over generic tag_start
+    script_tag: ($) =>
+      seq(
+        token(prec(PREC.TAG + 1, "<script")),
+        repeat(choice($.tag_attribute, $.tag_spread_attribute)),
+        ">",
+        repeat($._raw_text_content),
+        token(prec(PREC.TAG + 1, "</script>")),
+      ),
+
+    // Raw text content: either literal text or @{expr} interpolation
+    _raw_text_content: ($) => choice($.raw_text, $.raw_text_interpolation),
+
+    // @{expr} interpolation in raw text (style/script tags)
+    raw_text_interpolation: ($) =>
+      seq($.raw_text_interpolation_start, $._expression, "}"),
+
     self_closing_tag: ($) =>
       seq(
-        "<",
-        field("name", $.tag_name),
+        $.tag_start,
         repeat(choice($.tag_attribute, $.tag_spread_attribute)),
         "/>",
       ),
 
     open_tag: ($) =>
       seq(
-        "<",
-        field("name", $.tag_name),
+        $.tag_start,
         repeat(choice($.tag_attribute, $.tag_spread_attribute)),
         ">",
       ),
 
     close_tag: ($) => seq("</", field("name", $.tag_name), ">"),
 
+    // Tag start: < immediately followed by tag name (no whitespace)
+    // This token disambiguates from the less-than operator
+    // The token captures <tagname as a single unit so tree-sitter can
+    // distinguish it from < followed by an identifier in expression context
+    tag_start: ($) => token(prec(PREC.TAG, /<[a-zA-Z][a-zA-Z0-9.-]*/)),
+
     // Tag name: letters, digits, hyphens (for HTML elements and components)
+    // Used in close_tag where we need just the name without <
     tag_name: ($) => /[a-zA-Z][a-zA-Z0-9.-]*/,
 
     // Tag children are Parsley code — parser.go L1421-1528 (parseTagContents)
@@ -638,7 +678,7 @@ module.exports = grammar({
     // parser.go parseTagAttributes (L1645-1814)
     tag_attribute: ($) =>
       choice(
-        // name="value" or name={expr}
+        // name="value" or name={expr} or name=number or name=identifier
         seq(
           field("name", $.attribute_name),
           "=",
@@ -649,6 +689,8 @@ module.exports = grammar({
               $.template_string,
               $.raw_string,
               $.tag_expression_value,
+              $.number,
+              $.identifier,
             ),
           ),
         ),
@@ -656,8 +698,8 @@ module.exports = grammar({
         field("name", $.attribute_name),
       ),
 
-    // Attribute names allow @field, @record, hyphens, etc.
-    attribute_name: ($) => /[a-zA-Z@][a-zA-Z0-9_-]*/,
+    // Attribute names allow @field, @record, hyphens, colons (for namespaced attrs like xlink:href), etc.
+    attribute_name: ($) => /[a-zA-Z@][a-zA-Z0-9_:-]*/,
 
     // Expression value in tag attribute: {expr}
     tag_expression_value: ($) => seq("{", $._expression, "}"),
@@ -723,7 +765,12 @@ module.exports = grammar({
       seq(
         field("name", $.identifier),
         ":",
-        field("type", $.identifier),
+        choice(
+          // Array type: [Type]
+          seq("[", field("type", $.identifier), "]"),
+          // Regular type
+          field("type", $.identifier),
+        ),
         optional("?"),
         optional($.enum_values),
         optional($.type_options),
@@ -732,11 +779,20 @@ module.exports = grammar({
         optional(seq("via", field("relation", $.identifier))),
       ),
 
+    // enum["a", "b", "c"] — uses square brackets
     enum_values: ($) =>
-      seq("(", commaSep(choice($.string, $.number, $.identifier)), ")"),
-
-    type_options: ($) =>
       seq("[", commaSep(choice($.string, $.number, $.identifier)), "]"),
+
+    // type(auto: true, min: 1) or type(required) — uses parentheses
+    type_options: ($) => seq("(", commaSep($.type_option), ")"),
+
+    type_option: ($) =>
+      choice(
+        // key: value pair
+        seq(field("name", $.identifier), ":", field("value", $._expression)),
+        // bare flag (treated as boolean true)
+        field("name", $.identifier),
+      ),
 
     // ================================================================
     // Table literals — parser.go L3413-3523
@@ -753,24 +809,168 @@ module.exports = grammar({
 
     // ================================================================
     // Query/mutation expressions — parser.go L3611-3764, L4588-4800
-    // Phase 2 stub: parse balanced parens
     // ================================================================
 
-    // Phase 2 stub: parse @query(...) with opaque balanced-paren content
-    // The query DSL has its own sub-grammar that will be implemented later
-    query_expression: ($) => seq("@query", "(", optional($._query_body), ")"),
+    // @query(Source | conditions | modifiers + by group ??-> projection)
+    query_expression: ($) => seq("@query", "(", optional($.query_body), ")"),
 
-    _query_body: ($) => repeat1($._query_token),
+    query_body: ($) =>
+      seq(
+        $.query_source,
+        repeat($.query_clause),
+        optional($.query_group_by),
+        optional($.query_terminal),
+      ),
 
-    _query_token: ($) =>
+    query_source: ($) =>
+      seq(
+        field("table", $.identifier),
+        optional(seq("as", field("alias", $.identifier))),
+      ),
+
+    // Pipe-separated clauses: conditions, modifiers, computed fields
+    query_clause: ($) =>
+      seq(
+        "|",
+        choice(
+          $.query_condition_group,
+          $.query_condition,
+          $.query_modifier,
+          $.query_computed_field,
+        ),
+      ),
+
+    // Condition: field op value OR field between X and Y OR field is [not] null
+    query_condition: ($) =>
       choice(
-        seq("(", optional($._query_body), ")"),
-        seq("{", $._expression, "}"),
-        $.identifier,
+        seq(
+          optional(choice("not", "!")),
+          $.query_field_ref,
+          $.query_operator,
+          $.query_value,
+        ),
+        // between has special syntax: field between X and Y
+        seq(
+          optional(choice("not", "!")),
+          $.query_field_ref,
+          "between",
+          $.query_value,
+          "and",
+          $.query_value,
+        ),
+        // is null / is not null don't take a value
+        seq(
+          optional(choice("not", "!")),
+          $.query_field_ref,
+          $.query_null_check,
+        ),
+      ),
+
+    // is null / is not null - separate from query_operator since no value follows
+    query_null_check: ($) =>
+      choice(seq("is", "null"), seq("is", "not", "null")),
+
+    // Grouped conditions: (cond1 or cond2 and cond3)
+    query_condition_group: ($) =>
+      seq(
+        optional(choice("not", "!")),
+        "(",
+        $.query_condition,
+        repeat(seq(choice("and", "or"), $.query_condition)),
+        ")",
+      ),
+
+    // Field reference: field or table.field
+    query_field_ref: ($) =>
+      choice($.identifier, seq($.identifier, ".", $.identifier)),
+
+    // Comparison operators (excluding between and is null which have special syntax)
+    query_operator: ($) =>
+      choice("==", "!=", "<", ">", "<=", ">=", "in", seq("not", "in"), "like"),
+
+    // Value in a condition: interpolation, literal, or column ref
+    query_value: ($) =>
+      choice(
+        $.query_interpolation,
         $.string,
         $.number,
-        /[^(){}]+/,
+        $.boolean,
+        $.array_literal,
+        $.query_column_ref,
       ),
+
+    // Interpolated Parsley expression: {expr}
+    query_interpolation: ($) => seq("{", $._expression, "}"),
+
+    // Column reference (bare identifier or table.field in query context)
+    query_column_ref: ($) =>
+      prec.right(choice($.identifier, seq($.identifier, ".", $.identifier))),
+
+    // Modifiers: order, limit, offset, with
+    query_modifier: ($) =>
+      choice(
+        $.query_order_modifier,
+        $.query_limit_modifier,
+        $.query_offset_modifier,
+        $.query_with_modifier,
+      ),
+
+    query_order_modifier: ($) =>
+      seq("order", $.query_order_field, repeat(seq(",", $.query_order_field))),
+
+    query_order_field: ($) =>
+      seq($.identifier, optional(choice("asc", "desc"))),
+
+    query_limit_modifier: ($) => seq("limit", $.number),
+
+    query_offset_modifier: ($) => seq("offset", $.number),
+
+    query_with_modifier: ($) =>
+      seq("with", $.identifier, repeat(seq(",", $.identifier))),
+
+    // Computed fields: name: aggregate(field) or name <-Table | cond ?-> agg
+    query_computed_field: ($) =>
+      choice(
+        // Aggregate: total: count or total: sum(amount)
+        seq(field("name", $.identifier), ":", $.query_aggregate),
+        // Correlated subquery: items <-OrderItems | order.id == orderId ?-> count
+        seq(field("name", $.identifier), "<-", $.query_subquery),
+      ),
+
+    query_aggregate: ($) =>
+      choice(
+        "count",
+        seq(
+          choice("count", "sum", "avg", "min", "max"),
+          "(",
+          $.identifier,
+          ")",
+        ),
+        $.identifier, // bare field reference
+      ),
+
+    query_subquery: ($) =>
+      prec.right(
+        seq(
+          field("table", $.identifier),
+          repeat($.query_clause),
+          optional($.query_terminal),
+        ),
+      ),
+
+    // Group by: + by field1, field2
+    query_group_by: ($) =>
+      seq("+", "by", $.identifier, repeat(seq(",", $.identifier))),
+
+    // Terminal: ?-> or ??-> followed by projection
+    query_terminal: ($) =>
+      seq(
+        choice("?->", "??->", "?!->", "??!->", ".->", "."),
+        optional($.query_projection),
+      ),
+
+    query_projection: ($) =>
+      choice("*", "toSQL", seq($.identifier, repeat(seq(",", $.identifier)))),
 
     mutation_expression: ($) =>
       seq(
@@ -806,15 +1006,14 @@ module.exports = grammar({
     boolean: ($) => choice("true", "false"),
 
     // -------------------- Strings --------------------
-    // lexer.go L1570-1600 (readString) — double-quoted, with {expr} interpolation
+    // lexer.go L1570-1600 (readString) — double-quoted, NO interpolation
+    // Note: Only template strings (backticks) and raw strings (single quotes with @{}) support interpolation
     string: ($) =>
-      seq(
-        '"',
-        repeat(choice($.escape_sequence, $.interpolation, $._string_content)),
-        '"',
-      ),
+      seq('"', repeat(choice($.escape_sequence, $._string_content)), '"'),
 
-    _string_content: ($) => token.immediate(prec(-1, /[^"\\{]+/)),
+    // Higher precedence than TAG (12) to prevent <tag> inside strings from being tokenized as tag_start
+    // Includes { since double-quoted strings don't have interpolation
+    _string_content: ($) => token.immediate(prec(PREC.TAG + 2, /[^"\\]+/)),
 
     // lexer.go L1642-1664 (readTemplate) — backtick strings with {expr} interpolation
     template_string: ($) =>
@@ -824,7 +1023,8 @@ module.exports = grammar({
         "`",
       ),
 
-    _template_content: ($) => token.immediate(prec(-1, /[^`\\{]+/)),
+    // Higher precedence than TAG (12) to prevent <tag> inside strings from being tokenized as tag_start
+    _template_content: ($) => token.immediate(prec(PREC.TAG + 2, /[^`\\{]+/)),
 
     // lexer.go L1605-1639 (readRawString) — single-quoted, with @{expr} interpolation
     raw_string: ($) =>
@@ -836,7 +1036,9 @@ module.exports = grammar({
         "'",
       ),
 
-    _raw_string_content: ($) => token.immediate(prec(-1, /([^'\\@]|@[^{'])+/)),
+    // Higher precedence than TAG (12) to prevent <tag> inside strings from being tokenized as tag_start
+    _raw_string_content: ($) =>
+      token.immediate(prec(PREC.TAG + 2, /([^'\\@]|@[^{'])+/)),
 
     // Shared string internals
     escape_sequence: ($) => token.immediate(prec(1, /\\./)),
