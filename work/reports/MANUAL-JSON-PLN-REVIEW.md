@@ -2,7 +2,8 @@
 id: MANUAL-JSON-PLN-REVIEW
 title: "Manual Review: JSON vs PLN Guidance"
 date: 2026-02-14
-status: post-alpha
+updated: 2026-02-12
+status: complete
 ---
 
 # Manual Review: JSON vs PLN Guidance
@@ -16,16 +17,23 @@ The Parsley manual currently uses JSON extensively in examples, but many cases i
 ## Current PLN Implementation Status
 
 **✅ Reading:** Fully implemented
-- `PLN()` builtin function exists in `evaluator.go` (L2712-2744)
+- `PLN()` builtin function exists in `evaluator.go`
 - `parsePLN()` function reads PLN files via `<==` operator
 - Auto-detection works: `.pln` extension recognized in `inferFormatFromExtension()`
 
-**❌ Writing:** NOT implemented
-- No `encodePLN()` function in `eval_encoders.go`
-- PLN format not in write switch statement in `writeFileContent()` (eval_file_io.go L514-536)
-- Cannot use `data ==> PLN(@./file.pln)` syntax
+**✅ Writing:** Implemented (FEAT-115)
+- `encodePLN()` function added to `eval_encoders.go`
+- PLN format added to write switch in `writeFileContent()` (eval_file_io.go)
+- `data ==> PLN(@./file.pln)` syntax works
+- Append mode supported: `data ==>> PLN(@./file.pln)`
 
-**Impact:** All examples suggesting PLN for writing will NOT work until PLN encoding is implemented. The review recommendations below assume PLN write support will be added.
+**✅ Native Type Support:** Implemented (FEAT-116)
+- Money literals: `USD#19.99`, `JPY#500`
+- DateTime literals: `@2024-01-15`, `@2024-01-15T10:30:00`
+- Path literals: `@./config/file.json`
+- URL literals: `@https://example.com/api`
+- Records: `@Person({name: "Alice"})`
+- All types round-trip correctly
 
 ---
 
@@ -39,7 +47,7 @@ These sections should explicitly recommend PLN for local data:
 
 **Current:** Section introduces JSON alongside CSV and Markdown with no clear guidance on when to use each.
 
-**Add after JSON section (around L230):**
+**Add after JSON section:**
 ```markdown
 ### When to Use PLN vs JSON
 
@@ -48,6 +56,7 @@ These sections should explicitly recommend PLN for local data:
 - Caching Parsley data structures
 - Data files read/written by Parsley scripts
 - Serializing records with schemas
+- Debugging Parsley data (PLN output is valid Parsley syntax)
 
 **Use JSON for:**
 - API requests and responses
@@ -65,61 +74,32 @@ PLN round-trips all Parsley types losslessly, while JSON converts:
 
 #### 2. **features/file-io.md**
 
-**Location:** Reading Files section (around L85-90)
+**Location:** Reading Files section
 
-**Current:**
+**Add note after JSON example:**
 ```markdown
-### JSON
-
-let config <== JSON(@./config.json)
-config.database.host             // "localhost"
+> **Tip:** For configuration files with Parsley-specific types (dates, money, paths), 
+> use PLN instead: `let config <== PLN(@./config.pln)`. PLN preserves all Parsley types.
 ```
 
-**Suggestion:** Add a note:
+**Location:** Writing Files section
+
+**Add PLN example:**
 ```markdown
-### JSON
+// Write PLN (for Parsley data - preserves types)
+{name: "Alice", joined: @2024-01-15, balance: $100.00} ==> PLN(@./user.pln)
 
-let config <== JSON(@./config.json)
-config.database.host             // "localhost"
-
-**Note:** For configuration files with Parsley-specific types (dates, money, paths), 
-consider using PLN instead: `let config <== PLN(@./config.pln)`
-See [PLN](../pln.md) for details.
-```
-
----
-
-**Location:** Writing Files section (around L150-158)
-
-**Current:**
-```markdown
-// Write JSON
-{name: "Alice", age: 30} ==> JSON(@./user.json)
-```
-
-**Add alternative:**
-```markdown
 // Write JSON (for external systems)
 {name: "Alice", age: 30} ==> JSON(@./user.json)
-
-// Write PLN (for Parsley data with dates, money, etc.)
-{name: "Alice", joined: @2024-01-15, balance: $100.00} ==> PLN(@./user.pln)
 ```
 
 ---
 
 #### 3. **builtins/paths.md**
 
-**Location:** Paths as File Handle Sources (around L147-150)
+**Location:** Paths as File Handle Sources
 
-**Current:**
-```markdown
-let data <== JSON(@./config.json)
-let lines <== lines(@./todo.txt)
-"output" ==> text(@./result.txt)
-```
-
-**Suggestion:** Change first example to PLN for config:
+**Change example to prefer PLN for config:**
 ```markdown
 let config <== PLN(@./config.pln)      // Parsley config with dates, money
 let data <== JSON(@./api-cache.json)   // JSON from external API
@@ -131,87 +111,49 @@ let lines <== lines(@./todo.txt)
 
 #### 4. **features/data-formats.md - Common Patterns**
 
-**Location:** Read, Transform, Write (around L245-251)
-
-**Current:**
-```markdown
-// Read CSV, transform, write JSON
-let sales <== CSV(@./sales.csv)
-let summary = for (row in sales) {
-    {name: row.product, total: row.price * row.quantity}
-}
-summary.toJSON() ==> text(@./summary.json)
-```
+**Location:** Read, Transform, Write
 
 **Add PLN alternative:**
 ```markdown
-// Read CSV, transform, write JSON (for external consumption)
-let sales <== CSV(@./sales.csv)
-let summary = for (row in sales) {
-    {name: row.product, total: row.price * row.quantity}
-}
-summary.toJSON() ==> text(@./summary.json)
-
-// Or write as PLN (preserves money types if sales data includes them)
+// Write as PLN (preserves Parsley types for later use)
 summary ==> PLN(@./summary.pln)
+
+// Write as JSON (for external consumption)
+summary ==> JSON(@./summary.json)
 ```
 
 ---
 
 ### Medium Priority: Clarify Context
 
-These sections are fine but could benefit from brief notes about when JSON is appropriate:
-
 #### 5. **builtins/dictionary.md**
 
-**Location:** Relationship to Other Types → JSON (L734-737)
-
-**Current:**
-```markdown
-### JSON
-
-Dictionaries map directly to JSON objects. Use `.toJSON()` to serialize 
-and `@fetch` responses automatically parse JSON into dictionaries:
-```
+**Location:** Relationship to Other Types → JSON section
 
 **Add note:**
 ```markdown
-### JSON
-
-Dictionaries map directly to JSON objects. Use `.toJSON()` to serialize 
-and `@fetch` responses automatically parse JSON into dictionaries.
-
-**Note:** `.toJSON()` converts Parsley types to JSON-compatible values 
-(dates become strings, money becomes numbers). For lossless serialization 
-of Parsley data, use PLN instead. See [PLN](../pln.md).
+> **Note:** `.toJSON()` converts Parsley types to JSON-compatible values 
+> (dates become strings, money becomes numbers). For lossless serialization 
+> of Parsley data, write to PLN instead: `data ==> PLN(@./file.pln)`.
 ```
 
 ---
 
 #### 6. **builtins/record.md**
 
-**Location:** Data Methods table (L1072-1078)
+**Location:** After Data Methods table
 
-**Current table includes:** `toJSON()` method
-
-**Add to table note:**
+**Add note:**
 ```markdown
-**Note:** `toJSON()` serializes data fields as JSON (dates become strings, 
-money becomes numbers). For lossless record serialization, use PLN: 
-`user ==> PLN(@./user.pln)` preserves all Parsley types.
+> **Tip:** `toJSON()` converts dates to strings and money to numbers. 
+> For lossless record serialization, use PLN: `user ==> PLN(@./user.pln)`.
 ```
 
 ---
 
 ### Low Priority: Examples with `.json` Extensions
 
-These examples work correctly but using `.pln` would be more idiomatic for local Parsley data:
-
-**Files to review:**
-- `builtins/paths.md` - Multiple examples use `.json` for local files
-- `features/security.md` - Example uses `@./secrets/keys.json` (could be `.pln`)
-
-**Recommendation:** Leave as-is for now (JSON is familiar), but consider updating in a future consistency pass. The high-priority additions above provide sufficient guidance.
+These examples work correctly but using `.pln` would be more idiomatic for local Parsley data. Leave as-is for now—the high-priority additions provide sufficient guidance.
 
 ---
 
@@ -243,17 +185,20 @@ The following uses are **correct** and should remain unchanged:
 ## Implementation Checklist
 
 ### Prerequisites (Code Changes Required)
-- [ ] **Implement PLN write support** — add `encodePLN()` to `eval_encoders.go`
-- [ ] **Add PLN to write switch** — update `writeFileContent()` in `eval_file_io.go`
-- [ ] **Test PLN round-trip** — verify `data ==> PLN(@./f.pln)` then `<== PLN(@./f.pln)` preserves all types
+- [x] **Implement PLN write support** — FEAT-115 complete
+- [x] **Add PLN to write switch** — FEAT-115 complete
+- [x] **Native Money serialization** — FEAT-116 complete
+- [x] **Fix DateTime/Path/URL serialization** — FEAT-116 complete
+- [x] **Test PLN round-trip** — All types verified
 
-### Documentation Updates (Post-PLN-Write)
-- [ ] Add "When to Use PLN vs JSON" section to `features/data-formats.md`
-- [ ] Add PLN notes to `features/file-io.md` (reading and writing)
-- [ ] Update config example in `builtins/paths.md` to use PLN
-- [ ] Add PLN alternative to "Read, Transform, Write" pattern
-- [ ] Add notes to `builtins/dictionary.md` JSON section
-- [ ] Add notes to `builtins/record.md` data methods table
+### Documentation Updates
+- [x] Add "When to Use PLN vs JSON" section to `features/data-formats.md`
+- [x] Add PLN notes to `features/file-io.md` (reading and writing sections)
+- [x] Update config example in `builtins/paths.md` to use PLN
+- [x] Add PLN alternative to "Read, Transform, Write" pattern
+- [x] Add notes to `builtins/dictionary.md` JSON section
+- [x] Add notes to `builtins/record.md` data methods table
+- [x] Update `pln.md` with file I/O examples
 
 ---
 
@@ -294,48 +239,31 @@ loaded.dataPath                  // @./data/users.csv (path ✓)
 
 ---
 
-## Technical Implementation Notes
+## PLN Type Support Summary
 
-### Files to Modify for PLN Write Support
-
-**1. `pkg/parsley/evaluator/eval_encoders.go`**
-Add after `encodeYAML()`:
-```go
-// encodePLN encodes a value as PLN (Parsley Literal Notation)
-func encodePLN(value Object, env *Environment) ([]byte, error) {
-    plnObj := SerializeToPLN(value, env)
-    if err, isErr := plnObj.(*Error); isErr {
-        return nil, fmt.Errorf("%s: %s", err.Code, err.Message)
-    }
-    plnStr, ok := plnObj.(*String)
-    if !ok {
-        return nil, fmt.Errorf("PLN serialization returned %s instead of string", plnObj.Type())
-    }
-    return []byte(plnStr.Value), nil
-}
-```
-
-**2. `pkg/parsley/evaluator/eval_file_io.go`**
-Add case to `writeFileContent()` switch (around L535):
-```go
-case "pln":
-    data, encodeErr = encodePLN(value, env)
-```
-
-**3. Testing**
-Add to `pkg/parsley/pln/file_test.go`:
-```go
-func TestPLNWriteRoundTrip(t *testing.T) {
-    // Test that writing and reading PLN preserves all types
-}
-```
+| Type | PLN Literal | Round-trips |
+|------|-------------|-------------|
+| Integer | `42` | ✅ |
+| Float | `3.14` | ✅ |
+| String | `"hello"` | ✅ |
+| Boolean | `true` / `false` | ✅ |
+| Null | `null` | ✅ |
+| Array | `[1, 2, 3]` | ✅ |
+| Dictionary | `{a: 1, b: 2}` | ✅ |
+| Money | `USD#19.99` | ✅ |
+| Date | `@2024-01-15` | ✅ |
+| DateTime | `@2024-01-15T10:30:00` | ✅ |
+| Path | `@./config/file.json` | ✅ |
+| URL | `@https://example.com/api` | ✅ |
+| Record | `@Person({name: "Alice"})` | ✅ |
+| Table | `[{...}, {...}]` | ✅ |
 
 ---
 
 ## Related
 
+- FEAT-115: PLN Write Support
+- FEAT-116: PLN Native Money and DateTime Serialization
 - PLN specification: `docs/parsley/manual/pln.md`
-- PLN implementation: `pkg/parsley/pln/pln.go`
-- PLN hooks: `pkg/parsley/evaluator/pln_hooks.go`
 - Data formats guide: `docs/parsley/manual/features/data-formats.md`
 - File I/O guide: `docs/parsley/manual/features/file-io.md`
