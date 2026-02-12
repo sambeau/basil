@@ -1,0 +1,11 @@
+id = "parsley"
+name = "Parsley"
+version = "0.1.0"
+schema_version = 1
+authors = ["Basil Contributors <https://github.com/sambeau/basil>"]
+description = "Parsley language support for Zed - syntax highlighting, bracket matching, and code navigation"
+repository = "https://github.com/sambeau/basil"
+
+[grammars.parsley]
+repository = "https://github.com/sambeau/tree-sitter-parsley"
+rev = "main"

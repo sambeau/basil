@@ -1,0 +1,6 @@
+name = "Parsley"
+grammar = "parsley"
+path_suffixes = ["pars", "part"]
+line_comments = ["// "]
+tab_size = 2
+hard_tabs = false

@@ -1,0 +1,19 @@
+# Zed extension artifacts
+*.wasm
+target/
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
