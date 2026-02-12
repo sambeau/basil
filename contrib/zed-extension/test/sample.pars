@@ -1,0 +1,213 @@
+// Sample Parsley file to test Zed extension features
+// This file demonstrates various Parsley syntax elements
+
+// ==================== VARIABLES ====================
+
+// Simple let statements
+let name = "Alice"
+let age = 30
+let balance = $1000.50
+
+// ==================== FUNCTIONS ====================
+
+// Basic function
+greet = fn(name) {
+  return "Hello, {name}!"
+}
+
+// Function with default parameters
+calculate = fn(a, b = 10) {
+  return a + b
+}
+
+// Function with rest parameters
+sum = fn(...numbers) {
+  let total = 0
+  for n in numbers {
+    total = total + n
+  }
+  total
+}
+
+// ==================== EXPORTS ====================
+
+export message = greet("World")
+
+export computed result = calculate(5, 15)
+
+// ==================== DATA STRUCTURES ====================
+
+// Arrays
+let numbers = [1, 2, 3, 4, 5]
+let mixed = [1, "two", true, null]
+
+// Dictionaries
+let user = {
+  name: "Bob",
+  age: 25,
+  email: "bob@example.com"
+}
+
+// Nested structures
+let data = {
+  users: [
+    {name: "Alice", role: "admin"},
+    {name: "Bob", role: "user"}
+  ],
+  settings: {
+    theme: "dark",
+    notifications: true
+  }
+}
+
+// ==================== AT-LITERALS ====================
+
+// Connection literals
+let db = @sqlite("./data.db")
+let pg = @postgres("postgresql://localhost/mydb")
+
+// Time literals
+let now = @now
+let tomorrow = @now + @1d
+let meeting = @2025-02-15T14:30:00
+let duration = @2h30m
+
+// Path and URL literals
+let config_file = @./config.json
+let api_url = @https://api.example.com/data
+
+// Context literals
+let env_vars = @env
+let cli_args = @args
+
+// Standard library
+let fs = @std/fs
+let http = @std/http
+
+// ==================== OPERATORS ====================
+
+// Arithmetic
+let x = 10 + 5
+let y = 20 - 8
+let z = 3 * 4
+
+// Comparison
+let is_equal = (x == 15)
+let is_greater = (y > 10)
+
+// Logical
+let and_result = true and false
+let or_result = true or false
+
+// Regex matching
+let matches = "hello" ~ /^h/
+let not_matches = "world" !~ /^h/
+
+// Range
+let range = 1..10
+
+// Nullish coalescing
+let value = null ?? "default"
+
+// Concatenation
+let full_name = "John" ++ " " ++ "Doe"
+
+// ==================== CONTROL FLOW ====================
+
+// If expressions
+let status = if age >= 18 {
+  "adult"
+} else {
+  "minor"
+}
+
+// For loops
+for item in numbers {
+  check item > 0 else { skip }
+}
+
+// Try expressions
+let result = try {
+  risky_operation()
+} else {
+  "failed"
+}
+
+// ==================== TAGS (JSX-like) ====================
+
+// Simple tag
+let button = <button>Click me</button>
+
+// Tag with attributes
+let input = <input type="text" placeholder="Enter name"/>
+
+// Tag with embedded expressions
+let greeting_tag = <div>
+  <h1>"Welcome, " + name + "!"</h1>
+  <p>`You are {age} years old.`</p>
+</div>
+
+// Nested tags with iteration
+let user_list = <ul>
+  for user in data.users {
+    <li>user.name + " - " + user.role</li>
+  }
+</ul>
+
+// ==================== STRING INTERPOLATION ====================
+
+// Basic interpolation
+let msg1 = "My name is {name} and I am {age} years old"
+
+// Template strings with backticks
+let multi = `
+  Line 1
+  Line 2: {name}
+  Line 3
+`
+
+// Raw strings with @ interpolation
+let raw = 'No interpolation: {name}, but @{name} works'
+
+// ==================== FILE I/O ====================
+
+// Read from file
+let content = @./input.txt <== ""
+
+// Write to file
+"Hello, World!" ==> @./output.txt
+
+// Append to file
+"New line" ==>> @./log.txt
+
+// ==================== DATABASE OPERATIONS ====================
+
+// Query DSL - structured query syntax
+let users_query = @query(Users | age > 18 ??-> *)
+
+// Query with condition and projection
+let filtered = @query(Users | age > 25 ??-> name, age)
+
+// ==================== DESTRUCTURING ====================
+
+// Array destructuring
+let [first, second, ...rest] = numbers
+
+// Dictionary destructuring
+let {name: user_name, age: user_age} = user
+
+// ==================== COMMENTS ====================
+
+// Single line comment
+
+// Function that does something complex
+process_data = fn(input) {
+  // Step 1: Validate input
+  check input != null else { return null }
+
+  // Step 2: Transform
+  let transformed = transform(input)
+
+  // Step 3: Return result
+  return transformed
+}

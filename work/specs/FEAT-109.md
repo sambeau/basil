@@ -20,11 +20,13 @@ As a potential Parsley user browsing code on GitHub, I want `.pars` files to be 
 
 ## Acceptance Criteria
 
+> **Note:** See [FEAT-109-ZED-INVESTIGATION.md](FEAT-109-ZED-INVESTIGATION.md) for detailed analysis of creating a Zed Editor extension (Feb 2025).
+
 ### Tree-sitter Grammar
 - [x] Grammar covers all Parsley syntax (keywords, literals, operators, strings, comments, tags)
 - [x] Includes `highlights.scm` query file for syntax highlighting
 - [x] Passes all corpus tests (129/129)
-- [ ] Works in Zed editor (pending — repo now public)
+- [x] Works in Zed editor (extension implemented in contrib/zed-extension/)
 - [ ] Works in Neovim with tree-sitter plugin
 - [ ] Works in Helix editor
 
@@ -472,7 +474,29 @@ source = { git = "https://github.com/sambeau/tree-sitter-parsley", rev = "main" 
 ---
 
 ## Implementation Notes
-*To be added during implementation*
+
+### Zed Extension (Feb 2026)
+- **Status**: ✅ Implemented
+- **Location**: `contrib/zed-extension/`
+- **Investigation**: See `FEAT-109-ZED-INVESTIGATION.md` for detailed feasibility analysis
+- **Implementation Plan**: `PLAN-090.md`
+- **Features**:
+  - Full syntax highlighting (using `highlights.scm` from tree-sitter grammar)
+  - Bracket matching for all Parsley bracket types
+  - Code outline with functions and exports
+  - Smart auto-indentation
+  - Support for `.pars` and `.part` files
+- **Testing**: Ready for local testing via Zed's dev extension feature (see `contrib/zed-extension/TESTING.md`)
+- **Next Steps**:
+  1. User validates extension locally in Zed
+  2. Create standalone repository `github.com/sambeau/parsley-zed`
+  3. Submit PR to `zed-industries/extensions` registry
+
+### Tree-sitter Grammar
+- Grammar repository: `contrib/tree-sitter-parsley/`
+- 129/129 corpus tests passing
+- Published as part of Basil monorepo at `https://github.com/sambeau/basil`
+- Zed extension references: `contrib/tree-sitter-parsley` subdirectory
 
 ## Related
 - Report: `work/reports/PARSLEY-1.0-ALPHA-READINESS.md` (Section 5)

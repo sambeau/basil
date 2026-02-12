@@ -1,0 +1,708 @@
+==================
+Function expression — with parameter
+==================
+
+fn(x) { x * 2 }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier))
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+Function expression — multiple parameters
+==================
+
+fn(a, b) { a + b }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier)
+        (identifier))
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (identifier)))))))
+
+==================
+Function expression — no parameters
+==================
+
+fn { 42 }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      body: (block
+        (expression_statement
+          (number))))))
+
+==================
+Function expression — empty parens
+==================
+
+fn() { 42 }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list)
+      body: (block
+        (expression_statement
+          (number))))))
+
+==================
+Function expression — function keyword alias
+==================
+
+function(x) { x }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier))
+      body: (block
+        (expression_statement
+          (identifier))))))
+
+==================
+Function expression — default parameter
+==================
+
+fn(x, y = 0) { x + y }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier)
+        name: (identifier)
+        default: (number))
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (identifier)))))))
+
+==================
+Function expression — rest parameter
+==================
+
+fn(...rest) { rest }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        name: (identifier))
+      body: (block
+        (expression_statement
+          (identifier))))))
+
+==================
+Function expression — destructuring parameter
+==================
+
+fn({a, b}) { a + b }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (dictionary_pattern
+          (identifier)
+          (identifier)))
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (identifier)))))))
+
+==================
+Function expression — array destructuring parameter
+==================
+
+fn([first, second]) { first }
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (array_pattern
+          (identifier)
+          (identifier)))
+      body: (block
+        (expression_statement
+          (identifier))))))
+
+==================
+Function assigned to let
+==================
+
+let double = fn(x) { x * 2 }
+
+---
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (function_expression
+      parameters: (parameter_list
+        (identifier))
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+Function with multiple statements
+==================
+
+fn(x) {
+  let y = x * 2
+  return y + 1
+}
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier))
+      body: (block
+        (let_statement
+          pattern: (identifier)
+          value: (infix_expression
+            left: (identifier)
+            right: (number)))
+        (return_statement
+          value: (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+If expression — with parens and block
+==================
+
+if (x > 0) { "positive" }
+
+---
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (infix_expression
+        left: (identifier)
+        right: (number))
+      consequence: (expression_statement
+        (block
+          (expression_statement
+            (string)))))))
+
+==================
+If expression — with else
+==================
+
+if (x > 0) { "yes" } else { "no" }
+
+---
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (infix_expression
+        left: (identifier)
+        right: (number))
+      consequence: (expression_statement
+        (block
+          (expression_statement
+            (string))))
+      alternative: (block
+        (expression_statement
+          (string))))))
+
+==================
+If expression — without parens
+==================
+
+if x > 0 { "yes" } else { "no" }
+
+---
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (infix_expression
+        left: (identifier)
+        right: (number))
+      consequence: (block
+        (expression_statement
+          (string)))
+      alternative: (block
+        (expression_statement
+          (string))))))
+
+==================
+If expression — chained else if
+==================
+
+if (a) { 1 } else if (b) { 2 } else { 3 }
+
+---
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (identifier)
+      consequence: (expression_statement
+        (block
+          (expression_statement
+            (number))))
+      alternative: (expression_statement
+        (if_expression
+          condition: (identifier)
+          consequence: (expression_statement
+            (block
+              (expression_statement
+                (number))))
+          alternative: (expression_statement
+            (block
+              (expression_statement
+                (number)))))))))
+
+==================
+If expression — compact ternary style
+==================
+
+if (x > 0) "yes" else "no"
+
+---
+
+(source_file
+  (expression_statement
+    (if_expression
+      condition: (infix_expression
+        left: (identifier)
+        right: (number))
+      consequence: (expression_statement
+        (string))
+      alternative: (expression_statement
+        (string)))))
+
+==================
+If expression — assigned to let
+==================
+
+let status = if (age >= 18) { "adult" } else { "minor" }
+
+---
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (if_expression
+      condition: (infix_expression
+        left: (identifier)
+        right: (number))
+      consequence: (expression_statement
+        (block
+          (expression_statement
+            (string))))
+      alternative: (expression_statement
+        (block
+          (expression_statement
+            (string)))))))
+
+==================
+For expression — iteration with parens
+==================
+
+for (x in arr) { x * 2 }
+
+---
+
+(source_file
+  (expression_statement
+    (for_expression
+      variable: (identifier)
+      iterable: (identifier)
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+For expression — iteration without parens
+==================
+
+for x in arr { x * 2 }
+
+---
+
+(source_file
+  (expression_statement
+    (for_expression
+      variable: (identifier)
+      iterable: (identifier)
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+For expression — key value iteration
+==================
+
+for (k, v in dict) { k }
+
+---
+
+(source_file
+  (expression_statement
+    (for_expression
+      key: (identifier)
+      variable: (identifier)
+      iterable: (identifier)
+      body: (block
+        (expression_statement
+          (identifier))))))
+
+==================
+For expression — mapping form
+==================
+
+for (arr) fn(x) { x * 2 }
+
+---
+
+(source_file
+  (expression_statement
+    (for_expression
+      iterable: (identifier)
+      mapper: (function_expression
+        parameters: (parameter_list
+          (identifier))
+        body: (block
+          (expression_statement
+            (infix_expression
+              left: (identifier)
+              right: (number))))))))
+
+==================
+For expression — assigned to let
+==================
+
+let doubled = for (n in [1, 2, 3]) { n * 2 }
+
+---
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (for_expression
+      variable: (identifier)
+      iterable: (array_literal
+        (number)
+        (number)
+        (number))
+      body: (block
+        (expression_statement
+          (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+For expression — with if inside
+==================
+
+for (n in [1, 2, 3, 4]) {
+  if (n % 2 == 0) { n }
+}
+
+---
+
+(source_file
+  (expression_statement
+    (for_expression
+      variable: (identifier)
+      iterable: (array_literal
+        (number)
+        (number)
+        (number)
+        (number))
+      body: (block
+        (expression_statement
+          (if_expression
+            condition: (infix_expression
+              left: (infix_expression
+                left: (identifier)
+                right: (number))
+              right: (number))
+            consequence: (block
+              (expression_statement
+                (identifier)))))))))
+
+==================
+Try expression — function call
+==================
+
+try fetchData()
+
+---
+
+(source_file
+  (expression_statement
+    (try_expression
+      call: (call_expression
+        function: (identifier)
+        arguments: (arguments)))))
+
+==================
+Try expression — method call
+==================
+
+try obj.load()
+
+---
+
+(source_file
+  (expression_statement
+    (try_expression
+      call: (call_expression
+        function: (member_expression
+          object: (identifier)
+          property: (identifier))
+        arguments: (arguments)))))
+
+==================
+Import expression — stdlib
+==================
+
+import @std/math
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import))))
+
+==================
+Import expression — with alias
+==================
+
+import @std/math as M
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import)
+      alias: (identifier))))
+
+==================
+Import expression — path literal
+==================
+
+import @./utils.pars
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (path_literal))))
+
+==================
+Import expression — destructuring
+==================
+
+let {Page} = import @std/html
+
+---
+
+(source_file
+  (let_statement
+    pattern: (dictionary_pattern
+      (identifier))
+    value: (import_expression
+      source: (stdlib_import))))
+
+==================
+Check statement
+==================
+
+check x > 0 else "negative"
+
+---
+
+(source_file
+  (check_statement
+    condition: (infix_expression
+      left: (identifier)
+      right: (number))
+    fallback: (string)))
+
+==================
+Check statement — dict fallback
+==================
+
+check data else {error: "no data"}
+
+---
+
+(source_file
+  (check_statement
+    condition: (identifier)
+    fallback: (dictionary_literal
+      (pair
+        key: (identifier)
+        value: (string)))))
+
+==================
+Return with value
+==================
+
+fn(x) {
+  return x + 1
+}
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list
+        (identifier))
+      body: (block
+        (return_statement
+          value: (infix_expression
+            left: (identifier)
+            right: (number)))))))
+
+==================
+Return bare
+==================
+
+fn() {
+  return
+}
+
+---
+
+(source_file
+  (expression_statement
+    (function_expression
+      parameters: (parameter_list)
+      body: (block
+        (return_statement)))))
+
+==================
+Block expression
+==================
+
+{
+  let x = 1
+  x + 2
+}
+
+---
+
+(source_file
+  (expression_statement
+    (block
+      (let_statement
+        pattern: (identifier)
+        value: (number))
+      (expression_statement
+        (infix_expression
+          left: (identifier)
+          right: (number))))))
+
+==================
+Component pattern — function returning tags
+==================
+
+let Page = fn({title, contents}) {
+  <html>
+    <head>
+      <title>title</title>
+    </head>
+    <body>
+      contents
+    </body>
+  </html>
+}
+
+---
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (function_expression
+      parameters: (parameter_list
+        (dictionary_pattern
+          (identifier)
+          (identifier)))
+      body: (block
+        (expression_statement
+          (tag_expression
+            (open_tag
+              (tag_start))
+            (expression_statement
+              (tag_expression
+                (open_tag
+                  (tag_start))
+                (expression_statement
+                  (tag_expression
+                    (open_tag
+                      (tag_start))
+                    (expression_statement
+                      (identifier))
+                    (close_tag
+                      name: (tag_name))))
+                (close_tag
+                  name: (tag_name))))
+            (expression_statement
+              (tag_expression
+                (open_tag
+                  (tag_start))
+                (expression_statement
+                  (identifier))
+                (close_tag
+                  name: (tag_name))))
+            (close_tag
+              name: (tag_name))))))))

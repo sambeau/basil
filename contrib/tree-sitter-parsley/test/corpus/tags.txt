@@ -1,264 +1,380 @@
-================================================================================
-Self-closing tag - simple
-================================================================================
+==================
+Self-closing tag — simple
+==================
 
 <br/>
 
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
       (self_closing_tag
-        name: (tag_name)))))
+        (tag_start)))))
 
-================================================================================
-Self-closing tag - with attribute
-================================================================================
+==================
+Self-closing tag — with attribute
+==================
 
-<img src="image.png"/>
+<input type="text"/>
 
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
       (self_closing_tag
-        name: (tag_name)
+        (tag_start)
         (tag_attribute
           name: (attribute_name)
           value: (string))))))
 
-================================================================================
-Self-closing tag - multiple attributes
-================================================================================
+==================
+Self-closing tag — with @field attribute
+==================
 
-<input type="text" name="username" required/>
+<input @field="name"/>
 
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
       (self_closing_tag
-        name: (tag_name)
+        (tag_start)
+        (tag_attribute
+          name: (attribute_name)
+          value: (string))))))
+
+==================
+Self-closing tag — with multiple attributes
+==================
+
+<img src="photo.jpg" alt="A photo"/>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (self_closing_tag
+        (tag_start)
         (tag_attribute
           name: (attribute_name)
           value: (string))
         (tag_attribute
           name: (attribute_name)
-          value: (string))
-        (tag_attribute
-          name: (attribute_name))))))
+          value: (string))))))
 
-================================================================================
-Self-closing tag - expression attribute
-================================================================================
+==================
+Open/close tag — string content
+==================
 
-<div class={className}/>
+<p>"Hello"</p>
 
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (self_closing_tag
-        name: (tag_name)
-        (tag_attribute
-          name: (attribute_name)
-          value: (tag_embedded_expression (identifier)))))))
-
-================================================================================
-Self-closing tag - spread attribute
-================================================================================
-
-<div ...props/>
-
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (self_closing_tag
-        name: (tag_name)
-        (tag_attribute
-          (tag_spread_attribute (identifier)))))))
-
-================================================================================
-Open and close tag - empty
-================================================================================
-
-<div></div>
-
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Tag with text content
-================================================================================
-
-<p>Hello world</p>
-
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (tag_text)
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Tag with embedded expression
-================================================================================
-
-<p>{message}</p>
-
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (tag_embedded_expression (identifier))
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Tag with mixed content
-================================================================================
-
-<p>Hello {name}!</p>
-
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (tag_text)
-      (tag_embedded_expression (identifier))
-      (tag_text)
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Nested tags
-================================================================================
-
-<div><span>text</span></div>
-
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (tag_expression
-        (open_tag name: (tag_name))
-        (tag_text)
-        (close_tag name: (tag_name)))
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Tag with attributes and content
-================================================================================
-
-<a href="https://example.com">Click here</a>
-
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
       (open_tag
-        name: (tag_name)
+        (tag_start))
+      (expression_statement
+        (string))
+      (close_tag
+        (tag_name)))))
+
+==================
+Open/close tag — identifier content
+==================
+
+<p>name</p>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (identifier))
+      (close_tag
+        (tag_name)))))
+
+==================
+Open/close tag — with class attribute
+==================
+
+<div class="container">"Content"</div>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start)
         (tag_attribute
           name: (attribute_name)
           value: (string)))
-      (tag_text)
-      (close_tag name: (tag_name)))))
+      (expression_statement
+        (string))
+      (close_tag
+        name: (tag_name)))))
 
-================================================================================
-Deeply nested tags
-================================================================================
+==================
+Tag — expression attribute value
+==================
 
-<html><body><div><p>text</p></div></body></html>
+<div class={expr}>"Content"</div>
 
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (tag_expression
-        (open_tag name: (tag_name))
-        (tag_expression
-          (open_tag name: (tag_name))
-          (tag_expression
-            (open_tag name: (tag_name))
-            (tag_text)
-            (close_tag name: (tag_name)))
-          (close_tag name: (tag_name)))
-        (close_tag name: (tag_name)))
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Tag with expression content
-================================================================================
-
-<ul>{items.map(fn(item) <li>{item}</li>)}</ul>
-
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
-      (open_tag name: (tag_name))
-      (tag_embedded_expression
-        (call_expression
-          function: (member_expression
-            object: (identifier)
-            property: (identifier))
-          arguments: (arguments
-            (function_expression
-              parameters: (parameter_list (identifier))
-              body: (tag_expression
-                (open_tag name: (tag_name))
-                (tag_embedded_expression (identifier))
-                (close_tag name: (tag_name)))))))
-      (close_tag name: (tag_name)))))
+      (open_tag
+        (tag_start)
+        (tag_attribute
+          name: (attribute_name)
+          value: (tag_expression_value
+            (identifier))))
+      (expression_statement
+        (string))
+      (close_tag
+        name: (tag_name)))))
 
-================================================================================
-Tag names with hyphens
-================================================================================
+==================
+Tag — boolean attribute
+==================
 
-<my-component></my-component>
+<input disabled/>
 
---------------------------------------------------------------------------------
-
-(source_file
-  (expression_statement
-    (tag_expression
-      (open_tag name: (tag_name))
-      (close_tag name: (tag_name)))))
-
-================================================================================
-Attribute names with hyphens
-================================================================================
-
-<div data-id="123" aria-label="test"/>
-
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
       (self_closing_tag
-        name: (tag_name)
+        (tag_start)
+        (tag_attribute
+          name: (attribute_name))))))
+
+==================
+Tag — spread attribute
+==================
+
+<button ...props>"Click"</button>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start)
+        (tag_spread_attribute
+          expression: (identifier)))
+      (expression_statement
+        (string))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Nested tags
+==================
+
+<div><span>"nested"</span></div>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (tag_expression
+          (open_tag
+            (tag_start))
+          (expression_statement
+            (string))
+          (close_tag
+            (tag_name))))
+      (close_tag
+        (tag_name)))))
+
+==================
+Tag with for loop content
+==================
+
+<ul>
+  for (item in items) {
+    <li>item</li>
+  }
+</ul>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (for_expression
+          variable: (identifier)
+          iterable: (identifier)
+          body: (block
+            (expression_statement
+              (tag_expression
+                (open_tag
+                  (tag_start))
+                (expression_statement
+                  (identifier))
+                (close_tag
+                  name: (tag_name)))))))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Tag with if content
+==================
+
+<div>
+  if (condition) {
+    <p>"yes"</p>
+  } else {
+    <p>"no"</p>
+  }
+</div>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (if_expression
+          condition: (identifier)
+          consequence: (expression_statement
+            (block
+              (expression_statement
+                (tag_expression
+                  (open_tag
+                    (tag_start))
+                  (expression_statement
+                    (string))
+                  (close_tag
+                    name: (tag_name))))))
+          alternative: (block
+            (expression_statement
+              (tag_expression
+                (open_tag
+                  (tag_start))
+                (expression_statement
+                  (string))
+                (close_tag
+                  name: (tag_name)))))))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Tag with let statement content
+==================
+
+<div>
+  let x = 5
+  x
+</div>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (let_statement
+        pattern: (identifier)
+        value: (number))
+      (expression_statement
+        (identifier))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Tag with complex expression attribute
+==================
+
+<th class={"th-" ++ k}>"Header"</th>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start)
+        (tag_attribute
+          name: (attribute_name)
+          value: (tag_expression_value
+            (infix_expression
+              left: (string)
+              right: (identifier)))))
+      (expression_statement
+        (string))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Grouping tag
+==================
+
+<>"content"</>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (expression_statement
+        (string)))))
+
+==================
+Tag — hyphenated name
+==================
+
+<my-component>"content"</my-component>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (string))
+      (close_tag
+        (tag_name)))))
+
+==================
+Tag — link with href
+==================
+
+<link rel="stylesheet" href="/style.css"/>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (self_closing_tag
+        (tag_start)
         (tag_attribute
           name: (attribute_name)
           value: (string))
@@ -266,47 +382,370 @@ Attribute names with hyphens
           name: (attribute_name)
           value: (string))))))
 
-================================================================================
-Component tag (capitalized)
-================================================================================
+==================
+Tag — empty div
+==================
 
-<Header title="Welcome"/>
+<div></div>
 
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
-      (self_closing_tag
-        name: (tag_name)
+      (open_tag
+        (tag_start))
+      (close_tag
+        (tag_name)))))
+
+==================
+Tag — table with iteration
+==================
+
+<table>
+  <thead>
+    <tr>
+      for (k, _ in rows[0]) {
+        <th>k</th>
+      }
+    </tr>
+  </thead>
+</table>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (tag_expression
+          (open_tag
+            (tag_start))
+          (expression_statement
+            (tag_expression
+              (open_tag
+                (tag_start))
+              (expression_statement
+                (for_expression
+                  key: (identifier)
+                  variable: (identifier)
+                  iterable: (index_expression
+                    object: (identifier)
+                    index: (number))
+                  body: (block
+                    (expression_statement
+                      (tag_expression
+                        (open_tag
+                          (tag_start))
+                        (expression_statement
+                          (identifier))
+                        (close_tag
+                          name: (tag_name)))))))
+              (close_tag
+                name: (tag_name))))
+          (close_tag
+            name: (tag_name))))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Tag — Component with children
+==================
+
+<Page title="Home">
+  <h1>"Welcome!"</h1>
+</Page>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start)
         (tag_attribute
           name: (attribute_name)
-          value: (string))))))
+          value: (string)))
+      (expression_statement
+        (tag_expression
+          (open_tag
+            (tag_start))
+          (expression_statement
+            (string))
+          (close_tag
+            name: (tag_name))))
+      (close_tag
+        name: (tag_name)))))
 
-================================================================================
-Multiple sibling tags in expression
-================================================================================
+==================
+Tag — multiple children
+==================
 
 <div>
-  <p>First</p>
-  <p>Second</p>
+  <h1>"Title"</h1>
+  <p>"Paragraph one"</p>
+  <p>"Paragraph two"</p>
 </div>
 
---------------------------------------------------------------------------------
+---
 
 (source_file
   (expression_statement
     (tag_expression
-      (open_tag name: (tag_name))
-      (tag_text)
-      (tag_expression
-        (open_tag name: (tag_name))
-        (tag_text)
-        (close_tag name: (tag_name)))
-      (tag_text)
-      (tag_expression
-        (open_tag name: (tag_name))
-        (tag_text)
-        (close_tag name: (tag_name)))
-      (tag_text)
-      (close_tag name: (tag_name)))))
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (tag_expression
+          (open_tag
+            (tag_start))
+          (expression_statement
+            (string))
+          (close_tag
+            name: (tag_name))))
+      (expression_statement
+        (tag_expression
+          (open_tag
+            (tag_start))
+          (expression_statement
+            (string))
+          (close_tag
+            name: (tag_name))))
+      (expression_statement
+        (tag_expression
+          (open_tag
+            (tag_start))
+          (expression_statement
+            (string))
+          (close_tag
+            name: (tag_name))))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Tag — dotted component name
+==================
+
+<ui.Button>"Click"</ui.Button>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (string))
+      (close_tag
+        (tag_name)))))
+
+==================
+Tag with method call on expression inside
+==================
+
+<p>name.toTitle()</p>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (call_expression
+          function: (member_expression
+            object: (identifier)
+            property: (identifier))
+          arguments: (arguments)))
+      (close_tag
+        name: (tag_name)))))
+
+==================
+Style tag — simple
+==================
+
+<style>
+  .container { color: red; }
+</style>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (style_tag
+        (raw_text)))))
+
+==================
+Style tag — with attribute
+==================
+
+<style type="text/css">
+  .cls { background: blue; }
+</style>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (style_tag
+        (tag_attribute
+          name: (attribute_name)
+          value: (string))
+        (raw_text)))))
+
+==================
+Style tag — with interpolation
+==================
+
+<style>
+  .cls { color: @{theme.color}; }
+</style>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (style_tag
+        (raw_text)
+        (raw_text_interpolation
+          (raw_text_interpolation_start)
+          (member_expression
+            object: (identifier)
+            property: (identifier)))
+        (raw_text)))))
+
+==================
+Style tag — multiple interpolations
+==================
+
+<style>
+  :root {
+    --bg: @{colors.bg};
+    --fg: @{colors.fg};
+  }
+</style>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (style_tag
+        (raw_text)
+        (raw_text_interpolation
+          (raw_text_interpolation_start)
+          (member_expression
+            object: (identifier)
+            property: (identifier)))
+        (raw_text)
+        (raw_text_interpolation
+          (raw_text_interpolation_start)
+          (member_expression
+            object: (identifier)
+            property: (identifier)))
+        (raw_text)))))
+
+==================
+Script tag — simple
+==================
+
+<script>
+  console.log("hello");
+</script>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (script_tag
+        (raw_text)))))
+
+==================
+Script tag — with interpolation
+==================
+
+<script>
+  const x = @{value};
+</script>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (script_tag
+        (raw_text)
+        (raw_text_interpolation
+          (raw_text_interpolation_start)
+          (identifier))
+        (raw_text)))))
+
+==================
+Style tag — empty
+==================
+
+<style></style>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (style_tag))))
+
+==================
+Script tag — literal braces preserved
+==================
+
+<script>
+  if (x) { console.log(x); }
+</script>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (script_tag
+        (raw_text)))))
+
+==================
+Tag with not in condition inside
+==================
+
+<div>
+  if (k not in hidden) {
+    <span>k</span>
+  }
+</div>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (open_tag
+        (tag_start))
+      (expression_statement
+        (if_expression
+          condition: (not_in_expression
+            left: (identifier)
+            right: (identifier))
+          consequence: (block
+            (expression_statement
+              (tag_expression
+                (open_tag
+                  (tag_start))
+                (expression_statement
+                  (identifier))
+                (close_tag
+                  name: (tag_name)))))))
+      (close_tag
+        name: (tag_name)))))

@@ -133,6 +133,8 @@ func (p *Parser) parseValue() evaluator.Object {
 		return p.parsePath()
 	case URL:
 		return p.parseURL()
+	case MONEY:
+		return p.parseMoney()
 	case ERRORS:
 		// @errors without a preceding record
 		p.addError("@errors must follow a record")
@@ -468,38 +470,216 @@ func timeToDictWithKind(t time.Time, kind string, env *evaluator.Environment) *e
 	}
 }
 
-// parsePath parses a path literal
+// parsePath parses a path literal and returns a path dict matching evaluator format
 func (p *Parser) parsePath() evaluator.Object {
-	path := p.curToken.Literal
+	pathStr := p.curToken.Literal
 	p.nextToken()
 
-	// Return as a dictionary with __type: "path" for now
-	// TODO: Return proper Path object when Parsley supports it
+	// Parse path into segments and determine if absolute
+	isAbsolute := strings.HasPrefix(pathStr, "/")
+
+	// Split into segments, handling relative paths (./, ../)
+	var segments []string
+	parts := strings.Split(pathStr, "/")
+	for _, part := range parts {
+		if part != "" {
+			segments = append(segments, part)
+		}
+	}
+
+	// Build segments array
+	segmentExprs := make([]ast.Expression, len(segments))
+	for i, seg := range segments {
+		segmentExprs[i] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: seg}}
+	}
+
 	pairs := make(map[string]ast.Expression)
 	pairs["__type"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: "path"}}
-	pairs["value"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: path}}
+	pairs["segments"] = &ast.ObjectLiteralExpression{Obj: &evaluator.Array{Elements: func() []evaluator.Object {
+		objs := make([]evaluator.Object, len(segments))
+		for i, seg := range segments {
+			objs[i] = &evaluator.String{Value: seg}
+		}
+		return objs
+	}()}}
+	pairs["absolute"] = &ast.ObjectLiteralExpression{Obj: &evaluator.Boolean{Value: isAbsolute}}
 
 	return &evaluator.Dictionary{
 		Pairs:    pairs,
-		KeyOrder: []string{"__type", "value"},
+		KeyOrder: []string{"__type", "segments", "absolute"},
 		Env:      p.env,
 	}
 }
 
-// parseURL parses a URL literal
+// parseURL parses a URL literal and returns a URL dict matching evaluator format
 func (p *Parser) parseURL() evaluator.Object {
-	url := p.curToken.Literal
+	urlStr := p.curToken.Literal
 	p.nextToken()
 
-	// Return as a dictionary with __type: "url" for now
-	// TODO: Return proper URL object when Parsley supports it
 	pairs := make(map[string]ast.Expression)
 	pairs["__type"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: "url"}}
-	pairs["value"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: url}}
+
+	// Parse URL: scheme://[user:pass@]host[:port]/path?query#fragment
+	rest := urlStr
+
+	// Parse scheme
+	scheme := ""
+	if idx := strings.Index(rest, "://"); idx != -1 {
+		scheme = rest[:idx]
+		rest = rest[idx+3:]
+	}
+	pairs["scheme"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: scheme}}
+
+	// Parse fragment
+	fragment := ""
+	if idx := strings.Index(rest, "#"); idx != -1 {
+		fragment = rest[idx+1:]
+		rest = rest[:idx]
+	}
+	pairs["fragment"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: fragment}}
+
+	// Parse query
+	queryPairs := make(map[string]ast.Expression)
+	if idx := strings.Index(rest, "?"); idx != -1 {
+		queryStr := rest[idx+1:]
+		rest = rest[:idx]
+		for _, param := range strings.Split(queryStr, "&") {
+			if param == "" {
+				continue
+			}
+			kv := strings.SplitN(param, "=", 2)
+			key := kv[0]
+			value := ""
+			if len(kv) > 1 {
+				value = kv[1]
+			}
+			queryPairs[key] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: value}}
+		}
+	}
+	pairs["query"] = &ast.ObjectLiteralExpression{Obj: &evaluator.Dictionary{Pairs: queryPairs, Env: p.env}}
+
+	// Parse path
+	var pathSegments []evaluator.Object
+	if idx := strings.Index(rest, "/"); idx != -1 {
+		pathStr := rest[idx+1:]
+		rest = rest[:idx]
+		for _, seg := range strings.Split(pathStr, "/") {
+			if seg != "" {
+				pathSegments = append(pathSegments, &evaluator.String{Value: seg})
+			}
+		}
+	}
+	pairs["path"] = &ast.ObjectLiteralExpression{Obj: &evaluator.Array{Elements: pathSegments}}
+
+	// Parse userinfo and host:port
+	username := ""
+	password := ""
+	if idx := strings.Index(rest, "@"); idx != -1 {
+		userinfo := rest[:idx]
+		rest = rest[idx+1:]
+		if colonIdx := strings.Index(userinfo, ":"); colonIdx != -1 {
+			username = userinfo[:colonIdx]
+			password = userinfo[colonIdx+1:]
+		} else {
+			username = userinfo
+		}
+	}
+	pairs["username"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: username}}
+	pairs["password"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: password}}
+
+	// Parse host:port
+	host := rest
+	var port int64 = 0
+	if colonIdx := strings.LastIndex(rest, ":"); colonIdx != -1 {
+		portStr := rest[colonIdx+1:]
+		if p, err := strconv.ParseInt(portStr, 10, 64); err == nil {
+			host = rest[:colonIdx]
+			port = p
+		}
+	}
+	pairs["host"] = &ast.ObjectLiteralExpression{Obj: &evaluator.String{Value: host}}
+	pairs["port"] = &ast.ObjectLiteralExpression{Obj: &evaluator.Integer{Value: port}}
 
 	return &evaluator.Dictionary{
 		Pairs:    pairs,
-		KeyOrder: []string{"__type", "value"},
+		KeyOrder: []string{"__type", "scheme", "host", "port", "path", "query", "fragment", "username", "password"},
 		Env:      p.env,
+	}
+}
+
+// parseMoney parses a money literal like USD#19.99 and returns a native Money object
+func (p *Parser) parseMoney() evaluator.Object {
+	literal := p.curToken.Literal
+	p.nextToken()
+
+	// Parse the CODE#amount format (e.g., "USD#19.99", "JPY#500", "GBP#-9.99")
+	parts := strings.SplitN(literal, "#", 2)
+	if len(parts) != 2 {
+		p.addError("invalid money literal: %s", literal)
+		return nil
+	}
+
+	currency := parts[0]
+	amountStr := parts[1]
+
+	// Handle negative sign
+	negative := false
+	if strings.HasPrefix(amountStr, "-") {
+		negative = true
+		amountStr = amountStr[1:]
+	}
+
+	// Determine scale from currency
+	scale := int8(2) // default
+	if knownScale, ok := CurrencyScales[currency]; ok {
+		scale = knownScale
+	}
+
+	// Parse the amount
+	// The lexer outputs CODE#whole.frac where frac is zero-padded to scale
+	var amount int64
+	var err error
+
+	if strings.Contains(amountStr, ".") {
+		// Parse as float and convert to smallest units
+		dotIdx := strings.Index(amountStr, ".")
+		wholePart := amountStr[:dotIdx]
+		fracPart := amountStr[dotIdx+1:]
+
+		whole, err := strconv.ParseInt(wholePart, 10, 64)
+		if err != nil {
+			p.addError("invalid money amount: %s", amountStr)
+			return nil
+		}
+
+		frac, err := strconv.ParseInt(fracPart, 10, 64)
+		if err != nil {
+			p.addError("invalid money amount: %s", amountStr)
+			return nil
+		}
+
+		// Calculate amount in smallest units
+		multiplier := int64(1)
+		for i := int8(0); i < scale; i++ {
+			multiplier *= 10
+		}
+		amount = whole*multiplier + frac
+	} else {
+		// No decimal point - amount is already in smallest units for zero-scale currencies
+		amount, err = strconv.ParseInt(amountStr, 10, 64)
+		if err != nil {
+			p.addError("invalid money amount: %s", amountStr)
+			return nil
+		}
+	}
+
+	if negative {
+		amount = -amount
+	}
+
+	return &evaluator.Money{
+		Amount:   amount,
+		Currency: currency,
+		Scale:    scale,
 	}
 }

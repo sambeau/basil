@@ -1,0 +1,825 @@
+==================
+Query DSL — simple select all
+==================
+
+@query(Users ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — single condition
+==================
+
+@query(Users | status == "active" ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — condition with interpolation
+==================
+
+@query(Users | status == {userStatus} ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (query_interpolation
+                (identifier)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — multiple conditions
+==================
+
+@query(Users | status == "active" | role == "admin" ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — comparison operators
+==================
+
+@query(Users | age >= 18 | score < 100 ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (number))))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (number))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — in operator
+==================
+
+@query(Users | status in ["active", "pending"] ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (array_literal
+                (string)
+                (string)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — not in operator
+==================
+
+@query(Users | status not in ["deleted", "banned"] ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (array_literal
+                (string)
+                (string)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — is null
+==================
+
+@query(Users | deleted_at is null ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_null_check)))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — is not null
+==================
+
+@query(Users | email is not null ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_null_check)))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — like operator
+==================
+
+@query(Users | name like "%john%" ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — grouped conditions with or
+==================
+
+@query(Users | (status == "active" or role == "admin") ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition_group
+            (query_condition
+              (query_field_ref
+                (identifier))
+              (query_operator)
+              (query_value
+                (string)))
+            (query_condition
+              (query_field_ref
+                (identifier))
+              (query_operator)
+              (query_value
+                (string)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — grouped conditions with and
+==================
+
+@query(Users | (age >= 18 and verified == true) ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition_group
+            (query_condition
+              (query_field_ref
+                (identifier))
+              (query_operator)
+              (query_value
+                (number)))
+            (query_condition
+              (query_field_ref
+                (identifier))
+              (query_operator)
+              (query_value
+                (boolean)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — negated condition
+==================
+
+@query(Users | not status == "deleted" ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — negated group
+==================
+
+@query(Users | not (status == "deleted" or banned == true) ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition_group
+            (query_condition
+              (query_field_ref
+                (identifier))
+              (query_operator)
+              (query_value
+                (string)))
+            (query_condition
+              (query_field_ref
+                (identifier))
+              (query_operator)
+              (query_value
+                (boolean)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — order modifier
+==================
+
+@query(Users | order name ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_modifier
+            (query_order_modifier
+              (query_order_field
+                (identifier)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — order with direction
+==================
+
+@query(Users | order name asc ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_modifier
+            (query_order_modifier
+              (query_order_field
+                (identifier)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — order multiple fields
+==================
+
+@query(Users | order lastname asc, firstname desc ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_modifier
+            (query_order_modifier
+              (query_order_field
+                (identifier))
+              (query_order_field
+                (identifier)))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — limit modifier
+==================
+
+@query(Users | limit 10 ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_modifier
+            (query_limit_modifier
+              (number))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — offset modifier
+==================
+
+@query(Users | offset 20 ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_modifier
+            (query_offset_modifier
+              (number))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — combined order and limit
+==================
+
+@query(Users | order name | limit 10 ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_modifier
+            (query_order_modifier
+              (query_order_field
+                (identifier)))))
+        (query_clause
+          (query_modifier
+            (query_limit_modifier
+              (number))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — group by
+==================
+
+@query(Users + by department ??-> department, count)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_group_by
+          (identifier))
+        (query_terminal
+          (query_projection
+            (identifier)
+            (identifier)))))))
+
+==================
+Query DSL — group by multiple fields
+==================
+
+@query(Orders + by year, month ??-> year, month, total)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_group_by
+          (identifier)
+          (identifier))
+        (query_terminal
+          (query_projection
+            (identifier)
+            (identifier)
+            (identifier)))))))
+
+==================
+Query DSL — source with alias
+==================
+
+@query(Users as u ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier)
+          alias: (identifier))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — computed field count
+==================
+
+@query(Users | total: count ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_computed_field
+            name: (identifier)
+            (query_aggregate)))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — computed field aggregate function
+==================
+
+@query(Orders | total: sum(amount) ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_computed_field
+            name: (identifier)
+            (query_aggregate
+              (identifier))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — projection fields
+==================
+
+@query(Users ??-> id, name, email)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_terminal
+          (query_projection
+            (identifier)
+            (identifier)
+            (identifier)))))))
+
+==================
+Query DSL — return one terminal
+==================
+
+@query(Users | id == 1 ?-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (number))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — toSQL projection
+==================
+
+@query(Users | status == "active" ??-> toSQL)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — dot terminal (execute)
+==================
+
+@query(Users | id == 1 .)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (number))))
+        (query_terminal)))))
+
+==================
+Query DSL — correlated subquery
+==================
+
+@query(Users as u | orders <-Orders | user_id == u.id ?-> count ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier)
+          alias: (identifier))
+        (query_clause
+          (query_computed_field
+            name: (identifier)
+            (query_subquery
+              table: (identifier)
+              (query_clause
+                (query_condition
+                  (query_field_ref
+                    (identifier))
+                  (query_operator)
+                  (query_value
+                    (query_column_ref
+                      (identifier)
+                      (identifier)))))
+              (query_terminal
+                (query_projection
+                  (identifier))))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — column to column comparison
+==================
+
+@query(Products | price > cost ??-> name)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (query_column_ref
+                (identifier)))))
+        (query_terminal
+          (query_projection
+            (identifier)))))))
+
+==================
+Query DSL — between operator
+==================
+
+@query(Users | age between 18 and 65 ??-> *)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_value
+              (number))
+            (query_value
+              (number))))
+        (query_terminal
+          (query_projection))))))
+
+==================
+Query DSL — complex combined query
+==================
+
+@query(Users | status == "active" | age >= 18 | order name asc | limit 10 ??-> id, name, email)
+
+---
+
+(source_file
+  (expression_statement
+    (query_expression
+      (query_body
+        (query_source
+          table: (identifier))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (string))))
+        (query_clause
+          (query_condition
+            (query_field_ref
+              (identifier))
+            (query_operator)
+            (query_value
+              (number))))
+        (query_clause
+          (query_modifier
+            (query_order_modifier
+              (query_order_field
+                (identifier)))))
+        (query_clause
+          (query_modifier
+            (query_limit_modifier
+              (number))))
+        (query_terminal
+          (query_projection
+            (identifier)
+            (identifier)
+            (identifier)))))))

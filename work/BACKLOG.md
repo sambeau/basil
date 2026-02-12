@@ -56,6 +56,9 @@ Deferred items from implementation, to be picked up in future work.
 | #95 | `pars --check` with stdin input | FEAT-106 | Enhancement | Support `pars --check -` to read and validate Parsley code from stdin. Useful for editor integration and pipelines. Would require detecting `-` as special filename. |
 | #96 | JSON output format for `--check` | FEAT-106 | Tooling enhancement | Add `pars --check --json file.pars` to output structured error information in JSON format for tool integration (editors, CI/CD). Would need to serialize ParsleyError structs to JSON. |
 | #97 | Named capture groups should return dictionaries | Backlog | Enhancement | Regex named capture groups like `(?P<name>\w+)` currently return an array (ignoring names). Should return a dictionary with named keys so results can be destructured: `let {first, last} = str ~ /(?P<first>\w+)\s+(?P<last>\w+)/`. Currently returns `["full match", "first", "last"]` instead of `{first: "...", last: "..."}`. |
+| #98 | Tree-sitter: Complex regex escape handling | PLAN-092 | Parser limitation | Regex literals with `\/` escapes (e.g., `/^https?:\/\/.+/`) fail because the token-level regex pattern stops at the first `/`. Full fix requires external scanner to track escape sequences. Affects 2 example files with URL-matching regexes. |
+| #99 | Tree-sitter: XML comment support | PLAN-092 | Parser limitation | `<!-- ... -->` inside tags are not parsed. Would need grammar rule or external scanner support. Affects svg_xml_demo.pars example. |
+| #100 | Tree-sitter: HTML-like tags inside strings | PLAN-092 | Parser limitation | Edge case where `<tag>` appears inside a quoted string (e.g., `"text <code>more"</code>"`) causes ambiguous parsing. Tree-sitter sees `<code>` as tag start even inside string context. Affects 2 example files. Would require complex lookahead or string content redesign. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |

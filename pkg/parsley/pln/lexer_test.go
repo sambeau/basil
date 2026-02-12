@@ -387,3 +387,82 @@ func TestLexUnicodeString(t *testing.T) {
 		}
 	}
 }
+
+func TestLexMoney(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"$19.99", "USD#19.99"},
+		{"$100", "USD#100.00"},
+		{"USD#19.99", "USD#19.99"},
+		{"JPY#500", "JPY#500"},
+		{"EUR#-10.50", "EUR#-10.50"},
+		{"GBP#1000.00", "GBP#1000.00"},
+	}
+
+	for _, tt := range tests {
+		l := NewLexer(tt.input)
+		tok := l.NextToken()
+		if tok.Type != MONEY {
+			t.Errorf("input %q: expected MONEY, got %v (literal=%q)", tt.input, tok.Type, tok.Literal)
+		}
+		if tok.Literal != tt.expected {
+			t.Errorf("input %q: expected literal %q, got %q", tt.input, tt.expected, tok.Literal)
+		}
+	}
+}
+
+func TestLexMoneyInArray(t *testing.T) {
+	input := `[USD#19.99, JPY#500]`
+
+	l := NewLexer(input)
+
+	expected := []struct {
+		typ TokenType
+		lit string
+	}{
+		{LBRACKET, "["},
+		{MONEY, "USD#19.99"},
+		{COMMA, ","},
+		{MONEY, "JPY#500"},
+		{RBRACKET, "]"},
+	}
+
+	for i, exp := range expected {
+		tok := l.NextToken()
+		if tok.Type != exp.typ {
+			t.Errorf("token %d: expected type %v, got %v", i, exp.typ, tok.Type)
+		}
+		if tok.Literal != exp.lit {
+			t.Errorf("token %d: expected literal %q, got %q", i, exp.lit, tok.Literal)
+		}
+	}
+}
+
+func TestLexMoneyInDict(t *testing.T) {
+	input := `{price: USD#19.99}`
+
+	l := NewLexer(input)
+
+	expected := []struct {
+		typ TokenType
+		lit string
+	}{
+		{LBRACE, "{"},
+		{IDENT, "price"},
+		{COLON, ":"},
+		{MONEY, "USD#19.99"},
+		{RBRACE, "}"},
+	}
+
+	for i, exp := range expected {
+		tok := l.NextToken()
+		if tok.Type != exp.typ {
+			t.Errorf("token %d: expected type %v, got %v", i, exp.typ, tok.Type)
+		}
+		if tok.Literal != exp.lit {
+			t.Errorf("token %d: expected literal %q, got %q", i, exp.lit, tok.Literal)
+		}
+	}
+}

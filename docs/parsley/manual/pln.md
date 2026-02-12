@@ -12,17 +12,59 @@ keywords: pln, serialization, data, format, serialize, deserialize
 
 ## Parsley Literal Notation (PLN)
 
-PLN (Parsley Literal Notation) is a data serialization format for Parsley that uses a safe subset of Parsley syntax to represent values—including schema-bound records and validation errors—without allowing code execution.
+PLN (Parsley Literal Notation) is a data serialization format for Parsley that uses a safe subset of Parsley syntax to represent values—including schema-bound records, dates, money, paths, and validation errors—without allowing code execution.
+
+**Use PLN instead of JSON** for Parsley-to-Parsley data exchange. PLN preserves all Parsley types, while JSON loses type information (dates become strings, money becomes numbers).
 
 ```parsley
-// Serialize any Parsley value to a PLN string
-let pln = serialize({name: "Alice", age: 30})
-// Result: '{name: "Alice", age: 30}'
+// Write Parsley data to a PLN file
+{name: "Alice", joined: @2024-01-15, balance: $100.00} ==> PLN(@./user.pln)
 
-// Deserialize PLN back to Parsley values
-let data = deserialize('{name: "Bob", active: true}')
-log(data.name)  // "Bob"
+// Read it back — types are preserved!
+let user <== PLN(@./user.pln)
+user.joined.year     // 2024 (datetime, not string)
+user.balance + $50   // $150.00 (money, not number)
 ```
+
+## File I/O
+
+PLN integrates with Parsley's file I/O system. Use `==>` to write and `<==` to read:
+
+```parsley
+// Write PLN
+let config = {
+    port: 8080,
+    launchDate: @2024-06-01,
+    budget: $50000.00,
+    dataPath: @./data/users.csv
+}
+config ==> PLN(@./config.pln)
+
+// Read PLN
+let loaded <== PLN(@./config.pln)
+loaded.launchDate              // @2024-06-01 (datetime ✓)
+loaded.budget                  // $50000.00 (money ✓)
+loaded.dataPath                // @./data/users.csv (path ✓)
+```
+
+### Append Mode
+
+Use `==>>` to append multiple values to a PLN file:
+
+```parsley
+{event: "login", time: @now} ==>> PLN(@./events.pln)
+{event: "purchase", time: @now} ==>> PLN(@./events.pln)
+```
+
+### Auto-Detection
+
+Files with `.pln` extension are automatically recognized:
+
+```parsley
+let data <== file(@./data.pln)   // auto-detects PLN format
+```
+
+---
 
 ## Functions
 
@@ -186,7 +228,7 @@ null
 {nested: {deep: true}}
 ```
 
-### Records (Coming Soon)
+### Records
 
 Records preserve schema association:
 
@@ -200,20 +242,32 @@ Records with validation errors:
 @Person({name: ""}) @errors {name: "Required"}
 ```
 
-### Datetimes (Coming Soon)
+### Money
+
+Money uses `CODE#amount` literal notation:
+
+```pln
+USD#19.99
+JPY#500
+EUR#-10.50
+GBP#1000.00
+```
+
+### Datetimes
 
 ```pln
 @2024-01-20
 @2024-01-20T10:30:00Z
-@10:30:00
+@2024-01-20T10:30:00
 ```
 
-### Paths and URLs (Coming Soon)
+### Paths and URLs
 
 ```pln
 @/path/to/file
 @./relative/path
-@https://example.com
+@https://example.com/api
+@http://localhost:8080/test
 ```
 
 ### Comments
@@ -254,19 +308,21 @@ let config <== f
 
 ## Serializable Types
 
-| Type | PLN Representation |
-|------|-------------------|
-| Integer | `42` |
-| Float | `3.14` |
-| String | `"hello"` |
-| Boolean | `true`, `false` |
-| Null | `null` |
-| Array | `[1, 2, 3]` |
-| Dictionary | `{a: 1, b: 2}` |
-| Record | `@Schema({...})` (planned) |
-| DateTime | `@2024-01-20T10:30:00Z` (planned) |
-| Path | `@/path/to/file` (planned) |
-| URL | `@https://example.com` (planned) |
+| Type | PLN Representation | Round-trips |
+|------|-------------------|-------------|
+| Integer | `42` | ✅ |
+| Float | `3.14` | ✅ |
+| String | `"hello"` | ✅ |
+| Boolean | `true`, `false` | ✅ |
+| Null | `null` | ✅ |
+| Array | `[1, 2, 3]` | ✅ |
+| Dictionary | `{a: 1, b: 2}` | ✅ |
+| Money | `USD#19.99` | ✅ |
+| Record | `@Schema({...})` | ✅ |
+| DateTime | `@2024-01-20T10:30:00` | ✅ |
+| Path | `@./path/to/file` | ✅ |
+| URL | `@https://example.com` | ✅ |
+| Table | `[{...}, {...}]` | ✅ |
 
 ### Non-Serializable Types
 
@@ -307,55 +363,89 @@ deserialize("print(42)")  // Error: function calls not allowed
 
 ### Configuration Files
 
-Store application configuration in `.pln` files:
+Store application configuration in `.pln` files—types are preserved:
 
 ```pln
 // config.pln
 {
   port: 8080,
   debug: true,
-  database: {
-    host: "localhost",
-    name: "myapp"
-  },
-  features: ["auth", "logging"]
+  launchDate: @2024-06-01,
+  budget: USD#50000.00,
+  dataPath: @./data/users.csv,
+  apiEndpoint: @https://api.example.com/v1
 }
 ```
 
 ```parsley
-let f = PLN(@./config.pln)
-let config <== f
-log("Running on port", config.port)
+let config <== PLN(@./config.pln)
+config.launchDate.year           // 2024 (datetime)
+config.budget + USD#1000.00      // $51000.00 (money arithmetic works)
 ```
 
-### Data Exchange
+### Caching Parsley Data
 
-Serialize data for storage or transmission:
+Cache computed results without losing type information:
 
 ```parsley
-let user = {name: "Alice", active: true}
-let pln = serialize(user)
-// Store `pln` in database or send over network
-// Later: deserialize(pln) to restore the value
+// Compute and cache
+let results = expensiveComputation()
+results ==> PLN(@./cache/results.pln)
+
+// Later: load from cache
+let cached <== PLN(@./cache/results.pln)
+// All types preserved — dates, money, paths, etc.
 ```
 
-### API Responses
+### Data Migration
 
-Return structured data from handlers:
+Transform and save data between runs:
 
 ```parsley
-export default = fn(req) {
-  let data = {status: "ok", items: getItems()}
-  serialize(data)
+let users <== CSV(@./users.csv)
+let enriched = for (user in users) {
+    user ++ {
+        created: @now,
+        balance: USD#0.00,
+        configPath: @(./configs/{user.id}.pln)
+    }
 }
+enriched ==> PLN(@./users.pln)
 ```
+
+### Debugging
+
+PLN output is valid Parsley syntax—useful for debugging:
+
+```parsley
+let data = {name: "Alice", joined: @2024-01-15, balance: USD#100.00}
+log(serialize(data))
+// {name: "Alice", joined: @2024-01-15, balance: USD#100.00}
+// Can copy-paste this directly into Parsley code!
+```
+
+---
+
+## PLN vs JSON
+
+| Aspect | PLN | JSON |
+|--------|-----|------|
+| **Use for** | Parsley-to-Parsley data | External systems, APIs |
+| **Dates** | `@2024-01-15` (preserved) | `"2024-01-15"` (string) |
+| **Money** | `USD#19.99` (preserved) | `19.99` (number, loses currency) |
+| **Paths** | `@./file.txt` (preserved) | `"./file.txt"` (string) |
+| **URLs** | `@https://...` (preserved) | `"https://..."` (string) |
+| **Records** | `@Person({...})` (preserved) | `{...}` (plain object) |
+| **Syntax** | Parsley literal syntax | Standard JSON |
+
+**Rule of thumb:** Use PLN for internal Parsley data. Use JSON for external interoperability.
 
 ---
 
 ## See Also
 
 - [File I/O](features/file-io.md) — file handles and I/O operators
+- [Data Formats](features/data-formats.md) — when to use PLN vs JSON
 - [Records](builtins/record.md) — schema-bound records with validation
 - [DateTime](builtins/datetime.md) — date and time handling
-- [Security Model](features/security.md) — PLN safety and deserialization security
-- [Data Formats](features/data-formats.md) — JSON, CSV, and Markdown parsing
+- [Money](builtins/money.md) — currency handling

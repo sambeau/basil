@@ -345,10 +345,18 @@ func TestParsePath(t *testing.T) {
 		t.Errorf("expected __type='path', got %q", typeStr.Value)
 	}
 
-	valueExpr := dict.Pairs["value"].(*ast.ObjectLiteralExpression)
-	valueStr := valueExpr.Obj.(*evaluator.String)
-	if valueStr.Value != "/path/to/file" {
-		t.Errorf("expected value='/path/to/file', got %q", valueStr.Value)
+	// Check segments array
+	segmentsExpr := dict.Pairs["segments"].(*ast.ObjectLiteralExpression)
+	segmentsArr := segmentsExpr.Obj.(*evaluator.Array)
+	if len(segmentsArr.Elements) != 3 {
+		t.Errorf("expected 3 segments, got %d", len(segmentsArr.Elements))
+	}
+
+	// Check absolute flag
+	absoluteExpr := dict.Pairs["absolute"].(*ast.ObjectLiteralExpression)
+	absoluteBool := absoluteExpr.Obj.(*evaluator.Boolean)
+	if !absoluteBool.Value {
+		t.Errorf("expected absolute=true, got false")
 	}
 }
 
@@ -372,10 +380,25 @@ func TestParseURL(t *testing.T) {
 		t.Errorf("expected __type='url', got %q", typeStr.Value)
 	}
 
-	valueExpr := dict.Pairs["value"].(*ast.ObjectLiteralExpression)
-	valueStr := valueExpr.Obj.(*evaluator.String)
-	if valueStr.Value != "https://example.com/api" {
-		t.Errorf("expected value='https://example.com/api', got %q", valueStr.Value)
+	// Check scheme
+	schemeExpr := dict.Pairs["scheme"].(*ast.ObjectLiteralExpression)
+	schemeStr := schemeExpr.Obj.(*evaluator.String)
+	if schemeStr.Value != "https" {
+		t.Errorf("expected scheme='https', got %q", schemeStr.Value)
+	}
+
+	// Check host
+	hostExpr := dict.Pairs["host"].(*ast.ObjectLiteralExpression)
+	hostStr := hostExpr.Obj.(*evaluator.String)
+	if hostStr.Value != "example.com" {
+		t.Errorf("expected host='example.com', got %q", hostStr.Value)
+	}
+
+	// Check path
+	pathExpr := dict.Pairs["path"].(*ast.ObjectLiteralExpression)
+	pathArr := pathExpr.Obj.(*evaluator.Array)
+	if len(pathArr.Elements) != 1 {
+		t.Errorf("expected 1 path segment, got %d", len(pathArr.Elements))
 	}
 }
 

@@ -742,6 +742,8 @@ data.toJSON()
 
 **Result:** `"{\"name\":\"Alice\",\"scores\":[95,87]}"`
 
+> **Note:** `.toJSON()` converts Parsley types to JSON-compatible values (dates become strings, money becomes numbers). For lossless serialization of Parsley data, write to PLN instead: `data ==> PLN(@./file.pln)`. See [Data Formats](../features/data-formats.md#pln-parsley-literal-notation).
+
 ---
 
 ## Spread in HTML Tags

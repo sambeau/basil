@@ -89,6 +89,8 @@ let config <== JSON(@./config.json)
 config.database.host             // "localhost"
 ```
 
+> **Tip:** For configuration files with Parsley-specific types (dates, money, paths), use PLN instead: `let config <== PLN(@./config.pln)`. PLN preserves all Parsley types—see [Data Formats](data-formats.md#pln-parsley-literal-notation).
+
 ### CSV
 
 CSV reads return a table (not a raw array):
@@ -147,7 +149,10 @@ let text <== file(@./notes.txt)    // reads as text
 Use `==>` to write (overwrite) and `==>>` to append:
 
 ```parsley
-// Write JSON
+// Write PLN (preserves Parsley types like dates, money, paths)
+{name: "Alice", joined: @2024-01-15, balance: $100.00} ==> PLN(@./user.pln)
+
+// Write JSON (for external systems)
 {name: "Alice", age: 30} ==> JSON(@./user.json)
 
 // Write plain text
@@ -158,6 +163,8 @@ Use `==>` to write (overwrite) and `==>>` to append:
 ```
 
 The write operator serializes the data according to the file handle's format. Writing a dictionary to a JSON handle produces formatted JSON; writing a string to a text handle writes it verbatim.
+
+> **When to use PLN vs JSON:** Use PLN for internal Parsley data (configs, caches, data files)—it preserves dates, money, paths, and other Parsley types. Use JSON for external interoperability (APIs, other languages). See [Data Formats](data-formats.md#when-to-use-pln-vs-json) for details.
 
 ## Directory Operations
 

@@ -133,6 +133,30 @@ func encodeYAML(value Object) ([]byte, error) {
 	return yaml.Marshal(goValue)
 }
 
+// encodePLN encodes a value as PLN (Parsley Literal Notation)
+func encodePLN(value Object, env *Environment, appendMode bool) ([]byte, error) {
+	// Call the existing PLN serializer
+	plnObj := SerializeToPLN(value, env)
+
+	// Check if serialization failed
+	if err, isErr := plnObj.(*Error); isErr {
+		return nil, fmt.Errorf("%s: %s", err.Code, err.Message)
+	}
+
+	// Extract the PLN string
+	plnStr, ok := plnObj.(*String)
+	if !ok {
+		return nil, fmt.Errorf("PLN serialization returned %s instead of string", plnObj.Type())
+	}
+
+	// In append mode, add a newline so values are separated
+	if appendMode {
+		return []byte(plnStr.Value + "\n"), nil
+	}
+
+	return []byte(plnStr.Value), nil
+}
+
 // encodeCSV encodes a value as CSV
 func encodeCSV(value Object, hasHeader bool) ([]byte, error) {
 	arr, ok := value.(*Array)

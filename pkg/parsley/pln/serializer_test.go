@@ -518,3 +518,154 @@ func TestSerializeControlChars(t *testing.T) {
 		t.Errorf("expected unicode escape for null byte, got %q", result)
 	}
 }
+
+func TestSerializeMoney(t *testing.T) {
+	tests := []struct {
+		name     string
+		money    *evaluator.Money
+		expected string
+	}{
+		{
+			name:     "USD dollars",
+			money:    &evaluator.Money{Amount: 1000, Currency: "USD", Scale: 2},
+			expected: `USD#10.00`,
+		},
+		{
+			name:     "USD with cents",
+			money:    &evaluator.Money{Amount: 1999, Currency: "USD", Scale: 2},
+			expected: `USD#19.99`,
+		},
+		{
+			name:     "JPY no decimals",
+			money:    &evaluator.Money{Amount: 500, Currency: "JPY", Scale: 0},
+			expected: `JPY#500`,
+		},
+		{
+			name:     "negative amount",
+			money:    &evaluator.Money{Amount: -250, Currency: "EUR", Scale: 2},
+			expected: `EUR#-2.50`,
+		},
+		{
+			name:     "zero amount",
+			money:    &evaluator.Money{Amount: 0, Currency: "GBP", Scale: 2},
+			expected: `GBP#0.00`,
+		},
+		{
+			name:     "three decimal places",
+			money:    &evaluator.Money{Amount: 12345, Currency: "KWD", Scale: 3},
+			expected: `KWD#12.345`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewSerializer()
+			result, err := s.Serialize(tt.money)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSerializeMoneyPretty(t *testing.T) {
+	money := &evaluator.Money{Amount: 1000, Currency: "USD", Scale: 2}
+
+	s := NewPrettySerializer("  ")
+	result, err := s.Serialize(money)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Money literals are compact even in pretty mode
+	expected := "USD#10.00"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestSerializeMoneyInArray(t *testing.T) {
+	input := &evaluator.Array{Elements: []evaluator.Object{
+		&evaluator.Money{Amount: 100, Currency: "USD", Scale: 2},
+		&evaluator.Money{Amount: 200, Currency: "EUR", Scale: 2},
+	}}
+
+	s := NewSerializer()
+	result, err := s.Serialize(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := `[USD#1.00, EUR#2.00]`
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestSerializeMoneyInDict(t *testing.T) {
+	input := makeDict(map[string]evaluator.Object{
+		"price": &evaluator.Money{Amount: 1999, Currency: "USD", Scale: 2},
+		"name":  &evaluator.String{Value: "Widget"},
+	})
+
+	s := NewSerializer()
+	result, err := s.Serialize(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := `{name: "Widget", price: USD#19.99}`
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestMoneyRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		money *evaluator.Money
+	}{
+		{"USD", &evaluator.Money{Amount: 1999, Currency: "USD", Scale: 2}},
+		{"JPY", &evaluator.Money{Amount: 500, Currency: "JPY", Scale: 0}},
+		{"EUR", &evaluator.Money{Amount: 12345, Currency: "EUR", Scale: 2}},
+		{"negative", &evaluator.Money{Amount: -999, Currency: "GBP", Scale: 2}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Serialize
+			s := NewSerializer()
+			plnStr, err := s.Serialize(tt.money)
+			if err != nil {
+				t.Fatalf("serialize error: %v", err)
+			}
+
+			// Parse
+			p := NewParser(plnStr)
+			parsed, err := p.Parse()
+			if err != nil {
+				t.Fatalf("parse error: %v (input: %q)", err, plnStr)
+			}
+
+			// Verify we got a Money back
+			money, ok := parsed.(*evaluator.Money)
+			if !ok {
+				t.Fatalf("expected *Money, got %T", parsed)
+			}
+
+			// Verify values match
+			if money.Amount != tt.money.Amount {
+				t.Errorf("amount: got %d, want %d", money.Amount, tt.money.Amount)
+			}
+			if money.Currency != tt.money.Currency {
+				t.Errorf("currency: got %q, want %q", money.Currency, tt.money.Currency)
+			}
+			if money.Scale != tt.money.Scale {
+				t.Errorf("scale: got %d, want %d", money.Scale, tt.money.Scale)
+			}
+		})
+	}
+}

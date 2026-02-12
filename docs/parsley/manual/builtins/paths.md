@@ -144,10 +144,13 @@ let full = base + "users.json"
 Paths are the primary argument to file handle constructors:
 
 ```parsley
-let data <== JSON(@./config.json)
+let config <== PLN(@./config.pln)        // Parsley config (preserves dates, money, paths)
+let data <== JSON(@./api-cache.json)     // JSON from external API
 let lines <== lines(@./todo.txt)
 "output" ==> text(@./result.txt)
 ```
+
+> **Tip:** Use PLN for Parsley configuration files—it preserves types like dates, money, and paths. Use JSON for data exchanged with external systems.
 
 See [File I/O](../features/file-io.md) for the full file operations reference.
 

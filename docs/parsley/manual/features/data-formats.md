@@ -228,26 +228,79 @@ let config <== JSON(@./config.json)
 
 ## PLN (Parsley Literal Notation)
 
-Parsley has its own serialization format that round-trips all Parsley types, including dates, money, paths, and other types that JSON cannot represent:
+Parsley has its own serialization format that round-trips all Parsley types losslessly:
 
 ```parsley
 let data <== PLN(@./data.pln)
 data ==> PLN(@./backup.pln)
 ```
 
-PLN is useful for caching or storing Parsley values without losing type information.
+PLN uses literal notation for Parsley types:
+
+| Type | PLN Literal | Example |
+|------|-------------|---------|
+| Money | `CODE#amount` | `USD#19.99`, `JPY#500` |
+| Date | `@YYYY-MM-DD` | `@2024-01-15` |
+| DateTime | `@YYYY-MM-DDTHH:MM:SS` | `@2024-01-15T10:30:00` |
+| Path | `@path` | `@./config/app.pln` |
+| URL | `@url` | `@https://example.com/api` |
+| Record | `@Schema({...})` | `@Person({name: "Alice"})` |
+
+### When to Use PLN vs JSON
+
+**Use PLN for:**
+- Configuration files that include dates, money, or paths
+- Caching Parsley data structures between runs
+- Data files read and written by Parsley scripts
+- Serializing records with schemas
+- Debugging (PLN output is valid Parsley syntax)
+
+**Use JSON for:**
+- API requests and responses
+- Data exchange with non-Parsley systems (JavaScript, Python, etc.)
+- When compatibility with JSON parsers is required
+
+### Type Preservation
+
+PLN preserves types that JSON cannot represent:
+
+```parsley
+// Using JSON (loses types)
+let config = {
+    launchDate: @2024-06-01,
+    budget: $50000.00,
+    dataPath: @./data/users.csv
+}
+config ==> JSON(@./config.json)
+let loaded <== JSON(@./config.json)
+loaded.launchDate                // "2024-06-01" (string!)
+loaded.budget                    // 50000 (number, lost currency!)
+loaded.dataPath                  // "./data/users.csv" (string!)
+
+// Using PLN (preserves types)
+config ==> PLN(@./config.pln)
+let loaded <== PLN(@./config.pln)
+loaded.launchDate                // @2024-06-01 (datetime ✓)
+loaded.budget                    // $50000.00 (money ✓)
+loaded.dataPath                  // @./data/users.csv (path ✓)
+```
+
+See [PLN](../pln.md) for the full specification.
 
 ## Common Patterns
 
 ### Read, Transform, Write
 
 ```parsley
-// Read CSV, transform, write JSON
+// Read CSV, transform, write PLN (preserves Parsley types)
 let sales <== CSV(@./sales.csv)
 let summary = for (row in sales) {
     {name: row.product, total: row.price * row.quantity}
 }
-summary.toJSON() ==> text(@./summary.json)
+summary ==> PLN(@./summary.pln)
+
+// Or write JSON (for external systems)
+summary ==> JSON(@./summary.json)
 ```
 
 ### Parse API Response

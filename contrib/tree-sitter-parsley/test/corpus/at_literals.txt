@@ -1,0 +1,479 @@
+==================
+Datetime literal — date only
+==================
+
+@2024-01-15
+
+---
+
+(source_file
+  (expression_statement
+    (datetime_literal)))
+
+==================
+Datetime literal — full datetime
+==================
+
+@2024-01-15T10:30:00Z
+
+---
+
+(source_file
+  (expression_statement
+    (datetime_literal)))
+
+==================
+Datetime literal — time only
+==================
+
+@12:30:00
+
+---
+
+(source_file
+  (expression_statement
+    (datetime_literal)))
+
+==================
+Datetime literal — time without seconds
+==================
+
+@9:30
+
+---
+
+(source_file
+  (expression_statement
+    (datetime_literal)))
+
+==================
+Time now literal — now
+==================
+
+@now
+
+---
+
+(source_file
+  (expression_statement
+    (time_now_literal)))
+
+==================
+Time now literal — today
+==================
+
+@today
+
+---
+
+(source_file
+  (expression_statement
+    (time_now_literal)))
+
+==================
+Time now literal — timeNow
+==================
+
+@timeNow
+
+---
+
+(source_file
+  (expression_statement
+    (time_now_literal)))
+
+==================
+Time now literal — dateNow
+==================
+
+@dateNow
+
+---
+
+(source_file
+  (expression_statement
+    (time_now_literal)))
+
+==================
+Duration literal — hours and minutes
+==================
+
+@2h30m
+
+---
+
+(source_file
+  (expression_statement
+    (duration_literal)))
+
+==================
+Duration literal — negative days
+==================
+
+@-7d
+
+---
+
+(source_file
+  (expression_statement
+    (duration_literal)))
+
+==================
+Duration literal — year and months
+==================
+
+@1y6mo
+
+---
+
+(source_file
+  (expression_statement
+    (duration_literal)))
+
+==================
+Connection literal — sqlite
+==================
+
+@sqlite
+
+---
+
+(source_file
+  (expression_statement
+    (connection_literal)))
+
+==================
+Connection literal — postgres
+==================
+
+@postgres
+
+---
+
+(source_file
+  (expression_statement
+    (connection_literal)))
+
+==================
+Connection literal — mysql
+==================
+
+@mysql
+
+---
+
+(source_file
+  (expression_statement
+    (connection_literal)))
+
+==================
+Connection literal — sftp
+==================
+
+@sftp
+
+---
+
+(source_file
+  (expression_statement
+    (connection_literal)))
+
+==================
+Connection literal — shell
+==================
+
+@shell
+
+---
+
+(source_file
+  (expression_statement
+    (connection_literal)))
+
+==================
+Connection literal — DB
+==================
+
+@DB
+
+---
+
+(source_file
+  (expression_statement
+    (connection_literal)))
+
+==================
+Context literal — SEARCH
+==================
+
+@SEARCH
+
+---
+
+(source_file
+  (expression_statement
+    (context_literal)))
+
+==================
+Context literal — env
+==================
+
+@env
+
+---
+
+(source_file
+  (expression_statement
+    (context_literal)))
+
+==================
+Context literal — args
+==================
+
+@args
+
+---
+
+(source_file
+  (expression_statement
+    (context_literal)))
+
+==================
+Context literal — params
+==================
+
+@params
+
+---
+
+(source_file
+  (expression_statement
+    (context_literal)))
+
+==================
+Stdlib import — std root
+==================
+
+import @std
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import))))
+
+==================
+Stdlib import — std/math
+==================
+
+import @std/math
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import))))
+
+==================
+Stdlib import — basil/http
+==================
+
+import @basil/http
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import))))
+
+==================
+Stdio literal — stdin shorthand
+==================
+
+@-
+
+---
+
+(source_file
+  (expression_statement
+    (stdio_literal)))
+
+==================
+Stdio literal — stdin
+==================
+
+@stdin
+
+---
+
+(source_file
+  (expression_statement
+    (stdio_literal)))
+
+==================
+Stdio literal — stdout
+==================
+
+@stdout
+
+---
+
+(source_file
+  (expression_statement
+    (stdio_literal)))
+
+==================
+Stdio literal — stderr
+==================
+
+@stderr
+
+---
+
+(source_file
+  (expression_statement
+    (stdio_literal)))
+
+==================
+Path literal — relative
+==================
+
+@./config.json
+
+---
+
+(source_file
+  (expression_statement
+    (path_literal)))
+
+==================
+Path literal — parent directory
+==================
+
+@../shared/utils
+
+---
+
+(source_file
+  (expression_statement
+    (path_literal)))
+
+==================
+Path literal — absolute
+==================
+
+@/usr/local/bin
+
+---
+
+(source_file
+  (expression_statement
+    (path_literal)))
+
+==================
+Path literal — home directory
+==================
+
+@~/Documents
+
+---
+
+(source_file
+  (expression_statement
+    (path_literal)))
+
+==================
+URL literal — https
+==================
+
+@https://example.com
+
+---
+
+(source_file
+  (expression_statement
+    (url_literal)))
+
+==================
+URL literal — http with path
+==================
+
+@http://localhost:8080/api
+
+---
+
+(source_file
+  (expression_statement
+    (url_literal)))
+
+==================
+Path template
+==================
+
+@(./path/{name}/file)
+
+---
+
+(source_file
+  (expression_statement
+    (path_template
+      (identifier))))
+
+==================
+Path template with multiple interpolations
+==================
+
+@(./{dir}/{file}.txt)
+
+---
+
+(source_file
+  (expression_statement
+    (path_template
+      (identifier)
+      (identifier))))
+
+==================
+Import with as alias
+==================
+
+import @std/math as M
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (stdlib_import)
+      alias: (identifier))))
+
+==================
+Import path literal
+==================
+
+import @./utils.pars
+
+---
+
+(source_file
+  (expression_statement
+    (import_expression
+      source: (path_literal))))
+
+==================
+Let with destructuring import
+==================
+
+let {Page} = import @std/html
+
+---
+
+(source_file
+  (let_statement
+    pattern: (dictionary_pattern
+      (identifier))
+    value: (import_expression
+      source: (stdlib_import))))
