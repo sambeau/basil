@@ -20,13 +20,13 @@
   "and"
   "or"
   "not"
+  "is"
 ] @keyword.operator
 
 ; Literals
 (number) @number
 (money) @number
 (boolean) @constant.builtin
-(null) @constant.builtin
 
 ; Strings
 (string) @string
@@ -42,15 +42,16 @@
 (time_now_literal) @constant.builtin
 (duration_literal) @number
 (connection_literal) @function.builtin
-(schema_literal) @type
-(table_literal) @type
-(query_literal) @function.builtin
 (context_literal) @variable.builtin
 (stdlib_import) @module
 (stdio_literal) @constant.builtin
 (path_literal) @string.special.path
 (url_literal) @string.special.url
 (path_template) @string.special.path
+
+; Schema
+(schema_declaration
+  name: (identifier) @type)
 
 ; Arithmetic operators
 [
@@ -104,22 +105,12 @@
   "<=#=>"
 ] @operator
 
-; Query DSL operators
-[
-  "|>"
-  "|<"
-  "?->"
-  "??->"
-  "?!->"
-  "??!->"
-  ".->"
-  "<-"
-] @operator
-
 ; Logical operators
 [
   "&&"
   "||"
+  "&"
+  "|"
 ] @operator
 
 ; Spread/rest
@@ -142,16 +133,9 @@
   "."
 ] @punctuation.delimiter
 
-; Ternary
-[
-  "?"
-  ":"
-] @operator
-
 ; Tags
 (tag_name) @tag
 (attribute_name) @attribute
-(tag_text) @string
 
 ; Tag punctuation
 (self_closing_tag ["<" "/>"] @punctuation.bracket)
@@ -181,7 +165,7 @@
 
 ; For loop variable
 (for_expression
-  pattern: (identifier) @variable)
+  variable: (identifier) @variable)
 
 ; Import alias
 (import_expression
@@ -189,8 +173,7 @@
 
 ; Interpolation
 (interpolation ["{" "}"] @punctuation.special)
-(raw_interpolation ["@{" "}"] @punctuation.special)
-(tag_embedded_expression ["{" "}"] @punctuation.special)
+(raw_interpolation "}" @punctuation.special)
 
 ; Comments
 (comment) @comment

@@ -1,225 +1,271 @@
 /**
- * @file Tree-sitter grammar for Parsley
+ * @file Tree-sitter grammar for Parsley — direct translation from Go source
  * @author Basil Contributors
  * @license MIT
+ *
+ * Source of truth:
+ *   pkg/parsley/lexer/lexer.go  — tokens, keywords, operator patterns
+ *   pkg/parsley/parser/parser.go — grammar rules, precedence, all parse* functions
  */
 
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
+// Precedence levels — direct from parser.go L17-29
 const PREC = {
-  ASSIGN: 1,
-  NULLISH: 2,
-  OR: 3,
-  AND: 4,
-  COMPARE: 5,
-  REGEX_MATCH: 6,
-  RANGE: 7,
-  ADD: 8,
-  MULT: 9,
-  CONCAT: 10,
-  UNARY: 11,
-  CALL: 12,
-  MEMBER: 13,
+  LOWEST: 0,
+  COMMA: 1, // , ==> ==>> =/=> =/=>>
+  OR: 2, // or | || ??
+  AND: 3, // and & &&
+  EQUALS: 4, // == != ~ !~ in is <=?=> <=??=> <=!=> <=#=>
+  COMPARE: 5, // < > <= >=
+  SUM: 6, // + - ..
+  CONCAT: 7, // ++
+  PRODUCT: 8, // * / %
+  PREFIX: 9, // -x !x not x
+  INDEX: 10, // a[i] a.b
+  CALL: 11, // f(x)
+  TAG: 12, // tags get highest so <tag> is preferred over < comparison
 };
 
 module.exports = grammar({
   name: "parsley",
 
-  extras: ($) => [/\s/, $.comment],
-
-  conflicts: ($) => [
-    [$._primary_expression, $._pattern],
-    [$.dictionary_literal, $.dictionary_pattern],
-    [$.array_literal, $.array_pattern],
-    [$.dictionary_pattern, $._primary_expression],
-    [$.array_pattern, $._primary_expression],
-    [$.binary_expression, $.tag_expression],
-  ],
+  extras: ($) => [/[\s;]/, $.comment],
 
   word: ($) => $.identifier,
 
+  conflicts: ($) => [
+    // { — dictionary literal vs block
+    [$.dictionary_literal, $.block],
+    // [ — array pattern vs array literal
+    [$.array_pattern, $.array_literal],
+    // identifier — could be pattern or primary expression (also covers for iteration vs mapping)
+    [$._primary_expression, $._pattern],
+    // dict pattern in assignment vs dict literal in expression vs block
+    [$.dictionary_pattern, $.dictionary_literal, $.block],
+    // identifier followed by = or <== — assignment vs expression
+    [$.assignment_statement, $._primary_expression],
+    // assignment target can be index/member expression
+    [$.assignment_statement, $._expression],
+    // { identifier } — dict pattern vs expression in braces
+    [$._primary_expression, $.dictionary_pattern],
+    // if (expr) — parenthesized_expression vs if condition in parens
+    [$.parenthesized_expression, $.if_expression],
+    // if (expr) block — block as expression vs if consequence
+    [$._expression, $.if_expression],
+  ],
+
   rules: {
+    // ================================================================
+    // Program structure — parser.go L276-289 (ParseProgram)
+    // ================================================================
+
     source_file: ($) => repeat($._statement),
 
-    // ==================== STATEMENTS ====================
+    // ================================================================
+    // Statements — parser.go L292-370 (parseStatement)
+    // ================================================================
 
     _statement: ($) =>
       choice(
         $.let_statement,
+        $.assignment_statement,
+        $.dict_destructuring_assignment,
         $.export_statement,
         $.return_statement,
         $.check_statement,
         $.expression_statement,
       ),
 
+    // parser.go L499-669 (parseLetStatement)
+    // Forms: let x = expr, let {a,b} = expr, let [a,b] = expr
+    // Also: let x <== expr, let x <=/= expr
     let_statement: ($) =>
       seq(
         "let",
         field("pattern", $._pattern),
-        "=",
+        field("operator", choice("=", "<==", "<=/=")),
         field("value", $._expression),
       ),
 
+    // parser.go L673-730 (parseAssignmentStatement)
+    // Forms: x = expr, obj.name = expr, arr[0] = expr
+    // Also: x <== expr, x <=/= expr
+    assignment_statement: ($) =>
+      prec.right(
+        PREC.LOWEST,
+        seq(
+          field(
+            "left",
+            choice($.identifier, $.member_expression, $.index_expression),
+          ),
+          field("operator", choice("=", "<==", "<=/=")),
+          field("right", $._expression),
+        ),
+      ),
+
+    // parser.go L733-790 (parseDictDestructuringAssignment)
+    // Form: {a, b} = expr, {a, b} <== expr
+    dict_destructuring_assignment: ($) =>
+      prec.dynamic(
+        1,
+        seq(
+          field("pattern", $.dictionary_pattern),
+          field("operator", choice("=", "<==", "<=/=")),
+          field("value", $._expression),
+        ),
+      ),
+
+    // parser.go L379-496 (parseExportStatement, parseComputedExportStatement)
+    // Forms:
+    //   export let pattern = expr
+    //   export name = expr
+    //   export name              (bare export)
+    //   export computed name = expr
+    //   export computed name { body }
+    //   export @schema Name { ... }
+    //   export {a,b} = expr
     export_statement: ($) =>
-      seq(
-        "export",
-        optional("computed"),
-        field("name", $.identifier),
-        "=",
-        field("value", $._expression),
-      ),
-
-    return_statement: ($) => prec.right(seq("return", optional($._expression))),
-
-    check_statement: ($) =>
       prec.right(
         seq(
-          "check",
-          field("condition", $._expression),
-          optional(field("body", $.block)),
-        ),
-      ),
-
-    expression_statement: ($) => $._expression,
-
-    block: ($) => seq("{", repeat($._statement), "}"),
-
-    // ==================== PATTERNS ====================
-
-    _pattern: ($) =>
-      choice($.identifier, $.array_pattern, $.dictionary_pattern, "_"),
-
-    array_pattern: ($) =>
-      seq(
-        "[",
-        commaSep(choice($._pattern, seq("...", optional($.identifier)))),
-        "]",
-      ),
-
-    dictionary_pattern: ($) =>
-      seq(
-        "{",
-        commaSep(
+          "export",
           choice(
-            $.identifier,
-            seq(field("key", $.identifier), ":", field("value", $._pattern)),
-            seq("...", optional($.identifier)),
+            // export let pattern = expr
+            seq(
+              "let",
+              field("pattern", $._pattern),
+              "=",
+              field("value", $._expression),
+            ),
+            // export computed name = expr | export computed name { body }
+            seq(
+              "computed",
+              field("name", $.identifier),
+              choice(
+                seq("=", field("value", $._expression)),
+                field("value", $.block),
+              ),
+            ),
+            // export @schema — passes through to expression
+            seq(field("value", $.schema_declaration)),
+            // export name = expr
+            seq(
+              field("name", $.identifier),
+              "=",
+              field("value", $._expression),
+            ),
+            // export {a,b} = expr
+            seq(
+              field("pattern", $.dictionary_pattern),
+              "=",
+              field("value", $._expression),
+            ),
+            // export name (bare export)
+            field("name", $.identifier),
           ),
         ),
-        "}",
       ),
 
-    // ==================== EXPRESSIONS ====================
+    // parser.go L793-805 (parseReturnStatement)
+    return_statement: ($) =>
+      prec.right(seq("return", optional(field("value", $._expression)))),
+
+    // parser.go L808-828 (parseCheckStatement)
+    // check CONDITION else VALUE — else is REQUIRED
+    check_statement: ($) =>
+      seq(
+        "check",
+        field("condition", $._expression),
+        "else",
+        field("fallback", $._expression),
+      ),
+
+    // parser.go L863-945 (parseExpressionStatement)
+    expression_statement: ($) => $._expression,
+
+    // ================================================================
+    // Expressions — parser.go L957-1012 (parseExpression)
+    // ================================================================
 
     _expression: ($) =>
       choice(
         $._primary_expression,
-        $.unary_expression,
-        $.binary_expression,
-        $.ternary_expression,
-        $.assignment_expression,
+        $.prefix_expression,
+        $.read_expression,
+        $.fetch_expression,
+        $.infix_expression,
+        $.not_in_expression,
+        $.is_expression,
+        $.write_expression,
         $.call_expression,
         $.index_expression,
+        $.slice_expression,
         $.member_expression,
         $.function_expression,
-        $.for_expression,
         $.if_expression,
+        $.for_expression,
         $.try_expression,
         $.import_expression,
         $.tag_expression,
         $.parenthesized_expression,
+        $.block,
+        $.schema_declaration,
+        $.table_expression,
+        $.query_expression,
+        $.mutation_expression,
       ),
 
     _primary_expression: ($) =>
       choice($.identifier, $._literal, $.array_literal, $.dictionary_literal),
 
+    // parser.go L2079-2137 (parseGroupedExpression)
     parenthesized_expression: ($) => seq("(", $._expression, ")"),
 
-    unary_expression: ($) =>
+    // ================================================================
+    // Prefix expressions — parser.go L1963-2000
+    // ================================================================
+
+    // parsePrefixExpression: -x, !x, not x
+    prefix_expression: ($) =>
       prec.right(
-        PREC.UNARY,
+        PREC.PREFIX,
         seq(
           field("operator", choice("-", "!", "not")),
           field("operand", $._expression),
         ),
       ),
 
-    binary_expression: ($) =>
+    // parser.go L1977-1987 (parseReadExpression): <== expr
+    read_expression: ($) =>
+      prec.right(PREC.PREFIX, seq("<==", field("source", $._expression))),
+
+    // parser.go L1990-2000 (parseFetchExpression): <=/= expr
+    fetch_expression: ($) =>
+      prec.right(PREC.PREFIX, seq("<=/=", field("source", $._expression))),
+
+    // ================================================================
+    // Infix expressions — parser.go L2002-2014, precedences L33-67
+    // ================================================================
+
+    infix_expression: ($) =>
       choice(
-        // Nullish coalescing (right-associative)
-        prec.right(
-          PREC.NULLISH,
-          seq(
-            field("left", $._expression),
-            field("operator", "??"),
-            field("right", $._expression),
+        // PRODUCT: * / % — parser.go precedences map
+        ...[
+          ["*", PREC.PRODUCT],
+          ["/", PREC.PRODUCT],
+          ["%", PREC.PRODUCT],
+        ].map(([op, prec_val]) =>
+          prec.left(
+            prec_val,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
+            ),
           ),
         ),
-        // Logical OR
-        prec.left(
-          PREC.OR,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("or", "||")),
-            field("right", $._expression),
-          ),
-        ),
-        // Logical AND
-        prec.left(
-          PREC.AND,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("and", "&&")),
-            field("right", $._expression),
-          ),
-        ),
-        // Comparison
-        prec.left(
-          PREC.COMPARE,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("==", "!=", "<", ">", "<=", ">=")),
-            field("right", $._expression),
-          ),
-        ),
-        // Regex match
-        prec.left(
-          PREC.REGEX_MATCH,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("~", "!~")),
-            field("right", $._expression),
-          ),
-        ),
-        // Range
-        prec.left(
-          PREC.RANGE,
-          seq(
-            field("left", $._expression),
-            field("operator", ".."),
-            field("right", $._expression),
-          ),
-        ),
-        // Addition/Subtraction
-        prec.left(
-          PREC.ADD,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("+", "-")),
-            field("right", $._expression),
-          ),
-        ),
-        // Multiplication/Division
-        prec.left(
-          PREC.MULT,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("*", "/", "%")),
-            field("right", $._expression),
-          ),
-        ),
-        // Concatenation
+        // CONCAT: ++
         prec.left(
           PREC.CONCAT,
           seq(
@@ -228,157 +274,316 @@ module.exports = grammar({
             field("right", $._expression),
           ),
         ),
-        // File I/O operators
-        prec.left(
-          PREC.COMPARE,
-          seq(
-            field("left", $._expression),
-            field(
-              "operator",
-              choice("<==", "<=/=", "==>", "==>>", "=/=>", "=/=>>"),
+        // SUM: + - ..
+        ...["+", "-", ".."].map((op) =>
+          prec.left(
+            PREC.SUM,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
             ),
-            field("right", $._expression),
           ),
         ),
-        // Database operators
-        prec.left(
-          PREC.COMPARE,
-          seq(
-            field("left", $._expression),
-            field("operator", choice("<=?=>", "<=??=>", "<=!=>", "<=#=>")),
-            field("right", $._expression),
+        // COMPARE: < > <= >=
+        ...["<", ">", "<=", ">="].map((op) =>
+          prec.left(
+            PREC.COMPARE,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
+            ),
           ),
         ),
-        // Query DSL operators
+        // EQUALS: == != ~ !~ in
+        ...["==", "!=", "~", "!~", "in"].map((op) =>
+          prec.left(
+            PREC.EQUALS,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
+            ),
+          ),
+        ),
+        // AND: and && &
+        ...["and", "&&", "&"].map((op) =>
+          prec.left(
+            PREC.AND,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
+            ),
+          ),
+        ),
+        // OR: or || | ??
+        ...["or", "||", "|", "??"].map((op) =>
+          prec.left(
+            PREC.OR,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
+            ),
+          ),
+        ),
+        // Database operators at EQUALS: <=?=> <=??=> <=!=>
+        ...["<=?=>", "<=??=>", "<=!=>"].map((op) =>
+          prec.left(
+            PREC.EQUALS,
+            seq(
+              field("left", $._expression),
+              field("operator", op),
+              field("right", $._expression),
+            ),
+          ),
+        ),
+        // Process execution at EQUALS: <=#=>
         prec.left(
-          PREC.COMPARE,
+          PREC.EQUALS,
           seq(
             field("left", $._expression),
-            field(
-              "operator",
-              choice("|>", "|<", "?->", "??->", "?!->", "??!->", ".->", "<-"),
-            ),
+            field("operator", "<=#=>"),
             field("right", $._expression),
           ),
         ),
       ),
 
-    ternary_expression: ($) =>
-      prec.right(
-        PREC.NULLISH,
+    // File I/O write operators at COMMA precedence — parser.go parseExpression special handling
+    // ==> ==>> =/=> =/=>>
+    write_expression: ($) =>
+      prec.left(
+        PREC.COMMA,
         seq(
-          field("condition", $._expression),
-          "?",
-          field("consequence", $._expression),
-          ":",
-          field("alternative", $._expression),
+          field("value", $._expression),
+          field("operator", choice("==>", "==>>", "=/=>", "=/=>>")),
+          field("target", $._expression),
         ),
       ),
 
-    assignment_expression: ($) =>
-      prec.right(
-        PREC.ASSIGN,
+    // parser.go L2019-2041 (parseNotInExpression)
+    // expr not in expr — compound operator
+    not_in_expression: ($) =>
+      prec.left(
+        PREC.EQUALS,
         seq(
-          field(
-            "left",
-            choice($.identifier, $.member_expression, $.index_expression),
-          ),
-          "=",
+          field("left", $._expression),
+          "not",
+          "in",
           field("right", $._expression),
         ),
       ),
 
+    // parser.go L2045-2064 (parseIsExpression)
+    // expr is expr, expr is not expr
+    // Note: "is not" parses as is_expression with prefix_expression(not, schema).
+    // This is a known limitation — tree-sitter cannot disambiguate "is not" from
+    // "is (not expr)" without an external scanner. Functionally equivalent for highlighting.
+    is_expression: ($) =>
+      prec.left(
+        PREC.EQUALS,
+        seq(
+          field("value", $._expression),
+          "is",
+          field("schema", $._expression),
+        ),
+      ),
+
+    // ================================================================
+    // Call, index, member — parser.go L2498-2637, L3082-3097
+    // ================================================================
+
+    // parser.go L2498-2531 (parseCallExpression)
     call_expression: ($) =>
       prec(
         PREC.CALL,
         seq(field("function", $._expression), field("arguments", $.arguments)),
       ),
 
-    arguments: ($) =>
-      seq("(", commaSep(choice($._expression, $.spread_element)), ")"),
+    arguments: ($) => seq("(", commaSep($._expression), ")"),
 
-    spread_element: ($) => seq("...", $._expression),
-
+    // parser.go L2579-2613 (parseIndexOrSliceExpression)
     index_expression: ($) =>
       prec(
-        PREC.MEMBER,
+        PREC.INDEX,
         seq(
           field("object", $._expression),
           "[",
-          choice(
-            // Slice: arr[start:end]
-            seq(
-              field("start", optional($._expression)),
-              ":",
-              field("end", optional($._expression)),
-            ),
-            // Regular index: arr[index]
-            field("index", $._expression),
-          ),
+          optional("?"),
+          field("index", $._expression),
           "]",
         ),
       ),
 
-    member_expression: ($) =>
+    // parser.go L2615-2637 (parseSliceExpression)
+    slice_expression: ($) =>
       prec(
-        PREC.MEMBER,
+        PREC.INDEX,
         seq(
           field("object", $._expression),
-          ".",
-          field("property", $.identifier),
+          "[",
+          optional(field("start", $._expression)),
+          ":",
+          optional(field("end", $._expression)),
+          "]",
         ),
       ),
 
+    // parser.go L3082-3097 (parseDotExpression)
+    member_expression: ($) =>
+      prec(
+        PREC.INDEX,
+        seq(
+          field("object", $._expression),
+          ".",
+          field("property", choice($.identifier, alias("as", $.identifier))),
+        ),
+      ),
+
+    // ================================================================
+    // Functions and blocks — parser.go L2286-2385
+    // ================================================================
+
+    // parser.go L2286-2301 (parseBlockStatement)
+    block: ($) => seq("{", repeat($._statement), "}"),
+
+    // parser.go L2303-2327 (parseFunctionLiteral)
+    // Body is ALWAYS a block — no expression bodies
     function_expression: ($) =>
       seq(
         choice("fn", "function"),
-        field("parameters", $.parameter_list),
-        field("body", $._expression),
+        optional(field("parameters", $.parameter_list)),
+        field("body", $.block),
       ),
 
+    // parser.go L2330-2360 (parseFunctionParametersNew)
     parameter_list: ($) =>
       seq(
         "(",
         commaSep(
           choice(
             $.identifier,
-            seq($.identifier, "=", $._expression), // default value
-            seq("...", $.identifier), // rest parameter
+            $._default_param,
+            $._rest_param,
+            $.array_pattern,
+            $.dictionary_pattern,
           ),
         ),
         ")",
       ),
 
-    for_expression: ($) =>
-      prec.right(
-        seq(
-          "for",
-          choice(
-            // for item in collection { body }
-            seq(
-              field("pattern", $._pattern),
-              "in",
-              field("iterable", $._expression),
-              field("body", $.block),
+    // parser.go L2363-2385 (parseFunctionParameter — default value)
+    _default_param: ($) =>
+      seq(field("name", $.identifier), "=", field("default", $._expression)),
+
+    // parser.go L2363-2385 (parseFunctionParameter — rest)
+    _rest_param: ($) => seq("...", field("name", $.identifier)),
+
+    // ================================================================
+    // Control flow — parser.go L2171-2496
+    // ================================================================
+
+    // parser.go L2171-2284 (parseIfExpression)
+    // Two forms:
+    //   With parens: if (cond) consequence [else alternative]
+    //     consequence can be block or single expression/statement
+    //   Without parens: if cond { body } [else ...]
+    //     consequence must be a block
+    if_expression: ($) =>
+      prec.dynamic(
+        10,
+        prec.right(
+          PREC.LOWEST,
+          seq(
+            "if",
+            choice(
+              prec.dynamic(
+                20,
+                seq(
+                  "(",
+                  field("condition", $._expression),
+                  ")",
+                  field(
+                    "consequence",
+                    choice(prec.dynamic(10, $.block), $._statement),
+                  ),
+                ),
+              ),
+              seq(
+                field("condition", $._expression),
+                field("consequence", $.block),
+              ),
             ),
-            // for collection (shorthand)
-            seq(field("iterable", $._expression)),
+            optional(
+              seq(
+                "else",
+                field(
+                  "alternative",
+                  choice(
+                    prec.dynamic(10, $.block),
+                    prec.dynamic(5, $.if_expression),
+                    $._statement,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
 
-    if_expression: ($) =>
-      seq(
-        "if",
-        field("condition", $._expression),
-        field("consequence", $.block),
-        optional(
-          seq("else", field("alternative", choice($.block, $.if_expression))),
+    // parser.go L2390-2496 (parseForExpression)
+    // Iteration form: for [var|key,value] in iterable { body }
+    // Mapping form:   for (iterable) function
+    for_expression: ($) =>
+      prec.right(
+        PREC.LOWEST,
+        seq(
+          "for",
+          choice(
+            // Iteration with parens: for (x in arr) { body } or for (k, v in dict) { body }
+            // prec.dynamic(10) to prefer iteration over mapping when ambiguous
+            prec.dynamic(
+              10,
+              seq(
+                "(",
+                optional(seq(field("key", $.identifier), ",")),
+                field("variable", $._pattern),
+                "in",
+                field("iterable", $._expression),
+                ")",
+                field("body", $.block),
+              ),
+            ),
+            // Iteration without parens: for x in arr { body }
+            prec.dynamic(
+              10,
+              seq(
+                optional(seq(field("key", $.identifier), ",")),
+                field("variable", $._pattern),
+                "in",
+                field("iterable", $._expression),
+                field("body", $.block),
+              ),
+            ),
+            // Mapping form: for (iterable) function — REQUIRES parens
+            seq(
+              "(",
+              field("iterable", $._expression),
+              ")",
+              field("mapper", $._expression),
+            ),
+          ),
         ),
       ),
 
-    try_expression: ($) => seq("try", $._expression),
+    // parser.go L1838-1863 (parseTryExpression)
+    // try must be followed by a call expression
+    try_expression: ($) =>
+      prec.right(PREC.PREFIX, seq("try", field("call", $._expression))),
 
+    // parser.go L1871-1931 (parseImportExpression)
     import_expression: ($) =>
       prec.right(
         seq(
@@ -388,7 +593,196 @@ module.exports = grammar({
         ),
       ),
 
-    // ==================== LITERALS ====================
+    // ================================================================
+    // Tags — parser.go L1354-1528
+    // ================================================================
+
+    // parser.go L1354-1365 (parseTagLiteral), L1367-1528 (parseTagPair, parseTagContents)
+    // Tag content is repeat(_statement) — full Parsley code, NOT text with interpolation
+    tag_expression: ($) =>
+      prec(
+        PREC.TAG,
+        choice(
+          $.self_closing_tag,
+          seq($.open_tag, repeat($._tag_child), $.close_tag),
+          // Grouping tags: <>...</>
+          seq("<>", repeat($._tag_child), "</>"),
+        ),
+      ),
+
+    self_closing_tag: ($) =>
+      seq(
+        "<",
+        field("name", $.tag_name),
+        repeat(choice($.tag_attribute, $.tag_spread_attribute)),
+        "/>",
+      ),
+
+    open_tag: ($) =>
+      seq(
+        "<",
+        field("name", $.tag_name),
+        repeat(choice($.tag_attribute, $.tag_spread_attribute)),
+        ">",
+      ),
+
+    close_tag: ($) => seq("</", field("name", $.tag_name), ">"),
+
+    // Tag name: letters, digits, hyphens (for HTML elements and components)
+    tag_name: ($) => /[a-zA-Z][a-zA-Z0-9.-]*/,
+
+    // Tag children are Parsley code — parser.go L1421-1528 (parseTagContents)
+    // tag_expression is reachable via _expression → expression_statement
+    _tag_child: ($) => $._statement,
+
+    // parser.go parseTagAttributes (L1645-1814)
+    tag_attribute: ($) =>
+      choice(
+        // name="value" or name={expr}
+        seq(
+          field("name", $.attribute_name),
+          "=",
+          field(
+            "value",
+            choice(
+              $.string,
+              $.template_string,
+              $.raw_string,
+              $.tag_expression_value,
+            ),
+          ),
+        ),
+        // bare boolean attribute
+        field("name", $.attribute_name),
+      ),
+
+    // Attribute names allow @field, @record, hyphens, etc.
+    attribute_name: ($) => /[a-zA-Z@][a-zA-Z0-9_-]*/,
+
+    // Expression value in tag attribute: {expr}
+    tag_expression_value: ($) => seq("{", $._expression, "}"),
+
+    // Spread attribute: ...identifier
+    tag_spread_attribute: ($) => seq("...", field("expression", $.identifier)),
+
+    // ================================================================
+    // Patterns (destructuring) — parser.go L3100-3250
+    // ================================================================
+
+    _pattern: ($) =>
+      choice(
+        $.identifier,
+        $.array_pattern,
+        $.dictionary_pattern,
+        alias("_", $.identifier),
+      ),
+
+    // parser.go L3193-3250 (parseArrayDestructuringPattern)
+    array_pattern: ($) =>
+      seq(
+        "[",
+        commaSep(choice($._pattern, seq("...", optional($.identifier)))),
+        "]",
+      ),
+
+    // parser.go L3100-3190 (parseDictDestructuringPattern)
+    dictionary_pattern: ($) =>
+      seq(
+        "{",
+        commaSep(
+          choice(
+            // key: nested_pattern
+            seq(field("key", $.identifier), ":", field("value", $._pattern)),
+            // key as alias
+            seq(field("key", $.identifier), "as", field("alias", $.identifier)),
+            // simple key (shorthand)
+            $.identifier,
+            // rest: ...identifier
+            seq("...", optional($.identifier)),
+          ),
+        ),
+        "}",
+      ),
+
+    // ================================================================
+    // Schema declarations — parser.go L3253-3410 (Phase 2 basic support)
+    // ================================================================
+
+    // parser.go L3253-3293 (parseSchemaDeclaration)
+    schema_declaration: ($) =>
+      seq(
+        "@schema",
+        field("name", $.identifier),
+        "{",
+        repeat($.schema_field),
+        "}",
+      ),
+
+    // parser.go L3302-3410 (parseSchemaField)
+    schema_field: ($) =>
+      seq(
+        field("name", $.identifier),
+        ":",
+        field("type", $.identifier),
+        optional("?"),
+        optional($.enum_values),
+        optional($.type_options),
+        optional(seq("=", field("default", $._expression))),
+        optional(seq("|", field("metadata", $._expression))),
+        optional(seq("via", field("relation", $.identifier))),
+      ),
+
+    enum_values: ($) =>
+      seq("(", commaSep(choice($.string, $.number, $.identifier)), ")"),
+
+    type_options: ($) =>
+      seq("[", commaSep(choice($.string, $.number, $.identifier)), "]"),
+
+    // ================================================================
+    // Table literals — parser.go L3413-3523
+    // ================================================================
+
+    table_expression: ($) =>
+      seq(
+        "@table",
+        optional(seq("(", field("schema", $.identifier), ")")),
+        "[",
+        commaSep($._expression),
+        "]",
+      ),
+
+    // ================================================================
+    // Query/mutation expressions — parser.go L3611-3764, L4588-4800
+    // Phase 2 stub: parse balanced parens
+    // ================================================================
+
+    // Phase 2 stub: parse @query(...) with opaque balanced-paren content
+    // The query DSL has its own sub-grammar that will be implemented later
+    query_expression: ($) => seq("@query", "(", optional($._query_body), ")"),
+
+    _query_body: ($) => repeat1($._query_token),
+
+    _query_token: ($) =>
+      choice(
+        seq("(", optional($._query_body), ")"),
+        seq("{", $._expression, "}"),
+        $.identifier,
+        $.string,
+        $.number,
+        /[^(){}]+/,
+      ),
+
+    mutation_expression: ($) =>
+      seq(
+        choice("@insert", "@update", "@delete", "@transaction"),
+        "(",
+        commaSep($._expression),
+        ")",
+      ),
+
+    // ================================================================
+    // Literals
+    // ================================================================
 
     _literal: ($) =>
       choice(
@@ -398,31 +792,41 @@ module.exports = grammar({
         $.raw_string,
         $.regex,
         $.boolean,
-        $.null,
         $.money,
         $._at_literal,
       ),
 
+    // -------------------- Numbers --------------------
+    // lexer.go L1257-1272 (readNumber)
     number: ($) => /\d+(\.\d+)?/,
 
+    // -------------------- Booleans --------------------
+    // parser.go L1834-1836 — true/false are keywords
+    // NOTE: null is NOT a keyword — it's an identifier that the evaluator special-cases
     boolean: ($) => choice("true", "false"),
 
-    null: ($) => "null",
-
+    // -------------------- Strings --------------------
+    // lexer.go L1570-1600 (readString) — double-quoted, with {expr} interpolation
     string: ($) =>
       seq(
         '"',
-        repeat(choice($.escape_sequence, $.interpolation, /[^"\\{]+/)),
+        repeat(choice($.escape_sequence, $.interpolation, $._string_content)),
         '"',
       ),
 
+    _string_content: ($) => token.immediate(prec(-1, /[^"\\{]+/)),
+
+    // lexer.go L1642-1664 (readTemplate) — backtick strings with {expr} interpolation
     template_string: ($) =>
       seq(
         "`",
-        repeat(choice($.escape_sequence, $.interpolation, /[^`\\{]+/)),
+        repeat(choice($.escape_sequence, $.interpolation, $._template_content)),
         "`",
       ),
 
+    _template_content: ($) => token.immediate(prec(-1, /[^`\\{]+/)),
+
+    // lexer.go L1605-1639 (readRawString) — single-quoted, with @{expr} interpolation
     raw_string: ($) =>
       seq(
         "'",
@@ -432,156 +836,188 @@ module.exports = grammar({
         "'",
       ),
 
-    // Match non-special characters, or @ followed by non-{ character
-    _raw_string_content: ($) => token(prec(-1, /([^'\\@]|@[^{'])+/)),
+    _raw_string_content: ($) => token.immediate(prec(-1, /([^'\\@]|@[^{'])+/)),
 
-    escape_sequence: ($) => /\\./,
+    // Shared string internals
+    escape_sequence: ($) => token.immediate(prec(1, /\\./)),
 
-    interpolation: ($) => seq("{", $._expression, "}"),
+    interpolation: ($) => seq(token.immediate("{"), $._expression, "}"),
 
-    raw_interpolation: ($) => seq("@{", $._expression, "}"),
+    raw_interpolation: ($) =>
+      seq(token.immediate(seq("@", "{")), $._expression, "}"),
 
-    regex: ($) => token(seq("/", /[^/\n]+/, "/", optional(/[gimsuvy]+/))),
+    // -------------------- Regex --------------------
+    // lexer.go L2293-2327 (readRegex), shouldTreatAsRegex L2879-2896
+    // Regex only valid in prefix position (where division isn't expected)
+    regex: ($) =>
+      token(seq("/", /[^/\n*][^/\n]*/, "/", optional(/[gimsuvy]+/))),
 
-    money: ($) => /([$£€¥]|[A-Z]{3}#)\d+(\.\d{1,2})?/,
+    // -------------------- Money --------------------
+    // lexer.go L1275-1565 (readMoneyLiteral, isCurrencyCodeStart, isCompoundCurrencySymbol)
+    money: ($) =>
+      token(
+        seq(
+          choice(
+            /[$\u00A3\u20AC\u00A5]/, // $ £ € ¥
+            /[A-Z]{1,2}[$\u00A3\u20AC\u00A5]/, // CA$ AU$ HK$ S$ CN¥
+            /[A-Z]{3}#/, // USD# GBP# EUR# etc.
+          ),
+          /\d+(\.\d{1,2})?/,
+        ),
+      ),
 
-    // ==================== AT-LITERALS ====================
-
+    // -------------------- @-literals --------------------
+    // lexer.go L2474-2655 (detectAtLiteralType)
     _at_literal: ($) =>
       choice(
         $.datetime_literal,
         $.time_now_literal,
         $.duration_literal,
         $.connection_literal,
-        $.schema_literal,
-        $.table_literal,
-        $.query_literal,
         $.context_literal,
         $.stdlib_import,
+        $.stdio_literal,
         $.path_literal,
         $.url_literal,
         $.path_template,
-        $.stdio_literal,
       ),
 
     // @2024-01-15, @2024-01-15T10:30:00Z, @12:30:00
+    // lexer.go L2332-2422 (readDatetimeLiteral)
     datetime_literal: ($) =>
       token(
-        seq(
-          "@",
-          choice(
-            // Full datetime
-            seq(
-              /\d{4}-\d{2}-\d{2}/,
-              optional(
-                seq(
-                  "T",
-                  /\d{2}:\d{2}(:\d{2})?/,
-                  optional(/(\.\d+)?(Z|[+-]\d{2}:\d{2})?/),
+        prec(
+          2,
+          seq(
+            "@",
+            choice(
+              // Full date or datetime
+              seq(
+                /\d{4}-\d{2}-\d{2}/,
+                optional(
+                  seq(
+                    "T",
+                    /\d{2}:\d{2}/,
+                    optional(seq(":", /\d{2}/)),
+                    optional(/(\.\d+)?(Z|[+-]\d{2}:\d{2})?/),
+                  ),
                 ),
               ),
+              // Time only: HH:MM or HH:MM:SS
+              seq(/\d{1,2}:\d{2}/, optional(seq(":", /\d{2}/))),
             ),
-            // Time only
-            /\d{1,2}:\d{2}(:\d{2})?/,
           ),
         ),
       ),
 
     // @now, @today, @timeNow, @dateNow
+    // lexer.go detectAtLiteralType — keyword checks
     time_now_literal: ($) =>
-      token(seq("@", choice("now", "today", "timeNow", "dateNow"))),
+      token(prec(3, seq("@", choice("now", "today", "timeNow", "dateNow")))),
 
     // @2h30m, @-7d, @1y6mo
+    // lexer.go L2427-2465 (readDurationLiteral)
     duration_literal: ($) =>
-      token(seq("@", /-?\d+[yMwdhms]([0-9yMwdhms]|mo)*/)),
+      token(prec(4, seq("@", /-?\d+[yMwdhms]([0-9yMwdhms]|mo)*/))),
 
     // @sqlite, @postgres, @mysql, @sftp, @shell, @DB
+    // lexer.go detectAtLiteralType — connection keywords
     connection_literal: ($) =>
       token(
-        seq("@", choice("sqlite", "postgres", "mysql", "sftp", "shell", "DB")),
-      ),
-
-    // @schema
-    schema_literal: ($) => token("@schema"),
-
-    // @table
-    table_literal: ($) => token("@table"),
-
-    // @query, @insert, @update, @delete, @transaction
-    query_literal: ($) =>
-      token(
-        seq("@", choice("query", "insert", "update", "delete", "transaction")),
+        prec(
+          3,
+          seq(
+            "@",
+            choice("sqlite", "postgres", "mysql", "sftp", "shell", "DB"),
+          ),
+        ),
       ),
 
     // @SEARCH, @env, @args, @params
+    // lexer.go detectAtLiteralType — builtin globals / context
     context_literal: ($) =>
-      token(seq("@", choice("SEARCH", "env", "args", "params"))),
+      token(prec(3, seq("@", choice("SEARCH", "env", "args", "params")))),
 
-    // @std, @std/module, @basil, @basil/http, @basil/auth
+    // @std/math, @basil/http, @basil/auth, @std, @basil
+    // lexer.go L2787-2802 (readStdlibPath)
     stdlib_import: ($) =>
       token(
-        seq(
-          "@",
-          choice(
-            seq("std", optional(seq("/", /[a-zA-Z]+/))),
-            seq("basil", optional(seq("/", /[a-zA-Z]+/))),
+        prec(
+          3,
+          seq(
+            "@",
+            choice("std", "basil"),
+            optional(seq("/", /[a-zA-Z][a-zA-Z0-9_]*/)),
           ),
         ),
       ),
 
     // @-, @stdin, @stdout, @stderr
+    // lexer.go readPathLiteral — stdio detection
     stdio_literal: ($) =>
-      token(seq("@", choice("-", "stdin", "stdout", "stderr"))),
+      token(prec(3, seq("@", choice("-", "stdin", "stdout", "stderr")))),
 
     // @./file, @../dir, @/usr/local, @~/home, @.config
+    // lexer.go L2715-2782 (readPathLiteral)
     path_literal: ($) =>
       token(
-        seq(
-          "@",
-          choice(
-            seq(".", optional(seq(/\.?\//, /[^\s<>"{}|\\^`\[\]]*/))),
-            seq("/", /[^\s<>"{}|\\^`\[\]]*/),
-            seq("~/", /[^\s<>"{}|\\^`\[\]]*/),
+        prec(
+          1,
+          seq(
+            "@",
+            choice(
+              seq(".", /[./]?/, /[^\s<>"{}|\\^`\[\]),:;]*/),
+              seq("/", /[^\s<>"{}|\\^`\[\]),:;]*/),
+              seq("~/", /[^\s<>"{}|\\^`\[\]),:;]*/),
+            ),
           ),
         ),
       ),
 
-    // @https://..., @http://..., @ftp://..., @file://...
+    // @https://example.com, @http://..., @ftp://...
+    // lexer.go L2841-2874 (readUrlLiteral)
     url_literal: ($) =>
-      token(seq("@", /(https?|ftp|file):\/\/[^\s<>"{}|\\^`\[\]]*/)),
-
-    // @(./path/{expr}) or @(https://api.com/{expr})
-    path_template: ($) =>
-      seq("@(", repeat(choice(/[^{}()]+/, $.interpolation)), ")"),
-
-    // ==================== ARRAYS AND DICTIONARIES ====================
-
-    array_literal: ($) =>
-      seq("[", commaSep(choice($._expression, $.spread_element)), "]"),
-
-    dictionary_literal: ($) =>
-      seq(
-        "{",
-        commaSep(
-          choice(
-            $.pair,
-            $.shorthand_property,
-            $.spread_element,
-            $.computed_property,
-          ),
+      token(
+        prec(
+          2,
+          seq("@", /(https?|ftp|file|wss?|ssh):\/\/[^\s<>"{}|\\^`\[\]),;]*/),
         ),
-        "}",
+      ),
+
+    // @(./path/{expr}), @(./{name}/file)
+    // lexer.go L2972-3017 (readPathTemplate)
+    path_template: ($) =>
+      seq("@(", repeat(choice(/[^{}()]+/, seq("{", $._expression, "}"))), ")"),
+
+    // url_template and datetime_template use the same @(...) syntax
+    // but are semantically distinct. Since tree-sitter alias causes conflicts,
+    // we fold them into path_template and distinguish in highlights.scm.
+    // The _at_literal choice only includes path_template.
+
+    // ================================================================
+    // Collections — parser.go L2139-2169, L2988-3079
+    // ================================================================
+
+    // parser.go L2139-2169 (parseSquareBracketArrayLiteral)
+    // No spread in arrays — parser just calls parseExpression for each element
+    array_literal: ($) => seq("[", commaSep($._expression), "]"),
+
+    // parser.go L2988-3079 (parseDictionaryLiteral)
+    // No spread, no shorthand properties — always key: value or [key]: value
+    dictionary_literal: ($) =>
+      prec.dynamic(
+        -1,
+        seq("{", commaSep(choice($.pair, $.computed_property)), "}"),
       ),
 
     pair: ($) =>
       seq(
-        field("key", choice($.identifier, $.string, $.number)),
+        field("key", choice($.identifier, $.string)),
         ":",
         field("value", $._expression),
       ),
 
-    shorthand_property: ($) => prec(-1, $.identifier),
-
+    // parser.go L2988-3079 — computed key: [expr]: value
     computed_property: ($) =>
       seq(
         "[",
@@ -591,62 +1027,22 @@ module.exports = grammar({
         field("value", $._expression),
       ),
 
-    // ==================== TAGS (JSX-like) ====================
+    // ================================================================
+    // Basic tokens
+    // ================================================================
 
-    tag_expression: ($) =>
-      prec(
-        PREC.MEMBER + 1,
-        choice(
-          $.self_closing_tag,
-          seq($.open_tag, repeat($._tag_child), $.close_tag),
-        ),
-      ),
-
-    self_closing_tag: ($) =>
-      seq("<", field("name", $.tag_name), repeat($.tag_attribute), "/>"),
-
-    open_tag: ($) =>
-      seq("<", field("name", $.tag_name), repeat($.tag_attribute), ">"),
-
-    close_tag: ($) => seq("</", field("name", $.tag_name), ">"),
-
-    tag_name: ($) => /[a-zA-Z][a-zA-Z0-9-]*/,
-
-    tag_attribute: ($) =>
-      choice(
-        // name="value" or name={expr}
-        seq(
-          field("name", $.attribute_name),
-          "=",
-          field("value", choice($.string, $.tag_embedded_expression)),
-        ),
-        // bare attribute
-        field("name", $.attribute_name),
-        // spread: ...props
-        $.tag_spread_attribute,
-      ),
-
-    attribute_name: ($) => /[a-zA-Z][a-zA-Z0-9_-]*/,
-
-    tag_embedded_expression: ($) => seq("{", $._expression, "}"),
-
-    tag_spread_attribute: ($) => seq("...", $.identifier),
-
-    _tag_child: ($) =>
-      choice($.tag_expression, $.tag_embedded_expression, $.string, $.tag_text),
-
-    tag_text: ($) => /[^<{"]+/,
-
-    // ==================== BASIC TOKENS ====================
-
+    // lexer.go L1248-1254 (readIdentifier)
+    // Supports ASCII identifiers (Unicode handled via external scanner in Phase 2)
     identifier: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
 
+    // lexer.go collectTrivia, skipAndCaptureComment
     comment: ($) => token(seq("//", /.*/)),
   },
 });
 
 /**
- * Helper function for comma-separated lists
+ * Comma-separated list with optional trailing comma
+ * Used throughout: arrays, dicts, parameters, arguments
  */
 function commaSep(rule) {
   return optional(seq(rule, repeat(seq(",", rule)), optional(",")));
