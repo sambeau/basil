@@ -84,7 +84,7 @@ String with escape sequence
       (escape_sequence))))
 
 ==================
-String with interpolation
+String with braces (literal, no interpolation)
 ==================
 
 "hello {name}"
@@ -93,25 +93,23 @@ String with interpolation
 
 (source_file
   (expression_statement
-    (string
-      (interpolation
-        (identifier)))))
+    (string)))
 
 ==================
-String with multiple interpolations
+String with JSON content
 ==================
 
-"{greeting}, {name}!"
+"{\"name\":\"Alice\"}"
 
 ---
 
 (source_file
   (expression_statement
     (string
-      (interpolation
-        (identifier))
-      (interpolation
-        (identifier)))))
+      (escape_sequence)
+      (escape_sequence)
+      (escape_sequence)
+      (escape_sequence))))
 
 ==================
 Template string

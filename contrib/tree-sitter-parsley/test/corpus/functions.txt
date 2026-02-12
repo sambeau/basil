@@ -654,7 +654,6 @@ Block expression
 
 ==================
 Component pattern — function returning tags
-:skip
 ==================
 
 let Page = fn({title, contents}) {
@@ -682,15 +681,15 @@ let Page = fn({title, contents}) {
         (expression_statement
           (tag_expression
             (open_tag
-              name: (tag_name))
+              (tag_start))
             (expression_statement
               (tag_expression
                 (open_tag
-                  name: (tag_name))
+                  (tag_start))
                 (expression_statement
                   (tag_expression
                     (open_tag
-                      name: (tag_name))
+                      (tag_start))
                     (expression_statement
                       (identifier))
                     (close_tag
@@ -700,7 +699,7 @@ let Page = fn({title, contents}) {
             (expression_statement
               (tag_expression
                 (open_tag
-                  name: (tag_name))
+                  (tag_start))
                 (expression_statement
                   (identifier))
                 (close_tag
