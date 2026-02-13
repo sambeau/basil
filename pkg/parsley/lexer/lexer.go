@@ -852,10 +852,10 @@ func (l *Lexer) NextToken() Token {
 				// Track tag depth but DON'T enter tag content mode
 				// This allows code (not raw text) inside tags
 				l.tagDepth++
-				// Check if this is a raw text tag (style or script)
+				// Check if this is a raw text tag (style, script, or SQL)
 				// For these, we DO need special handling
 				tagName := extractTagName(tagContent)
-				if tagName == "style" || tagName == "script" {
+				if tagName == "style" || tagName == "script" || tagName == "SQL" {
 					l.inRawTextTag = tagName
 					l.inTagContent = true // Only for raw text tags
 				}
@@ -2012,9 +2012,9 @@ func (l *Lexer) nextTagContentToken() Token {
 			} else {
 				tok.Type = TAG_START
 				l.tagDepth++
-				// Check if this is a raw text tag (style or script)
+				// Check if this is a raw text tag (style, script, or SQL)
 				tagName := extractTagName(tagContent)
-				if tagName == "style" || tagName == "script" {
+				if tagName == "style" || tagName == "script" || tagName == "SQL" {
 					l.inRawTextTag = tagName
 				}
 			}
@@ -2053,6 +2053,19 @@ func (l *Lexer) nextTagContentToken() Token {
 	case '@':
 		// In raw text mode, @{ triggers interpolation
 		if inRawMode && l.peekChar() == '{' {
+			// Block interpolation in SQL tags for safety - all params must come from attributes
+			if l.inRawTextTag == "SQL" {
+				line := l.line
+				col := l.column
+				l.readChar() // skip @
+				l.readChar() // skip {
+				return Token{
+					Type:    ILLEGAL,
+					Literal: "interpolation @{} is not allowed inside <SQL> tags; use attributes for parameters: <SQL name={value}>...VALUES (?)...</SQL>",
+					Line:    line,
+					Column:  col,
+				}
+			}
 			l.readChar() // skip @
 			tok = newToken(LBRACE, l.ch, l.line, l.column)
 			l.readChar() // skip {

@@ -9137,6 +9137,29 @@
     }
   },
   {
+    "type": "sql_tag",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "raw_text",
+          "named": true
+        },
+        {
+          "type": "tag_attribute",
+          "named": true
+        },
+        {
+          "type": "tag_spread_attribute",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "string",
     "named": true,
     "fields": {},
@@ -9468,6 +9491,10 @@
         },
         {
           "type": "self_closing_tag",
+          "named": true
+        },
+        {
+          "type": "sql_tag",
           "named": true
         },
         {
@@ -10577,6 +10604,10 @@
     "named": false
   },
   {
+    "type": "</SQL>",
+    "named": false
+  },
+  {
     "type": "</script>",
     "named": false
   },
@@ -10614,6 +10645,10 @@
   },
   {
     "type": "<>",
+    "named": false
+  },
+  {
+    "type": "<SQL",
     "named": false
   },
   {

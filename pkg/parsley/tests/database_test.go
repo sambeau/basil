@@ -383,7 +383,7 @@ func TestSQLTag(t *testing.T) {
 
 				let InsertUser = fn(props) {
 					<SQL>
-						"INSERT INTO tag_users (name) VALUES ('Alice')"
+						INSERT INTO tag_users (name) VALUES ('Alice')
 					</SQL>
 				}
 
@@ -415,7 +415,7 @@ func TestSQLTag(t *testing.T) {
 
 				let InsertUser = fn(props) {
 					<SQL name={props.name}>
-						"INSERT INTO tag_users (name) VALUES (?)"
+						INSERT INTO tag_users (name) VALUES (?)
 					</SQL>
 				}
 
@@ -457,7 +457,7 @@ func TestSQLTag(t *testing.T) {
 
 				let GetUser = fn(props) {
 					<SQL id={props.id}>
-						"SELECT * FROM tag_users WHERE id = ?"
+						SELECT * FROM tag_users WHERE id = ?
 					</SQL>
 				}
 
@@ -489,7 +489,7 @@ func TestSQLTag(t *testing.T) {
 
 				let InsertUser = fn(props) {
 					<SQL age={props.age} name={props.name}>
-						"INSERT INTO tag_users (age, name) VALUES (?, ?)"
+						INSERT INTO tag_users (age, name) VALUES (?, ?)
 					</SQL>
 				}
 
@@ -519,6 +519,76 @@ func TestSQLTag(t *testing.T) {
 				ageInt, ok := age.(*evaluator.Integer)
 				if !ok || ageInt.Value != 30 {
 					t.Errorf("Expected age=30, got %v", age.Inspect())
+				}
+			},
+		},
+		{
+			name: "SQL tag with multi-line content and whitespace trimming",
+			input: `
+				let query = <SQL>
+					SELECT id, name
+					FROM users
+					WHERE id = 1
+				</SQL>
+				query.sql
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				str, ok := result.(*evaluator.String)
+				if !ok {
+					t.Fatalf("Expected String, got %T", result)
+				}
+				// Verify leading/trailing whitespace is trimmed
+				if str.Value[0] == '\n' || str.Value[0] == ' ' || str.Value[0] == '\t' {
+					t.Errorf("Leading whitespace should be trimmed, got: %q", str.Value)
+				}
+				lastChar := str.Value[len(str.Value)-1]
+				if lastChar == '\n' || lastChar == ' ' || lastChar == '\t' {
+					t.Errorf("Trailing whitespace should be trimmed, got: %q", str.Value)
+				}
+				// Verify content is present
+				if !strings.Contains(str.Value, "SELECT id, name") {
+					t.Errorf("Expected SQL content, got %s", str.Value)
+				}
+				if !strings.Contains(str.Value, "FROM users") {
+					t.Errorf("Expected FROM clause, got %s", str.Value)
+				}
+			},
+		},
+		{
+			name: "SQL tag with SQL comments preserved",
+			input: `
+				let query = <SQL>
+					-- This is a SQL comment
+					SELECT * FROM users
+				</SQL>
+				query.sql
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				str, ok := result.(*evaluator.String)
+				if !ok {
+					t.Fatalf("Expected String, got %T", result)
+				}
+				if !strings.Contains(str.Value, "-- This is a SQL comment") {
+					t.Errorf("SQL comments should be preserved, got: %s", str.Value)
+				}
+				if !strings.Contains(str.Value, "SELECT * FROM users") {
+					t.Errorf("SQL query should be present, got: %s", str.Value)
+				}
+			},
+		},
+		{
+			name: "SQL tag simple inline",
+			input: `
+				let query = <SQL>SELECT * FROM users</SQL>
+				query.sql
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				str, ok := result.(*evaluator.String)
+				if !ok {
+					t.Fatalf("Expected String, got %T", result)
+				}
+				if str.Value != "SELECT * FROM users" {
+					t.Errorf("Expected 'SELECT * FROM users', got %q", str.Value)
 				}
 			},
 		},

@@ -2484,6 +2484,10 @@
             "name": "script_tag"
           },
           {
+            "type": "SYMBOL",
+            "name": "sql_tag"
+          },
+          {
             "type": "SEQ",
             "members": [
               {
@@ -2629,6 +2633,60 @@
             "content": {
               "type": "STRING",
               "value": "</script>"
+            }
+          }
+        }
+      ]
+    },
+    "sql_tag": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "TOKEN",
+          "content": {
+            "type": "PREC",
+            "value": 13,
+            "content": {
+              "type": "STRING",
+              "value": "<SQL"
+            }
+          }
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "tag_attribute"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "tag_spread_attribute"
+              }
+            ]
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ">"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "raw_text"
+          }
+        },
+        {
+          "type": "TOKEN",
+          "content": {
+            "type": "PREC",
+            "value": 13,
+            "content": {
+              "type": "STRING",
+              "value": "</SQL>"
             }
           }
         }

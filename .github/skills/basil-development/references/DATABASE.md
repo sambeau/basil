@@ -130,6 +130,58 @@ if (error) {
 }
 ```
 
+## SQL Tags (Safe Parameterized Queries)
+
+The `<SQL>` tag provides a safe way to write parameterized queries. SQL content is raw text (no quotes needed), and parameters come from attributes.
+
+```parsley
+// Basic SQL tag - no quotes needed around SQL
+let users = @DB <=??=> <SQL>SELECT * FROM users WHERE active = 1</SQL>
+
+// Parameterized query - parameters from attributes
+let GetUser = fn(props) {
+    <SQL id={props.id}>
+        SELECT * FROM users WHERE id = ?
+    </SQL>
+}
+let user = @DB <=?=> <GetUser id={42} />
+
+// Multiple parameters
+let InsertUser = fn(props) {
+    <SQL name={props.name} email={props.email}>
+        INSERT INTO users (name, email) VALUES (?, ?)
+    </SQL>
+}
+let result = @DB <=!=> <InsertUser name="Alice" email="alice@example.com" />
+
+// Multi-line queries
+let GetActiveUsers = fn(props) {
+    <SQL status={props.status} limit={props.limit}>
+        SELECT id, name, email
+        FROM users
+        WHERE status = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+    </SQL>
+}
+```
+
+### Why Use SQL Tags?
+
+**Safety**: `@{}` interpolation is blocked inside SQL tags to prevent SQL injection. All dynamic values must come through attributes, which are passed as prepared statement parameters.
+
+```parsley
+// ❌ ERROR - interpolation not allowed in SQL tags
+<SQL>SELECT * FROM users WHERE id = @{id}</SQL>
+
+// ✅ SAFE - use attributes for parameters
+<SQL id={id}>SELECT * FROM users WHERE id = ?</SQL>
+```
+
+**Readability**: No need for quotes or escaping SQL strings.
+
+**Components**: SQL tags work naturally in reusable query components.
+
 ## Connection Types
 
 ### 1. SQLite

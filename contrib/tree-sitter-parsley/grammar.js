@@ -610,6 +610,7 @@ module.exports = grammar({
           $.self_closing_tag,
           $.style_tag,
           $.script_tag,
+          $.sql_tag,
           seq($.open_tag, repeat($._tag_child), $.close_tag),
           // Grouping tags: <>...</>
           seq("<>", repeat($._tag_child), "</>"),
@@ -636,6 +637,18 @@ module.exports = grammar({
         ">",
         repeat($._raw_text_content),
         token(prec(PREC.TAG + 1, "</script>")),
+      ),
+
+    // SQL tag with raw text content (NO interpolation allowed for safety)
+    // Parameters must come from attributes: <SQL name={value}>...VALUES (?)...</SQL>
+    // Uses token with higher precedence to ensure <SQL wins over generic tag_start
+    sql_tag: ($) =>
+      seq(
+        token(prec(PREC.TAG + 1, "<SQL")),
+        repeat(choice($.tag_attribute, $.tag_spread_attribute)),
+        ">",
+        repeat($.raw_text), // Only raw_text, no interpolation allowed
+        token(prec(PREC.TAG + 1, "</SQL>")),
       ),
 
     // Raw text content: either literal text or @{expr} interpolation

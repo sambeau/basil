@@ -156,11 +156,85 @@ static bool scan_raw_text(Scanner *scanner, TSLexer *lexer, const bool *valid_sy
             if (lexer->lookahead == '/') {
                 advance(lexer);
                 
-                // Check if this is </style> or </script>
+                // Check if this is </style>, </script>, or </SQL>
                 // We need to peek ahead without consuming if it doesn't match
                 
-                // Check for 'style' (case-insensitive)
-                if (lexer->lookahead == 's' || lexer->lookahead == 'S') {
+                // Check for 'SQL' (case-sensitive, uppercase only)
+                if (lexer->lookahead == 'S') {
+                    advance(lexer);
+                    if (lexer->lookahead == 'Q') {
+                        advance(lexer);
+                        if (lexer->lookahead == 'L') {
+                            advance(lexer);
+                            // Check for end of tag name
+                            if (lexer->lookahead == '>' || lexer->lookahead == ' ' ||
+                                lexer->lookahead == '\t' || lexer->lookahead == '\n' ||
+                                lexer->lookahead == '\r') {
+                                // Found </SQL>!
+                                if (has_content) {
+                                    // Return accumulated content, let grammar handle close tag
+                                    lexer->result_symbol = RAW_TEXT;
+                                    return true;
+                                }
+                                // No content - decline and let grammar handle </SQL>
+                                return false;
+                            }
+                        }
+                    }
+                    // Not SQL, but started with 'S' - could still be 'style' or 'script'
+                    // Check for 'style' (already consumed 'S')
+                    if (lexer->lookahead == 't' || lexer->lookahead == 'T') {
+                        // Likely 'style'
+                        advance(lexer);
+                        if ((lexer->lookahead == 'y' || lexer->lookahead == 'Y')) {
+                            advance(lexer);
+                            if ((lexer->lookahead == 'l' || lexer->lookahead == 'L')) {
+                                advance(lexer);
+                                if ((lexer->lookahead == 'e' || lexer->lookahead == 'E')) {
+                                    advance(lexer);
+                                    // Check for end of tag name
+                                    if (lexer->lookahead == '>' || lexer->lookahead == ' ' ||
+                                        lexer->lookahead == '\t' || lexer->lookahead == '\n' ||
+                                        lexer->lookahead == '\r') {
+                                        // Found </style>!
+                                        if (has_content) {
+                                            lexer->result_symbol = RAW_TEXT;
+                                            return true;
+                                        }
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (lexer->lookahead == 'c' || lexer->lookahead == 'C') {
+                        // Likely 'script'
+                        advance(lexer);
+                        if ((lexer->lookahead == 'r' || lexer->lookahead == 'R')) {
+                            advance(lexer);
+                            if ((lexer->lookahead == 'i' || lexer->lookahead == 'I')) {
+                                advance(lexer);
+                                if ((lexer->lookahead == 'p' || lexer->lookahead == 'P')) {
+                                    advance(lexer);
+                                    if ((lexer->lookahead == 't' || lexer->lookahead == 'T')) {
+                                        advance(lexer);
+                                        // Check for end of tag name
+                                        if (lexer->lookahead == '>' || lexer->lookahead == ' ' ||
+                                            lexer->lookahead == '\t' || lexer->lookahead == '\n' ||
+                                            lexer->lookahead == '\r') {
+                                            // Found </script>!
+                                            if (has_content) {
+                                                lexer->result_symbol = RAW_TEXT;
+                                                return true;
+                                            }
+                                            return false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (lexer->lookahead == 's') {
+                    // Lowercase 's' - check for 'style' or 'script' (case-insensitive)
                     // Could be style or script
                     advance(lexer);
                     
@@ -220,7 +294,7 @@ static bool scan_raw_text(Scanner *scanner, TSLexer *lexer, const bool *valid_sy
                     }
                 }
                 
-                // Not </style> or </script>, this is raw text content
+                // Not </style>, </script>, or </SQL>, this is raw text content
                 // (like '</div>' or '</li>' in JavaScript strings)
                 has_content = true;
                 lexer->mark_end(lexer);

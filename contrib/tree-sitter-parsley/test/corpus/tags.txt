@@ -749,3 +749,92 @@ Tag with not in condition inside
                   name: (tag_name)))))))
       (close_tag
         name: (tag_name)))))
+
+==================
+SQL tag — simple
+==================
+
+<SQL>SELECT * FROM users</SQL>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (sql_tag
+        (raw_text)))))
+
+==================
+SQL tag — with attribute
+==================
+
+<SQL name="Alice">INSERT INTO users (name) VALUES (?)</SQL>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (sql_tag
+        (tag_attribute
+          name: (attribute_name)
+          value: (string))
+        (raw_text)))))
+
+==================
+SQL tag — with expression attribute
+==================
+
+<SQL id={userId}>SELECT * FROM users WHERE id = ?</SQL>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (sql_tag
+        (tag_attribute
+          name: (attribute_name)
+          value: (tag_expression_value
+            (identifier)))
+        (raw_text)))))
+
+==================
+SQL tag — multi-line content
+==================
+
+<SQL>
+  SELECT id, name
+  FROM users
+  WHERE active = 1
+</SQL>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (sql_tag
+        (raw_text)))))
+
+==================
+SQL tag — with multiple attributes
+==================
+
+<SQL name={n} age={a}>INSERT INTO users (name, age) VALUES (?, ?)</SQL>
+
+---
+
+(source_file
+  (expression_statement
+    (tag_expression
+      (sql_tag
+        (tag_attribute
+          name: (attribute_name)
+          value: (tag_expression_value
+            (identifier)))
+        (tag_attribute
+          name: (attribute_name)
+          value: (tag_expression_value
+            (identifier)))
+        (raw_text)))))

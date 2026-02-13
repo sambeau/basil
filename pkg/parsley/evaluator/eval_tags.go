@@ -1118,9 +1118,13 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
 
+	// Trim leading and trailing whitespace from SQL content
+	// (databases ignore it, and it makes output cleaner)
+	trimmedSQL := strings.TrimSpace(sqlStr.Value)
+
 	// Build result dictionary with sql and params
 	resultPairs := map[string]ast.Expression{
-		"sql": &ast.StringLiteral{Value: sqlStr.Value},
+		"sql": &ast.StringLiteral{Value: trimmedSQL},
 	}
 
 	// Evaluate all props eagerly as query params so variable references

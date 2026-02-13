@@ -124,12 +124,24 @@ For parameterized queries, use the `<SQL>` tag. It produces a dictionary with `s
 ```parsley
 let name = "Alice"
 let query = <SQL name={name}>
-    "SELECT * FROM users WHERE name = ?"
+    SELECT * FROM users WHERE name = ?
 </SQL>
 let user = db <=?=> query
 ```
 
-The content of a `<SQL>` tag must be a string expression. Attributes are bound as query parameters in sorted key order, preventing SQL injection.
+The content of a `<SQL>` tag is **raw text** — no quotes needed around the SQL. This works like `<style>` and `<script>` tags, where the tag boundaries define the content. Attributes are bound as query parameters in sorted key order, preventing SQL injection.
+
+> ⚠️ **Interpolation is blocked inside `<SQL>` tags.** Unlike `<style>` and `<script>`, you cannot use `@{expr}` inside SQL content. All dynamic values must come through attributes. This is intentional — it enforces safe parameterized queries and prevents SQL injection.
+
+```parsley
+// ❌ ERROR — interpolation not allowed
+<SQL>SELECT * FROM users WHERE name = '@{name}'</SQL>
+
+// ✅ SAFE — use attributes for parameters
+<SQL name={name}>SELECT * FROM users WHERE name = ?</SQL>
+```
+
+Leading and trailing whitespace is automatically trimmed from SQL content.
 
 ### SQL Components
 
@@ -138,7 +150,7 @@ Wrap `<SQL>` in a component function for reusable queries:
 ```parsley
 let GetUser = fn(props) {
     <SQL id={props.id}>
-        "SELECT * FROM users WHERE id = ?"
+        SELECT * FROM users WHERE id = ?
     </SQL>
 }
 
@@ -148,11 +160,34 @@ let user = db <=?=> <GetUser id={42} />
 ```parsley
 let InsertUser = fn(props) {
     <SQL name={props.name}>
-        "INSERT INTO users (name) VALUES (?)"
+        INSERT INTO users (name) VALUES (?)
     </SQL>
 }
 
 let result = db <=!=> <InsertUser name="Carol" />
+```
+
+Multi-line queries work naturally:
+
+```parsley
+let GetActiveUsers = fn(props) {
+    <SQL status={props.status} limit={props.limit}>
+        SELECT id, name, email
+        FROM users
+        WHERE status = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+    </SQL>
+}
+```
+
+SQL comments are preserved:
+
+```parsley
+<SQL>
+    -- Get all admin users
+    SELECT * FROM users WHERE role = 'admin'
+</SQL>
 ```
 
 You can also pass a plain string directly — useful for DDL or simple queries where parameterization isn't needed:
@@ -322,19 +357,19 @@ Parsley validates all SQL identifiers (table and column names) against an allowl
 Always use `<SQL>` tag attributes for user-provided values — never interpolate them into query strings:
 
 ```parsley
-// SAFE — parameterized
+// SAFE — parameterized (attributes become bound parameters)
 let user = db <=?=> <SQL name={input}>
-    "SELECT * FROM users WHERE name = ?"
+    SELECT * FROM users WHERE name = ?
 </SQL>
 
-// UNSAFE — string interpolation
+// UNSAFE — string interpolation bypasses parameterization
 let user = db <=?=> `SELECT * FROM users WHERE name = '${input}'`
 ```
 
 ## Key Differences from Other Languages
 
 - **Operators instead of method calls** — `<=?=>`, `<=??=>`, and `<=!=>` replace `.query()` and `.execute()`. The arrow syntax makes data flow direction and cardinality visible at a glance.
-- **`<SQL>` tags** — parameterized queries use tag syntax, which integrates naturally with Parsley's component model. Queries are composable as components.
+- **`<SQL>` tags** — parameterized queries use tag syntax with raw text content (no quotes needed). The tag integrates naturally with Parsley's component model. Queries are composable as components, and `@{}` interpolation is blocked to enforce safety.
 - **Connection caching** — connections are cached by DSN. Repeated calls to `@sqlite()` with the same path return the same connection.
 - **No driver imports** — SQLite, PostgreSQL, and MySQL are built in. You just use `@sqlite`, `@postgres`, or `@mysql`.
 - **Schema-driven bindings** — `db.bind()` connects a schema to a table, giving you typed CRUD methods without writing SQL.

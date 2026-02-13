@@ -293,15 +293,70 @@ let Page = fn({title, contents}) {
 
 ### SQL
 
-The `<SQL>` tag builds parameterized queries. Content is the SQL text; parameters are passed as attributes:
+The `<SQL>` tag builds parameterized queries. Content is **raw text** — no quotes needed around the SQL. Parameters are passed as attributes and bound using `?` placeholders:
 
 ```parsley
 <SQL name="alice">
-    SELECT * FROM users WHERE name = @name
+    SELECT * FROM users WHERE name = ?
 </SQL>
 ```
 
-Parameters use `@name` syntax inside the SQL. This prevents SQL injection — values are bound as parameters, never interpolated.
+Parameters are bound in sorted attribute-name order, preventing SQL injection. The `<SQL>` tag returns a dictionary with `sql` and `params` keys that query operators understand.
+
+#### Raw Text Content
+
+Like `<style>` and `<script>`, SQL content is raw text — the tag boundaries define the content:
+
+```parsley
+// No quotes needed around SQL
+<SQL>SELECT * FROM users WHERE active = 1</SQL>
+
+// Multi-line queries work naturally
+<SQL id={userId}>
+    SELECT id, name, email
+    FROM users
+    WHERE id = ?
+    ORDER BY created_at DESC
+</SQL>
+
+// SQL comments are preserved
+<SQL>
+    -- Get all admin users
+    SELECT * FROM users WHERE role = 'admin'
+</SQL>
+```
+
+Leading and trailing whitespace is automatically trimmed.
+
+#### No Interpolation Allowed
+
+Unlike `<style>` and `<script>`, **`@{}` interpolation is blocked inside `<SQL>` tags**. This is intentional — it enforces safe parameterized queries:
+
+```parsley
+// ❌ ERROR — interpolation not allowed in SQL tags
+<SQL>SELECT * FROM users WHERE name = '@{name}'</SQL>
+
+// ✅ SAFE — use attributes for parameters
+<SQL name={name}>SELECT * FROM users WHERE name = ?</SQL>
+```
+
+All dynamic values must come through attributes, which are passed as prepared statement parameters.
+
+#### SQL Components
+
+Wrap `<SQL>` in a component function for reusable queries:
+
+```parsley
+let GetUser = fn(props) {
+    <SQL id={props.id}>
+        SELECT * FROM users WHERE id = ?
+    </SQL>
+}
+
+let user = db <=?=> <GetUser id={42} />
+```
+
+See [Database](../features/database.md) for complete database documentation.
 
 ### Cache <small>(Basil only)</small>
 
