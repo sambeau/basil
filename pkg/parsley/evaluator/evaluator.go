@@ -83,6 +83,7 @@ const (
 	MDDOC_OBJ            = "MDDOC"
 	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
+	UNIT_OBJ             = "UNIT"
 	REDIRECT_OBJ         = "REDIRECT" // HTTP redirect response
 	STOP_SIGNAL_OBJ      = "STOP_SIGNAL"
 	SKIP_SIGNAL_OBJ      = "SKIP_SIGNAL"
@@ -119,6 +120,26 @@ type Money struct {
 }
 
 func (m *Money) Type() ObjectType { return MONEY_OBJ }
+
+// Unit represents measurement unit values (length, mass, data).
+// All values are stored as a single int64 counting fixed sub-units:
+//   - SI Length: micrometre (µm), 1 m = 1,000,000
+//   - SI Mass: milligram (mg), 1 g = 1,000
+//   - SI Data: byte (B), 1 B = 1
+//   - US Length: sub-yards over HCN = 725,760 (20,160 sub-units per inch)
+//   - US Mass: sub-ounces over HCN = 725,760
+type Unit struct {
+	Amount      int64  // count of sub-units
+	Family      string // "length", "mass", "data"
+	System      string // "SI", "US"
+	DisplayHint string // original suffix for display ("m", "cm", "in", "ft", etc.)
+}
+
+func (u *Unit) Type() ObjectType { return UNIT_OBJ }
+
+func (u *Unit) Inspect() string {
+	return unitInspectString(u)
+}
 
 func (m *Money) Inspect() string {
 	// Use symbol shortcuts for common currencies
@@ -3894,6 +3915,48 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
+		// unit(value, suffix) - create or convert a unit value
+		// unit(123, "m") - create #123m
+		// unit(#12in, "m") - convert to metres
+		// unit(existingUnit) - identity
+		"unit": {
+			Fn: func(args ...Object) Object {
+				return GenericUnitConstructor(args)
+			},
+		},
+		// --- Named unit constructors (plural forms) ---
+		// Length — SI
+		"millimetres": {Fn: func(args ...Object) Object { return unitNamedConstructor("millimetres", args) }},
+		"millimeters": {Fn: func(args ...Object) Object { return unitNamedConstructor("millimeters", args) }},
+		"centimetres": {Fn: func(args ...Object) Object { return unitNamedConstructor("centimetres", args) }},
+		"centimeters": {Fn: func(args ...Object) Object { return unitNamedConstructor("centimeters", args) }},
+		"metres":      {Fn: func(args ...Object) Object { return unitNamedConstructor("metres", args) }},
+		"meters":      {Fn: func(args ...Object) Object { return unitNamedConstructor("meters", args) }},
+		"kilometres":  {Fn: func(args ...Object) Object { return unitNamedConstructor("kilometres", args) }},
+		"kilometers":  {Fn: func(args ...Object) Object { return unitNamedConstructor("kilometers", args) }},
+		// Length — US
+		"inches": {Fn: func(args ...Object) Object { return unitNamedConstructor("inches", args) }},
+		"feet":   {Fn: func(args ...Object) Object { return unitNamedConstructor("feet", args) }},
+		"yards":  {Fn: func(args ...Object) Object { return unitNamedConstructor("yards", args) }},
+		"miles":  {Fn: func(args ...Object) Object { return unitNamedConstructor("miles", args) }},
+		// Mass — SI
+		"milligrams": {Fn: func(args ...Object) Object { return unitNamedConstructor("milligrams", args) }},
+		"grams":      {Fn: func(args ...Object) Object { return unitNamedConstructor("grams", args) }},
+		"kilograms":  {Fn: func(args ...Object) Object { return unitNamedConstructor("kilograms", args) }},
+		// Mass — US
+		"ounces": {Fn: func(args ...Object) Object { return unitNamedConstructor("ounces", args) }},
+		"pounds": {Fn: func(args ...Object) Object { return unitNamedConstructor("pounds", args) }},
+		// Data
+		// NOTE: "bytes" omitted — conflicts with existing bytes() file I/O builtin.
+		// Use unit(n, "B") or #1024B literal syntax instead.
+		"kilobytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("kilobytes", args) }},
+		"megabytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("megabytes", args) }},
+		"gigabytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("gigabytes", args) }},
+		"terabytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("terabytes", args) }},
+		"kibibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("kibibytes", args) }},
+		"mebibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("mebibytes", args) }},
+		"gibibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("gibibytes", args) }},
+		"tebibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("tebibytes", args) }},
 		// builtins() - list all builtin functions by category
 		"builtins": {
 			Fn: func(args ...Object) Object {
@@ -4614,6 +4677,14 @@ func Eval(node ast.Node, env *Environment) Object {
 			Amount:   node.Amount,
 			Currency: node.Currency,
 			Scale:    node.Scale,
+		}
+
+	case *ast.UnitLiteral:
+		return &Unit{
+			Amount:      node.Amount,
+			Family:      node.Family,
+			System:      node.System,
+			DisplayHint: node.Suffix,
 		}
 
 	case *ast.PathLiteral:
@@ -5506,6 +5577,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 		return evalMoneyProperty(money, node.Key)
 	}
 
+	// Handle Unit property access
+	if unit, ok := left.(*Unit); ok {
+		return evalUnitProperty(unit, node.Key)
+	}
+
 	// Handle StdlibModuleDict property access (e.g., math.PI)
 	if stdlibMod, ok := left.(*StdlibModuleDict); ok {
 		if val, exists := stdlibMod.Exports[node.Key]; exists {
@@ -6023,6 +6099,14 @@ func bankersRound(x float64) int64 {
 		}
 		return wholeInt + 1
 	}
+}
+
+// unitNamedConstructor is a helper for named unit constructors like metres(), inches(), etc.
+func unitNamedConstructor(name string, args []Object) Object {
+	if len(args) != 1 {
+		return newArityError(name, len(args), 1)
+	}
+	return UnitFromConstructor(name, args[0])
 }
 
 // matchPathPattern matches a URL path against a pattern with :param and *glob segments

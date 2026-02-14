@@ -94,6 +94,8 @@ func objectToTemplateString(obj Object) string {
 		return string(jsonBytes)
 	case *Null:
 		return ""
+	case *Unit:
+		return UnitToString(obj)
 	default:
 		return obj.Inspect()
 	}
@@ -272,6 +274,8 @@ func objectToUserString(obj Object) string {
 		return "<builtin>"
 	case *DBConnection:
 		return "<DBConnection>"
+	case *Unit:
+		return UnitToString(o)
 	default:
 		return o.Inspect()
 	}
@@ -413,6 +417,8 @@ func objectToFormattedReprStringWithSeen(obj Object, seen map[Object]bool, inden
 	case *Dictionary:
 		return dictToFormattedReprString(obj, seen, indent)
 	case *Money:
+		return obj.Inspect()
+	case *Unit:
 		return obj.Inspect()
 	case *Function:
 		return functionToFormattedReprString(obj, indent)

@@ -98,6 +98,9 @@ func (s *Serializer) serialize(obj evaluator.Object) (string, error) {
 	case *evaluator.Money:
 		return s.serializeMoney(v)
 
+	case *evaluator.Unit:
+		return v.Inspect(), nil
+
 	case *evaluator.Function:
 		return "", fmt.Errorf("cannot serialize function")
 

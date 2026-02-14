@@ -123,6 +123,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.DELETE_LITERAL, p.parseDeleteExpression)
 	p.registerPrefix(lexer.TRANSACTION_LIT, p.parseTransactionExpression)
 	p.registerPrefix(lexer.MONEY, p.parseMoneyLiteral)
+	p.registerPrefix(lexer.UNIT, p.parseUnitLiteral)
 	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
 	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
 	p.registerPrefix(lexer.STDLIB_PATH, p.parseStdlibPathLiteral)
@@ -1229,6 +1230,256 @@ func (p *Parser) parseMoneyLiteral() ast.Expression {
 		Amount:   amount,
 		Scale:    scale,
 	}
+}
+
+func (p *Parser) parseUnitLiteral() ast.Expression {
+	// Token.Literal contains the full unit literal (e.g., "#12.3m", "#3/8in", "#92+5/8in")
+	literal := p.curToken.Literal
+
+	// Strip the leading '#'
+	if len(literal) < 2 || literal[0] != '#' {
+		p.addError(fmt.Sprintf("invalid unit literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+	body := literal[1:] // e.g., "12.3m", "-3/8in", "92+5/8in"
+
+	// Separate the numeric part from the suffix.
+	// Walk backwards from the end to find where digits/punctuation end and the suffix begins.
+	suffixStart := len(body)
+	for suffixStart > 0 {
+		ch := body[suffixStart-1]
+		if ch >= '0' && ch <= '9' || ch == '.' || ch == '/' || ch == '+' || ch == '-' {
+			break
+		}
+		suffixStart--
+	}
+
+	numStr := body[:suffixStart]
+	suffix := body[suffixStart:]
+
+	if suffix == "" {
+		p.addError(fmt.Sprintf("missing unit suffix in '%s'", literal), p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+
+	// Look up suffix metadata
+	info, ok := lookupUnitSuffix(suffix)
+	if !ok {
+		p.addError(fmt.Sprintf("unknown unit suffix '%s' in '%s'", suffix, literal), p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+
+	// Parse the numeric part and compute the internal Amount
+	amount, err := parseUnitAmount(numStr, suffix, info.System)
+	if err != "" {
+		p.addError(fmt.Sprintf("%s in '%s'", err, literal), p.curToken.Line, p.curToken.Column)
+		return nil
+	}
+
+	return &ast.UnitLiteral{
+		Token:  p.curToken,
+		Amount: amount,
+		Suffix: suffix,
+		Family: info.Family,
+		System: info.System,
+	}
+}
+
+// unitSuffixInfo mirrors evaluator.UnitInfo without importing evaluator.
+type unitSuffixInfo struct {
+	Family string
+	System string
+}
+
+var parserUnitSuffixTable = map[string]unitSuffixInfo{
+	// Length — SI
+	"mm": {Family: "length", System: "SI"},
+	"cm": {Family: "length", System: "SI"},
+	"m":  {Family: "length", System: "SI"},
+	"km": {Family: "length", System: "SI"},
+	// Length — US
+	"in": {Family: "length", System: "US"},
+	"ft": {Family: "length", System: "US"},
+	"yd": {Family: "length", System: "US"},
+	"mi": {Family: "length", System: "US"},
+	// Mass — SI
+	"mg": {Family: "mass", System: "SI"},
+	"g":  {Family: "mass", System: "SI"},
+	"kg": {Family: "mass", System: "SI"},
+	// Mass — US
+	"oz": {Family: "mass", System: "US"},
+	"lb": {Family: "mass", System: "US"},
+	// Data — decimal
+	"B":  {Family: "data", System: "SI"},
+	"kB": {Family: "data", System: "SI"},
+	"MB": {Family: "data", System: "SI"},
+	"GB": {Family: "data", System: "SI"},
+	"TB": {Family: "data", System: "SI"},
+	// Data — binary
+	"KiB": {Family: "data", System: "SI"},
+	"MiB": {Family: "data", System: "SI"},
+	"GiB": {Family: "data", System: "SI"},
+	"TiB": {Family: "data", System: "SI"},
+}
+
+func lookupUnitSuffix(suffix string) (unitSuffixInfo, bool) {
+	info, ok := parserUnitSuffixTable[suffix]
+	return info, ok
+}
+
+// SI sub-units per display-unit (duplicated here to avoid importing evaluator)
+var parserSISubUnitsPerUnit = map[string]int64{
+	"mm": 1_000, "cm": 10_000, "m": 1_000_000, "km": 1_000_000_000,
+	"mg": 1, "g": 1_000, "kg": 1_000_000,
+	"B": 1, "kB": 1_000, "MB": 1_000_000, "GB": 1_000_000_000, "TB": 1_000_000_000_000,
+	"KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30, "TiB": 1 << 40,
+}
+
+// US Customary: HCN and sub-units per display-unit
+const parserHCN int64 = 725_760
+
+var parserUSSubUnitsPerUnit = map[string]int64{
+	"in": parserHCN / 36, "ft": parserHCN / 3, "yd": parserHCN, "mi": parserHCN * 1760,
+	"oz": parserHCN, "lb": parserHCN * 16,
+}
+
+// parseUnitAmount converts a numeric string (e.g., "12.3", "3/8", "92+5/8", "-6")
+// into the internal int64 amount for the given suffix and system.
+// Returns (amount, errorMessage). errorMessage is "" on success.
+func parseUnitAmount(numStr, suffix, system string) (int64, string) {
+	if numStr == "" {
+		return 0, "missing numeric value"
+	}
+
+	negative := false
+	if numStr[0] == '-' {
+		negative = true
+		numStr = numStr[1:]
+	}
+
+	var amount int64
+
+	// Detect the numeric format
+	plusIdx := strings.Index(numStr, "+")
+	slashIdx := strings.Index(numStr, "/")
+	dotIdx := strings.Index(numStr, ".")
+
+	switch {
+	case plusIdx > 0 && slashIdx > plusIdx:
+		// Mixed number: W+N/D
+		wholePart := numStr[:plusIdx]
+		fracPart := numStr[plusIdx+1:]
+		slashInFrac := strings.Index(fracPart, "/")
+		if slashInFrac < 0 {
+			return 0, "invalid mixed number format"
+		}
+		numPart := fracPart[:slashInFrac]
+		denomPart := fracPart[slashInFrac+1:]
+
+		whole, err1 := strconv.ParseInt(wholePart, 10, 64)
+		num, err2 := strconv.ParseInt(numPart, 10, 64)
+		denom, err3 := strconv.ParseInt(denomPart, 10, 64)
+		if err1 != nil || err2 != nil || err3 != nil {
+			return 0, "invalid number in mixed fraction"
+		}
+		if denom == 0 {
+			return 0, "fraction denominator cannot be zero"
+		}
+
+		if system == "US" {
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			// amount = whole * subPerUnit + num * subPerUnit / denom
+			amount = whole*subPerUnit + num*subPerUnit/denom
+		} else {
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			// SI: fraction is syntactic sugar for division, truncated
+			amount = whole*subPerUnit + num*subPerUnit/denom
+		}
+
+	case slashIdx > 0:
+		// Fraction: N/D
+		numPart := numStr[:slashIdx]
+		denomPart := numStr[slashIdx+1:]
+
+		num, err1 := strconv.ParseInt(numPart, 10, 64)
+		denom, err2 := strconv.ParseInt(denomPart, 10, 64)
+		if err1 != nil || err2 != nil {
+			return 0, "invalid fraction"
+		}
+		if denom == 0 {
+			return 0, "fraction denominator cannot be zero"
+		}
+
+		if system == "US" {
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			amount = num * subPerUnit / denom
+		} else {
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount = num * subPerUnit / denom
+		}
+
+	case dotIdx >= 0:
+		// Decimal: W.F
+		wholePart := numStr[:dotIdx]
+		fracPart := numStr[dotIdx+1:]
+
+		whole, err := strconv.ParseInt(wholePart, 10, 64)
+		if err != nil {
+			return 0, "invalid decimal number"
+		}
+
+		if system == "US" {
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			// Convert decimal to sub-units: whole * subPerUnit + fracPart * subPerUnit / 10^len(fracPart)
+			amount = whole * subPerUnit
+			if len(fracPart) > 0 {
+				frac, err := strconv.ParseInt(fracPart, 10, 64)
+				if err != nil {
+					return 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				amount += frac * subPerUnit / divisor
+			}
+		} else {
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount = whole * subPerUnit
+			if len(fracPart) > 0 {
+				frac, err := strconv.ParseInt(fracPart, 10, 64)
+				if err != nil {
+					return 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				amount += frac * subPerUnit / divisor
+			}
+		}
+
+	default:
+		// Plain integer: W
+		whole, err := strconv.ParseInt(numStr, 10, 64)
+		if err != nil {
+			return 0, "invalid integer"
+		}
+
+		if system == "US" {
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			amount = whole * subPerUnit
+		} else {
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount = whole * subPerUnit
+		}
+	}
+
+	if negative {
+		amount = -amount
+	}
+
+	return amount, ""
 }
 
 // parseMoneyAmountFromString converts a number string to an integer amount in smallest units

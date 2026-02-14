@@ -428,6 +428,14 @@ func evalMinusPrefixOperatorExpression(tok lexer.Token, right Object) Object {
 			Currency: money.Currency,
 			Scale:    money.Scale,
 		}
+	case UNIT_OBJ:
+		unit := right.(*Unit)
+		return &Unit{
+			Amount:      -unit.Amount,
+			Family:      unit.Family,
+			System:      unit.System,
+			DisplayHint: unit.DisplayHint,
+		}
 	default:
 		return newOperatorError("OP-0004", map[string]any{"Type": right.Type()})
 	}

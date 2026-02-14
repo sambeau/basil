@@ -1248,6 +1248,63 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassIO,
 		Template: "SFTP read failed: {{.GoError}}",
 	},
+
+	// ========================================
+	// Unit errors (UNIT-0xxx)
+	// ========================================
+	"UNIT-0001": {
+		Class:    ClassOperator,
+		Template: "Cannot {{.Operator}} {{.LeftFamily}} and {{.RightFamily}}",
+		Hints:    []string{"units must be the same family to add or subtract"},
+	},
+	"UNIT-0002": {
+		Class:    ClassOperator,
+		Template: "Cannot {{.Operator}} {{.Left}} and {{.Right}}",
+		Hints:    []string{"numbers and units don't mix — write #5m + #5m, not 5 + #5m"},
+	},
+	"UNIT-0003": {
+		Class:    ClassOperator,
+		Template: "Cannot multiply unit by unit",
+		Hints:    []string{"derived units (area, etc.) are planned for a future release"},
+	},
+	"UNIT-0004": {
+		Class:    ClassOperator,
+		Template: "Unsupported operator '{{.Operator}}' for unit values",
+	},
+	"UNIT-0005": {
+		Class:    ClassOperator,
+		Template: "Cannot divide number by unit",
+		Hints:    []string{"you can divide a unit by a number (#10m / 5) but not the other way around"},
+	},
+	"UNIT-0006": {
+		Class:    ClassType,
+		Template: "Cannot convert {{.FromFamily}} to {{.ToFamily}}",
+		Hints:    []string{"{{.Constructor}} accepts {{.ToFamily}} values like {{.Example}}"},
+	},
+	"UNIT-0007": {
+		Class:    ClassParse,
+		Template: "Unknown unit suffix '{{.Suffix}}'",
+		Hints:    []string{"did you mean '{{.Suggestion}}'? — unit suffixes are abbreviations: m, cm, km, in, ft, etc."},
+	},
+	"UNIT-0008": {
+		Class:    ClassParse,
+		Template: "Fraction denominator cannot be zero",
+	},
+	"UNIT-0009": {
+		Class:    ClassValue,
+		Template: "Unit value overflow",
+		Hints:    []string{"the maximum representable distance is approximately 77 AU"},
+	},
+	"UNIT-0010": {
+		Class:    ClassParse,
+		Template: "Invalid mixed number '{{.Literal}}'",
+		Hints:    []string{"for negative mixed numbers, write #-2+3/8in — the sign applies to the whole value"},
+	},
+	"UNIT-0011": {
+		Class:    ClassType,
+		Template: "Cannot multiply a temperature",
+		Hints:    []string{"temperature scales have arbitrary zero points, so multiplication is undefined — use addition instead: #20C + #20C"},
+	},
 }
 
 // New creates a ParsleyError from the catalog.

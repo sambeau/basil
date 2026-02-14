@@ -418,6 +418,19 @@ func (ml *MoneyLiteral) String() string {
 	return ml.Currency + "#" + fmt.Sprintf(format, whole, frac)
 }
 
+// UnitLiteral represents measurement unit literals like #12.3m, #3/8in, #92+5/8in
+type UnitLiteral struct {
+	Token  lexer.Token // the lexer.UNIT token
+	Amount int64       // internal sub-unit count (µm for SI length, mg for SI mass, B for data, numerator/HCN for US)
+	Suffix string      // display-hint suffix ("m", "cm", "in", "ft", "kg", "lb", "B", "MB", etc.)
+	Family string      // "length", "mass", "data"
+	System string      // "SI", "US"
+}
+
+func (ul *UnitLiteral) expressionNode()      {}
+func (ul *UnitLiteral) TokenLiteral() string { return ul.Token.Literal }
+func (ul *UnitLiteral) String() string       { return ul.Token.Literal }
+
 // PathLiteral represents path literals like @/usr/local/bin or @./config.json
 type PathLiteral struct {
 	Token lexer.Token // the lexer.PATH_LITERAL token

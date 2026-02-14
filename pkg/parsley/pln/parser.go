@@ -135,6 +135,8 @@ func (p *Parser) parseValue() evaluator.Object {
 		return p.parseURL()
 	case MONEY:
 		return p.parseMoney()
+	case UNIT:
+		return p.parseUnit()
 	case ERRORS:
 		// @errors without a preceding record
 		p.addError("@errors must follow a record")
@@ -682,4 +684,149 @@ func (p *Parser) parseMoney() evaluator.Object {
 		Currency: currency,
 		Scale:    scale,
 	}
+}
+
+// parseUnit parses a PLN unit literal like #12.3m, #3/8in, #92+5/8in
+func (p *Parser) parseUnit() evaluator.Object {
+	literal := p.curToken.Literal
+	p.nextToken()
+
+	// Strip the leading '#'
+	if len(literal) < 2 || literal[0] != '#' {
+		p.addError("invalid unit literal: %s", literal)
+		return nil
+	}
+	body := literal[1:]
+
+	// Separate numeric part from suffix by scanning backwards
+	suffixStart := len(body)
+	for suffixStart > 0 {
+		ch := body[suffixStart-1]
+		if ch >= '0' && ch <= '9' || ch == '.' || ch == '/' || ch == '+' || ch == '-' {
+			break
+		}
+		suffixStart--
+	}
+
+	numStr := body[:suffixStart]
+	suffix := body[suffixStart:]
+
+	if suffix == "" {
+		p.addError("missing unit suffix in '%s'", literal)
+		return nil
+	}
+
+	info, ok := evaluator.LookupUnitSuffix(suffix)
+	if !ok {
+		p.addError("unknown unit suffix '%s' in '%s'", suffix, literal)
+		return nil
+	}
+
+	amount, errMsg := plnParseUnitAmount(numStr, suffix, info.System)
+	if errMsg != "" {
+		p.addError("%s in '%s'", errMsg, literal)
+		return nil
+	}
+
+	return &evaluator.Unit{
+		Amount:      amount,
+		Family:      info.Family,
+		System:      info.System,
+		DisplayHint: suffix,
+	}
+}
+
+// plnParseUnitAmount converts a numeric string into the internal int64 amount.
+func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
+	if numStr == "" {
+		return 0, "missing numeric value"
+	}
+
+	negative := false
+	if numStr[0] == '-' {
+		negative = true
+		numStr = numStr[1:]
+	}
+
+	var amount int64
+
+	plusIdx := strings.Index(numStr, "+")
+	slashIdx := strings.Index(numStr, "/")
+	dotIdx := strings.Index(numStr, ".")
+
+	subPerUnit := plnSubUnitsPerUnit(suffix, system)
+
+	switch {
+	case plusIdx > 0 && slashIdx > plusIdx:
+		// Mixed number: W+N/D
+		wholePart := numStr[:plusIdx]
+		fracPart := numStr[plusIdx+1:]
+		slashInFrac := strings.Index(fracPart, "/")
+		if slashInFrac < 0 {
+			return 0, "invalid mixed number format"
+		}
+		whole, err1 := strconv.ParseInt(wholePart, 10, 64)
+		num, err2 := strconv.ParseInt(fracPart[:slashInFrac], 10, 64)
+		denom, err3 := strconv.ParseInt(fracPart[slashInFrac+1:], 10, 64)
+		if err1 != nil || err2 != nil || err3 != nil {
+			return 0, "invalid number in mixed fraction"
+		}
+		if denom == 0 {
+			return 0, "fraction denominator cannot be zero"
+		}
+		amount = whole*subPerUnit + num*subPerUnit/denom
+
+	case slashIdx > 0:
+		// Fraction: N/D
+		num, err1 := strconv.ParseInt(numStr[:slashIdx], 10, 64)
+		denom, err2 := strconv.ParseInt(numStr[slashIdx+1:], 10, 64)
+		if err1 != nil || err2 != nil {
+			return 0, "invalid fraction"
+		}
+		if denom == 0 {
+			return 0, "fraction denominator cannot be zero"
+		}
+		amount = num * subPerUnit / denom
+
+	case dotIdx >= 0:
+		// Decimal: W.F
+		whole, err := strconv.ParseInt(numStr[:dotIdx], 10, 64)
+		if err != nil {
+			return 0, "invalid decimal number"
+		}
+		amount = whole * subPerUnit
+		fracPart := numStr[dotIdx+1:]
+		if len(fracPart) > 0 {
+			frac, err := strconv.ParseInt(fracPart, 10, 64)
+			if err != nil {
+				return 0, "invalid decimal fraction"
+			}
+			divisor := int64(1)
+			for range len(fracPart) {
+				divisor *= 10
+			}
+			amount += frac * subPerUnit / divisor
+		}
+
+	default:
+		// Plain integer
+		whole, err := strconv.ParseInt(numStr, 10, 64)
+		if err != nil {
+			return 0, "invalid integer"
+		}
+		amount = whole * subPerUnit
+	}
+
+	if negative {
+		amount = -amount
+	}
+	return amount, ""
+}
+
+// plnSubUnitsPerUnit returns the sub-units-per-display-unit for a given suffix.
+func plnSubUnitsPerUnit(suffix, system string) int64 {
+	if system == evaluator.SystemUS {
+		return evaluator.USSubUnitsPerUnit(suffix)
+	}
+	return evaluator.SISubUnitsPerUnit(suffix)
 }
