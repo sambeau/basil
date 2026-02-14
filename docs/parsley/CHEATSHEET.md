@@ -224,7 +224,7 @@ if (error) {
 log("Failed: " + error)             // uses error.message automatically
 ```
 
-### 14. Unit Literals Use `#` Sigil (Not `$`)
+### 14. Unit Literals Use `#` Sigil (Not `$`); Temperature Cannot Be Multiplied
 ```parsley
 // ❌ WRONG — $ is for money, not units
 $12m                             // This is money!
@@ -248,6 +248,16 @@ $12m                             // This is money!
 #64kB                            // 64 kilobytes (lowercase k)
 #1KiB                            // 1 kibibyte (uppercase K, binary)
 // #64KB                         // Error! Unknown suffix
+
+// ⚠️⚠️ Temperature CANNOT be multiplied or divided!
+#20C + #10C                      // OK: #30C
+// #20C * 2                      // ERROR — offset scales make this undefined
+// #100C / #50C                  // ERROR — ratio is meaningless
+// Use addition instead: #20C + #20C
+
+// ⚠️ #1gal is volume, not #1g + "al"
+#1gal                            // 1 gallon (volume, longest suffix match)
+#5g                              // 5 grams (mass, still works)
 ```
 
 ---
@@ -292,7 +302,7 @@ $12m                             // This is money!
 | Regex | `/abc/i` | `re.compile(r"abc", re.I)` | `/abc/i` |
 | Null | `null` | `None` | `null` |
 | Money | N/A | N/A | `$12.34`, `EUR#50.00` |
-| Unit | N/A | N/A | `#12m`, `#3/8in` |
+| Unit | N/A | N/A | `#12m`, `#3/8in`, `#100C`, `#1gal` |
 
 ---
 
@@ -617,8 +627,24 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #64kB                        // 64 kilobytes (lowercase k!)
 #1KiB                        // 1 kibibyte (binary)
 
+// Temperature
+#100C                        // 100 degrees Celsius
+#212F                        // 212 degrees Fahrenheit
+#0K                          // absolute zero (kelvin)
+#37.5C                       // decimal temperature
+#-40C                        // negative (same as #-40F)
+
+// Volume
+#500mL                       // 500 millilitres
+#2.5L                        // 2.5 litres
+#8floz                       // 8 fluid ounces
+#1cup                        // 1 cup (= 8 floz)
+#1/3cup                      // exact fraction
+#1+1/2gal                    // mixed number: 1.5 gallons
+
 // ⚠️ Fractions: US exact, SI truncated
 #3/8in                       // exact (US Customary)
+#1/3cup                      // exact (US Customary)
 #1/3m                        // truncated to 333,333 µm (SI)
 
 // ⚠️ Mixed numbers use + (not -)
@@ -634,13 +660,33 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #3/8in + #5/8in              // #1in
 #5m * 3                      // #15m
 #10m / #5m                   // 2 (dimensionless)
+#1/3cup + #1/3cup + #1/3cup  // #1cup (exact!)
+#1gal / #1qt                 // 4
+
+// Temperature arithmetic: add/subtract only!
+#20C + #10C                  // #30C
+#100C - #37C                 // #63C
+#212F - #32F                 // #180F
+
+// ⚠️⚠️ Temperature multiply/divide is FORBIDDEN
+// #20C * 2                  // Error! Offset scales make this undefined
+// #100F / 2                 // Error! Use subtraction instead
+// #100C / #50C              // Error! Ratio is meaningless for offset scales
+
+// Temperature comparison (works across scales)
+#0C == #32F                  // true
+#100C == #212F               // true
+#-40C == #-40F               // true (scales cross at -40)
+#0K == #-273.15C             // true (absolute zero)
 
 // ⚠️ Left side wins for cross-system
 #1cm + #1in                  // #3.54cm (SI result)
 #1in + #1cm                  // result in inches (US)
+#1L + #1floz                 // result in litres (SI)
 
 // ❌ ERROR: Cannot mix families
 #5m + #5kg                   // Error!
+#1L + #1C                    // Error! (volume ≠ temperature)
 
 // ❌ ERROR: No implicit number-to-unit promotion
 5 + #5m                      // Error! Write #5m + #5m
@@ -658,6 +704,9 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #12.3m.unit                  // "m"
 #12.3m.family                // "length"
 #12.3m.system                // "SI"
+#100C.value                  // 100
+#100C.family                 // "temperature"
+#1gal.family                 // "volume"
 
 // Methods
 #1mi.to("km")                // #1.609344km
@@ -665,16 +714,30 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #12.3m.format()              // "12.3m"
 #12.3m.repr()                // "#12.3m"
 #3/8in.toFraction()          // "3/8\""
+#100C.to("F")                // #212F
+#32F.to("C")                 // #0C
+#100C.to("K")                // #373.15K
+(#-40C).abs()                // #40C
+#1gal.to("qt")               // 4 quarts
+#1/3cup.toFraction()         // "1/3cup"
 
 // Constructors (plural names)
 metres(100)                  // #100m
 inches(#1cm)                 // convert cm to inches
 unit(123, "m")               // #123m (generic)
 unit(#12in, "m")             // convert to metres
+celsius(100)                 // #100C
+fahrenheit(#100C)            // #212F (convert)
+kelvins(#100C)               // #373.15K
+litres(2)                    // #2L
+gallons(1)                   // #1gal
+cups(#1L)                    // convert litres to cups
 
 // String interpolation: no # sigil
 let d = #1.83m
 `Height: {d}`                // "Height: 1.83m"
+let t = #37.5C
+`Temp: {t}`                  // "Temp: 37.5C"
 
 // ⚠️ bytes() constructor conflicts with file I/O
 // Use literal or unit() instead:
@@ -682,7 +745,7 @@ let d = #1.83m
 unit(1024, "B")              // OK
 ```
 
-**Suffixes**: `mm`, `cm`, `m`, `km` · `in`, `ft`, `yd`, `mi` · `mg`, `g`, `kg` · `oz`, `lb` · `B`, `kB`, `MB`, `GB`, `TB` · `KiB`, `MiB`, `GiB`, `TiB`
+**Suffixes**: `mm`, `cm`, `m`, `km` · `in`, `ft`, `yd`, `mi` · `mg`, `g`, `kg` · `oz`, `lb` · `B`, `kB`, `MB`, `GB`, `TB` · `KiB`, `MiB`, `GiB`, `TiB` · `K`, `C`, `F` · `mL`, `L` · `floz`, `cup`, `pt`, `qt`, `gal`
 
 ---
 
@@ -1463,13 +1526,13 @@ let icon = publicUrl(@./icon.svg)
 ### Unit Methods
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.61km` |
-| `.abs()` | Absolute value | `(#-6m).abs()` → `#6m` |
+| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.61km`, `#100C.to("F")` → `#212F` |
+| `.abs()` | Absolute value | `(#-6m).abs()` → `#6m`, `(#-40C).abs()` → `#40C` |
 | `.format(precision?)` | Formatted string | `#12.3m.format()` → `"12.3m"` |
 | `.repr()` | Parseable literal | `#3/8in.repr()` → `"#3/8in"` |
 | `.toDict()` | To dictionary | `#12m.toDict()` → `{value: 12, unit: "m", ...}` |
 | `.inspect()` | Debug dictionary | `#12m.inspect()` → internal details |
-| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` |
+| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` (not for temperature) |
 
 ---
 

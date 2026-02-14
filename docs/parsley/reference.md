@@ -636,12 +636,44 @@ Use `+` as the mixed-number separator:
 **Mass — US:** `oz`, `lb`
 **Data — Decimal:** `B`, `kB`, `MB`, `GB`, `TB`
 **Data — Binary:** `KiB`, `MiB`, `GiB`, `TiB`
+**Temperature:** `K` (kelvin), `C` (Celsius), `F` (Fahrenheit)
+**Volume — SI:** `mL`, `L`
+**Volume — US:** `floz`, `cup`, `pt`, `qt`, `gal`
 
 #### Internal Representation
 
-- **SI units** are stored as an integer count of fixed sub-units (µm for length, mg for mass, B for data). `#12.3m` = 12,300,000 µm internally. Within-system arithmetic is always exact.
-- **US Customary units** are stored as an integer numerator over a fixed denominator (HCN = 725,760). Common fractions (halves through sixty-fourths, plus thirds, fifths, sevenths) are all exact integers.
-- **SI fractions** are syntactic sugar for division: `#1/3m` truncates to 333,333 µm. US fractions like `#1/3in` are stored exactly.
+- **SI units** are stored as an integer count of fixed sub-units (µm for length, mg for mass, B for data, µL for volume). `#12.3m` = 12,300,000 µm internally. Within-system arithmetic is always exact.
+- **US Customary units** are stored as an integer numerator over a fixed denominator (HCN = 725,760). Common fractions (halves through sixty-fourths, plus thirds, fifths, sevenths) are all exact integers. Volume uses sub-floz (1 floz = HCN).
+- **Temperature** uses a unified sub-kelvin representation (1 K = 900 sub-K, 1°F = 500 sub-K). All three scales (K, C, F) are stored as a single int64 sub-kelvin count, making conversions exact: `#0C == #32F`, `#100C == #212F`, `#-40C == #-40F`.
+- **SI fractions** are syntactic sugar for division: `#1/3m` truncates to 333,333 µm. US fractions like `#1/3in` and `#1/3cup` are stored exactly.
+
+#### Temperature Literals
+
+Temperature literals support all three scales. Celsius (`C`) and Kelvin (`K`) are SI; Fahrenheit (`F`) is US:
+
+```parsley
+#100C                           // 100 degrees Celsius
+#212F                           // 212 degrees Fahrenheit
+#0K                             // absolute zero
+#37.5C                          // decimal temperature
+#-40C                           // negative (same as #-40F)
+#-273.15C                       // absolute zero in Celsius
+```
+
+> **Temperature arithmetic restriction**: multiplication and division of temperatures are not allowed (`#20C * 2` → error). Temperature scales have arbitrary zero points, so these operations are physically meaningless. Use addition/subtraction instead.
+
+#### Volume Literals
+
+Volume follows the standard dual-system pattern. US volume supports exact fractions:
+
+```parsley
+#500mL                          // 500 millilitres
+#2.5L                           // 2.5 litres
+#8floz                          // 8 fluid ounces
+#1cup                           // 1 cup (= 8 floz)
+#1/3cup                         // exact fraction
+#1+1/2gal                       // mixed number: 1.5 gallons
+```
 
 #### Cross-System Conversion
 
@@ -651,6 +683,7 @@ Units in the same family (e.g., length) can be mixed. The left operand's system 
 #1cm + #1in                     // #3.54cm (result in SI)
 #1in + #1cm                     // result in inches (US)
 #1in == #25.4mm                 // true
+#1L + #1floz                    // result in litres (SI)
 ```
 
 ---
@@ -956,7 +989,39 @@ Parsley supports arithmetic on measurement units with exact integer storage and 
 #1ft - #6in                     // #1/2ft
 #5m * 3                         // #15m
 #10m / #5m                      // 2
+#1/3cup + #1/3cup + #1/3cup     // #1cup (exact)
+#1gal / #1qt                    // 4
 ```
+
+#### Temperature Arithmetic
+
+Temperature addition and subtraction use "treat like numbers" semantics with offset-based formulas internally. Cross-scale operations convert the right operand to the left's scale:
+
+```parsley
+#20C + #10C                     // #30C
+#100C - #37C                    // #63C
+#212F - #32F                    // #180F
+```
+
+**Temperature comparisons** work across scales because all temperatures share the same internal sub-kelvin representation:
+
+```parsley
+#0C == #32F                     // true
+#100C == #212F                  // true
+#-40C == #-40F                  // true (scales cross at -40)
+#0K == #-273.15C                // true (absolute zero)
+#100C > #200F                   // true (#100C = #212F)
+```
+
+**Temperature multiply/divide is forbidden** — these operations are undefined for offset scales:
+
+```parsley
+#20C * 2                        // Error: Cannot multiply a temperature
+#100F / 2                       // Error: Cannot divide a temperature
+#100C / #50C                    // Error: Cannot divide temperature by temperature
+```
+
+> Negation (`-#20C`) is allowed — it negates the internal sub-kelvin value.
 
 #### Cross-System Arithmetic
 
@@ -965,6 +1030,7 @@ Units from the same family but different systems are converted automatically. Th
 ```parsley
 #1cm + #1in                     // #3.54cm (SI result)
 #1in + #1cm                     // #1.39...in (US result)
+#1L + #1floz                    // result in litres (SI)
 ```
 
 Rounding occurs only at the SI↔US boundary. Within-system arithmetic is always exact.
@@ -976,6 +1042,7 @@ Rounding occurs only at the SI↔US boundary. Within-system arithmetic is always
 #5m * #3m                       // Error: derived units not yet supported
 5 + #5m                         // Error: cannot add number to unit
 10 / #5m                        // Error: cannot divide number by unit
+#1L + #1C                       // Error: cannot add volume to temperature
 ```
 
 ---
@@ -2005,7 +2072,7 @@ $100.00.split(3)                // [$33.34, $33.33, $33.33]
 
 ### 5.11 Unit Properties & Methods
 
-Unit values represent physical measurements with exact integer storage. They are created from unit literals (`#12m`, `#3/8in`) or constructor functions (`metres(12)`, `unit(12, "m")`).
+Unit values represent physical measurements with exact integer storage. They are created from unit literals (`#12m`, `#3/8in`, `#100C`, `#1gal`) or constructor functions (`metres(12)`, `celsius(100)`, `litres(2)`, `unit(12, "m")`).
 
 #### Properties
 
@@ -2013,7 +2080,7 @@ Unit values represent physical measurements with exact integer storage. They are
 |----------|------|-------------|
 | `.value` | `float` | Decoded value in display-hint units (e.g., `12.3` for `#12.3m`) |
 | `.unit` | `string` | Display-hint unit suffix (e.g., `"m"`, `"in"`) |
-| `.family` | `string` | Unit family: `"length"`, `"mass"`, or `"data"` |
+| `.family` | `string` | Unit family: `"length"`, `"mass"`, `"data"`, `"temperature"`, or `"volume"` |
 | `.system` | `string` | Measurement system: `"SI"` or `"US"` |
 
 #### Methods
@@ -2026,11 +2093,11 @@ Unit values represent physical measurements with exact integer storage. They are
 | `.repr()` | none | `string` | Parseable literal (e.g., `"#3/8in"`, `"#12.3m"`) |
 | `.toDict()` | none | `dictionary` | `{value, unit, family, system}` |
 | `.inspect()` | none | `dictionary` | Debug dictionary with internal values |
-| `.toFraction()` | none | `string` | Fraction string for US Customary values |
+| `.toFraction()` | none | `string` | Fraction string for US Customary values (not available for temperature) |
 
-**Arithmetic**: Units support `+`, `-` (same family), `*`, `/` by numbers, and `/` unit by unit (→ ratio).
+**Arithmetic**: Units support `+`, `-` (same family), `*`, `/` by numbers, and `/` unit by unit (→ ratio). Temperature only supports `+` and `-` (no multiply/divide).
 
-**Conversion**: `.to()` converts between units in the same family, including cross-system:
+**Conversion**: `.to()` converts between units in the same family, including cross-system and cross-scale for temperature:
 
 ```parsley
 let d = #12.3m
@@ -2050,9 +2117,22 @@ d.system                        // "SI"
 #3/8in.toFraction()             // "3/8\""
 #3/8in.repr()                   // "#3/8in"
 
+// Temperature conversion
+#100C.to("F")                   // #212F
+#32F.to("C")                    // #0C
+#100C.to("K")                   // #373.15K
+celsius(#212F)                  // #100C
+(#-40C).abs()                   // #40C
+
+// Volume
+#1gal.to("qt")                  // 4 quarts
+#1/3cup.toFraction()            // "1/3cup"
+
 // String interpolation (no # sigil)
 let height = #1.83m
 `Height: {height}`              // "Height: 1.83m"
+let temp = #37.5C
+`Temp: {temp}`                  // "Temp: 37.5C"
 ```
 
 ---
@@ -2726,6 +2806,17 @@ match("hello", "\\d+")          // null
 | `gibibytes()` | `GiB` | data | SI |
 | `tebibytes()` | `TiB` | data | SI |
 
+| `celsius()` | `C` | temperature | SI |
+| `fahrenheit()` | `F` | temperature | US |
+| `kelvins()` | `K` | temperature | SI |
+| `millilitres()` / `milliliters()` | `mL` | volume | SI |
+| `litres()` / `liters()` | `L` | volume | SI |
+| `fluidounces()` | `floz` | volume | US |
+| `cups()` | `cup` | volume | US |
+| `pints()` | `pt` | volume | US |
+| `quarts()` | `qt` | volume | US |
+| `gallons()` | `gal` | volume | US |
+
 **Note**: `bytes()` is not available as a constructor (conflicts with file I/O builtin). Use `unit(n, "B")` or `#1024B` literal syntax instead.
 
 ```parsley
@@ -2734,6 +2825,11 @@ unit(#12in, "m")                // convert 12 inches to metres
 metres(100)                     // #100m
 inches(#1cm)                    // convert 1cm to inches
 kilograms(#2.2lb)               // convert 2.2lb to kilograms
+celsius(100)                    // #100C
+fahrenheit(#100C)               // #212F
+litres(2)                       // #2L
+gallons(1)                      // #1gal
+cups(#1L)                       // convert litres to cups
 ```
 
 ---

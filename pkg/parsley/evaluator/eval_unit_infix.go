@@ -1,6 +1,7 @@
 // Package evaluator provides unit arithmetic operations for FEAT-118.
 // This file implements unit+unit, unit-unit, unit*scalar, scalar*unit,
 // unit/scalar, unit/unit (ratio), and comparison operators.
+// Temperature arithmetic uses offset-based formulas (Phase 2).
 package evaluator
 
 import (
@@ -27,6 +28,11 @@ func evalUnitInfixExpression(tok lexer.Token, operator string, left, right *Unit
 				"Operator":    operator,
 			})
 		}
+	}
+
+	// Temperature has special arithmetic rules
+	if IsTemperatureFamily(left.Family) {
+		return evalTempInfixExpression(tok, operator, left, right)
 	}
 
 	// Normalise the right operand into the left's system if they differ
@@ -93,8 +99,71 @@ func evalUnitInfixExpression(tok lexer.Token, operator string, left, right *Unit
 	}
 }
 
+// evalTempInfixExpression handles temperature-specific arithmetic.
+// Add/subtract use offset formulas; multiply/divide between temperatures is forbidden.
+// Comparisons work directly on sub-kelvins (absolute temperature).
+func evalTempInfixExpression(tok lexer.Token, operator string, left, right *Unit) Object {
+	// Temperature comparisons work directly on sub-kelvins
+	switch operator {
+	case "==":
+		return nativeBoolToParsBoolean(left.Amount == right.Amount)
+	case "!=":
+		return nativeBoolToParsBoolean(left.Amount != right.Amount)
+	case "<":
+		return nativeBoolToParsBoolean(left.Amount < right.Amount)
+	case ">":
+		return nativeBoolToParsBoolean(left.Amount > right.Amount)
+	case "<=":
+		return nativeBoolToParsBoolean(left.Amount <= right.Amount)
+	case ">=":
+		return nativeBoolToParsBoolean(left.Amount >= right.Amount)
+	case "*":
+		return newOperatorErrorWithPos(tok, "UNIT-0003", map[string]any{})
+	case "/":
+		// temperature / temperature is forbidden
+		return newOperatorErrorWithPos(tok, "UNIT-0013", map[string]any{})
+	}
+
+	// Addition and subtraction use offset-based arithmetic.
+	// Formula (left side wins for display hint):
+	//   add: result = left.Amount + right.Amount - TempOffset(left.DisplayHint)
+	//   sub: result = left.Amount - right.Amount + TempOffset(left.DisplayHint)
+	offset := TempOffset(left.DisplayHint)
+
+	switch operator {
+	case "+":
+		return &Unit{
+			Amount:      left.Amount + right.Amount - offset,
+			Family:      FamilyTemperature,
+			System:      left.System,
+			DisplayHint: left.DisplayHint,
+		}
+	case "-":
+		return &Unit{
+			Amount:      left.Amount - right.Amount + offset,
+			Family:      FamilyTemperature,
+			System:      left.System,
+			DisplayHint: left.DisplayHint,
+		}
+	default:
+		return newOperatorErrorWithPos(tok, "UNIT-0004", map[string]any{
+			"Operator": operator,
+		})
+	}
+}
+
 // evalUnitScalarExpression handles unit * scalar and unit / scalar.
 func evalUnitScalarExpression(tok lexer.Token, operator string, unit *Unit, scalar float64) Object {
+	// Temperature cannot be multiplied or divided by scalars
+	if IsTemperatureFamily(unit.Family) {
+		switch operator {
+		case "*":
+			return newOperatorErrorWithPos(tok, "UNIT-0011", map[string]any{})
+		case "/":
+			return newOperatorErrorWithPos(tok, "UNIT-0012", map[string]any{})
+		}
+	}
+
 	switch operator {
 	case "*":
 		result := float64(unit.Amount) * scalar
@@ -137,6 +206,11 @@ func evalUnitScalarExpression(tok lexer.Token, operator string, unit *Unit, scal
 
 // evalScalarUnitExpression handles scalar * unit (commutative) and errors for scalar+unit, scalar-unit, scalar/unit.
 func evalScalarUnitExpression(tok lexer.Token, operator string, scalar float64, unit *Unit) Object {
+	// Temperature cannot be multiplied by scalars
+	if IsTemperatureFamily(unit.Family) && operator == "*" {
+		return newOperatorErrorWithPos(tok, "UNIT-0011", map[string]any{})
+	}
+
 	switch operator {
 	case "*":
 		// Multiplication is commutative

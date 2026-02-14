@@ -121,18 +121,21 @@ type Money struct {
 
 func (m *Money) Type() ObjectType { return MONEY_OBJ }
 
-// Unit represents measurement unit values (length, mass, data).
+// Unit represents measurement unit values (length, mass, data, temperature, volume).
 // All values are stored as a single int64 counting fixed sub-units:
 //   - SI Length: micrometre (µm), 1 m = 1,000,000
 //   - SI Mass: milligram (mg), 1 g = 1,000
 //   - SI Data: byte (B), 1 B = 1
+//   - Temperature: sub-kelvins (1 K = 900 sub-K, 1°F = 500 sub-K)
+//   - SI Volume: microlitre (µL), 1 L = 1,000,000
 //   - US Length: sub-yards over HCN = 725,760 (20,160 sub-units per inch)
 //   - US Mass: sub-ounces over HCN = 725,760
+//   - US Volume: sub-floz over HCN = 725,760
 type Unit struct {
 	Amount      int64  // count of sub-units
-	Family      string // "length", "mass", "data"
+	Family      string // "length", "mass", "data", "temperature", "volume"
 	System      string // "SI", "US"
-	DisplayHint string // original suffix for display ("m", "cm", "in", "ft", etc.)
+	DisplayHint string // original suffix for display ("m", "cm", "in", "ft", "C", "F", "L", etc.)
 }
 
 func (u *Unit) Type() ObjectType { return UNIT_OBJ }
@@ -3957,6 +3960,21 @@ func getBuiltins() map[string]*Builtin {
 		"mebibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("mebibytes", args) }},
 		"gibibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("gibibytes", args) }},
 		"tebibytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("tebibytes", args) }},
+		// Temperature
+		"celsius":    {Fn: func(args ...Object) Object { return unitNamedConstructor("celsius", args) }},
+		"fahrenheit": {Fn: func(args ...Object) Object { return unitNamedConstructor("fahrenheit", args) }},
+		"kelvins":    {Fn: func(args ...Object) Object { return unitNamedConstructor("kelvins", args) }},
+		// Volume — SI
+		"millilitres": {Fn: func(args ...Object) Object { return unitNamedConstructor("millilitres", args) }},
+		"milliliters": {Fn: func(args ...Object) Object { return unitNamedConstructor("milliliters", args) }},
+		"litres":      {Fn: func(args ...Object) Object { return unitNamedConstructor("litres", args) }},
+		"liters":      {Fn: func(args ...Object) Object { return unitNamedConstructor("liters", args) }},
+		// Volume — US
+		"fluidounces": {Fn: func(args ...Object) Object { return unitNamedConstructor("fluidounces", args) }},
+		"cups":        {Fn: func(args ...Object) Object { return unitNamedConstructor("cups", args) }},
+		"pints":       {Fn: func(args ...Object) Object { return unitNamedConstructor("pints", args) }},
+		"quarts":      {Fn: func(args ...Object) Object { return unitNamedConstructor("quarts", args) }},
+		"gallons":     {Fn: func(args ...Object) Object { return unitNamedConstructor("gallons", args) }},
 		// builtins() - list all builtin functions by category
 		"builtins": {
 			Fn: func(args ...Object) Object {

@@ -1305,6 +1305,16 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Cannot multiply a temperature",
 		Hints:    []string{"temperature scales have arbitrary zero points, so multiplication is undefined — use addition instead: #20C + #20C"},
 	},
+	"UNIT-0012": {
+		Class:    ClassType,
+		Template: "Cannot divide a temperature",
+		Hints:    []string{"temperature scales have arbitrary zero points, so division is undefined — use subtraction instead"},
+	},
+	"UNIT-0013": {
+		Class:    ClassType,
+		Template: "Cannot divide temperature by temperature",
+		Hints:    []string{"the ratio of two offset-scale temperatures is meaningless — convert to kelvin if you need a ratio"},
+	},
 }
 
 // New creates a ParsleyError from the catalog.

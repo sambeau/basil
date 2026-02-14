@@ -686,7 +686,7 @@ func (p *Parser) parseMoney() evaluator.Object {
 	}
 }
 
-// parseUnit parses a PLN unit literal like #12.3m, #3/8in, #92+5/8in
+// parseUnit parses a PLN unit literal like #12.3m, #3/8in, #92+5/8in, #100C
 func (p *Parser) parseUnit() evaluator.Object {
 	literal := p.curToken.Literal
 	p.nextToken()
@@ -722,7 +722,7 @@ func (p *Parser) parseUnit() evaluator.Object {
 		return nil
 	}
 
-	amount, errMsg := plnParseUnitAmount(numStr, suffix, info.System)
+	amount, errMsg := plnParseUnitAmount(numStr, suffix, info.System, info.Family)
 	if errMsg != "" {
 		p.addError("%s in '%s'", errMsg, literal)
 		return nil
@@ -737,10 +737,12 @@ func (p *Parser) parseUnit() evaluator.Object {
 }
 
 // plnParseUnitAmount converts a numeric string into the internal int64 amount.
-func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
+func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 	if numStr == "" {
 		return 0, "missing numeric value"
 	}
+
+	isTemp := evaluator.IsTemperatureFamily(family)
 
 	negative := false
 	if numStr[0] == '-' {
@@ -774,6 +776,13 @@ func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
 		if denom == 0 {
 			return 0, "fraction denominator cannot be zero"
 		}
+		if isTemp {
+			value := float64(whole) + float64(num)/float64(denom)
+			if negative {
+				value = -value
+			}
+			return evaluator.EncodeTempToSubK(value, suffix), ""
+		}
 		amount = whole*subPerUnit + num*subPerUnit/denom
 
 	case slashIdx > 0:
@@ -786,6 +795,13 @@ func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
 		if denom == 0 {
 			return 0, "fraction denominator cannot be zero"
 		}
+		if isTemp {
+			value := float64(num) / float64(denom)
+			if negative {
+				value = -value
+			}
+			return evaluator.EncodeTempToSubK(value, suffix), ""
+		}
 		amount = num * subPerUnit / denom
 
 	case dotIdx >= 0:
@@ -794,11 +810,30 @@ func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
 		if err != nil {
 			return 0, "invalid decimal number"
 		}
+		if isTemp {
+			value := float64(whole)
+			fracPart := numStr[dotIdx+1:]
+			if len(fracPart) > 0 {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
+					return 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				value += float64(frac) / float64(divisor)
+			}
+			if negative {
+				value = -value
+			}
+			return evaluator.EncodeTempToSubK(value, suffix), ""
+		}
 		amount = whole * subPerUnit
 		fracPart := numStr[dotIdx+1:]
 		if len(fracPart) > 0 {
-			frac, err := strconv.ParseInt(fracPart, 10, 64)
-			if err != nil {
+			frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+			if ferr != nil {
 				return 0, "invalid decimal fraction"
 			}
 			divisor := int64(1)
@@ -814,6 +849,13 @@ func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
 		if err != nil {
 			return 0, "invalid integer"
 		}
+		if isTemp {
+			value := float64(whole)
+			if negative {
+				value = -value
+			}
+			return evaluator.EncodeTempToSubK(value, suffix), ""
+		}
 		amount = whole * subPerUnit
 	}
 
@@ -824,6 +866,7 @@ func plnParseUnitAmount(numStr, suffix, system string) (int64, string) {
 }
 
 // plnSubUnitsPerUnit returns the sub-units-per-display-unit for a given suffix.
+// Temperature suffixes return 0 here (temperature uses EncodeTempToSubK instead).
 func plnSubUnitsPerUnit(suffix, system string) int64 {
 	if system == evaluator.SystemUS {
 		return evaluator.USSubUnitsPerUnit(suffix)

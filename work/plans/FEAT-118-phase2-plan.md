@@ -2,7 +2,7 @@
 id: PLAN-096
 feature: FEAT-118
 title: "Implementation Plan for Measurement Units — Phase 2 (Temperature + Volume)"
-status: draft
+status: complete
 created: 2026-02-14
 ---
 
@@ -20,7 +20,7 @@ Phase 1 delivered the core infrastructure (lexer, parser, AST, evaluator, PLN, d
 
 - [x] Phase 1 complete and merged (PLAN-095)
 - [x] Design doc `DESIGN-units-v3.md` §3.3 (Temperature) and §4.5 (Volume) reviewed
-- [ ] Phase 1 PR merged to main (branch `feat/FEAT-118-measurement-units`)
+- [x] Phase 1 PR merged to main (branch `feat/FEAT-118-measurement-units`)
 
 ## Architecture Notes
 
@@ -626,24 +626,39 @@ Tasks 1 and 2 can be done in parallel. Tasks 4/5 can be started once 3 is done. 
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run`
-- [ ] All Phase 2 acceptance criteria in FEAT-118 checked off
-- [ ] Phase 1 regression: all existing unit tests still pass
-- [ ] Money regression: all existing money tests still pass
-- [ ] Temperature conversions verified: `#0C == #32F`, `#100C == #212F`, `#-40C == #-40F`
-- [ ] Temperature arithmetic restrictions: multiply/divide produce clear errors
-- [ ] Volume fraction exactness: `#1/3cup + #1/3cup + #1/3cup == #1cup`
-- [ ] PLN round-trip for temperature and volume literals
-- [ ] Documentation updated (reference.md, CHEATSHEET.md)
-- [ ] `work/BACKLOG.md` updated with any new deferrals
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Linter passes: `golangci-lint run` (no new issues)
+- [x] All Phase 2 acceptance criteria in FEAT-118 checked off
+- [x] Phase 1 regression: all existing unit tests still pass
+- [x] Money regression: all existing money tests still pass
+- [x] Temperature conversions verified: `#0C == #32F`, `#100C == #212F`, `#-40C == #-40F`
+- [x] Temperature arithmetic restrictions: multiply/divide produce clear errors
+- [x] Volume fraction exactness: `#1/3cup + #1/3cup + #1/3cup == #1cup`
+- [x] PLN round-trip for temperature and volume literals
+- [x] Documentation updated (reference.md, CHEATSHEET.md)
+- [x] `work/BACKLOG.md` updated with any new deferrals
 
 ## Progress Log
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-02-14 | Task 1: Temperature constants and suffixes | ✅ Done | Added FamilyTemperature, TempScale/Offset constants, EncodeTempToSubK/DecodeTempFromSubK helpers |
+| 2026-02-14 | Task 2: Volume constants and suffixes | ✅ Done | Added FamilyVolume, SI µL sub-units, US HCN sub-floz, volume bridge (GCD=168) |
+| 2026-02-14 | Task 3: Lexer suffix recognition | ✅ Done | Added K, C, F, mL, L, floz, cup, pt, qt, gal to isValidUnitSuffix; longest-match verified (gal vs g) |
+| 2026-02-14 | Task 4: Temperature literal evaluation | ✅ Done | Parser encodes via parserEncodeTempAmount with math.Round for float precision |
+| 2026-02-14 | Task 5: Volume literal evaluation | ✅ Done | Standard SI/US paths worked automatically once tables populated |
+| 2026-02-14 | Task 6: Temperature offset arithmetic | ✅ Done | add: left+right−offset(left), sub: left−right+offset(left); works for same-scale and cross-scale |
+| 2026-02-14 | Task 7: Temperature multiply/divide blocked | ✅ Done | UNIT-0011 (multiply), UNIT-0012 (divide), UNIT-0013 (temp/temp); negation still allowed |
+| 2026-02-14 | Task 8: Volume arithmetic | ✅ Done | Standard paths from Phase 1; verified fraction exactness and cross-system bridge |
+| 2026-02-14 | Task 9: Temperature constructors | ✅ Done | celsius(), fahrenheit(), kelvins() + generic unit(n, "C"); conversion via sub-K pass-through |
+| 2026-02-14 | Task 10: Volume constructors | ✅ Done | litres/liters, millilitres/milliliters, gallons, cups, pints, quarts, fluidounces |
+| 2026-02-14 | Task 11: Temperature methods/properties | ✅ Done | .value uses DecodeTempFromSubK; .to() changes display hint; .abs() operates on decoded value |
+| 2026-02-14 | Task 12: Display and formatting | ✅ Done | Temperature uses full-precision decimal (FormatFloat -1); volume uses existing SI/US display |
+| 2026-02-14 | Task 13: PLN temperature/volume | ✅ Done | PLN lexer accepts any letter suffix; PLN parser routes temperature through EncodeTempToSubK |
+| 2026-02-14 | Task 14: Error messages | ✅ Done | Added UNIT-0012, UNIT-0013 to error catalog |
+| 2026-02-14 | Task 15: Integration tests | ✅ Done | ~60 new tests: literals, arithmetic, restrictions, comparisons, constructors, methods, PLN round-trip |
+| 2026-02-14 | Task 16: Documentation | ✅ Done | Updated reference.md (§1.16, §2.11, §5.11, §6.6) and CHEATSHEET.md |
 
 ## Deferred Items
 

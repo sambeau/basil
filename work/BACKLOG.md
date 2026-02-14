@@ -73,6 +73,10 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #99 | Kelvin-based escape hatch for temperature scaling | FEAT-118 Phase 2 | Design needed | Allow scientific temperature scaling via something like `#20C.asKelvin() * 2`. Requires distinguishing "temperature reading" from "absolute temperature value". Only if users request it. |
+| #100 | Temperature interval type | FEAT-118 Phase 2 | Design needed | Distinguish "20 degrees" (an interval/difference) from "20°C" (a reading). Intervals could support multiply/divide. Only if users request it. |
+| #101 | US Customary dry volume units | FEAT-118 Phase 2 | Niche | Dry pint, dry quart, bushel — uncommon outside agriculture. Add on demand. |
+| #102 | Metric decilitre (dL) unit | FEAT-118 Phase 2 | Niche | Uncommon outside Scandinavia. Add on demand. |
 | #65 | toBox() Phase 3 color option | FEAT-089 | Terminal complexity | `{color: true}` enables ANSI color output with TTY detection. Deferred due to terminal compatibility complexity. |
 | #66 | Memoized computed exports | FEAT-096 | Enhancement | Add optional memoization for computed exports (e.g., `export cached computed x = ...` or `export computed x { memoize: true } = ...`). Currently computed exports recalculate on every access, which is correct for reactive values but wasteful for pure computations. Would require tracking dependencies or explicit cache invalidation. |
 | #67 | IDE support for computed exports | FEAT-096 | Tooling | Update syntax highlighting (contrib/highlightjs/parsley.js) and any language server features to recognize `export computed` keyword combination. Low priority since basic highlighting works (computed is just an identifier until after export). |

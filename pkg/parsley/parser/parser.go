@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -1320,6 +1321,19 @@ var parserUnitSuffixTable = map[string]unitSuffixInfo{
 	"MiB": {Family: "data", System: "SI"},
 	"GiB": {Family: "data", System: "SI"},
 	"TiB": {Family: "data", System: "SI"},
+	// Temperature — K and C are SI, F is US
+	"K": {Family: "temperature", System: "SI"},
+	"C": {Family: "temperature", System: "SI"},
+	"F": {Family: "temperature", System: "US"},
+	// Volume — SI
+	"mL": {Family: "volume", System: "SI"},
+	"L":  {Family: "volume", System: "SI"},
+	// Volume — US
+	"floz": {Family: "volume", System: "US"},
+	"cup":  {Family: "volume", System: "US"},
+	"pt":   {Family: "volume", System: "US"},
+	"qt":   {Family: "volume", System: "US"},
+	"gal":  {Family: "volume", System: "US"},
 }
 
 func lookupUnitSuffix(suffix string) (unitSuffixInfo, bool) {
@@ -1333,6 +1347,8 @@ var parserSISubUnitsPerUnit = map[string]int64{
 	"mg": 1, "g": 1_000, "kg": 1_000_000,
 	"B": 1, "kB": 1_000, "MB": 1_000_000, "GB": 1_000_000_000, "TB": 1_000_000_000_000,
 	"KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30, "TiB": 1 << 40,
+	// Volume (base sub-unit: µL)
+	"mL": 1_000, "L": 1_000_000,
 }
 
 // US Customary: HCN and sub-units per display-unit
@@ -1341,6 +1357,53 @@ const parserHCN int64 = 725_760
 var parserUSSubUnitsPerUnit = map[string]int64{
 	"in": parserHCN / 36, "ft": parserHCN / 3, "yd": parserHCN, "mi": parserHCN * 1760,
 	"oz": parserHCN, "lb": parserHCN * 16,
+	// Volume (base sub-unit: sub-floz, 1 floz = HCN)
+	"floz": parserHCN, "cup": parserHCN * 8, "pt": parserHCN * 16,
+	"qt": parserHCN * 32, "gal": parserHCN * 128,
+}
+
+// Temperature constants (duplicated here to avoid importing evaluator)
+const (
+	parserTempScaleK  int64 = 900
+	parserTempScaleC  int64 = 900
+	parserTempScaleF  int64 = 500
+	parserTempOffsetK int64 = 0
+	parserTempOffsetC int64 = 245_835 // 273.15 × 900
+	parserTempOffsetF int64 = 229_835 // 459.67 × 500
+)
+
+func parserTempScale(suffix string) int64 {
+	switch suffix {
+	case "C":
+		return parserTempScaleC
+	case "F":
+		return parserTempScaleF
+	case "K":
+		return parserTempScaleK
+	default:
+		return 0
+	}
+}
+
+func parserTempOffset(suffix string) int64 {
+	switch suffix {
+	case "C":
+		return parserTempOffsetC
+	case "F":
+		return parserTempOffsetF
+	case "K":
+		return parserTempOffsetK
+	default:
+		return 0
+	}
+}
+
+// parserEncodeTempAmount encodes a numeric temperature value to sub-kelvins.
+// Uses math.Round to avoid floating-point truncation errors.
+func parserEncodeTempAmount(value float64, suffix string) int64 {
+	scale := parserTempScale(suffix)
+	offset := parserTempOffset(suffix)
+	return int64(math.Round(value*float64(scale))) + offset
 }
 
 // parseUnitAmount converts a numeric string (e.g., "12.3", "3/8", "92+5/8", "-6")
@@ -1350,6 +1413,10 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 	if numStr == "" {
 		return 0, "missing numeric value"
 	}
+
+	// Look up family to detect temperature
+	info, _ := lookupUnitSuffix(suffix)
+	isTemp := info.Family == "temperature"
 
 	negative := false
 	if numStr[0] == '-' {
@@ -1386,13 +1453,18 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 			return 0, "fraction denominator cannot be zero"
 		}
 
-		if system == "US" {
+		if isTemp {
+			// Temperature: encode the combined fractional value
+			value := float64(whole) + float64(num)/float64(denom)
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), ""
+		} else if system == "US" {
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
-			// amount = whole * subPerUnit + num * subPerUnit / denom
 			amount = whole*subPerUnit + num*subPerUnit/denom
 		} else {
 			subPerUnit := parserSISubUnitsPerUnit[suffix]
-			// SI: fraction is syntactic sugar for division, truncated
 			amount = whole*subPerUnit + num*subPerUnit/denom
 		}
 
@@ -1410,7 +1482,13 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 			return 0, "fraction denominator cannot be zero"
 		}
 
-		if system == "US" {
+		if isTemp {
+			value := float64(num) / float64(denom)
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), ""
+		} else if system == "US" {
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
 			amount = num * subPerUnit / denom
 		} else {
@@ -1428,13 +1506,30 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 			return 0, "invalid decimal number"
 		}
 
-		if system == "US" {
+		if isTemp {
+			// Parse the full decimal value and encode
+			value := float64(whole)
+			if len(fracPart) > 0 {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
+					return 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				value += float64(frac) / float64(divisor)
+			}
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), ""
+		} else if system == "US" {
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
-			// Convert decimal to sub-units: whole * subPerUnit + fracPart * subPerUnit / 10^len(fracPart)
 			amount = whole * subPerUnit
 			if len(fracPart) > 0 {
-				frac, err := strconv.ParseInt(fracPart, 10, 64)
-				if err != nil {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
 					return 0, "invalid decimal fraction"
 				}
 				divisor := int64(1)
@@ -1447,8 +1542,8 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 			subPerUnit := parserSISubUnitsPerUnit[suffix]
 			amount = whole * subPerUnit
 			if len(fracPart) > 0 {
-				frac, err := strconv.ParseInt(fracPart, 10, 64)
-				if err != nil {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
 					return 0, "invalid decimal fraction"
 				}
 				divisor := int64(1)
@@ -1466,7 +1561,13 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 			return 0, "invalid integer"
 		}
 
-		if system == "US" {
+		if isTemp {
+			value := float64(whole)
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), ""
+		} else if system == "US" {
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
 			amount = whole * subPerUnit
 		} else {

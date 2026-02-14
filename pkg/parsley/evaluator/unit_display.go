@@ -12,8 +12,12 @@ import (
 
 // unitInspectString returns the PLN-format literal string for a Unit value.
 // This is used by both Inspect() and .repr().
+// Temperature values always display as decimals via DecodeTempFromSubK.
 // SI values display as decimals; US Customary values display as fractions where possible.
 func unitInspectString(u *Unit) string {
+	if IsTemperatureFamily(u.Family) {
+		return unitTempDisplay(u)
+	}
 	if u.System == SystemUS {
 		return unitUSDisplay(u)
 	}
@@ -29,6 +33,40 @@ func unitInterpolationString(u *Unit) string {
 		return s[1:]
 	}
 	return s
+}
+
+// --- Temperature display ---
+
+// unitTempDisplay formats a temperature value as a decimal literal: #100C, #212F, #0K
+// Temperature always uses decimal display (never fractions).
+// Uses full precision to avoid truncating significant digits (e.g., -273.15C not -273.1C).
+func unitTempDisplay(u *Unit) string {
+	value := DecodeTempFromSubK(u.Amount, u.DisplayHint)
+
+	negative := value < 0
+	if negative {
+		value = -value
+	}
+
+	prefix := "#"
+	if negative {
+		prefix = "#-"
+	}
+
+	// Check if value is an exact integer
+	intVal := int64(value)
+	if float64(intVal) == value {
+		return fmt.Sprintf("%s%d%s", prefix, intVal, u.DisplayHint)
+	}
+
+	// Format with full precision, then trim trailing zeros
+	formatted := strconv.FormatFloat(value, 'f', -1, 64)
+	if strings.Contains(formatted, ".") {
+		formatted = strings.TrimRight(formatted, "0")
+		formatted = strings.TrimRight(formatted, ".")
+	}
+
+	return prefix + formatted + u.DisplayHint
 }
 
 // --- SI display ---
@@ -212,8 +250,11 @@ func unitUSDecimalFallback(u *Unit, negative bool) string {
 // --- Value extraction ---
 
 // unitDisplayValue returns the float64 value in display-hint units.
-// Used for the .value property.
+// Used for the .value property. For temperature, use DecodeTempFromSubK instead.
 func unitDisplayValue(u *Unit) float64 {
+	if IsTemperatureFamily(u.Family) {
+		return DecodeTempFromSubK(u.Amount, u.DisplayHint)
+	}
 	if u.System == SystemUS {
 		subPerUnit := USSubUnitsPerUnit(u.DisplayHint)
 		if subPerUnit == 0 {
@@ -239,10 +280,22 @@ func unitFormat(u *Unit, precision int) string {
 	}
 
 	// Custom precision
+	if IsTemperatureFamily(u.Family) {
+		return unitFormatTempPrecision(u, precision)
+	}
 	if u.System == SystemUS {
 		return unitFormatUSPrecision(u, precision)
 	}
 	return unitFormatSIPrecision(u, precision)
+}
+
+func unitFormatTempPrecision(u *Unit, dp int) string {
+	value := DecodeTempFromSubK(u.Amount, u.DisplayHint)
+	formatted := strconv.FormatFloat(math.Abs(value), 'f', dp, 64)
+	if value < 0 {
+		return "-" + formatted + u.DisplayHint
+	}
+	return formatted + u.DisplayHint
 }
 
 func unitFormatSIPrecision(u *Unit, dp int) string {

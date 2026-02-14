@@ -1782,6 +1782,15 @@ func isValidUnitSuffix(s string) bool {
 	// Digital information — binary
 	case "KiB", "MiB", "GiB", "TiB":
 		return true
+	// Temperature
+	case "K", "C", "F":
+		return true
+	// Volume — SI
+	case "mL", "L":
+		return true
+	// Volume — US
+	case "floz", "cup", "pt", "qt", "gal":
+		return true
 	default:
 		return false
 	}

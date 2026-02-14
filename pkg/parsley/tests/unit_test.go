@@ -1174,3 +1174,1055 @@ func TestUnitObjectType(t *testing.T) {
 		t.Errorf("expected UNIT type, got %s", evaluated.Type())
 	}
 }
+
+// ============================================================================
+// Phase 2: Temperature Literals
+// ============================================================================
+
+func TestTemperatureLiteralCelsius(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#0C`, `#0C`},
+		{`#100C`, `#100C`},
+		{`#37C`, `#37C`},
+		{`#-40C`, `#-40C`},
+		{`#-273C`, `#-273C`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureLiteralFahrenheit(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#32F`, `#32F`},
+		{`#212F`, `#212F`},
+		{`#0F`, `#0F`},
+		{`#-40F`, `#-40F`},
+		{`#98.6F`, `#98.6F`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureLiteralKelvin(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#0K`, `#0K`},
+		{`#273.15K`, `#273.15K`},
+		{`#373.15K`, `#373.15K`},
+		{`#100K`, `#100K`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureLiteralDecimal(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#37.5C`, `#37.5C`},
+		{`#98.6F`, `#98.6F`},
+		{`#-273.15C`, `#-273.15C`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Temperature Cross-Scale Equivalence
+// ============================================================================
+
+func TestTemperatureCrossScaleEquivalence(t *testing.T) {
+	// #0C and #32F should have the same internal Amount
+	c0 := testEvalUnit(`#0C`)
+	f32 := testEvalUnit(`#32F`)
+	uc, ok1 := c0.(*evaluator.Unit)
+	uf, ok2 := f32.(*evaluator.Unit)
+	if !ok1 || !ok2 {
+		t.Fatalf("expected Unit objects, got %T and %T", c0, f32)
+	}
+	if uc.Amount != uf.Amount {
+		t.Errorf("#0C.Amount=%d != #32F.Amount=%d", uc.Amount, uf.Amount)
+	}
+
+	// #100C and #212F
+	c100 := testEvalUnit(`#100C`)
+	f212 := testEvalUnit(`#212F`)
+	uc2 := c100.(*evaluator.Unit)
+	uf2 := f212.(*evaluator.Unit)
+	if uc2.Amount != uf2.Amount {
+		t.Errorf("#100C.Amount=%d != #212F.Amount=%d", uc2.Amount, uf2.Amount)
+	}
+
+	// #-40C and #-40F (scales cross at -40)
+	cm40 := testEvalUnit(`#-40C`)
+	fm40 := testEvalUnit(`#-40F`)
+	ucm := cm40.(*evaluator.Unit)
+	ufm := fm40.(*evaluator.Unit)
+	if ucm.Amount != ufm.Amount {
+		t.Errorf("#-40C.Amount=%d != #-40F.Amount=%d", ucm.Amount, ufm.Amount)
+	}
+
+	// #0K and #-273.15C (absolute zero)
+	k0 := testEvalUnit(`#0K`)
+	cm273 := testEvalUnit(`#-273.15C`)
+	uk := k0.(*evaluator.Unit)
+	uca := cm273.(*evaluator.Unit)
+	if uk.Amount != uca.Amount {
+		t.Errorf("#0K.Amount=%d != #-273.15C.Amount=%d", uk.Amount, uca.Amount)
+	}
+}
+
+// ============================================================================
+// Temperature Properties
+// ============================================================================
+
+func TestTemperatureProperties(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#100C.value`, `100`},
+		{`#100C.unit`, `C`},
+		{`#100C.family`, `temperature`},
+		{`#100C.system`, `SI`},
+		{`#212F.value`, `212`},
+		{`#212F.unit`, `F`},
+		{`#212F.family`, `temperature`},
+		{`#212F.system`, `US`},
+		{`#0K.value`, `0`},
+		{`#0K.unit`, `K`},
+		{`#0K.family`, `temperature`},
+		{`#0K.system`, `SI`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Temperature Arithmetic — Same Scale
+// ============================================================================
+
+func TestTemperatureAddSameScale(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#20C + #10C`, `#30C`},
+		{`#100C + #0C`, `#100C`},
+		{`#0F + #32F`, `#32F`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureSubtractSameScale(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#100C - #37C`, `#63C`},
+		{`#212F - #32F`, `#180F`},
+		{`#50C - #50C`, `#0C`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Temperature Comparison
+// ============================================================================
+
+func TestTemperatureComparison(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#0C == #32F`, `true`},
+		{`#100C == #212F`, `true`},
+		{`#-40C == #-40F`, `true`},
+		{`#100C > #200F`, `true`}, // #100C = #212F > #200F
+		{`#20C < #20F`, `false`},  // #20C = #68F > #20F
+		{`#0C != #0F`, `true`},    // 0C = 32F, 0F = -17.78C
+		{`#100C >= #212F`, `true`},
+		{`#100C <= #212F`, `true`},
+		{`#0K == #-273.15C`, `true`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Temperature Arithmetic — Restrictions (Multiply/Divide)
+// ============================================================================
+
+func TestTemperatureMultiplyBlocked(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedSubstr string
+	}{
+		{`#20C * 2`, "multiply a temperature"},
+		{`2 * #20C`, "multiply a temperature"},
+		{`#100F * 3`, "multiply a temperature"},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnitError(t, tt.input, evaluated, tt.expectedSubstr)
+	}
+}
+
+func TestTemperatureDivideBlocked(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedSubstr string
+	}{
+		{`#100F / 2`, "divide a temperature"},
+		{`#20C / 5`, "divide a temperature"},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnitError(t, tt.input, evaluated, tt.expectedSubstr)
+	}
+}
+
+func TestTemperatureDivideByTemperatureBlocked(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedSubstr string
+	}{
+		{`#100C / #50C`, "divide temperature by temperature"},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnitError(t, tt.input, evaluated, tt.expectedSubstr)
+	}
+}
+
+// ============================================================================
+// Temperature Negation (allowed — negation is not multiplication)
+// ============================================================================
+
+func TestTemperatureNegation(t *testing.T) {
+	// Negation negates the internal sub-K, which is allowed
+	evaluated := testEvalUnit(`-#20C`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("expected no error for -#20C, got [%s] %s", err.Code, err.Message)
+	}
+	_, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T: %s", evaluated, evaluated.Inspect())
+	}
+}
+
+// ============================================================================
+// Temperature Constructors
+// ============================================================================
+
+func TestTemperatureConstructors(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`celsius(100)`, `#100C`},
+		{`fahrenheit(212)`, `#212F`},
+		{`kelvins(0)`, `#0K`},
+		{`celsius(0)`, `#0C`},
+		{`fahrenheit(32)`, `#32F`},
+		{`kelvins(273.15)`, `#273.15K`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureConstructorConversion(t *testing.T) {
+	// celsius(#212F) should give #100C
+	evaluated := testEvalUnit(`celsius(#212F)`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("celsius(#212F) error: [%s] %s", err.Code, err.Message)
+	}
+	u, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T", evaluated)
+	}
+	if u.DisplayHint != "C" {
+		t.Errorf("expected DisplayHint=C, got %s", u.DisplayHint)
+	}
+	val := evaluator.DecodeTempFromSubK(u.Amount, "C")
+	if val != 100.0 {
+		t.Errorf("celsius(#212F) value: expected 100, got %f", val)
+	}
+
+	// fahrenheit(#0C) should give #32F
+	evaluated2 := testEvalUnit(`fahrenheit(#0C)`)
+	u2 := evaluated2.(*evaluator.Unit)
+	if u2.DisplayHint != "F" {
+		t.Errorf("expected DisplayHint=F, got %s", u2.DisplayHint)
+	}
+	val2 := evaluator.DecodeTempFromSubK(u2.Amount, "F")
+	if val2 != 32.0 {
+		t.Errorf("fahrenheit(#0C) value: expected 32, got %f", val2)
+	}
+
+	// kelvins(#100C) should give #373.15K
+	evaluated3 := testEvalUnit(`kelvins(#100C)`)
+	u3 := evaluated3.(*evaluator.Unit)
+	if u3.DisplayHint != "K" {
+		t.Errorf("expected DisplayHint=K, got %s", u3.DisplayHint)
+	}
+	val3 := evaluator.DecodeTempFromSubK(u3.Amount, "K")
+	if val3 != 373.15 {
+		t.Errorf("kelvins(#100C) value: expected 373.15, got %f", val3)
+	}
+}
+
+func TestTemperatureConstructorWrongFamily(t *testing.T) {
+	evaluated := testEvalUnit(`celsius(#5kg)`)
+	testExpectedUnitError(t, `celsius(#5kg)`, evaluated, "convert")
+}
+
+func TestTemperatureGenericConstructor(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`unit(100, "C")`, `#100C`},
+		{`unit(212, "F")`, `#212F`},
+		{`unit(0, "K")`, `#0K`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureGenericConstructorConversion(t *testing.T) {
+	// unit(#212F, "C") should give #100C
+	evaluated := testEvalUnit(`unit(#212F, "C")`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("unit(#212F, 'C') error: [%s] %s", err.Code, err.Message)
+	}
+	u, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T", evaluated)
+	}
+	val := evaluator.DecodeTempFromSubK(u.Amount, "C")
+	if val != 100.0 {
+		t.Errorf("unit(#212F, 'C') value: expected 100, got %f", val)
+	}
+}
+
+// ============================================================================
+// Temperature Methods
+// ============================================================================
+
+func TestTemperatureToMethod(t *testing.T) {
+	// #100C.to("F") should give #212F
+	evaluated := testEvalUnit(`#100C.to("F")`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("#100C.to('F') error: [%s] %s", err.Code, err.Message)
+	}
+	u := evaluated.(*evaluator.Unit)
+	if u.DisplayHint != "F" {
+		t.Errorf("expected F, got %s", u.DisplayHint)
+	}
+	val := evaluator.DecodeTempFromSubK(u.Amount, "F")
+	if val != 212.0 {
+		t.Errorf("expected 212, got %f", val)
+	}
+
+	// #32F.to("C") should give #0C
+	evaluated2 := testEvalUnit(`#32F.to("C")`)
+	u2 := evaluated2.(*evaluator.Unit)
+	val2 := evaluator.DecodeTempFromSubK(u2.Amount, "C")
+	if val2 != 0.0 {
+		t.Errorf("#32F.to('C'): expected 0, got %f", val2)
+	}
+
+	// #100C.to("K") should give #373.15K
+	evaluated3 := testEvalUnit(`#100C.to("K")`)
+	u3 := evaluated3.(*evaluator.Unit)
+	val3 := evaluator.DecodeTempFromSubK(u3.Amount, "K")
+	if val3 != 373.15 {
+		t.Errorf("#100C.to('K'): expected 373.15, got %f", val3)
+	}
+}
+
+func TestTemperatureToMethodWrongFamily(t *testing.T) {
+	evaluated := testEvalUnit(`#100C.to("m")`)
+	testExpectedUnitError(t, `#100C.to("m")`, evaluated, "convert")
+}
+
+func TestTemperatureAbsMethod(t *testing.T) {
+	// abs of negative display value
+	evaluated := testEvalUnit(`(#-40C).abs()`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("abs error: [%s] %s", err.Code, err.Message)
+	}
+	u := evaluated.(*evaluator.Unit)
+	val := evaluator.DecodeTempFromSubK(u.Amount, "C")
+	if val != 40.0 {
+		t.Errorf("(#-40C).abs(): expected 40, got %f", val)
+	}
+
+	// abs of positive display value should be unchanged
+	evaluated2 := testEvalUnit(`#100C.abs()`)
+	u2 := evaluated2.(*evaluator.Unit)
+	val2 := evaluator.DecodeTempFromSubK(u2.Amount, "C")
+	if val2 != 100.0 {
+		t.Errorf("#100C.abs(): expected 100, got %f", val2)
+	}
+}
+
+func TestTemperatureFormatMethod(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#37.5C.format()`, `37.5C`},
+		{`#37.5C.format(0)`, `38C`},
+		{`#100C.format()`, `100C`},
+		{`#100C.repr()`, `#100C`},
+		{`#-40F.repr()`, `#-40F`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestTemperatureToDictMethod(t *testing.T) {
+	evaluated := testEvalUnit(`#100C.toDict()`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("toDict error: [%s] %s", err.Code, err.Message)
+	}
+	dict, ok := evaluated.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected Dictionary, got %T", evaluated)
+	}
+	// Check key count
+	if len(dict.Pairs) != 4 {
+		t.Errorf("expected 4 keys, got %d", len(dict.Pairs))
+	}
+}
+
+func TestTemperatureToFractionMethod(t *testing.T) {
+	// Temperature fractions don't apply — should return decimal string
+	evaluated := testEvalUnit(`#100C.toFraction()`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("toFraction error: [%s] %s", err.Code, err.Message)
+	}
+	s, ok := evaluated.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %T", evaluated)
+	}
+	if s.Value != "100C" {
+		t.Errorf("expected '100C', got '%s'", s.Value)
+	}
+}
+
+// ============================================================================
+// Temperature String Interpolation
+// ============================================================================
+
+func TestTemperatureInterpolation(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"let t = #37.5C; `Temp: {t}`", `Temp: 37.5C`},
+		{"let t = #212F; `Temp: {t}`", `Temp: 212F`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Temperature PLN Serialize
+// ============================================================================
+
+func TestTemperaturePLNSerialize(t *testing.T) {
+	tests := []struct {
+		name     string
+		unit     *evaluator.Unit
+		expected string
+	}{
+		{
+			name:     "Celsius integer",
+			unit:     &evaluator.Unit{Amount: evaluator.EncodeTempToSubK(100, "C"), Family: "temperature", System: "SI", DisplayHint: "C"},
+			expected: "#100C",
+		},
+		{
+			name:     "Fahrenheit integer",
+			unit:     &evaluator.Unit{Amount: evaluator.EncodeTempToSubK(212, "F"), Family: "temperature", System: "US", DisplayHint: "F"},
+			expected: "#212F",
+		},
+		{
+			name:     "Kelvin zero",
+			unit:     &evaluator.Unit{Amount: 0, Family: "temperature", System: "SI", DisplayHint: "K"},
+			expected: "#0K",
+		},
+		{
+			name:     "Negative Celsius",
+			unit:     &evaluator.Unit{Amount: evaluator.EncodeTempToSubK(-40, "C"), Family: "temperature", System: "SI", DisplayHint: "C"},
+			expected: "#-40C",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := pln.Serialize(tt.unit)
+			if err != nil {
+				t.Fatalf("serialize error: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Temperature PLN Round-Trip
+// ============================================================================
+
+func TestTemperaturePLNRoundTrip(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{`#100C`},
+		{`#212F`},
+		{`#0K`},
+		{`#-40C`},
+		{`#-40F`},
+		{`#37.5C`},
+		{`#98.6F`},
+		{`#273.15K`},
+		{`#-273.15C`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			evaluated := testEvalUnit(tt.input)
+			if err, ok := evaluated.(*evaluator.Error); ok {
+				t.Fatalf("eval error: [%s] %s", err.Code, err.Message)
+			}
+			u, ok := evaluated.(*evaluator.Unit)
+			if !ok {
+				t.Fatalf("expected Unit, got %T: %s", evaluated, evaluated.Inspect())
+			}
+
+			plnStr, err := pln.Serialize(u)
+			if err != nil {
+				t.Fatalf("serialize error: %v", err)
+			}
+
+			deserialized, err := pln.Deserialize(plnStr, nil, nil)
+			if err != nil {
+				t.Fatalf("deserialize error for %q: %v", plnStr, err)
+			}
+
+			u2, ok := deserialized.(*evaluator.Unit)
+			if !ok {
+				t.Fatalf("deserialized to %T, expected Unit", deserialized)
+			}
+
+			if u.Amount != u2.Amount {
+				t.Errorf("Amount mismatch: %d vs %d (PLN: %q)", u.Amount, u2.Amount, plnStr)
+			}
+			if u.Family != u2.Family {
+				t.Errorf("Family mismatch: %s vs %s", u.Family, u2.Family)
+			}
+			if u.DisplayHint != u2.DisplayHint {
+				t.Errorf("DisplayHint mismatch: %s vs %s", u.DisplayHint, u2.DisplayHint)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Temperature Cross-Family Error
+// ============================================================================
+
+func TestTemperatureCrossFamilyError(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedSubstr string
+	}{
+		{`#5m + #5C`, "length"},
+		{`#1L + #1C`, "volume"},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnitError(t, tt.input, evaluated, tt.expectedSubstr)
+	}
+}
+
+// ============================================================================
+// Phase 2: Volume Literals
+// ============================================================================
+
+func TestVolumeLiteralSI(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#500mL`, `#500mL`},
+		{`#1000mL`, `#1000mL`},
+		{`#2L`, `#2L`},
+		{`#2.5L`, `#2.5L`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeLiteralUS(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#8floz`, `#8floz`},
+		{`#1cup`, `#1cup`},
+		{`#1pt`, `#1pt`},
+		{`#1qt`, `#1qt`},
+		{`#1gal`, `#1gal`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeLiteralUSFraction(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#1/3cup`, `#1/3cup`},
+		{`#1/2gal`, `#1/2gal`},
+		{`#3/8cup`, `#3/8cup`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeLiteralUSMixedNumber(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#1+1/2gal`, `#1+1/2gal`},
+		{`#2+3/4qt`, `#2+3/4qt`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Volume Properties
+// ============================================================================
+
+func TestVolumeProperties(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#1L.value`, `1`},
+		{`#1L.unit`, `L`},
+		{`#1L.family`, `volume`},
+		{`#1L.system`, `SI`},
+		{`#1gal.system`, `US`},
+		{`#1gal.family`, `volume`},
+		{`#1cup.unit`, `cup`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Volume Arithmetic — Same System
+// ============================================================================
+
+func TestVolumeAddSameSystem(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#500mL + #500mL`, `#1000mL`},
+		{`#1L + #1L`, `#2L`},
+		{`#4floz + #4floz`, `#8floz`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeSubtractSameSystem(t *testing.T) {
+	// #1L - #500mL: both SI. 1,000,000 - 500,000 = 500,000 µL with DisplayHint=L → #0.5L
+	eval1 := testEvalUnit(`#1L - #500mL`)
+	testExpectedUnit(t, `#1L - #500mL`, eval1, `#0.5L`)
+
+	// #1gal - #1qt: both US. 128*HCN - 32*HCN = 96*HCN with hint=gal → 96/128 = 3/4 → #3/4gal
+	eval2 := testEvalUnit(`#1gal - #1qt`)
+	testExpectedUnit(t, `#1gal - #1qt`, eval2, `#3/4gal`)
+}
+
+func TestVolumeScalarMultiply(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#1cup * 3`, `#3cup`},
+		{`#1cup * 8`, `#8cup`},
+		{`3 * #1cup`, `#3cup`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeScalarDivide(t *testing.T) {
+	evaluated := testEvalUnit(`#1gal / 4`)
+	testExpectedUnit(t, `#1gal / 4`, evaluated, `#1/4gal`)
+}
+
+func TestVolumeRatio(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#1gal / #1qt`, `4`},
+		{`#1cup / #1floz`, `8`},
+		{`#1pt / #1cup`, `2`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Volume Fraction Exactness
+// ============================================================================
+
+func TestVolumeFractionExactness(t *testing.T) {
+	// #1/3cup + #1/3cup + #1/3cup should exactly equal #1cup
+	evaluated := testEvalUnit(`#1/3cup + #1/3cup + #1/3cup`)
+	testExpectedUnit(t, `#1/3cup + #1/3cup + #1/3cup`, evaluated, `#1cup`)
+}
+
+func TestVolumeThreeEighthsPlusFiveEighths(t *testing.T) {
+	evaluated := testEvalUnit(`#3/8cup + #5/8cup`)
+	testExpectedUnit(t, `#3/8cup + #5/8cup`, evaluated, `#1cup`)
+}
+
+// ============================================================================
+// Volume Cross-System
+// ============================================================================
+
+func TestVolumeCrossSystemAdd(t *testing.T) {
+	// #1L + #1floz: left is SI, result in L (display hint from left)
+	evaluated := testEvalUnit(`#1L + #1floz`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("#1L + #1floz error: [%s] %s", err.Code, err.Message)
+	}
+	u, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T", evaluated)
+	}
+	if u.DisplayHint != "L" {
+		t.Errorf("expected DisplayHint=L, got %s", u.DisplayHint)
+	}
+	if u.System != "SI" {
+		t.Errorf("expected System=SI, got %s", u.System)
+	}
+}
+
+func TestVolumeCrossFamilyError(t *testing.T) {
+	evaluated := testEvalUnit(`#1L + #1kg`)
+	testExpectedUnitError(t, `#1L + #1kg`, evaluated, "volume")
+}
+
+// ============================================================================
+// Volume Constructors
+// ============================================================================
+
+func TestVolumeConstructors(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`litres(2)`, `#2L`},
+		{`liters(2)`, `#2L`},
+		{`gallons(1)`, `#1gal`},
+		{`cups(1)`, `#1cup`},
+		{`pints(1)`, `#1pt`},
+		{`quarts(1)`, `#1qt`},
+		{`fluidounces(8)`, `#8floz`},
+		{`millilitres(500)`, `#500mL`},
+		{`milliliters(500)`, `#500mL`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedUnit(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeConstructorConversion(t *testing.T) {
+	// litres(#1gal) should give a value in L close to 3.785
+	evaluated := testEvalUnit(`litres(#1gal)`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("litres(#1gal) error: [%s] %s", err.Code, err.Message)
+	}
+	u, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T", evaluated)
+	}
+	if u.DisplayHint != "L" {
+		t.Errorf("expected DisplayHint=L, got %s", u.DisplayHint)
+	}
+	if u.Family != "volume" {
+		t.Errorf("expected family=volume, got %s", u.Family)
+	}
+}
+
+func TestVolumeConstructorWrongFamily(t *testing.T) {
+	evaluated := testEvalUnit(`cups(#5m)`)
+	testExpectedUnitError(t, `cups(#5m)`, evaluated, "convert")
+}
+
+// ============================================================================
+// Volume Methods
+// ============================================================================
+
+func TestVolumeToMethod(t *testing.T) {
+	evaluated := testEvalUnit(`#1gal.to("qt")`)
+	if err, ok := evaluated.(*evaluator.Error); ok {
+		t.Fatalf("to error: [%s] %s", err.Code, err.Message)
+	}
+	u := evaluated.(*evaluator.Unit)
+	if u.DisplayHint != "qt" {
+		t.Errorf("expected qt, got %s", u.DisplayHint)
+	}
+	// 1 gal = 4 qt
+	val := float64(u.Amount) / float64(evaluator.USSubUnitsPerUnit("qt"))
+	if val != 4.0 {
+		t.Errorf("1gal.to('qt') value: expected 4, got %f", val)
+	}
+}
+
+func TestVolumeReprMethod(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#500mL.repr()`, `#500mL`},
+		{`#2L.repr()`, `#2L`},
+		{`#1/3cup.repr()`, `#1/3cup`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestVolumeToFraction(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`#1/3cup.toFraction()`, `1/3cup`},
+		{`#1/2gal.toFraction()`, `1/2gal`},
+	}
+	for _, tt := range tests {
+		evaluated := testEvalUnit(tt.input)
+		testExpectedValue(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+// ============================================================================
+// Volume PLN Round-Trip
+// ============================================================================
+
+func TestVolumePLNRoundTrip(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{`#500mL`},
+		{`#2L`},
+		{`#2.5L`},
+		{`#8floz`},
+		{`#1cup`},
+		{`#1/3cup`},
+		{`#1pt`},
+		{`#1qt`},
+		{`#1gal`},
+		{`#1+1/2gal`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			evaluated := testEvalUnit(tt.input)
+			if err, ok := evaluated.(*evaluator.Error); ok {
+				t.Fatalf("eval error: [%s] %s", err.Code, err.Message)
+			}
+			u, ok := evaluated.(*evaluator.Unit)
+			if !ok {
+				t.Fatalf("expected Unit, got %T: %s", evaluated, evaluated.Inspect())
+			}
+
+			plnStr, err := pln.Serialize(u)
+			if err != nil {
+				t.Fatalf("serialize error: %v", err)
+			}
+
+			deserialized, err := pln.Deserialize(plnStr, nil, nil)
+			if err != nil {
+				t.Fatalf("deserialize error for %q: %v", plnStr, err)
+			}
+
+			u2, ok := deserialized.(*evaluator.Unit)
+			if !ok {
+				t.Fatalf("deserialized to %T, expected Unit", deserialized)
+			}
+
+			if u.Amount != u2.Amount {
+				t.Errorf("Amount mismatch: %d vs %d (PLN: %q)", u.Amount, u2.Amount, plnStr)
+			}
+			if u.Family != u2.Family {
+				t.Errorf("Family mismatch: %s vs %s", u.Family, u2.Family)
+			}
+			if u.DisplayHint != u2.DisplayHint {
+				t.Errorf("DisplayHint mismatch: %s vs %s", u.DisplayHint, u2.DisplayHint)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Volume PLN Serialize
+// ============================================================================
+
+func TestVolumePLNSerialize(t *testing.T) {
+	tests := []struct {
+		name     string
+		unit     *evaluator.Unit
+		expected string
+	}{
+		{
+			name:     "SI mL integer",
+			unit:     &evaluator.Unit{Amount: 500_000, Family: "volume", System: "SI", DisplayHint: "mL"},
+			expected: "#500mL",
+		},
+		{
+			name:     "SI L integer",
+			unit:     &evaluator.Unit{Amount: 2_000_000, Family: "volume", System: "SI", DisplayHint: "L"},
+			expected: "#2L",
+		},
+		{
+			name:     "US cup integer",
+			unit:     &evaluator.Unit{Amount: evaluator.HCN * 8, Family: "volume", System: "US", DisplayHint: "cup"},
+			expected: "#1cup",
+		},
+		{
+			name:     "US gal integer",
+			unit:     &evaluator.Unit{Amount: evaluator.HCN * 128, Family: "volume", System: "US", DisplayHint: "gal"},
+			expected: "#1gal",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := pln.Serialize(tt.unit)
+			if err != nil {
+				t.Fatalf("serialize error: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Volume Lexer Regression — #1gal should not be #1g + "al"
+// ============================================================================
+
+func TestVolumeLexerGalNotGrams(t *testing.T) {
+	// #1gal should be a volume, not mass
+	evaluated := testEvalUnit(`#1gal`)
+	u, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T: %s", evaluated, evaluated.Inspect())
+	}
+	if u.Family != "volume" {
+		t.Errorf("#1gal: expected family=volume, got %s", u.Family)
+	}
+	if u.DisplayHint != "gal" {
+		t.Errorf("#1gal: expected DisplayHint=gal, got %s", u.DisplayHint)
+	}
+}
+
+func TestLexerGramsRegression(t *testing.T) {
+	// #5g should still be grams
+	evaluated := testEvalUnit(`#5g`)
+	u, ok := evaluated.(*evaluator.Unit)
+	if !ok {
+		t.Fatalf("expected Unit, got %T: %s", evaluated, evaluated.Inspect())
+	}
+	if u.Family != "mass" {
+		t.Errorf("#5g: expected family=mass, got %s", u.Family)
+	}
+}
+
+// ============================================================================
+// Phase 1 Regression — ensure existing tests still work
+// ============================================================================
+
+func TestPhase1RegressionLengthLiteral(t *testing.T) {
+	evaluated := testEvalUnit(`#12m`)
+	testExpectedUnit(t, `#12m`, evaluated, `#12m`)
+}
+
+func TestPhase1RegressionMassLiteral(t *testing.T) {
+	evaluated := testEvalUnit(`#5kg`)
+	testExpectedUnit(t, `#5kg`, evaluated, `#5kg`)
+}
+
+func TestPhase1RegressionDataLiteral(t *testing.T) {
+	evaluated := testEvalUnit(`#1024B`)
+	testExpectedUnit(t, `#1024B`, evaluated, `#1024B`)
+}

@@ -58,6 +58,9 @@ func init() {
 func evalUnitProperty(unit *Unit, key string) Object {
 	switch key {
 	case "value":
+		if IsTemperatureFamily(unit.Family) {
+			return &Float{Value: DecodeTempFromSubK(unit.Amount, unit.DisplayHint)}
+		}
 		return &Float{Value: unitDisplayValue(unit)}
 	case "unit":
 		return &String{Value: unit.DisplayHint}
@@ -86,7 +89,7 @@ func evalUnitMethod(unit *Unit, method string, args []Object) Object {
 // --- Method implementations ---
 
 // unitTo converts a unit value to a different unit suffix.
-// Usage: #1mi.to("km"), #100cm.to("in")
+// Usage: #1mi.to("km"), #100cm.to("in"), #100C.to("F")
 func unitTo(receiver Object, args []Object, env *Environment) Object {
 	unit := receiver.(*Unit)
 	targetStr, ok := args[0].(*String)
@@ -126,6 +129,16 @@ func unitTo(receiver Object, args []Object, env *Environment) Object {
 
 // convertUnit converts a unit value to a target suffix within the same family.
 func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
+	// Temperature conversion: sub-kelvins are absolute, just change the display hint
+	if IsTemperatureFamily(unit.Family) {
+		return &Unit{
+			Amount:      unit.Amount,
+			Family:      unit.Family,
+			System:      targetInfo.System,
+			DisplayHint: targetSuffix,
+		}
+	}
+
 	var newAmount int64
 
 	switch {
@@ -137,10 +150,10 @@ func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
 			if srcSub == 0 || dstSub == 0 {
 				return &Unit{Amount: 0, Family: unit.Family, System: targetInfo.System, DisplayHint: targetSuffix}
 			}
-			// amount is in base sub-units (µm/mg/B), just change the display hint
+			// amount is in base sub-units (µm/mg/B/µL), just change the display hint
 			newAmount = unit.Amount
 		} else {
-			// US to US: same sub-unit base (HCN sub-yards or sub-ounces)
+			// US to US: same sub-unit base (HCN sub-yards or sub-ounces or sub-floz)
 			newAmount = unit.Amount
 		}
 	case unit.System == SystemSI && targetInfo.System == SystemUS:
@@ -160,8 +173,24 @@ func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
 }
 
 // unitAbs returns the absolute value of a unit.
+// For temperature, operates on the decoded display value (not raw sub-kelvins).
 func unitAbs(receiver Object, args []Object, env *Environment) Object {
 	unit := receiver.(*Unit)
+
+	if IsTemperatureFamily(unit.Family) {
+		// Abs of the display value: if decoded value is negative, re-encode the positive
+		decoded := DecodeTempFromSubK(unit.Amount, unit.DisplayHint)
+		if decoded < 0 {
+			return &Unit{
+				Amount:      EncodeTempToSubK(-decoded, unit.DisplayHint),
+				Family:      unit.Family,
+				System:      unit.System,
+				DisplayHint: unit.DisplayHint,
+			}
+		}
+		return unit
+	}
+
 	amount := unit.Amount
 	if amount < 0 {
 		amount = -amount
@@ -201,9 +230,15 @@ func unitRepr(receiver Object, args []Object, env *Environment) Object {
 // unitToDict returns a dictionary with value, unit, family, system.
 func unitToDict(receiver Object, args []Object, env *Environment) Object {
 	unit := receiver.(*Unit)
+	var value float64
+	if IsTemperatureFamily(unit.Family) {
+		value = DecodeTempFromSubK(unit.Amount, unit.DisplayHint)
+	} else {
+		value = unitDisplayValue(unit)
+	}
 	return &Dictionary{
 		Pairs: map[string]ast.Expression{
-			"value":  createLiteralExpression(&Float{Value: unitDisplayValue(unit)}),
+			"value":  createLiteralExpression(&Float{Value: value}),
 			"unit":   createLiteralExpression(&String{Value: unit.DisplayHint}),
 			"family": createLiteralExpression(&String{Value: unit.Family}),
 			"system": createLiteralExpression(&String{Value: unit.System}),
@@ -215,22 +250,30 @@ func unitToDict(receiver Object, args []Object, env *Environment) Object {
 // unitInspectMethod returns a debug dictionary including internal representation.
 func unitInspectMethod(receiver Object, args []Object, env *Environment) Object {
 	unit := receiver.(*Unit)
+	pairs := map[string]ast.Expression{
+		"__type":      createLiteralExpression(&String{Value: "unit"}),
+		"amount":      createLiteralExpression(&Integer{Value: unit.Amount}),
+		"family":      createLiteralExpression(&String{Value: unit.Family}),
+		"system":      createLiteralExpression(&String{Value: unit.System}),
+		"displayHint": createLiteralExpression(&String{Value: unit.DisplayHint}),
+	}
+	if IsTemperatureFamily(unit.Family) {
+		pairs["subKelvins"] = createLiteralExpression(&Integer{Value: unit.Amount})
+	}
 	return &Dictionary{
-		Pairs: map[string]ast.Expression{
-			"__type":      createLiteralExpression(&String{Value: "unit"}),
-			"amount":      createLiteralExpression(&Integer{Value: unit.Amount}),
-			"family":      createLiteralExpression(&String{Value: unit.Family}),
-			"system":      createLiteralExpression(&String{Value: unit.System}),
-			"displayHint": createLiteralExpression(&String{Value: unit.DisplayHint}),
-		},
-		Env: NewEnvironment(),
+		Pairs: pairs,
+		Env:   NewEnvironment(),
 	}
 }
 
 // unitToFraction returns a fraction string for US Customary values.
 // For SI values, returns the decimal string.
+// For temperature values, fractions don't apply — returns the decimal string.
 func unitToFraction(receiver Object, args []Object, env *Environment) Object {
 	unit := receiver.(*Unit)
+	if IsTemperatureFamily(unit.Family) {
+		return &String{Value: unitInterpolationString(unit)}
+	}
 	if unit.System != SystemUS {
 		// SI values: return decimal string
 		return &String{Value: unitInterpolationString(unit)}
@@ -305,6 +348,10 @@ func exampleForFamily(family string) string {
 		return "#5lb or #100g"
 	case FamilyData:
 		return "#1024B or #1MB"
+	case FamilyTemperature:
+		return "#100C or #212F"
+	case FamilyVolume:
+		return "#1L or #1gal"
 	default:
 		return "#5m"
 	}
@@ -389,7 +436,9 @@ func UnitFromConstructor(constructorName string, value Object) Object {
 	case *Integer:
 		// Create a new unit from an integer value
 		var amount int64
-		if targetInfo.System == SystemUS {
+		if IsTemperatureFamily(targetInfo.Family) {
+			amount = EncodeTempToSubK(float64(v.Value), targetSuffix)
+		} else if targetInfo.System == SystemUS {
 			amount = v.Value * USSubUnitsPerUnit(targetSuffix)
 		} else {
 			amount = v.Value * SISubUnitsPerUnit(targetSuffix)
@@ -403,7 +452,9 @@ func UnitFromConstructor(constructorName string, value Object) Object {
 	case *Float:
 		// Create a new unit from a float value
 		var amount int64
-		if targetInfo.System == SystemUS {
+		if IsTemperatureFamily(targetInfo.Family) {
+			amount = EncodeTempToSubK(v.Value, targetSuffix)
+		} else if targetInfo.System == SystemUS {
 			amount = int64(math.Round(v.Value * float64(USSubUnitsPerUnit(targetSuffix))))
 		} else {
 			amount = int64(math.Round(v.Value * float64(SISubUnitsPerUnit(targetSuffix))))
@@ -463,7 +514,9 @@ func GenericUnitConstructor(args []Object) Object {
 		switch v := args[0].(type) {
 		case *Integer:
 			var amount int64
-			if info.System == SystemUS {
+			if IsTemperatureFamily(info.Family) {
+				amount = EncodeTempToSubK(float64(v.Value), suffix)
+			} else if info.System == SystemUS {
 				amount = v.Value * USSubUnitsPerUnit(suffix)
 			} else {
 				amount = v.Value * SISubUnitsPerUnit(suffix)
@@ -476,7 +529,9 @@ func GenericUnitConstructor(args []Object) Object {
 			}
 		case *Float:
 			var amount int64
-			if info.System == SystemUS {
+			if IsTemperatureFamily(info.Family) {
+				amount = EncodeTempToSubK(v.Value, suffix)
+			} else if info.System == SystemUS {
 				amount = int64(math.Round(v.Value * float64(USSubUnitsPerUnit(suffix))))
 			} else {
 				amount = int64(math.Round(v.Value * float64(SISubUnitsPerUnit(suffix))))
@@ -529,7 +584,7 @@ func init() {
 	TypeProperties["unit"] = []PropertyInfo{
 		{Name: "value", Type: "float", Description: "Decoded value in the display-hint unit"},
 		{Name: "unit", Type: "string", Description: "Display-hint unit suffix"},
-		{Name: "family", Type: "string", Description: "Unit family (length, mass, data)"},
+		{Name: "family", Type: "string", Description: "Unit family (length, mass, data, temperature, volume)"},
 		{Name: "system", Type: "string", Description: "Measurement system (SI, US)"},
 	}
 

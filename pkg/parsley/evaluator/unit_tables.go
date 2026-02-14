@@ -3,6 +3,8 @@
 // cross-system bridge constants, and display configuration for measurement units.
 package evaluator
 
+import "math"
+
 // HCN is the Highly Composite Denominator for US Customary unit storage.
 // All US Customary values are stored as Amount / HCN in the base unit.
 // HCN = 2⁸ × 3⁴ × 5 × 7 = 725,760
@@ -17,15 +19,81 @@ const (
 
 // Unit family identifiers
 const (
-	FamilyLength = "length"
-	FamilyMass   = "mass"
-	FamilyData   = "data"
+	FamilyLength      = "length"
+	FamilyMass        = "mass"
+	FamilyData        = "data"
+	FamilyTemperature = "temperature"
+	FamilyVolume      = "volume"
 )
+
+// Temperature storage: all temperatures are stored as int64 sub-kelvins,
+// where 1 K = 900 sub-K. This makes the 9/5 C-to-F ratio exact (900/500).
+const (
+	TempScaleK  int64 = 900     // sub-K per kelvin
+	TempScaleC  int64 = 900     // sub-K per degree Celsius
+	TempScaleF  int64 = 500     // sub-K per degree Fahrenheit
+	TempOffsetC int64 = 245_835 // 273.15 × 900 — sub-K value at 0°C
+	TempOffsetF int64 = 229_835 // 459.67 × 500 — sub-K value at 0°F
+	TempOffsetK int64 = 0       // kelvin has no offset
+)
+
+// TempOffset returns the sub-K offset for a temperature suffix.
+func TempOffset(suffix string) int64 {
+	switch suffix {
+	case "C":
+		return TempOffsetC
+	case "F":
+		return TempOffsetF
+	case "K":
+		return TempOffsetK
+	default:
+		return 0
+	}
+}
+
+// TempScale returns the sub-K per degree for a temperature suffix.
+func TempScale(suffix string) int64 {
+	switch suffix {
+	case "C":
+		return TempScaleC
+	case "F":
+		return TempScaleF
+	case "K":
+		return TempScaleK
+	default:
+		return 0
+	}
+}
+
+// EncodeTempToSubK encodes a numeric temperature value to sub-kelvins.
+// e.g., EncodeTempToSubK(20.0, "C") = 20*900 + 245835 = 263835
+// Uses math.Round to avoid floating-point truncation errors.
+func EncodeTempToSubK(value float64, suffix string) int64 {
+	scale := TempScale(suffix)
+	offset := TempOffset(suffix)
+	return int64(math.Round(value*float64(scale))) + offset
+}
+
+// DecodeTempFromSubK decodes sub-kelvins to a numeric value in the given scale.
+// e.g., DecodeTempFromSubK(263835, "C") = (263835 - 245835) / 900 = 20.0
+func DecodeTempFromSubK(subK int64, suffix string) float64 {
+	scale := TempScale(suffix)
+	offset := TempOffset(suffix)
+	if scale == 0 {
+		return 0
+	}
+	return float64(subK-offset) / float64(scale)
+}
+
+// IsTemperatureFamily returns true if the family is temperature.
+func IsTemperatureFamily(family string) bool {
+	return family == FamilyTemperature
+}
 
 // UnitInfo describes a unit suffix's metadata.
 type UnitInfo struct {
 	Suffix string // the suffix string (e.g., "m", "in", "kg")
-	Family string // "length", "mass", "data"
+	Family string // "length", "mass", "data", "temperature", "volume"
 	System string // "SI", "US"
 }
 
@@ -59,6 +127,19 @@ var unitSuffixTable = map[string]UnitInfo{
 	"MiB": {Suffix: "MiB", Family: FamilyData, System: SystemSI},
 	"GiB": {Suffix: "GiB", Family: FamilyData, System: SystemSI},
 	"TiB": {Suffix: "TiB", Family: FamilyData, System: SystemSI},
+	// Temperature — K and C are SI, F is US
+	"K": {Suffix: "K", Family: FamilyTemperature, System: SystemSI},
+	"C": {Suffix: "C", Family: FamilyTemperature, System: SystemSI},
+	"F": {Suffix: "F", Family: FamilyTemperature, System: SystemUS},
+	// Volume — SI
+	"mL": {Suffix: "mL", Family: FamilyVolume, System: SystemSI},
+	"L":  {Suffix: "L", Family: FamilyVolume, System: SystemSI},
+	// Volume — US
+	"floz": {Suffix: "floz", Family: FamilyVolume, System: SystemUS},
+	"cup":  {Suffix: "cup", Family: FamilyVolume, System: SystemUS},
+	"pt":   {Suffix: "pt", Family: FamilyVolume, System: SystemUS},
+	"qt":   {Suffix: "qt", Family: FamilyVolume, System: SystemUS},
+	"gal":  {Suffix: "gal", Family: FamilyVolume, System: SystemUS},
 }
 
 // LookupUnitSuffix returns the UnitInfo for a suffix, or ok=false if unknown.
@@ -93,6 +174,9 @@ var siSubUnitsPerUnit = map[string]int64{
 	"MiB": 1 << 20, // 1,048,576
 	"GiB": 1 << 30, // 1,073,741,824
 	"TiB": 1 << 40, // 1,099,511,627,776
+	// Volume (base sub-unit: µL = microlitre)
+	"mL": 1_000,     // 1 mL = 1,000 µL
+	"L":  1_000_000, // 1 L  = 1,000,000 µL
 }
 
 // SISubUnitsPerUnit returns how many sub-units one display-unit represents.
@@ -117,6 +201,12 @@ var usSubUnitsPerUnit = map[string]int64{
 	// Mass (base sub-unit: sub-ounce, 1 oz = HCN)
 	"oz": HCN,      // 725,760 sub-ounces per ounce
 	"lb": HCN * 16, // 1 lb = 16 oz
+	// Volume (base sub-unit: sub-floz, 1 floz = HCN)
+	"floz": HCN,       // 725,760 sub-floz per fluid ounce
+	"cup":  HCN * 8,   // 1 cup = 8 floz = 5,806,080
+	"pt":   HCN * 16,  // 1 pt  = 16 floz = 11,612,160
+	"qt":   HCN * 32,  // 1 qt  = 32 floz = 23,224,320
+	"gal":  HCN * 128, // 1 gal = 128 floz = 92,897,280
 }
 
 // USSubUnitsPerUnit returns how many HCN sub-units one display-unit represents.
@@ -166,31 +256,40 @@ const (
 	MassBridgeUSDenominator int64 = 45_359_237
 )
 
+// Volume bridge: 1 gal = 3.785411784 L (exact, from 1 gal = 231 in³)
+// In sub-units: 1 gal = 128 × HCN = 92,897,280 sub-floz = 3,785,411,784 µL
+// GCD(3785411784, 92897280) = 168
+// Simplified: 22,532,213 / 552,960
+const (
+	VolumeBridgeSINumerator   int64 = 22_532_213 // µL per sub-floz (numerator)
+	VolumeBridgeSIDenominator int64 = 552_960    // µL per sub-floz (denominator)
+	VolumeBridgeUSNumerator   int64 = 552_960    // sub-floz per µL (numerator)
+	VolumeBridgeUSDenominator int64 = 22_532_213 // sub-floz per µL (denominator)
+)
+
 // ConvertUSToSI converts a US Customary amount (in sub-units) to SI sub-units.
-// family must be "length" or "mass".
 func ConvertUSToSI(usAmount int64, family string) int64 {
 	switch family {
 	case FamilyLength:
-		// us_sub * 635 / 504
 		return usAmount * LengthBridgeSINumerator / LengthBridgeSIDenominator
 	case FamilyMass:
-		// us_sub * 45,359,237 / 1,161,216,000
 		return usAmount * MassBridgeSINumerator / MassBridgeSIDenominator
+	case FamilyVolume:
+		return usAmount * VolumeBridgeSINumerator / VolumeBridgeSIDenominator
 	default:
 		return 0
 	}
 }
 
 // ConvertSIToUS converts an SI amount (in sub-units) to US Customary sub-units.
-// family must be "length" or "mass".
 func ConvertSIToUS(siAmount int64, family string) int64 {
 	switch family {
 	case FamilyLength:
-		// si_µm * 504 / 635
 		return siAmount * LengthBridgeUSNumerator / LengthBridgeUSDenominator
 	case FamilyMass:
-		// si_mg * 1,161,216,000 / 45,359,237
 		return siAmount * MassBridgeUSNumerator / MassBridgeUSDenominator
+	case FamilyVolume:
+		return siAmount * VolumeBridgeUSNumerator / VolumeBridgeUSDenominator
 	default:
 		return 0
 	}
@@ -217,6 +316,18 @@ func SIDefaultDecimalPlaces(suffix string) int {
 		return 0
 	case "B", "kB", "MB", "GB", "TB", "KiB", "MiB", "GiB", "TiB":
 		return 0
+	// Temperature
+	case "C":
+		return 1
+	case "F":
+		return 1
+	case "K":
+		return 2
+	// Volume — SI
+	case "mL":
+		return 0
+	case "L":
+		return 2
 	default:
 		return 2
 	}
@@ -280,6 +391,21 @@ var UnitConstructorNames = map[string]string{
 	"mebibytes": "MiB",
 	"gibibytes": "GiB",
 	"tebibytes": "TiB",
+	// Temperature
+	"celsius":    "C",
+	"fahrenheit": "F",
+	"kelvins":    "K",
+	// Volume — SI
+	"millilitres": "mL",
+	"milliliters": "mL",
+	"litres":      "L",
+	"liters":      "L",
+	// Volume — US
+	"fluidounces": "floz",
+	"cups":        "cup",
+	"pints":       "pt",
+	"quarts":      "qt",
+	"gallons":     "gal",
 }
 
 // AllUnitSuffixes returns all known unit suffixes for fuzzy matching in errors.
