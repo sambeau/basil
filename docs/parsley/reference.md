@@ -590,6 +590,71 @@ Common metadata keys:
 
 ---
 
+### 1.16 Unit Literals
+
+Parsley has first-class support for measurement units with exact integer arithmetic. Unit literals use the `#` sigil followed by a numeric value and a unit suffix.
+
+#### Basic Syntax
+
+```parsley
+#12m                            // 12 metres
+#5.5kg                          // 5.5 kilograms
+#100cm                          // 100 centimetres
+#1024B                          // 1024 bytes
+```
+
+#### Fraction Syntax (US Customary)
+
+US Customary units support exact fractions:
+
+```parsley
+#3/8in                          // 3/8 of an inch (exact)
+#1/2lb                          // half a pound (exact)
+```
+
+#### Mixed Number Syntax
+
+Use `+` as the mixed-number separator:
+
+```parsley
+#92+5/8in                       // 92 and 5/8 inches
+#2+3/8in                        // 2 and 3/8 inches
+```
+
+#### Negative Literals
+
+```parsley
+#-6m                            // negative 6 metres (canonical)
+-#6m                            // also negative 6 metres (unary negation)
+```
+
+#### Supported Suffixes
+
+**Length — SI:** `mm`, `cm`, `m`, `km`
+**Length — US:** `in`, `ft`, `yd`, `mi`
+**Mass — SI:** `mg`, `g`, `kg`
+**Mass — US:** `oz`, `lb`
+**Data — Decimal:** `B`, `kB`, `MB`, `GB`, `TB`
+**Data — Binary:** `KiB`, `MiB`, `GiB`, `TiB`
+
+#### Internal Representation
+
+- **SI units** are stored as an integer count of fixed sub-units (µm for length, mg for mass, B for data). `#12.3m` = 12,300,000 µm internally. Within-system arithmetic is always exact.
+- **US Customary units** are stored as an integer numerator over a fixed denominator (HCN = 725,760). Common fractions (halves through sixty-fourths, plus thirds, fifths, sevenths) are all exact integers.
+- **SI fractions** are syntactic sugar for division: `#1/3m` truncates to 333,333 µm. US fractions like `#1/3in` are stored exactly.
+
+#### Cross-System Conversion
+
+Units in the same family (e.g., length) can be mixed. The left operand's system wins:
+
+```parsley
+#1cm + #1in                     // #3.54cm (result in SI)
+#1in + #1cm                     // result in inches (US)
+#1in == #25.4mm                 // true
+```
+
+---
+
 ## 2. Operators
 
 ### 2.1 Arithmetic
@@ -868,7 +933,54 @@ Some operations don't make sense and will produce errors:
 
 ---
 
-### 2.11 Precedence Table (Lowest to Highest)
+### 2.11 Unit Arithmetic
+
+Parsley supports arithmetic on measurement units with exact integer storage and cross-system conversion.
+
+#### Valid Operations
+
+| Operation | Result | Example |
+|-----------|--------|---------|
+| unit + unit (same family) | unit | `#5cm + #3mm` → `#5.3cm` |
+| unit - unit (same family) | unit | `#1ft - #6in` → `#1/2ft` |
+| unit * number | unit | `#5m * 3` → `#15m` |
+| number * unit | unit | `3 * #5m` → `#15m` |
+| unit / number | unit | `#10m / 3` → `#3.33m` |
+| unit / unit (same family) | number | `#10m / #5m` → `2` |
+| -unit | unit | `-#6m` → `#-6m` |
+
+```parsley
+#5cm + #3mm                     // #5.3cm
+#12.3m + #0.7m                  // #13m
+#3/8in + #5/8in                 // #1in
+#1ft - #6in                     // #1/2ft
+#5m * 3                         // #15m
+#10m / #5m                      // 2
+```
+
+#### Cross-System Arithmetic
+
+Units from the same family but different systems are converted automatically. The **left operand wins** — the result uses the left operand's system and display hint:
+
+```parsley
+#1cm + #1in                     // #3.54cm (SI result)
+#1in + #1cm                     // #1.39...in (US result)
+```
+
+Rounding occurs only at the SI↔US boundary. Within-system arithmetic is always exact.
+
+#### Invalid Operations
+
+```parsley
+#5m + #5kg                      // Error: cannot add length to mass
+#5m * #3m                       // Error: derived units not yet supported
+5 + #5m                         // Error: cannot add number to unit
+10 / #5m                        // Error: cannot divide number by unit
+```
+
+---
+
+### 2.12 Precedence Table (Lowest to Highest)
 
 | Level | Operators |
 |-------|-----------|
@@ -1891,7 +2003,61 @@ $100.00.split(3)                // [$33.34, $33.33, $33.33]
 
 ---
 
-### 5.11 Table Properties & Methods
+### 5.11 Unit Properties & Methods
+
+Unit values represent physical measurements with exact integer storage. They are created from unit literals (`#12m`, `#3/8in`) or constructor functions (`metres(12)`, `unit(12, "m")`).
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `.value` | `float` | Decoded value in display-hint units (e.g., `12.3` for `#12.3m`) |
+| `.unit` | `string` | Display-hint unit suffix (e.g., `"m"`, `"in"`) |
+| `.family` | `string` | Unit family: `"length"`, `"mass"`, or `"data"` |
+| `.system` | `string` | Measurement system: `"SI"` or `"US"` |
+
+#### Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.to(suffix)` | `suffix: string` | `unit` | Convert to another unit in the same family |
+| `.abs()` | none | `unit` | Absolute value |
+| `.format(precision?)` | `precision?: integer` | `string` | Formatted string with optional decimal places |
+| `.repr()` | none | `string` | Parseable literal (e.g., `"#3/8in"`, `"#12.3m"`) |
+| `.toDict()` | none | `dictionary` | `{value, unit, family, system}` |
+| `.inspect()` | none | `dictionary` | Debug dictionary with internal values |
+| `.toFraction()` | none | `string` | Fraction string for US Customary values |
+
+**Arithmetic**: Units support `+`, `-` (same family), `*`, `/` by numbers, and `/` unit by unit (→ ratio).
+
+**Conversion**: `.to()` converts between units in the same family, including cross-system:
+
+```parsley
+let d = #12.3m
+d.value                         // 12.3
+d.unit                          // "m"
+d.family                        // "length"
+d.system                        // "SI"
+
+#1mi.to("km")                   // #1.609344km
+#100cm.to("m")                  // #1m
+#1in.to("mm")                   // #25mm (mm displays 0dp by default)
+
+(#-6m).abs()                    // #6m
+#12.3m.format()                 // "12.3m"
+#12.3m.format(2)                // "12.30m"
+#12.3m.repr()                   // "#12.3m"
+#3/8in.toFraction()             // "3/8\""
+#3/8in.repr()                   // "#3/8in"
+
+// String interpolation (no # sigil)
+let height = #1.83m
+`Height: {height}`              // "Height: 1.83m"
+```
+
+---
+
+### 5.12 Table Properties & Methods
 
 Table values represent structured tabular data with named columns and typed rows. Tables provide SQL-like query, aggregation, and mutation methods that operate immutably (returning new tables).
 
@@ -2528,7 +2694,51 @@ match("hello", "\\d+")          // null
 
 ---
 
-### 6.6 Money
+### 6.6 Units
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `unit(value, suffix)` | `value: number\|unit`, `suffix: string` | `unit` | Create or convert a unit value |
+
+**Named constructors** (plural forms) create units from a number or convert from another unit:
+
+| Constructor | Suffix | Family | System |
+|-------------|--------|--------|--------|
+| `millimetres()` / `millimeters()` | `mm` | length | SI |
+| `centimetres()` / `centimeters()` | `cm` | length | SI |
+| `metres()` / `meters()` | `m` | length | SI |
+| `kilometres()` / `kilometers()` | `km` | length | SI |
+| `inches()` | `in` | length | US |
+| `feet()` | `ft` | length | US |
+| `yards()` | `yd` | length | US |
+| `miles()` | `mi` | length | US |
+| `milligrams()` | `mg` | mass | SI |
+| `grams()` | `g` | mass | SI |
+| `kilograms()` | `kg` | mass | SI |
+| `ounces()` | `oz` | mass | US |
+| `pounds()` | `lb` | mass | US |
+| `kilobytes()` | `kB` | data | SI |
+| `megabytes()` | `MB` | data | SI |
+| `gigabytes()` | `GB` | data | SI |
+| `terabytes()` | `TB` | data | SI |
+| `kibibytes()` | `KiB` | data | SI |
+| `mebibytes()` | `MiB` | data | SI |
+| `gibibytes()` | `GiB` | data | SI |
+| `tebibytes()` | `TiB` | data | SI |
+
+**Note**: `bytes()` is not available as a constructor (conflicts with file I/O builtin). Use `unit(n, "B")` or `#1024B` literal syntax instead.
+
+```parsley
+unit(123, "m")                  // #123m
+unit(#12in, "m")                // convert 12 inches to metres
+metres(100)                     // #100m
+inches(#1cm)                    // convert 1cm to inches
+kilograms(#2.2lb)               // convert 2.2lb to kilograms
+```
+
+---
+
+### 6.7 Money
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -4115,6 +4325,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `datetime` | `@2024-12-25` | `year`, `month`, `day`, etc. | `format` |
 | `duration` | `@1d`, `@2h30m` | `months`, `seconds`, etc. | `format` |
 | `money` | `$12.34`, `EUR#50` | `amount`, `currency`, `scale` | `format`, `split`, `abs`, `negate` |
+| `unit` | `#12m`, `#3/8in` | `value`, `unit`, `family`, `system` | `to`, `abs`, `format`, `repr`, `toFraction` |
 | `path` | `@./file.txt` | `segments`, `extension`, etc. | `match`, `toURL` |
 | `url` | `@https://...` | `scheme`, `host`, `query`, etc. | `origin`, `pathname` |
 | `regex` | `/pattern/flags` | `pattern`, `flags` | `test`, `replace` |
@@ -4257,6 +4468,18 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `toCSV()` | 0 | Convert to CSV |
 | `toMarkdown()` | 0 | Convert to Markdown |
 | `toJSON()` | 0 | Convert to JSON |
+
+### Unit Methods (7 methods)
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `to(suffix)` | 1 | Convert to another unit |
+| `abs()` | 0 | Absolute value |
+| `format(precision?)` | 0-1 | Formatted string |
+| `repr()` | 0 | Parseable literal |
+| `toDict()` | 0 | Convert to dictionary |
+| `inspect()` | 0 | Debug dictionary |
+| `toFraction()` | 0 | Fraction string (US only) |
 
 ### TableBinding Methods (8 methods)
 

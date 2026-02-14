@@ -1,7 +1,7 @@
 ---
 id: FEAT-118
 title: "Measurement Units"
-status: draft
+status: in-progress
 priority: high
 created: 2026-02-14
 author: "@human"

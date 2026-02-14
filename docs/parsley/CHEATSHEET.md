@@ -224,6 +224,32 @@ if (error) {
 log("Failed: " + error)             // uses error.message automatically
 ```
 
+### 14. Unit Literals Use `#` Sigil (Not `$`)
+```parsley
+// ❌ WRONG — $ is for money, not units
+$12m                             // This is money!
+
+// ✅ CORRECT — # is the unit sigil
+#12m                             // 12 metres
+
+// ⚠️ Fractions use + for mixed numbers (not -)
+#92+5/8in                        // 92 and 5/8 inches
+// #92-5/8in                     // WRONG — parsed as subtraction
+
+// ⚠️ SI fractions truncate, US fractions are exact
+#1/3m                            // 333,333 µm (truncated!)
+#1/3in                           // exact
+
+// ⚠️ scalar + unit is an error (no implicit promotion)
+5 + #5m                          // Error! Write #5m + #5m
+10 / #5m                         // Error! Write #10m / 5
+
+// ⚠️ Data suffixes are case-sensitive
+#64kB                            // 64 kilobytes (lowercase k)
+#1KiB                            // 1 kibibyte (uppercase K, binary)
+// #64KB                         // Error! Unknown suffix
+```
+
 ---
 
 ## 📊 Syntax Quick Reference
@@ -266,6 +292,7 @@ log("Failed: " + error)             // uses error.message automatically
 | Regex | `/abc/i` | `re.compile(r"abc", re.I)` | `/abc/i` |
 | Null | `null` | `None` | `null` |
 | Money | N/A | N/A | `$12.34`, `EUR#50.00` |
+| Unit | N/A | N/A | `#12m`, `#3/8in` |
 
 ---
 
@@ -577,6 +604,85 @@ $1234.56.format("de-DE")     // "1.234,56 $" (German locale)
 $100.00.split(3)             // [$33.34, $33.33, $33.33]
 $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 ```
+
+---
+
+## 📐 Measurement Units
+
+```parsley
+// Unit literals use # sigil
+#12m                         // 12 metres
+#5.5kg                       // 5.5 kilograms
+#100cm                       // 100 centimetres
+#64kB                        // 64 kilobytes (lowercase k!)
+#1KiB                        // 1 kibibyte (binary)
+
+// ⚠️ Fractions: US exact, SI truncated
+#3/8in                       // exact (US Customary)
+#1/3m                        // truncated to 333,333 µm (SI)
+
+// ⚠️ Mixed numbers use + (not -)
+#92+5/8in                    // 92 and 5/8 inches
+// #92-5/8in                 // WRONG — this is subtraction!
+
+// Negative: sign before number
+#-6m                         // negative 6 metres (canonical)
+-#6m                         // also works (unary negation)
+
+// Arithmetic (same family only!)
+#5cm + #3mm                  // #5.3cm
+#3/8in + #5/8in              // #1in
+#5m * 3                      // #15m
+#10m / #5m                   // 2 (dimensionless)
+
+// ⚠️ Left side wins for cross-system
+#1cm + #1in                  // #3.54cm (SI result)
+#1in + #1cm                  // result in inches (US)
+
+// ❌ ERROR: Cannot mix families
+#5m + #5kg                   // Error!
+
+// ❌ ERROR: No implicit number-to-unit promotion
+5 + #5m                      // Error! Write #5m + #5m
+10 / #5m                     // Error! Write #10m / 5
+
+// ❌ ERROR: No derived units (yet)
+#5m * #3m                    // Error! (area planned for future)
+
+// Comparison (works across systems)
+#1in == #25.4mm              // true
+#1024B == #1KiB              // true
+
+// Properties
+#12.3m.value                 // 12.3
+#12.3m.unit                  // "m"
+#12.3m.family                // "length"
+#12.3m.system                // "SI"
+
+// Methods
+#1mi.to("km")                // #1.609344km
+(#-6m).abs()                 // #6m
+#12.3m.format()              // "12.3m"
+#12.3m.repr()                // "#12.3m"
+#3/8in.toFraction()          // "3/8\""
+
+// Constructors (plural names)
+metres(100)                  // #100m
+inches(#1cm)                 // convert cm to inches
+unit(123, "m")               // #123m (generic)
+unit(#12in, "m")             // convert to metres
+
+// String interpolation: no # sigil
+let d = #1.83m
+`Height: {d}`                // "Height: 1.83m"
+
+// ⚠️ bytes() constructor conflicts with file I/O
+// Use literal or unit() instead:
+#1024B                       // OK
+unit(1024, "B")              // OK
+```
+
+**Suffixes**: `mm`, `cm`, `m`, `km` · `in`, `ft`, `yd`, `mi` · `mg`, `g`, `kg` · `oz`, `lb` · `B`, `kB`, `MB`, `GB`, `TB` · `KiB`, `MiB`, `GiB`, `TiB`
 
 ---
 
@@ -1353,6 +1459,17 @@ let icon = publicUrl(@./icon.svg)
 | `.weekday` | Day name ("Monday") |
 | `.unix` | Unix timestamp |
 | `.format(style?, locale?)` | Format output |
+
+### Unit Methods
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.61km` |
+| `.abs()` | Absolute value | `(#-6m).abs()` → `#6m` |
+| `.format(precision?)` | Formatted string | `#12.3m.format()` → `"12.3m"` |
+| `.repr()` | Parseable literal | `#3/8in.repr()` → `"#3/8in"` |
+| `.toDict()` | To dictionary | `#12m.toDict()` → `{value: 12, unit: "m", ...}` |
+| `.inspect()` | Debug dictionary | `#12m.inspect()` → internal details |
+| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` |
 
 ---
 

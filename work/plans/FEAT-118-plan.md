@@ -2,7 +2,7 @@
 id: PLAN-095
 feature: FEAT-118
 title: "Implementation Plan for Measurement Units — Phase 1 (MVP)"
-status: draft
+status: complete
 created: 2026-02-14
 ---
 
@@ -689,14 +689,31 @@ Tasks 5+6 can be started in parallel with Tasks 1–4 (no code dependency, just 
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-02-14 | Task 1: Token Type and Lexer — Basic Unit Literals | ✅ Done | UNIT token, `readUnitLiteral()`, suffix table, longest-match |
+| 2026-02-14 | Task 2: Lexer — Fraction and Mixed Number Literals | ✅ Done | `n/d` and `W+n/d` forms |
+| 2026-02-14 | Task 3: AST Nodes | ✅ Done | `UnitLiteral` node in ast.go |
+| 2026-02-14 | Task 4: Parser — Unit Literal Parsing | ✅ Done | Numeric part + suffix split, all literal forms |
+| 2026-02-14 | Task 5: Object Types — SIUnit and ImperialUnit | ✅ Done | Unified `Unit` struct with int64 Amount |
+| 2026-02-14 | Task 6: Unit Tables — Suffix Maps, Ratios, Bridges | ✅ Done | unit_tables.go with HCN=725,760 |
+| 2026-02-14 | Task 7: Evaluator — Unit Literal Evaluation | ✅ Done | evaluator.go unit literal eval |
+| 2026-02-14 | Task 8: Arithmetic — Same-System Operations | ✅ Done | eval_unit_infix.go: +, -, *, /, negation |
+| 2026-02-14 | Task 9: Arithmetic — Cross-System Operations | ✅ Done | Bridge ratios, left-side-wins |
+| 2026-02-14 | Task 10: Constructors — Named and Generic | ✅ Done | Plural forms + `unit()` generic constructor |
+| 2026-02-14 | Task 11: Properties | ✅ Done | .value, .unit, .family, .system |
+| 2026-02-14 | Task 12: Methods — Registry and Core Methods | ✅ Done | methods_unit.go: to, abs, format, repr, toDict, inspect, toFraction |
+| 2026-02-14 | Task 13: Display and Formatting | ✅ Done | unit_display.go: SI decimal, US fraction, PLN |
+| 2026-02-14 | Task 14: Error Messages | ✅ Done | UNIT-0001 through UNIT-0011 in error catalog |
+| 2026-02-14 | Task 15: Integration Tests | ✅ Done | ~50 tests in unit_test.go, all passing |
+| 2026-02-14 | Task 16: Documentation | ✅ Done | reference.md and CHEATSHEET.md updated |
 
 ## Deferred Items
 
-Items to add to `work/BACKLOG.md` after implementation:
-- Phase 2: Temperature (K × 900) + Volume — separate FEAT/PLAN
-- Phase 3: Area (`unit2` suffixes) — separate FEAT/PLAN
-- Phase 4: Compound display, derived units, schema integration — separate FEAT/PLAN
-- Tree-sitter grammar updates for unit literal highlighting
-- Locale-aware formatting (e.g., comma vs period decimal separator)
-- Overflow detection and graceful error handling (verify int64 limits are checked)
+Added to `work/BACKLOG.md` on 2026-02-14 (#101–#107):
+- ✅ #101 Phase 2: Temperature (K × 900) + Volume — separate FEAT/PLAN
+- ✅ #102 Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal)
+- ✅ #103 Phase 3: Area (`unit2` suffixes) — separate FEAT/PLAN
+- ✅ #104 Phase 4: Compound display formatting
+- ✅ #105 Phase 4: Derived unit arithmetic (unit × unit → area)
+- ✅ #106 Tree-sitter grammar updates for unit literal highlighting
+- ✅ #107 Overflow detection and graceful error handling
+- Locale-aware formatting (e.g., comma vs period decimal separator) — not added, low priority

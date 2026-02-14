@@ -1,5 +1,5 @@
 ---
-updated 2026-02-11
+updated 2026-02-14
 ---
 
 # Backlog
@@ -19,6 +19,16 @@ Deferred items from implementation, to be picked up in future work.
 
 
 ## Medium Priority
+| ID | Item | Source | Reason Deferred | Notes |
+|----|------|--------|-----------------|-------|
+| #101 | Phase 2: Temperature units (K, C, F) | FEAT-118 | Separate phase | Temperature stored as K × 900 sub-units. Special arithmetic rules: add/subtract allowed, multiply/divide are errors (offset scales). `#0C == #32F`. Requires new `TempUnit` or flag on `Unit`, plus error messages explaining *why* multiplication is undefined. |
+| #102 | Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal) | FEAT-118 | Separate phase | Volume family with SI (mL, L) and US (floz, cup, pt, qt, gal) suffixes. Cross-system bridge: 1 gal = 3.785411784 L (exact). Same architecture as length/mass. |
+| #103 | Phase 3: Area units (mm2, cm2, m2, km2, in2, ft2, yd2, ac, mi2) | FEAT-118 | Separate phase | Area as its own family (not derived from length × length). Cross-system bridge: 1 in² = 0.00064516 m² (exact). |
+| #104 | Phase 4: Compound display formatting (5' 3+1/4", 2lb 5oz) | FEAT-118 | Polish phase | Display units in compound form (feet+inches, pounds+ounces). Requires display logic to split a value across two units. |
+| #105 | Phase 4: Derived unit arithmetic (unit × unit → area) | FEAT-118 | Polish phase | `#5m * #3m` → area. Requires new derived-unit type and arithmetic rules. Only implement if demanded. |
+| #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | Tooling | Add `#` + number + suffix pattern to tree-sitter grammar for syntax highlighting in editors. |
+| #107 | Overflow detection for unit arithmetic | FEAT-118 | Edge case | Verify int64 limits are checked in all arithmetic paths. Max representable distance is ~77 AU. Should produce clear error, not silent wraparound. |
+
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
 | #88 | Unicode identifier support (hybrid lexer) | FEAT-103 | ~1 day work | Enable `let π = 3.14` with hybrid byte/rune lexer. Performance-gated: benchmark before, implement on branch, benchmark after—merge only if <5% regression. See `work/specs/FEAT-103.md` and `work/reports/LEXER-UNICODE-ANALYSIS.md`. |
