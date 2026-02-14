@@ -1103,7 +1103,7 @@ Task 0 is implemented first and validated against the full existing test suite b
 | 2026-02-14 | Task 14: .max and .min Properties | ✅ Done | Temperature-aware min/max, scale-aware for area |
 | 2026-02-14 | Lint cleanup | ✅ Done | Removed unused scaleAlign wrapper, fixed named returns, paramTypeCombine, emptyStringTest, ifElseChain, offBy1 |
 | 2026-02-14 | Test fixes | ✅ Done | Fixed test expectations: unquoted string properties, US area decimal display, fraction display for US length, error message substring, scientific notation |
-| 2026-02-14 | Task 10: Documentation | ⬜ Todo | Update reference.md, CHEATSHEET.md with area, kL, Scale, .max/.min |
+| 2026-02-14 | Task 10: Documentation | ✅ Done | Updated reference.md and CHEATSHEET.md with area, kL, Scale, .max/.min |
 
 ## Deferred Items
 

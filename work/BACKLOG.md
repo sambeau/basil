@@ -23,11 +23,11 @@ Deferred items from implementation, to be picked up in future work.
 |----|------|--------|-----------------|-------|
 | #101 | Phase 2: Temperature units (K, C, F) | FEAT-118 | Separate phase | Temperature stored as K × 900 sub-units. Special arithmetic rules: add/subtract allowed, multiply/divide are errors (offset scales). `#0C == #32F`. Requires new `TempUnit` or flag on `Unit`, plus error messages explaining *why* multiplication is undefined. |
 | #102 | Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal) | FEAT-118 | Separate phase | Volume family with SI (mL, L) and US (floz, cup, pt, qt, gal) suffixes. Cross-system bridge: 1 gal = 3.785411784 L (exact). Same architecture as length/mass. |
-| #103 | Phase 3: Area units (mm2, cm2, m2, km2, in2, ft2, yd2, ac, mi2) | FEAT-118 | Separate phase | Area as its own family (not derived from length × length). Cross-system bridge: 1 in² = 0.00064516 m² (exact). |
+| #103 | ~~Phase 3: Area units~~ | FEAT-118 | **Done** | ✅ Implemented in Phase 3 commit. Area family with SI (mm2/cm2/m2/km2) and US (in2/ft2/yd2/ac/mi2), decimal Scale for large values, kL suffix, .max/.min properties. See PLAN-097. |
 | #104 | Phase 4: Compound display formatting (5' 3+1/4", 2lb 5oz) | FEAT-118 | Polish phase | Display units in compound form (feet+inches, pounds+ounces). Requires display logic to split a value across two units. |
 | #105 | Phase 4: Derived unit arithmetic (unit × unit → area) | FEAT-118 | Polish phase | `#5m * #3m` → area. Requires new derived-unit type and arithmetic rules. Only implement if demanded. |
 | #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | Tooling | Add `#` + number + suffix pattern to tree-sitter grammar for syntax highlighting in editors. |
-| #107 | Overflow detection for unit arithmetic | FEAT-118 | Edge case | Verify int64 limits are checked in all arithmetic paths. Max representable distance is ~77 AU. Should produce clear error, not silent wraparound. |
+| #107 | Overflow detection for unit arithmetic | FEAT-118 | Partially addressed | Phase 3 adds decimal Scale that handles overflow by shifting to Scale>0 instead of wrapping. Arithmetic helpers (scaleAdd, scaleMul, etc.) detect overflow and adjust scale. Remaining: verify edge cases in all paths, add explicit error for truly unrepresentable values. |
 
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
@@ -73,6 +73,10 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #108 | Unicode superscript display for area | FEAT-118 Phase 3 | Polish | `.format({unicode: true})` → `100 m²` instead of `100m2`. Requires display option plumbing and Unicode superscript mapping. |
+| #109 | Hectare (`ha`) suffix | FEAT-118 Phase 3 | Niche | 1 ha = 10,000 m². Common in many countries but not in the initial design. Add on demand. |
+| #110 | Megalitre (`ML`) suffix | FEAT-118 Phase 3 | Niche | 1 ML = 1,000 kL = 10⁶ L. Used in water industry. Add on demand. |
+| #111 | Scale trailing-zero normalization | FEAT-118 Phase 3 | Cosmetic | Optional optimization to keep Amount minimal and Scale maximal for cleaner PLN output. Not required for correctness — current scaleNormalize already absorbs scale into amount when possible. |
 | #99 | Kelvin-based escape hatch for temperature scaling | FEAT-118 Phase 2 | Design needed | Allow scientific temperature scaling via something like `#20C.asKelvin() * 2`. Requires distinguishing "temperature reading" from "absolute temperature value". Only if users request it. |
 | #100 | Temperature interval type | FEAT-118 Phase 2 | Design needed | Distinguish "20 degrees" (an interval/difference) from "20°C" (a reading). Intervals could support multiply/divide. Only if users request it. |
 | #101 | US Customary dry volume units | FEAT-118 Phase 2 | Niche | Dry pint, dry quart, bushel — uncommon outside agriculture. Add on demand. |
@@ -114,6 +118,7 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #103 | Phase 3: Area units + kL + Scale + .max/.min | FEAT-118 | 2026-02-14 | ✅ Area family (mm2/cm2/m2/km2/in2/ft2/yd2/ac/mi2), kL volume suffix, decimal Scale infrastructure for overflow, .max/.min properties. Cross-system bridge exact (1 in² = 16129/25 mm²). US area decimal-only display. PLN parser longest-match fix for digit-containing suffixes. See PLAN-097. |
 | #98 | Fix introspection drift: 6 missing methods | FEAT-110 | 2026-02-11 | ✅ Implemented all 6 missing methods: `integer.abs()`, `float.abs()`, `float.round(decimals?)`, `float.floor()`, `float.ceil()`, `money.negate()`. Added comprehensive tests in methods_missing_test.go. All validation tests now pass. Methods work correctly with chaining and error handling. |
 | #85 | Pretty-printer: Tag attribute multiline | FEAT-100 | 2026-01-22 | ✅ Added `TagAttribute` AST type, parser extracts attributes into structured nodes, formatter breaks long attribute lists to multiline with each attribute on its own line. Tags with multiline attributes also use multiline content. Implemented in ast.go, parser.go, ast_format.go. |
 | #84 | Pretty-printer: Comment preservation | FEAT-100 | 2026-01-21 | ✅ Lexer now captures comments in `Token.LeadingComments` and blank lines in `Token.BlankLinesBefore`. Formatter outputs comments and preserves single blank lines (collapses multiple to 1 like gofmt). |
