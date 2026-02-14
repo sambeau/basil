@@ -133,9 +133,10 @@ func (m *Money) Type() ObjectType { return MONEY_OBJ }
 //   - US Volume: sub-floz over HCN = 725,760
 type Unit struct {
 	Amount      int64  // count of sub-units
-	Family      string // "length", "mass", "data", "temperature", "volume"
+	Family      string // "length", "mass", "data", "temperature", "volume", "area"
 	System      string // "SI", "US"
-	DisplayHint string // original suffix for display ("m", "cm", "in", "ft", "C", "F", "L", etc.)
+	DisplayHint string // original suffix for display ("m", "cm", "in", "ft", "C", "F", "L", "m2", etc.)
+	Scale       int    // decimal exponent: true value = Amount × 10^Scale base-sub-units. Normally 0.
 }
 
 func (u *Unit) Type() ObjectType { return UNIT_OBJ }
@@ -3969,6 +3970,23 @@ func getBuiltins() map[string]*Builtin {
 		"milliliters": {Fn: func(args ...Object) Object { return unitNamedConstructor("milliliters", args) }},
 		"litres":      {Fn: func(args ...Object) Object { return unitNamedConstructor("litres", args) }},
 		"liters":      {Fn: func(args ...Object) Object { return unitNamedConstructor("liters", args) }},
+		"kilolitres":  {Fn: func(args ...Object) Object { return unitNamedConstructor("kilolitres", args) }},
+		"kiloliters":  {Fn: func(args ...Object) Object { return unitNamedConstructor("kiloliters", args) }},
+		// Area — SI
+		"squaremillimetres": {Fn: func(args ...Object) Object { return unitNamedConstructor("squaremillimetres", args) }},
+		"squaremillimeters": {Fn: func(args ...Object) Object { return unitNamedConstructor("squaremillimeters", args) }},
+		"squarecentimetres": {Fn: func(args ...Object) Object { return unitNamedConstructor("squarecentimetres", args) }},
+		"squarecentimeters": {Fn: func(args ...Object) Object { return unitNamedConstructor("squarecentimeters", args) }},
+		"squaremetres":      {Fn: func(args ...Object) Object { return unitNamedConstructor("squaremetres", args) }},
+		"squaremeters":      {Fn: func(args ...Object) Object { return unitNamedConstructor("squaremeters", args) }},
+		"squarekilometres":  {Fn: func(args ...Object) Object { return unitNamedConstructor("squarekilometres", args) }},
+		"squarekilometers":  {Fn: func(args ...Object) Object { return unitNamedConstructor("squarekilometers", args) }},
+		// Area — US
+		"squareinches": {Fn: func(args ...Object) Object { return unitNamedConstructor("squareinches", args) }},
+		"squarefeet":   {Fn: func(args ...Object) Object { return unitNamedConstructor("squarefeet", args) }},
+		"squareyards":  {Fn: func(args ...Object) Object { return unitNamedConstructor("squareyards", args) }},
+		"acres":        {Fn: func(args ...Object) Object { return unitNamedConstructor("acres", args) }},
+		"squaremiles":  {Fn: func(args ...Object) Object { return unitNamedConstructor("squaremiles", args) }},
 		// Volume — US
 		"fluidounces": {Fn: func(args ...Object) Object { return unitNamedConstructor("fluidounces", args) }},
 		"cups":        {Fn: func(args ...Object) Object { return unitNamedConstructor("cups", args) }},
@@ -4703,6 +4721,7 @@ func Eval(node ast.Node, env *Environment) Object {
 			Family:      node.Family,
 			System:      node.System,
 			DisplayHint: node.Suffix,
+			Scale:       node.Scale,
 		}
 
 	case *ast.PathLiteral:

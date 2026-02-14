@@ -2,6 +2,7 @@ package pln
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -642,12 +643,8 @@ func (p *Parser) parseMoney() evaluator.Object {
 	var amount int64
 	var err error
 
-	if strings.Contains(amountStr, ".") {
+	if wholePart, fracPart, hasDot := strings.Cut(amountStr, "."); hasDot {
 		// Parse as float and convert to smallest units
-		dotIdx := strings.Index(amountStr, ".")
-		wholePart := amountStr[:dotIdx]
-		fracPart := amountStr[dotIdx+1:]
-
 		whole, err := strconv.ParseInt(wholePart, 10, 64)
 		if err != nil {
 			p.addError("invalid money amount: %s", amountStr)
@@ -686,7 +683,7 @@ func (p *Parser) parseMoney() evaluator.Object {
 	}
 }
 
-// parseUnit parses a PLN unit literal like #12.3m, #3/8in, #92+5/8in, #100C
+// parseUnit parses a PLN unit literal like #12.3m, #3/8in, #92+5/8in, #100C, #5m2
 func (p *Parser) parseUnit() evaluator.Object {
 	literal := p.curToken.Literal
 	p.nextToken()
@@ -698,18 +695,9 @@ func (p *Parser) parseUnit() evaluator.Object {
 	}
 	body := literal[1:]
 
-	// Separate numeric part from suffix by scanning backwards
-	suffixStart := len(body)
-	for suffixStart > 0 {
-		ch := body[suffixStart-1]
-		if ch >= '0' && ch <= '9' || ch == '.' || ch == '/' || ch == '+' || ch == '-' {
-			break
-		}
-		suffixStart--
-	}
-
-	numStr := body[:suffixStart]
-	suffix := body[suffixStart:]
+	// Separate numeric part from suffix using longest-match lookup.
+	// This handles digit-containing suffixes like "m2", "in2", "km2", "kL".
+	numStr, suffix := plnSplitUnitBody(body)
 
 	if suffix == "" {
 		p.addError("missing unit suffix in '%s'", literal)
@@ -722,7 +710,7 @@ func (p *Parser) parseUnit() evaluator.Object {
 		return nil
 	}
 
-	amount, errMsg := plnParseUnitAmount(numStr, suffix, info.System, info.Family)
+	amount, scale, errMsg := plnParseUnitAmount(numStr, suffix, info.System, info.Family)
 	if errMsg != "" {
 		p.addError("%s in '%s'", errMsg, literal)
 		return nil
@@ -733,13 +721,31 @@ func (p *Parser) parseUnit() evaluator.Object {
 		Family:      info.Family,
 		System:      info.System,
 		DisplayHint: suffix,
+		Scale:       scale,
 	}
 }
 
+// plnSplitUnitBody separates a unit literal body (after the '#') into numeric and suffix parts.
+// Uses forward longest-match lookup against the evaluator's suffix table to handle
+// digit-containing suffixes like "m2", "in2", "km2", "kL".
+func plnSplitUnitBody(body string) (numStr, suffix string) {
+	// Try split points from the start of the body forwards.
+	// At each position i, body[i:] is a candidate suffix.
+	// The first (longest) valid suffix wins.
+	for i := 0; i < len(body); i++ {
+		candidate := body[i:]
+		if _, ok := evaluator.LookupUnitSuffix(candidate); ok {
+			return body[:i], candidate
+		}
+	}
+	return body, ""
+}
+
 // plnParseUnitAmount converts a numeric string into the internal int64 amount.
-func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
+// Scale-aware: returns (amount, scale, errorMessage). Scale > 0 when overflow occurs.
+func plnParseUnitAmount(numStr, suffix, system, family string) (amount int64, scale int, errMsg string) {
 	if numStr == "" {
-		return 0, "missing numeric value"
+		return 0, 0, "missing numeric value"
 	}
 
 	isTemp := evaluator.IsTemperatureFamily(family)
@@ -749,8 +755,6 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 		negative = true
 		numStr = numStr[1:]
 	}
-
-	var amount int64
 
 	plusIdx := strings.Index(numStr, "+")
 	slashIdx := strings.Index(numStr, "/")
@@ -765,23 +769,23 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 		fracPart := numStr[plusIdx+1:]
 		slashInFrac := strings.Index(fracPart, "/")
 		if slashInFrac < 0 {
-			return 0, "invalid mixed number format"
+			return 0, 0, "invalid mixed number format"
 		}
 		whole, err1 := strconv.ParseInt(wholePart, 10, 64)
 		num, err2 := strconv.ParseInt(fracPart[:slashInFrac], 10, 64)
 		denom, err3 := strconv.ParseInt(fracPart[slashInFrac+1:], 10, 64)
 		if err1 != nil || err2 != nil || err3 != nil {
-			return 0, "invalid number in mixed fraction"
+			return 0, 0, "invalid number in mixed fraction"
 		}
 		if denom == 0 {
-			return 0, "fraction denominator cannot be zero"
+			return 0, 0, "fraction denominator cannot be zero"
 		}
 		if isTemp {
 			value := float64(whole) + float64(num)/float64(denom)
 			if negative {
 				value = -value
 			}
-			return evaluator.EncodeTempToSubK(value, suffix), ""
+			return evaluator.EncodeTempToSubK(value, suffix), 0, ""
 		}
 		amount = whole*subPerUnit + num*subPerUnit/denom
 
@@ -790,17 +794,17 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 		num, err1 := strconv.ParseInt(numStr[:slashIdx], 10, 64)
 		denom, err2 := strconv.ParseInt(numStr[slashIdx+1:], 10, 64)
 		if err1 != nil || err2 != nil {
-			return 0, "invalid fraction"
+			return 0, 0, "invalid fraction"
 		}
 		if denom == 0 {
-			return 0, "fraction denominator cannot be zero"
+			return 0, 0, "fraction denominator cannot be zero"
 		}
 		if isTemp {
 			value := float64(num) / float64(denom)
 			if negative {
 				value = -value
 			}
-			return evaluator.EncodeTempToSubK(value, suffix), ""
+			return evaluator.EncodeTempToSubK(value, suffix), 0, ""
 		}
 		amount = num * subPerUnit / denom
 
@@ -808,15 +812,15 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 		// Decimal: W.F
 		whole, err := strconv.ParseInt(numStr[:dotIdx], 10, 64)
 		if err != nil {
-			return 0, "invalid decimal number"
+			return 0, 0, "invalid decimal number"
 		}
 		if isTemp {
 			value := float64(whole)
 			fracPart := numStr[dotIdx+1:]
-			if len(fracPart) > 0 {
+			if fracPart != "" {
 				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 				if ferr != nil {
-					return 0, "invalid decimal fraction"
+					return 0, 0, "invalid decimal fraction"
 				}
 				divisor := int64(1)
 				for range len(fracPart) {
@@ -827,14 +831,14 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 			if negative {
 				value = -value
 			}
-			return evaluator.EncodeTempToSubK(value, suffix), ""
+			return evaluator.EncodeTempToSubK(value, suffix), 0, ""
 		}
-		amount = whole * subPerUnit
+		amount, scale = plnScaleAmountForSuffix(whole, subPerUnit)
 		fracPart := numStr[dotIdx+1:]
-		if len(fracPart) > 0 {
+		if fracPart != "" && scale == 0 {
 			frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 			if ferr != nil {
-				return 0, "invalid decimal fraction"
+				return 0, 0, "invalid decimal fraction"
 			}
 			divisor := int64(1)
 			for range len(fracPart) {
@@ -847,22 +851,84 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (int64, string) {
 		// Plain integer
 		whole, err := strconv.ParseInt(numStr, 10, 64)
 		if err != nil {
-			return 0, "invalid integer"
+			return 0, 0, "invalid integer"
 		}
 		if isTemp {
 			value := float64(whole)
 			if negative {
 				value = -value
 			}
-			return evaluator.EncodeTempToSubK(value, suffix), ""
+			return evaluator.EncodeTempToSubK(value, suffix), 0, ""
 		}
-		amount = whole * subPerUnit
+		amount, scale = plnScaleAmountForSuffix(whole, subPerUnit)
 	}
 
 	if negative {
 		amount = -amount
 	}
-	return amount, ""
+	return amount, scale, ""
+}
+
+// plnScaleAmountForSuffix computes the amount in base sub-units for a given value and suffix,
+// applying Scale when the multiplication would overflow int64.
+// Returns (amount, scale). Duplicated from evaluator to avoid import cycle.
+func plnScaleAmountForSuffix(whole, subPerUnit int64) (amount int64, scale int) {
+	if subPerUnit <= 1 {
+		return whole, 0
+	}
+
+	// Check if whole * subPerUnit fits in int64
+	if whole != 0 {
+		limit := int64(math.MaxInt64) / subPerUnit
+		if whole >= 0 && whole <= limit {
+			return whole * subPerUnit, 0
+		}
+		if whole < 0 && whole >= -limit {
+			return whole * subPerUnit, 0
+		}
+	} else {
+		return 0, 0
+	}
+
+	// Overflow: factor out powers of 10 from subPerUnit into Scale
+	scale = 0
+	reducedSub := subPerUnit
+	for reducedSub > 1 && reducedSub%10 == 0 {
+		reducedSub /= 10
+		scale++
+	}
+
+	// Try with reduced subPerUnit
+	if reducedSub <= 1 {
+		return whole * reducedSub, scale
+	}
+
+	if whole != 0 {
+		limit := int64(9223372036854775807) / reducedSub
+		absWhole := whole
+		if absWhole < 0 {
+			absWhole = -absWhole
+		}
+		if absWhole <= limit {
+			return whole * reducedSub, scale
+		}
+	}
+
+	// Still overflows: factor out from whole as well
+	absWhole := whole
+	if absWhole < 0 {
+		absWhole = -absWhole
+	}
+	for absWhole > int64(9223372036854775807)/reducedSub && whole != 0 {
+		whole /= 10
+		scale++
+		absWhole = whole
+		if absWhole < 0 {
+			absWhole = -absWhole
+		}
+	}
+
+	return whole * reducedSub, scale
 }
 
 // plnSubUnitsPerUnit returns the sub-units-per-display-unit for a given suffix.

@@ -1242,21 +1242,12 @@ func (p *Parser) parseUnitLiteral() ast.Expression {
 		p.addError(fmt.Sprintf("invalid unit literal: %s", literal), p.curToken.Line, p.curToken.Column)
 		return nil
 	}
-	body := literal[1:] // e.g., "12.3m", "-3/8in", "92+5/8in"
+	body := literal[1:] // e.g., "12.3m", "-3/8in", "92+5/8in", "5m2"
 
-	// Separate the numeric part from the suffix.
-	// Walk backwards from the end to find where digits/punctuation end and the suffix begins.
-	suffixStart := len(body)
-	for suffixStart > 0 {
-		ch := body[suffixStart-1]
-		if ch >= '0' && ch <= '9' || ch == '.' || ch == '/' || ch == '+' || ch == '-' {
-			break
-		}
-		suffixStart--
-	}
-
-	numStr := body[:suffixStart]
-	suffix := body[suffixStart:]
+	// Separate the numeric part from the suffix using longest-match lookup.
+	// We try all possible split points and pick the one yielding the longest valid suffix.
+	// This handles digit-containing suffixes like "m2", "in2", "km2", "kL".
+	numStr, suffix := splitUnitBody(body)
 
 	if suffix == "" {
 		p.addError(fmt.Sprintf("missing unit suffix in '%s'", literal), p.curToken.Line, p.curToken.Column)
@@ -1270,8 +1261,8 @@ func (p *Parser) parseUnitLiteral() ast.Expression {
 		return nil
 	}
 
-	// Parse the numeric part and compute the internal Amount
-	amount, err := parseUnitAmount(numStr, suffix, info.System)
+	// Parse the numeric part and compute the internal Amount (scale-aware)
+	amount, scale, err := parseUnitAmount(numStr, suffix, info.System)
 	if err != "" {
 		p.addError(fmt.Sprintf("%s in '%s'", err, literal), p.curToken.Line, p.curToken.Column)
 		return nil
@@ -1283,6 +1274,7 @@ func (p *Parser) parseUnitLiteral() ast.Expression {
 		Suffix: suffix,
 		Family: info.Family,
 		System: info.System,
+		Scale:  scale,
 	}
 }
 
@@ -1303,6 +1295,17 @@ var parserUnitSuffixTable = map[string]unitSuffixInfo{
 	"ft": {Family: "length", System: "US"},
 	"yd": {Family: "length", System: "US"},
 	"mi": {Family: "length", System: "US"},
+	// Area — SI
+	"mm2": {Family: "area", System: "SI"},
+	"cm2": {Family: "area", System: "SI"},
+	"m2":  {Family: "area", System: "SI"},
+	"km2": {Family: "area", System: "SI"},
+	// Area — US
+	"in2": {Family: "area", System: "US"},
+	"ft2": {Family: "area", System: "US"},
+	"yd2": {Family: "area", System: "US"},
+	"ac":  {Family: "area", System: "US"},
+	"mi2": {Family: "area", System: "US"},
 	// Mass — SI
 	"mg": {Family: "mass", System: "SI"},
 	"g":  {Family: "mass", System: "SI"},
@@ -1328,6 +1331,7 @@ var parserUnitSuffixTable = map[string]unitSuffixInfo{
 	// Volume — SI
 	"mL": {Family: "volume", System: "SI"},
 	"L":  {Family: "volume", System: "SI"},
+	"kL": {Family: "volume", System: "SI"},
 	// Volume — US
 	"floz": {Family: "volume", System: "US"},
 	"cup":  {Family: "volume", System: "US"},
@@ -1347,8 +1351,10 @@ var parserSISubUnitsPerUnit = map[string]int64{
 	"mg": 1, "g": 1_000, "kg": 1_000_000,
 	"B": 1, "kB": 1_000, "MB": 1_000_000, "GB": 1_000_000_000, "TB": 1_000_000_000_000,
 	"KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30, "TiB": 1 << 40,
-	// Volume (base sub-unit: µL)
-	"mL": 1_000, "L": 1_000_000,
+	// Volume (base sub-unit: nL — nanolitre, not µL, so cross-system bridge is exact)
+	"mL": 1_000_000, "L": 1_000_000_000, "kL": 1_000_000_000_000,
+	// Area (base sub-unit: mm²)
+	"mm2": 1, "cm2": 100, "m2": 1_000_000, "km2": 1_000_000_000_000,
 }
 
 // US Customary: HCN and sub-units per display-unit
@@ -1360,6 +1366,24 @@ var parserUSSubUnitsPerUnit = map[string]int64{
 	// Volume (base sub-unit: sub-floz, 1 floz = HCN)
 	"floz": parserHCN, "cup": parserHCN * 8, "pt": parserHCN * 16,
 	"qt": parserHCN * 32, "gal": parserHCN * 128,
+	// Area (base sub-unit: in², plain integer — NOT HCN-based)
+	"in2": 1, "ft2": 144, "yd2": 1_296, "ac": 6_272_640, "mi2": 4_014_489_600,
+}
+
+// splitUnitBody separates a unit literal body (after the '#') into numeric and suffix parts.
+// Uses forward longest-match lookup against the suffix table to handle digit-containing
+// suffixes like "m2", "in2", "km2", "kL".
+func splitUnitBody(body string) (numStr, suffix string) {
+	// Try split points from the start of the body forwards.
+	// At each position i, body[i:] is a candidate suffix (longest first).
+	// The first valid suffix found is the longest match.
+	for i := 0; i < len(body); i++ {
+		candidate := body[i:]
+		if _, ok := parserUnitSuffixTable[candidate]; ok {
+			return body[:i], candidate
+		}
+	}
+	return body, ""
 }
 
 // Temperature constants (duplicated here to avoid importing evaluator)
@@ -1409,9 +1433,9 @@ func parserEncodeTempAmount(value float64, suffix string) int64 {
 // parseUnitAmount converts a numeric string (e.g., "12.3", "3/8", "92+5/8", "-6")
 // into the internal int64 amount for the given suffix and system.
 // Returns (amount, errorMessage). errorMessage is "" on success.
-func parseUnitAmount(numStr, suffix, system string) (int64, string) {
+func parseUnitAmount(numStr, suffix, system string) (amount int64, scale int, errMsg string) {
 	if numStr == "" {
-		return 0, "missing numeric value"
+		return 0, 0, "missing numeric value"
 	}
 
 	// Look up family to detect temperature
@@ -1423,8 +1447,6 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 		negative = true
 		numStr = numStr[1:]
 	}
-
-	var amount int64
 
 	// Detect the numeric format
 	plusIdx := strings.Index(numStr, "+")
@@ -1438,7 +1460,7 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 		fracPart := numStr[plusIdx+1:]
 		slashInFrac := strings.Index(fracPart, "/")
 		if slashInFrac < 0 {
-			return 0, "invalid mixed number format"
+			return 0, 0, "invalid mixed number format"
 		}
 		numPart := fracPart[:slashInFrac]
 		denomPart := fracPart[slashInFrac+1:]
@@ -1447,23 +1469,24 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 		num, err2 := strconv.ParseInt(numPart, 10, 64)
 		denom, err3 := strconv.ParseInt(denomPart, 10, 64)
 		if err1 != nil || err2 != nil || err3 != nil {
-			return 0, "invalid number in mixed fraction"
+			return 0, 0, "invalid number in mixed fraction"
 		}
 		if denom == 0 {
-			return 0, "fraction denominator cannot be zero"
+			return 0, 0, "fraction denominator cannot be zero"
 		}
 
-		if isTemp {
+		switch {
+		case isTemp:
 			// Temperature: encode the combined fractional value
 			value := float64(whole) + float64(num)/float64(denom)
 			if negative {
 				value = -value
 			}
-			return parserEncodeTempAmount(value, suffix), ""
-		} else if system == "US" {
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
 			amount = whole*subPerUnit + num*subPerUnit/denom
-		} else {
+		default:
 			subPerUnit := parserSISubUnitsPerUnit[suffix]
 			amount = whole*subPerUnit + num*subPerUnit/denom
 		}
@@ -1476,22 +1499,23 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 		num, err1 := strconv.ParseInt(numPart, 10, 64)
 		denom, err2 := strconv.ParseInt(denomPart, 10, 64)
 		if err1 != nil || err2 != nil {
-			return 0, "invalid fraction"
+			return 0, 0, "invalid fraction"
 		}
 		if denom == 0 {
-			return 0, "fraction denominator cannot be zero"
+			return 0, 0, "fraction denominator cannot be zero"
 		}
 
-		if isTemp {
+		switch {
+		case isTemp:
 			value := float64(num) / float64(denom)
 			if negative {
 				value = -value
 			}
-			return parserEncodeTempAmount(value, suffix), ""
-		} else if system == "US" {
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
 			amount = num * subPerUnit / denom
-		} else {
+		default:
 			subPerUnit := parserSISubUnitsPerUnit[suffix]
 			amount = num * subPerUnit / denom
 		}
@@ -1503,16 +1527,17 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 
 		whole, err := strconv.ParseInt(wholePart, 10, 64)
 		if err != nil {
-			return 0, "invalid decimal number"
+			return 0, 0, "invalid decimal number"
 		}
 
-		if isTemp {
+		switch {
+		case isTemp:
 			// Parse the full decimal value and encode
 			value := float64(whole)
-			if len(fracPart) > 0 {
+			if fracPart != "" {
 				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 				if ferr != nil {
-					return 0, "invalid decimal fraction"
+					return 0, 0, "invalid decimal fraction"
 				}
 				divisor := int64(1)
 				for range len(fracPart) {
@@ -1523,14 +1548,14 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 			if negative {
 				value = -value
 			}
-			return parserEncodeTempAmount(value, suffix), ""
-		} else if system == "US" {
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
-			amount = whole * subPerUnit
-			if len(fracPart) > 0 {
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+			if fracPart != "" && scale == 0 {
 				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 				if ferr != nil {
-					return 0, "invalid decimal fraction"
+					return 0, 0, "invalid decimal fraction"
 				}
 				divisor := int64(1)
 				for range len(fracPart) {
@@ -1538,13 +1563,13 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 				}
 				amount += frac * subPerUnit / divisor
 			}
-		} else {
+		default:
 			subPerUnit := parserSISubUnitsPerUnit[suffix]
-			amount = whole * subPerUnit
-			if len(fracPart) > 0 {
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+			if fracPart != "" && scale == 0 {
 				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 				if ferr != nil {
-					return 0, "invalid decimal fraction"
+					return 0, 0, "invalid decimal fraction"
 				}
 				divisor := int64(1)
 				for range len(fracPart) {
@@ -1558,21 +1583,22 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 		// Plain integer: W
 		whole, err := strconv.ParseInt(numStr, 10, 64)
 		if err != nil {
-			return 0, "invalid integer"
+			return 0, 0, "invalid integer"
 		}
 
-		if isTemp {
+		switch {
+		case isTemp:
 			value := float64(whole)
 			if negative {
 				value = -value
 			}
-			return parserEncodeTempAmount(value, suffix), ""
-		} else if system == "US" {
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
 			subPerUnit := parserUSSubUnitsPerUnit[suffix]
-			amount = whole * subPerUnit
-		} else {
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+		default:
 			subPerUnit := parserSISubUnitsPerUnit[suffix]
-			amount = whole * subPerUnit
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
 		}
 	}
 
@@ -1580,7 +1606,69 @@ func parseUnitAmount(numStr, suffix, system string) (int64, string) {
 		amount = -amount
 	}
 
-	return amount, ""
+	return amount, scale, ""
+}
+
+// parserScaleAmountForSuffix computes the amount in base sub-units for a given value and suffix,
+// applying Scale when the multiplication would overflow int64.
+// Returns (amount, scale). Duplicated from evaluator to avoid import cycle.
+func parserScaleAmountForSuffix(whole, subPerUnit int64) (amount int64, scale int) {
+	if subPerUnit <= 1 {
+		return whole, 0
+	}
+
+	// Check if whole * subPerUnit fits in int64
+	if whole != 0 {
+		limit := math.MaxInt64 / subPerUnit
+		if whole >= 0 && whole <= limit {
+			return whole * subPerUnit, 0
+		}
+		if whole < 0 && whole >= -limit {
+			return whole * subPerUnit, 0
+		}
+	} else {
+		return 0, 0
+	}
+
+	// Overflow: factor out powers of 10 from subPerUnit into Scale
+	scale = 0
+	reducedSub := subPerUnit
+	for reducedSub > 1 && reducedSub%10 == 0 {
+		reducedSub /= 10
+		scale++
+	}
+
+	// Try with reduced subPerUnit
+	if reducedSub <= 1 {
+		return whole * reducedSub, scale
+	}
+
+	if whole != 0 {
+		limit := int64(9223372036854775807) / reducedSub
+		absWhole := whole
+		if absWhole < 0 {
+			absWhole = -absWhole
+		}
+		if absWhole <= limit {
+			return whole * reducedSub, scale
+		}
+	}
+
+	// Still overflows: factor out from whole as well
+	absWhole := whole
+	if absWhole < 0 {
+		absWhole = -absWhole
+	}
+	for absWhole > int64(9223372036854775807)/reducedSub && whole != 0 {
+		whole /= 10
+		scale++
+		absWhole = whole
+		if absWhole < 0 {
+			absWhole = -absWhole
+		}
+	}
+
+	return whole * reducedSub, scale
 }
 
 // parseMoneyAmountFromString converts a number string to an integer amount in smallest units

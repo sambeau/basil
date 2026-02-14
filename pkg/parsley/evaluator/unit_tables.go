@@ -24,6 +24,7 @@ const (
 	FamilyData        = "data"
 	FamilyTemperature = "temperature"
 	FamilyVolume      = "volume"
+	FamilyArea        = "area"
 )
 
 // Temperature storage: all temperatures are stored as int64 sub-kelvins,
@@ -109,6 +110,17 @@ var unitSuffixTable = map[string]UnitInfo{
 	"ft": {Suffix: "ft", Family: FamilyLength, System: SystemUS},
 	"yd": {Suffix: "yd", Family: FamilyLength, System: SystemUS},
 	"mi": {Suffix: "mi", Family: FamilyLength, System: SystemUS},
+	// Area — SI
+	"mm2": {Suffix: "mm2", Family: FamilyArea, System: SystemSI},
+	"cm2": {Suffix: "cm2", Family: FamilyArea, System: SystemSI},
+	"m2":  {Suffix: "m2", Family: FamilyArea, System: SystemSI},
+	"km2": {Suffix: "km2", Family: FamilyArea, System: SystemSI},
+	// Area — US
+	"in2": {Suffix: "in2", Family: FamilyArea, System: SystemUS},
+	"ft2": {Suffix: "ft2", Family: FamilyArea, System: SystemUS},
+	"yd2": {Suffix: "yd2", Family: FamilyArea, System: SystemUS},
+	"ac":  {Suffix: "ac", Family: FamilyArea, System: SystemUS},
+	"mi2": {Suffix: "mi2", Family: FamilyArea, System: SystemUS},
 	// Mass — SI
 	"mg": {Suffix: "mg", Family: FamilyMass, System: SystemSI},
 	"g":  {Suffix: "g", Family: FamilyMass, System: SystemSI},
@@ -134,6 +146,7 @@ var unitSuffixTable = map[string]UnitInfo{
 	// Volume — SI
 	"mL": {Suffix: "mL", Family: FamilyVolume, System: SystemSI},
 	"L":  {Suffix: "L", Family: FamilyVolume, System: SystemSI},
+	"kL": {Suffix: "kL", Family: FamilyVolume, System: SystemSI},
 	// Volume — US
 	"floz": {Suffix: "floz", Family: FamilyVolume, System: SystemUS},
 	"cup":  {Suffix: "cup", Family: FamilyVolume, System: SystemUS},
@@ -174,9 +187,17 @@ var siSubUnitsPerUnit = map[string]int64{
 	"MiB": 1 << 20, // 1,048,576
 	"GiB": 1 << 30, // 1,073,741,824
 	"TiB": 1 << 40, // 1,099,511,627,776
-	// Volume (base sub-unit: µL = microlitre)
-	"mL": 1_000,     // 1 mL = 1,000 µL
-	"L":  1_000_000, // 1 L  = 1,000,000 µL
+	// Volume (base sub-unit: nL = nanolitre)
+	// nL (not µL) so that the cross-system bridge is exact:
+	// 1 gal = 3,785,411,784 nL (integer), whereas 1 gal = 3,785,411.784 µL (fractional).
+	"mL": 1_000_000,         // 1 mL = 1,000,000 nL
+	"L":  1_000_000_000,     // 1 L  = 1,000,000,000 nL
+	"kL": 1_000_000_000_000, // 1 kL = 10¹² nL (= 1 m³)
+	// Area (base sub-unit: mm²)
+	"mm2": 1,
+	"cm2": 100,
+	"m2":  1_000_000,
+	"km2": 1_000_000_000_000,
 }
 
 // SISubUnitsPerUnit returns how many sub-units one display-unit represents.
@@ -207,6 +228,12 @@ var usSubUnitsPerUnit = map[string]int64{
 	"pt":   HCN * 16,  // 1 pt  = 16 floz = 11,612,160
 	"qt":   HCN * 32,  // 1 qt  = 32 floz = 23,224,320
 	"gal":  HCN * 128, // 1 gal = 128 floz = 92,897,280
+	// Area (base sub-unit: in², plain integer — NOT HCN-based)
+	"in2": 1,
+	"ft2": 144,
+	"yd2": 1_296,
+	"ac":  6_272_640,
+	"mi2": 4_014_489_600,
 }
 
 // USSubUnitsPerUnit returns how many HCN sub-units one display-unit represents.
@@ -257,14 +284,22 @@ const (
 )
 
 // Volume bridge: 1 gal = 3.785411784 L (exact, from 1 gal = 231 in³)
-// In sub-units: 1 gal = 128 × HCN = 92,897,280 sub-floz = 3,785,411,784 µL
+// In sub-units: 1 gal = 128 × HCN = 92,897,280 sub-floz = 3,785,411,784 nL
 // GCD(3785411784, 92897280) = 168
 // Simplified: 22,532,213 / 552,960
 const (
-	VolumeBridgeSINumerator   int64 = 22_532_213 // µL per sub-floz (numerator)
-	VolumeBridgeSIDenominator int64 = 552_960    // µL per sub-floz (denominator)
-	VolumeBridgeUSNumerator   int64 = 552_960    // sub-floz per µL (numerator)
-	VolumeBridgeUSDenominator int64 = 22_532_213 // sub-floz per µL (denominator)
+	VolumeBridgeSINumerator   int64 = 22_532_213 // nL per sub-floz (numerator)
+	VolumeBridgeSIDenominator int64 = 552_960    // nL per sub-floz (denominator)
+	VolumeBridgeUSNumerator   int64 = 552_960    // sub-floz per nL (numerator)
+	VolumeBridgeUSDenominator int64 = 22_532_213 // sub-floz per nL (denominator)
+)
+
+// Area bridge: 1 in² = 645.16 mm² = 16,129/25 mm² (exact, from 1 in = 25.4 mm).
+const (
+	AreaBridgeSINumerator   int64 = 16_129 // mm² per in² (numerator)
+	AreaBridgeSIDenominator int64 = 25     // mm² per in² (denominator)
+	AreaBridgeUSNumerator   int64 = 25     // in² per mm² (numerator)
+	AreaBridgeUSDenominator int64 = 16_129 // in² per mm² (denominator)
 )
 
 // ConvertUSToSI converts a US Customary amount (in sub-units) to SI sub-units.
@@ -276,6 +311,8 @@ func ConvertUSToSI(usAmount int64, family string) int64 {
 		return usAmount * MassBridgeSINumerator / MassBridgeSIDenominator
 	case FamilyVolume:
 		return usAmount * VolumeBridgeSINumerator / VolumeBridgeSIDenominator
+	case FamilyArea:
+		return usAmount * AreaBridgeSINumerator / AreaBridgeSIDenominator
 	default:
 		return 0
 	}
@@ -290,9 +327,47 @@ func ConvertSIToUS(siAmount int64, family string) int64 {
 		return siAmount * MassBridgeUSNumerator / MassBridgeUSDenominator
 	case FamilyVolume:
 		return siAmount * VolumeBridgeUSNumerator / VolumeBridgeUSDenominator
+	case FamilyArea:
+		return siAmount * AreaBridgeUSNumerator / AreaBridgeUSDenominator
 	default:
 		return 0
 	}
+}
+
+// ConvertUSToSIScaled converts a US Customary scaled amount to SI sub-units (scale-aware).
+func ConvertUSToSIScaled(usAmount int64, usScale int, family string) (siAmount int64, siScale int) {
+	var num, den int64
+	switch family {
+	case FamilyLength:
+		num, den = LengthBridgeSINumerator, LengthBridgeSIDenominator
+	case FamilyMass:
+		num, den = MassBridgeSINumerator, MassBridgeSIDenominator
+	case FamilyVolume:
+		num, den = VolumeBridgeSINumerator, VolumeBridgeSIDenominator
+	case FamilyArea:
+		num, den = AreaBridgeSINumerator, AreaBridgeSIDenominator
+	default:
+		return 0, 0
+	}
+	return scaleMulDiv(usAmount, usScale, num, den)
+}
+
+// ConvertSIToUSScaled converts an SI scaled amount to US Customary sub-units (scale-aware).
+func ConvertSIToUSScaled(siAmount int64, siScale int, family string) (usAmount int64, usScale int) {
+	var num, den int64
+	switch family {
+	case FamilyLength:
+		num, den = LengthBridgeUSNumerator, LengthBridgeUSDenominator
+	case FamilyMass:
+		num, den = MassBridgeUSNumerator, MassBridgeUSDenominator
+	case FamilyVolume:
+		num, den = VolumeBridgeUSNumerator, VolumeBridgeUSDenominator
+	case FamilyArea:
+		num, den = AreaBridgeUSNumerator, AreaBridgeUSDenominator
+	default:
+		return 0, 0
+	}
+	return scaleMulDiv(siAmount, siScale, num, den)
 }
 
 // --- Display configuration ---
@@ -327,6 +402,28 @@ func SIDefaultDecimalPlaces(suffix string) int {
 	case "mL":
 		return 0
 	case "L":
+		return 2
+	case "kL":
+		return 2
+	// Area — SI
+	case "mm2":
+		return 0
+	case "cm2":
+		return 0
+	case "m2":
+		return 2
+	case "km2":
+		return 2
+	// Area — US (decimal display)
+	case "in2":
+		return 0
+	case "ft2":
+		return 0
+	case "yd2":
+		return 0
+	case "ac":
+		return 2
+	case "mi2":
 		return 2
 	default:
 		return 2
@@ -400,6 +497,23 @@ var UnitConstructorNames = map[string]string{
 	"milliliters": "mL",
 	"litres":      "L",
 	"liters":      "L",
+	"kilolitres":  "kL",
+	"kiloliters":  "kL",
+	// Area — SI
+	"squaremillimetres": "mm2",
+	"squaremillimeters": "mm2",
+	"squarecentimetres": "cm2",
+	"squarecentimeters": "cm2",
+	"squaremetres":      "m2",
+	"squaremeters":      "m2",
+	"squarekilometres":  "km2",
+	"squarekilometers":  "km2",
+	// Area — US
+	"squareinches": "in2",
+	"squarefeet":   "ft2",
+	"squareyards":  "yd2",
+	"acres":        "ac",
+	"squaremiles":  "mi2",
 	// Volume — US
 	"fluidounces": "floz",
 	"cups":        "cup",

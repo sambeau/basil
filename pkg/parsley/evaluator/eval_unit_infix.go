@@ -2,6 +2,7 @@
 // This file implements unit+unit, unit-unit, unit*scalar, scalar*unit,
 // unit/scalar, unit/unit (ratio), and comparison operators.
 // Temperature arithmetic uses offset-based formulas (Phase 2).
+// All non-temperature arithmetic is scale-aware (Phase 3).
 package evaluator
 
 import (
@@ -37,41 +38,46 @@ func evalUnitInfixExpression(tok lexer.Token, operator string, left, right *Unit
 
 	// Normalise the right operand into the left's system if they differ
 	leftAmount := left.Amount
+	leftScale := left.Scale
 	rightAmount := right.Amount
+	rightScale := right.Scale
 
 	if left.System != right.System {
 		// Cross-system: convert right to left's system
 		if left.System == SystemSI {
 			// Right is US, convert to SI
-			rightAmount = ConvertUSToSI(right.Amount, right.Family)
+			rightAmount, rightScale = ConvertUSToSIScaled(right.Amount, right.Scale, right.Family)
 		} else {
 			// Right is SI, convert to US
-			rightAmount = ConvertSIToUS(right.Amount, right.Family)
+			rightAmount, rightScale = ConvertSIToUSScaled(right.Amount, right.Scale, right.Family)
 		}
 	}
 
 	switch operator {
 	case "+":
+		resAmount, resScale := scaleAdd(leftAmount, leftScale, rightAmount, rightScale)
 		return &Unit{
-			Amount:      leftAmount + rightAmount,
+			Amount:      resAmount,
 			Family:      left.Family,
 			System:      left.System,
 			DisplayHint: left.DisplayHint,
+			Scale:       resScale,
 		}
 	case "-":
+		resAmount, resScale := scaleSub(leftAmount, leftScale, rightAmount, rightScale)
 		return &Unit{
-			Amount:      leftAmount - rightAmount,
+			Amount:      resAmount,
 			Family:      left.Family,
 			System:      left.System,
 			DisplayHint: left.DisplayHint,
+			Scale:       resScale,
 		}
 	case "/":
 		// unit / unit = dimensionless ratio (plain number)
-		if rightAmount == 0 {
+		if rightAmount == 0 && rightScale == 0 {
 			return newOperatorErrorWithPos(tok, "OP-0002", map[string]any{})
 		}
-		// Return as float for precision
-		ratio := float64(leftAmount) / float64(rightAmount)
+		ratio := scaleRatio(leftAmount, leftScale, rightAmount, rightScale)
 		// If it's an exact integer, return Integer
 		if ratio == math.Trunc(ratio) && ratio >= math.MinInt64 && ratio <= math.MaxInt64 {
 			return &Integer{Value: int64(ratio)}
@@ -81,17 +87,17 @@ func evalUnitInfixExpression(tok lexer.Token, operator string, left, right *Unit
 		// unit * unit is an error (derived units deferred)
 		return newOperatorErrorWithPos(tok, "UNIT-0003", map[string]any{})
 	case "<":
-		return nativeBoolToParsBoolean(leftAmount < rightAmount)
+		return nativeBoolToParsBoolean(scaleCmp(leftAmount, leftScale, rightAmount, rightScale) < 0)
 	case ">":
-		return nativeBoolToParsBoolean(leftAmount > rightAmount)
+		return nativeBoolToParsBoolean(scaleCmp(leftAmount, leftScale, rightAmount, rightScale) > 0)
 	case "<=":
-		return nativeBoolToParsBoolean(leftAmount <= rightAmount)
+		return nativeBoolToParsBoolean(scaleCmp(leftAmount, leftScale, rightAmount, rightScale) <= 0)
 	case ">=":
-		return nativeBoolToParsBoolean(leftAmount >= rightAmount)
+		return nativeBoolToParsBoolean(scaleCmp(leftAmount, leftScale, rightAmount, rightScale) >= 0)
 	case "==":
-		return nativeBoolToParsBoolean(leftAmount == rightAmount)
+		return nativeBoolToParsBoolean(scaleCmp(leftAmount, leftScale, rightAmount, rightScale) == 0)
 	case "!=":
-		return nativeBoolToParsBoolean(leftAmount != rightAmount)
+		return nativeBoolToParsBoolean(scaleCmp(leftAmount, leftScale, rightAmount, rightScale) != 0)
 	default:
 		return newOperatorErrorWithPos(tok, "UNIT-0004", map[string]any{
 			"Operator": operator,
@@ -166,23 +172,25 @@ func evalUnitScalarExpression(tok lexer.Token, operator string, unit *Unit, scal
 
 	switch operator {
 	case "*":
-		result := float64(unit.Amount) * scalar
+		resAmount, resScale := scaleMulScalar(unit.Amount, unit.Scale, scalar)
 		return &Unit{
-			Amount:      int64(math.Round(result)),
+			Amount:      resAmount,
 			Family:      unit.Family,
 			System:      unit.System,
 			DisplayHint: unit.DisplayHint,
+			Scale:       resScale,
 		}
 	case "/":
 		if scalar == 0 {
 			return newOperatorErrorWithPos(tok, "OP-0002", map[string]any{})
 		}
-		result := float64(unit.Amount) / scalar
+		resAmount, resScale := scaleDivScalar(unit.Amount, unit.Scale, scalar)
 		return &Unit{
-			Amount:      int64(math.Round(result)),
+			Amount:      resAmount,
 			Family:      unit.Family,
 			System:      unit.System,
 			DisplayHint: unit.DisplayHint,
+			Scale:       resScale,
 		}
 	case "+":
 		// scalar + unit error: no implicit promotion
@@ -214,12 +222,13 @@ func evalScalarUnitExpression(tok lexer.Token, operator string, scalar float64, 
 	switch operator {
 	case "*":
 		// Multiplication is commutative
-		result := scalar * float64(unit.Amount)
+		resAmount, resScale := scaleMulScalar(unit.Amount, unit.Scale, scalar)
 		return &Unit{
-			Amount:      int64(math.Round(result)),
+			Amount:      resAmount,
 			Family:      unit.Family,
 			System:      unit.System,
 			DisplayHint: unit.DisplayHint,
+			Scale:       resScale,
 		}
 	case "+":
 		// number + unit is an error

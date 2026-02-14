@@ -68,12 +68,114 @@ func evalUnitProperty(unit *Unit, key string) Object {
 		return &String{Value: unit.Family}
 	case "system":
 		return &String{Value: unit.System}
+	case "max":
+		return unitMaxProperty(unit)
+	case "min":
+		return unitMinProperty(unit)
 	default:
 		methodNames := UnitMethodRegistry.Names()
 		if _, ok := UnitMethodRegistry[key]; ok {
 			return methodAsPropertyError(key, "Unit")
 		}
-		return unknownMethodError(key, "unit", append([]string{"value", "unit", "family", "system"}, methodNames...))
+		return unknownMethodError(key, "unit", append([]string{"value", "unit", "family", "system", "max", "min"}, methodNames...))
+	}
+}
+
+// unitMaxProperty returns the maximum representable value at full (Scale=0) precision
+// for the given unit suffix. The result is a Unit with the same suffix.
+func unitMaxProperty(unit *Unit) Object {
+	if IsTemperatureFamily(unit.Family) {
+		return unitTempMax(unit)
+	}
+
+	var subPerUnit int64
+	if unit.System == SystemUS {
+		subPerUnit = USSubUnitsPerUnit(unit.DisplayHint)
+	} else {
+		subPerUnit = SISubUnitsPerUnit(unit.DisplayHint)
+	}
+	if subPerUnit == 0 {
+		subPerUnit = 1
+	}
+
+	// Largest exact multiple of subPerUnit that fits in int64
+	maxAmount := math.MaxInt64 / subPerUnit * subPerUnit
+	return &Unit{
+		Amount:      maxAmount,
+		Family:      unit.Family,
+		System:      unit.System,
+		DisplayHint: unit.DisplayHint,
+	}
+}
+
+// unitMinProperty returns the smallest representable positive value for the given unit suffix.
+// This is 1 base sub-unit expressed in the receiver's suffix.
+func unitMinProperty(unit *Unit) Object {
+	if IsTemperatureFamily(unit.Family) {
+		return unitTempMin(unit)
+	}
+
+	return &Unit{
+		Amount:      1,
+		Family:      unit.Family,
+		System:      unit.System,
+		DisplayHint: unit.DisplayHint,
+	}
+}
+
+// unitTempMax returns the maximum representable temperature for the given scale.
+// Derived from int64 max of the sub-kelvin representation.
+func unitTempMax(unit *Unit) Object {
+	// Max sub-kelvin value is math.MaxInt64. Convert to the display scale.
+	// For K: max = MaxInt64 / TempScaleK (in kelvins)
+	// For C: max = (MaxInt64 - TempOffsetC) / TempScaleC ... but we just want the largest value
+	//        that fits when encoded. Actually, since sub-kelvins can go up to MaxInt64,
+	//        the max displayable value = DecodeTempFromSubK(MaxInt64, suffix).
+	return &Unit{
+		Amount:      math.MaxInt64,
+		Family:      FamilyTemperature,
+		System:      unit.System,
+		DisplayHint: unit.DisplayHint,
+	}
+}
+
+// unitTempMin returns the minimum representable temperature for the given scale.
+// For K: smallest positive sub-kelvin increment (1 sub-K).
+// For C/F: derived from sub-kelvin floor (0 sub-K = absolute zero).
+func unitTempMin(unit *Unit) Object {
+	switch unit.DisplayHint {
+	case "K":
+		// Smallest positive Kelvin: 1 sub-K = 1/900 K
+		return &Unit{
+			Amount:      1,
+			Family:      FamilyTemperature,
+			System:      unit.System,
+			DisplayHint: "K",
+		}
+	case "C":
+		// Minimum Celsius: 0 sub-K → absolute zero in Celsius
+		// 0 sub-K decoded as C = (0 - TempOffsetC) / TempScaleC = -273.15
+		return &Unit{
+			Amount:      0,
+			Family:      FamilyTemperature,
+			System:      unit.System,
+			DisplayHint: "C",
+		}
+	case "F":
+		// Minimum Fahrenheit: 0 sub-K → absolute zero in Fahrenheit
+		return &Unit{
+			Amount:      0,
+			Family:      FamilyTemperature,
+			System:      unit.System,
+			DisplayHint: "F",
+		}
+	default:
+		return &Unit{
+			Amount:      0,
+			Family:      FamilyTemperature,
+			System:      unit.System,
+			DisplayHint: unit.DisplayHint,
+		}
 	}
 }
 
@@ -128,6 +230,7 @@ func unitTo(receiver Object, args []Object, env *Environment) Object {
 }
 
 // convertUnit converts a unit value to a target suffix within the same family.
+// Scale-aware: propagates Scale through within-system and cross-system conversions.
 func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
 	// Temperature conversion: sub-kelvins are absolute, just change the display hint
 	if IsTemperatureFamily(unit.Family) {
@@ -140,6 +243,7 @@ func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
 	}
 
 	var newAmount int64
+	newScale := unit.Scale
 
 	switch {
 	case unit.System == targetInfo.System:
@@ -150,18 +254,18 @@ func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
 			if srcSub == 0 || dstSub == 0 {
 				return &Unit{Amount: 0, Family: unit.Family, System: targetInfo.System, DisplayHint: targetSuffix}
 			}
-			// amount is in base sub-units (µm/mg/B/µL), just change the display hint
+			// amount is in base sub-units (µm/mg/B/nL/mm²), just change the display hint
 			newAmount = unit.Amount
 		} else {
-			// US to US: same sub-unit base (HCN sub-yards or sub-ounces or sub-floz)
+			// US to US: same sub-unit base (HCN sub-yards or sub-ounces or sub-floz or in²)
 			newAmount = unit.Amount
 		}
 	case unit.System == SystemSI && targetInfo.System == SystemUS:
-		// SI → US conversion
-		newAmount = ConvertSIToUS(unit.Amount, unit.Family)
+		// SI → US conversion (scale-aware)
+		newAmount, newScale = ConvertSIToUSScaled(unit.Amount, unit.Scale, unit.Family)
 	default:
-		// US → SI conversion
-		newAmount = ConvertUSToSI(unit.Amount, unit.Family)
+		// US → SI conversion (scale-aware)
+		newAmount, newScale = ConvertUSToSIScaled(unit.Amount, unit.Scale, unit.Family)
 	}
 
 	return &Unit{
@@ -169,11 +273,13 @@ func convertUnit(unit *Unit, targetSuffix string, targetInfo UnitInfo) *Unit {
 		Family:      unit.Family,
 		System:      targetInfo.System,
 		DisplayHint: targetSuffix,
+		Scale:       newScale,
 	}
 }
 
 // unitAbs returns the absolute value of a unit.
 // For temperature, operates on the decoded display value (not raw sub-kelvins).
+// Scale-aware: preserves Scale on the result.
 func unitAbs(receiver Object, args []Object, env *Environment) Object {
 	unit := receiver.(*Unit)
 
@@ -200,6 +306,7 @@ func unitAbs(receiver Object, args []Object, env *Environment) Object {
 		Family:      unit.Family,
 		System:      unit.System,
 		DisplayHint: unit.DisplayHint,
+		Scale:       unit.Scale,
 	}
 }
 
@@ -256,6 +363,7 @@ func unitInspectMethod(receiver Object, args []Object, env *Environment) Object 
 		"family":      createLiteralExpression(&String{Value: unit.Family}),
 		"system":      createLiteralExpression(&String{Value: unit.System}),
 		"displayHint": createLiteralExpression(&String{Value: unit.DisplayHint}),
+		"scale":       createLiteralExpression(&Integer{Value: int64(unit.Scale)}),
 	}
 	if IsTemperatureFamily(unit.Family) {
 		pairs["subKelvins"] = createLiteralExpression(&Integer{Value: unit.Amount})
@@ -352,6 +460,8 @@ func exampleForFamily(family string) string {
 		return "#100C or #212F"
 	case FamilyVolume:
 		return "#1L or #1gal"
+	case FamilyArea:
+		return "#100m2 or #640ac"
 	default:
 		return "#5m"
 	}
@@ -424,6 +534,7 @@ func min3(a, b, c int) int {
 
 // UnitFromConstructor creates a Unit from a constructor call like metres(123) or inches(#1cm).
 // value can be a number (creates a new unit) or an existing Unit (converts).
+// Scale-aware: uses scaleAmountForSuffix to handle overflow for large values.
 func UnitFromConstructor(constructorName string, value Object) Object {
 	targetSuffix, ok := UnitConstructorNames[constructorName]
 	if !ok {
@@ -435,35 +546,53 @@ func UnitFromConstructor(constructorName string, value Object) Object {
 	switch v := value.(type) {
 	case *Integer:
 		// Create a new unit from an integer value
-		var amount int64
 		if IsTemperatureFamily(targetInfo.Family) {
-			amount = EncodeTempToSubK(float64(v.Value), targetSuffix)
-		} else if targetInfo.System == SystemUS {
-			amount = v.Value * USSubUnitsPerUnit(targetSuffix)
-		} else {
-			amount = v.Value * SISubUnitsPerUnit(targetSuffix)
+			amount := EncodeTempToSubK(float64(v.Value), targetSuffix)
+			return &Unit{
+				Amount:      amount,
+				Family:      targetInfo.Family,
+				System:      targetInfo.System,
+				DisplayHint: targetSuffix,
+			}
 		}
+		var subPerUnit int64
+		if targetInfo.System == SystemUS {
+			subPerUnit = USSubUnitsPerUnit(targetSuffix)
+		} else {
+			subPerUnit = SISubUnitsPerUnit(targetSuffix)
+		}
+		amount, scale := scaleAmountForSuffix(v.Value, subPerUnit)
 		return &Unit{
 			Amount:      amount,
 			Family:      targetInfo.Family,
 			System:      targetInfo.System,
 			DisplayHint: targetSuffix,
+			Scale:       scale,
 		}
 	case *Float:
 		// Create a new unit from a float value
-		var amount int64
 		if IsTemperatureFamily(targetInfo.Family) {
-			amount = EncodeTempToSubK(v.Value, targetSuffix)
-		} else if targetInfo.System == SystemUS {
-			amount = int64(math.Round(v.Value * float64(USSubUnitsPerUnit(targetSuffix))))
-		} else {
-			amount = int64(math.Round(v.Value * float64(SISubUnitsPerUnit(targetSuffix))))
+			amount := EncodeTempToSubK(v.Value, targetSuffix)
+			return &Unit{
+				Amount:      amount,
+				Family:      targetInfo.Family,
+				System:      targetInfo.System,
+				DisplayHint: targetSuffix,
+			}
 		}
+		var subPerUnit int64
+		if targetInfo.System == SystemUS {
+			subPerUnit = USSubUnitsPerUnit(targetSuffix)
+		} else {
+			subPerUnit = SISubUnitsPerUnit(targetSuffix)
+		}
+		amount, scale := scaleAmountForSuffixFloat(v.Value, subPerUnit)
 		return &Unit{
 			Amount:      amount,
 			Family:      targetInfo.Family,
 			System:      targetInfo.System,
 			DisplayHint: targetSuffix,
+			Scale:       scale,
 		}
 	case *Unit:
 		// Convert an existing unit to the target
@@ -482,6 +611,7 @@ func UnitFromConstructor(constructorName string, value Object) Object {
 }
 
 // GenericUnitConstructor implements the unit(value, suffix) constructor.
+// Scale-aware: uses scaleAmountForSuffix to handle overflow for large values.
 func GenericUnitConstructor(args []Object) Object {
 	if len(args) < 1 || len(args) > 2 {
 		return newArityErrorRange("unit", len(args), 1, 2)
@@ -513,34 +643,52 @@ func GenericUnitConstructor(args []Object) Object {
 
 		switch v := args[0].(type) {
 		case *Integer:
-			var amount int64
 			if IsTemperatureFamily(info.Family) {
-				amount = EncodeTempToSubK(float64(v.Value), suffix)
-			} else if info.System == SystemUS {
-				amount = v.Value * USSubUnitsPerUnit(suffix)
-			} else {
-				amount = v.Value * SISubUnitsPerUnit(suffix)
+				amount := EncodeTempToSubK(float64(v.Value), suffix)
+				return &Unit{
+					Amount:      amount,
+					Family:      info.Family,
+					System:      info.System,
+					DisplayHint: suffix,
+				}
 			}
+			var subPerUnit int64
+			if info.System == SystemUS {
+				subPerUnit = USSubUnitsPerUnit(suffix)
+			} else {
+				subPerUnit = SISubUnitsPerUnit(suffix)
+			}
+			amount, scale := scaleAmountForSuffix(v.Value, subPerUnit)
 			return &Unit{
 				Amount:      amount,
 				Family:      info.Family,
 				System:      info.System,
 				DisplayHint: suffix,
+				Scale:       scale,
 			}
 		case *Float:
-			var amount int64
 			if IsTemperatureFamily(info.Family) {
-				amount = EncodeTempToSubK(v.Value, suffix)
-			} else if info.System == SystemUS {
-				amount = int64(math.Round(v.Value * float64(USSubUnitsPerUnit(suffix))))
-			} else {
-				amount = int64(math.Round(v.Value * float64(SISubUnitsPerUnit(suffix))))
+				amount := EncodeTempToSubK(v.Value, suffix)
+				return &Unit{
+					Amount:      amount,
+					Family:      info.Family,
+					System:      info.System,
+					DisplayHint: suffix,
+				}
 			}
+			var subPerUnit int64
+			if info.System == SystemUS {
+				subPerUnit = USSubUnitsPerUnit(suffix)
+			} else {
+				subPerUnit = SISubUnitsPerUnit(suffix)
+			}
+			amount, scale := scaleAmountForSuffixFloat(v.Value, subPerUnit)
 			return &Unit{
 				Amount:      amount,
 				Family:      info.Family,
 				System:      info.System,
 				DisplayHint: suffix,
+				Scale:       scale,
 			}
 		case *Unit:
 			if v.Family != info.Family {
@@ -584,8 +732,10 @@ func init() {
 	TypeProperties["unit"] = []PropertyInfo{
 		{Name: "value", Type: "float", Description: "Decoded value in the display-hint unit"},
 		{Name: "unit", Type: "string", Description: "Display-hint unit suffix"},
-		{Name: "family", Type: "string", Description: "Unit family (length, mass, data, temperature, volume)"},
+		{Name: "family", Type: "string", Description: "Unit family (length, mass, data, temperature, volume, area)"},
 		{Name: "system", Type: "string", Description: "Measurement system (SI, US)"},
+		{Name: "max", Type: "unit", Description: "Maximum representable value at full (Scale=0) precision"},
+		{Name: "min", Type: "unit", Description: "Smallest representable positive value (1 base sub-unit)"},
 	}
 
 	// Register unit constructor for introspection

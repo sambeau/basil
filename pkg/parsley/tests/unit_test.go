@@ -2145,12 +2145,12 @@ func TestVolumePLNSerialize(t *testing.T) {
 	}{
 		{
 			name:     "SI mL integer",
-			unit:     &evaluator.Unit{Amount: 500_000, Family: "volume", System: "SI", DisplayHint: "mL"},
+			unit:     &evaluator.Unit{Amount: 500_000_000, Family: "volume", System: "SI", DisplayHint: "mL"},
 			expected: "#500mL",
 		},
 		{
 			name:     "SI L integer",
-			unit:     &evaluator.Unit{Amount: 2_000_000, Family: "volume", System: "SI", DisplayHint: "L"},
+			unit:     &evaluator.Unit{Amount: 2_000_000_000, Family: "volume", System: "SI", DisplayHint: "L"},
 			expected: "#2L",
 		},
 		{

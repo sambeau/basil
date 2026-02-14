@@ -1,6 +1,8 @@
 // Package evaluator provides display and formatting functions for measurement units.
 // This file implements FEAT-118: unit Inspect(), repr(), string interpolation,
 // SI decimal display, and US Customary fraction display via GCD.
+// All display functions are scale-aware (Phase 3): when Scale > 0, they use
+// scaleTrueValue to compute the float64 value for formatting.
 package evaluator
 
 import (
@@ -78,6 +80,11 @@ func unitSIDisplay(u *Unit) string {
 		subPerUnit = 1
 	}
 
+	// Scale > 0: use float-based display via scaleTrueValue
+	if u.Scale > 0 {
+		return unitSIDisplayScaled(u, subPerUnit)
+	}
+
 	amount := u.Amount
 	negative := amount < 0
 	if negative {
@@ -114,18 +121,18 @@ func unitSIDisplay(u *Unit) string {
 
 	// Calculate fractional part with the right number of decimal places
 	// We need: frac = remainder * 10^dp / subPerUnit
-	scale := int64(1)
+	pow := int64(1)
 	for range dp {
-		scale *= 10
+		pow *= 10
 	}
-	frac := remainder * scale / subPerUnit
+	frac := remainder * pow / subPerUnit
 
 	// Check if there are more significant digits beyond dp
 	// If so, show them (up to a reasonable limit) to avoid information loss
 	actualDP := dp
 	testRemainder := remainder
-	testScale := scale
-	for actualDP < 6 {
+	testScale := pow
+	for actualDP < 9 {
 		if testRemainder*testScale%subPerUnit == 0 {
 			break
 		}
@@ -135,11 +142,11 @@ func unitSIDisplay(u *Unit) string {
 
 	if actualDP > dp {
 		// Recompute with more decimal places
-		scale = int64(1)
+		pow = int64(1)
 		for range actualDP {
-			scale *= 10
+			pow *= 10
 		}
-		frac = remainder * scale / subPerUnit
+		frac = remainder * pow / subPerUnit
 		dp = actualDP
 	}
 
@@ -159,14 +166,56 @@ func unitSIDisplay(u *Unit) string {
 	return fmt.Sprintf("#%d.%s%s", whole, fracStr, u.DisplayHint)
 }
 
+// unitSIDisplayScaled formats an SI unit value with Scale > 0 using float64 display.
+func unitSIDisplayScaled(u *Unit, subPerUnit int64) string {
+	trueValue := scaleTrueValue(u.Amount, u.Scale)
+	value := trueValue / float64(subPerUnit)
+
+	negative := value < 0
+	if negative {
+		value = -value
+	}
+
+	prefix := "#"
+	if negative {
+		prefix = "#-"
+	}
+
+	// Check if value is an exact integer
+	intVal := int64(value)
+	if float64(intVal) == value {
+		return fmt.Sprintf("%s%d%s", prefix, intVal, u.DisplayHint)
+	}
+
+	// Format with enough precision, then trim trailing zeros
+	formatted := strconv.FormatFloat(value, 'f', -1, 64)
+	if strings.Contains(formatted, ".") {
+		formatted = strings.TrimRight(formatted, "0")
+		formatted = strings.TrimRight(formatted, ".")
+	}
+
+	return prefix + formatted + u.DisplayHint
+}
+
 // --- US Customary display ---
 
 // unitUSDisplay formats a US Customary unit value as a fraction literal: #3/8in, #92+5/8in
 // Falls back to decimal if the reduced denominator is not a common fraction.
+// US area always uses decimal display (no fractions).
 func unitUSDisplay(u *Unit) string {
+	// US area: always decimal display (no HCN fractions)
+	if u.Family == FamilyArea {
+		return unitUSAreaDisplay(u)
+	}
+
 	subPerUnit := USSubUnitsPerUnit(u.DisplayHint)
 	if subPerUnit == 0 {
 		subPerUnit = HCN
+	}
+
+	// Scale > 0: use float-based display
+	if u.Scale > 0 {
+		return unitUSDisplayScaled(u, subPerUnit)
 	}
 
 	amount := u.Amount
@@ -222,6 +271,77 @@ func unitUSDisplay(u *Unit) string {
 	return fmt.Sprintf("%s%d/%d%s", prefix, fracNum, fracDen, u.DisplayHint)
 }
 
+// unitUSDisplayScaled formats a US Customary unit value with Scale > 0 using float64 display.
+func unitUSDisplayScaled(u *Unit, subPerUnit int64) string {
+	trueValue := scaleTrueValue(u.Amount, u.Scale)
+	value := trueValue / float64(subPerUnit)
+
+	negative := value < 0
+	if negative {
+		value = -value
+	}
+
+	prefix := "#"
+	if negative {
+		prefix = "#-"
+	}
+
+	// Check if value is an exact integer
+	intVal := int64(value)
+	if float64(intVal) == value {
+		return fmt.Sprintf("%s%d%s", prefix, intVal, u.DisplayHint)
+	}
+
+	formatted := strconv.FormatFloat(value, 'f', -1, 64)
+	if strings.Contains(formatted, ".") {
+		formatted = strings.TrimRight(formatted, "0")
+		formatted = strings.TrimRight(formatted, ".")
+	}
+
+	return prefix + formatted + u.DisplayHint
+}
+
+// unitUSAreaDisplay formats a US area value as decimal (no fractions).
+func unitUSAreaDisplay(u *Unit) string {
+	subPerUnit := USSubUnitsPerUnit(u.DisplayHint)
+	if subPerUnit == 0 {
+		subPerUnit = 1
+	}
+
+	if u.Scale > 0 {
+		return unitUSDisplayScaled(u, subPerUnit)
+	}
+
+	amount := u.Amount
+	negative := amount < 0
+	if negative {
+		amount = -amount
+	}
+
+	prefix := "#"
+	if negative {
+		prefix = "#-"
+	}
+
+	if amount == 0 {
+		return prefix + "0" + u.DisplayHint
+	}
+
+	if amount%subPerUnit == 0 {
+		whole := amount / subPerUnit
+		return fmt.Sprintf("%s%d%s", prefix, whole, u.DisplayHint)
+	}
+
+	value := float64(amount) / float64(subPerUnit)
+	formatted := strconv.FormatFloat(value, 'f', -1, 64)
+	if strings.Contains(formatted, ".") {
+		formatted = strings.TrimRight(formatted, "0")
+		formatted = strings.TrimRight(formatted, ".")
+	}
+
+	return prefix + formatted + u.DisplayHint
+}
+
 // unitUSDecimalFallback formats a US Customary value as a decimal when the
 // fraction denominator is not in the common set.
 func unitUSDecimalFallback(u *Unit, negative bool) string {
@@ -230,12 +350,16 @@ func unitUSDecimalFallback(u *Unit, negative bool) string {
 		subPerUnit = HCN
 	}
 
-	amount := u.Amount
-	if amount < 0 {
-		amount = -amount
+	var value float64
+	if u.Scale > 0 {
+		value = scaleTrueValue(u.Amount, u.Scale) / float64(subPerUnit)
+	} else {
+		amount := u.Amount
+		if amount < 0 {
+			amount = -amount
+		}
+		value = float64(amount) / float64(subPerUnit)
 	}
-
-	value := float64(amount) / float64(subPerUnit)
 
 	prefix := "#"
 	if negative {
@@ -251,6 +375,7 @@ func unitUSDecimalFallback(u *Unit, negative bool) string {
 
 // unitDisplayValue returns the float64 value in display-hint units.
 // Used for the .value property. For temperature, use DecodeTempFromSubK instead.
+// Scale-aware: when Scale > 0, uses scaleTrueValue for the computation.
 func unitDisplayValue(u *Unit) float64 {
 	if IsTemperatureFamily(u.Family) {
 		return DecodeTempFromSubK(u.Amount, u.DisplayHint)
@@ -260,11 +385,17 @@ func unitDisplayValue(u *Unit) float64 {
 		if subPerUnit == 0 {
 			return 0
 		}
+		if u.Scale > 0 {
+			return scaleTrueValue(u.Amount, u.Scale) / float64(subPerUnit)
+		}
 		return float64(u.Amount) / float64(subPerUnit)
 	}
 	subPerUnit := SISubUnitsPerUnit(u.DisplayHint)
 	if subPerUnit == 0 {
 		return 0
+	}
+	if u.Scale > 0 {
+		return scaleTrueValue(u.Amount, u.Scale) / float64(subPerUnit)
 	}
 	return float64(u.Amount) / float64(subPerUnit)
 }
@@ -304,10 +435,15 @@ func unitFormatSIPrecision(u *Unit, dp int) string {
 		subPerUnit = 1
 	}
 
-	value := float64(u.Amount) / float64(subPerUnit)
+	var value float64
+	if u.Scale > 0 {
+		value = scaleTrueValue(u.Amount, u.Scale) / float64(subPerUnit)
+	} else {
+		value = float64(u.Amount) / float64(subPerUnit)
+	}
 	formatted := strconv.FormatFloat(math.Abs(value), 'f', dp, 64)
 
-	if u.Amount < 0 {
+	if value < 0 {
 		return "-" + formatted + u.DisplayHint
 	}
 	return formatted + u.DisplayHint
@@ -319,10 +455,15 @@ func unitFormatUSPrecision(u *Unit, dp int) string {
 		subPerUnit = HCN
 	}
 
-	value := float64(u.Amount) / float64(subPerUnit)
+	var value float64
+	if u.Scale > 0 {
+		value = scaleTrueValue(u.Amount, u.Scale) / float64(subPerUnit)
+	} else {
+		value = float64(u.Amount) / float64(subPerUnit)
+	}
 	formatted := strconv.FormatFloat(math.Abs(value), 'f', dp, 64)
 
-	if u.Amount < 0 {
+	if value < 0 {
 		return "-" + formatted + u.DisplayHint
 	}
 	return formatted + u.DisplayHint

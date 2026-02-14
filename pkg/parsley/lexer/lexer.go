@@ -1786,10 +1786,16 @@ func isValidUnitSuffix(s string) bool {
 	case "K", "C", "F":
 		return true
 	// Volume — SI
-	case "mL", "L":
+	case "mL", "L", "kL":
 		return true
 	// Volume — US
 	case "floz", "cup", "pt", "qt", "gal":
+		return true
+	// Area — SI
+	case "mm2", "cm2", "m2", "km2":
+		return true
+	// Area — US
+	case "in2", "ft2", "yd2", "ac", "mi2":
 		return true
 	default:
 		return false

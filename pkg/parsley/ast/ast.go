@@ -422,9 +422,10 @@ func (ml *MoneyLiteral) String() string {
 type UnitLiteral struct {
 	Token  lexer.Token // the lexer.UNIT token
 	Amount int64       // internal sub-unit count (µm for SI length, mg for SI mass, B for data, numerator/HCN for US)
-	Suffix string      // display-hint suffix ("m", "cm", "in", "ft", "kg", "lb", "B", "MB", etc.)
-	Family string      // "length", "mass", "data"
+	Suffix string      // display-hint suffix ("m", "cm", "in", "ft", "kg", "lb", "B", "MB", "m2", etc.)
+	Family string      // "length", "mass", "data", "area"
 	System string      // "SI", "US"
+	Scale  int         // decimal exponent: true value = Amount × 10^Scale base-sub-units. Normally 0.
 }
 
 func (ul *UnitLiteral) expressionNode()      {}
