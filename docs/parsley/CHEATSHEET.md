@@ -258,6 +258,14 @@ $12m                             // This is money!
 // ⚠️ #1gal is volume, not #1g + "al"
 #1gal                            // 1 gallon (volume, longest suffix match)
 #5g                              // 5 grams (mass, still works)
+
+// ⚠️ Area suffixes end with 2 (m2 not m²)
+#100m2                           // 100 square metres (not #100m²)
+#5km2                            // 5 square kilometres
+#640ac                           // 640 acres (= 1 mi²)
+
+// ⚠️ US area uses decimal display (no fractions)
+#1/3ac                           // displays as #0.333...ac (decimal, not fraction)
 ```
 
 ---
@@ -637,15 +645,27 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 // Volume
 #500mL                       // 500 millilitres
 #2.5L                        // 2.5 litres
+#1kL                         // 1 kilolitre (= 1000 L)
 #8floz                       // 8 fluid ounces
 #1cup                        // 1 cup (= 8 floz)
 #1/3cup                      // exact fraction
 #1+1/2gal                    // mixed number: 1.5 gallons
 
+// Area (suffixes end with 2, not ²)
+#100m2                       // 100 square metres
+#5.5km2                      // 5.5 square kilometres
+#1500ft2                     // 1500 square feet
+#640ac                       // 640 acres (= 1 mi²)
+#1mi2                        // 1 square mile
+#2.5ac                       // 2.5 acres (decimal display)
+
 // ⚠️ Fractions: US exact, SI truncated
 #3/8in                       // exact (US Customary)
 #1/3cup                      // exact (US Customary)
 #1/3m                        // truncated to 333,333 µm (SI)
+
+// ⚠️ US area always uses decimal display (no fractions)
+#1/3ac                       // #0.333...ac (decimal, not fraction)
 
 // ⚠️ Mixed numbers use + (not -)
 #92+5/8in                    // 92 and 5/8 inches
@@ -662,6 +682,8 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #10m / #5m                   // 2 (dimensionless)
 #1/3cup + #1/3cup + #1/3cup  // #1cup (exact!)
 #1gal / #1qt                 // 4
+#100m2 + #50m2               // #150m2 (area)
+#2kL * 3                     // #6kL (kilolitres)
 
 // Temperature arithmetic: add/subtract only!
 #20C + #10C                  // #30C
@@ -683,17 +705,19 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #1cm + #1in                  // #3.54cm (SI result)
 #1in + #1cm                  // result in inches (US)
 #1L + #1floz                 // result in litres (SI)
+#100m2 + #100ft2             // result in m² (SI)
 
 // ❌ ERROR: Cannot mix families
 #5m + #5kg                   // Error!
 #1L + #1C                    // Error! (volume ≠ temperature)
+#5m2 + #5kg                  // Error! (area ≠ mass)
 
 // ❌ ERROR: No implicit number-to-unit promotion
 5 + #5m                      // Error! Write #5m + #5m
 10 / #5m                     // Error! Write #10m / 5
 
-// ❌ ERROR: No derived units (yet)
-#5m * #3m                    // Error! (area planned for future)
+// ❌ ERROR: unit × unit not supported
+#5m * #3m                    // Error!
 
 // Comparison (works across systems)
 #1in == #25.4mm              // true
@@ -707,6 +731,13 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 #100C.value                  // 100
 #100C.family                 // "temperature"
 #1gal.family                 // "volume"
+#100m2.family                // "area"
+#640ac.system                // "US"
+
+// .max and .min properties
+#0m.max                      // largest representable value in metres
+#0m.min                      // smallest positive value in metres
+#100m2 < #0m2.max            // true
 
 // Methods
 #1mi.to("km")                // #1.609344km
@@ -720,6 +751,8 @@ $50.00.convert("EUR", 0.92)  // Convert with exchange rate
 (#-40C).abs()                // #40C
 #1gal.to("qt")               // 4 quarts
 #1/3cup.toFraction()         // "1/3cup"
+#640ac.to("mi2")             // #1mi2
+#100m2.to("km2")             // #0.0001km2
 
 // Constructors (plural names)
 metres(100)                  // #100m
@@ -730,8 +763,12 @@ celsius(100)                 // #100C
 fahrenheit(#100C)            // #212F (convert)
 kelvins(#100C)               // #373.15K
 litres(2)                    // #2L
+kilolitres(5)                // #5kL
 gallons(1)                   // #1gal
 cups(#1L)                    // convert litres to cups
+squaremetres(100)            // #100m2
+acres(640)                   // #640ac
+squarekilometres(510000000)  // Earth's surface (uses Scale)
 
 // String interpolation: no # sigil
 let d = #1.83m
@@ -745,7 +782,7 @@ let t = #37.5C
 unit(1024, "B")              // OK
 ```
 
-**Suffixes**: `mm`, `cm`, `m`, `km` · `in`, `ft`, `yd`, `mi` · `mg`, `g`, `kg` · `oz`, `lb` · `B`, `kB`, `MB`, `GB`, `TB` · `KiB`, `MiB`, `GiB`, `TiB` · `K`, `C`, `F` · `mL`, `L` · `floz`, `cup`, `pt`, `qt`, `gal`
+**Suffixes**: `mm`, `cm`, `m`, `km` · `in`, `ft`, `yd`, `mi` · `mg`, `g`, `kg` · `oz`, `lb` · `B`, `kB`, `MB`, `GB`, `TB` · `KiB`, `MiB`, `GiB`, `TiB` · `K`, `C`, `F` · `mL`, `L`, `kL` · `floz`, `cup`, `pt`, `qt`, `gal` · `mm2`, `cm2`, `m2`, `km2` · `in2`, `ft2`, `yd2`, `ac`, `mi2`
 
 ---
 
@@ -1523,6 +1560,16 @@ let icon = publicUrl(@./icon.svg)
 | `.unix` | Unix timestamp |
 | `.format(style?, locale?)` | Format output |
 
+### Unit Properties
+| Property | Type | Description |
+|----------|------|-------------|
+| `.value` | float | Decoded display value |
+| `.unit` | string | Suffix (e.g., `"m"`, `"m2"`, `"ac"`) |
+| `.family` | string | `"length"`, `"mass"`, `"data"`, `"temperature"`, `"volume"`, `"area"` |
+| `.system` | string | `"SI"` or `"US"` |
+| `.max` | unit | Largest representable value for this suffix |
+| `.min` | unit | Smallest positive representable value |
+
 ### Unit Methods
 | Method | Description | Example |
 |--------|-------------|---------|
@@ -1532,7 +1579,7 @@ let icon = publicUrl(@./icon.svg)
 | `.repr()` | Parseable literal | `#3/8in.repr()` → `"#3/8in"` |
 | `.toDict()` | To dictionary | `#12m.toDict()` → `{value: 12, unit: "m", ...}` |
 | `.inspect()` | Debug dictionary | `#12m.inspect()` → internal details |
-| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` (not for temperature) |
+| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` (not for temperature or area) |
 
 ---
 

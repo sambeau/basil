@@ -637,14 +637,17 @@ Use `+` as the mixed-number separator:
 **Data — Decimal:** `B`, `kB`, `MB`, `GB`, `TB`
 **Data — Binary:** `KiB`, `MiB`, `GiB`, `TiB`
 **Temperature:** `K` (kelvin), `C` (Celsius), `F` (Fahrenheit)
-**Volume — SI:** `mL`, `L`
+**Volume — SI:** `mL`, `L`, `kL`
 **Volume — US:** `floz`, `cup`, `pt`, `qt`, `gal`
+**Area — SI:** `mm2`, `cm2`, `m2`, `km2`
+**Area — US:** `in2`, `ft2`, `yd2`, `ac` (acre), `mi2`
 
 #### Internal Representation
 
 - **SI units** are stored as an integer count of fixed sub-units (µm for length, mg for mass, B for data, µL for volume). `#12.3m` = 12,300,000 µm internally. Within-system arithmetic is always exact.
 - **US Customary units** are stored as an integer numerator over a fixed denominator (HCN = 725,760). Common fractions (halves through sixty-fourths, plus thirds, fifths, sevenths) are all exact integers. Volume uses sub-floz (1 floz = HCN).
 - **Temperature** uses a unified sub-kelvin representation (1 K = 900 sub-K, 1°F = 500 sub-K). All three scales (K, C, F) are stored as a single int64 sub-kelvin count, making conversions exact: `#0C == #32F`, `#100C == #212F`, `#-40C == #-40F`.
+- **Area** uses 1 mm² (SI) and 1 in² (US) as base sub-units. For large areas, a decimal Scale is applied automatically: true value = Amount × 10^Scale sub-units. This allows representation of planetary-scale surfaces (Earth ≈ 510 million km²) while preserving exact mm² precision for everyday values. US area always displays as decimal (no fractions).
 - **SI fractions** are syntactic sugar for division: `#1/3m` truncates to 333,333 µm. US fractions like `#1/3in` and `#1/3cup` are stored exactly.
 
 #### Temperature Literals
@@ -669,10 +672,24 @@ Volume follows the standard dual-system pattern. US volume supports exact fracti
 ```parsley
 #500mL                          // 500 millilitres
 #2.5L                           // 2.5 litres
+#1kL                            // 1 kilolitre (= 1000 L)
 #8floz                          // 8 fluid ounces
 #1cup                           // 1 cup (= 8 floz)
 #1/3cup                         // exact fraction
 #1+1/2gal                       // mixed number: 1.5 gallons
+```
+
+#### Area Literals
+
+Area uses `2` suffixes for SI and named units for US. US area displays as decimal only (no fractions):
+
+```parsley
+#100m2                          // 100 square metres
+#5.5km2                         // 5.5 square kilometres
+#1500ft2                        // 1500 square feet
+#640ac                          // 640 acres (= 1 mi²)
+#1mi2                           // 1 square mile
+#2.5ac                          // 2.5 acres (decimal display)
 ```
 
 #### Cross-System Conversion
@@ -684,6 +701,7 @@ Units in the same family (e.g., length) can be mixed. The left operand's system 
 #1in + #1cm                     // result in inches (US)
 #1in == #25.4mm                 // true
 #1L + #1floz                    // result in litres (SI)
+#100m2 + #100ft2                // result in m² (SI)
 ```
 
 ---
@@ -991,6 +1009,8 @@ Parsley supports arithmetic on measurement units with exact integer storage and 
 #10m / #5m                      // 2
 #1/3cup + #1/3cup + #1/3cup     // #1cup (exact)
 #1gal / #1qt                    // 4
+#100m2 + #50m2                  // #150m2 (area)
+#2kL * 3                        // #6kL (kilolitres)
 ```
 
 #### Temperature Arithmetic
@@ -1039,7 +1059,8 @@ Rounding occurs only at the SI↔US boundary. Within-system arithmetic is always
 
 ```parsley
 #5m + #5kg                      // Error: cannot add length to mass
-#5m * #3m                       // Error: derived units not yet supported
+#5m * #3m                       // Error: unit × unit not supported
+#5m2 + #5kg                     // Error: cannot add area to mass
 5 + #5m                         // Error: cannot add number to unit
 10 / #5m                        // Error: cannot divide number by unit
 #1L + #1C                       // Error: cannot add volume to temperature
@@ -2079,9 +2100,11 @@ Unit values represent physical measurements with exact integer storage. They are
 | Property | Type | Description |
 |----------|------|-------------|
 | `.value` | `float` | Decoded value in display-hint units (e.g., `12.3` for `#12.3m`) |
-| `.unit` | `string` | Display-hint unit suffix (e.g., `"m"`, `"in"`) |
-| `.family` | `string` | Unit family: `"length"`, `"mass"`, `"data"`, `"temperature"`, or `"volume"` |
+| `.unit` | `string` | Display-hint unit suffix (e.g., `"m"`, `"in"`, `"m2"`, `"ac"`) |
+| `.family` | `string` | Unit family: `"length"`, `"mass"`, `"data"`, `"temperature"`, `"volume"`, or `"area"` |
 | `.system` | `string` | Measurement system: `"SI"` or `"US"` |
+| `.max` | `unit` | Largest exactly-representable value for this unit suffix |
+| `.min` | `unit` | Smallest positive representable value (1 base sub-unit expressed in this suffix) |
 
 #### Methods
 
@@ -2093,7 +2116,7 @@ Unit values represent physical measurements with exact integer storage. They are
 | `.repr()` | none | `string` | Parseable literal (e.g., `"#3/8in"`, `"#12.3m"`) |
 | `.toDict()` | none | `dictionary` | `{value, unit, family, system}` |
 | `.inspect()` | none | `dictionary` | Debug dictionary with internal values |
-| `.toFraction()` | none | `string` | Fraction string for US Customary values (not available for temperature) |
+| `.toFraction()` | none | `string` | Fraction string for US Customary values (not available for temperature or area) |
 
 **Arithmetic**: Units support `+`, `-` (same family), `*`, `/` by numbers, and `/` unit by unit (→ ratio). Temperature only supports `+` and `-` (no multiply/divide).
 
@@ -2127,6 +2150,16 @@ celsius(#212F)                  // #100C
 // Volume
 #1gal.to("qt")                  // 4 quarts
 #1/3cup.toFraction()            // "1/3cup"
+
+// Area
+#100m2.to("km2")                // #0.0001km2
+#640ac.to("mi2")                // #1mi2
+#100m2.family                   // "area"
+
+// .max and .min
+#0m.max                         // largest representable value in metres
+#0m.min                         // smallest positive value in metres
+#100m2 < #0m2.max               // true
 
 // String interpolation (no # sigil)
 let height = #1.83m
@@ -2811,11 +2844,21 @@ match("hello", "\\d+")          // null
 | `kelvins()` | `K` | temperature | SI |
 | `millilitres()` / `milliliters()` | `mL` | volume | SI |
 | `litres()` / `liters()` | `L` | volume | SI |
+| `kilolitres()` / `kiloliters()` | `kL` | volume | SI |
 | `fluidounces()` | `floz` | volume | US |
 | `cups()` | `cup` | volume | US |
 | `pints()` | `pt` | volume | US |
 | `quarts()` | `qt` | volume | US |
 | `gallons()` | `gal` | volume | US |
+| `squaremillimetres()` / `squaremillimeters()` | `mm2` | area | SI |
+| `squarecentimetres()` / `squarecentimeters()` | `cm2` | area | SI |
+| `squaremetres()` / `squaremeters()` | `m2` | area | SI |
+| `squarekilometres()` / `squarekilometers()` | `km2` | area | SI |
+| `squareinches()` | `in2` | area | US |
+| `squarefeet()` | `ft2` | area | US |
+| `squareyards()` | `yd2` | area | US |
+| `acres()` | `ac` | area | US |
+| `squaremiles()` | `mi2` | area | US |
 
 **Note**: `bytes()` is not available as a constructor (conflicts with file I/O builtin). Use `unit(n, "B")` or `#1024B` literal syntax instead.
 
@@ -2828,8 +2871,12 @@ kilograms(#2.2lb)               // convert 2.2lb to kilograms
 celsius(100)                    // #100C
 fahrenheit(#100C)               // #212F
 litres(2)                       // #2L
+kilolitres(5)                   // #5kL
 gallons(1)                      // #1gal
 cups(#1L)                       // convert litres to cups
+squaremetres(100)               // #100m2
+acres(640)                      // #640ac
+squarekilometres(510000000)     // Earth's surface (uses Scale for large values)
 ```
 
 ---
@@ -4565,7 +4612,16 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `toMarkdown()` | 0 | Convert to Markdown |
 | `toJSON()` | 0 | Convert to JSON |
 
-### Unit Methods (7 methods)
+### Unit Methods (7 methods) and Properties (6 properties)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | float | Decoded display value |
+| `unit` | string | Suffix (e.g., `"m"`, `"m2"`, `"ac"`) |
+| `family` | string | `"length"`, `"mass"`, `"data"`, `"temperature"`, `"volume"`, `"area"` |
+| `system` | string | `"SI"` or `"US"` |
+| `max` | unit | Largest representable value |
+| `min` | unit | Smallest positive representable value |
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -4575,7 +4631,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `repr()` | 0 | Parseable literal |
 | `toDict()` | 0 | Convert to dictionary |
 | `inspect()` | 0 | Debug dictionary |
-| `toFraction()` | 0 | Fraction string (US only) |
+| `toFraction()` | 0 | Fraction string (US only, not area) |
 
 ### TableBinding Methods (8 methods)
 

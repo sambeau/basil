@@ -2,7 +2,7 @@
 id: PLAN-097
 feature: FEAT-118
 title: "Implementation Plan for Measurement Units — Phase 3 (Area + Volume Scale)"
-status: draft
+status: in-progress
 created: 2026-02-14
 updated: 2026-02-14
 ---
@@ -1089,6 +1089,21 @@ Task 0 is implemented first and validated against the full existing test suite b
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
+| 2026-02-14 | Task 0: Scale Infrastructure | ✅ Done | Unit.Scale field + unit_scale.go helpers (scaleAlign, scaleNormalize, scaleAdd/Sub, scaleMul/DivScalar, scaleMulDiv, scaleCmp, scaleRatio, scaleAmountForSuffix) |
+| 2026-02-14 | Task 1: Unit Tables — Area | ✅ Done | SI area (mm2/cm2/m2/km2) and US area (in2/ft2/yd2/ac/mi2) tables, bridge constants |
+| 2026-02-14 | Task 2: Lexer — Area Suffixes | ✅ Done | Added mm2, cm2, m2, km2, in2, ft2, yd2, ac, mi2, kL to isValidUnitSuffix |
+| 2026-02-14 | Task 3: Parser/Evaluator — Scale-Aware | ✅ Done | Parser and PLN parser produce Scale from literals when overflow occurs |
+| 2026-02-14 | Task 4: Area Arithmetic | ✅ Done | Scale-aware add/sub/mul/div in eval_unit_infix.go |
+| 2026-02-14 | Task 5: US Area Display | ✅ Done | Decimal-only display for US area (no HCN fractions) |
+| 2026-02-14 | Task 6: Constructors — Area | ✅ Done | squaremillimetres through squaremiles, scale-aware UnitFromConstructor/GenericUnitConstructor |
+| 2026-02-14 | Task 7: Properties — Area | ✅ Done | .value, .unit, .family, .system all work for area units |
+| 2026-02-14 | Task 8: PLN Parser Fix | ✅ Done | Longest-match suffix lookup for digit-containing suffixes (m2, km2, kL) |
+| 2026-02-14 | Task 9: Integration Tests | ✅ Done | unit_phase3_test.go — scale infra, literals, arithmetic, cross-system, constructors, properties, methods, PLN round-trips, display, errors, regression |
+| 2026-02-14 | Task 11: kL Suffix + Constructor | ✅ Done | kL added to SI volume table, kilolitres() constructor |
+| 2026-02-14 | Task 14: .max and .min Properties | ✅ Done | Temperature-aware min/max, scale-aware for area |
+| 2026-02-14 | Lint cleanup | ✅ Done | Removed unused scaleAlign wrapper, fixed named returns, paramTypeCombine, emptyStringTest, ifElseChain, offBy1 |
+| 2026-02-14 | Test fixes | ✅ Done | Fixed test expectations: unquoted string properties, US area decimal display, fraction display for US length, error message substring, scientific notation |
+| 2026-02-14 | Task 10: Documentation | ⬜ Todo | Update reference.md, CHEATSHEET.md with area, kL, Scale, .max/.min |
 
 ## Deferred Items
 
