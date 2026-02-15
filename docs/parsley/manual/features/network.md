@@ -65,7 +65,7 @@ Wrap a URL literal in a format function to control how the response is parsed:
 | `YAML(@https://...)` | dictionary/array | Parse response as YAML |
 | `text(@https://...)` | string | Raw response body |
 | `lines(@https://...)` | array | Response split into lines |
-| `bytes(@https://...)` | array | Raw byte array |
+| `raw(@https://...)` | array | Raw byte array |
 
 ```parsley
 let users <=/= JSON(@https://api.example.com/users)

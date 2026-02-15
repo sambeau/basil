@@ -2830,6 +2830,7 @@ match("hello", "\\d+")          // null
 | `kilograms()` | `kg` | mass | SI |
 | `ounces()` | `oz` | mass | US |
 | `pounds()` | `lb` | mass | US |
+| `bytes()` | `B` | data | SI |
 | `kilobytes()` | `kB` | data | SI |
 | `megabytes()` | `MB` | data | SI |
 | `gigabytes()` | `GB` | data | SI |
@@ -2860,7 +2861,14 @@ match("hello", "\\d+")          // null
 | `acres()` | `ac` | area | US |
 | `squaremiles()` | `mi2` | area | US |
 
-**Note**: `bytes()` is not available as a constructor (conflicts with file I/O builtin). Use `unit(n, "B")` or `#1024B` literal syntax instead.
+`bytes()` is also available as a constructor for data units:
+
+```parsley
+bytes(1024)                     // #1024B
+bytes(#1KiB)                    // #1024B (convert from kibibytes)
+```
+
+**Note**: The file I/O function previously named `bytes()` has been renamed to `raw()`.
 
 ```parsley
 unit(123, "m")                  // #123m
@@ -3047,7 +3055,7 @@ These functions create file handles for reading and writing.
 | `CSV(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | CSV file handle (returns table) |
 | `text(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | Plain text file handle |
 | `lines(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | Lines file handle (returns array) |
-| `bytes(source)` | `source: path` | `file` | Binary file handle (returns byte array) |
+| `raw(source)` | `source: path` | `file` | Binary file handle (returns byte array) |
 | `SVG(path, attrs?)` | `path: path`, `attrs?: dict` | `file` | SVG file handle with optional attributes |
 | `MD(path, opts?)` | `path: path`, `opts?: dict` | `file` | Markdown file handle (renders to HTML) |
 | `markdown(path, opts?)` | `path: path`, `opts?: dict` | `file` | Markdown with frontmatter (returns `{meta, content}`) |

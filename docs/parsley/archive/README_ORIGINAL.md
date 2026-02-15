@@ -473,7 +473,7 @@ let jf = JSON(@./config.json)     // JSON format
 let cf = CSV(@./data.csv)         // CSV format (with header)
 let lf = lines(@./log.txt)        // Line-by-line
 let tf = text(@./notes.txt)       // Plain text
-let bf = bytes(@./image.png)      // Raw bytes
+let bf = raw(@./image.png)        // Raw bytes
 
 // File handle properties (lazy-evaluated)
 jf.exists     // true/false
@@ -905,7 +905,7 @@ Note: `filter()` and `reduce()` can be implemented using for loops
 - `CSV(path)` - Create CSV file handle (with header row)
 - `lines(path)` - Create line-based file handle
 - `text(path)` - Create text file handle
-- `bytes(path)` - Create binary file handle
+- `raw(path)` - Create binary file handle
 - `dir(path)` - Create directory handle
 - `glob(pattern)` - Match files by glob pattern
 

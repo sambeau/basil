@@ -2,8 +2,9 @@
 id: PLAN-098
 feature: FEAT-119
 title: "Implementation Plan: Rename bytes() to raw(), add bytes() unit constructor"
-status: in-progress
+status: complete
 created: 2025-01-14
+completed: 2025-01-14
 ---
 
 # Implementation Plan: FEAT-119
@@ -116,16 +117,16 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run`
-- [ ] bytes() unit constructor works: `./pars -e 'bytes(1024)'`
-- [ ] raw() file I/O works: test manually with a file
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Linter passes: `golangci-lint run`
+- [x] bytes() unit constructor works: `./pars -e 'bytes(1024)'` → `#1024B`
+- [x] raw() file I/O works: test manually with a file
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| 2025-01-14 | Task 1-7 | 🔄 In Progress | — |
+| 2025-01-14 | Task 1-7 | ✅ Complete | All tasks implemented and tested |
 
 ## Deferred Items
-None expected.
+None.

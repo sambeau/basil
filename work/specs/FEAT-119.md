@@ -1,9 +1,10 @@
 ---
 id: FEAT-119
 title: "Rename bytes() to raw(), add bytes() unit constructor"
-status: ready
+status: complete
 priority: low
 created: 2025-01-14
+completed: 2025-01-14
 author: "@human"
 ---
 
@@ -26,20 +27,20 @@ The existing `bytes(path)` function loads a file as a raw byte array. Renaming i
 ## Acceptance Criteria
 
 ### Part 1: Rename file I/O builtin
-- [ ] Rename `bytes()` to `raw()` in the builtins
-- [ ] Update `BuiltinMetadata` for introspection
-- [ ] `raw(path)` loads file as byte array (same behavior as current `bytes()`)
-- [ ] Update all tests that use `bytes()` for file I/O
+- [x] Rename `bytes()` to `raw()` in the builtins
+- [x] Update `BuiltinMetadata` for introspection
+- [x] `raw(path)` loads file as byte array (same behavior as current `bytes()`)
+- [x] Update all tests that use `bytes()` for file I/O
 
 ### Part 2: Add unit constructor
-- [ ] Add `bytes()` as a named constructor for data units
-- [ ] `bytes(1024)` → `#1024B`
-- [ ] `bytes(#1KiB)` → `#1024B` (conversion)
-- [ ] Remove the "bytes omitted" comment from evaluator.go
-- [ ] Add tests for the new `bytes()` constructor
+- [x] Add `bytes()` as a named constructor for data units
+- [x] `bytes(1024)` → `#1024B`
+- [x] `bytes(#1KiB)` → `#1024B` (conversion)
+- [x] Remove the "bytes omitted" comment from evaluator.go
+- [x] Add tests for the new `bytes()` constructor
 
 ### Part 3: Documentation
-- [ ] Update any documentation referencing `bytes()` for file I/O
+- [x] Update any documentation referencing `bytes()` for file I/O
 
 ## Scope
 

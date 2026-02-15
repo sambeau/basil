@@ -482,7 +482,7 @@ PLN(@path)       // Parse as PLN (Parsley Literal Notation)
 MD(@path)  // Markdown with @{...} rendering + frontmatter
 text(@path)      // Plain text
 lines(@path)     // Array of lines
-bytes(@path)     // Byte array
+raw(@path)       // Byte array
 SVG(@path)       // SVG (strips prolog)
 dir(@path)       // Directory listing
 
@@ -776,9 +776,9 @@ let d = #1.83m
 let t = #37.5C
 `Temp: {t}`                  // "Temp: 37.5C"
 
-// ⚠️ bytes() constructor conflicts with file I/O
-// Use literal or unit() instead:
-#1024B                       // OK
+// bytes() constructor is available:
+bytes(1024)                  // #1024B
+bytes(#1KiB)                 // #1024B (convert)
 unit(1024, "B")              // OK
 ```
 
