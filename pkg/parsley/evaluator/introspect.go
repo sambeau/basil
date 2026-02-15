@@ -376,7 +376,7 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"markdown": {Name: "markdown", Arity: "1-2", Description: "Load markdown file with frontmatter", Params: []string{"path", "options?"}, Category: "file"},
 	"lines":    {Name: "lines", Arity: "1-2", Description: "Load file as array of lines", Params: []string{"source", "options?"}, Category: "file"},
 	"text":     {Name: "text", Arity: "1-2", Description: "Load file as text string", Params: []string{"source", "options?"}, Category: "file"},
-	"bytes":    {Name: "bytes", Arity: "1", Description: "Load file as byte array", Params: []string{"path"}, Category: "file"},
+	"raw":      {Name: "raw", Arity: "1-2", Description: "Load file as raw byte array", Params: []string{"path", "options?"}, Category: "file"},
 	"SVG":      {Name: "SVG", Arity: "1-2", Description: "Load SVG file with optional attributes", Params: []string{"path", "attributes?"}, Category: "file"},
 	"file":     {Name: "file", Arity: "1-2", Description: "Load file with auto-detected format", Params: []string{"path", "options?"}, Category: "file"},
 	"dir":      {Name: "dir", Arity: "1", Description: "List directory contents", Params: []string{"path"}, Category: "file"},

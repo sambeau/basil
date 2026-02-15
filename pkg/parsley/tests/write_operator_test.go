@@ -288,16 +288,16 @@ func TestAppendToNewFile(t *testing.T) {
 	}
 }
 
-// TestWriteOperatorBytes tests writing raw bytes
-func TestWriteOperatorBytes(t *testing.T) {
+// TestWriteOperatorRaw tests writing raw bytes
+func TestWriteOperatorRaw(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "parsley_bytes_write_test_*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	bytes := filepath.Join(tmpDir, "test.bin")
-	code := `[72, 101, 108, 108, 111] ==> bytes("` + bytes + `")`
+	binFile := filepath.Join(tmpDir, "test.bin")
+	code := `[72, 101, 108, 108, 111] ==> raw("` + binFile + `")`
 
 	result := testEvalWriteOp(code)
 	if result != nil && result.Type() == "ERROR" {
@@ -305,7 +305,7 @@ func TestWriteOperatorBytes(t *testing.T) {
 		return
 	}
 
-	content, err := os.ReadFile(bytes)
+	content, err := os.ReadFile(binFile)
 	if err != nil {
 		t.Errorf("Failed to read file: %v", err)
 		return
@@ -328,8 +328,8 @@ func TestWriteOperatorErrors(t *testing.T) {
 			errorContains: "requires a file handle",
 		},
 		{
-			name:          "write bytes with non-array",
-			code:          `"not bytes" ==> bytes("/tmp/test.bin")`,
+			name:          "write raw with non-array",
+			code:          `"not bytes" ==> raw("/tmp/test.bin")`,
 			errorContains: "requires an array",
 		},
 	}

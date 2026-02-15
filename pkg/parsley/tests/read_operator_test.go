@@ -169,8 +169,8 @@ func TestReadOperatorReassignment(t *testing.T) {
 	}
 }
 
-// TestReadOperatorBytes tests reading raw bytes
-func TestReadOperatorBytes(t *testing.T) {
+// TestReadOperatorRaw tests reading raw bytes
+func TestReadOperatorRaw(t *testing.T) {
 	// Create a temp directory for test files
 	tmpDir, err := os.MkdirTemp("", "parsley_test_*")
 	if err != nil {
@@ -190,13 +190,13 @@ func TestReadOperatorBytes(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "read bytes length",
-			code:     `let data <== bytes("` + binPath + `"); data.length()`,
+			name:     "read raw length",
+			code:     `let data <== raw("` + binPath + `"); data.length()`,
 			expected: "5",
 		},
 		{
-			name:     "read bytes first byte",
-			code:     `let data <== bytes("` + binPath + `"); data[0]`,
+			name:     "read raw first byte",
+			code:     `let data <== raw("` + binPath + `"); data[0]`,
 			expected: "72", // 0x48 = 72 = 'H'
 		},
 	}

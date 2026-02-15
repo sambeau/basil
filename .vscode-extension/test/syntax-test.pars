@@ -264,7 +264,7 @@ let debugVal = toDebug(x)
 // let csvFile = CSV(@./data.csv)
 // let textFile = text(@./readme.txt)
 // let linesArr = lines(@./list.txt)
-// let binary = bytes(@./image.png)
+// let binary = raw(@./image.png)
 // let svgContent = SVG(@./icon.svg)
 // let mdContent = MD(@./doc.md)
 

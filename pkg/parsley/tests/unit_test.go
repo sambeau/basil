@@ -517,6 +517,7 @@ func TestUnitNamedConstructors(t *testing.T) {
 		{`ounces(16)`, `#16oz`},
 		{`pounds(1)`, `#1lb`},
 		// Data
+		{`bytes(1024)`, `#1024B`},
 		{`kilobytes(1)`, `#1kB`},
 		{`megabytes(1)`, `#1MB`},
 		{`gigabytes(1)`, `#1GB`},

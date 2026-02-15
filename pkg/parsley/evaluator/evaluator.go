@@ -2858,10 +2858,10 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, "text", options, pathEnv)
 			},
 		},
-		"bytes": {
+		"raw": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newArityErrorRange("bytes", len(args), 1, 2)
+					return newArityErrorRange("raw", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
@@ -2882,7 +2882,7 @@ func getBuiltins() map[string]*Builtin {
 				// Coerce to path dict (handles path, file, dir, string)
 				pathDict, pathEnv := coerceToPathDict(args[0], env)
 				if pathDict == nil {
-					return newTypeError("TYPE-0005", "bytes", "a path, file, or string", args[0].Type())
+					return newTypeError("TYPE-0005", "raw", "a path, file, or string", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "bytes", options, pathEnv)
@@ -3951,8 +3951,7 @@ func getBuiltins() map[string]*Builtin {
 		"ounces": {Fn: func(args ...Object) Object { return unitNamedConstructor("ounces", args) }},
 		"pounds": {Fn: func(args ...Object) Object { return unitNamedConstructor("pounds", args) }},
 		// Data
-		// NOTE: "bytes" omitted — conflicts with existing bytes() file I/O builtin.
-		// Use unit(n, "B") or #1024B literal syntax instead.
+		"bytes":     {Fn: func(args ...Object) Object { return unitNamedConstructor("bytes", args) }},
 		"kilobytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("kilobytes", args) }},
 		"megabytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("megabytes", args) }},
 		"gigabytes": {Fn: func(args ...Object) Object { return unitNamedConstructor("gigabytes", args) }},
