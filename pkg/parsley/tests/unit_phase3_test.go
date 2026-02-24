@@ -349,19 +349,19 @@ func TestAreaConstructors(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`squaremetres(100)`, `#100m2`},
-		{`squaremeters(100)`, `#100m2`},
-		{`squaremillimetres(5)`, `#5mm2`},
-		{`squaremillimeters(5)`, `#5mm2`},
-		{`squarecentimetres(50)`, `#50cm2`},
-		{`squarecentimeters(50)`, `#50cm2`},
-		{`squarekilometres(1)`, `#1km2`},
-		{`squarekilometers(1)`, `#1km2`},
-		{`squareinches(1)`, `#1in2`},
-		{`squarefeet(1)`, `#1ft2`},
-		{`squareyards(1)`, `#1yd2`},
+		{`metres2(100)`, `#100m2`},
+		{`meters2(100)`, `#100m2`},
+		{`millimetres2(5)`, `#5mm2`},
+		{`millimeters2(5)`, `#5mm2`},
+		{`centimetres2(50)`, `#50cm2`},
+		{`centimeters2(50)`, `#50cm2`},
+		{`kilometres2(1)`, `#1km2`},
+		{`kilometers2(1)`, `#1km2`},
+		{`inches2(1)`, `#1in2`},
+		{`feet2(1)`, `#1ft2`},
+		{`yards2(1)`, `#1yd2`},
 		{`acres(640)`, `#640ac`},
-		{`squaremiles(1)`, `#1mi2`},
+		{`miles2(1)`, `#1mi2`},
 		// Generic constructor
 		{`unit(100, "m2")`, `#100m2`},
 		{`unit(500, "cm2")`, `#500cm2`},
@@ -381,9 +381,9 @@ func TestAreaConstructorConversion(t *testing.T) {
 		expected string
 	}{
 		// Within-system conversion via constructor
-		{`squarefeet(#1yd2)`, `#9ft2`},
+		{`feet2(#1yd2)`, `#9ft2`},
 		{`acres(#1mi2)`, `#640ac`},
-		{`squaremetres(#1km2)`, `#1000000m2`},
+		{`metres2(#1km2)`, `#1000000m2`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -394,14 +394,14 @@ func TestAreaConstructorConversion(t *testing.T) {
 }
 
 func TestAreaConstructorWrongFamily(t *testing.T) {
-	input := `squaremetres(#5kg)`
+	input := `metres2(#5kg)`
 	result := testEvalUnit(input)
 	testExpectedUnitError(t, input, result, "convert")
 }
 
 func TestAreaConstructorScaleOverflow(t *testing.T) {
 	// Very large value should activate Scale
-	input := `squarekilometres(510000000)`
+	input := `kilometres2(510000000)`
 	result := testEvalUnit(input)
 	if result == nil {
 		t.Fatal("got nil")
@@ -414,7 +414,7 @@ func TestAreaConstructorScaleOverflow(t *testing.T) {
 		t.Fatalf("expected Unit, got %T", result)
 	}
 	if u.Scale <= 0 {
-		t.Errorf("expected Scale > 0 for squarekilometres(510000000), got Scale=%d", u.Scale)
+		t.Errorf("expected Scale > 0 for kilometres2(510000000), got Scale=%d", u.Scale)
 	}
 }
 

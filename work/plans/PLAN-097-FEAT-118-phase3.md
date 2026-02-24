@@ -365,15 +365,15 @@ Add area family constant, suffix entries, sub-unit tables, bridge constants, dis
 
 8. Add constructor names to `UnitConstructorNames`:
    ```
-   "squaremillimetres": "mm2",  "squaremillimeters": "mm2",
-   "squarecentimetres": "cm2",  "squarecentimeters": "cm2",
-   "squaremetres":      "m2",   "squaremeters":      "m2",
-   "squarekilometres":  "km2",  "squarekilometers":  "km2",
-   "squareinches":      "in2",
-   "squarefeet":        "ft2",
-   "squareyards":       "yd2",
-   "acres":             "ac",
-   "squaremiles":       "mi2",
+   "millimetres2": "mm2",  "millimeters2": "mm2",
+   "centimetres2": "cm2",  "centimeters2": "cm2",
+   "metres2":      "m2",   "meters2":      "m2",
+   "kilometres2":  "km2",  "kilometers2":  "km2",
+   "inches2":      "in2",
+   "feet2":        "ft2",
+   "yards2":       "yd2",
+   "acres":        "ac",
+   "miles2":       "mi2",
    ```
 
 **Validation:**
@@ -519,15 +519,15 @@ US area should always use **decimal display**, not fraction display. The existin
 Add named constructors for area units. These follow the existing pattern — Task 1 already adds the constructor name→suffix mappings. The `UnitFromConstructor` function uses `LookupUnitSuffix` and routes based on system, so it should work automatically once the tables are populated.
 
 **Constructors to add:**
-- `squaremillimetres(v)` / `squaremillimeters(v)` — creates `mm2` unit
-- `squarecentimetres(v)` / `squarecentimeters(v)` — creates `cm2` unit
-- `squaremetres(v)` / `squaremeters(v)` — creates `m2` unit
-- `squarekilometres(v)` / `squarekilometers(v)` — creates `km2` unit
-- `squareinches(v)` — creates `in2` unit
-- `squarefeet(v)` — creates `ft2` unit
-- `squareyards(v)` — creates `yd2` unit
+- `millimetres2(v)` / `millimeters2(v)` — creates `mm2` unit
+- `centimetres2(v)` / `centimeters2(v)` — creates `cm2` unit
+- `metres2(v)` / `meters2(v)` — creates `m2` unit
+- `kilometres2(v)` / `kilometers2(v)` — creates `km2` unit
+- `inches2(v)` — creates `in2` unit
+- `feet2(v)` — creates `ft2` unit
+- `yards2(v)` — creates `yd2` unit
 - `acres(v)` — creates `ac` unit
-- `squaremiles(v)` — creates `mi2` unit
+- `miles2(v)` — creates `mi2` unit
 
 **Changes:**
 
@@ -538,11 +538,11 @@ Add named constructors for area units. These follow the existing pattern — Tas
 3. **Scale-aware construction:** When constructing from a large integer or float value, the multiplication `value × subPerUnit` may overflow. The constructor must detect this and apply Scale, same as the parser (Task 3). Factor this logic into a shared helper used by both parser and constructors.
 
 **Validation:**
-- `squaremetres(100)` → `#100m2` (Scale=0)
+- `metres2(100)` → `#100m2` (Scale=0)
 - `acres(#1mi2)` → converts 1 mi² to acres → `#640ac`
-- `squarefeet(#1m2)` → converts via bridge → `~#10.76ft2` (cross-system)
+- `feet2(#1m2)` → converts via bridge → `~#10.76ft2` (cross-system)
 - `unit(500, "cm2")` → `#500cm2`
-- `squarekilometres(510000000)` → Scale>0, represents Earth's surface
+- `kilometres2(510000000)` → Scale>0, represents Earth's surface
 
 ---
 
@@ -701,12 +701,12 @@ Add comprehensive tests for area units and Scale infrastructure.
 - `#640ac == #1mi2` → true (within US)
 
 #### 9g. Constructors
-- `squaremetres(100)` → `#100m2`
+- `metres2(100)` → `#100m2`
 - `acres(640)` → `#640ac`
-- `squarefeet(#1yd2)` → `#9ft2`
+- `feet2(#1yd2)` → `#9ft2`
 - `unit(100, "m2")` → `#100m2`
-- `squaremetres(#5kg)` → error (cross-family)
-- `squarekilometres(510000000)` → Scale>0
+- `metres2(#5kg)` → error (cross-family)
+- `kilometres2(510000000)` → Scale>0
 
 #### 9h. Properties
 - `#100m2.value == 100`
@@ -1095,7 +1095,7 @@ Task 0 is implemented first and validated against the full existing test suite b
 | 2026-02-14 | Task 3: Parser/Evaluator — Scale-Aware | ✅ Done | Parser and PLN parser produce Scale from literals when overflow occurs |
 | 2026-02-14 | Task 4: Area Arithmetic | ✅ Done | Scale-aware add/sub/mul/div in eval_unit_infix.go |
 | 2026-02-14 | Task 5: US Area Display | ✅ Done | Decimal-only display for US area (no HCN fractions) |
-| 2026-02-14 | Task 6: Constructors — Area | ✅ Done | squaremillimetres through squaremiles, scale-aware UnitFromConstructor/GenericUnitConstructor |
+| 2026-02-14 | Task 6: Constructors — Area | ✅ Done | millimetres2 through miles2, scale-aware UnitFromConstructor/GenericUnitConstructor |
 | 2026-02-14 | Task 7: Properties — Area | ✅ Done | .value, .unit, .family, .system all work for area units |
 | 2026-02-14 | Task 8: PLN Parser Fix | ✅ Done | Longest-match suffix lookup for digit-containing suffixes (m2, km2, kL) |
 | 2026-02-14 | Task 9: Integration Tests | ✅ Done | unit_phase3_test.go — scale infra, literals, arithmetic, cross-system, constructors, properties, methods, PLN round-trips, display, errors, regression |

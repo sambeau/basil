@@ -766,9 +766,9 @@ litres(2)                    // #2L
 kilolitres(5)                // #5kL
 gallons(1)                   // #1gal
 cups(#1L)                    // convert litres to cups
-squaremetres(100)            // #100m2
+metres2(100)                 // #100m2
 acres(640)                   // #640ac
-squarekilometres(510000000)  // Earth's surface (uses Scale)
+kilometres2(510000000)       // Earth's surface (uses Scale)
 
 // String interpolation: no # sigil
 let d = #1.83m

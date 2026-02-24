@@ -2847,15 +2847,15 @@ match("hello", "\\d+")          // null
 | `pints()` | `pt` | volume | US |
 | `quarts()` | `qt` | volume | US |
 | `gallons()` | `gal` | volume | US |
-| `squaremillimetres()` / `squaremillimeters()` | `mm2` | area | SI |
-| `squarecentimetres()` / `squarecentimeters()` | `cm2` | area | SI |
-| `squaremetres()` / `squaremeters()` | `m2` | area | SI |
-| `squarekilometres()` / `squarekilometers()` | `km2` | area | SI |
-| `squareinches()` | `in2` | area | US |
-| `squarefeet()` | `ft2` | area | US |
-| `squareyards()` | `yd2` | area | US |
+| `millimetres2()` / `millimeters2()` | `mm2` | area | SI |
+| `centimetres2()` / `centimeters2()` | `cm2` | area | SI |
+| `metres2()` / `meters2()` | `m2` | area | SI |
+| `kilometres2()` / `kilometers2()` | `km2` | area | SI |
+| `inches2()` | `in2` | area | US |
+| `feet2()` | `ft2` | area | US |
+| `yards2()` | `yd2` | area | US |
 | `acres()` | `ac` | area | US |
-| `squaremiles()` | `mi2` | area | US |
+| `miles2()` | `mi2` | area | US |
 
 `bytes()` is also available as a constructor for data units:
 
@@ -2878,9 +2878,9 @@ litres(2)                       // #2L
 kilolitres(5)                   // #5kL
 gallons(1)                      // #1gal
 cups(#1L)                       // convert litres to cups
-squaremetres(100)               // #100m2
+metres2(100)                    // #100m2
 acres(640)                      // #640ac
-squarekilometres(510000000)     // Earth's surface (uses Scale for large values)
+kilometres2(510000000)          // Earth's surface (uses Scale for large values)
 ```
 
 ---
