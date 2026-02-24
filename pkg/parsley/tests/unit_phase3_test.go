@@ -451,10 +451,18 @@ func TestAreaToMethod(t *testing.T) {
 		input    string
 		expected string
 	}{
+		// Within-system conversions
 		{`#1mi2.to("ac")`, `#640ac`},
 		{`#1yd2.to("ft2")`, `#9ft2`},
 		{`#1km2.to("m2")`, `#1000000m2`},
 		{`#1m2.to("cm2")`, `#10000cm2`},
+		// Cross-system conversions (US → SI)
+		{`#1in2.to("mm2")`, `#645mm2`},
+		{`#1ft2.to("cm2")`, `#929cm2`},
+		{`#1yd2.to("m2")`, `#0.836127m2`},
+		// Cross-system conversions (SI → US)
+		{`#100cm2.to("in2")`, `#15in2`},
+		{`#1m2.to("ft2")`, `#10.76388888888889ft2`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

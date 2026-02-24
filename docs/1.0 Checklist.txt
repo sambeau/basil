@@ -1,0 +1,15 @@
+# 1.0 Checklist
+
+- [ ] Derived units m3 <--> m2 <--> m
+- [ ] squaremetres -> metres2
+- [ ] Manual for Units
+- [ ] Formatters for all builtins
+- [ ] Check what Print/ln does
+- [ ] Units & schema
+- [ ] Remove ``return``?
+- [ ] Audit @std
+	- [ ] Rethink API
+	- [ ] Remove Table
+	- [ ] Redo HTML
+	- [ ] MdDocs
+	- [ ] Add a smattering of unicode, just cos

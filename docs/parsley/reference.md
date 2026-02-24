@@ -630,17 +630,17 @@ Use `+` as the mixed-number separator:
 
 #### Supported Suffixes
 
-**Length — SI:** `mm`, `cm`, `m`, `km`
-**Length — US:** `in`, `ft`, `yd`, `mi`
-**Mass — SI:** `mg`, `g`, `kg`
-**Mass — US:** `oz`, `lb`
-**Data — Decimal:** `B`, `kB`, `MB`, `GB`, `TB`
-**Data — Binary:** `KiB`, `MiB`, `GiB`, `TiB`
-**Temperature:** `K` (kelvin), `C` (Celsius), `F` (Fahrenheit)
-**Volume — SI:** `mL`, `L`, `kL`
-**Volume — US:** `floz`, `cup`, `pt`, `qt`, `gal`
-**Area — SI:** `mm2`, `cm2`, `m2`, `km2`
-**Area — US:** `in2`, `ft2`, `yd2`, `ac` (acre), `mi2`
+- **Length — SI:** `mm`, `cm`, `m`, `km`
+- **Length — US:** `in`, `ft`, `yd`, `mi`
+- **Mass — SI:** `mg`, `g`, `kg`
+- **Mass — US:** `oz`, `lb`
+- **Data — Decimal:** `B`, `kB`, `MB`, `GB`, `TB`
+- **Data — Binary:** `KiB`, `MiB`, `GiB`, `TiB`
+- **Temperature:** `K` (kelvin), `C` (Celsius), `F` (Fahrenheit)
+- **Volume — SI:** `mL`, `L`, `kL`
+- **Volume — US:** `floz`, `cup`, `pt`, `qt`, `gal`
+- **Area — SI:** `mm2`, `cm2`, `m2`, `km2`
+- **Area — US:** `in2`, `ft2`, `yd2`, `ac` (acre), `mi2`
 
 #### Internal Representation
 
@@ -1435,12 +1435,14 @@ export double = fn(x) { x * 2 }
 Use `export computed` to create exports that recalculate on each access. This is useful for exposing "live" data like database queries or current timestamps.
 
 **Expression form:**
+
 ```parsley
 export computed timestamp = @now
 export computed count = items.length()
 ```
 
 **Block form:**
+
 ```parsley
 export computed activeUsers {
     let query = "SELECT * FROM users WHERE active = true"
@@ -1454,6 +1456,7 @@ Computed exports:
 - Cannot accept parameters (use functions for that)
 
 **Consumer caching:**
+
 ```parsley
 import {activeUsers} from @./data.pars
 
@@ -2183,19 +2186,12 @@ let t = @table [
     {name: "Bob", age: 25}
 ]
 
-// Table literal - from array of arrays (first row is headers)
-let t = @table [
-    ["name", "age"],
-    ["Alice", 30],
-    ["Bob", 25]
-]
-
 // CSV parsing returns Table directly
 let data = "name,age\nAlice,30\nBob,25".parseCSV()  // Returns Table
 let rows <== CSV(@./sales.csv)                       // Returns Table
 
 // Database queries return Table
-let users <=??=> db <SQL>SELECT * FROM users</SQL>   // Returns Table
+let users = @query(Users ??-> *)   // Returns Table
 
 // table() builtin constructor
 let t = table([{name: "Alice"}, {name: "Bob"}])
