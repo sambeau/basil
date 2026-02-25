@@ -2,8 +2,9 @@
 id: PLAN-106
 feature: FEAT-127
 title: "Implementation Plan for Parsley 1.0 Release Readiness"
-status: draft
+status: complete
 created: 2025-02-26
+completed: 2025-02-26
 ---
 
 # Implementation Plan: FEAT-127
@@ -157,25 +158,25 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./pkg/parsley/...`
-- [ ] Named capture groups return dict: `"a b" ~ /(?P<x>\w+)/ == {0: "a", x: "a"}`
-- [ ] failIfInvalid accepts message
-- [ ] Each deprecated item emits warning once
-- [ ] `pars --help` doesn't show migrate-let-var
+- [x] All tests pass: `go test ./pkg/parsley/...`
+- [x] Named capture groups return dict: `"a b" ~ /(?P<x>\w+)/ == {0: "a", x: "a"}`
+- [x] failIfInvalid accepts message
+- [x] Each deprecated item emits warning once
+- [x] `pars --help` doesn't show migrate-let-var
 - [ ] Linter passes: `golangci-lint run`
 - [ ] Audit report action items updated
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1 | ⬚ Not Started | Named capture groups |
-| | Task 2 | ⬚ Not Started | failIfInvalid message |
-| | Task 3 | ⬚ Not Started | Deprecation infrastructure |
-| | Task 4 | ⬚ Not Started | Deprecate now() |
-| | Task 5 | ⬚ Not Started | Deprecate @std/table |
-| | Task 6 | ⬚ Not Started | Deprecate uppercase components |
-| | Task 7 | ⬚ Not Started | Deprecate format(array) |
-| | Task 8 | ⬚ Not Started | Remove migrate-let-var |
+| 2025-02-26 | Task 1 | ✅ Complete | Named capture groups return dictionaries |
+| 2025-02-26 | Task 2 | ✅ Complete | failIfInvalid(msg?) with optional message |
+| 2025-02-26 | Task 3 | ✅ Complete | deprecation.go with emitDeprecationWarning |
+| 2025-02-26 | Task 4 | ⬚ Skipped | now() was never implemented - removed from introspect |
+| 2025-02-26 | Task 5 | ✅ Complete | DEP-001 warning for @std/table |
+| 2025-02-26 | Task 6 | ✅ Complete | DEP-002/003/004 for Label/Error/Meta |
+| 2025-02-26 | Task 7 | ✅ Complete | DEP-005 for format(array, style) |
+| 2025-02-26 | Task 8 | ✅ Complete | Removed from CLI help text |
 
 ## Deferred Items
 Items to add to work/BACKLOG.md after implementation:

@@ -250,11 +250,22 @@ func recordHasError(record *Record, args []Object, env *Environment) Object {
 	return &Boolean{Value: exists}
 }
 
-// recordFailIfInvalid implements record.failIfInvalid() → Record | Error
+// recordFailIfInvalid implements record.failIfInvalid(msg?) → Record | Error
 // Returns the record if valid (or not yet validated), fails with structured error if invalid.
+// Optional msg parameter allows customizing the error message.
 func recordFailIfInvalid(record *Record, args []Object) Object {
-	if len(args) != 0 {
-		return newArityError("failIfInvalid", len(args), 0)
+	if len(args) > 1 {
+		return newArityErrorRange("failIfInvalid", len(args), 0, 1)
+	}
+
+	// Get custom message or use default
+	message := "Validation failed"
+	if len(args) == 1 {
+		msgStr, ok := args[0].(*String)
+		if !ok {
+			return newTypeError("TYPE-0005", "failIfInvalid", "a string", args[0].Type())
+		}
+		message = msgStr.Value
 	}
 
 	// If not validated or valid, return record for chaining
@@ -269,7 +280,7 @@ func recordFailIfInvalid(record *Record, args []Object) Object {
 	pairs := make(map[string]ast.Expression)
 	pairs["status"] = objectToExpression(&Integer{Value: 400})
 	pairs["code"] = objectToExpression(&String{Value: "VALIDATION"})
-	pairs["message"] = objectToExpression(&String{Value: "Validation failed"})
+	pairs["message"] = objectToExpression(&String{Value: message})
 	pairs["fields"] = objectToExpression(fields)
 	dict := &Dictionary{
 		Pairs:    pairs,
@@ -279,7 +290,7 @@ func recordFailIfInvalid(record *Record, args []Object) Object {
 	return &Error{
 		Class:    ClassValue,
 		Code:     "VALIDATION",
-		Message:  "Validation failed",
+		Message:  message,
 		UserDict: dict,
 	}
 }

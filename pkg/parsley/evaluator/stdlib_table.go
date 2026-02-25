@@ -46,6 +46,11 @@ func loadStdlibModule(name string, env *Environment) Object {
 		})
 	}
 
+	// Emit deprecation warning for @std/table
+	if name == "table" {
+		emitDeprecationWarning("DEP-001", "@std/table is deprecated, use @table literal syntax instead")
+	}
+
 	modules := getStdlibModules()
 	loader, ok := modules[name]
 	if !ok {

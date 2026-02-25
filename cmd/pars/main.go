@@ -146,7 +146,6 @@ Usage:
 Commands:
   fmt                   Format Parsley source files
   describe <topic>      Show help for a type, builtin, module, or operator
-  migrate-let-var       Migrate files to explicit let/var declarations
 
 Display Options:
   -h, --help            Show this help message
@@ -195,7 +194,6 @@ Examples:
   pars describe operators   List all operators
   pars describe @std/math   Show help for a module
   pars describe all --json  Dump complete API schema as JSON
-  pars migrate-let-var src/ Migrate files to let/var syntax
   pars --machine -e '1+2'   Machine-readable JSON output
 
 For more information, visit: https://github.com/sambeau/parsley

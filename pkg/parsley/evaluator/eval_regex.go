@@ -9,8 +9,10 @@ package evaluator
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
 
@@ -38,8 +40,23 @@ func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
 	return regexp.Compile(fullPattern)
 }
 
+// hasNamedGroups checks if the compiled regex has any named capture groups
+func hasNamedGroups(re *regexp.Regexp) bool {
+	names := re.SubexpNames()
+	for i := 1; i < len(names); i++ { // Skip index 0 (full match, always empty string)
+		if names[i] != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // evalMatchExpression handles string ~ regex matching
 // Returns an array of matches (with captures) or null if no match
+// If the regex has named capture groups, returns a dictionary instead:
+//   - Key "0" contains the full match
+//   - Named groups use their name as key
+//   - Unnamed groups use their numeric index as string key ("1", "2", etc.)
 func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, env *Environment) Object {
 	// Extract pattern and flags from regex dictionary
 	patternExpr, ok := regexDict.Pairs["pattern"]
@@ -73,11 +90,49 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 		return NULL // No match - returns null (falsy)
 	}
 
-	// Convert matches to array of strings
+	// If regex has named groups, return a dictionary
+	if hasNamedGroups(re) {
+		return buildMatchDictionary(re, matches)
+	}
+
+	// Otherwise, return array for backward compatibility
 	elements := make([]Object, len(matches))
 	for i, match := range matches {
 		elements[i] = &String{Value: match}
 	}
 
 	return &Array{Elements: elements}
+}
+
+// buildMatchDictionary creates a dictionary from regex matches with named groups
+// Key "0" is always the full match
+// Named groups get their name as key
+// Unnamed groups get their index as string key
+func buildMatchDictionary(re *regexp.Regexp, matches []string) *Dictionary {
+	names := re.SubexpNames()
+	pairs := make(map[string]ast.Expression)
+	keyOrder := make([]string, 0, len(matches))
+
+	for i, match := range matches {
+		var key string
+		switch {
+		case i == 0:
+			// Full match always gets key "0"
+			key = "0"
+		case names[i] != "":
+			// Named group uses its name
+			key = names[i]
+		default:
+			// Unnamed group uses numeric string key
+			key = strconv.Itoa(i)
+		}
+
+		pairs[key] = objectToExpression(&String{Value: match})
+		keyOrder = append(keyOrder, key)
+	}
+
+	return &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: keyOrder,
+	}
 }

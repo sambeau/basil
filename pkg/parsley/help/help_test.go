@@ -219,7 +219,6 @@ func TestDescribeBuiltinByName(t *testing.T) {
 	}{
 		{"JSON", "JSON", "file"},
 		{"CSV", "CSV", "file"},
-		{"now", "now", "time"},
 		{"fail", "fail", "control"},
 		{"log", "log", "output"},
 		{"toInt", "toInt", "conversion"},
