@@ -142,8 +142,8 @@ func TestFormatNumberErrors(t *testing.T) {
 		errContains string
 	}{
 		{`"not a number".format()`, "unknown method"},
-		{`123.format(456)`, "string"},
-		{`123.format("invalid-locale-xyz")`, "invalid locale"},
+		// Note: 123.format(456) is now valid - integer is precision in unified API (FEAT-121)
+		// Note: 123.format("invalid-locale-xyz") now falls back gracefully to en-US per FEAT-121
 	}
 
 	for _, tt := range tests {
@@ -201,7 +201,8 @@ func TestFormatDate(t *testing.T) {
 		contains string
 	}{
 		// US English formats
-		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format()`, "December 25, 2024"},
+		// Note: Default format() is now "medium" per FEAT-121 unified formatter API
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format()`, "Dec 25, 2024"},
 		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("short")`, "12/25/24"},
 		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("medium")`, "Dec 25, 2024"},
 		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long")`, "December 25, 2024"},

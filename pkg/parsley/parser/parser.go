@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -123,6 +124,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.DELETE_LITERAL, p.parseDeleteExpression)
 	p.registerPrefix(lexer.TRANSACTION_LIT, p.parseTransactionExpression)
 	p.registerPrefix(lexer.MONEY, p.parseMoneyLiteral)
+	p.registerPrefix(lexer.UNIT, p.parseUnitLiteral)
 	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
 	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
 	p.registerPrefix(lexer.STDLIB_PATH, p.parseStdlibPathLiteral)
@@ -142,6 +144,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.FOR, p.parseForExpression)
+	p.registerPrefix(lexer.WITH, p.parseWithExpression)
 	p.registerPrefix(lexer.TRY, p.parseTryExpression)
 	p.registerPrefix(lexer.IMPORT, p.parseImportExpression)
 	p.registerPrefix(lexer.LBRACE, p.parseDictionaryLiteral)
@@ -294,7 +297,11 @@ func (p *Parser) parseStatement() ast.Statement {
 	case lexer.EXPORT:
 		return p.parseExportStatement()
 	case lexer.LET:
-		return p.parseLetStatement(false)
+		return p.parseLetStatement(false, false) // not exported, not mutable
+	case lexer.VAR:
+		return p.parseLetStatement(false, true) // not exported, mutable
+	case lexer.CONST:
+		return p.parseConstError()
 	case lexer.RETURN:
 		return p.parseReturnStatement()
 	case lexer.CHECK:
@@ -382,9 +389,12 @@ func (p *Parser) parseExportStatement() ast.Statement {
 	// Move past 'export'
 	p.nextToken()
 
-	// Check if next is 'let'
+	// Check if next is 'let' or 'var'
 	if p.curTokenIs(lexer.LET) {
-		return p.parseLetStatement(true)
+		return p.parseLetStatement(true, false) // exported, not mutable
+	}
+	if p.curTokenIs(lexer.VAR) {
+		return p.parseLetStatement(true, true) // exported, mutable
 	}
 
 	// Handle 'export computed Name = expr' or 'export computed Name { body }'
@@ -495,8 +505,20 @@ func (p *Parser) parseComputedExportStatement(exportToken lexer.Token) ast.State
 	return stmt
 }
 
-// parseLetStatement parses let statements
-func (p *Parser) parseLetStatement(export bool) ast.Statement {
+// parseConstError handles the reserved 'const' keyword with a helpful error
+func (p *Parser) parseConstError() ast.Statement {
+	p.addErrorWithHints(
+		"'const' is not a Parsley keyword",
+		p.curToken.Line, p.curToken.Column,
+		"Parsley uses 'let' for constants (immutable) and 'var' for variables (mutable)",
+		"Use 'let x = 5' instead of 'const x = 5'",
+	)
+	return nil
+}
+
+// parseLetStatement parses let/var statements
+// mutable=false for 'let' (immutable), mutable=true for 'var' (mutable)
+func (p *Parser) parseLetStatement(export, mutable bool) ast.Statement {
 	letToken := p.curToken
 
 	// Check for dictionary destructuring pattern
@@ -542,7 +564,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 			return nil
 		}
 
-		stmt := &ast.LetStatement{Token: letToken, Export: export}
+		stmt := &ast.LetStatement{Token: letToken, Export: export, Mutable: mutable}
 		stmt.DictPattern = dictPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
@@ -599,7 +621,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 			return nil
 		}
 
-		stmt := &ast.LetStatement{Token: letToken, Export: export}
+		stmt := &ast.LetStatement{Token: letToken, Export: export, Mutable: mutable}
 		stmt.ArrayPattern = arrayPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
@@ -649,8 +671,8 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		return fetchStmt
 	}
 
-	// Regular let statement
-	stmt := &ast.LetStatement{Token: letToken, Export: export}
+	// Regular let/var statement
+	stmt := &ast.LetStatement{Token: letToken, Export: export, Mutable: mutable}
 	stmt.Name = name
 
 	if !p.expectPeek(lexer.ASSIGN) {
@@ -1073,7 +1095,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		p.addError(fmt.Sprintf("could not parse %q as integer", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0007", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": p.curToken.Literal})
 		return nil
 	}
 
@@ -1086,7 +1108,7 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		p.addError(fmt.Sprintf("could not parse %q as float", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0012", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": p.curToken.Literal})
 		return nil
 	}
 
@@ -1110,7 +1132,7 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 	// Token.Literal is in the form "/pattern/flags"
 	literal := p.curToken.Literal
 	if len(literal) < 2 || literal[0] != '/' {
-		p.addError(fmt.Sprintf("invalid regex literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0005", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 
@@ -1118,7 +1140,7 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 	// This handles /pattern/ and /pattern/flags
 	lastSlash := strings.LastIndex(literal[1:], "/")
 	if lastSlash == -1 {
-		p.addError(fmt.Sprintf("unterminated regex literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0017", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 	lastSlash++ // adjust for the slice offset
@@ -1206,7 +1228,7 @@ func (p *Parser) parseMoneyLiteral() ast.Expression {
 	// Find the # separator
 	before, after, ok := strings.Cut(literal, "#")
 	if !ok {
-		p.addError(fmt.Sprintf("invalid money literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0013", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 
@@ -1229,6 +1251,444 @@ func (p *Parser) parseMoneyLiteral() ast.Expression {
 		Amount:   amount,
 		Scale:    scale,
 	}
+}
+
+func (p *Parser) parseUnitLiteral() ast.Expression {
+	// Token.Literal contains the full unit literal (e.g., "#12.3m", "#3/8in", "#92+5/8in")
+	literal := p.curToken.Literal
+
+	// Strip the leading '#'
+	if len(literal) < 2 || literal[0] != '#' {
+		p.addStructuredError("PARSE-0007", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
+		return nil
+	}
+	body := literal[1:] // e.g., "12.3m", "-3/8in", "92+5/8in", "5m2"
+
+	// Separate the numeric part from the suffix using longest-match lookup.
+	// We try all possible split points and pick the one yielding the longest valid suffix.
+	// This handles digit-containing suffixes like "m2", "in2", "km2", "kL".
+	numStr, suffix := splitUnitBody(body)
+
+	if suffix == "" {
+		p.addStructuredError("PARSE-0018", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
+		return nil
+	}
+
+	// Look up suffix metadata
+	info, ok := lookupUnitSuffix(suffix)
+	if !ok {
+		p.addStructuredError("PARSE-0019", p.curToken.Line, p.curToken.Column, map[string]any{"Suffix": suffix, "Literal": literal})
+		return nil
+	}
+
+	// Parse the numeric part and compute the internal Amount (scale-aware)
+	amount, scale, err := parseUnitAmount(numStr, suffix, info.System)
+	if err != "" {
+		p.addStructuredError("PARSE-0007", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
+		return nil
+	}
+
+	return &ast.UnitLiteral{
+		Token:  p.curToken,
+		Amount: amount,
+		Suffix: suffix,
+		Family: info.Family,
+		System: info.System,
+		Scale:  scale,
+	}
+}
+
+// unitSuffixInfo mirrors evaluator.UnitInfo without importing evaluator.
+type unitSuffixInfo struct {
+	Family string
+	System string
+}
+
+var parserUnitSuffixTable = map[string]unitSuffixInfo{
+	// Length — SI
+	"mm": {Family: "length", System: "SI"},
+	"cm": {Family: "length", System: "SI"},
+	"m":  {Family: "length", System: "SI"},
+	"km": {Family: "length", System: "SI"},
+	// Length — US
+	"in": {Family: "length", System: "US"},
+	"ft": {Family: "length", System: "US"},
+	"yd": {Family: "length", System: "US"},
+	"mi": {Family: "length", System: "US"},
+	// Area — SI
+	"mm2": {Family: "area", System: "SI"},
+	"cm2": {Family: "area", System: "SI"},
+	"m2":  {Family: "area", System: "SI"},
+	"km2": {Family: "area", System: "SI"},
+	// Area — US
+	"in2": {Family: "area", System: "US"},
+	"ft2": {Family: "area", System: "US"},
+	"yd2": {Family: "area", System: "US"},
+	"ac":  {Family: "area", System: "US"},
+	"mi2": {Family: "area", System: "US"},
+	// Mass — SI
+	"mg": {Family: "mass", System: "SI"},
+	"g":  {Family: "mass", System: "SI"},
+	"kg": {Family: "mass", System: "SI"},
+	// Mass — US
+	"oz": {Family: "mass", System: "US"},
+	"lb": {Family: "mass", System: "US"},
+	// Data — decimal
+	"B":  {Family: "data", System: "SI"},
+	"kB": {Family: "data", System: "SI"},
+	"MB": {Family: "data", System: "SI"},
+	"GB": {Family: "data", System: "SI"},
+	"TB": {Family: "data", System: "SI"},
+	// Data — binary
+	"KiB": {Family: "data", System: "SI"},
+	"MiB": {Family: "data", System: "SI"},
+	"GiB": {Family: "data", System: "SI"},
+	"TiB": {Family: "data", System: "SI"},
+	// Temperature — K and C are SI, F is US
+	"K": {Family: "temperature", System: "SI"},
+	"C": {Family: "temperature", System: "SI"},
+	"F": {Family: "temperature", System: "US"},
+	// Volume — SI
+	"mL": {Family: "volume", System: "SI"},
+	"L":  {Family: "volume", System: "SI"},
+	"kL": {Family: "volume", System: "SI"},
+	// Volume — US
+	"floz": {Family: "volume", System: "US"},
+	"cup":  {Family: "volume", System: "US"},
+	"pt":   {Family: "volume", System: "US"},
+	"qt":   {Family: "volume", System: "US"},
+	"gal":  {Family: "volume", System: "US"},
+}
+
+func lookupUnitSuffix(suffix string) (unitSuffixInfo, bool) {
+	info, ok := parserUnitSuffixTable[suffix]
+	return info, ok
+}
+
+// SI sub-units per display-unit (duplicated here to avoid importing evaluator)
+var parserSISubUnitsPerUnit = map[string]int64{
+	"mm": 1_000, "cm": 10_000, "m": 1_000_000, "km": 1_000_000_000,
+	"mg": 1, "g": 1_000, "kg": 1_000_000,
+	"B": 1, "kB": 1_000, "MB": 1_000_000, "GB": 1_000_000_000, "TB": 1_000_000_000_000,
+	"KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30, "TiB": 1 << 40,
+	// Volume (base sub-unit: nL — nanolitre, not µL, so cross-system bridge is exact)
+	"mL": 1_000_000, "L": 1_000_000_000, "kL": 1_000_000_000_000,
+	// Area (base sub-unit: mm²)
+	"mm2": 1, "cm2": 100, "m2": 1_000_000, "km2": 1_000_000_000_000,
+}
+
+// US Customary: HCN and sub-units per display-unit
+const parserHCN int64 = 725_760
+
+var parserUSSubUnitsPerUnit = map[string]int64{
+	"in": parserHCN / 36, "ft": parserHCN / 3, "yd": parserHCN, "mi": parserHCN * 1760,
+	"oz": parserHCN, "lb": parserHCN * 16,
+	// Volume (base sub-unit: sub-floz, 1 floz = HCN)
+	"floz": parserHCN, "cup": parserHCN * 8, "pt": parserHCN * 16,
+	"qt": parserHCN * 32, "gal": parserHCN * 128,
+	// Area (base sub-unit: in², plain integer — NOT HCN-based)
+	"in2": 1, "ft2": 144, "yd2": 1_296, "ac": 6_272_640, "mi2": 4_014_489_600,
+}
+
+// splitUnitBody separates a unit literal body (after the '#') into numeric and suffix parts.
+// Uses forward longest-match lookup against the suffix table to handle digit-containing
+// suffixes like "m2", "in2", "km2", "kL".
+func splitUnitBody(body string) (numStr, suffix string) {
+	// Try split points from the start of the body forwards.
+	// At each position i, body[i:] is a candidate suffix (longest first).
+	// The first valid suffix found is the longest match.
+	for i := 0; i < len(body); i++ {
+		candidate := body[i:]
+		if _, ok := parserUnitSuffixTable[candidate]; ok {
+			return body[:i], candidate
+		}
+	}
+	return body, ""
+}
+
+// Temperature constants (duplicated here to avoid importing evaluator)
+const (
+	parserTempScaleK  int64 = 900
+	parserTempScaleC  int64 = 900
+	parserTempScaleF  int64 = 500
+	parserTempOffsetK int64 = 0
+	parserTempOffsetC int64 = 245_835 // 273.15 × 900
+	parserTempOffsetF int64 = 229_835 // 459.67 × 500
+)
+
+func parserTempScale(suffix string) int64 {
+	switch suffix {
+	case "C":
+		return parserTempScaleC
+	case "F":
+		return parserTempScaleF
+	case "K":
+		return parserTempScaleK
+	default:
+		return 0
+	}
+}
+
+func parserTempOffset(suffix string) int64 {
+	switch suffix {
+	case "C":
+		return parserTempOffsetC
+	case "F":
+		return parserTempOffsetF
+	case "K":
+		return parserTempOffsetK
+	default:
+		return 0
+	}
+}
+
+// parserEncodeTempAmount encodes a numeric temperature value to sub-kelvins.
+// Uses math.Round to avoid floating-point truncation errors.
+func parserEncodeTempAmount(value float64, suffix string) int64 {
+	scale := parserTempScale(suffix)
+	offset := parserTempOffset(suffix)
+	return int64(math.Round(value*float64(scale))) + offset
+}
+
+// parseUnitAmount converts a numeric string (e.g., "12.3", "3/8", "92+5/8", "-6")
+// into the internal int64 amount for the given suffix and system.
+// Returns (amount, errorMessage). errorMessage is "" on success.
+func parseUnitAmount(numStr, suffix, system string) (amount int64, scale int, errMsg string) {
+	if numStr == "" {
+		return 0, 0, "missing numeric value"
+	}
+
+	// Look up family to detect temperature
+	info, _ := lookupUnitSuffix(suffix)
+	isTemp := info.Family == "temperature"
+
+	negative := false
+	if numStr[0] == '-' {
+		negative = true
+		numStr = numStr[1:]
+	}
+
+	// Detect the numeric format
+	plusIdx := strings.Index(numStr, "+")
+	slashIdx := strings.Index(numStr, "/")
+	dotIdx := strings.Index(numStr, ".")
+
+	switch {
+	case plusIdx > 0 && slashIdx > plusIdx:
+		// Mixed number: W+N/D
+		wholePart := numStr[:plusIdx]
+		fracPart := numStr[plusIdx+1:]
+		slashInFrac := strings.Index(fracPart, "/")
+		if slashInFrac < 0 {
+			return 0, 0, "invalid mixed number format"
+		}
+		numPart := fracPart[:slashInFrac]
+		denomPart := fracPart[slashInFrac+1:]
+
+		whole, err1 := strconv.ParseInt(wholePart, 10, 64)
+		num, err2 := strconv.ParseInt(numPart, 10, 64)
+		denom, err3 := strconv.ParseInt(denomPart, 10, 64)
+		if err1 != nil || err2 != nil || err3 != nil {
+			return 0, 0, "invalid number in mixed fraction"
+		}
+		if denom == 0 {
+			return 0, 0, "fraction denominator cannot be zero"
+		}
+
+		switch {
+		case isTemp:
+			// Temperature: encode the combined fractional value
+			value := float64(whole) + float64(num)/float64(denom)
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			amount = whole*subPerUnit + num*subPerUnit/denom
+		default:
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount = whole*subPerUnit + num*subPerUnit/denom
+		}
+
+	case slashIdx > 0:
+		// Fraction: N/D
+		numPart := numStr[:slashIdx]
+		denomPart := numStr[slashIdx+1:]
+
+		num, err1 := strconv.ParseInt(numPart, 10, 64)
+		denom, err2 := strconv.ParseInt(denomPart, 10, 64)
+		if err1 != nil || err2 != nil {
+			return 0, 0, "invalid fraction"
+		}
+		if denom == 0 {
+			return 0, 0, "fraction denominator cannot be zero"
+		}
+
+		switch {
+		case isTemp:
+			value := float64(num) / float64(denom)
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			amount = num * subPerUnit / denom
+		default:
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount = num * subPerUnit / denom
+		}
+
+	case dotIdx >= 0:
+		// Decimal: W.F
+		wholePart := numStr[:dotIdx]
+		fracPart := numStr[dotIdx+1:]
+
+		whole, err := strconv.ParseInt(wholePart, 10, 64)
+		if err != nil {
+			return 0, 0, "invalid decimal number"
+		}
+
+		switch {
+		case isTemp:
+			// Parse the full decimal value and encode
+			value := float64(whole)
+			if fracPart != "" {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
+					return 0, 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				value += float64(frac) / float64(divisor)
+			}
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+			if fracPart != "" && scale == 0 {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
+					return 0, 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				amount += frac * subPerUnit / divisor
+			}
+		default:
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+			if fracPart != "" && scale == 0 {
+				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
+				if ferr != nil {
+					return 0, 0, "invalid decimal fraction"
+				}
+				divisor := int64(1)
+				for range len(fracPart) {
+					divisor *= 10
+				}
+				amount += frac * subPerUnit / divisor
+			}
+		}
+
+	default:
+		// Plain integer: W
+		whole, err := strconv.ParseInt(numStr, 10, 64)
+		if err != nil {
+			return 0, 0, "invalid integer"
+		}
+
+		switch {
+		case isTemp:
+			value := float64(whole)
+			if negative {
+				value = -value
+			}
+			return parserEncodeTempAmount(value, suffix), 0, ""
+		case system == "US":
+			subPerUnit := parserUSSubUnitsPerUnit[suffix]
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+		default:
+			subPerUnit := parserSISubUnitsPerUnit[suffix]
+			amount, scale = parserScaleAmountForSuffix(whole, subPerUnit)
+		}
+	}
+
+	if negative {
+		amount = -amount
+	}
+
+	return amount, scale, ""
+}
+
+// parserScaleAmountForSuffix computes the amount in base sub-units for a given value and suffix,
+// applying Scale when the multiplication would overflow int64.
+// Returns (amount, scale). Duplicated from evaluator to avoid import cycle.
+func parserScaleAmountForSuffix(whole, subPerUnit int64) (amount int64, scale int) {
+	if subPerUnit <= 1 {
+		return whole, 0
+	}
+
+	// Check if whole * subPerUnit fits in int64
+	if whole != 0 {
+		limit := math.MaxInt64 / subPerUnit
+		if whole >= 0 && whole <= limit {
+			return whole * subPerUnit, 0
+		}
+		if whole < 0 && whole >= -limit {
+			return whole * subPerUnit, 0
+		}
+	} else {
+		return 0, 0
+	}
+
+	// Overflow: factor out powers of 10 from subPerUnit into Scale
+	scale = 0
+	reducedSub := subPerUnit
+	for reducedSub > 1 && reducedSub%10 == 0 {
+		reducedSub /= 10
+		scale++
+	}
+
+	// Try with reduced subPerUnit
+	if reducedSub <= 1 {
+		return whole * reducedSub, scale
+	}
+
+	if whole != 0 {
+		limit := int64(9223372036854775807) / reducedSub
+		absWhole := whole
+		if absWhole < 0 {
+			absWhole = -absWhole
+		}
+		if absWhole <= limit {
+			return whole * reducedSub, scale
+		}
+	}
+
+	// Still overflows: factor out from whole as well
+	absWhole := whole
+	if absWhole < 0 {
+		absWhole = -absWhole
+	}
+	for absWhole > int64(9223372036854775807)/reducedSub && whole != 0 {
+		whole /= 10
+		scale++
+		absWhole = whole
+		if absWhole < 0 {
+			absWhole = -absWhole
+		}
+	}
+
+	return whole * reducedSub, scale
 }
 
 // parseMoneyAmountFromString converts a number string to an integer amount in smallest units
@@ -1395,8 +1855,7 @@ func (p *Parser) parseTagPair() ast.Expression {
 		if isVoidElement(tagExpr.Name) {
 			p.addStructuredError("PARSE-0008", openingLine, openingColumn, map[string]any{"Tag": tagExpr.Name})
 		} else {
-			p.addError(fmt.Sprintf("expected closing tag </%s>, got %s",
-				tagExpr.Name, tokenTypeToReadableName(p.curToken.Type)), openingLine, openingColumn)
+			p.addStructuredError("PARSE-0014", openingLine, openingColumn, map[string]any{"Expected": tagExpr.Name, "Got": tokenTypeToReadableName(p.curToken.Type)})
 		}
 		return nil
 	}
@@ -1404,8 +1863,7 @@ func (p *Parser) parseTagPair() ast.Expression {
 	// Validate closing tag matches opening tag
 	closingName := p.curToken.Literal
 	if closingName != tagExpr.Name {
-		p.addError(fmt.Sprintf("mismatched tags: opening <%s> but closing </%s>",
-			tagExpr.Name, closingName), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0015", p.curToken.Line, p.curToken.Column, map[string]any{"Opening": tagExpr.Name, "Closing": closingName})
 		return nil
 	}
 
@@ -2021,7 +2479,7 @@ func (p *Parser) parseNotInExpression(left ast.Expression) ast.Expression {
 
 	// Check if next token is 'in'
 	if !p.peekTokenIs(lexer.IN) {
-		p.addError(fmt.Sprintf("expected 'in' after 'not', got %s", p.peekToken.Type), p.peekToken.Line, p.peekToken.Column)
+		p.addStructuredError("PARSE-0016", p.peekToken.Line, p.peekToken.Column, map[string]any{"Got": p.peekToken.Literal})
 		return nil
 	}
 
@@ -2121,7 +2579,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 		}
 
 		// Not an arrow function, give normal error at comma
-		p.addError(fmt.Sprintf("expected ')', got '%s'", commaPos.Literal), commaPos.Line, commaPos.Column)
+		p.addStructuredError("PARSE-0001", commaPos.Line, commaPos.Column, map[string]any{"Expected": ")", "Got": commaPos.Literal})
 		return nil
 	}
 
@@ -2491,6 +2949,36 @@ func (p *Parser) parseForExpression() ast.Expression {
 
 		expression.Function = p.parseExpression(LOWEST)
 	}
+
+	return expression
+}
+
+func (p *Parser) parseWithExpression() ast.Expression {
+	expression := &ast.WithExpression{Token: p.curToken}
+
+	// Parentheses are optional (like for/if)
+	hasParens := p.peekTokenIs(lexer.LPAREN)
+	if hasParens {
+		p.nextToken() // consume '('
+	}
+	p.nextToken() // move to target expression
+
+	// Parse target expression
+	if hasParens {
+		expression.Target = p.parseExpression(LOWEST)
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	} else {
+		// Without parens, parse until we hit '{'
+		expression.Target = p.parseExpressionUntilBrace()
+	}
+
+	// Require block body
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+	expression.Body = p.parseBlockStatement()
 
 	return expression
 }
@@ -3664,7 +4152,8 @@ func (p *Parser) parseQueryExpression() ast.Expression {
 				p.nextToken() // consume |
 
 				// Check if this is a modifier (order, limit, with)
-				if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+				// Note: 'with' is now a keyword, so check for both IDENT and WITH token types
+				if (p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal)) || p.peekTokenIs(lexer.WITH) {
 					mod := p.parseQueryModifier()
 					if mod != nil {
 						modifiers = append(modifiers, mod)
@@ -4510,7 +4999,8 @@ func (p *Parser) parseQuerySubquery() *ast.QuerySubquery {
 		}
 
 		// Check if this is a modifier or condition
-		if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+		// Note: 'with' is now a keyword, so check for both IDENT and WITH token types
+		if (p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal)) || p.peekTokenIs(lexer.WITH) {
 			mod := p.parseQueryModifier()
 			if mod != nil {
 				subquery.Modifiers = append(subquery.Modifiers, mod)

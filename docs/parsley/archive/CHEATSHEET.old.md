@@ -402,7 +402,7 @@ CSV(@path)       // Parse as CSV
 markdown(@path)        // Markdown with @{...} rendering + frontmatter
 text(@path)      // Plain text (use for HTML files)
 lines(@path)     // Array of lines
-bytes(@path)     // Byte array
+raw(@path)       // Byte array
 SVG(@path)       // SVG (strips prolog)
 dir(@path)       // Directory listing
 ```

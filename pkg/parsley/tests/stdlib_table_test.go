@@ -204,8 +204,8 @@ func TestTableBuiltinProperties(t *testing.T) {
 
 func TestTableConstructor(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
-t = table(data)
+let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+let t = table(data)
 t`
 
 	result := evalTest(t, input)
@@ -263,7 +263,7 @@ func TestTableInvalidInput(t *testing.T) {
 
 func TestTableRows(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{a: 1}, {a: 2}]
+let data = [{a: 1}, {a: 2}]
 table(data).rows`
 
 	result := evalTest(t, input)
@@ -280,7 +280,7 @@ table(data).rows`
 
 func TestTableCount(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{a: 1}, {a: 2}, {a: 3}]
+let data = [{a: 1}, {a: 2}, {a: 3}]
 table(data).count()`
 
 	result := evalTest(t, input)
@@ -297,7 +297,7 @@ table(data).count()`
 
 func TestTableWhere(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}, {name: "Carol", age: 35}]
+let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}, {name: "Carol", age: 35}]
 table(data).where(fn(row) { row.age > 25 }).count()`
 
 	result := evalTest(t, input)
@@ -314,8 +314,8 @@ table(data).where(fn(row) { row.age > 25 }).count()`
 
 func TestTableOrderBy(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
-t = table(data).orderBy("name")
+let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
+let t = table(data).orderBy("name")
 t.rows[0].name`
 
 	result := evalTest(t, input)
@@ -332,8 +332,8 @@ t.rows[0].name`
 
 func TestTableOrderByDesc(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
-t = table(data).orderBy("val", "desc")
+let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
+let t = table(data).orderBy("val", "desc")
 t.rows[0].val`
 
 	result := evalTest(t, input)
@@ -350,8 +350,8 @@ t.rows[0].val`
 
 func TestTableOrderByAsc(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
-t = table(data).orderBy("val", "asc")
+let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
+let t = table(data).orderBy("val", "asc")
 t.rows[0].val`
 
 	result := evalTest(t, input)
@@ -369,9 +369,9 @@ t.rows[0].val`
 func TestTableOrderByDynamic(t *testing.T) {
 	// Test programmatic control of sort direction
 	input := `let {table} = import @std/table
-data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
-sortDir = "desc"
-t = table(data).orderBy("val", sortDir)
+let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
+let sortDir = "desc"
+let t = table(data).orderBy("val", sortDir)
 t.rows[0].val`
 
 	result := evalTest(t, input)
@@ -388,8 +388,8 @@ t.rows[0].val`
 
 func TestTableSelect(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{a: 1, b: 2, c: 3}, {a: 4, b: 5, c: 6}]
-t = table(data).select(["a", "c"])
+let data = [{a: 1, b: 2, c: 3}, {a: 4, b: 5, c: 6}]
+let t = table(data).select(["a", "c"])
 t.rows[0].b`
 
 	result := evalTest(t, input)
@@ -402,7 +402,7 @@ t.rows[0].b`
 
 func TestTableLimit(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
+let data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
 table(data).limit(2).count()`
 
 	result := evalTest(t, input)
@@ -415,8 +415,8 @@ table(data).limit(2).count()`
 
 func TestTableLimitOffset(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
-t = table(data).limit(2, 2)
+let data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
+let t = table(data).limit(2, 2)
 t.rows[0].v`
 
 	result := evalTest(t, input)
@@ -429,7 +429,7 @@ t.rows[0].v`
 
 func TestTableSum(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{val: 10}, {val: 20}, {val: 30}]
+let data = [{val: 10}, {val: 20}, {val: 30}]
 table(data).sum("val")`
 
 	result := evalTest(t, input)
@@ -446,7 +446,7 @@ table(data).sum("val")`
 
 func TestTableAvg(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{val: 10}, {val: 20}, {val: 30}]
+let data = [{val: 10}, {val: 20}, {val: 30}]
 table(data).avg("val")`
 
 	result := evalTest(t, input)
@@ -463,9 +463,9 @@ table(data).avg("val")`
 
 func TestTableMinMax(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{val: 10}, {val: 20}, {val: 5}]
-tbl = table(data)
-minVal = tbl.min("val"); maxVal = tbl.max("val"); [minVal, maxVal]`
+let data = [{val: 10}, {val: 20}, {val: 5}]
+let tbl = table(data)
+let minVal = tbl.min("val"); let maxVal = tbl.max("val"); [minVal, maxVal]`
 
 	result := evalTest(t, input)
 
@@ -483,7 +483,7 @@ minVal = tbl.min("val"); maxVal = tbl.max("val"); [minVal, maxVal]`
 
 func TestTableToHTML(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Alice", age: 30}]
+let data = [{name: "Alice", age: 30}]
 table(data).toHTML()`
 
 	result := evalTest(t, input)
@@ -510,7 +510,7 @@ table(data).toHTML()`
 
 func TestTableToCSV(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 table(data).toCSV()`
 
 	result := evalTest(t, input)
@@ -534,7 +534,7 @@ table(data).toCSV()`
 
 func TestTableCSVEscaping(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{text: "hello, world"}, {text: "has \"quotes\""}]
+let data = [{text: "hello, world"}, {text: "has \"quotes\""}]
 table(data).toCSV()`
 
 	result := evalTest(t, input)
@@ -553,7 +553,7 @@ table(data).toCSV()`
 
 func TestTableChaining(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{name: "Alice", age: 30, active: true}, 
+let data = [{name: "Alice", age: 30, active: true}, 
         {name: "Bob", age: 25, active: true},
         {name: "Carol", age: 35, active: false},
         {name: "Dan", age: 28, active: true}]
@@ -577,10 +577,10 @@ table(data)
 
 func TestTableImmutability(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{val: 1}, {val: 2}, {val: 3}]
-original = table(data)
-filtered = original.where(fn(row) { row.val > 1 })
-origCount = original.count(); filtCount = filtered.count(); [origCount, filtCount]`
+let data = [{val: 1}, {val: 2}, {val: 3}]
+let original = table(data)
+let filtered = original.where(fn(row) { row.val > 1 })
+let origCount = original.count(); let filtCount = filtered.count(); [origCount, filtCount]`
 
 	result := evalTest(t, input)
 
@@ -622,7 +622,7 @@ func TestUnknownStdlibModule(t *testing.T) {
 func TestTableSumWithStringNumbers(t *testing.T) {
 	// Create a table with string values (simulating legacy or mixed data)
 	input := `let {table} = import @std/table
-data = [{val: "10"}, {val: "20"}, {val: "30"}]
+let data = [{val: "10"}, {val: "20"}, {val: "30"}]
 table(data).sum("val")`
 
 	result := evalTest(t, input)
@@ -640,7 +640,7 @@ table(data).sum("val")`
 // TestTableAvgWithStringNumbers tests that avg() coerces string numbers
 func TestTableAvgWithStringNumbers(t *testing.T) {
 	input := `let {table} = import @std/table
-data = [{val: "10"}, {val: "20"}, {val: "30"}]
+let data = [{val: "10"}, {val: "20"}, {val: "30"}]
 table(data).avg("val")`
 
 	result := evalTest(t, input)
@@ -659,7 +659,7 @@ table(data).avg("val")`
 func TestTableMinWithStringNumbers(t *testing.T) {
 	// Without coercion, "5" > "10" lexicographically, so min would wrongly be "10"
 	input := `let {table} = import @std/table
-data = [{val: "5"}, {val: "10"}, {val: "2"}]
+let data = [{val: "5"}, {val: "10"}, {val: "2"}]
 table(data).min("val")`
 
 	result := evalTest(t, input)
@@ -678,7 +678,7 @@ table(data).min("val")`
 func TestTableMaxWithStringNumbers(t *testing.T) {
 	// Without coercion, "9" > "100" lexicographically, so max would wrongly be "9"
 	input := `let {table} = import @std/table
-data = [{val: "9"}, {val: "100"}, {val: "50"}]
+let data = [{val: "9"}, {val: "100"}, {val: "50"}]
 table(data).max("val")`
 
 	result := evalTest(t, input)
@@ -1310,8 +1310,8 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after where",
 			input: `
-				data = table([{x: 1}, {x: 2}, {x: 3}])
-				filtered = data.where(fn(r) { r.x > 1 })
+				let data = table([{x: 1}, {x: 2}, {x: 3}])
+				let filtered = data.where(fn(r) { r.x > 1 })
 				data.length
 			`,
 			expected: 3, // data unchanged
@@ -1319,8 +1319,8 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after orderBy",
 			input: `
-				data = table([{x: 3}, {x: 1}, {x: 2}])
-				sorted = data.orderBy("x")
+				let data = table([{x: 3}, {x: 1}, {x: 2}])
+				let sorted = data.orderBy("x")
 				data.rows[0].x
 			`,
 			expected: 3, // first row should still be x:3
@@ -1328,8 +1328,8 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after select",
 			input: `
-				data = table([{x: 1, y: 2}, {x: 3, y: 4}])
-				projected = data.select(["x"])
+				let data = table([{x: 1, y: 2}, {x: 3, y: 4}])
+				let projected = data.select(["x"])
 				data.columns.length()
 			`,
 			expected: 2, // should still have 2 columns
@@ -1337,8 +1337,8 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "original unchanged after limit",
 			input: `
-				data = table([{x: 1}, {x: 2}, {x: 3}])
-				limited = data.limit(1)
+				let data = table([{x: 1}, {x: 2}, {x: 3}])
+				let limited = data.limit(1)
 				data.length
 			`,
 			expected: 3, // data unchanged
@@ -1346,7 +1346,7 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "chained operations work correctly",
 			input: `
-				data = table([{x: 3, y: "c"}, {x: 1, y: "a"}, {x: 2, y: "b"}])
+				let data = table([{x: 3, y: "c"}, {x: 1, y: "a"}, {x: 2, y: "b"}])
 				data.where(fn(r) { r.x > 1 }).orderBy("x").limit(1).rows[0].x
 			`,
 			expected: 2, // x:2 is the first after filtering x>1 and ordering
@@ -1354,8 +1354,8 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "long chain preserves original",
 			input: `
-				data = table([{x: 1}, {x: 2}, {x: 3}, {x: 4}, {x: 5}])
-				result = data.where(fn(r) { r.x > 1 }).where(fn(r) { r.x < 5 }).orderBy("x").limit(2)
+				let data = table([{x: 1}, {x: 2}, {x: 3}, {x: 4}, {x: 5}])
+				let result = data.where(fn(r) { r.x > 1 }).where(fn(r) { r.x < 5 }).orderBy("x").limit(2)
 				data.length
 			`,
 			expected: 5, // original unchanged
@@ -1363,9 +1363,9 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "two independent chains from same source - original preserved",
 			input: `
-				data = table([{x: 1}, {x: 2}, {x: 3}])
-				a = data.where(fn(r) { r.x == 1 })
-				b = data.where(fn(r) { r.x == 2 })
+				let data = table([{x: 1}, {x: 2}, {x: 3}])
+				let a = data.where(fn(r) { r.x == 1 })
+				let b = data.where(fn(r) { r.x == 2 })
 				data.length
 			`,
 			expected: 3, // original unchanged
@@ -1373,9 +1373,9 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "two independent chains - first chain result",
 			input: `
-				data = table([{x: 1}, {x: 2}, {x: 3}])
-				a = data.where(fn(r) { r.x == 1 })
-				b = data.where(fn(r) { r.x == 2 })
+				let data = table([{x: 1}, {x: 2}, {x: 3}])
+				let a = data.where(fn(r) { r.x == 1 })
+				let b = data.where(fn(r) { r.x == 2 })
 				a.length
 			`,
 			expected: 1, // a has 1 row
@@ -1383,9 +1383,9 @@ func TestTableCopyOnChain(t *testing.T) {
 		{
 			name: "two independent chains - second chain result",
 			input: `
-				data = table([{x: 1}, {x: 2}, {x: 3}])
-				a = data.where(fn(r) { r.x == 1 })
-				b = data.where(fn(r) { r.x == 2 })
+				let data = table([{x: 1}, {x: 2}, {x: 3}])
+				let a = data.where(fn(r) { r.x == 1 })
+				let b = data.where(fn(r) { r.x == 2 })
 				b.length
 			`,
 			expected: 1, // b has 1 row
@@ -1424,9 +1424,9 @@ func TestTableCopyOnChain(t *testing.T) {
 func TestTableCopyOnChainAssignment(t *testing.T) {
 	// Test that data is unchanged
 	input1 := `
-		data = table([{x: 1}, {x: 2}, {x: 3}])
-		filtered = data.where(fn(r) { r.x > 1 })
-		sorted = filtered.orderBy("x", "desc")
+		let data = table([{x: 1}, {x: 2}, {x: 3}])
+		let filtered = data.where(fn(r) { r.x > 1 })
+		let sorted = filtered.orderBy("x", "desc")
 		data.length
 	`
 	result1 := evalTest(t, input1)
@@ -1436,9 +1436,9 @@ func TestTableCopyOnChainAssignment(t *testing.T) {
 
 	// Test that filtered has 2 rows
 	input2 := `
-		data = table([{x: 1}, {x: 2}, {x: 3}])
-		filtered = data.where(fn(r) { r.x > 1 })
-		sorted = filtered.orderBy("x", "desc")
+		let data = table([{x: 1}, {x: 2}, {x: 3}])
+		let filtered = data.where(fn(r) { r.x > 1 })
+		let sorted = filtered.orderBy("x", "desc")
 		filtered.length
 	`
 	result2 := evalTest(t, input2)
@@ -1448,9 +1448,9 @@ func TestTableCopyOnChainAssignment(t *testing.T) {
 
 	// Test that sorted has correct ordering (first row should be x:3)
 	input3 := `
-		data = table([{x: 1}, {x: 2}, {x: 3}])
-		filtered = data.where(fn(r) { r.x > 1 })
-		sorted = filtered.orderBy("x", "desc")
+		let data = table([{x: 1}, {x: 2}, {x: 3}])
+		let filtered = data.where(fn(r) { r.x > 1 })
+		let sorted = filtered.orderBy("x", "desc")
 		sorted.rows[0].x
 	`
 	result3 := evalTest(t, input3)
@@ -1462,12 +1462,12 @@ func TestTableCopyOnChainAssignment(t *testing.T) {
 // TestTableCopyOnChainFunctionArg tests that passing table as argument ends chain
 func TestTableCopyOnChainFunctionArg(t *testing.T) {
 	input := `
-		getLength = fn(tbl) {
+		let getLength = fn(tbl) {
 			tbl.length
 		}
 		
-		data = table([{x: 1}, {x: 2}, {x: 3}])
-		filtered = data.where(fn(r) { r.x > 1 })
+		let data = table([{x: 1}, {x: 2}, {x: 3}])
+		let filtered = data.where(fn(r) { r.x > 1 })
 		
 		// Pass to function - should end chain
 		getLength(filtered)

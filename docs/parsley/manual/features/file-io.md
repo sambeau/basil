@@ -60,7 +60,7 @@ File handles are created by calling a format function with a path. They don't re
 | `PLN(path)` | PLN | any | Parsley Literal Notation |
 | `text(path)` | Plain text | string | Raw text content |
 | `lines(path)` | Lines | array | Array of strings (one per line) |
-| `bytes(path)` | Binary | array | Raw byte array |
+| `raw(path)` | Binary | array | Raw byte array |
 | `MD(path)` | Markdown | string | Rendered HTML from markdown |
 | `markdown(path)` | Markdown | dictionary | `{meta, content}` with frontmatter |
 | `SVG(path)` | SVG | string | SVG content (strips XML prolog) |

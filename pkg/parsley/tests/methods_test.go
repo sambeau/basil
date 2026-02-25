@@ -534,8 +534,8 @@ func TestDatetimeMethods(t *testing.T) {
 		input    string
 		contains string
 	}{
-		// format()
-		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format()`, "December 25, 2024"},
+		// format() - default is now "medium" per FEAT-121 unified formatter API
+		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format()`, "Dec 25, 2024"},
 		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("short")`, "12/25/24"},
 		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", "de-DE")`, "25. Dezember 2024"},
 		{`let d = datetime({year: 2024, month: 12, day: 25}); d.format("long", "fr-FR")`, "25 décembre 2024"},

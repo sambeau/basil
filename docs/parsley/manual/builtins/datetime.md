@@ -23,7 +23,7 @@ christmas.weekday   // "Wednesday"
 meeting.hour        // 14
 
 let countdown = christmas - @today
-countdown.format()  // "in 11 days"
+countdown.fmt()     // "in 11 days"
 ```
 
 ## Literals
@@ -252,40 +252,139 @@ Kind is preserved through arithmetic:
 
 ## Methods
 
+### fmt()
+
+The primary formatting method with multiple overloads.
+
+#### Usage: fmt()
+
+Format with default style (medium) and locale (en-US):
+
+```parsley
+@2024-12-25.fmt()       // "Dec 25, 2024"
+@14:30.fmt()            // "2:30 PM"
+```
+
+#### Usage: fmt(style)
+
+Format with a named style:
+
+```parsley
+let dt = @2024-12-25
+
+dt.fmt("short")         // "12/25/24"
+dt.fmt("medium")        // "Dec 25, 2024"
+dt.fmt("long")          // "December 25, 2024"
+dt.fmt("full")          // "Wednesday, December 25, 2024"
+```
+
+#### Usage: fmt(style, locale)
+
+Format with style and locale:
+
+```parsley
+let dt = @2024-12-25
+
+dt.fmt("long", "de-DE")   // "25. Dezember 2024"
+dt.fmt("long", "fr-FR")   // "25 décembre 2024"
+dt.fmt("full", "de-DE")   // "Mittwoch, 25. Dezember 2024"
+dt.fmt("full", "es-ES")   // "miércoles, 25 de diciembre de 2024"
+```
+
+#### Usage: fmt(options)
+
+Format with an options dictionary:
+
+```parsley
+@2024-12-25.fmt({style: "full"})                    // "Wednesday, December 25, 2024"
+@2024-12-25.fmt({style: "long", locale: "de-DE"})   // "25. Dezember 2024"
+```
+
+### short()
+
+Compact date format:
+
+```parsley
+@2024-12-25.short()           // "12/25/24"
+@2024-12-25T14:30:00.short()  // "12/25/24, 2:30 PM"
+
+// With locale:
+@2024-12-25.short("de-DE")    // "25.12.24"
+```
+
+### medium()
+
+Balanced format (default style):
+
+```parsley
+@2024-12-25.medium()          // "Dec 25, 2024"
+@2024-12-25T14:30:00.medium() // "Dec 25, 2024, 2:30 PM"
+
+// With locale:
+@2024-12-25.medium("de-DE")   // "25. Dez. 2024"
+```
+
+### long()
+
+Verbose format with full month name:
+
+```parsley
+@2024-12-25.long()            // "December 25, 2024"
+@2024-12-25T14:30:00.long()   // "December 25, 2024 at 2:30 PM"
+
+// With locale:
+@2024-12-25.long("de-DE")     // "25. Dezember 2024"
+@2024-12-25.long("fr-FR")     // "25 décembre 2024"
+```
+
+### full()
+
+Maximum context with day of week:
+
+```parsley
+@2024-12-25.full()            // "Wednesday, December 25, 2024"
+@2024-12-25T14:30:00.full()   // "Wednesday, December 25, 2024 at 2:30 PM"
+
+// With locale:
+@2024-12-25.full("de-DE")     // "Mittwoch, 25. Dezember 2024"
+@2024-12-25.full("es-ES")     // "miércoles, 25 de diciembre de 2024"
+```
+
 ### format()
 
-#### Usage: format()
-
-Format the datetime using the default style ("long") and locale ("en-US"):
+Alias for `fmt()`. Retained for backward compatibility:
 
 ```parsley
-@2024-12-25.format()  // "December 25, 2024"
+@2024-12-25.format()          // "Dec 25, 2024"
+@2024-12-25.format("long")    // "December 25, 2024"
+@2024-12-25.format("long", "de-DE")  // "25. Dezember 2024"
 ```
 
-#### Usage: format(style)
+### repr()
 
-Format with a specific style:
+Returns a parseable literal representation:
 
 ```parsley
-let dt = @2024-12-25
-
-dt.format("short")   // "12/25/24"
-dt.format("medium")  // "Dec 25, 2024"
-dt.format("long")    // "December 25, 2024"
-dt.format("full")    // "Wednesday, December 25, 2024"
+@2024-12-25.repr()            // "@2024-12-25"
+@2024-12-25T14:30:00.repr()   // "@2024-12-25T14:30:00Z"
+@14:30.repr()                 // "@14:30"
 ```
 
-#### Usage: format(style, locale)
+### toJSON()
 
-Format with a specific style and locale:
+Returns the JSON representation (ISO 8601 string):
 
 ```parsley
-let dt = @2024-12-25
+@2024-12-25.toJSON()          // "\"2024-12-25T00:00:00Z\""
+```
 
-dt.format("long", "de-DE")  // "25. Dezember 2024"
-dt.format("long", "fr-FR")  // "25 décembre 2024"
-dt.format("long", "ja-JP")  // "2024年12月25日"
-dt.format("full", "es-ES")  // "miércoles, 25 de diciembre de 2024"
+### inspect()
+
+Returns a debug dictionary with type information:
+
+```parsley
+@2024-12-25.inspect()
+// {__type: "datetime", kind: "date", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0}
 ```
 
 ### toDict()
@@ -299,13 +398,18 @@ Returns a clean dictionary for reconstruction (without `__type`):
 
 Useful for serialization or passing datetime data to other systems.
 
-### inspect()
+### toBox()
 
-Returns the full dictionary representation with `__type` for debugging:
+Renders the datetime in a box diagram:
 
 ```parsley
-@2024-12-25.inspect()
-// {__type: "datetime", kind: "date", year: 2024, month: 12, day: 25, ...}
+@2024-12-25.toBox()
+```
+
+```
+┌────────────┐
+│ 2024-12-25 │
+└────────────┘
 ```
 
 ### dayOfYear()
@@ -333,6 +437,15 @@ Returns the Unix timestamp (alias for `.unix`):
 ```parsley
 @2024-12-25T00:00:00.timestamp()  // 1735084800
 ```
+
+## Formatting Styles Summary
+
+| Style | Example Output |
+|-------|----------------|
+| `short` | `"12/25/24"` |
+| `medium` (default) | `"Dec 25, 2024"` |
+| `long` | `"December 25, 2024"` |
+| `full` | `"Wednesday, December 25, 2024"` |
 
 ## Duration Arithmetic
 
@@ -371,7 +484,7 @@ let future = @2025-01-01
 let now = @today
 let remaining = future - now
 
-remaining.format()   // "in 18 days"
+remaining.fmt()      // "in 18 days"
 ```
 
 ## Common Patterns
@@ -397,10 +510,11 @@ let nextMeeting = @today + @1mo      // One month from now
 let event = @2024-12-25T19:00:00
 
 // Different formats for different contexts
-event.date                           // "2024-12-25"
-event.time                           // "19:00"
-event.format("full")                 // "Wednesday, December 25, 2024"
-event.format("long", "de-DE")        // "25. Dezember 2024"
+event.short()                        // "12/25/24, 7:00 PM"
+event.medium()                       // "Dec 25, 2024, 7:00 PM"
+event.long()                         // "December 25, 2024 at 7:00 PM"
+event.full()                         // "Wednesday, December 25, 2024 at 7:00 PM"
+event.long("de-DE")                  // "25. Dezember 2024 um 19:00"
 ```
 
 ### Combine Date and Time
@@ -440,6 +554,6 @@ All datetime values in Parsley are stored in UTC. When parsing datetime strings 
 
 - [Duration](duration.md) — time durations and date arithmetic
 - [Numbers](numbers.md) — numeric types used in date components
-- [Strings](strings.md) — `.format()` for date formatting
+- [Strings](strings.md) — `.fmt()` for date formatting
 - [Types](../fundamentals/types.md) — datetime in the type system
 - [@std/valid](../stdlib/valid.md) — `date()` and `time()` format validators

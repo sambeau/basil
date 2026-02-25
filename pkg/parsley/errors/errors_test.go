@@ -171,7 +171,7 @@ func TestNew_WithCatalog(t *testing.T) {
 				"Got":      "integer",
 			},
 			wantClass:    ClassType,
-			wantContains: "len expected string, got integer",
+			wantContains: "`len` expected string, got integer",
 		},
 		{
 			name: "arity error",
@@ -191,7 +191,7 @@ func TestNew_WithCatalog(t *testing.T) {
 				"Name": "foobar",
 			},
 			wantClass:    ClassUndefined,
-			wantContains: "Identifier not found: foobar",
+			wantContains: "Identifier not found: `foobar`",
 		},
 		{
 			name: "unknown code",
@@ -498,7 +498,7 @@ func TestParsleyKeywords(t *testing.T) {
 	// Verify we have all the expected keywords
 	expected := map[string]bool{
 		"if": true, "else": true, "for": true, "in": true, "fn": true,
-		"let": true, "const": true, "return": true, "true": true, "false": true,
+		"let": true, "var": true, "const": true, "return": true, "true": true, "false": true,
 		"null": true, "and": true, "or": true, "not": true, "import": true,
 		"export": true, "break": true, "continue": true, "switch": true,
 		"case": true, "default": true,

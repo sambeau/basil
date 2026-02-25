@@ -38,16 +38,57 @@ thunk()                          // 99
 
 ## Return Values
 
-The last expression in a block is the return value. Use `return` for early exit:
+The last expression in a block is the return value — no `return` needed:
 
 ```parsley
-let abs = fn(x) {
-    if (x < 0) { return -x }
-    x
+let double = fn(x) {
+    x * 2                        // automatically returned
 }
-abs(-5)                          // 5
-abs(3)                           // 3
 ```
+
+### When to Use `return`
+
+In most Parsley code, **`return` is redundant**. The language is expression-oriented: functions, `if`/`else`, and `for` all produce values naturally. Prefer implicit returns for cleaner code.
+
+**Don't reach for `return`** when:
+- The function body is a single expression
+- You can use `check...else` for guard clauses
+- The last expression is already your result
+
+```parsley
+// ❌ Unnecessary return
+let double = fn(x) { return x * 2 }
+
+// ✅ Implicit return
+let double = fn(x) { x * 2 }
+
+// ❌ Return for guards
+let process = fn(x) {
+    if (!x) { return null }
+    x.value
+}
+
+// ✅ check...else for guards
+let process = fn(x) {
+    check x else null
+    x.value
+}
+```
+
+**Do use `return`** for early exit from inside loops — this is its primary purpose:
+
+```parsley
+let contains = fn(arr, value) {
+    for (item in arr) {
+        if (item == value) {
+            return true          // exits the function, not just the loop
+        }
+    }
+    false
+}
+```
+
+Note that `stop` exits the loop but continues the function; `return` exits the function entirely. When you need to bail out of a loop and return from the enclosing function, `return` is the right tool.
 
 ## Parameter Destructuring
 

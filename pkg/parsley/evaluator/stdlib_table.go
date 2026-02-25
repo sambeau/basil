@@ -417,7 +417,9 @@ func evalStdlibModuleDestructuring(pattern *ast.DictDestructuringPattern, mod *S
 			} else if isLet {
 				env.Set(targetName, value)
 			} else {
-				env.Update(targetName, value)
+				if err := env.Update(targetName, value); isError(err) {
+					return err
+				}
 			}
 		}
 	}

@@ -161,6 +161,17 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		return evalScalarMoneyExpression(tok, operator, float64(left.(*Integer).Value), right.(*Money))
 	case left.Type() == FLOAT_OBJ && right.Type() == MONEY_OBJ:
 		return evalScalarMoneyExpression(tok, operator, left.(*Float).Value, right.(*Money))
+	// Unit operations
+	case left.Type() == UNIT_OBJ && right.Type() == UNIT_OBJ:
+		return evalUnitInfixExpression(tok, operator, left.(*Unit), right.(*Unit))
+	case left.Type() == UNIT_OBJ && right.Type() == INTEGER_OBJ:
+		return evalUnitScalarExpression(tok, operator, left.(*Unit), float64(right.(*Integer).Value))
+	case left.Type() == UNIT_OBJ && right.Type() == FLOAT_OBJ:
+		return evalUnitScalarExpression(tok, operator, left.(*Unit), right.(*Float).Value)
+	case left.Type() == INTEGER_OBJ && right.Type() == UNIT_OBJ:
+		return evalScalarUnitExpression(tok, operator, float64(left.(*Integer).Value), right.(*Unit))
+	case left.Type() == FLOAT_OBJ && right.Type() == UNIT_OBJ:
+		return evalScalarUnitExpression(tok, operator, left.(*Float).Value, right.(*Unit))
 	// String repetition
 	case operator == "*" && left.Type() == STRING_OBJ && right.Type() == INTEGER_OBJ:
 		return evalStringRepetition(left.(*String), right.(*Integer))
@@ -826,6 +837,22 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 	if !ok {
 		if builtin, ok := getBuiltins()[node.Value]; ok {
 			return builtin
+		}
+
+		// Special error for removed print functions
+		if perrors.RemovedPrintFunctions[node.Value] {
+			parsleyErr := perrors.NewRemovedPrintError(node.Value)
+			parsleyErr.Line = node.Token.Line
+			parsleyErr.Column = node.Token.Column
+			return &Error{
+				Message: parsleyErr.Message,
+				Class:   parsleyErr.Class,
+				Code:    parsleyErr.Code,
+				Hints:   parsleyErr.Hints,
+				Line:    parsleyErr.Line,
+				Column:  parsleyErr.Column,
+				File:    env.Filename,
+			}
 		}
 
 		// Special error for @params at module scope

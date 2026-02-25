@@ -31,6 +31,7 @@ const (
 	PATH     // /path/to/file (after @)
 	URL      // https://example.com (after @)
 	MONEY    // $19.99, £50.00, EUR#100.00
+	UNIT     // #12.3m, #3/8in, #92+5/8in
 
 	// Delimiters
 	LBRACE   // {
@@ -84,6 +85,8 @@ func (t TokenType) String() string {
 		return "URL"
 	case MONEY:
 		return "MONEY"
+	case UNIT:
+		return "UNIT"
 	case LBRACE:
 		return "LBRACE"
 	case RBRACE:
@@ -196,6 +199,14 @@ func (l *Lexer) NextToken() Token {
 	case '@':
 		tok = l.readAtToken()
 		return tok
+	case '#':
+		// Unit literal: #12.3m, #3/8in, #92+5/8in
+		if isDigit(l.peekChar()) || l.peekChar() == '-' {
+			tok = l.readUnitLiteral()
+			return tok
+		}
+		tok.Type = ILLEGAL
+		tok.Literal = string(l.ch)
 	case '$':
 		tok = l.readMoneyLiteral()
 		return tok
@@ -764,6 +775,81 @@ func buildMoneyLiteral(currency string, amount int64, scale int8) string {
 		return currency + "#-" + result[len(currency)+1:]
 	}
 	return result
+}
+
+// readUnitLiteral reads a unit literal after the `#` sigil in PLN.
+// Handles: #12.3m, #45oz, #3/8in, #92+5/8in, #-6m, #64KB, #1KiB
+func (l *Lexer) readUnitLiteral() Token {
+	tok := Token{Line: l.line, Column: l.column}
+	start := l.position
+
+	l.readChar() // consume '#'
+
+	// Optional negative sign
+	if l.ch == '-' {
+		l.readChar()
+	}
+
+	if !isDigit(l.ch) {
+		tok.Type = ILLEGAL
+		tok.Literal = "expected digit after '#'"
+		return tok
+	}
+
+	// Read digits
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+
+	if l.ch == '.' && isDigit(l.peekChar()) {
+		// Decimal: #12.3m
+		l.readChar() // consume '.'
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+	} else if l.ch == '/' {
+		// Fraction: #3/8in
+		l.readChar() // consume '/'
+		if !isDigit(l.ch) {
+			tok.Type = ILLEGAL
+			tok.Literal = "expected digit after '/' in unit fraction"
+			return tok
+		}
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+	} else if l.ch == '+' && isDigit(l.peekChar()) {
+		// Mixed number: #92+5/8in
+		l.readChar() // consume '+'
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+		if l.ch == '/' {
+			l.readChar() // consume '/'
+			if !isDigit(l.ch) {
+				tok.Type = ILLEGAL
+				tok.Literal = "expected digit after '/' in unit mixed number"
+				return tok
+			}
+			for isDigit(l.ch) {
+				l.readChar()
+			}
+		}
+	}
+
+	// Read the unit suffix (letters)
+	if !isLetter(l.ch) {
+		tok.Type = ILLEGAL
+		tok.Literal = "missing unit suffix"
+		return tok
+	}
+	for isLetter(l.ch) || isDigit(l.ch) {
+		l.readChar()
+	}
+
+	tok.Type = UNIT
+	tok.Literal = string(l.input[start:l.position])
+	return tok
 }
 
 // Unused but kept for potential future Unicode support

@@ -153,6 +153,108 @@ yen.scale  // 0
 
 ## Methods
 
+### fmt()
+
+The primary formatting method with multiple overloads.
+
+#### Usage: fmt()
+
+Format with default style (medium) and locale (en-US):
+
+```parsley
+$1234.56.fmt()      // "$ 1,234.56"
+```
+
+#### Usage: fmt(precision)
+
+Format with a specific number of decimal places:
+
+```parsley
+$1234.fmt(2)        // "$ 1,234.00"
+```
+
+#### Usage: fmt(style)
+
+Format with a named style:
+
+```parsley
+$1234.56.fmt("short")   // "$1.2K"
+$1234.56.fmt("medium")  // "$ 1,234.56"
+$1234.56.fmt("long")    // "$1,234.56"
+$1234.56.fmt("full")    // "1,234.56 US dollars"
+```
+
+#### Usage: fmt(style, locale)
+
+Format with style and locale:
+
+```parsley
+EUR#1234.56.fmt("medium", "de-DE")  // "1.234,56 €"
+EUR#1234.56.fmt("full", "de-DE")    // "1.234,56 Euro"
+```
+
+#### Usage: fmt(options)
+
+Format with an options dictionary:
+
+```parsley
+$1234.56.fmt({style: "full"})                      // "1,234.56 US dollars"
+$1234.fmt({style: "medium", locale: "de-DE"})      // "1.234,00 $"
+```
+
+### short()
+
+Compact notation for large amounts:
+
+```parsley
+$1234.56.short()        // "$1.2K"
+$1234567.short()        // "$1.2M"
+
+// With locale:
+EUR#1234567.short("de-DE")  // "1,2M €"
+```
+
+### medium()
+
+Standard format with thousand separators (default style):
+
+```parsley
+$1234.56.medium()       // "$ 1,234.56"
+
+// With locale:
+EUR#1234.56.medium("de-DE")  // "1.234,56 €"
+```
+
+### long()
+
+Full precision format with currency symbol:
+
+```parsley
+$1234.56.long()         // "$1,234.56"
+```
+
+### full()
+
+Maximum context with currency name spelled out:
+
+```parsley
+$1234.56.full()         // "1,234.56 US dollars"
+EUR#50.00.full()        // "50.00 euros"
+GBP#99.99.full()        // "99.99 British pounds"
+
+// With locale:
+EUR#1234.56.full("de-DE")   // "1.234,56 Euro"
+```
+
+### format()
+
+Alias for `fmt()`. Retained for backward compatibility:
+
+```parsley
+$1234.56.format()       // "$ 1,234.56"
+$1234.56.format("de-DE")  // Locale-formatted
+```
+
 ### abs()
 
 Returns the absolute value of the Money amount.
@@ -161,27 +263,6 @@ Returns the absolute value of the Money amount.
 let loss = $0.00 - $50.00
 loss       // -$50.00
 loss.abs() // $50.00
-```
-
-### format()
-
-#### Usage: format()
-
-Format the Money value using the default locale (en-US).
-
-```parsley
-let price = $1234.56
-price.format()  // "$1,234.56"
-```
-
-#### Usage: format(locale)
-
-Format the Money value using a specific locale for number formatting.
-
-```parsley
-let price = €1234.56
-price.format("de-DE")  // "1.234,56 €"
-price.format("fr-FR")  // "1 234,56 €"
 ```
 
 ### split()
@@ -213,6 +294,14 @@ Returns a parseable literal representation of the money value:
 $50.00.repr()       // "$50.00"
 EUR#25.50.repr()    // "€25.50"
 JPY#1000.repr()     // "¥1000"
+```
+
+### toJSON()
+
+Returns the JSON representation:
+
+```parsley
+$50.00.toJSON()     // "{\"amount\":50,\"currency\":\"USD\"}"
 ```
 
 ### toDict()
@@ -248,6 +337,29 @@ EUR#25.50.inspect()
 ```
 
 Note: The `amount` in `inspect()` is in the smallest currency unit (cents), while `toDict()` returns a user-friendly decimal amount.
+
+### toBox()
+
+Renders the money value in a box diagram:
+
+```parsley
+$99.99.toBox()
+```
+
+```
+┌────────┐
+│ $99.99 │
+└────────┘
+```
+
+## Formatting Styles Summary
+
+| Style | Example Output |
+|-------|----------------|
+| `short` | `"$1.2K"` |
+| `medium` (default) | `"$ 1,234.56"` |
+| `long` | `"$1,234.56"` |
+| `full` | `"1,234.56 US dollars"` |
 
 ## Currency Scales
 
@@ -297,6 +409,21 @@ let total = usd1 + usd2  // $75.00
 
 // ❌ Error - different currencies
 let mixed = $50.00 + £25.00  // Error!
+```
+
+### Use Style Methods for Display
+
+```parsley
+let price = $1234567.89
+
+// For compact displays (e.g., charts, summaries)
+price.short()           // "$1.2M"
+
+// For standard displays
+price.medium()          // "$ 1,234,567.89"
+
+// For formal documents
+price.full()            // "1,234,567.89 US dollars"
 ```
 
 ## See Also

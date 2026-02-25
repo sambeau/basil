@@ -24,9 +24,9 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-shortVersion = basil.version ~ /v\d+\.\d+\.\d+/
+let shortVersion = basil.version ~ /v\d+\.\d+\.\d+/
 
-subtitle = <>
+let subtitle = <>
 	<i class="fa-solid fa-database"></i>
 	<Sp/>
 	if (!devtools.error && devtools.table_count > 0) {
@@ -36,7 +36,7 @@ subtitle = <>
 	}
 </>
 
-actions = <>
+let actions = <>
 	<a
 		href="#"
 		onclick="window.location.reload()"
@@ -95,7 +95,7 @@ actions = <>
 
 			<div class="table-list">
 				for (t in devtools.tables) {
-					columns = table(t.columns).map(
+					let columns = table(t.columns).map(
 						fn(row) {
 							{
 								Name: row.name,

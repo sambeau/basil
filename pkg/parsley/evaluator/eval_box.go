@@ -860,11 +860,11 @@ func parseBoxOptions(args []Object) (opts BoxOptions, err Object) {
 			case "rounded":
 				opts.Style = BoxStyleRounded
 			default:
-				err = &Error{Message: "toBox: invalid style '" + styleStr.Value + "', must be 'single', 'double', 'ascii', or 'rounded'"}
+				err = newValidationError("BOX-0001", map[string]any{"Style": styleStr.Value})
 				return
 			}
 		} else {
-			err = &Error{Message: "toBox: style option must be a string, got " + string(styleVal.Type())}
+			err = newStructuredError("BOX-0002", map[string]any{"Got": styleVal.Type()})
 			return
 		}
 	}
@@ -874,7 +874,7 @@ func parseBoxOptions(args []Object) (opts BoxOptions, err Object) {
 		if titleStr, ok := titleVal.(*String); ok {
 			opts.Title = titleStr.Value
 		} else {
-			err = &Error{Message: "toBox: title option must be a string, got " + string(titleVal.Type())}
+			err = newStructuredError("BOX-0003", map[string]any{"Got": titleVal.Type()})
 			return
 		}
 	}
@@ -883,12 +883,12 @@ func parseBoxOptions(args []Object) (opts BoxOptions, err Object) {
 	if maxWidthVal := getDictValue(optsDict, "maxWidth"); maxWidthVal != nil && maxWidthVal != NULL {
 		if maxWidthInt, ok := maxWidthVal.(*Integer); ok {
 			if maxWidthInt.Value < 0 {
-				err = &Error{Message: "toBox: maxWidth must be a non-negative integer"}
+				err = newValueError("BOX-0004", nil)
 				return
 			}
 			opts.MaxWidth = int(maxWidthInt.Value)
 		} else {
-			err = &Error{Message: "toBox: maxWidth option must be an integer, got " + string(maxWidthVal.Type())}
+			err = newStructuredError("BOX-0005", map[string]any{"Got": maxWidthVal.Type()})
 			return
 		}
 	}

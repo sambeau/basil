@@ -68,6 +68,9 @@ func main() {
 		case "describe":
 			describeCommand(os.Args[2:])
 			return
+		case "migrate-let-var":
+			migrateCommand(os.Args[2:])
+			return
 		}
 	}
 
@@ -143,6 +146,7 @@ Usage:
 Commands:
   fmt                   Format Parsley source files
   describe <topic>      Show help for a type, builtin, module, or operator
+  migrate-let-var       Migrate files to explicit let/var declarations
 
 Display Options:
   -h, --help            Show this help message
@@ -181,7 +185,7 @@ Examples:
   pars -e "1 + 2"           Evaluate inline code (outputs: 3)
   pars -e "[1, 2, 3]"       Evaluate array (outputs: [1, 2, 3])
   pars -e "[1,2,3]" --raw   Raw output for scripting (outputs: 123)
-  pars -e "@args" foo bar   Evaluate code with arguments
+  pars -e '@args' foo bar   Evaluate code with arguments
   pars -c script.pars       Check syntax without executing
   pars -c *.pars            Check multiple files
   pars fmt script.pars      Format a Parsley file (print to stdout)
@@ -191,6 +195,7 @@ Examples:
   pars describe operators   List all operators
   pars describe @std/math   Show help for a module
   pars describe all --json  Dump complete API schema as JSON
+  pars migrate-let-var src/ Migrate files to let/var syntax
   pars --machine -e '1+2'   Machine-readable JSON output
 
 For more information, visit: https://github.com/sambeau/parsley
@@ -326,7 +331,10 @@ func executeInline(code string, args []string, prettyPrint, raw bool, outputForm
 	} else {
 		// REPL-like behavior (new default)
 		if evaluated.Type() == evaluator.NULL_OBJ {
-			fmt.Println("null")
+			// Suppress "null" if we explicitly wrote to stdout (e.g., ==> text(@stdout))
+			if !env.StdoutWritten {
+				fmt.Println("null")
+			}
 		} else {
 			fmt.Println(evaluator.ObjectToFormattedReprString(evaluated))
 		}
@@ -871,4 +879,61 @@ func showDiff(filename, original, formatted string) {
 			}
 		}
 	}
+}
+
+// migrateCommand handles the 'pars migrate-let-var' subcommand (FEAT-122)
+// This tool migrates Parsley files from optional/mutable let to explicit let/var declarations.
+func migrateCommand(args []string) {
+	migrateFlags := flag.NewFlagSet("migrate-let-var", flag.ExitOnError)
+	writeFlag := migrateFlags.Bool("w", false, "Write result to source file instead of stdout")
+	listFlag := migrateFlags.Bool("l", false, "List files that need migration")
+	recursiveFlag := migrateFlags.Bool("r", false, "Recursively process directories")
+
+	migrateFlags.Usage = func() {
+		fmt.Fprintf(os.Stderr, `pars migrate-let-var - migrate files to explicit let/var declarations
+
+Usage:
+  pars migrate-let-var [options] <file|dir>...
+
+Options:
+  -w    Write result to source file instead of showing diff
+  -l    List files that need migration (don't show changes)
+  -r    Recursively process directories
+
+This tool identifies:
+  - 'let' bindings that are reassigned → converts to 'var'
+  - Implicit declarations (x = 5) → adds 'let' or 'var' as appropriate
+
+Examples:
+  pars migrate-let-var script.pars           Show diff of changes
+  pars migrate-let-var -w script.pars        Apply changes to file
+  pars migrate-let-var -l *.pars             List files that need migration
+  pars migrate-let-var -r ./src              Recursively check directory
+  pars migrate-let-var -r -w ./src           Recursively migrate all files
+`)
+	}
+
+	if err := migrateFlags.Parse(args); err != nil {
+		os.Exit(1)
+	}
+
+	files := migrateFlags.Args()
+	if len(files) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: no files or directories specified")
+		migrateFlags.Usage()
+		os.Exit(1)
+	}
+
+	// TODO: Implement migration logic
+	// For now, print a message indicating the tool is not yet implemented
+	_ = writeFlag
+	_ = listFlag
+	_ = recursiveFlag
+
+	fmt.Fprintln(os.Stderr, "Error: migrate-let-var is not yet implemented")
+	fmt.Fprintln(os.Stderr, "The let/var semantics are enforced, but automatic migration is pending.")
+	fmt.Fprintln(os.Stderr, "Please manually update your files:")
+	fmt.Fprintln(os.Stderr, "  - Use 'let' for immutable bindings")
+	fmt.Fprintln(os.Stderr, "  - Use 'var' for mutable bindings that need reassignment")
+	os.Exit(1)
 }

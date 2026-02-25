@@ -59,23 +59,23 @@ func TestVariableAssignment(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// Basic variable assignments - assignments return null, so access the variable
-		{"x = 5; x", "5"},
-		{"y = 3.14; y", "3.14"},
-		{"name = \"hello\"; name", "hello"},
-		{"flag = true; flag", "true"},
+		// Basic variable declarations - declarations return null, so access the variable
+		{"let x = 5; x", "5"},
+		{"let y = 3.14; y", "3.14"},
+		{"let name = \"hello\"; name", "hello"},
+		{"let flag = true; flag", "true"},
 
-		// Variable assignment with expressions
-		{"x = 2 + 3; x", "5"},
-		{"import @std/math; y = math.sin(0); y", "0"},
-		{"import @std/math; z = math.cos(0); z", "1"},
-		{"import @std/math; pi_val = math.PI; pi_val", "3.141592653589793"},
-		{"import @std/math; area = math.PI * math.pow(5, 2); area", "78.53981633974483"},
+		// Variable declaration with expressions
+		{"let x = 2 + 3; x", "5"},
+		{"import @std/math; let y = math.sin(0); y", "0"},
+		{"import @std/math; let z = math.cos(0); z", "1"},
+		{"import @std/math; let pi_val = math.PI; pi_val", "3.141592653589793"},
+		{"import @std/math; let area = math.PI * math.pow(5, 2); area", "78.53981633974483"},
 
 		// Using variables in expressions
-		{"x = 10; y = x * 2; y", "20"},
-		{"import @std/math; radius = 3; area = math.PI * math.pow(radius, 2); area", "28.274333882308138"},
-		{"import @std/math; a = 3; b = 4; c = math.sqrt(math.pow(a, 2) + math.pow(b, 2)); c", "5"},
+		{"let x = 10; let y = x * 2; y", "20"},
+		{"import @std/math; let radius = 3; let area = math.PI * math.pow(radius, 2); area", "28.274333882308138"},
+		{"import @std/math; let a = 3; let b = 4; let c = math.sqrt(math.pow(a, 2) + math.pow(b, 2)); c", "5"},
 	}
 
 	for _, tt := range tests {
@@ -125,21 +125,21 @@ func TestAdvancedVariableUsage(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// Test variable reassignment - assignments return null, so access variable after
-		{"x = 5; x", "5"},
+		// Test variable reassignment with var - assignments return null, so access variable after
+		{"var x = 5; x", "5"},
 		{"x", "5"},
 		{"x = x * 2; x", "10"},
 		{"x", "10"},
 
 		// Test variables in complex expressions
-		{"a = 3; a", "3"},
-		{"b = 4; b", "4"},
-		{"import @std/math; hypotenuse = math.sqrt(a*a + b*b); hypotenuse", "5"},
+		{"let a = 3; a", "3"},
+		{"let b = 4; b", "4"},
+		{"import @std/math; let hypotenuse = math.sqrt(a*a + b*b); hypotenuse", "5"},
 
 		// Test trigonometric variables
-		{"import @std/math; angle = math.PI / 4; angle", "0.7853981633974483"},
-		{"import @std/math; sin_angle = math.sin(angle); sin_angle", "0.7071067811865475"}, // Updated expected value
-		{"import @std/math; cos_angle = math.cos(angle); cos_angle", "0.7071067811865476"}, // Updated expected value
+		{"import @std/math; var angle = math.PI / 4; angle", "0.7853981633974483"},
+		{"import @std/math; var sin_angle = math.sin(angle); sin_angle", "0.7071067811865475"}, // Updated expected value
+		{"import @std/math; var cos_angle = math.cos(angle); cos_angle", "0.7071067811865476"}, // Updated expected value
 
 		// Test updating trigonometric calculations
 		{"import @std/math; angle = math.PI / 2; angle", "1.5707963267948966"},
@@ -147,10 +147,10 @@ func TestAdvancedVariableUsage(t *testing.T) {
 		{"import @std/math; cos_angle = math.cos(angle); cos_angle", "6.123233995736757e-17"}, // Updated expected value
 
 		// Test variable chains
-		{"base = 2; base", "2"},
-		{"exp = 3; exp", "3"},
-		{"import @std/math; result = math.pow(base, exp); result", "8"},
-		{"doubled = result * 2; doubled", "16"},
+		{"var base = 2; base", "2"},
+		{"var exp = 3; exp", "3"},
+		{"import @std/math; var result = math.pow(base, exp); result", "8"},
+		{"var doubled = result * 2; doubled", "16"},
 	}
 
 	for _, tt := range tests {

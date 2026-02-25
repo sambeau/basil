@@ -376,7 +376,7 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"markdown": {Name: "markdown", Arity: "1-2", Description: "Load markdown file with frontmatter", Params: []string{"path", "options?"}, Category: "file"},
 	"lines":    {Name: "lines", Arity: "1-2", Description: "Load file as array of lines", Params: []string{"source", "options?"}, Category: "file"},
 	"text":     {Name: "text", Arity: "1-2", Description: "Load file as text string", Params: []string{"source", "options?"}, Category: "file"},
-	"bytes":    {Name: "bytes", Arity: "1", Description: "Load file as byte array", Params: []string{"path"}, Category: "file"},
+	"raw":      {Name: "raw", Arity: "1-2", Description: "Load file as raw byte array", Params: []string{"path", "options?"}, Category: "file"},
 	"SVG":      {Name: "SVG", Arity: "1-2", Description: "Load SVG file with optional attributes", Params: []string{"path", "attributes?"}, Category: "file"},
 	"file":     {Name: "file", Arity: "1-2", Description: "Load file with auto-detected format", Params: []string{"path", "options?"}, Category: "file"},
 	"dir":      {Name: "dir", Arity: "1", Description: "List directory contents", Params: []string{"path"}, Category: "file"},
@@ -413,9 +413,6 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"builtins": {Name: "builtins", Arity: "0-1", Description: "List all builtin functions by category", Params: []string{"category?"}, Category: "introspection"},
 
 	// === Output ===
-	"print":   {Name: "print", Arity: "1+", Description: "Print values without newline", Params: []string{"values..."}, Category: "output"},
-	"println": {Name: "println", Arity: "0+", Description: "Print values with newline", Params: []string{"values..."}, Category: "output"},
-	"printf":  {Name: "printf", Arity: "1+", Description: "Print formatted string", Params: []string{"format", "values..."}, Category: "output"},
 	"log":     {Name: "log", Arity: "1+", Description: "Log message", Params: []string{"values..."}, Category: "output"},
 	"logLine": {Name: "logLine", Arity: "1+", Description: "Log message with newline", Params: []string{"values..."}, Category: "output"},
 

@@ -145,7 +145,7 @@ func TestDescribeSpecialTopics(t *testing.T) {
 			found[b.Name] = true
 		}
 
-		expected := []string{"JSON", "CSV", "print", "fail"}
+		expected := []string{"JSON", "CSV", "log", "fail"}
 		for _, name := range expected {
 			if !found[name] {
 				t.Errorf("expected builtin %q to be in list", name)
@@ -221,7 +221,7 @@ func TestDescribeBuiltinByName(t *testing.T) {
 		{"CSV", "CSV", "file"},
 		{"now", "now", "time"},
 		{"fail", "fail", "control"},
-		{"print", "print", "output"},
+		{"log", "log", "output"},
 		{"toInt", "toInt", "conversion"},
 	}
 

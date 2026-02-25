@@ -15,8 +15,8 @@
 //   .go_version (String)     - Go runtime version
 //   .route_count (Integer)   - Number of configured routes
 
-rows = devtools.row_count + " " + if (devtools.row_count == 1) "row" else "rows"
-actions = <>
+let rows = devtools.row_count + " " + if (devtools.row_count == 1) "row" else "rows"
+let actions = <>
 	<a
 		href="#"
 		onclick="window.location.reload()"

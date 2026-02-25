@@ -74,9 +74,9 @@ export greet = fn(name) { name }
 			expectedOutput: "World",
 		},
 		{
-			name: "bare assignment not exported",
+			name: "let without export not exported",
 			moduleCode: `
-add = fn(a, b) { a + b }
+let add = fn(a, b) { a + b }
 export greet = fn(name) { name }
 `,
 			mainCode:       `let mod = import @%s; mod.greet("World")`,
@@ -255,8 +255,8 @@ func TestExportStatementString(t *testing.T) {
 	}
 }
 
-// TestBareAssignmentNotExported tests that bare assignments are NOT exported
-func TestBareAssignmentNotExported(t *testing.T) {
+// TestLetWithoutExportNotExported tests that let bindings without export are NOT exported
+func TestLetWithoutExportNotExported(t *testing.T) {
 	// Create a temporary directory for module files
 	tmpDir, err := os.MkdirTemp("", "parsley-bare-test")
 	if err != nil {
@@ -264,9 +264,9 @@ func TestBareAssignmentNotExported(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Module with only bare assignment (no let or export)
+	// Module with only let binding (no export)
 	moduleCode := `
-internal = fn(a, b) { a + b }
+let internal = fn(a, b) { a + b }
 `
 	moduleFile := filepath.Join(tmpDir, "bare.pars")
 	err = os.WriteFile(moduleFile, []byte(moduleCode), 0644)
@@ -308,7 +308,7 @@ func TestModuleErrorReporting(t *testing.T) {
 			moduleCode:   "let x = unknownVar",
 			mainCode:     `let mod = import @%s`,
 			expectError:  true,
-			errorContain: "identifier not found: unknownVar",
+			errorContain: "Identifier not found: `unknownVar`",
 		},
 		{
 			name:         "error includes module path",
@@ -410,16 +410,16 @@ export Birthday
 			expectedOutput: "Birthday",
 		},
 		{
-			name: "bare export of variable",
+			name: "bare export of let variable",
 			moduleCode: `
-PI = 3.14159
+let PI = 3.14159
 export PI
 `,
 			mainCode:       `let mod = import @%s; mod.PI`,
 			expectedOutput: "3.14159",
 		},
 		{
-			name: "bare export of let variable",
+			name: "bare export of let variable VERSION",
 			moduleCode: `
 let VERSION = "1.0.0"
 export VERSION

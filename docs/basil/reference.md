@@ -635,10 +635,10 @@ let arr <== handle              // Array of strings
 
 **Write Accepts:** `Array` of `String` (joined with newlines)
 
-### 4.6 bytes
+### 4.6 raw
 
 ```parsley
-let handle = bytes(@./binary.dat)
+let handle = raw(@./binary.dat)
 let data <== handle             // Array of integers (0-255)
 ```
 

@@ -399,7 +399,7 @@ func TestCheckExitPropagation(t *testing.T) {
 		},
 		{
 			name:     "check exit propagates through assignment",
-			input:    `let test = fn() { let result = ""; result = if(true) { check false else "early"; "late" }; result }; test()`,
+			input:    `let test = fn() { var result = ""; result = if(true) { check false else "early"; "late" }; result }; test()`,
 			expected: "early",
 		},
 		{

@@ -1,11 +1,15 @@
 let Logo = fn({width, height}) {
-	if (width and not height) {height = width * (68/113)}
-	else
-	if (height and not width) {width = height * (113/68)}
+	// Compute actual dimensions based on aspect ratio (113:68)
+	let w = if (width and not height) { width }
+	        else if (height and not width) { height * (113/68) }
+	        else { width ?? 68 }
+	let h = if (height and not width) { height }
+	        else if (width and not height) { width * (68/113) }
+	        else { height ?? 113 }
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
-		width={width ?? 68}
-		height={height ?? 113}
+		width={w}
+		height={h}
 		viewBox="0 0 68 113"
 	>
 		<defs>
@@ -23,7 +27,7 @@ let Logo = fn({width, height}) {
 	</svg>
 }
 
-// 
+//
 // Credit to add to thanks page somewhere.
 // leaf by Studio Danro from <a href="https://thenounproject.com/browse/icons/term/leaf/" target="_blank" title="leaf Icons">Noun Project</a> (CC BY 3.0)
 //

@@ -14,9 +14,16 @@ toArray(d)
 let pairs = [["x", 10], ["y", 20]]
 toDict(pairs)
 
-// --- 7.2 Output ---
-print("hello")
-println(" world")
+// --- 7.2 Output (Debugging) ---
+// Use log() for debugging output to console
+// log("debug message")
+// logLine("debug with file:line info")
+
+// For template output, use expression-based style:
+// Values are returned, not printed
+"hello"          // outputs: hello
+42               // outputs: 42
+<div>"content"</div>  // outputs: <div>content</div>
 
 // --- 7.3 Introspection ---
 describe(42)

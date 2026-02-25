@@ -28,7 +28,7 @@ func TestXMLComments(t *testing.T) {
 		},
 		{
 			name: "comment with newlines",
-			input: `<div><!-- 
+			input: `<div><!--
 multiline
 comment
 -->"content"</div>`,
@@ -180,7 +180,7 @@ func TestRawTextTags(t *testing.T) {
 		},
 		{
 			name:     "interpolation with @{} in style",
-			input:    `color = "blue"; <style>.class { color: @{color}; }</style>`,
+			input:    `let color = "blue"; <style>.class { color: @{color}; }</style>`,
 			expected: `<style>.class { color: blue; }</style>`,
 		},
 		{
@@ -195,12 +195,12 @@ func TestRawTextTags(t *testing.T) {
 		},
 		{
 			name:     "script with @{} interpolation",
-			input:    `value = 100; <script>var x = @{value};</script>`,
+			input:    `let value = 100; <script>var x = @{value};</script>`,
 			expected: `<script>var x = 100;</script>`,
 		},
 		{
 			name:     "complex CSS with interpolation",
-			input:    `primary = "#007bff"; <style>.btn { background: @{primary}; padding: 10px; }</style>`,
+			input:    `let primary = "#007bff"; <style>.btn { background: @{primary}; padding: 10px; }</style>`,
 			expected: `<style>.btn { background: #007bff; padding: 10px; }</style>`,
 		},
 	}

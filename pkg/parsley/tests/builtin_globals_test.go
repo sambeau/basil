@@ -202,7 +202,7 @@ func TestBuiltinEnvIteration(t *testing.T) {
 		},
 		{
 			name:  "count @env variables",
-			input: `let count = 0; for(k,v in @env){ count = count + 1; null }; count`,
+			input: `var count = 0; for(k,v in @env){ count = count + 1; null }; count`,
 			validate: func(t *testing.T, result evaluator.Object) {
 				// The result will be an array containing the count
 				arr, ok := result.(*evaluator.Array)

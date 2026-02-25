@@ -139,7 +139,7 @@ func TestDictionarySpreadErrors(t *testing.T) {
 				let notDict = "string"
 				<input ...notDict/>
 			`,
-			errorMsg: "requires a dictionary",
+			errorMsg: "only dictionaries can be spread",
 		},
 		{
 			name: "spread undefined variable",
@@ -188,9 +188,9 @@ func TestDictionarySpreadWithComponents(t *testing.T) {
 					let {name, label, ...inputAttrs} = props
 					<input name={name} type="text" ...inputAttrs/>
 				}
-				
-				<TextField 
-					name="email" 
+
+				<TextField
+					name="email"
 					label="Email"
 					placeholder="you@example.com"
 					required={true}
@@ -206,10 +206,10 @@ func TestDictionarySpreadWithComponents(t *testing.T) {
 					let {text, ...attrs} = props
 					<button ...attrs>text</button>
 				}
-				
-				<Button 
-					text="Click" 
-					disabled={false} 
+
+				<Button
+					text="Click"
+					disabled={false}
 					class="btn"
 				/>
 			`,

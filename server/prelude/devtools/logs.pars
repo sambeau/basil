@@ -27,7 +27,7 @@ let Hr = <><div style="border:0.5px solid rgba(255,255,255,0.125); margin-bottom
 
 let {log_count, logs, route} = devtools
 
-actions = <>
+let actions = <>
 	<a
 		href="#"
 		onclick="toggleLiveRefresh(event)"
@@ -69,7 +69,7 @@ actions = <>
 	<div class="scroll">
 		if (log_count == 0) { <section class="box"><p>"No logs."</p></section> } else {
 			for (i, log in logs) {
-				{level, filename, line, timestamp, call, value} = log
+				let {level, filename, line, timestamp, call, value} = log
 				let when = (datetime(timestamp) - @now).format()
 				<section class="box log-entry">
 					<div class="grid">
@@ -81,7 +81,7 @@ actions = <>
 							<i class="fa-solid fa-angles-right" style="color:grey"></i>
 							<Sp/>
 							if (line > 0) line else "⚠️"
-						</div>	
+						</div>
 						<div style="text-align:right">
 							<small data-tooltip={timestamp} style="border-bottom:none">
 								<i class="fa-regular fa-clock" style="color:grey"></i>

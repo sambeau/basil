@@ -67,7 +67,7 @@ This document proposes cleanup of the Parsley global namespace by:
 | `CSV(path)`         | Table         | Read and parse CSV file as table |
 | `lines(path)`       | Array[String] | Read file as array of lines      |
 | `text(path)`        | String        | Read file as text                |
-| `bytes(path)`       | Bytes         | Read file as bytes               |
+| `raw(path)`         | Bytes         | Read file as bytes               |
 | `SVG(path)`         | SVG           | Read SVG file                    |
 | `markdown(path)`    | String        | Read Markdown file               |
 
@@ -116,7 +116,7 @@ After testing various naming patterns, settled on these final names:
 | `MD()`                                 | `markdown()` | Full name is clearer than abbreviation              |
 | `lines()` / `linesFile()`              | `lines()`    | Simple, clear                                       |
 | `text()` / `textFile()`                | `text()`     | Simple, clear                                       |
-| `bytes()` / `bytesFile()`              | `bytes()`    | Simple, clear                                       |
+| `bytes()` / `bytesFile()`              | `raw()`      | Renamed to free `bytes()` for unit constructor (FEAT-119) |
 
 **Note:** These names are very similar to the original builtins (except `markdown`), but are the clearest of many variations tested. They're consistent with method names like `.toJSON()` and `.toCSV()`.
 
@@ -220,7 +220,7 @@ These should become methods on their respective types, not separate modules.
 | `CSV()`      | Keep global | Reading CSV data as tables      |
 | `lines()`    | Keep global | Reading line-based data         |
 | `text()`     | Keep global | Reading text content            |
-| `bytes()`    | Keep global | Reading binary data             |
+| `raw()`      | Keep global | Reading binary data             |
 | `SVG()`      | Keep global | Reading SVG graphics            |
 | `markdown()` | Keep global | Reading Markdown content        |
 

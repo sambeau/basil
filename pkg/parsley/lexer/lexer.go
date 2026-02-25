@@ -53,6 +53,7 @@ const (
 	URL_TEMPLATE      // @(https://api.com/{expr}/path)
 	DATETIME_TEMPLATE // @(2024-{month}-{day}T{hour}:00:00)
 	MONEY             // $12.34, £99.99, EUR#50.00
+	UNIT              // #12.3m, #3/8in, #92+5/8in
 	TAG               // <tag prop="value" />
 	TAG_START         // <tag> or <tag attr="value">
 	TAG_END           // </tag>
@@ -124,6 +125,8 @@ const (
 	// Keywords
 	FUNCTION // "fn"
 	LET      // "let"
+	VAR      // "var"
+	CONST    // "const" (reserved, suggests using 'let')
 	FOR      // "for"
 	IN       // "in"
 	AS       // "as"
@@ -141,6 +144,7 @@ const (
 	VIA      // "via" (for schema relations)
 	IS       // "is" (for schema checking)
 	COMPUTED // "computed" (for computed exports)
+	WITH     // "with" (for scoped field access)
 )
 
 // Token represents a single token
@@ -225,6 +229,8 @@ func (tt TokenType) String() string {
 		return "DATETIME_TEMPLATE"
 	case MONEY:
 		return "MONEY"
+	case UNIT:
+		return "UNIT"
 	case TAG:
 		return "TAG"
 	case TAG_START:
@@ -339,6 +345,10 @@ func (tt TokenType) String() string {
 		return "FUNCTION"
 	case LET:
 		return "LET"
+	case VAR:
+		return "VAR"
+	case CONST:
+		return "CONST"
 	case FOR:
 		return "FOR"
 	case IN:
@@ -373,6 +383,8 @@ func (tt TokenType) String() string {
 		return "IS"
 	case COMPUTED:
 		return "COMPUTED"
+	case WITH:
+		return "WITH"
 	case SCHEMA_LITERAL:
 		return "SCHEMA_LITERAL"
 	case TABLE_LITERAL:
@@ -397,6 +409,8 @@ var keywords = map[string]TokenType{
 	"fn":       FUNCTION,
 	"function": FUNCTION, // alias for JS familiarity
 	"let":      LET,
+	"var":      VAR,
+	"const":    CONST, // reserved keyword - suggests using 'let' instead
 	"for":      FOR,
 	"in":       IN,
 	"as":       AS,
@@ -417,6 +431,7 @@ var keywords = map[string]TokenType{
 	"via":      VIA,
 	"is":       IS,
 	"computed": COMPUTED,
+	"with":     WITH,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -1170,6 +1185,20 @@ func (l *Lexer) NextToken() Token {
 		tok.Column = column
 		l.lastTokenType = tok.Type
 		return l.attachPendingTrivia(tok)
+	case '#':
+		// Unit literal: #12.3m, #3/8in, #92+5/8in, #-6m
+		// Disambiguate from Money CODE# — Money is handled by isCurrencyCodeStart
+		// which matches uppercase letters followed by #
+		if isDigit(l.peekChar()) || l.peekChar() == '-' {
+			line := l.line
+			column := l.column
+			tok = l.readUnitLiteral()
+			tok.Line = line
+			tok.Column = column
+			l.lastTokenType = tok.Type
+			return l.attachPendingTrivia(tok)
+		}
+		tok = newToken(ILLEGAL, l.ch, l.line, l.column)
 	case '$':
 		// Could be $, CA$, AU$, HK$, S$ followed by a number
 		line := l.line
@@ -1594,6 +1623,224 @@ func buildMoneyLiteral(currency string, amount int64, scale int8) string {
 // readString reads a string literal with escape sequence support.
 // Returns the string content and whether it was terminated properly.
 // Strings cannot span multiple lines (use template literals for that).
+// readUnitLiteral reads a unit literal after the `#` sigil.
+// Handles: #12.3m, #45oz, #3/8in, #92+5/8in, #-6m, #64KB, #1KiB
+func (l *Lexer) readUnitLiteral() Token {
+	// We're on '#', consume it
+	l.readChar()
+
+	// Handle optional negative sign
+	negative := false
+	if l.ch == '-' {
+		negative = true
+		l.readChar()
+	}
+
+	if !isDigit(l.ch) {
+		return Token{Type: ILLEGAL, Literal: "expected digit after '#'"}
+	}
+
+	// Read the whole-number part
+	wholeStart := l.position
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+	wholePart := l.input[wholeStart:l.position]
+
+	var literal string
+
+	if l.ch == '.' && isDigit(l.peekChar()) {
+		// Decimal literal: #12.3m
+		l.readChar() // consume '.'
+		fracStart := l.position
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+		fracPart := l.input[fracStart:l.position]
+		if negative {
+			literal = "#-" + wholePart + "." + fracPart
+		} else {
+			literal = "#" + wholePart + "." + fracPart
+		}
+	} else if l.ch == '/' {
+		// Fraction literal: #3/8in
+		l.readChar() // consume '/'
+		if !isDigit(l.ch) {
+			return Token{Type: ILLEGAL, Literal: "expected digit after '/' in unit fraction"}
+		}
+		denomStart := l.position
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+		denomPart := l.input[denomStart:l.position]
+		if negative {
+			literal = "#-" + wholePart + "/" + denomPart
+		} else {
+			literal = "#" + wholePart + "/" + denomPart
+		}
+	} else if l.ch == '+' && isDigit(l.peekChar()) {
+		// Could be mixed number: #92+5/8in
+		// Save state in case '+' is not part of the literal
+		savedPos := l.position
+		savedReadPos := l.readPosition
+		savedCh := l.ch
+		savedChRune := l.chRune
+		savedChSize := l.chSize
+		savedLine := l.line
+		savedCol := l.column
+
+		l.readChar() // consume '+'
+		numStart := l.position
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+		numPart := l.input[numStart:l.position]
+
+		if l.ch == '/' {
+			l.readChar() // consume '/'
+			if isDigit(l.ch) {
+				denomStart := l.position
+				for isDigit(l.ch) {
+					l.readChar()
+				}
+				denomPart := l.input[denomStart:l.position]
+				// Valid mixed number
+				if negative {
+					literal = "#-" + wholePart + "+" + numPart + "/" + denomPart
+				} else {
+					literal = "#" + wholePart + "+" + numPart + "/" + denomPart
+				}
+			} else {
+				// Not a valid mixed number, restore state
+				l.position = savedPos
+				l.readPosition = savedReadPos
+				l.ch = savedCh
+				l.chRune = savedChRune
+				l.chSize = savedChSize
+				l.line = savedLine
+				l.column = savedCol
+				if negative {
+					literal = "#-" + wholePart
+				} else {
+					literal = "#" + wholePart
+				}
+			}
+		} else {
+			// Not a fraction after +, restore state
+			l.position = savedPos
+			l.readPosition = savedReadPos
+			l.ch = savedCh
+			l.chRune = savedChRune
+			l.chSize = savedChSize
+			l.line = savedLine
+			l.column = savedCol
+			if negative {
+				literal = "#-" + wholePart
+			} else {
+				literal = "#" + wholePart
+			}
+		}
+	} else {
+		// Plain integer: #45oz
+		if negative {
+			literal = "#-" + wholePart
+		} else {
+			literal = "#" + wholePart
+		}
+	}
+
+	// Now read the unit suffix using longest match
+	suffix := l.readUnitSuffix()
+	if suffix == "" {
+		return Token{Type: ILLEGAL, Literal: fmt.Sprintf("missing unit suffix in '%s'", literal)}
+	}
+
+	literal += suffix
+
+	return Token{Type: UNIT, Literal: literal}
+}
+
+// readUnitSuffix reads the longest-matching unit suffix at the current position.
+// Returns the suffix string or "" if no valid suffix is found.
+func (l *Lexer) readUnitSuffix() string {
+	// Collect candidate characters (letters and digits for suffixes like "KiB", "m2", "km")
+	start := l.position
+	for isLetter(l.ch) || isDigit(l.ch) {
+		l.readChar()
+	}
+	candidate := l.input[start:l.position]
+
+	// Try longest match first, then shorter prefixes
+	for length := len(candidate); length > 0; length-- {
+		prefix := candidate[:length]
+		if isValidUnitSuffix(prefix) {
+			// Restore position to just after the matched suffix
+			overshoot := len(candidate) - length
+			if overshoot > 0 {
+				l.position -= overshoot
+				l.readPosition = l.position + 1
+				if l.position < len(l.input) {
+					l.ch = l.input[l.position]
+					l.chRune = rune(l.ch)
+					l.chSize = 1
+				}
+			}
+			return prefix
+		}
+	}
+
+	// No valid suffix found — restore position
+	l.position = start
+	l.readPosition = start + 1
+	if start < len(l.input) {
+		l.ch = l.input[start]
+		l.chRune = rune(l.ch)
+		l.chSize = 1
+	}
+	return ""
+}
+
+// isValidUnitSuffix checks whether a string is a recognized unit suffix.
+func isValidUnitSuffix(s string) bool {
+	switch s {
+	// Length — SI
+	case "mm", "cm", "m", "km":
+		return true
+	// Length — US
+	case "in", "ft", "yd", "mi":
+		return true
+	// Mass — SI
+	case "mg", "g", "kg":
+		return true
+	// Mass — US
+	case "oz", "lb":
+		return true
+	// Digital information — decimal
+	case "B", "kB", "MB", "GB", "TB":
+		return true
+	// Digital information — binary
+	case "KiB", "MiB", "GiB", "TiB":
+		return true
+	// Temperature
+	case "K", "C", "F":
+		return true
+	// Volume — SI
+	case "mL", "L", "kL":
+		return true
+	// Volume — US
+	case "floz", "cup", "pt", "qt", "gal":
+		return true
+	// Area — SI
+	case "mm2", "cm2", "m2", "km2":
+		return true
+	// Area — US
+	case "in2", "ft2", "yd2", "ac", "mi2":
+		return true
+	default:
+		return false
+	}
+}
+
 func (l *Lexer) readString() (string, bool) {
 	var result []byte
 	l.readChar() // skip opening quote

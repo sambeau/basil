@@ -428,8 +428,8 @@ func TestTextHelpersInTemplate(t *testing.T) {
 		{
 			name: "highlight in template",
 			input: `
-query = "search"
-text = "Search results for your search query"
+let query = "search"
+let text = "Search results for your search query"
 <span>text.highlight(query)</span>
 `,
 			expected: "<span><mark>Search</mark> results for your <mark>search</mark> query</span>",
@@ -437,7 +437,7 @@ text = "Search results for your search query"
 		{
 			name: "paragraphs in template",
 			input: `
-bio = "First line.\n\nSecond paragraph."
+let bio = "First line.\n\nSecond paragraph."
 <div class="bio">bio.paragraphs()</div>
 `,
 			expected: `<div class="bio"><p>First line.</p><p>Second paragraph.</p></div>`,
@@ -445,7 +445,7 @@ bio = "First line.\n\nSecond paragraph."
 		{
 			name: "humanize in template",
 			input: `
-count = 1500000
+let count = 1500000
 <span>count.humanize() " views"</span>
 `,
 			expected: "<span>1.5M views</span>",

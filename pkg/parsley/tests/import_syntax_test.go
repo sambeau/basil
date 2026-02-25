@@ -86,17 +86,17 @@ func TestImportDestructuring(t *testing.T) {
 	}{
 		{
 			name:     "destructure single export",
-			input:    `{floor} = import @std/math; floor(3.9)`,
+			input:    `let {floor} = import @std/math; floor(3.9)`,
 			expected: int64(3),
 		},
 		{
 			name:     "destructure multiple exports",
-			input:    `{floor, ceil} = import @std/math; floor(3.2) + ceil(3.2)`,
+			input:    `let {floor, ceil} = import @std/math; floor(3.2) + ceil(3.2)`,
 			expected: int64(7),
 		},
 		{
 			name:     "destructure with rename",
-			input:    `{floor as f} = import @std/math; f(9.9)`,
+			input:    `let {floor as f} = import @std/math; f(9.9)`,
 			expected: int64(9),
 		},
 	}
@@ -153,8 +153,8 @@ func TestDestructuringImportDoesNotShadow(t *testing.T) {
 			expected: "my math",
 		},
 		{
-			name:     "bare destructure does not bind path name",
-			input:    `{floor} = import @std/math; let math = "my math"; math`,
+			name:     "let destructure does not bind path name 2",
+			input:    `let {floor} = import @std/math; let math = "my math"; math`,
 			expected: "my math",
 		},
 		{
@@ -213,8 +213,8 @@ func TestDestructuringImportPathNameNotBound(t *testing.T) {
 			input: `let {floor} = import @std/math; math`,
 		},
 		{
-			name:  "path name not bound after bare destructure",
-			input: `{floor} = import @std/math; math`,
+			name:  "path name not bound after let destructure 2",
+			input: `let {floor} = import @std/math; math`,
 		},
 	}
 
@@ -336,17 +336,17 @@ func TestImportErrorPositions(t *testing.T) {
 	}{
 		{
 			name:       "missing export shows position",
-			input:      "{nonexistent} = import @std/math",
+			input:      "let {nonexistent} = import @std/math",
 			wantError:  "Module does not export 'nonexistent'",
 			wantLine:   1,
-			wantColumn: 2, // position of 'nonexistent' in the pattern
+			wantColumn: 6, // position of 'nonexistent' in the pattern (after 'let {')
 		},
 		{
 			name:       "missing export on line 2",
-			input:      "let x = 1\n{badexport} = import @std/math",
+			input:      "let x = 1\nlet {badexport} = import @std/math",
 			wantError:  "Module does not export 'badexport'",
 			wantLine:   2,
-			wantColumn: 2,
+			wantColumn: 6,
 		},
 	}
 
@@ -399,17 +399,17 @@ func TestDestructuringTypeErrorPosition(t *testing.T) {
 	}{
 		{
 			name:       "destructure string shows position",
-			input:      `{x} = "not a dict"`,
+			input:      `let {x} = "not a dict"`,
 			wantError:  "Destructuring requires a dictionary or record, got string",
 			wantLine:   1,
-			wantColumn: 1, // position of '{' token
+			wantColumn: 5, // position of '{' token after 'let '
 		},
 		{
 			name:       "destructure on line 2",
-			input:      "let s = \"hello\"\n{x} = s",
+			input:      "let s = \"hello\"\nlet {x} = s",
 			wantError:  "Destructuring requires a dictionary or record, got string",
 			wantLine:   2,
-			wantColumn: 1,
+			wantColumn: 5,
 		},
 	}
 

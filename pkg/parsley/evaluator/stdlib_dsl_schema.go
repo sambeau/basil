@@ -48,6 +48,7 @@ type DSLSchemaField struct {
 	Pattern        *regexp.Regexp    // compiled regex pattern for string validation
 	PatternSource  string            // original pattern string (for HTML form attribute)
 	Metadata       map[string]Object // metadata from pipe syntax: {title: "...", ...}
+	UnitConstraint string            // for unit types: family name ("mass", "length") or specific suffix ("kg", "cm")
 }
 
 // DSLSchemaRelation represents a relation in a DSL schema
@@ -380,14 +381,28 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 				typeName = "ulid"
 			}
 
+			// Check for unit family types (mass, length, data, temperature, volume, area)
+			unitConstraint := ""
+			resolvedType := typeName
+			lowerType := strings.ToLower(typeName)
+			if isUnitFamilyType(lowerType) {
+				resolvedType = "unit"
+				unitConstraint = lowerType
+			} else if lowerType == "unit" {
+				// unit type with optional suffix constraint via type options
+				resolvedType = "unit"
+				// unitConstraint will be set from type options below
+			}
+
 			// This is a regular field
 			dslField := &DSLSchemaField{
 				Name:           field.Name.Value,
-				Type:           typeName,
+				Type:           resolvedType,
 				Nullable:       field.Nullable,
 				ValidationType: getValidationType(typeName),
 				EnumValues:     field.EnumValues,
 				Primary:        field.Name.Value == "id", // Convention: "id" field is primary key
+				UnitConstraint: unitConstraint,
 			}
 
 			// Evaluate default value if present
@@ -491,6 +506,16 @@ func evalSchemaDeclaration(node *ast.SchemaDeclaration, env *Environment) Object
 						// default value from type options: type(default: value)
 						dslField.DefaultValue = val
 						dslField.DefaultExpr = valExpr.String()
+					case "suffix":
+						// unit(suffix: "kg") - specific unit suffix constraint
+						if strVal, ok := val.(*String); ok {
+							dslField.UnitConstraint = strVal.Value
+						}
+					case "family":
+						// unit(family: "mass") - unit family constraint
+						if strVal, ok := val.(*String); ok {
+							dslField.UnitConstraint = strVal.Value
+						}
 					}
 				}
 			}
@@ -562,6 +587,16 @@ func getValidationType(typeName string) string {
 func isStringType(typeName string) bool {
 	switch strings.ToLower(typeName) {
 	case "string", "text", "email", "url", "phone", "slug":
+		return true
+	default:
+		return false
+	}
+}
+
+// isUnitFamilyType returns true if the type is a unit family name
+func isUnitFamilyType(typeName string) bool {
+	switch typeName {
+	case "mass", "length", "data", "temperature", "volume", "area":
 		return true
 	default:
 		return false

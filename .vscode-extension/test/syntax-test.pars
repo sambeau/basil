@@ -246,9 +246,6 @@ let extract = fn({key, ...others}) { others }
 // import @std/math
 // log("Hello")
 // logLine("Line")
-// print("Printing")
-// println("Print line")
-// printf("Formatted: {}", x)
 
 let num = toInt("42")
 let str = toString(42)
@@ -264,7 +261,7 @@ let debugVal = toDebug(x)
 // let csvFile = CSV(@./data.csv)
 // let textFile = text(@./readme.txt)
 // let linesArr = lines(@./list.txt)
-// let binary = bytes(@./image.png)
+// let binary = raw(@./image.png)
 // let svgContent = SVG(@./icon.svg)
 // let mdContent = MD(@./doc.md)
 

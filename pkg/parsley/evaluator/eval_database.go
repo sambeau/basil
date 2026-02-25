@@ -276,7 +276,9 @@ func assignQueryResult(names []*ast.Identifier, result Object, env *Environment,
 			if isLet {
 				env.SetLet(name, result)
 			} else {
-				env.Update(name, result)
+				if err := env.Update(name, result); isError(err) {
+					return err
+				}
 			}
 		}
 		// Query statements return NULL (like let statements)

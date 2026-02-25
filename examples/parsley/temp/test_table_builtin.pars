@@ -2,24 +2,24 @@
 
 // T1.1: Constructor with valid array
 let t = Table([{a: 1, b: 2}, {a: 3, b: 4}])
-print("Length:", t.length)     // Expected: 2
-print("Columns:", t.columns)   // Expected: ["a", "b"]
-print("")
+log("Length:", t.length)     // Expected: 2
+log("Columns:", t.columns)   // Expected: ["a", "b"]
+log("")
 
 // T1.2: Empty table
 let empty = Table([])
-print("Empty length:", empty.length)     // Expected: 0
-print("Empty columns:", empty.columns)   // Expected: []
-print("")
+log("Empty length:", empty.length)     // Expected: 0
+log("Empty columns:", empty.columns)   // Expected: []
+log("")
 
 // T1.3: No args (empty table)
 let noArgs = Table()
-print("No args length:", noArgs.length)  // Expected: 0
-print("")
+log("No args length:", noArgs.length)  // Expected: 0
+log("")
 
 // T1.4: Schema property (null when no schema)
-print("Schema:", t.schema)               // Expected: null
-print("")
+log("Schema:", t.schema)               // Expected: null
+log("")
 
 // T1.5: Test with Inspect
-print("Inspect:", t)                     // Expected: Table(2 rows)
+log("Inspect:", t)                     // Expected: Table(2 rows)

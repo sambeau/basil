@@ -66,7 +66,7 @@ func evalMdDocModuleCall(args []Object, env *Environment) Object {
 		// Wrap existing AST dictionary
 		// Validate it looks like a markdown AST (has type field)
 		if _, hasType := arg.Pairs["type"]; !hasType {
-			return &Error{Message: "mdDoc: dictionary must have a 'type' field to be a valid markdown AST"}
+			return newStructuredError("MDDOC-0001", nil)
 		}
 		return &MdDoc{AST: arg, Env: env}
 	case *MdDoc:

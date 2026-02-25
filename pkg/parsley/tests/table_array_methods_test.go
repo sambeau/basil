@@ -563,7 +563,7 @@ func TestTableGroupBy(t *testing.T) {
 					{category: "A", value: 15}
 				])
 				data.groupBy("category", fn(rows) {
-					let count = 0
+					var count = 0
 					for (row in rows) {
 						count = count + 1
 					}

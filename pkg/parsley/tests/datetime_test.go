@@ -326,7 +326,7 @@ func TestDatetimeErrors(t *testing.T) {
 			name:    "now() is removed (use @now instead)",
 			code:    `let dt = now();`,
 			wantErr: true,
-			errMsg:  "Identifier not found: now",
+			errMsg:  "Identifier not found: `now`",
 		},
 		{
 			name:    "datetime() with no arguments",

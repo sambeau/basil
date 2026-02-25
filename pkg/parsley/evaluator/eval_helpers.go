@@ -538,9 +538,7 @@ func isDatetimeDict(dict *Dictionary) bool {
 // isDurationDict checks if a dictionary is a duration by looking for __type field
 func isDurationDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "duration"
-		}
+		return typeExprEquals(typeExpr, "duration")
 	}
 	return false
 }

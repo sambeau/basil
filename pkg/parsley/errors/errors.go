@@ -225,13 +225,47 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassParse,
 		Template: "Error parsing {{.Context}} expression: {{.GoError}}",
 	},
+	"PARSE-0012": {
+		Class:    ClassParse,
+		Template: "Could not parse '{{.Literal}}' as float",
+	},
+	"PARSE-0013": {
+		Class:    ClassParse,
+		Template: "Invalid money literal: {{.Literal}}",
+	},
+	"PARSE-0014": {
+		Class:    ClassParse,
+		Template: "Expected closing tag </{{.Expected}}>, got {{.Got}}",
+	},
+	"PARSE-0015": {
+		Class:    ClassParse,
+		Template: "Mismatched tags: opening <{{.Opening}}> but closing </{{.Closing}}>",
+	},
+	"PARSE-0016": {
+		Class:    ClassParse,
+		Template: "Expected 'in' after 'not', got {{.Got}}",
+		Hints:    []string{"Use 'not in' for negated containment: x not in arr"},
+	},
+	"PARSE-0017": {
+		Class:    ClassParse,
+		Template: "Unterminated regex literal: {{.Literal}}",
+	},
+	"PARSE-0018": {
+		Class:    ClassParse,
+		Template: "Missing unit suffix in '{{.Literal}}'",
+		Hints:    []string{"Unit literals need a suffix like m, cm, kg, etc."},
+	},
+	"PARSE-0019": {
+		Class:    ClassParse,
+		Template: "Unknown unit suffix '{{.Suffix}}' in '{{.Literal}}'",
+	},
 
 	// ========================================
 	// Type errors (TYPE-0xxx)
 	// ========================================
 	"TYPE-0001": {
 		Class:    ClassType,
-		Template: "{{.Function}} expected {{.Expected}}, got {{.Got}}",
+		Template: "`{{.Function}}` expected {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0002": {
 		Class:    ClassType,
@@ -240,6 +274,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"TYPE-0003": {
 		Class:    ClassType,
 		Template: "Cannot call {{.Got}} as a function",
+		Hints:    []string{"Only functions can be called with ()"},
 	},
 	"TYPE-0004": {
 		Class:    ClassType,
@@ -262,14 +297,16 @@ var ErrorCatalog = map[string]ErrorDef{
 	"TYPE-0008": {
 		Class:    ClassType,
 		Template: "Cannot index {{.Got}} with {{.IndexType}}",
+		Hints:    []string{"Arrays use integer indices (arr[0]); dictionaries use string keys (dict[\"key\"])"},
 	},
 	"TYPE-0009": {
 		Class:    ClassType,
 		Template: "Comparison function must return boolean, got {{.Got}}",
+		Hints:    []string{"Sort callbacks should return true if a comes before b"},
 	},
 	"TYPE-0010": {
 		Class:    ClassType,
-		Template: "{{.Function}} callback must be a function, got {{.Got}}",
+		Template: "`{{.Function}}` callback must be a function, got {{.Got}}",
 	},
 	"TYPE-0011": {
 		Class:    ClassType,
@@ -307,7 +344,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0019": {
 		Class:    ClassType,
-		Template: "{{.Function}} element at index {{.Index}} must be {{.Expected}}, got {{.Got}}",
+		Template: "`{{.Function}}` element at index {{.Index}} must be {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0020": {
 		Class:    ClassType,
@@ -359,16 +396,16 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"UNDEF-0001": {
 		Class:    ClassUndefined,
-		Template: "Identifier not found: {{.Name}}",
+		Template: "Identifier not found: `{{.Name}}`",
 		// Hint "Did you mean `X`?" added dynamically by fuzzy matching
 	},
 	"UNDEF-0002": {
 		Class:    ClassUndefined,
-		Template: "Unknown method '{{.Method}}' for {{.Type}}",
+		Template: "Unknown method `{{.Method}}` for {{.Type}}",
 	},
 	"UNDEF-0003": {
 		Class:    ClassUndefined,
-		Template: "Undefined component: {{.Name}}",
+		Template: "Undefined component: `{{.Name}}`",
 	},
 	"UNDEF-0004": {
 		Class:    ClassUndefined,
@@ -388,13 +425,18 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"UNDEF-0008": {
 		Class:    ClassUndefined,
-		Template: "'{{.Method}}' is a method on {{.Type}}, not a property",
+		Template: "`{{.Method}}` is a method on {{.Type}}, not a property",
 		// Hint about using parentheses added dynamically
 	},
 	"UNDEF-0010": {
 		Class:    ClassUndefined,
 		Template: "@params is not available at module scope",
 		// Hints added in evalIdentifier
+	},
+	"UNDEF-0020": {
+		Class:    ClassUndefined,
+		Template: "Unknown function '{{.Name}}'",
+		// Hints added dynamically by NewRemovedPrintError
 	},
 
 	// ========================================
@@ -407,6 +449,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"IO-0002": {
 		Class:    ClassIO,
 		Template: "Module not found: {{.Path}}",
+		Hints:    []string{"Check that the file path exists and is spelled correctly"},
 	},
 	"IO-0003": {
 		Class:    ClassIO,
@@ -432,10 +475,7 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassIO,
 		Template: "SFTP {{.Operation}} failed: {{.GoError}}",
 	},
-	"IO-0009": {
-		Class:    ClassIO,
-		Template: "Failed to create directory '{{.Path}}': {{.GoError}}",
-	},
+	// IO-0009 removed - duplicate of IO-0006
 	"IO-0010": {
 		Class:    ClassIO,
 		Template: "Failed to remove directory '{{.Path}}': {{.GoError}}",
@@ -451,6 +491,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"DB-0002": {
 		Class:    ClassDatabase,
 		Template: "Query failed: {{.GoError}}",
+		Hints:    []string{"Check SQL syntax and ensure parameter count matches placeholders"},
 	},
 	"DB-0003": {
 		Class:    ClassDatabase,
@@ -568,6 +609,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"INDEX-0001": {
 		Class:    ClassIndex,
 		Template: "Index {{.Index}} out of range (length {{.Length}})",
+		Hints:    []string{"Valid indices are 0 to length-1"},
 	},
 	"INDEX-0002": {
 		Class:    ClassIndex,
@@ -584,6 +626,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"INDEX-0005": {
 		Class:    ClassIndex,
 		Template: "Key '{{.Key}}' not found in dictionary",
+		Hints:    []string{"Use .get(key, default) to provide a fallback value"},
 	},
 
 	// ========================================
@@ -664,6 +707,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"OP-0002": {
 		Class:    ClassOperator,
 		Template: "Division by zero",
+		Hints:    []string{"Check if the divisor is zero before dividing"},
 	},
 	"OP-0003": {
 		Class:    ClassOperator,
@@ -744,6 +788,30 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassOperator,
 		Template: "Unsupported operation between money and number: {{.Operator}}",
 		Hints:    []string{"only * and / are allowed between money and numbers"},
+	},
+
+	// ========================================
+	// Assignment errors (ASSIGN-0xxx)
+	// ========================================
+	"ASSIGN-0001": {
+		Class:    ClassState,
+		Template: "Cannot reassign immutable binding '{{.Name}}'",
+		Hints:    []string{"Use 'var' instead of 'let' if you need to reassign this variable"},
+	},
+	"ASSIGN-0002": {
+		Class:    ClassState,
+		Template: "Cannot reassign loop variable '{{.Name}}'",
+		Hints:    []string{"Loop variables are immutable within the loop body"},
+	},
+	"ASSIGN-0003": {
+		Class:    ClassState,
+		Template: "Cannot reassign function parameter '{{.Name}}'",
+		Hints:    []string{"Function parameters are immutable; create a local 'var' copy if you need to modify it"},
+	},
+	"ASSIGN-0004": {
+		Class:    ClassUndefined,
+		Template: "Cannot assign to undeclared variable '{{.Name}}'",
+		Hints:    []string{"Declare the variable first with 'let {{.Name}} = ...' or 'var {{.Name}} = ...'"},
 	},
 
 	// ========================================
@@ -828,7 +896,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"LOOP-0003": {
 		Class:    ClassState,
-		Template: "For expression missing function or body",
+		Template: "For loop needs a body",
+		Hints:    []string{"for x in arr { ... }"},
 	},
 	"LOOP-0004": {
 		Class:    ClassArity,
@@ -878,7 +947,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"FILEOP-0003": {
 		Class:    ClassState,
-		Template: "File handle has no format specified",
+		Template: "File format not specified",
+		Hints:    []string{"Specify format: file('path', {format: 'json'})"},
 	},
 	"FILEOP-0004": {
 		Class:    ClassType,
@@ -922,7 +992,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0005": {
 		Class:    ClassValue,
-		Template: "Cannot {{.Method}} from empty array",
+		Template: "Cannot `{{.Method}}` from empty array",
 	},
 	"VAL-0006": {
 		Class:    ClassValue,
@@ -938,7 +1008,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0009": {
 		Class:    ClassValue,
-		Template: "{{.Function}}: invalid route '{{.Route}}' (use alphanumeric, hyphens, underscores)",
+		Template: "`{{.Function}}`: invalid route '{{.Route}}' (use alphanumeric, hyphens, underscores)",
 	},
 	"VAL-0010": {
 		Class:    ClassValue,
@@ -946,7 +1016,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0011": {
 		Class:    ClassValue,
-		Template: "{{.Function}} requires at least one column",
+		Template: "`{{.Function}}` requires at least one column",
 	},
 	"VAL-0012": {
 		Class:    ClassValue,
@@ -987,7 +1057,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0021": {
 		Class:    ClassValue,
-		Template: "{{.Function}}() requires {{.Expected}}, got {{.Got}}",
+		Template: "`{{.Function}}` requires {{.Expected}}, got {{.Got}}",
 	},
 	"VAL-0022": {
 		Class:    ClassType,
@@ -1033,7 +1103,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"DEST-0002": {
 		Class:    ClassState,
-		Template: "Unsupported nested destructuring pattern",
+		Template: "Nested destructuring is not supported",
+		Hints:    []string{"Destructure one level at a time"},
 	},
 
 	// ========================================
@@ -1045,7 +1116,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"STDIO-0002": {
 		Class:    ClassFormat,
-		Template: "Unknown stdio stream: {{.Name}}",
+		Template: "Unknown stdio stream: `{{.Name}}`",
 	},
 
 	// ========================================
@@ -1053,15 +1124,17 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"INTERNAL-0001": {
 		Class:    ClassState,
-		Template: "{{.Context}} requires environment context",
+		Template: "Internal error in {{.Context}}",
+		Hints:    []string{"This is a bug in Parsley — please report it"},
 	},
 	"INTERNAL-0002": {
 		Class:    ClassState,
-		Template: "Unknown node type: {{.Type}}",
+		Template: "Internal error: unexpected syntax element",
+		Hints:    []string{"This is a bug in Parsley — please report it"},
 	},
 	"INTERNAL-0003": {
 		Class:    ClassState,
-		Template: "{{.Function}} failed: {{.GoError}}",
+		Template: "`{{.Function}}` failed: {{.GoError}}",
 	},
 
 	// ========================================
@@ -1174,7 +1247,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"SPREAD-0001": {
 		Class:    ClassType,
-		Template: "Spread operator requires a dictionary, got {{.Got}}",
+		Template: "Cannot spread {{.Got}} — only dictionaries can be spread with {...}",
 	},
 
 	// ========================================
@@ -1247,6 +1320,230 @@ var ErrorCatalog = map[string]ErrorDef{
 	"SFTP-0007": {
 		Class:    ClassIO,
 		Template: "SFTP read failed: {{.GoError}}",
+	},
+
+	// ========================================
+	// Unit errors (UNIT-0xxx)
+	// ========================================
+	"UNIT-0001": {
+		Class:    ClassOperator,
+		Template: "Cannot {{.Operator}} {{.LeftFamily}} and {{.RightFamily}}",
+		Hints:    []string{"units must be the same family to add or subtract"},
+	},
+	"UNIT-0002": {
+		Class:    ClassOperator,
+		Template: "Cannot {{.Operator}} {{.Left}} and {{.Right}}",
+		Hints:    []string{"numbers and units don't mix — write #5m + #5m, not 5 + #5m"},
+	},
+	"UNIT-0003": {
+		Class:    ClassOperator,
+		Template: "Cannot multiply unit by unit",
+		Hints:    []string{"derived units (area, etc.) are planned for a future release"},
+	},
+	"UNIT-0004": {
+		Class:    ClassOperator,
+		Template: "Unsupported operator '{{.Operator}}' for unit values",
+	},
+	"UNIT-0005": {
+		Class:    ClassOperator,
+		Template: "Cannot divide number by unit",
+		Hints:    []string{"you can divide a unit by a number (#10m / 5) but not the other way around"},
+	},
+	"UNIT-0006": {
+		Class:    ClassType,
+		Template: "Cannot convert {{.FromFamily}} to {{.ToFamily}}",
+		Hints:    []string{"{{.Constructor}} accepts {{.ToFamily}} values like {{.Example}}"},
+	},
+	"UNIT-0007": {
+		Class:    ClassParse,
+		Template: "Unknown unit suffix '{{.Suffix}}'",
+		Hints:    []string{"did you mean '{{.Suggestion}}'? — unit suffixes are abbreviations: m, cm, km, in, ft, etc."},
+	},
+	"UNIT-0008": {
+		Class:    ClassParse,
+		Template: "Fraction denominator cannot be zero",
+	},
+	"UNIT-0009": {
+		Class:    ClassValue,
+		Template: "Unit value overflow",
+		Hints:    []string{"the maximum representable distance is approximately 77 AU"},
+	},
+	"UNIT-0010": {
+		Class:    ClassParse,
+		Template: "Invalid mixed number '{{.Literal}}'",
+		Hints:    []string{"for negative mixed numbers, write #-2+3/8in — the sign applies to the whole value"},
+	},
+	"UNIT-0011": {
+		Class:    ClassType,
+		Template: "Cannot multiply a temperature",
+		Hints:    []string{"temperature scales have arbitrary zero points, so multiplication is undefined — use addition instead: #20C + #20C"},
+	},
+	"UNIT-0012": {
+		Class:    ClassType,
+		Template: "Cannot divide a temperature",
+		Hints:    []string{"temperature scales have arbitrary zero points, so division is undefined — use subtraction instead"},
+	},
+	"UNIT-0013": {
+		Class:    ClassType,
+		Template: "Cannot divide temperature by temperature",
+		Hints:    []string{"the ratio of two offset-scale temperatures is meaningless — convert to kelvin if you need a ratio"},
+	},
+	"UNIT-0014": {
+		Class:    ClassOperator,
+		Template: "Cannot multiply {{.LeftSystem}} length by {{.RightSystem}} length",
+		Hints:    []string{"convert both to the same system first — use .to(\"m\") or .to(\"ft\")"},
+	},
+	"UNIT-0015": {
+		Class:    ClassOperator,
+		Template: "Cannot divide {{.LeftSystem}} area by {{.RightSystem}} length",
+		Hints:    []string{"convert both to the same system first — use .to(\"m2\") or .to(\"ft2\")"},
+	},
+
+	// ========================================
+	// Box formatting errors (BOX-0xxx)
+	// ========================================
+	"BOX-0001": {
+		Class:    ClassFormat,
+		Template: "`toBox`: invalid style '{{.Style}}', expected 'single', 'double', 'ascii', or 'rounded'",
+	},
+	"BOX-0002": {
+		Class:    ClassType,
+		Template: "`toBox`: style option must be a string, got {{.Got}}",
+	},
+	"BOX-0003": {
+		Class:    ClassType,
+		Template: "`toBox`: title option must be a string, got {{.Got}}",
+	},
+	"BOX-0004": {
+		Class:    ClassValue,
+		Template: "`toBox`: maxWidth must be a non-negative integer",
+	},
+	"BOX-0005": {
+		Class:    ClassType,
+		Template: "`toBox`: maxWidth option must be an integer, got {{.Got}}",
+	},
+
+	// ========================================
+	// Export errors (EXPORT-0xxx)
+	// ========================================
+	"EXPORT-0001": {
+		Class:    ClassUndefined,
+		Template: "Cannot export undefined identifier '{{.Name}}'",
+		Hints:    []string{"Ensure '{{.Name}}' is defined before the export statement"},
+	},
+
+	// ========================================
+	// Dictionary errors (DICT-0xxx)
+	// ========================================
+	"DICT-0001": {
+		Class:    ClassType,
+		Template: "Computed dictionary key must be a string, integer, float, or boolean, got {{.Got}}",
+	},
+
+	// ========================================
+	// ID generation errors (ID-0xxx)
+	// ========================================
+	"ID-0001": {
+		Class:    ClassState,
+		Template: "Failed to generate random bytes for `{{.Function}}`",
+		Hints:    []string{"This is usually a system-level issue with the random number generator"},
+	},
+	"ID-0002": {
+		Class:    ClassValue,
+		Template: "NanoID length must be between 1 and 256, got {{.Got}}",
+	},
+
+	// ========================================
+	// Markdown doc errors (MDDOC-0xxx)
+	// ========================================
+	"MDDOC-0001": {
+		Class:    ClassType,
+		Template: "`mdDoc`: dictionary must have a 'type' field to be a valid markdown AST",
+	},
+
+	// ========================================
+	// Schema errors (SCHEMA-0xxx)
+	// ========================================
+	"SCHEMA-0001": {
+		Class:    ClassArity,
+		Template: "`schema.enum` requires at least one value",
+	},
+	"SCHEMA-0002": {
+		Class:    ClassType,
+		Template: "Schema has no fields defined",
+	},
+	"SCHEMA-0003": {
+		Class:    ClassType,
+		Template: "Schema fields must be a dictionary, got {{.Got}}",
+	},
+
+	// ========================================
+	// DSL query errors (DSL-0xxx)
+	// ========================================
+	"DSL-0001": {
+		Class:    ClassState,
+		Template: "Join subquery requires a subquery definition",
+	},
+	"DSL-0002": {
+		Class:    ClassState,
+		Template: "Unknown condition node type in join subquery",
+	},
+	"DSL-0003": {
+		Class:    ClassState,
+		Template: "Unknown condition node type in correlated subquery",
+	},
+	"DSL-0004": {
+		Class:    ClassType,
+		Template: "Correlated subquery conditions must be simple conditions",
+	},
+
+	// ========================================
+	// Datetime validation errors (DT-0xxx)
+	// ========================================
+	"DT-0001": {
+		Class:    ClassType,
+		Template: "Datetime dictionary missing '{{.Field}}' field",
+	},
+	"DT-0002": {
+		Class:    ClassType,
+		Template: "'{{.Field}}' must be an integer",
+	},
+	"DT-0003": {
+		Class:    ClassFormat,
+		Template: "Unknown timezone: {{.Timezone}}",
+	},
+
+	// ========================================
+	// Encoding errors (ENCODE-0xxx)
+	// ========================================
+	"ENCODE-0001": {
+		Class:    ClassType,
+		Template: "Bytes format requires an array, got {{.Got}}",
+	},
+	"ENCODE-0002": {
+		Class:    ClassType,
+		Template: "Bytes array must contain integers, got {{.Got}} at index {{.Index}}",
+	},
+	"ENCODE-0003": {
+		Class:    ClassValue,
+		Template: "Byte value out of range (0-255): {{.Value}} at index {{.Index}}",
+	},
+
+	// ========================================
+	// Duration parsing errors (DUR-0xxx)
+	// ========================================
+	"DUR-0001": {
+		Class:    ClassFormat,
+		Template: "Expected digit at position {{.Position}} in duration string",
+	},
+	"DUR-0002": {
+		Class:    ClassFormat,
+		Template: "Missing unit after number at position {{.Position}} in duration string",
+	},
+	"DUR-0003": {
+		Class:    ClassFormat,
+		Template: "Unknown duration unit: '{{.Unit}}'",
+		Hints:    []string{"Valid units: s (seconds), m (minutes), h (hours), d (days)"},
 	},
 }
 
@@ -1536,7 +1833,25 @@ func NewMethodAsProperty(method, typeName string) *ParsleyError {
 
 // Parsley reserved keywords for fuzzy matching against typos
 var ParsleyKeywords = []string{
-	"if", "else", "for", "in", "fn", "let", "const", "return",
+	"if", "else", "for", "in", "fn", "let", "var", "const", "return",
 	"true", "false", "null", "and", "or", "not", "import", "export",
 	"break", "continue", "switch", "case", "default",
+}
+
+// RemovedPrintFunctions contains the print functions that were removed from Parsley
+var RemovedPrintFunctions = map[string]bool{
+	"print":   true,
+	"println": true,
+	"printf":  true,
+}
+
+// NewRemovedPrintError creates a helpful error for attempts to use removed print functions.
+// This teaches users the expression-based output model.
+func NewRemovedPrintError(name string) *ParsleyError {
+	err := New("UNDEF-0020", map[string]any{"Name": name})
+	err.Hints = []string{
+		"Parsley uses expression-based output — just write the value directly instead of " + name + "(value)",
+		"For debugging, use log()",
+	}
+	return err
 }

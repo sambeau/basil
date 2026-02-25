@@ -473,6 +473,13 @@ Schemas define the structure of records and tables. They specify field names, ty
 | `phone` | Phone number | `TEXT` |
 | `slug` | URL slug (validated) | `TEXT` |
 | `enum` | One of specified values | `TEXT` |
+| `mass` | Mass unit (kg, lb, etc.) | `TEXT` |
+| `length` | Length unit (m, ft, etc.) | `TEXT` |
+| `data` | Data unit (B, MB, etc.) | `TEXT` |
+| `temperature` | Temperature (C, F, K) | `TEXT` |
+| `volume` | Volume unit (L, gal, etc.) | `TEXT` |
+| `area` | Area unit (m2, ft2, etc.) | `TEXT` |
+| `unit(...)` | Unit with constraints | `TEXT` |
 
 #### Nullable Fields
 
@@ -533,6 +540,52 @@ Add constraints using `(key: value)` syntax:
 | `auto` | any | Database/server generates this value |
 | `readOnly` | any | Field cannot be set from client/form input |
 | `unique` | any | UNIQUE constraint in SQL |
+| `suffix` | unit | Specific unit suffix required (e.g., `"kg"`) |
+| `family` | unit | Unit family required (e.g., `"mass"`) |
+
+#### Unit Types in Schemas
+
+Schemas can declare fields as unit types. Use the family name directly, or use `unit()` with constraints:
+
+```parsley
+// Family names as types — accepts any unit of that family
+@schema Product {
+    weight: mass              // accepts #5kg, #2.2lb, #500g, etc.
+    height: length            // accepts #1.8m, #6ft, #180cm, etc.
+    storage: data             // accepts #1GB, #500MB, etc.
+    temp: temperature         // accepts #100C, #212F, #373K
+    capacity: volume          // accepts #2L, #1gal, etc.
+    floor: area               // accepts #100m2, #1000ft2, etc.
+}
+
+// Specific unit constraint — requires exact suffix
+@schema MetricProduct {
+    weight: unit(suffix: "kg")     // must be in kg
+    height: unit(suffix: "cm")     // must be in cm
+}
+
+// Family constraint via unit() — equivalent to family name
+@schema AnyProduct {
+    weight: unit(family: "mass")   // same as `mass`
+}
+```
+
+**Validation behavior:**
+- Family types (`mass`, `length`, etc.) accept any unit of that family
+- `unit(suffix: "...")` requires the exact suffix — validation fails on mismatch
+- Non-unit values (numbers, strings) are rejected
+
+```parsley
+@schema Product { weight: mass }
+Product({weight: #5kg}).validate().isValid()    // true
+Product({weight: #2.2lb}).validate().isValid()  // true
+Product({weight: #5m}).validate().isValid()     // false (length ≠ mass)
+Product({weight: 5}).validate().isValid()       // false (number ≠ unit)
+
+@schema Metric { height: unit(suffix: "cm") }
+Metric({height: #180cm}).validate().isValid()   // true
+Metric({height: #1.8m}).validate().isValid()    // false (m ≠ cm)
+```
 
 #### The `auto` Constraint
 
@@ -586,6 +639,122 @@ Common metadata keys:
     active: boolean = true
     createdAt: datetime(auto) | {title: "Created", hidden: true}
 }
+```
+
+---
+
+### 1.16 Unit Literals
+
+Parsley has first-class support for measurement units with exact integer arithmetic. Unit literals use the `#` sigil followed by a numeric value and a unit suffix.
+
+#### Basic Syntax
+
+```parsley
+#12m                            // 12 metres
+#5.5kg                          // 5.5 kilograms
+#100cm                          // 100 centimetres
+#1024B                          // 1024 bytes
+```
+
+#### Fraction Syntax (US Customary)
+
+US Customary units support exact fractions:
+
+```parsley
+#3/8in                          // 3/8 of an inch (exact)
+#1/2lb                          // half a pound (exact)
+```
+
+#### Mixed Number Syntax
+
+Use `+` as the mixed-number separator:
+
+```parsley
+#92+5/8in                       // 92 and 5/8 inches
+#2+3/8in                        // 2 and 3/8 inches
+```
+
+#### Negative Literals
+
+```parsley
+#-6m                            // negative 6 metres (canonical)
+-#6m                            // also negative 6 metres (unary negation)
+```
+
+#### Supported Suffixes
+
+- **Length — SI:** `mm`, `cm`, `m`, `km`
+- **Length — US:** `in`, `ft`, `yd`, `mi`
+- **Mass — SI:** `mg`, `g`, `kg`
+- **Mass — US:** `oz`, `lb`
+- **Data — Decimal:** `B`, `kB`, `MB`, `GB`, `TB`
+- **Data — Binary:** `KiB`, `MiB`, `GiB`, `TiB`
+- **Temperature:** `K` (kelvin), `C` (Celsius), `F` (Fahrenheit)
+- **Volume — SI:** `mL`, `L`, `kL`
+- **Volume — US:** `floz`, `cup`, `pt`, `qt`, `gal`
+- **Area — SI:** `mm2`, `cm2`, `m2`, `km2`
+- **Area — US:** `in2`, `ft2`, `yd2`, `ac` (acre), `mi2`
+
+#### Internal Representation
+
+- **SI units** are stored as an integer count of fixed sub-units (µm for length, mg for mass, B for data, µL for volume). `#12.3m` = 12,300,000 µm internally. Within-system arithmetic is always exact.
+- **US Customary units** are stored as an integer numerator over a fixed denominator (HCN = 725,760). Common fractions (halves through sixty-fourths, plus thirds, fifths, sevenths) are all exact integers. Volume uses sub-floz (1 floz = HCN).
+- **Temperature** uses a unified sub-kelvin representation (1 K = 900 sub-K, 1°F = 500 sub-K). All three scales (K, C, F) are stored as a single int64 sub-kelvin count, making conversions exact: `#0C == #32F`, `#100C == #212F`, `#-40C == #-40F`.
+- **Area** uses 1 mm² (SI) and 1 in² (US) as base sub-units. For large areas, a decimal Scale is applied automatically: true value = Amount × 10^Scale sub-units. This allows representation of planetary-scale surfaces (Earth ≈ 510 million km²) while preserving exact mm² precision for everyday values. US area always displays as decimal (no fractions).
+- **SI fractions** are syntactic sugar for division: `#1/3m` truncates to 333,333 µm. US fractions like `#1/3in` and `#1/3cup` are stored exactly.
+
+#### Temperature Literals
+
+Temperature literals support all three scales. Celsius (`C`) and Kelvin (`K`) are SI; Fahrenheit (`F`) is US:
+
+```parsley
+#100C                           // 100 degrees Celsius
+#212F                           // 212 degrees Fahrenheit
+#0K                             // absolute zero
+#37.5C                          // decimal temperature
+#-40C                           // negative (same as #-40F)
+#-273.15C                       // absolute zero in Celsius
+```
+
+> **Temperature arithmetic restriction**: multiplication and division of temperatures are not allowed (`#20C * 2` → error). Temperature scales have arbitrary zero points, so these operations are physically meaningless. Use addition/subtraction instead.
+
+#### Volume Literals
+
+Volume follows the standard dual-system pattern. US volume supports exact fractions:
+
+```parsley
+#500mL                          // 500 millilitres
+#2.5L                           // 2.5 litres
+#1kL                            // 1 kilolitre (= 1000 L)
+#8floz                          // 8 fluid ounces
+#1cup                           // 1 cup (= 8 floz)
+#1/3cup                         // exact fraction
+#1+1/2gal                       // mixed number: 1.5 gallons
+```
+
+#### Area Literals
+
+Area uses `2` suffixes for SI and named units for US. US area displays as decimal only (no fractions):
+
+```parsley
+#100m2                          // 100 square metres
+#5.5km2                         // 5.5 square kilometres
+#1500ft2                        // 1500 square feet
+#640ac                          // 640 acres (= 1 mi²)
+#1mi2                           // 1 square mile
+#2.5ac                          // 2.5 acres (decimal display)
+```
+
+#### Cross-System Conversion
+
+Units in the same family (e.g., length) can be mixed. The left operand's system wins:
+
+```parsley
+#1cm + #1in                     // #3.54cm (result in SI)
+#1in + #1cm                     // result in inches (US)
+#1in == #25.4mm                 // true
+#1L + #1floz                    // result in litres (SI)
+#100m2 + #100ft2                // result in m² (SI)
 ```
 
 ---
@@ -868,7 +1037,128 @@ Some operations don't make sense and will produce errors:
 
 ---
 
-### 2.11 Precedence Table (Lowest to Highest)
+### 2.11 Unit Arithmetic
+
+Parsley supports arithmetic on measurement units with exact integer storage and cross-system conversion.
+
+#### Valid Operations
+
+| Operation | Result | Example |
+|-----------|--------|---------|
+| unit + unit (same family) | unit | `#5cm + #3mm` → `#5.3cm` |
+| unit - unit (same family) | unit | `#1ft - #6in` → `#1/2ft` |
+| unit * number | unit | `#5m * 3` → `#15m` |
+| number * unit | unit | `3 * #5m` → `#15m` |
+| unit / number | unit | `#10m / 3` → `#3.33m` |
+| unit / unit (same family) | number | `#10m / #5m` → `2` |
+| length * length | area | `#5m * #3m` → `#15m2` |
+| area / length | length | `#15m2 / #3m` → `#5m` |
+| -unit | unit | `-#6m` → `#-6m` |
+
+```parsley
+#5cm + #3mm                     // #5.3cm
+#12.3m + #0.7m                  // #13m
+#3/8in + #5/8in                 // #1in
+#1ft - #6in                     // #1/2ft
+#5m * 3                         // #15m
+#10m / #5m                      // 2
+#1/3cup + #1/3cup + #1/3cup     // #1cup (exact)
+#1gal / #1qt                    // 4
+#100m2 + #50m2                  // #150m2 (area)
+#2kL * 3                        // #6kL (kilolitres)
+```
+
+#### Derived Unit Arithmetic (Length × Length → Area)
+
+Multiplying two length values produces an area. Dividing an area by a length produces a length:
+
+```parsley
+// Length × Length → Area
+#5m * #3m                       // #15m2
+#2ft * #3ft                     // #6ft2
+#100cm * #50cm                  // #5000cm2
+#1km * #1km                     // #1km2
+#12in * #12in                   // #144in2
+
+// Area / Length → Length
+#15m2 / #3m                     // #5m
+#6ft2 / #2ft                    // #3ft
+#144in2 / #12in                 // #12in
+
+// Round-trip: (L × L) / L = L
+(#5m * #3m) / #3m               // #5m
+```
+
+**Display hint rules:**
+- **Multiplication**: The left operand determines the result's display hint. `#5m * #300cm` → `#15m2` (not cm²).
+- **Division**: The divisor (right operand) determines the result's display hint. `#1km2 / #1000m` → `#1000m`.
+
+**Cross-system restriction**: Length × length and area / length only work within the same system:
+
+```parsley
+#5m * #3ft                      // Error: Cannot multiply SI length by US length
+#15m2 / #3ft                    // Error: Cannot divide SI area by US length
+```
+
+> Other derived units (speed, volume from length³, etc.) are not yet supported.
+
+#### Temperature Arithmetic
+
+Temperature addition and subtraction use "treat like numbers" semantics with offset-based formulas internally. Cross-scale operations convert the right operand to the left's scale:
+
+```parsley
+#20C + #10C                     // #30C
+#100C - #37C                    // #63C
+#212F - #32F                    // #180F
+```
+
+**Temperature comparisons** work across scales because all temperatures share the same internal sub-kelvin representation:
+
+```parsley
+#0C == #32F                     // true
+#100C == #212F                  // true
+#-40C == #-40F                  // true (scales cross at -40)
+#0K == #-273.15C                // true (absolute zero)
+#100C > #200F                   // true (#100C = #212F)
+```
+
+**Temperature multiply/divide is forbidden** — these operations are undefined for offset scales:
+
+```parsley
+#20C * 2                        // Error: Cannot multiply a temperature
+#100F / 2                       // Error: Cannot divide a temperature
+#100C / #50C                    // Error: Cannot divide temperature by temperature
+```
+
+> Negation (`-#20C`) is allowed — it negates the internal sub-kelvin value.
+
+#### Cross-System Arithmetic
+
+Units from the same family but different systems are converted automatically. The **left operand wins** — the result uses the left operand's system and display hint:
+
+```parsley
+#1cm + #1in                     // #3.54cm (SI result)
+#1in + #1cm                     // #1.39...in (US result)
+#1L + #1floz                    // result in litres (SI)
+```
+
+Rounding occurs only at the SI↔US boundary. Within-system arithmetic is always exact.
+
+#### Invalid Operations
+
+```parsley
+#5m + #5kg                      // Error: cannot add length to mass
+#5kg * #3kg                     // Error: cannot multiply mass by mass (only length × length → area)
+#5m2 + #5kg                     // Error: cannot add area to mass
+5 + #5m                         // Error: cannot add number to unit
+10 / #5m                        // Error: cannot divide number by unit
+#1L + #1C                       // Error: cannot add volume to temperature
+#5m * #3ft                      // Error: cannot multiply SI length by US length
+```
+
+---
+
+### 2.12 Precedence Table (Lowest to Highest)
 
 | Level | Operators |
 |-------|-----------|
@@ -1116,46 +1406,101 @@ let process = fn(data) {
 
 ## 4. Statements
 
-### 4.1 Let Binding
+### 4.1 Variable Declarations (`let` and `var`)
 
-The `let` keyword declares and initializes a variable.
+Parsley uses Swift-style variable declarations:
+
+- **`let`** — Creates an **immutable** binding (cannot be reassigned)
+- **`var`** — Creates a **mutable** binding (can be reassigned)
 
 ```parsley
-let x = 5
-let name = "Alice"
+let x = 5                       // Immutable — cannot reassign x
+var y = 10                      // Mutable — can reassign y
+
+y = 20                          // OK
+// x = 15                       // ERROR: cannot reassign immutable binding 'x'
 ```
 
-**Note**: `let` is technically optional for simple assignments (`x = 5` works), but using it is recommended for clarity. The keyword is reserved for potential future features like block-scoping or immutability.
+**Important**: Explicit declaration is required. Bare assignments like `x = 5` without a prior `let` or `var` declaration will produce an error.
 
-#### Destructuring Arrays
+#### Choosing Between `let` and `var`
+
+Use `let` by default. Only use `var` when you need to reassign the variable:
+
+```parsley
+let name = "Alice"              // Won't change — use let
+let items = [1, 2, 3]           // Reference won't change — use let
+
+var counter = 0                 // Will be incremented — use var
+var result = null               // Will be assigned later — use var
+```
+
+#### Shallow Immutability
+
+Immutability applies to the **binding**, not the contents. You cannot reassign a `let` variable, but you can mutate the object it refers to:
 
 ```parsley
 let arr = [1, 2, 3]
-let [a, b, c] = arr             // a=1, b=2, c=3
-let [first, ...rest] = [1, 2, 3, 4]  // first=1, rest=[2,3,4]
+arr[0] = 99                     // OK — mutating contents
+// arr = [4, 5]                 // ERROR — reassigning binding
+
+let obj = {x: 1}
+obj.x = 2                       // OK — mutating property
+obj.y = 3                       // OK — adding property
+// obj = {y: 3}                 // ERROR — reassigning binding
+```
+
+This matches Swift and JavaScript's `const` behavior.
+
+#### Destructuring Arrays
+
+Both `let` and `var` support destructuring. All bindings from a destructuring pattern share the same mutability:
+
+```parsley
+let arr = [1, 2, 3]
+let [a, b, c] = arr             // a, b, c are all immutable
+let [first, ...rest] = [1, 2, 3, 4]  // first=1, rest=[2,3,4] (both immutable)
+
+var [x, y, z] = [4, 5, 6]       // x, y, z are all mutable
+x = 40                          // OK — var binding
+y = 50                          // OK
 ```
 
 #### Destructuring Dictionaries
 
 ```parsley
 let person = {name: "Bob", age: 25, city: "NYC"}
-let {name, age} = person        // name="Bob", age=25
+let {name, age} = person        // name="Bob", age=25 (both immutable)
 let {name, ...rest} = person    // name="Bob", rest={age: 25, city: "NYC"}
+
+var {x, y} = {x: 1, y: 2}       // x, y are mutable
+x = 10                          // OK
 ```
 
 ---
 
 ### 4.2 Assignment
 
-```parsley
-let y = 10
-y = 20                          // Reassign
+Assignment (`=`) reassigns an existing variable. The variable must have been declared with `var`:
 
+```parsley
+var y = 10
+y = 20                          // OK — reassign var binding
+
+let x = 5
+// x = 10                       // ERROR — cannot reassign let binding
+```
+
+#### Property and Index Assignment
+
+Property and index assignments modify the contents of an object, not the binding itself. These work regardless of whether the variable was declared with `let` or `var`:
+
+```parsley
 let obj = {a: 1}
-obj.b = 2                       // Property assignment
+obj.b = 2                       // OK — property assignment (mutates contents)
 
 let nums = [1, 2, 3]
-nums[0] = 99                    // Index assignment
+nums[0] = 99                    // OK — index assignment (mutates contents)
 ```
 
 #### Scope and Binding
@@ -1163,13 +1508,13 @@ nums[0] = 99                    // Index assignment
 Parsley uses **lexical scoping** with **closure semantics**:
 
 1. **Variables are visible** in the scope where they're defined and all nested scopes
-2. **Inner scopes can modify** outer variables (closures capture by reference)
+2. **Inner scopes can modify** outer `var` variables (closures capture by reference)
 3. **Inner variables don't leak** to outer scopes
 
 ```parsley
-let x = 5
+var x = 5                       // Must be var if modified by closure
 let f = fn() { 
-    x = 10                      // Modifies outer x
+    x = 10                      // Modifies outer x (requires var)
 }
 f()
 x                               // 10 (modified by closure)
@@ -1180,6 +1525,22 @@ let g = fn() {
 }
 g()                             // 20
 // y                            // Error: y not defined in outer scope
+```
+
+#### Loop Variables and Function Parameters
+
+Loop variables and function parameters are **implicitly immutable**:
+
+```parsley
+for (x in [1, 2, 3]) {
+    // x = 99                   // ERROR: cannot reassign loop variable
+    x * 2
+}
+
+let f = fn(a, b) {
+    // a = 10                   // ERROR: cannot reassign parameter
+    a + b
+}
 ```
 
 ---
@@ -1235,12 +1596,14 @@ export double = fn(x) { x * 2 }
 Use `export computed` to create exports that recalculate on each access. This is useful for exposing "live" data like database queries or current timestamps.
 
 **Expression form:**
+
 ```parsley
 export computed timestamp = @now
 export computed count = items.length()
 ```
 
 **Block form:**
+
 ```parsley
 export computed activeUsers {
     let query = "SELECT * FROM users WHERE active = true"
@@ -1254,6 +1617,7 @@ Computed exports:
 - Cannot accept parameters (use functions for that)
 
 **Consumer caching:**
+
 ```parsley
 import {activeUsers} from @./data.pars
 
@@ -1486,14 +1850,16 @@ let upper = name.toUpper()      // Assign to use the result
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.join(sep?)` | `sep?: string` (default: `""`) | `string` | Concatenate elements with separator |
-| `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format as prose list |
+| `.fmt(conjunction)` | `conjunction: string` | `string` | Format as prose list with conjunction |
+| `.fmt(conjunction, locale)` | `conjunction: string`, `locale: string` | `string` | Format with locale-aware conjunction |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
 | `.toJSON()` | none | `string` | Convert to JSON string |
 | `.toCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `string` | Convert to CSV string |
 | `.toBox(opts?)` | `opts?: {direction, align, style, title, maxWidth}` | `string` | Render array in a box |
 | `.toHTML()` | none | `string` | Convert to HTML unordered list |
 | `.toMarkdown()` | none | `string` | Convert to Markdown list |
 
-**Format styles**: `"and"` (default), `"or"`, or any custom conjunction string.
+**Conjunction formatting**: Use `.fmt("and")` or `.fmt("or")` to format arrays as human-readable lists with locale-aware conjunctions and Oxford comma.
 
 **Available locales**: `en`, `en-US`, `en-GB`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `ru`, `ja`, `zh`, `ko`. Falls back to `en` for unrecognized locales.
 
@@ -1512,12 +1878,17 @@ arr.filter(fn(x) { x > 2 })     // [3, 4, 5]
 arr.reduce(fn(acc, x) { acc + x }, 0)  // 14
 
 let items = ["apple", "banana", "cherry"]
-items.format()                  // "apple, banana, and cherry"
-items.format("or")              // "apple, banana, or cherry"
-items.format("and", "de")       // "apple, banana und cherry"
-items.format("and", "fr")       // "apple, banana et cherry"
-items.format("and", "ja")       // "apple、banana、cherry"
+items.fmt("and")                // "apple, banana, and cherry"
+items.fmt("or")                 // "apple, banana, or cherry"
+items.fmt("and", "de-DE")       // "apple, banana und cherry"
+items.fmt("and", "fr-FR")       // "apple, banana et cherry"
+items.fmt("or", "es-ES")        // "apple, banana o cherry"
 items.join(", ")                // "apple, banana, cherry"
+
+// Edge cases
+[].fmt("and")                   // "" (empty string)
+["Alice"].fmt("and")            // "Alice" (no conjunction)
+["A", "B"].fmt("and")           // "A and B" (no comma)
 
 [1, 2, 3].has(2)                // true
 [1, 2, 3].hasAny([2, 5, 6])     // true
@@ -1597,28 +1968,54 @@ user.reorder({name: "first_name", surname: "last_name"})
 
 ### 5.4 Number Methods
 
-Integer and float types share formatting methods. For mathematical operations like `abs()`, `floor()`, etc., use `@std/math`.
+Integer and float types share formatting methods. All numeric types support the unified formatter API with `.fmt()` and style sugar methods.
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.format(locale?)` | `locale?: string` (default: `"en-US"`) | `string` | Locale-formatted number |
+| `.fmt()` | none | `string` | Format with default style (medium) and locale |
+| `.fmt(n)` | `n: integer` | `string` | Format with n decimal places (floats) |
+| `.fmt(style)` | `style: string` | `string` | Format with named style |
+| `.fmt(style, locale)` | `style: string`, `locale: string` | `string` | Format with style and locale |
+| `.fmt(options)` | `options: dictionary` | `string` | Format with options dict |
+| `.short(locale?)` | `locale?: string` | `string` | Compact format (1.2K, 3.4M) |
+| `.medium(locale?)` | `locale?: string` | `string` | Standard format with separators |
+| `.long(locale?)` | `locale?: string` | `string` | Full precision format |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
 | `.currency(code, locale?)` | `code: string`, `locale?: string` | `string` | Currency format |
 | `.percent(locale?)` | `locale?: string` | `string` | Percentage format |
-| `.humanize(locale?)` | `locale?: string` | `string` | Compact format (1.2K, 3.4M) |
+| `.humanize(locale?)` | `locale?: string` | `string` | Alias for `.short()` |
+| `.repr()` | none | `string` | Parseable literal representation |
+| `.toJSON()` | none | `string` | JSON representation |
+| `.inspect()` | none | `dictionary` | Debug dictionary with `__type` |
 | `.toBox()` | none | `string` | Render number in a box |
+
+**Format styles**:
+| Style | Integer | Float |
+|-------|---------|-------|
+| `"short"` | `"1.2M"` | `"1.2M"` |
+| `"medium"` (default) | `"1,234,567"` | `"1,234.5"` |
+| `"long"` | `"1,234,567"` | `"1,234.50"` |
 
 **Note**: Numbers do not have `.abs()`, `.round()`, etc. as methods. Use `@std/math` functions instead: `math.abs(-5)`, `math.round(3.7)`.
 
 ```parsley
 let n = 1234567
-n.format()                      // "1,234,567"
-n.format("de-DE")               // "1.234.567"
+n.fmt()                         // "1,234,567"
+n.fmt("short")                  // "1.2M"
+n.short()                       // "1.2M"
+n.fmt("medium", "de-DE")        // "1.234.567"
+
+let f = 1234.5678
+f.fmt(2)                        // "1,234.57"
+f.fmt({precision: 2})           // "1,234.57"
+
 n.currency("USD")               // "$1,234,567.00"
 n.currency("EUR", "de-DE")      // "1.234.567,00 €"
-n.humanize()                    // "1.2M"
 
 let pct = 0.1234
 pct.percent()                   // "12%"
+
+42.inspect()                    // {__type: "integer", value: 42}
 ```
 
 ---
@@ -1660,16 +2057,27 @@ datetime("May 8, 2009 5:57 PM") // Natural language datetime
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.format(style?, locale?)` | `style?: string`, `locale?: string` | `string` | Format datetime |
+| `.fmt()` | none | `string` | Format with default style (medium) and locale |
+| `.fmt(style)` | `style: string` | `string` | Format with named style |
+| `.fmt(style, locale)` | `style: string`, `locale: string` | `string` | Format with style and locale |
+| `.fmt(options)` | `options: dictionary` | `string` | Format with options dict |
+| `.short(locale?)` | `locale?: string` | `string` | Compact date format |
+| `.medium(locale?)` | `locale?: string` | `string` | Balanced format (default) |
+| `.long(locale?)` | `locale?: string` | `string` | Verbose format with full month |
+| `.full(locale?)` | `locale?: string` | `string` | Maximum context with weekday |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
+| `.repr()` | none | `string` | Parseable literal representation |
+| `.toJSON()` | none | `string` | JSON representation (ISO 8601) |
 | `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
 | `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
+| `.toBox()` | none | `string` | Render datetime in a box |
 
-**Format styles**: `"short"`, `"medium"`, `"long"` (default), `"full"`, or a custom Go format string.
+**Format styles**:
 
 | Style | Example Output |
 |-------|----------------|
 | `"short"` | `"12/25/24"` |
-| `"medium"` | `"Dec 25, 2024"` |
+| `"medium"` (default) | `"Dec 25, 2024"` |
 | `"long"` | `"December 25, 2024"` |
 | `"full"` | `"Wednesday, December 25, 2024"` |
 
@@ -1679,9 +2087,22 @@ dt.year                         // 2024
 dt.weekday                      // "Wednesday"
 dt.kind                         // "datetime"
 dt.iso                          // "2024-12-25T14:30:00"
-dt.format()                     // "December 25, 2024"
-dt.format("short")              // "12/25/24"
-dt.format("full", "de-DE")      // "Mittwoch, 25. Dezember 2024"
+
+// Unified formatter API
+dt.fmt()                        // "Dec 25, 2024"
+dt.fmt("short")                 // "12/25/24"
+dt.fmt("full")                  // "Wednesday, December 25, 2024"
+dt.fmt("long", "de-DE")         // "25. Dezember 2024"
+
+// Style sugar methods
+dt.short()                      // "12/25/24"
+dt.medium()                     // "Dec 25, 2024"
+dt.long()                       // "December 25, 2024"
+dt.full()                       // "Wednesday, December 25, 2024"
+dt.long("de-DE")                // "25. Dezember 2024"
+
+dt.repr()                       // "@2024-12-25T14:30:00Z"
+dt.inspect()                    // {__type: "datetime", kind: "datetime", ...}
 ```
 
 ---
@@ -1707,16 +2128,48 @@ Duration values represent time spans and are created from duration literals (`@1
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.format(locale?)` | `locale?: string` | `string` | Human-readable relative time |
+| `.fmt()` | none | `string` | Format with default style (medium) and locale |
+| `.fmt(style)` | `style: string` | `string` | Format with named style |
+| `.fmt(style, locale)` | `style: string`, `locale: string` | `string` | Format with style and locale |
+| `.fmt(options)` | `options: dictionary` | `string` | Format with options dict |
+| `.short(locale?)` | `locale?: string` | `string` | Compact abbreviations |
+| `.medium(locale?)` | `locale?: string` | `string` | Relative time (default) |
+| `.long(locale?)` | `locale?: string` | `string` | Verbose human-readable |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
+| `.repr()` | none | `string` | Parseable literal representation |
+| `.toJSON()` | none | `string` | JSON representation |
 | `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
 | `.inspect()` | none | `dictionary` | Get full dictionary with `__type` for debugging |
+| `.toBox()` | none | `string` | Render duration in a box |
+
+**Format styles**:
+
+| Style | Example (`@2h30m`) | Description |
+|-------|-------------------|-------------|
+| `"short"` | `"2h30m"` | Compact abbreviations |
+| `"medium"` (default) | `"in 3 hours"` | Relative time |
+| `"long"` | `"2 hours 30 minutes"` | Verbose human-readable |
+
+> **Note:** Duration does not support the `"full"` style. Calling `.fmt("full")` or `.full()` will produce an error.
 
 ```parsley
 let dur = @2h30m
 dur.hours                       // 2
 dur.minutes                     // 150 (total)
 dur.totalSeconds                // 9000
-dur.format()                    // "in 2 hours"
+
+// Unified formatter API
+dur.fmt()                       // "in 3 hours"
+dur.fmt("short")                // "2h30m"
+dur.fmt("long")                 // "2 hours 30 minutes"
+
+// Style sugar methods
+dur.short()                     // "2h30m"
+dur.medium()                    // "in 3 hours"
+dur.long()                      // "2 hours 30 minutes"
+dur.medium("de-DE")             // "in 3 Stunden"
+
+dur.repr()                      // "@duration{hours: 2, minutes: 30}"
 
 let longDur = @1y6mo
 longDur.months                  // 18
@@ -1863,35 +2316,214 @@ Money values represent currency amounts with arbitrary precision. They are creat
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.format(locale?)` | `locale?: string` | `string` | Format with currency symbol |
+| `.fmt()` | none | `string` | Format with default style (medium) and locale |
+| `.fmt(n)` | `n: integer` | `string` | Format with n decimal places |
+| `.fmt(style)` | `style: string` | `string` | Format with named style |
+| `.fmt(style, locale)` | `style: string`, `locale: string` | `string` | Format with style and locale |
+| `.fmt(options)` | `options: dictionary` | `string` | Format with options dict |
+| `.short(locale?)` | `locale?: string` | `string` | Compact format ($1.2K) |
+| `.medium(locale?)` | `locale?: string` | `string` | Standard format with separators |
+| `.long(locale?)` | `locale?: string` | `string` | Full precision with symbol |
+| `.full(locale?)` | `locale?: string` | `string` | With currency name spelled out |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
 | `.abs()` | none | `money` | Absolute value |
 | `.negate()` | none | `money` | Negate amount |
 | `.split(n)` | `n: integer` | `array` | Split into n parts (handles rounding) |
 | `.repr()` | none | `string` | Get parseable literal (e.g., `"$50.00"`) |
+| `.toJSON()` | none | `string` | JSON representation |
 | `.toDict()` | none | `dictionary` | Get clean dictionary for reconstruction |
 | `.inspect()` | none | `dictionary` | Get debug dictionary with `__type` and raw values |
+| `.toBox()` | none | `string` | Render money in a box |
+
+**Format styles**:
+
+| Style | Example Output |
+|-------|----------------|
+| `"short"` | `"$1.2K"` |
+| `"medium"` (default) | `"$ 1,234.56"` |
+| `"long"` | `"$1,234.56"` |
+| `"full"` | `"1,234.56 US dollars"` |
 
 **Arithmetic**: Money supports `+`, `-` (same currency only), and `*`, `/` by numbers.
 
 **Splitting**: `.split(n)` distributes rounding errors across parts so the total is exact.
 
 ```parsley
-let m = $100.00
-m.amount                        // 10000 (cents)
+let m = $1234.56
+m.amount                        // 123456 (cents)
 m.currency                      // "USD"
 m.scale                         // 2
-m.format()                      // "$100.00"
-m.format("de-DE")               // "100,00 $"
+
+// Unified formatter API
+m.fmt()                         // "$ 1,234.56"
+m.fmt("short")                  // "$1.2K"
+m.fmt("full")                   // "1,234.56 US dollars"
+m.fmt("medium", "de-DE")        // "1.234,56 $"
+
+// Style sugar methods
+m.short()                       // "$1.2K"
+m.medium()                      // "$ 1,234.56"
+m.long()                        // "$1,234.56"
+m.full()                        // "1,234.56 US dollars"
+m.full("de-DE")                 // "1.234,56 US-Dollar"
 
 $100.00 + $50.00                // $150.00
 $100.00 * 3                     // $300.00
 $100.00.split(3)                // [$33.34, $33.33, $33.33]
 (-$50.00).abs()                 // $50.00
+
+m.repr()                        // "$1234.56"
+m.inspect()                     // {__type: "money", amount: 123456, currency: "USD", scale: 2}
 ```
 
 ---
 
-### 5.11 Table Properties & Methods
+### 5.11 Unit Properties & Methods
+
+Unit values represent physical measurements with exact integer storage. They are created from unit literals (`#12m`, `#3/8in`, `#100C`, `#1gal`) or constructor functions (`metres(12)`, `celsius(100)`, `litres(2)`, `unit(12, "m")`).
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `.value` | `float` | Decoded value in display-hint units (e.g., `12.3` for `#12.3m`) |
+| `.unit` | `string` | Display-hint unit suffix (e.g., `"m"`, `"in"`, `"m2"`, `"ac"`) |
+| `.family` | `string` | Unit family: `"length"`, `"mass"`, `"data"`, `"temperature"`, `"volume"`, or `"area"` |
+| `.system` | `string` | Measurement system: `"SI"` or `"US"` |
+| `.max` | `unit` | Largest exactly-representable value for this unit suffix |
+| `.min` | `unit` | Smallest positive representable value (1 base sub-unit expressed in this suffix) |
+
+#### Methods
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.fmt()` | none | `string` | Format with default style (medium) and locale |
+| `.fmt(n)` | `n: integer` | `string` | Format with n decimal places |
+| `.fmt(style)` | `style: string` | `string` | Format with named style |
+| `.fmt(style, locale)` | `style: string`, `locale: string` | `string` | Format with style and locale |
+| `.fmt(options)` | `options: dictionary` | `string` | Format with options dict |
+| `.fmt(formatStr)` | `formatStr: string` | `string` | Compound format (see below) |
+| `.short(locale?)` | `locale?: string` | `string` | Compact with suffix only |
+| `.medium(locale?)` | `locale?: string` | `string` | Decimal precision with suffix |
+| `.long(locale?)` | `locale?: string` | `string` | Full unit name |
+| `.full(locale?)` | `locale?: string` | `string` | With cross-system conversion |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
+| `.to(suffix)` | `suffix: string` | `unit` | Convert to another unit in the same family |
+| `.abs()` | none | `unit` | Absolute value |
+| `.repr()` | none | `string` | Parseable literal (e.g., `"#3/8in"`, `"#12.3m"`) |
+| `.toJSON()` | none | `string` | JSON representation |
+| `.toDict()` | none | `dictionary` | `{value, unit, family, system}` |
+| `.inspect()` | none | `dictionary` | Debug dictionary with internal values |
+| `.toFraction()` | none | `string` | Fraction string for US Customary values (not available for temperature or area) |
+| `.toBox()` | none | `string` | Render unit in a box |
+
+**Format styles**:
+
+| Style | Example (`#5m`) | Description |
+|-------|-----------------|-------------|
+| `"short"` | `"5m"` | Compact with suffix |
+| `"medium"` (default) | `"5.00m"` | Decimal precision with suffix |
+| `"long"` | `"5.00 meters"` | Full unit name |
+| `"full"` | `"5.00 meters (16.4 ft)"` | With cross-system conversion |
+
+**Compound Formatting**: The `.format()` method accepts a format string for compound unit display:
+
+| Format | Family | Example Input | Example Output |
+|--------|--------|---------------|----------------|
+| `"ft-in"` | length | `#63.375in` | `5' 3+3/8"` |
+| `"lb-oz"` | mass | `#37oz` | `2lb 5oz` |
+| `"gal-qt-pt"` | volume | `#13pt` | `1gal 2qt 1pt` |
+| `"L-mL"` | volume | `#1500mL` | `1L 500mL` |
+| `"compound"` | any | (auto-detect) | Best compound format |
+
+```parsley
+#63in.format("ft-in")           // "5' 3\""
+#63.375in.format("ft-in")       // "5' 3+3/8\""
+#1.5ft.format("ft-in")          // "1' 6\""
+#37oz.format("lb-oz")           // "2lb 5oz"
+#2.5lb.format("lb-oz")          // "2lb 8oz"
+#13pt.format("gal-qt-pt")       // "1gal 2qt 1pt"
+#1500mL.format("L-mL")          // "1L 500mL"
+
+// Auto-detect compound format
+#63in.format("compound")        // "5' 3\"" (length ≥ 1ft → ft-in)
+#6in.format("compound")         // "6in" (< 1ft, no compound)
+#37oz.format("compound")        // "2lb 5oz" (mass ≥ 1lb → lb-oz)
+#13pt.format("compound")        // "1gal 2qt 1pt" (volume ≥ 1pt → gal-qt-pt)
+#1500mL.format("compound")      // "1L 500mL" (SI volume ≥ 1L → L-mL)
+
+// Cross-system auto-conversion
+#1.5m.format("ft-in")           // "4' 11.055\"" (converts SI→US first)
+#1kg.format("lb-oz")            // "2lb 3.274oz" (converts SI→US first)
+#1gal.format("L-mL")            // "3L 785.412mL" (converts US→SI first)
+```
+
+**Arithmetic**: Units support `+`, `-` (same family), `*`, `/` by numbers, and `/` unit by unit (→ ratio). Temperature only supports `+` and `-` (no multiply/divide).
+
+**Conversion**: `.to()` converts between units in the same family, including cross-system and cross-scale for temperature:
+
+```parsley
+let d = #5m
+d.value                         // 5
+d.unit                          // "m"
+d.family                        // "length"
+d.system                        // "SI"
+
+// Unified formatter API
+d.fmt()                         // "5.00m"
+d.fmt("short")                  // "5m"
+d.fmt("long")                   // "5.00 meters"
+d.fmt("full")                   // "5.00 meters (16.4 ft)"
+d.fmt("long", "en-GB")          // "5.00 metres"
+
+// Style sugar methods
+d.short()                       // "5m"
+d.medium()                      // "5.00m"
+d.long()                        // "5.00 meters"
+d.full()                        // "5.00 meters (16.4 ft)"
+d.long("en-GB")                 // "5.00 metres"
+
+#12.345m.fmt(2)                 // "12.35m"
+
+#1mi.to("km")                   // #1.609344km
+#100cm.to("m")                  // #1m
+
+(#-6m).abs()                    // #6m
+#5m.repr()                      // "#5m"
+#3/8in.toFraction()             // "3/8\""
+#5m.inspect()                   // {__type: "unit", amount: 5000000, ...}
+
+// Temperature conversion
+#100C.to("F")                   // #212F
+#32F.to("C")                    // #0C
+#100C.to("K")                   // #373.15K
+celsius(#212F)                  // #100C
+(#-40C).abs()                   // #40C
+
+// Volume
+#1gal.to("qt")                  // 4 quarts
+#1/3cup.toFraction()            // "1/3cup"
+
+// Area
+#100m2.to("km2")                // #0.0001km2
+#640ac.to("mi2")                // #1mi2
+#100m2.family                   // "area"
+
+// .max and .min
+#0m.max                         // largest representable value in metres
+#0m.min                         // smallest positive value in metres
+#100m2 < #0m2.max               // true
+
+// String interpolation (no # sigil)
+let height = #1.83m
+`Height: {height}`              // "Height: 1.83m"
+let temp = #37.5C
+`Temp: {temp}`                  // "Temp: 37.5C"
+```
+
+---
+
+### 5.12 Table Properties & Methods
 
 Table values represent structured tabular data with named columns and typed rows. Tables provide SQL-like query, aggregation, and mutation methods that operate immutably (returning new tables).
 
@@ -1904,19 +2536,12 @@ let t = @table [
     {name: "Bob", age: 25}
 ]
 
-// Table literal - from array of arrays (first row is headers)
-let t = @table [
-    ["name", "age"],
-    ["Alice", 30],
-    ["Bob", 25]
-]
-
 // CSV parsing returns Table directly
 let data = "name,age\nAlice,30\nBob,25".parseCSV()  // Returns Table
 let rows <== CSV(@./sales.csv)                       // Returns Table
 
 // Database queries return Table
-let users <=??=> db <SQL>SELECT * FROM users</SQL>   // Returns Table
+let users = @query(Users ??-> *)   // Returns Table
 
 // table() builtin constructor
 let t = table([{name: "Alice"}, {name: "Bob"}])
@@ -2528,7 +3153,89 @@ match("hello", "\\d+")          // null
 
 ---
 
-### 6.6 Money
+### 6.6 Units
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `unit(value, suffix)` | `value: number\|unit`, `suffix: string` | `unit` | Create or convert a unit value |
+
+**Named constructors** (plural forms) create units from a number or convert from another unit:
+
+| Constructor | Suffix | Family | System |
+|-------------|--------|--------|--------|
+| `millimetres()` / `millimeters()` | `mm` | length | SI |
+| `centimetres()` / `centimeters()` | `cm` | length | SI |
+| `metres()` / `meters()` | `m` | length | SI |
+| `kilometres()` / `kilometers()` | `km` | length | SI |
+| `inches()` | `in` | length | US |
+| `feet()` | `ft` | length | US |
+| `yards()` | `yd` | length | US |
+| `miles()` | `mi` | length | US |
+| `milligrams()` | `mg` | mass | SI |
+| `grams()` | `g` | mass | SI |
+| `kilograms()` | `kg` | mass | SI |
+| `ounces()` | `oz` | mass | US |
+| `pounds()` | `lb` | mass | US |
+| `bytes()` | `B` | data | SI |
+| `kilobytes()` | `kB` | data | SI |
+| `megabytes()` | `MB` | data | SI |
+| `gigabytes()` | `GB` | data | SI |
+| `terabytes()` | `TB` | data | SI |
+| `kibibytes()` | `KiB` | data | SI |
+| `mebibytes()` | `MiB` | data | SI |
+| `gibibytes()` | `GiB` | data | SI |
+| `tebibytes()` | `TiB` | data | SI |
+
+| `celsius()` | `C` | temperature | SI |
+| `fahrenheit()` | `F` | temperature | US |
+| `kelvins()` | `K` | temperature | SI |
+| `millilitres()` / `milliliters()` | `mL` | volume | SI |
+| `litres()` / `liters()` | `L` | volume | SI |
+| `kilolitres()` / `kiloliters()` | `kL` | volume | SI |
+| `fluidounces()` | `floz` | volume | US |
+| `cups()` | `cup` | volume | US |
+| `pints()` | `pt` | volume | US |
+| `quarts()` | `qt` | volume | US |
+| `gallons()` | `gal` | volume | US |
+| `millimetres2()` / `millimeters2()` | `mm2` | area | SI |
+| `centimetres2()` / `centimeters2()` | `cm2` | area | SI |
+| `metres2()` / `meters2()` | `m2` | area | SI |
+| `kilometres2()` / `kilometers2()` | `km2` | area | SI |
+| `inches2()` | `in2` | area | US |
+| `feet2()` | `ft2` | area | US |
+| `yards2()` | `yd2` | area | US |
+| `acres()` | `ac` | area | US |
+| `miles2()` | `mi2` | area | US |
+
+`bytes()` is also available as a constructor for data units:
+
+```parsley
+bytes(1024)                     // #1024B
+bytes(#1KiB)                    // #1024B (convert from kibibytes)
+```
+
+**Note**: The file I/O function previously named `bytes()` has been renamed to `raw()`.
+
+```parsley
+unit(123, "m")                  // #123m
+unit(#12in, "m")                // convert 12 inches to metres
+metres(100)                     // #100m
+inches(#1cm)                    // convert 1cm to inches
+kilograms(#2.2lb)               // convert 2.2lb to kilograms
+celsius(100)                    // #100C
+fahrenheit(#100C)               // #212F
+litres(2)                       // #2L
+kilolitres(5)                   // #5kL
+gallons(1)                      // #1gal
+cups(#1L)                       // convert litres to cups
+metres2(100)                    // #100m2
+acres(640)                      // #640ac
+kilometres2(510000000)          // Earth's surface (uses Scale for large values)
+```
+
+---
+
+### 6.7 Money
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -2694,7 +3401,7 @@ These functions create file handles for reading and writing.
 | `CSV(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | CSV file handle (returns table) |
 | `text(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | Plain text file handle |
 | `lines(source, opts?)` | `source: path\|url`, `opts?: dict` | `file` | Lines file handle (returns array) |
-| `bytes(source)` | `source: path` | `file` | Binary file handle (returns byte array) |
+| `raw(source)` | `source: path` | `file` | Binary file handle (returns byte array) |
 | `SVG(path, attrs?)` | `path: path`, `attrs?: dict` | `file` | SVG file handle with optional attributes |
 | `MD(path, opts?)` | `path: path`, `opts?: dict` | `file` | Markdown file handle (renders to HTML) |
 | `markdown(path, opts?)` | `path: path`, `opts?: dict` | `file` | Markdown with frontmatter (returns `{meta, content}`) |
@@ -4115,6 +4822,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `datetime` | `@2024-12-25` | `year`, `month`, `day`, etc. | `format` |
 | `duration` | `@1d`, `@2h30m` | `months`, `seconds`, etc. | `format` |
 | `money` | `$12.34`, `EUR#50` | `amount`, `currency`, `scale` | `format`, `split`, `abs`, `negate` |
+| `unit` | `#12m`, `#3/8in` | `value`, `unit`, `family`, `system` | `to`, `abs`, `format`, `repr`, `toFraction` |
 | `path` | `@./file.txt` | `segments`, `extension`, etc. | `match`, `toURL` |
 | `url` | `@https://...` | `scheme`, `host`, `query`, etc. | `origin`, `pathname` |
 | `regex` | `/pattern/flags` | `pattern`, `flags` | `test`, `replace` |
@@ -4257,6 +4965,28 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `toCSV()` | 0 | Convert to CSV |
 | `toMarkdown()` | 0 | Convert to Markdown |
 | `toJSON()` | 0 | Convert to JSON |
+
+### Unit Methods (7 methods) and Properties (6 properties)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | float | Decoded display value |
+| `unit` | string | Suffix (e.g., `"m"`, `"m2"`, `"ac"`) |
+| `family` | string | `"length"`, `"mass"`, `"data"`, `"temperature"`, `"volume"`, `"area"` |
+| `system` | string | `"SI"` or `"US"` |
+| `max` | unit | Largest representable value |
+| `min` | unit | Smallest positive representable value |
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `to(suffix)` | 1 | Convert to another unit |
+| `abs()` | 0 | Absolute value |
+| `format(precision?)` | 0-1 | Formatted string with optional decimal places |
+| `format(formatStr)` | 1 | Compound format: `"ft-in"`, `"lb-oz"`, `"gal-qt-pt"`, `"L-mL"`, `"compound"` |
+| `repr()` | 0 | Parseable literal |
+| `toDict()` | 0 | Convert to dictionary |
+| `inspect()` | 0 | Debug dictionary |
+| `toFraction()` | 0 | Fraction string (US only, not area) |
 
 ### TableBinding Methods (8 methods)
 

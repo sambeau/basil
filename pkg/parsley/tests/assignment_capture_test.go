@@ -78,8 +78,8 @@ func TestRemoteWriteAssignmentCapture(t *testing.T) {
 		}
 	})
 
-	t.Run("assignment (no let) captures response", func(t *testing.T) {
-		input := `response = {x: 1} =/=> JSON(url("` + server.URL + `")); response`
+	t.Run("let captures response", func(t *testing.T) {
+		input := `let response = {x: 1} =/=> JSON(url("` + server.URL + `")); response`
 		result := testEvalHelper(input)
 
 		dict, ok := result.(*evaluator.Dictionary)
@@ -224,8 +224,8 @@ func TestRemoteWriteDestructuring(t *testing.T) {
 		}
 	})
 
-	t.Run("{data, error} reassignment from remote write", func(t *testing.T) {
-		input := `{data, error} = {y: 2} =/=> JSON(url("` + server.URL + `")); data`
+	t.Run("let {data, error} from remote write 2", func(t *testing.T) {
+		input := `let {data, error} = {y: 2} =/=> JSON(url("` + server.URL + `")); data`
 		result := testEvalHelper(input)
 
 		dict, ok := result.(*evaluator.Dictionary)
@@ -412,7 +412,7 @@ func TestFetchExpressionAssignmentCapture(t *testing.T) {
 	})
 
 	t.Run("assignment captures fetch expression", func(t *testing.T) {
-		input := `response = <=/= JSON(url("` + jsonServer.URL + `")); response`
+		input := `let response = <=/= JSON(url("` + jsonServer.URL + `")); response`
 		result := testEvalHelper(input)
 
 		dict, ok := result.(*evaluator.Dictionary)
@@ -591,7 +591,7 @@ func TestFetchStatementStillWorks(t *testing.T) {
 	defer jsonServer.Close()
 
 	t.Run("statement form {data, error} <=/= still works", func(t *testing.T) {
-		input := `{data, error} <=/= JSON(url("` + jsonServer.URL + `")); data`
+		input := `let {data, error} = <=/= JSON(url("` + jsonServer.URL + `")); data`
 		result := testEvalHelper(input)
 
 		dict, ok := result.(*evaluator.Dictionary)

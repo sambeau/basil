@@ -1,0 +1,66 @@
+# With expression
+
+I am considering adding ``with dict {...}`` to expand a dictionary’s fields into a temporary scope that exists within the ``{...}`` block.
+
+This makes templates much cleaner to write, and easier to understand, as it removes long repetitive chains.
+
+E.g.:-
+
+```
+	with users[id].address {
+		<span>houseNumber</span>
+		<span>street</span>
+		<span>postcode</span>
+	}
+```
+
+Vs
+
+```
+		<span>users[id].address.houseNumber</span>
+		<span>users[id].address.street</span>
+		<span>users[id].address.postcode</span>
+```
+
+### differences with destructuring
+
+It is similar to (if we had such a construct)
+
+```
+	{...} = users[id].address
+```
+
+Which assumes that ... or some similar syntax restructures ever field into the current scope.
+
+However it also limits the lifespan of the scope so that these new variables don’t leak out beyond where they are needed.
+
+### Could we add ``{ ...}``
+
+An alternative solution would be to add a way to create ad-hoc clock scope (I believe C has this feature). Then we could use normal destructuring to Pull the values in. However this would be verbose and we’d soon long for ``{...} = users[id].address`` or something similar.
+
+### Javascript’s deprecated ``with``
+
+Javascript’s ``with`` is quite different to what I want, and is deprecated (for good reasons).
+
+### C# and Swift
+
+C# and Swift also have ``with`` but they are very different.
+
+## Prior Art
+
+- [Pascal With Statement](https://www.freepascal.org/docs-html/ref/refsu62.html) is closest to the idea
+- [D with statement](https://dlang.org/spec/statement.html#with-statement) is more (too) sophisticated but similar
+
+## Investigation/Proposal
+
+As usual this is a proposal to kick of a discussion and a small amount of investigation
+
+- is this easy to do without overcomplicating the code?
+- will the grammar support it?
+- does the way we do scope have a way to support this (in a clean, simple way)?
+- where would this simplify code?
+- are the tradeoffs worth it?
+
+Please investigate the possibilities and give me a realistic assessment of this idea.
+
+As usual, we are looking for solutions that adhere to Parsley’s aesthetic (simplicity, minimalism, completeness, composability).

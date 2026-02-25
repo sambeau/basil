@@ -68,7 +68,7 @@ func TestFormatFactories(t *testing.T) {
 		{`let f = CSV(@./data.csv); f.format`, "csv"},
 		{`let f = lines(@./app.log); f.format`, "lines"},
 		{`let f = text(@./readme.txt); f.format`, "text"},
-		{`let f = bytes(@./image.png); f.format`, "bytes"},
+		{`let f = raw(@./image.png); f.format`, "bytes"},
 		// Format factories override extension inference
 		{`let f = JSON(@./config.txt); f.format`, "json"},
 		{`let f = text(@./data.json); f.format`, "text"},
@@ -232,13 +232,13 @@ func TestFileBuiltinErrors(t *testing.T) {
 	tests := []struct {
 		input string
 	}{
-		{`file()`},      // No arguments
-		{`file(123)`},   // Wrong type
-		{`JSON()`},  // No arguments
-		{`CSV()`},   // No arguments
-		{`lines()`}, // No arguments
-		{`text()`},  // No arguments
-		{`bytes()`}, // No arguments
+		{`file()`},    // No arguments
+		{`file(123)`}, // Wrong type
+		{`JSON()`},    // No arguments
+		{`CSV()`},     // No arguments
+		{`lines()`},   // No arguments
+		{`text()`},    // No arguments
+		{`raw()`},     // No arguments
 	}
 
 	for _, tt := range tests {

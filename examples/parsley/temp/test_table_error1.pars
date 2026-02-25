@@ -2,4 +2,4 @@
 
 // T1.3: Column mismatch error
 let bad = Table([{a: 1}, {b: 2}])
-print("This should not print - error expected above")
+log("This should not print - error expected above")

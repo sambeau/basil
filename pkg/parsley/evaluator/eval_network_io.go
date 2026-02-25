@@ -68,7 +68,7 @@ func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Obje
 		}
 
 		if err != nil {
-			return newIOError("IO-0009", handle.Path, err)
+			return newIOError("IO-0006", handle.Path, err)
 		}
 		return NULL
 
@@ -227,7 +227,9 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 		if node.IsLet {
 			env.SetLet(node.Name.Value, responseDict)
 		} else {
-			env.Update(node.Name.Value, responseDict)
+			if err := env.Update(node.Name.Value, responseDict); isError(err) {
+				return err
+			}
 		}
 	}
 

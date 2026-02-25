@@ -75,7 +75,7 @@ func idNew(args ...Object) Object {
 	// Generate random bytes for the rest (16 chars = 80 bits)
 	var randomBytes [10]byte
 	if _, err := rand.Read(randomBytes[:]); err != nil {
-		return &Error{Message: "Failed to generate random bytes"}
+		return newInternalError("ID-0001", map[string]any{"Function": "id.new"})
 	}
 
 	// Encode random bytes
@@ -104,7 +104,7 @@ func idUUID(args ...Object) Object {
 
 	var uuid [16]byte
 	if _, err := rand.Read(uuid[:]); err != nil {
-		return &Error{Message: "Failed to generate random bytes"}
+		return newInternalError("ID-0001", map[string]any{"Function": "id.uuid"})
 	}
 
 	// Set version 4 and variant bits
@@ -136,7 +136,7 @@ func idUUIDv7(args ...Object) Object {
 
 	// Generate random bytes for the rest
 	if _, err := rand.Read(uuid[6:]); err != nil {
-		return &Error{Message: "Failed to generate random bytes"}
+		return newInternalError("ID-0001", map[string]any{"Function": "id.uuidv7"})
 	}
 
 	// Set version 7 and variant bits
@@ -155,7 +155,7 @@ func idNanoID(args ...Object) Object {
 		if l, ok := args[0].(*Integer); ok {
 			length = int(l.Value)
 			if length < 1 || length > 256 {
-				return &Error{Message: "NanoID length must be between 1 and 256"}
+				return newValueError("ID-0002", map[string]any{"Got": length})
 			}
 		} else {
 			return newTypeError("TYPE-0001", "id.nanoid", "integer", args[0].Type())
@@ -167,7 +167,7 @@ func idNanoID(args ...Object) Object {
 	// Generate random bytes
 	randomBytes := make([]byte, length)
 	if _, err := rand.Read(randomBytes); err != nil {
-		return &Error{Message: "Failed to generate random bytes"}
+		return newInternalError("ID-0001", map[string]any{"Function": "id.nanoid"})
 	}
 
 	// Build ID using alphabet
@@ -216,7 +216,7 @@ func idCUID(args ...Object) Object {
 	// Random (12 chars)
 	randomBytes := make([]byte, 8)
 	if _, err := rand.Read(randomBytes); err != nil {
-		return &Error{Message: "Failed to generate random bytes"}
+		return newInternalError("ID-0001", map[string]any{"Function": "id.cuid"})
 	}
 	randNum := binary.BigEndian.Uint64(randomBytes)
 	randStr := base36Encode(randNum)

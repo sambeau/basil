@@ -48,25 +48,106 @@ Standard arithmetic (`+`, `-`, `*`, `/`, `%`) and comparisons (`==`, `!=`, `<`, 
 
 ## Methods
 
-Numbers have built-in formatting methods — these are where Parsley adds value over raw arithmetic.
+### fmt()
 
-### format()
+The primary formatting method with multiple overloads.
 
-Adds thousand separators and preserves decimal places:
+#### Usage: fmt()
+
+Format with default style (medium) and locale (en-US):
 
 ```parsley
-1000000.format()    // "1,000,000"
-3.14.format()       // "3.14"
+123456.fmt()        // "123,456"
+1234.5.fmt()        // "1,234.5"
 ```
 
-### humanize()
+#### Usage: fmt(precision)
+
+Format floats with a specific number of decimal places:
+
+```parsley
+1234.5678.fmt(2)    // "1,234.57"
+3.14159.fmt(4)      // "3.1416"
+```
+
+#### Usage: fmt(style)
+
+Format with a named style:
+
+```parsley
+1234567.fmt("short")   // "1.2M"
+1234567.fmt("medium")  // "1,234,567"
+1234567.fmt("long")    // "1,234,567"
+```
+
+#### Usage: fmt(style, locale)
+
+Format with style and locale:
+
+```parsley
+1234.fmt("medium", "de-DE")  // "1.234"
+1234.fmt("medium", "fr-FR")  // "1 234"
+```
+
+#### Usage: fmt(options)
+
+Format with an options dictionary:
+
+```parsley
+1234567.fmt({style: "short"})                    // "1.2M"
+1234.5678.fmt({precision: 2})                    // "1,234.57"
+1234.fmt({style: "medium", locale: "de-DE"})     // "1.234"
+```
+
+### short()
 
 Compact notation for large numbers:
 
 ```parsley
-1500.humanize()          // "1.5K"
-3500000.humanize()       // "3.5M"
-2500000000.humanize()    // "2.5B"
+1500.short()           // "1.5K"
+1234567.short()        // "1.2M"
+2500000000.short()     // "2.5B"
+
+// With locale:
+1234567.short("de-DE") // "1,2M"
+```
+
+### medium()
+
+Standard format with thousand separators (default style):
+
+```parsley
+123456.medium()        // "123,456"
+1234.5.medium()        // "1,234.5"
+
+// With locale:
+123456.medium("de-DE") // "123.456"
+```
+
+### long()
+
+Full precision format:
+
+```parsley
+123456.long()          // "123,456"
+1234.5.long()          // "1,234.50"
+```
+
+### format()
+
+Alias for `fmt()`. Retained for backward compatibility:
+
+```parsley
+1000000.format()       // "1,000,000"
+```
+
+### humanize()
+
+Alias for `short()`. Compact notation for large numbers:
+
+```parsley
+1500.humanize()        // "1.5K"
+3500000.humanize()     // "3.5M"
 ```
 
 ### currency(code)
@@ -75,19 +156,107 @@ Formats with currency symbol and two decimal places:
 
 ```parsley
 let x = 99
-x.currency("USD")       // "$99.00"
-x.currency("EUR")       // "€99.00"
-x.currency("GBP")       // "£99.00"
+x.currency("USD")      // "$99.00"
+x.currency("EUR")      // "€99.00"
+x.currency("GBP")      // "£99.00"
 ```
 
 > For precise currency arithmetic (avoiding floating-point rounding), use the [Money](money.md) type instead.
 
+### percent()
+
+Format as a percentage:
+
+```parsley
+0.125.percent()        // "13%"
+0.5.percent()          // "50%"
+```
+
+### repr()
+
+Returns a parseable literal representation:
+
+```parsley
+42.repr()              // "42"
+3.14.repr()            // "3.14"
+```
+
+### toJSON()
+
+Returns the JSON representation:
+
+```parsley
+42.toJSON()            // "42"
+3.14.toJSON()          // "3.14"
+```
+
+### inspect()
+
+Returns a debug dictionary with type information:
+
+```parsley
+42.inspect()           // {__type: "integer", value: 42}
+3.14.inspect()         // {__type: "float", value: 3.14}
+```
+
+### toBox()
+
+Renders the number in a box diagram:
+
+```parsley
+42.toBox()
+```
+
+```
+┌────┐
+│ 42 │
+└────┘
+```
+
+## Float-Specific Methods
+
+### abs()
+
+Returns the absolute value:
+
+```parsley
+(-5).abs()             // 5
+(-3.14).abs()          // 3.14
+```
+
+### round()
+
+Round to the nearest integer or to n decimal places:
+
+```parsley
+3.7.round()            // 4
+3.14159.round(2)       // 3.14
+```
+
+### floor()
+
+Round down to the nearest integer:
+
+```parsley
+3.7.floor()            // 3
+(-3.2).floor()         // -4
+```
+
+### ceil()
+
+Round up to the nearest integer:
+
+```parsley
+3.2.ceil()             // 4
+(-3.7).ceil()          // -3
+```
+
 ## Type Conversions
 
 ```parsley
-number("42")        // 42
-number("3.14")      // 3.14
-42.string()         // "42"
+number("42")           // 42
+number("3.14")         // 3.14
+42.string()            // "42"
 ```
 
 Numbers interpolate naturally in template strings:
@@ -114,6 +283,14 @@ math.sqrt(math.pow(3, 2) + math.pow(4, 2))  // 5
 The module includes rounding (`ceil`, `floor`, `round`, `trunc`), comparison (`abs`, `sign`, `clamp`, `min`, `max`), aggregation (`sum`, `avg`, `product`), powers and logarithms, trigonometry, statistics (`median`, `mode`, `stddev`, `variance`), random numbers, and interpolation.
 
 See [@std/math](../stdlib/math.md) for the full reference.
+
+## Formatting Styles Summary
+
+| Style | Integer | Float |
+|-------|---------|-------|
+| `short` | `"1.2M"` | `"1.2M"` |
+| `medium` (default) | `"1,234,567"` | `"1,234.5"` |
+| `long` | `"1,234,567"` | `"1,234.50"` |
 
 ## Key Differences from Other Languages
 

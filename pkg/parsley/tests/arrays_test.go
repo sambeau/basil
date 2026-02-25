@@ -51,9 +51,9 @@ func TestArrayAssignment(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"xs = [1,2,3]; xs", "[1, 2, 3]"},
-		{"arr = [5,10,15]; arr", "[5, 10, 15]"},
-		{`names = ["Alice","Bob"]; names`, "[Alice, Bob]"},
+		{"let xs = [1,2,3]; xs", "[1, 2, 3]"},
+		{"let arr = [5,10,15]; arr", "[5, 10, 15]"},
+		{`let names = ["Alice","Bob"]; names`, "[Alice, Bob]"},
 	}
 
 	for _, tt := range tests {
@@ -88,10 +88,10 @@ func TestForFunctionMapping(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"double = fn(x) { x * 2 }; [1,2,3].map(double)", "[2, 4, 6]"},
-		{"square = fn(x) { x * x }; [1,2,3,4].map(square)", "[1, 4, 9, 16]"},
-		{"inc = fn(x) { x + 1 }; [10,20,30].map(inc)", "[11, 21, 31]"},
-		{`upper = fn(s) { s }; ["a","b","c"].map(upper)`, "[a, b, c]"},
+		{"let double = fn(x) { x * 2 }; [1,2,3].map(double)", "[2, 4, 6]"},
+		{"let square = fn(x) { x * x }; [1,2,3,4].map(square)", "[1, 4, 9, 16]"},
+		{"let inc = fn(x) { x + 1 }; [10,20,30].map(inc)", "[11, 21, 31]"},
+		{`let upper = fn(s) { s }; ["a","b","c"].map(upper)`, "[a, b, c]"},
 	}
 
 	for _, tt := range tests {
@@ -126,9 +126,9 @@ func TestForFunctionFiltering(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"gt10 = fn(x) { if (x > 10) { return x } }; [5,15,25,8,3,12].map(gt10)", "[15, 25, 12]"},
-		{"gt5 = fn(x) { if (x > 5) { return x } }; [1,2,3,4,5,6,7,8].map(gt5)", "[6, 7, 8]"},
-		{"positive = fn(x) { if (x > 0) { return x } }; [-1,5,-3,10].map(positive)", "[5, 10]"},
+		{"let gt10 = fn(x) { if (x > 10) { return x } }; [5,15,25,8,3,12].map(gt10)", "[15, 25, 12]"},
+		{"let gt5 = fn(x) { if (x > 5) { return x } }; [1,2,3,4,5,6,7,8].map(gt5)", "[6, 7, 8]"},
+		{"let positive = fn(x) { if (x > 0) { return x } }; [-1,5,-3,10].map(positive)", "[5, 10]"},
 	}
 
 	for _, tt := range tests {
@@ -163,8 +163,8 @@ func TestForWithArrayVariable(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"double = fn(x) { x * 2 }; xs = [1,2,3]; xs.map(double)", "[2, 4, 6]"},
-		{"square = fn(x) { x * x }; nums = [2,3,4]; nums.map(square)", "[4, 9, 16]"},
+		{"let double = fn(x) { x * 2 }; let xs = [1,2,3]; xs.map(double)", "[2, 4, 6]"},
+		{"let square = fn(x) { x * x }; let nums = [2,3,4]; nums.map(square)", "[4, 9, 16]"},
 	}
 
 	for _, tt := range tests {
@@ -199,8 +199,8 @@ func TestForWithComplexExpressions(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"transform = fn(x) { x * 2 + 1 }; [1,2,3].map(transform)", "[3, 5, 7]"},
-		{"calc = fn(x) { if (x > 2) x * 2 else x + 1 }; [1,2,3,4].map(calc)", "[2, 3, 6, 8]"},
+		{"let transform = fn(x) { x * 2 + 1 }; [1,2,3].map(transform)", "[3, 5, 7]"},
+		{"let calc = fn(x) { if (x > 2) x * 2 else x + 1 }; [1,2,3,4].map(calc)", "[2, 3, 6, 8]"},
 	}
 
 	for _, tt := range tests {
@@ -235,7 +235,7 @@ func TestArrayPrecedence(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"x = 1; y = 2; [x,y]", "[1, 2]"},
+		{"let x = 1; let y = 2; [x,y]", "[1, 2]"},
 		{"[1+2,3*4]", "[3, 12]"},
 		{"[1,2]", "[1, 2]"},
 	}
