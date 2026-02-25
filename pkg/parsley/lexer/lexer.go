@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -458,10 +459,23 @@ func truncate(s string, n int) string {
 
 // New creates a new lexer instance
 func New(input string) *Lexer {
+	// Skip shebang line if present (e.g., #!/usr/bin/env pars)
+	startLine := 1
+	if len(input) >= 2 && input[0] == '#' && input[1] == '!' {
+		if idx := strings.Index(input, "\n"); idx != -1 {
+			input = input[idx+1:]
+			startLine = 2
+		} else {
+			// Shebang is the entire file - empty program
+			input = ""
+			startLine = 2
+		}
+	}
+
 	l := &Lexer{
 		filename: "<input>",
 		input:    input,
-		line:     1,
+		line:     startLine,
 		column:   0,
 	}
 	l.readChar()
@@ -470,10 +484,23 @@ func New(input string) *Lexer {
 
 // NewWithFilename creates a new lexer instance with a specific filename
 func NewWithFilename(input string, filename string) *Lexer {
+	// Skip shebang line if present (e.g., #!/usr/bin/env pars)
+	startLine := 1
+	if len(input) >= 2 && input[0] == '#' && input[1] == '!' {
+		if idx := strings.Index(input, "\n"); idx != -1 {
+			input = input[idx+1:]
+			startLine = 2
+		} else {
+			// Shebang is the entire file - empty program
+			input = ""
+			startLine = 2
+		}
+	}
+
 	l := &Lexer{
 		filename: filename,
 		input:    input,
-		line:     1,
+		line:     startLine,
 		column:   0,
 	}
 	l.readChar()

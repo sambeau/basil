@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -25,19 +26,27 @@ var Version = "0.15.3"
 
 var (
 	// Display flags
-	helpFlag        = flag.Bool("h", false, "Show help message")
-	helpLongFlag    = flag.Bool("help", false, "Show help message")
-	versionFlag     = flag.Bool("V", false, "Show version information")
-	versionLongFlag = flag.Bool("version", false, "Show version information")
-	prettyPrintFlag = flag.Bool("pp", false, "Pretty-print HTML output")
-	prettyLongFlag  = flag.Bool("pretty", false, "Pretty-print HTML output")
+	helpFlag         = flag.Bool("h", false, "Show help message")
+	helpLongFlag     = flag.Bool("help", false, "Show help message")
+	versionFlag      = flag.Bool("V", false, "Show version information")
+	versionLongFlag  = flag.Bool("version", false, "Show version information")
+	versionShortFlag = flag.Bool("v", false, "Show version information")
+	prettyPrintFlag  = flag.Bool("pp", false, "Pretty-print HTML output")
+	prettyLongFlag   = flag.Bool("pretty", false, "Pretty-print HTML output")
 
 	// Evaluation flags
-	evalFlag     = flag.String("e", "", "Evaluate code string")
-	evalLongFlag = flag.String("eval", "", "Evaluate code string")
-	rawFlag      = flag.Bool("r", false, "Output raw print string instead of PLN")
-	rawLongFlag  = flag.Bool("raw", false, "Output raw print string instead of PLN")
-	checkFlag    = flag.Bool("check", false, "Check syntax without executing")
+	evalFlag       = flag.String("e", "", "Evaluate code string")
+	evalLongFlag   = flag.String("eval", "", "Evaluate code string")
+	rawFlag        = flag.Bool("r", false, "Output raw print string instead of PLN")
+	rawLongFlag    = flag.Bool("raw", false, "Output raw print string instead of PLN")
+	checkFlag      = flag.Bool("check", false, "Check syntax without executing")
+	checkShortFlag = flag.Bool("c", false, "Check syntax without executing")
+
+	// Output format flags
+	formatFlag  = flag.String("format", "", "Output format: text, json, pln")
+	machineFlag = flag.Bool("machine", false, "Machine-readable output (implies --format json, suppresses hints)")
+	quietFlag   = flag.Bool("q", false, "Suppress hints and non-essential output")
+	quietLong   = flag.Bool("quiet", false, "Suppress hints and non-essential output")
 
 	// Security flags
 	restrictReadFlag     = flag.String("restrict-read", "", "Comma-separated read blacklist paths")
@@ -73,7 +82,7 @@ func main() {
 	}
 
 	// Check for version flag
-	if *versionFlag || *versionLongFlag {
+	if *versionFlag || *versionLongFlag || *versionShortFlag {
 		fmt.Printf("pars version %s\n", Version)
 		os.Exit(0)
 	}
@@ -83,6 +92,13 @@ func main() {
 
 	// Determine raw output setting
 	raw := *rawFlag || *rawLongFlag
+
+	// Determine output format and machine mode
+	quiet := *quietFlag || *quietLong || *machineFlag
+	outputFormat := *formatFlag
+	if *machineFlag && outputFormat == "" {
+		outputFormat = "json"
+	}
 
 	// Get eval code (prefer -e over --eval if both set)
 	evalCode := *evalFlag
@@ -94,12 +110,12 @@ func main() {
 	switch {
 	case evalCode != "":
 		// Inline evaluation mode
-		executeInline(evalCode, flag.Args(), prettyPrint, raw)
-	case *checkFlag:
+		executeInline(evalCode, flag.Args(), prettyPrint, raw, outputFormat, quiet)
+	case *checkFlag || *checkShortFlag:
 		// Syntax check mode
 		files := flag.Args()
 		if len(files) == 0 {
-			fmt.Fprintln(os.Stderr, "Error: --check requires at least one file")
+			fmt.Fprintln(os.Stderr, "Error: -c/--check requires at least one file")
 			os.Exit(2)
 		}
 		os.Exit(checkFiles(files))
@@ -120,7 +136,7 @@ func printHelp() {
 Usage:
   pars [options] [file] [args...]
   pars -e "code" [args...]
-  pars --check <file>...
+  pars -c <file>...
   pars fmt [options] <file>...
   pars describe <topic>
 
@@ -130,13 +146,18 @@ Commands:
 
 Display Options:
   -h, --help            Show this help message
-  -V, --version         Show version information
+  -v, -V, --version     Show version information
   -pp, --pretty         Pretty-print HTML output with proper indentation
 
 Evaluation Options:
   -e, --eval <code>     Evaluate code string (outputs PLN representation)
   -r, --raw             Output raw print string instead of PLN (with -e)
-  --check               Check syntax without executing (can specify multiple files)
+  -c, --check           Check syntax without executing (can specify multiple files)
+
+Output Format Options:
+  --format <fmt>        Output format: text (default), json, pln
+  --machine             Machine-readable JSON output (for AI/scripts)
+  -q, --quiet           Suppress hints and non-essential output
 
 Security Options:
   --restrict-read=PATHS     Deny reading from comma-separated paths
@@ -160,15 +181,17 @@ Examples:
   pars -e "1 + 2"           Evaluate inline code (outputs: 3)
   pars -e "[1, 2, 3]"       Evaluate array (outputs: [1, 2, 3])
   pars -e "[1,2,3]" --raw   Raw output for scripting (outputs: 123)
-  pars -e '@args' foo bar   Evaluate code with arguments
-  pars --check script.pars  Check syntax without executing
-  pars --check *.pars       Check multiple files
+  pars -e "@args" foo bar   Evaluate code with arguments
+  pars -c script.pars       Check syntax without executing
+  pars -c *.pars            Check multiple files
   pars fmt script.pars      Format a Parsley file (print to stdout)
   pars fmt -w script.pars   Format a Parsley file in place
   pars describe string      Show help for string type
   pars describe builtins    List all builtin functions
   pars describe operators   List all operators
   pars describe @std/math   Show help for a module
+  pars describe all --json  Dump complete API schema as JSON
+  pars --machine -e '1+2'   Machine-readable JSON output
 
 For more information, visit: https://github.com/sambeau/parsley
 `, Version)
@@ -195,6 +218,7 @@ Topics:
   types              List all available types
   builtins           List all builtin functions by category
   operators          List all operators
+  all                Complete API schema (use with --json for AI)
   <type>             Help for a specific type (string, array, dictionary, ...)
   <builtin>          Help for a specific builtin (JSON, CSV, now, ...)
   @std/<module>      Help for a stdlib module (@std/math, @std/table, ...)
@@ -207,7 +231,8 @@ Examples:
   pars describe builtins
   pars describe operators
   pars describe JSON
-  pars describe --json string`)
+  pars describe --json string
+  pars describe all --json`)
 		os.Exit(1)
 	}
 
@@ -230,7 +255,7 @@ Examples:
 }
 
 // executeInline evaluates inline code provided via -e flag
-func executeInline(code string, args []string, prettyPrint, raw bool) {
+func executeInline(code string, args []string, prettyPrint, raw bool, outputFormat string, quiet bool) {
 	policy, err := buildSecurityPolicy()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -242,8 +267,12 @@ func executeInline(code string, args []string, prettyPrint, raw bool) {
 	program := p.ParseProgram()
 
 	if errs := p.StructuredErrors(); len(errs) != 0 {
-		printStructuredErrors("<eval>", code, errs)
-		os.Exit(1)
+		if outputFormat == "json" {
+			printJSONParseErrors(errs)
+		} else {
+			printStructuredErrors("<eval>", code, errs)
+		}
+		os.Exit(2) // Parse error exit code
 	}
 
 	env := evaluator.NewEnvironmentWithArgs(args)
@@ -263,11 +292,25 @@ func executeInline(code string, args []string, prettyPrint, raw bool) {
 	if evaluated.Type() == evaluator.ERROR_OBJ {
 		errObj, ok := evaluated.(*evaluator.Error)
 		if ok {
-			printRuntimeError("<eval>", code, errObj)
+			if outputFormat == "json" {
+				printJSONRuntimeError(errObj)
+			} else {
+				printRuntimeError("<eval>", code, errObj)
+			}
 		} else {
-			fmt.Fprintf(os.Stderr, "%s\n", evaluated.Inspect())
+			if outputFormat == "json" {
+				fmt.Printf(`{"ok": false, "error": {"message": %q}}%s`, evaluated.Inspect(), "\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", evaluated.Inspect())
+			}
 		}
 		os.Exit(1)
+	}
+
+	// JSON output mode
+	if outputFormat == "json" {
+		printJSONResult(evaluated)
+		return
 	}
 
 	// Handle output based on mode
@@ -286,6 +329,15 @@ func executeInline(code string, args []string, prettyPrint, raw bool) {
 			fmt.Println("null")
 		} else {
 			fmt.Println(evaluator.ObjectToFormattedReprString(evaluated))
+		}
+	}
+
+	// Hint: if the result is a file handle, user probably wanted to read it
+	if !quiet && evaluated != nil && evaluated.Type() == evaluator.DICTIONARY_OBJ {
+		if dict, ok := evaluated.(*evaluator.Dictionary); ok {
+			if evaluator.IsFileDict(dict) {
+				fmt.Fprintln(os.Stderr, "hint: Result is a file handle. Use '<== ...' to read contents.")
+			}
 		}
 	}
 }
@@ -465,6 +517,141 @@ func printSourceContext(lines []string, lineNum, colNum int) {
 
 		pointer := strings.Repeat(" ", adjustedCol) + "^"
 		fmt.Fprintf(os.Stderr, "    %s\n", pointer)
+	}
+}
+
+// printJSONParseErrors prints parse errors in JSON format
+func printJSONParseErrors(errs []*errors.ParsleyError) {
+	type jsonError struct {
+		Line    int    `json:"line"`
+		Column  int    `json:"column"`
+		Message string `json:"message"`
+		Code    string `json:"code,omitempty"`
+	}
+
+	errorList := make([]jsonError, len(errs))
+	for i, err := range errs {
+		errorList[i] = jsonError{
+			Line:    err.Line,
+			Column:  err.Column,
+			Message: err.Message,
+			Code:    err.Code,
+		}
+	}
+
+	output := map[string]any{
+		"ok":     false,
+		"errors": errorList,
+	}
+
+	jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(jsonBytes))
+}
+
+// printJSONRuntimeError prints a runtime error in JSON format
+func printJSONRuntimeError(err *evaluator.Error) {
+	errorObj := map[string]any{
+		"message": err.Message,
+	}
+	if err.Code != "" {
+		errorObj["code"] = err.Code
+	}
+	if err.Line > 0 {
+		errorObj["line"] = err.Line
+		errorObj["column"] = err.Column
+	}
+	if err.File != "" {
+		errorObj["file"] = err.File
+	}
+	if len(err.Hints) > 0 {
+		errorObj["hints"] = err.Hints
+	}
+
+	output := map[string]any{
+		"ok":    false,
+		"error": errorObj,
+	}
+
+	jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(jsonBytes))
+}
+
+// printJSONResult prints a successful result in JSON format
+func printJSONResult(evaluated evaluator.Object) {
+	output := map[string]any{
+		"ok":   true,
+		"type": strings.ToLower(string(evaluated.Type())),
+	}
+
+	// Convert the value to a JSON-friendly representation
+	switch v := evaluated.(type) {
+	case *evaluator.Integer:
+		output["value"] = v.Value
+	case *evaluator.Float:
+		output["value"] = v.Value
+	case *evaluator.String:
+		output["value"] = v.Value
+	case *evaluator.Boolean:
+		output["value"] = v.Value
+	case *evaluator.Null:
+		output["value"] = nil
+	case *evaluator.Array:
+		output["value"] = arrayToJSON(v)
+	case *evaluator.Dictionary:
+		output["value"] = dictToJSON(v)
+	default:
+		// For complex types, use the PLN representation
+		output["value"] = evaluator.ObjectToFormattedReprString(evaluated)
+		output["repr"] = true
+	}
+
+	jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(jsonBytes))
+}
+
+// arrayToJSON converts a Parsley array to a JSON-friendly slice
+func arrayToJSON(arr *evaluator.Array) []any {
+	result := make([]any, len(arr.Elements))
+	for i, elem := range arr.Elements {
+		result[i] = objectToJSON(elem)
+	}
+	return result
+}
+
+// dictToJSON converts a Parsley dictionary to a JSON-friendly map
+func dictToJSON(dict *evaluator.Dictionary) map[string]any {
+	result := make(map[string]any)
+	for key, expr := range dict.Pairs {
+		// Skip internal fields
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
+		val := evaluator.Eval(expr, dict.Env)
+		result[key] = objectToJSON(val)
+	}
+	return result
+}
+
+// objectToJSON converts a Parsley object to a JSON-friendly value
+func objectToJSON(obj evaluator.Object) any {
+	switch v := obj.(type) {
+	case *evaluator.Integer:
+		return v.Value
+	case *evaluator.Float:
+		return v.Value
+	case *evaluator.String:
+		return v.Value
+	case *evaluator.Boolean:
+		return v.Value
+	case *evaluator.Null:
+		return nil
+	case *evaluator.Array:
+		return arrayToJSON(v)
+	case *evaluator.Dictionary:
+		return dictToJSON(v)
+	default:
+		// For complex types, use string representation
+		return evaluator.ObjectToFormattedReprString(obj)
 	}
 }
 
