@@ -1,11 +1,14 @@
 // Package evaluator provides numeric method implementations via declarative registry.
 // This file implements integer and float methods for FEAT-111: Declarative Method Registry
+// Updated for FEAT-121: Unified Formatter API
 package evaluator
 
 import (
 	"fmt"
 	"math"
 	"strconv"
+
+	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
 // IntegerMethodRegistry defines all methods available on integer values.
@@ -23,10 +26,30 @@ func init() {
 			Arity:       "0",
 			Description: "Absolute value",
 		},
+		"fmt": {
+			Fn:          integerFmt,
+			Arity:       "0-2",
+			Description: "Format with style and/or locale",
+		},
 		"format": {
-			Fn:          integerFormat,
+			Fn:          integerFmt,
+			Arity:       "0-2",
+			Description: "Format with style and/or locale (alias for fmt)",
+		},
+		"short": {
+			Fn:          integerShort,
 			Arity:       "0-1",
-			Description: "Format with locale",
+			Description: "Compact format (1K, 1M)",
+		},
+		"medium": {
+			Fn:          integerMedium,
+			Arity:       "0-1",
+			Description: "Standard format with separators",
+		},
+		"long": {
+			Fn:          integerLong,
+			Arity:       "0-1",
+			Description: "Full precision format",
 		},
 		"currency": {
 			Fn:          integerCurrency,
@@ -58,6 +81,11 @@ func init() {
 			Arity:       "0",
 			Description: "Convert to JSON string",
 		},
+		"inspect": {
+			Fn:          integerInspect,
+			Arity:       "0",
+			Description: "Get debug dictionary with type info",
+		},
 	}
 	RegisterMethodRegistry("integer", IntegerMethodRegistry)
 
@@ -82,10 +110,30 @@ func init() {
 			Arity:       "0",
 			Description: "Round up",
 		},
+		"fmt": {
+			Fn:          floatFmt,
+			Arity:       "0-2",
+			Description: "Format with style and/or locale",
+		},
 		"format": {
-			Fn:          floatFormat,
+			Fn:          floatFmt,
+			Arity:       "0-2",
+			Description: "Format with style and/or locale (alias for fmt)",
+		},
+		"short": {
+			Fn:          floatShort,
 			Arity:       "0-1",
-			Description: "Format with locale",
+			Description: "Compact format (1K, 1M)",
+		},
+		"medium": {
+			Fn:          floatMedium,
+			Arity:       "0-1",
+			Description: "Standard format with separators",
+		},
+		"long": {
+			Fn:          floatLong,
+			Arity:       "0-1",
+			Description: "Full precision format",
 		},
 		"currency": {
 			Fn:          floatCurrency,
@@ -117,6 +165,11 @@ func init() {
 			Arity:       "0",
 			Description: "Convert to JSON string",
 		},
+		"inspect": {
+			Fn:          floatInspect,
+			Arity:       "0",
+			Description: "Get debug dictionary with type info",
+		},
 	}
 	RegisterMethodRegistry("float", FloatMethodRegistry)
 }
@@ -132,17 +185,63 @@ func integerAbs(receiver Object, args []Object, env *Environment) Object {
 	return &Integer{Value: value}
 }
 
-func integerFormat(receiver Object, args []Object, env *Environment) Object {
+// integerFmt formats an integer with style and locale options.
+// Overloads:
+//   - .fmt() - medium style, default locale
+//   - .fmt(n) - precision (ignored for integers, accepted for API consistency)
+//   - .fmt("style") - named style
+//   - .fmt("style", "locale") - style + locale
+//   - .fmt({...}) - options dictionary
+func integerFmt(receiver Object, args []Object, env *Environment) Object {
 	num := receiver.(*Integer)
-	localeStr := "en-US"
-	if len(args) == 1 {
-		loc, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
-		}
-		localeStr = loc.Value
+	opts, err := parseFormatArgs(args)
+	if err != nil {
+		return err
 	}
-	return formatNumberWithLocale(float64(num.Value), localeStr)
+	return formatIntegerWithOpts(num.Value, opts)
+}
+
+func integerShort(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Integer)
+	opts, err := parseStyleMethodArgs("short", args, "short")
+	if err != nil {
+		return err
+	}
+	return formatIntegerWithOpts(num.Value, opts)
+}
+
+func integerMedium(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Integer)
+	opts, err := parseStyleMethodArgs("medium", args, "medium")
+	if err != nil {
+		return err
+	}
+	return formatIntegerWithOpts(num.Value, opts)
+}
+
+func integerLong(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Integer)
+	opts, err := parseStyleMethodArgs("long", args, "long")
+	if err != nil {
+		return err
+	}
+	return formatIntegerWithOpts(num.Value, opts)
+}
+
+// formatIntegerWithOpts formats an integer using FormatOpts.
+func formatIntegerWithOpts(value int64, opts FormatOpts) Object {
+	switch opts.Style {
+	case "short":
+		return &String{Value: humanizeNumber(float64(value), opts.Locale)}
+	case "medium":
+		return formatNumberWithLocale(float64(value), opts.Locale)
+	case "long":
+		// Long format: full number with locale separators
+		return formatNumberWithLocale(float64(value), opts.Locale)
+	default:
+		// Default to medium
+		return formatNumberWithLocale(float64(value), opts.Locale)
+	}
 }
 
 func integerCurrency(receiver Object, args []Object, env *Environment) Object {
@@ -204,6 +303,17 @@ func integerToJSON(receiver Object, args []Object, env *Environment) Object {
 	return &String{Value: strconv.FormatInt(num.Value, 10)}
 }
 
+func integerInspect(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Integer)
+	return &Dictionary{
+		Pairs: map[string]ast.Expression{
+			"__type": createLiteralExpression(&String{Value: "integer"}),
+			"value":  createLiteralExpression(&Integer{Value: num.Value}),
+		},
+		Env: NewEnvironment(),
+	}
+}
+
 // Float method implementations
 
 func floatAbs(receiver Object, args []Object, env *Environment) Object {
@@ -235,17 +345,120 @@ func floatCeil(receiver Object, args []Object, env *Environment) Object {
 	return &Float{Value: math.Ceil(num.Value)}
 }
 
-func floatFormat(receiver Object, args []Object, env *Environment) Object {
+// floatFmt formats a float with style and locale options.
+// Overloads:
+//   - .fmt() - medium style, default locale
+//   - .fmt(n) - precision (decimal places)
+//   - .fmt("style") - named style
+//   - .fmt("style", "locale") - style + locale
+//   - .fmt({...}) - options dictionary
+func floatFmt(receiver Object, args []Object, env *Environment) Object {
 	num := receiver.(*Float)
-	localeStr := "en-US"
-	if len(args) >= 1 {
-		loc, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
-		}
-		localeStr = loc.Value
+	opts, err := parseFormatArgs(args)
+	if err != nil {
+		return err
 	}
-	return formatNumberWithLocale(num.Value, localeStr)
+	return formatFloatWithOpts(num.Value, opts)
+}
+
+func floatShort(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Float)
+	opts, err := parseStyleMethodArgs("short", args, "short")
+	if err != nil {
+		return err
+	}
+	return formatFloatWithOpts(num.Value, opts)
+}
+
+func floatMedium(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Float)
+	opts, err := parseStyleMethodArgs("medium", args, "medium")
+	if err != nil {
+		return err
+	}
+	return formatFloatWithOpts(num.Value, opts)
+}
+
+func floatLong(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Float)
+	opts, err := parseStyleMethodArgs("long", args, "long")
+	if err != nil {
+		return err
+	}
+	return formatFloatWithOpts(num.Value, opts)
+}
+
+// formatFloatWithOpts formats a float using FormatOpts.
+func formatFloatWithOpts(value float64, opts FormatOpts) Object {
+	switch opts.Style {
+	case "short":
+		return &String{Value: humanizeNumber(value, opts.Locale)}
+	case "medium":
+		if opts.Precision >= 0 {
+			return formatNumberWithPrecisionAndLocale(value, opts.Precision, opts.Locale)
+		}
+		return formatNumberWithLocale(value, opts.Locale)
+	case "long":
+		// Long format: show more decimal places
+		precision := opts.Precision
+		if precision < 0 {
+			precision = 2 // Default to 2 decimal places for long
+		}
+		return formatNumberWithPrecisionAndLocale(value, precision, opts.Locale)
+	default:
+		if opts.Precision >= 0 {
+			return formatNumberWithPrecisionAndLocale(value, opts.Precision, opts.Locale)
+		}
+		return formatNumberWithLocale(value, opts.Locale)
+	}
+}
+
+// formatNumberWithPrecisionAndLocale formats a number with specific decimal places.
+func formatNumberWithPrecisionAndLocale(value float64, precision int, locale string) Object {
+	// Round to precision
+	multiplier := math.Pow(10, float64(precision))
+	rounded := math.Round(value*multiplier) / multiplier
+
+	// Format with locale
+	result := formatNumberWithLocale(rounded, locale)
+	if s, ok := result.(*String); ok {
+		// If precision specified, ensure we have exactly that many decimal places
+		if precision > 0 {
+			formatted := s.Value
+			// Check if there's a decimal point
+			decSep := "."
+			if locale == "de-DE" || locale == "fr-FR" || locale == "es-ES" {
+				decSep = ","
+			}
+			if idx := lastIndexOf(formatted, decSep); idx >= 0 {
+				// Count decimal places
+				decimals := len(formatted) - idx - 1
+				if decimals < precision {
+					// Pad with zeros
+					for i := decimals; i < precision; i++ {
+						formatted += "0"
+					}
+				}
+			} else {
+				// No decimal point, add one with zeros
+				formatted += decSep
+				for i := 0; i < precision; i++ {
+					formatted += "0"
+				}
+			}
+			return &String{Value: formatted}
+		}
+	}
+	return result
+}
+
+func lastIndexOf(s, substr string) int {
+	for i := len(s) - len(substr); i >= 0; i-- {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }
 
 func floatCurrency(receiver Object, args []Object, env *Environment) Object {
@@ -305,4 +518,15 @@ func floatRepr(receiver Object, args []Object, env *Environment) Object {
 func floatToJSON(receiver Object, args []Object, env *Environment) Object {
 	num := receiver.(*Float)
 	return &String{Value: fmt.Sprintf("%g", num.Value)}
+}
+
+func floatInspect(receiver Object, args []Object, env *Environment) Object {
+	num := receiver.(*Float)
+	return &Dictionary{
+		Pairs: map[string]ast.Expression{
+			"__type": createLiteralExpression(&String{Value: "float"}),
+			"value":  createLiteralExpression(&Float{Value: num.Value}),
+		},
+		Env: NewEnvironment(),
+	}
 }

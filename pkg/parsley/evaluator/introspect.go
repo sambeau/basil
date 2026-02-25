@@ -413,9 +413,6 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"builtins": {Name: "builtins", Arity: "0-1", Description: "List all builtin functions by category", Params: []string{"category?"}, Category: "introspection"},
 
 	// === Output ===
-	"print":   {Name: "print", Arity: "1+", Description: "Print values without newline", Params: []string{"values..."}, Category: "output"},
-	"println": {Name: "println", Arity: "0+", Description: "Print values with newline", Params: []string{"values..."}, Category: "output"},
-	"printf":  {Name: "printf", Arity: "1+", Description: "Print formatted string", Params: []string{"format", "values..."}, Category: "output"},
 	"log":     {Name: "log", Arity: "1+", Description: "Log message", Params: []string{"values..."}, Category: "output"},
 	"logLine": {Name: "logLine", Arity: "1+", Description: "Log message with newline", Params: []string{"values..."}, Category: "output"},
 

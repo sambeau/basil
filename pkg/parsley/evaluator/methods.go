@@ -452,8 +452,12 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 
 		return accumulator
 
-	case "format":
-		// format(style?, locale?)
+	case "fmt", "format":
+		// fmt()/format() - array conjunction formatting (FEAT-121)
+		// Overloads:
+		//   - .fmt("and") - "A, B, and C"
+		//   - .fmt("or") - "A, B, or C"
+		//   - .fmt("and", "locale") - localized conjunction
 		if len(args) > 2 {
 			return newArityErrorRange("format", len(args), 0, 2)
 		}
@@ -1451,7 +1455,7 @@ func dictReorder(dict *Dictionary, args []Object, env *Environment) Object {
 // ============================================================================
 
 // booleanMethods lists all methods available on boolean
-var booleanMethods = []string{"type", "toBox"}
+var booleanMethods = []string{"type", "toBox", "repr", "toJSON", "inspect"}
 
 // evalBooleanMethod evaluates a method call on a Boolean
 func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
@@ -1463,13 +1467,46 @@ func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
 		br := NewBoxRenderer()
 		return &String{Value: br.RenderSingleValue(b.Inspect())}
 
+	case "repr":
+		// repr() - returns PLN literal string
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		if b.Value {
+			return &String{Value: "true"}
+		}
+		return &String{Value: "false"}
+
+	case "toJSON":
+		// toJSON() - returns JSON boolean string
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		if b.Value {
+			return &String{Value: "true"}
+		}
+		return &String{Value: "false"}
+
+	case "inspect":
+		// inspect() - returns debug dictionary
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
+		}
+		return &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"__type": createLiteralExpression(&String{Value: "boolean"}),
+				"value":  createLiteralExpression(b),
+			},
+			Env: NewEnvironment(),
+		}
+
 	default:
 		return unknownMethodError(method, "boolean", booleanMethods)
 	}
 }
 
 // nullMethods lists all methods available on null
-var nullMethods = []string{"type", "toBox"}
+var nullMethods = []string{"type", "toBox", "repr", "toJSON", "inspect"}
 
 // evalNullMethod evaluates a method call on Null
 func evalNullMethod(method string, args []Object) Object {
@@ -1480,6 +1517,32 @@ func evalNullMethod(method string, args []Object) Object {
 		}
 		br := NewBoxRenderer()
 		return &String{Value: br.RenderSingleValue("null")}
+
+	case "repr":
+		// repr() - returns PLN literal string
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: "null"}
+
+	case "toJSON":
+		// toJSON() - returns JSON null string
+		if len(args) != 0 {
+			return newArityError("toJSON", len(args), 0)
+		}
+		return &String{Value: "null"}
+
+	case "inspect":
+		// inspect() - returns debug dictionary
+		if len(args) != 0 {
+			return newArityError("inspect", len(args), 0)
+		}
+		return &Dictionary{
+			Pairs: map[string]ast.Expression{
+				"__type": createLiteralExpression(&String{Value: "null"}),
+			},
+			Env: NewEnvironment(),
+		}
 
 	default:
 		return unknownMethodError(method, "null", nullMethods)
@@ -1536,33 +1599,130 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		}
 		return dict
 
-	case "format":
-		// format(style?, locale?)
+	case "fmt", "format":
+		// fmt()/format() - unified formatter API (FEAT-121)
+		// Overloads:
+		//   - .fmt() - medium style, default locale
+		//   - .fmt("style") - named style
+		//   - .fmt("style", "locale") - style + locale
+		//   - .fmt({...}) - options dictionary
 		if len(args) > 2 {
-			return newArityErrorRange("format", len(args), 0, 2)
+			return newArityErrorRange("fmt", len(args), 0, 2)
 		}
 
-		style := "long"
+		style := "medium" // default changed from "long" to "medium" per FEAT-121
 		localeStr := "en-US"
 
 		if len(args) >= 1 {
-			styleArg, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0005", "format", "a string (style)", args[0].Type())
+			switch arg := args[0].(type) {
+			case *String:
+				style = arg.Value
+			case *Dictionary:
+				// Parse options dictionary
+				if styleVal := getDictStringValue(arg, "style"); styleVal != "" {
+					style = styleVal
+				}
+				if localeVal := getDictStringValue(arg, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			default:
+				return newTypeError("TYPE-0005", "fmt", "a string (style) or dictionary", args[0].Type())
 			}
-			style = styleArg.Value
 		}
 
 		if len(args) == 2 {
 			locArg, ok := args[1].(*String)
 			if !ok {
-				return newTypeError("TYPE-0006", "format", "a string (locale)", args[1].Type())
+				return newTypeError("TYPE-0006", "fmt", "a string (locale)", args[1].Type())
 			}
 			localeStr = locArg.Value
 		}
 
 		// Delegate to the formatDate builtin logic
 		return formatDateWithStyleAndLocale(dict, style, localeStr, env)
+
+	case "short":
+		// short(locale?) - compact date format
+		if len(args) > 1 {
+			return newArityErrorRange("short", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if dict, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "short", "a string (locale) or dictionary", args[0].Type())
+			}
+		}
+		return formatDateWithStyleAndLocale(dict, "short", localeStr, env)
+
+	case "medium":
+		// medium(locale?) - balanced date format
+		if len(args) > 1 {
+			return newArityErrorRange("medium", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if dict, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "medium", "a string (locale) or dictionary", args[0].Type())
+			}
+		}
+		return formatDateWithStyleAndLocale(dict, "medium", localeStr, env)
+
+	case "long":
+		// long(locale?) - verbose date format
+		if len(args) > 1 {
+			return newArityErrorRange("long", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if dict, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "long", "a string (locale) or dictionary", args[0].Type())
+			}
+		}
+		return formatDateWithStyleAndLocale(dict, "long", localeStr, env)
+
+	case "full":
+		// full(locale?) - maximum context date format
+		if len(args) > 1 {
+			return newArityErrorRange("full", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if dict, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "full", "a string (locale) or dictionary", args[0].Type())
+			}
+		}
+		return formatDateWithStyleAndLocale(dict, "full", localeStr, env)
+
+	case "repr":
+		// repr() - returns PLN literal string
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: datetimeToReprString(dict)}
 
 	case "dayOfYear":
 		if len(args) != 0 {
@@ -1600,10 +1760,22 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 
 	default:
 		return unknownMethodError(method, "datetime", []string{
-			"toDict", "inspect", "format", "year", "month", "day", "hour", "minute", "second",
+			"toDict", "inspect", "fmt", "format", "short", "medium", "long", "full", "repr",
+			"year", "month", "day", "hour", "minute", "second",
 			"weekday", "week", "timestamp", "toJSON", "toBox",
 		})
 	}
+}
+
+// getDictStringValue extracts a string value from a dictionary by key.
+func getDictStringValue(dict *Dictionary, key string) string {
+	if expr, ok := dict.Pairs[key]; ok {
+		val := Eval(expr, dict.Env)
+		if s, ok := val.(*String); ok {
+			return s.Value
+		}
+	}
+	return ""
 }
 
 // ============================================================================
@@ -1634,31 +1806,122 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		}
 		return dict
 
-	case "format":
-		// format(locale?)
+	case "fmt", "format":
+		// fmt()/format() - unified formatter API (FEAT-121)
+		// Overloads:
+		//   - .fmt() - medium style, default locale
+		//   - .fmt("style") - named style
+		//   - .fmt("style", "locale") - style + locale
+		//   - .fmt({...}) - options dictionary
+		if len(args) > 2 {
+			return newArityErrorRange("fmt", len(args), 0, 2)
+		}
+
+		style := "medium"
+		localeStr := "en-US"
+
+		if len(args) >= 1 {
+			switch arg := args[0].(type) {
+			case *String:
+				// Could be style or locale
+				if isStyleName(arg.Value) {
+					style = arg.Value
+				} else {
+					localeStr = arg.Value
+				}
+			case *Dictionary:
+				if styleVal := getDictStringValue(arg, "style"); styleVal != "" {
+					style = styleVal
+				}
+				if localeVal := getDictStringValue(arg, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			default:
+				return newTypeError("TYPE-0012", "fmt", "a string or dictionary", args[0].Type())
+			}
+		}
+
+		if len(args) == 2 {
+			locArg, ok := args[1].(*String)
+			if !ok {
+				return newTypeError("TYPE-0006", "fmt", "a string (locale)", args[1].Type())
+			}
+			localeStr = locArg.Value
+		}
+
+		return formatDurationWithStyle(dict, style, localeStr, env)
+
+	case "short":
+		// short(locale?) - compact duration format (2h)
 		if len(args) > 1 {
-			return newArityErrorRange("format", len(args), 0, 1)
+			return newArityErrorRange("short", len(args), 0, 1)
 		}
-
-		// Extract months and seconds from duration
-		months, seconds, err := getDurationComponents(dict, env)
-		if err != nil {
-			return newValidationError("VAL-0007", map[string]any{"GoError": err.Error()})
-		}
-
-		// Get locale (default to en-US)
 		localeStr := "en-US"
 		if len(args) == 1 {
-			locStr, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "format", "a string", args[0].Type())
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if d, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(d, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "short", "a string (locale) or dictionary", args[0].Type())
 			}
-			localeStr = locStr.Value
 		}
+		return formatDurationWithStyle(dict, "short", localeStr, env)
 
-		// Format the duration as relative time
-		result := locale.DurationToRelativeTime(months, seconds, localeStr)
-		return &String{Value: result}
+	case "medium":
+		// medium(locale?) - balanced duration format (2 hours)
+		if len(args) > 1 {
+			return newArityErrorRange("medium", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if d, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(d, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "medium", "a string (locale) or dictionary", args[0].Type())
+			}
+		}
+		return formatDurationWithStyle(dict, "medium", localeStr, env)
+
+	case "long":
+		// long(locale?) - verbose duration format (2 hours 30 minutes)
+		if len(args) > 1 {
+			return newArityErrorRange("long", len(args), 0, 1)
+		}
+		localeStr := "en-US"
+		if len(args) == 1 {
+			if loc, ok := args[0].(*String); ok {
+				localeStr = loc.Value
+			} else if d, ok := args[0].(*Dictionary); ok {
+				if localeVal := getDictStringValue(d, "locale"); localeVal != "" {
+					localeStr = localeVal
+				}
+			} else {
+				return newTypeError("TYPE-0012", "long", "a string (locale) or dictionary", args[0].Type())
+			}
+		}
+		return formatDurationWithStyle(dict, "long", localeStr, env)
+
+	case "full":
+		// full() - duration does not support full style
+		return newStructuredError("VAL-0021", map[string]any{
+			"Function": "full",
+			"Expected": "Duration does not support 'full' style",
+			"Got":      "full",
+		})
+
+	case "repr":
+		// repr() - returns PLN literal string
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		return &String{Value: formatDurationRepr(dict, env)}
 
 	case "toJSON":
 		// toJSON() - returns duration as JSON object with components
@@ -1688,8 +1951,210 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		return durationToBox(dict, args, env)
 
 	default:
-		return unknownMethodError(method, "duration", []string{"toDict", "inspect", "format", "toJSON", "toBox"})
+		return unknownMethodError(method, "duration", []string{
+			"toDict", "inspect", "fmt", "format", "short", "medium", "long", "repr", "toJSON", "toBox",
+		})
 	}
+}
+
+// formatDurationWithStyle formats a duration with the specified style.
+func formatDurationWithStyle(dict *Dictionary, style, localeStr string, env *Environment) Object {
+	months, seconds, err := getDurationComponents(dict, env)
+	if err != nil {
+		return newValidationError("VAL-0007", map[string]any{"GoError": err.Error()})
+	}
+
+	switch style {
+	case "short":
+		return &String{Value: formatDurationShort(months, seconds)}
+	case "medium":
+		return &String{Value: locale.DurationToRelativeTime(months, seconds, localeStr)}
+	case "long":
+		return &String{Value: formatDurationLong(months, seconds, localeStr)}
+	default:
+		return &String{Value: locale.DurationToRelativeTime(months, seconds, localeStr)}
+	}
+}
+
+// formatDurationShort returns a compact duration string (2h, 3d, 1y)
+func formatDurationShort(months, seconds int64) string {
+	if months != 0 {
+		years := months / 12
+		months = months % 12
+		if years > 0 {
+			if months > 0 {
+				return fmt.Sprintf("%dy%dmo", years, months)
+			}
+			return fmt.Sprintf("%dy", years)
+		}
+		return fmt.Sprintf("%dmo", months)
+	}
+
+	if seconds == 0 {
+		return "0s"
+	}
+
+	negative := seconds < 0
+	if negative {
+		seconds = -seconds
+	}
+
+	days := seconds / (24 * 3600)
+	seconds %= (24 * 3600)
+	hours := seconds / 3600
+	seconds %= 3600
+	minutes := seconds / 60
+	secs := seconds % 60
+
+	var result string
+	if days > 0 {
+		result = fmt.Sprintf("%dd", days)
+		if hours > 0 {
+			result += fmt.Sprintf("%dh", hours)
+		}
+	} else if hours > 0 {
+		result = fmt.Sprintf("%dh", hours)
+		if minutes > 0 {
+			result += fmt.Sprintf("%dm", minutes)
+		}
+	} else if minutes > 0 {
+		result = fmt.Sprintf("%dm", minutes)
+		if secs > 0 {
+			result += fmt.Sprintf("%ds", secs)
+		}
+	} else {
+		result = fmt.Sprintf("%ds", secs)
+	}
+
+	if negative {
+		result = "-" + result
+	}
+	return result
+}
+
+// formatDurationLong returns a verbose duration string (2 hours 30 minutes)
+func formatDurationLong(months, seconds int64, localeStr string) string {
+	var parts []string
+
+	if months != 0 {
+		years := months / 12
+		months = months % 12
+		if years > 0 {
+			if years == 1 {
+				parts = append(parts, "1 year")
+			} else {
+				parts = append(parts, fmt.Sprintf("%d years", years))
+			}
+		}
+		if months > 0 {
+			if months == 1 {
+				parts = append(parts, "1 month")
+			} else {
+				parts = append(parts, fmt.Sprintf("%d months", months))
+			}
+		}
+	}
+
+	if seconds != 0 || len(parts) == 0 {
+		negative := seconds < 0
+		if negative {
+			seconds = -seconds
+		}
+
+		days := seconds / (24 * 3600)
+		seconds %= (24 * 3600)
+		hours := seconds / 3600
+		seconds %= 3600
+		minutes := seconds / 60
+		secs := seconds % 60
+
+		if days > 0 {
+			if days == 1 {
+				parts = append(parts, "1 day")
+			} else {
+				parts = append(parts, fmt.Sprintf("%d days", days))
+			}
+		}
+		if hours > 0 {
+			if hours == 1 {
+				parts = append(parts, "1 hour")
+			} else {
+				parts = append(parts, fmt.Sprintf("%d hours", hours))
+			}
+		}
+		if minutes > 0 {
+			if minutes == 1 {
+				parts = append(parts, "1 minute")
+			} else {
+				parts = append(parts, fmt.Sprintf("%d minutes", minutes))
+			}
+		}
+		if secs > 0 || len(parts) == 0 {
+			if secs == 1 {
+				parts = append(parts, "1 second")
+			} else {
+				parts = append(parts, fmt.Sprintf("%d seconds", secs))
+			}
+		}
+
+		if negative && len(parts) > 0 {
+			// Append "ago" for negative durations in long format
+			return strings.Join(parts, " ") + " ago"
+		}
+	}
+
+	if len(parts) == 0 {
+		return "0 seconds"
+	}
+	return strings.Join(parts, " ")
+}
+
+// formatDurationRepr returns a PLN literal representation of a duration.
+func formatDurationRepr(dict *Dictionary, env *Environment) string {
+	months, seconds, err := getDurationComponents(dict, env)
+	if err != nil {
+		return "@duration{}"
+	}
+
+	var parts []string
+
+	if months != 0 {
+		years := months / 12
+		months = months % 12
+		if years != 0 {
+			parts = append(parts, fmt.Sprintf("years: %d", years))
+		}
+		if months != 0 {
+			parts = append(parts, fmt.Sprintf("months: %d", months))
+		}
+	}
+
+	if seconds != 0 {
+		days := seconds / (24 * 3600)
+		seconds %= (24 * 3600)
+		hours := seconds / 3600
+		seconds %= 3600
+		minutes := seconds / 60
+		secs := seconds % 60
+
+		if days != 0 {
+			parts = append(parts, fmt.Sprintf("days: %d", days))
+		}
+		if hours != 0 {
+			parts = append(parts, fmt.Sprintf("hours: %d", hours))
+		}
+		if minutes != 0 {
+			parts = append(parts, fmt.Sprintf("minutes: %d", minutes))
+		}
+		if secs != 0 {
+			parts = append(parts, fmt.Sprintf("seconds: %d", secs))
+		}
+	}
+
+	if len(parts) == 0 {
+		return "@duration{seconds: 0}"
+	}
+	return "@duration{" + strings.Join(parts, ", ") + "}"
 }
 
 // ============================================================================
@@ -1817,9 +2282,17 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 		// toBox(opts?) - render path as ASCII box
 		return pathToBox(dict, args, env)
 
+	case "repr":
+		// repr() - returns PLN literal string
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		pathStr := pathDictToString(dict)
+		return &String{Value: "@" + pathStr}
+
 	default:
 		return unknownMethodError(method, "path", []string{
-			"toDict", "inspect", "toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox",
+			"toDict", "inspect", "toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox", "repr",
 		})
 	}
 }
@@ -1956,9 +2429,17 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 		// toBox(opts?) - render URL as ASCII box
 		return urlToBox(dict, args, env)
 
+	case "repr":
+		// repr() - returns PLN literal string
+		if len(args) != 0 {
+			return newArityError("repr", len(args), 0)
+		}
+		urlStr := urlDictToString(dict)
+		return &String{Value: `@"` + urlStr + `"`}
+
 	default:
 		return unknownMethodError(method, "url", []string{
-			"toDict", "inspect", "toString", "query", "href", "toJSON", "toBox",
+			"toDict", "inspect", "toString", "query", "href", "toJSON", "toBox", "repr",
 		})
 	}
 }
