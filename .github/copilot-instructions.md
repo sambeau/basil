@@ -81,11 +81,43 @@ Use `pars -e` to quickly test and debug Parsley expressions:
   - `chore(scope): description` — Maintenance
   - Add `!` for breaking changes: `feat(parsley)!: description`
 
-## Testing
-- All code changes must include tests
-- Run tests frequently during implementation
-- Update test files in `pkg/parsley/tests/` for Parsley language features
-- Bug fixes must include regression tests
+## ⚠️ Critical: Features Require Tests
+
+**A feature is not complete until it has tests and the tests pass.**
+
+### Definition of Done
+1. Implementation code is written
+2. Tests are written that exercise the new functionality
+3. All tests pass (`go test ./pkg/parsley/...`)
+4. Changes are committed
+
+### Test Requirements
+- **New language features**: Add tests to `pkg/parsley/tests/` (integration tests)
+- **New methods**: Test both success cases and error cases
+- **Bug fixes**: Add regression test that would have caught the bug
+- **Edge cases**: Test boundary conditions, empty inputs, error paths
+
+### Running Tests
+```bash
+# Run all Parsley tests
+go test ./pkg/parsley/...
+
+# Run with coverage for evaluator
+go test -coverprofile=cov.out -coverpkg=./pkg/parsley/evaluator ./pkg/parsley/...
+
+# Run specific test file
+go test ./pkg/parsley/tests -run TestName
+```
+
+### What Counts as Tested
+- Feature works for typical use cases
+- Error conditions return appropriate errors (not panics)
+- Edge cases are handled (empty arrays, null values, etc.)
+
+### Do NOT
+- Merge or mark complete any feature without tests
+- Skip tests "to save time" — untested code causes more work later
+- Write tests that only test the happy path
 
 ## Documentation
 - Update `docs/guide/faq.md` when answering "how do I..." questions
