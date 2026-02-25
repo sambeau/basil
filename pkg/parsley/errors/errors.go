@@ -854,7 +854,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"LOOP-0003": {
 		Class:    ClassState,
-		Template: "For expression missing function or body",
+		Template: "For loop needs a body",
+		Hints:    []string{"for x in arr { ... }"},
 	},
 	"LOOP-0004": {
 		Class:    ClassArity,
@@ -904,7 +905,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"FILEOP-0003": {
 		Class:    ClassState,
-		Template: "File handle has no format specified",
+		Template: "File format not specified",
+		Hints:    []string{"Specify format: file('path', {format: 'json'})"},
 	},
 	"FILEOP-0004": {
 		Class:    ClassType,
@@ -1059,7 +1061,8 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"DEST-0002": {
 		Class:    ClassState,
-		Template: "Unsupported nested destructuring pattern",
+		Template: "Nested destructuring is not supported",
+		Hints:    []string{"Destructure one level at a time"},
 	},
 
 	// ========================================
@@ -1079,11 +1082,13 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"INTERNAL-0001": {
 		Class:    ClassState,
-		Template: "{{.Context}} requires environment context",
+		Template: "Internal error in {{.Context}}",
+		Hints:    []string{"This is a bug in Parsley — please report it"},
 	},
 	"INTERNAL-0002": {
 		Class:    ClassState,
-		Template: "Unknown node type: {{.Type}}",
+		Template: "Internal error: unexpected syntax element",
+		Hints:    []string{"This is a bug in Parsley — please report it"},
 	},
 	"INTERNAL-0003": {
 		Class:    ClassState,
@@ -1200,7 +1205,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"SPREAD-0001": {
 		Class:    ClassType,
-		Template: "Spread operator requires a dictionary, got {{.Got}}",
+		Template: "Cannot spread {{.Got}} — only dictionaries can be spread with {...}",
 	},
 
 	// ========================================
