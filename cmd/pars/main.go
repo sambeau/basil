@@ -341,7 +341,7 @@ func executeInline(code string, args []string, prettyPrint, raw bool, outputForm
 	}
 
 	// Hint: if the result is a file handle, user probably wanted to read it
-	if !quiet && evaluated != nil && evaluated.Type() == evaluator.DICTIONARY_OBJ {
+	if !quiet && evaluated.Type() == evaluator.DICTIONARY_OBJ {
 		if dict, ok := evaluated.(*evaluator.Dictionary); ok {
 			if evaluator.IsFileDict(dict) {
 				fmt.Fprintln(os.Stderr, "hint: Result is a file handle. Use '<== ...' to read contents.")
