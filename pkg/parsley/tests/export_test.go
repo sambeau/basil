@@ -308,7 +308,7 @@ func TestModuleErrorReporting(t *testing.T) {
 			moduleCode:   "let x = unknownVar",
 			mainCode:     `let mod = import @%s`,
 			expectError:  true,
-			errorContain: "identifier not found: unknownVar",
+			errorContain: "Identifier not found: `unknownVar`",
 		},
 		{
 			name:         "error includes module path",

@@ -231,7 +231,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"TYPE-0001": {
 		Class:    ClassType,
-		Template: "{{.Function}} expected {{.Expected}}, got {{.Got}}",
+		Template: "`{{.Function}}` expected {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0002": {
 		Class:    ClassType,
@@ -269,7 +269,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0010": {
 		Class:    ClassType,
-		Template: "{{.Function}} callback must be a function, got {{.Got}}",
+		Template: "`{{.Function}}` callback must be a function, got {{.Got}}",
 	},
 	"TYPE-0011": {
 		Class:    ClassType,
@@ -307,7 +307,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"TYPE-0019": {
 		Class:    ClassType,
-		Template: "{{.Function}} element at index {{.Index}} must be {{.Expected}}, got {{.Got}}",
+		Template: "`{{.Function}}` element at index {{.Index}} must be {{.Expected}}, got {{.Got}}",
 	},
 	"TYPE-0020": {
 		Class:    ClassType,
@@ -359,16 +359,16 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"UNDEF-0001": {
 		Class:    ClassUndefined,
-		Template: "Identifier not found: {{.Name}}",
+		Template: "Identifier not found: `{{.Name}}`",
 		// Hint "Did you mean `X`?" added dynamically by fuzzy matching
 	},
 	"UNDEF-0002": {
 		Class:    ClassUndefined,
-		Template: "Unknown method '{{.Method}}' for {{.Type}}",
+		Template: "Unknown method `{{.Method}}` for {{.Type}}",
 	},
 	"UNDEF-0003": {
 		Class:    ClassUndefined,
-		Template: "Undefined component: {{.Name}}",
+		Template: "Undefined component: `{{.Name}}`",
 	},
 	"UNDEF-0004": {
 		Class:    ClassUndefined,
@@ -388,7 +388,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"UNDEF-0008": {
 		Class:    ClassUndefined,
-		Template: "'{{.Method}}' is a method on {{.Type}}, not a property",
+		Template: "`{{.Method}}` is a method on {{.Type}}, not a property",
 		// Hint about using parentheses added dynamically
 	},
 	"UNDEF-0010": {
@@ -950,7 +950,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0005": {
 		Class:    ClassValue,
-		Template: "Cannot {{.Method}} from empty array",
+		Template: "Cannot `{{.Method}}` from empty array",
 	},
 	"VAL-0006": {
 		Class:    ClassValue,
@@ -966,7 +966,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0009": {
 		Class:    ClassValue,
-		Template: "{{.Function}}: invalid route '{{.Route}}' (use alphanumeric, hyphens, underscores)",
+		Template: "`{{.Function}}`: invalid route '{{.Route}}' (use alphanumeric, hyphens, underscores)",
 	},
 	"VAL-0010": {
 		Class:    ClassValue,
@@ -974,7 +974,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0011": {
 		Class:    ClassValue,
-		Template: "{{.Function}} requires at least one column",
+		Template: "`{{.Function}}` requires at least one column",
 	},
 	"VAL-0012": {
 		Class:    ClassValue,
@@ -1015,7 +1015,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"VAL-0021": {
 		Class:    ClassValue,
-		Template: "{{.Function}}() requires {{.Expected}}, got {{.Got}}",
+		Template: "`{{.Function}}` requires {{.Expected}}, got {{.Got}}",
 	},
 	"VAL-0022": {
 		Class:    ClassType,
@@ -1074,7 +1074,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"STDIO-0002": {
 		Class:    ClassFormat,
-		Template: "Unknown stdio stream: {{.Name}}",
+		Template: "Unknown stdio stream: `{{.Name}}`",
 	},
 
 	// ========================================
@@ -1092,7 +1092,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 	"INTERNAL-0003": {
 		Class:    ClassState,
-		Template: "{{.Function}} failed: {{.GoError}}",
+		Template: "`{{.Function}}` failed: {{.GoError}}",
 	},
 
 	// ========================================

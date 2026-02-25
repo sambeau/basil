@@ -171,7 +171,7 @@ func TestNew_WithCatalog(t *testing.T) {
 				"Got":      "integer",
 			},
 			wantClass:    ClassType,
-			wantContains: "len expected string, got integer",
+			wantContains: "`len` expected string, got integer",
 		},
 		{
 			name: "arity error",
@@ -191,7 +191,7 @@ func TestNew_WithCatalog(t *testing.T) {
 				"Name": "foobar",
 			},
 			wantClass:    ClassUndefined,
-			wantContains: "Identifier not found: foobar",
+			wantContains: "Identifier not found: `foobar`",
 		},
 		{
 			name: "unknown code",
