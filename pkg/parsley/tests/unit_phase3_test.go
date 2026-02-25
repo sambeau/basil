@@ -1239,3 +1239,199 @@ func TestPLNParserFixRegression(t *testing.T) {
 		})
 	}
 }
+
+// ============================================================================
+// 9n. Derived Unit Arithmetic: Length × Length → Area
+// ============================================================================
+
+func TestDerivedAreaFromLengthMultiplySI(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// m × m → m²
+		{`#2m * #3m`, `#6m2`},
+		{`#5m * #5m`, `#25m2`},
+		{`#10m * #1m`, `#10m2`},
+		// cm × cm → cm²
+		{`#10cm * #10cm`, `#100cm2`},
+		{`#50cm * #2cm`, `#100cm2`},
+		// mm × mm → mm²
+		{`#5mm * #5mm`, `#25mm2`},
+		{`#10mm * #3mm`, `#30mm2`},
+		// km × km → km²
+		{`#2km * #3km`, `#6km2`},
+		{`#1km * #1km`, `#1km2`},
+		// Mixed SI units (uses first operand's display hint)
+		{`#1m * #100cm`, `#1m2`},
+		{`#100cm * #1m`, `#10000cm2`},
+		// Decimal values
+		{`#2.5m * #4m`, `#10m2`},
+		{`#1.5m * #2m`, `#3m2`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			testExpectedUnit(t, tt.input, result, tt.expected)
+		})
+	}
+}
+
+func TestDerivedAreaFromLengthMultiplyUS(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// ft × ft → ft²
+		{`#3ft * #4ft`, `#12ft2`},
+		{`#10ft * #10ft`, `#100ft2`},
+		{`#1ft * #1ft`, `#1ft2`},
+		// yd × yd → yd²
+		{`#2yd * #3yd`, `#6yd2`},
+		{`#5yd * #5yd`, `#25yd2`},
+		// in × in → in²
+		{`#6in * #6in`, `#36in2`},
+		{`#12in * #12in`, `#144in2`},
+		// mi × mi → mi²
+		{`#1mi * #1mi`, `#1mi2`},
+		{`#2mi * #3mi`, `#6mi2`},
+		// Mixed US units (uses first operand's display hint)
+		{`#1ft * #12in`, `#1ft2`},
+		{`#12in * #1ft`, `#144in2`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			testExpectedUnit(t, tt.input, result, tt.expected)
+		})
+	}
+}
+
+func TestDerivedAreaFromLengthMultiplyErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		// Cross-system should error
+		{"SI × US", `#1m * #1ft`},
+		{"US × SI", `#1ft * #1m`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			if result == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			_, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Errorf("expected error for %s, got %T: %s", tt.input, result, result.Inspect())
+			}
+		})
+	}
+}
+
+// ============================================================================
+// 9o. Derived Unit Arithmetic: Area ÷ Length → Length
+// ============================================================================
+
+func TestDerivedLengthFromAreaDivideSI(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// m² ÷ m → m
+		{`#12m2 / #3m`, `#4m`},
+		{`#100m2 / #10m`, `#10m`},
+		{`#25m2 / #5m`, `#5m`},
+		// cm² ÷ cm → cm
+		{`#100cm2 / #10cm`, `#10cm`},
+		{`#50cm2 / #5cm`, `#10cm`},
+		// mm² ÷ mm → mm
+		{`#36mm2 / #6mm`, `#6mm`},
+		// km² ÷ km → km
+		{`#6km2 / #2km`, `#3km`},
+		// Decimal results
+		{`#10m2 / #4m`, `#2.5m`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			testExpectedUnit(t, tt.input, result, tt.expected)
+		})
+	}
+}
+
+func TestDerivedLengthFromAreaDivideUS(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// ft² ÷ ft → ft
+		{`#12ft2 / #3ft`, `#4ft`},
+		{`#100ft2 / #10ft`, `#10ft`},
+		{`#1ft2 / #1ft`, `#1ft`},
+		// yd² ÷ yd → yd
+		{`#6yd2 / #2yd`, `#3yd`},
+		{`#25yd2 / #5yd`, `#5yd`},
+		// in² ÷ in → in
+		{`#36in2 / #6in`, `#6in`},
+		{`#144in2 / #12in`, `#12in`},
+		// mi² ÷ mi → mi
+		{`#6mi2 / #2mi`, `#3mi`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			testExpectedUnit(t, tt.input, result, tt.expected)
+		})
+	}
+}
+
+func TestDerivedLengthFromAreaDivideErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		// Cross-system should error
+		{"SI area ÷ US length", `#10m2 / #5ft`},
+		{"US area ÷ SI length", `#10ft2 / #5m`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			if result == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			_, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Errorf("expected error for %s, got %T: %s", tt.input, result, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestDerivedUnitRoundTrip(t *testing.T) {
+	// Verify that derived units work both ways: len × len → area → area ÷ len → len
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "SI round trip",
+			input:    `(#4m * #5m) / #4m`,
+			expected: `#5m`,
+		},
+		{
+			name:     "US round trip",
+			input:    `(#3ft * #4ft) / #3ft`,
+			expected: `#4ft`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalUnit(tt.input)
+			testExpectedUnit(t, tt.input, result, tt.expected)
+		})
+	}
+}

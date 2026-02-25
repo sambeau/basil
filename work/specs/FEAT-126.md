@@ -1,7 +1,7 @@
 ---
 id: FEAT-126
 title: "Test Coverage Gap Remediation"
-status: draft
+status: complete
 priority: high
 created: 2025-02-26
 author: "@ai"
