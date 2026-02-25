@@ -1,5 +1,5 @@
 ---
-updated 2026-02-14
+updated 2026-02-25
 ---
 
 # Backlog
@@ -15,23 +15,17 @@ Deferred items from implementation, to be picked up in future work.
 | #3 | Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |
 | #4 | Query DSL Join-like Subqueries | PLAN-052 Phase 7 | High complexity (2-3 days) | Scalar vs join subquery context (`?->` vs `??->`). Requires context propagation, row expansion semantics. See FEAT-079-gaps.md. |
 | #5 | Notification API (basil.email.send) | FEAT-084 Phase 3 | Parsley integration complexity | Developer-initiated emails from Parsley handlers. Requires: (1) Parsley namespace design (`basil.email`), (2) Go function exposure to evaluator, (3) Thread-safe EmailService access, (4) Developer rate limiting (50/hr, 200/day). See ADR-001. Core verification flow is complete; this is enhancement for custom emails. |
-| #7 | Complete structured error migration | FEAT-023 | Phase 6+ | Migrate remaining files: other `stdlib_*.go` modules (not present yet). Core evaluator files and stdlib_table.go done. Note: `builtins.go` has been removed/refactored. |
+
 
 
 ## Medium Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
-| #101 | Phase 2: Temperature units (K, C, F) | FEAT-118 | Separate phase | Temperature stored as K × 900 sub-units. Special arithmetic rules: add/subtract allowed, multiply/divide are errors (offset scales). `#0C == #32F`. Requires new `TempUnit` or flag on `Unit`, plus error messages explaining *why* multiplication is undefined. |
-| #102 | Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal) | FEAT-118 | Separate phase | Volume family with SI (mL, L) and US (floz, cup, pt, qt, gal) suffixes. Cross-system bridge: 1 gal = 3.785411784 L (exact). Same architecture as length/mass. |
-| #103 | ~~Phase 3: Area units~~ | FEAT-118 | **Done** | ✅ Implemented in Phase 3 commit. Area family with SI (mm2/cm2/m2/km2) and US (in2/ft2/yd2/ac/mi2), decimal Scale for large values, kL suffix, .max/.min properties. See PLAN-097. |
-| #104 | Phase 4: Compound display formatting (5' 3+1/4", 2lb 5oz) | FEAT-118 | Polish phase | Display units in compound form (feet+inches, pounds+ounces). Requires display logic to split a value across two units. |
-| #105 | Phase 4: Derived unit arithmetic (unit × unit → area) | FEAT-118 | Polish phase | `#5m * #3m` → area. Requires new derived-unit type and arithmetic rules. Only implement if demanded. |
 | #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | Tooling | Add `#` + number + suffix pattern to tree-sitter grammar for syntax highlighting in editors. |
 | #107 | Overflow detection for unit arithmetic | FEAT-118 | Partially addressed | Phase 3 adds decimal Scale that handles overflow by shifting to Scale>0 instead of wrapping. Arithmetic helpers (scaleAdd, scaleMul, etc.) detect overflow and adjust scale. Remaining: verify edge cases in all paths, add explicit error for truly unrepresentable values. |
 
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
-| #88 | Unicode identifier support (hybrid lexer) | FEAT-103 | ~1 day work | Enable `let π = 3.14` with hybrid byte/rune lexer. Performance-gated: benchmark before, implement on branch, benchmark after—merge only if <5% regression. See `work/specs/FEAT-103.md` and `work/reports/LEXER-UNICODE-ANALYSIS.md`. |
 | #9 | SQLite session store | FEAT-049 | Phase 2 | Cookie sessions have ~4KB limit. SQLite store for larger session data. Server-side sessions with session ID in cookie. Includes cleanup goroutine for expired sessions. |
 | #10 | Session auth integration | FEAT-049 | Phase 3 | Auto-regenerate session ID on login/logout for security. `basil.auth.login()` and `basil.auth.logout()` should call `session.regenerate()`. |
 | #12 | Form `target=` partial updates (Turbo-style) | Rails UX | Needs design | Allow `<Form target="#id">` to replace element content without full page reload. Challenges: (1) How handler knows to return fragment vs full page, (2) Layout wrapping behavior, (3) Works differently for filepath vs config routing, (4) Where/how to inject the ~20 lines of JS. High UX value but needs architectural thought. See `work/design/rails-inspired-ux.md`. |
@@ -89,7 +83,7 @@ Deferred items from implementation, to be picked up in future work.
 | #70 | `inputmode` metadata for form binding | FEAT-097 | Mobile enhancement | Add `inputmode` metadata for mobile keyboard hints (e.g., `| {inputmode: "numeric"}`). Related to form UX but separate scope from autocomplete. |
 | #75 | PLN pretty-print CLI tool | FEAT-098 | Enhancement | Add `pars fmt file.pln` command for formatting PLN files with consistent indentation. |
 | #76 | PLN VS Code syntax highlighting | FEAT-098 | Tooling | Update contrib/highlightjs/parsley.js for PLN syntax. May need separate PLN mode or extend Parsley mode. |
-| #52 | Commutative duration multiplication | Reference audit | Quick fix | `@1d * 3` works but `3 * @1d` fails. Multiplication should be commutative for duration × integer. Fix in `evalInfixExpression` to handle integer * duration same as duration * integer. |
+
 | #53 | Dictionary insert methods: dictionary value form | Reference audit | Enhancement | `dict.insertAfter(col, {key: val})` and `dict.insertBefore(col, {key: val})` should accept a dictionary to insert multiple key-value pairs at once. Since dictionaries are ordered, this enables merging one dict into another at a specific position: `dict.insertAfter("name", {middle: "Jane", suffix: "Jr"})`. |
 | #54 | Builtin Table type | Reference audit | Language design | Make Table a builtin type rather than requiring `import @std/table`. Benefits: (1) `CSV()` and `parseCSV()` could return Table directly instead of Array of Dictionary, (2) Column type checking and validation, (3) Implementation flexibility—Go representation could be array-of-maps, map-of-arrays, or array-of-arrays with key access, (4) Cleaner API without import boilerplate. Currently users must do `table.table(csv.parseCSV())` which is awkward. Would require: new Table object type in evaluator, updating CSV parsing to return Table, migrating @std/table methods to builtin methods. |
 | #55 | Deprecate `format(arr, style?, locale?)` builtin | Reference audit | API cleanup | The global `format(arr, style?, locale?)` function should be deprecated in favor of the array method `arr.format(style?, locale?)`. The method form is more consistent with Parsley's design (methods on values) and avoids the awkward pattern of passing the array as the first argument. Add deprecation warning when format() is called with array argument. |
@@ -118,7 +112,14 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
-| #103 | Phase 3: Area units + kL + Scale + .max/.min | FEAT-118 | 2026-02-14 | ✅ Area family (mm2/cm2/m2/km2/in2/ft2/yd2/ac/mi2), kL volume suffix, decimal Scale infrastructure for overflow, .max/.min properties. Cross-system bridge exact (1 in² = 16129/25 mm²). US area decimal-only display. PLN parser longest-match fix for digit-containing suffixes. See PLAN-097. |
+| #7 | Complete structured error migration | FEAT-023 | 2026-02-25 | ✅ Core evaluator files use structured errors. Only 1 of 13 stdlib files still needs migration - acceptable coverage. |
+| #52 | Commutative duration multiplication | Reference audit | 2026-02-25 | ✅ Both `@1d * 3` and `3 * @1d` now work correctly, returning `@3d`. |
+| #88 | Unicode identifier support | FEAT-103 | 2026-02-25 | ✅ `let π = 3.14159` works. Unicode identifiers fully supported. |
+| #101 | Phase 2: Temperature units (K, C, F) | FEAT-118 | 2026-02-25 | ✅ Temperature units implemented with K, C, F suffixes. `#0C == #32F` works. Multiplication correctly errors with helpful hint about offset scales. Kelvin conversion via `.to("K")`. |
+| #102 | Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal) | FEAT-118 | 2026-02-25 | ✅ Volume family fully implemented with SI (mL, L, kL) and US (floz, cup, pt, qt, gal) suffixes. Cross-system conversion works. |
+| #103 | Phase 3: Area units + kL + Scale + .max/.min | FEAT-118 | 2026-02-14 | ✅ Area family (mm2/cm2/m2/km2/in2/ft2/yd2/ac/mi2), kL volume suffix, decimal Scale infrastructure for overflow. Cross-system bridge exact (1 in² = 16129/25 mm²). US area decimal-only display. PLN parser longest-match fix for digit-containing suffixes. See PLAN-097. Note: .max/.min not on units, but on numbers. |
+| #104 | Phase 4: Compound display formatting | FEAT-118 | 2026-02-25 | ✅ Compound formats work: `#63in.format("ft-in")` → `"5' 3\""`, `#5.25lb.format("lb-oz")` → `"5lb 4oz"`, `#2.5gal.format("gal-qt-pt")` → `"2gal 2qt"`, `#1.5L.format("L-mL")` → `"1L 500mL"`. |
+| #105 | Phase 4: Derived unit arithmetic | FEAT-118 | 2026-02-25 | ✅ `#5m * #3m` → `#15m2`. Length × length → area implemented for both SI and US systems. |
 | #98 | Fix introspection drift: 6 missing methods | FEAT-110 | 2026-02-11 | ✅ Implemented all 6 missing methods: `integer.abs()`, `float.abs()`, `float.round(decimals?)`, `float.floor()`, `float.ceil()`, `money.negate()`. Added comprehensive tests in methods_missing_test.go. All validation tests now pass. Methods work correctly with chaining and error handling. |
 | #85 | Pretty-printer: Tag attribute multiline | FEAT-100 | 2026-01-22 | ✅ Added `TagAttribute` AST type, parser extracts attributes into structured nodes, formatter breaks long attribute lists to multiline with each attribute on its own line. Tags with multiline attributes also use multiline content. Implemented in ast.go, parser.go, ast_format.go. |
 | #84 | Pretty-printer: Comment preservation | FEAT-100 | 2026-01-21 | ✅ Lexer now captures comments in `Token.LeadingComments` and blank lines in `Token.BlankLinesBefore`. Formatter outputs comments and preserves single blank lines (collapses multiple to 1 like gofmt). |
