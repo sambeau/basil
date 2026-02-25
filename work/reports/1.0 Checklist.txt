@@ -10,7 +10,7 @@
 - [x] Let & Const
 - [x] Const?
 - [x] With
-- [ ] ERROR messages
+- [x] ERROR messages
 - [ ] Remove DEPRECATES
 - [ ] update treesitter etc
 	- [ ] with {}

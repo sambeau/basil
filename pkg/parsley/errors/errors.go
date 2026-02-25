@@ -1496,6 +1496,55 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "Correlated subquery conditions must be simple conditions",
 	},
+
+	// ========================================
+	// Datetime validation errors (DT-0xxx)
+	// ========================================
+	"DT-0001": {
+		Class:    ClassType,
+		Template: "Datetime dictionary missing '{{.Field}}' field",
+	},
+	"DT-0002": {
+		Class:    ClassType,
+		Template: "'{{.Field}}' must be an integer",
+	},
+	"DT-0003": {
+		Class:    ClassFormat,
+		Template: "Unknown timezone: {{.Timezone}}",
+	},
+
+	// ========================================
+	// Encoding errors (ENCODE-0xxx)
+	// ========================================
+	"ENCODE-0001": {
+		Class:    ClassType,
+		Template: "Bytes format requires an array, got {{.Got}}",
+	},
+	"ENCODE-0002": {
+		Class:    ClassType,
+		Template: "Bytes array must contain integers, got {{.Got}} at index {{.Index}}",
+	},
+	"ENCODE-0003": {
+		Class:    ClassValue,
+		Template: "Byte value out of range (0-255): {{.Value}} at index {{.Index}}",
+	},
+
+	// ========================================
+	// Duration parsing errors (DUR-0xxx)
+	// ========================================
+	"DUR-0001": {
+		Class:    ClassFormat,
+		Template: "Expected digit at position {{.Position}} in duration string",
+	},
+	"DUR-0002": {
+		Class:    ClassFormat,
+		Template: "Missing unit after number at position {{.Position}} in duration string",
+	},
+	"DUR-0003": {
+		Class:    ClassFormat,
+		Template: "Unknown duration unit: '{{.Unit}}'",
+		Hints:    []string{"Valid units: s (seconds), m (minutes), h (hours), d (days)"},
+	},
 }
 
 // New creates a ParsleyError from the catalog.
