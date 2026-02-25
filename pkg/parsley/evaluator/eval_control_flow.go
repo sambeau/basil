@@ -159,16 +159,6 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 				if isError(evaluated) {
 					return evaluated
 				}
-				// Handle PrintValue in for loop body
-				if pv, ok := evaluated.(*PrintValue); ok {
-					for _, v := range pv.Values {
-						str := objectToUserString(v)
-						if str != "" {
-							bodyResults = append(bodyResults, &String{Value: str})
-						}
-					}
-					continue
-				}
 				// Collect non-NULL results
 				if evaluated != NULL {
 					bodyResults = append(bodyResults, evaluated)
@@ -306,16 +296,6 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 			if isError(evaluated) {
 				return evaluated
 			}
-			// Handle PrintValue in for loop body
-			if pv, ok := evaluated.(*PrintValue); ok {
-				for _, v := range pv.Values {
-					str := objectToUserString(v)
-					if str != "" {
-						bodyResults = append(bodyResults, &String{Value: str})
-					}
-				}
-				continue
-			}
 			// Collect non-NULL results
 			if evaluated != NULL {
 				bodyResults = append(bodyResults, evaluated)
@@ -398,4 +378,61 @@ func evalTryExpression(node *ast.TryExpression, env *Environment) Object {
 		KeyOrder: []string{"result", "error"},
 		Env:      env,
 	}
+}
+
+// evalWithExpression evaluates 'with dict { body }' expressions.
+// All dictionary/record fields become local variables within the body block.
+// Fields with names that aren't valid identifiers are silently skipped.
+func evalWithExpression(node *ast.WithExpression, env *Environment) Object {
+	// 1. Evaluate target expression
+	target := Eval(node.Target, env)
+	if isError(target) {
+		return target
+	}
+
+	// 2. Extract pairs and environment from dict/record
+	var pairs map[string]ast.Expression
+	var keyOrder []string
+	var targetEnv *Environment
+
+	switch t := target.(type) {
+	case *Dictionary:
+		pairs = t.Pairs
+		keyOrder = t.KeyOrder
+		targetEnv = t.Env
+	case *Record:
+		pairs = t.Data
+		keyOrder = t.KeyOrder
+		targetEnv = t.Env
+	default:
+		err := newStructuredError("TYPE-0020", map[string]any{
+			"Context":  "with target",
+			"Expected": "dictionary or record",
+			"Got":      strings.ToLower(string(target.Type())),
+		})
+		err.Line = node.Token.Line
+		err.Column = node.Token.Column
+		return err
+	}
+
+	// 3. Create enclosed environment for the with block
+	withEnv := NewEnclosedEnvironment(env)
+
+	// 4. Inject fields as immutable bindings (skip invalid identifiers)
+	for _, key := range keyOrder {
+		// Skip keys that aren't valid identifiers
+		if !isValidIdentifier(key) {
+			continue
+		}
+
+		expr := pairs[key]
+		value := Eval(expr, targetEnv)
+		if isError(value) {
+			return value
+		}
+		withEnv.SetLet(key, value)
+	}
+
+	// 5. Evaluate body in the with scope
+	return evalBlockStatement(node.Body, withEnv)
 }

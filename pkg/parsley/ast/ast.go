@@ -54,14 +54,15 @@ func (p *Program) String() string {
 	return out.String()
 }
 
-// LetStatement represents let statements like 'let x = 5;' or 'let [x,y,z] = [1,2,3];'
+// LetStatement represents let/var statements like 'let x = 5;' or 'var [x,y,z] = [1,2,3];'
 type LetStatement struct {
-	Token        lexer.Token                // the lexer.LET token
-	Name         *Identifier                // single identifier for simple let (mutually exclusive with patterns)
+	Token        lexer.Token                // the lexer.LET or lexer.VAR token
+	Name         *Identifier                // single identifier for simple let/var (mutually exclusive with patterns)
 	ArrayPattern *ArrayDestructuringPattern // pattern for array destructuring
 	DictPattern  *DictDestructuringPattern  // pattern for dictionary destructuring
 	Value        Expression
 	Export       bool // true if 'export' keyword was used
+	Mutable      bool // true if declared with 'var', false if declared with 'let'
 }
 
 func (ls *LetStatement) statementNode()       {}
@@ -72,7 +73,12 @@ func (ls *LetStatement) String() string {
 	if ls.Export {
 		out.WriteString("export ")
 	}
-	out.WriteString(ls.TokenLiteral() + " ")
+	// Output 'var' or 'let' based on mutability
+	if ls.Mutable {
+		out.WriteString("var ")
+	} else {
+		out.WriteString("let ")
+	}
 	if ls.DictPattern != nil {
 		out.WriteString(ls.DictPattern.String())
 	} else if ls.ArrayPattern != nil {
@@ -822,6 +828,25 @@ func (fe *ForExpression) String() string {
 		out.WriteString(fe.Body.String())
 	}
 
+	return out.String()
+}
+
+// WithExpression represents 'with dict { body }' for scoped field access
+// All dictionary fields become local variables within the body block
+type WithExpression struct {
+	Token  lexer.Token     // the 'with' token
+	Target Expression      // expression evaluating to dict/record
+	Body   *BlockStatement // the body block
+}
+
+func (we *WithExpression) expressionNode()      {}
+func (we *WithExpression) TokenLiteral() string { return we.Token.Literal }
+func (we *WithExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("with ")
+	out.WriteString(we.Target.String())
+	out.WriteString(" ")
+	out.WriteString(we.Body.String())
 	return out.String()
 }
 

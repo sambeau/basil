@@ -144,6 +144,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.FOR, p.parseForExpression)
+	p.registerPrefix(lexer.WITH, p.parseWithExpression)
 	p.registerPrefix(lexer.TRY, p.parseTryExpression)
 	p.registerPrefix(lexer.IMPORT, p.parseImportExpression)
 	p.registerPrefix(lexer.LBRACE, p.parseDictionaryLiteral)
@@ -296,7 +297,11 @@ func (p *Parser) parseStatement() ast.Statement {
 	case lexer.EXPORT:
 		return p.parseExportStatement()
 	case lexer.LET:
-		return p.parseLetStatement(false)
+		return p.parseLetStatement(false, false) // not exported, not mutable
+	case lexer.VAR:
+		return p.parseLetStatement(false, true) // not exported, mutable
+	case lexer.CONST:
+		return p.parseConstError()
 	case lexer.RETURN:
 		return p.parseReturnStatement()
 	case lexer.CHECK:
@@ -384,9 +389,12 @@ func (p *Parser) parseExportStatement() ast.Statement {
 	// Move past 'export'
 	p.nextToken()
 
-	// Check if next is 'let'
+	// Check if next is 'let' or 'var'
 	if p.curTokenIs(lexer.LET) {
-		return p.parseLetStatement(true)
+		return p.parseLetStatement(true, false) // exported, not mutable
+	}
+	if p.curTokenIs(lexer.VAR) {
+		return p.parseLetStatement(true, true) // exported, mutable
 	}
 
 	// Handle 'export computed Name = expr' or 'export computed Name { body }'
@@ -497,8 +505,20 @@ func (p *Parser) parseComputedExportStatement(exportToken lexer.Token) ast.State
 	return stmt
 }
 
-// parseLetStatement parses let statements
-func (p *Parser) parseLetStatement(export bool) ast.Statement {
+// parseConstError handles the reserved 'const' keyword with a helpful error
+func (p *Parser) parseConstError() ast.Statement {
+	p.addErrorWithHints(
+		"'const' is not a Parsley keyword",
+		p.curToken.Line, p.curToken.Column,
+		"Parsley uses 'let' for constants (immutable) and 'var' for variables (mutable)",
+		"Use 'let x = 5' instead of 'const x = 5'",
+	)
+	return nil
+}
+
+// parseLetStatement parses let/var statements
+// mutable=false for 'let' (immutable), mutable=true for 'var' (mutable)
+func (p *Parser) parseLetStatement(export, mutable bool) ast.Statement {
 	letToken := p.curToken
 
 	// Check for dictionary destructuring pattern
@@ -544,7 +564,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 			return nil
 		}
 
-		stmt := &ast.LetStatement{Token: letToken, Export: export}
+		stmt := &ast.LetStatement{Token: letToken, Export: export, Mutable: mutable}
 		stmt.DictPattern = dictPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
@@ -601,7 +621,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 			return nil
 		}
 
-		stmt := &ast.LetStatement{Token: letToken, Export: export}
+		stmt := &ast.LetStatement{Token: letToken, Export: export, Mutable: mutable}
 		stmt.ArrayPattern = arrayPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
@@ -651,8 +671,8 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		return fetchStmt
 	}
 
-	// Regular let statement
-	stmt := &ast.LetStatement{Token: letToken, Export: export}
+	// Regular let/var statement
+	stmt := &ast.LetStatement{Token: letToken, Export: export, Mutable: mutable}
 	stmt.Name = name
 
 	if !p.expectPeek(lexer.ASSIGN) {
@@ -2935,6 +2955,36 @@ func (p *Parser) parseForExpression() ast.Expression {
 	return expression
 }
 
+func (p *Parser) parseWithExpression() ast.Expression {
+	expression := &ast.WithExpression{Token: p.curToken}
+
+	// Parentheses are optional (like for/if)
+	hasParens := p.peekTokenIs(lexer.LPAREN)
+	if hasParens {
+		p.nextToken() // consume '('
+	}
+	p.nextToken() // move to target expression
+
+	// Parse target expression
+	if hasParens {
+		expression.Target = p.parseExpression(LOWEST)
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	} else {
+		// Without parens, parse until we hit '{'
+		expression.Target = p.parseExpressionUntilBrace()
+	}
+
+	// Require block body
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+	expression.Body = p.parseBlockStatement()
+
+	return expression
+}
+
 func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {
 	// Only certain expression types can be called as functions.
 	// This prevents `if(...){...}(x)` or `"string"(x)` from being parsed as calls.
@@ -4104,7 +4154,8 @@ func (p *Parser) parseQueryExpression() ast.Expression {
 				p.nextToken() // consume |
 
 				// Check if this is a modifier (order, limit, with)
-				if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+				// Note: 'with' is now a keyword, so check for both IDENT and WITH token types
+				if (p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal)) || p.peekTokenIs(lexer.WITH) {
 					mod := p.parseQueryModifier()
 					if mod != nil {
 						modifiers = append(modifiers, mod)
@@ -4950,7 +5001,8 @@ func (p *Parser) parseQuerySubquery() *ast.QuerySubquery {
 		}
 
 		// Check if this is a modifier or condition
-		if p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal) {
+		// Note: 'with' is now a keyword, so check for both IDENT and WITH token types
+		if (p.peekTokenIs(lexer.IDENT) && p.isQueryModifierKeyword(p.peekToken.Literal)) || p.peekTokenIs(lexer.WITH) {
 			mod := p.parseQueryModifier()
 			if mod != nil {
 				subquery.Modifiers = append(subquery.Modifiers, mod)

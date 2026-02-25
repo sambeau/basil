@@ -515,10 +515,18 @@ func evalLog(args []Object, env *Environment) Object {
 	return NULL
 }
 
+// evalDictDestructuringAssignmentImmutable is a helper for function parameters
+// It calls evalDictDestructuringAssignment with isLet=true, export=false, mutable=false
+// to ensure all destructured bindings are immutable (function params cannot be reassigned)
+func evalDictDestructuringAssignmentImmutable(pattern *ast.DictDestructuringPattern, val Object, env *Environment) Object {
+	return evalDictDestructuringAssignment(pattern, val, env, true, false, false)
+}
+
 func extendFunctionEnv(fn *Function, args []Object) *Environment {
 	env := NewEnclosedEnvironment(fn.Env)
 
 	// Use parameter list with destructuring support
+	// All function parameters are immutable (cannot be reassigned within the function body)
 	for paramIdx, param := range fn.Params {
 		if paramIdx >= len(args) {
 			break
@@ -528,14 +536,14 @@ func extendFunctionEnv(fn *Function, args []Object) *Environment {
 
 		// Handle different parameter types
 		if param.DictPattern != nil {
-			// Dictionary destructuring (in function params, never exported)
-			evalDictDestructuringAssignment(param.DictPattern, arg, env, true, false)
+			// Dictionary destructuring (in function params, never exported, immutable)
+			evalDictDestructuringAssignmentImmutable(param.DictPattern, arg, env)
 		} else if param.ArrayPattern != nil {
-			// Array destructuring
+			// Array destructuring (immutable)
 			evalArrayPatternForParam(param.ArrayPattern, arg, env)
 		} else if param.Ident != nil {
-			// Simple identifier
-			env.Set(param.Ident.Value, arg)
+			// Simple identifier - use SetLet to make immutable
+			env.SetLet(param.Ident.Value, arg)
 		}
 	}
 
@@ -543,6 +551,7 @@ func extendFunctionEnv(fn *Function, args []Object) *Environment {
 }
 
 // evalArrayPatternForParam handles array destructuring in function parameters with explicit ...rest
+// All bindings are immutable (function parameters cannot be reassigned)
 func evalArrayPatternForParam(pattern *ast.ArrayDestructuringPattern, val Object, env *Environment) {
 	// Convert value to array if it isn't already
 	var elements []Object
@@ -555,21 +564,21 @@ func evalArrayPatternForParam(pattern *ast.ArrayDestructuringPattern, val Object
 		elements = []Object{v}
 	}
 
-	// Assign each named element to corresponding variable
+	// Assign each named element to corresponding variable (immutable)
 	for i, name := range pattern.Names {
 		if i < len(elements) {
 			if name.Value != "_" {
-				env.Set(name.Value, elements[i])
+				env.SetLet(name.Value, elements[i])
 			}
 		} else {
 			// No more elements, assign null
 			if name.Value != "_" {
-				env.Set(name.Value, NULL)
+				env.SetLet(name.Value, NULL)
 			}
 		}
 	}
 
-	// Handle rest parameter if present - ONLY collect remaining if explicit ...rest
+	// Handle rest parameter if present - ONLY collect remaining if explicit ...rest (immutable)
 	if pattern.Rest != nil && pattern.Rest.Value != "_" {
 		var remaining *Array
 		if len(elements) > len(pattern.Names) {
@@ -577,7 +586,7 @@ func evalArrayPatternForParam(pattern *ast.ArrayDestructuringPattern, val Object
 		} else {
 			remaining = &Array{Elements: []Object{}}
 		}
-		env.Set(pattern.Rest.Value, remaining)
+		env.SetLet(pattern.Rest.Value, remaining)
 	}
 	// Without explicit ...rest, extra elements are simply ignored (like JS/TS)
 }
@@ -651,7 +660,10 @@ func withPosition(obj Object, tok lexer.Token, env *Environment) Object {
 // dispatchMethodCall dispatches a method call to the appropriate type-specific handler.
 // Returns nil if the type doesn't match any handler (falls through to property access).
 
-func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Object, env *Environment, isLet bool, export bool) Object {
+func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Object, env *Environment, isLet bool, export bool, mutable ...bool) Object {
+	// Check if mutable flag is passed (default to false for backwards compatibility)
+	isMutable := len(mutable) > 0 && mutable[0]
+
 	// Convert value to array if it isn't already
 	var elements []Object
 
@@ -669,26 +681,46 @@ func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Obje
 			// Direct assignment for elements within bounds
 			if name.Value != "_" {
 				if export && isLet {
-					env.SetLetExport(name.Value, elements[i])
+					if isMutable {
+						env.SetVarExport(name.Value, elements[i])
+					} else {
+						env.SetLetExport(name.Value, elements[i])
+					}
 				} else if export {
 					env.SetExport(name.Value, elements[i])
 				} else if isLet {
-					env.SetLet(name.Value, elements[i])
+					if isMutable {
+						env.SetVar(name.Value, elements[i])
+					} else {
+						env.SetLet(name.Value, elements[i])
+					}
 				} else {
-					env.Update(name.Value, elements[i])
+					if err := env.Update(name.Value, elements[i]); isError(err) {
+						return err
+					}
 				}
 			}
 		} else {
 			// No more elements, assign null
 			if name.Value != "_" {
 				if export && isLet {
-					env.SetLetExport(name.Value, NULL)
+					if isMutable {
+						env.SetVarExport(name.Value, NULL)
+					} else {
+						env.SetLetExport(name.Value, NULL)
+					}
 				} else if export {
 					env.SetExport(name.Value, NULL)
 				} else if isLet {
-					env.SetLet(name.Value, NULL)
+					if isMutable {
+						env.SetVar(name.Value, NULL)
+					} else {
+						env.SetLet(name.Value, NULL)
+					}
 				} else {
-					env.Update(name.Value, NULL)
+					if err := env.Update(name.Value, NULL); isError(err) {
+						return err
+					}
 				}
 			}
 		}
@@ -703,13 +735,23 @@ func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Obje
 			remaining = &Array{Elements: []Object{}}
 		}
 		if export && isLet {
-			env.SetLetExport(pattern.Rest.Value, remaining)
+			if isMutable {
+				env.SetVarExport(pattern.Rest.Value, remaining)
+			} else {
+				env.SetLetExport(pattern.Rest.Value, remaining)
+			}
 		} else if export {
 			env.SetExport(pattern.Rest.Value, remaining)
 		} else if isLet {
-			env.SetLet(pattern.Rest.Value, remaining)
+			if isMutable {
+				env.SetVar(pattern.Rest.Value, remaining)
+			} else {
+				env.SetLet(pattern.Rest.Value, remaining)
+			}
 		} else {
-			env.Update(pattern.Rest.Value, remaining)
+			if err := env.Update(pattern.Rest.Value, remaining); isError(err) {
+				return err
+			}
 		}
 	}
 	// Without explicit ...rest, extra elements are simply ignored (like JS/TS)
@@ -744,7 +786,9 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 				} else if isLet {
 					env.SetLet(name.Value, elements[i])
 				} else {
-					env.Update(name.Value, elements[i])
+					if err := env.Update(name.Value, elements[i]); isError(err) {
+						return err
+					}
 				}
 			}
 		} else {
@@ -757,7 +801,9 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 				} else if isLet {
 					env.SetLet(name.Value, NULL)
 				} else {
-					env.Update(name.Value, NULL)
+					if err := env.Update(name.Value, NULL); isError(err) {
+						return err
+					}
 				}
 			}
 		}
@@ -771,7 +817,9 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 }
 
 // evalDictDestructuringAssignment evaluates dictionary/record destructuring patterns
-func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool, export bool) Object {
+func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool, export bool, mutable ...bool) Object {
+	// Check if mutable flag is passed (default to false for backwards compatibility)
+	isMutable := len(mutable) > 0 && mutable[0]
 	// Handle StdlibModuleDict (from @std/ imports)
 	if stdlibMod, ok := val.(*StdlibModuleDict); ok {
 		return evalStdlibModuleDestructuring(pattern, stdlibMod, env, isLet, export)
@@ -823,7 +871,7 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 		// Handle nested destructuring
 		if keyPattern.Nested != nil {
 			if nestedPattern, ok := keyPattern.Nested.(*ast.DictDestructuringPattern); ok {
-				result := evalDictDestructuringAssignment(nestedPattern, value, env, isLet, export)
+				result := evalDictDestructuringAssignment(nestedPattern, value, env, isLet, export, isMutable)
 				if isError(result) {
 					return result
 				}
@@ -840,13 +888,23 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 			// Assign to environment
 			if targetName != "_" {
 				if export && isLet {
-					env.SetLetExport(targetName, value)
+					if isMutable {
+						env.SetVarExport(targetName, value)
+					} else {
+						env.SetLetExport(targetName, value)
+					}
 				} else if export {
 					env.SetExport(targetName, value)
 				} else if isLet {
-					env.Set(targetName, value)
+					if isMutable {
+						env.SetVar(targetName, value)
+					} else {
+						env.SetLet(targetName, value)
+					}
 				} else {
-					env.Update(targetName, value)
+					if err := env.Update(targetName, value); isError(err) {
+						return err
+					}
 				}
 			}
 		}
@@ -864,13 +922,23 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 		restDict := &Dictionary{Pairs: restPairs, Env: valEnv}
 		if pattern.Rest.Value != "_" {
 			if export && isLet {
-				env.SetLetExport(pattern.Rest.Value, restDict)
+				if isMutable {
+					env.SetVarExport(pattern.Rest.Value, restDict)
+				} else {
+					env.SetLetExport(pattern.Rest.Value, restDict)
+				}
 			} else if export {
 				env.SetExport(pattern.Rest.Value, restDict)
 			} else if isLet {
-				env.SetLet(pattern.Rest.Value, restDict)
+				if isMutable {
+					env.SetVar(pattern.Rest.Value, restDict)
+				} else {
+					env.SetLet(pattern.Rest.Value, restDict)
+				}
 			} else {
-				env.Update(pattern.Rest.Value, restDict)
+				if err := env.Update(pattern.Rest.Value, restDict); isError(err) {
+					return err
+				}
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -124,6 +125,8 @@ const (
 	// Keywords
 	FUNCTION // "fn"
 	LET      // "let"
+	VAR      // "var"
+	CONST    // "const" (reserved, suggests using 'let')
 	FOR      // "for"
 	IN       // "in"
 	AS       // "as"
@@ -141,6 +144,7 @@ const (
 	VIA      // "via" (for schema relations)
 	IS       // "is" (for schema checking)
 	COMPUTED // "computed" (for computed exports)
+	WITH     // "with" (for scoped field access)
 )
 
 // Token represents a single token
@@ -341,6 +345,10 @@ func (tt TokenType) String() string {
 		return "FUNCTION"
 	case LET:
 		return "LET"
+	case VAR:
+		return "VAR"
+	case CONST:
+		return "CONST"
 	case FOR:
 		return "FOR"
 	case IN:
@@ -375,6 +383,8 @@ func (tt TokenType) String() string {
 		return "IS"
 	case COMPUTED:
 		return "COMPUTED"
+	case WITH:
+		return "WITH"
 	case SCHEMA_LITERAL:
 		return "SCHEMA_LITERAL"
 	case TABLE_LITERAL:
@@ -399,6 +409,8 @@ var keywords = map[string]TokenType{
 	"fn":       FUNCTION,
 	"function": FUNCTION, // alias for JS familiarity
 	"let":      LET,
+	"var":      VAR,
+	"const":    CONST, // reserved keyword - suggests using 'let' instead
 	"for":      FOR,
 	"in":       IN,
 	"as":       AS,
@@ -419,6 +431,7 @@ var keywords = map[string]TokenType{
 	"via":      VIA,
 	"is":       IS,
 	"computed": COMPUTED,
+	"with":     WITH,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -461,10 +474,23 @@ func truncate(s string, n int) string {
 
 // New creates a new lexer instance
 func New(input string) *Lexer {
+	// Skip shebang line if present (e.g., #!/usr/bin/env pars)
+	startLine := 1
+	if len(input) >= 2 && input[0] == '#' && input[1] == '!' {
+		if idx := strings.Index(input, "\n"); idx != -1 {
+			input = input[idx+1:]
+			startLine = 2
+		} else {
+			// Shebang is the entire file - empty program
+			input = ""
+			startLine = 2
+		}
+	}
+
 	l := &Lexer{
 		filename: "<input>",
 		input:    input,
-		line:     1,
+		line:     startLine,
 		column:   0,
 	}
 	l.readChar()
@@ -473,10 +499,23 @@ func New(input string) *Lexer {
 
 // NewWithFilename creates a new lexer instance with a specific filename
 func NewWithFilename(input string, filename string) *Lexer {
+	// Skip shebang line if present (e.g., #!/usr/bin/env pars)
+	startLine := 1
+	if len(input) >= 2 && input[0] == '#' && input[1] == '!' {
+		if idx := strings.Index(input, "\n"); idx != -1 {
+			input = input[idx+1:]
+			startLine = 2
+		} else {
+			// Shebang is the entire file - empty program
+			input = ""
+			startLine = 2
+		}
+	}
+
 	l := &Lexer{
 		filename: filename,
 		input:    input,
-		line:     1,
+		line:     startLine,
 		column:   0,
 	}
 	l.readChar()
