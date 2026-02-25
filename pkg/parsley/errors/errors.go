@@ -756,22 +756,22 @@ var ErrorCatalog = map[string]ErrorDef{
 	// ========================================
 	"ASSIGN-0001": {
 		Class:    ClassState,
-		Template: "cannot reassign immutable binding '{{.Name}}'",
+		Template: "Cannot reassign immutable binding '{{.Name}}'",
 		Hints:    []string{"Use 'var' instead of 'let' if you need to reassign this variable"},
 	},
 	"ASSIGN-0002": {
 		Class:    ClassState,
-		Template: "cannot reassign loop variable '{{.Name}}'",
+		Template: "Cannot reassign loop variable '{{.Name}}'",
 		Hints:    []string{"Loop variables are immutable within the loop body"},
 	},
 	"ASSIGN-0003": {
 		Class:    ClassState,
-		Template: "cannot reassign function parameter '{{.Name}}'",
+		Template: "Cannot reassign function parameter '{{.Name}}'",
 		Hints:    []string{"Function parameters are immutable; create a local 'var' copy if you need to modify it"},
 	},
 	"ASSIGN-0004": {
 		Class:    ClassUndefined,
-		Template: "cannot assign to undeclared variable '{{.Name}}'",
+		Template: "Cannot assign to undeclared variable '{{.Name}}'",
 		Hints:    []string{"Declare the variable first with 'let {{.Name}} = ...' or 'var {{.Name}} = ...'"},
 	},
 
