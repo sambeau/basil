@@ -115,13 +115,14 @@ func buildMatchDictionary(re *regexp.Regexp, matches []string) *Dictionary {
 
 	for i, match := range matches {
 		var key string
-		if i == 0 {
+		switch {
+		case i == 0:
 			// Full match always gets key "0"
 			key = "0"
-		} else if names[i] != "" {
+		case names[i] != "":
 			// Named group uses its name
 			key = names[i]
-		} else {
+		default:
 			// Unnamed group uses numeric string key
 			key = strconv.Itoa(i)
 		}
