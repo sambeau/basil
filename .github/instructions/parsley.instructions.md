@@ -46,16 +46,25 @@ When writing Parsley code in Basil handlers, tests, or examples, consult this re
 
 ## 🚨 Major Gotchas
 
-### Output is `log()`, not `print()`
+### No `print()` — Parsley Uses Expression-Based Output
 ```parsley
-// ✅ CORRECT
-log("hello")
-logLine("debug info")  // Includes line number
+// ❌ WRONG — These functions don't exist!
+print("hello")         // Error: Unknown function 'print'
+println("hello")       // Error: Unknown function 'println'
+printf("template", {}) // Error: Unknown function 'printf'
+console.log("hello")   // No console object exists
 
-// ❌ WRONG
-print("hello")
-console.log("hello")
+// ✅ CORRECT — The value IS the output
+"hello"                // Outputs: hello
+42                     // Outputs: 42
+<div>"content"</div>   // Outputs: <div>content</div>
+
+// ✅ For debugging (console output), use log()
+log("debug:", someVar) // Writes to stdout, returns null
+logLine("with location")  // Includes file:line info
 ```
+
+**Key concept**: Parsley uses expression-based output. The last expression in a block becomes its output. Don't "print" — just return the value.
 
 ### Comments are `//`, not `#`
 ```parsley

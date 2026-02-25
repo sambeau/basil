@@ -55,7 +55,7 @@ node tools/build.js -t cdn parsley
 ```html
 <pre><code class="language-parsley">
 let greeting = "Hello, World!"
-print(greeting)
+greeting
 </code></pre>
 
 <script>
@@ -74,7 +74,7 @@ hljs.registerLanguage('parsley', parsley);
 const code = `
 let {table} = import @std/table
 let data = table([{name: "Alice", age: 30}])
-print(data.toHTML())
+data.toHTML()
 `;
 
 const highlighted = hljs.highlight(code, { language: 'parsley' }).value;
@@ -91,7 +91,7 @@ let greet = fn(person) {
   "Hello, " + person
 }
 
-print(greet(name))
+greet(name)
 ```
 
 ### At-Literals

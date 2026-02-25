@@ -246,9 +246,6 @@ let extract = fn({key, ...others}) { others }
 // import @std/math
 // log("Hello")
 // logLine("Line")
-// print("Printing")
-// println("Print line")
-// printf("Formatted: {}", x)
 
 let num = toInt("42")
 let str = toString(42)

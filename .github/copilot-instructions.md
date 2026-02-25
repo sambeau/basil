@@ -13,6 +13,21 @@ Before writing any Parsley code (handlers, tests, examples):
 - Read `.github/instructions/parsley.instructions.md` for syntax rules
 - Key points: tags don't need quotes, singleton tags MUST be self-closing (`<br/>` not `<br>`), use `{var}` for interpolation (not `${var}`)
 
+### ⚠️ Critical: Parsley Uses Expression-Based Output
+**`print()` does NOT exist in Parsley!** Values ARE the output:
+```parsley
+// ❌ WRONG — These will error!
+print("hello")
+println("hello")
+
+// ✅ CORRECT — The value IS the output
+"hello"
+<div>"content"</div>
+
+// ✅ For debugging, use log()
+log("debug:", someVar)
+```
+
 ## Debugging and Testing Parsley Code
 Use `pars -e` to quickly test and debug Parsley expressions:
 - Outputs PLN (Parsley Literal Notation) format by default, showing structure
