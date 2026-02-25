@@ -4,9 +4,29 @@
 Basil is a Go web server for the Parsley programming language.
 
 ## Before Any Task
-1. Read `AGENTS.md` at the repository root — it contains build commands, project structure, and workflow rules
-2. Check `work/BACKLOG.md` for related deferred items
-3. Use the appropriate prompt file for your task type
+1. **Check `git status` for uncommitted work** — commit or stash before starting new work
+2. Read `AGENTS.md` at the repository root — it contains build commands, project structure, and workflow rules
+3. Check `work/BACKLOG.md` for related deferred items
+4. Use the appropriate prompt file for your task type
+
+## ⚠️ Critical: Preserve Work Through Commits
+
+**Work has been lost due to incomplete commits.** Follow these rules:
+
+### Before Starting New Work
+- Run `git status` — if there are uncommitted changes from previous work:
+  - If tests pass → commit with an appropriate message
+  - If tests fail → stash and inform the user
+  - Never start new work on top of uncommitted changes from a different feature
+
+### During Implementation
+- Commit at logical checkpoints (new function, passing tests, before risky changes)
+- When tests pass after a change, commit
+
+### After Completing a Feature/Fix
+1. Run `make test` or `go test ./...`
+2. If tests pass → **commit all related changes immediately**
+3. A feature isn't done until it's committed
 
 ## Writing Parsley Code
 Before writing any Parsley code (handlers, tests, examples):
@@ -53,7 +73,13 @@ Use `pars -e` to quickly test and debug Parsley expressions:
 - AI commits to feature/bug branches
 - Human merges to main
 - Human creates release tags
-- Use Conventional Commits format
+- Use Conventional Commits format:
+  - `feat(scope): description` — New features
+  - `fix(scope): description` — Bug fixes  
+  - `test(scope): description` — Test changes
+  - `docs(scope): description` — Documentation
+  - `chore(scope): description` — Maintenance
+  - Add `!` for breaking changes: `feat(parsley)!: description`
 
 ## Testing
 - All code changes must include tests

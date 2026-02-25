@@ -129,10 +129,43 @@ basil/
 
 ## Workflow Rules
 
+### ⚠️ CRITICAL: Preserve Work Through Commits
+
+**Work has been lost due to incomplete commits.** Follow these rules strictly:
+
+#### Before Starting New Work
+1. **Check for uncommitted changes**: Run `git status` before starting any new task
+2. **Commit or stash existing work**: If there are uncommitted changes from previous work:
+   - If tests pass: commit the changes with an appropriate message
+   - If tests fail: stash changes and note this to the user
+   - Never start new work on top of uncommitted changes from a different feature
+
+#### During Implementation
+- **Commit at logical checkpoints**: After completing a coherent unit of work (e.g., adding a new function, fixing a bug, completing a test)
+- **Commit when tests pass**: Whenever you get tests passing after a change, consider committing
+- **Commit before risky changes**: Before refactoring or making breaking changes, commit working state
+
+#### After Completing a Feature/Fix
+1. **Run all tests**: `make test` or `go test ./...`
+2. **If tests pass**: Commit all related changes with a descriptive message
+3. **If tests fail**: Fix the issues, then commit once tests pass
+4. **Never leave completed work uncommitted**: A feature isn't done until it's committed
+
+#### Commit Message Format
+Use conventional commits:
+- `feat(scope): description` — New features
+- `fix(scope): description` — Bug fixes
+- `test(scope): description` — Test additions/changes
+- `docs(scope): description` — Documentation
+- `chore(scope): description` — Maintenance tasks
+
+Add `!` after the type for breaking changes: `feat(parsley)!: description`
+
 ### Before Starting Any Task
-1. Read the relevant spec/bug report from work/
-2. Check work/BACKLOG.md for related deferred items
-3. Use the appropriate prompt file (`/new-feature` or `/fix-bug`)
+1. **Check `git status` for uncommitted work** (see above)
+2. Read the relevant spec/bug report from work/
+3. Check work/BACKLOG.md for related deferred items
+4. Use the appropriate prompt file (`/new-feature` or `/fix-bug`)
 
 ### During Implementation
 - Commit frequently with conventional commit messages
@@ -140,9 +173,10 @@ basil/
 - Run tests after each significant change
 
 ### After Implementation
+- **Commit all changes** (tests must pass first)
 - Update work/BACKLOG.md with any deferred items
 - Update spec/bug with implementation notes
-- Ensure all tests pass
+- Verify all tests pass with `make test`
 
 ## ID Conventions
 - Features: `FEAT-001`, `FEAT-002`, ...
