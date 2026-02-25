@@ -2,7 +2,7 @@
 id: PLAN-105
 feature: FEAT-126
 title: "Implementation Plan for Test Coverage Gap Remediation"
-status: draft
+status: in-progress
 created: 2025-02-26
 ---
 
@@ -101,9 +101,9 @@ Tests:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1 | ⬚ Not Started | |
-| | Task 2 | ⬚ Not Started | |
-| | Task 3 | ⬚ Not Started | |
+| 2025-02-26 | Task 1 | ✅ Complete | Added `with_test.go` with 25 test cases |
+| 2025-02-26 | Task 2 | ✅ Complete | Added US area multiplication tests (ft×ft, yd×yd, in×in, mi×mi) |
+| 2025-02-26 | Task 3 | ✅ Complete | Added SI and US area division tests |
 | | Task 4 | ⬚ Not Started | |
 
 ## Deferred Items
