@@ -46,7 +46,7 @@ body {
 		},
 		{
 			name: "comment with @{} inside style tag",
-			input: `variable = "test"
+			input: `let variable = "test"
 <style>
 // This has @{variable} in the comment
 body {
@@ -97,7 +97,7 @@ function test() {
 		},
 		{
 			name: "interpolation in script comment for datestamp",
-			input: `version = "1.0.0"
+			input: `let version = "1.0.0"
 <script>
 // Version: @{version}
 function getVersion() {

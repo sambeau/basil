@@ -13,9 +13,9 @@ func TestForSimpleSyntax(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"double = fn(x) { x * 2 }; for([1,2,3]) double", "[2, 4, 6]"},
-		{"square = fn(x) { x * x }; for([1,2,3,4]) square", "[1, 4, 9, 16]"},
-		{"inc = fn(x) { x + 1 }; for([10,20,30]) inc", "[11, 21, 31]"},
+		{"let double = fn(x) { x * 2 }; for([1,2,3]) double", "[2, 4, 6]"},
+		{"let square = fn(x) { x * x }; for([1,2,3,4]) square", "[1, 4, 9, 16]"},
+		{"let inc = fn(x) { x + 1 }; for([10,20,30]) inc", "[11, 21, 31]"},
 		{"for([1,2,3]) fn(x){x*2}", "[2, 4, 6]"},
 	}
 
@@ -122,8 +122,8 @@ func TestForEquivalenceWithMap(t *testing.T) {
 		expected  string
 	}{
 		{
-			"double = fn(x) { x * 2 }; for([1,2,3]) double",
-			"double = fn(x) { x * 2 }; [1,2,3].map(double)",
+			"let double = fn(x) { x * 2 }; for([1,2,3]) double",
+			"let double = fn(x) { x * 2 }; [1,2,3].map(double)",
 			"[2, 4, 6]",
 		},
 		{
@@ -191,7 +191,7 @@ func TestForWithFunctions(t *testing.T) {
 		expected string
 	}{
 		// Test for(collection) fn syntax with user-defined functions
-		{`double = fn(x) { x * 2 }; for([1,2,3]) double`, "[2, 4, 6]"},
+		{`let double = fn(x) { x * 2 }; for([1,2,3]) double`, "[2, 4, 6]"},
 		{`for(c in "hello") { c.toUpper() }`, "[H, E, L, L, O]"},
 		{`for(c in "WORLD") { c.toLower() }`, "[w, o, r, l, d]"},
 		{`for(s in ["a","b","c"]) { s.toUpper() }`, "[A, B, C]"},

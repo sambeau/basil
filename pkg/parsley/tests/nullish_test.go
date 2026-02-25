@@ -161,7 +161,7 @@ func TestNullishWithFunctions(t *testing.T) {
 func TestNullishShortCircuit(t *testing.T) {
 	// Test 1: Right side should NOT be evaluated when left is non-null
 	input1 := `
-		let counter = 0
+		var counter = 0
 		let inc = fn() { counter = counter + 1; "evaluated" }
 		let result = "value" ?? inc()
 		counter
@@ -173,7 +173,7 @@ func TestNullishShortCircuit(t *testing.T) {
 
 	// Test 2: Right side SHOULD be evaluated when left is null
 	input2 := `
-		let counter = 0
+		var counter = 0
 		let inc = fn() { counter = counter + 1; "evaluated" }
 		let result = null ?? inc()
 		counter

@@ -70,7 +70,7 @@ rendered
 	}
 }
 
-func TestDictionaryRenderAndPrintf(t *testing.T) {
+func TestDictionaryRender(t *testing.T) {
 	t.Run("dictionary render", func(t *testing.T) {
 		code := `
 let data = {name: "Ada", age: 30}
@@ -85,10 +85,10 @@ data.render("Hello, @{name}! You are @{age}.")
 		}
 	})
 
-	t.Run("printf with dictionary scope", func(t *testing.T) {
+	t.Run("render with computed values", func(t *testing.T) {
 		code := `
 let factor = 2
-printf("size @{size}", {size: factor * 5})
+{size: factor * 5}.render("size @{size}")
 `
 		result := testEvalHelper(code)
 		str := expectString(t, result)
@@ -104,7 +104,6 @@ func TestRenderErrors(t *testing.T) {
 	tests := []string{
 		`"oops".render(1, 2)`,
 		`"oops".render(123)`,
-		`printf("hi", "not-a-dict")`,
 		`{a: 1}.render(5)`,
 		`"@{missing".render()`,
 	}

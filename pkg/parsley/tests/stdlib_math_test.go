@@ -772,9 +772,9 @@ func TestMathSeed(t *testing.T) {
 	// Test that seeding produces reproducible results
 	input := `let {seed, random} = import @std/math
 seed(42)
-a = random()
+let a = random()
 seed(42)
-b = random()
+let b = random()
 a == b`
 
 	result := evalMathTest(t, input)

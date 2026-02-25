@@ -70,7 +70,7 @@ func TestParamsIteration(t *testing.T) {
 			method:      "POST",
 			contentType: "application/x-www-form-urlencoded",
 			body:        "username=bob&password=secret&remember=true",
-			script:      `let count = 0; for(k,v in @params){ count = count + 1; null }; count`,
+			script:      `var count = 0; for(k,v in @params){ count = count + 1; null }; count`,
 			validate: func(t *testing.T, result evaluator.Object) {
 				arr, ok := result.(*evaluator.Array)
 				if !ok {
@@ -150,7 +150,7 @@ func TestParamsIteration(t *testing.T) {
 func TestParamsIterationEmpty(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 
-	script := `let count = 0; for(k in @params){ count = count + 1; null }; count`
+	script := `var count = 0; for(k in @params){ count = count + 1; null }; count`
 
 	result := evalWithParams(script, req)
 

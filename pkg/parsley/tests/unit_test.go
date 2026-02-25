@@ -1024,9 +1024,10 @@ func TestUnitErrorScalarPlusUnit(t *testing.T) {
 	}
 }
 
-func TestUnitErrorUnitTimesUnit(t *testing.T) {
+func TestUnitLengthTimesLengthGivesArea(t *testing.T) {
+	// Phase 4: length × length → area is now supported
 	evaluated := testEvalUnit(`#5m * #5m`)
-	testExpectedUnitError(t, `#5m * #5m`, evaluated, "multiply")
+	testExpectedUnit(t, `#5m * #5m`, evaluated, `#25m2`)
 }
 
 func TestUnitErrorScalarDivUnit(t *testing.T) {

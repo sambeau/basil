@@ -33,20 +33,20 @@ func TestRootPathImport(t *testing.T) {
 	}
 
 	// Create header.pars
-	headerContent := `export title = "Header Component"`
+	headerContent := `export let title = "Header Component"`
 	if err := os.WriteFile(filepath.Join(componentsDir, "header.pars"), []byte(headerContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create nested.pars - imports from root using ~/
-	nestedContent := `{title} = import @~/components/header.pars
-export message = "Nested says: " + title`
+	nestedContent := `let {title} = import @~/components/header.pars
+export let message = "Nested says: " + title`
 	if err := os.WriteFile(filepath.Join(utilsDeepDir, "nested.pars"), []byte(nestedContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create main.pars - imports nested module
-	mainContent := `{message} = import @./utils/deep/nested.pars
+	mainContent := `let {message} = import @./utils/deep/nested.pars
 message`
 	mainPath := filepath.Join(tmpDir, "main.pars")
 	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {

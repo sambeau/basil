@@ -35,8 +35,8 @@ func TestBuiltinIntrospection(t *testing.T) {
 				let allBuiltins = builtins()
 				let fileBuiltins = allBuiltins["file"]
 				let firstBuiltin = fileBuiltins[0]
-				firstBuiltin["name"].length() > 0 and 
-				firstBuiltin["description"].length() > 0 and 
+				firstBuiltin["name"].length() > 0 and
+				firstBuiltin["description"].length() > 0 and
 				firstBuiltin["arity"].length() > 0
 			`,
 			contains: []string{
@@ -48,7 +48,7 @@ func TestBuiltinIntrospection(t *testing.T) {
 			code: `
 				let allBuiltins = builtins()
 				let fileBuiltins = allBuiltins["file"]
-				let jsonBuiltin = null
+				var jsonBuiltin = null
 				for builtin in fileBuiltins {
 					if builtin["name"] == "JSON" {
 						jsonBuiltin = builtin

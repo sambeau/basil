@@ -186,12 +186,12 @@ func TestDictDestructuringAssignment(t *testing.T) {
 	}{
 		{
 			name:     "reassign with destructuring",
-			input:    `let a = 0; let b = 0; {a, b} = {a: 10, b: 20}; a`,
+			input:    `var a = 0; var b = 0; {a, b} = {a: 10, b: 20}; a`,
 			expected: "10",
 		},
 		{
 			name:     "reassign second value",
-			input:    `let a = 0; let b = 0; {a, b} = {a: 10, b: 20}; b`,
+			input:    `var a = 0; var b = 0; {a, b} = {a: 10, b: 20}; b`,
 			expected: "20",
 		},
 	}
@@ -272,7 +272,7 @@ func TestDictDestructuringComplexExamples(t *testing.T) {
 		{
 			name: "destructure then modify",
 			input: `
-				let {a, b} = {a: 5, b: 10};
+				var {a, b} = {a: 5, b: 10};
 				a = a * 2;
 				b = b * 2;
 				a + b

@@ -470,10 +470,10 @@ func TestMoneyVariables(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`price = $19.99; price`, `$19.99`},
-		{`a = $10.00; b = $5.00; a + b`, `$15.00`},
-		{`tax = $10.00 * 0.2; tax`, `$2.00`},
-		{`total = $100.00; discount = $20.00; total - discount`, `$80.00`},
+		{`let price = $19.99; price`, `$19.99`},
+		{`let a = $10.00; let b = $5.00; a + b`, `$15.00`},
+		{`let tax = $10.00 * 0.2; tax`, `$2.00`},
+		{`let total = $100.00; let discount = $20.00; total - discount`, `$80.00`},
 	}
 
 	for _, tt := range tests {
@@ -488,7 +488,7 @@ func TestMoneyInConditionals(t *testing.T) {
 		expected string
 	}{
 		{`if $10.00 > $5.00 { "expensive" } else { "cheap" }`, `expensive`},
-		{`price = $25.00; if price >= $20.00 { "premium" } else { "budget" }`, `premium`},
+		{`let price = $25.00; if price >= $20.00 { "premium" } else { "budget" }`, `premium`},
 	}
 
 	for _, tt := range tests {
@@ -502,8 +502,8 @@ func TestMoneyInArrays(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`prices = [$10.00, $20.00, $30.00]; prices[0]`, `$10.00`},
-		{`prices = [$10.00, $20.00, $30.00]; prices[1] + prices[2]`, `$50.00`},
+		{`let prices = [$10.00, $20.00, $30.00]; prices[0]`, `$10.00`},
+		{`let prices = [$10.00, $20.00, $30.00]; prices[1] + prices[2]`, `$50.00`},
 	}
 
 	for _, tt := range tests {
@@ -517,8 +517,8 @@ func TestMoneyInDictionaries(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`product = { price: $29.99 }; product.price`, `$29.99`},
-		{`order = { subtotal: $100.00, tax: $8.00 }; order.subtotal + order.tax`, `$108.00`},
+		{`let product = { price: $29.99 }; product.price`, `$29.99`},
+		{`let order = { subtotal: $100.00, tax: $8.00 }; order.subtotal + order.tax`, `$108.00`},
 	}
 
 	for _, tt := range tests {

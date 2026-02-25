@@ -149,7 +149,7 @@ func TestReadOperatorReassignment(t *testing.T) {
 	}{
 		{
 			name:     "reassign variable with <==",
-			code:     `let x = "initial"; x <== text("` + file1 + `"); x`,
+			code:     `var x = "initial"; x <== text("` + file1 + `"); x`,
 			expected: "First",
 		},
 		{

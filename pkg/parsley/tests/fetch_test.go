@@ -202,7 +202,7 @@ func TestFetchOperatorWithMockServer(t *testing.T) {
 	defer methodServer.Close()
 
 	t.Run("fetch JSON with error capture pattern", func(t *testing.T) {
-		input := `{data, error} <=/= JSON(url("` + jsonServer.URL + `")); data`
+		input := `let {data, error} = <=/= JSON(url("` + jsonServer.URL + `")); data`
 		result := testEvalHelper(input)
 
 		// Should return a dictionary with name and value
@@ -218,7 +218,7 @@ func TestFetchOperatorWithMockServer(t *testing.T) {
 	})
 
 	t.Run("fetch plain text", func(t *testing.T) {
-		input := `{data, error} <=/= text(url("` + textServer.URL + `")); data`
+		input := `let {data, error} = <=/= text(url("` + textServer.URL + `")); data`
 		result := testEvalHelper(input)
 
 		str, ok := result.(*evaluator.String)
@@ -231,7 +231,7 @@ func TestFetchOperatorWithMockServer(t *testing.T) {
 	})
 
 	t.Run("fetch with error capture - server error", func(t *testing.T) {
-		input := `{data, error, status} <=/= text(url("` + errorServer.URL + `")); status`
+		input := `let {data, error, status} = <=/= text(url("` + errorServer.URL + `")); status`
 		result := testEvalHelper(input)
 
 		// Should return status code
@@ -246,7 +246,7 @@ func TestFetchOperatorWithMockServer(t *testing.T) {
 
 	t.Run("fetch error returns null for data", func(t *testing.T) {
 		// When fetching from a server that returns 500, data should still be the content
-		input := `{data, error, status} <=/= text(url("` + errorServer.URL + `")); data`
+		input := `let {data, error, status} = <=/= text(url("` + errorServer.URL + `")); data`
 		result := testEvalHelper(input)
 
 		// Data should be the error text content
@@ -309,17 +309,17 @@ func TestURLComputedProperties(t *testing.T) {
 	}{
 		{
 			name:     "URL scheme property",
-			input:    `u = url("https://example.com"); u.scheme`,
+			input:    `let u = url("https://example.com"); u.scheme`,
 			expected: "https",
 		},
 		{
 			name:     "URL host property",
-			input:    `u = url("https://example.com"); u.host`,
+			input:    `let u = url("https://example.com"); u.host`,
 			expected: "example.com",
 		},
 		{
 			name:     "URL href property",
-			input:    `u = url("https://example.com/path"); u.href`,
+			input:    `let u = url("https://example.com/path"); u.href`,
 			expected: "https://example.com/path",
 		},
 	}
@@ -357,7 +357,7 @@ func TestRequestWithOptions(t *testing.T) {
 	defer echoServer.Close()
 
 	t.Run("basic GET request", func(t *testing.T) {
-		input := `{data, error} <=/= JSON(url("` + echoServer.URL + `")); data.method`
+		input := `let {data, error} = <=/= JSON(url("` + echoServer.URL + `")); data.method`
 		result := testEvalHelper(input)
 
 		str, ok := result.(*evaluator.String)
@@ -384,7 +384,7 @@ func TestFetchLinesFormat(t *testing.T) {
 	defer linesServer.Close()
 
 	t.Run("fetch as lines array", func(t *testing.T) {
-		input := `{data, error} <=/= lines(url("` + linesServer.URL + `")); data.length()`
+		input := `let {data, error} = <=/= lines(url("` + linesServer.URL + `")); data.length()`
 		result := testEvalHelper(input)
 
 		num, ok := result.(*evaluator.Integer)

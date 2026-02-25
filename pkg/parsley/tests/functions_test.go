@@ -15,36 +15,36 @@ func TestFunctions(t *testing.T) {
 		expected string
 	}{
 		// Basic function assignment and calling
-		// Note: assignments return null, so we test the function call instead
-		{"add = fn(i, j) { i + j }; add(1, 2)", "3"},
+		// Note: declarations return null, so we test the function call instead
+		{"var add = fn(i, j) { i + j }; add(1, 2)", "3"},
 		{"add(10, 20)", "30"},
 
 		// Function with if-else expression
-		{"gt = fn(i, j) { if (i > j) true else false }; gt(5, 3)", "true"},
+		{"var gt = fn(i, j) { if (i > j) true else false }; gt(5, 3)", "true"},
 		{"gt(2, 7)", "false"},
 		{"gt(5, 5)", "false"},
 
 		// Function with if-return and fallback expression
-		{"positive = fn(x) { if (x >= 0) { return \"yes\" } \"no\" }; positive(1)", "yes"},
+		{"var positive = fn(x) { if (x >= 0) { return \"yes\" } \"no\" }; positive(1)", "yes"},
 		{"positive(0)", "yes"},
 		{"positive(-1)", "no"},
 
 		// Function with comparison operators
-		{"lte = fn(a, b) { if (a <= b) true else false }; lte(3, 5)", "true"},
+		{"var lte = fn(a, b) { if (a <= b) true else false }; lte(3, 5)", "true"},
 		{"lte(5, 3)", "false"},
 		{"lte(5, 5)", "true"},
 
 		// Functions with floats
-		{"multiply = fn(x, y) { x * y }; multiply(2.5, 4.0)", "10"},
+		{"var multiply = fn(x, y) { x * y }; multiply(2.5, 4.0)", "10"},
 
 		// Functions with trigonometry (using std/math)
-		{"import @std/math; sinCos = fn(angle) { math.sin(angle) + math.cos(angle) }; sinCos(0)", "1"},
+		{"import @std/math; let sinCos = fn(angle) { math.sin(angle) + math.cos(angle) }; sinCos(0)", "1"},
 
 		// Nested function calls
-		{"max = fn(a, b) { if (a > b) a else b }; max(max(1, 2), 3)", "3"},
+		{"var max = fn(a, b) { if (a > b) a else b }; max(max(1, 2), 3)", "3"},
 
 		// Function returning function result
-		{"double = fn(x) { x * 2 }; quadruple = fn(x) { double(double(x)) }; quadruple(5)", "20"},
+		{"var double = fn(x) { x * 2 }; var quadruple = fn(x) { double(double(x)) }; quadruple(5)", "20"},
 	}
 
 	env := evaluator.NewEnvironment()

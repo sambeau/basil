@@ -18,52 +18,52 @@ func TestPathTemplateInterpolation(t *testing.T) {
 	}{
 		{
 			name:     "simple variable interpolation",
-			input:    `name = "config"; p = @(./data/{name}.json); p.string`,
+			input:    `let name = "config"; let p = @(./data/{name}.json); p.string`,
 			expected: "./data/config.json",
 		},
 		{
 			name:     "multiple interpolations",
-			input:    `dir = "src"; file = "main"; p = @(./{dir}/{file}.go); p.string`,
+			input:    `let dir = "src"; let file = "main"; let p = @(./{dir}/{file}.go); p.string`,
 			expected: "./src/main.go",
 		},
 		{
 			name:     "expression interpolation",
-			input:    `n = 1; p = @(./file{n + 1}.txt); p.string`,
+			input:    `let n = 1; let p = @(./file{n + 1}.txt); p.string`,
 			expected: "./file2.txt",
 		},
 		{
 			name:     "absolute path with interpolation",
-			input:    `user = "sam"; p = @(/home/{user}/docs); p.string`,
+			input:    `let user = "sam"; let p = @(/home/{user}/docs); p.string`,
 			expected: "/home/sam/docs",
 		},
 		{
 			name:     "home path with interpolation",
-			input:    `folder = "projects"; p = @(~/{folder}/code); p.string`,
+			input:    `let folder = "projects"; let p = @(~/{folder}/code); p.string`,
 			expected: "~/projects/code",
 		},
 		{
 			name:     "nested property access",
-			input:    `config = {dir: "build"}; p = @(./{config.dir}/output); p.string`,
+			input:    `let config = {dir: "build"}; let p = @(./{config.dir}/output); p.string`,
 			expected: "./build/output",
 		},
 		{
 			name:     "array index interpolation",
-			input:    `dirs = ["src", "lib"]; p = @(./{dirs[0]}/main.go); p.string`,
+			input:    `let dirs = ["src", "lib"]; let p = @(./{dirs[0]}/main.go); p.string`,
 			expected: "./src/main.go",
 		},
 		{
 			name:     "function call in interpolation",
-			input:    `p = @(./{"hello".toUpper()}.txt); p.string`,
+			input:    `let p = @(./{"hello".toUpper()}.txt); p.string`,
 			expected: "./HELLO.txt",
 		},
 		{
 			name:     "number conversion",
-			input:    `version = 2; p = @(./v{version}/api); p.string`,
+			input:    `let version = 2; let p = @(./v{version}/api); p.string`,
 			expected: "./v2/api",
 		},
 		{
 			name:     "string concatenation in interpolation",
-			input:    `prefix = "test"; suffix = "data"; p = @(./{prefix + "_" + suffix}.json); p.string`,
+			input:    `let prefix = "test"; let suffix = "data"; let p = @(./{prefix + "_" + suffix}.json); p.string`,
 			expected: "./test_data.json",
 		},
 	}
@@ -106,27 +106,27 @@ func TestUrlTemplateInterpolation(t *testing.T) {
 	}{
 		{
 			name:     "path segment interpolation",
-			input:    `version = "v2"; u = @(https://api.example.com/{version}/users); u.string`,
+			input:    `let version = "v2"; let u = @(https://api.example.com/{version}/users); u.string`,
 			expected: "https://api.example.com/v2/users",
 		},
 		{
 			name:     "host interpolation",
-			input:    `host = "api.test.com"; u = @(https://{host}/data); u.string`,
+			input:    `let host = "api.test.com"; let u = @(https://{host}/data); u.string`,
 			expected: "https://api.test.com/data",
 		},
 		{
 			name:     "port interpolation",
-			input:    `port = 8080; u = @(http://localhost:{port}/api); u.port`,
+			input:    `let port = 8080; let u = @(http://localhost:{port}/api); u.port`,
 			expected: "8080",
 		},
 		{
 			name:     "fragment interpolation",
-			input:    `section = "intro"; u = @(https://docs.com/guide#{section}); u.fragment`,
+			input:    `let section = "intro"; let u = @(https://docs.com/guide#{section}); u.fragment`,
 			expected: "intro",
 		},
 		{
 			name:     "expression in URL",
-			input:    `n = 1; u = @(https://api.com/v{n + 1}/data); u.string`,
+			input:    `let n = 1; let u = @(https://api.com/v{n + 1}/data); u.string`,
 			expected: "https://api.com/v2/data",
 		},
 	}
@@ -170,37 +170,37 @@ func TestPathTemplateComponents(t *testing.T) {
 	}{
 		{
 			name:       "basename from template",
-			input:      `name = "main"; p = @(./src/{name}.go); p.basename`,
+			input:      `let name = "main"; let p = @(./src/{name}.go); p.basename`,
 			checkField: "basename",
 			expected:   "main.go",
 		},
 		{
 			name:       "ext from template",
-			input:      `ext = "json"; p = @(./config.{ext}); p.ext`,
+			input:      `let ext = "json"; let p = @(./config.{ext}); p.ext`,
 			checkField: "ext",
 			expected:   "json",
 		},
 		{
 			name:       "dir from template",
-			input:      `folder = "lib"; p = @(./{folder}/utils.js); p.dir`,
+			input:      `let folder = "lib"; let p = @(./{folder}/utils.js); p.dir`,
 			checkField: "dir",
 			expected:   "./lib",
 		},
 		{
 			name:       "stem from template",
-			input:      `name = "data"; p = @(./{name}.csv); p.stem`,
+			input:      `let name = "data"; let p = @(./{name}.csv); p.stem`,
 			checkField: "stem",
 			expected:   "data",
 		},
 		{
 			name:       "isAbsolute from absolute template",
-			input:      `dir = "usr"; p = @(/{dir}/local); p.isAbsolute`,
+			input:      `let dir = "usr"; let p = @(/{dir}/local); p.isAbsolute`,
 			checkField: "isAbsolute",
 			expected:   "true",
 		},
 		{
 			name:       "isAbsolute from relative template",
-			input:      `dir = "src"; p = @(./{dir}/main.go); p.isAbsolute`,
+			input:      `let dir = "src"; let p = @(./{dir}/main.go); p.isAbsolute`,
 			checkField: "isAbsolute",
 			expected:   "false",
 		},
@@ -244,17 +244,17 @@ func TestUrlTemplateComponents(t *testing.T) {
 	}{
 		{
 			name:     "scheme preserved",
-			input:    `path = "api"; u = @(https://example.com/{path}); u.scheme`,
+			input:    `let path = "api"; let u = @(https://example.com/{path}); u.scheme`,
 			expected: "https",
 		},
 		{
 			name:     "host preserved",
-			input:    `version = "v1"; u = @(https://api.example.com/{version}/users); u.host`,
+			input:    `let version = "v1"; let u = @(https://api.example.com/{version}/users); u.host`,
 			expected: "api.example.com",
 		},
 		{
 			name:     "full url string",
-			input:    `id = 123; u = @(https://api.com/users/{id}/profile); u.string`,
+			input:    `let id = 123; let u = @(https://api.com/users/{id}/profile); u.string`,
 			expected: "https://api.com/users/123/profile",
 		},
 	}
@@ -297,17 +297,17 @@ func TestPathTemplateErrors(t *testing.T) {
 	}{
 		{
 			name:          "unclosed brace",
-			input:         `name = "test"; p = @(./data/{name.json)`,
+			input:         `let name = "test"; let p = @(./data/{name.json)`,
 			expectedError: "unclosed",
 		},
 		{
 			name:          "empty interpolation",
-			input:         `p = @(./data/{}.json)`,
+			input:         `let p = @(./data/{}.json)`,
 			expectedError: "empty interpolation",
 		},
 		{
 			name:          "undefined variable",
-			input:         `p = @(./data/{undefined}/file)`,
+			input:         `let p = @(./data/{undefined}/file)`,
 			expectedError: "identifier not found",
 		},
 	}
@@ -419,17 +419,17 @@ func TestPathTemplateInExpressions(t *testing.T) {
 	}{
 		{
 			name:     "path template in function",
-			input:    `makePath = fn(name) { @(./{name}.json) }; makePath("config").string`,
+			input:    `let makePath = fn(name) { @(./{name}.json) }; makePath("config").string`,
 			expected: "./config.json",
 		},
 		{
 			name:     "path template assigned to variable",
-			input:    `name = "test"; p = @(./data/{name}.txt); p.basename`,
+			input:    `let name = "test"; let p = @(./data/{name}.txt); p.basename`,
 			expected: "test.txt",
 		},
 		{
 			name:     "path template with computed string",
-			input:    `base = "config"; ext = "yaml"; p = @(./{base}.{ext}); p.string`,
+			input:    `let base = "config"; let ext = "yaml"; let p = @(./{base}.{ext}); p.string`,
 			expected: "./config.yaml",
 		},
 	}

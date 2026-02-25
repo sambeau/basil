@@ -50,7 +50,7 @@ func TestDictionaryInsertionOrder(t *testing.T) {
 		},
 		// for-in iteration preserves order
 		{
-			`d = { c: 3, a: 1, b: 2 }; result = for (k, v in d) { k }; result`,
+			`let d = { c: 3, a: 1, b: 2 }; let result = for (k, v in d) { k }; result`,
 			`[c, a, b]`,
 		},
 		// method keys() preserves order
@@ -123,17 +123,17 @@ func TestDictionaryDeletePreservesOrder(t *testing.T) {
 	}{
 		// Delete middle key, remaining keys stay in order
 		{
-			`d = { a: 1, b: 2, c: 3 }; d.delete("b"); d.keys()`,
+			`let d = { a: 1, b: 2, c: 3 }; d.delete("b"); d.keys()`,
 			`[a, c]`,
 		},
 		// Delete first key
 		{
-			`d = { z: 1, y: 2, x: 3 }; d.delete("z"); d.keys()`,
+			`let d = { z: 1, y: 2, x: 3 }; d.delete("z"); d.keys()`,
 			`[y, x]`,
 		},
 		// Delete last key
 		{
-			`d = { z: 1, y: 2, x: 3 }; d.delete("x"); d.keys()`,
+			`let d = { z: 1, y: 2, x: 3 }; d.delete("x"); d.keys()`,
 			`[z, y]`,
 		},
 	}
@@ -173,7 +173,7 @@ func TestToArrayToDictPreservesOrder(t *testing.T) {
 		},
 		// Round-trip preserves order
 		{
-			`d = { third: 3, first: 1, second: 2 }; toDict(toArray(d)).keys()`,
+			`let d = { third: 3, first: 1, second: 2 }; toDict(toArray(d)).keys()`,
 			`[third, first, second]`,
 		},
 	}

@@ -49,7 +49,7 @@ func TestSymlinkSecurityRead(t *testing.T) {
 	// Test 1: Reading through symlink should work if target is allowed
 	t.Run("read_through_symlink_allowed", func(t *testing.T) {
 		// Use the <== read operator to read the file
-		input := `content <== text("` + filepath.Join(linkDir, "real.txt") + `")`
+		input := `let content = <== text("` + filepath.Join(linkDir, "real.txt") + `")`
 
 		env := evaluator.NewEnvironment()
 		env.Security = &evaluator.SecurityPolicy{}
@@ -229,7 +229,7 @@ func TestMacOSVarSymlink(t *testing.T) {
 		// Test that we can read using the symlink path when real path is allowed
 		t.Run("read_via_symlink_path", func(t *testing.T) {
 			// Use the <== read operator with text()
-			input := `content <== text("` + testFile + `")`
+			input := `let content = <== text("` + testFile + `")`
 
 			env := evaluator.NewEnvironment()
 			env.Security = &evaluator.SecurityPolicy{}

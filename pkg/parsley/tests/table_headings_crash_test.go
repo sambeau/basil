@@ -16,7 +16,7 @@ func TestLetThenTableWithHeadingsDoesNotCrash(t *testing.T) {
 		{name: "Charlie", country:"UK", paid: £11},
 		{name: "Sam", country:"UK", paid: £12},
 	]
-	headings = <tr>
+	let headings = <tr>
 		for (k in 1..3) {<td>k</td>}
 	</tr>
 	<table>
