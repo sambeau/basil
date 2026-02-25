@@ -538,9 +538,7 @@ func isDatetimeDict(dict *Dictionary) bool {
 // isDurationDict checks if a dictionary is a duration by looking for __type field
 func isDurationDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
-		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
-			return strLit.Value == "duration"
-		}
+		return typeExprEquals(typeExpr, "duration")
 	}
 	return false
 }
@@ -575,6 +573,11 @@ func isFileDict(dict *Dictionary) bool {
 		return typeExprEquals(typeExpr, "file")
 	}
 	return false
+}
+
+// IsFileDict is an exported version of isFileDict for use by the CLI
+func IsFileDict(dict *Dictionary) bool {
+	return isFileDict(dict)
 }
 
 // isTagDict checks if a dictionary is a tag by looking for __type field

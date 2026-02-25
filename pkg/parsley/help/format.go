@@ -31,6 +31,8 @@ func FormatText(result *TopicResult, width int) string {
 		formatOperatorListText(&sb, result, width)
 	case "type-list":
 		formatTypeListText(&sb, result, width)
+	case "all":
+		formatAllText(&sb, result, width)
 	default:
 		sb.WriteString(fmt.Sprintf("Unknown result kind: %s\n", result.Kind))
 	}
@@ -392,6 +394,48 @@ func formatTypeListText(sb *strings.Builder, result *TopicResult, width int) {
 	}
 
 	sb.WriteString("Use 'pars describe <type>' for details on a specific type.\n")
+}
+
+// formatAllText formats the complete API schema output
+func formatAllText(sb *strings.Builder, result *TopicResult, width int) {
+	sb.WriteString("Parsley Complete API Schema\n")
+	sb.WriteString("===========================\n\n")
+
+	sb.WriteString("This is a summary. Use 'pars describe <topic>' for details.\n")
+	sb.WriteString("Use 'pars describe all --json' for machine-readable output.\n\n")
+
+	// Types summary
+	sb.WriteString("Types:\n")
+	typeNames := make([]string, 0, len(result.Types))
+	for _, t := range result.Types {
+		typeNames = append(typeNames, t.Name)
+	}
+	fmt.Fprintf(sb, "  %s\n\n", strings.Join(typeNames, ", "))
+
+	// Builtins count by category
+	sb.WriteString("Builtins:\n")
+	byCategory := make(map[string]int)
+	for _, b := range result.Builtins {
+		byCategory[b.Category]++
+	}
+	categories := make([]string, 0, len(byCategory))
+	for cat := range byCategory {
+		categories = append(categories, cat)
+	}
+	sort.Strings(categories)
+	for _, cat := range categories {
+		fmt.Fprintf(sb, "  %s: %d functions\n", cat, byCategory[cat])
+	}
+	sb.WriteString("\n")
+
+	// Operators count
+	fmt.Fprintf(sb, "Operators: %d total\n\n", len(result.Operators))
+
+	// Modules list
+	sb.WriteString("Modules:\n")
+	for _, m := range result.Modules {
+		fmt.Fprintf(sb, "  %s\n", m.Name)
+	}
 }
 
 // arityToParams converts an arity string to a parameter representation

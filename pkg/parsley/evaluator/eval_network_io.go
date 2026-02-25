@@ -227,7 +227,9 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 		if node.IsLet {
 			env.SetLet(node.Name.Value, responseDict)
 		} else {
-			env.Update(node.Name.Value, responseDict)
+			if err := env.Update(node.Name.Value, responseDict); isError(err) {
+				return err
+			}
 		}
 	}
 

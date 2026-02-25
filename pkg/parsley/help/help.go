@@ -31,6 +31,23 @@ type TopicResult struct {
 	Arity       string                   `json:"arity,omitempty"`
 	Category    string                   `json:"category,omitempty"`
 	Deprecated  string                   `json:"deprecated,omitempty"`
+	// For "all" topic - complete API schema
+	Types   []TypeSchema   `json:"types,omitempty"`
+	Modules []ModuleSchema `json:"modules,omitempty"`
+}
+
+// TypeSchema represents a type's complete schema for the "all" topic
+type TypeSchema struct {
+	Name       string                   `json:"name"`
+	Methods    []evaluator.MethodInfo   `json:"methods,omitempty"`
+	Properties []evaluator.PropertyInfo `json:"properties,omitempty"`
+}
+
+// ModuleSchema represents a module's complete schema for the "all" topic
+type ModuleSchema struct {
+	Name        string        `json:"name"`
+	Description string        `json:"description,omitempty"`
+	Exports     []ExportEntry `json:"exports,omitempty"`
 }
 
 // ExportEntry represents a module export for help output
@@ -70,6 +87,8 @@ func DescribeTopic(topic string) (*TopicResult, error) {
 		return describeOperators(), nil
 	case "types":
 		return describeTypes(), nil
+	case "all":
+		return describeAll(), nil
 	}
 
 	// Check for specific builtin name
@@ -256,6 +275,61 @@ func describeBuiltinByName(name string) *TopicResult {
 		Arity:       info.Arity,
 		Category:    info.Category,
 		Deprecated:  info.Deprecated,
+	}
+}
+
+// describeAll returns a complete API schema with all types, builtins, operators, and modules
+func describeAll() *TopicResult {
+	// Collect all types with their methods and properties
+	typeResult := describeTypes()
+	types := make([]TypeSchema, 0, len(typeResult.TypeNames))
+	for _, typeName := range typeResult.TypeNames {
+		typeInfo := describeType(typeName)
+		if typeInfo != nil {
+			types = append(types, TypeSchema{
+				Name:       typeName,
+				Methods:    typeInfo.Methods,
+				Properties: typeInfo.Properties,
+			})
+		}
+	}
+
+	// Collect all builtins
+	builtinResult := describeBuiltins()
+
+	// Collect all operators
+	operatorResult := describeOperators()
+
+	// Collect all modules
+	modules := make([]ModuleSchema, 0)
+	for _, name := range evaluator.GetStdlibModuleNames() {
+		moduleResult, err := describeModule("@std/" + name)
+		if err == nil {
+			modules = append(modules, ModuleSchema{
+				Name:        "@std/" + name,
+				Description: moduleResult.Description,
+				Exports:     moduleResult.Exports,
+			})
+		}
+	}
+	for _, name := range evaluator.GetBasilModuleNames() {
+		moduleResult, err := describeModule("@basil/" + name)
+		if err == nil {
+			modules = append(modules, ModuleSchema{
+				Name:        "@basil/" + name,
+				Description: moduleResult.Description,
+				Exports:     moduleResult.Exports,
+			})
+		}
+	}
+
+	return &TopicResult{
+		Kind:      "all",
+		Name:      "all",
+		Types:     types,
+		Builtins:  builtinResult.Builtins,
+		Operators: operatorResult.Operators,
+		Modules:   modules,
 	}
 }
 

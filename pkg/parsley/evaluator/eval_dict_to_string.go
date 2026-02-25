@@ -287,6 +287,23 @@ func tagDictToString(dict *Dictionary) string {
 
 // pathDictToString converts a path dictionary back to a string
 func pathDictToString(dict *Dictionary) string {
+	// Check for stdio special paths first
+	if stdioExpr, ok := dict.Pairs["__stdio"]; ok {
+		stdioObj := Eval(stdioExpr, dict.Env)
+		if stdioStr, ok := stdioObj.(*String); ok {
+			switch stdioStr.Value {
+			case "stdin":
+				return "stdin"
+			case "stdout":
+				return "stdout"
+			case "stderr":
+				return "stderr"
+			case "stdio":
+				return "-" // @- is context-dependent
+			}
+		}
+	}
+
 	// Get components array
 	componentsExpr, ok := dict.Pairs["segments"]
 	if !ok {

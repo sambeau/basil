@@ -104,7 +104,9 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		if node.IsLet {
 			env.SetLet(node.Name.Value, content)
 		} else {
-			env.Update(node.Name.Value, content)
+			if err := env.Update(node.Name.Value, content); isError(err) {
+				return err
+			}
 		}
 	}
 
@@ -551,6 +553,10 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 		var w *os.File
 		if stdioStream == "stdout" {
 			w = os.Stdout
+			// Mark that we wrote to stdout (for CLI to suppress null output)
+			if env != nil {
+				env.StdoutWritten = true
+			}
 		} else {
 			w = os.Stderr
 		}
