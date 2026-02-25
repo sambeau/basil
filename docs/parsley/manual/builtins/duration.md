@@ -21,7 +21,7 @@ let meeting = @1h30m
 
 vacation.seconds  // 1209600
 project.months    // 3
-meeting.format()  // "in 2 hours"
+meeting.fmt()     // "in 2 hours"
 ```
 
 ## Literals
@@ -303,33 +303,139 @@ mixed.days      // null (has month component)
 
 ## Methods
 
-### format()
+### fmt()
 
-#### Usage: format()
+The primary formatting method with multiple overloads.
 
-Format the duration as relative time in the default locale (en-US):
+#### Usage: fmt()
+
+Format with default style (medium) and locale (en-US). Returns relative time:
 
 ```parsley
-@1d.format()     // "tomorrow"
-@-1d.format()    // "yesterday"
-@7d.format()     // "next week"
-@-7d.format()    // "last week"
-@1mo.format()    // "next month"
-@1y.format()     // "next year"
-@2h.format()     // "in 2 hours"
-@-30m.format()   // "30 minutes ago"
+@2h.fmt()        // "in 2 hours"
+@-1d.fmt()       // "yesterday"
+@7d.fmt()        // "next week"
+@1mo.fmt()       // "next month"
 ```
 
-#### Usage: format(locale)
+#### Usage: fmt(style)
 
-Format with a specific locale:
+Format with a named style:
 
 ```parsley
-@1d.format("de-DE")     // "morgen"
-@-1d.format("de-DE")    // "gestern"
-@7d.format("fr-FR")     // "la semaine prochaine"
-@1mo.format("es-ES")    // "el próximo mes"
-@1y.format("ja-JP")     // "来年"
+let d = @2h30m
+
+d.fmt("short")   // "2h30m"
+d.fmt("medium")  // "in 3 hours"
+d.fmt("long")    // "2 hours 30 minutes"
+```
+
+> **Note:** Duration does not support the `full` style. Calling `.fmt("full")` or `.full()` will produce an error.
+
+#### Usage: fmt(style, locale)
+
+Format with style and locale:
+
+```parsley
+@1d.fmt("medium", "de-DE")    // "morgen"
+@-1d.fmt("medium", "de-DE")   // "gestern"
+@7d.fmt("medium", "fr-FR")    // "la semaine prochaine"
+```
+
+#### Usage: fmt(options)
+
+Format with an options dictionary:
+
+```parsley
+@2h30m.fmt({style: "long"})                    // "2 hours 30 minutes"
+@1d.fmt({style: "medium", locale: "de-DE"})    // "morgen"
+```
+
+### short()
+
+Compact format using abbreviations:
+
+```parsley
+@2h.short()           // "2h"
+@2h30m.short()        // "2h30m"
+@1d12h.short()        // "1d12h"
+@1y6mo.short()        // "1y6mo"
+
+// With locale:
+@2h30m.short("de-DE") // "2h30m"
+```
+
+### medium()
+
+Relative time format (default style):
+
+```parsley
+@1d.medium()          // "tomorrow"
+@-1d.medium()         // "yesterday"
+@7d.medium()          // "next week"
+@-7d.medium()         // "last week"
+@1mo.medium()         // "next month"
+@1y.medium()          // "next year"
+@2h.medium()          // "in 2 hours"
+@-30m.medium()        // "30 minutes ago"
+
+// With locale:
+@1d.medium("de-DE")   // "morgen"
+@-1d.medium("de-DE")  // "gestern"
+@1mo.medium("fr-FR")  // "le mois prochain"
+```
+
+### long()
+
+Verbose human-readable format:
+
+```parsley
+@2h.long()            // "2 hours"
+@2h30m.long()         // "2 hours 30 minutes"
+@1d12h.long()         // "1 day 12 hours"
+@1y6mo.long()         // "1 year 6 months"
+
+// With locale:
+@2h30m.long("de-DE")  // "2 Stunden 30 Minuten"
+```
+
+### format()
+
+Alias for `fmt()`. Retained for backward compatibility:
+
+```parsley
+@1d.format()          // "tomorrow"
+@2h30m.format("de-DE") // Locale-formatted
+```
+
+### repr()
+
+Returns a parseable literal representation:
+
+```parsley
+@2h.repr()            // "@duration{hours: 2}"
+@2h30m.repr()         // "@duration{hours: 2, minutes: 30}"
+@1y6mo.repr()         // "@duration{years: 1, months: 6}"
+```
+
+### toJSON()
+
+Returns the JSON representation:
+
+```parsley
+@2h30m.toJSON()       // "{\"months\":0,\"seconds\":9000}"
+```
+
+### inspect()
+
+Returns a debug dictionary with type information:
+
+```parsley
+@2h30m.inspect()
+// {__type: "duration", months: 0, seconds: 9000}
+
+@1y6mo.inspect()
+// {__type: "duration", months: 18, seconds: 0}
 ```
 
 ### toDict()
@@ -346,17 +452,29 @@ Returns a clean dictionary for reconstruction (without `__type`):
 
 Useful for serialization or passing duration data to other systems.
 
-### inspect()
+### toBox()
 
-Returns the full dictionary representation with `__type` for debugging:
+Renders the duration in a box diagram:
 
 ```parsley
-@2h30m.inspect()
-// {__type: "duration", months: 0, seconds: 9000}
-
-@1y6mo.inspect()
-// {__type: "duration", months: 18, seconds: 0}
+@2h30m.toBox()
 ```
+
+```
+┌────────────────────────┐
+│ 2 hours 30 minutes     │
+└────────────────────────┘
+```
+
+## Formatting Styles Summary
+
+| Style | Example (`@2h30m`) | Description |
+|-------|-------------------|-------------|
+| `short` | `"2h30m"` | Compact abbreviations |
+| `medium` (default) | `"in 3 hours"` | Relative time |
+| `long` | `"2 hours 30 minutes"` | Verbose human-readable |
+
+> **Note:** Duration does not support `full` style.
 
 ## String Conversion
 
@@ -443,8 +561,9 @@ Compound durations can have both:
 let deadline = @2025-01-01
 let remaining = deadline - @today
 
-remaining.format()              // "in 2 weeks"
-remaining.seconds / 86400       // Days remaining
+remaining.fmt()              // "in 2 weeks"
+remaining.long()             // "18 days"
+remaining.seconds / 86400    // Days remaining (numeric)
 ```
 
 ### Schedule Future Dates
@@ -492,7 +611,24 @@ let posted = @2024-12-10T14:00:00
 let now = @now
 let ago = now - posted
 
-ago.format()    // "5 days ago" (depends on current date)
+ago.fmt()       // "5 days ago" (depends on current date)
+ago.short()     // "5d"
+ago.long()      // "5 days"
+```
+
+### Format Selection by Context
+
+```parsley
+let duration = @2h30m
+
+// For compact UI elements (badges, timers)
+duration.short()     // "2h30m"
+
+// For natural language contexts
+duration.medium()    // "in 3 hours"
+
+// For detailed displays
+duration.long()      // "2 hours 30 minutes"
 ```
 
 ## Duration vs. Datetime Arithmetic

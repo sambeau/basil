@@ -8,6 +8,83 @@ For workflow/process questions, see [Workflow FAQ](../../work/docs/workflow-faq.
 
 ## Parsley Questions
 
+### How do I declare variables in Parsley?
+
+Use `let` for immutable bindings and `var` for mutable bindings:
+
+```parsley
+let name = "Alice"              // Immutable — cannot be reassigned
+var counter = 0                 // Mutable — can be reassigned
+
+counter = counter + 1           // OK
+// name = "Bob"                 // ERROR: cannot reassign immutable binding
+```
+
+**Key rules:**
+- Use `let` by default (immutable)
+- Use `var` only when you need to reassign
+- Explicit declaration is required — bare `x = 5` without `let`/`var` is an error
+- Immutability is shallow: you can mutate contents of `let` arrays/dicts
+
+*Added: 2025-01-22*
+
+### What's the difference between `let` and `var`?
+
+| Keyword | Binding | Reassignable | Use When |
+|---------|---------|--------------|----------|
+| `let` | Immutable | No | Default choice, value won't change |
+| `var` | Mutable | Yes | Need to reassign (counters, accumulators) |
+
+```parsley
+let items = [1, 2, 3]
+items[0] = 99                   // OK — mutating contents
+// items = [4, 5]               // ERROR — reassigning binding
+
+var total = 0
+for (x in items) {
+    total = total + x           // OK — var can be reassigned
+}
+```
+
+Loop variables and function parameters are implicitly immutable:
+
+```parsley
+for (x in [1, 2, 3]) {
+    // x = 99                   // ERROR: cannot reassign loop variable
+}
+
+let f = fn(a) {
+    // a = 10                   // ERROR: cannot reassign parameter
+    a + 1
+}
+```
+
+*Added: 2025-01-22*
+
+### How do I migrate old Parsley code to use let/var?
+
+Use the `pars migrate-let-var` command:
+
+```bash
+# Show what changes would be made
+pars migrate-let-var script.pars
+
+# Apply changes to file
+pars migrate-let-var -w script.pars
+
+# Recursively check a directory
+pars migrate-let-var -r ./src
+
+# List files that need migration
+pars migrate-let-var -l -r ./src
+```
+
+The tool automatically:
+- Converts `let` to `var` for bindings that are reassigned
+- Adds `let` (or `var` if reassigned) to implicit declarations
+
+*Added: 2025-01-22*
+
 ### How do I create interactive HTML components?
 Use Parts - create a `.part` file that exports view functions. Each view can respond to user interactions via `part-click` or `part-submit` attributes. See `examples/parts/` for a working example.
 

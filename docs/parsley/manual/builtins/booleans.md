@@ -132,16 +132,36 @@ true != false       // true
 
 ## Methods
 
-Booleans and null have minimal methods:
+Booleans and null support the unified serialization API:
 
 | Method | Description |
 |--------|-------------|
 | `.type()` | Returns `"boolean"` or `"null"` |
+| `.repr()` | Parseable literal representation |
+| `.toJSON()` | JSON representation |
+| `.inspect()` | Debug dictionary with `__type` |
 | `.toBox()` | Box-formatted string for display |
 
 ```parsley
 true.type()         // "boolean"
 null.type()         // "null"
+
+true.repr()         // "true"
+false.repr()        // "false"
+
+true.toJSON()       // "true"
+false.toJSON()      // "false"
+
+true.inspect()      // {__type: "boolean", value: true}
+false.inspect()     // {__type: "boolean", value: false}
+```
+
+> **Note:** Due to null propagation in Parsley, calling methods on `null` (except `.type()`) returns `null`. This enables safe chaining like `maybeNull?.foo().bar()`.
+
+```parsley
+null.repr()         // null (not "null")
+null.toJSON()       // null
+null.inspect()      // null
 ```
 
 ## Operator Precedence

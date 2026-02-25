@@ -60,6 +60,7 @@ Reference pages for each of Parsley's built-in types.
 | [DateTime](builtins/datetime.md) | Date and time values, formatting, and arithmetic |
 | [Duration](builtins/duration.md) | Time durations and date arithmetic |
 | [Money](builtins/money.md) | Currency values, arithmetic, and formatting |
+| [Units](builtins/units.md) | Physical measurements — length, mass, volume, temperature, area, and data |
 
 ## Features
 
@@ -113,8 +114,8 @@ Importable modules providing higher-level functionality.
 ### Files & External Systems
 [File I/O](features/file-io.md) · [Paths](builtins/paths.md) · [URLs](builtins/urls.md) · [HTTP & Networking](features/network.md) · [Shell Commands](features/commands.md) · [PLN](pln.md)
 
-### Dates, Numbers & Money
-[Numbers](builtins/numbers.md) · [DateTime](builtins/datetime.md) · [Duration](builtins/duration.md) · [Money](builtins/money.md) · [@std/math](stdlib/math.md)
+### Dates, Numbers, Money & Measurements
+[Numbers](builtins/numbers.md) · [DateTime](builtins/datetime.md) · [Duration](builtins/duration.md) · [Money](builtins/money.md) · [Units](builtins/units.md) · [@std/math](stdlib/math.md)
 
 ---
 

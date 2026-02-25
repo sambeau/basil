@@ -121,17 +121,46 @@ Throughout the methods below, many examples show both `.method(fn)` and `for` st
 for (x in [1, 2, 3, 4, 5]) { if (x > 2) { x } }    // [3, 4, 5]
 ```
 
-### format
+### fmt
 
-Format an array as a human-readable list, with locale support. This is unusual — most languages require a library for this:
+Format an array as a human-readable list with conjunction words. This is the primary formatting method for arrays.
+
+#### Usage: fmt(conjunction)
+
+Format with "and" or "or" conjunction:
 
 ```parsley
-["Alice", "Bob", "Charlie"].format("and")             // "Alice, Bob, and Charlie"
-["coffee", "tea", "milk"].format("or")                 // "coffee, tea, or milk"
-[1, 2, 3].format("unit")                              // "1, 2, 3"
+["Alice", "Bob", "Charlie"].fmt("and")       // "Alice, Bob, and Charlie"
+["coffee", "tea", "milk"].fmt("or")          // "coffee, tea, or milk"
+```
 
-// Locale-aware:
-["Alice", "Bob", "Charlie"].format("and", "Fr")        // "Alice, Bob et Charlie"
+#### Usage: fmt(conjunction, locale)
+
+Format with locale-aware conjunction words:
+
+```parsley
+["Alice", "Bob", "Charlie"].fmt("and", "de-DE")  // "Alice, Bob und Charlie"
+["Alice", "Bob", "Charlie"].fmt("and", "fr-FR")  // "Alice, Bob et Charlie"
+["Alice", "Bob", "Charlie"].fmt("or", "de-DE")   // "Alice, Bob oder Charlie"
+["Alice", "Bob", "Charlie"].fmt("or", "es-ES")   // "Alice, Bob o Charlie"
+```
+
+#### Edge Cases
+
+```parsley
+[].fmt("and")                                // "" (empty string)
+["Alice"].fmt("and")                         // "Alice" (no conjunction)
+["Alice", "Bob"].fmt("and")                  // "Alice and Bob" (no comma)
+["A", "B", "C"].fmt("and")                   // "A, B, and C" (Oxford comma)
+```
+
+### format
+
+Alias for `fmt()`. Retained for backward compatibility:
+
+```parsley
+["Alice", "Bob", "Charlie"].format("and")    // "Alice, Bob, and Charlie"
+["coffee", "tea", "milk"].format("or")       // "coffee, tea, or milk"
 ```
 
 ### insert
