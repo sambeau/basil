@@ -711,7 +711,7 @@ func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, en
 	var params []Object
 
 	if cf.Subquery == nil {
-		return "", nil, &Error{Message: "join subquery requires a subquery definition"}
+		return "", nil, newStateError("DSL-0001")
 	}
 
 	subquery := cf.Subquery
@@ -786,7 +786,7 @@ func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, 
 		}
 		return result, allParams, nil
 	default:
-		return "", nil, &Error{Message: "unknown condition node type in join subquery"}
+		return "", nil, newStateError("DSL-0002")
 	}
 }
 
@@ -905,7 +905,7 @@ func buildCorrelatedConditionSQL(node ast.QueryConditionNode, outerTableName str
 		}
 		return result, allParams, nil
 	default:
-		return "", nil, &Error{Message: "unknown condition node type in correlated subquery"}
+		return "", nil, newStateError("DSL-0003")
 	}
 }
 
@@ -995,7 +995,7 @@ func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, e
 func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
 	qc, ok := cond.(*ast.QueryCondition)
 	if !ok {
-		return "", nil, &Error{Message: "correlated subquery conditions must be simple conditions"}
+		return "", nil, newStructuredError("DSL-0004", nil)
 	}
 
 	// Build the subquery SQL

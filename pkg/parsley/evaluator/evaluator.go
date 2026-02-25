@@ -941,7 +941,7 @@ func isValidIdentifier(s string) bool {
 func (e *Environment) Update(name string, val Object) Object {
 	// Check if variable is protected
 	if e.IsProtected(name) {
-		return &Error{Message: fmt.Sprintf("cannot reassign protected variable '%s'", name)}
+		return newStructuredError("ASSIGN-0001", map[string]any{"Name": name})
 	}
 
 	// Check if variable is immutable (declared with 'let')
@@ -4599,7 +4599,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Export an already-defined binding: 'export Name'
 		val, ok := env.Get(node.Name.Value)
 		if !ok {
-			return &Error{Message: fmt.Sprintf("undefined identifier for export: %s", node.Name.Value)}
+			return newUndefinedError("EXPORT-0001", map[string]any{"Name": node.Name.Value})
 		}
 		// Mark as exported (value already in environment)
 		env.SetExport(node.Name.Value, val)
@@ -5537,7 +5537,7 @@ func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object
 		case *Boolean:
 			keyStr = fmt.Sprintf("%t", k.Value)
 		default:
-			return &Error{Message: fmt.Sprintf("computed dictionary key must be a string, integer, float, or boolean, got %s", keyObj.Type())}
+			return newStructuredError("DICT-0001", map[string]any{"Got": keyObj.Type()})
 		}
 
 		// Evaluate the value expression

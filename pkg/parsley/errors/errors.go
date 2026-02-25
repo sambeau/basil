@@ -1364,6 +1364,104 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Cannot divide {{.LeftSystem}} area by {{.RightSystem}} length",
 		Hints:    []string{"convert both to the same system first — use .to(\"m2\") or .to(\"ft2\")"},
 	},
+
+	// ========================================
+	// Box formatting errors (BOX-0xxx)
+	// ========================================
+	"BOX-0001": {
+		Class:    ClassFormat,
+		Template: "`toBox`: invalid style '{{.Style}}', expected 'single', 'double', 'ascii', or 'rounded'",
+	},
+	"BOX-0002": {
+		Class:    ClassType,
+		Template: "`toBox`: style option must be a string, got {{.Got}}",
+	},
+	"BOX-0003": {
+		Class:    ClassType,
+		Template: "`toBox`: title option must be a string, got {{.Got}}",
+	},
+	"BOX-0004": {
+		Class:    ClassValue,
+		Template: "`toBox`: maxWidth must be a non-negative integer",
+	},
+	"BOX-0005": {
+		Class:    ClassType,
+		Template: "`toBox`: maxWidth option must be an integer, got {{.Got}}",
+	},
+
+	// ========================================
+	// Export errors (EXPORT-0xxx)
+	// ========================================
+	"EXPORT-0001": {
+		Class:    ClassUndefined,
+		Template: "Cannot export undefined identifier '{{.Name}}'",
+		Hints:    []string{"Ensure '{{.Name}}' is defined before the export statement"},
+	},
+
+	// ========================================
+	// Dictionary errors (DICT-0xxx)
+	// ========================================
+	"DICT-0001": {
+		Class:    ClassType,
+		Template: "Computed dictionary key must be a string, integer, float, or boolean, got {{.Got}}",
+	},
+
+	// ========================================
+	// ID generation errors (ID-0xxx)
+	// ========================================
+	"ID-0001": {
+		Class:    ClassState,
+		Template: "Failed to generate random bytes for `{{.Function}}`",
+		Hints:    []string{"This is usually a system-level issue with the random number generator"},
+	},
+	"ID-0002": {
+		Class:    ClassValue,
+		Template: "NanoID length must be between 1 and 256, got {{.Got}}",
+	},
+
+	// ========================================
+	// Markdown doc errors (MDDOC-0xxx)
+	// ========================================
+	"MDDOC-0001": {
+		Class:    ClassType,
+		Template: "`mdDoc`: dictionary must have a 'type' field to be a valid markdown AST",
+	},
+
+	// ========================================
+	// Schema errors (SCHEMA-0xxx)
+	// ========================================
+	"SCHEMA-0001": {
+		Class:    ClassArity,
+		Template: "`schema.enum` requires at least one value",
+	},
+	"SCHEMA-0002": {
+		Class:    ClassType,
+		Template: "Schema has no fields defined",
+	},
+	"SCHEMA-0003": {
+		Class:    ClassType,
+		Template: "Schema fields must be a dictionary, got {{.Got}}",
+	},
+
+	// ========================================
+	// DSL query errors (DSL-0xxx)
+	// ========================================
+	"DSL-0001": {
+		Class:    ClassState,
+		Template: "Join subquery requires a subquery definition",
+	},
+	"DSL-0002": {
+		Class:    ClassState,
+		Template: "Unknown condition node type in join subquery",
+	},
+	"DSL-0003": {
+		Class:    ClassState,
+		Template: "Unknown condition node type in correlated subquery",
+	},
+	"DSL-0004": {
+		Class:    ClassType,
+		Template: "Correlated subquery conditions must be simple conditions",
+	},
 }
 
 // New creates a ParsleyError from the catalog.

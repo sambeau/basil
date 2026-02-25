@@ -149,7 +149,7 @@ func schemaBoolean(args ...Object) Object {
 // schemaEnum creates an enum type spec with allowed values
 func schemaEnum(args ...Object) Object {
 	if len(args) == 0 {
-		return &Error{Message: "schema.enum requires at least one value"}
+		return newStructuredError("SCHEMA-0001", nil)
 	}
 
 	// First arg can be options dict or the values themselves
@@ -314,13 +314,13 @@ func schemaValidate(args ...Object) Object {
 	// Get fields from schema
 	fieldsExpr, ok := schema.Pairs["fields"]
 	if !ok {
-		return &Error{Message: "Schema has no fields defined"}
+		return newStructuredError("SCHEMA-0002", nil)
 	}
 
 	fieldsObj := Eval(fieldsExpr, schema.Env)
 	fields, ok := fieldsObj.(*Dictionary)
 	if !ok {
-		return &Error{Message: "Schema fields must be a dictionary"}
+		return newStructuredError("SCHEMA-0003", map[string]any{"Got": fieldsObj.Type()})
 	}
 
 	// Validate each field
