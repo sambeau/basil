@@ -2677,7 +2677,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		}
 
 		if err != nil {
-			return newIOError("IO-0009", absPath, err)
+			return newIOError("IO-0006", absPath, err)
 		}
 		return NULL
 
@@ -2796,7 +2796,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 		}
 
 		if err != nil {
-			return newIOError("IO-0009", absPath, err)
+			return newIOError("IO-0006", absPath, err)
 		}
 		return NULL
 

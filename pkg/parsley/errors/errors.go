@@ -437,10 +437,7 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassIO,
 		Template: "SFTP {{.Operation}} failed: {{.GoError}}",
 	},
-	"IO-0009": {
-		Class:    ClassIO,
-		Template: "Failed to create directory '{{.Path}}': {{.GoError}}",
-	},
+	// IO-0009 removed - duplicate of IO-0006
 	"IO-0010": {
 		Class:    ClassIO,
 		Template: "Failed to remove directory '{{.Path}}': {{.GoError}}",
