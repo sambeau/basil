@@ -2,8 +2,9 @@
 id: PLAN-104
 feature: FEAT-125
 title: "Implementation Plan for Error Message Improvements"
-status: draft
+status: complete
 created: 2025-01-20
+completed: 2025-01-20
 ---
 
 # Implementation Plan: FEAT-125 Error Message Improvements
@@ -447,15 +448,15 @@ Tests:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Capitalization | ⬜ Not Started | |
-| | Task 2: Duplicates | ⬜ Not Started | |
-| | Task 3: Technical Language | ⬜ Not Started | |
-| | Task 4: Quote Style | ⬜ Not Started | |
-| | Task 5: Add Hints | ⬜ Not Started | |
-| | Task 6: Evaluator Codes | ⬜ Not Started | |
-| | Task 7: Parser Codes | ⬜ Not Started | |
-| | Task 8: fmt.Errorf | ⬜ Not Started | |
+| 2025-01-20 | Task 1: Capitalization | ✅ Complete | ASSIGN-0001 to ASSIGN-0004 fixed |
+| 2025-01-20 | Task 2: Duplicates | ✅ Complete | IO-0009 consolidated into IO-0006 |
+| 2025-01-20 | Task 3: Technical Language | ✅ Complete | LOOP-0003, FILEOP-0003, DEST-0002, SPREAD-0001, INTERNAL-* improved |
+| 2025-01-20 | Task 4: Quote Style | ✅ Complete | Added backticks to ~15 templates |
+| 2025-01-20 | Task 5: Add Hints | ✅ Complete | TYPE-0003, TYPE-0008, TYPE-0009, INDEX-*, OP-0002, DB-0002, IO-0002 |
+| 2025-01-20 | Task 6: Evaluator Codes | ✅ Complete | BOX-*, EXPORT-*, DICT-*, ID-*, MDDOC-*, SCHEMA-*, DSL-* added |
+| 2025-01-20 | Task 7: Parser Codes | ✅ Complete | PARSE-0012 to PARSE-0019 added, 11 parser errors converted |
+| 2025-01-20 | Task 8: fmt.Errorf | ✅ Complete | DT-*, ENCODE-*, DUR-* codes added; internal helpers deferred |
 
 ## Deferred Items
 
-None anticipated — all items scoped for 1.0.
+- **Internal helper function refactoring**: Functions like `dictToTime`, `encodeBytes`, `parseDurationString` still return Go `error` types which are wrapped by structured errors at call sites. Full refactoring to return `*Error` would require significant signature changes. Current behavior is acceptable as errors are wrapped with proper codes (FMT-0004, FILEOP-0006, etc.).

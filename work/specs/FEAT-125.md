@@ -1,8 +1,9 @@
 ---
 id: FEAT-125
 title: "Error Message Improvements"
-status: planned
+status: complete
 created: 2025-01-20
+completed: 2025-01-20
 ---
 
 # FEAT-125: Error Message Improvements

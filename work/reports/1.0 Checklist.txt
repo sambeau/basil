@@ -12,6 +12,7 @@
 - [x] With
 - [x] ERROR messages
 - [ ] Remove DEPRECATES
+- [ ] Missing tests?
 - [ ] update treesitter etc
 	- [ ] with {}
 	- [ ] var & let
