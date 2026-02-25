@@ -1095,7 +1095,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		p.addError(fmt.Sprintf("could not parse %q as integer", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0007", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": p.curToken.Literal})
 		return nil
 	}
 
@@ -1108,7 +1108,7 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		p.addError(fmt.Sprintf("could not parse %q as float", p.curToken.Literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0012", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": p.curToken.Literal})
 		return nil
 	}
 
@@ -1132,7 +1132,7 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 	// Token.Literal is in the form "/pattern/flags"
 	literal := p.curToken.Literal
 	if len(literal) < 2 || literal[0] != '/' {
-		p.addError(fmt.Sprintf("invalid regex literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0005", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 
@@ -1140,7 +1140,7 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 	// This handles /pattern/ and /pattern/flags
 	lastSlash := strings.LastIndex(literal[1:], "/")
 	if lastSlash == -1 {
-		p.addError(fmt.Sprintf("unterminated regex literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0017", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 	lastSlash++ // adjust for the slice offset
@@ -1228,7 +1228,7 @@ func (p *Parser) parseMoneyLiteral() ast.Expression {
 	// Find the # separator
 	before, after, ok := strings.Cut(literal, "#")
 	if !ok {
-		p.addError(fmt.Sprintf("invalid money literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0013", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 
@@ -1259,7 +1259,7 @@ func (p *Parser) parseUnitLiteral() ast.Expression {
 
 	// Strip the leading '#'
 	if len(literal) < 2 || literal[0] != '#' {
-		p.addError(fmt.Sprintf("invalid unit literal: %s", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0007", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 	body := literal[1:] // e.g., "12.3m", "-3/8in", "92+5/8in", "5m2"
@@ -1270,21 +1270,21 @@ func (p *Parser) parseUnitLiteral() ast.Expression {
 	numStr, suffix := splitUnitBody(body)
 
 	if suffix == "" {
-		p.addError(fmt.Sprintf("missing unit suffix in '%s'", literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0018", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 
 	// Look up suffix metadata
 	info, ok := lookupUnitSuffix(suffix)
 	if !ok {
-		p.addError(fmt.Sprintf("unknown unit suffix '%s' in '%s'", suffix, literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0019", p.curToken.Line, p.curToken.Column, map[string]any{"Suffix": suffix, "Literal": literal})
 		return nil
 	}
 
 	// Parse the numeric part and compute the internal Amount (scale-aware)
 	amount, scale, err := parseUnitAmount(numStr, suffix, info.System)
 	if err != "" {
-		p.addError(fmt.Sprintf("%s in '%s'", err, literal), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0007", p.curToken.Line, p.curToken.Column, map[string]any{"Literal": literal})
 		return nil
 	}
 
@@ -1855,8 +1855,7 @@ func (p *Parser) parseTagPair() ast.Expression {
 		if isVoidElement(tagExpr.Name) {
 			p.addStructuredError("PARSE-0008", openingLine, openingColumn, map[string]any{"Tag": tagExpr.Name})
 		} else {
-			p.addError(fmt.Sprintf("expected closing tag </%s>, got %s",
-				tagExpr.Name, tokenTypeToReadableName(p.curToken.Type)), openingLine, openingColumn)
+			p.addStructuredError("PARSE-0014", openingLine, openingColumn, map[string]any{"Expected": tagExpr.Name, "Got": tokenTypeToReadableName(p.curToken.Type)})
 		}
 		return nil
 	}
@@ -1864,8 +1863,7 @@ func (p *Parser) parseTagPair() ast.Expression {
 	// Validate closing tag matches opening tag
 	closingName := p.curToken.Literal
 	if closingName != tagExpr.Name {
-		p.addError(fmt.Sprintf("mismatched tags: opening <%s> but closing </%s>",
-			tagExpr.Name, closingName), p.curToken.Line, p.curToken.Column)
+		p.addStructuredError("PARSE-0015", p.curToken.Line, p.curToken.Column, map[string]any{"Opening": tagExpr.Name, "Closing": closingName})
 		return nil
 	}
 
@@ -2481,7 +2479,7 @@ func (p *Parser) parseNotInExpression(left ast.Expression) ast.Expression {
 
 	// Check if next token is 'in'
 	if !p.peekTokenIs(lexer.IN) {
-		p.addError(fmt.Sprintf("expected 'in' after 'not', got %s", p.peekToken.Type), p.peekToken.Line, p.peekToken.Column)
+		p.addStructuredError("PARSE-0016", p.peekToken.Line, p.peekToken.Column, map[string]any{"Got": p.peekToken.Literal})
 		return nil
 	}
 
@@ -2581,7 +2579,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 		}
 
 		// Not an arrow function, give normal error at comma
-		p.addError(fmt.Sprintf("expected ')', got '%s'", commaPos.Literal), commaPos.Line, commaPos.Column)
+		p.addStructuredError("PARSE-0001", commaPos.Line, commaPos.Column, map[string]any{"Expected": ")", "Got": commaPos.Literal})
 		return nil
 	}
 

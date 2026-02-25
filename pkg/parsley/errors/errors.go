@@ -225,6 +225,40 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassParse,
 		Template: "Error parsing {{.Context}} expression: {{.GoError}}",
 	},
+	"PARSE-0012": {
+		Class:    ClassParse,
+		Template: "Could not parse '{{.Literal}}' as float",
+	},
+	"PARSE-0013": {
+		Class:    ClassParse,
+		Template: "Invalid money literal: {{.Literal}}",
+	},
+	"PARSE-0014": {
+		Class:    ClassParse,
+		Template: "Expected closing tag </{{.Expected}}>, got {{.Got}}",
+	},
+	"PARSE-0015": {
+		Class:    ClassParse,
+		Template: "Mismatched tags: opening <{{.Opening}}> but closing </{{.Closing}}>",
+	},
+	"PARSE-0016": {
+		Class:    ClassParse,
+		Template: "Expected 'in' after 'not', got {{.Got}}",
+		Hints:    []string{"Use 'not in' for negated containment: x not in arr"},
+	},
+	"PARSE-0017": {
+		Class:    ClassParse,
+		Template: "Unterminated regex literal: {{.Literal}}",
+	},
+	"PARSE-0018": {
+		Class:    ClassParse,
+		Template: "Missing unit suffix in '{{.Literal}}'",
+		Hints:    []string{"Unit literals need a suffix like m, cm, kg, etc."},
+	},
+	"PARSE-0019": {
+		Class:    ClassParse,
+		Template: "Unknown unit suffix '{{.Suffix}}' in '{{.Literal}}'",
+	},
 
 	// ========================================
 	// Type errors (TYPE-0xxx)
