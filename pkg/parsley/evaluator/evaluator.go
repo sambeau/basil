@@ -3192,6 +3192,9 @@ func getBuiltins() map[string]*Builtin {
 
 				// Handle arrays (list formatting)
 				if arr, ok := args[0].(*Array); ok {
+					// Emit deprecation warning - recommend method form instead
+					emitDeprecationWarning("DEP-005", "format(array, style) is deprecated, use array.format(style) instead")
+
 					// Convert array elements to strings
 					items := make([]string, len(arr.Elements))
 					for i, elem := range arr.Elements {

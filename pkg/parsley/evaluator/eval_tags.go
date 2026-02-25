@@ -986,6 +986,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 	// Special handling for <Label>...</Label> form component (FEAT-091)
 	if node.Name == "Label" {
+		emitDeprecationWarning("DEP-002", "<Label> is deprecated, use <label @field> instead")
 		// Evaluate contents
 		contentsObj := evalTagContentsAsArray(node.Contents, env)
 		if isError(contentsObj) {
@@ -2210,12 +2211,15 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	// Note: These uppercase components are deprecated in favor of lowercase versions
 	// <Label @field> -> <label @field>, <Error @field> -> <error @field>, etc.
 	if tagName == "Label" {
+		emitDeprecationWarning("DEP-002", "<Label> is deprecated, use <label @field> instead")
 		return evalLabelComponent(propsStr, nil, true, env)
 	}
 	if tagName == "Error" {
+		emitDeprecationWarning("DEP-003", "<Error> is deprecated, use <error @field> instead")
 		return evalErrorComponent(propsStr, nil, true, env)
 	}
 	if tagName == "Meta" {
+		emitDeprecationWarning("DEP-004", "<Meta @field> is deprecated, use <val @field @key=\"help\"/> instead")
 		return evalMetaComponent(propsStr, env)
 	}
 	if tagName == "Select" {

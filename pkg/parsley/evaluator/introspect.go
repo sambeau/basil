@@ -386,7 +386,6 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"date":     {Name: "date", Arity: "1-2", Description: "Parse date string with locale support", Params: []string{"input", "options?"}, Category: "time"},
 	"time":     {Name: "time", Arity: "1", Description: "Parse time-only string (e.g., '3:45 PM')", Params: []string{"input"}, Category: "time"},
 	"datetime": {Name: "datetime", Arity: "1-2", Description: "Parse datetime from string, timestamp, or dict with locale support", Params: []string{"input", "options?"}, Category: "time"},
-	"now":      {Name: "now", Arity: "0", Description: "Current datetime", Params: []string{}, Category: "time", Deprecated: "Use @now datetime literal instead"},
 
 	// === URLs ===
 	"url": {Name: "url", Arity: "1", Description: "Parse URL string into components", Params: []string{"urlString"}, Category: "url"},
