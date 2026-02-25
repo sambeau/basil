@@ -16,7 +16,7 @@
 	- [ ] with {}
 	- [ ] var & let
 	- [ ] units
-- [ ] Pars
+- [x] Pars
 - [x] < >? &nbsp; Space builtin __ _ — <_> -- NOPE not needed
 - [ ] Std libs
 	- [ ] Audit
