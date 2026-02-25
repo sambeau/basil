@@ -240,6 +240,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"TYPE-0003": {
 		Class:    ClassType,
 		Template: "Cannot call {{.Got}} as a function",
+		Hints:    []string{"Only functions can be called with ()"},
 	},
 	"TYPE-0004": {
 		Class:    ClassType,
@@ -262,10 +263,12 @@ var ErrorCatalog = map[string]ErrorDef{
 	"TYPE-0008": {
 		Class:    ClassType,
 		Template: "Cannot index {{.Got}} with {{.IndexType}}",
+		Hints:    []string{"Arrays use integer indices (arr[0]); dictionaries use string keys (dict[\"key\"])"},
 	},
 	"TYPE-0009": {
 		Class:    ClassType,
 		Template: "Comparison function must return boolean, got {{.Got}}",
+		Hints:    []string{"Sort callbacks should return true if a comes before b"},
 	},
 	"TYPE-0010": {
 		Class:    ClassType,
@@ -412,6 +415,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"IO-0002": {
 		Class:    ClassIO,
 		Template: "Module not found: {{.Path}}",
+		Hints:    []string{"Check that the file path exists and is spelled correctly"},
 	},
 	"IO-0003": {
 		Class:    ClassIO,
@@ -453,6 +457,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"DB-0002": {
 		Class:    ClassDatabase,
 		Template: "Query failed: {{.GoError}}",
+		Hints:    []string{"Check SQL syntax and ensure parameter count matches placeholders"},
 	},
 	"DB-0003": {
 		Class:    ClassDatabase,
@@ -570,6 +575,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"INDEX-0001": {
 		Class:    ClassIndex,
 		Template: "Index {{.Index}} out of range (length {{.Length}})",
+		Hints:    []string{"Valid indices are 0 to length-1"},
 	},
 	"INDEX-0002": {
 		Class:    ClassIndex,
@@ -586,6 +592,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"INDEX-0005": {
 		Class:    ClassIndex,
 		Template: "Key '{{.Key}}' not found in dictionary",
+		Hints:    []string{"Use .get(key, default) to provide a fallback value"},
 	},
 
 	// ========================================
@@ -666,6 +673,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"OP-0002": {
 		Class:    ClassOperator,
 		Template: "Division by zero",
+		Hints:    []string{"Check if the divisor is zero before dividing"},
 	},
 	"OP-0003": {
 		Class:    ClassOperator,
