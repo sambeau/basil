@@ -23,7 +23,7 @@ func TestWithExpressionBasic(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "simple dictionary unpacking",
@@ -170,7 +170,7 @@ func TestWithExpressionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "empty dictionary",

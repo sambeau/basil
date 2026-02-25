@@ -2,7 +2,7 @@
 id: PLAN-105
 feature: FEAT-126
 title: "Implementation Plan for Test Coverage Gap Remediation"
-status: in-progress
+status: complete
 created: 2025-02-26
 ---
 
@@ -91,12 +91,12 @@ Tests:
 ---
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./pkg/parsley/...`
-- [ ] `with` expression has > 0% coverage
-- [ ] `multiplyLengthToAreaUS` has > 0% coverage
-- [ ] `divideAreaByLength` functions have > 0% coverage
-- [ ] Linter passes: `golangci-lint run`
-- [ ] Audit report updated
+- [x] All tests pass: `go test ./pkg/parsley/...`
+- [x] `with` expression has > 0% coverage (88.9%)
+- [x] `multiplyLengthToAreaUS` has > 0% coverage (76.2%)
+- [x] `divideAreaByLength` functions have > 0% coverage (73.7%-100%)
+- [x] Linter passes: `golangci-lint run`
+- [x] Audit report updated
 
 ## Progress Log
 | Date | Task | Status | Notes |
@@ -104,7 +104,7 @@ Tests:
 | 2025-02-26 | Task 1 | ✅ Complete | Added `with_test.go` with 25 test cases |
 | 2025-02-26 | Task 2 | ✅ Complete | Added US area multiplication tests (ft×ft, yd×yd, in×in, mi×mi) |
 | 2025-02-26 | Task 3 | ✅ Complete | Added SI and US area division tests |
-| | Task 4 | ⬚ Not Started | |
+| 2025-02-26 | Task 4 | ✅ Complete | Verified coverage, updated audit report |
 
 ## Deferred Items
 Items to add to work/BACKLOG.md after implementation:
