@@ -839,6 +839,22 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 			return builtin
 		}
 
+		// Special error for removed print functions
+		if perrors.RemovedPrintFunctions[node.Value] {
+			parsleyErr := perrors.NewRemovedPrintError(node.Value)
+			parsleyErr.Line = node.Token.Line
+			parsleyErr.Column = node.Token.Column
+			return &Error{
+				Message: parsleyErr.Message,
+				Class:   parsleyErr.Class,
+				Code:    parsleyErr.Code,
+				Hints:   parsleyErr.Hints,
+				Line:    parsleyErr.Line,
+				Column:  parsleyErr.Column,
+				File:    env.Filename,
+			}
+		}
+
 		// Special error for @params at module scope
 		if node.Value == "@params" {
 			return &Error{

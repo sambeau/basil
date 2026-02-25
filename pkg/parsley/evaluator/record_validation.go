@@ -187,6 +187,21 @@ func validateType(value Object, field *DSLSchemaField, title string) *RecordErro
 				Message: formatErrorMessage(ErrCodeType, map[string]string{"title": title, "type": "string"}),
 			}
 		}
+	case "unit":
+		// Unit type validation
+		unit, ok := value.(*Unit)
+		if !ok {
+			return &RecordError{
+				Code:    ErrCodeType,
+				Message: formatErrorMessage(ErrCodeType, map[string]string{"title": title, "type": "unit"}),
+			}
+		}
+		// Check unit constraint if specified
+		if field.UnitConstraint != "" {
+			if err := validateUnitConstraint(unit, field.UnitConstraint, title); err != nil {
+				return err
+			}
+		}
 	}
 	// Other types: no type check (future: datetime, money, etc.)
 	return nil
@@ -503,4 +518,30 @@ func isBase32Char(r rune) bool {
 		return true
 	}
 	return false
+}
+
+// validateUnitConstraint validates a unit value against a unit constraint.
+// The constraint can be a family name ("mass", "length", etc.) or a specific suffix ("kg", "cm").
+func validateUnitConstraint(unit *Unit, constraint string, title string) *RecordError {
+	// Check if constraint is a family name
+	switch constraint {
+	case "mass", "length", "data", "temperature", "volume", "area":
+		// Family constraint: check that the unit's family matches
+		if unit.Family != constraint {
+			return &RecordError{
+				Code:    ErrCodeType,
+				Message: fmt.Sprintf("%s must be a %s unit, got %s", title, constraint, unit.Family),
+			}
+		}
+		return nil
+	default:
+		// Specific suffix constraint: check that the unit's display hint matches
+		if unit.DisplayHint != constraint {
+			return &RecordError{
+				Code:    ErrCodeType,
+				Message: fmt.Sprintf("%s must be in %s, got %s", title, constraint, unit.DisplayHint),
+			}
+		}
+		return nil
+	}
 }

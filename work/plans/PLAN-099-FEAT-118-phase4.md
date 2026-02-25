@@ -2,7 +2,7 @@
 id: PLAN-099
 feature: FEAT-118
 title: "Implementation Plan for Measurement Units — Phase 4 (Polish)"
-status: draft
+status: complete
 created: 2025-01-14
 ---
 
@@ -455,12 +455,12 @@ Tasks can be implemented in any order. Each is self-contained.
 
 ## Validation Checklist
 
-- [ ] All existing unit tests still pass
-- [ ] New tests for derived arithmetic pass
-- [ ] New tests for schema unit types pass
-- [ ] New tests for compound formatting pass
-- [ ] Documentation updated (reference.md, CHEATSHEET.md)
-- [ ] Error messages follow Parsley conventions (clear, actionable hints)
+- [x] All existing unit tests still pass
+- [x] New tests for derived arithmetic pass
+- [x] New tests for schema unit types pass
+- [x] New tests for compound formatting pass
+- [x] Documentation updated (reference.md, CHEATSHEET.md)
+- [x] Error messages follow Parsley conventions (clear, actionable hints)
 
 ---
 
@@ -468,7 +468,11 @@ Tasks can be implemented in any order. Each is self-contained.
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| — | — | — | — |
+| 2025-01-14 | Task 1: Derived Unit Arithmetic | Complete | length × length → area, area / length → length implemented in `eval_unit_infix.go`. Cross-system errors (UNIT-0014, UNIT-0015) added. Tests in `unit_derived_test.go`. |
+| 2025-01-14 | Task 2: Schema Integration | Complete | Unit family types (`mass`, `length`, etc.) recognized in schemas. `unit(suffix: "kg")` and `unit(family: "mass")` options supported. Validation in `record_validation.go`. Tests in `schema_unit_test.go`. |
+| 2025-01-14 | Task 3: Compound Display | Complete | `.format("ft-in")`, `.format("lb-oz")`, `.format("compound")` implemented in `methods_unit.go`. Tests in `unit_format_test.go`. |
+| 2025-01-14 | Task 3: Compound Display (extended) | Complete | Added `"gal-qt-pt"` and `"L-mL"` formats. Added cross-system auto-convert (SI→US for `"ft-in"`, US→SI for `"L-mL"`). Volume compound auto-detect in `"compound"`. |
+| 2025-01-14 | Documentation | Complete | Updated `reference.md`: derived arithmetic, schema unit types, compound formatting. Updated `CHEATSHEET.md`: all Phase 4 features with examples. |
 
 ---
 
