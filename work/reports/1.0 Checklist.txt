@@ -1,0 +1,32 @@
+# 1.0 Checklist
+
+- [x] Derived units m3 <--> m2 <--> m
+- [x] squaremetres -> metres2
+- [x] Manual for Units
+- [x] Formatters for all builtins
+- [x] Check what Print/ln does
+- [x] Units & schema
+- [x] Remove ``return``? --> NO
+- [x] Let & Const
+- [x] Const?
+- [x] With
+- [ ] ERROR messages
+- [ ] Remove DEPRECATES
+- [ ] update treesitter etc
+	- [ ] with {}
+	- [ ] var & let
+	- [ ] units
+- [ ] Pars
+- [x] < >? &nbsp; Space builtin __ _ — <_> -- NOPE not needed
+- [ ] Std libs
+	- [ ] Audit
+	- [ ] Format 
+	- [ ] Help
+	- [ ] Missing?
+	- [ ] New builtins?
+- [ ] Audit @std
+	- [ ] Rethink API
+	- [ ] Remove Table
+	- [ ] Redo HTML
+	- [ ] MdDocs
+	- [ ] Add a smattering of unicode, just cos
