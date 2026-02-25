@@ -396,6 +396,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "@params is not available at module scope",
 		// Hints added in evalIdentifier
 	},
+	"UNDEF-0020": {
+		Class:    ClassUndefined,
+		Template: "Unknown function '{{.Name}}'",
+		// Hints added dynamically by NewRemovedPrintError
+	},
 
 	// ========================================
 	// I/O errors (IO-0xxx)
@@ -744,6 +749,30 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassOperator,
 		Template: "Unsupported operation between money and number: {{.Operator}}",
 		Hints:    []string{"only * and / are allowed between money and numbers"},
+	},
+
+	// ========================================
+	// Assignment errors (ASSIGN-0xxx)
+	// ========================================
+	"ASSIGN-0001": {
+		Class:    ClassState,
+		Template: "cannot reassign immutable binding '{{.Name}}'",
+		Hints:    []string{"Use 'var' instead of 'let' if you need to reassign this variable"},
+	},
+	"ASSIGN-0002": {
+		Class:    ClassState,
+		Template: "cannot reassign loop variable '{{.Name}}'",
+		Hints:    []string{"Loop variables are immutable within the loop body"},
+	},
+	"ASSIGN-0003": {
+		Class:    ClassState,
+		Template: "cannot reassign function parameter '{{.Name}}'",
+		Hints:    []string{"Function parameters are immutable; create a local 'var' copy if you need to modify it"},
+	},
+	"ASSIGN-0004": {
+		Class:    ClassUndefined,
+		Template: "cannot assign to undeclared variable '{{.Name}}'",
+		Hints:    []string{"Declare the variable first with 'let {{.Name}} = ...' or 'var {{.Name}} = ...'"},
 	},
 
 	// ========================================
@@ -1315,6 +1344,16 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Cannot divide temperature by temperature",
 		Hints:    []string{"the ratio of two offset-scale temperatures is meaningless — convert to kelvin if you need a ratio"},
 	},
+	"UNIT-0014": {
+		Class:    ClassOperator,
+		Template: "Cannot multiply {{.LeftSystem}} length by {{.RightSystem}} length",
+		Hints:    []string{"convert both to the same system first — use .to(\"m\") or .to(\"ft\")"},
+	},
+	"UNIT-0015": {
+		Class:    ClassOperator,
+		Template: "Cannot divide {{.LeftSystem}} area by {{.RightSystem}} length",
+		Hints:    []string{"convert both to the same system first — use .to(\"m2\") or .to(\"ft2\")"},
+	},
 }
 
 // New creates a ParsleyError from the catalog.
@@ -1603,7 +1642,25 @@ func NewMethodAsProperty(method, typeName string) *ParsleyError {
 
 // Parsley reserved keywords for fuzzy matching against typos
 var ParsleyKeywords = []string{
-	"if", "else", "for", "in", "fn", "let", "const", "return",
+	"if", "else", "for", "in", "fn", "let", "var", "const", "return",
 	"true", "false", "null", "and", "or", "not", "import", "export",
 	"break", "continue", "switch", "case", "default",
+}
+
+// RemovedPrintFunctions contains the print functions that were removed from Parsley
+var RemovedPrintFunctions = map[string]bool{
+	"print":   true,
+	"println": true,
+	"printf":  true,
+}
+
+// NewRemovedPrintError creates a helpful error for attempts to use removed print functions.
+// This teaches users the expression-based output model.
+func NewRemovedPrintError(name string) *ParsleyError {
+	err := New("UNDEF-0020", map[string]any{"Name": name})
+	err.Hints = []string{
+		"Parsley uses expression-based output — just write the value directly instead of " + name + "(value)",
+		"For debugging, use log()",
+	}
+	return err
 }

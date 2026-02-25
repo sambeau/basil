@@ -498,7 +498,7 @@ func TestParsleyKeywords(t *testing.T) {
 	// Verify we have all the expected keywords
 	expected := map[string]bool{
 		"if": true, "else": true, "for": true, "in": true, "fn": true,
-		"let": true, "const": true, "return": true, "true": true, "false": true,
+		"let": true, "var": true, "const": true, "return": true, "true": true, "false": true,
 		"null": true, "and": true, "or": true, "not": true, "import": true,
 		"export": true, "break": true, "continue": true, "switch": true,
 		"case": true, "default": true,

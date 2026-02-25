@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/pkg/sftp"
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -81,7 +82,6 @@ const (
 	TABLE_OBJ            = "TABLE"
 	TABLE_BINDING_OBJ    = "TABLE_BINDING"
 	MDDOC_OBJ            = "MDDOC"
-	PRINT_VALUE_OBJ      = "PRINT_VALUE"
 	MONEY_OBJ            = "MONEY"
 	UNIT_OBJ             = "UNIT"
 	REDIRECT_OBJ         = "REDIRECT" // HTTP redirect response
@@ -216,14 +216,6 @@ type ReturnValue struct {
 
 func (rv *ReturnValue) Type() ObjectType { return RETURN_OBJ }
 func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
-
-// PrintValue represents values to be added to the result stream by print()/println()
-type PrintValue struct {
-	Values []Object
-}
-
-func (pv *PrintValue) Type() ObjectType { return PRINT_VALUE_OBJ }
-func (pv *PrintValue) Inspect() string  { return "<print>" }
 
 // StopSignal signals early exit from a for loop
 type StopSignal struct{}
@@ -671,10 +663,12 @@ type Environment struct {
 	Filename      string
 	RootPath      string // Handler root directory for @~/ path resolution
 	LastToken     *lexer.Token
-	letBindings   map[string]bool // tracks which variables were declared with 'let'
+	letBindings   map[string]bool // tracks which variables were declared with 'let' or 'var'
+	immutable     map[string]bool // tracks which variables are immutable (declared with 'let', not 'var')
 	exports       map[string]bool // tracks which variables were explicitly exported
 	protected     map[string]bool // tracks which variables cannot be reassigned
 	Security      *SecurityPolicy // File system security policy
+	StdoutWritten bool            // tracks whether stdout was written to via ==> text(@stdout)
 	Logger        Logger          // Logger for log()/logLine() output
 	importStack   map[string]bool // tracks modules being imported (for circular dep detection)
 	DevLog        DevLogWriter    // Dev log writer (nil in production mode)
@@ -703,10 +697,11 @@ func NewEnvironment() *Environment {
 func NewEnvironmentWithArgs(args []string) *Environment {
 	s := make(map[string]Object)
 	l := make(map[string]bool)
+	im := make(map[string]bool)
 	x := make(map[string]bool)
 	p := make(map[string]bool)
 	i := make(map[string]bool)
-	env := &Environment{store: s, outer: nil, letBindings: l, exports: x, protected: p, importStack: i, Logger: DefaultLogger}
+	env := &Environment{store: s, outer: nil, letBindings: l, immutable: im, exports: x, protected: p, importStack: i, Logger: DefaultLogger}
 
 	// Populate @env from environment variables
 	envPairs := make(map[string]ast.Expression)
@@ -777,10 +772,19 @@ func (e *Environment) Set(name string, val Object) Object {
 	return val
 }
 
-// SetLet stores a value in the environment and marks it as a let binding
+// SetLet stores a value in the environment and marks it as a let binding (immutable)
 func (e *Environment) SetLet(name string, val Object) Object {
 	e.store[name] = val
 	e.letBindings[name] = true
+	e.immutable[name] = true
+	return val
+}
+
+// SetVar stores a value in the environment and marks it as a var binding (mutable)
+func (e *Environment) SetVar(name string, val Object) Object {
+	e.store[name] = val
+	e.letBindings[name] = true
+	// Note: not added to immutable map, so it remains mutable
 	return val
 }
 
@@ -791,21 +795,44 @@ func (e *Environment) SetExport(name string, val Object) Object {
 	return val
 }
 
-// SetLetExport stores a value in the environment, marks it as a let binding AND exported
+// SetLetExport stores a value in the environment, marks it as a let binding (immutable) AND exported
 func (e *Environment) SetLetExport(name string, val Object) Object {
 	e.store[name] = val
 	e.letBindings[name] = true
+	e.immutable[name] = true
 	e.exports[name] = true
 	return val
 }
 
-// IsLetBinding checks if a variable was declared with let
+// SetVarExport stores a value in the environment, marks it as a var binding (mutable) AND exported
+func (e *Environment) SetVarExport(name string, val Object) Object {
+	e.store[name] = val
+	e.letBindings[name] = true
+	// Note: not added to immutable map, so it remains mutable
+	e.exports[name] = true
+	return val
+}
+
+// IsLetBinding checks if a variable was declared with let or var
 func (e *Environment) IsLetBinding(name string) bool {
 	// Check current environment
 	if e.letBindings[name] {
 		return true
 	}
 	// Don't check outer environments - each module has its own scope
+	return false
+}
+
+// IsImmutable checks if a variable is immutable (declared with 'let', not 'var')
+func (e *Environment) IsImmutable(name string) bool {
+	// Check current environment
+	if e.immutable[name] {
+		return true
+	}
+	// Check outer environments for closures
+	if e.outer != nil {
+		return e.outer.IsImmutable(name)
+	}
 	return false
 }
 
@@ -887,13 +914,44 @@ func (e *Environment) UserVariables() map[string]Object {
 	return result
 }
 
+// isValidIdentifier checks if a string can be used as a Parsley variable name.
+// Valid identifiers start with a letter or underscore, followed by
+// letters, digits, or underscores. Also supports Unicode letters.
+func isValidIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if i == 0 {
+			if !unicode.IsLetter(r) && r != '_' {
+				return false
+			}
+		} else {
+			if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Update stores a value in the environment where it's defined (current or outer)
 // If the variable doesn't exist anywhere, it creates it in the current scope
-// Returns an error if trying to reassign a protected variable
+// Returns an error if trying to reassign a protected or immutable variable
 func (e *Environment) Update(name string, val Object) Object {
 	// Check if variable is protected
 	if e.IsProtected(name) {
 		return &Error{Message: fmt.Sprintf("cannot reassign protected variable '%s'", name)}
+	}
+
+	// Check if variable is immutable (declared with 'let')
+	if e.IsImmutable(name) {
+		return &Error{
+			Class:   ClassState,
+			Code:    "ASSIGN-0001",
+			Message: fmt.Sprintf("cannot reassign immutable binding '%s'", name),
+			Hints:   []string{"Use 'var' instead of 'let' if you need to reassign this variable"},
+		}
 	}
 
 	// Check if variable exists in current scope
@@ -909,9 +967,13 @@ func (e *Environment) Update(name string, val Object) Object {
 		}
 	}
 
-	// Variable doesn't exist anywhere, create it in current scope
-	e.store[name] = val
-	return val
+	// Variable doesn't exist anywhere - error on implicit declaration
+	return &Error{
+		Class:   ClassUndefined,
+		Code:    "ASSIGN-0004",
+		Message: fmt.Sprintf("cannot assign to undeclared variable '%s'", name),
+		Hints:   []string{fmt.Sprintf("Declare the variable first with 'let %s = ...' or 'var %s = ...'", name, name)},
+	}
 }
 
 // NewDictionaryFromObjects creates a Dictionary from a map of Objects
@@ -3520,51 +3582,7 @@ func getBuiltins() map[string]*Builtin {
 				return NULL
 			},
 		},
-		"print": {
-			Fn: func(args ...Object) Object {
-				if len(args) == 0 {
-					return newArityError("print", 0, 1)
-				}
-				return &PrintValue{Values: args}
-			},
-		},
-		"println": {
-			Fn: func(args ...Object) Object {
-				// println with no args just returns a newline
-				if len(args) == 0 {
-					return &PrintValue{Values: []Object{&String{Value: "\n"}}}
-				}
-				// Append newline after all values
-				values := make([]Object, len(args)+1)
-				copy(values, args)
-				values[len(args)] = &String{Value: "\n"}
-				return &PrintValue{Values: values}
-			},
-		},
-		"printf": {
-			Fn: func(args ...Object) Object {
-				if len(args) != 2 {
-					return newArityError("printf", len(args), 2)
-				}
 
-				templateStr, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0005", "printf", "a string (template)", args[0].Type())
-				}
-
-				dict, ok := args[1].(*Dictionary)
-				if !ok {
-					return newTypeError("TYPE-0006", "printf", "a dictionary (values)", args[1].Type())
-				}
-
-				renderEnv, errObj := buildRenderEnv(dict.Env, dict)
-				if errObj != nil {
-					return errObj
-				}
-
-				return interpolateRawString(templateStr.Value, renderEnv)
-			},
-		},
 		"fail": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -4500,21 +4518,29 @@ func Eval(node ast.Node, env *Environment) Object {
 			if isErrorCapturePattern(node.DictPattern) && isResponseTypedDict(val) {
 				val = responseTypedDictToLegacy(val.(*Dictionary), env)
 			}
-			return evalDictDestructuringAssignment(node.DictPattern, val, env, true, node.Export)
+			return evalDictDestructuringAssignment(node.DictPattern, val, env, true, node.Export, node.Mutable)
 		}
 
 		// Handle array destructuring assignment
 		if node.ArrayPattern != nil {
-			return evalArrayPatternAssignment(node.ArrayPattern, val, env, true, node.Export)
+			return evalArrayPatternAssignment(node.ArrayPattern, val, env, true, node.Export, node.Mutable)
 		}
 
 		// Single assignment
 		// Special handling for '_' - don't store it
 		if node.Name.Value != "_" {
 			if node.Export {
-				env.SetLetExport(node.Name.Value, val)
+				if node.Mutable {
+					env.SetVarExport(node.Name.Value, val)
+				} else {
+					env.SetLetExport(node.Name.Value, val)
+				}
 			} else {
-				env.SetLet(node.Name.Value, val)
+				if node.Mutable {
+					env.SetVar(node.Name.Value, val)
+				} else {
+					env.SetLet(node.Name.Value, val)
+				}
 			}
 		}
 		// Declarations return NULL (excluded from block concatenation)
@@ -4560,7 +4586,10 @@ func Eval(node ast.Node, env *Environment) Object {
 			if node.Export {
 				env.SetExport(node.Name.Value, val)
 			} else {
-				env.Update(node.Name.Value, val)
+				result := env.Update(node.Name.Value, val)
+				if isError(result) {
+					return result
+				}
 			}
 		}
 		// Assignments return NULL (excluded from block concatenation)
@@ -4965,6 +4994,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.ForExpression:
 		return evalForExpression(node, env)
 
+	case *ast.WithExpression:
+		return evalWithExpression(node, env)
+
 	case *ast.IndexExpression:
 		left := Eval(node.Left, env)
 		if isError(left) {
@@ -5046,18 +5078,6 @@ func evalProgram(stmts []ast.Statement, env *Environment) Object {
 				return result.(*CheckExit).Value
 			}
 
-			// Handle PrintValue - expand into results as strings
-			if rt == PRINT_VALUE_OBJ {
-				pv := result.(*PrintValue)
-				for _, v := range pv.Values {
-					str := objectToUserString(v)
-					if str != "" { // Skip empty (null produces "")
-						results = append(results, &String{Value: str})
-					}
-				}
-				continue
-			}
-
 			// Collect non-NULL results
 			if rt != NULL_OBJ {
 				results = append(results, result)
@@ -5091,18 +5111,6 @@ func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
 			// Bubble up control flow signals (stop, skip, check exit)
 			if rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ || rt == CHECK_EXIT_OBJ {
 				return result
-			}
-
-			// Handle PrintValue - expand into results as strings
-			if rt == PRINT_VALUE_OBJ {
-				pv := result.(*PrintValue)
-				for _, v := range pv.Values {
-					str := objectToUserString(v)
-					if str != "" { // Skip empty (null produces "")
-						results = append(results, &String{Value: str})
-					}
-				}
-				continue
 			}
 
 			// Collect non-NULL results
@@ -5140,18 +5148,6 @@ func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Obj
 			// Bubble up control flow signals (stop, skip, check exit)
 			if rt == STOP_SIGNAL_OBJ || rt == SKIP_SIGNAL_OBJ || rt == CHECK_EXIT_OBJ {
 				return result
-			}
-
-			// Handle PrintValue - expand into results as strings
-			if rt == PRINT_VALUE_OBJ {
-				pv := result.(*PrintValue)
-				for _, v := range pv.Values {
-					str := objectToUserString(v)
-					if str != "" { // Skip empty (null produces "")
-						results = append(results, &String{Value: str})
-					}
-				}
-				continue
 			}
 
 			// Collect non-NULL results
