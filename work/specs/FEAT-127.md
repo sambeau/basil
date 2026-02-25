@@ -1,9 +1,10 @@
 ---
 id: FEAT-127
 title: "Parsley 1.0 Release Readiness"
-status: draft
+status: complete
 priority: critical
 created: 2025-02-26
+completed: 2025-02-26
 author: "@ai"
 ---
 
@@ -16,12 +17,12 @@ Complete all must-fix items identified in the 1.0 Readiness Audit before the Par
 As a Parsley user, I want the 1.0 release to have consistent, unsurprising behavior and clear deprecation paths so that I can write reliable code and plan migrations.
 
 ## Acceptance Criteria
-- [ ] Named regex capture groups return dictionaries with named keys
-- [ ] `failIfInvalid()` accepts an optional custom message parameter
-- [ ] Deprecation warnings are emitted for all legacy APIs
-- [ ] `migrate-let-var` command is removed from CLI help
-- [ ] All existing tests continue to pass
-- [ ] New tests cover the changed behavior
+- [x] Named regex capture groups return dictionaries with named keys
+- [x] `failIfInvalid()` accepts an optional custom message parameter
+- [x] Deprecation warnings are emitted for all legacy APIs
+- [x] `migrate-let-var` command is removed from CLI help
+- [x] All existing tests continue to pass
+- [x] New tests cover the changed behavior
 
 ## Design Decisions
 - **Named captures include full match**: Return `{0: "full match", name1: "...", name2: "..."}` to preserve backward compatibility for code that checks array length
@@ -118,7 +119,39 @@ record.failIfInvalid("User data is invalid")
 5. **Deprecation in loops**: Warning shown only once, not per iteration
 
 ## Implementation Notes
-*Added during/after implementation*
+
+### Task 1: Named Capture Groups
+- Implemented in `pkg/parsley/evaluator/eval_regex.go`
+- Added `hasNamedGroups()` helper and `buildMatchDictionary()` function
+- Returns dictionary only when regex has named groups (backward compatible)
+
+### Task 2: Custom failIfInvalid Message  
+- Modified `pkg/parsley/evaluator/methods_record.go`
+- Changed arity check from `!= 0` to `> 1`
+- Added optional string parameter extraction with type checking
+
+### Task 3: Deprecation Infrastructure
+- Created `pkg/parsley/evaluator/deprecation.go`
+- Uses `sync.Map` for thread-safe warning deduplication
+- Format: `DEPRECATION WARNING: <message> [<code>]`
+
+### Task 4: Deprecate now()
+- **Skipped**: `now()` was never implemented as a function
+- Removed misleading entry from `introspect.go`
+
+### Task 5-7: Deprecation Warnings Added
+- DEP-001: @std/table → use @table literal
+- DEP-002: <Label> → use <label @field>
+- DEP-003: <Error> → use <error @field>
+- DEP-004: <Meta @field> → use <val @field @key="help"/>
+- DEP-005: format(array, style) → use array.format(style)
+
+### Task 8: CLI Help Cleanup
+- Removed `migrate-let-var` from help text and examples
+- Command still works (hidden) for users who know about it
+
+### Tests Added
+- `pkg/parsley/tests/feat127_test.go` with 18+ test cases
 
 ## Related
 - Plan: `work/plans/PLAN-106.md`
