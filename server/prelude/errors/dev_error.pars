@@ -50,11 +50,11 @@
 			}
 
 			if (error.source) {
-				lines = error.source
-				finalLineWidth = toString(lines[-1].number).length()
-				errorPath = path(error.file)
-				errorDir = errorPath.segments[:-1].join(" / ")
-				filename = errorPath.filename
+				let lines = error.source
+				let finalLineWidth = toString(lines[-1].number).length()
+				let errorPath = path(error.file)
+				let errorDir = errorPath.segments[:-1].join(" / ")
+				let filename = errorPath.filename
 				<h5><i class="fa-solid fa-code"></i><Sp/>"Source Code"</h5>
 				if (error.file) {
 					<div class="location">
@@ -75,7 +75,7 @@
 				<table class="striped code overflow-auto">
 					<tr class="empty"><td></td><td></td><td></td></tr>
 					for (line in lines) {
-						thisLineWidth = toString(line.number).length()
+						let thisLineWidth = toString(line.number).length()
 						let pad = if (thisLineWidth < finalLineWidth) " " else ""
 						let codeLine = line.content.htmlEncode()
 						if (line.is_error) {
@@ -107,9 +107,9 @@
 				</table>
 			} else if (error.file) {
 				// Show file/line info even when source is not available
-				errorPath = path(error.file)
-				errorDir = errorPath.segments[:-1].join(" / ")
-				filename = errorPath.filename
+				let errorPath = path(error.file)
+				let errorDir = errorPath.segments[:-1].join(" / ")
+				let filename = errorPath.filename
 				<h5><i class="fa-solid fa-code"></i><Sp/>"Location"</h5>
 				<div class="location">
 					<Sp/>

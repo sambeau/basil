@@ -4,19 +4,17 @@
 export TextField = fn(props) {
     // Extract component-specific props, spread the rest to the input
     let {name, label, type, value, hint, error, required, id, class, ...inputAttrs} = props
-    
+
     // Generate IDs for accessibility
     let fieldId = id ?? "field-" ++ name
     let inputId = fieldId ++ "-input"
     let hintId = if (hint) { fieldId ++ "-hint" } else { null }
     let errorId = if (error) { fieldId ++ "-error" } else { null }
-    
+
     // Build aria-describedby from hint and error IDs
-    let describedByParts = []
-    if (hintId) { describedByParts = describedByParts ++ [hintId] }
-    if (errorId) { describedByParts = describedByParts ++ [errorId] }
+    let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
     let describedBy = if (describedByParts.length() > 0) { describedByParts.join(" ") } else { null }
-    
+
     <div class={"field" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
         <label for={inputId}>
             label
@@ -24,7 +22,7 @@ export TextField = fn(props) {
                 <span class="field-required" aria-hidden="true">" *"</span>
             }
         </label>
-        <input 
+        <input
             type={type ?? "text"}
             id={inputId}
             name={name}
