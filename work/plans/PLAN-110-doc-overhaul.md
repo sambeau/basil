@@ -863,11 +863,11 @@ pars reference --format markdown > /tmp/full-ref.md
 | 2026-02-26 | 4A Deprecated modules | ✅ Complete | Added deprecation notices to schema.md and table.md |
 | 2026-02-26 | 4B Fix session | ✅ Complete | Renamed to 'Session Management', clarified basil.session access |
 | 2026-02-26 | 4C Fix regex section | ✅ Complete | Already done in Phase 2 — match() in separate subsection |
-| | 5A FormatMarkdown | ⬜ Pending | |
-| | 5B reference cmd | ⬜ Pending | |
-| | 5C Extract fragments | ⬜ Pending | |
-| | 5D Composition | ⬜ Pending | |
-| | 5E CI verification | ⬜ Pending | |
+| 2026-02-27 | 5A FormatMarkdown | ✅ Complete | Created format_markdown.go with formatters for all TopicResult kinds |
+| 2026-02-27 | 5B reference cmd | ✅ Complete | Added `pars reference` subcommand with --format, --verify, --template flags |
+| 2026-02-27 | 5C Extract fragments | ✅ Complete | Created reference-fragments/ with 10 hand-written section files |
+| 2026-02-27 | 5D Composition | ✅ Complete | Created compose.go template engine with include/generate/template directives |
+| 2026-02-27 | 5E CI verification | ✅ Complete | Added make verify-docs, make docs, make docs-full targets; generated api-reference.md |
 | 2026-02-27 | 6A AI Quick Start | ✅ Complete | Added 🤖 AI Agent Quick Start section with pars describe table, key rules, verification examples |
 | 2026-02-27 | 6B Replace tables | ✅ Complete | Option A already implemented - tables have pars describe references at top of Method Reference section |
 | 2026-02-27 | 6C Copilot instructions | ✅ Complete | Added API Reference section, verification workflow, documentation accuracy rules |
