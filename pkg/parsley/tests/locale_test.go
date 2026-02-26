@@ -395,7 +395,7 @@ func TestFormatDurationErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`format("not a duration")`, "must be a duration or array"},
+		{`format("not a duration")`, "must be a duration"},
 		{`format({})`, "must be a duration"},
 		{`format(@1d, 123)`, "must be a string"},
 	}
@@ -429,27 +429,27 @@ func TestFormatListEnglish(t *testing.T) {
 		expected string
 	}{
 		// Empty and single-item lists
-		{`format([])`, ""},
-		{`format(["apple"])`, "apple"},
+		{`[].format()`, ""},
+		{`["apple"].format()`, "apple"},
 
 		// Two-item lists
-		{`format(["apple", "banana"])`, "apple and banana"},
-		{`format(["apple", "banana"], "or")`, "apple or banana"},
+		{`["apple", "banana"].format()`, "apple and banana"},
+		{`["apple", "banana"].format("or")`, "apple or banana"},
 
 		// Three-item lists (with Oxford comma for en-US)
-		{`format(["apple", "banana", "cherry"])`, "apple, banana, and cherry"},
-		{`format(["apple", "banana", "cherry"], "or")`, "apple, banana, or cherry"},
+		{`["apple", "banana", "cherry"].format()`, "apple, banana, and cherry"},
+		{`["apple", "banana", "cherry"].format("or")`, "apple, banana, or cherry"},
 
 		// Four-item lists
-		{`format(["apple", "banana", "cherry", "date"])`, "apple, banana, cherry, and date"},
+		{`["apple", "banana", "cherry", "date"].format()`, "apple, banana, cherry, and date"},
 
 		// Unit style (no conjunction)
-		{`format(["5 feet", "6 inches"], "unit")`, "5 feet, 6 inches"},
-		{`format(["1 hour", "30 minutes", "15 seconds"], "unit")`, "1 hour, 30 minutes, 15 seconds"},
+		{`["5 feet", "6 inches"].format("unit")`, "5 feet, 6 inches"},
+		{`["1 hour", "30 minutes", "15 seconds"].format("unit")`, "1 hour, 30 minutes, 15 seconds"},
 
 		// Non-string elements get converted
-		{`format([1, 2, 3])`, "1, 2, and 3"},
-		{`format([true, false])`, "true and false"},
+		{`[1, 2, 3].format()`, "1, 2, and 3"},
+		{`[true, false].format()`, "true and false"},
 	}
 
 	for _, tt := range tests {
@@ -477,8 +477,8 @@ func TestFormatListEnglishGB(t *testing.T) {
 		expected string
 	}{
 		// No Oxford comma for en-GB
-		{`format(["apple", "banana", "cherry"], "and", "en-GB")`, "apple, banana and cherry"},
-		{`format(["apple", "banana", "cherry"], "or", "en-GB")`, "apple, banana or cherry"},
+		{`["apple", "banana", "cherry"].format("and", "en-GB")`, "apple, banana and cherry"},
+		{`["apple", "banana", "cherry"].format("or", "en-GB")`, "apple, banana or cherry"},
 	}
 
 	for _, tt := range tests {
@@ -505,9 +505,9 @@ func TestFormatListGerman(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`format(["Apfel", "Banane"], "and", "de-DE")`, "Apfel und Banane"},
-		{`format(["Apfel", "Banane", "Kirsche"], "and", "de-DE")`, "Apfel, Banane und Kirsche"},
-		{`format(["Apfel", "Banane"], "or", "de-DE")`, "Apfel oder Banane"},
+		{`["Apfel", "Banane"].format("and", "de-DE")`, "Apfel und Banane"},
+		{`["Apfel", "Banane", "Kirsche"].format("and", "de-DE")`, "Apfel, Banane und Kirsche"},
+		{`["Apfel", "Banane"].format("or", "de-DE")`, "Apfel oder Banane"},
 	}
 
 	for _, tt := range tests {
@@ -534,9 +534,9 @@ func TestFormatListFrench(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`format(["pomme", "banane"], "and", "fr-FR")`, "pomme et banane"},
-		{`format(["pomme", "banane", "cerise"], "and", "fr-FR")`, "pomme, banane et cerise"},
-		{`format(["pomme", "banane"], "or", "fr-FR")`, "pomme ou banane"},
+		{`["pomme", "banane"].format("and", "fr-FR")`, "pomme et banane"},
+		{`["pomme", "banane", "cerise"].format("and", "fr-FR")`, "pomme, banane et cerise"},
+		{`["pomme", "banane"].format("or", "fr-FR")`, "pomme ou banane"},
 	}
 
 	for _, tt := range tests {
@@ -564,9 +564,9 @@ func TestFormatListJapanese(t *testing.T) {
 		expected string
 	}{
 		// Japanese uses different separators
-		{`format(["りんご", "バナナ"], "and", "ja-JP")`, "りんごとバナナ"},
-		{`format(["りんご", "バナナ", "さくらんぼ"], "and", "ja-JP")`, "りんご、バナナ、さくらんぼ"},
-		{`format(["りんご", "バナナ"], "or", "ja-JP")`, "りんごまたはバナナ"},
+		{`["りんご", "バナナ"].format("and", "ja-JP")`, "りんごとバナナ"},
+		{`["りんご", "バナナ", "さくらんぼ"].format("and", "ja-JP")`, "りんご、バナナ、さくらんぼ"},
+		{`["りんご", "バナナ"].format("or", "ja-JP")`, "りんごまたはバナナ"},
 	}
 
 	for _, tt := range tests {
@@ -593,9 +593,9 @@ func TestFormatListChinese(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`format(["苹果", "香蕉"], "and", "zh-CN")`, "苹果和香蕉"},
-		{`format(["苹果", "香蕉", "樱桃"], "and", "zh-CN")`, "苹果、香蕉和樱桃"},
-		{`format(["苹果", "香蕉"], "or", "zh-CN")`, "苹果或香蕉"},
+		{`["苹果", "香蕉"].format("and", "zh-CN")`, "苹果和香蕉"},
+		{`["苹果", "香蕉", "樱桃"].format("and", "zh-CN")`, "苹果、香蕉和樱桃"},
+		{`["苹果", "香蕉"].format("or", "zh-CN")`, "苹果或香蕉"},
 	}
 
 	for _, tt := range tests {
@@ -622,9 +622,9 @@ func TestFormatListRussian(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`format(["яблоко", "банан"], "and", "ru-RU")`, "яблоко и банан"},
-		{`format(["яблоко", "банан", "вишня"], "and", "ru-RU")`, "яблоко, банан и вишня"},
-		{`format(["яблоко", "банан"], "or", "ru-RU")`, "яблоко или банан"},
+		{`["яблоко", "банан"].format("and", "ru-RU")`, "яблоко и банан"},
+		{`["яблоко", "банан", "вишня"].format("and", "ru-RU")`, "яблоко, банан и вишня"},
+		{`["яблоко", "банан"].format("or", "ru-RU")`, "яблоко или банан"},
 	}
 
 	for _, tt := range tests {
@@ -651,9 +651,9 @@ func TestFormatListErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`format(["a", "b"], 123)`, "must be a string"},
-		{`format(["a", "b"], "invalid")`, "invalid style"},
-		{`format(["a", "b"], "and", 123)`, "must be a string"},
+		{`["a", "b"].format(123)`, "must be a string"},
+		{`["a", "b"].format("invalid")`, "invalid style"},
+		{`["a", "b"].format("and", 123)`, "must be a string"},
 	}
 
 	for _, tt := range tests {

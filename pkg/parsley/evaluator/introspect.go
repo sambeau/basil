@@ -274,9 +274,7 @@ var TypeMethods = map[string][]MethodInfo{
 		{Name: "setLogRoute", Arity: "1", Description: "Set log route pattern"},
 		{Name: "clearLogPage", Arity: "0", Description: "Clear page log"},
 	},
-	"tablemodule": {
-		{Name: "fromDict", Arity: "1", Description: "Create table from dictionary"},
-	},
+
 	"function": {
 		// Functions have no methods but we include them for completeness
 	},
@@ -397,7 +395,7 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message string or error dictionary (must have 'message' key)", Params: []string{"message_or_dict"}, Category: "control"},
 
 	// === Formatting ===
-	"format": {Name: "format", Arity: "1-3", Description: "Format array as list (and/or/unit) or duration as relative time", Params: []string{"value", "style?", "locale?"}, Category: "format", Deprecated: "Use array.format(style) or duration.fmt(style) instead"},
+	"format": {Name: "format", Arity: "1-2", Description: "Format duration as relative time", Params: []string{"duration", "locale?"}, Category: "format"},
 	"tag":    {Name: "tag", Arity: "1-3", Description: "Create HTML tag", Params: []string{"name", "attributes?", "content?"}, Category: "format"},
 
 	// === Regex ===
@@ -460,8 +458,7 @@ func getObjectTypeString(obj Object) string {
 		return "session"
 	case *DevModule:
 		return "module"
-	case *TableModule:
-		return "module"
+
 	case *StdlibRoot:
 		return "module"
 	case *BasilRoot:
@@ -550,8 +547,7 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 		return "session", ""
 	case *DevModule:
 		return "dev", ""
-	case *TableModule:
-		return "tablemodule", ""
+
 	case *StdlibRoot:
 		return "stdlib", ""
 	case *BasilRoot:

@@ -116,13 +116,7 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	case *AuthWrappedFunction:
 		// Delegate to the inner function
 		return ApplyFunctionWithEnv(fn.Inner, args, env)
-	case *TableModule:
-		// TableModule is callable: table(arr) creates a Table from an array
-		result := TableConstructor(args, env)
-		if isError(result) {
-			return enrichErrorWithPos(result, env.LastToken)
-		}
-		return result
+
 	case *MdDocModule:
 		// MdDocModule is callable: mdDoc(text) or mdDoc(dict) creates an MdDoc
 		result := evalMdDocModuleCall(args, env)

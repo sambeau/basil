@@ -455,7 +455,6 @@ func TestSkippedTypes_Documented(t *testing.T) {
 		"sftpfile":       "Requires SFTP connection",
 		"session":        "Requires server context",
 		"dev":            "Requires dev module setup",
-		"tablemodule":    "Requires table module initialization",
 	}
 
 	testValues := createTestValues()
@@ -574,14 +573,14 @@ func TestBUG023_MatchMetadata(t *testing.T) {
 	}
 }
 
-// TestBUG023_FormatMetadata verifies that `format` is described as an array/duration formatter.
+// TestBUG023_FormatMetadata verifies that `format` is described as a duration formatter.
 func TestBUG023_FormatMetadata(t *testing.T) {
 	meta, exists := BuiltinMetadata["format"]
 	if !exists {
 		t.Fatal("BuiltinMetadata is missing entry for 'format'")
 	}
-	if meta.Arity != "1-3" {
-		t.Errorf("format arity: got %q, want %q", meta.Arity, "1-3")
+	if meta.Arity != "1-2" {
+		t.Errorf("format arity: got %q, want %q", meta.Arity, "1-2")
 	}
 	if strings.Contains(strings.ToLower(meta.Description), "placeholder") {
 		t.Errorf("format description should not mention placeholders: %q", meta.Description)
@@ -589,8 +588,8 @@ func TestBUG023_FormatMetadata(t *testing.T) {
 	if strings.Contains(strings.ToLower(meta.Description), "template") {
 		t.Errorf("format description should not mention template: %q", meta.Description)
 	}
-	if meta.Deprecated == "" {
-		t.Error("format should be marked as deprecated")
+	if strings.Contains(strings.ToLower(meta.Description), "array") {
+		t.Errorf("format description should not mention arrays (removed in 1.0): %q", meta.Description)
 	}
 }
 

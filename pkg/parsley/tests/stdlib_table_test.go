@@ -11,35 +11,45 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
-func TestStdlibTableImport(t *testing.T) {
-	input := `let {table} = import @std/table
-table`
+func TestStdlibTableImportReturnsError(t *testing.T) {
+	input := `let {table} = import @std/table`
 
-	l := lexer.New(input)
-	p := parser.New(l)
-	program := p.ParseProgram()
-	if len(p.Errors()) > 0 {
-		t.Fatalf("parser errors: %v", p.Errors())
+	result, err := parsley.Eval(input)
+	if err != nil {
+		// Parser error is also acceptable
+		return
 	}
-
-	if len(p.Errors()) > 0 {
-		t.Fatalf("parser errors: %v", p.Errors())
-	}
-
-	env := evaluator.NewEnvironment()
-	result := evaluator.Eval(program, env)
 
 	if result == nil {
 		t.Fatal("result is nil")
 	}
 
-	if result.Type() == evaluator.ERROR_OBJ {
-		t.Fatalf("evaluation error: %s", result.Inspect())
+	// Should be an error telling user to use @table literal instead
+	if result.Value.Type() != evaluator.ERROR_OBJ {
+		t.Fatalf("expected error from @std/table import, got %s", result.Value.Type())
 	}
 
-	// Table should be a StdlibBuiltin
-	if result.Type() != evaluator.BUILTIN_OBJ {
-		t.Errorf("expected BUILTIN, got %s", result.Type())
+	errMsg := result.Value.Inspect()
+	if !strings.Contains(errMsg, "@table") && !strings.Contains(errMsg, "table") {
+		t.Errorf("expected error to mention @table literal, got: %s", errMsg)
+	}
+}
+
+func TestTableBuiltinAvailable(t *testing.T) {
+	input := `let data = [{name: "Alice", age: 30}]
+table(data).count()`
+
+	result, err := parsley.Eval(input)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	if result.Value.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Value.Inspect())
+	}
+
+	if result.Value.Inspect() != "1" {
+		t.Errorf("expected 1, got %s", result.Value.Inspect())
 	}
 }
 
@@ -203,7 +213,7 @@ func TestTableBuiltinProperties(t *testing.T) {
 }
 
 func TestTableConstructor(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 let t = table(data)
 t`
@@ -222,7 +232,7 @@ t`
 }
 
 func TestTableEmptyArray(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 table([])`
 
 	result := evalTest(t, input)
@@ -238,8 +248,8 @@ func TestTableInvalidInput(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`let {table} = import @std/table; table("not array")`, "requires an array"},
-		{`let {table} = import @std/table; table([1, 2, 3])`, "expected dictionary"},
+		{`table("not array")`, "requires an array"},
+		{`table([1, 2, 3])`, "expected dictionary"},
 	}
 
 	for _, tt := range tests {
@@ -262,7 +272,7 @@ func TestTableInvalidInput(t *testing.T) {
 }
 
 func TestTableRows(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{a: 1}, {a: 2}]
 table(data).rows`
 
@@ -279,7 +289,7 @@ table(data).rows`
 }
 
 func TestTableCount(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{a: 1}, {a: 2}, {a: 3}]
 table(data).count()`
 
@@ -296,7 +306,7 @@ table(data).count()`
 }
 
 func TestTableWhere(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}, {name: "Carol", age: 35}]
 table(data).where(fn(row) { row.age > 25 }).count()`
 
@@ -313,7 +323,7 @@ table(data).where(fn(row) { row.age > 25 }).count()`
 }
 
 func TestTableOrderBy(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
 let t = table(data).orderBy("name")
 t.rows[0].name`
@@ -331,7 +341,7 @@ t.rows[0].name`
 }
 
 func TestTableOrderByDesc(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
 let t = table(data).orderBy("val", "desc")
 t.rows[0].val`
@@ -349,7 +359,7 @@ t.rows[0].val`
 }
 
 func TestTableOrderByAsc(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
 let t = table(data).orderBy("val", "asc")
 t.rows[0].val`
@@ -368,7 +378,7 @@ t.rows[0].val`
 
 func TestTableOrderByDynamic(t *testing.T) {
 	// Test programmatic control of sort direction
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Carol", val: 3}, {name: "Alice", val: 1}, {name: "Bob", val: 2}]
 let sortDir = "desc"
 let t = table(data).orderBy("val", sortDir)
@@ -387,7 +397,7 @@ t.rows[0].val`
 }
 
 func TestTableSelect(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{a: 1, b: 2, c: 3}, {a: 4, b: 5, c: 6}]
 let t = table(data).select(["a", "c"])
 t.rows[0].b`
@@ -401,7 +411,7 @@ t.rows[0].b`
 }
 
 func TestTableLimit(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
 table(data).limit(2).count()`
 
@@ -414,7 +424,7 @@ table(data).limit(2).count()`
 }
 
 func TestTableLimitOffset(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{v: 1}, {v: 2}, {v: 3}, {v: 4}, {v: 5}]
 let t = table(data).limit(2, 2)
 t.rows[0].v`
@@ -428,7 +438,7 @@ t.rows[0].v`
 }
 
 func TestTableSum(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: 10}, {val: 20}, {val: 30}]
 table(data).sum("val")`
 
@@ -445,7 +455,7 @@ table(data).sum("val")`
 }
 
 func TestTableAvg(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: 10}, {val: 20}, {val: 30}]
 table(data).avg("val")`
 
@@ -462,7 +472,7 @@ table(data).avg("val")`
 }
 
 func TestTableMinMax(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: 10}, {val: 20}, {val: 5}]
 let tbl = table(data)
 let minVal = tbl.min("val"); let maxVal = tbl.max("val"); [minVal, maxVal]`
@@ -482,7 +492,7 @@ let minVal = tbl.min("val"); let maxVal = tbl.max("val"); [minVal, maxVal]`
 }
 
 func TestTableToHTML(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Alice", age: 30}]
 table(data).toHTML()`
 
@@ -509,7 +519,7 @@ table(data).toHTML()`
 }
 
 func TestTableToCSV(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
 table(data).toCSV()`
 
@@ -533,7 +543,7 @@ table(data).toCSV()`
 }
 
 func TestTableCSVEscaping(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{text: "hello, world"}, {text: "has \"quotes\""}]
 table(data).toCSV()`
 
@@ -552,8 +562,8 @@ table(data).toCSV()`
 }
 
 func TestTableChaining(t *testing.T) {
-	input := `let {table} = import @std/table
-let data = [{name: "Alice", age: 30, active: true}, 
+	input := `
+let data = [{name: "Alice", age: 30, active: true},
         {name: "Bob", age: 25, active: true},
         {name: "Carol", age: 35, active: false},
         {name: "Dan", age: 28, active: true}]
@@ -576,7 +586,7 @@ table(data)
 }
 
 func TestTableImmutability(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: 1}, {val: 2}, {val: 3}]
 let original = table(data)
 let filtered = original.where(fn(row) { row.val > 1 })
@@ -621,7 +631,7 @@ func TestUnknownStdlibModule(t *testing.T) {
 // TestTableSumWithStringNumbers tests that sum() coerces string numbers
 func TestTableSumWithStringNumbers(t *testing.T) {
 	// Create a table with string values (simulating legacy or mixed data)
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: "10"}, {val: "20"}, {val: "30"}]
 table(data).sum("val")`
 
@@ -639,7 +649,7 @@ table(data).sum("val")`
 
 // TestTableAvgWithStringNumbers tests that avg() coerces string numbers
 func TestTableAvgWithStringNumbers(t *testing.T) {
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: "10"}, {val: "20"}, {val: "30"}]
 table(data).avg("val")`
 
@@ -658,7 +668,7 @@ table(data).avg("val")`
 // TestTableMinWithStringNumbers tests that min() coerces string numbers for proper numeric comparison
 func TestTableMinWithStringNumbers(t *testing.T) {
 	// Without coercion, "5" > "10" lexicographically, so min would wrongly be "10"
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: "5"}, {val: "10"}, {val: "2"}]
 table(data).min("val")`
 
@@ -677,7 +687,7 @@ table(data).min("val")`
 // TestTableMaxWithStringNumbers tests that max() coerces string numbers for proper numeric comparison
 func TestTableMaxWithStringNumbers(t *testing.T) {
 	// Without coercion, "9" > "100" lexicographically, so max would wrongly be "9"
-	input := `let {table} = import @std/table
+	input := `
 let data = [{val: "9"}, {val: "100"}, {val: "50"}]
 table(data).max("val")`
 
@@ -851,7 +861,7 @@ func TestDictionaryEntries(t *testing.T) {
 	}
 }
 
-func TestTableFromDict(t *testing.T) {
+func TestTableFromDictLiteral(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      string
@@ -859,18 +869,16 @@ func TestTableFromDict(t *testing.T) {
 		expectCols []string
 	}{
 		{
-			name: "fromDict with default column names",
-			input: `let {table} = import @std/table
-let d = {a: 1, b: 2}
-table.fromDict(d)`,
+			name: "table from array of dicts",
+			input: `
+@table [{key: "a", value: 1}, {key: "b", value: 2}]`,
 			expectRows: 2,
 			expectCols: []string{"key", "value"},
 		},
 		{
-			name: "fromDict with custom column names",
-			input: `let {table} = import @std/table
-let d = {"Total": 100, "Active": 50}
-table.fromDict(d, "Category", "Value")`,
+			name: "table from array of dicts with custom columns",
+			input: `
+@table [{Category: "Total", Value: 100}, {Category: "Active", Value: 50}]`,
 			expectRows: 2,
 			expectCols: []string{"Category", "Value"},
 		},
@@ -1465,10 +1473,10 @@ func TestTableCopyOnChainFunctionArg(t *testing.T) {
 		let getLength = fn(tbl) {
 			tbl.length
 		}
-		
+
 		let data = table([{x: 1}, {x: 2}, {x: 3}])
 		let filtered = data.where(fn(r) { r.x > 1 })
-		
+
 		// Pass to function - should end chain
 		getLength(filtered)
 	`

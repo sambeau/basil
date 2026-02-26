@@ -193,8 +193,7 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 	switch receiver := left.(type) {
 	case *DevModule:
 		return evalDevModuleMethod(receiver, method, args, env)
-	case *TableModule:
-		return evalTableModuleMethod(receiver, method, args, env)
+
 	case *Table:
 		return EvalTableMethod(receiver, method, args, env)
 	case *TableBinding:

@@ -33,8 +33,8 @@ func init() {
 		"schema": &schemaModuleMeta,
 		"api":    &apiModuleMeta,
 		"dev":    &devModuleMeta,
-		"table":  &tableModuleMeta,
-		"hash":   &hashModuleMeta,
+
+		"hash": &hashModuleMeta,
 	}
 	basilModuleMeta = map[string]*ModuleMeta{
 		"http": &basilHTTPModuleMeta,

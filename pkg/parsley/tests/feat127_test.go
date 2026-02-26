@@ -8,14 +8,13 @@
 package tests
 
 import (
-	"bytes"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 	"github.com/sambeau/basil/pkg/parsley/parser"
+	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
 // =============================================================================
@@ -197,125 +196,44 @@ func TestFailIfInvalidArityError(t *testing.T) {
 }
 
 // =============================================================================
-// Task 3: Deprecation Warning Infrastructure
+// Task 3: Removed Features (formerly deprecation warnings)
 // =============================================================================
 
-func TestDeprecationWarningEmittedOnce(t *testing.T) {
-	// Reset warnings before test
-	evaluator.ResetDeprecationWarningsForTesting()
-
-	// Capture stderr
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
-	// Run code that triggers deprecation twice
-	code := `
-		let a = format([1, 2], "and")
-		let b = format([3, 4], "or")
-		a
-	`
-	_ = evalCodeStr(t, code)
-
-	// Restore stderr
-	w.Close()
-	os.Stderr = oldStderr
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	stderr := buf.String()
-
-	// Should only see the warning once, not twice
-	count := strings.Count(stderr, "DEP-005")
-	if count > 1 {
-		t.Errorf("Deprecation warning should be emitted only once, but was emitted %d times", count)
-	}
-	if count == 0 {
-		t.Errorf("Deprecation warning was not emitted at all")
-	}
-}
-
-func TestDeprecationWarningForFormatArray(t *testing.T) {
-	// Reset warnings before test
-	evaluator.ResetDeprecationWarningsForTesting()
-
-	// Capture stderr
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
-	// Run code that triggers deprecation
+func TestFormatArrayReturnsError(t *testing.T) {
+	// format(array, style) was removed in 1.0 — should return an error
 	code := `format([1, 2, 3], "and")`
-	_ = evalCodeStr(t, code)
-
-	// Restore stderr
-	w.Close()
-	os.Stderr = oldStderr
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	stderr := buf.String()
-
-	if !strings.Contains(stderr, "DEPRECATION WARNING") {
-		t.Error("Expected DEPRECATION WARNING in stderr")
+	_, err := parsley.Eval(code)
+	if err == nil {
+		t.Fatal("expected error from format(array), got nil")
 	}
-	if !strings.Contains(stderr, "format(array, style)") {
-		t.Error("Expected warning about format(array, style)")
-	}
-	if !strings.Contains(stderr, "array.format(style)") {
-		t.Error("Expected suggestion to use array.format(style)")
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "array.format") {
+		t.Errorf("expected error to suggest array.format(), got: %s", errMsg)
 	}
 }
 
-func TestNoDeprecationWarningForDurationFormat(t *testing.T) {
-	// Reset warnings before test
-	evaluator.ResetDeprecationWarningsForTesting()
-
-	// Capture stderr
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
-	// Duration format should NOT trigger deprecation
+func TestDurationFormatStillWorks(t *testing.T) {
 	code := `format(@5d, "en-US")`
-	_ = evalCodeStr(t, code)
-
-	// Restore stderr
-	w.Close()
-	os.Stderr = oldStderr
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	stderr := buf.String()
-
-	if strings.Contains(stderr, "DEPRECATION WARNING") {
-		t.Error("Duration format should NOT trigger deprecation warning")
+	result, err := parsley.Eval(code)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if result.Value.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("duration format should still work, got error: %s", result.Value.Inspect())
 	}
 }
 
-func TestNoDeprecationWarningForArrayMethod(t *testing.T) {
-	// Reset warnings before test
-	evaluator.ResetDeprecationWarningsForTesting()
-
-	// Capture stderr
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
-	// Using the method form should NOT trigger deprecation
+func TestArrayFormatMethodStillWorks(t *testing.T) {
 	code := `[1, 2, 3].format("and")`
-	_ = evalCodeStr(t, code)
-
-	// Restore stderr
-	w.Close()
-	os.Stderr = oldStderr
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	stderr := buf.String()
-
-	if strings.Contains(stderr, "DEPRECATION WARNING") {
-		t.Error("Array.format() method should NOT trigger deprecation warning")
+	result, err := parsley.Eval(code)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if result.Value.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("array.format() method should still work, got error: %s", result.Value.Inspect())
+	}
+	if result.Value.Inspect() != "1, 2, and 3" {
+		t.Errorf("expected '1, 2, and 3', got %s", result.Value.Inspect())
 	}
 }
 

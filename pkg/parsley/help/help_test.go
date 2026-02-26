@@ -77,7 +77,7 @@ func TestDescribeModule(t *testing.T) {
 		wantExports     bool // expect some exports
 	}{
 		{"@std/math", "@std/math", true, true},
-		{"@std/table", "@std/table", true, true},
+
 		{"@std/valid", "@std/valid", true, true},
 		{"@basil/http", "@basil/http", true, false}, // basil modules may not have documented exports
 		{"@basil/auth", "@basil/auth", true, false},

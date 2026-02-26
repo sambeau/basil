@@ -337,53 +337,53 @@ func TestFormLabelComponent(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "self-closing Label renders title",
+			name: "self-closing label renders title",
 			input: `
 				@schema User {
 					firstName: string | {title: "First Name"}
 				}
 				let user = User({firstName: "Alice"})
 				<form @record={user}>
-					<Label @field="firstName"/>
+					<label @field="firstName"/>
 				</form>
 			`,
 			expected: `<form><label for="firstName">First Name</label></form>`,
 		},
 		{
-			name: "Label generates title from field name",
+			name: "label generates title from field name",
 			input: `
 				@schema User {
 					firstName: string
 				}
 				let user = User({firstName: "Alice"})
 				<form @record={user}>
-					<Label @field="firstName"/>
+					<label @field="firstName"/>
 				</form>
 			`,
 			expected: `<form><label for="firstName">First Name</label></form>`,
 		},
 		{
-			name: "Label tag pair includes children",
+			name: "label tag pair includes children",
 			input: `
 				@schema User {
 					name: string | {title: "Name"}
 				}
 				let user = User({name: "Alice"})
 				<form @record={user}>
-					<Label @field="name">" (required)"</Label>
+					<label @field="name">" (required)"</label>
 				</form>
 			`,
 			expected: `<form><label for="name">Name (required)</label></form>`,
 		},
 		{
-			name: "Label with @tag override",
+			name: "label with @tag override",
 			input: `
 				@schema User {
 					name: string | {title: "Name"}
 				}
 				let user = User({name: "Alice"})
 				<form @record={user}>
-					<Label @field="name" @tag="span"/>
+					<label @field="name" @tag="span"/>
 				</form>
 			`,
 			expected: `<form><span>Name</span></form>`,
@@ -417,53 +417,53 @@ func TestFormErrorComponent(t *testing.T) {
 		isEmpty  bool
 	}{
 		{
-			name: "Error renders message when field has error",
+			name: "error renders message when field has error",
 			input: `
 				@schema User {
 					name: string(min: 3)
 				}
 				let user = User({name: "AB"}).validate()
 				<form @record={user}>
-					<Error @field="name"/>
+					<error @field="name"/>
 				</form>
 			`,
 			contains: []string{`id="name-error"`, `role="alert"`, `class="error"`},
 		},
 		{
-			name: "Error renders nothing when field is valid",
+			name: "error renders nothing when field is valid",
 			input: `
 				@schema User {
 					name: string
 				}
 				let user = User({name: "Alice"}).validate()
 				<form @record={user}>
-					<Error @field="name"/>
+					<error @field="name"/>
 				</form>
 			`,
 			isEmpty: true,
 		},
 		{
-			name: "Error with @tag override",
+			name: "error with @tag override",
 			input: `
 				@schema User {
 					name: string(min: 3)
 				}
 				let user = User({name: "AB"}).validate()
 				<form @record={user}>
-					<Error @field="name" @tag="div"/>
+					<error @field="name" @tag="div"/>
 				</form>
 			`,
 			contains: []string{`<div id="name-error"`},
 		},
 		{
-			name: "Error renders nothing when error has no message (state-only error)",
+			name: "error renders nothing when error has no message (state-only error)",
 			input: `
 				@schema User {
 					name: string
 				}
 				let user = User({name: "Alice"}).withError("name")
 				<form @record={user}>
-					<Error @field="name"/>
+					<error @field="name"/>
 				</form>
 			`,
 			isEmpty: true,
@@ -504,40 +504,40 @@ func TestFormMetaComponent(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "Meta renders metadata value",
+			name: "val renders metadata value",
 			input: `
 				@schema User {
 					email: email | {help: "Your email address"}
 				}
 				let user = User({email: "alice@example.com"})
 				<form @record={user}>
-					<Meta @field="email" @key="help"/>
+					<val @field="email" @key="help"/>
 				</form>
 			`,
 			expected: `<form><span>Your email address</span></form>`,
 		},
 		{
-			name: "Meta with @tag override",
+			name: "val with @tag override",
 			input: `
 				@schema User {
 					email: email | {help: "Your email address"}
 				}
 				let user = User({email: "alice@example.com"})
 				<form @record={user}>
-					<Meta @field="email" @key="help" @tag="p"/>
+					<val @field="email" @key="help" @tag="p"/>
 				</form>
 			`,
 			expected: `<form><p>Your email address</p></form>`,
 		},
 		{
-			name: "Meta renders nothing when key not present",
+			name: "val renders nothing when key not present",
 			input: `
 				@schema User {
 					email: email
 				}
 				let user = User({email: "alice@example.com"})
 				<form @record={user}>
-					<Meta @field="email" @key="help"/>
+					<val @field="email" @key="help"/>
 				</form>
 			`,
 			expected: `<form></form>`,
@@ -654,12 +654,12 @@ func TestFormFieldOutsideForm(t *testing.T) {
 			errText: "must be inside a <form @record=",
 		},
 		{
-			name: "Label outside form is error",
+			name: "label outside form is error",
 			input: `
 				@schema User {
 					name: string
 				}
-				<Label @field="name"/>
+				<label @field="name"/>
 			`,
 			errText: "must be inside a <form @record=",
 		},

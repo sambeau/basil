@@ -25,7 +25,6 @@ func (sb *StdlibBuiltin) Inspect() string  { return fmt.Sprintf("stdlib function
 // This is a function rather than a var to avoid initialization cycles
 func getStdlibModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
-		"table":  loadTableModule,
 		"dev":    loadDevModule,
 		"math":   loadMathModule,
 		"valid":  loadValidModule,
@@ -47,19 +46,12 @@ func loadStdlibModule(name string, env *Environment) Object {
 		})
 	}
 
-	// Emit deprecation warning for @std/table
+	// @std/table was removed in 1.0 — use @table literal syntax instead
 	if name == "table" {
-		emitDeprecationWarning("DEP-001", "@std/table is deprecated, use @table literal syntax instead")
-	}
-
-	// Emit deprecation warnings for modules moved to @basil/ namespace
-	switch name {
-	case "api":
-		emitDeprecationWarning("DEP-003", "@std/api is deprecated, use @basil/api instead")
-	case "dev":
-		emitDeprecationWarning("DEP-004", "@std/dev is deprecated, use @basil/log instead")
-	case "html":
-		emitDeprecationWarning("DEP-005", "@std/html is deprecated, use @basil/html instead")
+		return newImportError("IMPORT-0006", map[string]any{
+			"Module":      "@std/table",
+			"Replacement": "Use @table literal syntax instead: @table [{name: \"Alice\", age: 30}]",
+		})
 	}
 
 	modules := getStdlibModules()
@@ -68,51 +60,6 @@ func loadStdlibModule(name string, env *Environment) Object {
 		return newUndefinedError("UNDEF-0005", map[string]any{"Module": name})
 	}
 	return loader(env)
-}
-
-var tableModuleMeta = ModuleMeta{
-	Description: "Table data structure with query methods",
-	Exports: map[string]ExportMeta{
-		"table": {Kind: "function", Arity: "1+", Description: "Create table from data"},
-	},
-}
-
-// loadTableModule returns the Table module as a dictionary.
-//
-// Deprecated: Prefer using @table literal syntax directly, e.g.:
-//
-//	@table [["name", "age"], ["Alice", 30]]
-//	@table [ {name: "Alice", age: 30} ]
-//
-// The @std/table import is maintained for backward compatibility.
-func loadTableModule(env *Environment) Object {
-	// Return stdlib module dict with table constructor
-	// The table export is a TableModule which is both callable and has methods
-	return &StdlibModuleDict{
-		Meta: &tableModuleMeta,
-		Exports: map[string]Object{
-			"table": &TableModule{},
-		},
-	}
-}
-
-// TableModule represents the table constructor with methods like fromDict.
-// It can be called directly as table(arr) or used as table.fromDict(dict, ...)
-//
-// Deprecated: Prefer @table literal syntax. The module is kept for backward compatibility.
-type TableModule struct{}
-
-func (tm *TableModule) Type() ObjectType { return BUILTIN_OBJ }
-func (tm *TableModule) Inspect() string  { return "table" }
-
-// evalTableModuleMethod handles method calls on the table module (e.g., table.fromDict)
-func evalTableModuleMethod(tm *TableModule, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "fromDict":
-		return TableFromDict(args, env)
-	default:
-		return unknownMethodError(method, "table module", []string{"fromDict"})
-	}
 }
 
 // StdlibModuleDict represents a standard library module's exported values

@@ -3165,56 +3165,20 @@ func getBuiltins() map[string]*Builtin {
 					return newArityErrorRange("format", len(args), 1, 3)
 				}
 
-				// Handle arrays (list formatting)
-				if arr, ok := args[0].(*Array); ok {
-					// Emit deprecation warning - recommend method form instead
-					emitDeprecationWarning("DEP-005", "format(array, style) is deprecated, use array.format(style) instead")
-
-					// Convert array elements to strings
-					items := make([]string, len(arr.Elements))
-					for i, elem := range arr.Elements {
-						// Use Inspect() for all types (String.Inspect() returns just the value)
-						items[i] = elem.Inspect()
+				// format(array, style) was removed in 1.0 — use array.format(style) instead
+				if _, ok := args[0].(*Array); ok {
+					return &Error{
+						Class:   "TypeError",
+						Code:    "TYPE-0005",
+						Message: "format() no longer accepts arrays. Use the method form instead: array.format(\"and\")",
+						Hints:   []string{"Migration: format([\"a\", \"b\"], \"and\") → [\"a\", \"b\"].format(\"and\")"},
 					}
-
-					// Get style (default to "and")
-					style := locale.ListStyleAnd
-					localeStr := "en-US"
-
-					if len(args) >= 2 {
-						styleStr, ok := args[1].(*String)
-						if !ok {
-							return newTypeError("TYPE-0006", "format", "a string (style)", args[1].Type())
-						}
-						switch styleStr.Value {
-						case "and":
-							style = locale.ListStyleAnd
-						case "or":
-							style = locale.ListStyleOr
-						case "unit":
-							style = locale.ListStyleUnit
-						default:
-							perr := perrors.New("VAL-0002", map[string]any{"Style": styleStr.Value, "Context": "`format`", "ValidOptions": "'and', 'or', or 'unit'"})
-							return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data}
-						}
-					}
-
-					if len(args) == 3 {
-						locStr, ok := args[2].(*String)
-						if !ok {
-							return newTypeError("TYPE-0011", "format", "a string (locale)", args[2].Type())
-						}
-						localeStr = locStr.Value
-					}
-
-					result := locale.FormatList(items, style, localeStr)
-					return &String{Value: result}
 				}
 
 				// Handle duration dictionaries
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newTypeError("TYPE-0005", "format", "a duration or array", args[0].Type())
+					return newTypeError("TYPE-0005", "format", "a duration", args[0].Type())
 				}
 
 				if !isDurationDict(dict) {
