@@ -199,6 +199,30 @@ Add `!` after the type for breaking changes: `feat(parsley)!: description`
 - Update spec/bug with implementation notes
 - Verify all tests pass with `make test`
 
+### ⚠️ Branch Hygiene: Merge and Delete
+
+**Stale branches have caused lost work and confusion.** Follow these rules:
+
+#### After a Feature/Fix Is Complete
+1. Merge the branch to `main` (or request human merge)
+2. Delete the feature branch immediately after merge
+3. A feature is not done until it is **merged and the branch is deleted**
+
+#### Before Starting New Work
+- Run `git branch` — if there are leftover branches from completed work, clean them up
+- Check for unmerged branches: `git branch --no-merged main`
+  - If the branch has 0 commits ahead of main → delete it (stale)
+  - If the branch has unmerged work → flag it to the user
+
+#### Before Any Release
+- Run `git branch --no-merged main` to check for forgotten work
+- Any branch with commits ahead of main must be either merged or explicitly deferred
+
+#### Do NOT
+- Leave completed feature branches undeleted after merging
+- Accumulate dozens of stale branches — clean up as you go
+- Start a new branch for the same feature instead of rebasing the old one
+
 ## ID Conventions
 - Features: `FEAT-001`, `FEAT-002`, ...
 - Bugs: `BUG-001`, `BUG-002`, ...
