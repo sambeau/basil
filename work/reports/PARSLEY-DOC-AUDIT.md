@@ -15,7 +15,7 @@ The documentation is in good shape structurally. The manual is well-organised, t
 
 | Priority | Count | Description |
 |----------|-------|-------------|
-| 🔴 Critical | 4 | Factual errors — documents things that don't exist, or misses what does |
+| 🔴 Critical | 5 | Factual errors — documents things that don't exist, or misses what does |
 | 🟠 High | 7 | Missing documentation for implemented features |
 | 🟡 Medium | 8 | Stale content, deprecation warnings to remove, structural issues |
 | 🟢 Low | 5 | Polish, consistency, minor gaps |
@@ -92,6 +92,67 @@ true, false, null, and, or, not, is, as, via
 **This is wrong.** Both `IntegerMethodRegistry` and `FloatMethodRegistry` (in `methods_numeric.go`) register `abs`, `round` (float only), `floor` (float only), `ceil` (float only), plus the full formatter API (`fmt`, `short`, `medium`, `long`, `currency`, `percent`, `humanize`, `toBox`, `repr`, `toJSON`, `inspect`).
 
 **Fix:** Remove the incorrect note. Update Appendix A's Number row to list key methods: `abs`, `round`, `floor`, `ceil`, `fmt`, `currency`, `percent`, `humanize`.
+
+### 1.5 CHEATSHEET method reference tables contain many hallucinated methods
+
+**File:** `docs/parsley/CHEATSHEET.md` § "📝 Method Reference" (L1702–1873)
+
+The method reference tables in the CHEATSHEET list dozens of methods that **do not exist** in Parsley. Every one of the following was verified against `pars -e` and produces `Unknown method` errors:
+
+**String methods that don't exist:**
+
+| Listed | Status | Correct Alternative |
+|--------|--------|---------------------|
+| `.capitalize()` | ❌ DNE | `.toTitle()` |
+| `.title()` | ❌ DNE | `.toTitle()` |
+| `.trimStart()` | ❌ DNE | `.trim()` only |
+| `.trimEnd()` | ❌ DNE | `.trim()` only |
+| `.replaceAll(old, new)` | ❌ DNE | `.replace()` already replaces all |
+| `.startsWith(prefix)` | ❌ DNE | Use `in` operator or regex |
+| `.endsWith(suffix)` | ❌ DNE | Use regex |
+| `.indexOf(substr)` | ❌ DNE | Use regex match |
+| `.escapeHtml()` | ❌ DNE | `.htmlEncode()` |
+| `.pad(len, char?)` | ❌ DNE | Not implemented |
+| `.padStart(len, char?)` | ❌ DNE | Not implemented |
+| `.padEnd(len, char?)` | ❌ DNE | Not implemented |
+
+**Array methods that don't exist:**
+
+| Listed | Status | Correct Alternative |
+|--------|--------|---------------------|
+| `.first()` | ❌ DNE | `arr[0]` |
+| `.last()` | ❌ DNE | `arr[-1]` |
+| `.findIndex(fn)` | ❌ DNE | Not implemented |
+| `.every(fn)` | ❌ DNE | Not implemented (use `for` + `check`) |
+| `.some(fn)` | ❌ DNE | Not implemented (use `for` + `if`) |
+| `.flatten()` | ❌ DNE | Not implemented |
+| `.unique()` | ❌ DNE | Not implemented (table has `.unique()`) |
+| `.find(fn)` | ❌ DNE | Use `.filter(fn)[0]` |
+
+**Dictionary methods that don't exist:**
+
+| Listed | Status | Correct Alternative |
+|--------|--------|---------------------|
+| `.get(key, default?)` | ❌ DNE | Use `dict.key` + `??` null coalescing |
+| `.merge(other)` | ❌ DNE | Use `++` operator |
+| `.without(keys...)` | ❌ DNE | Use `.delete(key)` |
+| `.pick(keys...)` | ❌ DNE | Use destructuring |
+
+**Impact:** This is particularly damaging because the CHEATSHEET is the primary reference for AI agents. AI agents will confidently use these methods, produce broken code, and waste cycles debugging. This is the highest-priority fix for v1.0.
+
+**Evidence:** All verified with `pars -e`:
+```
+$ pars -e '"hello".capitalize()'
+Runtime error: Unknown method `capitalize` for string
+
+$ pars -e '[1,2,3].first()'
+Runtime error: Unknown method `first` for array
+
+$ pars -e '{a:1}.get("a")'
+Runtime error: Unknown method `get` for dictionary
+```
+
+**Fix:** Completely rewrite the CHEATSHEET method reference tables using only methods confirmed to exist in the `StringMethodRegistry`, `evalArrayMethod`, and `evalDictionaryMethod` code. The manual pages (`builtins/strings.md`, `builtins/array.md`, `builtins/dictionary.md`) have correct method lists and should be used as the source of truth.
 
 ---
 
@@ -343,6 +404,7 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 - Basil server section is practical
 
 **Issues:**
+- **Method reference tables are full of hallucinated methods** (see §1.5) — this is the most damaging issue
 - Uses deprecated import examples (§ "Module Quick Reference")
 - At ~2,000 lines, it's on the edge of being too long for context windows
 - Mixes Parsley language reference with Basil server docs (Parts, CSRF, asset bundles)
@@ -367,6 +429,7 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 4. Fix number methods note in Appendix A
 5. Fix `markdown()` builtin signature
 6. Fix Appendix B method counts (strings: 36 not 27, numbers: 14+ not 5)
+7. **Rewrite CHEATSHEET method reference tables** — remove all hallucinated methods, replace with verified methods from code registries
 
 ### Phase 2: Missing Coverage
 
@@ -388,6 +451,10 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 16. Run every code example in the manual through `pars -e` or as `.pars` files
 17. Run every code example in the CHEATSHEET through `pars -e`
 18. Run every code example in the reference through `pars -e`
+
+> ⚠️ Phase 4 is non-negotiable. The CHEATSHEET hallucination problem (§1.5) shows that
+> unverified documentation actively harms users and AI agents. Every code example in every
+> document must be machine-verified before v1.0 ships.
 
 ---
 
