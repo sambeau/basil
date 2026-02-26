@@ -277,7 +277,7 @@ let doc = mdDoc("# Hello\n\n## World")
 
 doc.walk(fn(node) {
     if node.type == "heading" {
-        print("Found heading:", node.text)
+        log("Found heading:", node.text)
     }
 })
 ```

@@ -67,7 +67,7 @@ These tags gain nothing from being components. Just use them directly:
 Complete text input with label, hint text, error message, and full accessibility support.
 
 ```parsley
-let {TextField} = import @std/html
+let {TextField} = import @basil/html
 
 // Basic text field
 <TextField name="username" label="Username"/>
@@ -140,7 +140,7 @@ Renders (for the error example):
 Multi-line text input with optional character counter and auto-resize.
 
 ```parsley
-let {TextareaField} = import @std/html
+let {TextareaField} = import @basil/html
 
 // Basic textarea
 <TextareaField name="bio" label="Biography" rows={4}/>
@@ -187,7 +187,7 @@ let {TextareaField} = import @std/html
 Dropdown select with support for both simple arrays and object arrays.
 
 ```parsley
-let {SelectField} = import @std/html
+let {SelectField} = import @basil/html
 
 // Simple array of options
 <SelectField 
@@ -244,7 +244,7 @@ let countries = [
 Group of mutually exclusive radio buttons with proper fieldset/legend structure.
 
 ```parsley
-let {RadioGroup} = import @std/html
+let {RadioGroup} = import @basil/html
 
 // Simple options
 <RadioGroup 
@@ -311,7 +311,7 @@ Renders:
 Group of checkboxes for multi-select scenarios.
 
 ```parsley
-let {CheckboxGroup} = import @std/html
+let {CheckboxGroup} = import @basil/html
 
 let toppings = [
     {value: "cheese", label: "Extra Cheese"},
@@ -348,7 +348,7 @@ let toppings = [
 Single checkbox for boolean values like terms acceptance.
 
 ```parsley
-let {Checkbox} = import @std/html
+let {Checkbox} = import @basil/html
 
 <Checkbox 
     name="terms" 
@@ -382,7 +382,7 @@ let {Checkbox} = import @std/html
 Button with sensible defaults—`type="button"` by default (not submit!), plus support for toggle and copy behaviors.
 
 ```parsley
-let {Button} = import @std/html
+let {Button} = import @basil/html
 
 // Regular button (won't accidentally submit forms)
 <Button>"Click Me"</Button>
@@ -419,7 +419,7 @@ let {Button} = import @std/html
 Form wrapper with automatic CSRF protection and optional confirmation dialog.
 
 ```parsley
-let {Form, TextField, Button} = import @std/html
+let {Form, TextField, Button} = import @basil/html
 
 <Form action="/register" method="POST">
     <TextField name="email" label="Email" type="email" required={true}/>
@@ -462,7 +462,7 @@ Renders:
 Navigation landmark with proper ARIA labeling.
 
 ```parsley
-let {Nav} = import @std/html
+let {Nav} = import @basil/html
 
 <Nav label="Main navigation">
     <a href="/">"Home"</a>
@@ -499,7 +499,7 @@ Renders:
 Breadcrumb navigation with Schema.org structured data for SEO.
 
 ```parsley
-let {Breadcrumb} = import @std/html
+let {Breadcrumb} = import @basil/html
 
 <Breadcrumb items={[
     {label: "Home", href: "/"},
@@ -550,7 +550,7 @@ Renders:
 Accessibility skip link for keyboard users to bypass navigation.
 
 ```parsley
-let {SkipLink} = import @std/html
+let {SkipLink} = import @basil/html
 
 // Usually at the very top of the page
 <SkipLink/>
@@ -578,7 +578,7 @@ Renders:
 Image with required `alt` attribute and lazy loading by default.
 
 ```parsley
-let {Img} = import @std/html
+let {Img} = import @basil/html
 
 // Basic image
 <Img src="/hero.jpg" alt="Mountain landscape at sunset" width={1200} height={800}/>
@@ -619,7 +619,7 @@ let {Img} = import @std/html
 Iframe with required `title` for accessibility and lazy loading.
 
 ```parsley
-let {Iframe} = import @std/html
+let {Iframe} = import @basil/html
 
 <Iframe 
     src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
@@ -656,7 +656,7 @@ let {Iframe} = import @std/html
 Figure with caption—proper semantic structure for images, diagrams, or code.
 
 ```parsley
-let {Figure, Img} = import @std/html
+let {Figure, Img} = import @basil/html
 
 <Figure caption="Annual revenue growth 2020-2024">
     <Img src="/chart.png" alt="Bar chart showing 15% year-over-year growth"/>
@@ -684,7 +684,7 @@ Renders:
 Blockquote with proper citation structure.
 
 ```parsley
-let {Blockquote} = import @std/html
+let {Blockquote} = import @basil/html
 
 <Blockquote author="Oscar Wilde">
     "Be yourself; everyone else is already taken."
@@ -724,7 +724,7 @@ Renders:
 Semantic time element with proper `datetime` attribute.
 
 ```parsley
-let {Time} = import @std/html
+let {Time} = import @basil/html
 
 // Auto-formatted display
 <Time value={post.createdAt}/>
@@ -752,7 +752,7 @@ let {Time} = import @std/html
 Client-side localized datetime. Renders a custom element that JavaScript can enhance to show the user's local timezone.
 
 ```parsley
-let {LocalTime} = import @std/html
+let {LocalTime} = import @basil/html
 
 // Shows server time, JS updates to local
 <LocalTime datetime={event.startTime}/>
@@ -779,7 +779,7 @@ let {LocalTime} = import @std/html
 Smart display of datetime spans that collapses redundant information.
 
 ```parsley
-let {TimeRange} = import @std/html
+let {TimeRange} = import @basil/html
 
 // Same-day event
 <TimeRange start={session.start} end={session.end}/>
@@ -806,7 +806,7 @@ let {TimeRange} = import @std/html
 Human-readable relative time ("2 hours ago", "in 3 days").
 
 ```parsley
-let {RelativeTime} = import @std/html
+let {RelativeTime} = import @basil/html
 
 // Basic relative time
 <RelativeTime datetime={comment.createdAt}/>
@@ -841,7 +841,7 @@ let {RelativeTime} = import @std/html
 Data table with proper header semantics and accessibility.
 
 ```parsley
-let {DataTable} = import @std/html
+let {DataTable} = import @basil/html
 
 let users = [
     {name: "Alice", email: "alice@example.com", role: "Admin"},
@@ -902,7 +902,7 @@ Renders:
 Link with automatic safety for external links.
 
 ```parsley
-let {A} = import @std/html
+let {A} = import @basil/html
 
 // Internal link (no changes)
 <A href="/about">"About Us"</A>
@@ -932,7 +932,7 @@ let {A} = import @std/html
 Abbreviation with required expansion.
 
 ```parsley
-let {Abbr} = import @std/html
+let {Abbr} = import @basil/html
 
 <p>
     "The "<Abbr title="World Wide Web Consortium">"W3C"</Abbr>
@@ -958,7 +958,7 @@ Renders:
 Screen reader only text—visually hidden but accessible.
 
 ```parsley
-let {SrOnly, Icon} = import @std/html
+let {SrOnly, Icon} = import @basil/html
 
 // Add context for screen readers
 <button>
@@ -982,7 +982,7 @@ Renders:
 Accessible icon wrapper with screen reader label.
 
 ```parsley
-let {Icon} = import @std/html
+let {Icon} = import @basil/html
 
 // Icon with visible label nearby (decorative)
 <button><Icon name="save"/>" Save"</button>
@@ -1011,7 +1011,7 @@ Renders (with label):
 Here's a realistic contact form using multiple components together:
 
 ```parsley
-let {Form, TextField, TextareaField, SelectField, Checkbox, Button, Nav, Breadcrumb} = import @std/html
+let {Form, TextField, TextareaField, SelectField, Checkbox, Button, Nav, Breadcrumb} = import @basil/html
 
 // Navigation
 <Nav label="Main">

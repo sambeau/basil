@@ -4249,7 +4249,7 @@ Return special error objects that Basil converts to HTTP responses.
 | `redirect(url, status?)` | `url: string`, `status?: integer` | HTTP redirect (default: 302) |
 
 ```parsley
-let api = import @std/api
+let api = import @basil/api
 
 // Auth wrappers (used in route definitions)
 let getUsers = api.public(fn(req) {
@@ -4395,7 +4395,7 @@ Development logging utilities. **Requires Basil server context**—not available
 
 ```parsley
 // In a Basil handler
-let dev = import @std/dev
+let log = import @basil/log
 
 fn handleRequest(req) {
     dev.log("request", req.params)
@@ -4480,7 +4480,7 @@ Pre-built HTML components. **Requires Basil server context**—not available in 
 
 ```parsley
 // In a Basil template
-let html = import @std/html
+let html = import @basil/html
 
 <html.Page title="My App">
     <html.Head>

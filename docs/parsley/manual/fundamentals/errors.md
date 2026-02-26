@@ -214,10 +214,10 @@ Errors carry a code like `TYPE-0001` or `IO-0003` that identifies the specific e
 
 ## API Error Helpers
 
-The `@std/api` module provides helpers that create structured errors with appropriate HTTP status codes. These are catchable `value`-class errors:
+The `@basil/api` module provides helpers that create structured errors with appropriate HTTP status codes. These are catchable `value`-class errors:
 
 ```parsley
-let api = import @std/api
+let api = import @basil/api
 
 api.notFound("User not found")      // {code: "HTTP-404", message: "User not found", status: 404}
 api.badRequest("Invalid input")     // {code: "HTTP-400", message: "Invalid input", status: 400}
@@ -419,7 +419,7 @@ error.message                    // "name required"
 Return rich error data from API handlers:
 
 ```parsley
-let api = import @std/api
+let api = import @basil/api
 
 export post = fn(req) {
     let user = User(req.body).validate().failIfInvalid()
