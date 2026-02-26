@@ -53,6 +53,27 @@ install:
 	go install $(LDFLAGS) ./cmd/basil
 	go install $(LDFLAGS) ./cmd/pars
 
+# Verify generated docs are up to date
+.PHONY: verify-docs
+verify-docs: build-pars
+	@echo "Verifying API reference is up to date..."
+	@./pars reference --verify docs/parsley/api-reference.md || \
+		(echo "Run 'make docs' to regenerate" && exit 1)
+
+# Generate API reference documentation (API-only)
+.PHONY: docs
+docs: build-pars
+	@echo "Generating API reference..."
+	@./pars reference > docs/parsley/api-reference.md
+	@echo "Generated docs/parsley/api-reference.md"
+
+# Generate full reference from template (fragments + generated)
+.PHONY: docs-full
+docs-full: build-pars
+	@echo "Generating full reference from template..."
+	@./pars reference --template docs/parsley/reference.tmpl.md > docs/parsley/generated-reference.md
+	@echo "Generated docs/parsley/generated-reference.md"
+
 .PHONY: help
 help:
 	@echo "Basil build targets:"
@@ -65,3 +86,6 @@ help:
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make version     - Show version that would be embedded"
 	@echo "  make install     - Install to GOPATH/bin"
+	@echo "  make docs        - Generate API reference documentation"
+	@echo "  make docs-full   - Generate full reference from template"
+	@echo "  make verify-docs - Verify generated docs are up to date (for CI)"
