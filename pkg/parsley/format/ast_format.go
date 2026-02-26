@@ -2490,6 +2490,7 @@ func dedentText(text string) string {
 			continue
 		}
 		indent := 0
+	charLoop:
 		for _, ch := range line {
 			switch ch {
 			case ' ':
@@ -2497,7 +2498,7 @@ func dedentText(text string) string {
 			case '\t':
 				indent++ // Count tabs as 1 for comparison purposes
 			default:
-				break
+				break charLoop
 			}
 		}
 		if minIndent == -1 || indent < minIndent {

@@ -22,8 +22,8 @@ issues:
   #   golangci-lint run --new-from-merge-base=main
   #
   # This allows gradual adoption without fixing all legacy issues.
-  # Baseline established: 2026-02-09 (after modernize + gocritic cleanup)
+  # Baseline established: 2026-02-26 (after FEAT-130 pre-v1.0 code quality fixes)
   #
   # To run full lint (all issues): golangci-lint run --new-from-rev=""
   # To run incremental (new issues only): golangci-lint run
-  new-from-rev: 923431e
+  new-from-rev: aae2e5b
