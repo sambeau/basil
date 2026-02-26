@@ -440,17 +440,29 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 11. Complete number methods documentation in the manual
 12. Fix `@std/session` → explain session is via `@basil/auth`
 
+### Phase 2.5: `pars reference --format markdown` (v1.0 if schedule permits, otherwise v1.1)
+
+> See **Appendix B** for full feasibility analysis, architecture, and effort estimate.
+
+13. Implement `FormatMarkdown` in `help/format.go` (follows existing `FormatText`/`FormatJSON` pattern)
+14. Add `pars reference` subcommand to CLI with `--format markdown|json|text` and `--api-only` flags
+15. Extract hand-written prose sections from `reference.md` into reusable fragments
+16. Compose the full reference from generated API sections + hand-written fragments
+17. Add CI step: generate reference, diff against committed copy, fail on mismatch
+
+This is the single highest-leverage documentation investment for AI-friendliness. The metadata infrastructure already exists — this is adding one formatter to an existing system. See Appendix B for details.
+
 ### Phase 3: v1.0 Cleanup
 
-13. Remove or clearly mark all deprecated module docs (`@std/table`, `@std/schema`, `@std/api`, `@std/dev`, `@std/html`)
-14. Update CHEATSHEET to use only current APIs
-15. Decide on reference vs manual strategy
+18. Remove or clearly mark all deprecated module docs (`@std/table`, `@std/schema`, `@std/api`, `@std/dev`, `@std/html`)
+19. Update CHEATSHEET to use only current APIs
+20. Decide on reference vs manual strategy — if `pars reference` ships, retire hand-maintained API sections
 
 ### Phase 4: Verification
 
-16. Run every code example in the manual through `pars -e` or as `.pars` files
-17. Run every code example in the CHEATSHEET through `pars -e`
-18. Run every code example in the reference through `pars -e`
+21. Run every code example in the manual through `pars -e` or as `.pars` files
+22. Run every code example in the CHEATSHEET through `pars -e`
+23. Run every code example in the reference through `pars -e`
 
 > ⚠️ Phase 4 is non-negotiable. The CHEATSHEET hallucination problem (§1.5) shows that
 > unverified documentation actively harms users and AI agents. Every code example in every
@@ -458,7 +470,7 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 
 ---
 
-## Appendix: Complete Feature Coverage Matrix
+## Appendix A: Complete Feature Coverage Matrix
 
 ### Builtins (from `getBuiltins()`)
 
@@ -577,3 +589,119 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 | REPL `:env` | ✅ | ❌ |
 | REPL `:clear` | ✅ | ❌ |
 | REPL `:raw` | ✅ | ❌ |
+
+---
+
+## Appendix B: `pars reference --format markdown` — Feasibility Analysis
+
+### Why This Matters
+
+Parsley's documentation has drifted from the code. The CHEATSHEET contains hallucinated methods (§1.5), the reference documents functions that don't exist (§1.1), and method counts are wrong (§3.7, §3.8). These errors are particularly harmful to AI agents, which treat documentation as ground truth when generating Parsley code.
+
+A `pars reference --format markdown` command would produce an **authoritative, always-accurate API reference** generated directly from the code's own metadata. This eliminates drift by construction: the reference and the implementation are the same artifact.
+
+Being AI-friendly is a stated priority for Parsley. For a new language, this is the single highest-leverage documentation investment. AI agents (and their tool-use pipelines) can run `pars reference --format markdown` to get a complete, correct, up-to-date reference without relying on potentially stale docs files.
+
+### What Already Exists
+
+The building blocks are already in place. The evaluator and help packages expose structured metadata that covers the entire API surface:
+
+| Metadata Source | Location | What It Covers |
+|----------------|----------|----------------|
+| `BuiltinMetadata` | `evaluator/introspect.go` | ~45 builtin functions with name, arity, params, description, category |
+| `OperatorMetadata` | `evaluator/introspect.go` | ~26 operators with symbol, name, description, category, example |
+| `MethodRegistry` (per type) | `evaluator/method_registry.go` | Every method on every type: name, arity, description, function |
+| Property registries | `evaluator/introspect.go` | Type properties with name, type, description |
+| `GetStdlibModuleMeta` / `GetBasilModuleMeta` | `evaluator/introspect.go` | Module descriptions and export lists |
+| `TopicResult` / `TypeSchema` / `ModuleSchema` | `help/help.go` | Structured result types that compose all of the above |
+| `FormatText` / `FormatJSON` | `help/format.go` | Existing formatters for text and JSON output |
+| `pars describe all --json` | `cmd/pars/main.go` | Already dumps the complete API schema as machine-readable JSON |
+
+The `help` package already has a `FormatText` and `FormatJSON` formatter. Adding `FormatMarkdown` follows the exact same pattern.
+
+### What It Would Generate (Automatically)
+
+The following sections can be generated entirely from code metadata with **zero hand-written content**:
+
+1. **Builtin Functions Reference** — Complete list grouped by category, with signature, arity, parameter names, description, and deprecation status. Source: `BuiltinMetadata`.
+
+2. **Type Method Tables** — For each of the ~25 types (string, integer, float, array, dictionary, datetime, duration, url, path, file, table, money, regex, etc.), a full method table with name, arity, and description. Source: per-type `MethodRegistry`.
+
+3. **Type Property Tables** — For types that have properties (datetime, duration, url, path, file, etc.), a property table with name, type, and description. Source: property registries.
+
+4. **Operator Reference** — All operators grouped by category (arithmetic, comparison, logical, collection, regex, pipe, null handling, control flow) with symbol, description, and example. Source: `OperatorMetadata`.
+
+5. **Standard Library Module Reference** — For each module (`@std/math`, `@std/valid`, `@std/id`, `@std/hash`, `@std/mdDoc`, `@basil/http`, `@basil/auth`, `@basil/api`, `@basil/log`, `@basil/html`), a description and export list with kinds, arities, and descriptions. Source: module metadata.
+
+6. **Summary Statistics** — Type count, builtin count, operator count, module count, total method count. Useful for AI agents to sanity-check their knowledge.
+
+### What It Cannot Generate (Requires Hand-Written Prose)
+
+These sections require human authorship and would be maintained as separate markdown fragments, stitched into the final output:
+
+- **Literal syntax** — String types (single-quoted, double-quoted, backtick, raw), number formats, boolean/null literals, array/dictionary literal syntax
+- **Tag/HTML syntax** — Tag rules, self-closing requirements, attribute syntax, interpolation in tags, form binding semantics
+- **Control flow** — `if`/`else`, `for`/`in`, `with`, `try`, `check`, `stop`/`skip`/`return`, `fail`
+- **Variable declarations** — `let` vs `var` semantics
+- **Functions** — `fn` syntax, closures, default parameters, rest parameters
+- **Modules** — `import`/`export` syntax, `export computed`, module resolution
+- **Expression-based output model** — The core "values ARE the output" concept
+- **Tutorials and examples** — Getting-started content, common patterns, recipes
+
+### Proposed Architecture
+
+```
+pars reference --format markdown    → Full reference (generated + hand-written fragments)
+pars reference --format json        → Machine-readable JSON schema (generated only)
+pars reference --format text        → Terminal-friendly text (generated only)
+pars reference --api-only           → Only the auto-generated API sections
+```
+
+Implementation approach:
+
+1. **Add `FormatMarkdown` to `help/format.go`** — A new formatter that takes a `TopicResult` (kind="all") and produces well-structured markdown. This follows the existing `FormatText`/`FormatJSON` pattern exactly.
+
+2. **Add a `reference` subcommand to `cmd/pars/main.go`** — Calls `describeAll()` from the help package and formats it. This mirrors how `describe all` works today but with a dedicated entry point and the markdown formatter.
+
+3. **Hand-written fragments directory** — A set of markdown files (e.g., `docs/parsley/reference-fragments/`) covering the non-generatable sections listed above. These are maintained by humans.
+
+4. **Composition step** — The `pars reference --format markdown` command stitches the hand-written fragments with the generated sections into a single complete reference document. The ordering is defined by a simple manifest or convention (e.g., numbered filenames: `01-intro.md`, `02-literals.md`, ... `AUTO-builtins`, `AUTO-types`, ...).
+
+5. **CI verification** — A CI step runs `pars reference --format markdown` and diffs against the committed `reference.md`. If they differ, the build fails, forcing the docs to stay in sync.
+
+### Estimated Effort
+
+| Component | Effort | Notes |
+|-----------|--------|-------|
+| `FormatMarkdown` in `help/format.go` | Small | ~200 lines, follows existing `FormatText` pattern |
+| `reference` subcommand in CLI | Small | ~30 lines, mirrors `describe` |
+| Hand-written fragment extraction | Medium | Split existing `reference.md` prose into fragments |
+| Fragment stitching logic | Small | ~50 lines, read fragments + insert generated sections |
+| CI verification step | Small | Shell script: generate, diff, fail on mismatch |
+| **Total** | **~1-2 days** | Most effort is in extracting/cleaning the hand-written fragments |
+
+### Why This Is Worth Prioritising
+
+1. **Eliminates an entire class of bugs.** Every documentation error in this audit (§1.1–§1.5, §3.7, §3.8) is a case of docs drifting from code. Generated docs cannot drift.
+
+2. **Makes the CHEATSHEET maintainable.** The CHEATSHEET's method tables (§1.5) can be regenerated rather than hand-maintained. Or better: the CHEATSHEET drops method tables entirely and points agents to `pars reference --format markdown` for the API surface.
+
+3. **AI-native by design.** An AI agent can run `pars reference --format markdown` (or `--format json`) to get a complete, correct API reference at any time. No stale context window. No hallucinated methods. This is a competitive advantage for Parsley — most languages force AI agents to rely on third-party documentation that may be outdated.
+
+4. **Low incremental cost.** The metadata infrastructure already exists (`BuiltinMetadata`, `MethodRegistry`, `OperatorMetadata`, module metadata, `TopicResult`, `FormatJSON`, `FormatText`). This is adding one more formatter to an existing system, not building from scratch.
+
+5. **Parsley should lead here.** If being AI-friendly is a priority for Parsley — and it should be for all new languages — then the reference should be a first-class output of the toolchain, not a hand-maintained markdown file that inevitably drifts. `pars reference` makes the documentation a feature of the language, not an afterthought.
+
+### Recommendation
+
+**Build this for v1.0 if schedule permits; otherwise target v1.1 as the first post-release priority.**
+
+For v1.0 at minimum:
+- Fix the critical errors identified in this audit (Phase 1)
+- Ensure `pars describe all --json` output is complete and correct (it already mostly is)
+- Document `pars describe` so AI agents know it exists
+
+For v1.1:
+- Ship `pars reference --format markdown` as the canonical API reference generator
+- Retire the hand-maintained API sections of `reference.md` in favour of generated output
+- Add CI verification to prevent future drift
