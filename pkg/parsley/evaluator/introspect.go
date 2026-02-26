@@ -304,12 +304,11 @@ type OperatorInfo struct {
 // OperatorMetadata contains metadata for all operators
 var OperatorMetadata = map[string]OperatorInfo{
 	// Arithmetic
-	"+":  {Symbol: "+", Name: "Addition", Description: "Add numbers or concatenate strings", Category: "arithmetic", Example: "1 + 2, \"a\" + \"b\""},
-	"-":  {Symbol: "-", Name: "Subtraction", Description: "Subtract numbers or compute set difference", Category: "arithmetic", Example: "5 - 3, [1,2,3] - [2]"},
-	"*":  {Symbol: "*", Name: "Multiplication", Description: "Multiply numbers or repeat strings/arrays", Category: "arithmetic", Example: "2 * 3, \"ab\" * 3"},
-	"/":  {Symbol: "/", Name: "Division", Description: "Divide numbers or chunk arrays", Category: "arithmetic", Example: "10 / 2, [1,2,3,4] / 2"},
-	"%":  {Symbol: "%", Name: "Modulo", Description: "Remainder after division", Category: "arithmetic", Example: "10 % 3"},
-	"**": {Symbol: "**", Name: "Exponentiation", Description: "Raise to power", Category: "arithmetic", Example: "2 ** 3"},
+	"+": {Symbol: "+", Name: "Addition", Description: "Add numbers or concatenate strings", Category: "arithmetic", Example: "1 + 2, \"a\" + \"b\""},
+	"-": {Symbol: "-", Name: "Subtraction", Description: "Subtract numbers or compute set difference", Category: "arithmetic", Example: "5 - 3, [1,2,3] - [2]"},
+	"*": {Symbol: "*", Name: "Multiplication", Description: "Multiply numbers or repeat strings/arrays", Category: "arithmetic", Example: "2 * 3, \"ab\" * 3"},
+	"/": {Symbol: "/", Name: "Division", Description: "Divide numbers or chunk arrays", Category: "arithmetic", Example: "10 / 2, [1,2,3,4] / 2"},
+	"%": {Symbol: "%", Name: "Modulo", Description: "Remainder after division", Category: "arithmetic", Example: "10 % 3"},
 
 	// Comparison
 	"==": {Symbol: "==", Name: "Equal", Description: "Check equality", Category: "comparison", Example: "a == b"},
@@ -336,14 +335,8 @@ var OperatorMetadata = map[string]OperatorInfo{
 	"~":  {Symbol: "~", Name: "Regex Match", Description: "Match string against regex, returns captures or null", Category: "regex", Example: "str ~ /pattern/"},
 	"!~": {Symbol: "!~", Name: "Regex Non-match", Description: "Check if string does not match regex", Category: "regex", Example: "str !~ /pattern/"},
 
-	// Pipe
-	"|>": {Symbol: "|>", Name: "Pipe", Description: "Pass left value as first argument to right function", Category: "pipe", Example: "data |> transform"},
-
 	// Null coalescing
 	"??": {Symbol: "??", Name: "Null Coalescing", Description: "Return left if not null, otherwise right", Category: "null", Example: "value ?? default"},
-
-	// Ternary (documented as pattern, not single operator)
-	"?:": {Symbol: "?:", Name: "Ternary", Description: "Conditional expression: condition ? then : else", Category: "control", Example: "x > 0 ? \"pos\" : \"neg\""},
 }
 
 // ============================================================================
@@ -404,12 +397,14 @@ var BuiltinMetadata = map[string]BuiltinInfo{
 	"fail": {Name: "fail", Arity: "1", Description: "Throw an error with message string or error dictionary (must have 'message' key)", Params: []string{"message_or_dict"}, Category: "control"},
 
 	// === Formatting ===
-	"format": {Name: "format", Arity: "2+", Description: "Format string with placeholders", Params: []string{"template", "values..."}, Category: "format"},
+	"format": {Name: "format", Arity: "1-3", Description: "Format array as list (and/or/unit) or duration as relative time", Params: []string{"value", "style?", "locale?"}, Category: "format", Deprecated: "Use array.format(style) or duration.fmt(style) instead"},
 	"tag":    {Name: "tag", Arity: "1-3", Description: "Create HTML tag", Params: []string{"name", "attributes?", "content?"}, Category: "format"},
 
 	// === Regex ===
 	"regex": {Name: "regex", Arity: "1-2", Description: "Create regex pattern", Params: []string{"pattern", "flags?"}, Category: "regex"},
-	"match": {Name: "match", Arity: "2-3", Description: "Match string against pattern", Params: []string{"string", "pattern", "flags?"}, Category: "regex"},
+
+	// === Path Matching ===
+	"match": {Name: "match", Arity: "2", Description: "Match path/URL against pattern with named captures (:name, *name)", Params: []string{"path", "pattern"}, Category: "path"},
 
 	// === Money ===
 	"money": {Name: "money", Arity: "1-2", Description: "Create money value", Params: []string{"amount", "currency?"}, Category: "money"},

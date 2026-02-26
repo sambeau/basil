@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
+	"github.com/sambeau/basil/pkg/parsley/lexer"
+	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
 // introspect_validation_test.go
@@ -470,6 +472,147 @@ func TestSkippedTypes_Documented(t *testing.T) {
 // ============================================================================
 // Test: Arity Parser
 // ============================================================================
+
+// ============================================================================
+// BUG-023 Regression Tests
+// ============================================================================
+
+// TestBUG023_NoPhantomOperators verifies that OperatorMetadata does not contain
+// operators that the parser cannot actually parse.
+func TestBUG023_NoPhantomOperators(t *testing.T) {
+	phantoms := []string{"**", "|>", "?:"}
+	for _, op := range phantoms {
+		if _, exists := OperatorMetadata[op]; exists {
+			t.Errorf("OperatorMetadata contains phantom operator %q which does not exist in the parser", op)
+		}
+	}
+}
+
+// TestBUG023_OperatorsAreParseable verifies that every operator listed in
+// OperatorMetadata can actually be parsed by the Parsley parser.
+func TestBUG023_OperatorsAreParseable(t *testing.T) {
+	// Build test expressions for each operator category
+	testExprs := map[string]string{
+		"+":      "1 + 2",
+		"-":      "5 - 3",
+		"*":      "2 * 3",
+		"/":      "10 / 2",
+		"%":      "10 % 3",
+		"==":     "1 == 1",
+		"!=":     "1 != 2",
+		"<":      "1 < 2",
+		">":      "2 > 1",
+		"<=":     "1 <= 2",
+		">=":     "2 >= 1",
+		"&&":     "true && false",
+		"and":    "true and false",
+		"||":     "true || false",
+		"or":     "true or false",
+		"!":      "!true",
+		"++":     "[1] ++ [2]",
+		"in":     "1 in [1,2]",
+		"not in": "3 not in [1,2]",
+		"..":     "1..5",
+		"~":      `"abc" ~ /a/`,
+		"!~":     `"abc" !~ /z/`,
+		"??":     "null ?? 1",
+	}
+
+	for op := range OperatorMetadata {
+		expr, ok := testExprs[op]
+		if !ok {
+			t.Errorf("OperatorMetadata contains operator %q with no parse test — add a test expression", op)
+			continue
+		}
+
+		t.Run("parse_"+op, func(t *testing.T) {
+			l := lexer.New(expr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				t.Errorf("Operator %q is in OperatorMetadata but fails to parse %q: %s",
+					op, expr, p.Errors()[0])
+			}
+			if program == nil {
+				t.Errorf("Operator %q produced nil program for %q", op, expr)
+			}
+		})
+	}
+}
+
+// TestBUG023_UnitBuiltinExists verifies that the `unit` builtin has metadata.
+func TestBUG023_UnitBuiltinExists(t *testing.T) {
+	meta, exists := BuiltinMetadata["unit"]
+	if !exists {
+		t.Fatal("BuiltinMetadata is missing entry for 'unit'")
+	}
+	if meta.Arity != "1-2" {
+		t.Errorf("unit arity: got %q, want %q", meta.Arity, "1-2")
+	}
+	if meta.Category != "unit" {
+		t.Errorf("unit category: got %q, want %q", meta.Category, "unit")
+	}
+}
+
+// TestBUG023_MatchMetadata verifies that `match` is described as a path matcher with arity 2.
+func TestBUG023_MatchMetadata(t *testing.T) {
+	meta, exists := BuiltinMetadata["match"]
+	if !exists {
+		t.Fatal("BuiltinMetadata is missing entry for 'match'")
+	}
+	if meta.Arity != "2" {
+		t.Errorf("match arity: got %q, want %q", meta.Arity, "2")
+	}
+	if meta.Category == "regex" {
+		t.Error("match category should not be 'regex' — it is a path/URL pattern matcher")
+	}
+	if strings.Contains(strings.ToLower(meta.Description), "regex") {
+		t.Errorf("match description should not mention regex: %q", meta.Description)
+	}
+	if len(meta.Params) != 2 {
+		t.Errorf("match params count: got %d, want 2", len(meta.Params))
+	}
+}
+
+// TestBUG023_FormatMetadata verifies that `format` is described as an array/duration formatter.
+func TestBUG023_FormatMetadata(t *testing.T) {
+	meta, exists := BuiltinMetadata["format"]
+	if !exists {
+		t.Fatal("BuiltinMetadata is missing entry for 'format'")
+	}
+	if meta.Arity != "1-3" {
+		t.Errorf("format arity: got %q, want %q", meta.Arity, "1-3")
+	}
+	if strings.Contains(strings.ToLower(meta.Description), "placeholder") {
+		t.Errorf("format description should not mention placeholders: %q", meta.Description)
+	}
+	if strings.Contains(strings.ToLower(meta.Description), "template") {
+		t.Errorf("format description should not mention template: %q", meta.Description)
+	}
+	if meta.Deprecated == "" {
+		t.Error("format should be marked as deprecated")
+	}
+}
+
+// TestBUG023_MatchActualArity verifies match rejects 3 arguments at runtime.
+func TestBUG023_MatchActualArity(t *testing.T) {
+	builtins := getBuiltins()
+	matchFn := builtins["match"]
+	result := matchFn.Fn(&String{Value: "/x"}, &String{Value: "/x"}, &String{Value: "extra"})
+	if _, ok := result.(*Error); !ok {
+		t.Errorf("match with 3 args should return error, got %T", result)
+	}
+}
+
+// TestBUG023_FormatRejectsStringTemplate verifies format rejects printf-style usage.
+func TestBUG023_FormatRejectsStringTemplate(t *testing.T) {
+	builtins := getBuiltins()
+	formatFn := builtins["format"]
+	result := formatFn.Fn(&String{Value: "hello %s"}, &String{Value: "world"})
+	if _, ok := result.(*Error); !ok {
+		t.Errorf("format with string template should return error, got %T", result)
+	}
+}
 
 func TestParseArityBounds(t *testing.T) {
 	tests := []struct {
