@@ -1006,6 +1006,7 @@ module.exports = grammar({
         $.regex,
         $.boolean,
         $.money,
+        $.unit,
         $._at_literal,
       ),
 
@@ -1066,6 +1067,77 @@ module.exports = grammar({
     // Regex only valid in prefix position (where division isn't expected)
     regex: ($) =>
       token(seq("/", /[^/\n*][^/\n]*/, "/", optional(/[gimsuvy]+/))),
+
+    // -------------------- Units --------------------
+    // lexer.go L1624-1785 (readUnitLiteral, isValidUnitSuffix)
+    // #100kg, #3.5m, #-6m, #3/8in, #92+5/8in, #64kB, #1KiB, #100mm2
+    unit: ($) =>
+      token(
+        seq(
+          "#",
+          optional("-"),
+          /\d+/,
+          optional(/\.\d+/),
+          optional(seq("+", /\d+/)),
+          optional(seq("/", /\d+/)),
+          choice(
+            // Area (longest match first)
+            "mm2",
+            "cm2",
+            "km2",
+            "m2",
+            "in2",
+            "ft2",
+            "yd2",
+            "mi2",
+            // Digital binary
+            "KiB",
+            "MiB",
+            "GiB",
+            "TiB",
+            // Volume US (multi-char)
+            "floz",
+            // Digital decimal (multi-char first)
+            "kB",
+            "MB",
+            "GB",
+            "TB",
+            // Length SI (longest first)
+            "mm",
+            "cm",
+            "km",
+            // Mass SI
+            "mg",
+            "kg",
+            // Volume SI
+            "mL",
+            "kL",
+            // Length US
+            "in",
+            "ft",
+            "yd",
+            "mi",
+            // Mass US
+            "oz",
+            "lb",
+            // Volume US
+            "cup",
+            "pt",
+            "qt",
+            "gal",
+            // Area US
+            "ac",
+            // Single-char (last)
+            "m",
+            "g",
+            "B",
+            "K",
+            "C",
+            "F",
+            "L",
+          ),
+        ),
+      ),
 
     // -------------------- Money --------------------
     // lexer.go L1275-1565 (readMoneyLiteral, isCurrencyCodeStart, isCompoundCurrencySymbol)

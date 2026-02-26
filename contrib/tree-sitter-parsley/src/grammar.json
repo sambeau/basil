@@ -4762,6 +4762,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "unit"
+        },
+        {
+          "type": "SYMBOL",
           "name": "_at_literal"
         }
       ]
@@ -4997,6 +5001,261 @@
               },
               {
                 "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "unit": {
+      "type": "TOKEN",
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "#"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "-"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "PATTERN",
+            "value": "\\d+"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "PATTERN",
+                "value": "\\.\\d+"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "+"
+                  },
+                  {
+                    "type": "PATTERN",
+                    "value": "\\d+"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "/"
+                  },
+                  {
+                    "type": "PATTERN",
+                    "value": "\\d+"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "mm2"
+              },
+              {
+                "type": "STRING",
+                "value": "cm2"
+              },
+              {
+                "type": "STRING",
+                "value": "km2"
+              },
+              {
+                "type": "STRING",
+                "value": "m2"
+              },
+              {
+                "type": "STRING",
+                "value": "in2"
+              },
+              {
+                "type": "STRING",
+                "value": "ft2"
+              },
+              {
+                "type": "STRING",
+                "value": "yd2"
+              },
+              {
+                "type": "STRING",
+                "value": "mi2"
+              },
+              {
+                "type": "STRING",
+                "value": "KiB"
+              },
+              {
+                "type": "STRING",
+                "value": "MiB"
+              },
+              {
+                "type": "STRING",
+                "value": "GiB"
+              },
+              {
+                "type": "STRING",
+                "value": "TiB"
+              },
+              {
+                "type": "STRING",
+                "value": "floz"
+              },
+              {
+                "type": "STRING",
+                "value": "kB"
+              },
+              {
+                "type": "STRING",
+                "value": "MB"
+              },
+              {
+                "type": "STRING",
+                "value": "GB"
+              },
+              {
+                "type": "STRING",
+                "value": "TB"
+              },
+              {
+                "type": "STRING",
+                "value": "mm"
+              },
+              {
+                "type": "STRING",
+                "value": "cm"
+              },
+              {
+                "type": "STRING",
+                "value": "km"
+              },
+              {
+                "type": "STRING",
+                "value": "mg"
+              },
+              {
+                "type": "STRING",
+                "value": "kg"
+              },
+              {
+                "type": "STRING",
+                "value": "mL"
+              },
+              {
+                "type": "STRING",
+                "value": "kL"
+              },
+              {
+                "type": "STRING",
+                "value": "in"
+              },
+              {
+                "type": "STRING",
+                "value": "ft"
+              },
+              {
+                "type": "STRING",
+                "value": "yd"
+              },
+              {
+                "type": "STRING",
+                "value": "mi"
+              },
+              {
+                "type": "STRING",
+                "value": "oz"
+              },
+              {
+                "type": "STRING",
+                "value": "lb"
+              },
+              {
+                "type": "STRING",
+                "value": "cup"
+              },
+              {
+                "type": "STRING",
+                "value": "pt"
+              },
+              {
+                "type": "STRING",
+                "value": "qt"
+              },
+              {
+                "type": "STRING",
+                "value": "gal"
+              },
+              {
+                "type": "STRING",
+                "value": "ac"
+              },
+              {
+                "type": "STRING",
+                "value": "m"
+              },
+              {
+                "type": "STRING",
+                "value": "g"
+              },
+              {
+                "type": "STRING",
+                "value": "B"
+              },
+              {
+                "type": "STRING",
+                "value": "K"
+              },
+              {
+                "type": "STRING",
+                "value": "C"
+              },
+              {
+                "type": "STRING",
+                "value": "F"
+              },
+              {
+                "type": "STRING",
+                "value": "L"
               }
             ]
           }

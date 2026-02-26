@@ -158,6 +158,13 @@ function hljsDefineParsley(hljs) {
     match: /([$£€¥]|[A-Z]{3}#)\d+(\.\d{1,2})?/,
   };
 
+  // Unit literals: #100kg, #3.5m, #-6m, #3/8in, #92+5/8in, #64kB, #1KiB, #100mm2
+  const UNIT_LITERAL = {
+    scope: "number",
+    match:
+      /#-?\d+(\.\d+)?(\+\d+)?(\/\d+)?(mm2|cm2|km2|m2|in2|ft2|yd2|mi2|KiB|MiB|GiB|TiB|floz|kB|MB|GB|TB|mm|cm|km|mg|kg|mL|kL|in|ft|yd|mi|oz|lb|cup|pt|qt|gal|ac|m|g|B|K|C|F|L)/,
+  };
+
   // Operators - special I/O and database operators
   const SPECIAL_OPERATORS = {
     scope: "operator",
@@ -277,6 +284,7 @@ function hljsDefineParsley(hljs) {
       SPECIAL_OPERATORS,
       QUERY_OPERATORS,
       AT_LITERAL,
+      UNIT_LITERAL,
       MONEY,
       REGEX,
       STRING,

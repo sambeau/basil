@@ -210,3 +210,99 @@ USD#100.00
 (source_file
   (expression_statement
     (money)))
+
+==================
+Unit literal — simple
+==================
+
+#100kg
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — float
+==================
+
+#3.5m
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — negative
+==================
+
+#-6m
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — fraction
+==================
+
+#3/8in
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — mixed fraction
+==================
+
+#92+5/8in
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — digital binary
+==================
+
+#1KiB
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — area
+==================
+
+#100mm2
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))
+
+==================
+Unit literal — temperature
+==================
+
+#72F
+
+---
+
+(source_file
+  (expression_statement
+    (unit)))

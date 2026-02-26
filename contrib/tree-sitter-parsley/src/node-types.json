@@ -172,6 +172,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -352,6 +356,10 @@
         },
         {
           "type": "try_expression",
+          "named": true
+        },
+        {
+          "type": "unit",
           "named": true
         },
         {
@@ -597,6 +605,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -835,6 +847,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -1019,6 +1035,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -1194,6 +1214,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -1397,6 +1421,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -1572,6 +1600,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -1784,6 +1816,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -2095,6 +2131,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -2279,6 +2319,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -2459,6 +2503,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -2656,6 +2704,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -2841,6 +2893,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -3114,6 +3170,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -3346,6 +3406,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -3530,6 +3594,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -3705,6 +3773,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -3889,6 +3961,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -4184,6 +4260,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -4365,6 +4445,10 @@
         },
         {
           "type": "try_expression",
+          "named": true
+        },
+        {
+          "type": "unit",
           "named": true
         },
         {
@@ -4551,6 +4635,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -4726,6 +4814,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -4949,6 +5041,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -5130,6 +5226,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -5327,6 +5427,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -5510,6 +5614,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -5685,6 +5793,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -5909,6 +6021,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -6090,6 +6206,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -6305,6 +6425,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -6488,6 +6612,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -6668,6 +6796,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -7071,6 +7203,10 @@
         },
         {
           "type": "try_expression",
+          "named": true
+        },
+        {
+          "type": "unit",
           "named": true
         },
         {
@@ -7490,6 +7626,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -7696,6 +7836,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -7876,6 +8020,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -8060,6 +8208,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -8273,6 +8425,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -8448,6 +8604,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -8729,6 +8889,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -8907,6 +9071,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -9082,6 +9250,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -9385,6 +9557,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -9677,6 +9853,10 @@
           "named": true
         },
         {
+          "type": "unit",
+          "named": true
+        },
+        {
           "type": "url_literal",
           "named": true
         },
@@ -9895,6 +10075,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -10086,6 +10270,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -10310,6 +10498,10 @@
             "named": true
           },
           {
+            "type": "unit",
+            "named": true
+          },
+          {
             "type": "url_literal",
             "named": true
           },
@@ -10485,6 +10677,10 @@
           },
           {
             "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "unit",
             "named": true
           },
           {
@@ -10975,6 +11171,10 @@
   {
     "type": "try",
     "named": false
+  },
+  {
+    "type": "unit",
+    "named": true
   },
   {
     "type": "url_literal",

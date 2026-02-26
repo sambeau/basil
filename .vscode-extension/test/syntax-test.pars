@@ -74,6 +74,20 @@ let yen = ¥1000
 let eurCode = EUR#100.00
 
 // ========================================
+// Unit Literals
+// ========================================
+let weight = #100kg
+let length = #3.5m
+let negLength = #-6m
+let fraction = #3/8in
+let mixed = #92+5/8in
+let data = #64kB
+let binary = #1KiB
+let area = #100mm2
+let temp = #72F
+let volume = #2.5L
+
+// ========================================
 // String Literals
 // ========================================
 let simple = "Hello, World!"

@@ -29,6 +29,7 @@
 ; Literals
 (number) @number
 (money) @number
+(unit) @number
 (boolean) @constant.builtin
 
 ; Strings
