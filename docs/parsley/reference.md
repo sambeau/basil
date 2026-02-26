@@ -1622,13 +1622,13 @@ Computed exports:
 import {activeUsers} from @./data.pars
 
 // Each access recalculates
-for (user in activeUsers) { print(user.name) }  // Query 1
-for (user in activeUsers) { print(user.email) } // Query 2
+for (user in activeUsers) { log(user.name) }  // Query 1
+for (user in activeUsers) { log(user.email) } // Query 2
 
 // Cache by assigning to a variable
-let snapshot = activeUsers                       // Query 3
-for (user in snapshot) { print(user.name) }     // Uses snapshot
-for (user in snapshot) { print(user.email) }    // Uses snapshot
+let snapshot = activeUsers                     // Query 3
+for (user in snapshot) { log(user.name) }     // Uses snapshot
+for (user in snapshot) { log(user.email) }    // Uses snapshot
 ```
 
 #### Module System Overview
@@ -1995,19 +1995,20 @@ user.reorder({name: "first_name", surname: "last_name"})
 
 ### 5.4 Number Methods
 
-Integer and float types share formatting methods. All numeric types support the unified formatter API with `.fmt()` and style sugar methods.
+Integer and float types share formatting methods. Floats have additional math methods. All numeric types support the unified formatter API with `.fmt()` and style sugar methods.
+
+#### Integer Methods (13 methods)
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
+| `.abs()` | none | `integer` | Absolute value |
 | `.fmt()` | none | `string` | Format with default style (medium) and locale |
-| `.fmt(n)` | `n: integer` | `string` | Format with n decimal places (floats) |
 | `.fmt(style)` | `style: string` | `string` | Format with named style |
 | `.fmt(style, locale)` | `style: string`, `locale: string` | `string` | Format with style and locale |
-| `.fmt(options)` | `options: dictionary` | `string` | Format with options dict |
+| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
 | `.short(locale?)` | `locale?: string` | `string` | Compact format (1.2K, 3.4M) |
 | `.medium(locale?)` | `locale?: string` | `string` | Standard format with separators |
 | `.long(locale?)` | `locale?: string` | `string` | Full precision format |
-| `.format(...)` | same as `.fmt()` | `string` | Alias for `.fmt()` |
 | `.currency(code, locale?)` | `code: string`, `locale?: string` | `string` | Currency format |
 | `.percent(locale?)` | `locale?: string` | `string` | Percentage format |
 | `.humanize(locale?)` | `locale?: string` | `string` | Alias for `.short()` |
@@ -2016,6 +2017,17 @@ Integer and float types share formatting methods. All numeric types support the 
 | `.inspect()` | none | `dictionary` | Debug dictionary with `__type` |
 | `.toBox()` | none | `string` | Render number in a box |
 
+#### Float Methods (16 methods)
+
+Floats have all integer methods plus these math methods:
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.abs()` | none | `float` | Absolute value |
+| `.round(n?)` | `n?: integer` | `float` | Round to n decimal places (default 0) |
+| `.ceil()` | none | `integer` | Round up to nearest integer |
+| `.floor()` | none | `integer` | Round down to nearest integer |
+
 **Format styles**:
 | Style | Integer | Float |
 |-------|---------|-------|
@@ -2023,9 +2035,16 @@ Integer and float types share formatting methods. All numeric types support the 
 | `"medium"` (default) | `"1,234,567"` | `"1,234.5"` |
 | `"long"` | `"1,234,567"` | `"1,234.50"` |
 
-**Note**: Numbers do not have `.abs()`, `.round()`, etc. as methods. Use `@std/math` functions instead: `math.abs(-5)`, `math.round(3.7)`.
-
 ```parsley
+// Math methods
+(-5).abs()                      // 5
+(-3.7).abs()                    // 3.7
+(3.7).round()                   // 4
+(3.14159).round(2)              // 3.14
+(3.2).ceil()                    // 4
+(3.9).floor()                   // 3
+
+// Formatting
 let n = 1234567
 n.fmt()                         // "1,234,567"
 n.fmt("short")                  // "1.2M"
@@ -2033,7 +2052,6 @@ n.short()                       // "1.2M"
 n.fmt("medium", "de-DE")        // "1.234.567"
 
 let f = 1234.5678
-f.fmt(2)                        // "1,234.57"
 f.fmt({precision: 2})           // "1,234.57"
 
 n.currency("USD")               // "$1,234,567.00"
@@ -3099,25 +3117,20 @@ toDict([["x", 10], ["y", 20]])  // {x: 10, y: 20}
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `print(vals...)` | `vals: any...` | `null` | Print without newline |
-| `println(vals...)` | `vals: any...` | `null` | Print with newline |
-| `printf(template, dict)` | `template: string`, `dict: dictionary` | `null` | Print template with `@{key}` placeholders |
 | `log(vals...)` | `vals: any...` | `null` | Log values (first string unquoted) |
 | `logLine(vals...)` | `vals: any...` | `null` | Log with newline |
 
-**Note**: These write to stdout. In web context, output typically doesn't appear to users.
+**Note**: Parsley uses expression-based output — values ARE the output. Use `log()` for debugging only.
 
 **`log()` behavior**: First argument is displayed without quotes if it's a string (as a label), subsequent values use debug format.
-
-**`printf()` syntax**: Unlike C-style printf, Parsley's `printf` uses template interpolation with `@{key}` placeholders that are replaced with values from the dictionary argument.
 
 ```parsley
 log("user", currentUser)        // "user {name: 'Alice', ...}"
 log(42, "hello")                // "42, hello"
 
-// printf uses @{key} placeholders
-printf("Hello @{name}, you are @{age} years old", {name: "Alice", age: 30})
-// Output: Hello Alice, you are 30 years old
+// For string interpolation, use template strings or .render()
+"Hello @{name}, you are @{age} years old".render({name: "Alice", age: 30})
+// Returns: "Hello Alice, you are 30 years old"
 ```
 
 ---
@@ -3168,14 +3181,26 @@ tag("div", {class: "box"}, "Hello")  // <div class="box">Hello</div>
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
 | `regex(pattern, flags?)` | `pattern: string`, `flags?: string` | `regex` | Create regex from string |
-| `match(str, pattern, flags?)` | `str: string`, `pattern: string`, `flags?: string` | `string\|null` | Find first match |
 
 **Flags**: `i` (case-insensitive), `m` (multiline), `s` (dotall), `g` (global).
 
 ```parsley
 regex("\\d+", "g")              // /\d+/g
-match("hello123world", "\\d+")  // "123"
-match("hello", "\\d+")          // null
+```
+
+### 6.5.1 Path Pattern Matching
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `match(path, pattern)` | `path: string\|path`, `pattern: string` | `dictionary\|null` | Match path against pattern with named captures |
+
+The `match()` function performs **path/URL pattern matching** (not regex). Use `:name` for named captures and `*name` for wildcard captures.
+
+```parsley
+match("/users/42", "/users/:id")           // {id: "42"}
+match("/posts/hello-world", "/posts/:slug") // {slug: "hello-world"}
+match("/files/a/b/c", "/files/*path")      // {path: ["a", "b", "c"]}
+match("/users/42", "/posts/:id")           // null (no match)
 ```
 
 ---
@@ -3431,7 +3456,7 @@ These functions create file handles for reading and writing.
 | `raw(source)` | `source: path` | `file` | Binary file handle (returns byte array) |
 | `SVG(path, attrs?)` | `path: path`, `attrs?: dict` | `file` | SVG file handle with optional attributes |
 | `MD(path, opts?)` | `path: path`, `opts?: dict` | `file` | Markdown file handle (renders to HTML) |
-| `markdown(path, opts?)` | `path: path`, `opts?: dict` | `file` | Markdown with frontmatter (returns `{meta, content}`) |
+| `markdown(text)` | `text: string` | `dictionary` | Parse markdown string (returns `{html, md, raw}`) |
 | `file(path, opts?)` | `path: path`, `opts?: dict` | `file` | Auto-detect format from extension |
 | `dir(path)` | `path: path` | `file` | Directory listing handle |
 | `fileList(path, pattern?)` | `path: path`, `pattern?: string` | `array` | Recursive file listing |
@@ -3467,10 +3492,14 @@ result.ok                                                             // true
 let {data, error} = <=/= JSON(@https://api.example.com/users)
 let {data, error} = payload =/=> JSON(@https://api.example.com/items)
 
-// Markdown with frontmatter
-let doc <== markdown(@./post.md)
-doc.meta.title                  // Frontmatter field
-doc.content                     // Rendered HTML
+// Parse markdown string (not file)
+let result = markdown("# Hello\nSome **bold** text")
+result.html                     // "<h1>Hello</h1>\n<p>Some <strong>bold</strong> text</p>\n"
+result.raw                      // Original markdown string
+
+// For markdown files, use MD() with frontmatter via string method
+let doc <== MD(@./post.md)      // Returns rendered HTML
+"# Title".parseMarkdown()       // String method alternative
 
 // File listing
 let all = fileList(@./src, "*.pars")  // All .pars files recursively
@@ -3610,7 +3639,7 @@ let restored = deserialize(pln)
 
 // Security: expressions are rejected
 deserialize("1 + 1")            // Error
-deserialize("print(42)")        // Error
+deserialize("fn() { 42 }")      // Error
 ```
 
 **Non-serializable types** (will produce an error):
@@ -4870,8 +4899,8 @@ let config = loadConfig() ?? {default: true}
 ## Reserved Keywords
 
 ```
-fn, function, let, for, in, if, else, return, export, import,
-try, check, stop, skip, true, false, null, and, or, as, via
+fn, function, let, var, const, for, in, if, else, return, export, import,
+try, check, stop, skip, true, false, null, and, or, not, as, via, is, computed, with
 ```
 
 ---
@@ -4903,13 +4932,17 @@ try, check, stop, skip, true, false, null, and, or, as, via
 
 ## Appendix B: Method Reference
 
-### String Methods (27 methods)
+### String Methods (38 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
 | `toUpper()` | 0 | Convert to uppercase |
 | `toLower()` | 0 | Convert to lowercase |
 | `toTitle()` | 0 | Title case |
+| `toCamel()` | 0 | Convert to camelCase |
+| `toKebab()` | 0 | Convert to kebab-case |
+| `toPascal()` | 0 | Convert to PascalCase |
+| `toSnake()` | 0 | Convert to snake_case |
 | `trim()` | 0 | Remove surrounding whitespace |
 | `split(delim)` | 1 | Split by delimiter |
 | `replace(old, new)` | 2 | Replace all occurrences |
@@ -4920,6 +4953,7 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `render(dict?)` | 0-1 | Interpolate template |
 | `parseJSON()` | 0 | Parse as JSON |
 | `parseCSV(hasHeader?)` | 0-1 | Parse as CSV |
+| `parseMarkdown(opts?)` | 0-1 | Parse as markdown |
 | `collapse()` | 0 | Collapse whitespace |
 | `normalizeSpace()` | 0 | Collapse + trim |
 | `stripSpace()` | 0 | Remove all whitespace |
@@ -4932,11 +4966,16 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `urlDecode()` | 0 | URL decode |
 | `urlPathEncode()` | 0 | Encode path segment |
 | `urlQueryEncode()` | 0 | Encode query value |
+| `toBase64()` | 0 | Encode as Base64 |
+| `fromBase64()` | 0 | Decode from Base64 |
 | `outdent()` | 0 | Remove common indent |
 | `indent(n)` | 1 | Add n spaces to lines |
+| `truncate(len, suffix?)` | 1-2 | Truncate with suffix |
+| `repr()` | 0 | Parseable representation |
+| `toJSON()` | 0 | Convert to JSON string |
 | `toBox(opts?)` | 0-1 | Render in box |
 
-### Array Methods (20 methods)
+### Array Methods (15 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
@@ -4947,45 +4986,56 @@ try, check, stop, skip, true, false, null, and, or, as, via
 | `map(fn)` | 1 | Transform elements |
 | `filter(fn)` | 1 | Filter by predicate |
 | `reduce(fn, init)` | 2 | Reduce to value |
-| `reorder(spec)` | 1 | Reorder/rename dict keys |
 | `format(style?, locale?)` | 0-2 | Format as list |
 | `join(sep?)` | 0-1 | Join to string |
 | `toJSON()` | 0 | Convert to JSON |
 | `toCSV(hasHeader?)` | 0-1 | Convert to CSV |
-| `toBox(opts?)` | 0-1 | Render in box (direction, align, style, title, maxWidth) |
 | `shuffle()` | 0 | Random order |
 | `pick(n?)` | 0-1 | Random element(s) |
 | `take(n)` | 1 | n unique random |
-| `has(item)` | 1 | Contains item? |
-| `hasAny(arr)` | 1 | Contains any? |
-| `hasAll(arr)` | 1 | Contains all? |
 | `insert(i, val)` | 2 | Insert at index |
 
-### Dictionary Methods (12 methods)
+### Dictionary Methods (9 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
 | `keys()` | 0 | Get all keys |
 | `values()` | 0 | Get all values |
-| `entries(k?, v?)` | 0 or 2 | Get key-value pairs |
+| `entries()` | 0 | Get [key, value] pairs |
 | `has(key)` | 1 | Key exists? |
 | `delete(key)` | 1 | Remove key (mutates) |
-| `insertAfter(after, k, v)` | 3 | Insert after key |
-| `insertBefore(before, k, v)` | 3 | Insert before key |
-| `reorder(spec)` | 1 | Reorder/rename keys |
-| `render(template)` | 1 | Render template |
+| `insertAfter(after, k, v)` | 2 | Insert key-value after existing key |
+| `insertBefore(before, k, v)` | 2 | Insert key-value before existing key |
+| `render(template?)` | 0-1 | Render template with values |
 | `toJSON()` | 0 | Convert to JSON |
-| `toBox(opts?)` | 0-1 | Render in box (align, keys, style, title, maxWidth) |
 
-### Number Methods (5 methods)
+### Integer Methods (13 methods)
 
 | Method | Arity | Description |
 |--------|-------|-------------|
-| `format(locale?)` | 0-1 | Locale format |
+| `abs()` | 0 | Absolute value |
+| `fmt(style?, locale?)` | 0-2 | Format with style and locale |
+| `format(...)` | 0-2 | Alias for fmt() |
+| `short(locale?)` | 0-1 | Compact format (1.2K) |
+| `medium(locale?)` | 0-1 | Standard format with separators |
+| `long(locale?)` | 0-1 | Full precision format |
 | `currency(code, locale?)` | 1-2 | Currency format |
 | `percent(locale?)` | 0-1 | Percentage format |
-| `humanize(locale?)` | 0-1 | Compact format (1.2K) |
-| `toBox(opts?)` | 0-1 | Render in box |
+| `humanize(locale?)` | 0-1 | Alias for short() |
+| `repr()` | 0 | Parseable representation |
+| `toJSON()` | 0 | JSON representation |
+| `inspect()` | 0 | Debug dictionary |
+| `toBox()` | 0 | Render in box |
+
+### Float Methods (16 methods)
+
+Floats have all integer methods plus:
+
+| Method | Arity | Description |
+|--------|-------|-------------|
+| `round(n?)` | 0-1 | Round to n decimal places |
+| `ceil()` | 0 | Round up to integer |
+| `floor()` | 0 | Round down to integer |
 
 ### Boolean Methods (1 method)
 
