@@ -346,21 +346,6 @@ var OperatorMetadata = map[string]OperatorInfo{
 	"?:": {Symbol: "?:", Name: "Ternary", Description: "Conditional expression: condition ? then : else", Category: "control", Example: "x > 0 ? \"pos\" : \"neg\""},
 }
 
-// GetOperatorsByCategory returns operators grouped by category
-func GetOperatorsByCategory() map[string][]OperatorInfo {
-	result := make(map[string][]OperatorInfo)
-	for _, info := range OperatorMetadata {
-		result[info.Category] = append(result[info.Category], info)
-	}
-	// Sort within each category by symbol
-	for cat := range result {
-		sort.Slice(result[cat], func(i, j int) bool {
-			return result[cat][i].Symbol < result[cat][j].Symbol
-		})
-	}
-	return result
-}
-
 // ============================================================================
 // Builtin Function Metadata
 // ============================================================================

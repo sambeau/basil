@@ -21,13 +21,6 @@ func (p *Printer) String() string {
 	return p.output.String()
 }
 
-// Reset clears the printer state for reuse
-func (p *Printer) Reset() {
-	p.output.Reset()
-	p.indent = 0
-	p.linePos = 0
-}
-
 // write appends a string to the output and updates line position
 func (p *Printer) write(s string) {
 	p.output.WriteString(s)

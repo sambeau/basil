@@ -1527,12 +1527,6 @@ func UnitToString(u *Unit) string {
 	return unitInterpolationString(u)
 }
 
-// IsUnit returns true if the object is a Unit.
-func IsUnit(obj Object) bool {
-	_, ok := obj.(*Unit)
-	return ok
-}
-
 // --- Introspection support ---
 
 func init() {
