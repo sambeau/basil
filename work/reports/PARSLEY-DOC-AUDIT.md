@@ -410,12 +410,76 @@ The CHEATSHEET (`docs/parsley/CHEATSHEET.md`) is ~1,965 lines and targets "begin
 - Mixes Parsley language reference with Basil server docs (Parts, CSRF, asset bundles)
 - Some examples may not run correctly (should be verified with `pars -e`)
 
-### Recommendations
+### 6.1 Should We Split the CHEATSHEET into Parsley & Basil Versions?
 
-1. **Update the CHEATSHEET for v1.0** — fix deprecated imports, remove references to deprecated APIs
-2. **Consider splitting**: Parsley-only cheatsheet (~1,200 lines) + Basil-specific cheatsheet. Most AI agents working on Parsley code don't need the Parts/CSRF/session sections.
-3. **Do NOT create "SKILL" files yet.** The CHEATSHEET format works well. Standard skills/knowledge files are framework-specific and add maintenance burden. Revisit after v1.0 when the API is stable. If we do create them, they should be generated from the same code metadata that powers `pars describe`.
-4. **Verify all code examples** — every code block in the CHEATSHEET should be runnable with `pars -e`. This is a one-time pass but important for AI trust.
+**Yes, but not a 50/50 split.** Looking at the actual content:
+
+The Basil-specific sections are:
+- 🌿 Basil Server (L1420–1561) — config, `@basil/http`, `@basil/auth`, CSRF, path matching
+- 🧩 Parts (L1561–1660) — interactive components
+- 🎨 Asset Bundles (L1660–1686)
+- 🔒 Security Flags (L1686–1702) — arguably shared (applies to `pars` CLI too)
+
+That's ~280 lines of Basil-specific content out of ~1,965 total. The rest is pure Parsley.
+
+**Recommendation:** Remove the Basil sections from the Parsley CHEATSHEET entirely. Don't create a separate Basil cheatsheet yet — that's a task for the Basil documentation effort later. The Parsley CHEATSHEET becomes ~1,700 lines of pure language documentation, which is cleaner, more focused, and within comfortable context window sizes.
+
+The security flags section can stay — it documents `pars` CLI behaviour, not the Basil server.
+
+### 6.2 SKILL Files
+
+Since this is the last task before v1.0, the question is: is the CHEATSHEET the right format, or do we need something more structured?
+
+The CHEATSHEET has a serious problem we just uncovered: its method reference tables were hallucinated. The prose sections (gotchas, patterns, examples) are excellent. The API tables are unreliable.
+
+For a SKILL file that AI agents can trust:
+
+1. **Keep the CHEATSHEET prose** — the gotchas, patterns, and "how Parsley differs" sections are genuinely valuable and hard to auto-generate
+2. **Replace the method reference tables** with a pointer to `pars describe all --json` — which is machine-generated from code and therefore always correct
+3. **Add a brief "AI Quick Start" header** that tells agents: use `pars describe <topic>` for API lookups, use the cheatsheet for patterns and pitfalls
+
+This keeps the SKILL minimal, accurate, and low-maintenance. The `pars describe` system is already comprehensive (45 builtins, 26 operators, 25 types with methods/properties, 13 modules with exports).
+
+**Do NOT create standalone SKILL files yet.** The CHEATSHEET format works well. Standard skills/knowledge files are framework-specific and add maintenance burden. Revisit after v1.0 when the API is stable. If we do create them, they should be generated from the same code metadata that powers `pars describe`.
+
+### 6.3 Generating the Reference from Code Metadata
+
+> See **Appendix B** for full feasibility analysis and implementation plan for `pars reference --format markdown`.
+
+What `pars describe all --json` already provides:
+
+| Category | Coverage | Quality |
+|----------|----------|---------|
+| Builtins (45) | ✅ Complete | Name, arity, description, params, category |
+| Operators (26) | ✅ Complete | Symbol, name, description, category, example |
+| Type methods | ✅ Good | Name, arity, description (from registries) |
+| Type properties | ✅ Good | Name, type, description |
+| Module exports | ✅ Good | Name, kind, arity, description |
+
+What's missing for a full reference:
+
+| What | Source | Effort |
+|------|--------|--------|
+| **Literal syntax** (numbers, strings, dates, money, units, schemas, tables) | Not in metadata — this is grammar, not API | Hand-written sections |
+| **Operator semantics by type** (e.g., `+` on strings vs arrays vs money) | Not captured — `OperatorMetadata` has one description per operator | Would need type-specific operator tables |
+| **Control flow** (`if`, `for`, `with`, `try`, `check`, `stop`, `skip`) | Not in metadata — language constructs, not functions | Hand-written |
+| **Statements** (`let`, `var`, `export`, `import`, `return`) | Not in metadata | Hand-written |
+| **Tags** (HTML syntax, attributes, components, form binding) | Not in metadata | Hand-written |
+| **Code examples** | Not in metadata | Hand-written |
+| **Error classes** (catchable errors, error codes) | Partially in `errors/` package | Would need extraction |
+| **Type coercion rules** | In evaluator logic, not metadata | Hand-written |
+| **Precedence table** | Not in metadata | Hand-written |
+
+**Conclusion:** The metadata can generate roughly **sections 5, 6, and 7 of the reference** (type methods, builtin functions, and standard library) — which is where most of the drift occurs and where ~60% of the reference content lives. Sections 1–4 (literals, operators, control flow, statements) and section 8 (tags) are inherently prose/grammar documentation that needs to be hand-written.
+
+### Recommendations (Summary)
+
+1. **Fix the CHEATSHEET method tables immediately** — remove all hallucinated methods, replace with verified methods from code registries (critical, §1.5)
+2. **Strip Basil content from the CHEATSHEET** — remove ~280 lines of Basil-specific sections, keep security flags
+3. **Replace CHEATSHEET API tables with `pars describe` pointers** — tell AI agents to use `pars describe <topic>` for API lookups
+4. **Add an "AI Quick Start" header** to the CHEATSHEET
+5. **Verify all code examples** — every code block in the CHEATSHEET should be runnable with `pars -e`
+6. **Build `pars reference --format markdown`** — see Appendix B for full plan; target v1.0 if schedule permits, otherwise v1.1
 
 ---
 
