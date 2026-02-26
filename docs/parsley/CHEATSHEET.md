@@ -1146,20 +1146,20 @@ for (user in snapshot) { print(user.email) }
 
 ```parsley
 // Standard library
-let {dev} = import @std/dev
 let {PI, sin, cos, floor} = import @std/math
-let {email, minLen, url} = import @std/valid
-let {string, object, validate} = import @std/schema
-let {uuid, nanoid, new} = import @std/id
-let {notFound, redirect} = import @std/api
+let {uuid, nanoid, cuid} = import @std/id         // ID generators
+let {uuid, nanoid, ulid, cuid} = import @std/valid // ID validators
 let {mdDoc} = import @std/mdDoc
+let {md5, sha256} = import @std/hash
 
-// Tables - use @table literal instead of @std/table
+// Tables - use @table literal
 let t = @table [{name: "Alice"}, {name: "Bob"}]
 
-// Basil context (available in handlers)
+// Basil-specific (server context)
 let {request, response, query, route, method} = import @basil/http
 let {session, auth, user} = import @basil/auth
+let {notFound, redirect} = import @basil/api
+let {log, warn, error} = import @basil/log
 ```
 
 ### Math Module (`@std/math`)
@@ -1291,9 +1291,9 @@ t.toCSV()                          // CSV string
 t.toArray()                        // Array of dictionaries
 ```
 
-### HTML Components (`@std/html`)
+### HTML Components (`@basil/html`)
 ```parsley
-let {Page, TextField, Button, Form} = import @std/html
+let {Page, TextField, Button, Form} = import @basil/html
 
 <Page lang="en" title="Contact">
     <main>
@@ -1306,10 +1306,10 @@ let {Page, TextField, Button, Form} = import @std/html
 </Page>
 ```
 
-### API Helpers (`@std/api`)
+### API Helpers (`@basil/api`)
 ```parsley
 let {redirect, notFound, forbidden, badRequest,
-     unauthorized, conflict, serverError} = import @std/api
+     unauthorized, conflict, serverError} = import @basil/api
 
 redirect("/dashboard")              // 302 redirect
 redirect("/new-page", 301)          // Permanent redirect
@@ -1319,26 +1319,23 @@ badRequest("Invalid input")         // 400 error
 unauthorized("Login required")      // 401 error
 ```
 
-### Schema Module (`@std/schema`)
+### Schema DSL (`@schema`)
+
+> **Note:** The `@std/schema` module is deprecated. Use the `@schema` DSL instead.
+
 ```parsley
-let {string, email, integer, number, boolean,
-     object, array, define} = import @std/schema
+// Define schemas using @schema DSL (preferred)
+@schema User {
+    name: string(min: 1, required)
+    email: email(required)
+    age: integer(min: 0, max: 150)
+    active: boolean
+}
 
-// Define a schema with name and fields
-let UserSchema = define("User", {
-    name: string({minLen: 1}),
-    email: email(),
-    age: integer({min: 0, max: 150}),
-    active: boolean()
-})
-
-// Validate data using schema method
-let {valid, errors} = UserSchema.validate({
-    name: "Alice",
-    email: "alice@example.com",
-    age: 30,
-    active: true
-})
+// Create and validate records
+let user = User({name: "Alice", email: "alice@example.com", age: 30, active: true})
+user.valid       // true if all fields pass validation
+user.errors      // array of validation errors (empty if valid)
 ```
 
 ### Form Binding
@@ -1403,285 +1400,21 @@ nanoid(16)                         // NanoID with custom length
 cuid()                             // CUID2-like (secure, collision-resistant)
 ```
 
-### Dev Module (`@std/dev`)
+### Logging Module (`@basil/log`)
 ```parsley
-import @std/dev                    // Imports as 'dev'
+import @basil/log                  // Imports as 'log'
 
-dev.log("Debug info")              // Log to dev panel
-dev.log("label", value)            // Log with label
-dev.clearLog()                     // Clear dev log
-dev.logPage("/route", value)       // Log to specific route
-dev.setLogRoute("/api")            // Set default route
-dev.clearLogPage("/route")         // Clear log for route
+log.log("Debug info")              // Log to dev panel
+log.log("label", value)            // Log with label
+log.clearLog()                     // Clear dev log
+log.logPage("/route", value)       // Log to specific route
+log.setLogRoute("/api")            // Set default route
+log.clearLogPage("/route")         // Clear log for route
 ```
 
 ---
 
-## 🌿 Basil Server
 
-### Configuration (basil.yaml)
-```yaml
-server:
-  host: localhost
-  port: 8080
-
-# Filesystem-based routing
-site: ./site              # Files serve at their path
-
-# OR explicit routes
-routes:
-  - path: /
-    handler: ./handlers/index.pars
-  - path: /api/*
-    handler: ./handlers/api.pars
-
-public_dir: ./public      # Static files
-
-sqlite: ./data.db         # Database
-
-session:
-  secret: "32-char-secret"  # Required in production
-  max_age: 24h
-
-security:
-  allow_write:
-    - ./data              # Whitelist write directories
-```
-
-### HTTP Request/Response (`@basil/http`)
-```parsley
-let {request, response, query, route, method} = import @basil/http
-
-// Shortcuts (most common)
-query                              // URL query params {id: "123"}
-route                              // Matched route subpath
-method                             // "GET", "POST", etc.
-
-// Full request object
-request.method                     // "GET", "POST", etc.
-request.path                       // "/users/123"
-request.query                      // {id: "123"}
-request.form                       // POST form data
-request.cookies                    // {theme: "dark"}
-request.headers                    // Request headers
-
-// Set response
-response.status = 404
-response.headers["X-Custom"] = "value"
-
-// Set cookies
-response.cookies.theme = "dark"
-response.cookies.session = {
-    value: token,
-    maxAge: @30d,
-    httpOnly: true,
-    secure: true
-}
-```
-
-### Sessions & Auth (`@basil/auth`)
-```parsley
-let {session, auth, user} = import @basil/auth
-
-// Session: store values
-session.set("user_id", 123)
-session.set("cart", ["item1", "item2"])
-
-// Session: retrieve values
-let userId = session.get("user_id")
-let cart = session.get("cart", [])        // with default
-
-// Session: check/delete
-session.has("user_id")                    // true
-session.delete("user_id")
-session.clear()                           // logout
-
-// Flash messages (show once then disappear)
-session.flash("success", "Profile updated!")
-// On next page:
-let msg = session.getFlash("success")
-
-// Auth context
-user                                      // Current user (auth.user shortcut)
-auth.user                                 // Same as above
-auth.isLoggedIn                           // Boolean
-
-// Database - use @DB magic variable instead
-@DB <=?=> `SELECT * FROM users WHERE id = {userId}`
-```
-
-**Session notes:**
-- Stored in encrypted cookies (AES-256-GCM)
-- Dev mode: `secure=false` (works with HTTP localhost)
-- Production: `secure=true` (requires HTTPS)
-- Dev mode: random secret (sessions don't persist across restarts)
-- Set `session.secret` in config for persistent dev sessions
-
-### CSRF Protection
-```parsley
-let {request} = import @basil/http
-
-// In forms with auth
-<form method=POST action="/submit">
-    <input type=hidden name=_csrf value={request.csrf}/>
-    <button>"Submit"</button>
-</form>
-
-// For AJAX, use meta tag
-<meta name=csrf-token content={request.csrf}/>
-```
-
-### Path Pattern Matching
-```parsley
-let {route} = import @basil/http
-
-// route is the subpath after the matched route pattern
-// e.g., if basil.yaml has "/api/*" and URL is "/api/users/123"
-// then route = "users/123"
-
-logLine("Route: " + route)
-
-// Use .match() to extract parameters
-let {id} = route.match("users/:id")       // {id: "123"}
-let {rest} = route.match("files/*")       // {rest: "a/b/c"}
-
-// Pattern matching returns null if no match
-if (let params = route.match("users/:id")) {
-    showUser(params.id)
-}
-
-// Chain for nested routes
-let {rest} = route.match("api/*")
-let {id} = rest.match("users/:id")
-```
-
-
----
-
-## 🧩 Parts (Interactive Components)
-
-Parts are reloadable HTML fragments that update without page reloads.
-
-### Creating a Part (.part file)
-```parsley
-// counter.part - ONLY export functions (not variables)
-export default = fn(props) {
-    let count = props.count
-    <div>
-        `Count: {count}`
-        <button part-click="increment" part-count={count + 1}>"+"</button>
-    </div>
-}
-
-export increment = fn(props) {
-    let count = props.count
-    <div>
-        `Count: {count}`
-        <button part-click="increment" part-count={count + 1}>"+"</button>
-    </div>
-}
-```
-
-### Using Parts
-```parsley
-// Basic usage
-<Part src={@~/parts/counter.part} view="default" count={0}/>
-
-// With id for cross-part targeting
-<Part src={@~/parts/results.part} id="search-results"/>
-
-// Auto-refresh every second
-<Part src={@~/parts/clock.part} part-refresh={1000}/>
-
-// Load immediately after page (for slow data)
-<Part src={@~/parts/data.part} view="placeholder" part-load="loaded"/>
-
-// Lazy load when scrolled into view
-<Part src={@~/parts/content.part} view="placeholder" 
-      part-lazy="loaded" part-lazy-threshold={150}/>
-```
-
-### Cross-Part Targeting
-Target a Part from outside its boundaries (e.g., search box targeting results):
-```parsley
-// Form outside the Part targets it by id
-<form part-target="search-results" part-submit="results">
-    <input type="text" name="query"/>
-    <button type="submit">"Search"</button>
-</form>
-
-// Results Part receives the query prop
-<Part src={@~/parts/results.part} id="search-results"/>
-```
-
-### Parts JavaScript API
-```javascript
-// Refresh a Part programmatically (with debounce for live search)
-Parts.refresh("search-results", {query: "hello"}, {debounce: 300});
-
-// Get Part state
-const state = Parts.get("search-results");
-// → { id, view, props, element, loading }
-
-// Listen for Part events
-Parts.on("search-results", "afterRefresh", (detail) => {
-    console.log("Part refreshed:", detail.props);
-});
-```
-
-### Part Attributes
-| Attribute | Element | Effect |
-|-----------|---------|--------|
-| `id` | `<Part/>` | ID for cross-part targeting |
-| `part-click="view"` | Any | Fetches view on click |
-| `part-submit="view"` | `<form>` | Fetches view on submit |
-| `part-target="id"` | Any | Target Part by id (cross-part) |
-| `part-*` | Any | Passed as props to view |
-| `part-refresh={ms}` | `<Part/>` | Auto-refresh interval |
-| `part-load="view"` | `<Part/>` | Fetch view immediately after page load |
-| `part-lazy="view"` | `<Part/>` | Lazy-load when near viewport |
-| `part-lazy-threshold={px}` | `<Part/>` | Pre-load distance in pixels |
-
-### CSS for Lazy Parts
-```css
-/* Lazy Parts need dimensions for IntersectionObserver */
-[data-part-src]:not([data-part-lazy]) {
-    display: contents;    /* Eager parts are transparent */
-}
-
-[data-part-lazy] {
-    display: block;       /* Lazy parts need a box model */
-    min-height: 50px;     /* Give them dimensions */
-}
-```
-
----
-
-## 🎨 Asset Bundles
-
-Basil auto-bundles CSS/JS from your handlers directory.
-
-```parsley
-<html>
-  <head>
-    <CSS/>    <!-- Outputs: <link rel="stylesheet" href="/__site.css?v=abc123"> -->
-  </head>
-  <body>
-    <h1>"Hello"</h1>
-    <Javascript/>  <!-- Outputs: <script src="/__site.js?v=def456"></script> -->
-  </body>
-</html>
-```
-
-**publicUrl() for component assets:**
-```parsley
-// In modules/Button.pars
-let icon = publicUrl(@./icon.svg)
-<img src={icon}/>
-// Output: <img src="/__p/a3f2b1c8.svg"/>
-```
-
----
 
 ## 🔒 Security Flags (CLI)
 
@@ -1701,42 +1434,54 @@ let icon = publicUrl(@./icon.svg)
 
 ## 📝 Method Reference
 
+> **For complete, up-to-date method lists:** Run `pars describe <type>`
+> 
+> The tables below are verified against the codebase. For the authoritative
+> source, use `pars describe string`, `pars describe array`, etc.
+
 ### String Methods
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.length()` | String length | `"hello".length()` → `5` |
+| `.length()` | Character count | `"hello".length()` → `5` |
 | `.toUpper()` | Uppercase | `"hello".toUpper()` → `"HELLO"` |
 | `.toLower()` | Lowercase | `"HELLO".toLower()` → `"hello"` |
-| `.capitalize()` | Capitalize first | `"hello".capitalize()` → `"Hello"` |
-| `.title()` | Title Case | `"hello world".title()` → `"Hello World"` |
+| `.toTitle()` | Title Case | `"hello world".toTitle()` → `"Hello World"` |
+| `.toCamel()` | camelCase | `"hello_world".toCamel()` → `"helloWorld"` |
+| `.toPascal()` | PascalCase | `"hello_world".toPascal()` → `"HelloWorld"` |
+| `.toSnake()` | snake_case | `"helloWorld".toSnake()` → `"hello_world"` |
+| `.toKebab()` | kebab-case | `"helloWorld".toKebab()` → `"hello-world"` |
 | `.trim()` | Remove whitespace | `"  hi  ".trim()` → `"hi"` |
-| `.trimStart()` | Trim left | `"  hi".trimStart()` → `"hi"` |
-| `.trimEnd()` | Trim right | `"hi  ".trimEnd()` → `"hi"` |
+| `.collapse()` | Collapse whitespace | `"a  b   c".collapse()` → `"a b c"` |
+| `.normalizeSpace()` | Collapse and trim | `"  a  b  ".normalizeSpace()` → `"a b"` |
+| `.stripSpace()` | Remove all whitespace | `"a b c".stripSpace()` → `"abc"` |
 | `.split(delim)` | Split to array | `"a,b".split(",")` → `["a","b"]` |
-| `.replace(old, new)` | Replace first | `"hi hi".replace("i", "o")` → `"ho hi"` |
-| `.replaceAll(old, new)` | Replace all | `"hi hi".replaceAll("i", "o")` → `"ho ho"` |
+| `.replace(old, new)` | Replace all occurrences | `"hi hi".replace("i", "o")` → `"ho ho"` |
 | `.includes(substr)` | Contains check | `"hello".includes("ell")` → `true` |
-| `.startsWith(prefix)` | Starts with? | `"hello".startsWith("he")` → `true` |
-| `.endsWith(suffix)` | Ends with? | `"hello".endsWith("lo")` → `true` |
-| `.indexOf(substr)` | Find position | `"hello".indexOf("l")` → `2` |
 | `.slug()` | URL-safe slug | `"Hello World!".slug()` → `"hello-world"` |
 | `.digits()` | Extract digits | `"(555) 123".digits()` → `"555123"` |
+| `.truncate(len, suffix?)` | Truncate with suffix | `"hello world".truncate(8)` → `"hello..."` |
+| `.indent(n)` | Add leading spaces | `"hi".indent(4)` → `"    hi"` |
+| `.outdent()` | Remove common indent | Multi-line dedent |
 | `.stripHtml()` | Remove HTML tags | `"<p>Hi</p>".stripHtml()` → `"Hi"` |
-| `.escapeHtml()` | Escape for HTML | `"<b>".escapeHtml()` → `"&lt;b&gt;"` |
+| `.htmlEncode()` | Escape for HTML | `"<b>".htmlEncode()` → `"&lt;b&gt;"` |
+| `.htmlDecode()` | Decode HTML entities | `"&lt;b&gt;".htmlDecode()` → `"<b>"` |
+| `.urlEncode()` | URL encode | `"a b".urlEncode()` → `"a+b"` |
+| `.urlDecode()` | URL decode | `"a+b".urlDecode()` → `"a b"` |
+| `.toBase64()` | Encode as Base64 | `"hello".toBase64()` → `"aGVsbG8="` |
+| `.fromBase64()` | Decode from Base64 | `"aGVsbG8=".fromBase64()` → `"hello"` |
 | `.highlight(term)` | Wrap matches | `"hi".highlight("h")` → `"<mark>h</mark>i"` |
-| `.paragraphs()` | Text to HTML `<p>` | See reference |
+| `.paragraphs()` | Text to HTML `<p>` | Blank lines become `<p>` |
 | `.parseJSON()` | Parse JSON string | `'{"a":1}'.parseJSON()` → `{a: 1}` |
 | `.parseCSV(header?)` | Parse CSV string | `"a,b\n1,2".parseCSV(true)` |
-| `.pad(len, char?)` | Pad both sides | `"hi".pad(6)` → `"  hi  "` |
-| `.padStart(len, char?)` | Pad left | `"5".padStart(3, "0")` → `"005"` |
-| `.padEnd(len, char?)` | Pad right | `"hi".padEnd(5)` → `"hi   "` |
+| `.parseMarkdown()` | Parse markdown | `"# Hi".parseMarkdown()` → `{html, raw, md}` |
+| `.render(dict?)` | Template interpolation | Uses `\@{key}` syntax in raw strings |
+| `.repr()` | Representation string | `"hi".repr()` → `"\"hi\""` |
+| `.toJSON()` | JSON string | `"hi".toJSON()` → `"\"hi\""` |
 
 ### Array Methods
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.length()` | Array length | `[1,2,3].length()` → `3` |
-| `.first()` | First element | `[1,2,3].first()` → `1` |
-| `.last()` | Last element | `[1,2,3].last()` → `3` |
 | `.sort()` | Sort ascending | `[3,1,2].sort()` → `[1,2,3]` |
 | `.sortBy(fn)` | Sort by key | `users.sortBy(fn(u){u.age})` |
 | `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
@@ -1745,14 +1490,10 @@ let icon = publicUrl(@./icon.svg)
 | `.take(n)` | n random unique | `[1,2,3,4,5].take(3)` → `[4,1,3]` |
 | `.map(fn)` | Transform each | `[1,2].map(fn(x){x*2})` → `[2,4]` |
 | `.filter(fn)` | Keep matching | `[1,2,3].filter(fn(x){x>1})` → `[2,3]` |
-| `.find(fn)` | Find first match | `[1,2,3].find(fn(x){x>1})` → `2` |
-| `.findIndex(fn)` | Index of first match | `[1,2,3].findIndex(fn(x){x>1})` → `1` |
-| `.every(fn)` | All match? | `[2,4,6].every(fn(x){x%2==0})` → `true` |
-| `.some(fn)` | Any match? | `[1,2,3].some(fn(x){x>2})` → `true` |
+| `.reduce(fn, init)` | Reduce to value | `[1,2,3].reduce(fn(a,x){a+x}, 0)` → `6` |
 | `.join(sep?)` | Join to string | `["a","b"].join(",")` → `"a,b"` |
-| `.has(item)` | Contains check | `[1,2,3].has(2)` → `true` |
-| `.flatten()` | Flatten nested | `[[1,2],[3]].flatten()` → `[1,2,3]` |
-| `.unique()` | Remove dupes | `[1,1,2,2].unique()` → `[1,2]` |
+| `.insert(idx, val)` | Insert at index | `[1,3].insert(1, 2)` → `[1,2,3]` |
+| `.format(conj, locale?)` | Conjunction list | `["A","B","C"].format("and")` → `"A, B, and C"` |
 | `.toJSON()` | To JSON string | `[1,2].toJSON()` → `"[1,2]"` |
 | `.toCSV(header?)` | To CSV string | See reference |
 
@@ -1761,76 +1502,89 @@ let icon = publicUrl(@./icon.svg)
 |--------|-------------|---------|
 | `.keys()` | Get all keys | `{a:1, b:2}.keys()` → `["a", "b"]` |
 | `.values()` | Get all values | `{a:1, b:2}.values()` → `[1, 2]` |
+| `.entries()` | Get key-value pairs | `{a:1}.entries()` → `[{key:"a", value:1}]` |
 | `.has(key)` | Key exists? | `{a:1}.has("a")` → `true` |
-| `.get(key, default?)` | Get with default | `{a:1}.get("b", 0)` → `0` |
-| `.merge(other)` | Merge dicts | `{a:1}.merge({b:2})` → `{a:1, b:2}` |
-| `.without(keys...)` | Remove keys | `{a:1, b:2}.without("b")` → `{a:1}` |
-| `.pick(keys...)` | Keep only keys | `{a:1, b:2, c:3}.pick("a","c")` → `{a:1, c:3}` |
+| `.delete(key)` | Remove key (mutates) | `d.delete("b")` removes key from d |
+| `.insertBefore(key, dict)` | Insert before key | Ordered insert |
+| `.insertAfter(key, dict)` | Insert after key | Ordered insert |
+| `.render(template)` | Template interpolation | Uses `\@{key}` syntax in raw strings |
 | `.toJSON()` | To JSON string | `{a:1}.toJSON()` → `"{\"a\":1}"` |
-| `.type()` | Get type name | `{a:1}.type()` → `"dictionary"` |
 
-### Number Methods
+### Number Methods (Integer & Float)
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.fmt()` | Default format (medium) | `123456.fmt()` → `"123,456"` |
-| `.fmt(n)` | With precision (floats) | `1234.5678.fmt(2)` → `"1,234.57"` |
+| `.abs()` | Absolute value | `(-5).abs()` → `5` |
+| `.fmt()` | Default format | `123456.fmt()` → `"123,456"` |
+| `.fmt(precision)` | With precision (floats) | `3.14159.fmt(2)` → `"3.14"` |
 | `.fmt(style)` | With style | `1234567.fmt("short")` → `"1.2M"` |
 | `.fmt(style, locale)` | Style + locale | `1234.fmt("medium", "de-DE")` → `"1.234"` |
 | `.short()` | Compact format | `1234567.short()` → `"1.2M"` |
 | `.medium()` | Standard format | `123456.medium()` → `"123,456"` |
 | `.long()` | Full precision | `1234.5.long()` → `"1,234.50"` |
+| `.humanize()` | Human-readable | `1500.humanize()` → `"1.5K"` |
 | `.currency(code)` | Currency format | `99.currency("USD")` → `"$99.00"` |
 | `.percent()` | Percentage | `0.125.percent()` → `"13%"` |
+| `.round(n?)` | Round (floats only) | `3.456.round(2)` → `3.46` |
+| `.floor()` | Round down (floats) | `3.9.floor()` → `3` |
+| `.ceil()` | Round up (floats) | `3.1.ceil()` → `4` |
 | `.repr()` | Parseable literal | `42.repr()` → `"42"` |
 | `.toJSON()` | JSON representation | `42.toJSON()` → `"42"` |
-| `.inspect()` | Debug dictionary | `42.inspect()` → `{__type: "integer", value: 42}` |
+| `.inspect()` | Debug dictionary | `42.inspect()` → `{__type: "integer", ...}` |
 
 ### Money Methods
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.fmt()` | Default format (medium) | `$1234.56.fmt()` → `"$ 1,234.56"` |
+| `.abs()` | Absolute value | `(-$50).abs()` → `$50.00` |
+| `.negate()` | Negate amount | `$50.negate()` → `-$50.00` |
+| `.fmt()` | Default format | `$1234.56.fmt()` → `"$1,234.56"` |
 | `.fmt(style)` | With style | `$1234.56.fmt("short")` → `"$1.2K"` |
 | `.short()` | Compact format | `$1234567.short()` → `"$1.2M"` |
-| `.medium()` | Standard format | `$1234.56.medium()` → `"$ 1,234.56"` |
+| `.medium()` | Standard format | `$1234.56.medium()` → `"$1,234.56"` |
 | `.long()` | Full precision | `$1234.56.long()` → `"$1,234.56"` |
 | `.full()` | With currency name | `$1234.56.full()` → `"1,234.56 US dollars"` |
-| `.abs()` | Absolute value | `(-$50).abs()` → `$50.00` |
 | `.split(n)` | Fair division | `$100.split(3)` → `[$33.34, $33.33, $33.33]` |
 | `.repr()` | Parseable literal | `$50.repr()` → `"$50.00"` |
+| `.toDict()` | To dictionary | `$50.toDict()` → `{amount: 5000, currency: "USD", ...}` |
+| `.toJSON()` | JSON string | `$50.toJSON()` → `"{...}"` |
 | `.inspect()` | Debug dictionary | `$50.inspect()` → `{__type: "money", ...}` |
 
-### DateTime Methods
-| Method/Property | Description | Example |
-|-----------------|-------------|---------|
+**Money Properties:** `.amount` (cents), `.currency` (code), `.scale` (decimals)
+
+### DateTime Methods & Properties
+| Property | Description | Example |
+|----------|-------------|---------|
 | `.year`, `.month`, `.day` | Date components | `@2024-12-25.year` → `2024` |
 | `.hour`, `.minute`, `.second` | Time components | `@14:30.hour` → `14` |
 | `.weekday` | Day name | `@2024-12-25.weekday` → `"Wednesday"` |
-| `.unix` | Unix timestamp | `@2024-12-25.unix` → `1735084800` |
-| `.fmt()` | Default format (medium) | `@2024-12-25.fmt()` → `"Dec 25, 2024"` |
-| `.fmt(style)` | With style | `@2024-12-25.fmt("full")` → `"Wednesday, December 25, 2024"` |
-| `.short()` | Compact format | `@2024-12-25.short()` → `"12/25/24"` |
-| `.medium()` | Balanced format | `@2024-12-25.medium()` → `"Dec 25, 2024"` |
-| `.long()` | Verbose format | `@2024-12-25.long()` → `"December 25, 2024"` |
-| `.full()` | With weekday | `@2024-12-25.full()` → `"Wednesday, December 25, 2024"` |
-| `.long(locale)` | With locale | `@2024-12-25.long("de-DE")` → `"25. Dezember 2024"` |
-| `.repr()` | Parseable literal | `@2024-12-25.repr()` → `"@2024-12-25"` |
-| `.inspect()` | Debug dictionary | `@2024-12-25.inspect()` → `{__type: "datetime", ...}` |
+| `.unix`, `.timestamp` | Unix timestamp | `@2024-12-25.unix` → `1735084800` |
+| `.date` | Date string | `@2024-12-25T14:30.date` → `"2024-12-25"` |
+| `.time` | Time string | `@2024-12-25T14:30.time` → `"14:30"` |
+| `.iso` | ISO 8601 string | `@2024-12-25.iso` → `"2024-12-25T00:00:00Z"` |
+| `.week` | ISO week number | `@2024-12-25.week` → `52` |
+| `.dayOfYear` | Day of year | `@2024-12-25.dayOfYear` → `360` |
+| `.kind` | Datetime kind | `"date"`, `"datetime"`, `"time"` |
 
-### Duration Methods
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.fmt()` | Default format (medium) | `@2h.fmt()` → `"in 2 hours"` |
-| `.fmt(style)` | With style | `@2h30m.fmt("short")` → `"2h30m"` |
-| `.short()` | Compact abbreviations | `@2h30m.short()` → `"2h30m"` |
-| `.medium()` | Relative time | `@1d.medium()` → `"tomorrow"` |
-| `.long()` | Verbose format | `@2h30m.long()` → `"2 hours 30 minutes"` |
-| `.months`, `.seconds` | Components | `@1y2mo.months` → `14` |
-| `.repr()` | Parseable literal | `@2h.repr()` → `"@duration{hours: 2}"` |
-| `.inspect()` | Debug dictionary | `@2h30m.inspect()` → `{__type: "duration", ...}` |
+| `.format(style?, locale?)` | Format with style | `@2024-12-25.format("full")` → `"Wednesday, December 25, 2024"` |
+| `.toDict()` | To dictionary | `@2024-12-25.toDict()` → `{year: 2024, month: 12, ...}` |
 
-> **Note:** Duration does not support `.full()` — it will error.
+### Duration Methods & Properties
+| Property | Description | Example |
+|----------|-------------|---------|
+| `.months` | Month component | `@1y2mo.months` → `14` |
+| `.seconds` | Seconds component | `@2h30m.seconds` → `9000` |
+| `.days` | Total days (if no months) | `@2d.days` → `2` |
+| `.hours` | Total hours (if no months) | `@2d.hours` → `48` |
+| `.minutes` | Total minutes (if no months) | `@2h.minutes` → `120` |
+| `.totalSeconds` | Total seconds (if no months) | `@2h.totalSeconds` → `7200` |
 
-### Unit Properties
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.format(style?)` | Format duration | `@2h30m.format("short")` → `"2h30m"` |
+| `.toDict()` | To dictionary | `@2h.toDict()` → `{months: 0, seconds: 7200}` |
+
+### Unit Properties & Methods
 | Property | Type | Description |
 |----------|------|-------------|
 | `.value` | float | Decoded display value |
@@ -1840,33 +1594,31 @@ let icon = publicUrl(@./icon.svg)
 | `.max` | unit | Largest representable value for this suffix |
 | `.min` | unit | Smallest positive representable value |
 
-### Unit Methods
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.fmt()` | Default format (medium) | `#5m.fmt()` → `"5.00m"` |
-| `.fmt(n)` | With precision | `#12.345m.fmt(2)` → `"12.35m"` |
+| `.abs()` | Absolute value | `(#-6m).abs()` → `#6m` |
+| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.61km` |
+| `.fmt()` | Default format | `#5m.fmt()` → `"5.00m"` |
+| `.fmt(precision)` | With precision | `#12.345m.fmt(2)` → `"12.35m"` |
 | `.fmt(style)` | With style | `#5m.fmt("long")` → `"5.00 meters"` |
-| `.short()` | Compact with suffix | `#5m.short()` → `"5m"` |
-| `.medium()` | Decimal precision | `#5m.medium()` → `"5.00m"` |
+| `.short()` | Compact | `#5m.short()` → `"5m"` |
+| `.medium()` | With precision | `#5m.medium()` → `"5.00m"` |
 | `.long()` | Full unit name | `#5m.long()` → `"5.00 meters"` |
 | `.full()` | With conversion | `#5m.full()` → `"5.00 meters (16.4 ft)"` |
-| `.fmt("ft-in")` | Compound format | `#63in.fmt("ft-in")` → `"5' 3\""` |
-| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.61km`, `#100C.to("F")` → `#212F` |
-| `.abs()` | Absolute value | `(#-6m).abs()` → `#6m`, `(#-40C).abs()` → `#40C` |
+| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` |
 | `.repr()` | Parseable literal | `#3/8in.repr()` → `"#3/8in"` |
-| `.toJSON()` | JSON representation | `#5m.toJSON()` → `"{\"value\":5,\"unit\":\"m\",...}"` |
 | `.toDict()` | To dictionary | `#12m.toDict()` → `{value: 12, unit: "m", ...}` |
+| `.toJSON()` | JSON string | `#5m.toJSON()` → `"{...}"` |
 | `.inspect()` | Debug dictionary | `#12m.inspect()` → internal details |
-| `.toFraction()` | Fraction string (US) | `#3/8in.toFraction()` → `"3/8\""` (not for temperature or area) |
+
+**Compound Formats:** `"ft-in"` (feet-inches), `"lb-oz"` (pounds-ounces), `"gal-qt-pt"`, `"L-mL"`, `"compound"` (auto-detect)
 
 ### Array Formatting
 | Method | Description | Example |
 |--------|-------------|---------|
-| `.fmt("and")` | Conjunction list | `["A", "B", "C"].fmt("and")` → `"A, B, and C"` |
-| `.fmt("or")` | Disjunction list | `["A", "B", "C"].fmt("or")` → `"A, B, or C"` |
-| `.fmt("and", locale)` | Localized conjunction | `["A", "B", "C"].fmt("and", "de-DE")` → `"A, B und C"` |
-
-**Compound Formats:** `"ft-in"` (feet-inches), `"lb-oz"` (pounds-ounces), `"gal-qt-pt"` (gallons-quarts-pints), `"L-mL"` (litres-millilitres), `"compound"` (auto-detect)
+| `.format("and")` | Conjunction list | `["A", "B", "C"].format("and")` → `"A, B, and C"` |
+| `.format("or")` | Disjunction list | `["A", "B", "C"].format("or")` → `"A, B, or C"` |
+| `.format("and", locale)` | Localized | `["A", "B", "C"].format("and", "de-DE")` → `"A, B und C"` |
 
 ---
 
