@@ -22,6 +22,21 @@ keywords:
 
 # @std/table
 
+> **⚠️ Deprecated:** `@std/table` is deprecated. Use the built-in `table` type instead:
+> ```parsley
+> // Before (deprecated)
+> let table = import @std/table
+> let t = table.table(data)
+>
+> // After (recommended)
+> let t = data.parseCSV()           // CSV string → table
+> let t = CSV(@./data.csv) <==      // CSV file → table
+> // Or work directly with arrays of dictionaries
+> let data = [{name: "Alice"}, {name: "Bob"}]
+> data.map(fn(row) { row.name })
+> ```
+> Tables are now a built-in type. See [Tables](../builtins/table.md) for the current API.
+
 SQL-like data manipulation for arrays of dictionaries. Tables are immutable — all operations return new tables.
 
 ```parsley

@@ -68,6 +68,8 @@ Parsley's I/O and integration capabilities.
 
 | Page | Description |
 |------|-------------|
+| [Command Line Interface](features/cli.md) | `pars` commands, options, and security flags |
+| [Interactive REPL](features/repl.md) | REPL commands, output modes, and debugging |
 | [File I/O](features/file-io.md) | Reading and writing files with operators and handles |
 | [Database](features/database.md) | Database connections, SQL tag, transactions, and table bindings |
 | [Query DSL](features/query-dsl.md) | Declarative queries — `@query`, `@insert`, `@update`, `@delete` |
@@ -86,11 +88,27 @@ Importable modules providing higher-level functionality.
 | [@std/math](stdlib/math.md) | Constants, rounding, statistics, random, trigonometry, and geometry |
 | [@std/valid](stdlib/valid.md) | Validation predicates for types, strings, numbers, and formats |
 | [@std/id](stdlib/id.md) | ID generation — ULID, UUID v4/v7, NanoID, CUID |
-| [@std/table](stdlib/table.md) | SQL-like data manipulation for arrays of dictionaries |
-| [@std/api](stdlib/api.md) | Auth wrappers, error helpers, and redirect for Basil handlers |
+| [@std/hash](stdlib/hash.md) | Cryptographic hashing — MD5, SHA-1, SHA-256, SHA-512 |
 | [@std/mdDoc](stdlib/mddoc.md) | Markdown document analysis — headings, links, TOC, and transforms |
-| [@std/dev](stdlib/dev.md) | Development logging utilities for Basil handlers |
-| [@std/session](stdlib/session.md) | Session management — key-value storage and flash messages |
+
+### Server Modules (`@basil/`)
+
+| Module | Description |
+|--------|-------------|
+| [@basil/api](stdlib/api.md) | Auth wrappers, error helpers, and redirect for Basil handlers |
+| [@basil/log](stdlib/dev.md) | Development logging utilities for Basil handlers |
+| [@basil/html](stdlib/html.md) | Accessible HTML form and UI components |
+| [Session Management](stdlib/session.md) | `basil.session` — key-value storage and flash messages |
+
+### Deprecated Modules
+
+| Module | Replacement |
+|--------|-------------|
+| [@std/table](stdlib/table.md) | Built-in `table` type — use `.parseCSV()` or `CSV()` |
+| [@std/schema](stdlib/schema.md) | `@schema { ... }` DSL syntax |
+| @std/api | [@basil/api](stdlib/api.md) |
+| @std/dev | [@basil/log](stdlib/dev.md) |
+| @std/html | [@basil/html](stdlib/html.md) |
 
 ---
 
@@ -109,7 +127,7 @@ Importable modules providing higher-level functionality.
 [Database](features/database.md) · [Query DSL](features/query-dsl.md) · [Schemas](builtins/schema.md) · [Tables](builtins/table.md)
 
 ### Building APIs
-[@std/api](stdlib/api.md) · [HTTP & Networking](features/network.md) · [@std/session](stdlib/session.md) · [Error Handling](fundamentals/errors.md)
+[@basil/api](stdlib/api.md) · [HTTP & Networking](features/network.md) · [Session Management](stdlib/session.md) · [Error Handling](fundamentals/errors.md)
 
 ### Files & External Systems
 [File I/O](features/file-io.md) · [Paths](builtins/paths.md) · [URLs](builtins/urls.md) · [HTTP & Networking](features/network.md) · [Shell Commands](features/commands.md) · [PLN](pln.md)

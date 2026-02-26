@@ -12,6 +12,23 @@ keywords: schema, validation, types, forms, database, table, binding, constraint
 
 ## Schema Library
 
+> **⚠️ Deprecated:** `@std/schema` is deprecated. Use the `@schema { ... }` DSL syntax instead:
+> ```parsley
+> // Before (deprecated)
+> let schema = import @std/schema
+> let UserSchema = schema.define("User", {
+>     email: schema.email({required: true}),
+>     name: schema.string({min: 1, max: 100})
+> })
+>
+> // After (recommended)
+> @schema User {
+>     email: string(required) | title "Email"
+>     name: string(min: 1, max: 100) | title "Name"
+> }
+> ```
+> See [Schema Literals](../reference.md#schema-literals) in the reference for the new syntax.
+
 The `@std/schema` module provides declarative data validation through schema definitions. Define your data shape once, then use it for form validation, API input checking, and database table bindings. Schemas specify field types, constraints, and whether fields are required—validation returns detailed error information for user feedback.
 
 ```parsley

@@ -1,6 +1,6 @@
 ---
-id: man-pars-std-session
-title: "@std/session"
+id: man-pars-basil-session
+title: "Session Management"
 system: parsley
 type: stdlib
 name: session
@@ -15,15 +15,16 @@ keywords:
   - authentication
   - user data
   - server
+  - basil.session
 ---
 
-# @std/session
+# Session Management
 
 Session management for Basil server handlers. Provides key-value storage that persists across requests using cookie-based sessions.
 
-> ⚠️ The session module is only available inside Basil server handlers. It is not available in standalone Parsley scripts.
+> ⚠️ Sessions are only available inside Basil server handlers. They are not available in standalone Parsley scripts.
 
-The session object is accessed via `basil.session` in handler code — it is not imported with `import`.
+> **Note:** There is no `@std/session` module to import. Sessions are accessed via the `basil.session` object which is automatically available in handler code.
 
 ## Session Data
 
