@@ -860,9 +860,9 @@ pars reference --format markdown > /tmp/full-ref.md
 | 2026-02-26 | 3C Document REPL | ✅ Complete | Created repl.md: commands, output modes, keyboard shortcuts, debugging tips |
 | 2026-02-26 | 3D Fix var docs | ✅ Complete | Rewrote variables.md for let/var; updated getting-started.md |
 | 2026-02-26 | 3E Number methods | ✅ Complete | Fixed numbers.md: abs() on both types, round/ceil/floor float-only |
-| | 4A Deprecated modules | ⬜ Pending | |
-| | 4B Remove session | ⬜ Pending | |
-| | 4C Fix regex section | ⬜ Pending | |
+| 2026-02-26 | 4A Deprecated modules | ✅ Complete | Added deprecation notices to schema.md and table.md |
+| 2026-02-26 | 4B Fix session | ✅ Complete | Renamed to 'Session Management', clarified basil.session access |
+| 2026-02-26 | 4C Fix regex section | ✅ Complete | Already done in Phase 2 — match() in separate subsection |
 | | 5A FormatMarkdown | ⬜ Pending | |
 | | 5B reference cmd | ⬜ Pending | |
 | | 5C Extract fragments | ⬜ Pending | |
