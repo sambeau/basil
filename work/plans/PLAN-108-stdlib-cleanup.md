@@ -267,16 +267,16 @@ Tests:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Deprecate @std/schema | ⬜ Not started | — |
+| 2025-02-26 | Task 1: Deprecate @std/schema | ✅ Complete | Warning (DEP-002), still works |
 | 2025-02-26 | Task 2: Add ID validators | ✅ Complete | ulid, nanoid, cuid added |
 | 2025-02-26 | Task 3: Remove redundant functions | ✅ Complete | 27 functions removed |
 | 2025-02-26 | Task 4: Create @std/hash | ✅ Complete | md5, sha1, sha256, sha512 |
 | 2025-02-26 | Task 5: Base64 methods | ✅ Complete | toBase64, fromBase64 |
 | 2025-02-26 | Task 6: Case conversion methods | ✅ Complete | toCamel, toPascal, toSnake, toKebab |
 | 2025-02-26 | Task 7: Truncate method | ✅ Complete | With Unicode support |
-| | Task 8: Move @std/api | ⬜ Not started | — |
-| | Task 9: Move @std/dev | ⬜ Not started | — |
-| | Task 10: Move @std/html | ⬜ Not started | — |
+| 2025-02-26 | Task 8: Move @std/api | ✅ Complete | @basil/api with DEP-003 alias |
+| 2025-02-26 | Task 9: Move @std/dev | ✅ Complete | @basil/log with DEP-004 alias |
+| 2025-02-26 | Task 10: Move @std/html | ✅ Complete | @basil/html with DEP-005 alias |
 | | Task 11: Documentation | ⬜ Not started | — |
 | 2025-02-26 | Task 12: Integration tests | 🔄 Partial | Tests for hash, string methods, valid done |
 
