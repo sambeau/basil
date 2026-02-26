@@ -805,7 +805,7 @@ let people = @table(Person) [
 
 // Keys iterate in declaration order, not alphabetically
 for (key, value in people.rows[0]) {
-    log(key)  // firstName, lastName, age (not age, firstName, lastName)
+    key  // firstName, lastName, age (not age, firstName, lastName)
 }
 ```
 
@@ -864,7 +864,7 @@ let users = db.bind(User, "users")
 // Insert a Record (id auto-generated)
 let user = User({name: "Alice", email: "alice@example.com"})
 let inserted = users.insert(user)
-log(inserted.id)  // Generated ID
+inserted.id                       // Generated ID
 
 // Update using Record
 let updated = users.update(user.update({name: "Alice Smith"}))

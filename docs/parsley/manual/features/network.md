@@ -48,7 +48,7 @@ This is equivalent to the statement form (`let response <=/= ...`) but works any
 ```parsley
 // Use in a conditional
 if ((<=/= JSON(@https://api.example.com/health)).ok) {
-    log("API is up")
+    "API is up"
 }
 
 // Pass directly to a function
@@ -101,7 +101,7 @@ Use the `{data, error}` destructuring pattern to capture network errors instead 
 ```parsley
 let {data, error} <=/= JSON(@https://api.example.com/users)
 if (error) {
-    log("Fetch failed: " + error)
+    "Fetch failed: " + error
 } else {
     for (user in data) {
         user.name
@@ -209,13 +209,13 @@ This works for all remote write variants (`=/=>` and `=/=>>`).
 // Capture the full response
 let response = payload =/=> JSON(@https://api.example.com/items)
 if (!response.ok) {
-    log("Failed:", response.status, response.error)
+    `Failed: {response.status} - {response.error}`
 }
 
 // Destructured capture
 let {data, error} = payload =/=> JSON(@https://api.example.com/items)
 if (error) {
-    log("Error:", error)
+    `Error: {error}`
 }
 ```
 

@@ -46,9 +46,9 @@ Destructure for clean handling:
 ```parsley
 let {result, error} = try risky()
 if (error) {
-    log("Failed: " + error)
+    "Failed: " + error
 } else {
-    log("Got: " + result)
+    "Got: " + result
 }
 ```
 
@@ -84,9 +84,9 @@ Error dictionaries (any dictionary with a `message` key) automatically coerce to
 ```parsley
 let {error} = try riskyOperation()
 if (error) {
-    log("Failed: " + error)     // uses error.message automatically
+    "Failed: " + error           // uses error.message automatically
     // equivalent to:
-    log("Failed: " + error.message)
+    "Failed: " + error.message
 }
 ```
 
@@ -382,11 +382,10 @@ The most common pattern — call, destructure, branch:
 
 ```parsley
 let {result, error} = try loadFile("config.json")
-if (error) {
-    log("Using defaults: " + error)
-    let config = defaults
+let config = if (error) {
+    defaults                     // use defaults on error
 } else {
-    let config = result
+    result
 }
 ```
 
@@ -443,7 +442,7 @@ if (error) {
         // Handle server error
     } else {
         // Handle other errors
-        log("Unexpected: " + error.message)
+        "Unexpected: " + error.message
     }
 }
 ```

@@ -430,9 +430,9 @@ The handler returns HTML automatically — Basil detects the leading `<` tag and
 let risky = fn() { fail("oops") }
 let {result, error} = try risky()
 if (error) {
-    log("Failed: " + error)
+    "Failed: " + error
 } else {
-    log("Got: " + result)
+    "Got: " + result
 }
 ```
 

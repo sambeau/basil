@@ -142,7 +142,7 @@ let result = try(fn() {
     let secret <== text(@./secrets/key.pem)
 })
 if (result.error) {
-    log("Access denied: " + result.error)
+    `Access denied: {result.error}`
 }
 ```
 

@@ -325,7 +325,7 @@ let result = try(fn() {
     db <=?=> "SELECT * FROM nonexistent_table"
 })
 if (result.error) {
-    log("Query failed: " + result.error)
+    `Query failed: {result.error}`
 }
 ```
 

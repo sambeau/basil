@@ -484,7 +484,7 @@ Durations automatically convert to human-readable strings in output contexts:
 let d = @2h30m
 d                        // "2 hours 30 minutes"
 toString(d)              // "2 hours 30 minutes"
-log("Time: " + toString(d))  // Time: 2 hours 30 minutes
+"Time: " + toString(d)   // "Time: 2 hours 30 minutes"
 
 let long = @1y2mo3d
 toString(long)           // "1 year 2 months 3 days"

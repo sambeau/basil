@@ -634,7 +634,7 @@ let result = Users.insert({age: 30})  // missing required name and email
 if (result.valid == false) {
     // Handle validation errors
     for (error in result.errors) {
-        log(`{error.field}: {error.message}`)
+        `{error.field}: {error.message}`
     }
 }
 ```

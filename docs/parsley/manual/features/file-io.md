@@ -194,11 +194,10 @@ Use destructured read with `{data, error}` for safe file operations:
 
 ```parsley
 let {data, error} <== JSON(@./config.json)
-if (error) {
-    log("Failed to read config: " + error)
-    let config = defaults
+let config = if (error) {
+    defaults                     // use defaults on error
 } else {
-    let config = data
+    data
 }
 ```
 

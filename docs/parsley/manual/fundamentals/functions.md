@@ -103,10 +103,9 @@ greet({name: "Alice", age: 30})  // "Alice is 30"
 
 // Array destructuring with rest
 let process = fn([first, ...rest]) {
-    log(first)                   // 10
-    log(rest)                    // [20, 30]
+    {first: first, rest: rest}
 }
-process([10, 20, 30])
+process([10, 20, 30])            // {first: 10, rest: [20, 30]}
 ```
 
 This is the standard pattern for components — a single dict parameter with named fields:

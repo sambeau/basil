@@ -1681,13 +1681,13 @@ Computed exports:
 import {activeUsers} from @./data.pars
 
 // Each access recalculates
-for (user in activeUsers) { log(user.name) }  // Query 1
-for (user in activeUsers) { log(user.email) } // Query 2
+for (user in activeUsers) { user.name }  // Query 1
+for (user in activeUsers) { user.email } // Query 2
 
 // Cache by assigning to a variable
-let snapshot = activeUsers                     // Query 3
-for (user in snapshot) { log(user.name) }     // Uses snapshot
-for (user in snapshot) { log(user.email) }    // Uses snapshot
+let snapshot = activeUsers               // Query 3
+for (user in snapshot) { user.name }     // Uses snapshot
+for (user in snapshot) { user.email }    // Uses snapshot
 ```
 
 #### Module System Overview
@@ -3058,7 +3058,7 @@ Insert a Record (id auto-generated) or all rows from a Table:
 // Insert single Record
 let user = User({name: "Alice", email: "alice@example.com"})
 let inserted = users.insert(user)
-log(inserted.id)                     // Generated ID
+inserted.id                          // Generated ID
 
 // Insert Table (bulk)
 let newUsers = table([

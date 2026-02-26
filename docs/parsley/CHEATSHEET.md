@@ -254,7 +254,7 @@ if (error) {
 }
 
 // String coercion works: "" + error yields error.message
-log("Failed: " + error)             // uses error.message automatically
+"Failed: " + error                  // uses error.message automatically
 ```
 
 ### 15. Unit Literals Use `#` Sigil; Temperature Cannot Be Multiplied; Derived Units Have Restrictions
@@ -548,7 +548,7 @@ let config <== JSON(@./config.json)
 // With error handling
 let {data, error} <== JSON(@./data.json)
 if (error) {
-    log("Error:", error)
+    `Error: {error}`
 }
 
 // Destructure from file
@@ -600,7 +600,7 @@ let {data, error} = <=/= JSON(@https://api.example.com/users)
 
 // Remote write as expression (capture response)
 let result = {name: "Alice"} =/=> JSON(@https://api.example.com/users)
-if (!result.ok) { log("Failed:", result.status) }
+if (!result.ok) { `Failed: {result.status}` }
 
 // Destructured remote write
 let {data, error} = payload =/=> JSON(@https://api.example.com/items)
@@ -990,7 +990,7 @@ Metric({height: #1.8m}).validate().isValid()     // false (m ≠ cm)
 ```parsley
 let {data, error} <== JSON(@./file.json)
 if (error) {
-    log("Failed:", error)
+    `Failed: {error}`
 }
 ```
 
@@ -998,7 +998,7 @@ if (error) {
 ```parsley
 let {result, error} = try url("user-input")
 if (error) {
-    log("Invalid URL:", error.message)
+    `Invalid URL: {error.message}`
     error.code                   // e.g. "FORMAT-0001"
 }
 
@@ -1634,7 +1634,7 @@ let processed = for (item in data) {
     }
 }
 processed ==> JSON(@./output.json)
-log("Processed {processed.length()} items")
+`Processed {processed.length()} items`
 ```
 
 ### HTML Generation
@@ -1689,10 +1689,10 @@ let TextField = fn(props) {
 let {data, error} <=/= JSON(@https://jsonplaceholder.typicode.com/posts)
 
 if (error) {
-    log("API Error:", error)
+    `API Error: {error}`
 } else {
     for (post in data) {
-        log("Post {post.id}: {post.title}")
+        `Post {post.id}: {post.title}`
     }
 }
 ```

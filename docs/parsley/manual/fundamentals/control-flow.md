@@ -184,9 +184,9 @@ Destructure for clean error handling:
 ```parsley
 let {result, error} = try risky()
 if (error) {
-    log("Failed: " + error.message)
+    "Failed: " + error.message
 } else {
-    log("Got: " + result)
+    "Got: " + result
 }
 ```
 
