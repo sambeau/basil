@@ -848,13 +848,13 @@ pars reference --format markdown > /tmp/full-ref.md
 | 2026-02-27 | 1F Strip Basil | ✅ Complete | Removed ~280 lines (Server, Parts, Asset Bundles); kept Security Flags |
 | 2026-02-27 | 1G Fix imports | ✅ Complete | @std/api→@basil/api, @std/dev→@basil/log, @std/html→@basil/html, @schema DSL |
 | 2026-02-27 | 1H Verify examples | ✅ Complete | All method examples verified with pars -e |
-| | 2A Remove print | ⬜ Pending | |
-| | 2B Fix match() | ⬜ Pending | |
-| | 2C Fix keywords | ⬜ Pending | |
-| | 2D Fix number methods | ⬜ Pending | |
-| | 2E Fix markdown() | ⬜ Pending | |
-| | 2F Fix counts | ⬜ Pending | |
-| | 2G Verify examples | ⬜ Pending | |
+| 2026-02-26 | 2A Remove print | ✅ Complete | Removed print/println/printf from Output section, fixed examples to use log() |
+| 2026-02-26 | 2B Fix match() | ✅ Complete | Changed from regex to path pattern matcher, documented :name and *name captures |
+| 2026-02-26 | 2C Fix keywords | ✅ Complete | Added var, const, not, is, computed, with to match lexer definitions |
+| 2026-02-26 | 2D Fix number methods | ✅ Complete | Added abs/round/ceil/floor, split Integer (13) and Float (16) methods |
+| 2026-02-26 | 2E Fix markdown() | ✅ Complete | Fixed signature: takes string not path, returns {html, md, raw} |
+| 2026-02-26 | 2F Fix counts | ✅ Complete | String 38, Array 15, Dict 9, Integer 13, Float 16 methods |
+| 2026-02-26 | 2G Verify examples | ✅ Complete | All modified examples verified with pars -e |
 | | 3A Document with | ⬜ Pending | |
 | | 3B Document CLI | ⬜ Pending | |
 | | 3C Document REPL | ⬜ Pending | |
