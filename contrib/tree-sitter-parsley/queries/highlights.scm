@@ -1,6 +1,7 @@
 ; Keywords
 [
   "let"
+  "var"
   "fn"
   "function"
   "if"
@@ -14,6 +15,8 @@
   "check"
   "as"
   "computed"
+  "with"
+  "via"
 ] @keyword
 
 [
@@ -155,9 +158,10 @@
 (open_tag ">" @punctuation.bracket)
 (close_tag ["</" ">"] @punctuation.bracket)
 
-; Style/script tags
+; Style/script/sql tags
 (style_tag) @tag
 (script_tag) @tag
+(sql_tag) @tag
 
 ; Functions
 (function_expression ["fn" "function"] @keyword.function)

@@ -10981,6 +10981,10 @@
     "named": true
   },
   {
+    "type": "var",
+    "named": false
+  },
+  {
     "type": "via",
     "named": false
   },

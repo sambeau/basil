@@ -13,3 +13,9 @@
   (raw_text) @injection.content
   (#set! injection.language "javascript")
   (#set! injection.combined))
+
+; SQL injection in sql tags
+(sql_tag
+  (raw_text) @injection.content
+  (#set! injection.language "sql")
+  (#set! injection.combined))

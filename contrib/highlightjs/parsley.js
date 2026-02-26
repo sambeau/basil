@@ -15,6 +15,8 @@ function hljsDefineParsley(hljs) {
       "fn",
       "function",
       "let",
+      "var",
+      "const",
       "for",
       "in",
       "as",
@@ -28,6 +30,9 @@ function hljsDefineParsley(hljs) {
       "stop",
       "skip",
       "computed",
+      "with",
+      "via",
+      "is",
       "and",
       "or",
       "not",
@@ -37,21 +42,25 @@ function hljsDefineParsley(hljs) {
       // File/Data Loading
       "JSON",
       "YAML",
+      "PLN",
       "CSV",
       "MD",
       "markdown",
       "lines",
       "text",
-      "bytes",
+      "raw",
       "SVG",
       "file",
       "dir",
       "fileList",
       // Time
+      "date",
       "time",
-      "now",
+      "datetime",
       // URLs
       "url",
+      // Paths
+      "path",
       // Type Conversion
       "toInt",
       "toFloat",
@@ -59,18 +68,17 @@ function hljsDefineParsley(hljs) {
       "toString",
       "toArray",
       "toDict",
+      // Serialization
+      "serialize",
+      "deserialize",
       // Introspection
       "inspect",
       "describe",
       "repr",
       "builtins",
       // Output
-      "print",
-      "println",
-      "printf",
       "log",
       "logLine",
-      "toDebug",
       // Control Flow
       "fail",
       // Formatting
@@ -81,6 +89,8 @@ function hljsDefineParsley(hljs) {
       "match",
       // Money
       "money",
+      // Units
+      "unit",
       // Assets
       "asset",
       // Connection (used with @ literals)
@@ -157,7 +167,7 @@ function hljsDefineParsley(hljs) {
   // Query DSL operators
   const QUERY_OPERATORS = {
     scope: "operator",
-    match: /\?\?->|\?->|\.->|\|<|\|>|<-/,
+    match: /\?\?!?->|\?!?->|\.->|\|<|<-/,
   };
 
   // Regex literals

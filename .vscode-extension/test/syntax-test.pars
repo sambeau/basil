@@ -5,9 +5,12 @@
 // Keywords
 // ========================================
 let x = 5
+var y = 10                           // 'var' for mutable bindings
 let double = fn(n) { n * 2 }
 let triple = function(n) { n * 3 }  // 'function' is alias for 'fn'
 export let exported = true
+export var mutable = false           // 'export var' for mutable exports
+// const z = 5                       // 'const' is reserved — suggests using 'let'
 
 let items = for (item in [1, 2, 3]) {
     if (item > 1) {
@@ -31,6 +34,15 @@ let safeResult = (try toInt("42")).result
 
 // as keyword for imports
 import @std/math as M
+
+// with keyword for scoped field access
+// let result = with obj { field1 + field2 }
+
+// via keyword for schema relations
+// name via Author
+
+// is keyword for schema/type checking
+// check x is string
 
 // Boolean logic keywords
 let a = true and false
@@ -253,11 +265,15 @@ let arr = toArray({a: 1})
 let dictVal = toDict([["a", 1]])
 let flt = toFloat("3.14")
 let numberVal = toNumber("100")
-let debugVal = toDebug(x)
+
+// Serialization
+// let plnStr = serialize({a: 1})
+// let parsed = deserialize("{a: 1}")
 
 // File operations require actual files
 // let jsonFile = JSON(@./data.json)
 // let yamlFile = YAML(@./config.yaml)
+// let plnFile = PLN(@./data.pln)
 // let csvFile = CSV(@./data.csv)
 // let textFile = text(@./readme.txt)
 // let linesArr = lines(@./list.txt)
@@ -269,8 +285,19 @@ let debugVal = toDebug(x)
 // let d = dir(@./folder)
 // let list = fileList(@./folder)
 
+// Time builtins
+// let d = date("2024-12-25")
+// let dt = datetime("2024-12-25T14:30:00Z")
+// let t = time("14:30")
+
+// Path/URL builtins
+// let p = path("/usr/local")
+// let u = url("https://example.com")
+
+// Unit constructor
+// let weight = unit(100, "kg")
+
 let re = regex("[a-z]+")
-let fmtStr = format("{} + {} = {}", 1, 2, 3)
 
 // let assetPath = asset("styles.css")
 let htmlTag = tag("div", {class: "container"}, "content")
@@ -281,6 +308,10 @@ let descVal = describe(x)
 
 let builtinList = builtins()
 // fail("Error message")
+
+// NOTE: print(), println(), printf() do NOT exist in Parsley
+// Use log() or logLine() for debug output
+// Values ARE the output — just write the expression
 
 // ========================================
 // Tags (JSX-like syntax)

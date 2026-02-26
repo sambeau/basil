@@ -456,3 +456,57 @@ export {a, b} = expr
       (identifier)
       (identifier))
     value: (identifier)))
+
+==================
+Var statement — simple
+==================
+
+var x = 5
+
+---
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (number)))
+
+==================
+Var statement — string value
+==================
+
+var name = "Alice"
+
+---
+
+(source_file
+  (let_statement
+    pattern: (identifier)
+    value: (string)))
+
+==================
+Var statement — destructuring
+==================
+
+var {a, b} = obj
+
+---
+
+(source_file
+  (let_statement
+    pattern: (dictionary_pattern
+      (identifier)
+      (identifier))
+    value: (identifier)))
+
+==================
+Export statement — with var
+==================
+
+export var x = 5
+
+---
+
+(source_file
+  (export_statement
+    pattern: (identifier)
+    value: (number)))

@@ -84,12 +84,7 @@
         },
         {
           "name": "keyword.other.parsley",
-          "match": "\\b(let|fn|function|as|export|import|and|or|not)\\b"
-        },
-        {
-          "comment": "Computed export keyword",
-          "name": "keyword.other.computed.parsley",
-          "match": "\\b(computed)\\b"
+          "match": "\\b(let|var|const|fn|function|as|export|import|and|or|not|computed|with|via|is)\\b"
         }
       ]
     },
@@ -426,9 +421,9 @@
           "match": "<=\\?\\?=>|<=\\?=>|<=!=>|<=#=>"
         },
         {
-          "comment": "Query DSL operators: ??->, ?->, .->, |<, |>, <-",
+          "comment": "Query DSL operators: ??->, ?->, ?!->, ??!->, .->, |<, <-",
           "name": "keyword.operator.query.parsley",
-          "match": "\\?\\?->|\\?->|\\.->|\\|<|\\|>|<-"
+          "match": "\\?\\?!?->|\\?!?->|\\.->|\\|<|<-"
         }
       ]
     },
@@ -437,7 +432,7 @@
         {
           "comment": "Core builtin functions",
           "name": "support.function.builtin.parsley",
-          "match": "\\b(import|now|time|url|file|JSON|YAML|CSV|lines|text|bytes|SVG|MD|markdown|dir|fileList|format|regex|match|tag|asset|repr|inspect|describe|toInt|toFloat|toNumber|toString|toDebug|log|logLine|print|println|printf|fail|toArray|toDict|money|builtins|sqlite|postgres|mysql|sftp|shell)\\b(?=\\s*\\()"
+          "match": "\\b(time|date|datetime|url|path|file|JSON|YAML|PLN|CSV|lines|text|raw|SVG|MD|markdown|dir|fileList|format|regex|match|tag|asset|repr|inspect|describe|toInt|toFloat|toNumber|toString|toArray|toDict|serialize|deserialize|log|logLine|fail|money|unit|builtins|sqlite|postgres|mysql|sftp|shell)\\b(?=\\s*\\()"
         },
         {
           "comment": "Entity name for function definitions",

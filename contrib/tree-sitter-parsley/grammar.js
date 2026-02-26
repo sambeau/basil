@@ -86,7 +86,7 @@ module.exports = grammar({
     // Also: let x <== expr, let x <=/= expr
     let_statement: ($) =>
       seq(
-        "let",
+        choice("let", "var"),
         field("pattern", $._pattern),
         field("operator", choice("=", "<==", "<=/=")),
         field("value", $._expression),
@@ -134,9 +134,9 @@ module.exports = grammar({
         seq(
           "export",
           choice(
-            // export let pattern = expr
+            // export let/var pattern = expr
             seq(
-              "let",
+              choice("let", "var"),
               field("pattern", $._pattern),
               "=",
               field("value", $._expression),
