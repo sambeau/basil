@@ -1,8 +1,14 @@
-The standard library provides reusable functionality organized into modules. Import modules using the `import` statement.
+Parsley has two module namespaces:
 
-### Module Categories
+- **`@std/`** — Pure Parsley functionality (works without Basil server)
+- **`@basil/`** — Server-specific functionality (requires Basil runtime)
 
-- **`@std/*`** — Pure Parsley modules (math, validation, hashing, etc.)
-- **`@basil/*`** — Server-side modules (HTTP helpers, authentication, logging)
+Import with the appropriate prefix:
 
-> **Tip**: Run `pars describe @std/math` (or any module path) to see its exports.
+```parsley
+import @std/math
+let {floor, ceil} = import @std/math
+
+import @basil/api
+let {notFound, redirect} = import @basil/api
+```
