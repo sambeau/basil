@@ -265,6 +265,8 @@ func referenceCommand(args []string) {
 	// Parse flags
 	format := "markdown"
 	verify := ""
+	templatePath := ""
+	fragmentsDir := ""
 	showHelp := false
 
 	for i := 0; i < len(args); i++ {
@@ -282,6 +284,16 @@ func referenceCommand(args []string) {
 			verify = args[i]
 		case strings.HasPrefix(arg, "--verify="):
 			verify = strings.TrimPrefix(arg, "--verify=")
+		case arg == "--template" && i+1 < len(args):
+			i++
+			templatePath = args[i]
+		case strings.HasPrefix(arg, "--template="):
+			templatePath = strings.TrimPrefix(arg, "--template=")
+		case arg == "--fragments" && i+1 < len(args):
+			i++
+			fragmentsDir = args[i]
+		case strings.HasPrefix(arg, "--fragments="):
+			fragmentsDir = strings.TrimPrefix(arg, "--fragments=")
 		}
 	}
 
@@ -291,42 +303,64 @@ func referenceCommand(args []string) {
 Generate the complete Parsley API reference documentation.
 
 Options:
-  --format <fmt>    Output format: markdown (default), json, text
-  --verify <file>   Verify that <file> matches generated output (for CI)
-  -h, --help        Show this help message
+  --format <fmt>       Output format: markdown (default), json, text
+  --template <file>    Use template file for composing reference
+  --fragments <dir>    Directory containing fragment files (default: alongside template)
+  --verify <file>      Verify that <file> matches generated output (for CI)
+  -h, --help           Show this help message
+
+Modes:
+  API-only (default):  Generate just the API tables from code metadata
+  Template mode:       Compose from template + fragments + generated sections
 
 Examples:
-  pars reference                              Output markdown to stdout
+  pars reference                              Output API-only markdown
   pars reference --format json                Output JSON schema
-  pars reference > docs/parsley/reference.md  Regenerate reference doc
-  pars reference --verify docs/parsley/reference.md  CI check for drift`)
+  pars reference --template docs/parsley/reference.tmpl.md
+  pars reference > docs/parsley/api-reference.md
+  pars reference --verify docs/parsley/api-reference.md`)
 		return
 	}
 
-	// Get complete API schema
-	result, err := help.DescribeTopic("all")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Format output
 	var output string
-	switch format {
-	case "markdown", "md":
-		output = help.FormatMarkdown(result)
-	case "json":
-		data, err := help.FormatJSON(result)
+	var err error
+
+	// Template mode: compose from template + fragments + generated
+	if templatePath != "" {
+		// Default fragments dir to same directory as template
+		if fragmentsDir == "" {
+			fragmentsDir = filepath.Join(filepath.Dir(templatePath), "reference-fragments")
+		}
+
+		output, err = help.ComposeReference(templatePath, fragmentsDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error composing reference: %v\n", err)
 			os.Exit(1)
 		}
-		output = string(data)
-	case "text":
-		output = help.FormatText(result, 80)
-	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown format %q (use markdown, json, or text)\n", format)
-		os.Exit(1)
+	} else {
+		// API-only mode: just generate from code metadata
+		result, err := help.DescribeTopic("all")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		switch format {
+		case "markdown", "md":
+			output = help.FormatMarkdown(result)
+		case "json":
+			data, err := help.FormatJSON(result)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+				os.Exit(1)
+			}
+			output = string(data)
+		case "text":
+			output = help.FormatText(result, 80)
+		default:
+			fmt.Fprintf(os.Stderr, "Error: unknown format %q (use markdown, json, or text)\n", format)
+			os.Exit(1)
+		}
 	}
 
 	// Verify mode: compare against existing file
