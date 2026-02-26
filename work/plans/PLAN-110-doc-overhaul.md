@@ -871,9 +871,9 @@ pars reference --format markdown > /tmp/full-ref.md
 | | 6A AI Quick Start | ⬜ Pending | |
 | | 6B Replace tables | ⬜ Pending | |
 | | 6C Copilot instructions | ⬜ Pending | |
-| | 7A Verify all examples | ⬜ Pending | |
-| | 7B Verify counts | ⬜ Pending | |
-| | 7C No phantoms | ⬜ Pending | |
+| 2026-02-26 | 7A Verify all examples | ✅ Complete | Tested string/array/dict/number methods, control flow, operators, builtins |
+| 2026-02-26 | 7B Verify counts | ✅ Complete | All method counts match pars describe: String 38, Array 15, Dict 9, Int 13, Float 16 |
+| 2026-02-26 | 7C No phantoms | ✅ Complete | Fixed print()→log(), updated @std/*→@basil/* imports in 5 files |
 
 ---
 
