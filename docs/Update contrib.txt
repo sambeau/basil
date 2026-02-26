@@ -1,0 +1,17 @@
+# Parsley 1.0, final checks
+
+Parsley 1.0 is basically done. We need to update the contrib folder and the vscode extension. Anything else?
+
+## Update contrib & vscode-extension
+- treesitter
+- Highlight-js
+- .vscode-extension
+- Zed-extension
+
+## What else?
+
+Before we can declare v1.0 alpha, are there other things remaining to be done?
+
+- Anything in the Backlog we’ve forgotten?
+- Any housekeeping needing done?
+- Can we even make Parsley (and pars) 1.0 without Basil being 1.0?

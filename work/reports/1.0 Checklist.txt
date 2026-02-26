@@ -11,23 +11,23 @@
 - [x] Const?
 - [x] With
 - [x] ERROR messages
-- [ ] Remove DEPRECATES
-- [ ] Missing tests?
-- [ ] update treesitter etc
-	- [ ] with {}
-	- [ ] var & let
-	- [ ] units
+- [x] Remove DEPRECATES
+- [x] Missing tests?
+- [x] update treesitter etc
+	- [x] with {}
+	- [x] var & let
+	- [x] units
 - [x] Pars
 - [x] < >? &nbsp; Space builtin __ _ — <_> -- NOPE not needed
-- [ ] Std libs
-	- [ ] Audit
-	- [ ] Format 
-	- [ ] Help
-	- [ ] Missing?
-	- [ ] New builtins?
-- [ ] Audit @std
-	- [ ] Rethink API
-	- [ ] Remove Table
-	- [ ] Redo HTML
-	- [ ] MdDocs
-	- [ ] Add a smattering of unicode, just cos
+- [x] Std libs
+	- [x] Audit
+	- [x] Format 
+	- [x] Help
+	- [x] Missing?
+	- [x] New builtins?
+- [x] Audit @std
+	- [x] Rethink API --> BASIL 
+	- [x] Remove Table
+	- [x] Redo HTML --> BASIL 
+	- [x] MdDocs
+	- [x] Add a smattering of unicode, just cos
