@@ -54,12 +54,12 @@ func (p *MailgunProvider) Send(ctx context.Context, msg *Message) (string, error
 		return "", fmt.Errorf("text or HTML body is required")
 	}
 
-	// Create message
-	m := p.client.NewMessage(msg.From, msg.Subject, msg.Text, msg.To...)
+	// Create message (using package function, not deprecated method)
+	m := mailgun.NewMessage(msg.From, msg.Subject, msg.Text, msg.To...)
 
 	// Add HTML if provided
 	if msg.HTML != "" {
-		m.SetHtml(msg.HTML)
+		m.SetHTML(msg.HTML)
 	}
 
 	// Send with timeout

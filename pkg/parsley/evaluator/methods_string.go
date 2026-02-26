@@ -11,7 +11,14 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+// titleCaser is a reusable title caser for Unicode-correct title casing.
+// Using language.Und (undetermined) for language-neutral behavior.
+var titleCaser = cases.Title(language.Und)
 
 // StringMethodRegistry defines all methods available on string values.
 // This is the single source of truth for string method dispatch and introspection.
@@ -228,7 +235,7 @@ func stringToLower(receiver Object, args []Object, env *Environment) Object {
 
 func stringToTitle(receiver Object, args []Object, env *Environment) Object {
 	str := receiver.(*String)
-	return &String{Value: strings.Title(str.Value)}
+	return &String{Value: titleCaser.String(str.Value)}
 }
 
 func stringTrim(receiver Object, args []Object, env *Environment) Object {
@@ -586,7 +593,7 @@ func stringToCamel(receiver Object, args []Object, env *Environment) Object {
 		if i == 0 {
 			result.WriteString(strings.ToLower(word))
 		} else {
-			result.WriteString(strings.Title(strings.ToLower(word)))
+			result.WriteString(titleCaser.String(strings.ToLower(word)))
 		}
 	}
 	return &String{Value: result.String()}
@@ -601,7 +608,7 @@ func stringToPascal(receiver Object, args []Object, env *Environment) Object {
 
 	var result strings.Builder
 	for _, word := range words {
-		result.WriteString(strings.Title(strings.ToLower(word)))
+		result.WriteString(titleCaser.String(strings.ToLower(word)))
 	}
 	return &String{Value: result.String()}
 }
