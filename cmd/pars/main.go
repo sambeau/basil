@@ -68,6 +68,9 @@ func main() {
 		case "describe":
 			describeCommand(os.Args[2:])
 			return
+		case "reference":
+			referenceCommand(os.Args[2:])
+			return
 		case "migrate-let-var":
 			migrateCommand(os.Args[2:])
 			return
@@ -255,6 +258,97 @@ Examples:
 	} else {
 		fmt.Print(help.FormatText(result, 80))
 	}
+}
+
+// referenceCommand implements the 'pars reference' subcommand
+func referenceCommand(args []string) {
+	// Parse flags
+	format := "markdown"
+	verify := ""
+	showHelp := false
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--help" || arg == "-h":
+			showHelp = true
+		case arg == "--format" && i+1 < len(args):
+			i++
+			format = args[i]
+		case strings.HasPrefix(arg, "--format="):
+			format = strings.TrimPrefix(arg, "--format=")
+		case arg == "--verify" && i+1 < len(args):
+			i++
+			verify = args[i]
+		case strings.HasPrefix(arg, "--verify="):
+			verify = strings.TrimPrefix(arg, "--verify=")
+		}
+	}
+
+	if showHelp {
+		fmt.Println(`Usage: pars reference [options]
+
+Generate the complete Parsley API reference documentation.
+
+Options:
+  --format <fmt>    Output format: markdown (default), json, text
+  --verify <file>   Verify that <file> matches generated output (for CI)
+  -h, --help        Show this help message
+
+Examples:
+  pars reference                              Output markdown to stdout
+  pars reference --format json                Output JSON schema
+  pars reference > docs/parsley/reference.md  Regenerate reference doc
+  pars reference --verify docs/parsley/reference.md  CI check for drift`)
+		return
+	}
+
+	// Get complete API schema
+	result, err := help.DescribeTopic("all")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Format output
+	var output string
+	switch format {
+	case "markdown", "md":
+		output = help.FormatMarkdown(result)
+	case "json":
+		data, err := help.FormatJSON(result)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+			os.Exit(1)
+		}
+		output = string(data)
+	case "text":
+		output = help.FormatText(result, 80)
+	default:
+		fmt.Fprintf(os.Stderr, "Error: unknown format %q (use markdown, json, or text)\n", format)
+		os.Exit(1)
+	}
+
+	// Verify mode: compare against existing file
+	if verify != "" {
+		existing, err := os.ReadFile(verify)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", verify, err)
+			os.Exit(1)
+		}
+
+		if string(existing) != output {
+			fmt.Fprintf(os.Stderr, "Error: %s is out of date with generated reference\n", verify)
+			fmt.Fprintln(os.Stderr, "Run 'pars reference > "+verify+"' to update")
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "OK: %s is up to date\n", verify)
+		return
+	}
+
+	// Normal mode: output to stdout
+	fmt.Print(output)
 }
 
 // executeInline evaluates inline code provided via -e flag
