@@ -19,10 +19,18 @@ keywords:
 
 ## HTML Components Library
 
-The `@std/html` module provides accessible, semantic HTML components that save you from looking up correct ARIA attributes, proper element structure, and modern best practices. Every component renders server-side with progressive enhancement—they work without JavaScript but can be enhanced by client-side scripts.
+> **⚠️ Deprecated:** `@std/html` has moved to `@basil/html`. The old import still works but emits a deprecation warning. Update your imports:
+> ```parsley
+> // Before
+> let {TextField, Button, Form} = import @std/html
+> // After
+> let {TextField, Button, Form} = import @basil/html
+> ```
+
+The `@basil/html` module provides accessible, semantic HTML components that save you from looking up correct ARIA attributes, proper element structure, and modern best practices. Every component renders server-side with progressive enhancement—they work without JavaScript but can be enhanced by client-side scripts.
 
 ```parsley
-let {TextField, Button, Form} = import @std/html
+let {TextField, Button, Form} = import @basil/html
 
 <Form action="/contact" method="POST">
     <TextField name="email" label="Email" type="email" required={true}/>

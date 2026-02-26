@@ -22,10 +22,18 @@ keywords:
 
 # @std/api
 
+> **⚠️ Deprecated:** `@std/api` has moved to `@basil/api`. The old import still works but emits a deprecation warning. Update your imports:
+> ```parsley
+> // Before
+> let api = import @std/api
+> // After
+> let api = import @basil/api
+> ```
+
 HTTP API utilities for Basil handlers. Provides auth wrappers for route-level access control, error helpers that map to HTTP status codes, and a redirect helper.
 
 ```parsley
-let api = import @std/api
+let api = import @basil/api
 ```
 
 > ⚠️ This module is designed for use inside Basil server handlers. Auth wrappers are consumed by the Basil router — they have no effect in standalone Parsley scripts.

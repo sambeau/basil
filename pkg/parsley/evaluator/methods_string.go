@@ -536,23 +536,35 @@ func splitCamelCase(s string) []string {
 		return nil
 	}
 
+	runes := []rune(s)
 	var words []string
 	var current strings.Builder
-	var prevLower bool
 
-	for i, r := range s {
+	for i, r := range runes {
 		isUpper := unicode.IsUpper(r)
+		isLower := unicode.IsLower(r)
+		prevIsUpper := i > 0 && unicode.IsUpper(runes[i-1])
 
-		if i > 0 && isUpper && prevLower {
-			// Transition from lowercase to uppercase: start new word
-			if current.Len() > 0 {
-				words = append(words, current.String())
+		if i > 0 {
+			prevLower := unicode.IsLower(runes[i-1])
+			if isUpper && prevLower {
+				// Transition from lowercase to uppercase: "helloWorld" -> "hello", "World"
+				if current.Len() > 0 {
+					words = append(words, current.String())
+					current.Reset()
+				}
+			} else if isLower && prevIsUpper && current.Len() > 1 {
+				// Transition from uppercase run to lowercase: "XMLParser" -> "XML", "Parser"
+				// Peel off the last uppercase char (it starts the new word)
+				word := current.String()
+				wordRunes := []rune(word)
+				words = append(words, string(wordRunes[:len(wordRunes)-1]))
 				current.Reset()
+				current.WriteRune(wordRunes[len(wordRunes)-1])
 			}
 		}
 
 		current.WriteRune(r)
-		prevLower = unicode.IsLower(r)
 	}
 
 	if current.Len() > 0 {

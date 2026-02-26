@@ -294,6 +294,52 @@ func TestStringTruncateTypeErrors(t *testing.T) {
 }
 
 // =============================================================================
+// Acronym Handling
+// =============================================================================
+
+func TestCaseConversionAcronyms(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		// Spec requirement: "XMLParser".toSnake() → "xml_parser"
+		{"xml_parser_to_snake", `"XMLParser".toSnake()`, `xml_parser`},
+		{"html_element_to_snake", `"HTMLElement".toSnake()`, `html_element`},
+		{"get_api_response_to_snake", `"getAPIResponse".toSnake()`, `get_api_response`},
+
+		// Acronyms to kebab
+		{"xml_parser_to_kebab", `"XMLParser".toKebab()`, `xml-parser`},
+		{"html_element_to_kebab", `"HTMLElement".toKebab()`, `html-element`},
+		{"get_api_response_to_kebab", `"getAPIResponse".toKebab()`, `get-api-response`},
+
+		// Acronyms to camel
+		{"xml_parser_to_camel", `"XMLParser".toCamel()`, `xmlParser`},
+		{"html_element_to_camel", `"HTMLElement".toCamel()`, `htmlElement`},
+
+		// Acronyms to pascal
+		{"xml_parser_to_pascal", `"XMLParser".toPascal()`, `XmlParser`},
+		{"get_api_response_to_pascal", `"getAPIResponse".toPascal()`, `GetApiResponse`},
+
+		// All-uppercase stays as single word
+		{"all_upper_to_snake", `"HELLO".toSnake()`, `hello`},
+		{"all_upper_to_camel", `"HELLO".toCamel()`, `hello`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalStringMethodTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// =============================================================================
 // Case Conversion Integration
 // =============================================================================
 

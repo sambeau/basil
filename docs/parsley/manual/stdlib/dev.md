@@ -17,12 +17,20 @@ keywords:
 
 # @std/dev
 
+> **⚠️ Deprecated:** `@std/dev` has moved to `@basil/log`. The old import still works but emits a deprecation warning. Update your imports:
+> ```parsley
+> // Before
+> let dev = import @std/dev
+> // After
+> let log = import @basil/log
+> ```
+
 Development logging utilities for debugging Basil server handlers. Log output is visible at the configured dev log route (typically `/_dev/log`).
 
 > ⚠️ The dev module requires Basil server context. In standalone Parsley scripts, all methods are no-ops (they silently return null).
 
 ```parsley
-let {dev} = import @std/dev
+let log = import @basil/log
 ```
 
 ## Methods
