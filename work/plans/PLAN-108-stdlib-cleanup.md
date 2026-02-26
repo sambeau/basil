@@ -268,17 +268,17 @@ Tests:
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
 | | Task 1: Deprecate @std/schema | ⬜ Not started | — |
-| | Task 2: Add ID validators | ⬜ Not started | — |
-| | Task 3: Remove redundant functions | ⬜ Not started | — |
-| | Task 4: Create @std/hash | ⬜ Not started | — |
-| | Task 5: Base64 methods | ⬜ Not started | — |
-| | Task 6: Case conversion methods | ⬜ Not started | — |
-| | Task 7: Truncate method | ⬜ Not started | — |
+| 2025-02-26 | Task 2: Add ID validators | ✅ Complete | ulid, nanoid, cuid added |
+| 2025-02-26 | Task 3: Remove redundant functions | ✅ Complete | 27 functions removed |
+| 2025-02-26 | Task 4: Create @std/hash | ✅ Complete | md5, sha1, sha256, sha512 |
+| 2025-02-26 | Task 5: Base64 methods | ✅ Complete | toBase64, fromBase64 |
+| 2025-02-26 | Task 6: Case conversion methods | ✅ Complete | toCamel, toPascal, toSnake, toKebab |
+| 2025-02-26 | Task 7: Truncate method | ✅ Complete | With Unicode support |
 | | Task 8: Move @std/api | ⬜ Not started | — |
 | | Task 9: Move @std/dev | ⬜ Not started | — |
 | | Task 10: Move @std/html | ⬜ Not started | — |
 | | Task 11: Documentation | ⬜ Not started | — |
-| | Task 12: Integration tests | ⬜ Not started | — |
+| 2025-02-26 | Task 12: Integration tests | 🔄 Partial | Tests for hash, string methods, valid done |
 
 ## Deferred Items
 
