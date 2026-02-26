@@ -10,6 +10,7 @@ author: Basil Team
 keywords:
   - variable
   - let
+  - var
   - assignment
   - binding
   - destructuring
@@ -19,44 +20,83 @@ keywords:
 
 # Variables & Binding
 
-Parsley uses `let` to declare variables and bare assignment to update them. Variables are lexically scoped, closures capture by reference, and destructuring works on both arrays and dictionaries.
+Parsley has two variable declaration keywords:
+
+- **`let`** — Creates an **immutable** binding (cannot be reassigned)
+- **`var`** — Creates a **mutable** binding (can be reassigned)
+
+Variables are lexically scoped, closures capture by reference, and destructuring works on both arrays and dictionaries.
 
 ```parsley
-let name = "Alice"              // declare with let
-name = "Bob"                    // reassign with bare assignment
+let name = "Alice"              // immutable — cannot reassign
+var count = 0                   // mutable — can reassign
+count = count + 1               // OK
+// name = "Bob"                 // Error: cannot reassign immutable binding
 let [x, y] = [1, 2]            // array destructuring
 let {age} = {age: 30}          // dictionary destructuring
 ```
 
-## `let` Binding
+## `let` — Immutable Binding
 
-The `let` keyword declares and initialises a variable:
+The `let` keyword declares an **immutable** variable. Once assigned, the binding cannot be changed:
 
 ```parsley
 let x = 5
 let greeting = "hello"
 let items = [1, 2, 3]
+
+// x = 10                       // Error: cannot reassign immutable binding 'x'
 ```
 
-`let` can be used again on the same name — this shadows (replaces) the previous binding:
+`let` can be used again on the same name — this **shadows** (creates a new binding) rather than reassigning:
 
 ```parsley
 let x = 5
-let x = 10                     // shadows the previous x
+let x = 10                     // shadows the previous x (new binding)
 x                               // 10
 ```
 
-## Bare Assignment
+## `var` — Mutable Binding
 
-Omitting `let` reassigns an existing variable. If the name doesn't exist yet, it creates a new binding:
+The `var` keyword declares a **mutable** variable that can be reassigned:
 
 ```parsley
-let count = 0
-count = count + 1               // reassign existing
-total = 100                     // creates new binding (no prior let)
+var count = 0
+count = count + 1               // OK — var allows reassignment
+count = count + 1
+count                           // 2
 ```
 
-Both forms work, but `let` is recommended for initial declarations — it signals intent and is easier to spot when reading code.
+Use `var` when you need to update a value across multiple statements:
+
+```parsley
+var count = 0
+count = count + 1
+count = count + 1
+count                           // 2
+```
+
+Or use `.reduce()` for accumulation (preferred over mutation):
+
+```parsley
+[1, 2, 3, 4, 5].reduce(fn(acc, n) { acc + n }, 0)  // 15
+```
+
+## Choosing Between `let` and `var`
+
+- **Default to `let`** — immutability makes code easier to reason about
+- **Use `var`** when you need to reassign — loops, counters, accumulators
+- The compiler will tell you if you try to reassign a `let` binding
+
+```parsley
+// Prefer let for values that don't change
+let name = "Alice"
+let config = {debug: true, port: 8080}
+
+// Use var when you need mutation
+var attempts = 0
+var buffer = []
+```
 
 ### Property & Index Assignment
 
@@ -138,9 +178,10 @@ x                               // 10 (modified by the closure)
 
 ## Key Differences from Other Languages
 
-- **`let` is not `const`:** `let` does not make a binding immutable — you can reassign with either `let` or bare assignment. There is no `const` keyword
-- **No `var`/`const`/`let` distinction:** Parsley has only `let` and bare assignment — no hoisting, no temporal dead zone
-- **Bare assignment creates bindings:** Unlike Python's similar behaviour, this is intentional — `x = 5` works without a prior declaration
+- **`let` IS immutable:** Unlike JavaScript, Parsley's `let` creates an immutable binding — use `var` for mutable bindings
+- **`var` is mutable:** Like Swift, `var` allows reassignment while `let` does not
+- **No `const` keyword:** Use `let` for constants — it's already immutable
+- **Shadowing with `let`:** Using `let` on an existing name creates a new binding (shadowing), not reassignment
 - **No rename in dict destructuring:** `let {name: alias} = obj` is a parse error — use a separate assignment if you need a different name
 - **`_` is a discard:** In array destructuring, `_` signals that you're intentionally ignoring a value
 

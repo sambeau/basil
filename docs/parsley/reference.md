@@ -1404,6 +1404,65 @@ let process = fn(data) {
 
 ---
 
+### 3.6 With Expression
+
+`with` creates a scoped context where dictionary fields become directly accessible as variables. This reduces repetition when working with structured data.
+
+```parsley
+let person = {name: "Alice", age: 30}
+with person {
+    `{name} is {age} years old`
+}
+// "Alice is 30 years old"
+```
+
+#### Syntax
+
+Parentheses are optional:
+
+```parsley
+with {x: 10, y: 20} { x + y }     // 30
+with ({x: 10, y: 20}) { x + y }   // 30 (parentheses optional)
+```
+
+#### Use Cases
+
+**Reduce repetition in templates:**
+
+```parsley
+let data = {title: "Welcome", body: "Hello!"}
+with data {
+    <article>
+        <h1>title</h1>
+        <p>body</p>
+    </article>
+}
+```
+
+**Access nested structure cleanly:**
+
+```parsley
+let order = {customer: "Alice", total: 99.99}
+with order {
+    `Order for {customer}: ${total}`
+}
+// "Order for Alice: $99.99"
+```
+
+#### Scope
+
+Dictionary keys shadow outer variables inside the block:
+
+```parsley
+let name = "Outer"
+with {name: "Inner"} { name }   // "Inner"
+name                             // "Outer" (unchanged)
+```
+
+> ⚠️ `with` only works with dictionaries. Passing a non-dictionary is a runtime error.
+
+---
+
 ## 4. Statements
 
 ### 4.1 Variable Declarations (`let` and `var`)

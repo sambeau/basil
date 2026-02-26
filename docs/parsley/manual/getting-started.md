@@ -45,7 +45,19 @@ Hello, world!
 
 ## Variables and Expressions
 
-Variables are declared with `let`. Parsley has numbers, strings, booleans, and `null`:
+Parsley has two ways to declare variables:
+
+- **`let`** — immutable (cannot be reassigned)
+- **`var`** — mutable (can be reassigned)
+
+```parsley
+let name = "Alice"              // immutable
+var count = 0                   // mutable
+count = count + 1               // OK — var allows this
+// name = "Bob"                 // Error — let doesn't allow reassignment
+```
+
+Parsley has numbers, strings, booleans, and `null`:
 
 ```parsley
 let age = 30
@@ -461,6 +473,7 @@ If you're coming from JavaScript, Python, or similar languages, watch out for th
 
 | Concept | Parsley | Other languages |
 |---------|---------|-----------------|
+| Variables | `let` (immutable), `var` (mutable) | `const`/`let` in JS, `let`/`var` in Swift |
 | Output | Last expression is the result | `print()`, `console.log()` |
 | Debug output | `log()` (for debugging only) | Same as output in most languages |
 | Comments | `//` only | `#` in Python |

@@ -229,6 +229,81 @@ error.message                               // "division by zero"
 
 `fail` creates a `Value`-class error, which is always catchable by `try`. The `error` slot in the `try` result is a dictionary — use `error.message` to get the message string. String coercion also works: `"" + error` yields `error.message`.
 
+## with
+
+The `with` expression creates a scoped context where dictionary fields become directly accessible as variables. This reduces repetition when working with structured data.
+
+```parsley
+let person = {name: "Alice", age: 30, city: "NYC"}
+
+with person {
+    `{name} is {age} years old`
+}
+// "Alice is 30 years old"
+```
+
+Inside the `with` block, dictionary keys are bound as local variables. The block returns the value of its last expression.
+
+### Syntax
+
+Parentheses are optional:
+
+```parsley
+// Without parentheses
+with {x: 10, y: 20} { x + y }   // 30
+
+// With parentheses (useful for complex expressions)
+with ({x: 10, y: 20}) { x + y } // 30
+```
+
+### Use Cases
+
+**Reduce repetition when accessing nested data:**
+
+```parsley
+let order = {
+    customer: "Alice",
+    items: ["Widget", "Gadget"],
+    total: 99.99
+}
+
+with order {
+    <div class="receipt">
+        <h2>"Order for " customer</h2>
+        <p>"Total: $" total</p>
+    </div>
+}
+```
+
+**Cleaner template rendering:**
+
+```parsley
+let data = {title: "Welcome", body: "Hello, world!"}
+
+with data {
+    <article>
+        <h1>title</h1>
+        <p>body</p>
+    </article>
+}
+```
+
+### Scope
+
+Variables defined outside `with` are still accessible. If a dictionary key shadows an outer variable, the dictionary value takes precedence inside the block:
+
+```parsley
+let name = "Outer"
+let data = {name: "Inner", value: 42}
+
+with data {
+    name                // "Inner" (shadowed)
+}
+name                    // "Outer" (unchanged)
+```
+
+> ⚠️ `with` only works with dictionaries. Passing a non-dictionary value is a runtime error.
+
 ## Key Differences from Other Languages
 
 - **`if` and `for` are expressions** — they return values. No need for a ternary operator.

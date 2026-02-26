@@ -213,43 +213,45 @@ Renders the number in a box diagram:
 └────┘
 ```
 
-## Float-Specific Methods
+## Math Methods
 
 ### abs()
 
-Returns the absolute value:
+Returns the absolute value. Available on both integers and floats:
 
 ```parsley
-(-5).abs()             // 5
-(-3.14).abs()          // 3.14
+(-5).abs()             // 5 (integer)
+(-3.14).abs()          // 3.14 (float)
 ```
 
-### round()
+### round() (float only)
 
 Round to the nearest integer or to n decimal places:
 
 ```parsley
-3.7.round()            // 4
-3.14159.round(2)       // 3.14
+(3.7).round()          // 4
+(3.14159).round(2)     // 3.14
 ```
 
-### floor()
+### floor() (float only)
 
 Round down to the nearest integer:
 
 ```parsley
-3.7.floor()            // 3
+(3.7).floor()          // 3
 (-3.2).floor()         // -4
 ```
 
-### ceil()
+### ceil() (float only)
 
 Round up to the nearest integer:
 
 ```parsley
-3.2.ceil()             // 4
+(3.2).ceil()           // 4
 (-3.7).ceil()          // -3
 ```
+
+> **Note:** `round()`, `floor()`, and `ceil()` are only available on floats. Integers don't need rounding. For integers, use `@std/math` functions if needed.
 
 ## Type Conversions
 
