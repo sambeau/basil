@@ -202,11 +202,11 @@ If module A imports module B and module B imports module A, Parsley detects the 
 | `@std/valid` | Validation helpers |
 | `@std/id` | ID generation (UUID, nanoid, etc.) |
 | `@std/table` | Table constructor (deprecated — prefer `@table` literal) |
-| `@std/api` | API utilities |
+| `@std/api` → `@basil/api` | API utilities (deprecated path) |
 | `@std/mdDoc` | Markdown document processing |
-| `@std/dev` | Development/debugging tools |
-| `@std/html` | HTML utilities |
-| `@std/schema` | Schema utilities |
+| `@std/dev` → `@basil/log` | Development/debugging tools (deprecated path) |
+| `@std/html` → `@basil/html` | HTML utilities (deprecated path) |
+| `@std/schema` | Schema utilities (deprecated — prefer `@schema` DSL) |
 
 ## Key Differences from Other Languages
 
@@ -222,5 +222,5 @@ If module A imports module B and module B imports module A, Parsley detects the 
 - [Functions](functions.md) — exporting functions as module API
 - [Tags](tags.md) — components are imported functions used as custom tags
 - [@std/math](../stdlib/math.md) — math standard library reference
-- [@std/api](../stdlib/api.md) — API utilities for Basil handlers
+- [@basil/api](../stdlib/api.md) — API utilities for Basil handlers
 - [@std/id](../stdlib/id.md) — ID generation functions

@@ -52,7 +52,7 @@ func FormatMarkdownWithFrontmatter(result *TopicResult, title string) string {
 
 // formatTypeMarkdown formats type help as Markdown
 func formatTypeMarkdown(sb *strings.Builder, result *TopicResult) {
-	fmt.Fprintf(sb, "## %s\n\n", strings.Title(result.Name))
+	fmt.Fprintf(sb, "## %s\n\n", capitalizeFirst(result.Name))
 
 	// Properties table
 	if len(result.Properties) > 0 {
@@ -426,7 +426,7 @@ func formatAllMarkdown(sb *strings.Builder, result *TopicResult) {
 
 // formatTypeSchemaMarkdown formats a TypeSchema as Markdown
 func formatTypeSchemaMarkdown(sb *strings.Builder, t TypeSchema) {
-	fmt.Fprintf(sb, "### %s\n\n", strings.Title(t.Name))
+	fmt.Fprintf(sb, "### %s\n\n", capitalizeFirst(t.Name))
 
 	// Properties table
 	if len(t.Properties) > 0 {

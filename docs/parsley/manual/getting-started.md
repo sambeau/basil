@@ -461,7 +461,7 @@ You now know the fundamentals. Here are paths forward depending on what you're b
 | Learn all the built-in types | [Types](fundamentals/types.md), then the [Built-in Types](index.md#built-in-types) section |
 | Build web pages | [Tags](fundamentals/tags.md) → [Modules](fundamentals/modules.md) → [Strings](builtins/strings.md) |
 | Work with databases | [Database](features/database.md) → [Query DSL](features/query-dsl.md) → [Schemas](builtins/schema.md) |
-| Build REST APIs | [@std/api](stdlib/api.md) → [HTTP & Networking](features/network.md) → [@std/session](stdlib/session.md) |
+| Build REST APIs | [@basil/api](stdlib/api.md) → [HTTP & Networking](features/network.md) → [Session Management](stdlib/session.md) |
 | Process files and data | [File I/O](features/file-io.md) → [Data Formats](features/data-formats.md) → [Arrays](builtins/array.md) |
 | Explore the full manual | [Manual Index](index.md) |
 

@@ -822,17 +822,17 @@ pars reference --format markdown > /tmp/full-ref.md
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./pkg/parsley/...`
-- [ ] Build succeeds: `go build -o pars ./cmd/pars`
-- [ ] `pars reference --format markdown` generates valid output
-- [ ] All code examples in CHEATSHEET verified
-- [ ] All code examples in reference.md verified
-- [ ] All code examples in manual verified
-- [ ] Method counts match registries
-- [ ] No references to nonexistent functions/methods
-- [ ] CHEATSHEET contains no Basil-specific content (except security flags)
-- [ ] All imports use current (non-deprecated) paths
-- [ ] Copilot instructions updated
+- [x] All tests pass: `go test ./pkg/parsley/...`
+- [x] Build succeeds: `go build -o pars ./cmd/pars`
+- [x] `pars reference --format markdown` generates valid output
+- [x] All code examples in CHEATSHEET verified
+- [x] All code examples in reference.md verified
+- [x] All code examples in manual verified
+- [x] Method counts match registries
+- [x] No references to nonexistent functions/methods
+- [x] CHEATSHEET contains no Basil-specific content (except security flags)
+- [x] All imports use current (non-deprecated) paths
+- [x] Copilot instructions updated
 
 ---
 

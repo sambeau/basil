@@ -67,6 +67,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #112 | Export lexer keywords for `compose.go` | PLAN-110 #7 | Requires lexer change | `compose.go` `generateKeywords()` hardcodes keyword list, missing `as`, `via`, `function`. The lexer's `keywords` map in `lexer.go` is unexported. Export it (or add a helper) so generated docs stay in sync automatically. Hand-written `reference.md` has the complete list so no user-facing gap currently. |
 | #108 | Unicode superscript display for area | FEAT-118 Phase 3 | Polish | `.format({unicode: true})` → `100 m²` instead of `100m2`. Requires display option plumbing and Unicode superscript mapping. |
 | #109 | Hectare (`ha`) suffix | FEAT-118 Phase 3 | Niche | 1 ha = 10,000 m². Common in many countries but not in the initial design. Add on demand. |
 | #110 | Megalitre (`ML`) suffix | FEAT-118 Phase 3 | Niche | 1 ML = 1,000 kL = 10⁶ L. Used in water industry. Add on demand. |

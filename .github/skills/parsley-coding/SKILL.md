@@ -190,10 +190,10 @@ let double = fn(x) { x * 2 }
 <a href="/about">
 
 // 2. Single-quoted strings - RAW, for embedding JavaScript
-<button onclick='Parts.refresh("editor", {id: 1})'>
+<button onclick='fetch("/api/items", {method: "POST"})'>
 // ^ Double quotes and braces stay literal - perfect for JS!
 // Use @{} for dynamic values:
-<button onclick='Parts.refresh("editor", {id: @{myId}})'>
+<button onclick='fetch("/api/items/@{myId}", {method: "DELETE"})'>
 
 // 3. Expression braces - Parsley code
 <div class={`user-{id}`}>              // Template string for dynamic class
@@ -217,19 +217,19 @@ let msg = "Hello {name}"              // literal braces, no interpolation
 let msg = `Hello {name}`
 
 // Single quotes: RAW strings - {braces} stay literal
-let js = 'Parts.refresh("editor", {id: 1})'
+let js = 'fetch("/api/items", {method: "POST"})'
 let regex = '\d+\.\d+'              // Backslashes stay literal
 
 // Use @{} for interpolation inside raw strings
 let id = 42
-let js = 'Parts.refresh("editor", {id: @{id}})'  // id interpolated
+let js = 'fetch("/api/items/@{id}", {method: "DELETE"})'  // id interpolated
 
 // Perfect for onclick handlers with dynamic values:
 let myId = 5
-<button onclick='Parts.refresh("editor", {id: @{myId}, view: "delete"})'/>
+<button onclick='fetch("/api/items/@{myId}", {method: "DELETE"})'/>
 
 // Static JS (no interpolation needed):
-<button onclick='Parts.refresh("editor", {id: 1, view: "delete"})'/>
+<button onclick='document.getElementById("output").innerHTML = "done"'/>
 
 // Escape @ with \@ if you need a literal @
 'email: user\@domain.com'          // literal @

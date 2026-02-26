@@ -461,6 +461,6 @@ if (error) {
 - [Control Flow](control-flow.md) — `check`, `try`, and `fail` syntax overview
 - [Booleans & Null](../builtins/booleans.md) — truthiness rules, `??` null coalescing
 - [Operators](operators.md) — `??`, `in`, `[?]` optional access
-- [@std/api](../stdlib/api.md) — HTTP error helpers (`notFound`, `badRequest`, etc.)
+- [@basil/api](../stdlib/api.md) — HTTP error helpers (`notFound`, `badRequest`, etc.)
 - [Schemas](../builtins/schema.md) — `failIfInvalid()` and record validation
 - [Security Model](../features/security.md) — security errors and policy enforcement
