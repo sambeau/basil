@@ -61,12 +61,12 @@ Steps:
 5. Remove `tableModuleMeta` and `loadTableModule` function
 6. Remove `TableModule` type if no longer needed
 
-Error format:
+Error approach: Use existing error infrastructure with inline message. No new error codes.
 ```go
-return newImportError("IMPORT-0007", map[string]any{
-    "Module":      "table",
-    "Replacement": "Use @table literal syntax: @table [[...], [...]]",
-})
+return &Error{
+    Message: "@std/table is no longer supported. Use @table literal syntax instead.",
+    Hints:   []string{"@table [[\"name\", \"age\"], [\"Alice\", 30]]"},
+}
 ```
 
 Tests:
@@ -86,13 +86,13 @@ Steps:
 3. When first arg is array, return error with migration hint
 4. Update `introspect.go` to remove array from format description
 
-Error format:
+Error approach: Return simple error with hint. No new error codes.
 ```go
 if _, ok := args[0].(*Array); ok {
-    return newDeprecatedError("DEP-0001", map[string]any{
-        "Feature":     "format(array, style)",
-        "Replacement": "array.format(style)",
-    })
+    return &Error{
+        Message: "format(array, style) is no longer supported",
+        Hints:   []string{"Use array.format(style) method instead"},
+    }
 }
 ```
 
@@ -186,34 +186,7 @@ grep -rn "DEPRECATION" pkg/parsley/tests/
 
 ---
 
-### Task 8: Add Error Catalog Entries
-
-**Files**: `pkg/parsley/errors/catalog.go`
-**Estimated effort**: Small (15 minutes)
-
-Add new error codes for removed features:
-
-```go
-"IMPORT-0007": {
-    Class:   "import",
-    Message: "Module `{Module}` is no longer supported",
-    Hints:   []string{"{Replacement}"},
-},
-"DEP-0001": {
-    Class:   "deprecated", 
-    Message: "`{Feature}` is no longer supported",
-    Hints:   []string{"Use `{Replacement}` instead"},
-},
-"COMP-0003": {
-    Class:   "component",
-    Message: "`{Component}` is no longer supported",
-    Hints:   []string{"{Replacement}"},
-},
-```
-
----
-
-### Task 9: Update Documentation
+### Task 8: Update Documentation
 
 **Files**: `docs/parsley/*.md`, `docs/guide/*.md`
 **Estimated effort**: Small (30 minutes)
@@ -225,7 +198,7 @@ Add new error codes for removed features:
 
 ---
 
-### Task 10: Final Cleanup and Verification
+### Task 9: Final Cleanup and Verification
 
 **Estimated effort**: Small (30 minutes)
 
@@ -266,9 +239,8 @@ Add new error codes for removed features:
 | | Task 5 | ⬚ Not Started | Remove AST fields |
 | | Task 6 | ⬚ Not Started | Remove migrate-let-var |
 | | Task 7 | ⬚ Not Started | Remove deprecation infra |
-| | Task 8 | ⬚ Not Started | Add error catalog entries |
-| | Task 9 | ⬚ Not Started | Update documentation |
-| | Task 10 | ⬚ Not Started | Final verification |
+| | Task 8 | ⬚ Not Started | Update documentation |
+| | Task 9 | ⬚ Not Started | Final verification |
 
 ## Breaking Changes Summary
 

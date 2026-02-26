@@ -79,7 +79,8 @@ This is intentionally a disruptive change. By removing deprecated features now:
 - [ ] `migrate-let-var` command is completely removed
 - [ ] All deprecation warning code is removed
 - [ ] All tests pass after updating test files that use deprecated features
-- [ ] No deprecation warnings remain in codebase
+
+**Note:** Errors for removed features use inline messages, not new error catalog entries. We don't want to add permanent error codes for pre-1.0 features that no longer exist.
 
 ## Design Decisions
 
