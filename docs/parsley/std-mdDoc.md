@@ -269,17 +269,19 @@ doc.toMarkdown()  // "# Hello\n\n**Bold** text"
 
 #### Usage: `doc.walk(fn)`
 
-Walks the document tree, calling the function on each node. Return value is ignored.
+Walks the document tree, calling the function on each node. Use this for side effects like collecting data into a mutable variable:
 
 ```parsley
 let {mdDoc} = import @std/mdDoc
 let doc = mdDoc("# Hello\n\n## World")
 
+var headings = []
 doc.walk(fn(node) {
     if node.type == "heading" {
-        log("Found heading:", node.text)
+        headings = headings ++ [node.text]
     }
 })
+headings                         // ["Hello", "World"]
 ```
 
 ### wordCount()

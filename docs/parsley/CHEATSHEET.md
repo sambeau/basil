@@ -1129,13 +1129,13 @@ M.floor(3.7)
 export computed users = @DB.query("SELECT * FROM users")
 
 // BAD: This queries the database twice!
-for (user in users) { log(user.name) }
-for (user in users) { log(user.email) }
+for (user in users) { user.name }
+for (user in users) { user.email }
 
 // GOOD: Cache if you need to iterate multiple times
 let snapshot = users
-for (user in snapshot) { log(user.name) }
-for (user in snapshot) { log(user.email) }
+for (user in snapshot) { user.name }
+for (user in snapshot) { user.email }
 ```
 
 ---
