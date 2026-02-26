@@ -7,29 +7,107 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha.1] - 2026-02-26
+
+**Parsley 1.0 Alpha** — The first alpha release of the Parsley programming language.
+
 ### Breaking Changes
-- **`==>` and `==>>` no longer accept network targets.** HTTP request dictionaries and SFTP file handles must now use the dedicated network write operators `=/=>` and `=/=>>`. Using `==>` with a network target produces a clear error message with the fix. This enforces a visible distinction between local file I/O and network I/O, matching the existing read-side separation (`<==` vs `<=/=`).
+- **`let`/`var` variable declarations** (FEAT-122) — Swift-style immutable/mutable semantics replace bare assignment. `let` for immutable bindings, `var` for mutable.
+- **`print`/`println`/`printf` removed** (FEAT-120) — Parsley uses expression-based output; values ARE the output. Use `log()` for debugging.
+- **`bytes()` renamed to `raw()`** (FEAT-119) — `bytes()` is now a unit constructor for data sizes.
+- **Area constructors renamed** (FEAT-118) — Renamed to match unit suffixes.
+- **Global formatting/serialization functions removed** — Replaced with unified `.fmt()` and style methods (FEAT-121).
+- **`==>` and `==>>` no longer accept network targets** — Must use dedicated `=/=>` and `=/=>>` for network I/O, enforcing a visible distinction between local and remote operations.
+- **`@std/table` module removed** (FEAT-128) — Use `@table` literal syntax instead: `@table [{name: "Alice", age: 30}]`.
+- **`format(array, style)` removed** (FEAT-128) — Use the method form: `["a", "b"].format("and")`.
+- **Uppercase form components `<Label>`, `<Error>`, `<Meta>` removed** (FEAT-128) — Use lowercase `<label>`, `<error>`, `<val>`.
+- **`migrate-let-var` CLI command removed** (FEAT-128).
+- **Deprecation warning infrastructure removed** (FEAT-128) — No longer needed for 1.0.
+
+### Added
+
+#### Language Features
+- **Measurement units** (FEAT-118) — Length, weight, temperature, volume, area, and data size units with cross-system conversion and derived unit arithmetic (e.g., length × length → area).
+- **`with` expression** (FEAT-123) — Scoped field access for cleaner dictionary/record manipulation.
+- **Unified formatter API** (FEAT-121) — `.fmt()` method and style methods for all types.
+- **Remote write operators `=/=>` and `=/=>>`** — Send data to HTTP endpoints or SFTP servers. Counterpart to the fetch operator `<=/=`.
+- **PLN (Parsley Literal Notation)** — Native serialization format with full read/write support (FEAT-115), including Money and DateTime literals (FEAT-116).
+- **Named capture groups** (FEAT-127) — Regex named captures return dictionaries.
+- **Custom `failIfInvalid` messages** (FEAT-127) — Optional string parameter for record validation.
+- **Unicode identifiers and HTML tags** (FEAT-103) — Full Unicode support in variable names and tag names.
+- **SQL tag raw text content** (FEAT-117) — Direct attribute syntax for SQL tags.
+- **`string.title()` Unicode-aware** — Now uses `golang.org/x/text/cases` for proper title casing.
+
+#### Standard Library
+- **`@std/hash` module** — Hashing functions for strings and data.
+- **`@std/valid` refactored** — Cleaner validation API.
+- **`@basil/` namespace** — Server-specific modules moved to `@basil/http` and `@basil/auth`.
+- **`@std/schema` deprecated** in favor of `@schema { ... }` DSL syntax (still works for compatibility).
+- **`.reorder()` method** — For dictionaries and arrays.
+
+#### CLI & Tooling
+- **`pars -e` expression evaluation** (FEAT-113) — Quick expression testing with PLN output.
+- **`pars --raw` / `-r` flag** — File-like output mode for scripts.
+- **`pars describe`** — Introspection API for types, methods, builtins, and modules.
+- **`pars reference`** — Generate reference documentation in multiple formats.
+- **`pars --check` flag** — Syntax checking without execution.
+- **Help system** (FEAT-112) — Self-describing modules with unified help infrastructure.
+- **Declarative method registry** (FEAT-111) — Methods described via metadata for introspection.
+
+#### Code Formatter
+- **AST-based formatter** — Full Parsley code formatter with intelligent line breaking, comment preservation, method chain formatting, multiline tag attributes, and tab indentation.
+
+#### DevTools
+- **Browser error pages** — Parse and runtime errors displayed with source line context.
+- **Live reload** — Development mode with live browser refresh for templates and CSS.
+- **Logs page** — Real-time log display with copy button.
+- **Environment page** — Configuration display with secret masking.
+- **Component loading infrastructure** — Shared CSS and component system.
+
+#### REPL
+- **Raw output mode** — Script-style output for piping.
+- **AST formatter for function output** — Formatted function definitions.
+- **Table repr** — Formatted table display.
+- **Improved indentation** — Correct nesting for functions in arrays/dicts.
+
+#### Database
+- **PostgreSQL and MySQL support** (FEAT-107) — In addition to existing SQLite support.
+
+#### Editor Support
+- **Tree-sitter grammar** — Full Parsley grammar for syntax highlighting (FEAT-109, FEAT-114).
+- **Zed Editor extension** — Language support for Zed.
+- **VS Code syntax updates** — Updated for all 1.0 language features.
+- **Highlight.js grammar** — Updated for web-based highlighting.
+
+### Changed
+- `string.title()` uses Unicode-aware title casing (minor behavior change with apostrophes)
+- Structured error model with error codes, hints, and consistent formatting (FEAT-105, FEAT-125)
+- Comprehensive documentation overhaul (FEAT-131) — Reference, cheatsheet, manual, and API docs verified against `pars describe`
+
+### Fixed
+- Duration multiplication is now commutative (BUG-021)
+- Module imports no longer require execute permission (BUG-022)
+- Phantom operators and wrong metadata in introspection (BUG-023)
+- Dictionary insertion order preserved in `toCSV` (BUG-019)
+- ISO date format accepts single-digit months and days
+- Record repr uses valid Parsley syntax
+- Updated deprecated mailgun API calls
+- Updated deprecated goldmark `Text` property usage
+- Fixed unchecked error returns on database close in CLI commands
+- Acronym handling in case conversion methods
+
+### Removed
+- `print`/`println`/`printf` builtins (FEAT-120)
+- `@std/table` module (FEAT-128) — use `@table` literal
+- `format(array, style)` global function (FEAT-128) — use `array.format(style)`
+- `<Label>`, `<Error>`, `<Meta>` uppercase components (FEAT-128)
+- `migrate-let-var` CLI command (FEAT-128)
+- Deprecation warning infrastructure (FEAT-128)
+- 12 unused internal functions (no public API changes)
 
 ### Security
 - Upgraded to Go 1.26.0 to fix TLS and URL parsing vulnerabilities (GO-2026-4337, GO-2026-4340, GO-2026-4341)
 - Updated chi router dependency to v5.2.2 to fix host header injection vulnerability (GO-2025-3770)
-
-### Added
-- **Remote write operator `=/=>`** — Sends data to HTTP endpoints or SFTP servers. Defaults to POST for HTTP; use `.put` or `.patch` accessors for other methods. Counterpart to the fetch operator `<=/=`.
-- **Remote append operator `=/=>>`** — Appends data to remote files via SFTP. Not supported for HTTP (HTTP has no append semantic).
-
-### Changed
-- `string.title()` now uses Unicode-aware title casing via `golang.org/x/text/cases`
-  - Minor behavior change: apostrophes are now treated as part of words
-  - Example: `"hello'world".title()` now returns `"Hello'world"` instead of `"Hello'World"`
-
-### Fixed
-- Updated deprecated mailgun API calls (`NewMessage`, `SetHTML`)
-- Updated deprecated goldmark `Text` property usage
-- Fixed unchecked error returns on database close in CLI commands
-
-### Removed
-- Removed 12 unused internal functions (no public API changes)
 
 ## [0.2.0] - 2025-06-20
 
