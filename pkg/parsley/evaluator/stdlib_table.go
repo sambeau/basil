@@ -34,6 +34,7 @@ func getStdlibModules() map[string]func(*Environment) Object {
 		"api":    loadAPIModule,
 		"mdDoc":  loadMdDocModule,
 		"html":   loadHTMLModule,
+		"hash":   loadHashModule,
 	}
 }
 
@@ -49,6 +50,16 @@ func loadStdlibModule(name string, env *Environment) Object {
 	// Emit deprecation warning for @std/table
 	if name == "table" {
 		emitDeprecationWarning("DEP-001", "@std/table is deprecated, use @table literal syntax instead")
+	}
+
+	// Emit deprecation warnings for modules moved to @basil/ namespace
+	switch name {
+	case "api":
+		emitDeprecationWarning("DEP-003", "@std/api is deprecated, use @basil/api instead")
+	case "dev":
+		emitDeprecationWarning("DEP-004", "@std/dev is deprecated, use @basil/log instead")
+	case "html":
+		emitDeprecationWarning("DEP-005", "@std/html is deprecated, use @basil/html instead")
 	}
 
 	modules := getStdlibModules()
@@ -181,6 +192,9 @@ func getBasilModules() map[string]func(*Environment) Object {
 	return map[string]func(*Environment) Object{
 		"http": loadBasilHTTPModule,
 		"auth": loadBasilAuthModule,
+		"api":  loadAPIModule,
+		"log":  loadDevModule,
+		"html": loadHTMLModule,
 	}
 }
 

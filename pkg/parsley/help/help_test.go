@@ -495,11 +495,10 @@ func TestModuleScopedDescriptions(t *testing.T) {
 		wantSubstr string // substring that must appear in the export's description
 	}{
 		{"@std/id", "uuid", "Generate UUID"},
-		{"@std/valid", "uuid", "Check UUID format"},
-		{"@std/schema", "string", "schema validator"},
-		{"@std/valid", "string", "Check if value is string"},
-		{"@std/schema", "email", "schema validator"},
-		{"@std/valid", "email", "Check email format"},
+		{"@std/valid", "uuid", "Check UUID"},
+		{"@std/valid", "ulid", "Check ULID"},
+		{"@std/valid", "creditCard", "credit card"},
+		{"@std/hash", "sha256", "SHA256"},
 	}
 
 	for _, tt := range tests {

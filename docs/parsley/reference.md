@@ -1709,6 +1709,10 @@ let upper = name.toUpper()      // Assign to use the result
 | `.toUpper()` | none | `string` | Convert to uppercase |
 | `.toLower()` | none | `string` | Convert to lowercase |
 | `.toTitle()` | none | `string` | Capitalize first letter of each word |
+| `.toCamel()` | none | `string` | Convert to camelCase |
+| `.toPascal()` | none | `string` | Convert to PascalCase |
+| `.toSnake()` | none | `string` | Convert to snake_case |
+| `.toKebab()` | none | `string` | Convert to kebab-case |
 
 #### Whitespace Handling
 
@@ -1731,6 +1735,7 @@ let upper = name.toUpper()      // Assign to use the result
 | `.includes(substr)` | `substr: string` | `boolean` | Check if contains substring |
 | `.digits()` | none | `string` | Extract only digits |
 | `.slug()` | none | `string` | Convert to URL-safe slug |
+| `.truncate(len, suffix?)` | `len: integer`, `suffix?: string` | `string` | Truncate to length with suffix (default "...") |
 
 #### HTML Processing
 
@@ -1757,6 +1762,13 @@ let upper = name.toUpper()      // Assign to use the result
 |--------|-----------|---------|-------------|
 | `.parseJSON()` | none | `any` | Parse string as JSON |
 | `.parseCSV(hasHeader?)` | `hasHeader?: boolean` (default: `true`) | `table` | Parse string as CSV |
+
+#### Encoding
+
+| Method | Arguments | Returns | Description |
+|--------|-----------|---------|-------------|
+| `.toBase64()` | none | `string` | Encode as Base64 |
+| `.fromBase64()` | none | `string` | Decode from Base64 |
 
 #### Templating
 
@@ -1801,6 +1813,21 @@ let upper = name.toUpper()      // Assign to use the result
 "abc123def456".digits()         // "123456"
 "Hello World!".slug()           // "hello-world"
 "name = @{name}".render({name: "Alice"})  // "name = Alice"
+
+// Case conversion (useful for API/database field mapping)
+"hello_world".toCamel()         // "helloWorld"
+"hello_world".toPascal()        // "HelloWorld"
+"HelloWorld".toSnake()          // "hello_world"
+"HelloWorld".toKebab()          // "hello-world"
+
+// Truncation (Unicode-aware)
+"Hello world".truncate(8)       // "Hello..."
+"Hello world".truncate(8, "…")  // "Hello w…"
+"Hi".truncate(8)                // "Hi" (no change if shorter)
+
+// Base64 encoding
+"hello".toBase64()              // "aGVsbG8="
+"aGVsbG8=".fromBase64()         // "hello"
 ```
 
 ---
@@ -3598,26 +3625,50 @@ See [PLN manual page](manual/pln.md) for complete syntax reference.
 
 ## 7. Standard Library
 
-Import with `@std/` prefix:
+Parsley has two module namespaces:
+
+- **`@std/`** — Pure Parsley functionality (works without Basil server)
+- **`@basil/`** — Server-specific functionality (requires Basil runtime)
+
+Import with the appropriate prefix:
 
 ```parsley
 import @std/math
 let {floor, ceil} = import @std/math
+
+import @basil/api
+let {notFound, redirect} = import @basil/api
 ```
 
-**Available modules:**
+### Pure Parsley Modules (`@std/`)
 
 | Module | Description |
 |--------|-------------|
 | `@std/math` | Mathematical functions and constants |
-| `@std/valid` | Validation predicates |
-| `@std/id` | ID generation (ULID, UUID, NanoID) |
-| `@std/table` | SQL-like table operations |
-| `@std/schema` | Data validation schemas |
-| `@std/api` | HTTP API utilities (auth wrappers, error helpers) |
+| `@std/valid` | Validation predicates for IDs, financial data, locales |
+| `@std/id` | ID generation (ULID, UUID, NanoID, CUID) |
+| `@std/hash` | Cryptographic hash functions (MD5, SHA1, SHA256, SHA512) |
 | `@std/mdDoc` | Markdown document analysis |
-| `@std/dev` | Development logging (server only) |
-| `@std/html` | Pre-built HTML components (server only) |
+
+### Server Modules (`@basil/`)
+
+| Module | Description |
+|--------|-------------|
+| `@basil/http` | HTTP request context (params, request, response) |
+| `@basil/auth` | Authentication context (session, auth, user) |
+| `@basil/api` | HTTP API utilities (auth wrappers, error helpers) |
+| `@basil/log` | Development logging |
+| `@basil/html` | Pre-built HTML components |
+
+### Deprecated Modules
+
+| Old Path | New Path | Status |
+|----------|----------|--------|
+| `@std/api` | `@basil/api` | Deprecated with warning |
+| `@std/dev` | `@basil/log` | Deprecated with warning |
+| `@std/html` | `@basil/html` | Deprecated with warning |
+| `@std/schema` | `@schema { }` DSL | Deprecated with warning |
+| `@std/table` | `@table` literal | Deprecated with warning |
 
 ---
 
@@ -3769,93 +3820,95 @@ math.map(5, 0, 10, 0, 100)      // 50
 
 ### 7.2 @std/valid
 
-Validation functions that return `true` or `false`. All validators are pure functions with no side effects.
+Validation predicates for IDs, financial data, and locale-specific formats. All validators return `true` or `false` and are pure functions with no side effects.
 
-#### Type Validators
+> **Note:** Type validators (`string`, `number`, etc.) and constraint validators (`minLen`, `between`, etc.) have been removed. Use `inspect(x).type` for type checking and `@schema` DSL for constraint validation.
 
-| Function | Arguments | Description |
-|----------|-----------|-------------|
-| `string(v)` | `v: any` | Is string? |
-| `number(v)` | `v: any` | Is number (integer or float)? |
-| `integer(v)` | `v: any` | Is integer? |
-| `boolean(v)` | `v: any` | Is boolean? |
-| `array(v)` | `v: any` | Is array? |
-| `dict(v)` | `v: any` | Is dictionary? |
-
-#### String Validators
+#### ID Validators
 
 | Function | Arguments | Description |
 |----------|-----------|-------------|
-| `empty(s)` | `s: string` | Is empty or whitespace only? |
-| `minLen(s, n)` | `s: string`, `n: integer` | Has at least n characters? |
-| `maxLen(s, n)` | `s: string`, `n: integer` | Has at most n characters? |
-| `length(s, min, max)` | `s: string`, `min, max: integer` | Length in range? |
-| `matches(s, pattern)` | `s: string`, `pattern: string\|regex` | Matches pattern? |
-| `alpha(s)` | `s: string` | Only letters? |
-| `alphanumeric(s)` | `s: string` | Only letters and numbers? |
-| `numeric(s)` | `s: string` | Only digits? |
+| `uuid(s)` | `s: string` | Valid UUID v4/v7 format? |
+| `ulid(s)` | `s: string` | Valid ULID format (26 chars, Crockford Base32)? |
+| `nanoid(s, len?)` | `s: string`, `len?: integer` | Valid NanoID format? (default len=21) |
+| `cuid(s)` | `s: string` | Valid CUID2 format (25 chars, starts with 'c')? |
 
-#### Number Validators
+#### Financial Validators
 
 | Function | Arguments | Description |
 |----------|-----------|-------------|
-| `min(n, min)` | `n, min: number` | At least min? |
-| `max(n, max)` | `n, max: number` | At most max? |
-| `between(n, min, max)` | `n, min, max: number` | In range [min, max]? |
-| `positive(n)` | `n: number` | Greater than 0? |
-| `negative(n)` | `n: number` | Less than 0? |
+| `creditCard(s)` | `s: string` | Valid credit card number (Luhn check, 13-19 digits)? |
+| `luhn(s)` | `s: string` | Passes Luhn algorithm check (any length)? |
 
-#### Format Validators
+#### Locale-Aware Validators
 
 | Function | Arguments | Description |
 |----------|-----------|-------------|
-| `email(s)` | `s: string` | Valid email format? |
-| `url(s)` | `s: string` | Valid URL format? |
-| `uuid(s)` | `s: string` | Valid UUID format? |
-| `phone(s, locale?)` | `s: string`, `locale?: string` | Valid phone number? |
-| `creditCard(s)` | `s: string` | Valid credit card (Luhn check)? |
-| `date(s, format?)` | `s: string`, `format?: string` | Valid date? |
-| `time(s)` | `s: string` | Valid time (HH:MM or HH:MM:SS)? |
-| `postalCode(s, locale?)` | `s: string`, `locale?: string` | Valid postal code? |
-
-#### Collection Validators
-
-| Function | Arguments | Description |
-|----------|-----------|-------------|
-| `contains(arr, item)` | `arr: array`, `item: any` | Array contains item? |
-| `oneOf(value, options)` | `value: any`, `options: array` | Value is one of options? |
+| `postalCode(s, locale)` | `s: string`, `locale: string` | Valid postal code? Locales: `"US"`, `"GB"` |
 
 ```parsley
-let valid = import @std/valid
+import @std/valid
 
-// Type checking
-valid.string("hello")           // true
-valid.number(42)                // true
-valid.integer(3.14)             // false
-
-// String validation
-valid.empty("   ")              // true
-valid.minLen("hello", 3)        // true
-valid.alpha("Hello")            // true
-valid.alphanumeric("abc123")    // true
-
-// Number validation
-valid.positive(5)               // true
-valid.between(10, 5, 15)        // true
-
-// Format validation
-valid.email("user@example.com") // true
-valid.email("invalid")          // false
+// ID validation — validate any ID type generated by @std/id
 valid.uuid("550e8400-e29b-41d4-a716-446655440000")  // true
-valid.phone("+1-555-123-4567")  // true
+valid.ulid("01ARZ3NDEKTSV4RRFFQ69G5FAV")            // true
+valid.nanoid("V1StGXR8_Z5jdHi6B-myT")               // true (default 21 chars)
+valid.nanoid("abc", 3)                              // true (custom length)
+valid.cuid("cjld2cjxh0000qzrmn831i7rn")             // true
 
-// Collection validation
-valid.oneOf("red", ["red", "green", "blue"])  // true
+// Financial validation
+valid.creditCard("4111111111111111")                // true (Visa test number)
+valid.creditCard("4111-1111-1111-1111")             // true (with dashes)
+valid.luhn("79927398713")                           // true (generic Luhn)
+
+// Postal codes
+valid.postalCode("90210", "US")                     // true
+valid.postalCode("90210-1234", "US")                // true (ZIP+4)
+valid.postalCode("SW1A 1AA", "GB")                  // true (UK)
+```
+
+#### Migration from Previous API
+
+| Removed Function | Alternative |
+|------------------|-------------|
+| `string(x)`, `number(x)`, etc. | `inspect(x).type == "string"` |
+| `minLen(s, n)`, `maxLen(s, n)` | `@schema` constraint: `string(n..)` |
+| `between(n, lo, hi)` | `@schema` constraint: `int(lo..hi)` |
+| `email(s)`, `url(s)`, `phone(s)` | `@schema` types: `email`, `url`, `phone` |
+| `matches(s, pattern)` | Native regex: `s ~ /pattern/` |
+| `contains(arr, val)`, `oneOf(v, arr)` | Native `in` operator: `val in arr` |
+| `positive(n)`, `negative(n)` | Simple comparison: `n > 0`, `n < 0` |
+
+---
+
+### 7.3 @std/hash
+
+Cryptographic hash functions for checksums, cache keys, ETags, and non-security hashing. All functions return lowercase hex-encoded strings.
+
+> **Note:** For password hashing, use Basil's auth system instead of these functions.
+
+| Function | Arguments | Returns | Description |
+|----------|-----------|---------|-------------|
+| `md5(s)` | `s: string` | 32-char hex | MD5 hash |
+| `sha1(s)` | `s: string` | 40-char hex | SHA1 hash |
+| `sha256(s)` | `s: string` | 64-char hex | SHA256 hash |
+| `sha512(s)` | `s: string` | 128-char hex | SHA512 hash |
+
+```parsley
+import @std/hash
+
+hash.md5("hello")      // "5d41402abc4b2a76b9719d911017c592"
+hash.sha1("hello")     // "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+hash.sha256("hello")   // "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+
+// Common use cases
+let etag = hash.md5(content)
+let cacheKey = hash.sha256(userId + ":" + query)
 ```
 
 ---
 
-### 7.3 @std/id
+### 7.5 @std/id
 
 ID generation functions for creating unique identifiers. All functions return strings and are thread-safe.
 
@@ -3886,7 +3939,9 @@ id.nanoid(10)                   // "IRFa-VaY2b"
 
 ---
 
-### 7.4 @std/table
+### 7.6 @std/table (Deprecated)
+
+> **⚠️ Deprecated:** Use `@table` literal syntax instead. This module still works but emits a deprecation warning.
 
 The table module provides SQL-like data manipulation for arrays of dictionaries. Tables are immutable—all operations return new tables.
 
@@ -3987,7 +4042,9 @@ t2.toCSV()                      // "letter,count\na,1\nb,2\nc,3"
 
 ---
 
-### 7.5 @std/schema
+### 7.7 @std/schema (Deprecated)
+
+> **⚠️ Deprecated:** Use `@schema { ... }` DSL syntax instead. This module still works but emits a deprecation warning.
 
 Schema definitions for data validation. Define reusable schemas and validate data against them.
 
@@ -4065,7 +4122,11 @@ bad.errors[0].message           // "User schema: Invalid email format"
 
 ---
 
-### 7.6 @std/api
+### 7.8 @basil/api
+
+HTTP API utilities for auth wrappers, error helpers, and redirects.
+
+> **Note:** Previously `@std/api`. The old path still works but emits a deprecation warning.
 
 HTTP API utilities for Basil handlers. Provides auth wrappers and error helpers.
 
@@ -4140,7 +4201,7 @@ fn handleOldUrl(req) {
 
 ---
 
-### 7.7 @std/mdDoc
+### 7.9 @std/mdDoc
 
 Markdown document analysis and manipulation. Parse markdown into a queryable document object.
 
@@ -4226,7 +4287,11 @@ doc.toMarkdown()                // Original markdown (reformatted)
 
 ---
 
-### 7.8 @std/dev
+### 7.10 @basil/log
+
+Development logging for debugging in Basil server environment.
+
+> **Note:** Previously `@std/dev`. The old path still works but emits a deprecation warning.
 
 Development logging utilities. **Requires Basil server context**—not available in standalone Parsley scripts.
 
@@ -4256,7 +4321,11 @@ fn handleRequest(req) {
 
 ---
 
-### 7.9 @std/html
+### 7.11 @basil/html
+
+Pre-built HTML components for common UI patterns. Requires Basil server environment.
+
+> **Note:** Previously `@std/html`. The old path still works but emits a deprecation warning.
 
 Pre-built HTML components. **Requires Basil server context**—not available in standalone Parsley scripts.
 

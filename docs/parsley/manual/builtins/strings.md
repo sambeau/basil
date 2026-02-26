@@ -145,7 +145,22 @@ s[?99]                          // null (optional access, no error)
 | `.toUpper()` | Uppercase: `"hello".toUpper()` → `"HELLO"` |
 | `.toLower()` | Lowercase: `"HELLO".toLower()` → `"hello"` |
 | `.toTitle()` | Title case: `"hello world".toTitle()` → `"Hello World"` |
+| `.toCamel()` | camelCase: `"hello_world".toCamel()` → `"helloWorld"` |
+| `.toPascal()` | PascalCase: `"hello_world".toPascal()` → `"HelloWorld"` |
+| `.toSnake()` | snake_case: `"helloWorld".toSnake()` → `"hello_world"` |
+| `.toKebab()` | kebab-case: `"helloWorld".toKebab()` → `"hello-world"` |
 | `.slug()` | URL-safe slug: `"Hello World!".slug()` → `"hello-world"` |
+
+Case conversion methods handle snake_case, kebab-case, camelCase, PascalCase, spaces, and acronyms:
+
+```parsley
+"hello_world".toCamel()              // "helloWorld"
+"hello-world".toPascal()             // "HelloWorld"
+"HelloWorld".toSnake()               // "hello_world"
+"XMLParser".toSnake()                // "xml_parser" (acronyms handled)
+"getAPIResponse".toKebab()           // "get-api-response"
+"HELLO".toCamel()                    // "hello"
+```
 
 ### Whitespace
 
@@ -172,6 +187,15 @@ s[?99]                          // null (optional access, no error)
 | `.split(delim)` | Split into array: `"a,b,c".split(",")` → `["a", "b", "c"]` |
 | `.replace(old, new)` | Replace all occurrences: `"hello".replace("l", "L")` → `"heLLo"` |
 | `.digits()` | Extract only digits: `"abc123def".digits()` → `"123"` |
+| `.truncate(len, suffix?)` | Truncate to length with suffix (default `"..."`). Unicode-aware. |
+
+```parsley
+"Hello world".truncate(8)            // "Hello..."
+"Hello world".truncate(8, "…")       // "Hello w…"
+"Hi".truncate(8)                     // "Hi" (no change if shorter)
+"Hello world".truncate(8, "")        // "Hello wo"
+"こんにちは世界".truncate(5)           // "こん..."
+```
 
 The `replace` method also accepts a **regex** as the first argument and a **function** as the second. With a regex, only the **first match** is replaced by default — add the `g` flag for global replacement:
 
@@ -197,14 +221,25 @@ The `replace` method also accepts a **regex** as the first argument and a **func
 "<b>hello</b>".stripHtml()            // "hello"
 ```
 
-### URL Encoding
+### Encoding
 
 | Method | Description |
 |--------|-------------|
+| `.toBase64()` | Encode as Base64: `"hello".toBase64()` → `"aGVsbG8="` |
+| `.fromBase64()` | Decode from Base64: `"aGVsbG8=".fromBase64()` → `"hello"` |
 | `.urlEncode()` | Query-string encode (spaces → `+`) |
 | `.urlDecode()` | Decode URL-encoded string |
 | `.urlPathEncode()` | Encode path segments (`/` → `%2F`) |
 | `.urlQueryEncode()` | Encode query values (`&`, `=` encoded) |
+
+Base64 round-trips work as expected. Invalid Base64 input returns an error:
+
+```parsley
+"hello".toBase64()                   // "aGVsbG8="
+"aGVsbG8=".fromBase64()              // "hello"
+"日本語".toBase64().fromBase64()      // "日本語"
+"!!!invalid!!!".fromBase64()         // Error: invalid base64
+```
 
 ### Parsing
 

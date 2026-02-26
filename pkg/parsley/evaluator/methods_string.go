@@ -3,10 +3,14 @@
 package evaluator
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"html"
 	"net/url"
+	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // StringMethodRegistry defines all methods available on string values.
@@ -170,6 +174,41 @@ func init() {
 			Fn:          stringToJSON,
 			Arity:       "0",
 			Description: "Convert to JSON string",
+		},
+		"toBase64": {
+			Fn:          stringToBase64,
+			Arity:       "0",
+			Description: "Encode as Base64",
+		},
+		"fromBase64": {
+			Fn:          stringFromBase64,
+			Arity:       "0",
+			Description: "Decode from Base64",
+		},
+		"toCamel": {
+			Fn:          stringToCamel,
+			Arity:       "0",
+			Description: "Convert to camelCase",
+		},
+		"toPascal": {
+			Fn:          stringToPascal,
+			Arity:       "0",
+			Description: "Convert to PascalCase",
+		},
+		"toSnake": {
+			Fn:          stringToSnake,
+			Arity:       "0",
+			Description: "Convert to snake_case",
+		},
+		"toKebab": {
+			Fn:          stringToKebab,
+			Arity:       "0",
+			Description: "Convert to kebab-case",
+		},
+		"truncate": {
+			Fn:          stringTruncate,
+			Arity:       "1-2",
+			Description: "Truncate to length with suffix (default '...')",
 		},
 	}
 	RegisterMethodRegistry("string", StringMethodRegistry)
@@ -451,4 +490,186 @@ func stringToJSON(receiver Object, args []Object, env *Environment) Object {
 	// JSON encode the string
 	jsonBytes, _ := json.Marshal(str.Value)
 	return &String{Value: string(jsonBytes)}
+}
+
+func stringToBase64(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+	encoded := base64.StdEncoding.EncodeToString([]byte(str.Value))
+	return &String{Value: encoded}
+}
+
+func stringFromBase64(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+	decoded, err := base64.StdEncoding.DecodeString(str.Value)
+	if err != nil {
+		return newFormatError("FMT-0012", err)
+	}
+	return &String{Value: string(decoded)}
+}
+
+// caseDelimiterRegex matches word boundaries for case conversion
+var caseDelimiterRegex = regexp.MustCompile(`[-_\s]+`)
+
+// splitIntoWords splits a string into words, handling camelCase, PascalCase, snake_case, kebab-case
+func splitIntoWords(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	// First, handle snake_case and kebab-case by splitting on delimiters
+	parts := caseDelimiterRegex.Split(s, -1)
+
+	var words []string
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		// Split camelCase and PascalCase
+		words = append(words, splitCamelCase(part)...)
+	}
+	return words
+}
+
+// splitCamelCase splits a camelCase or PascalCase string into words
+func splitCamelCase(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	runes := []rune(s)
+	var words []string
+	var current strings.Builder
+
+	for i, r := range runes {
+		isUpper := unicode.IsUpper(r)
+		isLower := unicode.IsLower(r)
+		prevIsUpper := i > 0 && unicode.IsUpper(runes[i-1])
+
+		if i > 0 {
+			prevLower := unicode.IsLower(runes[i-1])
+			if isUpper && prevLower {
+				// Transition from lowercase to uppercase: "helloWorld" -> "hello", "World"
+				if current.Len() > 0 {
+					words = append(words, current.String())
+					current.Reset()
+				}
+			} else if isLower && prevIsUpper && current.Len() > 1 {
+				// Transition from uppercase run to lowercase: "XMLParser" -> "XML", "Parser"
+				// Peel off the last uppercase char (it starts the new word)
+				word := current.String()
+				wordRunes := []rune(word)
+				words = append(words, string(wordRunes[:len(wordRunes)-1]))
+				current.Reset()
+				current.WriteRune(wordRunes[len(wordRunes)-1])
+			}
+		}
+
+		current.WriteRune(r)
+	}
+
+	if current.Len() > 0 {
+		words = append(words, current.String())
+	}
+
+	return words
+}
+
+func stringToCamel(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+	words := splitIntoWords(str.Value)
+	if len(words) == 0 {
+		return &String{Value: ""}
+	}
+
+	var result strings.Builder
+	for i, word := range words {
+		if i == 0 {
+			result.WriteString(strings.ToLower(word))
+		} else {
+			result.WriteString(strings.Title(strings.ToLower(word)))
+		}
+	}
+	return &String{Value: result.String()}
+}
+
+func stringToPascal(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+	words := splitIntoWords(str.Value)
+	if len(words) == 0 {
+		return &String{Value: ""}
+	}
+
+	var result strings.Builder
+	for _, word := range words {
+		result.WriteString(strings.Title(strings.ToLower(word)))
+	}
+	return &String{Value: result.String()}
+}
+
+func stringToSnake(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+	words := splitIntoWords(str.Value)
+	if len(words) == 0 {
+		return &String{Value: ""}
+	}
+
+	lowerWords := make([]string, len(words))
+	for i, word := range words {
+		lowerWords[i] = strings.ToLower(word)
+	}
+	return &String{Value: strings.Join(lowerWords, "_")}
+}
+
+func stringToKebab(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+	words := splitIntoWords(str.Value)
+	if len(words) == 0 {
+		return &String{Value: ""}
+	}
+
+	lowerWords := make([]string, len(words))
+	for i, word := range words {
+		lowerWords[i] = strings.ToLower(word)
+	}
+	return &String{Value: strings.Join(lowerWords, "-")}
+}
+
+func stringTruncate(receiver Object, args []Object, env *Environment) Object {
+	str := receiver.(*String)
+
+	lenArg, ok := args[0].(*Integer)
+	if !ok {
+		return newTypeError("TYPE-0012", "truncate", "an integer", args[0].Type())
+	}
+	maxLen := int(lenArg.Value)
+
+	suffix := "..."
+	if len(args) >= 2 {
+		suffixArg, ok := args[1].(*String)
+		if !ok {
+			return newTypeError("TYPE-0013", "truncate", "a string", args[1].Type())
+		}
+		suffix = suffixArg.Value
+	}
+
+	// Count runes for proper Unicode support
+	runeCount := utf8.RuneCountInString(str.Value)
+	if runeCount <= maxLen {
+		return str
+	}
+
+	suffixLen := utf8.RuneCountInString(suffix)
+	if maxLen <= suffixLen {
+		// Edge case: suffix fills entire space
+		runes := []rune(suffix)
+		if maxLen <= len(runes) {
+			return &String{Value: string(runes[:maxLen])}
+		}
+		return &String{Value: suffix}
+	}
+
+	// Truncate to (maxLen - suffixLen) runes and append suffix
+	runes := []rune(str.Value)
+	truncated := string(runes[:maxLen-suffixLen]) + suffix
+	return &String{Value: truncated}
 }
