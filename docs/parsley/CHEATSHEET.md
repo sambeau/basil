@@ -4,6 +4,38 @@ Quick reference for beginners and AI agents developing Parsley. Focus on key dif
 
 ---
 
+## 🤖 AI Agent Quick Start
+
+**Before writing Parsley code, use these tools to get accurate information:**
+
+| Task | Command |
+|------|---------|
+| Look up type methods | `pars describe string`, `pars describe array`, etc. |
+| Look up a builtin | `pars describe len`, `pars describe range`, etc. |
+| Get all API info as JSON | `pars describe all --json` |
+| Verify code works | `pars -e "expression"` |
+| Verify with raw output | `pars -r -e "<div>html</div>"` |
+
+**Key rules:**
+1. **No print/println** — values ARE output (expression-based)
+2. **`let` is immutable**, `var` is mutable (Swift-style)
+3. **Verify before outputting** — run `pars -e "code"` to confirm syntax
+4. **Code is truth** — if docs conflict with `pars describe`, trust the command
+
+**Quick verification example:**
+```bash
+# Check if a method exists
+pars describe string | grep -i "trim"
+
+# Test an expression
+pars -e '"  hello  ".trim()'  # → "hello"
+
+# Test HTML output
+pars -r -e '<div class="test">"content"</div>'
+```
+
+---
+
 ## 🚨 Major Gotchas (Common Mistakes)
 
 ### 1. No `print()` Function — Expressions ARE Output

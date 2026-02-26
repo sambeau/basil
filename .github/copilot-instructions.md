@@ -58,6 +58,43 @@ Use `pars -e` to quickly test and debug Parsley expressions:
 - Use `--raw` or `-r` for file-like output (e.g., for HTML rendering)
 - Matches REPL behavior for consistency
 
+## Parsley API Reference (Source of Truth)
+**Always use `pars describe` to get accurate API information.** Documentation may be outdated; the code is truth.
+
+### Looking Up Methods and Builtins
+```bash
+# Get all methods for a type
+pars describe string
+pars describe array
+pars describe dict
+pars describe integer
+pars describe float
+
+# Get info about a specific builtin
+pars describe len
+pars describe range
+pars describe match
+
+# Get complete API as JSON (for programmatic use)
+pars describe all --json
+```
+
+### Verifying Code Before Writing
+Before including Parsley code in documentation or examples:
+```bash
+# Test that an expression works
+pars -e '"hello".toUpper()'
+
+# Test HTML output
+pars -r -e '<div class="test">"content"</div>'
+
+# Check if a method exists
+pars describe string | grep -i "trim"
+```
+
+### Key Principle
+If documentation conflicts with `pars describe` output, **trust the command**. Update the documentation to match.
+
 ## Workflow Entry Points
 - **New Feature**: Use `/new-feature` prompt
 - **Bug Fix**: Use `/fix-bug` prompt  
@@ -129,3 +166,9 @@ When documenting Parsley language features:
 - `docs/parsley/reference.md` - Comprehensive reference. All features should be documented here with accurate grammar snippets
 - `docs/parsley/CHEATSHEET.md` - AI-focused cheatsheet highlighting differences from other languages, ordered by likelihood of being a pitfall
 - `docs/parsley/README.md` - Quick guide with examples (may be outdated)
+
+### Documentation Accuracy Rules
+1. **Verify examples work** — run `pars -e "code"` before committing doc changes
+2. **Check method existence** — use `pars describe <type>` to confirm methods exist
+3. **Don't invent builtins** — `print()`, `println()`, `printf()` do NOT exist
+4. **Code is truth** — if docs conflict with `pars describe`, fix the docs
