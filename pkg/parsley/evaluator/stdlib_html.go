@@ -4,6 +4,45 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
+var htmlModuleMeta = ModuleMeta{
+	Description: "Pre-built HTML components (requires Basil server)",
+	Exports: map[string]ExportMeta{
+		// Layout components
+		"Page": {Kind: "component", Description: "Page layout wrapper"},
+		"Head": {Kind: "component", Description: "HTML head section"},
+		// Form components
+		"TextField":     {Kind: "component", Description: "Text input field"},
+		"TextareaField": {Kind: "component", Description: "Textarea input field"},
+		"SelectField":   {Kind: "component", Description: "Select dropdown field"},
+		"RadioGroup":    {Kind: "component", Description: "Radio button group"},
+		"CheckboxGroup": {Kind: "component", Description: "Checkbox group"},
+		"Checkbox":      {Kind: "component", Description: "Single checkbox"},
+		"Button":        {Kind: "component", Description: "Button element"},
+		"Form":          {Kind: "component", Description: "Form wrapper"},
+		// Navigation components
+		"Nav":        {Kind: "component", Description: "Navigation wrapper"},
+		"Breadcrumb": {Kind: "component", Description: "Breadcrumb navigation"},
+		"SkipLink":   {Kind: "component", Description: "Skip to content link"},
+		// Media components
+		"Img":        {Kind: "component", Description: "Image element"},
+		"Iframe":     {Kind: "component", Description: "Iframe element"},
+		"Figure":     {Kind: "component", Description: "Figure with caption"},
+		"Blockquote": {Kind: "component", Description: "Blockquote element"},
+		// Utility components
+		"SrOnly": {Kind: "component", Description: "Screen reader only text"},
+		"Abbr":   {Kind: "component", Description: "Abbreviation element"},
+		"A":      {Kind: "component", Description: "Anchor/link element"},
+		"Icon":   {Kind: "component", Description: "Icon element"},
+		// Time components
+		"Time":         {Kind: "component", Description: "Time element"},
+		"LocalTime":    {Kind: "component", Description: "Localized time display"},
+		"TimeRange":    {Kind: "component", Description: "Time range display"},
+		"RelativeTime": {Kind: "component", Description: "Relative time display"},
+		// Table components
+		"DataTable": {Kind: "component", Description: "Data table component"},
+	},
+}
+
 // PreludeLoader is a function that loads a prelude AST by path.
 // This is set by the server package to allow the evaluator to access prelude files.
 var PreludeLoader func(path string) *ast.Program

@@ -72,8 +72,10 @@ var schemaModuleMeta = ModuleMeta{
 	},
 }
 
-// loadSchemaModule returns the schema module as a StdlibModuleDict
+// loadSchemaModule returns the schema module with a deprecation warning
+// @std/schema is superseded by @schema DSL but still works for backwards compatibility
 func loadSchemaModule(env *Environment) Object {
+	emitDeprecationWarning("DEP-002", "@std/schema is deprecated, use @schema { ... } DSL syntax instead. See docs/parsley/reference.md#schema-literals")
 	return &StdlibModuleDict{
 		Meta: &schemaModuleMeta,
 		Exports: map[string]Object{

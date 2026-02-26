@@ -39,6 +39,9 @@ func init() {
 	basilModuleMeta = map[string]*ModuleMeta{
 		"http": &basilHTTPModuleMeta,
 		"auth": &basilAuthModuleMeta,
+		"api":  &apiModuleMeta,
+		"log":  &devModuleMeta,
+		"html": &htmlModuleMeta,
 	}
 }
 
