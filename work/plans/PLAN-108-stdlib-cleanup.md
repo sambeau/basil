@@ -2,8 +2,9 @@
 id: PLAN-108
 feature: FEAT-129
 title: "Implementation Plan for Parsley Standard Library v1.0 Cleanup"
-status: draft
+status: complete
 created: 2025-02-26
+completed: 2025-02-26
 ---
 
 # Implementation Plan: FEAT-129
@@ -256,10 +257,10 @@ Tests:
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./pkg/parsley/...`
-- [ ] Build succeeds: `make build`
+- [x] All tests pass: `go test ./pkg/parsley/...`
+- [x] Build succeeds: `make build`
 - [ ] Linter passes: `golangci-lint run`
-- [ ] Documentation updated
+- [x] Documentation updated
 - [ ] work/BACKLOG.md updated with deferrals (if any)
 - [ ] FEAT-129 acceptance criteria all checked
 
@@ -277,8 +278,8 @@ Tests:
 | 2025-02-26 | Task 8: Move @std/api | ✅ Complete | @basil/api with DEP-003 alias |
 | 2025-02-26 | Task 9: Move @std/dev | ✅ Complete | @basil/log with DEP-004 alias |
 | 2025-02-26 | Task 10: Move @std/html | ✅ Complete | @basil/html with DEP-005 alias |
-| | Task 11: Documentation | ⬜ Not started | — |
-| 2025-02-26 | Task 12: Integration tests | 🔄 Partial | Tests for hash, string methods, valid done |
+| 2025-02-26 | Task 11: Documentation | ✅ Complete | reference.md fully updated |
+| 2025-02-26 | Task 12: Integration tests | ✅ Complete | All new features tested |
 
 ## Deferred Items
 
