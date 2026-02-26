@@ -21,7 +21,7 @@ func TestRequestLoggerText(t *testing.T) {
 	logger := newRequestLogger(handler, &buf, "text")
 
 	// Make a request
-	req := httptest.NewRequest("GET", "/test/path", nil)
+	req := httptest.NewRequest("GET", "/test/path", http.NoBody)
 	rec := httptest.NewRecorder()
 	logger.ServeHTTP(rec, req)
 
@@ -50,7 +50,7 @@ func TestRequestLoggerJSON(t *testing.T) {
 	logger := newRequestLogger(handler, &buf, "json")
 
 	// Make a request
-	req := httptest.NewRequest("POST", "/api/users", nil)
+	req := httptest.NewRequest("POST", "/api/users", http.NoBody)
 	req.Header.Set("User-Agent", "test-agent")
 	rec := httptest.NewRecorder()
 	logger.ServeHTTP(rec, req)
@@ -89,7 +89,7 @@ func TestRequestLoggerXForwardedFor(t *testing.T) {
 	var buf bytes.Buffer
 	logger := newRequestLogger(handler, &buf, "json")
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("X-Forwarded-For", "203.0.113.195")
 	rec := httptest.NewRecorder()
 	logger.ServeHTTP(rec, req)
@@ -125,7 +125,7 @@ func TestRequestLoggerCapturesStatus(t *testing.T) {
 			var buf bytes.Buffer
 			logger := newRequestLogger(handler, &buf, "json")
 
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			rec := httptest.NewRecorder()
 			logger.ServeHTTP(rec, req)
 
@@ -150,7 +150,7 @@ func TestRequestLoggerDefaultFormat(t *testing.T) {
 	var buf bytes.Buffer
 	logger := newRequestLogger(handler, &buf, "")
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	logger.ServeHTTP(rec, req)
 
@@ -181,7 +181,7 @@ func TestRequestLoggerSkipsDevtools(t *testing.T) {
 
 	for _, path := range devPaths {
 		buf.Reset()
-		req := httptest.NewRequest("GET", path, nil)
+		req := httptest.NewRequest("GET", path, http.NoBody)
 		rec := httptest.NewRecorder()
 		logger.ServeHTTP(rec, req)
 

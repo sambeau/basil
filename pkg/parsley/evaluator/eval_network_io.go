@@ -406,7 +406,7 @@ func getRequestUrlString(dict *Dictionary, env *Environment) string {
 	if portExpr, ok := dict.Pairs["_url_port"]; ok {
 		portObj := Eval(portExpr, env)
 		if portInt, ok := portObj.(*Integer); ok && portInt.Value != 0 {
-			result.WriteString(fmt.Sprintf(":%d", portInt.Value))
+			fmt.Fprintf(&result, ":%d", portInt.Value)
 		}
 	}
 
@@ -441,7 +441,7 @@ func getRequestUrlString(dict *Dictionary, env *Environment) string {
 				case *String:
 					result.WriteString(v.Value)
 				case *Integer:
-					result.WriteString(fmt.Sprintf("%d", v.Value))
+					fmt.Fprintf(&result, "%d", v.Value)
 				default:
 					result.WriteString(valObj.Inspect())
 				}

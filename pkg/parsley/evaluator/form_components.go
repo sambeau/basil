@@ -56,7 +56,7 @@ func evalLabelComponent(props string, contents []Object, isSelfClosing bool, env
 
 	// Add 'for' attribute (only for actual <label> tags)
 	if tagName == "label" {
-		result.WriteString(fmt.Sprintf(` for="%s"`, fieldName))
+		fmt.Fprintf(&result, ` for="%s"`, fieldName)
 	}
 
 	// Add any additional props (excluding @field, @tag, @key)
@@ -145,7 +145,7 @@ func evalErrorComponent(props string, contents []Object, isSelfClosing bool, env
 	var result strings.Builder
 	result.WriteString("<")
 	result.WriteString(tagName)
-	result.WriteString(fmt.Sprintf(` id="%s-error"`, fieldName))
+	fmt.Fprintf(&result, ` id="%s-error"`, fieldName)
 	result.WriteString(` class="error"`)
 	result.WriteString(` role="alert"`)
 
@@ -350,7 +350,7 @@ func evalSelectComponent(props string, env *Environment) Object {
 	// Build the select element
 	var result strings.Builder
 	result.WriteString("<select")
-	result.WriteString(fmt.Sprintf(` name="%s"`, fieldName))
+	fmt.Fprintf(&result, ` name="%s"`, fieldName)
 
 	// Add required if field is required
 	if field != nil && field.Required {
@@ -362,7 +362,7 @@ func evalSelectComponent(props string, env *Environment) Object {
 	hasError := record.Errors != nil && record.Errors[fieldName] != nil
 	if hasError {
 		result.WriteString(` aria-invalid="true"`)
-		result.WriteString(fmt.Sprintf(` aria-describedby="%s-error"`, fieldName))
+		fmt.Fprintf(&result, ` aria-describedby="%s-error"`, fieldName)
 	} else if record.Validated {
 		result.WriteString(` aria-invalid="false"`)
 	}
@@ -370,7 +370,7 @@ func evalSelectComponent(props string, env *Environment) Object {
 	// Add autocomplete attribute (FEAT-097)
 	if field != nil {
 		if autocomplete := getAutocomplete(fieldName, field.Type, field.Metadata); autocomplete != "" {
-			result.WriteString(fmt.Sprintf(` autocomplete="%s"`, escapeAttrValue(autocomplete)))
+			fmt.Fprintf(&result, ` autocomplete="%s"`, escapeAttrValue(autocomplete))
 		}
 	}
 

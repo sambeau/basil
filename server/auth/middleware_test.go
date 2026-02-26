@@ -24,7 +24,7 @@ func TestRequireAuth(t *testing.T) {
 	wrapped := middleware.RequireAuth(handler)
 
 	// Test without auth - should get 401
-	req := httptest.NewRequest("GET", "/protected", nil)
+	req := httptest.NewRequest("GET", "/protected", http.NoBody)
 	rec := httptest.NewRecorder()
 	wrapped.ServeHTTP(rec, req)
 
@@ -36,7 +36,7 @@ func TestRequireAuth(t *testing.T) {
 	user, _ := db.CreateUser("Alice", "")
 	session, _ := db.CreateSession(user.ID, 0)
 
-	req = httptest.NewRequest("GET", "/protected", nil)
+	req = httptest.NewRequest("GET", "/protected", http.NoBody)
 	req.AddCookie(&http.Cookie{
 		Name:  SessionCookieName,
 		Value: session.ID,
@@ -64,7 +64,7 @@ func TestOptionalAuth(t *testing.T) {
 	wrapped := middleware.OptionalAuth(handler)
 
 	// Test without auth - should succeed but no user
-	req := httptest.NewRequest("GET", "/optional", nil)
+	req := httptest.NewRequest("GET", "/optional", http.NoBody)
 	rec := httptest.NewRecorder()
 	wrapped.ServeHTTP(rec, req)
 
@@ -79,7 +79,7 @@ func TestOptionalAuth(t *testing.T) {
 	user, _ := db.CreateUser("Alice", "")
 	session, _ := db.CreateSession(user.ID, 0)
 
-	req = httptest.NewRequest("GET", "/optional", nil)
+	req = httptest.NewRequest("GET", "/optional", http.NoBody)
 	req.AddCookie(&http.Cookie{
 		Name:  SessionCookieName,
 		Value: session.ID,
@@ -99,7 +99,7 @@ func TestOptionalAuth(t *testing.T) {
 }
 
 func TestGetUser_NoContext(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	user := GetUser(req)
 	if user != nil {
 		t.Error("expected nil user without context")

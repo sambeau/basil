@@ -483,8 +483,8 @@ func (p *Parser) parsePath() evaluator.Object {
 
 	// Split into segments, handling relative paths (./, ../)
 	var segments []string
-	parts := strings.Split(pathStr, "/")
-	for _, part := range parts {
+	parts := strings.SplitSeq(pathStr, "/")
+	for part := range parts {
 		if part != "" {
 			segments = append(segments, part)
 		}
@@ -546,7 +546,7 @@ func (p *Parser) parseURL() evaluator.Object {
 	if idx := strings.Index(rest, "?"); idx != -1 {
 		queryStr := rest[idx+1:]
 		rest = rest[:idx]
-		for _, param := range strings.Split(queryStr, "&") {
+		for param := range strings.SplitSeq(queryStr, "&") {
 			if param == "" {
 				continue
 			}
@@ -566,7 +566,7 @@ func (p *Parser) parseURL() evaluator.Object {
 	if idx := strings.Index(rest, "/"); idx != -1 {
 		pathStr := rest[idx+1:]
 		rest = rest[:idx]
-		for _, seg := range strings.Split(pathStr, "/") {
+		for seg := range strings.SplitSeq(pathStr, "/") {
 			if seg != "" {
 				pathSegments = append(pathSegments, &evaluator.String{Value: seg})
 			}
@@ -580,9 +580,9 @@ func (p *Parser) parseURL() evaluator.Object {
 	if idx := strings.Index(rest, "@"); idx != -1 {
 		userinfo := rest[:idx]
 		rest = rest[idx+1:]
-		if colonIdx := strings.Index(userinfo, ":"); colonIdx != -1 {
-			username = userinfo[:colonIdx]
-			password = userinfo[colonIdx+1:]
+		if before, after, ok := strings.Cut(userinfo, ":"); ok {
+			username = before
+			password = after
 		} else {
 			username = userinfo
 		}
@@ -758,7 +758,7 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (amount int64, sc
 
 	plusIdx := strings.Index(numStr, "+")
 	slashIdx := strings.Index(numStr, "/")
-	dotIdx := strings.Index(numStr, ".")
+	before, after, ok := strings.Cut(numStr, ".")
 
 	subPerUnit := plnSubUnitsPerUnit(suffix, system)
 
@@ -767,13 +767,13 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (amount int64, sc
 		// Mixed number: W+N/D
 		wholePart := numStr[:plusIdx]
 		fracPart := numStr[plusIdx+1:]
-		slashInFrac := strings.Index(fracPart, "/")
-		if slashInFrac < 0 {
+		before, after, ok := strings.Cut(fracPart, "/")
+		if !ok {
 			return 0, 0, "invalid mixed number format"
 		}
 		whole, err1 := strconv.ParseInt(wholePart, 10, 64)
-		num, err2 := strconv.ParseInt(fracPart[:slashInFrac], 10, 64)
-		denom, err3 := strconv.ParseInt(fracPart[slashInFrac+1:], 10, 64)
+		num, err2 := strconv.ParseInt(before, 10, 64)
+		denom, err3 := strconv.ParseInt(after, 10, 64)
 		if err1 != nil || err2 != nil || err3 != nil {
 			return 0, 0, "invalid number in mixed fraction"
 		}
@@ -808,15 +808,15 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (amount int64, sc
 		}
 		amount = num * subPerUnit / denom
 
-	case dotIdx >= 0:
+	case ok:
 		// Decimal: W.F
-		whole, err := strconv.ParseInt(numStr[:dotIdx], 10, 64)
+		whole, err := strconv.ParseInt(before, 10, 64)
 		if err != nil {
 			return 0, 0, "invalid decimal number"
 		}
 		if isTemp {
 			value := float64(whole)
-			fracPart := numStr[dotIdx+1:]
+			fracPart := after
 			if fracPart != "" {
 				frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 				if ferr != nil {
@@ -834,7 +834,7 @@ func plnParseUnitAmount(numStr, suffix, system, family string) (amount int64, sc
 			return evaluator.EncodeTempToSubK(value, suffix), 0, ""
 		}
 		amount, scale = plnScaleAmountForSuffix(whole, subPerUnit)
-		fracPart := numStr[dotIdx+1:]
+		fracPart := after
 		if fracPart != "" && scale == 0 {
 			frac, ferr := strconv.ParseInt(fracPart, 10, 64)
 			if ferr != nil {

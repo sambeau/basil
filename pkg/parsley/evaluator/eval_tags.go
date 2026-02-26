@@ -1684,7 +1684,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			// Build textarea tag
 			var result strings.Builder
 			result.WriteString("<textarea")
-			result.WriteString(fmt.Sprintf(` name="%s"`, fieldName))
+			fmt.Fprintf(&result, ` name="%s"`, fieldName)
 
 			// Add validation attributes from schema
 			field := record.Schema.Fields[fieldName]
@@ -1694,21 +1694,21 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					result.WriteString(` aria-required="true"`)
 				}
 				if field.MinLength != nil {
-					result.WriteString(fmt.Sprintf(` minlength="%d"`, *field.MinLength))
+					fmt.Fprintf(&result, ` minlength="%d"`, *field.MinLength)
 				}
 				if field.MaxLength != nil {
-					result.WriteString(fmt.Sprintf(` maxlength="%d"`, *field.MaxLength))
+					fmt.Fprintf(&result, ` maxlength="%d"`, *field.MaxLength)
 				}
 				if field.Metadata != nil {
 					if placeholder, ok := field.Metadata["placeholder"]; ok {
 						if strVal, ok := placeholder.(*String); ok {
-							result.WriteString(fmt.Sprintf(` placeholder="%s"`, escapeAttrValue(strVal.Value)))
+							fmt.Fprintf(&result, ` placeholder="%s"`, escapeAttrValue(strVal.Value))
 						}
 					}
 				}
 				// Add autocomplete attribute (FEAT-097)
 				if autocomplete := getAutocomplete(fieldName, field.Type, field.Metadata); autocomplete != "" {
-					result.WriteString(fmt.Sprintf(` autocomplete="%s"`, escapeAttrValue(autocomplete)))
+					fmt.Fprintf(&result, ` autocomplete="%s"`, escapeAttrValue(autocomplete))
 				}
 			}
 
@@ -1716,7 +1716,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 			hasError := record.Errors != nil && record.Errors[fieldName] != nil
 			if hasError {
 				result.WriteString(` aria-invalid="true"`)
-				result.WriteString(fmt.Sprintf(` aria-describedby="%s-error"`, fieldName))
+				fmt.Fprintf(&result, ` aria-describedby="%s-error"`, fieldName)
 			} else if record.Validated {
 				result.WriteString(` aria-invalid="false"`)
 			}

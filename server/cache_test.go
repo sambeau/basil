@@ -11,7 +11,7 @@ func TestResponseCache_BasicCaching(t *testing.T) {
 	cache := newResponseCache(false, false) // production mode
 
 	// Create a test request
-	req := httptest.NewRequest("GET", "/test?foo=bar", nil)
+	req := httptest.NewRequest("GET", "/test?foo=bar", http.NoBody)
 
 	// Initially, cache should be empty
 	if entry := cache.Get(req); entry != nil {
@@ -43,7 +43,7 @@ func TestResponseCache_BasicCaching(t *testing.T) {
 func TestResponseCache_DevMode(t *testing.T) {
 	cache := newResponseCache(true, false) // dev mode - caching disabled
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Set should do nothing in dev mode
 	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
@@ -57,7 +57,7 @@ func TestResponseCache_DevMode(t *testing.T) {
 func TestResponseCache_DevModeWithCacheEnabled(t *testing.T) {
 	cache := newResponseCache(true, true) // dev mode with caching enabled
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Set should work when cache is enabled
 	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
@@ -71,7 +71,7 @@ func TestResponseCache_DevModeWithCacheEnabled(t *testing.T) {
 func TestResponseCache_Expiration(t *testing.T) {
 	cache := newResponseCache(false, false)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Store with very short TTL
 	cache.Set(req, 1*time.Millisecond, 200, http.Header{}, []byte("test"))
@@ -88,8 +88,8 @@ func TestResponseCache_Expiration(t *testing.T) {
 func TestResponseCache_DifferentQueries(t *testing.T) {
 	cache := newResponseCache(false, false)
 
-	req1 := httptest.NewRequest("GET", "/test?a=1", nil)
-	req2 := httptest.NewRequest("GET", "/test?a=2", nil)
+	req1 := httptest.NewRequest("GET", "/test?a=1", http.NoBody)
+	req2 := httptest.NewRequest("GET", "/test?a=2", http.NoBody)
 
 	// Store different responses for different query strings
 	cache.Set(req1, 5*time.Minute, 200, http.Header{}, []byte("response1"))
@@ -110,8 +110,8 @@ func TestResponseCache_DifferentQueries(t *testing.T) {
 func TestResponseCache_DifferentMethods(t *testing.T) {
 	cache := newResponseCache(false, false)
 
-	getReq := httptest.NewRequest("GET", "/test", nil)
-	postReq := httptest.NewRequest("POST", "/test", nil)
+	getReq := httptest.NewRequest("GET", "/test", http.NoBody)
+	postReq := httptest.NewRequest("POST", "/test", http.NoBody)
 
 	// Store response for GET
 	cache.Set(getReq, 5*time.Minute, 200, http.Header{}, []byte("get-response"))
@@ -130,7 +130,7 @@ func TestResponseCache_DifferentMethods(t *testing.T) {
 func TestResponseCache_Clear(t *testing.T) {
 	cache := newResponseCache(false, false)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
 
 	// Verify it's cached
@@ -151,8 +151,8 @@ func TestResponseCache_Prune(t *testing.T) {
 	cache := newResponseCache(false, false)
 
 	// Add expired and valid entries
-	expiredReq := httptest.NewRequest("GET", "/expired", nil)
-	validReq := httptest.NewRequest("GET", "/valid", nil)
+	expiredReq := httptest.NewRequest("GET", "/expired", http.NoBody)
+	validReq := httptest.NewRequest("GET", "/valid", http.NoBody)
 
 	cache.Set(expiredReq, 1*time.Millisecond, 200, http.Header{}, []byte("expired"))
 	cache.Set(validReq, 5*time.Minute, 200, http.Header{}, []byte("valid"))
@@ -175,7 +175,7 @@ func TestResponseCache_Prune(t *testing.T) {
 func TestResponseCache_ZeroTTL(t *testing.T) {
 	cache := newResponseCache(false, false)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Zero TTL should not cache
 	cache.Set(req, 0, 200, http.Header{}, []byte("test"))
@@ -192,7 +192,7 @@ func TestResponseCache_Size(t *testing.T) {
 		t.Error("expected empty cache")
 	}
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
 
 	if cache.Size() != 1 {

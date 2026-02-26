@@ -761,7 +761,7 @@ func buildMoneyLiteral(currency string, amount int64, scale int8) string {
 	}
 
 	divisor := int64(1)
-	for i := int8(0); i < scale; i++ {
+	for range scale {
 		divisor *= 10
 	}
 

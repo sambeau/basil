@@ -292,7 +292,7 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 	var attrs strings.Builder
 
 	// Add name attribute
-	attrs.WriteString(fmt.Sprintf(` name="%s"`, fieldName))
+	fmt.Fprintf(&attrs, ` name="%s"`, fieldName)
 
 	// Get field definition from schema
 	field := record.Schema.Fields[fieldName]
@@ -307,7 +307,7 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 		value := record.Get(fieldName, record.Env)
 		if value != nil && value != NULL {
 			valueStr := objectToTemplateString(value)
-			attrs.WriteString(fmt.Sprintf(` value="%s"`, escapeAttrValue(valueStr)))
+			fmt.Fprintf(&attrs, ` value="%s"`, escapeAttrValue(valueStr))
 		}
 		attrs.WriteString(` readonly`)
 		return attrs.String()
@@ -320,7 +320,7 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 			valueStr := objectToTemplateString(value)
 			// Escape HTML attribute value
 			valueStr = escapeAttrValue(valueStr)
-			attrs.WriteString(fmt.Sprintf(` value="%s"`, valueStr))
+			fmt.Fprintf(&attrs, ` value="%s"`, valueStr)
 		}
 	}
 
@@ -332,7 +332,7 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 	if inputType == "" {
 		derivedType := deriveHTMLInputType(field.Type)
 		if derivedType != "" {
-			attrs.WriteString(fmt.Sprintf(` type="%s"`, derivedType))
+			fmt.Fprintf(&attrs, ` type="%s"`, derivedType)
 		}
 	}
 
@@ -344,18 +344,18 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 
 	// Add length constraints (for text-like inputs)
 	if field.MinLength != nil && inputType != "number" {
-		attrs.WriteString(fmt.Sprintf(` minlength="%d"`, *field.MinLength))
+		fmt.Fprintf(&attrs, ` minlength="%d"`, *field.MinLength)
 	}
 	if field.MaxLength != nil && inputType != "number" {
-		attrs.WriteString(fmt.Sprintf(` maxlength="%d"`, *field.MaxLength))
+		fmt.Fprintf(&attrs, ` maxlength="%d"`, *field.MaxLength)
 	}
 
 	// Add value range constraints (for number inputs)
 	if field.MinValue != nil && (inputType == "number" || inputType == "") {
-		attrs.WriteString(fmt.Sprintf(` min="%d"`, *field.MinValue))
+		fmt.Fprintf(&attrs, ` min="%d"`, *field.MinValue)
 	}
 	if field.MaxValue != nil && (inputType == "number" || inputType == "") {
-		attrs.WriteString(fmt.Sprintf(` max="%d"`, *field.MaxValue))
+		fmt.Fprintf(&attrs, ` max="%d"`, *field.MaxValue)
 	}
 
 	// Add pattern attribute for regex validation (SPEC-PAT-008, SPEC-PAT-009)
@@ -364,7 +364,7 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 		// Convert Go regex to JS-compatible (best effort)
 		jsPattern := convertGoRegexToJS(field.PatternSource)
 		if jsPattern != "" {
-			attrs.WriteString(fmt.Sprintf(` pattern="%s"`, escapeAttrValue(jsPattern)))
+			fmt.Fprintf(&attrs, ` pattern="%s"`, escapeAttrValue(jsPattern))
 		}
 	}
 
@@ -372,21 +372,21 @@ func buildInputAttributes(record *Record, fieldName string, inputType string) st
 	if field.Metadata != nil {
 		if placeholder, ok := field.Metadata["placeholder"]; ok {
 			if strVal, ok := placeholder.(*String); ok {
-				attrs.WriteString(fmt.Sprintf(` placeholder="%s"`, escapeAttrValue(strVal.Value)))
+				fmt.Fprintf(&attrs, ` placeholder="%s"`, escapeAttrValue(strVal.Value))
 			}
 		}
 	}
 
 	// Add autocomplete attribute (FEAT-097)
 	if autocomplete := getAutocomplete(fieldName, field.Type, field.Metadata); autocomplete != "" {
-		attrs.WriteString(fmt.Sprintf(` autocomplete="%s"`, escapeAttrValue(autocomplete)))
+		fmt.Fprintf(&attrs, ` autocomplete="%s"`, escapeAttrValue(autocomplete))
 	}
 
 	// Add ARIA attributes for validation state
 	hasError := record.Errors != nil && record.Errors[fieldName] != nil
 	if hasError {
 		attrs.WriteString(` aria-invalid="true"`)
-		attrs.WriteString(fmt.Sprintf(` aria-describedby="%s-error"`, fieldName))
+		fmt.Fprintf(&attrs, ` aria-describedby="%s-error"`, fieldName)
 	} else if record.Validated {
 		attrs.WriteString(` aria-invalid="false"`)
 	}
@@ -421,7 +421,7 @@ func convertGoRegexToJS(goPattern string) string {
 func buildCheckboxAttributes(record *Record, fieldName string) string {
 	var attrs strings.Builder
 
-	attrs.WriteString(fmt.Sprintf(` name="%s"`, fieldName))
+	fmt.Fprintf(&attrs, ` name="%s"`, fieldName)
 	attrs.WriteString(` type="checkbox"`)
 
 	// Check if field value is truthy
@@ -443,7 +443,7 @@ func buildCheckboxAttributes(record *Record, fieldName string) string {
 	hasError := record.Errors != nil && record.Errors[fieldName] != nil
 	if hasError {
 		attrs.WriteString(` aria-invalid="true"`)
-		attrs.WriteString(fmt.Sprintf(` aria-describedby="%s-error"`, fieldName))
+		fmt.Fprintf(&attrs, ` aria-describedby="%s-error"`, fieldName)
 	}
 
 	return attrs.String()
@@ -453,9 +453,9 @@ func buildCheckboxAttributes(record *Record, fieldName string) string {
 func buildRadioAttributes(record *Record, fieldName string, radioValue string) string {
 	var attrs strings.Builder
 
-	attrs.WriteString(fmt.Sprintf(` name="%s"`, fieldName))
+	fmt.Fprintf(&attrs, ` name="%s"`, fieldName)
 	attrs.WriteString(` type="radio"`)
-	attrs.WriteString(fmt.Sprintf(` value="%s"`, escapeAttrValue(radioValue)))
+	fmt.Fprintf(&attrs, ` value="%s"`, escapeAttrValue(radioValue))
 
 	// Check if current value matches radio value
 	currentValue := record.Get(fieldName, record.Env)

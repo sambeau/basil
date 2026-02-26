@@ -68,7 +68,7 @@ func convertGoldmarkNode(node gmast.Node, source []byte, env *Environment) *Dict
 		// Paragraph has no special properties beyond children
 
 	case *gmast.Text:
-		pairs["value"] = &ast.ObjectLiteralExpression{Obj: &String{Value: string(n.Text(source))}}
+		pairs["value"] = &ast.ObjectLiteralExpression{Obj: &String{Value: string(n.Value(source))}}
 		keyOrder = append(keyOrder, "value")
 		if n.SoftLineBreak() {
 			pairs["softBreak"] = &ast.ObjectLiteralExpression{Obj: TRUE}
@@ -273,7 +273,7 @@ func extractGoldmarkText(node gmast.Node, source []byte) string {
 func extractGoldmarkTextRecursive(node gmast.Node, source []byte, buf *strings.Builder) {
 	switch n := node.(type) {
 	case *gmast.Text:
-		buf.Write(n.Text(source))
+		buf.Write(n.Value(source))
 	case *gmast.String:
 		buf.Write(n.Value)
 	case *gmast.CodeSpan:

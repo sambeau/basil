@@ -25,7 +25,7 @@ func TestCompressionHandler_Disabled(t *testing.T) {
 
 	wrapped := newCompressionHandler(handler, cfg)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	rec := httptest.NewRecorder()
 
@@ -54,7 +54,7 @@ func TestCompressionHandler_LevelNone(t *testing.T) {
 
 	wrapped := newCompressionHandler(handler, cfg)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	rec := httptest.NewRecorder()
 
@@ -83,7 +83,7 @@ func TestCompressionHandler_GzipResponse(t *testing.T) {
 
 	wrapped := newCompressionHandler(handler, cfg)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	rec := httptest.NewRecorder()
 
@@ -128,7 +128,7 @@ func TestCompressionHandler_SmallResponse(t *testing.T) {
 
 	wrapped := newCompressionHandler(handler, cfg)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	rec := httptest.NewRecorder()
 
@@ -159,7 +159,7 @@ func TestCompressionHandler_NoAcceptEncoding(t *testing.T) {
 
 	wrapped := newCompressionHandler(handler, cfg)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	// No Accept-Encoding header
 	rec := httptest.NewRecorder()
 
@@ -200,7 +200,7 @@ func TestCompressionHandler_Levels(t *testing.T) {
 
 			wrapped := newCompressionHandler(handler, cfg)
 
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			req.Header.Set("Accept-Encoding", "gzip")
 			rec := httptest.NewRecorder()
 

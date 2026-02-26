@@ -577,7 +577,7 @@ func (s *Serializer) serializeURL(d *evaluator.Dictionary) (string, error) {
 		portObj, _ := s.exprToObject(portExpr, d.Env)
 		if port, ok := portObj.(*evaluator.Integer); ok && port.Value > 0 {
 			sb.WriteString(":")
-			sb.WriteString(fmt.Sprintf("%d", port.Value))
+			fmt.Fprintf(&sb, "%d", port.Value)
 		}
 	}
 
@@ -685,7 +685,7 @@ func formatString(str string) string {
 			sb.WriteString("\\t")
 		default:
 			if r < 32 {
-				sb.WriteString(fmt.Sprintf("\\u%04x", r))
+				fmt.Fprintf(&sb, "\\u%04x", r)
 			} else {
 				sb.WriteRune(r)
 			}

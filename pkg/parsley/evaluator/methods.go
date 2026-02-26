@@ -3239,7 +3239,7 @@ func arrayToMarkdown(arr *Array, args []Object) Object {
 	var result strings.Builder
 	for i, elem := range arr.Elements {
 		if ordered {
-			result.WriteString(fmt.Sprintf("%d. ", i+1))
+			fmt.Fprintf(&result, "%d. ", i+1)
 		} else {
 			result.WriteString("- ")
 		}

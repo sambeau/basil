@@ -1471,19 +1471,19 @@ func parseUnitAmount(numStr, suffix, system string) (amount int64, scale int, er
 	// Detect the numeric format
 	plusIdx := strings.Index(numStr, "+")
 	slashIdx := strings.Index(numStr, "/")
-	dotIdx := strings.Index(numStr, ".")
+	before, after, ok := strings.Cut(numStr, ".")
 
 	switch {
 	case plusIdx > 0 && slashIdx > plusIdx:
 		// Mixed number: W+N/D
 		wholePart := numStr[:plusIdx]
 		fracPart := numStr[plusIdx+1:]
-		slashInFrac := strings.Index(fracPart, "/")
-		if slashInFrac < 0 {
+		before, after, ok := strings.Cut(fracPart, "/")
+		if !ok {
 			return 0, 0, "invalid mixed number format"
 		}
-		numPart := fracPart[:slashInFrac]
-		denomPart := fracPart[slashInFrac+1:]
+		numPart := before
+		denomPart := after
 
 		whole, err1 := strconv.ParseInt(wholePart, 10, 64)
 		num, err2 := strconv.ParseInt(numPart, 10, 64)
@@ -1540,10 +1540,10 @@ func parseUnitAmount(numStr, suffix, system string) (amount int64, scale int, er
 			amount = num * subPerUnit / denom
 		}
 
-	case dotIdx >= 0:
+	case ok:
 		// Decimal: W.F
-		wholePart := numStr[:dotIdx]
-		fracPart := numStr[dotIdx+1:]
+		wholePart := before
+		fracPart := after
 
 		whole, err := strconv.ParseInt(wholePart, 10, 64)
 		if err != nil {

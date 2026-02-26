@@ -266,7 +266,11 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(stderr, "warning: error closing database: %v\n", err)
+		}
+	}()
 
 	// Execute subcommand
 	switch subCmd {
@@ -634,7 +638,11 @@ func runAPIKeyCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(stderr, "warning: error closing database: %v\n", err)
+		}
+	}()
 
 	switch subCmd {
 	case "create":
@@ -795,7 +803,11 @@ func runAuthCommand(args []string, stdout, stderr io.Writer, getenv func(string)
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(stderr, "warning: error closing database: %v\n", err)
+		}
+	}()
 
 	// Execute subcommand
 	switch subCmd {

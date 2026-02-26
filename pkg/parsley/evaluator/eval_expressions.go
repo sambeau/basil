@@ -438,7 +438,7 @@ func evalLogLine(args []Object, env *Environment) Object {
 	if env.LastToken != nil {
 		line = env.LastToken.Line
 	}
-	result.WriteString(fmt.Sprintf("%s:%d: ", filename, line))
+	fmt.Fprintf(&result, "%s:%d: ", filename, line)
 
 	// Process arguments like log()
 	for i, arg := range args {

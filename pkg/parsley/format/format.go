@@ -18,27 +18,6 @@ type TypedObject interface {
 	Type() string
 }
 
-// FormatValue formats any value for display.
-// This is the main entry point - it accepts interface{} for flexibility.
-func FormatValue(v any) string {
-	if v == nil {
-		return "null"
-	}
-
-	// Check if it's a typed object we know how to format
-	if obj, ok := v.(TypedObject); ok {
-		return formatTypedObject(obj)
-	}
-
-	// Check if it's at least inspectable
-	if obj, ok := v.(Inspectable); ok {
-		return obj.Inspect()
-	}
-
-	// Fall back to fmt
-	return fmt.Sprintf("%v", v)
-}
-
 // formatTypedObject dispatches based on object type
 func formatTypedObject(obj TypedObject) string {
 	p := NewPrinter()
@@ -378,18 +357,6 @@ func formatRecordInline(rec RecordAccessor, schemaName string, keys []string) st
 		parts[i] = formatDictKey(key) + ": " + valStr
 	}
 	return schemaName + "{" + strings.Join(parts, ", ") + "}"
-}
-
-// FormatInspectable formats any Inspectable object
-// This is useful for simple cases where we just want formatted output
-func FormatInspectable(obj Inspectable) string {
-	if obj == nil {
-		return "null"
-	}
-	if typed, ok := obj.(TypedObject); ok {
-		return formatTypedObject(typed)
-	}
-	return obj.Inspect()
 }
 
 // FormatObject formats any object that implements Type() and Inspect().

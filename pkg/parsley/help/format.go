@@ -34,7 +34,7 @@ func FormatText(result *TopicResult, width int) string {
 	case "all":
 		formatAllText(&sb, result, width)
 	default:
-		sb.WriteString(fmt.Sprintf("Unknown result kind: %s\n", result.Kind))
+		fmt.Fprintf(&sb, "Unknown result kind: %s\n", result.Kind)
 	}
 
 	return sb.String()

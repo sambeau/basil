@@ -18,7 +18,7 @@ func TestCORSMiddleware_NoOriginHeader(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -39,7 +39,7 @@ func TestCORSMiddleware_AllowedOrigin(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Origin", "https://example.com")
 	rr := httptest.NewRecorder()
 
@@ -64,7 +64,7 @@ func TestCORSMiddleware_DisallowedOrigin(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Origin", "https://evil.com")
 	rr := httptest.NewRecorder()
 
@@ -86,7 +86,7 @@ func TestCORSMiddleware_WildcardOrigin(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Origin", "https://any-origin.com")
 	rr := httptest.NewRecorder()
 
@@ -109,7 +109,7 @@ func TestCORSMiddleware_Credentials(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Origin", "https://example.com")
 	rr := httptest.NewRecorder()
 
@@ -136,7 +136,7 @@ func TestCORSMiddleware_ExposeHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Origin", "https://example.com")
 	rr := httptest.NewRecorder()
 
@@ -161,7 +161,7 @@ func TestCORSMiddleware_Preflight(t *testing.T) {
 		t.Error("Handler should not be called for OPTIONS request")
 	}))
 
-	req := httptest.NewRequest("OPTIONS", "/", nil)
+	req := httptest.NewRequest("OPTIONS", "/", http.NoBody)
 	req.Header.Set("Origin", "https://example.com")
 	req.Header.Set("Access-Control-Request-Method", "DELETE")
 	rr := httptest.NewRecorder()
@@ -197,7 +197,7 @@ func TestCORSMiddleware_PreflightEchoHeaders(t *testing.T) {
 		t.Error("Handler should not be called for OPTIONS request")
 	}))
 
-	req := httptest.NewRequest("OPTIONS", "/", nil)
+	req := httptest.NewRequest("OPTIONS", "/", http.NoBody)
 	req.Header.Set("Origin", "https://example.com")
 	req.Header.Set("Access-Control-Request-Headers", "X-Custom-Header, X-Another-Header")
 	rr := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestCORSMiddleware_Disabled(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Origin", "https://example.com")
 	rr := httptest.NewRecorder()
 

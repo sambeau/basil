@@ -302,38 +302,6 @@ const (
 	AreaBridgeUSDenominator int64 = 16_129 // in² per mm² (denominator)
 )
 
-// ConvertUSToSI converts a US Customary amount (in sub-units) to SI sub-units.
-func ConvertUSToSI(usAmount int64, family string) int64 {
-	switch family {
-	case FamilyLength:
-		return usAmount * LengthBridgeSINumerator / LengthBridgeSIDenominator
-	case FamilyMass:
-		return usAmount * MassBridgeSINumerator / MassBridgeSIDenominator
-	case FamilyVolume:
-		return usAmount * VolumeBridgeSINumerator / VolumeBridgeSIDenominator
-	case FamilyArea:
-		return usAmount * AreaBridgeSINumerator / AreaBridgeSIDenominator
-	default:
-		return 0
-	}
-}
-
-// ConvertSIToUS converts an SI amount (in sub-units) to US Customary sub-units.
-func ConvertSIToUS(siAmount int64, family string) int64 {
-	switch family {
-	case FamilyLength:
-		return siAmount * LengthBridgeUSNumerator / LengthBridgeUSDenominator
-	case FamilyMass:
-		return siAmount * MassBridgeUSNumerator / MassBridgeUSDenominator
-	case FamilyVolume:
-		return siAmount * VolumeBridgeUSNumerator / VolumeBridgeUSDenominator
-	case FamilyArea:
-		return siAmount * AreaBridgeUSNumerator / AreaBridgeUSDenominator
-	default:
-		return 0
-	}
-}
-
 // ConvertUSToSIScaled converts a US Customary scaled amount to SI sub-units (scale-aware).
 func ConvertUSToSIScaled(usAmount int64, usScale int, family string) (siAmount int64, siScale int) {
 	var num, den int64

@@ -1786,7 +1786,7 @@ func (qm *QueryModifier) String() string {
 		}
 	case "limit", "offset":
 		out.WriteString(" ")
-		out.WriteString(fmt.Sprintf("%d", qm.Value))
+		fmt.Fprintf(&out, "%d", qm.Value)
 	case "with":
 		out.WriteString(" ")
 		if len(qm.RelationPaths) > 0 {

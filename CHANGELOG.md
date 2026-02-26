@@ -10,15 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 - **`==>` and `==>>` no longer accept network targets.** HTTP request dictionaries and SFTP file handles must now use the dedicated network write operators `=/=>` and `=/=>>`. Using `==>` with a network target produces a clear error message with the fix. This enforces a visible distinction between local file I/O and network I/O, matching the existing read-side separation (`<==` vs `<=/=`).
 
+### Security
+- Upgraded to Go 1.26.0 to fix TLS and URL parsing vulnerabilities (GO-2026-4337, GO-2026-4340, GO-2026-4341)
+- Updated chi router dependency to v5.2.2 to fix host header injection vulnerability (GO-2025-3770)
+
 ### Added
 - **Remote write operator `=/=>`** — Sends data to HTTP endpoints or SFTP servers. Defaults to POST for HTTP; use `.put` or `.patch` accessors for other methods. Counterpart to the fetch operator `<=/=`.
 - **Remote append operator `=/=>>`** — Appends data to remote files via SFTP. Not supported for HTTP (HTTP has no append semantic).
 
 ### Changed
-- None
+- `string.title()` now uses Unicode-aware title casing via `golang.org/x/text/cases`
+  - Minor behavior change: apostrophes are now treated as part of words
+  - Example: `"hello'world".title()` now returns `"Hello'world"` instead of `"Hello'World"`
 
 ### Fixed
-- None
+- Updated deprecated mailgun API calls (`NewMessage`, `SetHTML`)
+- Updated deprecated goldmark `Text` property usage
+- Fixed unchecked error returns on database close in CLI commands
+
+### Removed
+- Removed 12 unused internal functions (no public API changes)
 
 ## [0.2.0] - 2025-06-20
 

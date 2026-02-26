@@ -25,7 +25,7 @@ func TestGitHandler_AuthRequired(t *testing.T) {
 	}
 
 	// Make request without auth header
-	req := httptest.NewRequest("GET", "/.git/info/refs", nil)
+	req := httptest.NewRequest("GET", "/.git/info/refs", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -56,7 +56,7 @@ func TestGitHandler_DevModeLocalhost(t *testing.T) {
 	}
 
 	// Make request from localhost
-	req := httptest.NewRequest("GET", "/.git/info/refs", nil)
+	req := httptest.NewRequest("GET", "/.git/info/refs", http.NoBody)
 	req.RemoteAddr = "127.0.0.1:12345"
 	w := httptest.NewRecorder()
 
@@ -93,7 +93,7 @@ func TestGitHandler_IsPushRequest(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		req := httptest.NewRequest("POST", tt.path+"?"+tt.query, nil)
+		req := httptest.NewRequest("POST", tt.path+"?"+tt.query, http.NoBody)
 		got := handler.isPushRequest(req)
 		if got != tt.isPush {
 			t.Errorf("isPushRequest(%s?%s) = %v, want %v", tt.path, tt.query, got, tt.isPush)

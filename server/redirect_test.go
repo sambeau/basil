@@ -277,7 +277,7 @@ func TestHandler_RedirectResponse(t *testing.T) {
 	// Use httptest to verify the redirect behavior
 	// We'll test the HTTP response directly
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/old-location", nil)
+	r := httptest.NewRequest("GET", "/old-location", http.NoBody)
 
 	// Simulate what the handler does with a Redirect
 	http.Redirect(w, r, redirect.URL, redirect.Status)
@@ -301,7 +301,7 @@ func TestHandler_RedirectResponse_301(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 
 	http.Redirect(w, r, redirect.URL, redirect.Status)
 

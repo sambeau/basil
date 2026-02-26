@@ -192,7 +192,7 @@ func TestHandlePreludeAsset_BasilJS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.path, nil)
+			req := httptest.NewRequest("GET", tt.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			s.handlePreludeAsset(w, req)
@@ -248,7 +248,7 @@ func TestHandlePreludeAsset_NotFound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.path, nil)
+			req := httptest.NewRequest("GET", tt.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			s.handlePreludeAsset(w, req)
@@ -288,7 +288,7 @@ func TestHandlePreludeAsset_DirectoryTraversal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.path, nil)
+			req := httptest.NewRequest("GET", tt.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			s.handlePreludeAsset(w, req)

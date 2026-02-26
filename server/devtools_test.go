@@ -29,7 +29,7 @@ func TestDevToolsIndex(t *testing.T) {
 
 	// Create handler and request
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__", nil)
+	req := httptest.NewRequest("GET", "/__", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -73,7 +73,7 @@ func TestDevToolsLogsHTML(t *testing.T) {
 
 	// Request logs page
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/logs", nil)
+	req := httptest.NewRequest("GET", "/__/logs", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -114,7 +114,7 @@ func TestDevToolsLogsPoll(t *testing.T) {
 	handler := newDevToolsHandler(s)
 
 	// First poll - should return seq 0
-	req := httptest.NewRequest("GET", "/__/logs/poll", nil)
+	req := httptest.NewRequest("GET", "/__/logs/poll", http.NoBody)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -139,7 +139,7 @@ func TestDevToolsLogsPoll(t *testing.T) {
 	})
 
 	// Second poll - should return seq 1
-	req = httptest.NewRequest("GET", "/__/logs/poll", nil)
+	req = httptest.NewRequest("GET", "/__/logs/poll", http.NoBody)
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -158,7 +158,7 @@ func TestDevToolsLogsPoll(t *testing.T) {
 	})
 
 	// Third poll - should return seq 2
-	req = httptest.NewRequest("GET", "/__/logs/poll", nil)
+	req = httptest.NewRequest("GET", "/__/logs/poll", http.NoBody)
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -193,7 +193,7 @@ func TestDevToolsLogsText(t *testing.T) {
 
 	// Request text format
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/logs?text", nil)
+	req := httptest.NewRequest("GET", "/__/logs?text", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -251,7 +251,7 @@ func TestDevToolsLogsClear(t *testing.T) {
 
 	// Request clear
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/logs?clear", nil)
+	req := httptest.NewRequest("GET", "/__/logs?clear", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -289,7 +289,7 @@ func TestDevToolsLogsRoute(t *testing.T) {
 
 	// Request users route
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/logs/users", nil)
+	req := httptest.NewRequest("GET", "/__/logs/users", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -334,7 +334,7 @@ func TestDevTools404InProduction(t *testing.T) {
 
 	paths := []string{"/__", "/__/", "/__/logs", "/__/logs/users"}
 	for _, path := range paths {
-		req := httptest.NewRequest("GET", path, nil)
+		req := httptest.NewRequest("GET", path, http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler.ServeHTTP(w, req)
@@ -361,7 +361,7 @@ func TestDevToolsEmptyState(t *testing.T) {
 
 	// Request logs page with no entries
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/logs", nil)
+	req := httptest.NewRequest("GET", "/__/logs", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -397,7 +397,7 @@ func TestDevToolsWarnLevel(t *testing.T) {
 	})
 
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/logs", nil)
+	req := httptest.NewRequest("GET", "/__/logs", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -425,7 +425,7 @@ func TestDevToolsEnv(t *testing.T) {
 	defer s.Close()
 
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/env", nil)
+	req := httptest.NewRequest("GET", "/__/env", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -466,7 +466,7 @@ func TestDevToolsEnvNoSecrets(t *testing.T) {
 	defer s.Close()
 
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/env", nil)
+	req := httptest.NewRequest("GET", "/__/env", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -507,7 +507,7 @@ func TestDevToolsDBFileDownload(t *testing.T) {
 	}
 
 	handler := newDevToolsHandler(s)
-	req := httptest.NewRequest("GET", "/__/db/download", nil)
+	req := httptest.NewRequest("GET", "/__/db/download", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)

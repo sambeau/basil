@@ -2,6 +2,7 @@ package server
 
 import (
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -71,7 +72,7 @@ func TestPartPropsRecordRoundTrip(t *testing.T) {
 	// We need to URL-encode this
 	jsonValue := url.QueryEscape(`{"__pln":"` + extractPLNValue(propsJSON) + `"}`)
 
-	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, http.NoBody)
 
 	h := &parsleyHandler{
 		server: &Server{
@@ -165,7 +166,7 @@ func TestRecordInterpolationRoundTrip(t *testing.T) {
 
 	// Now simulate JavaScript sending this back: record={"__pln":"..."}
 	jsonValue := url.QueryEscape(`{"__pln":"` + plnValue + `"}`)
-	req := httptest.NewRequest("GET", "/?_view=test&record="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&record="+jsonValue, http.NoBody)
 
 	h := &parsleyHandler{
 		server: &Server{

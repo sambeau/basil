@@ -42,7 +42,7 @@ export getById = api.public(fn(req) { {id: req.params.id} })
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/todos", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/todos", http.NoBody)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
 
@@ -60,7 +60,7 @@ export getById = api.public(fn(req) { {id: req.params.id} })
 		t.Fatalf("expected message 'ok', got %v", body["message"])
 	}
 
-	reqID := httptest.NewRequest(http.MethodGet, "/api/todos/abc123", nil)
+	reqID := httptest.NewRequest(http.MethodGet, "/api/todos/abc123", http.NoBody)
 	recID := httptest.NewRecorder()
 	srv.mux.ServeHTTP(recID, reqID)
 
@@ -105,7 +105,7 @@ export get = fn(req) { {ok: true} }
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/secure", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/secure", http.NoBody)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
 
@@ -143,7 +143,7 @@ export get = api.public(fn(req) { {ok: true} })
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req1 := httptest.NewRequest(http.MethodGet, "/api/limited", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/api/limited", http.NoBody)
 	rec1 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec1, req1)
 
@@ -151,7 +151,7 @@ export get = api.public(fn(req) { {ok: true} })
 		t.Fatalf("expected first request 200, got %d", rec1.Code)
 	}
 
-	req2 := httptest.NewRequest(http.MethodGet, "/api/limited", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/limited", http.NoBody)
 	rec2 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec2, req2)
 
@@ -206,7 +206,7 @@ export get = api.adminOnly(fn(req) { {admin: true} })
 
 	// Admin user should be allowed
 	adminUser := &auth.User{ID: "usr_admin", Name: "Admin", Role: auth.RoleAdmin}
-	req := httptest.NewRequest(http.MethodGet, "/api/admin", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin", http.NoBody)
 	req = setUserOnRequest(req, adminUser)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -243,7 +243,7 @@ export get = api.adminOnly(fn(req) { {admin: true} })
 
 	// Editor user should be denied
 	editorUser := &auth.User{ID: "usr_editor", Name: "Editor", Role: auth.RoleEditor}
-	req := httptest.NewRequest(http.MethodGet, "/api/admin", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin", http.NoBody)
 	req = setUserOnRequest(req, editorUser)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -280,7 +280,7 @@ export get = api.roles(["editor", "admin"], fn(req) { {allowed: true} })
 
 	// Editor should be allowed
 	editorUser := &auth.User{ID: "usr_editor", Name: "Editor", Role: auth.RoleEditor}
-	req := httptest.NewRequest(http.MethodGet, "/api/editors", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/editors", http.NoBody)
 	req = setUserOnRequest(req, editorUser)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -291,7 +291,7 @@ export get = api.roles(["editor", "admin"], fn(req) { {allowed: true} })
 
 	// Admin should also be allowed (listed in roles)
 	adminUser := &auth.User{ID: "usr_admin", Name: "Admin", Role: auth.RoleAdmin}
-	req2 := httptest.NewRequest(http.MethodGet, "/api/editors", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/editors", http.NoBody)
 	req2 = setUserOnRequest(req2, adminUser)
 	rec2 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec2, req2)
@@ -328,7 +328,7 @@ export get = api.roles(["admin"], fn(req) { {allowed: true} })
 
 	// Editor should be denied when only admin role is allowed
 	editorUser := &auth.User{ID: "usr_editor", Name: "Editor", Role: auth.RoleEditor}
-	req := httptest.NewRequest(http.MethodGet, "/api/admins", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admins", http.NoBody)
 	req = setUserOnRequest(req, editorUser)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -365,7 +365,7 @@ export get = api.roles(["editor"], fn(req) { {allowed: true} })
 
 	// User with no role should be denied
 	noRoleUser := &auth.User{ID: "usr_norole", Name: "No Role", Role: ""}
-	req := httptest.NewRequest(http.MethodGet, "/api/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/protected", http.NoBody)
 	req = setUserOnRequest(req, noRoleUser)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)

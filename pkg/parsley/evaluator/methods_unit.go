@@ -1104,7 +1104,8 @@ func formatCompoundAuto(u *Unit) string {
 			}
 		}
 	case FamilyVolume:
-		if u.System == SystemUS {
+		switch u.System {
+		case SystemUS:
 			// Use gal-qt-pt if >= 1 pint
 			subFlozPerPt := int64(HCN * 16)
 			amount := u.Amount
@@ -1117,7 +1118,7 @@ func formatCompoundAuto(u *Unit) string {
 			if amount >= subFlozPerPt {
 				return formatGalQuartPint(u)
 			}
-		} else if u.System == SystemSI {
+		case SystemSI:
 			// Use L-mL if >= 1 litre
 			nlPerL := int64(1_000_000_000)
 			amount := u.Amount
@@ -1525,12 +1526,6 @@ func GenericUnitConstructor(args []Object) Object {
 // UnitToString converts a unit to its string representation for string concatenation.
 func UnitToString(u *Unit) string {
 	return unitInterpolationString(u)
-}
-
-// IsUnit returns true if the object is a Unit.
-func IsUnit(obj Object) bool {
-	_, ok := obj.(*Unit)
-	return ok
 }
 
 // --- Introspection support ---

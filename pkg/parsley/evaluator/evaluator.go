@@ -282,7 +282,7 @@ func (e *Error) Inspect() string {
 		sb.WriteString(": ")
 	}
 	if e.Line > 0 {
-		sb.WriteString(fmt.Sprintf("line %d, column %d: ", e.Line, e.Column))
+		fmt.Fprintf(&sb, "line %d, column %d: ", e.Line, e.Column)
 	}
 	sb.WriteString(e.Message)
 	return sb.String()
@@ -1846,31 +1846,6 @@ func getSQLiteVersionFromDB(db *sql.DB) string {
 		return "" // Non-fatal - return empty string
 	}
 	return version
-}
-
-// sqliteSupportsReturning checks if the SQLite version supports RETURNING clause (3.35.0+)
-func sqliteSupportsReturning(version string) bool { //nolint:unused // referenced in stdlib_schema_table_binding.go TODO
-	if version == "" {
-		return false // Unknown version, assume no support
-	}
-	// Parse version string (e.g., "3.45.0" or "3.35.0")
-	parts := strings.Split(version, ".")
-	if len(parts) < 2 {
-		return false
-	}
-	major, err1 := strconv.Atoi(parts[0])
-	minor, err2 := strconv.Atoi(parts[1])
-	if err1 != nil || err2 != nil {
-		return false
-	}
-	// RETURNING support added in 3.35.0
-	if major > 3 {
-		return true
-	}
-	if major == 3 && minor >= 35 {
-		return true
-	}
-	return false
 }
 
 // connectionBuiltins defines callable constructors for connection literals like @sqlite and @shell.

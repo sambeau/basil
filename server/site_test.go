@@ -188,7 +188,7 @@ func TestSiteHandler_TrailingSlashRedirect(t *testing.T) {
 	handler := newSiteHandler(s, siteDir, nil)
 
 	// Request without trailing slash should redirect
-	req := httptest.NewRequest("GET", "/reports", nil)
+	req := httptest.NewRequest("GET", "/reports", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -223,7 +223,7 @@ func TestSiteHandler_StaticFiles(t *testing.T) {
 	s := &Server{config: cfg}
 	handler := newSiteHandler(s, siteDir, nil)
 
-	req := httptest.NewRequest("GET", "/style.css", nil)
+	req := httptest.NewRequest("GET", "/style.css", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -342,7 +342,7 @@ header
 
 	handler := newSiteHandler(s, siteDir, s.scriptCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

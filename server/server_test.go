@@ -77,7 +77,7 @@ func TestStaticFileServing(t *testing.T) {
 	}
 
 	// Test the static file serving
-	req := httptest.NewRequest("GET", "/static/test.txt", nil)
+	req := httptest.NewRequest("GET", "/static/test.txt", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)
@@ -123,7 +123,7 @@ func TestSingleFileServing(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/favicon.ico", nil)
+	req := httptest.NewRequest("GET", "/favicon.ico", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)
@@ -169,7 +169,7 @@ func TestParsleyRouteExecution(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)
@@ -216,7 +216,7 @@ func TestParsleyRouteWithMapResponse(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/data", nil)
+	req := httptest.NewRequest("GET", "/data", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)
@@ -255,7 +255,7 @@ func TestParsleyRouteMissingScript(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)
@@ -490,7 +490,7 @@ func TestMetaInjection(t *testing.T) {
 	}
 	defer srv.Close()
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	srv.mux.ServeHTTP(rec, req)
