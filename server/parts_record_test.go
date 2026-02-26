@@ -2,6 +2,7 @@ package server
 
 import (
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"

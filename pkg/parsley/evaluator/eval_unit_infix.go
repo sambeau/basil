@@ -139,12 +139,6 @@ func multiplyLengthToAreaUS(left, right *Unit) *Unit {
 	// Determine display hint based on left operand
 	displayHint := lengthToAreaDisplayHintUS(left.DisplayHint)
 
-	// Convert to display-unit sub-units for proper fraction display
-	subPerDisplayUnit := USSubUnitsPerUnit(displayHint)
-	if subPerDisplayUnit == 0 {
-		subPerDisplayUnit = 1
-	}
-
 	// For area, we store the raw value in the base unit (in²)
 	// The display function will handle conversion to the display hint
 	var resultAmount int64
