@@ -442,7 +442,7 @@ func formatNumberWithPrecisionAndLocale(value float64, precision int, locale str
 			} else {
 				// No decimal point, add one with zeros
 				formatted += decSep
-				for i := 0; i < precision; i++ {
+				for range precision {
 					formatted += "0"
 				}
 			}

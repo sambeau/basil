@@ -15,7 +15,7 @@ func TestSecurityHeaders_Default(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}), cfg, false)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -47,7 +47,7 @@ func TestSecurityHeaders_DevMode(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}), cfg, true) // dev mode = true
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -71,7 +71,7 @@ func TestSecurityHeaders_CustomCSP(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}), cfg, false)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -95,7 +95,7 @@ func TestSecurityHeaders_HSTSPreload(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}), cfg, false)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -115,7 +115,7 @@ func TestProxyAware_NotTrusted(t *testing.T) {
 		gotRemoteAddr = r.RemoteAddr
 	}), cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:54321"
 	req.Header.Set("X-Forwarded-For", "203.0.113.195, 70.41.3.18")
 	rec := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestProxyAware_Trusted(t *testing.T) {
 		gotRemoteAddr = r.RemoteAddr
 	}), cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:54321"
 	req.Header.Set("X-Forwarded-For", "203.0.113.195, 70.41.3.18")
 	rec := httptest.NewRecorder()
@@ -160,7 +160,7 @@ func TestProxyAware_TrustedIPsAllowed(t *testing.T) {
 		gotRemoteAddr = r.RemoteAddr
 	}), cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.RemoteAddr = "10.0.0.1:8080" // Trusted proxy IP
 	req.Header.Set("X-Forwarded-For", "203.0.113.195")
 	rec := httptest.NewRecorder()
@@ -183,7 +183,7 @@ func TestProxyAware_TrustedIPsNotAllowed(t *testing.T) {
 		gotRemoteAddr = r.RemoteAddr
 	}), cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:54321" // NOT a trusted proxy IP
 	req.Header.Set("X-Forwarded-For", "203.0.113.195")
 	rec := httptest.NewRecorder()
@@ -205,7 +205,7 @@ func TestProxyAware_XRealIP(t *testing.T) {
 		gotRemoteAddr = r.RemoteAddr
 	}), cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:54321"
 	req.Header.Set("X-Real-IP", "203.0.113.195") // nginx style
 	rec := httptest.NewRecorder()
@@ -257,7 +257,7 @@ func TestClientIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 			req.RemoteAddr = tt.remoteAddr
 			if tt.xff != "" {
 				req.Header.Set("X-Forwarded-For", tt.xff)

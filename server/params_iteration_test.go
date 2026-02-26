@@ -131,7 +131,7 @@ func TestParamsIteration(t *testing.T) {
 					req.Header.Set("Content-Type", tt.contentType)
 				}
 			} else {
-				req = httptest.NewRequest(tt.method, "/?"+tt.queryParams.Encode(), nil)
+				req = httptest.NewRequest(tt.method, "/?"+tt.queryParams.Encode(), http.NoBody)
 			}
 
 			// Execute script
@@ -148,7 +148,7 @@ func TestParamsIteration(t *testing.T) {
 }
 
 func TestParamsIterationEmpty(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 
 	script := `var count = 0; for(k in @params){ count = count + 1; null }; count`
 

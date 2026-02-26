@@ -470,11 +470,11 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	}
 
 	if hasLimit {
-		sql.WriteString(fmt.Sprintf(" LIMIT %d", limit))
+		fmt.Fprintf(&sql, " LIMIT %d", limit)
 	}
 
 	if offset > 0 {
-		sql.WriteString(fmt.Sprintf(" OFFSET %d", offset))
+		fmt.Fprintf(&sql, " OFFSET %d", offset)
 	}
 
 	// For "one" terminal without explicit limit, add LIMIT 1
@@ -577,7 +577,7 @@ func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames ma
 	}
 
 	if hasLimit {
-		sql.WriteString(fmt.Sprintf(" LIMIT %d", limit))
+		fmt.Fprintf(&sql, " LIMIT %d", limit)
 	}
 
 	return sql.String(), params, nil
@@ -694,9 +694,9 @@ func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName stri
 				sql.WriteString(strings.Join(orderParts, ", "))
 			}
 		case "limit":
-			sql.WriteString(fmt.Sprintf(" LIMIT %d", mod.Value))
+			fmt.Fprintf(&sql, " LIMIT %d", mod.Value)
 		case "offset":
-			sql.WriteString(fmt.Sprintf(" OFFSET %d", mod.Value))
+			fmt.Fprintf(&sql, " OFFSET %d", mod.Value)
 		}
 	}
 
@@ -1515,7 +1515,7 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 
 	// Build the subquery SQL
 	var subSQL strings.Builder
-	subSQL.WriteString(fmt.Sprintf("SELECT %s FROM %s", selectColumn, tableName))
+	fmt.Fprintf(&subSQL, "SELECT %s FROM %s", selectColumn, tableName)
 
 	// Build WHERE clause from conditions
 	if len(subquery.Conditions) > 0 {
@@ -1555,9 +1555,9 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 				subSQL.WriteString(" ORDER BY " + strings.Join(orderParts, ", "))
 			}
 		case "limit":
-			subSQL.WriteString(fmt.Sprintf(" LIMIT %d", mod.Value))
+			fmt.Fprintf(&subSQL, " LIMIT %d", mod.Value)
 		case "offset":
-			subSQL.WriteString(fmt.Sprintf(" OFFSET %d", mod.Value))
+			fmt.Fprintf(&subSQL, " OFFSET %d", mod.Value)
 		}
 	}
 
@@ -2068,13 +2068,13 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 
 	// Build query: SELECT * FROM related_table WHERE foreign_key = parent_id
 	var sql strings.Builder
-	sql.WriteString(fmt.Sprintf("SELECT * FROM %s WHERE %s = $1", relatedBinding.TableName, relation.ForeignKey))
+	fmt.Fprintf(&sql, "SELECT * FROM %s WHERE %s = $1", relatedBinding.TableName, relation.ForeignKey)
 	params := []Object{parentID}
 	paramIndex := 2
 
 	// Add soft delete filter if configured
 	if relatedBinding.SoftDeleteColumn != "" {
-		sql.WriteString(fmt.Sprintf(" AND %s IS NULL", relatedBinding.SoftDeleteColumn))
+		fmt.Fprintf(&sql, " AND %s IS NULL", relatedBinding.SoftDeleteColumn)
 	}
 
 	// Add filter conditions
@@ -2102,7 +2102,7 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 
 	// Add LIMIT if specified
 	if limit != nil {
-		sql.WriteString(fmt.Sprintf(" LIMIT %d", *limit))
+		fmt.Fprintf(&sql, " LIMIT %d", *limit)
 	}
 
 	rows, err := relatedBinding.query(sql.String(), params)

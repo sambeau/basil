@@ -26,7 +26,7 @@ func TestCookieSessionStore_NewSession(t *testing.T) {
 	store := NewCookieSessionStore(cfg, "test-secret", true) // devMode=true for tests
 
 	// Request with no cookie
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	session, err := store.Load(req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -66,7 +66,7 @@ func TestCookieSessionStore_SaveAndLoad(t *testing.T) {
 	}
 
 	// Load session from cookie
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.AddCookie(cookies[0])
 
 	loaded, err := store.Load(req)
@@ -119,7 +119,7 @@ func TestCookieSessionStore_ExpiredSession(t *testing.T) {
 	}
 
 	// Load should return fresh session
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.AddCookie(w.Result().Cookies()[0])
 
 	loaded, err := store.Load(req)
@@ -138,7 +138,7 @@ func TestCookieSessionStore_InvalidCookie(t *testing.T) {
 	store := NewCookieSessionStore(cfg, "test-secret", true)
 
 	// Request with invalid cookie
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.AddCookie(&http.Cookie{
 		Name:  "_test_session",
 		Value: "invalid-not-base64!!!",
@@ -167,7 +167,7 @@ func TestCookieSessionStore_WrongSecret(t *testing.T) {
 	store1.Save(w, session)
 
 	// Load with store2 (different secret)
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.AddCookie(w.Result().Cookies()[0])
 
 	loaded, err := store2.Load(req)

@@ -27,7 +27,7 @@ func TestParsePartPropsSimple(t *testing.T) {
 	}
 
 	// Create request with simple props
-	req := httptest.NewRequest("GET", "/?_view=test&name=Alice&count=42", nil)
+	req := httptest.NewRequest("GET", "/?_view=test&name=Alice&count=42", http.NoBody)
 	env := evaluator.NewEnvironment()
 
 	props, err := h.parsePartProps(req, env)
@@ -72,7 +72,7 @@ func TestParsePartPropsBoolean(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		req := httptest.NewRequest("GET", "/?_view=test&flag="+tt.value, nil)
+		req := httptest.NewRequest("GET", "/?_view=test&flag="+tt.value, http.NoBody)
 		env := evaluator.NewEnvironment()
 
 		props, err := h.parsePartProps(req, env)
@@ -98,7 +98,7 @@ func TestParsePartPropsJSON(t *testing.T) {
 
 	// JSON-encoded dict
 	jsonValue := url.QueryEscape(`{"x":1,"y":"test"}`)
-	req := httptest.NewRequest("GET", "/?_view=test&data="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&data="+jsonValue, http.NoBody)
 	env := evaluator.NewEnvironment()
 
 	props, err := h.parsePartProps(req, env)
@@ -152,7 +152,7 @@ func TestParsePartPropsPLN(t *testing.T) {
 	jsonMarker := `{"__pln":"` + signedPLN + `"}`
 	jsonValue := url.QueryEscape(jsonMarker)
 
-	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, http.NoBody)
 
 	env := evaluator.NewEnvironment()
 	env.PLNSecret = secret
@@ -199,7 +199,7 @@ func TestParsePartPropsPLNTampered(t *testing.T) {
 
 	// JSON-encode the PLN marker
 	jsonValue := url.QueryEscape(`{"__pln":"` + signedPLN + `"}`)
-	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, http.NoBody)
 
 	// Use different secret - should fail verification
 	env := evaluator.NewEnvironment()
@@ -410,7 +410,7 @@ func TestParsePartPropsNestedDict(t *testing.T) {
 
 	// Simulate what JavaScript sends: a nested object JSON-stringified
 	jsonValue := url.QueryEscape(`{"Firstname":"John","Surname":"Smith"}`)
-	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, http.NoBody)
 	env := evaluator.NewEnvironment()
 
 	props, err := h.parsePartProps(req, env)
@@ -456,7 +456,7 @@ func TestParsePartPropsNestedDictDotNotation(t *testing.T) {
 
 	// Simulate what JavaScript sends
 	jsonValue := url.QueryEscape(`{"Firstname":"John","Surname":"Smith"}`)
-	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, nil)
+	req := httptest.NewRequest("GET", "/?_view=test&person="+jsonValue, http.NoBody)
 	env := evaluator.NewEnvironment()
 
 	props, err := h.parsePartProps(req, env)

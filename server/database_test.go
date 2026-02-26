@@ -137,7 +137,7 @@ for (user in users) {
 	defer s.db.Close()
 
 	// Run setup to create table and insert data
-	req := httptest.NewRequest("GET", "/setup", nil)
+	req := httptest.NewRequest("GET", "/setup", http.NoBody)
 	w := httptest.NewRecorder()
 	s.mux.ServeHTTP(w, req)
 
@@ -146,7 +146,7 @@ for (user in users) {
 	}
 
 	// Query the users
-	req = httptest.NewRequest("GET", "/users", nil)
+	req = httptest.NewRequest("GET", "/users", http.NoBody)
 	w = httptest.NewRecorder()
 	s.mux.ServeHTTP(w, req)
 

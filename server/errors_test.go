@@ -109,7 +109,7 @@ func TestHandleScriptError_DevMode(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	h.handleScriptError(w, req, "runtime", "/test/handler.pars", "test error message")
 
 	resp := w.Result()
@@ -152,7 +152,7 @@ func TestHandleScriptErrorWithLocation_ModuleError(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	// Simulate error message from a module - this is the format from evaluator
 	moduleErrMsg := "in module ./app/pages/scouts.pars: line 18, column 20: dot notation can only be used on dictionaries, got BUILTIN"
 	h.handleScriptErrorWithLocation(w, req, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
@@ -193,7 +193,7 @@ func TestHandleScriptErrorWithLocation_ModuleNotFound(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	moduleErrMsg := "in module ./app/pages/scouts.pars: module not found: ./app/pages/std/table"
 	h.handleScriptErrorWithLocation(w, req, "runtime", h.scriptPath, moduleErrMsg, 0, 0)
 
@@ -224,7 +224,7 @@ func TestHandleScriptError_ProdMode(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	h.handleScriptError(w, req, "runtime", "/test/handler.pars", "test error message")
 
 	resp := w.Result()
@@ -263,7 +263,7 @@ func TestCreateErrorEnv(t *testing.T) {
 		},
 	}
 	s := &Server{config: cfg, stderr: io.Discard}
-	req := httptest.NewRequest("GET", "/test/path?foo=bar", nil)
+	req := httptest.NewRequest("GET", "/test/path?foo=bar", http.NoBody)
 	err := fmt.Errorf("test error")
 
 	env := s.createErrorEnv(req, 404, err)
@@ -296,7 +296,7 @@ func TestRenderPreludeError_404(t *testing.T) {
 	}
 	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/missing", nil)
+	req := httptest.NewRequest("GET", "/missing", http.NoBody)
 	err := fmt.Errorf("not found")
 
 	success := s.renderPreludeError(w, req, 404, err)
@@ -340,7 +340,7 @@ func TestRenderPreludeError_500(t *testing.T) {
 	}
 	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/error", nil)
+	req := httptest.NewRequest("GET", "/error", http.NoBody)
 	err := fmt.Errorf("server error")
 
 	success := s.renderPreludeError(w, req, 500, err)
@@ -384,7 +384,7 @@ func TestHandle404(t *testing.T) {
 	}
 	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/missing", nil)
+	req := httptest.NewRequest("GET", "/missing", http.NoBody)
 
 	s.handle404(w, req)
 
@@ -420,7 +420,7 @@ func TestHandle500(t *testing.T) {
 	}
 	s := &Server{config: cfg, stderr: io.Discard}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/error", nil)
+	req := httptest.NewRequest("GET", "/error", http.NoBody)
 	err := fmt.Errorf("test error")
 
 	s.handle500(w, req, err)

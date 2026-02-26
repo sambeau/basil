@@ -73,7 +73,7 @@ func (e *ParsleyError) String() string {
 		sb.WriteString(": ")
 	}
 	if e.Line > 0 {
-		sb.WriteString(fmt.Sprintf("line %d, column %d: ", e.Line, e.Column))
+		fmt.Fprintf(&sb, "line %d, column %d: ", e.Line, e.Column)
 	}
 
 	// Message
@@ -105,11 +105,11 @@ func (e *ParsleyError) PrettyString() string {
 		sb.WriteString(":\n  in: ")
 		sb.WriteString(e.File)
 		if e.Line > 0 {
-			sb.WriteString(fmt.Sprintf("\n  at: line %d, column %d", e.Line, e.Column))
+			fmt.Fprintf(&sb, "\n  at: line %d, column %d", e.Line, e.Column)
 		}
 		sb.WriteString("\n  ")
 	} else if e.Line > 0 {
-		sb.WriteString(fmt.Sprintf(": line %d, column %d\n  ", e.Line, e.Column))
+		fmt.Fprintf(&sb, ": line %d, column %d\n  ", e.Line, e.Column)
 	} else {
 		sb.WriteString(":\n  ")
 	}

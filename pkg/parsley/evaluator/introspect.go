@@ -882,9 +882,9 @@ func describeStdlibRoot(root *StdlibRoot) Object {
 	for _, name := range root.Modules {
 		padding := strings.Repeat(" ", maxNameLen-len(name)+2)
 		if meta := GetStdlibModuleMeta(name); meta != nil {
-			sb.WriteString(fmt.Sprintf("  @std/%s%s- %s\n", name, padding, meta.Description))
+			fmt.Fprintf(&sb, "  @std/%s%s- %s\n", name, padding, meta.Description)
 		} else {
-			sb.WriteString(fmt.Sprintf("  @std/%s\n", name))
+			fmt.Fprintf(&sb, "  @std/%s\n", name)
 		}
 	}
 
@@ -910,9 +910,9 @@ func describeBasilRoot(root *BasilRoot) Object {
 	for _, name := range root.Modules {
 		padding := strings.Repeat(" ", maxNameLen-len(name)+2)
 		if meta := GetBasilModuleMeta(name); meta != nil {
-			sb.WriteString(fmt.Sprintf("  @basil/%s%s- %s\n", name, padding, meta.Description))
+			fmt.Fprintf(&sb, "  @basil/%s%s- %s\n", name, padding, meta.Description)
 		} else {
-			sb.WriteString(fmt.Sprintf("  @basil/%s\n", name))
+			fmt.Fprintf(&sb, "  @basil/%s\n", name)
 		}
 	}
 
@@ -947,22 +947,22 @@ func describeBuiltin(builtin *Builtin) Object {
 	var sb strings.Builder
 
 	// Function signature
-	sb.WriteString(fmt.Sprintf("%s(", metadata.Name))
+	fmt.Fprintf(&sb, "%s(", metadata.Name)
 	sb.WriteString(strings.Join(metadata.Params, ", "))
 	sb.WriteString(")\n\n")
 
 	// Description
-	sb.WriteString(fmt.Sprintf("%s\n\n", metadata.Description))
+	fmt.Fprintf(&sb, "%s\n\n", metadata.Description)
 
 	// Arity
-	sb.WriteString(fmt.Sprintf("Arity: %s\n", metadata.Arity))
+	fmt.Fprintf(&sb, "Arity: %s\n", metadata.Arity)
 
 	// Category
-	sb.WriteString(fmt.Sprintf("Category: %s\n", metadata.Category))
+	fmt.Fprintf(&sb, "Category: %s\n", metadata.Category)
 
 	// Deprecation warning
 	if metadata.Deprecated != "" {
-		sb.WriteString(fmt.Sprintf("\n⚠ DEPRECATED: %s\n", metadata.Deprecated))
+		fmt.Fprintf(&sb, "\n⚠ DEPRECATED: %s\n", metadata.Deprecated)
 	}
 
 	return &String{Value: sb.String()}
@@ -1006,9 +1006,9 @@ func builtinDescribe(args ...Object) Object {
 
 	// Type header
 	if subType != "" {
-		sb.WriteString(fmt.Sprintf("Type: %s (%s)\n", subType, typeName))
+		fmt.Fprintf(&sb, "Type: %s (%s)\n", subType, typeName)
 	} else {
-		sb.WriteString(fmt.Sprintf("Type: %s\n", typeName))
+		fmt.Fprintf(&sb, "Type: %s\n", typeName)
 	}
 
 	// For functions, show parameters
@@ -1029,7 +1029,7 @@ func builtinDescribe(args ...Object) Object {
 	// For dictionaries without subtype, show keys
 	if dict, ok := obj.(*Dictionary); ok && subType == "" {
 		keys := dict.Keys()
-		sb.WriteString(fmt.Sprintf("Keys: %s\n", strings.Join(keys, ", ")))
+		fmt.Fprintf(&sb, "Keys: %s\n", strings.Join(keys, ", "))
 	}
 
 	// Determine method/property key
@@ -1062,7 +1062,7 @@ func builtinDescribe(args ...Object) Object {
 		for _, p := range sortedProps {
 			nameWithType := fmt.Sprintf(".%s: %s", p.Name, p.Type)
 			padding := strings.Repeat(" ", maxPropLen-len(nameWithType)+2)
-			sb.WriteString(fmt.Sprintf("  %s%s- %s\n", nameWithType, padding, p.Description))
+			fmt.Fprintf(&sb, "  %s%s- %s\n", nameWithType, padding, p.Description)
 		}
 	}
 
@@ -1099,7 +1099,7 @@ func builtinDescribe(args ...Object) Object {
 		for _, m := range sortedMethods {
 			nameWithArity := fmt.Sprintf(".%s(%s)", m.Name, arityToParams(m.Arity))
 			padding := strings.Repeat(" ", maxNameLen-len(nameWithArity)+2)
-			sb.WriteString(fmt.Sprintf("  %s%s- %s\n", nameWithArity, padding, m.Description))
+			fmt.Fprintf(&sb, "  %s%s- %s\n", nameWithArity, padding, m.Description)
 		}
 	}
 
@@ -1177,7 +1177,7 @@ func describeStdlibModule(mod *StdlibModuleDict) Object {
 		for _, name := range constants {
 			obj := mod.Exports[name]
 			padding := strings.Repeat(" ", maxNameLen-len(name)+2)
-			sb.WriteString(fmt.Sprintf("    %s%s= %s\n", name, padding, obj.Inspect()))
+			fmt.Fprintf(&sb, "    %s%s= %s\n", name, padding, obj.Inspect())
 		}
 		sb.WriteString("\n")
 	}
@@ -1200,9 +1200,9 @@ func describeStdlibModule(mod *StdlibModuleDict) Object {
 			}
 			padding := strings.Repeat(" ", maxNameLen-len(display)+2)
 			if desc != "" {
-				sb.WriteString(fmt.Sprintf("    %s%s- %s\n", display, padding, desc))
+				fmt.Fprintf(&sb, "    %s%s- %s\n", display, padding, desc)
 			} else {
-				sb.WriteString(fmt.Sprintf("    %s\n", display))
+				fmt.Fprintf(&sb, "    %s\n", display)
 			}
 		}
 	}

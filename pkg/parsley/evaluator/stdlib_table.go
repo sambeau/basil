@@ -1268,7 +1268,7 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 						if emptyCount == 1 {
 							sb.WriteString("<td></td>")
 						} else {
-							sb.WriteString(fmt.Sprintf("<td colspan=\"%d\"></td>", emptyCount))
+							fmt.Fprintf(&sb, "<td colspan=\"%d\"></td>", emptyCount)
 						}
 					}
 				} else {
@@ -1277,7 +1277,7 @@ func tableToHTML(t *Table, args []Object, env *Environment) Object {
 						if emptyCount == 1 {
 							sb.WriteString("<td></td>")
 						} else {
-							sb.WriteString(fmt.Sprintf("<td colspan=\"%d\"></td>", emptyCount))
+							fmt.Fprintf(&sb, "<td colspan=\"%d\"></td>", emptyCount)
 						}
 						emptyCount = 0
 					}

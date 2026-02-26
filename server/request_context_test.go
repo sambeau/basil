@@ -57,7 +57,7 @@ func TestQueryToMapFlags(t *testing.T) {
 }
 
 func TestBuildRequestContextAddsRoute(t *testing.T) {
-	req := httptest.NewRequest("GET", "http://example.com/reports/2025", nil)
+	req := httptest.NewRequest("GET", "http://example.com/reports/2025", http.NoBody)
 	req = req.WithContext(withSubpath(req.Context(), "/2025"))
 
 	ctx := buildRequestContext(req, config.Route{})

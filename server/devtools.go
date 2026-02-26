@@ -274,14 +274,14 @@ func (h *devToolsHandler) renderTableCard(t *TableInfo) string {
 		if col.NotNull {
 			constraints += " <span class=\"constraint\">NOT NULL</span>"
 		}
-		columnsHTML.WriteString(fmt.Sprintf(`
+		fmt.Fprintf(&columnsHTML, `
 			<tr>
 				<td class="col-name">%s</td>
 				<td class="col-type">%s%s</td>
 			</tr>`,
 			html.EscapeString(col.Name),
 			html.EscapeString(col.Type),
-			constraints))
+			constraints)
 	}
 
 	return fmt.Sprintf(`

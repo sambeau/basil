@@ -282,7 +282,7 @@ func (e *Error) Inspect() string {
 		sb.WriteString(": ")
 	}
 	if e.Line > 0 {
-		sb.WriteString(fmt.Sprintf("line %d, column %d: ", e.Line, e.Column))
+		fmt.Fprintf(&sb, "line %d, column %d: ", e.Line, e.Column)
 	}
 	sb.WriteString(e.Message)
 	return sb.String()

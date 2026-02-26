@@ -63,7 +63,7 @@ func TestGetCSRFToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			if tt.cookieValue != "" {
 				req.AddCookie(&http.Cookie{Name: CSRFCookieName, Value: tt.cookieValue})
 			}
@@ -432,7 +432,7 @@ func TestCSRFMiddleware_HeaderToken(t *testing.T) {
 	handler := mw.Validate(successHandler)
 
 	// Test with X-CSRF-Token header (for AJAX)
-	req := httptest.NewRequest("POST", "/", nil)
+	req := httptest.NewRequest("POST", "/", http.NoBody)
 	req.AddCookie(&http.Cookie{Name: CSRFCookieName, Value: validToken})
 	req.Header.Set(CSRFHeaderName, validToken)
 

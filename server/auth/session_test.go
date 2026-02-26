@@ -219,7 +219,7 @@ func TestClearSessionCookie(t *testing.T) {
 
 func TestGetSessionToken(t *testing.T) {
 	// With cookie
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.AddCookie(&http.Cookie{
 		Name:  SessionCookieName,
 		Value: "my-token",
@@ -231,7 +231,7 @@ func TestGetSessionToken(t *testing.T) {
 	}
 
 	// Without cookie
-	req = httptest.NewRequest("GET", "/", nil)
+	req = httptest.NewRequest("GET", "/", http.NoBody)
 	token = GetSessionToken(req)
 	if token != "" {
 		t.Errorf("token = %q, want empty", token)

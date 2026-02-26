@@ -143,7 +143,7 @@ func TestParseRawBody(t *testing.T) {
 }
 
 func TestGETRequestHasNoBody(t *testing.T) {
-	req := httptest.NewRequest("GET", "/page", nil)
+	req := httptest.NewRequest("GET", "/page", http.NoBody)
 
 	route := config.Route{Path: "/page", Handler: "test.pars"}
 	ctx := buildRequestContext(req, route)
