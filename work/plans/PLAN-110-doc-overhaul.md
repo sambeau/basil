@@ -855,11 +855,11 @@ pars reference --format markdown > /tmp/full-ref.md
 | 2026-02-26 | 2E Fix markdown() | ✅ Complete | Fixed signature: takes string not path, returns {html, md, raw} |
 | 2026-02-26 | 2F Fix counts | ✅ Complete | String 38, Array 15, Dict 9, Integer 13, Float 16 methods |
 | 2026-02-26 | 2G Verify examples | ✅ Complete | All modified examples verified with pars -e |
-| | 3A Document with | ⬜ Pending | |
-| | 3B Document CLI | ⬜ Pending | |
-| | 3C Document REPL | ⬜ Pending | |
-| | 3D Fix var docs | ⬜ Pending | |
-| | 3E Number methods | ⬜ Pending | |
+| 2026-02-26 | 3A Document with | ✅ Complete | Added to control-flow.md and reference.md with syntax, examples, scope rules |
+| 2026-02-26 | 3B Document CLI | ✅ Complete | Created cli.md: subcommands, options, security flags, examples |
+| 2026-02-26 | 3C Document REPL | ✅ Complete | Created repl.md: commands, output modes, keyboard shortcuts, debugging tips |
+| 2026-02-26 | 3D Fix var docs | ✅ Complete | Rewrote variables.md for let/var; updated getting-started.md |
+| 2026-02-26 | 3E Number methods | ✅ Complete | Fixed numbers.md: abs() on both types, round/ceil/floor float-only |
 | | 4A Deprecated modules | ⬜ Pending | |
 | | 4B Remove session | ⬜ Pending | |
 | | 4C Fix regex section | ⬜ Pending | |
