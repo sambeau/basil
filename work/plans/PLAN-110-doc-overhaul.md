@@ -840,14 +840,14 @@ pars reference --format markdown > /tmp/full-ref.md
 
 | Date | Unit | Status | Notes |
 |------|------|--------|-------|
-| | 1A String methods | ⬜ Pending | |
-| | 1B Array methods | ⬜ Pending | |
-| | 1C Dictionary methods | ⬜ Pending | |
-| | 1D Number methods | ⬜ Pending | |
-| | 1E Other type methods | ⬜ Pending | |
-| | 1F Strip Basil | ⬜ Pending | |
-| | 1G Fix imports | ⬜ Pending | |
-| | 1H Verify examples | ⬜ Pending | |
+| 2026-02-27 | 1A String methods | ✅ Complete | Removed 10 hallucinated methods, added 12 real ones, fixed title→toTitle |
+| 2026-02-27 | 1B Array methods | ✅ Complete | Removed 8 hallucinated methods (first, last, find, etc.), fixed reduce arg order |
+| 2026-02-27 | 1C Dictionary methods | ✅ Complete | Removed 4 hallucinated methods (get, merge, without, pick), added entries |
+| 2026-02-27 | 1D Number methods | ✅ Complete | Added abs, humanize, round, floor, ceil; verified all examples |
+| 2026-02-27 | 1E Other type methods | ✅ Complete | Restructured datetime/duration as properties+methods tables |
+| 2026-02-27 | 1F Strip Basil | ✅ Complete | Removed ~280 lines (Server, Parts, Asset Bundles); kept Security Flags |
+| 2026-02-27 | 1G Fix imports | ✅ Complete | @std/api→@basil/api, @std/dev→@basil/log, @std/html→@basil/html, @schema DSL |
+| 2026-02-27 | 1H Verify examples | ✅ Complete | All method examples verified with pars -e |
 | | 2A Remove print | ⬜ Pending | |
 | | 2B Fix match() | ⬜ Pending | |
 | | 2C Fix keywords | ⬜ Pending | |
