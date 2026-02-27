@@ -2,6 +2,9 @@ package evaluator
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -161,6 +164,83 @@ func TestSFTPEval_ConnectionCache(t *testing.T) {
 	if sizeAfterSecond > sizeAfterFirst {
 		t.Errorf("cache grew on second connection: size was %d, now %d — expected cache hit",
 			sizeAfterFirst, sizeAfterSecond)
+	}
+}
+
+// TestSFTPEval_ListDirectory verifies that fetching a directory path with the
+// .dir format accessor returns an array of entry dictionaries, each with a
+// "name" key matching the seeded filenames.
+func TestSFTPEval_ListDirectory(t *testing.T) {
+	env := testenv.Start(t, testenv.WithSFTP())
+	env.SFTPWriteFile("/listtest/alpha.txt", "a")
+	env.SFTPWriteFile("/listtest/beta.txt", "b")
+
+	src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/listtest).dir
+data
+`)
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected error: %s", result.(*Error).Message)
+	}
+	arr, ok := result.(*Array)
+	if !ok {
+		t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+	}
+
+	names := make(map[string]bool)
+	for _, elem := range arr.Elements {
+		dict, ok := elem.(*Dictionary)
+		if !ok {
+			t.Fatalf("expected Dictionary element, got %T", elem)
+		}
+		nameExpr, exists := dict.Pairs["name"]
+		if !exists {
+			t.Fatal("directory entry missing 'name' key")
+		}
+		nameObj := Eval(nameExpr, NewEnvironment())
+		if s, ok := nameObj.(*String); ok {
+			names[s.Value] = true
+		}
+	}
+
+	if !names["alpha.txt"] {
+		t.Error("expected alpha.txt in directory listing")
+	}
+	if !names["beta.txt"] {
+		t.Error("expected beta.txt in directory listing")
+	}
+}
+
+// TestSFTPEval_PermissionDenied verifies that attempting to read a file the
+// SFTP server cannot open due to OS permissions returns an error rather than
+// panicking or returning null.
+func TestSFTPEval_PermissionDenied(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission denied semantics differ on Windows")
+	}
+
+	env := testenv.Start(t, testenv.WithSFTP())
+	env.SFTPWriteFile("/secret.txt", "classified")
+
+	fullPath := filepath.Join(env.SFTPRoot(), "secret.txt")
+	if err := os.Chmod(fullPath, 0o000); err != nil {
+		t.Fatalf("chmod failed: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(fullPath, 0o644) })
+
+	src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/secret.txt).text
+error
+`)
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected hard evaluator error: %s", result.(*Error).Message)
+	}
+	if result == NULL {
+		t.Error("expected non-null error for permission denied, got null")
 	}
 }
 

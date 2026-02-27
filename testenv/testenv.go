@@ -97,6 +97,11 @@ func (e *Env) appendMessage(m *Message) {
 	e.messages = append(e.messages, m)
 }
 
+// SFTPRoot returns the absolute path of the temp directory served by the fake
+// SFTP server. Use this in tests that need to manipulate files directly (e.g.
+// to change permissions for a permission-denied test).
+func (e *Env) SFTPRoot() string { return e.sftpRoot }
+
 // Start launches the requested fake servers and registers t.Cleanup to stop
 // them when the test ends.
 func Start(t testing.TB, opts ...Option) *Env {

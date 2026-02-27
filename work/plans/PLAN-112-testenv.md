@@ -268,6 +268,209 @@ Commit: `test(evaluator): add SFTP integration tests covering connection, file I
 
 ---
 
+## Phase 2.5: Coverage Gaps
+
+Post-implementation review identified five gaps between the FEAT-132 spec and the actual implementation. These are all small, self-contained tasks.
+
+### Task 2.5A: SMTP placeholder test for FEAT-084
+
+**Files:** `pkg/parsley/evaluator/eval_smtp_placeholder_test.go` (new)
+**Estimated effort:** Tiny
+
+The spec says: "Integration tests added for `basil.email.send()` (FEAT-084) using the fake SMTP server, **or a placeholder test registered for when FEAT-084 lands**." Neither exists.
+
+Steps:
+1. Create `pkg/parsley/evaluator/eval_smtp_placeholder_test.go`
+2. Add a single test that starts a `testenv.WithSMTP()` env and calls `t.Skip`:
+
+```go
+func TestEmail_Send_Placeholder(t *testing.T) {
+    // Verify the SMTP test infrastructure is functional.
+    env := testenv.Start(t, testenv.WithSMTP())
+    if env.SMTPAddr == "" {
+        t.Fatal("SMTP server did not start")
+    }
+    t.Skip("FEAT-084 (email notification API) not yet implemented — enable this test when basil.email.send() lands")
+}
+```
+
+This satisfies the spec criterion and serves as a reminder when FEAT-084 is implemented.
+
+Commit: `test(evaluator): add SMTP placeholder test for FEAT-084 email integration`
+
+---
+
+### Task 2.5B: SFTP evaluator directory listing test
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Small
+
+The spec requires "Integration tests added for SFTP … directory listing." There is a `TestSFTP_List` in `testenv/sftp_test.go` that tests the fake server directly, but no evaluator-level test exercising the `.dir` format accessor via Parsley syntax.
+
+Steps:
+1. Add `TestSFTPEval_ListDirectory` to `eval_sftp_integration_test.go`
+2. Seed two files via `env.SFTPWriteFile`, then evaluate:
+
+```go
+func TestSFTPEval_ListDirectory(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/listtest/alpha.txt", "a")
+    env.SFTPWriteFile("/listtest/beta.txt", "b")
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/listtest).dir
+data
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    arr, ok := result.(*Array)
+    if !ok {
+        t.Fatalf("expected Array, got %T: %s", result, result.Inspect())
+    }
+    // Check that both filenames appear in the listing.
+    names := make(map[string]bool)
+    for _, elem := range arr.Elements {
+        names[elem.Inspect()] = true
+    }
+    if !names[`"alpha.txt"`] {
+        t.Error("expected alpha.txt in directory listing")
+    }
+    if !names[`"beta.txt"`] {
+        t.Error("expected beta.txt in directory listing")
+    }
+}
+```
+
+Note: The dir listing returns an array of dictionaries or strings depending on the evaluator implementation. Inspect the result of `pars -e` or `evalSFTPRead` with `format == "dir"` in `eval_file_io.go` to confirm the exact shape and adjust assertions accordingly. The key logic is at `eval_file_io.go` around line 272 — it builds dictionaries with `name`, `size`, `isDir`, `modified` keys.
+
+Commit: `test(evaluator): add SFTP directory listing integration test`
+
+---
+
+### Task 2.5C: SFTP permission denied test
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Small
+
+The spec lists "permission denied" as an explicit error path to test alongside "missing file." Only missing file was implemented.
+
+Steps:
+1. Add `TestSFTPEval_PermissionDenied` to `eval_sftp_integration_test.go`
+2. Seed a file, then use `os.Chmod` to remove read permissions before attempting to read it via the evaluator:
+
+```go
+func TestSFTPEval_PermissionDenied(t *testing.T) {
+    if runtime.GOOS == "windows" {
+        t.Skip("permission denied semantics differ on Windows")
+    }
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/secret.txt", "classified")
+
+    // Remove read permission on the file so the SFTP server's os.OpenFile fails.
+    fullPath := filepath.Join(env.SFTPRoot(), "secret.txt")
+    if err := os.Chmod(fullPath, 0o000); err != nil {
+        t.Fatalf("chmod failed: %v", err)
+    }
+    t.Cleanup(func() { _ = os.Chmod(fullPath, 0o644) }) // restore for TempDir cleanup
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/secret.txt).text
+error
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected hard evaluator error: %s", result.(*Error).Message)
+    }
+    if result == NULL {
+        t.Error("expected non-null error for permission denied, got null")
+    }
+}
+```
+
+This requires exposing the SFTP temp dir root. Add a `SFTPRoot() string` accessor to `Env`:
+
+```go
+// In testenv/testenv.go:
+func (e *Env) SFTPRoot() string { return e.sftpRoot }
+```
+
+Commit: `test(evaluator): add SFTP permission denied integration test`
+
+---
+
+### Task 2.5D: Update `introspect_validation_test.go` skipped-types comments
+
+**Files:** `pkg/parsley/evaluator/introspect_validation_test.go` (edit)
+**Estimated effort:** Tiny
+
+The plan (Task 2B) said: "Update `introspect_validation_test.go`: remove `sftpconnection` and `sftpfile` from the `skippedTypes` map, or add a note that they are now covered by `eval_sftp_integration_test.go`." This was not done.
+
+Steps:
+1. Update the comment block at the top (~line 26) to note that SFTP types are now covered:
+
+```go
+// SKIPPED TYPES (require external resources):
+// - dbconnection: Requires database connection
+// - sftpconnection: Covered by eval_sftp_integration_test.go (testenv fake SFTP server)
+// - session: Requires server context
+// - dev: Requires dev module setup
+```
+
+2. Update the `createTestValues` comment block (~line 179) similarly:
+
+```go
+// Types that require external resources are not included:
+// - dbconnection (needs DB)
+// - sftpconnection (covered by eval_sftp_integration_test.go)
+// - sftpfile (covered by eval_sftp_integration_test.go)
+// - session (needs server context)
+// - dev (needs dev module)
+```
+
+3. In `TestSkippedTypes_Documented` (~line 450), update the reason strings for `sftpconnection` and `sftpfile` to indicate they now have integration test coverage but remain skipped here because introspection still requires a live handle:
+
+```go
+"sftpconnection": "Covered by eval_sftp_integration_test.go; skipped here because introspection needs a live handle",
+"sftpfile":       "Covered by eval_sftp_integration_test.go; skipped here because introspection needs a live handle",
+```
+
+Commit: `docs(evaluator): update introspect_validation_test.go to reflect SFTP integration test coverage`
+
+---
+
+### Task 2.5E: Remove stale comment in `connection_cache_test.go`
+
+**Files:** `pkg/parsley/evaluator/connection_cache_test.go` (edit)
+**Estimated effort:** Tiny
+
+Lines 300–303 say: "We can't easily test the SFTP cache with a mock connection because the health check (Getwd) requires a real SSH client." This is no longer true — `TestSFTPEval_ConnectionCache` and `TestSFTPEval_CacheHealthCheck` in `eval_sftp_integration_test.go` do exactly this.
+
+Steps:
+1. Replace the stale comment in `TestSFTPCacheIntegration` (~line 303):
+
+```go
+// Note: Full SFTP cache integration tests (including health-check eviction)
+// are in eval_sftp_integration_test.go using a real fake SSH/SFTP server
+// from testenv. Here we just verify the cache is initialized properly.
+```
+
+Commit: `docs(evaluator): update stale SFTP cache comment to reference integration tests`
+
+---
+
+### Phase 2.5 Validation
+
+- [ ] `go test ./testenv/...` passes
+- [ ] `go test ./pkg/parsley/evaluator/...` passes (including new tests)
+- [ ] `go test ./...` passes (no regressions)
+- [ ] `golangci-lint run` — no new issues
+
+---
+
 ## Final Validation Checklist
 
 - [ ] All tests pass: `go test ./...`
@@ -291,6 +494,11 @@ Commit: `test(evaluator): add SFTP integration tests covering connection, file I
 | 2026-02-27 | 1D: Fetch integration tests | ✅ Complete | `eval_network_io_test.go` — 6 tests; added testHTTPClient injection point in fetchUrlContentFull |
 | 2026-02-27 | 2A: Fake SFTP server | ✅ Complete | `testenv/sftp.go` — gliderlabs/ssh + pkg/sftp request server with OS handler rooted at TempDir |
 | 2026-02-27 | 2B: SFTP evaluator integration tests | ✅ Complete | `eval_sftp_integration_test.go` — 7 tests; also fixed nil *Error-in-interface bug in evalSFTPRead |
+| | 2.5A: SMTP placeholder test | ⬜ Not started | Placeholder test with `t.Skip` for FEAT-084 |
+| | 2.5B: SFTP dir listing test | ⬜ Not started | Evaluator-level `.dir` format test |
+| | 2.5C: SFTP permission denied test | ⬜ Not started | `os.Chmod` + read attempt; needs `SFTPRoot()` accessor |
+| | 2.5D: introspect_validation comments | ⬜ Not started | Update stale "Requires SFTP server" comments |
+| | 2.5E: connection_cache comment | ⬜ Not started | Update stale "can't easily test" comment |
 
 ---
 
@@ -309,6 +517,7 @@ Items to add to `work/BACKLOG.md` after implementation:
 - **Phase 3: Embedded Postgres** — `github.com/fergusstrange/embedded-postgres`. Trigger: a Postgres-specific bug is reported or the Postgres driver changes. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for full rationale.
 - **`testenv.WithGit()`** — fake Git HTTP server for testing the `GitHandler` auth wrapping in `server/git.go`. Low priority: `go-git-http` is already a dep and the auth layer can be tested with a plain `httptest.Server`. Add if a Git auth bug is reported.
 - **Build tag for SFTP tests** — if `eval_sftp_integration_test.go` proves slow enough to disrupt the normal unit test loop, add `//go:build integration` and a `make test-integration` target. Start without it.
+- **SFTP write integration test** — `TestSFTPEval_WriteFile` using `=/=>` operator. Deferred because the plan noted "(once write is supported)" — add when the write path is confirmed stable. The test would evaluate `"hello" =/=> conn(@/out.txt).text` and assert `env.SFTPReadFile("/out.txt") == "hello"`.
 
 ## Related
 
@@ -316,5 +525,5 @@ Items to add to `work/BACKLOG.md` after implementation:
 - Report: `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md`
 - FEAT-084: Email notification API (Phase 1 SMTP is a prerequisite for its integration tests)
 - `pkg/parsley/evaluator/eval_network_io.go` — `fetchUrlContentFull`, target of Task 1D refactor
-- `pkg/parsley/evaluator/connection_cache_test.go` — documents the SFTP testing gap addressed in Task 2B
-- `pkg/parsley/evaluator/introspect_validation_test.go` — lists `sftpconnection` as a skipped type; updated in Task 2B
+- `pkg/parsley/evaluator/connection_cache_test.go` — stale SFTP comment to be updated in Task 2.5E
+- `pkg/parsley/evaluator/introspect_validation_test.go` — stale skipped-types comments to be updated in Task 2.5D

@@ -296,10 +296,9 @@ func TestSFTPCacheIntegration(t *testing.T) {
 		t.Fatal("sftpCache should be initialized")
 	}
 
-	// Note: We can't easily test the SFTP cache with a mock connection
-	// because the health check (Getwd) requires a real SSH client.
-	// The cache itself is tested in the generic tests above.
-	// Here we just verify it's initialized properly.
+	// Note: Full SFTP cache integration tests (including health-check eviction)
+	// are in eval_sftp_integration_test.go using a real fake SSH/SFTP server
+	// from testenv. Here we just verify the cache is initialized properly.
 
 	initialSize := sftpCache.size()
 	if initialSize < 0 {

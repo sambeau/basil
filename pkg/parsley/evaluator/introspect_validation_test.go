@@ -25,7 +25,8 @@ import (
 //
 // SKIPPED TYPES (require external resources):
 // - dbconnection: Requires database connection
-// - sftpconnection: Requires SFTP server
+// - sftpconnection: Covered by eval_sftp_integration_test.go (testenv fake SFTP server)
+// - sftpfile: Covered by eval_sftp_integration_test.go (testenv fake SFTP server)
 // - session: Requires server context
 // - dev: Requires dev module setup
 // - tablemodule: Requires table module initialization
@@ -178,8 +179,8 @@ func createTestValues() map[string]Object {
 
 	// Types that require external resources are not included:
 	// - dbconnection (needs DB)
-	// - sftpconnection (needs SFTP server)
-	// - sftpfile (needs SFTP connection)
+	// - sftpconnection (covered by eval_sftp_integration_test.go)
+	// - sftpfile (covered by eval_sftp_integration_test.go)
 	// - session (needs server context)
 	// - dev (needs dev module)
 	// - tablemodule (needs table module)
@@ -451,8 +452,8 @@ func TestSkippedTypes_Documented(t *testing.T) {
 	// This test documents which types are skipped and why
 	skippedTypes := map[string]string{
 		"dbconnection":   "Requires database connection",
-		"sftpconnection": "Requires SFTP server",
-		"sftpfile":       "Requires SFTP connection",
+		"sftpconnection": "Covered by eval_sftp_integration_test.go; skipped here because introspection needs a live handle",
+		"sftpfile":       "Covered by eval_sftp_integration_test.go; skipped here because introspection needs a live handle",
 		"session":        "Requires server context",
 		"dev":            "Requires dev module setup",
 	}
