@@ -141,6 +141,81 @@ error
 	}
 }
 
+func TestFetch_YAML(t *testing.T) {
+	env := testenv.Start(t, testenv.WithHTTPS())
+	testHTTPClient = env.HTTPSClient
+	t.Cleanup(func() { testHTTPClient = nil })
+
+	env.ServeText("/config.yaml", "name: basil\nversion: 1")
+
+	src := fmt.Sprintf(`
+let {data, error} = <=/= YAML(url("%s/config.yaml"))
+data.name
+`, env.HTTPSURL)
+
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected error: %s", result.(*Error).Message)
+	}
+	str, ok := result.(*String)
+	if !ok {
+		t.Fatalf("expected String, got %T: %s", result, result.Inspect())
+	}
+	if str.Value != "basil" {
+		t.Errorf("expected 'basil', got %q", str.Value)
+	}
+}
+
+func TestFetch_Lines(t *testing.T) {
+	env := testenv.Start(t, testenv.WithHTTPS())
+	testHTTPClient = env.HTTPSClient
+	t.Cleanup(func() { testHTTPClient = nil })
+
+	env.ServeText("/lines.txt", "line1\nline2\nline3")
+
+	src := fmt.Sprintf(`
+let {data, error} = <=/= lines(url("%s/lines.txt"))
+data.length()
+`, env.HTTPSURL)
+
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected error: %s", result.(*Error).Message)
+	}
+	num, ok := result.(*Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %T: %s", result, result.Inspect())
+	}
+	if num.Value != 3 {
+		t.Errorf("expected 3 lines, got %d", num.Value)
+	}
+}
+
+func TestFetch_Bytes(t *testing.T) {
+	env := testenv.Start(t, testenv.WithHTTPS())
+	testHTTPClient = env.HTTPSClient
+	t.Cleanup(func() { testHTTPClient = nil })
+
+	env.ServeText("/binary", "ABC")
+
+	src := fmt.Sprintf(`
+let {data, error} = <=/= raw(url("%s/binary"))
+data[0]
+`, env.HTTPSURL)
+
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected error: %s", result.(*Error).Message)
+	}
+	num, ok := result.(*Integer)
+	if !ok {
+		t.Fatalf("expected Integer, got %T: %s", result, result.Inspect())
+	}
+	if num.Value != 65 { // 'A' = 65
+		t.Errorf("expected 65, got %d", num.Value)
+	}
+}
+
 func TestFetch_Redirect(t *testing.T) {
 	env := testenv.Start(t, testenv.WithHTTPS())
 	testHTTPClient = env.HTTPSClient

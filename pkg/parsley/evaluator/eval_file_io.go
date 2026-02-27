@@ -332,7 +332,11 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 		}
 		return &Array{Elements: elements}, nil
 	case "csv":
-		return parseCSV(data, true) // Assume CSV has headers by default
+		content, csvErr := parseCSV(data, true)
+		if csvErr != nil {
+			return nil, csvErr
+		}
+		return content, nil
 	case "bytes":
 		elements := make([]Object, len(data))
 		for i, b := range data {
@@ -350,7 +354,11 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 			}
 			return content, nil
 		case ".csv":
-			return parseCSV(data, true)
+			content, csvErr := parseCSV(data, true)
+			if csvErr != nil {
+				return nil, csvErr
+			}
+			return content, nil
 		default:
 			return &String{Value: string(data)}, nil
 		}
