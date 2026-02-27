@@ -108,7 +108,8 @@ If documentation conflicts with `pars describe` output, **trust the command**. U
 
 ## Git Rules
 - AI commits to feature/bug branches
-- Human merges to main
+- AI merges to main after human approval
+- AI can push to remote when delegated by human
 - Human creates release tags
 - Use Conventional Commits format:
   - `feat(scope): description` — New features
