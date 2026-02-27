@@ -65,6 +65,41 @@ func TestConnectionCacheTTL(t *testing.T) {
 	}
 }
 
+// TestConnectionCacheTTLResetOnUse verifies that accessing a cached entry resets its TTL.
+// A connection under active use should not be evicted — only idle connections should expire.
+func TestConnectionCacheTTLResetOnUse(t *testing.T) {
+	cache := newConnectionCache[string](
+		10,
+		150*time.Millisecond, // short TTL for testing
+		nil,
+		func(s string) error { return nil },
+		nil,
+	)
+	defer cache.close()
+
+	cache.put("key1", "value1")
+
+	// Access repeatedly at sub-TTL intervals to keep lastUsed fresh.
+	// Each access resets the TTL clock; the entry should survive.
+	for i := 0; i < 3; i++ {
+		time.Sleep(75 * time.Millisecond) // less than TTL each iteration
+		val, found := cache.get("key1")
+		if !found {
+			t.Fatalf("iteration %d: expected key1 to still be cached (TTL should reset on use)", i)
+		}
+		if val != "value1" {
+			t.Fatalf("iteration %d: expected value1, got %s", i, val)
+		}
+	}
+
+	// Stop accessing and wait for one full TTL to elapse since last use
+	time.Sleep(200 * time.Millisecond)
+	_, found := cache.get("key1")
+	if found {
+		t.Fatal("expected key1 to be evicted after TTL elapsed since last use")
+	}
+}
+
 // TestConnectionCacheHealthCheck tests health check functionality
 func TestConnectionCacheHealthCheck(t *testing.T) {
 	healthCheckFails := false
