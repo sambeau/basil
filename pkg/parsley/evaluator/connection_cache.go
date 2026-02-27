@@ -55,8 +55,8 @@ func (c *connectionCache[T]) get(key string) (T, bool) {
 
 	now := time.Now()
 
-	// Check if connection has expired
-	if now.Sub(cached.createdAt) > c.ttl {
+	// Check if connection has expired (based on last use, not creation time)
+	if now.Sub(cached.lastUsed) > c.ttl {
 		c.mu.Lock()
 		if err := c.closeFunc(cached.conn); err != nil && c.logErr != nil {
 			c.logErr("connection cache: close error during TTL eviction: %v", err)
@@ -158,7 +158,7 @@ func (c *connectionCache[T]) evictStale() {
 
 	now := time.Now()
 	for key, cached := range c.conns {
-		if now.Sub(cached.createdAt) > c.ttl {
+		if now.Sub(cached.lastUsed) > c.ttl {
 			if err := c.closeFunc(cached.conn); err != nil && c.logErr != nil {
 				c.logErr("connection cache: close error during stale eviction: %v", err)
 			}
@@ -197,9 +197,7 @@ func (c *connectionCache[T]) size() int {
 var dbCache = newConnectionCache[*sql.DB](
 	100,            // max 100 database connections
 	30*time.Minute, // 30 minute TTL
-	func(db *sql.DB) error {
-		return db.Ping()
-	},
+	nil,            // no health check — database/sql retries stale connections transparently
 	func(db *sql.DB) error {
 		return db.Close()
 	},

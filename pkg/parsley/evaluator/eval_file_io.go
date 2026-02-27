@@ -313,7 +313,11 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 
 	switch format {
 	case "json":
-		return parseJSON(string(data))
+		content, jsonErr := parseJSON(string(data))
+		if jsonErr != nil {
+			return nil, jsonErr
+		}
+		return content, nil
 	case "text":
 		return &String{Value: string(data)}, nil
 	case "lines":
@@ -328,7 +332,11 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 		}
 		return &Array{Elements: elements}, nil
 	case "csv":
-		return parseCSV(data, true) // Assume CSV has headers by default
+		content, csvErr := parseCSV(data, true)
+		if csvErr != nil {
+			return nil, csvErr
+		}
+		return content, nil
 	case "bytes":
 		elements := make([]Object, len(data))
 		for i, b := range data {
@@ -340,9 +348,17 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 		ext := filepath.Ext(handle.Path)
 		switch ext {
 		case ".json":
-			return parseJSON(string(data))
+			content, jsonErr := parseJSON(string(data))
+			if jsonErr != nil {
+				return nil, jsonErr
+			}
+			return content, nil
 		case ".csv":
-			return parseCSV(data, true)
+			content, csvErr := parseCSV(data, true)
+			if csvErr != nil {
+				return nil, csvErr
+			}
+			return content, nil
 		default:
 			return &String{Value: string(data)}, nil
 		}

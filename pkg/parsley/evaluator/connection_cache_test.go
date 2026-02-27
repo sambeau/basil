@@ -65,6 +65,41 @@ func TestConnectionCacheTTL(t *testing.T) {
 	}
 }
 
+// TestConnectionCacheTTLResetOnUse verifies that accessing a cached entry resets its TTL.
+// A connection under active use should not be evicted — only idle connections should expire.
+func TestConnectionCacheTTLResetOnUse(t *testing.T) {
+	cache := newConnectionCache[string](
+		10,
+		150*time.Millisecond, // short TTL for testing
+		nil,
+		func(s string) error { return nil },
+		nil,
+	)
+	defer cache.close()
+
+	cache.put("key1", "value1")
+
+	// Access repeatedly at sub-TTL intervals to keep lastUsed fresh.
+	// Each access resets the TTL clock; the entry should survive.
+	for i := 0; i < 3; i++ {
+		time.Sleep(75 * time.Millisecond) // less than TTL each iteration
+		val, found := cache.get("key1")
+		if !found {
+			t.Fatalf("iteration %d: expected key1 to still be cached (TTL should reset on use)", i)
+		}
+		if val != "value1" {
+			t.Fatalf("iteration %d: expected value1, got %s", i, val)
+		}
+	}
+
+	// Stop accessing and wait for one full TTL to elapse since last use
+	time.Sleep(200 * time.Millisecond)
+	_, found := cache.get("key1")
+	if found {
+		t.Fatal("expected key1 to be evicted after TTL elapsed since last use")
+	}
+}
+
 // TestConnectionCacheHealthCheck tests health check functionality
 func TestConnectionCacheHealthCheck(t *testing.T) {
 	healthCheckFails := false
@@ -289,6 +324,44 @@ func TestDBCacheIntegration(t *testing.T) {
 	}
 }
 
+// TestDBCacheNoHealthCheck verifies that dbCache is configured without a health check.
+// db.Ping() on every retrieval is a synchronous network round-trip that database/sql
+// makes unnecessary via its internal retry logic. This test is a regression guard to
+// ensure the health check is not accidentally re-added.
+func TestDBCacheNoHealthCheck(t *testing.T) {
+	if dbCache == nil {
+		t.Fatal("dbCache should be initialised")
+	}
+
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	key := "test-no-healthcheck:" + t.Name()
+	dbCache.put(key, db)
+	defer func() {
+		dbCache.mu.Lock()
+		delete(dbCache.conns, key)
+		dbCache.mu.Unlock()
+	}()
+
+	cached, found := dbCache.get(key)
+	if !found {
+		t.Fatal("expected to find db in cache")
+	}
+	if cached != db {
+		t.Fatal("expected to get back the same *sql.DB")
+	}
+
+	// Verify the health check is nil — if it were db.Ping(), it would still
+	// succeed here (memory db is healthy), so we check the field directly.
+	if dbCache.healthCheck != nil {
+		t.Error("dbCache must have nil health check — db.Ping() on every retrieval adds a network round-trip per request")
+	}
+}
+
 // TestSFTPCacheIntegration tests the actual SFTP cache
 func TestSFTPCacheIntegration(t *testing.T) {
 	// This test verifies the real sftpCache works
@@ -296,10 +369,9 @@ func TestSFTPCacheIntegration(t *testing.T) {
 		t.Fatal("sftpCache should be initialized")
 	}
 
-	// Note: We can't easily test the SFTP cache with a mock connection
-	// because the health check (Getwd) requires a real SSH client.
-	// The cache itself is tested in the generic tests above.
-	// Here we just verify it's initialized properly.
+	// Note: Full SFTP cache integration tests (including health-check eviction)
+	// are in eval_sftp_integration_test.go using a real fake SSH/SFTP server
+	// from testenv. Here we just verify the cache is initialized properly.
 
 	initialSize := sftpCache.size()
 	if initialSize < 0 {

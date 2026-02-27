@@ -957,6 +957,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}()
 	}
 
+	// Close any Postgres/MySQL connections cached by Parsley handlers
+	defer func() {
+		s.logInfo("closing cached evaluator database connections")
+		evaluator.ClearDBConnections()
+	}()
+
 	// In dev mode, start file watcher for hot reload
 	if s.config.Server.Dev {
 		watcher, err := NewWatcher(s, s.configPath, s.stdout, s.stderr)
