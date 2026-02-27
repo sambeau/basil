@@ -23,28 +23,28 @@ As a developer (human or AI agent) working on Basil, I want integration tests fo
 
 ### Phase 1: HTTPS and SMTP
 
-- [ ] `testenv` package exists at `basil/testenv/`
-- [ ] `testenv.Start(t, opts...)` starts requested servers, returns an `Env` struct, and registers `t.Cleanup` for teardown
-- [ ] All servers bind to `:0` (OS-assigned random port) — no hardcoded ports
-- [ ] **HTTPS:** fake server starts via `httptest.NewTLSServer`; `Env.HTTPSURL` is set; test client trusts the self-signed cert
-- [ ] **HTTPS fixtures:** helpers to serve JSON, plain text, a redirect, and configurable HTTP error codes (4xx/5xx)
-- [ ] **SMTP:** fake server starts via `go-smtp`; `Env.SMTPAddr` is set; sent messages are captured in memory
-- [ ] **SMTP:** `Env.Messages()` returns all captured messages with To, From, Subject, and body accessible
-- [ ] **SMTP:** `Env.LastMessage()` convenience helper returns the most recently received message
-- [ ] Integration tests added for the Fetch (`<=/=`) operator using the fake HTTPS server
+- [x] `testenv` package exists at `basil/testenv/`
+- [x] `testenv.Start(t, opts...)` starts requested servers, returns an `Env` struct, and registers `t.Cleanup` for teardown
+- [x] All servers bind to `:0` (OS-assigned random port) — no hardcoded ports
+- [x] **HTTPS:** fake server starts via `httptest.NewTLSServer`; `Env.HTTPSURL` is set; test client trusts the self-signed cert
+- [x] **HTTPS fixtures:** helpers to serve JSON, plain text, a redirect, and configurable HTTP error codes (4xx/5xx)
+- [x] **SMTP:** fake server starts via `go-smtp`; `Env.SMTPAddr` is set; sent messages are captured in memory
+- [x] **SMTP:** `Env.Messages()` returns all captured messages with To, From, Subject, and body accessible
+- [x] **SMTP:** `Env.LastMessage()` convenience helper returns the most recently received message
+- [x] Integration tests added for the Fetch (`<=/=`) operator using the fake HTTPS server
 - [ ] Integration tests added for `basil.email.send()` (FEAT-084) using the fake SMTP server, or a placeholder test registered for when FEAT-084 lands
-- [ ] All new tests pass with `go test ./...`
+- [x] All new tests pass with `go test ./...`
 
 ### Phase 2: SFTP/SSH
 
-- [ ] **SFTP:** fake SSH/SFTP server starts in-process; `Env.SFTPAddr`, `Env.SFTPUser`, `Env.SFTPPassword` are set
-- [ ] Fake SFTP server serves files from a `t.TempDir()` directory
-- [ ] Test fixture helpers: `Env.SFTPWriteFile(path, content)` and `Env.SFTPReadFile(path)` for setup/assertion
-- [ ] Integration tests added for SFTP connection establishment, file read, file write, and directory listing
-- [ ] Integration tests added for SFTP connection cache (`connection_cache.go`) — filling the gap noted in `connection_cache_test.go`
-- [ ] Integration tests added for SFTP auth failure (wrong password returns correct Basil error class)
-- [ ] Integration tests added for SFTP error paths: missing file, permission denied
-- [ ] All new tests pass with `go test ./...`
+- [x] **SFTP:** fake SSH/SFTP server starts in-process; `Env.SFTPAddr`, `Env.SFTPUser`, `Env.SFTPPassword` are set
+- [x] Fake SFTP server serves files from a `t.TempDir()` directory
+- [x] Test fixture helpers: `Env.SFTPWriteFile(path, content)` and `Env.SFTPReadFile(path)` for setup/assertion
+- [x] Integration tests added for SFTP connection establishment, file read, file write, and directory listing
+- [x] Integration tests added for SFTP connection cache (`connection_cache.go`) — filling the gap noted in `connection_cache_test.go`
+- [x] Integration tests added for SFTP auth failure (wrong password returns correct Basil error class)
+- [x] Integration tests added for SFTP error paths: missing file, permission denied
+- [x] All new tests pass with `go test ./...`
 
 ---
 

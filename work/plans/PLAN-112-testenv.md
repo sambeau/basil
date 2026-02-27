@@ -285,14 +285,22 @@ Commit: `test(evaluator): add SFTP integration tests covering connection, file I
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| — | 1A: testenv skeleton | — | — |
-| — | 1B: Fake HTTPS server | — | — |
-| — | 1C: Fake SMTP server | — | — |
-| — | 1D: Fetch integration tests | — | — |
-| — | 2A: Fake SFTP server | — | — |
-| — | 2B: SFTP evaluator integration tests | — | — |
+| 2026-02-27 | 1A: testenv skeleton | ✅ Complete | `testenv/testenv.go` — Env struct, options, Start() |
+| 2026-02-27 | 1B: Fake HTTPS server | ✅ Complete | `testenv/https.go` — httptest.NewTLSServer + fixtures |
+| 2026-02-27 | 1C: Fake SMTP server | ✅ Complete | `testenv/smtp.go` — go-smtp + in-memory backend |
+| 2026-02-27 | 1D: Fetch integration tests | ✅ Complete | `eval_network_io_test.go` — 6 tests; added testHTTPClient injection point in fetchUrlContentFull |
+| 2026-02-27 | 2A: Fake SFTP server | ✅ Complete | `testenv/sftp.go` — gliderlabs/ssh + pkg/sftp request server with OS handler rooted at TempDir |
+| 2026-02-27 | 2B: SFTP evaluator integration tests | ✅ Complete | `eval_sftp_integration_test.go` — 7 tests; also fixed nil *Error-in-interface bug in evalSFTPRead |
 
 ---
+
+## Notes From Implementation
+
+- `sftp.WithRootDirectory` does not exist in `pkg/sftp@v1.13.10`. Used `sftp.NewRequestServer` with a custom `osHandler` implementing `sftp.Handlers` (FileGet/FilePut/FileCmd/FileList interfaces) rooted at the temp directory.
+- Fixed a pre-existing nil `*Error`-in-interface bug in `evalSFTPRead` (`eval_file_io.go`): `return parseJSON(...)` returned a nil `*Error` as a non-nil `Object` interface, causing a nil pointer dereference when the error was type-asserted. Unwrapped explicitly.
+- The `testHTTPClient` injection var approach (package-level var, nil in production) is minimal and self-documenting. No callers changed.
+- Fetch `{data, error}` pattern only captures network-level failures in the `error` field; HTTP 4xx/5xx status codes surface via `status`. Tests adjusted to match actual semantics.
+- Pre-existing failures `TestDatabaseShutdown` and `TestSiteHandler_RootPath` in `server/` are unrelated to this work (confirmed on `main` before changes).
 
 ## Deferred Items
 
