@@ -2,7 +2,7 @@
 id: PLAN-113
 feature: FEAT-133
 title: "Implementation Plan: Database Connection Pool Optimisation"
-status: draft
+status: complete
 created: 2025-07-27
 ---
 
@@ -501,7 +501,12 @@ go test ./...
 
 ## Progress Log
 
-*To be filled in during implementation.*
+- **2025-07-27** — Branch `feat/FEAT-133-db-pool-optimisation` created from `feat/FEAT-132-testenv`
+- **2025-07-27** — Planning artefacts committed (spec, plan, analysis report)
+- **2025-07-27** — Phase 1 complete: `connection_cache.go` `dbCache` health check changed to `nil`; `ClearDBConnections()` in `evaluator.go` updated to match; `TestDBCacheNoHealthCheck` added and passing. Committed: `perf(evaluator): remove redundant db.Ping() from dbCache health check`
+- **2025-07-27** — Phase 2 complete: `ConnMaxIdleTime(5m)` and `ConnMaxLifetime(30m)` defaults added to Postgres and MySQL `connectionBuiltins` blocks; `connMaxIdleTime` and `connMaxLifetime` options dict keys added for user override. Committed: `perf(evaluator): set ConnMaxIdleTime and ConnMaxLifetime on postgres/mysql connections`
+- **2025-07-27** — Phase 3 complete: TTL check in `get()` and `evictStale()` changed from `cached.createdAt` to `cached.lastUsed`; `TestConnectionCacheTTLResetOnUse` added and passing. Committed: `fix(evaluator): base connection cache TTL on lastUsed instead of createdAt`
+- **2025-07-27** — Phase 4 complete: `evaluator.ClearDBConnections()` defer added to `Server.Run()` shutdown path. Committed: `fix(server): close cached evaluator DB connections on graceful shutdown`
 
 ## Related
 
