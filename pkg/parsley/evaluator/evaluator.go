@@ -1973,7 +1973,13 @@ func connectionBuiltins() map[string]*Builtin {
 						return newDatabaseErrorWithDriver("DB-0003", "PostgreSQL", err)
 					}
 
-					// Apply connection options if provided
+					// Set defaults for pool lifecycle — Go manages these in the background.
+					// ConnMaxIdleTime closes connections idle longer than 5 minutes.
+					// ConnMaxLifetime rotates connections every 30 minutes regardless of use.
+					db.SetConnMaxIdleTime(5 * time.Minute)
+					db.SetConnMaxLifetime(30 * time.Minute)
+
+					// Apply connection options if provided (may override defaults above)
 					if options != nil {
 						if maxOpen, ok := options["maxOpenConns"]; ok {
 							if maxOpenInt, ok := maxOpen.(*Integer); ok {
@@ -1983,6 +1989,16 @@ func connectionBuiltins() map[string]*Builtin {
 						if maxIdle, ok := options["maxIdleConns"]; ok {
 							if maxIdleInt, ok := maxIdle.(*Integer); ok {
 								db.SetMaxIdleConns(int(maxIdleInt.Value))
+							}
+						}
+						if idleTime, ok := options["connMaxIdleTime"]; ok {
+							if secs, ok := idleTime.(*Integer); ok {
+								db.SetConnMaxIdleTime(time.Duration(secs.Value) * time.Second)
+							}
+						}
+						if lifetime, ok := options["connMaxLifetime"]; ok {
+							if secs, ok := lifetime.(*Integer); ok {
+								db.SetConnMaxLifetime(time.Duration(secs.Value) * time.Second)
 							}
 						}
 					}
@@ -2046,7 +2062,13 @@ func connectionBuiltins() map[string]*Builtin {
 						return newDatabaseErrorWithDriver("DB-0003", "MySQL", err)
 					}
 
-					// Apply connection options if provided
+					// Set defaults for pool lifecycle — Go manages these in the background.
+					// ConnMaxIdleTime closes connections idle longer than 5 minutes.
+					// ConnMaxLifetime rotates connections every 30 minutes regardless of use.
+					db.SetConnMaxIdleTime(5 * time.Minute)
+					db.SetConnMaxLifetime(30 * time.Minute)
+
+					// Apply connection options if provided (may override defaults above)
 					if options != nil {
 						if maxOpen, ok := options["maxOpenConns"]; ok {
 							if maxOpenInt, ok := maxOpen.(*Integer); ok {
@@ -2056,6 +2078,16 @@ func connectionBuiltins() map[string]*Builtin {
 						if maxIdle, ok := options["maxIdleConns"]; ok {
 							if maxIdleInt, ok := maxIdle.(*Integer); ok {
 								db.SetMaxIdleConns(int(maxIdleInt.Value))
+							}
+						}
+						if idleTime, ok := options["connMaxIdleTime"]; ok {
+							if secs, ok := idleTime.(*Integer); ok {
+								db.SetConnMaxIdleTime(time.Duration(secs.Value) * time.Second)
+							}
+						}
+						if lifetime, ok := options["connMaxLifetime"]; ok {
+							if secs, ok := lifetime.(*Integer); ok {
+								db.SetConnMaxLifetime(time.Duration(secs.Value) * time.Second)
 							}
 						}
 					}
