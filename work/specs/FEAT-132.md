@@ -32,7 +32,7 @@ As a developer (human or AI agent) working on Basil, I want integration tests fo
 - [x] **SMTP:** `Env.Messages()` returns all captured messages with To, From, Subject, and body accessible
 - [x] **SMTP:** `Env.LastMessage()` convenience helper returns the most recently received message
 - [x] Integration tests added for the Fetch (`<=/=`) operator using the fake HTTPS server
-- [ ] Integration tests added for `basil.email.send()` (FEAT-084) using the fake SMTP server, or a placeholder test registered for when FEAT-084 lands
+- [x] Integration tests added for `basil.email.send()` (FEAT-084) using the fake SMTP server, or a placeholder test registered for when FEAT-084 lands
 - [x] All new tests pass with `go test ./...`
 
 ### Phase 2: SFTP/SSH
@@ -48,7 +48,57 @@ As a developer (human or AI agent) working on Basil, I want integration tests fo
 
 ---
 
-### Phase 3: Embedded Postgres (deferred — post-v1.0 if needed)
+### Phase 4: SFTP File Operations
+
+Integration tests for SFTP file handle methods (`mkdir`, `rmdir`, `remove`) and connection methods (`close`).
+
+- [ ] `mkdir()` — create a directory on the SFTP server
+- [ ] `mkdir({parents: true})` — create nested directories recursively
+- [ ] `rmdir()` — remove an empty directory
+- [ ] `remove()` — delete a file
+- [ ] `close()` — explicitly close an SFTP connection
+- [ ] All new tests pass with `go test ./...`
+
+**Known limitation:** `rmdir({recursive: true})` is parsed but not implemented (TODO in `eval_network_io.go:96`). Test should verify it returns an appropriate error or behaves as non-recursive.
+
+---
+
+### Phase 5: SFTP Format Coverage
+
+Integration tests for all SFTP read and write formats beyond `.text`, `.json`, and `.dir`.
+
+**Read formats:**
+- [ ] `.lines` — read file and split by newlines into array
+- [ ] `.csv` — parse CSV file with headers into array of dictionaries
+- [ ] `.bytes` — read file as byte array (array of integers 0-255)
+- [ ] `.file` — auto-detect format from file extension
+
+**Write formats:**
+- [ ] `.json` — write object/dictionary as JSON
+- [ ] `.lines` — write array of strings joined by newlines
+- [ ] `.bytes` — write array of integers as bytes
+
+**Error cases:**
+- [ ] `.csv` write — verify returns error `SFTP-0003` ("CSV write not yet implemented")
+- [ ] Unknown format — verify returns appropriate error
+
+- [ ] All new tests pass with `go test ./...`
+
+---
+
+### Phase 6: Fetch Format Coverage
+
+Integration tests for Fetch operator response formats beyond `text` and `json`.
+
+- [ ] `yaml` — parse YAML response
+- [ ] `lines` — split response by newlines into array
+- [ ] `bytes` — read response as byte array
+
+- [ ] All new tests pass with `go test ./...`
+
+---
+
+### Phase 7: Embedded Postgres (deferred — post-v1.0 if needed)
 
 Not in scope for this spec. Tracked in the backlog. Trigger: a Postgres-specific bug is reported, or the Postgres driver changes significantly. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for the full rationale and recommended library (`fergusstrange/embedded-postgres`).
 

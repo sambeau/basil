@@ -471,6 +471,512 @@ Commit: `docs(evaluator): update stale SFTP cache comment to reference integrati
 
 ---
 
+## Phase 4: SFTP File Operations
+
+Integration tests for SFTP file handle methods (`mkdir`, `rmdir`, `remove`) and connection methods (`close`).
+
+### Task 4A: Directory creation tests
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Small
+
+Steps:
+1. Add `TestSFTPEval_Mkdir` — create a directory, verify it exists via `env.SFTPReadFile` parent listing or `os.Stat` on `env.SFTPRoot()`
+2. Add `TestSFTPEval_MkdirParents` — create nested directories with `{parents: true}`, verify the full path exists
+
+```go
+func TestSFTPEval_Mkdir(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn(@/newdir).mkdir()
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    // Verify directory was created
+    info, err := os.Stat(filepath.Join(env.SFTPRoot(), "newdir"))
+    if err != nil {
+        t.Fatalf("directory not created: %v", err)
+    }
+    if !info.IsDir() {
+        t.Error("expected a directory, got a file")
+    }
+}
+
+func TestSFTPEval_MkdirParents(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn(@/deep/nested/path).mkdir({parents: true})
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    // Verify nested directory was created
+    info, err := os.Stat(filepath.Join(env.SFTPRoot(), "deep/nested/path"))
+    if err != nil {
+        t.Fatalf("nested directory not created: %v", err)
+    }
+    if !info.IsDir() {
+        t.Error("expected a directory, got a file")
+    }
+}
+```
+
+Commit: `test(evaluator): add SFTP mkdir and mkdir with parents tests`
+
+---
+
+### Task 4B: Directory and file removal tests
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Small
+
+Steps:
+1. Add `TestSFTPEval_Rmdir` — create a directory, remove it with `rmdir()`, verify it's gone
+2. Add `TestSFTPEval_Remove` — create a file, remove it with `remove()`, verify it's gone
+3. Add `TestSFTPEval_RmdirRecursive_NotImplemented` — verify `rmdir({recursive: true})` either works or returns an appropriate error (documents the TODO at `eval_network_io.go:96`)
+
+```go
+func TestSFTPEval_Rmdir(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    // Create directory first
+    dirPath := filepath.Join(env.SFTPRoot(), "toremove")
+    if err := os.Mkdir(dirPath, 0o755); err != nil {
+        t.Fatalf("setup failed: %v", err)
+    }
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn(@/toremove).rmdir()
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    // Verify directory was removed
+    if _, err := os.Stat(dirPath); !os.IsNotExist(err) {
+        t.Error("directory still exists after rmdir")
+    }
+}
+
+func TestSFTPEval_Remove(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/deleteme.txt", "temporary content")
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn(@/deleteme.txt).remove()
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    // Verify file was removed
+    filePath := filepath.Join(env.SFTPRoot(), "deleteme.txt")
+    if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+        t.Error("file still exists after remove")
+    }
+}
+```
+
+Commit: `test(evaluator): add SFTP rmdir and remove tests`
+
+---
+
+### Task 4C: Connection close test
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Small
+
+Steps:
+1. Add `TestSFTPEval_Close` — connect, close explicitly, verify subsequent operations fail with appropriate error
+
+```go
+func TestSFTPEval_Close(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/testfile.txt", "content")
+
+    // Connect and close
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn.close()
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("close failed: %s", result.(*Error).Message)
+    }
+
+    // Note: After close, the connection is marked disconnected but remains
+    // in the cache. A subsequent connection attempt should establish a new
+    // connection. This test verifies close() doesn't error.
+}
+```
+
+Commit: `test(evaluator): add SFTP connection close test`
+
+---
+
+### Phase 4 Validation
+
+- [ ] `go test ./pkg/parsley/evaluator/...` passes
+- [ ] All SFTP file operation methods have integration test coverage
+
+---
+
+## Phase 5: SFTP Format Coverage
+
+Integration tests for all SFTP read and write formats.
+
+### Task 5A: SFTP read format tests
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Medium
+
+Steps:
+1. Add `TestSFTPEval_ReadLines` — read file with `.lines` format, verify array of strings
+2. Add `TestSFTPEval_ReadCSV` — read CSV file with `.csv` format, verify array of dictionaries with header keys
+3. Add `TestSFTPEval_ReadBytes` — read file with `.bytes` format, verify array of integers
+4. Add `TestSFTPEval_ReadFileAutoDetect` — read `.json` file with `.file` format, verify JSON is auto-parsed
+
+```go
+func TestSFTPEval_ReadLines(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/lines.txt", "line1\nline2\nline3")
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/lines.txt).lines
+data
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    arr, ok := result.(*Array)
+    if !ok {
+        t.Fatalf("expected Array, got %T", result)
+    }
+    if len(arr.Elements) != 3 {
+        t.Errorf("expected 3 lines, got %d", len(arr.Elements))
+    }
+}
+
+func TestSFTPEval_ReadCSV(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/data.csv", "name,age\nAlice,30\nBob,25")
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/data.csv).csv
+data[0].name
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    str, ok := result.(*String)
+    if !ok {
+        t.Fatalf("expected String, got %T: %s", result, result.Inspect())
+    }
+    if str.Value != "Alice" {
+        t.Errorf("expected 'Alice', got %q", str.Value)
+    }
+}
+
+func TestSFTPEval_ReadBytes(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/binary.bin", "ABC") // bytes 65, 66, 67
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/binary.bin).bytes
+data[0]
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    num, ok := result.(*Integer)
+    if !ok {
+        t.Fatalf("expected Integer, got %T", result)
+    }
+    if num.Value != 65 { // 'A' = 65
+        t.Errorf("expected 65, got %d", num.Value)
+    }
+}
+
+func TestSFTPEval_ReadFileAutoDetect(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/auto.json", `{"key": "value"}`)
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/auto.json).file
+data.key
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    str, ok := result.(*String)
+    if !ok {
+        t.Fatalf("expected String, got %T", result)
+    }
+    if str.Value != "value" {
+        t.Errorf("expected 'value', got %q", str.Value)
+    }
+}
+```
+
+Commit: `test(evaluator): add SFTP read format tests (lines, csv, bytes, file)`
+
+---
+
+### Task 5B: SFTP write format tests
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Medium
+
+Steps:
+1. Add `TestSFTPEval_WriteJSON` — write dictionary with `.json` format, read back and verify
+2. Add `TestSFTPEval_WriteLines` — write array with `.lines` format, verify file contents
+3. Add `TestSFTPEval_WriteBytes` — write byte array with `.bytes` format, verify file contents
+
+```go
+func TestSFTPEval_WriteJSON(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+{name: "test", count: 42} =/=> conn(@/output.json).json
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    got := env.SFTPReadFile("/output.json")
+    // JSON encoding adds a newline, check for key content
+    if !strings.Contains(got, `"name"`) || !strings.Contains(got, `"test"`) {
+        t.Errorf("unexpected JSON content: %s", got)
+    }
+}
+
+func TestSFTPEval_WriteLines(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+["first", "second", "third"] =/=> conn(@/lines.txt).lines
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    got := env.SFTPReadFile("/lines.txt")
+    expected := "first\nsecond\nthird\n"
+    if got != expected {
+        t.Errorf("expected %q, got %q", expected, got)
+    }
+}
+
+func TestSFTPEval_WriteBytes(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+[72, 105, 33] =/=> conn(@/bytes.bin).bytes
+`)
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+
+    got := env.SFTPReadFile("/bytes.bin")
+    if got != "Hi!" { // 72='H', 105='i', 33='!'
+        t.Errorf("expected 'Hi!', got %q", got)
+    }
+}
+```
+
+Commit: `test(evaluator): add SFTP write format tests (json, lines, bytes)`
+
+---
+
+### Task 5C: SFTP format error tests
+
+**Files:** `pkg/parsley/evaluator/eval_sftp_integration_test.go` (edit)
+**Estimated effort:** Small
+
+Steps:
+1. Add `TestSFTPEval_WriteCSV_NotImplemented` — verify `.csv` write returns error SFTP-0003
+2. Add `TestSFTPEval_UnknownFormat` — verify unknown format returns appropriate error
+
+```go
+func TestSFTPEval_WriteCSV_NotImplemented(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+[{a: 1}] =/=> conn(@/data.csv).csv
+`)
+    result := testEval(src)
+    // Should return an error about CSV write not being implemented
+    if !isError(result) {
+        t.Fatal("expected error for CSV write, got success")
+    }
+    err := result.(*Error)
+    if !strings.Contains(err.Message, "CSV") && !strings.Contains(err.Message, "not") {
+        t.Errorf("expected CSV not implemented error, got: %s", err.Message)
+    }
+}
+
+func TestSFTPEval_UnknownReadFormat(t *testing.T) {
+    env := testenv.Start(t, testenv.WithSFTP())
+    env.SFTPWriteFile("/test.txt", "content")
+
+    src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+let {data, error} <=/= conn(@/test.txt).unknownformat
+error
+`)
+    result := testEval(src)
+    // Should capture error about unknown format
+    if result == NULL {
+        t.Error("expected error for unknown format, got null")
+    }
+}
+```
+
+Commit: `test(evaluator): add SFTP format error tests (csv write, unknown format)`
+
+---
+
+### Phase 5 Validation
+
+- [ ] `go test ./pkg/parsley/evaluator/...` passes
+- [ ] All SFTP read formats have integration test coverage
+- [ ] All SFTP write formats have integration test coverage
+- [ ] Known limitations (CSV write) are tested and documented
+
+---
+
+## Phase 6: Fetch Format Coverage
+
+Integration tests for Fetch operator response formats.
+
+### Task 6A: Fetch format tests
+
+**Files:** `pkg/parsley/evaluator/eval_network_io_test.go` (edit)
+**Estimated effort:** Medium
+
+Steps:
+1. Add `ServeYAML` helper to testenv (or use `ServeText` with YAML content)
+2. Add `TestFetch_YAML` — fetch YAML response, verify parsed structure
+3. Add `TestFetch_Lines` — fetch multi-line text, verify array of strings
+4. Add `TestFetch_Bytes` — fetch binary content, verify byte array
+
+```go
+func TestFetch_YAML(t *testing.T) {
+    env := testenv.Start(t, testenv.WithHTTPS())
+    testHTTPClient = env.HTTPSClient
+    t.Cleanup(func() { testHTTPClient = nil })
+
+    // Serve YAML content with appropriate content-type
+    env.ServeText("/config.yaml", "name: basil\nversion: 1")
+
+    src := fmt.Sprintf(`
+let {data, error} = <=/= YAML(url("%s/config.yaml"))
+data.name
+`, env.HTTPSURL)
+
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    str, ok := result.(*String)
+    if !ok {
+        t.Fatalf("expected String, got %T", result)
+    }
+    if str.Value != "basil" {
+        t.Errorf("expected 'basil', got %q", str.Value)
+    }
+}
+
+func TestFetch_Lines(t *testing.T) {
+    env := testenv.Start(t, testenv.WithHTTPS())
+    testHTTPClient = env.HTTPSClient
+    t.Cleanup(func() { testHTTPClient = nil })
+
+    env.ServeText("/lines.txt", "line1\nline2\nline3")
+
+    src := fmt.Sprintf(`
+let {data, error} = <=/= lines(url("%s/lines.txt"))
+len(data)
+`, env.HTTPSURL)
+
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    num, ok := result.(*Integer)
+    if !ok {
+        t.Fatalf("expected Integer, got %T", result)
+    }
+    if num.Value != 3 {
+        t.Errorf("expected 3 lines, got %d", num.Value)
+    }
+}
+
+func TestFetch_Bytes(t *testing.T) {
+    env := testenv.Start(t, testenv.WithHTTPS())
+    testHTTPClient = env.HTTPSClient
+    t.Cleanup(func() { testHTTPClient = nil })
+
+    env.ServeText("/binary", "ABC")
+
+    src := fmt.Sprintf(`
+let {data, error} = <=/= bytes(url("%s/binary"))
+data[0]
+`, env.HTTPSURL)
+
+    result := testEval(src)
+    if isError(result) {
+        t.Fatalf("unexpected error: %s", result.(*Error).Message)
+    }
+    num, ok := result.(*Integer)
+    if !ok {
+        t.Fatalf("expected Integer, got %T", result)
+    }
+    if num.Value != 65 { // 'A' = 65
+        t.Errorf("expected 65, got %d", num.Value)
+    }
+}
+```
+
+Commit: `test(evaluator): add Fetch format tests (yaml, lines, bytes)`
+
+---
+
+### Phase 6 Validation
+
+- [ ] `go test ./pkg/parsley/evaluator/...` passes
+- [ ] All Fetch response formats have integration test coverage
+
+---
+
 ## Final Validation Checklist
 
 - [ ] All tests pass: `go test ./...`
@@ -480,7 +986,7 @@ Commit: `docs(evaluator): update stale SFTP cache comment to reference integrati
 - [ ] No `testenv` import in any non-`_test.go` file
 - [ ] `go mod tidy` — no phantom entries in `go.sum`
 - [ ] FEAT-132 acceptance criteria checked off in `work/specs/FEAT-132.md`
-- [ ] Backlog updated with Phase 3 (embedded Postgres) deferred item
+- [ ] Backlog updated with Phase 7 (embedded Postgres) deferred item
 
 ---
 
@@ -515,7 +1021,7 @@ Commit: `docs(evaluator): update stale SFTP cache comment to reference integrati
 
 Items to add to `work/BACKLOG.md` after implementation:
 
-- **Phase 3: Embedded Postgres** — `github.com/fergusstrange/embedded-postgres`. Trigger: a Postgres-specific bug is reported or the Postgres driver changes. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for full rationale.
+- **Phase 7: Embedded Postgres** — `github.com/fergusstrange/embedded-postgres`. Trigger: a Postgres-specific bug is reported or the Postgres driver changes. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for full rationale.
 - **`testenv.WithGit()`** — fake Git HTTP server for testing the `GitHandler` auth wrapping in `server/git.go`. Low priority: `go-git-http` is already a dep and the auth layer can be tested with a plain `httptest.Server`. Add if a Git auth bug is reported.
 - **Build tag for SFTP tests** — if `eval_sftp_integration_test.go` proves slow enough to disrupt the normal unit test loop, add `//go:build integration` and a `make test-integration` target. Start without it.
 
