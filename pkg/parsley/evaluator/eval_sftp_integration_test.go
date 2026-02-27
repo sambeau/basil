@@ -213,6 +213,27 @@ data
 	}
 }
 
+// TestSFTPEval_WriteFile verifies that the remote write operator (=/=>) can
+// write content to a file on the SFTP server.
+func TestSFTPEval_WriteFile(t *testing.T) {
+	env := testenv.Start(t, testenv.WithSFTP())
+
+	src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+"hello from parsley" =/=> conn(@/written.txt).text
+`)
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected error: %s", result.(*Error).Message)
+	}
+
+	// Verify the file was written by reading it directly from the temp dir.
+	got := env.SFTPReadFile("/written.txt")
+	if got != "hello from parsley" {
+		t.Errorf("expected file content %q, got %q", "hello from parsley", got)
+	}
+}
+
 // TestSFTPEval_PermissionDenied verifies that attempting to read a file the
 // SFTP server cannot open due to OS permissions returns an error rather than
 // panicking or returning null.

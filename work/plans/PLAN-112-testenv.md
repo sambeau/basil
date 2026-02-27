@@ -499,6 +499,7 @@ Commit: `docs(evaluator): update stale SFTP cache comment to reference integrati
 | 2026-02-27 | 2.5C: SFTP permission denied test | ✅ Complete | `TestSFTPEval_PermissionDenied` — `os.Chmod` + `SFTPRoot()` accessor added to `testenv` |
 | 2026-02-27 | 2.5D: introspect_validation comments | ✅ Complete | Updated all three SFTP comment locations in `introspect_validation_test.go` |
 | 2026-02-27 | 2.5E: connection_cache comment | ✅ Complete | Updated stale comment in `TestSFTPCacheIntegration` |
+| 2026-02-27 | 2.5F: SFTP write test | ✅ Complete | `TestSFTPEval_WriteFile` — `=/=>` operator writes content, verified via `SFTPReadFile` |
 
 ---
 
@@ -517,7 +518,6 @@ Items to add to `work/BACKLOG.md` after implementation:
 - **Phase 3: Embedded Postgres** — `github.com/fergusstrange/embedded-postgres`. Trigger: a Postgres-specific bug is reported or the Postgres driver changes. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for full rationale.
 - **`testenv.WithGit()`** — fake Git HTTP server for testing the `GitHandler` auth wrapping in `server/git.go`. Low priority: `go-git-http` is already a dep and the auth layer can be tested with a plain `httptest.Server`. Add if a Git auth bug is reported.
 - **Build tag for SFTP tests** — if `eval_sftp_integration_test.go` proves slow enough to disrupt the normal unit test loop, add `//go:build integration` and a `make test-integration` target. Start without it.
-- **SFTP write integration test** — `TestSFTPEval_WriteFile` using `=/=>` operator. Deferred because the plan noted "(once write is supported)" — add when the write path is confirmed stable. The test would evaluate `"hello" =/=> conn(@/out.txt).text` and assert `env.SFTPReadFile("/out.txt") == "hello"`.
 
 ## Related
 
