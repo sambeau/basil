@@ -67,6 +67,8 @@ Deferred items from implementation, to be picked up in future work.
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #113 | Embedded Postgres for integration tests | FEAT-132 / PLAN-112 | Not needed yet | `github.com/fergusstrange/embedded-postgres`. Trigger: a Postgres-specific bug is reported or the Postgres driver changes significantly. The `database/sql` driver interface is consistent across drivers so MySQL/Postgres bugs are unlikely. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for full rationale. |
+| #114 | `testenv.WithGit()` — fake Git HTTP server | FEAT-132 / PLAN-112 | Low priority | Fake Git HTTP server for testing the `GitHandler` auth wrapping in `server/git.go`. `go-git-http` is already a dep and the auth layer can be tested with a plain `httptest.Server`. Add if a Git auth bug is reported. |
 | #112 | Export lexer keywords for `compose.go` | PLAN-110 #7 | Requires lexer change | `compose.go` `generateKeywords()` hardcodes keyword list, missing `as`, `via`, `function`. The lexer's `keywords` map in `lexer.go` is unexported. Export it (or add a helper) so generated docs stay in sync automatically. Hand-written `reference.md` has the complete list so no user-facing gap currently. |
 | #108 | Unicode superscript display for area | FEAT-118 Phase 3 | Polish | `.format({unicode: true})` → `100 m²` instead of `100m2`. Requires display option plumbing and Unicode superscript mapping. |
 | #109 | Hectare (`ha`) suffix | FEAT-118 Phase 3 | Niche | 1 ha = 10,000 m². Common in many countries but not in the initial design. Add on demand. |

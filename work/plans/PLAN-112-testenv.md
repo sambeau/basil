@@ -2,7 +2,7 @@
 id: PLAN-112
 feature: FEAT-132
 title: "Implementation Plan for Integration Testing Infrastructure (testenv)"
-status: draft
+status: complete
 created: 2026-02-27
 ---
 
@@ -979,14 +979,14 @@ Commit: `test(evaluator): add Fetch format tests (yaml, lines, bytes)`
 
 ## Final Validation Checklist
 
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Linter passes: `golangci-lint run`
-- [ ] No hardcoded ports anywhere in `testenv/`
-- [ ] No `testenv` import in any non-`_test.go` file
-- [ ] `go mod tidy` — no phantom entries in `go.sum`
-- [ ] FEAT-132 acceptance criteria checked off in `work/specs/FEAT-132.md`
-- [ ] Backlog updated with Phase 7 (embedded Postgres) deferred item
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Linter passes: `golangci-lint run`
+- [x] No hardcoded ports anywhere in `testenv/`
+- [x] No `testenv` import in any non-`_test.go` file
+- [x] `go mod tidy` — no phantom entries in `go.sum`
+- [x] FEAT-132 acceptance criteria checked off in `work/specs/FEAT-132.md`
+- [x] Backlog updated with Phase 7 (embedded Postgres) deferred item
 
 ---
 

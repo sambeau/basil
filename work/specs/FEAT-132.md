@@ -52,12 +52,12 @@ As a developer (human or AI agent) working on Basil, I want integration tests fo
 
 Integration tests for SFTP file handle methods (`mkdir`, `rmdir`, `remove`) and connection methods (`close`).
 
-- [ ] `mkdir()` — create a directory on the SFTP server
-- [ ] `mkdir({parents: true})` — create nested directories recursively
-- [ ] `rmdir()` — remove an empty directory
-- [ ] `remove()` — delete a file
-- [ ] `close()` — explicitly close an SFTP connection
-- [ ] All new tests pass with `go test ./...`
+- [x] `mkdir()` — create a directory on the SFTP server
+- [x] `mkdir({parents: true})` — create nested directories recursively
+- [x] `rmdir()` — remove an empty directory
+- [x] `remove()` — delete a file
+- [x] `close()` — explicitly close an SFTP connection
+- [x] All new tests pass with `go test ./...`
 
 **Known limitation:** `rmdir({recursive: true})` is parsed but not implemented (TODO in `eval_network_io.go:96`). Test should verify it returns an appropriate error or behaves as non-recursive.
 
@@ -68,21 +68,21 @@ Integration tests for SFTP file handle methods (`mkdir`, `rmdir`, `remove`) and 
 Integration tests for all SFTP read and write formats beyond `.text`, `.json`, and `.dir`.
 
 **Read formats:**
-- [ ] `.lines` — read file and split by newlines into array
-- [ ] `.csv` — parse CSV file with headers into array of dictionaries
-- [ ] `.bytes` — read file as byte array (array of integers 0-255)
-- [ ] `.file` — auto-detect format from file extension
+- [x] `.lines` — read file and split by newlines into array
+- [x] `.csv` — parse CSV file with headers into array of dictionaries
+- [x] `.bytes` — read file as byte array (array of integers 0-255)
+- [x] `.file` — auto-detect format from file extension
 
 **Write formats:**
-- [ ] `.json` — write object/dictionary as JSON
-- [ ] `.lines` — write array of strings joined by newlines
-- [ ] `.bytes` — write array of integers as bytes
+- [x] `.json` — write object/dictionary as JSON
+- [x] `.lines` — write array of strings joined by newlines
+- [x] `.bytes` — write array of integers as bytes
 
 **Error cases:**
-- [ ] `.csv` write — verify returns error `SFTP-0003` ("CSV write not yet implemented")
-- [ ] Unknown format — verify returns appropriate error
+- [x] `.csv` write — verify returns error `SFTP-0003` ("CSV write not yet implemented")
+- [x] Unknown format — verify returns appropriate error
 
-- [ ] All new tests pass with `go test ./...`
+- [x] All new tests pass with `go test ./...`
 
 ---
 
@@ -90,11 +90,11 @@ Integration tests for all SFTP read and write formats beyond `.text`, `.json`, a
 
 Integration tests for Fetch operator response formats beyond `text` and `json`.
 
-- [ ] `yaml` — parse YAML response
-- [ ] `lines` — split response by newlines into array
-- [ ] `bytes` — read response as byte array
+- [x] `yaml` — parse YAML response
+- [x] `lines` — split response by newlines into array
+- [x] `bytes` — read response as byte array
 
-- [ ] All new tests pass with `go test ./...`
+- [x] All new tests pass with `go test ./...`
 
 ---
 

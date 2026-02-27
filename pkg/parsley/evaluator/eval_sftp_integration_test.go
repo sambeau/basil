@@ -301,7 +301,7 @@ conn(@/deep/nested/path).mkdir({parents: true})
 		t.Fatalf("unexpected error: %s", result.(*Error).Message)
 	}
 
-	info, err := os.Stat(filepath.Join(env.SFTPRoot(), "deep/nested/path"))
+	info, err := os.Stat(filepath.Join(env.SFTPRoot(), "deep", "nested", "path"))
 	if err != nil {
 		t.Fatalf("nested directory not created: %v", err)
 	}
@@ -331,6 +331,32 @@ conn(@/toremove).rmdir()
 
 	if _, err := os.Stat(dirPath); !os.IsNotExist(err) {
 		t.Error("directory still exists after rmdir")
+	}
+}
+
+// TestSFTPEval_RmdirRecursive_Ignored verifies that rmdir({recursive: true}) is
+// parsed but behaves the same as non-recursive rmdir (the recursive option is
+// not yet implemented — see TODO in eval_network_io.go).
+func TestSFTPEval_RmdirRecursive_Ignored(t *testing.T) {
+	env := testenv.Start(t, testenv.WithSFTP())
+
+	// Create a directory with a file inside it.
+	dirPath := filepath.Join(env.SFTPRoot(), "notempty")
+	if err := os.Mkdir(dirPath, 0o755); err != nil {
+		t.Fatalf("setup mkdir failed: %v", err)
+	}
+	env.SFTPWriteFile("/notempty/child.txt", "content")
+
+	src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn(@/notempty).rmdir({recursive: true})
+`)
+	result := testEval(src)
+
+	// The recursive flag is parsed but ignored — RemoveDirectory only removes
+	// empty directories, so this should return an error.
+	if !isError(result) {
+		t.Fatal("expected error removing non-empty directory, got success")
 	}
 }
 
