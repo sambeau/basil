@@ -1006,6 +1006,24 @@ Commit: `test(evaluator): add Fetch format tests (yaml, lines, bytes)`
 | 2026-02-27 | 2.5D: introspect_validation comments | ✅ Complete | Updated all three SFTP comment locations in `introspect_validation_test.go` |
 | 2026-02-27 | 2.5E: connection_cache comment | ✅ Complete | Updated stale comment in `TestSFTPCacheIntegration` |
 | 2026-02-27 | 2.5F: SFTP write test | ✅ Complete | `TestSFTPEval_WriteFile` — `=/=>` operator writes content, verified via `SFTPReadFile` |
+| 2026-02-27 | 4A: SFTP mkdir tests | ✅ Complete | `TestSFTPEval_Mkdir`, `TestSFTPEval_MkdirParents` — verified via `os.Stat` on `env.SFTPRoot()` |
+| 2026-02-27 | 4B: SFTP rmdir/remove tests | ✅ Complete | `TestSFTPEval_Rmdir`, `TestSFTPEval_Remove` — pre-create via `os.Mkdir`/`SFTPWriteFile`, verify gone |
+| 2026-02-27 | 4C: SFTP close test | ✅ Complete | `TestSFTPEval_Close` — verifies `conn.close()` returns no error |
+| 2026-02-27 | 5A: SFTP read format tests | ✅ Complete | `TestSFTPEval_ReadLines`, `TestSFTPEval_ReadCSV`, `TestSFTPEval_ReadBytes`, `TestSFTPEval_ReadFileAutoDetect` |
+| 2026-02-27 | 5B: SFTP write format tests | ✅ Complete | `TestSFTPEval_WriteJSON`, `TestSFTPEval_WriteLines`, `TestSFTPEval_WriteBytes` |
+| 2026-02-27 | 5C: SFTP format error tests | ✅ Complete | `TestSFTPEval_WriteCSV_NotImplemented`, `TestSFTPEval_UnknownReadFormat` |
+| 2026-02-27 | 6A: Fetch format tests | ✅ Complete | `TestFetch_YAML`, `TestFetch_Lines`, `TestFetch_Bytes` (uses `raw()` builtin, not `bytes()`) |
+
+---
+
+## Phase 4–6 Validation
+
+- [x] `go test ./pkg/parsley/evaluator/...` passes
+- [x] All SFTP file operation methods have integration test coverage
+- [x] All SFTP read formats have integration test coverage
+- [x] All SFTP write formats have integration test coverage
+- [x] Known limitations (CSV write) are tested and documented
+- [x] All Fetch response formats have integration test coverage
 
 ---
 
