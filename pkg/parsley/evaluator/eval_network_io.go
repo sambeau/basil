@@ -16,6 +16,10 @@ import (
 // Network I/O operations: evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement, evalFetchExpression + helpers
 // Extracted from evaluator.go - Phase 5 Extraction 29
 
+// testHTTPClient may be set by tests to inject a custom HTTP client (e.g. one
+// that trusts a self-signed test certificate). It is nil in production.
+var testHTTPClient *http.Client
+
 func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object, env *Environment) Object {
 	switch method {
 	case "close":
@@ -525,9 +529,14 @@ func fetchUrlContentFull(reqDict *Dictionary, env *Environment) *HTTPResponseInf
 		}
 	}
 
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: timeout,
+	// Create HTTP client with timeout.
+	// testHTTPClient may be set by tests to inject a custom client (e.g. one
+	// that trusts a self-signed certificate from testenv).
+	client := testHTTPClient
+	if client == nil {
+		client = &http.Client{
+			Timeout: timeout,
+		}
 	}
 
 	// Create request
