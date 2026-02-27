@@ -494,11 +494,11 @@ Commit: `docs(evaluator): update stale SFTP cache comment to reference integrati
 | 2026-02-27 | 1D: Fetch integration tests | ✅ Complete | `eval_network_io_test.go` — 6 tests; added testHTTPClient injection point in fetchUrlContentFull |
 | 2026-02-27 | 2A: Fake SFTP server | ✅ Complete | `testenv/sftp.go` — gliderlabs/ssh + pkg/sftp request server with OS handler rooted at TempDir |
 | 2026-02-27 | 2B: SFTP evaluator integration tests | ✅ Complete | `eval_sftp_integration_test.go` — 7 tests; also fixed nil *Error-in-interface bug in evalSFTPRead |
-| | 2.5A: SMTP placeholder test | ⬜ Not started | Placeholder test with `t.Skip` for FEAT-084 |
-| | 2.5B: SFTP dir listing test | ⬜ Not started | Evaluator-level `.dir` format test |
-| | 2.5C: SFTP permission denied test | ⬜ Not started | `os.Chmod` + read attempt; needs `SFTPRoot()` accessor |
-| | 2.5D: introspect_validation comments | ⬜ Not started | Update stale "Requires SFTP server" comments |
-| | 2.5E: connection_cache comment | ⬜ Not started | Update stale "can't easily test" comment |
+| 2026-02-27 | 2.5A: SMTP placeholder test | ✅ Complete | `eval_smtp_placeholder_test.go` — `t.Skip` placeholder for FEAT-084 |
+| 2026-02-27 | 2.5B: SFTP dir listing test | ✅ Complete | `TestSFTPEval_ListDirectory` — evaluator-level `.dir` format test |
+| 2026-02-27 | 2.5C: SFTP permission denied test | ✅ Complete | `TestSFTPEval_PermissionDenied` — `os.Chmod` + `SFTPRoot()` accessor added to `testenv` |
+| 2026-02-27 | 2.5D: introspect_validation comments | ✅ Complete | Updated all three SFTP comment locations in `introspect_validation_test.go` |
+| 2026-02-27 | 2.5E: connection_cache comment | ✅ Complete | Updated stale comment in `TestSFTPCacheIntegration` |
 
 ---
 
