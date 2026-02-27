@@ -1060,13 +1060,11 @@ func ClearDBConnections() {
 	dbCache = newConnectionCache[*sql.DB](
 		100,            // max 100 database connections
 		30*time.Minute, // 30 minute TTL
-		func(db *sql.DB) error {
-			return db.Ping()
-		},
+		nil,            // no health check — database/sql retries stale connections transparently
 		func(db *sql.DB) error {
 			return db.Close()
 		},
-		nil, // no logger available at package level
+		nil,
 	)
 }
 

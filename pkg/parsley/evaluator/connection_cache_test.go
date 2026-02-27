@@ -289,6 +289,44 @@ func TestDBCacheIntegration(t *testing.T) {
 	}
 }
 
+// TestDBCacheNoHealthCheck verifies that dbCache is configured without a health check.
+// db.Ping() on every retrieval is a synchronous network round-trip that database/sql
+// makes unnecessary via its internal retry logic. This test is a regression guard to
+// ensure the health check is not accidentally re-added.
+func TestDBCacheNoHealthCheck(t *testing.T) {
+	if dbCache == nil {
+		t.Fatal("dbCache should be initialised")
+	}
+
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	key := "test-no-healthcheck:" + t.Name()
+	dbCache.put(key, db)
+	defer func() {
+		dbCache.mu.Lock()
+		delete(dbCache.conns, key)
+		dbCache.mu.Unlock()
+	}()
+
+	cached, found := dbCache.get(key)
+	if !found {
+		t.Fatal("expected to find db in cache")
+	}
+	if cached != db {
+		t.Fatal("expected to get back the same *sql.DB")
+	}
+
+	// Verify the health check is nil — if it were db.Ping(), it would still
+	// succeed here (memory db is healthy), so we check the field directly.
+	if dbCache.healthCheck != nil {
+		t.Error("dbCache must have nil health check — db.Ping() on every retrieval adds a network round-trip per request")
+	}
+}
+
 // TestSFTPCacheIntegration tests the actual SFTP cache
 func TestSFTPCacheIntegration(t *testing.T) {
 	// This test verifies the real sftpCache works
