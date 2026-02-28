@@ -649,13 +649,13 @@ patch =/=> JSON(@https://api.example.com/users/1).patch
 let db = @sqlite(@./data.db)
 
 // Query single row (returns dict or null)
-let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+let user = db <=?=> <SQL id={1}>SELECT * FROM users WHERE id = :id</SQL>
 
-// Query multiple rows (returns array)
-let users = db <=??=> "SELECT * FROM users WHERE age > 25"
+// Query multiple rows (returns Table)
+let users = db <=??=> <SQL min_age={25}>SELECT * FROM users WHERE age > :min_age</SQL>
 
 // Execute mutation (INSERT/UPDATE/DELETE)
-let result = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
+let result = db <=!=> <SQL name="Alice">INSERT INTO users (name) VALUES (:name)</SQL>
 // result = {affected: 1, lastId: 1}
 ```
 

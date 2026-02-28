@@ -1004,16 +1004,13 @@ let Users = schema.table(UserSchema, db, "users")
 let user = Users.find(id)
 let all = Users.all()
 
-// Custom query using raw SQL
-let recentUsers = db <=??=> {
-    sql: "SELECT * FROM users WHERE created_at > ? ORDER BY created_at DESC LIMIT 10",
-    params: [@today - @7d]
-}
+// Custom query using SQL tag
+let recentUsers = db <=??=> <SQL since={@today - @7d}>
+    SELECT * FROM users WHERE created_at > :since ORDER BY created_at DESC LIMIT 10
+</SQL>
 
 // Complex aggregation
-let stats = db <=?=> {
-    sql: "SELECT COUNT(*) as total, AVG(age) as avg_age FROM users"
-}
+let stats = db <=?=> <SQL>SELECT COUNT(*) as total, AVG(age) as avg_age FROM users</SQL>
 ```
 
 ### Wrapper Functions for Reusable Queries
@@ -1044,10 +1041,9 @@ let findByAuthor = fn(authorId) {
 }
 
 let findRecent = fn(limit) {
-    db <=??=> {
-        sql: "SELECT * FROM posts WHERE status = 'published' ORDER BY published_at DESC LIMIT ?",
-        params: [limit]
-    }
+    db <=??=> <SQL limit={limit}>
+        SELECT * FROM posts WHERE status = 'published' ORDER BY published_at DESC LIMIT :limit
+    </SQL>
 }
 
 let publish = fn(postId) {
@@ -1241,18 +1237,12 @@ let deletePost = fn(id) {
 
 // Restore
 let restorePost = fn(id) {
-    // Note: need raw SQL to set null
-    db <=!=> {
-        sql: "UPDATE posts SET deleted_at = NULL WHERE id = ?",
-        params: [id]
-    }
+    db <=!=> <SQL id={id}>UPDATE posts SET deleted_at = NULL WHERE id = :id</SQL>
 }
 
 // Query only non-deleted
 let activePosts = fn() {
-    db <=??=> {
-        sql: "SELECT * FROM posts WHERE deleted_at IS NULL ORDER BY id DESC"
-    }
+    db <=??=> <SQL>SELECT * FROM posts WHERE deleted_at IS NULL ORDER BY id DESC</SQL>
 }
 
 // Query with deleted

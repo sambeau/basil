@@ -3637,9 +3637,9 @@ Once connected, use database query operators or the TableBinding methods:
 
 ```parsley
 // Query operators (see Section 5.11 Table, Section 5.13 TableBinding)
-let users <=??=> db <SQL>SELECT * FROM users</SQL>
-let user <=?=> db <SQL>SELECT * FROM users WHERE id = 1</SQL>
-result <==!=> db <SQL>INSERT INTO users (name) VALUES ('Alice')</SQL>
+let users = db <=??=> <SQL>SELECT * FROM users</SQL>
+let user = db <=?=> <SQL id={1}>SELECT * FROM users WHERE id = :id</SQL>
+let result = db <=!=> <SQL name="Alice">INSERT INTO users (name) VALUES (:name)</SQL>
 
 // Schema-driven table binding (see Section 5.13)
 let usersTable = db.bind(UserSchema, "users")

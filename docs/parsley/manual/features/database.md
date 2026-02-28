@@ -84,10 +84,11 @@ let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)"
 let _ = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
 
-let user = db <=?=> "SELECT * FROM users WHERE name = 'Alice'"
+let name = "Alice"
+let user = db <=?=> <SQL name={name}>SELECT * FROM users WHERE name = :name</SQL>
 user.name                        // "Alice"
 
-let nobody = db <=?=> "SELECT * FROM users WHERE name = 'Nobody'"
+let nobody = db <=?=> <SQL name="Nobody">SELECT * FROM users WHERE name = :name</SQL>
 nobody                           // null
 ```
 
@@ -98,7 +99,7 @@ Returns a Table (with column metadata), one row per entry:
 ```parsley
 let _ = db <=!=> "INSERT INTO users (name) VALUES ('Bob')"
 
-let users = db <=??=> "SELECT * FROM users"
+let users = db <=??=> <SQL>SELECT * FROM users</SQL>
 users.count()                    // 2
 users.columns                    // ["id", "name"]
 for (u in users.rows) {
@@ -113,7 +114,7 @@ for (u in users.rows) {
 Returns a dictionary with `affected` (rows changed) and `lastId` (last inserted row ID):
 
 ```parsley
-let result = db <=!=> "INSERT INTO users (name) VALUES ('Carol')"
+let result = db <=!=> <SQL name="Carol">INSERT INTO users (name) VALUES (:name)</SQL>
 result.affected                  // 1
 result.lastId                    // 3
 ```
@@ -368,7 +369,7 @@ Database errors are catchable with `try`:
 
 ```parsley
 let result = try(fn() {
-    db <=?=> "SELECT * FROM nonexistent_table"
+    db <=?=> <SQL>SELECT * FROM nonexistent_table</SQL>
 })
 if (result.error) {
     `Query failed: {result.error}`
