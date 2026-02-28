@@ -1049,7 +1049,7 @@ func (s *Server) listenAddr() string {
 		if host == "" {
 			host = "localhost"
 		}
-		if port == 0 || port == 443 {
+		if port == 443 {
 			port = 8080
 		}
 	}

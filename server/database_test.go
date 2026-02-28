@@ -167,6 +167,7 @@ func TestDatabaseShutdown(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
+	cfg.Server.Port = 0
 	cfg.SQLite = dbPath
 
 	var stdout, stderr bytes.Buffer
@@ -182,8 +183,19 @@ func TestDatabaseShutdown(t *testing.T) {
 		done <- s.Run(ctx)
 	}()
 
-	// Give server time to start
-	time.Sleep(50 * time.Millisecond)
+	// Give the server goroutine time to call ListenAndServe.
+	// We use a short poll on the done channel rather than a fixed sleep so
+	// the test does not hang if Run returns early with an error.
+	select {
+	case err := <-done:
+		// Server exited before we even tried to shut it down — report and stop.
+		if err != nil && err != context.Canceled {
+			t.Fatalf("server exited early: %v", err)
+		}
+		return
+	case <-time.After(100 * time.Millisecond):
+		// Server is running; proceed to cancel.
+	}
 
 	// Cancel context to trigger shutdown
 	cancel()
