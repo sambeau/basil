@@ -7,6 +7,25 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
+// currentTimestampSQL returns the driver-appropriate SQL expression for the current timestamp.
+// SQLite uses datetime('now'); PostgreSQL and MySQL use standard CURRENT_TIMESTAMP.
+func currentTimestampSQL(driver string) string {
+	if driver == "sqlite" {
+		return "datetime('now')"
+	}
+	return "CURRENT_TIMESTAMP"
+}
+
+// sqlPlaceholder returns the driver-appropriate parameter placeholder for the given index.
+// PostgreSQL and SQLite use $1, $2, etc. MySQL uses ? for all positions.
+// The idx parameter is still incremented by callers for MySQL so params stay ordered.
+func sqlPlaceholder(driver string, idx int) string {
+	if driver == "mysql" {
+		return "?"
+	}
+	return fmt.Sprintf("$%d", idx)
+}
+
 // evalQueryExpression evaluates a @query(...) expression
 func evalQueryExpression(node *ast.QueryExpression, env *Environment) Object {
 	// 1. Resolve the source binding from the environment
@@ -2897,12 +2916,13 @@ func buildDeleteSQL(node *ast.DeleteExpression, binding *TableBinding, env *Envi
 
 	// Check if this binding uses soft deletes
 	if binding.SoftDeleteColumn != "" {
-		// Soft delete: UPDATE ... SET deleted_at = NOW()
+		// Soft delete: UPDATE ... SET deleted_at = <current timestamp>
 		sql.WriteString("UPDATE ")
 		sql.WriteString(binding.TableName)
 		sql.WriteString(" SET ")
 		sql.WriteString(binding.SoftDeleteColumn)
-		sql.WriteString(" = datetime('now')")
+		sql.WriteString(" = ")
+		sql.WriteString(currentTimestampSQL(binding.DB.Driver))
 	} else {
 		// Hard delete: DELETE FROM ...
 		sql.WriteString("DELETE FROM ")
