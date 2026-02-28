@@ -1,7 +1,7 @@
 ---
 id: FEAT-134
 title: "Query DSL Cross-Database Compatibility (Postgres & MySQL)"
-status: draft
+status: in-progress
 priority: high
 created: 2026-02-28
 author: "@human"
@@ -32,7 +32,8 @@ All findings from `work/reports/QUERY-DSL-CROSS-DB-AUDIT.md` (2025-07-27).
 
 ---
 
-## Phase 1: PostgreSQL Fixes (Required for 1.0)
+## Phase 1: PostgreSQL Fixes ✅ Complete
+
 
 ### P1-1. Soft delete generates SQLite-specific `datetime('now')`
 
@@ -59,9 +60,9 @@ func currentTimestampSQL(driver string) string {
 `CURRENT_TIMESTAMP` is standard SQL and works on both PostgreSQL and MySQL. SQLite also supports it, but `datetime('now')` is the existing idiomatic form so we keep it for SQLite.
 
 **Acceptance criteria:**
-- [ ] `buildDeleteSQL` uses `currentTimestampSQL(binding.DB.Driver)` instead of hardcoded `datetime('now')`
-- [ ] Unit test: `buildDeleteSQL` with `Driver: "postgres"` produces SQL containing `CURRENT_TIMESTAMP`
-- [ ] Unit test: `buildDeleteSQL` with `Driver: "sqlite"` still produces SQL containing `datetime('now')`
+- [x] `buildDeleteSQL` uses `currentTimestampSQL(binding.DB.Driver)` instead of hardcoded `datetime('now')`
+- [x] Unit test: `buildDeleteSQL` with `Driver: "postgres"` produces SQL containing `CURRENT_TIMESTAMP`
+- [x] Unit test: `buildDeleteSQL` with `Driver: "sqlite"` still produces SQL containing `datetime('now')`
 
 ---
 
@@ -97,14 +98,15 @@ if lastIdErr == nil {
 This applies to both `evalExecuteStatement` (statement form) and `evalDatabaseExecute` (infix expression form).
 
 **Acceptance criteria:**
-- [ ] `evalExecuteStatement`: when `LastInsertId()` returns an error, `lastId` is `null` (not `0`)
-- [ ] `evalDatabaseExecute`: same fix applied
-- [ ] Unit test: mock a `sql.Result` that errors on `LastInsertId()`, verify result dict has `lastId: null`
-- [ ] Existing SQLite tests still pass (SQLite's `LastInsertId()` returns successfully)
+- [x] `evalExecuteStatement`: when `LastInsertId()` returns an error, `lastId` is `null` (not `0`)
+- [x] `evalDatabaseExecute`: same fix applied
+- [x] Unit test: mock a `sql.Result` that errors on `LastInsertId()`, verify result dict has `lastId: null`
+- [x] Existing SQLite tests still pass (SQLite's `LastInsertId()` returns successfully)
 
 ---
 
-## Phase 2: Postgres Hardening (Required for 1.0)
+## Phase 2: Postgres Hardening ✅ Complete
+
 
 ### P2-1. Thread `driver` into `buildDeleteSQL`
 
@@ -135,10 +137,10 @@ However, future phases (Phase 3) will need `driver` threaded into `buildConditio
 For Phase 2, all these functions receive `driver` but only `buildDeleteSQL` changes behavior. The parameter is passed through everywhere else unchanged. Phase 3 will activate the driver-aware behavior in the remaining functions.
 
 **Acceptance criteria:**
-- [ ] All SQL-building functions accept a `driver string` parameter
-- [ ] All call sites pass `binding.DB.Driver` (or propagate from caller)
-- [ ] All existing tests pass with no behavior change (SQLite driver)
-- [ ] No `driver` parameter is left unused at the function level (it should at minimum be passed to child functions)
+- [x] All SQL-building functions accept a `driver string` parameter
+- [x] All call sites pass `binding.DB.Driver` (or propagate from caller)
+- [x] All existing tests pass with no behavior change (SQLite driver)
+- [x] No `driver` parameter is left unused at the function level (it should at minimum be passed to child functions)
 
 ---
 
@@ -166,9 +168,9 @@ This does NOT require a running Postgres instance — it's SQL string assertion.
 - BETWEEN → `$1` and `$2` placeholders
 
 **Acceptance criteria:**
-- [ ] At least 10 SQL-generation tests asserting Postgres-correct SQL
-- [ ] Soft delete test confirms `CURRENT_TIMESTAMP` for Postgres driver
-- [ ] All tests run without a Postgres instance (pure SQL string tests)
+- [x] At least 10 SQL-generation tests asserting Postgres-correct SQL (19 written)
+- [x] Soft delete test confirms `CURRENT_TIMESTAMP` for Postgres driver
+- [x] All tests run without a Postgres instance (pure SQL string tests)
 
 ---
 

@@ -2,7 +2,7 @@
 id: PLAN-114
 feature: FEAT-134
 title: "Query DSL Postgres Fixes & Driver Threading (Phases 1–2)"
-status: draft
+status: complete
 created: 2026-02-28
 ---
 
@@ -387,7 +387,7 @@ Items to add to `work/BACKLOG.md` after implementation:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: soft delete fix | ⬜ Not started | |
-| | Task 2: lastInsertId fix | ⬜ Not started | |
-| | Task 3+4: driver threading | ⬜ Not started | |
-| | Task 5+6: tests + ID counter | ⬜ Not started | |
+| 2026-02-28 | Task 1: soft delete fix | ✅ Complete | `currentTimestampSQL` helper added; `buildDeleteSQL` uses it |
+| 2026-02-28 | Task 2: lastInsertId fix | ✅ Complete | Both `evalExecuteStatement` and `evalDatabaseExecute` updated |
+| 2026-02-28 | Task 3+4: driver threading + `sqlPlaceholder` | ✅ Complete | All 18 SQL-building functions updated; zero raw `$%d` calls remain |
+| 2026-02-28 | Task 5+6: tests + ID counter | ✅ Complete | 19 tests in `dsl_query_postgres_sql_test.go`; all pass; zero new lint issues |
