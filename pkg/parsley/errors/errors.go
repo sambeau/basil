@@ -1273,6 +1273,14 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "Query must be a string or <SQL> tag, got {{.Got}}",
 	},
+	"SQL-0005": {
+		Class:    ClassType,
+		Template: "Unknown parameter ':{{.Name}}' in <SQL> tag — no matching attribute. Available: {{.Available}}",
+	},
+	"SQL-0006": {
+		Class:    ClassParse,
+		Template: "Cannot mix positional ? and named :param placeholders in <SQL> tag",
+	},
 
 	// ========================================
 	// HTTP errors (HTTP-0xxx)

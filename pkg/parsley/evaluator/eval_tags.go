@@ -1106,6 +1106,14 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 	// (databases ignore it, and it makes output cleaner)
 	trimmedSQL := strings.TrimSpace(sqlStr.Value)
 
+	// Scan for placeholder style
+	scan := scanSQLNamedParams(trimmedSQL)
+
+	// Mixed placeholders are an error
+	if scan.hasNamed && scan.hasPositional {
+		return newSQLError("SQL-0006", nil)
+	}
+
 	// Build result dictionary with sql and params
 	resultPairs := map[string]ast.Expression{
 		"sql": &ast.StringLiteral{Value: trimmedSQL},
@@ -1129,6 +1137,12 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 				KeyOrder: dict.KeyOrder,
 			}
 		}
+	}
+
+	// If named params are used, mark the mode so extractSQLAndParams can
+	// rewrite :name → driver-native placeholders at execution time.
+	if scan.hasNamed {
+		resultPairs["mode"] = &ast.StringLiteral{Value: "named"}
 	}
 
 	return &Dictionary{

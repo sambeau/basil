@@ -31,7 +31,7 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 	}
 
 	// Extract SQL and params from the query object
-	sql, params, err := extractSQLAndParams(queryObj, env)
+	sql, params, err := extractSQLAndParams(queryObj, env, conn.Driver)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 	}
 
 	// Extract SQL and params
-	sql, params, err := extractSQLAndParams(queryObj, env)
+	sql, params, err := extractSQLAndParams(queryObj, env, conn.Driver)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 	}
 
 	// Extract SQL and params
-	sql, params, err := extractSQLAndParams(queryObj, env)
+	sql, params, err := extractSQLAndParams(queryObj, env, conn.Driver)
 	if err != nil {
 		return err
 	}
@@ -209,8 +209,10 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 	return assignQueryResult(node.Names, resultDict, env, node.IsLet)
 }
 
-// extractSQLAndParams extracts SQL string and parameters from a query object
-func extractSQLAndParams(queryObj Object, env *Environment) (string, []any, *Error) {
+// extractSQLAndParams extracts SQL string and parameters from a query object.
+// driver is the database driver string ("sqlite", "postgres", "mysql") and is
+// used to rewrite :name placeholders to driver-native form when mode="named".
+func extractSQLAndParams(queryObj Object, env *Environment, driver string) (string, []any, *Error) {
 	// If it's a string, use it directly with no params
 	if str, ok := queryObj.(*String); ok {
 		return str.Value, nil, nil
@@ -232,7 +234,33 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []any, *Err
 			return "", nil, newSQLError("SQL-0003", map[string]any{"Got": string(sqlObj.Type())})
 		}
 
-		// Get params if present
+		// Check if this is a named-param query
+		if modeExpr, hasMode := dict.Pairs["mode"]; hasMode {
+			modeObj := Eval(modeExpr, env)
+			if modeStr, ok := modeObj.(*String); ok && modeStr.Value == "named" {
+				var paramsDict *Dictionary
+				if paramsExpr, hasParams := dict.Pairs["params"]; hasParams {
+					paramsObj := Eval(paramsExpr, env)
+					if isError(paramsObj) {
+						return "", nil, paramsObj.(*Error)
+					}
+					if pd, ok := paramsObj.(*Dictionary); ok {
+						paramsDict = pd
+					}
+				}
+				if paramsDict == nil {
+					paramsDict = &Dictionary{Pairs: map[string]ast.Expression{}, Env: env}
+				}
+				scan := scanSQLNamedParams(sqlStr.Value)
+				rewrittenSQL, params, err := rewriteNamedParams(sqlStr.Value, scan, paramsDict, env, driver)
+				if err != nil {
+					return "", nil, err
+				}
+				return rewrittenSQL, params, nil
+			}
+		}
+
+		// Positional (?) params: use declaration order
 		var params []any
 		if paramsExpr, hasParams := dict.Pairs["params"]; hasParams {
 			paramsObj := Eval(paramsExpr, env)
@@ -310,7 +338,7 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 	}
 
 	// Extract SQL and params from the query object
-	sql, params, err := extractSQLAndParams(queryObj, env)
+	sql, params, err := extractSQLAndParams(queryObj, env, conn.Driver)
 	if err != nil {
 		return err
 	}
@@ -361,7 +389,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 	}
 
 	// Extract SQL and params
-	sql, params, err := extractSQLAndParams(queryObj, env)
+	sql, params, err := extractSQLAndParams(queryObj, env, conn.Driver)
 	if err != nil {
 		return err
 	}
@@ -416,7 +444,7 @@ func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Obje
 	}
 
 	// Extract SQL and params
-	sql, params, err := extractSQLAndParams(queryObj, env)
+	sql, params, err := extractSQLAndParams(queryObj, env, conn.Driver)
 	if err != nil {
 		return err
 	}

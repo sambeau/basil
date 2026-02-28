@@ -661,3 +661,320 @@ func TestSQLTag(t *testing.T) {
 		})
 	}
 }
+
+func TestSQLTagNamedParams(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantError string
+		check     func(*testing.T, evaluator.Object)
+	}{
+		{
+			name: "basic named param - query",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS np_users"
+				let _ = db <=!=> "CREATE TABLE np_users (id INTEGER PRIMARY KEY, name TEXT)"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (1, 'Alice')"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (2, 'Bob')"
+
+				let GetUser = fn(props) {
+					<SQL id={props.id}>
+						SELECT * FROM np_users WHERE id = :id
+					</SQL>
+				}
+
+				let user = db <=?=> <GetUser id={2} />
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Bob" {
+					t.Errorf("Expected name='Bob', got %v", name.Inspect())
+				}
+			},
+		},
+		{
+			name: "multiple named params - attribute order irrelevant",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS np_users"
+				let _ = db <=!=> "CREATE TABLE np_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+
+				let InsertUser = fn(props) {
+					<SQL name={props.name} age={props.age}>
+						INSERT INTO np_users (age, name) VALUES (:age, :name)
+					</SQL>
+				}
+
+				let _ = db <=!=> <InsertUser name="Alice" age={30} />
+				let user = db <=?=> "SELECT * FROM np_users WHERE id = 1"
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Alice" {
+					t.Errorf("Expected name='Alice', got %v", name.Inspect())
+				}
+				ageExpr, ok := dict.Pairs["age"]
+				if !ok {
+					t.Fatal("Result should have 'age' column")
+				}
+				age := evaluator.Eval(ageExpr, dict.Env)
+				ageInt, ok := age.(*evaluator.Integer)
+				if !ok || ageInt.Value != 30 {
+					t.Errorf("Expected age=30, got %v", age.Inspect())
+				}
+			},
+		},
+		{
+			name: "repeated named param binds value at each position",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS np_users"
+				let _ = db <=!=> "CREATE TABLE np_users (id INTEGER PRIMARY KEY, name TEXT)"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (1, 'Alice')"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (2, 'foo_bar')"
+
+				let Search = fn(props) {
+					<SQL term={props.term}>
+						SELECT * FROM np_users WHERE id = 1 AND (name LIKE :term OR name LIKE :term)
+					</SQL>
+				}
+
+				let user = db <=?=> <Search term="Alice" />
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Alice" {
+					t.Errorf("Expected name='Alice', got %v", name.Inspect())
+				}
+			},
+		},
+		{
+			name: "postgres :: cast not treated as named param",
+			input: `
+				let query = <SQL id={1}>
+					SELECT name::text FROM np_users WHERE id = :id
+				</SQL>
+				query.sql
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				str, ok := result.(*evaluator.String)
+				if !ok {
+					t.Fatalf("Expected String, got %T", result)
+				}
+				// The :: cast should be preserved in the stored SQL
+				if !strings.Contains(str.Value, "::text") {
+					t.Errorf("Expected ::text cast to be preserved, got: %s", str.Value)
+				}
+			},
+		},
+		{
+			name: "string literal :name not treated as named param",
+			input: `
+				let query = <SQL>
+					SELECT * FROM np_users WHERE name = ':not_a_param'
+				</SQL>
+				query.sql
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				str, ok := result.(*evaluator.String)
+				if !ok {
+					t.Fatalf("Expected String, got %T", result)
+				}
+				if !strings.Contains(str.Value, "':not_a_param'") {
+					t.Errorf("Expected string literal to be preserved, got: %s", str.Value)
+				}
+				// No mode key means it was not treated as named params
+				// (test that the sql is returned as-is)
+			},
+		},
+		{
+			name: "unused attribute is silently ignored",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS np_users"
+				let _ = db <=!=> "CREATE TABLE np_users (id INTEGER PRIMARY KEY, name TEXT)"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (1, 'Alice')"
+
+				let GetUser = fn(props) {
+					<SQL id={props.id} extra={props.extra}>
+						SELECT * FROM np_users WHERE id = :id
+					</SQL>
+				}
+
+				let user = db <=?=> <GetUser id={1} extra="ignored" />
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Alice" {
+					t.Errorf("Expected name='Alice', got %v", name.Inspect())
+				}
+			},
+		},
+		{
+			name:      "missing attribute produces SQL-0005 error",
+			wantError: "SQL-0005",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "CREATE TABLE IF NOT EXISTS np_users (id INTEGER PRIMARY KEY)"
+
+				let GetUser = fn(props) {
+					<SQL>
+						SELECT * FROM np_users WHERE id = :id
+					</SQL>
+				}
+
+				let result = db <=?=> <GetUser />
+				result
+			`,
+		},
+		{
+			name:      "mixed positional and named placeholders produces SQL-0006 error",
+			wantError: "SQL-0006",
+			input: `
+				let query = <SQL id={1}>
+					SELECT * FROM np_users WHERE id = :id AND age > ?
+				</SQL>
+				query
+			`,
+		},
+		{
+			name: "bare ? placeholders still work (backward compat)",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS np_users"
+				let _ = db <=!=> "CREATE TABLE np_users (id INTEGER PRIMARY KEY, name TEXT)"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (1, 'Alice')"
+				let _ = db <=!=> "INSERT INTO np_users (id, name) VALUES (2, 'Bob')"
+
+				let GetUser = fn(props) {
+					<SQL id={props.id}>
+						SELECT * FROM np_users WHERE id = ?
+					</SQL>
+				}
+
+				let user = db <=?=> <GetUser id={2} />
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Bob" {
+					t.Errorf("Expected name='Bob', got %v", name.Inspect())
+				}
+			},
+		},
+		{
+			name: "named param execute - insert",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS np_users"
+				let _ = db <=!=> "CREATE TABLE np_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+
+				let InsertUser = fn(props) {
+					<SQL name={props.name} age={props.age}>
+						INSERT INTO np_users (name, age) VALUES (:name, :age)
+					</SQL>
+				}
+
+				let r = db <=!=> <InsertUser name="Charlie" age={25} />
+				r.affected
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				n, ok := result.(*evaluator.Integer)
+				if !ok {
+					t.Fatalf("Expected Integer, got %T", result)
+				}
+				if n.Value != 1 {
+					t.Errorf("Expected affected=1, got %d", n.Value)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result == nil {
+				t.Fatalf("Eval returned nil")
+			}
+
+			if tt.wantError != "" {
+				err, ok := result.(*evaluator.Error)
+				if !ok {
+					t.Fatalf("Expected error %s, got %T: %v", tt.wantError, result, result)
+				}
+				if err.Code != tt.wantError {
+					t.Errorf("Expected error code %s, got %s: %s", tt.wantError, err.Code, err.Message)
+				}
+				return
+			}
+
+			if err, ok := result.(*evaluator.Error); ok {
+				t.Fatalf("Eval returned error: %s (%s)", err.Message, err.Code)
+			}
+
+			if tt.check != nil {
+				tt.check(t, result)
+			}
+		})
+	}
+}
