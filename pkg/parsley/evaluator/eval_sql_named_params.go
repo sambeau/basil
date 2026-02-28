@@ -70,8 +70,8 @@ func scanSQLNamedParams(sql string) sqlScanResult {
 		// SQL block comments: /* ... */
 		if ch == '/' && i+1 < n && sql[i+1] == '*' {
 			i += 2
-			for i+1 < n {
-				if sql[i] == '*' && sql[i+1] == '/' {
+			for i < n {
+				if i+1 < n && sql[i] == '*' && sql[i+1] == '/' {
 					i += 2
 					break
 				}
@@ -217,13 +217,14 @@ func rewriteNamedParams(sql string, scan sqlScanResult, propsDict *Dictionary, e
 			out.WriteByte(sql[i])
 			out.WriteByte(sql[i+1])
 			i += 2
-			for i+1 < n {
-				out.WriteByte(sql[i])
-				if sql[i] == '*' && sql[i+1] == '/' {
+			for i < n {
+				if i+1 < n && sql[i] == '*' && sql[i+1] == '/' {
+					out.WriteByte(sql[i])
 					out.WriteByte(sql[i+1])
 					i += 2
 					break
 				}
+				out.WriteByte(sql[i])
 				i++
 			}
 			continue

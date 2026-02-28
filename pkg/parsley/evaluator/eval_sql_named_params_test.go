@@ -539,3 +539,95 @@ func TestRewriteNamedParams_AllDriverPlaceholders(t *testing.T) {
 		}
 	}
 }
+
+func TestScanSQLNamedParams_UnterminatedBlockComment(t *testing.T) {
+	// Unterminated block comment — scanner should not panic
+	result := scanSQLNamedParams("SELECT /* unterminated")
+	if result.hasNamed {
+		t.Error("Expected hasNamed=false — nothing outside a comment")
+	}
+	if result.hasPositional {
+		t.Error("Expected hasPositional=false")
+	}
+}
+
+func TestScanSQLNamedParams_UnterminatedBlockCommentWithParam(t *testing.T) {
+	// :x inside an unterminated block comment must not be detected
+	result := scanSQLNamedParams("SELECT /* comment with :x")
+	if result.hasNamed {
+		t.Error("Expected hasNamed=false — :x is inside unterminated block comment")
+	}
+}
+
+func TestScanSQLNamedParams_UnterminatedBlockCommentLastChar(t *testing.T) {
+	// The last character before EOF (inside the comment) must not be lost/panic
+	result := scanSQLNamedParams("SELECT /*x")
+	if result.hasNamed {
+		t.Error("Expected hasNamed=false")
+	}
+}
+
+func TestScanSQLNamedParams_TerminatedBlockCommentRegression(t *testing.T) {
+	// Regression: properly terminated block comment still works after the fix
+	result := scanSQLNamedParams("SELECT /* comment */ :id FROM t")
+	if !result.hasNamed {
+		t.Error("Expected hasNamed=true")
+	}
+	if len(result.names) != 1 || result.names[0] != "id" {
+		t.Errorf("Expected names=[id], got %v", result.names)
+	}
+}
+
+func TestRewriteNamedParams_UnterminatedBlockComment(t *testing.T) {
+	// An unterminated block comment must copy all characters verbatim (no loss)
+	sql := "SELECT /* unterminated"
+	scan := scanSQLNamedParams(sql)
+	dict := makeParamsDict(map[string]Object{}, []string{})
+
+	rewritten, params, err := rewriteNamedParams(sql, scan, dict, dict.Env, "sqlite")
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Message)
+	}
+	if rewritten != sql {
+		t.Errorf("Expected output to equal input %q, got %q", sql, rewritten)
+	}
+	if len(params) != 0 {
+		t.Errorf("Expected 0 params, got %d", len(params))
+	}
+}
+
+func TestRewriteNamedParams_UnterminatedBlockCommentLastChar(t *testing.T) {
+	// The last character inside an unterminated comment must not be lost
+	sql := "SELECT /*x"
+	scan := scanSQLNamedParams(sql)
+	dict := makeParamsDict(map[string]Object{}, []string{})
+
+	rewritten, _, err := rewriteNamedParams(sql, scan, dict, dict.Env, "sqlite")
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Message)
+	}
+	if rewritten != sql {
+		t.Errorf("Expected output %q, got %q", sql, rewritten)
+	}
+}
+
+func TestRewriteNamedParams_TerminatedBlockCommentRegression(t *testing.T) {
+	// Regression: properly terminated block comment with a named param after it
+	sql := "SELECT /* comment */ :id FROM t"
+	scan := scanSQLNamedParams(sql)
+	dict := makeParamsDict(map[string]Object{
+		"id": &Integer{Value: 7},
+	}, []string{"id"})
+
+	rewritten, params, err := rewriteNamedParams(sql, scan, dict, dict.Env, "sqlite")
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Message)
+	}
+	want := "SELECT /* comment */ $1 FROM t"
+	if rewritten != want {
+		t.Errorf("Expected %q, got %q", want, rewritten)
+	}
+	if len(params) != 1 || params[0] != int64(7) {
+		t.Errorf("Expected params=[7], got %v", params)
+	}
+}
