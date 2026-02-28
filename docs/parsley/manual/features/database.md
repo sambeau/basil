@@ -129,7 +129,21 @@ let query = <SQL name={name}>
 let user = db <=?=> query
 ```
 
-The content of a `<SQL>` tag is **raw text** — no quotes needed around the SQL. This works like `<style>` and `<script>` tags, where the tag boundaries define the content. Attributes are bound as query parameters in sorted key order, preventing SQL injection.
+The content of a `<SQL>` tag is **raw text** — no quotes needed around the SQL. This works like `<style>` and `<script>` tags, where the tag boundaries define the content. Attributes are bound as query parameters in **declaration order** (left-to-right), preventing SQL injection.
+
+> **Attribute order matters.** The `?` placeholders in your SQL are filled in the same order that attributes appear on the tag. Make sure your attributes match your placeholders:
+>
+> ```parsley
+> // ✅ Correct — attributes match placeholder order
+> <SQL name={name} age={age}>
+>     INSERT INTO users (name, age) VALUES (?, ?)
+> </SQL>
+>
+> // ❌ Wrong — age would bind to the name column
+> <SQL age={age} name={name}>
+>     INSERT INTO users (name, age) VALUES (?, ?)
+> </SQL>
+> ```
 
 > ⚠️ **Interpolation is blocked inside `<SQL>` tags.** Unlike `<style>` and `<script>`, you cannot use `@{expr}` inside SQL content. All dynamic values must come through attributes. This is intentional — it enforces safe parameterized queries and prevents SQL injection.
 
@@ -179,6 +193,7 @@ let GetActiveUsers = fn(props) {
         LIMIT ?
     </SQL>
 }
+// status binds to the first ?, limit to the second — matching declaration order
 ```
 
 SQL comments are preserved:

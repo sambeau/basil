@@ -337,7 +337,8 @@ let users = db <=??=> <SearchUsers term="Ali%"/>
 ```
 
 **`<SQL>` Tag Attributes:**
-- All attributes are treated as query parameters, bound as positional `?` placeholders in sorted key order
+- All attributes are treated as query parameters, bound as positional `?` placeholders in **declaration order** (left-to-right)
+- Attribute order matters — make sure your attributes appear in the same order as their corresponding `?` placeholders in the SQL
 
 **Note:** Template strings are convenient but the `<SQL>` tag provides explicit parameter binding when needed.
 

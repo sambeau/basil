@@ -301,7 +301,7 @@ The `<SQL>` tag builds parameterized queries. Content is **raw text** — no quo
 </SQL>
 ```
 
-Parameters are bound in sorted attribute-name order, preventing SQL injection. The `<SQL>` tag returns a dictionary with `sql` and `params` keys that query operators understand.
+Parameters are bound in **declaration order** (left-to-right), preventing SQL injection. The `<SQL>` tag returns a dictionary with `sql` and `params` keys that query operators understand. Make sure your attributes appear in the same order as their corresponding `?` placeholders in the SQL.
 
 #### Raw Text Content
 
