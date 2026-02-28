@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	stdsql "database/sql"
 	"sort"
 	"strconv"
 
@@ -10,6 +11,33 @@ import (
 )
 
 // Database query operations and SQL execution
+
+// connQuery routes a query through the active transaction if one is present,
+// otherwise uses the raw DB connection.
+func connQuery(conn *DBConnection, query string, args ...any) (*stdsql.Rows, error) {
+	if conn.Tx != nil {
+		return conn.Tx.Query(query, args...)
+	}
+	return conn.DB.Query(query, args...)
+}
+
+// connExec routes an exec through the active transaction if one is present,
+// otherwise uses the raw DB connection.
+func connExec(conn *DBConnection, query string, args ...any) (stdsql.Result, error) {
+	if conn.Tx != nil {
+		return conn.Tx.Exec(query, args...)
+	}
+	return conn.DB.Exec(query, args...)
+}
+
+// connQueryRow routes a single-row query through the active transaction if one
+// is present, otherwise uses the raw DB connection.
+func connQueryRow(conn *DBConnection, query string, args ...any) *stdsql.Row {
+	if conn.Tx != nil {
+		return conn.Tx.QueryRow(query, args...)
+	}
+	return conn.DB.QueryRow(query, args...)
+}
 
 func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object {
 	// Evaluate the connection
@@ -38,7 +66,7 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 
 	// Execute the query
 	// For QueryRow, we need to get column info, so we use Query instead
-	rows, queryErr := conn.DB.Query(sql, params...)
+	rows, queryErr := connQuery(conn, sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
 		return newDatabaseError("DB-0002", queryErr)
@@ -54,7 +82,10 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 
 	// Check if there's a row
 	if !rows.Next() {
-		// No rows - return null
+		if rowsErr := rows.Err(); rowsErr != nil {
+			conn.LastError = rowsErr.Error()
+			return newDatabaseError("DB-0002", rowsErr)
+		}
 		return assignQueryResult(node.Names, NULL, env, node.IsLet)
 	}
 
@@ -68,6 +99,11 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 	if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
 		conn.LastError = scanErr.Error()
 		return newDatabaseError("DB-0004", scanErr)
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		conn.LastError = rowsErr.Error()
+		return newDatabaseError("DB-0002", rowsErr)
 	}
 
 	// Convert to dictionary
@@ -103,7 +139,7 @@ func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Obje
 	}
 
 	// Execute the query
-	rows, queryErr := conn.DB.Query(sql, params...)
+	rows, queryErr := connQuery(conn, sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
 		return newDatabaseError("DB-0002", queryErr)
@@ -172,7 +208,7 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 	}
 
 	// Execute the statement
-	result, execErr := conn.DB.Exec(sql, params...)
+	result, execErr := connExec(conn, sql, params...)
 	if execErr != nil {
 		conn.LastError = execErr.Error()
 		return newDatabaseError("DB-0011", execErr)
@@ -344,7 +380,7 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 	}
 
 	// Execute the query
-	rows, queryErr := conn.DB.Query(sql, params...)
+	rows, queryErr := connQuery(conn, sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
 		return newDatabaseError("DB-0002", queryErr)
@@ -360,7 +396,10 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 
 	// Check if there's a row
 	if !rows.Next() {
-		// No rows - return null
+		if rowsErr := rows.Err(); rowsErr != nil {
+			conn.LastError = rowsErr.Error()
+			return newDatabaseError("DB-0002", rowsErr)
+		}
 		return NULL
 	}
 
@@ -374,6 +413,11 @@ func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Obj
 	if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
 		conn.LastError = scanErr.Error()
 		return newDatabaseError("DB-0004", scanErr)
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		conn.LastError = rowsErr.Error()
+		return newDatabaseError("DB-0002", rowsErr)
 	}
 
 	// Convert to dictionary
@@ -395,7 +439,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 	}
 
 	// Execute the query
-	rows, queryErr := conn.DB.Query(sql, params...)
+	rows, queryErr := connQuery(conn, sql, params...)
 	if queryErr != nil {
 		conn.LastError = queryErr.Error()
 		return newDatabaseError("DB-0002", queryErr)
@@ -410,7 +454,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 	}
 
 	// Scan all rows
-	var results []Object
+	var results []*Dictionary
 	for rows.Next() {
 		values := make([]any, len(columns))
 		valuePtrs := make([]any, len(columns))
@@ -432,7 +476,7 @@ func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Ob
 		return newDatabaseError("DB-0002", rowsErr)
 	}
 
-	return &Array{Elements: results}
+	return &Table{Rows: results, Columns: columns}
 }
 
 // evalDatabaseExecute evaluates database execute statement (infix expression version)
@@ -450,7 +494,7 @@ func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Obje
 	}
 
 	// Execute the statement
-	result, execErr := conn.DB.Exec(sql, params...)
+	result, execErr := connExec(conn, sql, params...)
 	if execErr != nil {
 		conn.LastError = execErr.Error()
 		return newDatabaseError("DB-0011", execErr)

@@ -17,6 +17,12 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		if conn.InTransaction {
 			return newDatabaseStateError("DB-0007")
 		}
+		tx, txErr := conn.DB.Begin()
+		if txErr != nil {
+			conn.LastError = txErr.Error()
+			return newDatabaseError("DB-0014", txErr)
+		}
+		conn.Tx = tx
 		conn.InTransaction = true
 		return &Boolean{Value: true}
 
@@ -27,8 +33,13 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		if !conn.InTransaction {
 			return newDatabaseStateError("DB-0006")
 		}
-		// For now, just mark transaction as complete
-		// Real transaction support will be added with actual query execution
+		if commitErr := conn.Tx.Commit(); commitErr != nil {
+			conn.Tx = nil
+			conn.InTransaction = false
+			conn.LastError = commitErr.Error()
+			return newDatabaseError("DB-0015", commitErr)
+		}
+		conn.Tx = nil
 		conn.InTransaction = false
 		return &Boolean{Value: true}
 
@@ -39,6 +50,13 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		if !conn.InTransaction {
 			return newDatabaseStateError("DB-0006")
 		}
+		if rbErr := conn.Tx.Rollback(); rbErr != nil {
+			conn.Tx = nil
+			conn.InTransaction = false
+			conn.LastError = rbErr.Error()
+			return newDatabaseError("DB-0019", rbErr)
+		}
+		conn.Tx = nil
 		conn.InTransaction = false
 		return &Boolean{Value: true}
 
@@ -96,7 +114,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		sql := buildCreateTableSQL(schema, tableName, conn.Driver)
 
 		// Execute the SQL
-		_, err := conn.DB.Exec(sql)
+		_, err := connExec(conn, sql)
 		if err != nil {
 			conn.LastError = err.Error()
 			return newDatabaseError("DB-0005", err)
@@ -114,7 +132,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		}
 
 		var id int64
-		err := conn.DB.QueryRow("SELECT last_insert_rowid()").Scan(&id)
+		err := connQueryRow(conn, "SELECT last_insert_rowid()").Scan(&id)
 		if err != nil {
 			conn.LastError = err.Error()
 			return newDatabaseError("DB-0005", err)

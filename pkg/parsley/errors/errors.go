@@ -1154,9 +1154,25 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Cannot delete: record has no primary key value",
 		Hints:    []string{"Ensure the record has an 'id' field, or the schema has a primary key defined."},
 	},
+	"DB-0013": {
+		Class:    ClassDatabase,
+		Template: "Nested transactions are not supported",
+	},
+	"DB-0014": {
+		Class:    ClassDatabase,
+		Template: "Failed to begin transaction: {{.GoError}}",
+	},
+	"DB-0015": {
+		Class:    ClassDatabase,
+		Template: "Transaction commit failed: {{.GoError}}",
+	},
 	"DB-0018": {
 		Class:    ClassDatabase,
 		Template: "{{.Operation}} (RETURNING) is not supported on MySQL. Use {{.Alternative}} and query separately.",
+	},
+	"DB-0019": {
+		Class:    ClassDatabase,
+		Template: "Transaction rollback failed: {{.GoError}}",
 	},
 
 	// ========================================
