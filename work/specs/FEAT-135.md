@@ -170,6 +170,7 @@ The `<SQL>` tag currently has no access to the database driver — it just produ
 
 ## Related
 
+- Plan: `work/plans/PLAN-115-sql-named-params.md`
 - Original design: `work/parsley/design/Database Design.md`
 - Gap tracking: `work/parsley/design/Database Implementation Status.md` §1, §2
 - Cross-DB placeholders: `work/specs/FEAT-134.md`
