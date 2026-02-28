@@ -316,12 +316,12 @@ func TestSQLiteQueries(t *testing.T) {
 				users
 			`,
 			check: func(t *testing.T, result evaluator.Object) {
-				arr, ok := result.(*evaluator.Array)
+				tbl, ok := result.(*evaluator.Table)
 				if !ok {
-					t.Fatalf("Expected Array, got %T", result)
+					t.Fatalf("Expected Table, got %T", result)
 				}
-				if len(arr.Elements) != 2 {
-					t.Errorf("Expected 2 users, got %d", len(arr.Elements))
+				if len(tbl.Rows) != 2 {
+					t.Errorf("Expected 2 users, got %d", len(tbl.Rows))
 				}
 			},
 		},
@@ -424,17 +424,14 @@ func TestSQLTag(t *testing.T) {
 				users
 			`,
 			check: func(t *testing.T, result evaluator.Object) {
-				arr, ok := result.(*evaluator.Array)
+				tbl, ok := result.(*evaluator.Table)
 				if !ok {
-					t.Fatalf("Expected Array, got %T", result)
+					t.Fatalf("Expected Table, got %T", result)
 				}
-				if len(arr.Elements) != 1 {
-					t.Fatalf("Expected 1 row, got %d", len(arr.Elements))
+				if len(tbl.Rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(tbl.Rows))
 				}
-				row, ok := arr.Elements[0].(*evaluator.Dictionary)
-				if !ok {
-					t.Fatalf("Expected Dictionary row, got %T", arr.Elements[0])
-				}
+				row := tbl.Rows[0]
 				nameExpr, ok := row.Pairs["name"]
 				if !ok {
 					t.Fatal("Row should have 'name' column")
