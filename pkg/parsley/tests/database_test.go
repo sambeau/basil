@@ -577,6 +577,48 @@ func TestSQLTag(t *testing.T) {
 			},
 		},
 		{
+			name: "SQL tag params bound in declaration order not alphabetical",
+			input: `
+				let db = @sqlite(":memory:")
+				let _ = db <=!=> "DROP TABLE IF EXISTS tag_users"
+				let _ = db <=!=> "CREATE TABLE tag_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+
+				let InsertUser = fn(props) {
+					<SQL name={props.name} age={props.age}>
+						INSERT INTO tag_users (name, age) VALUES (?, ?)
+					</SQL>
+				}
+
+				let _ = db <=!=> <InsertUser name="Alice" age={30} />
+				let user = db <=?=> "SELECT * FROM tag_users WHERE id = 1"
+				user
+			`,
+			check: func(t *testing.T, result evaluator.Object) {
+				dict, ok := result.(*evaluator.Dictionary)
+				if !ok {
+					t.Fatalf("Expected Dictionary, got %T", result)
+				}
+				nameExpr, ok := dict.Pairs["name"]
+				if !ok {
+					t.Fatal("Result should have 'name' column")
+				}
+				name := evaluator.Eval(nameExpr, dict.Env)
+				nameStr, ok := name.(*evaluator.String)
+				if !ok || nameStr.Value != "Alice" {
+					t.Errorf("Expected name='Alice', got %v (params bound in wrong order?)", name.Inspect())
+				}
+				ageExpr, ok := dict.Pairs["age"]
+				if !ok {
+					t.Fatal("Result should have 'age' column")
+				}
+				age := evaluator.Eval(ageExpr, dict.Env)
+				ageInt, ok := age.(*evaluator.Integer)
+				if !ok || ageInt.Value != 30 {
+					t.Errorf("Expected age=30, got %v (params bound in wrong order?)", age.Inspect())
+				}
+			},
+		},
+		{
 			name: "SQL tag simple inline",
 			input: `
 				let query = <SQL>SELECT * FROM users</SQL>

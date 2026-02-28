@@ -1124,8 +1124,9 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 				paramPairs[key] = createLiteralExpression(val)
 			}
 			resultPairs["params"] = &ast.DictionaryLiteral{
-				Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
-				Pairs: paramPairs,
+				Token:    lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+				Pairs:    paramPairs,
+				KeyOrder: dict.KeyOrder,
 			}
 		}
 	}
@@ -2248,6 +2249,7 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 	}
 
 	pairs := make(map[string]ast.Expression)
+	var keyOrder []string
 
 	i := 0
 	for i < len(propsStr) {
@@ -2332,13 +2334,23 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 
 					// Evaluate each property in the spread dict's environment
 					// and wrap it as a literal expression for the new dictionary
-					for key, expr := range spreadDict.Pairs {
+					spreadKeys := spreadDict.KeyOrder
+					if len(spreadKeys) == 0 {
+						for k := range spreadDict.Pairs {
+							spreadKeys = append(spreadKeys, k)
+						}
+					}
+					for _, key := range spreadKeys {
+						expr := spreadDict.Pairs[key]
 						// Evaluate in the spread dict's environment to get the actual value
 						value := Eval(expr, spreadDict.Env)
 						if isError(value) {
 							return value
 						}
 						// Wrap the evaluated value as a literal expression
+						if _, exists := pairs[key]; !exists {
+							keyOrder = append(keyOrder, key)
+						}
 						pairs[key] = objectToExpression(value)
 					}
 				}
@@ -2364,6 +2376,9 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 		// Check for = or standalone prop
 		if i >= len(propsStr) || propsStr[i] != '=' {
 			// Standalone prop (boolean)
+			if _, exists := pairs[propName]; !exists {
+				keyOrder = append(keyOrder, propName)
+			}
 			pairs[propName] = &ast.Boolean{Value: true}
 			continue
 		}
@@ -2396,6 +2411,9 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 			valueStr = propsStr[valueStart:i]
 			if i < len(propsStr) {
 				i++ // skip closing quote
+			}
+			if _, exists := pairs[propName]; !exists {
+				keyOrder = append(keyOrder, propName)
 			}
 			pairs[propName] = &ast.StringLiteral{Value: valueStr}
 		} else if propsStr[i] == '{' {
@@ -2483,13 +2501,23 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 
 						// Evaluate each property in the spread dict's environment
 						// and wrap it as a literal expression for the new dictionary
-						for key, expr := range spreadDict.Pairs {
+						innerSpreadKeys := spreadDict.KeyOrder
+						if len(innerSpreadKeys) == 0 {
+							for k := range spreadDict.Pairs {
+								innerSpreadKeys = append(innerSpreadKeys, k)
+							}
+						}
+						for _, key := range innerSpreadKeys {
+							expr := spreadDict.Pairs[key]
 							// Evaluate in the spread dict's environment to get the actual value
 							value := Eval(expr, spreadDict.Env)
 							if isError(value) {
 								return value
 							}
 							// Wrap the evaluated value as a literal expression
+							if _, exists := pairs[key]; !exists {
+								keyOrder = append(keyOrder, key)
+							}
 							pairs[key] = objectToExpression(value)
 						}
 					}
@@ -2563,13 +2591,16 @@ func parseTagProps(propsStr string, env *Environment, basePos ...int) Object {
 			// Store as expression statement
 			if len(program.Statements) > 0 {
 				if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
+					if _, exists := pairs[propName]; !exists {
+						keyOrder = append(keyOrder, propName)
+					}
 					pairs[propName] = exprStmt.Expression
 				}
 			}
 		}
 	}
 
-	return &Dictionary{Pairs: pairs, Env: env}
+	return &Dictionary{Pairs: pairs, KeyOrder: keyOrder, Env: env}
 }
 
 // String conversion functions moved to eval_string_conversions.go:

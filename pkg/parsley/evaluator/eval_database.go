@@ -250,16 +250,19 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []any, *Err
 	return "", nil, newSQLError("SQL-0004", map[string]any{"Got": string(queryObj.Type())})
 }
 
-// dictToNamedParams converts a dictionary to a slice of named parameters
+// dictToNamedParams converts a dictionary to a slice of named parameters.
+// Uses KeyOrder when present (declaration order), otherwise falls back to sorted keys.
 func dictToNamedParams(dict *Dictionary, env *Environment) []any {
 	params := make([]any, 0, len(dict.Pairs))
 
-	// Sort keys for consistent order
-	keys := make([]string, 0, len(dict.Pairs))
-	for key := range dict.Pairs {
-		keys = append(keys, key)
+	keys := dict.KeyOrder
+	if len(keys) == 0 {
+		keys = make([]string, 0, len(dict.Pairs))
+		for key := range dict.Pairs {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
 	}
-	sort.Strings(keys)
 
 	for _, key := range keys {
 		expr := dict.Pairs[key]
