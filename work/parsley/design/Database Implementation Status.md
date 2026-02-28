@@ -8,7 +8,7 @@ The database support has been successfully implemented with the following featur
 
 1. **✅ Three Query Operators**
    - `<=?=>` - Query single row (returns dictionary or null)
-   - `<=??=>` - Query many rows (returns array of dictionaries)  
+   - `<=??=>` - Query many rows (returns **Table** with column metadata)
    - `<=!=>` - Execute mutations (returns {affected, lastId})
 
 2. **✅ Connection Factories**
@@ -17,9 +17,9 @@ The database support has been successfully implemented with the following featur
    - `MYSQL(url, options?)` - MySQL stub (driver not included)
 
 3. **✅ Connection Methods**
-   - `begin()` - Start transaction
-   - `commit()` - Commit transaction (returns boolean)
-   - `rollback()` - Rollback transaction (returns boolean)
+   - `begin()` - Start a real `sql.Tx` transaction (returns boolean)
+   - `commit()` - Commit the active transaction (returns boolean)
+   - `rollback()` - Roll back the active transaction (returns boolean)
    - `close()` - Close connection and remove from cache
    - `ping()` - Test connection (returns boolean)
 
@@ -29,57 +29,48 @@ The database support has been successfully implemented with the following featur
    - Used with query operators
 
 5. **✅ Comprehensive Test Suite**
-   - 12/12 tests passing (100% success rate)
+   - All tests passing (100% success rate)
    - In-memory SQLite database testing
    - No external dependencies required
 
-## Syntax Differences from Design Document
+## Syntax
 
-### Actual Syntax (Implemented)
-
-The implementation follows Parsley's existing operator patterns (`<==` for file read, `<=/=` for fetch):
+Both statement form and infix expression form are supported:
 
 ```parsley
 // Connection creation
-let db = SQLITE(":memory:")
+let db = @sqlite(":memory:")
 
-// Query single row - DOUBLE OPERATOR PATTERN
+// Query single row — infix or statement form
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
 let user <=?=> db <=?=> "SELECT * FROM users WHERE id = 1"
 
-// Query multiple rows - DOUBLE OPERATOR PATTERN  
-let users <=??=> db <=??=> "SELECT * FROM users"
+// Query multiple rows — returns Table (not Array)
+let users = db <=??=> "SELECT * FROM users"
+users.count()          // number of rows
+users.columns          // ["id", "name", ...]
 
-// Execute mutation - DOUBLE OPERATOR PATTERN
-let result <=!=> db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
+// Execute mutation
+let result = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
 
-// With SQL components
+// Parameterized queries via <SQL> tag
 let GetUser = fn(props) {
-    <SQL>
-        SELECT * FROM users WHERE id = 1
+    <SQL id={props.id}>
+        SELECT * FROM users WHERE id = :id
     </SQL>
 }
-let user <=?=> db <=?=> <GetUser />
+let user = db <=?=> <GetUser id={1} />
 
-// Transactions
-db.begin()
-let _ <=!=> db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
-if (db.commit()) {
-    log("Success!")
-} else {
-    log("Failed:", db.lastError)
+// Manual transactions
+let _ = db.begin()
+let _ = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
+let _ = db.commit()
+
+// DSL transactions
+@transaction {
+    @insert(Users |< name: "Alice" .)
 }
 ```
-
-### Design Document Syntax (Not Implemented)
-
-The design document showed a single-operator infix style:
-
-```parsley
-// This syntax does NOT work - design was aspirational
-let user = db <=?=> <GetUser id={1} />  // ❌ Not supported
-```
-
-**Reason**: The double-operator pattern (`let x <=?=> db <=?=> query`) is consistent with Parsley's existing file operators and makes the statement type explicit.
 
 ## Known Limitations
 
@@ -99,7 +90,18 @@ Bare `?` positional placeholders continue to work for backward compatibility. Mi
 
 See `work/specs/FEAT-135.md` for full specification.
 
-### 2. ⚠️ Spread Operator in Tag Props Not Supported
+### 2. ✅ Transactions — Fully Implemented (FEAT-136)
+
+Both manual (`begin()`/`commit()`/`rollback()`) and DSL (`@transaction`) transaction approaches now work correctly:
+
+- `begin()` opens a real `sql.Tx` on the connection
+- All raw SQL operators (`<=?=>`, `<=??=>`, `<=!=>`) route through the active `sql.Tx` when present
+- `commit()` commits and clears the transaction; `rollback()` rolls back and clears it
+- `@transaction { }` auto-discovers the DB connection and provides commit/rollback semantics
+
+See `work/specs/FEAT-136.md` for full specification.
+
+### 3. ⚠️ Spread Operator in Tag Props Not Supported
 
 **Design shows**: `params={...props}` spread syntax
 ```parsley
@@ -121,7 +123,7 @@ let CreateUser = fn(props) {
 
 **Impact**: Spread operator in tag attributes requires parser enhancement. For now, use literal values or manual param construction.
 
-### 3. ⚠️ Connection Properties as Dictionary
+### 4. ⚠️ Connection Properties as Dictionary
 
 **Design shows**: Connection as dictionary with properties
 ```parsley
@@ -137,7 +139,7 @@ db.lastError      // "error message"
 
 **Impact**: Cannot inspect connection state via properties. Would require converting DBConnection to Dictionary with computed properties.
 
-### 4. ⚠️ Options Not Fully Implemented
+### 5. ⚠️ Options Not Fully Implemented
 
 **Design shows**: Various connection options
 ```parsley
@@ -170,24 +172,35 @@ let db = SQLITE(@./data.db, {timeout: @5s, readonly: true})
 ### For Production Use
 
 1. **✅ Use SQLite** - Fully functional with pure Go driver (no C dependencies)
-2. **✅ Use double-operator syntax** - `let user <=?=> db <=?=> query`
-3. **✅ Use positional parameters** - `?1`, `?2` instead of `:name`
-4. **⚠️ Avoid spread in tag props** - Wait for parser enhancement
+2. **✅ Use `:name` named parameters** - `<SQL id={x}>SELECT * WHERE id = :id</SQL>`
+3. **✅ Use `@transaction` for DSL operations** - Automatic commit/rollback
+4. **✅ Use `begin()`/`commit()`/`rollback()` for raw SQL** - Now real transactions
+5. **⚠️ Avoid spread in tag props** - Wait for parser enhancement
 
 ### For Future Enhancement
 
-1. **Named parameter mapping** - Convert `:name` to `?1` automatically
-2. **Spread operator in tags** - Enhance tag props parser
-3. **Connection as Dictionary** - Convert DBConnection to Dictionary with computed properties
-4. **Advanced options** - Implement timeout, readonly, journal_mode, etc.
-5. **PostgreSQL/MySQL drivers** - Add and test external database drivers
+1. **Spread operator in tags** - Enhance tag props parser
+2. **Connection as Dictionary** - Convert DBConnection to Dictionary with computed properties
+3. **Advanced options** - Implement timeout, readonly, journal_mode, etc.
+4. **PostgreSQL/MySQL drivers** - Add and test external database drivers
+
+## Implementation History
+
+| Feature | Spec | Status |
+|---------|------|--------|
+| Three query operators | — | ✅ Original implementation |
+| `<SQL>` tag | — | ✅ Original implementation |
+| Named parameters (`:name`) | FEAT-135 | ✅ Implemented 2026-02-28 |
+| Transaction-aware operators | FEAT-136 | ✅ Implemented 2026-02-28 |
+| Real `begin()`/`commit()`/`rollback()` | FEAT-136 | ✅ Implemented 2026-02-28 |
+| `<=??=>` returns Table (both forms) | FEAT-136 | ✅ Implemented 2026-02-28 |
+| `rows.Err()` checks in single-row queries | FEAT-136 | ✅ Implemented 2026-02-28 |
+| Block comment EOF fix in SQL scanner | FEAT-136 | ✅ Implemented 2026-02-28 |
 
 ## Test Examples
 
-See `tests/database_test.go` for working examples:
+See `pkg/parsley/tests/database_test.go` and `database_advanced_test.go` for working examples:
 - Connection creation and management
 - CRUD operations with all three operators
-- Transaction handling
-- SQL component usage
-
-All 12 tests pass with 100% success rate using in-memory SQLite.
+- Transaction handling (manual and `@transaction`)
+- SQL component usage with named parameters

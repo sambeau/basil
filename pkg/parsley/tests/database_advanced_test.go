@@ -368,6 +368,113 @@ func TestDatabaseTransactionIntegration(t *testing.T) {
 	})
 }
 
+func TestQueryManyReturnType(t *testing.T) {
+	t.Run("infix <=??=> returns Table with columns", func(t *testing.T) {
+		input := `
+			let db = @sqlite(":memory:")
+			let _ = db <=!=> "CREATE TABLE rt_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+			let _ = db <=!=> "INSERT INTO rt_users (name, age) VALUES ('Alice', 30)"
+			let _ = db <=!=> "INSERT INTO rt_users (name, age) VALUES ('Bob', 25)"
+			let users = db <=??=> "SELECT * FROM rt_users"
+		`
+		l := lexer.New(input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		env := evaluator.NewEnvironment()
+		evaluator.Eval(program, env)
+
+		usersObj, ok := env.Get("users")
+		if !ok {
+			t.Fatal("users not found in environment")
+		}
+		tbl, ok := usersObj.(*evaluator.Table)
+		if !ok {
+			t.Fatalf("Expected Table from infix <=??=>, got %T", usersObj)
+		}
+		if len(tbl.Rows) != 2 {
+			t.Errorf("Expected 2 rows, got %d", len(tbl.Rows))
+		}
+		if len(tbl.Columns) != 3 {
+			t.Errorf("Expected 3 columns (id, name, age), got %d: %v", len(tbl.Columns), tbl.Columns)
+		}
+	})
+
+	t.Run("infix <=??=> with SQL tag returns Table with columns", func(t *testing.T) {
+		input := `
+			let db = @sqlite(":memory:")
+			let _ = db <=!=> "CREATE TABLE rt_stmt (id INTEGER PRIMARY KEY, name TEXT)"
+			let _ = db <=!=> "INSERT INTO rt_stmt (name) VALUES ('Alice')"
+			let rows = db <=??=> <SQL>SELECT * FROM rt_stmt</SQL>
+		`
+		l := lexer.New(input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		env := evaluator.NewEnvironment()
+		evaluator.Eval(program, env)
+
+		rowsObj, ok := env.Get("rows")
+		if !ok {
+			t.Fatal("rows not found in environment")
+		}
+		tbl, ok := rowsObj.(*evaluator.Table)
+		if !ok {
+			t.Fatalf("Expected Table from infix <=??=> with SQL tag, got %T", rowsObj)
+		}
+		if len(tbl.Rows) != 1 {
+			t.Errorf("Expected 1 row, got %d", len(tbl.Rows))
+		}
+		if len(tbl.Columns) != 2 {
+			t.Errorf("Expected 2 columns (id, name), got %d: %v", len(tbl.Columns), tbl.Columns)
+		}
+	})
+
+	t.Run("both forms return the same column metadata", func(t *testing.T) {
+		input := `
+			let db = @sqlite(":memory:")
+			let _ = db <=!=> "CREATE TABLE rt_both (id INTEGER PRIMARY KEY, name TEXT, score REAL)"
+			let _ = db <=!=> "INSERT INTO rt_both (name, score) VALUES ('Alice', 9.5)"
+
+			let infix_result = db <=??=> "SELECT * FROM rt_both"
+		`
+		l := lexer.New(input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			t.Fatalf("Parser errors: %v", p.Errors())
+		}
+		env := evaluator.NewEnvironment()
+		evaluator.Eval(program, env)
+
+		infixObj, ok := env.Get("infix_result")
+		if !ok {
+			t.Fatal("infix_result not found in environment")
+		}
+		tbl, ok := infixObj.(*evaluator.Table)
+		if !ok {
+			t.Fatalf("Expected Table, got %T", infixObj)
+		}
+		// Verify columns are present and correct
+		if len(tbl.Columns) != 3 {
+			t.Fatalf("Expected 3 columns, got %d: %v", len(tbl.Columns), tbl.Columns)
+		}
+		colSet := map[string]bool{}
+		for _, c := range tbl.Columns {
+			colSet[c] = true
+		}
+		for _, expected := range []string{"id", "name", "score"} {
+			if !colSet[expected] {
+				t.Errorf("Expected column %q in %v", expected, tbl.Columns)
+			}
+		}
+	})
+}
+
 func TestDatabaseNullValues(t *testing.T) {
 	input := `
 		let db = @sqlite(":memory:")

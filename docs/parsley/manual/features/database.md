@@ -72,7 +72,7 @@ Three operators handle all SQL execution. The left side is always a connection; 
 | Operator | Mnemonic | Returns | Use for |
 |---|---|---|---|
 | `<=?=>` | query-one | dictionary or `null` | SELECT expecting 0–1 rows |
-| `<=??=>` | query-many | array | SELECT expecting multiple rows |
+| `<=??=>` | query-many | Table | SELECT expecting multiple rows |
 | `<=!=>` | execute | `{affected, lastId}` | INSERT, UPDATE, DELETE, DDL |
 
 ### Query One (`<=?=>`)
@@ -93,17 +93,20 @@ nobody                           // null
 
 ### Query Many (`<=??=>`)
 
-Returns an array of dictionaries, one per row:
+Returns a Table (with column metadata), one row per entry:
 
 ```parsley
 let _ = db <=!=> "INSERT INTO users (name) VALUES ('Bob')"
 
 let users = db <=??=> "SELECT * FROM users"
-users.length()                   // 2
-for (u in users) {
+users.count()                    // 2
+users.columns                    // ["id", "name"]
+for (u in users.rows) {
     u.name
 }
 ```
+
+> The result is a `Table`, not an array. Use `.count()` for the row count, `.columns` for column names, and `.rows` to iterate. Table methods like `.where()`, `.orderBy()`, and `.toCSV()` work directly on the result.
 
 ### Execute (`<=!=>`)
 
@@ -390,6 +393,9 @@ if (result.error) {
 | `DB-0013` | Nested transactions not supported |
 | `DB-0014` | Failed to begin transaction |
 | `DB-0015` | Transaction commit failed |
+| `DB-0016` | Update failed — record has no primary key value |
+| `DB-0017` | Delete failed — record has no primary key value |
+| `DB-0019` | Transaction rollback failed |
 | `SQL-0005` | Unknown named parameter `:name` — no matching attribute on `<SQL>` tag |
 | `SQL-0006` | Cannot mix positional `?` and named `:param` placeholders in the same query |
 
