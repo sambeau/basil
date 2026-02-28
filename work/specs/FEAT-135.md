@@ -1,7 +1,7 @@
 ---
 id: FEAT-135
 title: "Named Parameters in <SQL> Tags"
-status: draft
+status: implemented
 priority: high
 created: 2026-02-28
 author: "@human"

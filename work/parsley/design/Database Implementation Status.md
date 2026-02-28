@@ -83,23 +83,21 @@ let user = db <=?=> <GetUser id={1} />  // ❌ Not supported
 
 ## Known Limitations
 
-### 1. ⚠️ Named Parameters Not Fully Implemented
+### 1. ✅ Named Parameters — Implemented (FEAT-135)
 
-**Design shows**: `:name` style named parameters
+`:name` style named parameters are now fully supported. Users write `:name` in SQL text and Parsley matches each to the corresponding `<SQL>` tag attribute, rewriting to driver-native placeholders (`$N` for PostgreSQL/SQLite, `?` for MySQL) at execution time. Attribute declaration order is irrelevant.
+
 ```parsley
-<SQL params={id: 1}>
-    SELECT * FROM users WHERE id = :id
-</SQL>
+let InsertUser = fn(props) {
+    <SQL name={props.name} age={props.age}>
+        INSERT INTO users (age, name) VALUES (:age, :name)
+    </SQL>
+}
 ```
 
-**Current implementation**: Uses positional parameters (`?1`, `?2`, etc.)
-```parsley
-<SQL>
-    SELECT * FROM users WHERE id = ?1
-</SQL>
-```
+Bare `?` positional placeholders continue to work for backward compatibility. Mixing `?` and `:name` in the same query is an error (`SQL-0006`). A `:name` with no matching attribute produces `SQL-0005`.
 
-**Impact**: Parameters must be passed in correct positional order. Named parameter mapping would require additional implementation.
+See `work/specs/FEAT-135.md` for full specification.
 
 ### 2. ⚠️ Spread Operator in Tag Props Not Supported
 

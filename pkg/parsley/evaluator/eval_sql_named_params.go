@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -48,8 +49,8 @@ func scanSQLNamedParams(sql string) sqlScanResult {
 		// Postgres $$ dollar-quoting: skip until matching $$
 		if ch == '$' && i+1 < n && sql[i+1] == '$' {
 			i += 2
-			for i+1 < n {
-				if sql[i] == '$' && sql[i+1] == '$' {
+			for i < n {
+				if i+1 < n && sql[i] == '$' && sql[i+1] == '$' {
 					i += 2
 					break
 				}
@@ -86,15 +87,9 @@ func scanSQLNamedParams(sql string) sqlScanResult {
 			continue
 		}
 
-		// Named parameter :name
-		// Skip :: (Postgres type cast) — the second : will also be skipped here
+		// Named parameter :name or :: Postgres type cast
 		if ch == ':' {
-			// Skip if preceded by : (i.e., this is the second colon in ::)
-			if i > 0 && sql[i-1] == ':' {
-				i++
-				continue
-			}
-			// Skip if next char is also : (start of ::)
+			// Skip :: (Postgres type cast)
 			if i+1 < n && sql[i+1] == ':' {
 				i += 2
 				continue
@@ -148,6 +143,7 @@ func rewriteNamedParams(sql string, scan sqlScanResult, propsDict *Dictionary, e
 			for k := range propsDict.Pairs {
 				available = append(available, ":"+k)
 			}
+			sort.Strings(available)
 			availStr := strings.Join(available, ", ")
 			if availStr == "" {
 				availStr = "(none)"
@@ -194,13 +190,14 @@ func rewriteNamedParams(sql string, scan sqlScanResult, propsDict *Dictionary, e
 			out.WriteByte(sql[i])
 			out.WriteByte(sql[i+1])
 			i += 2
-			for i+1 < n {
-				out.WriteByte(sql[i])
-				if sql[i] == '$' && sql[i+1] == '$' {
+			for i < n {
+				if i+1 < n && sql[i] == '$' && sql[i+1] == '$' {
+					out.WriteByte(sql[i])
 					out.WriteByte(sql[i+1])
 					i += 2
 					break
 				}
+				out.WriteByte(sql[i])
 				i++
 			}
 			continue

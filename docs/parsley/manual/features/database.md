@@ -124,26 +124,57 @@ For parameterized queries, use the `<SQL>` tag. It produces a dictionary with `s
 ```parsley
 let name = "Alice"
 let query = <SQL name={name}>
-    SELECT * FROM users WHERE name = ?
+    SELECT * FROM users WHERE name = :name
 </SQL>
 let user = db <=?=> query
 ```
 
-The content of a `<SQL>` tag is **raw text** — no quotes needed around the SQL. This works like `<style>` and `<script>` tags, where the tag boundaries define the content. Attributes are bound as query parameters in **declaration order** (left-to-right), preventing SQL injection.
+The content of a `<SQL>` tag is **raw text** — no quotes needed around the SQL. This works like `<style>` and `<script>` tags, where the tag boundaries define the content. Leading and trailing whitespace is automatically trimmed from SQL content.
 
-> **Attribute order matters.** The `?` placeholders in your SQL are filled in the same order that attributes appear on the tag. Make sure your attributes match your placeholders:
->
-> ```parsley
-> // ✅ Correct — attributes match placeholder order
-> <SQL name={name} age={age}>
->     INSERT INTO users (name, age) VALUES (?, ?)
-> </SQL>
->
-> // ❌ Wrong — age would bind to the name column
-> <SQL age={age} name={name}>
->     INSERT INTO users (name, age) VALUES (?, ?)
-> </SQL>
-> ```
+### Named Parameters (Recommended)
+
+Use `:name` placeholders in your SQL to reference attributes by name. The attribute order on the tag doesn't matter — parameters are matched by name, not position:
+
+```parsley
+// ✅ Attribute order doesn't matter — :name matches by name
+<SQL name={name} age={age}>
+    INSERT INTO users (age, name) VALUES (:age, :name)
+</SQL>
+```
+
+Named parameters are rewritten to driver-native placeholders at execution time (`$1`, `$2` for PostgreSQL/SQLite; `?` for MySQL). You don't need to think about driver differences.
+
+A `:name` can appear multiple times in the same query — the value is bound at each position:
+
+```parsley
+// ✅ :term is bound twice automatically
+<SQL term={searchTerm}>
+    SELECT * FROM users WHERE name LIKE :term OR email LIKE :term
+</SQL>
+```
+
+Attributes not referenced by any `:name` in the SQL are silently ignored. This keeps `<SQL>` composable — a component can accept extra props that aren't needed for every query variant.
+
+#### Edge Cases
+
+Parsley correctly handles common SQL syntax that uses `:` for other purposes:
+
+- **Postgres type casts** (`::`) are not treated as parameters: `SELECT id::text FROM users WHERE id = :id` only matches `:id`.
+- **String literals** containing `:name` are not treated as parameters: `WHERE status = ':active'` has no parameters.
+- **Dollar-quoted strings** (`$$...$$`) and **SQL comments** (`--`, `/* */`) are also skipped.
+
+### Positional Parameters
+
+Bare `?` placeholders still work for backward compatibility. With `?`, attributes are bound in **declaration order** (left-to-right):
+
+```parsley
+// Attribute order must match ? placeholder order
+<SQL name={name} age={age}>
+    INSERT INTO users (name, age) VALUES (?, ?)
+</SQL>
+```
+
+> ⚠️ **Don't mix `?` and `:name` in the same query.** Mixing positional and named placeholders produces an error (`SQL-0006`).
 
 > ⚠️ **Interpolation is blocked inside `<SQL>` tags.** Unlike `<style>` and `<script>`, you cannot use `@{expr}` inside SQL content. All dynamic values must come through attributes. This is intentional — it enforces safe parameterized queries and prevents SQL injection.
 
@@ -152,10 +183,8 @@ The content of a `<SQL>` tag is **raw text** — no quotes needed around the SQL
 <SQL>SELECT * FROM users WHERE name = '@{name}'</SQL>
 
 // ✅ SAFE — use attributes for parameters
-<SQL name={name}>SELECT * FROM users WHERE name = ?</SQL>
+<SQL name={name}>SELECT * FROM users WHERE name = :name</SQL>
 ```
-
-Leading and trailing whitespace is automatically trimmed from SQL content.
 
 ### SQL Components
 
@@ -164,7 +193,7 @@ Wrap `<SQL>` in a component function for reusable queries:
 ```parsley
 let GetUser = fn(props) {
     <SQL id={props.id}>
-        SELECT * FROM users WHERE id = ?
+        SELECT * FROM users WHERE id = :id
     </SQL>
 }
 
@@ -174,7 +203,7 @@ let user = db <=?=> <GetUser id={42} />
 ```parsley
 let InsertUser = fn(props) {
     <SQL name={props.name}>
-        INSERT INTO users (name) VALUES (?)
+        INSERT INTO users (name) VALUES (:name)
     </SQL>
 }
 
@@ -188,12 +217,11 @@ let GetActiveUsers = fn(props) {
     <SQL status={props.status} limit={props.limit}>
         SELECT id, name, email
         FROM users
-        WHERE status = ?
+        WHERE status = :status
         ORDER BY created_at DESC
-        LIMIT ?
+        LIMIT :limit
     </SQL>
 }
-// status binds to the first ?, limit to the second — matching declaration order
 ```
 
 SQL comments are preserved:
@@ -362,8 +390,10 @@ if (result.error) {
 | `DB-0013` | Nested transactions not supported |
 | `DB-0014` | Failed to begin transaction |
 | `DB-0015` | Transaction commit failed |
+| `SQL-0005` | Unknown named parameter `:name` — no matching attribute on `<SQL>` tag |
+| `SQL-0006` | Cannot mix positional `?` and named `:param` placeholders in the same query |
 
-All database errors have class `database` and are catchable by `try`.
+All database errors have class `database` and are catchable by `try`. SQL errors (`SQL-0005`, `SQL-0006`) have class `type` or `parse` and are also catchable.
 
 ## SQL Security
 
@@ -374,7 +404,7 @@ Always use `<SQL>` tag attributes for user-provided values — never interpolate
 ```parsley
 // SAFE — parameterized (attributes become bound parameters)
 let user = db <=?=> <SQL name={input}>
-    SELECT * FROM users WHERE name = ?
+    SELECT * FROM users WHERE name = :name
 </SQL>
 
 // UNSAFE — string interpolation bypasses parameterization
@@ -384,7 +414,7 @@ let user = db <=?=> `SELECT * FROM users WHERE name = '${input}'`
 ## Key Differences from Other Languages
 
 - **Operators instead of method calls** — `<=?=>`, `<=??=>`, and `<=!=>` replace `.query()` and `.execute()`. The arrow syntax makes data flow direction and cardinality visible at a glance.
-- **`<SQL>` tags** — parameterized queries use tag syntax with raw text content (no quotes needed). The tag integrates naturally with Parsley's component model. Queries are composable as components, and `@{}` interpolation is blocked to enforce safety.
+- **`<SQL>` tags** — parameterized queries use tag syntax with raw text content (no quotes needed) and `:name` named parameters. The tag integrates naturally with Parsley's component model. Queries are composable as components, and `@{}` interpolation is blocked to enforce safety. Named parameters are automatically translated to driver-native placeholders (`$N` or `?`).
 - **Connection caching** — connections are cached by DSN. Repeated calls to `@sqlite()` with the same path return the same connection.
 - **No driver imports** — SQLite, PostgreSQL, and MySQL are built in. You just use `@sqlite`, `@postgres`, or `@mysql`.
 - **Schema-driven bindings** — `db.bind()` connects a schema to a table, giving you typed CRUD methods without writing SQL.

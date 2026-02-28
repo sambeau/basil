@@ -2,7 +2,7 @@
 id: PLAN-115
 feature: FEAT-135
 title: "Named Parameters in <SQL> Tags"
-status: draft
+status: done
 created: 2026-02-28
 ---
 
