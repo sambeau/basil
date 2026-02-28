@@ -706,12 +706,13 @@ func buildCreateTableSQL(schema *DSLSchema, tableName string, driver string) str
 
 		// String length CHECK constraint
 		if field.MinLength != nil || field.MaxLength != nil {
+			lenFn := sqlLengthFunc(driver)
 			if field.MinLength != nil && field.MaxLength != nil {
-				checks = append(checks, fmt.Sprintf("length(%s) >= %d AND length(%s) <= %d", name, *field.MinLength, name, *field.MaxLength))
+				checks = append(checks, fmt.Sprintf("%s(%s) >= %d AND %s(%s) <= %d", lenFn, name, *field.MinLength, lenFn, name, *field.MaxLength))
 			} else if field.MinLength != nil {
-				checks = append(checks, fmt.Sprintf("length(%s) >= %d", name, *field.MinLength))
+				checks = append(checks, fmt.Sprintf("%s(%s) >= %d", lenFn, name, *field.MinLength))
 			} else if field.MaxLength != nil {
-				checks = append(checks, fmt.Sprintf("length(%s) <= %d", name, *field.MaxLength))
+				checks = append(checks, fmt.Sprintf("%s(%s) <= %d", lenFn, name, *field.MaxLength))
 			}
 		}
 

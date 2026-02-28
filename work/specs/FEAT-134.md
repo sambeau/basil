@@ -1,7 +1,7 @@
 ---
 id: FEAT-134
 title: "Query DSL Cross-Database Compatibility (Postgres & MySQL)"
-status: in-progress
+status: complete
 priority: high
 created: 2026-02-28
 author: "@human"
@@ -198,10 +198,10 @@ Replace all `fmt.Sprintf("$%d", *paramIdx)` calls with `sqlPlaceholder(driver, *
 The `paramIdx` counter is still incremented for MySQL — it tracks the parameter's position in the `params` slice. Only the emitted SQL text changes.
 
 **Acceptance criteria:**
-- [ ] All `fmt.Sprintf("$%d", ...)` calls in `stdlib_dsl_query.go` replaced with `sqlPlaceholder()`
-- [ ] `loadHasManyRelation` and `loadBelongsToRelation` use `sqlPlaceholder()`
-- [ ] SQL-generation tests for MySQL driver confirm `?` placeholders throughout
-- [ ] Existing SQLite and Postgres tests unchanged
+- [x] All `fmt.Sprintf("$%d", ...)` calls in `stdlib_dsl_query.go` replaced with `sqlPlaceholder()`
+- [x] `loadHasManyRelation` and `loadBelongsToRelation` use `sqlPlaceholder()`
+- [x] SQL-generation tests for MySQL driver confirm `?` placeholders throughout
+- [x] Existing SQLite and Postgres tests unchanged
 
 ---
 
@@ -229,13 +229,13 @@ Same pattern for `@update` and `@delete`.
 **Design decision:** Error rather than emulation. Emulating `RETURNING` (INSERT + SELECT, or pre-SELECT + mutation in a transaction) adds complexity, implicit transactions, and edge cases (concurrent modifications, non-auto-increment PKs). A clear error with a workaround hint is more honest and maintainable. Emulation can be added later if user demand warrants it.
 
 **Acceptance criteria:**
-- [ ] `buildInsertSQL` returns error for MySQL + returning terminal
-- [ ] `buildInsertSQLForBatch` returns error for MySQL + returning terminal
-- [ ] `buildUpdateSQL` returns error for MySQL + returning terminal
-- [ ] `buildDeleteSQL` returns error for MySQL + returning terminal
-- [ ] Error message includes actionable workaround
-- [ ] Non-returning terminals (`.`, `.-> count`) continue to work on MySQL
-- [ ] New error code `DB-0018` registered in error catalog
+- [x] `buildInsertSQL` returns error for MySQL + returning terminal
+- [x] `buildInsertSQLForBatch` returns error for MySQL + returning terminal
+- [x] `buildUpdateSQL` returns error for MySQL + returning terminal
+- [x] `buildDeleteSQL` returns error for MySQL + returning terminal
+- [x] Error message includes actionable workaround
+- [x] Non-returning terminals (`.`, `.-> count`) continue to work on MySQL
+- [x] New error code `DB-0018` registered in error catalog
 
 ---
 
@@ -282,10 +282,10 @@ if len(node.UpsertKey) > 0 {
 **Note:** MySQL's `ON DUPLICATE KEY` uses the table's unique/primary key implicitly — the `UpsertKey` fields are not specified in the SQL (MySQL infers from the table definition). The DSL's `upsertKey` is still needed to know which columns to exclude from the UPDATE set in more sophisticated scenarios, but for the basic `col = VALUES(col)` pattern, the key fields don't appear in the MySQL SQL.
 
 **Acceptance criteria:**
-- [ ] MySQL driver generates `ON DUPLICATE KEY UPDATE col = VALUES(col)`
-- [ ] PostgreSQL/SQLite driver unchanged (`ON CONFLICT ... EXCLUDED`)
-- [ ] Both `buildInsertSQL` and `buildInsertSQLForBatch` updated
-- [ ] SQL-generation test for MySQL upsert
+- [x] MySQL driver generates `ON DUPLICATE KEY UPDATE col = VALUES(col)`
+- [x] PostgreSQL/SQLite driver unchanged (`ON CONFLICT ... EXCLUDED`)
+- [x] Both `buildInsertSQL` and `buildInsertSQLForBatch` updated
+- [x] SQL-generation test for MySQL upsert
 
 ---
 
@@ -315,9 +315,9 @@ checks = append(checks, fmt.Sprintf("%s(%s) >= %d AND %s(%s) <= %d",
 ```
 
 **Acceptance criteria:**
-- [ ] MySQL DDL uses `CHAR_LENGTH()` in CHECK constraints
-- [ ] SQLite/Postgres DDL unchanged (`length()`)
-- [ ] SQL-generation test for MySQL CHECK constraint with string length
+- [x] MySQL DDL uses `CHAR_LENGTH()` in CHECK constraints
+- [x] SQLite/Postgres DDL unchanged (`length()`)
+- [x] SQL-generation test for MySQL CHECK constraint with string length
 
 ---
 
@@ -341,10 +341,10 @@ checks = append(checks, fmt.Sprintf("%s(%s) >= %d AND %s(%s) <= %d",
 - CREATE TABLE with string length → `CHAR_LENGTH`
 
 **Acceptance criteria:**
-- [ ] At least 13 SQL-generation tests asserting MySQL-correct SQL
-- [ ] All placeholder tests confirm `?` not `$N`
-- [ ] RETURNING terminal tests confirm error with helpful message
-- [ ] All tests run without a MySQL instance (pure SQL string tests)
+- [x] At least 13 SQL-generation tests asserting MySQL-correct SQL (16 written)
+- [x] All placeholder tests confirm `?` not `$N`
+- [x] RETURNING terminal tests confirm error with helpful message
+- [x] All tests run without a MySQL instance (pure SQL string tests)
 
 ---
 

@@ -620,3 +620,376 @@ func TestSQLPlaceholder_Drivers(t *testing.T) {
 		}
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P3-1: MySQL ? placeholders
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestMySQL_SelectCondition_UsesQuestionMarkPlaceholder(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.QueryExpression{
+		Source: identExpr("users"),
+		Conditions: []ast.QueryConditionNode{
+			&ast.QueryCondition{Left: identExpr("id"), Operator: "==", Right: interpExpr(&Integer{Value: 42})},
+		},
+		Terminal: manyTerminal(),
+	}
+
+	sqlStr, _, err := buildSelectSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(sqlStr, "?") {
+		t.Errorf("expected ? placeholder, got: %s", sqlStr)
+	}
+	if strings.Contains(sqlStr, "$1") {
+		t.Errorf("expected no $N placeholder for MySQL, got: %s", sqlStr)
+	}
+}
+
+func TestMySQL_InsertValues_UsesQuestionMarkPlaceholder(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.InsertExpression{
+		Source: identExpr("users"),
+		Writes: []*ast.InsertFieldWrite{
+			{Field: "name", Value: strExpr("Alice")},
+			{Field: "email", Value: strExpr("alice@example.com")},
+		},
+		Terminal: executeTerminal(),
+	}
+
+	sqlStr, _, err := buildInsertSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(sqlStr, "?, ?") {
+		t.Errorf("expected ?, ? placeholders, got: %s", sqlStr)
+	}
+	if strings.Contains(sqlStr, "$") {
+		t.Errorf("expected no $N placeholder for MySQL, got: %s", sqlStr)
+	}
+}
+
+func TestMySQL_UpdateCondition_UsesQuestionMarkPlaceholder(t *testing.T) {
+	binding := makeBinding("mysql", "posts", "")
+
+	node := &ast.UpdateExpression{
+		Source: identExpr("posts"),
+		Writes: []*ast.InsertFieldWrite{
+			{Field: "title", Value: strExpr("New Title")},
+		},
+		Conditions: []*ast.QueryCondition{
+			{Left: identExpr("id"), Operator: "==", Right: interpExpr(&Integer{Value: 7})},
+		},
+		Terminal: executeTerminal(),
+	}
+
+	sqlStr, _, err := buildUpdateSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(sqlStr, "$") {
+		t.Errorf("expected no $N placeholder for MySQL, got: %s", sqlStr)
+	}
+	// Two parameters: SET title = ?, WHERE id = ?
+	count := strings.Count(sqlStr, "?")
+	if count != 2 {
+		t.Errorf("expected 2 ? placeholders, got %d in: %s", count, sqlStr)
+	}
+}
+
+func TestMySQL_DeleteHard_UsesQuestionMarkPlaceholder(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.DeleteExpression{
+		Source: identExpr("users"),
+		Conditions: []*ast.QueryCondition{
+			{Left: identExpr("id"), Operator: "==", Right: interpExpr(&Integer{Value: 5})},
+		},
+		Terminal: executeTerminal(),
+	}
+
+	sqlStr, _, err := buildDeleteSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(sqlStr, "$") {
+		t.Errorf("expected no $N placeholder for MySQL, got: %s", sqlStr)
+	}
+	if !strings.Contains(sqlStr, "?") {
+		t.Errorf("expected ? placeholder, got: %s", sqlStr)
+	}
+}
+
+func TestMySQL_SoftDelete_UsesCurrentTimestamp(t *testing.T) {
+	binding := makeBinding("mysql", "users", "deleted_at")
+
+	node := &ast.DeleteExpression{
+		Source:   identExpr("users"),
+		Terminal: executeTerminal(),
+	}
+
+	sqlStr, _, err := buildDeleteSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(sqlStr, "CURRENT_TIMESTAMP") {
+		t.Errorf("expected CURRENT_TIMESTAMP for MySQL soft delete, got: %s", sqlStr)
+	}
+	if strings.Contains(sqlStr, "datetime('now')") {
+		t.Errorf("expected no datetime('now') for MySQL, got: %s", sqlStr)
+	}
+}
+
+func TestMySQL_InClause_UsesQuestionMarkPlaceholders(t *testing.T) {
+	paramIdx := 1
+
+	values := &Array{Elements: []Object{
+		&Integer{Value: 1},
+		&Integer{Value: 2},
+		&Integer{Value: 3},
+	}}
+
+	sqlStr, _, err := buildInClause("id", values, &paramIdx, "mysql")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(sqlStr, "$") {
+		t.Errorf("expected no $N placeholder for MySQL, got: %s", sqlStr)
+	}
+	if strings.Count(sqlStr, "?") != 3 {
+		t.Errorf("expected 3 ? placeholders, got: %s", sqlStr)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P3-2: MySQL RETURNING → error DB-0018
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestMySQL_InsertReturning_ReturnsError(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.InsertExpression{
+		Source:   identExpr("users"),
+		Writes:   []*ast.InsertFieldWrite{{Field: "name", Value: strExpr("Alice")}},
+		Terminal: oneTerminal(),
+	}
+
+	_, _, err := buildInsertSQL(node, binding, makeEnv())
+	if err == nil {
+		t.Fatal("expected error for MySQL RETURNING, got nil")
+	}
+	if err.Code != "DB-0018" {
+		t.Errorf("expected error code DB-0018, got %s", err.Code)
+	}
+	if !strings.Contains(err.Message, "RETURNING") {
+		t.Errorf("expected error message to mention RETURNING, got: %s", err.Message)
+	}
+}
+
+func TestMySQL_InsertManyReturning_ReturnsError(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.InsertExpression{
+		Source:   identExpr("users"),
+		Writes:   []*ast.InsertFieldWrite{{Field: "name", Value: strExpr("Bob")}},
+		Terminal: manyTerminal(),
+	}
+
+	_, _, err := buildInsertSQL(node, binding, makeEnv())
+	if err == nil {
+		t.Fatal("expected error for MySQL RETURNING (many), got nil")
+	}
+	if err.Code != "DB-0018" {
+		t.Errorf("expected error code DB-0018, got %s", err.Code)
+	}
+}
+
+func TestMySQL_InsertNonReturning_Succeeds(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.InsertExpression{
+		Source:   identExpr("users"),
+		Writes:   []*ast.InsertFieldWrite{{Field: "name", Value: strExpr("Carol")}},
+		Terminal: executeTerminal(),
+	}
+
+	sqlStr, _, err := buildInsertSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error for MySQL non-returning INSERT: %v", err)
+	}
+	if !strings.Contains(sqlStr, "INSERT INTO users") {
+		t.Errorf("expected INSERT INTO users, got: %s", sqlStr)
+	}
+}
+
+func TestMySQL_UpdateReturning_ReturnsError(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.UpdateExpression{
+		Source:   identExpr("users"),
+		Writes:   []*ast.InsertFieldWrite{{Field: "name", Value: strExpr("Dave")}},
+		Terminal: oneTerminal(),
+	}
+
+	_, _, err := buildUpdateSQL(node, binding, makeEnv())
+	if err == nil {
+		t.Fatal("expected error for MySQL UPDATE RETURNING, got nil")
+	}
+	if err.Code != "DB-0018" {
+		t.Errorf("expected error code DB-0018, got %s", err.Code)
+	}
+}
+
+func TestMySQL_DeleteReturning_ReturnsError(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.DeleteExpression{
+		Source:   identExpr("users"),
+		Terminal: oneTerminal(),
+	}
+
+	_, _, err := buildDeleteSQL(node, binding, makeEnv())
+	if err == nil {
+		t.Fatal("expected error for MySQL DELETE RETURNING, got nil")
+	}
+	if err.Code != "DB-0018" {
+		t.Errorf("expected error code DB-0018, got %s", err.Code)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P3-3: MySQL upsert → ON DUPLICATE KEY UPDATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestMySQL_Upsert_UsesOnDuplicateKeyUpdate(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.InsertExpression{
+		Source: identExpr("users"),
+		Writes: []*ast.InsertFieldWrite{
+			{Field: "email", Value: strExpr("alice@example.com")},
+			{Field: "name", Value: strExpr("Alice")},
+		},
+		UpsertKey: []string{"email"},
+		Terminal:  executeTerminal(),
+	}
+
+	sqlStr, _, err := buildInsertSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(sqlStr, "ON DUPLICATE KEY UPDATE") {
+		t.Errorf("expected ON DUPLICATE KEY UPDATE for MySQL upsert, got: %s", sqlStr)
+	}
+	if !strings.Contains(sqlStr, "VALUES(") {
+		t.Errorf("expected VALUES() references in MySQL upsert, got: %s", sqlStr)
+	}
+	if strings.Contains(sqlStr, "EXCLUDED") {
+		t.Errorf("expected no EXCLUDED reference for MySQL, got: %s", sqlStr)
+	}
+	if strings.Contains(sqlStr, "ON CONFLICT") {
+		t.Errorf("expected no ON CONFLICT for MySQL, got: %s", sqlStr)
+	}
+}
+
+func TestMySQL_BatchUpsert_UsesOnDuplicateKeyUpdate(t *testing.T) {
+	binding := makeBinding("mysql", "products", "")
+
+	node := &ast.InsertExpression{
+		Source: identExpr("products"),
+		Writes: []*ast.InsertFieldWrite{
+			{Field: "sku", Value: strExpr("ABC-001")},
+			{Field: "price", Value: intExpr(999)},
+		},
+		UpsertKey: []string{"sku"},
+		Terminal:  executeTerminal(),
+	}
+
+	sqlStr, _, err := buildInsertSQLForBatch(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(sqlStr, "ON DUPLICATE KEY UPDATE") {
+		t.Errorf("expected ON DUPLICATE KEY UPDATE for MySQL batch upsert, got: %s", sqlStr)
+	}
+	if strings.Contains(sqlStr, "ON CONFLICT") {
+		t.Errorf("expected no ON CONFLICT for MySQL, got: %s", sqlStr)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P3-4: MySQL DDL → CHAR_LENGTH in CHECK constraints
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestMySQL_CreateTable_UsesCharLength(t *testing.T) {
+	minLen := 2
+	maxLen := 100
+	schema := &DSLSchema{
+		Name: "users",
+		Fields: map[string]*DSLSchemaField{
+			"username": {
+				Name:      "username",
+				Type:      "string",
+				MinLength: &minLen,
+				MaxLength: &maxLen,
+				Nullable:  true,
+			},
+		},
+		FieldOrder: []string{"username"},
+	}
+
+	ddl := buildCreateTableSQL(schema, "users", "mysql")
+	if !strings.Contains(ddl, "CHAR_LENGTH") {
+		t.Errorf("expected CHAR_LENGTH in MySQL DDL, got: %s", ddl)
+	}
+	if strings.Contains(ddl, "length(") {
+		t.Errorf("expected no length() in MySQL DDL, got: %s", ddl)
+	}
+}
+
+func TestSQLite_CreateTable_UsesLength(t *testing.T) {
+	minLen := 2
+	maxLen := 100
+	schema := &DSLSchema{
+		Name: "users",
+		Fields: map[string]*DSLSchemaField{
+			"username": {
+				Name:      "username",
+				Type:      "string",
+				MinLength: &minLen,
+				MaxLength: &maxLen,
+				Nullable:  true,
+			},
+		},
+		FieldOrder: []string{"username"},
+	}
+
+	ddl := buildCreateTableSQL(schema, "users", "sqlite")
+	if !strings.Contains(ddl, "length(") {
+		t.Errorf("expected length() in SQLite DDL, got: %s", ddl)
+	}
+	if strings.Contains(ddl, "CHAR_LENGTH") {
+		t.Errorf("expected no CHAR_LENGTH in SQLite DDL, got: %s", ddl)
+	}
+}
+
+func TestSQLLengthFunc_Drivers(t *testing.T) {
+	cases := []struct {
+		driver string
+		want   string
+	}{
+		{"mysql", "CHAR_LENGTH"},
+		{"sqlite", "length"},
+		{"postgres", "length"},
+		{"", "length"},
+	}
+	for _, c := range cases {
+		got := sqlLengthFunc(c.driver)
+		if got != c.want {
+			t.Errorf("sqlLengthFunc(%q) = %q, want %q", c.driver, got, c.want)
+		}
+	}
+}

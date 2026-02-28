@@ -26,6 +26,16 @@ func sqlPlaceholder(driver string, idx int) string {
 	return fmt.Sprintf("$%d", idx)
 }
 
+// sqlLengthFunc returns the driver-appropriate SQL function name for string length.
+// MySQL uses CHAR_LENGTH to return character count (not byte count) for UTF-8 strings.
+// SQLite and PostgreSQL use length.
+func sqlLengthFunc(driver string) string {
+	if driver == "mysql" {
+		return "CHAR_LENGTH"
+	}
+	return "length"
+}
+
 // evalQueryExpression evaluates a @query(...) expression
 func evalQueryExpression(node *ast.QueryExpression, env *Environment) Object {
 	// 1. Resolve the source binding from the environment
@@ -2088,8 +2098,9 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 	}
 
 	// Build query: SELECT * FROM related_table WHERE foreign_key = parent_id
+	driver := parentBinding.DB.Driver
 	var sql strings.Builder
-	fmt.Fprintf(&sql, "SELECT * FROM %s WHERE %s = $1", relatedBinding.TableName, relation.ForeignKey)
+	fmt.Fprintf(&sql, "SELECT * FROM %s WHERE %s = %s", relatedBinding.TableName, relation.ForeignKey, sqlPlaceholder(driver, 1))
 	params := []Object{parentID}
 	paramIndex := 2
 
@@ -2172,7 +2183,8 @@ func loadBelongsToRelation(parentBinding *TableBinding, relation *DSLSchemaRelat
 	}
 
 	// Build query: SELECT * FROM related_table WHERE id = foreign_key_value LIMIT 1
-	sql := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", relatedBinding.TableName)
+	driver := parentBinding.DB.Driver
+	sql := fmt.Sprintf("SELECT * FROM %s WHERE id = %s", relatedBinding.TableName, sqlPlaceholder(driver, 1))
 
 	// Add soft delete filter if configured
 	if relatedBinding.SoftDeleteColumn != "" {
@@ -2383,21 +2395,36 @@ func buildInsertSQL(node *ast.InsertExpression, binding *TableBinding, env *Envi
 	sql.WriteString(strings.Join(placeholders, ", "))
 	sql.WriteString(")")
 
-	// Handle upsert (ON CONFLICT)
+	// Handle upsert
 	if len(node.UpsertKey) > 0 {
-		sql.WriteString(" ON CONFLICT (")
-		sql.WriteString(strings.Join(node.UpsertKey, ", "))
-		sql.WriteString(") DO UPDATE SET ")
-
-		var updates []string
-		for _, col := range columns {
-			updates = append(updates, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
+		if driver == "mysql" {
+			sql.WriteString(" ON DUPLICATE KEY UPDATE ")
+			var updates []string
+			for _, col := range columns {
+				updates = append(updates, fmt.Sprintf("%s = VALUES(%s)", col, col))
+			}
+			sql.WriteString(strings.Join(updates, ", "))
+		} else {
+			sql.WriteString(" ON CONFLICT (")
+			sql.WriteString(strings.Join(node.UpsertKey, ", "))
+			sql.WriteString(") DO UPDATE SET ")
+			var updates []string
+			for _, col := range columns {
+				updates = append(updates, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
+			}
+			sql.WriteString(strings.Join(updates, ", "))
 		}
-		sql.WriteString(strings.Join(updates, ", "))
 	}
 
 	// Add RETURNING clause if terminal requests data
 	if node.Terminal != nil && (node.Terminal.Type == "one" || node.Terminal.Type == "many") {
+		if driver == "mysql" {
+			return "", nil, &Error{
+				Message: "@insert ?-> / ??-> (RETURNING) is not supported on MySQL. Use @insert . and query separately.",
+				Class:   ClassDatabase,
+				Code:    "DB-0018",
+			}
+		}
 		sql.WriteString(" RETURNING ")
 		if len(node.Terminal.Projection) == 0 || node.Terminal.Projection[0] == "*" {
 			sql.WriteString("*")
@@ -2574,19 +2601,34 @@ func buildInsertSQLForBatch(node *ast.InsertExpression, binding *TableBinding, e
 
 	// Handle upsert
 	if len(node.UpsertKey) > 0 {
-		sql.WriteString(" ON CONFLICT (")
-		sql.WriteString(strings.Join(node.UpsertKey, ", "))
-		sql.WriteString(") DO UPDATE SET ")
-
-		var updates []string
-		for _, col := range columns {
-			updates = append(updates, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
+		if driver == "mysql" {
+			sql.WriteString(" ON DUPLICATE KEY UPDATE ")
+			var updates []string
+			for _, col := range columns {
+				updates = append(updates, fmt.Sprintf("%s = VALUES(%s)", col, col))
+			}
+			sql.WriteString(strings.Join(updates, ", "))
+		} else {
+			sql.WriteString(" ON CONFLICT (")
+			sql.WriteString(strings.Join(node.UpsertKey, ", "))
+			sql.WriteString(") DO UPDATE SET ")
+			var updates []string
+			for _, col := range columns {
+				updates = append(updates, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
+			}
+			sql.WriteString(strings.Join(updates, ", "))
 		}
-		sql.WriteString(strings.Join(updates, ", "))
 	}
 
 	// Add RETURNING for batch with results
 	if node.Terminal != nil && (node.Terminal.Type == "one" || node.Terminal.Type == "many") {
+		if driver == "mysql" {
+			return "", nil, &Error{
+				Message: "@insert ?-> / ??-> (RETURNING) is not supported on MySQL. Use @insert . and query separately.",
+				Class:   ClassDatabase,
+				Code:    "DB-0018",
+			}
+		}
 		sql.WriteString(" RETURNING ")
 		if len(node.Terminal.Projection) == 0 || node.Terminal.Projection[0] == "*" {
 			sql.WriteString("*")
@@ -2740,6 +2782,13 @@ func buildUpdateSQL(node *ast.UpdateExpression, binding *TableBinding, env *Envi
 
 	// Add RETURNING clause if terminal requests data
 	if node.Terminal != nil && (node.Terminal.Type == "one" || node.Terminal.Type == "many") {
+		if driver == "mysql" {
+			return "", nil, &Error{
+				Message: "@update ?-> / ??-> (RETURNING) is not supported on MySQL. Use @update . and query separately.",
+				Class:   ClassDatabase,
+				Code:    "DB-0018",
+			}
+		}
 		sql.WriteString(" RETURNING ")
 		if len(node.Terminal.Projection) == 0 || node.Terminal.Projection[0] == "*" {
 			sql.WriteString("*")
@@ -2970,6 +3019,13 @@ func buildDeleteSQL(node *ast.DeleteExpression, binding *TableBinding, env *Envi
 
 	// Add RETURNING clause if terminal requests data
 	if node.Terminal != nil && (node.Terminal.Type == "one" || node.Terminal.Type == "many") {
+		if driver == "mysql" {
+			return "", nil, &Error{
+				Message: "@delete ?-> / ??-> (RETURNING) is not supported on MySQL. Use @delete . and query separately.",
+				Class:   ClassDatabase,
+				Code:    "DB-0018",
+			}
+		}
 		sql.WriteString(" RETURNING ")
 		if len(node.Terminal.Projection) == 0 || node.Terminal.Projection[0] == "*" {
 			sql.WriteString("*")
