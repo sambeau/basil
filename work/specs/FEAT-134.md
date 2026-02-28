@@ -1,7 +1,7 @@
 ---
 id: FEAT-134
 title: "Query DSL Cross-Database Compatibility (Postgres & MySQL)"
-status: draft
+status: complete
 priority: high
 created: 2026-02-28
 author: "@human"
@@ -32,7 +32,8 @@ All findings from `work/reports/QUERY-DSL-CROSS-DB-AUDIT.md` (2025-07-27).
 
 ---
 
-## Phase 1: PostgreSQL Fixes (Required for 1.0)
+## Phase 1: PostgreSQL Fixes ✅ Complete
+
 
 ### P1-1. Soft delete generates SQLite-specific `datetime('now')`
 
@@ -59,9 +60,9 @@ func currentTimestampSQL(driver string) string {
 `CURRENT_TIMESTAMP` is standard SQL and works on both PostgreSQL and MySQL. SQLite also supports it, but `datetime('now')` is the existing idiomatic form so we keep it for SQLite.
 
 **Acceptance criteria:**
-- [ ] `buildDeleteSQL` uses `currentTimestampSQL(binding.DB.Driver)` instead of hardcoded `datetime('now')`
-- [ ] Unit test: `buildDeleteSQL` with `Driver: "postgres"` produces SQL containing `CURRENT_TIMESTAMP`
-- [ ] Unit test: `buildDeleteSQL` with `Driver: "sqlite"` still produces SQL containing `datetime('now')`
+- [x] `buildDeleteSQL` uses `currentTimestampSQL(binding.DB.Driver)` instead of hardcoded `datetime('now')`
+- [x] Unit test: `buildDeleteSQL` with `Driver: "postgres"` produces SQL containing `CURRENT_TIMESTAMP`
+- [x] Unit test: `buildDeleteSQL` with `Driver: "sqlite"` still produces SQL containing `datetime('now')`
 
 ---
 
@@ -97,14 +98,15 @@ if lastIdErr == nil {
 This applies to both `evalExecuteStatement` (statement form) and `evalDatabaseExecute` (infix expression form).
 
 **Acceptance criteria:**
-- [ ] `evalExecuteStatement`: when `LastInsertId()` returns an error, `lastId` is `null` (not `0`)
-- [ ] `evalDatabaseExecute`: same fix applied
-- [ ] Unit test: mock a `sql.Result` that errors on `LastInsertId()`, verify result dict has `lastId: null`
-- [ ] Existing SQLite tests still pass (SQLite's `LastInsertId()` returns successfully)
+- [x] `evalExecuteStatement`: when `LastInsertId()` returns an error, `lastId` is `null` (not `0`)
+- [x] `evalDatabaseExecute`: same fix applied
+- [x] Unit test: mock a `sql.Result` that errors on `LastInsertId()`, verify result dict has `lastId: null`
+- [x] Existing SQLite tests still pass (SQLite's `LastInsertId()` returns successfully)
 
 ---
 
-## Phase 2: Postgres Hardening (Required for 1.0)
+## Phase 2: Postgres Hardening ✅ Complete
+
 
 ### P2-1. Thread `driver` into `buildDeleteSQL`
 
@@ -135,10 +137,10 @@ However, future phases (Phase 3) will need `driver` threaded into `buildConditio
 For Phase 2, all these functions receive `driver` but only `buildDeleteSQL` changes behavior. The parameter is passed through everywhere else unchanged. Phase 3 will activate the driver-aware behavior in the remaining functions.
 
 **Acceptance criteria:**
-- [ ] All SQL-building functions accept a `driver string` parameter
-- [ ] All call sites pass `binding.DB.Driver` (or propagate from caller)
-- [ ] All existing tests pass with no behavior change (SQLite driver)
-- [ ] No `driver` parameter is left unused at the function level (it should at minimum be passed to child functions)
+- [x] All SQL-building functions accept a `driver string` parameter
+- [x] All call sites pass `binding.DB.Driver` (or propagate from caller)
+- [x] All existing tests pass with no behavior change (SQLite driver)
+- [x] No `driver` parameter is left unused at the function level (it should at minimum be passed to child functions)
 
 ---
 
@@ -166,9 +168,9 @@ This does NOT require a running Postgres instance — it's SQL string assertion.
 - BETWEEN → `$1` and `$2` placeholders
 
 **Acceptance criteria:**
-- [ ] At least 10 SQL-generation tests asserting Postgres-correct SQL
-- [ ] Soft delete test confirms `CURRENT_TIMESTAMP` for Postgres driver
-- [ ] All tests run without a Postgres instance (pure SQL string tests)
+- [x] At least 10 SQL-generation tests asserting Postgres-correct SQL (19 written)
+- [x] Soft delete test confirms `CURRENT_TIMESTAMP` for Postgres driver
+- [x] All tests run without a Postgres instance (pure SQL string tests)
 
 ---
 
@@ -196,10 +198,10 @@ Replace all `fmt.Sprintf("$%d", *paramIdx)` calls with `sqlPlaceholder(driver, *
 The `paramIdx` counter is still incremented for MySQL — it tracks the parameter's position in the `params` slice. Only the emitted SQL text changes.
 
 **Acceptance criteria:**
-- [ ] All `fmt.Sprintf("$%d", ...)` calls in `stdlib_dsl_query.go` replaced with `sqlPlaceholder()`
-- [ ] `loadHasManyRelation` and `loadBelongsToRelation` use `sqlPlaceholder()`
-- [ ] SQL-generation tests for MySQL driver confirm `?` placeholders throughout
-- [ ] Existing SQLite and Postgres tests unchanged
+- [x] All `fmt.Sprintf("$%d", ...)` calls in `stdlib_dsl_query.go` replaced with `sqlPlaceholder()`
+- [x] `loadHasManyRelation` and `loadBelongsToRelation` use `sqlPlaceholder()`
+- [x] SQL-generation tests for MySQL driver confirm `?` placeholders throughout
+- [x] Existing SQLite and Postgres tests unchanged
 
 ---
 
@@ -227,13 +229,13 @@ Same pattern for `@update` and `@delete`.
 **Design decision:** Error rather than emulation. Emulating `RETURNING` (INSERT + SELECT, or pre-SELECT + mutation in a transaction) adds complexity, implicit transactions, and edge cases (concurrent modifications, non-auto-increment PKs). A clear error with a workaround hint is more honest and maintainable. Emulation can be added later if user demand warrants it.
 
 **Acceptance criteria:**
-- [ ] `buildInsertSQL` returns error for MySQL + returning terminal
-- [ ] `buildInsertSQLForBatch` returns error for MySQL + returning terminal
-- [ ] `buildUpdateSQL` returns error for MySQL + returning terminal
-- [ ] `buildDeleteSQL` returns error for MySQL + returning terminal
-- [ ] Error message includes actionable workaround
-- [ ] Non-returning terminals (`.`, `.-> count`) continue to work on MySQL
-- [ ] New error code `DB-0018` registered in error catalog
+- [x] `buildInsertSQL` returns error for MySQL + returning terminal
+- [x] `buildInsertSQLForBatch` returns error for MySQL + returning terminal
+- [x] `buildUpdateSQL` returns error for MySQL + returning terminal
+- [x] `buildDeleteSQL` returns error for MySQL + returning terminal
+- [x] Error message includes actionable workaround
+- [x] Non-returning terminals (`.`, `.-> count`) continue to work on MySQL
+- [x] New error code `DB-0018` registered in error catalog
 
 ---
 
@@ -280,10 +282,10 @@ if len(node.UpsertKey) > 0 {
 **Note:** MySQL's `ON DUPLICATE KEY` uses the table's unique/primary key implicitly — the `UpsertKey` fields are not specified in the SQL (MySQL infers from the table definition). The DSL's `upsertKey` is still needed to know which columns to exclude from the UPDATE set in more sophisticated scenarios, but for the basic `col = VALUES(col)` pattern, the key fields don't appear in the MySQL SQL.
 
 **Acceptance criteria:**
-- [ ] MySQL driver generates `ON DUPLICATE KEY UPDATE col = VALUES(col)`
-- [ ] PostgreSQL/SQLite driver unchanged (`ON CONFLICT ... EXCLUDED`)
-- [ ] Both `buildInsertSQL` and `buildInsertSQLForBatch` updated
-- [ ] SQL-generation test for MySQL upsert
+- [x] MySQL driver generates `ON DUPLICATE KEY UPDATE col = VALUES(col)`
+- [x] PostgreSQL/SQLite driver unchanged (`ON CONFLICT ... EXCLUDED`)
+- [x] Both `buildInsertSQL` and `buildInsertSQLForBatch` updated
+- [x] SQL-generation test for MySQL upsert
 
 ---
 
@@ -313,9 +315,9 @@ checks = append(checks, fmt.Sprintf("%s(%s) >= %d AND %s(%s) <= %d",
 ```
 
 **Acceptance criteria:**
-- [ ] MySQL DDL uses `CHAR_LENGTH()` in CHECK constraints
-- [ ] SQLite/Postgres DDL unchanged (`length()`)
-- [ ] SQL-generation test for MySQL CHECK constraint with string length
+- [x] MySQL DDL uses `CHAR_LENGTH()` in CHECK constraints
+- [x] SQLite/Postgres DDL unchanged (`length()`)
+- [x] SQL-generation test for MySQL CHECK constraint with string length
 
 ---
 
@@ -339,10 +341,10 @@ checks = append(checks, fmt.Sprintf("%s(%s) >= %d AND %s(%s) <= %d",
 - CREATE TABLE with string length → `CHAR_LENGTH`
 
 **Acceptance criteria:**
-- [ ] At least 13 SQL-generation tests asserting MySQL-correct SQL
-- [ ] All placeholder tests confirm `?` not `$N`
-- [ ] RETURNING terminal tests confirm error with helpful message
-- [ ] All tests run without a MySQL instance (pure SQL string tests)
+- [x] At least 13 SQL-generation tests asserting MySQL-correct SQL (16 written)
+- [x] All placeholder tests confirm `?` not `$N`
+- [x] RETURNING terminal tests confirm error with helpful message
+- [x] All tests run without a MySQL instance (pure SQL string tests)
 
 ---
 

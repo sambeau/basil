@@ -180,21 +180,30 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 
 	// Get affected rows and last insert ID
 	affected, _ := result.RowsAffected()
-	lastId, _ := result.LastInsertId()
+	lastIdVal, lastIdErr := result.LastInsertId()
+
+	pairs := map[string]ast.Expression{
+		"affected": &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(affected, 10)},
+			Value: affected,
+		},
+	}
+	if lastIdErr == nil {
+		pairs["lastId"] = &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(lastIdVal, 10)},
+			Value: lastIdVal,
+		}
+	} else {
+		pairs["lastId"] = &ast.Identifier{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: "null"},
+			Value: "null",
+		}
+	}
 
 	// Return result as dictionary
 	resultDict := &Dictionary{
-		Pairs: map[string]ast.Expression{
-			"affected": &ast.IntegerLiteral{
-				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(affected, 10)},
-				Value: affected,
-			},
-			"lastId": &ast.IntegerLiteral{
-				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(lastId, 10)},
-				Value: lastId,
-			},
-		},
-		Env: env,
+		Pairs: pairs,
+		Env:   env,
 	}
 
 	return assignQueryResult(node.Names, resultDict, env, node.IsLet)
@@ -418,21 +427,30 @@ func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Obje
 
 	// Get affected rows and last insert ID
 	affected, _ := result.RowsAffected()
-	lastId, _ := result.LastInsertId()
+	lastIdVal, lastIdErr := result.LastInsertId()
+
+	pairs := map[string]ast.Expression{
+		"affected": &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(affected, 10)},
+			Value: affected,
+		},
+	}
+	if lastIdErr == nil {
+		pairs["lastId"] = &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(lastIdVal, 10)},
+			Value: lastIdVal,
+		}
+	} else {
+		pairs["lastId"] = &ast.Identifier{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: "null"},
+			Value: "null",
+		}
+	}
 
 	// Return result as dictionary
 	return &Dictionary{
-		Pairs: map[string]ast.Expression{
-			"affected": &ast.IntegerLiteral{
-				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(affected, 10)},
-				Value: affected,
-			},
-			"lastId": &ast.IntegerLiteral{
-				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(lastId, 10)},
-				Value: lastId,
-			},
-		},
-		Env: env,
+		Pairs: pairs,
+		Env:   env,
 	}
 }
 

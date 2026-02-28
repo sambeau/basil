@@ -1154,6 +1154,10 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Cannot delete: record has no primary key value",
 		Hints:    []string{"Ensure the record has an 'id' field, or the schema has a primary key defined."},
 	},
+	"DB-0018": {
+		Class:    ClassDatabase,
+		Template: "{{.Operation}} (RETURNING) is not supported on MySQL. Use {{.Alternative}} and query separately.",
+	},
 
 	// ========================================
 	// More call errors (CALL-004+)
