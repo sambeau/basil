@@ -129,6 +129,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 	var sql strings.Builder
 	var params []Object
 	paramIdx := 1
+	driver := binding.DB.Driver
 
 	// Build CTE names map for resolving CTE references in conditions
 	// We build this incrementally as we process CTEs, so earlier CTEs can be referenced by later ones
@@ -142,7 +143,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 				sql.WriteString(", ")
 			}
 			// Pass the CTEs defined so far, so later CTEs can reference earlier ones
-			cteSql, cteParams, err := buildCTESQL(cte, env, &paramIdx, cteNames)
+			cteSql, cteParams, err := buildCTESQL(cte, env, &paramIdx, cteNames, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -217,7 +218,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 		// Also add non-join correlated subquery fields as scalar selects
 		for _, cf := range node.ComputedFields {
 			if cf.Subquery != nil && !cf.IsJoinSubquery {
-				cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx)
+				cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx, driver)
 				if err != nil {
 					return "", nil, err
 				}
@@ -232,7 +233,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 
 		// Then add computed fields (simple aggregates, no correlated subqueries)
 		for _, cf := range node.ComputedFields {
-			cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx)
+			cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -260,7 +261,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 
 		// Add correlated subquery computed fields
 		for _, cf := range node.ComputedFields {
-			cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx)
+			cfSQL, cfParams, err := buildComputedFieldSQL(cf, binding.TableName, env, &paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -371,7 +372,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 
 	// Build JOIN clauses for join subqueries
 	for _, cf := range joinSubqueries {
-		joinSQL, joinParams, err := buildJoinSubquerySQL(cf, outerTableAlias, env, &paramIdx)
+		joinSQL, joinParams, err := buildJoinSubquerySQL(cf, outerTableAlias, env, &paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -407,7 +408,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 			// This is a condition on a correlated subquery field
 			// Generate WHERE clause with inline subquery
 			cf := correlatedFieldDefs[leftName]
-			clause, condParams, err := buildCorrelatedConditionWhereClause(cond, cf, binding.TableName, env, &paramIdx)
+			clause, condParams, err := buildCorrelatedConditionWhereClause(cond, cf, binding.TableName, env, &paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -415,7 +416,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 			whereClauses = append(whereClauses, clause)
 		} else if computedFieldNames[leftName] {
 			// This is a HAVING condition (condition on non-correlated computed field)
-			clause, condParams, _, _, err := buildConditionNodeSQLWithCTEs(cond, env, &paramIdx, cteNames)
+			clause, condParams, _, _, err := buildConditionNodeSQLWithCTEs(cond, env, &paramIdx, cteNames, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -423,7 +424,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 			havingClauses = append(havingClauses, clause)
 		} else {
 			// This is a WHERE condition
-			clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(cond, env, &paramIdx, cteNames)
+			clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(cond, env, &paramIdx, cteNames, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -515,7 +516,7 @@ func buildSelectSQL(node *ast.QueryExpression, binding *TableBinding, env *Envir
 
 // buildCTESQL builds a SELECT statement for a Common Table Expression
 // cteNames contains CTEs defined before this one, for inter-CTE references
-func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, *Error) {
+func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE, driver string) (string, []Object, *Error) {
 	var sql strings.Builder
 	var params []Object
 
@@ -545,7 +546,7 @@ func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames ma
 	// Build WHERE clause from conditions (use CTE-aware version)
 	var whereClauses []string
 	for _, cond := range cte.Conditions {
-		clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(cond, env, paramIdx, cteNames)
+		clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(cond, env, paramIdx, cteNames, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -604,13 +605,13 @@ func buildCTESQL(cte *ast.QueryCTE, env *Environment, paramIdx *int, cteNames ma
 
 // buildComputedFieldSQL converts a QueryComputedField to SQL SELECT expression
 // outerTableName is used for correlated subqueries to qualify column references
-func buildComputedFieldSQL(cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildComputedFieldSQL(cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var expr string
 	var params []Object
 
 	// Check for correlated subquery
 	if cf.Subquery != nil {
-		subExpr, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx)
+		subExpr, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -646,7 +647,7 @@ func buildComputedFieldSQL(cf *ast.QueryComputedField, outerTableName string, en
 
 // buildCorrelatedSubquerySQL builds a correlated subquery that references the outer query
 // Example: SELECT COUNT(*) FROM comments WHERE post_id = posts.id
-func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var sql strings.Builder
 	var params []Object
 
@@ -687,7 +688,7 @@ func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName stri
 				}
 				sql.WriteString(" " + logic + " ")
 			}
-			clause, condParams, err := buildCorrelatedConditionSQL(cond, outerTableName, env, paramIdx)
+			clause, condParams, err := buildCorrelatedConditionSQL(cond, outerTableName, env, paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -725,7 +726,7 @@ func buildCorrelatedSubquerySQL(subquery *ast.QuerySubquery, outerTableName stri
 // buildJoinSubquerySQL builds a JOIN clause for a join-like subquery (??-> terminal)
 // Example: JOIN order_items items ON items.order_id = orders.id
 // This produces row multiplication - each outer row expands to multiple rows based on the joined table
-func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var sql strings.Builder
 	var params []Object
 
@@ -757,7 +758,7 @@ func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, en
 				}
 				sql.WriteString(" " + logic + " ")
 			}
-			clause, condParams, err := buildJoinConditionSQL(cond, outerTableAlias, joinAlias, env, paramIdx)
+			clause, condParams, err := buildJoinConditionSQL(cond, outerTableAlias, joinAlias, env, paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -774,16 +775,16 @@ func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, en
 
 // buildJoinConditionSQL builds a condition for a JOIN ON clause
 // It translates outer.field and inner.field references appropriately
-func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
-		return buildJoinCondition(cond, outerTableAlias, joinAlias, env, paramIdx)
+		return buildJoinCondition(cond, outerTableAlias, joinAlias, env, paramIdx, driver)
 	case *ast.QueryConditionGroup:
 		// Handle condition groups
 		var parts []string
 		var allParams []Object
 		for i, child := range cond.Conditions {
-			part, partParams, err := buildJoinConditionSQL(child, outerTableAlias, joinAlias, env, paramIdx)
+			part, partParams, err := buildJoinConditionSQL(child, outerTableAlias, joinAlias, env, paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -811,7 +812,7 @@ func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, 
 
 // buildJoinCondition builds a single condition for a JOIN ON clause
 // Example: order_id == o.id becomes items.order_id = o.id
-func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get left side - bare identifier is from the joined table
@@ -852,23 +853,23 @@ func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAl
 			if isError(val) {
 				return "", nil, val.(*Error)
 			}
-			placeholder := fmt.Sprintf("$%d", *paramIdx)
+			placeholder := sqlPlaceholder(driver, *paramIdx)
 			*paramIdx++
 			rightStr = placeholder
 			params = append(params, val)
 		}
 	case *ast.IntegerLiteral:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &Integer{Value: right.Value})
 	case *ast.StringLiteral:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &String{Value: right.Value})
 	case *ast.Boolean:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &Boolean{Value: right.Value})
@@ -878,7 +879,7 @@ func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAl
 		if isError(val) {
 			return "", nil, val.(*Error)
 		}
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, val)
@@ -893,16 +894,16 @@ func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAl
 
 // buildCorrelatedConditionSQL builds a condition that may reference outer query columns
 // It handles column references like "post.id" which should resolve to the outer table
-func buildCorrelatedConditionSQL(node ast.QueryConditionNode, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildCorrelatedConditionSQL(node ast.QueryConditionNode, outerTableName string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
-		return buildCorrelatedCondition(cond, outerTableName, env, paramIdx)
+		return buildCorrelatedCondition(cond, outerTableName, env, paramIdx, driver)
 	case *ast.QueryConditionGroup:
 		// Handle condition groups
 		var parts []string
 		var allParams []Object
 		for i, child := range cond.Conditions {
-			part, partParams, err := buildCorrelatedConditionSQL(child, outerTableName, env, paramIdx)
+			part, partParams, err := buildCorrelatedConditionSQL(child, outerTableName, env, paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -929,7 +930,7 @@ func buildCorrelatedConditionSQL(node ast.QueryConditionNode, outerTableName str
 }
 
 // buildCorrelatedCondition builds a single condition with outer table reference support
-func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get left side - if it's "table.column" and table matches outer, don't parameterize
@@ -970,23 +971,23 @@ func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, e
 			if isError(val) {
 				return "", nil, val.(*Error)
 			}
-			placeholder := fmt.Sprintf("$%d", *paramIdx)
+			placeholder := sqlPlaceholder(driver, *paramIdx)
 			*paramIdx++
 			rightStr = placeholder
 			params = append(params, val)
 		}
 	case *ast.IntegerLiteral:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &Integer{Value: right.Value})
 	case *ast.StringLiteral:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &String{Value: right.Value})
 	case *ast.Boolean:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &Boolean{Value: right.Value})
@@ -996,7 +997,7 @@ func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, e
 		if isError(val) {
 			return "", nil, val.(*Error)
 		}
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, val)
@@ -1011,14 +1012,14 @@ func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, e
 
 // buildCorrelatedConditionWhereClause builds a WHERE clause condition for a correlated subquery field
 // Example: (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) > 5
-func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.QueryComputedField, outerTableName string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	qc, ok := cond.(*ast.QueryCondition)
 	if !ok {
 		return "", nil, newStructuredError("DSL-0004", nil)
 	}
 
 	// Build the subquery SQL
-	subSQL, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx)
+	subSQL, subParams, err := buildCorrelatedSubquerySQL(cf.Subquery, outerTableName, env, paramIdx, driver)
 	if err != nil {
 		return "", nil, err
 	}
@@ -1039,17 +1040,17 @@ func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.Qu
 
 	switch right := qc.Right.(type) {
 	case *ast.IntegerLiteral:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &Integer{Value: right.Value})
 	case *ast.StringLiteral:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &String{Value: right.Value})
 	case *ast.Boolean:
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, &Boolean{Value: right.Value})
@@ -1059,7 +1060,7 @@ func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.Qu
 		if isError(val) {
 			return "", nil, val.(*Error)
 		}
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
 		params = append(params, val)
@@ -1074,10 +1075,10 @@ func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.Qu
 
 // buildConditionNodeSQL converts a QueryConditionNode (either QueryCondition or QueryConditionGroup) to SQL
 // Returns the SQL clause, parameters, logic operator (and/or), and negated flag
-func buildConditionNodeSQL(node ast.QueryConditionNode, env *Environment, paramIdx *int) (string, []Object, string, bool, *Error) {
+func buildConditionNodeSQL(node ast.QueryConditionNode, env *Environment, paramIdx *int, driver string) (string, []Object, string, bool, *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
-		clause, params, err := buildConditionSQL(cond, env, paramIdx)
+		clause, params, err := buildConditionSQL(cond, env, paramIdx, driver)
 		if err != nil {
 			return "", nil, "", false, err
 		}
@@ -1087,7 +1088,7 @@ func buildConditionNodeSQL(node ast.QueryConditionNode, env *Environment, paramI
 		}
 		return clause, params, cond.Logic, cond.Negated, nil
 	case *ast.QueryConditionGroup:
-		clause, params, err := buildConditionGroupSQL(cond, env, paramIdx)
+		clause, params, err := buildConditionGroupSQL(cond, env, paramIdx, driver)
 		if err != nil {
 			return "", nil, "", false, err
 		}
@@ -1102,12 +1103,12 @@ func buildConditionNodeSQL(node ast.QueryConditionNode, env *Environment, paramI
 }
 
 // buildConditionGroupSQL converts a QueryConditionGroup to SQL (a parenthesized group of conditions)
-func buildConditionGroupSQL(group *ast.QueryConditionGroup, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildConditionGroupSQL(group *ast.QueryConditionGroup, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 	var clauses []string
 
 	for i, node := range group.Conditions {
-		clause, condParams, logic, _, err := buildConditionNodeSQL(node, env, paramIdx)
+		clause, condParams, logic, _, err := buildConditionNodeSQL(node, env, paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -1134,10 +1135,10 @@ func buildConditionGroupSQL(group *ast.QueryConditionGroup, env *Environment, pa
 }
 
 // buildConditionNodeSQLWithCTEs is like buildConditionNodeSQL but handles CTE references
-func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, string, bool, *Error) {
+func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE, driver string) (string, []Object, string, bool, *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
-		clause, params, err := buildConditionSQLWithCTEs(cond, env, paramIdx, cteNames)
+		clause, params, err := buildConditionSQLWithCTEs(cond, env, paramIdx, cteNames, driver)
 		if err != nil {
 			return "", nil, "", false, err
 		}
@@ -1147,7 +1148,7 @@ func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment
 		}
 		return clause, params, cond.Logic, cond.Negated, nil
 	case *ast.QueryConditionGroup:
-		clause, params, err := buildConditionGroupSQLWithCTEs(cond, env, paramIdx, cteNames)
+		clause, params, err := buildConditionGroupSQLWithCTEs(cond, env, paramIdx, cteNames, driver)
 		if err != nil {
 			return "", nil, "", false, err
 		}
@@ -1162,12 +1163,12 @@ func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment
 }
 
 // buildConditionGroupSQLWithCTEs is like buildConditionGroupSQL but handles CTE references
-func buildConditionGroupSQLWithCTEs(group *ast.QueryConditionGroup, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, *Error) {
+func buildConditionGroupSQLWithCTEs(group *ast.QueryConditionGroup, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE, driver string) (string, []Object, *Error) {
 	var params []Object
 	var clauses []string
 
 	for i, node := range group.Conditions {
-		clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(node, env, paramIdx, cteNames)
+		clause, condParams, logic, _, err := buildConditionNodeSQLWithCTEs(node, env, paramIdx, cteNames, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -1195,7 +1196,7 @@ func buildConditionGroupSQLWithCTEs(group *ast.QueryConditionGroup, env *Environ
 
 // buildConditionSQLWithCTEs is like buildConditionSQL but handles CTE references
 // When the right side is an identifier that matches a CTE name, it generates a subquery reference
-func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE) (string, []Object, *Error) {
+func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get the column name from the left side
@@ -1229,9 +1230,9 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 		if endErr != nil {
 			return "", nil, endErr
 		}
-		startPlaceholder := fmt.Sprintf("$%d", *paramIdx)
+		startPlaceholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
-		endPlaceholder := fmt.Sprintf("$%d", *paramIdx)
+		endPlaceholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		params = append(params, startVal, endVal)
 		return fmt.Sprintf("%s BETWEEN %s AND %s", leftStr, startPlaceholder, endPlaceholder), params, nil
@@ -1239,7 +1240,7 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 
 	// Check for subquery on the right side
 	if subquery, ok := cond.Right.(*ast.QuerySubquery); ok {
-		return buildSubqueryCondition(leftStr, cond.Operator, subquery, env, paramIdx)
+		return buildSubqueryCondition(leftStr, cond.Operator, subquery, env, paramIdx, driver)
 	}
 
 	// Check for CTE reference on the right side (for "in" or "not in" operators)
@@ -1312,9 +1313,9 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 	case ">", "<", ">=", "<=":
 		sqlOp = cond.Operator
 	case "in":
-		return buildInClause(leftStr, rightVal, paramIdx)
+		return buildInClause(leftStr, rightVal, paramIdx, driver)
 	case "not in":
-		clause, inParams, err := buildInClause(leftStr, rightVal, paramIdx)
+		clause, inParams, err := buildInClause(leftStr, rightVal, paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -1331,13 +1332,14 @@ func buildConditionSQLWithCTEs(cond *ast.QueryCondition, env *Environment, param
 		}
 	}
 
-	placeholder := fmt.Sprintf("$%d", *paramIdx)
+	placeholder := sqlPlaceholder(driver, *paramIdx)
 	*paramIdx++
 	params = append(params, rightVal)
 
 	return fmt.Sprintf("%s %s %s", leftStr, sqlOp, placeholder), params, nil
 }
 
+// getConditionLeft returns the left-hand identifier name of a condition node, if any
 // getConditionLeft extracts the left identifier name from a condition node (for computed field check)
 func getConditionLeft(node ast.QueryConditionNode) string {
 	if cond, ok := node.(*ast.QueryCondition); ok {
@@ -1350,7 +1352,7 @@ func getConditionLeft(node ast.QueryConditionNode) string {
 }
 
 // buildConditionSQL converts a QueryCondition to SQL
-func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get the column name from the left side
@@ -1384,9 +1386,9 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 		if endErr != nil {
 			return "", nil, endErr
 		}
-		startPlaceholder := fmt.Sprintf("$%d", *paramIdx)
+		startPlaceholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
-		endPlaceholder := fmt.Sprintf("$%d", *paramIdx)
+		endPlaceholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		params = append(params, startVal, endVal)
 		return fmt.Sprintf("%s BETWEEN %s AND %s", leftStr, startPlaceholder, endPlaceholder), params, nil
@@ -1394,7 +1396,7 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 
 	// Check for subquery on the right side
 	if subquery, ok := cond.Right.(*ast.QuerySubquery); ok {
-		return buildSubqueryCondition(leftStr, cond.Operator, subquery, env, paramIdx)
+		return buildSubqueryCondition(leftStr, cond.Operator, subquery, env, paramIdx, driver)
 	}
 
 	// Handle the right side value
@@ -1429,9 +1431,9 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 	case ">", "<", ">=", "<=":
 		sqlOp = cond.Operator
 	case "in":
-		return buildInClause(leftStr, rightVal, paramIdx)
+		return buildInClause(leftStr, rightVal, paramIdx, driver)
 	case "not in":
-		clause, inParams, err := buildInClause(leftStr, rightVal, paramIdx)
+		clause, inParams, err := buildInClause(leftStr, rightVal, paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -1448,7 +1450,7 @@ func buildConditionSQL(cond *ast.QueryCondition, env *Environment, paramIdx *int
 		}
 	}
 
-	placeholder := fmt.Sprintf("$%d", *paramIdx)
+	placeholder := sqlPlaceholder(driver, *paramIdx)
 	*paramIdx++
 	params = append(params, rightVal)
 
@@ -1520,7 +1522,7 @@ func evalConditionValue(expr ast.Expression, env *Environment) (Object, *Error) 
 }
 
 // buildSubqueryCondition builds a subquery condition (e.g., author_id IN (SELECT id FROM users WHERE role = 'admin'))
-func buildSubqueryCondition(column string, operator string, subquery *ast.QuerySubquery, env *Environment, paramIdx *int) (string, []Object, *Error) {
+func buildSubqueryCondition(column string, operator string, subquery *ast.QuerySubquery, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get the table name from the subquery source
@@ -1540,7 +1542,7 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 	if len(subquery.Conditions) > 0 {
 		var whereClauses []string
 		for i, cond := range subquery.Conditions {
-			clause, condParams, logic, _, err := buildConditionNodeSQL(cond, env, paramIdx)
+			clause, condParams, logic, _, err := buildConditionNodeSQL(cond, env, paramIdx, driver)
 			if err != nil {
 				return "", nil, err
 			}
@@ -1590,11 +1592,11 @@ func buildSubqueryCondition(column string, operator string, subquery *ast.QueryS
 }
 
 // buildInClause builds an IN clause for arrays
-func buildInClause(column string, value Object, paramIdx *int) (string, []Object, *Error) {
+func buildInClause(column string, value Object, paramIdx *int, driver string) (string, []Object, *Error) {
 	arr, ok := value.(*Array)
 	if !ok {
 		// Single value - treat as array of one
-		placeholder := fmt.Sprintf("$%d", *paramIdx)
+		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		return fmt.Sprintf("%s IN (%s)", column, placeholder), []Object{value}, nil
 	}
@@ -1607,7 +1609,7 @@ func buildInClause(column string, value Object, paramIdx *int) (string, []Object
 	var placeholders []string
 	var params []Object
 	for _, elem := range arr.Elements {
-		placeholders = append(placeholders, fmt.Sprintf("$%d", *paramIdx))
+		placeholders = append(placeholders, sqlPlaceholder(driver, *paramIdx))
 		*paramIdx++
 		params = append(params, elem)
 	}
@@ -2098,7 +2100,7 @@ func loadHasManyRelation(parentBinding *TableBinding, relation *DSLSchemaRelatio
 
 	// Add filter conditions
 	for _, cond := range conditions {
-		condSQL, condParams, _, _, err := buildConditionNodeSQL(cond, env, &paramIndex)
+		condSQL, condParams, _, _, err := buildConditionNodeSQL(cond, env, &paramIndex, parentBinding.DB.Driver)
 		if err != nil {
 			return nil, err
 		}
@@ -2318,6 +2320,7 @@ func buildInsertSQL(node *ast.InsertExpression, binding *TableBinding, env *Envi
 	var sql strings.Builder
 	var params []Object
 	paramIdx := 1
+	driver := binding.DB.Driver
 
 	// Collect columns and values
 	var columns []string
@@ -2336,7 +2339,7 @@ func buildInsertSQL(node *ast.InsertExpression, binding *TableBinding, env *Envi
 			return "", nil, val.(*Error)
 		}
 
-		placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
+		placeholders = append(placeholders, sqlPlaceholder(driver, paramIdx))
 		paramIdx++
 		params = append(params, val)
 	}
@@ -2355,7 +2358,7 @@ func buildInsertSQL(node *ast.InsertExpression, binding *TableBinding, env *Envi
 				}
 				if idVal != nil {
 					columns = append(columns, fieldName)
-					placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
+					placeholders = append(placeholders, sqlPlaceholder(driver, paramIdx))
 					paramIdx++
 					params = append(params, idVal)
 				}
@@ -2543,6 +2546,7 @@ func buildInsertSQLForBatch(node *ast.InsertExpression, binding *TableBinding, e
 	var sql strings.Builder
 	var params []Object
 	paramIdx := 1
+	driver := binding.DB.Driver
 
 	var columns []string
 	var placeholders []string
@@ -2555,7 +2559,7 @@ func buildInsertSQLForBatch(node *ast.InsertExpression, binding *TableBinding, e
 			return "", nil, val.(*Error)
 		}
 
-		placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
+		placeholders = append(placeholders, sqlPlaceholder(driver, paramIdx))
 		paramIdx++
 		params = append(params, val)
 	}
@@ -2672,6 +2676,7 @@ func buildUpdateSQL(node *ast.UpdateExpression, binding *TableBinding, env *Envi
 	var sql strings.Builder
 	var params []Object
 	paramIdx := 1
+	driver := binding.DB.Driver
 
 	sql.WriteString("UPDATE ")
 	sql.WriteString(binding.TableName)
@@ -2685,7 +2690,7 @@ func buildUpdateSQL(node *ast.UpdateExpression, binding *TableBinding, env *Envi
 			return "", nil, val.(*Error)
 		}
 
-		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", write.Field, paramIdx))
+		setClauses = append(setClauses, fmt.Sprintf("%s = %s", write.Field, sqlPlaceholder(driver, paramIdx)))
 		paramIdx++
 		params = append(params, val)
 	}
@@ -2710,7 +2715,7 @@ func buildUpdateSQL(node *ast.UpdateExpression, binding *TableBinding, env *Envi
 
 	// Add user conditions
 	for _, cond := range node.Conditions {
-		clause, condParams, err := buildConditionSQL(cond, env, &paramIdx)
+		clause, condParams, err := buildConditionSQL(cond, env, &paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
@@ -2913,6 +2918,7 @@ func buildDeleteSQL(node *ast.DeleteExpression, binding *TableBinding, env *Envi
 	var sql strings.Builder
 	var params []Object
 	paramIdx := 1
+	driver := binding.DB.Driver
 
 	// Check if this binding uses soft deletes
 	if binding.SoftDeleteColumn != "" {
@@ -2939,7 +2945,7 @@ func buildDeleteSQL(node *ast.DeleteExpression, binding *TableBinding, env *Envi
 
 	// Add user conditions
 	for _, cond := range node.Conditions {
-		clause, condParams, err := buildConditionSQL(cond, env, &paramIdx)
+		clause, condParams, err := buildConditionSQL(cond, env, &paramIdx, driver)
 		if err != nil {
 			return "", nil, err
 		}
