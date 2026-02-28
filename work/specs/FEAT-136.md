@@ -1,7 +1,7 @@
 ---
 id: FEAT-136
 title: "Final Database Fixes"
-status: draft
+status: implemented
 priority: high
 created: 2026-02-28
 author: "@ai"
@@ -29,45 +29,45 @@ As a developer using Parsley's database features, I want transactions and query 
 
 ### Issue 1: Raw SQL operators must honour active transactions
 
-- [ ] `evalQueryOneStatement` (`<=?=>` statement form) uses `conn.Tx` when a transaction is active
-- [ ] `evalQueryManyStatement` (`<=??=>` statement form) uses `conn.Tx` when a transaction is active
-- [ ] `evalExecuteStatement` (`<=!=>` statement form) uses `conn.Tx` when a transaction is active
-- [ ] `evalDatabaseQueryOne` (`<=?=>` infix form) uses `conn.Tx` when a transaction is active
-- [ ] `evalDatabaseQueryMany` (`<=??=>` infix form) uses `conn.Tx` when a transaction is active
-- [ ] `evalDatabaseExecute` (`<=!=>` infix form) uses `conn.Tx` when a transaction is active
-- [ ] `evalDBConnectionMethod` `"execute"` case uses `conn.Tx` when a transaction is active
-- [ ] `evalDBConnectionMethod` `"lastInsertId"` case uses `conn.Tx` when a transaction is active
-- [ ] Integration test: within `@transaction`, raw SQL operator writes are rolled back on error
+- [x] `evalQueryOneStatement` (`<=?=>` statement form) uses `conn.Tx` when a transaction is active
+- [x] `evalQueryManyStatement` (`<=??=>` statement form) uses `conn.Tx` when a transaction is active
+- [x] `evalExecuteStatement` (`<=!=>` statement form) uses `conn.Tx` when a transaction is active
+- [x] `evalDatabaseQueryOne` (`<=?=>` infix form) uses `conn.Tx` when a transaction is active
+- [x] `evalDatabaseQueryMany` (`<=??=>` infix form) uses `conn.Tx` when a transaction is active
+- [x] `evalDatabaseExecute` (`<=!=>` infix form) uses `conn.Tx` when a transaction is active
+- [x] `evalDBConnectionMethod` `"createTable"` case uses `conn.Tx` when a transaction is active
+- [x] `evalDBConnectionMethod` `"lastInsertId"` case uses `conn.Tx` when a transaction is active
+- [x] Integration test: within `@transaction`, raw SQL operator writes are rolled back on error
 
 ### Issue 2: Manual `begin()`/`commit()`/`rollback()` must manage a real `sql.Tx`
 
-- [ ] `conn.begin()` calls `conn.DB.Begin()` and stores the resulting `*sql.Tx` in `conn.Tx`
-- [ ] `conn.commit()` calls `conn.Tx.Commit()` and nils `conn.Tx`
-- [ ] `conn.rollback()` calls `conn.Tx.Rollback()` and nils `conn.Tx`
-- [ ] Errors from `DB.Begin()`, `Tx.Commit()`, and `Tx.Rollback()` are returned as database errors
-- [ ] `begin()` when already in a transaction still returns `DB-0007`
-- [ ] `commit()`/`rollback()` when not in a transaction still returns `DB-0006`
-- [ ] Integration test: `begin()` + INSERT + `rollback()` → row not present; `begin()` + INSERT + `commit()` → row present
+- [x] `conn.begin()` calls `conn.DB.Begin()` and stores the resulting `*sql.Tx` in `conn.Tx`
+- [x] `conn.commit()` calls `conn.Tx.Commit()` and nils `conn.Tx`
+- [x] `conn.rollback()` calls `conn.Tx.Rollback()` and nils `conn.Tx`
+- [x] Errors from `DB.Begin()`, `Tx.Commit()`, and `Tx.Rollback()` are returned as database errors
+- [x] `begin()` when already in a transaction still returns `DB-0007`
+- [x] `commit()`/`rollback()` when not in a transaction still returns `DB-0006`
+- [x] Integration test: `begin()` + INSERT + `rollback()` → row not present; `begin()` + INSERT + `commit()` → row present
 
 ### Issue 3: Harmonize `<=??=>` return type
 
-- [ ] Statement form (`let rows <=??=> conn <SQL>...</SQL>`) returns `Table` (current behaviour, correct — has column metadata)
-- [ ] Infix form (`conn <=??=> <SQL>...</SQL>`) returns `Table` (currently returns `Array` — must change)
-- [ ] Both forms return a `Table` with `.columns` and `.rows` accessible
-- [ ] Existing tests updated to reflect consistent return type
-- [ ] Documentation updated if needed
+- [x] Statement form (`let rows <=??=> conn <SQL>...</SQL>`) returns `Table` (current behaviour, correct — has column metadata)
+- [x] Infix form (`conn <=??=> <SQL>...</SQL>`) returns `Table` (previously returned `Array` — now fixed)
+- [x] Both forms return a `Table` with `.columns` and `.rows` accessible
+- [x] Existing tests updated to reflect consistent return type
+- [x] Documentation updated if needed
 
 ### Issue 4: Add `rows.Err()` check to single-row query functions
 
-- [ ] `evalQueryOneStatement` checks `rows.Err()` after the `rows.Next()` / `rows.Scan()` sequence
-- [ ] `evalDatabaseQueryOne` checks `rows.Err()` after the `rows.Next()` / `rows.Scan()` sequence
-- [ ] On `rows.Err()` failure, returns `DB-0002` error with the underlying error message
+- [x] `evalQueryOneStatement` checks `rows.Err()` after the `rows.Next()` / `rows.Scan()` sequence
+- [x] `evalDatabaseQueryOne` checks `rows.Err()` after the `rows.Next()` / `rows.Scan()` sequence
+- [x] On `rows.Err()` failure, returns `DB-0002` error with the underlying error message
 
 ### Issue 5: Fix block comment EOF edge case in scanner and rewriter
 
-- [ ] `scanSQLNamedParams`: unterminated `/* ... EOF` does not lose the final character
-- [ ] `rewriteNamedParams`: unterminated `/* ... EOF` copies all remaining characters verbatim
-- [ ] Unit tests cover unterminated block comment at EOF
+- [x] `scanSQLNamedParams`: unterminated `/* ... EOF` does not lose the final character
+- [x] `rewriteNamedParams`: unterminated `/* ... EOF` copies all remaining characters verbatim
+- [x] Unit tests cover unterminated block comment at EOF
 
 ## Design Decisions
 
@@ -324,6 +324,7 @@ for i < n {
 ## Related
 
 - Plan: `work/plans/PLAN-116-final-database-fixes.md`
+- Fix commits: `d552765` (helpers + begin/commit/rollback), `d1f2a65` (tests), `1d01662` (block comment EOF fix)
 - Discovered during: FEAT-135 (named parameters) quality audit
 - Design docs: `work/parsley/design/Database Design.md`, `work/parsley/design/Database Implementation Status.md`
 - Existing correct pattern: `TableBinding.query()`/`.exec()` in `stdlib_schema_table_binding.go`

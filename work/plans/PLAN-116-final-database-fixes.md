@@ -2,7 +2,7 @@
 id: PLAN-116
 feature: FEAT-136
 title: "Implementation Plan for Final Database Fixes"
-status: draft
+status: done
 created: 2026-02-28
 ---
 
@@ -450,11 +450,11 @@ Items to add to `work/BACKLOG.md` after implementation:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: connQuery/connExec helpers | | |
-| | Task 2: Real begin/commit/rollback | | |
-| | Task 3: Transaction integration tests | | |
-| | Task 4: Harmonize return type | | |
-| | Task 5: rows.Err() check | | |
-| | Task 6: Block comment EOF fix | | |
-| | Task 7: Full validation | | |
-| | Task 8: Docs & status | | |
+| 2026-02-28 | Task 1: connQuery/connExec helpers | ✅ Complete | commit `d552765` |
+| 2026-02-28 | Task 2: Real begin/commit/rollback | ✅ Complete | commit `d552765` — DB-0019 added; DB-0013/14/15 registered in catalog |
+| 2026-02-28 | Task 3: Transaction integration tests | ✅ Complete | commit `d1f2a65` — 8 subtests in TestDatabaseTransactionIntegration |
+| 2026-02-28 | Task 4: Harmonize return type | ✅ Complete | commit `d1f2a65` — evalDatabaseQueryMany now returns Table |
+| 2026-02-28 | Task 5: rows.Err() check | ✅ Complete | commit `d552765` — added to evalQueryOneStatement and evalDatabaseQueryOne |
+| 2026-02-28 | Task 6: Block comment EOF fix | ✅ Complete | commit `1d01662` — 7 new unit tests |
+| 2026-02-28 | Task 7: Full validation | ✅ Complete | All tests pass; no new lint issues |
+| 2026-02-28 | Task 8: Docs & status | ✅ Complete | FEAT-136 marked implemented; PLAN-116 marked done |
