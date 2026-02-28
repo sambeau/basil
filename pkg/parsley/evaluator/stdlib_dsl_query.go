@@ -775,7 +775,7 @@ func buildJoinSubquerySQL(cf *ast.QueryComputedField, outerTableAlias string, en
 
 // buildJoinConditionSQL builds a condition for a JOIN ON clause
 // It translates outer.field and inner.field references appropriately
-func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
+func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias, joinAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
 		return buildJoinCondition(cond, outerTableAlias, joinAlias, env, paramIdx, driver)
@@ -812,7 +812,7 @@ func buildJoinConditionSQL(node ast.QueryConditionNode, outerTableAlias string, 
 
 // buildJoinCondition builds a single condition for a JOIN ON clause
 // Example: order_id == o.id becomes items.order_id = o.id
-func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias string, joinAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
+func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias, joinAlias string, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get left side - bare identifier is from the joined table
@@ -1075,7 +1075,7 @@ func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.Qu
 
 // buildConditionNodeSQL converts a QueryConditionNode (either QueryCondition or QueryConditionGroup) to SQL
 // Returns the SQL clause, parameters, logic operator (and/or), and negated flag
-func buildConditionNodeSQL(node ast.QueryConditionNode, env *Environment, paramIdx *int, driver string) (string, []Object, string, bool, *Error) {
+func buildConditionNodeSQL(node ast.QueryConditionNode, env *Environment, paramIdx *int, driver string) (clause string, params []Object, logic string, negated bool, err *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
 		clause, params, err := buildConditionSQL(cond, env, paramIdx, driver)
@@ -1135,7 +1135,7 @@ func buildConditionGroupSQL(group *ast.QueryConditionGroup, env *Environment, pa
 }
 
 // buildConditionNodeSQLWithCTEs is like buildConditionNodeSQL but handles CTE references
-func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE, driver string) (string, []Object, string, bool, *Error) {
+func buildConditionNodeSQLWithCTEs(node ast.QueryConditionNode, env *Environment, paramIdx *int, cteNames map[string]*ast.QueryCTE, driver string) (clause string, params []Object, logic string, negated bool, err *Error) {
 	switch cond := node.(type) {
 	case *ast.QueryCondition:
 		clause, params, err := buildConditionSQLWithCTEs(cond, env, paramIdx, cteNames, driver)
@@ -1522,7 +1522,7 @@ func evalConditionValue(expr ast.Expression, env *Environment) (Object, *Error) 
 }
 
 // buildSubqueryCondition builds a subquery condition (e.g., author_id IN (SELECT id FROM users WHERE role = 'admin'))
-func buildSubqueryCondition(column string, operator string, subquery *ast.QuerySubquery, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
+func buildSubqueryCondition(column, operator string, subquery *ast.QuerySubquery, env *Environment, paramIdx *int, driver string) (string, []Object, *Error) {
 	var params []Object
 
 	// Get the table name from the subquery source
