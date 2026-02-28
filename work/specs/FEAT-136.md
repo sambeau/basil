@@ -323,6 +323,7 @@ for i < n {
 
 ## Related
 
+- Plan: `work/plans/PLAN-116-final-database-fixes.md`
 - Discovered during: FEAT-135 (named parameters) quality audit
 - Design docs: `work/parsley/design/Database Design.md`, `work/parsley/design/Database Implementation Status.md`
 - Existing correct pattern: `TableBinding.query()`/`.exec()` in `stdlib_schema_table_binding.go`
