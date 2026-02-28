@@ -860,6 +860,57 @@ func TestMySQL_DeleteReturning_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestMySQL_BatchInsertReturning_ReturnsError(t *testing.T) {
+	binding := makeBinding("mysql", "users", "")
+
+	node := &ast.InsertExpression{
+		Source:   identExpr("users"),
+		Writes:   []*ast.InsertFieldWrite{{Field: "name", Value: strExpr("Eve")}},
+		Terminal: oneTerminal(),
+	}
+
+	_, _, err := buildInsertSQLForBatch(node, binding, makeEnv())
+	if err == nil {
+		t.Fatal("expected error for MySQL batch INSERT RETURNING, got nil")
+	}
+	if err.Code != "DB-0018" {
+		t.Errorf("expected error code DB-0018, got %s", err.Code)
+	}
+	if !strings.Contains(err.Message, "RETURNING") {
+		t.Errorf("expected error message to mention RETURNING, got: %s", err.Message)
+	}
+}
+
+func TestMySQL_Between_UsesQuestionMarkPlaceholders(t *testing.T) {
+	binding := makeBinding("mysql", "products", "")
+	node := &ast.QueryExpression{
+		Source: identExpr("products"),
+		Conditions: []ast.QueryConditionNode{
+			&ast.QueryCondition{
+				Left:     identExpr("price"),
+				Operator: "between",
+				Right:    interpExpr(&Integer{Value: 10}),
+				RightEnd: interpExpr(&Integer{Value: 100}),
+			},
+		},
+		Terminal: manyTerminal("*"),
+	}
+
+	sqlStr, params, err := buildSelectSQL(node, binding, makeEnv())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(sqlStr, "$") {
+		t.Errorf("expected no $N placeholder for MySQL, got: %s", sqlStr)
+	}
+	if !strings.Contains(sqlStr, "BETWEEN ? AND ?") {
+		t.Errorf("expected BETWEEN ? AND ? in MySQL SQL, got: %s", sqlStr)
+	}
+	if len(params) != 2 {
+		t.Errorf("expected 2 params, got %d", len(params))
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // P3-3: MySQL upsert → ON DUPLICATE KEY UPDATE
 // ─────────────────────────────────────────────────────────────────────────────
