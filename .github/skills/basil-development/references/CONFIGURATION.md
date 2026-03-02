@@ -14,7 +14,8 @@ server:
 # Choose ONE routing strategy
 
 # Option 1: Filesystem routing (site mode)
-site: ./site              # Files in site/ serve at their path
+site:
+  path: ./site            # Files in site/ serve at their path
                           # site/about.pars → /about
                           # site/users/index.pars → /users
 
@@ -41,10 +42,12 @@ public_dir: ./public      # Serves at web root
 ## Database
 
 ```yaml
-sqlite: ./data.db         # SQLite database path (relative to config file)
+database:
+  path: ./data.db         # SQLite database path (relative to config file)
 
 # Or for production:
-sqlite: /var/lib/myapp/production.db
+database:
+  path: /var/lib/myapp/production.db
 ```
 
 ## Sessions & Authentication
@@ -94,8 +97,10 @@ logging:
 # basil-dev.yaml
 server:
   port: 8080
-site: ./site
-sqlite: ./dev.db
+site:
+  path: ./site
+database:
+  path: ./dev.db
 session:
   secret: "dev-secret-not-for-production"  # Random OK for dev
 logging:
@@ -117,8 +122,10 @@ server:
     # Or for Let's Encrypt:
     # auto: true
     # email: admin@example.com
-site: ./site
-sqlite: /var/lib/myapp/production.db
+site:
+  path: ./site
+database:
+  path: /var/lib/myapp/production.db
 session:
   secret: "use-strong-32-char-secret-from-env"  # MUST be persistent
   max_age: 168h           # 1 week
@@ -140,11 +147,13 @@ server:
   host: localhost
   port: 8080
 
-site: ./site
+site:
+  path: ./site
 
 public_dir: ./public
 
-sqlite: ./myapp.db
+database:
+  path: ./myapp.db
 
 session:
   secret: "change-this-to-a-real-32-char-secret"

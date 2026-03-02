@@ -28,9 +28,9 @@ server:
 logging:
   level: info
   format: text
-  output: ./logs/basil.log  # Log to file (use 'stderr' for console)
+  output: ./logs/basil.log # Log to file (use 'stderr' for console)
   parsley:
-    output: ./logs/parsley.log  # Parsley script log() output
+    output: ./logs/parsley.log # Parsley script log() output
 
 # HTTP response compression (enabled by default)
 # compression:
@@ -39,8 +39,9 @@ logging:
 #   min_size: 1024      # Minimum response size to compress (bytes)
 #   zstd: false         # Enable Zstd compression (experimental)
 
-# SQLite database (path relative to config file)
-# sqlite: ./db/data.db
+# Database configuration (path relative to config file)
+# database:
+#   path: ./db/data.db
 
 # Development mode settings
 # dev:
@@ -95,14 +96,16 @@ public_dir: ./public
 # developers:
 #   sam:
 #     port: 3001
-#     sqlite: sam.db
-#     # handlers: sam-handlers  # Optional: use different handlers directory
-#     # static: sam-public      # Optional: use different static files directory
+#     database:
+#       path: sam.db
+#     # handlers: sam-handlers    # Optional: use different handlers directory
+#     # public_dir: sam-public    # Optional: use different static files directory
 #     logging:
 #       level: debug
 #   alex:
 #     port: 3002
-#     sqlite: alex.db
+#     database:
+#       path: alex.db
 
 # Environment Variables and Secrets
 # ---------------------------------

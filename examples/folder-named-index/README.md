@@ -38,7 +38,8 @@ server:
   port: 8080
   dev: true
 
-site: ./site
+site:
+  path: ./site
 ```
 
 ## Running

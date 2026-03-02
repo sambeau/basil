@@ -209,7 +209,8 @@ In Basil handlers, `@DB` is the configured database:
 
 ```yaml
 # basil.yaml
-sqlite: ./myapp.db
+database:
+  path: ./myapp.db
 ```
 
 ```parsley

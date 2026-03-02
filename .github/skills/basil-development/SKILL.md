@@ -58,8 +58,10 @@ Parsley files that handle HTTP requests.
 ```yaml
 server:
   port: 8080
-site: ./site           # Filesystem routing: site/about.pars → /about
-sqlite: ./data.db      # Database
+site:
+  path: ./site         # Filesystem routing: site/about.pars → /about
+database:
+  path: ./data.db      # Database
 session:
   secret: "your-32-char-secret"  # Required for sessions
 ```
@@ -245,8 +247,10 @@ curl -b cookies.txt http://localhost:8080/dashboard
 ```yaml
 server:
   port: 8080
-site: ./site              # Filesystem routing
-sqlite: ./data.db         # Database
+site:
+  path: ./site            # Filesystem routing
+database:
+  path: ./data.db         # Database
 session:
   secret: "32-char-secret"
 auth:

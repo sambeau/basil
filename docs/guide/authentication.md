@@ -197,7 +197,8 @@ API requests (paths starting with `/api/` or `Accept: application/json`) get a 4
 Protected paths work with filesystem-based routing:
 
 ```yaml
-site: ./site
+site:
+  path: ./site
 
 auth:
   enabled: true

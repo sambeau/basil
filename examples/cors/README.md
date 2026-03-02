@@ -15,7 +15,7 @@ cors:
   headers: [Content-Type, Authorization]
   expose: [X-Total-Count]
   credentials: true
-  maxAge: 86400
+  max_age: 86400
 ```
 
 ## Testing
@@ -149,8 +149,8 @@ Response headers accessible to JavaScript:
 expose: [X-Total-Count, X-Page-Count, Link]
 ```
 
-### maxAge
+### max_age
 Preflight cache duration in seconds:
 ```yaml
-maxAge: 86400  # 24 hours
+max_age: 86400  # 24 hours
 ```

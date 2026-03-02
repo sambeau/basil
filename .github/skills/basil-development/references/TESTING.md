@@ -174,7 +174,8 @@ curl "http://localhost:8080/parts/counter.part?count=10"
 
 ```yaml
 # basil-test.yaml
-sqlite: ./test.db
+database:
+  path: ./test.db
 ```
 
 ```bash
