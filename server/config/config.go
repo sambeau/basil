@@ -228,7 +228,7 @@ type SessionConfig struct {
 	MaxAge     time.Duration `yaml:"max_age"`     // Session lifetime (default: 24h)
 	CookieName string        `yaml:"cookie_name"` // Cookie name (default: "_basil_session")
 	Secure     *bool         `yaml:"secure"`      // HTTPS only (default: true in production)
-	HttpOnly   bool          `yaml:"http_only"`   // No JavaScript access (default: true)
+	HTTPOnly   bool          `yaml:"http_only"`   // No JavaScript access (default: true)
 	SameSite   string        `yaml:"same_site"`   // SameSite policy: "Lax", "Strict", "None" (default: "Lax")
 	// SQLite-specific options (only used when store: sqlite)
 	Table   string        `yaml:"table"`   // Table name (default: "_sessions")
@@ -325,7 +325,7 @@ func Defaults() *Config {
 			Secret:     NewSecretString("auto"), // Auto-generate by default
 			MaxAge:     24 * time.Hour,
 			CookieName: "_basil_session",
-			HttpOnly:   true,
+			HTTPOnly:   true,
 			SameSite:   "Lax",
 			Table:      "_sessions",
 			Cleanup:    1 * time.Hour,
