@@ -222,6 +222,7 @@ This preserves the existing semantics: subtype methods shadow dictionary methods
 
 ## Related
 
+- Plan: `work/plans/PLAN-117-method-registry-migration.md`
 - Continues: FEAT-111 (Declarative Method Registry)
 - Ship review: `work/reports/1.0-SHIP-REVIEW.md` Section 5
 - Registry infrastructure: `pkg/parsley/evaluator/method_registry.go`
