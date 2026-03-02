@@ -2493,105 +2493,377 @@ func tableGroupBy(t *Table, args []Object, env *Environment) Object {
 	}
 }
 
-// EvalTableMethod dispatches method calls on Table objects
-func EvalTableMethod(t *Table, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "where":
-		return tableWhere(t, args, env)
-	case "orderBy":
-		return tableOrderBy(t, args, env)
-	case "select":
-		return tableSelect(t, args, env)
-	case "limit":
-		return tableLimit(t, args, env)
-	case "count":
-		return tableCount(t, args, env)
-	case "sum":
-		return tableSum(t, args, env)
-	case "avg":
-		return tableAvg(t, args, env)
-	case "min":
-		return tableMin(t, args, env)
-	case "max":
-		return tableMax(t, args, env)
-	case "toHTML":
-		return tableToHTML(t, args, env)
-	case "toCSV":
-		return tableToCSV(t, args, env)
-	case "toMarkdown":
-		return tableToMarkdown(t, args, env)
-	case "toBox":
-		return tableToBox(t, args, env)
-	case "toJSON":
-		return tableToJSON(t, args, env)
-	case "appendRow":
-		return tableAppendRow(t, args, env)
-	case "insertRowAt":
-		return tableInsertRowAt(t, args, env)
-	case "appendCol":
-		return tableAppendCol(t, args, env)
-	case "insertColAfter":
-		return tableInsertColAfter(t, args, env)
-	case "insertColBefore":
-		return tableInsertColBefore(t, args, env)
-	case "rowCount":
-		return tableRowCount(t, args, env)
-	case "columnCount":
-		return tableColumnCount(t, args, env)
-	case "column":
-		return tableColumn(t, args, env)
-	case "toArray":
-		return tableToArray(t, args, env)
-	case "copy":
-		return tableCopy(t, args, env)
-	case "offset":
-		return tableOffset(t, args, env)
-	// Phase 3: Table validation methods for typed tables
-	case "as":
-		return tableAs(t, args, env)
-	case "validate":
-		return tableValidate(t, args, env)
-	case "isValid":
-		return tableIsValid(t, args, env)
-	case "errors":
-		return tableErrors(t, args, env)
-	case "validRows":
-		return tableValidRows(t, args, env)
-	case "invalidRows":
-		return tableInvalidRows(t, args, env)
-	// Array-like methods
-	case "map":
-		return tableMap(t, args, env)
-	case "find":
-		return tableFind(t, args, env)
-	case "any":
-		return tableAny(t, args, env)
-	case "all":
-		return tableAll(t, args, env)
-	// Data manipulation methods
-	case "unique":
-		return tableUnique(t, args, env)
-	case "renameCol":
-		return tableRenameCol(t, args, env)
-	case "dropCol":
-		return tableDropCol(t, args, env)
-	case "groupBy":
-		return tableGroupBy(t, args, env)
-	default:
-		return unknownMethodError(method, "Table", tableMethods)
+// TableMethodRegistry defines all methods available on Table objects.
+var TableMethodRegistry MethodRegistry
+
+func init() {
+	TableMethodRegistry = MethodRegistry{
+		"where": {
+			Fn:          tableMethodWhere,
+			Arity:       "1",
+			Description: "Filter rows by predicate",
+		},
+		"orderBy": {
+			Fn:          tableMethodOrderBy,
+			Arity:       "1+",
+			Description: "Sort rows by column(s)",
+		},
+		"select": {
+			Fn:          tableMethodSelect,
+			Arity:       "1+",
+			Description: "Select specific columns",
+		},
+		"limit": {
+			Fn:          tableMethodLimit,
+			Arity:       "1-2",
+			Description: "Limit rows (count, offset?)",
+		},
+		"offset": {
+			Fn:          tableMethodOffset,
+			Arity:       "1",
+			Description: "Skip rows (count)",
+		},
+		"count": {
+			Fn:          tableMethodCount,
+			Arity:       "0",
+			Description: "Count rows",
+		},
+		"sum": {
+			Fn:          tableMethodSum,
+			Arity:       "1",
+			Description: "Sum column values",
+		},
+		"avg": {
+			Fn:          tableMethodAvg,
+			Arity:       "1",
+			Description: "Average column values",
+		},
+		"min": {
+			Fn:          tableMethodMin,
+			Arity:       "1",
+			Description: "Minimum column value",
+		},
+		"max": {
+			Fn:          tableMethodMax,
+			Arity:       "1",
+			Description: "Maximum column value",
+		},
+		"toHTML": {
+			Fn:          tableMethodToHTML,
+			Arity:       "0-1",
+			Description: "Convert to HTML table (footer?)",
+		},
+		"toCSV": {
+			Fn:          tableMethodToCSV,
+			Arity:       "0",
+			Description: "Convert to CSV string",
+		},
+		"toMarkdown": {
+			Fn:          tableMethodToMarkdown,
+			Arity:       "0",
+			Description: "Convert to Markdown table",
+		},
+		"toBox": {
+			Fn:          tableMethodToBox,
+			Arity:       "0-1",
+			Description: "Convert to box diagram (options?)",
+		},
+		"toJSON": {
+			Fn:          tableMethodToJSON,
+			Arity:       "0",
+			Description: "Convert to JSON array",
+		},
+		"toArray": {
+			Fn:          tableMethodToArray,
+			Arity:       "0",
+			Description: "Convert to array of row dictionaries",
+		},
+		"copy": {
+			Fn:          tableMethodCopy,
+			Arity:       "0",
+			Description: "Create a copy of the table",
+		},
+		"appendRow": {
+			Fn:          tableMethodAppendRow,
+			Arity:       "1",
+			Description: "Add a row at end (dict)",
+		},
+		"insertRowAt": {
+			Fn:          tableMethodInsertRowAt,
+			Arity:       "2",
+			Description: "Insert row at index (index, dict)",
+		},
+		"appendCol": {
+			Fn:          tableMethodAppendCol,
+			Arity:       "2",
+			Description: "Add column at end (name, values)",
+		},
+		"insertColAfter": {
+			Fn:          tableMethodInsertColAfter,
+			Arity:       "3",
+			Description: "Insert column after another (after, name, values)",
+		},
+		"insertColBefore": {
+			Fn:          tableMethodInsertColBefore,
+			Arity:       "3",
+			Description: "Insert column before another (before, name, values)",
+		},
+		"rowCount": {
+			Fn:          tableMethodRowCount,
+			Arity:       "0",
+			Description: "Get number of rows",
+		},
+		"columnCount": {
+			Fn:          tableMethodColumnCount,
+			Arity:       "0",
+			Description: "Get number of columns",
+		},
+		"column": {
+			Fn:          tableMethodColumn,
+			Arity:       "1",
+			Description: "Get array of values from column",
+		},
+		"as": {
+			Fn:          tableMethodAs,
+			Arity:       "1",
+			Description: "Bind table to a schema (schema)",
+		},
+		"validate": {
+			Fn:          tableMethodValidate,
+			Arity:       "0",
+			Description: "Validate rows against schema",
+		},
+		"isValid": {
+			Fn:          tableMethodIsValid,
+			Arity:       "0",
+			Description: "Check if all rows are valid",
+		},
+		"errors": {
+			Fn:          tableMethodErrors,
+			Arity:       "0",
+			Description: "Get validation errors",
+		},
+		"validRows": {
+			Fn:          tableMethodValidRows,
+			Arity:       "0",
+			Description: "Get rows that pass validation",
+		},
+		"invalidRows": {
+			Fn:          tableMethodInvalidRows,
+			Arity:       "0",
+			Description: "Get rows that fail validation",
+		},
+		"map": {
+			Fn:          tableMethodMap,
+			Arity:       "1",
+			Description: "Transform each row (fn)",
+		},
+		"find": {
+			Fn:          tableMethodFind,
+			Arity:       "1",
+			Description: "Find first row matching predicate (fn)",
+		},
+		"any": {
+			Fn:          tableMethodAny,
+			Arity:       "1",
+			Description: "Check if any row matches predicate (fn)",
+		},
+		"all": {
+			Fn:          tableMethodAll,
+			Arity:       "1",
+			Description: "Check if all rows match predicate (fn)",
+		},
+		"unique": {
+			Fn:          tableMethodUnique,
+			Arity:       "0-1",
+			Description: "Remove duplicate rows (columns?)",
+		},
+		"renameCol": {
+			Fn:          tableMethodRenameCol,
+			Arity:       "2",
+			Description: "Rename a column (oldName, newName)",
+		},
+		"dropCol": {
+			Fn:          tableMethodDropCol,
+			Arity:       "1+",
+			Description: "Remove columns (col1, col2, ...)",
+		},
+		"groupBy": {
+			Fn:          tableMethodGroupBy,
+			Arity:       "1-2",
+			Description: "Group rows by column(s) (cols, aggregationFn?)",
+		},
 	}
+	RegisterMethodRegistry("table", TableMethodRegistry)
+}
+
+// EvalTableMethod dispatches method calls on Table objects.
+// The function remains exported for compatibility.
+func EvalTableMethod(t *Table, method string, args []Object, env *Environment) Object {
+	result := dispatchFromRegistry(TableMethodRegistry, "table", t, method, args, env)
+	if result != nil {
+		return result
+	}
+	return unknownMethodError(method, "Table", TableMethodRegistry.Names())
+}
+
+func tableMethodWhere(receiver Object, args []Object, env *Environment) Object {
+	return tableWhere(receiver.(*Table), args, env)
+}
+
+func tableMethodOrderBy(receiver Object, args []Object, env *Environment) Object {
+	return tableOrderBy(receiver.(*Table), args, env)
+}
+
+func tableMethodSelect(receiver Object, args []Object, env *Environment) Object {
+	return tableSelect(receiver.(*Table), args, env)
+}
+
+func tableMethodLimit(receiver Object, args []Object, env *Environment) Object {
+	return tableLimit(receiver.(*Table), args, env)
+}
+
+func tableMethodOffset(receiver Object, args []Object, env *Environment) Object {
+	return tableOffset(receiver.(*Table), args, env)
+}
+
+func tableMethodCount(receiver Object, args []Object, env *Environment) Object {
+	return tableCount(receiver.(*Table), args, env)
+}
+
+func tableMethodSum(receiver Object, args []Object, env *Environment) Object {
+	return tableSum(receiver.(*Table), args, env)
+}
+
+func tableMethodAvg(receiver Object, args []Object, env *Environment) Object {
+	return tableAvg(receiver.(*Table), args, env)
+}
+
+func tableMethodMin(receiver Object, args []Object, env *Environment) Object {
+	return tableMin(receiver.(*Table), args, env)
+}
+
+func tableMethodMax(receiver Object, args []Object, env *Environment) Object {
+	return tableMax(receiver.(*Table), args, env)
+}
+
+func tableMethodToHTML(receiver Object, args []Object, env *Environment) Object {
+	return tableToHTML(receiver.(*Table), args, env)
+}
+
+func tableMethodToCSV(receiver Object, args []Object, env *Environment) Object {
+	return tableToCSV(receiver.(*Table), args, env)
+}
+
+func tableMethodToMarkdown(receiver Object, args []Object, env *Environment) Object {
+	return tableToMarkdown(receiver.(*Table), args, env)
+}
+
+func tableMethodToBox(receiver Object, args []Object, env *Environment) Object {
+	return tableToBox(receiver.(*Table), args, env)
+}
+
+func tableMethodToJSON(receiver Object, args []Object, env *Environment) Object {
+	return tableToJSON(receiver.(*Table), args, env)
+}
+
+func tableMethodToArray(receiver Object, args []Object, env *Environment) Object {
+	return tableToArray(receiver.(*Table), args, env)
+}
+
+func tableMethodCopy(receiver Object, args []Object, env *Environment) Object {
+	return tableCopy(receiver.(*Table), args, env)
+}
+
+func tableMethodAppendRow(receiver Object, args []Object, env *Environment) Object {
+	return tableAppendRow(receiver.(*Table), args, env)
+}
+
+func tableMethodInsertRowAt(receiver Object, args []Object, env *Environment) Object {
+	return tableInsertRowAt(receiver.(*Table), args, env)
+}
+
+func tableMethodAppendCol(receiver Object, args []Object, env *Environment) Object {
+	return tableAppendCol(receiver.(*Table), args, env)
+}
+
+func tableMethodInsertColAfter(receiver Object, args []Object, env *Environment) Object {
+	return tableInsertColAfter(receiver.(*Table), args, env)
+}
+
+func tableMethodInsertColBefore(receiver Object, args []Object, env *Environment) Object {
+	return tableInsertColBefore(receiver.(*Table), args, env)
+}
+
+func tableMethodRowCount(receiver Object, args []Object, env *Environment) Object {
+	return tableRowCount(receiver.(*Table), args, env)
+}
+
+func tableMethodColumnCount(receiver Object, args []Object, env *Environment) Object {
+	return tableColumnCount(receiver.(*Table), args, env)
+}
+
+func tableMethodColumn(receiver Object, args []Object, env *Environment) Object {
+	return tableColumn(receiver.(*Table), args, env)
+}
+
+func tableMethodAs(receiver Object, args []Object, env *Environment) Object {
+	return tableAs(receiver.(*Table), args, env)
+}
+
+func tableMethodValidate(receiver Object, args []Object, env *Environment) Object {
+	return tableValidate(receiver.(*Table), args, env)
+}
+
+func tableMethodIsValid(receiver Object, args []Object, env *Environment) Object {
+	return tableIsValid(receiver.(*Table), args, env)
+}
+
+func tableMethodErrors(receiver Object, args []Object, env *Environment) Object {
+	return tableErrors(receiver.(*Table), args, env)
+}
+
+func tableMethodValidRows(receiver Object, args []Object, env *Environment) Object {
+	return tableValidRows(receiver.(*Table), args, env)
+}
+
+func tableMethodInvalidRows(receiver Object, args []Object, env *Environment) Object {
+	return tableInvalidRows(receiver.(*Table), args, env)
+}
+
+func tableMethodMap(receiver Object, args []Object, env *Environment) Object {
+	return tableMap(receiver.(*Table), args, env)
+}
+
+func tableMethodFind(receiver Object, args []Object, env *Environment) Object {
+	return tableFind(receiver.(*Table), args, env)
+}
+
+func tableMethodAny(receiver Object, args []Object, env *Environment) Object {
+	return tableAny(receiver.(*Table), args, env)
+}
+
+func tableMethodAll(receiver Object, args []Object, env *Environment) Object {
+	return tableAll(receiver.(*Table), args, env)
+}
+
+func tableMethodUnique(receiver Object, args []Object, env *Environment) Object {
+	return tableUnique(receiver.(*Table), args, env)
+}
+
+func tableMethodRenameCol(receiver Object, args []Object, env *Environment) Object {
+	return tableRenameCol(receiver.(*Table), args, env)
+}
+
+func tableMethodDropCol(receiver Object, args []Object, env *Environment) Object {
+	return tableDropCol(receiver.(*Table), args, env)
+}
+
+func tableMethodGroupBy(receiver Object, args []Object, env *Environment) Object {
+	return tableGroupBy(receiver.(*Table), args, env)
 }
 
 // EvalTableProperty handles property access on Table objects
-// tableMethods lists all methods available on Table objects
-var tableMethods = []string{
-	"where", "orderBy", "select", "limit", "offset", "count", "sum", "avg", "min", "max",
-	"toHTML", "toCSV", "toMarkdown", "toBox", "toJSON", "toArray", "copy",
-	"appendRow", "insertRowAt", "appendCol", "insertColAfter", "insertColBefore",
-	"rowCount", "columnCount", "column",
-	"as", "validate", "isValid", "errors", "validRows", "invalidRows",
-	"map", "find", "any", "all", "unique", "renameCol", "dropCol", "groupBy",
-}
 
 func EvalTableProperty(t *Table, property string) Object {
 	switch property {
@@ -2610,7 +2882,7 @@ func EvalTableProperty(t *Table, property string) Object {
 		return NULL
 	default:
 		// Check if it's a method name - provide helpful error
-		if slices.Contains(tableMethods, property) {
+		if slices.Contains(TableMethodRegistry.Names(), property) {
 			return methodAsPropertyError(property, "Table")
 		}
 		return newUndefinedError("UNDEF-0004", map[string]any{"Property": property, "Type": "Table"})

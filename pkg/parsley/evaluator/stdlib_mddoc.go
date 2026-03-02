@@ -77,60 +77,166 @@ func evalMdDocModuleCall(args []Object, env *Environment) Object {
 	}
 }
 
+// MdDocMethodRegistry defines all methods available on MdDoc objects.
+var MdDocMethodRegistry MethodRegistry
+
+func init() {
+	MdDocMethodRegistry = MethodRegistry{
+		"toMarkdown": {
+			Fn:          mdDocMethodToMarkdown,
+			Arity:       "0",
+			Description: "Render the document back to markdown",
+		},
+		"toHTML": {
+			Fn:          mdDocMethodToHTML,
+			Arity:       "0",
+			Description: "Render the document to HTML",
+		},
+		"findAll": {
+			Fn:          mdDocMethodFindAll,
+			Arity:       "1",
+			Description: "Find all nodes of a given type (type or [types])",
+		},
+		"findFirst": {
+			Fn:          mdDocMethodFindFirst,
+			Arity:       "1",
+			Description: "Find the first node of a given type",
+		},
+		"headings": {
+			Fn:          mdDocMethodHeadings,
+			Arity:       "0-1",
+			Description: "Get all headings (level?)",
+		},
+		"links": {
+			Fn:          mdDocMethodLinks,
+			Arity:       "0",
+			Description: "Get all links",
+		},
+		"images": {
+			Fn:          mdDocMethodImages,
+			Arity:       "0",
+			Description: "Get all images",
+		},
+		"codeBlocks": {
+			Fn:          mdDocMethodCodeBlocks,
+			Arity:       "0-1",
+			Description: "Get all code blocks (language?)",
+		},
+		"title": {
+			Fn:          mdDocMethodTitle,
+			Arity:       "0",
+			Description: "Get the document title (first h1)",
+		},
+		"toc": {
+			Fn:          mdDocMethodTOC,
+			Arity:       "0-1",
+			Description: "Get table of contents (maxDepth?)",
+		},
+		"text": {
+			Fn:          mdDocMethodText,
+			Arity:       "0",
+			Description: "Get plain text content",
+		},
+		"wordCount": {
+			Fn:          mdDocMethodWordCount,
+			Arity:       "0",
+			Description: "Get word count",
+		},
+		"walk": {
+			Fn:          mdDocMethodWalk,
+			Arity:       "1",
+			Description: "Walk the AST calling fn for each node",
+		},
+		"map": {
+			Fn:          mdDocMethodMap,
+			Arity:       "1",
+			Description: "Transform nodes with fn",
+		},
+		"filter": {
+			Fn:          mdDocMethodFilter,
+			Arity:       "1",
+			Description: "Filter nodes by predicate fn",
+		},
+		"ast": {
+			Fn:          mdDocMethodAST,
+			Arity:       "0",
+			Description: "Get the raw AST dictionary",
+		},
+	}
+	RegisterMethodRegistry("markdown", MdDocMethodRegistry)
+}
+
 // evalMdDocMethod handles method calls on MdDoc objects
 func evalMdDocMethod(md *MdDoc, method string, args []Object, env *Environment) Object {
-	switch method {
-	// Rendering methods
-	case "toMarkdown":
-		return mdDocToMarkdown(md, args, env)
-	case "toHTML":
-		return mdDocToHTML(md, args, env)
-
-	// Query methods
-	case "findAll":
-		return mdDocFindAll(md, args, env)
-	case "findFirst":
-		return mdDocFindFirst(md, args, env)
-	case "headings":
-		return mdDocHeadings(md, args, env)
-	case "links":
-		return mdDocLinks(md, args, env)
-	case "images":
-		return mdDocImages(md, args, env)
-	case "codeBlocks":
-		return mdDocCodeBlocks(md, args, env)
-
-	// Convenience methods
-	case "title":
-		return mdDocTitle(md, args, env)
-	case "toc":
-		return mdDocTOC(md, args, env)
-	case "text":
-		return mdDocText(md, args, env)
-	case "wordCount":
-		return mdDocWordCount(md, args, env)
-
-	// Transform methods
-	case "walk":
-		return mdDocWalk(md, args, env)
-	case "map":
-		return mdDocMap(md, args, env)
-	case "filter":
-		return mdDocFilter(md, args, env)
-
-	// AST access
-	case "ast":
-		return md.AST
-
-	default:
-		return unknownMethodError(method, "mdDoc", []string{
-			"toMarkdown", "toHTML",
-			"findAll", "findFirst", "headings", "links", "images", "codeBlocks",
-			"title", "toc", "text", "wordCount",
-			"walk", "map", "filter",
-			"ast",
-		})
+	result := dispatchFromRegistry(MdDocMethodRegistry, "markdown", md, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "mdDoc", MdDocMethodRegistry.Names())
+}
+
+func mdDocMethodToMarkdown(receiver Object, args []Object, env *Environment) Object {
+	return mdDocToMarkdown(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodToHTML(receiver Object, args []Object, env *Environment) Object {
+	return mdDocToHTML(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodFindAll(receiver Object, args []Object, env *Environment) Object {
+	return mdDocFindAll(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodFindFirst(receiver Object, args []Object, env *Environment) Object {
+	return mdDocFindFirst(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodHeadings(receiver Object, args []Object, env *Environment) Object {
+	return mdDocHeadings(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodLinks(receiver Object, args []Object, env *Environment) Object {
+	return mdDocLinks(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodImages(receiver Object, args []Object, env *Environment) Object {
+	return mdDocImages(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodCodeBlocks(receiver Object, args []Object, env *Environment) Object {
+	return mdDocCodeBlocks(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodTitle(receiver Object, args []Object, env *Environment) Object {
+	return mdDocTitle(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodTOC(receiver Object, args []Object, env *Environment) Object {
+	return mdDocTOC(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodText(receiver Object, args []Object, env *Environment) Object {
+	return mdDocText(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodWordCount(receiver Object, args []Object, env *Environment) Object {
+	return mdDocWordCount(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodWalk(receiver Object, args []Object, env *Environment) Object {
+	return mdDocWalk(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodMap(receiver Object, args []Object, env *Environment) Object {
+	return mdDocMap(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodFilter(receiver Object, args []Object, env *Environment) Object {
+	return mdDocFilter(receiver.(*MdDoc), args, env)
+}
+
+func mdDocMethodAST(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*MdDoc).AST
 }
 
 // ============================================================================

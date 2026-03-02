@@ -891,3 +891,12 @@ Items to add to `work/BACKLOG.md` after implementation:
 | 2026-03-02 | Task 11: Migrate `request` and `response` methods | ✅ Done | In methods_file_http.go. RequestMethodRegistry (1), ResponseMethodRegistry (4). Ghost hints removed. |
 | 2026-03-02 | Task 12: Refactor dict-subtype dispatch | ⏭ Skipped | Existing dispatchMethodCall branches still call evalXxxMethod wrappers which now use registries internally. Semantics preserved; cleanup deferred. |
 | 2026-03-02 | Task 13: Tier 2 validation and commit | ✅ Done | All tests pass. Removed all Tier 2 entries from TypeMethods. Committed: 8500d4f |
+| 2026-03-02 | Task 14: Migrate `record` methods | ✅ Done | Added RecordMethodRegistry (19 entries) to methods_record.go. Fixed arity for withError (1-3) and failIfInvalid (0-1). |
+| 2026-03-02 | Task 15: Migrate `DBConnection` methods | ✅ Done | Created methods_db_sftp.go with DBConnectionMethodRegistry (8 entries). Wrappers delegate to existing evalDBConnectionMethod. |
+| 2026-03-02 | Task 16: Migrate `SFTPConnection` and `SFTPFileHandle` methods | ✅ Done | In methods_db_sftp.go. SFTPConnectionMethodRegistry (1 entry), SFTPFileHandleMethodRegistry (3 entries). |
+| 2026-03-02 | Task 17: Migrate `session` methods | ✅ Done | Created methods_session_dev.go with SessionMethodRegistry (11 entries). |
+| 2026-03-02 | Task 18: Migrate `table` methods | ✅ Done | Added TableMethodRegistry (38 entries) to stdlib_table.go. EvalTableMethod kept exported. Fixed toBox arity (0-1). |
+| 2026-03-02 | Task 19: Migrate `DSLSchema` methods | ✅ Done | Added DSLSchemaMethodRegistry (6 entries) to stdlib_dsl_schema.go. Registered as "schema" key. |
+| 2026-03-02 | Task 20: Migrate remaining minor types | ✅ Done | MdDocMethodRegistry (16 entries) in stdlib_mddoc.go. TableBindingMethodRegistry (17 entries) in stdlib_schema_table_binding.go. DevModuleMethodRegistry (5 entries) in methods_session_dev.go. Fixed arity specs for update (1-2), findBy (1-2), first/last (0-2), toSQL (1+). |
+| 2026-03-02 | Task 21: Final cleanup — TypeMethods | ✅ Partial | All Tier 3 entries removed from TypeMethods. Only empty "function" entry remains. builtinDescribe fallback to TypeMethods removed. getObjectTypeName updated for TableBinding/MdDoc/DSLSchema. Full TypeMethods removal deferred (test file still references it). |
+| 2026-03-02 | Task 22: Tier 3 validation, commit, and close | ✅ Done | All tests pass (go test ./pkg/parsley/...). Full build succeeds (go build ./...). Committed: 234d0f0. FEAT-137 status set to implemented. |

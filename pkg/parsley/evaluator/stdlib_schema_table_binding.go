@@ -64,49 +64,174 @@ type OrderSpec struct {
 }
 
 // evalTableBindingMethod dispatches method calls on TableBinding instances.
-func evalTableBindingMethod(tb *TableBinding, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "all":
-		return tb.executeAll(args, env)
-	case "find":
-		return tb.executeFind(args, env)
-	case "where":
-		return tb.executeWhere(args, env)
-	case "insert":
-		return tb.executeInsert(args, env)
-	case "update":
-		return tb.executeUpdate(args, env)
-	case "save":
-		return tb.executeSave(args, env)
-	case "delete":
-		return tb.executeDelete(args, env)
-	case "count":
-		return tb.executeCount(args, env)
-	case "sum":
-		return tb.executeAggregate("SUM", args, env)
-	case "avg":
-		return tb.executeAggregate("AVG", args, env)
-	case "min":
-		return tb.executeAggregate("MIN", args, env)
-	case "max":
-		return tb.executeAggregate("MAX", args, env)
-	case "first":
-		return tb.executeFirst(args, env)
-	case "last":
-		return tb.executeLast(args, env)
-	case "exists":
-		return tb.executeExists(args, env)
-	case "findBy":
-		return tb.executeFindBy(args, env)
-	case "toSQL":
-		return tb.executeToSQL(args, env)
-	default:
-		return unknownMethodError(method, "TableBinding", []string{
-			"all", "find", "where", "insert", "update", "save", "delete",
-			"count", "sum", "avg", "min", "max",
-			"first", "last", "exists", "findBy", "toSQL",
-		})
+// TableBindingMethodRegistry defines all methods available on TableBinding objects.
+var TableBindingMethodRegistry MethodRegistry
+
+func init() {
+	TableBindingMethodRegistry = MethodRegistry{
+		"all": {
+			Fn:          tableBindingMethodAll,
+			Arity:       "0-1",
+			Description: "Get all rows (options?)",
+		},
+		"find": {
+			Fn:          tableBindingMethodFind,
+			Arity:       "1",
+			Description: "Find row by primary key (id)",
+		},
+		"where": {
+			Fn:          tableBindingMethodWhere,
+			Arity:       "1-2",
+			Description: "Get rows matching conditions (dict or sql, params?)",
+		},
+		"insert": {
+			Fn:          tableBindingMethodInsert,
+			Arity:       "1",
+			Description: "Insert a new row (dict)",
+		},
+		"update": {
+			Fn:          tableBindingMethodUpdate,
+			Arity:       "1-2",
+			Description: "Update a row (record or table, or id and dict)",
+		},
+		"save": {
+			Fn:          tableBindingMethodSave,
+			Arity:       "1",
+			Description: "Insert or update a row (dict)",
+		},
+		"delete": {
+			Fn:          tableBindingMethodDelete,
+			Arity:       "1",
+			Description: "Delete a row (id)",
+		},
+		"count": {
+			Fn:          tableBindingMethodCount,
+			Arity:       "0-1",
+			Description: "Count rows (conditions?)",
+		},
+		"sum": {
+			Fn:          tableBindingMethodSum,
+			Arity:       "1-2",
+			Description: "Sum a column (column, conditions?)",
+		},
+		"avg": {
+			Fn:          tableBindingMethodAvg,
+			Arity:       "1-2",
+			Description: "Average a column (column, conditions?)",
+		},
+		"min": {
+			Fn:          tableBindingMethodMin,
+			Arity:       "1-2",
+			Description: "Minimum value of a column (column, conditions?)",
+		},
+		"max": {
+			Fn:          tableBindingMethodMax,
+			Arity:       "1-2",
+			Description: "Maximum value of a column (column, conditions?)",
+		},
+		"first": {
+			Fn:          tableBindingMethodFirst,
+			Arity:       "0-2",
+			Description: "Get first row (count?, options?)",
+		},
+		"last": {
+			Fn:          tableBindingMethodLast,
+			Arity:       "0-2",
+			Description: "Get last row (count?, options?)",
+		},
+		"exists": {
+			Fn:          tableBindingMethodExists,
+			Arity:       "1",
+			Description: "Check if a row exists (conditions)",
+		},
+		"findBy": {
+			Fn:          tableBindingMethodFindBy,
+			Arity:       "1-2",
+			Description: "Find first row matching conditions (dict, options?)",
+		},
+		"toSQL": {
+			Fn:          tableBindingMethodToSQL,
+			Arity:       "1+",
+			Description: "Generate SQL for an operation (method, args...)",
+		},
 	}
+	RegisterMethodRegistry("tablebinding", TableBindingMethodRegistry)
+}
+
+func evalTableBindingMethod(tb *TableBinding, method string, args []Object, env *Environment) Object {
+	result := dispatchFromRegistry(TableBindingMethodRegistry, "tablebinding", tb, method, args, env)
+	if result != nil {
+		return result
+	}
+	return unknownMethodError(method, "TableBinding", TableBindingMethodRegistry.Names())
+}
+
+func tableBindingMethodAll(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeAll(args, env)
+}
+
+func tableBindingMethodFind(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeFind(args, env)
+}
+
+func tableBindingMethodWhere(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeWhere(args, env)
+}
+
+func tableBindingMethodInsert(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeInsert(args, env)
+}
+
+func tableBindingMethodUpdate(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeUpdate(args, env)
+}
+
+func tableBindingMethodSave(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeSave(args, env)
+}
+
+func tableBindingMethodDelete(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeDelete(args, env)
+}
+
+func tableBindingMethodCount(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeCount(args, env)
+}
+
+func tableBindingMethodSum(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeAggregate("SUM", args, env)
+}
+
+func tableBindingMethodAvg(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeAggregate("AVG", args, env)
+}
+
+func tableBindingMethodMin(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeAggregate("MIN", args, env)
+}
+
+func tableBindingMethodMax(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeAggregate("MAX", args, env)
+}
+
+func tableBindingMethodFirst(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeFirst(args, env)
+}
+
+func tableBindingMethodLast(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeLast(args, env)
+}
+
+func tableBindingMethodExists(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeExists(args, env)
+}
+
+func tableBindingMethodFindBy(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeFindBy(args, env)
+}
+
+func tableBindingMethodToSQL(receiver Object, args []Object, env *Environment) Object {
+	return receiver.(*TableBinding).executeToSQL(args, env)
 }
 
 var identifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)

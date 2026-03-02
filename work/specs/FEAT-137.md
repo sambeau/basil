@@ -1,7 +1,7 @@
 ---
 id: FEAT-137
 title: "Complete Method Registry Migration"
-status: draft
+status: implemented
 priority: medium
 created: 2026-03-02
 author: "@human"
@@ -49,25 +49,25 @@ As a Parsley maintainer, I want a single pattern for defining methods so that ad
 
 ### Tier 3 — Server-specific types
 
-- [ ] `DBConnection` methods migrated (8 methods)
-- [ ] `SFTPConnection` methods migrated (1 method)
-- [ ] `SFTPFileHandle` methods migrated (3 methods)
-- [ ] `session` methods migrated (11 methods)
-- [ ] `record` methods migrated (24 methods)
-- [ ] `table` methods migrated (44 methods)
-- [ ] `DSLSchema` methods migrated (41 unique methods)
-- [ ] `TableBinding` methods migrated (~22 unique methods)
-- [ ] `MdDoc` methods migrated (16 methods)
-- [ ] `DevModule` methods migrated (5 methods)
-- [ ] `pars describe` works correctly for all Tier 3 types
-- [ ] All existing tests pass
+- [x] `DBConnection` methods migrated (8 methods)
+- [x] `SFTPConnection` methods migrated (1 method)
+- [x] `SFTPFileHandle` methods migrated (3 methods)
+- [x] `session` methods migrated (11 methods)
+- [x] `record` methods migrated (19 methods)
+- [x] `table` methods migrated (38 methods)
+- [x] `DSLSchema` methods migrated (6 methods)
+- [x] `TableBinding` methods migrated (17 methods)
+- [x] `MdDoc` methods migrated (16 methods)
+- [x] `DevModule` methods migrated (5 methods)
+- [x] `pars describe` works correctly for all Tier 3 types
+- [x] All existing tests pass
 
 ### Cleanup
 
-- [ ] Stale `TypeMethods` entries removed from `introspect.go` for all migrated types
-- [ ] `TypeMethods` map removed entirely once all entries are cleared
-- [ ] `arrayMethods` and `dictionaryMethods` string slices in `methods.go` removed (replaced by registry)
-- [ ] `booleanMethods` and `nullMethods` string slices in `methods.go` removed (replaced by registry)
+- [x] Stale `TypeMethods` entries removed from `introspect.go` for all migrated types
+- [ ] `TypeMethods` map removed entirely once all entries are cleared (only empty `"function"` entry remains)
+- [x] `arrayMethods` and `dictionaryMethods` string slices in `methods.go` removed (replaced by registry)
+- [x] `booleanMethods` and `nullMethods` string slices in `methods.go` removed (replaced by registry)
 - [ ] FEAT-111 status updated to `implemented` once complete
 
 ## Design Decisions
