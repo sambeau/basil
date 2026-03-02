@@ -130,55 +130,6 @@ var TypeProperties = map[string][]PropertyInfo{
 // See FEAT-111 for migration progress.
 var TypeMethods = map[string][]MethodInfo{
 
-	"datetime": {
-		{Name: "format", Arity: "0-2", Description: "Format with style and locale"},
-		{Name: "dayOfYear", Arity: "0", Description: "Day of year (1-366)"},
-		{Name: "week", Arity: "0", Description: "ISO week number"},
-		{Name: "timestamp", Arity: "0", Description: "Unix timestamp"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
-	"duration": {
-		{Name: "format", Arity: "0-1", Description: "Format as relative time"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
-	"path": {
-		{Name: "toString", Arity: "0", Description: "Convert to string"},
-		{Name: "join", Arity: "1+", Description: "Join path components"},
-		{Name: "parent", Arity: "0", Description: "Get parent directory"},
-		{Name: "isAbsolute", Arity: "0", Description: "Check if absolute path"},
-		{Name: "isRelative", Arity: "0", Description: "Check if relative path"},
-		{Name: "public", Arity: "0", Description: "Get public URL"},
-		{Name: "toURL", Arity: "1", Description: "Convert to URL with prefix"},
-		{Name: "match", Arity: "1", Description: "Match against pattern"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
-	"url": {
-		{Name: "origin", Arity: "0", Description: "Get origin (scheme://host:port)"},
-		{Name: "pathname", Arity: "0", Description: "Get path component"},
-		{Name: "toString", Arity: "0", Description: "Convert to string"},
-		{Name: "withPath", Arity: "1", Description: "Create URL with new path"},
-		{Name: "withQuery", Arity: "1", Description: "Create URL with query params"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
-	"regex": {
-		{Name: "test", Arity: "1", Description: "Test if string matches"},
-		{Name: "match", Arity: "1", Description: "Find first match"},
-		{Name: "matchAll", Arity: "1", Description: "Find all matches"},
-		{Name: "replace", Arity: "2", Description: "Replace matches"},
-		{Name: "split", Arity: "1", Description: "Split string by pattern"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
-	"file": {
-		{Name: "exists", Arity: "0", Description: "Check if file exists"},
-		{Name: "read", Arity: "0", Description: "Read file contents"},
-		{Name: "stat", Arity: "0", Description: "Get file metadata"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
-	"directory": {
-		{Name: "exists", Arity: "0", Description: "Check if directory exists"},
-		{Name: "list", Arity: "0", Description: "List directory contents"},
-		{Name: "toDict", Arity: "0", Description: "Convert to dictionary"},
-	},
 	"table": {
 		{Name: "where", Arity: "1", Description: "Filter rows by predicate"},
 		{Name: "orderBy", Arity: "1+", Description: "Sort rows by column(s)"},
@@ -250,12 +201,6 @@ var TypeMethods = map[string][]MethodInfo{
 
 	"function": {
 		// Functions have no methods but we include them for completeness
-	},
-	"boolean": {
-		// Booleans have no methods
-	},
-	"null": {
-		// Null has no methods
 	},
 }
 

@@ -3,12 +3,10 @@
 package evaluator
 
 import (
-	"encoding/json"
 	"fmt"
 	"html"
 	"maps"
 	"math"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -870,99 +868,22 @@ func dictReorder(dict *Dictionary, args []Object, env *Environment) Object {
 // Boolean Methods
 // ============================================================================
 
-// booleanMethods lists all methods available on boolean
-var booleanMethods = []string{"type", "toBox", "repr", "toJSON", "inspect"}
-
-// evalBooleanMethod evaluates a method call on a Boolean
+// evalBooleanMethod evaluates a method call on a Boolean using the registry.
 func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
-	switch method {
-	case "toBox":
-		if len(args) != 0 {
-			return newArityError("toBox", len(args), 0)
-		}
-		br := NewBoxRenderer()
-		return &String{Value: br.RenderSingleValue(b.Inspect())}
-
-	case "repr":
-		// repr() - returns PLN literal string
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		if b.Value {
-			return &String{Value: "true"}
-		}
-		return &String{Value: "false"}
-
-	case "toJSON":
-		// toJSON() - returns JSON boolean string
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		if b.Value {
-			return &String{Value: "true"}
-		}
-		return &String{Value: "false"}
-
-	case "inspect":
-		// inspect() - returns debug dictionary
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return &Dictionary{
-			Pairs: map[string]ast.Expression{
-				"__type": createLiteralExpression(&String{Value: "boolean"}),
-				"value":  createLiteralExpression(b),
-			},
-			Env: NewEnvironment(),
-		}
-
-	default:
-		return unknownMethodError(method, "boolean", booleanMethods)
+	result := dispatchFromRegistry(BooleanMethodRegistry, "boolean", b, method, args, nil)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "boolean", BooleanMethodRegistry.Names())
 }
 
-// nullMethods lists all methods available on null
-var nullMethods = []string{"type", "toBox", "repr", "toJSON", "inspect"}
-
-// evalNullMethod evaluates a method call on Null
+// evalNullMethod evaluates a method call on Null using the registry.
 func evalNullMethod(method string, args []Object) Object {
-	switch method {
-	case "toBox":
-		if len(args) != 0 {
-			return newArityError("toBox", len(args), 0)
-		}
-		br := NewBoxRenderer()
-		return &String{Value: br.RenderSingleValue("null")}
-
-	case "repr":
-		// repr() - returns PLN literal string
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: "null"}
-
-	case "toJSON":
-		// toJSON() - returns JSON null string
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		return &String{Value: "null"}
-
-	case "inspect":
-		// inspect() - returns debug dictionary
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return &Dictionary{
-			Pairs: map[string]ast.Expression{
-				"__type": createLiteralExpression(&String{Value: "null"}),
-			},
-			Env: NewEnvironment(),
-		}
-
-	default:
-		return unknownMethodError(method, "null", nullMethods)
+	result := dispatchFromRegistry(NullMethodRegistry, "null", NULL, method, args, nil)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "null", NullMethodRegistry.Names())
 }
 
 // ============================================================================
@@ -991,196 +912,14 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 // Datetime Methods
 // ============================================================================
 
-// evalDatetimeMethod evaluates a method call on a datetime dictionary
+// evalDatetimeMethod evaluates a method call on a datetime dictionary using the registry.
 func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "fmt", "format":
-		// fmt()/format() - unified formatter API (FEAT-121)
-		// Overloads:
-		//   - .fmt() - medium style, default locale
-		//   - .fmt("style") - named style
-		//   - .fmt("style", "locale") - style + locale
-		//   - .fmt({...}) - options dictionary
-		if len(args) > 2 {
-			return newArityErrorRange("fmt", len(args), 0, 2)
-		}
-
-		style := "medium" // default changed from "long" to "medium" per FEAT-121
-		localeStr := "en-US"
-
-		if len(args) >= 1 {
-			switch arg := args[0].(type) {
-			case *String:
-				style = arg.Value
-			case *Dictionary:
-				// Parse options dictionary
-				if styleVal := getDictStringValue(arg, "style"); styleVal != "" {
-					style = styleVal
-				}
-				if localeVal := getDictStringValue(arg, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			default:
-				return newTypeError("TYPE-0005", "fmt", "a string (style) or dictionary", args[0].Type())
-			}
-		}
-
-		if len(args) == 2 {
-			locArg, ok := args[1].(*String)
-			if !ok {
-				return newTypeError("TYPE-0006", "fmt", "a string (locale)", args[1].Type())
-			}
-			localeStr = locArg.Value
-		}
-
-		// Delegate to the formatDate builtin logic
-		return formatDateWithStyleAndLocale(dict, style, localeStr, env)
-
-	case "short":
-		// short(locale?) - compact date format
-		if len(args) > 1 {
-			return newArityErrorRange("short", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if dict, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "short", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDateWithStyleAndLocale(dict, "short", localeStr, env)
-
-	case "medium":
-		// medium(locale?) - balanced date format
-		if len(args) > 1 {
-			return newArityErrorRange("medium", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if dict, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "medium", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDateWithStyleAndLocale(dict, "medium", localeStr, env)
-
-	case "long":
-		// long(locale?) - verbose date format
-		if len(args) > 1 {
-			return newArityErrorRange("long", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if dict, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "long", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDateWithStyleAndLocale(dict, "long", localeStr, env)
-
-	case "full":
-		// full(locale?) - maximum context date format
-		if len(args) > 1 {
-			return newArityErrorRange("full", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if dict, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(dict, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "full", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDateWithStyleAndLocale(dict, "full", localeStr, env)
-
-	case "repr":
-		// repr() - returns PLN literal string
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: datetimeToReprString(dict)}
-
-	case "dayOfYear":
-		if len(args) != 0 {
-			return newArityError("dayOfYear", len(args), 0)
-		}
-		return evalDatetimeComputedProperty(dict, "dayOfYear", env)
-
-	case "week":
-		if len(args) != 0 {
-			return newArityError("week", len(args), 0)
-		}
-		return evalDatetimeComputedProperty(dict, "week", env)
-
-	case "timestamp":
-		if len(args) != 0 {
-			return newArityError("timestamp", len(args), 0)
-		}
-		return evalDatetimeComputedProperty(dict, "timestamp", env)
-
-	case "toJSON":
-		// toJSON() - returns ISO 8601 string in JSON format
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		// Get the ISO string representation and return as JSON string
-		isoStr := datetimeToReprString(dict)
-		// Remove the @ prefix
-		isoStr = strings.TrimPrefix(isoStr, "@")
-		jsonBytes, _ := json.Marshal(isoStr)
-		return &String{Value: string(jsonBytes)}
-
-	case "toBox":
-		// toBox(opts?) - render datetime as ASCII box
-		return datetimeToBox(dict, args, env)
-
-	default:
-		return unknownMethodError(method, "datetime", []string{
-			"toDict", "inspect", "fmt", "format", "short", "medium", "long", "full", "repr",
-			"year", "month", "day", "hour", "minute", "second",
-			"weekday", "week", "timestamp", "toJSON", "toBox",
-		})
+	result := dispatchFromRegistry(DatetimeMethodRegistry, "datetime", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	// Return an UNDEF-0002 error so dispatchMethodCall can fall through to dictionary methods.
+	return unknownMethodError(method, "datetime", DatetimeMethodRegistry.Names())
 }
 
 // getDictStringValue extracts a string value from a dictionary by key.
@@ -1198,179 +937,13 @@ func getDictStringValue(dict *Dictionary, key string) string {
 // Duration Methods
 // ============================================================================
 
-// evalDurationMethod evaluates a method call on a duration dictionary
+// evalDurationMethod evaluates a method call on a duration dictionary using the registry.
 func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "fmt", "format":
-		// fmt()/format() - unified formatter API (FEAT-121)
-		// Overloads:
-		//   - .fmt() - medium style, default locale
-		//   - .fmt("style") - named style
-		//   - .fmt("style", "locale") - style + locale
-		//   - .fmt({...}) - options dictionary
-		if len(args) > 2 {
-			return newArityErrorRange("fmt", len(args), 0, 2)
-		}
-
-		style := "medium"
-		localeStr := "en-US"
-
-		if len(args) >= 1 {
-			switch arg := args[0].(type) {
-			case *String:
-				// Could be style or locale
-				if isStyleName(arg.Value) {
-					style = arg.Value
-				} else {
-					localeStr = arg.Value
-				}
-			case *Dictionary:
-				if styleVal := getDictStringValue(arg, "style"); styleVal != "" {
-					style = styleVal
-				}
-				if localeVal := getDictStringValue(arg, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			default:
-				return newTypeError("TYPE-0012", "fmt", "a string or dictionary", args[0].Type())
-			}
-		}
-
-		if len(args) == 2 {
-			locArg, ok := args[1].(*String)
-			if !ok {
-				return newTypeError("TYPE-0006", "fmt", "a string (locale)", args[1].Type())
-			}
-			localeStr = locArg.Value
-		}
-
-		return formatDurationWithStyle(dict, style, localeStr, env)
-
-	case "short":
-		// short(locale?) - compact duration format (2h)
-		if len(args) > 1 {
-			return newArityErrorRange("short", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if d, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(d, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "short", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDurationWithStyle(dict, "short", localeStr, env)
-
-	case "medium":
-		// medium(locale?) - balanced duration format (2 hours)
-		if len(args) > 1 {
-			return newArityErrorRange("medium", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if d, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(d, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "medium", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDurationWithStyle(dict, "medium", localeStr, env)
-
-	case "long":
-		// long(locale?) - verbose duration format (2 hours 30 minutes)
-		if len(args) > 1 {
-			return newArityErrorRange("long", len(args), 0, 1)
-		}
-		localeStr := "en-US"
-		if len(args) == 1 {
-			if loc, ok := args[0].(*String); ok {
-				localeStr = loc.Value
-			} else if d, ok := args[0].(*Dictionary); ok {
-				if localeVal := getDictStringValue(d, "locale"); localeVal != "" {
-					localeStr = localeVal
-				}
-			} else {
-				return newTypeError("TYPE-0012", "long", "a string (locale) or dictionary", args[0].Type())
-			}
-		}
-		return formatDurationWithStyle(dict, "long", localeStr, env)
-
-	case "full":
-		// full() - duration does not support full style
-		return newStructuredError("VAL-0021", map[string]any{
-			"Function": "full",
-			"Expected": "Duration does not support 'full' style",
-			"Got":      "full",
-		})
-
-	case "repr":
-		// repr() - returns PLN literal string
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		return &String{Value: formatDurationRepr(dict, env)}
-
-	case "toJSON":
-		// toJSON() - returns duration as JSON object with components
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		// Build JSON object with duration components
-		months, seconds, err := getDurationComponents(dict, env)
-		if err != nil {
-			return newValidationError("VAL-0007", map[string]any{"GoError": err.Error()})
-		}
-		// Return as object with years, months, days, hours, minutes, seconds
-		years := months / 12
-		months %= 12
-		days := seconds / (24 * 3600)
-		seconds %= (24 * 3600)
-		hours := seconds / 3600
-		seconds %= 3600
-		minutes := seconds / 60
-		seconds %= 60
-		result := fmt.Sprintf(`{"years":%d,"months":%d,"days":%d,"hours":%d,"minutes":%d,"seconds":%d}`,
-			years, months, days, hours, minutes, seconds)
-		return &String{Value: result}
-
-	case "toBox":
-		// toBox(opts?) - render duration as ASCII box
-		return durationToBox(dict, args, env)
-
-	default:
-		return unknownMethodError(method, "duration", []string{
-			"toDict", "inspect", "fmt", "format", "short", "medium", "long", "repr", "toJSON", "toBox",
-		})
+	result := dispatchFromRegistry(DurationMethodRegistry, "duration", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "duration", DurationMethodRegistry.Names())
 }
 
 // formatDurationWithStyle formats a duration with the specified style.
@@ -1577,762 +1150,92 @@ func formatDurationRepr(dict *Dictionary, env *Environment) string {
 // Path Methods
 // ============================================================================
 
-// evalPathMethod evaluates a method call on a path dictionary
+// evalPathMethod evaluates a method call on a path dictionary using the registry.
 func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "isAbsolute":
-		if len(args) != 0 {
-			return newArityError("isAbsolute", len(args), 0)
-		}
-		// Get the absolute property
-		if absExpr, ok := dict.Pairs["absolute"]; ok {
-			result := Eval(absExpr, env)
-			if b, ok := result.(*Boolean); ok {
-				return b
-			}
-		}
-		return FALSE
-
-	case "isRelative":
-		if len(args) != 0 {
-			return newArityError("isRelative", len(args), 0)
-		}
-		// Get the absolute property and negate it
-		if absExpr, ok := dict.Pairs["absolute"]; ok {
-			result := Eval(absExpr, env)
-			if b, ok := result.(*Boolean); ok {
-				return nativeBoolToParsBoolean(!b.Value)
-			}
-		}
-		return TRUE
-
-	case "public":
-		if len(args) != 0 {
-			return newArityError("public", len(args), 0)
-		}
-		return evalPublicURL([]Object{dict}, env)
-
-	case "toURL":
-		if len(args) != 1 {
-			return newArityError("toURL", len(args), 1)
-		}
-		prefix, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "toURL", "a string", args[0].Type())
-		}
-
-		pathStr := pathDictToString(dict)
-		cleanPrefix := strings.TrimRight(prefix.Value, "/")
-		relPath := pathStr
-		if strings.HasPrefix(relPath, "./") {
-			relPath = relPath[1:]
-		}
-		if !strings.HasPrefix(relPath, "/") {
-			relPath = "/" + relPath
-		}
-
-		return &String{Value: cleanPrefix + relPath}
-
-	case "match":
-		if len(args) != 1 {
-			return newArityError("match", len(args), 1)
-		}
-		pattern, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0006", "match", "a string", args[0].Type())
-		}
-
-		pathStr := pathDictToString(dict)
-		result := matchPathPattern(pathStr, pattern.Value)
-		if result == nil {
-			return NULL
-		}
-
-		pairs := make(map[string]ast.Expression)
-		for key, val := range result {
-			switch v := val.(type) {
-			case string:
-				pairs[key] = createLiteralExpression(&String{Value: v})
-			case []string:
-				elements := make([]Object, len(v))
-				for i, s := range v {
-					elements[i] = &String{Value: s}
-				}
-				pairs[key] = createLiteralExpression(&Array{Elements: elements})
-			}
-		}
-
-		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
-
-	case "toJSON":
-		// toJSON() - returns path string as JSON string
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		pathStr := pathDictToString(dict)
-		jsonBytes, _ := json.Marshal(pathStr)
-		return &String{Value: string(jsonBytes)}
-
-	case "toBox":
-		// toBox(opts?) - render path as ASCII box
-		return pathToBox(dict, args, env)
-
-	case "repr":
-		// repr() - returns PLN literal string
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		pathStr := pathDictToString(dict)
-		return &String{Value: "@" + pathStr}
-
-	default:
-		return unknownMethodError(method, "path", []string{
-			"toDict", "inspect", "toString", "join", "parent", "isAbsolute", "isRelative", "public", "toURL", "match", "toJSON", "toBox", "repr",
-		})
+	result := dispatchFromRegistry(PathMethodRegistry, "path", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "path", PathMethodRegistry.Names())
 }
 
 // ============================================================================
 // URL Methods
 // ============================================================================
 
-// evalUrlMethod evaluates a method call on a URL dictionary
+// evalUrlMethod evaluates a method call on a URL dictionary using the registry.
 func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "origin":
-		if len(args) != 0 {
-			return newArityError("origin", len(args), 0)
-		}
-		// origin = scheme + "://" + host + (port ? ":" + port : "")
-		scheme := ""
-		host := ""
-		port := ""
-
-		if schemeExpr, ok := dict.Pairs["scheme"]; ok {
-			if s := Eval(schemeExpr, env); s != nil {
-				if str, ok := s.(*String); ok {
-					scheme = str.Value
-				}
-			}
-		}
-		if hostExpr, ok := dict.Pairs["host"]; ok {
-			if h := Eval(hostExpr, env); h != nil {
-				if str, ok := h.(*String); ok {
-					host = str.Value
-				}
-			}
-		}
-		if portExpr, ok := dict.Pairs["port"]; ok {
-			if p := Eval(portExpr, env); p != nil {
-				switch pv := p.(type) {
-				case *Integer:
-					if pv.Value > 0 {
-						port = fmt.Sprintf(":%d", pv.Value)
-					}
-				case *String:
-					if pv.Value != "" {
-						port = ":" + pv.Value
-					}
-				}
-			}
-		}
-		return &String{Value: scheme + "://" + host + port}
-
-	case "pathname":
-		if len(args) != 0 {
-			return newArityError("pathname", len(args), 0)
-		}
-		// pathname = "/" + path components joined by "/"
-		if pathExpr, ok := dict.Pairs["path"]; ok {
-			if p := Eval(pathExpr, env); p != nil {
-				if arr, ok := p.(*Array); ok {
-					parts := make([]string, 0, len(arr.Elements))
-					for _, elem := range arr.Elements {
-						if s, ok := elem.(*String); ok && s.Value != "" {
-							parts = append(parts, s.Value)
-						}
-					}
-					return &String{Value: "/" + strings.Join(parts, "/")}
-				}
-			}
-		}
-		return &String{Value: "/"}
-
-	case "search":
-		if len(args) != 0 {
-			return newArityError("search", len(args), 0)
-		}
-		// search = query string representation
-		if queryExpr, ok := dict.Pairs["query"]; ok {
-			if q := Eval(queryExpr, env); q != nil {
-				if queryDict, ok := q.(*Dictionary); ok {
-					if len(queryDict.Pairs) == 0 {
-						return &String{Value: ""}
-					}
-					parts := make([]string, 0, len(queryDict.Pairs))
-					for k, v := range queryDict.Pairs {
-						if strings.HasPrefix(k, "__") {
-							continue
-						}
-						val := Eval(v, env)
-						parts = append(parts, k+"="+val.Inspect())
-					}
-					return &String{Value: "?" + strings.Join(parts, "&")}
-				}
-			}
-		}
-		return &String{Value: ""}
-
-	case "href":
-		if len(args) != 0 {
-			return newArityError("href", len(args), 0)
-		}
-		// href = full URL string representation
-		return &String{Value: urlDictToString(dict)}
-
-	case "toJSON":
-		// toJSON() - returns URL string as JSON string
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		urlStr := urlDictToString(dict)
-		jsonBytes, _ := json.Marshal(urlStr)
-		return &String{Value: string(jsonBytes)}
-
-	case "toBox":
-		// toBox(opts?) - render URL as ASCII box
-		return urlToBox(dict, args, env)
-
-	case "repr":
-		// repr() - returns PLN literal string
-		if len(args) != 0 {
-			return newArityError("repr", len(args), 0)
-		}
-		urlStr := urlDictToString(dict)
-		return &String{Value: `@"` + urlStr + `"`}
-
-	default:
-		return unknownMethodError(method, "url", []string{
-			"toDict", "inspect", "toString", "query", "href", "toJSON", "toBox", "repr",
-		})
+	result := dispatchFromRegistry(UrlMethodRegistry, "url", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "url", UrlMethodRegistry.Names())
 }
 
 // ============================================================================
 // Regex Methods
 // ============================================================================
 
-// evalRegexMethod evaluates a method call on a regex dictionary
+// evalRegexMethod evaluates a method call on a regex dictionary using the registry.
 func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "format":
-		// format(style?)
-		// Styles: "pattern" (just pattern), "literal" (with slashes/flags), "verbose" (pattern and flags separated)
-		if len(args) > 1 {
-			return newArityErrorRange("format", len(args), 0, 1)
-		}
-
-		// Get pattern and flags
-		var pattern, flags string
-		if patternExpr, ok := dict.Pairs["pattern"]; ok {
-			if p := Eval(patternExpr, env); p != nil {
-				if str, ok := p.(*String); ok {
-					pattern = str.Value
-				}
-			}
-		}
-		if flagsExpr, ok := dict.Pairs["flags"]; ok {
-			if f := Eval(flagsExpr, env); f != nil {
-				if str, ok := f.(*String); ok {
-					flags = str.Value
-				}
-			}
-		}
-
-		// Get style (default to "literal")
-		style := "literal"
-		if len(args) == 1 {
-			styleArg, ok := args[0].(*String)
-			if !ok {
-				return newTypeError("TYPE-0012", "format", "a string (style)", args[0].Type())
-			}
-			style = styleArg.Value
-		}
-
-		switch style {
-		case "pattern":
-			return &String{Value: pattern}
-		case "literal":
-			return &String{Value: "/" + pattern + "/" + flags}
-		case "verbose":
-			if flags == "" {
-				return &String{Value: "pattern: " + pattern}
-			}
-			return &String{Value: "pattern: " + pattern + ", flags: " + flags}
-		default:
-			return newValidationError("VAL-0002", map[string]any{"Style": style, "Context": "regex format", "ValidOptions": "pattern, literal, verbose"})
-		}
-
-	case "test":
-		// test(string) - returns boolean if the regex matches the string
-		if len(args) != 1 {
-			return newArityError("test", len(args), 1)
-		}
-		str, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "test", "a string", args[0].Type())
-		}
-
-		// Get pattern and flags
-		var pattern, flags string
-		if patternExpr, ok := dict.Pairs["pattern"]; ok {
-			if p := Eval(patternExpr, env); p != nil {
-				if s, ok := p.(*String); ok {
-					pattern = s.Value
-				}
-			}
-		}
-		if flagsExpr, ok := dict.Pairs["flags"]; ok {
-			if f := Eval(flagsExpr, env); f != nil {
-				if s, ok := f.(*String); ok {
-					flags = s.Value
-				}
-			}
-		}
-
-		// Compile regex with flags
-		re, err := compileRegex(pattern, flags)
-		if err != nil {
-			return newFormatError("FMT-0007", err)
-		}
-
-		return nativeBoolToParsBoolean(re.MatchString(str.Value))
-
-	case "replace":
-		// replace(string, replacement) - replace matches in string
-		// replacement can be a string or function
-		if len(args) != 2 {
-			return newArityError("replace", len(args), 2)
-		}
-		str, ok := args[0].(*String)
-		if !ok {
-			return newTypeError("TYPE-0012", "replace", "a string", args[0].Type())
-		}
-		return regexReplaceOnString(str.Value, dict, args[1], env)
-
-	case "toJSON":
-		// toJSON() - returns regex as JSON object with pattern and flags
-		if len(args) != 0 {
-			return newArityError("toJSON", len(args), 0)
-		}
-		// Get pattern and flags
-		var pattern, flags string
-		if patternExpr, ok := dict.Pairs["pattern"]; ok {
-			if p := Eval(patternExpr, env); p != nil {
-				if s, ok := p.(*String); ok {
-					pattern = s.Value
-				}
-			}
-		}
-		if flagsExpr, ok := dict.Pairs["flags"]; ok {
-			if f := Eval(flagsExpr, env); f != nil {
-				if s, ok := f.(*String); ok {
-					flags = s.Value
-				}
-			}
-		}
-		// Return as JSON object
-		patternJSON, _ := json.Marshal(pattern)
-		flagsJSON, _ := json.Marshal(flags)
-		return &String{Value: fmt.Sprintf(`{"pattern":%s,"flags":%s}`, patternJSON, flagsJSON)}
-
-	case "toBox":
-		// toBox(opts?) - render regex as ASCII box
-		return regexToBox(dict, args, env)
-
-	default:
-		return unknownMethodError(method, "regex", []string{
-			"toDict", "inspect", "toString", "test", "exec", "execAll", "matches", "replace", "toJSON", "toBox",
-		})
+	result := dispatchFromRegistry(RegexMethodRegistry, "regex", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "regex", RegexMethodRegistry.Names())
 }
 
 // ============================================================================
 // File Methods
 // ============================================================================
 
-// evalFileMethod evaluates a method call on a file dictionary
+// evalFileMethod evaluates a method call on a file dictionary using the registry.
 func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "remove":
-		// remove() - removes/deletes the file from filesystem
-		if len(args) != 0 {
-			return newArityError("remove", len(args), 0)
-		}
-		return evalFileRemove(dict, env)
-
-	case "mkdir":
-		// Create directory
-		pathStr := getFilePathString(dict, env)
-		if pathStr == "" {
-			return newValidationError("VAL-0008", map[string]any{"Type": "file"})
-		}
-
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
-		if pathErr != nil {
-			return newIOError("IO-0007", pathStr, pathErr)
-		}
-
-		var recursive bool
-		if len(args) > 0 {
-			if optDict, ok := args[0].(*Dictionary); ok {
-				if parentsExpr, ok := optDict.Pairs["parents"]; ok {
-					if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
-						if boolVal, ok := parentsVal.(*Boolean); ok {
-							recursive = boolVal.Value
-						}
-					}
-				}
-			}
-		}
-
-		// Security check (treat as write operation)
-		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newSecurityError("write", err)
-		}
-
-		var err error
-		if recursive {
-			err = os.MkdirAll(absPath, 0755)
-		} else {
-			err = os.Mkdir(absPath, 0755)
-		}
-
-		if err != nil {
-			return newIOError("IO-0006", absPath, err)
-		}
-		return NULL
-
-	case "rmdir":
-		// Remove directory
-		pathStr := getFilePathString(dict, env)
-		if pathStr == "" {
-			return newValidationError("VAL-0008", map[string]any{"Type": "file"})
-		}
-
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
-		if pathErr != nil {
-			return newIOError("IO-0007", pathStr, pathErr)
-		}
-
-		var recursive bool
-		if len(args) > 0 {
-			if optDict, ok := args[0].(*Dictionary); ok {
-				if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
-					if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
-						if boolVal, ok := recursiveVal.(*Boolean); ok {
-							recursive = boolVal.Value
-						}
-					}
-				}
-			}
-		}
-
-		// Security check (treat as write operation)
-		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newSecurityError("write", err)
-		}
-
-		var err error
-		if recursive {
-			err = os.RemoveAll(absPath)
-		} else {
-			err = os.Remove(absPath)
-		}
-
-		if err != nil {
-			return newIOError("IO-0010", absPath, err)
-		}
-		return NULL
-
-	default:
-		return unknownMethodError(method, "file", []string{
-			"toDict", "read", "write", "append", "delete",
-		})
+	result := dispatchFromRegistry(FileMethodRegistry, "file", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "file", FileMethodRegistry.Names())
 }
 
 // ============================================================================
 // Dir Methods
 // ============================================================================
 
-// evalDirMethod evaluates a method call on a directory dictionary
+// evalDirMethod evaluates a method call on a directory dictionary using the registry.
 func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns clean dictionary for reconstruction (no __type)
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		// Return dict without __type marker
-		cleanPairs := make(map[string]ast.Expression)
-		for key, val := range dict.Pairs {
-			if key != "__type" {
-				cleanPairs[key] = val
-			}
-		}
-		return &Dictionary{Pairs: cleanPairs, Env: dict.Env}
-
-	case "inspect":
-		// inspect() - returns full dictionary with __type for debugging
-		if len(args) != 0 {
-			return newArityError("inspect", len(args), 0)
-		}
-		return dict
-
-	case "mkdir":
-		// Create directory
-		pathStr := getFilePathString(dict, env)
-		if pathStr == "" {
-			return newValidationError("VAL-0008", map[string]any{"Type": "directory"})
-		}
-
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
-		if pathErr != nil {
-			return newIOError("IO-0007", pathStr, pathErr)
-		}
-
-		var recursive bool
-		if len(args) > 0 {
-			if optDict, ok := args[0].(*Dictionary); ok {
-				if parentsExpr, ok := optDict.Pairs["parents"]; ok {
-					if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
-						if boolVal, ok := parentsVal.(*Boolean); ok {
-							recursive = boolVal.Value
-						}
-					}
-				}
-			}
-		}
-
-		// Security check (treat as write operation)
-		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newSecurityError("write", err)
-		}
-
-		var err error
-		if recursive {
-			err = os.MkdirAll(absPath, 0755)
-		} else {
-			err = os.Mkdir(absPath, 0755)
-		}
-
-		if err != nil {
-			return newIOError("IO-0006", absPath, err)
-		}
-		return NULL
-
-	case "rmdir":
-		// Remove directory
-		pathStr := getFilePathString(dict, env)
-		if pathStr == "" {
-			return newValidationError("VAL-0008", map[string]any{"Type": "directory"})
-		}
-
-		absPath, pathErr := resolveModulePath(pathStr, env.Filename, env.RootPath)
-		if pathErr != nil {
-			return newIOError("IO-0007", pathStr, pathErr)
-		}
-
-		var recursive bool
-		if len(args) > 0 {
-			if optDict, ok := args[0].(*Dictionary); ok {
-				if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
-					if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
-						if boolVal, ok := recursiveVal.(*Boolean); ok {
-							recursive = boolVal.Value
-						}
-					}
-				}
-			}
-		}
-
-		// Security check (treat as write operation)
-		if err := env.checkPathAccess(absPath, "write"); err != nil {
-			return newSecurityError("write", err)
-		}
-
-		var err error
-		if recursive {
-			err = os.RemoveAll(absPath)
-		} else {
-			err = os.Remove(absPath)
-		}
-
-		if err != nil {
-			return newIOError("IO-0010", absPath, err)
-		}
-		return NULL
-
-	default:
-		return unknownMethodError(method, "dir", []string{
-			"toDict", "create", "delete",
-		})
+	result := dispatchFromRegistry(DirMethodRegistry, "dir", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "dir", DirMethodRegistry.Names())
 }
 
 // ============================================================================
 // Request Methods
 // ============================================================================
 
-// evalRequestMethod evaluates a method call on a request dictionary
+// evalRequestMethod evaluates a method call on a request dictionary using the registry.
 func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		return dict
-
-	default:
-		return unknownMethodError(method, "request", []string{"toDict"})
+	result := dispatchFromRegistry(RequestMethodRegistry, "request", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "request", RequestMethodRegistry.Names())
 }
 
 // ============================================================================
 // Response Methods
 // ============================================================================
 
-// evalResponseMethod evaluates a method call on a response typed dictionary
+// evalResponseMethod evaluates a method call on a response typed dictionary using the registry.
 func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "response":
-		// response() - returns the __response metadata dictionary
-		if len(args) != 0 {
-			return newArityError("response", len(args), 0)
-		}
-		if responseExpr, ok := dict.Pairs["__response"]; ok {
-			return Eval(responseExpr, dict.Env)
-		}
-		return NULL
-
-	case "format":
-		// format() - returns the format string (json, text, etc.)
-		if len(args) != 0 {
-			return newArityError("format", len(args), 0)
-		}
-		if formatExpr, ok := dict.Pairs["__format"]; ok {
-			return Eval(formatExpr, dict.Env)
-		}
-		return NULL
-
-	case "data":
-		// data() - returns the __data directly (for explicit access)
-		if len(args) != 0 {
-			return newArityError("data", len(args), 0)
-		}
-		if dataExpr, ok := dict.Pairs["__data"]; ok {
-			return Eval(dataExpr, dict.Env)
-		}
-		return NULL
-
-	case "toDict":
-		// toDict() - returns the raw dictionary representation for debugging
-		if len(args) != 0 {
-			return newArityError("toDict", len(args), 0)
-		}
-		return dict
-
-	default:
-		return unknownMethodError(method, "response", []string{
-			"ok", "error", "json", "text", "data", "toDict",
-		})
+	result := dispatchFromRegistry(ResponseMethodRegistry, "response", dict, method, args, env)
+	if result != nil {
+		return result
 	}
+	// Return an UNDEF-0002 error so dispatchMethodCall can fall through to dictionary methods.
+	return unknownMethodError(method, "response", ResponseMethodRegistry.Names())
 }
 
 // ============================================================================
