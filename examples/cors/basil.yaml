@@ -10,7 +10,7 @@ cors:
   headers: [Content-Type, Authorization]
   expose: [X-Total-Count]
   credentials: true
-  maxAge: 86400
+  max_age: 86400
 
 routes:
   - path: /api/test

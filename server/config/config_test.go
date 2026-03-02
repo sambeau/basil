@@ -126,7 +126,7 @@ cors:
   headers: [Content-Type, Authorization]
   expose: [X-Total-Count]
   credentials: true
-  maxAge: 3600
+  max_age: 3600
 `
 	cfg := Defaults()
 	if err := yaml.Unmarshal([]byte(yamlData), cfg); err != nil {

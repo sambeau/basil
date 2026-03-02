@@ -1,8 +1,9 @@
 package config
 
-import "slices"
-
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // Config represents the complete Basil configuration
 type Config struct {
@@ -88,7 +89,7 @@ type CORSConfig struct {
 	Headers     []string      `yaml:"headers"`     // Allowed request headers
 	Expose      []string      `yaml:"expose"`      // Response headers exposed to browser
 	Credentials bool          `yaml:"credentials"` // Allow credentials (cookies, auth headers)
-	MaxAge      int           `yaml:"maxAge"`      // Preflight cache duration in seconds
+	MaxAge      int           `yaml:"max_age"`     // Preflight cache duration in seconds
 }
 
 // CompressionConfig holds HTTP response compression settings
