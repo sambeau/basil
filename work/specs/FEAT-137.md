@@ -119,7 +119,7 @@ For each type, the migration follows these steps (using `array` as example):
 3. **Replace the eval function** to use registry dispatch:
    ```go
    func evalArrayMethod(arr *Array, method string, args []Object, env *Environment) Object {
-       result := dispatchFromRegistry(ArrayMethodRegistry, "array", arr, method, args, env)
+       result := dispatchFromRegistry(ArrayMethodRegistry, arr, method, args, env)
        if result != nil {
            return result
        }
@@ -168,12 +168,12 @@ The `*Dictionary` case in `dispatchMethodCall` checks `isDatetimeDict()`, `isPat
 ```go
 case *Dictionary:
     if isDatetimeDict(receiver) {
-        result := dispatchFromRegistry(DatetimeMethodRegistry, "datetime", receiver, method, args, env)
+        result := dispatchFromRegistry(DatetimeMethodRegistry, receiver, method, args, env)
         if result != nil {
             return result
         }
         // Fall through to dictionary methods
-        result = dispatchFromRegistry(DictionaryMethodRegistry, "dictionary", receiver, method, args, env)
+        result = dispatchFromRegistry(DictionaryMethodRegistry, receiver, method, args, env)
         if result != nil {
             return result
         }

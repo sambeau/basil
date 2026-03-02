@@ -69,7 +69,7 @@ func DescribeTopic(topic string) (*TopicResult, error) {
 
 	topic = strings.TrimSpace(topic)
 
-	// Check for type (registries first, then TypeMethods)
+	// Check for type
 	if result := describeType(topic); result != nil {
 		return result, nil
 	}
@@ -105,7 +105,7 @@ func describeType(typeName string) *TopicResult {
 	// Normalize type name to lowercase for lookup
 	normalizedName := strings.ToLower(typeName)
 
-	// Check method registries first (migrated types: string, integer, float, money)
+	// Check method registries
 	methods := evaluator.GetMethodsForType(normalizedName)
 
 	// If no methods found, check if it's a known type with properties

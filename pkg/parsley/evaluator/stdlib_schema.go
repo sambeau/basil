@@ -32,20 +32,30 @@ func IsSchemaDict(dict *Dictionary) bool {
 	return false
 }
 
+// SchemaDictMethodRegistry defines methods available on dictionary-based schemas.
+var SchemaDictMethodRegistry MethodRegistry
+
+func init() {
+	SchemaDictMethodRegistry = MethodRegistry{
+		"validate": {
+			Fn:          schemaDictMethodValidate,
+			Arity:       "1",
+			Description: "Validate a value against the schema",
+		},
+	}
+	RegisterMethodRegistry("schemadict", SchemaDictMethodRegistry)
+}
+
+func schemaDictMethodValidate(receiver Object, args []Object, env *Environment) Object {
+	return schemaValidate(receiver.(*Dictionary), args[0])
+}
+
 // evalSchemaMethod dispatches method calls on schema dictionaries.
 // Returns nil for unknown methods to allow fallthrough to dictionary methods.
 func evalSchemaMethod(schema *Dictionary, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "validate":
-		if len(args) != 1 {
-			return newArityError("validate", len(args), 1)
-		}
-		// Reuse the existing schemaValidate logic
-		return schemaValidate(schema, args[0])
-	default:
-		// Return nil to allow fallthrough to regular dictionary methods
-		return nil
-	}
+	result := dispatchFromRegistry(SchemaDictMethodRegistry, schema, method, args, env)
+	// Return nil for unknown methods to allow fallthrough to regular dictionary methods
+	return result
 }
 
 var schemaModuleMeta = ModuleMeta{
