@@ -168,11 +168,11 @@ func init() {
 
 // evalMdDocMethod handles method calls on MdDoc objects
 func evalMdDocMethod(md *MdDoc, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(MdDocMethodRegistry, "markdown", md, method, args, env)
+	result := dispatchFromRegistry(MdDocMethodRegistry, md, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "mdDoc", MdDocMethodRegistry.Names())
+	return unknownMethodError(method, "markdown document", MdDocMethodRegistry.Names())
 }
 
 func mdDocMethodToMarkdown(receiver Object, args []Object, env *Environment) Object {

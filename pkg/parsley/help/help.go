@@ -108,13 +108,6 @@ func describeType(typeName string) *TopicResult {
 	// Check method registries first (migrated types: string, integer, float, money)
 	methods := evaluator.GetMethodsForType(normalizedName)
 
-	// Fall back to TypeMethods for unmigrated types
-	if methods == nil {
-		if typeMethods, ok := evaluator.TypeMethods[normalizedName]; ok {
-			methods = typeMethods
-		}
-	}
-
 	// If no methods found, check if it's a known type with properties
 	properties := evaluator.TypeProperties[normalizedName]
 
@@ -229,11 +222,6 @@ func describeOperators() *TopicResult {
 // describeTypes returns a list of all known types
 func describeTypes() *TopicResult {
 	typeNames := make(map[string]bool)
-
-	// Collect from TypeMethods (legacy, mostly empty now)
-	for name := range evaluator.TypeMethods {
-		typeNames[name] = true
-	}
 
 	// Collect from TypeProperties
 	for name := range evaluator.TypeProperties {

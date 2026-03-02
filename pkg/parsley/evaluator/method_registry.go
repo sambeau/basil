@@ -162,7 +162,7 @@ func newArityErrorFromSpec(method, spec string, got int) *Error {
 
 // dispatchFromRegistry handles method dispatch using a registry.
 // Returns nil if the method is not found (caller should handle unknown method error).
-func dispatchFromRegistry(registry MethodRegistry, typeName string, receiver Object, method string, args []Object, env *Environment) Object {
+func dispatchFromRegistry(registry MethodRegistry, receiver Object, method string, args []Object, env *Environment) Object {
 	entry, ok := registry.Get(method)
 	if !ok {
 		return nil // Method not found - caller handles error

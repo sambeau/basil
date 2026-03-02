@@ -217,7 +217,7 @@ func unitTempMin(unit *Unit) Object {
 
 // evalUnitMethod evaluates a method call on a Unit value using the registry.
 func evalUnitMethod(unit *Unit, method string, args []Object) Object {
-	result := dispatchFromRegistry(UnitMethodRegistry, "unit", unit, method, args, nil)
+	result := dispatchFromRegistry(UnitMethodRegistry, unit, method, args, nil)
 	if result != nil {
 		return result
 	}

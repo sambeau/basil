@@ -11,17 +11,15 @@ import (
 
 // introspect_validation_test.go
 //
-// Validation tests that verify method registries and TypeMethods maps in introspect.go
-// accurately reflect actual method implementations in methods.go and eval_method_dispatch.go.
+// Validation tests that verify method registries in method_registry.go
+// accurately reflect actual method implementations.
 //
 // These tests catch drift between documentation and implementation.
-// As FEAT-111 (Declarative Method Registry) migrates types, tests automatically use registries.
 //
 // SCOPE:
 // - Tests verify existence of documented methods/properties
 // - Tests verify documented arity matches implementation
-// - Uses registries for migrated types (string, integer, float, money)
-// - Falls back to TypeMethods for non-migrated types
+// - Uses registries for all types (all types are now migrated)
 //
 // SKIPPED TYPES (require external resources):
 // - dbconnection: Requires database connection
@@ -278,26 +276,19 @@ func parseArityBounds(arity string) arityBounds {
 // Test: Method Existence
 // ============================================================================
 
-// getMethodsForValidation returns method info for a type, preferring registry over TypeMethods.
-// This allows validation tests to work correctly as types are migrated to registries.
+// getMethodsForValidation returns method info for a type from its registry.
 func getMethodsForValidation(typeName string) []MethodInfo {
-	// First check if this type has a registry (migrated types)
 	if registry := GetRegistryForType(typeName); registry != nil {
 		return registry.ToMethodInfos()
 	}
-	// Fall back to TypeMethods (non-migrated types)
-	return TypeMethods[typeName]
+	return nil
 }
 
 func TestTypeMethods_AllMethodsExist(t *testing.T) {
 	testValues := createTestValues()
 	env := NewEnvironment()
 
-	// Collect all type names from both registries and TypeMethods
 	allTypes := make(map[string]bool)
-	for typeName := range TypeMethods {
-		allTypes[typeName] = true
-	}
 	for typeName := range typeRegistries {
 		allTypes[typeName] = true
 	}
@@ -341,11 +332,7 @@ func TestTypeMethods_ArityMatches(t *testing.T) {
 	testValues := createTestValues()
 	env := NewEnvironment()
 
-	// Collect all type names from both registries and TypeMethods
 	allTypes := make(map[string]bool)
-	for typeName := range TypeMethods {
-		allTypes[typeName] = true
-	}
 	for typeName := range typeRegistries {
 		allTypes[typeName] = true
 	}
@@ -461,7 +448,7 @@ func TestSkippedTypes_Documented(t *testing.T) {
 	testValues := createTestValues()
 
 	for typeName, reason := range skippedTypes {
-		if _, exists := TypeMethods[typeName]; exists {
+		if _, exists := typeRegistries[typeName]; exists {
 			if _, hasTestVal := testValues[typeName]; !hasTestVal {
 				t.Logf("SKIPPED: %s - %s", typeName, reason)
 			}

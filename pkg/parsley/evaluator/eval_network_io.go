@@ -22,11 +22,11 @@ var testHTTPClient *http.Client
 
 // evalSFTPConnectionMethod dispatches method calls on SFTP connections via registry.
 func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(SFTPConnectionMethodRegistry, "sftpconnection", conn, method, args, env)
+	result := dispatchFromRegistry(SFTPConnectionMethodRegistry, conn, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "SFTP connection", SFTPConnectionMethodRegistry.Names())
+	return unknownMethodError(method, "sftp connection", SFTPConnectionMethodRegistry.Names())
 }
 
 // sftpClose implements sftpConnection.close()
@@ -48,11 +48,11 @@ func sftpClose(conn *SFTPConnection, args []Object, env *Environment) Object {
 
 // evalSFTPFileHandleMethod dispatches method calls on SFTP file handles via registry.
 func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(SFTPFileHandleMethodRegistry, "sftpfile", handle, method, args, env)
+	result := dispatchFromRegistry(SFTPFileHandleMethodRegistry, handle, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "SFTP file handle", SFTPFileHandleMethodRegistry.Names())
+	return unknownMethodError(method, "sftp file handle", SFTPFileHandleMethodRegistry.Names())
 }
 
 // sftpMkdir implements sftpFileHandle.mkdir(options?)

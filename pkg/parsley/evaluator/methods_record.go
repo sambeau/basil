@@ -116,11 +116,11 @@ func init() {
 
 // evalRecordMethod dispatches method calls on Record objects.
 func evalRecordMethod(record *Record, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(RecordMethodRegistry, "record", record, method, args, env)
+	result := dispatchFromRegistry(RecordMethodRegistry, record, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "Record", RecordMethodRegistry.Names())
+	return unknownMethodError(method, "record", RecordMethodRegistry.Names())
 }
 
 // ============================================================================

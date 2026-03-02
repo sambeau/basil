@@ -2700,11 +2700,11 @@ func init() {
 // EvalTableMethod dispatches method calls on Table objects.
 // The function remains exported for compatibility.
 func EvalTableMethod(t *Table, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(TableMethodRegistry, "table", t, method, args, env)
+	result := dispatchFromRegistry(TableMethodRegistry, t, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "Table", TableMethodRegistry.Names())
+	return unknownMethodError(method, "table", TableMethodRegistry.Names())
 }
 
 func tableMethodWhere(receiver Object, args []Object, env *Environment) Object {

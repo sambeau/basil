@@ -124,16 +124,6 @@ var TypeProperties = map[string][]PropertyInfo{
 	},
 }
 
-// TypeMethods maps type names to their method metadata for introspection.
-// Migrated types (string, integer, float, money) are served by registries
-// in method_registry.go and no longer need entries here.
-// See FEAT-111 for migration progress.
-var TypeMethods = map[string][]MethodInfo{
-	"function": {
-		// Functions have no methods but we include them for completeness
-	},
-}
-
 // ============================================================================
 // Operator Metadata
 // ============================================================================
@@ -487,14 +477,10 @@ func builtinInspect(args ...Object) Object {
 		methodKey = subType
 	}
 
-	// Build methods array - check registry first, fall back to TypeMethods
+	// Build methods array from registry
 	methodInfos := GetMethodsForType(methodKey)
 	if methodInfos == nil {
-		if fallback, ok := TypeMethods[methodKey]; ok {
-			methodInfos = fallback
-		} else {
-			methodInfos = []MethodInfo{}
-		}
+		methodInfos = []MethodInfo{}
 	}
 
 	// Sort methods alphabetically

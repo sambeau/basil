@@ -129,11 +129,11 @@ func init() {
 
 // evalDSLSchemaMethod dispatches method calls on DSL schema objects
 func evalDSLSchemaMethod(schema *DSLSchema, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(DSLSchemaMethodRegistry, "schema", schema, method, args, env)
+	result := dispatchFromRegistry(DSLSchemaMethodRegistry, schema, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "Schema", DSLSchemaMethodRegistry.Names())
+	return unknownMethodError(method, "schema", DSLSchemaMethodRegistry.Names())
 }
 
 func schemaMethodTitle(receiver Object, args []Object, env *Environment) Object {

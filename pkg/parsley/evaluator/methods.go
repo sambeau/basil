@@ -79,7 +79,7 @@ func buildRenderEnv(baseEnv *Environment, dict *Dictionary) (*Environment, Objec
 
 // evalStringMethod evaluates a method call on a String using the registry.
 func evalStringMethod(str *String, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(StringMethodRegistry, "string", str, method, args, env)
+	result := dispatchFromRegistry(StringMethodRegistry, str, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -332,7 +332,7 @@ func indentString(s string, spaces int) string {
 
 // evalArrayMethod evaluates a method call on an Array
 func evalArrayMethod(arr *Array, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(ArrayMethodRegistry, "array", arr, method, args, env)
+	result := dispatchFromRegistry(ArrayMethodRegistry, arr, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -734,7 +734,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		}
 	}
 
-	result := dispatchFromRegistry(DictionaryMethodRegistry, "dictionary", dict, method, args, env)
+	result := dispatchFromRegistry(DictionaryMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -863,7 +863,7 @@ func dictReorder(dict *Dictionary, args []Object, env *Environment) Object {
 
 // evalBooleanMethod evaluates a method call on a Boolean using the registry.
 func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
-	result := dispatchFromRegistry(BooleanMethodRegistry, "boolean", b, method, args, nil)
+	result := dispatchFromRegistry(BooleanMethodRegistry, b, method, args, nil)
 	if result != nil {
 		return result
 	}
@@ -872,7 +872,7 @@ func evalBooleanMethod(b *Boolean, method string, args []Object) Object {
 
 // evalNullMethod evaluates a method call on Null using the registry.
 func evalNullMethod(method string, args []Object) Object {
-	result := dispatchFromRegistry(NullMethodRegistry, "null", NULL, method, args, nil)
+	result := dispatchFromRegistry(NullMethodRegistry, NULL, method, args, nil)
 	if result != nil {
 		return result
 	}
@@ -885,7 +885,7 @@ func evalNullMethod(method string, args []Object) Object {
 
 // evalIntegerMethod evaluates a method call on an Integer using the registry.
 func evalIntegerMethod(num *Integer, method string, args []Object) Object {
-	result := dispatchFromRegistry(IntegerMethodRegistry, "integer", num, method, args, nil)
+	result := dispatchFromRegistry(IntegerMethodRegistry, num, method, args, nil)
 	if result != nil {
 		return result
 	}
@@ -894,7 +894,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 
 // evalFloatMethod evaluates a method call on a Float using the registry.
 func evalFloatMethod(num *Float, method string, args []Object) Object {
-	result := dispatchFromRegistry(FloatMethodRegistry, "float", num, method, args, nil)
+	result := dispatchFromRegistry(FloatMethodRegistry, num, method, args, nil)
 	if result != nil {
 		return result
 	}
@@ -907,7 +907,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 
 // evalDatetimeMethod evaluates a method call on a datetime dictionary using the registry.
 func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(DatetimeMethodRegistry, "datetime", dict, method, args, env)
+	result := dispatchFromRegistry(DatetimeMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -932,7 +932,7 @@ func getDictStringValue(dict *Dictionary, key string) string {
 
 // evalDurationMethod evaluates a method call on a duration dictionary using the registry.
 func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(DurationMethodRegistry, "duration", dict, method, args, env)
+	result := dispatchFromRegistry(DurationMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1145,7 +1145,7 @@ func formatDurationRepr(dict *Dictionary, env *Environment) string {
 
 // evalPathMethod evaluates a method call on a path dictionary using the registry.
 func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(PathMethodRegistry, "path", dict, method, args, env)
+	result := dispatchFromRegistry(PathMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1158,7 +1158,7 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 // evalUrlMethod evaluates a method call on a URL dictionary using the registry.
 func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(UrlMethodRegistry, "url", dict, method, args, env)
+	result := dispatchFromRegistry(UrlMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1171,7 +1171,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 // evalRegexMethod evaluates a method call on a regex dictionary using the registry.
 func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(RegexMethodRegistry, "regex", dict, method, args, env)
+	result := dispatchFromRegistry(RegexMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1184,7 +1184,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 
 // evalFileMethod evaluates a method call on a file dictionary using the registry.
 func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(FileMethodRegistry, "file", dict, method, args, env)
+	result := dispatchFromRegistry(FileMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1197,7 +1197,7 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 // evalDirMethod evaluates a method call on a directory dictionary using the registry.
 func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(DirMethodRegistry, "dir", dict, method, args, env)
+	result := dispatchFromRegistry(DirMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1210,7 +1210,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 // evalRequestMethod evaluates a method call on a request dictionary using the registry.
 func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(RequestMethodRegistry, "request", dict, method, args, env)
+	result := dispatchFromRegistry(RequestMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1223,7 +1223,7 @@ func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Envi
 
 // evalResponseMethod evaluates a method call on a response typed dictionary using the registry.
 func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(ResponseMethodRegistry, "response", dict, method, args, env)
+	result := dispatchFromRegistry(ResponseMethodRegistry, dict, method, args, env)
 	if result != nil {
 		return result
 	}
@@ -1256,7 +1256,7 @@ func evalMoneyProperty(money *Money, key string) Object {
 
 // evalMoneyMethod evaluates a method call on a Money value using the registry.
 func evalMoneyMethod(money *Money, method string, args []Object) Object {
-	result := dispatchFromRegistry(MoneyMethodRegistry, "money", money, method, args, nil)
+	result := dispatchFromRegistry(MoneyMethodRegistry, money, method, args, nil)
 	if result != nil {
 		return result
 	}

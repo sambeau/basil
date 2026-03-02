@@ -45,7 +45,7 @@ func NewSessionModule(data map[string]any, flash map[string]string, maxAge time.
 
 // evalSessionMethod handles method calls on the session module
 func evalSessionMethod(sm *SessionModule, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(SessionMethodRegistry, "session", sm, method, args, env)
+	result := dispatchFromRegistry(SessionMethodRegistry, sm, method, args, env)
 	if result != nil {
 		return result
 	}

@@ -159,11 +159,11 @@ func init() {
 }
 
 func evalTableBindingMethod(tb *TableBinding, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(TableBindingMethodRegistry, "tablebinding", tb, method, args, env)
+	result := dispatchFromRegistry(TableBindingMethodRegistry, tb, method, args, env)
 	if result != nil {
 		return result
 	}
-	return unknownMethodError(method, "TableBinding", TableBindingMethodRegistry.Names())
+	return unknownMethodError(method, "table binding", TableBindingMethodRegistry.Names())
 }
 
 func tableBindingMethodAll(receiver Object, args []Object, env *Environment) Object {

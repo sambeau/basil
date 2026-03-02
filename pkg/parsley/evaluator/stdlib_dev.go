@@ -55,7 +55,7 @@ func loadDevModule(env *Environment) Object {
 
 // evalDevModuleMethod handles method calls on the dev module
 func evalDevModuleMethod(dm *DevModule, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(DevModuleMethodRegistry, "dev module", dm, method, args, env)
+	result := dispatchFromRegistry(DevModuleMethodRegistry, dm, method, args, env)
 	if result != nil {
 		return result
 	}

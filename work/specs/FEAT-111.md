@@ -1,7 +1,7 @@
 ---
 id: FEAT-111
 title: "Declarative Method Registry"
-status: in-progress
+status: implemented
 priority: high
 created: 2025-01-15
 author: "@human"

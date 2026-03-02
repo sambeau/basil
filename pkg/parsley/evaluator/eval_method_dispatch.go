@@ -10,7 +10,7 @@ import (
 
 // evalDBConnectionMethod dispatches method calls on database connections via registry.
 func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, env *Environment) Object {
-	result := dispatchFromRegistry(DBConnectionMethodRegistry, "dbconnection", conn, method, args, env)
+	result := dispatchFromRegistry(DBConnectionMethodRegistry, conn, method, args, env)
 	if result != nil {
 		return result
 	}

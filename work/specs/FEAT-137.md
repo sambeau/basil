@@ -65,10 +65,10 @@ As a Parsley maintainer, I want a single pattern for defining methods so that ad
 ### Cleanup
 
 - [x] Stale `TypeMethods` entries removed from `introspect.go` for all migrated types
-- [ ] `TypeMethods` map removed entirely once all entries are cleared (only empty `"function"` entry remains)
+- [x] `TypeMethods` map removed entirely once all entries are cleared (only empty `"function"` entry remains)
 - [x] `arrayMethods` and `dictionaryMethods` string slices in `methods.go` removed (replaced by registry)
 - [x] `booleanMethods` and `nullMethods` string slices in `methods.go` removed (replaced by registry)
-- [ ] FEAT-111 status updated to `implemented` once complete
+- [x] FEAT-111 status updated to `implemented` once complete
 
 ## Design Decisions
 

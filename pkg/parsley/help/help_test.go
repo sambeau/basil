@@ -557,15 +557,12 @@ func TestBasilModuleExports(t *testing.T) {
 	}
 }
 
-// TestMigratedVsUnmigratedTypes tests that both migrated and unmigrated types work
+// TestMigratedVsUnmigratedTypes tests that all registry-migrated types work
 func TestMigratedVsUnmigratedTypes(t *testing.T) {
-	// Migrated types (use registries)
-	migrated := []string{"string", "integer", "float", "money"}
+	// All types now use registries (FEAT-137 complete)
+	types := []string{"string", "integer", "float", "money", "array", "dictionary", "datetime", "duration"}
 
-	// Unmigrated types (use TypeMethods)
-	unmigrated := []string{"array", "dictionary", "datetime", "duration"}
-
-	for _, typeName := range append(migrated, unmigrated...) {
+	for _, typeName := range types {
 		t.Run(typeName, func(t *testing.T) {
 			result, err := DescribeTopic(typeName)
 			if err != nil {
