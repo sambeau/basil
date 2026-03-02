@@ -1,0 +1,23 @@
+# Basil 1.0 alpha ready
+
+Checklist:
+
+- [ ] HTTPS
+	- [ ] We need a secure dev mode
+		- [ ] With passkeys
+
+- [ ] Library audit
+	- [ ] REST API rethink
+
+- [ ] settings audit
+
+- [ ] Git Server
+	- [ ] needs testing
+
+- [x] Database drivers
+	- [x] Basil Managed
+	- [x] Parsley?
+	- [x] Integration testing
+	- [x] Manual should mostly use <SQL> not “SQL CODE”
+	- [x] Database seperation
+	- [x] Integration testing
