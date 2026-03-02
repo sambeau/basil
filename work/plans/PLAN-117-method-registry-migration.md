@@ -878,4 +878,6 @@ Items to add to `work/BACKLOG.md` after implementation:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-03-02 | Task 1: Migrate `array` methods | ✅ Done | Created methods_array.go with ArrayMethodRegistry (24 entries). evalArrayMethod replaced with dispatchFromRegistry. |
+| 2026-03-02 | Task 2: Migrate `dictionary` methods | ✅ Done | Created methods_dictionary.go with DictionaryMethodRegistry (15 entries). nil-return and IsSchemaDict semantics preserved. |
+| 2026-03-02 | Task 3: Tier 1 validation and commit | ✅ Done | All tests pass. Removed array/dictionary from TypeMethods. Updated dict_reorder_test arity message. Committed: 1b456df |
