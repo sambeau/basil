@@ -53,6 +53,7 @@ cors:
 - `examples/cors/basil.yaml` — uses `maxAge: 86400`
 - `docs/guide/basil-quick-start.md` — CORS section and configuration options table reference `maxAge`
 - `docs/guide/cors.md` — references `maxAge` throughout (15+ occurrences)
+- `examples/cors/README.md` — three occurrences: YAML example, section heading, and inline example
 
 ---
 
@@ -104,7 +105,7 @@ The `DeveloperConfig.SQLite` field is also replaced as part of this change — s
 - `server/config/load_test.go` — all SQLite config tests (`TestLoadSQLiteConfig`, `TestApplyDeveloper` SQLite cases)
 - `server/database_test.go` — sets `cfg.SQLite` directly in four test functions
 - `server/server.go` — reads `cfg.SQLite` during database initialisation
-- `server/devtools.go` — reads `cfg.SQLite` in six places: `openAppDB()`, `serveDB()`, `handleDevDBFileDownload()`, `handleDevDBFileUpload()`, and two locations in `createDevToolsEnv()` (index page `has_db` check and DB settings display)
+- `server/devtools.go` — reads `cfg.SQLite` in seven places: `openAppDB()` (field access + error message string), `serveDB()`, `handleDevDBFileDownload()`, `handleDevDBFileUpload()`, and three locations in `createDevToolsEnv()` (index page `has_db` check, DB overview page block, and DB settings display label)
 
 ---
 
@@ -352,6 +353,7 @@ Each step is independently compilable and testable. Run `go test ./...` after ea
 | File | What to change |
 |------|---------------|
 | `docs/guide/basil-quick-start.md` | Database section: `sqlite:` → `database:\n  path:`; CORS section and table: `maxAge` → `max_age` |
+| `examples/cors/README.md` | Three `maxAge` occurrences: YAML example, section heading `### maxAge`, inline example |
 | `docs/guide/cors.md` | All `maxAge` occurrences → `max_age` (15+ places: config examples, tables, pattern examples, complete example at end) |
 | `docs/guide/authentication.md` | Site mode example: `site: ./site` → `site:\n  path: ./site` |
 | `docs/guide/configuration-example.yaml` | Full rewrite — `sqlite:` → `database: path:`, `developers` section `sqlite:`/`static:` fields, ensure all keys are present and correct |

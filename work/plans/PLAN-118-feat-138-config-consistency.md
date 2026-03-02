@@ -12,6 +12,8 @@ created: 2026-03-02
 
 Five targeted changes to the `basil.yaml` schema, plus a new configuration reference manual page. This is a clean break — no backward compatibility. All changes are independent of other in-flight features.
 
+**Note on scope:** `maxAge`, `httpOnly`, `sameSite` etc. also appear as Parsley-level cookie property names and `<Cache>` tag attributes throughout `docs/parsley/` and `docs/basil/`. Those are runtime API names, not YAML config keys — they are deliberately **not** changed by this plan. Similarly, `work/design/` documents are historical snapshots and are not updated.
+
 **Spec:** `work/specs/FEAT-138.md`
 
 ## Prerequisites
@@ -85,7 +87,7 @@ fix(config): rename SessionConfig.HttpOnly to HTTPOnly per Go conventions
 
 ## Step 3: `sqlite` → `database.path`
 
-**Scope:** New struct, updated loader, six consumer files. Includes the `DeveloperConfig.SQLite` half of Change 5 — the two must be done together because `DeveloperDBConfig` is introduced here.
+**Scope:** New struct, updated loader, seven consumer locations across four files. Includes the `DeveloperConfig.SQLite` half of Change 5 — the two must be done together because `DeveloperDBConfig` is introduced here.
 
 ### Tasks
 
@@ -114,18 +116,21 @@ fix(config): rename SessionConfig.HttpOnly to HTTPOnly per Go conventions
 
 #### 3c. Server (`server/server.go`)
 
-- [ ] Find database initialisation — replace `cfg.SQLite` with `cfg.Database.Path`
+- [ ] `initDatabase()`: replace `s.config.SQLite == ""` check → `s.config.Database.Path == ""`
+- [ ] `initDatabase()`: replace `s.initSQLite(s.config.SQLite)` → `s.initSQLite(s.config.Database.Path)`
 
 #### 3d. DevTools (`server/devtools.go`)
 
-Update all six occurrences — do not miss any:
+Update all seven occurrences — do not miss any:
 
 - [ ] `openAppDB()`: `h.server.config.SQLite` → `h.server.config.Database.Path`
+- [ ] `openAppDB()`: update error message `"no database configured (set sqlite in config)"` → `"no database configured (set database.path in config)"`
 - [ ] `serveDB()`: `h.server.config.SQLite` → `h.server.config.Database.Path`
 - [ ] `handleDevDBFileDownload()`: `h.server.config.SQLite` → `h.server.config.Database.Path`
 - [ ] `handleDevDBFileUpload()`: `h.server.config.SQLite` → `h.server.config.Database.Path`
 - [ ] `createDevToolsEnv()` — index page `has_db` check: `h.server.config.SQLite != ""` → `h.server.config.Database.Path != ""`
-- [ ] `createDevToolsEnv()` — DB settings display block: `cfg.SQLite` → `cfg.Database.Path`
+- [ ] `createDevToolsEnv()` — DB overview page block: `h.server.config.SQLite` → `h.server.config.Database.Path`
+- [ ] `createDevToolsEnv()` — DB settings display: `setting("SQLite", cfg.SQLite, ...)` → `setting("Database", cfg.Database.Path, ...)`
 
 #### 3e. Tests
 
@@ -254,6 +259,8 @@ feat(config)!: rename developer profile static to public_dir for consistency
 
 - [ ] **`examples/cors/basil.yaml`**: `maxAge: 86400` → `max_age: 86400`
 
+- [ ] **`examples/cors/README.md`**: three occurrences of `maxAge` — YAML example, section heading, and inline example
+
 - [ ] **`examples/folder-named-index/basil.yaml`**: `site: ./site` → `site:\n  path: ./site`
 
 - [ ] **`examples/folder-named-index/README.md`**: code block `site: ./site` → `site:\n  path: ./site`
@@ -378,10 +385,17 @@ Table of every changed key: old → new
 Re-run grep to confirm no stale key names remain in docs or examples:
 
 ```bash
-grep -r 'maxAge\|site_cache\|\bsqlite:' docs/ examples/ .github/skills/
+# Config YAML keys that should no longer exist
+grep -rn 'maxAge\|site_cache' docs/guide/ examples/ .github/skills/
+
+# sqlite as a YAML key (not prose mentions of SQLite the database)
+grep -rn '^\s*sqlite:' docs/guide/ examples/ .github/skills/
+
+# Old developer profile keys
+grep -rn 'static:.*public\|sqlite:.*\.db' docs/guide/configuration-example.yaml
 ```
 
-This should return zero matches (the word `sqlite` may appear in prose — check that no YAML examples use the old key).
+Each command should return zero matches. Note: `maxAge` will still appear in `docs/parsley/`, `docs/basil/reference.md`, and Parsley test files — those are runtime API names and are correct.
 
 ### Commit
 
@@ -405,11 +419,14 @@ Then build to confirm no compilation errors:
 make build
 ```
 
-Then confirm no stale YAML keys remain anywhere:
+Then confirm no stale YAML config keys remain in user-facing docs:
 
 ```bash
-grep -rn 'maxAge\|site_cache\|\bsqlite:\|developers:' docs/ examples/ .github/skills/ | grep -v '\.md:#\|pre-1\.0\|migration\|old key\|was:'
+grep -rn 'maxAge\|site_cache' docs/guide/ examples/ .github/skills/
+grep -rn '^\s*sqlite:' docs/guide/ examples/ .github/skills/
 ```
+
+Both should return zero matches. (`maxAge` in `docs/parsley/` and `docs/basil/` is intentionally unchanged — those are Parsley runtime property names.)
 
 ---
 
