@@ -12,7 +12,7 @@ created: 2026-03-02
 
 Migrate all remaining ~20 types (~263 methods) from hand-coded switch dispatch to the declarative `MethodRegistry` system introduced in FEAT-111. Work is split into three tiers by priority and dependency. Each tier is independently shippable.
 
-**Already migrated (FEAT-111):** string (38), integer, float (29 combined), money (35), unit (46) — 5 types across 4 files totalling ~3,400 lines.
+**Already migrated (FEAT-111):** string (38), integer (13), float (16), money (14), unit (14) — 5 types across 4 files totalling ~3,400 lines.
 
 **Pattern reference:** `methods_string.go` is the canonical example of a fully migrated type.
 
@@ -229,7 +229,14 @@ Steps:
 
 These types all follow the same pattern. The dict-subtype types (datetime, duration, path, url, regex, file, dir) are `*Dictionary` values with a `__type` marker. The simple types (boolean, null, request, response) are trivial migrations.
 
-**Key constraint:** The dict-subtype dispatch chain in `dispatchMethodCall` (`eval_method_dispatch.go` L253-370) must be updated to use registry dispatch while preserving the fallthrough-to-dictionary-methods semantics.
+**Key constraint:** The dict-subtype dispatch chain in `dispatchMethodCall` (`eval_method_dispatch.go` L249-380) must be updated to use registry dispatch. **Important:** the existing fallthrough behaviour is inconsistent across subtypes and must be preserved exactly as-is:
+
+- `datetime`: falls through to dictionary methods on `UNDEF-0002` (but uses a different two-stage nil/error check pattern from the others)
+- `duration`: **does NOT fall through** — bare `return evalDurationMethod(...)` with no fallthrough
+- `path`, `url`, `regex`, `file`, `dir`, `request`: all fall through to dictionary methods on `UNDEF-0002`
+- `response`: falls through to dictionary methods on `UNDEF-0002` (but uses the same two-stage nil/error pattern as `datetime`)
+
+Each subtype's dispatch block should be rewritten to match its own existing semantics.
 
 ---
 
@@ -305,7 +312,7 @@ Steps:
    }
    ```
 5. Remove `"datetime"` entry from `TypeMethods`
-6. Check if `getDictStringValue` is used by other types (duration also uses it) — move to a shared location or leave in `methods.go` until all consumers are migrated
+6. `getDictStringValue` is also used by `evalDurationMethod` — leave it in `methods.go` until both datetime and duration are migrated, then move it to a shared location or into `methods_datetime.go` with a re-export
 7. Run tests
 
 Tests:
@@ -535,26 +542,42 @@ Steps:
 **Files:** `eval_method_dispatch.go`
 **Estimated effort:** Small
 
-After Tasks 5-11, the `*Dictionary` case in `dispatchMethodCall` has a chain of `isXxxDict` checks. Each one currently calls `evalXxxMethod` and does an `UNDEF-0002` error check for fallthrough. Now that all subtypes use registries, refactor these to use a consistent helper pattern.
+After Tasks 5-11, the `*Dictionary` case in `dispatchMethodCall` has a chain of `isXxxDict` checks. Each one currently calls `evalXxxMethod` and handles UNDEF-0002 fallthrough in its own way. Now that all subtypes use registries, these branches can be simplified.
+
+**Important:** The fallthrough behaviour is **not uniform** across subtypes. A single helper cannot replace all branches without changing semantics. Instead, replace each branch individually:
+
+For `path`, `url`, `regex`, `file`, `dir`, `request` (standard fallthrough):
+```go
+if isPathDict(receiver) {
+    result := dispatchFromRegistry(PathMethodRegistry, "path", receiver, method, args, env)
+    if result != nil {
+        return result
+    }
+    result = dispatchFromRegistry(DictionaryMethodRegistry, "dictionary", receiver, method, args, env)
+    if result != nil {
+        return result
+    }
+    return unknownMethodError(method, "path", PathMethodRegistry.Names())
+}
+```
+
+For `duration` (no fallthrough — preserve the bare return):
+```go
+if isDurationDict(receiver) {
+    result := dispatchFromRegistry(DurationMethodRegistry, "duration", receiver, method, args, env)
+    if result != nil {
+        return result
+    }
+    return unknownMethodError(method, "duration", DurationMethodRegistry.Names())
+}
+```
+
+For `datetime` and `response` (two-stage nil/error check — retain their existing structure but replace the `evalXxxMethod` call with `dispatchFromRegistry`).
 
 Steps:
-1. Create a helper function to reduce repetition:
-   ```go
-   func dispatchDictSubtype(registry MethodRegistry, typeName string, dict *Dictionary, method string, args []Object, env *Environment) Object {
-       result := dispatchFromRegistry(registry, typeName, dict, method, args, env)
-       if result != nil {
-           return result
-       }
-       // Fall through to dictionary methods
-       result = dispatchFromRegistry(DictionaryMethodRegistry, "dictionary", dict, method, args, env)
-       if result != nil {
-           return result
-       }
-       return unknownMethodError(method, typeName, registry.Names())
-   }
-   ```
-2. Replace each `isXxxDict` branch body with a single `return dispatchDictSubtype(XxxMethodRegistry, "xxx", receiver, method, args, env)` call
-3. Run tests — no behaviour change, just deduplication
+1. Replace each `isXxxDict` branch body as described above, one at a time
+2. Run tests after each replacement — no behaviour change, just using registry
+3. Do **not** add fallthrough to `duration` — preserve existing semantics
 
 **This task is optional** — it cleans up the dispatch chain but doesn't change functionality. Skip if the individual branches are clear enough without it.
 
@@ -602,7 +625,7 @@ Steps:
 **Files:** `eval_method_dispatch.go` or new `methods_dbconnection.go`
 **Estimated effort:** Small-Medium
 
-8 methods in `evalDBConnectionMethod` (`eval_method_dispatch.go` L12-197).
+8 methods in `evalDBConnectionMethod` (`eval_method_dispatch.go` L11-197).
 
 **Registry entries:** `begin` (0), `commit` (0), `rollback` (0), `close` (0), `ping` (0), `createTable` (1-2), `lastInsertId` (0), `bind` (2-3)
 
@@ -623,7 +646,21 @@ Steps:
 **Files:** `eval_network_io.go` or new `methods_sftp.go`
 **Estimated effort:** Small
 
-Both types are in `eval_network_io.go`. Small method sets.
+Both types are in `eval_network_io.go`. Very small method sets.
+
+**SFTPConnection registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `close` | `0` | Close the SFTP connection |
+
+**SFTPFileHandle registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `mkdir` | `0-1` | Create directory |
+| `rmdir` | `0-1` | Remove directory |
+| `remove` | `0` | Remove file |
 
 Steps:
 1. Create `methods_sftp.go` with `SFTPConnectionMethodRegistry` and `SFTPFileHandleMethodRegistry`
@@ -657,7 +694,9 @@ Steps:
 **Files:** `stdlib_table.go` or new `methods_table.go`
 **Estimated effort:** Large
 
-~48 methods in `EvalTableMethod` (`stdlib_table.go`, 2,868 lines). This is the single largest migration. Many methods have complex implementations with helper functions.
+44 methods in `EvalTableMethod` (`stdlib_table.go`, 2,868 lines). This is the single largest migration. Many methods have complex implementations with helper functions.
+
+**Registry entries (from actual switch cases):** `all`, `any`, `appendCol`, `appendRow`, `as`, `avg`, `column`, `columnCount`, `columns`, `copy`, `count`, `dropCol`, `errors`, `find`, `groupBy`, `insertColAfter`, `insertColBefore`, `insertRowAt`, `invalidRows`, `isValid`, `length`, `limit`, `map`, `max`, `min`, `offset`, `orderBy`, `renameCol`, `row`, `rowCount`, `rows`, `schema`, `select`, `sum`, `toArray`, `toBox`, `toCSV`, `toHTML`, `toJSON`, `toMarkdown`, `unique`, `validRows`, `validate`, `where`
 
 Steps:
 1. Create `methods_table.go` with `TableMethodRegistry`
@@ -677,7 +716,11 @@ Steps:
 **Files:** `stdlib_dsl_schema.go` or new `methods_dsl_schema.go`
 **Estimated effort:** Large
 
-~54 methods in `evalDSLSchemaMethod` (`stdlib_dsl_schema.go`, 1,027 lines). Another large migration.
+54 total switch cases (41 unique method names — some are overloaded across multiple cases) in `evalDSLSchemaMethod` (`stdlib_dsl_schema.go`, 1,027 lines). Another large migration.
+
+**Unique registry entries (from actual switch cases):** `Fields`, `Name`, `Relations`, `auto`, `bigint`, `bool`, `date`, `datetime`, `default`, `email`, `enum`, `enumValues`, `family`, `fields`, `float`, `int`, `json`, `mass`, `max`, `meta`, `min`, `money`, `mysql`, `pattern`, `phone`, `placeholder`, `postgres`, `readOnly`, `required`, `slug`, `sqlite`, `string`, `suffix`, `text`, `time`, `title`, `ulid`, `unique`, `url`, `uuid`, `visibleFields`
+
+**Note:** Several names appear in multiple switch cases (e.g. `bigint`, `email`, `enum`, `int`, `slug`, `url`, `uuid`, `mysql`, `postgres`, `sqlite`, `string` appear twice each). These are overloaded forms with different arity. Each distinct arity signature needs its own registry key or a single entry that handles both arities. Check the existing cases carefully before deciding.
 
 Steps:
 1. Create `methods_dsl_schema.go` with `DSLSchemaMethodRegistry`
@@ -693,10 +736,13 @@ Steps:
 **Files:** Various
 **Estimated effort:** Small
 
-Check for any remaining types dispatched via switch that aren't covered above:
-- `DevModule` — `evalDevModuleMethod` (check location and method count)
-- `TableBinding` — `evalTableBindingMethod`
-- `MdDoc` — `evalMdDocMethod`
+Three additional types are dispatched via switch in `dispatchMethodCall` and need migration. These are **not** trivially small:
+
+| Type | Function | File | Methods |
+|------|----------|------|---------|
+| `DevModule` | `evalDevModuleMethod` | `stdlib_dev.go` | 5: `log`, `logPage`, `setLogRoute`, `clearLog`, `clearLogPage` |
+| `TableBinding` | `evalTableBindingMethod` | `stdlib_schema_table_binding.go` | 35 cases / ~22 unique (fluent API with aliases) |
+| `MdDoc` | `evalMdDocMethod` | `stdlib_mddoc.go` | 16: `ast`, `codeBlocks`, `filter`, `findAll`, `findFirst`, `headings`, `images`, `links`, `map`, `text`, `title`, `toHTML`, `toMarkdown`, `toc`, `walk`, `wordCount` |
 
 Steps:
 1. Audit `dispatchMethodCall` in `eval_method_dispatch.go` for any remaining type cases

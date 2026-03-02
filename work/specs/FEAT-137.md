@@ -33,13 +33,13 @@ As a Parsley maintainer, I want a single pattern for defining methods so that ad
 
 ### Tier 2 — Dictionary-like types and simple types
 
-- [ ] `datetime` methods migrated (~13 methods)
-- [ ] `duration` methods migrated (~10 methods)
-- [ ] `path` methods migrated (~10 methods)
-- [ ] `url` methods migrated (~9 methods)
-- [ ] `regex` methods migrated (~7 methods)
-- [ ] `file` methods migrated (~5 methods)
-- [ ] `dir` methods migrated (~4 methods)
+- [ ] `datetime` methods migrated (12 distinct methods, 14 registry entries)
+- [ ] `duration` methods migrated (9 distinct methods, 11 registry entries)
+- [ ] `path` methods migrated (10 methods)
+- [ ] `url` methods migrated (9 methods)
+- [ ] `regex` methods migrated (7 methods)
+- [ ] `file` methods migrated (5 methods)
+- [ ] `dir` methods migrated (4 methods)
 - [ ] `boolean` methods migrated (~4 methods)
 - [ ] `null` methods migrated (~4 methods)
 - [ ] `request` methods migrated (~1 method)
@@ -49,29 +49,34 @@ As a Parsley maintainer, I want a single pattern for defining methods so that ad
 
 ### Tier 3 — Server-specific types
 
-- [ ] `DBConnection` methods migrated (~8 methods)
-- [ ] `SFTPConnection` methods migrated
-- [ ] `SFTPFileHandle` methods migrated
-- [ ] `session` methods migrated
-- [ ] `record` methods migrated
-- [ ] `table` methods migrated
-- [ ] `DSLSchema` methods migrated
+- [ ] `DBConnection` methods migrated (8 methods)
+- [ ] `SFTPConnection` methods migrated (1 method)
+- [ ] `SFTPFileHandle` methods migrated (3 methods)
+- [ ] `session` methods migrated (11 methods)
+- [ ] `record` methods migrated (24 methods)
+- [ ] `table` methods migrated (44 methods)
+- [ ] `DSLSchema` methods migrated (41 unique methods)
+- [ ] `TableBinding` methods migrated (~22 unique methods)
+- [ ] `MdDoc` methods migrated (16 methods)
+- [ ] `DevModule` methods migrated (5 methods)
 - [ ] `pars describe` works correctly for all Tier 3 types
 - [ ] All existing tests pass
 
 ### Cleanup
 
 - [ ] Stale `TypeMethods` entries removed from `introspect.go` for all migrated types
+- [ ] `TypeMethods` map removed entirely once all entries are cleared
 - [ ] `arrayMethods` and `dictionaryMethods` string slices in `methods.go` removed (replaced by registry)
+- [ ] `booleanMethods` and `nullMethods` string slices in `methods.go` removed (replaced by registry)
 - [ ] FEAT-111 status updated to `implemented` once complete
 
 ## Design Decisions
 
 - **Continue the FEAT-111 pattern exactly**: Each type gets a `XxxMethodRegistry` variable initialised in `init()`, registered via `RegisterMethodRegistry()`. Method bodies move to named functions with the `MethodFunc` signature. The `dispatchFromRegistry` / `unknownMethodError` pattern handles dispatch and errors.
 
-- **Dictionary-subtype fallthrough preserved**: The `*Dictionary` case in `dispatchMethodCall` has special logic for datetime, path, url, regex, file, dir, request, and response dicts. These subtypes try their own methods first, then fall through to dictionary methods on `UNDEF-0002`. After migration, this logic stays in `dispatchMethodCall` — each subtype dispatches from its own registry, with the same fallthrough to `DictionaryMethodRegistry`.
+- **Dictionary-subtype fallthrough preserved as-is**: The `*Dictionary` case in `dispatchMethodCall` has special logic for datetime, path, url, regex, file, dir, request, and response dicts. **The fallthrough behaviour is inconsistent in the existing code**: `duration` does not fall through to dictionary methods at all (bare `return`), while all others do. `datetime` and `response` use a different two-stage nil/error check pattern from the rest. After migration, each subtype's dispatch block must preserve its own existing semantics exactly — do not normalise them.
 
-- **Helper functions stay in place**: Functions like `sortArrayWithOptions`, `filterArrayWithFunction`, `formatDurationLong`, etc. remain as-is. Only the switch-case dispatch and arity checks are replaced by registry entries pointing to new wrapper functions.
+- **Helper functions stay in place**: Functions like `sortArrayWithOptions`, `filterArrayWithFunction`, `formatDurationWithStyle`, etc. remain as-is. Only the switch-case dispatch and arity checks are replaced by registry entries pointing to new wrapper functions.
 
 - **Tiers can be shipped independently**: Each tier is a self-contained unit of work. Tier 1 delivers the highest user-facing value. Tiers 2 and 3 can follow in separate branches.
 
@@ -143,13 +148,16 @@ For each type, the migration follows these steps (using `array` as example):
 | Dir methods | `methods.go` L2738-2850 | 4 methods |
 | Request methods | `methods.go` L2857-2869 | 1 method |
 | Response methods | `methods.go` L2876-2920 | 4 methods |
-| DB methods | `eval_method_dispatch.go` L12-197 | 8 methods |
-| SFTP methods | `eval_network_io.go` | ~9 methods across two types |
+| DB methods | `eval_method_dispatch.go` L11-197 | 8 methods |
+| SFTP methods | `eval_network_io.go` | 4 methods across two types (SFTPConnection: 1, SFTPFileHandle: 3) |
 | Session methods | `stdlib_session.go` | ~11 methods |
 | Record methods | `methods_record.go` | ~24 methods |
-| Table methods | `stdlib_table.go` | ~48 methods |
-| DSLSchema methods | `stdlib_dsl_schema.go` | ~54 methods |
-| Dispatch | `eval_method_dispatch.go` L200-380 | Dict-subtype fallthrough chain unchanged |
+| Table methods | `stdlib_table.go` | 44 methods |
+| DSLSchema methods | `stdlib_dsl_schema.go` | 41 unique methods (54 total cases) |
+| TableBinding methods | `stdlib_schema_table_binding.go` | ~22 unique methods (35 total cases) |
+| MdDoc methods | `stdlib_mddoc.go` | 16 methods |
+| DevModule methods | `stdlib_dev.go` | 5 methods |
+| Dispatch | `eval_method_dispatch.go` L202-380 | Dict-subtype fallthrough chain unchanged |
 | Introspection | `introspect.go` | Remove stale `TypeMethods` entries |
 | Method lists | `methods.go` L41-52 | Remove `arrayMethods`, `dictionaryMethods` slices |
 
@@ -186,10 +194,10 @@ This preserves the existing semantics: subtype methods shadow dictionary methods
 
 | Type | Methods | File | Tier |
 |------|---------|------|------|
-| `array` | 23 | `methods.go` | 1 |
+| `array` | 23 (24 registry entries — `fmt`/`format` alias) | `methods.go` | 1 |
 | `dictionary` | 15 | `methods.go` | 1 |
-| `datetime` | 13 | `methods.go` | 2 |
-| `duration` | 10 | `methods.go` | 2 |
+| `datetime` | 12 (14 registry entries — `fmt`/`format` alias) | `methods.go` | 2 |
+| `duration` | 9 (11 registry entries — `fmt`/`format` alias) | `methods.go` | 2 |
 | `path` | 10 | `methods.go` | 2 |
 | `url` | 9 | `methods.go` | 2 |
 | `regex` | 7 | `methods.go` | 2 |
@@ -199,24 +207,26 @@ This preserves the existing semantics: subtype methods shadow dictionary methods
 | `null` | 4 | `methods.go` | 2 |
 | `response` | 4 | `methods.go` | 2 |
 | `request` | 1 | `methods.go` | 2 |
-| `DSLSchema` | ~54 | `stdlib_dsl_schema.go` | 3 |
-| `table` | ~48 | `stdlib_table.go` | 3 |
-| `record` | ~24 | `methods_record.go` | 3 |
-| `session` | ~11 | `stdlib_session.go` | 3 |
-| `SFTPConnection` | ~4 | `eval_network_io.go` | 3 |
-| `SFTPFileHandle` | ~5 | `eval_network_io.go` | 3 |
+| `DSLSchema` | 41 unique (54 total cases — some names overloaded) | `stdlib_dsl_schema.go` | 3 |
+| `table` | 44 | `stdlib_table.go` | 3 |
+| `record` | 24 | `methods_record.go` | 3 |
+| `session` | 11 | `stdlib_session.go` | 3 |
+| `TableBinding` | ~22 unique (35 total cases — fluent API aliases) | `stdlib_schema_table_binding.go` | 3 |
+| `MdDoc` | 16 | `stdlib_mddoc.go` | 3 |
+| `DevModule` | 5 | `stdlib_dev.go` | 3 |
+| `SFTPConnection` | 1 | `eval_network_io.go` | 3 |
+| `SFTPFileHandle` | 3 | `eval_network_io.go` | 3 |
 | `DBConnection` | 8 | `eval_method_dispatch.go` | 3 |
-| **Total** | **~263** | | |
 
 ### Edge Cases & Constraints
 
-1. **`env` parameter**: Some methods need `env`, some don't. The `MethodFunc` signature includes `env *Environment` — methods that don't need it simply ignore it. Already solved in FEAT-111.
+- **`env` parameter**: Some methods need `env`, some don't. The `MethodFunc` signature always includes `env *Environment` — methods that don't need it simply ignore it. Already solved in FEAT-111.
 
 2. **Dictionary method fallthrough**: After migrating dict-subtypes, the fallthrough logic must be preserved. Each subtype tries its own registry first, then the dictionary registry. Test with e.g. `datetime_value.keys()` (a dictionary method called on a datetime).
 
 3. **Receiver type assertions**: Each method function must assert the receiver to the concrete type. For dict-subtypes, the receiver is `*Dictionary` — same as today.
 
-4. **`methods.go` shrinkage**: After Tiers 1 and 2, `methods.go` (currently 3,333 lines) should shrink substantially as method bodies move to dedicated files. Shared helpers (`sortArrayWithOptions`, `formatDurationLong`, etc.) stay in `methods.go` or move alongside the methods that use them.
+4. **`methods.go` shrinkage**: After Tiers 1 and 2, `methods.go` (currently 3,333 lines) should shrink substantially as method bodies move to dedicated files. Shared helpers (`sortArrayWithOptions`, `formatDurationWithStyle`, etc.) stay in `methods.go` or move alongside the methods that use them. Note that `getDictStringValue` is shared between `evalDatetimeMethod` and `evalDurationMethod` — leave it in `methods.go` until both are migrated.
 
 5. **`unknownMethodError` signature**: Currently takes `[]string`. After migration, callers use `registry.Names()` which returns `[]string`. Compatible — no change needed.
 
@@ -226,5 +236,5 @@ This preserves the existing semantics: subtype methods shadow dictionary methods
 - Continues: FEAT-111 (Declarative Method Registry)
 - Ship review: `work/reports/1.0-SHIP-REVIEW.md` Section 5
 - Registry infrastructure: `pkg/parsley/evaluator/method_registry.go`
-- Already migrated: `methods_string.go`, `methods_numeric.go`, `methods_money.go`, `methods_unit.go`
+- Already migrated: `methods_string.go` (string, 38 entries), `methods_numeric.go` (integer 13, float 16), `methods_money.go` (money, 14 entries), `methods_unit.go` (unit, 14 entries)
 - Introspection: `pkg/parsley/evaluator/introspect.go`
