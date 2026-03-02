@@ -92,23 +92,24 @@ These are the highest-value migrations — `array` and `dictionary` are the most
 **Files:** New `methods_array.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Medium-Large
 
-The `array` type has 23 methods in a 388-line switch block (`methods.go` L350-738). Several methods delegate to helper functions that stay in place.
+The `array` type has 24 switch entries (23 distinct methods — `fmt` and `format` share one case) in a 388-line switch block (`methods.go` L350-738). Several methods delegate to helper functions that stay in place.
 
 **Registry entries to create:**
 
-| Method | Arity | Current helpers (stay in place) |
-|--------|-------|---------------------------------|
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `fmt` | `0-2` | Alias for `format` — register both keys pointing to same function |
+| `format` | `0-2` | Alias for `fmt` — register both keys pointing to same function |
 | `length` | `0` | — |
 | `reverse` | `0` | — |
-| `sort` | `0-1` | `sortArrayWithOptions` |
-| `sortBy` | `1` | `sortArrayByFunction` |
-| `map` | `1` | `mapArrayWithFunction` |
-| `filter` | `1` | `filterArrayWithFunction` |
-| `reduce` | `2` | — (inline logic) |
-| `format` | `0-2` | `locale.FormatList` |
+| `sort` | `0-1` | Delegates to `sortArrayWithOptions` |
+| `sortBy` | `1` | Delegates to `sortArrayByFunction` |
+| `map` | `1` | Delegates to `mapArrayWithFunction` |
+| `filter` | `1` | Delegates to `filterArrayWithFunction` |
+| `reduce` | `2` | Inline logic |
 | `join` | `0-1` | — |
 | `toJSON` | `0` | — |
-| `toCSV` | `0-1` | `encodeCSV` |
+| `toCSV` | `0-1` | Delegates to `encodeCSV` |
 | `shuffle` | `0` | — |
 | `pick` | `0-1` | — |
 | `take` | `1` | — |
@@ -116,11 +117,11 @@ The `array` type has 23 methods in a 388-line switch block (`methods.go` L350-73
 | `has` | `1` | — |
 | `hasAny` | `1` | — |
 | `hasAll` | `1` | — |
-| `toBox` | `0+` | `arrayToBox` |
-| `repr` | `0` | `objectToReprString` |
-| `toHTML` | `0+` | `arrayToHTML` |
-| `toMarkdown` | `0+` | `arrayToMarkdown` |
-| `reorder` | `1+` | `arrayReorder` |
+| `toBox` | `0+` | Delegates to `arrayToBox` |
+| `repr` | `0` | Delegates to `objectToReprString` |
+| `toHTML` | `0+` | Delegates to `arrayToHTML` |
+| `toMarkdown` | `0+` | Delegates to `arrayToMarkdown` |
+| `reorder` | `1+` | Delegates to `arrayReorder` |
 
 Steps:
 1. Create `methods_array.go` with `ArrayMethodRegistry` and `init()`
@@ -131,11 +132,11 @@ Steps:
 6. Remove `"array"` entry from `TypeMethods` in `introspect.go` (L132-148)
 7. Move helper functions (`sortArrayWithOptions`, `sortArrayByFunction`, `mapArrayWithFunction`, `filterArrayWithFunction`, `arrayReorder`, `arrayToBox`, `arrayToHTML`, `arrayToMarkdown`) to `methods_array.go` since they're only used by array methods
 
-**Note on `fmt`/`format` alias:** The switch has `case "fmt", "format":`. In the registry, register both keys pointing to the same function.
+**Note on `fmt`/`format` alias:** The switch has `case "fmt", "format":`. In the registry, register both keys pointing to the same function. `pars describe` will show both entries, which is correct — both names are callable.
 
 Tests:
 - All existing array tests pass (`go test ./pkg/parsley/... -run Array`)
-- `pars describe array` shows all 23 methods from registry
+- `pars describe array` shows all 23 distinct methods from registry
 - Arity errors use registry-generated messages (spot-check a few)
 
 ---
@@ -261,13 +262,32 @@ Tests:
 **Files:** New `methods_datetime.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Medium
 
-13 methods in `evalDatetimeMethod` (`methods.go` L1579-1768). The datetime type is a `*Dictionary` with `__type: "datetime"`.
+13 switch entries (12 distinct methods — `fmt` and `format` share one case) in `evalDatetimeMethod` (`methods.go` L1579-1768). The datetime type is a `*Dictionary` with `__type: "datetime"`.
 
-**Registry entries:** `format` (0-2), `add` (1), `subtract` (1), `isBefore` (1), `isAfter` (1), `isEqual` (1), `dayOfYear` (0), `week` (0), `timestamp` (0), `toDict` (0), `toBox` (0+), `repr` (0), `toJSON` (0)
+**Registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `fmt` | `0-2` | Alias for `format` |
+| `format` | `0-2` | Alias for `fmt` |
+| `short` | `0-1` | Convenience shorthand for `.fmt("short")` |
+| `medium` | `0-1` | Convenience shorthand for `.fmt("medium")` |
+| `long` | `0-1` | Convenience shorthand for `.fmt("long")` |
+| `full` | `0-1` | Convenience shorthand for `.fmt("full")` |
+| `repr` | `0` | PLN literal string |
+| `dayOfYear` | `0` | — |
+| `week` | `0` | ISO week number |
+| `timestamp` | `0` | Unix timestamp |
+| `toJSON` | `0` | ISO 8601 string |
+| `toBox` | `0+` | ASCII box render |
+
+**Note:** The `unknownMethodError` list in the existing code includes `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday` — these are advertised but not implemented as switch cases; they are dictionary fields accessed directly via property syntax, not method dispatch. Do **not** add them to the registry. The existing fuzzy-match list should be updated to remove these ghost entries during migration.
 
 Steps:
 1. Create `methods_datetime.go` with `DatetimeMethodRegistry` and `init()`
-2. Extract 13 switch cases into named functions
+2. Extract 14 registry entries (13 switch cases, `fmt`/`format` registered as two keys) into named functions
 3. Replace `evalDatetimeMethod` with registry dispatch
 4. Update the `isDatetimeDict` branch in `dispatchMethodCall` to:
    ```go
@@ -285,12 +305,12 @@ Steps:
    }
    ```
 5. Remove `"datetime"` entry from `TypeMethods`
-6. Move `getDictStringValue` helper to `methods_datetime.go` if only used there
+6. Check if `getDictStringValue` is used by other types (duration also uses it) — move to a shared location or leave in `methods.go` until all consumers are migrated
 7. Run tests
 
 Tests:
 - Existing datetime tests pass
-- `pars describe datetime` shows all 13 methods
+- `pars describe datetime` shows all 14 registry entries
 - Calling dictionary methods on a datetime value still works (e.g. `.keys()`, `.toJSON()`)
 
 ---
@@ -300,13 +320,27 @@ Tests:
 **Files:** New `methods_duration.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Medium
 
-10 methods in `evalDurationMethod` (`methods.go` L1786-1958) plus format helpers (`formatDurationWithStyle`, `formatDurationShort`, `formatDurationLong`, `formatDurationRepr` — L1961-2158).
+10 switch entries (9 distinct methods — `fmt` and `format` share one case) in `evalDurationMethod` (`methods.go` L1786-1958) plus format helpers (`formatDurationWithStyle`, `formatDurationRepr` — L1961-2158; note: `formatDurationShort` and `formatDurationLong` are defined at L1980 and L2036 respectively).
 
-**Registry entries:** `format` (0-1), `add` (1), `subtract` (1), `multiply` (1), `abs` (0), `isNegative` (0), `toDict` (0), `toBox` (0+), `repr` (0), `toJSON` (0)
+**Registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `fmt` | `0-2` | Alias for `format` |
+| `format` | `0-2` | Alias for `fmt` |
+| `short` | `0-1` | Convenience shorthand for `.fmt("short")` |
+| `medium` | `0-1` | Convenience shorthand for `.fmt("medium")` |
+| `long` | `0-1` | Convenience shorthand for `.fmt("long")` |
+| `full` | `0` | Exists but **returns an error** (unsupported style) — keep the registry entry so it dispatches cleanly to the error |
+| `repr` | `0` | PLN literal string via `formatDurationRepr` |
+| `toJSON` | `0` | JSON object with duration components |
+| `toBox` | `0+` | ASCII box render |
 
 Steps:
 1. Create `methods_duration.go` with `DurationMethodRegistry`
-2. Extract 10 switch cases into named functions
+2. Extract 11 registry entries (10 switch cases, `fmt`/`format` registered as two keys) into named functions
 3. Move format helpers (`formatDurationWithStyle`, `formatDurationShort`, `formatDurationLong`, `formatDurationRepr`) to `methods_duration.go`
 4. Replace `evalDurationMethod` with registry dispatch
 5. Update the `isDurationDict` branch in `dispatchMethodCall` (same pattern as datetime — fallthrough to dictionary methods)
@@ -315,7 +349,8 @@ Steps:
 
 Tests:
 - Existing duration tests pass
-- `pars describe duration` shows all 10 methods
+- `pars describe duration` shows all 11 registry entries
+- `duration.full()` returns the expected error (not an unknown-method error)
 - Dictionary methods accessible on duration values
 
 ---
@@ -325,9 +360,24 @@ Tests:
 **Files:** New `methods_path.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Medium
 
-10 methods in `evalPathMethod` (`methods.go` L2165-2298).
+10 switch entries in `evalPathMethod` (`methods.go` L2165-2298).
 
-**Registry entries:** `toString` (0), `join` (1+), `parent` (0), `isAbsolute` (0), `isRelative` (0), `public` (0), `toURL` (1), `match` (1), `toDict` (0), `repr` (0)
+**Registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `isAbsolute` | `0` | — |
+| `isRelative` | `0` | — |
+| `public` | `0` | Delegates to `evalPublicURL` |
+| `toURL` | `1` | — |
+| `match` | `1` | Delegates to `matchPathPattern` |
+| `toJSON` | `0` | — |
+| `toBox` | `0+` | Delegates to `pathToBox` |
+| `repr` | `0` | PLN literal string |
+
+**Note:** The existing `unknownMethodError` list includes `toString`, `join`, and `parent` — these are **advertised but not implemented** as switch cases. They are ghost entries in the error hint list. Do **not** add them to the registry. Remove them from the fuzzy-match hint during migration (or leave a TODO noting they are unimplemented).
 
 Steps:
 1. Create `methods_path.go` with `PathMethodRegistry`
@@ -339,7 +389,7 @@ Steps:
 
 Tests:
 - Existing path tests pass
-- `pars describe path` shows all methods
+- `pars describe path` shows all 10 methods (and does NOT show `toString`, `join`, `parent`)
 - `.keys()` etc. still work on path values
 
 ---
@@ -349,9 +399,23 @@ Tests:
 **Files:** New `methods_url.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Small-Medium
 
-9 methods in `evalUrlMethod` (`methods.go` L2305-2445).
+9 switch entries in `evalUrlMethod` (`methods.go` L2305-2445).
 
-**Registry entries:** `origin` (0), `pathname` (0), `toString` (0), `withPath` (1), `withQuery` (1), `toDict` (0), `toBox` (0+), `repr` (0), `toJSON` (0)
+**Registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `origin` | `0` | scheme + "://" + host + port |
+| `pathname` | `0` | "/" + joined path components |
+| `search` | `0` | Query string representation |
+| `href` | `0` | Full URL string |
+| `toJSON` | `0` | URL as JSON string |
+| `toBox` | `0+` | Delegates to `urlToBox` |
+| `repr` | `0` | PLN literal string |
+
+**Note:** The existing `unknownMethodError` list includes `toString`, `query` — these are **not implemented** as switch cases. `href` and `search` exist but are missing from the hint list. Correct both during migration.
 
 Steps:
 1. Create `methods_url.go` with `UrlMethodRegistry`
@@ -368,9 +432,21 @@ Steps:
 **Files:** New `methods_regex.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Small-Medium
 
-7 methods in `evalRegexMethod` (`methods.go` L2452-2605).
+7 switch entries in `evalRegexMethod` (`methods.go` L2452-2605).
 
-**Registry entries:** `test` (1), `match` (1), `matchAll` (1), `replace` (2), `split` (1), `toDict` (0), `repr` (0)
+**Registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `format` | `0-1` | Style arg: `"pattern"`, `"literal"` (default), `"verbose"` |
+| `test` | `1` | Returns boolean |
+| `replace` | `2` | String or function replacement |
+| `toJSON` | `0` | JSON object with pattern and flags |
+| `toBox` | `0+` | Delegates to `regexToBox` |
+
+**Note:** The existing `unknownMethodError` list includes `toString`, `exec`, `execAll`, `matches` — these are **not implemented**. The `literal`, `pattern`, `verbose` entries in the hint list are **argument values** for `format`, not methods. Fix the hint list during migration.
 
 Steps:
 1. Create `methods_regex.go` with `RegexMethodRegistry`
@@ -387,10 +463,28 @@ Steps:
 **Files:** New `methods_file.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Small
 
-5 methods for file (`methods.go` L2612-2731), 4 methods for dir (`methods.go` L2738-2850). These are small enough to share a file.
+5 switch entries for file (`methods.go` L2612-2731), 4 switch entries for dir (`methods.go` L2738-2850). These are small enough to share a file.
 
-**File registry entries:** `exists` (0), `read` (0), `stat` (0), `toDict` (0), `repr` (0)
-**Dir registry entries:** `exists` (0), `list` (0), `toDict` (0), `repr` (0)
+**File registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `remove` | `0` | Delegates to `evalFileRemove` |
+| `mkdir` | `0-1` | Creates directory at this path; opts: `{parents: true}` |
+| `rmdir` | `0-1` | Removes directory at this path; opts: `{recursive: true}` |
+
+**Dir registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns dict without `__type` marker |
+| `inspect` | `0` | Returns full dict including `__type` |
+| `mkdir` | `0-1` | Creates directory; opts: `{parents: true}` |
+| `rmdir` | `0-1` | Removes directory; opts: `{recursive: true}` |
+
+**Note:** The existing `unknownMethodError` lists for both types contain ghost entries (`read`, `write`, `append`, `delete`, `create`) that are **not implemented**. Remove these from the fuzzy-match hints during migration. The `TypeMethods` entries for `"file"` and `"directory"` in `introspect.go` also list unimplemented methods (`exists`, `read`, `stat`, `list`) — correct these when removing the entries.
 
 Steps:
 1. Create `methods_file.go` with `FileMethodRegistry` and `DirMethodRegistry`
@@ -407,10 +501,24 @@ Steps:
 **Files:** New `methods_http.go`, modify `methods.go`, modify `introspect.go`
 **Estimated effort:** Small
 
-1 method for request (`methods.go` L2857-2869), 4 methods for response (`methods.go` L2876-2920). Trivially small.
+1 switch entry for request (`methods.go` L2857-2869), 4 switch entries for response (`methods.go` L2876-2920). Trivially small.
 
-**Request registry entries:** `toJSON` (0)
-**Response registry entries:** `toJSON` (0), `toDict` (0), `toBox` (0+), `repr` (0)
+**Request registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `toDict` | `0` | Returns raw dictionary for debugging |
+
+**Response registry entries (from actual switch cases):**
+
+| Method | Arity | Notes |
+|--------|-------|-------|
+| `response` | `0` | Returns `__response` metadata dictionary |
+| `format` | `0` | Returns `__format` string (e.g. `"json"`, `"text"`) |
+| `data` | `0` | Returns `__data` value |
+| `toDict` | `0` | Returns raw dictionary for debugging |
+
+**Note:** The existing `unknownMethodError` hints for response (`ok`, `error`, `json`, `text`, `data`, `toDict`) are partially wrong — `ok`, `error`, `json`, `text` are not implemented. Fix during migration.
 
 Steps:
 1. Create `methods_http.go` with `RequestMethodRegistry` and `ResponseMethodRegistry`
