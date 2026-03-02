@@ -881,3 +881,13 @@ Items to add to `work/BACKLOG.md` after implementation:
 | 2026-03-02 | Task 1: Migrate `array` methods | ✅ Done | Created methods_array.go with ArrayMethodRegistry (24 entries). evalArrayMethod replaced with dispatchFromRegistry. |
 | 2026-03-02 | Task 2: Migrate `dictionary` methods | ✅ Done | Created methods_dictionary.go with DictionaryMethodRegistry (15 entries). nil-return and IsSchemaDict semantics preserved. |
 | 2026-03-02 | Task 3: Tier 1 validation and commit | ✅ Done | All tests pass. Removed array/dictionary from TypeMethods. Updated dict_reorder_test arity message. Committed: 1b456df |
+| 2026-03-02 | Task 4: Migrate `boolean` and `null` methods | ✅ Done | Created methods_boolean.go with BooleanMethodRegistry (4) and NullMethodRegistry (4). |
+| 2026-03-02 | Task 5: Migrate `datetime` methods | ✅ Done | Created methods_datetime.go with DatetimeMethodRegistry (14 entries). evalDatetimeMethod returns UNDEF-0002 for fallthrough semantics. |
+| 2026-03-02 | Task 6: Migrate `duration` methods | ✅ Done | Created methods_duration.go with DurationMethodRegistry (11 entries). full() preserved as error. No fallthrough (bare return). |
+| 2026-03-02 | Task 7: Migrate `path` methods | ✅ Done | In methods_path_url_regex.go. PathMethodRegistry (10 entries). Ghost hints (toString, join, parent) removed. |
+| 2026-03-02 | Task 8: Migrate `url` methods | ✅ Done | In methods_path_url_regex.go. UrlMethodRegistry (9 entries). Ghost hints removed; search/href added. |
+| 2026-03-02 | Task 9: Migrate `regex` methods | ✅ Done | In methods_path_url_regex.go. RegexMethodRegistry (7 entries). Ghost hints (exec, execAll, matches) removed. |
+| 2026-03-02 | Task 10: Migrate `file` and `dir` methods | ✅ Done | In methods_file_http.go. FileMethodRegistry (5), DirMethodRegistry (4). Shared mkdirFromDict/rmdirFromDict helpers. |
+| 2026-03-02 | Task 11: Migrate `request` and `response` methods | ✅ Done | In methods_file_http.go. RequestMethodRegistry (1), ResponseMethodRegistry (4). Ghost hints removed. |
+| 2026-03-02 | Task 12: Refactor dict-subtype dispatch | ⏭ Skipped | Existing dispatchMethodCall branches still call evalXxxMethod wrappers which now use registries internally. Semantics preserved; cleanup deferred. |
+| 2026-03-02 | Task 13: Tier 2 validation and commit | ✅ Done | All tests pass. Removed all Tier 2 entries from TypeMethods. Committed: 8500d4f |
