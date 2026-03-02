@@ -5676,7 +5676,7 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	expr, ok := dict.Pairs[node.Key]
 	if !ok {
 		// Check if it's a dictionary method name - provide helpful error
-		if slices.Contains(dictionaryMethods, node.Key) {
+		if slices.Contains(DictionaryMethodRegistry.Names(), node.Key) {
 			return methodAsPropertyError(node.Key, "Dictionary")
 		}
 		return NULL

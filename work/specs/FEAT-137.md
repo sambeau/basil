@@ -25,27 +25,27 @@ As a Parsley maintainer, I want a single pattern for defining methods so that ad
 
 ### Tier 1 — Core types (highest priority)
 
-- [ ] `array` methods migrated to `ArrayMethodRegistry` (~23 methods)
-- [ ] `dictionary` methods migrated to `DictionaryMethodRegistry` (~15 methods)
-- [ ] `pars describe array` shows all methods from registry
-- [ ] `pars describe dictionary` shows all methods from registry
-- [ ] All existing array and dictionary tests pass
+- [x] `array` methods migrated to `ArrayMethodRegistry` (~23 methods)
+- [x] `dictionary` methods migrated to `DictionaryMethodRegistry` (~15 methods)
+- [x] `pars describe array` shows all methods from registry
+- [x] `pars describe dictionary` shows all methods from registry
+- [x] All existing array and dictionary tests pass
 
 ### Tier 2 — Dictionary-like types and simple types
 
-- [ ] `datetime` methods migrated (12 distinct methods, 14 registry entries)
-- [ ] `duration` methods migrated (9 distinct methods, 11 registry entries)
-- [ ] `path` methods migrated (10 methods)
-- [ ] `url` methods migrated (9 methods)
-- [ ] `regex` methods migrated (7 methods)
-- [ ] `file` methods migrated (5 methods)
-- [ ] `dir` methods migrated (4 methods)
-- [ ] `boolean` methods migrated (~4 methods)
-- [ ] `null` methods migrated (~4 methods)
-- [ ] `request` methods migrated (~1 method)
-- [ ] `response` methods migrated (~4 methods)
-- [ ] `pars describe` works correctly for all Tier 2 types
-- [ ] All existing tests pass
+- [x] `datetime` methods migrated (12 distinct methods, 14 registry entries)
+- [x] `duration` methods migrated (9 distinct methods, 11 registry entries)
+- [x] `path` methods migrated (10 methods)
+- [x] `url` methods migrated (9 methods)
+- [x] `regex` methods migrated (7 methods)
+- [x] `file` methods migrated (5 methods)
+- [x] `dir` methods migrated (4 methods)
+- [x] `boolean` methods migrated (~4 methods)
+- [x] `null` methods migrated (~4 methods)
+- [x] `request` methods migrated (~1 method)
+- [x] `response` methods migrated (~4 methods)
+- [x] `pars describe` works correctly for all Tier 2 types
+- [x] All existing tests pass
 
 ### Tier 3 — Server-specific types
 

@@ -230,7 +230,7 @@ func describeOperators() *TopicResult {
 func describeTypes() *TopicResult {
 	typeNames := make(map[string]bool)
 
-	// Collect from TypeMethods
+	// Collect from TypeMethods (legacy, mostly empty now)
 	for name := range evaluator.TypeMethods {
 		typeNames[name] = true
 	}
@@ -240,9 +240,8 @@ func describeTypes() *TopicResult {
 		typeNames[name] = true
 	}
 
-	// Known types that have registries (FEAT-111 migrated types)
-	migratedTypes := []string{"string", "integer", "float", "money"}
-	for _, name := range migratedTypes {
+	// Collect from all method registries (covers all migrated types)
+	for _, name := range evaluator.GetRegisteredTypeNames() {
 		typeNames[name] = true
 	}
 

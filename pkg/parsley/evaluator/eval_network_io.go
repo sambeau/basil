@@ -20,102 +20,102 @@ import (
 // that trusts a self-signed test certificate). It is nil in production.
 var testHTTPClient *http.Client
 
+// evalSFTPConnectionMethod dispatches method calls on SFTP connections via registry.
 func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "close":
-		if len(args) != 0 {
-			return newArityError("close", len(args), 0)
-		}
-
-		// Note: We don't remove from cache on explicit close, as the cache
-		// handles TTL and cleanup automatically. Manual close just marks
-		// the connection as disconnected.
-
-		// Close SFTP and SSH clients
-		if conn.Client != nil {
-			conn.Client.Close()
-		}
-		if conn.SSHClient != nil {
-			conn.SSHClient.Close()
-		}
-		conn.Connected = false
-		return NULL
-
-	default:
-		return newUndefinedMethodError(method, "SFTP connection")
+	result := dispatchFromRegistry(SFTPConnectionMethodRegistry, "sftpconnection", conn, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "SFTP connection", SFTPConnectionMethodRegistry.Names())
 }
 
-// evalSFTPFileHandleMethod handles method calls on SFTP file handles
-func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "mkdir":
-		// Create directory
-		var recursive bool
-		if len(args) > 0 {
-			if optDict, ok := args[0].(*Dictionary); ok {
-				if parentsExpr, ok := optDict.Pairs["parents"]; ok {
-					if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
-						if boolVal, ok := parentsVal.(*Boolean); ok {
-							recursive = boolVal.Value
-						}
-					}
-				}
-			}
-		}
+// sftpClose implements sftpConnection.close()
+func sftpClose(conn *SFTPConnection, args []Object, env *Environment) Object {
+	// Note: We don't remove from cache on explicit close, as the cache
+	// handles TTL and cleanup automatically. Manual close just marks
+	// the connection as disconnected.
 
-		var err error
-		if recursive {
-			err = handle.Connection.Client.MkdirAll(handle.Path)
-		} else {
-			err = handle.Connection.Client.Mkdir(handle.Path)
-		}
-
-		if err != nil {
-			return newIOError("IO-0006", handle.Path, err)
-		}
-		return NULL
-
-	case "rmdir":
-		// Remove directory
-		var recursive bool
-		if len(args) > 0 {
-			if optDict, ok := args[0].(*Dictionary); ok {
-				if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
-					if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
-						if boolVal, ok := recursiveVal.(*Boolean); ok {
-							recursive = boolVal.Value
-						}
-					}
-				}
-			}
-		}
-
-		// Note: SFTP RemoveDirectory only removes empty directories.
-		// The recursive option is parsed but not yet implemented.
-		// TODO: implement recursive directory removal if needed.
-		_ = recursive
-		err := handle.Connection.Client.RemoveDirectory(handle.Path)
-
-		if err != nil {
-			return newIOError("IO-0010", handle.Path, err)
-		}
-		return NULL
-
-	case "remove":
-		// Remove file
-		if len(args) != 0 {
-			return newArityError("remove", len(args), 0)
-		}
-
-		if err := handle.Connection.Client.Remove(handle.Path); err != nil {
-			return newIOError("IO-0005", handle.Path, err)
-		}
-		return NULL
-
-	default:
-		return newUndefinedMethodError(method, "SFTP file handle")
+	// Close SFTP and SSH clients
+	if conn.Client != nil {
+		conn.Client.Close()
 	}
+	if conn.SSHClient != nil {
+		conn.SSHClient.Close()
+	}
+	conn.Connected = false
+	return NULL
+}
+
+// evalSFTPFileHandleMethod dispatches method calls on SFTP file handles via registry.
+func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Object, env *Environment) Object {
+	result := dispatchFromRegistry(SFTPFileHandleMethodRegistry, "sftpfile", handle, method, args, env)
+	if result != nil {
+		return result
+	}
+	return unknownMethodError(method, "SFTP file handle", SFTPFileHandleMethodRegistry.Names())
+}
+
+// sftpMkdir implements sftpFileHandle.mkdir(options?)
+func sftpMkdir(handle *SFTPFileHandle, args []Object, env *Environment) Object {
+	var recursive bool
+	if len(args) > 0 {
+		if optDict, ok := args[0].(*Dictionary); ok {
+			if parentsExpr, ok := optDict.Pairs["parents"]; ok {
+				if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
+					if boolVal, ok := parentsVal.(*Boolean); ok {
+						recursive = boolVal.Value
+					}
+				}
+			}
+		}
+	}
+
+	var err error
+	if recursive {
+		err = handle.Connection.Client.MkdirAll(handle.Path)
+	} else {
+		err = handle.Connection.Client.Mkdir(handle.Path)
+	}
+
+	if err != nil {
+		return newIOError("IO-0006", handle.Path, err)
+	}
+	return NULL
+}
+
+// sftpRmdir implements sftpFileHandle.rmdir(options?)
+func sftpRmdir(handle *SFTPFileHandle, args []Object, env *Environment) Object {
+	var recursive bool
+	if len(args) > 0 {
+		if optDict, ok := args[0].(*Dictionary); ok {
+			if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
+				if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
+					if boolVal, ok := recursiveVal.(*Boolean); ok {
+						recursive = boolVal.Value
+					}
+				}
+			}
+		}
+	}
+
+	// Note: SFTP RemoveDirectory only removes empty directories.
+	// The recursive option is parsed but not yet implemented.
+	// TODO: implement recursive directory removal if needed.
+	_ = recursive
+	err := handle.Connection.Client.RemoveDirectory(handle.Path)
+
+	if err != nil {
+		return newIOError("IO-0010", handle.Path, err)
+	}
+	return NULL
+}
+
+// sftpRemove implements sftpFileHandle.remove()
+func sftpRemove(handle *SFTPFileHandle, args []Object, env *Environment) Object {
+	if err := handle.Connection.Client.Remove(handle.Path); err != nil {
+		return newIOError("IO-0005", handle.Path, err)
+	}
+	return NULL
 }
 func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 	// Check if we're using dict pattern destructuring with error capture pattern

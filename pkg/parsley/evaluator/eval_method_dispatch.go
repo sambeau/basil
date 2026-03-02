@@ -5,195 +5,183 @@ import (
 	"strings"
 )
 
-// Method dispatch operations: dispatchMethodCall, evalDBConnectionMethod
+// Method dispatch operations: dispatchMethodCall, DBConnection method bodies
 // Extracted from evaluator.go - Phase 5 Extraction 30
 
+// evalDBConnectionMethod dispatches method calls on database connections via registry.
 func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "begin":
-		if len(args) != 0 {
-			return newArityError("begin", len(args), 0)
-		}
-		if conn.InTransaction {
-			return newDatabaseStateError("DB-0007")
-		}
-		tx, txErr := conn.DB.Begin()
-		if txErr != nil {
-			conn.LastError = txErr.Error()
-			return newDatabaseError("DB-0014", txErr)
-		}
-		conn.Tx = tx
-		conn.InTransaction = true
-		return &Boolean{Value: true}
+	result := dispatchFromRegistry(DBConnectionMethodRegistry, "dbconnection", conn, method, args, env)
+	if result != nil {
+		return result
+	}
+	return unknownMethodError(method, "database connection", DBConnectionMethodRegistry.Names())
+}
 
-	case "commit":
-		if len(args) != 0 {
-			return newArityError("commit", len(args), 0)
-		}
-		if !conn.InTransaction {
-			return newDatabaseStateError("DB-0006")
-		}
-		if commitErr := conn.Tx.Commit(); commitErr != nil {
-			conn.Tx = nil
-			conn.InTransaction = false
-			conn.LastError = commitErr.Error()
-			return newDatabaseError("DB-0015", commitErr)
-		}
+// dbBegin implements db.begin() — start a transaction
+func dbBegin(conn *DBConnection, args []Object, env *Environment) Object {
+	if conn.InTransaction {
+		return newDatabaseStateError("DB-0007")
+	}
+	tx, txErr := conn.DB.Begin()
+	if txErr != nil {
+		conn.LastError = txErr.Error()
+		return newDatabaseError("DB-0014", txErr)
+	}
+	conn.Tx = tx
+	conn.InTransaction = true
+	return &Boolean{Value: true}
+}
+
+// dbCommit implements db.commit() — commit the current transaction
+func dbCommit(conn *DBConnection, args []Object, env *Environment) Object {
+	if !conn.InTransaction {
+		return newDatabaseStateError("DB-0006")
+	}
+	if commitErr := conn.Tx.Commit(); commitErr != nil {
 		conn.Tx = nil
 		conn.InTransaction = false
-		return &Boolean{Value: true}
+		conn.LastError = commitErr.Error()
+		return newDatabaseError("DB-0015", commitErr)
+	}
+	conn.Tx = nil
+	conn.InTransaction = false
+	return &Boolean{Value: true}
+}
 
-	case "rollback":
-		if len(args) != 0 {
-			return newArityError("rollback", len(args), 0)
-		}
-		if !conn.InTransaction {
-			return newDatabaseStateError("DB-0006")
-		}
-		if rbErr := conn.Tx.Rollback(); rbErr != nil {
-			conn.Tx = nil
-			conn.InTransaction = false
-			conn.LastError = rbErr.Error()
-			return newDatabaseError("DB-0019", rbErr)
-		}
+// dbRollback implements db.rollback() — rollback the current transaction
+func dbRollback(conn *DBConnection, args []Object, env *Environment) Object {
+	if !conn.InTransaction {
+		return newDatabaseStateError("DB-0006")
+	}
+	if rbErr := conn.Tx.Rollback(); rbErr != nil {
 		conn.Tx = nil
 		conn.InTransaction = false
-		return &Boolean{Value: true}
+		conn.LastError = rbErr.Error()
+		return newDatabaseError("DB-0019", rbErr)
+	}
+	conn.Tx = nil
+	conn.InTransaction = false
+	return &Boolean{Value: true}
+}
 
-	case "close":
-		if len(args) != 0 {
-			return newArityError("close", len(args), 0)
-		}
-		// Managed connections cannot be closed by Parsley scripts
-		if conn.Managed {
-			return newDatabaseStateError("DB-0009")
-		}
-		// Note: We don't remove from cache on explicit close, as the cache
-		// handles TTL and cleanup automatically. Manual close just closes
-		// the database connection.
+// dbClose implements db.close() — close the database connection
+func dbClose(conn *DBConnection, args []Object, env *Environment) Object {
+	// Managed connections cannot be closed by Parsley scripts
+	if conn.Managed {
+		return newDatabaseStateError("DB-0009")
+	}
+	// Note: We don't remove from cache on explicit close, as the cache
+	// handles TTL and cleanup automatically. Manual close just closes
+	// the database connection.
 
-		if err := conn.DB.Close(); err != nil {
-			conn.LastError = err.Error()
-			return newDatabaseError("DB-0010", err)
-		}
-		return NULL
+	if err := conn.DB.Close(); err != nil {
+		conn.LastError = err.Error()
+		return newDatabaseError("DB-0010", err)
+	}
+	return NULL
+}
 
-	case "ping":
-		if len(args) != 0 {
-			return newArityError("ping", len(args), 0)
-		}
-		if err := conn.DB.Ping(); err != nil {
-			conn.LastError = err.Error()
-			return &Boolean{Value: false}
-		}
-		return &Boolean{Value: true}
+// dbPing implements db.ping() — test the database connection
+func dbPing(conn *DBConnection, args []Object, env *Environment) Object {
+	if err := conn.DB.Ping(); err != nil {
+		conn.LastError = err.Error()
+		return &Boolean{Value: false}
+	}
+	return &Boolean{Value: true}
+}
 
-	case "createTable":
-		// db.createTable(schema) or db.createTable(schema, "table_name")
-		// Creates a table from a schema if it doesn't already exist
-		if len(args) < 1 || len(args) > 2 {
-			return newArityError("createTable", len(args), 1)
-		}
+// dbCreateTable implements db.createTable(schema) or db.createTable(schema, "table_name")
+func dbCreateTable(conn *DBConnection, args []Object, env *Environment) Object {
+	schema, ok := args[0].(*DSLSchema)
+	if !ok {
+		return newTypeError("TYPE-0001", "db.createTable", "schema", args[0].Type())
+	}
 
-		schema, ok := args[0].(*DSLSchema)
+	// Get table name: either from second arg or use schema name (lowercase)
+	tableName := strings.ToLower(schema.Name) + "s" // default: pluralize
+	if len(args) == 2 {
+		tableNameStr, ok := args[1].(*String)
 		if !ok {
-			return newTypeError("TYPE-0001", "db.createTable", "schema", args[0].Type())
+			return newTypeError("TYPE-0001", "db.createTable", "string (table name)", args[1].Type())
 		}
+		tableName = tableNameStr.Value
+	}
 
-		// Get table name: either from second arg or use schema name (lowercase)
-		tableName := strings.ToLower(schema.Name) + "s" // default: pluralize
-		if len(args) == 2 {
-			tableNameStr, ok := args[1].(*String)
-			if !ok {
-				return newTypeError("TYPE-0001", "db.createTable", "string (table name)", args[1].Type())
-			}
-			tableName = tableNameStr.Value
-		}
+	// Build CREATE TABLE IF NOT EXISTS SQL
+	sql := buildCreateTableSQL(schema, tableName, conn.Driver)
 
-		// Build CREATE TABLE IF NOT EXISTS SQL
-		sql := buildCreateTableSQL(schema, tableName, conn.Driver)
+	// Execute the SQL
+	_, err := connExec(conn, sql)
+	if err != nil {
+		conn.LastError = err.Error()
+		return newDatabaseError("DB-0005", err)
+	}
 
-		// Execute the SQL
-		_, err := connExec(conn, sql)
-		if err != nil {
-			conn.LastError = err.Error()
-			return newDatabaseError("DB-0005", err)
-		}
+	return &Boolean{Value: true}
+}
 
-		return &Boolean{Value: true}
+// dbLastInsertId implements db.lastInsertId() — get the last inserted row ID (SQLite only)
+func dbLastInsertId(conn *DBConnection, args []Object, env *Environment) Object {
+	if conn.Driver != "sqlite" {
+		return newDatabaseErrorWithDriver("DB-0001", conn.Driver, fmt.Errorf("lastInsertId only supported for SQLite"))
+	}
 
-	case "lastInsertId":
-		// Get the last inserted row ID (SQLite only)
-		if len(args) != 0 {
-			return newArityError("lastInsertId", len(args), 0)
-		}
-		if conn.Driver != "sqlite" {
-			return newDatabaseErrorWithDriver("DB-0001", conn.Driver, fmt.Errorf("lastInsertId only supported for SQLite"))
-		}
+	var id int64
+	err := connQueryRow(conn, "SELECT last_insert_rowid()").Scan(&id)
+	if err != nil {
+		conn.LastError = err.Error()
+		return newDatabaseError("DB-0005", err)
+	}
+	return &Integer{Value: id}
+}
 
-		var id int64
-		err := connQueryRow(conn, "SELECT last_insert_rowid()").Scan(&id)
-		if err != nil {
-			conn.LastError = err.Error()
-			return newDatabaseError("DB-0005", err)
-		}
-		return &Integer{Value: id}
+// dbBind implements db.bind(schema, "table_name") or db.bind(schema, "table_name", {soft_delete: "deleted_at"})
+func dbBind(conn *DBConnection, args []Object, env *Environment) Object {
+	// Get table name (second argument)
+	tableName, ok := args[1].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "db.bind", "string (table name)", args[1].Type())
+	}
+	name := strings.TrimSpace(tableName.Value)
+	if name == "" || !identifierRegex.MatchString(name) {
+		return newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": "invalid table name"})
+	}
 
-	case "bind":
-		// db.bind(schema, "table_name") or db.bind(schema, "table_name", {soft_delete: "deleted_at"})
-		if len(args) < 2 || len(args) > 3 {
-			return newArityError("bind", len(args), 2)
-		}
-
-		// Get table name (second argument)
-		tableName, ok := args[1].(*String)
+	// Parse options if provided
+	var softDeleteColumn string
+	if len(args) == 3 {
+		optsDict, ok := args[2].(*Dictionary)
 		if !ok {
-			return newTypeError("TYPE-0001", "db.bind", "string (table name)", args[1].Type())
+			return newTypeError("TYPE-0001", "db.bind", "dictionary (options)", args[2].Type())
 		}
-		name := strings.TrimSpace(tableName.Value)
-		if name == "" || !identifierRegex.MatchString(name) {
-			return newValidationError("VAL-0003", map[string]any{"Pattern": "identifier", "GoError": "invalid table name"})
+		if sdExpr, ok := optsDict.Pairs["soft_delete"]; ok {
+			sdVal := Eval(sdExpr, optsDict.Env)
+			if sdStr, ok := sdVal.(*String); ok {
+				softDeleteColumn = sdStr.Value
+			} else {
+				return newTypeError("TYPE-0001", "db.bind soft_delete option", "string", sdVal.Type())
+			}
 		}
+	}
 
-		// Parse options if provided
-		var softDeleteColumn string
-		if len(args) == 3 {
-			optsDict, ok := args[2].(*Dictionary)
-			if !ok {
-				return newTypeError("TYPE-0001", "db.bind", "dictionary (options)", args[2].Type())
-			}
-			if sdExpr, ok := optsDict.Pairs["soft_delete"]; ok {
-				sdVal := Eval(sdExpr, optsDict.Env)
-				if sdStr, ok := sdVal.(*String); ok {
-					softDeleteColumn = sdStr.Value
-				} else {
-					return newTypeError("TYPE-0001", "db.bind soft_delete option", "string", sdVal.Type())
-				}
-			}
+	// Handle both DSLSchema and Dictionary schemas
+	switch schema := args[0].(type) {
+	case *DSLSchema:
+		return &TableBinding{
+			DB:               conn,
+			DSLSchema:        schema,
+			TableName:        name,
+			SoftDeleteColumn: softDeleteColumn,
 		}
-
-		// Handle both DSLSchema and Dictionary schemas
-		switch schema := args[0].(type) {
-		case *DSLSchema:
-			return &TableBinding{
-				DB:               conn,
-				DSLSchema:        schema,
-				TableName:        name,
-				SoftDeleteColumn: softDeleteColumn,
-			}
-		case *Dictionary:
-			return &TableBinding{
-				DB:               conn,
-				Schema:           schema,
-				TableName:        name,
-				SoftDeleteColumn: softDeleteColumn,
-			}
-		default:
-			return newTypeError("TYPE-0001", "db.bind", "schema or dictionary", args[0].Type())
+	case *Dictionary:
+		return &TableBinding{
+			DB:               conn,
+			Schema:           schema,
+			TableName:        name,
+			SoftDeleteColumn: softDeleteColumn,
 		}
-
 	default:
-		return newUndefinedMethodError(method, "database connection")
+		return newTypeError("TYPE-0001", "db.bind", "schema or dictionary", args[0].Type())
 	}
 }
 
@@ -373,7 +361,7 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 			}
 		}
 		// Method not found - return error with available methods
-		return unknownMethodError(method, "dictionary", dictionaryMethods)
+		return unknownMethodError(method, "dictionary", DictionaryMethodRegistry.Names())
 	}
 	// No specific handler for this type
 	return nil

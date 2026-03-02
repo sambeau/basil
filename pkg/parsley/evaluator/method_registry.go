@@ -73,6 +73,15 @@ func GetRegistryForType(typeName string) MethodRegistry {
 	return typeRegistries[typeName]
 }
 
+// GetRegisteredTypeNames returns the names of all types that have a registered method registry.
+func GetRegisteredTypeNames() []string {
+	names := make([]string, 0, len(typeRegistries))
+	for name := range typeRegistries {
+		names = append(names, name)
+	}
+	return names
+}
+
 // GetMethodsForType returns method info for a type from its registry.
 // Used by describe() for introspection output.
 func GetMethodsForType(typeName string) []MethodInfo {

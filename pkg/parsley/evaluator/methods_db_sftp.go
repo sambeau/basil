@@ -90,35 +90,35 @@ func init() {
 // ============================================================================
 
 func dbMethodBegin(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "begin", args, env)
+	return dbBegin(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodCommit(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "commit", args, env)
+	return dbCommit(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodRollback(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "rollback", args, env)
+	return dbRollback(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodClose(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "close", args, env)
+	return dbClose(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodPing(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "ping", args, env)
+	return dbPing(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodCreateTable(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "createTable", args, env)
+	return dbCreateTable(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodLastInsertId(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "lastInsertId", args, env)
+	return dbLastInsertId(receiver.(*DBConnection), args, env)
 }
 
 func dbMethodBind(receiver Object, args []Object, env *Environment) Object {
-	return evalDBConnectionMethod(receiver.(*DBConnection), "bind", args, env)
+	return dbBind(receiver.(*DBConnection), args, env)
 }
 
 // ============================================================================
@@ -126,7 +126,7 @@ func dbMethodBind(receiver Object, args []Object, env *Environment) Object {
 // ============================================================================
 
 func sftpConnectionMethodClose(receiver Object, args []Object, env *Environment) Object {
-	return evalSFTPConnectionMethod(receiver.(*SFTPConnection), "close", args, env)
+	return sftpClose(receiver.(*SFTPConnection), args, env)
 }
 
 // ============================================================================
@@ -134,13 +134,13 @@ func sftpConnectionMethodClose(receiver Object, args []Object, env *Environment)
 // ============================================================================
 
 func sftpFileMethodMkdir(receiver Object, args []Object, env *Environment) Object {
-	return evalSFTPFileHandleMethod(receiver.(*SFTPFileHandle), "mkdir", args, env)
+	return sftpMkdir(receiver.(*SFTPFileHandle), args, env)
 }
 
 func sftpFileMethodRmdir(receiver Object, args []Object, env *Environment) Object {
-	return evalSFTPFileHandleMethod(receiver.(*SFTPFileHandle), "rmdir", args, env)
+	return sftpRmdir(receiver.(*SFTPFileHandle), args, env)
 }
 
 func sftpFileMethodRemove(receiver Object, args []Object, env *Environment) Object {
-	return evalSFTPFileHandleMethod(receiver.(*SFTPFileHandle), "remove", args, env)
+	return sftpRemove(receiver.(*SFTPFileHandle), args, env)
 }

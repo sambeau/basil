@@ -34,13 +34,6 @@ var (
 // Available Methods for Fuzzy Matching
 // ============================================================================
 
-// dictionaryMethods lists all methods available on dictionary
-// Used as fallback hint list for types that fall through to dictionary dispatch.
-var dictionaryMethods = []string{
-	"type", "keys", "values", "entries", "has", "delete", "insertAfter", "insertBefore", "render", "toJSON", "toBox",
-	"repr", "toHTML", "toMarkdown", "as", "reorder",
-}
-
 // unknownMethodError creates an error for an unknown method with fuzzy matching hint
 func unknownMethodError(method, typeName string, availableMethods []string) *Error {
 	parsleyErr := errors.NewUndefinedMethod(method, typeName, availableMethods)
