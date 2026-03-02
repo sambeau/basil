@@ -88,29 +88,76 @@ func (s *DSLSchema) PrimaryKey() string {
 	return ""
 }
 
-// dslSchemaMethods lists available methods on DSL schema objects
-var dslSchemaMethods = []string{
-	"title", "placeholder", "meta", "fields", "visibleFields", "enumValues",
+// DSLSchemaMethodRegistry defines all methods available on DSL schema objects.
+var DSLSchemaMethodRegistry MethodRegistry
+
+func init() {
+	DSLSchemaMethodRegistry = MethodRegistry{
+		"title": {
+			Fn:          schemaMethodTitle,
+			Arity:       "1",
+			Description: "Get display title for a field",
+		},
+		"placeholder": {
+			Fn:          schemaMethodPlaceholder,
+			Arity:       "1",
+			Description: "Get placeholder text for a field",
+		},
+		"meta": {
+			Fn:          schemaMethodMeta,
+			Arity:       "2",
+			Description: "Get metadata value for a field (field, key)",
+		},
+		"fields": {
+			Fn:          schemaMethodFields,
+			Arity:       "0",
+			Description: "Get all field names as an array",
+		},
+		"visibleFields": {
+			Fn:          schemaMethodVisibleFields,
+			Arity:       "0",
+			Description: "Get non-auto field names as an array",
+		},
+		"enumValues": {
+			Fn:          schemaMethodEnumValues,
+			Arity:       "1",
+			Description: "Get enum options for a field",
+		},
+	}
+	RegisterMethodRegistry("schema", DSLSchemaMethodRegistry)
 }
 
 // evalDSLSchemaMethod dispatches method calls on DSL schema objects
 func evalDSLSchemaMethod(schema *DSLSchema, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "title":
-		return schemaTitle(schema, args)
-	case "placeholder":
-		return schemaPlaceholder(schema, args)
-	case "meta":
-		return schemaMeta(schema, args)
-	case "fields":
-		return schemaFields(schema, args)
-	case "visibleFields":
-		return schemaVisibleFields(schema, args)
-	case "enumValues":
-		return schemaEnumValues(schema, args)
-	default:
-		return unknownMethodError(method, "Schema", dslSchemaMethods)
+	result := dispatchFromRegistry(DSLSchemaMethodRegistry, "schema", schema, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "Schema", DSLSchemaMethodRegistry.Names())
+}
+
+func schemaMethodTitle(receiver Object, args []Object, env *Environment) Object {
+	return schemaTitle(receiver.(*DSLSchema), args)
+}
+
+func schemaMethodPlaceholder(receiver Object, args []Object, env *Environment) Object {
+	return schemaPlaceholder(receiver.(*DSLSchema), args)
+}
+
+func schemaMethodMeta(receiver Object, args []Object, env *Environment) Object {
+	return schemaMeta(receiver.(*DSLSchema), args)
+}
+
+func schemaMethodFields(receiver Object, args []Object, env *Environment) Object {
+	return schemaFields(receiver.(*DSLSchema), args)
+}
+
+func schemaMethodVisibleFields(receiver Object, args []Object, env *Environment) Object {
+	return schemaVisibleFields(receiver.(*DSLSchema), args)
+}
+
+func schemaMethodEnumValues(receiver Object, args []Object, env *Environment) Object {
+	return schemaEnumValues(receiver.(*DSLSchema), args)
 }
 
 // schemaTitle implements schema.title(field) → String
@@ -347,7 +394,7 @@ func evalDSLSchemaProperty(schema *DSLSchema, key string) Object {
 			return &String{Value: rel.TargetSchema}
 		}
 		// Check if it's a method name - provide helpful error
-		if slices.Contains(dslSchemaMethods, key) {
+		if slices.Contains(DSLSchemaMethodRegistry.Names(), key) {
 			return methodAsPropertyError(key, "Schema")
 		}
 		return NULL

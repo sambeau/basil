@@ -55,20 +55,11 @@ func loadDevModule(env *Environment) Object {
 
 // evalDevModuleMethod handles method calls on the dev module
 func evalDevModuleMethod(dm *DevModule, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "log":
-		return dm.evalLog(args, env)
-	case "clearLog":
-		return dm.evalClearLog(args, env)
-	case "logPage":
-		return dm.evalLogPage(args, env)
-	case "setLogRoute":
-		return dm.evalSetLogRoute(args, env)
-	case "clearLogPage":
-		return dm.evalClearLogPage(args, env)
-	default:
-		return unknownMethodError(method, "dev module", []string{"log", "clearLog", "logPage", "setLogRoute", "clearLogPage"})
+	result := dispatchFromRegistry(DevModuleMethodRegistry, "dev module", dm, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "dev module", DevModuleMethodRegistry.Names())
 }
 
 // evalLog implements dev.log(value) and dev.log(label, value)

@@ -10,59 +10,197 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
-// Available methods on Record objects
-var recordMethods = []string{
-	"validate", "update", "errors", "error", "errorCode", "errorList",
-	"isValid", "hasError", "schema", "data", "keys", "withError",
-	"title", "placeholder", "meta", "enumValues", "format", "toJSON",
-	"failIfInvalid",
+// RecordMethodRegistry defines all methods available on Record objects.
+var RecordMethodRegistry MethodRegistry
+
+func init() {
+	RecordMethodRegistry = MethodRegistry{
+		"validate": {
+			Fn:          recordMethodValidate,
+			Arity:       "0",
+			Description: "Validate the record against its schema",
+		},
+		"update": {
+			Fn:          recordMethodUpdate,
+			Arity:       "1",
+			Description: "Merge fields and revalidate (dict)",
+		},
+		"errors": {
+			Fn:          recordMethodErrors,
+			Arity:       "0-1",
+			Description: "Get validation errors (field?)",
+		},
+		"error": {
+			Fn:          recordMethodError,
+			Arity:       "1",
+			Description: "Get error message for a field",
+		},
+		"errorCode": {
+			Fn:          recordMethodErrorCode,
+			Arity:       "1",
+			Description: "Get error code for a field",
+		},
+		"errorList": {
+			Fn:          recordMethodErrorList,
+			Arity:       "0",
+			Description: "Get all errors as an array",
+		},
+		"isValid": {
+			Fn:          recordMethodIsValid,
+			Arity:       "0",
+			Description: "Check if the record is valid",
+		},
+		"hasError": {
+			Fn:          recordMethodHasError,
+			Arity:       "1",
+			Description: "Check if a field has an error",
+		},
+		"schema": {
+			Fn:          recordMethodSchema,
+			Arity:       "0",
+			Description: "Get the record's schema",
+		},
+		"data": {
+			Fn:          recordMethodData,
+			Arity:       "0",
+			Description: "Get all record data as a dictionary",
+		},
+		"keys": {
+			Fn:          recordMethodKeys,
+			Arity:       "0",
+			Description: "Get all field names as an array",
+		},
+		"withError": {
+			Fn:          recordMethodWithError,
+			Arity:       "1-3",
+			Description: "Return a copy of the record with an added error (field, message?, code?)",
+		},
+		"title": {
+			Fn:          recordMethodTitle,
+			Arity:       "1",
+			Description: "Get display title for a field",
+		},
+		"placeholder": {
+			Fn:          recordMethodPlaceholder,
+			Arity:       "1",
+			Description: "Get placeholder text for a field",
+		},
+		"meta": {
+			Fn:          recordMethodMeta,
+			Arity:       "2",
+			Description: "Get metadata value for a field (field, key)",
+		},
+		"enumValues": {
+			Fn:          recordMethodEnumValues,
+			Arity:       "1",
+			Description: "Get enum options for a field",
+		},
+		"format": {
+			Fn:          recordMethodFormat,
+			Arity:       "1-2",
+			Description: "Format a field value (field, options?)",
+		},
+		"toJSON": {
+			Fn:          recordMethodToJSON,
+			Arity:       "0",
+			Description: "Serialize record data to a JSON string",
+		},
+		"failIfInvalid": {
+			Fn:          recordMethodFailIfInvalid,
+			Arity:       "0-1",
+			Description: "Fail with an error if the record is invalid (message?)",
+		},
+	}
+	RegisterMethodRegistry("record", RecordMethodRegistry)
 }
 
 // evalRecordMethod dispatches method calls on Record objects.
 func evalRecordMethod(record *Record, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "validate":
-		return recordValidate(record, args, env)
-	case "update":
-		return recordUpdate(record, args, env)
-	case "errors":
-		return recordErrors(record, args)
-	case "error":
-		return recordError(record, args, env)
-	case "errorCode":
-		return recordErrorCode(record, args, env)
-	case "errorList":
-		return recordErrorList(record, args)
-	case "isValid":
-		return recordIsValid(record, args)
-	case "hasError":
-		return recordHasError(record, args, env)
-	case "schema":
-		return recordSchema(record, args)
-	case "data":
-		return recordData(record, args)
-	case "keys":
-		return recordKeys(record, args)
-	case "withError":
-		return recordWithError(record, args)
-	case "title":
-		return recordTitle(record, args, env)
-	case "placeholder":
-		return recordPlaceholder(record, args, env)
-	case "meta":
-		return recordMeta(record, args, env)
-	case "enumValues":
-		return recordEnumValues(record, args, env)
-	case "format":
-		return recordFormat(record, args, env)
-	case "toJSON":
-		return recordToJSON(record, args)
-	case "failIfInvalid":
-		return recordFailIfInvalid(record, args)
-	default:
-		// Check if it's a data field access via method syntax (shouldn't happen normally)
-		return unknownMethodError(method, "Record", recordMethods)
+	result := dispatchFromRegistry(RecordMethodRegistry, "record", record, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "Record", RecordMethodRegistry.Names())
+}
+
+// ============================================================================
+// Record method registry wrappers
+// ============================================================================
+
+func recordMethodValidate(receiver Object, args []Object, env *Environment) Object {
+	return recordValidate(receiver.(*Record), args, env)
+}
+
+func recordMethodUpdate(receiver Object, args []Object, env *Environment) Object {
+	return recordUpdate(receiver.(*Record), args, env)
+}
+
+func recordMethodErrors(receiver Object, args []Object, env *Environment) Object {
+	return recordErrors(receiver.(*Record), args)
+}
+
+func recordMethodError(receiver Object, args []Object, env *Environment) Object {
+	return recordError(receiver.(*Record), args, env)
+}
+
+func recordMethodErrorCode(receiver Object, args []Object, env *Environment) Object {
+	return recordErrorCode(receiver.(*Record), args, env)
+}
+
+func recordMethodErrorList(receiver Object, args []Object, env *Environment) Object {
+	return recordErrorList(receiver.(*Record), args)
+}
+
+func recordMethodIsValid(receiver Object, args []Object, env *Environment) Object {
+	return recordIsValid(receiver.(*Record), args)
+}
+
+func recordMethodHasError(receiver Object, args []Object, env *Environment) Object {
+	return recordHasError(receiver.(*Record), args, env)
+}
+
+func recordMethodSchema(receiver Object, args []Object, env *Environment) Object {
+	return recordSchema(receiver.(*Record), args)
+}
+
+func recordMethodData(receiver Object, args []Object, env *Environment) Object {
+	return recordData(receiver.(*Record), args)
+}
+
+func recordMethodKeys(receiver Object, args []Object, env *Environment) Object {
+	return recordKeys(receiver.(*Record), args)
+}
+
+func recordMethodWithError(receiver Object, args []Object, env *Environment) Object {
+	return recordWithError(receiver.(*Record), args)
+}
+
+func recordMethodTitle(receiver Object, args []Object, env *Environment) Object {
+	return recordTitle(receiver.(*Record), args, env)
+}
+
+func recordMethodPlaceholder(receiver Object, args []Object, env *Environment) Object {
+	return recordPlaceholder(receiver.(*Record), args, env)
+}
+
+func recordMethodMeta(receiver Object, args []Object, env *Environment) Object {
+	return recordMeta(receiver.(*Record), args, env)
+}
+
+func recordMethodEnumValues(receiver Object, args []Object, env *Environment) Object {
+	return recordEnumValues(receiver.(*Record), args, env)
+}
+
+func recordMethodFormat(receiver Object, args []Object, env *Environment) Object {
+	return recordFormat(receiver.(*Record), args, env)
+}
+
+func recordMethodToJSON(receiver Object, args []Object, env *Environment) Object {
+	return recordToJSON(receiver.(*Record), args)
+}
+
+func recordMethodFailIfInvalid(receiver Object, args []Object, env *Environment) Object {
+	return recordFailIfInvalid(receiver.(*Record), args)
 }
 
 // recordValidate implements record.validate() → Record
@@ -548,7 +686,7 @@ func evalRecordProperty(record *Record, key string, env *Environment) Object {
 	}
 
 	// Check if it's a method name - provide helpful error
-	if slices.Contains(recordMethods, key) {
+	if slices.Contains(RecordMethodRegistry.Names(), key) {
 		return methodAsPropertyError(key, "Record")
 	}
 

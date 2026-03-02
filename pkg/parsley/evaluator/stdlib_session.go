@@ -45,35 +45,11 @@ func NewSessionModule(data map[string]any, flash map[string]string, maxAge time.
 
 // evalSessionMethod handles method calls on the session module
 func evalSessionMethod(sm *SessionModule, method string, args []Object, env *Environment) Object {
-	switch method {
-	case "get":
-		return sessionGet(sm, args)
-	case "set":
-		return sessionSet(sm, args)
-	case "delete":
-		return sessionDelete(sm, args)
-	case "has":
-		return sessionHas(sm, args)
-	case "clear":
-		return sessionClear(sm)
-	case "all":
-		return sessionAll(sm)
-	case "flash":
-		return sessionFlash(sm, args)
-	case "getFlash":
-		return sessionGetFlash(sm, args)
-	case "getAllFlash":
-		return sessionGetAllFlash(sm)
-	case "hasFlash":
-		return sessionHasFlash(sm)
-	case "regenerate":
-		return sessionRegenerate(sm)
-	default:
-		return unknownMethodError("session", method, []string{
-			"get", "set", "delete", "has", "clear", "all",
-			"flash", "getFlash", "getAllFlash", "hasFlash", "regenerate",
-		})
+	result := dispatchFromRegistry(SessionMethodRegistry, "session", sm, method, args, env)
+	if result != nil {
+		return result
 	}
+	return unknownMethodError(method, "session", SessionMethodRegistry.Names())
 }
 
 // sessionGet retrieves a value from the session

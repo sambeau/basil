@@ -129,76 +129,6 @@ var TypeProperties = map[string][]PropertyInfo{
 // in method_registry.go and no longer need entries here.
 // See FEAT-111 for migration progress.
 var TypeMethods = map[string][]MethodInfo{
-
-	"table": {
-		{Name: "where", Arity: "1", Description: "Filter rows by predicate"},
-		{Name: "orderBy", Arity: "1+", Description: "Sort rows by column(s)"},
-		{Name: "select", Arity: "1+", Description: "Select specific columns"},
-		{Name: "limit", Arity: "1-2", Description: "Limit rows (count, offset?)"},
-		{Name: "count", Arity: "0", Description: "Count rows"},
-		{Name: "sum", Arity: "1", Description: "Sum column values"},
-		{Name: "avg", Arity: "1", Description: "Average column values"},
-		{Name: "min", Arity: "1", Description: "Minimum column value"},
-		{Name: "max", Arity: "1", Description: "Maximum column value"},
-		{Name: "toHTML", Arity: "0-1", Description: "Convert to HTML table (footer: string|dict?)"},
-		{Name: "toCSV", Arity: "0", Description: "Convert to CSV string"},
-		{Name: "toMarkdown", Arity: "0", Description: "Convert to Markdown table"},
-		{Name: "toJSON", Arity: "0", Description: "Convert to JSON array"},
-		{Name: "appendRow", Arity: "1", Description: "Add row at end"},
-		{Name: "insertRowAt", Arity: "2", Description: "Insert row at index"},
-		{Name: "appendCol", Arity: "2", Description: "Add column at end"},
-		{Name: "insertColAfter", Arity: "3", Description: "Insert column after another"},
-		{Name: "insertColBefore", Arity: "3", Description: "Insert column before another"},
-		{Name: "rowCount", Arity: "0", Description: "Get number of rows"},
-		{Name: "columnCount", Arity: "0", Description: "Get number of columns"},
-		{Name: "column", Arity: "1", Description: "Get array of values from column"},
-		// Array-like methods
-		{Name: "map", Arity: "1", Description: "Transform each row (fn) - preserves schema if Records returned"},
-		{Name: "find", Arity: "1", Description: "Find first row matching predicate (fn) - returns row or null"},
-		{Name: "any", Arity: "1", Description: "Check if any row matches predicate (fn) - returns boolean"},
-		{Name: "all", Arity: "1", Description: "Check if all rows match predicate (fn) - returns boolean"},
-		// Data manipulation methods
-		{Name: "unique", Arity: "0-1", Description: "Remove duplicate rows (columns?)"},
-		{Name: "renameCol", Arity: "2", Description: "Rename column (oldName, newName)"},
-		{Name: "dropCol", Arity: "1+", Description: "Remove columns (col1, col2, ...)"},
-		{Name: "groupBy", Arity: "1-2", Description: "Group rows by column(s) (cols, aggregationFn?)"},
-	},
-	"dbconnection": {
-		{Name: "begin", Arity: "0", Description: "Begin transaction"},
-		{Name: "commit", Arity: "0", Description: "Commit transaction"},
-		{Name: "rollback", Arity: "0", Description: "Rollback transaction"},
-		{Name: "close", Arity: "0", Description: "Close connection"},
-		{Name: "ping", Arity: "0", Description: "Test connection"},
-	},
-	"sftpconnection": {
-		{Name: "close", Arity: "0", Description: "Close connection"},
-	},
-	"sftpfile": {
-		{Name: "mkdir", Arity: "0-1", Description: "Create directory"},
-		{Name: "rmdir", Arity: "0-1", Description: "Remove directory"},
-		{Name: "remove", Arity: "0", Description: "Remove file"},
-	},
-	"session": {
-		{Name: "get", Arity: "1-2", Description: "Get session value (key, default?)"},
-		{Name: "set", Arity: "2", Description: "Set session value (key, value)"},
-		{Name: "delete", Arity: "1", Description: "Delete session key"},
-		{Name: "has", Arity: "1", Description: "Check if key exists"},
-		{Name: "clear", Arity: "0", Description: "Clear all session data"},
-		{Name: "all", Arity: "0", Description: "Get all session data"},
-		{Name: "flash", Arity: "2", Description: "Set flash message (key, value)"},
-		{Name: "getFlash", Arity: "1", Description: "Get and clear flash message"},
-		{Name: "getAllFlash", Arity: "0", Description: "Get all flash messages"},
-		{Name: "hasFlash", Arity: "0", Description: "Check if flash messages exist"},
-		{Name: "regenerate", Arity: "0", Description: "Regenerate session ID"},
-	},
-	"dev": {
-		{Name: "log", Arity: "1-3", Description: "Log value to dev panel"},
-		{Name: "clearLog", Arity: "0", Description: "Clear dev log"},
-		{Name: "logPage", Arity: "0-1", Description: "Log page content"},
-		{Name: "setLogRoute", Arity: "1", Description: "Set log route pattern"},
-		{Name: "clearLogPage", Arity: "0", Description: "Clear page log"},
-	},
-
 	"function": {
 		// Functions have no methods but we include them for completeness
 	},
@@ -455,6 +385,8 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 		return "money", ""
 	case *Table:
 		return "table", ""
+	case *TableBinding:
+		return "tablebinding", ""
 	case *DBConnection:
 		return "dbconnection", ""
 	case *SFTPConnection:
@@ -466,6 +398,10 @@ func getObjectTypeName(obj Object, env *Environment) (typeName string, subType s
 	case *DevModule:
 		return "dev", ""
 
+	case *MdDoc:
+		return "markdown", ""
+	case *DSLSchema:
+		return "schema", ""
 	case *StdlibRoot:
 		return "stdlib", ""
 	case *BasilRoot:
@@ -551,10 +487,14 @@ func builtinInspect(args ...Object) Object {
 		methodKey = subType
 	}
 
-	// Build methods array
-	methodInfos, ok := TypeMethods[methodKey]
-	if !ok {
-		methodInfos = []MethodInfo{}
+	// Build methods array - check registry first, fall back to TypeMethods
+	methodInfos := GetMethodsForType(methodKey)
+	if methodInfos == nil {
+		if fallback, ok := TypeMethods[methodKey]; ok {
+			methodInfos = fallback
+		} else {
+			methodInfos = []MethodInfo{}
+		}
 	}
 
 	// Sort methods alphabetically
@@ -975,14 +915,10 @@ func builtinDescribe(args ...Object) Object {
 		}
 	}
 
-	// Methods - first check registry, fall back to TypeMethods for non-migrated types
+	// Methods - all types now use the registry
 	var methodInfos []MethodInfo
 	if registry := GetRegistryForType(methodKey); registry != nil {
-		// Use registry (migrated types: string, integer, float, money)
 		methodInfos = registry.ToMethodInfos()
-	} else {
-		// Fall back to TypeMethods (non-migrated types)
-		methodInfos = TypeMethods[methodKey]
 	}
 	if len(methodInfos) == 0 {
 		sb.WriteString("Methods: (none)\n")
