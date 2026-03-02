@@ -499,7 +499,7 @@ func TestDevToolsDBFileDownload(t *testing.T) {
 
 	// Now set the SQLite path and create a test database file
 	testDBPath := tmpDir + "/test.db"
-	s.config.SQLite = testDBPath
+	s.config.Database.Path = testDBPath
 	sqliteMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
 	testDBContent := append(sqliteMagic, []byte("rest of database")...)
 	if err := os.WriteFile(testDBPath, testDBContent, 0644); err != nil {
@@ -547,7 +547,7 @@ func TestDevToolsDBFileUpload(t *testing.T) {
 
 	// Now set the SQLite path and create initial database file
 	testDBPath := tmpDir + "/test.db"
-	s.config.SQLite = testDBPath
+	s.config.Database.Path = testDBPath
 	sqliteMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
 	initialContent := append(sqliteMagic, []byte("initial database")...)
 	if err := os.WriteFile(testDBPath, initialContent, 0644); err != nil {
@@ -621,7 +621,7 @@ func TestDevToolsDBFileUploadInvalidFile(t *testing.T) {
 
 	// Now set the SQLite path and create initial database
 	testDBPath := tmpDir + "/test.db"
-	s.config.SQLite = testDBPath
+	s.config.Database.Path = testDBPath
 	sqliteMagic := []byte{0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00}
 	initialContent := append(sqliteMagic, []byte("initial")...)
 	if err := os.WriteFile(testDBPath, initialContent, 0644); err != nil {

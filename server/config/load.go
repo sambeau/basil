@@ -86,14 +86,14 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		}
 	}
 
-	// Resolve relative sqlite path
-	if cfg.SQLite != "" && !filepath.IsAbs(cfg.SQLite) {
-		cfg.SQLite = filepath.Join(baseDir, cfg.SQLite)
+	// Resolve relative database path
+	if cfg.Database.Path != "" && !filepath.IsAbs(cfg.Database.Path) {
+		cfg.Database.Path = filepath.Join(baseDir, cfg.Database.Path)
 	}
 
 	// Resolve relative site path
-	if cfg.Site != "" && !filepath.IsAbs(cfg.Site) {
-		cfg.Site = filepath.Join(baseDir, cfg.Site)
+	if cfg.Site.Path != "" && !filepath.IsAbs(cfg.Site.Path) {
+		cfg.Site.Path = filepath.Join(baseDir, cfg.Site.Path)
 	}
 
 	// Resolve relative public_dir path
@@ -133,7 +133,7 @@ func Warnings(cfg *Config) []string {
 
 	// Warn if no routes are configured AND not using site mode
 	// Site mode uses filesystem-based routing and doesn't need explicit routes
-	if len(cfg.Routes) == 0 && cfg.Site == "" {
+	if len(cfg.Routes) == 0 && cfg.Site.Path == "" {
 		warnings = append(warnings, "no routes configured - the server will return 404 for all requests")
 	}
 
@@ -250,7 +250,7 @@ func validateBasic(cfg *Config) error {
 	}
 
 	// Site and routes are mutually exclusive
-	if cfg.Site != "" && len(cfg.Routes) > 0 {
+	if cfg.Site.Path != "" && len(cfg.Routes) > 0 {
 		errs = append(errs, "site and routes are mutually exclusive - use site for filesystem routing or routes for explicit routing")
 	}
 
@@ -394,13 +394,13 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 		cfg.Server.Port = dev.Port
 	}
 
-	// Apply sqlite override
-	if dev.SQLite != "" {
-		path := dev.SQLite
+	// Apply database override
+	if dev.Database.Path != "" {
+		path := dev.Database.Path
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(cfg.BaseDir, path)
 		}
-		cfg.SQLite = path
+		cfg.Database.Path = path
 	}
 
 	// Apply handlers override - update all routes
@@ -418,9 +418,9 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 		}
 	}
 
-	// Apply static/public_dir override
-	if dev.Static != "" {
-		staticDir := dev.Static
+	// Apply public_dir override
+	if dev.PublicDir != "" {
+		staticDir := dev.PublicDir
 		if !filepath.IsAbs(staticDir) {
 			staticDir = filepath.Join(cfg.BaseDir, staticDir)
 		}

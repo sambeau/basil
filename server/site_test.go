@@ -182,7 +182,7 @@ func TestSiteHandler_TrailingSlashRedirect(t *testing.T) {
 
 	cfg := &config.Config{
 		Server: config.ServerConfig{Dev: true},
-		Site:   siteDir,
+		Site:   config.SiteConfig{Path: siteDir},
 	}
 	s := &Server{config: cfg}
 	handler := newSiteHandler(s, siteDir, nil)
@@ -217,7 +217,7 @@ func TestSiteHandler_StaticFiles(t *testing.T) {
 
 	cfg := &config.Config{
 		Server:    config.ServerConfig{Dev: true},
-		Site:      siteDir,
+		Site:      config.SiteConfig{Path: siteDir},
 		PublicDir: publicDir,
 	}
 	s := &Server{config: cfg}
@@ -331,7 +331,7 @@ header
 	cfg := config.Defaults()
 	cfg.BaseDir = dir
 	cfg.Server.Dev = true
-	cfg.Site = siteDir
+	cfg.Site.Path = siteDir
 
 	var stdout, stderr bytes.Buffer
 	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)

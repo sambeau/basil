@@ -57,8 +57,8 @@ func (w *Watcher) collectHandlerDirs() []string {
 	dirs := make(map[string]bool)
 
 	// In site mode, watch the handler root (parent of site directory)
-	if w.server.config.Site != "" {
-		handlerRoot := filepath.Dir(w.server.config.Site)
+	if w.server.config.Site.Path != "" {
+		handlerRoot := filepath.Dir(w.server.config.Site.Path)
 		dirs[handlerRoot] = true
 	}
 

@@ -197,9 +197,9 @@ func (h *devToolsHandler) serveLogsText(w http.ResponseWriter, entries []LogEntr
 
 // openAppDB opens the application's SQLite database.
 func (h *devToolsHandler) openAppDB() (*sql.DB, error) {
-	dbPath := h.server.config.SQLite
+	dbPath := h.server.config.Database.Path
 	if dbPath == "" {
-		return nil, fmt.Errorf("no database configured (set sqlite in config)")
+		return nil, fmt.Errorf("no database configured (set database.path in config)")
 	}
 
 	// Resolve relative path
@@ -253,7 +253,7 @@ func (h *devToolsHandler) serveDB(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get database filename for display
-	dbPath := h.server.config.SQLite
+	dbPath := h.server.config.Database.Path
 
 	htmlOut := fmt.Sprintf(devToolsDBHTML,
 		html.EscapeString(filepath.Base(dbPath)),
@@ -448,7 +448,7 @@ func (h *devToolsHandler) handleDevDBFileDownload(w http.ResponseWriter, r *http
 		return
 	}
 
-	dbPath := h.server.config.SQLite
+	dbPath := h.server.config.Database.Path
 	if dbPath == "" {
 		http.Error(w, "No database configured", http.StatusInternalServerError)
 		return
@@ -512,7 +512,7 @@ func (h *devToolsHandler) handleDevDBFileUpload(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	dbPath := h.server.config.SQLite
+	dbPath := h.server.config.Database.Path
 	if dbPath == "" {
 		http.Error(w, "No database configured", http.StatusInternalServerError)
 		return
@@ -1016,7 +1016,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	switch {
 	case path == "/__" || path == "/__/":
 		// Index page
-		devtoolsMap["has_db"] = h.server.config.SQLite != ""
+		devtoolsMap["has_db"] = h.server.config.Database.Path != ""
 
 	case strings.HasPrefix(path, "/__/logs"):
 		// Logs page
@@ -1064,7 +1064,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	case path == "/__/db" || path == "/__/db/":
 		// Database overview page
 		// Add database file info
-		dbPath := h.server.config.SQLite
+		dbPath := h.server.config.Database.Path
 		if dbPath != "" {
 			devtoolsMap["db_filename"] = filepath.Base(dbPath)
 			// Resolve to absolute path for stat
@@ -1256,12 +1256,12 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 		})
 
 		// Database section (if configured)
-		if cfg.SQLite != "" {
+		if cfg.Database.Path != "" {
 			configGroups = append(configGroups, map[string]any{
 				"name":        "Database",
 				"description": "SQLite database settings",
 				"settings": []any{
-					setting("SQLite", cfg.SQLite, "Database file path"),
+					setting("Path", cfg.Database.Path, "Database file path"),
 				},
 			})
 		}
@@ -1353,13 +1353,13 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 		// Routing section
 		routingSettings := []any{}
-		if cfg.Site != "" {
+		if cfg.Site.Path != "" {
 			routingSettings = append(routingSettings,
-				setting("Site", cfg.Site, "Filesystem-based routing directory"),
+				setting("Site", cfg.Site.Path, "Filesystem-based routing directory"),
 			)
-			if cfg.SiteCache > 0 {
+			if cfg.Site.Cache > 0 {
 				routingSettings = append(routingSettings,
-					setting("Site Cache", durStr(cfg.SiteCache), "Response cache TTL"),
+					setting("Site Cache", durStr(cfg.Site.Cache), "Response cache TTL"),
 				)
 			}
 		}
