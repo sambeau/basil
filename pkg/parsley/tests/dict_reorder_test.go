@@ -217,7 +217,7 @@ func TestReorderErrors(t *testing.T) {
 		{
 			name:     "dict reorder with no args",
 			input:    `{a: 1}.reorder()`,
-			contains: "want=1",
+			contains: "at least 1",
 		},
 		{
 			name:     "dict reorder with too many args",

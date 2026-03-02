@@ -129,34 +129,7 @@ var TypeProperties = map[string][]PropertyInfo{
 // in method_registry.go and no longer need entries here.
 // See FEAT-111 for migration progress.
 var TypeMethods = map[string][]MethodInfo{
-	"array": {
-		{Name: "length", Arity: "0", Description: "Get element count"},
-		{Name: "reverse", Arity: "0", Description: "Reverse order"},
-		{Name: "sort", Arity: "0", Description: "Sort elements"},
-		{Name: "sortBy", Arity: "1", Description: "Sort by key function"},
-		{Name: "map", Arity: "1", Description: "Transform each element"},
-		{Name: "filter", Arity: "1", Description: "Filter by predicate"},
-		{Name: "reduce", Arity: "2", Description: "Reduce to single value with accumulator function"},
-		{Name: "format", Arity: "0-2", Description: "Format as list (and/or/unit, locale)"},
-		{Name: "join", Arity: "0-1", Description: "Join elements into string"},
-		{Name: "toJSON", Arity: "0", Description: "Convert to JSON string"},
-		{Name: "toCSV", Arity: "0-1", Description: "Convert to CSV string"},
-		{Name: "shuffle", Arity: "0", Description: "Randomly shuffle elements"},
-		{Name: "pick", Arity: "0-1", Description: "Pick random element(s)"},
-		{Name: "take", Arity: "1", Description: "Take n unique random elements"},
-		{Name: "insert", Arity: "2", Description: "Insert at index"},
-	},
-	"dictionary": {
-		{Name: "keys", Arity: "0", Description: "Get all keys"},
-		{Name: "values", Arity: "0", Description: "Get all values"},
-		{Name: "entries", Arity: "0", Description: "Get [key, value] pairs"},
-		{Name: "has", Arity: "1", Description: "Check if key exists"},
-		{Name: "delete", Arity: "1", Description: "Remove key"},
-		{Name: "insertAfter", Arity: "2", Description: "Insert after key"},
-		{Name: "insertBefore", Arity: "2", Description: "Insert before key"},
-		{Name: "render", Arity: "0-1", Description: "Render template with values"},
-		{Name: "toJSON", Arity: "0", Description: "Convert to JSON string"},
-	},
+
 	"datetime": {
 		{Name: "format", Arity: "0-2", Description: "Format with style and locale"},
 		{Name: "dayOfYear", Arity: "0", Description: "Day of year (1-366)"},
