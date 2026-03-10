@@ -149,3 +149,6 @@ Deferred items from implementation, to be picked up in future work.
 | #72 | PLN Record serialization (@Schema syntax) | FEAT-098 | 2026-01-14 | ✅ Records serialize as `@Schema({...})`. Implemented in PLN Phase 3 (serializer.go). |
 | #73 | PLN DateTime serialization (@ISO format) | FEAT-098 | 2026-01-14 | ✅ Datetimes serialize as `@2024-01-20T10:30:00Z`. Implemented in PLN Phase 3. |
 | #74 | PLN Path/URL serialization (@ prefix) | FEAT-098 | 2026-01-14 | ✅ Paths as `@/path/to/file`, URLs as `@https://example.com`. Implemented in PLN Phase 3. |
+
+| #115 | Basil server performance benchmark suite | Performance analysis 2026-03-10 | No server benchmarks currently exist | Add benchmarks for page handlers, API handlers, response cache hits/misses, fragment cache, static fallback, and compression impact. Needed to turn current architectural performance assessment into measured data. |
+| #116 | Review per-request module cache clearing in API handlers | Performance analysis 2026-03-10 | Potential throughput penalty | `server/api.go` calls `evaluator.ClearModuleCache()` on every request, which may defeat module reuse and add avoidable CPU/allocation cost on API routes. Validate necessity and remove if safe. |
