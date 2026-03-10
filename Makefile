@@ -32,6 +32,11 @@ dev:
 test:
 	go test ./...
 
+# Run benchmarks (server only)
+.PHONY: bench
+bench:
+	go test -run '^$$' -bench=. -benchmem ./server/...
+
 # Build and test (full validation)
 .PHONY: check
 check: build test
@@ -82,6 +87,7 @@ help:
 	@echo "  make build-pars  - Build pars only"
 	@echo "  make dev         - Quick build without version injection"
 	@echo "  make test        - Run tests"
+	@echo "  make bench       - Run server benchmarks"
 	@echo "  make check       - Build and test"
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make version     - Show version that would be embedded"
