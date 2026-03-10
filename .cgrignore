@@ -1,0 +1,6 @@
+# Exclude non-Go content from knowledge graph indexing
+work
+examples
+contrib
+testdata
+*.pars

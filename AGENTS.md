@@ -250,6 +250,23 @@ When answering a "how do I..." question from human:
    - **Basil/Parsley usage**: `docs/guide/faq.md`
 3. If it reveals a gap in walkthroughs, note in work/BACKLOG.md
 
+## Code Knowledge Graph (codebase-memory-mcp)
+
+This project is indexed by `codebase-memory-mcp`, which provides a persistent
+knowledge graph of the Go codebase (23K+ nodes, 68K+ edges). When exploring code
+structure, prefer graph queries over grep for structural questions:
+
+- **"What calls this function?"** → `trace_call_path(function_name="X", direction="inbound")`
+- **"Show the architecture"** → `get_architecture(aspects=["all"])`
+- **"Find dead code"** → `search_graph(label="Function", max_degree=0, relationship="CALLS", direction="inbound", exclude_entry_points=true)`
+- **"What depends on package X?"** → Cypher queries via `query_graph`
+- **"What changed and what's affected?"** → `detect_changes()`
+
+The graph auto-syncs after the initial index. If it seems stale, run
+`index_repository(repo_path="/absolute/path/to/basil")` to force a refresh.
+
+**Note:** The graph indexes Go source only. Parsley `.pars` files are not parsed by tree-sitter.
+
 ## Common Pitfalls
 - Always run `go mod tidy` after adding dependencies
 - The `internal/` directory is not importable externally
