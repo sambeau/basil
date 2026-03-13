@@ -510,6 +510,163 @@ See backlog item #116 for tracking.
 
 ---
 
+## Investigation Results: Module Cache Clearing (2026-03-10)
+
+### Summary
+
+**The `ClearModuleCache()` call in `api.go` can be safely removed.**
+
+All tests pass with cache clearing disabled, and the existing `DynamicAccessor` mechanism correctly handles per-request values. However, performance gains are modest for typical workloads, and there are edge cases to document.
+
+### What Was Investigated
+
+#### 1. Current Architecture Analysis
+
+**Where cache clearing happens:**
+- `server/api.go:46` - Called on **every API request** (this is the target)
+- `server/server.go:921` - Called in `ReloadScripts()` for hot-reload (appropriate)
+- `server/watcher.go:223` - Uses `InvalidateModule()` for file changes (appropriate)
+- Page handlers (`handler.go`) do **not** clear the cache per-request
+
+**How DynamicAccessor works:**
+```basil/pkg/parsley/evaluator/stdlib_table.go#L237-303
+// @basil/http exports use DynamicAccessor
+"params": &DynamicAccessor{
+    Name: "params",
+    Resolver: func(e *Environment) Object {
+        // Walk up environment chain to find @params
+        if val, ok := e.Get("@params"); ok {
+            return ensureObject(val)
+        }
+        return NULL
+    },
+},
+```
+
+The key insight is that `DynamicAccessor.Resolver` is called at **access time**, not import time. When a function from a cached module is invoked via `ApplyFunctionWithEnv`, the calling environment's context is copied to the function's execution environment:
+
+```basil/pkg/parsley/evaluator/eval_expressions.go#L73-95
+func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
+    case *Function:
+        extendedEnv := extendFunctionEnv(fn, args)
+        if env != nil {
+            extendedEnv.BasilCtx = env.BasilCtx      // Fresh request context
+            // ... other context propagation
+            if params, ok := env.Get("@params"); ok {
+                extendedEnv.Set("@params", params)   // Fresh params
+            }
+        }
+```
+
+This means even when a module is cached, the dynamic accessors resolve against the **current request's environment**, not stale cached values.
+
+#### 2. Test Suite Verification
+
+With `ClearModuleCache()` commented out in `api.go`:
+
+```
+go test ./server/... -count=1              # All server tests pass
+go test ./pkg/parsley/... -count=1         # All evaluator tests pass
+```
+
+Specific module cache tests that verify dynamic behavior:
+- `TestDynamicAccessorInCachedModule` - ✅ PASS (method from `@basil/http` stays fresh)
+- `TestParamsDynamicAccessorInModule` - ✅ PASS (params change between requests)
+- `TestAtParamsDirectlyInModuleFunction` - ✅ PASS (`@params` works in module functions)
+- `TestAtParamsModuleScopeError` - ✅ PASS (captures at module scope correctly error)
+
+#### 3. Performance Benchmarks
+
+| Benchmark | With Clearing | Without Clearing | Difference |
+|-----------|---------------|------------------|------------|
+| SimpleGET | 91,764 ns/op | 92,191 ns/op | ~0% (noise) |
+| SmallResponse | 92,065 ns/op | 92,170 ns/op | ~0% (noise) |
+| POST | 108,606 ns/op | 108,931 ns/op | ~0% (noise) |
+| WithComputation | 94,137 ns/op | 93,944 ns/op | ~0% (noise) |
+| GetById | 93,497 ns/op | 93,337 ns/op | ~0% (noise) |
+
+**Why so little difference?** The benchmarks use minimal handlers that import only `@std/api`. The cache clearing cost is O(n) where n is the number of cached modules. With few cached modules, the overhead is negligible. Real benefit would come from:
+- Handlers importing many user modules
+- Modules with expensive initialization (DB schema loading, file parsing)
+- High request rates where the map allocation adds up
+
+### Recommendations
+
+#### Option A: Remove Cache Clearing (Recommended)
+
+Remove the `ClearModuleCache()` call from `api.go`. The DynamicAccessor pattern already handles request-scoped values correctly.
+
+**Benefits:**
+- Simpler code (page handlers already don't clear the cache)
+- Consistent behavior between API and page handlers
+- Potential performance improvement for module-heavy handlers
+
+**Risks:**
+- User modules that incorrectly capture request values at module scope will serve stale data
+- This is actually **correct behavior** - modules shouldn't capture request data at module scope
+
+#### Option B: Keep Cache Clearing (Conservative)
+
+Leave the code as-is if there's any concern about edge cases.
+
+**When this matters:**
+- Unknown user module patterns that capture values incorrectly
+- Defense-in-depth against subtle bugs
+- Zero risk of stale data issues
+
+**Cost:**
+- Negligible for typical workloads
+- More significant for handlers importing many modules
+
+### Safe Module Patterns (Document These)
+
+**✅ Correct - Use in functions:**
+```parsley
+let {params, method} = import @basil/http
+
+export get = fn(req) {
+    // params and method resolve fresh on each call
+    log("Method:", method)
+    params.orderBy ?? "id"
+}
+```
+
+**✅ Correct - Use `export computed` for derived values:**
+```parsley
+let {user} = import @basil/auth
+
+export computed isAdmin {
+    user?.role == "admin"
+}
+```
+
+**❌ Incorrect - Capturing at module scope:**
+```parsley
+let {params} = import @basil/http
+let orderBy = params.orderBy  // WRONG: captured once at module load
+
+export get = fn(req) {
+    orderBy  // Returns stale value from first request
+}
+```
+
+The last pattern correctly produces an error (`UNDEF-0010`) when `@params` isn't available at module scope during import, which is the expected safety mechanism.
+
+### Decision
+
+**Recommendation: Remove the `ClearModuleCache()` call from `api.go`.**
+
+Rationale:
+1. All tests pass without it
+2. The DynamicAccessor pattern is specifically designed for this use case
+3. Page handlers already don't clear the cache (consistency)
+4. The performance cost is low now but could matter as Basil scales
+5. Incorrect module patterns already produce helpful errors
+
+The only reason to keep it would be extreme conservatism about unknown edge cases, but the existing test suite covers the expected patterns well.
+
+---
+
 ## Priority 3: Measure allocations in dynamic route execution
 
 Focus profiling on:
