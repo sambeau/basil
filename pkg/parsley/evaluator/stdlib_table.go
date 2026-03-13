@@ -568,7 +568,8 @@ func evalTableLiteral(node *ast.TableLiteral, env *Environment) Object {
 		}
 	}
 
-	// For typed tables, use sorted schema field names for columns
+	// For typed tables, use sorted schema field names for columns.
+	// For untyped table literals, preserve the key order from the first row.
 	columns := node.Columns
 	if schema != nil && len(schema.Fields) > 0 {
 		columns = make([]string, 0, len(schema.Fields))
@@ -576,6 +577,8 @@ func evalTableLiteral(node *ast.TableLiteral, env *Environment) Object {
 			columns = append(columns, name)
 		}
 		sort.Strings(columns)
+	} else if len(rows) > 0 {
+		columns = rows[0].Keys()
 	}
 
 	return &Table{

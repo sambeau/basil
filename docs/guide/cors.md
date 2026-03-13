@@ -64,7 +64,7 @@ cors:
   methods: [GET, POST, PUT, DELETE]
   headers: [Content-Type, Authorization]
   credentials: true
-  maxAge: 86400  # Cache preflight for 24 hours
+  max_age: 86400  # Cache preflight for 24 hours
 ```
 
 ---
@@ -153,13 +153,13 @@ fetch('http://localhost:8080/api/data', {
 })
 ```
 
-### `maxAge`
+### `max_age`
 
 How long (in seconds) browsers cache preflight responses. Default: `86400` (24 hours)
 
 ```yaml
 cors:
-  maxAge: 3600  # 1 hour
+  max_age: 3600  # 1 hour
 ```
 
 Longer cache = fewer preflight requests = better performance.
@@ -189,7 +189,7 @@ cors:
   methods: [GET, POST, PUT, PATCH, DELETE]
   headers: [Content-Type, Authorization]
   credentials: true
-  maxAge: 86400
+  max_age: 86400
 ```
 
 ### Pattern 3: Public Read-Only API
@@ -552,7 +552,7 @@ cors:
   headers: [Content-Type, Authorization]
   expose: [X-Total-Count, X-Page]
   credentials: true
-  maxAge: 86400
+  max_age: 86400
 
 routes:
   - path: /api/items

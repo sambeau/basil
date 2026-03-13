@@ -40,7 +40,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg := config.Defaults()
 		cfg.BaseDir = tmpDir
 		cfg.Server.Dev = true
-		cfg.SQLite = "test.db"
+		cfg.Database.Path = "test.db"
 
 		var stdout, stderr bytes.Buffer
 		s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
@@ -64,7 +64,7 @@ func TestDatabaseInit(t *testing.T) {
 		cfg := config.Defaults()
 		cfg.BaseDir = "/some/other/dir"
 		cfg.Server.Dev = true
-		cfg.SQLite = dbPath // Absolute path
+		cfg.Database.Path = dbPath // Absolute path
 
 		var stdout, stderr bytes.Buffer
 		s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
@@ -91,7 +91,7 @@ func TestDatabaseInHandler(t *testing.T) {
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 0
-	cfg.SQLite = dbPath
+	cfg.Database.Path = dbPath
 
 	// Create a test handler script that queries the database
 	handlersDir := filepath.Join(tmpDir, "handlers")
@@ -168,7 +168,7 @@ func TestDatabaseShutdown(t *testing.T) {
 	cfg.BaseDir = tmpDir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 0
-	cfg.SQLite = dbPath
+	cfg.Database.Path = dbPath
 
 	var stdout, stderr bytes.Buffer
 	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)

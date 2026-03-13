@@ -16,7 +16,7 @@ func testSessionConfig() *config.SessionConfig {
 		CookieName: "_test_session",
 		MaxAge:     time.Hour,
 		Secure:     &secure,
-		HttpOnly:   true,
+		HTTPOnly:   true,
 		SameSite:   "Lax",
 	}
 }

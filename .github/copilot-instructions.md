@@ -9,6 +9,19 @@ Basil is a Go web server for the Parsley programming language.
 3. Check `work/BACKLOG.md` for related deferred items
 4. Use the appropriate prompt file for your task type
 
+## ⚠️ Critical: No Test Failures May Be Ignored
+
+**All tests must pass before any commit. There are no acceptable pre-existing failures.**
+
+- **Do NOT label a failing test "pre-existing" and move on.** If a test fails, fix it.
+- **Do NOT assume a failure is unrelated to your change.** Even if it appears unrelated, fix it before committing.
+- **Do NOT commit with a known failing test under any circumstances**, even in code you did not touch.
+- If you cannot fix a failing test yourself, **stop and tell the user** before committing. Do not work around it or suppress it.
+
+The only acceptable state before a commit is: `ok` for every package in `go test ./...`.
+
+---
+
 ## ⚠️ Critical: Preserve Work Through Commits
 
 **Work has been lost due to incomplete commits.** Follow these rules:

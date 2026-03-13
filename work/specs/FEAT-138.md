@@ -1,7 +1,7 @@
 ---
 id: FEAT-138
 title: "Config YAML Consistency for 1.0"
-status: draft
+status: implemented
 priority: high
 created: 2026-03-02
 author: "@human"

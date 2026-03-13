@@ -275,7 +275,7 @@ func TestListenAddr(t *testing.T) {
 		{
 			name: "dev mode defaults",
 			cfg: &config.Config{
-				Server: config.ServerConfig{Dev: true},
+				Server: config.ServerConfig{Dev: true, Port: 443},
 			},
 			expected: "localhost:8080",
 		},

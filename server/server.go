@@ -275,8 +275,8 @@ func (s *Server) initAssetBundle() error {
 func (s *Server) determineHandlersDir() string {
 	// If using site (filesystem routing), use the parent of the site directory
 	// This allows discovering CSS/JS in components/, public/, etc. at handler root level
-	if s.config.Site != "" {
-		dir := filepath.Dir(s.config.Site)
+	if s.config.Site.Path != "" {
+		dir := filepath.Dir(s.config.Site.Path)
 		// Resolve symlinks to ensure WalkDir can traverse the actual directory
 		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
 			return resolved
@@ -388,11 +388,11 @@ func (s *Server) initSessions() error {
 // initDatabase opens the SQLite database connection if configured.
 func (s *Server) initDatabase() error {
 	// No database configured
-	if s.config.SQLite == "" {
+	if s.config.Database.Path == "" {
 		return nil
 	}
 
-	return s.initSQLite(s.config.SQLite)
+	return s.initSQLite(s.config.Database.Path)
 }
 
 // initSQLite opens a SQLite database connection.
@@ -623,9 +623,9 @@ func (s *Server) setupRoutes() error {
 	}
 
 	// Site mode: use filesystem-based routing
-	if s.config.Site != "" {
-		s.mux.Handle("/", newSiteHandler(s, s.config.Site, s.scriptCache))
-		s.logInfo("site mode enabled at %s", s.config.Site)
+	if s.config.Site.Path != "" {
+		s.mux.Handle("/", newSiteHandler(s, s.config.Site.Path, s.scriptCache))
+		s.logInfo("site mode enabled at %s", s.config.Site.Path)
 		return nil
 	}
 

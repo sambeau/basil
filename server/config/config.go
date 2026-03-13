@@ -1,8 +1,9 @@
 package config
 
-import "slices"
-
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // Config represents the complete Basil configuration
 type Config struct {
@@ -15,10 +16,9 @@ type Config struct {
 	Session     SessionConfig              `yaml:"session"`
 	Git         GitConfig                  `yaml:"git"`
 	Dev         DevConfig                  `yaml:"dev"`
-	SQLite      string                     `yaml:"sqlite"`     // Path to SQLite database file (e.g., "./data.db")
+	Database    DatabaseConfig             `yaml:"database"`   // Database configuration
 	PublicDir   string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
-	Site        string                     `yaml:"site"`       // Directory for filesystem-based routing (mutually exclusive with routes)
-	SiteCache   time.Duration              `yaml:"site_cache"` // Response cache TTL for site mode (0 = no cache)
+	Site        SiteConfig                 `yaml:"site"`       // Site mode configuration (filesystem-based routing)
 	Static      []StaticRoute              `yaml:"static"`
 	Routes      []Route                    `yaml:"routes"`
 	Logging     LoggingConfig              `yaml:"logging"`
@@ -27,14 +27,30 @@ type Config struct {
 	Secrets     *SecretTracker             `yaml:"-"`          // Tracks which config paths contain secrets (for DevTools)
 }
 
+// DatabaseConfig holds database settings
+type DatabaseConfig struct {
+	Path string `yaml:"path"` // Path to SQLite database file
+}
+
+// DeveloperDBConfig holds per-developer database overrides
+type DeveloperDBConfig struct {
+	Path string `yaml:"path"` // Override database path
+}
+
+// SiteConfig holds site mode (filesystem-based routing) settings
+type SiteConfig struct {
+	Path  string        `yaml:"path"`  // Directory for filesystem-based routing
+	Cache time.Duration `yaml:"cache"` // Response cache TTL (0 = no cache)
+}
+
 // DeveloperConfig holds per-developer overrides
 // All fields are optional - only non-zero values override the base config
 type DeveloperConfig struct {
-	Port     int           `yaml:"port"`     // Override server.port
-	SQLite   string        `yaml:"sqlite"`   // Override sqlite path
-	Handlers string        `yaml:"handlers"` // Override handlers directory (for routes)
-	Static   string        `yaml:"static"`   // Override public_dir
-	Logging  LoggingConfig `yaml:"logging"`  // Override logging settings
+	Port      int               `yaml:"port"`       // Override server.port
+	Database  DeveloperDBConfig `yaml:"database"`   // Override database settings
+	Handlers  string            `yaml:"handlers"`   // Override handlers directory (for routes)
+	PublicDir string            `yaml:"public_dir"` // Override public_dir
+	Logging   LoggingConfig     `yaml:"logging"`    // Override logging settings
 }
 
 // ServerConfig holds server settings
@@ -88,7 +104,7 @@ type CORSConfig struct {
 	Headers     []string      `yaml:"headers"`     // Allowed request headers
 	Expose      []string      `yaml:"expose"`      // Response headers exposed to browser
 	Credentials bool          `yaml:"credentials"` // Allow credentials (cookies, auth headers)
-	MaxAge      int           `yaml:"maxAge"`      // Preflight cache duration in seconds
+	MaxAge      int           `yaml:"max_age"`     // Preflight cache duration in seconds
 }
 
 // CompressionConfig holds HTTP response compression settings
@@ -227,7 +243,7 @@ type SessionConfig struct {
 	MaxAge     time.Duration `yaml:"max_age"`     // Session lifetime (default: 24h)
 	CookieName string        `yaml:"cookie_name"` // Cookie name (default: "_basil_session")
 	Secure     *bool         `yaml:"secure"`      // HTTPS only (default: true in production)
-	HttpOnly   bool          `yaml:"http_only"`   // No JavaScript access (default: true)
+	HTTPOnly   bool          `yaml:"http_only"`   // No JavaScript access (default: true)
 	SameSite   string        `yaml:"same_site"`   // SameSite policy: "Lax", "Strict", "None" (default: "Lax")
 	// SQLite-specific options (only used when store: sqlite)
 	Table   string        `yaml:"table"`   // Table name (default: "_sessions")
@@ -324,7 +340,7 @@ func Defaults() *Config {
 			Secret:     NewSecretString("auto"), // Auto-generate by default
 			MaxAge:     24 * time.Hour,
 			CookieName: "_basil_session",
-			HttpOnly:   true,
+			HTTPOnly:   true,
 			SameSite:   "Lax",
 			Table:      "_sessions",
 			Cleanup:    1 * time.Hour,

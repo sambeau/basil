@@ -354,7 +354,8 @@ Basil integrates with SQLite databases using Parsley's database operators.
 **basil.yaml:**
 
 ```yaml
-sqlite: ./data.db    # Path to SQLite database file (relative to config)
+database:
+  path: ./data.db    # Path to SQLite database file (relative to config)
 ```
 
 ### Using the Database
@@ -592,7 +593,7 @@ cors:
   methods: [GET, POST, PUT, DELETE]
   headers: [Content-Type, Authorization]
   credentials: true
-  maxAge: 86400  # Cache preflight for 24 hours
+  max_age: 86400  # Cache preflight for 24 hours
 ```
 
 ### Configuration Options
@@ -604,7 +605,7 @@ cors:
 | `headers` | Allowed request headers | `[Content-Type, Authorization]` |
 | `expose` | Response headers accessible to JavaScript | `[X-Total-Count, X-Page]` |
 | `credentials` | Allow cookies/auth headers | `true` or `false` (default: `false`) |
-| `maxAge` | Preflight cache duration (seconds) | `86400` (default: 24 hours) |
+| `max_age` | Preflight cache duration (seconds) | `86400` (default: 24 hours) |
 
 ### Important Notes
 

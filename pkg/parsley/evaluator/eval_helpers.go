@@ -418,8 +418,10 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 		if e.Security.NoRead {
 			return fmt.Errorf("file read access denied: %s", path)
 		}
-		// Check blacklist
-		if isPathRestricted(absPath, e.Security.RestrictRead) {
+		// Check blacklist, but allow reads within explicitly permitted execute roots.
+		// This is needed on macOS where t.TempDir() (and $TMPDIR) lives under /var/folders,
+		// which would otherwise be caught by the /var RestrictRead entry.
+		if isPathRestricted(absPath, e.Security.RestrictRead) && !isPathAllowed(absPath, e.Security.AllowExecute) {
 			return fmt.Errorf("file read restricted: %s", path)
 		}
 

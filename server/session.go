@@ -76,7 +76,7 @@ func (s *CookieSessionStore) Save(w http.ResponseWriter, session *SessionData) e
 		Path:     "/",
 		MaxAge:   int(s.config.MaxAge.Seconds()),
 		Secure:   s.isSecure(),
-		HttpOnly: s.config.HttpOnly,
+		HttpOnly: s.config.HTTPOnly,
 		SameSite: parseSameSite(s.config.SameSite),
 	}
 
@@ -92,7 +92,7 @@ func (s *CookieSessionStore) Clear(w http.ResponseWriter) error {
 		Path:     "/",
 		MaxAge:   -1, // Delete cookie
 		Secure:   s.isSecure(),
-		HttpOnly: s.config.HttpOnly,
+		HttpOnly: s.config.HTTPOnly,
 		SameSite: parseSameSite(s.config.SameSite),
 	}
 

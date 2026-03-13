@@ -151,6 +151,17 @@ basil/
 3. **If tests fail**: Fix the issues, then commit once tests pass
 4. **Never leave completed work uncommitted**: A feature isn't done until it's committed
 
+#### ⚠️ CRITICAL: No Test Failures May Be Ignored
+
+**All tests must pass before any commit. There are no acceptable pre-existing failures.**
+
+- **Do NOT label a failing test "pre-existing" and move on.** If a test fails, fix it.
+- **Do NOT assume a failure is unrelated to your change.** Verify it by checking out the base branch and confirming it fails there too. Even then, fix it — do not leave it.
+- **Do NOT commit with a known failing test under any circumstances**, even if the failure appears to be in code you did not touch.
+- If you cannot fix a failing test yourself, **stop and tell the user** before committing. Do not work around it or suppress it.
+
+The only acceptable test suite state before a commit is: `ok` for every package.
+
 #### Commit Message Format
 Use conventional commits:
 - `feat(scope): description` — New features
