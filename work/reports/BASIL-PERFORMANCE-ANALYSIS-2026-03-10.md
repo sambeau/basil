@@ -127,8 +127,50 @@ If the module cache is indeed being invalidated per request, API handlers may in
 - reduced throughput
 - more variable latency
 
+### Technical analysis (added 2026-03-10)
+
+Investigation of the codebase reveals the root cause is **request-scoped value capture in module closures**, not computed exports.
+
+**The problem:** When a module imports `@basil/http` at module scope, the bindings could capture stale request data:
+
+```parsley
+// user_utils.pars
+let {params} = import @basil/http   // Binding happens at module load time
+
+export let getUser = fn() { 
+    params.userId   // Would access stale params if module is cached!
+}
+```
+
+**The existing mitigation:** The codebase already implements `DynamicAccessor` (in `stdlib_table.go`) which stores a lazy resolver instead of the actual value:
+
+```go
+"params": &DynamicAccessor{
+    Name: "params",
+    Resolver: func(e *Environment) Object {
+        // Walk up environment chain to find @params at access time
+        if val, ok := e.Get("@params"); ok {
+            return ensureObject(val)
+        }
+        return NULL
+    },
+},
+```
+
+This pattern ensures that `@basil/http` and `@basil/auth` exports resolve fresh values per-request even from cached modules.
+
+**Why cache clearing persists:** Despite `DynamicAccessor`, `ClearModuleCache()` is still called as a safety measure for:
+1. User modules that might capture request state directly (e.g., `let userId = @params.userId` at module scope)
+2. Potential stale database connections in cached modules
+3. Defense-in-depth against subtle caching bugs
+
+**Optimization opportunity:** The `DynamicAccessor` pattern should handle all `@basil/*` imports correctly. Cache clearing could potentially be:
+- Removed entirely if all request-scoped access goes through `@basil/http` and `@basil/auth`
+- Made opt-in via a module directive for modules known to be cache-safe
+- Moved to script reload time rather than per-request
+
 ### Assessment
-This is the single most important performance risk found in the Basil server code. It may be intentional for correctness, but if it is not strictly necessary, it is likely one of the highest-value optimization opportunities in the repo.
+This is the single most important performance risk found in the Basil server code. It may be intentional for correctness, but if it is not strictly necessary, it is likely one of the highest-value optimization opportunities in the repo. The existing `DynamicAccessor` infrastructure suggests the clearing may be overly conservative.
 
 ---
 
@@ -457,6 +499,14 @@ Investigate whether clearing the module cache on every API request is necessary.
 
 ### Why this matters
 If it is not necessary, removing it may yield one of the highest-impact performance improvements in the server path.
+
+### Investigation approach
+1. **Verify DynamicAccessor coverage**: Confirm all request-scoped values (`params`, `request`, `response`, `route`, `method`, `session`, `auth`, `user`) use `DynamicAccessor` and resolve correctly from cached modules
+2. **Test with cache clearing disabled**: Run the full test suite with `ClearModuleCache()` commented out in `server/api.go` to identify any failures
+3. **Benchmark the difference**: Compare API handler benchmarks with and without cache clearing to quantify the performance impact
+4. **Document safe patterns**: If removal is safe, document that modules should use `@basil/http` for request data rather than capturing values at module scope
+
+See backlog item #116 for tracking.
 
 ---
 
