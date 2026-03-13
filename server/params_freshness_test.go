@@ -309,6 +309,106 @@ let page = @params["page"] ?? "1"
 	}
 }
 
+// TestHotReloadClearsModuleCache verifies that ReloadScripts() properly clears
+// the module cache, allowing modified handlers to be reloaded.
+// This is critical for FEAT-140 to ensure hot-reload still works after removing
+// per-request cache clearing.
+func TestHotReloadClearsModuleCache(t *testing.T) {
+	evaluator.ClearModuleCache()
+
+	dir := t.TempDir()
+
+	// Create initial API handler with version 1
+	apiPath := filepath.Join(dir, "versioned_api.pars")
+	apiCodeV1 := `let api = import @std/api
+
+export get = api.public(fn(req) {
+    {
+        version: 1,
+        message: "original"
+    }
+})
+`
+	if err := os.WriteFile(apiPath, []byte(apiCodeV1), 0644); err != nil {
+		t.Fatalf("failed to write API script: %v", err)
+	}
+
+	cfg := &config.Config{
+		BaseDir: dir,
+		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:  []config.Route{{Path: "/api/version", Handler: apiPath, Type: "api"}},
+		Logging: config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
+	}
+
+	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	// First request - should return version 1
+	t.Run("before_reload", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/version", http.NoBody)
+		rec := httptest.NewRecorder()
+		srv.mux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to parse JSON: %v", err)
+		}
+
+		if body["version"] != float64(1) {
+			t.Errorf("version: expected 1, got %v", body["version"])
+		}
+		if body["message"] != "original" {
+			t.Errorf("message: expected 'original', got %q", body["message"])
+		}
+	})
+
+	// Update the handler file to version 2
+	apiCodeV2 := `let api = import @std/api
+
+export get = api.public(fn(req) {
+    {
+        version: 2,
+        message: "updated"
+    }
+})
+`
+	if err := os.WriteFile(apiPath, []byte(apiCodeV2), 0644); err != nil {
+		t.Fatalf("failed to write updated API script: %v", err)
+	}
+
+	// Call ReloadScripts to simulate hot-reload (as triggered by SIGHUP or file watcher)
+	srv.ReloadScripts()
+
+	// Second request - should now return version 2
+	t.Run("after_reload", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/version", http.NoBody)
+		rec := httptest.NewRecorder()
+		srv.mux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to parse JSON: %v", err)
+		}
+
+		if body["version"] != float64(2) {
+			t.Errorf("version: expected 2, got %v", body["version"])
+		}
+		if body["message"] != "updated" {
+			t.Errorf("message: expected 'updated', got %q", body["message"])
+		}
+	})
+}
+
 // TestAPIParamsWithAtParamsDirect tests using @params directly in handler (not via @basil/http)
 func TestAPIParamsWithAtParamsDirect(t *testing.T) {
 	evaluator.ClearModuleCache()

@@ -42,7 +42,10 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	evaluator.ClearModuleCache()
+	// Module cache is preserved across requests for performance.
+	// Request-scoped values (@params, method, session, auth, user) are handled
+	// by DynamicAccessor which resolves fresh values from the current environment.
+	// See: pkg/parsley/evaluator/stdlib_table.go (DynamicAccessor implementation)
 
 	reqCtx := buildAPIRequestContext(r, h.route)
 

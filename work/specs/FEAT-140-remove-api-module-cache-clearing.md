@@ -90,12 +90,12 @@ let orderBy = params.orderBy  // Captured at module load time
 
 ## Acceptance Criteria
 
-1. [ ] `ClearModuleCache()` removed from `api.go` ServeHTTP method
-2. [ ] Comment added explaining why module cache is preserved for API requests
-3. [ ] All existing server tests pass
-4. [ ] All params freshness tests pass (`server/params_freshness_test.go`)
-5. [ ] All evaluator module cache tests pass (`pkg/parsley/tests/module_cache_test.go`)
-6. [ ] Hot-reload still works (manual verification)
+1. [x] `ClearModuleCache()` removed from `api.go` ServeHTTP method
+2. [x] Comment added explaining why module cache is preserved for API requests
+3. [x] All existing server tests pass
+4. [x] All params freshness tests pass (`server/params_freshness_test.go`)
+5. [x] All evaluator module cache tests pass (`pkg/parsley/tests/module_cache_test.go`)
+6. [x] Hot-reload still works (verified via `TestHotReloadClearsModuleCache`)
 
 ## Risks
 
