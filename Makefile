@@ -6,6 +6,7 @@ COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT)"
 
 # Benchmark configuration
+BENCHSTAT := $(shell which benchstat 2>/dev/null || echo "$(shell go env GOPATH)/bin/benchstat")
 BENCH_MACHINE := $(shell hostname -s 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
 BENCH_DIR := work/benchmarks
 BENCH_BASELINE := $(BENCH_DIR)/baseline-$(BENCH_MACHINE).txt
@@ -67,7 +68,7 @@ bench-compare:
 	@go test -run '^$$' -bench=. -benchmem -count=$(BENCH_COUNT) ./... > /tmp/bench-current.txt
 	@echo ""
 	@echo "=== Comparison: baseline vs current ==="
-	@benchstat $(BENCH_BASELINE) /tmp/bench-current.txt
+	@$(BENCHSTAT) $(BENCH_BASELINE) /tmp/bench-current.txt
 
 # Compare current branch against main (same machine, no stored file)
 .PHONY: bench-diff
@@ -84,7 +85,7 @@ bench-diff:
 	@git stash pop --quiet 2>/dev/null || true
 	@echo ""
 	@echo "=== Comparison: main vs current branch ==="
-	@benchstat /tmp/bench-main.txt /tmp/bench-current.txt
+	@$(BENCHSTAT) /tmp/bench-main.txt /tmp/bench-current.txt
 
 # Show trends across recent benchmark runs
 .PHONY: bench-history
@@ -100,7 +101,7 @@ bench-history:
 		exit 1; \
 	fi
 	@echo "=== Benchmark history for $(BENCH_MACHINE) (last 5 runs) ==="
-	@ls -1t $(BENCH_HISTORY_DIR)/*.txt | head -5 | xargs benchstat
+	@ls -1t $(BENCH_HISTORY_DIR)/*.txt | head -5 | xargs $(BENCHSTAT)
 
 # Generate performance report
 .PHONY: bench-report
@@ -126,7 +127,7 @@ bench-report:
 		echo "## Trend Analysis (last 5 runs)" >> /tmp/bench-report.md; \
 		echo "" >> /tmp/bench-report.md; \
 		echo '```' >> /tmp/bench-report.md; \
-		ls -1t $(BENCH_HISTORY_DIR)/*.txt | head -5 | xargs benchstat >> /tmp/bench-report.md 2>&1; \
+		ls -1t $(BENCH_HISTORY_DIR)/*.txt | head -5 | xargs $(BENCHSTAT) >> /tmp/bench-report.md 2>&1; \
 		echo '```' >> /tmp/bench-report.md; \
 	else \
 		echo "## Trend Analysis" >> /tmp/bench-report.md; \
