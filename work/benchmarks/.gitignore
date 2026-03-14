@@ -1,0 +1,7 @@
+# Ignore all generated benchmark files (machine-specific)
+baseline-*.txt
+history/
+
+# Keep the README and this .gitignore
+!README.md
+!.gitignore

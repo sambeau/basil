@@ -46,6 +46,19 @@ make check
 # Or: go build -o basil ./cmd/basil && go build -o pars ./cmd/pars && go test ./...
 ```
 
+### Benchmarks
+```bash
+make bench           # Run all benchmarks (quick, single iteration)
+make bench-save      # Save benchmarks as baseline for this machine
+make bench-compare   # Compare current vs saved baseline
+make bench-diff      # Compare current branch vs main
+make bench-history   # Show trends across recent runs
+make bench-report    # Generate performance report (Markdown)
+```
+
+Benchmarks are machine-specific. Each developer maintains their own baseline in `work/benchmarks/`.
+See `work/benchmarks/README.md` for full documentation.
+
 ## Linting Guidelines
 
 **Run the linter regularly** — at minimum before each commit and after significant changes.
@@ -224,6 +237,34 @@ Add `!` after the type for breaking changes: `feat(parsley)!: description`
 - Update work/BACKLOG.md with any deferred items
 - Update spec/bug with implementation notes
 - Verify all tests pass with `make test`
+- **Run benchmarks** (see below)
+
+### ⚠️ Benchmark Workflow (Post-Feature)
+
+After implementing any FEAT, run benchmarks to detect performance regressions:
+
+1. **Run `make bench-save`** to capture post-implementation performance
+2. **Run `make bench-compare`** to check for regressions against baseline
+3. **Include performance summary** in implementation notes or commit message:
+   - Flag regressions > 5% for human review
+   - Note improvements > 5%
+   - State "No performance regression detected" if stable
+4. **If significant regression detected**, investigate before committing
+
+#### When to Skip Benchmarks
+- Documentation-only changes
+- Test-only changes (unless testing performance-critical code)
+- Configuration changes that don't affect runtime
+
+#### Generating Performance Reports
+When asked to produce a performance report:
+1. Run `make bench-report` to generate raw data
+2. Analyze the output and add:
+   - Executive summary with human-readable assessment
+   - Interpretation of trends (not just raw numbers)
+   - Correlation with recent code changes (check `git log`)
+   - Specific recommendations based on findings
+3. Save enhanced report to `work/reports/PERF-REPORT-YYYY-MM-DD.md`
 
 ### ⚠️ Branch Hygiene: Merge and Delete
 

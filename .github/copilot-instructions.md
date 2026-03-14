@@ -39,8 +39,21 @@ The only acceptable state before a commit is: `ok` for every package in `go test
 
 ### After Completing a Feature/Fix
 1. Run `make test` or `go test ./...`
-2. If tests pass → **commit all related changes immediately**
-3. A feature isn't done until it's committed
+2. Run `make bench-compare` to check for performance regressions
+3. If tests pass → **commit all related changes immediately**
+4. A feature isn't done until it's committed
+
+### ⚠️ Post-Feature Benchmark Requirement
+After implementing any FEAT, run benchmarks to detect regressions:
+
+1. Run `make bench-save` to capture post-implementation performance
+2. Run `make bench-compare` to check against baseline
+3. Include performance summary in implementation notes:
+   - Flag regressions > 5% for human review
+   - Note improvements > 5%
+   - State "No performance regression detected" if stable
+
+Skip benchmarks for: documentation-only changes, test-only changes, config changes.
 
 ## Writing Parsley Code
 Before writing any Parsley code (handlers, tests, examples):
@@ -165,7 +178,8 @@ If you can't answer those questions yet, read more before changing the code.
 1. Implementation code is written
 2. Tests are written that exercise the new functionality
 3. All tests pass (`go test ./pkg/parsley/...`)
-4. Changes are committed
+4. Benchmarks checked for regressions (`make bench-compare`)
+5. Changes are committed
 
 ### Test Requirements
 - **New language features**: Add tests to `pkg/parsley/tests/` (integration tests)
