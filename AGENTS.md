@@ -127,6 +127,19 @@ basil/
     └── BACKLOG.md               # Deferred items
 ```
 
+## Decision Rationale Reference
+
+Before changing behavior, especially in bug fixes, refactors, or optimizations, consult:
+- `work/reports/specifications-guide-for-implementors.md`
+
+Use it to find:
+- earlier feature decisions in `work/specs/`
+- implementation reality in `work/plans/`
+- tradeoff reasoning in `work/design/`
+- audits, investigations, and cleanup rationale in `work/reports/`
+
+Do not assume code that looks redundant, indirect, or over-engineered is accidental. Check why it exists before changing or removing it.
+
 ## Workflow Rules
 
 ### ⚠️ CRITICAL: Preserve Work Through Commits
@@ -175,12 +188,14 @@ Add `!` after the type for breaking changes: `feat(parsley)!: description`
 ### Before Starting Any Task
 1. **Check `git status` for uncommitted work** (see above)
 2. Read the relevant spec/bug report from work/
-3. Check work/BACKLOG.md for related deferred items
-4. Use the appropriate prompt file (`/new-feature` or `/fix-bug`)
+3. For any change that affects behavior, semantics, architecture, bug fixes, or optimizations, read `work/reports/specifications-guide-for-implementors.md` to look for earlier decisions and rationale before changing code
+4. Check `work/BACKLOG.md` for related deferred items
+5. Use the appropriate prompt file (`/new-feature` or `/fix-bug`)
 
 ### During Implementation
 - Commit frequently with conventional commit messages
 - Update implementation plan progress log
+- Before “simplifying”, “optimizing”, or removing code, check whether the current behavior is explained by a spec, plan, design doc, or report
 - Run tests after each significant change
 
 ### ⚠️ Features Require Tests

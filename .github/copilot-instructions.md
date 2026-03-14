@@ -6,8 +6,9 @@ Basil is a Go web server for the Parsley programming language.
 ## Before Any Task
 1. **Check `git status` for uncommitted work** — commit or stash before starting new work
 2. Read `AGENTS.md` at the repository root — it contains build commands, project structure, and workflow rules
-3. Check `work/BACKLOG.md` for related deferred items
-4. Use the appropriate prompt file for your task type
+3. Read `work/reports/specifications-guide-for-implementors.md` before changing behavior, fixing bugs, or optimizing code that may have historical/design context
+4. Check `work/BACKLOG.md` for related deferred items
+5. Use the appropriate prompt file for your task type
 
 ## ⚠️ Critical: No Test Failures May Be Ignored
 
@@ -107,6 +108,30 @@ pars describe string | grep -i "trim"
 
 ### Key Principle
 If documentation conflicts with `pars describe` output, **trust the command**. Update the documentation to match.
+
+## Specification Rationale and Earlier Decisions
+Before changing behavior — especially for bug fixes, refactors, performance work, caching changes, auth changes, parser/evaluator semantics, or removing code that looks unnecessary — first look for the earlier decision and rationale.
+
+Start here:
+- `work/reports/specifications-guide-for-implementors.md` — high-level map of the spec set, where rationale lives, and how to interpret older vs newer specs
+- `work/specs/` — intended behavior and acceptance criteria
+- `work/plans/` — implementation reality, phased delivery, and deviations from the original spec
+- `work/design/` — tradeoffs and architecture reasoning
+- `work/reports/` — audits, investigations, performance analysis, and cleanup rationale
+- `CHANGELOG.md` — later breaking changes, removals, and consolidation decisions
+
+### Why this matters
+Code that looks redundant, slow, awkward, or over-engineered may be preserving an important semantic, security boundary, compatibility decision, or previously investigated edge case. Do not \"simplify\" or \"optimize\" it away until you understand why it exists.
+
+### Minimum rule for decision-making
+When making a non-trivial change, determine:
+1. which spec owns the behavior
+2. whether a later spec or cleanup changed that contract
+3. whether the plan documents a different implementation from the original spec
+4. whether a design doc or report explains the tradeoff
+5. whether the change crosses the Basil/Parsley boundary
+
+If you can't answer those questions yet, read more before changing the code.
 
 ## Workflow Entry Points
 - **New Feature**: Use `/new-feature` prompt
