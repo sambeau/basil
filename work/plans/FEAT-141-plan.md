@@ -2,7 +2,7 @@
 id: PLAN-121
 feature: FEAT-141
 title: "Implementation Plan: Repeatable Benchmark Workflow"
-status: draft
+status: complete
 created: 2026-03-14
 ---
 
@@ -244,17 +244,17 @@ Tests:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: Expand make bench | ⬜ Not started | — |
-| | Task 2: Add bench-save | ⬜ Not started | — |
-| | Task 3: Add bench-compare | ⬜ Not started | — |
-| | Task 4: Add bench-diff | ⬜ Not started | — |
-| | Task 5: Add bench-history | ⬜ Not started | — |
-| | Task 6: Add bench-report | ⬜ Not started | — |
-| | Task 7: Parser benchmarks | ⬜ Not started | — |
-| | Task 8: Evaluator benchmarks | ⬜ Not started | — |
-| | Task 9: Update AGENTS.md | ⬜ Not started | — |
-| | Task 10: Update copilot-instructions | ⬜ Not started | — |
-| | Task 11: Initial baseline | ⬜ Not started | — |
+| 2026-03-14 | Task 1: Expand make bench | ✅ Complete | Runs ./... instead of ./server/... |
+| 2026-03-14 | Task 2: Add bench-save | ✅ Complete | Machine-specific baselines + history |
+| 2026-03-14 | Task 3: Add bench-compare | ✅ Complete | Added BENCHSTAT variable for PATH issues |
+| 2026-03-14 | Task 4: Add bench-diff | ✅ Complete | Compares current branch vs main |
+| 2026-03-14 | Task 5: Add bench-history | ✅ Complete | Shows trends across recent runs |
+| 2026-03-14 | Task 6: Add bench-report | ✅ Complete | Generates Markdown report |
+| 2026-03-14 | Task 7: Parser benchmarks | ✅ Complete | 6 benchmarks in parser_bench_test.go |
+| 2026-03-14 | Task 8: Evaluator benchmarks | ✅ Complete | 11 benchmarks in evaluator_bench_test.go |
+| 2026-03-14 | Task 9: Update AGENTS.md | ✅ Complete | Added benchmark workflow section |
+| 2026-03-14 | Task 10: Update copilot-instructions | ✅ Complete | Added post-FEAT benchmark requirement |
+| 2026-03-14 | Task 11: Initial baseline | ✅ Complete | Validated full workflow on sams-macbook-air |
 
 ## Deferred Items
 Items to add to work/BACKLOG.md after implementation:
