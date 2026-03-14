@@ -1,7 +1,7 @@
 ---
 id: FEAT-141
 title: "Repeatable Benchmark Workflow with Regression Guards"
-status: draft
+status: complete
 priority: medium
 created: 2026-03-14
 author: "@human"
@@ -16,16 +16,16 @@ Establish a comprehensive, repeatable benchmark workflow that covers all perform
 As a developer working on Basil, I want a simple benchmark workflow that captures baselines and detects regressions so that I can confidently make changes without accidentally degrading performance.
 
 ## Acceptance Criteria
-- [ ] `make bench` runs all benchmarks across the project (server, lexer, parser, evaluator)
-- [ ] `make bench-save` saves benchmark results to a machine-specific baseline file
-- [ ] `make bench-compare` compares current results against the saved baseline using `benchstat`
-- [ ] `make bench-diff` compares current branch against main branch (same machine, no stored file)
-- [ ] `make bench-history` shows trends across recent benchmark runs
-- [ ] `make bench-report` generates a structured performance report (Markdown)
-- [ ] Parser benchmarks exist covering representative workloads
-- [ ] Evaluator benchmarks exist covering representative workloads
-- [ ] Documentation explains how to use the benchmark workflow
-- [ ] AI agent instructions updated to run benchmarks after each FEAT implementation
+- [x] `make bench` runs all benchmarks across the project (server, lexer, parser, evaluator)
+- [x] `make bench-save` saves benchmark results to a machine-specific baseline file
+- [x] `make bench-compare` compares current results against the saved baseline using `benchstat`
+- [x] `make bench-diff` compares current branch against main branch (same machine, no stored file)
+- [x] `make bench-history` shows trends across recent benchmark runs
+- [x] `make bench-report` generates a structured performance report (Markdown)
+- [x] Parser benchmarks exist covering representative workloads
+- [x] Evaluator benchmarks exist covering representative workloads
+- [x] Documentation explains how to use the benchmark workflow
+- [x] AI agent instructions updated to run benchmarks after each FEAT implementation
 
 ## Design Decisions
 

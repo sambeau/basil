@@ -21,6 +21,11 @@ Deferred items from implementation, to be picked up in future work.
 ## Medium Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #118 | CI integration for benchmarks | FEAT-141 | Needs CI setup | Run benchmarks on PRs with CI-specific baseline. Requires stable CI runner performance. |
+| #119 | Benchmark visualization | FEAT-141 | Enhancement | Generate charts from historical benchmark data. Consider `gobenchdata` or custom solution. |
+
+| ID | Item | Source | Reason Deferred | Notes |
+|----|------|--------|-----------------|-------|
 | #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | Tooling | Add `#` + number + suffix pattern to tree-sitter grammar for syntax highlighting in editors. |
 | #107 | Overflow detection for unit arithmetic | FEAT-118 | Partially addressed | Phase 3 adds decimal Scale that handles overflow by shifting to Scale>0 instead of wrapping. Arithmetic helpers (scaleAdd, scaleMul, etc.) detect overflow and adjust scale. Remaining: verify edge cases in all paths, add explicit error for truly unrepresentable values. |
 
