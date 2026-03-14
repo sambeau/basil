@@ -293,3 +293,53 @@ func TestArrayJoinPathComponents(t *testing.T) {
 		t.Errorf("got %q, want %q", result, expected)
 	}
 }
+
+// BUG-024: join() should skip null and empty string values
+func TestArrayJoinSkipsNull(t *testing.T) {
+	result := evalStringConv(`["a", null, "b"].join(",")`)
+	expected := "a,b"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestArrayJoinSkipsMultipleNulls(t *testing.T) {
+	result := evalStringConv(`["a", null, null, "b"].join(",")`)
+	expected := "a,b"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestArrayJoinSkipsTrailingNull(t *testing.T) {
+	result := evalStringConv(`["field", null].join(" ")`)
+	expected := "field"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestArrayJoinSkipsEmptyString(t *testing.T) {
+	result := evalStringConv(`["a", "", "b"].join(",")`)
+	expected := "a,b"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestArrayJoinAllNulls(t *testing.T) {
+	result := evalStringConv(`[null, null].join(",")`)
+	expected := ""
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestArrayJoinClassMergePattern(t *testing.T) {
+	// Primary use case: class merging with optional values
+	result := evalStringConv(`["field", null, "extra"].join(" ")`)
+	expected := "field extra"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}

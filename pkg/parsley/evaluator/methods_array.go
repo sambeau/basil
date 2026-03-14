@@ -286,9 +286,16 @@ func arrayJoin(receiver Object, args []Object, env *Environment) Object {
 		separator = sepStr.Value
 	}
 
-	items := make([]string, len(arr.Elements))
-	for i, elem := range arr.Elements {
-		items[i] = objectToTemplateString(elem)
+	items := make([]string, 0, len(arr.Elements))
+	for _, elem := range arr.Elements {
+		if _, ok := elem.(*Null); ok {
+			continue
+		}
+		s := objectToTemplateString(elem)
+		if s == "" {
+			continue
+		}
+		items = append(items, s)
 	}
 
 	return &String{Value: strings.Join(items, separator)}
