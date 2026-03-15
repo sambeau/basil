@@ -1,5 +1,5 @@
 ---
-updated 2026-02-25
+updated 2026-03-16
 ---
 
 # Backlog
@@ -9,11 +9,6 @@ Deferred items from implementation, to be picked up in future work.
 ## High Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
-| #87 | Fix error handler tests (expect HTML, get plain text) | Code cleanup | Tests incorrect for current behavior | Tests `TestHandleScriptError_DevMode`, `TestHandleScriptErrorWithLocation_*`, `TestRenderPreludeError_*`, `TestHandle500` expect HTML responses but code returns plain text when prelude templates fail to render. Either tests need updating to match current plain-text fallback behavior, or code needs fixing to return HTML in all cases. Tests also needed `stderr: io.Discard` fix for nil pointer. |
-| #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | Foundational change | Resolves ambiguity between columns and variables. Design states "Bare identifiers are columns, `{...}` are Parsley expressions". Affects entire DSL parsing. See FEAT-079-gaps.md. |
-| #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | High complexity (3-4 days) | Computed fields from subqueries: `\| comment_count <-Comments \|\| post_id == id \| count`. Requires scalar context detection, aliasing, SQL generation. See FEAT-079-gaps.md. |
-| #3 | Query DSL CTEs | PLAN-052 Phase 6 | High complexity (3-4 days) | CTE-style named subqueries: `Tags as food_tags \| topic == "food"`. Requires multi-block parsing, reference resolution, SQL WITH clause. See FEAT-079-gaps.md. |
-| #4 | Query DSL Join-like Subqueries | PLAN-052 Phase 7 | High complexity (2-3 days) | Scalar vs join subquery context (`?->` vs `??->`). Requires context propagation, row expansion semantics. See FEAT-079-gaps.md. |
 | #5 | Notification API (basil.email.send) | FEAT-084 Phase 3 | Parsley integration complexity | Developer-initiated emails from Parsley handlers. Requires: (1) Parsley namespace design (`basil.email`), (2) Go function exposure to evaluator, (3) Thread-safe EmailService access, (4) Developer rate limiting (50/hr, 200/day). See ADR-001. Core verification flow is complete; this is enhancement for custom emails. |
 
 
@@ -22,16 +17,8 @@ Deferred items from implementation, to be picked up in future work.
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
 | #121 | Remove deprecated `@std/` aliases for `@basil/` modules | STDLIB-1.0-ACTION-PLAN | Post-1.0 cleanup | `@std/dev`, `@std/api`, `@std/html` are registered as deprecated aliases in `getStdlibModules()` (`stdlib_table.go`) pointing to `loadDevModule`, `loadAPIModule`, `loadHTMLModule`. The canonical names are now `@basil/log`, `@basil/api`, `@basil/html`. Remove the `@std/` entries and add a clear deprecation error directing users to the `@basil/` equivalents. Also remove `@std/mdDoc` alias (canonical is `@std/mddoc`). |
-| #118 | CI integration for benchmarks | FEAT-141 | Needs CI setup | Run benchmarks on PRs with CI-specific baseline. Requires stable CI runner performance. |
-| #119 | Benchmark visualization | FEAT-141 | Enhancement | Generate charts from historical benchmark data. Consider `gobenchdata` or custom solution. |
-
-| ID | Item | Source | Reason Deferred | Notes |
-|----|------|--------|-----------------|-------|
 | #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | Tooling | Add `#` + number + suffix pattern to tree-sitter grammar for syntax highlighting in editors. |
 | #107 | Overflow detection for unit arithmetic | FEAT-118 | Partially addressed | Phase 3 adds decimal Scale that handles overflow by shifting to Scale>0 instead of wrapping. Arithmetic helpers (scaleAdd, scaleMul, etc.) detect overflow and adjust scale. Remaining: verify edge cases in all paths, add explicit error for truly unrepresentable values. |
-
-| ID | Item | Source | Reason Deferred | Notes |
-|----|------|--------|-----------------|-------|
 | #9 | SQLite session store | FEAT-049 | Phase 2 | Cookie sessions have ~4KB limit. SQLite store for larger session data. Server-side sessions with session ID in cookie. Includes cleanup goroutine for expired sessions. |
 | #10 | Session auth integration | FEAT-049 | Phase 3 | Auto-regenerate session ID on login/logout for security. `basil.auth.login()` and `basil.auth.logout()` should call `session.regenerate()`. |
 | #12 | Form `target=` partial updates (Turbo-style) | Rails UX | Needs design | Allow `<Form target="#id">` to replace element content without full page reload. Challenges: (1) How handler knows to return fragment vs full page, (2) Layout wrapping behavior, (3) Works differently for filepath vs config routing, (4) Where/how to inject the ~20 lines of JS. High UX value but needs architectural thought. See `work/design/rails-inspired-ux.md`. |
@@ -43,21 +30,14 @@ Deferred items from implementation, to be picked up in future work.
 | #18 | CSV upload merge mode for /__/db | FEAT-021 | Not MVP | Current "Replace" overwrites entire table. Add "Merge" option that updates existing rows by primary key and inserts new ones. Use case: download CSV, edit non-BLOB columns, re-upload without losing BLOB data. UI: dropdown or separate button next to "Replace". |
 | #19 | HTTP-only production mode (behind proxy) | Discussion | Needs design | Allow running without TLS when behind a reverse proxy (nginx, Cloudflare, etc.). Use case: proxy terminates TLS, Basil runs HTTP on localhost/internal IP but with production features (caching, generic errors). Consider: `https.mode: proxy` or `server.tls: false` with warning. Security: must validate proxy is trusted. Options: `--proxy` CLI flag, require `proxy.trusted: true`. |
 | #20 | Separate dev errors from dev mode | Discussion | Needs design | Allow styled error pages independently of full dev mode. Use case: testing behind proxy with caching enabled but still seeing detailed errors. Options: `--dev-errors` flag, `server.dev_errors: true` config, or make dev mode more granular (`dev.errors: true`, `dev.caching: false`, etc.). |
-| #21 | Form validation/sanitization | FEAT-002 | Needs design | Options: config-based schemas, Parsley-side validation, or sanitization-only. See spec Phase 2 checklist. |
 | #22 | OAuth2/OIDC providers | FEAT-004 | Not MVP | Google, GitHub, etc. identity providers. Consider after passkey auth is stable. |
 | #23 | SMS recovery (Twilio) | FEAT-004 | Not MVP | Recovery via SMS code. Simpler than email (no deliverability issues, just JSON API). Would need Twilio account config. Consider as primary "second factor" option. |
-| #24 | Email recovery | FEAT-004 | Probably never | Magic link via email. Pain points: deliverability (SPF/DKIM/reputation), styling (1999 CSS), complexity. SMS is easier. |
 | #25 | Multiple passkeys per user | FEAT-004 | Not MVP | Allow registering phone + laptop + YubiKey. Adds device management UI. |
 | #26 | Roles/permissions | FEAT-004 | Not MVP | `request.user.role` and role-based route protection |
-| #27 | Table.groupBy(column) | FEAT-018 | Not MVP | Complex aggregation, needs design for return type |
 | #28 | Table.join(table, column) | FEAT-018 | Not MVP | SQL joins, needs careful design |
 | #29 | Table column transforms | FEAT-018 | Not MVP | `transform(col, fn)`, `addColumn(name, fn)` |
-| #30 | Table.distinct() | FEAT-018 | Not MVP | Deduplication |
-| #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access |
-| #58 | Local module imports should not require `-x` | Examples audit | Sandbox policy needs revision | `-x` should only allow @shell execution; Parsley module imports (e.g., `import @./modules/foo.pars`) should be permitted without execute mode. Update sandbox semantics accordingly. |
+| #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access. Workaround: `table.limit(1)`. |
 | #34 | Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
-
-| #89 | Assignment-capture patterns for statement-level I/O operators | FEAT-104 | Parser architecture change | Patterns like `result = data =/=> target` don't parse because write operators (`==>`, `=/=>`, etc.) are statement-level, not infix expressions. Supporting assignment-capture would require parser changes to allow assignment around statement-level operators. Applies equally to `==>`. |
 | #90 | Custom message for `record.failIfInvalid(msg)` | FEAT-105 | Follow-up enhancement | Allow overriding the default "Validation failed" message: `record.failIfInvalid("Invalid user data")`. Currently hardcoded. |
 | #91 | `record.toError()` — non-failing error conversion | FEAT-105 | Follow-up enhancement | Return the validation error dict without calling `fail()`, for cases where you want to inspect/modify before failing. E.g., `let errDict = record.toError()` then `errDict.message = "Custom"` then `fail(errDict)`. |
 | #92 | Error catalog entry for VALIDATION code | FEAT-105 | Follow-up | `VALIDATION` code from `failIfInvalid()` is currently hardcoded. Could be registered in the error catalog for consistency with other error codes. |
@@ -66,9 +46,9 @@ Deferred items from implementation, to be picked up in future work.
 | #95 | `pars --check` with stdin input | FEAT-106 | Enhancement | Support `pars --check -` to read and validate Parsley code from stdin. Useful for editor integration and pipelines. Would require detecting `-` as special filename. |
 | #96 | JSON output format for `--check` | FEAT-106 | Tooling enhancement | Add `pars --check --json file.pars` to output structured error information in JSON format for tool integration (editors, CI/CD). Would need to serialize ParsleyError structs to JSON. |
 | #97 | Named capture groups should return dictionaries | Backlog | Enhancement | Regex named capture groups like `(?P<name>\w+)` currently return an array (ignoring names). Should return a dictionary with named keys so results can be destructured: `let {first, last} = str ~ /(?P<first>\w+)\s+(?P<last>\w+)/`. Currently returns `["full match", "first", "last"]` instead of `{first: "...", last: "..."}`. |
-| #98 | Tree-sitter: Complex regex escape handling | PLAN-092 | Parser limitation | Regex literals with `\/` escapes (e.g., `/^https?:\/\/.+/`) fail because the token-level regex pattern stops at the first `/`. Full fix requires external scanner to track escape sequences. Affects 2 example files with URL-matching regexes. |
-| #99 | Tree-sitter: XML comment support | PLAN-092 | Parser limitation | `<!-- ... -->` inside tags are not parsed. Would need grammar rule or external scanner support. Affects svg_xml_demo.pars example. |
-| #100 | Tree-sitter: HTML-like tags inside strings | PLAN-092 | Parser limitation | Edge case where `<tag>` appears inside a quoted string (e.g., `"text <code>more"</code>"`) causes ambiguous parsing. Tree-sitter sees `<code>` as tag start even inside string context. Affects 2 example files. Would require complex lookahead or string content redesign. |
+| #122 | Tree-sitter: Complex regex escape handling | PLAN-092 | Parser limitation | Regex literals with `\/` escapes (e.g., `/^https?:\/\/.+/`) fail because the token-level regex pattern stops at the first `/`. Full fix requires external scanner to track escape sequences. Affects 2 example files with URL-matching regexes. *(Previously #98 — renumbered to resolve ID collision.)* |
+| #123 | Tree-sitter: XML comment support | PLAN-092 | Parser limitation | `<!-- ... -->` inside tags are not parsed. Would need grammar rule or external scanner support. Affects svg_xml_demo.pars example. *(Previously #99 in Medium Priority — renumbered to resolve ID collision.)* |
+| #124 | Tree-sitter: HTML-like tags inside strings | PLAN-092 | Parser limitation | Edge case where `<tag>` appears inside a quoted string (e.g., `"text <code>more"</code>"`) causes ambiguous parsing. Tree-sitter sees `<code>` as tag start even inside string context. Affects 2 example files. Would require complex lookahead or string content redesign. *(Previously #100 in Medium Priority — renumbered to resolve ID collision.)* |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
@@ -76,6 +56,12 @@ Deferred items from implementation, to be picked up in future work.
 | #113 | Embedded Postgres for integration tests | FEAT-132 / PLAN-112 | Not needed yet | `github.com/fergusstrange/embedded-postgres`. Trigger: a Postgres-specific bug is reported or the Postgres driver changes significantly. The `database/sql` driver interface is consistent across drivers so MySQL/Postgres bugs are unlikely. See `work/reports/INTEGRATION-TESTING-INFRASTRUCTURE.md` for full rationale. |
 | #114 | `testenv.WithGit()` — fake Git HTTP server | FEAT-132 / PLAN-112 | Low priority | Fake Git HTTP server for testing the `GitHandler` auth wrapping in `server/git.go`. `go-git-http` is already a dep and the auth layer can be tested with a plain `httptest.Server`. Add if a Git auth bug is reported. |
 | #112 | Export lexer keywords for `compose.go` | PLAN-110 #7 | Requires lexer change | `compose.go` `generateKeywords()` hardcodes keyword list, missing `as`, `via`, `function`. The lexer's `keywords` map in `lexer.go` is unexported. Export it (or add a helper) so generated docs stay in sync automatically. Hand-written `reference.md` has the complete list so no user-facing gap currently. |
+| #117 | Compression benchmarks | FEAT-139 | Adds setup complexity | Benchmark gzip/zstd compression overhead at various response sizes. Deferred from initial benchmark suite to keep v1 simple. |
+| #125 | Database-backed route benchmarks | FEAT-139 | Fixture complexity | Benchmark page/API handlers that perform database queries. Requires SQLite fixture setup which adds complexity beyond the initial suite scope. *(Previously #118 in Completed Archive — moved back; was never implemented. Renumbered to resolve ID collision.)* |
+| #126 | Cold-start parse-path benchmarks | FEAT-139 | Different use case | Benchmark uncached AST parsing to measure cold-start costs. Initial suite focused on steady-state (warm cache) performance. *(Previously #119 in Completed Archive — moved back; was never implemented. Renumbered to resolve ID collision.)* |
+| #127 | Benchmark result history automation | FEAT-139 | Tooling | Automate benchmark result collection and comparison across commits. Would enable regression detection in CI. Low priority until baseline is established. *(Previously #120 in Completed Archive — moved back; was never implemented. Renumbered to resolve ID collision.)* |
+| #128 | CI integration for benchmarks | FEAT-141 | Needs CI setup | Run benchmarks on PRs with CI-specific baseline. Requires stable CI runner performance. *(Previously #118 in Medium Priority — renumbered to resolve ID collision.)* |
+| #129 | Benchmark visualization | FEAT-141 | Enhancement | Generate charts from historical benchmark data. Consider `gobenchdata` or custom solution. *(Previously #119 in Medium Priority — renumbered to resolve ID collision.)* |
 | #108 | Unicode superscript display for area | FEAT-118 Phase 3 | Polish | `.format({unicode: true})` → `100 m²` instead of `100m2`. Requires display option plumbing and Unicode superscript mapping. |
 | #109 | Hectare (`ha`) suffix | FEAT-118 Phase 3 | Niche | 1 ha = 10,000 m². Common in many countries but not in the initial design. Add on demand. |
 | #110 | Megalitre (`ML`) suffix | FEAT-118 Phase 3 | Niche | 1 ML = 1,000 kL = 10⁶ L. Used in water industry. Add on demand. |
@@ -92,14 +78,12 @@ Deferred items from implementation, to be picked up in future work.
 | #70 | `inputmode` metadata for form binding | FEAT-097 | Mobile enhancement | Add `inputmode` metadata for mobile keyboard hints (e.g., `| {inputmode: "numeric"}`). Related to form UX but separate scope from autocomplete. |
 | #75 | PLN pretty-print CLI tool | FEAT-098 | Enhancement | Add `pars fmt file.pln` command for formatting PLN files with consistent indentation. |
 | #76 | PLN VS Code syntax highlighting | FEAT-098 | Tooling | Update contrib/highlightjs/parsley.js for PLN syntax. May need separate PLN mode or extend Parsley mode. |
-
 | #53 | Dictionary insert methods: dictionary value form | Reference audit | Enhancement | `dict.insertAfter(col, {key: val})` and `dict.insertBefore(col, {key: val})` should accept a dictionary to insert multiple key-value pairs at once. Since dictionaries are ordered, this enables merging one dict into another at a specific position: `dict.insertAfter("name", {middle: "Jane", suffix: "Jr"})`. |
 | #56 | Expand catchable error types for `try` | Reference audit | Design discussion | Currently `try` only catches "external" errors (IO, Network, Format, Value, Database, Security). Should more error types be catchable? E.g., division by zero (`x/0`) currently propagates—should it be catchable? Arguments for: allows defensive programming, matches other languages. Arguments against: division by zero is a logic bug (divisor should be validated), catching masks bugs. Consider: (1) new error class for math errors, (2) opt-in syntax like `try!` for catching all errors, (3) keep current design. Current philosophy: catchable = external factors; non-catchable = developer bugs that should fail loudly. |
-| #57 | Rename `@std/dev` to `@basil/log` | Reference audit | API cleanup | The `@std/dev` module provides development logging for Basil server context. It should be renamed to `@basil/log` because: (1) it requires Basil server context so belongs in `@basil/` namespace not `@std/`, (2) "dev" is vague while "log" describes its purpose, (3) aligns with `@basil/http` and `@basil/auth` naming convention. Update stdlib_table.go module registry, docs, and add deprecation alias for `@std/dev`. |
 | #35 | Full CLDR compact number formatting | FEAT-048 | Library limitation | `humanize()` uses English suffixes (K, M, B) with locale-aware decimal formatting. True CLDR would give locale-specific suffixes (German "Mio.", Japanese "万"). Go's `golang.org/x/text` doesn't expose CLDR compact forms directly. K/M/B is industry standard (YouTube, Twitter, GitHub). Revisit if CJK locale support becomes important. |
 | #36 | Fragment cache DevTools integration | FEAT-037 | Not MVP | Add `/__/cache` page showing cache stats (entries, hits, misses, hit rate, size) with clear button. `FragmentCacheStats` and `Stats()` method already exist in `fragment_cache.go`. |
-| #37 | Search benchmark tests | FEAT-085 | Not blocking release | Add Go benchmark tests for search performance validation: BenchmarkIndexDocument, BenchmarkBatchIndex, BenchmarkSearchSimple, BenchmarkSearchComplex, BenchmarkSearchScale (100/1K/10K docs). Validates <10ms query target. `make bench` now exists (FEAT-139); search benchmarks would be added to `server/search/`. Estimated 2-4 hours. Not blocking production since manual testing shows all targets met. |
-| #37 | std/math: Advanced statistics | FEAT-031 | Niche | percentile, quartile, correlation, z-score - add based on demand from data-focused users |
+| #37a | Search benchmark tests | FEAT-085 | Not blocking release | Add Go benchmark tests for search performance validation: BenchmarkIndexDocument, BenchmarkBatchIndex, BenchmarkSearchSimple, BenchmarkSearchComplex, BenchmarkSearchScale (100/1K/10K docs). Validates <10ms query target. `make bench` now exists (FEAT-139); search benchmarks would be added to `server/search/`. Estimated 2-4 hours. Not blocking production since manual testing shows all targets met. |
+| #37b | std/math: Advanced statistics | FEAT-031 | Niche | percentile, quartile, correlation, z-score - add based on demand from data-focused users. *(Previously shared ID #37 with search benchmarks — split for clarity.)* |
 | #38 | std/math: Hyperbolic functions | FEAT-031 | Niche | sinh, cosh, tanh - rare use case for most users |
 | #39 | std/math: Special functions | FEAT-031 | Niche | gamma, factorial - mathematical niche |
 | #40 | SPREAD-0001 error missing line numbers | Error improvements | Needs refactoring | Error is inside `parseTagProps` string parsing function which doesn't have access to a token. Would need to pass token through or refactor to track position during parsing. |
@@ -119,11 +103,23 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #87 | Fix error handler tests (expect HTML, get plain text) | Code cleanup | 2026-03-16 | ✅ All tests pass: `TestHandleScriptError_DevMode`, `TestHandleScriptErrorWithLocation_*`, `TestRenderPreludeError_*`, `TestHandle500`. Error handlers now correctly return HTML via prelude templates. |
+| #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | 2026-03-16 | ✅ Fully implemented. `QueryInterpolation` AST node, parser handles `{expression}` in query conditions, evaluator parameterizes values. Tests: `TestInterpolationSyntax`, `TestInterpolationExpression`. |
+| #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | 2026-03-16 | ✅ Fully implemented. `buildCorrelatedSubquerySQL()`, outer-table aliasing, `name <-Table || conditions | aggregate` syntax. Tests: `TestCorrelatedSubqueryBasic`, `TestCorrelatedSubqueryWithFilter`. |
+| #3 | Query DSL CTEs | PLAN-052 Phase 6 | 2026-03-16 | ✅ Fully implemented. `QueryCTE` AST node, `WITH` clause SQL generation, CTE reference resolution. Tests: `TestCTEParsing`, `TestCTEBasic`, `TestCTEMultiple`. |
+| #4 | Query DSL Join-like Subqueries | PLAN-052 Phase 7 | 2026-03-16 | ✅ Fully implemented. `??->` terminal for join subqueries, `JOIN` clause SQL generation, row expansion. Tests: `TestJoinSubqueryParsing`, `TestJoinSubqueryBasic`. |
+| #24 | Email recovery | FEAT-004 | 2026-03-16 | ✅ Implemented as token-based email recovery flow. `SendRecoveryEmail()` in `server/auth/email_service.go`, `RecoverEmailHandler` in handlers.go, `recoveryEmailTemplate` in `email/templates.go`, gated by `RecoveryConfig.EmailEnabled`. Original note said "Probably never" but it was built. |
+| #27 | Table.groupBy(column) | FEAT-018 | 2026-03-16 | ✅ Implemented as `tableGroupBy()` in `stdlib_table.go`. Accepts 1–2 args: column(s) + optional aggregation function. Registered in `TableMethodRegistry`. |
+| #30 | Table.distinct() | FEAT-018 | 2026-03-16 | ✅ Implemented under the name `unique()` in `TableMethodRegistry`. Functionally equivalent to the requested `distinct()`. |
+| #57 | Rename `@std/dev` to `@basil/log` | Reference audit | 2026-03-16 | ✅ `@basil/log` is the canonical name in `getBasilModules()`. `@std/dev` remains as a deprecated alias — removal tracked by #121. |
+| #58 | Local module imports should not require `-x` | Examples audit | 2026-03-16 | ✅ Fixed as BUG-022. Local module imports use read permission, not execute permission. `-x` only controls `@shell` execution. Tests in `import_security_test.go`. |
+| #21 | Form validation/sanitization | FEAT-002/FEAT-032 | 2025-12 | ✅ Implemented as `@std/valid` module with comprehensive validators. See FEAT-032.md. |
+| #89 | Assignment-capture patterns for statement-level I/O operators | FEAT-104 | 2026-03-16 | ✅ Implemented in FEAT-104. `RemoteWriteStatement` implements both `statementNode()` and `expressionNode()`, enabling `let result = data =/=> target`. Tests in `assignment_capture_test.go` (700+ lines). |
 | #7 | Complete structured error migration | FEAT-023 | 2026-02-25 | ✅ Core evaluator files use structured errors. Only 1 of 13 stdlib files still needs migration - acceptable coverage. |
 | #52 | Commutative duration multiplication | Reference audit | 2026-02-25 | ✅ Both `@1d * 3` and `3 * @1d` now work correctly, returning `@3d`. |
 | #88 | Unicode identifier support | FEAT-103 | 2026-02-25 | ✅ `let π = 3.14159` works. Unicode identifiers fully supported. |
-| #101 | Phase 2: Temperature units (K, C, F) | FEAT-118 | 2026-02-25 | ✅ Temperature units implemented with K, C, F suffixes. `#0C == #32F` works. Multiplication correctly errors with helpful hint about offset scales. Kelvin conversion via `.to("K")`. |
-| #102 | Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal) | FEAT-118 | 2026-02-25 | ✅ Volume family fully implemented with SI (mL, L, kL) and US (floz, cup, pt, qt, gal) suffixes. Cross-system conversion works. |
+| #130 | Phase 2: Temperature units (K, C, F) | FEAT-118 | 2026-02-25 | ✅ Temperature units implemented with K, C, F suffixes. `#0C == #32F` works. Multiplication correctly errors with helpful hint about offset scales. Kelvin conversion via `.to("K")`. *(Previously #101 — renumbered to resolve ID collision with Low Priority dry volume item.)* |
+| #131 | Phase 2: Volume units (mL, L, floz, cup, pt, qt, gal) | FEAT-118 | 2026-02-25 | ✅ Volume family fully implemented with SI (mL, L, kL) and US (floz, cup, pt, qt, gal) suffixes. Cross-system conversion works. *(Previously #102 — renumbered to resolve ID collision with Low Priority decilitre item.)* |
 | #103 | Phase 3: Area units + kL + Scale + .max/.min | FEAT-118 | 2026-02-14 | ✅ Area family (mm2/cm2/m2/km2/in2/ft2/yd2/ac/mi2), kL volume suffix, decimal Scale infrastructure for overflow. Cross-system bridge exact (1 in² = 16129/25 mm²). US area decimal-only display. PLN parser longest-match fix for digit-containing suffixes. See PLAN-097. Note: .max/.min not on units, but on numbers. |
 | #104 | Phase 4: Compound display formatting | FEAT-118 | 2026-02-25 | ✅ Compound formats work: `#63in.format("ft-in")` → `"5' 3\""`, `#5.25lb.format("lb-oz")` → `"5lb 4oz"`, `#2.5gal.format("gal-qt-pt")` → `"2gal 2qt"`, `#1.5L.format("L-mL")` → `"1L 500mL"`. |
 | #105 | Phase 4: Derived unit arithmetic | FEAT-118 | 2026-02-25 | ✅ `#5m * #3m` → `#15m2`. Length × length → area implemented for both SI and US systems. |
@@ -140,7 +136,6 @@ Deferred items from implementation, to be picked up in future work.
 | #82 | Pretty-printer: REPL integration | FEAT-100 | 2026-01-21 | ✅ `ObjectToFormattedReprString()` in eval_string_conversions.go, REPL updated in repl.go. Arrays/dicts/functions now pretty-print with multiline support when exceeding 60-char threshold. |
 | #6 | Support for `else if` in Parsley | FEAT-057 | 2025-12 | ✅ Implemented in parser.go line 1841-1856. Parser recursively handles `else if` chains. |
 | #11 | Remove `@std/basil` error before Alpha | FEAT-071 | 2025-12 | ✅ Implemented in stdlib_table.go line 37-42. Now returns proper import error directing users to `@basil/http` or `@basil/auth`. |
-| #21 | Form validation/sanitization | FEAT-002/FEAT-032 | 2025-12 | ✅ Implemented as `@std/valid` module with comprehensive validators. See FEAT-032.md. |
 | #32 | Table.toJSON() | FEAT-018 | 2025-12 | ✅ Implemented in stdlib_table.go line 1218-1256. Renders table as JSON array of objects. |
 | #33 | Table.fromCSV(string) | FEAT-018 | Not applicable | CSV parsing into Table already supported via `let table = import "./data.csv"` - no separate method needed. |
 | #5 | Parameterized queries for raw SQL operators | QUERY-BUILDER-INVESTIGATION | 2026-01-08 | ✅ **ALREADY IMPLEMENTED** - The raw SQL operators (`<=?=>`, `<=??=>`, `<=!=>`) DO support parameterized queries via `<SQL>` tag. See eval_database.go lines 211-232: `extractSQLAndParams()` extracts both SQL string and params dict. The `<SQL params={...}>` syntax works correctly. Documentation in security.md line 392. Query DSL (TableBinding) also uses `?` params internally. Item was based on outdated understanding. |
@@ -153,12 +148,43 @@ Deferred items from implementation, to be picked up in future work.
 | #72 | PLN Record serialization (@Schema syntax) | FEAT-098 | 2026-01-14 | ✅ Records serialize as `@Schema({...})`. Implemented in PLN Phase 3 (serializer.go). |
 | #73 | PLN DateTime serialization (@ISO format) | FEAT-098 | 2026-01-14 | ✅ Datetimes serialize as `@2024-01-20T10:30:00Z`. Implemented in PLN Phase 3. |
 | #74 | PLN Path/URL serialization (@ prefix) | FEAT-098 | 2026-01-14 | ✅ Paths as `@/path/to/file`, URLs as `@https://example.com`. Implemented in PLN Phase 3. |
-
 | #115 | Basil server performance benchmark suite | Performance analysis 2026-03-10 | 2026-03-10 | ✅ Implemented in FEAT-139. Added 25 benchmarks across 4 files: cache_bench_test.go, handler_bench_test.go, api_bench_test.go, server_bench_test.go. Added `make bench` target. See work/reports/FEAT-139-implementation-notes.md. |
 | #116 | Review per-request module cache clearing in API handlers | Performance analysis 2026-03-10 | 2026-03-10 | ✅ **Investigation complete.** `ClearModuleCache()` in `api.go` can be safely removed. All tests pass without it; DynamicAccessor pattern handles per-request values correctly. Performance impact is negligible for simple handlers but could matter for module-heavy workloads. Recommendation: remove the call for consistency with page handlers. See detailed analysis in `work/reports/BASIL-PERFORMANCE-ANALYSIS-2026-03-10.md` (Investigation Results section). |
-| #117 | Compression benchmarks | FEAT-139 | Adds setup complexity | Benchmark gzip/zstd compression overhead at various response sizes. Deferred from initial benchmark suite to keep v1 simple. |
-| #118 | Database-backed route benchmarks | FEAT-139 | Fixture complexity | Benchmark page/API handlers that perform database queries. Requires SQLite fixture setup which adds complexity beyond the initial suite scope. |
-| #119 | Cold-start parse-path benchmarks | FEAT-139 | Different use case | Benchmark uncached AST parsing to measure cold-start costs. Initial suite focused on steady-state (warm cache) performance. |
-| #120 | Benchmark result history automation | FEAT-139 | Tooling | Automate benchmark result collection and comparison across commits. Would enable regression detection in CI. Low priority until baseline is established. |
 | #54 | Builtin Table type | Reference audit | 2026-02-26 | ✅ Table is a builtin type with `@table` literal syntax, `Table` struct in evaluator, and methods in `MethodRegistry`. `@std/table` module deprecated and removed in FEAT-128. `parseCSV()` returns data usable with `@table`. |
 | #55 | Deprecate `format(arr, style?)` builtin | Reference audit | 2026-02-26 | ✅ Deprecation warning added in FEAT-127. Use `arr.format(style?)` method instead. |
+
+---
+
+## Cleanup Log (2026-03-16)
+
+Changes made during backlog audit:
+
+### Moved to Completed (were done but never updated)
+- **#87** — Error handler tests: all 7 tests pass, HTML responses work correctly.
+- **#1, #2, #3, #4** — Query DSL features (interpolation, correlated subqueries, CTEs, join subqueries): all fully implemented with parser, evaluator, SQL generation, and tests.
+- **#21** — Form validation: was in both Medium Priority and Completed. Removed from Medium Priority (duplicate).
+- **#24** — Email recovery: marked "Probably never" but was fully implemented as token-based email recovery in `server/auth/`.
+- **#27** — Table.groupBy: implemented as `tableGroupBy()` in `stdlib_table.go`.
+- **#30** — Table.distinct: implemented as `unique()` method.
+- **#57** — Rename `@std/dev` to `@basil/log`: canonical name is `@basil/log`; alias removal tracked by #121.
+- **#58** — Local module imports without `-x`: fixed as BUG-022 with comprehensive tests.
+- **#89** — Assignment-capture for I/O operators: implemented in FEAT-104 with 700+ lines of tests.
+
+### Moved back from Completed to Low Priority (were never actually done)
+- **#117** — Compression benchmarks (kept original ID, no collision).
+- **#118 → #125** — Database-backed route benchmarks (renumbered).
+- **#119 → #126** — Cold-start parse-path benchmarks (renumbered).
+- **#120 → #127** — Benchmark result history automation (renumbered).
+
+### Duplicate IDs resolved
+- **#37** appeared twice → split into **#37a** (search benchmarks) and **#37b** (math: advanced statistics).
+- **#98** was used for both tree-sitter regex escapes (Medium) and introspection drift fix (Completed) → tree-sitter item renumbered to **#122**. Completed item keeps #98.
+- **#99** was used for both tree-sitter XML comments (Medium) and Kelvin escape hatch (Low) → tree-sitter item renumbered to **#123**. Low Priority item keeps #99.
+- **#100** was used for both tree-sitter tags-in-strings (Medium) and temperature intervals (Low) → tree-sitter item renumbered to **#124**. Low Priority item keeps #100.
+- **#101** was used for both completed temperature units and Low Priority dry volume → completed item renumbered to **#130**.
+- **#102** was used for both completed volume units and Low Priority decilitre → completed item renumbered to **#131**.
+- **#118** was used for both CI benchmark integration (Medium) and DB route benchmarks (Completed Archive, moved back) → CI integration renumbered to **#128**; DB benchmarks renumbered to **#125**.
+- **#119** was used for both benchmark visualization (Medium) and cold-start benchmarks (Completed Archive, moved back) → visualization renumbered to **#129**; cold-start renumbered to **#126**.
+
+### Next available IDs
+After this cleanup, the following IDs are allocated: #122–#131. Update `work/ID_COUNTER.md` accordingly if these need formal tracking. Note: backlog item IDs are separate from FEAT/BUG/PLAN IDs.
