@@ -24,7 +24,7 @@ Redesign the `DataTable` component to accept Parsley `Table` objects directly, l
 ### Task 1.1: Scaffold new DataTable structure
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 20 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Back up existing implementation (or rely on git)
@@ -50,7 +50,7 @@ Tests:
 ### Task 1.2: Implement data derivation logic
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Derive `tableColumns` from `data.columns` or `columns` prop
@@ -68,7 +68,7 @@ Tests:
 ### Task 1.3: Implement header derivation
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 10 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Implement `getHeader(col)` helper:
@@ -86,7 +86,7 @@ Tests:
 ### Task 1.4: Implement alignment logic
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 10 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Implement `getAlign(col)` helper:
@@ -104,7 +104,7 @@ Tests:
 ### Task 1.5: Implement body rows
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Iterate over `tableRows`
@@ -124,7 +124,7 @@ Tests:
 ### Task 1.6: Implement empty state
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 10 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Check if `tableRows.length() == 0`
@@ -145,7 +145,7 @@ Tests:
 ### Task 2.1: Implement format hint helper
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 10 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Implement `getFormat(col)` helper:
@@ -161,7 +161,7 @@ Tests:
 ### Task 2.2: Implement formatCell helper
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 25 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Create `formatCell(value, col)` function
@@ -186,7 +186,7 @@ Tests:
 ### Task 2.3: Implement custom render functions
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. In row iteration, check if `render[key]` exists
@@ -203,7 +203,9 @@ Tests:
 ### Task 2.4: Implement footer rows
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
+
+**Note**: Discovered that Parsley's `&&` operator does not short-circuit. Used nested `if` statements instead of `footer != null && footer.length() > 0`.
 
 Steps:
 1. Check if `footer && footer.length() > 0`
@@ -225,7 +227,7 @@ Tests:
 ### Task 3.1: Implement prop spreading
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 10 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Build `tableClass`: `"data-table" + if (class) " " + class else ""`
@@ -243,7 +245,7 @@ Tests:
 ### Task 3.2: Implement caption
 **Files**: `server/prelude/components/data_table.pars`
 **Estimated effort**: 5 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. If `caption` is provided, render `<caption>caption</caption>` as first child of table
@@ -255,9 +257,9 @@ Tests:
 ---
 
 ### Task 3.3: Update CSS
-**Files**: `server/prelude/styles/components.css`
+**Files**: `server/prelude/css/basil.css`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Add/update `.data-table` base styles
@@ -320,7 +322,7 @@ Tests:
 ### Task 4.1: Create DataTable test file
 **Files**: `pkg/parsley/tests/datatable_test.go`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Create new test file with standard imports
@@ -332,7 +334,7 @@ Steps:
 ### Task 4.2: Implement core functionality tests
 **Files**: `pkg/parsley/tests/datatable_test.go`
 **Estimated effort**: 25 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Test cases:
 1. **Table input**: `<DataTable data={table([{name: "Alice"}])}/>` renders correctly
@@ -350,7 +352,7 @@ Test cases:
 ### Task 4.3: Implement formatting tests
 **Files**: `pkg/parsley/tests/datatable_test.go`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Test cases:
 1. **Money formatting**: renders with thousands separator
@@ -364,7 +366,7 @@ Test cases:
 ### Task 4.4: Implement edge case tests
 **Files**: `pkg/parsley/tests/datatable_test.go`
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Test cases:
 1. **Empty state default**: shows "No data"
@@ -418,35 +420,35 @@ Steps:
 
 ## Validation Checklist
 
-- [ ] `pars --check server/prelude/components/data_table.pars` passes
-- [ ] All tests pass: `go test ./pkg/parsley/...`
+- [x] `pars --check server/prelude/components/data_table.pars` passes
+- [x] All tests pass: `go test ./pkg/parsley/...`
 - [ ] Build succeeds: `make build`
 - [ ] Benchmarks checked: `make bench-compare`
 - [ ] Visual inspection of rendered tables
-- [ ] Backward compatibility verified
+- [x] Backward compatibility verified
 - [ ] Documentation updated
 
 ## Progress Log
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1.1: Scaffold component | | |
-| | Task 1.2: Data derivation | | |
-| | Task 1.3: Header derivation | | |
-| | Task 1.4: Alignment logic | | |
-| | Task 1.5: Body rows | | |
-| | Task 1.6: Empty state | | |
-| | Task 2.1: Format helper | | |
-| | Task 2.2: formatCell | | |
-| | Task 2.3: Render functions | | |
-| | Task 2.4: Footer rows | | |
-| | Task 3.1: Prop spreading | | |
-| | Task 3.2: Caption | | |
-| | Task 3.3: CSS | | |
-| | Task 4.1: Test file | | |
-| | Task 4.2: Core tests | | |
-| | Task 4.3: Formatting tests | | |
-| | Task 4.4: Edge case tests | | |
+| 2026-06-15 | Task 1.1: Scaffold component | ✅ Complete | Full props destructuring |
+| 2026-06-15 | Task 1.2: Data derivation | ✅ Complete | Table and array support |
+| 2026-06-15 | Task 1.3: Header derivation | ✅ Complete | columnProps integration |
+| 2026-06-15 | Task 1.4: Alignment logic | ✅ Complete | Schema-aware alignment |
+| 2026-06-15 | Task 1.5: Body rows | ✅ Complete | rowHeader support |
+| 2026-06-15 | Task 1.6: Empty state | ✅ Complete | Configurable message |
+| 2026-06-15 | Task 2.1: Format helper | ✅ Complete | getFormat() |
+| 2026-06-15 | Task 2.2: formatCell | ✅ Complete | Type-aware formatting |
+| 2026-06-15 | Task 2.3: Render functions | ✅ Complete | Custom cell rendering |
+| 2026-06-15 | Task 2.4: Footer rows | ✅ Complete | Nested if for null check |
+| 2026-06-15 | Task 3.1: Prop spreading | ✅ Complete | ...attrs support |
+| 2026-06-15 | Task 3.2: Caption | ✅ Complete | Accessibility |
+| 2026-06-15 | Task 3.3: CSS | ✅ Complete | basil.css updated |
+| 2026-06-15 | Task 4.1: Test file | ✅ Complete | datatable_test.go |
+| 2026-06-15 | Task 4.2: Core tests | ✅ Complete | 22 test cases |
+| 2026-06-15 | Task 4.3: Formatting tests | ✅ Complete | Schema integration |
+| 2026-06-15 | Task 4.4: Edge case tests | ✅ Complete | Edge cases covered |
 | | Task 5.1: Component docs | | |
 | | Task 5.2: Migration notes | | |
 | | Task 5.3: CHANGELOG | | |
