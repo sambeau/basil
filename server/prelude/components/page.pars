@@ -19,6 +19,7 @@
 //
 // Props:
 //   lang        - Language code (required)
+//   dir         - Text direction ("ltr" or "rtl")
 //   title       - Page title (required)
 //   description - Meta description
 //   class       - Body class
@@ -26,13 +27,13 @@
 //   head        - Additional <head> content (CSS, meta tags, etc.)
 //   noBasilJS   - Omit basil.js script (for pages that don't use enhanced components)
 
-export Page = fn({lang, title, description, class, id, head, noBasilJS, contents}) {
+export Page = fn({lang, dir, title, description, class, id, head, noBasilJS, contents}) {
     if (title == null || title == "") {
         fail("Page requires a title")
     }
 
     "<!DOCTYPE html>\n"
-    <html lang={lang ?? "en"}>
+    <html lang={lang ?? "en"} dir={dir}>
     <head>
         <meta charset="UTF-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
