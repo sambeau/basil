@@ -180,21 +180,17 @@ func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environme
 		// Single path literal
 		if pathDict, ok := watch.(*evaluator.Dictionary); ok && isPathDict(pathDict) {
 			pathStr := pathDictToString(pathDict)
-			fmt.Printf("[DEBUG] Watch path (single path literal): %q\n", pathStr)
 			opts.Watch = []string{pathStr}
 		} else if str, ok := watch.(*evaluator.String); ok {
 			// String path
-			fmt.Printf("[DEBUG] Watch path (string): %q\n", str.Value)
 			opts.Watch = []string{str.Value}
 		} else if arr, ok := watch.(*evaluator.Array); ok {
 			// Array of paths
 			for _, elem := range arr.Elements {
 				if pathDict, ok := elem.(*evaluator.Dictionary); ok && isPathDict(pathDict) {
 					pathStr := pathDictToString(pathDict)
-					fmt.Printf("[DEBUG] Watch path from array (path literal): %q\n", pathStr)
 					opts.Watch = append(opts.Watch, pathStr)
 				} else if str, ok := elem.(*evaluator.String); ok {
-					fmt.Printf("[DEBUG] Watch path from array (string): %q\n", str.Value)
 					opts.Watch = append(opts.Watch, str.Value)
 				} else {
 					return opts, fmt.Errorf("watch array must contain paths or strings")

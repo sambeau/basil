@@ -88,6 +88,12 @@ func (h *GitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = "/"
 	}
 
+	// Guard against path traversal attacks
+	if strings.Contains(r.URL.Path, "..") {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
 	h.git.ServeHTTP(w, r)
 }
 

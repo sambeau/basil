@@ -137,3 +137,34 @@ func TestGitHandler_RoleCheck(t *testing.T) {
 		t.Errorf("expected role %s, got %s", auth.RoleEditor, validatedUser.Role)
 	}
 }
+
+func TestGitHandler_PathTraversal(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{Dev: true},
+		Git:    config.GitConfig{Enabled: true, RequireAuth: false},
+	}
+
+	var stdout, stderr bytes.Buffer
+	handler, err := NewGitHandler(t.TempDir(), nil, cfg, nil, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("NewGitHandler failed: %v", err)
+	}
+
+	paths := []string{
+		"/.git/../../../etc/passwd",
+		"/.git/objects/../../secret",
+		"/.git/../.git/config",
+	}
+
+	for _, path := range paths {
+		req := httptest.NewRequest("GET", path, http.NoBody)
+		req.RemoteAddr = "127.0.0.1:12345"
+		w := httptest.NewRecorder()
+
+		handler.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("path %q: expected 400, got %d", path, w.Code)
+		}
+	}
+}

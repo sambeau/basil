@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+const (
+	// MaxTextFileSize is the maximum text file size we'll attempt to process (50MB)
+	MaxTextFileSize = 50 * 1024 * 1024
+)
+
 // ScanOptions configures file scanning behavior
 type ScanOptions struct {
 	Extensions     []string // File extensions to include (e.g., [".md", ".html"])
@@ -104,6 +109,10 @@ func ScanFolder(folderPath string, opts *ScanOptions) ([]*Document, error) {
 			}
 		} else {
 			// Process text-based files (markdown, HTML, etc.)
+			if fileInfo.Size() > MaxTextFileSize {
+				scanErrors = append(scanErrors, fmt.Errorf("text file too large: %s (%d bytes, max %d)", path, fileInfo.Size(), MaxTextFileSize))
+				return nil
+			}
 			content, err := os.ReadFile(path)
 			if err != nil {
 				scanErrors = append(scanErrors, fmt.Errorf("error reading %s: %w", path, err))
