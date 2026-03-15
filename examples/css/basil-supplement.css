@@ -1,0 +1,150 @@
+/*
+ * Basil Supplement CSS
+ * Extends Pico CSS for Prelude components
+ *
+ * This file provides minimal styles for components that Pico CSS doesn't cover.
+ * Use alongside Pico CSS: https://picocss.com
+ *
+ * Version: 1.0.0
+ * License: MIT
+ */
+
+/* ===== Skip Link (Screen reader accessible) ===== */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+.skip-link:focus {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    padding: 1rem;
+    background: var(--pico-background-color, #fff);
+    color: var(--pico-color, #333);
+    z-index: 9999;
+    outline: 2px solid var(--pico-primary, #1095c1);
+    outline-offset: 2px;
+}
+
+/* ===== Toast Container ===== */
+#toasts,
+[data-position] {
+    position: fixed;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 24rem;
+    pointer-events: none;
+}
+
+#toasts > *,
+[data-position] > * {
+    pointer-events: auto;
+}
+
+/* Toast positioning */
+[data-position="top-right"]     { top: 1rem; right: 1rem; }
+[data-position="top-left"]      { top: 1rem; left: 1rem; }
+[data-position="top-center"]    { top: 1rem; left: 50%; transform: translateX(-50%); }
+[data-position="bottom-right"]  { bottom: 1rem; right: 1rem; }
+[data-position="bottom-left"]   { bottom: 1rem; left: 1rem; }
+[data-position="bottom-center"] { bottom: 1rem; left: 50%; transform: translateX(-50%); }
+
+/* Default position if not specified */
+#toasts:not([data-position]) {
+    top: 1rem;
+    right: 1rem;
+}
+
+/* Toast type indicators (uses Pico CSS color variables) */
+[data-type="success"] { border-left: 4px solid var(--pico-ins-color, #2a9d8f); }
+[data-type="error"]   { border-left: 4px solid var(--pico-del-color, #e63946); }
+[data-type="warning"] { border-left: 4px solid var(--pico-mark-background-color, #ffc107); }
+[data-type="info"]    { border-left: 4px solid var(--pico-primary, #1095c1); }
+
+/* ===== Pagination ===== */
+nav[aria-label="Pagination"] ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+nav[aria-label="Pagination"] li {
+    margin: 0;
+}
+
+nav[aria-label="Pagination"] a,
+nav[aria-label="Pagination"] span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    text-decoration: none;
+    border-radius: var(--pico-border-radius, 0.25rem);
+}
+
+nav[aria-label="Pagination"] a:hover {
+    background: var(--pico-secondary-background, #f0f0f0);
+}
+
+nav[aria-label="Pagination"] a[aria-current="page"] {
+    background: var(--pico-primary, #1095c1);
+    color: var(--pico-primary-inverse, #fff);
+}
+
+nav[aria-label="Pagination"] span[aria-hidden="true"] {
+    color: var(--pico-muted-color, #666);
+}
+
+/* ===== Error Summary ===== */
+aside[role="alert"] {
+    border-left: 4px solid var(--pico-del-color, #e63946);
+}
+
+aside[role="alert"]:focus {
+    outline: 2px solid var(--pico-primary-focus, rgba(16, 149, 193, 0.5));
+    outline-offset: 2px;
+}
+
+aside[role="alert"] h2 {
+    color: var(--pico-del-color, #e63946);
+    margin-bottom: 0.5rem;
+}
+
+aside[role="alert"] ul {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+aside[role="alert"] li {
+    margin-bottom: 0.25rem;
+}
+
+aside[role="alert"] a {
+    color: var(--pico-del-color, #e63946);
+}
+
+/* ===== Screen Reader Only (utility) ===== */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
