@@ -1,7 +1,8 @@
 # Standard Library 1.0 Action Plan
 
 **Date:** 2026-03-14
-**Status:** Ready for execution
+**Updated:** 2026-03-15
+**Status:** In progress
 **Companion report:** `STDLIB-1.0-RELEASE-REVIEW.md`
 **Purpose:** Concrete, prioritised work items to bring the standard library to release quality
 
@@ -15,11 +16,46 @@ The standard library is substantially ready for 1.0. The major cleanup (FEAT-129
 
 ---
 
+## Progress Summary
+
+| Tier | Total Items | Complete | Remaining |
+|------|-------------|----------|-----------|
+| Tier 1 (Must do) | 3 | 1 | 2 |
+| Tier 2 (Should do) | 5 | 0 | 5 |
+
+**Recently completed:**
+- ✅ **FEAT-142: Meta Component and Page Restructure** (2026-03-15) — Created `Meta` component, updated `Page` to output OG/Twitter metadata, deleted `Head` component (replaced by `Meta` with `Head` as deprecated alias)
+
+---
+
 ## Tier 1: Must Do Before 1.0
 
 These items would create permanent API warts or active user confusion if shipped as-is. They are small, low-risk, and mechanical.
 
 **Estimated effort: 3–5 hours total.**
+
+### ✅ 1.0 FEAT-142: Meta Component and Page Restructure (COMPLETE)
+
+| | |
+|---|---|
+| **Priority** | 🔴 Must fix |
+| **Effort** | 3 hours |
+| **Risk** | Low |
+| **Source** | STANDARD-PRELUDE-REVIEW.md §7.4 |
+| **Status** | ✅ **Complete** (2026-03-15) |
+
+**Problem:** The `Head` and `Page` components had a broken composition model — both generated `<head>` wrappers, so they couldn't be nested. Users had to duplicate title/description for Open Graph metadata.
+
+**Work completed:**
+1. Created `server/prelude/components/meta.pars` with new `Meta` component (outputs only meta/link tags, no wrapper)
+2. Updated `server/prelude/components/page.pars`:
+   - Added title validation with `fail()`
+   - Now outputs `og:title`, `og:description`, `twitter:title`, `twitter:description` automatically
+3. Deleted `server/prelude/components/head.pars`
+4. Updated `pkg/parsley/evaluator/stdlib_html.go` to load `Meta` and `Head` (as alias) from `meta.pars`
+5. Committed: `feat(prelude): add Meta component and restructure Page (FEAT-142)`
+
+**Related:** `work/specs/FEAT-142.md`, `work/design/DESIGN-prelude-meta-component.md`
 
 ### 1.1 Rename `@std/mdDoc` → `@std/mddoc`
 
@@ -287,6 +323,7 @@ Steps 4 and 5 can be done as a single commit if desired. Steps 2, 3, 6, and 7 sh
 
 ### Tier 1 (Must do)
 
+- [x] **FEAT-142**: Meta component created, Page updated with OG/Twitter output _(completed 2026-03-15)_
 - [ ] `@std/mdDoc` renamed to `@std/mddoc` with deprecation alias
 - [ ] `@std/schema` docs slimmed to deprecation notice + migration guide
 - [ ] All 26 prelude components smoke-tested for rendering
@@ -323,4 +360,7 @@ Steps 4 and 5 can be done as a single commit if desired. Steps 2, 3, 6, and 7 sh
 | `work/reports/1.0-SHIP-REVIEW.md` | Broader ship review (§4 and §12 relevant) |
 | `work/reports/1.0-READINESS-AUDIT.md` | Prior readiness assessment |
 | `work/specs/FEAT-129.md` | Stdlib cleanup spec (complete) |
+| `work/specs/FEAT-142.md` | Meta component spec (complete) |
+| `work/design/DESIGN-prelude-meta-component.md` | Meta component design (complete) |
+| `work/plans/PLAN-FEAT-142.md` | Meta component implementation plan (complete) |
 | `work/BACKLOG.md` | #17 (locales), #5 (email), #12 (form targets) |

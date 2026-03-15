@@ -1,6 +1,7 @@
 # Standard Library 1.0 Release Review
 
 **Date:** 2026-03-14
+**Updated:** 2026-03-15
 **Status:** Complete — Action plan in `STDLIB-1.0-ACTION-PLAN.md`
 **Scope:** All `@std/` and `@basil/` modules, prelude components, documentation
 **Prior work:** `STDLIB-AUDIT-2025.md`, `1.0-SHIP-REVIEW.md` §4/§12, `1.0-READINESS-AUDIT.md`, `FEAT-129`
@@ -205,7 +206,7 @@ The `@basil/html` module loads 26 components from `.pars` files in `server/prelu
 
 | Category | Components | Count |
 |----------|-----------|-------|
-| Layout | Page, Head | 2 |
+| Layout | Page, Meta (Head is deprecated alias) | 2 |
 | Form | TextField, TextareaField, SelectField, RadioGroup, CheckboxGroup, Checkbox, Button, Form | 8 |
 | Navigation | Nav, Breadcrumb, SkipLink | 3 |
 | Media | Img, Iframe, Figure, Blockquote | 4 |
@@ -213,6 +214,8 @@ The `@basil/html` module loads 26 components from `.pars` files in `server/prelu
 | Time | Time, LocalTime, TimeRange, RelativeTime | 4 |
 | Data | DataTable | 1 |
 | **Total** | | **26** |
+
+> **Update (2026-03-15):** FEAT-142 completed. `Head` component replaced by `Meta` component. `Head` remains as a deprecated alias for backward compatibility. `Page` now outputs Open Graph and Twitter metadata automatically from its `title` and `description` props.
 
 ### Quality Assessment by Category
 
@@ -242,8 +245,9 @@ Specific notes:
 
 | Component | Notes |
 |-----------|-------|
-| `Page` | Generates complete HTML document (doctype, html, head, body). Integrates SkipLink, CSS bundles, JavaScript bundles, and optional BasilJS. Supports `noBasilJS` for pages not needing enhanced components. `lang` defaults to `"en"`. |
-| `Head` | Adds content to `<head>` section. Serves as a hook for additional meta tags, stylesheets, etc. |
+| `Page` | Generates complete HTML document (doctype, html, head, body). Integrates SkipLink, CSS bundles, JavaScript bundles, and optional BasilJS. Supports `noBasilJS` for pages not needing enhanced components. `lang` defaults to `"en"`. **Updated (FEAT-142):** Now validates `title` is provided, and automatically outputs `og:title`, `og:description`, `twitter:title`, `twitter:description` from its props. |
+| `Meta` | **(New in FEAT-142)** SEO and social media metadata tags. Outputs meta/link tags only (no `<head>` wrapper) for composition inside `Page`'s `head` prop. Handles `image`, `url`, `type`, `author`, `published`, `modified`, `twitter`, favicons, `noIndex`. |
+| `Head` | **(Deprecated)** Alias for `Meta`. Kept for backward compatibility. |
 
 #### Navigation Components — Good Quality ✅
 
@@ -727,13 +731,13 @@ stdlibModuleMeta = map[string]*ModuleMeta{
 
 ## Appendix B: Prelude Component File Inventory
 
-All files in `server/prelude/components/`:
+All files in `server/prelude/components/` (updated 2026-03-15 after FEAT-142):
 
 ```
 a.pars              breadcrumb.pars     checkbox.pars
 checkbox_group.pars data_table.pars     figure.pars
-form.pars           head.pars           icon.pars
-iframe.pars         img.pars            local_time.pars
+form.pars           icon.pars           iframe.pars
+img.pars            local_time.pars     meta.pars
 nav.pars            page.pars           radio_group.pars
 relative_time.pars  select_field.pars   skip_link.pars
 sr_only.pars        text_field.pars     textarea_field.pars
@@ -742,6 +746,8 @@ abbr.pars           blockquote.pars
 ```
 
 Total: 26 component files.
+
+> **Note:** `head.pars` was deleted in FEAT-142 and replaced by `meta.pars`. The `Meta` component exports both `Meta` and `Head` (deprecated alias).
 
 ## Appendix C: Test File Inventory for Stdlib
 
