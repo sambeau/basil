@@ -340,4 +340,34 @@ When caught with `try`, the `error` slot is a dictionary — use `error.message`
 
 ---
 
+## Styling Questions
+
+### How do I style Prelude components?
+
+Prelude components output semantic HTML that works with any CSS framework. We recommend **Pico CSS** for its simplicity and accessibility:
+
+```parsley
+<Page lang="en" title="My App" head={
+    <>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
+        <link rel="stylesheet" href="/css/basil-supplement.css"/>
+    </>
+}>
+    <main id="main" class="container">
+        contents
+    </main>
+</Page>
+```
+
+**Key points:**
+- Add `id="main"` to your `<main>` element (for skip link)
+- Copy `examples/css/basil-supplement.css` to your static files (for toasts, pagination, etc.)
+- Pico styles form fields, buttons, dialogs, and more automatically
+
+See the full [Styling Guide](./styling.md) for examples of all components.
+
+*Added: 2026-06-15*
+
+---
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

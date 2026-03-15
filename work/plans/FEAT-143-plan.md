@@ -435,7 +435,27 @@ Tests:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-06-15 | Task 1.1: Create Details component | ✅ Complete | Native HTML5 `<details>` |
+| 2026-06-15 | Task 1.2: Create Accordion component | ✅ Complete | Uses `name` attribute for exclusive behavior |
+| 2026-06-15 | Task 1.3: Create Dialog component | ✅ Complete | Pico-compatible `<dialog><article>` pattern |
+| 2026-06-15 | Task 1.4: Update prelude exports (Phase 1) | ✅ Complete | Details, Accordion, Dialog registered |
+| 2026-06-15 | Task 2.1: Update TextField | ✅ Complete | Uses `<small>` for hints/errors |
+| 2026-06-15 | Task 2.2: Update TextareaField | ✅ Complete | Same pattern as TextField |
+| 2026-06-15 | Task 2.3: Update SelectField | ✅ Complete | Same pattern as TextField |
+| 2026-06-15 | Task 2.4: Update SkipLink | ✅ Complete | Removed inline CSS, uses class |
+| 2026-06-15 | Task 2.5: Update Breadcrumb | ✅ Complete | Lowercase aria-label, removed classes |
+| 2026-06-15 | Task 2.6: Update Page | ✅ Complete | Removed default body id |
+| 2026-06-15 | Task 2.7: Update Form | ✅ Complete | Removed .form class |
+| 2026-06-15 | Task 3.1: Create Toast component | ✅ Complete | role="status\|alert", data-type |
+| 2026-06-15 | Task 3.2: Create Toasts container | ✅ Complete | aria-live="polite", data-position |
+| 2026-06-15 | Task 3.3: Create Pagination component | ✅ Complete | Window-based, aria-current |
+| 2026-06-15 | Task 3.4: Create ErrorSummary component | ✅ Complete | role="alert", tabindex="-1" |
+| 2026-06-15 | Task 3.5: Update prelude exports (Phase 3) | ✅ Complete | All 4 components registered |
+| | Task 4.1: Add component integration tests | ⏳ Pending | |
+| | Task 4.2: Create example page | ⏳ Pending | |
+| | Task 4.3: Document all new components | ⏳ Pending | |
+| | Task 4.4: Add migration guide | ⏳ Pending | |
+| | Task 4.5: Update FAQ | ⏳ Pending | |
 
 ## Deferred Items
 
