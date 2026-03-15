@@ -212,6 +212,61 @@ func TestDatetimeStringConversion(t *testing.T) {
 	}
 }
 
+// TestDatetimeTemplateInterpolationMedium tests that datetime uses .medium() in template interpolation (FEAT-146)
+func TestDatetimeTemplateInterpolationMedium(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"date_only", "let d = datetime(\"2025-06-15\"); `Date: {d}`", "Date: Jun 15, 2025"},
+		{"full_datetime", "let d = datetime(\"2025-12-25T14:30:00Z\"); `Date: {d}`", "Date: Dec 25, 2025"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluated := testEvalKind(tt.input)
+			if err, ok := evaluated.(*evaluator.Error); ok {
+				t.Fatalf("For input '%s': got error: %s", tt.input, err.Message)
+			}
+			str, ok := evaluated.(*evaluator.String)
+			if !ok {
+				t.Fatalf("For input '%s': expected String, got %T", tt.input, evaluated)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("For input '%s': expected %q, got %q", tt.input, tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+// TestDatetimeToStringPreservesISO tests that toString() still returns ISO format (FEAT-146)
+func TestDatetimeToStringPreservesISO(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`toString(@2024-12-25T14:30:00)`, "2024-12-25T14:30:00Z"},
+		{`toString(datetime("2025-06-15"))`, "2025-06-15T00:00:00Z"},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalKind(tt.input)
+		if err, ok := evaluated.(*evaluator.Error); ok {
+			t.Errorf("For input '%s': got error: %s", tt.input, err.Message)
+			continue
+		}
+		str, ok := evaluated.(*evaluator.String)
+		if !ok {
+			t.Errorf("For input '%s': expected String, got %T", tt.input, evaluated)
+			continue
+		}
+		if str.Value != tt.expected {
+			t.Errorf("For input '%s': expected %s, got %s", tt.input, tt.expected, str.Value)
+		}
+	}
+}
+
 // TestKindPreservationInArithmetic tests that kind is preserved after arithmetic operations
 func TestKindPreservationInArithmetic(t *testing.T) {
 	tests := []struct {

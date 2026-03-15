@@ -1797,3 +1797,91 @@ func TestTableMoneyMediumFormatting(t *testing.T) {
 		t.Errorf("expected money formatted with .medium() as $ 4,999.00, got: %s", str.Value)
 	}
 }
+
+// FEAT-146: Duration, Unit, and DateTime formatting in tables
+
+func TestTableDurationFormatting(t *testing.T) {
+	// Duration values in tables should render as human-readable text, not raw dicts
+	input := `table([{task: "Run", time: duration("2h30m")}]).toHTML()`
+	result := evalTest(t, input)
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	if strings.Contains(str.Value, "__type") {
+		t.Errorf("duration should not render as raw dict, got: %s", str.Value)
+	}
+	if !strings.Contains(str.Value, "2 hours 30 minutes") {
+		t.Errorf("expected duration formatted as '2 hours 30 minutes', got: %s", str.Value)
+	}
+}
+
+func TestTableUnitFormatting(t *testing.T) {
+	// Unit values in tables should render with .medium() formatting
+	input := `table([{item: "Board", length: unit(5.0, "km")}]).toHTML()`
+	result := evalTest(t, input)
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	if strings.Contains(str.Value, "UNIT") {
+		t.Errorf("unit should not render as <UNIT> inspect format, got: %s", str.Value)
+	}
+	if !strings.Contains(str.Value, "5.00km") {
+		t.Errorf("expected unit formatted as '5.00km', got: %s", str.Value)
+	}
+}
+
+func TestTableDatetimeFormatting(t *testing.T) {
+	// Datetime values in tables should render in readable format
+	tests := []struct {
+		name     string
+		input    string
+		contains string
+	}{
+		{
+			"date_only",
+			`table([{event: "Holiday", date: datetime("2025-06-15")}]).toHTML()`,
+			"2025-06-15",
+		},
+		{
+			"full_datetime",
+			`table([{event: "Meeting", date: datetime("2025-06-15T14:30:00Z")}]).toHTML()`,
+			"2025-06-15 14:30:00",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalTest(t, tt.input)
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+			}
+			if !strings.Contains(str.Value, tt.contains) {
+				t.Errorf("expected table to contain %q, got: %s", tt.contains, str.Value)
+			}
+		})
+	}
+}
+
+func TestTableMixedTypedColumns(t *testing.T) {
+	// All typed values should render correctly in a single row
+	input := `table([{name: "Widget", price: $4999, weight: unit(2.5, "kg"), shipping: duration("3d"), ordered: datetime("2025-06-15")}]).toHTML()`
+	result := evalTest(t, input)
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	html := str.Value
+	checks := map[string]string{
+		"money":    "$ 4,999.00",
+		"unit":     "2.50kg",
+		"duration": "3 days",
+		"datetime": "2025-06-15",
+	}
+	for typ, expected := range checks {
+		if !strings.Contains(html, expected) {
+			t.Errorf("expected %s formatted as %q in table, got: %s", typ, expected, html)
+		}
+	}
+}
