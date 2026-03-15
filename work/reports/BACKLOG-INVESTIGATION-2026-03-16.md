@@ -1,19 +1,23 @@
 # Backlog Investigation Report
 
 **Date:** 2026-03-16
-**Scope:** Items #107, #16b, #18, #10, #13, #15, #19, #26, #97, #17
+**Scope:** Items #107, #16b, #18, #10, #13, #15, #19, #26, #97, #17, #14, #42, #43, #44
 
 ---
 
 ## Executive Summary
 
-Ten backlog items were investigated in depth. Key findings:
+Fourteen backlog items were investigated in depth. Key findings:
 
 | # | Item | Verdict | Effort |
 |---|------|---------|--------|
 | **#97** | Named capture groups → dictionaries | **Already done** — move to Completed | 0 (bookkeeping) |
 | **#26** | Roles/permissions | **Already done** — move to Completed | 0 (bookkeeping) |
 | **#15** | CSRF middleware for site mode | **Security gap** — fix ASAP | ~1–2 hours |
+| **#14** | Auth integration in site mode | **Security gap** — design needed | ~3–4 days |
+| **#43** | API key expiry flag | Security hygiene — ready to implement | ~0.5–1 day |
+| **#42** | API key scopes | Security hardening — needs design | ~2–3 days |
+| **#44** | Argon2 for API key hashing | Security hardening — defer | ~2 days |
 | **#16b** | Function rest parameters | Small, well-scoped | ~2–3 hours |
 | **#18** | CSV upload merge mode | Small, well-scoped | ~3–5 hours |
 | **#107** | Unit arithmetic overflow detection | Partially done, gaps remain | ~7–10 hours |
@@ -22,7 +26,18 @@ Ten backlog items were investigated in depth. Key findings:
 | **#19** | HTTP-only production mode (behind proxy) | Medium, touches many subsystems | ~10–13 hours |
 | **#17** | Standardize locale support | Large, multi-week effort | ~8–12 days |
 
-Two items (#97 and #26) are already implemented and just need to be moved to Completed. One item (#15) is a security gap with a trivial fix. The rest range from small enhancements to a multi-week standardization effort.
+Two items (#97 and #26) are already implemented and just need to be moved to Completed. Three items (#15, #14, #10) are security gaps — #15 has a trivial fix, #14 needs design but has a clear path, and #10 requires architectural plumbing. Items #42, #43, #44 are API key hardening with #43 being the most ready to implement. The rest range from small enhancements to a multi-week standardization effort.
+
+### Security Items at a Glance
+
+| Priority | Item | Nature | Fix Complexity |
+|----------|------|--------|----------------|
+| **Fix now** | **#15** — CSRF in site mode | Active vulnerability — mutating requests bypass CSRF | ~5 lines in `site.go` |
+| **Fix soon** | **#14** — Auth in site mode | Missing per-handler auth — relies on `protected_paths` not being misconfigured | Design + implementation |
+| **Fix soon** | **#10** — Session fixation | Session not regenerated on login/logout | Architectural plumbing |
+| **Should do** | **#43** — API key expiry | Keys are immortal — schema supports expiry but CLI doesn't expose it | CLI flag + parameter |
+| **Should do** | **#42** — API key scopes | Leaked key has full access — no way to limit blast radius | Schema + enforcement |
+| **Nice to have** | **#44** — Argon2 hashing | bcrypt is fine for now; O(n) key scan is the bigger perf issue | Algorithm swap + migration |
 
 ---
 
@@ -31,13 +46,17 @@ Two items (#97 and #26) are already implemented and just need to be moved to Com
 1. [#97 — Named Capture Groups (ALREADY DONE)](#97--named-capture-groups-should-return-dictionaries)
 2. [#26 — Roles/Permissions (ALREADY DONE)](#26--rolespermissions)
 3. [#15 — CSRF Middleware for Site Mode](#15--csrf-middleware-for-site-mode)
-4. [#13 — Per-Route Caching in Site Mode](#13--per-route-caching-in-site-mode)
-5. [#16b — Function Rest Parameters](#16b--function-rest-parameters)
-6. [#18 — CSV Upload Merge Mode](#18--csv-upload-merge-mode-for-db)
-7. [#107 — Unit Arithmetic Overflow Detection](#107--overflow-detection-for-unit-arithmetic)
-8. [#10 — Session Auth Integration](#10--session-auth-integration)
-9. [#19 — HTTP-Only Production Mode](#19--http-only-production-mode-behind-proxy)
-10. [#17 — Standardize Locale Support](#17--standardize-locale-support-across-stdlib)
+4. [#14 — Auth Integration in Site Mode](#14--auth-integration-in-site-mode)
+5. [#13 — Per-Route Caching in Site Mode](#13--per-route-caching-in-site-mode)
+6. [#16b — Function Rest Parameters](#16b--function-rest-parameters)
+7. [#18 — CSV Upload Merge Mode](#18--csv-upload-merge-mode-for-db)
+8. [#107 — Unit Arithmetic Overflow Detection](#107--overflow-detection-for-unit-arithmetic)
+9. [#10 — Session Auth Integration](#10--session-auth-integration)
+10. [#19 — HTTP-Only Production Mode](#19--http-only-production-mode-behind-proxy)
+11. [#17 — Standardize Locale Support](#17--standardize-locale-support-across-stdlib)
+12. [#42 — API Key Scopes](#42--api-key-scopes)
+13. [#43 — API Key Expiry Flag](#43--api-key-expiry-flag)
+14. [#44 — Argon2 for API Key Hashing](#44--argon2-for-api-key-hashing)
 
 ---
 
@@ -139,6 +158,67 @@ Nothing. The fix is surgical (~5 lines in `site.go`): check if the path is prote
 ### Cost
 
 **~1–2 hours** including tests. This is the highest-priority item in this report due to the security implications.
+
+---
+
+## #14 — Auth Integration in Site Mode
+
+| Field | Value |
+|-------|-------|
+| **Source** | FEAT-040 (File-Based Routing) |
+| **Deferred from** | FEAT-040 — "Needs design" |
+| **Status** | ⚠️ **Security gap** — mitigable but error-prone |
+
+### Details
+
+In **routes mode**, each route declares its own auth requirement: `auth: required` (401 if no user), `auth: optional` (user populated if present), or `auth: none` (explicitly unprotected). The middleware chain in `setupRoutes` applies the correct wrapper per route, plus CSRF validation for authenticated routes.
+
+In **site mode**, auth handling has two disconnected layers:
+
+1. **`protected_paths` check** — runs early in `ServeHTTP` before handler lookup. Checks URL prefix against `auth.protected_paths` config entries and blocks unauthenticated users. Supports role requirements.
+
+2. **Handler auth middleware** — always hardcoded to `"optional"` in `serveWithHandler()`. Every site-mode handler executes regardless of auth state; `basil.auth.user` is `null` if not logged in.
+
+There is **no way to declare `auth: required` per handler** in site mode. Protection depends entirely on the developer correctly configuring every sensitive path prefix in the global `protected_paths` list.
+
+### The Risk
+
+The gap is **omission by default**. A developer adds `/admin/users/index.pars` and forgets to add `/admin/users` to `protected_paths` in `basil.yaml`. In routes mode, you'd add `auth: required` right on the route definition — it's obvious and co-located. In site mode, the auth config is in a completely different section of the YAML, disconnected from the handler.
+
+The current state is **safe if `protected_paths` is correctly configured**, but lacks defense-in-depth at the handler level.
+
+### Do We Have Something Similar?
+
+`protected_paths` provides a coarse safety net — it blocks unauthenticated access to URL prefixes. But it doesn't distinguish `required` from `optional`, can't handle mixed auth within a subtree (e.g., `/dashboard/public-report/` public but `/dashboard/` protected), and the config lives far from the handlers.
+
+### Design Options
+
+| Option | Approach | Pro | Con |
+|--------|----------|-----|-----|
+| **A: `site.paths` config** | YAML section with per-path auth, cache, etc. | Mirrors routes mode, centralized, auditable | Some duplication with `protected_paths` |
+| **B: Comment directive** | `// @auth required` in `.pars` files | Co-located with handler | New parsing concept, fragile |
+| **C: Handler-level check** | Check `basil.auth.user` in Parsley code | Works today, no changes needed | Boilerplate, easy to forget, handler still executes |
+
+**Recommendation:** Option A (`site.paths` config) is strongest. It mirrors routes mode, keeps security config centralized and auditable, and could serve as the unified mechanism for **#13 (per-route caching)**, **#15 (CSRF)**, and this item — all three need "per-path config for site mode."
+
+A combined `site.paths` design:
+
+```/dev/null/example.yaml#L1-L6
+site:
+  path: ./site
+  paths:
+    /dashboard: { auth: required, cache: 5m }
+    /admin: { auth: required, roles: [admin] }
+    /public/*: { auth: none, cache: 1h }
+```
+
+### What's Blocking
+
+Design decision on approach. If Option A is chosen, it could be designed to also cover #13 and #15 — combined effort for all three would be ~5–6 days instead of doing them separately.
+
+### Cost
+
+**~3–4 days** standalone. If combined with #13 and #15 under a unified `site.paths` design, **~5–6 days** total for all three.
 
 ---
 
@@ -500,7 +580,149 @@ Yes — the `x/text` number/currency formatting is already correct and comprehen
 6. **#13 (Site mode caching)** — pick Option C (runtime), ~2–4 hours
 7. **#10 (Session auth integration)** — valuable security improvement, ~1–2 days
 
+### Security Hardening
+
+5. **#14 (Auth in site mode)** — design `site.paths` config to cover #14, #13, and #15 together (~5–6 days combined)
+6. **#43 (API key expiry)** — ready to implement, schema and validation already done (~0.5–1 day)
+7. **#42 (API key scopes)** — defer until there's a concrete use case beyond Git push/pull
+8. **#44 (Argon2 hashing)** — defer; bcrypt is fine, prefix-based lookup would be a better first optimization
+
 ### Larger Efforts (Plan Separately)
 
-8. **#19 (Proxy mode)** — important for real-world deployment, ~10–13 hours
-9. **#17 (Locale standardization)** — large cross-cutting effort, recommend starting with Phase 1 (money → x/text) as a standalone PR
+9. **#19 (Proxy mode)** — important for real-world deployment, ~10–13 hours
+10. **#17 (Locale standardization)** — large cross-cutting effort, recommend starting with Phase 1 (money → x/text) as a standalone PR
+
+---
+
+## Addendum: API Key Security (#42, #43, #44)
+
+These three items share the same subsystem and are best understood together.
+
+### Current API Key Architecture
+
+The API key system (FEAT-036) uses bcrypt-hashed keys stored in SQLite. Keys are created via `basil apikey create --user <id> --name <label>` and validated on Git-over-HTTPS requests (Basic Auth with the key as the password). The `ValidateAPIKey()` method fetches ALL keys and iterates with bcrypt comparison — O(n) per auth request.
+
+The `APIKey` struct has fields: `id`, `user_id`, `name`, `key_hash` (bcrypt), `key_prefix` (display), `created_at`, `last_used_at`, `expires_at`. Notably: no scope/permission field.
+
+---
+
+## #42 — API Key Scopes
+
+| Field | Value |
+|-------|-------|
+| **Source** | FEAT-004 (Authentication) |
+| **Deferred from** | FEAT-004 — "Not MVP" |
+| **Status** | Open — needs design decisions |
+
+### Details
+
+API keys currently inherit the full permissions of their owning user. A key created for an admin user has admin-level access to everything. If a key is leaked, the blast radius is the entire API surface. There's no way to create a read-only key or limit a key to specific routes.
+
+The FEAT-036 spec explicitly notes: *"API Key Scopes (v1: None) — In v1, API keys inherit the user's role — no per-key scopes."*
+
+### Do We Have Something Similar?
+
+The role system (`admin`/`editor`) provides coarse access control at the user level, but keys inherit that fully. There's no per-key restriction mechanism.
+
+### What Would Be Needed
+
+| Component | Change |
+|-----------|--------|
+| **Schema** | Add `scopes TEXT` column to `api_keys` (JSON or comma-separated) |
+| **Struct** | Add `Scopes []string` to `APIKey` |
+| **CLI** | `basil apikey create --scopes read-only,git-push` |
+| **Validation** | `ValidateAPIKey` must return scope info; callers check scopes |
+| **Enforcement** | `git.go` checks `git-read`/`git-push` scope; future HTTP auth checks scopes |
+| **Design** | Define scope vocabulary (read-only, git-push, admin, route-specific?) |
+
+### What's Blocking
+
+Design decisions: what scopes to define, whitelist vs. blacklist model, interaction with user roles. Currently only Git uses API keys — scope enforcement has limited surface area.
+
+### Cost
+
+**~2–3 days.** Schema/CRUD is straightforward (~1 day), but scope definitions and enforcement at each call site add complexity. Recommend deferring until there's a concrete use case beyond Git.
+
+---
+
+## #43 — API Key Expiry Flag
+
+| Field | Value |
+|-------|-------|
+| **Source** | FEAT-036 (API Keys) |
+| **Deferred from** | FEAT-036 — "Not MVP" |
+| **Status** | Open — **ready to implement** (most infrastructure already exists) |
+
+### Details
+
+The API key system was designed with expiry support but the last mile was never connected:
+
+| Component | Status |
+|-----------|--------|
+| Schema `expires_at TIMESTAMP` column | ✅ Exists |
+| `APIKey.ExpiresAt *time.Time` struct field | ✅ Exists |
+| `ValidateAPIKey()` skips expired keys | ✅ Works |
+| `scanAPIKeys` reads/populates ExpiresAt | ✅ Works |
+| `CreateAPIKey()` accepts expiry parameter | ❌ **Missing** — INSERT omits `expires_at` |
+| CLI `--expires` flag | ❌ **Missing** |
+| Ability to update expiry on existing keys | ❌ **Missing** |
+
+Keys are effectively immortal unless manually deleted. The validation logic already rejects expired keys — the gap is purely in key creation and management.
+
+### Do We Have Something Similar?
+
+The `expires_at` column and validation check already exist. This is the most "almost done" item in the entire backlog.
+
+### What's Blocking
+
+Nothing. The changes are mechanical.
+
+### Changes Required
+
+1. Add `expiresAt *time.Time` parameter to `CreateAPIKey()` and include `expires_at` in the INSERT
+2. Add `--expires` flag to CLI (accept `2025-06-01` or duration like `90d`)
+3. Optionally: `basil apikey update --expires` for existing keys
+4. Update `apikey list` output to show expiry/expired status
+
+### Cost
+
+**~0.5–1 day.** The hard parts (schema, validation) are already done. This is the most ready-to-implement security item in the backlog.
+
+---
+
+## #44 — Argon2 for API Key Hashing
+
+| Field | Value |
+|-------|-------|
+| **Source** | FEAT-036 (API Keys) |
+| **Deferred from** | FEAT-036 — "Not MVP" |
+| **Status** | Open — low priority, bcrypt is still secure |
+
+### Details
+
+The system uses bcrypt at `DefaultCost` (10) for API key hashing, used in 4 places: API key hashing/validation, recovery code hashing/validation, and email verification token hashing/validation. Argon2id is more GPU-resistant and is the current OWASP recommendation for new systems.
+
+### Do We Have Something Similar?
+
+bcrypt is the only hashing algorithm in use. `golang.org/x/crypto` (already a dependency) includes the `argon2` subpackage, so no new module would be needed.
+
+### What Migration Would Involve
+
+| Step | Description |
+|------|-------------|
+| **New hashing functions** | Argon2id with recommended params (64MB memory, 3 iterations, 4 parallelism), PHC-format encoded |
+| **Dual-read migration** | `ValidateAPIKey` detects hash format: `$2a$`/`$2b$` → bcrypt, `$argon2id$` → Argon2. Existing keys keep working without re-hashing |
+| **New keys use Argon2** | `GenerateAPIKey()` switches to Argon2 for new keys |
+| **4 files affected** | `apikeys.go`, `email_verification.go`, `recovery.go`, and their tests |
+
+### The Real Performance Issue
+
+The bigger problem isn't the hash algorithm — it's the **O(n) scan**. `ValidateAPIKey()` fetches ALL keys and iterates with bcrypt comparison on every auth request. A prefix-based lookup (filter to one candidate by key prefix before the expensive comparison) would be a more impactful performance fix than switching algorithms.
+
+### What's Blocking
+
+Nothing technically, but bcrypt at cost 10 is still considered secure. The O(n) validation scan is the more pressing concern.
+
+### Cost
+
+**~2 days.** The algorithm swap is mechanical, but dual-read migration, parameter encoding, and ensuring existing bcrypt keys still validate requires care. Consider bundling with prefix-based lookup optimization.
