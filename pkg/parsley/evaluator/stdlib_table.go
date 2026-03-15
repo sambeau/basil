@@ -2696,6 +2696,11 @@ func init() {
 			Arity:       "1-2",
 			Description: "Group rows by column(s) (cols, aggregationFn?)",
 		},
+		"columnProps": {
+			Fn:          tableMethodColumnProps,
+			Arity:       "1",
+			Description: "Get display props for a column (column)",
+		},
 	}
 	RegisterMethodRegistry("table", TableMethodRegistry)
 }
@@ -2712,6 +2717,95 @@ func EvalTableMethod(t *Table, method string, args []Object, env *Environment) O
 
 func tableMethodWhere(receiver Object, args []Object, env *Environment) Object {
 	return tableWhere(receiver.(*Table), args, env)
+}
+
+// tableMethodColumnProps returns display metadata for a column.
+// Returns a dictionary with: name, label, type, align, format
+// This parallels record.fieldProps() but for display contexts (tables).
+func tableMethodColumnProps(receiver Object, args []Object, env *Environment) Object {
+	table := receiver.(*Table)
+
+	if len(args) != 1 {
+		return newArityError("columnProps", len(args), 1)
+	}
+
+	colName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Table.columnProps", "string", args[0].Type())
+	}
+
+	result := make(map[string]ast.Expression)
+
+	// name - the column identifier
+	result["name"] = &ast.StringLiteral{Value: colName.Value}
+
+	// Default label: titlecase the column name (handles underscores internally)
+	label := toTitleCase(colName.Value)
+	result["label"] = &ast.StringLiteral{Value: label}
+
+	// Default alignment
+	result["align"] = &ast.StringLiteral{Value: "left"}
+
+	// If table has schema, derive props from it
+	if table.Schema != nil {
+		if field, exists := table.Schema.Fields[colName.Value]; exists {
+			// Label from schema title metadata
+			if field.Metadata != nil {
+				if titleObj, ok := field.Metadata["title"]; ok {
+					if titleStr, ok := titleObj.(*String); ok {
+						result["label"] = &ast.StringLiteral{Value: titleStr.Value}
+					}
+				}
+			}
+
+			// Type from schema
+			result["type"] = &ast.StringLiteral{Value: field.Type}
+
+			// Alignment from type
+			result["align"] = &ast.StringLiteral{Value: alignmentForSchemaType(field.Type)}
+
+			// Format hint from type (only if non-empty)
+			if format := formatHintForSchemaType(field.Type); format != "" {
+				result["format"] = &ast.StringLiteral{Value: format}
+			}
+		}
+	}
+
+	return &Dictionary{Pairs: result, Env: env}
+}
+
+// alignmentForSchemaType returns the default text alignment for a schema type.
+// Numeric types align right, booleans center, text types left.
+func alignmentForSchemaType(schemaType string) string {
+	switch schemaType {
+	case "money", "integer", "int", "float", "number", "duration", "unit":
+		return "right"
+	case "boolean", "bool":
+		return "center"
+	default:
+		return "left"
+	}
+}
+
+// formatHintForSchemaType returns a display format hint for a schema type.
+// Used by DataTable to know how to format cell values.
+func formatHintForSchemaType(schemaType string) string {
+	switch schemaType {
+	case "money":
+		return "currency"
+	case "date":
+		return "date"
+	case "datetime":
+		return "datetime"
+	case "duration":
+		return "duration"
+	case "unit":
+		return "unit"
+	case "boolean", "bool":
+		return "boolean"
+	default:
+		return ""
+	}
 }
 
 func tableMethodOrderBy(receiver Object, args []Object, env *Environment) Object {

@@ -422,6 +422,55 @@ products.orderBy("price")
 └────────┴───────┘
 ```
 
+### columnProps(column)
+
+Returns a dictionary of display metadata for a column. This is used by the DataTable component to derive column display properties from schemas.
+
+**Signature:** `table.columnProps(column) → dictionary`
+
+The returned dictionary contains:
+
+| Key | Description |
+|-----|-------------|
+| `name` | Column identifier (string) |
+| `label` | From schema title or titlecased column name (e.g. `"created_at"` → `"Created At"`) |
+| `type` | Original schema type (only present if schema exists) |
+| `align` | `"left"`, `"right"`, or `"center"` (derived from type) |
+| `format` | Format hint (only present if applicable): `"currency"`, `"date"`, `"datetime"`, `"duration"`, `"unit"`, `"boolean"` |
+
+**Alignment rules:**
+
+- **Right:** `money`, `integer`, `int`, `float`, `number`, `duration`, `unit`
+- **Center:** `boolean`, `bool`
+- **Left:** everything else
+
+Without a schema, returns minimal props with `name`, `label`, and `align="left"`.
+
+**Without schema:**
+
+```parsley
+let t = table([{created_at: "2025-01-01"}])
+t.columnProps("created_at")
+```
+
+**Result:** `{name: "created_at", label: "Created At", align: "left"}`
+
+**With schema:**
+
+```parsley
+@schema Order {
+    total: money | {title: "Order Total"}
+    active: boolean
+}
+let orders = table([{total: £100.00, active: true}]).as(Order)
+
+orders.columnProps("total")
+// → {name: "total", label: "Order Total", type: "money", align: "right", format: "currency"}
+
+orders.columnProps("active")
+// → {name: "active", label: "Active", type: "boolean", align: "center", format: "boolean"}
+```
+
 # Tables
 
 Tables are Parsley's rectangular data type: each row is a dictionary and every row has the same columns. They power CSV handling, database results, reporting, and any place you would normally reach for SQL-style transforms.
@@ -514,6 +563,7 @@ let top = sales
 ## Column and Group Helpers
 
 - `column(name)` — Array of values; errors if the column is missing.
+- `columnProps(column)` — Dictionary of display metadata for a column: `name`, `label`, `align`, and optionally `type` and `format`. Alignment is derived from schema type (right for numeric/money/duration, center for boolean, left for everything else). Without a schema, returns minimal props.
 - `rowCount()` / `columnCount()` — Dimensions.
 - `unique(colOrCols?)` — Removes duplicates; when columns are provided (string or array), uniqueness is based on those fields, otherwise all columns.
 - `groupBy(colOrCols, fn(rows)? )`

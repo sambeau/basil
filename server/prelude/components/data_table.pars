@@ -1,31 +1,163 @@
-// DataTable - Data table with proper semantics
-// Usage: <DataTable caption="User list" columns={["Name", "Email", "Role"]} rows={users} keys={["name", "email", "role"]}/>
+// DataTable - Data table with proper semantics and Table support
+// Usage: <DataTable data={myTable}/> or <DataTable columns={["Name"]} rows={users} keys={["name"]}/>
 
-export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
-    <table id={id} class={"data-table" + if (class) " " + class else ""}>
+export DataTable = fn({
+    data,
+    rows,
+    columns,
+    keys,
+    caption,
+    empty,
+    headers,
+    align,
+    hide,
+    render,
+    format,
+    footer,
+    rowHeader,
+    id,
+    class,
+    ...attrs
+}) {
+    // Defaults
+    let emptyMsg = empty ?? "No data"
+    let headersMap = headers ?? {}
+    let alignMap = align ?? {}
+    let hideList = hide ?? []
+    let renderMap = render ?? {}
+    let formatMap = format ?? {}
+    let rowHeaderIdx = if (rowHeader == false) null else rowHeader ?? 0
+
+    // Derive from Table if provided, otherwise use legacy props
+    let tableColumns = if (data) data.columns else columns ?? []
+    let tableRows = if (data) data.rows else rows ?? []
+    let tableKeys = if (data) data.columns else keys ?? tableColumns
+
+    // Filter out hidden columns
+    let visibleColumns = tableColumns.filter(fn(c) { c not in hideList })
+    let visibleKeys = tableKeys.filter(fn(k) { k not in hideList })
+
+    // Helper: get column props (from schema via columnProps, or defaults)
+    let getColProps = fn(col) {
+        if (data) {
+            data.columnProps(col)
+        } else {
+            {name: col, label: col.replace("_", " ").toTitle(), align: "left"}
+        }
+    }
+
+    // Helper: get header text for a column (headers prop overrides columnProps)
+    let getHeader = fn(col) {
+        if (headersMap[col]) {
+            headersMap[col]
+        } else {
+            getColProps(col).label
+        }
+    }
+
+    // Helper: get alignment for a column (align prop overrides columnProps)
+    let getAlign = fn(col) {
+        if (alignMap[col]) {
+            alignMap[col]
+        } else {
+            getColProps(col).align ?? "left"
+        }
+    }
+
+    // Helper: get format hint for a column (format prop overrides columnProps)
+    let getFormat = fn(col) {
+        if (formatMap[col]) {
+            formatMap[col]
+        } else {
+            getColProps(col).format ?? null
+        }
+    }
+
+    // Helper: format a cell value based on type
+    // Money formats automatically via string coercion (FEAT-145 Part A)
+    // Datetime, duration, unit need explicit .medium() calls
+    let formatCell = fn(value, col) {
+        if (value == null) {
+            "—"
+        } else {
+            let fmt = getFormat(col)
+            if (fmt == "date" || fmt == "datetime") {
+                value.medium()
+            } else if (fmt == "duration") {
+                value.medium()
+            } else if (fmt == "unit") {
+                value.medium()
+            } else if (fmt == "boolean") {
+                if (value) "Yes" else "No"
+            } else {
+                // Money formats automatically; strings/numbers pass through
+                value
+            }
+        }
+    }
+
+    let tableClass = "data-table" + if (class) " " + class else ""
+
+    <table id={id} class={tableClass} ...attrs>
         if (caption) {
             <caption>caption</caption>
         }
         <thead>
             <tr>
-                for (idx, col in columns ?? []) {
-                    <th scope="col">col</th>
+                for (idx, col in visibleColumns) {
+                    <th scope="col" class={"align-" + getAlign(visibleKeys[idx])}>
+                        getHeader(col)
+                    </th>
                 }
             </tr>
         </thead>
         <tbody>
-            for (row in rows ?? []) {
-                <tr>
-                    for (idx, key in keys ?? []) {
-                        // First column gets row scope for accessibility
-                        if (idx == 0) {
-                            <th scope="row">row[key]</th>
-                        } else {
-                            <td>row[key]</td>
-                        }
-                    }
+            if (tableRows.length() == 0 && emptyMsg != false) {
+                <tr class="data-table-empty">
+                    <td colspan={visibleColumns.length()}>emptyMsg</td>
                 </tr>
+            } else {
+                for (row in tableRows) {
+                    <tr>
+                        for (idx, key in visibleKeys) {
+                            let value = row[key]
+                            let content = if (renderMap[key]) {
+                                renderMap[key](value, row)
+                            } else {
+                                formatCell(value, key)
+                            }
+                            let alignClass = "align-" + getAlign(key)
+
+                            if (rowHeaderIdx != null && rowHeaderIdx == idx) {
+                                <th scope="row" class={alignClass}>content</th>
+                            } else {
+                                <td class={alignClass}>content</td>
+                            }
+                        }
+                    </tr>
+                }
             }
         </tbody>
+        if (footer != null) {
+            if (footer.length() > 0) {
+                <tfoot>
+                    for (footerRow in footer) {
+                        <tr>
+                            for (key in visibleKeys) {
+                                let value = footerRow[key]
+                                let content = if (renderMap[key]) {
+                                    renderMap[key](value, footerRow)
+                                } else if (value != null) {
+                                    formatCell(value, key)
+                                } else {
+                                    ""
+                                }
+                                <td class={"align-" + getAlign(key)}>content</td>
+                            }
+                        </tr>
+                    }
+                </tfoot>
+            }
+        }
     </table>
 }

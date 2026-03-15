@@ -1,10 +1,13 @@
 # Design: DataTable Redesign
 
 **Date:** 2025-01-14
-**Status:** Draft
+**Updated:** 2026-06-15
+**Status:** Approved
+**Depends On:** `DESIGN-typed-value-formatting.md` (Part C complete; Part A partial — money only)
 **Related:** 
 - `work/reports/STANDARD-PRELUDE-REVIEW.md` §3, §9, §13
-- `work/design/DESIGN-typed-value-formatting.md`
+- `work/design/DESIGN-typed-value-formatting.md` — Part A (objectToString), Part C (columnProps)
+- `work/specs/FEAT-144.md` — Implementation spec
 
 ---
 
@@ -45,14 +48,15 @@ The current `DataTable` component predates the Parsley `Table` type and ignores 
 ### 2.2 Current Implementation
 
 ```parsley
+// From server/prelude/components/data_table.pars
 export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
-    <table id={id} class={"data-table" ++ if (class) { " " ++ class } else { "" }}>
+    <table id={id} class={"data-table" + if (class) " " + class else ""}>
         if (caption) {
             <caption>caption</caption>
         }
         <thead>
             <tr>
-                for (col, idx in columns ?? []) {
+                for (idx, col in columns ?? []) {
                     <th scope="col">col</th>
                 }
             </tr>
@@ -60,7 +64,8 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
         <tbody>
             for (row in rows ?? []) {
                 <tr>
-                    for (key, idx in keys ?? []) {
+                    for (idx, key in keys ?? []) {
+                        // First column gets row scope for accessibility
                         if (idx == 0) {
                             <th scope="row">row[key]</th>
                         } else {
@@ -84,7 +89,6 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
 | No custom cell rendering | Can't add links, badges, action buttons |
 | No footer/summary row | Can't show totals |
 | `sortable` prop exists but does nothing | Confusing API |
-| Class merging uses `++` (creates array) | Works by accident |
 
 ---
 
@@ -93,8 +97,14 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
 ### 3.1 Primary Usage (with `Table`)
 
 ```parsley
-let users = db.query("SELECT name, email, role FROM users")
+// Using TableBinding (recommended)
+let Users = @DB.bind(UserSchema, "users")
+let users = Users.all()
 
+<DataTable data={users} caption="Users"/>
+
+// Or using Query DSL
+let users = @query(Users ??-> *)
 <DataTable data={users} caption="Users"/>
 ```
 
@@ -175,14 +185,15 @@ When `data` is a `Table`:
 
 | Derived From | Used For |
 |--------------|----------|
-| `table.columns()` | Column headers (unless `headers` prop overrides) |
-| `table.rows()` | Row data |
-| `table.schema()` | Type information for formatting/alignment |
+| `table.columns` | Column headers (unless `headers` prop overrides) |
+| `table.rows` | Row data |
+| `table.schema` | Type information for formatting/alignment (if bound) |
 | Column names | Keys for accessing row values |
 
 ```parsley
 // Given:
-let products = db.query("SELECT name, price, created_at FROM products")
+let Products = @DB.bind(ProductSchema, "products")
+let products = Products.all()
 
 // This:
 <DataTable data={products}/>
@@ -190,7 +201,7 @@ let products = db.query("SELECT name, price, created_at FROM products")
 // Is equivalent to:
 <DataTable 
     columns={["name", "price", "created_at"]}
-    rows={products.rows()}
+    rows={products.rows}
     keys={["name", "price", "created_at"]}
 />
 ```
@@ -224,18 +235,25 @@ Default: `"No data"`
 
 Cells are formatted based on their value type:
 
-| Value Type | Default Formatting | Alignment |
-|------------|-------------------|-----------|
-| `money` | `.medium()` → "£49.99" | Right |
-| `datetime` | `.medium()` → "Mar 15, 2025" | Left |
-| `duration` | `.medium()` → "2h 30m" | Right |
-| `unit` | `.medium()` → "5.00kg" | Right |
-| `integer`, `float` | As-is (string coercion) | Right |
-| `boolean` | "Yes" / "No" | Center |
-| `null` | "—" (em dash) | — |
-| `string`, other | As-is | Left |
+| Value Type | Default Formatting | Alignment | Implementation |
+|------------|-------------------|-----------|----------------|
+| `money` | "£ 4,999.00" | Right | Automatic via string coercion (FEAT-145 Part A) |
+| `datetime` | "Mar 15, 2025" | Left | Explicit `.medium()` call required |
+| `duration` | "2h 30m" | Right | Explicit `.medium()` call required |
+| `unit` | "5.00 kg" | Right | Explicit `.medium()` call required |
+| `integer`, `float` | As-is (string coercion) | Right | Automatic |
+| `boolean` | "Yes" / "No" | Center | Explicit check in DataTable |
+| `null` | "—" (em dash) | — | Explicit check in DataTable |
+| `string`, other | As-is | Left | Automatic |
 
-**Dependency:** This relies on the `objectToString()` changes from `DESIGN-typed-value-formatting.md`. Once those changes land, `DataTable` gets sensible formatting automatically.
+**FEAT-145 Implementation Status:**
+- **Money**: Formats automatically via string coercion ✅
+- **Datetime/Duration/Unit**: FEAT-145 Part A deferred these types because:
+  - `datetime.medium()` doesn't respect date-only/time-only kinds
+  - `duration.medium()` returns relative time ("tomorrow") instead of absolute
+  - `unit.medium()` forces decimal places that may be unwanted
+  
+  DataTable must explicitly call `.medium()` for these types based on the `columnProps().format` hint.
 
 The `format` prop overrides auto-detection:
 
@@ -368,116 +386,154 @@ export DataTable = fn({
     columns,
     keys,
     caption,
-    empty = "No data",
-    headers = {},
-    align = {},
-    hide = [],
-    render = {},
-    format = {},
+    empty,
+    headers,
+    align,
+    hide,
+    render,
+    format,
     footer,
-    rowHeader = 0,
+    rowHeader,
     id,
     class,
     ...attrs
 }) {
+    // Defaults
+    let emptyMsg = empty ?? "No data"
+    let headersMap = headers ?? {}
+    let alignMap = align ?? {}
+    let hideList = hide ?? []
+    let renderMap = render ?? {}
+    let formatMap = format ?? {}
+    let rowHeaderIdx = rowHeader ?? 0
+    
     // Derive from Table if provided
-    let tableColumns = if (data) { data.columns() } else { columns ?? [] }
-    let tableRows = if (data) { data.rows() } else { rows ?? [] }
-    let tableKeys = if (data) { data.columns() } else { keys ?? tableColumns }
-    let schema = if (data) { data.schema() } else { null }
+    let tableColumns = if (data) data.columns else columns ?? []
+    let tableRows = if (data) data.rows else rows ?? []
+    let tableKeys = if (data) data.columns else keys ?? tableColumns
+    let schema = if (data) data.schema else null
     
     // Filter out hidden columns
-    let visibleColumns = tableColumns.filter(fn(c) { !hide.contains(c) })
-    let visibleKeys = tableKeys.filter(fn(k) { !hide.contains(k) })
+    let visibleColumns = tableColumns.filter(fn(c) { c not in hideList })
+    let visibleKeys = tableKeys.filter(fn(k) { k not in hideList })
     
-    // Helper: get header text for a column
-    let getHeader = fn(col, idx) {
-        if (headers[col]) {
-            headers[col]
-        } else if (schema and schema.title) {
-            schema.title(col) ?? col.replace("_", " ").toTitleCase()
+    // Helper: get column props (from schema via columnProps, or defaults)
+    let getColProps = fn(col) {
+        if (data) {
+            data.columnProps(col)
         } else {
-            col.replace("_", " ").toTitleCase()
+            {name: col, label: col.replace("_", " ").toTitle(), align: "left"}
         }
     }
     
-    // Helper: get alignment for a column
+    // Helper: get header text for a column (headers prop overrides columnProps)
+    let getHeader = fn(col) {
+        if (headersMap[col]) {
+            headersMap[col]
+        } else {
+            getColProps(col).label
+        }
+    }
+    
+    // Helper: get alignment for a column (align prop overrides columnProps)
     let getAlign = fn(col) {
-        if (align[col]) {
-            align[col]
+        if (alignMap[col]) {
+            alignMap[col]
         } else {
-            // Auto-derive from schema or first row
-            "left"  // Simplified — full impl checks value types
+            getColProps(col).align ?? "left"
         }
     }
     
-    // Helper: format a cell value
+    // Helper: get format hint for a column (format prop overrides columnProps)
+    let getFormat = fn(col) {
+        if (formatMap[col]) {
+            formatMap[col]
+        } else {
+            getColProps(col).format ?? null
+        }
+    }
+    
+    // Helper: format a cell value based on type
+    // Money formats automatically via string coercion (FEAT-145 Part A)
+    // Datetime, duration, unit need explicit .medium() calls
     let formatCell = fn(value, col) {
-        if (render[col]) {
+        if (renderMap[col]) {
             null  // Render function handles it
         } else if (value == null) {
             "—"
         } else {
-            value  // objectToString() handles typed values
+            let fmt = getFormat(col)
+            if (fmt == "date" || fmt == "datetime") {
+                value.medium()
+            } else if (fmt == "duration") {
+                value.medium()
+            } else if (fmt == "unit") {
+                value.medium()
+            } else if (fmt == "boolean") {
+                if (value) "Yes" else "No"
+            } else {
+                // Money formats automatically; strings/numbers pass through
+                value
+            }
         }
     }
     
-    let tableClass = ["data-table", class].filter(fn(c) { c != null }).join(" ")
+    let tableClass = "data-table" + if (class) " " + class else ""
     
-    <table id={id} class={tableClass} {...attrs}>
+    <table id={id} class={tableClass} ...attrs>
         if (caption) {
-            <caption>{caption}</caption>
+            <caption>caption</caption>
         }
         <thead>
             <tr>
-                for (col, idx in visibleColumns) {
+                for (idx, col in visibleColumns) {
                     <th scope="col" class={"align-" + getAlign(visibleKeys[idx])}>
-                        {getHeader(col, idx)}
+                        getHeader(col)
                     </th>
                 }
             </tr>
         </thead>
         <tbody>
-            if (tableRows.len() == 0 and empty != false) {
+            if (tableRows.length() == 0 && emptyMsg != false) {
                 <tr class="data-table-empty">
-                    <td colspan={visibleColumns.len()}>{empty}</td>
+                    <td colspan={visibleColumns.length()}>emptyMsg</td>
                 </tr>
             } else {
                 for (row in tableRows) {
                     <tr>
-                        for (key, idx in visibleKeys) {
+                        for (idx, key in visibleKeys) {
                             let value = row[key]
-                            let content = if (render[key]) {
-                                render[key](value, row)
+                            let content = if (renderMap[key]) {
+                                renderMap[key](value, row)
                             } else {
                                 formatCell(value, key)
                             }
                             let alignClass = "align-" + getAlign(key)
                             
-                            if (idx == rowHeader) {
-                                <th scope="row" class={alignClass}>{content}</th>
+                            if (idx == rowHeaderIdx) {
+                                <th scope="row" class={alignClass}>content</th>
                             } else {
-                                <td class={alignClass}>{content}</td>
+                                <td class={alignClass}>content</td>
                             }
                         }
                     </tr>
                 }
             }
         </tbody>
-        if (footer and footer.len() > 0) {
+        if (footer && footer.length() > 0) {
             <tfoot>
                 for (footerRow in footer) {
                     <tr>
-                        for (key, idx in visibleKeys) {
+                        for (idx, key in visibleKeys) {
                             let value = footerRow[key]
-                            let content = if (render[key]) {
-                                render[key](value, footerRow)
+                            let content = if (renderMap[key]) {
+                                renderMap[key](value, footerRow)
                             } else if (value != null) {
                                 formatCell(value, key)
                             } else {
                                 ""
                             }
-                            <td class={"align-" + getAlign(key)}>{content}</td>
+                            <td class={"align-" + getAlign(key)}>content</td>
                         }
                     </tr>
                 }
@@ -543,7 +599,7 @@ export DataTable = fn({
 
 **Recommendation:** Option B — Configurable with sensible default. Some tables have no logical row header (e.g., log entries); others have the identifier in a non-first column.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option B** — Configurable via `rowHeader` prop. Default is `0` (first column). Use `rowHeader={false}` to disable.
 
 ---
 
@@ -560,7 +616,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A with Option E — "Yes"/"No" is most accessible; allow override for specific columns.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — "Yes"/"No" for simplicity and accessibility. Users can use `render` functions for custom boolean display if needed. No override prop for MVP.
 
 ---
 
@@ -577,7 +633,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A — Em dash is the typographically correct choice for tabular data indicating "no value". No need for a prop; users can use `render` functions for custom handling.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — Em dash "—" for null values. Standard typographic convention for "no data" in tables.
 
 ---
 
@@ -597,7 +653,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A for MVP — Simple and predictable. Smart conversion is complex and can produce surprising results. Users who care about precise headers will use the `headers` prop.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — Simple conversion: underscores to spaces + title case. Handles snake_case (common for database columns). Users who want precise headers use the `headers` prop.
 
 ---
 
@@ -612,7 +668,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A — Remove the unused prop. Server-side sorting with `Table.orderBy()` is the Basil pattern. If we add sorting UI later (1.2+), it should be a separate component or enhancement, not baked into `DataTable`.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — Remove the unused `sortable` prop. Server-side sorting via `Table.orderBy()` is the Basil pattern. A well-designed sorting enhancement (clickable headers, URL params, direction indicators) is deferred to 1.1/1.2 as a separate feature. Users can implement custom sorting in ~45 lines (see `bofdi/components/unsafeTable.pars` for a working example pattern using session state and URL parameters).
 
 ---
 
@@ -638,16 +694,18 @@ No changes required. The existing API continues to work:
 
 ```parsley
 // Before: Manual decomposition
-let users = db.query("SELECT * FROM users")
+let Users = @DB.bind(UserSchema, "users")
+let users = Users.all()
 <DataTable 
     caption="Users"
     columns={["Name", "Email", "Role"]}
-    rows={users}
+    rows={users.rows}
     keys={["name", "email", "role"]}
 />
 
 // After: Direct Table usage with enhancements
-let users = db.query("SELECT * FROM users")
+let Users = @DB.bind(UserSchema, "users")
+let users = Users.all()
 <DataTable 
     data={users}
     caption="Users"
@@ -655,7 +713,7 @@ let users = db.query("SELECT * FROM users")
     hide={["id", "password_hash"]}
     headers={{created_at: "Member Since"}}
     render={{
-        email: fn(v, r) { <a href={"mailto:" + v}>{v}</a> }
+        email: fn(v, r) { <a href={"mailto:" + v}>v</a> }
     }}
 />
 ```
@@ -751,6 +809,24 @@ func TestDataTableWithTable(t *testing.T) {
 ---
 
 ## 11. Future Considerations
+
+### Server-Side Sorting Enhancement (Tier 3 / Post-1.0)
+
+A future enhancement could add server-side sorting helpers to `DataTable`:
+
+- `sortable={true}` or `sortable={["name", "created_at"]}` to enable clickable headers
+- Generates URL parameters: `?orderBy=col&orderDir=asc`
+- Visual indicator for current sort column/direction
+- Integrates with `Table.orderBy()` on the server
+
+This pattern has been proven in user projects (see `bofdi/components/unsafeTable.pars`):
+- Session persistence for sort state
+- Link-based header clicks (works without JS)
+- Font Awesome or similar icons for direction
+
+**Not included in initial redesign** to keep scope manageable. The current broken `sortable` prop is removed; a proper implementation can be added in 1.1/1.2.
+
+---
 
 Not in scope for this redesign, but worth noting for later:
 

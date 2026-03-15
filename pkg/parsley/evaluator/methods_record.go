@@ -110,6 +110,11 @@ func init() {
 			Arity:       "0-1",
 			Description: "Fail with an error if the record is invalid (message?)",
 		},
+		"fieldProps": {
+			Fn:          recordMethodFieldProps,
+			Arity:       "1-2",
+			Description: "Get form field props for a field (field, overrides?)",
+		},
 	}
 	RegisterMethodRegistry("record", RecordMethodRegistry)
 }
@@ -201,6 +206,10 @@ func recordMethodToJSON(receiver Object, args []Object, env *Environment) Object
 
 func recordMethodFailIfInvalid(receiver Object, args []Object, env *Environment) Object {
 	return recordFailIfInvalid(receiver.(*Record), args)
+}
+
+func recordMethodFieldProps(receiver Object, args []Object, env *Environment) Object {
+	return recordFieldProps(receiver.(*Record), args, env)
 }
 
 // recordValidate implements record.validate() → Record
@@ -868,6 +877,203 @@ func formatRecordNumber(value Object) Object {
 }
 
 // parseISODate attempts to parse an ISO date/datetime string
+// recordFieldProps implements record.fieldProps(field, overrides?) → Dictionary
+// Returns a dictionary of form field props derived from the schema.
+// This bridges schema metadata to form components.
+func recordFieldProps(record *Record, args []Object, env *Environment) Object {
+	if len(args) < 1 || len(args) > 2 {
+		return newArityErrorRange("fieldProps", len(args), 1, 2)
+	}
+
+	fieldName, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0001", "Record.fieldProps", "string", args[0].Type())
+	}
+
+	result := make(map[string]ast.Expression)
+
+	// name - the field name for HTML name attribute
+	result["name"] = &ast.StringLiteral{Value: fieldName.Value}
+
+	// Default label: titlecased field name
+	label := toTitleCase(fieldName.Value)
+
+	// Default type
+	inputType := "text"
+	var inputMode, autocomplete string
+
+	// Get schema field if available
+	var field *DSLSchemaField
+	if record.Schema != nil {
+		if f, exists := record.Schema.Fields[fieldName.Value]; exists {
+			field = f
+
+			// Label from schema title
+			label = getFieldTitle(fieldName.Value, field)
+
+			// Type mapping from schema type
+			inputType, inputMode, autocomplete = inputTypeForSchemaType(field.Type)
+
+			// Store original type
+			result["type"] = &ast.StringLiteral{Value: inputType}
+
+			// Required
+			if field.Required {
+				result["required"] = &ast.Boolean{Value: true}
+			}
+
+			// Enum options
+			if len(field.EnumValues) > 0 {
+				result["type"] = &ast.StringLiteral{Value: "select"}
+				opts := make([]ast.Expression, len(field.EnumValues))
+				for i, v := range field.EnumValues {
+					opts[i] = &ast.StringLiteral{Value: v}
+				}
+				result["options"] = &ast.ArrayLiteral{Elements: opts}
+			}
+
+			// Placeholder from metadata
+			if field.Metadata != nil {
+				if ph, ok := field.Metadata["placeholder"]; ok {
+					if phStr, ok := ph.(*String); ok {
+						result["placeholder"] = &ast.StringLiteral{Value: phStr.Value}
+					}
+				}
+			}
+		}
+	}
+
+	result["label"] = &ast.StringLiteral{Value: label}
+
+	if inputType != "" && result["type"] == nil {
+		result["type"] = &ast.StringLiteral{Value: inputType}
+	}
+	if inputMode != "" {
+		result["inputmode"] = &ast.StringLiteral{Value: inputMode}
+	}
+	if autocomplete != "" {
+		result["autocomplete"] = &ast.StringLiteral{Value: autocomplete}
+	}
+
+	// Value - get current value from record, formatted for input
+	if valExpr, exists := record.Data[fieldName.Value]; exists {
+		val := Eval(valExpr, env)
+		if val != nil && val != NULL {
+			formattedVal := formatValueForInput(val, field)
+			if formattedVal != nil {
+				result["value"] = formattedVal
+			}
+		}
+	}
+
+	// Error - get error message if present
+	if record.Errors != nil {
+		if errObj, exists := record.Errors[fieldName.Value]; exists {
+			if errObj.Message != "" {
+				result["error"] = &ast.StringLiteral{Value: errObj.Message}
+			}
+		}
+	}
+
+	// Merge user overrides (second argument wins)
+	if len(args) == 2 {
+		if overrides, ok := args[1].(*Dictionary); ok {
+			for key, valExpr := range overrides.Pairs {
+				val := Eval(valExpr, env)
+				if val != nil && val != NULL {
+					switch v := val.(type) {
+					case *String:
+						result[key] = &ast.StringLiteral{Value: v.Value}
+					case *Boolean:
+						result[key] = &ast.Boolean{Value: v.Value}
+					case *Integer:
+						result[key] = &ast.IntegerLiteral{Value: v.Value}
+					default:
+						result[key] = valExpr
+					}
+				}
+			}
+		}
+	}
+
+	return &Dictionary{Pairs: result, Env: env}
+}
+
+// inputTypeForSchemaType returns HTML input type, inputmode, and autocomplete for a schema type.
+func inputTypeForSchemaType(schemaType string) (inputType, inputMode, autocomplete string) {
+	switch schemaType {
+	case "email":
+		return "email", "email", "email"
+	case "url":
+		return "url", "url", "url"
+	case "phone":
+		return "tel", "tel", "tel"
+	case "integer", "int":
+		return "number", "numeric", ""
+	case "float", "number":
+		return "text", "decimal", ""
+	case "boolean", "bool":
+		return "checkbox", "", ""
+	case "money":
+		return "text", "decimal", ""
+	case "date":
+		return "date", "", ""
+	case "datetime":
+		return "datetime-local", "", ""
+	case "unit":
+		return "text", "decimal", ""
+	case "password":
+		return "password", "", "current-password"
+	default:
+		return "text", "", ""
+	}
+}
+
+// formatValueForInput formats a value for use in an HTML input element.
+// Returns an AST expression suitable for inclusion in a Dictionary.
+func formatValueForInput(val Object, field *DSLSchemaField) ast.Expression {
+	switch v := val.(type) {
+	case *String:
+		return &ast.StringLiteral{Value: v.Value}
+	case *Integer:
+		return &ast.IntegerLiteral{Value: v.Value}
+	case *Float:
+		return &ast.FloatLiteral{Value: v.Value}
+	case *Boolean:
+		return &ast.Boolean{Value: v.Value}
+	case *Money:
+		// Format as decimal string for input (e.g., "49.99" not 4999)
+		decimalValue := float64(v.Amount) / float64(pow10(int(v.Scale)))
+		return &ast.StringLiteral{Value: fmt.Sprintf("%.*f", v.Scale, decimalValue)}
+	case *Dictionary:
+		// Handle datetime - format as ISO for input
+		if isDatetimeDict(v) {
+			isoStr := datetimeDictToString(v)
+			// For datetime-local input, remove the Z suffix
+			if len(isoStr) > 0 && isoStr[len(isoStr)-1] == 'Z' {
+				isoStr = isoStr[:len(isoStr)-1]
+			}
+			return &ast.StringLiteral{Value: isoStr}
+		}
+		return nil
+	case *Unit:
+		// Just the numeric value for input
+		decimalValue := float64(v.Amount) / float64(pow10(v.Scale))
+		return &ast.StringLiteral{Value: fmt.Sprintf("%g", decimalValue)}
+	default:
+		return nil
+	}
+}
+
+// pow10 returns 10^n for small non-negative n
+func pow10(n int) int64 {
+	result := int64(1)
+	for i := 0; i < n; i++ {
+		result *= 10
+	}
+	return result
+}
+
 func parseISODate(s string) (time.Time, error) {
 	// Try various ISO formats
 	formats := []string{

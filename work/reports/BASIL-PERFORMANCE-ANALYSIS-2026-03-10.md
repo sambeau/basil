@@ -473,6 +473,20 @@ Secondary bottlenecks or scaling concerns:
 
 ## Recommended Priorities
 
+## Priority Status Checklist
+
+- [x] **Priority 1: Add a Basil server benchmark suite** — completed via `FEAT-139`; benchmark suite and `make bench` are in place
+- [x] **Priority 2: Review API module cache clearing** — investigation completed; recommendation captured here and tracked in backlog item `#116`
+- [ ] **Priority 3: Measure allocations in dynamic route execution** — still outstanding
+- [ ] **Priority 4: Benchmark compression settings** — still outstanding; deferred in backlog item `#117`
+- [ ] **Priority 5: Revisit fragment cache eviction if it becomes important** — still open, but intentionally deferred unless it becomes a real bottleneck
+
+### Current status at a glance
+
+- **Completed:** Priorities 1, 2
+- **Outstanding:** Priorities 3, 4, 5
+- **Deferred by design:** Priority 5 unless evidence shows cache eviction is becoming important
+
 ## Priority 1: Add a Basil server benchmark suite
 
 This is the most important next step.

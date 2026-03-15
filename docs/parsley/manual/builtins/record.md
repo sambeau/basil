@@ -278,6 +278,93 @@ m.format("createdAt")       // "Jan 15, 2025"
 | `"date"` | `2025-01-15` | "Jan 15, 2025" |
 | `"datetime"` | `2025-01-15T14:30:00Z` | "Jan 15, 2025 2:30 PM" |
 
+### Field Props: All-in-One Input Attributes
+
+The `fieldProps(field, overrides?)` method returns a dictionary of HTML input attributes for a field, combining schema type, metadata, value, and validation state into a single call. This is useful when building forms programmatically or in component libraries where `@field` binding isn't available.
+
+**Signature:** `record.fieldProps(field, overrides?) → dictionary`
+
+**Returned keys:**
+
+| Key | Source | Description |
+|-----|--------|-------------|
+| `name` | Field name | The field name for form submission |
+| `type` | Schema type | HTML input type (see mapping below) |
+| `label` | Metadata `title` or title-cased name | Human-readable label |
+| `placeholder` | Metadata `placeholder` | Input placeholder text, or null |
+| `value` | Record data | Current field value, formatted for inputs |
+| `required` | Schema constraints | Whether the field is required |
+| `error` | Validation state | Error message, or null |
+| `autocomplete` | Type/name/metadata | Autocomplete hint, or null |
+| `inputmode` | Schema type | Input mode hint, or null |
+| `options` | Enum values | Array of options for enum fields, or null |
+
+**Type mapping:**
+
+| Schema Type | `type` | `inputmode` |
+|-------------|--------|-------------|
+| `email` | `"email"` | `"email"` |
+| `url` | `"url"` | `"url"` |
+| `phone` | `"tel"` | `"tel"` |
+| `integer` | `"number"` | `"numeric"` |
+| `float` | `"text"` | `"decimal"` |
+| `boolean` | `"checkbox"` | null |
+| `money` | `"text"` | `"decimal"` |
+| `date` | `"date"` | null |
+| `datetime` | `"datetime-local"` | null |
+| `unit` | `"text"` | `"numeric"` |
+| `enum` | `"select"` | null |
+
+**Value formatting:** Values are formatted for HTML input consumption:
+- **money** — decimal string (e.g. `"49.99"`)
+- **datetime** — ISO local format without Z suffix (e.g. `"2025-01-15T14:30:00"`)
+- **unit** — numeric part only (e.g. `"100"`)
+
+**Basic example:**
+
+```parsley
+@schema User {
+    email: email | {title: "Email Address", placeholder: "you@example.com"}
+}
+let user = User({email: "test@example.com"})
+user.fieldProps("email")
+// → {name: "email", type: "email", label: "Email Address", placeholder: "you@example.com",
+//    value: "test@example.com", required: true, autocomplete: "email", inputmode: "email"}
+```
+
+**With overrides:** The optional second argument is a dictionary of overrides that merge in (overrides win). Extra keys are passed through, so you can inject class names, data attributes, or any custom properties:
+
+```parsley
+user.fieldProps("email", {label: "Work Email", class: "wide"})
+// → {name: "email", type: "email", label: "Work Email", placeholder: "you@example.com",
+//    value: "test@example.com", required: true, autocomplete: "email", inputmode: "email",
+//    class: "wide"}
+```
+
+**Programmatic form rendering:**
+
+```parsley
+@schema Contact {
+    name: string(required) | {title: "Full Name"}
+    email: email(required) | {title: "Email"}
+    phone: phone | {title: "Phone Number"}
+}
+
+let form = Contact(props).validate()
+
+for (field in form.keys()) {
+    let p = form.fieldProps(field)
+    <div class="field">
+        <label for={p.name}>p.label</label>
+        <input name={p.name} type={p.type} value={p.value}
+               placeholder={p.placeholder} inputmode={p.inputmode}/>
+        if (p.error) {
+            <span class="error">p.error</span>
+        }
+    </div>
+}
+```
+
 ---
 
 ## Validation
@@ -575,6 +662,23 @@ let r = record.update({a: 1, b: 2, c: 3})
 
 Records shine brightest when building HTML forms. Basil provides special syntax to bind records to form elements, automatically handling values, validation attributes, and accessibility.
 
+### Abstraction Levels
+
+Parsley offers four levels of form binding, from most convenient to most flexible:
+
+| Level | Syntax | Use Case |
+|-------|--------|----------|
+| **Level 4** | `<field name="email"/>` | Rapid prototyping, standard forms |
+| **Level 3** | `<input @field="email"/>` | Custom markup with schema binding |
+| **Level 2** | `record.fieldProps("email")` | Component libraries, programmatic forms |
+| **Level 1** | Manual attributes | Full control, no schema |
+
+Choose based on your needs:
+- Start with **Level 4** for quick forms
+- Drop to **Level 3** when you need custom wrapper markup
+- Use **Level 2** when building reusable components
+- Use **Level 1** for forms without schemas or edge cases
+
 ### Form Context
 
 The `@record` attribute establishes form context:
@@ -613,9 +717,98 @@ Renders to:
 
 This enables edit forms to identify which record is being updated. For new records (where `id` is null), no hidden field is inserted.
 
-### Input Binding with `@field`
+### The `<field/>` Tag (Level 4)
 
-The `@field` attribute binds an input to a schema field:
+The `<field/>` tag outputs a complete, accessible field structure with a single line:
+
+```parsley
+<form @record={user} method="POST">
+    <field name="email"/>
+</form>
+```
+
+This outputs:
+
+```html
+<form method="POST">
+    <div class="field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" value="alice@example.com"
+               required aria-required="true" autocomplete="email"/>
+    </div>
+</form>
+```
+
+**What `<field/>` generates:**
+
+1. **Wrapper div** — with class `"field"` (customizable)
+2. **Label element** — with `for` attribute and text from schema title
+3. **Input element** — with all schema-derived attributes
+4. **Help text** — optional `<span class="help">` if `help` prop provided
+5. **Error span** — only rendered when validation fails, with `role="alert"`
+
+**Props:**
+
+| Prop | Description |
+|------|-------------|
+| `name` | Field name (required) |
+| `as` | Override input type: `"textarea"`, `"select"` |
+| `class` | Wrapper class (default: `"field"`) |
+| `id` | Override input ID |
+| `label` | Override label text |
+| `placeholder` | Override placeholder |
+| `help` | Add help text below input |
+
+**Examples:**
+
+```parsley
+// Basic field
+<field name="email"/>
+
+// Custom label and help text
+<field name="email" label="Work Email" help="We'll never share this"/>
+
+// Textarea for long text
+<field name="bio" as="textarea"/>
+
+// Select for enums (auto-detected from schema, or explicit)
+<field name="role" as="select"/>
+
+// Custom wrapper class
+<field name="name" class="field field--large"/>
+```
+
+**Boolean fields:** For checkbox inputs, `<field/>` automatically:
+- Renders the input *before* the label (standard checkbox UX)
+- Adds `field--checkbox` class to the wrapper
+
+```parsley
+<field name="subscribe"/>
+// → <div class="field field--checkbox">
+//       <input type="checkbox" name="subscribe" id="subscribe"/>
+//       <label for="subscribe">Subscribe</label>
+//   </div>
+```
+
+**Validation errors:** When the record has validation errors, the error span appears:
+
+```parsley
+let form = User({email: "invalid"}).validate()
+<form @record={form} method="POST">
+    <field name="email"/>
+</form>
+// → <div class="field">
+//       <label for="email">Email</label>
+//       <input ... aria-invalid="true" aria-describedby="email-error"/>
+//       <span id="email-error" class="error" role="alert">Invalid email format</span>
+//   </div>
+```
+
+---
+
+### Input Binding with `@field` (Level 3)
+
+The `@field` attribute binds an input to a schema field while giving you full control over markup:
 
 ```parsley
 <form @record={form} method="POST">
@@ -1066,6 +1259,8 @@ let admins = @query(Users | role == "admin" ??-> *)
 | `meta(field, key)` | Any or null | Any metadata value |
 | `enumValues(field)` | Array | Enum options or empty array |
 | `format(field)` | String | Formatted value using metadata hint |
+| `fieldProps(field)` | Dictionary | All input attributes for a field |
+| `fieldProps(field, overrides)` | Dictionary | Input attributes with overrides merged in |
 
 ### Data Methods
 

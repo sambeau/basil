@@ -9,7 +9,8 @@ var htmlModuleMeta = ModuleMeta{
 	Exports: map[string]ExportMeta{
 		// Layout components
 		"Page": {Kind: "component", Description: "Page layout wrapper"},
-		"Head": {Kind: "component", Description: "HTML head section"},
+		"Meta": {Kind: "component", Description: "SEO and social media metadata tags"},
+		"Head": {Kind: "component", Description: "Deprecated alias for Meta"},
 		// Form components
 		"TextField":     {Kind: "component", Description: "Text input field"},
 		"TextareaField": {Kind: "component", Description: "Textarea input field"},
@@ -65,7 +66,8 @@ var componentFiles = []struct {
 }{
 	// Layout components
 	{"page.pars", "Page"},
-	{"head.pars", "Head"},
+	{"meta.pars", "Meta"},
+	{"meta.pars", "Head"},
 
 	// Form components
 	{"text_field.pars", "TextField"},
