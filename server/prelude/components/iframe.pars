@@ -2,8 +2,10 @@
 // Usage: <Iframe src="https://youtube.com/embed/..." title="Product demo video"/>
 
 export Iframe = fn({src, title, id, class, width, height, loading, allow, sandbox, referrerpolicy}) {
-    // Title is required for accessibility
-    <iframe 
+    if (title == null || title == "") {
+        fail("Iframe requires a title attribute for accessibility")
+    }
+    <iframe
         src={src}
         title={title}
         id={id}

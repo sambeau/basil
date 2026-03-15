@@ -1,12 +1,13 @@
-// Img - Image with required alt and lazy loading
+// Img - Image with alt text and lazy loading
+// For meaningful images, alt is required. For decorative images, omit alt (defaults to "").
 // Usage: <Img src="/photo.jpg" alt="A sunset over mountains" width={800} height={600}/>
 
 export Img = fn(props) {
     // Extract component-specific props, spread the rest to img
     let {src, alt, loading, decoding, ...imgAttrs} = props
-    
-    // Alt is effectively required - if not provided, use empty string for decorative images
-    <img 
+
+    // Alt defaults to empty string, which marks the image as decorative (screen readers skip it)
+    <img
         src={src}
         alt={alt ?? ""}
         loading={loading ?? "lazy"}
