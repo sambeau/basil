@@ -138,26 +138,24 @@ export DataTable = fn({
                 }
             }
         </tbody>
-        if (footer != null) {
-            if (footer.length() > 0) {
-                <tfoot>
-                    for (footerRow in footer) {
-                        <tr>
-                            for (key in visibleKeys) {
-                                let value = footerRow[key]
-                                let content = if (renderMap[key]) {
-                                    renderMap[key](value, footerRow)
-                                } else if (value != null) {
-                                    formatCell(value, key)
-                                } else {
-                                    ""
-                                }
-                                <td class={"align-" + getAlign(key)}>content</td>
+        if (footer != null && footer.length() > 0) {
+            <tfoot>
+                for (footerRow in footer) {
+                    <tr>
+                        for (key in visibleKeys) {
+                            let value = footerRow[key]
+                            let content = if (renderMap[key]) {
+                                renderMap[key](value, footerRow)
+                            } else if (value != null) {
+                                formatCell(value, key)
+                            } else {
+                                ""
                             }
-                        </tr>
-                    }
-                </tfoot>
-            }
+                            <td class={"align-" + getAlign(key)}>content</td>
+                        }
+                    </tr>
+                }
+            </tfoot>
         }
     </table>
 }
