@@ -6,7 +6,7 @@ priority: high
 created: 2026-06-15
 updated: 2026-06-15
 author: "@human"
-depends-on: FEAT-145 (Parts A and C)
+depends-on: FEAT-145 (Part C only; Part A partial)
 ---
 
 # FEAT-144: DataTable Redesign
@@ -75,13 +75,17 @@ The current `DataTable` component predates the Parsley `Table` type and ignores 
 
 ### Type-Aware Cell Formatting
 
-- [ ] `money` values formatted via `.medium()` → "£49.99"
-- [ ] `datetime` values formatted via `.medium()` → "Mar 15, 2025"
-- [ ] `duration` values formatted via `.medium()` → "2h 30m"
-- [ ] `unit` values formatted via `.medium()` → "5.00kg"
+- [ ] `money` values display automatically via string coercion → "£ 4,999.00" (FEAT-145 Part A)
+- [ ] `datetime` values formatted explicitly via `.medium()` → "Mar 15, 2025"
+- [ ] `duration` values formatted explicitly via `.medium()` → "2h 30m"
+- [ ] `unit` values formatted explicitly via `.medium()` → "5.00 kg"
 - [ ] `boolean` values displayed as "Yes" / "No"
 - [ ] `null` values displayed as em dash "—"
 - [ ] `integer`, `float`, `string` displayed as-is (string coercion)
+- [ ] Formatting uses `columnProps().format` hint to determine which `.medium()` to call
+- [ ] `format` prop (dict) overrides auto-detected format per column
+
+**Note:** FEAT-145 Part A only implemented `.medium()` coercion for money. Datetime, duration, and unit require explicit `.medium()` calls in DataTable because their automatic coercion was deferred (datetime.medium() doesn't handle date-only kinds; duration.medium() returns relative time; unit.medium() forces decimal places).
 
 ### Custom Cell Rendering
 
@@ -149,9 +153,16 @@ The current `DataTable` component predates the Parsley `Table` type and ignores 
 
 7. **Use `columnProps()` for schema integration**: Rather than ad-hoc schema lookups, DataTable uses `table.columnProps(col)` to get label, type, alignment, and format hints. This parallels how `record.fieldProps(field)` works for forms, creating a consistent pattern across form and display components.
 
-8. **Depends on FEAT-145**: This feature requires:
-   - **Part A**: `objectToString()` changes for `.medium()` formatting of typed values
-   - **Part C**: `Table.columnProps()` method for schema-aware column metadata
+8. **Explicit `.medium()` calls for non-money types**: FEAT-145 Part A only changed string coercion for `money` values. For `datetime`, `duration`, and `unit`, DataTable must explicitly call `.medium()` based on the `columnProps().format` hint. This is because:
+   - `datetime.medium()` doesn't respect date-only/time-only kinds
+   - `duration.medium()` returns relative time ("tomorrow") instead of absolute
+   - `unit.medium()` forces decimal places that may be unwanted
+   
+   DataTable handles this internally — users get human-readable formatting without extra work.
+
+9. **Depends on FEAT-145**: This feature requires:
+   - **Part A (partial)**: Money values format automatically via string coercion
+   - **Part C (complete)**: `Table.columnProps()` method for schema-aware column metadata
 
 ---
 <!-- BELOW THIS LINE: AI-FOCUSED IMPLEMENTATION DETAILS -->
@@ -172,17 +183,18 @@ See `work/design/DESIGN-datatable-redesign.md` for full design rationale, implem
 ### Dependencies
 
 - **Depends on**: FEAT-145 (Typed Value Formatting and Field Abstraction)
-  - Part A: `objectToString()` changes for `.medium()` formatting
-  - Part C: `Table.columnProps()` method
+  - Part A (partial): Money values format via `.medium()` in string coercion ✅
+  - Part C (complete): `Table.columnProps()` method ✅
 - Blocks: None
 - Related: FEAT-051 (Standard Prelude), FEAT-058 (HTML Components in Prelude)
 
-### Prerequisite Implementation
+### Prerequisite Implementation — COMPLETE
 
-Before implementing DataTable, FEAT-145 must be complete (at minimum Parts A and C):
+FEAT-145 Parts A (partial) and C are implemented. DataTable can proceed:
 
-1. **`objectToString()` changes** — Typed values format via `.medium()` automatically
-2. **`Table.columnProps(col)` method** — Returns `{name, label, type, align, format}` from schema
+1. **`objectToString()` for money** — Money values format via `.medium()` automatically ✅
+2. **`Table.columnProps(col)` method** — Returns `{name, label, type, align, format}` from schema ✅
+3. **Explicit formatting for datetime/duration/unit** — DataTable must call `.medium()` explicitly for these types (based on `format` hint from `columnProps()`)
 
 ### Props Interface
 
@@ -198,6 +210,7 @@ Before implementing DataTable, FEAT-145 must be complete (at minimum Parts A and
 | `align` | dict | `{}` | Column alignment overrides |
 | `hide` | array | `[]` | Columns to exclude |
 | `render` | dict | `{}` | Per-column render functions |
+| `format` | dict | `{}` | Per-column format overrides (e.g., `{shipped_at: "relative"}`) |
 | `footer` | array | — | Footer row(s) |
 | `rowHeader` | int/false | `0` | Row header column index |
 | `id` | string | — | HTML id |
@@ -231,6 +244,7 @@ export DataTable = fn({
     let alignMap = align ?? {}
     let hideList = hide ?? []
     let renderMap = render ?? {}
+    let formatMap = format ?? {}
     let rowHeaderIdx = rowHeader ?? 0
     
     // Derive from Table if provided
@@ -269,14 +283,37 @@ export DataTable = fn({
         }
     }
     
-    // Helper: format a cell value
+    // Helper: get format hint for a column (format prop overrides columnProps)
+    let getFormat = fn(col) {
+        if (formatMap[col]) {
+            formatMap[col]
+        } else {
+            getColProps(col).format ?? null
+        }
+    }
+    
+    // Helper: format a cell value based on type
+    // Money formats automatically via string coercion (FEAT-145 Part A)
+    // Datetime, duration, unit need explicit .medium() calls
     let formatCell = fn(value, col) {
         if (renderMap[col]) {
             null  // Render function handles it
         } else if (value == null) {
             "—"
         } else {
-            value  // objectToString() handles typed values
+            let fmt = getFormat(col)
+            if (fmt == "date" || fmt == "datetime") {
+                value.medium()
+            } else if (fmt == "duration") {
+                value.medium()
+            } else if (fmt == "unit") {
+                value.medium()
+            } else if (fmt == "boolean") {
+                if (value) "Yes" else "No"
+            } else {
+                // Money formats automatically; strings/numbers pass through
+                value
+            }
         }
     }
     

@@ -3,7 +3,7 @@
 **Date:** 2025-01-14
 **Updated:** 2026-06-15
 **Status:** Approved
-**Depends On:** `DESIGN-typed-value-formatting.md` (Parts A and C)
+**Depends On:** `DESIGN-typed-value-formatting.md` (Part C complete; Part A partial — money only)
 **Related:** 
 - `work/reports/STANDARD-PRELUDE-REVIEW.md` §3, §9, §13
 - `work/design/DESIGN-typed-value-formatting.md` — Part A (objectToString), Part C (columnProps)
@@ -235,18 +235,25 @@ Default: `"No data"`
 
 Cells are formatted based on their value type:
 
-| Value Type | Default Formatting | Alignment |
-|------------|-------------------|-----------|
-| `money` | `.medium()` → "£49.99" | Right |
-| `datetime` | `.medium()` → "Mar 15, 2025" | Left |
-| `duration` | `.medium()` → "2h 30m" | Right |
-| `unit` | `.medium()` → "5.00kg" | Right |
-| `integer`, `float` | As-is (string coercion) | Right |
-| `boolean` | "Yes" / "No" | Center |
-| `null` | "—" (em dash) | — |
-| `string`, other | As-is | Left |
+| Value Type | Default Formatting | Alignment | Implementation |
+|------------|-------------------|-----------|----------------|
+| `money` | "£ 4,999.00" | Right | Automatic via string coercion (FEAT-145 Part A) |
+| `datetime` | "Mar 15, 2025" | Left | Explicit `.medium()` call required |
+| `duration` | "2h 30m" | Right | Explicit `.medium()` call required |
+| `unit` | "5.00 kg" | Right | Explicit `.medium()` call required |
+| `integer`, `float` | As-is (string coercion) | Right | Automatic |
+| `boolean` | "Yes" / "No" | Center | Explicit check in DataTable |
+| `null` | "—" (em dash) | — | Explicit check in DataTable |
+| `string`, other | As-is | Left | Automatic |
 
-**Dependency:** This relies on the `objectToString()` changes from `DESIGN-typed-value-formatting.md`. Once those changes land, `DataTable` gets sensible formatting automatically.
+**FEAT-145 Implementation Status:**
+- **Money**: Formats automatically via string coercion ✅
+- **Datetime/Duration/Unit**: FEAT-145 Part A deferred these types because:
+  - `datetime.medium()` doesn't respect date-only/time-only kinds
+  - `duration.medium()` returns relative time ("tomorrow") instead of absolute
+  - `unit.medium()` forces decimal places that may be unwanted
+  
+  DataTable must explicitly call `.medium()` for these types based on the `columnProps().format` hint.
 
 The `format` prop overrides auto-detection:
 
@@ -397,6 +404,7 @@ export DataTable = fn({
     let alignMap = align ?? {}
     let hideList = hide ?? []
     let renderMap = render ?? {}
+    let formatMap = format ?? {}
     let rowHeaderIdx = rowHeader ?? 0
     
     // Derive from Table if provided
@@ -409,30 +417,64 @@ export DataTable = fn({
     let visibleColumns = tableColumns.filter(fn(c) { c not in hideList })
     let visibleKeys = tableKeys.filter(fn(k) { k not in hideList })
     
-    // Helper: get header text for a column
-    let getHeader = fn(col) {
-        if (headersMap[col]) {
-            headersMap[col]
-        } else if (schema && schema.title) {
-            schema.title(col) ?? col.replace("_", " ").toTitle()
+    // Helper: get column props (from schema via columnProps, or defaults)
+    let getColProps = fn(col) {
+        if (data) {
+            data.columnProps(col)
         } else {
-            col.replace("_", " ").toTitle()
+            {name: col, label: col.replace("_", " ").toTitle(), align: "left"}
         }
     }
     
-    // Helper: get alignment for a column
-    let getAlign = fn(col) {
-        if (alignMap[col]) alignMap[col] else "left"
+    // Helper: get header text for a column (headers prop overrides columnProps)
+    let getHeader = fn(col) {
+        if (headersMap[col]) {
+            headersMap[col]
+        } else {
+            getColProps(col).label
+        }
     }
     
-    // Helper: format a cell value
+    // Helper: get alignment for a column (align prop overrides columnProps)
+    let getAlign = fn(col) {
+        if (alignMap[col]) {
+            alignMap[col]
+        } else {
+            getColProps(col).align ?? "left"
+        }
+    }
+    
+    // Helper: get format hint for a column (format prop overrides columnProps)
+    let getFormat = fn(col) {
+        if (formatMap[col]) {
+            formatMap[col]
+        } else {
+            getColProps(col).format ?? null
+        }
+    }
+    
+    // Helper: format a cell value based on type
+    // Money formats automatically via string coercion (FEAT-145 Part A)
+    // Datetime, duration, unit need explicit .medium() calls
     let formatCell = fn(value, col) {
         if (renderMap[col]) {
             null  // Render function handles it
         } else if (value == null) {
             "—"
         } else {
-            value  // objectToString() handles typed values
+            let fmt = getFormat(col)
+            if (fmt == "date" || fmt == "datetime") {
+                value.medium()
+            } else if (fmt == "duration") {
+                value.medium()
+            } else if (fmt == "unit") {
+                value.medium()
+            } else if (fmt == "boolean") {
+                if (value) "Yes" else "No"
+            } else {
+                // Money formats automatically; strings/numbers pass through
+                value
+            }
         }
     }
     
