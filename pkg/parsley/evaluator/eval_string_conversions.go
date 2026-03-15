@@ -43,8 +43,6 @@ func objectToTemplateString(obj Object) string {
 		}
 		return obj.Inspect()
 	case *Unit:
-		// Keep existing format for backward compatibility
-		// Users can call .medium() explicitly for formatted output
 		return UnitToString(obj)
 	case *Dictionary:
 		// Check for special dictionary types
@@ -58,9 +56,10 @@ func objectToTemplateString(obj Object) string {
 			return tagDictToString(obj)
 		}
 		if isDatetimeDict(obj) {
-			// Keep existing ISO format for now
-			// Note: .medium() doesn't properly handle datetime kinds (date-only, time-only, datetime)
-			// TODO: Once datetime.medium() respects kind, consider using it here
+			result := datetimeMedium(obj, nil, nil)
+			if str, ok := result.(*String); ok {
+				return str.Value
+			}
 			return datetimeDictToString(obj)
 		}
 		if isDurationDict(obj) {
@@ -157,8 +156,6 @@ func objectToPrintString(obj Object) string {
 		}
 		return obj.Inspect()
 	case *Unit:
-		// Keep existing format for backward compatibility
-		// Users can call .medium() explicitly for formatted output
 		return UnitToString(obj)
 	case *Dictionary:
 		// Check for special dictionary types
@@ -175,9 +172,6 @@ func objectToPrintString(obj Object) string {
 			return tagDictToString(obj)
 		}
 		if isDatetimeDict(obj) {
-			// Keep existing ISO format for now
-			// Note: .medium() doesn't properly handle datetime kinds (date-only, time-only, datetime)
-			// TODO: Once datetime.medium() respects kind, consider using it here
 			return datetimeDictToString(obj)
 		}
 		if isDurationDict(obj) {

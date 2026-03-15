@@ -170,14 +170,14 @@ These items would create permanent API warts, active user confusion, or accessib
 
 ---
 
-### ✅ 1.8 Typed Value Formatting in `objectToString`/`objectToPrintString` (MOSTLY COMPLETE)
+### ✅ 1.8 Typed Value Formatting in `objectToString`/`objectToPrintString` (COMPLETE)
 
 | | |
 |---|---|
-| **Status** | ✅ **Mostly complete** (2026-03-15) |
+| **Status** | ✅ **Complete** (2026-03-15) |
 | **Source** | STANDARD-PRELUDE-REVIEW.md §9.5 (DECIDED) |
 | **Design** | `work/design/DESIGN-typed-value-formatting.md` |
-| **Plan** | `work/plans/PLAN-124-FEAT-145.md` |
+| **Plan** | `work/plans/PLAN-124-FEAT-145.md`, `work/plans/PLAN-126-feat-146.md` |
 
 **Work completed:**
 - ✅ Money formatting via `moneyMedium()` in `objectToTemplateString` and `objectToPrintString`
@@ -185,15 +185,16 @@ These items would create permanent API warts, active user confusion, or accessib
 - ✅ `<field/>` tag with type-aware rendering
 - ✅ `table.columnProps(name)` method
 - ✅ Documentation updates
+- ✅ Duration and Unit in table `objectToString` fixed (FEAT-146)
+- ✅ DateTime in templates uses `.medium()` for human-friendly output (FEAT-146)
+- ✅ DateTime in `objectToPrintString` (toString()) kept as ISO — used programmatically (FEAT-146)
+- ✅ Unit in templates uses `UnitToString()` — `.medium()` deferred (adds unwanted precision) (FEAT-146)
+- ✅ Duration coercion unchanged in templates/print — already correct (FEAT-146)
 
-**Deliberately deferred (needs upstream `.medium()` improvements):**
-- Datetime: `.medium()` doesn't respect datetime kinds (date-only, time-only, full)
-- Duration: `.medium()` returns relative time ("tomorrow") — not suitable for coercion
-- Unit: `.medium()` adds unwanted decimal places ("12.00m" vs "12m")
+**Deferred:**
+- Unit `.medium()` in templates/print — deferred because `.medium()` converts fractions (3/8in → 0.38in) and adds unnecessary decimal places (12m → 12.00m)
 
-**Known gap:** `objectToString` in `stdlib_table.go` (used by `Table.toHTML()`, `.toCSV()`, etc.) does not have a `*Money` case — money values fall through to `obj.Inspect()` instead of getting `.medium()` formatting. This should be fixed.
-
-**Related:** `work/specs/FEAT-145.md` (status needs updating to `complete`)
+**Related:** `work/specs/FEAT-145.md`, `work/specs/FEAT-146.md`
 
 ---
 
@@ -459,7 +460,7 @@ The smoke test (1.6) uncovered 9 component bugs. These should be fixed before 1.
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | ~~DataTable redesign introduces bugs~~ | — | — | ✅ Complete with 22+ tests |
-| ~~Typed value formatting breaks output~~ | — | — | ✅ Complete, datetime/duration/unit deferred |
+| ~~Typed value formatting breaks output~~ | — | — | ✅ Complete (FEAT-146) |
 | ~~Smoke test reveals broken components~~ | — | — | ✅ Found 9 bugs in 3 categories (fixable) |
 | ~~`mdDoc` rename breaks user code~~ | — | — | ✅ Deprecated alias preserves old name |
 

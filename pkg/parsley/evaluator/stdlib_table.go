@@ -1279,7 +1279,17 @@ func objectToString(obj Object) string {
 			return str.Value
 		}
 		return o.Inspect()
+	case *Unit:
+		result := unitMedium(o, nil, nil)
+		if str, ok := result.(*String); ok {
+			return str.Value
+		}
+		return UnitToString(o)
 	case *Dictionary:
+		// Check for duration dicts (before __type check since duration uses isDurationDict)
+		if isDurationDict(o) {
+			return durationDictToString(o)
+		}
 		// Check if it's a special object type
 		if typeExpr, ok := o.Pairs["__type"]; ok {
 			typeVal := Eval(typeExpr, o.Env)

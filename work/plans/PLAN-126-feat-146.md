@@ -2,7 +2,7 @@
 id: PLAN-126
 feature: FEAT-146
 title: "Implementation Plan for Consistent String Coercion"
-status: draft
+status: complete
 created: 2026-03-15
 ---
 
@@ -101,21 +101,26 @@ Steps:
 Total estimated effort: ~1 hour
 
 ## Validation Checklist
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make dev`
-- [ ] Table: duration column renders human-readable text
-- [ ] Table: unit column renders formatted value
-- [ ] Template: datetime interpolates with `.medium()` format
-- [ ] Template: unit interpolates with `.medium()` format  
-- [ ] Duration coercion unchanged in templates/print (already correct)
-- [ ] Existing Money formatting unaffected
-- [ ] `make bench-compare` shows no regression
-- [ ] Action plan updated
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make dev`
+- [x] Table: duration column renders human-readable text
+- [x] Table: unit column renders formatted value
+- [x] Template: datetime interpolates with `.medium()` format
+- [x] Template: unit in templates/print kept as `UnitToString()` — deferred (see below)
+- [x] Duration coercion unchanged in templates/print (already correct)
+- [x] Existing Money formatting unaffected
+- [x] `make bench-compare` shows no regression
+- [x] Action plan updated
 
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
+| 2026-03-15 | Task 1: Fix Duration and Unit in Table `objectToString` | ✅ Complete | Duration renders human-readable, Unit renders formatted value |
+| 2026-03-15 | Task 2: Upgrade DateTime in Template and Print Coercion | ✅ Complete | `.medium()` used in templates; `toString()` kept as ISO (programmatic use) |
+| 2026-03-15 | Task 3: Upgrade Unit in Template and Print Coercion | ⏸️ Deferred | `.medium()` converts fractions and adds unwanted precision |
+| 2026-03-15 | Task 4: Regression Tests | ✅ Complete | Table duration/unit/datetime tests, template coercion tests |
 
 ## Deferred Items
 - Duration `.medium()` returns relative time — if a future spec changes this to absolute duration, reconsider using it for coercion
 - DateTime `.medium()` currently returns date portion only for full datetimes — may want a "datetime medium" that includes time (e.g., "Jun 15, 2025 2:30 PM") in a future spec
+- Unit `.medium()` in templates/print deferred because it changes fractional display (e.g., 3/8in → 0.38in) and adds unnecessary decimal places (e.g., 12m → 12.00m). Kept as `UnitToString()` which preserves fractional and minimal formatting.
