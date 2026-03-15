@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-14
 **Updated:** 2026-03-15
-**Status:** Complete — Action plan in `STDLIB-1.0-ACTION-PLAN.md`
+**Status:** Complete — All findings resolved or deferred. Action plan in `STDLIB-1.0-ACTION-PLAN.md`
 **Scope:** All `@std/` and `@basil/` modules, prelude components, documentation
 **Prior work:** `STDLIB-AUDIT-2025.md`, `1.0-SHIP-REVIEW.md` §4/§12, `1.0-READINESS-AUDIT.md`, `FEAT-129`
 
@@ -38,6 +38,7 @@ However, this review identifies **3 items that should be fixed before 1.0** and 
 8. [Consistency and Usability Review](#8-consistency-and-usability-review)
 9. [Relevant Backlog and Spec Items](#9-relevant-backlog-and-spec-items)
 10. [Summary of Findings](#10-summary-of-findings)
+11. [Final Cross-Reference (2026-03-15)](#11-final-cross-reference-2026-03-15)
 
 ---
 
@@ -208,12 +209,14 @@ The `@basil/html` module loads 26 components from `.pars` files in `server/prelu
 |----------|-----------|-------|
 | Layout | Page, Meta (Head is deprecated alias) | 2 |
 | Form | TextField, TextareaField, SelectField, RadioGroup, CheckboxGroup, Checkbox, Button, Form | 8 |
-| Navigation | Nav, Breadcrumb, SkipLink | 3 |
+| Navigation | Nav, Breadcrumb, SkipLink, Pagination | 4 |
 | Media | Img, Iframe, Figure, Blockquote | 4 |
 | Utility | SrOnly, Abbr, A, Icon | 4 |
 | Time | Time, LocalTime, TimeRange, RelativeTime | 4 |
 | Data | DataTable | 1 |
-| **Total** | | **26** |
+| Disclosure | Details, Accordion, Dialog | 3 |
+| Feedback | Toast, Toasts, ErrorSummary | 3 |
+| **Total** | | **33** |
 
 > **Update (2026-03-15):** FEAT-142 completed. `Head` component replaced by `Meta` component. `Head` remains as a deprecated alias for backward compatibility. `Page` now outputs Open Graph and Twitter metadata automatically from its `title` and `description` props.
 
@@ -292,23 +295,27 @@ Specific notes:
 
 ### Rendering Verification Status
 
-⚠️ **No rendering verification has been performed.** The 1.0-SHIP-REVIEW §12 flagged this as "still to investigate". While code review shows the components are well-structured, they have not been tested with actual HTML rendering in a browser.
+✅ **Smoke test complete (2026-03-15).** `prelude_smoke_test.go` exercises all 33 components (39 subtests including variants). All components render successfully with output validation. 9 bugs were discovered and fixed:
 
-**Recommendation:** Perform a smoke test of all 26 components to verify they render valid, well-formed HTML.
+| Components | Bug | Resolution |
+|-----------|-----|------------|
+| Checkbox, CheckboxGroup, RadioGroup | `.length` (property) instead of `.length()` (method) | Fixed: `.length` → `.length()` |
+| LocalTime, RelativeTime, Time, TimeRange | `.format("iso")` — not a valid format style | Fixed: use `.iso` property |
+| Pagination | `.floor()` on integer division result | Fixed: removed unnecessary `.floor()` |
 
 ### Missing Components (Gap Analysis)
 
-| Component | Priority | Rationale |
-|-----------|----------|-----------|
-| `FileField` | Medium | File upload is common for SMB sites (logos, documents, images). Currently requires raw HTML `<input type="file">`. |
-| `NumberField` | Low | `TextField` with `type="number"` works, but a dedicated component with `min`/`max`/`step` props would be more ergonomic. |
-| `Alert` / `Flash` | Medium | Flash messages / notification banners are extremely common in form-heavy web apps. Currently requires manual HTML. |
-| `Pagination` | Medium | DataTable may have its own but no standalone component. Very common for list pages. |
-| `HiddenField` | Low | Trivial with `<input type="hidden">`, but would complete the form component set. |
-| `DateField` | Low | `TextField` with `type="date"` works. Dedicated component could add datepicker integration. |
-| `Modal` / `Dialog` | Low | Requires JavaScript. May not fit server-rendered philosophy. Defer. |
+| Component | Priority | Rationale | Status |
+|-----------|----------|-----------|--------|
+| `FileField` | Medium | File upload is common for SMB sites (logos, documents, images). Currently requires raw HTML `<input type="file">`. | Post-1.0 |
+| `NumberField` | Low | `TextField` with `type="number"` works, but a dedicated component with `min`/`max`/`step` props would be more ergonomic. | Post-1.0 |
+| `Alert` / `Flash` | Medium | Flash messages / notification banners are extremely common in form-heavy web apps. Currently requires manual HTML. | Post-1.0 |
+| ~~`Pagination`~~ | ~~Medium~~ | ~~DataTable may have its own but no standalone component. Very common for list pages.~~ | ✅ Delivered (FEAT-143) |
+| `HiddenField` | Low | Trivial with `<input type="hidden">`, but would complete the form component set. | Post-1.0 |
+| `DateField` | Low | `TextField` with `type="date"` works. Dedicated component could add datepicker integration. | Post-1.0 |
+| ~~`Modal` / `Dialog`~~ | ~~Low~~ | ~~Requires JavaScript. May not fit server-rendered philosophy. Defer.~~ | ✅ Delivered (FEAT-143) |
 
-**Verdict:** The existing 26 components cover the 80% case well. The gaps are things users can build with native HTML tags in Parsley. None are blocking for 1.0. FileField, Alert, and Pagination would be valuable additions in 1.1.
+**Verdict:** The existing 33 components cover the 80% case well. The gaps are things users can build with native HTML tags in Parsley. None are blocking for 1.0. FileField and Alert would be valuable additions in 1.1.
 
 ### Fit-for-Purpose Verdict
 
@@ -644,25 +651,26 @@ No unimplemented feature specs were found that directly relate to stdlib modules
 
 | Severity | Count | Items |
 |----------|-------|-------|
-| 🔴 Must fix before 1.0 | 1 | `@std/mdDoc` rename to `@std/mddoc` |
-| 🟡 Should fix before 1.0 | 2 | Schema docs cleanup; prelude component render verification |
-| 🟢 Nice to have for 1.0 | 4 | CA postal code; api module meta description; dev.md filename; docs accuracy check |
-| 📋 Post-1.0 | 7 | FileField, Alert, Pagination components; locale coverage; HTTP client; email; truncateWords |
+| 🔴 Must fix before 1.0 | ~~1~~ 0 | ~~`@std/mdDoc` rename to `@std/mddoc`~~ ✅ Fixed |
+| 🟡 Should fix before 1.0 | ~~2~~ 0 | ~~Schema docs cleanup~~ ✅ Fixed; ~~prelude component render verification~~ ✅ Smoke test added, 9 bugs found and fixed |
+| 🟢 Nice to have for 1.0 | ~~4~~ 1 | ~~CA postal code~~ ✅ Fixed; ~~api module meta description~~ ✅ Fixed; ~~dev.md filename~~ ✅ Renamed; docs accuracy check ⏸️ deferred |
+| 📋 Post-1.0 | 7 | FileField, Alert, ~~Pagination~~ ✅ Delivered; locale coverage; HTTP client; email; truncateWords |
 
 ### What Is High Quality
 
 - `@std/math` — Excellent, focused, well-tested
 - `@std/id` — Excellent, focused
-- `@std/valid` — Clean after FEAT-129 refactor
+- `@std/valid` — Clean after FEAT-129 refactor, now includes CA postal codes
 - `@std/hash` — Simple and correct
 - Prelude form components — Excellent accessibility, consistent patterns
+- Prelude components — All 33 components pass smoke test (39 subtests, 0 failures)
 - String methods — Comprehensive (50+ methods including new FEAT-129 additions)
 - Documentation — Manual pages exist for all modules with consistent structure
 
 ### What Needs Reworking
 
-- `@std/mdDoc` naming (must rename to `@std/mddoc`)
-- `@std/schema` documentation (must slim to deprecation notice)
+- ~~`@std/mdDoc` naming (must rename to `@std/mddoc`)~~ ✅ Fixed
+- ~~`@std/schema` documentation (must slim to deprecation notice)~~ ✅ Fixed (1,525 → 104 lines)
 
 ### What Is Surplus
 
@@ -670,9 +678,9 @@ No unimplemented feature specs were found that directly relate to stdlib modules
 
 ### What Is Inconsistent
 
-- `@std/mdDoc` camelCase naming vs all-lowercase convention
-- `apiModuleMeta.Description` says "HTTP client" instead of "API route helpers"
-- `docs/parsley/manual/stdlib/dev.md` filename doesn't match `@basil/log` rename
+- ~~`@std/mdDoc` camelCase naming vs all-lowercase convention~~ ✅ Fixed — `mddoc` canonical, `mdDoc` deprecated alias
+- ~~`apiModuleMeta.Description` says "HTTP client" instead of "API route helpers"~~ ✅ Fixed
+- ~~`docs/parsley/manual/stdlib/dev.md` filename doesn't match `@basil/log` rename~~ ✅ Renamed to `log.md`
 
 ### Where Is There Duplication
 
@@ -681,8 +689,66 @@ No unimplemented feature specs were found that directly relate to stdlib modules
 ### What Would Be Difficult for Newcomers
 
 - `@std/` vs `@basil/` namespace split (medium — needs prominent docs)
-- `@std/schema` deprecation with large docs still present (high — actively confusing)
+- ~~`@std/schema` deprecation with large docs still present (high — actively confusing)~~ ✅ Fixed — 104-line deprecation notice with migration table
 - Expression-based output model (high — but not a stdlib issue)
+
+---
+
+## 11. Final Cross-Reference (2026-03-15)
+
+Final pass verifying every finding against the current codebase. Performed after completing all action plan Tier 1 items, Tier 2 items 2.1–2.9, the FEAT-147 ship review §12 fixes, and the prelude component bug fixes.
+
+### All Findings — Verified Status
+
+| # | Finding | Original Rating | Current Status |
+|---|---------|----------------|----------------|
+| **§2 Module-by-Module** | | | |
+| `@std/math` | Ship (9/10) | ✅ No action needed | ✅ Unchanged |
+| `@std/id` | Ship (9/10) | ✅ No action needed | ✅ Unchanged |
+| `@std/valid` | Ship (8/10), missing CA postal | 🟡 Add CA postal | ✅ **Fixed** — `caPostalRegex` added, 8 tests, docs updated |
+| `@std/hash` | Ship (8/10) | ✅ No action needed | ✅ Unchanged |
+| `@std/mdDoc` | Rename needed (7/10) | 🔴 Must rename | ✅ **Fixed** — `mddoc` canonical, `mdDoc` deprecated alias |
+| `@std/schema` | Docs cleanup (4/10) | 🟡 Slim docs | ✅ **Fixed** — 1,525 → 104 lines |
+| `@std/table` | Already deprecated | ✅ No action needed | ✅ Unchanged |
+| `@basil/api` | Ship (7/10), wrong meta desc | 🟢 Fix description | ✅ **Fixed** — "HTTP API route helpers" |
+| `@basil/log` | Ship (7/10) | ✅ No action needed | ✅ Unchanged |
+| `@basil/html` | Ship after verification (7/10) | 🟡 Smoke test needed | ✅ **Fixed** — 39 subtests, all pass |
+| **§3 Prelude Components** | | | |
+| Component bugs | 9 bugs in 3 categories | 🟡 Fix bugs | ✅ **Fixed** — `.length()`, `.iso`, `.floor()` |
+| Missing components | FileField, Alert, Pagination | 🟢 Post-1.0 | ✅ Pagination delivered; FileField/Alert deferred |
+| **§4 MdDoc** | | | |
+| Naming stutter | `mddoc.mddoc()` | 🟢 Accepted | ✅ Consistent with `id.uuid()`, `hash.sha256()` |
+| **§5 Organisation and Naming** | | | |
+| Namespace moves | `@std/{dev,html,api}` → `@basil/` | ✅ Already done | ✅ Confirmed in code |
+| Deprecated aliases | Keep warnings through 1.0 | ✅ Already done | ✅ Confirmed — removal tracked in backlog #121 |
+| Module metadata gaps | `mdDoc`/`html` missing from meta | 🟢 Fix | ✅ **Fixed** — both registered in `module_meta.go` |
+| **§6 Documentation** | | | |
+| Schema docs bloat | 1,525 lines with deprecation banner | 🟡 Must slim | ✅ **Fixed** — 104 lines |
+| `dev.md` filename | Should be `log.md` | 🟢 Rename | ✅ **Fixed** — renamed to `log.md` |
+| Doc accuracy vs `pars describe` | Not verified | 🟢 Deferred | ⏸️ Deferred — action plan item 2.10 |
+| **§7 Gaps** | | | |
+| Locale coverage | Only US/GB/ISO | 🟢 Post-1.0 | ⏸️ Backlog #17 |
+| HTTP client | No external API calling | 🟢 Post-1.0 | ⏸️ Post-1.0 |
+| Email sending | Dev emails only | 🟢 Post-1.0 | ⏸️ Backlog #5 |
+| **§8 Consistency** | | | |
+| Module naming inconsistency | `mdDoc` was camelCase | 🔴 Must fix | ✅ **Fixed** |
+| `apiModuleMeta` description wrong | "HTTP client" | 🟢 Fix | ✅ **Fixed** |
+| **§9 Backlog** | | | |
+| Open items | #17, #5, #12, #34, #54 | 🟢 All post-1.0 | ✅ Correctly deferred |
+
+### Remaining Open Items
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Documentation accuracy verification (action plan 2.10) | ⏸️ Deferred | ~2–3 hours comparing manual pages vs `pars describe`. Quality-of-life, not correctness. |
+
+### Conclusion
+
+**The stdlib is ready for 1.0.** Every must-fix and should-fix finding from this review has been resolved. The only open item is the deferred documentation accuracy pass (2.10), which is a polish task rather than a correctness issue.
+
+The remaining blockers to 1.0 release are in the ship review (`1.0-SHIP-REVIEW.md`), not in the stdlib:
+- **🔴 Blocker**: #2b TestSiteHandler_RootPath
+- **🟡 Should fix**: #7 DB driver docs, #8 Site mode gaps
 
 ---
 
@@ -699,8 +765,9 @@ As of this review, the module registries in `stdlib_table.go` are:
 "schema": loadSchemaModule,  // deprecated → @schema DSL
 "id":     loadIDModule,
 "api":    loadAPIModule,     // deprecated alias → @basil/api
-"mdDoc":  loadMdDocModule,   // ⚠️ should be "mddoc"
-"html":   loadHTMLModule,    // deprecated alias → @basil/html
+"mddoc":  loadMdDocModule,  // ✅ canonical (renamed from "mdDoc")
+"mdDoc":  loadMdDocModule,  // deprecated alias
+"html":   loadHTMLModule,   // deprecated alias → @basil/html
 "hash":   loadHashModule,
 ```
 
@@ -725,29 +792,39 @@ stdlibModuleMeta = map[string]*ModuleMeta{
     "api":    &apiModuleMeta,
     "dev":    &devModuleMeta,
     "hash":   &hashModuleMeta,
+    "mddoc":  &mdDocModuleMeta,  // ✅ added (was missing)
+    "mdDoc":  &mdDocModuleMeta,  // deprecated alias
 }
-// Note: "mdDoc" and "html" not in stdlibModuleMeta
+basilModuleMeta = map[string]*ModuleMeta{
+    "http": &basilHTTPModuleMeta,
+    "auth": &basilAuthModuleMeta,
+    "api":  &apiModuleMeta,
+    "log":  &devModuleMeta,
+    "html": &htmlModuleMeta,     // ✅ registered
+}
 ```
 
 ## Appendix B: Prelude Component File Inventory
 
-All files in `server/prelude/components/` (updated 2026-03-15 after FEAT-142):
+All files in `server/prelude/components/` (updated 2026-03-15 after FEAT-142, FEAT-143):
 
 ```
-a.pars              breadcrumb.pars     checkbox.pars
-checkbox_group.pars data_table.pars     figure.pars
-form.pars           icon.pars           iframe.pars
-img.pars            local_time.pars     meta.pars
-nav.pars            page.pars           radio_group.pars
-relative_time.pars  select_field.pars   skip_link.pars
-sr_only.pars        text_field.pars     textarea_field.pars
-time.pars           time_range.pars     button.pars
-abbr.pars           blockquote.pars
+a.pars              abbr.pars           accordion.pars
+blockquote.pars     breadcrumb.pars     button.pars
+checkbox.pars       checkbox_group.pars data_table.pars
+details.pars        dialog.pars         error_summary.pars
+figure.pars         form.pars           icon.pars
+iframe.pars         img.pars            local_time.pars
+meta.pars           nav.pars            page.pars
+pagination.pars     radio_group.pars    relative_time.pars
+select_field.pars   skip_link.pars      sr_only.pars
+text_field.pars     textarea_field.pars time.pars
+time_range.pars     toast.pars          toasts.pars
 ```
 
-Total: 26 component files.
+Total: 33 component files (26 original + 7 added in FEAT-143).
 
-> **Note:** `head.pars` was deleted in FEAT-142 and replaced by `meta.pars`. The `Meta` component exports both `Meta` and `Head` (deprecated alias).
+> **Note:** `head.pars` was deleted in FEAT-142 and replaced by `meta.pars`. The `Meta` component exports both `Meta` and `Head` (deprecated alias). Components added in FEAT-143: `accordion.pars`, `details.pars`, `dialog.pars`, `error_summary.pars`, `pagination.pars`, `toast.pars`, `toasts.pars`.
 
 ## Appendix C: Test File Inventory for Stdlib
 
@@ -761,6 +838,7 @@ pkg/parsley/tests/stdlib_mddoc_test.go
 pkg/parsley/tests/stdlib_schema_test.go
 pkg/parsley/tests/stdlib_table_test.go
 pkg/parsley/tests/stdlib_valid_test.go
+pkg/parsley/tests/prelude_smoke_test.go
 ```
 
-All `@std/` modules have dedicated test files. `@basil/html` components are tested through server-level integration tests rather than standalone stdlib tests.
+All `@std/` modules have dedicated test files. `@basil/html` components are now tested via `prelude_smoke_test.go` (39 subtests covering all 33 components, including variant cases for A, Accordion, Button, CheckboxGroup, DataTable, ErrorSummary, and Pagination).
