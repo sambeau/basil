@@ -273,7 +273,7 @@ These items improve polish and correctness but don't create permanent problems.
 
 ---
 
-### 2.6 Add Canadian Postal Code to `@std/valid`
+### ✅ 2.6 Add Canadian Postal Code to `@std/valid` (COMPLETE)
 
 | | |
 |---|---|
@@ -285,9 +285,11 @@ These items improve polish and correctness but don't create permanent problems.
 
 **Work required:** Add CA regex (`^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$`), test cases, update docs and error message.
 
+**Resolution:** Added `caPostalRegex` to `stdlib_valid.go`, CA case in `validPostalCode` switch, updated error message to include CA. Added 8 test cases. Updated `valid.md` and `reference.md` docs.
+
 ---
 
-### 2.7 Fix `@basil/api` Module Meta Description
+### ✅ 2.7 Fix `@basil/api` Module Meta Description (COMPLETE)
 
 | | |
 |---|---|
@@ -297,9 +299,11 @@ These items improve polish and correctness but don't create permanent problems.
 
 **Problem:** Description in `stdlib_api.go` says "HTTP client for API requests" but module is API route helpers.
 
+**Resolution:** Updated description to "HTTP API route helpers" in `stdlib_api.go` and `api-reference.md`.
+
 ---
 
-### 2.8 Rename `dev.md` → `log.md`
+### ✅ 2.8 Rename `dev.md` → `log.md` (COMPLETE)
 
 | | |
 |---|---|
@@ -308,6 +312,8 @@ These items improve polish and correctness but don't create permanent problems.
 | **Source** | STDLIB-1.0-RELEASE-REVIEW |
 
 **Problem:** Filename doesn't match module name `@basil/log`.
+
+**Resolution:** Renamed `docs/parsley/manual/stdlib/dev.md` → `log.md`. Updated two links in `manual/index.md`.
 
 ---
 
@@ -434,9 +440,9 @@ The smoke test (1.6) uncovered 9 component bugs. These should be fixed before 1.
 - [x] SkipLink uses external CSS
 - [x] SkipLink points to `#main`
 - [x] Page `id` default fixed
-- [ ] Canadian postal code in `@std/valid`
-- [ ] `@basil/api` module description corrected
-- [ ] `dev.md` renamed to `log.md`
+- [x] Canadian postal code in `@std/valid`
+- [x] `@basil/api` module description corrected
+- [x] `dev.md` renamed to `log.md`
 - [x] Module metadata completeness (resolved with 1.3 — `mddoc` registered)
 - [ ] Documentation accuracy verification
 
