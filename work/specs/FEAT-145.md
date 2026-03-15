@@ -110,11 +110,11 @@ As a developer building web UIs, I want typed values like money and dates to ren
 
 ### Documentation
 
-- [ ] Form binding documentation updated with all four levels
-- [ ] Migration guide for typed value formatting changes
-- [ ] `pars describe record` shows `fieldProps` method
-- [ ] `pars describe table` shows `columnProps` method
-- [ ] Component library integration guide for `fieldProps()` pattern
+- [x] Form binding documentation updated with all four levels
+- [x] Migration guide for typed value formatting changes
+- [x] `pars describe record` shows `fieldProps` method
+- [x] `pars describe table` shows `columnProps` method
+- [x] Component library integration guide for `fieldProps()` pattern
 
 ## Design Decisions
 

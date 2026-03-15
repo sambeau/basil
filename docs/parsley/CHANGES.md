@@ -1,5 +1,79 @@
 # Parsley Language Changes
 
+## June 2026
+
+### Money Values Now Format Human-Readable in Templates (FEAT-145)
+
+Money values in string interpolation and concatenation now render in human-readable format with thousands separators:
+
+```parsley
+let price = £4999.00
+
+// OLD BEHAVIOR
+`Total: {price}`      // → "Total: £4999.00"
+"Total: " + price     // → "Total: £4999.00"
+
+// NEW BEHAVIOR
+`Total: {price}`      // → "Total: £ 4,999.00"
+"Total: " + price     // → "Total: £ 4,999.00"
+```
+
+**Why this change?**
+- Templates should produce human-readable output by default
+- Reduces boilerplate — no need to call `.medium()` on every value
+- Consistent with the principle that Parsley optimizes for web UI output
+
+**Accessing raw/programmatic formats:**
+- `.iso` property on datetime returns ISO format: `datetime("2025-03-15").iso` → `"2025-03-15"`
+- `.short()` on duration/unit returns compact format: `duration(@1d).short()` → `"1d"`
+- `.inspect()` returns programmer-friendly format for debugging
+
+**Note:** Datetime, duration, and unit string formatting is unchanged in this release. Their `.medium()` methods need refinements before being suitable as defaults.
+
+---
+
+### New Form Field Abstraction: `<field/>` Tag and `fieldProps()` (FEAT-145)
+
+Two new features simplify form building:
+
+**`<field/>` tag** — outputs a complete accessible field structure:
+
+```parsley
+<form @record={user} method="POST">
+    <field name="email"/>
+</form>
+```
+
+Outputs:
+```html
+<form method="POST">
+    <div class="field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" value="..." required aria-required="true"/>
+    </div>
+</form>
+```
+
+**`record.fieldProps(field, overrides?)`** — returns props dictionary for custom components:
+
+```parsley
+let user = User({email: "test@example.com"})
+user.fieldProps("email")
+// → {name: "email", type: "email", label: "Email", value: "test@example.com", required: true, ...}
+```
+
+**`table.columnProps(column)`** — returns display metadata for table columns:
+
+```parsley
+let orders = table([{total: £100.00}]).as(Order)
+orders.columnProps("total")
+// → {name: "total", label: "Total", type: "money", align: "right", format: "currency"}
+```
+
+See the Records manual page for complete documentation of the four abstraction levels.
+
+---
+
 ## December 2025
 
 ### BREAKING: Array Destructuring Now Requires Explicit `...rest` (FEAT-042)

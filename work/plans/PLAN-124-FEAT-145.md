@@ -313,49 +313,55 @@ Tests:
 ## Phase 5: Documentation (1-2 hours)
 
 ### Task 5.1: Update form binding documentation
-**Files**: `docs/parsley/manual/forms.md` or equivalent
+**Files**: `docs/parsley/manual/builtins/record.md`
 **Estimated effort**: 45 min
+**Status**: ✅ Complete
 
 Steps:
-1. Document four abstraction levels (Level 1-4)
-2. Add examples for each level
-3. Explain when to use each level
-4. Add fieldProps() usage examples
+1. ✅ Document four abstraction levels (Level 1-4)
+2. ✅ Add examples for each level
+3. ✅ Explain when to use each level
+4. ✅ Add fieldProps() usage examples
+5. ✅ Document `<field/>` tag with all props and examples
 
 ---
 
 ### Task 5.2: Add migration guide
-**Files**: `docs/parsley/manual/` or `CHANGELOG.md`
+**Files**: `docs/parsley/CHANGES.md`
 **Estimated effort**: 30 min
+**Status**: ✅ Complete
 
 Steps:
-1. Document typed value formatting change
-2. Explain how to access raw/ISO formats
-3. Note that existing @field code is unchanged
+1. ✅ Document typed value formatting change (money in templates)
+2. ✅ Explain how to access raw/ISO formats
+3. ✅ Note that datetime/duration/unit formatting unchanged
+4. ✅ Document new `<field/>` tag and `fieldProps()` method
+5. ✅ Document new `columnProps()` method
 
 ---
 
 ### Task 5.3: Document columnProps() for DataTable
-**Files**: `docs/parsley/manual/tables.md` or equivalent
+**Files**: `docs/parsley/manual/builtins/table.md`
 **Estimated effort**: 30 min
+**Status**: ✅ Complete (done in previous commit)
 
 Steps:
-1. Document columnProps() method
-2. Show integration pattern with DataTable
-3. Explain relationship to fieldProps()
+1. ✅ Document columnProps() method
+2. ✅ Show examples with and without schema
+3. ✅ Document alignment and format mappings
 
 ---
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./pkg/parsley/...`
+- [x] All tests pass: `go test ./pkg/parsley/...`
 - [ ] Build succeeds: `make build`
 - [ ] Benchmarks checked: `make bench-compare`
-- [ ] Documentation updated
-- [ ] `pars describe record` shows fieldProps
-- [ ] `pars describe table` shows columnProps
-- [ ] All FEAT-145 acceptance criteria checked
-- [ ] FEAT-144 unblocked (Parts A and C complete)
+- [x] Documentation updated
+- [x] `pars describe record` shows fieldProps
+- [x] `pars describe table` shows columnProps
+- [x] All FEAT-145 acceptance criteria checked
+- [x] FEAT-144 unblocked (Parts A and C complete)
 
 ## Progress Log
 
@@ -375,9 +381,9 @@ Steps:
 | 2026-06-15 | Task 4.1: Alignment/format helpers | ✅ Complete | alignmentForSchemaType, formatHintForSchemaType |
 | 2026-06-15 | Task 4.2: tableColumnProps() | ✅ Complete | Full implementation with schema support |
 | 2026-06-15 | Task 4.3: pars describe table | ⏸️ Deferred | Auto-registered via MethodRegistry |
-| | Task 5.1: Form binding docs | | |
-| | Task 5.2: Migration guide | | |
-| | Task 5.3: columnProps docs | | |
+| 2026-06-15 | Task 5.1: Form binding docs | ✅ Complete | Added abstraction levels, `<field/>` docs |
+| 2026-06-15 | Task 5.2: Migration guide | ✅ Complete | Added to docs/parsley/CHANGES.md |
+| 2026-06-15 | Task 5.3: columnProps docs | ✅ Complete | Done in previous commit |
 
 ## Implementation Order
 

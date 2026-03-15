@@ -662,6 +662,23 @@ let r = record.update({a: 1, b: 2, c: 3})
 
 Records shine brightest when building HTML forms. Basil provides special syntax to bind records to form elements, automatically handling values, validation attributes, and accessibility.
 
+### Abstraction Levels
+
+Parsley offers four levels of form binding, from most convenient to most flexible:
+
+| Level | Syntax | Use Case |
+|-------|--------|----------|
+| **Level 4** | `<field name="email"/>` | Rapid prototyping, standard forms |
+| **Level 3** | `<input @field="email"/>` | Custom markup with schema binding |
+| **Level 2** | `record.fieldProps("email")` | Component libraries, programmatic forms |
+| **Level 1** | Manual attributes | Full control, no schema |
+
+Choose based on your needs:
+- Start with **Level 4** for quick forms
+- Drop to **Level 3** when you need custom wrapper markup
+- Use **Level 2** when building reusable components
+- Use **Level 1** for forms without schemas or edge cases
+
 ### Form Context
 
 The `@record` attribute establishes form context:
@@ -700,9 +717,98 @@ Renders to:
 
 This enables edit forms to identify which record is being updated. For new records (where `id` is null), no hidden field is inserted.
 
-### Input Binding with `@field`
+### The `<field/>` Tag (Level 4)
 
-The `@field` attribute binds an input to a schema field:
+The `<field/>` tag outputs a complete, accessible field structure with a single line:
+
+```parsley
+<form @record={user} method="POST">
+    <field name="email"/>
+</form>
+```
+
+This outputs:
+
+```html
+<form method="POST">
+    <div class="field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" value="alice@example.com"
+               required aria-required="true" autocomplete="email"/>
+    </div>
+</form>
+```
+
+**What `<field/>` generates:**
+
+1. **Wrapper div** — with class `"field"` (customizable)
+2. **Label element** — with `for` attribute and text from schema title
+3. **Input element** — with all schema-derived attributes
+4. **Help text** — optional `<span class="help">` if `help` prop provided
+5. **Error span** — only rendered when validation fails, with `role="alert"`
+
+**Props:**
+
+| Prop | Description |
+|------|-------------|
+| `name` | Field name (required) |
+| `as` | Override input type: `"textarea"`, `"select"` |
+| `class` | Wrapper class (default: `"field"`) |
+| `id` | Override input ID |
+| `label` | Override label text |
+| `placeholder` | Override placeholder |
+| `help` | Add help text below input |
+
+**Examples:**
+
+```parsley
+// Basic field
+<field name="email"/>
+
+// Custom label and help text
+<field name="email" label="Work Email" help="We'll never share this"/>
+
+// Textarea for long text
+<field name="bio" as="textarea"/>
+
+// Select for enums (auto-detected from schema, or explicit)
+<field name="role" as="select"/>
+
+// Custom wrapper class
+<field name="name" class="field field--large"/>
+```
+
+**Boolean fields:** For checkbox inputs, `<field/>` automatically:
+- Renders the input *before* the label (standard checkbox UX)
+- Adds `field--checkbox` class to the wrapper
+
+```parsley
+<field name="subscribe"/>
+// → <div class="field field--checkbox">
+//       <input type="checkbox" name="subscribe" id="subscribe"/>
+//       <label for="subscribe">Subscribe</label>
+//   </div>
+```
+
+**Validation errors:** When the record has validation errors, the error span appears:
+
+```parsley
+let form = User({email: "invalid"}).validate()
+<form @record={form} method="POST">
+    <field name="email"/>
+</form>
+// → <div class="field">
+//       <label for="email">Email</label>
+//       <input ... aria-invalid="true" aria-describedby="email-error"/>
+//       <span id="email-error" class="error" role="alert">Invalid email format</span>
+//   </div>
+```
+
+---
+
+### Input Binding with `@field` (Level 3)
+
+The `@field` attribute binds an input to a schema field while giving you full control over markup:
 
 ```parsley
 <form @record={form} method="POST">
