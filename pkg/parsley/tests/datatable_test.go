@@ -1,165 +1,65 @@
 package tests
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
 
-// DataTable component definition for testing (mirrors server/prelude/components/data_table.pars)
-const dataTableComponent = `
-let DataTable = fn({
-    data,
-    rows,
-    columns,
-    keys,
-    caption,
-    empty,
-    headers,
-    align,
-    hide,
-    render,
-    format,
-    footer,
-    rowHeader,
-    id,
-    class,
-    ...attrs
-}) {
-    let emptyMsg = empty ?? "No data"
-    let headersMap = headers ?? {}
-    let alignMap = align ?? {}
-    let hideList = hide ?? []
-    let renderMap = render ?? {}
-    let formatMap = format ?? {}
-    let rowHeaderIdx = if (rowHeader == false) null else rowHeader ?? 0
+// dataTableSource loads the DataTable component source from the canonical .pars file.
+// Cached after first load since the file doesn't change during a test run.
+var (
+	dataTableSource     string
+	dataTableSourceOnce sync.Once
+	dataTableSourceErr  error
+)
 
-    let tableColumns = if (data) data.columns else columns ?? []
-    let tableRows = if (data) data.rows else rows ?? []
-    let tableKeys = if (data) data.columns else keys ?? tableColumns
-
-    let visibleColumns = tableColumns.filter(fn(c) { c not in hideList })
-    let visibleKeys = tableKeys.filter(fn(k) { k not in hideList })
-
-    let getColProps = fn(col) {
-        if (data) {
-            data.columnProps(col)
-        } else {
-            {name: col, label: col.replace("_", " ").toTitle(), align: "left"}
-        }
-    }
-
-    let getHeader = fn(col) {
-        if (headersMap[col]) {
-            headersMap[col]
-        } else {
-            getColProps(col).label
-        }
-    }
-
-    let getAlign = fn(col) {
-        if (alignMap[col]) {
-            alignMap[col]
-        } else {
-            getColProps(col).align ?? "left"
-        }
-    }
-
-    let getFormat = fn(col) {
-        if (formatMap[col]) {
-            formatMap[col]
-        } else {
-            getColProps(col).format ?? null
-        }
-    }
-
-    let formatCell = fn(value, col) {
-        if (value == null) {
-            "—"
-        } else {
-            let fmt = getFormat(col)
-            if (fmt == "date" || fmt == "datetime") {
-                value.medium()
-            } else if (fmt == "duration") {
-                value.medium()
-            } else if (fmt == "unit") {
-                value.medium()
-            } else if (fmt == "boolean") {
-                if (value) "Yes" else "No"
-            } else {
-                value
-            }
-        }
-    }
-
-    let tableClass = "data-table" + if (class) " " + class else ""
-
-    <table id={id} class={tableClass} ...attrs>
-        if (caption) {
-            <caption>caption</caption>
-        }
-        <thead>
-            <tr>
-                for (col in visibleColumns) {
-                    <th scope="col" class={"align-" + getAlign(col)}>
-                        getHeader(col)
-                    </th>
-                }
-            </tr>
-        </thead>
-        <tbody>
-            if (tableRows.length() == 0 && emptyMsg != false) {
-                <tr class="data-table-empty">
-                    <td colspan={visibleColumns.length()}>emptyMsg</td>
-                </tr>
-            } else {
-                for (row in tableRows) {
-                    <tr>
-                        for (idx, key in visibleKeys) {
-                            let value = row[key]
-                            let content = if (renderMap[key]) {
-                                renderMap[key](value, row)
-                            } else {
-                                formatCell(value, key)
-                            }
-                            let alignClass = "align-" + getAlign(key)
-
-                            if (rowHeaderIdx != null && rowHeaderIdx == idx) {
-                                <th scope="row" class={alignClass}>content</th>
-                            } else {
-                                <td class={alignClass}>content</td>
-                            }
-                        }
-                    </tr>
-                }
-            }
-        </tbody>
-        if (footer != null) {
-            if (footer.length() > 0) {
-                <tfoot>
-                    for (footerRow in footer) {
-                        <tr>
-                            for (key in visibleKeys) {
-                                let value = footerRow[key]
-                                let content = if (renderMap[key]) {
-                                    renderMap[key](value, footerRow)
-                                } else if (value != null) {
-                                    formatCell(value, key)
-                                } else {
-                                    ""
-                                }
-                                <td class={"align-" + getAlign(key)}>content</td>
-                            }
-                        </tr>
-                    }
-                </tfoot>
-            }
-        }
-    </table>
+func loadDataTableComponent(t *testing.T) string {
+	t.Helper()
+	dataTableSourceOnce.Do(func() {
+		// Resolve path relative to this test file → ../../../server/prelude/components/data_table.pars
+		_, thisFile, _, ok := runtime.Caller(0)
+		if !ok {
+			dataTableSourceErr = os.ErrNotExist
+			return
+		}
+		componentPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "server", "prelude", "components", "data_table.pars")
+		src, err := os.ReadFile(componentPath)
+		if err != nil {
+			dataTableSourceErr = err
+			return
+		}
+		dataTableSource = string(src)
+	})
+	if dataTableSourceErr != nil {
+		t.Fatalf("failed to load DataTable component: %v", dataTableSourceErr)
+	}
+	return dataTableSource
 }
-`
+
+// evalDataTable evaluates the DataTable component source followed by the given test code.
+func evalDataTable(t *testing.T, code string) string {
+	t.Helper()
+	src := loadDataTableComponent(t)
+	fullInput := src + "\n" + code
+
+	result, err := parsley.Eval(fullInput)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	if result.Value.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Value.Inspect())
+	}
+
+	return result.Value.Inspect()
+}
 
 // TestDataTableWithTable tests the DataTable component with Table input
 func TestDataTableWithTable(t *testing.T) {
@@ -356,19 +256,7 @@ func TestDataTableWithTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Prepend DataTable definition to input
-			fullInput := dataTableComponent + "\n" + tt.input
-
-			result, err := parsley.Eval(fullInput)
-			if err != nil {
-				t.Fatalf("parse error: %v", err)
-			}
-
-			if result.Value.Type() == evaluator.ERROR_OBJ {
-				t.Fatalf("evaluation error: %s", result.Value.Inspect())
-			}
-
-			output := result.Value.Inspect()
+			output := evalDataTable(t, tt.input)
 
 			for _, want := range tt.contains {
 				if !strings.Contains(output, want) {
@@ -457,19 +345,7 @@ func TestDataTableSchemaIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Prepend DataTable definition to input
-			fullInput := dataTableComponent + "\n" + tt.input
-
-			result, err := parsley.Eval(fullInput)
-			if err != nil {
-				t.Fatalf("parse error: %v", err)
-			}
-
-			if result.Value.Type() == evaluator.ERROR_OBJ {
-				t.Fatalf("evaluation error: %s", result.Value.Inspect())
-			}
-
-			output := result.Value.Inspect()
+			output := evalDataTable(t, tt.input)
 
 			for _, want := range tt.contains {
 				if !strings.Contains(output, want) {
@@ -535,12 +411,24 @@ func TestDataTableEdgeCases(t *testing.T) {
 			`,
 			contains: []string{"<tfoot>", "Sum", "100"},
 		},
+		{
+			name: "legacy alignment override matches keys not columns",
+			input: `
+				<DataTable
+					columns={["Full Name", "Score"]}
+					rows={[{name: "Alice", score: 99}]}
+					keys={["name", "score"]}
+					align={{score: "right"}}
+				/>
+			`,
+			contains: []string{"align-right"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Prepend DataTable definition to input
-			fullInput := dataTableComponent + "\n" + tt.input
+			src := loadDataTableComponent(t)
+			fullInput := src + "\n" + tt.input
 
 			result, err := parsley.Eval(fullInput)
 			if err != nil {

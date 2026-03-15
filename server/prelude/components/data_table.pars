@@ -104,8 +104,8 @@ export DataTable = fn({
         }
         <thead>
             <tr>
-                for (col in visibleColumns) {
-                    <th scope="col" class={"align-" + getAlign(col)}>
+                for (idx, col in visibleColumns) {
+                    <th scope="col" class={"align-" + getAlign(visibleKeys[idx])}>
                         getHeader(col)
                     </th>
                 }
