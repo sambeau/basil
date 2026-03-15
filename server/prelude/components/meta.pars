@@ -1,0 +1,98 @@
+// Meta - SEO and social media metadata tags
+//
+// Composes with Page's head prop to add social sharing metadata.
+// Note: og:title, og:description, twitter:title, twitter:description
+// are output by Page from its title/description props.
+//
+// Usage:
+//   <Page title="My Post" description="About things" head={
+//       <Meta
+//           image="/og.png"
+//           url="https://example.com/post"
+//           type="article"
+//           published={post.date}
+//       />
+//   }>
+//       "content"
+//   </Page>
+//
+// Props:
+//   image          - Open Graph/Twitter image URL
+//   url            - Canonical URL (also used for og:url)
+//   type           - og:type (default: "website", use "article" for blog posts)
+//   author         - Author name (for articles)
+//   published      - Published date (for articles, datetime object)
+//   modified       - Modified date (for articles, datetime object)
+//   twitter        - Twitter handle (with @) for twitter:site and twitter:creator
+//   favicon        - Favicon path (default: "/favicon.ico")
+//   faviconSvg     - SVG favicon path (default: "/favicon.svg")
+//   appleTouchIcon - Apple touch icon path (default: "/apple-touch-icon.png")
+//   noIndex        - Add robots noindex directive (default: false)
+//   contents       - Additional meta/link tags to include
+
+export Meta = fn({
+    image, url, type, author, published, modified,
+    twitter, favicon, faviconSvg, appleTouchIcon, noIndex, contents
+}) {
+    let ogType = type ?? "website"
+
+    // Robots directive
+    if (noIndex) {
+        <meta name="robots" content="noindex, nofollow"/>
+    }
+
+    // Author
+    if (author) {
+        <meta name="author" content={author}/>
+    }
+
+    // Canonical URL
+    if (url) {
+        <link rel="canonical" href={url}/>
+        <meta property="og:url" content={url}/>
+    }
+
+    // Open Graph type
+    <meta property="og:type" content={ogType}/>
+
+    // Open Graph image
+    if (image) {
+        <meta property="og:image" content={image}/>
+        <meta name="twitter:image" content={image}/>
+    }
+
+    // Twitter Card type
+    <meta name="twitter:card" content={if (image) "summary_large_image" else "summary"}/>
+
+    // Twitter handle
+    if (twitter) {
+        <meta name="twitter:site" content={twitter}/>
+        <meta name="twitter:creator" content={twitter}/>
+    }
+
+    // Article-specific metadata
+    if (ogType == "article") {
+        if (published) {
+            <meta property="article:published_time" content={published.iso}/>
+        }
+        if (modified) {
+            <meta property="article:modified_time" content={modified.iso}/>
+        }
+        if (author) {
+            <meta property="article:author" content={author}/>
+        }
+    }
+
+    // Favicons
+    <link rel="icon" href={favicon ?? "/favicon.ico"} sizes="any"/>
+    <link rel="icon" href={faviconSvg ?? "/favicon.svg"} type="image/svg+xml"/>
+    <link rel="apple-touch-icon" href={appleTouchIcon ?? "/apple-touch-icon.png"}/>
+
+    // Additional content
+    if (contents) {
+        contents
+    }
+}
+
+// Deprecated alias for backward compatibility
+export Head = Meta
