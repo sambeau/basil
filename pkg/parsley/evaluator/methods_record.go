@@ -839,6 +839,8 @@ func formatRecordCurrencyWithCode(value Object, currency string) Object {
 		num = float64(v.Value)
 	case *Float:
 		num = v.Value
+	case *Money:
+		return &String{Value: v.Inspect()}
 	default:
 		return &String{Value: objectToString(value)}
 	}

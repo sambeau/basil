@@ -1272,6 +1272,12 @@ func objectToString(obj Object) string {
 		return "false"
 	case *Null:
 		return ""
+	case *Money:
+		result := moneyMedium(o, nil, nil)
+		if str, ok := result.(*String); ok {
+			return str.Value
+		}
+		return o.Inspect()
 	case *Dictionary:
 		// Check if it's a special object type
 		if typeExpr, ok := o.Pairs["__type"]; ok {

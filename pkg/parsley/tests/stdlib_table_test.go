@@ -1783,3 +1783,17 @@ func TestTableToBox(t *testing.T) {
 		t.Errorf("expected column headers in output, got: %s", str.Value)
 	}
 }
+
+func TestTableMoneyMediumFormatting(t *testing.T) {
+	// Money values in tables should render with .medium() formatting
+	input := `table([{item: "Widget", price: $4999}]).toHTML()`
+	result := evalTest(t, input)
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %s: %s", result.Type(), result.Inspect())
+	}
+	// .medium() should format as "$ 4,999.00"
+	if !strings.Contains(str.Value, "$ 4,999.00") {
+		t.Errorf("expected money formatted with .medium() as $ 4,999.00, got: %s", str.Value)
+	}
+}
