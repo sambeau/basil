@@ -1,7 +1,8 @@
 # Design: DataTable Redesign
 
 **Date:** 2025-01-14
-**Status:** Draft
+**Updated:** 2026-03-15
+**Status:** Approved
 **Related:** 
 - `work/reports/STANDARD-PRELUDE-REVIEW.md` §3, §9, §13
 - `work/design/DESIGN-typed-value-formatting.md`
@@ -543,7 +544,7 @@ export DataTable = fn({
 
 **Recommendation:** Option B — Configurable with sensible default. Some tables have no logical row header (e.g., log entries); others have the identifier in a non-first column.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option B** — Configurable via `rowHeader` prop. Default is `0` (first column). Use `rowHeader={false}` to disable.
 
 ---
 
@@ -560,7 +561,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A with Option E — "Yes"/"No" is most accessible; allow override for specific columns.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — "Yes"/"No" for simplicity and accessibility. Users can use `render` functions for custom boolean display if needed. No override prop for MVP.
 
 ---
 
@@ -577,7 +578,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A — Em dash is the typographically correct choice for tabular data indicating "no value". No need for a prop; users can use `render` functions for custom handling.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — Em dash "—" for null values. Standard typographic convention for "no data" in tables.
 
 ---
 
@@ -597,7 +598,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A for MVP — Simple and predictable. Smart conversion is complex and can produce surprising results. Users who care about precise headers will use the `headers` prop.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — Simple conversion: underscores to spaces + title case. Handles snake_case (common for database columns). Users who want precise headers use the `headers` prop.
 
 ---
 
@@ -612,7 +613,7 @@ export DataTable = fn({
 
 **Recommendation:** Option A — Remove the unused prop. Server-side sorting with `Table.orderBy()` is the Basil pattern. If we add sorting UI later (1.2+), it should be a separate component or enhancement, not baked into `DataTable`.
 
-**Status:** ⏳ Needs decision
+**Status:** ✅ **DECIDED: Option A** — Remove the unused `sortable` prop. Server-side sorting via `Table.orderBy()` is the Basil pattern. A well-designed sorting enhancement (clickable headers, URL params, direction indicators) is deferred to 1.1/1.2 as a separate feature. Users can implement custom sorting in ~45 lines (see `bofdi/components/unsafeTable.pars` for a working example pattern using session state and URL parameters).
 
 ---
 
@@ -751,6 +752,24 @@ func TestDataTableWithTable(t *testing.T) {
 ---
 
 ## 11. Future Considerations
+
+### Server-Side Sorting Enhancement (Tier 3 / Post-1.0)
+
+A future enhancement could add server-side sorting helpers to `DataTable`:
+
+- `sortable={true}` or `sortable={["name", "created_at"]}` to enable clickable headers
+- Generates URL parameters: `?orderBy=col&orderDir=asc`
+- Visual indicator for current sort column/direction
+- Integrates with `Table.orderBy()` on the server
+
+This pattern has been proven in user projects (see `bofdi/components/unsafeTable.pars`):
+- Session persistence for sort state
+- Link-based header clicks (works without JS)
+- Font Awesome or similar icons for direction
+
+**Not included in initial redesign** to keep scope manageable. The current broken `sortable` prop is removed; a proper implementation can be added in 1.1/1.2.
+
+---
 
 Not in scope for this redesign, but worth noting for later:
 

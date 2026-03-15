@@ -133,12 +133,12 @@ These items would create permanent API warts, active user confusion, or accessib
 5. Resolve 5 pending design decisions (see design doc §6)
 6. Backward compatible: existing `columns`/`rows`/`keys` API continues to work
 
-**Decisions needed:**
-- Row header column behavior (always first vs configurable)
-- Boolean formatting (Yes/No vs ✓/✗)
-- Null value display (em dash vs empty)
-- Title case conversion for column headers
-- Confirm removal of `sortable` prop
+**Decisions resolved (2026-03-15):**
+- ✅ Row header column: Configurable via `rowHeader` prop, default `0`, `false` to disable
+- ✅ Boolean formatting: "Yes"/"No" (accessible, simple)
+- ✅ Null value display: Em dash "—" (typographic standard)
+- ✅ Title case conversion: Simple (underscores to spaces + title case)
+- ✅ Remove `sortable` prop: Yes, defer sorting enhancement to 1.1/1.2
 
 ---
 
@@ -322,6 +322,7 @@ These items improve polish and correctness but don't create permanent problems.
 | 26 | DataTable per-column `format` override prop | 1–2h | §3 |
 | 27 | DataTable custom cell render functions (`render` prop) | 2–3h | §3 |
 | 28 | DataTable footer/summary row support | 1–2h | §3 |
+| 28b | DataTable server-side sorting helpers (clickable headers, URL params, direction indicators) | 2–3h | §3, user example |
 | 29 | `FileField` component | 1h | §14 |
 | 30 | `LocalNumber` / `LocalCurrency` components | 2h | §8 |
 | 31 | `record.fieldProps()` method | 4–6h | §9 |
