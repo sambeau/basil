@@ -2,7 +2,7 @@
 // Usage: <DataTable caption="User list" columns={["Name", "Email", "Role"]} rows={users} keys={["name", "email", "role"]}/>
 
 export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
-    <table id={id} class={"data-table" + if (class) { " " + class } else { "" }}>
+    <table id={id} class={"data-table" + if (class) " " + class else ""}>
         if (caption) {
             <caption>caption</caption>
         }

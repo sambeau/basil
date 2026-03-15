@@ -29,7 +29,7 @@ export Breadcrumb = fn({items, id, separator, ...attrs}) {
                             <span itemprop="name">item.label</span>
                         </a>
                     } else {
-                        <span itemprop="name" aria-current={if (isLast) { "page" } else { null }}>
+                        <span itemprop="name" aria-current={if (isLast) "page" else null}>
                             item.label
                         </span>
                     }

@@ -8,9 +8,9 @@ export TextareaField = fn(props) {
 
     // Generate IDs for accessibility
     let textareaId = id ?? name
-    let hintId = if (hint) { textareaId + "-hint" } else { null }
-    let errorId = if (error) { textareaId + "-error" } else { null }
-    let counterId = if (counter && props.maxlength) { textareaId + "-counter" } else { null }
+    let hintId = if (hint) textareaId + "-hint" else null
+    let errorId = if (error) textareaId + "-error" else null
+    let counterId = if (counter && props.maxlength) textareaId + "-counter" else null
 
     // Build aria-describedby from hint, error, and counter IDs
     let describedByParts = [hintId, errorId, counterId].filter(fn(x) { x != null })
@@ -30,11 +30,11 @@ export TextareaField = fn(props) {
         name={name}
         rows={rowCount}
         required={required}
-        aria-required={if (required) { "true" } else { null }}
+        aria-required={if (required) "true" else null}
         aria-describedby={describedBy}
-        aria-invalid={if (error) { "true" } else { null }}
-        data-counter={if (counter && counterId) { counterId } else { null }}
-        data-autoresize={if (autoresize) { "true" } else { null }}
+        aria-invalid={if (error) "true" else null}
+        data-counter={if (counter && counterId) counterId else null}
+        data-autoresize={if (autoresize) "true" else null}
         ...textareaAttrs
     >textareaValue</textarea>
     if (hint && !error) {

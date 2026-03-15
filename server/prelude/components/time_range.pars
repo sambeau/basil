@@ -4,8 +4,8 @@
 
 export TimeRange = fn({start, end, format, separator, id, class, contents}) {
     // Format datetime attributes (ISO 8601)
-    let startIso = if (start) { start.format("iso") } else { null }
-    let endIso = if (end) { end.format("iso") } else { null }
+    let startIso = if (start) start.format("iso") else null
+    let endIso = if (end) end.format("iso") else null
     let sep = separator ?? " – "
     
     // Compute server-side fallback display

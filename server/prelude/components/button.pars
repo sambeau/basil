@@ -10,11 +10,11 @@ export Button = fn(props) {
     
     <button 
         type={type ?? "button"}
-        class={"button" + if (class) { " " + class } else { "" }}
+        class={"button" + if (class) " " + class else ""}
         data-toggle={toggle}
         data-copy={copy}
-        aria-controls={if (toggle) { toggle.replace("#", "") } else { null }}
-        aria-expanded={if (toggle) { "false" } else { null }}
+        aria-controls={if (toggle) toggle.replace("#", "") else null}
+        aria-expanded={if (toggle) "false" else null}
         ...buttonAttrs
     >
         (contents)

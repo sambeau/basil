@@ -80,7 +80,7 @@ export Head = fn({
         }
         
         // Twitter Card
-        <meta name="twitter:card" content={if (image) { "summary_large_image" } else { "summary" }}/>
+        <meta name="twitter:card" content={if (image) "summary_large_image" else "summary"}/>
         if (twitter) {
             <meta name="twitter:site" content={twitter}/>
             <meta name="twitter:creator" content={twitter}/>

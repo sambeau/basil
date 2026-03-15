@@ -7,7 +7,7 @@
 export Toast = fn({message, type, dismissible, ...attrs}) {
     let toastType = type ?? "info"
     let canDismiss = dismissible ?? true
-    let role = if (toastType == "error") { "alert" } else { "status" }
+    let role = if (toastType == "error") "alert" else "status"
 
     <article role={role} data-type={toastType} ...attrs>
         <p>message</p>

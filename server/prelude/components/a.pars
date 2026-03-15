@@ -13,7 +13,7 @@ export A = fn(props) {
     } else { 
         rel 
     }
-    let computedTarget = if (external && !target) { "_blank" } else { target }
+    let computedTarget = if (external && !target) "_blank" else target
     
     <a 
         href={href}

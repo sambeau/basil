@@ -5,7 +5,7 @@ export Icon = fn({name, label, id, class}) {
     <>
         <span 
             id={id}
-            class={"icon icon-" + name + if (class) { " " + class } else { "" }}
+            class={"icon icon-" + name + if (class) " " + class else ""}
             aria-hidden="true"
         ></span>
         if (label) {

@@ -8,8 +8,8 @@ export SelectField = fn(props) {
 
     // Generate IDs for accessibility
     let selectId = id ?? name
-    let hintId = if (hint) { selectId + "-hint" } else { null }
-    let errorId = if (error) { selectId + "-error" } else { null }
+    let hintId = if (hint) selectId + "-hint" else null
+    let errorId = if (error) selectId + "-error" else null
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
@@ -29,10 +29,10 @@ export SelectField = fn(props) {
         id={selectId}
         name={name}
         required={required}
-        aria-required={if (required) { "true" } else { null }}
+        aria-required={if (required) "true" else null}
         aria-describedby={describedBy}
-        aria-invalid={if (error) { "true" } else { null }}
-        data-autosubmit={if (autosubmit) { "true" } else { null }}
+        aria-invalid={if (error) "true" else null}
+        data-autosubmit={if (autosubmit) "true" else null}
         ...selectAttrs
     >
         if (placeholder) {
@@ -42,8 +42,8 @@ export SelectField = fn(props) {
         }
         for (opt in options ?? []) {
             // Support both simple values and objects with value/label keys
-            let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
-            let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
+            let optValue = if (opt.type == "dictionary") opt[vKey] else opt
+            let optLabel = if (opt.type == "dictionary") opt[lKey] else opt
             <option value={optValue} selected={optValue == value}>
                 optLabel
             </option>
