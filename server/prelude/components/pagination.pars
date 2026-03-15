@@ -17,7 +17,7 @@ export Pagination = fn({current, total, perPage, href, window, showFirst, showPr
         let showPrevNext = showPrev ?? true
         let navLabels = labels ?? {first: "«", prev: "‹", next: "›", last: "»"}
 
-        let pageUrl = fn(n) { href.replace("{page}", n ++ "") }
+        let pageUrl = fn(n) { href.replace("{page}", n + "") }
 
         let start = max(1, current - pageWindow)
         let end = min(totalPages, current + pageWindow)

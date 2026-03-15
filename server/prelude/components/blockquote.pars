@@ -2,7 +2,7 @@
 // Usage: <Blockquote author="Oscar Wilde" cite="https://...">"Quote text here"</Blockquote>
 
 export Blockquote = fn({author, cite, id, class, contents}) {
-    <figure id={id} class={"blockquote" ++ if (class) { " " ++ class } else { "" }}>
+    <figure id={id} class={"blockquote" + if (class) { " " + class } else { "" }}>
         <blockquote cite={cite}>
             (contents)
         </blockquote>

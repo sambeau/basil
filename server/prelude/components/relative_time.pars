@@ -15,7 +15,7 @@ export RelativeTime = fn({datetime, live, threshold, format, announce, id, class
     }
     
     // Title shows full UTC datetime for precision
-    let title = if (datetime) { datetime.format("full") ++ " UTC" } else { null }
+    let title = if (datetime) { datetime.format("full") + " UTC" } else { null }
     
     // Convert threshold duration to string if provided
     let thresholdStr = if (threshold) { threshold.string } else { null }

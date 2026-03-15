@@ -18,7 +18,7 @@ export LocalTime = fn({datetime, format, weekday, showZone, id, class, contents}
     }
     
     // Title shows full UTC datetime for precision
-    let title = if (datetime) { datetime.format("full") ++ " UTC" } else { null }
+    let title = if (datetime) { datetime.format("full") + " UTC" } else { null }
     
     <local-time 
         datetime={iso}

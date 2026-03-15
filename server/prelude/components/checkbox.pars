@@ -3,16 +3,16 @@
 
 export Checkbox = fn({name, label, checked, hint, error, required, id, class, disabled, value}) {
     // Generate IDs for accessibility
-    let fieldId = id ?? "field-" ++ name
-    let checkboxId = fieldId ++ "-input"
-    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
-    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    let fieldId = id ?? "field-" + name
+    let checkboxId = fieldId + "-input"
+    let hintId = if (hint) { fieldId + "-hint" } else { null }
+    let errorId = if (error) { fieldId + "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
     let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
 
-    <div class={"field field-checkbox" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
+    <div class={"field field-checkbox" + if (class) { " " + class } else { "" }} id={fieldId}>
         <label class="checkbox-label">
             <input
                 type="checkbox"

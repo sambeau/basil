@@ -8,8 +8,8 @@ export SelectField = fn(props) {
 
     // Generate IDs for accessibility
     let selectId = id ?? name
-    let hintId = if (hint) { selectId ++ "-hint" } else { null }
-    let errorId = if (error) { selectId ++ "-error" } else { null }
+    let hintId = if (hint) { selectId + "-hint" } else { null }
+    let errorId = if (error) { selectId + "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })

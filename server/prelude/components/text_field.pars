@@ -8,8 +8,8 @@ export TextField = fn(props) {
 
     // Generate IDs for accessibility
     let inputId = id ?? name
-    let hintId = if (hint) { inputId ++ "-hint" } else { null }
-    let errorId = if (error) { inputId ++ "-error" } else { null }
+    let hintId = if (hint) { inputId + "-hint" } else { null }
+    let errorId = if (error) { inputId + "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })

@@ -6,9 +6,9 @@ export CheckboxGroup = fn(props) {
     let {name, label, values, options, valueKey, labelKey, hint, error, required, id, class, disabled, ...fieldsetAttrs} = props
 
     // Generate IDs for accessibility
-    let fieldId = id ?? "field-" ++ name
-    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
-    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    let fieldId = id ?? "field-" + name
+    let hintId = if (hint) { fieldId + "-hint" } else { null }
+    let errorId = if (error) { fieldId + "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
@@ -22,7 +22,7 @@ export CheckboxGroup = fn(props) {
     let selectedValues = values ?? []
 
     <fieldset
-        class={"checkbox-group" ++ if (class) { " " ++ class } else { ""}}
+        class={"checkbox-group" + if (class) { " " + class } else { ""}}
         id={fieldId}
         aria-describedby={describedBy}
         aria-invalid={if (error) { "true" } else { null }}
@@ -42,12 +42,12 @@ export CheckboxGroup = fn(props) {
                 // Support both simple values and objects with value/label keys
                 let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
                 let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
-                let checkboxId = fieldId ++ "-" ++ idx
+                let checkboxId = fieldId + "-" + idx
                 <label class="checkbox-option">
                     <input
                         type="checkbox"
                         id={checkboxId}
-                        name={name ++ "[]"}
+                        name={name + "[]"}
                         value={optValue}
                         checked={selectedValues.has(optValue)}
                         disabled={disabled}

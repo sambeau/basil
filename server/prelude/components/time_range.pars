@@ -19,16 +19,16 @@ export TimeRange = fn({start, end, format, separator, id, class, contents}) {
         
         if (sameDay) {
             // Same day: show date once, both times
-            start.format("long_date") ++ ", " ++ start.format("time") ++ sep ++ end.format("time")
+            start.format("long_date") + ", " + start.format("time") + sep + end.format("time")
         } else if (sameMonth) {
             // Same month: collapse month
-            start.format("day") ++ sep ++ end.format("day") ++ ", " ++ start.format("month_year")
+            start.format("day") + sep + end.format("day") + ", " + start.format("month_year")
         } else if (sameYear) {
             // Same year: show month for each, year once
-            start.format("month_day") ++ sep ++ end.format("month_day") ++ ", " ++ start.format("year")
+            start.format("month_day") + sep + end.format("month_day") + ", " + start.format("year")
         } else {
             // Different years
-            start.format("long") ++ sep ++ end.format("long")
+            start.format("long") + sep + end.format("long")
         }
     } else {
         ""
@@ -36,7 +36,7 @@ export TimeRange = fn({start, end, format, separator, id, class, contents}) {
     
     // Title shows full range in UTC
     let title = if (start && end) { 
-        start.format("full") ++ " – " ++ end.format("full") ++ " UTC" 
+        start.format("full") + " – " + end.format("full") + " UTC" 
     } else { 
         null 
     }

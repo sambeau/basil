@@ -13,18 +13,18 @@ export ErrorSummary = fn({title, errors, id, ...attrs}) {
 
         <aside
             role="alert"
-            aria-labelledby={summaryId ++ "-title"}
+            aria-labelledby={summaryId + "-title"}
             tabindex="-1"
             id={summaryId}
             ...attrs
         >
             <header>
-                <h2 id={summaryId ++ "-title"}>summaryTitle</h2>
+                <h2 id={summaryId + "-title"}>summaryTitle</h2>
             </header>
             <ul>
                 for (err in errors) {
                     <li>
-                        <a href={"#" ++ err.field}>err.message</a>
+                        <a href={"#" + err.field}>err.message</a>
                     </li>
                 }
             </ul>

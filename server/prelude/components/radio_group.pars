@@ -6,9 +6,9 @@ export RadioGroup = fn(props) {
     let {name, label, value, options, valueKey, labelKey, hint, error, required, id, class, disabled, ...fieldsetAttrs} = props
 
     // Generate IDs for accessibility
-    let fieldId = id ?? "field-" ++ name
-    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
-    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    let fieldId = id ?? "field-" + name
+    let hintId = if (hint) { fieldId + "-hint" } else { null }
+    let errorId = if (error) { fieldId + "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
@@ -19,7 +19,7 @@ export RadioGroup = fn(props) {
     let lKey = labelKey ?? "label"
 
     <fieldset
-        class={"radio-group" ++ if (class) { " " ++ class } else { ""}}
+        class={"radio-group" + if (class) { " " + class } else { ""}}
         id={fieldId}
         aria-describedby={describedBy}
         aria-invalid={if (error) { "true" } else { null }}
@@ -39,7 +39,7 @@ export RadioGroup = fn(props) {
                 // Support both simple values and objects with value/label keys
                 let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
                 let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
-                let radioId = fieldId ++ "-" ++ idx
+                let radioId = fieldId + "-" + idx
                 <label class="radio-option">
                     <input
                         type="radio"
