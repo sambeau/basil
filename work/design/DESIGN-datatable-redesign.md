@@ -46,14 +46,15 @@ The current `DataTable` component predates the Parsley `Table` type and ignores 
 ### 2.2 Current Implementation
 
 ```parsley
+// From server/prelude/components/data_table.pars
 export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
-    <table id={id} class={"data-table" ++ if (class) { " " ++ class } else { "" }}>
+    <table id={id} class={"data-table" + if (class) " " + class else ""}>
         if (caption) {
             <caption>caption</caption>
         }
         <thead>
             <tr>
-                for (col, idx in columns ?? []) {
+                for (idx, col in columns ?? []) {
                     <th scope="col">col</th>
                 }
             </tr>
@@ -61,7 +62,8 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
         <tbody>
             for (row in rows ?? []) {
                 <tr>
-                    for (key, idx in keys ?? []) {
+                    for (idx, key in keys ?? []) {
+                        // First column gets row scope for accessibility
                         if (idx == 0) {
                             <th scope="row">row[key]</th>
                         } else {
@@ -85,7 +87,6 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
 | No custom cell rendering | Can't add links, badges, action buttons |
 | No footer/summary row | Can't show totals |
 | `sortable` prop exists but does nothing | Confusing API |
-| Class merging uses `++` (creates array) | Works by accident |
 
 ---
 
@@ -94,8 +95,14 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
 ### 3.1 Primary Usage (with `Table`)
 
 ```parsley
-let users = db.query("SELECT name, email, role FROM users")
+// Using TableBinding (recommended)
+let Users = @DB.bind(UserSchema, "users")
+let users = Users.all()
 
+<DataTable data={users} caption="Users"/>
+
+// Or using Query DSL
+let users = @query(Users ??-> *)
 <DataTable data={users} caption="Users"/>
 ```
 
@@ -176,14 +183,15 @@ When `data` is a `Table`:
 
 | Derived From | Used For |
 |--------------|----------|
-| `table.columns()` | Column headers (unless `headers` prop overrides) |
-| `table.rows()` | Row data |
-| `table.schema()` | Type information for formatting/alignment |
+| `table.columns` | Column headers (unless `headers` prop overrides) |
+| `table.rows` | Row data |
+| `table.schema` | Type information for formatting/alignment (if bound) |
 | Column names | Keys for accessing row values |
 
 ```parsley
 // Given:
-let products = db.query("SELECT name, price, created_at FROM products")⚠️
+let Products = @DB.bind(ProductSchema, "products")
+let products = Products.all()
 
 // This:
 <DataTable data={products}/>
@@ -191,7 +199,7 @@ let products = db.query("SELECT name, price, created_at FROM products")⚠️
 // Is equivalent to:
 <DataTable 
     columns={["name", "price", "created_at"]}
-    rows={products.rows()}
+    rows={products.rows}
     keys={["name", "price", "created_at"]}
 />
 ```
@@ -369,52 +377,55 @@ export DataTable = fn({
     columns,
     keys,
     caption,
-    empty = "No data",
-    headers = {},
-    align = {},
-    hide = [],
-    render = {},
-    format = {},
+    empty,
+    headers,
+    align,
+    hide,
+    render,
+    format,
     footer,
-    rowHeader = 0,
+    rowHeader,
     id,
     class,
     ...attrs
 }) {
+    // Defaults
+    let emptyMsg = empty ?? "No data"
+    let headersMap = headers ?? {}
+    let alignMap = align ?? {}
+    let hideList = hide ?? []
+    let renderMap = render ?? {}
+    let rowHeaderIdx = rowHeader ?? 0
+    
     // Derive from Table if provided
-    let tableColumns = if (data) { data.columns() } else { columns ?? [] }
-    let tableRows = if (data) { data.rows() } else { rows ?? [] }
-    let tableKeys = if (data) { data.columns() } else { keys ?? tableColumns }
-    let schema = if (data) { data.schema() } else { null }
+    let tableColumns = if (data) data.columns else columns ?? []
+    let tableRows = if (data) data.rows else rows ?? []
+    let tableKeys = if (data) data.columns else keys ?? tableColumns
+    let schema = if (data) data.schema else null
     
     // Filter out hidden columns
-    let visibleColumns = tableColumns.filter(fn(c) { !hide.contains(c) })
-    let visibleKeys = tableKeys.filter(fn(k) { !hide.contains(k) })
+    let visibleColumns = tableColumns.filter(fn(c) { c not in hideList })
+    let visibleKeys = tableKeys.filter(fn(k) { k not in hideList })
     
     // Helper: get header text for a column
-    let getHeader = fn(col, idx) {
-        if (headers[col]) {
-            headers[col]
-        } else if (schema and schema.title) {
-            schema.title(col) ?? col.replace("_", " ").toTitleCase()
+    let getHeader = fn(col) {
+        if (headersMap[col]) {
+            headersMap[col]
+        } else if (schema && schema.title) {
+            schema.title(col) ?? col.replace("_", " ").toTitle()
         } else {
-            col.replace("_", " ").toTitleCase()
+            col.replace("_", " ").toTitle()
         }
     }
     
     // Helper: get alignment for a column
     let getAlign = fn(col) {
-        if (align[col]) {
-            align[col]
-        } else {
-            // Auto-derive from schema or first row
-            "left"  // Simplified — full impl checks value types
-        }
+        if (alignMap[col]) alignMap[col] else "left"
     }
     
     // Helper: format a cell value
     let formatCell = fn(value, col) {
-        if (render[col]) {
+        if (renderMap[col]) {
             null  // Render function handles it
         } else if (value == null) {
             "—"
@@ -423,62 +434,62 @@ export DataTable = fn({
         }
     }
     
-    let tableClass = ["data-table", class].filter(fn(c) { c != null }).join(" ")
+    let tableClass = "data-table" + if (class) " " + class else ""
     
-    <table id={id} class={tableClass} {...attrs}>
+    <table id={id} class={tableClass} ...attrs>
         if (caption) {
-            <caption>{caption}</caption>
+            <caption>caption</caption>
         }
         <thead>
             <tr>
-                for (col, idx in visibleColumns) {
+                for (idx, col in visibleColumns) {
                     <th scope="col" class={"align-" + getAlign(visibleKeys[idx])}>
-                        {getHeader(col, idx)}
+                        getHeader(col)
                     </th>
                 }
             </tr>
         </thead>
         <tbody>
-            if (tableRows.len() == 0 and empty != false) {
+            if (tableRows.length() == 0 && emptyMsg != false) {
                 <tr class="data-table-empty">
-                    <td colspan={visibleColumns.len()}>{empty}</td>
+                    <td colspan={visibleColumns.length()}>emptyMsg</td>
                 </tr>
             } else {
                 for (row in tableRows) {
                     <tr>
-                        for (key, idx in visibleKeys) {
+                        for (idx, key in visibleKeys) {
                             let value = row[key]
-                            let content = if (render[key]) {
-                                render[key](value, row)
+                            let content = if (renderMap[key]) {
+                                renderMap[key](value, row)
                             } else {
                                 formatCell(value, key)
                             }
                             let alignClass = "align-" + getAlign(key)
                             
-                            if (idx == rowHeader) {
-                                <th scope="row" class={alignClass}>{content}</th>
+                            if (idx == rowHeaderIdx) {
+                                <th scope="row" class={alignClass}>content</th>
                             } else {
-                                <td class={alignClass}>{content}</td>
+                                <td class={alignClass}>content</td>
                             }
                         }
                     </tr>
                 }
             }
         </tbody>
-        if (footer and footer.len() > 0) {
+        if (footer && footer.length() > 0) {
             <tfoot>
                 for (footerRow in footer) {
                     <tr>
-                        for (key, idx in visibleKeys) {
+                        for (idx, key in visibleKeys) {
                             let value = footerRow[key]
-                            let content = if (render[key]) {
-                                render[key](value, footerRow)
+                            let content = if (renderMap[key]) {
+                                renderMap[key](value, footerRow)
                             } else if (value != null) {
                                 formatCell(value, key)
                             } else {
                                 ""
                             }
-                            <td class={"align-" + getAlign(key)}>{content}</td>
+                            <td class={"align-" + getAlign(key)}>content</td>
                         }
                     </tr>
                 }
@@ -639,16 +650,18 @@ No changes required. The existing API continues to work:
 
 ```parsley
 // Before: Manual decomposition
-let users = db.query("SELECT * FROM users")
+let Users = @DB.bind(UserSchema, "users")
+let users = Users.all()
 <DataTable 
     caption="Users"
     columns={["Name", "Email", "Role"]}
-    rows={users}
+    rows={users.rows}
     keys={["name", "email", "role"]}
 />
 
 // After: Direct Table usage with enhancements
-let users = db.query("SELECT * FROM users")
+let Users = @DB.bind(UserSchema, "users")
+let users = Users.all()
 <DataTable 
     data={users}
     caption="Users"
@@ -656,7 +669,7 @@ let users = db.query("SELECT * FROM users")
     hide={["id", "password_hash"]}
     headers={{created_at: "Member Since"}}
     render={{
-        email: fn(v, r) { <a href={"mailto:" + v}>{v}</a> }
+        email: fn(v, r) { <a href={"mailto:" + v}>v</a> }
     }}
 />
 ```
