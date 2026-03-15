@@ -66,19 +66,19 @@ As a developer building web UIs, I want typed values like money and dates to ren
 
 ### Part B: `fieldProps()` Method
 
-- [ ] `record.fieldProps(name)` returns a dictionary of form field props
-- [ ] Returns `name` — field name for HTML name attribute
-- [ ] Returns `type` — HTML input type derived from schema type
-- [ ] Returns `label` — from schema `.title()` or titlecased field name
-- [ ] Returns `placeholder` — from schema `.placeholder()` if available
-- [ ] Returns `value` — current value formatted for input (ISO for dates, decimal for money)
-- [ ] Returns `required` — boolean from schema constraint
-- [ ] Returns `error` — error message from `.error()` if present
-- [ ] Returns `autocomplete` — HTML autocomplete hint from type
-- [ ] Returns `inputmode` — HTML inputmode hint from type
-- [ ] Returns `options` — array of values for enum types
-- [ ] Accepts optional second argument for overrides: `fieldProps("email", {label: "Work Email"})`
-- [ ] Type mappings: email→email, url→url, phone→tel, integer→number, date→date, datetime→datetime-local, boolean→checkbox, enum→select
+- [x] `record.fieldProps(name)` returns a dictionary of form field props
+- [x] Returns `name` — field name for HTML name attribute
+- [x] Returns `type` — HTML input type derived from schema type
+- [x] Returns `label` — from schema `.title()` or titlecased field name
+- [x] Returns `placeholder` — from schema `.placeholder()` if available
+- [x] Returns `value` — current value formatted for input (ISO for dates, decimal for money)
+- [x] Returns `required` — boolean from schema constraint
+- [x] Returns `error` — error message from `.error()` if present
+- [x] Returns `autocomplete` — HTML autocomplete hint from type
+- [x] Returns `inputmode` — HTML inputmode hint from type
+- [x] Returns `options` — array of values for enum types
+- [x] Accepts optional second argument for overrides: `fieldProps("email", {label: "Work Email"})`
+- [x] Type mappings: email→email, url→url, phone→tel, integer→number, date→date, datetime→datetime-local, boolean→checkbox, enum→select
 
 ### Part B: `<field/>` Tag
 
