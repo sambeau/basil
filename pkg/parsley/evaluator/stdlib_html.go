@@ -32,6 +32,12 @@ var htmlModuleMeta = ModuleMeta{
 		"Details":   {Kind: "component", Description: "Expandable content section"},
 		"Accordion": {Kind: "component", Description: "Exclusive expandable sections"},
 		"Dialog":    {Kind: "component", Description: "Modal dialog"},
+		// Feedback components
+		"Toast":        {Kind: "component", Description: "Notification message"},
+		"Toasts":       {Kind: "component", Description: "Toast container"},
+		"ErrorSummary": {Kind: "component", Description: "Form validation error summary"},
+		// Navigation components (extended)
+		"Pagination": {Kind: "component", Description: "Page navigation"},
 		// Utility components
 		"SrOnly": {Kind: "component", Description: "Screen reader only text"},
 		"Abbr":   {Kind: "component", Description: "Abbreviation element"},
@@ -86,6 +92,14 @@ var componentFiles = []struct {
 	{"details.pars", "Details"},
 	{"accordion.pars", "Accordion"},
 	{"dialog.pars", "Dialog"},
+
+	// Feedback components
+	{"toast.pars", "Toast"},
+	{"toasts.pars", "Toasts"},
+	{"error_summary.pars", "ErrorSummary"},
+
+	// Navigation components (extended)
+	{"pagination.pars", "Pagination"},
 
 	// Utility components
 	{"sr_only.pars", "SrOnly"},

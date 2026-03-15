@@ -1,0 +1,33 @@
+// ErrorSummary - Summary of form validation errors with links to fields
+// Compatible with Pico CSS - uses <aside role="alert"> pattern
+// Requires basil-supplement.css for border and focus styles
+// Usage: <ErrorSummary errors={[{field: "email", message: "Enter a valid email"}]}/>
+// Usage: <ErrorSummary title="Please fix the following" errors={errors}/>
+
+export ErrorSummary = fn({title, errors, id, ...attrs}) {
+    if (errors == null || errors.length() == 0) {
+        null
+    } else {
+        let summaryId = id ?? "error-summary"
+        let summaryTitle = title ?? "There is a problem"
+
+        <aside
+            role="alert"
+            aria-labelledby={summaryId ++ "-title"}
+            tabindex="-1"
+            id={summaryId}
+            {...attrs}
+        >
+            <header>
+                <h2 id={summaryId ++ "-title"}>summaryTitle</h2>
+            </header>
+            <ul>
+                for (err in errors) {
+                    <li>
+                        <a href={"#" ++ err.field}>err.message</a>
+                    </li>
+                }
+            </ul>
+        </aside>
+    }
+}

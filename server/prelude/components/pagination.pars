@@ -1,0 +1,76 @@
+// Pagination - Page navigation with accessibility
+// Compatible with Pico CSS - uses semantic nav with aria attributes
+// Requires basil-supplement.css for flexbox layout
+// Usage: <Pagination current={3} total={100} perPage={10} href="/items?page={page}"/>
+
+let {max, min} = import @std/math
+
+export Pagination = fn({current, total, perPage, href, window, showFirst, showPrev, labels, ...attrs}) {
+    let itemsPerPage = perPage ?? 20
+    let totalPages = ((total - 1) / itemsPerPage).floor() + 1
+
+    if (totalPages <= 1) {
+        null
+    } else {
+        let pageWindow = window ?? 2
+        let showFirstLast = showFirst ?? true
+        let showPrevNext = showPrev ?? true
+        let navLabels = labels ?? {first: "«", prev: "‹", next: "›", last: "»"}
+
+        let pageUrl = fn(n) { href.replace("{page}", n ++ "") }
+
+        let start = max(1, current - pageWindow)
+        let end = min(totalPages, current + pageWindow)
+
+        <nav aria-label="Pagination" {...attrs}>
+            <ul>
+                // First button
+                if (showFirstLast && current > 1) {
+                    <li><a href={pageUrl(1)} aria-label="First page">navLabels.first</a></li>
+                }
+
+                // Previous button
+                if (showPrevNext && current > 1) {
+                    <li><a href={pageUrl(current - 1)} aria-label="Previous page">navLabels.prev</a></li>
+                }
+
+                // Leading ellipsis
+                if (start > 1) {
+                    <li><a href={pageUrl(1)}>"1"</a></li>
+                    if (start > 2) {
+                        <li><span aria-hidden="true">"…"</span></li>
+                    }
+                }
+
+                // Page numbers
+                for (n in start..end + 1) {
+                    <li>
+                        if (n == current) {
+                            <a href={pageUrl(n)} aria-current="page">n</a>
+                        } else {
+                            <a href={pageUrl(n)}>n</a>
+                        }
+                    </li>
+                }
+
+                // Trailing ellipsis
+                if (end < totalPages) {
+                    if (end < totalPages - 1) {
+                        <li><span aria-hidden="true">"…"</span></li>
+                    }
+                    <li><a href={pageUrl(totalPages)}>totalPages</a></li>
+                }
+
+                // Next button
+                if (showPrevNext && current < totalPages) {
+                    <li><a href={pageUrl(current + 1)} aria-label="Next page">navLabels.next</a></li>
+                }
+
+                // Last button
+                if (showFirstLast && current < totalPages) {
+                    <li><a href={pageUrl(totalPages)} aria-label="Last page">navLabels.last</a></li>
+                }
+            </ul>
+        </nav>
+    }
+}

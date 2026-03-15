@@ -1,0 +1,18 @@
+// Toasts - Container for toast notifications
+// Compatible with Pico CSS - positions toasts using data-position attribute
+// Requires basil-supplement.css for positioning styles
+// Usage: <Toasts><Toast message="Hello"/></Toasts>
+// Usage: <Toasts position="bottom-left"><Toast message="Hello"/></Toasts>
+// Positions: top-right (default), top-left, top-center, bottom-right, bottom-left, bottom-center
+
+export Toasts = fn({position, contents, ...attrs}) {
+    <aside
+        id="toasts"
+        aria-live="polite"
+        aria-label="Notifications"
+        data-position={position ?? "top-right"}
+        {...attrs}
+    >
+        contents
+    </aside>
+}
