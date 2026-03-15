@@ -17,7 +17,7 @@ Deferred items from implementation, to be picked up in future work.
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
 | #121 | Remove deprecated `@std/` aliases for `@basil/` modules | STDLIB-1.0-ACTION-PLAN | Post-1.0 cleanup | `@std/dev`, `@std/api`, `@std/html` are registered as deprecated aliases in `getStdlibModules()` (`stdlib_table.go`) pointing to `loadDevModule`, `loadAPIModule`, `loadHTMLModule`. The canonical names are now `@basil/log`, `@basil/api`, `@basil/html`. Remove the `@std/` entries and add a clear deprecation error directing users to the `@basil/` equivalents. Also remove `@std/mdDoc` alias (canonical is `@std/mddoc`). |
-| #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | Tooling | Add `#` + number + suffix pattern to tree-sitter grammar for syntax highlighting in editors. |
+
 | #107 | Overflow detection for unit arithmetic | FEAT-118 | Partially addressed | Phase 3 adds decimal Scale that handles overflow by shifting to Scale>0 instead of wrapping. Arithmetic helpers (scaleAdd, scaleMul, etc.) detect overflow and adjust scale. Remaining: verify edge cases in all paths, add explicit error for truly unrepresentable values. |
 | #9 | SQLite session store | FEAT-049 | Phase 2 | Cookie sessions have ~4KB limit. SQLite store for larger session data. Server-side sessions with session ID in cookie. Includes cleanup goroutine for expired sessions. |
 | #10 | Session auth integration | FEAT-049 | Phase 3 | Auto-regenerate session ID on login/logout for security. `basil.auth.login()` and `basil.auth.logout()` should call `session.regenerate()`. |
@@ -103,6 +103,7 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | 2026-03-16 | ✅ Unit literal rule already in `contrib/tree-sitter-parsley/grammar.js` with `#` + number + suffix pattern covering all families (length, mass, volume, area, digital, temperature). Highlighted as `(unit) @number` in `queries/highlights.scm`. |
 | #87 | Fix error handler tests (expect HTML, get plain text) | Code cleanup | 2026-03-16 | ✅ All tests pass: `TestHandleScriptError_DevMode`, `TestHandleScriptErrorWithLocation_*`, `TestRenderPreludeError_*`, `TestHandle500`. Error handlers now correctly return HTML via prelude templates. |
 | #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | 2026-03-16 | ✅ Fully implemented. `QueryInterpolation` AST node, parser handles `{expression}` in query conditions, evaluator parameterizes values. Tests: `TestInterpolationSyntax`, `TestInterpolationExpression`. |
 | #2 | Query DSL Correlated Subqueries | PLAN-052 Phase 5 | 2026-03-16 | ✅ Fully implemented. `buildCorrelatedSubquerySQL()`, outer-table aliasing, `name <-Table || conditions | aggregate` syntax. Tests: `TestCorrelatedSubqueryBasic`, `TestCorrelatedSubqueryWithFilter`. |
