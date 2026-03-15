@@ -8,7 +8,7 @@ import (
 )
 
 var apiModuleMeta = ModuleMeta{
-	Description: "HTTP client for API requests",
+	Description: "HTTP API route helpers",
 	Exports: map[string]ExportMeta{
 		// Auth wrappers
 		"public":    {Kind: "function", Arity: "1-2", Description: "Mark handler as public (no auth required)"},

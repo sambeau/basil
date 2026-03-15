@@ -304,6 +304,35 @@ func TestValidPostalCodeGB(t *testing.T) {
 	}
 }
 
+func TestValidPostalCodeCA(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"valid_toronto", `import @std/valid; valid.postalCode("M5V 2T6", "CA")`, "true"},
+		{"valid_no_space", `import @std/valid; valid.postalCode("M5V2T6", "CA")`, "true"},
+		{"valid_vancouver", `import @std/valid; valid.postalCode("V6B 3K9", "CA")`, "true"},
+		{"valid_lowercase", `import @std/valid; valid.postalCode("k1a 0b1", "CA")`, "true"},
+		{"invalid_format", `import @std/valid; valid.postalCode("12345", "CA")`, "false"},
+		{"invalid_wrong_pattern", `import @std/valid; valid.postalCode("123 456", "CA")`, "false"},
+		{"invalid_too_short", `import @std/valid; valid.postalCode("M5V", "CA")`, "false"},
+		{"empty", `import @std/valid; valid.postalCode("", "CA")`, "false"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalValidTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
 func TestValidPostalCodeUnsupportedLocale(t *testing.T) {
 	input := `import @std/valid; valid.postalCode("12345", "XX")`
 	result := evalValidTest(t, input)

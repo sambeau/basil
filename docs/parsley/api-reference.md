@@ -678,7 +678,7 @@
 
 ### @std/api
 
-HTTP client for API requests
+HTTP API route helpers
 
 #### Functions
 
@@ -844,7 +844,7 @@ Validation predicates for IDs, financial data, and locale-specific formats
 
 ### @basil/api
 
-HTTP client for API requests
+HTTP API route helpers
 
 #### Functions
 

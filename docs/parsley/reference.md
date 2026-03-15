@@ -3932,7 +3932,7 @@ Validation predicates for IDs, financial data, and locale-specific formats. All 
 
 | Function | Arguments | Description |
 |----------|-----------|-------------|
-| `postalCode(s, locale)` | `s: string`, `locale: string` | Valid postal code? Locales: `"US"`, `"GB"` |
+| `postalCode(s, locale)` | `s: string`, `locale: string` | Valid postal code? Locales: `"US"`, `"GB"`, `"CA"` |
 
 ```parsley
 import @std/valid
@@ -3953,6 +3953,7 @@ valid.luhn("79927398713")                           // true (generic Luhn)
 valid.postalCode("90210", "US")                     // true
 valid.postalCode("90210-1234", "US")                // true (ZIP+4)
 valid.postalCode("SW1A 1AA", "GB")                  // true (UK)
+valid.postalCode("M5V 2T6", "CA")                   // true (Canada)
 ```
 
 #### Migration from Previous API

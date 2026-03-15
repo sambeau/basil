@@ -13,6 +13,7 @@ var (
 	cuidRegex     = regexp.MustCompile(`^c[0-9a-z]{24}$`)
 	usPostalRegex = regexp.MustCompile(`^\d{5}(-\d{4})?$`)
 	gbPostalRegex = regexp.MustCompile(`(?i)^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$`)
+	caPostalRegex = regexp.MustCompile(`(?i)^[A-Z]\d[A-Z]\s?\d[A-Z]\d$`)
 )
 
 var validModuleMeta = ModuleMeta{
@@ -224,10 +225,12 @@ func validPostalCode(args ...Object) Object {
 		return nativeBoolToParsBoolean(usPostalRegex.MatchString(str.Value))
 	case "GB":
 		return nativeBoolToParsBoolean(gbPostalRegex.MatchString(str.Value))
+	case "CA":
+		return nativeBoolToParsBoolean(caPostalRegex.MatchString(str.Value))
 	default:
 		return newValueError("VALUE-0003", map[string]any{
 			"Function": "valid.postalCode",
-			"Reason":   "unsupported locale: " + loc.Value + ". Supported: US, GB",
+			"Reason":   "unsupported locale: " + loc.Value + ". Supported: US, GB, CA",
 		})
 	}
 }

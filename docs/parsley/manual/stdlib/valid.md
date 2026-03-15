@@ -96,6 +96,8 @@ valid.postalCode("90210", "US")      // true
 valid.postalCode("90210-1234", "US") // true (ZIP+4)
 valid.postalCode("SW1A 1AA", "GB")   // true
 valid.postalCode("sw1a1aa", "GB")    // true (case-insensitive)
+valid.postalCode("M5V 2T6", "CA")   // true
+valid.postalCode("k1a0b1", "CA")    // true (case-insensitive)
 ```
 
 ### Supported Locales
@@ -104,6 +106,7 @@ valid.postalCode("sw1a1aa", "GB")    // true (case-insensitive)
 |---|---|
 | `"US"` | 5-digit ZIP or ZIP+4 (`12345` or `12345-6789`) |
 | `"GB"` | UK postcode (`SW1A 1AA`, with or without space) |
+| `"CA"` | Canadian postal code (`M5V 2T6`, with or without space) |
 
 Unsupported locales return an error:
 

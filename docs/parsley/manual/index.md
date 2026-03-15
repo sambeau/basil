@@ -96,7 +96,7 @@ Importable modules providing higher-level functionality.
 | Module | Description |
 |--------|-------------|
 | [@basil/api](stdlib/api.md) | Auth wrappers, error helpers, and redirect for Basil handlers |
-| [@basil/log](stdlib/dev.md) | Development logging utilities for Basil handlers |
+| [@basil/log](stdlib/log.md) | Development logging utilities for Basil handlers |
 | [@basil/html](stdlib/html.md) | Accessible HTML form and UI components |
 | [Session Management](stdlib/session.md) | `basil.session` — key-value storage and flash messages |
 
@@ -107,7 +107,7 @@ Importable modules providing higher-level functionality.
 | [@std/table](stdlib/table.md) | Built-in `table` type — use `.parseCSV()` or `CSV()` |
 | [@std/schema](stdlib/schema.md) | `@schema { ... }` DSL syntax |
 | @std/api | [@basil/api](stdlib/api.md) |
-| @std/dev | [@basil/log](stdlib/dev.md) |
+| @std/dev | [@basil/log](stdlib/log.md) |
 | @std/html | [@basil/html](stdlib/html.md) |
 
 ---
