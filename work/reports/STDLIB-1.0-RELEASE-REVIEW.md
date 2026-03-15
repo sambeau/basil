@@ -627,6 +627,8 @@ Basil's stdlib is **more "batteries included" than Go, PHP, or Python** for web 
 | #90 | Custom message for `failIfInvalid(msg?)` | FEAT-127 |
 | #97 | Named capture groups return dictionaries | FEAT-127 |
 | #11 | Remove `@std/basil` error | FEAT-071 |
+| #54 | Builtin Table type | Already a builtin — `@table` literal syntax, `Table` struct in evaluator, methods in `MethodRegistry`. `@std/table` deprecated in FEAT-128. |
+| #55 | Deprecate `format(arr, style?)` builtin | FEAT-127 — deprecation warning added. Use `arr.format(style?)` instead. |
 
 ### Open and Relevant to Stdlib
 
@@ -636,8 +638,6 @@ Basil's stdlib is **more "batteries included" than Go, PHP, or Python** for web 
 | #5 | Notification API (`basil.email.send`) | Post-1.0 | Significant scope. Not stdlib — would be `@basil/email`. |
 | #12 | Form `target=` partial updates | Post-1.0 | Enhancement for Form component. |
 | #34 | Error code documentation/help system | Post-1.0 | Not stdlib-specific. |
-| #55 | Deprecate `format(arr, style?)` builtin | Already done | Deprecation warning added in FEAT-127. |
-| #54 | Builtin Table type | Post-1.0 | Make `Table` a builtin type so `parseCSV()` can return it directly (instead of array-of-dict requiring `table.table(csv.parseCSV())`). Would obsolete the deprecated `@std/table` module entirely. Language design work — deferred. |
 
 ### Unimplemented Feature Specs
 
@@ -734,7 +734,7 @@ Final pass verifying every finding against the current codebase. Performed after
 | Module naming inconsistency | `mdDoc` was camelCase | 🔴 Must fix | ✅ **Fixed** |
 | `apiModuleMeta` description wrong | "HTTP client" | 🟢 Fix | ✅ **Fixed** |
 | **§9 Backlog** | | | |
-| Open items | #17, #5, #12, #34, #54 | 🟢 All post-1.0 | ✅ Correctly deferred |
+| Open items | #17, #5, #12, #34 | 🟢 All post-1.0 | ✅ Correctly deferred. #54 and #55 moved to completed — both already implemented. |
 
 ### Remaining Open Items
 
