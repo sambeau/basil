@@ -70,7 +70,7 @@ Render page navigation for lists. Pure server component — no JavaScript requir
 // Basic usage
 let page = (request.query.page ?? "1").toInt()
 let perPage = 20
-let {rows, total} = db.paginate("SELECT * FROM products", page, perPage)
+let {rows, total} = db.paginate("SELECT * FROM products", page, perPage) // ⚠️ this is not Parsley syntax
 
 <DataTable data={rows}/>
 <Pagination current={page} total={total} perPage={perPage} href="/products?page={page}"/>
@@ -80,8 +80,8 @@ let {rows, total} = db.paginate("SELECT * FROM products", page, perPage)
     current={page} 
     total={total} 
     href="/products?page={page}"
-    hx-boost="true"
-    hx-target="#product-list"
+    hx-boost="true" // ⚠️ why HTMX syntax here?
+    hx-target="#product-list"// ⚠️ why HTMX syntax here?
 />
 ```
 
@@ -182,6 +182,8 @@ export Pagination = fn({
 ```
 
 ### 2.6 CSS
+
+⚠️ We shouldn’t supply css, just un-styled HTML
 
 ```css
 .pagination {
@@ -405,6 +407,9 @@ function dismissToast(toast) {
 
 ### 3.7 CSS
 
+⚠️ We shouldn’t supply css for styling, just un-styled HTML. Where CSS should be considered is where layout is vital. However I’d rather we looked at ways to do this without styling being proscribed.
+
+
 ```css
 .toasts {
     position: fixed;
@@ -619,6 +624,8 @@ document.addEventListener('open', (e) => {
 ```
 
 ### 4.6 CSS
+
+⚠️ We shouldn’t supply css for styling, just un-styled HTML. Where CSS should be considered is where layout is vital. However I’d rather we looked at ways to do this without styling being proscribed.
 
 ```css
 .dialog {
@@ -987,6 +994,8 @@ export ErrorSummary = fn({
 ```
 
 ### 6.5 CSS
+
+⚠️ We shouldn’t supply css for styling, just un-styled HTML. Where CSS should be considered is where layout is vital. However I’d rather we looked at ways to do this without styling being proscribed.
 
 ```css
 .error-summary {

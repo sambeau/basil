@@ -182,7 +182,7 @@ When `data` is a `Table`:
 
 ```parsley
 // Given:
-let products = db.query("SELECT name, price, created_at FROM products")
+let products = db.query("SELECT name, price, created_at FROM products")⚠️
 
 // This:
 <DataTable data={products}/>
