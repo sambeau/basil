@@ -31,7 +31,8 @@ func getStdlibModules() map[string]func(*Environment) Object {
 		"schema": loadSchemaModule,
 		"id":     loadIDModule,
 		"api":    loadAPIModule,
-		"mdDoc":  loadMdDocModule,
+		"mddoc":  loadMdDocModule,
+		"mdDoc":  loadMdDocModule, // deprecated alias
 		"html":   loadHTMLModule,
 		"hash":   loadHashModule,
 	}

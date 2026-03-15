@@ -1,6 +1,6 @@
 ---
 id: man-pars-std-mddoc
-title: "@std/mdDoc"
+title: "@std/mddoc"
 system: parsley
 type: stdlib
 name: mddoc
@@ -19,13 +19,15 @@ keywords:
   - table of contents
 ---
 
-# @std/mdDoc
+# @std/mddoc
 
 Markdown document analysis and manipulation. Parse a Markdown string into a queryable document object that provides structured access to headings, links, images, code blocks, and the full AST.
 
 ```parsley
-let mdDoc = import @std/mdDoc
+let mdDoc = import @std/mddoc
 ```
+
+> **Note:** The old name `@std/mdDoc` still works as a deprecated alias but new code should use `@std/mddoc`.
 
 ## Constructor
 
@@ -34,7 +36,8 @@ let mdDoc = import @std/mdDoc
 | `mdDoc(markdown)` | string | MdDoc | Parse a Markdown string into a document object |
 
 ```parsley
-let doc = mdDoc.mdDoc("# Hello\n\nSome **bold** text.")
+let mddoc = import @std/mddoc
+let doc = mddoc.mdDoc("# Hello\n\nSome **bold** text.")
 ```
 
 ## Rendering Methods
@@ -45,7 +48,8 @@ let doc = mdDoc.mdDoc("# Hello\n\nSome **bold** text.")
 | `.toHTML()` | string | Render to HTML |
 
 ```parsley
-let doc = mdDoc.mdDoc("# Hello\n\nA paragraph.")
+let mddoc = import @std/mddoc
+let doc = mddoc.mdDoc("# Hello\n\nA paragraph.")
 doc.toHTML()                     // "<h1 id=\"hello\">Hello</h1>\n<p>A paragraph.</p>\n"
 doc.toMarkdown()                 // "# Hello\n\nA paragraph.\n"
 ```
@@ -75,7 +79,8 @@ Some content here.
 More content.
 `
 
-let doc = mdDoc.mdDoc(markdown)
+let mddoc = import @std/mddoc
+let doc = mddoc.mdDoc(markdown)
 
 doc.headings()
 // [
@@ -94,8 +99,9 @@ doc.images()
 ### Code Blocks
 
 ```parsley
+let mddoc = import @std/mddoc
 let md = "# Code\n\n```parsley\nlet x = 42\n```\n\n```js\nconsole.log(1)\n```"
-let doc = mdDoc.mdDoc(md)
+let doc = mddoc.mdDoc(md)
 
 doc.codeBlocks()
 // [
@@ -114,7 +120,8 @@ doc.codeBlocks()
 | `.wordCount()` | integer | Word count of plain text content |
 
 ```parsley
-let doc = mdDoc.mdDoc("# My Doc\n\nThis is a short document.\n\n## Sub-section\n\nMore words here.")
+let mddoc = import @std/mddoc
+let doc = mddoc.mdDoc("# My Doc\n\nThis is a short document.\n\n## Sub-section\n\nMore words here.")
 
 doc.title()                      // "My Doc"
 doc.wordCount()                  // 9
@@ -161,7 +168,8 @@ The AST structure follows the CommonMark specification. Each node has a `type` f
 ### Generate Table of Contents
 
 ```parsley
-let doc = mdDoc.mdDoc(content)
+let mddoc = import @std/mddoc
+let doc = mddoc.mdDoc(content)
 let toc = for (h in doc.toc()) {
     let indent = "  " * (h.level - 1)
     `{indent}- [{h.text}](#{h.id})`
@@ -172,7 +180,8 @@ toc.join("\n")
 ### Extract All External Links
 
 ```parsley
-let doc = mdDoc.mdDoc(content)
+let mddoc = import @std/mddoc
+let doc = mddoc.mdDoc(content)
 let external = for (link in doc.links()) {
     if (link.url.includes("://")) { link }
 }
@@ -184,7 +193,8 @@ let external = for (link in doc.links()) {
 let files = fileList(@./docs, "*.md")
 for (f in files) {
     let content <== text(f)
-    let doc = mdDoc.mdDoc(content)
+    let mddoc = import @std/mddoc
+    let doc = mddoc.mdDoc(content)
     {file: f, title: doc.title(), words: doc.wordCount()}
 }
 ```

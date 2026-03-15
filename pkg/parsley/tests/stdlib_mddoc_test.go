@@ -218,6 +218,65 @@ func TestMdDocMap(t *testing.T) {
 	}
 }
 
+// TestMdDocCanonicalImport tests that import @std/mddoc works (canonical name)
+// and that import @std/mdDoc still works (deprecated alias)
+func TestMdDocCanonicalImport(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "import @std/mddoc with destructuring",
+			input:    `let {mdDoc} = import @std/mddoc; let doc = mdDoc("# Hello"); doc.title()`,
+			expected: "Hello",
+		},
+		{
+			name:     "import @std/mddoc as module",
+			input:    `import @std/mddoc; mddoc.mdDoc("# World").title()`,
+			expected: "World",
+		},
+		{
+			name:     "import @std/mddoc with alias",
+			input:    `import @std/mddoc as md; md.mdDoc("# Aliased").title()`,
+			expected: "Aliased",
+		},
+		{
+			name:     "deprecated @std/mdDoc still works",
+			input:    `let {mdDoc} = import @std/mdDoc; let doc = mdDoc("# Legacy"); doc.title()`,
+			expected: "Legacy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				t.Fatalf("parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected STRING, got %s (%s)", result.Type(), result.Inspect())
+			}
+
+			if str.Value != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
 // TestMdDocHeadingIDsWithPunctuation tests that mdDoc.headings() returns IDs matching Goldmark's algorithm
 func TestMdDocHeadingIDsWithPunctuation(t *testing.T) {
 	tests := []struct {

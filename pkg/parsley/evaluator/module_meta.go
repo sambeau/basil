@@ -34,7 +34,9 @@ func init() {
 		"api":    &apiModuleMeta,
 		"dev":    &devModuleMeta,
 
-		"hash": &hashModuleMeta,
+		"hash":  &hashModuleMeta,
+		"mddoc": &mdDocModuleMeta,
+		"mdDoc": &mdDocModuleMeta, // deprecated alias
 	}
 	basilModuleMeta = map[string]*ModuleMeta{
 		"http": &basilHTTPModuleMeta,

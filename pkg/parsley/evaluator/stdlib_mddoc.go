@@ -7,6 +7,14 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
+// mdDocModuleMeta describes the mdDoc module for help/introspection.
+var mdDocModuleMeta = ModuleMeta{
+	Description: "Markdown document analysis and manipulation",
+	Exports: map[string]ExportMeta{
+		"mdDoc": {Kind: "function", Arity: "1", Description: "Parse a Markdown string into a document object"},
+	},
+}
+
 // MdDoc represents a markdown document AST with methods for manipulation.
 // Similar to Table, it wraps an underlying dictionary (the AST) and provides
 // convenient methods for querying and transforming markdown documents.
@@ -33,6 +41,7 @@ func (md *MdDoc) Inspect() string {
 // loadMdDocModule returns the mdDoc module
 func loadMdDocModule(env *Environment) Object {
 	return &StdlibModuleDict{
+		Meta: &mdDocModuleMeta,
 		Exports: map[string]Object{
 			"mdDoc": &MdDocModule{},
 		},
