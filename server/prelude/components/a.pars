@@ -21,6 +21,6 @@ export A = fn(props) {
         rel={computedRel}
         ...anchorAttrs
     >
-        (contents)
+        contents
     </a>
 }

@@ -2,5 +2,5 @@
 // Usage: <SrOnly>"Open menu"</SrOnly>
 
 export SrOnly = fn({contents}) {
-    <span class="sr-only">(contents)</span>
+    <span class="sr-only">contents</span>
 }

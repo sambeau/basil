@@ -34,7 +34,7 @@ export Page = fn({lang, title, description, class, id, head, noBasilJS, contents
     </head>
     <body class={class} id={id}>
         <SkipLink/>
-        (contents)
+        contents
         <Javascript/>
         if (!noBasilJS) {
             <BasilJS/>

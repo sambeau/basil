@@ -4,7 +4,7 @@
 export Blockquote = fn({author, cite, id, class, contents}) {
     <figure id={id} class={"blockquote" + if (class) " " + class else ""}>
         <blockquote cite={cite}>
-            (contents)
+            contents
         </blockquote>
         if (author) {
             <figcaption>

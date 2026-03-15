@@ -121,7 +121,7 @@ export Meta = fn({
     
     // Additional content
     if (contents) {
-        (contents)
+        contents
     }
 }
 
@@ -165,7 +165,7 @@ Update `Page` to:
 //   <Page lang="en" title="Blog Post" description="A great post" head={
 //       <Meta image="/og.png" type="article" published={post.date}/>
 //   }>
-//       <article>(post.content)</article>
+//       <article>post.content</article>
 //   </Page>
 
 export Page = fn({lang, title, description, class, id, head, noBasilJS, contents}) {
@@ -207,7 +207,7 @@ export Page = fn({lang, title, description, class, id, head, noBasilJS, contents
     </head>
     <body class={class} id={id}>
         <SkipLink/>
-        (contents)
+        contents
         <Javascript/>
         if (!noBasilJS) {
             <BasilJS/>

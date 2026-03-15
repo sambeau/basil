@@ -5,5 +5,5 @@ export Abbr = fn({title, id, class, contents}) {
     if (title == null || title == "") {
         fail("Abbr requires a title attribute (the expanded form of the abbreviation)")
     }
-    <abbr id={id} class={class} title={title}>(contents)</abbr>
+    <abbr id={id} class={class} title={title}>contents</abbr>
 }

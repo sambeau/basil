@@ -7,6 +7,6 @@ export Nav = fn({label, id, class, contents}) {
         class={class}
         aria-label={label}
     >
-        (contents)
+        contents
     </nav>
 }

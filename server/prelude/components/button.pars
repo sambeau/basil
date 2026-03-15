@@ -17,6 +17,6 @@ export Button = fn(props) {
         aria-expanded={if (toggle) "false" else null}
         ...buttonAttrs
     >
-        (contents)
+        contents
     </button>
 }
