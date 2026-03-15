@@ -169,7 +169,33 @@ let double = fn(x) { x * 2 }
 <h3>`Welcome to {name}`</h3>       // Template literal style also works
 ```
 
-### 9. Tag Attributes: Strings vs Expressions
+### 9. Tag Content Does NOT Need Braces (Not JSX!)
+```parsley
+// Parsley is NOT JSX/React! Expressions in tag content don't need {braces}
+
+// ❌ WRONG - JSX style with braces
+<td>{row[col]}</td>
+<label>{schema.title(field)}</label>
+<span>{user.name}</span>
+
+// ✅ CORRECT - Parsley style, no braces
+<td>row[col]</td>
+<label>schema.title(field)</label>
+<span>user.name</span>
+
+// Method calls, index access, arithmetic - all work without braces
+<p>items.length()</p>              // method call
+<td>data[i]</td>                   // index access
+<span>price * quantity</span>      // arithmetic
+
+// Braces ARE used for:
+// 1. Attribute expressions
+<div class={dynamicClass}>         // ✅ braces for attribute
+// 2. Template string interpolation
+<p>`Hello {name}`</p>              // ✅ braces inside template string
+```
+
+### 10. Tag Attributes: Strings vs Expressions
 ```parsley
 // Tag attributes have THREE forms:
 
@@ -195,7 +221,7 @@ let double = fn(x) { x * 2 }
 <div class={`user-{id}`}>
 ```
 
-### 10. Single-Quoted Raw Strings (JavaScript Embedding)
+### 11. Single-Quoted Raw Strings (JavaScript Embedding)
 ```parsley
 // Single quotes create raw strings - braces stay literal
 let js = 'fetch("/api/items", {method: "POST"})'
@@ -216,7 +242,7 @@ let myId = 5
 'email: user\@domain.com'          // literal @
 ```
 
-### 11. Local vs Network Write Operators
+### 12. Local vs Network Write Operators
 ```parsley
 // ❌ WRONG — ==> is for local files only
 data ==> JSON(@https://api.example.com/users)
@@ -229,7 +255,7 @@ data =/=> JSON(@https://api.example.com/users)
 data ==> JSON(@./output.json)
 ```
 
-### 12. Self-Closing Tags MUST Use />
+### 13. Self-Closing Tags MUST Use />
 ```parsley
 // ❌ WRONG - not self-closing
 <br>
@@ -242,7 +268,7 @@ data ==> JSON(@./output.json)
 <Part src={@./foo.part}/>
 ```
 
-### 13. Schema ID Types Require `auto` for Generation
+### 14. Schema ID Types Require `auto` for Generation
 ```parsley
 // ❌ WRONG - id: id without auto expects valid ULID format
 @schema User {
@@ -271,7 +297,7 @@ User({name: "Alice"})      // ID generated on insert
 User({id: "my-custom-id"}) // Any string works
 ```
 
-### 14. `try` Error Is a Dictionary, Not a String
+### 15. `try` Error Is a Dictionary, Not a String
 ```parsley
 // ❌ WRONG - error is no longer a plain string
 let {result, error} = try riskyFn()
@@ -289,7 +315,7 @@ if (error) {
 "Failed: " + error                  // uses error.message automatically
 ```
 
-### 15. Unit Literals Use `#` Sigil; Temperature Cannot Be Multiplied; Derived Units Have Restrictions
+### 16. Unit Literals Use `#` Sigil; Temperature Cannot Be Multiplied; Derived Units Have Restrictions
 ```parsley
 // ❌ WRONG — $ is for money, not units
 $12m                             // This is money!
@@ -1742,7 +1768,7 @@ if (error) {
 7. **Comments are //** not #
 8. **Strings in HTML need quotes** - `<p>"text"</p>` not `<p>text</p>`
 9. **Self-closing tags need />** - `<br/>` not `<br>`
-10. **Code between tags does not need `{}`** - `<p>text</p>` not `<p>{text}</p>`
+10. **Tag content does NOT need `{}`** - `<td>row[col]</td>` not `<td>{row[col]}</td>` (Parsley is not JSX!)
 11. **Use `repr(value)`** - returns code representation for debugging
 12. **Use `builtins()`** - list all available builtin functions
 

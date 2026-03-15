@@ -4505,9 +4505,12 @@ let html = import @basil/html
 Tags are first-class values that render to HTML strings. Unlike JSX (React), Parsley tags do not require quotes around attribute values for simple strings, and string content inside tags must be quoted.
 
 **Key differences from JSX/React:**
+- **Tag content does NOT need `{...}`**: `<td>row[col]</td>` not `<td>{row[col]}</td>`
 - Attribute values don't need `{...}` for simple strings: `class="container"` not `class={"container"}`
 - String content must be quoted: `<p>"Hello"</p>` not `<p>Hello</p>`
 - Self-closing tags MUST use `/>`: `<br/>` not `<br>`
+
+> ⚠️ **Common mistake**: Don't wrap expressions in braces inside tag content. Write `<span>user.name</span>` not `<span>{user.name}</span>`. Braces are only for attribute expressions (`class={expr}`) and template string interpolation (`` `Hello {name}` ``).
 
 ### 8.1 Self-Closing Tags
 
