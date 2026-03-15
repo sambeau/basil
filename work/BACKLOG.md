@@ -21,6 +21,7 @@ Deferred items from implementation, to be picked up in future work.
 ## Medium Priority
 | ID | Item | Source | Reason Deferred | Notes |
 |----|------|--------|-----------------|-------|
+| #121 | Remove deprecated `@std/` aliases for `@basil/` modules | STDLIB-1.0-ACTION-PLAN | Post-1.0 cleanup | `@std/dev`, `@std/api`, `@std/html` are registered as deprecated aliases in `getStdlibModules()` (`stdlib_table.go`) pointing to `loadDevModule`, `loadAPIModule`, `loadHTMLModule`. The canonical names are now `@basil/log`, `@basil/api`, `@basil/html`. Remove the `@std/` entries and add a clear deprecation error directing users to the `@basil/` equivalents. Also remove `@std/mdDoc` alias (canonical is `@std/mddoc`). |
 | #118 | CI integration for benchmarks | FEAT-141 | Needs CI setup | Run benchmarks on PRs with CI-specific baseline. Requires stable CI runner performance. |
 | #119 | Benchmark visualization | FEAT-141 | Enhancement | Generate charts from historical benchmark data. Consider `gobenchdata` or custom solution. |
 
