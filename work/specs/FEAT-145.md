@@ -82,20 +82,20 @@ As a developer building web UIs, I want typed values like money and dates to ren
 
 ### Part B: `<field/>` Tag
 
-- [ ] `<field name="email"/>` outputs complete field structure (div > label + input + error)
-- [ ] Requires `@record` context (error if not inside `<form @record={...}>`)
-- [ ] `name` prop is required
-- [ ] `as` prop overrides input type: `as="textarea"`, `as="select"`
-- [ ] `class` prop sets wrapper div class (default: `"field"`)
-- [ ] `id` prop overrides input id
-- [ ] `label` prop overrides label text
-- [ ] `placeholder` prop overrides placeholder
-- [ ] `help` prop adds help text span
-- [ ] Boolean fields render checkbox before label (special ordering)
-- [ ] Boolean fields add `field--checkbox` class to wrapper
-- [ ] Error span only rendered when field has error
-- [ ] Error span has `role="alert"` for accessibility
-- [ ] All ARIA attributes applied correctly (`aria-required`, `aria-invalid`, `aria-describedby`)
+- [x] `<field name="email"/>` outputs complete field structure (div > label + input + error)
+- [x] Requires `@record` context (error if not inside `<form @record={...}>`)
+- [x] `name` prop is required
+- [x] `as` prop overrides input type: `as="textarea"`, `as="select"`
+- [x] `class` prop sets wrapper div class (default: `"field"`)
+- [x] `id` prop overrides input id
+- [x] `label` prop overrides label text
+- [x] `placeholder` prop overrides placeholder
+- [x] `help` prop adds help text span
+- [x] Boolean fields render checkbox before label (special ordering)
+- [x] Boolean fields add `field--checkbox` class to wrapper
+- [x] Error span only rendered when field has error
+- [x] Error span has `role="alert"` for accessibility
+- [x] All ARIA attributes applied correctly (`aria-required`, `aria-invalid`, `aria-describedby`)
 
 ### Part C: `columnProps()` Method
 

@@ -1581,6 +1581,11 @@ func createLiteralExpression(obj Object) ast.Expression {
 
 // evalStandardTag evaluates a standard (lowercase) tag as an interpolated string
 func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env *Environment) Object {
+	// Handle <field/> tag for complete field output (FEAT-145)
+	if tagName == "field" {
+		return evalFieldTag(node, propsStr, env)
+	}
+
 	// Handle @field attribute for form binding (FEAT-091)
 	if tagName == "input" && strings.Contains(propsStr, "@field") {
 		fieldName := parseFieldAttribute(propsStr)

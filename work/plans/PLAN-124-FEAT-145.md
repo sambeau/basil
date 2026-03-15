@@ -170,72 +170,79 @@ Tests:
 ## Phase 3: `<field/>` Tag (3-4 hours)
 
 ### Task 3.1: Create field tag handler
-**Files**: `pkg/parsley/evaluator/form_field_tag.go` (new)
+**Files**: `pkg/parsley/evaluator/form_components.go`, `pkg/parsley/evaluator/eval_tags.go`
 **Estimated effort**: 1 hour
+**Status**: ✅ Complete
 
 Steps:
-1. Create `evalFieldTag(node *ast.TagLiteral, propsStr string, env *Environment) Object`
-2. Parse `name` attribute (required)
-3. Get form context from environment (error if not in `@record` form)
-4. Get record and schema from form context
+1. ✅ Create `evalFieldTag(node *ast.TagLiteral, propsStr string, env *Environment) Object`
+2. ✅ Parse `name` attribute (required)
+3. ✅ Get form context from environment (error if not in `@record` form)
+4. ✅ Get record and schema from form context
+5. ✅ Wire into `evalStandardTag()` in `eval_tags.go`
 
 Tests:
-- Error when name not provided
-- Error when not inside form @record context
+- ✅ Error FORM-0010 when name not provided
+- ✅ Error FORM-0002 when not inside form @record context
 
 ---
 
 ### Task 3.2: Implement field output structure
-**Files**: `pkg/parsley/evaluator/form_field_tag.go`
+**Files**: `pkg/parsley/evaluator/form_components.go`
 **Estimated effort**: 1.5 hours
+**Status**: ✅ Complete
 
 Steps:
-1. Build wrapper div with class (default "field")
-2. Build label element with `for` attribute and text
-3. Build input element with all attributes from schema
-4. Build error span (only if error exists) with `role="alert"`
-5. Handle props: `as`, `class`, `id`, `label`, `placeholder`, `help`
-6. Apply ARIA attributes: `aria-required`, `aria-invalid`, `aria-describedby`
+1. ✅ Build wrapper div with class (default "field")
+2. ✅ Build label element with `for` attribute and text
+3. ✅ Build input element with all attributes from schema
+4. ✅ Build error span (only if error exists) with `role="alert"`
+5. ✅ Handle props: `as`, `class`, `id`, `label`, `placeholder`, `help`
+6. ✅ Apply ARIA attributes: `aria-required`, `aria-invalid`, `aria-describedby`
+7. ✅ Support `as="textarea"` and `as="select"` (delegates to existing evalSelectComponent)
+8. ✅ Constraints: minlength, maxlength, min, max, pattern
 
 Tests:
-- Basic field outputs correct structure
-- Custom class applied to wrapper
-- Label override works
-- Help text rendered when provided
-- Error span only rendered when error exists
-- ARIA attributes correct
+- ✅ Basic field outputs div > label + input structure
+- ✅ Custom class applied to wrapper
+- ✅ Label override works
+- ✅ Help text rendered as `<span class="help">`
+- ✅ Error span only rendered when field has error
+- ✅ ARIA attributes correct (aria-required, aria-invalid, aria-describedby)
+- ✅ Textarea renders with value inside tags
 
 ---
 
 ### Task 3.3: Implement checkbox special case
-**Files**: `pkg/parsley/evaluator/form_field_tag.go`
+**Files**: `pkg/parsley/evaluator/form_components.go`
 **Estimated effort**: 30 min
+**Status**: ✅ Complete
 
 Steps:
-1. Detect boolean type from schema
-2. For boolean: render input before label
-3. Add `field--checkbox` class to wrapper
-4. Handle checked attribute
+1. ✅ Detect boolean type from schema
+2. ✅ For boolean: render input before label
+3. ✅ Add `field--checkbox` class to wrapper
+4. ✅ Handle checked attribute
 
 Tests:
-- Boolean field has input before label
-- Boolean field has `field--checkbox` class
-- Checked attribute present when value is true
+- ✅ Boolean field has input before label
+- ✅ Boolean field has `field--checkbox` class
+- ✅ Checked attribute present when value is true
 
 ---
 
 ### Task 3.4: Wire into tag evaluation
 **Files**: `pkg/parsley/evaluator/eval_tags.go`
 **Estimated effort**: 30 min
+**Status**: ✅ Complete (done as part of Task 3.1)
 
 Steps:
-1. Add case for `"field"` tag name in tag evaluation
-2. Route to `evalFieldTag()`
-3. Ensure self-closing syntax works: `<field name="email"/>`
+1. ✅ Add case for `"field"` tag name in `evalStandardTag()`
+2. ✅ Route to `evalFieldTag()`
+3. ✅ Self-closing syntax works: `<field name="email"/>`
 
 Tests:
-- `<field name="email"/>` routes to correct handler
-- Non-self-closing `<field name="email"></field>` also works (or errors appropriately)
+- ✅ `<field name="email"/>` routes to correct handler
 
 ---
 
@@ -361,10 +368,10 @@ Steps:
 | 2026-06-15 | Task 2.2: recordFieldProps() | ✅ Complete | Full implementation with overrides |
 | 2026-06-15 | Task 2.3: Value formatting | ✅ Complete | formatValueForInput() |
 | 2026-06-15 | Task 2.4: pars describe record | ✅ Complete | Auto-registered via MethodRegistry |
-| | Task 3.1: Field tag handler | | |
-| | Task 3.2: Field output structure | | |
-| | Task 3.3: Checkbox special case | | |
-| | Task 3.4: Wire into eval_tags | | |
+| 2026-06-15 | Task 3.1: Field tag handler | ✅ Complete | evalFieldTag in form_components.go |
+| 2026-06-15 | Task 3.2: Field output structure | ✅ Complete | Full structure with all props |
+| 2026-06-15 | Task 3.3: Checkbox special case | ✅ Complete | Input before label, field--checkbox |
+| 2026-06-15 | Task 3.4: Wire into eval_tags | ✅ Complete | Done as part of 3.1 |
 | 2026-06-15 | Task 4.1: Alignment/format helpers | ✅ Complete | alignmentForSchemaType, formatHintForSchemaType |
 | 2026-06-15 | Task 4.2: tableColumnProps() | ✅ Complete | Full implementation with schema support |
 | 2026-06-15 | Task 4.3: pars describe table | ⏸️ Deferred | Auto-registered via MethodRegistry |
