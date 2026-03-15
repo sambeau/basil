@@ -637,7 +637,7 @@ Basil's stdlib is **more "batteries included" than Go, PHP, or Python** for web 
 | #12 | Form `target=` partial updates | Post-1.0 | Enhancement for Form component. |
 | #34 | Error code documentation/help system | Post-1.0 | Not stdlib-specific. |
 | #55 | Deprecate `format(arr, style?)` builtin | Already done | Deprecation warning added in FEAT-127. |
-| #54 | Builtin Table type | Post-1.0 | Would affect stdlib if `@std/table` were un-deprecated. Currently deferred. |
+| #54 | Builtin Table type | Post-1.0 | Make `Table` a builtin type so `parseCSV()` can return it directly (instead of array-of-dict requiring `table.table(csv.parseCSV())`). Would obsolete the deprecated `@std/table` module entirely. Language design work — deferred. |
 
 ### Unimplemented Feature Specs
 
