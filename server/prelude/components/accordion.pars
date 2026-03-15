@@ -1,0 +1,17 @@
+// Accordion - Exclusive expandable sections using native HTML5 <details name="...">
+// Only one section open at a time (browser handles this natively)
+// Compatible with Pico CSS - no custom classes needed
+// Usage: <Accordion name="faq" items={[{title: "Q1", content: "A1"}, {title: "Q2", content: "A2"}]}/>
+
+export Accordion = fn({name, items, ...attrs}) {
+    if (items == null || items.length() == 0) {
+        null
+    } else {
+        for (item, i in items) {
+            <details name={name} open={item.open ?? (i == 0)} {...attrs}>
+                <summary>item.title</summary>
+                item.content
+            </details>
+        }
+    }
+}

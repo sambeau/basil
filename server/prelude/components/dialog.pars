@@ -1,0 +1,25 @@
+// Dialog - Modal dialog using native HTML5 <dialog> element
+// Compatible with Pico CSS - uses <article> wrapper pattern
+// Usage: <Dialog id="confirm" title="Confirm Action" footer={<Button>"OK"</Button>}>"Are you sure?"</Dialog>
+// Open with: document.getElementById('confirm').showModal()
+
+export Dialog = fn({id, title, footer, contents, ...attrs}) {
+    <dialog id={id} {...attrs}>
+        <article>
+            if (title) {
+                <header>
+                    <button
+                        aria-label="Close"
+                        rel="prev"
+                        onclick="this.closest('dialog').close()"
+                    />
+                    <h2>title</h2>
+                </header>
+            }
+            contents
+            if (footer) {
+                <footer>footer</footer>
+            }
+        </article>
+    </dialog>
+}

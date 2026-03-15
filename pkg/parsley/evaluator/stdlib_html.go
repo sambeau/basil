@@ -28,6 +28,10 @@ var htmlModuleMeta = ModuleMeta{
 		"Iframe":     {Kind: "component", Description: "Iframe element"},
 		"Figure":     {Kind: "component", Description: "Figure with caption"},
 		"Blockquote": {Kind: "component", Description: "Blockquote element"},
+		// Interactive components
+		"Details":   {Kind: "component", Description: "Expandable content section"},
+		"Accordion": {Kind: "component", Description: "Exclusive expandable sections"},
+		"Dialog":    {Kind: "component", Description: "Modal dialog"},
 		// Utility components
 		"SrOnly": {Kind: "component", Description: "Screen reader only text"},
 		"Abbr":   {Kind: "component", Description: "Abbreviation element"},
@@ -77,6 +81,11 @@ var componentFiles = []struct {
 	{"iframe.pars", "Iframe"},
 	{"figure.pars", "Figure"},
 	{"blockquote.pars", "Blockquote"},
+
+	// Interactive components
+	{"details.pars", "Details"},
+	{"accordion.pars", "Accordion"},
+	{"dialog.pars", "Dialog"},
 
 	// Utility components
 	{"sr_only.pars", "SrOnly"},

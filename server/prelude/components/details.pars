@@ -1,0 +1,11 @@
+// Details - Expandable content section using native HTML5 <details>
+// Compatible with Pico CSS - no custom classes needed
+// Usage: <Details title="Click to expand">"Hidden content"</Details>
+// Usage: <Details title="FAQ Item" name="faq" open={true}>"Answer"</Details>
+
+export Details = fn({title, open, name, contents, ...attrs}) {
+    <details open={open} name={name} {...attrs}>
+        <summary>title</summary>
+        contents
+    </details>
+}
