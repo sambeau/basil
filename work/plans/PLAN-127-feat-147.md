@@ -2,7 +2,7 @@
 id: PLAN-127
 feature: FEAT-147
 title: "Implementation Plan for 1.0 Ship Review §12 Fixes"
-status: in-progress
+status: complete
 created: 2026-03-15
 ---
 
@@ -155,13 +155,13 @@ All tasks are independent. Recommended order for efficient execution:
 ## Progress Log
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | Task 1: CHANGELOG catchup | ⬜ Not started | |
-| | Task 2: Search debug prints | ⬜ Not started | |
-| | Task 3: Search text file size limit | ⬜ Not started | |
-| | Task 4: Git path traversal guard | ⬜ Not started | |
-| | Task 5: Rate limiter docs | ⬜ Not started | |
-| | Task 6: Stale CLI docs | ⬜ Not started | |
-| | Final: Update ship review | ⬜ Not started | |
+| 2026-03-15 | Task 2: Search debug prints | ✅ Complete | Removed 4 `fmt.Printf("[DEBUG]...")` from `parseSearchOptions` |
+| 2026-03-15 | Task 3: Search text file size limit | ✅ Complete | Added `MaxTextFileSize` (50MB) guard in `scanner.go`; reuses existing `fileInfo` from `d.Info()` |
+| 2026-03-15 | Task 4: Git path traversal guard | ✅ Complete | Added `strings.Contains(path, "..")` check returning 400; added `TestGitHandler_PathTraversal` with 3 test cases |
+| 2026-03-15 | Task 1: CHANGELOG catchup | ✅ Complete | Added [Unreleased] section with Added/Changed/Fixed covering FEAT-137, FEAT-142–146, BUG-025, prelude fixes, namespace moves, config, search/git hardening |
+| 2026-03-15 | Task 5: Rate limiter docs | ✅ Complete | Added inline note to `docs/guide/api-table-binding.md` about in-memory/single-instance nature |
+| 2026-03-15 | Task 6: Stale CLI docs | ✅ Complete | Removed `migrate-let-var` from `docs/guide/faq.md` and `docs/parsley/CHEATSHEET.md`; grep confirms zero remaining references |
+| 2026-03-15 | Final: Update ship review | ✅ Complete | All §12 areas marked investigated, checklist updated, decision log and specs table updated |
 
 ## Deferred Items
 Items confirmed as post-1.0 during the §12 investigation (no backlog entry needed — already tracked in ship review):

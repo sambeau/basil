@@ -1,7 +1,7 @@
 ---
 id: FEAT-147
 title: "1.0 Ship Review §12 Fixes"
-status: in-progress
+status: complete
 priority: high
 created: 2026-03-15
 updated: 2026-03-15
