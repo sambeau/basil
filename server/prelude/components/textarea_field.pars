@@ -1,53 +1,51 @@
 // TextareaField - Multi-line text input with label, hint, error, and accessibility
+// Compatible with Pico CSS - uses <small> for hints/errors (inherits validation color)
 // Usage: <TextareaField name="bio" label="Biography" maxlength={280} counter={true}/>
 
 export TextareaField = fn(props) {
     // Extract component-specific props, spread the rest to the textarea
-    let {name, label, value, hint, error, required, id, class, counter, autoresize, ...textareaAttrs} = props
+    let {name, label, value, hint, error, required, id, counter, autoresize, ...textareaAttrs} = props
 
     // Generate IDs for accessibility
-    let fieldId = id ?? "field-" ++ name
-    let textareaId = fieldId ++ "-input"
-    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
-    let errorId = if (error) { fieldId ++ "-error" } else { null }
-    let counterId = if (counter && props.maxlength) { fieldId ++ "-counter" } else { null }
+    let textareaId = id ?? name
+    let hintId = if (hint) { textareaId ++ "-hint" } else { null }
+    let errorId = if (error) { textareaId ++ "-error" } else { null }
+    let counterId = if (counter && props.maxlength) { textareaId ++ "-counter" } else { null }
 
     // Build aria-describedby from hint, error, and counter IDs
     let describedByParts = [hintId, errorId, counterId].filter(fn(x) { x != null })
-    let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
+    let describedBy = if (describedByParts.length() > 0) { describedByParts.join(" ") } else { null }
 
     let textareaValue = value ?? ""
     let rowCount = props.rows ?? 4
 
-    <div class={"field field-textarea" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
-        <label for={textareaId}>
-            label
-            if (required) {
-                <span class="field-required" aria-hidden="true">" *"</span>
-            }
-        </label>
-        <textarea
-            id={textareaId}
-            name={name}
-            rows={rowCount}
-            required={required}
-            aria-required={if (required) { "true" } else { null }}
-            aria-describedby={describedBy}
-            aria-invalid={if (error) { "true" } else { null }}
-            data-counter={if (counter && counterId) { counterId } else { null }}
-            data-autoresize={if (autoresize) { "true" } else { null }}
-            ...textareaAttrs
-        >textareaValue</textarea>
-        if (hint) {
-            <p id={hintId} class="field-hint">hint</p>
+    <label for={textareaId}>
+        label
+        if (required) {
+            <span aria-hidden="true">" *"</span>
         }
-        if (counter && props.maxlength) {
-            <p id={counterId} class="field-counter" aria-live="polite">
-                textareaValue.length " / " maxlength
-            </p>
-        }
-        if (error) {
-            <p id={errorId} class="field-error" role="alert">error</p>
-        }
-    </div>
+    </label>
+    <textarea
+        id={textareaId}
+        name={name}
+        rows={rowCount}
+        required={required}
+        aria-required={if (required) { "true" } else { null }}
+        aria-describedby={describedBy}
+        aria-invalid={if (error) { "true" } else { null }}
+        data-counter={if (counter && counterId) { counterId } else { null }}
+        data-autoresize={if (autoresize) { "true" } else { null }}
+        ...textareaAttrs
+    >textareaValue</textarea>
+    if (hint && !error) {
+        <small id={hintId}>hint</small>
+    }
+    if (counter && props.maxlength) {
+        <small id={counterId} aria-live="polite">
+            textareaValue.length() " / " props.maxlength
+        </small>
+    }
+    if (error) {
+        <small id={errorId}>error</small>
+    }
 }

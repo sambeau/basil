@@ -1,60 +1,58 @@
 // SelectField - Dropdown select with label, options, and accessibility
+// Compatible with Pico CSS - uses <small> for hints/errors (inherits validation color)
 // Usage: <SelectField name="country" label="Country" options={countries} valueKey="code" labelKey="name"/>
 
 export SelectField = fn(props) {
     // Extract component-specific props, spread the rest to the select
-    let {name, label, value, options, valueKey, labelKey, hint, error, required, id, class, placeholder, autosubmit, ...selectAttrs} = props
+    let {name, label, value, options, valueKey, labelKey, hint, error, required, id, placeholder, autosubmit, ...selectAttrs} = props
 
     // Generate IDs for accessibility
-    let fieldId = id ?? "field-" ++ name
-    let selectId = fieldId ++ "-input"
-    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
-    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    let selectId = id ?? name
+    let hintId = if (hint) { selectId ++ "-hint" } else { null }
+    let errorId = if (error) { selectId ++ "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
-    let describedBy = if (describedByParts.length > 0) { describedByParts.join(" ") } else { null }
+    let describedBy = if (describedByParts.length() > 0) { describedByParts.join(" ") } else { null }
 
     // Default keys for option value and label
     let vKey = valueKey ?? "value"
     let lKey = labelKey ?? "label"
 
-    <div class={"field field-select" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
-        <label for={selectId}>
-            label
-            if (required) {
-                <span class="field-required" aria-hidden="true">" *"</span>
-            }
-        </label>
-        <select
-            id={selectId}
-            name={name}
-            required={required}
-            aria-required={if (required) { "true" } else { null }}
-            aria-describedby={describedBy}
-            aria-invalid={if (error) { "true" } else { null }}
-            data-autosubmit={if (autosubmit) { "true" } else { null }}
-            ...selectAttrs
-        >
-            if (placeholder) {
-                <option value="" disabled={true} selected={value == null || value == ""}>
-                    placeholder
-                </option>
-            }
-            for (opt in options ?? []) {
-                // Support both simple values and objects with value/label keys
-                let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
-                let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
-                <option value={optValue} selected={optValue == value}>
-                    optLabel
-                </option>
-            }
-        </select>
-        if (hint) {
-            <p id={hintId} class="field-hint">hint</p>
+    <label for={selectId}>
+        label
+        if (required) {
+            <span aria-hidden="true">" *"</span>
         }
-        if (error) {
-            <p id={errorId} class="field-error" role="alert">error</p>
+    </label>
+    <select
+        id={selectId}
+        name={name}
+        required={required}
+        aria-required={if (required) { "true" } else { null }}
+        aria-describedby={describedBy}
+        aria-invalid={if (error) { "true" } else { null }}
+        data-autosubmit={if (autosubmit) { "true" } else { null }}
+        ...selectAttrs
+    >
+        if (placeholder) {
+            <option value="" disabled={true} selected={value == null || value == ""}>
+                placeholder
+            </option>
         }
-    </div>
+        for (opt in options ?? []) {
+            // Support both simple values and objects with value/label keys
+            let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
+            let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }
+            <option value={optValue} selected={optValue == value}>
+                optLabel
+            </option>
+        }
+    </select>
+    if (hint && !error) {
+        <small id={hintId}>hint</small>
+    }
+    if (error) {
+        <small id={errorId}>error</small>
+    }
 }

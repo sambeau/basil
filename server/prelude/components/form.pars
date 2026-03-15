@@ -1,15 +1,15 @@
 // Form - Form wrapper with CSRF, confirmation, and submit protection
+// Compatible with Pico CSS - styles <form> element directly
 // Usage: <Form action="/register" method="POST" confirm="Submit registration?">fields here</Form>
 
 let {request} = import @basil/http
 
 export Form = fn(props) {
     // Extract component-specific props, spread the rest to the form
-    let {method, class, confirm, contents, ...formAttrs} = props
-    
-    <form 
+    let {method, confirm, contents, ...formAttrs} = props
+
+    <form
         method={method ?? "POST"}
-        class={"form" ++ if (class) { " " ++ class } else { "" }}
         data-confirm={confirm}
         ...formAttrs
     >

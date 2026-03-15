@@ -1,10 +1,11 @@
 // Page - Complete HTML document wrapper
 // Generates <!DOCTYPE html>, <html>, <head>, <body> with SkipLink and asset bundles
+// Compatible with Pico CSS
 //
 // Usage:
 //   <Page lang="en" title="My Site">
 //     <Nav>...</Nav>
-//     <main>Content here</main>
+//     <main id="main">Content here</main>
 //   </Page>
 //
 // Props:
@@ -12,7 +13,7 @@
 //   title       - Page title (required)
 //   description - Meta description
 //   class       - Body class
-//   id          - Body id
+//   id          - Body id (no default - put id="main" on your <main> element for skip link)
 //   head        - Additional <head> content (CSS, meta tags, etc.)
 //   noBasilJS   - Omit basil.js script (for pages that don't use enhanced components)
 
@@ -31,7 +32,7 @@ export Page = fn({lang, title, description, class, id, head, noBasilJS, contents
             (head)
         }
     </head>
-    <body class={class} id={id??"main"}>
+    <body class={class} id={id}>
         <SkipLink/>
         (contents)
         <Javascript/>

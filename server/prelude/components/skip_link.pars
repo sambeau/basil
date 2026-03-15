@@ -1,26 +1,11 @@
 // SkipLink - Accessibility skip link (skip to main content)
+// Compatible with Pico CSS - requires basil-supplement.css for styling
 // Usage: <SkipLink/>  or  <SkipLink target="#content" text="Skip to content"/>
 
-export SkipLink = fn({target, text}) {
+export SkipLink = fn({target, text, ...attrs}) {
     let href = target ?? "#main"
     let linkText = text ?? "Skip to main content"
-    <style>
-        #skip {
-            position:absolute;
-            left:-10000px;
-            top:auto;
-            width:1px;
-            height:1px;
-            overflow:hidden;
-        }
-        
-        #skip:focus{
-            position:static;
-            width:auto;
-            height:auto;
-        }
-    </style>
-    <a href={href} id="skip">
+    <a href={href} class="skip-link" {...attrs}>
         linkText
     </a>
 }

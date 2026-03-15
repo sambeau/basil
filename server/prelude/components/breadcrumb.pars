@@ -1,29 +1,28 @@
 // Breadcrumb - Breadcrumb navigation with Schema.org markup
+// Compatible with Pico CSS - uses aria-label="breadcrumb" (lowercase for Pico convention)
 // Usage: <Breadcrumb items={[{label: "Home", href: "/"}, {label: "Products", href: "/products"}, {label: "Shoes"}]}/>
 
-export Breadcrumb = fn({items, id, class, separator}) {
+export Breadcrumb = fn({items, id, separator, ...attrs}) {
     let sep = separator ?? " / "
-    
-    <nav 
+
+    <nav
         id={id}
-        class={"breadcrumb" ++ if (class) { " " ++ class } else { "" }}
-        aria-label="Breadcrumb"
+        aria-label="breadcrumb"
+        {...attrs}
     >
-        <ol 
-            class="breadcrumb-list"
+        <ol
             itemscope=""
             itemtype="https://schema.org/BreadcrumbList"
         >
             for (item, idx in items ?? []) {
-                let isLast = idx == (items.length - 1)
-                <li 
-                    class="breadcrumb-item"
+                let isLast = idx == (items.length() - 1)
+                <li
                     itemprop="itemListElement"
                     itemscope=""
                     itemtype="https://schema.org/ListItem"
                 >
                     if (idx > 0) {
-                        <span class="breadcrumb-separator" aria-hidden="true">sep</span>
+                        <span aria-hidden="true">sep</span>
                     }
                     if (item.href && !isLast) {
                         <a href={item.href} itemprop="item">

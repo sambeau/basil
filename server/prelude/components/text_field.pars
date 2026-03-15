@@ -1,43 +1,41 @@
 // TextField - Text input with label, hint, error, and accessibility
+// Compatible with Pico CSS - uses <small> for hints/errors (inherits validation color)
 // Usage: <TextField name="email" label="Email" type="email" required={true}/>
 
 export TextField = fn(props) {
     // Extract component-specific props, spread the rest to the input
-    let {name, label, type, value, hint, error, required, id, class, ...inputAttrs} = props
+    let {name, label, type, value, hint, error, required, id, ...inputAttrs} = props
 
     // Generate IDs for accessibility
-    let fieldId = id ?? "field-" ++ name
-    let inputId = fieldId ++ "-input"
-    let hintId = if (hint) { fieldId ++ "-hint" } else { null }
-    let errorId = if (error) { fieldId ++ "-error" } else { null }
+    let inputId = id ?? name
+    let hintId = if (hint) { inputId ++ "-hint" } else { null }
+    let errorId = if (error) { inputId ++ "-error" } else { null }
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
     let describedBy = if (describedByParts.length() > 0) { describedByParts.join(" ") } else { null }
 
-    <div class={"field" ++ if (class) { " " ++ class } else { "" }} id={fieldId}>
-        <label for={inputId}>
-            label
-            if (required) {
-                <span class="field-required" aria-hidden="true">" *"</span>
-            }
-        </label>
-        <input
-            type={type ?? "text"}
-            id={inputId}
-            name={name}
-            value={value ?? ""}
-            required={if (required) "required" else null}
-            aria-required={if (required) "true" else null}
-            aria-describedby={describedBy}
-            aria-invalid={if (error) "true" else null}
-            ...inputAttrs
-        />
-        if (hint) {
-            <p id={hintId} class="field-hint">hint</p>
+    <label for={inputId}>
+        label
+        if (required) {
+            <span aria-hidden="true">" *"</span>
         }
-        if (error) {
-            <p id={errorId} class="field-error" role="alert">error</p>
-        }
-    </div>
+    </label>
+    <input
+        type={type ?? "text"}
+        id={inputId}
+        name={name}
+        value={value ?? ""}
+        required={if (required) "required" else null}
+        aria-required={if (required) "true" else null}
+        aria-describedby={describedBy}
+        aria-invalid={if (error) "true" else null}
+        ...inputAttrs
+    />
+    if (hint && !error) {
+        <small id={hintId}>hint</small>
+    }
+    if (error) {
+        <small id={errorId}>error</small>
+    }
 }
