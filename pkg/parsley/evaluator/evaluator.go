@@ -4812,6 +4812,44 @@ func Eval(node ast.Node, env *Environment) Object {
 			return Eval(node.Right, env)
 		}
 
+		// Short-circuit evaluation for logical AND (&&/&/and)
+		// Only short-circuit when left is not array/dict (those use && for intersection)
+		if node.Operator == "&&" || node.Operator == "&" || node.Operator == "and" {
+			left := Eval(node.Left, env)
+			if isError(left) {
+				return left
+			}
+			if left.Type() != ARRAY_OBJ && left.Type() != DICTIONARY_OBJ {
+				if !isTruthy(left) {
+					return FALSE
+				}
+			}
+			right := Eval(node.Right, env)
+			if isError(right) {
+				return right
+			}
+			return evalInfixExpression(node.Token, node.Operator, left, right)
+		}
+
+		// Short-circuit evaluation for logical OR (||/|/or)
+		// Only short-circuit when left is not array (those use || for union)
+		if node.Operator == "||" || node.Operator == "|" || node.Operator == "or" {
+			left := Eval(node.Left, env)
+			if isError(left) {
+				return left
+			}
+			if left.Type() != ARRAY_OBJ {
+				if isTruthy(left) {
+					return TRUE
+				}
+			}
+			right := Eval(node.Right, env)
+			if isError(right) {
+				return right
+			}
+			return evalInfixExpression(node.Token, node.Operator, left, right)
+		}
+
 		left := Eval(node.Left, env)
 		if isError(left) {
 			return left
