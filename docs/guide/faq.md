@@ -61,30 +61,6 @@ let f = fn(a) {
 
 *Added: 2025-01-22*
 
-### How do I migrate old Parsley code to use let/var?
-
-Use the `pars migrate-let-var` command:
-
-```bash
-# Show what changes would be made
-pars migrate-let-var script.pars
-
-# Apply changes to file
-pars migrate-let-var -w script.pars
-
-# Recursively check a directory
-pars migrate-let-var -r ./src
-
-# List files that need migration
-pars migrate-let-var -l -r ./src
-```
-
-The tool automatically:
-- Converts `let` to `var` for bindings that are reassigned
-- Adds `let` (or `var` if reassigned) to implicit declarations
-
-*Added: 2025-01-22*
-
 ### How do I create interactive HTML components?
 Use Parts - create a `.part` file that exports view functions. Each view can respond to user interactions via `part-click` or `part-submit` attributes. See `examples/parts/` for a working example.
 

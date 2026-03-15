@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Language Features
+- **Short-circuit evaluation for `&&` and `||`** (BUG-025) — Logical operators now short-circuit correctly: `&&` skips the right operand when the left is falsy, `||` skips when the left is truthy. Collection overloads (intersection/union) are preserved for non-boolean operands.
+
+#### Standard Library
+- **Consistent string coercion for typed values** (FEAT-146) — DateTime, Duration, and Unit types now render consistently across tables, templates, and `toString()`:
+  - Tables: Duration renders as "2 hours 30 minutes" (was raw dict), Unit renders as "5km" (was `<UNIT>` inspect format)
+  - Templates: DateTime uses `.medium()` for human-friendly output ("Jun 15, 2025")
+  - `toString()`: DateTime remains ISO format for programmatic use
+- **`<field/>` tag and `record.fieldProps()`** (FEAT-145) — Declarative form field rendering with automatic label, type, validation, and accessibility attributes derived from schema metadata.
+- **DataTable redesign** (FEAT-144) — Rebuilt DataTable component with sortable columns, pagination, row selection, footer aggregates, empty state, and responsive layout.
+- **Meta component and Page restructure** (FEAT-142) — Extracted `<Meta/>` from `<Page/>` for flexible `<head>` management; Page now supports `dir` prop for RTL layouts.
+- **Accessibility components** (FEAT-143) — New `<SkipLink/>`, `<VisuallyHidden/>`, `<LiveRegion/>`, `<FocusTrap/>` components; plus `<Details/>`, `<Accordion/>`, `<Dialog/>`, `<Toast/>`, `<Toasts/>`, `<Pagination/>`, `<ErrorSummary/>` with Pico CSS compatibility.
+- **Prelude smoke test** — Automated rendering test for all 33 prelude components to catch syntax and runtime errors.
+- **Money formatting in tables** — Money values in table cells now render with `.medium()` formatting.
+
+#### Namespace & Organisation
+- **`@basil/` namespace for server modules** — `@std/dev` → `@basil/log`, `@std/html` → `@basil/html`, `@std/api` → `@basil/api`. Old `@std/` names kept as deprecated aliases (removal tracked in backlog #121).
+- **`@std/mddoc`** — Renamed from `@std/mdDoc` for naming consistency. Old camelCase name kept as deprecated alias.
+- **Method registry migration complete** (FEAT-137) — All ~20 remaining types migrated to declarative `MethodRegistry`. `pars describe` now works correctly for all types including array, dictionary, datetime, duration, path, url, regex, file, dir, boolean, null, request, response, DBConnection, SFTP, session, record, table, and more.
+
+### Changed
+- **Config YAML consistency** — `cors.maxAge` renamed to `cors.max_age`; top-level `sqlite` key moved to `database.path`; `SessionConfig.HttpOnly` renamed to `HTTPOnly` (YAML tag `http_only`). These are breaking changes to config files from pre-alpha formats.
+- **`@std/schema` docs** — Slimmed to deprecation notice pointing to `@schema { ... }` DSL syntax.
+
+### Fixed
+- **9 prelude component bugs** discovered by smoke test:
+  - `.length` used as property instead of `.length()` on arrays (Checkbox, CheckboxGroup, RadioGroup, Pagination)
+  - `.format("iso")` vs `.iso` differences in time-related components
+  - `.floor()` called on integer division results (unnecessary)
+- **DataTable footer null guard** — Simplified using short-circuit `&&` (enabled by BUG-025).
+- **`array.join()` skips null and empty strings** — No longer inserts extra separators for nil/empty elements.
+- **Search debug output removed** — Removed `fmt.Printf("[DEBUG]...")` statements from search option parsing that were printing to stdout in production.
+- **Search text file size limit** — Added 50MB size guard for Markdown/HTML files in search indexer, matching existing PDF/DOCX limits, preventing OOM on oversized files.
+- **Git handler path traversal guard** — Added explicit `..` check in `GitHandler.ServeHTTP` before delegating to `go-git-http`, returning 400 Bad Request for traversal attempts.
+
 ## [1.0.0-alpha.1] - 2026-02-26
 
 **Parsley 1.0 Alpha** — The first alpha release of the Parsley programming language.

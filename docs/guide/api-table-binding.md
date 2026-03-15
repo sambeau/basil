@@ -8,7 +8,7 @@ This document explains the new API surface for Parsley-based JSON APIs: `std/api
 - **Auth wrappers** (`std/api`): `public`, `auth`, `adminOnly`, `roles([...])` decorate handlers and attach metadata. Server enforces it before your function runs.
 - **Schema-aware table bindings** (`schema.table`): Given a schema, DB connection, and table name, you get CRUD helpers that validate input, auto-generate IDs, and clamp pagination.
 - **Responses**: Dict/array → JSON, string → text/HTML, `APIError` → JSON + status, `{status, headers, body}` works for custom responses.
-- **Defaults you get for free**: Auth required unless made public, rate limiting (60 req/min per user/IP), pagination defaults (`limit=20,max=100,offset=0`) on `all()`/`where()`, JSON content-type, structured errors.
+- **Defaults you get for free**: Auth required unless made public, rate limiting (60 req/min per user/IP), pagination defaults (`limit=20,max=100,offset=0`) on `all()`/`where()`, JSON content-type, structured errors. Note: the rate limiter is in-memory and resets on server restart. It is per-instance, not shared across multiple processes — this is intentional, as Basil targets single-process deployment.
 
 ## Library surface (snippets)
 
