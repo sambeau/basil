@@ -4,7 +4,7 @@
 // Open with: document.getElementById('confirm').showModal()
 
 export Dialog = fn({id, title, footer, contents, ...attrs}) {
-    <dialog id={id} {...attrs}>
+    <dialog id={id} ...attrs>
         <article>
             if (title) {
                 <header>

@@ -8,7 +8,7 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
         }
         <thead>
             <tr>
-                for (col, idx in columns ?? []) {
+                for (idx, col in columns ?? []) {
                     <th scope="col">col</th>
                 }
             </tr>
@@ -16,7 +16,7 @@ export DataTable = fn({caption, columns, rows, keys, id, class, sortable}) {
         <tbody>
             for (row in rows ?? []) {
                 <tr>
-                    for (key, idx in keys ?? []) {
+                    for (idx, key in keys ?? []) {
                         // First column gets row scope for accessibility
                         if (idx == 0) {
                             <th scope="row">row[key]</th>

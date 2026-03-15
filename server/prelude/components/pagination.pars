@@ -22,7 +22,7 @@ export Pagination = fn({current, total, perPage, href, window, showFirst, showPr
         let start = max(1, current - pageWindow)
         let end = min(totalPages, current + pageWindow)
 
-        <nav aria-label="Pagination" {...attrs}>
+        <nav aria-label="Pagination" ...attrs>
             <ul>
                 // First button
                 if (showFirstLast && current > 1) {
@@ -43,7 +43,7 @@ export Pagination = fn({current, total, perPage, href, window, showFirst, showPr
                 }
 
                 // Page numbers
-                for (n in start..end + 1) {
+                for (n in start..end) {
                     <li>
                         if (n == current) {
                             <a href={pageUrl(n)} aria-current="page">n</a>

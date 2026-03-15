@@ -8,13 +8,13 @@ export Breadcrumb = fn({items, id, separator, ...attrs}) {
     <nav
         id={id}
         aria-label="breadcrumb"
-        {...attrs}
+        ...attrs
     >
         <ol
             itemscope=""
             itemtype="https://schema.org/BreadcrumbList"
         >
-            for (item, idx in items ?? []) {
+            for (idx, item in items ?? []) {
                 let isLast = idx == (items.length() - 1)
                 <li
                     itemprop="itemListElement"

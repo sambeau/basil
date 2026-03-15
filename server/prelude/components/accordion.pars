@@ -7,8 +7,8 @@ export Accordion = fn({name, items, ...attrs}) {
     if (items == null || items.length() == 0) {
         null
     } else {
-        for (item, i in items) {
-            <details name={name} open={item.open ?? (i == 0)} {...attrs}>
+        for (i, item in items) {
+            <details name={name} open={item.open ?? (i == 0)} ...attrs>
                 <summary>item.title</summary>
                 item.content
             </details>

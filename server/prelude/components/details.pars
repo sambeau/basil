@@ -4,7 +4,7 @@
 // Usage: <Details title="FAQ Item" name="faq" open={true}>"Answer"</Details>
 
 export Details = fn({title, open, name, contents, ...attrs}) {
-    <details open={open} name={name} {...attrs}>
+    <details open={open} name={name} ...attrs>
         <summary>title</summary>
         contents
     </details>

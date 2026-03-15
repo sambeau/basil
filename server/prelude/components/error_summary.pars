@@ -16,7 +16,7 @@ export ErrorSummary = fn({title, errors, id, ...attrs}) {
             aria-labelledby={summaryId ++ "-title"}
             tabindex="-1"
             id={summaryId}
-            {...attrs}
+            ...attrs
         >
             <header>
                 <h2 id={summaryId ++ "-title"}>summaryTitle</h2>

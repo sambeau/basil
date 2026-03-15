@@ -5,7 +5,7 @@
 export SkipLink = fn({target, text, ...attrs}) {
     let href = target ?? "#main"
     let linkText = text ?? "Skip to main content"
-    <a href={href} class="skip-link" {...attrs}>
+    <a href={href} class="skip-link" ...attrs>
         linkText
     </a>
 }

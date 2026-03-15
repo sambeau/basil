@@ -9,7 +9,7 @@ export Toast = fn({message, type, dismissible, ...attrs}) {
     let canDismiss = dismissible ?? true
     let role = if (toastType == "error") { "alert" } else { "status" }
 
-    <article role={role} data-type={toastType} {...attrs}>
+    <article role={role} data-type={toastType} ...attrs>
         <p>message</p>
         if (canDismiss) {
             <button aria-label="Dismiss" onclick="this.parentElement.remove()"/>

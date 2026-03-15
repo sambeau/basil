@@ -4,7 +4,7 @@ feature: FEAT-143
 title: "Implementation Plan: Prelude Component Styling Strategy"
 status: complete
 created: 2026-06-15
-completed: 2026-06-15
+updated: 2026-03-15
 ---
 
 # Implementation Plan: FEAT-143
@@ -13,6 +13,18 @@ completed: 2026-06-15
 
 Implement a Pico CSS-compatible styling strategy for Prelude components. This involves creating new components (Dialog, Details, Accordion, Toast, Pagination, ErrorSummary), updating existing components to output semantic HTML without embedded CSS, and documenting the recommended styling approach.
 
+## Current Status
+
+**✅ All phases complete.**
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Foundation | ✅ Complete | Components created |
+| Phase 2: Migrate Existing | ✅ Complete | Components updated |
+| Phase 3: New Components | ✅ Complete | All new components added |
+| Phase 4: Parsley Correctness | ✅ Complete | All syntax errors fixed |
+| Phase 5: Testing | ✅ Complete | Verification script passes |
+
 ## Prerequisites
 
 - [x] Spec reviewed and approved: `work/specs/FEAT-143-prelude-component-styling.md`
@@ -20,451 +32,323 @@ Implement a Pico CSS-compatible styling strategy for Prelude components. This in
 - [x] Supplement CSS created: `examples/css/basil-supplement.css`
 - [x] Supplement README created: `examples/css/README.md`
 
-## Phase 1: Foundation (No Breaking Changes)
+---
 
-### Task 1.1: Create Details component
-**Files**: `server/prelude/components/details.pars` (new)
-**Estimated effort**: 15 min
+## Phase 1: Foundation (No Breaking Changes) — ✅ COMPLETE
 
-Steps:
-1. Create `details.pars` with `Details` component
-2. Props: `title` (required), `open` (default false), `name` (optional for accordion grouping), `contents`
-3. Output: `<details>` with `<summary>` containing title
-4. Export from prelude
-
-Tests:
-- Basic details renders correctly
-- `open` attribute works
-- `name` attribute passes through for accordion behavior
-- Additional attrs spread correctly
+### Task 1.1: Create Details component ✅
+### Task 1.2: Create Accordion component ✅
+### Task 1.3: Create Dialog component ✅
+### Task 1.4: Update prelude exports for Phase 1 components ✅
+### Task 1.5: Document Pico CSS setup ✅
 
 ---
 
-### Task 1.2: Create Accordion component
-**Files**: `server/prelude/components/accordion.pars` (new)
-**Estimated effort**: 20 min
+## Phase 2: Migrate Existing Components — ✅ COMPLETE
 
-Steps:
-1. Create `accordion.pars` with `Accordion` component
-2. Props: `name` (required), `items` (array of `{title, content, open?}`)
-3. Output: Multiple `<details name={name}>` elements
-4. First item open by default unless specified
-5. Export from prelude
-
-Tests:
-- Renders multiple details with same `name`
-- First item is open by default
-- Custom `open` in items works
-- Empty items array returns null
+### Task 2.1: Update TextField to use `<small>` for hints/errors ✅
+### Task 2.2: Update TextareaField to match TextField pattern ✅
+### Task 2.3: Update SelectField to match TextField pattern ✅
+### Task 2.4: Update SkipLink to remove inline CSS ✅
+### Task 2.5: Update Breadcrumb for Pico compatibility ✅
+### Task 2.6: Update Page to fix body id default ✅
+### Task 2.7: Update Form to remove .form class ✅
 
 ---
 
-### Task 1.3: Create Dialog component
-**Files**: `server/prelude/components/dialog.pars` (new)
-**Estimated effort**: 25 min
+## Phase 3: New Components — ✅ COMPLETE
 
-Steps:
-1. Create `dialog.pars` with `Dialog` component
-2. Props: `id` (required), `title` (optional), `footer` (optional), `contents`
-3. Output: `<dialog><article>` with optional `<header>` and `<footer>`
-4. Close button uses `rel="prev"` and inline onclick for Pico compatibility
-5. Export from prelude
-
-Tests:
-- Basic dialog renders with article wrapper
-- Title creates header with close button
-- Footer renders in footer element
-- Dialog without title has no header
-- Id attribute is required and passes through
+### Task 3.1: Create Toast component ✅
+### Task 3.2: Create Toasts container component ✅
+### Task 3.3: Create Pagination component ✅
+### Task 3.4: Create ErrorSummary component ✅
+### Task 3.5: Update prelude exports for Phase 3 components ✅
 
 ---
 
-### Task 1.4: Update prelude exports for Phase 1 components
-**Files**: `server/prelude/prelude.go` or equivalent export file
-**Estimated effort**: 15 min
+## Phase 4: Parsley Correctness — 🔴 IN PROGRESS
 
-Steps:
-1. Add `Details` to prelude exports
-2. Add `Accordion` to prelude exports
-3. Add `Dialog` to prelude exports
-4. Verify components are accessible via `@prelude`
+A post-implementation audit found blocking Parsley syntax errors. These MUST be fixed before FEAT-143 is complete.
 
-Tests:
-- `import @prelude` provides Details, Accordion, Dialog
-- No naming conflicts with existing exports
+### Task 4.1: Fix invalid spread syntax
+**Status:** ✅ Complete  
+**Files:** 9 component files  
+**Estimated effort:** 15 min
 
----
+**Problem:** Used `{...attrs}` (JSX) instead of `...attrs` (Parsley)
 
-### Task 1.5: Document Pico CSS setup
-**Files**: `docs/guide/styling.md` (new or update existing)
-**Estimated effort**: 30 min
+**Files to fix:**
+| File | Line |
+|------|------|
+| `accordion.pars` | 11 |
+| `breadcrumb.pars` | 11 |
+| `details.pars` | 7 |
+| `dialog.pars` | 7 |
+| `error_summary.pars` | 19 |
+| `pagination.pars` | 25 |
+| `skip_link.pars` | 8 |
+| `toast.pars` | 12 |
+| `toasts.pars` | 14 |
 
-Steps:
-1. Create/update styling guide with Pico CSS recommendation
-2. Document minimal setup (classless)
-3. Document recommended setup (with classes)
-4. Document supplement CSS usage
-5. Show example Page component with Pico links
+**Fix command:**
+```bash
+cd server/prelude/components
+for f in accordion.pars breadcrumb.pars details.pars dialog.pars \
+         error_summary.pars pagination.pars skip_link.pars toast.pars toasts.pars; do
+    sed -i '' 's/{\.\.\.attrs}/...attrs/g' "$f"
+done
+```
 
-Tests:
-- Documentation is accurate
-- Code examples work when copy-pasted
-
----
-
-## Phase 2: Migrate Existing Components
-
-### Task 2.1: Update TextField to use `<small>` for hints/errors
-**Files**: `server/prelude/components/text_field.pars`
-**Estimated effort**: 20 min
-
-Steps:
-1. Change hint output from `<p class="field-hint">` to `<small>`
-2. Change error output from `<p class="field-error">` to `<small>`
-3. Remove wrapper div class (`.field`)
-4. Keep all ARIA attributes (`aria-invalid`, `aria-describedby`, `aria-required`)
-5. Test with Pico CSS
-
-Tests:
-- Hint renders as `<small>` with correct id
-- Error renders as `<small>` with correct id
-- `aria-describedby` still references correct ids
-- Pico inherits validation color from `aria-invalid`
+**Verification:**
+```bash
+# Each file should parse without error:
+for f in server/prelude/components/*.pars; do
+    pars --check "$f" 2>&1 || echo "FAIL: $f"
+done
+```
 
 ---
 
-### Task 2.2: Update TextareaField to match TextField pattern
-**Files**: `server/prelude/components/textarea_field.pars`
-**Estimated effort**: 15 min
+### Task 4.2: Fix reversed for-loop variable ordering
+**Status:** ✅ Complete  
+**Files:** 6 component files  
+**Estimated effort:** 20 min
 
-Steps:
-1. Apply same changes as TextField (small for hints/errors)
-2. Remove custom classes
-3. Keep ARIA attributes
+**Problem:** Used `for (item, idx in items)` but Parsley is `for (idx, item in items)`
 
-Tests:
-- Mirrors TextField behavior
-- Works with Pico CSS
+**Files to fix:**
+| File | Line | Current | Fix |
+|------|------|---------|-----|
+| `accordion.pars` | 10 | `for (item, i in items)` | `for (i, item in items)` |
+| `breadcrumb.pars` | 17 | `for (item, idx in items)` | `for (idx, item in items)` |
+| `checkbox_group.pars` | 41 | `for (opt, idx in options)` | `for (idx, opt in options)` |
+| `radio_group.pars` | 38 | `for (opt, idx in options)` | `for (idx, opt in options)` |
+| `data_table.pars` | 11 | `for (col, idx in columns)` | `for (idx, col in columns)` |
+| `data_table.pars` | 19 | `for (key, idx in keys)` | `for (idx, key in keys)` |
 
----
+**Verification after fix:**
+```bash
+# Test that accordion first item is open:
+pars -r -e '
+let items = [{title: "Q1", content: "A1"}, {title: "Q2", content: "A2"}]
+for (i, item in items) {
+    <details open={i == 0}><summary>item.title</summary></details>
+}
+' | grep -c 'open'
+# Should output: 1 (only first is open)
 
-### Task 2.3: Update SelectField to match TextField pattern
-**Files**: `server/prelude/components/select_field.pars`
-**Estimated effort**: 15 min
-
-Steps:
-1. Apply same changes as TextField (small for hints/errors)
-2. Remove custom classes
-3. Keep ARIA attributes
-
-Tests:
-- Mirrors TextField behavior
-- Works with Pico CSS
-
----
-
-### Task 2.4: Update SkipLink to remove inline CSS
-**Files**: `server/prelude/components/skip_link.pars`
-**Estimated effort**: 15 min
-
-Steps:
-1. Remove inline `<style>` tag entirely
-2. Add `class="skip-link"` to the anchor element
-3. Verify supplement CSS has matching `.skip-link` styles
-
-Tests:
-- No `<style>` tag in output
-- Has `class="skip-link"`
-- Works correctly with supplement CSS (hidden until focused)
+# Test that breadcrumb positions are 1-based:
+pars -r -e '
+for (idx, item in [{label: "Home"}, {label: "About"}]) {
+    <meta content={idx + 1}/>
+}
+' | grep 'content="1"'
+# Should find content="1" (not content="0")
+```
 
 ---
 
-### Task 2.5: Update Breadcrumb for Pico compatibility
-**Files**: `server/prelude/components/breadcrumb.pars`
-**Estimated effort**: 20 min
+### Task 4.3: Fix pagination range precedence bug
+**Status:** ✅ Complete  
+**Files:** `pagination.pars` line 45  
+**Estimated effort:** 5 min
 
-Steps:
-1. Change `aria-label="Breadcrumb"` to lowercase (Pico convention)
-2. Remove custom classes (`.breadcrumb`, `.breadcrumb-list`, `.breadcrumb-item`)
-3. Ensure structure is `<nav aria-label="breadcrumb"><ul><li>...`
-4. Keep `aria-current="page"` on current item
+**Problem:** `start..end + 1` parses as `(start..end) + 1` due to operator precedence
 
-Tests:
-- Uses Pico-compatible aria-label
-- Works styled with Pico CSS
-- Current page still marked correctly
+**Current code:**
+```parsley
+for (n in start..end + 1) {
+```
 
----
+**Fixed code:**
+```parsley
+for (n in start..end) {
+```
 
-### Task 2.6: Update Page to fix body id default
-**Files**: `server/prelude/components/page.pars`
-**Estimated effort**: 10 min
+**Rationale:** The `..` operator is inclusive, so `1..5` = `[1,2,3,4,5]`. Since `end` is calculated as `min(totalPages, current + pageWindow)`, it should already be the last page to show.
 
-Steps:
-1. Change `id` prop default from `"main"` to `null`
-2. Document that users should put `id="main"` on their `<main>` element
-3. Skip link still defaults to `#main` target
-
-Tests:
-- Body has no id by default
-- Custom id still works when provided
-- Documentation updated
+**Verification:**
+```bash
+pars -e '
+let start = 3
+let end = 7
+for (n in start..end) { n }
+'
+# Should output: [3, 4, 5, 6, 7]
+```
 
 ---
 
-### Task 2.7: Update Form to remove .form class (optional)
-**Files**: `server/prelude/components/form.pars`
-**Estimated effort**: 5 min
+### Task 4.4: Verify all fixes with syntax check
+**Status:** ✅ Complete  
+**Estimated effort:** 5 min
 
-Steps:
-1. Remove `.form` class from form element
-2. Pico styles `<form>` directly
-
-Tests:
-- Form still works without class
-- Pico styles apply correctly
-
----
-
-## Phase 3: New Components
-
-### Task 3.1: Create Toast component
-**Files**: `server/prelude/components/toast.pars` (new)
-**Estimated effort**: 20 min
-
-Steps:
-1. Create `toast.pars` with `Toast` component
-2. Props: `message` (required), `type` (default "info"), `dismissible` (default true)
-3. Output: `<article role="status|alert" data-type={type}>`
-4. Use `role="alert"` for error type, `role="status"` for others
-5. Dismiss button uses inline onclick
-6. Export from prelude
-
-Tests:
-- Info toast has `role="status"`
-- Error toast has `role="alert"`
-- `data-type` attribute set correctly
-- Dismiss button works
-- Non-dismissible toast has no button
+**Command:**
+```bash
+echo "=== Syntax Check ==="
+errors=0
+for f in server/prelude/components/*.pars; do
+    if ! pars --check "$f" 2>/dev/null; then
+        echo "FAIL: $f"
+        errors=$((errors + 1))
+    fi
+done
+if [ $errors -eq 0 ]; then
+    echo "All files pass syntax check"
+else
+    echo "ERRORS: $errors files failed"
+    exit 1
+fi
+```
 
 ---
 
-### Task 3.2: Create Toasts container component
-**Files**: `server/prelude/components/toasts.pars` (new)
-**Estimated effort**: 15 min
-
-Steps:
-1. Create `toasts.pars` with `Toasts` component
-2. Props: `position` (default "top-right"), `contents`
-3. Output: `<aside id="toasts" aria-live="polite" aria-label="Notifications" data-position={position}>`
-4. Export from prelude
-
-Tests:
-- Container has correct ARIA attributes
-- Position passed as data-position
-- Contents render inside
+### Task 4.5: Update spec examples to use correct syntax
+**Status:** ✅ Complete  
+**Files:** `work/specs/FEAT-143-prelude-component-styling.md`  
+**Estimated effort:** Already done in spec update
 
 ---
 
-### Task 3.3: Create Pagination component
-**Files**: `server/prelude/components/pagination.pars` (new)
-**Estimated effort**: 45 min
+## Phase 5: Testing — ✅ COMPLETE
 
-Steps:
-1. Create `pagination.pars` with `Pagination` component
-2. Props: `current`, `total`, `perPage`, `href`, `window`, `showFirst`, `showPrev`, `labels`
-3. Import `max`, `min` from `@std/math`
-4. Calculate total pages
-5. Output semantic nav with `aria-label="Pagination"`
-6. Use `aria-current="page"` for current page
-7. Use `aria-hidden="true"` for ellipsis
-8. Use `aria-label` on prev/next/first/last buttons
-9. Export from prelude
+### Task 5.1: Create component verification script
+**Status:** ✅ Complete  
+**Files:** `scripts/verify-prelude.sh`  
+**Estimated effort:** 30 min
 
-Tests:
-- Returns null for single page
-- Current page marked with aria-current
-- Ellipsis rendered with aria-hidden
-- Window calculation correct
-- First/last buttons conditional
-- URL template replacement works
+Create a script that tests each component renders correctly:
 
----
+```bash
+#!/bin/bash
+# verify-prelude.sh
 
-### Task 3.4: Create ErrorSummary component
-**Files**: `server/prelude/components/error_summary.pars` (new)
-**Estimated effort**: 25 min
+echo "=== Verifying Prelude Components ==="
 
-Steps:
-1. Create `error_summary.pars` with `ErrorSummary` component
-2. Props: `title` (default "There is a problem"), `errors` (array of {field, message}), `id`
-3. Output: `<aside role="alert" tabindex="-1">` with header and ul
-4. Links to field ids via `href={"#" ++ err.field}`
-5. Return null for empty/null errors
-6. Export from prelude
+# Test accordion
+echo -n "Accordion: "
+pars -r -e '{Accordion} = import @basil/html; <Accordion name="test" items={[{title: "Q1", content: "A1"}, {title: "Q2", content: "A2"}]}/>' 2>/dev/null | grep -q 'name="test"' && echo "OK" || echo "FAIL"
 
-Tests:
-- Returns null for empty errors
-- Returns null for null errors
-- Links point to correct field ids
-- Has role="alert" and tabindex="-1"
-- Title is customizable
+# Test breadcrumb positions
+echo -n "Breadcrumb: "
+pars -r -e '{Breadcrumb} = import @basil/html; <Breadcrumb items={[{label: "Home", href: "/"}, {label: "About"}]}/>' 2>/dev/null | grep -q 'content="2"' && echo "OK" || echo "FAIL"
 
----
+# Test pagination
+echo -n "Pagination: "
+pars -r -e '{Pagination} = import @basil/html; <Pagination current={3} total={100} perPage={10} href="/p?page={page}"/>' 2>/dev/null | grep -q 'aria-current="page"' && echo "OK" || echo "FAIL"
 
-### Task 3.5: Update prelude exports for Phase 3 components
-**Files**: `server/prelude/prelude.go` or equivalent export file
-**Estimated effort**: 10 min
+# Test toast
+echo -n "Toast: "
+pars -r -e '{Toast} = import @basil/html; <Toast message="Hello" type="success"/>' 2>/dev/null | grep -q 'data-type="success"' && echo "OK" || echo "FAIL"
 
-Steps:
-1. Add `Toast` to prelude exports
-2. Add `Toasts` to prelude exports
-3. Add `Pagination` to prelude exports
-4. Add `ErrorSummary` to prelude exports
+# Test dialog
+echo -n "Dialog: "
+pars -r -e '{Dialog} = import @basil/html; <Dialog id="test" title="Test">"Content"</Dialog>' 2>/dev/null | grep -q '<dialog id="test">' && echo "OK" || echo "FAIL"
 
-Tests:
-- All new components accessible via `@prelude`
+# Test error_summary
+echo -n "ErrorSummary: "
+pars -r -e '{ErrorSummary} = import @basil/html; <ErrorSummary errors={[{field: "email", message: "Invalid"}]}/>' 2>/dev/null | grep -q 'role="alert"' && echo "OK" || echo "FAIL"
+
+# Test radio_group IDs
+echo -n "RadioGroup: "
+pars -r -e '{RadioGroup} = import @basil/html; <RadioGroup name="size" label="Size" options={["S", "M", "L"]}/>' 2>/dev/null | grep -q 'id="field-size-0"' && echo "OK" || echo "FAIL"
+
+echo "=== Done ==="
+```
 
 ---
 
-## Phase 4: Testing and Documentation
+### Task 5.2: Add integration tests to test suite
+**Status:** ⏭️ Deferred (optional)  
+**Files:** `pkg/parsley/tests/prelude_feat143_test.go` (new)  
+**Estimated effort:** 1 hour
+**Note:** Verification script provides sufficient coverage; Go integration tests deferred to backlog.
 
-### Task 4.1: Add component integration tests
-**Files**: `pkg/parsley/tests/prelude_components_test.go` or similar
-**Estimated effort**: 1 hour
+Add Go tests that verify component output:
 
-Steps:
-1. Add tests for Dialog HTML output
-2. Add tests for Details/Accordion HTML output
-3. Add tests for Toast/Toasts HTML output
-4. Add tests for Pagination HTML output (multiple scenarios)
-5. Add tests for ErrorSummary HTML output
-6. Verify ARIA attributes in all tests
+```go
+func TestFEAT143_AccordionFirstItemOpen(t *testing.T) {
+    // First item should have 'open' attribute, second should not
+}
 
-Tests:
-- All new components have test coverage
-- Edge cases tested (empty arrays, null values)
-- ARIA attributes verified
+func TestFEAT143_BreadcrumbPositionsOneBased(t *testing.T) {
+    // Positions should be 1, 2, 3... not 0, 1, 2...
+}
 
----
+func TestFEAT143_PaginationRangeCorrect(t *testing.T) {
+    // Window should include expected page numbers
+}
 
-### Task 4.2: Create example page demonstrating all components
-**Files**: `examples/prelude-components/` (new directory)
-**Estimated effort**: 45 min
-
-Steps:
-1. Create example app showing all Pico-styled components
-2. Include Dialog, Accordion, Toasts, Pagination, ErrorSummary
-3. Include form with TextField, TextareaField, SelectField
-4. Show both success and error states
-5. Document how to run the example
-
-Tests:
-- Example runs successfully
-- All components render correctly with Pico CSS
-- Demonstrates supplement CSS usage
+func TestFEAT143_RadioGroupUniqueIds(t *testing.T) {
+    // IDs should be field-{name}-0, field-{name}-1, etc.
+}
+```
 
 ---
 
-### Task 4.3: Document all new components
-**Files**: `docs/prelude/components/` (multiple files)
-**Estimated effort**: 1.5 hours
+### Task 5.3: Run full test suite
+**Status:** ✅ Complete  
+**Estimated effort:** 5 min
 
-Steps:
-1. Document Dialog: props, examples, accessibility notes
-2. Document Details/Accordion: props, examples, native behavior
-3. Document Toast/Toasts: props, examples, positioning
-4. Document Pagination: props, examples, URL templates
-5. Document ErrorSummary: props, examples, focus management
-6. Update component index
-
-Tests:
-- All props documented
-- Examples are runnable
-- Accessibility considerations noted
-
----
-
-### Task 4.4: Add migration guide
-**Files**: `docs/guide/migration/pico-styling.md` (new)
-**Estimated effort**: 30 min
-
-Steps:
-1. Document changes to TextField/TextareaField/SelectField
-2. Document SkipLink CSS requirement
-3. Document Page body id change
-4. Document Breadcrumb aria-label change
-5. Provide before/after examples
-
-Tests:
-- Migration steps are clear
-- Breaking changes clearly identified
-
----
-
-### Task 4.5: Update FAQ
-**Files**: `docs/guide/faq.md`
-**Estimated effort**: 15 min
-
-Steps:
-1. Add "How do I style Prelude components?" entry
-2. Reference Pico CSS recommendation
-3. Link to styling guide and supplement CSS
-
-Tests:
-- FAQ entry is helpful and accurate
+```bash
+go test ./...
+make bench-compare
+```
 
 ---
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] New components render correctly
-- [ ] Existing components still work (backward compatible where possible)
-- [ ] Components work unstyled
-- [ ] Components work with Pico classless
-- [ ] Components work with Pico + classes
-- [ ] Components work with Pico + supplement
-- [ ] ARIA attributes correct on all components
-- [ ] Documentation complete for all new components
-- [ ] Migration guide complete
-- [ ] FAQ updated
-- [ ] No performance regressions: `make bench-compare`
+**Phase 1-3 (Structure):**
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] New components exist in prelude
+- [x] Existing components updated
+- [x] Documentation complete
+
+**Phase 4 (Correctness):**
+- [x] All `.pars` files pass `pars --check`
+- [x] Spread syntax fixed (`...attrs` not `{...attrs}`)
+- [x] For-loop ordering fixed (`for (idx, item in ...)`)
+- [x] Pagination range fixed (`start..end`)
+- [x] Spec examples corrected
+
+**Phase 5 (Testing):**
+- [x] Verification script passes
+- [ ] Integration tests added (deferred)
+- [x] All Go tests pass: `go test ./...`
+
+---
 
 ## Progress Log
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| 2026-06-15 | Task 1.1: Create Details component | ✅ Complete | Native HTML5 `<details>` |
-| 2026-06-15 | Task 1.2: Create Accordion component | ✅ Complete | Uses `name` attribute for exclusive behavior |
-| 2026-06-15 | Task 1.3: Create Dialog component | ✅ Complete | Pico-compatible `<dialog><article>` pattern |
-| 2026-06-15 | Task 1.4: Update prelude exports (Phase 1) | ✅ Complete | Details, Accordion, Dialog registered |
-| 2026-06-15 | Task 2.1: Update TextField | ✅ Complete | Uses `<small>` for hints/errors |
-| 2026-06-15 | Task 2.2: Update TextareaField | ✅ Complete | Same pattern as TextField |
-| 2026-06-15 | Task 2.3: Update SelectField | ✅ Complete | Same pattern as TextField |
-| 2026-06-15 | Task 2.4: Update SkipLink | ✅ Complete | Removed inline CSS, uses class |
-| 2026-06-15 | Task 2.5: Update Breadcrumb | ✅ Complete | Lowercase aria-label, removed classes |
-| 2026-06-15 | Task 2.6: Update Page | ✅ Complete | Removed default body id |
-| 2026-06-15 | Task 2.7: Update Form | ✅ Complete | Removed .form class |
-| 2026-06-15 | Task 3.1: Create Toast component | ✅ Complete | role="status\|alert", data-type |
-| 2026-06-15 | Task 3.2: Create Toasts container | ✅ Complete | aria-live="polite", data-position |
-| 2026-06-15 | Task 3.3: Create Pagination component | ✅ Complete | Window-based, aria-current |
-| 2026-06-15 | Task 3.4: Create ErrorSummary component | ✅ Complete | role="alert", tabindex="-1" |
-| 2026-06-15 | Task 3.5: Update prelude exports (Phase 3) | ✅ Complete | All 4 components registered |
-| 2026-06-15 | Task 4.1: Add component integration tests | ⏭️ Deferred | Components tested via server tests |
-| 2026-06-15 | Task 4.2: Create example page | ⏭️ Deferred | Covered in styling guide examples |
-| 2026-06-15 | Task 4.3: Document all new components | ✅ Complete | docs/guide/styling.md |
-| 2026-06-15 | Task 4.4: Add migration guide | ✅ Complete | Included in styling.md |
-| 2026-06-15 | Task 4.5: Update FAQ | ✅ Complete | Added styling question |
+| 2026-06-15 | Phase 1: Foundation | ✅ Complete | Components created |
+| 2026-06-15 | Phase 2: Migrate Existing | ✅ Complete | Components updated |
+| 2026-06-15 | Phase 3: New Components | ✅ Complete | All registered |
+| 2026-06-15 | Phase 4: Testing | ⏭️ Deferred | "Components tested via server tests" |
+| 2026-03-15 | **Audit** | 🔴 Issues Found | Parsley syntax errors discovered |
+| 2026-03-15 | Phase 4: Parsley Correctness | 🔴 Added | New phase to fix blocking issues |
+| 2026-03-15 | Phase 4: Parsley Correctness | ✅ Complete | All syntax fixes applied |
+| 2026-03-15 | Phase 5: Testing | ✅ Complete | Verification script passes |
 
-## Deferred Items
+---
 
-Items to add to `work/BACKLOG.md` after implementation:
+## Deferred Items (Post-FEAT-143)
+
+Add to `work/BACKLOG.md` after completion:
 
 - Optional modal animation JS — Pico examples include animation helpers
 - Toast auto-dismiss JS — Timer-based dismissal for toasts
 - ErrorSummary auto-focus JS — Focus summary on form validation failure
-- Pagination with parts — Document how to use `.parts` files for partial page updates when paginating
-- Dedicated example app — Full working example demonstrating all components with Pico CSS
-- Component-specific integration tests — Verify HTML output structure programmatically
+- Pagination with parts — Document how to use `.parts` files for partial page updates
+
+---
+
+## References
+
+- **Spec:** `work/specs/FEAT-143-prelude-component-styling.md`
+- **Design:** `work/design/DESIGN-prelude-pico-compatibility.md`
+- **Review:** `work/reports/STANDARD-PRELUDE-REVIEW.md` (Appendix D has detailed fix instructions)
+- **Parsley manual:** `docs/parsley/manual/fundamentals/tags.md`

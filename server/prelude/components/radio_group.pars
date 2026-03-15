@@ -35,7 +35,7 @@ export RadioGroup = fn(props) {
             <p id={hintId} class="field-hint">hint</p>
         }
         <div class="radio-group-options">
-            for (opt, idx in options ?? []) {
+            for (idx, opt in options ?? []) {
                 // Support both simple values and objects with value/label keys
                 let optValue = if (opt.type == "dictionary") { opt[vKey] } else { opt }
                 let optLabel = if (opt.type == "dictionary") { opt[lKey] } else { opt }

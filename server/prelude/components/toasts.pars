@@ -11,7 +11,7 @@ export Toasts = fn({position, contents, ...attrs}) {
         aria-live="polite"
         aria-label="Notifications"
         data-position={position ?? "top-right"}
-        {...attrs}
+        ...attrs
     >
         contents
     </aside>
