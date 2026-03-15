@@ -278,6 +278,93 @@ m.format("createdAt")       // "Jan 15, 2025"
 | `"date"` | `2025-01-15` | "Jan 15, 2025" |
 | `"datetime"` | `2025-01-15T14:30:00Z` | "Jan 15, 2025 2:30 PM" |
 
+### Field Props: All-in-One Input Attributes
+
+The `fieldProps(field, overrides?)` method returns a dictionary of HTML input attributes for a field, combining schema type, metadata, value, and validation state into a single call. This is useful when building forms programmatically or in component libraries where `@field` binding isn't available.
+
+**Signature:** `record.fieldProps(field, overrides?) → dictionary`
+
+**Returned keys:**
+
+| Key | Source | Description |
+|-----|--------|-------------|
+| `name` | Field name | The field name for form submission |
+| `type` | Schema type | HTML input type (see mapping below) |
+| `label` | Metadata `title` or title-cased name | Human-readable label |
+| `placeholder` | Metadata `placeholder` | Input placeholder text, or null |
+| `value` | Record data | Current field value, formatted for inputs |
+| `required` | Schema constraints | Whether the field is required |
+| `error` | Validation state | Error message, or null |
+| `autocomplete` | Type/name/metadata | Autocomplete hint, or null |
+| `inputmode` | Schema type | Input mode hint, or null |
+| `options` | Enum values | Array of options for enum fields, or null |
+
+**Type mapping:**
+
+| Schema Type | `type` | `inputmode` |
+|-------------|--------|-------------|
+| `email` | `"email"` | `"email"` |
+| `url` | `"url"` | `"url"` |
+| `phone` | `"tel"` | `"tel"` |
+| `integer` | `"number"` | `"numeric"` |
+| `float` | `"text"` | `"decimal"` |
+| `boolean` | `"checkbox"` | null |
+| `money` | `"text"` | `"decimal"` |
+| `date` | `"date"` | null |
+| `datetime` | `"datetime-local"` | null |
+| `unit` | `"text"` | `"numeric"` |
+| `enum` | `"select"` | null |
+
+**Value formatting:** Values are formatted for HTML input consumption:
+- **money** — decimal string (e.g. `"49.99"`)
+- **datetime** — ISO local format without Z suffix (e.g. `"2025-01-15T14:30:00"`)
+- **unit** — numeric part only (e.g. `"100"`)
+
+**Basic example:**
+
+```parsley
+@schema User {
+    email: email | {title: "Email Address", placeholder: "you@example.com"}
+}
+let user = User({email: "test@example.com"})
+user.fieldProps("email")
+// → {name: "email", type: "email", label: "Email Address", placeholder: "you@example.com",
+//    value: "test@example.com", required: true, autocomplete: "email", inputmode: "email"}
+```
+
+**With overrides:** The optional second argument is a dictionary of overrides that merge in (overrides win). Extra keys are passed through, so you can inject class names, data attributes, or any custom properties:
+
+```parsley
+user.fieldProps("email", {label: "Work Email", class: "wide"})
+// → {name: "email", type: "email", label: "Work Email", placeholder: "you@example.com",
+//    value: "test@example.com", required: true, autocomplete: "email", inputmode: "email",
+//    class: "wide"}
+```
+
+**Programmatic form rendering:**
+
+```parsley
+@schema Contact {
+    name: string(required) | {title: "Full Name"}
+    email: email(required) | {title: "Email"}
+    phone: phone | {title: "Phone Number"}
+}
+
+let form = Contact(props).validate()
+
+for (field in form.keys()) {
+    let p = form.fieldProps(field)
+    <div class="field">
+        <label for={p.name}>p.label</label>
+        <input name={p.name} type={p.type} value={p.value}
+               placeholder={p.placeholder} inputmode={p.inputmode}/>
+        if (p.error) {
+            <span class="error">p.error</span>
+        }
+    </div>
+}
+```
+
 ---
 
 ## Validation
@@ -1066,6 +1153,8 @@ let admins = @query(Users | role == "admin" ??-> *)
 | `meta(field, key)` | Any or null | Any metadata value |
 | `enumValues(field)` | Array | Enum options or empty array |
 | `format(field)` | String | Formatted value using metadata hint |
+| `fieldProps(field)` | Dictionary | All input attributes for a field |
+| `fieldProps(field, overrides)` | Dictionary | Input attributes with overrides merged in |
 
 ### Data Methods
 
