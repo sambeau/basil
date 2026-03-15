@@ -7,7 +7,7 @@ let {max, min} = import @std/math
 
 export Pagination = fn({current, total, perPage, href, window, showFirst, showPrev, labels, ...attrs}) {
     let itemsPerPage = perPage ?? 20
-    let totalPages = ((total - 1) / itemsPerPage).floor() + 1
+    let totalPages = (total - 1) / itemsPerPage + 1
 
     if (totalPages <= 1) {
         null

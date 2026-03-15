@@ -171,16 +171,25 @@ func TestPreludeSmoke(t *testing.T) {
 			},
 		},
 		// ── Checkbox ───────────────────────────────────────────────────
-		// BUG: checkbox.pars uses `.length` (property syntax) on arrays,
-		// but Parsley requires `.length()` (method call) for arrays.
+		// ── Checkbox ───────────────────────────────────────────────────
 		{
-			name:    "Checkbox",
-			files:   []string{"checkbox.pars"},
-			code:    `<Checkbox name="agree" label="I agree"/>`,
-			wantErr: "Dot notation can only be used on dictionaries",
+			name:  "Checkbox",
+			files: []string{"checkbox.pars"},
+			code:  `<Checkbox name="agree" label="I agree"/>`,
+			contains: []string{
+				`<div class="field field-checkbox"`,
+				`id="field-agree"`,
+				`<input`,
+				`type="checkbox"`,
+				`name="agree"`,
+				`value="true"`,
+				`I agree`,
+			},
 		},
 		// ── CheckboxGroup ──────────────────────────────────────────────
-		// BUG: checkbox_group.pars uses `.length` (property syntax) on arrays.
+		// BUG: checkbox_group.pars uses `.type` (property syntax) instead
+		// of `.type()` (method call) to distinguish dicts from scalars,
+		// so option destructuring doesn't work yet. But it renders without error.
 		{
 			name:  "CheckboxGroup",
 			files: []string{"checkbox_group.pars"},
@@ -189,7 +198,15 @@ func TestPreludeSmoke(t *testing.T) {
 				label="Toppings"
 				options={[{value: "cheese", label: "Cheese"}, {value: "peppers", label: "Peppers"}]}
 			/>`,
-			wantErr: "Dot notation can only be used on dictionaries",
+			contains: []string{
+				"<fieldset",
+				`class="checkbox-group"`,
+				`id="field-toppings"`,
+				"<legend>",
+				"Toppings",
+				`type="checkbox"`,
+				`name="toppings[]"`,
+			},
 		},
 		// ── DataTable ──────────────────────────────────────────────────
 		{
@@ -330,13 +347,15 @@ func TestPreludeSmoke(t *testing.T) {
 			},
 		},
 		// ── LocalTime ──────────────────────────────────────────────────
-		// BUG: local_time.pars calls datetime.format("iso"), but "iso" is not
-		// a valid format style. Should use .iso property or .toJSON() instead.
 		{
-			name:    "LocalTime",
-			files:   []string{"local_time.pars"},
-			code:    `<LocalTime datetime={datetime("2025-03-15T10:30:00Z")}/>`,
-			wantErr: `Invalid style iso for formatDate`,
+			name:  "LocalTime",
+			files: []string{"local_time.pars"},
+			code:  `<LocalTime datetime={datetime("2025-03-15T10:30:00Z")}/>`,
+			contains: []string{
+				"<local-time",
+				`datetime="2025-03-15T10:30:00Z"`,
+				"March 15, 2025",
+			},
 		},
 		// ── Meta ───────────────────────────────────────────────────────
 		{
@@ -381,22 +400,27 @@ func TestPreludeSmoke(t *testing.T) {
 			},
 		},
 		// ── Pagination ─────────────────────────────────────────────────
-		// BUG: pagination.pars calls .floor() on the result of integer division,
-		// which is already an integer. .floor() is only defined for floats.
 		{
-			name:    "Pagination",
-			files:   []string{"pagination.pars"},
-			code:    `<Pagination current={3} total={100} perPage={10} href="/items?page={page}"/>`,
-			wantErr: `Unknown method`,
+			name:  "Pagination",
+			files: []string{"pagination.pars"},
+			code:  `<Pagination current={3} total={100} perPage={10} href="/items?page={page}"/>`,
+			contains: []string{
+				`<nav aria-label="Pagination"`,
+				`aria-current="page"`,
+				`href="/items?page=3"`,
+				`aria-label="First page"`,
+				`aria-label="Previous page"`,
+				`aria-label="Next page"`,
+				`aria-label="Last page"`,
+				`href="/items?page=10"`,
+			},
 		},
 		{
-			name:    "Pagination/singlePage",
-			files:   []string{"pagination.pars"},
-			code:    `<Pagination current={1} total={5} perPage={10} href="/items?page={page}"/>`,
-			wantErr: `Unknown method`,
+			name:  "Pagination/singlePage",
+			files: []string{"pagination.pars"},
+			code:  `<Pagination current={1} total={5} perPage={10} href="/items?page={page}"/>`,
 		},
 		// ── RadioGroup ─────────────────────────────────────────────────
-		// BUG: radio_group.pars uses `.length` (property syntax) on arrays.
 		{
 			name:  "RadioGroup",
 			files: []string{"radio_group.pars"},
@@ -406,16 +430,27 @@ func TestPreludeSmoke(t *testing.T) {
 				options={[{value: "s", label: "Small"}, {value: "m", label: "Medium"}]}
 				value="s"
 			/>`,
-			wantErr: "Dot notation can only be used on dictionaries",
+			contains: []string{
+				"<fieldset",
+				"<legend>",
+				"Select size",
+				`type="radio"`,
+				`name="size"`,
+				`value="s"`,
+				"checked",
+				"Small",
+				"Medium",
+			},
 		},
 		// ── RelativeTime ───────────────────────────────────────────────
-		// BUG: relative_time.pars calls datetime.format("iso"), which is
-		// not a valid format style.
 		{
-			name:    "RelativeTime",
-			files:   []string{"relative_time.pars"},
-			code:    `<RelativeTime datetime={datetime("2025-01-01T00:00:00Z")}/>`,
-			wantErr: `Invalid style iso for formatDate`,
+			name:  "RelativeTime",
+			files: []string{"relative_time.pars"},
+			code:  `<RelativeTime datetime={datetime("2025-01-01T00:00:00Z")}/>`,
+			contains: []string{
+				`<relative-time`,
+				`datetime="2025-01-01T00:00:00Z"`,
+			},
 		},
 		// ── SelectField ────────────────────────────────────────────────
 		{
@@ -486,22 +521,29 @@ func TestPreludeSmoke(t *testing.T) {
 			},
 		},
 		// ── Time ───────────────────────────────────────────────────────
-		// BUG: time.pars calls datetime.format("iso"), which is not a valid
-		// format style. Should use .iso property or .toJSON() instead.
 		{
-			name:    "Time",
-			files:   []string{"time.pars"},
-			code:    `<Time value={datetime("2025-03-15T10:30:00Z")}/>`,
-			wantErr: `Invalid style iso for formatDate`,
+			name:  "Time",
+			files: []string{"time.pars"},
+			code:  `<Time value={datetime("2025-03-15T10:30:00Z")}/>`,
+			contains: []string{
+				"<time",
+				`datetime="2025-03-15T10:30:00Z"`,
+				"March 15, 2025",
+			},
 		},
 		// ── TimeRange ──────────────────────────────────────────────────
-		// BUG: time_range.pars calls datetime.format("iso"), which is not a
-		// valid format style.
 		{
-			name:    "TimeRange",
-			files:   []string{"time_range.pars"},
-			code:    `<TimeRange start={datetime("2025-03-15T09:00:00Z")} end={datetime("2025-03-15T17:00:00Z")}/>`,
-			wantErr: `Invalid style iso for formatDate`,
+			name:  "TimeRange",
+			files: []string{"time_range.pars"},
+			code:  `<TimeRange start={datetime("2025-03-15T09:00:00Z")} end={datetime("2025-03-15T17:00:00Z")}/>`,
+			contains: []string{
+				"<time-range",
+				`start="2025-03-15T09:00:00Z"`,
+				`end="2025-03-15T17:00:00Z"`,
+				"March 15, 2025",
+				"09:00",
+				"17:00",
+			},
 		},
 		// ── Toast ──────────────────────────────────────────────────────
 		{

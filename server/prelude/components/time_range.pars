@@ -4,28 +4,28 @@
 
 export TimeRange = fn({start, end, format, separator, id, class, contents}) {
     // Format datetime attributes (ISO 8601)
-    let startIso = if (start) start.format("iso") else null
-    let endIso = if (end) end.format("iso") else null
+    let startIso = if (start) start.iso else null
+    let endIso = if (end) end.iso else null
     let sep = separator ?? " – "
-    
+
     // Compute server-side fallback display
     let display = if (contents) {
         contents
-    } else if (start && end) {
+    } else if (start != null && end != null) {
         // Smart formatting based on date comparison
-        let sameDay = start.format("date") == end.format("date")
-        let sameMonth = start.format("month") == end.format("month") && start.format("year") == end.format("year")
-        let sameYear = start.format("year") == end.format("year")
-        
+        let sameDay = start.date == end.date
+        let sameMonth = start.month == end.month && start.year == end.year
+        let sameYear = start.year == end.year
+
         if (sameDay) {
             // Same day: show date once, both times
-            start.format("long_date") + ", " + start.format("time") + sep + end.format("time")
+            start.format("long") + ", " + start.time + sep + end.time
         } else if (sameMonth) {
-            // Same month: collapse month
-            start.format("day") + sep + end.format("day") + ", " + start.format("month_year")
+            // Same month: collapse to short range
+            start.format("medium") + sep + toString(end.day) + ", " + toString(end.year)
         } else if (sameYear) {
-            // Same year: show month for each, year once
-            start.format("month_day") + sep + end.format("month_day") + ", " + start.format("year")
+            // Same year: show both dates without repeating year
+            start.format("medium") + sep + end.format("medium")
         } else {
             // Different years
             start.format("long") + sep + end.format("long")
@@ -33,15 +33,15 @@ export TimeRange = fn({start, end, format, separator, id, class, contents}) {
     } else {
         ""
     }
-    
+
     // Title shows full range in UTC
-    let title = if (start && end) { 
-        start.format("full") + " – " + end.format("full") + " UTC" 
-    } else { 
-        null 
+    let title = if (start != null && end != null) {
+        start.format("full") + " – " + end.format("full") + " UTC"
+    } else {
+        null
     }
-    
-    <time-range 
+
+    <time-range
         start={startIso}
         end={endIso}
         format={format}

@@ -10,7 +10,7 @@ export Checkbox = fn({name, label, checked, hint, error, required, id, class, di
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
-    let describedBy = if (describedByParts.length > 0) describedByParts.join(" ") else null
+    let describedBy = if (describedByParts.length() > 0) describedByParts.join(" ") else null
 
     <div class={"field field-checkbox" + if (class) " " + class else ""} id={fieldId}>
         <label class="checkbox-label">

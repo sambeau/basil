@@ -4,18 +4,18 @@
 
 export Time = fn({value, format, id, class, contents}) {
     // Format the datetime attribute (ISO 8601)
-    let datetime = if (value) value.format("iso") else null
+    let datetime = if (value) value.iso else null
     let fmt = format ?? "long"
-    
+
     // Auto-format display if no contents provided
-    let display = if (contents) { 
-        contents 
+    let display = if (contents) {
+        contents
     } else if (value) {
         value.format(fmt)
     } else {
         ""
     }
-    
+
     <time id={id} class={class} datetime={datetime}>
         display
     </time>

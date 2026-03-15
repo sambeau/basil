@@ -12,7 +12,7 @@ export CheckboxGroup = fn(props) {
 
     // Build aria-describedby from hint and error IDs
     let describedByParts = [hintId, errorId].filter(fn(x) { x != null })
-    let describedBy = if (describedByParts.length > 0) describedByParts.join(" ") else null
+    let describedBy = if (describedByParts.length() > 0) describedByParts.join(" ") else null
 
     // Default keys for option value and label
     let vKey = valueKey ?? "value"
@@ -40,8 +40,8 @@ export CheckboxGroup = fn(props) {
         <div class="checkbox-group-options">
             for (idx, opt in options ?? []) {
                 // Support both simple values and objects with value/label keys
-                let optValue = if (opt.type == "dictionary") opt[vKey] else opt
-                let optLabel = if (opt.type == "dictionary") opt[lKey] else opt
+                let optValue = if (opt.type() == "dictionary") opt[vKey] else opt
+                let optLabel = if (opt.type() == "dictionary") opt[lKey] else opt
                 let checkboxId = fieldId + "-" + idx
                 <label class="checkbox-option">
                     <input

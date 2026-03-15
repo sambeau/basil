@@ -5,8 +5,8 @@
 
 export LocalTime = fn({datetime, format, weekday, showZone, id, class, contents}) {
     // Format datetime attribute (ISO 8601)
-    let iso = if (datetime) datetime.format("iso") else null
-    
+    let iso = if (datetime) datetime.iso else null
+
     // Compute server-side fallback display
     let fmt = format ?? "long"
     let display = if (contents) {
@@ -16,11 +16,11 @@ export LocalTime = fn({datetime, format, weekday, showZone, id, class, contents}
     } else {
         ""
     }
-    
+
     // Title shows full UTC datetime for precision
     let title = if (datetime) datetime.format("full") + " UTC" else null
-    
-    <local-time 
+
+    <local-time
         datetime={iso}
         format={format}
         weekday={weekday}

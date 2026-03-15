@@ -5,22 +5,22 @@
 
 export RelativeTime = fn({datetime, live, threshold, format, announce, id, class}) {
     // Format datetime attribute (ISO 8601)
-    let iso = if (datetime) datetime.format("iso") else null
-    
-    // Compute server-side relative time display
+    let iso = if (datetime) datetime.iso else null
+
+    // Server-side fallback; client-side <relative-time> JS handles "2 hours ago" etc.
     let display = if (datetime) {
-        datetime.relative()
+        datetime.medium()
     } else {
         ""
     }
-    
+
     // Title shows full UTC datetime for precision
     let title = if (datetime) datetime.format("full") + " UTC" else null
-    
+
     // Convert threshold duration to string if provided
     let thresholdStr = if (threshold) threshold.string else null
-    
-    <relative-time 
+
+    <relative-time
         datetime={iso}
         live={if (live) "true" else null}
         threshold={thresholdStr}
