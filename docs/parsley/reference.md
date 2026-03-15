@@ -2951,7 +2951,7 @@ Task.enumValues("title")        // []
 // Generate form fields for visible fields only
 for (field in Contact.visibleFields()) {
     <div class="form-group">
-        <label>{Contact.title(field)}</label>
+        <label>Contact.title(field)</label>
         <input 
             name={field} 
             placeholder={Contact.placeholder(field) ?? ""}
@@ -2977,7 +2977,7 @@ let products = @table(Product) [...]
     <thead>
         <tr>
             for (col in Product.visibleFields()) {
-                <th>{Product.title(col)}</th>
+                <th>Product.title(col)</th>
             }
         </tr>
     </thead>
@@ -2985,7 +2985,7 @@ let products = @table(Product) [...]
         for (row in products.rows) {
             <tr>
                 for (col in Product.visibleFields()) {
-                    <td>{row[col]}</td>
+                    <td>row[col]</td>
                 }
             </tr>
         }

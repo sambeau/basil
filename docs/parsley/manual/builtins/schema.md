@@ -573,7 +573,7 @@ This is useful for generating form labels and table headers:
 
 ```parsley
 for (field in schema.visibleFields()) {
-    <label>{schema.title(field)}</label>
+    <label>schema.title(field)</label>
 }
 ```
 
@@ -681,7 +681,7 @@ User.visibleFields()            // ["name", "email"]
     <thead>
         <tr>
             for (col in User.visibleFields()) {
-                <th>{User.title(col)}</th>
+                <th>User.title(col)</th>
             }
         </tr>
     </thead>
@@ -716,7 +716,7 @@ Issue.enumValues("description") // [] (not an enum)
 ```parsley
 <select name="priority">
     for (value in Issue.enumValues("priority")) {
-        <option value={value}>{value.toTitleCase()}</option>
+        <option value={value}>value.toTitleCase()</option>
     }
 </select>
 ```
@@ -935,11 +935,11 @@ let FormField = fn(schema, field) {
     let isEnum = schema.enumValues(field).length() > 0
     
     <div class="form-group">
-        <label for={field}>{schema.title(field)}</label>
+        <label for={field}>schema.title(field)</label>
         if (isEnum) {
             <select name={field} id={field}>
                 for (opt in schema.enumValues(field)) {
-                    <option value={opt}>{opt}</option>
+                    <option value={opt}>opt</option>
                 }
             </select>
         } else if (type == "text") {
@@ -986,7 +986,7 @@ let SortableTable = fn(table) {
         <thead>
             <tr>
                 for (col in schema.visibleFields()) {
-                    <th data-sort={col}>{schema.title(col)}</th>
+                    <th data-sort={col}>schema.title(col)</th>
                 }
             </tr>
         </thead>
@@ -994,7 +994,7 @@ let SortableTable = fn(table) {
             for (row in table.rows) {
                 <tr>
                     for (col in schema.visibleFields()) {
-                        <td>{row[col]}</td>
+                        <td>row[col]</td>
                     }
                 </tr>
             }

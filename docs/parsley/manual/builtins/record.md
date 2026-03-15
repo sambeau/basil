@@ -782,9 +782,9 @@ For complex cases (optgroups, custom labels), build manually:
 
 ```parsley
 <select @field="status">
-    <option value="">{form.placeholder("status")}</option>
+    <option value="">form.placeholder("status")</option>
     for (val in form.enumValues("status")) {
-        <option value={val} selected={form.status == val}>{val}</option>
+        <option value={val} selected={form.status == val}>val</option>
     }
 </select>
 ```

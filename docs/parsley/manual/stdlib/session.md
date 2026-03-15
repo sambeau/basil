@@ -185,10 +185,10 @@ fn handleLogout(req) {
 let flashes = basil.session.getAllFlash()
 
 if (flashes.success) {
-    <div class=alert-success>{flashes.success}</div>
+    <div class=alert-success>flashes.success</div>
 }
 if (flashes.error) {
-    <div class=alert-error>{flashes.error}</div>
+    <div class=alert-error>flashes.error</div>
 }
 ```
 
