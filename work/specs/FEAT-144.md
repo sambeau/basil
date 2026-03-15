@@ -7,6 +7,7 @@ created: 2026-06-15
 updated: 2026-06-15
 author: "@human"
 depends-on: FEAT-145 (Part C only; Part A partial)
+plan: PLAN-125
 ---
 
 # FEAT-144: DataTable Redesign
