@@ -47,16 +47,22 @@ As a developer building web UIs, I want typed values like money and dates to ren
 
 ### Part A: Typed Value Formatting
 
-- [ ] `objectToString()` calls `.medium()` on `money` values → "£4,999.00"
-- [ ] `objectToString()` calls `.medium()` on `datetime` values → "Mar 15, 2025, 2:30 PM"
-- [ ] `objectToString()` calls `.medium()` on `date` values → "Mar 15, 2025"
-- [ ] `objectToString()` calls `.medium()` on `duration` values → "2 hours 30 minutes"
-- [ ] `objectToString()` calls `.medium()` on `unit` values → "5.00 kg"
-- [ ] `objectToPrintString()` uses the same formatting
-- [ ] Affects tag content interpolation: `<td>{price}</td>`
-- [ ] Affects `Table.toHTML()` cell rendering
-- [ ] Affects string concatenation: `"Price: " + price`
-- [ ] Raw/ISO formats remain accessible via `.iso`, `.inspect()`, `.short()`
+- [x] `objectToString()` calls `.medium()` on `money` values → "£ 4,999.00"
+- [ ] ~~`objectToString()` calls `.medium()` on `datetime` values~~ — **Deferred**: `.medium()` doesn't respect datetime kinds
+- [ ] ~~`objectToString()` calls `.medium()` on `duration` values~~ — **Deferred**: `.medium()` returns relative time
+- [ ] ~~`objectToString()` calls `.medium()` on `unit` values~~ — **Deferred**: users prefer existing format
+- [x] `objectToPrintString()` uses the same formatting (Money only)
+- [x] Affects tag content interpolation: `<td>{price}</td>`
+- [x] Affects `Table.toHTML()` cell rendering (for Money)
+- [x] Affects string concatenation: `"Price: " + price`
+- [x] Raw/ISO formats remain accessible via `.iso`, `.inspect()`, `.short()`
+
+**Implementation Notes (Part A)**:
+- Only Money formatting was implemented in this phase
+- Datetime: `.medium()` doesn't handle datetime kinds (date-only, time-only, full datetime) — needs separate fix
+- Duration: `.medium()` returns relative time ("tomorrow") not absolute ("1 day") — not suitable for string coercion
+- Unit: `.medium()` adds decimal places ("12.00m" vs "12m") — existing format preferred
+- These types retain their existing string conversion behavior until their `.medium()` methods are fixed
 
 ### Part B: `fieldProps()` Method
 
@@ -93,14 +99,14 @@ As a developer building web UIs, I want typed values like money and dates to ren
 
 ### Part C: `columnProps()` Method
 
-- [ ] `table.columnProps(name)` returns a dictionary of column display props
-- [ ] Returns `name` — column identifier
-- [ ] Returns `label` — from schema `.title()` or titlecased column name
-- [ ] Returns `type` — original schema type
-- [ ] Returns `align` — derived from type: right for numeric, center for boolean, left for text
-- [ ] Returns `format` — format hint: "currency", "date", "datetime", "duration", "unit", "boolean"
-- [ ] Works on tables without schema (minimal props: name, label, align=left)
-- [ ] Alignment mapping: money/integer/float/duration/unit → right, boolean → center, others → left
+- [x] `table.columnProps(name)` returns a dictionary of column display props
+- [x] Returns `name` — column identifier
+- [x] Returns `label` — from schema `.title()` or titlecased column name
+- [x] Returns `type` — original schema type
+- [x] Returns `align` — derived from type: right for numeric, center for boolean, left for text
+- [x] Returns `format` — format hint: "currency", "date", "datetime", "duration", "unit", "boolean"
+- [x] Works on tables without schema (minimal props: name, label, align=left)
+- [x] Alignment mapping: money/integer/float/duration/unit → right, boolean → center, others → left
 
 ### Documentation
 

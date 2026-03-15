@@ -35,6 +35,17 @@ func objectToTemplateString(obj Object) string {
 			result.WriteString(objectToTemplateString(elem))
 		}
 		return result.String()
+	case *Money:
+		// Use .medium() for human-readable output (e.g., "£4,999.00")
+		result := moneyMedium(obj, nil, nil)
+		if str, ok := result.(*String); ok {
+			return str.Value
+		}
+		return obj.Inspect()
+	case *Unit:
+		// Keep existing format for backward compatibility
+		// Users can call .medium() explicitly for formatted output
+		return UnitToString(obj)
 	case *Dictionary:
 		// Check for special dictionary types
 		if isPathDict(obj) {
@@ -47,9 +58,14 @@ func objectToTemplateString(obj Object) string {
 			return tagDictToString(obj)
 		}
 		if isDatetimeDict(obj) {
+			// Keep existing ISO format for now
+			// Note: .medium() doesn't properly handle datetime kinds (date-only, time-only, datetime)
+			// TODO: Once datetime.medium() respects kind, consider using it here
 			return datetimeDictToString(obj)
 		}
 		if isDurationDict(obj) {
+			// Keep existing human-readable format (e.g., "2 hours 30 minutes")
+			// Note: .medium() returns relative time which is not suitable for string coercion
 			return durationDictToString(obj)
 		}
 		if isRegexDict(obj) {
@@ -94,8 +110,6 @@ func objectToTemplateString(obj Object) string {
 		return string(jsonBytes)
 	case *Null:
 		return ""
-	case *Unit:
-		return UnitToString(obj)
 	default:
 		return obj.Inspect()
 	}
@@ -135,6 +149,17 @@ func objectToPrintString(obj Object) string {
 			result.WriteString(objectToPrintString(row))
 		}
 		return result.String()
+	case *Money:
+		// Use .medium() for human-readable output (e.g., "£4,999.00")
+		result := moneyMedium(obj, nil, nil)
+		if str, ok := result.(*String); ok {
+			return str.Value
+		}
+		return obj.Inspect()
+	case *Unit:
+		// Keep existing format for backward compatibility
+		// Users can call .medium() explicitly for formatted output
+		return UnitToString(obj)
 	case *Dictionary:
 		// Check for special dictionary types
 		if isPathDict(obj) {
@@ -150,11 +175,14 @@ func objectToPrintString(obj Object) string {
 			return tagDictToString(obj)
 		}
 		if isDatetimeDict(obj) {
-			// Convert datetime dictionary to ISO 8601 string
+			// Keep existing ISO format for now
+			// Note: .medium() doesn't properly handle datetime kinds (date-only, time-only, datetime)
+			// TODO: Once datetime.medium() respects kind, consider using it here
 			return datetimeDictToString(obj)
 		}
 		if isDurationDict(obj) {
-			// Convert duration dictionary to human-readable string
+			// Keep existing human-readable format (e.g., "2 hours 30 minutes")
+			// Note: .medium() returns relative time which is not suitable for string coercion
 			return durationDictToString(obj)
 		}
 		if isRegexDict(obj) {
