@@ -34,8 +34,7 @@ Deferred items from implementation, to be picked up in future work.
 | #25 | Multiple passkeys per user | FEAT-004 | Not MVP | Allow registering phone + laptop + YubiKey. Adds device management UI. |
 | #26 | Roles/permissions | FEAT-004 | Not MVP | `request.user.role` and role-based route protection |
 | #28 | Table.join(table, column) | FEAT-018 | Not MVP | SQL joins, needs careful design |
-| #29 | Table column transforms | FEAT-018 | Not MVP | `transform(col, fn)`, `addColumn(name, fn)` |
-| #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access. Workaround: `table.limit(1)`. |
+| #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access. Workarounds: `table.limit(1)` returns a one-row table (not the row itself), `table.find(fn(r){true})` returns first row as a dict. No `last()` equivalent. |
 | #34 | Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
 | #90 | Custom message for `record.failIfInvalid(msg)` | FEAT-105 | Follow-up enhancement | Allow overriding the default "Validation failed" message: `record.failIfInvalid("Invalid user data")`. Currently hardcoded. |
 | #91 | `record.toError()` — non-failing error conversion | FEAT-105 | Follow-up enhancement | Return the validation error dict without calling `fail()`, for cases where you want to inspect/modify before failing. E.g., `let errDict = record.toError()` then `errDict.message = "Custom"` then `fail(errDict)`. |
@@ -102,6 +101,7 @@ Deferred items from implementation, to be picked up in future work.
 <!-- Move items here when done, with completion date -->
 | ID | Item | Source | Completed | Notes |
 |----|------|--------|-----------|-------|
+| #29 | Table column transforms | FEAT-018 | 2026-03-16 | ✅ Covered by existing methods: `appendCol(name, fn)` computes a new column by calling `fn` on each row (also `insertColAfter`/`insertColBefore`). `map(fn)` transforms entire rows. The exact method names differ from the original request (`transform`/`addColumn`) but the capability is fully present. |
 | #106 | Tree-sitter grammar updates for unit literal highlighting | FEAT-118 | 2026-03-16 | ✅ Unit literal rule already in `contrib/tree-sitter-parsley/grammar.js` with `#` + number + suffix pattern covering all families (length, mass, volume, area, digital, temperature). Highlighted as `(unit) @number` in `queries/highlights.scm`. |
 | #87 | Fix error handler tests (expect HTML, get plain text) | Code cleanup | 2026-03-16 | ✅ All tests pass: `TestHandleScriptError_DevMode`, `TestHandleScriptErrorWithLocation_*`, `TestRenderPreludeError_*`, `TestHandle500`. Error handlers now correctly return HTML via prelude templates. |
 | #1 | Query DSL Interpolation Syntax `{expression}` | PLAN-052 Phase 1 | 2026-03-16 | ✅ Fully implemented. `QueryInterpolation` AST node, parser handles `{expression}` in query conditions, evaluator parameterizes values. Tests: `TestInterpolationSyntax`, `TestInterpolationExpression`. |
