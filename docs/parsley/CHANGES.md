@@ -74,6 +74,63 @@ See the Records manual page for complete documentation of the four abstraction l
 
 ---
 
+### DataTable Redesign (FEAT-144)
+
+The `DataTable` component has been redesigned to accept Parsley `Table` objects directly:
+
+**Before (still supported):**
+```parsley
+<DataTable
+    columns={["Name", "Email"]}
+    rows={users}
+    keys={["name", "email"]}
+/>
+```
+
+**After (preferred):**
+```parsley
+let users = table([{name: "Alice", email: "alice@example.com"}])
+<DataTable data={users}/>
+```
+
+**New features:**
+
+- **Table input**: Pass a `Table` directly via `data` prop
+- **Schema-aware headers**: Column labels derived from schema titles
+- **Type-aware alignment**: Money/numbers right-aligned, booleans centered
+- **Type-aware formatting**: Datetime, duration, unit formatted via `.medium()`
+- **Empty state**: Configurable message when no rows (`empty="No results"`)
+- **Column hiding**: Exclude columns with `hide={["secret"]}`
+- **Custom rendering**: Per-column render functions (`render={{name: fn(v, row) { ... }}}`)
+- **Footer rows**: Summary rows via `footer={[{total: 100}]}`
+- **Row headers**: Configurable accessibility (`rowHeader={0}` or `rowHeader={false}`)
+
+**Removed:**
+- `sortable` prop removed (was non-functional). Use `table.orderBy()` for sorting.
+
+**Example with schema:**
+```parsley
+@schema Product {
+    name: string | {title: "Product Name"}
+    price: money | {title: "Unit Price"}
+    active: boolean
+}
+
+let products = table([
+    {name: "Widget", price: £29.99, active: true}
+]).as(Product)
+
+<DataTable
+    data={products}
+    caption="Product List"
+    footer={[{name: "Total", price: £29.99}]}
+/>
+```
+
+This renders with "Product Name" and "Unit Price" headers, price right-aligned, active as "Yes"/"No" centered, and a footer row.
+
+---
+
 ## December 2025
 
 ### BREAKING: Array Destructuring Now Requires Explicit `...rest` (FEAT-042)

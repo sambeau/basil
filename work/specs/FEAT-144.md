@@ -35,108 +35,108 @@ The current `DataTable` component predates the Parsley `Table` type and ignores 
 
 ### Core: Accept Table Directly
 
-- [ ] `DataTable` accepts `data` prop containing a `Table` object
-- [ ] When `data` is provided, component derives columns from `table.columns`
-- [ ] When `data` is provided, component derives rows from `table.rows`
-- [ ] When `data` is provided, component derives keys from `table.columns`
-- [ ] Uses `table.columnProps(col)` to derive per-column metadata (label, type, align, format)
-- [ ] Backward compatibility: existing `columns`/`rows`/`keys` API continues to work
-- [ ] When both `data` and `rows` are provided, `data` takes precedence
+- [x] `DataTable` accepts `data` prop containing a `Table` object
+- [x] When `data` is provided, component derives columns from `table.columns`
+- [x] When `data` is provided, component derives rows from `table.rows`
+- [x] When `data` is provided, component derives keys from `table.columns`
+- [x] Uses `table.columnProps(col)` to derive per-column metadata (label, type, align, format)
+- [x] Backward compatibility: existing `columns`/`rows`/`keys` API continues to work
+- [x] When both `data` and `rows` are provided, `data` takes precedence
 
 ### Empty State
 
-- [ ] When rows are empty, display empty state message in a single `<td>` with `colspan`
-- [ ] Default empty message: `"No data"`
-- [ ] `empty` prop overrides the default message
-- [ ] `empty={false}` suppresses empty state entirely (shows empty `<tbody>`)
-- [ ] Empty row has CSS class `data-table-empty`
+- [x] When rows are empty, display empty state message in a single `<td>` with `colspan`
+- [x] Default empty message: `"No data"`
+- [x] `empty` prop overrides the default message
+- [x] `empty={false}` suppresses empty state entirely (shows empty `<tbody>`)
+- [x] Empty row has CSS class `data-table-empty`
 
 ### Column Headers
 
-- [ ] Headers auto-derived via `columnProps().label`
-- [ ] Fallback: underscores to spaces + title case
-- [ ] `headers` prop (dict) overrides `columnProps()` labels for specific columns
-- [ ] Schema titles flow through `columnProps()` automatically
+- [x] Headers auto-derived via `columnProps().label`
+- [x] Fallback: underscores to spaces + title case
+- [x] `headers` prop (dict) overrides `columnProps()` labels for specific columns
+- [x] Schema titles flow through `columnProps()` automatically
 
 ### Column Hiding
 
-- [ ] `hide` prop (array) excludes specified columns from rendering
-- [ ] Hidden columns don't appear in `<thead>` or `<tbody>`
-- [ ] Hidden columns don't appear in `<tfoot>`
+- [x] `hide` prop (array) excludes specified columns from rendering
+- [x] Hidden columns don't appear in `<thead>` or `<tbody>`
+- [x] Hidden columns don't appear in `<tfoot>`
 
 ### Cell Alignment
 
-- [ ] `align` prop (dict) sets alignment per column: `"left"`, `"right"`, `"center"`
-- [ ] Auto-derived alignment via `columnProps().align`:
+- [x] `align` prop (dict) sets alignment per column: `"left"`, `"right"`, `"center"`
+- [x] Auto-derived alignment via `columnProps().align`:
   - Right: `money`, `integer`, `float`, `duration`, `unit`
   - Center: `boolean`
   - Left: everything else
-- [ ] `align` prop overrides `columnProps()` alignment for specific columns
-- [ ] Alignment classes: `align-left`, `align-right`, `align-center`
+- [x] `align` prop overrides `columnProps()` alignment for specific columns
+- [x] Alignment classes: `align-left`, `align-right`, `align-center`
 
 ### Type-Aware Cell Formatting
 
-- [ ] `money` values display automatically via string coercion → "£ 4,999.00" (FEAT-145 Part A)
-- [ ] `datetime` values formatted explicitly via `.medium()` → "Mar 15, 2025"
-- [ ] `duration` values formatted explicitly via `.medium()` → "2h 30m"
-- [ ] `unit` values formatted explicitly via `.medium()` → "5.00 kg"
-- [ ] `boolean` values displayed as "Yes" / "No"
-- [ ] `null` values displayed as em dash "—"
-- [ ] `integer`, `float`, `string` displayed as-is (string coercion)
-- [ ] Formatting uses `columnProps().format` hint to determine which `.medium()` to call
-- [ ] `format` prop (dict) overrides auto-detected format per column
+- [x] `money` values display automatically via string coercion → "£ 4,999.00" (FEAT-145 Part A)
+- [x] `datetime` values formatted explicitly via `.medium()` → "Mar 15, 2025"
+- [x] `duration` values formatted explicitly via `.medium()` → "2h 30m"
+- [x] `unit` values formatted explicitly via `.medium()` → "5.00 kg"
+- [x] `boolean` values displayed as "Yes" / "No"
+- [x] `null` values displayed as em dash "—"
+- [x] `integer`, `float`, `string` displayed as-is (string coercion)
+- [x] Formatting uses `columnProps().format` hint to determine which `.medium()` to call
+- [x] `format` prop (dict) overrides auto-detected format per column
 
 **Note:** FEAT-145 Part A only implemented `.medium()` coercion for money. Datetime, duration, and unit require explicit `.medium()` calls in DataTable because their automatic coercion was deferred (datetime.medium() doesn't handle date-only kinds; duration.medium() returns relative time; unit.medium() forces decimal places).
 
 ### Custom Cell Rendering
 
-- [ ] `render` prop (dict) provides per-column render functions
-- [ ] Render function signature: `fn(value, row) → content`
-- [ ] `value` is the cell value for that column
-- [ ] `row` is the entire row dictionary (for accessing other columns)
-- [ ] Render functions can return any valid Parsley content (strings, HTML, components)
+- [x] `render` prop (dict) provides per-column render functions
+- [x] Render function signature: `fn(value, row) → content`
+- [x] `value` is the cell value for that column
+- [x] `row` is the entire row dictionary (for accessing other columns)
+- [x] Render functions can return any valid Parsley content (strings, HTML, components)
 
 ### Footer Rows
 
-- [ ] `footer` prop (array of dicts) adds `<tfoot>` with footer rows
-- [ ] Footer cells use same formatting rules as body cells
-- [ ] Footer cells use same render functions as body cells
-- [ ] Footer cells use same alignment as body cells
-- [ ] `<tfoot>` only rendered when `footer` is provided and non-empty
+- [x] `footer` prop (array of dicts) adds `<tfoot>` with footer rows
+- [x] Footer cells use same formatting rules as body cells
+- [x] Footer cells use same render functions as body cells
+- [x] Footer cells use same alignment as body cells
+- [x] `<tfoot>` only rendered when `footer` is provided and non-empty
 
 ### Row Headers (Accessibility)
 
-- [ ] `rowHeader` prop controls which column index is a `<th scope="row">`
-- [ ] Default: `rowHeader={0}` (first column is row header)
-- [ ] `rowHeader={false}` disables row headers (all cells are `<td>`)
-- [ ] `rowHeader={n}` makes the nth column the row header
+- [x] `rowHeader` prop controls which column index is a `<th scope="row">`
+- [x] Default: `rowHeader={0}` (first column is row header)
+- [x] `rowHeader={false}` disables row headers (all cells are `<td>`)
+- [x] `rowHeader={n}` makes the nth column the row header
 
 ### Prop Spreading and Styling
 
-- [ ] `id` prop sets table's HTML id
-- [ ] `class` prop adds CSS classes (merged with `data-table`)
-- [ ] `caption` prop adds accessible `<caption>` element
-- [ ] Additional props spread to `<table>` element via `...attrs`
+- [x] `id` prop sets table's HTML id
+- [x] `class` prop adds CSS classes (merged with `data-table`)
+- [x] `caption` prop adds accessible `<caption>` element
+- [x] Additional props spread to `<table>` element via `...attrs`
 
 ### Remove sortable Prop
 
-- [ ] The non-functional `sortable` prop is removed from the component
-- [ ] No breaking change — passing `sortable` is ignored (spread to table)
+- [x] The non-functional `sortable` prop is removed from the component
+- [x] No breaking change — passing `sortable` is ignored (spread to table)
 
 ### Parsley Correctness
 
-- [ ] All code uses `+` for string concatenation (not `++`)
-- [ ] All single-expression conditionals use concise form
-- [ ] Spread syntax uses `...attrs` (not `{...attrs}`)
-- [ ] All files pass `pars --check`
+- [x] All code uses `+` for string concatenation (not `++`)
+- [x] All single-expression conditionals use concise form
+- [x] Spread syntax uses `...attrs` (not `{...attrs}`)
+- [x] All files pass `pars --check`
 
 ### CSS
 
-- [ ] Component outputs `class="data-table"` on root `<table>`
-- [ ] CSS provided for alignment classes
-- [ ] CSS provided for empty state styling
-- [ ] CSS provided for footer styling
-- [ ] CSS uses CSS custom properties for theming
+- [x] Component outputs `class="data-table"` on root `<table>`
+- [x] CSS provided for alignment classes
+- [x] CSS provided for empty state styling
+- [x] CSS provided for footer styling
+- [x] CSS uses CSS custom properties for theming
 
 ## Design Decisions
 

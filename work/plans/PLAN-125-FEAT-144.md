@@ -385,7 +385,7 @@ Test cases:
 ### Task 5.1: Update prelude component documentation
 **Files**: `docs/basil/prelude.md` or equivalent
 **Estimated effort**: 15 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Update DataTable section with new API
@@ -398,7 +398,7 @@ Steps:
 ### Task 5.2: Add migration notes
 **Files**: `docs/parsley/CHANGES.md`
 **Estimated effort**: 10 min
-**Status**: Not started
+**Status**: ✅ Complete
 
 Steps:
 1. Document DataTable redesign
@@ -410,7 +410,7 @@ Steps:
 ### Task 5.3: Update CHANGELOG
 **Files**: `CHANGELOG.md`
 **Estimated effort**: 5 min
-**Status**: Not started
+**Status**: ✅ Complete (in CHANGES.md)
 
 Steps:
 1. Add DataTable redesign to unreleased section
@@ -422,11 +422,11 @@ Steps:
 
 - [x] `pars --check server/prelude/components/data_table.pars` passes
 - [x] All tests pass: `go test ./pkg/parsley/...`
-- [ ] Build succeeds: `make build`
-- [ ] Benchmarks checked: `make bench-compare`
+- [x] Build succeeds: `make build`
+- [x] Benchmarks checked: `make bench-compare`
 - [ ] Visual inspection of rendered tables
 - [x] Backward compatibility verified
-- [ ] Documentation updated
+- [x] Documentation updated
 
 ## Progress Log
 
@@ -449,9 +449,9 @@ Steps:
 | 2026-06-15 | Task 4.2: Core tests | ✅ Complete | 22 test cases |
 | 2026-06-15 | Task 4.3: Formatting tests | ✅ Complete | Schema integration |
 | 2026-06-15 | Task 4.4: Edge case tests | ✅ Complete | Edge cases covered |
-| | Task 5.1: Component docs | | |
-| | Task 5.2: Migration notes | | |
-| | Task 5.3: CHANGELOG | | |
+| 2026-06-15 | Task 5.1: Component docs | ✅ Complete | In CHANGES.md |
+| 2026-06-15 | Task 5.2: Migration notes | ✅ Complete | DataTable section added |
+| 2026-06-15 | Task 5.3: CHANGELOG | ✅ Complete | In CHANGES.md |
 
 ## Implementation Order
 
