@@ -2,6 +2,7 @@
 
 **Status:** Approved  
 **Date:** 2025-06-15  
+**Spec:** `work/specs/FEAT-145.md`  
 **Related:** STANDARD-PRELUDE-REVIEW.md §9.3, §9.5  
 **Implements:** Prelude Review Decisions #2 and #3
 
@@ -642,13 +643,22 @@ Level 1 is just normal Parsley/HTML. No special handling.
 5. Add tests for props (as, class, label, etc.)
 6. Add tests for checkbox special case
 
-### Phase 4: Documentation (1-2 hours)
+### Phase 4: `columnProps()` Method (2-3 hours)
+
+1. Implement `tableColumnProps()` in `methods_table.go`
+2. Add `alignmentForType()` and `formatForType()` helpers
+3. Register method on Table type
+4. Add tests for schema-bound and raw tables
+5. Update `pars describe table`
+
+### Phase 5: Documentation (1-2 hours)
 
 1. Update form binding documentation with all four levels
 2. Add migration guide (when to use which level)
 3. Update prelude component docs for `fieldProps()` pattern
+4. Document `columnProps()` for DataTable integration
 
-**Total: 9-13 hours**
+**Total: 11-16 hours**
 
 ---
 
@@ -739,6 +749,79 @@ func TestRecordFieldProps(t *testing.T) {
 }
 ```
 
+### 9.4 `columnProps()` Tests
+
+```go
+func TestTableColumnProps(t *testing.T) {
+    tests := []struct{
+        name     string
+        input    string
+        expected map[string]interface{}
+    }{
+        {
+            name: "money column with schema",
+            input: `
+                @schema Order { total: money | {title: "Order Total"} }
+                let Orders = @DB.bind(Order, "orders")
+                let orders = Orders.all()
+                orders.columnProps("total")
+            `,
+            expected: map[string]interface{}{
+                "name":   "total",
+                "label":  "Order Total",
+                "type":   "money",
+                "align":  "right",
+                "format": "currency",
+            },
+        },
+        {
+            name: "boolean column alignment",
+            input: `
+                @schema User { active: boolean }
+                let Users = @DB.bind(User, "users")
+                let users = Users.all()
+                users.columnProps("active")
+            `,
+            expected: map[string]interface{}{
+                "name":   "active",
+                "label":  "Active",
+                "type":   "boolean",
+                "align":  "center",
+                "format": "boolean",
+            },
+        },
+        {
+            name: "string column defaults",
+            input: `
+                @schema User { first_name: string }
+                let Users = @DB.bind(User, "users")
+                let users = Users.all()
+                users.columnProps("first_name")
+            `,
+            expected: map[string]interface{}{
+                "name":  "first_name",
+                "label": "First Name",
+                "type":  "string",
+                "align": "left",
+            },
+        },
+        {
+            name: "table without schema",
+            input: `
+                let t = table([{some_column: 123}])
+                t.columnProps("some_column")
+            `,
+            expected: map[string]interface{}{
+                "name":  "some_column",
+                "label": "Some Column",
+                "align": "left",
+            },
+        },
+        // ... more tests
+    }
+}
+```
+
 ---
 
 ## 10. Migration Notes
@@ -762,7 +845,199 @@ func TestRecordFieldProps(t *testing.T) {
 
 ---
 
-## 11. Future Considerations
+## 11. Part C: Table Column Props
+
+### 11.1 Motivation
+
+Just as `fieldProps()` bridges schema metadata to form components, tables need a parallel mechanism for display. The `DataTable` component (FEAT-144) should derive column metadata from schemas rather than requiring manual configuration.
+
+The pattern is parallel:
+
+| Form Need | `fieldProps()` | Display Need | `columnProps()` |
+|-----------|----------------|--------------|-----------------|
+| Label text | `.title()` | Column header | `.title()` |
+| Input type | `type: "email"` | Display format | `format: "email"` |
+| — | — | Alignment | `align: "right"` |
+| Value formatting | ISO for inputs | Value formatting | `.medium()` for display |
+
+### 11.2 The `columnProps()` Method
+
+**API:**
+
+```parsley
+// On a Table with schema
+let props = users.columnProps("email")
+// → {name: "email", label: "Email", type: "email", align: "left"}
+
+let props = orders.columnProps("total")
+// → {name: "total", label: "Total", type: "money", align: "right", format: "currency"}
+
+// On a Table without schema (minimal props)
+let props = rawTable.columnProps("some_col")
+// → {name: "some_col", label: "Some Col", align: "left"}
+```
+
+**Return Value:**
+
+| Key | Type | Source | Description |
+|-----|------|--------|-------------|
+| `name` | string | column name | Column identifier |
+| `label` | string | `.title()` or titlecased name | Display header |
+| `type` | string | schema type | Original schema type |
+| `align` | string | derived from type | `"left"`, `"right"`, or `"center"` |
+| `format` | string | derived from type | Format hint for display |
+
+### 11.3 Type to Alignment Mapping
+
+| Schema Type | Alignment | Rationale |
+|-------------|-----------|-----------|
+| `money` | right | Numeric, decimal alignment |
+| `integer` | right | Numeric |
+| `float` | right | Numeric |
+| `duration` | right | Numeric-like |
+| `unit` | right | Numeric with unit |
+| `boolean` | center | Binary state |
+| `string` | left | Text |
+| `email` | left | Text |
+| `url` | left | Text |
+| `date` | left | Text-like |
+| `datetime` | left | Text-like |
+| `enum` | left | Text |
+| (unknown) | left | Default |
+
+### 11.4 Type to Format Mapping
+
+| Schema Type | Format Hint | Used By |
+|-------------|-------------|---------|
+| `money` | `"currency"` | DataTable formatting |
+| `date` | `"date"` | DataTable formatting |
+| `datetime` | `"datetime"` | DataTable formatting |
+| `duration` | `"duration"` | DataTable formatting |
+| `unit` | `"unit"` | DataTable formatting |
+| `boolean` | `"boolean"` | DataTable formatting |
+| (other) | `null` | Use `objectToString()` |
+
+### 11.5 Implementation
+
+**File:** `pkg/parsley/evaluator/methods_table.go`
+
+```go
+"columnProps": {
+    Fn:          tableMethodColumnProps,
+    Arity:       "1",
+    Description: "Get display props for a column (column)",
+},
+```
+
+```go
+func tableColumnProps(table *Table, args []Object, env *Environment) Object {
+    if len(args) != 1 {
+        return newArityError("columnProps", len(args), "1")
+    }
+    
+    colName, ok := args[0].(*String)
+    if !ok {
+        return newTypeError("TYPE-0001", "Table.columnProps", "string", args[0].Type())
+    }
+    
+    result := make(map[string]Object)
+    result["name"] = colName
+    
+    // Default label: titlecase the column name
+    label := titleCase(strings.ReplaceAll(colName.Value, "_", " "))
+    result["label"] = &String{Value: label}
+    
+    // Default alignment
+    result["align"] = &String{Value: "left"}
+    
+    // If table has schema, derive from it
+    if table.Schema != nil {
+        if field, exists := table.Schema.Fields[colName.Value]; exists {
+            // Label from schema title
+            if field.Title != "" {
+                result["label"] = &String{Value: field.Title}
+            }
+            
+            // Type
+            result["type"] = &String{Value: field.Type}
+            
+            // Alignment from type
+            result["align"] = &String{Value: alignmentForType(field.Type)}
+            
+            // Format hint from type
+            if format := formatForType(field.Type); format != "" {
+                result["format"] = &String{Value: format}
+            }
+        }
+    }
+    
+    return &Dictionary{Pairs: result}
+}
+
+func alignmentForType(schemaType string) string {
+    switch schemaType {
+    case "money", "integer", "float", "duration", "unit":
+        return "right"
+    case "boolean":
+        return "center"
+    default:
+        return "left"
+    }
+}
+
+func formatForType(schemaType string) string {
+    switch schemaType {
+    case "money":
+        return "currency"
+    case "date":
+        return "date"
+    case "datetime":
+        return "datetime"
+    case "duration":
+        return "duration"
+    case "unit":
+        return "unit"
+    case "boolean":
+        return "boolean"
+    default:
+        return ""
+    }
+}
+```
+
+### 11.6 Usage in DataTable
+
+With `columnProps()`, DataTable can derive display metadata cleanly:
+
+```parsley
+// Inside DataTable implementation
+for (idx, col in visibleColumns) {
+    let props = if (data) data.columnProps(col) else {name: col, label: col, align: "left"}
+    
+    <th scope="col" class={"align-" + props.align}>
+        props.label
+    </th>
+}
+```
+
+This replaces the ad-hoc header/alignment derivation with schema-aware defaults while still allowing prop overrides.
+
+### 11.7 Relationship to `fieldProps()`
+
+| Aspect | `fieldProps()` | `columnProps()` |
+|--------|----------------|-----------------|
+| Source | Record (has values) | Table (schema only for props) |
+| Purpose | Form input binding | Display/table formatting |
+| Includes value | Yes (formatted for input) | No (values come from rows) |
+| Includes error | Yes | No |
+| Includes alignment | No | Yes |
+| Includes format hint | No (type is enough) | Yes (for display formatting) |
+
+They share the same schema metadata source but serve different UI concerns.
+
+---
+
+## 12. Future Considerations
 
 ### Not in Scope
 
@@ -775,3 +1050,4 @@ func TestRecordFieldProps(t *testing.T) {
 - `schema.fieldProps(name)` — Props without record instance (no value/error)
 - `record.allFieldProps()` — All visible fields at once
 - `<field/>` `template` prop — Override entire structure with a component
+- `table.allColumnProps()` — All columns at once for DataTable

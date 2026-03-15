@@ -1,11 +1,13 @@
 # Design: DataTable Redesign
 
 **Date:** 2025-01-14
-**Updated:** 2026-03-15
+**Updated:** 2026-06-15
 **Status:** Approved
+**Depends On:** `DESIGN-typed-value-formatting.md` (Parts A and C)
 **Related:** 
 - `work/reports/STANDARD-PRELUDE-REVIEW.md` §3, §9, §13
-- `work/design/DESIGN-typed-value-formatting.md`
+- `work/design/DESIGN-typed-value-formatting.md` — Part A (objectToString), Part C (columnProps)
+- `work/specs/FEAT-144.md` — Implementation spec
 
 ---
 
