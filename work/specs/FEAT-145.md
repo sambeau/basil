@@ -1,7 +1,7 @@
 ---
 id: FEAT-145
 title: "Typed Value Formatting and Field Abstraction"
-status: approved
+status: complete
 priority: high
 created: 2026-06-15
 updated: 2026-06-15

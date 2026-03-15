@@ -1,7 +1,7 @@
 ---
 id: FEAT-144
 title: "DataTable Redesign"
-status: approved
+status: complete
 priority: high
 created: 2026-06-15
 updated: 2026-06-15
