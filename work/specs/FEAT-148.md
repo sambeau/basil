@@ -1,7 +1,7 @@
 ---
 id: FEAT-148
 title: "Image Transformation and Caching"
-status: phase-2
+status: complete
 priority: medium
 created: 2026-06-28
 author: "@human / @ai"

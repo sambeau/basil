@@ -346,4 +346,109 @@ See the full [Styling Guide](./styling.md) for examples of all components.
 
 ---
 
+## Image Questions
+
+### How do I serve optimised images in Basil?
+
+Use the `image()` builtin. It auto-rotates (EXIF), strips metadata, caches the result to disk, and returns a content-hashed URL served with immutable cache headers:
+
+```parsley
+// Serve original format, auto-rotated
+let url = image(@./photo.jpg)
+<img src={url} alt="Photo"/>
+
+// Resize to 800px wide
+let url = image(@./photo.jpg, {width: 800})
+
+// Resize and convert to WebP
+let url = image(@./photo.jpg, {width: 800, format: "webp"})
+
+// Crop to an exact 400×300 box
+let url = image(@./photo.jpg, {width: 400, height: 300, crop: "center"})
+```
+
+The transform runs once — subsequent calls with the same options return the cached URL immediately.
+
+*Added: 2026-06-28*
+
+### How do I create responsive images with srcset?
+
+Use `imageSrcset()`. It generates one variant per requested width and returns a dict with `src`, `srcset`, `width`, and `height`:
+
+```parsley
+let resp = imageSrcset(@./hero.jpg, {format: "webp", quality: 80}, [400, 800, 1200])
+
+<img
+    src={resp.src}
+    srcset={resp.srcset}
+    sizes="(max-width: 600px) 100vw, 800px"
+    width={resp.width}
+    height={resp.height}
+    alt="Hero"
+/>
+```
+
+For HiDPI/retina displays, use density descriptor mode by passing `"x"` as the fourth argument (requires `style.width`):
+
+```parsley
+let resp = imageSrcset(@./logo.png, {width: 120}, [1, 2, 3], "x")
+// srcset: "/__img/a1b2.png 1x, /__img/c3d4.png 2x, /__img/e5f6.png 3x"
+```
+
+*Added: 2026-06-28*
+
+### How do I create a blur placeholder (LQIP) for progressive image loading?
+
+Use `imageBlur()`. It returns an inline `data:` URI (~600 bytes) you can use as a CSS background that appears instantly while the full image loads:
+
+```parsley
+let blur = imageBlur(@./hero.jpg)
+let full = image(@./hero.jpg, {width: 1200})
+
+<div style={"background-image: url(" + blur + "); background-size: cover;"}>
+    <img src={full} loading=lazy alt="Hero"/>
+</div>
+```
+
+*Added: 2026-06-28*
+
+### How do I get image dimensions or format metadata?
+
+Use `imageInfo()`. It returns `{width, height, format, orientation}` and caches results in memory, so it is efficient to call in a loop (e.g. a gallery page):
+
+```parsley
+let info = imageInfo(@./photo.jpg)
+// {width: 3024, height: 4032, format: "jpeg", orientation: "portrait"}
+
+// Set explicit dimensions to avoid layout shift (CLS)
+<img
+    src={image(@./photo.jpg, {width: 800})}
+    width={800}
+    height={info.orientation == "landscape" ? 533 : 1067}
+    alt="Photo"
+/>
+```
+
+*Added: 2026-06-28*
+
+### Why did my basil binary get 4 MB larger after enabling WebP?
+
+Basil uses a pure-Go WebP encoder (`gen2brain/webp`) that bundles a WASM runtime (`wazero`) as a fallback so no system libraries are required. This adds approximately 4 MB to the `basil` binary (35 MB → 39 MB). The `pars` binary is unaffected.
+
+**To get faster WebP encoding and avoid the WASM fallback**, install `libwebp` on your server:
+
+```
+# macOS
+brew install webp
+
+# Debian / Ubuntu
+apt install libwebp-dev
+```
+
+When `libwebp` is available at runtime, Basil uses the native library automatically (~5× faster than the WASM fallback). Either way, encoding is a one-time cost per image variant — results are cached to disk.
+
+*Added: 2026-06-28*
+
+---
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->
