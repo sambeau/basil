@@ -2,7 +2,7 @@
 id: PLAN-129
 feature: FEAT-148
 title: "Implementation Plan for Image Transform Enhancements (Phase 2)"
-status: draft
+status: in-progress
 created: 2026-06-28
 ---
 
@@ -368,3 +368,7 @@ Items remaining for Phase 3 (not in scope for this plan):
 | 2026-06-28 | Design decisions | ✅ Complete | See `work/design/DESIGN-image-transform-phase2.md` |
 | 2026-06-28 | Spec updated | ✅ Complete | Phase 2 acceptance criteria in `work/specs/FEAT-148.md` |
 | 2026-06-28 | Implementation plan | ✅ Complete | This document |
+| 2026-06-28 | Tasks 1 & 2 | ✅ Complete | Sharpen on downscale (options, transform, registry) |
+| 2026-06-28 | Tasks 3 & 4 | ✅ Complete | imageBlur() LQIP builtin with caching |
+| 2026-06-28 | Task 6 | ✅ Complete | imageInfo() memory cache (sync.Map, path+modtime key) |
+| 2026-06-28 | Tasks 5 & 7 | ✅ Complete | imageSrcset() builtin (width & density modes) |
