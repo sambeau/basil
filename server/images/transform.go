@@ -145,18 +145,9 @@ func Encode(img image.Image, format string, quality int) ([]byte, error) {
 		}
 
 	case "webp":
-		// WebP encoding requires gen2brain/webp which we're making opt-in
-		// For now, fall back to JPEG with a warning
-		// TODO: Add WebP encoding support via gen2brain/webp
-		q := quality
-		if q == 0 {
-			q = DefaultQuality("jpeg")
-		}
-		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: q}); err != nil {
-			return nil, fmt.Errorf("encode jpeg (webp fallback): %w", err)
-		}
-		// Note: The caller should be aware this is a fallback
-		// In Phase 2, we can add proper WebP encoding
+		// WebP encoding requires gen2brain/webp which is not yet included.
+		// Return an error so the caller knows WebP output isn't supported.
+		return nil, fmt.Errorf("WebP output encoding not supported; use format: \"jpeg\" or \"png\" instead")
 
 	default:
 		return nil, fmt.Errorf("unsupported output format: %s", format)
@@ -182,6 +173,12 @@ func Process(sourcePath string, opts TransformOptions) ([]byte, string, error) {
 	if outputFormat == "" {
 		outputFormat = sourceFormat
 	}
+
+	// WebP input but no explicit output format: fall back to JPEG since we can't encode WebP
+	if outputFormat == "webp" && opts.Format == "" {
+		outputFormat = "jpeg"
+	}
+
 	_, ext := NormalizeFormat(outputFormat)
 
 	// Encode to output format
