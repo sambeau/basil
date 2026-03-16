@@ -346,3 +346,118 @@ func TestRegistry_BlurPlaceholder_Concurrent(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistry_Info_MemoryCache(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "info_cache.jpg", 400, 300, "jpeg")
+
+	// First call
+	info1, err := r.Info(src)
+	if err != nil {
+		t.Fatalf("first Info: %v", err)
+	}
+
+	// Second call should hit cache
+	info2, err := r.Info(src)
+	if err != nil {
+		t.Fatalf("second Info: %v", err)
+	}
+
+	// Results should be identical
+	if info1["width"] != info2["width"] || info1["height"] != info2["height"] {
+		t.Fatal("cached result should match original")
+	}
+}
+
+func TestRegistry_Info_CacheInvalidatedOnFileChange(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "info_change.jpg", 200, 100, "jpeg")
+
+	// First call
+	info1, err := r.Info(src)
+	if err != nil {
+		t.Fatalf("first Info: %v", err)
+	}
+
+	if info1["width"].(int64) != 200 || info1["height"].(int64) != 100 {
+		t.Fatalf("unexpected dimensions: %v x %v", info1["width"], info1["height"])
+	}
+
+	// Recreate the file with different dimensions
+	// Need a small delay to ensure modtime changes
+	createTestImage(t, srcDir, "info_change.jpg", 300, 150, "jpeg")
+
+	// Second call should get new info (cache miss due to modtime change)
+	info2, err := r.Info(src)
+	if err != nil {
+		t.Fatalf("second Info: %v", err)
+	}
+
+	if info2["width"].(int64) != 300 || info2["height"].(int64) != 150 {
+		t.Fatalf("expected new dimensions 300x150, got %v x %v", info2["width"], info2["height"])
+	}
+}
+
+func TestRegistry_Clear_ClearsInfoCache(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "info_clear.jpg", 100, 100, "jpeg")
+
+	// Populate cache
+	_, err := r.Info(src)
+	if err != nil {
+		t.Fatalf("Info: %v", err)
+	}
+
+	// Clear should not panic and should clear the info cache
+	r.Clear()
+
+	// After clear, we should still be able to get info (but it will be a cache miss)
+	info, err := r.Info(src)
+	if err != nil {
+		t.Fatalf("Info after Clear: %v", err)
+	}
+
+	if info["width"].(int64) != 100 {
+		t.Fatalf("unexpected width after clear: %v", info["width"])
+	}
+}
+
+func TestRegistry_Info_Concurrent(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "info_concurrent.jpg", 250, 200, "jpeg")
+
+	const N = 20
+	var wg sync.WaitGroup
+	results := make([]map[string]any, N)
+	errs := make([]error, N)
+
+	wg.Add(N)
+	for i := range N {
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errs[idx] = r.Info(src)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("goroutine %d: %v", i, err)
+		}
+	}
+
+	// All results must have the same dimensions
+	for i := 1; i < N; i++ {
+		if results[i]["width"] != results[0]["width"] || results[i]["height"] != results[0]["height"] {
+			t.Fatalf("goroutine %d returned different dimensions", i)
+		}
+	}
+}

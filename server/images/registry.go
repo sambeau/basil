@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"golang.org/x/sync/singleflight"
@@ -18,9 +19,10 @@ type Registry struct {
 	mu     sync.RWMutex
 	byHash map[string]string // cache key -> cached file path
 
-	cache  *Cache
-	group  singleflight.Group
-	logger func(format string, args ...any)
+	cache     *Cache
+	infoCache sync.Map // key: "absPath|modtime" -> value: map[string]any
+	group     singleflight.Group
+	logger    func(format string, args ...any)
 
 	// Config
 	maxWidth       int
@@ -186,18 +188,39 @@ func (r *Registry) doTransform(sourcePath string, opts TransformOptions, cacheKe
 }
 
 // Info returns metadata about an image without transforming it.
+// Results are cached in memory, keyed by absolute path + file modification time.
 func (r *Registry) Info(sourcePath string) (map[string]any, error) {
+	// Get file stat for modtime
+	stat, err := os.Stat(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", sourcePath, err)
+	}
+
+	// Build cache key: path + modtime
+	cacheKey := sourcePath + "|" + strconv.FormatInt(stat.ModTime().UnixNano(), 10)
+
+	// Check cache
+	if cached, ok := r.infoCache.Load(cacheKey); ok {
+		return cached.(map[string]any), nil
+	}
+
+	// Cache miss - get info
 	info, err := GetInfo(sourcePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return map[string]any{
+	result := map[string]any{
 		"width":       int64(info.Width),
 		"height":      int64(info.Height),
 		"format":      info.Format,
 		"orientation": info.Orientation,
-	}, nil
+	}
+
+	// Store in cache
+	r.infoCache.Store(cacheKey, result)
+
+	return result, nil
 }
 
 // Lookup returns the file path for a cache key, or empty string if not found.
@@ -214,6 +237,12 @@ func (r *Registry) Clear() {
 	r.mu.Lock()
 	r.byHash = make(map[string]string)
 	r.mu.Unlock()
+
+	// Clear info cache
+	r.infoCache.Range(func(key, value any) bool {
+		r.infoCache.Delete(key)
+		return true
+	})
 }
 
 // ClearCache clears both the in-memory registry and disk cache.
