@@ -421,10 +421,12 @@ let info = imageInfo(@./photo.jpg)
 // {width: 3024, height: 4032, format: "jpeg", orientation: "portrait"}
 
 // Set explicit dimensions to avoid layout shift (CLS)
+let displayWidth = 800
+let displayHeight = (displayWidth * info.height) / info.width
 <img
-    src={image(@./photo.jpg, {width: 800})}
-    width={800}
-    height={info.orientation == "landscape" ? 533 : 1067}
+    src={image(@./photo.jpg, {width: displayWidth})}
+    width={displayWidth}
+    height={displayHeight}
     alt="Photo"
 />
 ```
