@@ -2,7 +2,7 @@
 id: PLAN-128
 feature: FEAT-148
 title: "Implementation Plan for Image Transformation and Caching"
-status: draft
+status: complete
 created: 2026-06-28
 ---
 
@@ -15,7 +15,7 @@ Add built-in image transformation and caching to Basil. The `image()` builtin tr
 ## Design Decisions Driving This Plan
 
 1. **Default format = original** (not WebP). JPEG in → JPEG out unless `{format: "webp"}` is specified.
-2. **WebP is opt-in** via `gen2brain/webp` (WASM-based, CGo-free). If dependency cost proves too high during implementation, WebP can be deferred without blocking the rest of Phase 1.
+2. **WebP is opt-in** via `gen2brain/webp` (WASM-based, CGo-free). WebP output support is now implemented; the binary impact and runtime tradeoffs were measured and accepted.
 3. **`disintegration/imaging`** is the core transform engine (resize, crop, auto-orient, encode/decode).
 4. **`singleflight`** for concurrent transform deduplication.
 5. **Atomic cache writes** (temp file + rename) to prevent serving partial files.
@@ -33,7 +33,7 @@ Add built-in image transformation and caching to Basil. The `image()` builtin tr
 
 - [x] Library evaluation complete (see FEAT-148.md)
 - [x] Spec revised: default format changed from WebP to original
-- [ ] Feature branch created: `feat/FEAT-148-image-transform`
+- [x] Feature branch created: `feat/FEAT-148-image-transform`
 
 ## Tasks
 
@@ -116,7 +116,8 @@ Tests:
 - No upscaling: requested 2000px but source is 800px → output is 800px
 - Quality parameter affects output size
 - Format conversion: JPEG → PNG, PNG → JPEG
-- WebP output via `gen2brain/webp` (if included)
+- WebP output via `gen2brain/webp`
+- WebP source with no explicit output format preserves WebP output
 - GIF first frame extraction
 - Reject oversized file
 - Encode/decode round-trip quality
@@ -248,6 +249,7 @@ Tests:
 - `image(@./photo.jpg)` returns URL string
 - `image(@./photo.jpg, {width: 300})` returns URL string
 - `image(@./photo.jpg, {format: "webp"})` returns URL with .webp extension
+- WebP source with no explicit format preserves `.webp` output
 - `imageInfo(@./photo.jpg)` returns dict with width, height, format, orientation
 - Path resolution: relative to current file
 - Security: path outside root → error

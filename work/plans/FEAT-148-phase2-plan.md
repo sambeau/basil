@@ -23,7 +23,7 @@ Phase 2 adds four capabilities to the existing image transformation system: auto
 3. **`imageSrcset()` returns a dict** `{src, srcset, width, height}` — width descriptors by default, density descriptors via optional 4th arg `"x"`.
 4. **`imageSrcset()` calls `image()` N times** — no batch API needed at typical scale counts (3–5 variants).
 5. **`imageInfo()` gets a `sync.Map` cache** keyed on absolute path + modtime.
-6. **Dominant color, smart crop, and WebP encoding deferred to Phase 3.**
+6. **Dominant color and smart crop deferred to Phase 3.** WebP encoding was initially deferred, then completed in Phase 3 — see `work/reports/FEAT-148-webp-encoding-investigation.md` and the updated FEAT-148 spec status.
 
 ## Current Code Reference
 

@@ -861,6 +861,28 @@ func TestProcess_WebPOutput(t *testing.T) {
 	}
 }
 
+func TestProcess_WebPSourcePreservesWebPByDefault(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a WebP source image
+	path := createTestImage(t, dir, "test.webp", 100, 100, "webp")
+
+	// Process with no explicit format should preserve WebP output
+	data, ext, err := Process(path, TransformOptions{Width: 50})
+	if err != nil {
+		t.Fatalf("Process() with implicit source webp format error = %v", err)
+	}
+	if ext != ".webp" {
+		t.Errorf("Process() ext = %q, want .webp", ext)
+	}
+	if len(data) == 0 {
+		t.Error("Process() returned empty data")
+	}
+	if len(data) < 12 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
+		t.Error("Process() implicit WebP output does not have RIFF/WEBP header")
+	}
+}
+
 func TestReadJPEGOrientation(t *testing.T) {
 	dir := t.TempDir()
 
