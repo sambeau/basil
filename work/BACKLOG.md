@@ -53,6 +53,7 @@ Deferred items from implementation, to be picked up in future work.
 | #133 | Dominant color extraction in `imageInfo()` | FEAT-148 Phase 2 | Phase 1 scope | Add `color: "#2a4f3b"` to `imageInfo()` return dict. |
 | #134 | AVIF output format for image transform | FEAT-148 Phase 3 | No pure-Go encoder | Requires a CGo-free AVIF encoder to exist. Revisit when ecosystem matures. |
 | #135 | Image cache eviction / LRU / `basil cache clear` CLI | FEAT-148 Phase 3 | Phase 1 tolerates orphans | Add cache size limits, LRU eviction policy, and CLI subcommand for manual cache clearing. Phase 1 uses "delete the directory" approach. |
+| BUG-026 | EXIF orientation dimension mismatch in `imageInfo()` | FEAT-148 Phase 2 audit | Needs fix | `GetImageInfo()` uses `image.DecodeConfig` (raw file dims, no EXIF rotation) while `Load()` applies `imaging.AutoOrientation(true)`. For rotated JPEGs (orientations 5–8), `imageInfo()` reports pre-rotation width/height, causing wrong aspect ratio and clamping in `imageSrcset()`. See `work/bugs/BUG-026.md`. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
