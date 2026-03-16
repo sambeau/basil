@@ -3,6 +3,7 @@ package images
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -13,6 +14,68 @@ import (
 
 	"github.com/disintegration/imaging"
 )
+
+// createTestJPEGWithOrientation creates a JPEG file with an EXIF orientation tag.
+// The image is stored with the given raw dimensions (rawWidth x rawHeight),
+// and the EXIF orientation tag is set to the given value (1–8).
+func createTestJPEGWithOrientation(t *testing.T, dir, name string, rawWidth, rawHeight int, orientation int) string {
+	t.Helper()
+
+	img := image.NewRGBA(image.Rect(0, 0, rawWidth, rawHeight))
+	for y := 0; y < rawHeight; y++ {
+		for x := 0; x < rawWidth; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 50, A: 255})
+		}
+	}
+
+	// Encode to JPEG in memory
+	var jpegBuf bytes.Buffer
+	if err := jpeg.Encode(&jpegBuf, img, &jpeg.Options{Quality: 90}); err != nil {
+		t.Fatalf("encode jpeg: %v", err)
+	}
+	jpegData := jpegBuf.Bytes()
+
+	// Build minimal EXIF APP1 segment with orientation tag.
+	// Structure: APP1 marker (FFE1) | size (2) | "Exif\0\0" (6) | TIFF header + IFD
+	var exif bytes.Buffer
+
+	// TIFF header: byte order (little-endian "II"), magic 42, offset to IFD0 = 8
+	binary.Write(&exif, binary.LittleEndian, uint16(0x4949)) // "II" = little-endian
+	binary.Write(&exif, binary.LittleEndian, uint16(42))     // TIFF magic
+	binary.Write(&exif, binary.LittleEndian, uint32(8))      // offset to IFD0
+
+	// IFD0: 1 entry
+	binary.Write(&exif, binary.LittleEndian, uint16(1)) // number of entries
+
+	// IFD entry: tag=0x0112 (orientation), type=3 (SHORT), count=1, value=orientation
+	binary.Write(&exif, binary.LittleEndian, uint16(0x0112))      // tag
+	binary.Write(&exif, binary.LittleEndian, uint16(3))           // type SHORT
+	binary.Write(&exif, binary.LittleEndian, uint32(1))           // count
+	binary.Write(&exif, binary.LittleEndian, uint16(orientation)) // value
+	binary.Write(&exif, binary.LittleEndian, uint16(0))           // padding to 4 bytes
+
+	// Next IFD offset = 0 (no more IFDs)
+	binary.Write(&exif, binary.LittleEndian, uint32(0))
+
+	// Build APP1 segment: marker + size + "Exif\0\0" + TIFF data
+	var app1 bytes.Buffer
+	app1.Write([]byte{0xFF, 0xE1}) // APP1 marker
+	exifPayload := append([]byte("Exif\x00\x00"), exif.Bytes()...)
+	binary.Write(&app1, binary.BigEndian, uint16(len(exifPayload)+2)) // size includes itself
+	app1.Write(exifPayload)
+
+	// Insert APP1 right after SOI (first 2 bytes of JPEG)
+	var result bytes.Buffer
+	result.Write(jpegData[:2]) // SOI marker
+	result.Write(app1.Bytes()) // APP1 with EXIF
+	result.Write(jpegData[2:]) // rest of JPEG
+
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, result.Bytes(), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	return path
+}
 
 // createTestImage creates a simple test image file.
 func createTestImage(t *testing.T, dir, name string, width, height int, format string) string {
@@ -776,5 +839,174 @@ func TestProcess_WebPInputFallsBackToJPEG(t *testing.T) {
 	}
 	if len(data) == 0 {
 		t.Error("Process() returned empty data")
+	}
+}
+
+func TestReadJPEGOrientation(t *testing.T) {
+	dir := t.TempDir()
+
+	tests := []struct {
+		name        string
+		orientation int
+	}{
+		{"normal (1)", 1},
+		{"flip horizontal (2)", 2},
+		{"rotate 180 (3)", 3},
+		{"flip vertical (4)", 4},
+		{"transpose (5)", 5},
+		{"rotate 270 (6)", 6},
+		{"transverse (7)", 7},
+		{"rotate 90 (8)", 8},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := createTestJPEGWithOrientation(t, dir, "orient.jpg", 100, 80, tt.orientation)
+			got := readJPEGOrientation(path)
+			if got != tt.orientation {
+				t.Errorf("readJPEGOrientation() = %d, want %d", got, tt.orientation)
+			}
+		})
+	}
+}
+
+func TestReadJPEGOrientation_NoEXIF(t *testing.T) {
+	dir := t.TempDir()
+
+	// A plain JPEG without EXIF should return 0
+	path := createTestImage(t, dir, "plain.jpg", 100, 80, "jpeg")
+	got := readJPEGOrientation(path)
+	if got != 0 {
+		t.Errorf("readJPEGOrientation() on plain JPEG = %d, want 0", got)
+	}
+}
+
+func TestReadJPEGOrientation_PNG(t *testing.T) {
+	dir := t.TempDir()
+
+	// A PNG should return 0 (not JPEG)
+	path := createTestImage(t, dir, "test.png", 100, 80, "png")
+	got := readJPEGOrientation(path)
+	if got != 0 {
+		t.Errorf("readJPEGOrientation() on PNG = %d, want 0", got)
+	}
+}
+
+func TestGetImageInfo_EXIFOrientationSwapsDimensions(t *testing.T) {
+	dir := t.TempDir()
+
+	// Orientations 1–4 do NOT swap width/height
+	// Orientations 5–8 DO swap width/height
+	tests := []struct {
+		name        string
+		rawWidth    int
+		rawHeight   int
+		orientation int
+		wantWidth   int
+		wantHeight  int
+	}{
+		{
+			name:     "orientation 1 (normal) - no swap",
+			rawWidth: 200, rawHeight: 100,
+			orientation: 1,
+			wantWidth:   200, wantHeight: 100,
+		},
+		{
+			name:     "orientation 3 (rotate 180) - no swap",
+			rawWidth: 200, rawHeight: 100,
+			orientation: 3,
+			wantWidth:   200, wantHeight: 100,
+		},
+		{
+			name:     "orientation 6 (rotate 270) - swap",
+			rawWidth: 200, rawHeight: 100,
+			orientation: 6,
+			wantWidth:   100, wantHeight: 200,
+		},
+		{
+			name:     "orientation 8 (rotate 90) - swap",
+			rawWidth: 200, rawHeight: 100,
+			orientation: 8,
+			wantWidth:   100, wantHeight: 200,
+		},
+		{
+			name:     "orientation 5 (transpose) - swap",
+			rawWidth: 300, rawHeight: 150,
+			orientation: 5,
+			wantWidth:   150, wantHeight: 300,
+		},
+		{
+			name:     "orientation 7 (transverse) - swap",
+			rawWidth: 300, rawHeight: 150,
+			orientation: 7,
+			wantWidth:   150, wantHeight: 300,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := createTestJPEGWithOrientation(t, dir, "test.jpg", tt.rawWidth, tt.rawHeight, tt.orientation)
+
+			width, height, format, err := GetImageInfo(path)
+			if err != nil {
+				t.Fatalf("GetImageInfo() error = %v", err)
+			}
+			if format != "jpeg" {
+				t.Errorf("GetImageInfo() format = %q, want %q", format, "jpeg")
+			}
+			if width != tt.wantWidth || height != tt.wantHeight {
+				t.Errorf("GetImageInfo() = %dx%d, want %dx%d", width, height, tt.wantWidth, tt.wantHeight)
+			}
+		})
+	}
+}
+
+func TestGetInfo_EXIFOrientationAffectsOrientationField(t *testing.T) {
+	dir := t.TempDir()
+
+	// A 200x100 image stored with orientation=6 (rotate 270°) should report
+	// post-rotation dimensions 100x200, making it "portrait".
+	path := createTestJPEGWithOrientation(t, dir, "rotated.jpg", 200, 100, 6)
+
+	info, err := GetInfo(path)
+	if err != nil {
+		t.Fatalf("GetInfo() error = %v", err)
+	}
+
+	if info.Width != 100 || info.Height != 200 {
+		t.Errorf("GetInfo() dimensions = %dx%d, want 100x200", info.Width, info.Height)
+	}
+	if info.Orientation != "portrait" {
+		t.Errorf("GetInfo() Orientation = %q, want %q", info.Orientation, "portrait")
+	}
+}
+
+func TestGetImageInfo_NoEXIF_DimensionsUnchanged(t *testing.T) {
+	dir := t.TempDir()
+
+	// A plain JPEG (no EXIF) should return raw dimensions unchanged
+	path := createTestImage(t, dir, "plain.jpg", 200, 100, "jpeg")
+
+	width, height, _, err := GetImageInfo(path)
+	if err != nil {
+		t.Fatalf("GetImageInfo() error = %v", err)
+	}
+	if width != 200 || height != 100 {
+		t.Errorf("GetImageInfo() = %dx%d, want 200x100", width, height)
+	}
+}
+
+func TestGetImageInfo_PNG_DimensionsUnchanged(t *testing.T) {
+	dir := t.TempDir()
+
+	// PNG has no EXIF orientation — dimensions should be unchanged
+	path := createTestImage(t, dir, "test.png", 300, 150, "png")
+
+	width, height, _, err := GetImageInfo(path)
+	if err != nil {
+		t.Fatalf("GetImageInfo() error = %v", err)
+	}
+	if width != 300 || height != 150 {
+		t.Errorf("GetImageInfo() = %dx%d, want 300x150", width, height)
 	}
 }

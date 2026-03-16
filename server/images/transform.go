@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"image"
@@ -201,6 +202,9 @@ func Process(sourcePath string, opts TransformOptions) ([]byte, string, error) {
 
 // GetImageInfo returns metadata about an image without fully decoding it.
 // This is more efficient than Load() when you only need dimensions/format.
+// For JPEG images, the EXIF orientation tag is read and dimensions are swapped
+// for orientations 5–8 (which rotate the image 90°/270°), so the returned
+// dimensions match what the user sees after auto-orientation.
 func GetImageInfo(path string) (width, height int, format string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -214,7 +218,141 @@ func GetImageInfo(path string) (width, height int, format string, err error) {
 		return 0, 0, "", fmt.Errorf("decode config %s: %w", path, err)
 	}
 
-	return cfg.Width, cfg.Height, formatName, nil
+	w, h := cfg.Width, cfg.Height
+
+	// For JPEG, check EXIF orientation and swap dimensions if needed.
+	// Orientations 5–8 involve a 90° or 270° rotation that swaps width/height.
+	if formatName == "jpeg" {
+		orient := readJPEGOrientation(path)
+		if orient >= 5 && orient <= 8 {
+			w, h = h, w
+		}
+	}
+
+	return w, h, formatName, nil
+}
+
+// readJPEGOrientation reads the EXIF orientation tag from a JPEG file.
+// Returns 0 if the file is not JPEG, has no EXIF data, or the orientation
+// tag is missing or unreadable. Valid values are 1–8.
+func readJPEGOrientation(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = f.Close() }()
+
+	const (
+		markerSOI      = 0xffd8
+		markerAPP1     = 0xffe1
+		exifHeader     = 0x45786966 // "Exif"
+		byteOrderBE    = 0x4d4d     // "MM"
+		byteOrderLE    = 0x4949     // "II"
+		orientationTag = 0x0112
+	)
+
+	// Check JPEG SOI marker
+	var soi uint16
+	if err := binary.Read(f, binary.BigEndian, &soi); err != nil || soi != markerSOI {
+		return 0
+	}
+
+	// Find APP1 marker containing EXIF data
+	for {
+		var marker, size uint16
+		if err := binary.Read(f, binary.BigEndian, &marker); err != nil {
+			return 0
+		}
+		if err := binary.Read(f, binary.BigEndian, &size); err != nil {
+			return 0
+		}
+		if marker>>8 != 0xff {
+			return 0
+		}
+		if marker == markerAPP1 {
+			break
+		}
+		if size < 2 {
+			return 0
+		}
+		if _, err := io.CopyN(io.Discard, f, int64(size-2)); err != nil {
+			return 0
+		}
+	}
+
+	// Check EXIF header ("Exif\0\0")
+	var header uint32
+	if err := binary.Read(f, binary.BigEndian, &header); err != nil || header != exifHeader {
+		return 0
+	}
+	if _, err := io.CopyN(io.Discard, f, 2); err != nil {
+		return 0
+	}
+
+	// Read byte order
+	var byteOrderTag uint16
+	if err := binary.Read(f, binary.BigEndian, &byteOrderTag); err != nil {
+		return 0
+	}
+	var byteOrder binary.ByteOrder
+	switch byteOrderTag {
+	case byteOrderBE:
+		byteOrder = binary.BigEndian
+	case byteOrderLE:
+		byteOrder = binary.LittleEndian
+	default:
+		return 0
+	}
+	if _, err := io.CopyN(io.Discard, f, 2); err != nil {
+		return 0
+	}
+
+	// Read IFD offset and skip to it
+	var offset uint32
+	if err := binary.Read(f, byteOrder, &offset); err != nil {
+		return 0
+	}
+	if offset < 8 {
+		return 0
+	}
+	if _, err := io.CopyN(io.Discard, f, int64(offset-8)); err != nil {
+		return 0
+	}
+
+	// Read number of IFD entries
+	var numTags uint16
+	if err := binary.Read(f, byteOrder, &numTags); err != nil {
+		return 0
+	}
+
+	// Search for orientation tag
+	for i := 0; i < int(numTags); i++ {
+		var tag uint16
+		if err := binary.Read(f, byteOrder, &tag); err != nil {
+			return 0
+		}
+		if tag != orientationTag {
+			// Skip rest of this IFD entry (10 bytes: type(2) + count(4) + value(4))
+			if _, err := io.CopyN(io.Discard, f, 10); err != nil {
+				return 0
+			}
+			continue
+		}
+		// Skip type(2) and count(4)
+		if _, err := io.CopyN(io.Discard, f, 6); err != nil {
+			return 0
+		}
+		var val uint16
+		if err := binary.Read(f, byteOrder, &val); err != nil {
+			return 0
+		}
+		if val < 1 || val > 8 {
+			return 0
+		}
+		return int(val)
+	}
+
+	return 0
 }
 
 // ImageInfo holds metadata about an image.
