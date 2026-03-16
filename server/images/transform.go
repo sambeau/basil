@@ -258,10 +258,3 @@ func SourceHash(path string) (string, error) {
 
 	return hex.EncodeToString(h.Sum(nil))[:16], nil
 }
-
-// sha256Short computes SHA256 and returns first 16 hex chars.
-// This matches the assetRegistry pattern for content-addressed URLs.
-func sha256Short(content []byte) string {
-	hash := sha256.Sum256(content)
-	return hex.EncodeToString(hash[:])[:16]
-}

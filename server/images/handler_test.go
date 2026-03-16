@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-func newTestRegistry(t *testing.T, devMode bool) (*Registry, string) {
+func newTestRegistry(t *testing.T, devMode bool) (reg *Registry, cacheDir string) {
 	t.Helper()
-	cacheDir := t.TempDir()
-	reg := NewRegistry(cacheDir, 2048, 2048, 80, "", devMode, nil)
+	cacheDir = t.TempDir()
+	reg = NewRegistry(cacheDir, 2048, 2048, 80, "", devMode, nil)
 	return reg, cacheDir
 }
 
@@ -34,7 +34,7 @@ func TestHandler_ServeImage(t *testing.T) {
 
 	imgURL := registerTestImage(t, reg, "jpeg")
 
-	req := httptest.NewRequest(http.MethodGet, imgURL, nil)
+	req := httptest.NewRequest(http.MethodGet, imgURL, http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -50,7 +50,7 @@ func TestHandler_NotFound_UnknownHash(t *testing.T) {
 	reg, _ := newTestRegistry(t, false)
 	handler := NewHandler(reg, false)
 
-	req := httptest.NewRequest(http.MethodGet, "/__img/unknownhash1234.jpg", nil)
+	req := httptest.NewRequest(http.MethodGet, "/__img/unknownhash1234.jpg", http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -73,7 +73,7 @@ func TestHandler_NotFound_EmptyHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req := httptest.NewRequest(http.MethodGet, tt.path, http.NoBody)
 			rr := httptest.NewRecorder()
 			handler.ServeHTTP(rr, req)
 
@@ -94,7 +94,7 @@ func TestHandler_NotFound_ExtensionMismatch(t *testing.T) {
 	// Replace .jpg with .png to create an extension mismatch
 	mismatchURL := strings.TrimSuffix(imgURL, ".jpg") + ".png"
 
-	req := httptest.NewRequest(http.MethodGet, mismatchURL, nil)
+	req := httptest.NewRequest(http.MethodGet, mismatchURL, http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -109,7 +109,7 @@ func TestHandler_CacheHeaders_DevMode(t *testing.T) {
 
 	imgURL := registerTestImage(t, reg, "jpeg")
 
-	req := httptest.NewRequest(http.MethodGet, imgURL, nil)
+	req := httptest.NewRequest(http.MethodGet, imgURL, http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -129,7 +129,7 @@ func TestHandler_CacheHeaders_ProdMode(t *testing.T) {
 
 	imgURL := registerTestImage(t, reg, "jpeg")
 
-	req := httptest.NewRequest(http.MethodGet, imgURL, nil)
+	req := httptest.NewRequest(http.MethodGet, imgURL, http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 

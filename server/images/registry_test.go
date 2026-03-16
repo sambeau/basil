@@ -210,7 +210,7 @@ func TestRegistry_ConcurrentTransform(t *testing.T) {
 	errs := make([]error, N)
 
 	wg.Add(N)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		go func(idx int) {
 			defer wg.Done()
 			urls[idx], errs[idx] = r.Transform(src, map[string]any{"width": int64(50)})

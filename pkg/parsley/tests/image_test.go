@@ -51,7 +51,7 @@ func (m *mockImageRegistry) Info(sourcePath string) (map[string]any, error) {
 }
 
 // evalWithImage sets up environment with image() and imageInfo() functions and image registry
-func evalWithImage(t *testing.T, input string, filename string, rootPath string) (evaluator.Object, *mockImageRegistry) {
+func evalWithImage(t *testing.T, input, filename, rootPath string) (evaluator.Object, *mockImageRegistry) {
 	t.Helper()
 
 	l := lexer.NewWithFilename(input, filename)
@@ -80,7 +80,7 @@ func evalWithImage(t *testing.T, input string, filename string, rootPath string)
 func TestImageBasic(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "photo.jpg")
-	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +113,7 @@ func TestImageBasic(t *testing.T) {
 func TestImageWithOptions(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "photo.jpg")
-	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -150,7 +150,7 @@ func TestImageWithOptions(t *testing.T) {
 func TestImageWithStringPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "photo.jpg")
-	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -199,13 +199,13 @@ func TestImageNotInHandler(t *testing.T) {
 func TestImageSecurityCheck(t *testing.T) {
 	tmpDir := t.TempDir()
 	handlerDir := filepath.Join(tmpDir, "handlers")
-	if err := os.MkdirAll(handlerDir, 0755); err != nil {
+	if err := os.MkdirAll(handlerDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create a file outside handler directory
 	secretFile := filepath.Join(tmpDir, "secret.jpg")
-	if err := os.WriteFile(secretFile, []byte("secret"), 0644); err != nil {
+	if err := os.WriteFile(secretFile, []byte("secret"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -259,7 +259,7 @@ func TestImageWrongArity(t *testing.T) {
 	// Too many arguments
 	t.Run("too many args", func(t *testing.T) {
 		testFile := filepath.Join(tmpDir, "a.jpg")
-		if err := os.WriteFile(testFile, []byte("fake"), 0644); err != nil {
+		if err := os.WriteFile(testFile, []byte("fake"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -280,7 +280,7 @@ func TestImageWrongArity(t *testing.T) {
 func TestImageInfoBasic(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "photo.jpg")
-	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -405,7 +405,7 @@ func TestImageInfoWrongArity(t *testing.T) {
 	// Too many arguments
 	t.Run("too many args", func(t *testing.T) {
 		testFile := filepath.Join(tmpDir, "a.jpg")
-		if err := os.WriteFile(testFile, []byte("fake"), 0644); err != nil {
+		if err := os.WriteFile(testFile, []byte("fake"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 

@@ -156,13 +156,14 @@ func extractImagePath(arg Object, fnName string) (string, *Error) {
 // resolveImagePath resolves a path relative to the current file and environment.
 func resolveImagePath(pathStr string, env *Environment) (string, *Error) {
 	var absPath string
-	if filepath.IsAbs(pathStr) {
+	switch {
+	case filepath.IsAbs(pathStr):
 		absPath = pathStr
-	} else if env.Filename != "" {
+	case env.Filename != "":
 		// Relative to current file's directory
 		currentDir := filepath.Dir(env.Filename)
 		absPath = filepath.Join(currentDir, pathStr)
-	} else {
+	default:
 		// No context, use as-is
 		absPath = pathStr
 	}
