@@ -376,6 +376,76 @@ Items to add to `work/BACKLOG.md` after implementation:
 - Source dimension limit for memory protection (if needed)
 - Evaluate `disintegration/imaging` forks if maintenance becomes a concern
 
+## Post-Implementation Review Findings
+
+Review conducted after Phase 1 implementation. All tests pass. Findings below are recorded for tracking before fixes are applied.
+
+### Bug: Variable Shadowing in `doTransform` (registry.go)
+
+**Severity**: Medium — masked by early returns but structurally incorrect and fragile.
+
+In `registry.go` `doTransform()`, line 155 uses `:=` to declare `err` inside the `else` branch, which **shadows** the outer `err` declared on line 147. The inner `err` from `Process()` and `cache.Write()` is never visible to the `if err != nil` check on line 165, which reads the outer `err` (always `nil` in the `else` branch).
+
+In practice, the early returns at lines 156 and 161 prevent incorrect behavior — but if those were ever refactored, errors from the `else` branch would be silently swallowed.
+
+**Fix**: Change line 155 from `:=` to `=` with `data` declared separately:
+```go
+var data []byte
+data, _, err = Process(sourcePath, opts)
+```
+
+### Test Coverage Gaps
+
+The `server/images` unit tests (options, transform, cache) are thorough. However, three components have **no dedicated tests**:
+
+#### 1. Registry (registry.go) — No Tests
+The most complex component (singleflight coordination, cache hit/miss logic, format determination, config default merging) is entirely untested at the unit level. Missing tests:
+- `Transform()` happy path: returns correct URL format
+- Cache hit on second call (no re-transform)
+- Concurrent transforms for same key → single execution (singleflight)
+- `Info()` returns correct metadata
+- `Lookup()` / `Clear()` / `CacheStats()` behavior
+- Config defaults applied (maxWidth, defaultQuality, defaultFormat)
+
+#### 2. Handler (handler.go) — No Tests
+The HTTP handler has no tests. Missing tests per spec Task 6:
+- Serve cached image with correct Content-Type
+- 404 for unknown hash
+- Extension mismatch → 404
+- Cache headers correct in prod vs dev mode
+
+#### 3. Evaluator Builtins (evaluator/image.go) — No Tests
+The `image()` and `imageInfo()` builtins have no tests. Missing tests per spec Task 7:
+- Missing `ImageRegistry` → clear error message
+- Invalid argument count → arity error
+- Path dict vs string argument handling
+- Security: path outside root → error
+- Invalid options dict → error
+
+#### 4. Weak Existing Tests
+- `TestProcess_WebPInputFallsBackToJPEG` doesn't test actual WebP input — it tests JPEG→JPEG and JPEG→PNG with explicit format, never exercising the WebP fallback code path at `transform.go` lines 183–185.
+- `TestLoad_Errors/file_too_large` is skipped — the 50MB size limit is untested.
+
+### Minor Code Quality Items
+
+#### `SourceHash` Reads Entire File Into Memory
+`transform.go` `SourceHash()` uses `io.ReadAll(f)` which allocates the full file contents (up to 50MB) just to compute a hash. Should use streaming: `io.Copy(hasher, f)` with `sha256.New()`.
+
+#### `imageInfo()` Metadata Not Cached in Memory
+The spec says "Results cached in memory (metadata is small)." Currently `Info()` calls `GetInfo()` every time without caching. For gallery-style loops this means repeated disk I/O and image header parsing for the same file. Low priority since `image.DecodeConfig` only reads headers.
+
+### Spec Deviations (Acceptable)
+
+These are intentional deviations documented for the record:
+
+1. **`ImageRegistrar` uses `map[string]any`** instead of typed `ImageOptions`/`ImageInfo` structs at the interface boundary. This avoids a circular dependency between `evaluator` and `server/images`. Typed structs are used internally. Correct tradeoff.
+
+2. **No `gen2brain/webp` dependency** — WebP encoding deferred. WebP output returns a clear error. WebP input decoding works via `golang.org/x/image/webp`. Binary size concern justified the deferral.
+
+3. **No eager cache directory scan on startup** — the spec's Task 5 says "scan cacheDir for existing cached files." Implementation uses per-key lazy probing via `os.Stat` on the deterministic path. This is arguably better: avoids startup latency and doesn't need to reverse-engineer options from filenames.
+
+---
+
 ## Progress Log
 
 | Date | Task | Status | Notes |
@@ -392,3 +462,4 @@ Items to add to `work/BACKLOG.md` after implementation:
 | 2026-06-28 | Task 6: Handler | ✅ Complete | server/images/handler.go mirrors assetHandler |
 | 2026-06-28 | Task 7: Builtins | ✅ Complete | pkg/parsley/evaluator/image.go with image() and imageInfo() |
 | 2026-06-28 | Task 8: Integration | ✅ Complete | Wired into server.go, handler.go, api.go |
+| 2026-06-28 | Post-implementation review | 📋 Recorded | 1 bug, test gaps (registry/handler/builtins), minor code quality items |

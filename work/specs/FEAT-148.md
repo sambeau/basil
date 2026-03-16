@@ -358,7 +358,46 @@ Identical pattern to `assetHandler` at `/__p/`:
 
 ## Implementation Notes
 
-*To be added during implementation.*
+### Post-Implementation Review (2026-06-28)
+
+Review of Phase 1 implementation found one bug, several test coverage gaps, and minor spec deviations. Overall assessment: solid implementation that mirrors existing codebase patterns correctly.
+
+#### Bug: Variable Shadowing in `registry.go` `doTransform`
+
+In `server/images/registry.go` `doTransform()`, line 155 uses `:=` for the `err` variable inside the `else` branch, which **shadows** the outer `err` declared on line 147. This means the `if err != nil` check after the if/else block (line 165) always sees the outer `err`, which is never assigned in the `else` branch. In practice, the early returns at lines 156 and 161 mask the bug — but it is still incorrect and fragile. Fix: use `=` instead of `:=` on line 155 with a separate `var data []byte` declaration.
+
+**Severity:** Low (masked by early returns, but could surface if code is refactored).
+**Status:** To fix.
+
+#### Spec Deviations (Acceptable)
+
+1. **`ImageRegistrar` uses `map[string]any` not typed structs** — The spec suggested `ImageOptions`/`ImageInfo` types on the interface. The implementation uses `map[string]any` at the interface boundary to avoid importing `server/images` types into the evaluator package (which would create a circular dependency). Typed structs are used internally. This is the correct tradeoff.
+
+2. **`gen2brain/webp` not included** — WebP encoding returns a clear error. WebP decoding (input) works via `golang.org/x/image/webp`. This was a deliberate decision to avoid WASM binary size overhead. Documented in conversation and plan.
+
+3. **`imageInfo()` metadata not cached in memory** — The spec says "Results cached in memory (metadata is small)." Currently `Info()` calls `GetInfo()` every time without memoization. Low impact since `image.DecodeConfig` only reads headers, but could matter in gallery loops.
+
+4. **No bulk cache directory scan on startup** — The spec's Task 5 says "scan cacheDir for existing cached files." The implementation uses per-key lazy probing via `os.Stat` instead. This is arguably better — avoids startup latency and doesn't require reverse-engineering options from filenames.
+
+#### Test Coverage Gaps
+
+1. **No Registry tests** — `registry.go` (the most complex component: singleflight, cache coordination, format determination) has zero dedicated tests. `Transform()`, `doTransform()`, `Info()`, `Lookup()`, `Clear()`, and `CacheStats()` are all untested.
+
+2. **No Handler tests** — `handler.go` HTTP handler is untested. Missing: serve cached image, 404 for unknown hash, extension mismatch → 404, cache headers in prod vs dev.
+
+3. **No evaluator builtin tests** — `image()` and `imageInfo()` in `evaluator/image.go` are untested. Missing: no registry → error, bad args → arity error, path dict vs string handling, security path-outside-root → error.
+
+4. **`TestProcess_WebPInputFallsBackToJPEG` doesn't test actual WebP input** — The test uses JPEG sources with explicit format options. It does not exercise the WebP→JPEG fallback code path in `Process()`.
+
+5. **`TestLoad_Errors` file-too-large is skipped** — The 50MB size limit check is untested.
+
+6. **No concurrency test for singleflight dedup** — The plan lists this as a required test for Task 5.
+
+#### Minor Code Quality Notes
+
+- **`SourceHash` reads entire file into memory** — For a 50MB file (the max source size), this allocates 50MB just to hash. Using `io.Copy` to a `sha256.New()` writer would stream without buffering. Low priority since images are typically 1–10MB.
+
+- **Quality default application is split** — Config defaults are applied in `Registry.Transform()`, format-specific defaults in `Encode()`. Both paths are correct but the split could confuse future maintainers.
 
 ### Suggested Implementation Order
 
