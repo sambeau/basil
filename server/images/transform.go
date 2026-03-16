@@ -243,6 +243,7 @@ func GetInfo(path string) (ImageInfo, error) {
 
 // SourceHash computes a content hash for a file.
 // The hash is truncated to 16 hex characters, matching the assetRegistry pattern.
+// Uses streaming to avoid loading the entire file into memory.
 func SourceHash(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -250,13 +251,12 @@ func SourceHash(path string) (string, error) {
 	}
 	defer func() { _ = f.Close() }()
 
-	// Read file and compute hash
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return "", fmt.Errorf("read %s: %w", path, err)
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("hash %s: %w", path, err)
 	}
 
-	return sha256Short(data), nil
+	return hex.EncodeToString(h.Sum(nil))[:16], nil
 }
 
 // sha256Short computes SHA256 and returns first 16 hex chars.

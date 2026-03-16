@@ -151,7 +151,8 @@ func (r *Registry) doTransform(sourcePath string, opts TransformOptions, cacheKe
 		cachedPath, err = r.cache.CopyFile(cacheKey, ext, sourcePath)
 	} else {
 		// Perform transformation
-		data, _, err := Process(sourcePath, opts)
+		var data []byte
+		data, _, err = Process(sourcePath, opts)
 		if err != nil {
 			return "", fmt.Errorf("transform: %w", err)
 		}
