@@ -3,6 +3,7 @@ package images
 import (
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -238,5 +239,110 @@ func TestRegistry_ConcurrentTransform(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected 1 cached file after concurrent transforms, got %d", count)
+	}
+}
+
+func TestRegistry_BlurPlaceholder(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "blur_test.jpg", 400, 300, "jpeg")
+
+	dataURI, err := r.BlurPlaceholder(src)
+	if err != nil {
+		t.Fatalf("BlurPlaceholder: %v", err)
+	}
+
+	// Should return a data URI
+	if !strings.HasPrefix(dataURI, "data:image/jpeg;base64,") {
+		t.Fatalf("expected data URI, got: %s", dataURI[:min(len(dataURI), 50)])
+	}
+}
+
+func TestRegistry_BlurPlaceholder_CacheHit(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "blur_cache.jpg", 200, 150, "jpeg")
+
+	// First call
+	dataURI1, err := r.BlurPlaceholder(src)
+	if err != nil {
+		t.Fatalf("first BlurPlaceholder: %v", err)
+	}
+
+	// Second call should return same result from cache
+	dataURI2, err := r.BlurPlaceholder(src)
+	if err != nil {
+		t.Fatalf("second BlurPlaceholder: %v", err)
+	}
+
+	if dataURI1 != dataURI2 {
+		t.Fatal("cache should return identical data URI")
+	}
+}
+
+func TestRegistry_BlurPlaceholder_DifferentImages(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src1 := createTestImage(t, srcDir, "blur1.jpg", 200, 100, "jpeg")
+	src2 := createTestImage(t, srcDir, "blur2.jpg", 100, 200, "jpeg")
+
+	dataURI1, err := r.BlurPlaceholder(src1)
+	if err != nil {
+		t.Fatalf("BlurPlaceholder src1: %v", err)
+	}
+
+	dataURI2, err := r.BlurPlaceholder(src2)
+	if err != nil {
+		t.Fatalf("BlurPlaceholder src2: %v", err)
+	}
+
+	if dataURI1 == dataURI2 {
+		t.Fatal("different images should produce different blur placeholders")
+	}
+}
+
+func TestRegistry_BlurPlaceholder_NonExistent(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+
+	_, err := r.BlurPlaceholder("/nonexistent/image.jpg")
+	if err == nil {
+		t.Fatal("expected error for non-existent file")
+	}
+}
+
+func TestRegistry_BlurPlaceholder_Concurrent(t *testing.T) {
+	r, _ := newTestRegistry(t, false)
+	srcDir := t.TempDir()
+
+	src := createTestImage(t, srcDir, "blur_concurrent.jpg", 300, 200, "jpeg")
+
+	const N = 10
+	var wg sync.WaitGroup
+	results := make([]string, N)
+	errs := make([]error, N)
+
+	wg.Add(N)
+	for i := range N {
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errs[idx] = r.BlurPlaceholder(src)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("goroutine %d: %v", i, err)
+		}
+	}
+
+	// All results must be identical
+	for i := 1; i < N; i++ {
+		if results[i] != results[0] {
+			t.Fatalf("goroutine %d returned different result", i)
+		}
 	}
 }

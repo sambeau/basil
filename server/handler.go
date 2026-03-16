@@ -308,9 +308,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
 
-	// Inject image() and imageInfo() functions for image transformation
+	// Inject image(), imageInfo(), and imageBlur() functions for image transformation
 	env.SetProtected("image", evaluator.NewImageBuiltin())
 	env.SetProtected("imageInfo", evaluator.NewImageInfoBuiltin())
+	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
 
 	// Inject @SEARCH built-in for full-text search
 	env.SetProtected("SEARCH", NewSearchBuiltin(env))

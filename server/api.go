@@ -99,9 +99,10 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
 
-	// Inject image() and imageInfo() functions for image transformation
+	// Inject image(), imageInfo(), and imageBlur() functions for image transformation
 	env.SetProtected("image", evaluator.NewImageBuiltin())
 	env.SetProtected("imageInfo", evaluator.NewImageInfoBuiltin())
+	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
 
 	// Inject @params - merged query+form params (POST wins)
 	env.Set("@params", buildParams(r, env))

@@ -50,6 +50,11 @@ func (m *mockImageRegistry) Info(sourcePath string) (map[string]any, error) {
 	}, nil
 }
 
+func (m *mockImageRegistry) BlurPlaceholder(sourcePath string) (string, error) {
+	// Return a deterministic data URI for testing
+	return "data:image/jpeg;base64,/9j/4AAQSkZJRg==", nil
+}
+
 // evalWithImage sets up environment with image() and imageInfo() functions and image registry
 func evalWithImage(t *testing.T, input, filename, rootPath string) (evaluator.Object, *mockImageRegistry) {
 	t.Helper()
@@ -70,9 +75,10 @@ func evalWithImage(t *testing.T, input, filename, rootPath string) (evaluator.Ob
 	registry := newMockImageRegistry()
 	env.ImageRegistry = registry
 
-	// Inject image and imageInfo functions
+	// Inject image, imageInfo, and imageBlur functions
 	env.SetProtected("image", evaluator.NewImageBuiltin())
 	env.SetProtected("imageInfo", evaluator.NewImageInfoBuiltin())
+	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
 
 	return evaluator.Eval(program, env), registry
 }
@@ -421,4 +427,138 @@ func TestImageInfoWrongArity(t *testing.T) {
 			t.Errorf("expected ArityError, got %s", errObj.Class)
 		}
 	})
+}
+
+// === imageBlur() tests ===
+
+func TestImageBlurBasic(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a test image file
+	testFile := filepath.Join(tmpDir, "photo.jpg")
+	if err := os.WriteFile(testFile, []byte("fake image data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	input := `imageBlur(@./photo.jpg)`
+	result, _ := evalWithImage(t, input, filepath.Join(tmpDir, "test.pars"), tmpDir)
+
+	strObj, ok := result.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String, got %T (%v)", result, result)
+	}
+
+	// Should return a data URI
+	if !strings.HasPrefix(strObj.Value, "data:image/jpeg;base64,") {
+		t.Errorf("expected data URI, got: %s", strObj.Value)
+	}
+}
+
+func TestImageBlurNotInHandler(t *testing.T) {
+	l := lexer.New(`imageBlur(@./photo.jpg)`)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	env := evaluator.NewEnvironment()
+	// No ImageRegistry set
+
+	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
+
+	result := evaluator.Eval(program, env)
+
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected Error, got %T (%v)", result, result)
+	}
+
+	if errObj.Class != errors.ClassState {
+		t.Errorf("expected state error class, got: %s", errObj.Class)
+	}
+
+	msg := strings.ToLower(errObj.Message)
+	if !strings.Contains(msg, "handler") && !strings.Contains(msg, "server") {
+		t.Errorf("error should mention handler/server context, got: %s", errObj.Message)
+	}
+}
+
+func TestImageBlurWrongArity(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// No arguments
+	t.Run("no args", func(t *testing.T) {
+		input := `imageBlur()`
+		result, _ := evalWithImage(t, input, filepath.Join(tmpDir, "test.pars"), tmpDir)
+
+		errObj, ok := result.(*evaluator.Error)
+		if !ok {
+			t.Fatalf("expected Error, got %T", result)
+		}
+
+		if errObj.Class != errors.ClassArity {
+			t.Errorf("expected ArityError, got %s", errObj.Class)
+		}
+	})
+
+	// Too many arguments
+	t.Run("too many args", func(t *testing.T) {
+		testFile := filepath.Join(tmpDir, "a.jpg")
+		if err := os.WriteFile(testFile, []byte("fake"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		input := `imageBlur(@./a.jpg, "extra")`
+		result, _ := evalWithImage(t, input, filepath.Join(tmpDir, "test.pars"), tmpDir)
+
+		errObj, ok := result.(*evaluator.Error)
+		if !ok {
+			t.Fatalf("expected Error, got %T", result)
+		}
+
+		if errObj.Class != errors.ClassArity {
+			t.Errorf("expected ArityError, got %s", errObj.Class)
+		}
+	})
+}
+
+func TestImageBlurSecurityPathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Try to access a path outside the root
+	input := `imageBlur(@./../../../etc/passwd)`
+	result, _ := evalWithImage(t, input, filepath.Join(tmpDir, "test.pars"), tmpDir)
+
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected Error for path traversal, got %T (%v)", result, result)
+	}
+
+	if errObj.Class != errors.ClassSecurity {
+		t.Errorf("expected security error class, got: %s", errObj.Class)
+	}
+}
+
+// evalWithImageBlur sets up environment with imageBlur() function
+func evalWithImageBlur(t *testing.T, input, filename, rootPath string) (evaluator.Object, *mockImageRegistry) {
+	t.Helper()
+
+	l := lexer.NewWithFilename(input, filename)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	env.Filename = filename
+	env.RootPath = rootPath
+
+	// Set up image registry
+	registry := newMockImageRegistry()
+	env.ImageRegistry = registry
+
+	// Inject imageBlur function
+	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
+
+	return evaluator.Eval(program, env), registry
 }

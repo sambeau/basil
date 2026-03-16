@@ -3,6 +3,7 @@ package images
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"image"
@@ -265,4 +266,45 @@ func SourceHash(path string) (string, error) {
 	}
 
 	return hex.EncodeToString(h.Sum(nil))[:16], nil
+}
+
+// BlurPlaceholderWidth is the target width for LQIP thumbnails.
+const BlurPlaceholderWidth = 20
+
+// BlurPlaceholderSigma is the Gaussian blur sigma for LQIP.
+const BlurPlaceholderSigma = 10.0
+
+// BlurPlaceholderQuality is the JPEG quality for LQIP encoding.
+const BlurPlaceholderQuality = 20
+
+// GenerateBlurPlaceholder creates a Low Quality Image Placeholder (LQIP) data URI.
+// The pipeline: resize to 20px wide → Gaussian blur (σ=10) → JPEG q=20 → base64.
+// Returns a data URI string: "data:image/jpeg;base64,..."
+func GenerateBlurPlaceholder(sourcePath string) (string, error) {
+	// Load the full image
+	img, format, err := Load(sourcePath)
+	if err != nil {
+		return "", fmt.Errorf("load image: %w", err)
+	}
+
+	// SVG is not supported for blur placeholder
+	if format == "svg" {
+		return "", fmt.Errorf("SVG images are not supported for blur placeholder")
+	}
+
+	// Resize to thumbnail width (preserving aspect ratio)
+	thumbnail := imaging.Resize(img, BlurPlaceholderWidth, 0, imaging.Lanczos)
+
+	// Apply Gaussian blur
+	blurred := imaging.Blur(thumbnail, BlurPlaceholderSigma)
+
+	// Encode as JPEG
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, blurred, &jpeg.Options{Quality: BlurPlaceholderQuality}); err != nil {
+		return "", fmt.Errorf("encode jpeg: %w", err)
+	}
+
+	// Base64 encode and return as data URI
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return "data:image/jpeg;base64," + encoded, nil
 }

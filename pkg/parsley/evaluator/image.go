@@ -25,6 +25,15 @@ func NewImageInfoBuiltin() *StdlibBuiltin {
 	}
 }
 
+// NewImageBlurBuiltin creates the imageBlur() builtin function.
+// This function generates a Low Quality Image Placeholder (LQIP) data URI.
+func NewImageBlurBuiltin() *StdlibBuiltin {
+	return &StdlibBuiltin{
+		Name: "imageBlur",
+		Fn:   evalImageBlur,
+	}
+}
+
 // evalImage handles the image(@./path) and image(@./path, options) builtins.
 // It transforms the image (if options provided), caches the result, and returns the public URL.
 func evalImage(args []Object, env *Environment) Object {
@@ -87,6 +96,52 @@ func evalImage(args []Object, env *Environment) Object {
 	}
 
 	return &String{Value: url}
+}
+
+// evalImageBlur handles the imageBlur(@./path) builtin.
+// It generates a Low Quality Image Placeholder (LQIP) and returns a data URI.
+func evalImageBlur(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newArityError("imageBlur", len(args), 1)
+	}
+
+	// Check if image registry is available
+	if env.ImageRegistry == nil {
+		return &Error{
+			Class:   ErrorClass("state"),
+			Message: "imageBlur() is only available in Basil server handlers",
+			Hints:   []string{"This function requires the Basil server environment"},
+		}
+	}
+
+	// Get path from argument
+	pathStr, err := extractImagePath(args[0], "imageBlur")
+	if err != nil {
+		return err
+	}
+
+	// Resolve the path relative to the current file
+	absPath, pathErr := resolveImagePath(pathStr, env)
+	if pathErr != nil {
+		return pathErr
+	}
+
+	// Security check: ensure path is within handler root
+	if secErr := checkImagePathSecurity(absPath, env, "imageBlur"); secErr != nil {
+		return secErr
+	}
+
+	// Generate blur placeholder via registry
+	dataURI, blurErr := env.ImageRegistry.BlurPlaceholder(absPath)
+	if blurErr != nil {
+		return &Error{
+			Class:   ErrorClass("io"),
+			Message: "imageBlur(): " + blurErr.Error(),
+			Hints:   []string{"Check that the file exists and is a supported image format (JPEG, PNG, GIF, WebP)"},
+		}
+	}
+
+	return &String{Value: dataURI}
 }
 
 // evalImageInfo handles the imageInfo(@./path) builtin.

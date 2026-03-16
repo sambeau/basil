@@ -1,6 +1,8 @@
 package images
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -236,4 +238,70 @@ func (r *Registry) CacheStats() (count int, size int64, err error) {
 // formatImageURL returns the public URL for a cached image.
 func formatImageURL(key, ext string) string {
 	return "/__img/" + key + ext
+}
+
+// BlurPlaceholder generates a Low Quality Image Placeholder (LQIP) data URI.
+// Results are cached to disk and deduplicated via singleflight.
+// The data URI format is: "data:image/jpeg;base64,..."
+func (r *Registry) BlurPlaceholder(sourcePath string) (string, error) {
+	// Compute source hash for cache key
+	sourceHash, err := SourceHash(sourcePath)
+	if err != nil {
+		return "", fmt.Errorf("hash source: %w", err)
+	}
+
+	// Cache key includes "blur" to distinguish from transform cache entries
+	cacheKey := blurCacheKey(sourceHash)
+
+	// Check disk cache (store as .txt file containing the data URI)
+	if cachedPath, exists := r.cache.Exists(cacheKey, ".txt"); exists {
+		// In dev mode, verify freshness
+		if r.devMode && !r.cache.IsFresh(cacheKey, ".txt", sourcePath) {
+			// Source changed, regenerate
+		} else {
+			// Read cached data URI
+			data, err := os.ReadFile(cachedPath)
+			if err == nil {
+				return string(data), nil
+			}
+			// Cache read failed, regenerate
+		}
+	}
+
+	// Use singleflight to deduplicate concurrent requests
+	result, err, _ := r.group.Do("blur:"+cacheKey, func() (any, error) {
+		return r.doBlurPlaceholder(sourcePath, cacheKey)
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return result.(string), nil
+}
+
+// doBlurPlaceholder generates and caches a blur placeholder.
+func (r *Registry) doBlurPlaceholder(sourcePath, cacheKey string) (string, error) {
+	// Generate the blur placeholder
+	dataURI, err := GenerateBlurPlaceholder(sourcePath)
+	if err != nil {
+		return "", fmt.Errorf("generate blur placeholder: %w", err)
+	}
+
+	// Write to cache (store as text file)
+	_, err = r.cache.Write(cacheKey, ".txt", []byte(dataURI))
+	if err != nil {
+		// Log but don't fail - caching is optional
+		if r.logger != nil {
+			r.logger("blur placeholder cache write failed: %v", err)
+		}
+	}
+
+	return dataURI, nil
+}
+
+// blurCacheKey computes a cache key for blur placeholders.
+func blurCacheKey(sourceHash string) string {
+	canonical := sourceHash + "|blur"
+	hash := sha256.Sum256([]byte(canonical))
+	return hex.EncodeToString(hash[:])[:16]
 }

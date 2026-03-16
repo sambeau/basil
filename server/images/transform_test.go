@@ -1,10 +1,14 @@
 package images
 
 import (
+	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/disintegration/imaging"
@@ -605,6 +609,136 @@ func TestTransform_Sharpen(t *testing.T) {
 		bounds := result.Bounds()
 		if bounds.Dx() != 100 {
 			t.Errorf("Transform with explicit sharpen: got width %d, want 100", bounds.Dx())
+		}
+	})
+}
+
+func TestGenerateBlurPlaceholder(t *testing.T) {
+	dir := t.TempDir()
+
+	t.Run("generates valid data URI", func(t *testing.T) {
+		path := createTestImage(t, dir, "blur_test.jpg", 400, 300, "jpeg")
+
+		dataURI, err := GenerateBlurPlaceholder(path)
+		if err != nil {
+			t.Fatalf("GenerateBlurPlaceholder() error = %v", err)
+		}
+
+		// Should start with data URI prefix
+		prefix := "data:image/jpeg;base64,"
+		if !strings.HasPrefix(dataURI, prefix) {
+			t.Errorf("GenerateBlurPlaceholder() should start with %q, got %q", prefix, dataURI[:min(len(dataURI), 50)])
+		}
+
+		// Should be reasonable size (typically 600-900 bytes encoded)
+		if len(dataURI) < 100 || len(dataURI) > 2000 {
+			t.Errorf("GenerateBlurPlaceholder() unexpected length = %d, want 100-2000", len(dataURI))
+		}
+	})
+
+	t.Run("decodes to valid JPEG", func(t *testing.T) {
+		path := createTestImage(t, dir, "blur_decode.jpg", 200, 150, "jpeg")
+
+		dataURI, err := GenerateBlurPlaceholder(path)
+		if err != nil {
+			t.Fatalf("GenerateBlurPlaceholder() error = %v", err)
+		}
+
+		// Extract base64 data
+		prefix := "data:image/jpeg;base64,"
+		if !strings.HasPrefix(dataURI, prefix) {
+			t.Fatal("Invalid data URI prefix")
+		}
+		b64Data := dataURI[len(prefix):]
+
+		// Decode base64
+		jpegData, err := base64.StdEncoding.DecodeString(b64Data)
+		if err != nil {
+			t.Fatalf("Base64 decode error = %v", err)
+		}
+
+		// Decode JPEG
+		img, err := jpeg.Decode(bytes.NewReader(jpegData))
+		if err != nil {
+			t.Fatalf("JPEG decode error = %v", err)
+		}
+
+		// Should be BlurPlaceholderWidth wide (20px)
+		bounds := img.Bounds()
+		if bounds.Dx() != BlurPlaceholderWidth {
+			t.Errorf("Blur placeholder width = %d, want %d", bounds.Dx(), BlurPlaceholderWidth)
+		}
+	})
+
+	t.Run("works with PNG source", func(t *testing.T) {
+		path := createTestImage(t, dir, "blur_png.png", 300, 200, "png")
+
+		dataURI, err := GenerateBlurPlaceholder(path)
+		if err != nil {
+			t.Fatalf("GenerateBlurPlaceholder() error = %v", err)
+		}
+
+		// Should still output JPEG data URI
+		if !strings.HasPrefix(dataURI, "data:image/jpeg;base64,") {
+			t.Error("PNG source should still produce JPEG data URI")
+		}
+	})
+
+	t.Run("works with GIF source", func(t *testing.T) {
+		path := createTestImage(t, dir, "blur_gif.gif", 100, 100, "gif")
+
+		dataURI, err := GenerateBlurPlaceholder(path)
+		if err != nil {
+			t.Fatalf("GenerateBlurPlaceholder() error = %v", err)
+		}
+
+		if !strings.HasPrefix(dataURI, "data:image/jpeg;base64,") {
+			t.Error("GIF source should still produce JPEG data URI")
+		}
+	})
+
+	t.Run("error on non-existent file", func(t *testing.T) {
+		_, err := GenerateBlurPlaceholder(filepath.Join(dir, "nonexistent.jpg"))
+		if err == nil {
+			t.Error("GenerateBlurPlaceholder() expected error for non-existent file")
+		}
+	})
+
+	t.Run("error on unsupported format", func(t *testing.T) {
+		// Create a file with unsupported extension
+		unsupportedPath := filepath.Join(dir, "test.bmp")
+		if err := os.WriteFile(unsupportedPath, []byte("not a real image"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := GenerateBlurPlaceholder(unsupportedPath)
+		if err == nil {
+			t.Error("GenerateBlurPlaceholder() expected error for unsupported format")
+		}
+	})
+
+	t.Run("preserves aspect ratio", func(t *testing.T) {
+		// Wide image (400x100 = 4:1 aspect ratio)
+		widePath := createTestImage(t, dir, "blur_wide.jpg", 400, 100, "jpeg")
+
+		dataURI, err := GenerateBlurPlaceholder(widePath)
+		if err != nil {
+			t.Fatalf("GenerateBlurPlaceholder() error = %v", err)
+		}
+
+		// Decode and check dimensions
+		prefix := "data:image/jpeg;base64,"
+		b64Data := dataURI[len(prefix):]
+		jpegData, _ := base64.StdEncoding.DecodeString(b64Data)
+		img, _ := jpeg.Decode(bytes.NewReader(jpegData))
+
+		bounds := img.Bounds()
+		// 20px wide with 4:1 ratio should be 20x5
+		if bounds.Dx() != 20 {
+			t.Errorf("Wide image width = %d, want 20", bounds.Dx())
+		}
+		if bounds.Dy() != 5 {
+			t.Errorf("Wide image height = %d, want 5", bounds.Dy())
 		}
 	})
 }

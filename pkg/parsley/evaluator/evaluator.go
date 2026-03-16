@@ -61,6 +61,8 @@ type ImageRegistrar interface {
 	Transform(sourcePath string, opts map[string]any) (string, error)
 	// Info returns metadata about an image without transforming it.
 	Info(sourcePath string) (map[string]any, error)
+	// BlurPlaceholder generates a Low Quality Image Placeholder (LQIP) data URI.
+	BlurPlaceholder(sourcePath string) (string, error)
 }
 
 // AssetBundler provides site-wide CSS/JS bundle URLs for <Css/> and <Script/> tags.
