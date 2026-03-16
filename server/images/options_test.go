@@ -104,6 +104,37 @@ func TestParseOptions(t *testing.T) {
 			opts:    map[string]any{"unknown": "value"},
 			wantErr: "unknown option: unknown",
 		},
+		// Sharpen option tests
+		{
+			name: "sharpen false",
+			opts: map[string]any{"sharpen": false},
+			want: TransformOptions{SharpenDisabled: true},
+		},
+		{
+			name: "sharpen true",
+			opts: map[string]any{"sharpen": true},
+			want: TransformOptions{}, // Both zero = use default
+		},
+		{
+			name: "sharpen float",
+			opts: map[string]any{"sharpen": 0.8},
+			want: TransformOptions{Sharpen: 0.8},
+		},
+		{
+			name: "sharpen int",
+			opts: map[string]any{"sharpen": 1},
+			want: TransformOptions{Sharpen: 1.0},
+		},
+		{
+			name: "sharpen int64",
+			opts: map[string]any{"sharpen": int64(2)},
+			want: TransformOptions{Sharpen: 2.0},
+		},
+		{
+			name:    "sharpen invalid type",
+			opts:    map[string]any{"sharpen": "high"},
+			wantErr: "sharpen: expected boolean or number",
+		},
 	}
 
 	for _, tt := range tests {
@@ -254,6 +285,33 @@ func TestTransformOptions_Validate(t *testing.T) {
 			maxWidth:  0,
 			maxHeight: 0,
 		},
+		// Sharpen validation tests
+		{
+			name:      "valid sharpen sigma",
+			opts:      TransformOptions{Sharpen: 0.5},
+			maxWidth:  4096,
+			maxHeight: 4096,
+		},
+		{
+			name:      "negative sharpen",
+			opts:      TransformOptions{Sharpen: -0.5},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "sharpen must be non-negative",
+		},
+		{
+			name:      "sharpen disabled",
+			opts:      TransformOptions{SharpenDisabled: true},
+			maxWidth:  4096,
+			maxHeight: 4096,
+		},
+		{
+			name:      "sharpen set and disabled",
+			opts:      TransformOptions{Sharpen: 0.5, SharpenDisabled: true},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "sharpen cannot be both set",
+		},
 	}
 
 	for _, tt := range tests {
@@ -285,12 +343,12 @@ func TestTransformOptions_Canonical(t *testing.T) {
 		{
 			name: "empty options",
 			opts: TransformOptions{},
-			want: "w=0|h=0|c=|q=0|f=",
+			want: "w=0|h=0|c=|q=0|f=|s=0",
 		},
 		{
 			name: "with dimensions",
 			opts: TransformOptions{Width: 300, Height: 200},
-			want: "w=300|h=200|c=|q=0|f=",
+			want: "w=300|h=200|c=|q=0|f=|s=0",
 		},
 		{
 			name: "with all options",
@@ -301,7 +359,17 @@ func TestTransformOptions_Canonical(t *testing.T) {
 				Quality: 85,
 				Format:  "JPEG",
 			},
-			want: "w=400|h=300|c=center|q=85|f=jpeg",
+			want: "w=400|h=300|c=center|q=85|f=jpeg|s=0",
+		},
+		{
+			name: "with sharpen disabled",
+			opts: TransformOptions{Width: 300, SharpenDisabled: true},
+			want: "w=300|h=0|c=|q=0|f=|s=off",
+		},
+		{
+			name: "with explicit sharpen",
+			opts: TransformOptions{Width: 300, Sharpen: 0.8},
+			want: "w=300|h=0|c=|q=0|f=|s=0.80",
 		},
 	}
 
@@ -341,6 +409,23 @@ func TestCacheKey(t *testing.T) {
 	key4 := CacheKey("def456", opts)
 	if key1 == key4 {
 		t.Errorf("Different source hashes should produce different keys")
+	}
+
+	// Sharpen state should produce different keys
+	optsSharpened := TransformOptions{Width: 300, Height: 200, Sharpen: 0.5}
+	keySharpened := CacheKey("abc123", optsSharpened)
+	if key1 == keySharpened {
+		t.Errorf("Sharpened options should produce different cache key")
+	}
+
+	optsNoSharpen := TransformOptions{Width: 300, Height: 200, SharpenDisabled: true}
+	keyNoSharpen := CacheKey("abc123", optsNoSharpen)
+	if key1 == keyNoSharpen {
+		t.Errorf("SharpenDisabled options should produce different cache key")
+	}
+
+	if keySharpened == keyNoSharpen {
+		t.Errorf("Sharpened vs disabled should produce different cache keys")
 	}
 }
 

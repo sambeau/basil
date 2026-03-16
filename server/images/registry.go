@@ -45,6 +45,9 @@ func NewRegistry(cacheDir string, maxWidth, maxHeight, defaultQuality int, defau
 // Transform transforms an image with the given options, caches the result,
 // and returns the public URL (e.g., /__img/{hash}.jpg).
 // Concurrent requests for the same transformation are deduplicated via singleflight.
+// DefaultSharpenSigma is the default sharpening sigma applied on downscale.
+const DefaultSharpenSigma = 0.5
+
 func (r *Registry) Transform(sourcePath string, opts map[string]any) (string, error) {
 	// Parse and validate options
 	transformOpts, err := ParseOptions(opts)
@@ -58,6 +61,11 @@ func (r *Registry) Transform(sourcePath string, opts map[string]any) (string, er
 	}
 	if transformOpts.Format == "" && r.defaultFormat != "" {
 		transformOpts.Format = r.defaultFormat
+	}
+
+	// Apply default sharpen sigma if not explicitly set or disabled
+	if transformOpts.Sharpen == 0 && !transformOpts.SharpenDisabled {
+		transformOpts.Sharpen = DefaultSharpenSigma
 	}
 
 	// Validate against limits

@@ -71,6 +71,8 @@ func Load(path string) (image.Image, string, error) {
 
 // Transform applies resize/crop transformations to an image.
 // It returns a new image with the transformations applied.
+// If sharpening is enabled (opts.Sharpen > 0) and the image was downscaled,
+// sharpening is applied after the resize.
 func Transform(img image.Image, opts TransformOptions) image.Image {
 	bounds := img.Bounds()
 	srcWidth := bounds.Dx()
@@ -93,27 +95,33 @@ func Transform(img image.Image, opts TransformOptions) image.Image {
 	}
 
 	// Handle different resize modes
+	var result image.Image
 	if opts.Crop == "center" && targetWidth > 0 && targetHeight > 0 {
 		// Fill the box and crop excess from center
-		return imaging.Fill(img, targetWidth, targetHeight, imaging.Center, imaging.Lanczos)
-	}
-
-	if targetWidth > 0 && targetHeight > 0 {
+		result = imaging.Fill(img, targetWidth, targetHeight, imaging.Center, imaging.Lanczos)
+	} else if targetWidth > 0 && targetHeight > 0 {
 		// Fit within box, preserve aspect ratio
-		return imaging.Fit(img, targetWidth, targetHeight, imaging.Lanczos)
-	}
-
-	if targetWidth > 0 {
+		result = imaging.Fit(img, targetWidth, targetHeight, imaging.Lanczos)
+	} else if targetWidth > 0 {
 		// Resize to width, preserve aspect ratio
-		return imaging.Resize(img, targetWidth, 0, imaging.Lanczos)
-	}
-
-	if targetHeight > 0 {
+		result = imaging.Resize(img, targetWidth, 0, imaging.Lanczos)
+	} else if targetHeight > 0 {
 		// Resize to height, preserve aspect ratio
-		return imaging.Resize(img, 0, targetHeight, imaging.Lanczos)
+		result = imaging.Resize(img, 0, targetHeight, imaging.Lanczos)
+	} else {
+		result = img
 	}
 
-	return img
+	// Apply sharpening if enabled and image was downscaled
+	if opts.Sharpen > 0 {
+		resultBounds := result.Bounds()
+		wasDownscaled := resultBounds.Dx() < srcWidth || resultBounds.Dy() < srcHeight
+		if wasDownscaled {
+			result = imaging.Sharpen(result, opts.Sharpen)
+		}
+	}
+
+	return result
 }
 
 // Encode writes an image to a buffer in the specified format.

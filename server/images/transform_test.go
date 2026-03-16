@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/disintegration/imaging"
 )
 
 // createTestImage creates a simple test image file.
@@ -510,6 +512,101 @@ func TestEncode_WebPOutputError(t *testing.T) {
 	if err == nil {
 		t.Error("Encode(webp) should return an error when WebP encoding is not supported")
 	}
+}
+
+func TestTransform_Sharpen(t *testing.T) {
+	// Create a 200x100 test image with a pattern
+	img := image.NewRGBA(image.Rect(0, 0, 200, 100))
+	for y := 0; y < 100; y++ {
+		for x := 0; x < 200; x++ {
+			// Create a gradient pattern
+			img.Set(x, y, color.RGBA{
+				R: uint8((x * 255) / 200),
+				G: uint8((y * 255) / 100),
+				B: 128,
+				A: 255,
+			})
+		}
+	}
+
+	t.Run("sharpen applied on downscale", func(t *testing.T) {
+		// Transform with sharpen
+		optsWithSharpen := TransformOptions{Width: 100, Sharpen: 0.5}
+		resultSharpened := Transform(img, optsWithSharpen)
+
+		// Transform without sharpen
+		optsNoSharpen := TransformOptions{Width: 100, SharpenDisabled: true}
+		resultUnsharpened := Transform(img, optsNoSharpen)
+
+		// Both should have the same dimensions
+		if resultSharpened.Bounds() != resultUnsharpened.Bounds() {
+			t.Error("Sharpened and unsharpened should have same dimensions")
+		}
+
+		// But they should differ in pixel values (sharpening modifies pixels)
+		// Compare a few pixels to verify sharpening had an effect
+		sharpenedNRGBA := imaging.Clone(resultSharpened)
+		unsharpenedNRGBA := imaging.Clone(resultUnsharpened)
+
+		different := false
+		bounds := sharpenedNRGBA.Bounds()
+		for y := bounds.Min.Y; y < bounds.Max.Y && !different; y++ {
+			for x := bounds.Min.X; x < bounds.Max.X && !different; x++ {
+				if sharpenedNRGBA.At(x, y) != unsharpenedNRGBA.At(x, y) {
+					different = true
+				}
+			}
+		}
+
+		if !different {
+			t.Error("Sharpening should produce different pixel values")
+		}
+	})
+
+	t.Run("sharpen not applied without downscale", func(t *testing.T) {
+		// No resize (same dimensions) - sharpen should NOT be applied
+		optsNoResize := TransformOptions{Sharpen: 0.5}
+		result := Transform(img, optsNoResize)
+
+		// Result should be identical to input (no transform, no sharpen)
+		if result.Bounds() != img.Bounds() {
+			t.Error("No-resize transform should preserve dimensions")
+		}
+	})
+
+	t.Run("sharpen not applied on upscale request", func(t *testing.T) {
+		// Request larger than source - gets clamped, no actual resize
+		optsUpscale := TransformOptions{Width: 400, Sharpen: 0.5}
+		result := Transform(img, optsUpscale)
+
+		// Should be clamped to source size (no upscaling)
+		bounds := result.Bounds()
+		if bounds.Dx() != 200 || bounds.Dy() != 100 {
+			t.Errorf("Upscale should be clamped to source: got %dx%d, want 200x100",
+				bounds.Dx(), bounds.Dy())
+		}
+	})
+
+	t.Run("sharpen disabled explicitly", func(t *testing.T) {
+		optsDisabled := TransformOptions{Width: 100, SharpenDisabled: true}
+		result := Transform(img, optsDisabled)
+
+		// Just verify it doesn't panic and produces correct dimensions
+		bounds := result.Bounds()
+		if bounds.Dx() != 100 {
+			t.Errorf("Transform with sharpen disabled: got width %d, want 100", bounds.Dx())
+		}
+	})
+
+	t.Run("explicit sharpen sigma", func(t *testing.T) {
+		opts := TransformOptions{Width: 100, Sharpen: 1.5}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 100 {
+			t.Errorf("Transform with explicit sharpen: got width %d, want 100", bounds.Dx())
+		}
+	})
 }
 
 func TestProcess_WebPInputFallsBackToJPEG(t *testing.T) {

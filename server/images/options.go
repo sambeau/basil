@@ -10,11 +10,13 @@ import (
 
 // TransformOptions specifies how to transform an image.
 type TransformOptions struct {
-	Width   int    // Target width (0 = auto/preserve aspect ratio)
-	Height  int    // Target height (0 = auto/preserve aspect ratio)
-	Crop    string // "center" or "" (no crop — fit within box)
-	Quality int    // 1-100, 0 = format default (JPEG: 85, WebP: 80, PNG: lossless)
-	Format  string // "webp", "jpeg", "png", or "" (preserve original)
+	Width           int     // Target width (0 = auto/preserve aspect ratio)
+	Height          int     // Target height (0 = auto/preserve aspect ratio)
+	Crop            string  // "center" or "" (no crop — fit within box)
+	Quality         int     // 1-100, 0 = format default (JPEG: 85, WebP: 80, PNG: lossless)
+	Format          string  // "webp", "jpeg", "png", or "" (preserve original)
+	Sharpen         float64 // Sharpen sigma (0 = use default on downscale, >0 = explicit)
+	SharpenDisabled bool    // Explicitly disabled via {sharpen: false}
 }
 
 // DefaultQuality returns the default quality for a given format.
@@ -73,6 +75,23 @@ func ParseOptions(opts map[string]any) (TransformOptions, error) {
 			}
 			t.Format = f
 
+		case "sharpen":
+			switch v := val.(type) {
+			case bool:
+				if !v {
+					t.SharpenDisabled = true
+				}
+				// sharpen: true means use default, leave Sharpen at 0
+			case int:
+				t.Sharpen = float64(v)
+			case int64:
+				t.Sharpen = float64(v)
+			case float64:
+				t.Sharpen = v
+			default:
+				return t, fmt.Errorf("sharpen: expected boolean or number, got %T", val)
+			}
+
 		default:
 			return t, fmt.Errorf("unknown option: %s", key)
 		}
@@ -109,14 +128,26 @@ func (t *TransformOptions) Validate(maxWidth, maxHeight int) error {
 			return fmt.Errorf("unsupported format %q (supported: jpeg, png, webp, gif)", t.Format)
 		}
 	}
+	if t.Sharpen < 0 {
+		return fmt.Errorf("sharpen must be non-negative, got %v", t.Sharpen)
+	}
+	if t.Sharpen > 0 && t.SharpenDisabled {
+		return fmt.Errorf("sharpen cannot be both set (%v) and disabled", t.Sharpen)
+	}
 	return nil
 }
 
 // Canonical returns a stable string representation of the options for cache key computation.
 // The format is deterministic: options are always in the same order.
 func (t *TransformOptions) Canonical() string {
-	return fmt.Sprintf("w=%d|h=%d|c=%s|q=%d|f=%s",
-		t.Width, t.Height, t.Crop, t.Quality, strings.ToLower(t.Format))
+	sharpenStr := "0"
+	if t.SharpenDisabled {
+		sharpenStr = "off"
+	} else if t.Sharpen > 0 {
+		sharpenStr = fmt.Sprintf("%.2f", t.Sharpen)
+	}
+	return fmt.Sprintf("w=%d|h=%d|c=%s|q=%d|f=%s|s=%s",
+		t.Width, t.Height, t.Crop, t.Quality, strings.ToLower(t.Format), sharpenStr)
 }
 
 // CacheKey computes a cache key from a source hash and transform options.
