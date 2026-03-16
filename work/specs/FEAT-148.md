@@ -166,8 +166,8 @@ Carried forward from original spec, plus items deferred from Phase 2 based on in
 - [ ] Smart crop via focal point detection: `{crop: "smart"}`
   - *Deferred: only viable library (`muesli/smartcrop`, ~1.9k ⭐) is dormant (last human commit Jan 2022, last release 2019) with known quality issues. No alternative pure-Go libraries exist. Returns `image.Rectangle` — requires `imaging.Crop()` + `imaging.Resize()` (not compatible with `imaging.Fill()`). Evaluate when there is user demand.*
   - If adopted: vendor or fork `muesli/smartcrop`, replace its `nfnt/resize` dep with custom `imaging`-based resizer via its `Resizer` interface.
-- [ ] WebP output encoding via `gen2brain/webp`
-  - *Deferred: codebase is fully prepared (options parsing, validation, format normalization, quality defaults all handle "webp"). The only missing piece is the encoder call in `Encode()` (~4 lines). Binary size impact unmeasured — current basil is 35MB, pars is 27MB. Measure when `imageSrcset()` is shipping (WebP output matters most for responsive images).*
+- [x] WebP output encoding via `gen2brain/webp`
+  - *Implemented: `gen2brain/webp` v0.5.5 added. Binary impact: basil +4.0 MiB (35.4→39.4 MiB), pars unchanged. WebP produces 67–72% smaller files for typical photos. Encoding ~3× slower than JPEG on WASM fallback, mitigated by disk cache + singleflight dedup. Install system `libwebp` for near-native speed. See `work/reports/FEAT-148-webp-encoding-investigation.md`.*
 
 **Original Phase 3 items:**
 
