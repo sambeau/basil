@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/disintegration/imaging"
+	"github.com/gen2brain/webp"
 	_ "golang.org/x/image/webp" // WebP decode support
 )
 
@@ -155,9 +156,13 @@ func Encode(img image.Image, format string, quality int) ([]byte, error) {
 		}
 
 	case "webp":
-		// WebP encoding requires gen2brain/webp which is not yet included.
-		// Return an error so the caller knows WebP output isn't supported.
-		return nil, fmt.Errorf("WebP output encoding not supported; use format: \"jpeg\" or \"png\" instead")
+		q := quality
+		if q == 0 {
+			q = DefaultQuality("webp")
+		}
+		if err := webp.Encode(&buf, img, webp.Options{Quality: q}); err != nil {
+			return nil, fmt.Errorf("encode webp: %w", err)
+		}
 
 	default:
 		return nil, fmt.Errorf("unsupported output format: %s", format)
@@ -182,11 +187,6 @@ func Process(sourcePath string, opts TransformOptions) ([]byte, string, error) {
 	outputFormat := opts.Format
 	if outputFormat == "" {
 		outputFormat = sourceFormat
-	}
-
-	// WebP input but no explicit output format: fall back to JPEG since we can't encode WebP
-	if outputFormat == "webp" && opts.Format == "" {
-		outputFormat = "jpeg"
 	}
 
 	_, ext := NormalizeFormat(outputFormat)

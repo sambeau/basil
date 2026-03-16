@@ -565,7 +565,7 @@ func TestSourceHash(t *testing.T) {
 	}
 }
 
-func TestEncode_WebPOutputError(t *testing.T) {
+func TestEncode_WebPOutput(t *testing.T) {
 	// Create a simple test image
 	img := image.NewRGBA(image.Rect(0, 0, 50, 50))
 	for y := range 50 {
@@ -574,10 +574,18 @@ func TestEncode_WebPOutputError(t *testing.T) {
 		}
 	}
 
-	// WebP output should return an error since we don't have the encoder
-	_, err := Encode(img, "webp", 80)
-	if err == nil {
-		t.Error("Encode(webp) should return an error when WebP encoding is not supported")
+	// WebP output should succeed now that we have the encoder
+	data, err := Encode(img, "webp", 80)
+	if err != nil {
+		t.Fatalf("Encode(webp) error = %v", err)
+	}
+	if len(data) == 0 {
+		t.Error("Encode(webp) returned empty data")
+	}
+
+	// Verify it starts with a RIFF/WEBP header
+	if len(data) < 12 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
+		t.Error("Encode(webp) output does not have RIFF/WEBP header")
 	}
 }
 
@@ -806,19 +814,30 @@ func TestGenerateBlurPlaceholder(t *testing.T) {
 	})
 }
 
-func TestProcess_WebPInputFallsBackToJPEG(t *testing.T) {
-	// This test verifies that when we have a WebP source and no explicit output format,
-	// we fall back to JPEG since we can't encode WebP.
-	// We can't easily test this without a real WebP file, but we can verify the logic
-	// by checking the code path through the options.
-
+func TestProcess_WebPOutput(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create a JPEG test image (we'll test the fallback logic conceptually)
+	// Create a JPEG test image
 	path := createTestImage(t, dir, "test.jpg", 100, 100, "jpeg")
 
-	// Process with explicit format should work
-	data, ext, err := Process(path, TransformOptions{Width: 50, Format: "jpeg"})
+	// Process with explicit WebP format should produce WebP output
+	data, ext, err := Process(path, TransformOptions{Width: 50, Format: "webp"})
+	if err != nil {
+		t.Fatalf("Process() with webp format error = %v", err)
+	}
+	if ext != ".webp" {
+		t.Errorf("Process() ext = %q, want .webp", ext)
+	}
+	if len(data) == 0 {
+		t.Error("Process() returned empty data")
+	}
+	// Verify RIFF/WEBP header
+	if len(data) < 12 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
+		t.Error("Process() WebP output does not have RIFF/WEBP header")
+	}
+
+	// Process with explicit jpeg format should still work
+	data, ext, err = Process(path, TransformOptions{Width: 50, Format: "jpeg"})
 	if err != nil {
 		t.Fatalf("Process() with explicit jpeg format error = %v", err)
 	}
@@ -829,7 +848,7 @@ func TestProcess_WebPInputFallsBackToJPEG(t *testing.T) {
 		t.Error("Process() returned empty data")
 	}
 
-	// Process with explicit png format should work
+	// Process with explicit png format should still work
 	data, ext, err = Process(path, TransformOptions{Width: 50, Format: "png"})
 	if err != nil {
 		t.Fatalf("Process() with explicit png format error = %v", err)

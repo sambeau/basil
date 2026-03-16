@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/gen2brain/webp"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -34,6 +35,9 @@ type Registry struct {
 
 // NewRegistry creates a new image registry.
 func NewRegistry(cacheDir string, maxWidth, maxHeight, defaultQuality int, defaultFormat string, devMode bool, logger func(string, ...any)) *Registry {
+	// Front-load WebP WASM runtime init (~146ms) so the first encode isn't slow.
+	webp.Init()
+
 	return &Registry{
 		byHash:         make(map[string]string),
 		cache:          NewCache(cacheDir),
