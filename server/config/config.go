@@ -17,6 +17,7 @@ type Config struct {
 	Git         GitConfig                  `yaml:"git"`
 	Dev         DevConfig                  `yaml:"dev"`
 	Database    DatabaseConfig             `yaml:"database"`   // Database configuration
+	Images      ImageConfig                `yaml:"images"`     // Image transformation and caching configuration
 	PublicDir   string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
 	Site        SiteConfig                 `yaml:"site"`       // Site mode configuration (filesystem-based routing)
 	Static      []StaticRoute              `yaml:"static"`
@@ -30,6 +31,15 @@ type Config struct {
 // DatabaseConfig holds database settings
 type DatabaseConfig struct {
 	Path string `yaml:"path"` // Path to SQLite database file
+}
+
+// ImageConfig holds image transformation and caching settings
+type ImageConfig struct {
+	CacheDir       string `yaml:"cache_dir"`       // Directory for cached transformed images (default: "./cache/images")
+	MaxWidth       int    `yaml:"max_width"`       // Maximum output width in pixels (default: 4096)
+	MaxHeight      int    `yaml:"max_height"`      // Maximum output height in pixels (default: 4096)
+	DefaultQuality int    `yaml:"default_quality"` // Default quality 1-100, 0 = format-specific default (JPEG: 85, WebP: 80, PNG: lossless)
+	DefaultFormat  string `yaml:"default_format"`  // Default output format: "", "jpeg", "png", "webp" ("" = preserve original)
 }
 
 // DeveloperDBConfig holds per-developer database overrides
@@ -334,6 +344,13 @@ func Defaults() *Config {
 		Git: GitConfig{
 			Enabled:     false,
 			RequireAuth: true,
+		},
+		Images: ImageConfig{
+			CacheDir:       "./cache/images",
+			MaxWidth:       4096,
+			MaxHeight:      4096,
+			DefaultQuality: 0,  // Format-specific default
+			DefaultFormat:  "", // Preserve original format
 		},
 		Session: SessionConfig{
 			Store:      "cookie",

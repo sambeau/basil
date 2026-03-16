@@ -1,12 +1,11 @@
 module github.com/sambeau/basil
 
-go 1.24.1
-
-toolchain go1.24.10
+go 1.25.0
 
 require (
 	github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/disintegration/imaging v1.6.2
 	github.com/emersion/go-smtp v0.24.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gliderlabs/ssh v0.3.8
@@ -22,8 +21,10 @@ require (
 	github.com/resend/resend-go/v2 v2.28.0
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/crypto v0.45.0
+	golang.org/x/image v0.37.0
 	golang.org/x/net v0.47.0
-	golang.org/x/text v0.31.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/text v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.1
 )

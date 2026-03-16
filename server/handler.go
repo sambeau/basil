@@ -295,6 +295,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set fragment cache and handler path for <basil.cache.Cache> component
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
+	env.ImageRegistry = h.server.imageRegistry
 	env.AssetBundle = h.server.assetBundle
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
@@ -306,6 +307,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
+
+	// Inject image() and imageInfo() functions for image transformation
+	env.SetProtected("image", evaluator.NewImageBuiltin())
+	env.SetProtected("imageInfo", evaluator.NewImageInfoBuiltin())
 
 	// Inject @SEARCH built-in for full-text search
 	env.SetProtected("SEARCH", NewSearchBuiltin(env))

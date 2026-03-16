@@ -51,6 +51,7 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *
 	if env != nil {
 		extendedEnv.AssetBundle = env.AssetBundle
 		extendedEnv.AssetRegistry = env.AssetRegistry
+		extendedEnv.ImageRegistry = env.ImageRegistry
 		extendedEnv.FragmentCache = env.FragmentCache
 		extendedEnv.BasilCtx = env.BasilCtx
 		extendedEnv.DevLog = env.DevLog
@@ -79,6 +80,7 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		if env != nil {
 			extendedEnv.AssetBundle = env.AssetBundle
 			extendedEnv.AssetRegistry = env.AssetRegistry
+			extendedEnv.ImageRegistry = env.ImageRegistry
 			extendedEnv.FragmentCache = env.FragmentCache
 			extendedEnv.BasilCtx = env.BasilCtx
 			extendedEnv.DevLog = env.DevLog
@@ -325,8 +327,9 @@ func importModule(pathStr string, env *Environment) Object {
 	moduleEnv.BasilCtx = env.BasilCtx
 	// Copy ServerDB for module-scope database access (e.g., schema.table() at module level)
 	moduleEnv.ServerDB = env.ServerDB
-	// Copy AssetRegistry and AssetBundle for Basil server context
+	// Copy AssetRegistry, ImageRegistry, and AssetBundle for Basil server context
 	moduleEnv.AssetRegistry = env.AssetRegistry
+	moduleEnv.ImageRegistry = env.ImageRegistry
 	moduleEnv.AssetBundle = env.AssetBundle
 	// Copy PLNSecret for Record serialization in Parts (FEAT-098)
 	moduleEnv.PLNSecret = env.PLNSecret

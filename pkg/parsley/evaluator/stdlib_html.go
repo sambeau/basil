@@ -160,6 +160,7 @@ func loadHTMLModule(env *Environment) Object {
 	sharedEnv.DevLog = env.DevLog
 	sharedEnv.BasilCtx = env.BasilCtx
 	sharedEnv.AssetRegistry = env.AssetRegistry
+	sharedEnv.ImageRegistry = env.ImageRegistry
 	sharedEnv.AssetBundle = env.AssetBundle
 
 	exports := make(map[string]Object)

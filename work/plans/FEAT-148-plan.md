@@ -383,3 +383,12 @@ Items to add to `work/BACKLOG.md` after implementation:
 | 2026-06-28 | Spec revision | ✅ Complete | Default format changed to original, WebP opt-in |
 | 2026-06-28 | Library evaluation | ✅ Complete | See FEAT-148.md |
 | 2026-06-28 | Implementation plan | ✅ Complete | This document |
+| 2026-06-28 | Task 9: Dependencies | ✅ Complete | Added disintegration/imaging, golang.org/x/sync, golang.org/x/image |
+| 2026-06-28 | Task 1: Config | ✅ Complete | Added ImageConfig to server/config/config.go |
+| 2026-06-28 | Task 2: Options | ✅ Complete | server/images/options.go with tests |
+| 2026-06-28 | Task 3: Transform | ✅ Complete | server/images/transform.go with tests |
+| 2026-06-28 | Task 4: Cache | ✅ Complete | server/images/cache.go with tests |
+| 2026-06-28 | Task 5: Registry | ✅ Complete | server/images/registry.go with singleflight dedup |
+| 2026-06-28 | Task 6: Handler | ✅ Complete | server/images/handler.go mirrors assetHandler |
+| 2026-06-28 | Task 7: Builtins | ✅ Complete | pkg/parsley/evaluator/image.go with image() and imageInfo() |
+| 2026-06-28 | Task 8: Integration | ✅ Complete | Wired into server.go, handler.go, api.go |

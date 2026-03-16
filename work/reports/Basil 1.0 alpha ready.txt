@@ -6,13 +6,19 @@ Checklist:
 	- [ ] We need a secure dev mode
 		- [ ] With passkeys
 
-- [ ] Library audit
+- [x] Library audit
 	- [ ] REST API rethink
 
-- [ ] settings audit
+- [x] settings audit
 
 - [ ] Git Server
 	- [ ] needs testing
+
+- [ ] Fetch
+
+- [ ] GD / Image server
+
+- [ ] Backlog cleanup
 
 - [x] Database drivers
 	- [x] Basil Managed
