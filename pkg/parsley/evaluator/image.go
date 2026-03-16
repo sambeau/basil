@@ -1,7 +1,9 @@
 package evaluator
 
 import (
+	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -31,6 +33,15 @@ func NewImageBlurBuiltin() *StdlibBuiltin {
 	return &StdlibBuiltin{
 		Name: "imageBlur",
 		Fn:   evalImageBlur,
+	}
+}
+
+// NewImageSrcsetBuiltin creates the imageSrcset() builtin function.
+// This function generates multiple image variants and returns a dict with src, srcset, width, height.
+func NewImageSrcsetBuiltin() *StdlibBuiltin {
+	return &StdlibBuiltin{
+		Name: "imageSrcset",
+		Fn:   evalImageSrcset,
 	}
 }
 
@@ -142,6 +153,279 @@ func evalImageBlur(args []Object, env *Environment) Object {
 	}
 
 	return &String{Value: dataURI}
+}
+
+// evalImageSrcset handles the imageSrcset(@./path, style, widths) or imageSrcset(@./path, style, scales, "x") builtin.
+// It generates multiple image variants and returns a dict with {src, srcset, width, height}.
+func evalImageSrcset(args []Object, env *Environment) Object {
+	if len(args) < 3 || len(args) > 4 {
+		return newArityErrorExact("imageSrcset", len(args), 3, 4)
+	}
+
+	// Check if image registry is available
+	if env.ImageRegistry == nil {
+		return &Error{
+			Class:   ErrorClass("state"),
+			Message: "imageSrcset() is only available in Basil server handlers",
+			Hints:   []string{"This function requires the Basil server environment"},
+		}
+	}
+
+	// Get path from first argument
+	pathStr, err := extractImagePath(args[0], "imageSrcset")
+	if err != nil {
+		return err
+	}
+
+	// Resolve the path relative to the current file
+	absPath, pathErr := resolveImagePath(pathStr, env)
+	if pathErr != nil {
+		return pathErr
+	}
+
+	// Security check: ensure path is within handler root
+	if secErr := checkImagePathSecurity(absPath, env, "imageSrcset"); secErr != nil {
+		return secErr
+	}
+
+	// Parse style options (second argument)
+	styleOpts := make(map[string]any)
+	if args[1] != NULL {
+		styleDict, ok := args[1].(*Dictionary)
+		if !ok {
+			return newTypeError("TYPE-0012", "imageSrcset", "a dictionary", args[1].Type())
+		}
+		for key, valExpr := range styleDict.Pairs {
+			val := Eval(valExpr, styleDict.Env)
+			if isError(val) {
+				return val
+			}
+			styleOpts[key] = imageObjectToGo(val)
+		}
+	}
+
+	// Parse widths/scales array (third argument)
+	sizesArr, ok := args[2].(*Array)
+	if !ok {
+		return newTypeError("TYPE-0012", "imageSrcset", "an array", args[2].Type())
+	}
+	if len(sizesArr.Elements) == 0 {
+		return &Error{
+			Class:   ErrorClass("argument"),
+			Message: "imageSrcset(): widths/scales array cannot be empty",
+		}
+	}
+
+	// Check for density descriptor mode (4th arg = "x")
+	densityMode := false
+	if len(args) == 4 {
+		modeStr, ok := args[3].(*String)
+		if !ok || modeStr.Value != "x" {
+			return &Error{
+				Class:   ErrorClass("argument"),
+				Message: "imageSrcset(): fourth argument must be \"x\" for density descriptor mode",
+			}
+		}
+		densityMode = true
+	}
+
+	// Parse sizes as integers
+	sizes := make([]int, 0, len(sizesArr.Elements))
+	for i, elem := range sizesArr.Elements {
+		var numVal int
+		switch v := elem.(type) {
+		case *Integer:
+			numVal = int(v.Value)
+		case *Float:
+			numVal = int(v.Value)
+		default:
+			return &Error{
+				Class:   ErrorClass("type"),
+				Message: fmt.Sprintf("imageSrcset(): element %d must be a number, got %s", i, elem.Type()),
+			}
+		}
+		if numVal <= 0 {
+			return &Error{
+				Class:   ErrorClass("argument"),
+				Message: fmt.Sprintf("imageSrcset(): element %d must be positive, got %d", i, numVal),
+			}
+		}
+		sizes = append(sizes, numVal)
+	}
+
+	// Get source image info for dimension clamping and aspect ratio
+	info, infoErr := env.ImageRegistry.Info(absPath)
+	if infoErr != nil {
+		return &Error{
+			Class:   ErrorClass("io"),
+			Message: "imageSrcset(): " + infoErr.Error(),
+			Hints:   []string{"Check that the file exists and is a supported image format"},
+		}
+	}
+	srcWidth := int(info["width"].(int64))
+	srcHeight := int(info["height"].(int64))
+
+	// Density mode requires style.width
+	var baseWidth int
+	if densityMode {
+		if w, ok := styleOpts["width"]; ok {
+			switch v := w.(type) {
+			case int:
+				baseWidth = v
+			case int64:
+				baseWidth = int(v)
+			case float64:
+				baseWidth = int(v)
+			}
+		}
+		if baseWidth <= 0 {
+			return &Error{
+				Class:   ErrorClass("argument"),
+				Message: "imageSrcset(): density mode (\"x\") requires style.width to be set",
+			}
+		}
+	}
+
+	// Compute target widths
+	var targetWidths []int
+	if densityMode {
+		// For density mode: pixel_width = baseWidth * scale
+		for _, scale := range sizes {
+			w := baseWidth * scale
+			if w > srcWidth {
+				w = srcWidth // clamp to source
+			}
+			targetWidths = append(targetWidths, w)
+		}
+	} else {
+		// For width descriptor mode: use widths directly
+		for _, w := range sizes {
+			if w > srcWidth {
+				w = srcWidth // clamp to source
+			}
+			targetWidths = append(targetWidths, w)
+		}
+	}
+
+	// Deduplicate widths (clamping may have caused duplicates)
+	targetWidths = deduplicateInts(targetWidths)
+
+	if len(targetWidths) == 0 {
+		return &Error{
+			Class:   ErrorClass("argument"),
+			Message: "imageSrcset(): no valid widths after clamping to source dimensions",
+		}
+	}
+
+	// Generate variants
+	type variant struct {
+		url   string
+		width int
+	}
+	variants := make([]variant, 0, len(targetWidths))
+
+	for _, w := range targetWidths {
+		// Clone style opts and set width
+		opts := make(map[string]any)
+		for k, v := range styleOpts {
+			opts[k] = v
+		}
+		opts["width"] = w
+
+		url, transformErr := env.ImageRegistry.Transform(absPath, opts)
+		if transformErr != nil {
+			return &Error{
+				Class:   ErrorClass("io"),
+				Message: "imageSrcset(): " + transformErr.Error(),
+			}
+		}
+		variants = append(variants, variant{url: url, width: w})
+	}
+
+	// Build srcset string
+	var srcsetParts []string
+	if densityMode {
+		// Density descriptors: "url 1x, url 2x, ..."
+		for i, v := range variants {
+			if i < len(sizes) {
+				srcsetParts = append(srcsetParts, fmt.Sprintf("%s %dx", v.url, sizes[i]))
+			}
+		}
+	} else {
+		// Width descriptors: "url 400w, url 800w, ..."
+		for _, v := range variants {
+			srcsetParts = append(srcsetParts, fmt.Sprintf("%s %dw", v.url, v.width))
+		}
+	}
+	srcset := strings.Join(srcsetParts, ", ")
+
+	// Determine src (default variant)
+	var srcURL string
+	var resultWidth, resultHeight int
+
+	if densityMode {
+		// src = 1x variant (first one)
+		srcURL = variants[0].url
+		resultWidth = variants[0].width
+	} else {
+		// src = variant matching style.width, or middle/largest variant
+		srcURL = variants[len(variants)-1].url
+		resultWidth = variants[len(variants)-1].width
+
+		if w, ok := styleOpts["width"]; ok {
+			var styleWidth int
+			switch v := w.(type) {
+			case int:
+				styleWidth = v
+			case int64:
+				styleWidth = int(v)
+			case float64:
+				styleWidth = int(v)
+			}
+			// Find matching variant
+			for _, v := range variants {
+				if v.width == styleWidth || (styleWidth > srcWidth && v.width == srcWidth) {
+					srcURL = v.url
+					resultWidth = v.width
+					break
+				}
+			}
+		}
+	}
+
+	// Calculate height based on aspect ratio
+	if srcWidth > 0 {
+		resultHeight = (resultWidth * srcHeight) / srcWidth
+	}
+
+	// Build result dictionary
+	pairs := map[string]ast.Expression{
+		"src":    &ast.ObjectLiteralExpression{Obj: &String{Value: srcURL}},
+		"srcset": &ast.ObjectLiteralExpression{Obj: &String{Value: srcset}},
+		"width":  &ast.ObjectLiteralExpression{Obj: &Integer{Value: int64(resultWidth)}},
+		"height": &ast.ObjectLiteralExpression{Obj: &Integer{Value: int64(resultHeight)}},
+	}
+
+	return &Dictionary{
+		Pairs:    pairs,
+		KeyOrder: []string{"src", "srcset", "width", "height"},
+		Env:      env,
+	}
+}
+
+// deduplicateInts removes duplicates from a slice while preserving order.
+func deduplicateInts(s []int) []int {
+	seen := make(map[int]bool)
+	result := make([]int, 0, len(s))
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	// Sort for consistent srcset ordering
+	sort.Ints(result)
+	return result
 }
 
 // evalImageInfo handles the imageInfo(@./path) builtin.
