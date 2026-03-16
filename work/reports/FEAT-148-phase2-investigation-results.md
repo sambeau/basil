@@ -299,18 +299,19 @@ Tested `imaging.Sharpen(img, sigma)` at three sigma values on two downscale rati
 
 | Question | Decision | Rationale |
 |---|---|---|
-| Automatic vs opt-in? | **Opt-in** (`{sharpen: true}` or `{sharpen: 0.5}`) | Automatic sharpening could surprise users; opt-in is safer |
+| Automatic vs opt-out? | **Automatic** (opt-out via `{sharpen: false}`) | Downscale sharpening is universally-accepted best practice; images should "just work" and look good without the developer needing to know about it. Aligns with Basil's "zero-config by default, overridable when needed" principle. |
 | Threshold? | **Any downscale** (when both source dimensions > target) | The cost is negligible; simplifies logic |
 | Default sigma? | **0.5** | Industry standard for web images |
-| Interaction with explicit sigma? | `{sharpen: true}` → sigma 0.5; `{sharpen: 0.8}` → sigma 0.8 | Boolean uses default, number overrides |
+| Interaction with explicit values? | Omitted or `true` → sigma 0.5; `{sharpen: 0.8}` → sigma 0.8; `{sharpen: false}` → disabled | Boolean/omitted uses default, number overrides, false disables |
 
 ### Implementation Path
 
 This is simple enough to go straight to implementation:
-1. Add `Sharpen` field to `TransformOptions` (bool or float64)
-2. In `Transform()`, after resize, if `opts.Sharpen > 0`, apply `imaging.Sharpen(img, opts.Sharpen)`
-3. If `opts.Sharpen == true` (from Parsley bool), use default sigma 0.5
-4. Update `Canonical()`, `Validate()`, `ParseOptions()`
+1. Add `Sharpen` (float64) and `SharpenDisabled` (bool) fields to `TransformOptions`
+2. Registry applies default sigma 0.5 when `Sharpen == 0 && !SharpenDisabled` (same pattern as default quality)
+3. In `Transform()`, after resize, if `opts.Sharpen > 0 && !opts.SharpenDisabled` and image was downscaled, apply `imaging.Sharpen(img, opts.Sharpen)`
+4. `ParseOptions()`: `sharpen: false` → `SharpenDisabled=true`; `sharpen: true` or omitted → use default; `sharpen: N` → explicit sigma
+5. Update `Canonical()`, `Validate()`
 
 ---
 
@@ -398,7 +399,7 @@ Ship these three items in Phase 2:
 |----------|------|-----------|-------------------|
 | 1 | `imageSrcset()` | High | Needs API proposal (design decisions resolved above) |
 | 2 | `imageBlur()` / blur placeholder | Medium | Yes — parameters determined (20px, σ10, q20, data URI) |
-| 3 | Sharpen on downscale | Low | Yes — parameters determined (opt-in, σ0.5 default) |
+| 3 | Sharpen on downscale | Low | Yes — parameters determined (automatic, σ0.5 default, opt-out via `{sharpen: false}`) |
 
 Defer to Phase 3:
 
@@ -418,7 +419,7 @@ Defer to Phase 3:
 | Blur placeholder return type | Data URI (`data:image/jpeg;base64,...`) |
 | Blur placeholder API | Separate `imageBlur()` function (clear contract, always data URI) |
 | Blur parameters | 20px wide, sigma 10, JPEG quality 20 (~600 bytes output) |
-| Sharpen mode | Opt-in: `{sharpen: true}` (σ0.5) or `{sharpen: 0.8}` (explicit) |
+| Sharpen mode | Automatic on downscale (σ0.5 default); `{sharpen: false}` to disable, `{sharpen: N}` to override |
 | Sharpen threshold | Any downscale (cost is negligible) |
 | Dominant color approach | 1×1 resize (zero deps) initially; `cenkalti/dominantcolor` upgrade path |
 | Dominant color opt-in | Opt-in parameter on `imageInfo()` |

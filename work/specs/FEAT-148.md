@@ -127,18 +127,22 @@ Generate a tiny blurred placeholder image as an inline data URI for progressive 
 
 Apply a subtle unsharp mask when reducing image dimensions, recovering edge detail lost to resampling.
 
-- [ ] New `sharpen` option on `image()` transform options: `{sharpen: true}` or `{sharpen: 0.5}`
-  - `true` (boolean): apply default sigma of 0.5
-  - Number (float): apply specified sigma (must be > 0)
-  - `false` or omitted: no sharpening (default — opt-in only)
-- [ ] Sharpening is applied after resize, only when the output dimensions are smaller than the source
+- [ ] Sharpening is applied **automatically** after resize when the output dimensions are smaller than the source, using a default sigma of 0.5
+- [ ] `sharpen` option on `image()` transform options controls behavior:
+  - Omitted or `true` (boolean): apply default sigma of 0.5 (automatic — the normal case)
+  - Number (float): apply specified sigma (must be > 0), overriding the default
+  - `false`: disable sharpening for this transform (opt-out)
+- [ ] Sharpening is only applied on downscale — if output dimensions equal or exceed source dimensions, no sharpening occurs regardless of the option
 - [ ] Uses `imaging.Sharpen(img, sigma)` from `disintegration/imaging`
   - Cost: ~1ms at 400×300, ~0.4ms at 200×150 — negligible (verified by investigation)
 - [ ] `sharpen` value is included in cache key via `Canonical()` — different sharpen settings produce different cached variants
 - [ ] Sharpen is independent of crop mode — works with `crop: "center"` or no crop
-- [ ] Add `Sharpen` field to `TransformOptions` struct (type: `float64`, 0 = none)
-- [ ] Update `ParseOptions()`, `Validate()`, `Canonical()` to handle `sharpen`
-- [ ] `Validate()`: reject negative sigma values
+- [ ] Add `Sharpen` field to `TransformOptions` struct (type: `float64`, default 0.5 applied by registry when not explicitly set)
+- [ ] Add `SharpenDisabled` field to `TransformOptions` struct (type: `bool`, set when user passes `{sharpen: false}`)
+- [ ] Update `ParseOptions()`: parse `sharpen: false` → `SharpenDisabled=true`; `sharpen: true` or omitted → use default; `sharpen: N` → explicit sigma
+- [ ] Update `Validate()`: reject negative sigma values
+- [ ] Update `Canonical()`: include sharpen state in cache key (disabled, default, or explicit sigma)
+- [ ] Registry applies default sigma 0.5 when `Sharpen == 0 && !SharpenDisabled` (same pattern as default quality)
 
 #### 2d. `imageInfo()` Memory Cache
 
@@ -213,11 +217,11 @@ Carried forward from original spec, plus items deferred from Phase 2 based on in
 
 **Rationale**: `imaging.Blur()` uses kernel clamping (equivalent to edge replication) — it does not sample imaginary/transparent pixels beyond the image boundary. On opaque images (JPEG), there is no feathering. At LQIP scale (20×15px), the blur radius (30px from σ=10) exceeds the image dimensions, so the entire thumbnail becomes a near-uniform color field — edge truncation effects are undetectable (verified: zero deviation measured). For any future larger-scale blur feature, a 1× radius pad-then-crop technique eliminates edge bias completely (also verified). See `work/reports/FEAT-148-phase2-investigation-results.md` §2 for full measurements.
 
-#### Sharpen Is Opt-In, Not Automatic
+#### Sharpen Is Automatic (Opt-Out)
 
-**Decision**: Sharpening on downscale requires `{sharpen: true}` — it is not applied automatically.
+**Decision**: Sharpening on downscale is applied automatically with sigma 0.5. Disable with `{sharpen: false}`.
 
-**Rationale**: Automatic sharpening could surprise users who expect pixel-identical output from deterministic transforms. Opt-in is safer and more predictable. The cost is trivial (~1ms), so there's no performance reason to gate it — the decision is purely about user expectations. `{sharpen: true}` uses a default sigma of 0.5 (industry standard for post-downscale web images); an explicit number like `{sharpen: 0.8}` overrides the default.
+**Rationale**: Downscale sharpening is a universally-accepted best practice for web images — every professional image pipeline applies it (Photoshop, Lightroom, ImageMagick, libvips all sharpen on resize by default). The whole point of Basil's image system is that developers shouldn't have to think about this; images should "just work" and look good. A developer who doesn't know about downscale sharpening should get better results by default, not worse. The cost is trivial (~1ms) and the visual difference is subtle but consistently positive. Developers who need precise control (e.g., pixel art, screenshots) can disable it with `{sharpen: false}` or override the sigma with `{sharpen: 0.8}`. This aligns with Basil's "zero-config by default, overridable when needed" design principle.
 
 #### `sizes` Is Always User-Provided
 
@@ -383,12 +387,13 @@ type TransformOptions struct {
     Crop    string  // "center", "smart" (Phase 3), or "" (no crop — fit within box)
     Quality int     // 1-100, 0 = format default (JPEG: 85, WebP: 80, PNG: lossless)
     Format  string  // "webp", "jpeg", "png", "original", or "" (default = "original")
-    Sharpen float64 // Sharpen sigma, 0 = none (Phase 2: opt-in via {sharpen: true} → 0.5, or {sharpen: N})
+    Sharpen         float64 // Sharpen sigma (Phase 2: default 0.5 on downscale, override with {sharpen: N})
+    SharpenDisabled bool    // Explicitly disabled via {sharpen: false} (Phase 2)
 }
 ```
 
 **Phase 1 (implemented):** Width, Height, Crop ("center"), Quality, Format.
-**Phase 2 (adding):** Sharpen.
+**Phase 2 (adding):** Sharpen (automatic on downscale), SharpenDisabled.
 **Phase 3 (planned):** Crop "smart" mode. Blur is handled by the separate `imageBlur()` builtin, not as a TransformOptions field.
 
 ### Builtin Signatures
@@ -400,7 +405,7 @@ type TransformOptions struct {
 #### `image(path, options_dict)` → `string`
 - Apply specified transformations
 - `options_dict` keys: `width`, `height`, `crop`, `quality`, `format`
-- Phase 2 adds: `sharpen` (boolean `true` → sigma 0.5, or float for explicit sigma)
+- Phase 2 adds: `sharpen` (automatic on downscale at sigma 0.5; `false` to disable, or float to override sigma)
 - Returns `/__img/{hash}.{ext}`
 
 #### `image(path, style_dict)` → `string`  
