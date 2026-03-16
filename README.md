@@ -165,6 +165,7 @@ Basil is a web server that runs Parsley handlers. Drop a `.pars` file in a direc
 - **Built-in authentication** — sessions, users, roles, API keys, and **Passkeys**
 - **Full-text search** — point it at a directory and query your content
 - **Built-in Git server** — push-to-deploy
+- **Built-in Image server** — no need for libraries or a CDN
 - **Development tools** — database inspector, request logging, and web-based error pages
 
 Basil is still under active development and not *quite* ready for public use.
