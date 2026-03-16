@@ -46,12 +46,12 @@ func NewRegistry(cacheDir string, maxWidth, maxHeight, defaultQuality int, defau
 	}
 }
 
-// Transform transforms an image with the given options, caches the result,
-// and returns the public URL (e.g., /__img/{hash}.jpg).
-// Concurrent requests for the same transformation are deduplicated via singleflight.
 // DefaultSharpenSigma is the default sharpening sigma applied on downscale.
 const DefaultSharpenSigma = 0.5
 
+// Transform transforms an image with the given options, caches the result,
+// and returns the public URL (e.g., /__img/{hash}.jpg).
+// Concurrent requests for the same transformation are deduplicated via singleflight.
 func (r *Registry) Transform(sourcePath string, opts map[string]any) (string, error) {
 	// Parse and validate options
 	transformOpts, err := ParseOptions(opts)

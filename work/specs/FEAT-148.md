@@ -62,24 +62,24 @@ Phase 2 ships three features. Dominant color, smart crop, and WebP encoding are 
 
 Generate multiple resized variants of a source image and return a dict suitable for building responsive `<img>` tags.
 
-- [ ] `imageSrcset(path, style, widths)` builtin: generate responsive image variants
+- [x] `imageSrcset(path, style, widths)` builtin: generate responsive image variants
   - `path`: source image path (same rules as `image()`)
   - `style`: transform options dict (same keys as `image()` — `width`, `height`, `crop`, `quality`, `format`)
   - `widths`: array of target widths in pixels, e.g., `[400, 800, 1200]`
   - The `width` field in `style` is used as the base/default width for `src`; `widths` array generates the `srcset` variants
-- [ ] Returns a dict: `{src: string, srcset: string, width: int, height: int}`
+- [x] Returns a dict: `{src: string, srcset: string, width: int, height: int}`
   - `src`: URL of the base variant (the `style.width` size, or the middle width if no `style.width`)
   - `srcset`: complete `srcset` attribute value with width descriptors, e.g., `"/__img/a.jpg 400w, /__img/b.jpg 800w, /__img/c.jpg 1200w"`
   - `width`: pixel width of the largest generated variant
   - `height`: pixel height of the largest generated variant (computed from aspect ratio)
-- [ ] `imageSrcset(path, style, scales, "x")` density descriptor mode (optional 4th string arg):
+- [x] `imageSrcset(path, style, scales, "x")` density descriptor mode (optional 4th string arg):
   - `scales` is an array of density multipliers, e.g., `[1, 2, 3]`
   - Multiplied against `style.width` to produce pixel widths
   - Returns `srcset` with density descriptors: `"/__img/a.jpg 1x, /__img/b.jpg 2x, /__img/c.jpg 3x"`
-- [ ] Widths exceeding source image dimensions are clamped (no upscaling), matching `image()` behavior
-- [ ] Internally calls `image()` N times (once per width) — reuses existing registry, cache, and singleflight dedup
-- [ ] `sizes` attribute is NOT generated — developer provides it (depends on CSS layout context)
-- [ ] Error if `widths`/`scales` array is empty, not an array, or contains non-positive values
+- [x] Widths exceeding source image dimensions are clamped (no upscaling), matching `image()` behavior
+- [x] Internally calls `image()` N times (once per width) — reuses existing registry, cache, and singleflight dedup
+- [x] `sizes` attribute is NOT generated — developer provides it (depends on CSS layout context)
+- [x] Error if `widths`/`scales` array is empty, not an array, or contains non-positive values
 
 **Example usage in Parsley:**
 
@@ -100,16 +100,16 @@ resp = imageSrcset(@./hero.jpg, heroStyle, [400, 800, 1200])
 
 Generate a tiny blurred placeholder image as an inline data URI for progressive loading.
 
-- [ ] `imageBlur(path)` builtin: returns a `data:image/jpeg;base64,...` string
+- [x] `imageBlur(path)` builtin: returns a `data:image/jpeg;base64,...` string
   - `path`: source image path (same rules as `image()`)
   - Always returns a data URI — never a URL (the point is avoiding a network round-trip)
-- [ ] Pipeline: resize to 20px wide (aspect ratio preserved) → Gaussian blur σ=10 → encode JPEG quality 20 → base64
+- [x] Pipeline: resize to 20px wide (aspect ratio preserved) → Gaussian blur σ=10 → encode JPEG quality 20 → base64
   - Output size: ~600 bytes (~835 chars as data URI) — verified by investigation
   - Pipeline cost: ~3ms — negligible, one-time cached cost
-- [ ] Result is cached (same content-addressed disk cache as `image()`)
-- [ ] JPEG output only (alpha is discarded — appropriate for placeholder use)
-- [ ] No edge feathering concern at LQIP scale — blur radius (30px) exceeds thumbnail dimensions, so kernel clamping has no visible effect (verified by investigation)
-- [ ] Error if path is invalid, outside root, or not a supported image format
+- [x] Result is cached (same content-addressed disk cache as `image()`)
+- [x] JPEG output only (alpha is discarded — appropriate for placeholder use)
+- [x] No edge feathering concern at LQIP scale — blur radius (30px) exceeds thumbnail dimensions, so kernel clamping has no visible effect (verified by investigation)
+- [x] Error if path is invalid, outside root, or not a supported image format
 
 **Example usage in Parsley:**
 
@@ -127,32 +127,32 @@ Generate a tiny blurred placeholder image as an inline data URI for progressive 
 
 Apply a subtle unsharp mask when reducing image dimensions, recovering edge detail lost to resampling.
 
-- [ ] Sharpening is applied **automatically** after resize when the output dimensions are smaller than the source, using a default sigma of 0.5
-- [ ] `sharpen` option on `image()` transform options controls behavior:
+- [x] Sharpening is applied **automatically** after resize when the output dimensions are smaller than the source, using a default sigma of 0.5
+- [x] `sharpen` option on `image()` transform options controls behavior:
   - Omitted or `true` (boolean): apply default sigma of 0.5 (automatic — the normal case)
   - Number (float): apply specified sigma (must be > 0), overriding the default
   - `false`: disable sharpening for this transform (opt-out)
-- [ ] Sharpening is only applied on downscale — if output dimensions equal or exceed source dimensions, no sharpening occurs regardless of the option
-- [ ] Uses `imaging.Sharpen(img, sigma)` from `disintegration/imaging`
+- [x] Sharpening is only applied on downscale — if output dimensions equal or exceed source dimensions, no sharpening occurs regardless of the option
+- [x] Uses `imaging.Sharpen(img, sigma)` from `disintegration/imaging`
   - Cost: ~1ms at 400×300, ~0.4ms at 200×150 — negligible (verified by investigation)
-- [ ] `sharpen` value is included in cache key via `Canonical()` — different sharpen settings produce different cached variants
-- [ ] Sharpen is independent of crop mode — works with `crop: "center"` or no crop
-- [ ] Add `Sharpen` field to `TransformOptions` struct (type: `float64`, default 0.5 applied by registry when not explicitly set)
-- [ ] Add `SharpenDisabled` field to `TransformOptions` struct (type: `bool`, set when user passes `{sharpen: false}`)
-- [ ] Update `ParseOptions()`: parse `sharpen: false` → `SharpenDisabled=true`; `sharpen: true` or omitted → use default; `sharpen: N` → explicit sigma
-- [ ] Update `Validate()`: reject negative sigma values
-- [ ] Update `Canonical()`: include sharpen state in cache key (disabled, default, or explicit sigma)
-- [ ] Registry applies default sigma 0.5 when `Sharpen == 0 && !SharpenDisabled` (same pattern as default quality)
+- [x] `sharpen` value is included in cache key via `Canonical()` — different sharpen settings produce different cached variants
+- [x] Sharpen is independent of crop mode — works with `crop: "center"` or no crop
+- [x] Add `Sharpen` field to `TransformOptions` struct (type: `float64`, default 0.5 applied by registry when not explicitly set)
+- [x] Add `SharpenDisabled` field to `TransformOptions` struct (type: `bool`, set when user passes `{sharpen: false}`)
+- [x] Update `ParseOptions()`: parse `sharpen: false` → `SharpenDisabled=true`; `sharpen: true` or omitted → use default; `sharpen: N` → explicit sigma
+- [x] Update `Validate()`: reject negative sigma values
+- [x] Update `Canonical()`: include sharpen state in cache key (disabled, default, or explicit sigma)
+- [x] Registry applies default sigma 0.5 when `Sharpen == 0 && !SharpenDisabled` (same pattern as default quality)
 
 #### 2d. `imageInfo()` Memory Cache
 
 Cache `imageInfo()` results to avoid redundant disk reads in loops (e.g., gallery pages).
 
-- [ ] Add `sync.Map` cache in the registry, keyed on absolute path + file modtime
+- [x] Add `sync.Map` cache in the registry, keyed on absolute path + file modtime
   - Modtime check ensures cache invalidation when the source file changes
-- [ ] Cache stores the `{width, height, format, orientation}` dict
-- [ ] Dev mode: always check modtime before returning cached result
-- [ ] `Clear()` method also clears the info cache
+- [x] Cache stores the `{width, height, format, orientation}` dict
+- [x] Dev mode: always check modtime before returning cached result
+- [x] `Clear()` method also clears the info cache
 
 ### Phase 3: Nice to Have
 

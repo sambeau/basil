@@ -557,32 +557,6 @@ func TestImageBlurSecurityPathTraversal(t *testing.T) {
 	}
 }
 
-// evalWithImageBlur sets up environment with imageBlur() function
-func evalWithImageBlur(t *testing.T, input, filename, rootPath string) (evaluator.Object, *mockImageRegistry) {
-	t.Helper()
-
-	l := lexer.NewWithFilename(input, filename)
-	p := parser.New(l)
-	program := p.ParseProgram()
-
-	if len(p.Errors()) > 0 {
-		t.Fatalf("parser errors: %v", p.Errors())
-	}
-
-	env := evaluator.NewEnvironment()
-	env.Filename = filename
-	env.RootPath = rootPath
-
-	// Set up image registry
-	registry := newMockImageRegistry()
-	env.ImageRegistry = registry
-
-	// Inject imageBlur function
-	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
-
-	return evaluator.Eval(program, env), registry
-}
-
 // === imageSrcset() tests ===
 
 func TestImageSrcsetBasic(t *testing.T) {
@@ -849,5 +823,67 @@ func TestImageSrcsetResultDimensions(t *testing.T) {
 	_, ok = heightObj.(*evaluator.Integer)
 	if !ok {
 		t.Errorf("expected Integer for height, got %T", heightObj)
+	}
+}
+
+func TestImageSrcsetDensityModeClampedDuplicates(t *testing.T) {
+	// Regression test: when source is small (100px wide) and baseWidth=64,
+	// scales [1,2,3] produce pixel widths [64, 128→100, 192→100].
+	// After clamping, 2x and 3x both map to 100px. The srcset must still
+	// contain all three descriptors (1x, 2x, 3x) with correct labels.
+	tmpDir := t.TempDir()
+
+	testFile := filepath.Join(tmpDir, "small.jpg")
+	if err := os.WriteFile(testFile, []byte("fake"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := newMockImageRegistry()
+	registry.srcWidth = 100
+	registry.srcHeight = 75
+
+	input := `imageSrcset(@./small.jpg, {width: 64}, [1, 2, 3], "x")`
+
+	l := lexer.NewWithFilename(input, filepath.Join(tmpDir, "test.pars"))
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	env := evaluator.NewEnvironment()
+	env.Filename = filepath.Join(tmpDir, "test.pars")
+	env.RootPath = tmpDir
+	env.ImageRegistry = registry
+	env.SetProtected("imageSrcset", evaluator.NewImageSrcsetBuiltin())
+
+	result := evaluator.Eval(program, env)
+
+	dict, ok := result.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("expected Dictionary, got %T (%v)", result, result)
+	}
+
+	srcsetExpr := dict.Pairs["srcset"]
+	srcsetObj := evaluator.Eval(srcsetExpr, dict.Env)
+	srcsetStr, ok := srcsetObj.(*evaluator.String)
+	if !ok {
+		t.Fatalf("expected String for srcset, got %T", srcsetObj)
+	}
+
+	// Must contain all three density descriptors
+	if !strings.Contains(srcsetStr.Value, "1x") {
+		t.Errorf("srcset missing 1x descriptor, got: %s", srcsetStr.Value)
+	}
+	if !strings.Contains(srcsetStr.Value, "2x") {
+		t.Errorf("srcset missing 2x descriptor, got: %s", srcsetStr.Value)
+	}
+	if !strings.Contains(srcsetStr.Value, "3x") {
+		t.Errorf("srcset missing 3x descriptor, got: %s", srcsetStr.Value)
+	}
+
+	// Only 2 unique widths (64 and 100), so only 2 Transform calls
+	if len(registry.transformCalls) != 2 {
+		t.Errorf("expected 2 Transform calls (deduped), got %d", len(registry.transformCalls))
 	}
 }

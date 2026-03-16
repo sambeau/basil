@@ -286,89 +286,100 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 		}
 	}
 
-	// Compute target widths
-	var targetWidths []int
-	if densityMode {
-		// For density mode: pixel_width = baseWidth * scale
-		for _, scale := range sizes {
-			w := baseWidth * scale
-			if w > srcWidth {
-				w = srcWidth // clamp to source
-			}
-			targetWidths = append(targetWidths, w)
-		}
-	} else {
-		// For width descriptor mode: use widths directly
-		for _, w := range sizes {
-			if w > srcWidth {
-				w = srcWidth // clamp to source
-			}
-			targetWidths = append(targetWidths, w)
-		}
-	}
-
-	// Deduplicate widths (clamping may have caused duplicates)
-	targetWidths = deduplicateInts(targetWidths)
-
-	if len(targetWidths) == 0 {
-		return &Error{
-			Class:   ErrorClass("argument"),
-			Message: "imageSrcset(): no valid widths after clamping to source dimensions",
-		}
-	}
-
-	// Generate variants
+	// Generate variants and build srcset
 	type variant struct {
 		url   string
 		width int
 	}
-	variants := make([]variant, 0, len(targetWidths))
 
-	for _, w := range targetWidths {
-		// Clone style opts and set width
-		opts := make(map[string]any)
-		for k, v := range styleOpts {
-			opts[k] = v
-		}
-		opts["width"] = w
-
-		url, transformErr := env.ImageRegistry.Transform(absPath, opts)
-		if transformErr != nil {
-			return &Error{
-				Class:   ErrorClass("io"),
-				Message: "imageSrcset(): " + transformErr.Error(),
-			}
-		}
-		variants = append(variants, variant{url: url, width: w})
-	}
-
-	// Build srcset string
 	var srcsetParts []string
+	var srcURL string
+	var resultWidth int
+
 	if densityMode {
-		// Density descriptors: "url 1x, url 2x, ..."
-		for i, v := range variants {
-			if i < len(sizes) {
-				srcsetParts = append(srcsetParts, fmt.Sprintf("%s %dx", v.url, sizes[i]))
+		// Density mode: map each scale to a clamped pixel width, generate
+		// one transform per unique width, then build descriptors per scale.
+		// This preserves correct scale labels even when clamping causes
+		// multiple scales to map to the same pixel width.
+		scaleWidths := make([]int, len(sizes))
+		for i, scale := range sizes {
+			w := baseWidth * scale
+			if w > srcWidth {
+				w = srcWidth
+			}
+			scaleWidths[i] = w
+		}
+
+		// Generate transform for each unique width
+		urlByWidth := make(map[int]string)
+		for _, w := range scaleWidths {
+			if _, ok := urlByWidth[w]; ok {
+				continue // already generated
+			}
+			opts := make(map[string]any)
+			for k, v := range styleOpts {
+				opts[k] = v
+			}
+			opts["width"] = w
+			url, transformErr := env.ImageRegistry.Transform(absPath, opts)
+			if transformErr != nil {
+				return &Error{
+					Class:   ErrorClass("io"),
+					Message: "imageSrcset(): " + transformErr.Error(),
+				}
+			}
+			urlByWidth[w] = url
+		}
+
+		// Build srcset with correct density descriptors
+		for i, scale := range sizes {
+			w := scaleWidths[i]
+			srcsetParts = append(srcsetParts, fmt.Sprintf("%s %dx", urlByWidth[w], scale))
+		}
+
+		// src = 1x variant (first scale's width)
+		srcURL = urlByWidth[scaleWidths[0]]
+		resultWidth = scaleWidths[0]
+	} else {
+		// Width descriptor mode: clamp, deduplicate, sort, generate variants
+		var targetWidths []int
+		for _, w := range sizes {
+			if w > srcWidth {
+				w = srcWidth
+			}
+			targetWidths = append(targetWidths, w)
+		}
+		targetWidths = deduplicateInts(targetWidths)
+
+		if len(targetWidths) == 0 {
+			return &Error{
+				Class:   ErrorClass("argument"),
+				Message: "imageSrcset(): no valid widths after clamping to source dimensions",
 			}
 		}
-	} else {
-		// Width descriptors: "url 400w, url 800w, ..."
+
+		variants := make([]variant, 0, len(targetWidths))
+		for _, w := range targetWidths {
+			opts := make(map[string]any)
+			for k, v := range styleOpts {
+				opts[k] = v
+			}
+			opts["width"] = w
+			url, transformErr := env.ImageRegistry.Transform(absPath, opts)
+			if transformErr != nil {
+				return &Error{
+					Class:   ErrorClass("io"),
+					Message: "imageSrcset(): " + transformErr.Error(),
+				}
+			}
+			variants = append(variants, variant{url: url, width: w})
+		}
+
 		for _, v := range variants {
 			srcsetParts = append(srcsetParts, fmt.Sprintf("%s %dw", v.url, v.width))
 		}
-	}
-	srcset := strings.Join(srcsetParts, ", ")
 
-	// Determine src (default variant)
-	var srcURL string
-	var resultWidth, resultHeight int
-
-	if densityMode {
-		// src = 1x variant (first one)
-		srcURL = variants[0].url
-		resultWidth = variants[0].width
-	} else {
-		// src = variant matching style.width, or middle/largest variant
+		// src = variant matching style.width, or largest variant
 		srcURL = variants[len(variants)-1].url
 		resultWidth = variants[len(variants)-1].width
 
@@ -382,7 +393,6 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 			case float64:
 				styleWidth = int(v)
 			}
-			// Find matching variant
 			for _, v := range variants {
 				if v.width == styleWidth || (styleWidth > srcWidth && v.width == srcWidth) {
 					srcURL = v.url
@@ -392,6 +402,9 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 			}
 		}
 	}
+
+	srcset := strings.Join(srcsetParts, ", ")
+	var resultHeight int
 
 	// Calculate height based on aspect ratio
 	if srcWidth > 0 {
@@ -413,7 +426,7 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 	}
 }
 
-// deduplicateInts removes duplicates from a slice while preserving order.
+// deduplicateInts removes duplicates from a slice and returns sorted results.
 func deduplicateInts(s []int) []int {
 	seen := make(map[int]bool)
 	result := make([]int, 0, len(s))

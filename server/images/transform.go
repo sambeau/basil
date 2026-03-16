@@ -282,14 +282,9 @@ const BlurPlaceholderQuality = 20
 // Returns a data URI string: "data:image/jpeg;base64,..."
 func GenerateBlurPlaceholder(sourcePath string) (string, error) {
 	// Load the full image
-	img, format, err := Load(sourcePath)
+	img, _, err := Load(sourcePath)
 	if err != nil {
 		return "", fmt.Errorf("load image: %w", err)
-	}
-
-	// SVG is not supported for blur placeholder
-	if format == "svg" {
-		return "", fmt.Errorf("SVG images are not supported for blur placeholder")
 	}
 
 	// Resize to thumbnail width (preserving aspect ratio)

@@ -2,7 +2,7 @@
 id: PLAN-129
 feature: FEAT-148
 title: "Implementation Plan for Image Transform Enhancements (Phase 2)"
-status: in-progress
+status: complete
 created: 2026-06-28
 ---
 
