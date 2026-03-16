@@ -107,6 +107,49 @@ Tested with `disintegration/imaging`: resize 800×600 source → 20×15px, blur,
 - **Pipeline cost is negligible** — ~3 ms for resize + blur + encode. This is a one-time cached cost.
 - **Sigma 10 is the sweet spot** — good visual blur for a placeholder with no meaningful size penalty vs sigma 5.
 
+### Edge Feathering Investigation
+
+**Question:** Does `imaging.Blur()` pull in imaginary/transparent pixels from beyond the image boundary, creating white or feathered edges?
+
+**How `imaging.Blur()` handles edges:** The library clamps the Gaussian kernel window to the image bounds — it never samples beyond the edge. It then renormalizes the kernel weights so they sum to 1 over the clamped range. This is mathematically equivalent to infinite edge replication: the outermost pixel is treated as if it extends forever outward.
+
+**Consequence:** On opaque images (JPEG), there is no transparency feathering. However, the clamped kernel over-weights the edge pixel relative to what a "true" continuation of the image content would contribute. On a gradient or non-uniform image, this biases edge pixels slightly toward their own color.
+
+#### Measured edge deviation (red→blue horizontal gradient, 200×150, σ=10)
+
+| Method | Left edge pixel (orig 255,0,0) | Max deviation | Mean deviation (outer 3px) |
+|--------|-------------------------------|---------------|---------------------------|
+| Direct blur (no padding) | (245, 0, 9) | 10 | 4.26 |
+| Padded blur, 1× radius | (250, 0, 5) | 5 | 2.02 |
+| Padded blur, 2× radius | (250, 0, 5) | 5 | 2.02 |
+
+#### Pad-then-crop technique
+
+Pre-padding the image with edge-replicated pixels before blurring, then cropping back to original dimensions, eliminates the kernel truncation bias:
+
+```
+radius = ceil(sigma × 3)
+1. Pad image by `radius` pixels on each side (edge replication)
+2. Blur the padded image
+3. Crop back to original dimensions
+```
+
+**1× radius is sufficient.** The Gaussian kernel extends `ceil(σ × 3)` pixels. With 1× radius of padding, the kernel has full "runway" at every edge pixel — the clamping effect is completely eliminated. 2× radius produced identical results (no additional improvement).
+
+#### Impact at LQIP thumbnail scale
+
+At 20×15 pixels (the LQIP target size), edge deviation was **zero** for both direct and padded blur. At that scale, σ=10 is so large relative to the image dimensions that the entire image becomes a near-uniform color field — edge truncation effects are lost in the overall smoothing.
+
+#### Transparent images (PNG with alpha)
+
+For images with transparent edges, `imaging.Blur()` uses alpha-premultiplied weighting (`RGB × alpha × kernel_weight`). This causes opacity to feather inward from transparent regions. Padding with transparent pixels would not help here (it would make it worse). However, since the LQIP pipeline encodes to JPEG (which discards alpha), this is a non-issue for the intended use case.
+
+#### Recommendation
+
+- **For LQIP (20px thumbnails):** No padding needed — deviation is zero at this scale.
+- **For any future larger-scale blur feature:** Use the 1× radius pad-then-crop technique. The cost is modest (blurring a slightly larger image) and eliminates the edge bias entirely.
+- **Implementation note:** If padding is added later, gate it behind a size threshold (e.g., only pad when `min(width, height) > radius × 2`) to avoid the overhead on tiny thumbnails where it provides no benefit.
+
 ### API Decision: Data URI vs URL
 
 **Recommendation: data URI.** The whole point of LQIP is avoiding a network round-trip. A URL defeats the purpose.
