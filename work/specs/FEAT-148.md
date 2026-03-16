@@ -1,7 +1,7 @@
 ---
 id: FEAT-148
 title: "Image Transformation and Caching"
-status: implemented
+status: phase-2
 priority: medium
 created: 2026-06-28
 author: "@human / @ai"
@@ -37,30 +37,135 @@ All three options contradict Basil's philosophy: a single binary that handles th
 
 ## Acceptance Criteria
 
-### Phase 1: Core (1.0 or 1.1)
+### Phase 1: Core ✅ Implemented
 
-- [ ] `image(path)` builtin: auto-rotate (EXIF), strip metadata, cache, return hashed URL (original format preserved)
-- [ ] `image(path, options)` builtin: resize (width/height/fit), set quality, choose format
-- [ ] `image(path, style)` builtin: apply a named style (dict with transformation options)
-- [ ] `imageInfo(path)` builtin: return `{width, height, format, orientation}` dict
-- [ ] Disk cache at configurable location (default `./cache/images/`)
-- [ ] `/__img/{hash}.{ext}` handler serving cached images with immutable cache headers
-- [ ] Dev mode: no-cache headers, re-transform on source change
-- [ ] Security: path must be within handler root (same rules as `publicUrl()`)
-- [ ] Size limits: warn at 10MB source, reject at 50MB source
-- [ ] Supported input formats: JPEG, PNG, GIF, WebP (decode only)
-- [ ] Supported output formats: JPEG, PNG, WebP (opt-in via `{format: "webp"}`)
-- [ ] Default output format: **original** (JPEG in → JPEG out, PNG in → PNG out)
+- [x] `image(path)` builtin: auto-rotate (EXIF), strip metadata, cache, return hashed URL (original format preserved)
+- [x] `image(path, options)` builtin: resize (width/height/fit), set quality, choose format
+- [x] `image(path, style)` builtin: apply a named style (dict with transformation options)
+- [x] `imageInfo(path)` builtin: return `{width, height, format, orientation}` dict
+- [x] Disk cache at configurable location (default `./cache/images/`)
+- [x] `/__img/{hash}.{ext}` handler serving cached images with immutable cache headers
+- [x] Dev mode: no-cache headers, re-transform on source change
+- [x] Security: path must be within handler root (same rules as `publicUrl()`)
+- [x] Size limits: warn at 10MB source, reject at 50MB source
+- [x] Supported input formats: JPEG, PNG, GIF, WebP (decode only)
+- [x] Supported output formats: JPEG, PNG (WebP encoding deferred — see Design Decisions)
+- [x] Default output format: **original** (JPEG in → JPEG out, PNG in → PNG out)
 
-### Phase 2: Lovable (1.1 or 1.2)
+### Phase 2: Lovable
 
-- [ ] `imageSrcset(path, style, scales)` builtin: generate `srcset` attribute string for responsive images
-- [ ] Blur placeholder generation: `{blur: true}` option producing a tiny blurred image for progressive loading
-- [ ] Dominant color extraction in `imageInfo()`: `{color: "#2a4f3b"}`
+**Investigation complete** — see `work/reports/FEAT-148-phase2-investigation-results.md` and `work/design/DESIGN-image-transform-phase2.md`.
+
+Phase 2 ships three features. Dominant color, smart crop, and WebP encoding are deferred to Phase 3 based on investigation findings (see rationale below each deferred item).
+
+#### 2a. `imageSrcset()` — Responsive Image Generation
+
+Generate multiple resized variants of a source image and return a dict suitable for building responsive `<img>` tags.
+
+- [ ] `imageSrcset(path, style, widths)` builtin: generate responsive image variants
+  - `path`: source image path (same rules as `image()`)
+  - `style`: transform options dict (same keys as `image()` — `width`, `height`, `crop`, `quality`, `format`)
+  - `widths`: array of target widths in pixels, e.g., `[400, 800, 1200]`
+  - The `width` field in `style` is used as the base/default width for `src`; `widths` array generates the `srcset` variants
+- [ ] Returns a dict: `{src: string, srcset: string, width: int, height: int}`
+  - `src`: URL of the base variant (the `style.width` size, or the middle width if no `style.width`)
+  - `srcset`: complete `srcset` attribute value with width descriptors, e.g., `"/__img/a.jpg 400w, /__img/b.jpg 800w, /__img/c.jpg 1200w"`
+  - `width`: pixel width of the largest generated variant
+  - `height`: pixel height of the largest generated variant (computed from aspect ratio)
+- [ ] `imageSrcset(path, style, scales, "x")` density descriptor mode (optional 4th string arg):
+  - `scales` is an array of density multipliers, e.g., `[1, 2, 3]`
+  - Multiplied against `style.width` to produce pixel widths
+  - Returns `srcset` with density descriptors: `"/__img/a.jpg 1x, /__img/b.jpg 2x, /__img/c.jpg 3x"`
+- [ ] Widths exceeding source image dimensions are clamped (no upscaling), matching `image()` behavior
+- [ ] Internally calls `image()` N times (once per width) — reuses existing registry, cache, and singleflight dedup
+- [ ] `sizes` attribute is NOT generated — developer provides it (depends on CSS layout context)
+- [ ] Error if `widths`/`scales` array is empty, not an array, or contains non-positive values
+
+**Example usage in Parsley:**
+
+```parsley
+heroStyle = {width: 800, quality: 80}
+
+resp = imageSrcset(@./hero.jpg, heroStyle, [400, 800, 1200])
+<img
+  src={resp.src}
+  srcset={resp.srcset}
+  sizes="(max-width: 600px) 100vw, 50vw"
+  width={resp.width}
+  height={resp.height}
+/>
+```
+
+#### 2b. `imageBlur()` — Blur Placeholder (LQIP)
+
+Generate a tiny blurred placeholder image as an inline data URI for progressive loading.
+
+- [ ] `imageBlur(path)` builtin: returns a `data:image/jpeg;base64,...` string
+  - `path`: source image path (same rules as `image()`)
+  - Always returns a data URI — never a URL (the point is avoiding a network round-trip)
+- [ ] Pipeline: resize to 20px wide (aspect ratio preserved) → Gaussian blur σ=10 → encode JPEG quality 20 → base64
+  - Output size: ~600 bytes (~835 chars as data URI) — verified by investigation
+  - Pipeline cost: ~3ms — negligible, one-time cached cost
+- [ ] Result is cached (same content-addressed disk cache as `image()`)
+- [ ] JPEG output only (alpha is discarded — appropriate for placeholder use)
+- [ ] No edge feathering concern at LQIP scale — blur radius (30px) exceeds thumbnail dimensions, so kernel clamping has no visible effect (verified by investigation)
+- [ ] Error if path is invalid, outside root, or not a supported image format
+
+**Example usage in Parsley:**
+
+```parsley
+// Inline as a CSS background for progressive loading
+<div
+  style={"background-image: url(" + imageBlur(@./hero.jpg) + ")"}
+  class="hero-placeholder"
+>
+  <img src={image(@./hero.jpg, {width: 1200})} loading=lazy />
+</div>
+```
+
+#### 2c. Sharpen on Downscale
+
+Apply a subtle unsharp mask when reducing image dimensions, recovering edge detail lost to resampling.
+
+- [ ] New `sharpen` option on `image()` transform options: `{sharpen: true}` or `{sharpen: 0.5}`
+  - `true` (boolean): apply default sigma of 0.5
+  - Number (float): apply specified sigma (must be > 0)
+  - `false` or omitted: no sharpening (default — opt-in only)
+- [ ] Sharpening is applied after resize, only when the output dimensions are smaller than the source
+- [ ] Uses `imaging.Sharpen(img, sigma)` from `disintegration/imaging`
+  - Cost: ~1ms at 400×300, ~0.4ms at 200×150 — negligible (verified by investigation)
+- [ ] `sharpen` value is included in cache key via `Canonical()` — different sharpen settings produce different cached variants
+- [ ] Sharpen is independent of crop mode — works with `crop: "center"` or no crop
+- [ ] Add `Sharpen` field to `TransformOptions` struct (type: `float64`, 0 = none)
+- [ ] Update `ParseOptions()`, `Validate()`, `Canonical()` to handle `sharpen`
+- [ ] `Validate()`: reject negative sigma values
+
+#### 2d. `imageInfo()` Memory Cache
+
+Cache `imageInfo()` results to avoid redundant disk reads in loops (e.g., gallery pages).
+
+- [ ] Add `sync.Map` cache in the registry, keyed on absolute path + file modtime
+  - Modtime check ensures cache invalidation when the source file changes
+- [ ] Cache stores the `{width, height, format, orientation}` dict
+- [ ] Dev mode: always check modtime before returning cached result
+- [ ] `Clear()` method also clears the info cache
+
+### Phase 3: Nice to Have
+
+Carried forward from original spec, plus items deferred from Phase 2 based on investigation.
+
+**Deferred from Phase 2 (with rationale):**
+
+- [ ] Dominant color extraction in `imageInfo()`: `imageInfo(@./photo.jpg, {color: true})` → adds `color: "#2a4f3b"` to return dict
+  - *Deferred: low user value; zero-dep approach (1×1 resize via `imaging`) is ready when needed; requires full image decode (gated behind opt-in param); depends on `imageInfo()` caching (Phase 2d) being in place*
+  - Implementation: `imaging.Resize(img, 1, 1, imaging.Lanczos)` → read pixel → format as hex. Upgrade to `cenkalti/dominantcolor` (K-Means, Chromium port) if average-color quality is insufficient.
 - [ ] Smart crop via focal point detection: `{crop: "smart"}`
-- [ ] Sharpen on downscale: subtle unsharp mask when reducing image dimensions significantly
+  - *Deferred: only viable library (`muesli/smartcrop`, ~1.9k ⭐) is dormant (last human commit Jan 2022, last release 2019) with known quality issues. No alternative pure-Go libraries exist. Returns `image.Rectangle` — requires `imaging.Crop()` + `imaging.Resize()` (not compatible with `imaging.Fill()`). Evaluate when there is user demand.*
+  - If adopted: vendor or fork `muesli/smartcrop`, replace its `nfnt/resize` dep with custom `imaging`-based resizer via its `Resizer` interface.
+- [ ] WebP output encoding via `gen2brain/webp`
+  - *Deferred: codebase is fully prepared (options parsing, validation, format normalization, quality defaults all handle "webp"). The only missing piece is the encoder call in `Encode()` (~4 lines). Binary size impact unmeasured — current basil is 35MB, pars is 27MB. Measure when `imageSrcset()` is shipping (WebP output matters most for responsive images).*
 
-### Phase 3: Nice to Have (post-1.2)
+**Original Phase 3 items:**
 
 - [ ] AVIF output format support
 - [ ] SVG optimization (metadata stripping, minification)
@@ -69,6 +174,58 @@ All three options contradict Basil's philosophy: a single binary that handles th
 - [ ] Color palette extraction in `imageInfo()`
 
 ## Design Decisions
+
+### Phase 2 Design Decisions
+
+#### `imageSrcset()` Returns a Dict, Not a String
+
+**Decision**: `imageSrcset()` returns `{src, srcset, width, height}`, not just a `srcset` attribute string.
+
+**Rationale**: A dict gives the developer everything needed to build a complete `<img>` tag — `src` for the fallback, `srcset` for responsive variants, and `width`/`height` for layout stability (preventing CLS). Parsley's native HTML composition makes it trivial to use dict fields in attributes. A bare string would require a separate call to get dimensions and the fallback `src`. Surveyed Next.js (`getImageProps()` returns a props object), Eleventy Image (returns metadata object by default), and Hugo (returns individual resource objects) — all provide structured data, not just a string.
+
+#### `imageSrcset()` Uses Width Descriptors by Default
+
+**Decision**: The primary mode uses width descriptors (`400w`, `800w`, `1200w`). Density descriptors (`1x`, `2x`) are available via an optional 4th argument.
+
+**Rationale**: Width descriptors are the standard for responsive images — all three surveyed frameworks (Next.js, Eleventy, Hugo) default to or primarily use `w` descriptors. Density descriptors are a secondary mode for fixed-size images (icons, avatars). Next.js auto-selects based on whether `sizes` is present; we make it explicit with an optional `"x"` argument to keep the API predictable.
+
+#### `imageSrcset()` Calls `image()` N Times Internally
+
+**Decision**: `imageSrcset()` calls `image()` once per width in the scales array. No batch registry API.
+
+**Rationale**: At typical scale counts (3–5 variants), the overhead of N separate `image()` calls is negligible — each goes through the registry's singleflight dedup and cache check. A batch API (single source load, multiple transforms) would save one image decode per additional variant, but the complexity isn't justified until profiling shows decode is a bottleneck. The existing `Load()`, `Transform()`, and `Encode()` functions in `transform.go` are already composable, so a `TransformBatch()` method could be added later without changing the public API.
+
+#### `imageBlur()` Is a Separate Builtin, Not an Option on `image()`
+
+**Decision**: Blur placeholder is a dedicated `imageBlur(path)` function, not `image(path, {blur: true})`.
+
+**Rationale**: `image()` always returns a URL string (`/__img/{hash}.ext`). `imageBlur()` always returns a data URI string (`data:image/jpeg;base64,...`). These are fundamentally different return types. Overloading `image()` with an option that changes the return type would be surprising and break the contract. A separate function makes the behaviour obvious at the call site. The name `imageBlur` is consistent with the `image`/`imageInfo`/`imageSrcset` family.
+
+#### Blur Parameters Are Fixed, Not Configurable
+
+**Decision**: `imageBlur()` takes only a path — no size, sigma, or quality parameters.
+
+**Rationale**: LQIP is a well-understood technique with a narrow sweet spot: 20px wide, heavy blur, low JPEG quality. Investigation confirmed the defaults produce ~600 byte payloads in ~3ms — there is nothing to tune. Exposing parameters would invite bikeshedding and produce worse results (too large = defeats the purpose, too small = artifacts). If a future use case needs configurable blur, it can be added as a separate feature.
+
+#### Blur Edge Handling at LQIP Scale
+
+**Decision**: No padding/crop technique is needed for the LQIP pipeline.
+
+**Rationale**: `imaging.Blur()` uses kernel clamping (equivalent to edge replication) — it does not sample imaginary/transparent pixels beyond the image boundary. On opaque images (JPEG), there is no feathering. At LQIP scale (20×15px), the blur radius (30px from σ=10) exceeds the image dimensions, so the entire thumbnail becomes a near-uniform color field — edge truncation effects are undetectable (verified: zero deviation measured). For any future larger-scale blur feature, a 1× radius pad-then-crop technique eliminates edge bias completely (also verified). See `work/reports/FEAT-148-phase2-investigation-results.md` §2 for full measurements.
+
+#### Sharpen Is Opt-In, Not Automatic
+
+**Decision**: Sharpening on downscale requires `{sharpen: true}` — it is not applied automatically.
+
+**Rationale**: Automatic sharpening could surprise users who expect pixel-identical output from deterministic transforms. Opt-in is safer and more predictable. The cost is trivial (~1ms), so there's no performance reason to gate it — the decision is purely about user expectations. `{sharpen: true}` uses a default sigma of 0.5 (industry standard for post-downscale web images); an explicit number like `{sharpen: 0.8}` overrides the default.
+
+#### `sizes` Is Always User-Provided
+
+**Decision**: `imageSrcset()` does not generate or accept a `sizes` attribute. The developer writes it directly in their template.
+
+**Rationale**: The `sizes` attribute describes how wide the image will be at various viewport widths — this depends entirely on CSS layout, which the image system has no knowledge of. No surveyed framework (Next.js, Eleventy, Hugo) auto-generates `sizes`. Attempting to infer it would produce incorrect results and create a false sense of correctness.
+
+---
 
 ### Pure Go, No libvips
 
@@ -221,15 +378,18 @@ server/images/
 
 ```go
 type TransformOptions struct {
-    Width   int    // Target width (0 = auto/preserve aspect ratio)
-    Height  int    // Target height (0 = auto/preserve aspect ratio)
-    Crop    string // "center", "smart" (Phase 2), or "" (no crop — fit within box)
-    Quality int    // 1-100, 0 = format default (JPEG: 85, WebP: 80, PNG: lossless)
-    Format  string // "webp", "jpeg", "png", "original", or "" (default = "original")
-    Blur    float64 // Blur radius, 0 = none (Phase 2)
-    Sharpen float64 // Sharpen amount, 0 = none (Phase 2)
+    Width   int     // Target width (0 = auto/preserve aspect ratio)
+    Height  int     // Target height (0 = auto/preserve aspect ratio)
+    Crop    string  // "center", "smart" (Phase 3), or "" (no crop — fit within box)
+    Quality int     // 1-100, 0 = format default (JPEG: 85, WebP: 80, PNG: lossless)
+    Format  string  // "webp", "jpeg", "png", "original", or "" (default = "original")
+    Sharpen float64 // Sharpen sigma, 0 = none (Phase 2: opt-in via {sharpen: true} → 0.5, or {sharpen: N})
 }
 ```
+
+**Phase 1 (implemented):** Width, Height, Crop ("center"), Quality, Format.
+**Phase 2 (adding):** Sharpen.
+**Phase 3 (planned):** Crop "smart" mode. Blur is handled by the separate `imageBlur()` builtin, not as a TransformOptions field.
 
 ### Builtin Signatures
 
@@ -240,19 +400,37 @@ type TransformOptions struct {
 #### `image(path, options_dict)` → `string`
 - Apply specified transformations
 - `options_dict` keys: `width`, `height`, `crop`, `quality`, `format`
-- Phase 2 adds: `blur`, `sharpen`
+- Phase 2 adds: `sharpen` (boolean `true` → sigma 0.5, or float for explicit sigma)
 - Returns `/__img/{hash}.{ext}`
 
 #### `image(path, style_dict)` → `string`  
 - Same as above — a "style" is just a dict with the same keys
 - No special style registration mechanism needed; styles are regular Parsley values
 
+#### `imageSrcset(path, style, widths)` → `dict` *(Phase 2)*
+- Generate multiple resized variants and return responsive image metadata
+- `widths`: array of pixel widths, e.g., `[400, 800, 1200]`
+- Returns `{src: string, srcset: string, width: int, height: int}`
+- `srcset` uses width descriptors by default: `"/__img/a.jpg 400w, /__img/b.jpg 800w"`
+
+#### `imageSrcset(path, style, scales, "x")` → `dict` *(Phase 2)*
+- Density descriptor mode (4th arg is the string `"x"`)
+- `scales`: array of density multipliers, e.g., `[1, 2, 3]`
+- Multiplied against `style.width` to compute pixel widths
+- `srcset` uses density descriptors: `"/__img/a.jpg 1x, /__img/b.jpg 2x"`
+
+#### `imageBlur(path)` → `string` *(Phase 2)*
+- Generate a tiny blurred placeholder image as an inline data URI
+- Returns `data:image/jpeg;base64,...` (~600 bytes / ~835 chars)
+- Pipeline: resize to 20px wide → Gaussian blur σ=10 → JPEG quality 20 → base64
+- No options — parameters are fixed (see Phase 2 Design Decisions)
+
 #### `imageInfo(path)` → `dict`
 - Returns `{width: int, height: int, format: string, orientation: string}`
 - `orientation`: `"landscape"`, `"portrait"`, or `"square"`
-- Phase 2 adds: `color: string` (dominant color as hex)
+- Phase 2 adds: in-memory caching (keyed on path + modtime)
+- Phase 3 adds: `color: string` (dominant color as hex, opt-in via `{color: true}`)
 - Does NOT transform the image — reads metadata only
-- Results cached in memory (metadata is small)
 
 ### Cache Key Computation
 
@@ -356,6 +534,14 @@ Identical pattern to `assetHandler` at `/__p/`:
 - **Blocks**: Nothing — this is additive
 - **Related**: FileField design (`work/design/DESIGN-file-field.md`) — Phase 3 of FileField mentions image preview thumbnails, which could use this system
 
+### Phase 2 Affected Components
+
+- `server/images/options.go` — Add `Sharpen` field to `TransformOptions`, update `ParseOptions()`, `Validate()`, `Canonical()`
+- `server/images/transform.go` — Apply `imaging.Sharpen()` after resize when `opts.Sharpen > 0`; add `GenerateBlurPlaceholder()` function (resize → blur → JPEG encode → base64)
+- `server/images/registry.go` — Add `BlurPlaceholder(sourcePath)` method; add `sync.Map` info cache for `imageInfo()` memoization; add `TransformMultiple()` or have `imageSrcset` call `Transform()` N times
+- `server/images/handler.go` — No changes expected (blur placeholders are data URIs, not served via handler)
+- `pkg/parsley/evaluator/image.go` — Register `imageSrcset()` and `imageBlur()` builtins; update `image()` to pass `sharpen` option through to registry
+
 ## Implementation Notes
 
 ### Post-Implementation Review (2026-06-28)
@@ -428,4 +614,6 @@ Completed 2026-06-28. See "Pure Go, No libvips" design decision above for full r
 - Config pattern: `server/config/config.go`
 - FileField design: `work/design/DESIGN-file-field.md` (Phase 3: image preview thumbnails)
 - Compression feature: `work/specs/FEAT-064.md` (similar "middleware infrastructure" pattern)
-- Plan: `work/plans/FEAT-148-plan.md`
+- Plan (Phase 1): `work/plans/FEAT-148-plan.md`
+- Design investigation (Phase 2): `work/design/DESIGN-image-transform-phase2.md`
+- Investigation results (Phase 2): `work/reports/FEAT-148-phase2-investigation-results.md`
