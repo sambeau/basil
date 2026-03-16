@@ -52,6 +52,19 @@ type AssetRegistrar interface {
 	Register(filepath string) (string, error)
 }
 
+// ImageRegistrar is the interface for image transformation in the evaluator.
+// This allows the server package to provide image registry implementation without
+// creating a circular dependency.
+type ImageRegistrar interface {
+	// Transform transforms an image with the given options, caches the result,
+	// and returns the public URL (e.g., /__img/{hash}.jpg).
+	Transform(sourcePath string, opts map[string]any) (string, error)
+	// Info returns metadata about an image without transforming it.
+	Info(sourcePath string) (map[string]any, error)
+	// BlurPlaceholder generates a Low Quality Image Placeholder (LQIP) data URI.
+	BlurPlaceholder(sourcePath string) (string, error)
+}
+
 // AssetBundler provides site-wide CSS/JS bundle URLs for <Css/> and <Script/> tags.
 type AssetBundler interface {
 	CSSUrl() string // Returns URL for CSS bundle, or empty string if no CSS files
@@ -676,6 +689,7 @@ type Environment struct {
 	ServerDB      *DBConnection   // Server-level database connection (set at startup, available to modules)
 	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
 	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
+	ImageRegistry ImageRegistrar  // Image registry for image() and imageInfo() (nil if not available)
 	AssetBundle   AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
 	BasilJSURL    string          // URL for basil.js prelude script (for <BasilJS/> tag)
 	HandlerPath   string          // Current handler path for cache key namespacing
@@ -746,6 +760,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.ServerDB = outer.ServerDB
 		env.FragmentCache = outer.FragmentCache
 		env.AssetRegistry = outer.AssetRegistry
+		env.ImageRegistry = outer.ImageRegistry
 		env.AssetBundle = outer.AssetBundle
 		env.BasilJSURL = outer.BasilJSURL
 		env.HandlerPath = outer.HandlerPath

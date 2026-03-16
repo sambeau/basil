@@ -16,7 +16,8 @@
 9. [Dev Tools (@std/dev)](#9-dev-tools-stddev)
 10. [Server Globals](#10-server-globals)
 11. [Server Functions](#11-server-functions)
-12. [Error Handling](#12-error-handling)
+12. [Image Transformation](#12-image-transformation)
+13. [Error Handling](#13-error-handling)
 
 ---
 
@@ -1396,9 +1397,137 @@ Access CSRF token via the basil context for form protection.
 
 ---
 
-## 12. Error Handling
+## 12. Image Transformation
 
-### 12.1 Error Object Structure
+Basil provides four built-in functions for transforming, optimising, and serving images. Images are transformed on first use, cached to disk at content-hashed URLs, and served with immutable cache headers.
+
+### 12.1 image()
+
+```parsley
+image(path) → string
+image(path, options) → string
+```
+
+Transforms an image and returns its public URL. The transform runs once; all subsequent calls return the cached URL immediately.
+
+```parsley
+// Serve original (auto-rotated, metadata stripped)
+let url = image(@./photo.jpg)
+
+// Resize to 800px wide, convert to WebP
+let url = image(@./photo.jpg, {width: 800, format: "webp"})
+
+// Crop to exact 400×300 (center crop)
+let thumb = image(@./photo.jpg, {width: 400, height: 300, crop: "center"})
+```
+
+**Options:**
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `width` | integer | — | Target width in pixels |
+| `height` | integer | — | Target height in pixels |
+| `crop` | string | `""` | `"center"` fills the exact box; without crop, image fits within box |
+| `quality` | integer | format default | 1–100. Defaults: JPEG 85, WebP 80, PNG lossless |
+| `format` | string | source format | `"jpeg"`, `"png"`, `"webp"`, `"gif"` |
+| `sharpen` | bool or number | `true` | Auto-sharpen on downscale. `false` disables. A number sets sigma explicitly. |
+
+EXIF orientation is applied automatically. Images are never upscaled — requesting a width larger than the source clamps to source dimensions.
+
+### 12.2 imageInfo()
+
+```parsley
+imageInfo(path) → dict
+```
+
+Returns image metadata without transforming the image. Results are cached in memory (keyed by path and modification time).
+
+```parsley
+let info = imageInfo(@./hero.jpg)
+// {width: 3024, height: 4032, format: "jpeg", orientation: "portrait"}
+```
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `width` | integer | Width in pixels (after EXIF auto-orientation) |
+| `height` | integer | Height in pixels (after EXIF auto-orientation) |
+| `format` | string | `"jpeg"`, `"png"`, `"webp"`, or `"gif"` |
+| `orientation` | string | `"landscape"`, `"portrait"`, or `"square"` |
+
+### 12.3 imageBlur()
+
+```parsley
+imageBlur(path) → string
+```
+
+Generates a Low Quality Image Placeholder (LQIP) and returns it as an inline `data:` URI (~600 bytes). Use as a CSS background image that appears instantly while the full image loads.
+
+```parsley
+let blur = imageBlur(@./hero.jpg)
+let full = image(@./hero.jpg, {width: 1200})
+
+<div style={"background-image: url(" + blur + "); background-size: cover;"}>
+    <img src={full} loading=lazy alt="Hero"/>
+</div>
+```
+
+### 12.4 imageSrcset()
+
+```parsley
+imageSrcset(path, style, widths) → dict
+imageSrcset(path, style, scales, "x") → dict
+```
+
+Generates multiple resized variants and returns a dict for responsive `<img>` tags.
+
+```parsley
+// Width descriptor mode
+let resp = imageSrcset(@./hero.jpg, {format: "webp"}, [400, 800, 1200])
+
+<img
+    src={resp.src}
+    srcset={resp.srcset}
+    sizes="(max-width: 600px) 100vw, 800px"
+    width={resp.width}
+    height={resp.height}
+    alt="Hero"
+/>
+```
+
+```parsley
+// Density descriptor mode (requires style.width)
+let resp = imageSrcset(@./logo.png, {width: 120}, [1, 2, 3], "x")
+```
+
+**Returns:** `{src: string, srcset: string, width: integer, height: integer}`
+
+### 12.5 Supported Formats
+
+| Format | Input | Output |
+|--------|-------|--------|
+| JPEG | ✅ | ✅ |
+| PNG | ✅ | ✅ |
+| GIF | ✅ (first frame) | ✅ |
+| WebP | ✅ | ✅ |
+
+### 12.6 Configuration
+
+```yaml
+images:
+  cache_dir: ./cache/images   # Default cache location
+  max_width: 4000
+  max_height: 4000
+  default_quality: 85
+  default_format: ""
+```
+
+See the [Images manual page](../parsley/manual/builtins/images.md) for full documentation.
+
+---
+
+## 13. Error Handling
+
+### 13.1 Error Object Structure
 
 When operations fail, Basil returns an `Error` object with:
 
@@ -1407,7 +1536,7 @@ When operations fail, Basil returns an `Error` object with:
 - `message` — Human-readable error description
 - `hints` — Array of suggestions for fixing the error
 
-### 12.2 Error Classes
+### 13.2 Error Classes
 
 | Class | Description |
 |-------|-------------|
@@ -1419,7 +1548,7 @@ When operations fail, Basil returns an `Error` object with:
 | `value` | Invalid value errors |
 | `state` | Invalid state errors |
 
-### 12.3 Common Error Codes
+### 13.3 Common Error Codes
 
 #### Database Errors (DB-0xxx)
 
@@ -1469,7 +1598,7 @@ When operations fail, Basil returns an `Error` object with:
 | `SEC-0005` | Network access denied |
 | `SEC-0006` | No authentication method provided (SFTP) |
 
-### 12.4 Error Handling Patterns
+### 13.4 Error Handling Patterns
 
 #### Pattern 1: Error Capture with File I/O
 

@@ -87,9 +87,10 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env.ServerDB = evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
 	}
 
-	// Set fragment cache, asset registry, and handler path
+	// Set fragment cache, asset registry, image registry, and handler path
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
+	env.ImageRegistry = h.server.imageRegistry
 	env.AssetBundle = h.server.assetBundle
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
@@ -97,6 +98,12 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())
+
+	// Inject image(), imageInfo(), imageBlur(), and imageSrcset() functions for image transformation
+	env.SetProtected("image", evaluator.NewImageBuiltin())
+	env.SetProtected("imageInfo", evaluator.NewImageInfoBuiltin())
+	env.SetProtected("imageBlur", evaluator.NewImageBlurBuiltin())
+	env.SetProtected("imageSrcset", evaluator.NewImageSrcsetBuiltin())
 
 	// Inject @params - merged query+form params (POST wins)
 	env.Set("@params", buildParams(r, env))

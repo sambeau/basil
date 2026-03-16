@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Image Transformation (FEAT-148)
+- **`image()` builtin** — Transform images and serve them at content-hashed, immutable URLs. Auto-rotates via EXIF, strips metadata, resizes (width/height/fit or center-crop), converts format, and caches results to disk. No upscaling; concurrent transforms are deduplicated via singleflight.
+- **`imageInfo()` builtin** — Returns `{width, height, format, orientation}` for an image without transforming it. Results are cached in memory (keyed by path + modification time) for efficient gallery-page use.
+- **`imageBlur()` builtin** — Generates a Low Quality Image Placeholder (LQIP) as an inline `data:image/jpeg;base64,...` URI (~600 bytes). Use as an instant CSS background while the full image loads.
+- **`imageSrcset()` builtin** — Generates multiple resized variants and returns `{src, srcset, width, height}` for responsive `<img>` tags. Supports both width descriptor mode (`[400, 800, 1200]`) and density descriptor mode (`[1, 2, 3], "x"`).
+- **WebP output encoding** — All four builtins support WebP output via `gen2brain/webp` (pure-Go, no CGo). Uses native `libwebp` when available on the host, with a WASM fallback (`wazero`) otherwise. WebP typically produces 67–72% smaller files than JPEG for photos.
+- **Automatic sharpening on downscale** — A subtle unsharp mask (σ=0.5) is applied after resize to recover edge detail. Disable with `{sharpen: false}` or set an explicit sigma with `{sharpen: 1.2}`.
+- **Disk cache at `/__img/`** — Transformed images are served at `/__img/{hash}.{ext}` with immutable `Cache-Control` headers. Cache is stored at `./cache/images/` by default (configurable via `images.cache_dir`).
+- **Binary size note** — The `basil` binary grows by ~4 MB (35 MB → 39 MB) due to the bundled WASM runtime. Install `libwebp` on your production host (`brew install webp` / `apt install libwebp-dev`) to use the faster native encoder and confirm the runtime path at startup.
+
 #### Language Features
 - **Short-circuit evaluation for `&&` and `||`** (BUG-025) — Logical operators now short-circuit correctly: `&&` skips the right operand when the left is falsy, `||` skips when the left is truthy. Collection overloads (intersection/union) are preserved for non-boolean operands.
 

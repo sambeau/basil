@@ -1,14 +1,14 @@
 module github.com/sambeau/basil
 
-go 1.24.1
-
-toolchain go1.24.10
+go 1.25.0
 
 require (
 	github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/disintegration/imaging v1.6.2
 	github.com/emersion/go-smtp v0.24.0
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/gen2brain/webp v0.5.5
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/go-webauthn/webauthn v0.15.0
@@ -22,8 +22,10 @@ require (
 	github.com/resend/resend-go/v2 v2.28.0
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/crypto v0.45.0
+	golang.org/x/image v0.37.0
 	golang.org/x/net v0.47.0
-	golang.org/x/text v0.31.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/text v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.1
 )
@@ -32,6 +34,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
@@ -50,6 +53,7 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.1.0 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/sys v0.38.0 // indirect

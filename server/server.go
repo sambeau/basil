@@ -17,6 +17,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
+	"github.com/sambeau/basil/server/images"
 	"golang.org/x/crypto/acme/autocert"
 
 	// SQLite driver (pure Go, no CGO required)
@@ -49,6 +50,7 @@ type Server struct {
 	responseCache *responseCache
 	fragmentCache *fragmentCache
 	assetRegistry *assetRegistry
+	imageRegistry *images.Registry
 	assetBundle   *AssetBundle
 	watcher       *Watcher
 	db            *sql.DB // Database connection (nil if not configured)
@@ -114,6 +116,29 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		s.assetRegistry = newAssetRegistry(s.logWarn)
 	} else {
 		s.assetRegistry = newAssetRegistry(nil)
+	}
+
+	// Initialize image registry for image() builtin
+	if cfg.Server.Dev {
+		s.imageRegistry = images.NewRegistry(
+			cfg.Images.CacheDir,
+			cfg.Images.MaxWidth,
+			cfg.Images.MaxHeight,
+			cfg.Images.DefaultQuality,
+			cfg.Images.DefaultFormat,
+			true, // devMode
+			s.logWarn,
+		)
+	} else {
+		s.imageRegistry = images.NewRegistry(
+			cfg.Images.CacheDir,
+			cfg.Images.MaxWidth,
+			cfg.Images.MaxHeight,
+			cfg.Images.DefaultQuality,
+			cfg.Images.DefaultFormat,
+			false, // devMode
+			nil,
+		)
 	}
 
 	// Initialize asset bundle (CSS/JS auto-bundling)
@@ -562,6 +587,9 @@ func (s *Server) setupRoutes() error {
 	// Register asset handler for publicUrl() files at /__p/
 	s.mux.Handle("/__p/", newAssetHandler(s.assetRegistry, s.devLog != nil))
 
+	// Register image handler for image() files at /__img/
+	s.mux.Handle("/__img/", images.NewHandler(s.imageRegistry, s.devLog != nil))
+
 	// Register asset bundle routes
 	s.mux.HandleFunc("/__site.css", func(w http.ResponseWriter, r *http.Request) {
 		s.assetBundle.ServeCSS(w, r)
@@ -922,6 +950,7 @@ func (s *Server) ReloadScripts() {
 	s.responseCache.Clear()
 	s.fragmentCache.Clear()
 	s.assetRegistry.Clear()
+	s.imageRegistry.Clear()
 	evaluator.ClearModuleCache() // Clear cached modules that may hold stale DB connections
 	// Rebuild asset bundle
 	if s.assetBundle != nil {

@@ -32,7 +32,6 @@ Deferred items from implementation, to be picked up in future work.
 | #22 | OAuth2/OIDC providers | FEAT-004 | Not MVP | Google, GitHub, etc. identity providers. Consider after passkey auth is stable. |
 | #23 | SMS recovery (Twilio) | FEAT-004 | Not MVP | Recovery via SMS code. Simpler than email (no deliverability issues, just JSON API). Would need Twilio account config. Consider as primary "second factor" option. |
 | #25 | Multiple passkeys per user | FEAT-004 | Not MVP | Allow registering phone + laptop + YubiKey. Adds device management UI. |
-
 | #28 | Table.join(table, column) | FEAT-018 | Not MVP | SQL joins, needs careful design |
 | #31 | Table.first() / Table.last() | FEAT-018 | Not MVP | Single row access. Workarounds: `table.limit(1)` returns a one-row table (not the row itself), `table.find(fn(r){true})` returns first row as a dict. No `last()` equivalent. |
 | #34 | Error code documentation/help system | FEAT-023 | Phase 6+ | CLI command or web endpoint to look up error codes with examples/solutions. e.g., `pars error TYPE-0001` or `/__/errors/TYPE-0001`. |
@@ -47,6 +46,14 @@ Deferred items from implementation, to be picked up in future work.
 | #122 | Tree-sitter: Complex regex escape handling | PLAN-092 | Parser limitation | Regex literals with `\/` escapes (e.g., `/^https?:\/\/.+/`) fail because the token-level regex pattern stops at the first `/`. Full fix requires external scanner to track escape sequences. Affects 2 example files with URL-matching regexes. *(Previously #98 — renumbered to resolve ID collision.)* |
 | #123 | Tree-sitter: XML comment support | PLAN-092 | Parser limitation | `<!-- ... -->` inside tags are not parsed. Would need grammar rule or external scanner support. Affects svg_xml_demo.pars example. *(Previously #99 in Medium Priority — renumbered to resolve ID collision.)* |
 | #124 | Tree-sitter: HTML-like tags inside strings | PLAN-092 | Parser limitation | Edge case where `<tag>` appears inside a quoted string (e.g., `"text <code>more"</code>"`) causes ambiguous parsing. Tree-sitter sees `<code>` as tag start even inside string context. Affects 2 example files. Would require complex lookahead or string content redesign. *(Previously #100 in Medium Priority — renumbered to resolve ID collision.)* |
+
+| #130 | `imageSrcset()` builtin for responsive images | FEAT-148 Phase 2 | Phase 1 scope | Generate `srcset` attribute string for responsive images. Requires `image()` foundation. |
+| #131 | Image blur placeholder generation | FEAT-148 Phase 2 | Phase 1 scope | `{blur: true}` option producing a tiny blurred image for progressive loading. |
+| #132 | Smart crop via focal point detection | FEAT-148 Phase 2 | Phase 1 scope | `{crop: "smart"}` using `muesli/smartcrop`. Needs evaluation of quality and performance. |
+| #133 | Dominant color extraction in `imageInfo()` | FEAT-148 Phase 2 | Phase 1 scope | Add `color: "#2a4f3b"` to `imageInfo()` return dict. |
+| #134 | AVIF output format for image transform | FEAT-148 Phase 3 | No pure-Go encoder | Requires a CGo-free AVIF encoder to exist. Revisit when ecosystem matures. |
+| #135 | Image cache eviction / LRU / `basil cache clear` CLI | FEAT-148 Phase 3 | Phase 1 tolerates orphans | Add cache size limits, LRU eviction policy, and CLI subcommand for manual cache clearing. Phase 1 uses "delete the directory" approach. |
+| BUG-026 | ~~EXIF orientation dimension mismatch in `imageInfo()`~~ | FEAT-148 Phase 2 audit | ✅ Fixed | Fixed: `GetImageInfo()` now reads EXIF orientation tag for JPEGs and swaps width/height for orientations 5–8. See `work/bugs/BUG-026.md`. |
 
 ## Low Priority / Nice to Have
 | ID | Item | Source | Reason Deferred | Notes |
