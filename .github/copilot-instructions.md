@@ -215,10 +215,23 @@ go test ./pkg/parsley/tests -run TestName
 
 ## Parsley Documentation
 When documenting Parsley language features:
-- When writing manual pages: see `.github/templates/DOC_MAN_BUILTIN.md` and `.github/templates/DDOC_MAN_STD.md`
+- When writing manual pages: see `.github/templates/DOC_MAN_BUILTIN.md` and `.github/templates/DOC_MAN_STD.md`
+- Manual pages go in `docs/parsley/manual/builtins/` (types) or `docs/parsley/manual/stdlib/` (modules)
 - `docs/parsley/reference.md` - Comprehensive reference. All features should be documented here with accurate grammar snippets
 - `docs/parsley/CHEATSHEET.md` - AI-focused cheatsheet highlighting differences from other languages, ordered by likelihood of being a pitfall
 - `docs/parsley/README.md` - Quick guide with examples (may be outdated)
+
+## Basil Documentation
+When documenting Basil server features (image transforms, auth, sessions, database, etc.):
+- When writing manual pages: see `.github/templates/DOC_MAN_BASIL.md`
+- Manual pages go in `docs/basil/manual/`
+- `docs/basil/reference.md` - Comprehensive reference for all Basil server extensions
+- Basil features require the server environment — they error in standalone `pars` or the REPL
+- Include the `> **Basil-only.**` callout near the top of each manual page
+
+### Parsley vs Basil manual pages
+- **Parsley** manual = the language: types, operators, stdlib — works in `pars` standalone → `docs/parsley/manual/`
+- **Basil** manual = the server framework: images, auth, sessions, database connections — requires Basil server → `docs/basil/manual/`
 
 ### Documentation Accuracy Rules
 1. **Verify examples work** — run `pars -e "code"` before committing doc changes

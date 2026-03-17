@@ -7,9 +7,15 @@ These rules apply when writing or editing Parsley and Basil manual pages.
 
 ## Templates
 
-- **Builtin types:** Follow structure in `.github/templates/DOC_MAN_BUILTIN.md`
-- **Stdlib modules:** Follow structure in `.github/templates/DOC_MAN_STD.md`
+- **Builtin types:** Follow structure in `.github/templates/DOC_MAN_BUILTIN.md` → `docs/parsley/manual/builtins/`
+- **Stdlib modules:** Follow structure in `.github/templates/DOC_MAN_STD.md` → `docs/parsley/manual/stdlib/`
+- **Basil server features:** Follow structure in `.github/templates/DOC_MAN_BASIL.md` → `docs/basil/manual/`
 - **Fundamentals/features:** Adapt the builtin template — omit sections that don't apply
+
+### Parsley vs Basil manual pages
+
+- **Parsley** manual pages document the language itself: types, operators, stdlib modules — things that work in standalone `pars` or the REPL. They live under `docs/parsley/manual/`.
+- **Basil** manual pages document server-only features: image transforms, auth, sessions, database connections — things that require the Basil server and will error in `pars`. They live under `docs/basil/manual/`.
 
 Templates define **page structure**. This file defines **voice and style**.
 
