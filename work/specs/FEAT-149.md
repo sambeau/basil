@@ -1,7 +1,7 @@
 ---
 id: FEAT-149
 title: "Content-Aware Image Operations (Smart Crop & Seam Carving)"
-status: draft
+status: implemented
 priority: medium
 created: 2026-03-16
 author: "@human / @ai"

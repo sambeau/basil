@@ -2,7 +2,7 @@
 id: PLAN-130
 feature: FEAT-149
 title: "Implementation Plan for Content-Aware Image Operations (Smart Crop & Seam Carving)"
-status: draft
+status: implemented
 created: 2026-03-16
 ---
 

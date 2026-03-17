@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Disk cache at `/__img/`** — Transformed images are served at `/__img/{hash}.{ext}` with immutable `Cache-Control` headers. Cache is stored at `./cache/images/` by default (configurable via `images.cache_dir`).
 - **Binary size note** — The `basil` binary grows by ~4 MB (35 MB → 39 MB) due to the bundled WASM runtime. Install `libwebp` on your production host (`brew install webp` / `apt install libwebp-dev`) to use the faster native encoder and confirm the runtime path at startup.
 
+#### Content-Aware Image Operations (FEAT-149)
+- **Smart crop** (`{crop: "smart"}`) — Analyses images for faces and high-interest regions (edges, saturation, skin tones, composition) and crops to preserve them. Uses a two-pass architecture: PICO face detection at 640px followed by heuristic scoring at 256px. Pure Go, no new dependencies — the PICO cascade file (234 KB, MIT-licensed) is embedded via `go:embed`.
+- **Focal point option** (`{focal: {x, y}}`) — Guide smart crop toward a specific point or region using normalised (0–1) coordinates. Supports both point `{x, y}` and rectangle `{x, y, w, h}` forms.
+- **Seam carving** (`{scale: "smart"}`) — Content-aware resizing that removes or inserts low-energy pixel paths (seams) instead of uniformly scaling. Preserves faces, text, and important content when changing aspect ratio. Supports both reduction and enlargement. Based on Avidan & Shamir, SIGGRAPH 2007.
+- **Validation** — `crop: "smart"` requires both width and height; `focal` requires `crop: "smart"`; `crop` and `scale` are mutually exclusive. Changes beyond 30% via seam carving log a warning.
+
 #### Language Features
 - **Short-circuit evaluation for `&&` and `||`** (BUG-025) — Logical operators now short-circuit correctly: `&&` skips the right operand when the left is falsy, `||` skips when the left is truthy. Collection overloads (intersection/union) are preserved for non-boolean operands.
 
