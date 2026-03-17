@@ -376,7 +376,7 @@ Tests:
 
 **Files**: `server/images/seamcarve/seamcarve.go`, `server/images/seamcarve/energy.go`, `server/images/seamcarve/seamcarve_test.go`
 **Estimated effort**: Medium (3–5 days)
-**Status**: ✅ Complete
+**Status**: ✅ Complete (reduction only)
 
 Implement seam carving for content-aware image scaling (width and/or height reduction).
 
@@ -428,7 +428,7 @@ Tests:
 
 **Files**: `server/images/seamcarve/seamcarve.go`, `server/images/seamcarve/seamcarve_test.go`
 **Estimated effort**: Medium (2–3 days)
-**Status**: 🔲 Not started
+**Status**: ✅ Complete
 
 Extend seam carving to support enlargement (seam insertion). This is the primary use case for seam carving in Basil — smart crop handles shrinking well, but browsers cannot intelligently enlarge images the way seam carving can.
 
@@ -637,7 +637,7 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 | 2026-03-17 | Task 7 | ✅ Complete | Evaluator handles nested dicts for focal option |
 | | Task 8 | 🔜 Deferred | Quality tuning requires test images and human review |
 | 2026-03-17 | Task 9 | ✅ Complete | Seam carving reduction implemented with DP seam finding |
-| | Task 9b | 🔲 Not started | Seam carving enlargement (seam insertion) |
+| 2026-03-17 | Task 9b | ✅ Complete | Seam carving enlargement (seam insertion) |
 | 2026-03-17 | Task 10 | ✅ Complete | Test image directory structure and comparison tool created |
 
 ### Implementation Notes
@@ -654,16 +654,21 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 - Face detection at 640px: ~10ms
 - Sobel filter at 256px: ~1.2ms
 
-**Phase 2 (Seam Carving) — reduction complete, enlargement pending.**
+**Phase 2 (Seam Carving) is feature-complete.**
 - `image(@./photo.jpg, {width: 300, scale: "smart"})` uses seam carving for reduction
+- `image(@./photo.jpg, {width: 1200, scale: "smart"})` uses seam carving for enlargement
 - Backward energy seam carving (Avidan & Shamir, SIGGRAPH 2007)
-- Warning logged for reductions > 30% (artifact threshold)
+- Warning logged for changes > 30% (artifact threshold)
 - Results are cached by existing disk cache
-- **Enlargement (seam insertion) not yet implemented** — this is the primary use case since smart crop handles shrinking
+- Enlargement finds k seams on original image (to avoid clustering), then inserts all at once
 
-**Seam carving benchmark results (M2 Mac, reduction only):**
-- Small (100x100, -10 each): ~5ms
-- Medium (256x256, -26 each): ~79ms
+**Seam carving benchmark results (M2 Mac):**
+- Reduction small (100x100, -10 each): ~5ms
+- Reduction medium (256x256, -26 each): ~79ms
+- Enlargement small (100x100, +10 each): ~1.2ms
+- Enlargement medium (256x256, +24 each): ~13ms
+
+Note: Enlargement is faster than reduction because seams are found once upfront rather than iteratively with energy recomputation.
 
 **Test image infrastructure:**
 - Directory structure: `testdata/images/smartcrop/{faces,landscapes,objects,edge-cases}/`
