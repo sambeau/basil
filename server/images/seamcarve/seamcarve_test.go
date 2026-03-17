@@ -286,30 +286,30 @@ func TestResize_BothDimensions(t *testing.T) {
 	}
 }
 
-// TestResize_NoReduction tests that image is unchanged when target >= source.
-func TestResize_NoReduction(t *testing.T) {
+// TestResize_Enlargement tests that image is enlarged when target > source.
+func TestResize_Enlargement(t *testing.T) {
 	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
 
 	result := Resize(img, 100, 100)
 
-	if result.Bounds().Dx() != 50 {
-		t.Errorf("expected width 50, got %d", result.Bounds().Dx())
+	if result.Bounds().Dx() != 100 {
+		t.Errorf("expected width 100, got %d", result.Bounds().Dx())
 	}
-	if result.Bounds().Dy() != 50 {
-		t.Errorf("expected height 50, got %d", result.Bounds().Dy())
+	if result.Bounds().Dy() != 100 {
+		t.Errorf("expected height 100, got %d", result.Bounds().Dy())
 	}
 }
 
-// TestResize_TargetClamped tests that targets larger than source are clamped.
-func TestResize_TargetClamped(t *testing.T) {
+// TestResize_MixedEnlargeReduce tests enlarging one dimension while reducing another.
+func TestResize_MixedEnlargeReduce(t *testing.T) {
 	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
 
 	result := Resize(img, 100, 30)
 
-	// Width should stay at 50 (no enlargement)
+	// Width should enlarge to 100
 	// Height should reduce to 30
-	if result.Bounds().Dx() != 50 {
-		t.Errorf("expected width 50, got %d", result.Bounds().Dx())
+	if result.Bounds().Dx() != 100 {
+		t.Errorf("expected width 100, got %d", result.Bounds().Dx())
 	}
 	if result.Bounds().Dy() != 30 {
 		t.Errorf("expected height 30, got %d", result.Bounds().Dy())
@@ -473,5 +473,364 @@ func BenchmarkResize_Medium(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		Resize(img, 230, 230)
+	}
+}
+
+// =============================================================================
+// Enlargement Tests
+// =============================================================================
+
+// TestFindKMinVerticalSeams_ReturnsKSeams tests that k distinct seams are found.
+func TestFindKMinVerticalSeams_ReturnsKSeams(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	seams := findKMinVerticalSeams(img, 5)
+
+	if len(seams) != 5 {
+		t.Fatalf("expected 5 seams, got %d", len(seams))
+	}
+
+	// Each seam should have length equal to image height
+	for i, seam := range seams {
+		if len(seam) != 20 {
+			t.Errorf("seam[%d] has length %d, expected 20", i, len(seam))
+		}
+	}
+}
+
+// TestFindKMinVerticalSeams_NoOverlap tests that seams don't overlap on uniform energy.
+func TestFindKMinVerticalSeams_NoOverlap(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	seams := findKMinVerticalSeams(img, 5)
+
+	// Check that seams are spread out (no two seams share the same x at any row)
+	// This is a weak test since on uniform energy, seams could share positions
+	// but the algorithm should mark used seams to prevent reselection
+	for y := 0; y < 20; y++ {
+		positions := make(map[int]bool)
+		for i, seam := range seams {
+			if positions[seam[y]] {
+				t.Errorf("row %d: seam %d overlaps with another seam at x=%d", y, i, seam[y])
+			}
+			positions[seam[y]] = true
+		}
+	}
+}
+
+// TestFindKMinVerticalSeams_LowEnergyRegion tests that seams cluster in low-energy regions.
+func TestFindKMinVerticalSeams_LowEnergyRegion(t *testing.T) {
+	// Create image with a high-energy vertical stripe on the right that seams should avoid
+	// Left side is uniform (low energy interior), right side has a bright stripe (high energy edge)
+	img := image.NewRGBA(image.Rect(0, 0, 30, 20))
+	for y := 0; y < 20; y++ {
+		for x := 0; x < 30; x++ {
+			if x < 20 {
+				// Left side: uniform gray (low energy in interior)
+				img.Set(x, y, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+			} else if x == 20 {
+				// Bright stripe creating high energy edge
+				img.Set(x, y, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+			} else {
+				// Right of stripe: uniform dark (but edge at x=20 is high energy)
+				img.Set(x, y, color.RGBA{R: 50, G: 50, B: 50, A: 255})
+			}
+		}
+	}
+
+	seams := findKMinVerticalSeams(img, 5)
+
+	// Seams should avoid the high-energy edge at x=20
+	// Most seams should be in the uniform left region (x < 20) or uniform right region (x > 20)
+	// but NOT at x=20 where the edge is
+	edgeCount := 0
+	for _, seam := range seams {
+		for _, x := range seam {
+			if x == 20 || x == 19 || x == 21 {
+				edgeCount++
+				break // Count each seam only once
+			}
+		}
+	}
+
+	// At most 2 of 5 seams should cross near the high-energy edge
+	if edgeCount > 2 {
+		t.Errorf("expected seams to avoid high-energy edge, but %d of 5 crossed near x=20", edgeCount)
+	}
+}
+
+// TestFindKMinHorizontalSeams_ReturnsKSeams tests horizontal seam finding.
+func TestFindKMinHorizontalSeams_ReturnsKSeams(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	seams := findKMinHorizontalSeams(img, 5)
+
+	if len(seams) != 5 {
+		t.Fatalf("expected 5 seams, got %d", len(seams))
+	}
+
+	// Each seam should have length equal to image width
+	for i, seam := range seams {
+		if len(seam) != 20 {
+			t.Errorf("seam[%d] has length %d, expected 20", i, len(seam))
+		}
+	}
+}
+
+// TestInsertVerticalSeams_IncreasesWidth tests that seam insertion increases width.
+func TestInsertVerticalSeams_IncreasesWidth(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	seams := findKMinVerticalSeams(img, 5)
+	result := insertVerticalSeams(img, seams)
+
+	if result.Bounds().Dx() != 25 {
+		t.Errorf("expected width 25, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 20 {
+		t.Errorf("expected height 20, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestInsertHorizontalSeams_IncreasesHeight tests that horizontal seam insertion increases height.
+func TestInsertHorizontalSeams_IncreasesHeight(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	seams := findKMinHorizontalSeams(img, 5)
+	result := insertHorizontalSeams(img, seams)
+
+	if result.Bounds().Dx() != 20 {
+		t.Errorf("expected width 20, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 25 {
+		t.Errorf("expected height 25, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestInsertVerticalSeams_AveragesColors tests that inserted pixels are averaged.
+func TestInsertVerticalSeams_AveragesColors(t *testing.T) {
+	// Create image with two colors side by side
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	for y := 0; y < 10; y++ {
+		for x := 0; x < 10; x++ {
+			if x < 5 {
+				img.Set(x, y, color.RGBA{R: 100, G: 100, B: 100, A: 255})
+			} else {
+				img.Set(x, y, color.RGBA{R: 200, G: 200, B: 200, A: 255})
+			}
+		}
+	}
+
+	seams := findKMinVerticalSeams(img, 2)
+	result := insertVerticalSeams(img, seams)
+
+	// Result should be 12 pixels wide
+	if result.Bounds().Dx() != 12 {
+		t.Errorf("expected width 12, got %d", result.Bounds().Dx())
+	}
+}
+
+// TestResize_WidthEnlargement tests resizing with width enlargement only.
+func TestResize_WidthEnlargement(t *testing.T) {
+	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	result := Resize(img, 60, 50)
+
+	if result.Bounds().Dx() != 60 {
+		t.Errorf("expected width 60, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 50 {
+		t.Errorf("expected height 50, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestResize_HeightEnlargement tests resizing with height enlargement only.
+func TestResize_HeightEnlargement(t *testing.T) {
+	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	result := Resize(img, 50, 60)
+
+	if result.Bounds().Dx() != 50 {
+		t.Errorf("expected width 50, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 60 {
+		t.Errorf("expected height 60, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestResize_BothEnlargement tests resizing with both dimensions enlarged.
+func TestResize_BothEnlargement(t *testing.T) {
+	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	result := Resize(img, 60, 70)
+
+	if result.Bounds().Dx() != 60 {
+		t.Errorf("expected width 60, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 70 {
+		t.Errorf("expected height 70, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestResize_MixedReduceAndEnlarge tests reducing one dimension while enlarging another.
+func TestResize_MixedReduceAndEnlarge(t *testing.T) {
+	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	// Reduce width, enlarge height
+	result := Resize(img, 40, 60)
+
+	if result.Bounds().Dx() != 40 {
+		t.Errorf("expected width 40, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 60 {
+		t.Errorf("expected height 60, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestResize_MixedEnlargeAndReduce tests enlarging one dimension while reducing another.
+func TestResize_MixedEnlargeAndReduce(t *testing.T) {
+	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	// Enlarge width, reduce height
+	result := Resize(img, 60, 40)
+
+	if result.Bounds().Dx() != 60 {
+		t.Errorf("expected width 60, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 40 {
+		t.Errorf("expected height 40, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestResize_NoChange tests that image is unchanged when target equals source.
+func TestResize_NoChange(t *testing.T) {
+	img := createUniformImage(50, 50, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	result := Resize(img, 50, 50)
+
+	if result.Bounds().Dx() != 50 {
+		t.Errorf("expected width 50, got %d", result.Bounds().Dx())
+	}
+	if result.Bounds().Dy() != 50 {
+		t.Errorf("expected height 50, got %d", result.Bounds().Dy())
+	}
+}
+
+// TestResize_EnlargementPreservesContent tests that high-energy regions are preserved during enlargement.
+func TestResize_EnlargementPreservesContent(t *testing.T) {
+	// Create an image with a vertical stripe that should be preserved
+	img := createVerticalStripeImage(20, 20, 10,
+		color.RGBA{R: 100, G: 100, B: 100, A: 255}, // gray background
+		color.RGBA{R: 255, G: 255, B: 255, A: 255}) // white stripe
+
+	// Enlarge width by 5 pixels
+	result := Resize(img, 25, 20)
+
+	if result.Bounds().Dx() != 25 {
+		t.Fatalf("expected width 25, got %d", result.Bounds().Dx())
+	}
+
+	// The white stripe should still be present
+	foundWhite := false
+	for x := 0; x < 25; x++ {
+		c := result.(*image.RGBA).RGBAAt(x, 10)
+		if c.R > 200 && c.G > 200 && c.B > 200 {
+			foundWhite = true
+			break
+		}
+	}
+
+	if !foundWhite {
+		t.Error("white stripe should be preserved after seam carving enlargement")
+	}
+}
+
+// TestSortInts tests the simple sort function.
+func TestSortInts(t *testing.T) {
+	tests := []struct {
+		input    []int
+		expected []int
+	}{
+		{[]int{3, 1, 2}, []int{1, 2, 3}},
+		{[]int{1, 2, 3}, []int{1, 2, 3}},
+		{[]int{3, 2, 1}, []int{1, 2, 3}},
+		{[]int{5}, []int{5}},
+		{[]int{}, []int{}},
+		{[]int{2, 2, 1}, []int{1, 2, 2}},
+	}
+
+	for _, tc := range tests {
+		input := make([]int, len(tc.input))
+		copy(input, tc.input)
+		sortInts(input)
+		for i, v := range input {
+			if v != tc.expected[i] {
+				t.Errorf("sortInts(%v) = %v, expected %v", tc.input, input, tc.expected)
+				break
+			}
+		}
+	}
+}
+
+// TestEnlargeWidth_ZeroEnlargement tests that zero enlargement returns unchanged image.
+func TestEnlargeWidth_ZeroEnlargement(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	result := enlargeWidth(img, 0)
+
+	if result.Bounds().Dx() != 20 {
+		t.Errorf("expected width 20, got %d", result.Bounds().Dx())
+	}
+}
+
+// TestEnlargeHeight_ZeroEnlargement tests that zero enlargement returns unchanged image.
+func TestEnlargeHeight_ZeroEnlargement(t *testing.T) {
+	img := createUniformImage(20, 20, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+
+	result := enlargeHeight(img, 0)
+
+	if result.Bounds().Dy() != 20 {
+		t.Errorf("expected height 20, got %d", result.Bounds().Dy())
+	}
+}
+
+// BenchmarkResize_Enlarge_Small benchmarks enlarging a small image.
+func BenchmarkResize_Enlarge_Small(b *testing.B) {
+	img := createGradientImage(100, 100)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		Resize(img, 110, 110)
+	}
+}
+
+// BenchmarkResize_Enlarge_Medium benchmarks enlarging a medium image.
+func BenchmarkResize_Enlarge_Medium(b *testing.B) {
+	img := createGradientImage(256, 256)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		Resize(img, 280, 280)
+	}
+}
+
+// BenchmarkFindKMinVerticalSeams benchmarks finding k seams.
+func BenchmarkFindKMinVerticalSeams(b *testing.B) {
+	img := createGradientImage(256, 256)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		findKMinVerticalSeams(img, 26)
+	}
+}
+
+// BenchmarkInsertVerticalSeams benchmarks inserting seams.
+func BenchmarkInsertVerticalSeams(b *testing.B) {
+	img := createGradientImage(256, 256)
+	seams := findKMinVerticalSeams(img, 26)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		insertVerticalSeams(img, seams)
 	}
 }

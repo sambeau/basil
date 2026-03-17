@@ -89,14 +89,17 @@ func Transform(img image.Image, opts TransformOptions) image.Image {
 	}
 
 	// Clamp requested dimensions to source dimensions (no upscaling)
+	// Exception: scale: "smart" (seam carving) can enlarge
 	targetWidth := opts.Width
 	targetHeight := opts.Height
 
-	if targetWidth > srcWidth {
-		targetWidth = srcWidth
-	}
-	if targetHeight > srcHeight {
-		targetHeight = srcHeight
+	if opts.Scale != "smart" {
+		if targetWidth > srcWidth {
+			targetWidth = srcWidth
+		}
+		if targetHeight > srcHeight {
+			targetHeight = srcHeight
+		}
 	}
 
 	// Handle different resize modes

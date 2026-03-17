@@ -804,17 +804,45 @@ func TestTransform_SmartScale(t *testing.T) {
 		}
 	})
 
-	t.Run("no reduction needed", func(t *testing.T) {
+	t.Run("enlargement", func(t *testing.T) {
 		opts := TransformOptions{Width: 250, Height: 200, Scale: "smart"}
 		result := Transform(img, opts)
 
 		bounds := result.Bounds()
-		// Should stay at original size (no enlargement)
+		// Should enlarge to target size using seam insertion
+		if bounds.Dx() != 250 {
+			t.Errorf("smart scale width = %d, want 250", bounds.Dx())
+		}
+		if bounds.Dy() != 200 {
+			t.Errorf("smart scale height = %d, want 200", bounds.Dy())
+		}
+	})
+
+	t.Run("no change needed", func(t *testing.T) {
+		opts := TransformOptions{Width: 200, Height: 150, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		// Should stay at original size when target equals source
 		if bounds.Dx() != 200 {
 			t.Errorf("smart scale width = %d, want 200", bounds.Dx())
 		}
 		if bounds.Dy() != 150 {
 			t.Errorf("smart scale height = %d, want 150", bounds.Dy())
+		}
+	})
+
+	t.Run("mixed reduce and enlarge", func(t *testing.T) {
+		opts := TransformOptions{Width: 180, Height: 180, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		// Width reduced from 200 to 180, height enlarged from 150 to 180
+		if bounds.Dx() != 180 {
+			t.Errorf("smart scale width = %d, want 180", bounds.Dx())
+		}
+		if bounds.Dy() != 180 {
+			t.Errorf("smart scale height = %d, want 180", bounds.Dy())
 		}
 	})
 
