@@ -372,10 +372,11 @@ Tests:
 
 ---
 
-### Task 9: Seam Carving
+### Task 9: Seam Carving (Reduction)
 
 **Files**: `server/images/seamcarve/seamcarve.go`, `server/images/seamcarve/energy.go`, `server/images/seamcarve/seamcarve_test.go`
 **Estimated effort**: Medium (3–5 days)
+**Status**: ✅ Complete
 
 Implement seam carving for content-aware image scaling (width and/or height reduction).
 
@@ -418,6 +419,75 @@ Tests:
 - `Resize` on image with clear low-energy region → seam paths cluster in that region (visual/manual inspection)
 - Integration test: `Process(sourcePath, {Scale: "smart", Width: 800})` produces encoded bytes at width 800
 - Regression: existing resize tests still pass
+
+**Commit point**: after tests pass.
+
+---
+
+### Task 9b: Seam Carving (Enlargement)
+
+**Files**: `server/images/seamcarve/seamcarve.go`, `server/images/seamcarve/seamcarve_test.go`
+**Estimated effort**: Medium (2–3 days)
+**Status**: 🔲 Not started
+
+Extend seam carving to support enlargement (seam insertion). This is the primary use case for seam carving in Basil — smart crop handles shrinking well, but browsers cannot intelligently enlarge images the way seam carving can.
+
+**Rationale**: Standard upscaling (uniform pixel interpolation) is still refused because browsers do it better and it wastes bandwidth. Seam carving enlargement is allowed because it's a content manipulation that browsers cannot perform.
+
+Steps:
+1. Implement `findKMinVerticalSeams(img image.Image, k int) [][]int`:
+   - Find k lowest-energy seams on the ORIGINAL image (not iteratively, which would cluster seams)
+   - Compute energy map once
+   - Find minimum seam, mark those pixels with high energy (e.g., +∞) to prevent reselection
+   - Repeat k times
+   - Returns k seams, each is one column index per row
+2. Implement `findKMinHorizontalSeams(img image.Image, k int) [][]int`:
+   - Same algorithm for horizontal seams
+3. Implement `insertVerticalSeams(img image.Image, seams [][]int) image.Image`:
+   - Sort seams by column position (rightmost first to preserve indices)
+   - For each seam, duplicate pixels along the seam path (average with neighbours for smoothness)
+   - Result is `k` pixels wider
+4. Implement `insertHorizontalSeams(img image.Image, seams [][]int) image.Image`:
+   - Same for horizontal seams
+5. Update `Resize()` to handle enlargement:
+   ```go
+   // Reduction phase (existing)
+   if targetWidth < img.Width { ... remove vertical seams ... }
+   if targetHeight < img.Height { ... remove horizontal seams ... }
+   
+   // Enlargement phase (new)
+   if targetWidth > img.Width {
+       k := targetWidth - img.Width
+       seams := findKMinVerticalSeams(img, k)
+       img = insertVerticalSeams(img, seams)
+   }
+   if targetHeight > img.Height {
+       k := targetHeight - img.Height
+       seams := findKMinHorizontalSeams(img, k)
+       img = insertHorizontalSeams(img, seams)
+   }
+   ```
+6. Update warning threshold: warn if enlargement exceeds 30% in either dimension
+
+Tests:
+- `findKMinVerticalSeams` returns k distinct seams (no overlap)
+- `findKMinVerticalSeams` on uniform energy → seams are spread across image (not clustered)
+- `findKMinVerticalSeams` on image with low-energy region → seams cluster in that region
+- `insertVerticalSeams` increases image width by exactly k
+- `insertHorizontalSeams` increases image height by exactly k
+- Inserted pixels are averaged with neighbours (not just duplicated)
+- `Resize` with `targetWidth = img.Width + 50` → output is exactly 50px wider
+- `Resize` with `targetWidth = img.Width + 100` on 1000px image → logs warning (10% enlargement is fine, but test 30%+ threshold)
+- `Resize` with both dimensions enlarged → output matches both targets
+- `Resize` with mixed (reduce width, enlarge height) → both operations applied correctly
+- Visual comparison: seam-carved enlargement vs standard upscale on 10+ images (should show less distortion of subjects)
+- Integration test: `Process(sourcePath, {Scale: "smart", Width: 1200})` on 1000px source produces 1200px output
+
+Test images:
+- Use images ~800–1200px on long side for reasonable test runtime
+- Focus on landscapes and product shots (most relevant for seam carving)
+- Include images with clear subjects and plain backgrounds (ideal case)
+- Include images with busy backgrounds (stress test)
 
 **Commit point**: after tests pass.
 
@@ -504,7 +574,8 @@ Commit points:
 | `images/transform.go` changes | ~20 |
 | `evaluator/image.go` changes | ~15 |
 | `seamcarve/energy.go` | ~50 |
-| `seamcarve/seamcarve.go` | ~200 |
+| `seamcarve/seamcarve.go` (reduction) | ~200 |
+| `seamcarve/seamcarve.go` (enlargement) | ~150 |
 | **Tests** (all packages) | ~600 |
 | **Total** | **~1585** |
 
@@ -545,7 +616,6 @@ Plus:
 
 Items to add to `work/BACKLOG.md` after implementation if not addressed:
 - Forward energy for seam carving (if artefacts visible on strong-edge images)
-- Seam insertion (enlargement)
 - Protect/remove masks for seam carving (`{scale: "smart", protect: {x, y, w, h}}`)
 - Object detection beyond faces (animals, products)
 - Focal point auto-suggestion via `imageInfo()` (return detected focal point)
@@ -566,7 +636,8 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 | 2026-03-17 | Task 6 | ✅ Complete | Smart crop wired into Transform() pipeline |
 | 2026-03-17 | Task 7 | ✅ Complete | Evaluator handles nested dicts for focal option |
 | | Task 8 | 🔜 Deferred | Quality tuning requires test images and human review |
-| 2026-03-17 | Task 9 | ✅ Complete | Seam carving package implemented with DP seam finding |
+| 2026-03-17 | Task 9 | ✅ Complete | Seam carving reduction implemented with DP seam finding |
+| | Task 9b | 🔲 Not started | Seam carving enlargement (seam insertion) |
 | 2026-03-17 | Task 10 | ✅ Complete | Test image directory structure and comparison tool created |
 
 ### Implementation Notes
@@ -583,13 +654,14 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 - Face detection at 640px: ~10ms
 - Sobel filter at 256px: ~1.2ms
 
-**Phase 2 (Seam Carving) is feature-complete.** All core functionality works:
-- `image(@./photo.jpg, {width: 300, scale: "smart"})` uses seam carving
+**Phase 2 (Seam Carving) — reduction complete, enlargement pending.**
+- `image(@./photo.jpg, {width: 300, scale: "smart"})` uses seam carving for reduction
 - Backward energy seam carving (Avidan & Shamir, SIGGRAPH 2007)
 - Warning logged for reductions > 30% (artifact threshold)
 - Results are cached by existing disk cache
+- **Enlargement (seam insertion) not yet implemented** — this is the primary use case since smart crop handles shrinking
 
-**Seam carving benchmark results (M2 Mac):**
+**Seam carving benchmark results (M2 Mac, reduction only):**
 - Small (100x100, -10 each): ~5ms
 - Medium (256x256, -26 each): ~79ms
 
