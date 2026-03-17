@@ -50,3 +50,6 @@ examples/search/._search.db
 setup
 docs/plans/.Ulysses-Group.plist
 test.db
+
+# Smart crop comparison output (generated during testing)
+testdata/images/smartcrop/output/
