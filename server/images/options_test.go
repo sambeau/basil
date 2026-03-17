@@ -135,6 +135,49 @@ func TestParseOptions(t *testing.T) {
 			opts:    map[string]any{"sharpen": "high"},
 			wantErr: "sharpen: expected boolean or number",
 		},
+		// Scale option tests
+		{
+			name: "scale smart",
+			opts: map[string]any{"scale": "smart", "width": 800},
+			want: TransformOptions{Scale: "smart", Width: 800},
+		},
+		{
+			name:    "scale invalid type",
+			opts:    map[string]any{"scale": 123},
+			wantErr: "scale: expected string",
+		},
+		// Focal option tests
+		{
+			name: "focal point",
+			opts: map[string]any{"crop": "smart", "width": 400, "height": 300, "focal": map[string]any{"x": 0.5, "y": 0.5}},
+			want: TransformOptions{Crop: "smart", Width: 400, Height: 300, Focal: &FocalRegion{X: 0.5, Y: 0.5}},
+		},
+		{
+			name: "focal region",
+			opts: map[string]any{"crop": "smart", "width": 400, "height": 300, "focal": map[string]any{"x": 0.2, "y": 0.3, "w": 0.4, "h": 0.5}},
+			want: TransformOptions{Crop: "smart", Width: 400, Height: 300, Focal: &FocalRegion{X: 0.2, Y: 0.3, W: 0.4, H: 0.5}},
+		},
+		{
+			name:    "focal missing x",
+			opts:    map[string]any{"focal": map[string]any{"y": 0.5}},
+			wantErr: "focal: missing required key 'x'",
+		},
+		{
+			name:    "focal missing y",
+			opts:    map[string]any{"focal": map[string]any{"x": 0.5}},
+			wantErr: "focal: missing required key 'y'",
+		},
+		{
+			name:    "focal invalid type",
+			opts:    map[string]any{"focal": "center"},
+			wantErr: "focal: expected dict",
+		},
+		// Smart crop option
+		{
+			name: "crop smart",
+			opts: map[string]any{"crop": "smart", "width": 400, "height": 300},
+			want: TransformOptions{Crop: "smart", Width: 400, Height: 300},
+		},
 	}
 
 	for _, tt := range tests {
@@ -153,6 +196,20 @@ func TestParseOptions(t *testing.T) {
 			if err != nil {
 				t.Errorf("ParseOptions() unexpected error = %v", err)
 				return
+			}
+			// Compare Focal separately since it's a pointer
+			if tt.want.Focal != nil {
+				if got.Focal == nil {
+					t.Errorf("ParseOptions() Focal = nil, want %+v", tt.want.Focal)
+					return
+				}
+				if *got.Focal != *tt.want.Focal {
+					t.Errorf("ParseOptions() Focal = %+v, want %+v", *got.Focal, *tt.want.Focal)
+					return
+				}
+				// Clear Focal for the main comparison
+				got.Focal = nil
+				tt.want.Focal = nil
 			}
 			if got != tt.want {
 				t.Errorf("ParseOptions() = %+v, want %+v", got, tt.want)
@@ -240,7 +297,7 @@ func TestTransformOptions_Validate(t *testing.T) {
 			opts:      TransformOptions{Crop: "left"},
 			maxWidth:  4096,
 			maxHeight: 4096,
-			wantErr:   "crop must be \"center\" or empty",
+			wantErr:   "crop must be \"center\", \"smart\", or empty",
 		},
 		{
 			name:      "valid crop center",
@@ -284,6 +341,83 @@ func TestTransformOptions_Validate(t *testing.T) {
 			opts:      TransformOptions{Width: 10000, Height: 10000},
 			maxWidth:  0,
 			maxHeight: 0,
+		},
+		// Smart crop validation tests
+		{
+			name:      "valid crop smart",
+			opts:      TransformOptions{Crop: "smart", Width: 400, Height: 300},
+			maxWidth:  4096,
+			maxHeight: 4096,
+		},
+		{
+			name:      "smart crop requires width",
+			opts:      TransformOptions{Crop: "smart", Height: 300},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "crop: \"smart\" requires both width and height",
+		},
+		{
+			name:      "smart crop requires height",
+			opts:      TransformOptions{Crop: "smart", Width: 400},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "crop: \"smart\" requires both width and height",
+		},
+		// Scale validation tests
+		{
+			name:      "valid scale smart",
+			opts:      TransformOptions{Scale: "smart", Width: 800},
+			maxWidth:  4096,
+			maxHeight: 4096,
+		},
+		{
+			name:      "invalid scale value",
+			opts:      TransformOptions{Scale: "seam"},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "scale must be \"smart\" or empty",
+		},
+		{
+			name:      "scale smart requires dimension",
+			opts:      TransformOptions{Scale: "smart"},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "scale: \"smart\" requires at least width or height",
+		},
+		{
+			name:      "crop and scale mutually exclusive",
+			opts:      TransformOptions{Crop: "smart", Scale: "smart", Width: 400, Height: 300},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "crop and scale cannot be used together",
+		},
+		// Focal validation tests
+		{
+			name:      "focal requires smart crop",
+			opts:      TransformOptions{Focal: &FocalRegion{X: 0.5, Y: 0.5}},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "focal requires crop: \"smart\"",
+		},
+		{
+			name:      "valid focal with smart crop",
+			opts:      TransformOptions{Crop: "smart", Width: 400, Height: 300, Focal: &FocalRegion{X: 0.5, Y: 0.5}},
+			maxWidth:  4096,
+			maxHeight: 4096,
+		},
+		{
+			name:      "focal x out of range",
+			opts:      TransformOptions{Crop: "smart", Width: 400, Height: 300, Focal: &FocalRegion{X: 1.5, Y: 0.5}},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "focal x must be 0-1",
+		},
+		{
+			name:      "focal y out of range",
+			opts:      TransformOptions{Crop: "smart", Width: 400, Height: 300, Focal: &FocalRegion{X: 0.5, Y: -0.1}},
+			maxWidth:  4096,
+			maxHeight: 4096,
+			wantErr:   "focal y must be 0-1",
 		},
 		// Sharpen validation tests
 		{
@@ -343,12 +477,12 @@ func TestTransformOptions_Canonical(t *testing.T) {
 		{
 			name: "empty options",
 			opts: TransformOptions{},
-			want: "w=0|h=0|c=|q=0|f=|s=0",
+			want: "w=0|h=0|c=|q=0|f=|s=0|sc=",
 		},
 		{
 			name: "with dimensions",
 			opts: TransformOptions{Width: 300, Height: 200},
-			want: "w=300|h=200|c=|q=0|f=|s=0",
+			want: "w=300|h=200|c=|q=0|f=|s=0|sc=",
 		},
 		{
 			name: "with all options",
@@ -359,17 +493,37 @@ func TestTransformOptions_Canonical(t *testing.T) {
 				Quality: 85,
 				Format:  "JPEG",
 			},
-			want: "w=400|h=300|c=center|q=85|f=jpeg|s=0",
+			want: "w=400|h=300|c=center|q=85|f=jpeg|s=0|sc=",
 		},
 		{
 			name: "with sharpen disabled",
 			opts: TransformOptions{Width: 300, SharpenDisabled: true},
-			want: "w=300|h=0|c=|q=0|f=|s=off",
+			want: "w=300|h=0|c=|q=0|f=|s=off|sc=",
 		},
 		{
 			name: "with explicit sharpen",
 			opts: TransformOptions{Width: 300, Sharpen: 0.8},
-			want: "w=300|h=0|c=|q=0|f=|s=0.80",
+			want: "w=300|h=0|c=|q=0|f=|s=0.80|sc=",
+		},
+		{
+			name: "with smart crop",
+			opts: TransformOptions{Width: 400, Height: 300, Crop: "smart"},
+			want: "w=400|h=300|c=smart|q=0|f=|s=0|sc=",
+		},
+		{
+			name: "with smart scale",
+			opts: TransformOptions{Width: 800, Scale: "smart"},
+			want: "w=800|h=0|c=|q=0|f=|s=0|sc=smart",
+		},
+		{
+			name: "with focal point",
+			opts: TransformOptions{Width: 400, Height: 300, Crop: "smart", Focal: &FocalRegion{X: 0.5, Y: 0.5}},
+			want: "w=400|h=300|c=smart|q=0|f=|s=0|sc=|f=0.500,0.500",
+		},
+		{
+			name: "with focal region",
+			opts: TransformOptions{Width: 400, Height: 300, Crop: "smart", Focal: &FocalRegion{X: 0.2, Y: 0.3, W: 0.4, H: 0.5}},
+			want: "w=400|h=300|c=smart|q=0|f=|s=0|sc=|f=0.200,0.300,0.400,0.500",
 		},
 	}
 
@@ -426,6 +580,28 @@ func TestCacheKey(t *testing.T) {
 
 	if keySharpened == keyNoSharpen {
 		t.Errorf("Sharpened vs disabled should produce different cache keys")
+	}
+
+	// Focal should produce different keys
+	optsFocal := TransformOptions{Width: 300, Height: 200, Crop: "smart", Focal: &FocalRegion{X: 0.5, Y: 0.5}}
+	keyFocal := CacheKey("abc123", optsFocal)
+
+	optsFocal2 := TransformOptions{Width: 300, Height: 200, Crop: "smart", Focal: &FocalRegion{X: 0.3, Y: 0.7}}
+	keyFocal2 := CacheKey("abc123", optsFocal2)
+
+	if keyFocal == keyFocal2 {
+		t.Errorf("Different focal points should produce different cache keys")
+	}
+
+	// Scale should produce different keys
+	optsScale := TransformOptions{Width: 300, Scale: "smart"}
+	keyScale := CacheKey("abc123", optsScale)
+
+	optsNoScale := TransformOptions{Width: 300}
+	keyNoScale := CacheKey("abc123", optsNoScale)
+
+	if keyScale == keyNoScale {
+		t.Errorf("Scale smart vs no scale should produce different cache keys")
 	}
 }
 
