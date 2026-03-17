@@ -23,6 +23,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"slices"
 )
 
 // MaxChangeRatio is the threshold beyond which a warning is logged.
@@ -350,13 +351,8 @@ func averageColorVertical(img *image.RGBA, x, y, width, height int) color.RGBA {
 	return c
 }
 
-// sortInts sorts a slice of ints in ascending order (simple insertion sort for small slices).
 func sortInts(a []int) {
-	for i := 1; i < len(a); i++ {
-		for j := i; j > 0 && a[j-1] > a[j]; j-- {
-			a[j-1], a[j] = a[j], a[j-1]
-		}
-	}
+	slices.Sort(a)
 }
 
 // findMinVerticalSeam finds the minimum-energy vertical seam using dynamic programming.
@@ -615,9 +611,4 @@ func toRGBA(img image.Image) *image.RGBA {
 	}
 
 	return rgba
-}
-
-// min3 returns the minimum of three float64 values.
-func min3(a, b, c float64) float64 {
-	return math.Min(a, math.Min(b, c))
 }

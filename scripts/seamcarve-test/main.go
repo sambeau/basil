@@ -138,12 +138,7 @@ func main() {
 	fmt.Printf("Saved result: %s\n", resultPath)
 
 	// Also save a standard resize for comparison
-	var standardResize image.Image
-	if *enlargePercent > 0 {
-		standardResize = imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
-	} else {
-		standardResize = imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
-	}
+	standardResize := imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
 	standardPath := filepath.Join(*outputDir, nameWithoutExt+suffix+"_standard.jpg")
 	if err := saveImage(standardResize, standardPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error saving standard resize: %v\n", err)

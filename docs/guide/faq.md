@@ -453,4 +453,43 @@ When `libwebp` is available at runtime, Basil uses the native library automatica
 
 ---
 
+### How do I crop an image to focus on faces or important content?
+
+Use `crop: "smart"` — it analyses the image for faces (using built-in face detection) and high-interest regions (edges, saturation, composition), then crops to preserve them. Both `width` and `height` are required:
+
+```parsley
+// Smart crop — keeps faces and important content visible
+let thumb = image(@./group-photo.jpg, {width: 400, height: 300, crop: "smart"})
+```
+
+If the auto-detection doesn't focus where you want, use `focal` to guide it:
+
+```parsley
+// Direct the crop toward the left side of the image
+let focused = image(@./photo.jpg, {width: 800, height: 400, crop: "smart", focal: {x: 0.2, y: 0.5}})
+```
+
+Coordinates are normalised (0–1): `{x: 0, y: 0}` is top-left, `{x: 1, y: 1}` is bottom-right. You can also specify a rectangle: `{x: 0.2, y: 0.3, w: 0.4, h: 0.3}`.
+
+*Added: 2026-03-17*
+
+### How do I resize an image without distorting the subject?
+
+Use `scale: "smart"` — it uses seam carving (content-aware resizing) to remove or insert low-energy pixel paths rather than uniformly scaling. This preserves faces, text, and other important content while stretching or compressing low-detail areas:
+
+```parsley
+// Narrow a banner without squishing the logo/text
+let narrow = image(@./banner.jpg, {width: 600, scale: "smart"})
+
+// Enlarge — seam carving can also intelligently add pixels
+let wider = image(@./photo.jpg, {width: 1200, scale: "smart"})
+```
+
+**Notes:**
+- `scale: "smart"` allows upscaling (unlike normal resize which clamps to source dimensions)
+- Changes beyond 30% in either dimension may produce visible artifacts
+- `crop` and `scale` are mutually exclusive — use one or the other
+
+*Added: 2026-03-17*
+
 <!-- AI: Add new Q&A entries above this line, with *Added: YYYY-MM-DD* -->

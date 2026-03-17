@@ -586,9 +586,9 @@ Plus:
 
 ## Validation Checklist
 
-- [ ] All tests pass: `go test ./...`
-- [ ] Build succeeds: `make build`
-- [ ] Benchmarks checked: `make bench-compare` (flag regressions > 5%)
+- [x] All tests pass: `go test ./...`
+- [x] Build succeeds: `make build`
+- [x] Benchmarks checked: `make bench-compare` (flag regressions > 5%)
 - [ ] Manual test: create a `.pars` file using `image(@./photo.jpg, {width: 400, height: 300, crop: "smart"})`, verify crop focuses on subject
 - [ ] Manual test: same image with `{crop: "center"}` produces a different (worse) crop
 - [ ] Manual test: `image(@./photo.jpg, {width: 800, scale: "smart"})` produces a narrower image without distortion
@@ -596,10 +596,10 @@ Plus:
 - [ ] Dev mode: modify source image, verify re-transform (cache invalidation)
 - [ ] Diverse skin tones: golden crop tests pass for portraits across skin tone range
 - [ ] Group photo: smart crop includes more faces than center crop
-- [ ] Error handling: `{crop: "smart", width: 400}` (missing height) returns a clear error
-- [ ] Error handling: `{crop: "smart", scale: "smart"}` returns a clear error
+- [x] Error handling: `{crop: "smart", width: 400}` (missing height) returns a clear error
+- [x] Error handling: `{crop: "smart", scale: "smart"}` returns a clear error
 - [ ] Performance: smart crop analysis < 50ms on a typical 4000×3000 image (check with `go test -bench`)
-- [ ] Binary size: check Basil binary size before/after (cascade file adds ~234 KB)
+- [x] Binary size: check Basil binary size before/after (cascade file adds ~234 KB)
 
 ## Risk Mitigation
 

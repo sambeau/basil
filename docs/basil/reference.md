@@ -1419,6 +1419,12 @@ let url = image(@./photo.jpg, {width: 800, format: "webp"})
 
 // Crop to exact 400×300 (center crop)
 let thumb = image(@./photo.jpg, {width: 400, height: 300, crop: "center"})
+
+// Smart crop — focuses on faces and high-interest regions
+let thumb = image(@./photo.jpg, {width: 400, height: 300, crop: "smart"})
+
+// Smart scale — content-aware resize via seam carving
+let narrow = image(@./banner.jpg, {width: 600, scale: "smart"})
 ```
 
 **Options:**
@@ -1427,12 +1433,16 @@ let thumb = image(@./photo.jpg, {width: 400, height: 300, crop: "center"})
 |-----|------|---------|-------------|
 | `width` | integer | — | Target width in pixels |
 | `height` | integer | — | Target height in pixels |
-| `crop` | string | `""` | `"center"` fills the exact box; without crop, image fits within box |
+| `crop` | string | `""` | `"center"` fills the exact box. `"smart"` analyses for faces/interest regions and crops to preserve them. Without crop, image fits within box. |
+| `scale` | string | `""` | `"smart"` resizes via seam carving (content-aware). Cannot combine with `crop`. |
+| `focal` | dict | — | `{x, y}` or `{x, y, w, h}` (normalised 0–1). Requires `crop: "smart"`. |
 | `quality` | integer | format default | 1–100. Defaults: JPEG 85, WebP 80, PNG lossless |
 | `format` | string | source format | `"jpeg"`, `"png"`, `"webp"`, `"gif"` |
 | `sharpen` | bool or number | `true` | Auto-sharpen on downscale. `false` disables. A number sets sigma explicitly. |
 
 EXIF orientation is applied automatically. Images are never upscaled — requesting a width larger than the source clamps to source dimensions.
+
+`scale: "smart"` allows upscaling (bypasses the default no-upscale clamp). Smart crop requires both `width` and `height`. Seam carving changes beyond 30% may produce artifacts.
 
 ### 12.2 imageInfo()
 

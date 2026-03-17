@@ -54,7 +54,9 @@ Returns a public URL for the transformed image (e.g. `/__img/a3f2b1c4.jpg`).
 |-----|------|---------|-------------|
 | `width` | integer | — | Target width in pixels. Height scales proportionally. |
 | `height` | integer | — | Target height in pixels. Width scales proportionally. |
-| `crop` | string | `""` | `"center"` fills the exact box and crops excess. Without crop, the image fits within the box. |
+| `crop` | string | `""` | `"center"` fills the exact box and crops excess. `"smart"` analyses the image for faces and high-interest regions, then crops to preserve them. Without crop, the image fits within the box. |
+| `scale` | string | `""` | `"smart"` resizes using seam carving — removes or inserts low-energy pixel paths instead of uniformly scaling. Preserves important visual content when changing aspect ratio. Cannot be combined with `crop`. |
+| `focal` | dict | — | Focal point or region for smart crop. `{x, y}` (normalised 0–1) or `{x, y, w, h}`. Requires `crop: "smart"`. |
 | `quality` | integer | format default | 1–100. Defaults: JPEG 85, WebP 80, PNG lossless. |
 | `format` | string | source format | `"jpeg"`, `"png"`, `"webp"`, `"gif"`. Default preserves the source format. |
 | `sharpen` | bool or number | `true` | Sharpens after downscale (σ=0.5). `false` disables. A number sets sigma explicitly. |
@@ -75,12 +77,25 @@ let webp = image(@./photo.jpg, {width: 800, format: "webp", quality: 75})
 // Named style (define once, reuse everywhere)
 let heroStyle = {width: 1200, format: "webp", quality: 80}
 let hero = image(@./hero.jpg, heroStyle)
+
+// Smart crop — automatically focuses on faces and interesting regions
+let portrait = image(@./group-photo.jpg, {width: 400, height: 300, crop: "smart"})
+
+// Smart crop with focal point — direct the crop toward a specific area
+let focused = image(@./landscape.jpg, {width: 800, height: 400, crop: "smart", focal: {x: 0.3, y: 0.5}})
+
+// Smart scale — content-aware resizing via seam carving
+let narrow = image(@./banner.jpg, {width: 600, scale: "smart"})
 ```
 
 **Good to know:**
 
 - EXIF orientation is applied automatically.
 - Images are never upscaled — requesting a larger width clamps to source dimensions.
+- `scale: "smart"` bypasses the upscale clamp — seam carving can intelligently enlarge images by inserting pixel paths.
+- Smart crop requires both `width` and `height` (it needs an aspect ratio to evaluate crop candidates).
+- `crop` and `scale` are mutually exclusive — use one or the other.
+- Changing more than 30% of an image's dimensions via seam carving may produce visible artifacts.
 - Sharpening only applies on downscale.
 - Files over 50 MB are rejected. Files over 10 MB log a warning.
 
@@ -92,6 +107,9 @@ let hero = image(@./hero.jpg, heroStyle)
 | File not found or unsupported format | `io` |
 | File exceeds 50 MB | `io` |
 | Invalid option value | `argument` |
+| `crop: "smart"` without both width and height | `argument` |
+| `focal` without `crop: "smart"` | `argument` |
+| `crop` combined with `scale` | `argument` |
 | Called outside Basil server | `state` |
 
 ---

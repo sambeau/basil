@@ -49,7 +49,7 @@ Deferred items from implementation, to be picked up in future work.
 
 | #130 | `imageSrcset()` builtin for responsive images | FEAT-148 Phase 2 | Phase 1 scope | Generate `srcset` attribute string for responsive images. Requires `image()` foundation. |
 | #131 | Image blur placeholder generation | FEAT-148 Phase 2 | Phase 1 scope | `{blur: true}` option producing a tiny blurred image for progressive loading. |
-| #132 | Smart crop via focal point detection | FEAT-148 Phase 2 | Phase 1 scope | `{crop: "smart"}` using `muesli/smartcrop`. Needs evaluation of quality and performance. |
+| ~~#132~~ | ~~Smart crop via focal point detection~~ | FEAT-148 Phase 2 | ✅ Superseded by FEAT-149 | Implemented as `{crop: "smart"}` with custom PICO face detection + heuristic scoring (not `muesli/smartcrop`). Also includes `{scale: "smart"}` seam carving and `focal` option. See `work/specs/FEAT-149.md`. |
 | #133 | Dominant color extraction in `imageInfo()` | FEAT-148 Phase 2 | Phase 1 scope | Add `color: "#2a4f3b"` to `imageInfo()` return dict. |
 | #134 | AVIF output format for image transform | FEAT-148 Phase 3 | No pure-Go encoder | Requires a CGo-free AVIF encoder to exist. Revisit when ecosystem matures. |
 | #135 | Image cache eviction / LRU / `basil cache clear` CLI | FEAT-148 Phase 3 | Phase 1 tolerates orphans | Add cache size limits, LRU eviction policy, and CLI subcommand for manual cache clearing. Phase 1 uses "delete the directory" approach. |

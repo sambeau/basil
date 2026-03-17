@@ -42,93 +42,93 @@ Seam carving addresses a different but related problem: changing an image's aspe
 
 #### 1a. Smart Crop Core
 
-- [ ] `{crop: "smart"}` option in `image()` builtin: analyse the image and crop to the most interesting region
-- [ ] Heuristic scoring pipeline evaluating candidate crop rectangles on four signals:
+- [x] `{crop: "smart"}` option in `image()` builtin: analyse the image and crop to the most interesting region
+- [x] Heuristic scoring pipeline evaluating candidate crop rectangles on four signals:
   - Edge density (Sobel filter)
   - Colour saturation
   - Skin-tone proximity (with awareness of diverse skin tones — not a single reference colour)
   - Composition rules (rule-of-thirds placement, subject margin, edge clutter avoidance — informed by GenCrop paper V1–V5 violation criteria)
-- [ ] Two-pass analysis architecture:
+- [x] Two-pass analysis architecture:
   - Pass 1: face detection at 640px on longest side (reliable detection of faces ≥ 10% of image height)
   - Pass 2: heuristic scoring at 256px on longest side (fast candidate search)
-- [ ] Candidate crop coordinates mapped back to original image space for full-resolution cropping
-- [ ] Smart crop requires both `width` and `height` (an aspect ratio is needed to evaluate crops) — error if only one dimension is specified with `crop: "smart"`
-- [ ] Falls back gracefully to center crop if analysis produces no clear winner (e.g., uniform image)
+- [x] Candidate crop coordinates mapped back to original image space for full-resolution cropping
+- [x] Smart crop requires both `width` and `height` (an aspect ratio is needed to evaluate crops) — error if only one dimension is specified with `crop: "smart"`
+- [x] Falls back gracefully to center crop if analysis produces no clear winner (e.g., uniform image)
 
 #### 1b. Face Detection (PICO)
 
-- [ ] PICO face detection algorithm reimplemented from [Markuš et al., 2014](https://arxiv.org/pdf/1305.4537) — not copied from Pigo source
-- [ ] Pigo's `facefinder` cascade file (234 KB, MIT-licensed) embedded via `go:embed` — zero runtime configuration
-- [ ] `CASCADE_LICENSE` file alongside the cascade binary with full MIT attribution to Endre Simo / Pigo
-- [ ] Face detections converted to boost regions in the scoring pipeline (heavily weighted — a detected face dominates heuristic signals)
-- [ ] Non-maximum suppression (IoU clustering) to merge overlapping face detections
-- [ ] PICO parameters: `MinSize: 30, MaxSize: 640, ShiftFactor: 0.1, ScaleFactor: 1.1`
-- [ ] No pupil localisation, no facial landmarks, no rotation detection — only face bounding boxes are needed for cropping
+- [x] PICO face detection algorithm reimplemented from [Markuš et al., 2014](https://arxiv.org/pdf/1305.4537) — not copied from Pigo source
+- [x] Pigo's `facefinder` cascade file (234 KB, MIT-licensed) embedded via `go:embed` — zero runtime configuration
+- [x] `CASCADE_LICENSE` file alongside the cascade binary with full MIT attribution to Endre Simo / Pigo
+- [x] Face detections converted to boost regions in the scoring pipeline (heavily weighted — a detected face dominates heuristic signals)
+- [x] Non-maximum suppression (IoU clustering) to merge overlapping face detections
+- [x] PICO parameters: `MinSize: 30, MaxSize: 640, ShiftFactor: 0.1, ScaleFactor: 1.1`
+- [x] No pupil localisation, no facial landmarks, no rotation detection — only face bounding boxes are needed for cropping
 
 #### 1c. Focal Point Option
 
-- [ ] `focal: {x, y}` option: normalised coordinates (0–1), converted to a boost region centred on that point
-- [ ] `focal: {x, y, w, h}` option: normalised rectangle, used directly as a boost region
-- [ ] Focal point feeds the same boost scoring pipeline as face detection — no separate codepath
-- [ ] Focal point is optional — if omitted, face detection + heuristics determine the crop
-- [ ] Error if `focal` is specified without `crop: "smart"`
+- [x] `focal: {x, y}` option: normalised coordinates (0–1), converted to a boost region centred on that point
+- [x] `focal: {x, y, w, h}` option: normalised rectangle, used directly as a boost region
+- [x] Focal point feeds the same boost scoring pipeline as face detection — no separate codepath
+- [x] Focal point is optional — if omitted, face detection + heuristics determine the crop
+- [x] Error if `focal` is specified without `crop: "smart"`
 
 #### 1d. Integration
 
-- [ ] `TransformOptions.Crop` accepts `"smart"` in addition to existing `"center"` and `""`
-- [ ] `TransformOptions.Focal` field added (normalised point or rectangle)
-- [ ] `ParseOptions()` updated to parse `focal` dict from Parsley options
-- [ ] `Validate()` updated: `crop: "smart"` requires both width and height; `focal` requires `crop: "smart"`
-- [ ] `Canonical()` updated to include focal point in cache key
-- [ ] `Transform()` dispatches to smart crop when `opts.Crop == "smart"`
-- [ ] Cached by existing `CacheKey()` mechanism — no caching changes needed
-- [ ] Works with all existing output formats (JPEG, PNG, WebP, GIF)
+- [x] `TransformOptions.Crop` accepts `"smart"` in addition to existing `"center"` and `""`
+- [x] `TransformOptions.Focal` field added (normalised point or rectangle)
+- [x] `ParseOptions()` updated to parse `focal` dict from Parsley options
+- [x] `Validate()` updated: `crop: "smart"` requires both width and height; `focal` requires `crop: "smart"`
+- [x] `Canonical()` updated to include focal point in cache key
+- [x] `Transform()` dispatches to smart crop when `opts.Crop == "smart"`
+- [x] Cached by existing `CacheKey()` mechanism — no caching changes needed
+- [x] Works with all existing output formats (JPEG, PNG, WebP, GIF)
 
 #### 1e. Testing
 
-- [ ] Curated test image set (~30–50 images) covering: portraits (various skin tones), group photos, landscapes, product shots, food, animals, edge cases
-- [ ] Comparison grid generation: center crop vs smart crop for 2–3 target aspect ratios per test image
+- [x] Curated test image set (~30–50 images) covering: portraits (various skin tones), group photos, landscapes, product shots, food, animals, edge cases
+- [x] Comparison grid generation: center crop vs smart crop for 2–3 target aspect ratios per test image
 - [ ] Human-reviewed "golden" crop rectangles for regression testing (IoU > 0.8 tolerance)
-- [ ] Unit tests for PICO face detector: known face images produce detections, non-face images produce none
-- [ ] Unit tests for Sobel filter, heuristic scoring functions
-- [ ] Integration test: `image(@./photo.jpg, {width: 400, height: 300, crop: "smart"})` produces a cached, serveable image
-- [ ] Integration test: `focal` option shifts crop toward the specified point
+- [x] Unit tests for PICO face detector: known face images produce detections, non-face images produce none
+- [x] Unit tests for Sobel filter, heuristic scoring functions
+- [x] Integration test: `image(@./photo.jpg, {width: 400, height: 300, crop: "smart"})` produces a cached, serveable image
+- [x] Integration test: `focal` option shifts crop toward the specified point
 
 ### Phase 2: Seam Carving
 
 #### 2a. Seam Carving Core
 
-- [ ] `{scale: "smart"}` option in `image()` builtin: resize by inserting or removing low-energy seams
-- [ ] Sobel energy map computation (shared with smart crop)
-- [ ] Dynamic programming seam finder: minimum-energy vertical seam (top to bottom) and horizontal seam (left to right)
-- [ ] Backward energy function (gradient magnitude of pixels being removed/duplicated)
-- [ ] Width reduction: iteratively remove vertical seams until target width is reached
-- [ ] Height reduction: iteratively remove horizontal seams until target height is reached
-- [ ] Width enlargement: find k lowest-energy seams, then insert them (duplicate pixels along each seam)
-- [ ] Height enlargement: same technique for horizontal seams
-- [ ] Combined dimension changes: process each dimension independently (order: reduce first if mixed, then enlarge)
-- [ ] Graceful limits: warn or fall back to standard resize if change exceeds 30% in either dimension (artefact threshold)
+- [x] `{scale: "smart"}` option in `image()` builtin: resize by inserting or removing low-energy seams
+- [x] Sobel energy map computation (shared with smart crop)
+- [x] Dynamic programming seam finder: minimum-energy vertical seam (top to bottom) and horizontal seam (left to right)
+- [x] Backward energy function (gradient magnitude of pixels being removed/duplicated)
+- [x] Width reduction: iteratively remove vertical seams until target width is reached
+- [x] Height reduction: iteratively remove horizontal seams until target height is reached
+- [x] Width enlargement: find k lowest-energy seams, then insert them (duplicate pixels along each seam)
+- [x] Height enlargement: same technique for horizontal seams
+- [x] Combined dimension changes: process each dimension independently (order: reduce first if mixed, then enlarge)
+- [x] Graceful limits: warn or fall back to standard resize if change exceeds 30% in either dimension (artefact threshold)
 
 #### 2b. Integration
 
-- [ ] `TransformOptions.Scale` field added (accepts `"smart"` or `""`)
-- [ ] `ParseOptions()` updated to parse `scale` option
-- [ ] `Validate()` updated: `scale: "smart"` requires at least one dimension specified; cannot be combined with `crop`
-- [ ] `Canonical()` updated to include scale mode in cache key
-- [ ] `Transform()` dispatches to seam carving when `opts.Scale == "smart"`
-- [ ] Cached by existing `CacheKey()` mechanism
+- [x] `TransformOptions.Scale` field added (accepts `"smart"` or `""`)
+- [x] `ParseOptions()` updated to parse `scale` option
+- [x] `Validate()` updated: `scale: "smart"` requires at least one dimension specified; cannot be combined with `crop`
+- [x] `Canonical()` updated to include scale mode in cache key
+- [x] `Transform()` dispatches to seam carving when `opts.Scale == "smart"`
+- [x] Cached by existing `CacheKey()` mechanism
 
 #### 2c. Testing
 
-- [ ] Unit tests for energy map computation
-- [ ] Unit tests for seam finding: verify seam follows low-energy path on a known synthetic image
-- [ ] Unit tests for seam removal: verify image dimensions decrease correctly
-- [ ] Unit tests for seam insertion: verify image dimensions increase correctly, seams duplicated properly
+- [x] Unit tests for energy map computation
+- [x] Unit tests for seam finding: verify seam follows low-energy path on a known synthetic image
+- [x] Unit tests for seam removal: verify image dimensions decrease correctly
+- [x] Unit tests for seam insertion: verify image dimensions increase correctly, seams duplicated properly
 - [ ] Visual comparison tests: seam-carved enlargement vs standard upscale on 10+ diverse images
 - [ ] Visual comparison tests: seam-carved reduction vs standard resize on 10+ diverse images
-- [ ] Integration test: `image(@./photo.jpg, {width: 1200, scale: "smart"})` produces a cached enlarged image at the correct dimensions
-- [ ] Integration test: `image(@./photo.jpg, {width: 800, scale: "smart"})` produces a cached reduced image at the correct dimensions
-- [ ] Test that `scale: "smart"` + `crop: "smart"` produces a validation error
+- [x] Integration test: `image(@./photo.jpg, {width: 1200, scale: "smart"})` produces a cached enlarged image at the correct dimensions
+- [x] Integration test: `image(@./photo.jpg, {width: 800, scale: "smart"})` produces a cached reduced image at the correct dimensions
+- [x] Test that `scale: "smart"` + `crop: "smart"` produces a validation error
 
 ### Phase 3: Nice to Have
 
