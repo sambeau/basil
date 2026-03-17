@@ -460,12 +460,12 @@ function FindKMinVerticalSeams(img, k):
 |-----------|--------------|------------|
 | Smart crop — full pipeline (detect + score + crop + encode) | ~100–300ms | Yes |
 | Smart crop — analysis only (detect + score) | ~15–40ms | Yes (part of pipeline) |
-| Seam carving — 10% width reduction on 2000px image | ~200–500ms | Yes |
-| Seam carving — 30% width reduction on 2000px image | ~500–1500ms | Yes |
-| Seam carving — 10% width enlargement on 2000px image | ~300–600ms | Yes |
-| Seam carving — 30% width enlargement on 2000px image | ~800–2000ms | Yes |
+| Seam carving — 10% change on 1000px image | ~50–150ms | Yes |
+| Seam carving — 30% change on 1000px image | ~150–400ms | Yes |
 
-Enlargement is slightly slower than reduction because it requires finding k seams upfront (to avoid clustering) rather than iteratively removing one at a time. All operations are one-time costs per unique transform, cached by Basil's existing disk cache. Subsequent requests for the same transform serve the cached file directly.
+Performance scales roughly with (width × height × seams_changed). Enlargement is slightly slower than reduction because it requires finding k seams upfront (to avoid clustering) rather than iteratively removing one at a time. All operations are one-time costs per unique transform, cached by Basil's existing disk cache. Subsequent requests for the same transform serve the cached file directly.
+
+Note: Test images should be ~800–1200px on the long side to keep test suite runtime reasonable. The implementation works on any size, but seam carving is O(pixels × seams) so very large images will be slow.
 
 ### Security
 
