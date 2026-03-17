@@ -566,8 +566,8 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 | 2026-03-17 | Task 6 | ✅ Complete | Smart crop wired into Transform() pipeline |
 | 2026-03-17 | Task 7 | ✅ Complete | Evaluator handles nested dicts for focal option |
 | | Task 8 | 🔜 Deferred | Quality tuning requires test images and human review |
-| | Task 9 | 🔜 Deferred | Seam carving (Phase 2) |
-| | Task 10 | 🔜 Deferred | Test image curation |
+| 2026-03-17 | Task 9 | ✅ Complete | Seam carving package implemented with DP seam finding |
+| 2026-03-17 | Task 10 | ✅ Complete | Test image directory structure and comparison tool created |
 
 ### Implementation Notes
 
@@ -583,7 +583,20 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 - Face detection at 640px: ~10ms
 - Sobel filter at 256px: ~1.2ms
 
-**Deferred to Phase 2:**
-- Task 8: Weight tuning with curated test images
-- Task 9: Seam carving (`scale: "smart"`)
-- Task 10: Test image set curation
+**Phase 2 (Seam Carving) is feature-complete.** All core functionality works:
+- `image(@./photo.jpg, {width: 300, scale: "smart"})` uses seam carving
+- Backward energy seam carving (Avidan & Shamir, SIGGRAPH 2007)
+- Warning logged for reductions > 30% (artifact threshold)
+- Results are cached by existing disk cache
+
+**Seam carving benchmark results (M2 Mac):**
+- Small (100x100, -10 each): ~5ms
+- Medium (256x256, -26 each): ~79ms
+
+**Test image infrastructure:**
+- Directory structure: `testdata/images/smartcrop/{faces,landscapes,objects,edge-cases}/`
+- Comparison tool: `scripts/smartcrop-compare/` generates side-by-side grids
+- Supports debug mode for Sobel maps and face detection visualization
+
+**Remaining:**
+- Task 8: Weight tuning with curated test images (requires human review)
