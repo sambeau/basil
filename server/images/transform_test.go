@@ -259,6 +259,12 @@ func TestTransform(t *testing.T) {
 			wantWidth:  200,
 			wantHeight: 100,
 		},
+		{
+			name:       "smart crop",
+			opts:       TransformOptions{Width: 50, Height: 50, Crop: "smart"},
+			wantWidth:  50,
+			wantHeight: 50, // Smart crop produces exact dimensions
+		},
 	}
 
 	for _, tt := range tests {
@@ -680,6 +686,67 @@ func TestTransform_Sharpen(t *testing.T) {
 		bounds := result.Bounds()
 		if bounds.Dx() != 100 {
 			t.Errorf("Transform with explicit sharpen: got width %d, want 100", bounds.Dx())
+		}
+	})
+}
+
+func TestTransform_SmartCrop(t *testing.T) {
+	// Create a 400x300 test image with a gradient
+	img := image.NewRGBA(image.Rect(0, 0, 400, 300))
+	for y := 0; y < 300; y++ {
+		for x := 0; x < 400; x++ {
+			img.Set(x, y, color.RGBA{
+				R: uint8(x * 255 / 400),
+				G: uint8(y * 255 / 300),
+				B: 128,
+				A: 255,
+			})
+		}
+	}
+
+	t.Run("produces correct dimensions", func(t *testing.T) {
+		opts := TransformOptions{Width: 200, Height: 200, Crop: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 200 || bounds.Dy() != 200 {
+			t.Errorf("smart crop dimensions = %dx%d, want 200x200", bounds.Dx(), bounds.Dy())
+		}
+	})
+
+	t.Run("with focal point", func(t *testing.T) {
+		opts := TransformOptions{
+			Width:  200,
+			Height: 200,
+			Crop:   "smart",
+			Focal:  &FocalRegion{X: 0.25, Y: 0.25},
+		}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 200 || bounds.Dy() != 200 {
+			t.Errorf("smart crop with focal dimensions = %dx%d, want 200x200", bounds.Dx(), bounds.Dy())
+		}
+	})
+
+	t.Run("different aspect ratios", func(t *testing.T) {
+		testCases := []struct {
+			width, height int
+		}{
+			{100, 100}, // Square
+			{160, 90},  // Wide
+			{90, 120},  // Tall
+		}
+
+		for _, tc := range testCases {
+			opts := TransformOptions{Width: tc.width, Height: tc.height, Crop: "smart"}
+			result := Transform(img, opts)
+
+			bounds := result.Bounds()
+			if bounds.Dx() != tc.width || bounds.Dy() != tc.height {
+				t.Errorf("smart crop %dx%d = %dx%d, want %dx%d",
+					tc.width, tc.height, bounds.Dx(), bounds.Dy(), tc.width, tc.height)
+			}
 		}
 	})
 }

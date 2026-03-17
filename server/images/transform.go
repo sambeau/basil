@@ -18,6 +18,7 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/gen2brain/webp"
+	"github.com/sambeau/basil/server/images/smartcrop"
 	_ "golang.org/x/image/webp" // WebP decode support
 )
 
@@ -99,7 +100,32 @@ func Transform(img image.Image, opts TransformOptions) image.Image {
 
 	// Handle different resize modes
 	var result image.Image
-	if opts.Crop == "center" && targetWidth > 0 && targetHeight > 0 {
+
+	// Smart crop: content-aware cropping with face detection
+	if opts.Crop == "smart" && targetWidth > 0 && targetHeight > 0 {
+		// Convert FocalRegion to smartcrop.FocalRegion if present
+		var focal *smartcrop.FocalRegion
+		if opts.Focal != nil {
+			focal = &smartcrop.FocalRegion{
+				X: opts.Focal.X,
+				Y: opts.Focal.Y,
+				W: opts.Focal.W,
+				H: opts.Focal.H,
+			}
+		}
+
+		// Get the best crop rectangle
+		cropRect := smartcrop.BestCrop(img, targetWidth, targetHeight, focal)
+
+		// Crop to the selected region
+		result = imaging.Crop(img, cropRect)
+
+		// Resize to exact target dimensions (crop may be larger due to aspect ratio matching)
+		resultBounds := result.Bounds()
+		if resultBounds.Dx() != targetWidth || resultBounds.Dy() != targetHeight {
+			result = imaging.Resize(result, targetWidth, targetHeight, imaging.Lanczos)
+		}
+	} else if opts.Crop == "center" && targetWidth > 0 && targetHeight > 0 {
 		// Fill the box and crop excess from center
 		result = imaging.Fill(img, targetWidth, targetHeight, imaging.Center, imaging.Lanczos)
 	} else if targetWidth > 0 && targetHeight > 0 {
