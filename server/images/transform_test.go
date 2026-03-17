@@ -751,6 +751,104 @@ func TestTransform_SmartCrop(t *testing.T) {
 	})
 }
 
+func TestTransform_SmartScale(t *testing.T) {
+	// Create a 200x150 test image with a gradient
+	img := image.NewRGBA(image.Rect(0, 0, 200, 150))
+	for y := 0; y < 150; y++ {
+		for x := 0; x < 200; x++ {
+			img.Set(x, y, color.RGBA{
+				R: uint8(x * 255 / 200),
+				G: uint8(y * 255 / 150),
+				B: 128,
+				A: 255,
+			})
+		}
+	}
+
+	t.Run("width reduction", func(t *testing.T) {
+		opts := TransformOptions{Width: 180, Height: 150, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 180 {
+			t.Errorf("smart scale width = %d, want 180", bounds.Dx())
+		}
+		if bounds.Dy() != 150 {
+			t.Errorf("smart scale height = %d, want 150", bounds.Dy())
+		}
+	})
+
+	t.Run("height reduction", func(t *testing.T) {
+		opts := TransformOptions{Width: 200, Height: 130, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 200 {
+			t.Errorf("smart scale width = %d, want 200", bounds.Dx())
+		}
+		if bounds.Dy() != 130 {
+			t.Errorf("smart scale height = %d, want 130", bounds.Dy())
+		}
+	})
+
+	t.Run("both dimensions reduced", func(t *testing.T) {
+		opts := TransformOptions{Width: 180, Height: 130, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 180 {
+			t.Errorf("smart scale width = %d, want 180", bounds.Dx())
+		}
+		if bounds.Dy() != 130 {
+			t.Errorf("smart scale height = %d, want 130", bounds.Dy())
+		}
+	})
+
+	t.Run("no reduction needed", func(t *testing.T) {
+		opts := TransformOptions{Width: 250, Height: 200, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		// Should stay at original size (no enlargement)
+		if bounds.Dx() != 200 {
+			t.Errorf("smart scale width = %d, want 200", bounds.Dx())
+		}
+		if bounds.Dy() != 150 {
+			t.Errorf("smart scale height = %d, want 150", bounds.Dy())
+		}
+	})
+
+	t.Run("width only specified", func(t *testing.T) {
+		opts := TransformOptions{Width: 180, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		if bounds.Dx() != 180 {
+			t.Errorf("smart scale width = %d, want 180", bounds.Dx())
+		}
+		// Height should be proportionally reduced
+		expectedHeight := int(float64(150) * float64(180) / float64(200))
+		if bounds.Dy() != expectedHeight {
+			t.Errorf("smart scale height = %d, want %d", bounds.Dy(), expectedHeight)
+		}
+	})
+
+	t.Run("height only specified", func(t *testing.T) {
+		opts := TransformOptions{Height: 120, Scale: "smart"}
+		result := Transform(img, opts)
+
+		bounds := result.Bounds()
+		// Width should be proportionally reduced
+		expectedWidth := int(float64(200) * float64(120) / float64(150))
+		if bounds.Dx() != expectedWidth {
+			t.Errorf("smart scale width = %d, want %d", bounds.Dx(), expectedWidth)
+		}
+		if bounds.Dy() != 120 {
+			t.Errorf("smart scale height = %d, want 120", bounds.Dy())
+		}
+	})
+}
+
 func TestGenerateBlurPlaceholder(t *testing.T) {
 	dir := t.TempDir()
 

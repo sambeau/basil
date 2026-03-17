@@ -18,6 +18,7 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/gen2brain/webp"
+	"github.com/sambeau/basil/server/images/seamcarve"
 	"github.com/sambeau/basil/server/images/smartcrop"
 	_ "golang.org/x/image/webp" // WebP decode support
 )
@@ -101,8 +102,28 @@ func Transform(img image.Image, opts TransformOptions) image.Image {
 	// Handle different resize modes
 	var result image.Image
 
-	// Smart crop: content-aware cropping with face detection
-	if opts.Crop == "smart" && targetWidth > 0 && targetHeight > 0 {
+	// Smart scale: content-aware resizing using seam carving
+	if opts.Scale == "smart" {
+		// Seam carving for content-aware size reduction
+		// Determine target dimensions (preserve aspect ratio if only one specified)
+		seamTargetW := targetWidth
+		seamTargetH := targetHeight
+
+		if seamTargetW == 0 && seamTargetH > 0 {
+			// Calculate width to preserve aspect ratio
+			seamTargetW = int(float64(srcWidth) * float64(seamTargetH) / float64(srcHeight))
+		} else if seamTargetH == 0 && seamTargetW > 0 {
+			// Calculate height to preserve aspect ratio
+			seamTargetH = int(float64(srcHeight) * float64(seamTargetW) / float64(srcWidth))
+		}
+
+		if seamTargetW > 0 && seamTargetH > 0 {
+			result = seamcarve.Resize(img, seamTargetW, seamTargetH)
+		} else {
+			result = img
+		}
+	} else if opts.Crop == "smart" && targetWidth > 0 && targetHeight > 0 {
+		// Smart crop: content-aware cropping with face detection
 		// Convert FocalRegion to smartcrop.FocalRegion if present
 		var focal *smartcrop.FocalRegion
 		if opts.Focal != nil {
