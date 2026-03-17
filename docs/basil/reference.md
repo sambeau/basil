@@ -1531,7 +1531,7 @@ images:
   default_format: ""
 ```
 
-See the [Images manual page](../parsley/manual/builtins/images.md) for full documentation.
+See the [Images manual page](manual/images.md) for full documentation.
 
 ---
 
