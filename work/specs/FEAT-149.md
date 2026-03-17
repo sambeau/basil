@@ -98,15 +98,16 @@ Seam carving addresses a different but related problem: changing an image's aspe
 
 #### 2a. Seam Carving Core
 
-- [ ] `{scale: "smart"}` option in `image()` builtin: resize by removing low-energy seams
+- [ ] `{scale: "smart"}` option in `image()` builtin: resize by inserting or removing low-energy seams
 - [ ] Sobel energy map computation (shared with smart crop)
 - [ ] Dynamic programming seam finder: minimum-energy vertical seam (top to bottom) and horizontal seam (left to right)
-- [ ] Backward energy function (gradient magnitude of pixels being removed)
+- [ ] Backward energy function (gradient magnitude of pixels being removed/duplicated)
 - [ ] Width reduction: iteratively remove vertical seams until target width is reached
 - [ ] Height reduction: iteratively remove horizontal seams until target height is reached
-- [ ] Width+height reduction: reduce in both dimensions (reduce the larger delta first)
-- [ ] No enlargement (seam insertion) in v1 — Basil already refuses to upscale
-- [ ] Graceful limits: warn or fall back to standard resize if reduction exceeds 30% in either dimension (artefact threshold)
+- [ ] Width enlargement: find k lowest-energy seams, then insert them (duplicate pixels along each seam)
+- [ ] Height enlargement: same technique for horizontal seams
+- [ ] Combined dimension changes: process each dimension independently (order: reduce first if mixed, then enlarge)
+- [ ] Graceful limits: warn or fall back to standard resize if change exceeds 30% in either dimension (artefact threshold)
 
 #### 2b. Integration
 
@@ -121,14 +122,17 @@ Seam carving addresses a different but related problem: changing an image's aspe
 
 - [ ] Unit tests for energy map computation
 - [ ] Unit tests for seam finding: verify seam follows low-energy path on a known synthetic image
-- [ ] Visual comparison tests: seam-carved results vs standard resize on 10+ diverse images
-- [ ] Integration test: `image(@./photo.jpg, {width: 800, scale: "smart"})` produces a cached image at the correct dimensions
+- [ ] Unit tests for seam removal: verify image dimensions decrease correctly
+- [ ] Unit tests for seam insertion: verify image dimensions increase correctly, seams duplicated properly
+- [ ] Visual comparison tests: seam-carved enlargement vs standard upscale on 10+ diverse images
+- [ ] Visual comparison tests: seam-carved reduction vs standard resize on 10+ diverse images
+- [ ] Integration test: `image(@./photo.jpg, {width: 1200, scale: "smart"})` produces a cached enlarged image at the correct dimensions
+- [ ] Integration test: `image(@./photo.jpg, {width: 800, scale: "smart"})` produces a cached reduced image at the correct dimensions
 - [ ] Test that `scale: "smart"` + `crop: "smart"` produces a validation error
 
 ### Phase 3: Nice to Have
 
 - [ ] Forward energy for seam carving (Rubinstein et al., 2008) — reduces artefacts on strong edges
-- [ ] Seam insertion (enlargement) — duplicate low-energy seams to grow an image
 - [ ] Protect/remove masks for seam carving: `{scale: "smart", protect: {x, y, w, h}}` to mark regions that should never be carved
 - [ ] Object detection beyond faces (would require a different cascade or approach)
 - [ ] Focal point auto-suggestion: `imageInfo(@./photo.jpg)` returns a `focal` field with the detected best focal point
@@ -165,11 +169,11 @@ Seam carving addresses a different but related problem: changing an image's aspe
 
 **Rationale**: Heuristic-only smart cropping has well-documented failure modes — particularly the skin-tone reference colour bias (tuned to medium-light Caucasian skin in smartcrop.js), which is both a quality and inclusivity problem. Face detection sidesteps this entirely by detecting faces via geometry, not colour. Adding PICO is only ~3–5 days of extra work and ~200 lines + 234 KB. The boost architecture keeps face detection cleanly separated from heuristic scoring.
 
-### Seam Carving: Backward Energy, Reduction Only
+### Seam Carving: Backward Energy, Both Reduction and Enlargement
 
-**Decision**: Implement backward energy (not forward energy) and width/height reduction only (no enlargement) in v1.
+**Decision**: Implement backward energy (not forward energy) with both reduction and enlargement in v1.
 
-**Rationale**: Backward energy is simpler (the energy map is the same Sobel gradient used for smart crop scoring) and produces good results for modest reductions (< 20–30%). Forward energy adds ~50 lines and changes the DP recurrence — worth doing if visual testing reveals artefacts on strong-edge images, but not needed for v1. Enlargement (seam insertion) has a narrow use case in web image serving (Basil already refuses to upscale), produces lower-quality results, and roughly doubles the implementation surface.
+**Rationale**: Backward energy is simpler (the energy map is the same Sobel gradient used for smart crop scoring) and produces good results for modest changes (< 20–30%). Forward energy adds ~50 lines and changes the DP recurrence — worth doing if visual testing reveals artefacts on strong-edge images, but not needed for v1. Enlargement (seam insertion) is the primary use case for seam carving in Basil: smart crop already handles shrinking images well, but browsers cannot intelligently enlarge images the way seam carving can. Standard upscaling (uniform pixel interpolation) is still refused — it wastes bandwidth since browsers can do it client-side. Seam carving enlargement is allowed because it's a content manipulation that browsers cannot perform.
 
 ### Focal Point API: Normalised Coordinates
 
@@ -414,6 +418,7 @@ Approximate starting weights (subject to tuning during implementation):
 
 ```
 function Resize(img, targetWidth, targetHeight):
+    // Reduction phase (if needed)
     while img.width > targetWidth:
         energy = SobelEnergyMap(img)
         seam = FindMinVerticalSeam(energy)    // DP, top to bottom
@@ -424,12 +429,29 @@ function Resize(img, targetWidth, targetHeight):
         seam = FindMinHorizontalSeam(energy)  // DP, left to right
         img = RemoveHorizontalSeam(img, seam)
 
+    // Enlargement phase (if needed)
+    if img.width < targetWidth:
+        k = targetWidth - img.width
+        seams = FindKMinVerticalSeams(img, k)  // Find k seams on original
+        img = InsertVerticalSeams(img, seams)  // Duplicate pixels along each seam
+
+    if img.height < targetHeight:
+        k = targetHeight - img.height
+        seams = FindKMinHorizontalSeams(img, k)
+        img = InsertHorizontalSeams(img, seams)
+
     return img
 
 function FindMinVerticalSeam(energy):
     // DP: M[i][j] = energy[i][j] + min(M[i-1][j-1], M[i-1][j], M[i-1][j+1])
     // Backtrack from min of bottom row to find seam path
     // Returns []int — one column index per row
+
+function FindKMinVerticalSeams(img, k):
+    // Find k lowest-energy seams on the ORIGINAL image
+    // (not iteratively — that would cluster seams together)
+    // Mark selected seam pixels to avoid overlap, find next-lowest, repeat
+    // Returns [][]int — k seams, each is one column index per row
 ```
 
 ### Performance Expectations
@@ -440,8 +462,10 @@ function FindMinVerticalSeam(energy):
 | Smart crop — analysis only (detect + score) | ~15–40ms | Yes (part of pipeline) |
 | Seam carving — 10% width reduction on 2000px image | ~200–500ms | Yes |
 | Seam carving — 30% width reduction on 2000px image | ~500–1500ms | Yes |
+| Seam carving — 10% width enlargement on 2000px image | ~300–600ms | Yes |
+| Seam carving — 30% width enlargement on 2000px image | ~800–2000ms | Yes |
 
-All operations are one-time costs per unique transform, cached by Basil's existing disk cache. Subsequent requests for the same transform serve the cached file directly.
+Enlargement is slightly slower than reduction because it requires finding k seams upfront (to avoid clustering) rather than iteratively removing one at a time. All operations are one-time costs per unique transform, cached by Basil's existing disk cache. Subsequent requests for the same transform serve the cached file directly.
 
 ### Security
 

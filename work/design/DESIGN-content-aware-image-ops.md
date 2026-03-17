@@ -231,13 +231,15 @@ The one pre-trained artefact is the **cascade file** (234 KB) that encodes which
 | Tests + quality tuning | 2–3 days | Diverse image set, weight adjustment |
 | **Subtotal** | **~2 weeks** | Smart crop with face detection, integrated into Basil |
 
-**Seam carving (Phase 2, when there's demand):**
+**Seam carving (Phase 2):**
 
 | Component | Effort | Notes |
 |-----------|--------|-------|
-| Seam carving (core DP + removal) | 2–3 days | Backward energy, reduction only |
-| Tests + Basil integration | 1–2 days | `{scale: "smart"}` in `TransformOptions` |
-| **Subtotal** | **3–5 days** | |
+| Seam carving (core DP + removal + insertion) | 3–4 days | Backward energy, reduction and enlargement |
+| Tests + Basil integration | 2–3 days | `{scale: "smart"}` in `TransformOptions`, enlargement tests |
+| **Subtotal** | **5–7 days** | |
+
+Note: Enlargement (seam insertion) is the primary use case — smart crop handles shrinking well, but browsers cannot intelligently enlarge images the way seam carving can. Standard upscaling is still refused (browsers do it better), but seam carving enlargement is allowed because it's a content manipulation browsers cannot perform.
 
 The bulk of the smart crop effort is in heuristic weight tuning — getting results that "feel right" across diverse image types. The face detection runtime itself is straightforward.
 
@@ -795,7 +797,7 @@ Build inside `server/images/seamcarve/`:
 | 2026-03-16 | Bundle Pigo's trained cascade file (MIT) with attribution | Training our own cascade is unnecessary — the existing one is proven and freely redistributable. Add CASCADE_LICENSE alongside the binary. |
 | 2026-03-16 | Use GenCrop paper findings as heuristic specification | The five violation criteria and composition rules are research-backed and implementable without ML |
 | 2026-03-16 | Build from scratch, don't use muesli/smartcrop | We're going beyond what it offers (face detection, GenCrop rules); avoids inheriting skin-tone bias; the implementation is small enough that writing our own is comparable effort |
-| 2026-03-16 | Seam carving: backward energy, reduction only | Forward energy and enlargement add complexity for marginal v1 benefit; easy to add later |
+| 2026-03-16 | ~~Seam carving: backward energy, reduction only~~ → Include enlargement | Smart crop handles shrinking well; seam carving's primary value is enlargement (content manipulation browsers can't do). Standard upscaling still refused (browsers do it better). |
 | 2026-03-16 | Non-face subjects handled by heuristic fallback + optional focal point | Heuristics work well for landscapes, food, products on plain backgrounds; focal point option is the escape hatch for edge cases; object detection is a future concern |
 | 2026-03-16 | Build seam carving now (Phase 2), not deferred | Small effort (3–5 days), shares infrastructure, avoids context-switch cost of returning later |
 | 2026-03-16 | Focal point API: normalised coordinates (0–1), support both point and rectangle | Users don't know source dimensions; normalised is stable across resizes; point converts to small boost region, rectangle used directly; both feed same boost pipeline as face detection |
