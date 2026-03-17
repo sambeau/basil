@@ -558,4 +558,32 @@ Items to add to `work/BACKLOG.md` after implementation if not addressed:
 
 | Date | Task | Status | Notes |
 |------|------|--------|-------|
-| | | | |
+| 2026-03-17 | Task 1 | ✅ Complete | Sobel edge detection filter implemented with tests |
+| 2026-03-17 | Task 2 | ✅ Complete | PICO face detection runtime implemented, facefinder cascade embedded |
+| 2026-03-17 | Task 3 | ✅ Complete | Heuristic scoring (edge, saturation, skin-tone, composition, boost) |
+| 2026-03-17 | Task 4 | ✅ Complete | BestCrop API with two-pass analysis and candidate search |
+| 2026-03-17 | Task 5 | ✅ Complete | TransformOptions extended with Scale, Focal fields |
+| 2026-03-17 | Task 6 | ✅ Complete | Smart crop wired into Transform() pipeline |
+| 2026-03-17 | Task 7 | ✅ Complete | Evaluator handles nested dicts for focal option |
+| | Task 8 | 🔜 Deferred | Quality tuning requires test images and human review |
+| | Task 9 | 🔜 Deferred | Seam carving (Phase 2) |
+| | Task 10 | 🔜 Deferred | Test image curation |
+
+### Implementation Notes
+
+**Phase 1 (Smart Crop) is feature-complete.** All core functionality works:
+- `image(@./photo.jpg, {width: 400, height: 300, crop: "smart"})` analyses and crops
+- Face detection runs at 640px, heuristics at 256px
+- Focal point support via `focal: {x, y}` or `focal: {x, y, w, h}`
+- Different focal points produce different cache keys
+- Results are cached by existing disk cache
+
+**Benchmark results (M2 Mac):**
+- BestCrop (640x480 image): ~115ms (one-time, cached)
+- Face detection at 640px: ~10ms
+- Sobel filter at 256px: ~1.2ms
+
+**Deferred to Phase 2:**
+- Task 8: Weight tuning with curated test images
+- Task 9: Seam carving (`scale: "smart"`)
+- Task 10: Test image set curation
