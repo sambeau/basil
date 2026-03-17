@@ -173,6 +173,61 @@ func TestImageWithOptions(t *testing.T) {
 	}
 }
 
+func TestImageWithSmartCropAndFocal(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "photo.jpg")
+	if err := os.WriteFile(testFile, []byte("fake-jpeg-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	input := `image(@./photo.jpg, {width: 400, height: 300, crop: "smart", focal: {x: 0.5, y: 0.5}})`
+	result, registry := evalWithImage(t, input, filepath.Join(tmpDir, "test.pars"), tmpDir)
+
+	str, ok := result.(*evaluator.String)
+	if !ok {
+		if errObj, isErr := result.(*evaluator.Error); isErr {
+			t.Fatalf("got error: %s", errObj.Message)
+		}
+		t.Fatalf("expected String, got %T (%v)", result, result)
+	}
+
+	if !strings.HasPrefix(str.Value, "/__img/") {
+		t.Errorf("expected URL to start with /__img/, got: %s", str.Value)
+	}
+
+	// Should have called Transform with options including focal
+	if len(registry.transformCalls) != 1 {
+		t.Fatalf("expected 1 Transform call, got %d", len(registry.transformCalls))
+	}
+
+	call := registry.transformCalls[0]
+
+	// Check crop is "smart"
+	crop, exists := call.Opts["crop"]
+	if !exists {
+		t.Fatal("expected 'crop' in options")
+	}
+	if crop != "smart" {
+		t.Errorf("expected crop='smart', got %v", crop)
+	}
+
+	// Check focal is a map with x and y
+	focal, exists := call.Opts["focal"]
+	if !exists {
+		t.Fatal("expected 'focal' in options")
+	}
+	focalMap, ok := focal.(map[string]any)
+	if !ok {
+		t.Fatalf("expected focal to be map[string]any, got %T", focal)
+	}
+	if focalMap["x"] != 0.5 {
+		t.Errorf("expected focal.x=0.5, got %v", focalMap["x"])
+	}
+	if focalMap["y"] != 0.5 {
+		t.Errorf("expected focal.y=0.5, got %v", focalMap["y"])
+	}
+}
+
 func TestImageWithStringPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "photo.jpg")

@@ -548,6 +548,7 @@ func checkImagePathSecurity(absPath string, env *Environment, fnName string) *Er
 }
 
 // imageObjectToGo converts a Parsley Object to a Go value.
+// Handles nested dictionaries for options like focal: {x, y}.
 func imageObjectToGo(obj Object) any {
 	switch v := obj.(type) {
 	case *Integer:
@@ -560,6 +561,16 @@ func imageObjectToGo(obj Object) any {
 		return v.Value
 	case *Null:
 		return nil
+	case *Dictionary:
+		// Convert dictionary to map[string]any recursively
+		result := make(map[string]any)
+		for key, valExpr := range v.Pairs {
+			val := Eval(valExpr, v.Env)
+			if !isError(val) {
+				result[key] = imageObjectToGo(val)
+			}
+		}
+		return result
 	default:
 		return nil
 	}
