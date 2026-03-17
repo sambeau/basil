@@ -56,7 +56,7 @@ func BestCrop(img image.Image, targetWidth, targetHeight int, focal *FocalRegion
 	var boosts []BoostRegion
 
 	// Pass 1: Face detection at 640px
-	faceBoosts := detectFaceBoosts(img, srcWidth, srcHeight)
+	faceBoosts, hadRawDetections := detectFaceBoosts(img, srcWidth, srcHeight)
 	boosts = append(boosts, faceBoosts...)
 
 	// Convert focal point/region to boost
@@ -70,6 +70,17 @@ func BestCrop(img image.Image, targetWidth, targetHeight int, focal *FocalRegion
 	// Pass 2: Heuristic scoring at 256px
 	analysisImg, analysisScale := resizeForAnalysis(img, analysisSize)
 	sobelMap := Sobel(analysisImg)
+
+	// If no faces or focal points, find the energy centroid as a fallback
+	// This helps find "interesting" regions like isolated objects, boundaries, etc.
+	// Note: We check hadRawDetections to avoid energy centroid overriding
+	// weak but valid face detections that were filtered by confidence threshold.
+	if len(boosts) == 0 && !hadRawDetections {
+		energyBoost := findEnergyCentroid(sobelMap, analysisScale, srcWidth, srcHeight)
+		if !energyBoost.Rect.Empty() {
+			boosts = append(boosts, energyBoost)
+		}
+	}
 
 	// Scale boost regions to analysis coordinates
 	scaledBoosts := scaleBoosts(boosts, analysisScale)
@@ -105,21 +116,49 @@ func BestCrop(img image.Image, targetWidth, targetHeight int, focal *FocalRegion
 }
 
 // detectFaceBoosts runs face detection and converts results to boost regions.
-func detectFaceBoosts(img image.Image, srcWidth, srcHeight int) []BoostRegion {
+// Face detection confidence is used to weight the boost - low confidence detections
+// have less influence on crop selection.
+// Detections are validated with skin-tone analysis to filter out false positives
+// (e.g., toy faces, patterns that look like faces).
+// Returns the boost regions and whether any raw detections were found (before filtering).
+func detectFaceBoosts(img image.Image, srcWidth, srcHeight int) ([]BoostRegion, bool) {
 	// Resize for face detection
 	faceImg, faceScale := resizeForAnalysis(img, faceDetectionSize)
 
 	// Run face detection
 	pixels, width, height := ToGrayscaleFlat(faceImg)
 	detections := DetectFaces(pixels, width, height)
+	hadRawDetections := len(detections) > 0
 
 	if len(detections) == 0 {
-		return nil
+		return nil, false
 	}
+
+	// Find max score for normalization
+	var maxScore float32
+	for _, det := range detections {
+		if det.Score > maxScore {
+			maxScore = det.Score
+		}
+	}
+
+	// Minimum confidence threshold - ignore very weak detections
+	// Set to 2.0 to balance catching faces in difficult conditions
+	// while filtering noisy false positives that pull crops off-center
+	const minConfidenceThreshold = 2.0
+
+	// Minimum skin-tone percentage required to validate a face detection
+	// This filters out toy faces, patterns, pink objects etc. that fool the detector
+	const minSkinTonePercent = 0.50
 
 	// Convert detections to boost regions in original image coordinates
 	boosts := make([]BoostRegion, 0, len(detections))
 	for _, det := range detections {
+		// Skip low-confidence detections entirely
+		if det.Score < minConfidenceThreshold {
+			continue
+		}
+
 		// Get detection rectangle in face detection scale
 		detRect := det.Rect()
 
@@ -134,15 +173,64 @@ func detectFaceBoosts(img image.Image, srcWidth, srcHeight int) []BoostRegion {
 		// Clamp to image bounds
 		origRect = origRect.Intersect(image.Rect(0, 0, srcWidth, srcHeight))
 
-		if !origRect.Empty() {
-			boosts = append(boosts, BoostRegion{
-				Rect:   origRect,
-				Weight: 1.0,
-			})
+		if origRect.Empty() {
+			continue
+		}
+
+		// Validate with skin-tone analysis to filter false positives
+		skinPercent := calculateSkinTonePercent(img, origRect)
+		if skinPercent < minSkinTonePercent {
+			// Not enough skin tone - likely a toy, pattern, or non-human face
+			continue
+		}
+
+		// Weight by confidence: normalize to [0.3, 1.0] range
+		// so even the weakest accepted detection has some influence
+		weight := 0.3 + 0.7*float64(det.Score)/float64(maxScore)
+
+		boosts = append(boosts, BoostRegion{
+			Rect:   origRect,
+			Weight: weight,
+		})
+	}
+
+	return boosts, hadRawDetections
+}
+
+// calculateSkinTonePercent samples pixels in a rectangle and returns the
+// percentage that match skin-tone colors. Used to validate face detections.
+func calculateSkinTonePercent(img image.Image, rect image.Rectangle) float64 {
+	if rect.Empty() {
+		return 0
+	}
+
+	bounds := img.Bounds()
+	minX := max(rect.Min.X, bounds.Min.X)
+	maxX := min(rect.Max.X, bounds.Max.X)
+	minY := max(rect.Min.Y, bounds.Min.Y)
+	maxY := min(rect.Max.Y, bounds.Max.Y)
+
+	if minX >= maxX || minY >= maxY {
+		return 0
+	}
+
+	// Sample every 4th pixel for performance (faces are usually large enough)
+	const sampleStep = 4
+	var skinCount, totalCount int
+
+	for y := minY; y < maxY; y += sampleStep {
+		for x := minX; x < maxX; x += sampleStep {
+			if isSkinTone(img.At(x, y)) {
+				skinCount++
+			}
+			totalCount++
 		}
 	}
 
-	return boosts
+	if totalCount == 0 {
+		return 0
+	}
+	return float64(skinCount) / float64(totalCount)
 }
 
 // focalToBoost converts a focal point/region to a boost region.
@@ -177,9 +265,13 @@ func focalToBoost(focal *FocalRegion, imgWidth, imgHeight int) BoostRegion {
 	// Clamp to image bounds
 	rect = rect.Intersect(image.Rect(0, 0, imgWidth, imgHeight))
 
+	// Explicit focal points get very high weight (5.0) to override
+	// the CropCentered preference and actually pull the crop toward them.
+	// This is intentionally much higher than auto-detected faces (0.3-1.0)
+	// because the user explicitly requested this focal point.
 	return BoostRegion{
 		Rect:   rect,
-		Weight: 1.0,
+		Weight: 5.0,
 	}
 }
 
@@ -238,7 +330,94 @@ func scaleBoosts(boosts []BoostRegion, scale float64) []BoostRegion {
 	return scaled
 }
 
+// findEnergyCentroid finds the center of high-energy regions in the Sobel map.
+// This is used as a fallback when no faces are detected, to find "interesting"
+// regions like isolated objects, boundaries, or anomalies.
+// Returns a boost region centered on the energy centroid with moderate weight.
+func findEnergyCentroid(sobelMap [][]float64, analysisScale float64, origWidth, origHeight int) BoostRegion {
+	height := len(sobelMap)
+	if height == 0 {
+		return BoostRegion{}
+	}
+	width := len(sobelMap[0])
+	if width == 0 {
+		return BoostRegion{}
+	}
+
+	// Calculate weighted centroid of energy
+	var totalEnergy, weightedX, weightedY float64
+
+	// Find max energy for thresholding
+	var maxEnergy float64
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			if sobelMap[y][x] > maxEnergy {
+				maxEnergy = sobelMap[y][x]
+			}
+		}
+	}
+
+	if maxEnergy == 0 {
+		return BoostRegion{} // Uniform image
+	}
+
+	// Use a threshold to focus on high-energy regions (top 30% of energy)
+	threshold := maxEnergy * 0.3
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			energy := sobelMap[y][x]
+			if energy > threshold {
+				// Use squared energy to emphasize peaks
+				weight := energy * energy
+				totalEnergy += weight
+				weightedX += float64(x) * weight
+				weightedY += float64(y) * weight
+			}
+		}
+	}
+
+	if totalEnergy == 0 {
+		return BoostRegion{} // No significant energy found
+	}
+
+	// Calculate centroid in analysis coordinates
+	centroidX := weightedX / totalEnergy
+	centroidY := weightedY / totalEnergy
+
+	// Convert back to original image coordinates
+	origCentroidX := centroidX / analysisScale
+	origCentroidY := centroidY / analysisScale
+
+	// Create a boost region around the centroid
+	// Size is 15% of image dimensions - enough to influence crop but not dominate
+	regionW := origWidth / 7
+	regionH := origHeight / 7
+
+	rect := image.Rect(
+		int(origCentroidX)-regionW/2,
+		int(origCentroidY)-regionH/2,
+		int(origCentroidX)+regionW/2,
+		int(origCentroidY)+regionH/2,
+	)
+
+	// Clamp to image bounds
+	rect = rect.Intersect(image.Rect(0, 0, origWidth, origHeight))
+
+	if rect.Empty() {
+		return BoostRegion{}
+	}
+
+	// Use moderate weight - less than explicit focal (5.0) but enough to influence
+	// Lower weight than faces so it's a gentle pull, not a hard constraint
+	return BoostRegion{
+		Rect:   rect,
+		Weight: 1.5,
+	}
+}
+
 // generateCandidates creates a grid of candidate crop rectangles at the target aspect ratio.
+// Always includes the center crop position at each scale to ensure centered crops are considered.
 func generateCandidates(bounds image.Rectangle, targetAspect float64) []image.Rectangle {
 	width := bounds.Dx()
 	height := bounds.Dy()
@@ -253,7 +432,8 @@ func generateCandidates(bounds image.Rectangle, targetAspect float64) []image.Re
 	scales := []float64{1.0, 0.9, 0.8, 0.7, 0.6, 0.5}
 
 	// Step size for sliding window (as fraction of image size)
-	stepFraction := 0.1
+	// Use 5% steps for finer granularity near center
+	stepFraction := 0.05
 
 	for _, scaleFactor := range scales {
 		// Calculate crop dimensions at this scale
@@ -284,19 +464,37 @@ func generateCandidates(bounds image.Rectangle, targetAspect float64) []image.Re
 			continue
 		}
 
+		// Always add the center crop at this scale first
+		// This ensures the center position is always considered
+		centerX := bounds.Min.X + (width-cropW)/2
+		centerY := bounds.Min.Y + (height-cropH)/2
+		candidates = append(candidates, image.Rect(centerX, centerY, centerX+cropW, centerY+cropH))
+
 		// Step size in pixels
 		stepX := max(1, int(float64(width)*stepFraction))
 		stepY := max(1, int(float64(height)*stepFraction))
 
-		// Generate candidates at this scale
+		// Generate grid candidates at this scale
 		for y := bounds.Min.Y; y+cropH <= bounds.Max.Y; y += stepY {
 			for x := bounds.Min.X; x+cropW <= bounds.Max.X; x += stepX {
+				// Skip if this is very close to the center (already added)
+				if abs(x-centerX) < stepX/2 && abs(y-centerY) < stepY/2 {
+					continue
+				}
 				candidates = append(candidates, image.Rect(x, y, x+cropW, y+cropH))
 			}
 		}
 	}
 
 	return candidates
+}
+
+// abs returns the absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // centerCrop returns a center crop at the target aspect ratio.
@@ -345,14 +543,10 @@ func scaleRectToOriginal(rect image.Rectangle, scale float64, originalBounds ima
 }
 
 // shouldFallbackToCenter checks if all candidate scores are too similar (uniform image).
-// If scores vary by less than 1%, fall back to center crop.
+// If scores vary by less than the threshold, fall back to center crop.
+// This prevents the algorithm from making arbitrary choices when there's no clear winner.
 func shouldFallbackToCenter(candidates []image.Rectangle, img image.Image, sobelMap [][]float64, boosts []BoostRegion, bestScore float64) bool {
 	if len(candidates) < 2 {
-		return false
-	}
-
-	// If we have boost regions (faces/focal), trust the scoring
-	if len(boosts) > 0 {
 		return false
 	}
 
@@ -375,11 +569,20 @@ func shouldFallbackToCenter(candidates []image.Rectangle, img image.Image, sobel
 		}
 	}
 
-	// If all scores are within 1% of each other, fall back to center
+	// If all scores are within threshold of each other, fall back to center
 	if maxScore == 0 {
 		return true
 	}
 
 	variance := (maxScore - minScore) / maxScore
-	return variance < 0.01
+
+	// Use a higher threshold (5%) when we have boost regions (faces/focal)
+	// because face detection can be unreliable and we don't want to make
+	// arbitrary choices based on weak signals
+	if len(boosts) > 0 {
+		return variance < 0.05
+	}
+
+	// For images without boost regions, use 3% threshold
+	return variance < 0.03
 }

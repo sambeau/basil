@@ -68,13 +68,14 @@ func TestBestCrop_ReturnsValidRectangle(t *testing.T) {
 }
 
 func TestBestCrop_WithFocalPoint(t *testing.T) {
-	// Create image with some variation (not uniform, to avoid center fallback)
-	img := image.NewRGBA(image.Rect(0, 0, 400, 400))
+	// Create a wide image where a square crop MUST choose a position
+	// (can't include the whole image at 1:1 aspect ratio)
+	img := image.NewRGBA(image.Rect(0, 0, 800, 400))
 	for y := 0; y < 400; y++ {
-		for x := 0; x < 400; x++ {
+		for x := 0; x < 800; x++ {
 			// Add gradient to create variation
 			img.Set(x, y, color.RGBA{
-				R: uint8(x * 255 / 400),
+				R: uint8(x * 255 / 800),
 				G: uint8(y * 255 / 400),
 				B: 128,
 				A: 255,
@@ -82,17 +83,18 @@ func TestBestCrop_WithFocalPoint(t *testing.T) {
 		}
 	}
 
-	// Crop with focal point at top-left
-	focalTopLeft := &FocalRegion{X: 0.1, Y: 0.1}
-	resultTL := BestCrop(img, 200, 200, focalTopLeft)
+	// Crop with focal point at left side
+	focalLeft := &FocalRegion{X: 0.1, Y: 0.5}
+	resultLeft := BestCrop(img, 300, 300, focalLeft)
 
-	// Crop with focal point at bottom-right
-	focalBottomRight := &FocalRegion{X: 0.9, Y: 0.9}
-	resultBR := BestCrop(img, 200, 200, focalBottomRight)
+	// Crop with focal point at right side
+	focalRight := &FocalRegion{X: 0.9, Y: 0.5}
+	resultRight := BestCrop(img, 300, 300, focalRight)
 
-	// The crops should be in different positions (at least one coordinate differs)
-	if resultTL.Min.X == resultBR.Min.X && resultTL.Min.Y == resultBR.Min.Y {
-		t.Errorf("focal points at opposite corners should produce different crops: TL=%v, BR=%v", resultTL, resultBR)
+	// The crops should be in different horizontal positions
+	// Left focal should pull crop toward left, right focal toward right
+	if resultLeft.Min.X >= resultRight.Min.X {
+		t.Errorf("left focal should produce crop further left than right focal: Left=%v, Right=%v", resultLeft, resultRight)
 	}
 }
 
@@ -175,8 +177,8 @@ func TestFocalToBoost_Point(t *testing.T) {
 	}
 
 	// Weight should be 1.0
-	if boost.Weight != 1.0 {
-		t.Errorf("weight = %f, expected 1.0", boost.Weight)
+	if boost.Weight != 5.0 {
+		t.Errorf("weight = %f, expected 5.0", boost.Weight)
 	}
 }
 
@@ -276,7 +278,7 @@ func TestScaleBoosts(t *testing.T) {
 			scaled[0].Rect.Min.X, scaled[0].Rect.Min.Y)
 	}
 	if scaled[0].Weight != 1.0 {
-		t.Errorf("first boost weight = %f, expected 1.0", scaled[0].Weight)
+		t.Errorf("first boost weight = %f, expected 1.0 (face detection weight)", scaled[0].Weight)
 	}
 
 	// Second boost should be at (150, 150) to (200, 200)

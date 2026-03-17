@@ -241,10 +241,10 @@ func TestScoreEdgeClutter(t *testing.T) {
 
 func TestScoreBoostRegions_Empty(t *testing.T) {
 	crop := image.Rect(0, 0, 100, 100)
-	coverage, penalty := scoreBoostRegions(crop, nil)
+	coverage, penalty, centering, contained := scoreBoostRegions(crop, nil)
 
-	if coverage != 0 || penalty != 0 {
-		t.Errorf("empty boosts should return (0, 0), got (%f, %f)", coverage, penalty)
+	if coverage != 0 || penalty != 0 || centering != 0 || contained != 0 {
+		t.Errorf("empty boosts should return (0, 0, 0, 0), got (%f, %f, %f, %f)", coverage, penalty, centering, contained)
 	}
 }
 
@@ -254,7 +254,7 @@ func TestScoreBoostRegions_FullContainment(t *testing.T) {
 		{Rect: image.Rect(25, 25, 75, 75), Weight: 1.0},
 	}
 
-	coverage, penalty := scoreBoostRegions(crop, boosts)
+	coverage, penalty, centering, contained := scoreBoostRegions(crop, boosts)
 
 	// Full containment should give full coverage
 	if coverage != 1.0 {
@@ -264,6 +264,14 @@ func TestScoreBoostRegions_FullContainment(t *testing.T) {
 	if penalty != 0 {
 		t.Errorf("full containment should have no penalty, got %f", penalty)
 	}
+	// Centered boost should give high centering score
+	if centering <= 0 {
+		t.Errorf("centered boost should have positive centering score, got %f", centering)
+	}
+	// Fully contained with margin should give positive contained score
+	if contained <= 0 {
+		t.Errorf("fully contained boost should have positive contained score, got %f", contained)
+	}
 }
 
 func TestScoreBoostRegions_NoOverlap(t *testing.T) {
@@ -272,7 +280,7 @@ func TestScoreBoostRegions_NoOverlap(t *testing.T) {
 		{Rect: image.Rect(100, 100, 150, 150), Weight: 1.0},
 	}
 
-	coverage, penalty := scoreBoostRegions(crop, boosts)
+	coverage, penalty, _, _ := scoreBoostRegions(crop, boosts)
 
 	// No overlap should give zero coverage
 	if coverage != 0 {
@@ -291,7 +299,7 @@ func TestScoreBoostRegions_PartialOverlap(t *testing.T) {
 		{Rect: image.Rect(50, 50, 150, 150), Weight: 1.0},
 	}
 
-	coverage, penalty := scoreBoostRegions(crop, boosts)
+	coverage, penalty, _, _ := scoreBoostRegions(crop, boosts)
 
 	// Should have partial coverage
 	if coverage <= 0 || coverage >= 1.0 {
@@ -310,7 +318,7 @@ func TestScoreBoostRegions_MultipleBoosts(t *testing.T) {
 		{Rect: image.Rect(60, 60, 90, 90), Weight: 0.5},
 	}
 
-	coverage, penalty := scoreBoostRegions(crop, boosts)
+	coverage, penalty, _, _ := scoreBoostRegions(crop, boosts)
 
 	// Both fully contained, coverage should be sum of weights
 	expectedCoverage := 1.0 + 0.5
@@ -352,15 +360,17 @@ func TestScoreCandidate_BoostDominates(t *testing.T) {
 	}
 	scoreWithBoost := ScoreCandidate(img, sobelMap, cropWithBoost, boosts)
 
-	// Crop with boost should score much higher
+	// Crop with boost should score higher
 	if scoreWithBoost <= scoreNoBoost {
-		t.Errorf("crop with boost (%f) should score much higher than without (%f)",
+		t.Errorf("crop with boost (%f) should score higher than without (%f)",
 			scoreWithBoost, scoreNoBoost)
 	}
 
-	// The boost should dominate - at least 10x higher
-	if scoreWithBoost < scoreNoBoost*10 {
-		t.Errorf("boost should dominate: %f vs %f (expected 10x difference)",
+	// The boost should provide some increase (at least 20% higher)
+	// Note: with balanced weights, boost is one signal among many and doesn't dominate
+	// This allows other signals (size, centering) to influence crop selection
+	if scoreWithBoost < scoreNoBoost*1.2 {
+		t.Errorf("boost should increase score: %f vs %f (expected 1.2x difference)",
 			scoreWithBoost, scoreNoBoost)
 	}
 }

@@ -168,9 +168,9 @@ func findImages(dir string) ([]string, error) {
 	return images, err
 }
 
-// loadImage loads an image from disk.
+// loadImage loads an image from disk with automatic EXIF orientation.
 func loadImage(path string) (image.Image, error) {
-	return imaging.Open(path)
+	return imaging.Open(path, imaging.AutoOrientation(true))
 }
 
 // generateComparison creates a side-by-side comparison of center crop vs smart crop.

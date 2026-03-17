@@ -17,26 +17,37 @@ type BoostRegion struct {
 // ScoringWeights holds the weights for different scoring signals.
 // These can be tuned based on test image results.
 type ScoringWeights struct {
-	EdgeDensity   float64 // Detail/structure signal
-	Saturation    float64 // Color interest signal
-	SkinTone      float64 // Skin-tone presence (secondary to face detection)
-	Composition   float64 // Rule-of-thirds, centering
-	EdgeClutter   float64 // Penalty for busy crop edges (negative weight)
-	BoostRegion   float64 // Face detection / focal point (dominant signal)
-	SubjectMargin float64 // Penalty for clipping boost regions (negative weight)
+	EdgeDensity      float64 // Detail/structure signal
+	Saturation       float64 // Color interest signal
+	SkinTone         float64 // Skin-tone presence (secondary to face detection)
+	Composition      float64 // Rule-of-thirds, centering
+	EdgeClutter      float64 // Penalty for busy crop edges (negative weight)
+	BoostRegion      float64 // Face detection / focal point (dominant signal)
+	SubjectMargin    float64 // Penalty for clipping boost regions (negative weight)
+	SizePreference   float64 // Bonus for larger crops (prefer minimal cropping)
+	SubjectCentered  float64 // Bonus for centering subject within crop
+	CropCentered     float64 // Bonus for crop being centered on image (prefer center position)
+	SubjectContained float64 // Bonus for fully containing subjects with margin
 }
 
 // DefaultScoringWeights returns the default scoring weights.
 // These are tuned to prioritize faces/focal points while still considering composition.
+// Size preference is strong to avoid over-cropping pre-composed images.
+// CropCentered rewards crops positioned near the image center (default behavior).
+// SubjectCentered rewards crops where detected subjects are centered within the crop.
 func DefaultScoringWeights() ScoringWeights {
 	return ScoringWeights{
-		EdgeDensity:   0.2,
-		Saturation:    0.1,
-		SkinTone:      0.3,
-		Composition:   0.3,
-		EdgeClutter:   -0.2,
-		BoostRegion:   100.0,
-		SubjectMargin: -0.5,
+		EdgeDensity:      0.1,
+		Saturation:       0.1,
+		SkinTone:         0.05,
+		Composition:      0.1,
+		EdgeClutter:      -0.1,
+		BoostRegion:      20.0,  // Moderate - faces pull crop tighter
+		SubjectMargin:    -30.0, // Strong penalty for clipping subjects
+		SizePreference:   30.0,  // Moderate preference for larger crops (allows tighter face crops)
+		SubjectCentered:  40.0,  // Moderate - center subjects within the crop
+		CropCentered:     10.0,  // Light fallback - prefer centered crops when no subjects
+		SubjectContained: 25.0,  // Strong bonus for fully containing subjects with margin
 	}
 }
 
@@ -66,6 +77,33 @@ func ScoreCandidateWithWeights(img image.Image, sobelMap [][]float64, crop image
 
 	var score float64
 
+	// Size preference - reward larger crops (prefer minimal cropping)
+	// Score is ratio of crop area to image area, so 1.0 = full image
+	imgArea := float64(bounds.Dx() * bounds.Dy())
+	if imgArea > 0 {
+		sizeScore := cropArea / imgArea
+		score += weights.SizePreference * sizeScore
+	}
+
+	// Crop centered - reward crops positioned near the image center
+	// This prevents arbitrary off-center positioning when there's no strong reason
+	imgCenterX := float64(bounds.Min.X+bounds.Max.X) / 2
+	imgCenterY := float64(bounds.Min.Y+bounds.Max.Y) / 2
+	cropCenterX := float64(crop.Min.X+crop.Max.X) / 2
+	cropCenterY := float64(crop.Min.Y+crop.Max.Y) / 2
+
+	dx := cropCenterX - imgCenterX
+	dy := cropCenterY - imgCenterY
+	distFromCenter := math.Sqrt(dx*dx + dy*dy)
+	imgDiagonal := math.Sqrt(float64(bounds.Dx()*bounds.Dx() + bounds.Dy()*bounds.Dy()))
+
+	if imgDiagonal > 0 {
+		// Gentle decay from center - crops near center score higher
+		normalizedDist := distFromCenter / imgDiagonal
+		centerScore := math.Exp(-3 * normalizedDist)
+		score += weights.CropCentered * centerScore
+	}
+
 	// Edge density - normalized by crop area
 	edgeScore := scoreEdgeDensity(sobelMap, crop)
 	score += weights.EdgeDensity * edgeScore
@@ -87,9 +125,11 @@ func ScoreCandidateWithWeights(img image.Image, sobelMap [][]float64, crop image
 	score += weights.EdgeClutter * clutterScore
 
 	// Boost regions (faces, focal points) - dominant signal
-	boostScore, marginPenalty := scoreBoostRegions(crop, boosts)
+	boostScore, marginPenalty, centeringScore, containedScore := scoreBoostRegions(crop, boosts)
 	score += weights.BoostRegion * boostScore
 	score += weights.SubjectMargin * marginPenalty
+	score += weights.SubjectCentered * centeringScore
+	score += weights.SubjectContained * containedScore
 
 	return score
 }
@@ -173,7 +213,8 @@ func scoreSkinTone(img image.Image, crop image.Rectangle) float64 {
 
 // isSkinTone checks if a color falls within skin-tone ranges.
 // Uses YCbCr color space which is better for skin detection across diverse tones.
-// Also includes HSL-based detection as a fallback.
+// Tightened to exclude brown fur, orange objects, pink stripes while keeping
+// good coverage for diverse human skin tones.
 func isSkinTone(c color.Color) bool {
 	r, g, b, _ := c.RGBA()
 	// Scale from 16-bit to 8-bit
@@ -181,29 +222,36 @@ func isSkinTone(c color.Color) bool {
 	g8 := uint8(g >> 8)
 	b8 := uint8(b >> 8)
 
-	// Method 1: YCbCr-based detection (works well across skin tones)
 	// Convert RGB to YCbCr
 	y := 0.299*float64(r8) + 0.587*float64(g8) + 0.114*float64(b8)
 	cb := 128 - 0.168736*float64(r8) - 0.331264*float64(g8) + 0.5*float64(b8)
 	cr := 128 + 0.5*float64(r8) - 0.418688*float64(g8) - 0.081312*float64(b8)
 
-	// Skin tone ranges in YCbCr (broader to cover diverse skin tones)
-	// These ranges are empirically determined to work across:
-	// - Light/fair skin
-	// - Medium/olive skin
-	// - Dark/deep skin
-	if y > 50 && y < 240 && cb > 77 && cb < 127 && cr > 133 && cr < 173 {
+	// Tightened YCbCr ranges for human skin detection
+	// - Cr (red-difference): 140-165 excludes orange (high Cr) and brown (low Cr)
+	// - Cb (blue-difference): 85-120 excludes pink/magenta (high Cb) and yellow/brown (low Cb)
+	// - Y (luminance): 60-230 allows light to dark skin
+	// These ranges still cover:
+	// - Light/fair skin (high Y, moderate Cr/Cb)
+	// - Medium/olive skin (medium Y, moderate Cr/Cb)
+	// - Dark/deep skin (low Y, moderate Cr/Cb)
+	if y > 60 && y < 230 && cb > 85 && cb < 120 && cr > 140 && cr < 165 {
 		return true
 	}
 
-	// Method 2: Normalized RGB ratio (catches some edge cases)
+	// Secondary check: normalized RGB for edge cases
+	// Tightened to require specific ratios that match human skin
 	sum := float64(r8) + float64(g8) + float64(b8)
-	if sum > 50 {
+	if sum > 100 { // Require reasonable brightness
 		rn := float64(r8) / sum
 		gn := float64(g8) / sum
-		// Skin typically has R > G > B in normalized space
-		if rn > 0.35 && rn < 0.6 && gn > 0.25 && gn < 0.4 && rn > gn {
-			return true
+		bn := float64(b8) / sum
+		// Human skin: R > G > B with specific ratios
+		// Exclude brown (R and G too close) and orange (R too dominant)
+		if rn > 0.38 && rn < 0.52 && gn > 0.28 && gn < 0.38 && bn > 0.15 && bn < 0.28 {
+			if rn > gn && gn > bn { // Must have R > G > B ordering
+				return true
+			}
 		}
 	}
 
@@ -323,34 +371,60 @@ func scoreEdgeClutter(sobelMap [][]float64, crop image.Rectangle) float64 {
 }
 
 // scoreBoostRegions calculates how well a crop contains boost regions.
-// Returns (coverage score, margin penalty).
+// Returns (coverage score, margin penalty, centering score, contained score).
 // Coverage score is the weighted overlap with boost regions.
-// Margin penalty is applied when boost regions are clipped near edges.
-func scoreBoostRegions(crop image.Rectangle, boosts []BoostRegion) (coverage, marginPenalty float64) {
+// Margin penalty is applied when boost regions are clipped.
+// Centering score rewards placing subjects near the crop center (very light).
+// Contained score rewards crops that fully contain subjects with breathing room.
+func scoreBoostRegions(crop image.Rectangle, boosts []BoostRegion) (coverage, marginPenalty, centeringScore, containedScore float64) {
 	if len(boosts) == 0 {
-		return 0, 0
+		return 0, 0, 0, 0
 	}
 
 	cropArea := float64(crop.Dx() * crop.Dy())
 	if cropArea == 0 {
-		return 0, 0
+		return 0, 0, 0, 0
 	}
 
-	// Margin threshold: 2.5% of crop dimensions (GenCrop V1 rule)
-	marginX := float64(crop.Dx()) * 0.025
-	marginY := float64(crop.Dy()) * 0.025
+	// Safe margin: 5% of crop dimensions - subjects should be this far from edges
+	safeMarginX := float64(crop.Dx()) * 0.05
+	safeMarginY := float64(crop.Dy()) * 0.05
+
+	// Crop center for centering calculation
+	cropCenterX := float64(crop.Min.X+crop.Max.X) / 2
+	cropCenterY := float64(crop.Min.Y+crop.Max.Y) / 2
+	cropDiagonal := math.Sqrt(float64(crop.Dx()*crop.Dx() + crop.Dy()*crop.Dy()))
+
+	var totalCenteringScore float64
+	var totalContainedScore float64
+	var boostCount int
 
 	for _, boost := range boosts {
 		if boost.Rect.Empty() {
 			continue
 		}
 
-		// Calculate intersection
+		// Check if this boost is inside the crop
 		intersection := crop.Intersect(boost.Rect)
 		if intersection.Empty() {
-			// Boost region is outside crop - penalize
-			marginPenalty += boost.Weight * 0.5
+			// Boost region is outside crop - heavy penalty
+			marginPenalty += boost.Weight * 1.0
 			continue
+		}
+
+		boostCenterX := float64(boost.Rect.Min.X+boost.Rect.Max.X) / 2
+		boostCenterY := float64(boost.Rect.Min.Y+boost.Rect.Max.Y) / 2
+
+		// Centering score - very gentle, just breaks ties
+		dx := boostCenterX - cropCenterX
+		dy := boostCenterY - cropCenterY
+		dist := math.Sqrt(dx*dx + dy*dy)
+
+		if cropDiagonal > 0 {
+			normalizedDist := dist / cropDiagonal
+			centering := math.Exp(-2 * normalizedDist)
+			totalCenteringScore += boost.Weight * centering
+			boostCount++
 		}
 
 		interArea := float64(intersection.Dx() * intersection.Dy())
@@ -362,26 +436,39 @@ func scoreBoostRegions(crop image.Rectangle, boosts []BoostRegion) (coverage, ma
 			coverage += boost.Weight * overlapRatio
 		}
 
-		// Check if boost region is clipped within margin (GenCrop V1)
-		// If the boost region extends to within 2.5% of crop edges, penalize
-		if intersection != boost.Rect {
-			// Boost region is partially outside crop
-			// Check if the clipping is within the margin zone
-			clippedLeft := boost.Rect.Min.X < crop.Min.X && float64(crop.Min.X-boost.Rect.Min.X) < marginX
-			clippedRight := boost.Rect.Max.X > crop.Max.X && float64(boost.Rect.Max.X-crop.Max.X) < marginX
-			clippedTop := boost.Rect.Min.Y < crop.Min.Y && float64(crop.Min.Y-boost.Rect.Min.Y) < marginY
-			clippedBottom := boost.Rect.Max.Y > crop.Max.Y && float64(boost.Rect.Max.Y-crop.Max.Y) < marginY
+		// Check containment: is the boost fully inside with safe margin?
+		if intersection == boost.Rect {
+			// Boost is fully contained - check margin from edges
+			leftMargin := float64(boost.Rect.Min.X - crop.Min.X)
+			rightMargin := float64(crop.Max.X - boost.Rect.Max.X)
+			topMargin := float64(boost.Rect.Min.Y - crop.Min.Y)
+			bottomMargin := float64(crop.Max.Y - boost.Rect.Max.Y)
 
-			if clippedLeft || clippedRight || clippedTop || clippedBottom {
-				marginPenalty += boost.Weight * 0.3
-			} else {
-				// Significant clipping outside margin zone
-				marginPenalty += boost.Weight * 0.8
-			}
+			// Score based on how much margin we have (more margin = better)
+			// Use the minimum margin as the limiting factor
+			minHorizMargin := math.Min(leftMargin, rightMargin)
+			minVertMargin := math.Min(topMargin, bottomMargin)
+
+			// Normalize by safe margin target - 1.0 means we hit the safe margin
+			horizScore := math.Min(1.0, minHorizMargin/safeMarginX)
+			vertScore := math.Min(1.0, minVertMargin/safeMarginY)
+
+			// Combined containment score - reward crops where subject has breathing room
+			totalContainedScore += boost.Weight * horizScore * vertScore
+		} else {
+			// Boost is clipped - apply margin penalty based on how much is clipped
+			clippedRatio := 1.0 - (interArea / boostArea)
+			marginPenalty += boost.Weight * clippedRatio
 		}
 	}
 
-	return coverage, marginPenalty
+	// Average scores (don't let many small detections dominate)
+	if boostCount > 0 {
+		centeringScore = totalCenteringScore / float64(boostCount)
+		containedScore = totalContainedScore / float64(boostCount)
+	}
+
+	return coverage, marginPenalty, centeringScore, containedScore
 }
 
 // rgbToHSL converts an RGB color to HSL (hue, saturation, lightness).
