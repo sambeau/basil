@@ -53,3 +53,4 @@ test.db
 
 # Smart crop comparison output (generated during testing)
 testdata/images/smartcrop/output/
+testdata/images/seamcarve-output/
