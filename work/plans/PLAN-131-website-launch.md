@@ -190,9 +190,19 @@ section:
 - [ ] Reconcile manual frontmatter `version: 0.2.0` vs actual release version
 
 ### Phase 5 — Polish & launch
+- [x] Pico-docs-style three-column layout (2026-07-13): left sidebar = manual
+      pages (extracted from each tree's index page **using the `~ /…/g`
+      matching fixed in BUG-027**), right sidebar = current page's h2
+      headings, active-page highlight, mobile Menu disclosure. Pico nav
+      gotchas: negative link margins and horizontal ul flex needed overrides.
+- [x] Basil logo SVG (from server/prelude/public/logos/) replaces the emoji
+      in the nav brand and serves as the favicon
+- [x] OpenGraph tags + canonical URL on every page
+- [x] v1.0.0-alpha.4 released (2026-07-13): BUG-027 g-flag fix + manual
+      corrections. Verified from a fresh install.
 - [ ] Client-side search (Pagefind, or Parsley-generated JSON index + small JS)
-- [ ] OpenGraph tags, favicon
 - [ ] Soft launch to friendly devs
+- [ ] Sam: voice pass on /why.html
 - [ ] Update README (remove "don't post to HN"), launch on our own terms
 
 ## Estimates
