@@ -43,6 +43,28 @@ func TestRegexMatch(t *testing.T) {
 	}
 }
 
+// BUG-027: the g flag makes ~ return every match, not just the first
+func TestRegexMatchGlobal(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`"Call 555-1234 or 555-5678" ~ /\d{3}-\d{4}/g`, `["555-1234", "555-5678"]`},
+		{`"aaa" ~ /a/g`, `["a", "a", "a"]`},
+		{`"no numbers" ~ /\d+/g`, `null`},
+		// capture groups: one [full, groups...] array per match
+		// (nested array strings render unquoted in Inspect)
+		{`"a1b2" ~ /([a-z])(\d)/g`, `[[a1, a, 1], [b2, b, 2]]`},
+		// without g, behaviour is unchanged
+		{`"aaa" ~ /a/`, `["a"]`},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalHelper(tt.input)
+		testExpectedObject(t, tt.input, evaluated, tt.expected)
+	}
+}
+
 func TestRegexNotMatch(t *testing.T) {
 	tests := []struct {
 		input    string

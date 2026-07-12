@@ -96,7 +96,7 @@ export save = fn(props) {
 The `.as(Schema)` method converts a dictionary to a Record, useful in pipelines:
 
 ```parsley
-let user = fetchFromAPI().parse().as(User)
+let user = fetchFromAPI().data.as(User)
 let row = csvRows[0].as(User)
 ```
 
@@ -1159,11 +1159,11 @@ Records work where dictionaries are expected:
 ```parsley
 let user = User({name: "Alice"})
 
-// Spread into dictionary
-let merged = {...user, extraField: "value"}
+// Merge data fields into a dictionary
+let merged = user.data() ++ {extraField: "value"}
 
 // JSON encoding
-json.encode(user)     // Encodes data fields only
+user.toJSON()         // Encodes data fields only
 
 // Pass to function expecting dictionary
 someFunc(user)        // Works

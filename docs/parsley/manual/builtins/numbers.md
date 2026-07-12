@@ -310,7 +310,7 @@ See [@std/math](../stdlib/math.md) for the full reference.
 
 - [Operators](../fundamentals/operators.md) — arithmetic, comparison, and assignment operators
 - [Money](money.md) — exact decimal arithmetic for currency values
-- [Strings](strings.md) — `.toNumber()` for parsing, number interpolation
+- [Strings](strings.md) — number interpolation; parse strings with the `toNumber()`, `toInt()`, and `toFloat()` builtins
 - [Types](../fundamentals/types.md) — integer and float in the type system
 - [@std/math](../stdlib/math.md) — math functions, constants, statistics, and trigonometry
 - [@std/valid](../stdlib/valid.md) — number validation predicates

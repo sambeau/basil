@@ -84,6 +84,30 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 		return newFormatError("FMT-0002", err)
 	}
 
+	// With the g flag, return every match instead of the first (BUG-027)
+	if strings.Contains(flags, "g") {
+		allMatches := re.FindAllStringSubmatch(text, -1)
+		if allMatches == nil {
+			return NULL // No match - returns null (falsy)
+		}
+		elements := make([]Object, len(allMatches))
+		for i, m := range allMatches {
+			if hasNamedGroups(re) {
+				elements[i] = buildMatchDictionary(re, m)
+			} else if len(m) > 1 {
+				// Capture groups: one array per match
+				groups := make([]Object, len(m))
+				for j, g := range m {
+					groups[j] = &String{Value: g}
+				}
+				elements[i] = &Array{Elements: groups}
+			} else {
+				elements[i] = &String{Value: m[0]}
+			}
+		}
+		return &Array{Elements: elements}
+	}
+
 	// Find matches
 	matches := re.FindStringSubmatch(text)
 	if matches == nil {

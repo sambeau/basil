@@ -716,7 +716,7 @@ Issue.enumValues("description") // [] (not an enum)
 ```parsley
 <select name="priority">
     for (value in Issue.enumValues("priority")) {
-        <option value={value}>value.toTitleCase()</option>
+        <option value={value}>value.toTitle()</option>
     }
 </select>
 ```

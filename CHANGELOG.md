@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`~` now honours the `g` flag (BUG-027)** — `text ~ /pattern/g` returns every match as documented (array of strings; with capture groups, one `[full, groups…]` array per match; with named groups, one dictionary per match). Previously the flag was ignored and only the first match returned.
+- **Manual corrections from the implementation proofread** — regex.md (`.split()` doesn't accept regex; named-group results are dictionaries, not indexed arrays; wrong expected output in a global-replace example; no `.matchAll()`), numbers.md (string parsing is via the `toNumber()`/`toInt()`/`toFloat()` builtins, not a string method), record.md (dictionary spread doesn't exist — use `.data() ++ {…}`; `user.toJSON()` not `json.encode()`; response `.data` not `.parse()`), schema.md (`.toTitle()` not `.toTitleCase()`).
+
 ## [1.0.0-alpha.3] - 2026-07-12
 
 ### Fixed

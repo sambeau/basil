@@ -162,11 +162,11 @@ Several string methods accept regex arguments:
 ```parsley
 "hello world" ~ /wo\w+/         // ["world"]
 
-"abc123def".replace(/\d+/, "X") // "abcXdef"
-"abc123def".replace(/\d+/g, "X") // "abcXdefX" (non-standard — use regex method)
-
-"a,b,,c".split(/,+/)            // ["a", "b", "c"]
+"abc123def".replace(/\d+/, "X")     // "abcXdef" (first match)
+"abc123def456".replace(/\d+/g, "X") // "abcXdefX" (g flag: all matches)
 ```
+
+> ⚠️ `.split()` takes a string separator only — it does not accept a regex.
 
 The `.replace()` string method also supports function replacement:
 
@@ -186,13 +186,15 @@ let isNumeric = fn(s) { s ~ /^\d+$/ != null }
 
 ### Extract All Matches
 
-Use the `g` flag with `~` or the `.matchAll()` approach:
+Use the `g` flag with `~`:
 
 ```parsley
 let text = "Call 555-1234 or 555-5678"
 let numbers = text ~ /\d{3}-\d{4}/g
-// Returns all matches when g flag is present
+// ["555-1234", "555-5678"]
 ```
+
+With capture groups, each match is a `[full, group1, …]` array; with named groups, each match is a dictionary.
 
 ### Named Capture Groups
 
@@ -200,7 +202,9 @@ Go-style named captures with `(?P<name>...)`:
 
 ```parsley
 let m = "2026-02-06" ~ /(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})/
-// Access by index: m[1], m[2], m[3]
+m.year                          // "2026" — named groups return a dictionary
+m.month                         // "02"
+m["0"]                          // full match: "2026-02-06"
 ```
 
 ### Search and Replace
@@ -221,6 +225,6 @@ clean.replace("  too   many   spaces  ", " ")
 
 ## See Also
 
-- [Strings](strings.md) — `.replace()`, `.split()`, and `.match()` methods that accept regex
+- [Strings](strings.md) — `.replace()` accepts a regex; use `~` for matching
 - [Operators](../fundamentals/operators.md) — `~` and `!~` match operators
 - [Variables & Binding](../fundamentals/variables.md) — destructuring match results
