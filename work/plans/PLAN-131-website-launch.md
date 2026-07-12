@@ -169,8 +169,10 @@ section:
 - [x] file-io.md fixed: `MD()` returns `{html, md, raw}` (not an HTML
       string), removed nonexistent `markdown(@path)` handle, `fileList()`
       one-arg + returns file handles + `**` root caveat documented
-- [ ] Verify file-io.md `dir()` claim (`f.name`) against the implementation
-      — untested, likely stale like fileList was
+- [x] file-io.md `dir()` claim verified against the binary — `f.name` works;
+      docs were correct
+- [x] guide/basil-quick-start.md: `basil.sqlite` → `@DB` (six occurrences;
+      confirmed in code that @DB is current and basil.sqlite is gone)
 - [ ] FAQ; tone pass throughout
 - [ ] Reconcile manual frontmatter `version: 0.2.0` vs actual release version
 

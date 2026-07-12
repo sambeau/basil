@@ -360,13 +360,13 @@ database:
 
 ### Using the Database
 
-In your handlers, the database connection is available as `basil.sqlite`:
+In your handlers, the database connection is available as `@DB`:
 
 **handlers/users.pars:**
 
 ```parsley
 // Query all users
-let users = basil.sqlite <=??=> "SELECT * FROM users ORDER BY name"
+let users = @DB <=??=> "SELECT * FROM users ORDER BY name"
 
 <html>
 <body>
@@ -393,7 +393,7 @@ let users = basil.sqlite <=??=> "SELECT * FROM users ORDER BY name"
 **Query single row:**
 
 ```parsley
-let user = basil.sqlite <=?=> "SELECT * FROM users WHERE id = 1"
+let user = @DB <=?=> "SELECT * FROM users WHERE id = 1"
 if user {
   <p>Found: {user.name}</p>
 } else {
@@ -404,14 +404,14 @@ if user {
 **Insert data:**
 
 ```parsley
-let result = basil.sqlite <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+let result = @DB <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
 <p>Created user with ID: {result.lastId}</p>
 ```
 
 **Update data:**
 
 ```parsley
-let result = basil.sqlite <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
+let result = @DB <=!=> "UPDATE users SET name = 'Bob' WHERE id = 1"
 <p>Updated {result.affected} row(s)</p>
 ```
 
@@ -434,7 +434,7 @@ Or create a setup handler:
 
 **handlers/setup.pars:**
 ```parsley
-let _ = basil.sqlite <=!=> "CREATE TABLE IF NOT EXISTS users (
+let _ = @DB <=!=> "CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT UNIQUE
