@@ -108,12 +108,21 @@ Do **not** port dev-process docs (`work/`, the AI-workflow parts of
 - a line starting with `[` continues the previous expression as indexing
 
 ### Phase 3 — Story pages *(where the personality lives)*
-- [ ] **Home** — one-screen pitch, runnable code example above the fold
-      (the CSV → table → HTML example), "no compiler, no npm, no build step",
-      download button with live version badge
-- [ ] **Why?** — the manifesto: early-2000s story, why the quirks exist
-- [ ] **Get Started** — install → hello world → tiny real app in 10 minutes
-      (adapt `docs/guide/basil-quick-start.md` + `docs/parsley/manual/getting-started.md`)
+- [x] **Home** — pitch, CSV example above the fold (now actually runnable —
+      it was missing `let`, in the README too), install one-liner, live
+      version badge, links to Why?/Get Started
+- [x] **Why?** — first-person manifesto draft at /why.html (early-2000s
+      story, quirks & reasons). **Needs Sam's voice pass** — it's my best
+      imitation, not the real thing.
+- [x] **Get Started** — /get-started.html: install → REPL → first script →
+      `basil --init` → hot reload → second page. Every command verified
+      against the real binaries.
+- [x] Site pages pipeline: `site/pages/*.md` render at the site root
+- [ ] **Cut v1.0.0-alpha.3** — while verifying the tutorial we found
+      `basil --init` in alpha.2 generates a basil.yaml the server rejects
+      (`site:` string vs struct; stale `sqlite:` hint). Fixed on main
+      (03dcb28) with a config.Load regression test, but the live tutorial's
+      step 4 fails on alpha.2 binaries until a new release ships.
 
 ### Phase 4 — Port and complete the docs
 
