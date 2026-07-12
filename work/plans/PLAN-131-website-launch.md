@@ -112,13 +112,47 @@ Do **not** port dev-process docs (`work/`, the AI-workflow parts of
 - [ ] **Get Started** — install → hello world → tiny real app in 10 minutes
       (adapt `docs/guide/basil-quick-start.md` + `docs/parsley/manual/getting-started.md`)
 
-### Phase 4 — Port the docs
-- [ ] Parsley manual (91 pages; structure already good — mostly mechanical)
-- [ ] Basil manual buildout — port guide pages (auth, search, parts, git
-      deploy, config, styling) + carve up `docs/basil/reference.md`;
-      this closes the biggest docs gap
+### Phase 4 — Port and complete the docs
+
+**Basil server manual — the biggest gap.** `docs/basil/manual/` has exactly
+one page (`images.md`); `reference.md` is a Parsley-API reference, not a
+server manual. Nothing about the server is on the site at all. Write a proper
+manual (template exists from the 2026-03-17 commits), sourcing from
+`docs/guide/*` and `reference.md`:
+- [ ] Running Basil — install, `basil --init`, `--dev`, `--config`, CLI flags
+- [ ] Configuration — `basil.yaml` reference (adapt guide/configuration.md)
+- [ ] Routing — file-based routes, site mode, handlers
+- [ ] Database — built-in SQLite, `/__/db` inspector, bindings
+- [ ] Authentication — sessions, users, roles, API keys, passkeys
+      (adapt guide/authentication.md)
+- [ ] Parts — reloadable components (adapt guide/parts.md)
+- [ ] Full-text search (adapt guide/search.md)
+- [ ] Git server & push-to-deploy (adapt guide/git.md)
+- [ ] Images — exists (`images.md`) ✓
+- [ ] Dev tools — error pages, request logging, hot reload
+- [ ] Deployment — TLS, production mode, CORS (adapt guide/cors.md)
+- [ ] Basil manual index page + **Basil section in the site nav**
+
+**pars CLI & REPL — exists but weak/buried.** `features/cli.md` and
+`features/repl.md` are on the site but hidden under the manual's Features
+section:
+- [ ] Audit both pages against the actual binary (`pars --help`,
+      `pars describe`, `--check`, security flags) — the manual has already
+      been caught documenting things the code doesn't do (see gotchas below)
+- [ ] Beef up the REPL page: worked examples, `.describe`, output modes,
+      the "try Parsley in 60 seconds" angle — the REPL is the funnel from
+      the homepage's "Try it" section
+- [ ] Give pars a visible home: "The pars command" nav entry or a
+      prominent path from Get Started, not just a Features subpage
+
+**General:**
+- [ ] Parsley manual (48 pages; structure already good — rendering works,
+      needs a proofread pass against implementation)
 - [ ] Separate user docs from dev-process docs; fix broken links in
       `docs/guide/README.md` (`quick-start.md`, `cheatsheet.md`, `walkthroughs/`)
+- [ ] Fix stale manual pages found while dogfooding: file-io.md documents
+      `markdown(@path)`, 2-arg `fileList()`, and `dir()` handles yielding
+      `.name` — none match the implementation
 - [ ] FAQ; tone pass throughout
 - [ ] Reconcile manual frontmatter `version: 0.2.0` vs actual release version
 
