@@ -17,7 +17,7 @@ let html = <Part src={@./test_fixtures/parts/counter.part} view="default" count=
 html
 `
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("Eval error: %s", result.Inspect())
@@ -41,8 +41,9 @@ html
 		t.Errorf("Expected Part wrapper with data-part-props")
 	}
 
-	// Verify the Part URL is generated correctly
-	if !strings.Contains(html, "/test_fixtures/parts/counter.part") {
+	// Verify the Part URL is generated correctly (path is derived from the
+	// handler filename, so it has no leading slash under the test harness)
+	if !strings.Contains(html, "test_fixtures/parts/counter.part") {
 		t.Errorf("Expected Part URL in data-part-src")
 	}
 
@@ -66,7 +67,7 @@ let outer = <Part src={@./test_fixtures/parts/counter.part} view="default" count
 outer
 `
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("Eval error: %s", result.Inspect())
@@ -96,7 +97,7 @@ let html = <Part src={@./test_fixtures/parts/counter.part} view="default" count=
 html
 `
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("Eval error: %s", result.Inspect())

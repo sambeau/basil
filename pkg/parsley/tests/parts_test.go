@@ -16,7 +16,7 @@ func TestPartModuleLoading(t *testing.T) {
 	`
 
 	// Use a realistic path (tests run from pkg/parsley/tests/)
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -99,7 +99,7 @@ func TestPartModuleCaching(t *testing.T) {
 		counter1 == counter2
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -121,7 +121,7 @@ func TestPartModuleViewFunctionsWork(t *testing.T) {
 		counter.default({count: 5})
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())

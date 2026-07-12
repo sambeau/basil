@@ -41,13 +41,17 @@ func TestFilePathTraversalAttacks(t *testing.T) {
 			desc:         "Without security, path traversal is allowed",
 		},
 		{
-			name:         "parent directory traversal - with security",
-			path:         filepath.Join(tmpDir, "../../../../../../etc/passwd"),
+			name:      "parent directory traversal - with security",
+			// Enough ".." to reach the filesystem root from any temp dir,
+			// so the path deterministically cleans to /etc/passwd on every
+			// platform (six levels don't reach root from macOS's deep
+			// /var/folders temp dirs, but do from Linux's /tmp).
+			path:         filepath.Join(tmpDir, strings.Repeat("../", 20), "etc/passwd"),
 			operation:    "read",
 			withSecurity: true,
 			allowedPaths: []string{tmpDir},
-			expectError:  false, // RestrictRead is empty, so only checks if outside allowed (not enforced for reads)
-			desc:         "Path traversal outside tmp dir (reads use blacklist only)",
+			expectError:  true, // resolves into /etc, which RestrictRead blocks
+			desc:         "Path traversal into a restricted directory should be blocked",
 		},
 		{
 			name:         "absolute path to restricted dir",

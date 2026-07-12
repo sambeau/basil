@@ -16,7 +16,7 @@ let html = <Part src={@./test_fixtures/parts/counter.part} view="nonexistent" co
 html
 `
 
-		result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+		result := evalModule(input, "./test.pars")
 
 		// Should get an error because the view doesn't exist
 		if result.Type() != evaluator.ERROR_OBJ {
@@ -37,7 +37,7 @@ let html = <Part src={@./test_fixtures/parts/counter.part} view="default" count=
 html
 `
 
-		result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+		result := evalModule(input, "./test.pars")
 
 		if result.Type() == evaluator.ERROR_OBJ {
 			t.Fatalf("Eval error: %s", result.Inspect())
@@ -58,7 +58,7 @@ let html = <Part view="default"/>
 html
 `
 
-		result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+		result := evalModule(input, "./test.pars")
 
 		if result.Type() != evaluator.ERROR_OBJ {
 			t.Errorf("Expected error for missing src attribute")
@@ -77,7 +77,7 @@ let html = <Part src={@./test_fixtures/import_module.pars} view="default"/>
 html
 `
 
-		result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+		result := evalModule(input, "./test.pars")
 
 		if result.Type() != evaluator.ERROR_OBJ {
 			t.Errorf("Expected error for non-.part file")
@@ -100,7 +100,7 @@ let html = <Part src={@./test_fixtures/parts/counter.part} view="default" count=
 html
 `
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("Eval error: %s", result.Inspect())
@@ -130,7 +130,7 @@ let html = <Part src={@./test_fixtures/parts/counter.part} view="default" count=
 html
 `
 
-	result := evalModule(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("Eval error: %s", result.Inspect())

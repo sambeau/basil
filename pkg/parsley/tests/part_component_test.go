@@ -13,7 +13,7 @@ import (
 func TestPartComponentBasic(t *testing.T) {
 	input := `<Part src={@./test_fixtures/parts/counter.part}/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -22,7 +22,7 @@ func TestPartComponentBasic(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -60,7 +60,7 @@ func TestPartComponentBasic(t *testing.T) {
 func TestPartComponentWithView(t *testing.T) {
 	input := `<Part src={@./test_fixtures/parts/counter.part} view="increment"/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -69,7 +69,7 @@ func TestPartComponentWithView(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -92,7 +92,7 @@ func TestPartComponentWithView(t *testing.T) {
 func TestPartComponentWithProps(t *testing.T) {
 	input := `<Part src={@./test_fixtures/parts/counter.part} count={10}/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -101,7 +101,7 @@ func TestPartComponentWithProps(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -146,7 +146,7 @@ func TestPartComponentWithRefreshAndLoad(t *testing.T) {
 	// Test immediate load (part-load) - fetches view right away
 	input := `<Part src={@./test_fixtures/parts/counter.part} part-refresh={5000} part-load="loaded"/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -155,7 +155,7 @@ func TestPartComponentWithRefreshAndLoad(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -206,7 +206,7 @@ func TestPartComponentWithLazy(t *testing.T) {
 	// Test lazy loading (part-lazy) - fetches view when scrolled into viewport
 	input := `<Part src={@./test_fixtures/parts/counter.part} part-lazy="loaded" part-lazy-threshold={200}/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -215,7 +215,7 @@ func TestPartComponentWithLazy(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -317,7 +317,7 @@ func TestPartComponentNonPartFile(t *testing.T) {
 func TestPartComponentMissingView(t *testing.T) {
 	input := `<Part src={@./test_fixtures/parts/counter.part} view="nonexistent"/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -326,7 +326,7 @@ func TestPartComponentMissingView(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -345,7 +345,7 @@ func TestPartComponentWithId(t *testing.T) {
 	// Test that the id attribute is passed through to the wrapper div
 	input := `<Part src={@./test_fixtures/parts/counter.part} id="search-results"/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -354,7 +354,7 @@ func TestPartComponentWithId(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
@@ -399,7 +399,7 @@ func TestPartComponentWithIdAndProps(t *testing.T) {
 	// Test that id works together with other props
 	input := `<Part src={@./test_fixtures/parts/counter.part} id="counter-1" count={5}/>`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -408,7 +408,7 @@ func TestPartComponentWithIdAndProps(t *testing.T) {
 	}
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)

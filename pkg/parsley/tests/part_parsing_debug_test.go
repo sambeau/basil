@@ -12,7 +12,7 @@ import (
 func TestPartTagParsing(t *testing.T) {
 	input := `<Part src={@./test_fixtures/parts/counter.part} />`
 
-	l := lexer.NewWithFilename(input, "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars")
+	l := lexer.NewWithFilename(input, "./test.pars")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -38,7 +38,7 @@ func TestPartTagParsing(t *testing.T) {
 	t.Logf("Tag raw: %q", tagLit.Raw)
 
 	env := evaluator.NewEnvironment()
-	env.Filename = "/Users/samphillips/Dev/basil/pkg/parsley/tests/test.pars"
+	env.Filename = "./test.pars"
 	env.Security = &evaluator.SecurityPolicy{AllowExecuteAll: true}
 
 	result := evaluator.Eval(program, env)
