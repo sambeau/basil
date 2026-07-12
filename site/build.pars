@@ -85,6 +85,39 @@ let built = for (f in mdFiles) {
     rel
 }
 
+// --- basil server manual -------------------------------------------------------
+
+let basilSrc = "../docs/basil/manual"
+
+// Basil manual sources link into the Parsley manual and up to reference.md;
+// remap those for the site's flatter layout (/manual and /basil).
+let fixBasilLinks = fn(html) {
+    html.replace("../../parsley/manual/", "../manual/")
+        .replace("../reference.md", "reference.md")
+}
+
+let basilFiles = fileList(basilSrc + "/*.md")
+let basilBuilt = for (f in basilFiles) {
+    let src = f.path
+    let doc <== MD(src)
+    let rel = src.string.replace(basilSrc + "/", "")
+    let out = @(./dist/basil/{toHtmlName(rel)})
+    let title = if (doc.md.title != null) { doc.md.title } else { src.stem }
+    let body = rewriteLinks(fixBasilLinks(doc.html))
+    let page = <Layout title={title + " — Basil Manual"} root="../">
+        <article>body</article>
+    </Layout>
+    writePage(out, page)
+    rel
+}
+
+// The full server-side Parsley reference renders alongside the manual
+let refDoc <== MD(@../docs/basil/reference.md)
+let refPage = <Layout title="Basil Parsley Reference" root="../">
+    <article>rewriteLinks(refDoc.html)</article>
+</Layout>
+writePage(@./dist/basil/reference.html, refPage)
+
 // --- assets & static files -----------------------------------------------------
 
 dir(@./dist/assets).mkdir({parents: true})
@@ -106,4 +139,4 @@ let notFound = <Layout title="Not found — Basil & Parsley" root="">
 </Layout>
 writePage(@./dist/404.html, notFound)
 
-"Built " + (built.length() + sitePages.length() + 2) + " pages into " + distDir.string
+"Built " + (built.length() + basilBuilt.length() + sitePages.length() + 3) + " pages into " + distDir.string

@@ -61,8 +61,7 @@ File handles are created by calling a format function with a path. They don't re
 | `text(path)` | Plain text | string | Raw text content |
 | `lines(path)` | Lines | array | Array of strings (one per line) |
 | `raw(path)` | Binary | array | Raw byte array |
-| `MD(path)` | Markdown | string | Rendered HTML from markdown |
-| `markdown(path)` | Markdown | dictionary | `{meta, content}` with frontmatter |
+| `MD(path)` | Markdown | dictionary | `{html, md, raw}` — rendered HTML, frontmatter, and source |
 | `SVG(path)` | SVG | string | SVG content (strips XML prolog) |
 | `file(path)` | Auto | varies | Auto-detect format from extension |
 | `dir(path)` | Directory | array | Directory listing |
@@ -120,19 +119,20 @@ items[0]                         // first line
 
 ### Markdown with Frontmatter
 
-`markdown()` parses YAML frontmatter and renders content to HTML:
+`MD()` reads a Markdown file, parses YAML frontmatter, and renders the content to HTML:
 
 ```parsley
-let doc <== markdown(@./post.md)
-doc.meta.title                   // frontmatter field
-doc.content                      // rendered HTML string
+let doc <== MD(@./post.md)
+doc.md.title                     // frontmatter field
+doc.html                         // rendered HTML string
+doc.raw                          // original Markdown (frontmatter stripped)
 ```
 
-`MD()` just renders to HTML without frontmatter parsing:
+To parse Markdown already in a string, use the string method instead:
 
 ```parsley
-let html <== MD(@./readme.md)
-// html is an HTML string
+let result = source.parseMarkdown({ids: true})
+// result.html, result.md, result.raw
 ```
 
 ### Auto-detect
@@ -181,12 +181,19 @@ for (f in files) {
 
 ### fileList()
 
-Recursively list files matching a glob pattern:
+List files matching a glob pattern. Takes a single path or string pattern and returns an array of **file handles** — read one with `<==`, or get its path via `.path`:
 
 ```parsley
-let sources = fileList(@./src, "*.pars")
+let sources = fileList("./src/*.pars")
 sources.length()                 // number of matching files
+
+for (f in sources) {
+    f.path.filename              // "main.pars"
+    let content <== f            // read the file
+}
 ```
+
+> ⚠️ `**` matches files in subdirectories but **not** in the root of the pattern: `fileList("./docs/**/*.md")` misses `./docs/index.md`. List both patterns and join them with `++` if you need the whole tree.
 
 ## Error Handling with Read
 
@@ -217,7 +224,7 @@ The `asset()` builtin converts a file path to a web-accessible URL with cache-bu
 - **Operators instead of functions** — `<==` and `==>` replace `readFile()`/`writeFile()`. The operator syntax makes the data flow direction visually clear.
 - **Format-aware handles** — the handle knows the file format, so you don't manually parse JSON or serialize CSV. `let data <== CSV(@./file.csv)` returns a ready-to-use table.
 - **PLN format** — Parsley has its own serialization format (Parsley Literal Notation) that round-trips all Parsley types, including dates, money, and paths.
-- **Markdown is a first-class format** — `markdown()` handles frontmatter parsing and HTML rendering in one step.
+- **Markdown is a first-class format** — `MD()` handles frontmatter parsing and HTML rendering in one step.
 - **No streams** — file I/O is synchronous and reads/writes the entire file at once.
 
 ## See Also

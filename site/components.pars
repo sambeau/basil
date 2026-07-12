@@ -28,7 +28,8 @@ export Layout = fn({title, description, root, contents}) {
                     <ul>
                         <li><a href={root + "get-started.html"}>"Get Started"</a></li>
                         <li><a href={root + "why.html"}>"Why?"</a></li>
-                        <li><a href={root + "manual/index.html"}>"Manual"</a></li>
+                        <li><a href={root + "manual/index.html"}>"Parsley"</a></li>
+                        <li><a href={root + "basil/index.html"}>"Basil"</a></li>
                         <li><a href="https://github.com/sambeau/basil">"GitHub"</a></li>
                     </ul>
                 </nav>

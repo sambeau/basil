@@ -1,0 +1,238 @@
+---
+id: man-bas-configuration
+title: "Configuration"
+system: basil
+type: feature
+name: configuration
+created: 2026-07-12
+version: 1.0.0-alpha.3
+author: "@sam"
+keywords:
+  - basil.yaml
+  - config
+  - server
+  - session
+  - database
+  - logging
+  - compression
+  - meta
+  - developers
+  - secrets
+---
+
+# Configuration
+
+Basil is configured with a single `basil.yaml` file. Everything is optional — a new project runs on defaults — and relative paths are resolved from the directory containing the config file.
+
+```yaml
+server:
+  host: localhost
+  port: 8080
+
+site:
+  path: ./site
+
+public_dir: ./public
+```
+
+## server
+
+```yaml
+server:
+  host: localhost
+  port: 8080
+```
+
+Use `--port` to override the port at startup, or a [developer profile](#developers) for per-person overrides.
+
+## site
+
+Filesystem-based routing: files under `path` are served at their URL path. See [Routing](routing.md).
+
+```yaml
+site:
+  path: ./site
+  cache: 5m        # Response cache TTL (0 = no cache)
+```
+
+## routes & static
+
+Explicit routing, as an alternative (or addition) to site mode:
+
+```yaml
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+  - path: /dashboard
+    handler: ./handlers/dashboard.pars
+    auth: required
+
+static:
+  - path: /static/
+    root: ./public
+```
+
+## public_dir
+
+```yaml
+public_dir: ./public
+```
+
+Static files, served at the web root. Parsley paths under this directory are automatically rewritten to URLs in HTML output: `@./public/images/foo.png` becomes `/images/foo.png`.
+
+## database
+
+```yaml
+database:
+  path: ./db/data.db
+```
+
+The built-in SQLite database, available in handlers as `@DB`. See [Database](database.md).
+
+## session
+
+```yaml
+session:
+  store: cookie              # "cookie" (default) or "sqlite"
+  secret: !secret auto       # Auto-generate (recommended)
+  max_age: 24h
+  cookie_name: "_basil_session"
+```
+
+Use `secret: !secret ${SESSION_SECRET}` to read the secret from an environment variable — needed when running multiple instances behind a load balancer.
+
+## auth
+
+```yaml
+auth:
+  enabled: true
+  registration: open         # "open" or "closed"
+  session_ttl: 24h
+  login_path: /login
+  protected_paths:
+    - /dashboard
+    - path: /admin
+      roles: [admin]
+```
+
+Passkey authentication. See [Authentication](authentication.md).
+
+## security
+
+```yaml
+security:
+  allow_write:
+    - ./data
+    - ./uploads
+```
+
+By default handlers can read files but not write. `allow_write` whitelists directories handlers may write to.
+
+## git
+
+```yaml
+git:
+  enabled: true
+  require_auth: true
+```
+
+Serve the site as a Git repository for push-to-deploy. See [Git Deploy](git.md).
+
+## images
+
+```yaml
+images:
+  cache_dir: ./cache/images
+  max_width: 4096
+  max_height: 4096
+```
+
+Image transformation cache and limits. See [Images](images.md).
+
+## compression
+
+```yaml
+compression:
+  enabled: true      # gzip (default: true)
+  level: default     # fastest | default | best | none
+  min_size: 1024     # Minimum response size to compress (bytes)
+  zstd: false        # Zstd support (experimental)
+```
+
+## cors
+
+```yaml
+cors:
+  allowed_origins: ["https://app.example.com"]
+  allowed_methods: [GET, POST]
+  max_age: 1h
+```
+
+Cross-origin resource sharing for APIs. See [Deployment](deployment.md).
+
+## logging
+
+```yaml
+logging:
+  level: info                    # debug | info | warn | error
+  format: text                   # text | json
+  output: ./logs/basil.log       # or "stderr"
+  parsley:
+    output: ./logs/parsley.log   # log() output from handlers
+```
+
+## dev
+
+```yaml
+dev:
+  log_database: ./logs/dev_logs.db   # Dev log panel storage
+  log_max_size: 10MB
+  log_truncate_pct: 25
+  cache: false                       # Response caching in dev mode
+```
+
+See [Dev Tools](dev-tools.md).
+
+## meta
+
+Free-form site metadata, available in every handler as `meta.*`:
+
+```yaml
+meta:
+  name: "My Awesome Blog"
+  tagline: "Thoughts on code and coffee"
+  social:
+    github: "myblog"
+```
+
+```parsley
+<title>meta.name</title>
+<p>meta.tagline</p>
+```
+
+## developers
+
+Per-developer overrides, applied with `basil --dev --profile NAME`:
+
+```yaml
+developers:
+  sam:
+    port: 3001
+    database:
+      path: sam.db
+```
+
+## Secrets
+
+The `!secret` YAML tag marks values as sensitive — they're masked in the dev tools:
+
+```yaml
+session:
+  secret: !secret auto                  # Generate and persist automatically
+  # secret: !secret ${SESSION_SECRET}   # From an environment variable
+```
+
+## See Also
+
+- [Running Basil](running.md) — config resolution order
+- The [example configuration](https://github.com/sambeau/basil/blob/main/docs/guide/configuration-example.yaml) with every option commented

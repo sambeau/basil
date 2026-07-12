@@ -118,11 +118,9 @@ Do **not** port dev-process docs (`work/`, the AI-workflow parts of
       `basil --init` → hot reload → second page. Every command verified
       against the real binaries.
 - [x] Site pages pipeline: `site/pages/*.md` render at the site root
-- [ ] **Cut v1.0.0-alpha.3** — while verifying the tutorial we found
-      `basil --init` in alpha.2 generates a basil.yaml the server rejects
-      (`site:` string vs struct; stale `sqlite:` hint). Fixed on main
-      (03dcb28) with a config.Load regression test, but the live tutorial's
-      step 4 fails on alpha.2 binaries until a new release ships.
+- [x] **v1.0.0-alpha.3 released** (2026-07-12, authorised by Sam) — fixes the
+      `basil --init` scaffold. Verified end-to-end from a fresh
+      herbaceous.net install: init → dev server → serving.
 
 ### Phase 4 — Port and complete the docs
 
@@ -131,40 +129,48 @@ one page (`images.md`); `reference.md` is a Parsley-API reference, not a
 server manual. Nothing about the server is on the site at all. Write a proper
 manual (template exists from the 2026-03-17 commits), sourcing from
 `docs/guide/*` and `reference.md`:
-- [ ] Running Basil — install, `basil --init`, `--dev`, `--config`, CLI flags
-- [ ] Configuration — `basil.yaml` reference (adapt guide/configuration.md)
-- [ ] Routing — file-based routes, site mode, handlers
-- [ ] Database — built-in SQLite, `/__/db` inspector, bindings
-- [ ] Authentication — sessions, users, roles, API keys, passkeys
-      (adapt guide/authentication.md)
-- [ ] Parts — reloadable components (adapt guide/parts.md)
-- [ ] Full-text search (adapt guide/search.md)
-- [ ] Git server & push-to-deploy (adapt guide/git.md)
-- [ ] Images — exists (`images.md`) ✓
-- [ ] Dev tools — error pages, request logging, hot reload
-- [ ] Deployment — TLS, production mode, CORS (adapt guide/cors.md)
-- [ ] Basil manual index page + **Basil section in the site nav**
+- [x] Running Basil — install, `basil --init`, `--dev`, CLI, signals
+      (verified against `basil --help` and live runs)
+- [x] Configuration — full `basil.yaml` reference (from config.go structs +
+      configuration-example.yaml as ground truth)
+- [x] Routing — site-mode walk-back (verified against server/site.go),
+      folder-named handlers, subpaths, routes/static, asset bundling
+- [x] Database — `@DB`, operators, inspector, other engines.
+      ⚠️ guide/basil-quick-start.md says `basil.sqlite`; reference.md says
+      `@DB` — went with `@DB` (reference is newer). Verify + fix quick-start.
+- [x] Authentication — condensed from guide/authentication.md
+- [x] Parts — condensed from guide/parts.md
+- [x] Full-text search — condensed from guide/search.md
+- [x] Git server & push-to-deploy — condensed from guide/git.md
+- [x] Images — already existed ✓
+- [x] Dev tools — live reload, error pages, dev log, `/__/db` inspector
+- [x] Deployment — TLS/Let's Encrypt, headers, compression, caching, CORS
+- [x] Basil manual index page + "Basil" in site nav (nav is now
+      Get Started / Why? / Parsley / Basil / GitHub); reference.md also
+      rendered at /basil/reference.html
 
 **pars CLI & REPL — exists but weak/buried.** `features/cli.md` and
 `features/repl.md` are on the site but hidden under the manual's Features
 section:
-- [ ] Audit both pages against the actual binary (`pars --help`,
-      `pars describe`, `--check`, security flags) — the manual has already
-      been caught documenting things the code doesn't do (see gotchas below)
-- [ ] Beef up the REPL page: worked examples, `.describe`, output modes,
-      the "try Parsley in 60 seconds" angle — the REPL is the funnel from
-      the homepage's "Try it" section
-- [ ] Give pars a visible home: "The pars command" nav entry or a
-      prominent path from Get Started, not just a Features subpage
+- [x] Audit cli.md against the binary — fixed three fictions: `--machine`
+      output shape (`{ok, type, value}` not `{result, type}`), exit codes
+      (always 1 on error, not 2 for parse), and `PARS_NO_COLOR` (doesn't
+      exist in the code — removed)
+- [x] repl.md audited — matches the binary's `:help` exactly; no changes
+- [~] pars visibility: Get Started's REPL section is the funnel for now;
+      a dedicated nav entry can wait for real user feedback
 
 **General:**
 - [ ] Parsley manual (48 pages; structure already good — rendering works,
       needs a proofread pass against implementation)
-- [ ] Separate user docs from dev-process docs; fix broken links in
-      `docs/guide/README.md` (`quick-start.md`, `cheatsheet.md`, `walkthroughs/`)
-- [ ] Fix stale manual pages found while dogfooding: file-io.md documents
-      `markdown(@path)`, 2-arg `fileList()`, and `dir()` handles yielding
-      `.name` — none match the implementation
+- [x] guide/README.md rewritten as a user-facing index of the actual guide
+      files (was a stale dev-process doc with broken links pointing at
+      docs/specs//docs/bugs, which moved to work/ long ago)
+- [x] file-io.md fixed: `MD()` returns `{html, md, raw}` (not an HTML
+      string), removed nonexistent `markdown(@path)` handle, `fileList()`
+      one-arg + returns file handles + `**` root caveat documented
+- [ ] Verify file-io.md `dir()` claim (`f.name`) against the implementation
+      — untested, likely stale like fileList was
 - [ ] FAQ; tone pass throughout
 - [ ] Reconcile manual frontmatter `version: 0.2.0` vs actual release version
 

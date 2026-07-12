@@ -164,7 +164,15 @@ pars -pp page.pars          # Indented HTML output
 The `--machine` flag outputs JSON suitable for programmatic consumption:
 
 ```bash
-pars --machine -e '1 + 2'   # {"result": 3, "type": "integer"}
+pars --machine -e '1 + 2'
+```
+
+```json
+{
+  "ok": true,
+  "type": "integer",
+  "value": 3
+}
 ```
 
 ## Security Options
@@ -211,14 +219,7 @@ See [REPL](repl.md) for details on REPL commands and features.
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Runtime error |
-| 2 | Parse/syntax error |
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `PARS_NO_COLOR` | Disable colored output |
+| 1 | Error (parse, runtime, or I/O) |
 
 ## Examples
 
