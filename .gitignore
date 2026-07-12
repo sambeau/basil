@@ -51,6 +51,10 @@ setup
 docs/plans/.Ulysses-Group.plist
 test.db
 
-# Smart crop comparison output (generated during testing)
-testdata/images/smartcrop/output/
+# Smart crop test corpus (~855MB, used only by scripts/smartcrop-compare
+# and scripts/seamcarve-test — unit tests don't need it; keep out of git)
+testdata/images/smartcrop/
 testdata/images/seamcarve-output/
+
+# kbz tool cache
+.kbz/

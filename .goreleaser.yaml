@@ -1,0 +1,86 @@
+# goreleaser configuration for Basil & Parsley
+# Release flow: push a tag like v1.0.0-alpha.2 and the release workflow
+# (.github/workflows/release.yml) runs `goreleaser release`.
+#
+# Test locally without publishing:
+#   goreleaser release --snapshot --clean
+version: 2
+
+project_name: basil
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: basil
+    main: ./cmd/basil
+    binary: basil
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.Version={{ .Version }}
+      - -X main.Commit={{ .ShortCommit }}
+
+  - id: pars
+    main: ./cmd/pars
+    binary: pars
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.Version={{ .Version }}
+
+# One archive per platform containing both binaries.
+# Asset names look like: basil_1.0.0-alpha.2_darwin_arm64.tar.gz
+archives:
+  - id: default
+    ids: [basil, pars]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+# Release notes live in CHANGELOG.md (Keep a Changelog format); the
+# commit-derived changelog would just duplicate it noisily.
+changelog:
+  disable: true
+
+release:
+  # Tags containing -alpha/-beta/-rc are marked as GitHub prereleases.
+  # NOTE: prereleases are excluded from the /releases/latest permalink —
+  # install.sh and the website query the releases API instead.
+  prerelease: auto
+  footer: |
+    ---
+    See [CHANGELOG.md](https://github.com/sambeau/basil/blob/main/CHANGELOG.md)
+    for the full list of changes.
+
+    **Install:** `curl -fsSL https://herbaceous.net/install.sh | sh`
+
+# Homebrew tap — enable once the sambeau/homebrew-tap repo exists and a
+# HOMEBREW_TAP_GITHUB_TOKEN secret (repo-scoped PAT) is added to Actions.
+#
+# brews:
+#   - name: basil
+#     repository:
+#       owner: sambeau
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     homepage: https://herbaceous.net
+#     description: "Basil web server and the Parsley programming language"
+#     license: MIT
+#     test: |
+#       system "#{bin}/pars", "--version"
