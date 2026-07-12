@@ -11,5 +11,5 @@ let Page = fn({title, users}) {
     </html>
 }
 
-emailList <== CSV(@./email-list.csv)
+let emailList <== CSV(@./email-list.csv)
 <Page title="Active Users" users={emailList}/>

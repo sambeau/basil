@@ -76,7 +76,7 @@ Chewy,chewy@example.com
 Load and show:
 
 ```parsley
-emailList <== CSV(@/path/to/email-list.csv)
+let emailList <== CSV(@/path/to/email-list.csv)
 <Page title="Active Users" users={emailList}/>
 ```
 

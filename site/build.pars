@@ -45,6 +45,20 @@ let home = <Layout title="Basil & Parsley — make websites the fun way" root=""
 </Layout>
 writePage(@./dist/index.html, home)
 
+// --- site pages (site/pages/*.md, rendered at the site root) -----------------
+
+let pageFiles = fileList("./pages/*.md")
+let sitePages = for (f in pageFiles) {
+    let doc <== MD(f.path)
+    let name = f.path.stem
+    let title = if (doc.md.title != null) { doc.md.title } else { name }
+    let page = <Layout title={title + " — Basil & Parsley"} root="">
+        <article>rewriteLinks(doc.html)</article>
+    </Layout>
+    writePage(@(./dist/{name}.html), page)
+    name
+}
+
 // --- manual pages ------------------------------------------------------------
 
 // fileList's ** doesn't match files in the root directory, so list both.
@@ -92,4 +106,4 @@ let notFound = <Layout title="Not found — Basil & Parsley" root="">
 </Layout>
 writePage(@./dist/404.html, notFound)
 
-"Built " + (built.length() + 2) + " pages into " + distDir.string
+"Built " + (built.length() + sitePages.length() + 2) + " pages into " + distDir.string

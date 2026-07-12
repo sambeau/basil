@@ -26,7 +26,8 @@ export Layout = fn({title, description, root, contents}) {
                         <li><a href={root + "index.html"} class="brand">"🌿 " <strong>"Basil & Parsley"</strong></a></li>
                     </ul>
                     <ul>
-                        <li><a href={root + "manual/getting-started.html"}>"Get Started"</a></li>
+                        <li><a href={root + "get-started.html"}>"Get Started"</a></li>
+                        <li><a href={root + "why.html"}>"Why?"</a></li>
                         <li><a href={root + "manual/index.html"}>"Manual"</a></li>
                         <li><a href="https://github.com/sambeau/basil">"GitHub"</a></li>
                     </ul>
@@ -106,8 +107,10 @@ export HomePage = fn({exampleHtml}) {
                 "with modern niceties like passkeys, full-text search, an image server, and a built-in SQL database, "
                 "but without the ceremony."
             </p>
-            <p>"A proper story about the quirks and the reasons behind them is coming soon. For now, "
-                <a href="manual/getting-started.html">"the tutorial"</a> " is the best place to start."
+            <p>
+                <a href="why.html">"Read the whole story"</a>
+                " — or skip straight to "
+                <a href="get-started.html">"a working website in ten minutes"</a> "."
             </p>
         </section>
     </div>
