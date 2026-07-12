@@ -87,12 +87,15 @@ Do **not** port dev-process docs (`work/`, the AI-workflow parts of
       themes switched by `prefers-color-scheme` (matches Pico)
 - [x] Renders all 48 manual pages + homepage + 404; `.md` links rewritten to
       `.html`; `install.sh` served from site root
-- [ ] DNS: Human adds records at Hover (A records for apex →
-      185.199.108/109/110/111.153, CNAME www → sambeau.github.io), then set
-      custom domain: `gh api -X PUT repos/sambeau/basil/pages -f cname=herbaceous.net`
-      and enforce HTTPS once the certificate is issued.
+- [x] DNS + domain live (2026-07-12): Sam added the four apex A records and
+      www CNAME at Hover (removed an over-broad wildcard A record); custom
+      domain attached via API, Let's Encrypt cert issued in ~2 min, HTTPS
+      enforced. **https://herbaceous.net is live** — homepage, manual, and
+      `curl -fsSL https://herbaceous.net/install.sh | sh` all verified.
       Note: with workflow-based Pages the CNAME file in dist/ is ignored —
       the domain is set via API/settings.
+- [ ] Optional: verify the domain under GitHub Settings → Pages → Verified
+      domains (prevents subdomain takeover if DNS ever lapses)
 
 **Parsley gotchas learned writing build.pars** (useful for Phase 3–4):
 - `+` concatenates strings; `++` merges/wraps into arrays (README had this wrong)
