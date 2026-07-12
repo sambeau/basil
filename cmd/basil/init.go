@@ -30,13 +30,15 @@ server:
 
 # Site mode - filesystem-based routing
 # Files in site/ are served at their path (e.g., site/index.pars → /)
-site: ./site
+site:
+  path: ./site
 
 # Public directory for static files (CSS, JS, images)
 public_dir: ./public
 
 # SQLite database (uncomment to enable)
-# sqlite: ./db/data.db
+# database:
+#   path: ./db/data.db
 
 dev:
   log_database: ./logs/dev_logs.db  # Development logs database

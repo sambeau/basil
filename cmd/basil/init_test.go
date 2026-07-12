@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestInitCommand_Success(t *testing.T) {
@@ -30,7 +32,7 @@ func TestInitCommand_Success(t *testing.T) {
 
 	// Verify YAML content
 	yamlContent := readFile(t, filepath.Join(projectPath, "basil.yaml"))
-	if !strings.Contains(yamlContent, "site: ./site") {
+	if !strings.Contains(yamlContent, "path: ./site") {
 		t.Error("YAML missing site config")
 	}
 	if !strings.Contains(yamlContent, "public_dir: ./public") {
@@ -39,8 +41,14 @@ func TestInitCommand_Success(t *testing.T) {
 	if !strings.Contains(yamlContent, "output: ./logs/basil.log") {
 		t.Error("YAML missing logs directory in logging config")
 	}
-	if !strings.Contains(yamlContent, "sqlite: ./db/data.db") {
-		t.Error("YAML missing db directory in sqlite config")
+	if !strings.Contains(yamlContent, "path: ./db/data.db") {
+		t.Error("YAML missing db directory in database config")
+	}
+
+	// The generated config must actually parse — string checks alone let a
+	// stale schema slip through (site: and sqlite: keys broke silently once)
+	if _, err := config.Load(filepath.Join(projectPath, "basil.yaml"), os.Getenv); err != nil {
+		t.Errorf("generated basil.yaml does not load: %v", err)
 	}
 
 	// Verify .gitignore content
@@ -192,7 +200,8 @@ func TestInitCommand_YAMLContent(t *testing.T) {
 		"server:",
 		"host: localhost",
 		"port: 8080",
-		"site: ./site",
+		"site:",
+		"path: ./site",
 		"public_dir: ./public",
 		"logging:",
 		"level: info",
