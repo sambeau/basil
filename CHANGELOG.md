@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha.2] - 2026-07-12
+
 ### Added
+
+#### Release & CI Infrastructure
+- **goreleaser configuration** — Push a version tag and GitHub Actions builds cross-compiled `basil` + `pars` binaries (macOS/Linux/Windows, amd64 + arm64, CGo-free), packages them with checksums, and publishes a GitHub Release.
+- **CI workflow** — Build and test on every push and pull request.
+- **`scripts/install.sh`** — One-line installer: detects OS/arch, fetches the newest release (prereleases included), verifies the SHA-256 checksum, and installs both binaries.
 
 #### Image Transformation (FEAT-148)
 - **`image()` builtin** — Transform images and serve them at content-hashed, immutable URLs. Auto-rotates via EXIF, strips metadata, resizes (width/height/fit or center-crop), converts format, and caches results to disk. No upscaling; concurrent transforms are deduplicated via singleflight.
@@ -50,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`@std/schema` docs** — Slimmed to deprecation notice pointing to `@schema { ... }` DSL syntax.
 
 ### Fixed
+- **Helpful errors for non-destructured imports (BUG-005)** — Using a module dictionary as a function (`let Logo = import @./logo.pars` then `Logo()` or `<Logo/>`) now explains that `import` returns a dictionary of exports and shows the destructuring fix (`let { Logo } = import ...`). New error codes CALL-0006 and COMP-0003.
+- **Component error wrapper never fired** — A case-sensitive string match meant "Cannot use '<X/>' because 'X' is not a function" (COMP-0002) was unreachable; users saw the raw "Cannot call dictionary as a function" instead. Now matched by error code.
+- **Module tests now run outside this machine** — Test fixtures for module imports lived at an absolute path outside the repository; moved to `pkg/parsley/tests/test_fixtures/modules/` so CI can run them.
 - **9 prelude component bugs** discovered by smoke test:
   - `.length` used as property instead of `.length()` on arrays (Checkbox, CheckboxGroup, RadioGroup, Pagination)
   - `.format("iso")` vs `.iso` differences in time-related components
