@@ -179,7 +179,7 @@ Parsley can be embedded in any Go application with just a few lines:
 ```go
 import "github.com/sambeau/basil/pkg/parsley"
 
-result, err := parsley.Eval(`"Hello, " ++ name ++ "!"`, parsley.Env{
+result, err := parsley.Eval(`"Hello, " + name + "!"`, parsley.Env{
     "name": "World",
 })
 ```

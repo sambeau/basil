@@ -1,0 +1,114 @@
+// Shared components for the herbaceous.net site.
+// Used by build.pars — see that file for how pages are generated.
+
+let year = @now.year
+
+// root: prefix to reach the site root from the current page, e.g. "" or "../../"
+export Layout = fn({title, description, root, contents}) {
+    let desc = if (description != null) { description } else {
+        "Basil & Parsley — a web server and a friendly little language for building websites quickly. No compiler, no npm, no build step."
+    }
+    "<!doctype html>" +
+    <html lang="en">
+        <head>
+            <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <meta name="description" content={desc}/>
+            <title>title</title>
+            <link rel="stylesheet" href={root + "assets/pico.min.css"}/>
+            <link rel="stylesheet" href={root + "assets/hljs-theme.css"}/>
+            <link rel="stylesheet" href={root + "assets/site.css"}/>
+        </head>
+        <body>
+            <header class="container">
+                <nav>
+                    <ul>
+                        <li><a href={root + "index.html"} class="brand">"🌿 " <strong>"Basil & Parsley"</strong></a></li>
+                    </ul>
+                    <ul>
+                        <li><a href={root + "manual/getting-started.html"}>"Get Started"</a></li>
+                        <li><a href={root + "manual/index.html"}>"Manual"</a></li>
+                        <li><a href="https://github.com/sambeau/basil">"GitHub"</a></li>
+                    </ul>
+                </nav>
+            </header>
+            <main class="container">
+                contents
+            </main>
+            <footer class="container">
+                <hr/>
+                <p><small>
+                    "MIT licensed. © " + year + " Sam Phillips. This site was built with Parsley — "
+                    <a href="https://github.com/sambeau/basil/blob/main/site/build.pars">"here's the build script"</a>
+                    "."
+                </small></p>
+            </footer>
+            <script src={root + "assets/highlight.min.js"}></script>
+            <script src={root + "assets/parsley.js"}></script>
+            <script>hljs.highlightAll();</script>
+        </body>
+    </html>
+}
+
+// exampleHtml: pre-escaped source of examples/csv-page.pars (see build.pars)
+export HomePage = fn({exampleHtml}) {
+    <div>
+        <section class="hero">
+            <h1>"Make websites the fun way"</h1>
+            <p>
+                <strong>"Parsley"</strong>" is a friendly little programming language. "
+                <strong>"Basil"</strong>" is the web server it lives in. "
+                "Together they bring back the way the web used to feel: write a file, refresh the browser, smile."
+            </p>
+            <p>"No compiler. No npm. No TypeScript. No build step. One small binary."</p>
+        </section>
+
+        <section>
+            <h2>"What does it look like?"</h2>
+            <p>"Here's a CSV file becoming a web page. This is the whole program:"</p>
+            <pre><code class="language-parsley">exampleHtml</code></pre>
+            <p>
+                "Dates, money, file paths, and URLs are all real types you can write literally: "
+                <code>"@2024-01-15"</code>", "<code>"$99.99"</code>", "<code>"@./config.json"</code>"."
+                " HTML is part of the language, not a template bolted on the side."
+            </p>
+        </section>
+
+        <section id="install">
+            <h2>"Try it"</h2>
+            <p>"One line installs both " <code>"basil"</code> " (the server) and " <code>"pars"</code> " (the language and REPL):"</p>
+            <pre><code class="language-bash">"curl -fsSL https://herbaceous.net/install.sh | sh"</code></pre>
+            <p>
+                "Or grab a binary for your platform from "
+                <a href="https://github.com/sambeau/basil/releases">"the releases page"</a>
+                ". macOS, Linux, and Windows; Apple Silicon and Intel. "
+                <span id="latest-version"></span>
+            </p>
+            <script>
+                fetch("https://api.github.com/repos/sambeau/basil/releases?per_page=1")
+                    .then(function(r){ return r.json() })
+                    .then(function(rs){
+                        if (rs && rs[0]) {
+                            document.getElementById("latest-version").textContent =
+                                "Latest release: " + rs[0].tag_name + ".";
+                        }
+                    })
+                    .catch(function(){});
+            </script>
+        </section>
+
+        <section>
+            <h2>"Why?"</h2>
+            <p>
+                "Because building for the web in the early 2000s was " <em>"fun"</em>
+                ", and somewhere between then and now we buried that fun under toolchains. "
+                "Parsley and Basil are an attempt to dig it back up — "
+                "with modern niceties like passkeys, full-text search, an image server, and a built-in SQL database, "
+                "but without the ceremony."
+            </p>
+            <p>"A proper story about the quirks and the reasons behind them is coming soon. For now, "
+                <a href="manual/getting-started.html">"the tutorial"</a> " is the best place to start."
+            </p>
+        </section>
+    </div>
+}

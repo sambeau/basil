@@ -1,0 +1,95 @@
+// Static site generator for herbaceous.net.
+//
+// Run from the site/ directory:   pars build.pars
+// Output goes to site/dist/, which the Pages workflow deploys.
+//
+// Yes, this site is built with the language it documents.
+
+let {Layout, HomePage} = import @./components.pars
+
+let manualSrc = "../docs/parsley/manual"
+let distDir = @./dist
+
+// --- helpers ---------------------------------------------------------------
+
+// "fundamentals/variables.md" -> "fundamentals/variables.html"
+let toHtmlName = fn(relPath) { relPath.replace(/\.md$/, ".html") }
+
+// Rewrite links to .md files in rendered HTML so they point at .html pages.
+// (regex replace needs the g flag — without it only the first match changes)
+let rewriteLinks = fn(html) {
+    html.replace(/\.md"/g, ".html\"").replace(/\.md#/g, ".html#")
+}
+
+// "fundamentals/variables.html" -> "../" (prefix back to the site root)
+let rootPrefix = fn(relPath) {
+    let depth = relPath.split("/").length() - 1
+    let ups = for (_ in 1..depth) { "../" }
+    if (depth > 0) { ups.join("") } else { "" }
+}
+
+let writePage = fn(outPath, html) {
+    dir(outPath.parent).mkdir({parents: true})
+    html ==> text(outPath)
+}
+
+// --- homepage ----------------------------------------------------------------
+
+let escapeHtml = fn(s) {
+    s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+}
+
+let example <== text(@./examples/csv-page.pars)
+let home = <Layout title="Basil & Parsley — make websites the fun way" root="">
+    <HomePage exampleHtml={escapeHtml(example)}/>
+</Layout>
+writePage(@./dist/index.html, home)
+
+// --- manual pages ------------------------------------------------------------
+
+// fileList's ** doesn't match files in the root directory, so list both.
+// It returns file handles; the underlying path is at .path
+let mdFiles = fileList(manualSrc + "/*.md") ++ fileList(manualSrc + "/**/*.md")
+
+let built = for (f in mdFiles) {
+    let src = f.path
+    let doc <== MD(src)
+
+    // path relative to the manual root, e.g. "fundamentals/variables.md"
+    let rel = src.string.replace(manualSrc + "/", "")
+    let out = @(./dist/manual/{toHtmlName(rel)})
+
+    let title = if (doc.md.title != null) { doc.md.title } else { src.stem }
+
+    let root = rootPrefix("manual/" + rel)
+
+    let body = rewriteLinks(doc.html)
+    let page = <Layout title={title + " — Parsley Manual"} root={root}>
+        <article>body</article>
+    </Layout>
+    writePage(out, page)
+    rel
+}
+
+// --- assets & static files -----------------------------------------------------
+
+dir(@./dist/assets).mkdir({parents: true})
+let assetFiles = fileList("./assets/*.css") ++ fileList("./assets/*.js")
+for (f in assetFiles) {
+    let content <== f
+    content ==> text(@(./dist/assets/{f.path.filename}))
+}
+
+// Custom domain for GitHub Pages, and the installer served from the site root
+"herbaceous.net" ==> text(@./dist/CNAME)
+let installer <== text(@../scripts/install.sh)
+installer ==> text(@./dist/install.sh)
+
+// Pages serves 404.html for unknown routes
+let notFound = <Layout title="Not found — Basil & Parsley" root="">
+    <h1>"404"</h1>
+    <p>"That page doesn't exist (yet?). Try " <a href="/index.html">"the homepage"</a> "."</p>
+</Layout>
+writePage(@./dist/404.html, notFound)
+
+"Built " + (built.length() + 2) + " pages into " + distDir.string

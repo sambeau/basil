@@ -112,6 +112,6 @@ esac
 
 say ""
 say "Try it out:"
-say "  pars -e '\"Hello, \" ++ \"world!\"'"
+say "  pars -e '\"Hello, \" + \"world!\"'"
 say ""
 say "Docs: https://herbaceous.net"

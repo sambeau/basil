@@ -1,0 +1,15 @@
+let Page = fn({title, users}) {
+    <html>
+        <body>
+            <h1>title</h1>
+            <ul>
+                for (user in users) {
+                    <li><b>user.name</b> " — " user.email</li>
+                }
+            </ul>
+        </body>
+    </html>
+}
+
+emailList <== CSV(@./email-list.csv)
+<Page title="Active Users" users={emailList}/>

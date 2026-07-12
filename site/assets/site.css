@@ -1,0 +1,26 @@
+/* Small overrides on top of Pico CSS — keep this file boring. */
+
+.brand {
+    text-decoration: none;
+}
+
+.hero h1 {
+    margin-bottom: 0.5rem;
+}
+
+/* Code blocks: let highlight.js colours show on Pico's code background */
+pre code.hljs {
+    background: transparent;
+    padding: 0;
+}
+
+article {
+    max-width: 46rem;
+    margin: 0 auto;
+}
+
+/* Tables in the manual can be wide — scroll them, never the page */
+article table {
+    display: block;
+    overflow-x: auto;
+}

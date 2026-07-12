@@ -58,3 +58,6 @@ testdata/images/seamcarve-output/
 
 # kbz tool cache
 .kbz/
+
+# Generated site output (built by site/build.pars, deployed by Pages workflow)
+site/dist/
