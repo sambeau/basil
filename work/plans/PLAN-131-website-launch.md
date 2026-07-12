@@ -161,8 +161,21 @@ section:
       a dedicated nav entry can wait for real user feedback
 
 **General:**
-- [ ] Parsley manual (48 pages; structure already good — rendering works,
-      needs a proofread pass against implementation)
+- [x] Parsley manual proofread against the implementation (2026-07-12).
+      Method: `pars describe --json` diffed against documented methods per
+      builtin page; every ```parsley block executed via harness
+      (scratchpad run_blocks.py); flagged claims tested individually.
+      Found & fixed: BUG-027 (`~` ignored the g flag — code fix + tests),
+      `typeof()` → `.type()`, phantom `while` in the index, regex.md
+      split/matchAll/named-group errors, record.md spread/json.encode,
+      schema.md toTitleCase, numbers.md toNumber, data-formats.md &
+      urls.md `markdown()`/`<==`-over-HTTP staleness, query-dsl.md
+      pseudo-code fence. Remaining niggle: `pars describe builtins`
+      in-code descriptions advertise `fileList(path, pattern?)` and
+      `markdown(path)` file reads that don't match their own arity
+      checks — registry metadata fix, tracked below.
+- [ ] Fix stale in-code builtin descriptions (`describe builtins`):
+      fileList arity, markdown() description
 - [x] guide/README.md rewritten as a user-facing index of the actual guide
       files (was a stale dev-process doc with broken links pointing at
       docs/specs//docs/bugs, which moved to work/ long ago)

@@ -844,6 +844,6 @@ result
 - [Schema](schema.md) — Defining data shapes for Records and Tables
 - [Variables & Binding](../fundamentals/variables.md) — Destructuring and variable binding
 - [Functions](../fundamentals/functions.md) — Function values and closures
-- [Types](../fundamentals/types.md) — Parsley's type system and `typeof`
+- [Types](../fundamentals/types.md) — Parsley's type system and `.type()`
 - [Data Model](../fundamentals/data-model.md) — Schemas, records, and tables overview
 - [@std/table](../stdlib/table.md) — SQL-like operations on arrays of dictionaries

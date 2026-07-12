@@ -148,18 +148,20 @@ There is no implicit conversion between unrelated types. Adding an integer to an
 
 ## Type Checking
 
-### typeof()
+### .type()
 
-Returns a string identifying the value's type:
+Every value has a `.type()` method returning a string that identifies its type:
 
 ```parsley
-typeof(42)                       // "integer"
-typeof("hello")                  // "string"
-typeof([1, 2])                   // "array"
-typeof({a: 1})                   // "dictionary"
-typeof(null)                     // "null"
-typeof(fn() { })                 // "function"
+(42).type()                      // "integer"
+"hello".type()                   // "string"
+[1, 2].type()                    // "array"
+{a: 1}.type()                    // "dictionary"
+null.type()                      // "null"
+(fn() { }).type()                // "function"
 ```
+
+`.type()` is the one method that works on `null` — everything else null-propagates.
 
 ### is (Schema Check)
 
@@ -187,7 +189,7 @@ There's no separate "statement" that produces no value — even `let` returns `n
 
 - **Dynamic typing with no annotations** — no TypeScript-style type declarations, no Python type hints. Types are purely runtime.
 - **Dictionary is the universal container** — paths, URLs, datetime, regex, and file handles are all dictionaries with metadata. There's no class or struct system.
-- **No `instanceof` for general types** — `is` only works for schema checking. Use `typeof()` for general type inspection.
+- **No `instanceof` for general types** — `is` only works for schema checking. Use `.type()` for general type inspection.
 - **Integer division stays integer** — `10 / 3` is `3`, not `3.333`. Use a float operand (`10 / 3.0`) for float division.
 - **Money is a distinct type** — not a float. `$10.00 + $5.00` uses exact arithmetic, not floating-point.
 - **String concatenation coerces** — `"x" + 5` works and produces `"x5"`. Most other mixed-type operations are errors.

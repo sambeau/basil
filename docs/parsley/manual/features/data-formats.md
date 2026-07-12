@@ -74,16 +74,13 @@ Frontmatter variables are also available for `@{expr}` interpolation within the 
 
 ### File Handles
 
-Two file handles read Markdown from disk:
+The `MD()` file handle reads Markdown from disk, parsing frontmatter and rendering HTML in one step:
 
 ```parsley
-// markdown() — parses frontmatter and renders HTML
-let doc <== markdown(@./post.md)
-doc.meta                         // frontmatter dictionary
-doc.content                      // rendered HTML
-
-// MD() — renders to HTML only (no frontmatter parsing)
-let html <== MD(@./readme.md)
+let doc <== MD(@./post.md)
+doc.md                           // frontmatter dictionary
+doc.html                         // rendered HTML
+doc.raw                          // original Markdown (frontmatter stripped)
 ```
 
 ## CSV
@@ -305,8 +302,10 @@ summary ==> JSON(@./summary.json)
 
 ### Parse API Response
 
+Network reads use the fetch operator `<=/=` (not `<==`, which is for files):
+
 ```parsley
-let response <== JSON(@https://api.example.com/users)
+let response <=/= JSON(@https://api.example.com/users)
 for (user in response) {
     user.name + ": " + user.email
 }
@@ -315,9 +314,9 @@ for (user in response) {
 ### Markdown Blog Pipeline
 
 ```parsley
-let post <== markdown(@./posts/hello.md)
-let title = post.meta.title
-let html = post.content
+let post <== MD(@./posts/hello.md)
+let title = post.md.title
+let html = post.html
 
 <article>
     <h1>title</h1>

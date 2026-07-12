@@ -138,16 +138,16 @@ let full = base + "/users"
 // https://api.example.com/v1/users
 ```
 
-## URLs as File Handle Sources
+## URLs as Fetch Sources
 
-URLs work as sources for file handle constructors, enabling HTTP fetches:
+URLs work as sources for format constructors, enabling HTTP fetches with the fetch operator `<=/=`:
 
 ```parsley
-let data <== JSON(@https://api.example.com/users.json)
-let page <== text(@https://example.com/page.html)
+let data <=/= JSON(@https://api.example.com/users.json)
+let page <=/= text(@https://example.com/page.html)
 ```
 
-The read operator `<==` performs an HTTP GET when given a URL-based handle. See [File I/O](../features/file-io.md) for details.
+> ⚠️ Network reads use `<=/=`, not `<==` — the `/` marks data crossing a network boundary. See [HTTP & Networking](../features/network.md) for details.
 
 ## Fetch Operator
 

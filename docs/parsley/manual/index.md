@@ -31,10 +31,10 @@ Core language concepts — start here to learn how Parsley works.
 |------|-------------|
 | [Comments](fundamentals/comments.md) | Single-line and block comments |
 | [Variables & Binding](fundamentals/variables.md) | `let`, destructuring, scope, and reassignment |
-| [Types](fundamentals/types.md) | All types, coercion rules, `typeof`, and `is` |
+| [Types](fundamentals/types.md) | All types, coercion rules, `.type()`, and `is` |
 | [Operators](fundamentals/operators.md) | Arithmetic, comparison, logical, and special operators |
 | [Functions](fundamentals/functions.md) | Function expressions, closures, destructuring, and `this` binding |
-| [Control Flow](fundamentals/control-flow.md) | `if`/`else`, `for`, `while`, `skip`, `stop`, and `check` |
+| [Control Flow](fundamentals/control-flow.md) | `if`/`else`, `for`, `skip`, `stop`, and `check` |
 | [Error Handling](fundamentals/errors.md) | `try`/`catch`, `check`, `fail`, and error objects |
 | [Modules](fundamentals/modules.md) | `import`, `export`, and module resolution |
 | [Tags](fundamentals/tags.md) | HTML/XML tag syntax, attributes, children, and components |

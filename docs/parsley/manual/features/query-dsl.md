@@ -161,9 +161,9 @@ Once you have more than one clause, we recommend using a multi-line query:
 	??-> *)
 ```
 
-Which can re read as:
+Which can be read as:
 
-```parsley
+```text
 FIND
 	Users
 	WHERE status == "active"
