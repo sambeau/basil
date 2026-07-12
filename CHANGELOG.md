@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha.3] - 2026-07-12
+
+### Fixed
+- **`basil --init` generated a config the server rejects** — The scaffold still used the pre-alpha.2 schema: `site: ./site` failed to parse (`site` is now a mapping with a `path` key), and the commented database hint pointed at the removed top-level `sqlite:` key (now `database.path`). Following the scaffold's own printed instructions (`basil --init myapp && cd myapp && basil`) errored out of the box. The init test now loads the generated YAML through the real config parser.
+- **Homepage/README code example didn't run** — The CSV example was missing `let` before `emailList <== CSV(...)`.
+
 ## [1.0.0-alpha.2] - 2026-07-12
 
 ### Added
