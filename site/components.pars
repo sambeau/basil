@@ -2,28 +2,82 @@
 // Used by build.pars — see that file for how pages are generated.
 
 let year = @now.year
+let siteUrl = "https://herbaceous.net/"
+
+// Renders one sidebar section: {title, links: [{href, title}]}
+let NavSection = fn({section, base, active}) {
+    <li class="nav-section">
+        <strong>section.title</strong>
+        <ul>
+            for (link in section.links) {
+                let cls = if (link.href == active) { "active" } else { "" }
+                <li><a href={base + link.href} class={cls}>link.title</a></li>
+            }
+        </ul>
+    </li>
+}
+
+// Left sidebar: menu is an array of sections; base prefixes hrefs;
+// active is the current page's href relative to the manual root
+export DocsMenu = fn({menu, base, active}) {
+    <ul class="docs-menu">
+        for (section in menu) {
+            <NavSection section={section} base={base} active={active}/>
+        }
+    </ul>
+}
+
+// Right sidebar: toc is an array of {id, text}
+export Toc = fn({toc}) {
+    <nav class="toc" aria-label="On this page">
+        <strong>"On this page"</strong>
+        <ul>
+            for (h in toc) {
+                <li><a href={"#" + h.id}>h.text</a></li>
+            }
+        </ul>
+    </nav>
+}
 
 // root: prefix to reach the site root from the current page, e.g. "" or "../../"
-export Layout = fn({title, description, root, contents}) {
+// menu/toc/active: optional — pages with a menu render the three-column docs grid
+// path: site-relative path of this page, for canonical/OpenGraph URLs
+export Layout = fn({title, description, root, path, menu, base, active, toc, contents}) {
     let desc = if (description != null) { description } else {
         "Basil & Parsley — a web server and a friendly little language for building websites quickly. No compiler, no npm, no build step."
     }
+    let pageUrl = if (path != null) { siteUrl + path } else { siteUrl }
+    let hasMenu = menu != null
+    let hasToc = if (toc != null) { toc.length() > 1 } else { false }
+
     "<!doctype html>" +
     <html lang="en">
         <head>
             <meta charset="utf-8"/>
             <meta name="viewport" content="width=device-width, initial-scale=1"/>
             <meta name="description" content={desc}/>
+            <meta property="og:title" content={title}/>
+            <meta property="og:description" content={desc}/>
+            <meta property="og:type" content="website"/>
+            <meta property="og:url" content={pageUrl}/>
+            <meta property="og:image" content={siteUrl + "assets/logo.svg"}/>
+            <link rel="canonical" href={pageUrl}/>
+            <link rel="icon" type="image/svg+xml" href={root + "assets/logo.svg"}/>
             <title>title</title>
             <link rel="stylesheet" href={root + "assets/pico.min.css"}/>
             <link rel="stylesheet" href={root + "assets/hljs-theme.css"}/>
             <link rel="stylesheet" href={root + "assets/site.css"}/>
         </head>
         <body>
-            <header class="container">
+            <header class="container-fluid site-header">
                 <nav>
                     <ul>
-                        <li><a href={root + "index.html"} class="brand">"🌿 " <strong>"Basil & Parsley"</strong></a></li>
+                        <li>
+                            <a href={root + "index.html"} class="brand">
+                                <img src={root + "assets/logo.svg"} alt="" class="logo"/>
+                                <strong>"Basil & Parsley"</strong>
+                            </a>
+                        </li>
                     </ul>
                     <ul>
                         <li><a href={root + "get-started.html"}>"Get Started"</a></li>
@@ -34,9 +88,31 @@ export Layout = fn({title, description, root, contents}) {
                     </ul>
                 </nav>
             </header>
-            <main class="container">
-                contents
-            </main>
+            if (hasMenu) {
+                <div class="container-fluid docs-grid">
+                    <aside class="docs-sidebar">
+                        <nav aria-label="Manual pages">
+                            <DocsMenu menu={menu} base={base} active={active}/>
+                        </nav>
+                    </aside>
+                    <details class="docs-menu-mobile">
+                        <summary role="button" class="secondary outline">"Menu"</summary>
+                        <nav aria-label="Manual pages">
+                            <DocsMenu menu={menu} base={base} active={active}/>
+                        </nav>
+                    </details>
+                    <main class="docs-content">
+                        contents
+                    </main>
+                    if (hasToc) {
+                        <aside class="docs-toc"><Toc toc={toc}/></aside>
+                    }
+                </div>
+            } else {
+                <main class="container">
+                    contents
+                </main>
+            }
             <footer class="container">
                 <hr/>
                 <p><small>

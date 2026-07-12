@@ -8,6 +8,7 @@
 let {Layout, HomePage} = import @./components.pars
 
 let manualSrc = "../docs/parsley/manual"
+let basilSrc = "../docs/basil/manual"
 let distDir = @./dist
 
 // --- helpers ---------------------------------------------------------------
@@ -33,14 +34,88 @@ let writePage = fn(outPath, html) {
     html ==> text(outPath)
 }
 
-// --- homepage ----------------------------------------------------------------
-
 let escapeHtml = fn(s) {
     s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 }
 
+// Table of contents: [{id, text}] from the page's <h2 id="…"> headings
+let extractToc = fn(html) {
+    let hs = html ~ /<h2 id="([^"]+)">(.*?)<\/h2>/g
+    if (hs == null) {
+        []
+    } else {
+        for (h in hs) { {id: h[1], text: h[2].stripHtml()} }
+    }
+}
+
+// Sidebar menu from a rendered index page: each <h2> starts a section,
+// and the links that follow it (already rewritten to .html) are its pages.
+let extractMenu = fn(indexHtml) {
+    let chunks = indexHtml.split("<h2")
+    for (chunk in chunks) {
+        let titleMatch = chunk ~ /^[^>]*>(.*?)<\/h2>/
+        if (titleMatch != null) {
+            let found = chunk ~ /<a href="([^"]+)">([^<]+)<\/a>/g
+            let links = if (found == null) { [] } else {
+                for (l in found) {
+                    if (!l[1].includes("://") && !l[1].includes("../")) {
+                        {href: l[1], title: l[2]}
+                    }
+                }
+            }
+            if (links.length() > 0) {
+                {title: titleMatch[1].stripHtml(), links: links}
+            }
+        }
+    }
+}
+
+// Render one documentation tree (a folder of .md files with an index.md)
+// under dist/{outDir}/, with sidebar + per-page tables of contents.
+let renderTree = fn(srcDir, outDir, navLabel, fixLinks) {
+    // fileList's ** doesn't match files in the root directory, so list both.
+    let mdFiles = fileList(srcDir + "/*.md") ++ fileList(srcDir + "/**/*.md")
+
+    // First pass: render markdown, collect pages
+    let pages = for (f in mdFiles) {
+        let src = f.path
+        let doc <== MD(src, {ids: true})
+        let rel = src.string.replace(srcDir + "/", "")
+        let title = if (doc.md.title != null) { doc.md.title } else { src.stem }
+        {rel: rel, html: fixLinks(rewriteLinks(doc.html)), title: title}
+    }
+
+    // Build the sidebar from the tree's own index page
+    let indexPage = (pages.filter(fn(p) { p.rel == "index.md" }))[0]
+    let menu = extractMenu(indexPage.html)
+
+    // Second pass: write pages with layout
+    for (page in pages) {
+        let relHtml = toHtmlName(page.rel)
+        let sitePath = outDir + "/" + relHtml
+        let root = rootPrefix(sitePath)
+        // Sidebar links are relative to the tree root, e.g. "builtins/array.html"
+        let base = root + outDir + "/"
+        let out = @(./dist/{sitePath})
+        let rendered = <Layout
+            title={page.title + " — " + navLabel}
+            root={root}
+            path={sitePath}
+            menu={menu}
+            base={base}
+            active={relHtml}
+            toc={extractToc(page.html)}>
+            <article>page.html</article>
+        </Layout>
+        writePage(out, rendered)
+        relHtml
+    }
+}
+
+// --- homepage ----------------------------------------------------------------
+
 let example <== text(@./examples/csv-page.pars)
-let home = <Layout title="Basil & Parsley — make websites the fun way" root="">
+let home = <Layout title="Basil & Parsley — make websites the fun way" root="" path="index.html">
     <HomePage exampleHtml={escapeHtml(example)}/>
 </Layout>
 writePage(@./dist/index.html, home)
@@ -49,79 +124,43 @@ writePage(@./dist/index.html, home)
 
 let pageFiles = fileList("./pages/*.md")
 let sitePages = for (f in pageFiles) {
-    let doc <== MD(f.path)
+    let doc <== MD(f.path, {ids: true})
     let name = f.path.stem
     let title = if (doc.md.title != null) { doc.md.title } else { name }
-    let page = <Layout title={title + " — Basil & Parsley"} root="">
-        <article>rewriteLinks(doc.html)</article>
+    let html = rewriteLinks(doc.html)
+    let page = <Layout title={title + " — Basil & Parsley"} root="" path={name + ".html"}>
+        <article>html</article>
     </Layout>
     writePage(@(./dist/{name}.html), page)
     name
 }
 
-// --- manual pages ------------------------------------------------------------
+// --- documentation trees -------------------------------------------------------
 
-// fileList's ** doesn't match files in the root directory, so list both.
-// It returns file handles; the underlying path is at .path
-let mdFiles = fileList(manualSrc + "/*.md") ++ fileList(manualSrc + "/**/*.md")
-
-let built = for (f in mdFiles) {
-    let src = f.path
-    let doc <== MD(src)
-
-    // path relative to the manual root, e.g. "fundamentals/variables.md"
-    let rel = src.string.replace(manualSrc + "/", "")
-    let out = @(./dist/manual/{toHtmlName(rel)})
-
-    let title = if (doc.md.title != null) { doc.md.title } else { src.stem }
-
-    let root = rootPrefix("manual/" + rel)
-
-    let body = rewriteLinks(doc.html)
-    let page = <Layout title={title + " — Parsley Manual"} root={root}>
-        <article>body</article>
-    </Layout>
-    writePage(out, page)
-    rel
-}
-
-// --- basil server manual -------------------------------------------------------
-
-let basilSrc = "../docs/basil/manual"
+let parsleyBuilt = renderTree(manualSrc, "manual", "Parsley Manual", fn(html) { html })
 
 // Basil manual sources link into the Parsley manual and up to reference.md;
 // remap those for the site's flatter layout (/manual and /basil).
 let fixBasilLinks = fn(html) {
     html.replace("../../parsley/manual/", "../manual/")
         .replace("../reference.md", "reference.md")
+        .replace("../reference.html", "reference.html")
 }
-
-let basilFiles = fileList(basilSrc + "/*.md")
-let basilBuilt = for (f in basilFiles) {
-    let src = f.path
-    let doc <== MD(src)
-    let rel = src.string.replace(basilSrc + "/", "")
-    let out = @(./dist/basil/{toHtmlName(rel)})
-    let title = if (doc.md.title != null) { doc.md.title } else { src.stem }
-    let body = rewriteLinks(fixBasilLinks(doc.html))
-    let page = <Layout title={title + " — Basil Manual"} root="../">
-        <article>body</article>
-    </Layout>
-    writePage(out, page)
-    rel
-}
+let basilBuilt = renderTree(basilSrc, "basil", "Basil Manual", fixBasilLinks)
 
 // The full server-side Parsley reference renders alongside the manual
-let refDoc <== MD(@../docs/basil/reference.md)
-let refPage = <Layout title="Basil Parsley Reference" root="../">
-    <article>rewriteLinks(refDoc.html)</article>
+let refDoc <== MD(@../docs/basil/reference.md, {ids: true})
+let refHtml = rewriteLinks(refDoc.html)
+let refPage = <Layout title="Basil Parsley Reference" root="../" path="basil/reference.html"
+    toc={extractToc(refHtml)}>
+    <article>refHtml</article>
 </Layout>
 writePage(@./dist/basil/reference.html, refPage)
 
 // --- assets & static files -----------------------------------------------------
 
 dir(@./dist/assets).mkdir({parents: true})
-let assetFiles = fileList("./assets/*.css") ++ fileList("./assets/*.js")
+let assetFiles = fileList("./assets/*.css") ++ fileList("./assets/*.js") ++ fileList("./assets/*.svg")
 for (f in assetFiles) {
     let content <== f
     content ==> text(@(./dist/assets/{f.path.filename}))
@@ -133,10 +172,10 @@ let installer <== text(@../scripts/install.sh)
 installer ==> text(@./dist/install.sh)
 
 // Pages serves 404.html for unknown routes
-let notFound = <Layout title="Not found — Basil & Parsley" root="">
+let notFound = <Layout title="Not found — Basil & Parsley" root="" path="404.html">
     <h1>"404"</h1>
     <p>"That page doesn't exist (yet?). Try " <a href="/index.html">"the homepage"</a> "."</p>
 </Layout>
 writePage(@./dist/404.html, notFound)
 
-"Built " + (built.length() + basilBuilt.length() + sitePages.length() + 3) + " pages into " + distDir.string
+"Built " + (parsleyBuilt.length() + basilBuilt.length() + sitePages.length() + 3) + " pages into " + distDir.string

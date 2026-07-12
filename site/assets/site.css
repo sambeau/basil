@@ -1,7 +1,20 @@
 /* Small overrides on top of Pico CSS — keep this file boring. */
 
+.site-header {
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    padding: 0 1.5rem;
+}
+
 .brand {
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo {
+    height: 1.6rem;
+    width: auto;
 }
 
 .hero h1 {
@@ -23,4 +36,196 @@ article {
 article table {
     display: block;
     overflow-x: auto;
+}
+
+/* --- Three-column docs layout (like picocss.com/docs) -------------------- */
+
+.docs-grid {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 2.5rem;
+    padding: 1.5rem;
+    align-items: start;
+}
+
+.docs-content {
+    padding: 0;
+    min-width: 0;
+}
+
+.docs-content article {
+    max-width: 46rem;
+    margin: 0;
+}
+
+/* Neutralise Pico's nav list spacing inside the docs sidebars */
+.docs-sidebar nav ul,
+.docs-menu-mobile nav ul,
+.docs-toc nav ul {
+    margin: 0;
+    padding: 0;
+}
+
+.docs-sidebar nav li,
+.docs-menu-mobile nav li,
+.docs-toc nav li {
+    padding: 0;
+    margin: 0;
+}
+
+/* Pico gives nav links negative margins to align padded links — undo that */
+.docs-sidebar nav a,
+.docs-menu-mobile nav a,
+.docs-toc nav a {
+    margin: 0;
+}
+
+/* Left menu */
+.docs-sidebar {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    font-size: 0.875rem;
+}
+
+.docs-menu {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.docs-menu .nav-section {
+    list-style: none;
+    margin-bottom: 1.25rem;
+}
+
+.docs-menu .nav-section > strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.docs-menu .nav-section ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.docs-menu .nav-section ul li {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.docs-menu a {
+    display: block;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--pico-border-radius);
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.docs-menu a:hover {
+    color: var(--pico-primary);
+}
+
+.docs-menu a.active {
+    color: var(--pico-primary);
+    background: var(--pico-card-sectioning-background-color, rgba(128, 128, 128, 0.1));
+}
+
+/* Right "On this page" column appears on wide screens */
+.docs-toc {
+    display: none;
+}
+
+@media (min-width: 1200px) {
+    .docs-grid {
+        grid-template-columns: 15rem minmax(0, 1fr) 13rem;
+    }
+
+    .docs-toc {
+        display: block;
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+        font-size: 0.8125rem;
+    }
+
+    .toc ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 0.25rem 0 0 0;
+    }
+
+    .toc ul li {
+        list-style: none;
+        margin: 0;
+    }
+
+    .toc a {
+        display: block;
+        padding: 0.15rem 0;
+        color: var(--pico-muted-color);
+        text-decoration: none;
+    }
+
+    .toc a:hover {
+        color: var(--pico-primary);
+    }
+}
+
+/* Small screens: logo-only brand so the top nav fits on one line */
+@media (max-width: 768px) {
+    .brand strong {
+        display: none;
+    }
+
+    .site-header nav {
+        font-size: 0.875rem;
+    }
+
+    .site-header nav ul {
+        gap: 0;
+    }
+
+    .site-header nav a {
+        white-space: nowrap;
+        padding: 0.5rem 0.4rem;
+    }
+}
+
+/* Mobile: sidebar collapses into a "Menu" disclosure above the content */
+.docs-menu-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .docs-grid {
+        display: block;
+    }
+
+    .docs-sidebar {
+        display: none;
+    }
+
+    .docs-menu-mobile {
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    .docs-menu-mobile summary {
+        width: 100%;
+    }
+
+    /* Pico lays nav lists out horizontally — stack the menu vertically */
+    .docs-menu-mobile nav ul,
+    .docs-menu-mobile nav li {
+        display: block;
+    }
+
+    .docs-menu-mobile .nav-section {
+        margin: 0.75rem 0;
+    }
 }
