@@ -70,16 +70,39 @@ Do **not** port dev-process docs (`work/`, the AI-workflow parts of
       the repository — would have failed in CI)
 - [x] `install.sh` (`scripts/install.sh`) — OS/arch detection, newest release
       via API (prereleases included), checksum verification
-- [ ] Test install.sh end-to-end on a clean machine (needs a published release)
+- [x] Test install.sh end-to-end (v1.0.0-alpha.2 published 2026-07-12; installer
+      verified: platform detection, checksum, working binaries)
 - [x] Housekeeping: `.kbz/` and `testdata/images/smartcrop/` (855MB) gitignored
-- [ ] Human: commit, rename `[Unreleased]` → `[1.0.0-alpha.2]`, tag, push tag
-      (pushing the tag publishes the first automated release)
+- [x] Committed, changelog cut, tagged, pushed — v1.0.0-alpha.2 released via
+      Actions (authorised by Sam 2026-07-12). First CI run caught and fixed:
+      parts tests hardcoding a machine-specific absolute path, and a
+      platform-dependent path-traversal security test.
 
 ### Phase 2 — Site skeleton
-- [ ] `site/` directory: `build.pars`, layout components, vendored Pico CSS
-- [ ] GitHub Actions: build `pars` → run `build.pars` → deploy to Pages
-- [ ] Wire in highlight.js + Parsley grammar for code blocks
-- [ ] DNS: Hover → Pages, HTTPS enabled
+- [x] `site/` directory: `build.pars` (Parsley static generator),
+      `components.pars` (Layout, HomePage), vendored Pico CSS v2.1.1
+- [x] GitHub Actions (`site.yml`): build `pars` → run `build.pars` → deploy
+      to Pages. **Live at https://sambeau.github.io/basil/** (2026-07-12)
+- [x] highlight.js + contrib Parsley grammar wired in; github/github-dark
+      themes switched by `prefers-color-scheme` (matches Pico)
+- [x] Renders all 48 manual pages + homepage + 404; `.md` links rewritten to
+      `.html`; `install.sh` served from site root
+- [ ] DNS: Human adds records at Hover (A records for apex →
+      185.199.108/109/110/111.153, CNAME www → sambeau.github.io), then set
+      custom domain: `gh api -X PUT repos/sambeau/basil/pages -f cname=herbaceous.net`
+      and enforce HTTPS once the certificate is issued.
+      Note: with workflow-based Pages the CNAME file in dist/ is ignored —
+      the domain is set via API/settings.
+
+**Parsley gotchas learned writing build.pars** (useful for Phase 3–4):
+- `+` concatenates strings; `++` merges/wraps into arrays (README had this wrong)
+- regex `.replace(/x/, y)` replaces the *first* match only — use `/x/g`
+- `fileList()` returns file handles (`.path` for the path), takes one arg,
+  and `**` doesn't match files in the root directory — list both
+- raw strings don't span lines; `<script>`/`<style>` contents are raw text
+  (don't quote them or the quotes end up in the JS)
+- emoji can't appear bare in tag contents — put them in strings
+- a line starting with `[` continues the previous expression as indexing
 
 ### Phase 3 — Story pages *(where the personality lives)*
 - [ ] **Home** — one-screen pitch, runnable code example above the fold
