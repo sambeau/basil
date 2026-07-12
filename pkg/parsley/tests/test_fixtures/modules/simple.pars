@@ -1,0 +1,4 @@
+// Simple module for testing
+export value = 42
+export text = "hello"
+export double = fn(x) { x * 2 }

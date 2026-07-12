@@ -5005,6 +5005,17 @@ func Eval(node ast.Node, env *Environment) Object {
 			return withPosition(newCallError("CALL-0005", map[string]any{"Context": funcName}), node.Token, env)
 		}
 
+		// Calling a module dictionary that contains an export with the same
+		// name as the variable means the import wasn't destructured:
+		// `let Logo = import @./logo.pars` then `Logo()` (BUG-005)
+		if dict, isDict := function.(*Dictionary); isDict {
+			if ident, ok := node.Function.(*ast.Identifier); ok {
+				if _, has := dict.Pairs[ident.Value]; has {
+					return withPosition(newCallError("CALL-0006", map[string]any{"Name": ident.Value}), node.Token, env)
+				}
+			}
+		}
+
 		// Save the call token before evaluating arguments (which may modify env.LastToken)
 		callToken := node.Token
 

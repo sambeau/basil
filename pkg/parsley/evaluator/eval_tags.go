@@ -1034,11 +1034,21 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
 
+	// A module dictionary containing an export with the same name as the tag
+	// means the import wasn't destructured:
+	// `let Logo = import @./logo.pars` then `<Logo>...</Logo>` (BUG-005)
+	if moduleDict, isDict := val.(*Dictionary); isDict {
+		if _, has := moduleDict.Pairs[node.Name]; has {
+			perr := perrors.New("COMP-0003", map[string]any{"Name": node.Name})
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
+		}
+	}
+
 	// Call the function with the props dictionary, passing environment for runtime context
 	result := ApplyFunctionWithEnv(val, []Object{dict}, env)
 
 	// Improve error message if function call failed
-	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
+	if err, isErr := result.(*Error); isErr && (err.Code == "CALL-0002" || strings.Contains(err.Message, "cannot call")) {
 		perr := perrors.New("COMP-0002", map[string]any{"Name": node.Name, "Got": string(val.Type())})
 		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
 	}
@@ -2235,6 +2245,16 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		return str
 	}
 
+	// A module dictionary containing an export with the same name as the tag
+	// means the import wasn't destructured:
+	// `let Logo = import @./logo.pars` then `<Logo/>` (BUG-005)
+	if moduleDict, isDict := val.(*Dictionary); isDict {
+		if _, has := moduleDict.Pairs[tagName]; has {
+			perr := perrors.New("COMP-0003", map[string]any{"Name": tagName})
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
+		}
+	}
+
 	// Parse props into a dictionary
 	// propsStr is everything after the tag name, calculate props column
 	propsCol := tok.Column + 1 + len(tagName) + 1 // "<" + tagName + " "
@@ -2247,7 +2267,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	result := ApplyFunctionWithEnv(val, []Object{props}, env)
 
 	// Improve error message if function call failed
-	if err, isErr := result.(*Error); isErr && strings.Contains(err.Message, "cannot call") {
+	if err, isErr := result.(*Error); isErr && (err.Code == "CALL-0002" || strings.Contains(err.Message, "cannot call")) {
 		perr := perrors.New("COMP-0002", map[string]any{"Name": tagName, "Got": string(val.Type())})
 		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
 	}

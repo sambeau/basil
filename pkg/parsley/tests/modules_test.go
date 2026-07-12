@@ -28,7 +28,7 @@ func TestBasicModuleImport(t *testing.T) {
 		mod.value
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -50,7 +50,7 @@ func TestModuleDestructuring(t *testing.T) {
 		add(10, 32)
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -72,7 +72,7 @@ func TestModuleAlias(t *testing.T) {
 		sq(8)
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -95,7 +95,7 @@ func TestModuleCaching(t *testing.T) {
 		mod1 == mod2
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -117,7 +117,7 @@ func TestModuleStringPath(t *testing.T) {
 		mod.text
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -138,7 +138,7 @@ func TestModuleNotFound(t *testing.T) {
 		let mod = import @./nonexistent.pars
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() != evaluator.ERROR_OBJ {
 		t.Fatalf("expected error for missing module, got %T", result)
@@ -156,7 +156,7 @@ func TestModuleFunction(t *testing.T) {
 		math.add(math.multiply(2, 3), 4)
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -179,7 +179,7 @@ func TestModuleClosures(t *testing.T) {
 		double(21)
 	`
 
-	result := evalModule(input, "/Users/samphillips/Dev/parsley/test.pars")
+	result := evalModule(input, "./test.pars")
 
 	if result.Type() == evaluator.ERROR_OBJ {
 		t.Fatalf("evaluation error: %s", result.Inspect())
@@ -192,5 +192,77 @@ func TestModuleClosures(t *testing.T) {
 
 	if integer.Value != 42 {
 		t.Errorf("expected 42, got %d", integer.Value)
+	}
+}
+
+// BUG-005: using a non-destructured module dictionary as a function or
+// component should explain the mistake and show the destructuring fix.
+
+// assertModuleDictError checks that result is an error with the given code,
+// a message explaining module exports, and a hint showing the destructuring fix.
+func assertModuleDictError(t *testing.T, result evaluator.Object, wantCode string) {
+	t.Helper()
+
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected error, got %T: %s", result, result.Inspect())
+	}
+
+	if errObj.Code != wantCode {
+		t.Errorf("expected code %s, got %s (%s)", wantCode, errObj.Code, errObj.Message)
+	}
+	if !strings.Contains(errObj.Message, "dictionary of module exports") {
+		t.Errorf("expected module-exports explanation, got: %s", errObj.Message)
+	}
+	hints := strings.Join(errObj.Hints, "\n")
+	if !strings.Contains(hints, "let { Logo } = import") {
+		t.Errorf("expected destructuring hint naming 'Logo', got hints: %s", hints)
+	}
+}
+
+func TestModuleDictCalledAsFunction(t *testing.T) {
+	input := `
+		let Logo = import @./test_fixtures/modules/logo.pars
+		Logo()
+	`
+
+	result := evalModule(input, "./test.pars")
+	assertModuleDictError(t, result, "CALL-0006")
+}
+
+func TestModuleDictUsedAsComponent(t *testing.T) {
+	input := `
+		let Logo = import @./test_fixtures/modules/logo.pars
+		<Logo/>
+	`
+
+	result := evalModule(input, "./test.pars")
+	assertModuleDictError(t, result, "COMP-0003")
+}
+
+func TestModuleDictUsedAsComponentTagPair(t *testing.T) {
+	input := `
+		let Logo = import @./test_fixtures/modules/logo.pars
+		<Logo>"content"</Logo>
+	`
+
+	result := evalModule(input, "./test.pars")
+	assertModuleDictError(t, result, "COMP-0003")
+}
+
+func TestModuleDestructuredComponentWorks(t *testing.T) {
+	input := `
+		let {Logo} = import @./test_fixtures/modules/logo.pars
+		<Logo/>
+	`
+
+	result := evalModule(input, "./test.pars")
+
+	if result.Type() == evaluator.ERROR_OBJ {
+		t.Fatalf("evaluation error: %s", result.Inspect())
+	}
+
+	if !strings.Contains(result.Inspect(), "<img") {
+		t.Errorf("expected rendered img tag, got: %s", result.Inspect())
 	}
 }

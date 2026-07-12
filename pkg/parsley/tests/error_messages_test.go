@@ -142,9 +142,10 @@ func TestComponentNotFunctionError(t *testing.T) {
 				t.Fatalf("expected error, got %T: %s", result, result.Inspect())
 			}
 
-			// Should mention "as a function" (error message says "Cannot call X as a function")
-			if !strings.Contains(strings.ToLower(errObj.Message), strings.ToLower("as a function")) {
-				t.Errorf("expected 'as a function' in error, got: %s", errObj.Message)
+			// Should explain the component is not a function
+			// (COMP-0002: "Cannot use '<Widget/>' because 'Widget' is not a function (got integer)")
+			if !strings.Contains(strings.ToLower(errObj.Message), "not a function") {
+				t.Errorf("expected 'not a function' in error, got: %s", errObj.Message)
 			}
 
 			// Should have a hint about components being functions (in message or Hints slice)

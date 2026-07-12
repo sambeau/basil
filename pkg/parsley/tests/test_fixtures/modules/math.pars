@@ -1,0 +1,5 @@
+// Math utilities module
+export add = fn(a, b) { a + b }
+export multiply = fn(a, b) { a * b }
+export PI = 3.141592653589793
+export square = fn(x) { x * x }

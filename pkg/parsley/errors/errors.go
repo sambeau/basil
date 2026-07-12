@@ -1187,6 +1187,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "Cannot call null as a function: {{.Context}}",
 	},
+	"CALL-0006": {
+		Class:    ClassType,
+		Template: "Cannot call '{{.Name}}' — it is a dictionary of module exports, not a function",
+		Hints:    []string{"import returns all of a module's exports as a dictionary", "Destructure it to get the function: let { {{.Name}} } = import @./module.pars"},
+	},
 
 	// ========================================
 	// Component errors (COMP-0xxx)
@@ -1200,6 +1205,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassType,
 		Template: "Cannot use '<{{.Name}}/>' because '{{.Name}}' is not a function (got {{.Got}})",
 		Hints:    []string{"Components must be functions. Check that '{{.Name}}' is exported as a function."},
+	},
+	"COMP-0003": {
+		Class:    ClassType,
+		Template: "'{{.Name}}' is a dictionary of module exports, not a component",
+		Hints:    []string{"import returns all of a module's exports as a dictionary", "Destructure it to get the component: let { {{.Name}} } = import @./module.pars — then <{{.Name}}/> will work"},
 	},
 
 	// ========================================

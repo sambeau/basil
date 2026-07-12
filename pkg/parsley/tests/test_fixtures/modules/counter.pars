@@ -1,0 +1,6 @@
+// Counter module for testing caching and mutation
+export count = 0
+export increment = fn() {
+    count = count + 1
+    count
+}

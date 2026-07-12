@@ -1,0 +1,2 @@
+// Component module for BUG-005 regression tests
+export Logo = fn() { <img src="/logo.png" alt="Logo"/> }
