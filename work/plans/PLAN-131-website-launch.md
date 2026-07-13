@@ -200,6 +200,14 @@ section:
 - [x] OpenGraph tags + canonical URL on every page
 - [x] v1.0.0-alpha.4 released (2026-07-13): BUG-027 g-flag fix + manual
       corrections. Verified from a fresh install.
+- [x] Layout refinements from Sam's wireframe (2026-07-13): whole docs grid
+      capped & centred so the TOC hugs the content (like picocss.com/docs);
+      Parsley/Basil switcher at the top of the docs sidebar; top nav is now
+      About | Docs | GitHub icon | day/night toggle; About pages (Home /
+      Get Started / Why?) share a small docs-style sidebar. Theme toggle
+      persists to localStorage and the hljs palette follows data-theme.
+      Found BUG-028 en route: the lexer mangles non-ASCII in <script>/<style>
+      raw text (workaround: \u escapes; fix tracked in work/bugs/BUG-028.md).
 - [ ] Client-side search (Pagefind, or Parsley-generated JSON index + small JS)
 - [ ] Soft launch to friendly devs
 - [ ] Sam: voice pass on /why.html

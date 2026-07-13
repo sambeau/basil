@@ -17,14 +17,31 @@ let NavSection = fn({section, base, active}) {
     </li>
 }
 
+// Parsley/Basil switcher shown at the top of the docs sidebar.
+// current is "parsley" or "basil"; root reaches the site root.
+let DocsSwitcher = fn({current, root}) {
+    let parsleyCls = if (current == "parsley") { "active" } else { "" }
+    let basilCls = if (current == "basil") { "active" } else { "" }
+    <div class="docs-switcher" role="group">
+        <a href={root + "manual/index.html"} class={parsleyCls}>"Parsley"</a>
+        <a href={root + "basil/index.html"} class={basilCls}>"Basil"</a>
+    </div>
+}
+
 // Left sidebar: menu is an array of sections; base prefixes hrefs;
-// active is the current page's href relative to the manual root
-export DocsMenu = fn({menu, base, active}) {
-    <ul class="docs-menu">
-        for (section in menu) {
-            <NavSection section={section} base={base} active={active}/>
+// active is the current page's href relative to the manual root;
+// switcher (optional) is "parsley" or "basil"
+export DocsMenu = fn({menu, base, active, switcher, root}) {
+    <div>
+        if (switcher != null) {
+            <DocsSwitcher current={switcher} root={root}/>
         }
-    </ul>
+        <ul class="docs-menu">
+            for (section in menu) {
+                <NavSection section={section} base={base} active={active}/>
+            }
+        </ul>
+    </div>
 }
 
 // Right sidebar: toc is an array of {id, text}
@@ -41,8 +58,9 @@ export Toc = fn({toc}) {
 
 // root: prefix to reach the site root from the current page, e.g. "" or "../../"
 // menu/toc/active: optional — pages with a menu render the three-column docs grid
+// switcher: optional "parsley" | "basil" tab pair at the top of the sidebar
 // path: site-relative path of this page, for canonical/OpenGraph URLs
-export Layout = fn({title, description, root, path, menu, base, active, toc, contents}) {
+export Layout = fn({title, description, root, path, menu, base, active, switcher, toc, contents}) {
     let desc = if (description != null) { description } else {
         "Basil & Parsley — a web server and a friendly little language for building websites quickly. No compiler, no npm, no build step."
     }
@@ -64,12 +82,21 @@ export Layout = fn({title, description, root, path, menu, base, active, toc, con
             <link rel="canonical" href={pageUrl}/>
             <link rel="icon" type="image/svg+xml" href={root + "assets/logo.svg"}/>
             <title>title</title>
+            <script>
+                (function () {
+                    var t = localStorage.getItem("theme");
+                    if (!t) {
+                        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                    }
+                    document.documentElement.setAttribute("data-theme", t);
+                })();
+            </script>
             <link rel="stylesheet" href={root + "assets/pico.min.css"}/>
             <link rel="stylesheet" href={root + "assets/hljs-theme.css"}/>
             <link rel="stylesheet" href={root + "assets/site.css"}/>
         </head>
         <body>
-            <header class="container-fluid site-header">
+            <header class="site-header">
                 <nav>
                     <ul>
                         <li>
@@ -80,25 +107,31 @@ export Layout = fn({title, description, root, path, menu, base, active, toc, con
                         </li>
                     </ul>
                     <ul>
-                        <li><a href={root + "get-started.html"}>"Get Started"</a></li>
-                        <li><a href={root + "why.html"}>"Why?"</a></li>
-                        <li><a href={root + "manual/index.html"}>"Parsley"</a></li>
-                        <li><a href={root + "basil/index.html"}>"Basil"</a></li>
-                        <li><a href="https://github.com/sambeau/basil">"GitHub"</a></li>
+                        <li><a href={root + "why.html"}>"About"</a></li>
+                        <li><a href={root + "manual/index.html"}>"Docs"</a></li>
+                        <li class="nav-divider" aria-hidden="true"></li>
+                        <li>
+                            <a href="https://github.com/sambeau/basil" class="icon-link" aria-label="GitHub">
+                                <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+                            </a>
+                        </li>
+                        <li>
+                            <button id="theme-toggle" class="icon-link" aria-label="Toggle light/dark theme">"☾"</button>
+                        </li>
                     </ul>
                 </nav>
             </header>
             if (hasMenu) {
-                <div class="container-fluid docs-grid">
+                <div class="docs-grid">
                     <aside class="docs-sidebar">
-                        <nav aria-label="Manual pages">
-                            <DocsMenu menu={menu} base={base} active={active}/>
+                        <nav aria-label="Pages">
+                            <DocsMenu menu={menu} base={base} active={active} switcher={switcher} root={root}/>
                         </nav>
                     </aside>
                     <details class="docs-menu-mobile">
                         <summary role="button" class="secondary outline">"Menu"</summary>
-                        <nav aria-label="Manual pages">
-                            <DocsMenu menu={menu} base={base} active={active}/>
+                        <nav aria-label="Pages">
+                            <DocsMenu menu={menu} base={base} active={active} switcher={switcher} root={root}/>
                         </nav>
                     </details>
                     <main class="docs-content">
@@ -123,7 +156,25 @@ export Layout = fn({title, description, root, path, menu, base, active, toc, con
             </footer>
             <script src={root + "assets/highlight.min.js"}></script>
             <script src={root + "assets/parsley.js"}></script>
-            <script>hljs.highlightAll();</script>
+            <script>
+                hljs.highlightAll();
+                (function () {
+                    var btn = document.getElementById("theme-toggle");
+                    function paint() {
+                        var t = document.documentElement.getAttribute("data-theme");
+                        // sun / moon as unicode escapes: script contents are
+                        // raw text and the lexer mangles non-ASCII in them
+                        btn.textContent = t === "dark" ? "\u2600" : "\u263E";
+                    }
+                    btn.addEventListener("click", function () {
+                        var t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+                        document.documentElement.setAttribute("data-theme", t);
+                        localStorage.setItem("theme", t);
+                        paint();
+                    });
+                    paint();
+                })();
+            </script>
         </body>
     </html>
 }

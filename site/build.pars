@@ -72,7 +72,9 @@ let extractMenu = fn(indexHtml) {
 
 // Render one documentation tree (a folder of .md files with an index.md)
 // under dist/{outDir}/, with sidebar + per-page tables of contents.
-let renderTree = fn(srcDir, outDir, navLabel, fixLinks) {
+// switcher is "parsley" or "basil" (the active tab in the docs switcher).
+// Returns {menu, count} so callers can reuse the sidebar for extra pages.
+let renderTree = fn(srcDir, outDir, navLabel, switcher, fixLinks) {
     // fileList's ** doesn't match files in the root directory, so list both.
     let mdFiles = fileList(srcDir + "/*.md") ++ fileList(srcDir + "/**/*.md")
 
@@ -90,7 +92,7 @@ let renderTree = fn(srcDir, outDir, navLabel, fixLinks) {
     let menu = extractMenu(indexPage.html)
 
     // Second pass: write pages with layout
-    for (page in pages) {
+    let built = for (page in pages) {
         let relHtml = toHtmlName(page.rel)
         let sitePath = outDir + "/" + relHtml
         let root = rootPrefix(sitePath)
@@ -104,12 +106,14 @@ let renderTree = fn(srcDir, outDir, navLabel, fixLinks) {
             menu={menu}
             base={base}
             active={relHtml}
+            switcher={switcher}
             toc={extractToc(page.html)}>
             <article>page.html</article>
         </Layout>
         writePage(out, rendered)
         relHtml
     }
+    {menu: menu, count: built.length()}
 }
 
 // --- homepage ----------------------------------------------------------------
@@ -121,6 +125,16 @@ let home = <Layout title="Basil & Parsley — make websites the fun way" root=""
 writePage(@./dist/index.html, home)
 
 // --- site pages (site/pages/*.md, rendered at the site root) -----------------
+// These share a small "About" sidebar — same layout as the docs, no switcher.
+
+let aboutMenu = [{
+    title: "About",
+    links: [
+        {href: "index.html", title: "Home"},
+        {href: "get-started.html", title: "Get Started"},
+        {href: "why.html", title: "Why?"},
+    ],
+}]
 
 let pageFiles = fileList("./pages/*.md")
 let sitePages = for (f in pageFiles) {
@@ -128,7 +142,8 @@ let sitePages = for (f in pageFiles) {
     let name = f.path.stem
     let title = if (doc.md.title != null) { doc.md.title } else { name }
     let html = rewriteLinks(doc.html)
-    let page = <Layout title={title + " — Basil & Parsley"} root="" path={name + ".html"}>
+    let page = <Layout title={title + " — Basil & Parsley"} root="" path={name + ".html"}
+        menu={aboutMenu} base="" active={name + ".html"} toc={extractToc(html)}>
         <article>html</article>
     </Layout>
     writePage(@(./dist/{name}.html), page)
@@ -137,7 +152,7 @@ let sitePages = for (f in pageFiles) {
 
 // --- documentation trees -------------------------------------------------------
 
-let parsleyBuilt = renderTree(manualSrc, "manual", "Parsley Manual", fn(html) { html })
+let parsleyTree = renderTree(manualSrc, "manual", "Parsley Manual", "parsley", fn(html) { html })
 
 // Basil manual sources link into the Parsley manual and up to reference.md;
 // remap those for the site's flatter layout (/manual and /basil).
@@ -146,12 +161,14 @@ let fixBasilLinks = fn(html) {
         .replace("../reference.md", "reference.md")
         .replace("../reference.html", "reference.html")
 }
-let basilBuilt = renderTree(basilSrc, "basil", "Basil Manual", fixBasilLinks)
+let basilTree = renderTree(basilSrc, "basil", "Basil Manual", "basil", fixBasilLinks)
 
-// The full server-side Parsley reference renders alongside the manual
+// The full server-side Parsley reference renders alongside the manual,
+// reusing the Basil sidebar (it's linked from the Basil manual's index)
 let refDoc <== MD(@../docs/basil/reference.md, {ids: true})
 let refHtml = rewriteLinks(refDoc.html)
 let refPage = <Layout title="Basil Parsley Reference" root="../" path="basil/reference.html"
+    menu={basilTree.menu} base="../basil/" active="reference.html" switcher="basil"
     toc={extractToc(refHtml)}>
     <article>refHtml</article>
 </Layout>
@@ -178,4 +195,4 @@ let notFound = <Layout title="Not found — Basil & Parsley" root="" path="404.h
 </Layout>
 writePage(@./dist/404.html, notFound)
 
-"Built " + (parsleyBuilt.length() + basilBuilt.length() + sitePages.length() + 3) + " pages into " + distDir.string
+"Built " + (parsleyTree.count + basilTree.count + sitePages.length() + 3) + " pages into " + distDir.string
