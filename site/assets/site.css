@@ -53,6 +53,79 @@
     margin: 0 0.25rem;
 }
 
+/* Header search box with a results dropdown */
+.nav-search {
+    position: relative;
+}
+
+.nav-search input {
+    width: 11rem;
+    margin: 0;
+    padding: 0.25rem 0.6rem;
+    height: auto;
+    font-size: 0.875rem;
+}
+
+#search-results {
+    display: block; /* Pico lays nav lists out with flex — stack results */
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 10;
+    min-width: 18rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    margin: 0.25rem 0 0 0;
+    padding: 0.25rem;
+    list-style: none;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    box-shadow: var(--pico-card-box-shadow, 0 4px 16px rgba(0, 0, 0, 0.2));
+}
+
+#search-results li {
+    display: block;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+#search-results[hidden] {
+    display: none;
+}
+
+#search-results a {
+    display: block;
+    margin: 0;
+    padding: 0.35rem 0.6rem;
+    border-radius: calc(var(--pico-border-radius) - 2px);
+    text-decoration: none;
+}
+
+#search-results a:hover,
+#search-results a:focus {
+    background: var(--pico-primary);
+    color: var(--pico-primary-inverse);
+}
+
+#search-results a small {
+    color: var(--pico-muted-color);
+    margin-left: 0.35rem;
+}
+
+#search-results a:hover small,
+#search-results a:focus small {
+    color: var(--pico-primary-inverse);
+}
+
+/* Search is hidden on small screens for now — header space is tight */
+@media (max-width: 768px) {
+    .nav-search {
+        display: none;
+    }
+}
+
 .hero h1 {
     margin-bottom: 0.5rem;
 }

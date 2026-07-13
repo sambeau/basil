@@ -208,10 +208,18 @@ section:
       persists to localStorage and the hljs palette follows data-theme.
       Found BUG-028 en route: the lexer mangles non-ASCII in <script>/<style>
       raw text (workaround: \u escapes; fix tracked in work/bugs/BUG-028.md).
-- [ ] Client-side search (Pagefind, or Parsley-generated JSON index + small JS)
-- [ ] Soft launch to friendly devs
-- [ ] Sam: voice pass on /why.html
-- [ ] Update README (remove "don't post to HN"), launch on our own terms
+- [x] Client-side search (2026-07-13): build.pars writes search-index.json
+      (63 pages; title/headings/body, ~240KB fetched lazily on first focus);
+      ~90 lines of vanilla JS score client-side (title 10 / headings 4 /
+      body 1, all terms must match, cheap plural stemming) with a dropdown
+      in the header. Hidden ≤768px for now — mobile search is a possible
+      follow-up. No npm, no external service.
+- [x] README rewritten as the public repo front door: install one-liner,
+      verified examples, herbaceous.net links throughout, honest alpha note.
+      The "don't post to HN" line stays (softened) until Sam calls the launch.
+- [ ] Soft launch to friendly devs (Sam, thinking about it)
+- [ ] Sam: voice pass on /why.html (in progress)
+- [ ] At launch: delete the HN line from README
 
 ## Estimates
 

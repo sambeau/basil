@@ -95,7 +95,7 @@ export Layout = fn({title, description, root, path, menu, base, active, switcher
             <link rel="stylesheet" href={root + "assets/hljs-theme.css"}/>
             <link rel="stylesheet" href={root + "assets/site.css"}/>
         </head>
-        <body>
+        <body data-root={root}>
             <header class="site-header">
                 <nav>
                     <ul>
@@ -109,6 +109,11 @@ export Layout = fn({title, description, root, path, menu, base, active, switcher
                     <ul>
                         <li><a href={root + "why.html"}>"About"</a></li>
                         <li><a href={root + "manual/index.html"}>"Docs"</a></li>
+                        <li class="nav-search">
+                            <input type="search" id="site-search" placeholder="Search docs…"
+                                autocomplete="off" aria-label="Search the documentation"/>
+                            <ul id="search-results" hidden="hidden"></ul>
+                        </li>
                         <li class="nav-divider" aria-hidden="true"></li>
                         <li>
                             <a href="https://github.com/sambeau/basil" class="icon-link" aria-label="GitHub">
@@ -162,8 +167,8 @@ export Layout = fn({title, description, root, path, menu, base, active, switcher
                     var btn = document.getElementById("theme-toggle");
                     function paint() {
                         var t = document.documentElement.getAttribute("data-theme");
-                        // sun / moon as unicode escapes: script contents are
-                        // raw text and the lexer mangles non-ASCII in them
+                        // sun / moon as \u escapes until BUG-028 lands (the lexer
+                        // mangles non-ASCII inside script raw text)
                         btn.textContent = t === "dark" ? "\u2600" : "\u263E";
                     }
                     btn.addEventListener("click", function () {
@@ -173,6 +178,93 @@ export Layout = fn({title, description, root, path, menu, base, active, switcher
                         paint();
                     });
                     paint();
+                })();
+
+                // Site search: fetches the build's search-index.json on first
+                // focus and scores pages client-side (title > headings > body).
+                (function () {
+                    var input = document.getElementById("site-search");
+                    var list = document.getElementById("search-results");
+                    if (!input) { return; }
+                    var root = document.body.getAttribute("data-root") || "";
+                    var index = null;
+
+                    function load() {
+                        if (index) { return; }
+                        fetch(root + "search-index.json")
+                            .then(function (r) { return r.json(); })
+                            .then(function (data) { index = data; })
+                            .catch(function () { index = []; });
+                    }
+
+                    function score(entry, terms) {
+                        var total = 0;
+                        for (var i = 0; i < terms.length; i++) {
+                            var t = terms[i];
+                            // cheap stemming: "passkeys" should find "passkey"
+                            var stem = t.length > 3 && t.charAt(t.length - 1) === "s" ? t.slice(0, -1) : t;
+                            var s = 0;
+                            if (entry.title.toLowerCase().indexOf(stem) !== -1) { s += 10; }
+                            if (entry.headings.toLowerCase().indexOf(stem) !== -1) { s += 4; }
+                            if (entry.text.toLowerCase().indexOf(stem) !== -1) { s += 1; }
+                            if (s === 0) { return 0; } // every term must match somewhere
+                            total += s;
+                        }
+                        return total;
+                    }
+
+                    function render(results) {
+                        list.textContent = "";
+                        if (results.length === 0) {
+                            list.hidden = true;
+                            return;
+                        }
+                        for (var i = 0; i < results.length; i++) {
+                            var e = results[i];
+                            var li = document.createElement("li");
+                            var a = document.createElement("a");
+                            a.href = root + e.path;
+                            a.textContent = e.title;
+                            var small = document.createElement("small");
+                            small.textContent = " " + e.section;
+                            a.appendChild(small);
+                            li.appendChild(a);
+                            list.appendChild(li);
+                        }
+                        list.hidden = false;
+                    }
+
+                    input.addEventListener("focus", load);
+                    input.addEventListener("input", function () {
+                        var q = input.value.trim().toLowerCase();
+                        if (!index || q.length < 2) {
+                            list.hidden = true;
+                            return;
+                        }
+                        var terms = q.split(/\s+/);
+                        var results = index
+                            .map(function (e) { return {e: e, s: score(e, terms)}; })
+                            .filter(function (r) { return r.s > 0; })
+                            .sort(function (a, b) { return b.s - a.s; })
+                            .slice(0, 8)
+                            .map(function (r) { return r.e; });
+                        render(results);
+                    });
+                    input.addEventListener("keydown", function (ev) {
+                        if (ev.key === "Enter") {
+                            var first = list.querySelector("a");
+                            if (first) { window.location.href = first.href; }
+                        }
+                        if (ev.key === "Escape") {
+                            list.hidden = true;
+                            input.blur();
+                        }
+                    });
+                    document.addEventListener("click", function (ev) {
+                        if (!input.contains(ev.target) && !list.contains(ev.target)) {
+                            list.hidden = true;
+                        }
+                    });
                 })();
             </script>
         </body>

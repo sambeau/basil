@@ -1,180 +1,84 @@
+<img src="server/prelude/public/logos/basil-logo-shiny.svg" alt="" width="34" align="left"/>
+
 # Basil & Parsley
 
-**Basil** is a web server. **Parsley** is a programming language. Together they make building web applications surprisingly pleasant.
+**Basil** is a web server. **Parsley** is a programming language. Together they make building web applications surprisingly pleasant — no compiler, no npm, no build step, one small binary.
 
-> ⚠️ **Work in Progress** — This repository has been made public so I can use the [tree-sitter grammar](https://github.com/sambeau/tree-sitter-parsley) in my editor. A proper launch with documentation and a website is coming soon at [herbaceous.net](http://herbaceous.net).
->
-> **Please don't post this to Hacker News yet!** This has been months of work and I'd like to present it properly when it's ready. That said, if you've stumbled across this and want to poke around, you're very welcome — the [language manual](docs/parsley/manual/index.md) is pretty much complete.
+**📖 Website & documentation: [herbaceous.net](https://herbaceous.net)**
+
+> ⚠️ **Early days** — Parsley and Basil are in 1.0 alpha. Things work (and are tested), but expect rough edges and the occasional breaking change before 1.0. **Please don't post this to Hacker News just yet** — a proper launch is coming, and I'd like to present it properly.
 
 ---
 
-## Parsley Language
+## Install
 
-Parsley is an expression-oriented scripting language designed for munging data and building web applications. It aims to be expressive, powerful, familiar … and fun.
+```bash
+curl -fsSL https://herbaceous.net/install.sh | sh
+```
 
-**Core features:**
+Installs `basil` (the server) and `pars` (the language CLI & REPL). macOS, Linux, and Windows; Apple Silicon and Intel. Or grab a binary from [releases](https://github.com/sambeau/basil/releases).
 
-- **Everything is an expression** — `if`, `for`, and `try` all return values
-- **First-class HTML** — JSX/PHP-like tag syntax is built into the language, not bolted on
-- **Rich literals** — These are all native types:
-    - dates (`@2024-01-15`),
-    - durations (`@2h30m`),
-    - money (`$99.99`),
-    - paths (`@./config.json`),
-    - URLs (`@https://api.example.com`),
-    - regex (`/pattern/`)
-- **Declarative I/O** — read/write files, query databases, and fetch URLs with operators rather than method chains
-- **Data Formats** – slurp CSV in; spit JSON or Markdown out
-- **Schemas and records** — define data shapes, validate input, and bind forms with minimal ceremony
-- **Batteries included** — string manipulation, date arithmetic, table queries, CSV, JSON, Markdown, SQL, search, SFTP, Git and more without importing anything
+## What does it look like?
 
-**Examples:**
+A CSV file becoming a web page — this is the whole program:
 
 ```parsley
-// A simple page component
-
 let Page = fn({title, users}) {
     <html>
-        <head><title>title</title></head>
         <body>
             <h1>title</h1>
             <ul>
                 for (user in users) {
-                    {name, email} = user 
-                    <li>
-                        <b>name +": "</b>email
-                    </li>
+                    <li><b>user.name</b> " — " user.email</li>
                 }
             </ul>
         </body>
     </html>
 }
-```
 
-Using an array of dictionaries:
-
-```parsley
- <Page title="Active Users" users={[{name:"Robert Foo", email:"foo@example..com"}]}/>
-```
-
-Outputs:
-
-```html
-<html><head><title>Active Users</title></head><body><h1>Hello</h1><ul><li><b>Robert Foo: </b>foo@example.com</li></ul></body></html>
-```
-
-From a CSV file:
-
-```CSV
-name,email
-Luke,luke@example.com
-Leia,leia@example.com
-Han,han@example.com
-Chewy,chewy@example.com
-```
-
-Load and show:
-
-```parsley
-let emailList <== CSV(@/path/to/email-list.csv)
+let emailList <== CSV(@./email-list.csv)
 <Page title="Active Users" users={emailList}/>
 ```
 
-Outputs:
-```html
-<html><head><title>Active Users</title></head><body><h1>Active Users</h1><ul><li><b>Luke: </b>luke@example.com</li><li><b>Leia: </b>leia@example.com</li><li><b>Han: </b>han@example.com</li><li><b>Chewy: </b>chewy@example.com</li></ul></body></html>
+```bash
+pars --raw users.pars
 ```
 
-``emailList`` is loaded in as a table:
-
-```parsley
-emailList.toBox()
-┌───────┬───────────────────┐
-│ name  │ email             │
-├───────┼───────────────────┤
-│ Luke  │ luke@example.com  │
-│ Leia  │ leia@example.com  │
-│ Han   │ han@example.com   │
-│ Chewy │ chewy@example.com │
-└───────┴───────────────────┘
-``` 
-
-Loading from database:
-
-```parsley
-// Query a database and render the result
-
-let users = @query(
-    Users 
-    | status == "active" 
-    ??-> name, email) // ?? means output a table
-
-<Page title="Active Users" users={users}/>
-```
-
-``Users`` is a binding of a ``User`` schema to a database table:
-
-```parsely
-@schema User {
-    id: int
-    name: string
-    email: string
-    status: string
-}
-
-let db = @sqlite(":memory:")       // or a file
-db.createTable(User, "users")      // if not already created
-let Users = db.bind(User, "users") // 'Users' can now be queried
-```
-
-### The `pars` CLI
-
-The `pars` command runs Parsley scripts and includes an interactive REPL for experimentation:
+And a working website in three commands:
 
 ```bash
-pars script.pars          # Run a script
-pars -e '@now + @7d'      # Evaluate an expression
-pars                      # Start the REPL
+basil --init myapp
+cd myapp
+basil --dev        # edit site/index.pars, save, watch the browser refresh
 ```
 
-A fun example:
+## Parsley, the language
 
-```bash
-pars --raw -e "(<==CSV(@/path/to/email-list.csv)).toBox()"  
-┌───────┬───────────────────┐
-│ name  │ email             │
-├───────┼───────────────────┤
-│ Luke  │ luke@example.com  │
-│ Leia  │ leia@example.com  │
-│ Han   │ han@example.com   │
-│ Chewy │ chewy@example.com │
-└───────┴───────────────────┘
-```
----
+An expression-oriented scripting language for munging data and building pages:
 
-## Basil Server
+- **Everything is an expression** — `if`, `for`, and `try` all return values
+- **First-class HTML** — tags are grammar, not templates; components are just functions
+- **Rich literals** — dates (`@2024-01-15`), durations (`@2h30m`), money (`$99.99`, exact arithmetic), paths (`@./config.json`), URLs, regex
+- **Declarative I/O** — `let users <== CSV(@./users.csv)` reads a file into a table; `<=/=` fetches over the network
+- **Batteries included** — strings, dates, tables, CSV/JSON/Markdown, SQL, search, and more without importing anything
 
-Basil is a web server that runs Parsley handlers. Drop a `.pars` file in a directory and it becomes a route. Single binary install; almost no configuration; no build step.
+→ [Get started in ten minutes](https://herbaceous.net/get-started.html) · [Parsley manual](https://herbaceous.net/manual/index.html)
 
-**Core features:**
+## Basil, the server
 
-- **File-based routing** — or a React-like single file handler
-- **Built-in SQL Database** — in-process, super-fast, SQLite database 
-- **Hot reload** — edit a handler and your browser refreshes
-- **Parts** – dynamic components from reloadable HTML fragments
-- **Built-in authentication** — sessions, users, roles, API keys, and **Passkeys**
-- **Full-text search** — point it at a directory and query your content
-- **Built-in Git server** — push-to-deploy
-- **Built-in Image server** — no need for libraries or a CDN
-- **Development tools** — database inspector, request logging, and web-based error pages
+Drop a `.pars` file in a directory and it's a route:
 
-Basil is still under active development and not *quite* ready for public use.
+- **File-based routing** with hot reload — edit, save, the browser refreshes
+- **Built-in SQL database** (in-process SQLite) with a web inspector
+- **Authentication built in** — sessions, users, roles, API keys, and passkeys
+- **Full-text search**, an **image server** (resize, smart crop, WebP, srcsets), and a **Git server** for push-to-deploy
+- **Production-ready HTTPS** — automatic Let's Encrypt certificates
 
----
+→ [Basil manual](https://herbaceous.net/basil/index.html)
 
 ## Embedding Parsley
 
-Parsley can be embedded in any Go application with just a few lines:
+Parsley embeds in any Go application:
 
 ```go
 import "github.com/sambeau/basil/pkg/parsley"
@@ -184,22 +88,11 @@ result, err := parsley.Eval(`"Hello, " + name + "!"`, parsley.Env{
 })
 ```
 
-See the [embedding documentation](pkg/parsley/README.md) for details.
+See the [embedding documentation](pkg/parsley/README.md).
 
----
+## Why?
 
-## Current Status
-
-- **Parsley**: Final stages of 1.0 alpha release
-- **Basil**: Work in progress, coming *very* soon
-
----
-
-## Want to Know More?
-
-If you're interested in how Parsley and Basil were designed and built, I'd be happy to chat. Feel free to contact me.
-
----
+Because making websites in the early 2000s was *fun* — write a file, refresh, smile — and somewhere along the way we buried that under toolchains. This is an attempt to dig it back up. [The whole story](https://herbaceous.net/why.html).
 
 ## License
 

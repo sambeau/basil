@@ -70,10 +70,25 @@ let extractMenu = fn(indexHtml) {
     }
 }
 
+// One search-index entry per page: title and headings weigh more than body
+// text in the client-side scoring (see the search script in components.pars)
+let searchEntry = fn(title, sitePath, section, html) {
+    let toc = extractToc(html)
+    let headings = (for (h in toc) { h.text }).join(" ")
+    {
+        title: title,
+        path: sitePath,
+        section: section,
+        headings: headings,
+        text: html.stripHtml().normalizeSpace().truncate(4000),
+    }
+}
+
 // Render one documentation tree (a folder of .md files with an index.md)
 // under dist/{outDir}/, with sidebar + per-page tables of contents.
 // switcher is "parsley" or "basil" (the active tab in the docs switcher).
-// Returns {menu, count} so callers can reuse the sidebar for extra pages.
+// Returns {menu, count, entries} so callers can reuse the sidebar and
+// collect search-index entries.
 let renderTree = fn(srcDir, outDir, navLabel, switcher, fixLinks) {
     // fileList's ** doesn't match files in the root directory, so list both.
     let mdFiles = fileList(srcDir + "/*.md") ++ fileList(srcDir + "/**/*.md")
@@ -92,7 +107,7 @@ let renderTree = fn(srcDir, outDir, navLabel, switcher, fixLinks) {
     let menu = extractMenu(indexPage.html)
 
     // Second pass: write pages with layout
-    let built = for (page in pages) {
+    let entries = for (page in pages) {
         let relHtml = toHtmlName(page.rel)
         let sitePath = outDir + "/" + relHtml
         let root = rootPrefix(sitePath)
@@ -111,9 +126,9 @@ let renderTree = fn(srcDir, outDir, navLabel, switcher, fixLinks) {
             <article>page.html</article>
         </Layout>
         writePage(out, rendered)
-        relHtml
+        searchEntry(page.title, sitePath, navLabel, page.html)
     }
-    {menu: menu, count: built.length()}
+    {menu: menu, count: entries.length(), entries: entries}
 }
 
 // --- homepage ----------------------------------------------------------------
@@ -137,7 +152,7 @@ let aboutMenu = [{
 }]
 
 let pageFiles = fileList("./pages/*.md")
-let sitePages = for (f in pageFiles) {
+let sitePageEntries = for (f in pageFiles) {
     let doc <== MD(f.path, {ids: true})
     let name = f.path.stem
     let title = if (doc.md.title != null) { doc.md.title } else { name }
@@ -147,7 +162,7 @@ let sitePages = for (f in pageFiles) {
         <article>html</article>
     </Layout>
     writePage(@(./dist/{name}.html), page)
-    name
+    searchEntry(title, name + ".html", "About", html)
 }
 
 // --- documentation trees -------------------------------------------------------
@@ -174,6 +189,13 @@ let refPage = <Layout title="Basil Parsley Reference" root="../" path="basil/ref
 </Layout>
 writePage(@./dist/basil/reference.html, refPage)
 
+// --- search index ----------------------------------------------------------
+// One JSON file the search box fetches lazily; scoring happens client-side.
+
+let searchIndex = parsleyTree.entries ++ basilTree.entries ++ sitePageEntries ++
+    [searchEntry("Basil Parsley Reference", "basil/reference.html", "Basil Manual", refHtml)]
+searchIndex ==> JSON(@./dist/search-index.json)
+
 // --- assets & static files -----------------------------------------------------
 
 dir(@./dist/assets).mkdir({parents: true})
@@ -195,4 +217,4 @@ let notFound = <Layout title="Not found — Basil & Parsley" root="" path="404.h
 </Layout>
 writePage(@./dist/404.html, notFound)
 
-"Built " + (parsleyTree.count + basilTree.count + sitePages.length() + 3) + " pages into " + distDir.string
+"Built " + (parsleyTree.count + basilTree.count + sitePageEntries.length() + 3) + " pages into " + distDir.string + ", indexed " + searchIndex.length() + " for search"
