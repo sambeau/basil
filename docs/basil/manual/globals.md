@@ -10,8 +10,6 @@ author: Basil Team
 keywords:
   - globals
   - params
-  - env
-  - args
   - publicUrl
   - csrf
   - server
@@ -21,9 +19,9 @@ keywords:
 
 # Server Globals
 
-Every Basil handler runs with a handful of globals already in scope — no `import` required. They give you the request's input (`@params`), the process environment (`@env`), and command-line arguments (`@args`), plus two server functions for asset URLs and CSRF protection.
+Every Basil handler runs with a handful of globals already in scope — no `import` required. On top of the two [Parsley globals](../../parsley/manual/fundamentals/globals.md) (`@env` and `@args`, available everywhere), the server adds the request's input (`@params`) plus two functions for asset URLs and CSRF protection.
 
-> These globals are re-read per request, so a value captured at module scope always reflects the current request.
+> `@params` is re-read per request, so a value captured at module scope always reflects the current request.
 
 ## `@params`
 
@@ -42,34 +40,7 @@ Query-string parameters and POST form data are merged into one dictionary, with 
 
 > Use `@params` instead of `request.query` (from [@basil/http](http.md)) when you want unified access to both query strings and form submissions. Reach for `request.query` only when you specifically need the query string alone.
 
-## `@env`
-
-Environment variables dictionary. Works in both the `pars` CLI and the Basil server.
-
-**Type:** `Dictionary`
-
-```parsley
-@env.HOME                       // "/Users/alice"
-@env["DATABASE_URL"]            // connection string
-@env.PATH                       // system PATH
-```
-
-> Environment variables are read once at startup and are read-only.
-
-## `@args`
-
-Command-line arguments array. Primarily useful in `pars` CLI scripts.
-
-**Type:** `Array` of `String`
-
-```parsley
-// pars script.pars arg1 arg2
-@args[0]                        // "arg1"
-@args[1]                        // "arg2"
-@args.length()                  // 2
-```
-
-> In Basil server context `@args` is typically empty — it carries the CLI script's arguments, of which a request handler has none.
+> **`@env` and `@args` are Parsley globals, not Basil-specific.** They work the same in the `pars` CLI and in handlers, so they're documented in the Parsley manual under [Globals](../../parsley/manual/fundamentals/globals.md). In a request handler `@args` is normally empty.
 
 ## Server Functions
 
@@ -126,8 +97,16 @@ Access the CSRF token through the request context to protect state-changing form
 
 > CSRF protection is automatic for state-changing HTTP methods — always include the token in your forms.
 
+## Other Server Globals
+
+Two more globals are injected by the server but documented on their own pages:
+
+- `@DB` — the configured database connection, shared across handlers. See [Database](database.md).
+- `@SEARCH` — the full-text search index. See [Search](search.md).
+
 ## See Also
 
+- [Parsley Globals](../../parsley/manual/fundamentals/globals.md) — `@env` and `@args`, available everywhere Parsley runs
 - [@basil/http](http.md) — the full request/response context (`request.query`, headers, cookies)
 - [@basil/auth](auth.md) — the authenticated user and session
 - [Authentication](authentication.md) — configuring auth, roles, and protected paths

@@ -44,7 +44,7 @@ The script's output (the value of its last expression) is printed to stdout.
 
 ### Command-Line Arguments
 
-Pass arguments after the script name. Access them via the `@args` literal:
+Pass arguments after the script name. Access them via the [`@args` global](../fundamentals/globals.md#args):
 
 ```bash
 pars greet.pars Alice Bob
@@ -245,6 +245,7 @@ pars fmt -w src/*.pars
 
 ## See Also
 
+- [Globals](../fundamentals/globals.md) — `@args` and `@env`
 - [REPL](repl.md) — Interactive mode commands
 - [Security Model](security.md) — File and execution permissions
 - [PLN](../pln.md) — Parsley Literal Notation format
