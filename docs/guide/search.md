@@ -152,11 +152,17 @@ results = search.query("hello world", {
   raw: false,      // Pass query directly to FTS5? (default: false)
   filters: {
     tags: ["tutorial", "guide"],     // Match any of these tags
-    dateAfter: @2024-01-01,          // After this date
-    dateBefore: @2024-12-31          // Before this date
+    dateAfter: @2024-01-01,          // On or after this date (inclusive)
+    dateBefore: @2024-12-31          // On or before this date (inclusive)
   }
 })
 ```
+
+**Filter behavior:**
+- `tags` → Keep documents carrying any of the listed tags (array or single string)
+- `dateAfter` / `dateBefore` → Inclusive bounds, compared in UTC. Accept datetime literals (`@2024-01-01`) or ISO strings (`"2024-01-01"`)
+- Documents without a `date` are excluded whenever a date filter is set
+- `total` reflects the filtered match count, so pagination math stays correct
 
 **Query behavior:**
 - `hello world` → Both words must appear (AND)

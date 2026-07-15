@@ -60,8 +60,30 @@ Indexes Markdown and HTML out of the box, plus text-based PDF and DOCX files (50
 |-----|------|---------|-------------|
 | `limit` | int | 10 | Maximum results |
 | `offset` | int | 0 | Pagination offset |
+| `raw` | bool | false | Pass the query straight to FTS5 (advanced) |
+| `filters` | dictionary | — | Narrow results by tag or date (see below) |
 
-Returns `{items, total}` where each item has `url`, `path`, `title`, and a highlighted `snippet`. For documents added manually with `search.add()` there is no source file, so `path` is omitted — use `url` to link to the result.
+Returns `{items, total}` where each item has `url`, `path`, `title`, and a highlighted `snippet`. For documents added manually with `search.add()` there is no source file, so `path` is omitted — use `url` to link to the result. `total` reflects the filtered match count.
+
+### Filters
+
+```parsley
+let results = search.query(@params.q, {
+    filters: {
+        tags: ["tutorial", "guide"],  // Match any of these tags
+        dateAfter: @2024-01-01,       // On or after this date (inclusive)
+        dateBefore: @2024-12-31       // On or before this date (inclusive)
+    }
+})
+```
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `tags` | array or string | Keep documents carrying any of the listed tags |
+| `dateAfter` | date or string | Keep documents dated on or after this point |
+| `dateBefore` | date or string | Keep documents dated on or before this point |
+
+Dates accept Parsley datetime literals (`@2024-01-01`) or ISO strings (`"2024-01-01"`). Bounds are inclusive and compared in UTC. Documents without a `date` are excluded whenever a date filter is set.
 
 ## When to Use It
 

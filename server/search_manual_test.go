@@ -639,3 +639,112 @@ func createTestSearchInstanceWithWatch(t *testing.T, dbPath, watchDir string) (*
 
 	return instance, cleanup
 }
+
+func TestSearchQueryDateFilters(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	instance, cleanup := createTestSearchInstance(t, dbPath)
+	defer cleanup()
+
+	env := evaluator.NewEnvironment()
+
+	addDoc := func(url, title, date string) {
+		t.Helper()
+		pairs := map[string]evaluator.Object{
+			"url":     &evaluator.String{Value: url},
+			"title":   &evaluator.String{Value: title},
+			"content": &evaluator.String{Value: "basil search content"},
+		}
+		if date != "" {
+			pairs["date"] = &evaluator.String{Value: date}
+		}
+		doc := evaluator.NewDictionaryFromObjects(pairs)
+		doc.Env = env
+		result := searchAddMethod(instance, []evaluator.Object{doc}, env)
+		if _, ok := result.(*evaluator.Boolean); !ok {
+			t.Fatalf("failed to add %s: %v", url, result)
+		}
+	}
+
+	addDoc("/old", "Old Post", "2020-06-15")
+	addDoc("/new", "New Post", "2025-03-01")
+	addDoc("/undated", "Undated Post", "")
+
+	query := func(t *testing.T, filters map[string]evaluator.Object) []string {
+		t.Helper()
+		filtersDict := evaluator.NewDictionaryFromObjects(filters)
+		filtersDict.Env = env
+		optsDict := evaluator.NewDictionaryFromObjects(map[string]evaluator.Object{
+			"filters": filtersDict,
+		})
+		optsDict.Env = env
+
+		result := searchQueryMethod(instance, []evaluator.Object{
+			&evaluator.String{Value: "basil"},
+			optsDict,
+		}, env)
+
+		resultsDict, ok := result.(*evaluator.Dictionary)
+		if !ok {
+			t.Fatalf("expected dictionary result, got %T: %v", result, result)
+		}
+		itemsArr, ok := evaluator.Eval(resultsDict.Pairs["items"], env).(*evaluator.Array)
+		if !ok {
+			t.Fatalf("expected items array")
+		}
+		var titles []string
+		for _, item := range itemsArr.Elements {
+			itemDict, ok := item.(*evaluator.Dictionary)
+			if !ok {
+				t.Fatalf("expected item dictionary, got %T", item)
+			}
+			title, ok := evaluator.Eval(itemDict.Pairs["title"], itemDict.Env).(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected title string")
+			}
+			titles = append(titles, title.Value)
+		}
+		return titles
+	}
+
+	// datetimeDict builds what a @2023-01-01 datetime literal evaluates to
+	datetimeDict := func(year, month, day int64) *evaluator.Dictionary {
+		d := evaluator.NewDictionaryFromObjects(map[string]evaluator.Object{
+			"__type": &evaluator.String{Value: "datetime"},
+			"kind":   &evaluator.String{Value: "date"},
+			"year":   &evaluator.Integer{Value: year},
+			"month":  &evaluator.Integer{Value: month},
+			"day":    &evaluator.Integer{Value: day},
+		})
+		d.Env = env
+		return d
+	}
+
+	t.Run("dateAfter as datetime dictionary", func(t *testing.T) {
+		titles := query(t, map[string]evaluator.Object{
+			"dateAfter": datetimeDict(2023, 1, 1),
+		})
+		if len(titles) != 1 || titles[0] != "New Post" {
+			t.Errorf("expected only New Post, got %v", titles)
+		}
+	})
+
+	t.Run("dateBefore as datetime dictionary", func(t *testing.T) {
+		titles := query(t, map[string]evaluator.Object{
+			"dateBefore": datetimeDict(2023, 1, 1),
+		})
+		if len(titles) != 1 || titles[0] != "Old Post" {
+			t.Errorf("expected only Old Post (undated excluded), got %v", titles)
+		}
+	})
+
+	t.Run("dateAfter as string", func(t *testing.T) {
+		titles := query(t, map[string]evaluator.Object{
+			"dateAfter": &evaluator.String{Value: "2023-01-01"},
+		})
+		if len(titles) != 1 || titles[0] != "New Post" {
+			t.Errorf("expected only New Post, got %v", titles)
+		}
+	})
+}

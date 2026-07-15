@@ -3,6 +3,7 @@ package search
 import (
 	"database/sql"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -505,5 +506,143 @@ func TestReindex(t *testing.T) {
 	}
 	if results4.Total != 0 {
 		t.Errorf("expected 0 results for old docs, got %d", results4.Total)
+	}
+}
+
+func TestSearchDateFilters(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	idx, err := NewFTS5Index(db, "porter", DefaultWeights())
+	if err != nil {
+		t.Fatalf("failed to create index: %v", err)
+	}
+
+	docs := []*Document{
+		{URL: "/old", Title: "Old Post", Content: "basil search content", Date: time.Date(2020, 6, 15, 0, 0, 0, 0, time.UTC)},
+		{URL: "/new", Title: "New Post", Content: "basil search content", Date: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)},
+		{URL: "/undated", Title: "Undated Post", Content: "basil search content"},
+	}
+	if err := idx.BatchIndex(docs); err != nil {
+		t.Fatalf("failed to index documents: %v", err)
+	}
+
+	cutoff := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	search := func(t *testing.T, filters SearchFilters) []SearchResult {
+		t.Helper()
+		opts := DefaultSearchOptions()
+		opts.Filters = filters
+		results, err := idx.Search("basil", opts)
+		if err != nil {
+			t.Fatalf("search failed: %v", err)
+		}
+		return results.Results
+	}
+
+	t.Run("dateAfter", func(t *testing.T) {
+		results := search(t, SearchFilters{DateAfter: cutoff})
+		if len(results) != 1 || results[0].URL != "/new" {
+			t.Errorf("expected only /new, got %+v", results)
+		}
+	})
+
+	t.Run("dateBefore", func(t *testing.T) {
+		results := search(t, SearchFilters{DateBefore: cutoff})
+		if len(results) != 1 || results[0].URL != "/old" {
+			t.Errorf("expected only /old (undated docs excluded), got %+v", results)
+		}
+	})
+
+	t.Run("date range", func(t *testing.T) {
+		results := search(t, SearchFilters{
+			DateAfter:  time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC),
+			DateBefore: cutoff,
+		})
+		if len(results) != 1 || results[0].URL != "/old" {
+			t.Errorf("expected only /old, got %+v", results)
+		}
+	})
+
+	t.Run("boundary is inclusive", func(t *testing.T) {
+		exact := time.Date(2020, 6, 15, 0, 0, 0, 0, time.UTC)
+		results := search(t, SearchFilters{DateAfter: exact, DateBefore: exact})
+		if len(results) != 1 || results[0].URL != "/old" {
+			t.Errorf("expected /old on exact boundary, got %+v", results)
+		}
+	})
+
+	t.Run("timezones normalized to UTC", func(t *testing.T) {
+		// 2023-01-01T08:00+10:00 is 2022-12-31T22:00Z — before the cutoff
+		offsetDoc := &Document{
+			URL:     "/offset",
+			Title:   "Offset Post",
+			Content: "basil search content",
+			Date:    time.Date(2023, 1, 1, 8, 0, 0, 0, time.FixedZone("UTC+10", 10*3600)),
+		}
+		if err := idx.IndexDocument(offsetDoc); err != nil {
+			t.Fatalf("failed to index document: %v", err)
+		}
+		defer idx.RemoveDocument("/offset")
+
+		results := search(t, SearchFilters{DateAfter: cutoff})
+		for _, r := range results {
+			if r.URL == "/offset" {
+				t.Errorf("/offset is before the cutoff in UTC, should be excluded")
+			}
+		}
+		results = search(t, SearchFilters{DateBefore: cutoff})
+		found := false
+		for _, r := range results {
+			if r.URL == "/offset" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("/offset is before the cutoff in UTC, should match dateBefore")
+		}
+	})
+}
+
+func TestSearchTotalWithFilters(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	idx, err := NewFTS5Index(db, "porter", DefaultWeights())
+	if err != nil {
+		t.Fatalf("failed to create index: %v", err)
+	}
+
+	// Four documents match the query, but only three pass the date filter
+	docs := []*Document{
+		{URL: "/a", Title: "Post A", Content: "basil content", Date: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{URL: "/b", Title: "Post B", Content: "basil content", Date: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)},
+		{URL: "/c", Title: "Post C", Content: "basil content", Date: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)},
+		{URL: "/d", Title: "Post D", Content: "basil content", Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
+	}
+	if err := idx.BatchIndex(docs); err != nil {
+		t.Fatalf("failed to index documents: %v", err)
+	}
+
+	// Limit smaller than the filtered match count forces the COUNT query
+	opts := DefaultSearchOptions()
+	opts.Limit = 2
+	opts.Filters.DateAfter = time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	results, err := idx.Search("basil", opts)
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(results.Results) != 2 {
+		t.Errorf("expected 2 results in page, got %d", len(results.Results))
+	}
+	if results.Total != 3 {
+		t.Errorf("expected total 3 (filters applied to count), got %d", results.Total)
 	}
 }

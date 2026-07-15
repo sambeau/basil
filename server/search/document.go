@@ -83,7 +83,9 @@ func (idx *FTS5Index) IndexDocument(doc *Document) error {
 	tagsStr := strings.Join(doc.Tags, " ")
 	dateStr := ""
 	if !doc.Date.IsZero() {
-		dateStr = doc.Date.Format(time.RFC3339)
+		// Stored in UTC so lexicographic comparison in date filters
+		// matches chronological order (see buildSearchWhere)
+		dateStr = doc.Date.UTC().Format(time.RFC3339)
 	}
 
 	insertFTS := `
@@ -259,7 +261,9 @@ func (idx *FTS5Index) BatchIndex(docs []*Document) error {
 		tagsStr := strings.Join(doc.Tags, " ")
 		dateStr := ""
 		if !doc.Date.IsZero() {
-			dateStr = doc.Date.Format(time.RFC3339)
+			// Stored in UTC so lexicographic comparison in date filters
+			// matches chronological order (see buildSearchWhere)
+			dateStr = doc.Date.UTC().Format(time.RFC3339)
 		}
 
 		// Insert into FTS5

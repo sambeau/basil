@@ -625,38 +625,16 @@ func searchQueryMethod(instance *SearchInstance, args []evaluator.Object, env *e
 				// Parse dateAfter filter
 				if dateAfterExpr, ok := filtersDict.Pairs["dateAfter"]; ok {
 					dateAfter := evaluator.Eval(dateAfterExpr, filtersDict.Env)
-					if dateStr, ok := dateAfter.(*evaluator.String); ok {
-						// Try parsing common date formats
-						formats := []string{
-							"2006-01-02",
-							"2006-01-02T15:04:05Z07:00",
-							"2006-01-02 15:04:05",
-						}
-						for _, format := range formats {
-							if t, err := time.Parse(format, dateStr.Value); err == nil {
-								opts.Filters.DateAfter = t
-								break
-							}
-						}
+					if t, ok := parsleyDateValue(dateAfter); ok {
+						opts.Filters.DateAfter = t
 					}
 				}
 
 				// Parse dateBefore filter
 				if dateBeforeExpr, ok := filtersDict.Pairs["dateBefore"]; ok {
 					dateBefore := evaluator.Eval(dateBeforeExpr, filtersDict.Env)
-					if dateStr, ok := dateBefore.(*evaluator.String); ok {
-						// Try parsing common date formats
-						formats := []string{
-							"2006-01-02",
-							"2006-01-02T15:04:05Z07:00",
-							"2006-01-02 15:04:05",
-						}
-						for _, format := range formats {
-							if t, err := time.Parse(format, dateStr.Value); err == nil {
-								opts.Filters.DateBefore = t
-								break
-							}
-						}
+					if t, ok := parsleyDateValue(dateBefore); ok {
+						opts.Filters.DateBefore = t
 					}
 				}
 			}
@@ -674,6 +652,57 @@ func searchQueryMethod(instance *SearchInstance, args []evaluator.Object, env *e
 
 	// Convert results to Parsley dictionary
 	return searchResultsToDict(results, env)
+}
+
+// parsleyDateValue converts a Parsley value to a time.Time for date filters.
+// Accepts date strings ("2024-01-01", RFC3339, "2006-01-02 15:04:05") and
+// datetime dictionaries (e.g. @2024-01-01 literals). Returns false if the
+// value is not a recognizable date.
+func parsleyDateValue(obj evaluator.Object) (time.Time, bool) {
+	switch v := obj.(type) {
+	case *evaluator.String:
+		formats := []string{
+			"2006-01-02",
+			"2006-01-02T15:04:05Z07:00",
+			"2006-01-02 15:04:05",
+		}
+		for _, format := range formats {
+			if t, err := time.Parse(format, v.Value); err == nil {
+				return t, true
+			}
+		}
+	case *evaluator.Dictionary:
+		typeExpr, ok := v.Pairs["__type"]
+		if !ok {
+			return time.Time{}, false
+		}
+		typeStr, ok := evaluator.Eval(typeExpr, v.Env).(*evaluator.String)
+		if !ok || typeStr.Value != "datetime" {
+			return time.Time{}, false
+		}
+		intField := func(name string) (int, bool) {
+			expr, ok := v.Pairs[name]
+			if !ok {
+				return 0, false
+			}
+			i, ok := evaluator.Eval(expr, v.Env).(*evaluator.Integer)
+			if !ok {
+				return 0, false
+			}
+			return int(i.Value), true
+		}
+		year, okYear := intField("year")
+		month, okMonth := intField("month")
+		day, okDay := intField("day")
+		if !okYear || !okMonth || !okDay {
+			return time.Time{}, false
+		}
+		hour, _ := intField("hour")
+		minute, _ := intField("minute")
+		second, _ := intField("second")
+		return time.Date(year, time.Month(month), day, hour, minute, second, 0, time.UTC), true
+	}
+	return time.Time{}, false
 }
 
 // searchResultsToDict converts search results to a Parsley dictionary
