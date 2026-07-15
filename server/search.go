@@ -707,6 +707,7 @@ func searchResultsToDict(results *search.SearchResults, env *evaluator.Environme
 			itemPairs["path"] = evaluator.NewDictionaryFromObjects(pathPairs)
 		}
 
+		itemPairs["url"] = &evaluator.String{Value: r.URL}
 		itemPairs["title"] = &evaluator.String{Value: r.Title}
 		itemPairs["snippet"] = &evaluator.String{Value: r.Snippet}
 		itemPairs["highlight"] = &evaluator.String{Value: r.Highlight}

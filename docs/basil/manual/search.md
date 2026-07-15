@@ -61,7 +61,7 @@ Indexes Markdown and HTML out of the box, plus text-based PDF and DOCX files (50
 | `limit` | int | 10 | Maximum results |
 | `offset` | int | 0 | Pagination offset |
 
-Returns `{items, total}` where each item has `path`, `title`, and a highlighted `snippet`.
+Returns `{items, total}` where each item has `url`, `path`, `title`, and a highlighted `snippet`. For documents added manually with `search.add()` there is no source file, so `path` is omitted — use `url` to link to the result.
 
 ## When to Use It
 
