@@ -53,10 +53,13 @@ In-depth walkthroughs of Basil's larger features.
 
 ## Handler API
 
-Parsley modules and objects available inside server handlers.
+Globals, modules, and objects available inside server handlers.
 
 | Page | Description |
 |------|-------------|
+| [Server Globals](globals.md) | `@params`, `@env`, `@args`, `publicUrl()`, and the CSRF token |
+| [@basil/http](http.md) | The request/response context — `request`, `response`, `route`, `method` |
+| [@basil/auth](auth.md) | The per-request `session`, `auth`, and `user` |
 | [@basil/api](api.md) | Auth wrappers, error helpers, and redirect for handlers |
 | [@basil/log](log.md) | Development logging utilities for handlers |
 | [@basil/html](html.md) | Accessible HTML form and UI components |
@@ -70,5 +73,5 @@ Parsley modules and objects available inside server handlers.
 
 ## Reference
 
-- [Basil Parsley Reference](../reference.md) — every server-side function, operator, and global in one page
+- [Basil Server Reference](../reference.md) — a map of every server-side module, global, and function, with a feature-availability matrix
 - [Parsley Language Manual](../../parsley/manual/index.md) — the language itself

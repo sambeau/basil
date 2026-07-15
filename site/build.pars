@@ -191,10 +191,15 @@ let basilTree = renderTree(basilSrc, "basil", "Basil Manual", "basil", fixBasilL
 // The full server-side Parsley reference renders alongside the manual,
 // reusing the Basil sidebar (it's linked from the Basil manual's index)
 let refDoc <== MD(@../docs/basil/reference.md, {ids: true})
-// reference.md sits at docs/basil/ and links into the manual (e.g.
-// "manual/images.md"); the manual is flattened to /basil, so collapse it.
-let refHtml = rewriteLinks(refDoc.html).replace("\"manual/images.html\"", "\"images.html\"")
-let refPage = <Layout title="Basil Parsley Reference" root="../" path="basil/reference.html"
+// reference.md sits at docs/basil/ and links into both manuals. The Basil
+// manual is flattened to /basil, so collapse the "manual/" segment on every
+// such link; the Parsley manual flattens to /manual and its standalone pages
+// (error-codes) render at the site root, so remap those cross-links too.
+let refHtml = rewriteLinks(refDoc.html)
+    .replace(/"manual\/([^"]+\.html)"/g, "\"${1}\"")
+    .replace("../parsley/manual/", "../manual/")
+    .replace("../parsley/error-codes.html", "../error-codes.html")
+let refPage = <Layout title="Basil Server Reference" root="../" path="basil/reference.html"
     menu={basilTree.menu} base="../basil/" active="reference.html" switcher="basil"
     toc={extractToc(refHtml)}>
     <article>refHtml</article>
@@ -224,7 +229,7 @@ let errorCodesEntry = renderStandalone(@../docs/parsley/error-codes.md, "error-c
 // One JSON file the search box fetches lazily; scoring happens client-side.
 
 let searchIndex = parsleyTree.entries ++ basilTree.entries ++ sitePageEntries ++
-    [searchEntry("Basil Parsley Reference", "basil/reference.html", "Basil Manual", refHtml),
+    [searchEntry("Basil Server Reference", "basil/reference.html", "Basil Manual", refHtml),
      cheatsheetEntry, errorCodesEntry]
 searchIndex ==> JSON(@./dist/search-index.json)
 
