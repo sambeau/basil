@@ -116,9 +116,21 @@ func evalInExpression(tok lexer.Token, left, right Object) Object {
 	}
 }
 
-// evalIndexExpression handles array and string indexing
-// If optional is true, returns NULL instead of error for out-of-bounds access
+// evalIndexExpression handles index access.
+//
+// Access rule: absence yields NULL; an out-of-range position is an error.
+//   - A null receiver propagates NULL (mirrors dot access). This is normally
+//     handled at the dispatch site so the index sub-expression is skipped; the
+//     guard below is defensive for any other caller.
+//   - A missing dictionary key yields NULL (absence on a present container).
+//   - An out-of-range array/string index errors, unless optional ([?n]) is set,
+//     in which case it yields NULL. Type mismatches always error, even with [?n].
 func evalIndexExpression(tok lexer.Token, left, index Object, optional bool) Object {
+	// Null propagation: indexing into null returns null.
+	if left == NULL || left.Type() == NULL_OBJ {
+		return NULL
+	}
+
 	// Handle response typed dictionary - unwrap __data for indexing
 	if dict, ok := left.(*Dictionary); ok && isResponseDict(dict) {
 		if dataExpr, ok := dict.Pairs["__data"]; ok {

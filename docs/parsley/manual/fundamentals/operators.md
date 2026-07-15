@@ -207,17 +207,54 @@ s[1]                 // "e"
 s[-2:]               // "lo"
 ```
 
-### Optional Access
+### The access rule: absence is `null`, out-of-range is an error
 
-`[?n]` returns `null` instead of erroring on out-of-bounds:
+One rule covers every kind of access, dot or bracket:
+
+- **Absence yields `null`.** Reaching into `null`, or asking for a dictionary key that
+  doesn't exist, returns `null` — it never errors. This is what lets chains walk through
+  missing data:
+
+  ```parsley
+  let u = {name: "Ada"}
+  u.address.city          // null   (address is missing — chain doesn't error)
+  u["address"]["city"]    // null   (bracket access behaves identically)
+  null["anything"]        // null   (indexing into null returns null)
+  ```
+
+- **An out-of-range position is an error.** Indexing a *present* array or string outside
+  its bounds is almost always a bug, so it fails loudly at the fault site:
+
+  ```parsley
+  let a = [1, 2, 3]
+  a[10]                // Error: index 10 out of range (length 3)
+  ```
+
+### Optional access `[?n]`
+
+`[?n]` opts into leniency for out-of-range positions — returning `null` instead of erroring:
 
 ```parsley
 let a = [1, 2, 3]
-a[?10]               // null     (instead of index error)
-a[?0]                // 1        (works normally when in bounds)
+a[?10]               // null   (instead of an index error)
+a[?0]                // 1      (works normally when in bounds)
 ```
 
-Dictionary access always returns `null` for missing keys — no optional form needed.
+Dictionaries have no positional range, so `[?]` is unnecessary there — a missing key is
+already `null`.
+
+### Propagate, recover, or assert
+
+Because absence is `null`, every hop in a chain has three modes, chosen with `??`:
+
+```parsley
+data["a"]["b"]                     // propagate — null flows through (the common case)
+data["a"] ?? "fallback"            // recover   — supply a value at this hop
+data["a"] ?? fail("a is required") // assert    — fail loudly, here, with a reason
+```
+
+`?? fail("…")` is the way to be strict mid-chain: it stops with a clear, located error
+exactly where you require a value to exist.
 
 ## Spread
 

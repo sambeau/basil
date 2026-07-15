@@ -172,9 +172,21 @@ let processOrder = fn(order) {
 }
 ```
 
+#### Absence never errors
+
+Reaching into `null`, or asking for a missing dictionary key, returns `null` — so chains walk through missing data instead of crashing. Dot and bracket access behave identically:
+
+```parsley
+let user = {name: "Alice"}
+user["email"]                   // null (missing key)
+user.email                      // null (dot access, same)
+user["profile"]["city"]         // null (chain through a missing intermediate)
+null["anything"]                // null (indexing into null)
+```
+
 #### Optional Index Access
 
-Use `[?index]` to return `null` instead of erroring on an out-of-range array or string index:
+Only an out-of-range position on a *present* array or string is an error. `[?index]` opts into `null` instead:
 
 ```parsley
 let arr = [1, 2, 3]
@@ -182,14 +194,7 @@ arr[?99]                        // null (no error)
 arr[99]                         // Error: index out of bounds
 ```
 
-Dictionaries never error on missing keys, so `[?]` is not needed there:
-
-```parsley
-let user = {name: "Alice"}
-user["email"]                   // null (missing key, no error)
-user[?"email"]                  // null (accepted, but identical to the above)
-user.email                      // null (null propagation, no error)
-```
+Dictionaries have no positional range, so `[?]` is unnecessary there — `user[?"email"]` is identical to `user["email"]`.
 
 #### Null Coalescing
 
@@ -198,6 +203,14 @@ Use `??` to provide default values:
 ```parsley
 let name = user.name ?? "Anonymous"
 let config = loadConfig() ?? {default: true}
+```
+
+#### Asserting presence
+
+The strict counterpart to forgiving access: `?? fail("…")` stops with a clear, located error where a value is required, instead of letting `null` propagate silently:
+
+```parsley
+let dbUrl = config["database"]["url"] ?? fail("database url is required")
 ```
 
 ---

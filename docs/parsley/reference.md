@@ -982,19 +982,49 @@ null ?? "default"               // "default" (left is null, use right)
 
 **Note**: Unlike truthiness checks, `??` only triggers on `null`, not on other falsy values like `0`, `""`, or `[]`.
 
-#### Optional Index Access
+#### The access rule: absence is `null`, out-of-range is an error
 
-Use `[?index]` syntax to safely access **array or string** elements without an error when the index is out of range:
+One rule governs all access, dot or bracket:
+
+- **Absence yields `null`** — reaching into `null`, or asking for a missing dictionary key, returns `null` and never errors. This makes chains walk through missing data:
+
+```parsley
+let u = {name: "Ada"}
+u.address.city                  // null
+u["address"]["city"]            // null (bracket access behaves identically)
+null["anything"]                // null
+```
+
+- **An out-of-range position is an error** — indexing a *present* array or string outside its bounds is almost always a bug, so it fails loudly:
 
 ```parsley
 let arr = [1, 2, 3]
-arr[?99]                        // null (index out of bounds, no error)
+arr[99]                         // Error: index 99 out of range (length 3)
+```
+
+#### Optional Index Access
+
+`[?index]` opts into leniency for out-of-range positions, returning `null` instead of erroring:
+
+```parsley
+let arr = [1, 2, 3]
+arr[?99]                        // null (out of range, no error)
 arr[?0]                         // 1 (valid index)
 ```
 
-Without `?`, out-of-bounds access would produce an error.
+Dictionaries have no positional range, so `[?]` is unnecessary there — a missing key is already `null`, and `d[?"x"]` behaves identically to `d["x"]`.
 
-Dictionaries do **not** need `[?]` — plain access already returns `null` for missing keys. The `[?key]` form is accepted on dictionaries for consistency, but `d[?"x"]` and `d["x"]` behave identically.
+#### Propagate, recover, or assert
+
+Because absence is `null`, each hop in a chain has three modes, selected with `??`:
+
+```parsley
+data["a"]["b"]                     // propagate — null flows through (common case)
+data["a"] ?? "fallback"            // recover   — supply a value at this hop
+data["a"] ?? fail("a is required") // assert    — fail loudly, here, with a reason
+```
+
+`?? fail("…")` is how you stay strict mid-chain: it stops with a clear, located error exactly where a value is required.
 
 ---
 
@@ -4935,9 +4965,21 @@ let processOrder = fn(order) {
 }
 ```
 
+#### Absence never errors
+
+Reaching into `null`, or asking for a missing dictionary key, returns `null` — so chains walk through missing data instead of crashing. Dot and bracket access behave identically:
+
+```parsley
+let user = {name: "Alice"}
+user["email"]                   // null (missing key)
+user.email                      // null (dot access, same)
+user["profile"]["city"]         // null (chain through a missing intermediate)
+null["anything"]                // null (indexing into null)
+```
+
 #### Optional Index Access
 
-Use `[?index]` to return `null` instead of erroring on an out-of-range array or string index:
+Only an out-of-range position on a *present* array or string is an error. `[?index]` opts into `null` instead:
 
 ```parsley
 let arr = [1, 2, 3]
@@ -4945,14 +4987,7 @@ arr[?99]                        // null (no error)
 arr[99]                         // Error: index out of bounds
 ```
 
-Dictionaries never error on missing keys, so `[?]` is not needed there:
-
-```parsley
-let user = {name: "Alice"}
-user["email"]                   // null (missing key, no error)
-user[?"email"]                  // null (accepted, but identical to the above)
-user.email                      // null (null propagation, no error)
-```
+Dictionaries have no positional range, so `[?]` is unnecessary there — `user[?"email"]` is identical to `user["email"]`.
 
 #### Null Coalescing
 
@@ -4961,6 +4996,14 @@ Use `??` to provide default values:
 ```parsley
 let name = user.name ?? "Anonymous"
 let config = loadConfig() ?? {default: true}
+```
+
+#### Asserting presence
+
+The strict counterpart to forgiving access: `?? fail("…")` stops with a clear, located error where a value is required, instead of letting `null` propagate silently:
+
+```parsley
+let dbUrl = config["database"]["url"] ?? fail("database url is required")
 ```
 
 ---

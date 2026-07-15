@@ -310,9 +310,24 @@ The existing validation methods (`isValid()`, `errorList()`, `hasError()`, `erro
 
 Rather than catching errors after the fact, Parsley provides several tools to prevent them.
 
+### Absence never errors
+
+Reaching into `null`, or asking for a missing dictionary key, returns `null` — so chains
+walk through missing data instead of crashing:
+
+```parsley
+let u = {name: "Ada"}
+u.address.city                   // null
+u["address"]["city"]             // null (bracket access behaves the same)
+null["anything"]                 // null
+```
+
+Only an **out-of-range position** on a *present* array or string is an error — that's
+almost always a bug, so it's surfaced at the fault site.
+
 ### Optional Access — `[?n]`
 
-Returns `null` instead of an index error when an index is out of bounds:
+Returns `null` instead of an index error when a position is out of range:
 
 ```parsley
 let items = ["a", "b", "c"]
@@ -321,7 +336,8 @@ items[?99]                       // null (no error)
 items[99]                        // Error: index 99 out of bounds
 ```
 
-Works on arrays, strings, and tables.
+Works on arrays, strings, and tables. Dictionaries don't need it — a missing key is
+already `null`.
 
 ### Null Coalescing — `??`
 
@@ -332,14 +348,26 @@ let name = null
 name ?? "anonymous"              // "anonymous"
 ```
 
-Combine with optional access for safe lookups with defaults:
+Combine with access for safe lookups with defaults:
 
 ```parsley
 let items = ["a", "b"]
 items[?5] ?? "missing"           // "missing"
+let cfg = {}
+cfg["host"] ?? "localhost"       // "localhost"
 ```
 
 > ⚠️ `??` only checks for `null`, not other falsy values. `0 ?? 10` returns `0`, not `10`.
+
+### Asserting presence — `?? fail(…)`
+
+The flip side of forgiving access: when a value **must** exist, `?? fail("…")` stops with a
+clear, located error at exactly that point, instead of letting a `null` propagate silently:
+
+```parsley
+let config = {}
+config["database"] ?? fail("database config is required")   // errors here, with a reason
+```
 
 ### Membership Testing — `in`
 

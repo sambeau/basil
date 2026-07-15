@@ -5038,6 +5038,13 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(left) {
 			return left
 		}
+		// Null propagation: indexing into null returns null, mirroring
+		// evalDotExpression. Short-circuits before the index is evaluated,
+		// so a null receiver never runs the index sub-expression. Absence
+		// yields null; out-of-range on a present container still errors.
+		if left == NULL || left == nil {
+			return NULL
+		}
 		index := Eval(node.Index, env)
 		if isError(index) {
 			return index
@@ -5048,6 +5055,10 @@ func Eval(node ast.Node, env *Environment) Object {
 		left := Eval(node.Left, env)
 		if isError(left) {
 			return left
+		}
+		// Null propagation: slicing into null returns null (see IndexExpression).
+		if left == NULL || left == nil {
+			return NULL
 		}
 
 		var start, end Object
