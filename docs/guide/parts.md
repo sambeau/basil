@@ -333,6 +333,28 @@ Details:
 - `part-lazy-threshold` defaults to `0` if omitted
 - Auto-refresh (if configured) starts after the lazy load completes
 
+### Cross-Part Targeting (`part-target`, `part-form`)
+
+Elements *outside* a Part can control it. Give the Part an `id`, then point at it with `part-target`:
+
+```parsley
+// Search box stays on the page (keeps focus); only the results Part reloads
+<form id="search-form">
+    <input name="q" type="search" placeholder="Search..."/>
+</form>
+
+<button part-target="results" part-submit="search" part-form="search-form">"Search"</button>
+
+<Part id="results" src={@./search-results.part}/>
+```
+
+- **`part-target="id"`** names the Part to update. Works with `part-click` (GET) or `part-submit` (POST). The trigger can be anywhere on the page — inside another Part or outside all of them.
+- **`part-form="formId"`** collects that form's fields as props when the trigger isn't inside a `<form>`. A submit button *inside* a form with `part-target` collects its own form's data automatically, no `part-form` needed.
+- Other `part-*` attributes on the trigger are passed as props, and take precedence over form fields with the same name.
+- If the target Part or the named form doesn't exist, a warning is logged to the console.
+
+For programmatic control (live search with debounce, loading indicators), there's also a global `Parts` API: `Parts.refresh(id, props, {view, debounce, method})`, `Parts.get(id)`, and `Parts.on(id, event, callback)`.
+
 ### Nested Parts
 
 Parts can contain other Parts:

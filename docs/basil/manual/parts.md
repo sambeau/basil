@@ -13,6 +13,8 @@ keywords:
   - interactive
   - part-click
   - part-submit
+  - part-target
+  - part-form
   - views
   - fragments
   - htmx
@@ -58,6 +60,7 @@ Click the button; the counter updates in place.
 - **`.part` files are view modules.** They may *only* export functions. Each export is a view — a state the component can be in.
 - **`part-click="name"`** on any element calls the `name` view on click, with the element's `part-*` attributes as props.
 - **`part-submit="name"`** on a `<form>` calls the view on submit, with the form fields as props.
+- **`part-target="id"`** lets an element outside a Part update it — give the Part an `id`, then trigger it from anywhere with `part-click` or `part-submit`. Add `part-form="formId"` to send a named form's fields when the trigger isn't inside one.
 - The server renders the view function and the component's HTML is replaced with the result.
 
 A display/edit/save cycle is three views:
