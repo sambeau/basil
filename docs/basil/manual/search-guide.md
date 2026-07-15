@@ -34,7 +34,7 @@ The [Search page](search.md) covers the essentials: `@SEARCH`, watched folders, 
 
 1. The watched folders are scanned recursively for files matching `extensions`.
 2. Each file is parsed — frontmatter, headings, text — and added to the index.
-3. The index is written to the SQLite file named by `backend`.
+3. The index is written to the SQLite file named by `path`.
 
 Every query after that re-checks the watched folders and compares file modification times against the index. New files are added, changed files are re-indexed, and deleted files are removed — no restarts, no build step. For a folder of hundreds or a few thousand documents this check is cheap; if you're watching truly huge trees, an occasional [`reindex()`](#stats-and-reindex) and less frequent querying will serve you better.
 
@@ -85,7 +85,7 @@ Plain text extraction, title from the filename. **Text-based PDFs only** — the
 
 ## The Index File
 
-The index is an ordinary SQLite file. With `watch: @./docs` and no `backend`, it lands next to the watched folder as `docs_search.db`. Things to know:
+The index is an ordinary SQLite file. With `watch: @./docs` and no `path`, it lands next to the watched folder as `docs_search.db`. Things to know:
 
 - **Ignore it in git.** It's a build artifact; add `*_search.db` to your `.gitignore`.
 - **Delete it any time.** The next query rebuilds it from the watched folders.
@@ -167,7 +167,7 @@ A single string works too: `filters: {tags: "tutorial"}`. Two caveats:
 Watched folders cover files. For everything else — database rows, API responses, generated pages — add documents yourself:
 
 ```parsley
-let {search, error} = @SEARCH({backend: "products.db"})
+let {search, error} = @SEARCH({path: "products.db"})
 
 search.add({
     url: "/products/42",                    // required, unique
@@ -188,7 +188,7 @@ search.remove("/products/42")
 The classic pattern — keep the index in step with a table:
 
 ```parsley
-let {search, error} = @SEARCH({backend: "products.db"})
+let {search, error} = @SEARCH({path: "products.db"})
 
 let products = @DB <=??=> "SELECT * FROM products WHERE active = 1"
 for (product in products) {
@@ -247,7 +247,7 @@ You shouldn't need it in normal use (the per-query freshness check handles day-t
 An in-memory index makes search tests fast and self-cleaning:
 
 ```parsley
-let {search, error} = @SEARCH({backend: ":memory:"})
+let {search, error} = @SEARCH({path: ":memory:"})
 
 search.add({url: "/t/1", title: "Test Doc", content: "findable content"})
 
