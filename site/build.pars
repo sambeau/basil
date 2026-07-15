@@ -131,6 +131,14 @@ let renderTree = fn(srcDir, outDir, navLabel, switcher, fixLinks) {
     {menu: menu, count: entries.length(), entries: entries}
 }
 
+// --- clean --------------------------------------------------------------------
+// Wipe dist/ first so pages deleted or renamed at source can't leave orphaned
+// HTML behind. Everything below regenerates from scratch (including CNAME,
+// install.sh, and assets, written near the end). rmdir is a no-op if dist/
+// doesn't exist yet, so a first build works too.
+
+dir(distDir).rmdir({recursive: true})
+
 // --- homepage ----------------------------------------------------------------
 
 let example <== text(@./examples/csv-page.pars)
