@@ -170,6 +170,7 @@ results = search.query("hello world", {
 {
   items: [
     {
+      url: "/docs/getting-started",      // Unique identifier (always present)
       path: @./docs/getting-started.md,  // Path object to source file
       title: "Getting Started",
       snippet: "...learn how to <mark>hello</mark> <mark>world</mark>...",
@@ -187,6 +188,8 @@ results = search.query("hello world", {
 ```
 
 **Note:** `path` is a path object, so you can use path methods like `.basename()`, `.extension()`, `.parent()` etc. To create a URL from the path, use string interpolation: `` `/{result.path}` ``
+
+**Note:** Documents added manually with `.add()` have no source file, so `path` is omitted for them — use `url` (the identifier you passed to `.add()`) to link to the result.
 
 **Pagination:**
 ```parsley

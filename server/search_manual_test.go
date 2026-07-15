@@ -53,6 +53,67 @@ func TestSearchAddMethod(t *testing.T) {
 	}
 }
 
+func TestSearchManualDocResultIncludesURL(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	instance, cleanup := createTestSearchInstance(t, dbPath)
+	defer cleanup()
+
+	env := evaluator.NewEnvironment()
+
+	// Manual docs have no source file path, so url is the only way to link back
+	doc := evaluator.NewDictionaryFromObjects(map[string]evaluator.Object{
+		"url":     &evaluator.String{Value: "/manual/linked-doc"},
+		"title":   &evaluator.String{Value: "Linked Document"},
+		"content": &evaluator.String{Value: "Unique manual content qrstuv123"},
+	})
+	doc.Env = env
+
+	result := searchAddMethod(instance, []evaluator.Object{doc}, env)
+	if _, ok := result.(*evaluator.Boolean); !ok {
+		t.Fatalf("Failed to add document: %v", result)
+	}
+
+	queryDict := evaluator.NewDictionaryFromObjects(map[string]evaluator.Object{})
+	queryDict.Env = env
+	searchResult := searchQueryMethod(instance, []evaluator.Object{
+		&evaluator.String{Value: "qrstuv123"},
+		queryDict,
+	}, env)
+
+	resultsDict, ok := searchResult.(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("Expected dictionary result, got %T: %v", searchResult, searchResult)
+	}
+
+	itemsObj := evaluator.Eval(resultsDict.Pairs["items"], env)
+	items, ok := itemsObj.(*evaluator.Array)
+	if !ok || len(items.Elements) != 1 {
+		t.Fatalf("Expected 1 result item, got %v", itemsObj)
+	}
+
+	item, ok := items.Elements[0].(*evaluator.Dictionary)
+	if !ok {
+		t.Fatalf("Expected dictionary item, got %T", items.Elements[0])
+	}
+
+	urlExpr, ok := item.Pairs["url"]
+	if !ok {
+		t.Fatal("Result item is missing 'url' field")
+	}
+	urlObj := evaluator.Eval(urlExpr, env)
+	urlStr, ok := urlObj.(*evaluator.String)
+	if !ok || urlStr.Value != "/manual/linked-doc" {
+		t.Errorf("Expected url '/manual/linked-doc', got %v", urlObj)
+	}
+
+	// Manual docs have no path, so the path key should be absent
+	if _, ok := item.Pairs["path"]; ok {
+		t.Error("Expected no 'path' field for a manually-added document")
+	}
+}
+
 func TestSearchAddMethodWithOptionalFields(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
