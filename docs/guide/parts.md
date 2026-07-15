@@ -126,9 +126,13 @@ Calls a view when the element is clicked:
 
 When clicked:
 1. Collects all `part-*` attributes from the button
-2. Merges with container's props
-3. Fetches `/counter.part?_view=increment&count=5`
-4. Updates the Part's HTML
+2. Fetches `/counter.part?_view=increment&count=5`
+3. Updates the Part's HTML
+
+**Note:** `part-click` does *not* merge the container's props — view switches start
+fresh, so the view receives exactly the `part-*` props written on the element.
+Pass along any state the next view needs (or better, store it in the database
+and pass only an id).
 
 #### `part-submit="viewName"`
 
@@ -144,9 +148,12 @@ Calls a view when a form is submitted:
 
 When submitted:
 1. Collects form data
-2. Merges with container's props
-3. Fetches `/article.part?_view=save&title=Hello&body=World`
+2. Merges it on top of the container's current props
+3. POSTs to `/article.part?_view=save` with the fields in the body
 4. Updates the Part's HTML
+
+Unlike `part-click`, form submits *do* carry the Part's existing props forward —
+form fields supplement the Part's current state.
 
 #### `part-*` Custom Props
 
@@ -158,7 +165,8 @@ Any attribute starting with `part-` becomes a prop:
 </button>
 ```
 
-The `delete` view receives: `{id: "123", confirm: "true", ...otherProps}`
+The `delete` view receives: `{id: 123, confirm: true}` (values are type-coerced,
+and only the button's own `part-*` props are sent)
 
 ## Props and Type Coercion
 
@@ -270,6 +278,8 @@ When you use a `<Part/>` tag, Basil automatically injects JavaScript before `</b
 - Auto-refresh with `part-refresh={ms}`
 - Immediate async load with `part-load="view"` (for slow data)
 - Lazy loading with `part-lazy="view"` (+ optional `part-lazy-threshold={px}`)
+- Cross-Part targeting: `part-target="id"` lets any element on the page drive a Part by id
+- A scripting API: `window.Parts` — `refresh()` (with debounce), `get()`, and `on()`/`off()` lifecycle events (`beforeRefresh`, `afterRefresh`, `error`); see the [Parts JavaScript API](../basil/manual/parts-js.md)
 
 **CSS Hook:**
 
@@ -372,20 +382,28 @@ export default = fn(props) {
 
 ### State Accumulation
 
-Props accumulate across interactions:
+Props accumulate across *form submits* (fields merge on top of the Part's
+current props), which is what makes multi-step forms work. Clicks don't
+accumulate — a `part-click` sends only the props written on the element:
 
 ```parsley
-// Initial render
+// Initial render — the Part's props are {step: 1}
 <Part src={@./form.part} view="default" step={1}/>
 
-// After clicking next, step=2 is added
-<button part-click="next" part-step={2}>Next</button>
+// A form submit merges its fields with {step: 1}
+<form part-submit="next">
+    <input name="name"/>
+    <button>Next</button>
+</form>
 
-// View receives {step: 2, ...originalProps}
+// View receives {step: 1, name: "..."}
 export next = fn(props) {
-    // props.step is now 2
     ...
 }
+
+// A click sends ONLY its own part-* props
+<button part-click="next" part-step={2}>Next</button>
+// View receives {step: 2} — nothing else
 ```
 
 ### Multi-Step Forms
@@ -459,10 +477,15 @@ The server logs show:
 
 **File: `todo.part`**
 
+The todo list lives in the database — each view re-reads it, so the Part is
+always correct, even across page refreshes or multiple tabs. (Carrying a
+growing list through props doesn't survive repeated updates; store real state
+and pass ids.)
+
 ```parsley
 export default = fn(props) {
-    let todos = props.todos ?? []
-    
+    let todos = @DB <=??=> "SELECT * FROM todos ORDER BY id"
+
     <div>
         <h2>Todos</h2>
         <form part-submit="add">
@@ -471,8 +494,8 @@ export default = fn(props) {
         </form>
         <ul>
             {for (todo in todos) {
-                <li>{todo}
-                    <button part-click="remove" part-text={todo}>×</button>
+                <li>{todo.text}
+                    <button part-click="remove" part-id={todo.id}>×</button>
                 </li>
             }}
         </ul>
@@ -480,17 +503,13 @@ export default = fn(props) {
 }
 
 export add = fn(props) {
-    let todos = props.todos ?? []
-    let newTodos = todos ++ [props.text]
-    default({todos: newTodos})
+    @DB <=!=> "INSERT INTO todos (text) VALUES (?)" <- [props.text]
+    default({})
 }
 
 export remove = fn(props) {
-    let todos = props.todos ?? []
-    let filtered = for (todo in todos) {
-        if (todo != props.text) { todo }
-    }
-    default({todos: filtered})
+    @DB <=!=> "DELETE FROM todos WHERE id = ?" <- [props.id]
+    default({})
 }
 ```
 
@@ -500,7 +519,7 @@ export remove = fn(props) {
 <html>
 <body>
     <h1>My Todos</h1>
-    <Part src={@./todo.part} view="default" todos={["Buy milk", "Walk dog"]}/>
+    <Part src={@./todo.part} view="default"/>
 </body>
 </html>
 ```
@@ -517,6 +536,8 @@ routes:
 
 ## See Also
 
+- [The Parts Guide](../basil/manual/parts-guide.md) - Patterns in depth: nesting, lazy loading, loading states, error handling
+- [Parts JavaScript API](../basil/manual/parts-js.md) - `window.Parts`, events, and cross-Part targeting
 - [Parsley CHEATSHEET.md](../parsley/CHEATSHEET.md) - Quick Parts syntax reference
 - [Parsley reference.md](../parsley/reference.md) - Complete Parts specification
 - [examples/parts/](../../examples/parts/) - Working example with counter

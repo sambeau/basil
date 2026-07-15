@@ -35,6 +35,8 @@ Basil is a web server that runs [Parsley](../../parsley/manual/index.md) handler
 | [Database](database.md) | The built-in SQLite database, `@DB`, and the database inspector |
 | [Authentication](authentication.md) | Passkey login, users, roles, protected paths, and API keys |
 | [Parts](parts.md) | Interactive components that update without page reloads |
+| [The Parts Guide](parts-guide.md) | Parts in depth — nesting, lazy loading, loading states, and error handling |
+| [Parts JavaScript API](parts-js.md) | Script your Parts — `window.Parts`, events, and cross-Part targeting |
 | [Search](search.md) | Full-text search over your content with `@SEARCH` |
 | [Images](images.md) | Image transformation, smart crop, and responsive srcsets |
 | [Git Deploy](git.md) | Push-to-deploy over HTTPS with the built-in Git server |
