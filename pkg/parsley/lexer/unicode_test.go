@@ -234,3 +234,82 @@ func TestUnicodeCurrencySymbols(t *testing.T) {
 		})
 	}
 }
+
+// TestUnicodeInRawTextTags tests that multi-byte UTF-8 characters survive
+// the raw-text scanner used for <script> and <style> contents (BUG-028).
+// The scanner previously appended only the first byte of each rune.
+func TestUnicodeInRawTextTags(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		// expected token types and literals, in order
+		expected []struct {
+			tokenType TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "multi-byte char in script",
+			input: `<script>var moon = "☾";</script>`,
+			expected: []struct {
+				tokenType TokenType
+				literal   string
+			}{
+				{TAG_START, "script"},
+				{TAG_TEXT, `var moon = "☾";`},
+				{TAG_END, "script"},
+			},
+		},
+		{
+			name:  "multi-byte char in style",
+			input: `<style>.a::before { content: "☾"; }</style>`,
+			expected: []struct {
+				tokenType TokenType
+				literal   string
+			}{
+				{TAG_START, "style"},
+				{TAG_TEXT, `.a::before { content: "☾"; }`},
+				{TAG_END, "style"},
+			},
+		},
+		{
+			name:  "mixed-width chars in script",
+			input: `<script>var s = "é ☾ 日本語 🌙";</script>`,
+			expected: []struct {
+				tokenType TokenType
+				literal   string
+			}{
+				{TAG_START, "script"},
+				{TAG_TEXT, `var s = "é ☾ 日本語 🌙";`},
+				{TAG_END, "script"},
+			},
+		},
+		{
+			name:  "multi-byte chars around interpolation in script",
+			input: `<script>var a = "☀"; @{x} var b = "☾";</script>`,
+			expected: []struct {
+				tokenType TokenType
+				literal   string
+			}{
+				{TAG_START, "script"},
+				{TAG_TEXT, `var a = "☀"; `},
+				{LBRACE, "{"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, exp := range tt.expected {
+				tok := l.NextToken()
+				if tok.Type != exp.tokenType {
+					t.Fatalf("token %d: type wrong. expected=%q, got=%q (literal=%q)", i, exp.tokenType, tok.Type, tok.Literal)
+				}
+				if tok.Literal != exp.literal {
+					t.Fatalf("token %d: literal wrong. expected=%q, got=%q", i, exp.literal, tok.Literal)
+				}
+			}
+		})
+	}
+}

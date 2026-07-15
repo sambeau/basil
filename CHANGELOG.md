@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Multi-byte UTF-8 characters survived only as their first byte inside `<script>`/`<style>` raw text (BUG-028)** — the lexer's raw-text scanner (and the tag-text and CDATA scanners, which shared the pattern) appended one byte per rune while advancing a full rune per step, so `"☾"` in an inline script came out as the invalid byte `e2`. All three scanners now copy the full UTF-8 sequence; `@{}` interpolation in raw text is unaffected.
+
 ## [1.0.0-alpha.4] - 2026-07-13
 
 ### Fixed
