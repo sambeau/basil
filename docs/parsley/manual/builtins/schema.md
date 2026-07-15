@@ -1016,7 +1016,6 @@ SortableTable(employees)
 
 - [Tables](./table.md) — Using schemas with tables
 - [Records](./record.md) — Schema-bound dictionaries with validation
-- [@std/table](../stdlib/table.md) — SQL-like data manipulation with schema validation
 - [@std/valid](../stdlib/valid.md) — Validation predicates for values
 - [Data Model](../fundamentals/data-model.md) — Schemas, records, and tables overview
 - [Query DSL](../features/query-dsl.md) — Schema-driven database queries

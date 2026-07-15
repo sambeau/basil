@@ -1,9 +1,9 @@
 ---
-id: man-pars-std-html
-title: "Std/HTML"
-system: parsley
+id: man-bas-html
+title: "@basil/html"
+system: basil
 type: stdlib
-name: "@std/html"
+name: html
 created: 2025-12-20
 version: 0.2.0
 author: "@copilot"
@@ -19,13 +19,7 @@ keywords:
 
 ## HTML Components Library
 
-> **⚠️ Deprecated:** `@std/html` has moved to `@basil/html`. The old import still works but emits a deprecation warning. Update your imports:
-> ```parsley
-> // Before
-> let {TextField, Button, Form} = import @std/html
-> // After
-> let {TextField, Button, Form} = import @basil/html
-> ```
+> **Import path:** this module was previously `@std/html`. The old import still works but emits a deprecation warning — use `@basil/html`.
 
 The `@basil/html` module provides accessible, semantic HTML components that save you from looking up correct ARIA attributes, proper element structure, and modern best practices. Every component renders server-side with progressive enhancement—they work without JavaScript but can be enhanced by client-side scripts.
 

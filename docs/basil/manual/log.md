@@ -1,9 +1,9 @@
 ---
-id: man-pars-std-dev
-title: "@std/dev"
-system: parsley
+id: man-bas-log
+title: "@basil/log"
+system: basil
 type: stdlib
-name: dev
+name: log
 created: 2026-02-06
 version: 0.2.0
 author: Basil Team
@@ -15,23 +15,19 @@ keywords:
   - server
 ---
 
-# @std/dev
+# @basil/log
 
-> **⚠️ Deprecated:** `@std/dev` has moved to `@basil/log`. The old import still works but emits a deprecation warning. Update your imports:
-> ```parsley
-> // Before
-> let dev = import @std/dev
-> // After
-> let log = import @basil/log
-> ```
+> **Import path:** this module was previously `@std/dev`. The old import still works but emits a deprecation warning — use `@basil/log`.
 
 Development logging utilities for debugging Basil server handlers. Log output is visible at the configured dev log route (typically `/_dev/log`).
 
-> ⚠️ The dev module requires Basil server context. In standalone Parsley scripts, all methods are no-ops (they silently return null).
+> ⚠️ The log module requires Basil server context. In standalone Parsley scripts, all methods are no-ops (they silently return null).
 
 ```parsley
-let log = import @basil/log
+let {dev} = import @basil/log
 ```
+
+The module exports a single `dev` object; destructure it on import (as above) and call its methods (`dev.log(...)`).
 
 ## Methods
 
@@ -91,7 +87,7 @@ dev.clearLogPage("admin")        // clear a specific route's logs
 ### Handler Debugging
 
 ```parsley
-let {dev} = import @std/dev
+let {dev} = import @basil/log
 
 fn handleRequest(req) {
     dev.log("params", req.params)
@@ -113,5 +109,5 @@ dev.log("debug", someValue)
 
 ## See Also
 
-- [Error Handling](../fundamentals/errors.md) — runtime error handling
-- [@std/api](api.md) — HTTP API utilities
+- [Error Handling](../../parsley/manual/fundamentals/errors.md) — runtime error handling
+- [@basil/api](api.md) — HTTP API utilities

@@ -222,5 +222,5 @@ If module A imports module B and module B imports module A, Parsley detects the 
 - [Functions](functions.md) — exporting functions as module API
 - [Tags](tags.md) — components are imported functions used as custom tags
 - [@std/math](../stdlib/math.md) — math standard library reference
-- [@basil/api](../stdlib/api.md) — API utilities for Basil handlers
+- [@basil/api](../../../basil/manual/api.md) — API utilities for Basil handlers
 - [@std/id](../stdlib/id.md) — ID generation functions

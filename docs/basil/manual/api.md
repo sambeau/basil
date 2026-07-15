@@ -1,7 +1,7 @@
 ---
-id: man-pars-std-api
-title: "@std/api"
-system: parsley
+id: man-bas-api
+title: "@basil/api"
+system: basil
 type: stdlib
 name: api
 created: 2026-02-06
@@ -20,15 +20,9 @@ keywords:
   - basil
 ---
 
-# @std/api
+# @basil/api
 
-> **⚠️ Deprecated:** `@std/api` has moved to `@basil/api`. The old import still works but emits a deprecation warning. Update your imports:
-> ```parsley
-> // Before
-> let api = import @std/api
-> // After
-> let api = import @basil/api
-> ```
+> **Import path:** this module was previously `@std/api`. The old import still works but emits a deprecation warning — use `@basil/api`.
 
 HTTP API utilities for Basil handlers. Provides auth wrappers for route-level access control, error helpers that map to HTTP status codes, and a redirect helper.
 
@@ -50,7 +44,7 @@ Auth wrappers decorate handler functions with authentication metadata. The Basil
 | `auth(fn)` | function | Requires any authenticated user |
 
 ```parsley
-let api = import @std/api
+let api = import @basil/api
 
 // Public route — anyone can access
 let listProducts = api.public(fn(req) {
@@ -157,7 +151,7 @@ The status must be a 3xx code. Common values:
 
 ## See Also
 
-- [HTTP & Networking](../features/network.md) — fetch operator and HTTP requests
-- [Error Handling](../fundamentals/errors.md) — Parsley error model
-- [Database](../features/database.md) — database connections for handler queries
-- [Query DSL](../features/query-dsl.md) — declarative database queries
+- [HTTP & Networking](../../parsley/manual/features/network.md) — fetch operator and HTTP requests
+- [Error Handling](../../parsley/manual/fundamentals/errors.md) — Parsley error model
+- [Database](../../parsley/manual/features/database.md) — database connections for handler queries
+- [Query DSL](../../parsley/manual/features/query-dsl.md) — declarative database queries

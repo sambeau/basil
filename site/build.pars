@@ -167,7 +167,15 @@ let sitePageEntries = for (f in pageFiles) {
 
 // --- documentation trees -------------------------------------------------------
 
-let parsleyTree = renderTree(manualSrc, "manual", "Parsley Manual", "parsley", fn(html) { html })
+// Parsley manual sources link into the Basil manual (the @basil/* handler
+// modules live there); remap those for the site's flatter layout, dropping one
+// "../" and the "manual/" segment (docs/parsley/manual/… is deeper than /manual).
+// Longest match first so the depth-1 form isn't partially rewritten.
+let fixParsleyLinks = fn(html) {
+    html.replace("../../../basil/manual/", "../../basil/")
+        .replace("../../basil/manual/", "../basil/")
+}
+let parsleyTree = renderTree(manualSrc, "manual", "Parsley Manual", "parsley", fixParsleyLinks)
 
 // Basil manual sources link into the Parsley manual and up to reference.md;
 // remap those for the site's flatter layout (/manual and /basil).

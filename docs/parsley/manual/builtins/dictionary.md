@@ -849,4 +849,3 @@ result
 - [Functions](../fundamentals/functions.md) — Function values and closures
 - [Types](../fundamentals/types.md) — Parsley's type system and `.type()`
 - [Data Model](../fundamentals/data-model.md) — Schemas, records, and tables overview
-- [@std/table](../stdlib/table.md) — SQL-like operations on arrays of dictionaries

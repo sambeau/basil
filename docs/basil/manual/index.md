@@ -43,6 +43,17 @@ Basil is a web server that runs [Parsley](../../parsley/manual/index.md) handler
 | [Images](images.md) | Image transformation, smart crop, and responsive srcsets |
 | [Git Deploy](git.md) | Push-to-deploy over HTTPS with the built-in Git server |
 
+## Handler API
+
+Parsley modules and objects available inside server handlers.
+
+| Page | Description |
+|------|-------------|
+| [@basil/api](api.md) | Auth wrappers, error helpers, and redirect for handlers |
+| [@basil/log](log.md) | Development logging utilities for handlers |
+| [@basil/html](html.md) | Accessible HTML form and UI components |
+| [Session Management](session.md) | `basil.session` — key-value storage and flash messages |
+
 ## Development & Production
 
 | Page | Description |

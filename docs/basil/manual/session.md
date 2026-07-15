@@ -1,7 +1,7 @@
 ---
-id: man-pars-basil-session
+id: man-bas-session
 title: "Session Management"
-system: parsley
+system: basil
 type: stdlib
 name: session
 created: 2026-02-06
@@ -200,6 +200,6 @@ if (flashes.error) {
 
 ## See Also
 
-- [@std/api](api.md) — auth wrappers and HTTP error helpers
-- [Security Model](../features/security.md) — security policies
-- [Error Handling](../fundamentals/errors.md) — `check` for guard-style preconditions
+- [@basil/api](api.md) — auth wrappers and HTTP error helpers
+- [Security Model](../../parsley/manual/features/security.md) — security policies
+- [Error Handling](../../parsley/manual/fundamentals/errors.md) — `check` for guard-style preconditions

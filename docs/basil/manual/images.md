@@ -296,4 +296,4 @@ All image paths must be within the handler's root directory. Path traversal atte
 ## See Also
 
 - [Paths](../../parsley/manual/builtins/paths.md) — path literals and `@./` syntax
-- [@basil/html Img](../../parsley/manual/stdlib/html.md) — accessible `<img>` component
+- [@basil/html Img](html.md) — accessible `<img>` component

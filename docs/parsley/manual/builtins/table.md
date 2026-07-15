@@ -659,5 +659,4 @@ checked.validRows()  // only the valid row
 - [Database](../features/database.md) — database queries return tables
 - [Query DSL](../features/query-dsl.md) — declarative queries with table results
 - [Data Formats](../features/data-formats.md) — CSV parsing returns tables
-- [@std/table](../stdlib/table.md) — SQL-like table constructor and operations
 - [@std/math](../stdlib/math.md) — aggregation functions for numeric arrays

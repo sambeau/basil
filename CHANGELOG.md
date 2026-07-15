@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`url` on search results** — Query result items now include a `url`, so documents added manually with `search.add()` (which have no source `path`) can still be linked.
 - **New documentation** — In-depth Parts guide and Parts JavaScript API pages, plus a rewritten, source-verified search guide.
 
+### Changed
+- **API docs reorganised — server modules now live in the Basil manual** — `@basil/api`, `@basil/log`, `@basil/html`, and Session Management moved out of the Parsley Standard Library into a new "Handler API" section of the Basil manual, where they belong (they only run inside Basil handlers). Each page is retitled to its live `@basil/*` name with a short "Import path" note replacing the misleading "Deprecated" banner — the pages document current functionality, not deprecated features. The `@std/dev` → `@basil/log` page now imports and uses the module consistently (`let {dev} = import @basil/log`). Parsley-manual sidebar no longer duplicates the `@basil/*` entries, and `@std/mdDoc` is corrected to `@std/mddoc`. The site generator gained a symmetric `fixParsleyLinks` so Parsley→Basil cross-links resolve under the flattened site layout.
+
+### Removed
+- **Deprecated stdlib module pages** — Deleted the `@std/table` and `@std/schema` reference pages (and their inbound links) ahead of v1.0. Both modules were already deprecated in the evaluator; use the built-in `table` type and the `@schema { … }` DSL respectively.
+
 ### Fixed
 - **Comments docs omitted the shebang exception** — `comments.md` stated flatly that `#` "will cause a parse error", but the lexer has always skipped a `#!` shebang on the first line (for executable CLI scripts). The page now documents shebang lines and scopes the `#`-is-not-a-comment rule accordingly. No code change — the behaviour was already implemented and tested.
 - **Multi-byte UTF-8 characters survived only as their first byte inside `<script>`/`<style>` raw text (BUG-028)** — the lexer's raw-text scanner (and the tag-text and CDATA scanners, which shared the pattern) appended one byte per rune while advancing a full rune per step, so `"☾"` in an inline script came out as the invalid byte `e2`. All three scanners now copy the full UTF-8 sequence; `@{}` interpolation in raw text is unaffected.

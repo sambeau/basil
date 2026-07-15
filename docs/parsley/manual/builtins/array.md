@@ -487,6 +487,5 @@ let adminsOnly = admins - editors        // ["alice"]
 - [Control Flow](../fundamentals/control-flow.md) — `for` loops return arrays
 - [Operators](../fundamentals/operators.md) — `++` concatenation, `*` repetition, `/` chunking
 - [Types](../fundamentals/types.md) — array in the type system
-- [@std/table](../stdlib/table.md) — SQL-like operations on arrays of dictionaries
 - [@std/math](../stdlib/math.md) — `sum`, `avg`, `median`, and other aggregation functions
 - [Data Formats](../features/data-formats.md) — CSV parsing returns arrays/tables

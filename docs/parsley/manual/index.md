@@ -89,26 +89,9 @@ Importable modules providing higher-level functionality.
 | [@std/valid](stdlib/valid.md) | Validation predicates for types, strings, numbers, and formats |
 | [@std/id](stdlib/id.md) | ID generation — ULID, UUID v4/v7, NanoID, CUID |
 | [@std/hash](stdlib/hash.md) | Cryptographic hashing — MD5, SHA-1, SHA-256, SHA-512 |
-| [@std/mdDoc](stdlib/mddoc.md) | Markdown document analysis — headings, links, TOC, and transforms |
+| [@std/mddoc](stdlib/mddoc.md) | Markdown document analysis — headings, links, TOC, and transforms |
 
-### Server Modules (`@basil/`)
-
-| Module | Description |
-|--------|-------------|
-| [@basil/api](stdlib/api.md) | Auth wrappers, error helpers, and redirect for Basil handlers |
-| [@basil/log](stdlib/log.md) | Development logging utilities for Basil handlers |
-| [@basil/html](stdlib/html.md) | Accessible HTML form and UI components |
-| [Session Management](stdlib/session.md) | `basil.session` — key-value storage and flash messages |
-
-### Deprecated Modules
-
-| Module | Replacement |
-|--------|-------------|
-| [@std/table](stdlib/table.md) | Built-in `table` type — use `.parseCSV()` or `CSV()` |
-| [@std/schema](stdlib/schema.md) | `@schema { ... }` DSL syntax |
-| @std/api | [@basil/api](stdlib/api.md) |
-| @std/dev | [@basil/log](stdlib/log.md) |
-| @std/html | [@basil/html](stdlib/html.md) |
+> **Server handler modules** — `@basil/api`, `@basil/log`, `@basil/html`, and session management run only inside Basil server handlers and are documented in the [Basil Server Manual](../../basil/manual/index.md).
 
 ---
 
@@ -118,7 +101,7 @@ Importable modules providing higher-level functionality.
 [Strings](builtins/strings.md) · [Regex](builtins/regex.md) · [Data Formats](features/data-formats.md) · [@std/valid](stdlib/valid.md)
 
 ### Working with Data
-[Arrays](builtins/array.md) · [Dictionaries](builtins/dictionary.md) · [Tables](builtins/table.md) · [@std/table](stdlib/table.md) · [Schemas](builtins/schema.md) · [Records](builtins/record.md) · [Data Model](fundamentals/data-model.md)
+[Arrays](builtins/array.md) · [Dictionaries](builtins/dictionary.md) · [Tables](builtins/table.md) · [Schemas](builtins/schema.md) · [Records](builtins/record.md) · [Data Model](fundamentals/data-model.md)
 
 ### Building Web Pages
 [Tags](fundamentals/tags.md) · [Modules](fundamentals/modules.md) · [Strings](builtins/strings.md) (interpolation) · [Control Flow](fundamentals/control-flow.md) (for loops)
@@ -127,7 +110,7 @@ Importable modules providing higher-level functionality.
 [Database](features/database.md) · [Query DSL](features/query-dsl.md) · [Schemas](builtins/schema.md) · [Tables](builtins/table.md)
 
 ### Building APIs
-[@basil/api](stdlib/api.md) · [HTTP & Networking](features/network.md) · [Session Management](stdlib/session.md) · [Error Handling](fundamentals/errors.md)
+[@basil/api](../../basil/manual/api.md) · [HTTP & Networking](features/network.md) · [Session Management](../../basil/manual/session.md) · [Error Handling](fundamentals/errors.md)
 
 ### Files & External Systems
 [File I/O](features/file-io.md) · [Paths](builtins/paths.md) · [URLs](builtins/urls.md) · [HTTP & Networking](features/network.md) · [Shell Commands](features/commands.md) · [PLN](pln.md)
