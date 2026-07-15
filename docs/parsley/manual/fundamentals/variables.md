@@ -130,9 +130,11 @@ Extract values by key name. Use `...rest` to capture remaining keys:
 let person = {name: "Bob", age: 25, city: "NYC"}
 let {name, age} = person        // name="Bob", age=25
 let {name, ...rest} = person    // name="Bob", rest={age: 25, city: "NYC"}
+let {name as who} = person      // who="Bob" — rename a key with `as`
+let {age as years, city} = person  // years=25, city="NYC"
 ```
 
-> ⚠️ Dictionary destructuring binds to the **key name** — there's no renaming syntax like JavaScript's `{name: alias}`. The variable name must match the key.
+> ⚠️ To bind a key to a differently-named variable, use `as` (as above). The colon (`{key: ...}`) is reserved for **nested** destructuring — e.g. `let {address: {city as town}} = obj` — so JavaScript's `{name: alias}` rename syntax is a parse error in Parsley. Use `as` instead.
 
 ## Scope
 
@@ -182,7 +184,7 @@ x                               // 10 (modified by the closure)
 - **`var` is mutable:** Like Swift, `var` allows reassignment while `let` does not
 - **No `const` keyword:** Use `let` for constants — it's already immutable
 - **Shadowing with `let`:** Using `let` on an existing name creates a new binding (shadowing), not reassignment
-- **No rename in dict destructuring:** `let {name: alias} = obj` is a parse error — use a separate assignment if you need a different name
+- **Rename with `as`, not `:`:** `let {key as name} = obj` renames a destructured key. The colon is reserved for *nested* destructuring, so JS-style `let {name: alias} = obj` is a parse error
 - **`_` is a discard:** In array destructuring, `_` signals that you're intentionally ignoring a value
 
 ## See Also
