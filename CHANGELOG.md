@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Protected paths and role-gated routes** — Sites can require authentication for parts of the app: signed-out visitors are redirected to the login page (`login_path`, default `/login`) and signed-in visitors without the right role get a 403. Works site-wide or per-route via `auth: required`, with `basil.auth.user.role` (`"admin"` / `"editor"`) and `basil.auth.required` available to templates.
+- **`part-target` and `part-form` for Parts** — An element *outside* a Part can now update it: give the Part an `id` and trigger it from anywhere with `part-click`/`part-submit` via `part-target="id"`, adding `part-form="formId"` to send a named form's fields when the trigger isn't inside one.
+- **`dateAfter` / `dateBefore` search filters** — `search.query()` now accepts inclusive date-range filters (Parsley datetime literals or ISO strings), compared in UTC. Documents without a `date` are excluded whenever a date filter is set, and `total` reflects the filtered match count.
+- **`url` on search results** — Query result items now include a `url`, so documents added manually with `search.add()` (which have no source `path`) can still be linked.
+- **New documentation** — In-depth Parts guide and Parts JavaScript API pages, plus a rewritten, source-verified search guide.
+
 ### Fixed
 - **Multi-byte UTF-8 characters survived only as their first byte inside `<script>`/`<style>` raw text (BUG-028)** — the lexer's raw-text scanner (and the tag-text and CDATA scanners, which shared the pattern) appended one byte per rune while advancing a full rune per step, so `"☾"` in an inline script came out as the invalid byte `e2`. All three scanners now copy the full UTF-8 sequence; `@{}` interpolation in raw text is unaffected.
 - **`@SEARCH` now honours its documented options** — The index file option is `path`, as the docs have always said (the code previously only accepted an undocumented `backend` key, so `path: "search.db"` was silently ignored and a default `<watch-dir>_search.db` file appeared instead). `snippetLength` (approximate characters, default 200, capped at FTS5's 64-word limit) and `highlightTag` (default `"mark"`) now work instead of being silently ignored. Unrecognised `@SEARCH` option keys — including `weights` sub-keys — are now an error rather than falling back to silent defaults, and `backend` gets a "did you mean `path`?" hint.
