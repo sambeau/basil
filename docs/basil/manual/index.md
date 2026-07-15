@@ -34,14 +34,22 @@ Basil is a web server that runs [Parsley](../../parsley/manual/index.md) handler
 |------|-------------|
 | [Database](database.md) | The built-in SQLite database, `@DB`, and the database inspector |
 | [Authentication](authentication.md) | Passkey login, users, roles, protected paths, and API keys |
-| [The Authentication Guide](authentication-guide.md) | Auth in depth — sessions, recovery, email verification, and CSRF |
+| [Session Management](session.md) | `basil.session` — key-value storage and flash messages |
 | [Parts](parts.md) | Interactive components that update without page reloads |
-| [The Parts Guide](parts-guide.md) | Parts in depth — nesting, lazy loading, loading states, and error handling |
 | [Parts JavaScript API](parts-js.md) | Script your Parts — `window.Parts`, events, and cross-Part targeting |
 | [Search](search.md) | Full-text search over your content with `@SEARCH` |
-| [The Search Guide](search-guide.md) | Search in depth — indexing, ranking, query syntax, and manual documents |
 | [Images](images.md) | Image transformation, smart crop, and responsive srcsets |
 | [Git Deploy](git.md) | Push-to-deploy over HTTPS with the built-in Git server |
+
+## Guides
+
+In-depth walkthroughs of Basil's larger features.
+
+| Page | Description |
+|------|-------------|
+| [The Authentication Guide](authentication-guide.md) | Auth in depth — sessions, recovery, email verification, and CSRF |
+| [The Parts Guide](parts-guide.md) | Parts in depth — nesting, lazy loading, loading states, and error handling |
+| [The Search Guide](search-guide.md) | Search in depth — indexing, ranking, query syntax, and manual documents |
 
 ## Handler API
 
@@ -52,7 +60,6 @@ Parsley modules and objects available inside server handlers.
 | [@basil/api](api.md) | Auth wrappers, error helpers, and redirect for handlers |
 | [@basil/log](log.md) | Development logging utilities for handlers |
 | [@basil/html](html.md) | Accessible HTML form and UI components |
-| [Session Management](session.md) | `basil.session` — key-value storage and flash messages |
 
 ## Development & Production
 
