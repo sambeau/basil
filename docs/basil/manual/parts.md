@@ -13,6 +13,8 @@ keywords:
   - interactive
   - part-click
   - part-submit
+  - part-target
+  - part-form
   - views
   - fragments
   - htmx
@@ -96,6 +98,12 @@ Inside a Part's HTML, two attributes trigger view changes:
     <input name="name" value={props.name}/>
     <button>"Save"</button>
 </form>
+```
+
+**`part-target="id"`** lets an element *outside* a Part update it. Give the Part an `id`, then trigger it from anywhere with `part-click` or `part-submit`. When the trigger isn't inside a form, add `part-form="formId"` to send a named form's fields:
+
+```parsley
+<button part-click="save" part-target="editor" part-form="editorForm">"Save"</button>
 ```
 
 A display/edit/save cycle is three views:

@@ -1534,6 +1534,22 @@ func partsRuntimeScript() string {
 		});
 	}
 
+	// Collect form data from the form named by an element's part-form attribute
+	function collectPartFormProps(el) {
+		var formId = el.getAttribute('part-form');
+		if (!formId) return {};
+		var form = document.getElementById(formId);
+		if (!form || form.tagName !== 'FORM') {
+			console.warn('Parts: form "' + formId + '" not found');
+			return {};
+		}
+		var props = {};
+		new FormData(form).forEach(function(value, key) {
+			props[key] = coerceType(value);
+		});
+		return props;
+	}
+
 	// Handle part-target: elements outside Parts that target other Parts
 	function bindCrossPartTargeting() {
 		// Handle click elements with part-target
@@ -1556,9 +1572,38 @@ func partsRuntimeScript() string {
 
 				var src = targetPart.getAttribute('data-part-src');
 				var baseProps = parseProps(targetPart);
-				var mergedProps = Object.assign({}, baseProps, props);
+				var formProps = collectPartFormProps(el);
+				var mergedProps = Object.assign({}, baseProps, formProps, props);
 
 				updatePart(targetPart, src, view, mergedProps, 'GET');
+			});
+		});
+
+		// Handle part-submit elements outside any form: part-form names the
+		// form whose data to collect (explicit part-* props take precedence)
+		document.querySelectorAll('[part-target][part-submit]').forEach(function(el) {
+			if (el.tagName === 'FORM' || el.closest('form')) return; // handled by the form binding below
+			if (el._partTargetBound) return;
+			el._partTargetBound = true;
+
+			el.addEventListener('click', function(e) {
+				e.preventDefault();
+				var targetId = el.getAttribute('part-target');
+				var view = el.getAttribute('part-submit');
+
+				var targetPart = document.getElementById(targetId);
+				if (!targetPart || !targetPart.getAttribute('data-part-src')) {
+					console.warn('Parts: target "' + targetId + '" not found');
+					return;
+				}
+
+				var src = targetPart.getAttribute('data-part-src');
+				var baseProps = parseProps(targetPart);
+				var formProps = collectPartFormProps(el);
+				var elProps = collectPartProps(el);
+				var mergedProps = Object.assign({}, baseProps, formProps, elProps);
+
+				updatePart(targetPart, src, view, mergedProps, 'POST');
 			});
 		});
 
