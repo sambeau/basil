@@ -2,6 +2,7 @@ package search
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -272,6 +273,71 @@ func TestSearch(t *testing.T) {
 		}
 		if results.Total != 0 {
 			t.Errorf("expected 0 results, got %d", results.Total)
+		}
+	})
+}
+
+func TestSnippetOptions(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	idx, err := NewFTS5Index(db, "porter", DefaultWeights())
+	if err != nil {
+		t.Fatalf("failed to create index: %v", err)
+	}
+
+	doc := &Document{
+		URL:   "/doc1",
+		Title: "Long Document",
+		Content: "The quick brown fox jumps over the lazy dog again and again, " +
+			"running through fields and forests for many days and nights without rest.",
+	}
+	if err := idx.IndexDocument(doc); err != nil {
+		t.Fatalf("failed to index document: %v", err)
+	}
+
+	t.Run("default highlight tag is mark", func(t *testing.T) {
+		results, err := idx.Search("fox", DefaultSearchOptions())
+		if err != nil {
+			t.Fatalf("search failed: %v", err)
+		}
+		if len(results.Results) == 0 {
+			t.Fatal("expected a result")
+		}
+		if !strings.Contains(results.Results[0].Snippet, "<mark>fox</mark>") {
+			t.Errorf("expected <mark> highlighting, got %q", results.Results[0].Snippet)
+		}
+	})
+
+	t.Run("custom tag and length", func(t *testing.T) {
+		if err := idx.SetSnippetOptions(4, "em"); err != nil {
+			t.Fatalf("SetSnippetOptions failed: %v", err)
+		}
+		results, err := idx.Search("fox", DefaultSearchOptions())
+		if err != nil {
+			t.Fatalf("search failed: %v", err)
+		}
+		if len(results.Results) == 0 {
+			t.Fatal("expected a result")
+		}
+		snippet := results.Results[0].Snippet
+		if !strings.Contains(snippet, "<em>fox</em>") {
+			t.Errorf("expected <em> highlighting, got %q", snippet)
+		}
+		if strings.Contains(snippet, "<mark>") {
+			t.Errorf("expected no <mark> tags, got %q", snippet)
+		}
+		if words := strings.Fields(strings.TrimSuffix(snippet, "...")); len(words) > 4 {
+			t.Errorf("expected at most 4 tokens, got %d: %q", len(words), snippet)
+		}
+	})
+
+	t.Run("rejects invalid highlight tag", func(t *testing.T) {
+		if err := idx.SetSnippetOptions(10, "mark'); DROP TABLE documents_fts;--"); err == nil {
+			t.Fatal("expected error for invalid highlight tag")
 		}
 	})
 }

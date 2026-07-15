@@ -531,7 +531,7 @@ func TestSearchReindexMethodNoWatch(t *testing.T) {
 
 func createTestSearchInstance(t *testing.T, dbPath string) (*SearchInstance, func()) {
 	opts := SearchOptions{
-		Backend:      dbPath,
+		Path:         dbPath,
 		Tokenizer:    "porter",
 		Weights:      search.DefaultWeights(),
 		SnippetLen:   150,
@@ -555,7 +555,7 @@ func createTestSearchInstance(t *testing.T, dbPath string) (*SearchInstance, fun
 
 func createTestSearchInstanceWithWatch(t *testing.T, dbPath, watchDir string) (*SearchInstance, func()) {
 	opts := SearchOptions{
-		Backend:      dbPath,
+		Path:         dbPath,
 		Watch:        []string{watchDir},
 		Extensions:   []string{".md"},
 		Tokenizer:    "porter",

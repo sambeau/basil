@@ -51,8 +51,10 @@ On first query, Basil scans the watched folder, parses YAML frontmatter (title, 
 |-----|------|-------------|
 | `path` | string | SQLite index file (`":memory:"` for tests) |
 | `watch` | path or array | Folder(s) to index automatically |
+| `snippetLength` | int | Approximate snippet length in characters (default 200, max ~320) |
+| `highlightTag` | string | HTML tag wrapped around matched terms (default `"mark"`) |
 
-Indexes Markdown and HTML out of the box, plus text-based PDF and DOCX files (50 MB per-file limit).
+Indexes Markdown and HTML out of the box, plus text-based PDF and DOCX files (50 MB per-file limit). Unrecognised option keys are an error, so typos don't fall back to silent defaults. See the [search guide](https://github.com/sambeau/basil/blob/main/docs/guide/search.md) for `extensions`, `weights`, and `tokenizer`.
 
 ## `search.query(text, options?)`
 

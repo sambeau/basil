@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`@SEARCH` now honours its documented options** — The index file option is `path`, as the docs have always said (the code previously only accepted an undocumented `backend` key, so `path: "search.db"` was silently ignored and a default `<watch-dir>_search.db` file appeared instead). `snippetLength` (approximate characters, default 200, capped at FTS5's 64-word limit) and `highlightTag` (default `"mark"`) now work instead of being silently ignored. Unrecognised `@SEARCH` option keys — including `weights` sub-keys — are now an error rather than falling back to silent defaults, and `backend` gets a "did you mean `path`?" hint.
+
 ## [1.0.0-alpha.4] - 2026-07-13
 
 ### Fixed

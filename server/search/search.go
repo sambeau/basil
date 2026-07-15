@@ -31,7 +31,7 @@ type SearchResult struct {
 	Score     float64
 	Rank      int
 	Date      time.Time
-	Highlight string // Snippet with <mark> tags
+	Highlight string // Snippet with highlight tags (<mark> by default)
 }
 
 // SearchResults contains all search results and metadata
@@ -122,8 +122,8 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 			}
 		}
 
-		// Wrap snippet in <mark> tags
-		r.Highlight = wrapSnippet(snippet)
+		// FTS5's snippet() already wraps matched terms in the highlight tag
+		r.Highlight = snippet
 		r.Snippet = snippet
 
 		results = append(results, r)
@@ -215,11 +215,15 @@ func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (strin
 
 	whereClause := strings.Join(whereClauses, " AND ")
 
+	// highlightTag is validated by SetSnippetOptions, so it is safe to embed
+	snippetExpr := fmt.Sprintf("snippet(documents_fts, 3, '<%[1]s>', '</%[1]s>', '...', %[2]d)",
+		idx.highlightTag, idx.snippetTokens)
+
 	query := fmt.Sprintf(`
 		SELECT
 			documents_fts.url,
 			title,
-			snippet(documents_fts, 3, '<mark>', '</mark>', '...', 64) as snippet,
+			%s as snippet,
 			%s as score,
 			date,
 			search_metadata.path
@@ -228,17 +232,11 @@ func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (strin
 		WHERE %s
 		ORDER BY score
 		LIMIT ? OFFSET ?
-	`, bm25Expr, whereClause)
+	`, snippetExpr, bm25Expr, whereClause)
 
 	args = append(args, opts.Limit, opts.Offset)
 
 	return query, args
-}
-
-// wrapSnippet wraps the FTS5 snippet with proper <mark> tags
-// FTS5 snippet() function already adds <mark> tags, so we just return it
-func wrapSnippet(snippet string) string {
-	return snippet
 }
 
 // Stats returns search index statistics
