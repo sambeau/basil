@@ -221,7 +221,7 @@ The `asset()` builtin maps a file path under the public directory to its web-roo
 
 It is a pure path-to-URL transform — it does **not** hash file contents or add a cache-busting suffix, and it also accepts the file dictionaries returned by `fileList()`.
 
-> **Cache-busting is a separate, Basil-only feature.** For content-hashed URLs like `/assets/logo-a1b2c3d4.png`, use `publicUrl()`, which registers and hashes the file. It is only available inside Basil server handlers — see [`publicUrl()` in the Basil reference](../../../basil/reference.md#111-publicurlpath).
+> **Cache-busting is a separate, Basil-only feature.** For content-hashed URLs like `/assets/logo-a1b2c3d4.png`, use `publicUrl()`, which registers and hashes the file. It is only available inside Basil server handlers — see [`publicUrl()` in the Basil manual](../../../basil/manual/globals.md#publicurlpath).
 
 ## Key Differences from Other Languages
 

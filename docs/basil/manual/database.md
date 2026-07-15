@@ -78,6 +78,5 @@ let mem = @sqlite(":memory:")
 
 ## See Also
 
-- [Parsley: Database](../../parsley/manual/features/database.md) — operators, transactions, SQL tag
+- [Parsley: Database](../../parsley/manual/features/database.md) — connection literals, operators, transactions, connection methods, and the SQL tag in full
 - [Parsley: Query DSL](../../parsley/manual/features/query-dsl.md) — `@query`, `@insert`, `@update`, `@delete`
-- [Basil Reference §1–2](../reference.md) — connection literals and operations in full
