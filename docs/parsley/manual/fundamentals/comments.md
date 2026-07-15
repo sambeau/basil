@@ -85,11 +85,32 @@ Parsley does **not** support block comments (`/* ... */`). If you're coming from
 // /* This will cause a syntax error */
 ```
 
+## Shebang Lines
+
+There is one exception to the "no `#`" rule: a **shebang** (`#!`) on the **first line** of a file is allowed and ignored. This lets you write executable CLI scripts:
+
+```parsley
+#!/usr/bin/env pars
+"Hello from a Parsley script"
+```
+
+Make the file executable (`chmod +x script.pars`) and run it directly (`./script.pars`).
+
+The exception is deliberately narrow:
+
+- It only applies to the **very first line**, and only when the line starts with `#!`.
+- A `#` anywhere else — or a `#` on the first line that isn't followed by `!` — is a parse error.
+
+```parsley
+#!/usr/bin/env pars   // ✅ shebang on line 1 — ignored
+# a comment           // ❌ parse error: '#' is not a comment character
+```
+
 ## Key Differences from Other Languages
 
 - **No block comments:** There is no `/* ... */` syntax — use multiple `//` lines
 - **No doc-comments:** There is no `///` or `/** */` convention — just use `//`
-- **No `#` comments:** Unlike Python, Ruby, or shell scripts, `#` is not a comment character and will cause a parse error
+- **No `#` comments:** Unlike Python, Ruby, or shell scripts, `#` is not a comment character and will cause a parse error — the sole exception is a `#!` [shebang line](#shebang-lines) at the very top of a file
 
 ## See Also
 
