@@ -1990,7 +1990,7 @@ func (l *Lexer) readCDATA() (string, bool) {
 			l.readChar() // skip >
 			break
 		}
-		content = append(content, l.ch)
+		content = l.appendCurrentChar(content)
 		l.readChar()
 	}
 
@@ -2398,7 +2398,7 @@ func (l *Lexer) readTagText() string {
 			l.skipAndCaptureComment()
 			continue
 		}
-		result = append(result, l.ch)
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
@@ -2418,7 +2418,7 @@ func (l *Lexer) readRawTagText() string {
 		if l.ch == '@' && l.peekChar() == '{' {
 			break
 		}
-		result = append(result, l.ch)
+		result = l.appendCurrentChar(result)
 		l.readChar()
 	}
 
