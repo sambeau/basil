@@ -158,13 +158,14 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 		}
 	}
 
-	// Get total count (without limit/offset)
+	// Get total count (without limit/offset), applying the same filters
+	// as the main query
 	total := len(results) + opts.Offset
 	if len(results) >= opts.Limit {
 		// There might be more results
-		countQuery := "SELECT COUNT(*) FROM documents_fts WHERE documents_fts MATCH ?"
-		countArgs := []any{ftsQuery}
-		if err := idx.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
+		whereClause, whereArgs := idx.buildSearchWhere(ftsQuery, opts)
+		countQuery := "SELECT COUNT(*) FROM documents_fts WHERE " + whereClause
+		if err := idx.db.QueryRow(countQuery, whereArgs...).Scan(&total); err != nil {
 			// Non-fatal, use estimate
 			total = len(results) + opts.Offset
 		}
@@ -179,15 +180,9 @@ func (idx *FTS5Index) Search(query string, opts SearchOptions) (*SearchResults, 
 	}, nil
 }
 
-// buildSearchSQL builds the SQL query with filters and ranking
-func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (string, []any) {
-	w := idx.weights
-
-	// BM25 with custom weights
-	bm25Expr := fmt.Sprintf("bm25(documents_fts, %.1f, %.1f, %.1f, %.1f)",
-		w.Title, w.Headings, w.Tags, w.Content)
-
-	// Build WHERE clauses
+// buildSearchWhere builds the WHERE clause and its args, shared by the
+// search query and the total-count query.
+func (idx *FTS5Index) buildSearchWhere(ftsQuery string, opts SearchOptions) (string, []any) {
 	whereClauses := []string{"documents_fts MATCH ?"}
 	args := []any{ftsQuery}
 
@@ -203,17 +198,31 @@ func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (strin
 		whereClauses = append(whereClauses, "("+strings.Join(tagConditions, " OR ")+")")
 	}
 
-	// Add date range filters
+	// Add date range filters. Dates are stored as RFC3339 TEXT in UTC
+	// (see IndexDocument), so comparisons must bind RFC3339 UTC strings —
+	// lexicographic order then matches chronological order. Documents
+	// without a date store '' and must never match a date filter.
 	if !opts.Filters.DateAfter.IsZero() {
 		whereClauses = append(whereClauses, "date >= ?")
-		args = append(args, opts.Filters.DateAfter.Unix())
+		args = append(args, opts.Filters.DateAfter.UTC().Format(time.RFC3339))
 	}
 	if !opts.Filters.DateBefore.IsZero() {
-		whereClauses = append(whereClauses, "date <= ?")
-		args = append(args, opts.Filters.DateBefore.Unix())
+		whereClauses = append(whereClauses, "(date != '' AND date <= ?)")
+		args = append(args, opts.Filters.DateBefore.UTC().Format(time.RFC3339))
 	}
 
-	whereClause := strings.Join(whereClauses, " AND ")
+	return strings.Join(whereClauses, " AND "), args
+}
+
+// buildSearchSQL builds the SQL query with filters and ranking
+func (idx *FTS5Index) buildSearchSQL(ftsQuery string, opts SearchOptions) (string, []any) {
+	w := idx.weights
+
+	// BM25 with custom weights
+	bm25Expr := fmt.Sprintf("bm25(documents_fts, %.1f, %.1f, %.1f, %.1f)",
+		w.Title, w.Headings, w.Tags, w.Content)
+
+	whereClause, args := idx.buildSearchWhere(ftsQuery, opts)
 
 	query := fmt.Sprintf(`
 		SELECT
