@@ -36,13 +36,13 @@ git:
 
 ```bash
 basil users create              # role: editor or admin
-basil apikey create             # → bsk_abc123… (save it!)
+basil apikey create             # → bsl_live_abc123… (save it!)
 ```
 
 **3. Clone your live site:**
 
 ```bash
-git clone https://anything:bsk_abc123...@yourserver.com/.git mysite
+git clone https://anything:bsl_live_abc123...@yourserver.com/.git mysite
 ```
 
 The username is ignored — only the API key matters.

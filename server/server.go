@@ -651,8 +651,10 @@ func (s *Server) setupRoutes() error {
 	}
 
 	// Site mode: use filesystem-based routing
+	// Optional auth wraps the whole site so the protected-paths check
+	// (and handlers) can see the signed-in user.
 	if s.config.Site.Path != "" {
-		s.mux.Handle("/", newSiteHandler(s, s.config.Site.Path, s.scriptCache))
+		s.mux.Handle("/", s.applyAuthMiddleware(newSiteHandler(s, s.config.Site.Path, s.scriptCache), "optional"))
 		s.logInfo("site mode enabled at %s", s.config.Site.Path)
 		return nil
 	}
@@ -684,13 +686,14 @@ func (s *Server) setupRoutes() error {
 			authMode = "optional"
 		}
 
-		finalHandler := s.applyAuthMiddleware(handler, authMode)
-
-		// Apply protected paths check for routes without explicit auth setting
+		// Protected-path and role checks read the user from the request
+		// context, so the auth middleware must wrap them (run first).
 		// (auth: "none" explicitly disables protection)
-		if authMode != "none" && authMode != "required" && s.config.Auth.Enabled {
+		var finalHandler http.Handler = handler
+		if authMode != "none" && s.config.Auth.Enabled {
 			finalHandler = s.protectedPathMiddleware(finalHandler, route.Roles)
 		}
+		finalHandler = s.applyAuthMiddleware(finalHandler, authMode)
 
 		// Apply CSRF middleware for non-API routes with auth
 		// API routes use API keys/bearer tokens, not cookies, so CSRF doesn't apply

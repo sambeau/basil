@@ -217,9 +217,9 @@ func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, h
 	ctx = withSubpath(ctx, subpath)
 	r = r.WithContext(ctx)
 
-	// Apply auth middleware (optional auth for now - can be enhanced later)
-	finalHandler := h.server.applyAuthMiddleware(handler, "optional")
-	finalHandler.ServeHTTP(w, r)
+	// Auth middleware already ran: the whole site handler is wrapped with
+	// optional auth at registration, so the user is in the request context.
+	handler.ServeHTTP(w, r)
 }
 
 // splitPath splits a URL path into non-empty segments.

@@ -34,6 +34,7 @@ Basil is a web server that runs [Parsley](../../parsley/manual/index.md) handler
 |------|-------------|
 | [Database](database.md) | The built-in SQLite database, `@DB`, and the database inspector |
 | [Authentication](authentication.md) | Passkey login, users, roles, protected paths, and API keys |
+| [The Authentication Guide](authentication-guide.md) | Auth in depth — sessions, recovery, email verification, and CSRF |
 | [Parts](parts.md) | Interactive components that update without page reloads |
 | [Search](search.md) | Full-text search over your content with `@SEARCH` |
 | [Images](images.md) | Image transformation, smart crop, and responsive srcsets |
