@@ -17,7 +17,7 @@ keywords:
 
 # Parsley Language Manual
 
-The complete reference for the Parsley programming language. Parsley is a modern, expression-oriented language designed for building web applications with the [Basil](../../guide/README.md) server.
+The complete reference for the Parsley programming language. Parsley is a modern, expression-oriented language designed for building web applications with the [Basil](../../basil/manual/index.md) server.
 
 > **New to Parsley?** Start with the [Getting Started Tutorial](getting-started.md) for a hands-on introduction, then explore the topics below.
 

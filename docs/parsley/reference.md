@@ -3735,7 +3735,7 @@ let {notFound, redirect} = import @basil/api
 | `@std/valid` | Validation predicates for IDs, financial data, locales |
 | `@std/id` | ID generation (ULID, UUID, NanoID, CUID) |
 | `@std/hash` | Cryptographic hash functions (MD5, SHA1, SHA256, SHA512) |
-| `@std/mdDoc` | Markdown document analysis |
+| `@std/mddoc` | Markdown document analysis |
 
 ### Server Modules (`@basil/`)
 
@@ -4289,7 +4289,7 @@ fn handleOldUrl(req) {
 
 ---
 
-### 7.9 @std/mdDoc
+### 7.9 @std/mddoc
 
 Markdown document analysis and manipulation. Parse markdown into a queryable document object.
 
@@ -4341,7 +4341,7 @@ Markdown document analysis and manipulation. Parse markdown into a queryable doc
 | `ast` | none | dictionary | Raw AST |
 
 ```parsley
-let mdDoc = import @std/mdDoc
+let mdDoc = import @std/mddoc
 
 let markdown = `# Welcome to My Doc
 
@@ -4387,15 +4387,17 @@ Development logging utilities. **Requires Basil server context**—not available
 
 | Method | Arguments | Description |
 |--------|-----------|-------------|
-| `dev.log(label, value)` | `label: string`, `value: any` | Log a value with label |
-| `dev.clearLog()` | none | Clear all log entries |
-| `dev.logPage()` | none | Get log page HTML |
-| `dev.setLogRoute(route)` | `route: string` | Set dev log route |
-| `dev.clearLogPage()` | none | Clear and return log page |
+| `dev.log(value)` | `value: any` | Log a value |
+| `dev.log(label, value)` | `label: string`, `value: any` | Log a value with a label |
+| `dev.log(label, value, opts)` | `label: string`, `value: any`, `opts: dictionary` | Log with options, e.g. `{level: "warn"}` |
+| `dev.clearLog()` | none | Clear the current route's log entries |
+| `dev.logPage(route, value)` | `route: string`, `value: any` | Log to a specific route's log |
+| `dev.setLogRoute(route)` | `route: string` | Set the default log route |
+| `dev.clearLogPage(route)` | `route: string` | Clear a specific route's log entries |
 
 ```parsley
 // In a Basil handler
-let log = import @basil/log
+let {dev} = import @basil/log
 
 fn handleRequest(req) {
     dev.log("request", req.params)

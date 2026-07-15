@@ -171,6 +171,8 @@ let sitePageEntries = for (f in pageFiles) {
 // modules live there); remap those for the site's flatter layout, dropping one
 // "../" and the "manual/" segment (docs/parsley/manual/… is deeper than /manual).
 // Longest match first so the depth-1 form isn't partially rewritten.
+// (Links to the standalone CHEATSHEET / error-codes pages need no remapping:
+// those render at the site root, mirroring docs/parsley/ → dist/.)
 let fixParsleyLinks = fn(html) {
     html.replace("../../../basil/manual/", "../../basil/")
         .replace("../../basil/manual/", "../basil/")
@@ -189,7 +191,9 @@ let basilTree = renderTree(basilSrc, "basil", "Basil Manual", "basil", fixBasilL
 // The full server-side Parsley reference renders alongside the manual,
 // reusing the Basil sidebar (it's linked from the Basil manual's index)
 let refDoc <== MD(@../docs/basil/reference.md, {ids: true})
-let refHtml = rewriteLinks(refDoc.html)
+// reference.md sits at docs/basil/ and links into the manual (e.g.
+// "manual/images.md"); the manual is flattened to /basil, so collapse it.
+let refHtml = rewriteLinks(refDoc.html).replace("\"manual/images.html\"", "\"images.html\"")
 let refPage = <Layout title="Basil Parsley Reference" root="../" path="basil/reference.html"
     menu={basilTree.menu} base="../basil/" active="reference.html" switcher="basil"
     toc={extractToc(refHtml)}>
@@ -197,11 +201,31 @@ let refPage = <Layout title="Basil Parsley Reference" root="../" path="basil/ref
 </Layout>
 writePage(@./dist/basil/reference.html, refPage)
 
+// Standalone Parsley pages that live outside the manual tree, at the parsley
+// root (docs/parsley/{CHEATSHEET,error-codes}.md) but linked from it. They
+// render at the site root — mirroring docs/parsley/ → dist/ — so the manual's
+// existing "../CHEATSHEET.md" / "../../error-codes.md" links resolve unchanged.
+// They reuse the Parsley sidebar (base "manual/") like the reference page.
+let renderStandalone = fn(srcPath, outName, title) {
+    let doc <== MD(srcPath, {ids: true})
+    let html = fixParsleyLinks(rewriteLinks(doc.html))
+    let page = <Layout title={title + " — Parsley Manual"} root="" path={outName}
+        menu={parsleyTree.menu} base="manual/" active={outName} switcher="parsley"
+        toc={extractToc(html)}>
+        <article>html</article>
+    </Layout>
+    writePage(@(./dist/{outName}), page)
+    searchEntry(title, outName, "Parsley Manual", html)
+}
+let cheatsheetEntry = renderStandalone(@../docs/parsley/CHEATSHEET.md, "CHEATSHEET.html", "Parsley Cheatsheet")
+let errorCodesEntry = renderStandalone(@../docs/parsley/error-codes.md, "error-codes.html", "Error Codes Reference")
+
 // --- search index ----------------------------------------------------------
 // One JSON file the search box fetches lazily; scoring happens client-side.
 
 let searchIndex = parsleyTree.entries ++ basilTree.entries ++ sitePageEntries ++
-    [searchEntry("Basil Parsley Reference", "basil/reference.html", "Basil Manual", refHtml)]
+    [searchEntry("Basil Parsley Reference", "basil/reference.html", "Basil Manual", refHtml),
+     cheatsheetEntry, errorCodesEntry]
 searchIndex ==> JSON(@./dist/search-index.json)
 
 // --- assets & static files -----------------------------------------------------

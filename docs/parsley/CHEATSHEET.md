@@ -1206,17 +1206,17 @@ for (user in snapshot) { user.email }
 let {PI, sin, cos, floor} = import @std/math
 let {uuid, nanoid, cuid} = import @std/id         // ID generators
 let {uuid, nanoid, ulid, cuid} = import @std/valid // ID validators
-let {mdDoc} = import @std/mdDoc
+let {mdDoc} = import @std/mddoc
 let {md5, sha256} = import @std/hash
 
 // Tables - use @table literal
 let t = @table [{name: "Alice"}, {name: "Bob"}]
 
 // Basil-specific (server context)
-let {request, response, query, route, method} = import @basil/http
+let {request, response, params, route, method} = import @basil/http
 let {session, auth, user} = import @basil/auth
 let {notFound, redirect} = import @basil/api
-let {log, warn, error} = import @basil/log
+let {dev} = import @basil/log
 ```
 
 ### Math Module (`@std/math`)
@@ -1459,14 +1459,15 @@ cuid()                             // CUID2-like (secure, collision-resistant)
 
 ### Logging Module (`@basil/log`)
 ```parsley
-import @basil/log                  // Imports as 'log'
+let {dev} = import @basil/log       // Exports a single `dev` object
 
-log.log("Debug info")              // Log to dev panel
-log.log("label", value)            // Log with label
-log.clearLog()                     // Clear dev log
-log.logPage("/route", value)       // Log to specific route
-log.setLogRoute("/api")            // Set default route
-log.clearLogPage("/route")         // Clear log for route
+dev.log("Debug info")              // Log to dev panel
+dev.log("label", value)            // Log with label
+dev.log("label", value, {level: "warn"})  // Log at warn level
+dev.clearLog()                     // Clear dev log
+dev.logPage("/route", value)       // Log to specific route
+dev.setLogRoute("/api")            // Set default route
+dev.clearLogPage("/route")         // Clear log for route
 ```
 
 ---
