@@ -46,33 +46,53 @@ Query-string parameters and POST form data are merged into one dictionary, with 
 
 ### `publicUrl(path)`
 
-**Server-only.** Register a file and get its content-hashed public URL, for cache-busting.
+**Server-only.** Take a private file sitting on disk next to your handler and give it a public URL the browser can fetch — without moving the file into your [public directory](#the-public-directory).
 
 **Arguments:**
-- `path` (path literal or `String`) — the file to register
+- `path` (path literal or `String`) — the file to publish, relative to the current handler
 
-**Returns:** `String` — a public URL with a content hash in the filename
+**Returns:** `String` — a public URL that serves the file, with a content hash in the path
 
 ```parsley
 let logoUrl = publicUrl(@./assets/logo.svg)
 <img src={logoUrl} alt="Logo"/>
-// Produces: /assets/logo-a1b2c3d4.svg
+// logoUrl is something like: /__p/3f9a1c2b7d4e6f80.svg
 ```
+
+The file itself never moves — `@./assets/logo.svg` stays exactly where it is, private and beside your handler code. `publicUrl()` just makes that one file reachable at the returned URL.
 
 **How it works:**
 
-1. The file's content is hashed.
-2. The file is copied into the public assets directory with the hash in its filename.
-3. The hashed URL is returned, so browsers cache it indefinitely and re-fetch only when the content changes.
+1. Basil reads the file and computes a short hash of its **contents**.
+2. It records a mapping — `hash → this file on disk` — in an in-memory registry. Nothing is copied; the original file is served in place.
+3. It returns a URL of the form `/__p/{hash}.{ext}`. When a browser requests that URL, Basil looks the hash up and streams the file straight from disk.
+
+The registry is rebuilt each time the server (re)starts, and each file is hashed once and cached (by modification time and size) so repeated calls in a request are cheap.
+
+**The content hash and caching.** Because the hash is derived from the file's contents, every version of the file gets its own distinct URL. This lets Basil serve the file with long-lived cache headers: the browser can keep a copy **forever**, since that exact URL will never point at different bytes. Edit the file and its hash — and therefore its URL — changes, so the next page render links to the new URL and the browser fetches the fresh version. In other words, the newest version is cached aggressively and old versions simply stop being referenced; you never have to think about stale caches or query-string `?v=` tricks.
 
 **Errors:**
-- `state` error — if called outside a Basil server context
-- `security` error — if the path is outside the handler's directory
+- `state` error — if called outside a Basil server handler
+- `security` error — if the path resolves outside the handler's root directory (path-traversal attempts are rejected)
 - `IO-0001` — if the file cannot be read
 
-**Security:** the path must be within the handler's root directory; path-traversal attempts are rejected.
+There is also a size ceiling: files over 100 MB are rejected (put those in the public directory instead), and files over 10 MB log a warning.
 
-**vs. `asset()`:** Parsley's core [`asset()`](../../parsley/manual/features/file-io.md#assets) builtin only strips the `public_dir` prefix to turn a path into a web URL — no hashing, no server required. Use `publicUrl()` when you want content-hashed, cache-busting URLs.
+#### The public directory
+
+Basil also has an ordinary **public directory** for static files — CSS, third-party scripts, images you're happy to expose as-is. Set its path in your site config (default `./public`):
+
+```yaml
+# basil.yaml
+public_dir: ./public
+```
+
+Anything under `public_dir` is served at the web root, and Parsley rewrites paths under it to URLs automatically — `@./public/images/foo.png` becomes `/images/foo.png`. See [Configuration → `public_dir`](configuration.md#public_dir).
+
+**When to use which:**
+
+- **Static files you're fine exposing** — drop them in `public_dir` and reference them directly (or via [`asset()`](../../parsley/manual/features/file-io.md#assets), which just strips the `public_dir` prefix to form the URL). No hashing, no server registration.
+- **A private file next to a handler** that you want to publish on demand, with automatic cache-safe versioning — use `publicUrl()`. It leaves the file where it is and serves it through the hashed `/__p/` URL described above.
 
 ### CSRF Token
 
