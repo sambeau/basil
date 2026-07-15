@@ -223,18 +223,17 @@ null ?? "default"               // "default" (left is null, use right)
 
 #### Optional Index Access
 
-Use `[?index]` syntax to safely access array or dictionary elements without errors when the index/key doesn't exist, or is out of range:
+Use `[?index]` syntax to safely access **array or string** elements without an error when the index is out of range:
 
 ```parsley
 let arr = [1, 2, 3]
 arr[?99]                        // null (index out of bounds, no error)
 arr[?0]                         // 1 (valid index)
-
-let user = {name: "Alice"}
-user[?"email"]                  // null (key doesn't exist, no error)
 ```
 
 Without `?`, out-of-bounds access would produce an error.
+
+Dictionaries do **not** need `[?]` — plain access already returns `null` for missing keys. The `[?key]` form is accepted on dictionaries for consistency, but `d[?"x"]` and `d["x"]` behave identically.
 
 ---
 

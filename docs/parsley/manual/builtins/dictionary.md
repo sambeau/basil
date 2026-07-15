@@ -180,16 +180,19 @@ d.missing
 
 **Result:** `null`
 
-### Safe Access with `?`
+### Optional Access with `?`
 
-Use optional access `[?key]` for explicit null-safety (behaves the same as normal access but makes intent clearer):
+The optional-access form `[?key]` is **accepted** on dictionaries for consistency
+with array indexing, but it is unnecessary: plain dictionary access already returns
+`null` for missing keys, so `d[?"missing"]` and `d["missing"]` behave identically.
 
 ```parsley
 let d = {a: 1}
-d[?"missing"]
+d[?"missing"]     // null — same as d["missing"]
 ```
 
-**Result:** `null`
+`[?index]` does real work on **arrays and strings**, where out-of-bounds access
+would otherwise error. See the [operators reference](../fundamentals/operators.md).
 
 ---
 

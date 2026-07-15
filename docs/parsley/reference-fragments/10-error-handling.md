@@ -174,15 +174,20 @@ let processOrder = fn(order) {
 
 #### Optional Index Access
 
-Use `[?index]` to return `null` instead of erroring on missing indices:
+Use `[?index]` to return `null` instead of erroring on an out-of-range array or string index:
 
 ```parsley
 let arr = [1, 2, 3]
 arr[?99]                        // null (no error)
 arr[99]                         // Error: index out of bounds
+```
 
+Dictionaries never error on missing keys, so `[?]` is not needed there:
+
+```parsley
 let user = {name: "Alice"}
-user[?"email"]                  // null (no error)
+user["email"]                   // null (missing key, no error)
+user[?"email"]                  // null (accepted, but identical to the above)
 user.email                      // null (null propagation, no error)
 ```
 
