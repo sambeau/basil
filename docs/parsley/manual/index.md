@@ -95,31 +95,6 @@ Importable modules providing higher-level functionality.
 
 ---
 
-## Quick Reference by Topic
-
-### Working with Text
-[Strings](builtins/strings.md) · [Regex](builtins/regex.md) · [Data Formats](features/data-formats.md) · [@std/valid](stdlib/valid.md)
-
-### Working with Data
-[Arrays](builtins/array.md) · [Dictionaries](builtins/dictionary.md) · [Tables](builtins/table.md) · [Schemas](builtins/schema.md) · [Records](builtins/record.md) · [Data Model](fundamentals/data-model.md)
-
-### Building Web Pages
-[Tags](fundamentals/tags.md) · [Modules](fundamentals/modules.md) · [Strings](builtins/strings.md) (interpolation) · [Control Flow](fundamentals/control-flow.md) (for loops)
-
-### Database Access
-[Database](features/database.md) · [Query DSL](features/query-dsl.md) · [Schemas](builtins/schema.md) · [Tables](builtins/table.md)
-
-### Building APIs
-[@basil/api](../../basil/manual/api.md) · [HTTP & Networking](features/network.md) · [Session Management](../../basil/manual/session.md) · [Error Handling](fundamentals/errors.md)
-
-### Files & External Systems
-[File I/O](features/file-io.md) · [Paths](builtins/paths.md) · [URLs](builtins/urls.md) · [HTTP & Networking](features/network.md) · [Shell Commands](features/commands.md) · [PLN](pln.md)
-
-### Dates, Numbers, Money & Measurements
-[Numbers](builtins/numbers.md) · [DateTime](builtins/datetime.md) · [Duration](builtins/duration.md) · [Money](builtins/money.md) · [Units](builtins/units.md) · [@std/math](stdlib/math.md)
-
----
-
 ## Suggested Reading Order
 
 If you're learning Parsley from scratch, we recommend this path:
