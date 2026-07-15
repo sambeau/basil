@@ -212,12 +212,16 @@ When using the `{data, error}` pattern, read errors are captured instead of halt
 
 ## Assets
 
-The `asset()` builtin converts a file path to a web-accessible URL with cache-busting:
+The `asset()` builtin maps a file path under the public directory to its web-root-relative URL by stripping the `public_dir` prefix:
 
 ```parsley
-<img src={asset(@./logo.png)} alt="Logo"/>
-// Produces: <img src="/assets/logo-a1b2c3d4.png" alt="Logo" />
+<img src={asset(@./public/images/logo.png)} alt="Logo"/>
+// Produces: <img src="/images/logo.png" alt="Logo" />
 ```
+
+It is a pure path-to-URL transform — it does **not** hash file contents or add a cache-busting suffix, and it also accepts the file dictionaries returned by `fileList()`.
+
+> **Cache-busting is a separate, Basil-only feature.** For content-hashed URLs like `/assets/logo-a1b2c3d4.png`, use `publicUrl()`, which registers and hashes the file. It is only available inside Basil server handlers — see [`publicUrl()` in the Basil reference](../../../basil/reference.md#111-publicurlpath).
 
 ## Key Differences from Other Languages
 

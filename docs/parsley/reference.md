@@ -3685,14 +3685,14 @@ Database connections are automatically cached and reused. The same DSN will retu
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `asset(path)` | `path: path` | `string` | Get asset path with cache-busting hash |
+| `asset(path)` | `path: path` | `string` | Map a public-directory path to its web-root-relative URL |
 
 ```parsley
-<img src={asset(@./logo.png)} alt="Logo"/>
-// Produces: <img src="/assets/logo-a1b2c3d4.png" alt="Logo"/>
+<img src={asset(@./public/images/logo.png)} alt="Logo"/>
+// Produces: <img src="/images/logo.png" alt="Logo"/>
 ```
 
-**Note**: `asset()` is primarily useful in Basil server context for cache-busting.
+**Note**: `asset()` strips the `public_dir` prefix to produce a web URL. It does **not** hash contents or add cache-busting. For content-hashed cache-busting URLs, use Basil's server-only `publicUrl()` — see the [Basil reference](../basil/reference.md#111-publicurlpath).
 
 ---
 

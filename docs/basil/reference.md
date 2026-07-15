@@ -1373,6 +1373,8 @@ let logoUrl = publicUrl(@./assets/logo.svg)
 
 **Security:** The path must be within the handler's root directory. Path traversal attempts are rejected.
 
+**vs. `asset()`:** Parsley's core `asset()` builtin only strips the `public_dir` prefix to turn a path into a web URL — it does no hashing and needs no server. Use `publicUrl()` when you want content-hashed, cache-busting URLs for private files. See [`asset()` in the Parsley reference](../parsley/reference.md#614-assets).
+
 ### 11.2 CSRF Token
 
 Access CSRF token via the basil context for form protection.

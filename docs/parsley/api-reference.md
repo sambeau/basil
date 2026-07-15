@@ -490,7 +490,7 @@
 
 | Function | Description |
 |----------|-------------|
-| `asset(path)` | Get asset path with cache busting |
+| `asset(path)` | Map a public-directory path to its web-root-relative URL (no hashing; for cache-busting use Basil's `publicUrl()`) |
 
 ### Connections
 
