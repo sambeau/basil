@@ -37,6 +37,7 @@ Core language concepts — start here to learn how Parsley works.
 | [Control Flow](fundamentals/control-flow.md) | `if`/`else`, `for`, `skip`, `stop`, and `check` |
 | [Error Handling](fundamentals/errors.md) | `try`/`catch`, `check`, `fail`, and error objects |
 | [Modules](fundamentals/modules.md) | `import`, `export`, and module resolution |
+| [Globals](fundamentals/globals.md) | Ambient globals — `@env` and `@args` |
 | [Tags](fundamentals/tags.md) | HTML/XML tag syntax, attributes, children, and components |
 | [Data Model](fundamentals/data-model.md) | Schemas, records, and tables — how structured data fits together |
 
