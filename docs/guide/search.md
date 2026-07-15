@@ -104,7 +104,7 @@ search = @SEARCH({
 - Relative to project root: `"search.db"`
 - Absolute path: `"/var/data/search.db"`
 - In-memory testing: `":memory:"`
-- If `watch` is set, defaults to `"<first-watch-dir>.db"`
+- If `watch` is set, defaults to `"<first-watch-dir>_search.db"` next to the watched folder
 
 **watch** — Auto-indexed directories:
 - Scanned recursively for matching extensions
@@ -126,7 +126,8 @@ search = @SEARCH({
 
 **snippetLength** — Characters in result snippets:
 - Default: 200 characters
-- Truncated to word boundaries
+- Approximate — truncated to word boundaries
+- Maximum ~320 characters (FTS5's 64-word snippet limit)
 - Includes matched terms with highlighting
 
 **highlightTag** — HTML element for highlights:

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Multi-byte UTF-8 characters survived only as their first byte inside `<script>`/`<style>` raw text (BUG-028)** — the lexer's raw-text scanner (and the tag-text and CDATA scanners, which shared the pattern) appended one byte per rune while advancing a full rune per step, so `"☾"` in an inline script came out as the invalid byte `e2`. All three scanners now copy the full UTF-8 sequence; `@{}` interpolation in raw text is unaffected.
+- **`@SEARCH` now honours its documented options** — The index file option is `path`, as the docs have always said (the code previously only accepted an undocumented `backend` key, so `path: "search.db"` was silently ignored and a default `<watch-dir>_search.db` file appeared instead). `snippetLength` (approximate characters, default 200, capped at FTS5's 64-word limit) and `highlightTag` (default `"mark"`) now work instead of being silently ignored. Unrecognised `@SEARCH` option keys — including `weights` sub-keys — are now an error rather than falling back to silent defaults, and `backend` gets a "did you mean `path`?" hint.
 
 ## [1.0.0-alpha.4] - 2026-07-13
 

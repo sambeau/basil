@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -31,15 +33,12 @@ type SearchInstance struct {
 
 // SearchOptions contains configuration for a search instance
 type SearchOptions struct {
-	Backend       string
+	Path          string // SQLite index file (":memory:" for in-memory)
 	Watch         []string
 	Extensions    []string
 	Weights       search.Weights
-	SnippetLen    int
-	HighlightTag  string
-	ExtractTitle  bool
-	ExtractTags   bool
-	ExtractDate   bool
+	SnippetLen    int    // approximate snippet length in characters
+	HighlightTag  string // HTML tag wrapped around matched terms
 	Tokenizer     string
 	CheckInterval time.Duration // How often to check for file changes (0 = every query)
 }
@@ -53,8 +52,10 @@ var (
 // generateCacheKey generates a unique cache key from search options
 func generateCacheKey(opts SearchOptions) string {
 	h := sha256.New()
-	h.Write([]byte(opts.Backend))
+	h.Write([]byte(opts.Path))
 	h.Write([]byte(opts.Tokenizer))
+	h.Write([]byte(opts.HighlightTag))
+	h.Write(fmt.Appendf(nil, "%d", opts.SnippetLen))
 
 	// Sort watch paths for consistent hashing
 	watchPaths := make([]string, len(opts.Watch))
@@ -147,6 +148,29 @@ func NewSearchBuiltin(env *evaluator.Environment) evaluator.Object {
 	}
 }
 
+// highlightTagRe matches bare HTML tag names like "mark" or "em"
+var highlightTagRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-]*$`)
+
+// checkOptionKeys errors on unrecognised keys so typos surface instead of
+// being silently ignored
+func checkOptionKeys(pairs map[string]ast.Expression, context string, valid ...string) error {
+	keys := make([]string, 0, len(pairs))
+	for key := range pairs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
+		if !slices.Contains(valid, key) {
+			return fmt.Errorf("unknown %s option %q (valid options: %s)",
+				context, key, strings.Join(valid, ", "))
+		}
+	}
+	return nil
+}
+
 // parseSearchOptions parses the options dictionary
 func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environment) (SearchOptions, error) {
 	opts := SearchOptions{
@@ -154,22 +178,27 @@ func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environme
 		Weights:       search.DefaultWeights(),
 		SnippetLen:    200,
 		HighlightTag:  "mark",
-		ExtractTitle:  true,
-		ExtractTags:   true,
-		ExtractDate:   true,
 		Tokenizer:     "porter",
 		CheckInterval: 0, // Check on every query by default
 	}
 
-	// Parse backend
-	if backendExpr, ok := optsDict.Pairs["backend"]; ok {
-		backend := evaluator.Eval(backendExpr, optsDict.Env)
-		if pathDict, ok := backend.(*evaluator.Dictionary); ok && isPathDict(pathDict) {
-			opts.Backend = pathDictToString(pathDict)
-		} else if str, ok := backend.(*evaluator.String); ok {
-			opts.Backend = str.Value
+	if _, ok := optsDict.Pairs["backend"]; ok {
+		return opts, fmt.Errorf(`unknown option "backend" (did you mean "path"?)`)
+	}
+	if err := checkOptionKeys(optsDict.Pairs, "@SEARCH",
+		"path", "watch", "extensions", "weights", "tokenizer", "snippetLength", "highlightTag"); err != nil {
+		return opts, err
+	}
+
+	// Parse path (the SQLite index file)
+	if pathExpr, ok := optsDict.Pairs["path"]; ok {
+		path := evaluator.Eval(pathExpr, optsDict.Env)
+		if pathDict, ok := path.(*evaluator.Dictionary); ok && isPathDict(pathDict) {
+			opts.Path = pathDictToString(pathDict)
+		} else if str, ok := path.(*evaluator.String); ok {
+			opts.Path = str.Value
 		} else {
-			return opts, fmt.Errorf("backend must be a path or string")
+			return opts, fmt.Errorf("path must be a path or string")
 		}
 	}
 
@@ -201,11 +230,11 @@ func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environme
 		}
 	}
 
-	// Auto-generate backend from watch path if not provided
-	if opts.Backend == "" && len(opts.Watch) > 0 {
+	// Auto-generate index path from watch path if not provided
+	if opts.Path == "" && len(opts.Watch) > 0 {
 		// Use first watch path as base for database name
 		base := filepath.Base(opts.Watch[0])
-		opts.Backend = filepath.Join(filepath.Dir(opts.Watch[0]), base+"_search.db")
+		opts.Path = filepath.Join(filepath.Dir(opts.Watch[0]), base+"_search.db")
 	}
 
 	// Parse tokenizer
@@ -232,10 +261,34 @@ func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environme
 		}
 	}
 
+	// Parse snippetLength (approximate characters per snippet)
+	if lenExpr, ok := optsDict.Pairs["snippetLength"]; ok {
+		length := evaluator.Eval(lenExpr, optsDict.Env)
+		if i, ok := length.(*evaluator.Integer); ok && i.Value > 0 {
+			opts.SnippetLen = int(i.Value)
+		} else {
+			return opts, fmt.Errorf("snippetLength must be a positive integer")
+		}
+	}
+
+	// Parse highlightTag (HTML tag wrapped around matched terms)
+	if tagExpr, ok := optsDict.Pairs["highlightTag"]; ok {
+		tag := evaluator.Eval(tagExpr, optsDict.Env)
+		if str, ok := tag.(*evaluator.String); ok && highlightTagRe.MatchString(str.Value) {
+			opts.HighlightTag = str.Value
+		} else {
+			return opts, fmt.Errorf(`highlightTag must be an HTML tag name like "mark" or "em"`)
+		}
+	}
+
 	// Parse weights
 	if weightsExpr, ok := optsDict.Pairs["weights"]; ok {
 		weights := evaluator.Eval(weightsExpr, optsDict.Env)
 		if dict, ok := weights.(*evaluator.Dictionary); ok {
+			if err := checkOptionKeys(dict.Pairs, "@SEARCH weights",
+				"title", "headings", "tags", "content"); err != nil {
+				return opts, err
+			}
 			if titleExpr, ok := dict.Pairs["title"]; ok {
 				if num := evaluator.Eval(titleExpr, dict.Env); num != nil {
 					if f, ok := num.(*evaluator.Float); ok {
@@ -284,11 +337,11 @@ func createSearchInstance(opts SearchOptions, env *evaluator.Environment) (*Sear
 	var db *sql.DB
 	var err error
 
-	if opts.Backend == ":memory:" {
+	if opts.Path == ":memory:" {
 		db, err = sql.Open("sqlite", ":memory:")
 	} else {
 		// Resolve relative path
-		dbPath := opts.Backend
+		dbPath := opts.Path
 		if !filepath.IsAbs(dbPath) && env.RootPath != "" {
 			dbPath = filepath.Join(env.RootPath, dbPath)
 		}
@@ -313,6 +366,14 @@ func createSearchInstance(opts SearchOptions, env *evaluator.Environment) (*Sear
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create FTS5 index: %w", err)
+	}
+
+	// FTS5's snippet() measures in tokens (roughly words, max 64), so convert
+	// the configured character length at ~5 characters per word
+	snippetTokens := opts.SnippetLen / 5
+	if err := index.SetSnippetOptions(snippetTokens, opts.HighlightTag); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to configure snippets: %w", err)
 	}
 
 	return &SearchInstance{

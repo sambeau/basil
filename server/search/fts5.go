@@ -3,14 +3,21 @@ package search
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 )
 
 // FTS5Index represents a full-text search index using SQLite FTS5
 type FTS5Index struct {
-	db        *sql.DB
-	tokenizer string
-	weights   Weights
+	db            *sql.DB
+	tokenizer     string
+	weights       Weights
+	snippetTokens int    // max tokens per snippet (FTS5 allows 1-64)
+	highlightTag  string // HTML tag wrapped around matched terms in snippets
 }
+
+// highlightTagRe matches bare HTML tag names; the tag is embedded directly in
+// the snippet() SQL expression, so anything else must be rejected
+var highlightTagRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-]*$`)
 
 // Weights defines the ranking weights for different document fields
 type Weights struct {
@@ -37,9 +44,11 @@ func NewFTS5Index(db *sql.DB, tokenizer string, weights Weights) (*FTS5Index, er
 	}
 
 	idx := &FTS5Index{
-		db:        db,
-		tokenizer: tokenizer,
-		weights:   weights,
+		db:            db,
+		tokenizer:     tokenizer,
+		weights:       weights,
+		snippetTokens: 64,
+		highlightTag:  "mark",
 	}
 
 	if err := idx.createTables(); err != nil {
@@ -47,6 +56,24 @@ func NewFTS5Index(db *sql.DB, tokenizer string, weights Weights) (*FTS5Index, er
 	}
 
 	return idx, nil
+}
+
+// SetSnippetOptions configures snippet generation for search results.
+// maxTokens is clamped to FTS5's 1-64 token range; highlightTag must be a
+// bare HTML tag name like "mark" or "em".
+func (idx *FTS5Index) SetSnippetOptions(maxTokens int, highlightTag string) error {
+	if !highlightTagRe.MatchString(highlightTag) {
+		return fmt.Errorf("invalid highlight tag: %q", highlightTag)
+	}
+	if maxTokens < 1 {
+		maxTokens = 1
+	}
+	if maxTokens > 64 {
+		maxTokens = 64
+	}
+	idx.snippetTokens = maxTokens
+	idx.highlightTag = highlightTag
+	return nil
 }
 
 // createTables creates the FTS5 virtual table and metadata table
