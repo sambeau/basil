@@ -5,7 +5,7 @@ system: basil
 type: feature
 name: authentication
 created: 2026-07-12
-version: 1.0.0-alpha.3
+version: 1.0.0-alpha.4
 author: "@sam"
 keywords:
   - auth
@@ -17,6 +17,7 @@ keywords:
   - sessions
   - api keys
   - protected paths
+  - email verification
 ---
 
 # Authentication
@@ -32,11 +33,19 @@ Basil has passkey (WebAuthn) authentication built in — no passwords to store, 
 ```yaml
 auth:
   enabled: true
-  registration: open    # anyone can sign up
+  registration: open    # anyone can sign up (default: closed)
   session_ttl: 24h
 ```
 
-**2. Add the components** to your pages:
+**2. Create your first user:**
+
+```bash
+basil users create --name "You" --email you@example.com
+```
+
+This also creates the auth database (`.basil-auth.db`, next to `basil.yaml`) — the server won't start with auth enabled until it exists. The first user is always an admin.
+
+**3. Add the components** to your pages:
 
 ```parsley
 // signup page
@@ -49,7 +58,9 @@ auth:
 <basil.auth.Logout text="Sign out" redirect="/"/>
 ```
 
-**3. Protect routes:**
+Sign up with the same email as your CLI-created user and the new passkey attaches to that account.
+
+**4. Protect routes:**
 
 ```yaml
 auth:
@@ -60,7 +71,7 @@ auth:
       roles: [admin]          # admins only
 ```
 
-Or per-route in routes mode:
+Signed-out visitors are redirected to the login page; signed-in visitors without the right role get a 403. Or protect per-route in routes mode:
 
 ```yaml
 routes:
@@ -72,7 +83,7 @@ routes:
     auth: optional     # basil.auth.user set if signed in
 ```
 
-**4. Use the signed-in user** in handlers:
+**5. Use the signed-in user** in handlers:
 
 ```parsley
 if (basil.auth.user != null) {
@@ -85,8 +96,12 @@ if (basil.auth.user != null) {
 | `basil.auth.user.id` | User ID (e.g. `usr_abc123`) |
 | `basil.auth.user.name` | Display name |
 | `basil.auth.user.email` | Email (may be empty) |
-| `basil.auth.user.role` | Role (`admin`, `editor`, …) |
+| `basil.auth.user.role` | Role — `"admin"` or `"editor"` |
 | `basil.auth.user.created` | Account creation timestamp |
+| `basil.auth.user.email_verified_at` | Verification timestamp, or `null` |
+| `basil.auth.user.email_verification_pending` | `true` if email set but unverified |
+
+The two email fields only appear when the user has an email address. `basil.auth.user` is `null` for signed-out visitors, and `basil.auth.required` tells you whether the current route declared `auth: required`.
 
 ## Components
 
@@ -102,7 +117,7 @@ if (basil.auth.user != null) {
 | `recovery_page` | `""` | Page to show recovery codes (recommended) |
 | `class` | `""` | Extra CSS classes |
 
-When `recovery_page` is set, the new user's recovery codes are placed in `sessionStorage` (`basil_recovery_codes`, `basil_recovery_user`) and the user is redirected there — display them, then clear the storage.
+When `recovery_page` is set, the new user's recovery codes are placed in `sessionStorage` (`basil_recovery_codes`, `basil_recovery_user`) and the user is redirected there — display them, then clear the storage. Without it, the codes appear in a browser `alert()`, which works but won't win any design awards.
 
 ### `<basil.auth.Login/>`
 
@@ -126,36 +141,49 @@ When `recovery_page` is set, the new user's recovery codes are placed in `sessio
 ```yaml
 auth:
   enabled: true           # default: false
-  registration: open      # "open" | "closed"
-  session_ttl: 24h        # Go duration format
-  login_path: /login      # redirect target for unauthenticated users
+  registration: open      # "open" | "closed" (default: closed)
+  session_ttl: 24h        # Go duration format (default: 24h)
+  login_path: /login      # redirect target for signed-out visitors (default: /login)
   protected_paths:
     - /dashboard
     - path: /admin
       roles: [admin]
 ```
 
+Even with `registration: closed`, the very first user may sign up — so you can bootstrap an account before locking the door.
+
 ## Managing Users
 
 Users are created from the [CLI](running.md):
 
 ```bash
-basil users create
+basil users create --name "Sam" --email sam@example.com --role admin
 basil users list
-basil users set-role <id>
+basil users set-role <id> editor
 basil users reset <id>     # new recovery codes
 ```
 
-API keys (for [Git deploys](git.md) and programmatic access):
+API keys (used by [Git deploys](git.md)):
 
 ```bash
-basil apikey create
-basil apikey list
+basil apikey create --user <id> --name "MacBook Git"
+basil apikey list --user <id>
 basil apikey revoke <id>
 ```
 
+## There's More
+
+This page covers the essentials. Authentication also includes:
+
+- **Recovery codes** — eight one-time codes per user, for when a passkey device goes missing
+- **Email verification** — send verification emails via Mailgun or Resend
+- **Email recovery** — verified users can recover their account by email
+- **Role-based API modules** — `api.public()`, `api.adminOnly()`, and `api.roles()`
+- **CSRF protection** — automatic token checks on authenticated form posts
+- **`/__auth/*` endpoints** — the HTTP API behind the components
+
 ## See Also
 
+- [The Authentication Guide](authentication-guide.md) — the deep dive: passkeys, sessions, roles, protected paths, recovery, API keys, and email verification
 - [Running Basil](running.md) — user and API key CLI
 - [Git Deploy](git.md) — API keys in action
-- The [authentication guide](https://github.com/sambeau/basil/blob/main/docs/guide/authentication.md) — recovery flows and role-based access in depth
