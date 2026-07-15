@@ -39,6 +39,7 @@ Basil is a web server that runs [Parsley](../../parsley/manual/index.md) handler
 | [The Parts Guide](parts-guide.md) | Parts in depth — nesting, lazy loading, loading states, and error handling |
 | [Parts JavaScript API](parts-js.md) | Script your Parts — `window.Parts`, events, and cross-Part targeting |
 | [Search](search.md) | Full-text search over your content with `@SEARCH` |
+| [The Search Guide](search-guide.md) | Search in depth — indexing, ranking, query syntax, and manual documents |
 | [Images](images.md) | Image transformation, smart crop, and responsive srcsets |
 | [Git Deploy](git.md) | Push-to-deploy over HTTPS with the built-in Git server |
 

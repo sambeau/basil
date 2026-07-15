@@ -5,7 +5,7 @@ system: basil
 type: feature
 name: search
 created: 2026-07-12
-version: 1.0.0-alpha.3
+version: 1.0.0-alpha.4
 author: "@sam"
 keywords:
   - search
@@ -19,33 +19,37 @@ keywords:
 
 # Search
 
-Full-text search over your content, powered by SQLite FTS5 — no external search service. Point it at a directory and query it.
+Full-text search over your content, powered by SQLite FTS5 — no external search service, nothing to install. Point it at a folder and start querying.
 
 > **Basil-only.** `@SEARCH` requires the Basil server environment.
 
 ## Quick Start
 
 ```parsley
-let search = @SEARCH({
-    watch: @./docs,
-    path: "search.db"
-})
+let {search, error} = @SEARCH({watch: @./docs})
 
-let results = search.query(@params.q, {limit: 10})
+let q = @params.q ?? ""
+let results = search.query(q, {limit: 10})
+
+<form method="get">
+    <input type="search" name="q" value={q} placeholder="Search…"/>
+</form>
 
 <ul>
     for (result in results.items) {
         <li>
-            <a href={"/" + result.path}>result.title</a>
+            <a href={`/{result.path}`}>result.title</a>
             <p>result.snippet</p>
         </li>
     }
 </ul>
 ```
 
-On first query, Basil scans the watched folder, parses YAML frontmatter (title, tags, date), extracts headings for ranking, and builds the index. Subsequent queries hit the index.
+On the first query, Basil scans the watched folder, reads titles, tags, and dates from YAML frontmatter, extracts headings for ranking, and builds the index. Every query after that checks the folder for changes, so new, edited, and deleted files show up on their own.
 
 ## `@SEARCH(options)`
+
+Returns `{search, error}` — the search instance, or an error message if setup failed.
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -62,10 +66,22 @@ Indexes Markdown and HTML out of the box, plus text-based PDF and DOCX files (50
 |-----|------|---------|-------------|
 | `limit` | int | 10 | Maximum results |
 | `offset` | int | 0 | Pagination offset |
-| `raw` | bool | false | Pass the query straight to FTS5 (advanced) |
+| `raw` | bool | `false` | Pass the query straight to FTS5 (advanced) |
 | `filters` | dictionary | — | Narrow results by tag or date (see below) |
 
-Returns `{items, total}` where each item has `url`, `path`, `title`, and a highlighted `snippet`. For documents added manually with `search.add()` there is no source file, so `path` is omitted — use `url` to link to the result. `total` reflects the filtered match count.
+The query syntax works like a search engine: words are ANDed together, `"quotes make phrases"`, and a `-minus` excludes a word. An empty query returns empty results, so it's safe to wire straight to a form.
+
+Returns `{items, total, limit, offset, query}`, where `total` reflects the filtered match count. Each item has:
+
+| Field | Description |
+|-------|-------------|
+| `url` | Link to the result — use this for documents added with `search.add()`, which have no source `path` |
+| `path` | Path object for the source file — build links with `` `/{result.path}` `` (omitted for manually added documents) |
+| `title` | Document title (frontmatter, first heading, or filename) |
+| `snippet` | Excerpt with matched terms wrapped in `<mark>…</mark>` (or your `highlightTag`) |
+| `rank` | 1-based position in the results |
+| `score` | Relevance score, mostly useful for debugging |
+| `date` | The document's date, when it has one |
 
 ### Filters
 
@@ -87,10 +103,19 @@ let results = search.query(@params.q, {
 
 Dates accept Parsley datetime literals (`@2024-01-01`) or ISO strings (`"2024-01-01"`). Bounds are inclusive and compared in UTC. Documents without a `date` are excluded whenever a date filter is set.
 
+## Beyond Watched Folders
+
+The instance has a few more methods, all covered in [the guide](search-guide.md):
+
+- **`add`**, **`update`**, **`remove`** — index things that aren't files: database rows, API responses, generated pages
+- **`stats()`** — document count, index size, last indexed time
+- **`reindex()`** — drop everything and rebuild from the watched folders
+
 ## When to Use It
 
 Good for documentation sites, blogs, wikis, and apps up to roughly 100k documents — anything where "just works, zero config" beats search-cluster features. If you need typo tolerance, multi-language stemming, or millions of documents, reach for Meilisearch or Elasticsearch instead.
 
 ## See Also
 
-- The [search guide](https://github.com/sambeau/basil/blob/main/docs/guide/search.md) — manual indexing, custom fields, ranking, and tuning
+- [The Search Guide](search-guide.md) — how indexing works file type by file type, ranking and tuning, query syntax, manual indexing, and troubleshooting
+- [Routing](routing.md) — `@params` and friends

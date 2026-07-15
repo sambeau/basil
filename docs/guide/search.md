@@ -1,5 +1,7 @@
 # Full-Text Search
 
+> **⚠️ Superseded.** This page has drifted from the implementation (e.g. the option is `backend`, not `path`; `snippetLength`/`highlightTag` don't exist; `update()` takes a single dictionary). The current, source-verified docs are [docs/basil/manual/search.md](../basil/manual/search.md) and [docs/basil/manual/search-guide.md](../basil/manual/search-guide.md).
+
 Basil includes built-in full-text search powered by SQLite FTS5. No external search engines needed—just add a few lines of code.
 
 ## Quick Start
