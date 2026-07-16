@@ -136,6 +136,15 @@ s[2:]                           // "llo" (from index 2)
 s[?99]                          // null (optional access, no error)
 ```
 
+Indexing and slicing count **characters** (Unicode codepoints), not bytes, so they stay consistent with `.length()` and `for … in` iteration — a multi-byte character is always indexed and sliced as a single unit:
+
+```parsley
+"café"[3]                       // "é" (4th character)
+"café"[-1]                      // "é" (last character)
+"café"[0:4]                     // "café" (never splits a character)
+"a中😀"[1]                       // "中"
+```
+
 ## Methods
 
 ### Case & Formatting

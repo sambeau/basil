@@ -181,8 +181,11 @@ func evalArrayIndexExpression(tok lexer.Token, array, index Object, optional boo
 // If optional is true, returns NULL instead of error for out-of-bounds access
 func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool) Object {
 	stringObject := str.(*String)
+	// Index by rune (Unicode codepoint), consistent with .length() and for-in
+	// iteration, so multi-byte characters index as whole characters (BUG-029).
+	runes := []rune(stringObject.Value)
 	idx := index.(*Integer).Value
-	max := int64(len(stringObject.Value))
+	max := int64(len(runes))
 
 	// Handle negative indices
 	if idx < 0 {
@@ -196,7 +199,7 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
 	}
 
-	return &String{Value: string(stringObject.Value[idx])}
+	return &String{Value: string(runes[idx])}
 }
 
 // evalTableIndexExpression handles table row indexing with support for negative indices
@@ -351,7 +354,10 @@ func evalArraySliceExpression(array, start, end Object) Object {
 // evalStringSliceExpression handles string slicing
 func evalStringSliceExpression(str, start, end Object) Object {
 	stringObject := str.(*String)
-	max := int64(len(stringObject.Value))
+	// Slice by rune (Unicode codepoint), consistent with .length() and indexing,
+	// so multi-byte characters are never split mid-character (BUG-029).
+	runes := []rune(stringObject.Value)
+	max := int64(len(runes))
 
 	var startIdx, endIdx int64
 
@@ -399,7 +405,7 @@ func evalStringSliceExpression(str, start, end Object) Object {
 	}
 
 	// Create the slice
-	return &String{Value: stringObject.Value[startIdx:endIdx]}
+	return &String{Value: string(runes[startIdx:endIdx])}
 }
 
 // evalPrefixExpression handles prefix operators (!, not, -)

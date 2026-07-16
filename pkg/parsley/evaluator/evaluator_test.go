@@ -453,6 +453,124 @@ func TestEvalArrayIndexExpressions(t *testing.T) {
 	}
 }
 
+// TestEvalStringIndexExpressions tests rune-based string indexing (BUG-029).
+// Indexing must count Unicode codepoints, consistent with .length() and for-in
+// iteration, so multi-byte characters index as whole characters.
+func TestEvalStringIndexExpressions(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected any // string for a value, nil for null, "ERROR" for out-of-range
+	}{
+		// ASCII (unaffected by the byte-vs-rune fix)
+		{`"hello"[0]`, "h"},
+		{`"hello"[4]`, "o"},
+		{`"hello"[-1]`, "o"},
+		{`"hello"[-5]`, "h"},
+		// Multi-byte: é is two UTF-8 bytes; index 3 is the 4th character
+		{`"café"[3]`, "é"},
+		{`"café"[-1]`, "é"},
+		{`"café"[0]`, "c"},
+		// Mixed widths: 中 is 3 bytes, 😀 is 4 bytes
+		{`"a中😀"[0]`, "a"},
+		{`"a中😀"[1]`, "中"},
+		{`"a中😀"[2]`, "😀"},
+		{`"a中😀"[-1]`, "😀"},
+		// Out of range measured in runes: "café" has 4 runes, not 5 bytes
+		{`"café"[4]`, "ERROR"},
+		{`"café"[-5]`, "ERROR"},
+		{`"a中😀"[3]`, "ERROR"},
+		// Optional access [?n] yields null instead of erroring
+		{`"café"[?4]`, nil},
+		{`"café"[?-5]`, nil},
+	}
+
+	for _, tt := range tests {
+		result := testEval(tt.input)
+
+		if isError(result) {
+			if tt.expected == "ERROR" {
+				continue
+			}
+			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
+			continue
+		}
+		if tt.expected == "ERROR" {
+			t.Errorf("Expected error for input %q, got %s", tt.input, result.Type())
+			continue
+		}
+
+		if tt.expected == nil {
+			if result.Type() != NULL_OBJ {
+				t.Errorf("Expected NULL, got %s for input %q", result.Type(), tt.input)
+			}
+			continue
+		}
+
+		if result.Type() != STRING_OBJ {
+			t.Errorf("Expected STRING, got %s for input %q", result.Type(), tt.input)
+			continue
+		}
+		if got := result.(*String).Value; got != tt.expected.(string) {
+			t.Errorf("Expected %q, got %q for input %q", tt.expected, got, tt.input)
+		}
+	}
+}
+
+// TestEvalStringSliceExpressions tests rune-based string slicing (BUG-029).
+// Slicing must count Unicode codepoints so a slice boundary never lands in the
+// middle of a multi-byte character.
+func TestEvalStringSliceExpressions(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected any // string for a value, "ERROR" for an index error
+	}{
+		// ASCII
+		{`"hello"[0:2]`, "he"},
+		{`"hello"[1:4]`, "ell"},
+		{`"hello"[:3]`, "hel"},
+		{`"hello"[2:]`, "llo"},
+		{`"hello"[-2:]`, "lo"},
+		// Multi-byte: whole é must survive the slice, not be split
+		{`"café"[0:4]`, "café"},
+		{`"café"[3:4]`, "é"},
+		{`"café"[0:3]`, "caf"},
+		{`"café"[-1:]`, "é"},
+		// Mixed widths
+		{`"a中😀"[0:2]`, "a中"},
+		{`"a中😀"[1:3]`, "中😀"},
+		{`"a中😀"[1:]`, "中😀"},
+		// Slicing beyond length clamps to the rune count
+		{`"café"[0:10]`, "café"},
+		{`"café"[2:10]`, "fé"},
+		// start > end is an INDEX-0003 error
+		{`"café"[3:1]`, "ERROR"},
+	}
+
+	for _, tt := range tests {
+		result := testEval(tt.input)
+
+		if isError(result) {
+			if tt.expected == "ERROR" {
+				continue
+			}
+			t.Errorf("Unexpected error for input %q: %s", tt.input, result.(*Error).Message)
+			continue
+		}
+		if tt.expected == "ERROR" {
+			t.Errorf("Expected error for input %q, got %s", tt.input, result.Type())
+			continue
+		}
+
+		if result.Type() != STRING_OBJ {
+			t.Errorf("Expected STRING, got %s for input %q", result.Type(), tt.input)
+			continue
+		}
+		if got := result.(*String).Value; got != tt.expected.(string) {
+			t.Errorf("Expected %q, got %q for input %q", tt.expected, got, tt.input)
+		}
+	}
+}
+
 // TestEvalDictionaryLiterals tests dictionary creation
 func TestEvalDictionaryLiterals(t *testing.T) {
 	input := `{"name": "Alice", "age": 30}`
