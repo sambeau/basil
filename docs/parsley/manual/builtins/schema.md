@@ -36,7 +36,7 @@ Schemas define the structure of records and tables in Parsley. They specify fiel
 
 // Use with tables
 let users = @table(User) [
-    {id: 1, name: "Alice", email: "alice@example.com"},
+    {id: 1, name: "Alice", email: "alice@example.com", role: "user"},
     {id: 2, name: "Bob", email: "bob@example.com", role: "admin"}
 ]
 
@@ -433,7 +433,10 @@ When using `@field` for form binding, the pattern is converted to a JavaScript-c
     phone: string(pattern: /^\+?[0-9\s\-]+$/)
 }
 
-@field phone: Contact.phone  // <input pattern="^\+?[0-9\s\-]+$" ...>
+<form @record={Contact({})}>
+    <input @field="phone"/>
+</form>
+// renders: <input pattern="^\+?[0-9\s\-]+$" ...>
 ```
 
 ---
@@ -773,7 +776,7 @@ Use `@table(Schema)` to create a table bound to a schema:
 }
 
 let products = @table(Product) [
-    {name: "Widget", price: $9.99},           // inStock defaults to true
+    {name: "Widget", price: $9.99, inStock: true},
     {name: "Gadget", price: $19.99, inStock: false}
 ]
 ```
@@ -926,7 +929,7 @@ users.insert({name: "Bob", email: "bob@example.com"})  // Works
 @schema ContactForm {
     name: string | {title: "Your Name", placeholder: "John Doe"}
     email: email | {title: "Email Address", placeholder: "john@example.com"}
-    subject: enum("General", "Support", "Sales") | {title: "Subject"}
+    subject: enum["General", "Support", "Sales"] | {title: "Subject"}
     message: text | {title: "Message", placeholder: "How can we help?"}
 }
 

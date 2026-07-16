@@ -156,7 +156,7 @@ true.inspect()      // {__type: "boolean", value: true}
 false.inspect()     // {__type: "boolean", value: false}
 ```
 
-> **Note:** Due to null propagation in Parsley, calling methods on `null` (except `.type()`) returns `null`. This enables safe chaining like `maybeNull?.foo().bar()`.
+> **Note:** Due to null propagation in Parsley, calling methods on `null` (except `.type()`) returns `null`. This enables safe chaining with a plain `.` — no `?.` operator needed — like `maybeNull.foo().bar()`, which yields `null` if `maybeNull` is `null`.
 
 ```parsley
 null.repr()         // null (not "null")

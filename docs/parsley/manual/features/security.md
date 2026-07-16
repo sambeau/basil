@@ -119,7 +119,7 @@ Commands are executed directly via the operating system (not through a shell). S
 
 ```parsley
 let cmd = @shell("echo", ["hello; rm -rf /"])
-let result <=#=> cmd
+let result = cmd <=#=> null
 result.stdout                    // "hello; rm -rf /\n"
 ```
 
@@ -138,9 +138,10 @@ Parsley Literal Notation (PLN) is a data-only serialization format. Deserializin
 Security-related errors use the `security` error class and are catchable with `try`:
 
 ```parsley
-let result = try(fn() {
+let result = try fn() {
     let secret <== text(@./secrets/key.pem)
-})
+    secret
+}()
 if (result.error) {
     `Access denied: {result.error}`
 }

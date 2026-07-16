@@ -366,7 +366,7 @@ user.id                                             // auto-generated ID
 let userName = "Carol"
 @insert(
 	Users 
-	|< name: {userName} 
+	|< name: userName 
 	|< email: "carol@test.com" 
 	.)
 ```
@@ -641,7 +641,7 @@ The DSL validates inserted and updated values against the schema. Type-constrain
 @schema User {
     id: int
     email: email(required)
-    role: string("admin", "user", "guest")
+    role: enum["admin", "user", "guest"]
 }
 
 // Error: invalid email format

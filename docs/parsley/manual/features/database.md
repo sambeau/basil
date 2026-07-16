@@ -368,9 +368,10 @@ Update and delete require an `id` field on the record. Missing `id` raises `DB-0
 Database errors are catchable with `try`:
 
 ```parsley
-let result = try(fn() {
-    db <=?=> <SQL>SELECT * FROM nonexistent_table</SQL>
-})
+let result = try fn() {
+    let row = db <=?=> <SQL>SELECT * FROM nonexistent_table</SQL>
+    row
+}()
 if (result.error) {
     `Query failed: {result.error}`
 }
@@ -415,7 +416,7 @@ let user = db <=?=> <SQL name={input}>
 </SQL>
 
 // UNSAFE — string interpolation bypasses parameterization
-let user = db <=?=> `SELECT * FROM users WHERE name = '${input}'`
+let user = db <=?=> `SELECT * FROM users WHERE name = '{input}'`
 ```
 
 ## Key Differences from Other Languages

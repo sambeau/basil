@@ -99,7 +99,7 @@ The index is an ordinary SQLite file. With `watch: @./docs` and no `path`, it la
 Results are ranked with BM25 — the same family of algorithm most search engines use — with a twist: matches in different fields count differently. The defaults:
 
 ```parsley
-weights: {
+let weights = {
     title: 10.0,      // a title match is worth 10 content matches
     headings: 5.0,
     tags: 3.0,
@@ -211,7 +211,7 @@ Mixing works fine, by the way: one instance can watch a folder *and* take manual
 
 ```parsley
 let perPage = 10
-let page = toInt(@params.page ?? "1")
+let page = toInt((@params.page ?? "1"))
 
 let results = search.query(q, {
     limit: perPage,

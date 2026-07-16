@@ -232,7 +232,7 @@ The page arrives instantly with the skeleton in place; the profile fills in as s
     src={@./heavy-chart.part}
     view="placeholder"
     part-lazy="loaded"
-    part-lazy-threshold={200}    // start 200px before it's visible (optional)
+    part-lazy-threshold={200}
 />
 ```
 
@@ -310,7 +310,8 @@ Unlike a plain `part-click`, targeted interactions merge their props *on top of 
 The pattern in full, condensed from a real app. The Part idles as an "add" button and becomes a modal on demand:
 
 ```parsley
-// editor.part — four states: new, form, edit, confirmDelete
+// editor.part — display states: new, form, edit, confirmDelete
+//               actions:        save, doDelete
 
 export new = fn(props) {
     <button part-click="form">"＋ Add person"</button>
@@ -319,8 +320,9 @@ export new = fn(props) {
 export form = fn({person, error}) {
     <dialog open>
         <form part-submit="save">
-            <input name="name" value={person?.name ?? ""}/>
-            <input name="email" value={person?.email ?? ""}/>
+            if (person.id) <input type="hidden" name="id" value={person.id}/>
+            <input name="name" value={person.name ?? ""}/>
+            <input name="email" value={person.email ?? ""}/>
             if (error) <p class="error">error</p>
             <button>"Save"</button>
             <button type="button" part-click="new">"Cancel"</button>
@@ -331,6 +333,19 @@ export form = fn({person, error}) {
 export edit = fn({id}) {
     let person = @DB <=?=> <SQL id={id}>SELECT * FROM people WHERE id = :id</SQL>
     form({person: person})
+}
+
+export save = fn({id, name, email}) {
+    if (name.trim() == "" || email.trim() == "") {
+        // Re-render the modal with what they typed and an error
+        form({person: {id: id, name: name, email: email}, error: "Name and email are required"})
+    } else if (id) {
+        @DB <=!=> <SQL name={name} email={email} id={id}>UPDATE people SET name = :name, email = :email WHERE id = :id</SQL>
+        new({})
+    } else {
+        @DB <=!=> <SQL name={name} email={email}>INSERT INTO people (name, email) VALUES (:name, :email)</SQL>
+        new({})
+    }
 }
 
 export confirmDelete = fn({id}) {
@@ -350,7 +365,7 @@ export doDelete = fn({id}) {
 export default = new
 ```
 
-Every state renders from the database by id, so the modal can be summoned from anywhere with two attributes and never shows stale data.
+Every display state renders from the database by id, so the modal can be summoned from anywhere with two attributes and never shows stale data. `save` is the hinge: the hidden `id` decides insert vs. update, and on invalid input it re-renders `form` with the entered values and an error rather than touching the database.
 
 ## Error Handling
 

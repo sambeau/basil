@@ -9,7 +9,7 @@ Topic-by-topic guides for building with Basil. For the structured manuals, see t
 | Add authentication | [Authentication](authentication.md) |
 | Verify user emails | [Email Verification](email-verification.md) |
 | Add full-text search | [Search](search.md) |
-| Create interactive components | [Parts](parts.md) |
+| Create interactive components | [Parts](../basil/manual/parts-guide.md) (+ [reference](../basil/manual/parts.md), [JavaScript API](../basil/manual/parts-js.md)) |
 | Query the database declaratively | [Query DSL](query-dsl.md) |
 | Bind tables to a JSON API | [API Table Binding](api-table-binding.md) |
 | Style my site | [Styling](styling.md) |

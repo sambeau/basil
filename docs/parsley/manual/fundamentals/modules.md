@@ -203,7 +203,7 @@ If module A imports module B and module B imports module A, Parsley detects the 
 | `@std/id` | ID generation (UUID, nanoid, etc.) |
 | `@std/table` | Table constructor (deprecated — prefer `@table` literal) |
 | `@std/api` → `@basil/api` | API utilities (deprecated path) |
-| `@std/mdDoc` | Markdown document processing |
+| `@std/mddoc` | Markdown document processing |
 | `@std/dev` → `@basil/log` | Development/debugging tools (deprecated path) |
 | `@std/html` → `@basil/html` | HTML utilities (deprecated path) |
 | `@std/schema` | Schema utilities (deprecated — prefer `@schema` DSL) |

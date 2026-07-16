@@ -315,7 +315,7 @@ See [Database](../features/database.md).
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
-| `<=#=>` | Execute shell command | `result <=#=> "ls -la"` |
+| `<=#=>` | Execute shell command | `@shell("ls", ["-la"]) <=#=> null` |
 
 See [Shell Commands](../features/commands.md).
 

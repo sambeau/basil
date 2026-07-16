@@ -41,7 +41,7 @@ let info = imageInfo(@./hero.jpg)
 
 ## image()
 
-```parsley
+```text
 image(path) → string
 image(path, options) → string
 ```
@@ -116,7 +116,7 @@ let narrow = image(@./banner.jpg, {width: 600, scale: "smart"})
 
 ## imageInfo()
 
-```parsley
+```text
 imageInfo(path) → dict
 ```
 
@@ -174,7 +174,7 @@ for (photo in photos) {
 
 ## imageBlur()
 
-```parsley
+```text
 imageBlur(path) → string
 ```
 
@@ -206,7 +206,7 @@ Pair with CSS for a fade-in effect:
 
 ## imageSrcset()
 
-```parsley
+```text
 imageSrcset(path, style, widths) → dict
 imageSrcset(path, style, scales, "x") → dict
 ```

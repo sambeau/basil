@@ -161,7 +161,7 @@ let users = Users.all()
 let active = Users.where(fn(u) { u.active })
 
 // Raw SQL also returns Table
-let results <=?=> "SELECT * FROM orders WHERE total > 100"
+let results = db <=??=> "SELECT * FROM orders WHERE total > 100"
 ```
 
 Database-backed Tables carry schema metadata:

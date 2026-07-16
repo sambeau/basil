@@ -158,7 +158,7 @@ basil.session.regenerate()
 
 ```parsley
 // Login handler
-fn handleLogin(req) {
+let handleLogin = fn(req) {
     let user = authenticate(req.body.email, req.body.password)
     check user != null else api.unauthorized("Invalid credentials")
 
@@ -171,7 +171,7 @@ fn handleLogin(req) {
 }
 
 // Logout handler
-fn handleLogout(req) {
+let handleLogout = fn(req) {
     basil.session.clear()
     basil.session.flash("info", "You have been logged out")
     api.redirect("/")

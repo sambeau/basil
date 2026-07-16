@@ -1120,7 +1120,7 @@ export save = fn(props) {
     let form = User(props).validate()
     
     if (form.isValid()) {
-        @insert(Users |< ...form .)
+        @insert(Users |< name: form.name |< email: form.email |< role: form.role .)
         <div class="success">"User saved successfully!"</div>
     } else {
         default({form: form})

@@ -805,7 +805,7 @@ Keep only certain keys using destructuring:
 
 ```parsley
 let {name, age, ...drop} = {name: "Alice", age: 30, password: "secret", token: "xyz"}
-{name, age}
+{name: name, age: age}
 ```
 
 **Result:** `{name: "Alice", age: 30}`

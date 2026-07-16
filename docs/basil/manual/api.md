@@ -93,7 +93,7 @@ Error helpers return special objects that the Basil server converts to HTTP erro
 | `serverError(msg?)` | 500 | "Internal server error" |
 
 ```parsley
-fn getUser(req) {
+let getUser = fn(req) {
     let user = @query(Users | id == {req.params.id} ?-> *)
     if (user == null) {
         return api.notFound("User not found")
@@ -103,7 +103,7 @@ fn getUser(req) {
 ```
 
 ```parsley
-fn createUser(req) {
+let createUser = fn(req) {
     check req.body.email else api.badRequest("Email is required")
 
     let existing = @query(Users | email == {req.body.email} ?-> exists)
@@ -129,12 +129,12 @@ The error response body is a JSON dictionary:
 | `redirect(url, status?)` | string or path, integer? | HTTP redirect (default: 302 Found) |
 
 ```parsley
-fn handleLogin(req) {
+let handleLogin = fn(req) {
     // ... authenticate ...
     return api.redirect("/dashboard")
 }
 
-fn handleOldUrl(req) {
+let handleOldUrl = fn(req) {
     return api.redirect("/new-url", 301)     // permanent redirect
 }
 ```

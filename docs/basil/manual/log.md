@@ -89,7 +89,7 @@ dev.clearLogPage("admin")        // clear a specific route's logs
 ```parsley
 let {dev} = import @basil/log
 
-fn handleRequest(req) {
+let handleRequest = fn(req) {
     dev.log("params", req.params)
     let user = findUser(req.params.id)
     dev.log("found user", user)

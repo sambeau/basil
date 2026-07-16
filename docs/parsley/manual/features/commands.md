@@ -98,7 +98,7 @@ The third argument to `@shell` is an options dictionary:
 let cmd = @shell("make", ["build"], {
     env: {PATH: "/usr/local/bin:/usr/bin"},
     dir: @./project,
-    timeout: @dur(30, "s")
+    timeout: @30s
 })
 let result = cmd <=#=> null
 ```
@@ -134,7 +134,7 @@ Prevent runaway processes with a timeout. The process is killed if it exceeds th
 
 ```parsley
 let result = @shell("sleep", ["60"], {
-    timeout: @dur(5, "s")
+    timeout: @5s
 }) <=#=> null
 // Killed after 5 seconds
 ```

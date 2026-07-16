@@ -47,7 +47,7 @@ These components:
 
 These tags gain nothing from being components. Just use them directly:
 
-```parsley
+```text
 <p>, <span>, <div>, <strong>, <em>, <ul>, <ol>, <li>
 <h1>, <h2>, <h3>, <header>, <footer>, <main>, <article>
 ```

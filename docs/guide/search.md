@@ -895,7 +895,7 @@ Run the example:
 
 - [Database Access](/docs/guide/api-table-binding.md) — `@DB` for dynamic content
 - [Query DSL](/docs/guide/query-dsl.md) — URL query parameters
-- [Parts](/docs/guide/parts.md) — Reusable components for search UI
+- [Parts](/docs/basil/manual/parts-guide.md) — Reusable components for search UI
 
 ## Further Reading
 
