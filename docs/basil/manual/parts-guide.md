@@ -53,7 +53,7 @@ And views can call each other — a `save` view typically does its work, then ha
 
 ```parsley
 export save = fn(props) {
-    @DB <=!=> "UPDATE todos SET text = ? WHERE id = ?" <- [props.text, props.id]
+    @DB <=!=> <SQL text={props.text} id={props.id}>UPDATE todos SET text = :text WHERE id = :id</SQL>
     default(props)
 }
 ```
@@ -83,7 +83,7 @@ Fresh clicks sound like a limitation, but they keep Parts honest: a button says 
 // todo-item.part
 
 export default = fn({id}) {
-    let todo = @DB <=?=> "SELECT * FROM todos WHERE id = ?" <- [id]
+    let todo = @DB <=?=> <SQL id={id}>SELECT * FROM todos WHERE id = :id</SQL>
     <div>
         todo.text
         <button part-click="edit" part-id={id}>"Edit"</button>
@@ -91,7 +91,7 @@ export default = fn({id}) {
 }
 
 export edit = fn({id}) {
-    let todo = @DB <=?=> "SELECT * FROM todos WHERE id = ?" <- [id]
+    let todo = @DB <=?=> <SQL id={id}>SELECT * FROM todos WHERE id = :id</SQL>
     <form part-submit="save">
         <input type="hidden" name="id" value={id}/>
         <input name="text" value={todo.text} autofocus/>
@@ -101,7 +101,7 @@ export edit = fn({id}) {
 }
 
 export save = fn({id, text}) {
-    @DB <=!=> "UPDATE todos SET text = ? WHERE id = ?" <- [text, id]
+    @DB <=!=> <SQL text={text} id={id}>UPDATE todos SET text = :text WHERE id = :id</SQL>
     default({id: id})
 }
 ```
@@ -133,7 +133,7 @@ export step2 = fn(props) {
 }
 
 export finish = fn({name, email}) {
-    @DB <=!=> "INSERT INTO signups (name, email) VALUES (?, ?)" <- [name, email]
+    @DB <=!=> <SQL name={name} email={email}>INSERT INTO signups (name, email) VALUES (:name, :email)</SQL>
     <p>`Thanks, {name} — check {email} for a confirmation.`</p>
 }
 ```
@@ -329,12 +329,12 @@ export form = fn({person, error}) {
 }
 
 export edit = fn({id}) {
-    let person = @DB <=?=> "SELECT * FROM people WHERE id = ?" <- [id]
+    let person = @DB <=?=> <SQL id={id}>SELECT * FROM people WHERE id = :id</SQL>
     form({person: person})
 }
 
 export confirmDelete = fn({id}) {
-    let person = @DB <=?=> "SELECT * FROM people WHERE id = ?" <- [id]
+    let person = @DB <=?=> <SQL id={id}>SELECT * FROM people WHERE id = :id</SQL>
     <dialog open>
         <p>`Delete {person.name}?`</p>
         <button part-click="doDelete" part-id={id}>"Delete"</button>
@@ -343,7 +343,7 @@ export confirmDelete = fn({id}) {
 }
 
 export doDelete = fn({id}) {
-    @DB <=!=> "DELETE FROM people WHERE id = ?" <- [id]
+    @DB <=!=> <SQL id={id}>DELETE FROM people WHERE id = :id</SQL>
     new({})
 }
 
@@ -375,7 +375,7 @@ export save = fn({id, text}) {
     if (text.trim() == "") {
         edit({id: id, error: "Text can't be empty"})
     } else {
-        @DB <=!=> "UPDATE todos SET text = ? WHERE id = ?" <- [text, id]
+        @DB <=!=> <SQL text={text} id={id}>UPDATE todos SET text = :text WHERE id = :id</SQL>
         default({id: id})
     }
 }
