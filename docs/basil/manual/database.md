@@ -44,9 +44,9 @@ let users = @DB <=??=> "SELECT * FROM users ORDER BY name"
 The database operators visually distinguish reads from writes and one row from many — see the [Parsley database docs](../../parsley/manual/features/database.md) for the full set:
 
 ```parsley
-let user  = @DB <=?=>  "SELECT * FROM users WHERE id = ?" <- [42]   // one row (or null)
-let users = @DB <=??=> "SELECT * FROM users"                        // all rows (table)
-@DB <=!=> "INSERT INTO users (name) VALUES (?)" <- ["Alice"]        // execute
+let user  = @DB <=?=>  <SQL id={42}>SELECT * FROM users WHERE id = :id</SQL>   // one row (or null)
+let users = @DB <=??=> "SELECT * FROM users"                                  // all rows (table)
+@DB <=!=> <SQL name="Alice">INSERT INTO users (name) VALUES (:name)</SQL>      // execute
 ```
 
 Prefer the declarative [Query DSL](../../parsley/manual/features/query-dsl.md) for schema-bound tables:

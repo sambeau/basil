@@ -525,12 +525,12 @@ export default = fn(props) {
 }
 
 export add = fn(props) {
-    @DB <=!=> "INSERT INTO todos (text) VALUES (?)" <- [props.text]
+    @DB <=!=> <SQL text={props.text}>INSERT INTO todos (text) VALUES (:text)</SQL>
     default({})
 }
 
 export remove = fn(props) {
-    @DB <=!=> "DELETE FROM todos WHERE id = ?" <- [props.id]
+    @DB <=!=> <SQL id={props.id}>DELETE FROM todos WHERE id = :id</SQL>
     default({})
 }
 ```
