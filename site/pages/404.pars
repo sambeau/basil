@@ -1,0 +1,9 @@
+// The 404 page. Edit this file to change what visitors see on a bad URL.
+// GitHub Pages serves it for any route that doesn't exist.
+
+export title = "Not found — Basil & Parsley"
+
+export NotFoundPage = fn() {
+    [<h1>"404"</h1>,
+     <p>"That page doesn't exist (yet?). Try " <a href="/index.html">"the homepage"</a> "."</p>]
+}
