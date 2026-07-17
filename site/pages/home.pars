@@ -1,0 +1,82 @@
+// The herbaceous.net home page. Edit this file to change the homepage.
+//
+// exampleHtml is the pre-escaped source of examples/csv-page.pars,
+// passed in by build.pars. Everything else is just copy — edit away.
+// Styles live in assets/site.css (the .home / .hero / .type-grid rules);
+// the "Latest release" line is filled in by assets/site.js.
+
+export HomePage = fn({exampleHtml}) {
+    <div class="home">
+        <section class="hero">
+            <div class="hero-copy">
+                <p class="hero-kicker">"Parsley + Basil"</p>
+                <h1>"Make websites the " <span class="accent">"fun"</span> " way"</h1>
+                <p class="hero-lede">
+                    <strong>"Parsley"</strong>" is a friendly little programming language. "
+                    <strong>"Basil"</strong>" is the web server it lives in. "
+                    "Write a file, refresh the browser, smile."
+                </p>
+                <ul class="hero-chips" aria-label="No toolchain required">
+                    <li>"no compiler"</li>
+                    <li>"no npm"</li>
+                    <li>"no TypeScript"</li>
+                    <li>"no build step"</li>
+                    <li>"one small binary"</li>
+                </ul>
+                <div class="hero-actions">
+                    <a href="#install" class="hero-btn">"Install it"</a>
+                    <a href="get-started.html" class="hero-link">"A working site in ten minutes →"</a>
+                </div>
+            </div>
+            <div class="hero-panel">
+                <div class="term-bar">
+                    <span class="term-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span class="term-name">"csv-page.pars"</span>
+                </div>
+                <pre><code class="language-parsley">exampleHtml</code></pre>
+            </div>
+        </section>
+
+        <section class="home-section">
+            <h2>"HTML is part of the language"</h2>
+            <p>
+                "That program up there is the whole thing — a CSV file becoming a web page, no template engine "
+                "bolted on the side. And dates, money, file paths, and URLs are real types you can write literally:"
+            </p>
+            <ul class="type-grid">
+                <li><code>"@2024-01-15"</code><small>"a date"</small></li>
+                <li><code>"$99.99"</code><small>"money"</small></li>
+                <li><code>"@./config.json"</code><small>"a file path"</small></li>
+                <li><code>"https://herbaceous.net"</code><small>"a URL"</small></li>
+            </ul>
+        </section>
+
+        <section id="install" class="home-section">
+            <h2>"Try it"</h2>
+            <p>"One line installs both " <code>"basil"</code> " (the server) and " <code>"pars"</code> " (the language and REPL):"</p>
+            <pre><code class="language-bash">"curl -fsSL https://herbaceous.net/install.sh | sh"</code></pre>
+            <p>
+                "Or grab a binary for your platform from "
+                <a href="https://github.com/sambeau/basil/releases">"the releases page"</a>
+                ". macOS, Linux, and Windows; Apple Silicon and Intel. "
+                <span id="latest-version"></span>
+            </p>
+        </section>
+
+        <section class="home-section">
+            <h2>"Why?"</h2>
+            <p>
+                "Because building for the web in the early 2000s was " <em>"fun"</em>
+                ", and somewhere between then and now we buried that fun under toolchains. "
+                "Parsley and Basil are an attempt to dig it back up — "
+                "with modern niceties like passkeys, full-text search, an image server, and a built-in SQL database, "
+                "but without the ceremony."
+            </p>
+            <p>
+                <a href="why.html">"Read the whole story"</a>
+                " — or skip straight to "
+                <a href="get-started.html">"a working website in ten minutes"</a> "."
+            </p>
+        </section>
+    </div>
+}
