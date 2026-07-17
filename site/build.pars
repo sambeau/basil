@@ -6,13 +6,18 @@
 // Yes, this site is built with the language it documents.
 //
 // This file is the recipe: each section below builds one part of the site,
-// top to bottom. The page shell lives in layout.pars, the homepage content
-// in pages/home.pars, and the machinery (renderTree, link fixing, search
-// indexing) in lib.pars. See README.md for the full map.
+// top to bottom. All page *content* lives in pages/ (and ../docs/ for the
+// manuals) — this file only decides what gets built and where it goes.
+// The page shell lives in layout.pars and the machinery (renderTree, link
+// fixing, search indexing) in lib.pars. See README.md for the full map.
 
 let {Layout} = import @./layout.pars
-let {HomePage} = import @./pages/home.pars
 let {renderTree, rewriteLinks, writePage, escapeHtml, extractToc, searchEntry} = import @./lib.pars
+
+let homePage = import @./pages/home.pars
+let HomePage = homePage.HomePage
+let notFoundPage = import @./pages/404.pars
+let NotFoundPage = notFoundPage.NotFoundPage
 
 let manualSrc = "../docs/parsley/manual"
 let basilSrc = "../docs/basil/manual"
@@ -29,7 +34,7 @@ dir(distDir).rmdir({recursive: true})
 // --- homepage ----------------------------------------------------------------
 
 let example <== text(@./examples/csv-page.pars)
-let home = <Layout title="Basil & Parsley — make websites the fun way" root="" path="index.html">
+let home = <Layout title={homePage.title} root="" path="index.html">
     <HomePage exampleHtml={escapeHtml(example)}/>
 </Layout>
 writePage(@./dist/index.html, home)
@@ -142,10 +147,9 @@ for (f in assetFiles) {
 let installer <== text(@../scripts/install.sh)
 installer ==> text(@./dist/install.sh)
 
-// Pages serves 404.html for unknown routes
-let notFound = <Layout title="Not found — Basil & Parsley" root="" path="404.html">
-    <h1>"404"</h1>
-    <p>"That page doesn't exist (yet?). Try " <a href="/index.html">"the homepage"</a> "."</p>
+// Pages serves 404.html for unknown routes (content in pages/404.pars)
+let notFound = <Layout title={notFoundPage.title} root="" path="404.html">
+    <NotFoundPage/>
 </Layout>
 writePage(@./dist/404.html, notFound)
 

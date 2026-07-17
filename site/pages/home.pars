@@ -5,6 +5,9 @@
 // Styles live in assets/site.css (the .home / .hero / .type-grid rules);
 // the "Latest release" line is filled in by assets/site.js.
 
+// The browser-tab / social-preview title
+export title = "Basil & Parsley — make websites the fun way"
+
 export HomePage = fn({exampleHtml}) {
     <div class="home">
         <section class="hero">
