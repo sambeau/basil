@@ -631,6 +631,9 @@ article h3 {
     font-family: var(--display-font);
     font-synthesis: none;
     font-weight: 750;
-    font-size: 27px; /* absolute: Pico scales the rem root up at wide breakpoints */
+    /* Scales with Pico's stepped type scale like the other headings: ~27px on
+       large desktops (root 21px), easing to ~23px on smaller ones. The wordmark
+       is hidden ≤768px, so phones show the leaf mark alone. */
+    font-size: 1.3rem;
     letter-spacing: -0.03em;
 }
