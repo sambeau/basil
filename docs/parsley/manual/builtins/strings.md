@@ -26,6 +26,18 @@ Parsley has **three distinct string types**, each with different interpolation a
 'C:\Users\raw \n stays'         // raw: no escapes, interpolation with @{expr}
 ```
 
+## Text & Unicode
+
+Parsley strings hold **UTF-8 text**, and the character-oriented operations are **Unicode-aware**: they work in terms of Unicode characters (codepoints, a.k.a. *runes*), not bytes. `.length()` counts characters, a `for … in` loop yields one element per character, and `[i]` indexing / `[a:b]` slicing address characters too — so a multi-byte character like `é`, `中`, or `😀` counts as **one**, and a slice never splits it.
+
+```parsley
+"café".length()                 // 4   (not 5, even though "é" is 2 bytes)
+"a中😀".length()                 // 3
+for (ch in "a中😀") { ch }        // ["a", "中", "😀"]
+"café"[3]                        // "é"    (4th character, not a byte)
+"café"[0:4]                      // "café" (never splits a character)
+```
+
 ## String Types
 
 ### Double-Quoted Strings (`"..."`)
@@ -136,7 +148,7 @@ s[2:]                           // "llo" (from index 2)
 s[?99]                          // null (optional access, no error)
 ```
 
-Indexing and slicing count **characters** (Unicode codepoints), not bytes, so they stay consistent with `.length()` and `for … in` iteration — a multi-byte character is always indexed and sliced as a single unit:
+Indices and slice bounds count **characters**, not bytes — consistent with `.length()` and `for … in` iteration (see [Text & Unicode](#text--unicode)), so a multi-byte character is always indexed and sliced as a single unit:
 
 ```parsley
 "café"[3]                       // "é" (4th character)

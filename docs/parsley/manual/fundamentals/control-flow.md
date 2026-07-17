@@ -109,11 +109,14 @@ for (k, v in {a: 1, b: 2, c: 3}) { k + "=" + v }
 
 ### Over Strings
 
-Iterates over individual characters:
+Iterates over **Unicode characters** (codepoints, a.k.a. *runes*) — not bytes — so multi-byte characters stay intact:
 
 ```parsley
 for (ch in "abc") { ch }                   // ["a", "b", "c"]
+for (ch in "café") { ch }                  // ["c", "a", "f", "é"]  — "é" is one element, not two bytes
 ```
+
+See [Strings → Text & Unicode](../builtins/strings.md#text--unicode) for the full model.
 
 ### Over Tables
 
