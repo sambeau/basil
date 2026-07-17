@@ -315,13 +315,20 @@
 
 .type-grid li {
     list-style: none;
+    min-width: 0;
     border: 1px solid var(--pico-muted-border-color);
     border-radius: 8px;
     padding: 0.7rem 0.85rem;
 }
 
+/* Full-width value that wraps inside the card — long literals like the URL
+   would otherwise overflow the narrow four-up cards. */
 .type-grid code {
-    font-size: 0.9rem;
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 0.82rem;
+    line-height: 1.5;
 }
 
 .type-grid small {
