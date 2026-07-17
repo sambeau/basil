@@ -630,7 +630,7 @@ article h3 {
 .brand strong {
     font-family: var(--display-font);
     font-synthesis: none;
-    font-weight: 800;
+    font-weight: 750;
     font-size: 1.6875rem; /* 27px */
     letter-spacing: -0.03em;
 }
