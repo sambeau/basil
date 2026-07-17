@@ -631,6 +631,6 @@ article h3 {
     font-family: var(--display-font);
     font-synthesis: none;
     font-weight: 750;
-    font-size: 1.6875rem; /* 27px */
+    font-size: 27px; /* absolute: Pico scales the rem root up at wide breakpoints */
     letter-spacing: -0.03em;
 }
