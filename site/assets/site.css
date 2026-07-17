@@ -5,6 +5,33 @@
     --site-max-width: 78rem;
 }
 
+/* --- Brand colour --------------------------------------------------------- */
+/* Pico ships with an azure primary; retint the whole ramp basil-green so links,
+   buttons, focus rings, and active states match the logo. Keyed to the explicit
+   data-theme the head script always sets (same convention as hljs-theme.css).
+   :root[data-theme=…] ties Pico's own light/dark specificity and wins on source
+   order, since this file loads after pico.min.css. Border/underline-hover tokens
+   reference the background/hover ones, so they follow automatically. */
+:root[data-theme="light"] {
+    --pico-primary: #1f7a33;
+    --pico-primary-background: #1f7a33;
+    --pico-primary-underline: rgba(31, 122, 51, 0.5);
+    --pico-primary-hover: #165c26;
+    --pico-primary-hover-background: #1a6b2e;
+    --pico-primary-focus: rgba(38, 160, 66, 0.4);
+    --pico-primary-inverse: #fff;
+}
+
+:root[data-theme="dark"] {
+    --pico-primary: #64c76f;
+    --pico-primary-background: #1f7a33;
+    --pico-primary-underline: rgba(100, 199, 111, 0.5);
+    --pico-primary-hover: #82d88c;
+    --pico-primary-hover-background: #26913b;
+    --pico-primary-focus: rgba(100, 199, 111, 0.35);
+    --pico-primary-inverse: #fff;
+}
+
 .site-header {
     border-bottom: 1px solid var(--pico-muted-border-color);
     padding: 0 1.5rem;
@@ -127,18 +154,9 @@
 }
 
 /* --- Homepage ------------------------------------------------------------ */
-/* Basil-green accent, tied to the logo, used only on the homepage so it reads
-   as a deliberate brand pop next to Pico's azure links. Flipped per theme so
-   the text stays legible on either ground; the install button keeps one
-   saturated green (white-on-green passes contrast in both themes). */
-.home {
-    --accent: #1b6e2e;
-    --btn-green: #1e7d32;
-}
-
-[data-theme="dark"] .home {
-    --accent: #74d47e;
-}
+/* The hero accent now reuses the site-wide basil-green primary (retinted at the
+   top of this file), so the kicker, the word "fun", and the install button
+   stay in step with links and buttons everywhere else. */
 
 .hero {
     display: grid;
@@ -158,7 +176,7 @@
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--pico-primary);
     margin: 0 0 1rem;
 }
 
@@ -172,7 +190,7 @@
 }
 
 .hero h1 .accent {
-    color: var(--accent);
+    color: var(--pico-primary);
 }
 
 .hero-lede {
@@ -210,7 +228,7 @@
 
 .hero-btn {
     display: inline-block;
-    background: var(--btn-green);
+    background: var(--pico-primary-background);
     color: #fff;
     font-weight: 600;
     text-decoration: none;
@@ -224,7 +242,7 @@
 }
 
 .hero-link {
-    color: var(--accent);
+    color: var(--pico-primary);
     font-weight: 500;
     text-decoration: none;
 }
