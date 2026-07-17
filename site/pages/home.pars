@@ -6,14 +6,14 @@
 // the "Latest release" line is filled in by assets/site.js.
 
 // The browser-tab / social-preview title
-export title = "Basil & Parsley — make websites the fun way"
+export title = "Basil & Parsley — build websites like it's 2002"
 
 export HomePage = fn({exampleHtml}) {
     <div class="home">
         <section class="hero">
             <div class="hero-copy">
                 <p class="hero-kicker">"Parsley + Basil"</p>
-                <h1>"Make websites the " <span class="accent">"fun"</span> " way"</h1>
+                <h1>"Build websites like it's " <span class="accent">"2002"</span></h1>
                 <p class="hero-lede">
                     <strong>"Parsley"</strong>" is a friendly little programming language. "
                     <strong>"Basil"</strong>" is the web server it lives in. "
