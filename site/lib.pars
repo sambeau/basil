@@ -1,0 +1,124 @@
+// Helpers for build.pars: link rewriting, table-of-contents and sidebar
+// extraction, the search index, and renderTree (which turns a folder of
+// markdown into a documentation section). You shouldn't need to touch this
+// file to edit the site's content — see README.md for where things live.
+
+let {Layout} = import @./layout.pars
+
+// "fundamentals/variables.md" -> "fundamentals/variables.html"
+let toHtmlName = fn(relPath) { relPath.replace(/\.md$/, ".html") }
+
+// Rewrite links to .md files in rendered HTML so they point at .html pages.
+// (regex replace needs the g flag — without it only the first match changes)
+export rewriteLinks = fn(html) {
+    html.replace(/\.md"/g, ".html\"").replace(/\.md#/g, ".html#")
+}
+
+// "fundamentals/variables.html" -> "../" (prefix back to the site root)
+let rootPrefix = fn(relPath) {
+    let depth = relPath.split("/").length() - 1
+    let ups = for (_ in 1..depth) { "../" }
+    if (depth > 0) { ups.join("") } else { "" }
+}
+
+export writePage = fn(outPath, html) {
+    dir(outPath.parent).mkdir({parents: true})
+    html ==> text(outPath)
+}
+
+export escapeHtml = fn(s) {
+    s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+}
+
+// Table of contents: [{id, text}] from the page's <h2 id="…"> headings
+export extractToc = fn(html) {
+    let hs = html ~ /<h2 id="([^"]+)">(.*?)<\/h2>/g
+    if (hs == null) {
+        []
+    } else {
+        for (h in hs) { {id: h[1], text: h[2].stripHtml()} }
+    }
+}
+
+// Sidebar menu from a rendered index page: each <h2> starts a section,
+// and the links that follow it (already rewritten to .html) are its pages.
+let extractMenu = fn(indexHtml) {
+    let chunks = indexHtml.split("<h2")
+    for (chunk in chunks) {
+        let titleMatch = chunk ~ /^[^>]*>(.*?)<\/h2>/
+        if (titleMatch != null) {
+            let found = chunk ~ /<a href="([^"]+)">([^<]+)<\/a>/g
+            let links = if (found == null) { [] } else {
+                for (l in found) {
+                    if (!l[1].includes("://") && !l[1].includes("../")) {
+                        {href: l[1], title: l[2]}
+                    }
+                }
+            }
+            if (links.length() > 0) {
+                {title: titleMatch[1].stripHtml(), links: links}
+            }
+        }
+    }
+}
+
+// One search-index entry per page: title and headings weigh more than body
+// text in the client-side scoring (see the search script in assets/site.js)
+export searchEntry = fn(title, sitePath, section, html) {
+    let toc = extractToc(html)
+    let headings = (for (h in toc) { h.text }).join(" ")
+    {
+        title: title,
+        path: sitePath,
+        section: section,
+        headings: headings,
+        text: html.stripHtml().normalizeSpace().truncate(4000),
+    }
+}
+
+// Render one documentation tree (a folder of .md files with an index.md)
+// under dist/{outDir}/, with sidebar + per-page tables of contents.
+// switcher is "parsley" or "basil" (the active tab in the docs switcher).
+// Returns {menu, count, entries} so callers can reuse the sidebar and
+// collect search-index entries.
+export renderTree = fn(srcDir, outDir, navLabel, switcher, fixLinks) {
+    // fileList's ** doesn't match files in the root directory, so list both.
+    let mdFiles = fileList(srcDir + "/*.md") ++ fileList(srcDir + "/**/*.md")
+
+    // First pass: render markdown, collect pages
+    let pages = for (f in mdFiles) {
+        let src = f.path
+        let doc <== MD(src, {ids: true})
+        let rel = src.string.replace(srcDir + "/", "")
+        let title = if (doc.md.title != null) { doc.md.title } else { src.stem }
+        {rel: rel, html: fixLinks(rewriteLinks(doc.html)), title: title}
+    }
+
+    // Build the sidebar from the tree's own index page
+    let indexPage = (pages.filter(fn(p) { p.rel == "index.md" }))[0]
+    let menu = extractMenu(indexPage.html)
+
+    // Second pass: write pages with layout
+    let entries = for (page in pages) {
+        let relHtml = toHtmlName(page.rel)
+        let sitePath = outDir + "/" + relHtml
+        let root = rootPrefix(sitePath)
+        // Sidebar links are relative to the tree root, e.g. "builtins/array.html"
+        let base = root + outDir + "/"
+        let out = @(./dist/{sitePath})
+        let rendered = <Layout
+            title={page.title + " — " + navLabel}
+            root={root}
+            path={sitePath}
+            menu={menu}
+            base={base}
+            active={relHtml}
+            switcher={switcher}
+            toc={extractToc(page.html)}>
+            <article>page.html</article>
+        </Layout>
+        writePage(out, rendered)
+        searchEntry(page.title, sitePath, navLabel, page.html)
+    }
+    {menu: menu, count: entries.length(), entries: entries}
+}
