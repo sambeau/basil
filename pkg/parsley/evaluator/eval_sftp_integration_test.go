@@ -334,13 +334,38 @@ conn(@/toremove).rmdir()
 	}
 }
 
-// TestSFTPEval_RmdirRecursive_Ignored verifies that rmdir({recursive: true}) is
-// parsed but behaves the same as non-recursive rmdir (the recursive option is
-// not yet implemented — see TODO in eval_network_io.go).
-func TestSFTPEval_RmdirRecursive_Ignored(t *testing.T) {
+// TestSFTPEval_RmdirRecursive removes a non-empty directory tree with
+// rmdir({recursive: true}).
+func TestSFTPEval_RmdirRecursive(t *testing.T) {
 	env := testenv.Start(t, testenv.WithSFTP())
 
-	// Create a directory with a file inside it.
+	// Create a directory with a nested file and subdirectory.
+	dirPath := filepath.Join(env.SFTPRoot(), "notempty")
+	if err := os.MkdirAll(filepath.Join(dirPath, "sub"), 0o755); err != nil {
+		t.Fatalf("setup mkdir failed: %v", err)
+	}
+	env.SFTPWriteFile("/notempty/child.txt", "content")
+	env.SFTPWriteFile("/notempty/sub/grandchild.txt", "content")
+
+	src := makeSFTPSrc(env, `
+let conn = @sftp("SFTPURL")
+conn(@/notempty).rmdir({recursive: true})
+`)
+	result := testEval(src)
+	if isError(result) {
+		t.Fatalf("unexpected error: %s", result.(*Error).Message)
+	}
+
+	if _, err := os.Stat(dirPath); !os.IsNotExist(err) {
+		t.Error("directory tree still exists after recursive rmdir")
+	}
+}
+
+// TestSFTPEval_RmdirNonEmpty verifies that a plain (non-recursive) rmdir on a
+// non-empty directory still errors rather than silently doing nothing.
+func TestSFTPEval_RmdirNonEmpty(t *testing.T) {
+	env := testenv.Start(t, testenv.WithSFTP())
+
 	dirPath := filepath.Join(env.SFTPRoot(), "notempty")
 	if err := os.Mkdir(dirPath, 0o755); err != nil {
 		t.Fatalf("setup mkdir failed: %v", err)
@@ -349,14 +374,12 @@ func TestSFTPEval_RmdirRecursive_Ignored(t *testing.T) {
 
 	src := makeSFTPSrc(env, `
 let conn = @sftp("SFTPURL")
-conn(@/notempty).rmdir({recursive: true})
+conn(@/notempty).rmdir()
 `)
 	result := testEval(src)
 
-	// The recursive flag is parsed but ignored — RemoveDirectory only removes
-	// empty directories, so this should return an error.
 	if !isError(result) {
-		t.Fatal("expected error removing non-empty directory, got success")
+		t.Fatal("expected error removing non-empty directory without recursive, got success")
 	}
 }
 

@@ -6,9 +6,11 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	gopath "path"
 	"strings"
 	"time"
 
+	"github.com/pkg/sftp"
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
@@ -98,16 +100,39 @@ func sftpRmdir(handle *SFTPFileHandle, args []Object, env *Environment) Object {
 		}
 	}
 
-	// Note: SFTP RemoveDirectory only removes empty directories.
-	// The recursive option is parsed but not yet implemented.
-	// TODO: implement recursive directory removal if needed.
-	_ = recursive
-	err := handle.Connection.Client.RemoveDirectory(handle.Path)
+	var err error
+	if recursive {
+		err = sftpRemoveAll(handle.Connection.Client, handle.Path)
+	} else {
+		// RemoveDirectory only removes empty directories.
+		err = handle.Connection.Client.RemoveDirectory(handle.Path)
+	}
 
 	if err != nil {
 		return newIOError("IO-0010", handle.Path, err)
 	}
 	return NULL
+}
+
+// sftpRemoveAll recursively removes a directory and all of its contents over
+// SFTP. It walks the tree depth-first, deleting files before their parent
+// directories, mirroring os.RemoveAll semantics for the remote filesystem.
+func sftpRemoveAll(client *sftp.Client, path string) error {
+	entries, err := client.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		child := gopath.Join(path, entry.Name())
+		if entry.IsDir() {
+			if err := sftpRemoveAll(client, child); err != nil {
+				return err
+			}
+		} else if err := client.Remove(child); err != nil {
+			return err
+		}
+	}
+	return client.RemoveDirectory(path)
 }
 
 // sftpRemove implements sftpFileHandle.remove()

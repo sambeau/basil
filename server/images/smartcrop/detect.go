@@ -130,17 +130,11 @@ func classifyRegion(cascade *Cascade, r, c, s, treeDepth int, pixels []uint8, di
 			// Each node uses 4 int8 codes for two pixel positions
 			codeIdx := root + 4*idx
 
-			// Calculate first pixel position
+			// Pixel positions for the two comparison points. Each is a linear
+			// index row*dim + col, where row = (r*256 + code*s) >> 8 and
+			// col = (c*256 + code*s) >> 8 (Pigo's fixed-point tree encoding).
 			r1 := (r256 + int(cascade.treeCodes[codeIdx+0])*s) >> 8
-			c1 := (r256 + int(cascade.treeCodes[codeIdx+1])*s) >> 8
-
-			// Wait - looking at Pigo more carefully:
-			// x1 = ((r + codes[0]*s) >> 8) * dim + ((c + codes[1]*s) >> 8)
-			// So it's: row_pixel = (r*256 + code*s) >> 8, col_pixel = (c*256 + code*s) >> 8
-			// And x1 is the linear index: row_pixel * dim + col_pixel
-
-			r1 = (r256 + int(cascade.treeCodes[codeIdx+0])*s) >> 8
-			c1 = (c256 + int(cascade.treeCodes[codeIdx+1])*s) >> 8
+			c1 := (c256 + int(cascade.treeCodes[codeIdx+1])*s) >> 8
 			r2 := (r256 + int(cascade.treeCodes[codeIdx+2])*s) >> 8
 			c2 := (c256 + int(cascade.treeCodes[codeIdx+3])*s) >> 8
 
