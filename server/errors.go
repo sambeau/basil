@@ -235,10 +235,12 @@ func isSensitiveParam(name string) bool {
 
 // truncateValue truncates long values for display
 func truncateValue(value string, maxLen int) string {
-	if len(value) <= maxLen {
+	// Truncate by rune so multi-byte characters are never split
+	runes := []rune(value)
+	if len(runes) <= maxLen {
 		return value
 	}
-	return value[:maxLen] + "…"
+	return string(runes[:maxLen]) + "…"
 }
 
 // extractSanitizedParams extracts request params for error display
