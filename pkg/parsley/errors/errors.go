@@ -1192,6 +1192,11 @@ var ErrorCatalog = map[string]ErrorDef{
 		Template: "Cannot call '{{.Name}}' — it is a dictionary of module exports, not a function",
 		Hints:    []string{"import returns all of a module's exports as a dictionary", "Destructure it to get the function: let { {{.Name}} } = import @./module.pars"},
 	},
+	"CALL-0007": {
+		Class:    ClassState,
+		Template: "Maximum call depth exceeded ({{.Limit}})",
+		Hints:    []string{"This usually means a function recurses without a base case", "If the recursion is intentional, restructure it iteratively or raise the limit for the embedder"},
+	},
 
 	// ========================================
 	// Component errors (COMP-0xxx)

@@ -697,6 +697,7 @@ type Environment struct {
 	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
 	FormContext   *FormContext    // Current form context for @record/@field binding (FEAT-091)
 	PLNSecret     string          // Secret for HMAC signing PLN in Part props (FEAT-098)
+	callDepth     *int            // Shared function-call-depth counter (per evaluation tree; guards against runaway recursion)
 }
 
 // NewEnvironment creates a new environment
@@ -715,7 +716,8 @@ func NewEnvironmentWithArgs(args []string) *Environment {
 	x := make(map[string]bool)
 	p := make(map[string]bool)
 	i := make(map[string]bool)
-	env := &Environment{store: s, outer: nil, letBindings: l, immutable: im, exports: x, protected: p, importStack: i, Logger: DefaultLogger}
+	depth := 0
+	env := &Environment{store: s, outer: nil, letBindings: l, immutable: im, exports: x, protected: p, importStack: i, Logger: DefaultLogger, callDepth: &depth}
 
 	// Populate @env from environment variables
 	envPairs := make(map[string]ast.Expression)
@@ -768,6 +770,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.ContainsParts = outer.ContainsParts
 		env.FormContext = outer.FormContext // Propagate form context (FEAT-091)
 		env.PLNSecret = outer.PLNSecret     // Propagate PLN secret for Record serialization
+		env.callDepth = outer.callDepth     // Share the call-depth counter across the evaluation tree
 	}
 	return env
 }

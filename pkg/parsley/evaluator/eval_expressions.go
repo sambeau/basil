@@ -14,10 +14,45 @@ import (
 // Expression evaluation: function application, parameter handling, assignments, destructuring
 // Extracted from evaluator.go - Phase 5 Extraction 31
 
+// MaxCallDepth bounds how deeply Parsley functions may recurse within a single
+// evaluation. It exists to convert unbounded recursion — which would otherwise
+// overflow the Go goroutine stack and crash the whole process — into a catchable
+// Parsley error. Embedders may raise or lower it before evaluating. The default is
+// generous enough for legitimate recursion yet well below the depth at which the
+// interpreter's own stack frames exhaust a default goroutine stack.
+var MaxCallDepth = 5000
+
+// enterCall increments the shared call-depth counter for the evaluation tree that
+// callerEnv belongs to and reports whether the limit has been exceeded. The returned
+// leave function must be called (typically via defer) to decrement the counter again.
+// It tolerates a nil counter by lazily seeding one, so a function invoked with an
+// environment that predates the counter is still guarded from that point on.
+func enterCall(callerEnv *Environment) (exceeded bool, leave func()) {
+	if callerEnv == nil {
+		return false, func() {}
+	}
+	if callerEnv.callDepth == nil {
+		d := 0
+		callerEnv.callDepth = &d
+	}
+	counter := callerEnv.callDepth
+	*counter++
+	if *counter > MaxCallDepth {
+		*counter--
+		return true, func() {}
+	}
+	return false, func() { *counter-- }
+}
+
 func applyFunction(fn Object, args []Object) Object {
 	switch fn := fn.(type) {
 	case *Function:
 		extendedEnv := extendFunctionEnv(fn, args)
+		exceeded, leave := enterCall(extendedEnv)
+		if exceeded {
+			return newCallError("CALL-0007", map[string]any{"Limit": MaxCallDepth})
+		}
+		defer leave()
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
@@ -49,6 +84,7 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *
 	// Copy runtime context from calling environment (like ApplyFunctionWithEnv does)
 	// This ensures features like <CSS/>, <Javascript/>, and request-scoped values work
 	if env != nil {
+		extendedEnv.callDepth = env.callDepth // unify the call-depth counter along the dynamic call chain
 		extendedEnv.AssetBundle = env.AssetBundle
 		extendedEnv.AssetRegistry = env.AssetRegistry
 		extendedEnv.ImageRegistry = env.ImageRegistry
@@ -64,8 +100,21 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *
 			extendedEnv.Set("@params", params)
 		}
 	}
+	exceeded, leave := enterCall(extendedEnv)
+	if exceeded {
+		return enrichErrorWithPos(newCallError("CALL-0007", map[string]any{"Limit": MaxCallDepth}), lastTokenOf(env))
+	}
+	defer leave()
 	evaluated := Eval(fn.Body, extendedEnv)
 	return unwrapReturnValue(evaluated)
+}
+
+// lastTokenOf returns the last-seen token of env for error positioning, or nil.
+func lastTokenOf(env *Environment) *lexer.Token {
+	if env == nil {
+		return nil
+	}
+	return env.LastToken
 }
 
 // ApplyFunctionWithEnv applies a function with the given arguments in the context of an environment.
@@ -78,6 +127,7 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		// Copy runtime context from calling environment to function environment
 		// This ensures <Css/>, <Script/>, and other runtime features work in imported components
 		if env != nil {
+			extendedEnv.callDepth = env.callDepth // unify the call-depth counter along the dynamic call chain
 			extendedEnv.AssetBundle = env.AssetBundle
 			extendedEnv.AssetRegistry = env.AssetRegistry
 			extendedEnv.ImageRegistry = env.ImageRegistry
@@ -94,6 +144,11 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 				extendedEnv.Set("@params", params)
 			}
 		}
+		exceeded, leave := enterCall(extendedEnv)
+		if exceeded {
+			return enrichErrorWithPos(newCallError("CALL-0007", map[string]any{"Limit": MaxCallDepth}), lastTokenOf(env))
+		}
+		defer leave()
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *Builtin:

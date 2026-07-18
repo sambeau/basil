@@ -1033,8 +1033,12 @@ func (s *Server) Run(ctx context.Context) error {
 		handler = newRequestLogger(handler, s.stdout, s.config.Logging.Format)
 	}
 
-	// Wrap with compression (outermost - compresses all responses)
+	// Wrap with compression (compresses all responses)
 	handler = newCompressionHandler(handler, s.config.Compression)
+
+	// Wrap with panic recovery (outermost - guards every other middleware so a
+	// panic becomes a logged 500 rather than a dropped connection)
+	handler = newRecoverMiddleware(handler, s.stderr, s.config.Server.Dev)
 
 	s.server = &http.Server{
 		Addr:              addr,
