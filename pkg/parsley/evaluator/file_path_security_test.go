@@ -526,6 +526,9 @@ func TestPathCanonicalization(t *testing.T) {
 
 // TestFilePermissionDenied tests handling of files with insufficient permissions
 func TestFilePermissionDenied(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("file permission checks cannot fail when running as root")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping Unix-specific permission tests on Windows")
 	}
