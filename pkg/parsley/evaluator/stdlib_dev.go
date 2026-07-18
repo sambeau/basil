@@ -336,10 +336,12 @@ func readSourceLine(filename string, lineNum int) string {
 }
 
 func truncateRepr(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	// Truncate by rune so multi-byte characters are never split
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }
 
 func isValidRoute(route string) bool {
