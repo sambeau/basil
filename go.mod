@@ -1,6 +1,6 @@
 module github.com/sambeau/basil
 
-go 1.25.0
+go 1.25.12
 
 require (
 	github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f
