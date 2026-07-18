@@ -16,7 +16,7 @@ func TestRecoverMiddlewarePanicBecomes500(t *testing.T) {
 	})
 
 	h := newRecoverMiddleware(panicking, &stderr, false)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req) // must not panic out of the handler
@@ -42,7 +42,7 @@ func TestRecoverMiddlewareDevModeLeaksDetail(t *testing.T) {
 	})
 
 	h := newRecoverMiddleware(panicking, &stderr, true)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -59,7 +59,7 @@ func TestRecoverMiddlewarePassesThroughNormalResponses(t *testing.T) {
 	})
 
 	h := newRecoverMiddleware(ok, &stderr, false)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 

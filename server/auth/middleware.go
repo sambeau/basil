@@ -74,16 +74,6 @@ func GetUser(r *http.Request) *User {
 	return user
 }
 
-// GetUserFromContext retrieves the authenticated user from a context.
-// Returns nil if not authenticated.
-func GetUserFromContext(ctx context.Context) *User {
-	user, ok := ctx.Value(UserContextKey).(*User)
-	if !ok {
-		return nil
-	}
-	return user
-}
-
 // RequireEmailVerification returns middleware that checks email verification
 // Requires authentication first (use after RequireAuth)
 func (m *Middleware) RequireEmailVerification(next http.Handler) http.Handler {

@@ -56,8 +56,8 @@ func processTemplate(tmpl string, fragmentsDir string, apiData *TopicResult) (st
 	generatePattern := regexp.MustCompile(`\{\{generate\s+"([^"]+)"\}\}`)
 	templatePattern := regexp.MustCompile(`\{\{template\s+"([^"]+)"\}\}`)
 
-	lines := strings.Split(tmpl, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(tmpl, "\n")
+	for line := range lines {
 		// Check for {{include "filename"}}
 		if match := includePattern.FindStringSubmatch(line); match != nil {
 			filename := match[1]
@@ -94,10 +94,7 @@ func processTemplate(tmpl string, fragmentsDir string, apiData *TopicResult) (st
 	}
 
 	// Remove trailing newline added by loop
-	output := result.String()
-	if strings.HasSuffix(output, "\n") {
-		output = output[:len(output)-1]
-	}
+	output := strings.TrimSuffix(result.String(), "\n")
 
 	return output, nil
 }

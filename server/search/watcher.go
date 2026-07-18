@@ -161,12 +161,6 @@ type UpdateStats struct {
 	Duration     time.Duration
 }
 
-// String formats the stats for logging.
-func (s UpdateStats) String() string {
-	return fmt.Sprintf("new=%d changed=%d deleted=%d duration=%v",
-		s.NewFiles, s.ChangedFiles, s.DeletedFiles, s.Duration)
-}
-
 // CheckAndUpdate checks for changes and updates the index if needed.
 // Returns statistics about the update.
 func CheckAndUpdate(index *FTS5Index, watchFolders []string, extensions []string) (*UpdateStats, error) {

@@ -1070,7 +1070,7 @@ func formatValueForInput(val Object, field *DSLSchemaField) ast.Expression {
 // pow10 returns 10^n for small non-negative n
 func pow10(n int) int64 {
 	result := int64(1)
-	for i := 0; i < n; i++ {
+	for range n {
 		result *= 10
 	}
 	return result

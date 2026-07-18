@@ -37,12 +37,12 @@ func sftpClose(conn *SFTPConnection, args []Object, env *Environment) Object {
 	// handles TTL and cleanup automatically. Manual close just marks
 	// the connection as disconnected.
 
-	// Close SFTP and SSH clients
+	// Close SFTP and SSH clients (best-effort; we're tearing the connection down)
 	if conn.Client != nil {
-		conn.Client.Close()
+		_ = conn.Client.Close()
 	}
 	if conn.SSHClient != nil {
-		conn.SSHClient.Close()
+		_ = conn.SSHClient.Close()
 	}
 	conn.Connected = false
 	return NULL

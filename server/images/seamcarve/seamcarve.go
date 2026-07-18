@@ -123,7 +123,7 @@ func Resize(img image.Image, targetWidth, targetHeight int) image.Image {
 
 // reduceWidth removes n vertical seams from the image.
 func reduceWidth(img *image.RGBA, n int) *image.RGBA {
-	for i := 0; i < n; i++ {
+	for range n {
 		energy := EnergyMap(img)
 		seam := findMinVerticalSeam(energy)
 		img = removeVerticalSeam(img, seam)
@@ -133,7 +133,7 @@ func reduceWidth(img *image.RGBA, n int) *image.RGBA {
 
 // reduceHeight removes n horizontal seams from the image.
 func reduceHeight(img *image.RGBA, n int) *image.RGBA {
-	for i := 0; i < n; i++ {
+	for range n {
 		energy := EnergyMap(img)
 		seam := findMinHorizontalSeam(energy)
 		img = removeHorizontalSeam(img, seam)
@@ -170,7 +170,7 @@ func findKMinVerticalSeams(img image.Image, k int) [][]int {
 
 	seams := make([][]int, k)
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		seam := findMinVerticalSeam(energy)
 		seams[i] = seam
 
@@ -192,7 +192,7 @@ func findKMinHorizontalSeams(img image.Image, k int) [][]int {
 
 	seams := make([][]int, k)
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		seam := findMinHorizontalSeam(energy)
 		seams[i] = seam
 
@@ -225,7 +225,7 @@ func insertVerticalSeams(img *image.RGBA, seams [][]int) *image.RGBA {
 
 	// For each row, collect all seam x-positions and sort them
 	seamPositions := make([][]int, height)
-	for y := 0; y < height; y++ {
+	for y := range height {
 		seamPositions[y] = make([]int, numSeams)
 		for i, seam := range seams {
 			seamPositions[y][i] = seam[y]
@@ -238,12 +238,12 @@ func insertVerticalSeams(img *image.RGBA, seams [][]int) *image.RGBA {
 	newWidth := width + numSeams
 	newImg := image.NewRGBA(image.Rect(0, 0, newWidth, height))
 
-	for y := 0; y < height; y++ {
+	for y := range height {
 		positions := seamPositions[y]
 		seamIdx := 0
 		dstX := 0
 
-		for srcX := 0; srcX < width; srcX++ {
+		for srcX := range width {
 			// Copy original pixel
 			c := img.RGBAAt(srcX, y)
 			newImg.SetRGBA(dstX, y, c)
@@ -276,7 +276,7 @@ func insertHorizontalSeams(img *image.RGBA, seams [][]int) *image.RGBA {
 
 	// For each column, collect all seam y-positions and sort them
 	seamPositions := make([][]int, width)
-	for x := 0; x < width; x++ {
+	for x := range width {
 		seamPositions[x] = make([]int, numSeams)
 		for i, seam := range seams {
 			seamPositions[x][i] = seam[x]
@@ -288,12 +288,12 @@ func insertHorizontalSeams(img *image.RGBA, seams [][]int) *image.RGBA {
 	newHeight := height + numSeams
 	newImg := image.NewRGBA(image.Rect(0, 0, width, newHeight))
 
-	for x := 0; x < width; x++ {
+	for x := range width {
 		positions := seamPositions[x]
 		seamIdx := 0
 		dstY := 0
 
-		for srcY := 0; srcY < height; srcY++ {
+		for srcY := range height {
 			// Copy original pixel
 			c := img.RGBAAt(x, srcY)
 			newImg.SetRGBA(x, dstY, c)
@@ -383,7 +383,7 @@ func findMinVerticalSeam(energy [][]float64) []int {
 
 	// Fill remaining rows using DP recurrence
 	for y := 1; y < height; y++ {
-		for x := 0; x < width; x++ {
+		for x := range width {
 			minPrev := M[y-1][x]
 
 			// Check left neighbor
@@ -457,13 +457,13 @@ func findMinHorizontalSeam(energy [][]float64) []int {
 	}
 
 	// First column: copy energy values
-	for y := 0; y < height; y++ {
+	for y := range height {
 		M[y][0] = energy[y][0]
 	}
 
 	// Fill remaining columns using DP recurrence
 	for x := 1; x < width; x++ {
-		for y := 0; y < height; y++ {
+		for y := range height {
 			minPrev := M[y][x-1]
 
 			// Check top neighbor
@@ -531,11 +531,11 @@ func removeVerticalSeam(img *image.RGBA, seam []int) *image.RGBA {
 	// Create new image with width - 1
 	newImg := image.NewRGBA(image.Rect(0, 0, width-1, height))
 
-	for y := 0; y < height; y++ {
+	for y := range height {
 		seamX := seam[y]
 		dstX := 0
 
-		for x := 0; x < width; x++ {
+		for x := range width {
 			if x == seamX {
 				continue // Skip the seam pixel
 			}
@@ -564,11 +564,11 @@ func removeHorizontalSeam(img *image.RGBA, seam []int) *image.RGBA {
 	// Create new image with height - 1
 	newImg := image.NewRGBA(image.Rect(0, 0, width, height-1))
 
-	for x := 0; x < width; x++ {
+	for x := range width {
 		seamY := seam[x]
 		dstY := 0
 
-		for y := 0; y < height; y++ {
+		for y := range height {
 			if y == seamY {
 				continue // Skip the seam pixel
 			}
@@ -597,8 +597,8 @@ func toRGBA(img image.Image) *image.RGBA {
 
 	rgba := image.NewRGBA(image.Rect(0, 0, width, height))
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			c := img.At(bounds.Min.X+x, bounds.Min.Y+y)
 			r, g, b, a := c.RGBA()
 			rgba.SetRGBA(x, y, color.RGBA{

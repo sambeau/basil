@@ -215,7 +215,7 @@ func TestCache_Clear(t *testing.T) {
 	cache := NewCache(dir)
 
 	// Write some files
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		key := "file" + string(rune('0'+i))
 		if _, err := cache.Write(key, ".jpg", []byte("data")); err != nil {
 			t.Fatal(err)
@@ -304,7 +304,7 @@ func TestCache_Count(t *testing.T) {
 	}
 
 	// Add files
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		key := "count" + string(rune('a'+i))
 		if _, err := cache.Write(key, ".jpg", []byte("data")); err != nil {
 			t.Fatal(err)

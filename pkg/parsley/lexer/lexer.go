@@ -2438,13 +2438,6 @@ func extractTagName(tagContent string) string {
 	return string(name)
 }
 
-// EnterTagContentMode sets the lexer into tag content mode
-func (l *Lexer) EnterTagContentMode() {
-	if l.tagDepth > 0 {
-		l.inTagContent = true
-	}
-}
-
 // collectTrivia collects whitespace (counting blank lines) and comments
 // before the next token. This loop handles alternating whitespace and comments.
 // It also detects trailing comments (comments on same line as previous token).

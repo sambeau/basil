@@ -142,8 +142,8 @@ func TestDetectFaces_SmallImage(t *testing.T) {
 func TestDetectFacesImage(t *testing.T) {
 	// Test the image.Image wrapper
 	img := image.NewGray(image.Rect(0, 0, 100, 100))
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 100; x++ {
+	for y := range 100 {
+		for x := range 100 {
 			img.SetGray(x, y, color.Gray{Y: 128})
 		}
 	}

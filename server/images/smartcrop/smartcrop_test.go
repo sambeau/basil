@@ -42,8 +42,8 @@ func TestBestCrop_ImageSmallerThanTarget(t *testing.T) {
 func TestBestCrop_ReturnsValidRectangle(t *testing.T) {
 	// Create a simple test image
 	img := image.NewRGBA(image.Rect(0, 0, 400, 300))
-	for y := 0; y < 300; y++ {
-		for x := 0; x < 400; x++ {
+	for y := range 300 {
+		for x := range 400 {
 			img.Set(x, y, color.Gray{Y: uint8((x + y) % 256)})
 		}
 	}
@@ -71,8 +71,8 @@ func TestBestCrop_WithFocalPoint(t *testing.T) {
 	// Create a wide image where a square crop MUST choose a position
 	// (can't include the whole image at 1:1 aspect ratio)
 	img := image.NewRGBA(image.Rect(0, 0, 800, 400))
-	for y := 0; y < 400; y++ {
-		for x := 0; x < 800; x++ {
+	for y := range 400 {
+		for x := range 800 {
 			// Add gradient to create variation
 			img.Set(x, y, color.RGBA{
 				R: uint8(x * 255 / 800),
@@ -100,8 +100,8 @@ func TestBestCrop_WithFocalPoint(t *testing.T) {
 
 func TestBestCrop_WithFocalRegion(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 400, 400))
-	for y := 0; y < 400; y++ {
-		for x := 0; x < 400; x++ {
+	for y := range 400 {
+		for x := range 400 {
 			img.Set(x, y, color.Gray{Y: 128})
 		}
 	}
@@ -121,8 +121,8 @@ func TestBestCrop_WithFocalRegion(t *testing.T) {
 
 func TestBestCrop_DifferentAspectRatios(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 400, 300))
-	for y := 0; y < 300; y++ {
-		for x := 0; x < 400; x++ {
+	for y := range 300 {
+		for x := range 400 {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 128, A: 255})
 		}
 	}
@@ -439,8 +439,8 @@ func TestScaleRectToOriginal_Clamped(t *testing.T) {
 func BenchmarkBestCrop(b *testing.B) {
 	// Create a 640x480 test image
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
-	for y := 0; y < 480; y++ {
-		for x := 0; x < 640; x++ {
+	for y := range 480 {
+		for x := range 640 {
 			img.Set(x, y, color.RGBA{
 				R: uint8((x * 2) % 256),
 				G: uint8((y * 2) % 256),
@@ -458,8 +458,8 @@ func BenchmarkBestCrop(b *testing.B) {
 
 func BenchmarkBestCrop_WithFocal(b *testing.B) {
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
-	for y := 0; y < 480; y++ {
-		for x := 0; x < 640; x++ {
+	for y := range 480 {
+		for x := range 640 {
 			img.Set(x, y, color.RGBA{R: 128, G: 128, B: 128, A: 255})
 		}
 	}

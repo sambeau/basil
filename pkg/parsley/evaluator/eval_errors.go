@@ -293,21 +293,6 @@ func newValueError(code string, data map[string]any) *Error {
 	}
 }
 
-// newUndefinedMethodError creates a structured error for unknown methods.
-func newUndefinedMethodError(method string, typeName string) *Error {
-	perr := perrors.New("UNDEF-0002", map[string]any{
-		"Method": method,
-		"Type":   typeName,
-	})
-	return &Error{
-		Class:   ErrorClass(perr.Class),
-		Code:    perr.Code,
-		Message: perr.Message,
-		Hints:   perr.Hints,
-		Data:    perr.Data,
-	}
-}
-
 // newStateError creates a structured error for state-related issues.
 func newStateError(code string) *Error {
 	perr := perrors.New(code, nil)

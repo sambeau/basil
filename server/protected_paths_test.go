@@ -76,7 +76,7 @@ func TestSiteModeProtectedPathAllowsSignedInUser(t *testing.T) {
 	srv, cookie := newAuthTestServer(t, cfg, dir, "editor")
 
 	// Signed in: should reach the handler
-	req := httptest.NewRequest("GET", "/dashboard/", nil)
+	req := httptest.NewRequest("GET", "/dashboard/", http.NoBody)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -85,7 +85,7 @@ func TestSiteModeProtectedPathAllowsSignedInUser(t *testing.T) {
 	}
 
 	// Signed out: should redirect to login with ?next=
-	req2 := httptest.NewRequest("GET", "/dashboard/", nil)
+	req2 := httptest.NewRequest("GET", "/dashboard/", http.NoBody)
 	rec2 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusFound {
@@ -118,7 +118,7 @@ func TestRoutesModeProtectedPathAllowsSignedInUser(t *testing.T) {
 
 	srv, cookie := newAuthTestServer(t, cfg, dir, "editor")
 
-	req := httptest.NewRequest("GET", "/dashboard", nil)
+	req := httptest.NewRequest("GET", "/dashboard", http.NoBody)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -126,7 +126,7 @@ func TestRoutesModeProtectedPathAllowsSignedInUser(t *testing.T) {
 		t.Errorf("signed-in user: expected 200, got %d (location %q)", rec.Code, rec.Header().Get("Location"))
 	}
 
-	req2 := httptest.NewRequest("GET", "/dashboard", nil)
+	req2 := httptest.NewRequest("GET", "/dashboard", http.NoBody)
 	rec2 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusFound {
@@ -157,7 +157,7 @@ func TestProtectedPathRoleEnforcement(t *testing.T) {
 	srv, editorCookie := newAuthTestServer(t, cfg, dir, "editor")
 
 	// Editor: 403
-	req := httptest.NewRequest("GET", "/admin/", nil)
+	req := httptest.NewRequest("GET", "/admin/", http.NoBody)
 	req.AddCookie(editorCookie)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -174,7 +174,7 @@ func TestProtectedPathRoleEnforcement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req2 := httptest.NewRequest("GET", "/admin/", nil)
+	req2 := httptest.NewRequest("GET", "/admin/", http.NoBody)
 	req2.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: adminSess.ID})
 	rec2 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec2, req2)
@@ -206,7 +206,7 @@ func TestRoutesModeRouteRoles(t *testing.T) {
 	srv, editorCookie := newAuthTestServer(t, cfg, dir, "editor")
 
 	// Editor: 403
-	req := httptest.NewRequest("GET", "/admin", nil)
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
 	req.AddCookie(editorCookie)
 	rec := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec, req)
@@ -215,7 +215,7 @@ func TestRoutesModeRouteRoles(t *testing.T) {
 	}
 
 	// Anonymous: redirect to login
-	req2 := httptest.NewRequest("GET", "/admin", nil)
+	req2 := httptest.NewRequest("GET", "/admin", http.NoBody)
 	rec2 := httptest.NewRecorder()
 	srv.mux.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusFound {

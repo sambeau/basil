@@ -18,6 +18,20 @@ type ScanOptions struct {
 	Extensions     []string // File extensions to include (e.g., [".md", ".html"])
 	Recursive      bool     // Recursively scan subdirectories
 	FollowSymlinks bool     // Follow symbolic links
+
+	// Logf, if set, receives non-fatal per-file scan warnings (e.g. a file that
+	// failed to parse). Scanning continues past such files. When nil these
+	// warnings are written to os.Stderr, so they are never silently discarded.
+	Logf func(format string, args ...any)
+}
+
+// logf reports a non-fatal scan warning via opts.Logf, or os.Stderr if unset.
+func (o *ScanOptions) logf(format string, args ...any) {
+	if o != nil && o.Logf != nil {
+		o.Logf(format, args...)
+		return
+	}
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
 }
 
 // DefaultScanOptions returns default scanning options
@@ -133,8 +147,9 @@ func ScanFolder(folderPath string, opts *ScanOptions) ([]*Document, error) {
 		return nil, fmt.Errorf("error walking directory: %w", err)
 	}
 
-	// Log scan errors but don't fail the whole operation
-	if len(scanErrors) > 0 { //nolint:staticcheck // TODO: Add proper logging when available
+	// Report per-file errors as warnings but don't fail the whole operation.
+	for _, scanErr := range scanErrors {
+		opts.logf("search: skipped file during scan: %v", scanErr)
 	}
 
 	return documents, nil

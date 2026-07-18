@@ -22,8 +22,8 @@ func createTestJPEGWithOrientation(t *testing.T, dir, name string, rawWidth, raw
 	t.Helper()
 
 	img := image.NewRGBA(image.Rect(0, 0, rawWidth, rawHeight))
-	for y := 0; y < rawHeight; y++ {
-		for x := 0; x < rawWidth; x++ {
+	for y := range rawHeight {
+		for x := range rawWidth {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 50, A: 255})
 		}
 	}
@@ -83,8 +83,8 @@ func createTestImage(t *testing.T, dir, name string, width, height int, format s
 
 	// Create a simple colored image
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, color.RGBA{
 				R: uint8((x * 255) / width),
 				G: uint8((y * 255) / height),
@@ -199,8 +199,8 @@ func TestLoad_Errors(t *testing.T) {
 func TestTransform(t *testing.T) {
 	// Create a 200x100 test image
 	img := image.NewRGBA(image.Rect(0, 0, 200, 100))
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 200; x++ {
+	for y := range 100 {
+		for x := range 200 {
 			img.Set(x, y, color.RGBA{R: 100, G: 150, B: 200, A: 255})
 		}
 	}
@@ -283,8 +283,8 @@ func TestTransform(t *testing.T) {
 func TestEncode(t *testing.T) {
 	// Create a simple test image
 	img := image.NewRGBA(image.Rect(0, 0, 50, 50))
-	for y := 0; y < 50; y++ {
-		for x := 0; x < 50; x++ {
+	for y := range 50 {
+		for x := range 50 {
 			img.Set(x, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 		}
 	}
@@ -341,8 +341,8 @@ func TestEncode(t *testing.T) {
 func TestEncode_QualityAffectsSize(t *testing.T) {
 	// Create a larger test image for quality comparison
 	img := image.NewRGBA(image.Rect(0, 0, 200, 200))
-	for y := 0; y < 200; y++ {
-		for x := 0; x < 200; x++ {
+	for y := range 200 {
+		for x := range 200 {
 			// Create some variation for compression to work with
 			img.Set(x, y, color.RGBA{
 				R: uint8(x % 256),
@@ -598,8 +598,8 @@ func TestEncode_WebPOutput(t *testing.T) {
 func TestTransform_Sharpen(t *testing.T) {
 	// Create a 200x100 test image with a pattern
 	img := image.NewRGBA(image.Rect(0, 0, 200, 100))
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 200; x++ {
+	for y := range 100 {
+		for x := range 200 {
 			// Create a gradient pattern
 			img.Set(x, y, color.RGBA{
 				R: uint8((x * 255) / 200),
@@ -693,8 +693,8 @@ func TestTransform_Sharpen(t *testing.T) {
 func TestTransform_SmartCrop(t *testing.T) {
 	// Create a 400x300 test image with a gradient
 	img := image.NewRGBA(image.Rect(0, 0, 400, 300))
-	for y := 0; y < 300; y++ {
-		for x := 0; x < 400; x++ {
+	for y := range 300 {
+		for x := range 400 {
 			img.Set(x, y, color.RGBA{
 				R: uint8(x * 255 / 400),
 				G: uint8(y * 255 / 300),
@@ -754,8 +754,8 @@ func TestTransform_SmartCrop(t *testing.T) {
 func TestTransform_SmartScale(t *testing.T) {
 	// Create a 200x150 test image with a gradient
 	img := image.NewRGBA(image.Rect(0, 0, 200, 150))
-	for y := 0; y < 150; y++ {
-		for x := 0; x < 200; x++ {
+	for y := range 150 {
+		for x := range 200 {
 			img.Set(x, y, color.RGBA{
 				R: uint8(x * 255 / 200),
 				G: uint8(y * 255 / 150),

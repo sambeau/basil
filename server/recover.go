@@ -47,7 +47,7 @@ func (m *recoverMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		stack := debug.Stack()
-		fmt.Fprintf(m.stderr, "[ERROR] panic recovered: %s %s -> %v\n%s\n",
+		_, _ = fmt.Fprintf(m.stderr, "[ERROR] panic recovered: %s %s -> %v\n%s\n",
 			r.Method, r.URL.Path, rec, stack)
 
 		// If the response was already started we cannot change the status; the
@@ -58,10 +58,11 @@ func (m *recoverMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		rw.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		rw.WriteHeader(http.StatusInternalServerError)
+		// Best-effort write of the error body; the client may already be gone.
 		if m.devMode {
-			fmt.Fprintf(rw, "500 Internal Server Error\n\npanic: %v\n\n%s", rec, stack)
+			_, _ = fmt.Fprintf(rw, "500 Internal Server Error\n\npanic: %v\n\n%s", rec, stack)
 		} else {
-			io.WriteString(rw, "500 Internal Server Error")
+			_, _ = io.WriteString(rw, "500 Internal Server Error")
 		}
 	}()
 

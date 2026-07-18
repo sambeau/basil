@@ -3,15 +3,14 @@ package smartcrop
 import (
 	"image"
 	"image/color"
-	"math"
 	"testing"
 )
 
 // uniformImage creates an image with a single color.
 func uniformImage(width, height int, c color.Color) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, c)
 		}
 	}
@@ -22,8 +21,8 @@ func uniformImage(width, height int, c color.Color) *image.RGBA {
 func verticalEdgeImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	midX := width / 2
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			if x < midX {
 				img.Set(x, y, color.Black)
 			} else {
@@ -38,8 +37,8 @@ func verticalEdgeImage(width, height int) *image.RGBA {
 func horizontalEdgeImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	midY := height / 2
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			if y < midY {
 				img.Set(x, y, color.Black)
 			} else {
@@ -53,8 +52,8 @@ func horizontalEdgeImage(width, height int) *image.RGBA {
 // diagonalGradientImage creates an image with a diagonal gradient.
 func diagonalGradientImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			// Intensity increases diagonally
 			intensity := uint8((x + y) * 255 / (width + height - 2))
 			img.Set(x, y, color.Gray{Y: intensity})
@@ -72,8 +71,8 @@ func TestSobel_UniformImage(t *testing.T) {
 		t.Errorf("expected 10x10 result, got %dx%d", len(result), len(result[0]))
 	}
 
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			// Use tolerance for floating point comparison
 			if result[y][x] > 1e-10 {
 				t.Fatalf("expected ~0 at (%d,%d), got %.20e", x, y, result[y][x])
@@ -93,14 +92,14 @@ func TestSobel_VerticalEdge(t *testing.T) {
 
 	// Check that edge region (around x=10) has high values
 	edgeSum := 0.0
-	for y := 0; y < 20; y++ {
+	for y := range 20 {
 		// Edge is at x=9,10 (the transition from black to white)
 		edgeSum += result[y][9] + result[y][10]
 	}
 
 	// Check that non-edge regions have low values
 	nonEdgeSum := 0.0
-	for y := 0; y < 20; y++ {
+	for y := range 20 {
 		nonEdgeSum += result[y][0] + result[y][19]
 	}
 
@@ -121,13 +120,13 @@ func TestSobel_HorizontalEdge(t *testing.T) {
 
 	// Check that edge region (around y=10) has high values
 	edgeSum := 0.0
-	for x := 0; x < 20; x++ {
+	for x := range 20 {
 		edgeSum += result[9][x] + result[10][x]
 	}
 
 	// Check that non-edge regions have low values
 	nonEdgeSum := 0.0
-	for x := 0; x < 20; x++ {
+	for x := range 20 {
 		nonEdgeSum += result[0][x] + result[19][x]
 	}
 
@@ -377,9 +376,4 @@ func BenchmarkToGrayscaleFlat(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ToGrayscaleFlat(img)
 	}
-}
-
-// Helpers for floating point comparison
-func approxEqual(a, b, tolerance float64) bool {
-	return math.Abs(a-b) <= tolerance
 }

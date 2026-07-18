@@ -209,7 +209,7 @@ func clusterDetections(detections []Detection, iouThreshold float64) []Detection
 	assignments := make([]bool, len(detections))
 	var clusters []Detection
 
-	for i := 0; i < len(detections); i++ {
+	for i := range detections {
 		if assignments[i] {
 			continue
 		}
@@ -219,7 +219,7 @@ func clusterDetections(detections []Detection, iouThreshold float64) []Detection
 			sumQ                float32
 		)
 
-		for j := 0; j < len(detections); j++ {
+		for j := range detections {
 			if computeIoU(detections[i], detections[j]) > iouThreshold {
 				assignments[j] = true
 				sumR += detections[j].Row

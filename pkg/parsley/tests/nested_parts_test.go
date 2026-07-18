@@ -129,4 +129,3 @@ html
 	// - Attach click handlers that call updatePart()
 	// - After innerHTML update, call initParts() again for nested Parts
 }
-

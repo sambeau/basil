@@ -2,6 +2,7 @@ package help
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -288,13 +289,7 @@ func formatOperatorListMarkdown(sb *strings.Builder, result *TopicResult) {
 
 	// Any categories not in the predefined order
 	for cat := range byCategory {
-		found := false
-		for _, ordered := range categoryOrder {
-			if cat == ordered {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(categoryOrder, cat)
 		if !found {
 			ops := byCategory[cat]
 			fmt.Fprintf(sb, "### %s\n\n", strings.ToUpper(cat[:1])+cat[1:])

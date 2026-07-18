@@ -145,9 +145,9 @@ func mkdirFromDict(dict *Dictionary, args []Object, env *Environment, typeLabel 
 	}
 	var err error
 	if recursive {
-		err = os.MkdirAll(absPath, 0755)
+		err = os.MkdirAll(absPath, 0o755)
 	} else {
-		err = os.Mkdir(absPath, 0755)
+		err = os.Mkdir(absPath, 0o755)
 	}
 	if err != nil {
 		return newIOError("IO-0006", absPath, err)

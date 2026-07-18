@@ -689,7 +689,7 @@ func (s *Server) setupRoutes() error {
 		// Protected-path and role checks read the user from the request
 		// context, so the auth middleware must wrap them (run first).
 		// (auth: "none" explicitly disables protection)
-		var finalHandler http.Handler = handler
+		var finalHandler = handler
 		if authMode != "none" && s.config.Auth.Enabled {
 			finalHandler = s.protectedPathMiddleware(finalHandler, route.Roles)
 		}
