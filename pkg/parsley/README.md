@@ -2,7 +2,45 @@
 
 This directory contains the core packages that implement the Parsley programming language interpreter.
 
+## API stability
+
+There is one **public, supported** package here:
+
+- **`parsley/`** — the embedding facade (`package parsley`). `Eval`, `EvalFile`,
+  the `With*` options, `ToParsley`/`FromParsley`, and the logger helpers are the
+  API we intend to keep stable across 1.x. Embed Parsley through this package.
+
+Every other package in this tree — `ast/`, `evaluator/`, `lexer/`, `parser/`,
+`format/`, `formatter/`, `pln/`, `help/`, `errors/`, `locale/`, `repl/` — is
+**implementation detail**. They are exported only because the facade and the
+`pars`/`basil` binaries span package boundaries; they carry **no compatibility
+guarantee** and may change or be moved (e.g. under `internal/`) in any release.
+Import them directly at your own risk.
+
+## Embedding (public API)
+
+```go
+import "github.com/sambeau/basil/pkg/parsley/parsley"
+
+result, err := parsley.Eval(
+    `"Hello, " + name + "!"`,
+    parsley.WithVar("name", "World"),
+)
+if err != nil {
+    // handle parse/runtime error
+}
+fmt.Println(result.Value) // "Hello, World!"
+```
+
+Common options: `WithVar`, `WithEnv`, `WithSecurity`, `WithLogger`,
+`WithFilename`, `WithDB`. Convert Go values to/from Parsley objects with
+`ToParsley` and `FromParsley`.
+
 ## Package Overview
+
+### `parsley/` - Embedding facade (public API)
+The supported entry point for running Parsley from Go: `Eval`/`EvalFile`, the
+`With*` configuration options, Go⇄Parsley value conversion, and logger helpers.
 
 ### `ast/` - Abstract Syntax Tree
 Defines all AST node types that represent the parsed structure of Parsley programs.
@@ -84,20 +122,22 @@ go test ./...
 
 Run tests for a specific package:
 ```bash
-go test ./pkg/lexer
-go test ./pkg/parser
-go test ./pkg/evaluator
+go test ./pkg/parsley/lexer
+go test ./pkg/parsley/parser
+go test ./pkg/parsley/evaluator
 ```
 
-## Usage
+## Internal usage (no compatibility guarantee)
 
-These packages are designed to work together to implement the Parsley interpreter:
+Most callers should use the `parsley` facade above. The lower-level packages fit
+together as follows — but note these paths are implementation detail and may
+change (see [API stability](#api-stability)):
 
 ```go
 import (
-    "github.com/sambeau/parsley/pkg/lexer"
-    "github.com/sambeau/parsley/pkg/parser"
-    "github.com/sambeau/parsley/pkg/evaluator"
+    "github.com/sambeau/basil/pkg/parsley/lexer"
+    "github.com/sambeau/basil/pkg/parsley/parser"
+    "github.com/sambeau/basil/pkg/parsley/evaluator"
 )
 
 // Tokenize input

@@ -78,17 +78,21 @@ Drop a `.pars` file in a directory and it's a route:
 
 ## Embedding Parsley
 
-Parsley embeds in any Go application:
+Parsley embeds in any Go application via the `pkg/parsley/parsley` package:
 
 ```go
-import "github.com/sambeau/basil/pkg/parsley"
+import "github.com/sambeau/basil/pkg/parsley/parsley"
 
-result, err := parsley.Eval(`"Hello, " + name + "!"`, parsley.Env{
-    "name": "World",
-})
+result, err := parsley.Eval(`"Hello, " + name + "!"`, parsley.WithVar("name", "World"))
+if err != nil {
+    // handle error
+}
+fmt.Println(result.Value) // "Hello, World!"
 ```
 
-See the [embedding documentation](pkg/parsley/README.md).
+See the [embedding documentation](pkg/parsley/README.md). That package is the
+supported public API; the other `pkg/parsley/*` packages are implementation
+detail — see [API stability](pkg/parsley/README.md#api-stability).
 
 ## Why?
 
