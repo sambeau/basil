@@ -406,6 +406,7 @@ var ErrorCatalog = map[string]ErrorDef{
 	"UNDEF-0003": {
 		Class:    ClassUndefined,
 		Template: "Undefined component: `{{.Name}}`",
+		Hints:    []string{"Is `{{.Name}}` imported? Check the import path and the exported name"},
 	},
 	"UNDEF-0004": {
 		Class:    ClassUndefined,

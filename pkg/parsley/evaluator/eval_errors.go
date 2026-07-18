@@ -320,8 +320,9 @@ func newStateError(code string) *Error {
 	}
 }
 
-// newUndefinedComponentError creates a structured error for undefined components.
-func newUndefinedComponentError(name string) *Error {
+// newUndefinedComponentError creates a structured error for undefined
+// components, positioned at the component tag itself (BUG-010).
+func newUndefinedComponentError(name string, tok lexer.Token) *Error {
 	perr := perrors.New("UNDEF-0003", map[string]any{
 		"Name": name,
 	})
@@ -331,6 +332,8 @@ func newUndefinedComponentError(name string) *Error {
 		Message: perr.Message,
 		Hints:   perr.Hints,
 		Data:    perr.Data,
+		Line:    tok.Line,
+		Column:  tok.Column,
 	}
 }
 
