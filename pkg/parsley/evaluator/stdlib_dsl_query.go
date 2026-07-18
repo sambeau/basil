@@ -882,7 +882,7 @@ func buildJoinCondition(cond *ast.QueryCondition, outerTableAlias, joinAlias str
 		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
-		params = append(params, &Boolean{Value: right.Value})
+		params = append(params, nativeBoolToParsBoolean(right.Value))
 	default:
 		// Try to evaluate as expression
 		val := Eval(right, env)
@@ -1000,7 +1000,7 @@ func buildCorrelatedCondition(cond *ast.QueryCondition, outerTableName string, e
 		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
-		params = append(params, &Boolean{Value: right.Value})
+		params = append(params, nativeBoolToParsBoolean(right.Value))
 	default:
 		// Try to evaluate as expression
 		val := Eval(right, env)
@@ -1063,7 +1063,7 @@ func buildCorrelatedConditionWhereClause(cond ast.QueryConditionNode, cf *ast.Qu
 		placeholder := sqlPlaceholder(driver, *paramIdx)
 		*paramIdx++
 		rightStr = placeholder
-		params = append(params, &Boolean{Value: right.Value})
+		params = append(params, nativeBoolToParsBoolean(right.Value))
 	default:
 		// Try to evaluate as expression
 		val := Eval(right, env)
@@ -1509,7 +1509,7 @@ func evalConditionValue(expr ast.Expression, env *Environment) (Object, *Error) 
 	case *ast.FloatLiteral:
 		return &Float{Value: v.Value}, nil
 	case *ast.Boolean:
-		return &Boolean{Value: v.Value}, nil
+		return nativeBoolToParsBoolean(v.Value), nil
 	case *ast.ArrayLiteral:
 		// Evaluate array elements
 		elements := make([]Object, len(v.Elements))
@@ -1840,7 +1840,7 @@ func executeQueryExists(binding *TableBinding, sql string, params []Object, env 
 	defer rows.Close()
 
 	exists := rows.Next()
-	return &Boolean{Value: exists}
+	return nativeBoolToParsBoolean(exists)
 }
 
 // executeQueryToSQL returns the generated SQL and parameters without executing the query

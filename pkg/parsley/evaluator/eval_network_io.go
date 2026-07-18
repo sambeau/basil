@@ -298,7 +298,7 @@ func makeResponseTypedDict(data Object, format string, statusCode int64, statusT
 		Value: statusText,
 	}
 
-	responsePairs["ok"] = &ast.ObjectLiteralExpression{Obj: &Boolean{Value: ok}}
+	responsePairs["ok"] = &ast.ObjectLiteralExpression{Obj: nativeBoolToParsBoolean(ok)}
 
 	// URL as a URL dictionary
 	if urlStr != "" {

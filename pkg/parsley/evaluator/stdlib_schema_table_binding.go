@@ -1655,7 +1655,7 @@ func (tb *TableBinding) executeExists(args []Object, env *Environment) Object {
 	defer rows.Close()
 
 	exists := rows.Next()
-	return &Boolean{Value: exists}
+	return nativeBoolToParsBoolean(exists)
 }
 
 // executeFindBy returns a single matching record or null.

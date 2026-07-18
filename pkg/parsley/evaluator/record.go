@@ -114,7 +114,7 @@ func (r *Record) Get(key string, env *Environment) Object {
 			return &Integer{Value: intLit.Value}
 		}
 		if boolLit, ok := expr.(*ast.Boolean); ok {
-			return &Boolean{Value: boolLit.Value}
+			return nativeBoolToParsBoolean(boolLit.Value)
 		}
 		return NULL
 	}
@@ -378,7 +378,7 @@ func castToBoolean(value Object) Object {
 		}
 		return value
 	case *Integer:
-		return &Boolean{Value: v.Value != 0}
+		return nativeBoolToParsBoolean(v.Value != 0)
 	default:
 		return value
 	}

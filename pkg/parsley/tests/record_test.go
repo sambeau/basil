@@ -508,6 +508,75 @@ record.isValid()`,
 	}
 }
 
+// TestRecordIsValidTruthiness tests that isValid()'s result branches correctly
+// in conditional contexts, not just when compared or printed (BUG-030: a
+// freshly allocated false Boolean was truthy under pointer-identity checks).
+func TestRecordIsValidTruthiness(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "invalid record branches to else",
+			input: `
+@schema Truthy1 {
+    name: string(max: 3)
+}
+let bad = Truthy1({name: "Alice"}).validate()
+if (bad.isValid()) "valid" else "invalid"`,
+			expected: "invalid",
+		},
+		{
+			name: "invalid record via stored variable branches to else",
+			input: `
+@schema Truthy2 {
+    name: string(max: 3)
+}
+let bad = Truthy2({name: "Alice"}).validate()
+let v = bad.isValid()
+if (v) "valid" else "invalid"`,
+			expected: "invalid",
+		},
+		{
+			name: "negation of isValid on invalid record",
+			input: `
+@schema Truthy3 {
+    name: string(max: 3)
+}
+let bad = Truthy3({name: "Alice"}).validate()
+if (!bad.isValid()) "caught" else "missed"`,
+			expected: "caught",
+		},
+		{
+			name: "valid record branches to then",
+			input: `
+@schema Truthy4 {
+    name: string(max: 10)
+}
+let good = Truthy4({name: "Alice"}).validate()
+if (good.isValid()) "valid" else "invalid"`,
+			expected: "valid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalRecordTest(t, tt.input)
+			if result.Type() == evaluator.ERROR_OBJ {
+				t.Fatalf("evaluation error: %s", result.Inspect())
+			}
+			strVal, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T", result)
+			}
+			if strVal.Value != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, strVal.Value)
+			}
+		})
+	}
+}
+
 // =============================================================================
 // Validation Tests - Enum
 // =============================================================================

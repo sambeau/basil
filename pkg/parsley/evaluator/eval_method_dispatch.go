@@ -29,7 +29,7 @@ func dbBegin(conn *DBConnection, args []Object, env *Environment) Object {
 	}
 	conn.Tx = tx
 	conn.InTransaction = true
-	return &Boolean{Value: true}
+	return TRUE
 }
 
 // dbCommit implements db.commit() — commit the current transaction
@@ -45,7 +45,7 @@ func dbCommit(conn *DBConnection, args []Object, env *Environment) Object {
 	}
 	conn.Tx = nil
 	conn.InTransaction = false
-	return &Boolean{Value: true}
+	return TRUE
 }
 
 // dbRollback implements db.rollback() — rollback the current transaction
@@ -61,7 +61,7 @@ func dbRollback(conn *DBConnection, args []Object, env *Environment) Object {
 	}
 	conn.Tx = nil
 	conn.InTransaction = false
-	return &Boolean{Value: true}
+	return TRUE
 }
 
 // dbClose implements db.close() — close the database connection
@@ -85,9 +85,9 @@ func dbClose(conn *DBConnection, args []Object, env *Environment) Object {
 func dbPing(conn *DBConnection, args []Object, env *Environment) Object {
 	if err := conn.DB.Ping(); err != nil {
 		conn.LastError = err.Error()
-		return &Boolean{Value: false}
+		return FALSE
 	}
-	return &Boolean{Value: true}
+	return TRUE
 }
 
 // dbCreateTable implements db.createTable(schema) or db.createTable(schema, "table_name")
@@ -117,7 +117,7 @@ func dbCreateTable(conn *DBConnection, args []Object, env *Environment) Object {
 		return newDatabaseError("DB-0005", err)
 	}
 
-	return &Boolean{Value: true}
+	return TRUE
 }
 
 // dbLastInsertId implements db.lastInsertId() — get the last inserted row ID (SQLite only)

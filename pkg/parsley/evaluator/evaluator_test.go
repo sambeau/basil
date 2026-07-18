@@ -631,3 +631,20 @@ func TestEvalErrors(t *testing.T) {
 		_ = errObj // Acknowledged as error, specific message checking optional
 	}
 }
+
+// TestIsTruthyBooleanByValue tests that Boolean truthiness depends on the
+// value, not on pointer identity with the TRUE/FALSE singletons (BUG-030).
+func TestIsTruthyBooleanByValue(t *testing.T) {
+	if isTruthy(&Boolean{Value: false}) {
+		t.Error("freshly allocated &Boolean{Value: false} must be falsy")
+	}
+	if !isTruthy(&Boolean{Value: true}) {
+		t.Error("freshly allocated &Boolean{Value: true} must be truthy")
+	}
+	if isTruthy(FALSE) {
+		t.Error("FALSE singleton must be falsy")
+	}
+	if !isTruthy(TRUE) {
+		t.Error("TRUE singleton must be truthy")
+	}
+}
