@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Unicode audit of string operations (BUG-029 follow-up)** — Audited every string method and every place other types consume strings for rune-correctness. String methods, indexing, slicing, `for … in`, natural sort, and the box renderer were already Unicode-aware; four byte-counting stragglers are fixed: schema `min`/`max` string-length validation now counts characters, not bytes (matching the "must be at least *n* characters" messages, the `minlength`/`maxlength` form attributes, and the generated SQL `char_length()` CHECK constraints — `"café"` is now length 4, not 5); `"x".truncate(n)` with a negative `n` no longer crashes the interpreter (it clamps to `0` and returns `""`); and display truncation in the REPL, `dev.log`, lexer error messages, and `mdDoc` titles no longer splits a multi-byte character mid-sequence.
+
 ### Added
 - **Protected paths and role-gated routes** — Sites can require authentication for parts of the app: signed-out visitors are redirected to the login page (`login_path`, default `/login`) and signed-in visitors without the right role get a 403. Works site-wide or per-route via `auth: required`, with `basil.auth.user.role` (`"admin"` / `"editor"`) and `basil.auth.required` available to templates.
 - **`part-target` and `part-form` for Parts** — An element *outside* a Part can now update it: give the Part an `id` and trigger it from anywhere with `part-click`/`part-submit` via `part-target="id"`, adding `part-form="formId"` to send a named form's fields when the trigger isn't inside one.

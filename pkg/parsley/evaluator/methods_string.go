@@ -649,6 +649,9 @@ func stringTruncate(receiver Object, args []Object, env *Environment) Object {
 		return newTypeError("TYPE-0012", "truncate", "an integer", args[0].Type())
 	}
 	maxLen := int(lenArg.Value)
+	if maxLen < 0 {
+		maxLen = 0
+	}
 
 	suffix := "..."
 	if len(args) >= 2 {

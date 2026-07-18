@@ -426,6 +426,30 @@ record.isValid()`,
 			expectValid: false,
 		},
 		{
+			// "café" is 4 characters but 5 bytes - length constraints must
+			// count runes, not bytes
+			name: "max string length counts runes not bytes",
+			input: `
+@schema MaxLenUni {
+    name: string(max: 4)
+}
+let record = MaxLenUni({name: "café"}).validate()
+record.isValid()`,
+			expectValid: true,
+		},
+		{
+			// "日本語" is 3 characters but 9 bytes - byte counting would
+			// wrongly pass a min: 4 constraint
+			name: "min string length counts runes not bytes",
+			input: `
+@schema MinLenUni {
+    name: string(min: 4)
+}
+let record = MinLenUni({name: "日本語"}).validate()
+record.isValid()`,
+			expectValid: false,
+		},
+		{
 			name: "valid min numeric value",
 			input: `
 @schema MinVal1 {

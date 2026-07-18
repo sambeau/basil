@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
@@ -977,7 +978,9 @@ func ValidateSchemaField(fieldName string, value Object, field *DSLSchemaField) 
 	if field.MinLength != nil || field.MaxLength != nil {
 		str, ok := value.(*String)
 		if ok {
-			length := len(str.Value)
+			// Count runes, not bytes: error messages say "characters" and the
+			// generated SQL CHECK constraints use char_length()
+			length := utf8.RuneCountInString(str.Value)
 			if field.MinLength != nil && length < *field.MinLength {
 				return &ValidationFieldError{
 					Field:   fieldName,
