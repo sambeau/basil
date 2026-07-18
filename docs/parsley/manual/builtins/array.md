@@ -44,6 +44,16 @@ n[2:]                                // [30, 40, 50]
 
 > ⚠️ **Optional indexing** `[?n]` returns `null` instead of an error on out-of-bounds access. Most languages don't have this.
 
+An index or slice bracket must open **on the same line** as the expression it indexes. A `[` at the start of a new line always begins a new array literal, never an index into the previous line's value:
+
+```parsley
+let xs = [10, 20, 30]
+xs[0]        // 10 — index (same line)
+
+let ys = [10, 20, 30]
+[0]          // [0] — a new array literal, not ys[0]
+```
+
 ### Concatenation & Repetition
 
 ```parsley
