@@ -2,6 +2,8 @@ module github.com/sambeau/basil
 
 go 1.25.0
 
+toolchain go1.26.5
+
 require (
 	github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
@@ -20,12 +22,12 @@ require (
 	github.com/peterh/liner v1.2.2
 	github.com/pkg/sftp v1.13.10
 	github.com/resend/resend-go/v2 v2.28.0
-	github.com/yuin/goldmark v1.7.8
-	golang.org/x/crypto v0.45.0
-	golang.org/x/image v0.37.0
-	golang.org/x/net v0.47.0
-	golang.org/x/sync v0.20.0
-	golang.org/x/text v0.35.0
+	github.com/yuin/goldmark v1.8.4
+	golang.org/x/crypto v0.54.0
+	golang.org/x/image v0.44.0
+	golang.org/x/net v0.57.0
+	golang.org/x/sync v0.22.0
+	golang.org/x/text v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.1
 )
@@ -56,7 +58,7 @@ require (
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
