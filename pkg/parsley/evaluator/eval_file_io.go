@@ -281,8 +281,8 @@ func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
 			fileInfo["name"] = &ast.StringLiteral{Value: entry.Name()}
 			fileInfo["path"] = &ast.StringLiteral{Value: filepath.Join(handle.Path, entry.Name())}
 			fileInfo["size"] = &ast.IntegerLiteral{Value: entry.Size()}
-			fileInfo["isDir"] = &ast.ObjectLiteralExpression{Obj: &Boolean{Value: entry.IsDir()}}
-			fileInfo["isFile"] = &ast.ObjectLiteralExpression{Obj: &Boolean{Value: !entry.IsDir()}}
+			fileInfo["isDir"] = &ast.ObjectLiteralExpression{Obj: nativeBoolToParsBoolean(entry.IsDir())}
+			fileInfo["isFile"] = &ast.ObjectLiteralExpression{Obj: nativeBoolToParsBoolean(!entry.IsDir())}
 			fileInfo["mode"] = &ast.StringLiteral{Value: entry.Mode().String()}
 			fileInfo["modified"] = &ast.ObjectLiteralExpression{Obj: timeToDict(entry.ModTime(), env)}
 

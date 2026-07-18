@@ -605,7 +605,7 @@ func goToImageObject(val any) Object {
 	case string:
 		return &String{Value: v}
 	case bool:
-		return &Boolean{Value: v}
+		return nativeBoolToParsBoolean(v)
 	case nil:
 		return NULL
 	default:

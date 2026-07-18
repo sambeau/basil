@@ -2106,11 +2106,11 @@ func tableAny(t *Table, args []Object, env *Environment) Object {
 
 		// Check if truthy
 		if isTruthy(evalResult) {
-			return &Boolean{Value: true}
+			return TRUE
 		}
 	}
 
-	return &Boolean{Value: false}
+	return FALSE
 }
 
 // tableAll returns true if all rows match the predicate
@@ -2144,11 +2144,11 @@ func tableAll(t *Table, args []Object, env *Environment) Object {
 
 		// Check if falsy
 		if !isTruthy(evalResult) {
-			return &Boolean{Value: false}
+			return FALSE
 		}
 	}
 
-	return &Boolean{Value: true}
+	return TRUE
 }
 
 // tableUnique returns a table with duplicate rows removed

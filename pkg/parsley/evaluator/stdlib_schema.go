@@ -385,7 +385,7 @@ func schemaValidate(args ...Object) Object {
 
 	// Build result
 	resultPairs := make(map[string]ast.Expression)
-	resultPairs["valid"] = objectToExpression(&Boolean{Value: len(errors) == 0})
+	resultPairs["valid"] = objectToExpression(nativeBoolToParsBoolean(len(errors) == 0))
 
 	if len(errors) > 0 {
 		resultPairs["errors"] = objectToExpression(&Array{Elements: errors})

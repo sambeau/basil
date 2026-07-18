@@ -199,7 +199,7 @@ func jsonToObject(value any) evaluator.Object {
 	}
 	switch v := value.(type) {
 	case bool:
-		return &evaluator.Boolean{Value: v}
+		return evaluator.BoolObject(v)
 	case float64:
 		// JSON numbers are float64
 		if v == float64(int64(v)) {
@@ -233,10 +233,10 @@ func jsonToObject(value any) evaluator.Object {
 func coerceFormValue(value string) evaluator.Object {
 	// Try boolean
 	if value == "true" || value == "on" {
-		return &evaluator.Boolean{Value: true}
+		return evaluator.TRUE
 	}
 	if value == "false" || value == "off" || value == "" {
-		return &evaluator.Boolean{Value: false}
+		return evaluator.FALSE
 	}
 
 	// Try integer
