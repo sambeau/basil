@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
 	"strings"
@@ -90,14 +91,7 @@ func ValidateCSRF(r *http.Request) bool {
 
 // secureCompare performs a constant-time string comparison to prevent timing attacks.
 func secureCompare(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	var result byte
-	for i := 0; i < len(a); i++ {
-		result |= a[i] ^ b[i]
-	}
-	return result == 0
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 // CSRFMiddleware wraps an http.Handler to validate CSRF tokens on mutating requests.

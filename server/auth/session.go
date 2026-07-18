@@ -2,7 +2,9 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"time"
@@ -29,15 +31,17 @@ func (d *DB) CreateSession(userID string, ttl time.Duration) (*Session, error) {
 
 	now := time.Now().UTC()
 	session := &Session{
-		ID:        token,
+		ID:        token, // the raw token, handed to the client in the cookie
 		UserID:    userID,
 		CreatedAt: now,
 		ExpiresAt: now.Add(ttl),
 	}
 
+	// Store only the hash of the token. A leak of the sessions table then does
+	// not hand out usable session tokens.
 	_, err = d.db.Exec(
 		"INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-		session.ID, session.UserID, session.CreatedAt, session.ExpiresAt,
+		hashSessionToken(token), session.UserID, session.CreatedAt, session.ExpiresAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
@@ -52,7 +56,7 @@ func (d *DB) ValidateSession(token string) (*User, error) {
 	var session Session
 	err := d.db.QueryRow(
 		"SELECT id, user_id, created_at, expires_at FROM sessions WHERE id = ?",
-		token,
+		hashSessionToken(token),
 	).Scan(&session.ID, &session.UserID, &session.CreatedAt, &session.ExpiresAt)
 
 	if err != nil {
@@ -70,9 +74,10 @@ func (d *DB) ValidateSession(token string) (*User, error) {
 	return d.GetUser(session.UserID)
 }
 
-// DeleteSession removes a session (logout).
+// DeleteSession removes a session (logout). The token is the raw value from the
+// cookie; it is hashed to match how sessions are stored.
 func (d *DB) DeleteSession(token string) error {
-	_, err := d.db.Exec("DELETE FROM sessions WHERE id = ?", token)
+	_, err := d.db.Exec("DELETE FROM sessions WHERE id = ?", hashSessionToken(token))
 	return err
 }
 
@@ -101,6 +106,15 @@ func generateSessionToken() (string, error) {
 		return "", fmt.Errorf("generating session token: %w", err)
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// hashSessionToken returns the SHA-256 hex digest of a session token. Sessions
+// are stored under this digest so a read of the sessions table does not expose
+// usable tokens. The token's 256 bits of entropy make a plain hash sufficient
+// here (nothing low-entropy to brute-force).
+func hashSessionToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 // --- Cookie helpers ---

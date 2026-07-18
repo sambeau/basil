@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/rand"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -37,7 +38,10 @@ func (d *DB) GenerateRecoveryCodes(userID string, count int) ([]string, error) {
 
 	codes := make([]string, count)
 	for i := 0; i < count; i++ {
-		code := generateRecoveryCode()
+		code, err := generateRecoveryCode()
+		if err != nil {
+			return nil, fmt.Errorf("generating recovery code: %w", err)
+		}
 		codes[i] = code
 
 		// Hash the code for storage
@@ -121,17 +125,20 @@ func (d *DB) GetRecoveryCodeCount(userID string) (int, error) {
 }
 
 // generateRecoveryCode creates a single recovery code in format XXXX-XXXX-XXXX.
-func generateRecoveryCode() string {
+func generateRecoveryCode() (string, error) {
 	segments := make([]string, RecoveryCodeSegments)
 	for i := range RecoveryCodeSegments {
 		segment := make([]byte, RecoveryCodeSegmentLength)
 		for j := range RecoveryCodeSegmentLength {
-			idx := randByte() % byte(len(recoveryCodeChars))
+			idx, err := randIndex(len(recoveryCodeChars))
+			if err != nil {
+				return "", err
+			}
 			segment[j] = recoveryCodeChars[idx]
 		}
 		segments[i] = string(segment)
 	}
-	return strings.Join(segments, "-")
+	return strings.Join(segments, "-"), nil
 }
 
 // normalizeCode removes dashes and converts to uppercase for comparison.
@@ -139,9 +146,14 @@ func normalizeCode(code string) string {
 	return strings.ToUpper(strings.ReplaceAll(code, "-", ""))
 }
 
-// randByte returns a cryptographically random byte.
-func randByte() byte {
-	b := make([]byte, 1)
-	rand.Read(b)
-	return b[0]
+// randIndex returns a uniformly distributed int in [0, n) using crypto/rand.
+// Using rand.Int avoids the modulo bias of `randomByte % n` (256 is not a
+// multiple of len(recoveryCodeChars)), which would otherwise skew codes toward
+// the first few characters of the alphabet.
+func randIndex(n int) (int, error) {
+	r, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
+	if err != nil {
+		return 0, err
+	}
+	return int(r.Int64()), nil
 }
