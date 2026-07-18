@@ -18,6 +18,11 @@ import (
 // Network I/O operations: evalSFTPConnectionMethod, evalSFTPFileHandleMethod, evalFetchStatement, evalFetchExpression + helpers
 // Extracted from evaluator.go - Phase 5 Extraction 29
 
+// defaultMaxResponseBytes bounds how much of a fetch() response body is read
+// into memory by default (100 MB). Callers can override it per request with the
+// maxSize option, or disable the cap with a non-positive value.
+const defaultMaxResponseBytes = 100 * 1024 * 1024
+
 // testHTTPClient may be set by tests to inject a custom HTTP client (e.g. one
 // that trusts a self-signed test certificate). It is nil in production.
 var testHTTPClient *http.Client
@@ -533,6 +538,17 @@ func fetchUrlContentFull(reqDict *Dictionary, env *Environment) *HTTPResponseInf
 		}
 	}
 
+	// Get maximum response size in bytes (default defaultMaxResponseBytes).
+	// A non-positive maxSize disables the cap. Bounding the read prevents a large
+	// or hostile upstream response from exhausting memory.
+	maxSize := int64(defaultMaxResponseBytes)
+	if maxSizeExpr, ok := reqDict.Pairs["maxSize"]; ok {
+		maxSizeObj := Eval(maxSizeExpr, env)
+		if maxSizeInt, ok := maxSizeObj.(*Integer); ok {
+			maxSize = maxSizeInt.Value
+		}
+	}
+
 	// Prepare request body
 	var bodyReader io.Reader
 	if bodyExpr, ok := reqDict.Pairs["body"]; ok {
@@ -603,10 +619,20 @@ func fetchUrlContentFull(reqDict *Dictionary, env *Environment) *HTTPResponseInf
 	info.OK = resp.StatusCode >= 200 && resp.StatusCode < 300
 	info.FinalURL = resp.Request.URL.String() // Final URL after redirects
 
-	// Read response body
-	data, err := io.ReadAll(resp.Body)
+	// Read response body, bounded to maxSize so a large or hostile upstream
+	// response cannot exhaust memory. We read one byte past the limit to detect
+	// (and reject) an over-size body rather than silently truncating it.
+	var bodyReaderForRead io.Reader = resp.Body
+	if maxSize > 0 {
+		bodyReaderForRead = io.LimitReader(resp.Body, maxSize+1)
+	}
+	data, err := io.ReadAll(bodyReaderForRead)
 	if err != nil {
 		info.Error = fmt.Sprintf("failed to read response: %s", err.Error())
+		return info
+	}
+	if maxSize > 0 && int64(len(data)) > maxSize {
+		info.Error = fmt.Sprintf("response body exceeds maximum size of %d bytes", maxSize)
 		return info
 	}
 

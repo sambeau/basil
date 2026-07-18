@@ -266,6 +266,10 @@ func requestToDict(urlDict *Dictionary, format string, options *Dictionary, env 
 		if timeoutExpr, ok := options.Pairs["timeout"]; ok {
 			pairs["timeout"] = timeoutExpr
 		}
+		// Copy maxSize (response body cap, in bytes) from options
+		if maxSizeExpr, ok := options.Pairs["maxSize"]; ok {
+			pairs["maxSize"] = maxSizeExpr
+		}
 	} else {
 		pairs["headers"] = &ast.DictionaryLiteral{
 			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
