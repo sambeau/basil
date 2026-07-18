@@ -157,6 +157,8 @@ Indices and slice bounds count **characters**, not bytes — consistent with `.l
 "a中😀"[1]                       // "中"
 ```
 
+The index bracket must open on the same line as the expression it indexes — a `[` starting a new line begins an array literal instead (see [Arrays: Indexing & Slicing](array.md#indexing--slicing)).
+
 ## Methods
 
 ### Case & Formatting
