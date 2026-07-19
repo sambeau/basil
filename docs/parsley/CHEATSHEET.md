@@ -80,6 +80,7 @@ var z = 10             // Mutable (when you need to reassign)
 - `var` = mutable binding (like Swift's `var`)
 - Immutability is **shallow**: you can mutate contents of `let` arrays/dicts, just can't reassign the variable
 - Loop variables and function parameters are implicitly immutable
+- **One declaration per scope**: redeclaring a name with `let`/`var` in the same scope is an error — shadowing in an inner scope (function body, `if` block) is fine
 
 ### 3. Comments
 ```parsley

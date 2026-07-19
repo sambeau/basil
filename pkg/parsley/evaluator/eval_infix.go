@@ -803,10 +803,12 @@ func evalIfExpression(ie *ast.IfExpression, env *Environment) Object {
 		return condition
 	}
 
+	// if/else blocks get their own scope: declarations inside them don't leak
+	// out, and assignments to outer variables still work via the outer chain
 	if isTruthy(condition) {
-		return Eval(ie.Consequence, env)
+		return Eval(ie.Consequence, NewEnclosedEnvironment(env))
 	} else if ie.Alternative != nil {
-		return Eval(ie.Alternative, env)
+		return Eval(ie.Alternative, NewEnclosedEnvironment(env))
 	} else {
 		return NULL
 	}

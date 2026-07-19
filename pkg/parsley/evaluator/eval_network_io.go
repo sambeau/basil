@@ -259,6 +259,9 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 	// Single assignment
 	if node.Name != nil && node.Name.Value != "_" {
 		if node.IsLet {
+			if err := env.CheckRedeclare(node.Name.Value); err != nil {
+				return withPosition(err, node.Token, env)
+			}
 			env.SetLet(node.Name.Value, responseDict)
 		} else {
 			if err := env.Update(node.Name.Value, responseDict); isError(err) {

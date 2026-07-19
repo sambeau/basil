@@ -287,6 +287,29 @@ Syntax errors.
 
 ---
 
+## Assignment Errors (ASSIGN-0xxx)
+
+Variable assignment errors.
+
+| Code | Template | Description |
+|------|----------|-------------|
+| ASSIGN-0001 | `Cannot reassign immutable binding '{{.Name}}'` | Reassigning a `let` binding |
+| ASSIGN-0002 | `Cannot reassign loop variable '{{.Name}}'` | Reassigning a loop variable |
+| ASSIGN-0003 | `Cannot reassign function parameter '{{.Name}}'` | Reassigning a parameter |
+| ASSIGN-0004 | `Cannot assign to undeclared variable '{{.Name}}'` | Assignment without declaration |
+
+---
+
+## Declaration Errors (DECL-0xxx)
+
+Variable declaration errors.
+
+| Code | Template | Description |
+|------|----------|-------------|
+| DECL-0001 | `'{{.Name}}' is already declared in this scope` | Redeclaring a name with `let`/`var` in the same scope |
+
+---
+
 ## State Errors (STATE-0xxx)
 
 Invalid state errors.

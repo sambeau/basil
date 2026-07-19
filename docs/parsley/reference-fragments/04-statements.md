@@ -17,6 +17,13 @@ y = 20                          // OK
 
 **Important**: Explicit declaration is required. Bare assignments like `x = 5` without a prior `let` or `var` declaration will produce an error.
 
+A name can only be declared **once per scope** — redeclaring it with `let` or `var` in the same scope is an error (`DECL-0001`). Declaring the same name in an inner scope (a function body or `if` block) shadows the outer binding without conflict. The REPL allows redeclaration at the prompt for convenience.
+
+```parsley
+let x = 5
+// let x = 10                   // ERROR: 'x' is already declared in this scope
+```
+
 #### Choosing Between `let` and `var`
 
 Use `let` by default. Only use `var` when you need to reassign the variable:
@@ -65,7 +72,7 @@ y = 50                          // OK
 ```parsley
 let person = {name: "Bob", age: 25, city: "NYC"}
 let {name, age} = person        // name="Bob", age=25 (both immutable)
-let {name, ...rest} = person    // name="Bob", rest={age: 25, city: "NYC"}
+let {city, ...rest} = person    // city="NYC", rest={name: "Bob", age: 25}
 
 var {x, y} = {x: 1, y: 2}       // x, y are mutable
 x = 10                          // OK

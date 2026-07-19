@@ -350,6 +350,9 @@ func assignQueryResult(names []*ast.Identifier, result Object, env *Environment,
 		name := names[0].Value
 		if name != "_" {
 			if isLet {
+				if err := env.CheckRedeclare(name); err != nil {
+					return withPosition(err, names[0].Token, env)
+				}
 				env.SetLet(name, result)
 			} else {
 				if err := env.Update(name, result); isError(err) {

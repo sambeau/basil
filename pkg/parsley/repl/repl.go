@@ -86,6 +86,8 @@ func Start(in io.Reader, out io.Writer, version string) {
 	}()
 
 	env := evaluator.NewEnvironment()
+	// Let users re-enter 'let x = ...' at the prompt without a redeclaration error
+	env.AllowRedeclare = true
 	// Set up permissive security policy for REPL (allow reads and writes by default)
 	env.Security = &evaluator.SecurityPolicy{
 		AllowWriteAll:   true,  // Allow writes in REPL
@@ -278,6 +280,7 @@ func handleReplCommand(cmd string, env *evaluator.Environment, out io.Writer, ra
 	case ":clear":
 		// Create a fresh environment
 		*env = *evaluator.NewEnvironment()
+		env.AllowRedeclare = true
 		fmt.Fprintln(out, "Environment cleared")
 		return rawMode, true
 

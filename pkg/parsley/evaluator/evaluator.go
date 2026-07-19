@@ -698,6 +698,7 @@ type Environment struct {
 	FormContext   *FormContext    // Current form context for @record/@field binding (FEAT-091)
 	PLNSecret     string          // Secret for HMAC signing PLN in Part props (FEAT-098)
 	callDepth     *int            // Shared function-call-depth counter (per evaluation tree; guards against runaway recursion)
+	AllowRedeclare bool           // Permit let/var redeclaration in this scope (REPL top-level only; not inherited by enclosed scopes)
 }
 
 // NewEnvironment creates a new environment
@@ -710,14 +711,7 @@ func NewEnvironment() *Environment {
 // - @env: dictionary of environment variables (read from os.Environ)
 // - @args: array of command-line arguments (passed in, or empty if nil)
 func NewEnvironmentWithArgs(args []string) *Environment {
-	s := make(map[string]Object)
-	l := make(map[string]bool)
-	im := make(map[string]bool)
-	x := make(map[string]bool)
-	p := make(map[string]bool)
-	i := make(map[string]bool)
-	depth := 0
-	env := &Environment{store: s, outer: nil, letBindings: l, immutable: im, exports: x, protected: p, importStack: i, Logger: DefaultLogger, callDepth: &depth}
+	env := newBareEnvironment()
 
 	// Populate @env from environment variables
 	envPairs := make(map[string]ast.Expression)
@@ -747,9 +741,30 @@ func NewEnvironmentWithArgs(args []string) *Environment {
 	return env
 }
 
+// newBareEnvironment allocates an Environment without populating the @env/@args
+// globals. Enclosed environments resolve those through the outer chain, so only
+// root environments (NewEnvironmentWithArgs) pay the cost of building them.
+func newBareEnvironment() *Environment {
+	depth := 0
+	return &Environment{
+		store:       make(map[string]Object),
+		letBindings: make(map[string]bool),
+		immutable:   make(map[string]bool),
+		exports:     make(map[string]bool),
+		protected:   make(map[string]bool),
+		importStack: make(map[string]bool),
+		Logger:      DefaultLogger,
+		callDepth:   &depth,
+	}
+}
+
 // NewEnclosedEnvironment creates a new environment with outer reference
 func NewEnclosedEnvironment(outer *Environment) *Environment {
-	env := NewEnvironment()
+	if outer == nil {
+		// No outer chain to resolve @env/@args through — build a full root environment
+		return NewEnvironment()
+	}
+	env := newBareEnvironment()
 	env.outer = outer
 	// Preserve filename, token, logger, devlog, basilctx, serverdb, caches, and root path from outer environment
 	if outer != nil {
@@ -802,7 +817,8 @@ func (e *Environment) SetLet(name string, val Object) Object {
 func (e *Environment) SetVar(name string, val Object) Object {
 	e.store[name] = val
 	e.letBindings[name] = true
-	// Note: not added to immutable map, so it remains mutable
+	// Clear any immutable mark so a REPL 'var x' after 'let x' is actually mutable
+	delete(e.immutable, name)
 	return val
 }
 
@@ -826,9 +842,24 @@ func (e *Environment) SetLetExport(name string, val Object) Object {
 func (e *Environment) SetVarExport(name string, val Object) Object {
 	e.store[name] = val
 	e.letBindings[name] = true
-	// Note: not added to immutable map, so it remains mutable
+	// Clear any immutable mark so a REPL 'var x' after 'let x' is actually mutable
+	delete(e.immutable, name)
 	e.exports[name] = true
 	return val
+}
+
+// CheckRedeclare returns a DECL-0001 error if name was already declared with
+// let/var in the current scope (outer scopes may still be shadowed). The REPL
+// sets AllowRedeclare on its top-level environment so users can re-enter
+// declarations; '_' is a discard and never conflicts.
+func (e *Environment) CheckRedeclare(name string) *Error {
+	if name == "_" || e.AllowRedeclare {
+		return nil
+	}
+	if e.letBindings[name] {
+		return newStructuredError("DECL-0001", map[string]any{"Name": name})
+	}
+	return nil
 }
 
 // IsLetBinding checks if a variable was declared with let or var
@@ -4483,6 +4514,14 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalBlockStatement(node, env)
 
 	case *ast.LetStatement:
+		// A name may only be declared once per scope (DECL-0001); pattern
+		// names are checked inside the destructuring helpers. Checked before
+		// evaluating the value so a failing declaration has no side effects.
+		if node.Name != nil {
+			if err := env.CheckRedeclare(node.Name.Value); err != nil {
+				return withPosition(err, node.Token, env)
+			}
+		}
 		val := Eval(node.Value, env)
 		if isError(val) {
 			return val

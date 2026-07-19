@@ -53,6 +53,17 @@ let x = if (false) "yes"         // null
 
 > ⚠️ There is no ternary operator (`? :`). Use `if (cond) a else b` — it's an expression that works anywhere a value is expected.
 
+`if`/`else` blocks have their own scope: variables declared inside a branch are local to that branch and don't leak out. To use a value computed in a branch, return it from the block — `if` is an expression:
+
+```parsley
+let greeting = if (loggedIn) {
+    let name = user.name         // local to this branch
+    "Welcome back, " + name
+} else {
+    "Hello, guest"
+}
+```
+
 ## for
 
 `for` maps over an iterable and returns an array. Null results are automatically filtered out, which gives you map and filter in one construct.
