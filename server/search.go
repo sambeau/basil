@@ -776,7 +776,7 @@ func searchResultsToDict(results *search.SearchResults, env *evaluator.Environme
 		if r.Path != "" {
 			pathPairs := make(map[string]evaluator.Object)
 			pathPairs["__type"] = &evaluator.String{Value: "path"}
-			pathPairs["absolute"] = &evaluator.Boolean{Value: strings.HasPrefix(r.Path, "/")}
+			pathPairs["absolute"] = evaluator.BoolObject(strings.HasPrefix(r.Path, "/"))
 
 			// Split path into segments
 			pathStr := strings.TrimPrefix(r.Path, "/")
@@ -949,7 +949,7 @@ func searchAddMethod(instance *SearchInstance, args []evaluator.Object, env *eva
 		}
 	}
 
-	return &evaluator.Boolean{Value: true}
+	return evaluator.TRUE
 }
 
 // searchUpdateMethod updates a document in the index
@@ -1030,7 +1030,7 @@ func searchRemoveMethod(instance *SearchInstance, args []evaluator.Object, env *
 		}
 	}
 
-	return &evaluator.Boolean{Value: true}
+	return evaluator.TRUE
 }
 
 func searchStatsMethod(instance *SearchInstance, args []evaluator.Object, env *evaluator.Environment) evaluator.Object {
@@ -1108,5 +1108,5 @@ func searchReindexMethod(instance *SearchInstance, args []evaluator.Object, env 
 		}
 	}
 
-	return &evaluator.Boolean{Value: true}
+	return evaluator.TRUE
 }

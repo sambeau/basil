@@ -379,7 +379,7 @@ func recordIsValid(record *Record, args []Object) Object {
 	if !record.Validated {
 		return FALSE
 	}
-	return &Boolean{Value: len(record.Errors) == 0}
+	return nativeBoolToParsBoolean(len(record.Errors) == 0)
 }
 
 // recordHasError implements record.hasError(field) → Boolean
@@ -394,7 +394,7 @@ func recordHasError(record *Record, args []Object, env *Environment) Object {
 	}
 
 	_, exists := record.Errors[fieldName.Value]
-	return &Boolean{Value: exists}
+	return nativeBoolToParsBoolean(exists)
 }
 
 // recordFailIfInvalid implements record.failIfInvalid(msg?) → Record | Error

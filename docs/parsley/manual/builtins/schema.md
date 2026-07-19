@@ -160,9 +160,9 @@ Add constraints using `(key: value)` syntax after the type:
 
 | Constraint | Applies To | Description |
 |------------|------------|-------------|
-| `min` | `string` | Minimum string length |
+| `min` | `string` | Minimum string length, in characters (Unicode-aware, like `.length()`) |
 | `min` | `integer`, `number` | Minimum numeric value |
-| `max` | `string` | Maximum string length |
+| `max` | `string` | Maximum string length, in characters (Unicode-aware, like `.length()`) |
 | `max` | `integer`, `number` | Maximum numeric value |
 | `pattern` | `string` | Regex pattern for validation |
 | `required` | Any | Field must have a non-null value |

@@ -43,10 +43,7 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if err, ok := result.(*Error); ok {
 			return err
 		}
-		if result == TRUE {
-			return FALSE
-		}
-		return TRUE
+		return nativeBoolToParsBoolean(!isTruthy(result))
 	case operator == "..":
 		return evalRangeExpression(tok, left, right)
 	// Path and URL operators with strings (must come before general string concatenation)

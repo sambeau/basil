@@ -257,6 +257,8 @@ func TestStringTruncate(t *testing.T) {
 		{"empty_suffix", `"Hello world".truncate(8, "")`, `Hello wo`},
 		{"empty_string", `"".truncate(5)`, ``},
 		{"zero_length", `"Hello".truncate(0)`, ``},
+		{"negative_length", `"Hello".truncate(-1)`, ``},
+		{"negative_length_unicode", `"héllo".truncate(-5)`, ``},
 		{"unicode_content", `"こんにちは世界".truncate(5)`, `こん...`},
 		{"unicode_suffix", `"Hello world".truncate(7, "→")`, `Hello →`},
 	}

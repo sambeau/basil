@@ -976,6 +976,15 @@ func (p *Parser) isAssignableExpression(expr ast.Expression) bool {
 }
 
 // parseExpression parses expressions using Pratt parsing
+// indexBracketOnNewLine reports whether the upcoming '[' starts on a later
+// line than the expression parsed so far. Such a bracket begins a new
+// array-literal statement, not an index into the previous expression, so the
+// expression loops must stop before consuming it (BUG-031). An index/slice
+// bracket must open on the same line as the expression it indexes.
+func (p *Parser) indexBracketOnNewLine() bool {
+	return p.peekToken.Type == lexer.LBRACKET && p.peekToken.Line > p.curToken.Line
+}
+
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
@@ -985,7 +994,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 	leftExp := prefix()
 
-	for !p.peekTokenIs(lexer.SEMICOLON) && precedence < p.peekPrecedence() {
+	for !p.peekTokenIs(lexer.SEMICOLON) && !p.indexBracketOnNewLine() && precedence < p.peekPrecedence() {
 		// Allow write operators to be parsed as expressions for assignment capture
 		if p.peekTokenIs(lexer.WRITE_TO) || p.peekTokenIs(lexer.APPEND_TO) {
 			p.nextToken() // consume ==> or ==>>
@@ -1045,7 +1054,7 @@ func (p *Parser) parseExpressionUntilBrace() ast.Expression {
 	leftExp := prefix()
 
 	// Stop at semicolon, LBRACE, or when precedence is exhausted
-	for !p.peekTokenIs(lexer.SEMICOLON) && !p.peekTokenIs(lexer.LBRACE) && LOWEST < p.peekPrecedence() {
+	for !p.peekTokenIs(lexer.SEMICOLON) && !p.peekTokenIs(lexer.LBRACE) && !p.indexBracketOnNewLine() && LOWEST < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
@@ -1071,7 +1080,7 @@ func (p *Parser) parseExpressionUntil(precedence int, stopCondition func() bool)
 	leftExp := prefix()
 
 	// Stop at semicolon, when stop condition is met, or when precedence is exhausted
-	for !p.peekTokenIs(lexer.SEMICOLON) && !stopCondition() && precedence < p.peekPrecedence() {
+	for !p.peekTokenIs(lexer.SEMICOLON) && !stopCondition() && !p.indexBracketOnNewLine() && precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp

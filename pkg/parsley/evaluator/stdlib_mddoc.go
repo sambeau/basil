@@ -29,8 +29,9 @@ func (md *MdDoc) Inspect() string {
 	if md.AST != nil {
 		title := findTitle(md.AST, md.Env)
 		if title != "" {
-			if len(title) > 30 {
-				title = title[:27] + "..."
+			// Truncate by rune so multi-byte characters are never split
+			if runes := []rune(title); len(runes) > 30 {
+				title = string(runes[:27]) + "..."
 			}
 			return fmt.Sprintf("mdDoc(%q)", title)
 		}

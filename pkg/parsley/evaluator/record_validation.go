@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Validation error codes as defined in FEAT-091
@@ -269,7 +270,9 @@ func validateFormat(value Object, field *DSLSchemaField, title string) *RecordEr
 func validateConstraints(value Object, field *DSLSchemaField, title string) *RecordError {
 	// String length constraints
 	if strVal, ok := value.(*String); ok {
-		length := len(strVal.Value)
+		// Count runes, not bytes: error messages say "characters" and the
+		// generated SQL CHECK constraints use char_length()
+		length := utf8.RuneCountInString(strVal.Value)
 
 		if field.MinLength != nil && length < *field.MinLength {
 			return &RecordError{

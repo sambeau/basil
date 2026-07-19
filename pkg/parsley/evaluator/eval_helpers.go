@@ -635,6 +635,9 @@ func isTruthy(obj Object) bool {
 	default:
 		// Python-style truthiness: empty collections and strings are falsy
 		switch v := obj.(type) {
+		case *Boolean:
+			// Booleans allocated outside the TRUE/FALSE singletons (BUG-030)
+			return v.Value
 		case *String:
 			return v.Value != ""
 		case *Array:
@@ -657,4 +660,10 @@ func nativeBoolToParsBoolean(input bool) *Boolean {
 		return TRUE
 	}
 	return FALSE
+}
+
+// BoolObject converts a Go bool to the shared TRUE/FALSE Boolean singletons.
+// External packages should use this instead of allocating &Boolean{} (BUG-030).
+func BoolObject(input bool) *Boolean {
+	return nativeBoolToParsBoolean(input)
 }

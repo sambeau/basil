@@ -323,9 +323,10 @@ func printEnvironment(env *evaluator.Environment, out io.Writer) {
 				lines[i] = "  " + lines[i]
 			}
 			value = strings.Join(lines, "\n")
-		} else if len(value) > 60 {
-			// Truncate long single-line values
-			value = value[:57] + "..."
+		} else if runes := []rune(value); len(runes) > 60 {
+			// Truncate long single-line values (by rune, so multi-byte
+			// characters are never split)
+			value = string(runes[:57]) + "..."
 		}
 
 		fmt.Fprintf(out, "  %s: %s = %s\n", name, typeStr, value)
