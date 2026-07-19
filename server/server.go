@@ -111,6 +111,14 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		s.corsMW = NewCORSMiddleware(cfg.CORS)
 	}
 
+	// Warn about custom error pages that don't exist (the built-in page is
+	// served instead when a configured page is missing or fails)
+	for code, path := range cfg.ErrorPages {
+		if _, err := os.Stat(path); err != nil {
+			s.logWarn("error_pages: %d: %s not found, the built-in page will be used", code, path)
+		}
+	}
+
 	// Initialize asset registry (logger for warnings, nil for production silent mode)
 	if cfg.Server.Dev {
 		s.assetRegistry = newAssetRegistry(s.logWarn)

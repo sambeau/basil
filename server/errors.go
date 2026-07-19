@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/pkg/parsley/parsley"
 )
@@ -363,13 +364,29 @@ func (s *Server) getSourceContext(filePath string, errorLine, contextLines int) 
 	return lines
 }
 
-// renderPreludeError renders an error page from the prelude
-// Returns true if successfully rendered, false if fallback needed
+// renderPreludeError renders an error page — a custom page from the
+// error_pages config if one is set for this code, otherwise the built-in
+// prelude page. Returns true if successfully rendered, false if fallback needed
 func (s *Server) renderPreludeError(w http.ResponseWriter, r *http.Request, code int, err error) bool {
-	// Determine which error page to use
+	// Dev mode with error: use detailed dev error page
+	devDetail := s.config.Server.Dev && err != nil
+
+	// Custom error page from config (replaces the generic page, not the dev one)
+	if !devDetail {
+		if path, ok := s.config.ErrorPages[code]; ok {
+			program, parseErr := s.scriptCache.getAST(path)
+			if parseErr != nil {
+				s.logError("error parsing custom error page %s: %v", path, parseErr)
+			} else if s.renderErrorProgram(w, r, code, err, program, path) {
+				return true
+			}
+			// On any failure, fall through to the built-in page
+		}
+	}
+
+	// Determine which built-in error page to use
 	var pageName string
-	if s.config.Server.Dev && err != nil {
-		// Dev mode with error: use detailed dev error page
+	if devDetail {
 		pageName = "errors/dev_error.pars"
 	} else {
 		// Try specific error code page
@@ -389,6 +406,13 @@ func (s *Server) renderPreludeError(w http.ResponseWriter, r *http.Request, code
 		}
 	}
 
+	return s.renderErrorProgram(w, r, code, err, program, pageName)
+}
+
+// renderErrorProgram evaluates an error page program and writes the response.
+// Returns false (without writing anything) if evaluation fails, so the caller
+// can fall back to another page.
+func (s *Server) renderErrorProgram(w http.ResponseWriter, r *http.Request, code int, err error, program *ast.Program, pageName string) bool {
 	// Create environment with error details
 	env := s.createErrorEnv(r, code, err)
 

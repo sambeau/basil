@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -442,5 +444,141 @@ func TestHandle500(t *testing.T) {
 	// Should contain 500 content
 	if !strings.Contains(body, "500") {
 		t.Error("expected body to contain '500'")
+	}
+}
+
+func TestRenderPreludeError_CustomErrorPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	pagePath := filepath.Join(dir, "404.pars")
+	page := `<!DOCTYPE html>
+<html><body><h1>"Totally custom not-found page"</h1></body></html>`
+	if err := os.WriteFile(pagePath, []byte(page), 0644); err != nil {
+		t.Fatalf("failed to write custom error page: %v", err)
+	}
+
+	cfg := &config.Config{
+		ErrorPages: map[int]string{404: pagePath},
+	}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/missing", http.NoBody)
+
+	if !s.renderPreludeError(w, req, 404, nil) {
+		t.Fatal("expected renderPreludeError to succeed")
+	}
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	if resp.StatusCode != 404 {
+		t.Errorf("expected status 404, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+	if !strings.Contains(body, "Totally custom not-found page") {
+		t.Errorf("expected body to contain custom page content, got: %s", body)
+	}
+}
+
+func TestRenderPreludeError_CustomErrorPageMissingFallsBack(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{
+		ErrorPages: map[int]string{404: "/nonexistent/404.pars"},
+	}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/missing", http.NoBody)
+
+	if !s.renderPreludeError(w, req, 404, nil) {
+		t.Fatal("expected renderPreludeError to fall back to the built-in page")
+	}
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	if resp.StatusCode != 404 {
+		t.Errorf("expected status 404, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(body, "Page not found") {
+		t.Errorf("expected built-in 404 page content, got: %s", body)
+	}
+}
+
+func TestRenderPreludeError_CustomErrorPageBrokenFallsBack(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	pagePath := filepath.Join(dir, "500.pars")
+	// Runtime error: undefined variable
+	page := `<html><body>noSuchVariable</body></html>`
+	if err := os.WriteFile(pagePath, []byte(page), 0644); err != nil {
+		t.Fatalf("failed to write custom error page: %v", err)
+	}
+
+	cfg := &config.Config{
+		ErrorPages: map[int]string{500: pagePath},
+	}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/error", http.NoBody)
+
+	if !s.renderPreludeError(w, req, 500, nil) {
+		t.Fatal("expected renderPreludeError to fall back to the built-in page")
+	}
+
+	resp := w.Result()
+	body := w.Body.String()
+
+	if resp.StatusCode != 500 {
+		t.Errorf("expected status 500, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(body, "Server error") {
+		t.Errorf("expected built-in 500 page content, got: %s", body)
+	}
+}
+
+func TestRenderPreludeError_DevErrorPageBeatsCustomPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	pagePath := filepath.Join(dir, "500.pars")
+	page := `<html><body><h1>"Custom production error page"</h1></body></html>`
+	if err := os.WriteFile(pagePath, []byte(page), 0644); err != nil {
+		t.Fatalf("failed to write custom error page: %v", err)
+	}
+
+	cfg := &config.Config{
+		Server:     config.ServerConfig{Dev: true},
+		ErrorPages: map[int]string{500: pagePath},
+	}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(true)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/error", http.NoBody)
+	err := fmt.Errorf("boom")
+
+	if !s.renderPreludeError(w, req, 500, err) {
+		t.Fatal("expected renderPreludeError to succeed")
+	}
+
+	body := w.Body.String()
+
+	// Dev mode with an error shows the detailed dev page, not the custom page
+	if strings.Contains(body, "Custom production error page") {
+		t.Error("expected dev error page to take precedence over custom page in dev mode")
+	}
+	if !strings.Contains(body, "boom") {
+		t.Errorf("expected dev error page to contain the error message, got: %s", body)
 	}
 }

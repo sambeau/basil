@@ -28,7 +28,7 @@ Every page served in dev mode polls for changes; save a handler and the browser 
 
 ## Error Pages
 
-In dev mode, a failing handler renders a detailed error page — the error class and code, the source line with a caret, and hints. In production, visitors get a generic error page instead (details go to the logs).
+In dev mode, a failing handler renders a detailed error page — the error class and code, the source line with a caret, and hints. In production, visitors get a generic error page instead (details go to the logs). The generic pages can be replaced with your own via the [`error_pages` config](configuration.md#error_pages).
 
 ## The Dev Log
 

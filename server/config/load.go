@@ -101,6 +101,13 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		cfg.PublicDir = filepath.Join(baseDir, cfg.PublicDir)
 	}
 
+	// Resolve relative custom error page paths
+	for code, path := range cfg.ErrorPages {
+		if path != "" && !filepath.IsAbs(path) {
+			cfg.ErrorPages[code] = filepath.Join(baseDir, path)
+		}
+	}
+
 	// Resolve relative paths in security.allow_write
 	for i := range cfg.Security.AllowWrite {
 		if !filepath.IsAbs(cfg.Security.AllowWrite[i]) {
@@ -277,6 +284,16 @@ func validateBasic(cfg *Config) error {
 		}
 		if r.Auth != "" && r.Auth != "required" && r.Auth != "optional" && r.Auth != "none" {
 			errs = append(errs, fmt.Sprintf("routes[%d]: auth must be 'required', 'optional', 'none', or empty", i))
+		}
+	}
+
+	// Custom error pages validation
+	for code, path := range cfg.ErrorPages {
+		if code < 400 || code > 599 {
+			errs = append(errs, fmt.Sprintf("error_pages: %d is not an HTTP error status code (must be 400-599)", code))
+		}
+		if path == "" {
+			errs = append(errs, fmt.Sprintf("error_pages: %d: path is required", code))
 		}
 	}
 
