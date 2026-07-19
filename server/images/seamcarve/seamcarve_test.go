@@ -9,8 +9,8 @@ import (
 // createUniformImage creates a solid color image for testing.
 func createUniformImage(width, height int, c color.Color) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, c)
 		}
 	}
@@ -20,24 +20,9 @@ func createUniformImage(width, height int, c color.Color) *image.RGBA {
 // createVerticalStripeImage creates an image with a vertical stripe of a different color.
 func createVerticalStripeImage(width, height int, stripeX int, bg, stripe color.Color) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			if x == stripeX {
-				img.Set(x, y, stripe)
-			} else {
-				img.Set(x, y, bg)
-			}
-		}
-	}
-	return img
-}
-
-// createHorizontalStripeImage creates an image with a horizontal stripe of a different color.
-func createHorizontalStripeImage(width, height int, stripeY int, bg, stripe color.Color) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			if y == stripeY {
 				img.Set(x, y, stripe)
 			} else {
 				img.Set(x, y, bg)
@@ -50,8 +35,8 @@ func createHorizontalStripeImage(width, height int, stripeY int, bg, stripe colo
 // createGradientImage creates an image with a horizontal gradient (left=dark, right=light).
 func createGradientImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			v := uint8(x * 255 / width)
 			img.Set(x, y, color.RGBA{R: v, G: v, B: v, A: 255})
 		}
@@ -69,8 +54,8 @@ func TestEnergyMap_Uniform(t *testing.T) {
 	}
 
 	// All values should be near zero for a uniform image
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 100; x++ {
+	for y := range 100 {
+		for x := range 100 {
 			if energy[y][x] > 0.1 {
 				t.Errorf("energy[%d][%d] = %f, expected near 0 for uniform image", y, x, energy[y][x])
 			}
@@ -376,8 +361,8 @@ func TestToRGBA_AlreadyRGBA(t *testing.T) {
 func TestToRGBA_NonRGBA(t *testing.T) {
 	// Create a Gray image
 	gray := image.NewGray(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			gray.SetGray(x, y, color.Gray{Y: 128})
 		}
 	}
@@ -507,7 +492,7 @@ func TestFindKMinVerticalSeams_NoOverlap(t *testing.T) {
 	// Check that seams are spread out (no two seams share the same x at any row)
 	// This is a weak test since on uniform energy, seams could share positions
 	// but the algorithm should mark used seams to prevent reselection
-	for y := 0; y < 20; y++ {
+	for y := range 20 {
 		positions := make(map[int]bool)
 		for i, seam := range seams {
 			if positions[seam[y]] {
@@ -523,8 +508,8 @@ func TestFindKMinVerticalSeams_LowEnergyRegion(t *testing.T) {
 	// Create image with a high-energy vertical stripe on the right that seams should avoid
 	// Left side is uniform (low energy interior), right side has a bright stripe (high energy edge)
 	img := image.NewRGBA(image.Rect(0, 0, 30, 20))
-	for y := 0; y < 20; y++ {
-		for x := 0; x < 30; x++ {
+	for y := range 20 {
+		for x := range 30 {
 			if x < 20 {
 				// Left side: uniform gray (low energy in interior)
 				img.Set(x, y, color.RGBA{R: 128, G: 128, B: 128, A: 255})
@@ -611,8 +596,8 @@ func TestInsertHorizontalSeams_IncreasesHeight(t *testing.T) {
 func TestInsertVerticalSeams_AveragesColors(t *testing.T) {
 	// Create image with two colors side by side
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			if x < 5 {
 				img.Set(x, y, color.RGBA{R: 100, G: 100, B: 100, A: 255})
 			} else {
@@ -732,7 +717,7 @@ func TestResize_EnlargementPreservesContent(t *testing.T) {
 
 	// The white stripe should still be present
 	foundWhite := false
-	for x := 0; x < 25; x++ {
+	for x := range 25 {
 		c := result.(*image.RGBA).RGBAAt(x, 10)
 		if c.R > 200 && c.G > 200 && c.B > 200 {
 			foundWhite = true

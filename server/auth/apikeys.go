@@ -33,10 +33,21 @@ func GenerateAPIKey() (plaintext string, hash string, prefix string, err error) 
 	}
 	hash = string(hashBytes)
 
-	// Prefix for display: first 12 chars + "..." + last 4 chars
-	prefix = plaintext[:12] + "..." + plaintext[len(plaintext)-4:]
+	prefix = apiKeyPrefix(plaintext)
 
 	return plaintext, hash, prefix, nil
+}
+
+// apiKeyPrefix derives the stored display/lookup prefix for a plaintext key:
+// the first 12 characters + "..." + the last 4. Because it is a deterministic
+// function of the key it doubles as an indexed lookup value — see
+// ValidateAPIKey, which recomputes it to avoid scanning every key. Returns ""
+// for keys too short to have a well-formed prefix.
+func apiKeyPrefix(plaintext string) string {
+	if len(plaintext) < 16 { // 12 leading + 4 trailing
+		return ""
+	}
+	return plaintext[:12] + "..." + plaintext[len(plaintext)-4:]
 }
 
 // CreateAPIKey creates a new API key for a user and returns it with the plaintext key.
@@ -93,8 +104,9 @@ func (d *DB) GetAPIKeys(userID string) ([]*APIKey, error) {
 	return scanAPIKeys(rows)
 }
 
-// GetAllAPIKeys returns all API keys in the database.
-// Used for key validation (bcrypt requires checking all keys).
+// GetAllAPIKeys returns all API keys in the database (e.g. for administrative
+// listing). Validation does not use this — see ValidateAPIKey, which does an
+// indexed prefix lookup instead of scanning every key.
 func (d *DB) GetAllAPIKeys() ([]*APIKey, error) {
 	rows, err := d.db.Query(
 		`SELECT id, user_id, name, key_hash, key_prefix, created_at, last_used_at, expires_at
@@ -102,6 +114,24 @@ func (d *DB) GetAllAPIKeys() ([]*APIKey, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("listing all API keys: %w", err)
+	}
+	defer rows.Close()
+
+	return scanAPIKeys(rows)
+}
+
+// GetAPIKeysByPrefix returns the API keys whose stored prefix matches. Because
+// the prefix is a deterministic function of the plaintext key, this narrows a
+// candidate lookup to (almost always) a single row before the expensive bcrypt
+// comparison — see ValidateAPIKey.
+func (d *DB) GetAPIKeysByPrefix(prefix string) ([]*APIKey, error) {
+	rows, err := d.db.Query(
+		`SELECT id, user_id, name, key_hash, key_prefix, created_at, last_used_at, expires_at
+		 FROM api_keys WHERE key_prefix = ?`,
+		prefix,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("looking up API keys by prefix: %w", err)
 	}
 	defer rows.Close()
 
@@ -163,14 +193,22 @@ func (d *DB) UpdateAPIKeyLastUsed(id string) error {
 
 // ValidateAPIKey validates an API key and returns the associated user.
 // Returns nil, nil if the key is invalid or expired.
+//
+// The candidate lookup is narrowed by the key's deterministic prefix (an indexed
+// column) so at most a handful of rows — in practice one — reach the bcrypt
+// comparison. This avoids an O(n) bcrypt scan of every stored key on each request.
 func (d *DB) ValidateAPIKey(key string) (*User, error) {
 	// Key format check
 	if !strings.HasPrefix(key, "bsl_live_") {
 		return nil, nil
 	}
 
-	// Get all keys and check hash (bcrypt doesn't allow direct lookup)
-	keys, err := d.GetAllAPIKeys()
+	prefix := apiKeyPrefix(key)
+	if prefix == "" {
+		return nil, nil
+	}
+
+	keys, err := d.GetAPIKeysByPrefix(prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +219,7 @@ func (d *DB) ValidateAPIKey(key string) (*User, error) {
 			continue
 		}
 
-		// Check hash
+		// Check hash (bcrypt) as the authoritative comparison
 		if bcrypt.CompareHashAndPassword([]byte(k.KeyHash), []byte(key)) == nil {
 			// Update last used
 			d.UpdateAPIKeyLastUsed(k.ID)

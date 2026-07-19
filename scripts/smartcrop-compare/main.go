@@ -116,7 +116,7 @@ func main() {
 // parseAspects parses a comma-separated list of aspect ratios like "1:1,16:9,4:3".
 func parseAspects(s string) []AspectRatio {
 	var aspects []AspectRatio
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -223,10 +223,7 @@ func generateComparison(img image.Image, aspect AspectRatio, outPath string) err
 
 	// Assemble the comparison grid
 	// Use the max height for the canvas
-	maxHeight := panelHeight
-	if thumbHeight > maxHeight {
-		maxHeight = thumbHeight
-	}
+	maxHeight := max(thumbHeight, panelHeight)
 
 	gridWidth := panelWidth*3 + 40 // 3 panels + padding
 	gridHeight := maxHeight + 60   // Extra space for labels
@@ -332,8 +329,8 @@ func drawImage(canvas *image.RGBA, img image.Image, x, y int) {
 // drawLabel draws a colored label bar.
 func drawLabel(canvas *image.RGBA, x, y, width int, c color.Color) {
 	height := 15
-	for dy := 0; dy < height; dy++ {
-		for dx := 0; dx < width; dx++ {
+	for dy := range height {
+		for dx := range width {
 			canvas.Set(x+dx, y+dy, c)
 		}
 	}
@@ -373,7 +370,7 @@ func generateSobelVis(img image.Image, outPath string) {
 	}
 
 	if maxVal > 0 {
-		for y := 0; y < len(sobelMap); y++ {
+		for y := range sobelMap {
 			for x := 0; x < len(sobelMap[y]); x++ {
 				normalized := uint8(sobelMap[y][x] / maxVal * 255)
 				result.SetGray(x, y, color.Gray{Y: normalized})

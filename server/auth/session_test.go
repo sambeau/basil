@@ -37,6 +37,44 @@ func TestCreateSession(t *testing.T) {
 	}
 }
 
+// TestSessionTokenStoredHashed verifies the raw token never lands in the database:
+// the row is keyed by the token's hash, and the raw token still validates.
+func TestSessionTokenStoredHashed(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user, err := db.CreateUser("Bob", "bob@example.com")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	session, err := db.CreateSession(user.ID, 0)
+	if err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+
+	// The raw token must not be stored; its hash must be.
+	var rawCount int
+	if err := db.db.QueryRow("SELECT COUNT(*) FROM sessions WHERE id = ?", session.ID).Scan(&rawCount); err != nil {
+		t.Fatalf("query raw failed: %v", err)
+	}
+	if rawCount != 0 {
+		t.Error("raw session token was stored in the database")
+	}
+	var hashCount int
+	if err := db.db.QueryRow("SELECT COUNT(*) FROM sessions WHERE id = ?", hashSessionToken(session.ID)).Scan(&hashCount); err != nil {
+		t.Fatalf("query hash failed: %v", err)
+	}
+	if hashCount != 1 {
+		t.Error("hashed session token was not stored")
+	}
+
+	// The raw token still validates.
+	got, err := db.ValidateSession(session.ID)
+	if err != nil || got == nil || got.ID != user.ID {
+		t.Fatalf("ValidateSession(raw token) failed: user=%v err=%v", got, err)
+	}
+}
+
 func TestValidateSession(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()

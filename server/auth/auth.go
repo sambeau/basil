@@ -68,12 +68,3 @@ type Config struct {
 	SessionTTL   time.Duration `yaml:"session_ttl"`  // Default: 24h
 	DatabasePath string        `yaml:"-"`            // Set automatically
 }
-
-// DefaultConfig returns auth config with sensible defaults.
-func DefaultConfig() *Config {
-	return &Config{
-		Enabled:      false,
-		Registration: "closed",
-		SessionTTL:   24 * time.Hour,
-	}
-}

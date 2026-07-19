@@ -39,8 +39,8 @@ func EnergyMap(img image.Image) [][]float64 {
 	// [ 0  0  0]
 	// [ 1  2  1]
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			// Get 3x3 neighborhood (clamping at borders)
 			p00 := gray[clamp(y-1, 0, height-1)][clamp(x-1, 0, width-1)]
 			p01 := gray[clamp(y-1, 0, height-1)][x]
@@ -75,7 +75,7 @@ func toGrayscaleMatrix(img image.Image) [][]float64 {
 	gray := make([][]float64, height)
 	for y := range gray {
 		gray[y] = make([]float64, width)
-		for x := 0; x < width; x++ {
+		for x := range width {
 			c := img.At(minX+x, minY+y)
 			// Convert to grayscale using luminance formula
 			// Y = 0.299*R + 0.587*G + 0.114*B

@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/testenv"
@@ -213,6 +214,31 @@ data[0]
 	}
 	if num.Value != 65 { // 'A' = 65
 		t.Errorf("expected 65, got %d", num.Value)
+	}
+}
+
+func TestFetch_MaxSizeExceeded(t *testing.T) {
+	env := testenv.Start(t, testenv.WithHTTPS())
+	testHTTPClient = env.HTTPSClient
+	t.Cleanup(func() { testHTTPClient = nil })
+
+	env.ServeText("/big.txt", strings.Repeat("x", 10000))
+
+	// A cap below the body size must be rejected...
+	over := fmt.Sprintf(`<=/= text(url("%s/big.txt"), {maxSize: 1000})`, env.HTTPSURL)
+	result := testEval(over)
+	if !isError(result) || !strings.Contains(result.(*Error).Message, "exceeds maximum size") {
+		t.Fatalf("expected a size-limit error, got %T: %s", result, result.Inspect())
+	}
+
+	// ...and a cap above the body size must succeed.
+	under := fmt.Sprintf(`
+let {data, error} = <=/= text(url("%s/big.txt"), {maxSize: 1000000})
+data
+`, env.HTTPSURL)
+	result = testEval(under)
+	if str, ok := result.(*String); !ok || len(str.Value) != 10000 {
+		t.Fatalf("expected the full 10000-byte body under a generous cap, got %T: %.40s", result, result.Inspect())
 	}
 }
 

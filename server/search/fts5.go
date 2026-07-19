@@ -159,8 +159,3 @@ func (idx *FTS5Index) Reindex() error {
 func (idx *FTS5Index) DB() *sql.DB {
 	return idx.db
 }
-
-// Weights returns the ranking weights
-func (idx *FTS5Index) Weights() Weights {
-	return idx.weights
-}

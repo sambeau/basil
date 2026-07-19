@@ -8,11 +8,11 @@ import (
 
 // RateLimitResult holds the result of a rate limit check
 type RateLimitResult struct {
-	Allowed         bool
-	Reason          string
-	NextAvailable   time.Time
-	CurrentCount    int
-	Limit           int
+	Allowed       bool
+	Reason        string
+	NextAvailable time.Time
+	CurrentCount  int
+	Limit         int
 }
 
 // CheckVerificationRateLimit checks if a user can request another verification email
@@ -63,10 +63,10 @@ func (d *DB) CheckVerificationRateLimit(ctx context.Context, userID, email strin
 
 	if userCount >= dailyLimit {
 		return &RateLimitResult{
-			Allowed:      false,
-			Reason:       "daily limit exceeded",
-			CurrentCount: userCount,
-			Limit:        dailyLimit,
+			Allowed:       false,
+			Reason:        "daily limit exceeded",
+			CurrentCount:  userCount,
+			Limit:         dailyLimit,
 			NextAvailable: now.Add(24 * time.Hour),
 		}, nil
 	}
@@ -88,10 +88,10 @@ func (d *DB) CheckVerificationRateLimit(ctx context.Context, userID, email strin
 	emailLimit := dailyLimit * 2
 	if emailCount >= emailLimit {
 		return &RateLimitResult{
-			Allowed:      false,
-			Reason:       "email address limit exceeded",
-			CurrentCount: emailCount,
-			Limit:        emailLimit,
+			Allowed:       false,
+			Reason:        "email address limit exceeded",
+			CurrentCount:  emailCount,
+			Limit:         emailLimit,
 			NextAvailable: now.Add(24 * time.Hour),
 		}, nil
 	}

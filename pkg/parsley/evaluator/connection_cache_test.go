@@ -81,7 +81,7 @@ func TestConnectionCacheTTLResetOnUse(t *testing.T) {
 
 	// Access repeatedly at sub-TTL intervals to keep lastUsed fresh.
 	// Each access resets the TTL clock; the entry should survive.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		time.Sleep(75 * time.Millisecond) // less than TTL each iteration
 		val, found := cache.get("key1")
 		if !found {

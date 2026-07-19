@@ -18,7 +18,7 @@ func TestCheckVerificationRateLimit_Cooldown(t *testing.T) {
 	// Create a recently sent token
 	token, _ := GenerateVerificationToken()
 	hash, _ := HashToken(token)
-	db.StoreVerificationToken(ctx, user.ID, user.Email, hash, time.Now().Add(1*time.Hour))
+	db.StoreVerificationToken(ctx, user.ID, user.Email, hash, TokenLookupHash(token), time.Now().Add(1*time.Hour))
 
 	// Check rate limit immediately (should fail due to cooldown)
 	result, err := db.CheckVerificationRateLimit(ctx, user.ID, user.Email, 5*time.Minute, 10)
@@ -50,7 +50,7 @@ func TestCheckVerificationRateLimit_DailyLimitPerUser(t *testing.T) {
 	for range 10 {
 		token, _ := GenerateVerificationToken()
 		hash, _ := HashToken(token)
-		tokenID, _ := db.StoreVerificationToken(ctx, user.ID, user.Email, hash, time.Now().Add(1*time.Hour))
+		tokenID, _ := db.StoreVerificationToken(ctx, user.ID, user.Email, hash, TokenLookupHash(token), time.Now().Add(1*time.Hour))
 		// Backdate the last_sent_at to be older than cooldown
 		db.GetDB().Exec(`UPDATE email_verifications SET last_sent_at = datetime('now', '-10 minutes') WHERE id = ?`, tokenID)
 	}
@@ -88,7 +88,7 @@ func TestCheckVerificationRateLimit_DailyLimitPerEmail(t *testing.T) {
 		user, _ := db.CreateUser("User "+string(rune(i)), email)
 		token, _ := GenerateVerificationToken()
 		hash, _ := HashToken(token)
-		tokenID, _ := db.StoreVerificationToken(ctx, user.ID, email, hash, time.Now().Add(1*time.Hour))
+		tokenID, _ := db.StoreVerificationToken(ctx, user.ID, email, hash, TokenLookupHash(token), time.Now().Add(1*time.Hour))
 		// Backdate to avoid cooldown
 		db.GetDB().Exec(`UPDATE email_verifications SET last_sent_at = datetime('now', '-10 minutes') WHERE id = ?`, tokenID)
 	}
@@ -143,7 +143,7 @@ func TestCheckVerificationRateLimit_CooldownExpired(t *testing.T) {
 	// Create token sent 6 minutes ago (cooldown is 5 minutes)
 	token, _ := GenerateVerificationToken()
 	hash, _ := HashToken(token)
-	tokenID, _ := db.StoreVerificationToken(ctx, user.ID, user.Email, hash, time.Now().Add(1*time.Hour))
+	tokenID, _ := db.StoreVerificationToken(ctx, user.ID, user.Email, hash, TokenLookupHash(token), time.Now().Add(1*time.Hour))
 	db.GetDB().Exec(`UPDATE email_verifications SET last_sent_at = datetime('now', '-6 minutes') WHERE id = ?`, tokenID)
 
 	// Check rate limit (should be allowed - cooldown expired)

@@ -24,10 +24,11 @@ import (
 // ============================================================================
 
 var (
-	whitespaceRegex = regexp.MustCompile(`\s+`)
-	htmlTagRegex    = regexp.MustCompile(`<[^>]*>`)
-	nonDigitRegex   = regexp.MustCompile(`[^0-9]`)
-	nonSlugRegex    = regexp.MustCompile(`[^a-z0-9]+`)
+	whitespaceRegex  = regexp.MustCompile(`\s+`)
+	htmlTagRegex     = regexp.MustCompile(`<[^>]*>`)
+	nonDigitRegex    = regexp.MustCompile(`[^0-9]`)
+	nonSlugRegex     = regexp.MustCompile(`[^a-z0-9]+`)
+	paragraphSplitRe = regexp.MustCompile(`\n\n+`) // blank-line paragraph separator
 )
 
 // ============================================================================
@@ -1375,10 +1376,8 @@ func textToParagraphs(s string) string {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	s = strings.ReplaceAll(s, "\r", "\n")
 
-	// Split on blank lines (one or more consecutive newlines)
-	// \n\n+ means two or more newlines
-	paragraphPattern := regexp.MustCompile(`\n\n+`)
-	paragraphs := paragraphPattern.Split(s, -1)
+	// Split on blank lines (two or more consecutive newlines)
+	paragraphs := paragraphSplitRe.Split(s, -1)
 
 	var result strings.Builder
 	for _, para := range paragraphs {

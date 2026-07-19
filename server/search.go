@@ -578,19 +578,12 @@ func (si *SearchInstance) checkForUpdates() error {
 	}
 
 	// Check for changes and update
-	stats, err := search.CheckAndUpdate(si.index, si.options.Watch, si.options.Extensions)
-	if err != nil {
+	if _, err := search.CheckAndUpdate(si.index, si.options.Watch, si.options.Extensions); err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 
 	// Update last check time
 	si.lastCheck = now
-
-	// Log if any changes were found (optional, for debugging)
-	if stats.NewFiles > 0 || stats.ChangedFiles > 0 || stats.DeletedFiles > 0 {
-		// TODO: Add proper logging when available
-		_ = stats
-	}
 
 	return nil
 }

@@ -132,6 +132,15 @@ var migrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs(created_at)`,
 	// Migration 14: Create email_logs type index (FEAT-084)
 	`CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs(email_type)`,
+	// Migration 15: Index api_keys by prefix so validation can look up a
+	// candidate directly instead of bcrypt-scanning every key.
+	`CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix)`,
+	// Migration 16: Add an indexed lookup hash to email_verifications so token
+	// lookup avoids an O(n) bcrypt scan. Existing rows keep a NULL lookup and
+	// fall back to the scan until they expire and are cleaned up.
+	`ALTER TABLE email_verifications ADD COLUMN token_lookup TEXT`,
+	// Migration 17: Index the verification token lookup hash.
+	`CREATE INDEX IF NOT EXISTS idx_email_verifications_lookup ON email_verifications(token_lookup)`,
 }
 
 // OpenDB opens the auth database. Returns an error if it doesn't exist.

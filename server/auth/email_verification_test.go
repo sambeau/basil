@@ -6,6 +6,47 @@ import (
 	"time"
 )
 
+// TestLookupVerificationToken_LegacyNullLookup verifies that a token stored
+// before the token_lookup column existed (i.e. with a NULL lookup) is still found
+// via the bounded legacy-scan fallback.
+func TestLookupVerificationToken_LegacyNullLookup(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := db.CreateUser("Legacy User", "legacy@example.com")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	token, err := GenerateVerificationToken()
+	if err != nil {
+		t.Fatalf("GenerateVerificationToken failed: %v", err)
+	}
+	tokenHash, err := HashToken(token)
+	if err != nil {
+		t.Fatalf("HashToken failed: %v", err)
+	}
+
+	// Simulate a pre-migration row: token_lookup is NULL.
+	now := time.Now()
+	_, err = db.GetDB().ExecContext(ctx,
+		`INSERT INTO email_verifications (id, user_id, email, token_hash, token_lookup, expires_at, last_sent_at, created_at)
+		 VALUES (?, ?, ?, ?, NULL, ?, ?, ?)`,
+		generateID("evt_"), user.ID, user.Email, tokenHash, now.Add(time.Hour), now, now)
+	if err != nil {
+		t.Fatalf("inserting legacy row failed: %v", err)
+	}
+
+	verification, err := db.LookupVerificationToken(ctx, token)
+	if err != nil {
+		t.Fatalf("legacy token should be found via fallback, got error: %v", err)
+	}
+	if verification == nil || verification.UserID != user.ID {
+		t.Fatalf("legacy fallback returned wrong verification: %+v", verification)
+	}
+}
+
 func TestGenerateVerificationToken(t *testing.T) {
 	// Generate multiple tokens to verify uniqueness
 	tokens := make(map[string]bool)
@@ -81,7 +122,7 @@ func TestVerificationTokenFlow(t *testing.T) {
 	}
 
 	expiresAt := time.Now().Add(1 * time.Hour)
-	tokenID, err := db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, expiresAt)
+	tokenID, err := db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, TokenLookupHash(token), expiresAt)
 	if err != nil {
 		t.Fatalf("StoreVerificationToken failed: %v", err)
 	}
@@ -173,7 +214,7 @@ func TestLookupVerificationToken_ExpiredToken(t *testing.T) {
 
 	// Set expiry in the past
 	expiresAt := time.Now().Add(-1 * time.Hour)
-	_, err = db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, expiresAt)
+	_, err = db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, TokenLookupHash(token), expiresAt)
 	if err != nil {
 		t.Fatalf("StoreVerificationToken failed: %v", err)
 	}
@@ -201,12 +242,12 @@ func TestCleanupExpiredTokens(t *testing.T) {
 	// Create expired token for user1
 	token1, _ := GenerateVerificationToken()
 	hash1, _ := HashToken(token1)
-	db.StoreVerificationToken(ctx, user1.ID, user1.Email, hash1, time.Now().Add(-2*time.Hour))
+	db.StoreVerificationToken(ctx, user1.ID, user1.Email, hash1, TokenLookupHash(token1), time.Now().Add(-2*time.Hour))
 
 	// Create valid token for user2
 	token2, _ := GenerateVerificationToken()
 	hash2, _ := HashToken(token2)
-	db.StoreVerificationToken(ctx, user2.ID, user2.Email, hash2, time.Now().Add(1*time.Hour))
+	db.StoreVerificationToken(ctx, user2.ID, user2.Email, hash2, TokenLookupHash(token2), time.Now().Add(1*time.Hour))
 
 	// Cleanup expired tokens
 	deleted, err := db.CleanupExpiredTokens(ctx)
@@ -243,11 +284,11 @@ func TestInvalidateUserVerificationTokens(t *testing.T) {
 	// Create multiple tokens for same user
 	token1, _ := GenerateVerificationToken()
 	hash1, _ := HashToken(token1)
-	db.StoreVerificationToken(ctx, user.ID, user.Email, hash1, time.Now().Add(1*time.Hour))
+	db.StoreVerificationToken(ctx, user.ID, user.Email, hash1, TokenLookupHash(token1), time.Now().Add(1*time.Hour))
 
 	token2, _ := GenerateVerificationToken()
 	hash2, _ := HashToken(token2)
-	db.StoreVerificationToken(ctx, user.ID, user.Email, hash2, time.Now().Add(1*time.Hour))
+	db.StoreVerificationToken(ctx, user.ID, user.Email, hash2, TokenLookupHash(token2), time.Now().Add(1*time.Hour))
 
 	// Verify both tokens exist
 	v1, _ := db.LookupVerificationToken(ctx, token1)

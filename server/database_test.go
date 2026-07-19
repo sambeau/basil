@@ -178,6 +178,7 @@ func TestDatabaseShutdown(t *testing.T) {
 
 	// Start server in background
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // ensure the context is released on every exit path
 	done := make(chan error, 1)
 	go func() {
 		done <- s.Run(ctx)

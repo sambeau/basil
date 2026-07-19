@@ -50,7 +50,7 @@ func isValidSQLIdentifier(name string) bool {
 // Use this before interpolating identifiers into SQL strings.
 func validateSQLIdentifier(name string) error {
 	if !isValidSQLIdentifier(name) {
-		return fmt.Errorf("invalid SQL identifier: %q (must be alphanumeric/underscore, max %d chars)", 
+		return fmt.Errorf("invalid SQL identifier: %q (must be alphanumeric/underscore, max %d chars)",
 			name, maxSQLIdentifierLength)
 	}
 	return nil

@@ -191,7 +191,10 @@ func TestNormalizeCode(t *testing.T) {
 func TestGenerateRecoveryCode_Format(t *testing.T) {
 	// Generate many codes and check they're all valid format
 	for range 100 {
-		code := generateRecoveryCode()
+		code, err := generateRecoveryCode()
+		if err != nil {
+			t.Fatalf("generateRecoveryCode failed: %v", err)
+		}
 
 		parts := strings.Split(code, "-")
 		if len(parts) != 3 {

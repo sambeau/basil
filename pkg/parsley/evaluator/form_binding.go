@@ -10,6 +10,14 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/parser"
 )
 
+// Compiled once at package load rather than per call: these run on the form/tag
+// rendering hot path.
+var (
+	atRecordAttrRe  = regexp.MustCompile(`\s*@record\s*=\s*\{[^}]*\}`)
+	atFieldAttrRe   = regexp.MustCompile(`\s*@field\s*=\s*("[^"]*"|\{[^}]*\})`)
+	componentAttrRe = regexp.MustCompile(`\s*@(field|tag|key)\s*=\s*("[^"]*"|\{[^}]*\})`)
+)
+
 // FormContext tracks the current @record binding during form evaluation.
 // This enables @field attributes to access the bound record's data and schema.
 type FormContext struct {
@@ -149,8 +157,7 @@ func parseFormAtRecord(propsStr string, env *Environment, baseLine, baseCol int)
 // Returns the cleaned props string.
 func removeAtRecord(propsStr string) string {
 	// Pattern: @record={...} or @record = {...}
-	re := regexp.MustCompile(`\s*@record\s*=\s*\{[^}]*\}`)
-	result := re.ReplaceAllString(propsStr, "")
+	result := atRecordAttrRe.ReplaceAllString(propsStr, "")
 	// Clean up any double spaces left behind
 	result = strings.TrimSpace(result)
 	// Replace multiple spaces with single space
@@ -276,14 +283,12 @@ func parseKeyAttribute(propsStr string) string {
 // removeFieldAttribute removes @field="..." from props string.
 func removeFieldAttribute(propsStr string) string {
 	// Pattern: @field="..." or @field = "..."
-	re := regexp.MustCompile(`\s*@field\s*=\s*("[^"]*"|\{[^}]*\})`)
-	return re.ReplaceAllString(propsStr, "")
+	return atFieldAttrRe.ReplaceAllString(propsStr, "")
 }
 
 // removeComponentAttributes removes @field, @tag, @key from props.
 func removeComponentAttributes(propsStr string) string {
-	re := regexp.MustCompile(`\s*@(field|tag|key)\s*=\s*("[^"]*"|\{[^}]*\})`)
-	return re.ReplaceAllString(propsStr, "")
+	return componentAttrRe.ReplaceAllString(propsStr, "")
 }
 
 // buildInputAttributes creates attributes for an <input> based on schema field.

@@ -9,12 +9,40 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/araddon/dateparse"
 	"github.com/sambeau/basil/pkg/parsley/ast"
 	"github.com/sambeau/basil/pkg/parsley/lexer"
 )
+
+// Datetime detection patterns, compiled once (these run on every date parse).
+var (
+	timeOnlyPatternRe = regexp.MustCompile(`^(\d{1,2}:\d{2}|\d{1,2}\s*(am|pm|a\.m\.|p\.m\.))`)
+	dateIndicatorRe   = regexp.MustCompile(`\d+[/\-\.]\d+[/\-\.]\d+|\d+\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|` +
+		`(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+`)
+	timeIndicatorRe = regexp.MustCompile(`\d{1,2}:\d{2}|am|pm|a\.m\.|p\.m\.`)
+
+	// localizedMonthPatternCache memoises the per-month-name regexes built while
+	// translating localized month names to English, so a given name is compiled
+	// only once across all date parses.
+	localizedMonthPatternMu    sync.Mutex
+	localizedMonthPatternCache = map[string]*regexp.Regexp{}
+)
+
+// localizedMonthPattern returns a cached case-insensitive whole-word matcher for
+// the given (localized) month name.
+func localizedMonthPattern(monthName string) *regexp.Regexp {
+	localizedMonthPatternMu.Lock()
+	defer localizedMonthPatternMu.Unlock()
+	if re, ok := localizedMonthPatternCache[monthName]; ok {
+		return re
+	}
+	re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(monthName) + `\b`)
+	localizedMonthPatternCache[monthName] = re
+	return re
+}
 
 // timeToDictWithKind converts a Go time.Time to a Parsley datetime dictionary with a specific kind.
 // kind can be "datetime", "date", or "time"
@@ -620,9 +648,8 @@ func normalizeMonthNames(input string, locale *LocaleConfig) string {
 			continue
 		}
 
-		// Create case-insensitive replacement
-		pattern := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(monthName) + `\b`)
-		result = pattern.ReplaceAllString(result, monthToEnglish[monthNum])
+		// Create case-insensitive replacement (pattern cached per month name)
+		result = localizedMonthPattern(monthName).ReplaceAllString(result, monthToEnglish[monthNum])
 	}
 
 	return result
@@ -681,8 +708,7 @@ func detectParsedKind(input string, t time.Time) ParsedDateKind {
 	lower := strings.ToLower(strings.TrimSpace(input))
 
 	// Time-only patterns: starts with digit and contains : but no date-like separators
-	timeOnlyPattern := regexp.MustCompile(`^(\d{1,2}:\d{2}|\d{1,2}\s*(am|pm|a\.m\.|p\.m\.))`)
-	if timeOnlyPattern.MatchString(lower) && !containsDateIndicator(lower) {
+	if timeOnlyPatternRe.MatchString(lower) && !containsDateIndicator(lower) {
 		return KindTime
 	}
 
@@ -697,16 +723,13 @@ func detectParsedKind(input string, t time.Time) ParsedDateKind {
 // containsDateIndicator checks if input contains date-like patterns
 func containsDateIndicator(input string) bool {
 	// Check for date separators with numbers
-	datePattern := regexp.MustCompile(`\d+[/\-\.]\d+[/\-\.]\d+|\d+\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|` +
-		`(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+`)
-	return datePattern.MatchString(input)
+	return dateIndicatorRe.MatchString(input)
 }
 
 // containsTimeIndicator checks if input explicitly contains time indicators
 func containsTimeIndicator(input string) bool {
 	// Check for time patterns
-	timePattern := regexp.MustCompile(`\d{1,2}:\d{2}|am|pm|a\.m\.|p\.m\.`)
-	return timePattern.MatchString(input)
+	return timeIndicatorRe.MatchString(input)
 }
 
 // parseTimeOnly parses a time-only string (no date component)

@@ -349,8 +349,8 @@ func findEnergyCentroid(sobelMap [][]float64, analysisScale float64, origWidth, 
 
 	// Find max energy for thresholding
 	var maxEnergy float64
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			if sobelMap[y][x] > maxEnergy {
 				maxEnergy = sobelMap[y][x]
 			}
@@ -364,8 +364,8 @@ func findEnergyCentroid(sobelMap [][]float64, analysisScale float64, origWidth, 
 	// Use a threshold to focus on high-energy regions (top 30% of energy)
 	threshold := maxEnergy * 0.3
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			energy := sobelMap[y][x]
 			if energy > threshold {
 				// Use squared energy to emphasize peaks
@@ -552,12 +552,9 @@ func shouldFallbackToCenter(candidates []image.Rectangle, img image.Image, sobel
 
 	// Sample a few candidates to check score variance
 	sampleSize := min(10, len(candidates))
-	var minScore, maxScore float64 = bestScore, bestScore
+	var minScore, maxScore = bestScore, bestScore
 
-	step := len(candidates) / sampleSize
-	if step < 1 {
-		step = 1
-	}
+	step := max(len(candidates)/sampleSize, 1)
 
 	for i := 0; i < len(candidates); i += step {
 		score := ScoreCandidate(img, sobelMap, candidates[i], boosts)

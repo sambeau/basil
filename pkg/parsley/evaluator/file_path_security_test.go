@@ -41,7 +41,7 @@ func TestFilePathTraversalAttacks(t *testing.T) {
 			desc:         "Without security, path traversal is allowed",
 		},
 		{
-			name:      "parent directory traversal - with security",
+			name: "parent directory traversal - with security",
 			// Enough ".." to reach the filesystem root from any temp dir,
 			// so the path deterministically cleans to /etc/passwd on every
 			// platform (six levels don't reach root from macOS's deep
@@ -90,7 +90,7 @@ func TestFilePathTraversalAttacks(t *testing.T) {
 			if tt.withSecurity {
 				env.Security = &SecurityPolicy{
 					AllowWrite:    tt.allowedPaths,
-					AllowWriteAll: false,      // Require whitelist for writes
+					AllowWriteAll: false,                            // Require whitelist for writes
 					RestrictRead:  []string{"/etc", "/private/etc"}, // Blacklist system directories
 				}
 			}

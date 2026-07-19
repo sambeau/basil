@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
@@ -20,15 +21,15 @@ const (
 
 // EmailVerification represents an email verification token
 type EmailVerification struct {
-	ID          string
-	UserID      string
-	Email       string
-	TokenHash   string
-	ExpiresAt   time.Time
-	ConsumedAt  *time.Time
-	SendCount   int
-	LastSentAt  time.Time
-	CreatedAt   time.Time
+	ID         string
+	UserID     string
+	Email      string
+	TokenHash  string
+	ExpiresAt  time.Time
+	ConsumedAt *time.Time
+	SendCount  int
+	LastSentAt time.Time
+	CreatedAt  time.Time
 }
 
 // GenerateVerificationToken generates a cryptographically random verification token
@@ -49,17 +50,29 @@ func HashToken(token string) (string, error) {
 	return string(hash), nil
 }
 
-// StoreVerificationToken stores a verification token in the database
-func (d *DB) StoreVerificationToken(ctx context.Context, userID, email, tokenHash string, expiresAt time.Time) (string, error) {
+// TokenLookupHash returns a fast, deterministic lookup hash (SHA-256, hex) for a
+// verification token. Unlike the bcrypt token_hash it is indexable, letting
+// LookupVerificationToken find the single candidate row directly instead of
+// bcrypt-comparing against every outstanding token. The token's 256 bits of
+// entropy make a plain hash safe here — there is nothing low-entropy to brute force.
+func TokenLookupHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+// StoreVerificationToken stores a verification token in the database. tokenLookup
+// is the indexed SHA-256 lookup hash (see TokenLookupHash); tokenHash is the
+// bcrypt hash used as the authoritative comparison.
+func (d *DB) StoreVerificationToken(ctx context.Context, userID, email, tokenHash, tokenLookup string, expiresAt time.Time) (string, error) {
 	id := generateID("evt_") // email verification token
 
 	query := `
-		INSERT INTO email_verifications (id, user_id, email, token_hash, expires_at, last_sent_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO email_verifications (id, user_id, email, token_hash, token_lookup, expires_at, last_sent_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
-	_, err := d.db.ExecContext(ctx, query, id, userID, email, tokenHash, expiresAt, now, now)
+	_, err := d.db.ExecContext(ctx, query, id, userID, email, tokenHash, tokenLookup, expiresAt, now, now)
 	if err != nil {
 		return "", fmt.Errorf("storing verification token: %w", err)
 	}
@@ -67,13 +80,54 @@ func (d *DB) StoreVerificationToken(ctx context.Context, userID, email, tokenHas
 	return id, nil
 }
 
-// LookupVerificationToken looks up a verification token by token string
+// LookupVerificationToken looks up a verification token by token string.
+//
+// The candidate is found via the indexed token_lookup hash — an O(1) lookup —
+// and confirmed with a single bcrypt comparison, instead of bcrypt-scanning every
+// outstanding token. Rows created before the token_lookup column existed have a
+// NULL lookup and fall back to the (bounded, self-clearing) legacy scan.
 func (d *DB) LookupVerificationToken(ctx context.Context, token string) (*EmailVerification, error) {
-	// Get all unconsumed, non-expired tokens
+	lookup := TokenLookupHash(token)
+
 	query := `
 		SELECT id, user_id, email, token_hash, expires_at, consumed_at, send_count, last_sent_at, created_at
 		FROM email_verifications
-		WHERE consumed_at IS NULL AND expires_at > ?
+		WHERE token_lookup = ? AND consumed_at IS NULL AND expires_at > ?
+	`
+
+	rows, err := d.db.QueryContext(ctx, query, lookup, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("querying verification tokens: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		ev, err := scanVerification(rows)
+		if err != nil {
+			return nil, err
+		}
+		// Confirm with bcrypt as the authoritative comparison.
+		if bcrypt.CompareHashAndPassword([]byte(ev.TokenHash), []byte(token)) == nil {
+			return ev, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating verification tokens: %w", err)
+	}
+
+	// Fall back to legacy rows that predate the token_lookup column.
+	return d.lookupVerificationTokenLegacy(ctx, token)
+}
+
+// lookupVerificationTokenLegacy scans only rows without a token_lookup hash
+// (created before that column was added). This set is bounded and disappears as
+// old tokens expire and are cleaned up, so it cannot be used to force an
+// unbounded bcrypt scan.
+func (d *DB) lookupVerificationTokenLegacy(ctx context.Context, token string) (*EmailVerification, error) {
+	query := `
+		SELECT id, user_id, email, token_hash, expires_at, consumed_at, send_count, last_sent_at, created_at
+		FROM email_verifications
+		WHERE token_lookup IS NULL AND consumed_at IS NULL AND expires_at > ?
 	`
 
 	rows, err := d.db.QueryContext(ctx, query, time.Now())
@@ -82,31 +136,34 @@ func (d *DB) LookupVerificationToken(ctx context.Context, token string) (*EmailV
 	}
 	defer rows.Close()
 
-	// Check each token hash against the provided token
 	for rows.Next() {
-		var ev EmailVerification
-		var consumedAt sql.NullTime
-
-		err := rows.Scan(&ev.ID, &ev.UserID, &ev.Email, &ev.TokenHash, &ev.ExpiresAt, &consumedAt, &ev.SendCount, &ev.LastSentAt, &ev.CreatedAt)
+		ev, err := scanVerification(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scanning verification token: %w", err)
+			return nil, err
 		}
-
-		if consumedAt.Valid {
-			ev.ConsumedAt = &consumedAt.Time
-		}
-
-		// Check if token matches hash
-		if err := bcrypt.CompareHashAndPassword([]byte(ev.TokenHash), []byte(token)); err == nil {
-			return &ev, nil
+		if bcrypt.CompareHashAndPassword([]byte(ev.TokenHash), []byte(token)) == nil {
+			return ev, nil
 		}
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating verification tokens: %w", err)
 	}
 
 	return nil, fmt.Errorf("token not found or expired")
+}
+
+// scanVerification scans a single email_verifications row (in the column order
+// used by the lookup queries) into an EmailVerification.
+func scanVerification(rows *sql.Rows) (*EmailVerification, error) {
+	var ev EmailVerification
+	var consumedAt sql.NullTime
+	if err := rows.Scan(&ev.ID, &ev.UserID, &ev.Email, &ev.TokenHash, &ev.ExpiresAt, &consumedAt, &ev.SendCount, &ev.LastSentAt, &ev.CreatedAt); err != nil {
+		return nil, fmt.Errorf("scanning verification token: %w", err)
+	}
+	if consumedAt.Valid {
+		ev.ConsumedAt = &consumedAt.Time
+	}
+	return &ev, nil
 }
 
 // ConsumeVerificationToken marks a verification token as consumed

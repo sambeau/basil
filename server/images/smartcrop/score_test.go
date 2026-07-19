@@ -57,8 +57,8 @@ func TestScoreSaturation(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
 
 	// Fill with gray (low saturation)
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.Gray{Y: 128})
 		}
 	}
@@ -95,8 +95,8 @@ func TestScoreSkinTone(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
 
 	// Fill with non-skin color (blue)
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.RGBA{R: 0, G: 0, B: 255, A: 255})
 		}
 	}
@@ -112,7 +112,7 @@ func TestScoreSkinTone(t *testing.T) {
 	}
 
 	for i, y := 0, 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+		for x := range 10 {
 			img.Set(x, y, skinTones[i%len(skinTones)])
 		}
 	}
@@ -214,7 +214,7 @@ func TestScoreEdgeClutter(t *testing.T) {
 	sobelMap := make([][]float64, 20)
 	for y := range sobelMap {
 		sobelMap[y] = make([]float64, 20)
-		for x := 0; x < 20; x++ {
+		for x := range 20 {
 			// Low values in center, high at edges
 			if x < 2 || x > 17 || y < 2 || y > 17 {
 				sobelMap[y][x] = 100
@@ -334,8 +334,8 @@ func TestScoreBoostRegions_MultipleBoosts(t *testing.T) {
 func TestScoreCandidate_BoostDominates(t *testing.T) {
 	// Create a simple test image
 	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 100; x++ {
+	for y := range 100 {
+		for x := range 100 {
 			img.Set(x, y, color.Gray{Y: 128})
 		}
 	}
@@ -344,7 +344,7 @@ func TestScoreCandidate_BoostDominates(t *testing.T) {
 	sobelMap := make([][]float64, 100)
 	for y := range sobelMap {
 		sobelMap[y] = make([]float64, 100)
-		for x := 0; x < 100; x++ {
+		for x := range 100 {
 			sobelMap[y][x] = 10
 		}
 	}
@@ -457,8 +457,8 @@ func TestRgbToHSL(t *testing.T) {
 
 func BenchmarkScoreCandidate(b *testing.B) {
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
-	for y := 0; y < 256; y++ {
-		for x := 0; x < 256; x++ {
+	for y := range 256 {
+		for x := range 256 {
 			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 128, A: 255})
 		}
 	}
@@ -477,8 +477,8 @@ func BenchmarkScoreCandidate(b *testing.B) {
 
 func BenchmarkScoreSaturation(b *testing.B) {
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
-	for y := 0; y < 256; y++ {
-		for x := 0; x < 256; x++ {
+	for y := range 256 {
+		for x := range 256 {
 			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 128, A: 255})
 		}
 	}
@@ -493,8 +493,8 @@ func BenchmarkScoreSaturation(b *testing.B) {
 
 func BenchmarkScoreSkinTone(b *testing.B) {
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
-	for y := 0; y < 256; y++ {
-		for x := 0; x < 256; x++ {
+	for y := range 256 {
+		for x := range 256 {
 			img.Set(x, y, color.RGBA{R: 200, G: 150, B: 100, A: 255})
 		}
 	}

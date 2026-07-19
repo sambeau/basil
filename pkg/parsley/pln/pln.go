@@ -52,13 +52,6 @@ func Serialize(obj evaluator.Object) (string, error) {
 	return s.Serialize(obj)
 }
 
-// SerializeWithEnv converts a Parsley object to a PLN string,
-// using the provided environment to evaluate any lazy expressions.
-func SerializeWithEnv(obj evaluator.Object, env *evaluator.Environment) (string, error) {
-	s := NewSerializerWithEnv(env)
-	return s.Serialize(obj)
-}
-
 // SerializePretty converts a Parsley object to a formatted PLN string.
 // The indent string is used for each level of nesting.
 func SerializePretty(obj evaluator.Object, indent string) (string, error) {

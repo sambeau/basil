@@ -41,7 +41,7 @@ func DefaultCascade() (*Cascade, error) {
 // pow computes base^exp for integers.
 func pow(base, exp int) int {
 	result := 1
-	for i := 0; i < exp; i++ {
+	for range exp {
 		result *= base
 	}
 	return result
@@ -103,7 +103,7 @@ func unpackCascade(data []byte) (*Cascade, error) {
 		if pos+numCodesPerTree > len(data) {
 			return nil, errors.New("cascade data truncated reading codes")
 		}
-		for i := 0; i < numCodesPerTree; i++ {
+		for range numCodesPerTree {
 			cascade.treeCodes = append(cascade.treeCodes, int8(data[pos]))
 			pos++
 		}
@@ -112,7 +112,7 @@ func unpackCascade(data []byte) (*Cascade, error) {
 		if pos+numPredsPerTree*4 > len(data) {
 			return nil, errors.New("cascade data truncated reading predictions")
 		}
-		for i := 0; i < numPredsPerTree; i++ {
+		for range numPredsPerTree {
 			bits := binary.LittleEndian.Uint32(data[pos:])
 			cascade.treePred = append(cascade.treePred, math.Float32frombits(bits))
 			pos += 4

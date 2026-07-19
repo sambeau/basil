@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -303,10 +304,7 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 		// multiple scales to map to the same pixel width.
 		scaleWidths := make([]int, len(sizes))
 		for i, scale := range sizes {
-			w := baseWidth * scale
-			if w > srcWidth {
-				w = srcWidth
-			}
+			w := min(baseWidth*scale, srcWidth)
 			scaleWidths[i] = w
 		}
 
@@ -317,9 +315,7 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 				continue // already generated
 			}
 			opts := make(map[string]any)
-			for k, v := range styleOpts {
-				opts[k] = v
-			}
+			maps.Copy(opts, styleOpts)
 			opts["width"] = w
 			url, transformErr := env.ImageRegistry.Transform(absPath, opts)
 			if transformErr != nil {
@@ -361,9 +357,7 @@ func evalImageSrcset(args []Object, env *Environment) Object {
 		variants := make([]variant, 0, len(targetWidths))
 		for _, w := range targetWidths {
 			opts := make(map[string]any)
-			for k, v := range styleOpts {
-				opts[k] = v
-			}
+			maps.Copy(opts, styleOpts)
 			opts["width"] = w
 			url, transformErr := env.ImageRegistry.Transform(absPath, opts)
 			if transformErr != nil {

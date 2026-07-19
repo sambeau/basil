@@ -52,11 +52,6 @@ func (p *Parser) nextToken() {
 	p.peekToken = p.l.NextToken()
 }
 
-// Errors returns any parsing errors
-func (p *Parser) Errors() []string {
-	return p.errors
-}
-
 // addError adds an error message
 func (p *Parser) addError(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)

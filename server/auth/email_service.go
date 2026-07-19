@@ -99,7 +99,7 @@ func (s *EmailService) SendVerificationEmail(ctx context.Context, user *User) er
 	}
 	expiresAt := time.Now().Add(ttl)
 
-	tokenID, err := s.db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, expiresAt)
+	tokenID, err := s.db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, TokenLookupHash(token), expiresAt)
 	if err != nil {
 		return fmt.Errorf("storing token: %w", err)
 	}
@@ -191,7 +191,7 @@ func (s *EmailService) SendRecoveryEmail(ctx context.Context, user *User) error 
 	}
 	expiresAt := time.Now().Add(ttl)
 
-	_, err = s.db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, expiresAt)
+	_, err = s.db.StoreVerificationToken(ctx, user.ID, user.Email, tokenHash, TokenLookupHash(token), expiresAt)
 	if err != nil {
 		return fmt.Errorf("storing recovery token: %w", err)
 	}

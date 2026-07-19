@@ -185,18 +185,18 @@ func evalStringIndexExpression(tok lexer.Token, str, index Object, optional bool
 	// iteration, so multi-byte characters index as whole characters (BUG-029).
 	runes := []rune(stringObject.Value)
 	idx := index.(*Integer).Value
-	max := int64(len(runes))
+	length := int64(len(runes))
 
 	// Handle negative indices
 	if idx < 0 {
-		idx = max + idx
+		idx = length + idx
 	}
 
-	if idx < 0 || idx >= max {
+	if idx < 0 || idx >= length {
 		if optional {
 			return NULL
 		}
-		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": max})
+		return newIndexErrorWithPos(tok, "INDEX-0001", map[string]any{"Index": index.(*Integer).Value, "Length": length})
 	}
 
 	return &String{Value: string(runes[idx])}
@@ -357,7 +357,7 @@ func evalStringSliceExpression(str, start, end Object) Object {
 	// Slice by rune (Unicode codepoint), consistent with .length() and indexing,
 	// so multi-byte characters are never split mid-character (BUG-029).
 	runes := []rune(stringObject.Value)
-	max := int64(len(runes))
+	length := int64(len(runes))
 
 	var startIdx, endIdx int64
 
@@ -367,7 +367,7 @@ func evalStringSliceExpression(str, start, end Object) Object {
 	} else if start.Type() == INTEGER_OBJ {
 		startIdx = start.(*Integer).Value
 		if startIdx < 0 {
-			startIdx = max + startIdx
+			startIdx = length + startIdx
 		}
 	} else {
 		return newSliceIndexTypeError("start", string(start.Type()))
@@ -375,11 +375,11 @@ func evalStringSliceExpression(str, start, end Object) Object {
 
 	// Determine end index
 	if end == nil {
-		endIdx = max
+		endIdx = length
 	} else if end.Type() == INTEGER_OBJ {
 		endIdx = end.(*Integer).Value
 		if endIdx < 0 {
-			endIdx = max + endIdx
+			endIdx = length + endIdx
 		}
 	} else {
 		return newSliceIndexTypeError("end", string(end.Type()))
@@ -387,21 +387,21 @@ func evalStringSliceExpression(str, start, end Object) Object {
 
 	// Validate and clamp indices
 	if startIdx < 0 {
-		return newIndexError("INDEX-0001", map[string]any{"Index": startIdx, "Length": max})
+		return newIndexError("INDEX-0001", map[string]any{"Index": startIdx, "Length": length})
 	}
 	if endIdx < 0 {
-		return newIndexError("INDEX-0001", map[string]any{"Index": endIdx, "Length": max})
+		return newIndexError("INDEX-0001", map[string]any{"Index": endIdx, "Length": length})
 	}
 	if startIdx > endIdx {
 		return newIndexError("INDEX-0003", map[string]any{"Start": startIdx, "End": endIdx})
 	}
 
 	// Clamp to string bounds (allow slicing beyond length)
-	if startIdx > max {
-		startIdx = max
+	if startIdx > length {
+		startIdx = length
 	}
-	if endIdx > max {
-		endIdx = max
+	if endIdx > length {
+		endIdx = length
 	}
 
 	// Create the slice

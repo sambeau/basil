@@ -589,52 +589,6 @@ func evalTableLiteral(node *ast.TableLiteral, env *Environment) Object {
 	}
 }
 
-// TableFromDict creates a Table from a dictionary's entries
-// Usage: fromDict(dict) or fromDict(dict, keyColumnName, valueColumnName)
-func TableFromDict(args []Object, env *Environment) Object {
-	if len(args) != 1 && len(args) != 3 {
-		return newArityErrorExact("fromDict", len(args), 1, 3)
-	}
-
-	dict, ok := args[0].(*Dictionary)
-	if !ok {
-		return newTypeError("TYPE-0005", "fromDict", "a dictionary", args[0].Type())
-	}
-
-	keyName := "key"
-	valueName := "value"
-	if len(args) == 3 {
-		k, ok := args[1].(*String)
-		if !ok {
-			return newTypeError("TYPE-0006", "fromDict", "a string (key column name)", args[1].Type())
-		}
-		v, ok := args[2].(*String)
-		if !ok {
-			return newTypeError("TYPE-0014", "fromDict", "a string (value column name)", args[2].Type())
-		}
-		keyName = k.Value
-		valueName = v.Value
-	}
-
-	// Build rows from dictionary entries
-	rows := make([]*Dictionary, 0, len(dict.Pairs))
-	for k, expr := range dict.Pairs {
-		// Skip internal fields
-		if strings.HasPrefix(k, "__") {
-			continue
-		}
-		val := Eval(expr, dict.Env)
-		// Create a dictionary for each entry
-		entryPairs := map[string]ast.Expression{
-			keyName:   objectToExpression(&String{Value: k}),
-			valueName: objectToExpression(val),
-		}
-		rows = append(rows, &Dictionary{Pairs: entryPairs, Env: env})
-	}
-
-	return &Table{Rows: rows, Columns: []string{keyName, valueName}}
-}
-
 // getDictKeys extracts keys from a dictionary in insertion order
 // Falls back to sorted order if KeyOrder is not set
 func getDictKeys(dict *Dictionary, env *Environment) []string {
