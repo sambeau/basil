@@ -126,7 +126,7 @@ The default HTTP method is GET. To use other methods, pass an **options dictiona
 
 ### Options Dictionary
 
-Pass `method`, `body`, `headers`, and `timeout` as a second argument to any format factory:
+Pass `method`, `body`, `headers`, `timeout`, and `maxSize` as a second argument to any format factory:
 
 ```parsley
 // POST with JSON body
@@ -143,6 +143,7 @@ let {data, error} <=/= JSON(@https://api.example.com/users, {
 | `body` | any | none | Request body (dictionaries/arrays auto-serialized as JSON) |
 | `headers` | dictionary | none | Custom request headers |
 | `timeout` | integer | `30000` | Timeout in milliseconds |
+| `maxSize` | integer | `104857600` | Maximum response body size in bytes (100 MB). A response larger than this is rejected with an error rather than read into memory. A value of `0` or less disables the cap. |
 
 When `body` is a dictionary or array, it is automatically JSON-encoded and `Content-Type` is set to `application/json` (unless you override it in headers).
 
