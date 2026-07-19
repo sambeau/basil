@@ -729,6 +729,11 @@ func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Obje
 
 	// Assign each named element to corresponding variable
 	for i, name := range pattern.Names {
+		if isLet {
+			if err := env.CheckRedeclare(name.Value); err != nil {
+				return withPosition(err, pattern.Token, env)
+			}
+		}
 		if i < len(elements) {
 			// Direct assignment for elements within bounds
 			if name.Value != "_" {
@@ -780,6 +785,11 @@ func evalArrayPatternAssignment(pattern *ast.ArrayDestructuringPattern, val Obje
 
 	// Handle rest parameter if present - ONLY collect remaining if explicit ...rest
 	if pattern.Rest != nil && pattern.Rest.Value != "_" {
+		if isLet {
+			if err := env.CheckRedeclare(pattern.Rest.Value); err != nil {
+				return withPosition(err, pattern.Token, env)
+			}
+		}
 		var remaining *Array
 		if len(elements) > len(pattern.Names) {
 			remaining = &Array{Elements: elements[len(pattern.Names):]}
@@ -828,6 +838,11 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 
 	// Assign each element to corresponding variable
 	for i, name := range names {
+		if isLet {
+			if err := env.CheckRedeclare(name.Value); err != nil {
+				return withPosition(err, name.Token, env)
+			}
+		}
 		if i < len(elements) {
 			// Direct assignment for elements within bounds
 			if name.Value != "_" {
@@ -937,6 +952,12 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 				targetName = keyPattern.Alias.Value
 			}
 
+			if isLet {
+				if err := env.CheckRedeclare(targetName); err != nil {
+					return withPosition(err, keyPattern.Token, env)
+				}
+			}
+
 			// Assign to environment
 			if targetName != "_" {
 				if export && isLet {
@@ -973,6 +994,11 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 
 		restDict := &Dictionary{Pairs: restPairs, Env: valEnv}
 		if pattern.Rest.Value != "_" {
+			if isLet {
+				if err := env.CheckRedeclare(pattern.Rest.Value); err != nil {
+					return withPosition(err, pattern.Token, env)
+				}
+			}
 			if export && isLet {
 				if isMutable {
 					env.SetVarExport(pattern.Rest.Value, restDict)

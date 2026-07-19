@@ -48,13 +48,27 @@ let items = [1, 2, 3]
 // x = 10                       // Error: cannot reassign immutable binding 'x'
 ```
 
-`let` can be used again on the same name — this **shadows** (creates a new binding) rather than reassigning:
+A name can only be declared **once per scope** — using `let` or `var` on a name that's already declared in the same scope is an error:
 
 ```parsley
 let x = 5
-let x = 10                     // shadows the previous x (new binding)
-x                               // 10
+// let x = 10                  // Error: 'x' is already declared in this scope
+// var x = 10                  // Error: 'x' is already declared in this scope
 ```
+
+Declaring the same name in an **inner** scope is fine — that's shadowing, and the outer binding is untouched:
+
+```parsley
+let x = 5
+let f = fn() {
+    let x = 10                  // shadows the outer x inside the function
+    x                           // 10
+}
+f()                             // 10
+x                               // 5 (unchanged)
+```
+
+> The REPL is the exception: you can re-enter `let x = ...` at the prompt as often as you like.
 
 ## `var` — Mutable Binding
 
@@ -129,9 +143,9 @@ Extract values by key name. Use `...rest` to capture remaining keys:
 ```parsley
 let person = {name: "Bob", age: 25, city: "NYC"}
 let {name, age} = person        // name="Bob", age=25
-let {name, ...rest} = person    // name="Bob", rest={age: 25, city: "NYC"}
+let {city, ...rest} = person    // city="NYC", rest={name: "Bob", age: 25}
 let {name as who} = person      // who="Bob" — rename a key with `as`
-let {age as years, city} = person  // years=25, city="NYC"
+let {age as years} = person     // years=25
 ```
 
 > ⚠️ To bind a key to a differently-named variable, use `as` (as above). The colon (`{key: ...}`) is reserved for **nested** destructuring — e.g. `let {address: {city as town}} = obj` — so JavaScript's `{name: alias}` rename syntax is a parse error in Parsley. Use `as` instead.
@@ -151,13 +165,30 @@ x                               // "outer"
 // y is not defined here
 ```
 
+Function bodies, `if`/`else` blocks, `for` loop bodies, and `with` blocks each open a new scope, so a declaration inside them can shadow an outer name without conflict:
+
+```parsley
+let status = "unknown"
+if (loggedIn) {
+    let status = "active"       // shadows outer status inside the block
+    <p>status</p>               // <p>active</p>
+}
+status                          // "unknown" (unchanged)
+```
+
+To compute a value in a block and use it outside, make the block produce the value — `if` is an expression:
+
+```parsley
+let status = if (loggedIn) { "active" } else { "unknown" }
+```
+
 ## Closures
 
-Functions capture variables from their enclosing scope **by reference** — modifications to outer variables are visible to and from the closure:
+Functions capture variables from their enclosing scope **by reference** — modifications to outer variables are visible to and from the closure. The captured variable must be declared with `var` if the closure reassigns it:
 
 ```parsley
 let makeCounter = fn() {
-    let count = 0
+    var count = 0
     fn() {
         count = count + 1
         count
@@ -172,7 +203,7 @@ c()                             // 3
 A direct example of capture-by-reference:
 
 ```parsley
-let x = 5
+var x = 5
 let f = fn() { x = 10 }
 f()
 x                               // 10 (modified by the closure)
@@ -183,7 +214,7 @@ x                               // 10 (modified by the closure)
 - **`let` IS immutable:** Unlike JavaScript, Parsley's `let` creates an immutable binding — use `var` for mutable bindings
 - **`var` is mutable:** Like Swift, `var` allows reassignment while `let` does not
 - **No `const` keyword:** Use `let` for constants — it's already immutable
-- **Shadowing with `let`:** Using `let` on an existing name creates a new binding (shadowing), not reassignment
+- **One declaration per scope:** Redeclaring a name with `let` or `var` in the same scope is an error (like JavaScript's `let`, Swift, and Go — unlike Rust's shadowing). Shadowing in an *inner* scope is fine
 - **Rename with `as`, not `:`:** `let {key as name} = obj` renames a destructured key. The colon is reserved for *nested* destructuring, so JS-style `let {name: alias} = obj` is a parse error
 - **`_` is a discard:** In array destructuring, `_` signals that you're intentionally ignoring a value
 

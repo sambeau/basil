@@ -816,6 +816,15 @@ var ErrorCatalog = map[string]ErrorDef{
 	},
 
 	// ========================================
+	// Declaration errors (DECL-0xxx)
+	// ========================================
+	"DECL-0001": {
+		Class:    ClassState,
+		Template: "'{{.Name}}' is already declared in this scope",
+		Hints:    []string{"Assign with '{{.Name}} = ...' to update it (requires 'var'), or choose a different name"},
+	},
+
+	// ========================================
 	// State errors (STATE-0xxx)
 	// ========================================
 	"STATE-0001": {
