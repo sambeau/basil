@@ -72,6 +72,27 @@ static:
     root: ./public
 ```
 
+## error_pages
+
+Custom error pages, replacing Basil's built-in ones:
+
+```yaml
+error_pages:
+  404: ./errors/404.pars
+  500: ./errors/500.pars
+```
+
+Each entry maps an HTTP error status code (400–599) to a Parsley template.
+The template receives an `error` dictionary (`.code`, `.message`) and the
+usual `basil` dictionary (`.version`, `.dev`), and should return a full HTML
+page. If a custom page is missing or fails to render, Basil logs the problem
+and serves its built-in page instead — a broken error page never takes down
+error handling.
+
+In dev mode, a failing handler still shows the detailed [dev error
+page](dev-tools.md); custom pages replace the generic production pages (and
+the 404 page, which is the same in both modes).
+
 ## public_dir
 
 ```yaml

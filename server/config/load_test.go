@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -973,5 +974,62 @@ session:
 
 	if !cfg.Session.Secret.IsAuto() {
 		t.Error("expected session.secret to be marked as auto")
+	}
+}
+
+func TestLoadErrorPages(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "basil.yaml")
+	configContent := `
+server:
+  host: localhost
+  port: 8080
+
+error_pages:
+  404: ./errors/404.pars
+  500: /abs/errors/500.pars
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	cfg, err := Load(configPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	// Relative paths are resolved against the config directory
+	expected404 := filepath.Join(dir, "errors", "404.pars")
+	if cfg.ErrorPages[404] != expected404 {
+		t.Errorf("expected error_pages[404] %q, got %q", expected404, cfg.ErrorPages[404])
+	}
+
+	// Absolute paths are left alone
+	if cfg.ErrorPages[500] != "/abs/errors/500.pars" {
+		t.Errorf("expected error_pages[500] '/abs/errors/500.pars', got %q", cfg.ErrorPages[500])
+	}
+}
+
+func TestLoadErrorPagesInvalidCode(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "basil.yaml")
+	configContent := `
+server:
+  host: localhost
+  port: 8080
+
+error_pages:
+  200: ./errors/ok.pars
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := Load(configPath, os.Getenv)
+	if err == nil {
+		t.Fatal("expected Load to fail for error_pages code 200")
+	}
+	if !strings.Contains(err.Error(), "not an HTTP error status code") {
+		t.Errorf("expected error about status code, got: %v", err)
 	}
 }
