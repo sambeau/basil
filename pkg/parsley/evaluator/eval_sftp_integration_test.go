@@ -238,6 +238,9 @@ let conn = @sftp("SFTPURL")
 // SFTP server cannot open due to OS permissions returns an error rather than
 // panicking or returning null.
 func TestSFTPEval_PermissionDenied(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("file permission checks cannot fail when running as root")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("permission denied semantics differ on Windows")
 	}

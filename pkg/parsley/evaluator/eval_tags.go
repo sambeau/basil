@@ -987,7 +987,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Look up the component variable/function
 	val, ok := env.Get(node.Name)
 	if !ok {
-		return newUndefinedComponentError(node.Name)
+		return newUndefinedComponentError(node.Name, node.Token)
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -2230,7 +2230,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		if builtin, ok := getBuiltins()[tagName]; ok {
 			val = builtin
 		} else {
-			return newUndefinedComponentError(tagName)
+			return newUndefinedComponentError(tagName, tok)
 		}
 	}
 
