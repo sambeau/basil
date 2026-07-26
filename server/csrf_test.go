@@ -1,11 +1,17 @@
 package server
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sambeau/basil/server/config"
 )
 
 func TestGenerateCSRFToken(t *testing.T) {
@@ -465,5 +471,156 @@ func TestCSRFMiddleware_JSONBody(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("CSRF validation with JSON body failed, status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+// A production CSRF failure renders the same 403 page a role failure gets,
+// rather than the bare "403 Forbidden" string it used to write.
+func TestCSRFError_ProductionRendersErrorPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	srv := &Server{config: &config.Config{}, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	mw := NewCSRFMiddleware(false)
+	mw.server = srv
+	handler := mw.Validate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("POST", "/submit", http.NoBody)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+	if !strings.Contains(w.Body.String(), "No entry") {
+		t.Errorf("expected the styled 403 page, got: %s", w.Body.String())
+	}
+	// Production must not leak token diagnostics
+	if strings.Contains(w.Body.String(), "CSRF token validation failed") {
+		t.Error("production CSRF page leaked dev diagnostics")
+	}
+}
+
+// A site's custom 403 page also covers CSRF failures.
+func TestCSRFError_ProductionUsesCustomErrorPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	pagePath := filepath.Join(dir, "403.pars")
+	page := `<!DOCTYPE html>
+<html><body><h1>"Nope, not allowed"</h1></body></html>`
+	if err := os.WriteFile(pagePath, []byte(page), 0644); err != nil {
+		t.Fatalf("failed to write custom error page: %v", err)
+	}
+
+	srv := &Server{
+		config:      &config.Config{ErrorPages: map[int]string{403: pagePath}},
+		stderr:      io.Discard,
+		scriptCache: newScriptCache(false),
+	}
+	mw := NewCSRFMiddleware(false)
+	mw.server = srv
+	handler := mw.Validate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("POST", "/submit", http.NoBody)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Nope, not allowed") {
+		t.Errorf("expected the custom 403 page, got: %s", w.Body.String())
+	}
+}
+
+// An API client gets JSON, not an HTML page, in both modes.
+func TestCSRFError_APIRequestGetsJSON(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	for _, devMode := range []bool{false, true} {
+		name := "production"
+		if devMode {
+			name = "dev"
+		}
+		t.Run(name, func(t *testing.T) {
+			srv := &Server{
+				config:      &config.Config{Server: config.ServerConfig{Dev: devMode}},
+				stderr:      io.Discard,
+				scriptCache: newScriptCache(devMode),
+			}
+			mw := NewCSRFMiddleware(devMode)
+			mw.server = srv
+			handler := mw.Validate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest("POST", "/submit", http.NoBody)
+			req.Header.Set("Accept", "application/json")
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			if w.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d", w.Code)
+			}
+			if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+				t.Errorf("expected JSON content type, got %s", ct)
+			}
+
+			var body struct {
+				Error struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+					Details string `json:"details"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+				t.Fatalf("response is not valid JSON: %v (body: %s)", err, w.Body.String())
+			}
+			if body.Error.Code != "HTTP-403" {
+				t.Errorf("expected code 'HTTP-403', got %q", body.Error.Code)
+			}
+			if !strings.Contains(body.Error.Message, "CSRF") {
+				t.Errorf("expected a CSRF-specific message, got %q", body.Error.Message)
+			}
+			// Token diagnostics are dev-only
+			if devMode && !strings.Contains(body.Error.Details, "(missing)") {
+				t.Errorf("expected dev details naming the missing token, got %q", body.Error.Details)
+			}
+			if !devMode && body.Error.Details != "" {
+				t.Errorf("production must not leak token details, got %q", body.Error.Details)
+			}
+		})
+	}
+}
+
+// The middleware still works standalone (nil server), falling back to plain text.
+func TestCSRFError_NilServerFallsBackToPlainText(t *testing.T) {
+	mw := NewCSRFMiddleware(false)
+	handler := mw.Validate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("POST", "/submit", http.NoBody)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "403 Forbidden") {
+		t.Errorf("expected plain-text fallback, got: %s", w.Body.String())
 	}
 }

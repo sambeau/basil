@@ -96,6 +96,9 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		csrfMW:        NewCSRFMiddleware(cfg.Server.Dev),
 	}
 
+	// Let CSRF failures render the 403 error page (and any custom override)
+	s.csrfMW.server = s
+
 	// Initialize prelude (embedded assets and Parsley files)
 	if err := initPrelude(commit); err != nil {
 		return nil, fmt.Errorf("initializing prelude: %w", err)

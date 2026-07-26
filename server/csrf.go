@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"strings"
 )
@@ -98,6 +99,10 @@ func secureCompare(a, b string) bool {
 // It only validates for POST, PUT, PATCH, DELETE requests.
 type CSRFMiddleware struct {
 	devMode bool
+	// server is optional. When set, production CSRF failures render the 403
+	// error page (including a custom one from error_pages) instead of plain
+	// text. Nil in unit tests that exercise the middleware in isolation.
+	server *Server
 }
 
 // NewCSRFMiddleware creates a new CSRF middleware.
@@ -130,33 +135,56 @@ func isMutatingMethod(method string) bool {
 	}
 }
 
+// csrfTokenSummary returns truncated descriptions of the tokens Basil saw, for
+// dev-mode diagnostics. Either may be "(missing)".
+func csrfTokenSummary(r *http.Request) (cookieToken, submittedToken string) {
+	if cookie, err := r.Cookie(CSRFCookieName); err == nil {
+		cookieToken = cookie.Value
+		if len(cookieToken) > 16 {
+			cookieToken = cookieToken[:16] + "..."
+		}
+	} else {
+		cookieToken = "(missing)"
+	}
+
+	submittedToken = r.FormValue(CSRFFormField)
+	if submittedToken == "" {
+		submittedToken = r.Header.Get(CSRFHeaderName)
+	}
+	if submittedToken == "" {
+		submittedToken = "(missing)"
+	} else if len(submittedToken) > 16 {
+		submittedToken = submittedToken[:16] + "..."
+	}
+
+	return cookieToken, submittedToken
+}
+
 // handleCSRFError sends a 403 Forbidden response for CSRF validation failures.
+// API clients get JSON; browsers get the detailed diagnostic in dev mode and
+// the 403 error page in production.
 func (m *CSRFMiddleware) handleCSRFError(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusForbidden)
+	// API clients get JSON, not an HTML page
+	if isAPIRequest(r) {
+		errorObj := map[string]any{
+			"code":    "HTTP-403",
+			"message": "Forbidden: CSRF token validation failed",
+		}
+		if m.devMode {
+			cookieToken, submittedToken := csrfTokenSummary(r)
+			errorObj["details"] = "token from cookie: " + cookieToken +
+				"; token from form/header: " + submittedToken +
+				"; send the token as the _csrf field or the " + CSRFHeaderName + " header"
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]any{"error": errorObj})
+		return
+	}
 
+	// Dev mode: detailed diagnostic naming which token went missing
 	if m.devMode {
-		// Detailed error message in dev mode
-		cookieToken := ""
-		if cookie, err := r.Cookie(CSRFCookieName); err == nil {
-			cookieToken = cookie.Value
-			if len(cookieToken) > 16 {
-				cookieToken = cookieToken[:16] + "..."
-			}
-		} else {
-			cookieToken = "(missing)"
-		}
-
-		submittedToken := r.FormValue(CSRFFormField)
-		if submittedToken == "" {
-			submittedToken = r.Header.Get(CSRFHeaderName)
-		}
-		if submittedToken == "" {
-			submittedToken = "(missing)"
-		} else if len(submittedToken) > 16 {
-			submittedToken = submittedToken[:16] + "..."
-		}
-
+		cookieToken, submittedToken := csrfTokenSummary(r)
 		html := `<!DOCTYPE html>
 <html>
 <head><title>403 Forbidden</title></head>
@@ -173,9 +201,19 @@ func (m *CSRFMiddleware) handleCSRFError(w http.ResponseWriter, r *http.Request)
 <pre>X-CSRF-Token: {token}</pre>
 </body>
 </html>`
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte(html))
-	} else {
-		// Simple error in production
-		w.Write([]byte("403 Forbidden"))
+		return
 	}
+
+	// Production: the same 403 page a role failure gets (custom page honoured)
+	if m.server != nil && m.server.renderPreludeError(w, r, http.StatusForbidden, nil) {
+		return
+	}
+
+	// Fallback when no error page is available
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusForbidden)
+	w.Write([]byte("403 Forbidden"))
 }
