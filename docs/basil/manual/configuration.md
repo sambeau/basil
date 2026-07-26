@@ -91,7 +91,8 @@ and serves its built-in page instead — a broken error page never takes down
 error handling.
 
 Basil ships built-in pages for `404`, `403`, and `500`; any other code falls
-back to the 500 page unless you supply your own.
+back to the 500 page unless you supply your own. The `403` page covers both
+role failures on a protected path and CSRF validation failures.
 
 In dev mode, a failing handler still shows the detailed [dev error
 page](dev-tools.md); custom pages replace the generic production pages (and
