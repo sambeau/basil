@@ -849,7 +849,11 @@ func (s *Server) handleForbidden(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Error(w, "403 Forbidden", http.StatusForbidden)
+	// Try the error page (built-in, or a custom one from error_pages)
+	if !s.renderPreludeError(w, r, http.StatusForbidden, nil) {
+		// Fallback to plain text
+		http.Error(w, "403 Forbidden", http.StatusForbidden)
+	}
 }
 
 // isAPIRequest checks if a request expects JSON response.

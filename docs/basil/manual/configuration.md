@@ -79,6 +79,7 @@ Custom error pages, replacing Basil's built-in ones:
 ```yaml
 error_pages:
   404: ./errors/404.pars
+  403: ./errors/403.pars
   500: ./errors/500.pars
 ```
 
@@ -89,9 +90,25 @@ page. If a custom page is missing or fails to render, Basil logs the problem
 and serves its built-in page instead — a broken error page never takes down
 error handling.
 
+Basil ships built-in pages for `404`, `403`, and `500`; any other code falls
+back to the 500 page unless you supply your own.
+
 In dev mode, a failing handler still shows the detailed [dev error
 page](dev-tools.md); custom pages replace the generic production pages (and
-the 404 page, which is the same in both modes).
+the 404/403 pages, which are the same in both modes).
+
+**API requests get JSON, not HTML.** A request that looks like an API call —
+`Accept: application/json`, a JSON `Content-Type`, or a path under `/api/` —
+receives a JSON error body instead of any error page:
+
+```json
+{ "error": { "code": "HTTP-404", "message": "Not Found" } }
+```
+
+In dev mode a `500` also carries a `details` field with the underlying error;
+in production the details go to the logs only. Content negotiation happens
+before error pages are consulted, so a custom `error_pages` template never
+gets served to a JSON client.
 
 ## public_dir
 

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -220,5 +221,64 @@ func TestRoutesModeRouteRoles(t *testing.T) {
 	srv.mux.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusFound {
 		t.Errorf("anonymous on admin route: expected 302, got %d", rec2.Code)
+	}
+}
+
+// End-to-end: a signed-in user whose role doesn't satisfy a role-gated path
+// gets the styled 403 error page through the full middleware stack — and an
+// API client on the same path gets JSON instead.
+func TestProtectedPathWrongRoleGetsErrorPage(t *testing.T) {
+	dir := t.TempDir()
+	adminDir := filepath.Join(dir, "site", "admin")
+	if err := os.MkdirAll(adminDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(adminDir, "index.pars"), []byte(`<p>"admin only"</p>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Defaults()
+	cfg.BaseDir = dir
+	cfg.Server.Dev = true
+	cfg.Server.Port = 8080
+	cfg.Site.Path = filepath.Join(dir, "site")
+	cfg.Auth.Enabled = true
+	cfg.Auth.ProtectedPaths = []config.ProtectedPath{{Path: "/admin", Roles: []string{"admin"}}}
+	cfg.PublicDir = ""
+
+	// Signed in as an editor, but /admin requires the admin role
+	srv, cookie := newAuthTestServer(t, cfg, dir, "editor")
+
+	req := httptest.NewRequest("GET", "/admin/", http.NoBody)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "No entry") {
+		t.Errorf("expected the styled 403 page, got: %s", rec.Body.String())
+	}
+	// The protected content must not leak
+	if strings.Contains(rec.Body.String(), "admin only") {
+		t.Error("403 response leaked the protected page content")
+	}
+
+	// Same path, API client: JSON, not HTML
+	apiReq := httptest.NewRequest("GET", "/admin/", http.NoBody)
+	apiReq.Header.Set("Accept", "application/json")
+	apiReq.AddCookie(cookie)
+	apiRec := httptest.NewRecorder()
+	srv.mux.ServeHTTP(apiRec, apiReq)
+
+	if apiRec.Code != http.StatusForbidden {
+		t.Errorf("API request: expected 403, got %d", apiRec.Code)
+	}
+	if ct := apiRec.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("API request: expected JSON content type, got %s", ct)
 	}
 }
