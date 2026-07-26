@@ -455,8 +455,31 @@ func (s *Server) renderErrorProgram(w http.ResponseWriter, r *http.Request, code
 	return true
 }
 
-// handle404 renders a 404 error page
+// writeAPIError writes a JSON error response for requests that expect JSON.
+// In dev mode the underlying error is included as `details`; in production the
+// details go to the logs only.
+func (s *Server) writeAPIError(w http.ResponseWriter, code int, err error) {
+	errorObj := map[string]any{
+		"code":    fmt.Sprintf("HTTP-%d", code),
+		"message": http.StatusText(code),
+	}
+	if s.config.Server.Dev && err != nil {
+		errorObj["details"] = err.Error()
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]any{"error": errorObj})
+}
+
+// handle404 renders a 404 error page (or a JSON error for API requests)
 func (s *Server) handle404(w http.ResponseWriter, r *http.Request) {
+	// API clients get JSON, not an HTML page
+	if isAPIRequest(r) {
+		s.writeAPIError(w, http.StatusNotFound, nil)
+		return
+	}
+
 	// Try prelude error page first
 	if !s.renderPreludeError(w, r, http.StatusNotFound, nil) {
 		// Fallback to plain text
@@ -464,8 +487,14 @@ func (s *Server) handle404(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handle500 renders a 500 error page
+// handle500 renders a 500 error page (or a JSON error for API requests)
 func (s *Server) handle500(w http.ResponseWriter, r *http.Request, err error) {
+	// API clients get JSON, not an HTML page
+	if isAPIRequest(r) {
+		s.writeAPIError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	// Try prelude error page first
 	if !s.renderPreludeError(w, r, http.StatusInternalServerError, err) {
 		// Fallback - in dev mode, check if dev_error.pars itself has errors

@@ -1,0 +1,76 @@
+// Environment variables available in this template:
+//
+// error (Dictionary)
+//   .code (Integer)          - HTTP status code (403)
+//   .message (String)        - HTTP status text ("Forbidden")
+//
+// basil (Dictionary)
+//   .version (String)        - Basil version
+//   .dev (Boolean)           - true if in development mode
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>"403 - Forbidden"</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		html, body { height: 100%; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: #fff;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 2rem;
+		}
+		main { text-align: center; }
+		.face {
+			width: 200px;
+			max-width: 55vw;
+			height: auto;
+		}
+		h1 {
+			color: #FF4169;
+			font-size: 2.75rem;
+			font-size: clamp(1.75rem, 6vw, 2.75rem);
+			font-weight: 800;
+			text-transform: uppercase;
+			margin: 2.5rem 0;
+		}
+		.back {
+			display: inline-block;
+			color: #7a7a7a;
+		}
+		.back:hover, .back:focus { color: #444; }
+		.back svg {
+			width: 64px;
+			height: 64px;
+			display: block;
+		}
+		@media (prefers-color-scheme: dark) {
+			body { background: #000; }
+			.back { color: rgba(255, 255, 255, 0.8); }
+			.back:hover, .back:focus { color: #fff; }
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<svg class="face" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#FF4169" d="M181.25,100 C181.25,55.1171875 144.882812,18.75 100,18.75 C55.1171875,18.75 18.75,55.1171875 18.75,100 C18.75,144.882812 55.1171875,181.25 100,181.25 C144.882812,181.25 181.25,144.882812 181.25,100 Z M0,100 C0,44.765625 44.765625,0 100,0 C155.234375,0 200,44.765625 200,100 C200,155.234375 155.234375,200 100,200 C44.765625,200 0,155.234375 0,100 Z M130.742188,150.234375 C124.882813,144.140625 114.6875,137.5 100,137.5 C85.3125,137.5 75.1171875,144.140625 69.2578125,150.234375 C65.6640625,153.984375 59.7265625,154.101563 56.015625,150.507812 C52.3046875,146.914062 52.1484375,140.976562 55.7421875,137.265625 C64.375,128.28125 79.1796875,118.75 100,118.75 C120.820313,118.75 135.625,128.28125 144.257813,137.265625 C147.851563,141.015625 147.734375,146.953125 143.984375,150.507812 C140.234375,154.0625 134.296875,153.984375 130.742188,150.234375 Z M56.25,81.25 C56.25,74.3359375 61.8359375,68.75 68.75,68.75 C75.6640625,68.75 81.25,74.3359375 81.25,81.25 C81.25,88.1640625 75.6640625,93.75 68.75,93.75 C61.8359375,93.75 56.25,88.1640625 56.25,81.25 Z M131.25,68.75 C138.164062,68.75 143.75,74.3359375 143.75,81.25 C143.75,88.1640625 138.164062,93.75 131.25,93.75 C124.335938,93.75 118.75,88.1640625 118.75,81.25 C118.75,74.3359375 124.335938,68.75 131.25,68.75 Z"/></svg>
+		<h1>"No entry"</h1>
+		<a class="back" id="back" href="/" aria-label="Go back">
+			<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72"><path fill="currentColor" d="M6.75,36 C6.75,19.8421875 19.8421875,6.75 36,6.75 C52.1578125,6.75 65.25,19.8421875 65.25,36 C65.25,52.1578125 52.1578125,65.25 36,65.25 C19.8421875,65.25 6.75,52.1578125 6.75,36 Z M72,36 C72,16.115625 55.884375,0 36,0 C16.115625,0 0,16.115625 0,36 C0,55.884375 16.115625,72 36,72 C55.884375,72 72,55.884375 72,36 Z M17.5359375,34.4109375 C16.6640625,35.2828125 16.6640625,36.7171875 17.5359375,37.5890625 L32.1609375,52.2140625 C32.8078125,52.8609375 33.778125,53.04375 34.6078125,52.70625 C35.4375,52.36875 36,51.5390625 36,50.625 L36,40.5 L50.625,40.5 C52.4953125,40.5 54,38.9953125 54,37.125 L54,34.875 C54,33.0046875 52.4953125,31.5 50.625,31.5 L36,31.5 L36,21.375 C36,20.4609375 35.4515625,19.6453125 34.6078125,19.29375 C33.7640625,18.9421875 32.79375,19.1390625 32.1609375,19.7859375 L17.5359375,34.4109375 Z"/></svg>
+		</a>
+	</main>
+	<script>
+		document.getElementById("back").addEventListener("click", function (e) {
+			if (history.length > 1) {
+				e.preventDefault();
+				history.back();
+			}
+		});
+	</script>
+</body>
+</html>

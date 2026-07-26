@@ -71,7 +71,7 @@ auth:
       roles: [admin]          # admins only
 ```
 
-Signed-out visitors are redirected to the login page; signed-in visitors without the right role get a 403. Or protect per-route in routes mode:
+Signed-out visitors are redirected to the login page; signed-in visitors without the right role get a 403 — the built-in 403 page for a browser, JSON for an API request, and your own page if you set one via [`error_pages`](configuration.md#error_pages). Or protect per-route in routes mode:
 
 ```yaml
 routes:

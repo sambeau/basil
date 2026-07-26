@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -580,5 +581,203 @@ func TestRenderPreludeError_DevErrorPageBeatsCustomPage(t *testing.T) {
 	}
 	if !strings.Contains(body, "boom") {
 		t.Errorf("expected dev error page to contain the error message, got: %s", body)
+	}
+}
+
+func TestHandle404_APIRequestGetsJSON(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		path   string
+		header map[string]string
+	}{
+		{"accept json", "/missing", map[string]string{"Accept": "application/json"}},
+		{"api path prefix", "/api/missing", nil},
+		{"json content type", "/missing", map[string]string{"Content-Type": "application/json"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{}
+			s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", tc.path, http.NoBody)
+			for k, v := range tc.header {
+				req.Header.Set(k, v)
+			}
+
+			s.handle404(w, req)
+
+			resp := w.Result()
+			if resp.StatusCode != 404 {
+				t.Errorf("expected status 404, got %d", resp.StatusCode)
+			}
+			if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+				t.Errorf("expected JSON content type, got %s", ct)
+			}
+
+			var body struct {
+				Error struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+					Details string `json:"details"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+				t.Fatalf("response is not valid JSON: %v (body: %s)", err, w.Body.String())
+			}
+			if body.Error.Code != "HTTP-404" {
+				t.Errorf("expected code 'HTTP-404', got %q", body.Error.Code)
+			}
+			if body.Error.Message != "Not Found" {
+				t.Errorf("expected message 'Not Found', got %q", body.Error.Message)
+			}
+		})
+	}
+}
+
+func TestHandle500_APIRequestGetsJSON(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/thing", http.NoBody)
+
+	s.handle500(w, req, fmt.Errorf("database on fire"))
+
+	resp := w.Result()
+	if resp.StatusCode != 500 {
+		t.Errorf("expected status 500, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected JSON content type, got %s", ct)
+	}
+	// Production mode must not leak error details
+	if strings.Contains(w.Body.String(), "database on fire") {
+		t.Errorf("production JSON error leaked details: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "HTTP-500") {
+		t.Errorf("expected code 'HTTP-500' in body, got: %s", w.Body.String())
+	}
+}
+
+func TestHandle500_APIRequestDevIncludesDetails(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{Server: config.ServerConfig{Dev: true}}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(true)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/thing", http.NoBody)
+
+	s.handle500(w, req, fmt.Errorf("database on fire"))
+
+	if !strings.Contains(w.Body.String(), "database on fire") {
+		t.Errorf("expected dev JSON error to include details, got: %s", w.Body.String())
+	}
+}
+
+func TestHandle404_HTMLRequestStillGetsPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/missing", http.NoBody)
+	req.Header.Set("Accept", "text/html")
+
+	s.handle404(w, req)
+
+	resp := w.Result()
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+	if !strings.Contains(w.Body.String(), "Page not found") {
+		t.Errorf("expected the HTML 404 page, got: %s", w.Body.String())
+	}
+}
+
+func TestHandleForbidden_RendersErrorPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
+
+	s.handleForbidden(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != 403 {
+		t.Errorf("expected status 403, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Errorf("expected HTML content type, got %s", ct)
+	}
+	if !strings.Contains(w.Body.String(), "No entry") {
+		t.Errorf("expected the built-in 403 page, got: %s", w.Body.String())
+	}
+}
+
+func TestHandleForbidden_CustomErrorPage(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	pagePath := filepath.Join(dir, "403.pars")
+	page := `<!DOCTYPE html>
+<html><body><h1>"Members only, sorry"</h1></body></html>`
+	if err := os.WriteFile(pagePath, []byte(page), 0644); err != nil {
+		t.Fatalf("failed to write custom error page: %v", err)
+	}
+
+	cfg := &config.Config{ErrorPages: map[int]string{403: pagePath}}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
+
+	s.handleForbidden(w, req)
+
+	if w.Result().StatusCode != 403 {
+		t.Errorf("expected status 403, got %d", w.Result().StatusCode)
+	}
+	if !strings.Contains(w.Body.String(), "Members only, sorry") {
+		t.Errorf("expected the custom 403 page, got: %s", w.Body.String())
+	}
+}
+
+func TestHandleForbidden_APIRequestStillGetsJSON(t *testing.T) {
+	if err := initPrelude("test"); err != nil {
+		t.Fatalf("initPrelude() error = %v", err)
+	}
+
+	cfg := &config.Config{}
+	s := &Server{config: cfg, stderr: io.Discard, scriptCache: newScriptCache(false)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin", http.NoBody)
+
+	s.handleForbidden(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != 403 {
+		t.Errorf("expected status 403, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected JSON content type, got %s", ct)
+	}
+	if !strings.Contains(w.Body.String(), "insufficient role") {
+		t.Errorf("expected the existing 403 JSON message, got: %s", w.Body.String())
 	}
 }
