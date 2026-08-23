@@ -6,29 +6,29 @@
 // the "Latest release" line is filled in by assets/site.js.
 
 // The browser-tab / social-preview title
-export title = "Basil & Parsley — build websites like it's 2002"
+export title = "Basil & Parsley — a small language and web server for data and websites"
 
 export HomePage = fn({exampleHtml}) {
     <div class="home">
         <section class="hero">
             <div class="hero-copy">
                 <p class="hero-kicker">"Parsley + Basil"</p>
-                <h1>"Build websites like it's " <span class="accent">"2002"</span></h1>
+                <h1>"A small language and a web server. " <span class="accent">"Nothing else to install."</span></h1>
                 <p class="hero-lede">
-                    <strong>"Parsley"</strong>" is a friendly little programming language. "
-                    <strong>"Basil"</strong>" is the web server it lives in. "
-                    "Write a file, refresh the browser, smile."
+                    <strong>"Parsley"</strong>" is a programming language for working with data and making web pages. "
+                    <strong>"Basil"</strong>" is a web server that runs Parsley files. "
+                    "Put a file in a folder and it becomes a page."
                 </p>
-                <ul class="hero-chips" aria-label="No toolchain required">
-                    <li>"no compiler"</li>
-                    <li>"no npm"</li>
-                    <li>"no TypeScript"</li>
+                <ul class="hero-chips" aria-label="What you don't need">
                     <li>"no build step"</li>
-                    <li>"one small binary"</li>
+                    <li>"no npm"</li>
+                    <li>"no framework"</li>
+                    <li>"no ORM"</li>
+                    <li>"one binary"</li>
                 </ul>
                 <div class="hero-actions">
-                    <a href="#install" class="hero-btn">"Install it"</a>
-                    <a href="get-started.html" class="hero-link">"A working site in ten minutes →"</a>
+                    <a href="#install" class="hero-btn">"Install"</a>
+                    <a href="get-started.html" class="hero-link">"Get started in ten minutes →"</a>
                 </div>
             </div>
             <div class="hero-panel">
@@ -41,25 +41,132 @@ export HomePage = fn({exampleHtml}) {
         </section>
 
         <section class="home-section">
-            <h2>"HTML is part of the language"</h2>
+            <h2>"What is it?"</h2>
             <p>
-                "That program up there is the whole thing — a CSV file becoming a web page, no template engine "
-                "bolted on the side. And dates, money, file paths, and URLs are real types you can write literally:"
+                "Parsley is a scripting language. It reads files, talks to databases, and writes HTML. "
+                "HTML tags are part of the language, so a page is just a function that returns markup. "
+                "The program above reads a CSV file and turns it into a web page. That is the whole program."
+            </p>
+            <p>
+                "Basil is the server. It serves static files, runs " <code>".pars"</code> " files as pages or API endpoints, "
+                "and comes with a database, user login, search, and an image server built in. "
+                "You can also run Parsley on its own, from the command line, as a scripting tool."
+            </p>
+            <p>
+                "Together they cover the common case: a website with some data behind it, "
+                "built by one person or a small team, without a large toolchain."
+            </p>
+        </section>
+
+        <section class="home-section">
+            <h2>"What can you do with it?"</h2>
+            <ul>
+                <li>"Build a website with pages, forms, and a database."</li>
+                <li>"Read a CSV file, filter and sort it, and show it as a table."</li>
+                <li>"Write a small API that returns JSON."</li>
+                <li>"Add passkey login and protected pages without a third-party service."</li>
+                <li>"Write scripts that clean up data and print it as a table, CSV, or Markdown."</li>
+            </ul>
+            <p>
+                <a href="get-started.html">"Get started"</a> " walks through the first one. "
+                "The " <a href="manual/index.html">"Parsley manual"</a> " and the "
+                <a href="basil/index.html">"Basil manual"</a> " cover the rest."
+            </p>
+        </section>
+
+        <section class="home-section">
+            <h2>"Data is built in"</h2>
+            <p>
+                "Most languages leave data to libraries. Parsley has it in the language. "
+                "Four ideas do most of the work:"
+            </p>
+            <ul>
+                <li>
+                    <strong><a href="manual/builtins/schema.html">"Schema"</a></strong>
+                    " — the shape of your data. Field names, types, defaults, and rules. "
+                    "One schema drives validation, the database table, and the HTML form."
+                </li>
+                <li>
+                    <strong><a href="manual/builtins/record.html">"Record"</a></strong>
+                    " — one row of data, checked against a schema. "
+                    "Bad data is kept, but the errors come with it, so a form can show them."
+                </li>
+                <li>
+                    <strong><a href="manual/builtins/table.html">"Table"</a></strong>
+                    " — rows and columns. Filter, sort, group, and total with methods like "
+                    <code>".where()"</code> ", " <code>".orderBy()"</code> ", and " <code>".sum()"</code> "."
+                </li>
+                <li>
+                    <strong><a href="manual/features/database.html">"Database"</a></strong>
+                    " — SQLite is built in; Postgres and MySQL connect with one line. "
+                    "A schema becomes a database table. Queries come back as tables."
+                </li>
+            </ul>
+            <p>
+                "The same table methods work on a CSV file, a database query, and a list you typed in. "
+                "There is no ORM layer in between. "
+                <a href="manual/fundamentals/data-model.html">"Read about the data model"</a> "."
+            </p>
+        </section>
+
+        <section class="home-section">
+            <h2>"Types that match the real world"</h2>
+            <p>
+                "Dates, money, and measurements are values in their own right, not strings or floats. "
+                "You can write them directly, do arithmetic on them, and print them properly:"
             </p>
             <ul class="type-grid">
                 <li><code>"@2024-01-15"</code><small>"a date"</small></li>
                 <li><code>"$99.99"</code><small>"money"</small></li>
-                <li><code>"@./config.json"</code><small>"a file path"</small></li>
+                <li><code>"#5ft + #10in"</code><small>"units"</small></li>
+                <li><code>"@./data.csv"</code><small>"a file path"</small></li>
                 <li><code>"https://herbaceous.net"</code><small>"a URL"</small></li>
+                <li><code>"@1h30m"</code><small>"a duration"</small></li>
+            </ul>
+            <p>
+                "Money keeps its currency and rounds correctly. Units convert between metric and imperial. "
+                "Dates and durations add and subtract. "
+                "See " <a href="manual/builtins/datetime.html">"dates and times"</a> ", "
+                <a href="manual/builtins/money.html">"money"</a> ", and "
+                <a href="manual/builtins/units.html">"units"</a> "."
+            </p>
+        </section>
+
+        <section class="home-section">
+            <h2>"CSV like a spreadsheet"</h2>
+            <p>
+                "Read a CSV file and you get a table. Numbers are numbers, not text. "
+                "Then work on it the way you would in a spreadsheet or SQL:"
+            </p>
+            <pre><code class="language-parsley">"let sales <== CSV(@./sales.csv)\n\nsales\n    .where(fn(r) { r.region == \"South\" })\n    .orderBy(\"amount\", \"desc\")\n    .select([\"product\", \"amount\"])"</code></pre>
+            <p>
+                "Send the result out as HTML, CSV, Markdown, or JSON with one method call. "
+                "In the terminal it prints as a lined-up table. "
+                "See " <a href="manual/features/data-formats.html">"data formats"</a> " and "
+                <a href="manual/builtins/table.html">"tables"</a> "."
+            </p>
+        </section>
+
+        <section class="home-section">
+            <h2>"What Basil gives you"</h2>
+            <ul>
+                <li><a href="basil/routing.html">"Routing"</a> " — folders and files are routes. No route table to maintain."</li>
+                <li><a href="basil/database.html">"Database"</a> " — SQLite built in, with a browser-based inspector in dev mode."</li>
+                <li><a href="basil/authentication.html">"Login"</a> " — passkeys, users, roles, and protected paths."</li>
+                <li><a href="basil/parts.html">"Parts"</a> " — page sections that update without a reload, written in Parsley."</li>
+                <li><a href="basil/search.html">"Search"</a> " — full-text search over your own content."</li>
+                <li><a href="basil/images.html">"Images"</a> " — resize, crop, and serve responsive images."</li>
+                <li><a href="basil/git.html">"Deploy"</a> " — push to the server over git and it goes live."</li>
+                <li><a href="basil/dev-tools.html">"Dev tools"</a> " — hot reload and readable error pages."</li>
             </ul>
         </section>
 
         <section id="install" class="home-section">
-            <h2>"Try it"</h2>
-            <p>"One line installs both " <code>"basil"</code> " (the server) and " <code>"pars"</code> " (the language and REPL):"</p>
+            <h2>"Install"</h2>
+            <p>"One command installs " <code>"basil"</code> " (the server) and " <code>"pars"</code> " (the language and REPL):"</p>
             <pre><code class="language-bash">"curl -fsSL https://herbaceous.net/install.sh | sh"</code></pre>
             <p>
-                "Or grab a binary for your platform from "
+                "Or download a binary from "
                 <a href="https://github.com/sambeau/basil/releases">"the releases page"</a>
                 ". macOS, Linux, and Windows; Apple Silicon and Intel. "
                 <span id="latest-version"></span>
@@ -67,18 +174,15 @@ export HomePage = fn({exampleHtml}) {
         </section>
 
         <section class="home-section">
-            <h2>"Why?"</h2>
+            <h2>"Why another one?"</h2>
             <p>
-                "Because building for the web in the early 2000s was " <em>"fun"</em>
-                ", and somewhere between then and now we buried that fun under toolchains. "
-                "Parsley and Basil are an attempt to dig it back up — "
-                "with modern niceties like passkeys, full-text search, an image server, and a built-in SQL database, "
-                "but without the ceremony."
+                "Most web tools are built for large teams and large sites. "
+                "They are powerful, but they ask for a lot of setup before you see a page. "
+                "Parsley and Basil are built for the other case: one person, one idea, one afternoon."
             </p>
             <p>
-                <a href="why.html">"Read the whole story"</a>
-                " — or skip straight to "
-                <a href="get-started.html">"a working website in ten minutes"</a> "."
+                "The aim is that a web page is a file, data is a table, and the server is one program you can understand. "
+                <a href="why.html">"More on why we built it"</a> "."
             </p>
         </section>
     </div>
