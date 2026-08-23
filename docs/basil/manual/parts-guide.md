@@ -403,6 +403,23 @@ export save = fn({id, text}) {
 - **Check the dev log.** In dev mode, `dev.log()` works inside view functions, and Part errors are reported with file and view names.
 - **Inspect the wrapper.** The Part's `<div>` carries its state in plain sight: `data-part-src`, `data-part-view`, and `data-part-props` always reflect the last render.
 
+## Parts and Response Caching
+
+Parts stay live inside a cached page. Response caching (`cache:` on a route or
+site) stores the page's initial HTML, including whatever each Part rendered at
+load time. Part updates bypass that cache in both directions:
+
+- A Part request (the `?_view=` call to a `.part` file) is handled before the
+  response cache is consulted, so it always runs fresh.
+- Part responses are never stored in the response cache.
+
+So with `cache: 5m`, every visitor in that window gets the same initial
+render, but clicking a Part re-renders it from live state and swaps in the
+result. A reload shows the cached initial render again until the TTL expires.
+There is no per-Part cache to configure.
+
+See [Deployment](deployment.md#response-caching).
+
 ## Organizing Part Files
 
 `.part` files can live anywhere your handlers can reach — Basil doesn't impose a layout. Pick whichever reads best for your project:

@@ -95,6 +95,11 @@ site:
   cache: 5m
 ```
 
+Only successful `GET` responses are cached, keyed on path and query string.
+[Parts](parts.md) requests are never cached and never served from the cache,
+so interactive Parts keep working inside a cached page — only the page's
+initial render is frozen. See [Parts and Response Caching](parts-guide.md#parts-and-response-caching).
+
 ## CORS
 
 If browsers on other origins call your API:
