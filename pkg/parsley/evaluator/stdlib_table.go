@@ -639,6 +639,10 @@ func tableWhere(t *Table, args []Object, env *Environment) Object {
 	if !ok {
 		return newTypeError("TYPE-0012", "where", "a function", args[0].Type())
 	}
+	// The callback receives one row (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("where", "1 parameter", fn.ParamCount())
+	}
 
 	// Get chain copy (creates one if needed, reuses if already in chain)
 	result := t.ensureChainCopy()
@@ -1839,6 +1843,10 @@ func getColumnValues(arg Object, t *Table, env *Environment, methodName string) 
 		return v.Elements, nil
 
 	case *Function:
+		// The callback receives one row (BUG-032).
+		if v.ParamCount() != 1 {
+			return nil, newCallbackArityError(methodName, "1 parameter", v.ParamCount())
+		}
 		// Compute values by calling function with each row
 		values := make([]Object, len(t.Rows))
 		for i, row := range t.Rows {
@@ -1906,6 +1914,10 @@ func tableMap(t *Table, args []Object, env *Environment) Object {
 	fn, ok := args[0].(*Function)
 	if !ok {
 		return newTypeError("TYPE-0012", "map", "a function", args[0].Type())
+	}
+	// The callback receives one row (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("map", "1 parameter", fn.ParamCount())
 	}
 
 	// Get chain copy
@@ -1990,6 +2002,10 @@ func tableFind(t *Table, args []Object, env *Environment) Object {
 	if !ok {
 		return newTypeError("TYPE-0012", "find", "a function", args[0].Type())
 	}
+	// The callback receives one row (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("find", "1 parameter", fn.ParamCount())
+	}
 
 	for _, row := range t.Rows {
 		// Pass Record if table has schema, otherwise pass Dictionary
@@ -2039,6 +2055,10 @@ func tableAny(t *Table, args []Object, env *Environment) Object {
 	if !ok {
 		return newTypeError("TYPE-0012", "any", "a function", args[0].Type())
 	}
+	// The callback receives one row (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("any", "1 parameter", fn.ParamCount())
+	}
 
 	for _, row := range t.Rows {
 		// Pass Record if table has schema, otherwise pass Dictionary
@@ -2076,6 +2096,10 @@ func tableAll(t *Table, args []Object, env *Environment) Object {
 	fn, ok := args[0].(*Function)
 	if !ok {
 		return newTypeError("TYPE-0012", "all", "a function", args[0].Type())
+	}
+	// The callback receives one row (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("all", "1 parameter", fn.ParamCount())
 	}
 
 	for _, row := range t.Rows {
@@ -2316,6 +2340,10 @@ func tableGroupBy(t *Table, args []Object, env *Environment) Object {
 		fn, ok := args[1].(*Function)
 		if !ok {
 			return newTypeError("TYPE-0012", "groupBy", "a function (aggregation)", args[1].Type())
+		}
+		// The aggregation callback receives one group array (BUG-032).
+		if fn.ParamCount() != 1 {
+			return newCallbackArityError("groupBy", "1 parameter", fn.ParamCount())
 		}
 		aggFn = fn
 	}

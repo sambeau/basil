@@ -458,10 +458,16 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 	}
 	viewPropsDict := &Dictionary{Pairs: viewProps, Env: env}
 
-	// Call the view function with props, passing environment for runtime context
-	result := ApplyFunctionWithEnv(fnObj, []Object{viewPropsDict}, env)
+	// Call the view function with props, passing environment for runtime context.
+	// A prop-less view is declared `fn()`; pass the props dict only when the
+	// function declares a parameter to receive it (BUG-032).
+	viewArgs := []Object{}
+	if fnObj.ParamCount() >= 1 {
+		viewArgs = append(viewArgs, viewPropsDict)
+	}
+	result := ApplyFunctionWithEnv(fnObj, viewArgs, env)
 	if isError(result) {
-		return result
+		return enrichErrorWithPos(result, &token)
 	}
 
 	// Get the HTML content from the view function result
@@ -1044,8 +1050,15 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		}
 	}
 
-	// Call the function with the props dictionary, passing environment for runtime context
-	result := ApplyFunctionWithEnv(val, []Object{dict}, env)
+	// Call the function with the props dictionary, passing environment for runtime
+	// context. A prop-less component is declared `fn()`; pass the props dict only
+	// when the component declares a parameter to receive it (BUG-032).
+	compArgs := []Object{dict}
+	if fn, ok := val.(*Function); ok && fn.ParamCount() == 0 {
+		compArgs = []Object{}
+	}
+	result := ApplyFunctionWithEnv(val, compArgs, env)
+	result = enrichErrorWithPos(result, &node.Token)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && (err.Code == "CALL-0002" || strings.Contains(err.Message, "cannot call")) {
@@ -2263,8 +2276,15 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		return props
 	}
 
-	// Call the function with the props dictionary, passing environment for runtime context
-	result := ApplyFunctionWithEnv(val, []Object{props}, env)
+	// Call the function with the props dictionary, passing environment for runtime
+	// context. A prop-less component is declared `fn()`; pass the props dict only
+	// when the component declares a parameter to receive it (BUG-032).
+	compArgs := []Object{props}
+	if fn, ok := val.(*Function); ok && fn.ParamCount() == 0 {
+		compArgs = []Object{}
+	}
+	result := ApplyFunctionWithEnv(val, compArgs, env)
+	result = enrichErrorWithPos(result, &tok)
 
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && (err.Code == "CALL-0002" || strings.Contains(err.Message, "cannot call")) {

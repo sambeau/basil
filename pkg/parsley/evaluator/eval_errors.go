@@ -202,6 +202,41 @@ func newArityError(function string, got, want int) *Error {
 	}
 }
 
+// newUserArityError creates a structured error for a user-defined function
+// called with the wrong number of arguments (BUG-032).
+func newUserArityError(function string, got, want int) *Error {
+	perr := perrors.New("ARITY-0007", map[string]any{
+		"Function": function,
+		"Got":      got,
+		"Want":     want,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
+// newCallbackArityError creates a structured error for a user callback handed to
+// an internal dispatch site that declares parameters the site cannot supply.
+// want is a phrase such as "1 parameter" or "1 or 2 parameters" (BUG-032).
+func newCallbackArityError(method, want string, got int) *Error {
+	perr := perrors.New("ARITY-0008", map[string]any{
+		"Function": method,
+		"Want":     want,
+		"Got":      got,
+	})
+	return &Error{
+		Class:   ErrorClass(perr.Class),
+		Code:    perr.Code,
+		Message: perr.Message,
+		Hints:   perr.Hints,
+		Data:    perr.Data,
+	}
+}
+
 // newArityErrorRange creates a structured error for wrong number of arguments (range).
 func newArityErrorRange(function string, got, min, max int) *Error {
 	perr := perrors.New("ARITY-0004", map[string]any{

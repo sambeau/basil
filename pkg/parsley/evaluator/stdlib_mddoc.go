@@ -487,6 +487,11 @@ func mdDocWalk(md *MdDoc, args []Object, env *Environment) Object {
 		return newTypeError("TYPE-0005", "mdDoc.walk", "function", args[0].Type())
 	}
 
+	// The callback receives one node (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("mdDoc.walk", "1 parameter", fn.ParamCount())
+	}
+
 	walkNode(md.AST, fn, md.Env)
 	return NULL
 }
@@ -502,6 +507,11 @@ func mdDocMap(md *MdDoc, args []Object, env *Environment) Object {
 	fn, ok := args[0].(*Function)
 	if !ok {
 		return newTypeError("TYPE-0005", "mdDoc.map", "function", args[0].Type())
+	}
+
+	// The callback receives one node (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("mdDoc.map", "1 parameter", fn.ParamCount())
 	}
 
 	result := mapNode(md.AST, fn, md.Env)
@@ -522,6 +532,11 @@ func mdDocFilter(md *MdDoc, args []Object, env *Environment) Object {
 	fn, ok := args[0].(*Function)
 	if !ok {
 		return newTypeError("TYPE-0005", "mdDoc.filter", "function", args[0].Type())
+	}
+
+	// The callback receives one node (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("mdDoc.filter", "1 parameter", fn.ParamCount())
 	}
 
 	result := filterNode(md.AST, fn, md.Env)

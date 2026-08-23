@@ -324,6 +324,12 @@ type Function struct {
 	Params []*ast.FunctionParameter // parameter list with destructuring support
 	Body   *ast.BlockStatement
 	Env    *Environment
+	// Name is the name the function was bound to at its binding site
+	// (`let f = fn…`, `export let f = fn…`, or the dictionary key it is
+	// called through). Function literals that were never bound stay empty and
+	// report as "anonymous fn". Used only for error messages — see
+	// DisplayName and checkCallArity.
+	Name string
 }
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
@@ -357,6 +363,24 @@ func (f *Function) Inspect() string {
 // ParamCount returns the number of parameters for this function
 func (f *Function) ParamCount() int {
 	return len(f.Params)
+}
+
+// DisplayName returns the name to use for this function in error messages.
+func (f *Function) DisplayName() string {
+	if f.Name == "" {
+		return "anonymous fn"
+	}
+	return f.Name
+}
+
+// nameFunction records the name a function value is being bound to, so arity
+// errors can say `add` rather than `anonymous fn`. The first binding wins:
+// re-binding an already-named function (`let b = a`) keeps the original name,
+// which is the one the reader wrote the function under.
+func nameFunction(val Object, name string) {
+	if fn, ok := val.(*Function); ok && fn.Name == "" && name != "_" {
+		fn.Name = name
+	}
 }
 
 // BuiltinFunction represents a built-in function
@@ -4558,6 +4582,9 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Single assignment
 		// Special handling for '_' - don't store it
 		if node.Name.Value != "_" {
+			// Give function literals the name they are bound under, so arity
+			// errors can name them (BUG-032).
+			nameFunction(val, node.Name.Value)
 			if node.Export {
 				if node.Mutable {
 					env.SetVarExport(node.Name.Value, val)
@@ -5058,8 +5085,13 @@ func Eval(node ast.Node, env *Environment) Object {
 			}
 		}
 
-		// Save the call token before evaluating arguments (which may modify env.LastToken)
+		// Save the call token before evaluating arguments (which may modify env.LastToken).
+		// CallExpression.Token is the '(' — prefer the callee's own token so errors
+		// about the call itself (arity, BUG-032) put the caret on the function name.
 		callToken := node.Token
+		if ident, ok := node.Function.(*ast.Identifier); ok {
+			callToken = ident.Token
+		}
 
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {

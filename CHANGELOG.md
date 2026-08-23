@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+- **User-defined functions now enforce arity (BUG-032)** — calling an `fn` with the wrong number of arguments is an error, in both directions, reported at the call site: `add(1, 2, 3)` no longer silently discards the `3`, and `one()` no longer fails later with an `Identifier not found` pointing inside the function body (sometimes with a "Did you mean" hint naming another parameter). Both now raise `ARITY-0007` — "`add` expects 2 arguments, got 3" — with the caret on the call. This makes user functions consistent with builtins, methods, and loop callbacks, which have always been strict. Parsley has no varargs, so dropping extra arguments bought nothing.
+
+  Internal callback dispatch adapts to the callee rather than passing a fixed count, so existing code keeps working: a prop-less component declared `fn()` still renders as `<C/>` (the props dict is passed only when the component declares a parameter for it), `.reduce` accepts both `fn(acc, elem)` and `fn(acc)`, and `.replace` is handed exactly as many arguments as it declares. The one-argument sites (`.map`, `.filter`, `.sort`, table `.where`/`.map`/`.find`/`.any`/`.all`/`.groupBy`, `mdDoc.walk`/`.map`/`.filter`) now say so with `ARITY-0008` — "Function passed to `map` must take 1 parameter, got 2" — instead of dropping the extra parameter.
+
+  The Basil server's two dispatch sites adapt the same way: a Part view and an API handler are handed the props dict / request object only when they declare a parameter for it.
+
+  **What to change:** any call passing extra arguments was a latent bug in the caller — remove them. For an optional value, use `??` in the body (`let x = arg ?? "default"`); default parameter values remain unimplemented. Destructuring parameters are unaffected: `fn({a, b})` is one parameter, and its missing keys still bind to `null`.
+
 ### Fixed
 - **Undefined component errors now point at the tag and hint at imports (BUG-010)** — using a component that isn't in scope (e.g. `<Page>` without its import) previously reported "Undefined component" with no source position at top level, or with the position of the *calling* expression when used inside a function. The error now carries the component tag's own line and column, shows the offending line, and adds a hint: "Is `Page` imported? Check the import path and the exported name". (Long-truncated request values on server error pages also no longer split multi-byte characters.)
 - **`variables.md` closure examples actually run now** — both closure examples reassigned a `let` binding from inside the closure (`let count = 0` + `count = count + 1`), which has errored with ASSIGN-0001 since immutability was enforced; they now declare with `var`. The dictionary-destructuring examples in the manual and reference also redeclared `name` across two `let` patterns and are updated for the new one-declaration-per-scope rule.

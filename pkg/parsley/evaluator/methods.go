@@ -89,6 +89,11 @@ func evalStringMethod(str *String, method string, args []Object, env *Environmen
 
 // stringReplaceWithFunction replaces all occurrences of a string using a function
 func stringReplaceWithFunction(input, search string, fn *Function, env *Environment) Object {
+	// A literal search has no capture groups, so the callback gets exactly the
+	// matched text and must declare one parameter for it (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("replace", "1 parameter", fn.ParamCount())
+	}
 	if search == "" {
 		return &String{Value: input}
 	}
@@ -196,20 +201,17 @@ func regexReplaceOnString(input string, regexDict *Dictionary, replacement Objec
 
 // callReplacementFunction calls the replacement function with match info
 func callReplacementFunction(fn *Function, submatches []string, env *Environment) string {
-	// Build arguments: (match, ...groups)
-	// If function takes 1 arg, just pass match
-	// If function takes more args, pass match and capture groups
-	var args []Object
-
-	if len(submatches) > 0 {
-		// First element is the full match
-		args = append(args, &String{Value: submatches[0]})
-
-		// Additional elements are capture groups
-		if len(fn.Params) > 1 && len(submatches) > 1 {
-			for _, group := range submatches[1:] {
-				args = append(args, &String{Value: group})
-			}
+	// Build arguments: (match, ...groups). The site adapts to the callback's
+	// declared arity — exactly ParamCount arguments are passed, drawn from the
+	// full match followed by the capture groups. A group the regex does not
+	// have (or that did not participate) arrives as an empty string, which is
+	// what Go's submatches give for a non-participating group anyway (BUG-032).
+	args := make([]Object, fn.ParamCount())
+	for i := range args {
+		if i < len(submatches) {
+			args[i] = &String{Value: submatches[i]}
+		} else {
+			args[i] = &String{Value: ""}
 		}
 	}
 
@@ -356,6 +358,10 @@ func sortArrayWithOptions(arr *Array, natural bool) *Array {
 
 // sortArrayByFunction sorts an array using a key function
 func sortArrayByFunction(arr *Array, fn *Function, env *Environment) Object {
+	// The key function receives one element (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("sort", "1 parameter", fn.ParamCount())
+	}
 	// Make a copy of elements
 	elements := make([]Object, len(arr.Elements))
 	copy(elements, arr.Elements)
@@ -384,6 +390,10 @@ func sortArrayByFunction(arr *Array, fn *Function, env *Environment) Object {
 
 // mapArrayWithFunction applies a function to each element
 func mapArrayWithFunction(arr *Array, fn *Function, env *Environment) Object {
+	// The callback receives one element (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("map", "1 parameter", fn.ParamCount())
+	}
 	result := make([]Object, 0, len(arr.Elements))
 
 	for _, elem := range arr.Elements {
@@ -412,6 +422,10 @@ func mapArrayWithFunction(arr *Array, fn *Function, env *Environment) Object {
 
 // filterArrayWithFunction filters array elements based on a predicate function
 func filterArrayWithFunction(arr *Array, fn *Function, env *Environment) Object {
+	// The predicate receives one element (BUG-032).
+	if fn.ParamCount() != 1 {
+		return newCallbackArityError("filter", "1 parameter", fn.ParamCount())
+	}
 	result := make([]Object, 0, len(arr.Elements))
 
 	for _, elem := range arr.Elements {

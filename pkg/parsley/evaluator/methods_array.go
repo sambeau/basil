@@ -211,10 +211,23 @@ func arrayReduce(receiver Object, args []Object, env *Environment) Object {
 		return newTypeError("TYPE-0012", "reduce", "a function", args[0].Type())
 	}
 
+	// The reducer may declare (acc, elem) or just (acc); the site adapts to
+	// whichever it declared rather than passing a fixed two (BUG-032).
+	paramCount := fn.ParamCount()
+	if paramCount != 1 && paramCount != 2 {
+		return newCallbackArityError("reduce", "1 or 2 parameters", paramCount)
+	}
+
 	accumulator := args[1]
 
 	for _, elem := range arr.Elements {
-		extendedEnv := extendFunctionEnv(fn, []Object{accumulator, elem})
+		var callArgs []Object
+		if paramCount == 2 {
+			callArgs = []Object{accumulator, elem}
+		} else {
+			callArgs = []Object{accumulator}
+		}
+		extendedEnv := extendFunctionEnv(fn, callArgs)
 
 		var evaluated Object
 		for _, stmt := range fn.Body.Statements {
