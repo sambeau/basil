@@ -95,7 +95,7 @@ Let's Encrypt certificates last 90 days. Basil checks the certificate on each re
 
 `cache_dir` holds your private key. Treat it accordingly:
 
-- Keep it out of version control: add `certs/` to `.gitignore`.
+- Keep it out of version control: add `certs/` to `.gitignore` (`basil --init` already does).
 - Make it readable only by the user Basil runs as: `chmod 700 certs`.
 - Keep it between deploys and restarts. If you delete it, Basil requests a fresh certificate on the next start, which counts against Let's Encrypt's rate limits.
 - Back it up with the rest of the site if you want restarts on a new machine to be instant, but a lost `certs` directory is not a disaster — Basil simply fetches a new certificate.

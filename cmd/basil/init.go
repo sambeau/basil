@@ -19,6 +19,9 @@ db/
 *.db
 *.db-shm
 *.db-wal
+
+# TLS certificates and Let's Encrypt account key (https.cache_dir)
+certs/
 `
 
 const basilYAMLTemplate = `# Basil Configuration

@@ -62,6 +62,9 @@ func TestInitCommand_Success(t *testing.T) {
 	if !strings.Contains(gitignoreContent, "*.db") {
 		t.Error(".gitignore missing *.db entry")
 	}
+	if !strings.Contains(gitignoreContent, "certs/") {
+		t.Error(".gitignore missing certs/ entry")
+	}
 
 	// Verify index.pars content
 	indexContent := readFile(t, filepath.Join(projectPath, "site", "index.pars"))
