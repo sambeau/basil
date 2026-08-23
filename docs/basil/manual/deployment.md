@@ -37,7 +37,7 @@ You have three ways to get a certificate: let Basil fetch one from Let's Encrypt
 
 1. **A domain name** you control, e.g. `example.com`.
 2. **DNS pointing at the server.** Add an `A` record (and an `AAAA` record if you have IPv6) for your domain to the server's public IP. Wait until `dig example.com` or `nslookup example.com` returns that IP from outside the server. Let's Encrypt looks your domain up on the public internet, so private or not-yet-propagated DNS will fail.
-3. **Ports 80 and 443 open** to the internet in any firewall or cloud security group. Basil needs both: 443 for your site, and 80 for Let's Encrypt's verification and the HTTP-to-HTTPS redirect.
+3. **Ports 80 and 443 open** to the internet in any firewall or cloud security group. Basil listens on both: 443 for your site, and 80 for a small second server that answers Let's Encrypt's verification requests and redirects everything else to HTTPS. Opening the firewall is your job; Basil only binds the ports. Port 80 is always `:80`, whatever `server.port` is set to. If it is blocked, Let's Encrypt can usually still verify you through port 443, but visitors who type `example.com` without `https://` get a connection error instead of a redirect.
 4. **Permission to bind those ports.** On Linux, ports below 1024 need root or the `CAP_NET_BIND_SERVICE` capability. The cleanest option is to grant the capability to the binary once, then run Basil as an ordinary user:
 
    ```bash
@@ -161,6 +161,7 @@ Leave `auto: true` off in this setup: the proxy holds the public certificate, an
 | `HTTPS requires either auto: true or cert/key paths` on start | No `https:` section | Add one, or run with `--dev` for local work |
 | `bind: permission denied` on start | Not allowed to open port 80 or 443 | `setcap` as above, or run as root |
 | `bind: address already in use` | Another web server (Apache, nginx, a previous Basil) holds the port | Stop it, or put Basil on another port behind it |
+| HTTPS works but `http://example.com` does not redirect | Something else holds port 80, so Basil's redirect server failed — this is logged as `HTTP redirect server error` and is not fatal | Stop whatever owns port 80, then restart Basil |
 | First request hangs, then fails with a TLS error | Let's Encrypt could not reach the server | Check DNS resolves to this IP from outside; check ports 80 and 443 are open in every firewall |
 | Log shows `acme: ... urn:ietf:params:acme:error:dns` | DNS not propagated or pointing elsewhere | Wait for propagation; confirm with `dig` |
 | Log shows `urn:ietf:params:acme:error:rateLimited` | Too many certificates requested recently | Stop deleting `certs/`; wait up to a week |
