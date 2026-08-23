@@ -166,7 +166,14 @@ func (h *apiHandler) dispatchModule(w http.ResponseWriter, r *http.Request, modu
 	}
 
 	reqObj := h.buildRequestObject(module.Env, r, idVal, user)
-	result := evaluator.CallWithEnv(handler, []evaluator.Object{reqObj}, module.Env)
+	// A handler that ignores the request is declared `fn()`; pass the request
+	// object only when the handler declares a parameter for it, now that arity
+	// is enforced (BUG-032).
+	handlerArgs := []evaluator.Object{reqObj}
+	if fn, ok := handler.(*evaluator.Function); ok && fn.ParamCount() == 0 {
+		handlerArgs = []evaluator.Object{}
+	}
+	result := evaluator.CallWithEnv(handler, handlerArgs, module.Env)
 
 	if errObj, ok := result.(*evaluator.Error); ok {
 		if errObj.UserDict != nil {

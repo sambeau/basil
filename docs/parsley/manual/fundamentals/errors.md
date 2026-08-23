@@ -191,7 +191,7 @@ Every error belongs to a class. The class determines whether `try` can catch it.
 | Class | Typical cause |
 |---|---|
 | `type` | Type mismatch in operation |
-| `arity` | Wrong number of arguments to builtin/method |
+| `arity` | Wrong number of arguments to any function |
 | `undefined` | Variable or method not found |
 | `index` | Array/string index out of bounds |
 | `operator` | Invalid operator for given types |

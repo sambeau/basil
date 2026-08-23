@@ -99,7 +99,13 @@ func (h *parsleyHandler) handlePartRequest(w http.ResponseWriter, r *http.Reques
 
 	// Call the view function with props using ApplyFunctionWithEnv
 	// This properly handles all parameter types including destructuring patterns like fn({width})
-	result = evaluator.ApplyFunctionWithEnv(fnObj, []evaluator.Object{props}, env)
+	// A prop-less view is declared `fn()`; pass the props dict only when the view
+	// declares a parameter to receive it, now that arity is enforced (BUG-032).
+	viewArgs := []evaluator.Object{props}
+	if fnObj.ParamCount() == 0 {
+		viewArgs = []evaluator.Object{}
+	}
+	result = evaluator.ApplyFunctionWithEnv(fnObj, viewArgs, env)
 
 	// Unwrap return values
 	if retVal, ok := result.(*evaluator.ReturnValue); ok {

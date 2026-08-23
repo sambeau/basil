@@ -180,15 +180,30 @@ fn(x) { x * 2 }(5)              // 10
 
 ## Argument Handling
 
-Parsley does not support default parameter values. Missing arguments leave the parameter unbound (using it will cause an "identifier not found" error). Extra arguments are silently ignored.
+Parsley checks arity strictly. A function must be called with exactly as many arguments as it declares parameters — too many and too few are both errors, reported at the call site:
 
 ```parsley
-let f = fn(a, b) { a }
-f(1, 2, 3)                      // 1  (third arg ignored)
-f(1)                             // 1  (b unbound but unused, so no error)
+let f = fn(a, b) { a + b }
+f(1, 2)                          // 3
+f(1, 2, 3)                       // error: `f` expects 2 arguments, got 3
+f(1)                             // error: `f` expects 2 arguments, got 1
 ```
 
-> ⚠️ Built-in functions and methods enforce arity strictly and will error on wrong argument counts. User-defined functions do not — they silently accept any number of arguments.
+Parsley does not support default parameter values. Use `??` in the body when a value is optional:
+
+```parsley
+let greet = fn(name) { "Hello, " + (name ?? "world") }
+greet(null)                      // "Hello, world"
+```
+
+A destructuring parameter counts as one parameter, however many names it binds — its *contents* are still lenient, so missing keys bind to `null`:
+
+```parsley
+let f = fn({a, b}) { a }
+f({a: 1})                        // 1  (one argument; b is null)
+```
+
+Built-in functions, methods, and user-defined functions all enforce arity the same way, raising an `arity` error.
 
 ## Key Differences from Other Languages
 

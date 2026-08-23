@@ -185,6 +185,39 @@ func TestNew_WithCatalog(t *testing.T) {
 			wantContains: "Wrong number of arguments to `split`. got=3, want=1-2",
 		},
 		{
+			name: "user function arity error, plural",
+			code: "ARITY-0007",
+			data: map[string]any{
+				"Function": "add",
+				"Got":      4,
+				"Want":     2,
+			},
+			wantClass:    ClassArity,
+			wantContains: "`add` expects 2 arguments, got 4",
+		},
+		{
+			name: "user function arity error, singular",
+			code: "ARITY-0007",
+			data: map[string]any{
+				"Function": "one",
+				"Got":      0,
+				"Want":     1,
+			},
+			wantClass:    ClassArity,
+			wantContains: "`one` expects 1 argument, got 0",
+		},
+		{
+			name: "callback arity error",
+			code: "ARITY-0008",
+			data: map[string]any{
+				"Function": "reduce",
+				"Want":     "1 or 2 parameters",
+				"Got":      3,
+			},
+			wantClass:    ClassArity,
+			wantContains: "Function passed to `reduce` must take 1 or 2 parameters, got 3",
+		},
+		{
 			name: "undefined identifier",
 			code: "UNDEF-0001",
 			data: map[string]any{

@@ -348,6 +348,9 @@ func dispatchMethodCall(left Object, method string, args []Object, env *Environm
 		if fnExpr, ok := receiver.Pairs[method]; ok {
 			fnObj := Eval(fnExpr, receiver.Env)
 			if fn, ok := fnObj.(*Function); ok {
+				// The dictionary key is this function's binding site, so arity
+				// errors can name it (BUG-032).
+				nameFunction(fn, method)
 				// Call the function with 'this' bound to the dictionary
 				return applyMethodWithThis(fn, args, receiver, env)
 			}

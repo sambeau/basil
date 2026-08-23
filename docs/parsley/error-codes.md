@@ -74,6 +74,8 @@ Wrong number of arguments.
 | ARITY-0004 | `wrong number of arguments. got={{.Got}}, want={{.Min}}-{{.Max}}` | Range arity |
 | ARITY-0005 | `{{.Function}} requires at least {{.Min}} argument(s), got {{.Got}}` | Minimum arguments |
 | ARITY-0006 | `{{.Function}} requires exactly {{.Want}} argument(s), got {{.Got}}` | Exact arguments |
+| ARITY-0007 | `{{.Function}} expects {{.Want}} argument(s), got {{.Got}}` | User-defined function called with the wrong number of arguments |
+| ARITY-0008 | `Function passed to {{.Function}} must take {{.Want}}, got {{.Got}}` | Callback declares parameters the calling method cannot supply |
 
 ---
 

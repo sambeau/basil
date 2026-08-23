@@ -390,6 +390,21 @@ var ErrorCatalog = map[string]ErrorDef{
 		Class:    ClassArity,
 		Template: "`{{.Function}}` expects exactly {{.Choice1}} or {{.Choice2}} argument(s), got {{.Got}}",
 	},
+	// ARITY-0007 is raised when a *user-defined* function is called with the
+	// wrong number of positional arguments (BUG-032). It pluralises properly
+	// because it is the arity error users meet most often.
+	"ARITY-0007": {
+		Class:    ClassArity,
+		Template: "`{{.Function}}` expects {{.Want}} argument{{if ne .Want 1}}s{{end}}, got {{.Got}}",
+	},
+	// ARITY-0008 is raised when a callback handed to an internal dispatch site
+	// (.map, .reduce, table methods, mdDoc walkers) declares a number of
+	// parameters that site cannot supply. Want is a phrase ("1 parameter",
+	// "1 or 2 parameters") because the allowed shapes differ per site.
+	"ARITY-0008": {
+		Class:    ClassArity,
+		Template: "Function passed to `{{.Function}}` must take {{.Want}}, got {{.Got}}",
+	},
 
 	// ========================================
 	// Undefined errors (UNDEF-0xxx)

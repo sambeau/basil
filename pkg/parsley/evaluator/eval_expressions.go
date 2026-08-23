@@ -47,6 +47,9 @@ func enterCall(callerEnv *Environment) (exceeded bool, leave func()) {
 func applyFunction(fn Object, args []Object) Object {
 	switch fn := fn.(type) {
 	case *Function:
+		if err := checkCallArity(fn, len(args)); err != nil {
+			return err
+		}
 		extendedEnv := extendFunctionEnv(fn, args)
 		exceeded, leave := enterCall(extendedEnv)
 		if exceeded {
@@ -79,6 +82,10 @@ func applyFunction(fn Object, args []Object) Object {
 // The calling environment (env) is used to copy runtime context (BasilCtx, etc.)
 // to ensure request-scoped values like @basil/http.query work correctly.
 func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *Environment) Object {
+	// Returned bare (Line 0) so the caller stamps the call site's token onto it.
+	if err := checkCallArity(fn, len(args)); err != nil {
+		return err
+	}
 	extendedEnv := extendFunctionEnv(fn, args)
 	extendedEnv.Set("this", thisObj)
 	// Copy runtime context from calling environment (like ApplyFunctionWithEnv does)
@@ -123,6 +130,10 @@ func lastTokenOf(env *Environment) *lexer.Token {
 func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	switch fn := fn.(type) {
 	case *Function:
+		// Returned bare (Line 0) so the caller stamps the call site's token onto it.
+		if err := checkCallArity(fn, len(args)); err != nil {
+			return err
+		}
 		extendedEnv := extendFunctionEnv(fn, args)
 		// Copy runtime context from calling environment to function environment
 		// This ensures <Css/>, <Script/>, and other runtime features work in imported components
@@ -572,6 +583,33 @@ func evalLog(args []Object, env *Environment) Object {
 // to ensure all destructured bindings are immutable (function params cannot be reassigned)
 func evalDictDestructuringAssignmentImmutable(pattern *ast.DictDestructuringPattern, val Object, env *Environment) Object {
 	return evalDictDestructuringAssignment(pattern, val, env, true, false, false)
+}
+
+// checkCallArity enforces that a user-defined function is called with exactly as
+// many positional arguments as it declares parameters (BUG-032). It returns
+// nil when the call is well-formed.
+//
+// The check lives here — called from applyFunction, ApplyFunctionWithEnv and
+// applyMethodWithThis, the three entry points for a *direct* call — rather than
+// inside extendFunctionEnv, because the error must be raised before the body
+// runs and must be positioned at the call site. Those callers all return the
+// error to an evaluator that stamps the call expression's token onto it
+// (withPosition / enrichErrorWithPos), so the caret lands on the call and not
+// on the unbound parameter inside the callee.
+//
+// Internal callback dispatch (.map, .reduce, table methods, tag components,
+// markdown walkers) does not go through these entry points blindly: each such
+// site inspects fn.ParamCount() and passes a matching number of arguments, the
+// way `for (x in …) fn` already does.
+//
+// Destructuring parameters (`fn({a, b})`, `fn([x, y])`) count as one parameter
+// each; their inner leniency is by design and untouched here.
+func checkCallArity(fn *Function, argc int) *Error {
+	want := fn.ParamCount()
+	if argc == want {
+		return nil
+	}
+	return newUserArityError(fn.DisplayName(), argc, want)
 }
 
 func extendFunctionEnv(fn *Function, args []Object) *Environment {
