@@ -25,11 +25,109 @@ Basil is a single binary, so deploying is mostly: put the binary and your projec
 
 ## HTTPS
 
-Three modes, depending on where you're running:
+Production mode always serves HTTPS. Without an `https:` section, Basil refuses to start with `HTTPS requires either auto: true or cert/key paths`. Development mode (`basil --dev`) serves plain HTTP on localhost and needs no certificates.
 
-**Development** — `basil --dev` serves plain HTTP on localhost; no certificates involved.
+You have three ways to get a certificate: let Basil fetch one from Let's Encrypt (the usual choice), supply your own files, or make a self-signed one for local testing.
 
-**Self-signed (local HTTPS testing):**
+### Automatic certificates with Let's Encrypt
+
+[Let's Encrypt](https://letsencrypt.org) is a free, automated certificate authority. You do not sign up, pay, or install a client: Basil talks to it directly using the ACME protocol, proves it controls your domain, receives a certificate, and renews it before it expires. All you provide is a domain and an email address.
+
+#### Before you start
+
+1. **A domain name** you control, e.g. `example.com`.
+2. **DNS pointing at the server.** Add an `A` record (and an `AAAA` record if you have IPv6) for your domain to the server's public IP. Wait until `dig example.com` or `nslookup example.com` returns that IP from outside the server. Let's Encrypt looks your domain up on the public internet, so private or not-yet-propagated DNS will fail.
+3. **Ports 80 and 443 open** to the internet in any firewall or cloud security group. Basil needs both: 443 for your site, and 80 for Let's Encrypt's verification and the HTTP-to-HTTPS redirect.
+4. **Permission to bind those ports.** On Linux, ports below 1024 need root or the `CAP_NET_BIND_SERVICE` capability. The cleanest option is to grant the capability to the binary once, then run Basil as an ordinary user:
+
+   ```bash
+   sudo setcap 'cap_net_bind_service=+ep' /usr/local/bin/basil
+   ```
+
+#### Configuration
+
+```yaml
+server:
+  host: example.com          # the domain the certificate is for
+  port: 443
+https:
+  auto: true
+  email: admin@example.com   # expiry and problem notifications from Let's Encrypt
+  cache_dir: ./certs         # where certificates are stored (default: ./certs)
+```
+
+| Key | Required | What it does |
+|---|---|---|
+| `server.host` | yes | The domain to request a certificate for. Basil only answers certificate requests for this exact name. |
+| `https.auto` | yes | Turn on Let's Encrypt. |
+| `https.email` | recommended | Let's Encrypt emails this address before a certificate expires and if it has to revoke one. Optional, but there is no other way to hear about problems. |
+| `https.cache_dir` | no | Directory for the certificate, private key, and Let's Encrypt account key. Defaults to `certs` in the working directory. |
+
+Setting `auto: true` accepts the [Let's Encrypt Subscriber Agreement](https://letsencrypt.org/repository/) on your behalf.
+
+#### What happens on first start
+
+Start Basil in production mode:
+
+```bash
+basil
+```
+
+The log shows `automatic TLS enabled via Let's Encrypt (cache: ./certs)` and Basil listens on 443 and 80. Nothing else happens until the first HTTPS request arrives. Then, in the background of that first request:
+
+1. Basil creates a Let's Encrypt account (keyed to your email) and stores the account key in `cache_dir`.
+2. Let's Encrypt asks Basil to prove it controls `example.com`. Basil answers the challenge itself — either over port 80 (HTTP-01) or inside the TLS handshake on 443 (TLS-ALPN-01), whichever Let's Encrypt tries first.
+3. Let's Encrypt issues a certificate. Basil stores it in `cache_dir` and uses it for every request from then on.
+
+The first visitor waits a few seconds while this happens. Everyone after that gets the cached certificate. The easiest first visitor is you:
+
+```bash
+curl -I https://example.com
+```
+
+You want `HTTP/2 200` and no certificate warning. If `curl` complains, see [Troubleshooting](#troubleshooting) below.
+
+#### Renewal
+
+Let's Encrypt certificates last 90 days. Basil checks the certificate on each request and renews it automatically when it is within 30 days of expiry, using the same challenge as before. There is no cron job to set up and no restart needed. The one thing renewal needs is that ports 80 and 443 stay reachable from the internet — if you later close port 80 behind a firewall, renewal can still succeed over 443, but keep 80 open to be safe.
+
+#### The `certs` directory
+
+`cache_dir` holds your private key. Treat it accordingly:
+
+- Keep it out of version control: add `certs/` to `.gitignore`.
+- Make it readable only by the user Basil runs as: `chmod 700 certs`.
+- Keep it between deploys and restarts. If you delete it, Basil requests a fresh certificate on the next start, which counts against Let's Encrypt's rate limits.
+- Back it up with the rest of the site if you want restarts on a new machine to be instant, but a lost `certs` directory is not a disaster — Basil simply fetches a new certificate.
+
+#### Rate limits
+
+Let's Encrypt allows [5 certificates per week for the same set of names](https://letsencrypt.org/docs/rate-limits/) and a handful of failed attempts per hour. Normal use never approaches this. You can hit it by repeatedly deleting `certs/` while debugging, or by running several copies of Basil for the same domain, each with its own `cache_dir`. If you do, the error mentions `rateLimited` and you have to wait up to a week. Debug DNS and firewall problems with `curl` *before* pointing Basil at a domain, not after.
+
+#### `www` and other names
+
+Basil requests a certificate for `server.host` and nothing else. A certificate for `example.com` does not cover `www.example.com`. Pick one name as canonical, set it as `server.host`, and send the other to it at the DNS level: a `CNAME` will not help on its own (it still resolves to this server, which will refuse the name), so use your DNS provider's redirect feature, or handle the second name on a reverse proxy in front of Basil.
+
+If `server.host` is empty, Basil will request a certificate for *any* hostname that reaches it. Do not run like that on the internet — anyone pointing a domain at your IP could trigger requests against your rate limits. Always set `server.host` in production.
+
+### Bringing your own certificate
+
+If you already have a certificate — from a corporate CA, a commercial provider, or a tool like `certbot` or `acme.sh` you run for other services — point Basil at the files:
+
+```yaml
+server:
+  host: example.com
+  port: 443
+https:
+  cert: /etc/ssl/example.com/fullchain.pem
+  key: /etc/ssl/example.com/privkey.pem
+```
+
+`cert` should be the full chain (leaf plus intermediates), PEM-encoded. When `cert` and `key` are set, `auto` is ignored. Basil reads the files once at startup and does not watch them: after renewing them, restart Basil. (`SIGHUP` reloads scripts, not certificates.)
+
+### Self-signed certificates for local HTTPS
+
+To test production mode on your own machine — for example to check passkeys, which need HTTPS — make a throwaway certificate:
 
 ```bash
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem \
@@ -45,19 +143,31 @@ https:
   key: ./key.pem
 ```
 
-**Production (automatic Let's Encrypt):**
+Your browser will warn that the certificate is untrusted; click through, or add it to your system's trust store. Never use a self-signed certificate on a public site.
 
-```yaml
-server:
-  host: example.com          # a real domain pointing at this server
-  port: 443
-https:
-  auto: true
-  email: admin@example.com   # Let's Encrypt expiry notifications
-  cache_dir: ./certs
-```
+### Behind a reverse proxy
 
-Requirements: public DNS pointing at the server, port 80 open (ACME challenges + HTTP→HTTPS redirect), port 443 for traffic. Certificates renew themselves; HTTP/2 is on by default.
+Basil can sit behind Caddy, nginx, or a cloud load balancer that terminates TLS — see [Security](https://herbaceous.net/security.html) for when that makes sense. Two things to know:
+
+- Basil still needs a certificate, because production mode is HTTPS-only. Use a self-signed one (as above) or an origin certificate from your provider; the proxy connects to Basil over HTTPS on an internal port and does not need to trust it.
+- Basil reads `X-Forwarded-For` and `X-Real-IP`, so rate limiting and logs see the real client address. Make sure the proxy sets them.
+
+Leave `auto: true` off in this setup: the proxy holds the public certificate, and Let's Encrypt's challenges would never reach Basil.
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `HTTPS requires either auto: true or cert/key paths` on start | No `https:` section | Add one, or run with `--dev` for local work |
+| `bind: permission denied` on start | Not allowed to open port 80 or 443 | `setcap` as above, or run as root |
+| `bind: address already in use` | Another web server (Apache, nginx, a previous Basil) holds the port | Stop it, or put Basil on another port behind it |
+| First request hangs, then fails with a TLS error | Let's Encrypt could not reach the server | Check DNS resolves to this IP from outside; check ports 80 and 443 are open in every firewall |
+| Log shows `acme: ... urn:ietf:params:acme:error:dns` | DNS not propagated or pointing elsewhere | Wait for propagation; confirm with `dig` |
+| Log shows `urn:ietf:params:acme:error:rateLimited` | Too many certificates requested recently | Stop deleting `certs/`; wait up to a week |
+| `curl: (60) SSL certificate problem` | Hostname in the URL does not match `server.host` | Use the exact configured name; add `www` redirect at DNS |
+| Works for `example.com`, not `www.example.com` | Certificate is for one name only | See [`www` and other names](#www-and-other-names) |
+
+Basil logs ACME errors to standard error. Run it in the foreground while setting up so you can see them.
 
 ## Security Headers
 
