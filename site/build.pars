@@ -47,6 +47,7 @@ let aboutMenu = [{
     links: [
         {href: "index.html", title: "Home"},
         {href: "get-started.html", title: "Get Started"},
+        {href: "batteries-included.html", title: "Batteries Included"},
         {href: "performance.html", title: "Performance"},
         {href: "security.html", title: "Security"},
         {href: "why.html", title: "Why?"},
