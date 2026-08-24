@@ -143,3 +143,20 @@ func TestValidationErrorString(t *testing.T) {
 		t.Errorf("String() = %q, want %q", got, want)
 	}
 }
+
+// A release root that cannot be walked at all means NOTHING was validated —
+// that must surface as a real error labelled with the release directory,
+// not disappear or masquerade as a per-file problem.
+func TestValidateUnwalkableReleaseRoot(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "no-such-release")
+	errs := Validate(dir)
+	found := false
+	for _, e := range errs {
+		if e.File == dir && strings.Contains(e.Message, "walking the release") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("Validate on an unwalkable root returned %v, want a walking-the-release error labelled %q", errs, dir)
+	}
+}

@@ -26,8 +26,18 @@ type usageError struct{ err error }
 func (e *usageError) Error() string { return e.err.Error() }
 func (e *usageError) Unwrap() error { return e.err }
 
+// hookFailedError marks a deploy that activated its release but whose
+// post-deploy hook failed: the site changed, so exit 0 would hide the hook
+// failure from scripts and exit 1 would claim the deploy itself failed.
+// Exit 3 says both truths at once.
+type hookFailedError struct{ msg string }
+
+func (e *hookFailedError) Error() string { return e.msg }
+
 // exitCode maps run()'s error to the process exit code: 0 success, 2 usage,
-// 1 everything else.
+// 3 deployed-but-hook-failed, 1 everything else. A RecordFailedError (the
+// release is live but the deploy record was not written) stays exit 1: an
+// unwritable record is the more urgent problem and must not be softened.
 func exitCode(err error) int {
 	if err == nil {
 		return 0
@@ -35,6 +45,10 @@ func exitCode(err error) int {
 	var ue *usageError
 	if errors.As(err, &ue) {
 		return 2
+	}
+	var he *hookFailedError
+	if errors.As(err, &he) {
+		return 3
 	}
 	return 1
 }
@@ -171,6 +185,13 @@ func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 	if res.Outcome == deploy.OutcomeDeployed {
 		fmt.Fprintf(stdout, "Live: %s\n", shortRelease(res.CommitSHA))
 	}
+	if res.Reason != "" {
+		// The engine already reported the hook failure loudly (DEPLOY
+		// WARNING + rollback advice). This error only changes the exit
+		// code: the release is live, but scripts must see that the hook
+		// failed.
+		return &hookFailedError{msg: fmt.Sprintf("release %s is live, but the post-deploy hook failed (see above)", shortRelease(res.CommitSHA))}
+	}
 	return nil
 }
 
@@ -301,7 +322,9 @@ func runReleasesCommand(args []string, stdout, stderr io.Writer, getenv func(str
 			marker, e.Seq, shortRelease(e.CommitSHA),
 			e.StartedAt.Local().Format("2006-01-02 15:04"),
 			e.Trigger, clip(e.Publisher, 15), clip(e.AuthorName, 21), e.Outcome)
-		if e.Reason != "" && (e.Outcome == deploy.OutcomeFailed || e.Outcome == deploy.OutcomeRejected) {
+		// Any outcome can carry a reason — a deployed release whose hook
+		// failed most of all — so print it whenever there is one.
+		if e.Reason != "" {
 			fmt.Fprintf(stdout, "       %s\n", clip(e.Reason, 100))
 		}
 	}
@@ -655,12 +678,18 @@ func resolvedPath(p string) string {
 	return filepath.Clean(abs)
 }
 
-// clip shortens a value to fit its table column.
+// clip shortens a value to fit its table column, counting runes rather than
+// bytes so a multi-byte name (author names routinely are) is never cut mid-
+// character.
 func clip(s string, n int) string {
-	if len(s) > n {
-		return s[:n-3] + "..."
+	r := []rune(s)
+	if len(r) <= n {
+		return s
 	}
-	return s
+	if n <= 3 {
+		return string(r[:n])
+	}
+	return string(r[:n-3]) + "..."
 }
 
 func printDeployUsage(w io.Writer) {
@@ -682,6 +711,12 @@ Options:
 
 The running server picks up an activation on its own; deploying with the
 server stopped activates the release for its next start.
+
+Exit codes:
+  0  success
+  1  failure (a failed or rejected deploy leaves the live site unchanged)
+  2  usage error
+  3  deploy only: the release went live but its post-deploy hook failed
 
 Examples:
   basil deploy live --site /srv/mysite

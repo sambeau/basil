@@ -264,7 +264,8 @@ Config Resolution:
   4. ~/.config/basil/basil.yaml
 
 Signals:
-  SIGHUP           Reload scripts (clear cache, re-parse on next request)
+  SIGHUP           Activate the release 'current' points at (site-root layout);
+                   in the legacy layout: reload scripts (clear cache, re-parse)
   SIGINT/SIGTERM   Graceful shutdown
 
 Examples:

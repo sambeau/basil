@@ -12,9 +12,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
+	"github.com/sambeau/basil/server/deploy"
 )
 
 // releaseBranch is the branch a push must move to publish a release
@@ -242,7 +244,17 @@ func runInitCommand(opts initOptions) (err error) {
 	// it was generated alongside cannot be loaded, the operator is left with
 	// a spent key and a tree that --init refuses to re-enter, so the config
 	// is proved first.
-	if err := verifyGeneratedConfig(releaseDir); err != nil {
+	cfg, err := verifyGeneratedConfig(releaseDir)
+	if err != nil {
+		return err
+	}
+
+	// --- deploy record: release 1 is a deploy like any other -------------
+	//
+	// Without this row the record starts empty, so the FIRST
+	// `basil rollback` after the first real deploy refuses with "nothing to
+	// roll back to" even though the starter release is sitting on disk.
+	if err := recordInitialRelease(cfg.DeployDBPath(), repoDir, commit); err != nil {
 		return err
 	}
 
@@ -289,15 +301,47 @@ func resolveAdminName(opts initOptions) (string, error) {
 }
 
 // verifyGeneratedConfig proves the generated basil.yaml parses and validates
-// before --init does anything irreversible.
-func verifyGeneratedConfig(releaseDir string) error {
+// before --init does anything irreversible, and returns the loaded config so
+// the caller can resolve site paths (the deploy record) the same way the
+// server will.
+func verifyGeneratedConfig(releaseDir string) (*config.Config, error) {
 	path := filepath.Join(releaseDir, config.ConfigFileName)
 	cfg, err := config.Load(path, os.Getenv)
 	if err != nil {
-		return fmt.Errorf("the generated %s is not loadable: %w", config.ConfigFileName, err)
+		return nil, fmt.Errorf("the generated %s is not loadable: %w", config.ConfigFileName, err)
 	}
 	if err := config.Validate(cfg); err != nil {
-		return fmt.Errorf("the generated %s is not valid: %w", config.ConfigFileName, err)
+		return nil, fmt.Errorf("the generated %s is not valid: %w", config.ConfigFileName, err)
+	}
+	return cfg, nil
+}
+
+// recordInitialRelease writes release 1 into the deploy record. --init IS
+// the first deploy, and a record that omits it misleads later: rollback's
+// "previous" and `basil releases` both read the record, not releases/.
+// The author comes from the starter commit itself, matching the engine.
+func recordInitialRelease(recordPath, repoDir, commit string) error {
+	start := time.Now()
+	authorName, authorEmail := "", ""
+	if out, err := gitOutput(repoDir, "log", "-1", "--format=%an%x00%ae", commit); err == nil {
+		authorName, authorEmail, _ = strings.Cut(strings.TrimSpace(out), "\x00")
+	}
+	rec, err := deploy.OpenRecord(recordPath)
+	if err != nil {
+		return fmt.Errorf("creating the deploy record: %w", err)
+	}
+	defer rec.Close()
+	if err := rec.Add(deploy.Entry{
+		CommitSHA:   commit,
+		Trigger:     deploy.TriggerInit,
+		Publisher:   "init",
+		AuthorName:  authorName,
+		AuthorEmail: authorEmail,
+		StartedAt:   start,
+		Duration:    time.Since(start),
+		Outcome:     deploy.OutcomeDeployed,
+	}); err != nil {
+		return fmt.Errorf("recording release 1: %w", err)
 	}
 	return nil
 }

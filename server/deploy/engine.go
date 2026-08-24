@@ -238,6 +238,11 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 		Reason:     reason,
 		Duration:   time.Since(start),
 	}
+	// Crash window, documented: between SetCurrent above and this Add, a
+	// crash (power loss, kill -9) leaves the release live but unrecorded. A
+	// later bare `basil rollback` then resolves "previous" from the record
+	// and picks an older release than the operator expects. Accepted for
+	// now — a write-ahead activation row is deliberately deferred.
 	if err := rec.Add(e.entry(sha, author, trigger, start, OutcomeDeployed, reason)); err != nil {
 		// The release IS live; only the bookkeeping failed. Pruning is
 		// skipped too: it leans on the record to know which previous
@@ -278,9 +283,18 @@ func (e *Engine) Rollback(target string) (*Result, error) {
 	}
 	defer rec.Close()
 
+	// Refusals below have no resolved SHA yet, but the record requires one
+	// (Add rejects an empty commit_sha), so they are recorded under the
+	// target as the operator gave it — matching how Deploy records a typo'd
+	// ref — or "rollback" for the bare form.
+	recTarget := target
+	if recTarget == "" {
+		recTarget = "rollback"
+	}
+
 	lock, err := AcquireLock(e.SiteRoot, e.LockWait)
 	if err != nil {
-		return nil, err
+		return nil, e.recordRollbackFailure(rec, recTarget, commitIdentity{}, start, err)
 	}
 	defer lock.Release()
 
@@ -298,7 +312,7 @@ func (e *Engine) Rollback(target string) (*Result, error) {
 		sha, err = resolveReleaseTarget(rec, releasesDir, target)
 	}
 	if err != nil {
-		return nil, err
+		return nil, e.recordRollbackFailure(rec, recTarget, commitIdentity{}, start, err)
 	}
 
 	// The author on a rollback entry is the author of the commit being
@@ -372,13 +386,16 @@ func resolveReleaseTarget(rec *Record, releasesDir, target string) (string, erro
 		return "", err
 	}
 
-	if seq, err := strconv.ParseInt(target, 10, 64); err == nil {
+	seq, seqErr := strconv.ParseInt(target, 10, 64)
+	if seqErr == nil {
 		for _, entry := range entries {
 			if entry.Seq == seq {
 				return entry.CommitSHA, nil
 			}
 		}
-		return "", fmt.Errorf("no deploy #%d in the record", seq)
+		// Not a recorded sequence number — but an all-digit target may
+		// still be a perfectly good SHA prefix (hex has ten digits), so
+		// fall through to prefix matching rather than refusing here.
 	}
 
 	candidates := map[string]bool{}
@@ -403,6 +420,9 @@ func resolveReleaseTarget(rec *Record, releasesDir, target string) (string, erro
 	case 1:
 		return matches[0], nil
 	case 0:
+		if seqErr == nil {
+			return "", fmt.Errorf("no deploy #%d in the record and no release SHA starts with %q (see basil releases)", seq, target)
+		}
 		return "", fmt.Errorf("no release matches %q (see basil releases)", target)
 	default:
 		return "", fmt.Errorf("%q is ambiguous: it matches %d releases (see basil releases)", target, len(matches))
@@ -454,6 +474,18 @@ func runHook(path string) error {
 
 	env := evaluator.NewEnvironmentWithArgs(nil)
 	env.Filename = path
+	// EXPLICIT security policy, deliberately permissive: the hook is
+	// operator-triggered code (basil deploy at a shell), so it may exec and
+	// write, the same stance `pars <script>` takes for a script run by hand.
+	// A nil policy would behave the same today only by accident — cmd/pars
+	// always builds a policy and a nil one skips the exec check entirely —
+	// so the decision is written down here where it can be seen. FEAT-154's
+	// push trigger runs hooks on behalf of remote users and MUST revisit
+	// this policy before reusing runHook.
+	env.Security = &evaluator.SecurityPolicy{
+		AllowWriteAll:   true,
+		AllowExecuteAll: true,
+	}
 	result := evaluator.Eval(program, env)
 	if errObj, ok := result.(*evaluator.Error); ok {
 		if errObj.Line > 0 {

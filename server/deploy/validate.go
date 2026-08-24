@@ -62,6 +62,13 @@ func Validate(releaseDir string) []ValidationError {
 
 	walkErr := filepath.WalkDir(releaseDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// The release root itself failing means NOTHING was validated:
+			// propagate it as a real walk error rather than one mislabelled
+			// per-file entry. Errors below the root are collected and the
+			// walk continues, so a rejection names everything wrong.
+			if path == releaseDir {
+				return err
+			}
 			errs = append(errs, ValidationError{
 				File:    relOrSelf(releaseDir, path),
 				Message: err.Error(),
@@ -79,7 +86,7 @@ func Validate(releaseDir string) []ValidationError {
 	})
 	if walkErr != nil {
 		errs = append(errs, ValidationError{
-			File:    config.ReleasesDirName,
+			File:    releaseDir,
 			Message: fmt.Sprintf("walking the release: %v", walkErr),
 		})
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/sambeau/basil/server/config"
+	"github.com/sambeau/basil/server/deploy"
 )
 
 // requireGit skips a test on a machine with no git. `basil --init` needs it:
@@ -635,4 +636,43 @@ func TestInitCommand_RootRefusesATamperableTarget(t *testing.T) {
 			t.Fatalf("the non-root path should be unchanged: %v", err)
 		}
 	})
+}
+
+// --init IS the first deploy, so release 1 must be in the deploy record.
+// The observable consequence of omitting it: the FIRST `basil rollback`
+// after the first real deploy refuses with "nothing to roll back to" even
+// though the starter release is on disk.
+func TestInitCommand_RecordsRelease1AndFirstRollbackWorks(t *testing.T) {
+	f := newDeployFixture(t)
+	starter := f.currentSHA(t)
+
+	// The record already holds release 1, written by --init.
+	entries := f.recordEntries(t)
+	if len(entries) != 1 {
+		t.Fatalf("record has %d entries after --init, want 1", len(entries))
+	}
+	e := entries[0]
+	if e.CommitSHA != starter || e.Outcome != deploy.OutcomeDeployed {
+		t.Errorf("release 1 entry = %s/%s, want %s/%s", e.CommitSHA, e.Outcome, starter, deploy.OutcomeDeployed)
+	}
+	if e.Trigger != deploy.TriggerInit || e.Publisher != "init" {
+		t.Errorf("identity: trigger=%q publisher=%q, want init/init", e.Trigger, e.Publisher)
+	}
+	if e.AuthorName != "Basil" {
+		t.Errorf("author = %q, want the starter commit's author", e.AuthorName)
+	}
+
+	// Deploy a real release, then roll back: rollback must find release 1.
+	sha2 := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	var out bytes.Buffer
+	if err := runDeployCommand([]string{"--site", f.root, sha2}, &out, &out, emptyEnv); err != nil {
+		t.Fatalf("deploy v2: %v\n%s", err, out.String())
+	}
+	var stdout, stderr bytes.Buffer
+	if err := runRollbackCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv); err != nil {
+		t.Fatalf("the first rollback must find --init's release 1: %v\nstderr: %s", err, stderr.String())
+	}
+	if got := f.currentSHA(t); got != starter {
+		t.Errorf("current points at %s, want the starter release %s", got, starter)
+	}
 }

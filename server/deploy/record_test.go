@@ -118,12 +118,12 @@ func TestLastDeployedSkipsEverythingThatDidNotActivate(t *testing.T) {
 	}
 	defer rec.Close()
 
-	last, err := rec.LastDeployed()
+	last, err := rec.lastDeployed()
 	if err != nil {
-		t.Fatalf("LastDeployed on empty record: %v", err)
+		t.Fatalf("lastDeployed on empty record: %v", err)
 	}
 	if last != nil {
-		t.Fatalf("LastDeployed on empty record = %+v, want nil", last)
+		t.Fatalf("lastDeployed on empty record = %+v, want nil", last)
 	}
 
 	for _, outcome := range []string{OutcomeRejected, OutcomeFailed, OutcomeNoOp} {
@@ -131,8 +131,8 @@ func TestLastDeployedSkipsEverythingThatDidNotActivate(t *testing.T) {
 			t.Fatalf("Add(%s): %v", outcome, err)
 		}
 	}
-	if last, err = rec.LastDeployed(); err != nil || last != nil {
-		t.Fatalf("LastDeployed with only non-activations = %+v, %v; want nil, nil", last, err)
+	if last, err = rec.lastDeployed(); err != nil || last != nil {
+		t.Fatalf("lastDeployed with only non-activations = %+v, %v; want nil, nil", last, err)
 	}
 
 	if err := rec.Add(testEntry("aaa", OutcomeDeployed)); err != nil {
@@ -141,12 +141,12 @@ func TestLastDeployedSkipsEverythingThatDidNotActivate(t *testing.T) {
 	if err := rec.Add(testEntry("zzz", OutcomeFailed)); err != nil {
 		t.Fatal(err)
 	}
-	last, err = rec.LastDeployed()
+	last, err = rec.lastDeployed()
 	if err != nil {
-		t.Fatalf("LastDeployed: %v", err)
+		t.Fatalf("lastDeployed: %v", err)
 	}
 	if last == nil || last.CommitSHA != "aaa" {
-		t.Fatalf("LastDeployed = %+v, want the deployed aaa, not the failed zzz", last)
+		t.Fatalf("lastDeployed = %+v, want the deployed aaa, not the failed zzz", last)
 	}
 
 	// A rollback activates a release too: it must be what the next rollback
@@ -154,12 +154,12 @@ func TestLastDeployedSkipsEverythingThatDidNotActivate(t *testing.T) {
 	if err := rec.Add(testEntry("bbb", OutcomeRolledBack)); err != nil {
 		t.Fatal(err)
 	}
-	last, err = rec.LastDeployed()
+	last, err = rec.lastDeployed()
 	if err != nil {
-		t.Fatalf("LastDeployed: %v", err)
+		t.Fatalf("lastDeployed: %v", err)
 	}
 	if last == nil || last.CommitSHA != "bbb" {
-		t.Fatalf("LastDeployed = %+v, want the rolled-back-to bbb", last)
+		t.Fatalf("lastDeployed = %+v, want the rolled-back-to bbb", last)
 	}
 }
 
@@ -208,5 +208,37 @@ func TestOpenRecordFailsWhenThePathIsUnusable(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "deploy record") {
 		t.Errorf("the error does not say what failed: %v", err)
+	}
+}
+
+// A corrupt started_at must not vanish silently: the entry keeps the zero
+// time (visibly wrong beats plausibly wrong) and the raw string surfaces in
+// Reason, where basil releases prints it.
+func TestScanEntrySurfacesCorruptStartedAt(t *testing.T) {
+	rec, err := OpenRecord(filepath.Join(t.TempDir(), "deploy.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Close()
+	if err := rec.Add(testEntry("aaa", OutcomeDeployed)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rec.db.Exec(`UPDATE deploys SET started_at = 'last tuesday'`); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := rec.List(0)
+	if err != nil {
+		t.Fatalf("List over a corrupt timestamp: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("got %d entries, want 1", len(entries))
+	}
+	e := entries[0]
+	if !e.StartedAt.IsZero() {
+		t.Errorf("StartedAt = %v, want the zero time for a corrupt value", e.StartedAt)
+	}
+	if !strings.Contains(e.Reason, `"last tuesday"`) || !strings.Contains(e.Reason, "started_at") {
+		t.Errorf("Reason = %q, want it to carry the raw started_at string", e.Reason)
 	}
 }

@@ -43,7 +43,9 @@ type Lock struct {
 // The lock is a kernel file lock, so a deploy that crashes - or is
 // kill -9ed - releases it on process exit and can never wedge future
 // deploys. The lock file itself is never deleted; only the lock on it
-// matters.
+// matters. Kernel file locks are only reliable on a local filesystem: on
+// NFS or SMB mounts they may not actually exclude, so the site root must
+// live on local disk.
 func AcquireLock(siteRoot string, wait time.Duration) (*Lock, error) {
 	path := filepath.Join(siteRoot, LockFileName)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)

@@ -16,6 +16,7 @@ const (
 	TriggerCLI      = "cli"
 	TriggerHook     = "hook"
 	TriggerRollback = "rollback"
+	TriggerInit     = "init" // release 1, deployed by basil --init
 )
 
 // Outcome labels. Stored as TEXT, not an enum: the record must be able to
@@ -89,7 +90,11 @@ func OpenRecord(path string) (*Record, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite", path)
+	// The pragmas ride in the DSN (the initSQLite form) so that ANY
+	// connection the pool opens carries them — database/sql may replace a
+	// broken connection at any time, and a replacement opened from a bare
+	// path would silently lose the busy timeout and WAL mode.
+	db, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		return nil, fmt.Errorf("opening deploy record: %w", err)
 	}
@@ -99,6 +104,8 @@ func OpenRecord(path string) (*Record, error) {
 	// a lock of its own, so two processes (or two racing deploys) opening
 	// the record together fail with SQLITE_BUSY unless the timeout is
 	// already in force. One connection is no loss for an append-only log.
+	// The explicit Execs below also surface pragma failures loudly, which
+	// the DSN form does not.
 	db.SetMaxOpenConns(1)
 	for _, pragma := range []string{
 		"PRAGMA busy_timeout=5000",
@@ -170,11 +177,13 @@ func (r *Record) List(limit int) ([]Entry, error) {
 	return entries, rows.Err()
 }
 
-// LastDeployed returns the most recent entry that successfully activated a
+// lastDeployed returns the most recent entry that successfully activated a
 // release - a deploy or a rollback - skipping rejections, failures and
-// no-ops. This is what rollback rolls back to. Returns (nil, nil) when
-// nothing has ever been activated.
-func (r *Record) LastDeployed() (*Entry, error) {
+// no-ops. Returns (nil, nil) when nothing has ever been activated.
+// Unexported: nothing outside the package uses it (rollback's "previous"
+// needs the extra not-currently-live filter, which previousDeployedSHA
+// applies over List); export it again when a real caller appears.
+func (r *Record) lastDeployed() (*Entry, error) {
 	row := r.db.QueryRow(
 		`SELECT seq, commit_sha, "trigger", publisher, author_name, author_email, started_at, duration_ms, outcome, reason
 		 FROM deploys WHERE outcome IN (?, ?) ORDER BY seq DESC LIMIT 1`,
@@ -219,6 +228,16 @@ func scanEntry(s scanner) (Entry, error) {
 	}
 	if t, perr := time.Parse(time.RFC3339Nano, startedAt); perr == nil {
 		e.StartedAt = t
+	} else {
+		// A corrupt timestamp must not vanish silently: keep the zero time
+		// (so displays are visibly wrong, not plausibly wrong) and carry the
+		// raw string in Reason, where basil releases will print it.
+		note := fmt.Sprintf("[record: unparseable started_at %q]", startedAt)
+		if e.Reason == "" {
+			e.Reason = note
+		} else {
+			e.Reason += " " + note
+		}
 	}
 	e.Duration = time.Duration(durationMS) * time.Millisecond
 	return e, nil

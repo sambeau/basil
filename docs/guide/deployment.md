@@ -57,7 +57,9 @@ One deploy runs the whole pipeline:
 
 1. **Resolve** — the branch, tag or SHA resolves to a single commit.
 2. **Lock** — one deploy at a time per site. A concurrent deploy waits up to
-   30 seconds for the lock, then is refused cleanly.
+   30 seconds for the lock, then is refused cleanly. The lock is a kernel
+   file lock, which is only reliable on a local filesystem: keep the site
+   root on local disk, not on an NFS or SMB mount.
 3. **Materialise** — the commit is extracted into `releases/<sha>/`, with no
    `.git` inside. A directory that already exists for that commit is reused
    as-is.

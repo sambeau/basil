@@ -287,7 +287,7 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 	// Publish the initial serving surface. From here on the mux, config and
 	// bundle are only replaced through SwapRelease, which stores a new state
 	// atomically.
-	s.serving.Store(&serveState{mux: s.mux, release: cfg.ReleaseDir, config: cfg, assetBundle: s.assetBundle})
+	s.serving.Store(&serveState{mux: s.mux, config: cfg, assetBundle: s.assetBundle})
 
 	return s, nil
 }
@@ -1191,7 +1191,13 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			s.logError("failed to create watcher: %v", err)
 		} else {
+			// SwapRelease reads s.watcher under swapMu, and a SIGHUP (or a
+			// deploy noticed by the current-link watcher) can trigger a swap
+			// before Run reaches this line — so the write takes the same
+			// lock, or it races with that read.
+			s.swapMu.Lock()
 			s.watcher = watcher
+			s.swapMu.Unlock()
 			if err := s.watcher.Start(ctx); err != nil {
 				s.logError("failed to start watcher: %v", err)
 			}

@@ -592,3 +592,108 @@ func TestDeployPrunesOldReleases(t *testing.T) {
 		t.Errorf("current points at %q", got)
 	}
 }
+
+// A rollback that is refused before anything happens is still history: the
+// record must answer "someone tried to roll back and was refused", the same
+// way Deploy records a typo'd ref. With no resolved SHA to record, the
+// refusal is recorded under the target as given ("rollback" for the bare
+// form).
+func TestRollbackRefusalsAreRecorded(t *testing.T) {
+	f := newEngineFixture(t)
+	e := f.engine(nil)
+	if _, err := e.Deploy(f.good1); err != nil {
+		t.Fatal(err)
+	}
+
+	// Bare rollback with nothing previous to roll back to.
+	if _, err := e.Rollback(""); err == nil {
+		t.Fatal("rollback with no previous release did not fail")
+	}
+	newest := recordEntries(t, e)[0]
+	if newest.Outcome != OutcomeFailed || newest.Trigger != TriggerRollback {
+		t.Errorf("bare-rollback refusal not recorded: %+v", newest)
+	}
+	if newest.CommitSHA != "rollback" {
+		t.Errorf("bare-rollback refusal recorded as %q, want %q", newest.CommitSHA, "rollback")
+	}
+	if !strings.Contains(newest.Reason, "nothing to roll back") {
+		t.Errorf("refusal reason not recorded: %q", newest.Reason)
+	}
+
+	// An unresolvable target is recorded under the target as given.
+	if _, err := e.Rollback("zzzz"); err == nil {
+		t.Fatal("rollback to an unresolvable target did not fail")
+	}
+	newest = recordEntries(t, e)[0]
+	if newest.Outcome != OutcomeFailed || newest.Trigger != TriggerRollback || newest.CommitSHA != "zzzz" {
+		t.Errorf("unresolvable-target refusal not recorded: %+v", newest)
+	}
+}
+
+// An all-digit rollback target that is not a recorded sequence number must
+// fall through to SHA-prefix matching: hex has ten digits, so plenty of
+// perfectly good SHA prefixes are all digits.
+func TestResolveReleaseTargetAllDigitPrefix(t *testing.T) {
+	rec, err := OpenRecord(filepath.Join(t.TempDir(), "deploy.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Close()
+
+	sha1 := "1234567" + strings.Repeat("a", 33) // seq 1
+	sha2 := "89abcde" + strings.Repeat("b", 33) // seq 2
+	for _, sha := range []string{sha1, sha2} {
+		if err := rec.Add(Entry{CommitSHA: sha, Trigger: TriggerCLI, StartedAt: time.Now(), Outcome: OutcomeDeployed}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	releasesDir := t.TempDir()
+
+	// No deploy #1234 exists, so the target resolves as a SHA prefix.
+	got, err := resolveReleaseTarget(rec, releasesDir, "1234")
+	if err != nil || got != sha1 {
+		t.Errorf("resolveReleaseTarget(1234) = %q, %v; want the sha with that prefix", got, err)
+	}
+	// A real sequence number still wins, even though no SHA starts with 2.
+	got, err = resolveReleaseTarget(rec, releasesDir, "2")
+	if err != nil || got != sha2 {
+		t.Errorf("resolveReleaseTarget(2) = %q, %v; want deploy #2's sha", got, err)
+	}
+	// Neither a sequence number nor a prefix: the error names both readings.
+	if _, err := resolveReleaseTarget(rec, releasesDir, "77"); err == nil || !strings.Contains(err.Error(), "no deploy #77") {
+		t.Errorf("resolveReleaseTarget(77) err = %v, want a refusal naming both interpretations", err)
+	}
+}
+
+// A successful hook's side effects land inside the release: runHook sets no
+// RootPath, so a relative @./ path in deploy.pars resolves against the
+// script's own directory, and deploy.pars lives in the release root. That is
+// the idiom the hook docs use, so it gets pinned here.
+func TestDeployHookSuccessSideEffect(t *testing.T) {
+	f := newEngineFixture(t)
+
+	// Add a release whose hook writes a marker file next to itself.
+	hook := "\"hook ran\" ==> text(@./out.txt)\n"
+	if err := os.WriteFile(filepath.Join(f.repo, HookFileName), []byte(hook), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, f.repo, "add", "-A")
+	runTestGit(t, f.repo, "commit", "-m", "working hook")
+	sha := runTestGit(t, f.repo, "rev-parse", "HEAD")
+
+	e := f.engine(nil)
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("deploying a release with a working hook: %v", err)
+	}
+	if res.Reason != "" {
+		t.Errorf("successful hook left a reason: %q", res.Reason)
+	}
+	data, err := os.ReadFile(filepath.Join(res.ReleaseDir, "out.txt"))
+	if err != nil {
+		t.Fatalf("hook side effect missing from the release root: %v", err)
+	}
+	if !strings.Contains(string(data), "hook ran") {
+		t.Errorf("hook wrote %q, want it to contain %q", data, "hook ran")
+	}
+}

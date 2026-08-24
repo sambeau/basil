@@ -31,7 +31,6 @@ import (
 // under swapMu, which request-path readers never take.
 type serveState struct {
 	mux         *http.ServeMux
-	release     string // ReleaseDir this mux was built against ("" in tests without one)
 	config      *config.Config
 	assetBundle *AssetBundle
 }
@@ -159,7 +158,7 @@ func (s *Server) SwapRelease() error {
 	s.imageRegistry.Clear()
 	evaluator.ClearModuleCache()
 
-	s.serving.Store(&serveState{mux: s.mux, release: releaseDir, config: newCfg, assetBundle: newBundle})
+	s.serving.Store(&serveState{mux: s.mux, config: newCfg, assetBundle: newBundle})
 	s.logInfo("activated release %s", filepath.Base(releaseDir))
 
 	// Trigger browser reload if the dev watcher is active.

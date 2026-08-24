@@ -164,7 +164,7 @@ basil apikey revoke <id>     # Revoke an API key
 
 | Signal | Effect |
 |--------|--------|
-| `SIGHUP` | Reload scripts (clear cache, re-parse on next request) |
+| `SIGHUP` | Activate the release `current` points at — a full route/cache rebuild (in the legacy single-directory layout: reload scripts, clear cache, re-parse on next request) |
 
 ## See Also
 

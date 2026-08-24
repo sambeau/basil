@@ -126,9 +126,10 @@ func TestDeployCommand_EndToEnd(t *testing.T) {
 		t.Errorf("no Live: line on stdout:\n%s", out)
 	}
 
+	// Two entries: release 1 written by --init, then this deploy.
 	entries := f.recordEntries(t)
-	if len(entries) != 1 {
-		t.Fatalf("record has %d entries, want 1", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("record has %d entries, want 2 (init + this deploy)", len(entries))
 	}
 	e := entries[0]
 	if e.CommitSHA != sha || e.Outcome != deploy.OutcomeDeployed {
@@ -175,8 +176,9 @@ func TestDeployCommand_BrokenCommitIsRejected(t *testing.T) {
 		t.Error("the rejected release directory was left on disk")
 	}
 
+	// Newest entry is the rejection; the one below it is --init's release 1.
 	entries := f.recordEntries(t)
-	if len(entries) != 1 || entries[0].Outcome != deploy.OutcomeRejected {
+	if len(entries) != 2 || entries[0].Outcome != deploy.OutcomeRejected {
 		t.Errorf("the rejection was not recorded: %+v", entries)
 	}
 }
@@ -296,6 +298,13 @@ func TestReleasesCommand_TableWithLiveMarker(t *testing.T) {
 func TestReleasesCommand_EmptyRecord(t *testing.T) {
 	f := newDeployFixture(t)
 
+	// --init writes release 1 into the record; remove the database to get a
+	// genuinely recordless site (e.g. a hand-built layout).
+	dbPath := filepath.Join(f.root, "data", "deploy.db")
+	if err := os.Remove(dbPath); err != nil {
+		t.Fatal(err)
+	}
+
 	var stdout, stderr bytes.Buffer
 	err := runReleasesCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv)
 	if err != nil {
@@ -305,7 +314,7 @@ func TestReleasesCommand_EmptyRecord(t *testing.T) {
 		t.Errorf("no friendly empty message:\n%s", stdout.String())
 	}
 	// Reading must not create the database.
-	if _, statErr := os.Stat(filepath.Join(f.root, "data", "deploy.db")); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(dbPath); !os.IsNotExist(statErr) {
 		t.Error("basil releases created the deploy record database")
 	}
 }
@@ -468,8 +477,9 @@ func TestRun_DispatchesDeploySubcommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run dispatch failed: %v", err)
 	}
-	if !strings.Contains(stdout.String(), "No deploys recorded yet") {
-		t.Errorf("releases did not run:\n%s", stdout.String())
+	// A fresh --init site already has release 1 in its record.
+	if !strings.Contains(stdout.String(), deploy.TriggerInit) || !strings.Contains(stdout.String(), "SEQ") {
+		t.Errorf("releases did not run (or release 1 is missing):\n%s", stdout.String())
 	}
 }
 
@@ -482,5 +492,67 @@ func TestExitCode(t *testing.T) {
 	}
 	if got := exitCode(&usageError{err: os.ErrInvalid}); got != 2 {
 		t.Errorf("exitCode(usage error) = %d, want 2", got)
+	}
+	if got := exitCode(&hookFailedError{msg: "hook failed"}); got != 3 {
+		t.Errorf("exitCode(hook failure) = %d, want 3", got)
+	}
+}
+
+// A deploy whose release went live but whose post-deploy hook failed exits 3:
+// 0 would hide the failure from scripts, 1 would claim the deploy failed.
+func TestDeployCommand_HookFailureExitsThree(t *testing.T) {
+	f := newDeployFixture(t)
+	sha := f.commitAndPush(t, "deploy.pars", "fail(\"deliberate hook failure\")\n", "failing hook")
+
+	var stdout, stderr bytes.Buffer
+	err := runDeployCommand([]string{"--site", f.root, sha}, &stdout, &stderr, emptyEnv)
+	if err == nil {
+		t.Fatal("a hook failure must surface in the exit code")
+	}
+	if code := exitCode(err); code != 3 {
+		t.Errorf("exit code = %d, want 3", code)
+	}
+
+	// The release IS live — the exit code flags the hook, not the deploy.
+	if got := f.currentSHA(t); got != sha {
+		t.Errorf("current points at %s, want %s: a failed hook must not roll back", got, sha)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Live: "+sha[:12]) {
+		t.Errorf("no Live: line on stdout:\n%s", out)
+	}
+	if !strings.Contains(out, "DEPLOY WARNING") {
+		t.Errorf("hook failure was not reported loudly:\n%s", out)
+	}
+
+	// basil releases shows the hook-failure reason on the deployed row too,
+	// not only on failed/rejected rows.
+	var table, tableErr bytes.Buffer
+	if err := runReleasesCommand([]string{"--site", f.root}, &table, &tableErr, emptyEnv); err != nil {
+		t.Fatalf("releases: %v", err)
+	}
+	if !strings.Contains(table.String(), "deliberate hook failure") {
+		t.Errorf("releases hides the deployed row's hook-failure reason:\n%s", table.String())
+	}
+}
+
+// clip counts runes, not bytes: a multi-byte name must never be cut
+// mid-character.
+func TestClipRuneSafe(t *testing.T) {
+	cases := []struct {
+		in   string
+		n    int
+		want string
+	}{
+		{"short", 10, "short"},
+		{"exactly-ten", 11, "exactly-ten"},
+		{"héllo wörld", 8, "héllo..."},
+		{"日本語日本語", 5, "日本..."},
+		{"日本語", 2, "日本"}, // n <= 3: no room for an ellipsis
+	}
+	for _, c := range cases {
+		if got := clip(c.in, c.n); got != c.want {
+			t.Errorf("clip(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
+		}
 	}
 }
