@@ -94,6 +94,11 @@ it is reacting to.
       config file
 - [ ] Basil refuses to serve Git when no auth database exists — promoted from an incidental
       check (`server.go:571`) to a stated guarantee with a test
+- [ ] The URL username is ignored — only the API key authenticates
+      (`server/git.go:122-129`). This is existing behaviour; the requirement here is that
+      it is **documented explicitly** rather than left to be discovered, along with the
+      advice to use the real account name anyway so the credential helper, which keys on
+      *(host, username)*, can hold two accounts for one host
 - [ ] Any authenticated user may clone and fetch
 - [ ] `editor` or `admin` may push, including moving the release branch
 - [ ] A rejected role check explains which role is required
@@ -201,6 +206,15 @@ Project checklist (`CLAUDE.md`) plus:
       certificate obtains one and is then clonable, end to end
 - [ ] Force-push and release-branch deletion verified refused
 - [ ] `docs/guide/git.md` rewritten and accurate — every command in it actually run
+- [ ] Docs distinguish the **URL username** (selects a stored credential) from
+      `user.name`/`user.email` (commit authorship). These are unrelated and conflating them
+      is the likeliest confusion in the design
+- [ ] Docs cover **credential storage per platform**, and state that
+      `credential.helper store` writes the API key in plaintext to `~/.git-credentials`.
+      Linux frequently has no helper configured, so this is the most likely way a key leaks
+      in practice — recommend `libsecret`
+- [ ] Troubleshooting covers a stale cached credential (`git credential reject`), which
+      otherwise fails 401 forever and never re-prompts
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
 - [ ] FEAT-035 marked superseded, with a pointer to this spec
 - [ ] Merged to `main` and pushed; worktree and branch removed

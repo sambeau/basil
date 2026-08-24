@@ -109,6 +109,8 @@ today depends on where the operator happened to be standing when they started th
 - [ ] Produces a site that deploys with **no configuration step at all** — no `basil.yaml`
       edit is required between `--init` and a working push
 - [ ] Prints the layout it created, as it does today
+- [ ] Prints the **exact clone command**, with the hostname and account name already in it,
+      so nobody has to reason about Git URL usernames on day one
 
 ### Migration
 

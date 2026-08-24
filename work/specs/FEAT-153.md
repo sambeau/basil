@@ -47,7 +47,11 @@ check with no build server, and it is the strongest single argument for the whol
 - [ ] `activate` — `current` is re-pointed and the running server's release path updated
 - [ ] `hook` — if `deploy.pars` exists in the release root it runs after activation.
       **Convention, not configuration**, matching `index.pars` / `{folder}.pars` (FEAT-040)
-- [ ] `record` — commit, author, timestamp, duration and outcome are stored
+- [ ] `record` — commit, timestamp, duration and outcome are stored, plus **both
+      identities**: the Basil account that published (from the API key) and the commit
+      author (from `user.name` / `user.email`). They routinely differ — someone merges and
+      publishes a colleague's work — and storing only one makes the record useless for the
+      question it did not store (`DESIGN-git-deploy.md` §5.2.4)
 - [ ] `prune` — releases beyond `deploy.keep` (default 5) are removed, never the active one
 
 ### Failure behaviour
@@ -70,7 +74,8 @@ check with no build server, and it is the strongest single argument for the whol
 
 - [ ] `basil deploy <sha|branch|tag>` — run the pipeline for a commit already in the repo
 - [ ] `basil rollback [id]` — re-activate the previous release, or a named one
-- [ ] `basil releases` — the deploy record: id, commit, when, who, outcome, which is live
+- [ ] `basil releases` — the deploy record: id, commit, when, published-by, authored-by,
+      outcome, which is live
 - [ ] `basil status` — what is live, and whether the release branch is ahead of it
 - [ ] `basil check` — verify bootstrap preconditions and report each plainly: the hostname
       resolves to this machine, port 80 is reachable, a certificate is present or

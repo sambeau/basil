@@ -48,6 +48,8 @@ basil publish       →  checked, then live.
 | D16 | **A public server refuses to start without `server.host`.** | Prevents `autocert` issuing for any hostname in SNI. §5.1.2. |
 | D17 | **The admin account name is supplied, never inferred from the environment.** | `--init` usually runs as root; `$USER` would be wrong exactly where it matters. §5.1.4. |
 | D18 | **`--init` run as root hands the created tree to the account that will run the server.** | Otherwise every write fails on first request. §5.1.5. |
+| D19 | **The URL username is ignored; the API key is the identity.** Documented explicitly, and `--init` prints the exact clone command. | §5.2.3. |
+| D20 | **The deploy record stores both the publisher and the commit author.** | They routinely differ. §5.2.4. |
 | D5 | **Full code/state split, done now.** Releases are directories; activation is a swap. | No installed base to migrate, so no reason to defer. |
 | D6 | **Rollback is a first-class operation.** | Previous releases retained. |
 | D7 | **Deploys are recorded.** | CLI-visible; feeds a future UI. |
@@ -288,6 +290,83 @@ Password: <paste the API key>     # OS keychain remembers it
 
 Any number of machines and any number of developers do this. Nothing about the second one
 is different from the first.
+
+#### 5.2.1 The two things Git calls a username
+
+These are unrelated, and conflating them is the likeliest source of confusion in this
+whole design. Both must be explained in the docs, together, in these terms:
+
+| | Where it lives | What it does |
+| --- | --- | --- |
+| **URL username** — the `sam@` above | `remote.origin.url` in `.git/config` | Selects which stored credential to use. Nothing to do with commits |
+| **`user.name` / `user.email`** | `git config`, global or per-repo | Authorship recorded *inside* commits. Nothing to do with authentication |
+
+A developer with `user.email = sambeau@mac.com` and a Basil account called `sam` has no
+conflict to resolve. The two never meet.
+
+#### 5.2.2 What actually happens on push
+
+1. `git clone https://sam@host/.git` writes that whole URL, `sam@` included, into
+   `.git/config`. It is a property of the clone, not of the machine.
+2. On each push, Git sees a username but no password, and asks the platform credential
+   helper for one matching *(host, username)*.
+3. First time there is nothing stored, so Git prompts. The API key is pasted.
+4. On success the helper stores it — macOS Keychain, Windows Credential Manager,
+   `libsecret` on Linux.
+5. Every subsequent `git push` and `basil publish` is silent.
+
+So yes: **it just works every time, for that clone.** A second clone on another machine
+repeats the one-time prompt.
+
+#### 5.2.3 Basil ignores the URL username — and the docs must say so
+
+Only the API key authenticates. `authenticate()` splits the Basic credential and reads
+`parts[1]`, discarding the username entirely (`server/git.go:122-129`), so
+`https://anything@host/.git` works with a valid key.
+
+That is worth stating plainly rather than leaving people to discover it, and it has two
+practical consequences:
+
+- **Use the real account name anyway.** The credential helper keys on *(host, username)*,
+  so two accounts on the same host — a person and a deploy key, say — need distinct URL
+  usernames or they will fight over one keychain entry. It is free hygiene for a case that
+  is annoying to debug later.
+- **Identity comes from the key, not the URL.** Roles, attribution and the deploy record
+  all resolve through `ValidateAPIKey`. Someone using another person's URL with their own
+  key is themselves, correctly.
+
+`--init` should print the exact clone command, with the right username already in it, so
+nobody has to reason about any of this on day one.
+
+#### 5.2.4 Two identities in the deploy record
+
+It follows that a deploy has two people in it, answering different questions:
+
+- **Who published it** — the Basil account behind the API key.
+- **Who wrote it** — the commit author, from `user.name` / `user.email`.
+
+They routinely differ: someone merges and publishes a colleague's work. The record must
+capture **both**; storing only one makes it useless for the question it is not storing.
+
+#### 5.2.5 Credential storage is not uniform, and one option is plaintext
+
+macOS and Windows ship a secure helper and need no setup. **Linux frequently has none
+configured**, in which case Git either prompts every time or the developer reaches for
+`credential.helper store`, which writes the key **in plaintext** to `~/.git-credentials`.
+
+That is an API key with push rights sitting in a readable file. The docs must recommend
+`libsecret` and say what `store` costs. This is a documentation obligation, not a code
+one — but it is the most likely way a key leaks in practice, so it is not optional.
+
+#### 5.2.6 When a stale credential is cached
+
+The common failure: a wrong or revoked key is in the keychain, so pushes fail 401 forever
+and re-running the command never prompts again. Both the fix and the reason belong in
+troubleshooting:
+
+```bash
+printf 'protocol=https\nhost=mysite.example.com\n' | git credential reject
+```
 
 ### 5.3 The daily loop
 

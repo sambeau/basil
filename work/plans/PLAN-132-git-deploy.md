@@ -155,8 +155,9 @@ Re-point `current`, update the running server's release path, clear the script, 
 and fragment caches. Requests in flight complete against their original release.
 
 ### Task 2.5 — Record and prune
-Deploy record (recommend SQLite in `DataDir`). Prune beyond `deploy.keep`, never the active
-release.
+Deploy record (recommend SQLite in `DataDir`), capturing **both** the publishing Basil
+account (from the API key) and the commit author (from the commit). They routinely differ.
+Prune beyond `deploy.keep`, never the active release.
 
 ### Task 2.6 — Lock
 File lock in the site root. Concurrent trigger waits or refuses cleanly.
@@ -244,6 +245,17 @@ in a push and never rejects. No config key. The server never rewrites code.
 
 ### Task 4.5 — Documentation
 Rewrite `docs/guide/git.md` around the two verbs. Run every command in it.
+
+Three things that must be covered because they are the predictable confusions, not
+optional detail (`DESIGN-git-deploy.md` §5.2):
+
+- The **URL username** (selects a stored credential, ignored by Basil) versus
+  `user.name`/`user.email` (commit authorship). Unrelated; explain them together.
+- **Credential storage per platform**, including that `credential.helper store` writes the
+  API key in plaintext. Linux often has no helper configured, making this the most likely
+  real-world key leak.
+- **Clearing a stale cached credential**, which otherwise fails 401 forever without ever
+  re-prompting.
 
 **Tests**: publish success, rejection, dry-run, `--yes`; confirmation not skippable without
 `--yes`; drift in all four states; pre-commit hook formats on commit; an unformatted push
