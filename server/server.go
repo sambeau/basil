@@ -13,6 +13,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -115,6 +117,14 @@ type Server struct {
 	db            *sql.DB // Database connection (nil if not configured)
 	dbDriver      string  // Database driver name ("sqlite", etc.)
 	rateLimiter   *rateLimiter
+
+	// serving is the atomically-published request entry point. Run's
+	// middleware chain wraps an indirection through this pointer rather than
+	// the mux itself, so SwapRelease can hand new requests a rebuilt mux
+	// while requests already dispatched finish on the handlers they entered.
+	serving atomic.Pointer[serveState]
+	// swapMu serialises SwapRelease: one release activation at a time.
+	swapMu sync.Mutex
 
 	// Session store (cookie-based by default)
 	sessionStore  SessionStore
@@ -274,14 +284,24 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		return nil, fmt.Errorf("setting up routes: %w", err)
 	}
 
+	// Publish the initial serving surface. From here on the mux is only
+	// replaced through SwapRelease, which stores a new state atomically.
+	s.serving.Store(&serveState{mux: s.mux, release: cfg.ReleaseDir})
+
 	return s, nil
 }
 
 // isProtectedPath checks if a URL path matches any protected path prefix.
 // Returns the matching ProtectedPath if found, nil otherwise.
 func (s *Server) isProtectedPath(urlPath string) *config.ProtectedPath {
-	for i := range s.config.Auth.ProtectedPaths {
-		pp := &s.config.Auth.ProtectedPaths[i]
+	return protectedPathIn(s.config, urlPath)
+}
+
+// protectedPathIn is isProtectedPath against an explicit config, for
+// handlers that pinned their config at construction (see SwapRelease).
+func protectedPathIn(cfg *config.Config, urlPath string) *config.ProtectedPath {
+	for i := range cfg.Auth.ProtectedPaths {
+		pp := &cfg.Auth.ProtectedPaths[i]
 		// Match the path exactly or as a prefix
 		// /dashboard matches /dashboard, /dashboard/, /dashboard/anything
 		if urlPath == pp.Path ||
@@ -354,32 +374,38 @@ func (s *Server) cleanupDevTools() {
 
 // initAssetBundle initializes the CSS/JS asset bundle.
 func (s *Server) initAssetBundle() error {
+	s.assetBundle = buildAssetBundle(s.config, s.logWarn)
+	return nil
+}
+
+// buildAssetBundle constructs and fills the CSS/JS asset bundle for a
+// config. It is a function of the config alone so SwapRelease can build the
+// new release's bundle before touching any server state.
+func buildAssetBundle(cfg *config.Config, logWarn func(string, ...any)) *AssetBundle {
 	// Determine handlers directory from routes or site config
-	handlersDir := s.determineHandlersDir()
-	publicDirName := filepath.Base(s.config.PublicDir)
+	handlersDir := determineHandlersDir(cfg)
+	publicDirName := filepath.Base(cfg.PublicDir)
 	if handlersDir == "" {
 		// No routes configured, create empty bundle
-		s.assetBundle = NewAssetBundle("", s.config.Server.Dev, publicDirName)
-		return nil
+		return NewAssetBundle("", cfg.Server.Dev, publicDirName)
 	}
 
-	s.assetBundle = NewAssetBundle(handlersDir, s.config.Server.Dev, publicDirName)
-	if err := s.assetBundle.Rebuild(); err != nil {
+	bundle := NewAssetBundle(handlersDir, cfg.Server.Dev, publicDirName)
+	if err := bundle.Rebuild(); err != nil {
 		// Log warning but don't fail - bundle just won't have content
-		s.logWarn("failed to build asset bundle: %v", err)
+		logWarn("failed to build asset bundle: %v", err)
 	}
-
-	return nil
+	return bundle
 }
 
 // determineHandlersDir finds the handler root directory for asset bundle discovery.
 // In site mode, this is the parent of the site/ directory (the handler root).
 // In route mode, this is the common ancestor of all handler files.
-func (s *Server) determineHandlersDir() string {
+func determineHandlersDir(cfg *config.Config) string {
 	// If using site (filesystem routing), use the parent of the site directory
 	// This allows discovering CSS/JS in components/, public/, etc. at handler root level
-	if s.config.Site.Path != "" {
-		dir := filepath.Dir(s.config.Site.Path)
+	if cfg.Site.Path != "" {
+		dir := filepath.Dir(cfg.Site.Path)
 		// Resolve symlinks to ensure WalkDir can traverse the actual directory
 		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
 			return resolved
@@ -388,15 +414,15 @@ func (s *Server) determineHandlersDir() string {
 	}
 
 	// Otherwise, find common parent of all route handlers
-	if len(s.config.Routes) == 0 {
+	if len(cfg.Routes) == 0 {
 		return ""
 	}
 
 	// Get directory of first handler
-	commonDir := filepath.Dir(s.config.Routes[0].Handler)
+	commonDir := filepath.Dir(cfg.Routes[0].Handler)
 
 	// Find common ancestor with all other handlers
-	for _, route := range s.config.Routes[1:] {
+	for _, route := range cfg.Routes[1:] {
 		handlerDir := filepath.Dir(route.Handler)
 		commonDir = commonAncestor(commonDir, handlerDir)
 	}
@@ -776,7 +802,14 @@ func (s *Server) setupRoutes() error {
 		if isAPI {
 			handler, err = newAPIHandler(s, route, s.scriptCache)
 		} else {
-			handler, err = newParsleyHandler(s, route, s.scriptCache)
+			var ph *parsleyHandler
+			ph, err = newParsleyHandler(s, route, s.scriptCache)
+			if ph != nil {
+				// Pin the release being set up (see SwapRelease).
+				ph.cfg = s.config
+				ph.assetBundle = s.assetBundle
+				handler = ph
+			}
 		}
 		if err != nil {
 			return fmt.Errorf("creating handler for %s: %w", route.Path, err)
@@ -1050,6 +1083,9 @@ func (s *Server) createRootHandler() http.Handler {
 	if rootRoute != nil {
 		handler, err := newParsleyHandler(s, *rootRoute, s.scriptCache)
 		if err == nil {
+			// Pin the release being set up (see SwapRelease).
+			handler.cfg = s.config
+			handler.assetBundle = s.assetBundle
 			rootHandler = s.applyAuthMiddleware(handler, rootRoute.Auth)
 		}
 	}
@@ -1140,8 +1176,25 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	// Build handler chain
-	var handler http.Handler = s.mux
+	// In the site-root layout, watch for `current` being re-pointed by the
+	// deploy CLI (a separate process) and activate the new release in place.
+	// This is the cross-process activation channel, so it runs in production
+	// as well as dev; the dev Watcher above remains the file-level reloader.
+	if s.config.SiteRoot != "" {
+		clw, err := newCurrentLinkWatcher(s)
+		if err != nil {
+			s.logError("failed to watch %s for deploys: %v (releases will activate on restart or SIGHUP)", config.CurrentLinkName, err)
+		} else {
+			clw.Start(ctx)
+			defer clw.Close()
+			s.logInfo("watching %s for deploys", filepath.Join(s.config.SiteRoot, config.CurrentLinkName))
+		}
+	}
+
+	// Build handler chain. The chain wraps the serving indirection, not the
+	// mux itself: SwapRelease publishes a rebuilt mux through s.serving, and
+	// a snapshot of the mux here would pin the release forever.
+	handler := s.servingHandler()
 
 	// In dev mode, inject live reload script into HTML responses
 	if s.config.Server.Dev {

@@ -104,6 +104,32 @@ type parsleyHandler struct {
 	cache             *scriptCache
 	responseCache     *responseCache
 	componentExpander *auth.ComponentExpander
+
+	// cfg and assetBundle pin the release this handler serves. They are set
+	// by every construction site (setupRoutes, createRootHandler, the site
+	// handler) rather than read from the server per request, so a request
+	// that entered before SwapRelease published a new release finishes
+	// against the config and bundle it started with.
+	cfg         *config.Config
+	assetBundle *AssetBundle
+}
+
+// conf returns the config this handler was built against, falling back to
+// the server's live config for handlers constructed outside the usual paths.
+func (h *parsleyHandler) conf() *config.Config {
+	if h.cfg != nil {
+		return h.cfg
+	}
+	return h.server.config
+}
+
+// bundle returns the asset bundle this handler was built against, with the
+// same fallback as conf.
+func (h *parsleyHandler) bundle() *AssetBundle {
+	if h.assetBundle != nil {
+		return h.assetBundle
+	}
+	return h.server.assetBundle
 }
 
 // newParsleyHandler creates a handler for a Parsley script route
@@ -153,10 +179,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			rootPath = absScriptDir
 		}
 		env.RootPath = rootPath
-		env.DataPath = h.server.config.DataDir
+		env.DataPath = h.conf().DataDir
 		env.Security = &evaluator.SecurityPolicy{
 			NoRead:        false,
-			AllowWrite:    h.server.config.WritePolicy(), // configured directories plus <data_dir>/uploads
+			AllowWrite:    h.conf().WritePolicy(), // configured directories plus <data_dir>/uploads
 			AllowWriteAll: false,
 			AllowExecute:  []string{rootPath},
 			RestrictRead:  []string{"/etc", "/var", "/root"},
@@ -220,7 +246,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Get or generate CSRF token and set cookie if needed
 	csrfToken, isNew := GetCSRFToken(r)
 	if isNew && csrfToken != "" {
-		SetCSRFCookie(w, csrfToken, h.server.config.Server.Dev)
+		SetCSRFCookie(w, csrfToken, h.conf().Server.Dev)
 	}
 
 	// Load session (if session store is configured)
@@ -236,7 +262,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sessionModule = evaluator.NewSessionModule(
 				sessionData.Data,
 				sessionData.Flash,
-				h.server.config.Session.MaxAge,
+				h.conf().Session.MaxAge,
 			)
 		}
 	}
@@ -271,21 +297,21 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rootPath = absScriptDir
 	}
 	env.RootPath = rootPath
-	env.DataPath = h.server.config.DataDir
+	env.DataPath = h.conf().DataDir
 
 	// Set security policy
 	// Allow executing Parsley files in the root path and subdirectories (for imports)
 	env.Security = &evaluator.SecurityPolicy{
-		NoRead:        false,                                         // Allow reads
-		AllowWrite:    h.server.config.WritePolicy(), // configured directories plus <data_dir>/uploads
-		AllowWriteAll: false,                                         // Deny all writes unless in whitelist
-		AllowExecute:  []string{rootPath},                            // Allow imports from handler directory tree
-		RestrictRead:  []string{"/etc", "/var", "/root"},             // Basic restrictions
+		NoRead:        false,                             // Allow reads
+		AllowWrite:    h.conf().WritePolicy(),            // configured directories plus <data_dir>/uploads
+		AllowWriteAll: false,                             // Deny all writes unless in whitelist
+		AllowExecute:  []string{rootPath},                // Allow imports from handler directory tree
+		RestrictRead:  []string{"/etc", "/var", "/root"}, // Basic restrictions
 	}
 
 	// Build basil context for stdlib import (std/basil)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule, h.server.config)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule, h.conf())
 	env.BasilCtx = basilObj
 	// Bind the context object so site code can read basil.data_dir - the
 	// durable place to write, which nothing else in the environment names.
@@ -301,10 +327,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.FragmentCache = h.server.fragmentCache
 	env.AssetRegistry = h.server.assetRegistry
 	env.ImageRegistry = h.server.imageRegistry
-	env.AssetBundle = h.server.assetBundle
+	env.AssetBundle = h.bundle()
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
-	env.DevMode = h.server.config.Server.Dev
+	env.DevMode = h.conf().Server.Dev
 	env.PLNSecret = h.server.sessionSecret // For HMAC signing PLN in Part props (FEAT-098)
 
 	// Inject @params - merged query+form params (POST wins)
@@ -323,8 +349,8 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.SetProtected("SEARCH", NewSearchBuiltin(env))
 
 	// Inject meta from config (FEAT-102)
-	if h.server.config.Meta != nil {
-		metaObj, err := parsley.ToParsley(h.server.config.Meta)
+	if h.conf().Meta != nil {
+		metaObj, err := parsley.ToParsley(h.conf().Meta)
 		if err == nil {
 			env.SetProtected("meta", metaObj)
 		}
@@ -382,7 +408,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract response metadata from basil.http.response
-	responseMeta := extractResponseMeta(env, h.server.config.Server.Dev)
+	responseMeta := extractResponseMeta(env, h.conf().Server.Dev)
 
 	// Handle the response (with caching if enabled)
 	h.writeResponseWithCache(w, r, &parsley.Result{Value: result}, responseMeta, env)
@@ -1196,7 +1222,7 @@ func (h *parsleyHandler) writeJSON(w http.ResponseWriter, r *http.Request, value
 // In dev mode, it renders a detailed error page. In production, it returns a generic 500.
 func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, r *http.Request, errType, filePath, message string) {
 	// In production mode, always return generic error
-	if !h.server.config.Server.Dev {
+	if !h.conf().Server.Dev {
 		h.server.handle500(w, r, fmt.Errorf("%s", message))
 		return
 	}
@@ -1221,7 +1247,7 @@ func (h *parsleyHandler) handleScriptError(w http.ResponseWriter, r *http.Reques
 // handleParsleyError handles structured ParsleyError from the parser.
 // This provides clean error display without regex parsing of error messages.
 func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, r *http.Request, filePath string, parseErr *perrors.ParsleyError) {
-	if !h.server.config.Server.Dev {
+	if !h.conf().Server.Dev {
 		h.server.handle500(w, r, fmt.Errorf("parse error: %s", parseErr.Message))
 		return
 	}
@@ -1237,7 +1263,7 @@ func (h *parsleyHandler) handleParsleyError(w http.ResponseWriter, r *http.Reque
 
 // handleStructuredError handles errors with structured error information from Parsley.
 func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, r *http.Request, errType, filePath string, errObj *evaluator.Error) {
-	if !h.server.config.Server.Dev {
+	if !h.conf().Server.Dev {
 		h.server.handle500(w, r, fmt.Errorf("%s", errObj.Message))
 		return
 	}
@@ -1253,7 +1279,7 @@ func (h *parsleyHandler) handleStructuredError(w http.ResponseWriter, r *http.Re
 
 // handleScriptErrorWithLocation handles errors with explicit line/column info from Parsley.
 func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, r *http.Request, errType, filePath, message string, line, col int) {
-	if !h.server.config.Server.Dev {
+	if !h.conf().Server.Dev {
 		h.server.handle500(w, r, fmt.Errorf("%s", message))
 		return
 	}

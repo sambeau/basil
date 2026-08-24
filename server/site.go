@@ -18,15 +18,29 @@ type siteHandler struct {
 	server      *Server
 	siteRoot    string // Absolute path to the site directory
 	scriptCache *scriptCache
+
+	// cfg and assetBundle are the config and bundle this handler was built
+	// against, captured at construction. Reading them here rather than
+	// through the server keeps in-flight requests on the release they
+	// entered when SwapRelease replaces the live config: the handler and
+	// its release-scoped paths (public_dir in particular) age out together
+	// with the old mux.
+	cfg         *config.Config
+	assetBundle *AssetBundle
 }
 
 // newSiteHandler creates a handler for filesystem-based routing.
 func newSiteHandler(s *Server, siteRoot string, cache *scriptCache) *siteHandler {
-	return &siteHandler{
+	h := &siteHandler{
 		server:      s,
 		siteRoot:    siteRoot,
 		scriptCache: cache,
 	}
+	if s != nil {
+		h.cfg = s.config
+		h.assetBundle = s.assetBundle
+	}
+	return h
 }
 
 // ServeHTTP handles HTTP requests using filesystem-based routing.
@@ -62,8 +76,8 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check protected paths (before serving any content)
-	if h.server.config.Auth.Enabled {
-		if pp := h.server.isProtectedPath(urlPath); pp != nil {
+	if h.cfg.Auth.Enabled {
+		if pp := protectedPathIn(h.cfg, urlPath); pp != nil {
 			user := auth.GetUser(r)
 			if user == nil {
 				h.handleUnauthenticated(w, r)
@@ -78,8 +92,8 @@ func (h *siteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try static files first (from global public_dir)
-	if h.server.config.PublicDir != "" && urlPath != "/" {
-		staticPath := filepath.Join(h.server.config.PublicDir, urlPath)
+	if h.cfg.PublicDir != "" && urlPath != "/" {
+		staticPath := filepath.Join(h.cfg.PublicDir, urlPath)
 		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
 			serveStaticFile(w, r, staticPath, h.server.devLog != nil)
 			return
@@ -201,16 +215,19 @@ func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, h
 		Path:      routePath,
 		Handler:   handlerPath,
 		PublicDir: handlerRoot, // Use handler root, not handler's directory
-		Cache:     h.server.config.Site.Cache,
+		Cache:     h.cfg.Site.Cache,
 	}
 
-	// Create the handler using existing infrastructure
+	// Create the handler using existing infrastructure, pinned to this site
+	// handler's release rather than the server's live one.
 	handler, err := newParsleyHandler(h.server, route, h.scriptCache)
 	if err != nil {
 		h.server.logError("failed to create handler for %s: %v", handlerPath, err)
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	handler.cfg = h.cfg
+	handler.assetBundle = h.assetBundle
 
 	// Store subpath in request context for buildRequestContext to pick up
 	ctx := r.Context()
@@ -290,13 +307,16 @@ func (h *siteHandler) servePartFile(w http.ResponseWriter, r *http.Request, part
 		PublicDir: handlerRoot,
 	}
 
-	// Create the handler using existing infrastructure
+	// Create the handler using existing infrastructure, pinned to this site
+	// handler's release rather than the server's live one.
 	handler, err := newParsleyHandler(h.server, route, h.scriptCache)
 	if err != nil {
 		h.server.logError("failed to create Part handler for %s: %v", partPath, err)
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	handler.cfg = h.cfg
+	handler.assetBundle = h.assetBundle
 
 	// Apply auth middleware (optional auth for now)
 	finalHandler := h.server.applyAuthMiddleware(handler, "optional")

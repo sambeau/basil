@@ -170,13 +170,23 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		return fmt.Errorf("creating server: %w", err)
 	}
 
-	// Set up SIGHUP handler for script cache reload (production hot reload)
+	// Set up SIGHUP handler for production hot reload. In the site-root
+	// layout SIGHUP activates whatever release `current` points at (a full
+	// route/cache rebuild); in the legacy layout there is no release to
+	// swap, so it clears the caches as it always has.
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)
 	go func() {
 		for range sighup {
-			fmt.Fprintf(stdout, "Received SIGHUP - reloading scripts...\n")
-			srv.ReloadScripts()
+			if cfg.SiteRoot != "" {
+				fmt.Fprintf(stdout, "Received SIGHUP - activating the current release...\n")
+				if err := srv.SwapRelease(); err != nil {
+					fmt.Fprintf(stderr, "SIGHUP: release activation failed: %v (still serving the previous release)\n", err)
+				}
+			} else {
+				fmt.Fprintf(stdout, "Received SIGHUP - reloading scripts...\n")
+				srv.ReloadScripts()
+			}
 		}
 	}()
 
