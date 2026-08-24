@@ -22,6 +22,9 @@ db/
 
 # TLS certificates and Let's Encrypt account key (https.cache_dir)
 certs/
+
+# Transformed image cache (images.cache_dir)
+cache/
 `
 
 const basilYAMLTemplate = `# Basil Configuration
