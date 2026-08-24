@@ -45,7 +45,11 @@ it is reacting to.
 
 ### Repository
 
-- [ ] The server holds a **bare** repository at `<site root>/site.git`
+- [ ] The server holds a **bare** repository at `<site root>/site.git`, **not configurable**
+- [ ] Git deploy is active when that repository exists; `git.enabled: false` remains only as
+      an off-switch, and nobody ever needs to write `git.enabled: true`
+- [ ] Basil **refuses to start** if the repository path resolves inside any served root
+      (`public_dir`, `site.path`, `static[].root`)
 - [ ] It is served at `/.git` — the clone URL is unchanged from today
 - [ ] `git clone https://user@host/.git` succeeds and yields full history
 - [ ] Pushing any branch succeeds and stores it; nothing is published
@@ -56,7 +60,8 @@ it is reacting to.
 - [ ] `deploy.branch` (default `live`) names the branch that triggers a deploy
 - [ ] A push that moves the release branch triggers the FEAT-153 engine
 - [ ] A push that moves any other ref stores it and does nothing else
-- [ ] `deploy.branch: main` restores push-to-publish for anyone who wants it
+- [ ] `deploy.branch: main` restores push-to-publish for anyone who wants it — the one
+      genuine choice this programme exposes
 - [ ] Tags are accepted as a release ref (`refs/tags/...`) even though config speaks in
       branches
 
@@ -71,15 +76,26 @@ it is reacting to.
 - [ ] Hooks are installed by Basil, not by the operator, and are re-installed if missing
 - [ ] Hooks invoke `basil deploy --from-hook`; no deploy logic lives in shell
 
-### Authentication
+### Authentication and transport security
 
 - [ ] Existing model unchanged: HTTP Basic over TLS, API key as password, validated
       against the auth database
+- [ ] **Git operations over plain HTTP are refused**, with an error explaining why — not
+      merely logged as a warning, which is what happens today (`server/git.go:180`). Basic
+      auth puts the API key in an easily-decoded header, so plain HTTP means a plaintext
+      credential with push rights
+- [ ] The sole exception is a dev-mode localhost bind, decided in code (`isDevLocalhost`),
+      never from configuration
+- [ ] **There is no `git.require_auth` setting.** Authentication cannot be disabled from a
+      config file
+- [ ] Basil refuses to serve Git when no auth database exists — promoted from an incidental
+      check (`server.go:571`) to a stated guarantee with a test
 - [ ] Any authenticated user may clone and fetch
-- [ ] `editor` or `admin` may push a non-release branch
-- [ ] Moving the release branch requires `deploy.publish_role` (default `editor`; set to
-      `admin` to separate publishing from pushing)
+- [ ] `editor` or `admin` may push, including moving the release branch
 - [ ] A rejected role check explains which role is required
+- [ ] **The release branch cannot be force-pushed or deleted**, by anyone, with no setting
+      to permit it — a rewritable release history makes the deploy record, and therefore
+      rollback, unreliable
 
 ### Replacing the old path
 
@@ -105,11 +121,6 @@ it is reacting to.
 
 - **The clone URL does not change.** `/.git` continues to work; only what sits behind it
   changes. Nothing a developer types is different.
-
-- **Publishing may carry a higher bar than pushing.** Under the split of `git push` and
-  `basil publish` these are different acts, so they can have different roles. Defaulting
-  `publish_role` to `editor` keeps today's behaviour; a team that wants a release gate sets
-  `admin`.
 
 - **`go-git-http` stays.** It is unmaintained but small and stable, and it is doing very
   little here — routing Smart HTTP to the real `git` binary. If it ever becomes a problem,
@@ -144,8 +155,10 @@ Note the deletion and creation cases: `<old-sha>` is all-zeroes for a new ref,
   branch, push a broken release branch
 - Assert a rejected push leaves the ref unmoved (`git rev-parse` on the server repo)
 - Assert hook output appears in the client's stderr
-- Role checks: viewer cannot push; editor can push a branch; `publish_role: admin` blocks an
-  editor from moving the release branch
+- Role checks: viewer cannot push; editor can push a branch and move the release branch
+- Plain-HTTP request to any Git endpoint is refused, and the dev-localhost exception works
+- Startup refuses when the repository path resolves inside a served root
+- Force-push and deletion of the release branch are both refused
 - BUG-033 regression: a freshly initialised site accepts a first push with no manual config
 - Force-push and ref-deletion behaviour on the release branch
 
@@ -174,7 +187,10 @@ Project checklist (`CLAUDE.md`) plus:
       published), push the release branch (site updates), push a broken release (rejected,
       site unchanged, error visible in the terminal)
 - [ ] BUG-033 regression test present and passing; BUG-033 closed with a note pointing here
-- [ ] Role matrix tested, including `publish_role`
+- [ ] Role matrix tested
+- [ ] **Plain HTTP verified refused** against a real non-TLS listener, and the dev-localhost
+      exception verified to still work
+- [ ] Force-push and release-branch deletion verified refused
 - [ ] `docs/guide/git.md` rewritten and accurate — every command in it actually run
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
 - [ ] FEAT-035 marked superseded, with a pointer to this spec
@@ -182,9 +198,7 @@ Project checklist (`CLAUDE.md`) plus:
 
 ## Open Questions
 
-1. Should force-pushing the release branch be allowed? Recommend refusing it — a release
-   history that can be rewritten makes the deploy record unreliable.
-2. Should non-release branches be pruned automatically after some age? Recommend no; it is
+1. Should non-release branches be pruned automatically after some age? Recommend no; it is
    the developer's repository as much as the server's.
-3. Does the bare repository need a size or push-size limit? Probably eventually; not in
+2. Does the bare repository need a size or push-size limit? Probably eventually; not in
    this unit.

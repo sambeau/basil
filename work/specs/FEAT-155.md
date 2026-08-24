@@ -65,21 +65,21 @@ problem, and this unit buys it off.
 - [ ] Matches `pars fmt` behaviour exactly (`cmd/pars/main.go:863`)
 - [ ] Operates on a directory tree, not just named files, so `basil fmt -w` is useful
 
-### The formatting gate
+### Formatting
 
-- [ ] `git.fmt_check` config key, **default `false`**
-- [ ] When enabled, `pre-receive` rejects a push containing unformatted `.pars` files
-- [ ] Applies to **every branch**, not just the release branch
-- [ ] Examines **only files touched by the pushed commits**, so enabling it on an existing
-      repository does not reject untouched history
-- [ ] The rejection message names the fix:
-      `Run 'basil fmt -w' and amend, or set git.fmt_check: false`
-- [ ] The server never rewrites code — the check reports, it does not fix
+- [ ] `basil --init` installs a **pre-commit hook** in the repository it creates, so
+      committed code is formatted without anybody deciding anything
+- [ ] The server **warns** about unformatted `.pars` files in a push and **never rejects**
+- [ ] The warning names the fix: `Run 'basil fmt -w'`
+- [ ] The server never rewrites code — it reports, it does not fix
+- [ ] **There is no `git.fmt_check` setting.** A gate a team "should turn on" is a default
+      that is not the recommendation
 
 ### Documentation
 
 - [ ] The two-verb workflow is the documented default
 - [ ] `deploy.branch: main` is documented as the supported push-to-publish alternative
+- [ ] The docs show a working setup with **no `basil.yaml` changes at all**
 
 ## Design Decisions
 
@@ -92,18 +92,15 @@ problem, and this unit buys it off.
 - **Underneath it is still a push.** Raw Git and editor Git panels stay a working
   alternative for anyone who prefers them. The verb is ergonomics, not a new protocol.
 
-- **Formatting is gated at push, not at publish.** A commit enters shared history when it
-  is pushed — that is when style matters and when it is cheapest to fix. Publishing must
-  never fail for a cosmetic reason; blocking a hotfix over whitespace would be a category
-  error. The gates do not overlap: everything in the repository has already passed the
-  format check, so publish never meets unformatted code.
+- **Formatting is fixed locally, before the commit exists.** An earlier draft made this a
+  server-side gate with a `git.fmt_check` setting, off by default — which failed its own
+  test: if a team *should* switch it on, the default was not the recommendation. A
+  pre-commit hook installed by `--init` gets the same outcome with no setting, and nobody is
+  ever refused by a server over whitespace.
 
-- **The gate is off by default.** A solo developer on their own site does not need it, and
-  being refused by a server over whitespace when nobody else reads the diffs is obnoxious.
-  One line turns it on, and a team should.
-
-- **The server check is a backstop.** Formatting belongs on the developer's machine before
-  the commit exists. Ship `basil fmt` and let `basil --init` offer a pre-commit hook.
+- **Installing the hook is scaffolding, not presumption.** `--init` creates the repository;
+  putting a hook in it is part of creating it. This would be rude only if it reached into a
+  repository someone else had made.
 
 - **Confirmation is on by default.** The whole point of the unit is that publishing is
   deliberate. `--yes` exists for scripts.
@@ -117,9 +114,8 @@ problem, and this unit buys it off.
 | `cmd/basil/publish.go` (new) | `publish`, client-side `status` |
 | `cmd/basil/fmt.go` (new) | `basil fmt`; share the implementation with `cmd/pars` |
 | `pkg/parsley/formatter/` | Existing formatter; extract a shared entry point if needed |
-| `server/deploy/hooks.go` | Extend `pre-receive` with the format check |
-| `cmd/basil/deploy.go` | `--from-hook` gains the format check path |
-| `server/config/config.go` | `git.fmt_check` |
+| `server/deploy/hooks.go` | Pre-commit hook template; `pre-receive` warns on unformatted files |
+| `cmd/basil/init.go` | Install the pre-commit hook |
 | `cmd/basil/main.go` | Subcommand dispatch |
 | `docs/guide/git.md` | The two-verb workflow |
 
@@ -139,9 +135,9 @@ shelling out from `basil` to `pars`, so a Basil install does not require the `pa
 - `publish` against a fixture server: success, rejection, dry-run, `--yes`
 - Confirmation prompt is not skippable without `--yes`
 - Drift reporting: ahead, behind, level, and server unreachable
-- Format gate: on/off; only touched files examined; unformatted push rejected; message
-  contains the fix
-- Format gate does not apply to non-`.pars` files
+- `--init` installs a working pre-commit hook that formats on commit
+- An unformatted push is warned about and **succeeds**
+- The warning names the fix; non-`.pars` files are ignored
 
 ## Out of Scope
 
@@ -161,8 +157,8 @@ Project checklist (`CLAUDE.md`) plus:
 - [ ] Full manual round trip performed against a running server: `git push` shares and
       publishes nothing; `basil publish` releases; a broken release is rejected with the
       reason visible; drift is reported accurately
-- [ ] Format gate exercised both on and off, including on a repository with pre-existing
-      unformatted history
+- [ ] Pre-commit hook verified to format on commit in a freshly initialised site
+- [ ] An unformatted push verified to warn and succeed, never to fail
 - [ ] `docs/guide/git.md` rewritten around the two verbs, and every command in it run
 - [ ] `basil --help` output covers the new subcommands
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
@@ -170,10 +166,8 @@ Project checklist (`CLAUDE.md`) plus:
 
 ## Open Questions
 
-1. Should `basil --init` install the pre-commit formatting hook by default, or offer it?
-   Recommend offering it — silently installing Git hooks in someone's repository is rude.
-2. Should `basil publish` refuse when the working tree is dirty? Recommend warning, not
+1. Should `basil publish` refuse when the working tree is dirty? Recommend warning, not
    refusing: publishing a committed state with uncommitted local edits is legitimate, but
    surprising often enough to mention.
-3. Does `basil status` need to work without network access? Recommend yes, reporting local
+2. Does `basil status` need to work without network access? Recommend yes, reporting local
    state and noting the server was unreachable.

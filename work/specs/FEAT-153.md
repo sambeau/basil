@@ -45,7 +45,8 @@ check with no build server, and it is the strongest single argument for the whol
       commit
 - [ ] `validate` — every `.pars` handler, part and layout is parsed; the config is loaded
 - [ ] `activate` — `current` is re-pointed and the running server's release path updated
-- [ ] `hook` — optional post-deploy Parsley script runs after activation
+- [ ] `hook` — if `deploy.pars` exists in the release root it runs after activation.
+      **Convention, not configuration**, matching `index.pars` / `{folder}.pars` (FEAT-040)
 - [ ] `record` — commit, author, timestamp, duration and outcome are stored
 - [ ] `prune` — releases beyond `deploy.keep` (default 5) are removed, never the active one
 
@@ -75,9 +76,12 @@ check with no build server, and it is the strongest single argument for the whol
 
 ### Configuration
 
-- [ ] `deploy.validate` (default `true`)
-- [ ] `deploy.keep` (default `5`)
-- [ ] `deploy.hook` (optional path to a Parsley script)
+- [ ] `deploy.keep` (default `5`) — the only setting this feature adds
+- [ ] Validation is **always on** for pushes; there is no config key to disable it
+- [ ] `basil deploy --no-validate` is the emergency override. It needs shell access, which
+      is the right bar for overriding a safety check, and cannot be left switched on
+- [ ] No `deploy.validate` and no `deploy.hook` key — see
+      `reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md`
 
 ## Design Decisions
 
@@ -85,9 +89,12 @@ check with no build server, and it is the strongest single argument for the whol
   It knows nothing about pushes, hooks or HTTP. This is what makes FEAT-154 small, and it
   means the engine can be fully exercised from the CLI in this unit.
 
-- **Validation is correctness, not style.** Parse and config-load only. Formatting is a
-  separate gate at a different point (FEAT-155) because style belongs where history is
-  made, not where releases happen.
+- **Validation is correctness, not style.** Parse and config-load only. Formatting is
+  handled by a local pre-commit hook (FEAT-155) and never blocks a release.
+
+- **No config key for validation.** A file-based way to disable the safety check would live
+  inside the release being validated, and would persist silently after the emergency that
+  justified it. The override is a server-side flag instead.
 
 - **Validation catches broken, not unfinished.** Say so in the docs. It is not a substitute
   for the explicit publish step — the two protect against different mistakes.

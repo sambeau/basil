@@ -27,8 +27,12 @@ all touch `server/config`, `server/server.go` and `cmd/basil`. Running them in p
 worktrees is exactly the failure mode that rule exists to prevent.
 
 **Where it could stop.** After phase 3 the design is functionally complete: teams can
-share work and releases are validated. Phase 4 is what makes it pleasant, and the format
-gate inside it is the one genuinely optional deliverable in the programme.
+share work and releases are validated. Phase 4 is what makes it pleasant.
+
+**Defaults.** `reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md` reduced the programme's
+configuration surface from ten settings to three and hardened four security defaults.
+Phases 1–4 implement that review; do not reintroduce a deleted setting without reading the
+reasoning there first.
 
 ## Prerequisites
 
@@ -167,9 +171,11 @@ creation and deletion. Refuse deletion of the release branch.
 `deploy.branch` (default `live`). Release ref moves → validate in `pre-receive`, activate in
 `post-receive`. Any other ref → store and stop.
 
-### Task 3.5 — Roles
-`deploy.publish_role` (default `editor`). The release ref check happens where the ref name
-is already known, in `pre-receive`.
+### Task 3.5 — Security hardening
+Refuse Git over plain HTTP (currently only warned about, `server/git.go:180`), with the
+dev-localhost exception decided in code. Remove `git.require_auth` entirely. Refuse to start
+if the repository path resolves inside a served root. Refuse force-push and deletion of the
+release branch. Promote "no auth database, no Git" to a tested guarantee.
 
 ### Task 3.6 — Remove the old path
 Delete the `githttp.EventHandler` reload. Rewrite `docs/guide/git.md`.
@@ -205,16 +211,16 @@ a warning when the server is unreachable.
 Extract a shared package from `cmd/pars/main.go:863` rather than shelling out, so a Basil
 install does not require the `pars` binary. Add directory-tree operation.
 
-### Task 4.4 — The formatting gate *(optional deliverable)*
-`git.fmt_check`, default `false`. Extend `pre-receive`. Every branch, only files touched by
-the pushed commits. Rejection message names the fix. The server never rewrites code.
+### Task 4.4 — Formatting
+Install a pre-commit hook from `basil --init`. The server warns on unformatted `.pars` files
+in a push and never rejects. No config key. The server never rewrites code.
 
 ### Task 4.5 — Documentation
 Rewrite `docs/guide/git.md` around the two verbs. Run every command in it.
 
 **Tests**: publish success, rejection, dry-run, `--yes`; confirmation not skippable without
-`--yes`; drift in all four states; format gate on and off, including against pre-existing
-unformatted history.
+`--yes`; drift in all four states; pre-commit hook formats on commit; an unformatted push
+warns and succeeds.
 
 ---
 

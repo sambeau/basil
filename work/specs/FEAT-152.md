@@ -57,7 +57,8 @@ today depends on where the operator happened to be standing when they started th
 ### Config anchors
 
 - [ ] `config.BaseDir` is replaced by two explicit anchors: `ReleaseDir` and `DataDir`
-- [ ] `data_dir` config key, default `<site root>/data`
+- [ ] `data_dir` config key, default `<site root>/data` — one of only three settings this
+      programme adds (see `reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md`)
 - [ ] **Every** persistent path resolves against `DataDir`: `database.path`,
       the auth database, `https.cache_dir`, `logging.output`, `logging.parsley.output`,
       `dev.log_database`, `images.cache_dir`
@@ -79,6 +80,11 @@ today depends on where the operator happened to be standing when they started th
 - [ ] Produces the site-root layout, including `data/` and a bare `site.git/`
 - [ ] `.gitignore` no longer needs to list runtime state, because state is no longer
       inside the repository at all
+- [ ] Creates the first admin user and prints an API key **once**, only on a fresh init,
+      never overwriting existing credentials
+- [ ] Installs a pre-commit formatting hook in the repository it created
+- [ ] Produces a site that deploys with **no configuration step at all** — no `basil.yaml`
+      edit is required between `--init` and a working push
 - [ ] Prints the layout it created, as it does today
 
 ### Migration
@@ -169,6 +175,14 @@ Project checklist (`CLAUDE.md`) plus:
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
 - [ ] Merged to `main` and pushed; worktree and branch removed
 
+## Notes
+
+`!secret auto` currently generates a fresh value on every start
+(`server/config/secret.go:133`), so `session.secret: auto` invalidates sessions on restart.
+That is pre-existing and out of scope. It matters here only in one respect: **if `auto` is
+ever changed to persist, the generated secret belongs in `DataDir`**, not in the release.
+Recorded so the choice is not made accidentally later.
+
 ## Open Questions
 
 1. Should a release be allowed to change server settings (port, TLS), or should those be
@@ -178,3 +192,6 @@ Project checklist (`CLAUDE.md`) plus:
    Recommend `DataDir`.
 3. `--site <path>` flag, or infer the site root from the working directory? Recommend the
    flag, defaulting to the working directory.
+4. Should `--init` create the admin user non-interactively (deriving the name from `$USER`)
+   or prompt? Recommend deriving, with `--admin <name>` to override — a prompt in a script
+   is worse than a sensible guess.

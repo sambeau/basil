@@ -39,8 +39,10 @@ basil publish       →  checked, then live.
 | D2 | **Push is the transport; the server is not `origin` in doctrine.** | It is a hub that also deploys. |
 | D3 | **Publishing is an explicit verb.** `git push` shares; `basil publish` releases. | Default `deploy.branch: live`. `main` supported for push-to-publish. |
 | D4 | **A release is validated before it is activated**, and a failed check rejects the push. | Correctness only. On by default. |
-| D4a | **A formatting check is available on push, for all branches.** | Style only. Off by default; one line to enable. §6.3. |
+| D4a | **Formatting is fixed locally by a pre-commit hook `--init` installs.** The server warns, never rejects. | No setting. §6.3. |
 | D4b | **The server never rewrites code.** A release is byte-identical to its commit. | Architectural. §6.3. |
+| D12 | **Git over plain HTTP is refused, not warned about.** | The API key is a plaintext credential over Basic auth. §9. |
+| D13 | **The default configuration is the recommended configuration.** Three keys, none of which a normal site sets. | §7. |
 | D5 | **Full code/state split, done now.** Releases are directories; activation is a swap. | No installed base to migrate, so no reason to defer. |
 | D6 | **Rollback is a first-class operation.** | Previous releases retained. |
 | D7 | **Deploys are recorded.** | CLI-visible; feeds a future UI. |
@@ -144,17 +146,25 @@ This section is the source of the spec's acceptance criteria.
 
 ### 5.1 One-time, on the server
 
-The only place a shell on the server is required.
+The only place a shell on the server is required — two commands.
 
 ```bash
-basil --init mysite               # creates site root, repo, data root, config
-basil users add sam --role admin
-basil apikey create sam           # bsk_… — shown once
-# enable git in basil.yaml, start the service
+basil --init mysite
+#   ✓ site root, bare repository, data directory
+#   ✓ admin user 'sam'
+#   ✓ API key bsk_…  (shown once — save it now)
+#   ✓ pre-commit formatting hook
+basil
 ```
 
-`basil --init` must now also create the bare repository and the data root, and must not
-leave the repository in the state described by BUG-033.
+There is no configuration step. `--init` produces a site that deploys, with authentication
+required and TLS enforced; Git is live because the repository exists, not because a flag
+was set.
+
+`--init` creating the first account and key is deliberate: it removes three steps and is no
+less safe than `apikey create` — generated randomly, hashed at rest, displayed once, and
+only on a genuinely fresh init. See
+`reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md`.
 
 ### 5.2 One-time, per machine
 
@@ -282,58 +292,40 @@ the box.
 
 Basil owns the Parsley parser, so a release can be checked before it is activated: parse
 every handler, part and layout, and load the config. This is a build check with no build
-server, and it is the main thing a general-purpose Git host cannot offer. **On by default**
-(`deploy.validate`).
+server, and it is the main thing a general-purpose Git host cannot offer. **Always on** —
+there is no config key to disable it; the emergency override is `basil deploy
+--no-validate` on the server (§7).
 
 Be clear about the limits, in the docs as well as here: **validation catches code that is
 broken, not work that is unfinished.** It is not a substitute for the explicit publish step
 (D3) — the two protect against different mistakes.
 
-### 6.3 Formatting — style, at push
+### 6.3 Formatting — fixed locally, never a blocker
 
-Consistent formatting matters most for exactly the reason it is wanted here: unformatted
-code makes diffs noisy and `git blame` useless, and that cost lands on shared history, not
-on the running site. So the formatting gate belongs at a different point from validation.
+Consistent formatting matters for the reason it is wanted: unformatted code makes diffs
+noisy and `git blame` useless. That cost lands on shared history, not on the running site.
 
-**The server never rewrites code.** A release directory must be byte-identical to the
-commit it claims to be, or rollback, the deploy record and reproducibility all become
-lies. Format-on-receive is therefore ruled out architecturally, not merely declined.
+**The server never rewrites code.** A release directory must be byte-identical to the commit
+it claims to be, or rollback, the deploy record and reproducibility all become lies.
+Format-on-receive is ruled out architecturally, not merely declined.
 
-That leaves the right shape:
+That leaves the question of where the check goes, and the answer is: **not on the server at
+all, in the normal case.**
 
-| Gate | Runs on | Checks | Default |
-| --- | --- | --- | --- |
-| Formatting | **every push, any branch** | style | **off** |
-| Validation | **release branch only** | correctness | **on** |
+- **`basil --init` installs a pre-commit hook** in the repository it creates. Formatting is
+  fixed before a commit exists — the earliest, cheapest point, and one where the developer
+  is already looking at the code.
+- **The server warns and never rejects.** A push carrying unformatted files reports them and
+  proceeds. Publishing must never fail for a cosmetic reason; blocking a hotfix over
+  whitespace would be a category error.
 
-Checking format at push rather than at publish is deliberate, and it works out neatly:
+An earlier draft made this a server-side gate with a `git.fmt_check` setting, off by
+default. That failed its own test: if a team *should* switch it on, the default was not the
+recommendation. The hook gets the same outcome with no setting and no way to be refused by
+a server over whitespace.
 
-- A commit enters shared history at the moment it is pushed. That is exactly when style
-  matters and exactly when it is cheapest to fix.
-- Publishing never fails for a cosmetic reason. Blocking a production release — possibly a
-  hotfix — because of whitespace would be a category error.
-- Because everything in the repository has already passed the check, publish never
-  encounters unformatted code anyway. The two gates do not overlap.
-
-The mechanism exists: `pars fmt -l` already lists files whose formatting differs
-(`cmd/pars/main.go:863`), which is the `gofmt -l` idiom. The check examines **only the
-`.pars` files touched by the pushed commits**, so enabling it on an existing repository
-does not reject history nobody has looked at.
-
-**Off by default** because a solo developer on their own site does not need it, and being
-refused by a server over whitespace is obnoxious when nobody else is reading the diffs. One
-line turns it on, and a team should.
-
-The server check is a backstop, not the primary mechanism. Formatting belongs on the
-developer's machine, before the commit exists: ship `basil fmt`, and have `basil --init`
-offer to install a pre-commit hook. A rejection message must name the fix:
-
-```
-remote: 2 files are not formatted:
-remote:   site/index.pars
-remote:   site/about/about.pars
-remote: Run `basil fmt -w` and amend, or set git.fmt_check: false
-```
+The mechanism exists — `pars fmt -l` lists files whose formatting differs
+(`cmd/pars/main.go:863`), the `gofmt -l` idiom. `basil fmt` shares that implementation.
 
 ### 6.4 Activation
 
@@ -352,21 +344,31 @@ in flight have resolved their paths and complete against the release they starte
 
 ## 7. Configuration
 
+**A working site needs none of this.** Every value below has a default that is also the
+recommendation. See `reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md` for the settings
+that were considered and deliberately not added.
+
 ```yaml
-git:
-  enabled: true
-  require_auth: true
-  repo: ./site.git              # bare repository (default: <site root>/site.git)
-  fmt_check: false              # reject pushes containing unformatted .pars files
-
 deploy:
-  branch: live                  # what goes live. Set to `main` for push-to-publish.
-  validate: true                # parse-check the release before activating
-  keep: 5                       # releases retained for rollback
-  hook: ./deploy.pars           # optional post-deploy script
+  branch: live       # what goes live. Set to `main` for push-to-publish.
+  keep: 5            # releases retained for rollback
 
-data_dir: ./data                # persistent state; never replaced by a deploy
+data_dir: ./data     # persistent state; defaults to <site root>/data
 ```
+
+That is the whole surface. Three keys, none of which a normal site sets.
+
+**Not settings, by decision:**
+
+| Behaviour | How it is decided |
+| --- | --- |
+| Git deploy on/off | On when `<site root>/site.git` exists, which `--init` creates. `git.enabled: false` remains as an off-switch |
+| Repository location | Always `<site root>/site.git`. Never configurable — a repository inside a served root would expose every version of every file |
+| Authentication | Always required. Never disableable from config; `--dev` on localhost is the only relaxation, and it is decided in code |
+| Validation | Always on for pushes. Emergency override is `basil deploy --no-validate` on the server, which needs shell access and cannot be left on by accident |
+| Formatting | `--init` installs a pre-commit hook; the server warns and never rejects. Cosmetics must not block a release |
+| Post-deploy script | Convention: `deploy.pars` in the release root, if present |
+| Force-push / deleting the release branch | Always refused |
 
 `basil.yaml` ships inside the release, so config changes are versioned and roll back with
 everything else. Everything it points at for persistent state resolves against `data_dir`,
@@ -402,10 +404,23 @@ Unchanged from FEAT-035, which works and is not in question: HTTP Basic over TLS
 in the password field, validated against the auth database. `editor` or `admin` to push,
 any authenticated user to clone.
 
-One addition: **publishing may warrant a higher bar than pushing.** Under D3 these are now
-different acts, so the roles can differ — for example `editor` to push a branch, `admin` to
-move the release branch. Left to the spec; the mechanism (checking the ref name in
-`pre-receive`) is already required by §6.1.
+Four guarantees, none of them configurable:
+
+1. **Plain HTTP is refused.** Basic auth puts the API key in an easily-decoded header, so
+   over plain HTTP it is a plaintext credential with push rights. The current
+   implementation logs a warning and proceeds (`server/git.go:180`); a warning in a log
+   nobody reads is not a control. Refuse the request, with an error saying why. The only
+   exception is a dev-mode localhost bind. Nothing is lost — Basil obtains its own
+   certificate and already listens on 443.
+2. **No auth database, no Git.** Already the behaviour (`server.go:571`); promoted to a
+   stated guarantee with a test.
+3. **The repository may not sit inside a served root.** Refuse to start otherwise. The
+   repository path is not configurable, but `public_dir` and `site.path` are.
+4. **The release branch cannot be force-pushed or deleted.** A rewritable release history
+   makes the deploy record — and therefore rollback — unreliable.
+
+Separating "may push" from "may publish" was considered and deferred: nobody has asked for
+it, and it can be added without breaking anything. See the backlog.
 
 ---
 
@@ -421,6 +436,7 @@ Recorded so the spec does not have to re-litigate them.
 | Git over SSH | Extra daemon, port and key management; 443 is the friendliest transport | Someone asking for key-based auth specifically |
 | Branch → environment mapping (staging) | Two Basil instances already achieve it, and `basil publish` against a second server covers promotion | Demand for many environments per host |
 | Git LFS, submodules | Not supported. Say so in the docs rather than letting people discover it | |
+| A separate role for publishing vs pushing | Speculative; the role model is coarse and this can be added later without breaking anything | A team asking for a release gate distinct from push access |
 
 ---
 
@@ -434,8 +450,8 @@ Genuinely implementation-level; none of these change the shape above.
 4. **Whether a config change to server settings requires a restart** (§7).
 5. **Release directory naming** — full SHA, short SHA, or sequence plus SHA.
 6. **What `basil --init` produces** now that the layout has four top-level entries.
-7. **Whether `basil fmt` wraps `pars fmt` or shares its implementation** (§6.3), and
-   whether `basil --init` installs a pre-commit hook by default or offers to.
+7. **Whether `basil fmt` wraps `pars fmt` or shares its implementation** (§6.3). Sharing
+   is preferred, so a Basil install does not require the `pars` binary.
 
 ---
 
