@@ -17,7 +17,6 @@ Inside a Basil server, Parsley code runs under a [security policy](manual/featur
 - **File access** — handlers can read the project directory. They cannot write anywhere until you whitelist a folder in `basil.yaml`.
 - **SQL** — the `<SQL>` tag and the query operators parameterise every query and validate column and table names. You never build SQL strings by hand.
 - **Commands** — external commands run without a shell, so shell injection cannot happen. A whitelist decides which binaries may run.
-- **HTML** — Parsley escapes text inside a tag. `<p>{userInput}</p>` cannot inject markup.
 - **Data files** — PLN, Parsley's own data format, holds data only. Parsing it cannot run code, unlike `pickle` or `Marshal`.
 
 ## What Basil adds

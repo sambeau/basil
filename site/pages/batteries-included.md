@@ -22,7 +22,7 @@ Most of what makes a website awkward is data: reading it, checking it, storing i
 
 **A query DSL.** Read and write database rows with `@query`, `@insert`, `@update`, and `@delete` instead of SQL strings. The DSL generates parameterised SQL for you. When you want SQL, the `<SQL>` tag is there and is parameterised too. See [the query DSL](manual/features/query-dsl.html).
 
-**HTML as part of the language.** A page is a function that returns markup. No template engine, no separate syntax, and text inside tags is escaped. See [tags](manual/fundamentals/tags.html).
+**HTML as part of the language.** A page is a function that returns markup. No template engine, no separate syntax. See [tags](manual/fundamentals/tags.html).
 
 ## What Basil gives you
 
