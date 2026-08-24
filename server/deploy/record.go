@@ -93,9 +93,16 @@ func OpenRecord(path string) (*Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening deploy record: %w", err)
 	}
+	// One connection, and busy_timeout before journal_mode. Both matter:
+	// pragmas are per-connection, so on a pool they would land on arbitrary
+	// connections and silently protect nothing; and switching to WAL takes
+	// a lock of its own, so two processes (or two racing deploys) opening
+	// the record together fail with SQLITE_BUSY unless the timeout is
+	// already in force. One connection is no loss for an append-only log.
+	db.SetMaxOpenConns(1)
 	for _, pragma := range []string{
-		"PRAGMA journal_mode=WAL",
 		"PRAGMA busy_timeout=5000",
+		"PRAGMA journal_mode=WAL",
 	} {
 		if _, err := db.Exec(pragma); err != nil {
 			db.Close()
