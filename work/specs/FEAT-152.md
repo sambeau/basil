@@ -1,10 +1,11 @@
 ---
 id: FEAT-152
 title: "Site layout: separate code from persistent state"
-status: draft
+status: implemented
 priority: high
 created: 2026-08-24
 author: "@sambeau / @claude"
+implemented: 2026-08-24
 ---
 
 # FEAT-152: Site layout — separate code from persistent state
@@ -399,3 +400,41 @@ Recorded so the choice is not made accidentally later.
 - Clean-install bootstrap on a real host with real DNS (PLAN-132 Definition of Done) has
   not been performed: no such host was available. Verified locally instead — `--init`,
   start, serve, uploads, legacy layout, and a clone of the created repository.
+
+### Verification (2026-08-24, release engineering pass)
+
+Landed on `main` as `9cf4e04` + `ddd6e24` (fast-forward; the branch was already on top
+of `e55a2dd`, so the rebase was a no-op). Branch `feat-152-site-layout` deleted.
+
+Observed directly, not taken on report:
+
+- `go build ./...` and `go test ./...` both pass (`-count=1`, no cached results): every
+  package `ok`, including the new `server/config` and `server` suites.
+- **Path-anchor table test** — `server/config/paths_test.go` carries the audit table as
+  executable cases, with separate tests for `routes[]`, developer profiles and the legacy
+  layout.
+- **Three working directories** — the same site root started from `/`, `$HOME` and a
+  directory inside the site root itself. All three served HTTP 200, and the resolved
+  absolute paths (config, handler root, `site.path`, dev log database) were byte-identical
+  across all three. No `certs/` or `cache/` directory appeared in any working directory.
+- **Legacy layout** — a plain project directory (`basil.yaml` + `site/`) run with
+  `basil --dev` was compared against a binary built from `main` before the merge. Response
+  body identical; startup logs identical apart from timestamps and request durations.
+- **`basil --init`** — produces `site.git/`, `releases/<sha>/`, `current` → the release,
+  and `data/` (0700) holding `.basil-auth.db` and `uploads/`. Prints the layout, the API
+  key once, and a clone command with hostname and account name in it. Refuses a non-empty
+  directory, refuses a missing `--host`, and refuses a missing `--admin` non-interactively.
+- **Public server without `server.host`** refuses at config validation with an error naming
+  all three fixes (set the host, `--dev`, or configure `https.cert`/`https.key`).
+- **Uploads** — `<data root>/uploads/note.txt` served at `/__uploads/note.txt` from outside
+  `public_dir`; a symlink planted in the uploads directory, a `..` traversal, and a
+  directory listing all returned 404.
+
+Not verified, and still open:
+
+- **Clean-install bootstrap on a real host with real DNS** (PLAN-132 Definition of Done).
+  No such host was available. Nothing on the live ACME path — certificate issuance, the
+  eager fetch, the backoff marker, the port-80 challenge — has been exercised against
+  Let's Encrypt; it is covered by unit tests only.
+- **Not pushed to `origin`.** `main` is two commits ahead and waiting for the development
+  lead to review and push.
