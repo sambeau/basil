@@ -14,6 +14,7 @@ Topic-by-topic guides for building with Basil. For the structured manuals, see t
 | Bind tables to a JSON API | [API Table Binding](api-table-binding.md) |
 | Style my site | [Styling](styling.md) |
 | Enable CORS for APIs | [CORS](cors.md) |
+| Deploy, roll back, or inspect releases | [Deployment](deployment.md) |
 | Deploy via Git push | [Git over HTTPS](git.md) |
 | Find an answer to a question | [FAQ](faq.md) |
 

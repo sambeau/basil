@@ -230,7 +230,15 @@ See the [CORS guide](https://github.com/sambeau/basil/blob/main/docs/guide/cors.
 
 ## Updating a Live Site
 
-With the [Git server](git.md) enabled, deploying an update is `git push` — Basil reloads handlers automatically. For binary upgrades, replace the binary and restart; `SIGHUP` reloads scripts without a restart.
+Push your commits to the site's repository, then activate them:
+
+```bash
+basil deploy live --site /srv/mysite
+```
+
+Basil validates the release before it goes live — a release that does not parse is refused and the live site is unchanged — and a running server picks the new release up on its own, without a restart. Undo a bad release with `basil rollback`, see the deploy record with `basil releases`, and diagnose a misbehaving setup with `basil check`. The [Deployment guide](https://github.com/sambeau/basil/blob/main/docs/guide/deployment.md) covers the pipeline and all five commands.
+
+For binary upgrades, replace the binary and restart. `SIGHUP` re-activates whatever release `current` points at (in the legacy single-directory layout, it reloads scripts as before).
 
 ## Sessions Across Instances
 
