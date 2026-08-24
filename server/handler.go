@@ -112,15 +112,24 @@ type parsleyHandler struct {
 	// against the config and bundle it started with.
 	cfg         *config.Config
 	assetBundle *AssetBundle
+
+	// cacheGen and fragments pin this handler's release generation for the
+	// shared response and fragment caches: writes that land after a swap
+	// (from requests still in flight on the old release) carry the old
+	// generation and can never be read by the new release's handlers.
+	cacheGen  uint64
+	fragments evaluator.FragmentCacher
 }
 
 // conf returns the config this handler was built against, falling back to
-// the server's live config for handlers constructed outside the usual paths.
+// the atomically-published live config for handlers constructed outside the
+// usual paths - never s.config, which SwapRelease rewrites off the request
+// path.
 func (h *parsleyHandler) conf() *config.Config {
 	if h.cfg != nil {
 		return h.cfg
 	}
-	return h.server.config
+	return h.server.liveConfig()
 }
 
 // bundle returns the asset bundle this handler was built against, with the
@@ -129,7 +138,7 @@ func (h *parsleyHandler) bundle() *AssetBundle {
 	if h.assetBundle != nil {
 		return h.assetBundle
 	}
-	return h.server.assetBundle
+	return h.server.liveBundle()
 }
 
 // newParsleyHandler creates a handler for a Parsley script route
@@ -137,14 +146,22 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 	// Handler path is already resolved to absolute by config.Load()
 	scriptPath := route.Handler
 
-	return &parsleyHandler{
+	h := &parsleyHandler{
 		server:            s,
 		route:             route,
 		scriptPath:        scriptPath,
 		cache:             cache,
 		responseCache:     s.responseCache,
 		componentExpander: auth.NewComponentExpander(),
-	}, nil
+	}
+	// nil in tests that build a bare Server by hand
+	if s.responseCache != nil {
+		h.cacheGen = s.responseCache.Generation()
+	}
+	if s.fragmentCache != nil {
+		h.fragments = s.fragmentCache.view()
+	}
+	return h, nil
 }
 
 // ServeHTTP handles HTTP requests by executing the Parsley script
@@ -210,7 +227,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Check response cache first (only for cacheable routes with GET requests)
 	if h.route.Cache > 0 && r.Method == http.MethodGet {
-		if cached := h.responseCache.Get(r); cached != nil {
+		if cached := h.responseCache.Get(r, h.cacheGen); cached != nil {
 			// Serve from cache
 			for k, v := range cached.headers {
 				for _, vv := range v {
@@ -311,7 +328,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Build basil context for stdlib import (std/basil)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule, h.conf())
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.route.Path, csrfToken, sessionModule, h.conf())
 	env.BasilCtx = basilObj
 	// Bind the context object so site code can read basil.data_dir - the
 	// durable place to write, which nothing else in the environment names.
@@ -323,8 +340,10 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env.ServerDB = evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
 	}
 
-	// Set fragment cache and handler path for <basil.cache.Cache> component
-	env.FragmentCache = h.server.fragmentCache
+	// Set fragment cache and handler path for <basil.cache.Cache> component.
+	// The generation-pinned view keeps old-release writes invisible to the
+	// new release across a swap.
+	env.FragmentCache = h.fragments
 	env.AssetRegistry = h.server.assetRegistry
 	env.ImageRegistry = h.server.imageRegistry
 	env.AssetBundle = h.bundle()
@@ -423,7 +442,7 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]any, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string, sessionModule *evaluator.SessionModule, cfg *config.Config) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]any, db *sql.DB, dbDriver string, publicDir string, routePath string, csrfToken string, sessionModule *evaluator.SessionModule, cfg *config.Config) evaluator.Object {
 	// Build auth context
 	authCtx := map[string]any{
 		"required": route.Auth == "required",
@@ -1074,9 +1093,11 @@ func (h *parsleyHandler) writeResponseWithCache(w http.ResponseWriter, r *http.R
 		crw.Header().Set("X-Cache", "MISS")
 		h.writeResponse(crw, r, result, meta, env)
 
-		// Only cache successful responses (2xx)
+		// Only cache successful responses (2xx). The write carries the
+		// handler's pinned generation: after a swap it lands under the old
+		// release's generation, unreadable by the new release's handlers.
 		if crw.statusCode >= 200 && crw.statusCode < 300 {
-			h.responseCache.Set(r, h.route.Cache, crw.statusCode, crw.Header(), crw.body)
+			h.responseCache.Set(r, h.cacheGen, h.route.Cache, crw.statusCode, crw.Header(), crw.body)
 		}
 		return
 	}

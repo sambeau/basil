@@ -126,12 +126,15 @@ func extractLineInfo(errMsg string) (file string, line, col int, cleanMsg string
 	return file, line, col, cleanMsg
 }
 
-// createErrorEnv creates an environment for rendering error pages
+// createErrorEnv creates an environment for rendering error pages. It runs
+// during requests, so it reads the atomically-published live config, never
+// s.config (rewritten by SwapRelease).
 func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator.Environment {
+	cfg := s.liveConfig()
 	env := evaluator.NewEnvironment()
 
 	// Load shared devtools components (for dev error pages)
-	if s.config.Server.Dev {
+	if cfg.Server.Dev {
 		loadDevToolsComponents(env)
 	}
 
@@ -142,7 +145,7 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	}
 
 	// In dev mode, add detailed error information
-	if s.config.Server.Dev && err != nil {
+	if cfg.Server.Dev && err != nil {
 		errorMap["details"] = err.Error()
 
 		// Try to extract file, line, column from error message
@@ -166,8 +169,8 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 		if file != "" {
 			// Make file path relative to base directory for cleaner display
 			displayFile := file
-			if s.config.ReleaseDir != "" && strings.HasPrefix(file, s.config.ReleaseDir) {
-				displayFile = strings.TrimPrefix(file, s.config.ReleaseDir)
+			if cfg.ReleaseDir != "" && strings.HasPrefix(file, cfg.ReleaseDir) {
+				displayFile = strings.TrimPrefix(file, cfg.ReleaseDir)
 				displayFile = strings.TrimPrefix(displayFile, "/")
 			}
 			errorMap["file"] = displayFile
@@ -206,7 +209,7 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 	// Add Basil metadata for error templates and expose as `basil`
 	basilMap := map[string]any{
 		"version": s.version,
-		"dev":     s.config.Server.Dev,
+		"dev":     cfg.Server.Dev,
 	}
 	basilObj, _ := parsley.ToParsley(basilMap)
 	env.BasilCtx = basilObj.(*evaluator.Dictionary)
@@ -368,12 +371,15 @@ func (s *Server) getSourceContext(filePath string, errorLine, contextLines int) 
 // error_pages config if one is set for this code, otherwise the built-in
 // prelude page. Returns true if successfully rendered, false if fallback needed
 func (s *Server) renderPreludeError(w http.ResponseWriter, r *http.Request, code int, err error) bool {
+	// Request path: the live config, never s.config (see SwapRelease).
+	cfg := s.liveConfig()
+
 	// Dev mode with error: use detailed dev error page
-	devDetail := s.config.Server.Dev && err != nil
+	devDetail := cfg.Server.Dev && err != nil
 
 	// Custom error page from config (replaces the generic page, not the dev one)
 	if !devDetail {
-		if path, ok := s.config.ErrorPages[code]; ok {
+		if path, ok := cfg.ErrorPages[code]; ok {
 			program, parseErr := s.scriptCache.getAST(path)
 			if parseErr != nil {
 				s.logError("error parsing custom error page %s: %v", path, parseErr)
@@ -463,7 +469,7 @@ func (s *Server) writeAPIError(w http.ResponseWriter, code int, err error) {
 		"code":    fmt.Sprintf("HTTP-%d", code),
 		"message": http.StatusText(code),
 	}
-	if s.config.Server.Dev && err != nil {
+	if s.liveConfig().Server.Dev && err != nil {
 		errorObj["details"] = err.Error()
 	}
 
@@ -498,7 +504,7 @@ func (s *Server) handle500(w http.ResponseWriter, r *http.Request, err error) {
 	// Try prelude error page first
 	if !s.renderPreludeError(w, r, http.StatusInternalServerError, err) {
 		// Fallback - in dev mode, check if dev_error.pars itself has errors
-		if s.config.Server.Dev {
+		if s.liveConfig().Server.Dev {
 			if _, parseErr := GetPreludeASTWithError("errors/dev_error.pars"); parseErr != nil {
 				// dev_error.pars has a parse error - show both errors
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")

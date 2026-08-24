@@ -2,19 +2,42 @@ package server
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // responseCache stores rendered responses for routes with caching enabled.
 // Each cache entry stores the full response (status, headers, body) keyed by
-// request attributes (method, path, query string).
+// request attributes (method, path, query string) salted with a release
+// generation: SwapRelease advances the generation before building the new
+// release's handlers, so a write from a request still in flight on the old
+// release lands under the old generation and can never be served to a
+// request on the new one.
 type responseCache struct {
 	mu            sync.RWMutex
 	entries       map[string]*cacheEntry
 	cacheDisabled bool // true when caching is disabled (dev mode without override)
+
+	// gen is the current release generation. Handlers pin the value at
+	// construction and pass it to Get and Set.
+	gen atomic.Uint64
+}
+
+// Generation returns the current release generation, for handlers to pin at
+// construction.
+func (c *responseCache) Generation() uint64 {
+	return c.gen.Load()
+}
+
+// Advance starts a new release generation. Called by SwapRelease before the
+// new release's handlers are built; entries of older generations become
+// unreachable to them and are wiped by the post-swap Clear (or expire).
+func (c *responseCache) Advance() {
+	c.gen.Add(1)
 }
 
 // cacheEntry represents a cached response with expiration time.
@@ -34,11 +57,15 @@ func newResponseCache(devMode, cacheEnabled bool) *responseCache {
 	}
 }
 
-// cacheKey generates a unique key for a request based on method, path, and query.
-// For cache busting, we include query parameters in the key.
-func cacheKey(r *http.Request) string {
+// cacheKey generates a unique key for a request based on the release
+// generation, method, path, and query. For cache busting, we include query
+// parameters in the key.
+func cacheKey(r *http.Request, gen uint64) string {
 	// Use SHA256 to handle long query strings efficiently
 	h := sha256.New()
+	var genBytes [8]byte
+	binary.BigEndian.PutUint64(genBytes[:], gen)
+	h.Write(genBytes[:])
 	h.Write([]byte(r.Method))
 	h.Write([]byte(":"))
 	h.Write([]byte(r.URL.Path))
@@ -47,15 +74,15 @@ func cacheKey(r *http.Request) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// Get retrieves a cached response if available and not expired.
-// Returns nil if cache miss or expired.
-func (c *responseCache) Get(r *http.Request) *cacheEntry {
+// Get retrieves a cached response if available and not expired. gen is the
+// caller's pinned release generation. Returns nil if cache miss or expired.
+func (c *responseCache) Get(r *http.Request, gen uint64) *cacheEntry {
 	// No caching when disabled
 	if c.cacheDisabled {
 		return nil
 	}
 
-	key := cacheKey(r)
+	key := cacheKey(r, gen)
 
 	c.mu.RLock()
 	entry, ok := c.entries[key]
@@ -77,14 +104,15 @@ func (c *responseCache) Get(r *http.Request) *cacheEntry {
 	return entry
 }
 
-// Set stores a response in the cache with the given TTL.
-func (c *responseCache) Set(r *http.Request, ttl time.Duration, status int, headers http.Header, body []byte) {
+// Set stores a response in the cache with the given TTL, under the caller's
+// pinned release generation.
+func (c *responseCache) Set(r *http.Request, gen uint64, ttl time.Duration, status int, headers http.Header, body []byte) {
 	// No caching when disabled or with zero TTL
 	if c.cacheDisabled || ttl <= 0 {
 		return
 	}
 
-	key := cacheKey(r)
+	key := cacheKey(r, gen)
 	entry := &cacheEntry{
 		status:    status,
 		headers:   headers.Clone(),

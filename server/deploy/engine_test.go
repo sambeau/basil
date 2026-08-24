@@ -570,15 +570,19 @@ func TestDeployPrunesOldReleases(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Pruning runs on every deploy, so good1 went during good2's deploy;
-	// this deploy prunes good2.
-	if len(res.Pruned) != 1 || filepath.Base(res.Pruned[0]) != f.good2 {
-		t.Errorf("Pruned = %v, want just the good2 release", res.Pruned)
+	// keep is clamped to 2 and the previously activated release is always
+	// protected, so only good1 - old enough AND no longer the previous
+	// release - goes during good3's deploy.
+	if len(res.Pruned) != 1 || filepath.Base(res.Pruned[0]) != f.good1 {
+		t.Errorf("Pruned = %v, want just the good1 release", res.Pruned)
 	}
-	for _, sha := range []string{f.good1, f.good2} {
-		if _, err := os.Stat(filepath.Join(f.releasesDir(), sha)); !os.IsNotExist(err) {
-			t.Errorf("old release %s survived pruning (err=%v)", shortSHA(sha), err)
-		}
+	if _, err := os.Stat(filepath.Join(f.releasesDir(), f.good1)); !os.IsNotExist(err) {
+		t.Errorf("old release %s survived pruning (err=%v)", shortSHA(f.good1), err)
+	}
+	// The previous activated release is never pruned - a lagging server may
+	// still serve it, and it is what rollback rolls back to.
+	if _, err := os.Stat(filepath.Join(f.releasesDir(), f.good2)); err != nil {
+		t.Errorf("the previous release was pruned: %v", err)
 	}
 	// The active release is never pruned, keep limit or not.
 	if _, err := os.Stat(filepath.Join(f.releasesDir(), f.good3)); err != nil {

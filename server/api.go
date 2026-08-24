@@ -22,16 +22,50 @@ type apiHandler struct {
 	route      config.Route
 	scriptPath string
 	cache      *scriptCache
+
+	// cfg and assetBundle pin the release this handler serves, set by
+	// setupRoutes at construction (see SwapRelease): the request path must
+	// not read the server fields SwapRelease rewrites.
+	cfg         *config.Config
+	assetBundle *AssetBundle
+
+	// fragments is the fragment-cache view pinned to this handler's release
+	// generation, so post-swap writes from old-release requests can never be
+	// read by new-release requests.
+	fragments evaluator.FragmentCacher
+}
+
+// conf returns the config this handler was built against, falling back to
+// the live config for handlers constructed outside setupRoutes (tests).
+func (h *apiHandler) conf() *config.Config {
+	if h.cfg != nil {
+		return h.cfg
+	}
+	return h.server.liveConfig()
+}
+
+// bundle returns the asset bundle this handler was built against, with the
+// same fallback as conf.
+func (h *apiHandler) bundle() *AssetBundle {
+	if h.assetBundle != nil {
+		return h.assetBundle
+	}
+	return h.server.liveBundle()
 }
 
 func newAPIHandler(s *Server, route config.Route, cache *scriptCache) (*apiHandler, error) {
 	scriptPath := route.Handler
-	return &apiHandler{
+	h := &apiHandler{
 		server:     s,
 		route:      route,
 		scriptPath: scriptPath,
 		cache:      cache,
-	}, nil
+	}
+	// nil in tests that build a bare Server by hand
+	if s.fragmentCache != nil {
+		h.fragments = s.fragmentCache.view()
+	}
+	return h, nil
 }
 
 func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -70,17 +104,17 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rootPath = absScriptDir
 	}
 	env.RootPath = rootPath
-	env.DataPath = h.server.config.DataDir
+	env.DataPath = h.conf().DataDir
 
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,
-		AllowWrite:    h.server.config.WritePolicy(), // configured directories plus <data_dir>/uploads
+		AllowWrite:    h.conf().WritePolicy(), // configured directories plus <data_dir>/uploads
 		AllowWriteAll: false,
 		AllowExecute:  []string{rootPath},
 		RestrictRead:  []string{"/etc", "/var", "/root"},
 	}
 
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, "", nil, h.server.config)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.route.Path, "", nil, h.conf())
 	env.BasilCtx = basilObj
 	// Bind the context object so site code can read basil.data_dir - the
 	// durable place to write, which nothing else in the environment names.
@@ -91,14 +125,15 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env.ServerDB = evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
 	}
 
-	// Set fragment cache, asset registry, image registry, and handler path
-	env.FragmentCache = h.server.fragmentCache
+	// Set fragment cache, asset registry, image registry, and handler path.
+	// The fragment view and bundle are pinned to this handler's release.
+	env.FragmentCache = h.fragments
 	env.AssetRegistry = h.server.assetRegistry
 	env.ImageRegistry = h.server.imageRegistry
-	env.AssetBundle = h.server.assetBundle
+	env.AssetBundle = h.bundle()
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
-	env.DevMode = h.server.config.Server.Dev
+	env.DevMode = h.conf().Server.Dev
 
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())

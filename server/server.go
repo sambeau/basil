@@ -284,17 +284,20 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 		return nil, fmt.Errorf("setting up routes: %w", err)
 	}
 
-	// Publish the initial serving surface. From here on the mux is only
-	// replaced through SwapRelease, which stores a new state atomically.
-	s.serving.Store(&serveState{mux: s.mux, release: cfg.ReleaseDir})
+	// Publish the initial serving surface. From here on the mux, config and
+	// bundle are only replaced through SwapRelease, which stores a new state
+	// atomically.
+	s.serving.Store(&serveState{mux: s.mux, release: cfg.ReleaseDir, config: cfg, assetBundle: s.assetBundle})
 
 	return s, nil
 }
 
 // isProtectedPath checks if a URL path matches any protected path prefix.
-// Returns the matching ProtectedPath if found, nil otherwise.
+// Returns the matching ProtectedPath if found, nil otherwise. It runs on the
+// request path, so it reads the atomically-published live config, never
+// s.config (rewritten by SwapRelease).
 func (s *Server) isProtectedPath(urlPath string) *config.ProtectedPath {
-	return protectedPathIn(s.config, urlPath)
+	return protectedPathIn(s.liveConfig(), urlPath)
 }
 
 // protectedPathIn is isProtectedPath against an explicit config, for
@@ -313,10 +316,11 @@ func protectedPathIn(cfg *config.Config, urlPath string) *config.ProtectedPath {
 	return nil
 }
 
-// getLoginPath returns the configured login path or the default.
+// getLoginPath returns the configured login path or the default. Request
+// path: reads the live config.
 func (s *Server) getLoginPath() string {
-	if s.config.Auth.LoginPath != "" {
-		return s.config.Auth.LoginPath
+	if path := s.liveConfig().Auth.LoginPath; path != "" {
+		return path
 	}
 	return "/login"
 }
@@ -514,14 +518,16 @@ func (s *Server) initSessions() error {
 	return nil
 }
 
-// initDatabase opens the SQLite database connection if configured.
+// initDatabase opens the SQLite database connection if configured. It runs
+// at construction and again from ReloadDatabase (a dev-tools request path),
+// so it reads the live config.
 func (s *Server) initDatabase() error {
 	// No database configured
-	if s.config.Database.Path == "" {
+	if s.liveConfig().Database.Path == "" {
 		return nil
 	}
 
-	return s.initSQLite(s.config.Database.Path)
+	return s.initSQLite(s.liveConfig().Database.Path)
 }
 
 // initSQLite opens a SQLite database connection.
@@ -532,7 +538,7 @@ func (s *Server) initSQLite(path string) error {
 
 	// Path should already be resolved by config loader, but handle relative just in case
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(s.config.DataDir, path)
+		path = filepath.Join(s.liveConfig().DataDir, path)
 	}
 
 	// Open database with WAL mode for better concurrency
@@ -719,12 +725,15 @@ func (s *Server) setupRoutes() error {
 		}
 	}
 
-	// Register asset bundle routes
+	// Register asset bundle routes. The closures pin the bundle current at
+	// setup: the mux and its release's bundle age out together, and
+	// s.assetBundle is rewritten by SwapRelease off the request path.
+	bundle := s.assetBundle
 	s.mux.HandleFunc("/__site.css", func(w http.ResponseWriter, r *http.Request) {
-		s.assetBundle.ServeCSS(w, r)
+		bundle.ServeCSS(w, r)
 	})
 	s.mux.HandleFunc("/__site.js", func(w http.ResponseWriter, r *http.Request) {
-		s.assetBundle.ServeJS(w, r)
+		bundle.ServeJS(w, r)
 	})
 
 	// Register prelude asset handlers
@@ -800,7 +809,14 @@ func (s *Server) setupRoutes() error {
 		var err error
 
 		if isAPI {
-			handler, err = newAPIHandler(s, route, s.scriptCache)
+			var ah *apiHandler
+			ah, err = newAPIHandler(s, route, s.scriptCache)
+			if ah != nil {
+				// Pin the release being set up (see SwapRelease).
+				ah.cfg = s.config
+				ah.assetBundle = s.assetBundle
+				handler = ah
+			}
 		} else {
 			var ph *parsleyHandler
 			ph, err = newParsleyHandler(s, route, s.scriptCache)
@@ -1140,6 +1156,13 @@ func (s *Server) Run(ctx context.Context) error {
 	// Log version first
 	fmt.Fprintf(s.stdout, "basil %s\n", s.version)
 
+	// Snapshot the startup config once: the watchers started below can
+	// trigger SwapRelease, which rewrites s.config concurrently with the
+	// rest of this setup. Everything configured here (listener, middleware)
+	// is startup-bound anyway - a swap carries these settings and warns.
+	cfg := s.liveConfig()
+	configPath := s.configPath
+
 	addr := s.listenAddr()
 
 	// Ensure databases are closed on shutdown
@@ -1163,8 +1186,8 @@ func (s *Server) Run(ctx context.Context) error {
 	}()
 
 	// In dev mode, start file watcher for hot reload
-	if s.config.Server.Dev {
-		watcher, err := NewWatcher(s, s.configPath, s.stdout, s.stderr)
+	if cfg.Server.Dev {
+		watcher, err := NewWatcher(s, configPath, s.stdout, s.stderr)
 		if err != nil {
 			s.logError("failed to create watcher: %v", err)
 		} else {
@@ -1180,14 +1203,14 @@ func (s *Server) Run(ctx context.Context) error {
 	// deploy CLI (a separate process) and activate the new release in place.
 	// This is the cross-process activation channel, so it runs in production
 	// as well as dev; the dev Watcher above remains the file-level reloader.
-	if s.config.SiteRoot != "" {
+	if cfg.SiteRoot != "" {
 		clw, err := newCurrentLinkWatcher(s)
 		if err != nil {
 			s.logError("failed to watch %s for deploys: %v (releases will activate on restart or SIGHUP)", config.CurrentLinkName, err)
 		} else {
 			clw.Start(ctx)
 			defer clw.Close()
-			s.logInfo("watching %s for deploys", filepath.Join(s.config.SiteRoot, config.CurrentLinkName))
+			s.logInfo("watching %s for deploys", filepath.Join(cfg.SiteRoot, config.CurrentLinkName))
 		}
 	}
 
@@ -1197,15 +1220,15 @@ func (s *Server) Run(ctx context.Context) error {
 	handler := s.servingHandler()
 
 	// In dev mode, inject live reload script into HTML responses
-	if s.config.Server.Dev {
+	if cfg.Server.Dev {
 		handler = injectLiveReload(handler)
 	}
 
 	// Add proxy header handling (must be before logging to get real IPs)
-	handler = newProxyAware(handler, s.config.Server.Proxy)
+	handler = newProxyAware(handler, cfg.Server.Proxy)
 
 	// Add security headers
-	handler = newSecurityHeaders(handler, s.config.Security, s.config.Server.Dev)
+	handler = newSecurityHeaders(handler, cfg.Security, cfg.Server.Dev)
 
 	// Add CORS middleware if configured
 	if s.corsMW != nil {
@@ -1213,16 +1236,16 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	// Wrap with request logging middleware (unless level is error-only)
-	if s.config.Logging.Level != "error" {
-		handler = newRequestLogger(handler, s.stdout, s.config.Logging.Format)
+	if cfg.Logging.Level != "error" {
+		handler = newRequestLogger(handler, s.stdout, cfg.Logging.Format)
 	}
 
 	// Wrap with compression (compresses all responses)
-	handler = newCompressionHandler(handler, s.config.Compression)
+	handler = newCompressionHandler(handler, cfg.Compression)
 
 	// Wrap with panic recovery (outermost - guards every other middleware so a
 	// panic becomes a logged 500 rather than a dropped connection)
-	handler = newRecoverMiddleware(handler, s.stderr, s.config.Server.Dev)
+	handler = newRecoverMiddleware(handler, s.stderr, cfg.Server.Dev)
 
 	s.server = &http.Server{
 		Addr:              addr,
@@ -1236,7 +1259,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// Start server in goroutine
 	errCh := make(chan error, 1)
 	go func() {
-		if s.config.Server.Dev {
+		if cfg.Server.Dev {
 			fmt.Fprintf(s.stdout, "Starting Basil in development mode on http://%s\n", addr)
 			errCh <- s.server.ListenAndServe()
 		} else {
@@ -1270,10 +1293,11 @@ func (s *Server) Run(ctx context.Context) error {
 // used. Dev mode still defaults to localhost so a development server is not
 // exposed to the network by accident.
 func (s *Server) listenAddr() string {
-	bind := s.config.Server.Bind
-	port := s.config.Server.Port
+	cfg := s.liveConfig()
+	bind := cfg.Server.Bind
+	port := cfg.Server.Port
 
-	if s.config.Server.Dev {
+	if cfg.Server.Dev {
 		if bind == "" {
 			bind = "localhost"
 		}
@@ -1288,7 +1312,7 @@ func (s *Server) listenAddr() string {
 // listenAndServeTLS starts HTTPS server with TLS.
 // Supports automatic Let's Encrypt certificates or manual certificate files.
 func (s *Server) listenAndServeTLS() error {
-	cfg := s.config.Server.HTTPS
+	cfg := s.liveConfig().Server.HTTPS
 
 	// Manual cert mode. Paths are anchored to the data root by the config
 	// loader, so they do not move with the operator's shell.
@@ -1309,19 +1333,20 @@ func (s *Server) listenAndServeTLS() error {
 // anchors https.cache_dir to the data root; this only covers configs built
 // in code (tests) that never went through the loader.
 func (s *Server) certCacheDir() string {
-	dir := s.config.Server.HTTPS.CacheDir
+	cfg := s.liveConfig()
+	dir := cfg.Server.HTTPS.CacheDir
 	if dir == "" {
 		dir = config.CertsDirName
 	}
 	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(s.config.DataDir, dir)
+		dir = filepath.Join(cfg.DataDir, dir)
 	}
 	return dir
 }
 
 // listenAndServeAutocert configures and starts the server with Let's Encrypt certificates.
 func (s *Server) listenAndServeAutocert() error {
-	cfg := s.config.Server.HTTPS
+	cfg := s.liveConfig().Server.HTTPS
 
 	// Certificates are persistent state: re-issuance is rate-limited by
 	// Let's Encrypt, so the cache must survive a deploy and must not depend
@@ -1378,10 +1403,11 @@ var certificateFailureCooldown = 15 * time.Minute
 
 // certFailureMarker names the file that records the last failed probe.
 func (s *Server) certFailureMarker() string {
-	if s.config.DataDir == "" {
+	dataDir := s.liveConfig().DataDir
+	if dataDir == "" {
 		return ""
 	}
-	return filepath.Join(s.config.DataDir, ".acme-probe-failed")
+	return filepath.Join(dataDir, ".acme-probe-failed")
 }
 
 // recentCertificateFailure reports whether the previous start failed to
@@ -1437,7 +1463,7 @@ func (s *Server) certificateCached(manager *autocert.Manager, host string) bool 
 // startup and reports the outcome plainly, naming the two things that
 // usually break: DNS and port 80.
 func (s *Server) obtainCertificate(manager *autocert.Manager, ready <-chan struct{}) {
-	host := s.config.Server.Host
+	host := s.liveConfig().Server.Host
 	if host == "" {
 		return // refused at config validation; nothing to ask for
 	}
@@ -1521,7 +1547,7 @@ func (s *Server) probeCertificate(host string, get func(*tls.ClientHelloInfo) (*
 
 // hostPolicy returns a function that validates hostnames for certificate requests.
 func (s *Server) hostPolicy() autocert.HostPolicy {
-	host := s.config.Server.Host
+	host := s.liveConfig().Server.Host
 
 	// No host configured: refuse every issuance request. Returning nil here
 	// would tell autocert to attempt issuance for any hostname a stranger

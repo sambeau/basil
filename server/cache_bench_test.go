@@ -22,11 +22,11 @@ func BenchmarkResponseCache_GetHit(b *testing.B) {
 	headers.Set("Content-Type", "application/json")
 	headers.Set("X-Request-Id", "bench-123")
 	body := []byte(`{"users":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}],"total":42}`)
-	cache.Set(req, 5*time.Minute, http.StatusOK, headers, body)
+	cache.Set(req, cache.Generation(), 5*time.Minute, http.StatusOK, headers, body)
 
 	b.ResetTimer()
 	for b.Loop() {
-		entry := cache.Get(req)
+		entry := cache.Get(req, cache.Generation())
 		if entry == nil {
 			b.Fatal("expected cache hit")
 		}
@@ -43,7 +43,7 @@ func BenchmarkResponseCache_GetMiss(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_ = cache.Get(req)
+		_ = cache.Get(req, cache.Generation())
 	}
 }
 
@@ -60,8 +60,8 @@ func BenchmarkResponseCache_SetThenGet(b *testing.B) {
 	for i := 0; b.Loop(); i++ {
 		// Use unique path per iteration to avoid overwriting
 		req := httptest.NewRequest(http.MethodGet, "/api/item", http.NoBody)
-		cache.Set(req, 5*time.Minute, http.StatusOK, headers, body)
-		entry := cache.Get(req)
+		cache.Set(req, cache.Generation(), 5*time.Minute, http.StatusOK, headers, body)
+		entry := cache.Get(req, cache.Generation())
 		if entry == nil {
 			b.Fatal("expected cache hit after set")
 		}
@@ -75,7 +75,7 @@ func BenchmarkResponseCache_CacheKey(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_ = cacheKey(req)
+		_ = cacheKey(req, 0)
 	}
 }
 

@@ -14,7 +14,7 @@ func TestResponseCache_BasicCaching(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test?foo=bar", http.NoBody)
 
 	// Initially, cache should be empty
-	if entry := cache.Get(req); entry != nil {
+	if entry := cache.Get(req, cache.Generation()); entry != nil {
 		t.Error("expected nil from empty cache")
 	}
 
@@ -22,10 +22,10 @@ func TestResponseCache_BasicCaching(t *testing.T) {
 	headers := http.Header{}
 	headers.Set("Content-Type", "text/html")
 	body := []byte("<html>test</html>")
-	cache.Set(req, 5*time.Minute, 200, headers, body)
+	cache.Set(req, cache.Generation(), 5*time.Minute, 200, headers, body)
 
 	// Retrieve from cache
-	entry := cache.Get(req)
+	entry := cache.Get(req, cache.Generation())
 	if entry == nil {
 		t.Fatal("expected cached entry")
 	}
@@ -46,10 +46,10 @@ func TestResponseCache_DevMode(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Set should do nothing in dev mode
-	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
+	cache.Set(req, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("test"))
 
 	// Get should return nil in dev mode
-	if entry := cache.Get(req); entry != nil {
+	if entry := cache.Get(req, cache.Generation()); entry != nil {
 		t.Error("expected nil in dev mode")
 	}
 }
@@ -60,10 +60,10 @@ func TestResponseCache_DevModeWithCacheEnabled(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Set should work when cache is enabled
-	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
+	cache.Set(req, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("test"))
 
 	// Get should return the cached entry
-	if entry := cache.Get(req); entry == nil {
+	if entry := cache.Get(req, cache.Generation()); entry == nil {
 		t.Error("expected cached entry in dev mode with cache enabled")
 	}
 }
@@ -74,13 +74,13 @@ func TestResponseCache_Expiration(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Store with very short TTL
-	cache.Set(req, 1*time.Millisecond, 200, http.Header{}, []byte("test"))
+	cache.Set(req, cache.Generation(), 1*time.Millisecond, 200, http.Header{}, []byte("test"))
 
 	// Wait for expiration
 	time.Sleep(10 * time.Millisecond)
 
 	// Should be expired
-	if entry := cache.Get(req); entry != nil {
+	if entry := cache.Get(req, cache.Generation()); entry != nil {
 		t.Error("expected nil for expired entry")
 	}
 }
@@ -92,12 +92,12 @@ func TestResponseCache_DifferentQueries(t *testing.T) {
 	req2 := httptest.NewRequest("GET", "/test?a=2", http.NoBody)
 
 	// Store different responses for different query strings
-	cache.Set(req1, 5*time.Minute, 200, http.Header{}, []byte("response1"))
-	cache.Set(req2, 5*time.Minute, 200, http.Header{}, []byte("response2"))
+	cache.Set(req1, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("response1"))
+	cache.Set(req2, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("response2"))
 
 	// Should get different responses
-	entry1 := cache.Get(req1)
-	entry2 := cache.Get(req2)
+	entry1 := cache.Get(req1, cache.Generation())
+	entry2 := cache.Get(req2, cache.Generation())
 
 	if entry1 == nil || string(entry1.body) != "response1" {
 		t.Error("expected 'response1' for first request")
@@ -114,15 +114,15 @@ func TestResponseCache_DifferentMethods(t *testing.T) {
 	postReq := httptest.NewRequest("POST", "/test", http.NoBody)
 
 	// Store response for GET
-	cache.Set(getReq, 5*time.Minute, 200, http.Header{}, []byte("get-response"))
+	cache.Set(getReq, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("get-response"))
 
 	// GET should hit cache
-	if entry := cache.Get(getReq); entry == nil {
+	if entry := cache.Get(getReq, cache.Generation()); entry == nil {
 		t.Error("expected cache hit for GET")
 	}
 
 	// POST should miss cache (different key)
-	if entry := cache.Get(postReq); entry != nil {
+	if entry := cache.Get(postReq, cache.Generation()); entry != nil {
 		t.Error("expected cache miss for POST")
 	}
 }
@@ -131,10 +131,10 @@ func TestResponseCache_Clear(t *testing.T) {
 	cache := newResponseCache(false, false)
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
-	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
+	cache.Set(req, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("test"))
 
 	// Verify it's cached
-	if entry := cache.Get(req); entry == nil {
+	if entry := cache.Get(req, cache.Generation()); entry == nil {
 		t.Fatal("expected entry before clear")
 	}
 
@@ -142,7 +142,7 @@ func TestResponseCache_Clear(t *testing.T) {
 	cache.Clear()
 
 	// Should be empty
-	if entry := cache.Get(req); entry != nil {
+	if entry := cache.Get(req, cache.Generation()); entry != nil {
 		t.Error("expected nil after clear")
 	}
 }
@@ -154,8 +154,8 @@ func TestResponseCache_Prune(t *testing.T) {
 	expiredReq := httptest.NewRequest("GET", "/expired", http.NoBody)
 	validReq := httptest.NewRequest("GET", "/valid", http.NoBody)
 
-	cache.Set(expiredReq, 1*time.Millisecond, 200, http.Header{}, []byte("expired"))
-	cache.Set(validReq, 5*time.Minute, 200, http.Header{}, []byte("valid"))
+	cache.Set(expiredReq, cache.Generation(), 1*time.Millisecond, 200, http.Header{}, []byte("expired"))
+	cache.Set(validReq, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("valid"))
 
 	// Wait for first to expire
 	time.Sleep(10 * time.Millisecond)
@@ -167,7 +167,7 @@ func TestResponseCache_Prune(t *testing.T) {
 	}
 
 	// Valid entry should still exist
-	if entry := cache.Get(validReq); entry == nil {
+	if entry := cache.Get(validReq, cache.Generation()); entry == nil {
 		t.Error("expected valid entry to remain")
 	}
 }
@@ -178,9 +178,9 @@ func TestResponseCache_ZeroTTL(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
 	// Zero TTL should not cache
-	cache.Set(req, 0, 200, http.Header{}, []byte("test"))
+	cache.Set(req, cache.Generation(), 0, 200, http.Header{}, []byte("test"))
 
-	if entry := cache.Get(req); entry != nil {
+	if entry := cache.Get(req, cache.Generation()); entry != nil {
 		t.Error("expected nil for zero TTL")
 	}
 }
@@ -193,7 +193,7 @@ func TestResponseCache_Size(t *testing.T) {
 	}
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
-	cache.Set(req, 5*time.Minute, 200, http.Header{}, []byte("test"))
+	cache.Set(req, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("test"))
 
 	if cache.Size() != 1 {
 		t.Errorf("expected size 1, got %d", cache.Size())

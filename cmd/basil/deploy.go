@@ -162,6 +162,9 @@ func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 			fmt.Fprintln(stderr, "Release rejected. The live site is unchanged.")
 			return fmt.Errorf("release %s failed validation with %d error(s)", shortRelease(vErr.CommitSHA), len(vErr.Errors))
 		}
+		if rfErr := reportRecordFailure(stdout, stderr, err); rfErr != nil {
+			return rfErr
+		}
 		return err
 	}
 
@@ -169,6 +172,23 @@ func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 		fmt.Fprintf(stdout, "Live: %s\n", shortRelease(res.CommitSHA))
 	}
 	return nil
+}
+
+// reportRecordFailure handles the deploy-succeeded-record-failed outcome
+// distinctly: the site changed (or was confirmed live), only the deploy
+// record was not written. The message must never claim the deploy failed;
+// the non-zero exit flags the record problem for scripts.
+func reportRecordFailure(stdout, stderr io.Writer, err error) error {
+	var rfErr *deploy.RecordFailedError
+	if !errors.As(err, &rfErr) {
+		return nil
+	}
+	if res := rfErr.Result; res != nil {
+		fmt.Fprintf(stdout, "Live: %s\n", shortRelease(res.CommitSHA))
+	}
+	fmt.Fprintf(stderr, "The release is live; the deploy did NOT fail. Only writing the deploy record failed: %v\n", rfErr.Err)
+	fmt.Fprintf(stderr, "basil releases and basil rollback may not see this deploy until the record is writable again.\n")
+	return err
 }
 
 // runRollbackCommand handles `basil rollback [id]`.
@@ -206,6 +226,9 @@ func runRollbackCommand(args []string, stdout, stderr io.Writer, getenv func(str
 	eng := newCLIEngine(cfg, stdout, getenv)
 	res, err := eng.Rollback(target)
 	if err != nil {
+		if rfErr := reportRecordFailure(stdout, stderr, err); rfErr != nil {
+			return rfErr
+		}
 		// The engine's errors are already actionable: "no previous release"
 		// names the empty record, "pruned" suggests basil deploy <sha>.
 		return err

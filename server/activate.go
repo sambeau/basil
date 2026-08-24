@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -22,12 +23,39 @@ import (
 // request dispatched after the swap sees the new release.
 
 // serveState is what the request path dispatches through: the mux serving
-// the active release. Run's middleware chain wraps an indirection over
-// Server.serving rather than the mux itself, so storing a new state here is
-// the whole visible act of activation.
+// the active release, together with the config and asset bundle it was built
+// against. Run's middleware chain wraps an indirection over Server.serving
+// rather than the mux itself, so storing a new state here is the whole
+// visible act of activation. config and assetBundle live here - not read
+// from the Server's plain fields - because SwapRelease rewrites those fields
+// under swapMu, which request-path readers never take.
 type serveState struct {
-	mux     *http.ServeMux
-	release string // ReleaseDir this mux was built against ("" in tests without one)
+	mux         *http.ServeMux
+	release     string // ReleaseDir this mux was built against ("" in tests without one)
+	config      *config.Config
+	assetBundle *AssetBundle
+}
+
+// liveConfig is the config of the release currently being served, for code
+// that runs concurrently with SwapRelease (request paths, Run's background
+// goroutines). Handlers that pin a config at construction should prefer the
+// pin; everything else must come through here rather than s.config, which is
+// rewritten under swapMu. The fallback covers construction time, before New
+// publishes the first serveState - single-goroutine, so the plain read is
+// safe there.
+func (s *Server) liveConfig() *config.Config {
+	if st := s.serving.Load(); st != nil {
+		return st.config
+	}
+	return s.config
+}
+
+// liveBundle is liveConfig for the asset bundle.
+func (s *Server) liveBundle() *AssetBundle {
+	if st := s.serving.Load(); st != nil {
+		return st.assetBundle
+	}
+	return s.assetBundle
 }
 
 // servingHandler returns the handler the middleware chain wraps: an
@@ -57,8 +85,11 @@ func (s *Server) servingHandler() http.Handler {
 //
 // Listener-affecting settings (server.port, server.bind, server.host,
 // server.https) are not applied: the listener was bound at startup and
-// cannot be re-bound live. A change is reported with a restart-required
-// warning and the running values are kept.
+// cannot be re-bound live. The same goes for every config section whose
+// subsystem is built once by New and not rebuilt here (database, session,
+// auth, git, images, logging, compression, security, CORS, proxy). A change
+// is reported with a restart-required warning and the running values are
+// kept, so the served config never disagrees with the subsystems behind it.
 //
 // On any failure the previous release keeps serving: nothing is published,
 // no cache is cleared, and the replaced fields are restored.
@@ -82,8 +113,10 @@ func (s *Server) SwapRelease() error {
 		return fmt.Errorf("swap release: %w", err)
 	}
 	// Carry the listener settings (and the --dev flag, which never comes
-	// from yaml) before validating: validation rules depend on dev mode.
-	s.carryListenerSettings(newCfg)
+	// from yaml) and every restart-required section before validating:
+	// validation rules depend on dev mode, and what gets validated must be
+	// what will actually run.
+	s.carryRestartRequiredSettings(newCfg)
 	if err := config.Validate(newCfg); err != nil {
 		return fmt.Errorf("swap release: validating %s: %w", cfgPath, err)
 	}
@@ -91,9 +124,20 @@ func (s *Server) SwapRelease() error {
 	// Build the new release's asset bundle before touching server state.
 	newBundle := buildAssetBundle(newCfg, s.logWarn)
 
+	// New generations for the response and fragment caches BEFORE the new
+	// handlers are built: handlers pin their generation at construction, so
+	// the new release's entries can never collide with writes still arriving
+	// from old-release requests. On failure the burned generation is
+	// harmless - the old handlers keep reading and writing their own pinned
+	// generation.
+	s.responseCache.Advance()
+	s.fragmentCache.Advance()
+
 	// Rebuild the routes. setupRoutes reads these fields, so they are
 	// swapped in first and restored if it fails; nothing is published until
-	// the end.
+	// the end, and request paths never read these fields directly (they go
+	// through s.serving or a handler pin), so the transient values - a
+	// failed release's config included - are invisible to every reader.
 	prevConfig, prevConfigPath, prevMux, prevBundle := s.config, s.configPath, s.mux, s.assetBundle
 	s.config = newCfg
 	s.configPath = newCfgPath
@@ -115,7 +159,7 @@ func (s *Server) SwapRelease() error {
 	s.imageRegistry.Clear()
 	evaluator.ClearModuleCache()
 
-	s.serving.Store(&serveState{mux: s.mux, release: releaseDir})
+	s.serving.Store(&serveState{mux: s.mux, release: releaseDir, config: newCfg, assetBundle: newBundle})
 	s.logInfo("activated release %s", filepath.Base(releaseDir))
 
 	// Trigger browser reload if the dev watcher is active.
@@ -150,6 +194,37 @@ func (s *Server) carryListenerSettings(newCfg *config.Config) {
 	newCfg.Server.Host = old.Host
 	newCfg.Server.HTTPS = old.HTTPS
 	newCfg.Server.Dev = old.Dev
+}
+
+// carryRestartRequiredSettings keeps the running values of every config
+// section whose subsystem New builds once and SwapRelease does not rebuild:
+// the database connection, session store, auth system, git server, image
+// registry, logging/compression/security-header/proxy middleware and CORS
+// were all constructed from the startup config, so applying a release's new
+// values to s.config alone would make the served config lie about the
+// subsystem behind it. Each changed section is kept at its running value
+// with one restart-required warning.
+func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
+	s.carryListenerSettings(newCfg)
+
+	old := s.config
+	carry := func(name string, changed bool, keep func()) {
+		if changed {
+			s.logWarn("%s changed in the new release but its subsystem was built at startup - restart required for it to take effect", name)
+		}
+		keep()
+	}
+
+	carry("database", !reflect.DeepEqual(newCfg.Database, old.Database), func() { newCfg.Database = old.Database })
+	carry("session", !reflect.DeepEqual(newCfg.Session, old.Session), func() { newCfg.Session = old.Session })
+	carry("auth", !reflect.DeepEqual(newCfg.Auth, old.Auth), func() { newCfg.Auth = old.Auth })
+	carry("git", !reflect.DeepEqual(newCfg.Git, old.Git), func() { newCfg.Git = old.Git })
+	carry("images", !reflect.DeepEqual(newCfg.Images, old.Images), func() { newCfg.Images = old.Images })
+	carry("logging", !reflect.DeepEqual(newCfg.Logging, old.Logging), func() { newCfg.Logging = old.Logging })
+	carry("compression", !reflect.DeepEqual(newCfg.Compression, old.Compression), func() { newCfg.Compression = old.Compression })
+	carry("security", !reflect.DeepEqual(newCfg.Security, old.Security), func() { newCfg.Security = old.Security })
+	carry("cors", !reflect.DeepEqual(newCfg.CORS, old.CORS), func() { newCfg.CORS = old.CORS })
+	carry("server.proxy", !reflect.DeepEqual(newCfg.Server.Proxy, old.Server.Proxy), func() { newCfg.Server.Proxy = old.Server.Proxy })
 }
 
 // currentLinkDebounce coalesces the burst of filesystem events a symlink

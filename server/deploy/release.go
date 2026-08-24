@@ -198,16 +198,25 @@ func CurrentRelease(siteRoot string) (string, error) {
 }
 
 // Prune removes the oldest release directories (by directory mtime) beyond
-// keep, and returns the paths it removed. The active release is never
-// removed, even when it is old enough to qualify; dot-prefixed entries
-// (in-flight .tmp-<sha> extractions) and plain files are never touched.
+// keep, and returns the paths it removed. The protect list — the active
+// release, and the previously activated release the caller read from the
+// deploy record — is never removed, even when old enough to qualify:
+// another process may still be serving the previous release (debounced
+// watcher, failed swap, no watcher), and it is what rollback rolls back to.
+// Dot-prefixed entries (in-flight .tmp-<sha> extractions) and plain files
+// are never touched.
 //
 // keep <= 0 is treated as keep-everything, not delete-everything: a zero
 // that reached this far is far more likely to be an unset value than a
-// request to erase every release on disk.
-func Prune(releasesDir string, keep int, activeDir string) ([]string, error) {
+// request to erase every release on disk. keep is clamped to a minimum of
+// 2 — this is the enforcement point for deploy.keep, so a configured
+// keep: 1 can never leave the site one deploy away from serving nothing.
+func Prune(releasesDir string, keep int, protect ...string) ([]string, error) {
 	if keep <= 0 {
 		return nil, nil
+	}
+	if keep < 2 {
+		keep = 2
 	}
 
 	entries, err := os.ReadDir(releasesDir)
@@ -236,10 +245,15 @@ func Prune(releasesDir string, keep int, activeDir string) ([]string, error) {
 
 	sort.Slice(releases, func(i, j int) bool { return releases[i].mtime > releases[j].mtime })
 
-	active := filepath.Clean(activeDir)
+	protected := make(map[string]bool, len(protect))
+	for _, p := range protect {
+		if p != "" {
+			protected[filepath.Clean(p)] = true
+		}
+	}
 	var removed []string
 	for _, r := range releases[min(keep, len(releases)):] {
-		if filepath.Clean(r.path) == active {
+		if protected[filepath.Clean(r.path)] {
 			continue
 		}
 		if err := os.RemoveAll(r.path); err != nil {

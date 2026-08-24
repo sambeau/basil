@@ -282,7 +282,7 @@ type GitConfig struct {
 // is the --no-validate CLI flag, never config) and the post-deploy hook is a
 // convention (deploy.pars in the release root), so neither gets a key here.
 type DeployConfig struct {
-	Keep int `yaml:"keep"` // Releases to retain when pruning (default: 5); the active release is always kept
+	Keep int `yaml:"keep"` // Releases to retain when pruning (default: 5, minimum 2 enforced at prune time); the active and previous releases are always kept
 }
 
 // SessionConfig holds session storage settings

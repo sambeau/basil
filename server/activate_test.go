@@ -245,8 +245,8 @@ func TestSwapReleaseClearsCaches(t *testing.T) {
 	// Populate the response cache (dev.cache: true keeps it enabled in dev
 	// mode) and prime the script cache through a real request.
 	req := httptest.NewRequest("GET", "/cached", http.NoBody)
-	s.responseCache.Set(req, time.Hour, http.StatusOK, http.Header{}, []byte("stale"))
-	if s.responseCache.Get(req) == nil {
+	s.responseCache.Set(req, s.responseCache.Generation(), time.Hour, http.StatusOK, http.Header{}, []byte("stale"))
+	if s.responseCache.Get(req, s.responseCache.Generation()) == nil {
 		t.Fatal("response cache entry should exist before the swap")
 	}
 	get(s, "/")
@@ -256,7 +256,7 @@ func TestSwapReleaseClearsCaches(t *testing.T) {
 		t.Fatalf("SwapRelease: %v", err)
 	}
 
-	if s.responseCache.Get(req) != nil {
+	if s.responseCache.Get(req, s.responseCache.Generation()) != nil {
 		t.Error("response cache entry survived the swap")
 	}
 }
@@ -268,13 +268,13 @@ func TestSwapReleaseFailureLeavesCachesIntact(t *testing.T) {
 	s, _, _ := newSiteRootServer(t, root)
 
 	req := httptest.NewRequest("GET", "/cached", http.NoBody)
-	s.responseCache.Set(req, time.Hour, http.StatusOK, http.Header{}, []byte("still here"))
+	s.responseCache.Set(req, s.responseCache.Generation(), time.Hour, http.StatusOK, http.Header{}, []byte("still here"))
 
 	must(os.Remove(filepath.Join(root, config.CurrentLinkName)))
 	if err := s.SwapRelease(); err == nil {
 		t.Fatal("SwapRelease: expected an error with no current link")
 	}
-	if s.responseCache.Get(req) == nil {
+	if s.responseCache.Get(req, s.responseCache.Generation()) == nil {
 		t.Error("failed swap cleared the response cache")
 	}
 }
@@ -304,6 +304,47 @@ func TestSwapReleaseWarnsOnListenerConfigChange(t *testing.T) {
 	for _, want := range []string{"server.port", "server.bind", "restart required"} {
 		if !strings.Contains(warnings, want) {
 			t.Errorf("expected a %q warning, stderr: %s", want, warnings)
+		}
+	}
+}
+
+// A release that changes a section whose subsystem is not rebuilt live
+// (database, session, auth, ...) must keep the running values - otherwise
+// handlers would pass the NEW config into scripts while the server still
+// holds connections built from the OLD one - and warn restart-required once
+// per changed section.
+func TestSwapReleaseCarriesRestartRequiredSections(t *testing.T) {
+	root := activationFixture(t)
+	s, _, stderr := newSiteRootServer(t, root)
+	oldDBPath := s.config.Database.Path // "" - release A configures no database
+
+	redb := writeRelease(t, root, "redb", "redb release", "database:\n  path: new-app.db\nsession:\n  secret: not-the-old-secret\n")
+	must(deploy.SetCurrent(root, redb))
+	if err := s.SwapRelease(); err != nil {
+		t.Fatalf("SwapRelease: %v", err)
+	}
+
+	// The release is served, but the changed sections are not applied: the
+	// served config still shows the running values.
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "redb release") {
+		t.Errorf("expected the new release's content, got %q", got)
+	}
+	if s.config.Database.Path != oldDBPath {
+		t.Errorf("database.path applied live: got %q, want %q", s.config.Database.Path, oldDBPath)
+	}
+	if live := s.serving.Load().config; live.Database.Path != oldDBPath {
+		t.Errorf("live config shows the new database.path %q; the db connection is still the old one", live.Database.Path)
+	}
+	warnings := stderr.String()
+	for _, want := range []string{"database", "session", "restart required"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("expected a %q warning, stderr: %s", want, warnings)
+		}
+	}
+	// Unchanged sections must not warn.
+	for _, notWant := range []string{"auth changed", "cors changed"} {
+		if strings.Contains(warnings, notWant) {
+			t.Errorf("unexpected warning %q, stderr: %s", notWant, warnings)
 		}
 	}
 }

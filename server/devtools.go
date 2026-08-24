@@ -79,7 +79,7 @@ func newDevToolsHandler(s *Server) *devToolsHandler {
 // ServeHTTP handles requests to /__/* routes.
 func (h *devToolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Not in dev mode - return 404
-	if !h.server.config.Server.Dev {
+	if !h.server.liveConfig().Server.Dev {
 		http.NotFound(w, r)
 		return
 	}
@@ -197,14 +197,14 @@ func (h *devToolsHandler) serveLogsText(w http.ResponseWriter, entries []LogEntr
 
 // openAppDB opens the application's SQLite database.
 func (h *devToolsHandler) openAppDB() (*sql.DB, error) {
-	dbPath := h.server.config.Database.Path
+	dbPath := h.server.liveConfig().Database.Path
 	if dbPath == "" {
 		return nil, fmt.Errorf("no database configured (set database.path in config)")
 	}
 
 	// Resolve relative path
 	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(h.server.config.DataDir, dbPath)
+		dbPath = filepath.Join(h.server.liveConfig().DataDir, dbPath)
 	}
 
 	db, err := sql.Open("sqlite", dbPath)
@@ -253,7 +253,7 @@ func (h *devToolsHandler) serveDB(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get database filename for display
-	dbPath := h.server.config.Database.Path
+	dbPath := h.server.liveConfig().Database.Path
 
 	htmlOut := fmt.Sprintf(devToolsDBHTML,
 		html.EscapeString(filepath.Base(dbPath)),
@@ -448,7 +448,7 @@ func (h *devToolsHandler) handleDevDBFileDownload(w http.ResponseWriter, r *http
 		return
 	}
 
-	dbPath := h.server.config.Database.Path
+	dbPath := h.server.liveConfig().Database.Path
 	if dbPath == "" {
 		http.Error(w, "No database configured", http.StatusInternalServerError)
 		return
@@ -456,7 +456,7 @@ func (h *devToolsHandler) handleDevDBFileDownload(w http.ResponseWriter, r *http
 
 	// Resolve relative path
 	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(h.server.config.DataDir, dbPath)
+		dbPath = filepath.Join(h.server.liveConfig().DataDir, dbPath)
 	}
 
 	// Get base filename for download
@@ -512,7 +512,7 @@ func (h *devToolsHandler) handleDevDBFileUpload(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	dbPath := h.server.config.Database.Path
+	dbPath := h.server.liveConfig().Database.Path
 	if dbPath == "" {
 		http.Error(w, "No database configured", http.StatusInternalServerError)
 		return
@@ -520,7 +520,7 @@ func (h *devToolsHandler) handleDevDBFileUpload(w http.ResponseWriter, r *http.R
 
 	// Resolve relative path
 	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(h.server.config.DataDir, dbPath)
+		dbPath = filepath.Join(h.server.liveConfig().DataDir, dbPath)
 	}
 
 	// Create timestamped backup
@@ -1001,9 +1001,9 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	basilMap := map[string]any{
 		"version":     version,
 		"commit":      "unknown", // commit hash not stored in Server struct
-		"dev":         h.server.config.Server.Dev,
+		"dev":         h.server.liveConfig().Server.Dev,
 		"go_version":  runtime.Version(),
-		"route_count": len(h.server.config.Routes),
+		"route_count": len(h.server.liveConfig().Routes),
 	}
 	basilObj, _ := parsley.ToParsley(basilMap)
 	env.BasilCtx = basilObj.(*evaluator.Dictionary)
@@ -1016,7 +1016,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	switch {
 	case path == "/__" || path == "/__/":
 		// Index page
-		devtoolsMap["has_db"] = h.server.config.Database.Path != ""
+		devtoolsMap["has_db"] = h.server.liveConfig().Database.Path != ""
 
 	case strings.HasPrefix(path, "/__/logs"):
 		// Logs page
@@ -1064,13 +1064,13 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 	case path == "/__/db" || path == "/__/db/":
 		// Database overview page
 		// Add database file info
-		dbPath := h.server.config.Database.Path
+		dbPath := h.server.liveConfig().Database.Path
 		if dbPath != "" {
 			devtoolsMap["db_filename"] = filepath.Base(dbPath)
 			// Resolve to absolute path for stat
 			absPath := dbPath
 			if !filepath.IsAbs(dbPath) {
-				absPath = filepath.Join(h.server.config.DataDir, dbPath)
+				absPath = filepath.Join(h.server.liveConfig().DataDir, dbPath)
 			}
 			if stat, err := os.Stat(absPath); err == nil {
 				devtoolsMap["db_size"] = stat.Size()
@@ -1173,7 +1173,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 	case path == "/__/env" || path == "/__/env/":
 		// Environment info page - organized by section with descriptions
-		cfg := h.server.config
+		cfg := h.server.liveConfig()
 
 		// Helper to create a setting entry
 		setting := func(name, value, help string) map[string]any {

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
 )
@@ -27,6 +28,13 @@ type siteHandler struct {
 	// with the old mux.
 	cfg         *config.Config
 	assetBundle *AssetBundle
+
+	// cacheGen and fragments pin the release's cache generation. The
+	// per-request parsleyHandlers this handler creates inherit them, so a
+	// post-swap render on the old release can never write an entry the new
+	// release's handlers would read.
+	cacheGen  uint64
+	fragments evaluator.FragmentCacher
 }
 
 // newSiteHandler creates a handler for filesystem-based routing.
@@ -39,6 +47,13 @@ func newSiteHandler(s *Server, siteRoot string, cache *scriptCache) *siteHandler
 	if s != nil {
 		h.cfg = s.config
 		h.assetBundle = s.assetBundle
+		// nil in tests that build a bare Server by hand
+		if s.responseCache != nil {
+			h.cacheGen = s.responseCache.Generation()
+		}
+		if s.fragmentCache != nil {
+			h.fragments = s.fragmentCache.view()
+		}
 	}
 	return h
 }
@@ -219,7 +234,9 @@ func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, h
 	}
 
 	// Create the handler using existing infrastructure, pinned to this site
-	// handler's release rather than the server's live one.
+	// handler's release rather than the server's live one. cacheGen and
+	// fragments must come from the site handler too: this runs at request
+	// time, and the server's caches may already belong to a newer release.
 	handler, err := newParsleyHandler(h.server, route, h.scriptCache)
 	if err != nil {
 		h.server.logError("failed to create handler for %s: %v", handlerPath, err)
@@ -228,6 +245,8 @@ func (h *siteHandler) serveWithHandler(w http.ResponseWriter, r *http.Request, h
 	}
 	handler.cfg = h.cfg
 	handler.assetBundle = h.assetBundle
+	handler.cacheGen = h.cacheGen
+	handler.fragments = h.fragments
 
 	// Store subpath in request context for buildRequestContext to pick up
 	ctx := r.Context()
@@ -308,7 +327,8 @@ func (h *siteHandler) servePartFile(w http.ResponseWriter, r *http.Request, part
 	}
 
 	// Create the handler using existing infrastructure, pinned to this site
-	// handler's release rather than the server's live one.
+	// handler's release rather than the server's live one (cache pins
+	// included; see serveWithHandler).
 	handler, err := newParsleyHandler(h.server, route, h.scriptCache)
 	if err != nil {
 		h.server.logError("failed to create Part handler for %s: %v", partPath, err)
@@ -317,6 +337,8 @@ func (h *siteHandler) servePartFile(w http.ResponseWriter, r *http.Request, part
 	}
 	handler.cfg = h.cfg
 	handler.assetBundle = h.assetBundle
+	handler.cacheGen = h.cacheGen
+	handler.fragments = h.fragments
 
 	// Apply auth middleware (optional auth for now)
 	finalHandler := h.server.applyAuthMiddleware(handler, "optional")

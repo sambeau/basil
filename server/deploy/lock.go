@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
 // ErrLocked is returned when another deploy holds the site's lock and the
 // caller asked not to wait (or the wait ran out).
 var ErrLocked = errors.New("another deploy is in progress")
+
+// errLockHeld is the platform-neutral signal from tryLockFile that another
+// process holds the lock right now, as opposed to the lock attempt itself
+// failing.
+var errLockHeld = errors.New("deploy lock held by another process")
 
 // LockFileName is the deploy lock, kept in the site root next to releases/
 // and current: the lock guards the site, so it lives with the site, not
@@ -24,8 +28,10 @@ const LockFileName = ".deploy.lock"
 // lockPollInterval is how often a waiting AcquireLock retries.
 const lockPollInterval = 25 * time.Millisecond
 
-// Lock is an exclusive per-site deploy lock. It is advisory (flock), which
-// is enough: every writer to releases/ and current goes through this package.
+// Lock is an exclusive per-site deploy lock. It is advisory, which is
+// enough: every writer to releases/ and current goes through this package.
+// The platform mechanics live in tryLockFile/unlockFile (lock_unix.go,
+// lock_windows.go).
 type Lock struct {
 	f *os.File
 }
@@ -34,9 +40,10 @@ type Lock struct {
 // refuses immediately with ErrLocked when the lock is held; with wait>0 it
 // retries until the deadline and then fails with an error wrapping ErrLocked.
 //
-// The lock is a kernel flock, so a deploy that crashes - or is kill -9ed -
-// releases it on process exit and can never wedge future deploys. The lock
-// file itself is never deleted; only the flock on it matters.
+// The lock is a kernel file lock, so a deploy that crashes - or is
+// kill -9ed - releases it on process exit and can never wedge future
+// deploys. The lock file itself is never deleted; only the lock on it
+// matters.
 func AcquireLock(siteRoot string, wait time.Duration) (*Lock, error) {
 	path := filepath.Join(siteRoot, LockFileName)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
@@ -46,11 +53,11 @@ func AcquireLock(siteRoot string, wait time.Duration) (*Lock, error) {
 
 	deadline := time.Now().Add(wait)
 	for {
-		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		err := tryLockFile(f)
 		if err == nil {
 			return &Lock{f: f}, nil
 		}
-		if err != syscall.EWOULDBLOCK && err != syscall.EAGAIN {
+		if !errors.Is(err, errLockHeld) {
 			f.Close()
 			return nil, fmt.Errorf("locking %s: %w", path, err)
 		}
@@ -73,7 +80,7 @@ func (l *Lock) Release() error {
 	}
 	f := l.f
 	l.f = nil
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN); err != nil {
+	if err := unlockFile(f); err != nil {
 		f.Close()
 		return fmt.Errorf("unlocking deploy lock: %w", err)
 	}

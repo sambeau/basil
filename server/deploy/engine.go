@@ -100,6 +100,27 @@ func (e *ValidationFailedError) Error() string {
 	return fmt.Sprintf("release %s failed validation:\n%s", shortSHA(e.CommitSHA), strings.Join(lines, "\n"))
 }
 
+// RecordFailedError is returned when the pipeline's outcome IS in effect on
+// disk — the release activated (or was already live) — but writing the
+// deploy record failed. Callers must not report the deploy itself as failed:
+// the site changed (or was confirmed live); only the bookkeeping did not.
+// The Result is also returned alongside this error so callers can report
+// what is live.
+type RecordFailedError struct {
+	Result *Result
+	Err    error
+}
+
+func (e *RecordFailedError) Error() string {
+	sha := ""
+	if e.Result != nil {
+		sha = shortSHA(e.Result.CommitSHA)
+	}
+	return fmt.Sprintf("release %s is live, but writing the deploy record failed: %v", sha, e.Err)
+}
+
+func (e *RecordFailedError) Unwrap() error { return e.Err }
+
 // commitIdentity is the commit author, read from the commit itself. The
 // publisher (who triggered the deploy) is a separate Engine field: the two
 // routinely differ, and the record stores both.
@@ -141,14 +162,20 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 	releasesDir := filepath.Join(e.SiteRoot, config.ReleasesDirName)
 	fmt.Fprintf(e.out(), "deploying %s\n", shortSHA(sha))
 
-	// Idempotency: deploying the active commit is a recorded no-op.
+	// Idempotency: deploying the active commit is a recorded no-op — but
+	// only while the release directory actually exists. A dangling
+	// `current` (the directory was removed by hand) means the site is down,
+	// and deploy must repair it by falling through to Materialise.
 	if current, err := CurrentRelease(e.SiteRoot); err == nil && filepath.Base(current) == sha {
-		res := &Result{CommitSHA: sha, ReleaseDir: current, Outcome: OutcomeNoOp, Duration: time.Since(start)}
-		if err := rec.Add(e.entry(sha, author, trigger, start, OutcomeNoOp, "already the active release")); err != nil {
-			return nil, err
+		if info, statErr := os.Stat(current); statErr == nil && info.IsDir() {
+			res := &Result{CommitSHA: sha, ReleaseDir: current, Outcome: OutcomeNoOp, Duration: time.Since(start)}
+			if err := rec.Add(e.entry(sha, author, trigger, start, OutcomeNoOp, "already the active release")); err != nil {
+				return res, &RecordFailedError{Result: res, Err: err}
+			}
+			fmt.Fprintf(e.out(), "%s is already live — nothing to do\n", shortSHA(sha))
+			return res, nil
 		}
-		fmt.Fprintf(e.out(), "%s is already live — nothing to do\n", shortSHA(sha))
-		return res, nil
+		fmt.Fprintf(e.out(), "%s points at a missing release directory — re-materialising %s\n", config.CurrentLinkName, shortSHA(sha))
 	}
 
 	// Materialise is idempotent and returns an existing releases/<sha>
@@ -212,10 +239,20 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 		Duration:   time.Since(start),
 	}
 	if err := rec.Add(e.entry(sha, author, trigger, start, OutcomeDeployed, reason)); err != nil {
-		return nil, err
+		// The release IS live; only the bookkeeping failed. Pruning is
+		// skipped too: it leans on the record to know which previous
+		// release to protect.
+		return res, &RecordFailedError{Result: res, Err: err}
 	}
 
-	pruned, err := Prune(releasesDir, e.Keep, releaseDir)
+	// Never prune the previous successfully-activated release: a serving
+	// process may still be on it (debounced watcher, failed swap, no
+	// watcher at all), and it is what rollback rolls back to.
+	protect := []string{releaseDir}
+	if prevSHA, prevErr := previousDeployedSHA(rec, sha); prevErr == nil && prevSHA != "" {
+		protect = append(protect, filepath.Join(releasesDir, prevSHA))
+	}
+	pruned, err := Prune(releasesDir, e.Keep, protect...)
 	if err != nil {
 		// Old directories lingering is an inconvenience, not a failed
 		// deploy; the next deploy prunes again.
@@ -272,7 +309,7 @@ func (e *Engine) Rollback(target string) (*Result, error) {
 	if sha == currentSHA {
 		res := &Result{CommitSHA: sha, ReleaseDir: filepath.Join(releasesDir, sha), Outcome: OutcomeNoOp, Duration: time.Since(start)}
 		if err := rec.Add(e.entry(sha, author, TriggerRollback, start, OutcomeNoOp, "already the active release")); err != nil {
-			return nil, err
+			return res, &RecordFailedError{Result: res, Err: err}
 		}
 		fmt.Fprintf(e.out(), "%s is already live — nothing to do\n", shortSHA(sha))
 		return res, nil
@@ -298,7 +335,8 @@ func (e *Engine) Rollback(target string) (*Result, error) {
 		Duration:   time.Since(start),
 	}
 	if err := rec.Add(e.entry(sha, author, TriggerRollback, start, OutcomeRolledBack, "")); err != nil {
-		return nil, err
+		// The rollback IS in effect; only the bookkeeping failed.
+		return res, &RecordFailedError{Result: res, Err: err}
 	}
 	fmt.Fprintf(e.out(), "rolled back to %s\n", shortSHA(sha))
 	return res, nil

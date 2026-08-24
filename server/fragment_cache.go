@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -9,6 +10,10 @@ import (
 
 // fragmentCache stores rendered HTML fragments for the <basil.cache.Cache> component.
 // It uses an in-memory LRU cache with time-based expiration.
+//
+// Keys are user-chosen strings, so releases would collide across a swap; the
+// evaluator therefore talks to a generation-pinned view (see view), never to
+// the cache directly.
 type fragmentCache struct {
 	mu       sync.RWMutex
 	entries  map[string]*fragmentEntry
@@ -17,6 +22,52 @@ type fragmentCache struct {
 	hits     atomic.Int64
 	misses   atomic.Int64
 	disabled bool // For testing: when true, always returns miss
+
+	// gen is the current release generation, advanced by SwapRelease before
+	// the new release's handlers pin their views.
+	gen atomic.Uint64
+}
+
+// Generation returns the current release generation.
+func (c *fragmentCache) Generation() uint64 {
+	return c.gen.Load()
+}
+
+// Advance starts a new release generation: entries written through views of
+// older generations become unreachable to views pinned afterwards.
+func (c *fragmentCache) Advance() {
+	c.gen.Add(1)
+}
+
+// view returns a FragmentCacher pinned to the cache's current generation.
+// Handlers capture one at construction, so a fragment written by a request
+// that outlives a swap stays in its own release's keyspace.
+func (c *fragmentCache) view() *fragmentCacheView {
+	return &fragmentCacheView{cache: c, gen: c.gen.Load()}
+}
+
+// fragmentCacheView is a generation-pinned facade over fragmentCache. It
+// implements evaluator.FragmentCacher by salting every key with the pinned
+// generation.
+type fragmentCacheView struct {
+	cache *fragmentCache
+	gen   uint64
+}
+
+func (v *fragmentCacheView) salted(key string) string {
+	return strconv.FormatUint(v.gen, 10) + ":" + key
+}
+
+func (v *fragmentCacheView) Get(key string) (string, bool) {
+	return v.cache.Get(v.salted(key))
+}
+
+func (v *fragmentCacheView) Set(key string, html string, maxAge time.Duration) {
+	v.cache.Set(v.salted(key), html, maxAge)
+}
+
+func (v *fragmentCacheView) Invalidate(key string) {
+	v.cache.Invalidate(v.salted(key))
 }
 
 // fragmentEntry represents a cached HTML fragment with expiration.
