@@ -454,8 +454,8 @@ func usersCreateCmd(db *auth.DB, name, email, role string, stdout, stderr io.Wri
 	}
 
 	// Validate role
-	if role != auth.RoleAdmin && role != auth.RoleEditor {
-		return fmt.Errorf("invalid role: %s (use: admin or editor)", role)
+	if role != auth.RoleAdmin && role != auth.RoleEditor && role != auth.RoleViewer {
+		return fmt.Errorf("invalid role: %s (use: admin, editor or viewer)", role)
 	}
 
 	user, err := db.CreateUserWithRole(name, email, role)
@@ -577,8 +577,8 @@ func usersSetRoleCmd(db *auth.DB, userID, role string, stdout io.Writer) error {
 	}
 
 	// Validate role
-	if role != auth.RoleAdmin && role != auth.RoleEditor {
-		return fmt.Errorf("invalid role: %s (use: admin or editor)", role)
+	if role != auth.RoleAdmin && role != auth.RoleEditor && role != auth.RoleViewer {
+		return fmt.Errorf("invalid role: %s (use: admin, editor or viewer)", role)
 	}
 
 	// Prevent removing the last admin

@@ -20,6 +20,7 @@ import (
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
+	"github.com/sambeau/basil/server/deploy"
 	"github.com/sambeau/basil/server/images"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -657,47 +658,117 @@ func (s *Server) initAuth() error {
 	return nil
 }
 
-// initGit initializes the Git HTTP server if enabled.
+// initGit initializes the Git endpoint (FEAT-154). It serves the site's bare
+// repository — <site root>/site.git — and only that: Git deploy is on when
+// the repository exists, and `git.enabled: false` is the off-switch. In the
+// legacy layout (no site root) there is no bare repository, so there is no
+// Git endpoint; the old behaviour of serving the live project directory over
+// HTTP is gone (it is the arrangement BUG-033 grew from).
 func (s *Server) initGit() error {
 	if !s.config.Git.Enabled {
+		return nil // the one off-switch
+	}
+
+	repo := s.config.BareRepoPath()
+	if repo == "" {
+		// Legacy layout. If the project directory is itself a Git repository
+		// the operator may have relied on the removed endpoint, so say so.
+		if _, err := os.Stat(filepath.Join(s.config.ReleaseDir, ".git")); err == nil {
+			s.logWarn("git: the legacy endpoint serving the project directory at /.git was removed (it required pushes into a checked-out branch, BUG-033); run `basil --init` to create a site with Git deploy")
+		}
 		return nil
 	}
-
-	// Security warnings
-	if !s.config.Git.RequireAuth && !s.config.Server.Dev {
-		s.logWarn("git server is enabled without authentication - this is insecure!")
-	}
-	if s.config.Git.RequireAuth && s.authDB == nil {
-		return fmt.Errorf("git server requires auth but auth is not enabled - enable auth.enabled or set git.require_auth: false")
+	if info, err := os.Stat(repo); err != nil || !info.IsDir() {
+		return nil // no repository, no Git
 	}
 
-	// Git handler needs the repository directory. In the site-root layout
-	// that is the bare repository, which lives outside the release; in the
-	// legacy layout it is the project directory, as before.
-	// (FEAT-154 owns the hub itself; this is only the anchor decision.)
-	siteDir := s.config.ReleaseDir
-	if repo := s.config.BareRepoPath(); repo != "" {
-		if info, err := os.Stat(repo); err == nil && info.IsDir() {
-			siteDir = repo
-		}
+	// A repository inside a served root would expose every version of every
+	// file over plain HTTP. site.git is a sibling of releases/ so an --init
+	// layout cannot get here; this guards misconfigured public_dir,
+	// site.path and static roots, which are configurable.
+	if err := checkRepoOutsideServedRoots(s.config, repo); err != nil {
+		return err
 	}
 
-	// Create reload callback
-	onPush := func() {
-		s.logInfo("git push received, reloading handlers...")
-		s.scriptCache.clear()
-		s.responseCache.Clear()
-		s.fragmentCache.Clear()
+	// No auth database, no Git: pushes are authorised by API keys in that
+	// database, so without it the endpoint cannot exist. Dev mode may run
+	// without one because the handler only serves localhost then.
+	if s.authDB == nil && !s.config.Server.Dev {
+		return fmt.Errorf("git deploy requires the auth database: set auth.enabled: true (pushes are authorised by its API keys), or git.enabled: false to turn Git off")
 	}
 
-	gitHandler, err := NewGitHandler(siteDir, s.authDB, s.config, onPush, s.stdout, s.stderr)
+	// (Re-)install the receive hooks: healing a deleted hook or a moved
+	// basil binary here is what keeps a push deploying instead of silently
+	// storing. A hook Basil did not write is a hard error naming the file —
+	// an operator's hook silently pre-empting deploys is the failure mode
+	// this refuses to allow.
+	if err := deploy.InstallHooks(repo); err != nil {
+		return fmt.Errorf("installing receive hooks: %w", err)
+	}
+
+	gitHandler, err := NewGitHandler(repo, s.authDB, s.config, s.stdout, s.stderr)
 	if err != nil {
 		return fmt.Errorf("creating git handler: %w", err)
 	}
 
 	s.gitHandler = gitHandler
-	s.logInfo("git server enabled at /.git/")
+	s.logInfo("git deploy enabled: serving %s at /.git/", repo)
 	return nil
+}
+
+// checkRepoOutsideServedRoots refuses a bare repository that resolves inside
+// any directory the server serves files from: public_dir, site.path, any
+// static route's root or file directory, any route's public_dir, or the
+// uploads directory.
+func checkRepoOutsideServedRoots(cfg *config.Config, repo string) error {
+	type root struct{ name, path string }
+	roots := []root{
+		{"public_dir", cfg.PublicDir},
+		{"site.path", cfg.Site.Path},
+		{"uploads directory", cfg.UploadsDir()},
+	}
+	for i, st := range cfg.Static {
+		roots = append(roots, root{fmt.Sprintf("static[%d].root", i), st.Root})
+		if st.File != "" {
+			roots = append(roots, root{fmt.Sprintf("static[%d].file's directory", i), filepath.Dir(st.File)})
+		}
+	}
+	for i, rt := range cfg.Routes {
+		roots = append(roots, root{fmt.Sprintf("routes[%d].public_dir", i), rt.PublicDir})
+	}
+
+	repoReal := resolveRealPath(repo)
+	for _, rt := range roots {
+		if rt.path == "" {
+			continue
+		}
+		if pathContains(resolveRealPath(rt.path), repoReal) {
+			return fmt.Errorf("refusing to serve Git: the repository %s is inside the served %s (%s) — every version of every file would be exposed; move the served directory or the site root", repo, rt.name, rt.path)
+		}
+	}
+	return nil
+}
+
+// resolveRealPath makes p absolute and resolves symlinks where possible, so
+// containment checks compare real locations rather than spellings.
+func resolveRealPath(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return p
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real
+	}
+	return abs
+}
+
+// pathContains reports whether child is dir itself or inside it.
+func pathContains(dir, child string) bool {
+	rel, err := filepath.Rel(dir, child)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 // setupRoutes configures the HTTP mux with static and dynamic routes.
@@ -1570,21 +1641,30 @@ func (s *Server) hostPolicy() autocert.HostPolicy {
 	return autocert.HostWhitelist(host)
 }
 
-// runHTTPRedirect starts an HTTP server on port 80 that:
-// 1. Handles ACME HTTP-01 challenges for Let's Encrypt
-// 2. Redirects all other requests to HTTPS
-func (s *Server) runHTTPRedirect(manager *autocert.Manager, ready chan struct{}) {
+// httpRedirectHandler builds the plain-HTTP (port 80) handler: ACME HTTP-01
+// challenges at /.well-known/acme-challenge/ go to the autocert manager, and
+// everything else — Git paths included — is redirected to HTTPS. The Git
+// plain-HTTP refusal lives in the Git handler on the main listener, NOT
+// here: a blanket refusal on this listener would swallow the ACME challenge
+// and the server could never obtain or renew a certificate.
+func httpRedirectHandler(manager *autocert.Manager) http.Handler {
 	redirectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Build HTTPS URL
 		target := "https://" + r.Host + r.URL.RequestURI()
 		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	})
+	// autocert's handler passes ACME challenges to the manager and delegates
+	// everything else to the redirect handler.
+	return manager.HTTPHandler(redirectHandler)
+}
 
-	// Use autocert's handler which passes ACME challenges to manager
-	// and delegates everything else to our redirect handler
+// runHTTPRedirect starts an HTTP server on port 80 that:
+// 1. Handles ACME HTTP-01 challenges for Let's Encrypt
+// 2. Redirects all other requests to HTTPS
+func (s *Server) runHTTPRedirect(manager *autocert.Manager, ready chan struct{}) {
 	httpServer := &http.Server{
 		Addr:              ":80",
-		Handler:           manager.HTTPHandler(redirectHandler),
+		Handler:           httpRedirectHandler(manager),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

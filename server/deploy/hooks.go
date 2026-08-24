@@ -62,6 +62,13 @@ func InstallHooks(bareRepoDir string) error {
 	return installHooks(bareRepoDir, exe)
 }
 
+// InstallHooksAt is InstallHooks with an explicit basil binary path, for
+// callers where os.Executable() is not the binary the hooks should run —
+// notably tests, whose executable is the test binary.
+func InstallHooksAt(bareRepoDir, basilPath string) error {
+	return installHooks(bareRepoDir, basilPath)
+}
+
 // installHooks is InstallHooks with the binary path injectable for tests.
 func installHooks(bareRepoDir, basilPath string) error {
 	hooksDir := filepath.Join(bareRepoDir, "hooks")

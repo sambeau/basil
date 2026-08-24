@@ -272,10 +272,13 @@ func (p *ProtectedPath) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
-// GitConfig holds Git server settings
+// GitConfig holds Git server settings. Git deploy is on whenever the site's
+// bare repository (<site root>/site.git) exists; nobody ever needs to write
+// `git.enabled: true`. The only key is the off-switch. There is deliberately
+// no way to disable authentication: pushes always require an API key, and
+// the sole relaxation — dev-mode localhost — is decided in code.
 type GitConfig struct {
-	Enabled     bool `yaml:"enabled"`      // Enable Git HTTP server at /.git/
-	RequireAuth bool `yaml:"require_auth"` // Require API key authentication (default: true)
+	Enabled bool `yaml:"enabled"` // Off-switch for the Git endpoint at /.git/ (default: true; active only when site.git exists)
 }
 
 // DeployConfig holds deploy engine settings (FEAT-153/FEAT-154). Validation
@@ -404,8 +407,10 @@ func Defaults() *Config {
 			SessionTTL:   24 * time.Hour,
 		},
 		Git: GitConfig{
-			Enabled:     false,
-			RequireAuth: true,
+			// On by default: the endpoint only activates when the site has a
+			// bare repository, so this is "on when site.git exists" with
+			// `enabled: false` as the off-switch.
+			Enabled: true,
 		},
 		Deploy: DeployConfig{
 			Keep:   5,

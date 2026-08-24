@@ -82,12 +82,11 @@ public_dir: ./public
 auth:
   enabled: true
 
-# Git server at /.git/. This is what the clone and push URLs printed by
-# 'basil --init' talk to; without it they 404. Pushing always requires an
-# API key from the auth database above.
-git:
-  enabled: true
-  require_auth: true
+# The Git endpoint at /.git/ is on because this site has a repository
+# (site.git). Pushing always requires an API key from the auth database
+# above. To turn the endpoint off entirely:
+# git:
+#   enabled: false
 
 # Where site code may write. <data_dir>/uploads is always writable and is
 # served at /__uploads/; add more entries here if site code needs them.

@@ -5,7 +5,6 @@ go 1.25.12
 toolchain go1.26.5
 
 require (
-	github.com/AaronO/go-git-http v0.0.0-20161214145340-1d9485b3a98f
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/disintegration/imaging v1.6.2
 	github.com/emersion/go-smtp v0.24.0

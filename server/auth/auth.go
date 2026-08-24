@@ -25,10 +25,12 @@ type APIKey struct {
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
-// Role constants
+// Role constants. A viewer may sign in and clone/fetch from the Git
+// endpoint but cannot push (FEAT-154's role gate admits editor and admin).
 const (
 	RoleAdmin  = "admin"
 	RoleEditor = "editor"
+	RoleViewer = "viewer"
 )
 
 // Credential represents a WebAuthn credential (passkey) for a user.

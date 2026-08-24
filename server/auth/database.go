@@ -296,8 +296,8 @@ func (d *DB) createUserInternal(id, name, email, role string) (*User, error) {
 	if role == "" {
 		role = RoleEditor
 	}
-	if role != RoleAdmin && role != RoleEditor {
-		return nil, fmt.Errorf("invalid role: %s (must be 'admin' or 'editor')", role)
+	if role != RoleAdmin && role != RoleEditor && role != RoleViewer {
+		return nil, fmt.Errorf("invalid role: %s (must be 'admin', 'editor' or 'viewer')", role)
 	}
 
 	user := &User{

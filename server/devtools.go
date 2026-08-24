@@ -1348,7 +1348,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 				"description": "Git HTTP server settings",
 				"settings": []any{
 					setting("Enabled", "true", "Git server enabled"),
-					setting("Require Auth", boolStr(cfg.Git.RequireAuth), "Require API key"),
+					setting("Authentication", "always", "API key over TLS; not configurable"),
 				},
 			})
 		}
