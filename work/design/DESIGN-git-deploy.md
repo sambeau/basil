@@ -532,6 +532,36 @@ in flight have resolved their paths and complete against the release they starte
 - Any failure before activation leaves the previous release live and untouched.
 - A failed release directory is removed, not left half-built.
 
+### 6.6 What FEAT-153 implementation taught (2026-08-24)
+
+Recorded here because each of these was discovered, not designed, and two were proven as
+bugs by review before landing.
+
+- **Activation is an atomic publish, not a field swap.** The serving mux, config and asset
+  bundle are published together through one atomic pointer (`serveState`); handlers pin
+  their config and bundle at construction. Reassigning server fields individually was a
+  proven data race against every request path that had not been given a pinned copy.
+- **Shared caches need a release dimension.** The response and fragment caches key on
+  method/path/query with no release component, so a request in flight across an activation
+  could write old-release content that the new release then served as a cache hit (proven
+  deterministically). Keys are now salted with a generation the handlers pin; activation
+  advances the generation before rebuilding routes.
+- **Retention must protect the previous release, not just the current one.** Another
+  process may still be serving the release that `current` moved away from (watcher lag, a
+  failed swap, a dead fsnotify). `deploy.keep` is clamped to ≥ 2 and pruning always spares
+  the previously-activated release from the record.
+- **The hook's paths are script-relative.** A `deploy.pars` writing `@./file` lands in the
+  release root — polluting the release and breaking byte-identity — not in the process cwd.
+  The docs say to write through absolute paths or the data root. The hook runs with an
+  explicit security policy equal to CLI trust; FEAT-154's push trigger must revisit it.
+- **The deploy record starts at `--init`.** Release 1 is recorded with trigger `init`,
+  otherwise the first real deploy has "nothing to roll back to" while the starter release
+  sits on disk.
+- **Crash window, documented not closed:** a crash between re-pointing `current` and
+  writing the record leaves a live-but-unrecorded release (backlog #138 has the
+  write-ahead fix shape). The site root must be on a local filesystem — flock is not
+  reliable on NFS/SMB.
+
 ---
 
 ## 7. Configuration
@@ -570,6 +600,14 @@ must not be committed.
 **Implementation note for the spec:** because server settings (port, TLS) live in the
 versioned config, a deploy can in principle change the listener. Decide whether such a
 change requires a restart or is applied live, and say so.
+
+*Decided during FEAT-153 (2026-08-24):* route- and site-level configuration applies live
+on activation. Everything whose subsystem is built once at startup — the listener
+(`server.port` / `bind` / `host`, `https.*`), database, sessions, auth, git, images,
+logging, compression, security headers, CORS and proxy — is **carried from the running
+config with a restart-required warning**, one per changed section, so the config handlers
+see never lies about the subsystems they are using. `docs/guide/deployment.md` carries the
+operator-facing matrix.
 
 ### 7.1 `host` and `bind` are different things
 

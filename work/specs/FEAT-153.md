@@ -1,7 +1,7 @@
 ---
 id: FEAT-153
 title: "Deploy engine: releases, validation, activation and rollback"
-status: draft
+status: implemented
 priority: high
 created: 2026-08-24
 author: "@sambeau / @claude"
@@ -190,15 +190,48 @@ Project checklist (`CLAUDE.md`) plus:
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
 - [ ] Merged to `main` and pushed; worktree and branch removed
 
-## Open Questions
+## Open Questions — resolved
 
-1. Release id: full SHA, short SHA, or a monotonic sequence plus SHA? Sequence-plus-SHA
-   reads better in `basil releases` and sorts correctly.
-2. Deploy record in SQLite or JSONL? Recommend SQLite.
-3. Should certificate issuance move from lazy (first TLS handshake) to eager (startup)?
-   Recommend eager: otherwise the developer's first `git clone` is the request that
-   triggers issuance, and an ACME failure surfaces as an opaque TLS error in Git rather
-   than a clear message on the server. Belongs in this feature or FEAT-152 — decide during
-   implementation.
-4. Should `basil deploy` be runnable while the server is stopped (activating for the next
-   start)? Recommend yes — it makes first deploy and disaster recovery simpler.
+1. Release id: **full SHA directories** (matching `--init`); `basil releases` shows the
+   record's sequence number plus a 12-char SHA, giving sequence-plus-SHA where it is read.
+2. Deploy record: **SQLite** at `<data_dir>/deploy.db`, WAL, single connection, pragmas in
+   the DSN.
+3. Eager certificate issuance: **already implemented in FEAT-152** (obtained at startup,
+   outcome logged naming DNS/port 80); nothing left for this feature.
+4. `basil deploy` with the server stopped: **yes** — it activates the release for the next
+   start; a running server picks activation up through its own watcher on `current`.
+
+## Implementation Notes (2026-08-24)
+
+Implemented on `claude/basil-git-deploy-0ad5un` as `server/deploy/` (lock, record,
+release, validate, engine), `server/activate.go` (+ pinned-handler changes in server.go,
+site.go, handler.go, api.go, errors.go), and `cmd/basil/deploy.go`. Three-lens review
+(spec, craft, concurrency) yielded 2 proven blockers and 5 majors, all fixed with
+fail-before/pass-after regression tests, plus 16 minors — see `git log` and
+`DESIGN-git-deploy.md` §6.6 for what the phase taught.
+
+Deviations and decisions of note:
+
+- **Activation mechanism**: one atomic `serveState` publish (mux + config + asset bundle);
+  handlers pin config/bundle/cache-generation at construction. The in-flight guarantee is
+  race-detector-tested, not incidental.
+- **Response/fragment caches are generation-salted** so an in-flight old-release request
+  cannot poison the new release's cache (was deterministically reproducible before).
+- **Restart-required config**: sections whose subsystems are not rebuilt live are carried
+  from the running config with a per-section warning (design doc §7, decided).
+- **`deploy.keep` is clamped to ≥ 2** and pruning also protects the previously-activated
+  release — another process may still be serving it.
+- **Hook (`deploy.pars`)**: runs post-activation with an explicit CLI-trust security
+  policy (FEAT-154's push trigger must revisit); relative writes land in the release root
+  (script-relative), so docs direct hooks at absolute/data-dir paths; a hook failure exits
+  3 with the release live and the reason in the record and `basil releases`.
+- **`--init` seeds the deploy record** with release 1 (trigger `init`), so the first
+  rollback after the first real deploy works.
+- **`basil check`** is honest about local limits: port-80 reachability from outside and
+  certificate obtainability are reported as notes, not proven — weaker than this spec's
+  "port 80 is reachable" wording, deliberately.
+- **Windows**: the file lock has unix (flock) and Windows (LockFileEx) implementations;
+  `GOOS=windows` builds.
+- **Not done here**: `initGit`'s legacy `onPush` reload still exists — its removal is
+  FEAT-154's scope. Crash window between `SetCurrent` and the record write is documented,
+  not closed (backlog #138). Deferred items live in `work/BACKLOG.md` #136–#143.
