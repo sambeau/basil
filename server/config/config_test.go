@@ -268,3 +268,41 @@ auth:
 		t.Errorf("Expected login_path /auth/signin, got %q", cfg.Auth.LoginPath)
 	}
 }
+
+func TestDeployConfig_Defaults(t *testing.T) {
+	cfg := Defaults()
+	if cfg.Deploy.Keep != 5 {
+		t.Errorf("Expected deploy.keep default 5, got %d", cfg.Deploy.Keep)
+	}
+	if DefaultReleaseBranch != "live" {
+		t.Errorf("Expected default release branch \"live\", got %q", DefaultReleaseBranch)
+	}
+}
+
+func TestDeployConfig_KeepFromYAML(t *testing.T) {
+	yamlData := `
+deploy:
+  keep: 9
+`
+	cfg := Defaults()
+	if err := yaml.Unmarshal([]byte(yamlData), cfg); err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	if cfg.Deploy.Keep != 9 {
+		t.Errorf("Expected deploy.keep 9, got %d", cfg.Deploy.Keep)
+	}
+}
+
+func TestDeployDBPath(t *testing.T) {
+	cfg := Defaults()
+	cfg.DataDir = "/srv/mysite/data"
+	if got, want := cfg.DeployDBPath(), "/srv/mysite/data/deploy.db"; got != want {
+		t.Errorf("DeployDBPath() = %q, want %q", got, want)
+	}
+	// With no data root it falls back to a bare relative name, exactly as
+	// AuthDBPath does (the legacy layout resolves DataDir before use).
+	cfg.DataDir = ""
+	if got, want := cfg.DeployDBPath(), "deploy.db"; got != want {
+		t.Errorf("DeployDBPath() with empty DataDir = %q, want %q", got, want)
+	}
+}

@@ -36,6 +36,7 @@ type Config struct {
 	Auth        AuthConfig                 `yaml:"auth"`
 	Session     SessionConfig              `yaml:"session"`
 	Git         GitConfig                  `yaml:"git"`
+	Deploy      DeployConfig               `yaml:"deploy"`
 	Dev         DevConfig                  `yaml:"dev"`
 	Database    DatabaseConfig             `yaml:"database"`    // Database configuration
 	Images      ImageConfig                `yaml:"images"`      // Image transformation and caching configuration
@@ -276,6 +277,14 @@ type GitConfig struct {
 	RequireAuth bool `yaml:"require_auth"` // Require API key authentication (default: true)
 }
 
+// DeployConfig holds deploy engine settings (FEAT-153). deploy.keep is the
+// only setting the deploy engine adds: validation is always on (the override
+// is the --no-validate CLI flag, never config) and the post-deploy hook is a
+// convention (deploy.pars in the release root), so neither gets a key here.
+type DeployConfig struct {
+	Keep int `yaml:"keep"` // Releases to retain when pruning (default: 5); the active release is always kept
+}
+
 // SessionConfig holds session storage settings
 type SessionConfig struct {
 	Store      string        `yaml:"store"`       // Storage backend: "cookie" (default) or "sqlite"
@@ -374,6 +383,9 @@ func Defaults() *Config {
 		Git: GitConfig{
 			Enabled:     false,
 			RequireAuth: true,
+		},
+		Deploy: DeployConfig{
+			Keep: 5,
 		},
 		Images: ImageConfig{
 			CacheDir:       "./cache/images",

@@ -32,6 +32,10 @@ const (
 	UploadsURLPrefix = "/__uploads/"
 	// ConfigFileName is the name of the configuration file.
 	ConfigFileName = "basil.yaml"
+	// DefaultReleaseBranch is the branch a push must move to publish a
+	// release (DESIGN-git-deploy §7). Not configurable in FEAT-153;
+	// FEAT-154 adds deploy.branch.
+	DefaultReleaseBranch = "live"
 )
 
 // IsSiteRoot reports whether dir looks like a Basil site root: it has a
@@ -256,6 +260,13 @@ func (c *Config) WritePolicy() []string {
 // deploy would lock everyone out of the mechanism that restores it.
 func (c *Config) AuthDBPath() string {
 	return filepath.Join(c.DataDir, ".basil-auth.db")
+}
+
+// DeployDBPath returns the path of the deploy record database. Like the auth
+// database it lives in the data root: the record must survive the deploys it
+// describes.
+func (c *Config) DeployDBPath() string {
+	return filepath.Join(c.DataDir, "deploy.db")
 }
 
 // BareRepoPath returns the bare repository for the site, or "" when there is
