@@ -99,7 +99,18 @@ Expose the data root as `basil.data_dir`. Serve a configured uploads directory u
 prefix, following `/__p/` and `/__img/`.
 
 ### Task 1.6 — `basil --init`
-Produce the site-root layout including `data/` and a bare `site.git/`. Accept `--host`.
+Produce the site-root layout including `data/` and a bare `site.git/`. Accept `--host` and
+`--admin`.
+
+**Never infer the admin name from the environment.** `--init` runs on the server, where the
+shell is usually `root` (directly, or via `sudo` while granting the port capability), so
+`$USER` is wrong exactly where it matters. Required flag; prompt when a terminal is
+attached.
+
+**Hand the tree to the right owner.** When `--init` runs as uid 0, `chown` the created tree
+to `$SUDO_USER` and say so, or warn and print the command. `sudo basil --init` followed by
+running Basil as an ordinary user otherwise fails every write, and the error points at the
+database rather than at ownership.
 
 **Commit the starter site to the release branch and deploy it as release 1.** This is not
 polish: without an initial release a fresh server has nothing to serve, so it cannot answer
@@ -108,9 +119,11 @@ pushed to, and cannot get a release. See `DESIGN-git-deploy.md` §5.1.1.
 
 ### Task 1.7 — Certificate bootstrap
 Obtain the certificate at startup rather than on the first TLS handshake, and log the
-outcome plainly — naming DNS or port 80 when it fails. Require `server.host` for a public
-server: `hostPolicy()` returns `nil` when empty (`server.go:1168`), letting `autocert`
-attempt issuance for any hostname in SNI.
+outcome plainly — naming DNS or port 80 when it fails.
+
+Refuse to start a public server without `server.host` (decided, @sam 2026-08-24).
+`hostPolicy()` returns `nil` when empty (`server.go:1168`), letting `autocert` attempt
+issuance for any hostname in SNI. `--dev` and a manual `tls_cert` are the exceptions.
 
 **Tests**: table test over every path key and its anchor; identical resolution from three
 different working directories; legacy layout preserved; no write lands inside `ReleaseDir`;
@@ -261,7 +274,8 @@ Plus, for this programme specifically:
       real server over HTTPS, not just `httptest`
 - [ ] **A clean-install bootstrap is performed at least once** on a fresh host with real
       DNS: `--init`, start, clone, edit, publish — with no manual certificate or Git setup
-      at any point
+      at any point. Run it **via `sudo` as an ordinary user**, not as root, so the
+      ownership path is genuinely exercised
 - [ ] **The docs are executed, not written.** Every command in `docs/guide/git.md` is run
       as written before the phase is called done
 - [ ] **The spec is updated with implementation notes**, and any deferral goes to
@@ -279,6 +293,7 @@ Plus, for this programme specifically:
 | `go-git-http` is unmaintained | Low | It does very little; vendoring is a contained change if needed |
 | Hooks silently absent, so pushes stop deploying | Low | Basil installs them and re-installs on startup if missing |
 | Cold-start deadlock: no release → no cert → no clone → no release | **High if missed** | `--init` deploys release 1 (Task 1.6). Covered by the clean-install bootstrap in the DoD |
+| `sudo basil --init` leaves a root-owned tree the server cannot write to | **High** | Task 1.6 chowns to `SUDO_USER`. The clean-install bootstrap must be done via sudo, not as root, so this path is actually exercised |
 | Plain-HTTP refusal breaks ACME renewal | Medium | Scope the refusal to Git endpoints; explicit test that a challenge path still answers |
 | Phases run in parallel and conflict | Medium | Strictly sequential; one in-flight unit per subsystem |
 

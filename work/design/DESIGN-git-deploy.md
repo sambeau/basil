@@ -45,6 +45,9 @@ basil publish       →  checked, then live.
 | D13 | **The default configuration is the recommended configuration.** Three keys, none of which a normal site sets. | §7. |
 | D14 | **`--init` commits and deploys an initial release**, so a fresh server is never in a state where it cannot serve, cannot get a certificate, and cannot be pushed to. | §5.1.1. |
 | D15 | **The certificate is obtained at startup, not on first use**, and `basil check` verifies the preconditions. | §5.1.2. |
+| D16 | **A public server refuses to start without `server.host`.** | Prevents `autocert` issuing for any hostname in SNI. §5.1.2. |
+| D17 | **The admin account name is supplied, never inferred from the environment.** | `--init` usually runs as root; `$USER` would be wrong exactly where it matters. §5.1.4. |
+| D18 | **`--init` run as root hands the created tree to the account that will run the server.** | Otherwise every write fails on first request. §5.1.5. |
 | D5 | **Full code/state split, done now.** Releases are directories; activation is a swap. | No installed base to migrate, so no reason to defer. |
 | D6 | **Rollback is a first-class operation.** | Previous releases retained. |
 | D7 | **Deploys are recorded.** | CLI-visible; feeds a future UI. |
@@ -159,7 +162,7 @@ The order matters here, and there is one trap worth naming up front.
 **Two commands:**
 
 ```bash
-basil --init mysite --host mysite.example.com
+basil --init mysite --host mysite.example.com --admin sam
 #   ✓ site root, bare repository, data directory
 #   ✓ starter site committed and deployed as release 1
 #   ✓ admin user 'sam'
@@ -168,6 +171,7 @@ basil --init mysite --host mysite.example.com
 basil
 ```
 
+Both flags are required for a public server, and neither is guessed — see §5.1.4.
 `--init` creating and **deploying an initial release** is not cosmetic — see §5.1.1.
 
 On startup Basil obtains its certificate, logs the result, and serves the starter site. The
@@ -209,10 +213,11 @@ Two requirements follow:
   the repository is not inside a served root. This is the command to point people at when
   setup misbehaves.
 
-Requiring a hostname is also a small security fix. `hostPolicy()` returns `nil` when
-`server.host` is empty (`server.go:1168`), which tells `autocert` to attempt issuance for
-**any** hostname a stranger puts in SNI — a way to burn a site's Let's Encrypt rate limit
-from outside. `--host` should be required for a public server.
+Requiring a hostname is also a small security fix, and is **decided** (@sam, 2026-08-24).
+`hostPolicy()` returns `nil` when `server.host` is empty (`server.go:1168`), which tells
+`autocert` to attempt issuance for **any** hostname a stranger puts in SNI — a way to burn
+a site's Let's Encrypt rate limit from outside. A public server refuses to start without
+`server.host`; `--dev` and a manually supplied `tls_cert` are the exceptions.
 
 #### 5.1.3 Without a public hostname
 
@@ -226,6 +231,53 @@ Three supported paths, none of which need ACME:
 
 Never work around a failing handshake with `git -c http.sslVerify=false`: the API key is
 sent in the request, so disabling verification hands push rights to whoever answered.
+
+#### 5.1.4 Who `--admin` is, and why it is never inferred
+
+The account name is supplied, never derived from the environment. An earlier draft
+suggested defaulting it from `$USER`, which is wrong precisely where it matters: `--init`
+runs on the server, where the shell is very often `root` — directly, or via `sudo` while
+granting the port capability. `$USER` would then be `root`, or a service account like
+`www-data`, neither of which is a person.
+
+That name is not cosmetic. The Basil account namespace is separate from the operating
+system's, and the name appears in `basil users list`, in the audit log, and in the deploy
+record. `root deployed 4f2a1c9` tells a team nothing.
+
+- `--admin <name>` is **required** for a non-interactive init.
+- With a terminal attached, prompt for it instead of failing.
+- Never read `$USER` or `$SUDO_USER` to fill it in.
+- Warn if the supplied name is `root` — it usually means someone expected the derivation —
+  but accept it. An explicit choice wins.
+
+The Git username is separate and irrelevant: only the API key authenticates
+(`server/git.go:126`), so `https://anything@host/.git` works. The account name matters for
+attribution, not access.
+
+#### 5.1.5 File ownership when `--init` runs under sudo
+
+A more immediate consequence of the same fact. `docs/basil/manual/deployment.md` already
+recommends granting `CAP_NET_BIND_SERVICE` to the binary and running Basil as an ordinary
+user rather than as root. So the common sequence is:
+
+```bash
+sudo setcap 'cap_net_bind_service=+ep' /usr/local/bin/basil
+sudo basil --init mysite …        # ← creates a root-owned tree
+basil                             # ← runs as an ordinary user, cannot write to it
+```
+
+`--init` creates the data root, the releases directory and the bare repository. If it runs
+as root and Basil then runs as someone else, **every write fails** — the database, the
+logs, the certificate cache, and every deploy. This is a first-install failure waiting to
+happen, and the error it produces points at the database rather than at ownership.
+
+Requirement: when `--init` runs as uid 0, hand the created tree to the account that will
+run the server —
+
+- `SUDO_USER` set: `chown` the tree to that user and say so in the output.
+- Running as root outright: warn, and print the exact `chown` command to run.
+
+Never leave the operator to discover this from a permission error on first request.
 
 ### 5.2 One-time, per machine
 

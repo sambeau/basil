@@ -54,6 +54,15 @@ today depends on where the operator happened to be standing when they started th
 - [ ] The legacy single-directory layout is still accepted, with `data/` defaulting to the
       project directory, so `basil --dev` in a working copy keeps working unchanged
 
+### Public-server requirements
+
+- [ ] A public server **refuses to start** without `server.host` (decided, @sam
+      2026-08-24). `hostPolicy()` currently returns `nil` when it is empty
+      (`server.go:1168`), telling `autocert` to attempt issuance for any hostname supplied
+      in SNI — a way to exhaust the site's Let's Encrypt rate limit from outside
+- [ ] `--dev` and a manually configured `tls_cert`/`tls_key` are the exceptions
+- [ ] The error names the fix, rather than failing on the first handshake
+
 ### Config anchors
 
 - [ ] `config.BaseDir` is replaced by two explicit anchors: `ReleaseDir` and `DataDir`
@@ -87,6 +96,15 @@ today depends on where the operator happened to be standing when they started th
       this a fresh server deadlocks — see `DESIGN-git-deploy.md` §5.1.1
 - [ ] Accepts `--host <hostname>`, writing it to `server.host`, so no config edit is needed
       between `--init` and a working push
+- [ ] Accepts `--admin <name>`. **Required** for a non-interactive init; prompts when a
+      terminal is attached. **Never derived from `$USER` or `$SUDO_USER`** — `--init` runs
+      on the server, where the shell is usually `root` or a service account, so the
+      environment is wrong exactly where it matters. Warn (but accept) if the name given is
+      `root`
+- [ ] When run as uid 0, hands the created tree to the account that will run the server:
+      `chown` to `$SUDO_USER` if set and report it, otherwise warn and print the exact
+      `chown` command. Without this, `sudo basil --init` followed by running Basil as an
+      ordinary user fails every write — database, logs, certificate cache and every deploy
 - [ ] Installs a pre-commit formatting hook in the repository it created
 - [ ] Produces a site that deploys with **no configuration step at all** — no `basil.yaml`
       edit is required between `--init` and a working push
@@ -136,7 +154,8 @@ today depends on where the operator happened to be standing when they started th
 | `server/images/cache.go` | Cache dir supplied already resolved |
 | `server/search.go:341-357` | Search index resolves against `env.RootPath`; decide anchor |
 | `cmd/basil/init.go` | New layout |
-| `cmd/basil/main.go` | `--site` flag or working-directory detection |
+| `cmd/basil/main.go` | `--site`, `--host`, `--admin` flags |
+| `server/server.go:1168` | `hostPolicy()` — refuse an empty host on a public server |
 
 ### Path audit
 
@@ -197,10 +216,11 @@ Recorded so the choice is not made accidentally later.
    Recommend `DataDir`.
 3. `--site <path>` flag, or infer the site root from the working directory? Recommend the
    flag, defaulting to the working directory.
-4. Should a public server refuse to start without `server.host` set? `hostPolicy()` returns
-   `nil` when it is empty (`server.go:1168`), letting `autocert` attempt issuance for any
-   hostname in SNI — a way to burn the site's Let's Encrypt rate limit from outside.
-   Recommend requiring it unless `--dev` or a manual `tls_cert` is in use.
-5. Should `--init` create the admin user non-interactively (deriving the name from `$USER`)
-   or prompt? Recommend deriving, with `--admin <name>` to override — a prompt in a script
-   is worse than a sensible guess.
+4. ~~Should a public server refuse to start without `server.host`?~~ **Decided** (@sam,
+   2026-08-24): yes, with `--dev` and a manual `tls_cert` as the exceptions.
+5. ~~Should `--init` derive the admin name from `$USER`?~~ **Decided**: no. Required flag,
+   or a prompt when interactive. The earlier recommendation to derive it was wrong —
+   `--init` runs on a server, where `$USER` is usually `root`.
+6. Should `--init` refuse outright when run as root with no `SUDO_USER`, rather than
+   warning? Recommend warning: an operator who genuinely intends to run Basil as root has
+   a working setup, and refusing would break it.
