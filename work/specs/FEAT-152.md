@@ -57,6 +57,11 @@ today depends on where the operator happened to be standing when they started th
 
 ### Public-server requirements
 
+- [ ] `server.host` is the site's **public identity** (ACME hostname, WebAuthn
+      relying-party id, hostname in printed instructions). The listener interface is a
+      separate key, `server.bind`, empty meaning all interfaces. These were one field
+      before this feature, so making a public hostname mandatory made the server try to
+      bind to it — see `DESIGN-git-deploy.md` §7.1
 - [ ] A public server **refuses to start** without `server.host` (decided, @sam
       2026-08-24). `hostPolicy()` currently returns `nil` when it is empty
       (`server.go:1168`), telling `autocert` to attempt issuance for any hostname supplied

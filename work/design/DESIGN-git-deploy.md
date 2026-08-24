@@ -45,7 +45,7 @@ basil publish       →  checked, then live.
 | D13 | **The default configuration is the recommended configuration.** Three keys, none of which a normal site sets. | §7. |
 | D14 | **`--init` commits and deploys an initial release**, so a fresh server is never in a state where it cannot serve, cannot get a certificate, and cannot be pushed to. | §5.1.1. |
 | D15 | **The certificate is obtained at startup, not on first use**, and `basil check` verifies the preconditions. | §5.1.2. |
-| D16 | **A public server refuses to start without `server.host`.** | Prevents `autocert` issuing for any hostname in SNI. §5.1.2. |
+| D16 | **A public server refuses to start without `server.host`**, and `server.host` is the site's public identity, not the listener interface — that is `server.bind`. | Prevents `autocert` issuing for any hostname in SNI. §7.1. |
 | D17 | **The admin account name is supplied, never inferred from the environment.** | `--init` usually runs as root; `$USER` would be wrong exactly where it matters. §5.1.4. |
 | D18 | **`--init` run as root hands the created tree to the account that will run the server.** | Otherwise every write fails on first request. §5.1.5. |
 | D19 | **The URL username is ignored; the API key is the identity.** Documented explicitly, and `--init` prints the exact clone command. | §5.2.3. |
@@ -570,6 +570,26 @@ must not be committed.
 **Implementation note for the spec:** because server settings (port, TLS) live in the
 versioned config, a deploy can in principle change the listener. Decide whether such a
 change requires a restart or is applied live, and say so.
+
+### 7.1 `host` and `bind` are different things
+
+Discovered during FEAT-152 implementation (2026-08-24) and recorded here because the
+design got it wrong first. This document originally said "a public server refuses to start
+without `server.host`" without noticing that `server.host` was *also* the TCP bind address.
+Making a public hostname mandatory therefore made the server try to bind to it, and
+`basil --dev --site` on a freshly initialised site died with
+`listen tcp: lookup t1.example.com: no such host`.
+
+They are separate concerns and are now separate keys:
+
+| Key | Meaning | Notes |
+| --- | --- | --- |
+| `server.host` | The site's **public identity** — the ACME certificate hostname, the WebAuthn relying-party id, and the hostname printed in deploy instructions | Required for a public server |
+| `server.bind` | The **listener interface**. Empty means all interfaces | Usually left empty. A public hostname frequently does not resolve to a local address at all — behind NAT, a floating IP or a load balancer — so binding it would fail |
+
+The general lesson, worth carrying into the remaining phases: **a name a server answers to
+is not an address a server listens on.** Anywhere the design says "the hostname", check
+which of the two it means.
 
 ---
 
