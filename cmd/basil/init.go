@@ -19,7 +19,7 @@ import (
 
 // releaseBranch is the branch a push must move to publish a release
 // (DESIGN-git-deploy §7, default `live`). FEAT-154 makes it configurable.
-const releaseBranch = "live"
+const releaseBranch = config.DefaultReleaseBranch
 
 const indexParsContent = `<h1>"🌿 Hello from Basil 👋"</h1>
 `

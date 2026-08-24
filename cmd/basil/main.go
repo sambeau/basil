@@ -26,7 +26,7 @@ func main() {
 	ctx := context.Background()
 	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr, os.Getenv); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }
 
@@ -41,6 +41,16 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 			return runAPIKeyCommand(args[1:], stdout, stderr, getenv)
 		case "auth":
 			return runAuthCommand(args[1:], stdout, stderr, getenv)
+		case "deploy":
+			return runDeployCommand(args[1:], stdout, stderr, getenv)
+		case "rollback":
+			return runRollbackCommand(args[1:], stdout, stderr, getenv)
+		case "releases":
+			return runReleasesCommand(args[1:], stdout, stderr, getenv)
+		case "status":
+			return runStatusCommand(args[1:], stdout, stderr, getenv)
+		case "check":
+			return runCheckCommand(args[1:], stdout, stderr, getenv)
 		}
 	}
 
@@ -208,6 +218,7 @@ func printUsage(w io.Writer) {
 
 Usage:
   basil [options]
+  basil deploy <sha|branch|tag> [options]
   basil users <command> [options]
   basil apikey <command> [options]
 
@@ -224,6 +235,13 @@ Server Options:
   --admin NAME       Admin account name for --init (never guessed from $USER)
   --version          Show version
   --help             Show this help
+
+Deployment:
+  basil deploy <sha|branch|tag>  Validate and activate a release
+  basil rollback [id]            Re-activate the previous (or a named) release
+  basil releases                 Show the deploy record; * marks the live release
+  basil status                   What is live, and whether the release branch is ahead
+  basil check                    Verify bootstrap preconditions (DNS, port 80, certificate, layout)
 
 User Management:
   basil users create           Create a new user

@@ -1,0 +1,673 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/sambeau/basil/server/config"
+	"github.com/sambeau/basil/server/deploy"
+)
+
+// usageError marks an error caused by how a command was invoked - a missing
+// argument or an unknown flag - so main can exit 2, the conventional usage
+// exit code, rather than 1.
+type usageError struct{ err error }
+
+func (e *usageError) Error() string { return e.err.Error() }
+func (e *usageError) Unwrap() error { return e.err }
+
+// exitCode maps run()'s error to the process exit code: 0 success, 2 usage,
+// 1 everything else.
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var ue *usageError
+	if errors.As(err, &ue) {
+		return 2
+	}
+	return 1
+}
+
+// addSiteFlags registers the --site/--config pair every deploy subcommand
+// accepts, mirroring the server's own flags (main.go).
+func addSiteFlags(flags *flag.FlagSet) (site, configPath *string) {
+	site = flags.String("site", "", "Path to the site root")
+	configPath = flags.String("config", "", "Path to config file")
+	return site, configPath
+}
+
+// loadDeploySiteConfig resolves --site/--config exactly the way the server
+// does: --site finds the config inside the active release, --config names it
+// directly, and neither falls back to config.Load's search order (cwd,
+// BASIL_CONFIG, ...).
+func loadDeploySiteConfig(site, configPath string, stderr io.Writer, getenv func(string) string) (*config.Config, error) {
+	if site != "" && configPath != "" {
+		printDeployUsage(stderr)
+		return nil, &usageError{err: errors.New("--site and --config are alternatives: --site finds the config inside the site's active release")}
+	}
+	if site != "" {
+		resolved, err := config.ConfigPathForSite(site)
+		if err != nil {
+			return nil, err
+		}
+		configPath = resolved
+	}
+	cfg, err := config.Load(configPath, getenv)
+	if err != nil {
+		return nil, fmt.Errorf("loading config: %w", err)
+	}
+	return cfg, nil
+}
+
+// errNotSiteRoot refuses the legacy single-directory layout, which has no
+// releases to deploy, roll back or list.
+func errNotSiteRoot(verb string) error {
+	return fmt.Errorf("this config is not inside a site root (releases/ + current), so there is nothing to %s\n  create a site with: basil --init <folder> --host <hostname> --admin <name>, or point --site at an existing site root", verb)
+}
+
+// newCLIEngine builds the deploy engine the way every CLI entry point needs
+// it: publisher cli:<os user>, trigger cli, progress on stdout.
+func newCLIEngine(cfg *config.Config, stdout io.Writer, getenv func(string) string) *deploy.Engine {
+	eng := deploy.NewEngine(cfg)
+	eng.Publisher = cliPublisher(getenv)
+	eng.Trigger = deploy.TriggerCLI
+	eng.Out = stdout
+	return eng
+}
+
+// cliPublisher identifies who ran the command: the OS account, because a CLI
+// deploy has shell access and no Basil account in hand. $USER is the
+// fallback for static builds where os/user cannot resolve the uid.
+func cliPublisher(getenv func(string) string) string {
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		return "cli:" + u.Username
+	}
+	if name := getenv("USER"); name != "" {
+		return "cli:" + name
+	}
+	return "cli:unknown"
+}
+
+// shortRelease abbreviates a full commit SHA for display, matching the
+// engine's own output.
+func shortRelease(sha string) string {
+	if len(sha) > 12 {
+		return sha[:12]
+	}
+	return sha
+}
+
+// runDeployCommand handles `basil deploy <sha|branch|tag>`.
+func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil deploy", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	site, configPath := addSiteFlags(flags)
+	noValidate := flags.Bool("no-validate", false, "Skip the validation gate (emergency override)")
+
+	// flag stops at the first positional, and `basil deploy live --site X`
+	// is the natural way to type this - so parse, take the ref, and parse
+	// the remainder for flags placed after it.
+	if err := flags.Parse(args); err != nil {
+		printDeployUsage(stderr)
+		return &usageError{err: err}
+	}
+	if flags.NArg() == 0 {
+		printDeployUsage(stderr)
+		return &usageError{err: errors.New("missing <sha|branch|tag>: name the commit that should go live")}
+	}
+	ref := flags.Arg(0)
+	if err := flags.Parse(flags.Args()[1:]); err != nil {
+		printDeployUsage(stderr)
+		return &usageError{err: err}
+	}
+	if flags.NArg() > 0 {
+		printDeployUsage(stderr)
+		return &usageError{err: fmt.Errorf("unexpected argument %q: deploy takes one commit", flags.Arg(0))}
+	}
+
+	cfg, err := loadDeploySiteConfig(*site, *configPath, stderr, getenv)
+	if err != nil {
+		return err
+	}
+	if cfg.SiteRoot == "" {
+		return errNotSiteRoot("deploy to")
+	}
+
+	eng := newCLIEngine(cfg, stdout, getenv)
+	eng.NoValidate = *noValidate
+
+	// The engine prints its own progress (deploying/deployed lines) to
+	// stdout. A running server notices the activation through its own
+	// watcher on `current`; the CLI must not signal it.
+	res, err := eng.Deploy(ref)
+	if err != nil {
+		var vErr *deploy.ValidationFailedError
+		if errors.As(err, &vErr) {
+			// One grep-able file:line[:col]: message per line, then the
+			// reassurance the design promises (§5.4).
+			for _, v := range vErr.Errors {
+				fmt.Fprintln(stderr, v.String())
+			}
+			fmt.Fprintln(stderr, "Release rejected. The live site is unchanged.")
+			return fmt.Errorf("release %s failed validation with %d error(s)", shortRelease(vErr.CommitSHA), len(vErr.Errors))
+		}
+		return err
+	}
+
+	if res.Outcome == deploy.OutcomeDeployed {
+		fmt.Fprintf(stdout, "Live: %s\n", shortRelease(res.CommitSHA))
+	}
+	return nil
+}
+
+// runRollbackCommand handles `basil rollback [id]`.
+func runRollbackCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil rollback", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	site, configPath := addSiteFlags(flags)
+
+	// As with deploy, flags may follow the positional: `basil rollback 3 --site X`.
+	if err := flags.Parse(args); err != nil {
+		printDeployUsage(stderr)
+		return &usageError{err: err}
+	}
+	target := ""
+	if flags.NArg() > 0 {
+		target = flags.Arg(0)
+		if err := flags.Parse(flags.Args()[1:]); err != nil {
+			printDeployUsage(stderr)
+			return &usageError{err: err}
+		}
+		if flags.NArg() > 0 {
+			printDeployUsage(stderr)
+			return &usageError{err: fmt.Errorf("unexpected argument %q: rollback takes at most one release id", flags.Arg(0))}
+		}
+	}
+
+	cfg, err := loadDeploySiteConfig(*site, *configPath, stderr, getenv)
+	if err != nil {
+		return err
+	}
+	if cfg.SiteRoot == "" {
+		return errNotSiteRoot("roll back")
+	}
+
+	eng := newCLIEngine(cfg, stdout, getenv)
+	res, err := eng.Rollback(target)
+	if err != nil {
+		// The engine's errors are already actionable: "no previous release"
+		// names the empty record, "pruned" suggests basil deploy <sha>.
+		return err
+	}
+	fmt.Fprintf(stdout, "Live: %s\n", shortRelease(res.CommitSHA))
+	return nil
+}
+
+// runReleasesCommand handles `basil releases`: the deploy record as a table,
+// newest first, with the live release marked.
+func runReleasesCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil releases", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	site, configPath := addSiteFlags(flags)
+
+	if err := flags.Parse(args); err != nil {
+		printDeployUsage(stderr)
+		return &usageError{err: err}
+	}
+	if flags.NArg() > 0 {
+		printDeployUsage(stderr)
+		return &usageError{err: fmt.Errorf("unexpected argument %q", flags.Arg(0))}
+	}
+
+	cfg, err := loadDeploySiteConfig(*site, *configPath, stderr, getenv)
+	if err != nil {
+		return err
+	}
+	if cfg.SiteRoot == "" {
+		return errNotSiteRoot("list releases for")
+	}
+
+	// A record that was never written is an empty record, not an error -
+	// and reading must not create the database file.
+	recordPath := cfg.DeployDBPath()
+	if _, statErr := os.Stat(recordPath); os.IsNotExist(statErr) {
+		fmt.Fprintln(stdout, "No deploys recorded yet.")
+		return nil
+	}
+
+	rec, err := deploy.OpenRecord(recordPath)
+	if err != nil {
+		return err
+	}
+	defer rec.Close()
+
+	entries, err := rec.List(0)
+	if err != nil {
+		return err
+	}
+	if len(entries) == 0 {
+		fmt.Fprintln(stdout, "No deploys recorded yet.")
+		return nil
+	}
+
+	liveSHA := ""
+	if current, err := deploy.CurrentRelease(cfg.SiteRoot); err == nil {
+		liveSHA = filepath.Base(current)
+	}
+
+	fmt.Fprintf(stdout, "  %-4s %-13s %-17s %-9s %-15s %-21s %s\n",
+		"SEQ", "RELEASE", "WHEN", "TRIGGER", "PUBLISHER", "AUTHOR", "OUTCOME")
+	fmt.Fprintln(stdout, strings.Repeat("-", 92))
+	for _, e := range entries {
+		marker := " "
+		if liveSHA != "" && e.CommitSHA == liveSHA {
+			marker = "*"
+		}
+		fmt.Fprintf(stdout, "%s %-4d %-13s %-17s %-9s %-15s %-21s %s\n",
+			marker, e.Seq, shortRelease(e.CommitSHA),
+			e.StartedAt.Local().Format("2006-01-02 15:04"),
+			e.Trigger, clip(e.Publisher, 15), clip(e.AuthorName, 21), e.Outcome)
+		if e.Reason != "" && (e.Outcome == deploy.OutcomeFailed || e.Outcome == deploy.OutcomeRejected) {
+			fmt.Fprintf(stdout, "       %s\n", clip(e.Reason, 100))
+		}
+	}
+	if liveSHA != "" {
+		fmt.Fprintln(stdout, "\n* = the live release")
+	}
+	return nil
+}
+
+// runStatusCommand handles `basil status`: what is live, and whether the
+// release branch has commits the live release does not.
+func runStatusCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil status", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	site, configPath := addSiteFlags(flags)
+
+	if err := flags.Parse(args); err != nil {
+		printDeployUsage(stderr)
+		return &usageError{err: err}
+	}
+	if flags.NArg() > 0 {
+		printDeployUsage(stderr)
+		return &usageError{err: fmt.Errorf("unexpected argument %q", flags.Arg(0))}
+	}
+
+	cfg, err := loadDeploySiteConfig(*site, *configPath, stderr, getenv)
+	if err != nil {
+		return err
+	}
+
+	// Status reports; it does not insist. A legacy layout or a missing
+	// repository is stated plainly and exits 0 - only being unable to
+	// answer at all is an error.
+	if cfg.SiteRoot == "" {
+		fmt.Fprintln(stdout, "This config is not inside a site root (releases/ + current): nothing is deployed here.")
+		return nil
+	}
+
+	liveSHA := ""
+	if current, err := deploy.CurrentRelease(cfg.SiteRoot); err == nil {
+		liveSHA = filepath.Base(current)
+		line := "live: " + shortRelease(liveSHA)
+		if e := latestActivation(cfg, liveSHA); e != nil {
+			line += fmt.Sprintf("  (deploy #%d, %s, by %s)", e.Seq, e.StartedAt.Local().Format("2006-01-02 15:04"), e.Publisher)
+		}
+		fmt.Fprintln(stdout, line)
+	} else {
+		fmt.Fprintf(stdout, "no active release: %v\n", err)
+	}
+
+	repo := cfg.BareRepoPath()
+	if info, statErr := os.Stat(repo); statErr != nil || !info.IsDir() {
+		fmt.Fprintf(stdout, "no repository at %s: pushes have nowhere to arrive (a site created with basil --init has one)\n", repo)
+		return nil
+	}
+
+	branch := config.DefaultReleaseBranch
+	if _, err := gitOutput(repo, "rev-parse", "--verify", "--quiet", branch); err != nil {
+		fmt.Fprintf(stdout, "the release branch '%s' does not exist in %s yet\n", branch, repo)
+		return nil
+	}
+	if liveSHA == "" {
+		fmt.Fprintf(stdout, "nothing is live yet; deploy the release branch with: basil deploy %s\n", branch)
+		return nil
+	}
+
+	out, err := gitOutput(repo, "rev-list", "--count", liveSHA+".."+branch)
+	if err != nil {
+		fmt.Fprintf(stdout, "cannot compare the live release with the release branch '%s': %v\n", branch, err)
+		return nil
+	}
+	switch n := strings.TrimSpace(out); n {
+	case "0":
+		fmt.Fprintf(stdout, "the release branch '%s' matches the live release\n", branch)
+	case "1":
+		fmt.Fprintf(stdout, "the release branch '%s' is 1 commit ahead of the live release - deploy it with: basil deploy %s\n", branch, branch)
+	default:
+		fmt.Fprintf(stdout, "the release branch '%s' is %s commits ahead of the live release - deploy it with: basil deploy %s\n", branch, n, branch)
+	}
+	return nil
+}
+
+// latestActivation returns the most recent record entry that put liveSHA
+// live, or nil when the record cannot say (no database, no matching row).
+func latestActivation(cfg *config.Config, liveSHA string) *deploy.Entry {
+	recordPath := cfg.DeployDBPath()
+	if _, err := os.Stat(recordPath); err != nil {
+		return nil
+	}
+	rec, err := deploy.OpenRecord(recordPath)
+	if err != nil {
+		return nil
+	}
+	defer rec.Close()
+	entries, err := rec.List(0)
+	if err != nil {
+		return nil
+	}
+	for i := range entries {
+		e := entries[i]
+		if e.CommitSHA != liveSHA {
+			continue
+		}
+		if e.Outcome == deploy.OutcomeDeployed || e.Outcome == deploy.OutcomeRolledBack {
+			return &e
+		}
+	}
+	return nil
+}
+
+// runCheckCommand handles `basil check`: bootstrap preconditions, each
+// reported plainly with a fix hint. Hard failures (layout, release, repo,
+// hostname, DNS) make the command exit non-zero; environmental observations
+// a local process cannot prove either way (port 80 reachability from
+// outside, certificate issuance) are reported as notes.
+func runCheckCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	flags := flag.NewFlagSet("basil check", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	site, configPath := addSiteFlags(flags)
+
+	if err := flags.Parse(args); err != nil {
+		printDeployUsage(stderr)
+		return &usageError{err: err}
+	}
+	if flags.NArg() > 0 {
+		printDeployUsage(stderr)
+		return &usageError{err: fmt.Errorf("unexpected argument %q", flags.Arg(0))}
+	}
+
+	failed := 0
+	fail := func(name, format string, a ...any) {
+		failed++
+		fmt.Fprintf(stdout, "FAIL  %s: %s\n", name, fmt.Sprintf(format, a...))
+	}
+	pass := func(name, format string, a ...any) {
+		fmt.Fprintf(stdout, "ok    %s: %s\n", name, fmt.Sprintf(format, a...))
+	}
+	note := func(name, format string, a ...any) {
+		fmt.Fprintf(stdout, "note  %s: %s\n", name, fmt.Sprintf(format, a...))
+	}
+
+	cfg, err := loadDeploySiteConfig(*site, *configPath, stderr, getenv)
+	if err != nil {
+		var ue *usageError
+		if errors.As(err, &ue) {
+			return err
+		}
+		fail("config", "%v", err)
+		return errors.New("1 check failed")
+	}
+	pass("config", "loads")
+
+	// --- layout: releases/ + current, repository, active release --------
+	if cfg.SiteRoot == "" {
+		fail("site root", "this config is not inside a site root (releases/ + current) - create one with basil --init")
+		note("release", "skipped (no site root)")
+		note("repository", "skipped (no site root)")
+	} else {
+		pass("site root", "%s", cfg.SiteRoot)
+		checkActiveRelease(cfg, pass, fail)
+		checkRepository(cfg, pass, fail)
+	}
+
+	// --- server.host (DESIGN §7.1: identity, not listener) --------------
+	host := cfg.Server.Host
+	manualCert := cfg.Server.HTTPS.Cert != "" && cfg.Server.HTTPS.Key != ""
+	switch {
+	case host != "":
+		pass("server.host", "%s", host)
+	case cfg.Server.Dev:
+		note("server.host", "not set (allowed with --dev)")
+	case manualCert:
+		note("server.host", "not set (allowed with a manually configured certificate)")
+	default:
+		fail("server.host", "not set - a public server needs its hostname: set server.host in %s", config.ConfigFileName)
+	}
+
+	// --- DNS -------------------------------------------------------------
+	if host != "" {
+		checkDNS(host, pass, fail, note)
+	} else {
+		note("dns", "skipped (no server.host)")
+	}
+
+	// --- port 80 and the certificate: ACME HTTP-01 preconditions ---------
+	if cfg.Server.HTTPS.Auto {
+		checkPort80(note)
+		checkCertificate(cfg, host, pass, note)
+	} else if manualCert {
+		checkManualCertificate(cfg, pass, fail)
+		note("port 80", "skipped (not using automatic certificates)")
+	} else {
+		note("port 80", "skipped (no HTTPS configured)")
+		note("certificate", "skipped (no HTTPS configured)")
+	}
+
+	if failed > 0 {
+		return fmt.Errorf("%d check(s) failed", failed)
+	}
+	fmt.Fprintln(stdout, "\nAll checks passed.")
+	return nil
+}
+
+func checkActiveRelease(cfg *config.Config, pass, fail func(name, format string, a ...any)) {
+	current, err := deploy.CurrentRelease(cfg.SiteRoot)
+	if err != nil {
+		fail("release", "no active release (%v) - deploy one with: basil deploy <sha|branch>", err)
+		return
+	}
+	if info, err := os.Stat(current); err != nil || !info.IsDir() {
+		fail("release", "current points at %s, which does not exist - deploy again: basil deploy <sha|branch>", current)
+		return
+	}
+	pass("release", "%s is active", shortRelease(filepath.Base(current)))
+}
+
+// checkRepository verifies the bare repository exists and, crucially, that
+// it does not resolve inside anything the server serves: a repository under
+// public_dir hands the site's entire history to anyone with a browser.
+func checkRepository(cfg *config.Config, pass, fail func(name, format string, a ...any)) {
+	repo := cfg.BareRepoPath()
+	info, err := os.Stat(repo)
+	if err != nil || !info.IsDir() {
+		fail("repository", "%s does not exist - pushes have nowhere to arrive (a site created with basil --init has one)", repo)
+		return
+	}
+	pass("repository", "%s", repo)
+
+	type servedRoot struct{ label, path string }
+	roots := []servedRoot{
+		{"public_dir", cfg.PublicDir},
+		{"site.path", cfg.Site.Path},
+	}
+	for i := range cfg.Static {
+		roots = append(roots, servedRoot{fmt.Sprintf("static[%d].root", i), cfg.Static[i].Root})
+	}
+
+	for _, root := range roots {
+		if root.path == "" {
+			continue
+		}
+		if pathContains(root.path, repo) {
+			fail("repository placement", "%s resolves inside the served root %s (%s) - anyone could download the site's history; move the repository or change %s", repo, root.label, root.path, root.label)
+			return
+		}
+	}
+	pass("repository placement", "not inside any served root")
+}
+
+func checkDNS(host string, pass, fail, note func(name, format string, a ...any)) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		fail("dns", "%s does not resolve (%v) - create an A/AAAA record pointing it at this server", host, err)
+		return
+	}
+	local := localAddrSet()
+	for _, addr := range addrs {
+		if local[addr] {
+			pass("dns", "%s resolves to %s (a local interface has that address)", host, addr)
+			return
+		}
+	}
+	note("dns", "%s resolves to %s, but no local interface has that address - cannot confirm locally (normal behind NAT or a load balancer)", host, strings.Join(addrs, ", "))
+}
+
+func localAddrSet() map[string]bool {
+	set := map[string]bool{}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return set
+	}
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok {
+			set[ipNet.IP.String()] = true
+		}
+	}
+	return set
+}
+
+// checkPort80 is honest about what a local check can prove: whether
+// something on this machine has port 80, and nothing about reachability
+// from outside. It never fails the run.
+func checkPort80(note func(name, format string, a ...any)) {
+	ln, err := net.Listen("tcp", ":80")
+	switch {
+	case err == nil:
+		ln.Close()
+		note("port 80", "free - nothing is listening, so the server (which answers ACME challenges there) is probably not running; reachability from outside cannot be verified from here")
+	case errors.Is(err, syscall.EADDRINUSE):
+		note("port 80", "in use (likely the server); reachability from outside cannot be verified from here")
+	case errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM):
+		note("port 80", "cannot test - binding it needs root or CAP_NET_BIND_SERVICE (the server has the same requirement)")
+	default:
+		note("port 80", "cannot test (%v)", err)
+	}
+}
+
+// checkCertificate looks in the autocert cache the server uses. Absence is
+// not a failure: issuance is eager at startup (server.go probeCertificate),
+// so the honest report is "will be obtained".
+func checkCertificate(cfg *config.Config, host string, pass, note func(name, format string, a ...any)) {
+	if host == "" {
+		note("certificate", "skipped (no server.host to hold a certificate for)")
+		return
+	}
+	cached := filepath.Join(cfg.Server.HTTPS.CacheDir, host)
+	if info, err := os.Stat(cached); err == nil && info.Mode().IsRegular() {
+		pass("certificate", "cached for %s in %s", host, cfg.Server.HTTPS.CacheDir)
+		return
+	}
+	note("certificate", "none cached for %s yet - the server obtains one at startup (fix DNS and port 80 first if that fails)", host)
+}
+
+func checkManualCertificate(cfg *config.Config, pass, fail func(name, format string, a ...any)) {
+	missing := []string{}
+	for _, f := range []string{cfg.Server.HTTPS.Cert, cfg.Server.HTTPS.Key} {
+		if _, err := os.Stat(f); err != nil {
+			missing = append(missing, f)
+		}
+	}
+	if len(missing) > 0 {
+		fail("certificate", "configured but missing: %s", strings.Join(missing, ", "))
+		return
+	}
+	pass("certificate", "manually configured (%s)", cfg.Server.HTTPS.Cert)
+}
+
+// pathContains reports whether p lives at or under root, after resolving
+// both through symlinks - `current` is one, so a naive prefix test lies.
+func pathContains(root, p string) bool {
+	root = resolvedPath(root)
+	p = resolvedPath(p)
+	if root == p {
+		return true
+	}
+	return strings.HasPrefix(p, root+string(filepath.Separator))
+}
+
+// resolvedPath is the strongest resolution available for a path that may
+// not fully exist: absolute, cleaned, and through symlinks when possible.
+func resolvedPath(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return filepath.Clean(p)
+	}
+	if r, err := filepath.EvalSymlinks(abs); err == nil {
+		return r
+	}
+	return filepath.Clean(abs)
+}
+
+// clip shortens a value to fit its table column.
+func clip(s string, n int) string {
+	if len(s) > n {
+		return s[:n-3] + "..."
+	}
+	return s
+}
+
+func printDeployUsage(w io.Writer) {
+	fmt.Fprintf(w, `basil deploy - Publish, inspect and undo releases
+
+Usage:
+  basil deploy <sha|branch|tag> [options]   Validate and activate a commit from the site's repository
+  basil rollback [id] [options]             Re-activate the previous release, or one named by
+                                            sequence number or SHA prefix (see basil releases)
+  basil releases [options]                  The deploy record; * marks the live release
+  basil status [options]                    What is live, and whether the release branch is ahead
+  basil check [options]                     Verify bootstrap preconditions (layout, repository,
+                                            hostname, DNS, port 80, certificate)
+
+Options:
+  --site PATH        Path to the site root (finds the config in the active release)
+  --config PATH      Path to config file (alternative to --site; default: auto-detect)
+  --no-validate      deploy only: skip the validation gate (emergency override)
+
+The running server picks up an activation on its own; deploying with the
+server stopped activates the release for its next start.
+
+Examples:
+  basil deploy live --site /srv/mysite
+  basil deploy 4f2a1c9
+  basil rollback
+  basil rollback 3
+  basil releases --site /srv/mysite
+  basil status
+  basil check --site /srv/mysite
+
+`)
+}
