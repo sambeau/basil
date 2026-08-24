@@ -122,6 +122,16 @@ let name = "alice"
 <span>name.toTitle()</span>      // <span>Alice</span>
 ```
 
+> ⚠️ **Interpolated values are not HTML-escaped.** A string containing markup is
+> inserted into the output as-is — which is what lets components compose, and
+> what makes interpolating *user input* (form fields, `@params`, query strings)
+> an HTML-injection risk. Schema validation narrows the exposure (typed fields
+> like `email`, `date`, or `enum` cannot carry markup) but free-text `string`
+> and `text` values can. Until the language grows an escape-by-default markup
+> type (proposed as FEAT-151), avoid placing unprocessed user input directly into tag
+> content or attribute values. Form components (`@field`) escape their labels,
+> values, and error messages for you.
+
 ### Control Flow
 
 `if`, `for`, `let`, and function calls all work inside tags:

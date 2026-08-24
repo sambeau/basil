@@ -8,6 +8,7 @@ This document provides comprehensive security guidance for Parsley language feat
 - [Database Security (SQL Injection Prevention)](#database-security-sql-injection-prevention)
 - [File System Security](#file-system-security)
 - [Network Security](#network-security)
+- [HTML Output (Cross-Site Scripting)](#html-output-cross-site-scripting)
 - [Security Policy Configuration](#security-policy-configuration)
 - [Safe Patterns](#safe-patterns)
 - [Unsafe Patterns](#unsafe-patterns)
@@ -333,6 +334,61 @@ http.get(url)
 ```
 
 ---
+
+## HTML Output (Cross-Site Scripting)
+
+### Current Behavior
+
+Tag interpolation is **raw**. A value placed into tag content or an attribute
+value is inserted without HTML escaping:
+
+```parsley
+let u = "<script>alert(1)</script>"
+<p>u</p>              // <p><script>alert(1)</script></p>
+<p class={u}>""</p>   // attribute values are raw too
+```
+
+This is deliberate: tags evaluate to strings, so a component's return value can
+be embedded in another tag — escaping interpolated strings would render nested
+components as visible text. The cost is that interpolating *untrusted input*
+(form submissions, `@params`, query strings, external APIs) into markup is a
+cross-site-scripting (XSS) vector, as in PHP, Perl, and other raw-by-default
+templating systems.
+
+The exception is form components: `@field` labels, values, and error messages
+are escaped by the renderer.
+
+### What Narrows the Risk
+
+- **Schema validation.** Typed record fields — `email`, `date`, `integer`,
+  `enum`, `url`, `phone`, `slug` — cannot carry markup through validation.
+  Free-text `string` and `text` fields can (a valid name may contain `<` or
+  `&`), so validation reduces but does not remove the exposure.
+- **Where values come from.** Markup produced by your own code (tags,
+  `.parseMarkdown().html`, `MD()` handles) is trusted by construction. The risk
+  is confined to values that originate outside the program.
+
+### Recommendations
+
+- Do not interpolate unprocessed user input into tag content or attribute
+  values. Prefer typed schema fields; where free text must be displayed,
+  process it first (there is currently **no built-in escape helper** — see
+  below).
+- Treat attribute contexts with extra care: quoting is handled, but an
+  attribute like `href` given a user-controlled value can still carry a
+  `javascript:` URL that escaping alone would not neutralise.
+- Basil's security headers (`X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`) reduce the blast radius of an injection but do not
+  prevent one.
+
+### Planned Improvement
+
+[FEAT-151](../../work/specs/FEAT-151.md) proposes an `Html` type with
+escape-by-default tag interpolation (the Rails/Jinja2 model): plain strings are
+escaped when interpolated into a tag, markup values pass through raw, and
+`html()` blesses trusted strings. Phase 1 adds a `.escapeHTML()` string method
+as the explicit primitive. Until then, the recommendations above are the
+mitigation.
 
 ## Security Policy Configuration
 
