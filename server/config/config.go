@@ -2,6 +2,7 @@ package config
 
 import (
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -277,12 +278,34 @@ type GitConfig struct {
 	RequireAuth bool `yaml:"require_auth"` // Require API key authentication (default: true)
 }
 
-// DeployConfig holds deploy engine settings (FEAT-153). deploy.keep is the
-// only setting the deploy engine adds: validation is always on (the override
-// is the --no-validate CLI flag, never config) and the post-deploy hook is a
-// convention (deploy.pars in the release root), so neither gets a key here.
+// DeployConfig holds deploy engine settings (FEAT-153/FEAT-154). Validation
+// is always on (the override is the --no-validate CLI flag, never config) and
+// the post-deploy hook is a convention (deploy.pars in the release root), so
+// neither gets a key here.
 type DeployConfig struct {
 	Keep int `yaml:"keep"` // Releases to retain when pruning (default: 5, minimum 2 enforced at prune time); the active and previous releases are always kept
+
+	// Branch names the ref whose movement publishes a release
+	// (DESIGN-git-deploy §3, §7). Config speaks in branches — the plain
+	// name "live" — but a fully-qualified ref (refs/heads/..., refs/tags/...)
+	// is accepted for anyone releasing from a tag. Default: "live".
+	Branch string `yaml:"branch"`
+}
+
+// ReleaseRef returns the fully-qualified ref deploy.branch names, since the
+// implementation speaks in refs while config speaks in branches (design §3):
+// a bare name becomes refs/heads/<name>, and an already-qualified ref
+// (refs/heads/..., refs/tags/...) passes through unchanged. An empty value
+// means the default release branch.
+func (d DeployConfig) ReleaseRef() string {
+	branch := d.Branch
+	if branch == "" {
+		branch = DefaultReleaseBranch
+	}
+	if strings.HasPrefix(branch, "refs/") {
+		return branch
+	}
+	return "refs/heads/" + branch
 }
 
 // SessionConfig holds session storage settings
@@ -385,7 +408,8 @@ func Defaults() *Config {
 			RequireAuth: true,
 		},
 		Deploy: DeployConfig{
-			Keep: 5,
+			Keep:   5,
+			Branch: DefaultReleaseBranch,
 		},
 		Images: ImageConfig{
 			CacheDir:       "./cache/images",

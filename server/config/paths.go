@@ -33,8 +33,8 @@ const (
 	// ConfigFileName is the name of the configuration file.
 	ConfigFileName = "basil.yaml"
 	// DefaultReleaseBranch is the branch a push must move to publish a
-	// release (DESIGN-git-deploy §7). Not configurable in FEAT-153;
-	// FEAT-154 adds deploy.branch.
+	// release (DESIGN-git-deploy §7). Configurable as deploy.branch
+	// (FEAT-154); DeployConfig.ReleaseRef turns the setting into a ref.
 	DefaultReleaseBranch = "live"
 )
 

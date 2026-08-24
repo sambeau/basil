@@ -697,3 +697,143 @@ func TestDeployHookSuccessSideEffect(t *testing.T) {
 		t.Errorf("hook wrote %q, want it to contain %q", data, "hook ran")
 	}
 }
+
+// --- Prepare: the pre-receive half of the pipeline (FEAT-154) -------------
+
+func TestPrepareSuccessLeavesDirAndRecordsNothing(t *testing.T) {
+	f := newEngineFixture(t)
+	e := f.engine(nil)
+	e.Trigger = TriggerPush
+
+	releaseDir, err := e.Prepare(f.good1)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if want := filepath.Join(f.releasesDir(), f.good1); releaseDir != want {
+		t.Errorf("releaseDir = %q, want %q", releaseDir, want)
+	}
+	// The directory is left in place for post-receive's Deploy...
+	if info, err := os.Stat(releaseDir); err != nil || !info.IsDir() {
+		t.Errorf("prepared release directory is missing (err=%v)", err)
+	}
+	// ...but nothing is live and NOTHING is recorded: no deploy happened.
+	if got := currentSHA(t, f.siteRoot); got != "" {
+		t.Errorf("Prepare activated a release: current = %q", got)
+	}
+	if entries := recordEntries(t, e); len(entries) != 0 {
+		t.Errorf("Prepare recorded %d entries on success, want 0: %+v", len(entries), entries)
+	}
+	// The lock was released: another pipeline run can proceed.
+	if _, err := e.Prepare(f.good2); err != nil {
+		t.Errorf("second Prepare after the first: %v", err)
+	}
+}
+
+func TestPrepareBrokenCommitRecordsRejectedAndRemovesDir(t *testing.T) {
+	f := newEngineFixture(t)
+	e := f.engine(nil)
+
+	if _, err := e.Deploy(f.good1); err != nil {
+		t.Fatalf("deploying good1: %v", err)
+	}
+	e.Trigger = TriggerPush
+	e.Publisher = "alice"
+
+	_, err := e.Prepare(f.broken)
+	if err == nil {
+		t.Fatal("Prepare of a broken commit did not fail")
+	}
+	var vErr *ValidationFailedError
+	if !errors.As(err, &vErr) {
+		t.Fatalf("error is %T, want *ValidationFailedError: %v", err, err)
+	}
+	if len(vErr.Errors) == 0 {
+		t.Fatal("ValidationFailedError carries no errors")
+	}
+
+	// The live site is untouched and the rejected directory is gone.
+	if got := currentSHA(t, f.siteRoot); got != f.good1 {
+		t.Errorf("current points at %q, want %q", got, f.good1)
+	}
+	if _, err := os.Stat(filepath.Join(f.releasesDir(), f.broken)); !os.IsNotExist(err) {
+		t.Errorf("rejected release directory was not removed (err=%v)", err)
+	}
+	assertNoTempDirs(t, f.releasesDir())
+
+	// The refusal is a thing that happened, so it IS recorded — with the
+	// engine's trigger and publisher, which the push path sets.
+	newest := recordEntries(t, e)[0]
+	if newest.Outcome != OutcomeRejected || newest.CommitSHA != f.broken {
+		t.Errorf("newest entry = %+v, want rejected %s", newest, f.broken)
+	}
+	if newest.Trigger != TriggerPush || newest.Publisher != "alice" {
+		t.Errorf("identity: trigger=%q publisher=%q, want push/alice", newest.Trigger, newest.Publisher)
+	}
+	if !strings.Contains(newest.Reason, "broken.pars:1") {
+		t.Errorf("recorded reason lacks file:line: %q", newest.Reason)
+	}
+}
+
+// Only what Prepare itself materialised is removed on rejection — the same
+// discipline as Deploy.
+func TestPrepareRejectedKeepsPreexistingDirectory(t *testing.T) {
+	f := newEngineFixture(t)
+	e := f.engine(nil)
+
+	if _, err := Materialise(f.repo, f.broken, f.releasesDir()); err != nil {
+		t.Fatalf("pre-materialising: %v", err)
+	}
+	if _, err := e.Prepare(f.broken); err == nil {
+		t.Fatal("Prepare of a broken commit did not fail")
+	}
+	if _, err := os.Stat(filepath.Join(f.releasesDir(), f.broken)); err != nil {
+		t.Errorf("a pre-existing release directory was removed: %v", err)
+	}
+}
+
+func TestPrepareUnknownRefRecordsFailure(t *testing.T) {
+	f := newEngineFixture(t)
+	e := f.engine(nil)
+	e.Trigger = TriggerPush
+
+	if _, err := e.Prepare("no-such-branch"); err == nil {
+		t.Fatal("Prepare of an unknown ref did not fail")
+	}
+	newest := recordEntries(t, e)[0]
+	if newest.Outcome != OutcomeFailed || newest.CommitSHA != "no-such-branch" {
+		t.Errorf("newest entry = %+v, want failed no-such-branch", newest)
+	}
+}
+
+// Prepare then Deploy is the hook pair end-to-end: pre-receive prepares,
+// post-receive deploys the directory Prepare left behind.
+func TestPrepareThenDeployEndToEnd(t *testing.T) {
+	f := newEngineFixture(t)
+	e := f.engine(nil)
+	e.Trigger = TriggerPush
+
+	releaseDir, err := e.Prepare(f.good2)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	res, err := e.Deploy(f.good2)
+	if err != nil {
+		t.Fatalf("Deploy after Prepare: %v", err)
+	}
+	if res.Outcome != OutcomeDeployed || res.ReleaseDir != releaseDir {
+		t.Errorf("result = %+v, want deployed at %s", res, releaseDir)
+	}
+	if got := currentSHA(t, f.siteRoot); got != f.good2 {
+		t.Errorf("current points at %q, want %q", got, f.good2)
+	}
+
+	// Exactly one record row for the pair: Deploy's. Prepare wrote none.
+	entries := recordEntries(t, e)
+	if len(entries) != 1 {
+		t.Fatalf("record has %d entries, want 1: %+v", len(entries), entries)
+	}
+	if entries[0].Outcome != OutcomeDeployed || entries[0].Trigger != TriggerPush {
+		t.Errorf("entry = %+v, want deployed via push", entries[0])
+	}
+}

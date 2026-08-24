@@ -269,6 +269,79 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 	return res, nil
 }
 
+// Prepare runs the front half of the pipeline — resolve, lock, materialise,
+// validate — and stops before activation, leaving releases/<sha>/ in place
+// for a later Deploy. It exists for the pre-receive hook (FEAT-154), which
+// must validate BEFORE Git moves the ref while activation waits for
+// post-receive.
+//
+// On success NOTHING is recorded: no deploy has happened yet, and the ref may
+// still fail to move for reasons outside this process (another hook, a
+// concurrent push). The later Deploy writes the one row. On failure a
+// rejected (validation) or failed (anything else) row IS recorded — a refused
+// push is a thing that happened — and a release directory this run created is
+// removed; a pre-existing one is left alone, exactly Deploy's discipline.
+//
+// Prepare IS the validation gate, so NoValidate does not apply here: a
+// Prepare that skips validation would do nothing at all. The emergency
+// override remains `basil deploy --no-validate` on the server.
+//
+// The later Deploy(sha) re-runs the pipeline on the prepared directory:
+// Materialise finds releases/<sha>/ already present and returns it untouched,
+// and validation runs again. That second validation is deliberate, not an
+// oversight — it is a re-parse of the site's .pars files (milliseconds at
+// site scale, no network, no build), and it means Deploy never trusts that a
+// directory on disk matches what Prepare checked.
+func (e *Engine) Prepare(refOrSHA string) (releaseDir string, err error) {
+	start := time.Now()
+	trigger := e.trigger()
+
+	rec, err := OpenRecord(e.RecordPath)
+	if err != nil {
+		return "", err
+	}
+	defer rec.Close()
+
+	sha, author, err := e.resolve(refOrSHA)
+	if err != nil {
+		return "", e.recordFailure(rec, refOrSHA, commitIdentity{}, trigger, start, err)
+	}
+
+	lock, err := AcquireLock(e.SiteRoot, e.LockWait)
+	if err != nil {
+		return "", e.recordFailure(rec, sha, author, trigger, start, err)
+	}
+	defer lock.Release()
+
+	releasesDir := filepath.Join(e.SiteRoot, config.ReleasesDirName)
+
+	// As in Deploy: note whether the directory pre-dates this run, so cleanup
+	// on rejection only removes what this run created.
+	preExisting := false
+	if info, statErr := os.Stat(filepath.Join(releasesDir, sha)); statErr == nil && info.IsDir() {
+		preExisting = true
+	}
+
+	releaseDir, err = Materialise(e.RepoDir, sha, releasesDir)
+	if err != nil {
+		return "", e.recordFailure(rec, sha, author, trigger, start, err)
+	}
+
+	if verrs := Validate(releaseDir); len(verrs) > 0 {
+		if !preExisting {
+			os.RemoveAll(releaseDir)
+		}
+		vErr := &ValidationFailedError{CommitSHA: sha, Errors: verrs}
+		entry := e.entry(sha, author, trigger, start, OutcomeRejected, joinValidationErrors(verrs))
+		if recErr := rec.Add(entry); recErr != nil {
+			return "", fmt.Errorf("%w (and recording the rejection failed: %v)", vErr, recErr)
+		}
+		return "", vErr
+	}
+
+	return releaseDir, nil
+}
+
 // Rollback re-activates a release already on disk. target "" means the
 // previous successfully activated release; otherwise target is a record
 // sequence number or a SHA prefix. Rollback never re-materialises — being a

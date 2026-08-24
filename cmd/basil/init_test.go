@@ -676,3 +676,41 @@ func TestInitCommand_RecordsRelease1AndFirstRollbackWorks(t *testing.T) {
 		t.Errorf("current points at %s, want the starter release %s", got, starter)
 	}
 }
+
+// --init installs the receive hooks, so a new site deploys on push from the
+// first day, with the running binary's path baked in.
+func TestInitCommand_InstallsReceiveHooks(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("runInitCommand: %v", err)
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"pre-receive", "post-receive"} {
+		path := filepath.Join(root, config.BareRepoName, "hooks", name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%s hook missing: %v", name, err)
+		}
+		content := string(data)
+		if !strings.Contains(content, "deploy --from-hook="+name) {
+			t.Errorf("%s hook does not invoke basil deploy --from-hook:\n%s", name, content)
+		}
+		if !strings.Contains(content, exe) {
+			t.Errorf("%s hook does not bake in the binary path %s:\n%s", name, exe, content)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o111 == 0 {
+			t.Errorf("%s hook is not executable (mode %v)", name, info.Mode())
+		}
+	}
+}

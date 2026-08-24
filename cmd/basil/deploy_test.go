@@ -35,6 +35,14 @@ func newDeployFixture(t *testing.T) *deployFixture {
 		t.Fatalf("runInitCommand: %v", err)
 	}
 
+	// Disarm the receive hooks --init installed. Inside `go test`,
+	// os.Executable() is the TEST binary, so a fixture push firing
+	// pre-receive would re-enter the test suite recursively instead of
+	// running the CLI. The hook logic is exercised by driving runFromHook
+	// directly (fromhook_test.go); real hook execution belongs to the
+	// end-to-end verification against a real basil binary.
+	disarmHooks(t, filepath.Join(root, "site.git"))
+
 	work := filepath.Join(tmp, "work")
 	testGit(t, tmp, "clone", "--quiet", filepath.Join(root, "site.git"), work)
 	testGit(t, work, "config", "user.name", "Test Author")
@@ -82,6 +90,18 @@ func (f *deployFixture) recordEntries(t *testing.T) []deploy.Entry {
 		t.Fatalf("listing deploy record: %v", err)
 	}
 	return entries
+}
+
+// disarmHooks replaces the repository's receive hooks with no-ops so test
+// pushes are stored without re-entering the test binary.
+func disarmHooks(t *testing.T, repoDir string) {
+	t.Helper()
+	for _, name := range []string{"pre-receive", "post-receive"} {
+		path := filepath.Join(repoDir, "hooks", name)
+		if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+			t.Fatalf("disarming %s: %v", name, err)
+		}
+	}
 }
 
 func testGit(t *testing.T, dir string, args ...string) string {

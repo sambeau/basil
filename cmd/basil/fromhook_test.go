@@ -1,0 +1,289 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/sambeau/basil/server/deploy"
+)
+
+// mapEnv is getenv for tests: only what the map holds exists.
+func mapEnv(m map[string]string) func(string) string {
+	return func(key string) string { return m[key] }
+}
+
+// runHookLines drives runFromHook the way Git would: one "<old> <new> <ref>"
+// line per updated ref on stdin.
+func runHookLines(f *deployFixture, which string, getenv func(string) string, lines ...string) (stdout, stderr bytes.Buffer, err error) {
+	stdin := strings.NewReader(strings.Join(lines, "\n") + "\n")
+	err = runFromHook(which, f.root, "", stdin, &stdout, &stderr, getenv)
+	return stdout, stderr, err
+}
+
+func refLine(old, new, ref string) string {
+	return fmt.Sprintf("%s %s %s", old, new, ref)
+}
+
+// A push that moves anything but the release ref is store-and-stop: both
+// hooks exit 0 without touching the engine.
+func TestFromHook_BranchPushIsNoOp(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"feature\"</h1>\n", "feature work")
+
+	for _, which := range []string{"pre-receive", "post-receive"} {
+		stdout, _, err := runHookLines(f, which, emptyEnv, refLine(zeroSHA, sha, "refs/heads/feature"))
+		if err != nil {
+			t.Fatalf("%s on a feature branch: %v", which, err)
+		}
+		if stdout.Len() != 0 {
+			t.Errorf("%s on a feature branch produced output: %q", which, stdout.String())
+		}
+	}
+	if got := f.currentSHA(t); got != before {
+		t.Errorf("a feature-branch push changed the live release: %s -> %s", before, got)
+	}
+	if entries := f.recordEntries(t); len(entries) != 1 { // release 1 only
+		t.Errorf("record grew to %d entries from a feature-branch push", len(entries))
+	}
+}
+
+// pre-receive then post-receive on a good release: checked, then deployed,
+// with the publisher taken from BASIL_PUBLISHER (the transport exports it).
+func TestFromHook_ReleasePushDeploysAndRecordsPublisher(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	env := mapEnv(map[string]string{"BASIL_PUBLISHER": "alice"})
+	line := refLine(before, sha, "refs/heads/live")
+
+	stdout, _, err := runHookLines(f, "pre-receive", env, line)
+	if err != nil {
+		t.Fatalf("pre-receive: %v\noutput: %s", err, stdout.String())
+	}
+	if out := stdout.String(); !strings.Contains(out, "Checking release "+shortRelease(sha)) || !strings.Contains(out, "ok") {
+		t.Errorf("pre-receive output = %q, want a Checking … ok line", out)
+	}
+	// Prepared, not yet live, and nothing recorded for the preparation.
+	if got := f.currentSHA(t); got != before {
+		t.Errorf("pre-receive activated the release: current = %s", got)
+	}
+	if entries := f.recordEntries(t); len(entries) != 1 {
+		t.Fatalf("pre-receive success recorded %d entries, want 1 (release 1 only)", len(entries))
+	}
+
+	stdout, _, err = runHookLines(f, "post-receive", env, line)
+	if err != nil {
+		t.Fatalf("post-receive: %v\noutput: %s", err, stdout.String())
+	}
+	if out := stdout.String(); !strings.Contains(out, "Deployed "+shortRelease(sha)) {
+		t.Errorf("post-receive output = %q, want a Deployed line", out)
+	}
+	if got := f.currentSHA(t); got != sha {
+		t.Errorf("current points at %s, want %s", got, sha)
+	}
+	newest := f.recordEntries(t)[0]
+	if newest.CommitSHA != sha || newest.Outcome != deploy.OutcomeDeployed {
+		t.Errorf("newest entry = %+v, want deployed %s", newest, sha)
+	}
+	if newest.Trigger != deploy.TriggerPush || newest.Publisher != "alice" {
+		t.Errorf("identity: trigger=%q publisher=%q, want push/alice", newest.Trigger, newest.Publisher)
+	}
+}
+
+// Without BASIL_PUBLISHER the publisher is honestly generic.
+func TestFromHook_PublisherDefaultsToPush(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	if _, _, err := runHookLines(f, "post-receive", emptyEnv, refLine(before, sha, "refs/heads/live")); err != nil {
+		t.Fatalf("post-receive: %v", err)
+	}
+	if newest := f.recordEntries(t)[0]; newest.Publisher != "push" {
+		t.Errorf("publisher = %q, want \"push\"", newest.Publisher)
+	}
+}
+
+// A broken release is refused before the ref moves: file:line reaches the
+// developer, the live site is untouched, and the rejection is recorded.
+func TestFromHook_BrokenReleaseRefused(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/broken.pars", "let x = = 2\n", "broken parsley")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/live"))
+	if err == nil {
+		t.Fatal("pre-receive accepted a broken release")
+	}
+	if code := exitCode(err); code != 1 {
+		t.Errorf("exit code = %d, want 1", code)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "broken.pars:1") {
+		t.Errorf("output lacks file:line for the parse error:\n%s", out)
+	}
+	if want := fmt.Sprintf("Release rejected. The live site is unchanged (still %s).", shortRelease(before)); !strings.Contains(out, want) {
+		t.Errorf("output lacks %q:\n%s", want, out)
+	}
+	// The prefix Git adds must not be duplicated by us.
+	if strings.Contains(out, "remote:") {
+		t.Errorf("output hand-writes the remote: prefix:\n%s", out)
+	}
+	if got := f.currentSHA(t); got != before {
+		t.Errorf("a refused push changed the live release: %s -> %s", before, got)
+	}
+	if _, statErr := os.Stat(filepath.Join(f.root, "releases", sha)); !os.IsNotExist(statErr) {
+		t.Errorf("the rejected release directory was left behind (err=%v)", statErr)
+	}
+	newest := f.recordEntries(t)[0]
+	if newest.CommitSHA != sha || newest.Outcome != deploy.OutcomeRejected {
+		t.Errorf("newest entry = %+v, want rejected %s", newest, sha)
+	}
+}
+
+func TestFromHook_ReleaseBranchDeletionRefused(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, zeroSHA, "refs/heads/live"))
+	if err == nil {
+		t.Fatal("pre-receive accepted deleting the release branch")
+	}
+	if out := stdout.String(); !strings.Contains(out, "the release branch cannot be deleted") {
+		t.Errorf("output = %q, want the deletion refusal", out)
+	}
+}
+
+// A real non-fast-forward: two commits that share history but where the old
+// tip is not an ancestor of the proposed new one.
+func TestFromHook_ForcePushRefused(t *testing.T) {
+	f := newDeployFixture(t)
+	onLive := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	// Rewrite history in the clone: step back one commit and commit
+	// something else, so `rewritten` and `onLive` are siblings.
+	testGit(t, f.work, "reset", "--hard", "HEAD~1")
+	if err := os.WriteFile(filepath.Join(f.work, "site", "index.pars"), []byte("<h1>\"rewritten\"</h1>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testGit(t, f.work, "add", "-A")
+	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", "rewritten v2")
+	rewritten := testGit(t, f.work, "rev-parse", "HEAD")
+	// Store the rewritten commit in the bare repo on a side branch, the way
+	// it would already exist when pre-receive judges a real force-push.
+	testGit(t, f.work, "push", "--quiet", "origin", "HEAD:refs/heads/rewrite")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(onLive, rewritten, "refs/heads/live"))
+	if err == nil {
+		t.Fatal("pre-receive accepted a non-fast-forward on the release branch")
+	}
+	if out := stdout.String(); !strings.Contains(out, "force-pushing the release branch rewrites release history") {
+		t.Errorf("output = %q, want the force-push refusal", out)
+	}
+	if entries := f.recordEntries(t); len(entries) != 1 {
+		t.Errorf("a refused force-push reached the engine: %d record entries", len(entries))
+	}
+}
+
+// One refused ref fails the whole pre-receive — Git's own semantics: the
+// hook judges the push as a unit, and a non-zero exit rejects every ref in
+// it. The acceptable ref is still checked and reported.
+func TestFromHook_OneRefusalFailsTheWholePush(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv,
+		refLine(before, sha, "refs/heads/live"),
+		refLine(before, zeroSHA, "refs/heads/live"), // deletion sneaking in alongside
+	)
+	if err == nil {
+		t.Fatal("pre-receive accepted a push containing a refused update")
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "ok") || !strings.Contains(out, "cannot be deleted") {
+		t.Errorf("output should show both the passing check and the refusal:\n%s", out)
+	}
+}
+
+// deploy.branch accepts the long ref forms, so a tag can be the release ref.
+func TestFromHook_TagReleaseRef(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"tagged\"</h1>\n", "tagged release")
+	testGit(t, f.work, "tag", "production")
+	testGit(t, f.work, "push", "--quiet", "origin", "production")
+
+	// The config ships inside the release, so point the ACTIVE release's
+	// config at the tag ref.
+	configPath := filepath.Join(f.root, "current", "basil.yaml")
+	appendConfig := "\ndeploy:\n  branch: refs/tags/production\n"
+	existing, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, append(existing, appendConfig...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	line := refLine(zeroSHA, sha, "refs/tags/production")
+	if stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, line); err != nil {
+		t.Fatalf("pre-receive on the tag ref: %v\noutput: %s", err, stdout.String())
+	}
+	if _, _, err := runHookLines(f, "post-receive", emptyEnv, line); err != nil {
+		t.Fatalf("post-receive on the tag ref: %v", err)
+	}
+	if got := f.currentSHA(t); got != sha {
+		t.Errorf("current points at %s, want the tagged commit %s", got, sha)
+	}
+
+	// And with a tag release ref, moving refs/heads/live publishes nothing.
+	if _, _, err := runHookLines(f, "post-receive", emptyEnv, refLine(before, sha, "refs/heads/live")); err != nil {
+		t.Fatalf("post-receive on refs/heads/live with a tag release ref: %v", err)
+	}
+}
+
+// With no --site/--config, the site root is derived from the repository the
+// hook runs in: site.git's parent is the site root.
+func TestFromHook_ResolvesSiteRootFromGitDir(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	env := mapEnv(map[string]string{"GIT_DIR": filepath.Join(f.root, "site.git")})
+
+	var stdout, stderr bytes.Buffer
+	stdin := strings.NewReader(refLine(before, sha, "refs/heads/live") + "\n")
+	if err := runFromHook("post-receive", "", "", stdin, &stdout, &stderr, env); err != nil {
+		t.Fatalf("runFromHook with GIT_DIR: %v", err)
+	}
+	if got := f.currentSHA(t); got != sha {
+		t.Errorf("current points at %s, want %s", got, sha)
+	}
+}
+
+func TestFromHook_RefusesUnknownHookName(t *testing.T) {
+	f := newDeployFixture(t)
+	_, _, err := runHookLines(f, "update", emptyEnv)
+	if err == nil {
+		t.Fatal("an unknown hook name was accepted")
+	}
+	if code := exitCode(err); code != 2 {
+		t.Errorf("exit code = %d, want 2 (usage)", code)
+	}
+}
+
+func TestFromHook_MalformedStdinRefused(t *testing.T) {
+	f := newDeployFixture(t)
+	_, _, err := runHookLines(f, "pre-receive", emptyEnv, "this is not a ref update")
+	if err == nil {
+		t.Fatal("malformed stdin was accepted")
+	}
+	if !strings.Contains(err.Error(), "malformed ref update line") {
+		t.Errorf("error = %v, want a malformed-line explanation", err)
+	}
+}

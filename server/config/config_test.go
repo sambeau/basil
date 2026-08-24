@@ -291,6 +291,44 @@ deploy:
 	if cfg.Deploy.Keep != 9 {
 		t.Errorf("Expected deploy.keep 9, got %d", cfg.Deploy.Keep)
 	}
+	// A partial deploy: block must not clear the branch default.
+	if cfg.Deploy.Branch != DefaultReleaseBranch {
+		t.Errorf("Expected deploy.branch to keep its default %q, got %q", DefaultReleaseBranch, cfg.Deploy.Branch)
+	}
+}
+
+func TestDeployConfig_BranchFromYAML(t *testing.T) {
+	yamlData := `
+deploy:
+  branch: main
+`
+	cfg := Defaults()
+	if err := yaml.Unmarshal([]byte(yamlData), cfg); err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	if cfg.Deploy.Branch != "main" {
+		t.Errorf("Expected deploy.branch \"main\", got %q", cfg.Deploy.Branch)
+	}
+}
+
+func TestDeployConfig_ReleaseRef(t *testing.T) {
+	tests := []struct {
+		branch string
+		want   string
+	}{
+		{"", "refs/heads/live"},                            // unset → the default branch
+		{"live", "refs/heads/live"},                        // bare branch name
+		{"main", "refs/heads/main"},                        // the push-to-publish choice
+		{"refs/heads/live", "refs/heads/live"},             // long form passes through
+		{"refs/heads/release/v2", "refs/heads/release/v2"}, // slashes in the branch name
+		{"refs/tags/production", "refs/tags/production"},   // tags are release refs too
+	}
+	for _, tt := range tests {
+		d := DeployConfig{Branch: tt.branch}
+		if got := d.ReleaseRef(); got != tt.want {
+			t.Errorf("DeployConfig{Branch: %q}.ReleaseRef() = %q, want %q", tt.branch, got, tt.want)
+		}
+	}
 }
 
 func TestDeployDBPath(t *testing.T) {

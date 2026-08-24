@@ -15,6 +15,7 @@ import (
 const (
 	TriggerCLI      = "cli"
 	TriggerHook     = "hook"
+	TriggerPush     = "push" // a push moved the release branch (FEAT-154)
 	TriggerRollback = "rollback"
 	TriggerInit     = "init" // release 1, deployed by basil --init
 )

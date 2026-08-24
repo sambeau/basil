@@ -258,6 +258,17 @@ func runInitCommand(opts initOptions) (err error) {
 		return err
 	}
 
+	// --- receive hooks: push-to-deploy from day one ----------------------
+	//
+	// Installed AFTER the starter push above, deliberately: the hooks exec
+	// this basil binary, and firing them against a half-built site (no
+	// release, no config yet) would refuse --init's own push. The server
+	// re-installs on startup (transport unit), healing deletion and
+	// binary-path drift.
+	if err := deploy.InstallHooks(repoDir); err != nil {
+		return fmt.Errorf("installing receive hooks: %w", err)
+	}
+
 	// --- admin account and API key ---------------------------------------
 	apiKey, userID, err := createAdmin(dataDir, admin)
 	if err != nil {
@@ -596,6 +607,7 @@ func printInitSummary(stdout io.Writer, opts initOptions, root, commit, admin, u
 	fmt.Fprintf(stdout, "  ✓ starter site committed to '%s' and deployed as release 1\n", releaseBranch)
 	fmt.Fprintf(stdout, "  ✓ admin account '%s' (%s)\n", admin, userID)
 	fmt.Fprintf(stdout, "  ✓ pre-commit formatting hook\n")
+	fmt.Fprintf(stdout, "  ✓ receive hooks: a push to '%s' is validated, then deployed\n", releaseBranch)
 	fmt.Fprintf(stdout, "\n")
 	fmt.Fprintf(stdout, "  API key: %s\n", apiKey)
 	fmt.Fprintf(stdout, "  This is shown once and is not recoverable. Save it now.\n")

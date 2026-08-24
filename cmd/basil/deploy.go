@@ -128,6 +128,7 @@ func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 	flags.SetOutput(io.Discard)
 	site, configPath := addSiteFlags(flags)
 	noValidate := flags.Bool("no-validate", false, "Skip the validation gate (emergency override)")
+	fromHook := flags.String("from-hook", "", "Run as a Git receive hook (pre-receive or post-receive); reads ref updates from stdin")
 
 	// flag stops at the first positional, and `basil deploy live --site X`
 	// is the natural way to type this - so parse, take the ref, and parse
@@ -135,6 +136,15 @@ func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 	if err := flags.Parse(args); err != nil {
 		printDeployUsage(stderr)
 		return &usageError{err: err}
+	}
+	if *fromHook != "" {
+		// Hook mode takes no positional: the commits arrive on stdin as
+		// "<old> <new> <ref>" lines, straight from Git.
+		if flags.NArg() > 0 {
+			printDeployUsage(stderr)
+			return &usageError{err: fmt.Errorf("unexpected argument %q: --from-hook reads ref updates from stdin", flags.Arg(0))}
+		}
+		return runFromHook(*fromHook, *site, *configPath, os.Stdin, stdout, stderr, getenv)
 	}
 	if flags.NArg() == 0 {
 		printDeployUsage(stderr)
@@ -708,6 +718,9 @@ Options:
   --site PATH        Path to the site root (finds the config in the active release)
   --config PATH      Path to config file (alternative to --site; default: auto-detect)
   --no-validate      deploy only: skip the validation gate (emergency override)
+  --from-hook=WHICH  deploy only: run as the pre-receive or post-receive Git hook,
+                     reading "<old> <new> <ref>" lines from stdin. Invoked by the
+                     hooks Basil installs in <site root>/site.git, not by hand
 
 The running server picks up an activation on its own; deploying with the
 server stopped activates the release for its next start.
