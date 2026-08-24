@@ -99,10 +99,22 @@ Expose the data root as `basil.data_dir`. Serve a configured uploads directory u
 prefix, following `/__p/` and `/__img/`.
 
 ### Task 1.6 — `basil --init`
-Produce the site-root layout including `data/` and a bare `site.git/`.
+Produce the site-root layout including `data/` and a bare `site.git/`. Accept `--host`.
+
+**Commit the starter site to the release branch and deploy it as release 1.** This is not
+polish: without an initial release a fresh server has nothing to serve, so it cannot answer
+an ACME challenge, cannot obtain a certificate, cannot be cloned over HTTPS, cannot be
+pushed to, and cannot get a release. See `DESIGN-git-deploy.md` §5.1.1.
+
+### Task 1.7 — Certificate bootstrap
+Obtain the certificate at startup rather than on the first TLS handshake, and log the
+outcome plainly — naming DNS or port 80 when it fails. Require `server.host` for a public
+server: `hostPolicy()` returns `nil` when empty (`server.go:1168`), letting `autocert`
+attempt issuance for any hostname in SNI.
 
 **Tests**: table test over every path key and its anchor; identical resolution from three
-different working directories; legacy layout preserved; no write lands inside `ReleaseDir`.
+different working directories; legacy layout preserved; no write lands inside `ReleaseDir`;
+`--init` produces a site with an active release and a clonable repository.
 
 **Risk**: highest-blast-radius phase. Mitigation: rename rather than add the field, so
 every call site must be visited.
@@ -173,7 +185,9 @@ creation and deletion. Refuse deletion of the release branch.
 
 ### Task 3.5 — Security hardening
 Refuse Git over plain HTTP (currently only warned about, `server/git.go:180`), with the
-dev-localhost exception decided in code. Remove `git.require_auth` entirely. Refuse to start
+dev-localhost exception decided in code. **Scope the refusal to Git endpoints** — port 80
+must keep serving ACME challenges at `/.well-known/acme-challenge/`, or the server can
+never obtain or renew a certificate. Test it rather than assuming it. Remove `git.require_auth` entirely. Refuse to start
 if the repository path resolves inside a served root. Refuse force-push and deletion of the
 release branch. Promote "no auth database, no Git" to a tested guarantee.
 
@@ -245,6 +259,9 @@ Plus, for this programme specifically:
 - [ ] **Failure leaves the previous release serving.** Asserted in phases 2, 3 and 4
 - [ ] **Manual end-to-end round trip** performed at the end of phases 3 and 4 against a
       real server over HTTPS, not just `httptest`
+- [ ] **A clean-install bootstrap is performed at least once** on a fresh host with real
+      DNS: `--init`, start, clone, edit, publish — with no manual certificate or Git setup
+      at any point
 - [ ] **The docs are executed, not written.** Every command in `docs/guide/git.md` is run
       as written before the phase is called done
 - [ ] **The spec is updated with implementation notes**, and any deferral goes to
@@ -261,6 +278,8 @@ Plus, for this programme specifically:
 | A half-run post-deploy hook leaves inconsistent state | Medium | Do not auto-roll-back; record and report loudly. Documented decision, not an oversight |
 | `go-git-http` is unmaintained | Low | It does very little; vendoring is a contained change if needed |
 | Hooks silently absent, so pushes stop deploying | Low | Basil installs them and re-installs on startup if missing |
+| Cold-start deadlock: no release → no cert → no clone → no release | **High if missed** | `--init` deploys release 1 (Task 1.6). Covered by the clean-install bootstrap in the DoD |
+| Plain-HTTP refusal breaks ACME renewal | Medium | Scope the refusal to Git endpoints; explicit test that a challenge path still answers |
 | Phases run in parallel and conflict | Medium | Strictly sequential; one in-flight unit per subsystem |
 
 ## Deferred

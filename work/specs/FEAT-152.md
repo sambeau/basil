@@ -82,6 +82,11 @@ today depends on where the operator happened to be standing when they started th
       inside the repository at all
 - [ ] Creates the first admin user and prints an API key **once**, only on a fresh init,
       never overwriting existing credentials
+- [ ] **Commits the starter site to the release branch and deploys it as release 1**, so
+      the server can serve, obtain a certificate and be cloned from immediately. Without
+      this a fresh server deadlocks — see `DESIGN-git-deploy.md` §5.1.1
+- [ ] Accepts `--host <hostname>`, writing it to `server.host`, so no config edit is needed
+      between `--init` and a working push
 - [ ] Installs a pre-commit formatting hook in the repository it created
 - [ ] Produces a site that deploys with **no configuration step at all** — no `basil.yaml`
       edit is required between `--init` and a working push
@@ -192,6 +197,10 @@ Recorded so the choice is not made accidentally later.
    Recommend `DataDir`.
 3. `--site <path>` flag, or infer the site root from the working directory? Recommend the
    flag, defaulting to the working directory.
-4. Should `--init` create the admin user non-interactively (deriving the name from `$USER`)
+4. Should a public server refuse to start without `server.host` set? `hostPolicy()` returns
+   `nil` when it is empty (`server.go:1168`), letting `autocert` attempt issuance for any
+   hostname in SNI — a way to burn the site's Let's Encrypt rate limit from outside.
+   Recommend requiring it unless `--dev` or a manual `tls_cert` is in use.
+5. Should `--init` create the admin user non-interactively (deriving the name from `$USER`)
    or prompt? Recommend deriving, with `--admin <name>` to override — a prompt in a script
    is worse than a sensible guess.

@@ -43,6 +43,8 @@ basil publish       →  checked, then live.
 | D4b | **The server never rewrites code.** A release is byte-identical to its commit. | Architectural. §6.3. |
 | D12 | **Git over plain HTTP is refused, not warned about.** | The API key is a plaintext credential over Basic auth. §9. |
 | D13 | **The default configuration is the recommended configuration.** Three keys, none of which a normal site sets. | §7. |
+| D14 | **`--init` commits and deploys an initial release**, so a fresh server is never in a state where it cannot serve, cannot get a certificate, and cannot be pushed to. | §5.1.1. |
+| D15 | **The certificate is obtained at startup, not on first use**, and `basil check` verifies the preconditions. | §5.1.2. |
 | D5 | **Full code/state split, done now.** Releases are directories; activation is a swap. | No installed base to migrate, so no reason to defer. |
 | D6 | **Rollback is a first-class operation.** | Previous releases retained. |
 | D7 | **Deploys are recorded.** | CLI-visible; feeds a future UI. |
@@ -144,27 +146,86 @@ rollback instant, so it is not merely housekeeping.
 
 This section is the source of the spec's acceptance criteria.
 
-### 5.1 One-time, on the server
+### 5.1 Bootstrapping a server from clean
 
-The only place a shell on the server is required — two commands.
+The order matters here, and there is one trap worth naming up front.
+
+**Prerequisites** — not Basil's job, but the setup fails confusingly without them:
+
+- a server with a public IP, ports **80 and 443** reachable from the internet
+- a DNS `A`/`AAAA` record for the site's hostname pointing at it
+- the `basil` binary installed
+
+**Two commands:**
 
 ```bash
-basil --init mysite
+basil --init mysite --host mysite.example.com
 #   ✓ site root, bare repository, data directory
+#   ✓ starter site committed and deployed as release 1
 #   ✓ admin user 'sam'
 #   ✓ API key bsk_…  (shown once — save it now)
 #   ✓ pre-commit formatting hook
 basil
 ```
 
-There is no configuration step. `--init` produces a site that deploys, with authentication
-required and TLS enforced; Git is live because the repository exists, not because a flag
-was set.
+`--init` creating and **deploying an initial release** is not cosmetic — see §5.1.1.
 
-`--init` creating the first account and key is deliberate: it removes three steps and is no
-less safe than `apikey create` — generated randomly, hashed at rest, displayed once, and
-only on a genuinely fresh init. See
-`reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md`.
+On startup Basil obtains its certificate, logs the result, and serves the starter site. The
+developer can then clone.
+
+#### 5.1.1 The cold-start deadlock, and why `--init` deploys
+
+There is no chicken-and-egg problem with the certificate itself. Certificate issuance is
+independent of site content: `autocert` obtains one during the first TLS handshake, and the
+ACME HTTP-01 challenge is answered over **plain HTTP on port 80** at
+`/.well-known/acme-challenge/`, ahead of the HTTPS redirect
+(`server.go:1158`, `runHTTPRedirect`).
+
+**But the empty-site state is a genuine deadlock, and this design would create it.** If
+`--init` left a bare repository with no commits and no releases, `current` would point at
+nothing, the server would have nothing to serve, and:
+
+> no release → nothing to serve → no server → no ACME response → no certificate →
+> no HTTPS clone → no push → no release
+
+**`basil --init` therefore commits the starter site to the release branch and deploys it as
+release 1.** The server always has something to serve, and `git clone` yields a working
+starter site rather than *"you appear to have cloned an empty repository"*.
+
+#### 5.1.2 Issue the certificate eagerly, not on first use
+
+`autocert` issues lazily, on the first TLS handshake for a hostname. Left alone, that makes
+**the developer's first `git clone` the request that triggers issuance** — and if ACME fails
+(DNS not yet propagated, port 80 blocked by a cloud firewall), the handshake fails and Git
+reports an opaque TLS error. The operator cannot tell whether the problem is Basil, DNS, or
+their own firewall.
+
+Two requirements follow:
+
+- **Obtain the certificate at startup** for the configured hostname, and log the outcome
+  plainly — including which of DNS or port 80 looks wrong when it fails.
+- **`basil check`** verifies the preconditions on demand: the hostname resolves to this
+  machine, port 80 is reachable from outside, a certificate is present or obtainable, and
+  the repository is not inside a served root. This is the command to point people at when
+  setup misbehaves.
+
+Requiring a hostname is also a small security fix. `hostPolicy()` returns `nil` when
+`server.host` is empty (`server.go:1168`), which tells `autocert` to attempt issuance for
+**any** hostname a stranger puts in SNI — a way to burn a site's Let's Encrypt rate limit
+from outside. `--host` should be required for a public server.
+
+#### 5.1.3 Without a public hostname
+
+Three supported paths, none of which need ACME:
+
+| Situation | Approach |
+| --- | --- |
+| Local development | `basil --dev` — HTTP on localhost, Git auth relaxed for localhost only |
+| Private network or an existing certificate | `server.https.tls_cert` / `tls_key` |
+| Public server, DNS not ready yet | Set it up, then `basil check` before pointing developers at it |
+
+Never work around a failing handshake with `git -c http.sslVerify=false`: the API key is
+sent in the request, so disabling verification hands push rights to whoever answered.
 
 ### 5.2 One-time, per machine
 
@@ -390,6 +451,7 @@ pattern.
 | --- | --- | --- |
 | `basil publish` | developer machine | Push the current commit to the release branch and report the result |
 | `basil status` | developer machine | What's live, what's on the release branch, how far behind |
+| `basil check` | server | Verify bootstrap preconditions: DNS, port 80, certificate, repo placement |
 | `basil deploy <sha\|branch>` | server | First deploy; deploy a commit already in the repo |
 | `basil rollback [sha]` | server | Re-activate the previous (or a named) release |
 | `basil releases` | server | The deploy record |

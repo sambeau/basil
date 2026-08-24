@@ -86,6 +86,10 @@ it is reacting to.
       credential with push rights
 - [ ] The sole exception is a dev-mode localhost bind, decided in code (`isDevLocalhost`),
       never from configuration
+- [ ] **The refusal applies to Git endpoints only.** Port 80 must continue to serve ACME
+      HTTP-01 challenges at `/.well-known/acme-challenge/` ahead of the HTTPS redirect
+      (`server.go:1158`). A blanket plain-HTTP refusal would make the server unable to
+      obtain or renew a certificate — tested explicitly, not assumed
 - [ ] **There is no `git.require_auth` setting.** Authentication cannot be disabled from a
       config file
 - [ ] Basil refuses to serve Git when no auth database exists — promoted from an incidental
@@ -102,6 +106,9 @@ it is reacting to.
 - [ ] `githttp.EventHandler`-based reload is removed
 - [ ] BUG-033 no longer reproduces: a fresh `basil --init` site accepts a first push with
       no manual Git configuration
+- [ ] A fresh `basil --init` site can be **cloned** immediately: the repository has the
+      starter site on the release branch (FEAT-152), so a clone yields working files rather
+      than an empty repository
 - [ ] `docs/guide/git.md` is rewritten; the claim that the handler "writes files to the
       site directory" is removed
 
@@ -190,6 +197,8 @@ Project checklist (`CLAUDE.md`) plus:
 - [ ] Role matrix tested
 - [ ] **Plain HTTP verified refused** against a real non-TLS listener, and the dev-localhost
       exception verified to still work
+- [ ] **Certificate issuance verified unaffected** — a server that has never held a
+      certificate obtains one and is then clonable, end to end
 - [ ] Force-push and release-branch deletion verified refused
 - [ ] `docs/guide/git.md` rewritten and accurate — every command in it actually run
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`

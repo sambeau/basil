@@ -72,6 +72,11 @@ check with no build server, and it is the strongest single argument for the whol
 - [ ] `basil rollback [id]` — re-activate the previous release, or a named one
 - [ ] `basil releases` — the deploy record: id, commit, when, who, outcome, which is live
 - [ ] `basil status` — what is live, and whether the release branch is ahead of it
+- [ ] `basil check` — verify bootstrap preconditions and report each plainly: the hostname
+      resolves to this machine, port 80 is reachable, a certificate is present or
+      obtainable, the repository is not inside a served root, a release is active. This is
+      the command to point people at when setup misbehaves
+      (`DESIGN-git-deploy.md` §5.1.2)
 - [ ] All four exit non-zero on failure and print actionable errors
 
 ### Configuration
@@ -185,5 +190,10 @@ Project checklist (`CLAUDE.md`) plus:
 1. Release id: full SHA, short SHA, or a monotonic sequence plus SHA? Sequence-plus-SHA
    reads better in `basil releases` and sorts correctly.
 2. Deploy record in SQLite or JSONL? Recommend SQLite.
-3. Should `basil deploy` be runnable while the server is stopped (activating for the next
+3. Should certificate issuance move from lazy (first TLS handshake) to eager (startup)?
+   Recommend eager: otherwise the developer's first `git clone` is the request that
+   triggers issuance, and an ACME failure surfaces as an opaque TLS error in Git rather
+   than a clear message on the server. Belongs in this feature or FEAT-152 — decide during
+   implementation.
+4. Should `basil deploy` be runnable while the server is stopped (activating for the next
    start)? Recommend yes — it makes first deploy and disaster recovery simpler.
