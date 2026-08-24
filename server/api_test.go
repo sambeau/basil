@@ -28,10 +28,11 @@ export getById = api.public(fn(req) { {id: req.params.id} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/todos", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/todos", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	stdout := &noopBuffer{}
@@ -91,10 +92,11 @@ export get = fn(req) { {ok: true} }
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/secure", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/secure", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	stdout := &noopBuffer{}
@@ -129,10 +131,11 @@ export get = api.public(fn(req) { {ok: true} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/limited", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/limited", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	stdout := &noopBuffer{}
@@ -193,10 +196,11 @@ export get = api.adminOnly(fn(req) { {admin: true} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/admin", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/admin", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
@@ -230,10 +234,11 @@ export get = api.adminOnly(fn(req) { {admin: true} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/admin", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/admin", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
@@ -267,10 +272,11 @@ export get = api.roles(["editor", "admin"], fn(req) { {allowed: true} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/editors", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/editors", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
@@ -315,10 +321,11 @@ export get = api.roles(["admin"], fn(req) { {allowed: true} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/admins", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/admins", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
@@ -352,10 +359,11 @@ export get = api.roles(["editor"], fn(req) { {allowed: true} })
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/protected", Handler: scriptPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/protected", Handler: scriptPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "info", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})

@@ -204,7 +204,7 @@ func (h *devToolsHandler) openAppDB() (*sql.DB, error) {
 
 	// Resolve relative path
 	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(h.server.config.BaseDir, dbPath)
+		dbPath = filepath.Join(h.server.config.DataDir, dbPath)
 	}
 
 	db, err := sql.Open("sqlite", dbPath)
@@ -456,7 +456,7 @@ func (h *devToolsHandler) handleDevDBFileDownload(w http.ResponseWriter, r *http
 
 	// Resolve relative path
 	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(h.server.config.BaseDir, dbPath)
+		dbPath = filepath.Join(h.server.config.DataDir, dbPath)
 	}
 
 	// Get base filename for download
@@ -520,7 +520,7 @@ func (h *devToolsHandler) handleDevDBFileUpload(w http.ResponseWriter, r *http.R
 
 	// Resolve relative path
 	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(h.server.config.BaseDir, dbPath)
+		dbPath = filepath.Join(h.server.config.DataDir, dbPath)
 	}
 
 	// Create timestamped backup
@@ -1070,7 +1070,7 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			// Resolve to absolute path for stat
 			absPath := dbPath
 			if !filepath.IsAbs(dbPath) {
-				absPath = filepath.Join(h.server.config.BaseDir, dbPath)
+				absPath = filepath.Join(h.server.config.DataDir, dbPath)
 			}
 			if stat, err := os.Stat(absPath); err == nil {
 				devtoolsMap["db_size"] = stat.Size()
@@ -1212,7 +1212,8 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			setting("Host", optStr(cfg.Server.Host), "Bind address"),
 			setting("Port", fmt.Sprintf("%d", cfg.Server.Port), "Listen port"),
 			setting("Dev Mode", boolStr(cfg.Server.Dev), "Development mode enabled"),
-			setting("Base Dir", cfg.BaseDir, "Configuration base directory"),
+			setting("Release Dir", cfg.ReleaseDir, "Site code (replaced by every deploy)"),
+			setting("Data Dir", cfg.DataDir, "Persistent state (survives every deploy)"),
 		}
 		if cfg.Server.HTTPS.Auto || cfg.Server.HTTPS.Cert != "" {
 			serverSettings = append(serverSettings,

@@ -53,15 +53,15 @@ server:
 https:
   auto: true
   email: admin@example.com   # expiry and problem notifications from Let's Encrypt
-  cache_dir: ./certs         # where certificates are stored (default: ./certs)
+  cache_dir: ./certs         # where certificates are stored, relative to data_dir
 ```
 
 | Key | Required | What it does |
 |---|---|---|
-| `server.host` | yes | The domain to request a certificate for. Basil only answers certificate requests for this exact name. |
+| `server.host` | yes | The domain to request a certificate for. Basil only answers certificate requests for this exact name, and **refuses to start without it** — an empty host would let anyone trigger issuance for any name they put in SNI. `--dev` and a manual `https.cert`/`https.key` are the exceptions. |
 | `https.auto` | yes | Turn on Let's Encrypt. |
 | `https.email` | recommended | Let's Encrypt emails this address before a certificate expires and if it has to revoke one. Optional, but there is no other way to hear about problems. |
-| `https.cache_dir` | no | Directory for the certificate, private key, and Let's Encrypt account key. Defaults to `certs` in the working directory. |
+| `https.cache_dir` | no | Directory for the certificate, private key, and Let's Encrypt account key. Relative to the site's data directory; defaults to `<data_dir>/certs`. It never depended on the working directory since FEAT-152 — before that, it did. |
 
 Setting `auto: true` accepts the [Let's Encrypt Subscriber Agreement](https://letsencrypt.org/repository/) on your behalf.
 
@@ -73,13 +73,16 @@ Start Basil in production mode:
 basil
 ```
 
-The log shows `automatic TLS enabled via Let's Encrypt (cache: ./certs)` and Basil listens on 443 and 80. Nothing else happens until the first HTTPS request arrives. Then, in the background of that first request:
+The log shows `automatic TLS enabled via Let's Encrypt (cache: …)` and Basil listens on 443 and 80. It then obtains the certificate straight away, without waiting for a visitor:
 
 1. Basil creates a Let's Encrypt account (keyed to your email) and stores the account key in `cache_dir`.
 2. Let's Encrypt asks Basil to prove it controls `example.com`. Basil answers the challenge itself — either over port 80 (HTTP-01) or inside the TLS handshake on 443 (TLS-ALPN-01), whichever Let's Encrypt tries first.
 3. Let's Encrypt issues a certificate. Basil stores it in `cache_dir` and uses it for every request from then on.
 
-The first visitor waits a few seconds while this happens. Everyone after that gets the cached certificate. The easiest first visitor is you:
+Either `TLS certificate ready for example.com` or a failure naming the two usual
+suspects — DNS and port 80 — appears in the log within a few seconds. A failure is
+not fatal: the server keeps running and tries again on the first HTTPS request.
+Check it yourself with:
 
 ```bash
 curl -I https://example.com
@@ -95,7 +98,7 @@ Let's Encrypt certificates last 90 days. Basil checks the certificate on each re
 
 `cache_dir` holds your private key. Treat it accordingly:
 
-- Keep it out of version control: add `certs/` to `.gitignore` (`basil --init` already does).
+- It lives in the site's data directory (`<data_dir>/certs` by default), which is outside the release and outside the repository, so a deploy never replaces it and there is nothing to gitignore.
 - Make it readable only by the user Basil runs as: `chmod 700 certs`.
 - Keep it between deploys and restarts. If you delete it, Basil requests a fresh certificate on the next start, which counts against Let's Encrypt's rate limits.
 - Back it up with the rest of the site if you want restarts on a new machine to be instant, but a lost `certs` directory is not a disaster — Basil simply fetches a new certificate.

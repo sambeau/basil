@@ -24,30 +24,65 @@ keywords:
 The `basil` command starts the server, scaffolds projects, and manages users and API keys.
 
 ```bash
-basil --init myapp    # Create a new project
-cd myapp
-basil --dev           # Run it in development mode
+basil --init myapp --host localhost --admin sam   # Create a new site
+basil --dev --site myapp                          # Run it in development mode
 ```
 
-## Creating a Project
+## Creating a Site
 
-`basil --init FOLDER` scaffolds a new project:
+`basil --init FOLDER --host HOSTNAME --admin NAME` creates a **site root**:
 
 ```
 myapp/
-├── .gitignore      Git ignore patterns
-├── basil.yaml      Configuration
-├── site/           Handlers (filesystem routing)
-│   └── index.pars  Homepage
-├── public/         Static files (CSS, JS, images)
-├── db/             SQLite databases
-└── logs/           Log files
+├── site.git/       Bare repository, served at /.git
+├── releases/       One directory per deployed commit
+│   └── <commit>/     basil.yaml, site/index.pars, public/
+├── current ->      The active release
+└── data/           Databases, certificates, logs, uploads
+    └── uploads/      Durable site writes, served at /__uploads/
 ```
+
+Both flags are required, and neither is guessed:
+
+- `--host` is written to `server.host`. A public server refuses to start without
+  it, because an empty host tells the certificate manager to attempt issuance for
+  any hostname a stranger asks for. Use `localhost` for a site you will only run
+  with `--dev`.
+- `--admin` names the first Basil account. It is **never** derived from `$USER`
+  or `$SUDO_USER` — `--init` usually runs on a server, where the shell is `root`
+  or a service account. With a terminal attached, `--init` prompts for it.
+
+`--init` commits the starter site to the release branch and deploys it as release
+1, so the server has something to serve from the moment it starts. It creates the
+admin account and prints its API key **once**, and installs a pre-commit
+formatting hook.
+
+Run under `sudo`, it hands the tree to `$SUDO_USER` and says so; run as `root`
+with no `SUDO_USER`, it warns and prints the exact `chown` command. Skipping that
+step makes every later write fail — database, logs, certificates and deploys —
+with an error that points at the database rather than at ownership.
+
+### Code and state: the two anchors
+
+Everything in the release directory is replaced by the next deploy. Everything in
+`data/` survives it. Paths in `basil.yaml` resolve against one or the other and
+never against the directory you happen to be standing in — see
+[Configuration](../../guide/configuration.md#where-paths-resolve-the-two-anchors).
+
+Site code writes to the data root: `basil.data_dir`, `basil.uploads_dir`, and
+`security.allow_write` entries, which resolve there too.
+
+### The legacy layout
+
+A plain directory containing `basil.yaml` still works exactly as before, with the
+data root defaulting to that directory. `basil --dev` in a working copy needs no
+site root and no `current` symlink.
 
 ## Starting the Server
 
 ```bash
-basil                 # Production mode, uses ./basil.yaml
+basil                 # Production mode, uses ./basil.yaml (or ./current/basil.yaml)
+basil --site PATH     # Serve the active release of a site root
 basil --dev           # Development mode (HTTP on localhost)
 basil --port 3000     # Override the configured port
 basil --quiet         # Suppress request logs
@@ -61,8 +96,12 @@ Basil finds its configuration in this order:
 
 1. `--config PATH` flag
 2. `BASIL_CONFIG` environment variable
-3. `./basil.yaml`
-4. `~/.config/basil/basil.yaml`
+3. `./current/basil.yaml` — the active release, if the working directory is a site root
+4. `./basil.yaml`
+5. `~/.config/basil/basil.yaml`
+
+`--site PATH` names a site root directly and reads the config from its active
+release.
 
 ### Developer Profiles
 

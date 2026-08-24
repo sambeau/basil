@@ -37,6 +37,49 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, filePath string, de
 	http.ServeFile(w, r, filePath)
 }
 
+// ensureDataDir creates the data root if it is a directory of its own. In
+// the legacy layout the data root is the project directory, which already
+// exists, so there is nothing to do.
+func (s *Server) ensureDataDir() error {
+	dir := s.config.DataDir
+	if dir == "" || dir == s.config.ReleaseDir {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating data directory %s: %w (if this tree was created by `sudo basil --init`, chown it to the account running Basil)", dir, err)
+	}
+	return nil
+}
+
+// newUploadsHandler serves the durable uploads directory under the data
+// root. Site code writes here and a deploy never touches it, so uploads do
+// not have to live inside public_dir. Directory listings are not served.
+func newUploadsHandler(dir string, devMode bool) http.Handler {
+	fs := http.Dir(dir)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upath := strings.TrimPrefix(r.URL.Path, config.UploadsURLPrefix)
+		if upath == "" || strings.HasSuffix(upath, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		f, err := fs.Open("/" + upath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer f.Close()
+		info, err := f.Stat()
+		if err != nil || info.IsDir() {
+			http.NotFound(w, r)
+			return
+		}
+		if devMode {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		}
+		http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+	})
+}
+
 // Server represents a Basil web server instance.
 type Server struct {
 	config        *config.Config
@@ -98,6 +141,13 @@ func New(cfg *config.Config, configPath string, version, commit string, stdout, 
 
 	// Let CSRF failures render the 403 error page (and any custom override)
 	s.csrfMW.server = s
+
+	// The data root holds everything that must survive a deploy. Create it
+	// up front so a permission problem is reported as a permission problem
+	// rather than as a database error on the first request.
+	if err := s.ensureDataDir(); err != nil {
+		return nil, err
+	}
 
 	// Initialize prelude (embedded assets and Parsley files)
 	if err := initPrelude(commit); err != nil {
@@ -261,13 +311,14 @@ func (s *Server) initDevTools() error {
 		cfg.TruncatePct = s.config.Dev.LogTruncatePct
 	}
 
-	// Use a temp directory if the base directory doesn't exist (e.g., in tests)
-	baseDir := s.config.BaseDir
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		baseDir = os.TempDir()
+	// The dev log is persistent state, so it lives in the data root.
+	// Fall back to a temp directory if that doesn't exist (e.g. in tests).
+	dataDir := s.config.DataDir
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		dataDir = os.TempDir()
 	}
 
-	devLog, err := NewDevLog(baseDir, cfg)
+	devLog, err := NewDevLog(dataDir, cfg)
 	if err != nil {
 		return fmt.Errorf("creating dev log: %w", err)
 	}
@@ -439,7 +490,7 @@ func (s *Server) initSQLite(path string) error {
 
 	// Path should already be resolved by config loader, but handle relative just in case
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(s.config.BaseDir, path)
+		path = filepath.Join(s.config.DataDir, path)
 	}
 
 	// Open database with WAL mode for better concurrency
@@ -496,7 +547,7 @@ func (s *Server) initAuth() error {
 	}
 
 	// Open auth database (separate from app database)
-	authDB, err := auth.OpenDB(s.config.BaseDir)
+	authDB, err := auth.OpenDB(s.config.AuthDBPath())
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
 	}
@@ -572,8 +623,16 @@ func (s *Server) initGit() error {
 		return fmt.Errorf("git server requires auth but auth is not enabled - enable auth.enabled or set git.require_auth: false")
 	}
 
-	// Git handler needs the site directory (where .git repo is)
-	siteDir := s.config.BaseDir
+	// Git handler needs the repository directory. In the site-root layout
+	// that is the bare repository, which lives outside the release; in the
+	// legacy layout it is the project directory, as before.
+	// (FEAT-154 owns the hub itself; this is only the anchor decision.)
+	siteDir := s.config.ReleaseDir
+	if repo := s.config.BareRepoPath(); repo != "" {
+		if info, err := os.Stat(repo); err == nil && info.IsDir() {
+			siteDir = repo
+		}
+	}
 
 	// Create reload callback
 	onPush := func() {
@@ -600,6 +659,11 @@ func (s *Server) setupRoutes() error {
 
 	// Register image handler for image() files at /__img/
 	s.mux.Handle("/__img/", images.NewHandler(s.imageRegistry, s.devLog != nil))
+
+	// Register the uploads handler for site-written files at /__uploads/
+	if uploads := s.config.UploadsDir(); uploads != "" {
+		s.mux.Handle(config.UploadsURLPrefix, newUploadsHandler(uploads, s.devLog != nil))
+	}
 
 	// Register asset bundle routes
 	s.mux.HandleFunc("/__site.css", func(w http.ResponseWriter, r *http.Request) {
@@ -1113,9 +1177,10 @@ func (s *Server) listenAddr() string {
 func (s *Server) listenAndServeTLS() error {
 	cfg := s.config.Server.HTTPS
 
-	// Manual cert mode
+	// Manual cert mode. Paths are anchored to the data root by the config
+	// loader, so they do not move with the operator's shell.
 	if cfg.Cert != "" && cfg.Key != "" {
-		s.logInfo("using manual TLS certificates")
+		s.logInfo("using manual TLS certificates (%s)", cfg.Cert)
 		return s.server.ListenAndServeTLS(cfg.Cert, cfg.Key)
 	}
 
@@ -1127,14 +1192,30 @@ func (s *Server) listenAndServeTLS() error {
 	return s.listenAndServeAutocert()
 }
 
+// certCacheDir returns the certificate cache directory. The config loader
+// anchors https.cache_dir to the data root; this only covers configs built
+// in code (tests) that never went through the loader.
+func (s *Server) certCacheDir() string {
+	dir := s.config.Server.HTTPS.CacheDir
+	if dir == "" {
+		dir = config.CertsDirName
+	}
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(s.config.DataDir, dir)
+	}
+	return dir
+}
+
 // listenAndServeAutocert configures and starts the server with Let's Encrypt certificates.
 func (s *Server) listenAndServeAutocert() error {
 	cfg := s.config.Server.HTTPS
 
-	// Determine cache directory for certificates
-	cacheDir := "certs"
-	if cfg.CacheDir != "" {
-		cacheDir = cfg.CacheDir
+	// Certificates are persistent state: re-issuance is rate-limited by
+	// Let's Encrypt, so the cache must survive a deploy and must not depend
+	// on the directory the operator happened to be standing in.
+	cacheDir := s.certCacheDir()
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		return fmt.Errorf("creating certificate cache %s: %w", cacheDir, err)
 	}
 
 	// Create autocert manager
@@ -1156,21 +1237,93 @@ func (s *Server) listenAndServeAutocert() error {
 	}
 
 	// Start HTTP redirect server on port 80 for ACME challenges and redirects
-	go s.runHTTPRedirect(manager)
+	ready := make(chan struct{})
+	go s.runHTTPRedirect(manager, ready)
 
 	s.logInfo("automatic TLS enabled via Let's Encrypt (cache: %s)", cacheDir)
 
+	// Obtain the certificate now rather than on the first TLS handshake.
+	// Left to autocert's lazy issuance, the developer's first `git clone` is
+	// the request that triggers it, and an ACME failure surfaces as an
+	// opaque TLS error with no clue whether DNS, port 80 or Basil is at
+	// fault. (DESIGN-git-deploy 5.1.2)
+	go s.obtainCertificate(manager, ready)
+
 	// ListenAndServeTLS with empty cert/key uses TLSConfig
 	return s.server.ListenAndServeTLS("", "")
+}
+
+// certificateProbeTimeout bounds the eager issuance attempt at startup.
+var certificateProbeTimeout = 90 * time.Second
+
+// obtainCertificate asks autocert for the configured host's certificate at
+// startup and reports the outcome plainly, naming the two things that
+// usually break: DNS and port 80.
+func (s *Server) obtainCertificate(manager *autocert.Manager, ready <-chan struct{}) {
+	host := s.config.Server.Host
+	if host == "" {
+		return // refused at config validation; nothing to ask for
+	}
+
+	// The ACME HTTP-01 challenge is answered on port 80, so wait for that
+	// listener before asking.
+	select {
+	case <-ready:
+	case <-time.After(10 * time.Second):
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), certificateProbeTimeout)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		// Describe a modern client so autocert issues the same (ECDSA)
+		// certificate a browser handshake would ask for. Asking as a
+		// different client would issue a second certificate later and
+		// spend the rate limit twice.
+		hello := &tls.ClientHelloInfo{
+			ServerName:        host,
+			SupportedVersions: []uint16{tls.VersionTLS13, tls.VersionTLS12},
+			SignatureSchemes:  []tls.SignatureScheme{tls.ECDSAWithP256AndSHA256},
+			SupportedCurves:   []tls.CurveID{tls.X25519, tls.CurveP256},
+			SupportedPoints:   []uint8{0},
+			CipherSuites: []uint16{
+				tls.TLS_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			},
+		}
+		_, err := manager.GetCertificate(hello)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			s.logError("could not obtain a TLS certificate for %s: %v", host, err)
+			s.logError("  check that %s resolves to this machine (DNS), and that port 80 is reachable from the internet for the ACME challenge", host)
+			s.logError("  the server is running; it will retry on the first HTTPS request")
+			return
+		}
+		s.logInfo("TLS certificate ready for %s", host)
+	case <-ctx.Done():
+		s.logError("timed out obtaining a TLS certificate for %s after %s", host, certificateProbeTimeout)
+		s.logError("  check that %s resolves to this machine (DNS), and that port 80 is reachable from the internet for the ACME challenge", host)
+	}
 }
 
 // hostPolicy returns a function that validates hostnames for certificate requests.
 func (s *Server) hostPolicy() autocert.HostPolicy {
 	host := s.config.Server.Host
 
-	// If no host configured, allow any
+	// No host configured: refuse every issuance request. Returning nil here
+	// would tell autocert to attempt issuance for any hostname a stranger
+	// supplies in SNI, which burns the site's Let's Encrypt rate limit from
+	// outside. Config validation refuses to start a public server without
+	// server.host; this is the belt to that pair of braces.
 	if host == "" {
-		return nil
+		return func(_ context.Context, name string) error {
+			return fmt.Errorf("certificate request for %q refused: server.host is not configured", name)
+		}
 	}
 
 	// Allow only the configured host
@@ -1180,7 +1333,7 @@ func (s *Server) hostPolicy() autocert.HostPolicy {
 // runHTTPRedirect starts an HTTP server on port 80 that:
 // 1. Handles ACME HTTP-01 challenges for Let's Encrypt
 // 2. Redirects all other requests to HTTPS
-func (s *Server) runHTTPRedirect(manager *autocert.Manager) {
+func (s *Server) runHTTPRedirect(manager *autocert.Manager, ready chan struct{}) {
 	redirectHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Build HTTPS URL
 		target := "https://" + r.Host + r.URL.RequestURI()
@@ -1195,7 +1348,16 @@ func (s *Server) runHTTPRedirect(manager *autocert.Manager) {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	ln, err := net.Listen("tcp", httpServer.Addr)
+	if err != nil {
+		s.logError("HTTP redirect server cannot listen on port 80: %v", err)
+		s.logError("  port 80 must be free for the ACME challenge, or no certificate can be obtained or renewed")
+		close(ready)
+		return
+	}
+	close(ready)
+
+	if err := httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {
 		s.logError("HTTP redirect server error: %v", err)
 	}
 }

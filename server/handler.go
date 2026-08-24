@@ -153,6 +153,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			rootPath = absScriptDir
 		}
 		env.RootPath = rootPath
+		env.DataPath = h.server.config.DataDir
 		env.Security = &evaluator.SecurityPolicy{
 			NoRead:        false,
 			AllowWrite:    []string(h.server.config.Security.AllowWrite),
@@ -270,6 +271,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rootPath = absScriptDir
 	}
 	env.RootPath = rootPath
+	env.DataPath = h.server.config.DataDir
 
 	// Set security policy
 	// Allow executing Parsley files in the root path and subdirectories (for imports)
@@ -283,8 +285,11 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Build basil context for stdlib import (std/basil)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, csrfToken, sessionModule, h.server.config)
 	env.BasilCtx = basilObj
+	// Bind the context object so site code can read basil.data_dir - the
+	// durable place to write, which nothing else in the environment names.
+	env.Set("basil", basilObj)
 
 	// Set server-level database (available to modules at load time)
 	// This allows @DB to work at module scope, not just inside handler functions
@@ -392,7 +397,7 @@ type responseMeta struct {
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts
 // Returns a Parsley Dictionary object that can be set directly in the environment
-func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]any, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string, sessionModule *evaluator.SessionModule) evaluator.Object {
+func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]any, db *sql.DB, dbDriver string, publicDir string, fragCache *fragmentCache, routePath string, csrfToken string, sessionModule *evaluator.SessionModule, cfg *config.Config) evaluator.Object {
 	// Build auth context
 	authCtx := map[string]any{
 		"required": route.Auth == "required",
@@ -438,6 +443,11 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]an
 		"auth":       authCtx,
 		"context":    map[string]any{}, // Empty dict for user-defined globals
 		"public_dir": publicDir,        // Public directory for path rewriting
+		// The durable write location. Everything under public_dir and the
+		// handler tree is replaced by the next deploy; data_dir is not.
+		"data_dir":    cfg.DataDir,
+		"uploads_dir": cfg.UploadsDir(),
+		"uploads_url": config.UploadsURLPrefix,
 		"csrf": map[string]any{
 			"token": csrfToken,
 		},

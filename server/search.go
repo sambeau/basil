@@ -41,7 +41,12 @@ type SearchOptions struct {
 	HighlightTag  string // HTML tag wrapped around matched terms
 	Tokenizer     string
 	CheckInterval time.Duration // How often to check for file changes (0 = every query)
+	PathIsAuto    bool          // Path was derived from the watch path, not given
 }
+
+// searchIndexDirName is the directory under the data root that holds search
+// indexes when the host supplies one.
+const searchIndexDirName = "search"
 
 // Global search instance cache (per-configuration)
 var (
@@ -235,6 +240,7 @@ func parseSearchOptions(optsDict *evaluator.Dictionary, env *evaluator.Environme
 		// Use first watch path as base for database name
 		base := filepath.Base(opts.Watch[0])
 		opts.Path = filepath.Join(filepath.Dir(opts.Watch[0]), base+"_search.db")
+		opts.PathIsAuto = true
 	}
 
 	// Parse tokenizer
@@ -340,9 +346,23 @@ func createSearchInstance(opts SearchOptions, env *evaluator.Environment) (*Sear
 	if opts.Path == ":memory:" {
 		db, err = sql.Open("sqlite", ":memory:")
 	} else {
-		// Resolve relative path
+		// Resolve the index path. A search index is derived state: written
+		// at runtime, rebuildable at a cost. It must not land inside the
+		// release, which the next deploy replaces, so it resolves against
+		// the data root when the host supplies one (FEAT-152).
 		dbPath := opts.Path
-		if !filepath.IsAbs(dbPath) && env.RootPath != "" {
+		switch {
+		case filepath.IsAbs(dbPath):
+			// as given
+		case env.DataPath != "":
+			if opts.PathIsAuto {
+				// Auto-named next to the watched content, which is site
+				// code. Keep the name, move it under the data root.
+				dbPath = filepath.Join(env.DataPath, searchIndexDirName, filepath.Base(dbPath))
+			} else {
+				dbPath = filepath.Join(env.DataPath, searchIndexDirName, dbPath)
+			}
+		case env.RootPath != "":
 			dbPath = filepath.Join(env.RootPath, dbPath)
 		}
 

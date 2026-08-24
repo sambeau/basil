@@ -73,32 +73,51 @@ func TestRunMissingConfig(t *testing.T) {
 }
 
 func TestCLI_InitCommand(t *testing.T) {
+	requireGit(t)
 	tmpDir := t.TempDir()
 	projectPath := filepath.Join(tmpDir, "myapp")
 
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--init", projectPath}, &stdout, &stderr, os.Getenv)
+	err := run(context.Background(), []string{
+		"--init", projectPath,
+		"--host", "myapp.example.com",
+		"--admin", "sam",
+	}, &stdout, &stderr, os.Getenv)
 	if err != nil {
 		t.Fatalf("init command failed: %v", err)
 	}
 
 	// Check success message
 	output := stdout.String()
-	if !strings.Contains(output, "Created new Basil project") {
+	if !strings.Contains(output, "Created Basil site") {
 		t.Error("success message not printed")
 	}
-	if !strings.Contains(output, "Get started:") {
-		t.Error("missing 'Get started' instructions")
+	if !strings.Contains(output, "Start the server:") {
+		t.Error("missing start instructions")
 	}
 
-	// Verify files exist
-	if _, err := os.Stat(filepath.Join(projectPath, "basil.yaml")); err != nil {
-		t.Error("basil.yaml not created")
+	// Verify the site-root layout exists
+	for _, p := range []string{
+		filepath.Join(projectPath, "site.git"),
+		filepath.Join(projectPath, "releases"),
+		filepath.Join(projectPath, "data"),
+		filepath.Join(projectPath, "current", "basil.yaml"),
+		filepath.Join(projectPath, "current", "site", "index.pars"),
+	} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("%s not created", p)
+		}
 	}
-	if _, err := os.Stat(filepath.Join(projectPath, "site", "index.pars")); err != nil {
-		t.Error("site/index.pars not created")
+}
+
+// --host and --admin are only meaningful with --init.
+func TestCLI_HostFlagWithoutInit(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	err := run(context.Background(), []string{"--host", "example.com"}, &stdout, &stderr, func(string) string { return "" })
+	if err == nil {
+		t.Fatal("expected --host without --init to be refused")
 	}
-	if _, err := os.Stat(filepath.Join(projectPath, "public")); err != nil {
-		t.Error("public/ directory not created")
+	if !strings.Contains(err.Error(), "--init") {
+		t.Errorf("the error does not explain the flag: %v", err)
 	}
 }

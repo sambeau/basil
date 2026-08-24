@@ -23,17 +23,34 @@ go build -o basil .
 The fastest way to get started:
 
 ```bash
-basil --init myapp
-cd myapp
-basil
+basil --init myapp --host localhost --admin your-name
+basil --dev --site myapp
 ```
 
 Visit http://localhost:8080 🎉
 
-This creates:
-- `basil.yaml` — Configuration with sensible defaults
-- `site/index.pars` — A simple homepage
-- `public/` — Folder for static files (CSS, JS, images)
+`--host` is the hostname the site will be served on (`localhost` for a site you
+will only run with `--dev`). `--admin` names the first account; it is never
+guessed from your shell, because `--init` usually runs on a server as `root`.
+
+This creates a **site root**:
+
+```
+myapp/
+  site.git/        bare repository, served at /.git
+  releases/        one directory per deployed commit
+    <commit>/        basil.yaml, site/index.pars, public/
+  current ->       the active release
+  data/            databases, certificates, logs, uploads — no deploy touches this
+```
+
+The starter site is committed and deployed as release 1, so the server has
+something to serve immediately. An admin account is created and its API key is
+printed **once** — save it.
+
+Prefer a plain project directory? Create a folder with a `basil.yaml` and a
+`site/` in it and run `basil --dev` there; that layout is fully supported, and
+everything resolves against the project directory.
 
 ### Manual Setup (Alternative)
 

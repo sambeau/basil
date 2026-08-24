@@ -695,34 +695,40 @@ var DefaultLogger Logger = &defaultStdoutLogger{}
 
 // Environment represents the environment for variable bindings
 type Environment struct {
-	store         map[string]Object
-	outer         *Environment
-	Filename      string
-	RootPath      string // Handler root directory for @~/ path resolution
-	LastToken     *lexer.Token
-	letBindings   map[string]bool // tracks which variables were declared with 'let' or 'var'
-	immutable     map[string]bool // tracks which variables are immutable (declared with 'let', not 'var')
-	exports       map[string]bool // tracks which variables were explicitly exported
-	protected     map[string]bool // tracks which variables cannot be reassigned
-	Security      *SecurityPolicy // File system security policy
-	StdoutWritten bool            // tracks whether stdout was written to via ==> text(@stdout)
-	Logger        Logger          // Logger for log()/logLine() output
-	importStack   map[string]bool // tracks modules being imported (for circular dep detection)
-	DevLog        DevLogWriter    // Dev log writer (nil in production mode)
-	BasilCtx      Object          // Basil server context (request, db, auth, etc.)
-	ServerDB      *DBConnection   // Server-level database connection (set at startup, available to modules)
-	FragmentCache FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
-	AssetRegistry AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
-	ImageRegistry ImageRegistrar  // Image registry for image() and imageInfo() (nil if not available)
-	AssetBundle   AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
-	BasilJSURL    string          // URL for basil.js prelude script (for <BasilJS/> tag)
-	HandlerPath   string          // Current handler path for cache key namespacing
-	DevMode       bool            // Whether dev mode is enabled (affects caching)
-	ContainsParts bool            // Whether the response contains <Part/> components (for JS injection)
-	FormContext   *FormContext    // Current form context for @record/@field binding (FEAT-091)
-	PLNSecret     string          // Secret for HMAC signing PLN in Part props (FEAT-098)
-	callDepth     *int            // Shared function-call-depth counter (per evaluation tree; guards against runaway recursion)
-	AllowRedeclare bool           // Permit let/var redeclaration in this scope (REPL top-level only; not inherited by enclosed scopes)
+	store    map[string]Object
+	outer    *Environment
+	Filename string
+	RootPath string // Handler root directory for @~/ path resolution
+	// DataPath is the durable data root supplied by the host (Basil sets it
+	// from config.DataDir). Derived state - search indexes and the like -
+	// resolves against it, because anything written inside the handler tree
+	// is destroyed by the next deploy. Empty for `pars`, which has no
+	// deploy and keeps its old, script-relative behaviour.
+	DataPath       string
+	LastToken      *lexer.Token
+	letBindings    map[string]bool // tracks which variables were declared with 'let' or 'var'
+	immutable      map[string]bool // tracks which variables are immutable (declared with 'let', not 'var')
+	exports        map[string]bool // tracks which variables were explicitly exported
+	protected      map[string]bool // tracks which variables cannot be reassigned
+	Security       *SecurityPolicy // File system security policy
+	StdoutWritten  bool            // tracks whether stdout was written to via ==> text(@stdout)
+	Logger         Logger          // Logger for log()/logLine() output
+	importStack    map[string]bool // tracks modules being imported (for circular dep detection)
+	DevLog         DevLogWriter    // Dev log writer (nil in production mode)
+	BasilCtx       Object          // Basil server context (request, db, auth, etc.)
+	ServerDB       *DBConnection   // Server-level database connection (set at startup, available to modules)
+	FragmentCache  FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
+	AssetRegistry  AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
+	ImageRegistry  ImageRegistrar  // Image registry for image() and imageInfo() (nil if not available)
+	AssetBundle    AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
+	BasilJSURL     string          // URL for basil.js prelude script (for <BasilJS/> tag)
+	HandlerPath    string          // Current handler path for cache key namespacing
+	DevMode        bool            // Whether dev mode is enabled (affects caching)
+	ContainsParts  bool            // Whether the response contains <Part/> components (for JS injection)
+	FormContext    *FormContext    // Current form context for @record/@field binding (FEAT-091)
+	PLNSecret      string          // Secret for HMAC signing PLN in Part props (FEAT-098)
+	callDepth      *int            // Shared function-call-depth counter (per evaluation tree; guards against runaway recursion)
+	AllowRedeclare bool            // Permit let/var redeclaration in this scope (REPL top-level only; not inherited by enclosed scopes)
 }
 
 // NewEnvironment creates a new environment
@@ -794,6 +800,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.RootPath = outer.RootPath
+		env.DataPath = outer.DataPath
 		env.LastToken = outer.LastToken
 		env.Logger = outer.Logger
 		env.DevLog = outer.DevLog

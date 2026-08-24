@@ -329,7 +329,8 @@ header
 	must(os.WriteFile(filepath.Join(siteDir, "index.pars"), []byte(indexContent), 0644))
 
 	cfg := config.Defaults()
-	cfg.BaseDir = dir
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir
 	cfg.Server.Dev = true
 	cfg.Site.Path = siteDir
 

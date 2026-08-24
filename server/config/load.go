@@ -32,7 +32,6 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to resolve config path: %w", err)
 	}
-	baseDir := filepath.Dir(absPath)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -52,68 +51,10 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 		cfg.Secrets.MarkSecret("session.secret")
 	}
 
-	// Set base directory for resolving relative paths
-	cfg.BaseDir = baseDir
-
-	// Resolve relative paths in static routes
-	for i := range cfg.Static {
-		if cfg.Static[i].Root != "" && !filepath.IsAbs(cfg.Static[i].Root) {
-			cfg.Static[i].Root = filepath.Join(baseDir, cfg.Static[i].Root)
-		}
-		if cfg.Static[i].File != "" && !filepath.IsAbs(cfg.Static[i].File) {
-			cfg.Static[i].File = filepath.Join(baseDir, cfg.Static[i].File)
-		}
-	}
-
-	// Resolve relative paths in routes
-	for i := range cfg.Routes {
-		if cfg.Routes[i].Handler != "" && !filepath.IsAbs(cfg.Routes[i].Handler) {
-			cfg.Routes[i].Handler = filepath.Join(baseDir, cfg.Routes[i].Handler)
-		}
-		if cfg.Routes[i].PublicDir != "" && !filepath.IsAbs(cfg.Routes[i].PublicDir) {
-			cfg.Routes[i].PublicDir = filepath.Join(baseDir, cfg.Routes[i].PublicDir)
-		}
-	}
-
-	// Apply global public_dir to root route if not specified
-	for i := range cfg.Routes {
-		if cfg.Routes[i].Path == "/" && cfg.Routes[i].PublicDir == "" && cfg.PublicDir != "" {
-			if filepath.IsAbs(cfg.PublicDir) {
-				cfg.Routes[i].PublicDir = cfg.PublicDir
-			} else {
-				cfg.Routes[i].PublicDir = filepath.Join(baseDir, cfg.PublicDir)
-			}
-		}
-	}
-
-	// Resolve relative database path
-	if cfg.Database.Path != "" && !filepath.IsAbs(cfg.Database.Path) {
-		cfg.Database.Path = filepath.Join(baseDir, cfg.Database.Path)
-	}
-
-	// Resolve relative site path
-	if cfg.Site.Path != "" && !filepath.IsAbs(cfg.Site.Path) {
-		cfg.Site.Path = filepath.Join(baseDir, cfg.Site.Path)
-	}
-
-	// Resolve relative public_dir path
-	if cfg.PublicDir != "" && !filepath.IsAbs(cfg.PublicDir) {
-		cfg.PublicDir = filepath.Join(baseDir, cfg.PublicDir)
-	}
-
-	// Resolve relative custom error page paths
-	for code, path := range cfg.ErrorPages {
-		if path != "" && !filepath.IsAbs(path) {
-			cfg.ErrorPages[code] = filepath.Join(baseDir, path)
-		}
-	}
-
-	// Resolve relative paths in security.allow_write
-	for i := range cfg.Security.AllowWrite {
-		if !filepath.IsAbs(cfg.Security.AllowWrite[i]) {
-			cfg.Security.AllowWrite[i] = filepath.Join(baseDir, cfg.Security.AllowWrite[i])
-		}
-	}
+	// Establish the two anchors and resolve every configured path against
+	// one of them. Nothing may resolve against the process working directory.
+	ResolveAnchors(cfg, filepath.Dir(absPath))
+	ResolvePaths(cfg)
 
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
@@ -137,6 +78,13 @@ func Validate(cfg *Config) error {
 // a misconfiguration.
 func Warnings(cfg *Config) []string {
 	var warnings []string
+
+	// Let's Encrypt does not require a contact address, and requiring one
+	// here would mean editing basil.yaml between `basil --init` and a
+	// working server. Recommend it, do not insist on it.
+	if !cfg.Server.Dev && cfg.Server.HTTPS.Auto && cfg.Server.HTTPS.Email == "" && cfg.Server.HTTPS.Cert == "" {
+		warnings = append(warnings, "https.email is not set - Let's Encrypt will have no contact address for expiry and revocation notices")
+	}
 
 	// Warn if no routes are configured AND not using site mode
 	// Site mode uses filesystem-based routing and doesn't need explicit routes
@@ -208,9 +156,18 @@ func resolveConfigPath(explicit string, getenv func(string) string) (string, err
 		return envPath, nil
 	}
 
+	// Try the active release of a site root in the working directory
+	if IsSiteRoot(".") {
+		path, err := ConfigPathForSite(".")
+		if err != nil {
+			return "", err
+		}
+		return path, nil
+	}
+
 	// Try ./basil.yaml
-	if _, err := os.Stat("basil.yaml"); err == nil {
-		return "basil.yaml", nil
+	if _, err := os.Stat(ConfigFileName); err == nil {
+		return ConfigFileName, nil
 	}
 
 	// Try ~/.config/basil/basil.yaml
@@ -222,7 +179,8 @@ func resolveConfigPath(explicit string, getenv func(string) string) (string, err
 		}
 	}
 
-	return "", fmt.Errorf("no config file found (tried BASIL_CONFIG, basil.yaml, ~/.config/basil/basil.yaml)")
+	return "", fmt.Errorf("no config file found (tried BASIL_CONFIG, %s/%s, %s, ~/.config/basil/%s)",
+		CurrentLinkName, ConfigFileName, ConfigFileName, ConfigFileName)
 }
 
 // envPattern matches ${VAR} or ${VAR:-default}
@@ -336,8 +294,15 @@ func validateHTTPS(cfg *Config) error {
 	if !cfg.Server.HTTPS.Auto && (cfg.Server.HTTPS.Cert == "" || cfg.Server.HTTPS.Key == "") {
 		errs = append(errs, "production mode requires https.auto=true or both https.cert and https.key")
 	}
-	if cfg.Server.HTTPS.Auto && cfg.Server.HTTPS.Email == "" {
-		errs = append(errs, "https.auto requires https.email for Let's Encrypt notifications")
+
+	// A public server that obtains its own certificates must know its
+	// hostname. Without it the certificate host policy is open, and any
+	// hostname a stranger puts in SNI triggers an issuance attempt - a way
+	// to burn the site's Let's Encrypt rate limit from outside.
+	// --dev and a manually supplied certificate are the exceptions.
+	manualCert := cfg.Server.HTTPS.Cert != "" && cfg.Server.HTTPS.Key != ""
+	if cfg.Server.HTTPS.Auto && !manualCert && cfg.Server.Host == "" {
+		errs = append(errs, "server.host is required for a public server (set server.host: your.hostname, or run with --dev, or configure https.cert and https.key)")
 	}
 
 	if len(errs) > 0 {
@@ -413,9 +378,10 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 
 	// Apply database override
 	if dev.Database.Path != "" {
+		// The database is persistent state: it resolves against DataDir.
 		path := dev.Database.Path
 		if !filepath.IsAbs(path) {
-			path = filepath.Join(cfg.BaseDir, path)
+			path = filepath.Join(cfg.DataDir, path)
 		}
 		cfg.Database.Path = path
 	}
@@ -424,7 +390,7 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 	if dev.Handlers != "" {
 		handlersDir := dev.Handlers
 		if !filepath.IsAbs(handlersDir) {
-			handlersDir = filepath.Join(cfg.BaseDir, handlersDir)
+			handlersDir = filepath.Join(cfg.ReleaseDir, handlersDir)
 		}
 		for i := range cfg.Routes {
 			if cfg.Routes[i].Handler != "" {
@@ -439,7 +405,7 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 	if dev.PublicDir != "" {
 		staticDir := dev.PublicDir
 		if !filepath.IsAbs(staticDir) {
-			staticDir = filepath.Join(cfg.BaseDir, staticDir)
+			staticDir = filepath.Join(cfg.ReleaseDir, staticDir)
 		}
 		cfg.PublicDir = staticDir
 		// Also update routes that reference the public dir

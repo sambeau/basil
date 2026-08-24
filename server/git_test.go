@@ -44,13 +44,14 @@ func TestGitHandler_AuthRequired(t *testing.T) {
 func TestGitHandler_DevModeLocalhost(t *testing.T) {
 	// Create config with dev mode enabled
 	cfg := &config.Config{
-		Server:  config.ServerConfig{Dev: true},
-		Git:     config.GitConfig{Enabled: true, RequireAuth: true},
-		BaseDir: t.TempDir(),
+		Server:     config.ServerConfig{Dev: true},
+		Git:        config.GitConfig{Enabled: true, RequireAuth: true},
+		ReleaseDir: t.TempDir(),
+		DataDir:    t.TempDir(),
 	}
 
 	var stdout, stderr bytes.Buffer
-	handler, err := NewGitHandler(cfg.BaseDir, nil, cfg, nil, &stdout, &stderr)
+	handler, err := NewGitHandler(cfg.ReleaseDir, nil, cfg, nil, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("NewGitHandler failed: %v", err)
 	}

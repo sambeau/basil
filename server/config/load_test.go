@@ -644,7 +644,7 @@ func TestApplyDeveloper(t *testing.T) {
 
 	t.Run("applies database override", func(t *testing.T) {
 		cfg := Defaults()
-		cfg.BaseDir = "/app"
+		cfg.DataDir = "/app"
 		cfg.Developers = map[string]DeveloperConfig{
 			"sam": {Database: DeveloperDBConfig{Path: "sam.db"}},
 		}
@@ -660,7 +660,7 @@ func TestApplyDeveloper(t *testing.T) {
 
 	t.Run("applies absolute database path", func(t *testing.T) {
 		cfg := Defaults()
-		cfg.BaseDir = "/app"
+		cfg.DataDir = "/app"
 		cfg.Developers = map[string]DeveloperConfig{
 			"sam": {Database: DeveloperDBConfig{Path: "/data/sam.db"}},
 		}
@@ -747,7 +747,7 @@ func TestApplyDeveloper(t *testing.T) {
 
 	t.Run("applies handlers directory override", func(t *testing.T) {
 		cfg := Defaults()
-		cfg.BaseDir = "/app"
+		cfg.ReleaseDir = "/app"
 		cfg.Routes = []Route{
 			{Path: "/", Handler: "/app/handlers/index.pars"},
 			{Path: "/api/*", Handler: "/app/handlers/api/handler.pars"},
@@ -770,7 +770,7 @@ func TestApplyDeveloper(t *testing.T) {
 
 	t.Run("applies public_dir directory override", func(t *testing.T) {
 		cfg := Defaults()
-		cfg.BaseDir = "/app"
+		cfg.ReleaseDir = "/app"
 		cfg.PublicDir = "/app/public"
 		cfg.Routes = []Route{
 			{Path: "/", Handler: "index.pars", PublicDir: "/app/public"},

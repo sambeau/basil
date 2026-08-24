@@ -97,6 +97,7 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *
 		extendedEnv.ImageRegistry = env.ImageRegistry
 		extendedEnv.FragmentCache = env.FragmentCache
 		extendedEnv.BasilCtx = env.BasilCtx
+		extendedEnv.DataPath = env.DataPath
 		extendedEnv.DevLog = env.DevLog
 		extendedEnv.HandlerPath = env.HandlerPath
 		extendedEnv.DevMode = env.DevMode
@@ -144,6 +145,7 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			extendedEnv.ImageRegistry = env.ImageRegistry
 			extendedEnv.FragmentCache = env.FragmentCache
 			extendedEnv.BasilCtx = env.BasilCtx
+			extendedEnv.DataPath = env.DataPath
 			extendedEnv.DevLog = env.DevLog
 			extendedEnv.HandlerPath = env.HandlerPath
 			extendedEnv.DevMode = env.DevMode
@@ -386,6 +388,7 @@ func importModule(pathStr string, env *Environment) Object {
 	moduleEnv.Filename = absPath
 	// Copy root path from parent environment (preserved across imports for ~/ resolution)
 	moduleEnv.RootPath = env.RootPath
+	moduleEnv.DataPath = env.DataPath
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
 	// Copy DevLog and BasilCtx for stdlib imports (std/dev) and basil namespace modules

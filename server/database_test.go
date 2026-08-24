@@ -22,7 +22,8 @@ func TestDatabaseInit(t *testing.T) {
 
 	t.Run("no database configured", func(t *testing.T) {
 		cfg := config.Defaults()
-		cfg.BaseDir = tmpDir
+		cfg.ReleaseDir = tmpDir
+		cfg.DataDir = tmpDir
 		cfg.Server.Dev = true
 
 		var stdout, stderr bytes.Buffer
@@ -38,7 +39,8 @@ func TestDatabaseInit(t *testing.T) {
 
 	t.Run("sqlite database configured", func(t *testing.T) {
 		cfg := config.Defaults()
-		cfg.BaseDir = tmpDir
+		cfg.ReleaseDir = tmpDir
+		cfg.DataDir = tmpDir
 		cfg.Server.Dev = true
 		cfg.Database.Path = "test.db"
 
@@ -62,7 +64,8 @@ func TestDatabaseInit(t *testing.T) {
 	t.Run("sqlite absolute path", func(t *testing.T) {
 		dbPath := filepath.Join(tmpDir, "absolute.db")
 		cfg := config.Defaults()
-		cfg.BaseDir = "/some/other/dir"
+		cfg.ReleaseDir = "/some/other/dir"
+		cfg.DataDir = "/some/other/dir"
 		cfg.Server.Dev = true
 		cfg.Database.Path = dbPath // Absolute path
 
@@ -88,7 +91,8 @@ func TestDatabaseInHandler(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "handler_test.db")
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 0
 	cfg.Database.Path = dbPath
@@ -165,7 +169,8 @@ func TestDatabaseShutdown(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "shutdown_test.db")
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 0
 	cfg.Database.Path = dbPath

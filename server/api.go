@@ -70,6 +70,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rootPath = absScriptDir
 	}
 	env.RootPath = rootPath
+	env.DataPath = h.server.config.DataDir
 
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,
@@ -79,8 +80,11 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"},
 	}
 
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, "", nil)
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.server.fragmentCache, h.route.Path, "", nil, h.server.config)
 	env.BasilCtx = basilObj
+	// Bind the context object so site code can read basil.data_dir - the
+	// durable place to write, which nothing else in the environment names.
+	env.Set("basil", basilObj)
 
 	// Set server-level database (available to modules at load time)
 	if h.server.db != nil {

@@ -5,6 +5,11 @@ server:
   host: localhost
   port: 8080
 
+# Persistent state: databases, certificates, logs, caches and uploads.
+# Defaults to <site root>/data, or to this directory in the legacy layout.
+# Nothing here is touched by a deploy - unlike the code, which is replaced.
+# data_dir: ./data
+
 # Custom site metadata - accessible in Parsley handlers as meta.*
 # meta:
 #   name: "My Awesome Blog"
@@ -28,9 +33,9 @@ server:
 logging:
   level: info
   format: text
-  output: ./logs/basil.log # Log to file (use 'stderr' for console)
+  output: ./logs/basil.log # Log file, relative to data_dir ('stderr' for console)
   parsley:
-    output: ./logs/parsley.log # Parsley script log() output
+    output: ./logs/parsley.log # Parsley script log() output, relative to data_dir
 
 # HTTP response compression (enabled by default)
 # compression:
@@ -77,12 +82,15 @@ public_dir: ./public
 #     root: ./public
 
 # File system security
-# By default, handlers can read files but cannot write
-# Use allow_write to whitelist directories where handlers can save data
+# By default, handlers can read files but cannot write.
+# Use allow_write to whitelist directories where handlers can save data.
+# Relative paths resolve against data_dir, never against the code: anything
+# written inside the release is destroyed by the next deploy.
+# Site code finds these through basil.data_dir and basil.uploads_dir.
 # security:
 #   allow_write:
-#     - ./data       # Allow writes to data directory
-#     - ./uploads    # Allow writes to uploads directory
+#     - ./exports    # <data_dir>/exports
+#     - ./uploads    # <data_dir>/uploads - served at /__uploads/
 
 # Git over HTTPS - serve your site as a Git repository
 # Allows pushing changes directly to the server

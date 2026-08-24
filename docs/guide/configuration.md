@@ -6,6 +6,7 @@ This is the canonical reference for every key in `basil.yaml`. All examples are 
 
 - [Overview](#overview)
 - [Config File Resolution](#config-file-resolution)
+- [Where Paths Resolve: the Two Anchors](#where-paths-resolve-the-two-anchors)
 - [Environment Variables](#environment-variables)
 - [Secrets](#secrets)
 - [Complete Annotated Example](#complete-annotated-example)
@@ -46,12 +47,87 @@ Basil searches for a config file in this order:
 
 1. **Explicit path** — `basil --config /path/to/basil.yaml`
 2. **`BASIL_CONFIG` env var** — `BASIL_CONFIG=./custom.yaml basil`
-3. **`./basil.yaml`** — current working directory
-4. **`~/.config/basil/basil.yaml`** — XDG config directory
+3. **`./current/basil.yaml`** — the active release, if the working directory is a site root
+4. **`./basil.yaml`** — current working directory
+5. **`~/.config/basil/basil.yaml`** — XDG config directory
 
 The first file found is used. If none is found, Basil exits with an error.
 
-All relative paths in the config file are resolved relative to the **directory containing the config file**, not the working directory.
+`basil --site /srv/mysite` points Basil at a site root directly, which is the
+usual way to run a deployed site.
+
+## Where Paths Resolve: the Two Anchors
+
+Every path in `basil.yaml` resolves against one of two anchors, and **never**
+against the process working directory. Starting Basil from a different
+directory does not change where anything lives.
+
+| Anchor | Holds | Keys |
+| --- | --- | --- |
+| **Release directory** — the site's code, replaced by every deploy | handlers, pages, static assets | `site.path`, `public_dir`, `routes[].handler`, `routes[].public_dir`, `static[].root`, `static[].file`, `error_pages` |
+| **Data directory** — persistent state, untouched by a deploy | databases, certificates, logs, caches, uploads | `data_dir`, `database.path`, `https.cache_dir`, `https.cert`, `https.key`, `images.cache_dir`, `dev.log_database`, `logging.output`, `logging.parsley.output`, `security.allow_write` |
+
+Absolute paths are used as given.
+
+### Site-root layout
+
+A deployed site is a **site root**, and `basil.yaml` ships inside the release:
+
+```
+/srv/mysite/                      ← point basil here: basil --site /srv/mysite
+  site.git/                       bare repository, served at /.git
+  releases/
+    4f2a1c9…/                     one directory per deployed commit
+  current -> releases/4f2a1c9…    the active release (the release directory)
+  data/                           the data directory — no deploy touches this
+    data.db
+    .basil-auth.db
+    certs/
+    uploads/                      durable site writes, served at /__uploads/
+```
+
+`basil --init` creates this layout. The release directory is resolved through
+`current` once, at startup.
+
+### Legacy layout
+
+A plain project directory with a `basil.yaml` in it still works exactly as
+before: the release directory *and* the data directory are both the project
+directory, so `basil --dev` in a working copy behaves as it always has.
+
+### `data_dir`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `data_dir` | string | `<site root>/data`, or the project directory in the legacy layout | Root for everything that must survive a deploy |
+
+A relative `data_dir` resolves against the site root (or the project directory
+in the legacy layout).
+
+```yaml
+data_dir: ./data
+```
+
+### Writing files from site code
+
+Anything a handler writes into the release is destroyed by the next deploy, so
+`security.allow_write` resolves against the data directory:
+
+```yaml
+security:
+  allow_write:
+    - ./uploads          # <data_dir>/uploads
+```
+
+Site code finds the durable location through the `basil` context object:
+
+- `basil.data_dir` — the data directory
+- `basil.uploads_dir` — `<data_dir>/uploads`
+- `basil.uploads_url` — `/__uploads/`, the URL prefix that directory is served
+  under (following the existing `/__p/` and `/__img/` pattern)
+
+Files under `<data_dir>/uploads` are served at `/__uploads/`, so uploads never
+have to live inside `public_dir`. Directory listings are not served.
 
 ## Environment Variables
 
@@ -221,7 +297,7 @@ Core server settings.
 | `port` | integer | `443` | Listen port (1–65535) |
 | `https.auto` | boolean | `true` | Use Let's Encrypt auto-certificates |
 | `https.email` | string | | ACME notification email (required when `auto: true`) |
-| `https.cache_dir` | string | `"certs"` | Certificate cache directory |
+| `https.cache_dir` | string | `"certs"` | Certificate cache directory (relative to `data_dir`) |
 | `https.cert` | string | | Manual certificate path (overrides `auto`) |
 | `https.key` | string | | Manual key path (overrides `auto`) |
 | `proxy.trusted` | boolean | `false` | Trust `X-Forwarded-*` headers from reverse proxies |
@@ -410,7 +486,7 @@ Security headers added to every response.
 | `referrer_policy` | string | `"strict-origin-when-cross-origin"` | Referrer-Policy |
 | `csp` | string | `""` | Content-Security-Policy |
 | `permissions_policy` | string | `""` | Permissions-Policy |
-| `allow_write` | string[] | `[]` | Directories where handlers can write files |
+| `allow_write` | string[] | `[]` | Directories where handlers can write files (relative paths resolve against `data_dir`) |
 
 ```yaml
 security:

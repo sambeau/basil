@@ -159,16 +159,121 @@ today depends on where the operator happened to be standing when they started th
 | `cmd/basil/main.go` | `--site`, `--host`, `--admin` flags |
 | `server/server.go:1168` | `hostPolicy()` — refuse an empty host on a public server |
 
-### Path audit
+### Path audit — VERIFIED 2026-08-24
 
-Currently resolved against `BaseDir` (`load.go`): `static[].root`, `static[].file`,
-`routes[].handler`, `routes[].public_dir`, `database.path`, `site.path`, `public_dir`,
-`error_pages`, `security.allow_write`.
+Every key below was traced from `server/config/config.go`, through the resolution site,
+to the syscall that consumes it. Line numbers are as of `c12ffe1`. The earlier draft of
+this section was incomplete and wrong in two places; corrections are called out below the
+table.
 
-**Not resolved at all** — these land relative to the process working directory and must be
-fixed: `https.cache_dir`, `logging.output`, `logging.parsley.output`, `dev.log_database`,
-`images.cache_dir`. Confirm the full set during implementation; the list above is what an
-initial audit found, not a guarantee of completeness.
+| Config key | Resolved against today | Correct anchor | Resolution (file:line) | Use / syscall (file:line) |
+| --- | --- | --- | --- | --- |
+| `site.path` | `BaseDir` | `ReleaseDir` | `server/config/load.go:95-97` | `server/server.go:668` (site handler), `server/watcher.go:61` |
+| `public_dir` | `BaseDir` | `ReleaseDir` | `server/config/load.go:100-102` | `server/site.go:82` (`filepath.Join` → `ServeFile`), `server/server.go:292` (bundle) |
+| `routes[].handler` | `BaseDir` | `ReleaseDir` | `server/config/load.go:70-72` | `server/handler.go:112`, `server/api.go:28` |
+| `routes[].public_dir` | `BaseDir` | `ReleaseDir` | `server/config/load.go:73-75`; inherited from `public_dir` at `load.go:79-87` | `server/handler.go:258-268`, `server/api.go:60-70` (becomes `env.RootPath`) |
+| `static[].root` | `BaseDir` | `ReleaseDir` | `server/config/load.go:60-62` | `server/server.go:652` (`http.Dir`) |
+| `static[].file` | `BaseDir` | `ReleaseDir` | `server/config/load.go:63-65` | `server/server.go:658`, `server/server.go:946` (`http.ServeFile`) |
+| `error_pages.<code>` | `BaseDir` | `ReleaseDir` | `server/config/load.go:105-109` | `server/errors.go:376` (parse), `server/server.go:119` (`os.Stat` warning) |
+| `security.allow_write` | `BaseDir` | **Undecided — see "Open items"** | `server/config/load.go:112-116` | `server/handler.go:158`, `server/handler.go:278`, `server/api.go:76` → `pkg/parsley/evaluator/eval_helpers.go:442` |
+| `developers.<n>.handlers` | `BaseDir` | `ReleaseDir` | `server/config/load.go:424-436` | as `routes[].handler` |
+| `developers.<n>.public_dir` | `BaseDir` | `ReleaseDir` | `server/config/load.go:438-451` | as `public_dir` |
+| `database.path` | `BaseDir` | `DataDir` | `server/config/load.go:90-92` | `server/server.go:446` (`sql.Open`, + `-wal`/`-shm` sidecars); re-anchor guards at `server/server.go:442`, `server/devtools.go:207,459,523,1073`; `os.Create` on upload at `server/devtools.go:547` |
+| `developers.<n>.database.path` | `BaseDir` | `DataDir` | `server/config/load.go:415-421` | as `database.path` |
+| *(auth DB — no config key)* | `BaseDir` in the server; `filepath.Dir(configFile)` in the CLI | `DataDir` | none in `load.go`; `server/server.go:499` passes `BaseDir`; `cmd/basil/main.go:356-362` derives it separately | `server/auth/database.go:153,169` → `sql.Open` at `:178` |
+| `dev.log_database` | `BaseDir` — **already anchored**, in `devlog.go`, not `load.go` | `DataDir` | `server/devlog.go:56-61` | `server/devlog.go:65` (`os.MkdirAll`), `:70` (`sql.Open`) |
+| `https.cache_dir` | **process working directory** (default literal `"certs"`) | `DataDir` | none | `server/server.go:1135-1143` (`autocert.DirCache`) |
+| `images.cache_dir` | **process working directory** (default `"./cache/images"`) | `DataDir` | none | `server/server.go:135,145` → `server/images/registry.go:43` → `server/images/cache.go:56,63,80,179,192,207` (`MkdirAll`/`CreateTemp`/`Rename`) |
+| `https.cert` | **process working directory** | `DataDir` (operator-owned; must not be replaced by a deploy) | none | `server/server.go:1119` (`ListenAndServeTLS`) |
+| `https.key` | **process working directory** | `DataDir` | none | `server/server.go:1119` |
+| `logging.output` | **nothing — the key is never read** | `DataDir`, once implemented | none | none |
+| `logging.parsley.output` | **nothing — the key is never read** | `DataDir`, once implemented | none | none |
+
+#### Corrections to the initial audit
+
+1. **`dev.log_database` is already anchored.** The initial audit listed it as unresolved.
+   It is resolved — just not in `load.go`. `initDevTools` passes `config.BaseDir` to
+   `NewDevLog`, which joins a relative path at `server/devlog.go:60` and supplies the
+   default filename `dev_logs.db` at `:58`. Note the fallback at `server/server.go:265-268`:
+   if `BaseDir` does not exist, the dev log silently relocates to `os.TempDir()`.
+2. **`logging.output` and `logging.parsley.output` are dead keys.** Nothing in the tree
+   reads either field (the only references are the developer-profile override at
+   `server/config/load.go:460-462` and the struct definitions). They cannot "land relative
+   to the process working directory" because no file is ever opened for them. Yet
+   `basil --init` writes both into the generated `basil.yaml`
+   (`cmd/basil/init.go:52-57`) and creates a `logs/` directory for them
+   (`cmd/basil/init.go:105-108`), and `docs/guide/configuration-example.yaml:31,33`
+   documents them. Anchoring them is not the fix; implementing or removing them is.
+3. **`https.cert` and `https.key` were missing from the audit entirely.** They are passed
+   raw to `ListenAndServeTLS` at `server/server.go:1119` and resolve against the process
+   working directory — the same defect as `https.cache_dir`, and on the same code path
+   that FEAT-152 names as the exception permitting a public server to start without
+   `server.host`.
+4. **The three `developers.<n>.*` path overrides were missing.** They re-anchor to
+   `cfg.BaseDir` at `server/config/load.go:418,427,442` and must be split by anchor
+   alongside their non-profile equivalents.
+
+#### Unanchored (reach a syscall without ever meeting an anchor)
+
+- `https.cache_dir` → `autocert.DirCache` (`server/server.go:1143`)
+- `https.cert`, `https.key` → `ListenAndServeTLS` (`server/server.go:1119`)
+- `images.cache_dir` → `os.MkdirAll` / `os.CreateTemp` (`server/images/cache.go:56,63`)
+- Parsley `write()` targets. `checkPathAccess` resolves the *written* path with
+  `filepath.Abs` — i.e. against the process working directory
+  (`pkg/parsley/evaluator/eval_helpers.go:396`) — while the `allow_write` whitelist it is
+  compared against was resolved against `BaseDir`. The two agree only when the server was
+  started from the project directory. This is the mechanism behind the "start from any
+  directory" acceptance criterion and it is not a `load.go` fix.
+
+#### Writes at runtime with no config key at all
+
+- **Auth database** `<BaseDir>/.basil-auth.db` plus its `-wal`/`-shm` sidecars —
+  `server/auth/database.go:153,169`. Two independent derivations (server vs. CLI) that
+  must be kept in agreement.
+- **Dev log database** default `<BaseDir>/dev_logs.db` and sidecars — `server/devlog.go:58`.
+- **Database backups**: `<database.path>.<timestamp>.backup` written next to the database
+  on DevTools upload — `server/devtools.go:528-530`, `:597`.
+- **Database replacement**: DevTools overwrites `database.path` in place via `os.Create` —
+  `server/devtools.go:547`.
+- **Search index**: `@SEARCH` opens a SQLite index and `MkdirAll`s its directory
+  (`server/search.go:351,357`). A relative `path` resolves against `env.RootPath`
+  (`server/search.go:344-346`), which is the handler root or `public_dir` — i.e. inside the
+  release. With no `path` given, the index is auto-named next to the first `watch` path
+  (`server/search.go:234-238`), which is site content — also inside the release. Every
+  `@SEARCH` index today lands in code that a deploy replaces.
+- **Image cache**: `os.MkdirAll` + `CreateTemp` + `Rename` under `images.cache_dir`
+  (`server/images/cache.go:56-80`, `:179-207`).
+- **Git repository**: `NewGitHandler` is handed `config.BaseDir` as the repository root
+  (`server/server.go:576` → `server/git.go:31`), so pushes write into the code directory.
+  FEAT-154 owns the move to `site.git/`, but the anchor decision belongs here.
+- **`basil --init`** creates `site/`, `public/`, `logs/`, `db/` under the project directory
+  (`cmd/basil/init.go:90-115`) with no data/release distinction.
+
+#### Not filesystem paths (checked, no action)
+
+`auth.login_path` and `auth.protected_paths[].path` are URL paths. `session.table` is a
+SQL identifier. `session.store: sqlite` is accepted by the schema but unimplemented —
+`initSessions` only ever builds a cookie store (`server/server.go:415-417`), so it opens
+no file today; if it is implemented, its database belongs in `DataDir`.
+
+#### Open items this audit could not settle
+
+1. **`security.allow_write` has no single correct anchor.** The spec's acceptance criteria
+   place it under `ReleaseDir`, but it is the only gate on site writes, and the shipped
+   example whitelists `./data` and `./uploads`
+   (`docs/guide/configuration-example.yaml:84-85`) — both of which are, by the same
+   spec's "Site-written files" criteria, `DataDir` content. Anchoring it to `ReleaseDir`
+   would make the durable write location unreachable. Needs a decision: resolve each entry
+   against `DataDir`, accept both anchors, or introduce an explicit prefix syntax.
+2. **Search index anchor** (already Open Question 2). Confirmed that today it is
+   release-relative in both the explicit and auto-named cases, so "leave it site-relative"
+   is not a no-op — it is a decision to keep losing the index on every deploy.
+3. **Whether `https.cert`/`https.key` belong in `DataDir` or in an operator-owned location
+   outside both anchors.** This depends on Open Question 1 (may a release change listener
+   settings?), which is unresolved.
+4. **`config.BaseDir` has non-path consumers.** `server/errors.go:169-170` uses it as a
+   string prefix to shorten filenames in error output, and `server/devtools.go:1215`
+   displays it. Splitting the field forces a choice at both; neither is a resolution site.
 
 ### Tests
 
@@ -226,3 +331,71 @@ Recorded so the choice is not made accidentally later.
 6. Should `--init` refuse outright when run as root with no `SUDO_USER`, rather than
    warning? Recommend warning: an operator who genuinely intends to run Basil as root has
    a working setup, and refusing would break it.
+
+## Implementation notes (2026-08-24, branch `feat-152-site-layout`)
+
+### How the open items were settled
+
+1. **`security.allow_write` resolves against `DataDir`.** The acceptance criteria placed it
+   under `ReleaseDir`, but that is the only gate on site writes and the durable write
+   location is in the data root, so a release anchor would make it unreachable. Relative
+   entries now resolve against `DataDir` (`./uploads` → `<data root>/uploads`); absolute
+   entries are untouched. In the legacy layout `DataDir` is the project directory, so
+   nothing changes there. Tested both ways: a handler writing under the data root
+   succeeds, a handler writing into the release is refused
+   (`server/datadir_test.go:TestHandlerWritesLandOutsideTheRelease`).
+2. **Search indexes resolve against `DataDir`** (Open Question 2, recommendation taken).
+   `Environment.DataPath` carries the data root into the evaluator; a relative `path`
+   lands in `<data root>/search/`, and an auto-named index keeps its filename but moves
+   out of the watched content. `pars` sets no `DataPath` and keeps today's
+   script-relative behaviour.
+3. **`https.cert` / `https.key` resolve against `DataDir`.** They are operator-owned and
+   must not be replaced by a deploy; putting them in the data root is the smallest thing
+   that achieves that. Open Question 1 (may a release change listener settings?) is
+   unresolved and does not block this: an absolute path still works for anyone who wants
+   the certificate outside both anchors.
+4. **`BaseDir`'s non-path consumers**: `server/errors.go` trims `ReleaseDir` from error
+   filenames (they are always code), and DevTools now shows both anchors as separate
+   settings rather than one "Base Dir".
+5. **`logging.output` / `logging.parsley.output` are still dead keys.** They are now
+   anchored to `DataDir` so that implementing them cannot accidentally reintroduce a
+   working-directory path, but nothing opens them yet. `--init` no longer writes them
+   into the generated config, and no longer creates `logs/`. Implementing or removing
+   them remains open, and is not FEAT-152's business.
+
+### Decisions taken during implementation
+
+- **`https.email` moved from an error to a warning.** `https.auto` required it, so a
+  public server generated by `--init` could not start without a config edit — which
+  contradicts "no configuration step at all". Let's Encrypt does not require a contact
+  address. A missing one now warns about expiry and revocation notices.
+- **The `basil` context object is bound in handler environments.** The spec asks for
+  `basil.data_dir`, but the context dictionary was only reachable through
+  `@basil/...` module imports. `env.Set("basil", …)` — the pattern DevTools and the error
+  pages already used — makes `basil.data_dir`, `basil.uploads_dir` and
+  `basil.uploads_url` readable directly. No new builtin, no new module.
+- **Uploads are a convention, not a setting.** `<data root>/uploads` is served at
+  `/__uploads/` with no configuration key, keeping the programme's three-setting budget
+  (`reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md`). Directory listings are refused.
+- **`--init` requires git.** It creates the repository and deploys release 1 from it, so
+  a missing `git` is a clear refusal rather than a half-built site.
+- **The pre-commit hook ships as `.githooks/pre-commit` in the starter site**, and the
+  printed clone command includes `git config core.hooksPath .githooks`. A hook cannot be
+  pushed into someone else's clone; FEAT-155 owns making this automatic.
+- **`initGit` points at `<site root>/site.git` when it exists**, falling back to the
+  release directory in the legacy layout. This is the anchor decision only — the hub
+  itself is FEAT-154, and `git.enabled` still defaults to false.
+- **Release ids are full commit sha1s** (`releases/<sha>`). FEAT-153 owns release
+  identity and may change this.
+
+### Not done here
+
+- No deploy engine, no Git hub, no `basil publish` (FEAT-153/154/155).
+- No `basil check` (DESIGN-git-deploy §5.1.2); the eager certificate fetch logs the same
+  two suspects — DNS and port 80 — when it fails.
+- The eager fetch asks as a modern TLS 1.3 client so autocert issues the ECDSA
+  certificate a browser would trigger; asking as a different client would issue a second
+  certificate later and spend the rate limit twice.
+- Clean-install bootstrap on a real host with real DNS (PLAN-132 Definition of Done) has
+  not been performed: no such host was available. Verified locally instead — `--init`,
+  start, serve, uploads, legacy layout, and a clone of the created repository.

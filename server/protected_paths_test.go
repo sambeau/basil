@@ -66,7 +66,8 @@ func TestSiteModeProtectedPathAllowsSignedInUser(t *testing.T) {
 	}
 
 	cfg := config.Defaults()
-	cfg.BaseDir = dir
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 8080
 	cfg.Site.Path = filepath.Join(dir, "site")
@@ -109,7 +110,8 @@ func TestRoutesModeProtectedPathAllowsSignedInUser(t *testing.T) {
 	}
 
 	cfg := config.Defaults()
-	cfg.BaseDir = dir
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 8080
 	cfg.Auth.Enabled = true
@@ -147,7 +149,8 @@ func TestProtectedPathRoleEnforcement(t *testing.T) {
 	}
 
 	cfg := config.Defaults()
-	cfg.BaseDir = dir
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 8080
 	cfg.Site.Path = filepath.Join(dir, "site")
@@ -197,7 +200,8 @@ func TestRoutesModeRouteRoles(t *testing.T) {
 	}
 
 	cfg := config.Defaults()
-	cfg.BaseDir = dir
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 8080
 	cfg.Auth.Enabled = true
@@ -238,7 +242,8 @@ func TestProtectedPathWrongRoleGetsErrorPage(t *testing.T) {
 	}
 
 	cfg := config.Defaults()
-	cfg.BaseDir = dir
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 8080
 	cfg.Site.Path = filepath.Join(dir, "site")

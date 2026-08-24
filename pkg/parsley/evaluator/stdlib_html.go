@@ -159,6 +159,7 @@ func loadHTMLModule(env *Environment) Object {
 	sharedEnv.Security = env.Security
 	sharedEnv.DevLog = env.DevLog
 	sharedEnv.BasilCtx = env.BasilCtx
+	sharedEnv.DataPath = env.DataPath
 	sharedEnv.AssetRegistry = env.AssetRegistry
 	sharedEnv.ImageRegistry = env.ImageRegistry
 	sharedEnv.AssetBundle = env.AssetBundle

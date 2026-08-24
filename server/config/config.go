@@ -5,9 +5,30 @@ import (
 	"time"
 )
 
-// Config represents the complete Basil configuration
+// Config represents the complete Basil configuration.
+//
+// Paths are resolved against one of two anchors, never against the process
+// working directory (FEAT-152):
+//
+//   - ReleaseDir — the site's code. Replaced wholesale on every deploy, so
+//     nothing written at runtime may live here.
+//   - DataDir — persistent state. Survives every deploy: databases, the auth
+//     database, certificates, logs, caches, uploads.
 type Config struct {
-	BaseDir     string                     `yaml:"-"` // Directory containing config file, for resolving relative paths
+	// SiteRoot is the site root directory when the site-root layout is in
+	// use (site.git/, releases/, current, data/). Empty in the legacy
+	// single-directory layout.
+	SiteRoot string `yaml:"-"`
+	// ReleaseDir anchors every code path: site.path, public_dir,
+	// routes[].handler, static[], error_pages. In the site-root layout this
+	// is the active release (resolved through the `current` symlink); in the
+	// legacy layout it is the directory containing basil.yaml.
+	ReleaseDir string `yaml:"-"`
+	// DataDir anchors every persistent path: database.path, the auth
+	// database, https.cache_dir, logging output, dev.log_database,
+	// images.cache_dir, security.allow_write. Defaults to <site root>/data,
+	// or to the project directory in the legacy layout.
+	DataDir     string                     `yaml:"data_dir"`
 	Server      ServerConfig               `yaml:"server"`
 	Security    SecurityConfig             `yaml:"security"`
 	CORS        CORSConfig                 `yaml:"cors"`
@@ -16,10 +37,10 @@ type Config struct {
 	Session     SessionConfig              `yaml:"session"`
 	Git         GitConfig                  `yaml:"git"`
 	Dev         DevConfig                  `yaml:"dev"`
-	Database    DatabaseConfig             `yaml:"database"`   // Database configuration
-	Images      ImageConfig                `yaml:"images"`     // Image transformation and caching configuration
-	PublicDir   string                     `yaml:"public_dir"` // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
-	Site        SiteConfig                 `yaml:"site"`       // Site mode configuration (filesystem-based routing)
+	Database    DatabaseConfig             `yaml:"database"`    // Database configuration
+	Images      ImageConfig                `yaml:"images"`      // Image transformation and caching configuration
+	PublicDir   string                     `yaml:"public_dir"`  // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
+	Site        SiteConfig                 `yaml:"site"`        // Site mode configuration (filesystem-based routing)
 	ErrorPages  map[int]string             `yaml:"error_pages"` // Custom error pages: status code -> .pars file (e.g. 404: ./errors/404.pars)
 	Static      []StaticRoute              `yaml:"static"`
 	Routes      []Route                    `yaml:"routes"`

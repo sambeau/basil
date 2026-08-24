@@ -42,10 +42,11 @@ export get = api.public(fn(req) {
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/test", Handler: apiPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/test", Handler: apiPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
 	}
 
 	stderr := &noopBuffer{}
@@ -153,10 +154,11 @@ export post = api.public(fn(req) {
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/method", Handler: apiPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/method", Handler: apiPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
@@ -256,10 +258,11 @@ let page = @params["page"] ?? "1"
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/search", Handler: pagePath, Type: "page"}},
-		Logging: config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/search", Handler: pagePath, Type: "page"}},
+		Logging:    config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
 	}
 
 	stderr := &noopBuffer{}
@@ -334,10 +337,11 @@ export get = api.public(fn(req) {
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/version", Handler: apiPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/version", Handler: apiPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})
@@ -433,10 +437,11 @@ export get = api.public(fn(req) {
 	}
 
 	cfg := &config.Config{
-		BaseDir: dir,
-		Server:  config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
-		Routes:  []config.Route{{Path: "/api/direct", Handler: apiPath, Type: "api"}},
-		Logging: config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
+		ReleaseDir: dir,
+		DataDir:    dir,
+		Server:     config.ServerConfig{Host: "localhost", Port: 8080, Dev: true},
+		Routes:     []config.Route{{Path: "/api/direct", Handler: apiPath, Type: "api"}},
+		Logging:    config.LoggingConfig{Level: "error", Format: "text", Output: "stderr"},
 	}
 
 	srv, err := New(cfg, "", "test", "test-commit", &noopBuffer{}, &noopBuffer{})

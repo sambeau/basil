@@ -166,8 +166,8 @@ func (s *Server) createErrorEnv(r *http.Request, code int, err error) *evaluator
 		if file != "" {
 			// Make file path relative to base directory for cleaner display
 			displayFile := file
-			if s.config.BaseDir != "" && strings.HasPrefix(file, s.config.BaseDir) {
-				displayFile = strings.TrimPrefix(file, s.config.BaseDir)
+			if s.config.ReleaseDir != "" && strings.HasPrefix(file, s.config.ReleaseDir) {
+				displayFile = strings.TrimPrefix(file, s.config.ReleaseDir)
 				displayFile = strings.TrimPrefix(displayFile, "/")
 			}
 			errorMap["file"] = displayFile

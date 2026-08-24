@@ -15,9 +15,14 @@ Basil can serve your site as a Git repository, allowing you to push changes dire
 ### 1. Prepare the repository
 
 Basil serves your project directory as a Git repository, but it doesn't create or
-configure that repository for you. `basil --init` writes a `.gitignore`, but it does not
-run `git init` or configure anything Git-related, so on a fresh project you have to do two
-things by hand on the server, in the project directory:
+configure that repository for you, so on a fresh project you have to do two things by hand
+on the server, in the project directory:
+
+> **Sites created by the current `basil --init` are different.** `--init` now builds a
+> site root with a **bare** repository at `<site root>/site.git`, and a bare repository has
+> no checked-out branch to contend with — none of the `receive.denyCurrentBranch` setup
+> below applies, and neither does the drift failure. Serving it, and deploying from a push,
+> is FEAT-154; until then the section below describes the older single-directory setup.
 
 ```bash
 cd /path/to/mysite
@@ -195,10 +200,10 @@ Anything that writes inside a tracked path can cause it: a generated file, a cac
 directory that isn't ignored, an edit made on the server, a stray `.DS_Store` that got
 committed once and now changes.
 
-Untracked and ignored files are fine. `logs/`, `db/`, `certs/` and `cache/` are in the
-`.gitignore` that `basil --init` writes, so the log files, the database and the
-transformed-image cache do not trigger this. If you keep state somewhere else inside the
-project, add it to `.gitignore` too.
+Untracked and ignored files are fine, so anything you keep inside the project must be in
+`.gitignore` — logs, databases, the certificate cache, the transformed-image cache. (A
+site created by the current `basil --init` keeps all of that in its data directory, outside
+the repository entirely, which is why its `.gitignore` is nearly empty.)
 
 To fix a drifted tree, go to the server and either discard or commit the local changes:
 

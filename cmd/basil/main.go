@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -61,7 +60,10 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		quietMode   = flags.Bool("quiet", false, "Suppress request logs (sets log level to error)")
 		port        = flags.Int("port", 0, "Override listen port")
 		profile     = flags.String("profile", "", "Developer profile to apply")
-		initFolder  = flags.String("init", "", "Create a new Basil project in the specified folder")
+		initFolder  = flags.String("init", "", "Create a new Basil site in the specified folder")
+		sitePath    = flags.String("site", "", "Path to the site root (default: working directory)")
+		initHost    = flags.String("host", "", "Hostname for --init (written to server.host)")
+		initAdmin   = flags.String("admin", "", "Admin account name for --init")
 		showVersion = flags.Bool("version", false, "Show version")
 		showHelp    = flags.Bool("help", false, "Show help")
 	)
@@ -94,7 +96,31 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 
 	// Handle --init
 	if *initFolder != "" {
-		return runInitCommand(*initFolder, stdout, stderr)
+		return runInitCommand(initOptions{
+			Folder:      *initFolder,
+			Host:        *initHost,
+			Admin:       *initAdmin,
+			Stdin:       os.Stdin,
+			Stdout:      stdout,
+			Stderr:      stderr,
+			Interactive: hasTerminal(os.Stdin),
+		})
+	}
+	if *initHost != "" || *initAdmin != "" {
+		return fmt.Errorf("--host and --admin configure a new site and are only meaningful with --init (set server.host in %s to change the running server's hostname)", config.ConfigFileName)
+	}
+
+	// Resolve the site root, if one was named. The config ships inside the
+	// release, so it is read through the `current` symlink.
+	if *sitePath != "" {
+		if *configPath != "" {
+			return fmt.Errorf("--site and --config are alternatives: --site finds the config inside the site's active release")
+		}
+		resolved, err := config.ConfigPathForSite(*sitePath)
+		if err != nil {
+			return err
+		}
+		*configPath = resolved
 	}
 
 	// Set up signal handling for graceful shutdown
@@ -157,6 +183,16 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 	return srv.Run(ctx)
 }
 
+// hasTerminal reports whether f is attached to a terminal, so a missing
+// --admin can be prompted for rather than refused.
+func hasTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
 func printUsage(w io.Writer) {
 	fmt.Fprintf(w, `basil - A web server for Parsley
 
@@ -172,7 +208,10 @@ Server Options:
   --port PORT        Override listen port
   --profile NAME     Apply a developer profile from config
   -as NAME           Alias for --profile
-  --init FOLDER      Create a new Basil project in the specified folder
+  --site PATH        Path to the site root (finds the config in the active release)
+  --init FOLDER      Create a new Basil site in the specified folder
+  --host HOSTNAME    Hostname for --init (written to server.host)
+  --admin NAME       Admin account name for --init (never guessed from $USER)
   --version          Show version
   --help             Show this help
 
@@ -206,6 +245,8 @@ Examples:
   basil --config app.yaml     Use specific config file
   basil --dev --port 3000     Dev mode on port 3000
   basil --dev -as sam         Dev mode with Sam's config overrides
+  basil --site /srv/mysite    Serve the active release of a site root
+  basil --init mysite --host mysite.example.com --admin sam
   basil users create --name "Admin" --email admin@example.com --role admin
   basil users list            List all registered users
   basil apikey create --user usr_abc123 --name "MacBook Git"
@@ -242,7 +283,7 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 	}
 
 	// Load config to find auth database path
-	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
+	cfg, err := config.Load(*configPath, getenv)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -253,7 +294,7 @@ func runUsersCommand(args []string, stdout, stderr io.Writer, getenv func(string
 	}
 
 	// Determine auth database path
-	dbPath := authDBPath(configFile)
+	dbPath := authDBPath(cfg)
 
 	// For 'create' command, create the database if it doesn't exist
 	// For other commands, require the database to exist
@@ -351,14 +392,14 @@ Examples:
 `)
 }
 
-// authDBPath returns the path to the auth database given a config file path.
-func authDBPath(configFile string) string {
-	// Auth database is stored alongside the config file as .basil-auth.db
-	if configFile == "" {
+// authDBPath returns the path to the auth database. It lives in the data
+// root, which is the same place the server looks (config.AuthDBPath) - the
+// CLI and the server must never disagree about where the API keys are.
+func authDBPath(cfg *config.Config) string {
+	if cfg == nil || cfg.DataDir == "" {
 		return ".basil-auth.db"
 	}
-	dir := filepath.Dir(configFile)
-	return filepath.Join(dir, ".basil-auth.db")
+	return cfg.AuthDBPath()
 }
 
 // usersCreateCmd creates a new user.
@@ -624,7 +665,7 @@ func runAPIKeyCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 	}
 
 	// Load config
-	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
+	cfg, err := config.Load(*configPath, getenv)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -633,7 +674,7 @@ func runAPIKeyCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 		return fmt.Errorf("authentication is not enabled in config")
 	}
 
-	dbPath := authDBPath(configFile)
+	dbPath := authDBPath(cfg)
 	db, err := auth.OpenDB(dbPath)
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
@@ -789,7 +830,7 @@ func runAuthCommand(args []string, stdout, stderr io.Writer, getenv func(string)
 	}
 
 	// Load config
-	cfg, configFile, err := config.LoadWithPath(*configPath, getenv)
+	cfg, err := config.Load(*configPath, getenv)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -798,7 +839,7 @@ func runAuthCommand(args []string, stdout, stderr io.Writer, getenv func(string)
 		return fmt.Errorf("authentication is not enabled in config")
 	}
 
-	dbPath := authDBPath(configFile)
+	dbPath := authDBPath(cfg)
 	db, err := auth.OpenDB(dbPath)
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)

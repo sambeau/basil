@@ -17,7 +17,8 @@ func TestDevToolsIndex(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -51,7 +52,8 @@ func TestDevToolsLogsHTML(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -101,7 +103,8 @@ func TestDevToolsLogsPoll(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -171,7 +174,8 @@ func TestDevToolsLogsText(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -223,7 +227,8 @@ func TestDevToolsLogsClear(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -272,7 +277,8 @@ func TestDevToolsLogsRoute(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -314,7 +320,8 @@ func TestDevTools404InProduction(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = false // Production mode
 
 	var stdout, stderr bytes.Buffer
@@ -349,7 +356,8 @@ func TestDevToolsEmptyState(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -376,7 +384,8 @@ func TestDevToolsWarnLevel(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 
 	var stdout, stderr bytes.Buffer
@@ -413,7 +422,8 @@ func TestDevToolsEnv(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	cfg.Server.Port = 8080
 
@@ -453,7 +463,8 @@ func TestDevToolsEnvNoSecrets(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	// Set a real session secret to test it gets masked
 	cfg.Session.Secret = config.NewSecretString("my-super-secret-key")
@@ -486,7 +497,8 @@ func TestDevToolsDBFileDownload(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	// Don't set SQLite in config yet - let server create it
 
@@ -534,7 +546,8 @@ func TestDevToolsDBFileUpload(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	// Don't set SQLite in config yet
 
@@ -608,7 +621,8 @@ func TestDevToolsDBFileUploadInvalidFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.Defaults()
-	cfg.BaseDir = tmpDir
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
 	cfg.Server.Dev = true
 	// Don't set SQLite in config yet
 
