@@ -424,7 +424,14 @@ func ApplyDeveloper(cfg *Config, profileName string) error {
 		cfg.Logging.Format = dev.Logging.Format
 	}
 	if dev.Logging.Output != "" {
+		// Anchored exactly as ResolvePaths anchors the top-level key: a
+		// developer profile is the one place a path can still reach cfg
+		// after ResolvePaths has run, and an un-anchored value would
+		// resolve against whatever directory the operator was standing in.
 		cfg.Logging.Output = dev.Logging.Output
+		if !isLogSink(cfg.Logging.Output) {
+			cfg.Logging.Output = underData(cfg, cfg.Logging.Output)
+		}
 	}
 	if dev.Logging.Quiet {
 		cfg.Logging.Quiet = true

@@ -44,10 +44,14 @@ myapp/
 
 Both flags are required, and neither is guessed:
 
-- `--host` is written to `server.host`. A public server refuses to start without
-  it, because an empty host tells the certificate manager to attempt issuance for
-  any hostname a stranger asks for. Use `localhost` for a site you will only run
-  with `--dev`.
+- `--host` is written to `server.host`, the site's **public hostname**: the name on
+  the certificate, the WebAuthn relying-party id, the address people type. It is
+  not a bind address — the listener uses `server.bind` (empty means all
+  interfaces), so a site whose hostname points at a load balancer, a NAT, or a
+  container host still starts. A public server refuses to start without a host,
+  because an empty host tells the certificate manager to attempt issuance for any
+  hostname a stranger asks for. Use `localhost` for a site you will only run with
+  `--dev`.
 - `--admin` names the first Basil account. It is **never** derived from `$USER`
   or `$SUDO_USER` — `--init` usually runs on a server, where the shell is `root`
   or a service account. With a terminal attached, `--init` prompts for it.
@@ -58,8 +62,13 @@ admin account and prints its API key **once**, and installs a pre-commit
 formatting hook.
 
 Run under `sudo`, it hands the tree to `$SUDO_USER` and says so; run as `root`
-with no `SUDO_USER`, it warns and prints the exact `chown` command. Skipping that
-step makes every later write fail — database, logs, certificates and deploys —
+with no `SUDO_USER`, it warns and prints the exact `chown` command. As root it
+also insists the folder does not exist yet and that its parent is not writable by
+other accounts (unless it is sticky, like `/tmp`): `--init` makes several `git`
+calls between checking the folder and its last write, and every write it makes
+follows symlinks, so a directory another account prepared could redirect root's
+writes. Create the site somewhere only root can write, such as `/srv`. Skipping
+the ownership step makes every later write fail — database, logs, certificates and deploys —
 with an error that points at the database rather than at ownership.
 
 ### Code and state: the two anchors
@@ -69,8 +78,11 @@ Everything in the release directory is replaced by the next deploy. Everything i
 never against the directory you happen to be standing in — see
 [Configuration](../../guide/configuration.md#where-paths-resolve-the-two-anchors).
 
-Site code writes to the data root: `basil.data_dir`, `basil.uploads_dir`, and
-`security.allow_write` entries, which resolve there too.
+Site code writes to the data root. `basil.uploads_dir` (`<data_dir>/uploads`) is
+always writable and needs no configuration; `basil.data_dir` names the root
+itself, and any `security.allow_write` entry resolves there too. Files in the
+uploads directory are served at `/__uploads/` and are **public** unless you list
+the prefix in `auth.protected_paths`.
 
 ### The legacy layout
 

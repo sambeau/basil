@@ -347,8 +347,15 @@ func TestIsSiteRootAndConfigPathForSite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ConfigPathForSite: %v", err)
 		}
-		if want := filepath.Join(root, CurrentLinkName, ConfigFileName); got != want {
+		// The `current` link is followed once, here, and the release it
+		// named is returned: a deploy that re-points the link between the
+		// read and the anchor resolution would otherwise pair one release's
+		// config with another release's files.
+		if want := filepath.Join(root, ReleasesDirName, "4f2a1c9", ConfigFileName); got != want {
 			t.Errorf("got %q, want %q", got, want)
+		}
+		if strings.Contains(got, string(filepath.Separator)+CurrentLinkName+string(filepath.Separator)) {
+			t.Errorf("the config path still goes through the %q symlink: %q", CurrentLinkName, got)
 		}
 	})
 
@@ -469,8 +476,10 @@ func TestMissingACMEEmailWarnsButDoesNotRefuse(t *testing.T) {
 	}
 }
 
-// ResolvePaths runs on load and again after a developer profile is applied;
-// running it twice must not move anything.
+// ResolvePaths is called once, by Load. It must still be idempotent: every
+// path it touches is already absolute afterwards, and a second run must join
+// nothing a second time - that is what makes it safe to call from anywhere
+// that later re-derives paths.
 func TestResolvePathsIsIdempotent(t *testing.T) {
 	root, _ := writeSiteRoot(t, everyPathKey)
 	cfg, err := Load(filepath.Join(root, CurrentLinkName, ConfigFileName), func(string) string { return "" })
@@ -486,5 +495,66 @@ func TestResolvePathsIsIdempotent(t *testing.T) {
 		if got := tc.got(cfg); got != before[tc.key] {
 			t.Errorf("%s moved on a second resolve: %q -> %q", tc.key, before[tc.key], got)
 		}
+	}
+}
+
+
+// developerProfileYAML exercises the three path overrides a developer profile
+// can carry. They are the only configured path keys resolved outside
+// ResolvePaths - ApplyDeveloper joins them itself - so they are the ones most
+// likely to drift out of agreement with the table above.
+const developerProfileYAML = `
+server:
+  host: example.com
+public_dir: ./public
+routes:
+  - path: /
+    handler: ./handlers/index.pars
+database:
+  path: ./data.db
+developers:
+  sam:
+    port: 3000
+    database:
+      path: ./sam.db
+    handlers: ./sam-handlers
+    public_dir: ./sam-public
+    logging:
+      output: ./logs/sam.log
+`
+
+func TestPathAnchors_DeveloperProfiles(t *testing.T) {
+	root, releaseDir := writeSiteRoot(t, developerProfileYAML)
+	dataDir := filepath.Join(root, DataDirName)
+
+	cfg, err := Load(filepath.Join(root, CurrentLinkName, ConfigFileName), func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := ApplyDeveloper(cfg, "sam"); err != nil {
+		t.Fatalf("ApplyDeveloper: %v", err)
+	}
+
+	cases := []pathCase{
+		{"developers.<n>.database.path", data, "sam.db", func(c *Config) string { return c.Database.Path }},
+		{"developers.<n>.handlers", release, "sam-handlers/index.pars", func(c *Config) string { return c.Routes[0].Handler }},
+		{"developers.<n>.public_dir", release, "sam-public", func(c *Config) string { return c.PublicDir }},
+		{"developers.<n>.logging.output", data, "logs/sam.log", func(c *Config) string { return c.Logging.Output }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			base := releaseDir
+			if tc.want == data {
+				base = dataDir
+			}
+			want := filepath.Join(base, tc.rel)
+			if got := tc.got(cfg); got != want {
+				t.Errorf("%s resolved to %q\n  want %s + %q = %q", tc.key, got, tc.want, tc.rel, want)
+			}
+			// Nothing may resolve against the process working directory.
+			if !filepath.IsAbs(tc.got(cfg)) {
+				t.Errorf("%s is relative (%q): it would resolve against the operator's shell", tc.key, tc.got(cfg))
+			}
+		})
 	}
 }

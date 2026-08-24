@@ -59,7 +59,21 @@ func ConfigPathForSite(dir string) (string, error) {
 		return "", fmt.Errorf("invalid site path %q: %w", dir, err)
 	}
 	if IsSiteRoot(abs) {
-		path := filepath.Join(abs, CurrentLinkName, ConfigFileName)
+		// Resolve `current` here, once, and return the release path it
+		// named. Returning <root>/current/basil.yaml would leave the link
+		// to be followed a second time when the anchors are derived, and a
+		// deploy that re-points it in between - exactly the window a
+		// restart-on-deploy sequence opens - would run one release's config
+		// against another release's files.
+		link := filepath.Join(abs, CurrentLinkName)
+		release := link
+		if target, err := os.Readlink(link); err == nil {
+			if !filepath.IsAbs(target) {
+				target = filepath.Join(abs, target)
+			}
+			release = filepath.Clean(target)
+		}
+		path := filepath.Join(release, ConfigFileName)
 		if _, err := os.Stat(path); err != nil {
 			return "", fmt.Errorf("site %s has no active release: %s is not readable (is the %q symlink broken?)", abs, path, CurrentLinkName)
 		}
@@ -218,6 +232,23 @@ func (c *Config) UploadsDir() string {
 		return ""
 	}
 	return filepath.Join(c.DataDir, UploadsDirName)
+}
+
+// WritePolicy returns the directories site code may write to: the configured
+// security.allow_write entries plus the uploads directory.
+//
+// Uploads are a convention, not a setting. The uploads directory is created
+// by `basil --init`, named to site code as basil.uploads_dir and served at
+// UploadsURLPrefix; if it also had to be whitelisted by hand, the durable
+// place to write would need a basil.yaml edit before it worked, which is the
+// configuration step the site-root layout exists to remove (FEAT-152).
+func (c *Config) WritePolicy() []string {
+	policy := make([]string, 0, len(c.Security.AllowWrite)+1)
+	policy = append(policy, []string(c.Security.AllowWrite)...)
+	if uploads := c.UploadsDir(); uploads != "" {
+		policy = append(policy, uploads)
+	}
+	return policy
 }
 
 // AuthDBPath returns the path of the authentication database. It lives in

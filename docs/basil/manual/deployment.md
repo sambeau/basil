@@ -58,7 +58,7 @@ https:
 
 | Key | Required | What it does |
 |---|---|---|
-| `server.host` | yes | The domain to request a certificate for. Basil only answers certificate requests for this exact name, and **refuses to start without it** — an empty host would let anyone trigger issuance for any name they put in SNI. `--dev` and a manual `https.cert`/`https.key` are the exceptions. |
+| `server.host` | yes | The public hostname: the domain to request a certificate for, and the name people type. It is **not** a bind address — the listener uses `server.bind` (empty means all interfaces), so a host behind NAT, a container, or a load balancer still starts. Basil only answers certificate requests for this exact name, and **refuses to start without it** — an empty host would let anyone trigger issuance for any name they put in SNI. `--dev` and a manual `https.cert`/`https.key` are the exceptions. |
 | `https.auto` | yes | Turn on Let's Encrypt. |
 | `https.email` | recommended | Let's Encrypt emails this address before a certificate expires and if it has to revoke one. Optional, but there is no other way to hear about problems. |
 | `https.cache_dir` | no | Directory for the certificate, private key, and Let's Encrypt account key. Relative to the site's data directory; defaults to `<data_dir>/certs`. It never depended on the working directory since FEAT-152 — before that, it did. |

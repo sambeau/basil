@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -45,7 +46,10 @@ func (s *Server) ensureDataDir() error {
 	if dir == "" || dir == s.config.ReleaseDir {
 		return nil
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	// 0700: this directory holds the auth database and its SQLite sidecars,
+	// the certificate cache and the app database. On a shared host, 0755
+	// would let every local account read them.
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("creating data directory %s: %w (if this tree was created by `sudo basil --init`, chown it to the account running Basil)", dir, err)
 	}
 	return nil
@@ -54,15 +58,27 @@ func (s *Server) ensureDataDir() error {
 // newUploadsHandler serves the durable uploads directory under the data
 // root. Site code writes here and a deploy never touches it, so uploads do
 // not have to live inside public_dir. Directory listings are not served.
+//
+// The directory is opened as an os.Root, so no request can leave it. That is
+// not paranoia about "..": http.Dir blocks those, but it follows symlinks,
+// and uploads sits one level below the auth database, the certificate cache
+// and the app database. Symlinks arrive in a directory like this routinely
+// (rsync -l, tar -x, unzip), and os.Root refuses any component - symlink
+// included - that resolves outside the root.
 func newUploadsHandler(dir string, devMode bool) http.Handler {
-	fs := http.Dir(dir)
+	root, rootErr := os.OpenRoot(dir)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rootErr != nil {
+			http.NotFound(w, r)
+			return
+		}
 		upath := strings.TrimPrefix(r.URL.Path, config.UploadsURLPrefix)
 		if upath == "" || strings.HasSuffix(upath, "/") {
 			http.NotFound(w, r)
 			return
 		}
-		f, err := fs.Open("/" + upath)
+		cleaned := path.Clean("/" + upath)
+		f, err := root.Open(strings.TrimPrefix(cleaned, "/"))
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -660,9 +676,21 @@ func (s *Server) setupRoutes() error {
 	// Register image handler for image() files at /__img/
 	s.mux.Handle("/__img/", images.NewHandler(s.imageRegistry, s.devLog != nil))
 
-	// Register the uploads handler for site-written files at /__uploads/
-	if uploads := s.config.UploadsDir(); uploads != "" {
-		s.mux.Handle(config.UploadsURLPrefix, newUploadsHandler(uploads, s.devLog != nil))
+	// Register the uploads handler for site-written files at /__uploads/.
+	//
+	// Only in the site-root layout, and only when `basil --init` actually
+	// created the directory. A legacy project may already have a
+	// <project>/uploads that it has been writing user-submitted files to on
+	// the old advice to whitelist ./uploads; upgrading Basil must not
+	// publish that directory to the internet behind the operator's back.
+	//
+	// The handler is wrapped like any other route, so auth.protected_paths
+	// covers /__uploads/ - it is public unless the operator says otherwise.
+	if uploads := s.config.UploadsDir(); uploads != "" && s.config.SiteRoot != "" {
+		if info, err := os.Stat(uploads); err == nil && info.IsDir() {
+			h := s.guardProtectedPath(newUploadsHandler(uploads, s.devLog != nil))
+			s.mux.Handle(config.UploadsURLPrefix, s.applyAuthMiddleware(h, "optional"))
+		}
 	}
 
 	// Register asset bundle routes
@@ -813,6 +841,30 @@ func isAPIRoute(route config.Route) bool {
 	}
 
 	return false
+}
+
+// guardProtectedPath enforces auth.protected_paths for a handler registered
+// directly on the mux. Routes that go through the site handler get this from
+// siteHandler; handlers registered on the mux would otherwise be reachable on
+// a site that protects everything with auth.protected_paths: ["/"].
+//
+// It must run inside applyAuthMiddleware, which is what puts the user on the
+// request.
+func (s *Server) guardProtectedPath(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if pp := s.isProtectedPath(r.URL.Path); pp != nil {
+			user := auth.GetUser(r)
+			if user == nil {
+				s.handleUnauthenticated(w, r)
+				return
+			}
+			if len(pp.Roles) > 0 && !sliceContains(pp.Roles, user.Role) {
+				s.handleForbidden(w, r)
+				return
+			}
+		}
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // applyAuthMiddleware wraps a handler with appropriate auth middleware.
@@ -1156,20 +1208,28 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // listenAddr returns the address to listen on based on configuration.
+//
+// The listener uses server.bind, never server.host. server.host is the
+// public hostname - the certificate name and the address people type - and
+// on NAT, Docker, or behind a load balancer it is not an address this
+// machine owns, so binding it fails outright. Empty bind means all
+// interfaces, which is what the port-80 ACME/redirect listener has always
+// used. Dev mode still defaults to localhost so a development server is not
+// exposed to the network by accident.
 func (s *Server) listenAddr() string {
-	host := s.config.Server.Host
+	bind := s.config.Server.Bind
 	port := s.config.Server.Port
 
 	if s.config.Server.Dev {
-		if host == "" {
-			host = "localhost"
+		if bind == "" {
+			bind = "localhost"
 		}
 		if port == 443 {
 			port = 8080
 		}
 	}
 
-	return fmt.Sprintf("%s:%d", host, port)
+	return fmt.Sprintf("%s:%d", bind, port)
 }
 
 // listenAndServeTLS starts HTTPS server with TLS.
@@ -1256,6 +1316,70 @@ func (s *Server) listenAndServeAutocert() error {
 // certificateProbeTimeout bounds the eager issuance attempt at startup.
 var certificateProbeTimeout = 90 * time.Second
 
+// certificateFailureCooldown is how long a failed startup probe suppresses
+// the next one. Let's Encrypt caps failed authorizations at 5 per account per
+// hostname per hour, so a server under `Restart=always` with broken DNS or a
+// blocked port 80 - exactly the state this probe exists to diagnose - would
+// otherwise spend that budget in seconds.
+var certificateFailureCooldown = 15 * time.Minute
+
+// certFailureMarker names the file that records the last failed probe.
+func (s *Server) certFailureMarker() string {
+	if s.config.DataDir == "" {
+		return ""
+	}
+	return filepath.Join(s.config.DataDir, ".acme-probe-failed")
+}
+
+// recentCertificateFailure reports whether the previous start failed to
+// obtain a certificate recently enough that asking again would just spend
+// rate limit, and how long ago that was.
+func (s *Server) recentCertificateFailure() (time.Duration, bool) {
+	marker := s.certFailureMarker()
+	if marker == "" {
+		return 0, false
+	}
+	data, err := os.ReadFile(marker)
+	if err != nil {
+		return 0, false
+	}
+	when, err := time.Parse(time.RFC3339, strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0, false
+	}
+	since := time.Since(when)
+	if since < 0 || since > certificateFailureCooldown {
+		return 0, false
+	}
+	return since, true
+}
+
+func (s *Server) recordCertificateFailure() {
+	if marker := s.certFailureMarker(); marker != "" {
+		os.WriteFile(marker, []byte(time.Now().Format(time.RFC3339)), 0600)
+	}
+}
+
+func (s *Server) clearCertificateFailure() {
+	if marker := s.certFailureMarker(); marker != "" {
+		os.Remove(marker)
+	}
+}
+
+// certificateCached reports whether the autocert cache already holds a
+// certificate for host. A cached certificate is renewed by autocert on its
+// own schedule, so there is nothing for the startup probe to ask about, and
+// asking would issue a request on every restart.
+func (s *Server) certificateCached(manager *autocert.Manager, host string) bool {
+	if manager.Cache == nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := manager.Cache.Get(ctx, host)
+	return err == nil
+}
+
 // obtainCertificate asks autocert for the configured host's certificate at
 // startup and reports the outcome plainly, naming the two things that
 // usually break: DNS and port 80.
@@ -1265,6 +1389,25 @@ func (s *Server) obtainCertificate(manager *autocert.Manager, ready <-chan struc
 		return // refused at config validation; nothing to ask for
 	}
 
+	if s.certificateCached(manager, host) {
+		s.logInfo("TLS certificate for %s is already in the cache", host)
+		return
+	}
+
+	s.certificateProbe(host, ready, manager.GetCertificate)
+}
+
+// certificateProbe is obtainCertificate without the autocert manager, so the
+// cooldown, the diagnosis and the timeout path can be tested without asking
+// a real ACME server for anything.
+func (s *Server) certificateProbe(host string, ready <-chan struct{}, get func(*tls.ClientHelloInfo) (*tls.Certificate, error)) {
+	if since, recent := s.recentCertificateFailure(); recent {
+		s.logError("not asking for a TLS certificate for %s: the last attempt failed %s ago", host, since.Round(time.Second))
+		s.logError("  check that %s resolves to this machine (DNS), and that port 80 is reachable from the internet for the ACME challenge", host)
+		s.logError("  Let's Encrypt rate-limits failed attempts; the next one is allowed %s after the last failure, or on the first HTTPS request", certificateFailureCooldown)
+		return
+	}
+
 	// The ACME HTTP-01 challenge is answered on port 80, so wait for that
 	// listener before asking.
 	select {
@@ -1272,6 +1415,22 @@ func (s *Server) obtainCertificate(manager *autocert.Manager, ready <-chan struc
 	case <-time.After(10 * time.Second):
 	}
 
+	err := s.probeCertificate(host, get)
+	if err != nil {
+		s.recordCertificateFailure()
+		s.logError("could not obtain a TLS certificate for %s: %v", host, err)
+		s.logError("  check that %s resolves to this machine (DNS), and that port 80 is reachable from the internet for the ACME challenge", host)
+		s.logError("  the server is running; it will retry on the first HTTPS request")
+		return
+	}
+	s.clearCertificateFailure()
+	s.logInfo("TLS certificate ready for %s", host)
+}
+
+// probeCertificate asks for host's certificate, bounded by
+// certificateProbeTimeout. get is manager.GetCertificate in production and a
+// stub in tests.
+func (s *Server) probeCertificate(host string, get func(*tls.ClientHelloInfo) (*tls.Certificate, error)) error {
 	ctx, cancel := context.WithTimeout(context.Background(), certificateProbeTimeout)
 	defer cancel()
 
@@ -1292,22 +1451,18 @@ func (s *Server) obtainCertificate(manager *autocert.Manager, ready <-chan struc
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 			},
 		}
-		_, err := manager.GetCertificate(hello)
+		_, err := get(hello)
 		done <- err
 	}()
 
 	select {
 	case err := <-done:
-		if err != nil {
-			s.logError("could not obtain a TLS certificate for %s: %v", host, err)
-			s.logError("  check that %s resolves to this machine (DNS), and that port 80 is reachable from the internet for the ACME challenge", host)
-			s.logError("  the server is running; it will retry on the first HTTPS request")
-			return
-		}
-		s.logInfo("TLS certificate ready for %s", host)
+		return err
 	case <-ctx.Done():
-		s.logError("timed out obtaining a TLS certificate for %s after %s", host, certificateProbeTimeout)
-		s.logError("  check that %s resolves to this machine (DNS), and that port 80 is reachable from the internet for the ACME challenge", host)
+		// The inner goroutine is left running: GetCertificate takes no
+		// context, so there is nothing to cancel. It ends when the ACME
+		// call does, and writes to a buffered channel nobody reads.
+		return fmt.Errorf("timed out after %s", certificateProbeTimeout)
 	}
 }
 

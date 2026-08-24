@@ -1209,7 +1209,8 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 
 		// Server section
 		serverSettings := []any{
-			setting("Host", optStr(cfg.Server.Host), "Bind address"),
+			setting("Host", optStr(cfg.Server.Host), "Public hostname (certificate, links)"),
+			setting("Bind", optStr(cfg.Server.Bind), "Listener interface (empty = all)"),
 			setting("Port", fmt.Sprintf("%d", cfg.Server.Port), "Listen port"),
 			setting("Dev Mode", boolStr(cfg.Server.Dev), "Development mode enabled"),
 			setting("Release Dir", cfg.ReleaseDir, "Site code (replaced by every deploy)"),

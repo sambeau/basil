@@ -110,13 +110,15 @@ data_dir: ./data
 
 ### Writing files from site code
 
-Anything a handler writes into the release is destroyed by the next deploy, so
-`security.allow_write` resolves against the data directory:
+`<data_dir>/uploads` is always writable — it is a convention, not a setting, so
+site code has a durable place to write with no configuration at all. Anything a
+handler writes into the release is destroyed by the next deploy, so any extra
+`security.allow_write` entry resolves against the data directory too:
 
 ```yaml
 security:
   allow_write:
-    - ./uploads          # <data_dir>/uploads
+    - ./exports          # <data_dir>/exports
 ```
 
 Site code finds the durable location through the `basil` context object:
@@ -126,8 +128,23 @@ Site code finds the durable location through the `basil` context object:
 - `basil.uploads_url` — `/__uploads/`, the URL prefix that directory is served
   under (following the existing `/__p/` and `/__img/` pattern)
 
-Files under `<data_dir>/uploads` are served at `/__uploads/`, so uploads never
-have to live inside `public_dir`. Directory listings are not served.
+Files under `<data_dir>/uploads` are served at `/__uploads/` in the site-root
+layout, so uploads never have to live inside `public_dir`. Directory listings
+are not served, and symlinks that point outside the directory are refused.
+
+**Everything in that directory is world-readable over HTTP**, exactly like
+`public_dir`: `/__uploads/<name>` needs no session. Do not write anything there
+that should not be public, or protect the prefix:
+
+```yaml
+auth:
+  protected_paths:
+    - path: /__uploads
+```
+
+A legacy single-directory project is not affected: `/__uploads/` is only
+registered for a site root created by `basil --init`, so upgrading never
+publishes an existing `uploads/` directory.
 
 ## Environment Variables
 
@@ -164,11 +181,13 @@ For session secrets, `!secret auto` generates a cryptographically secure random 
 
 ```yaml
 server:
-  host: localhost               # Bind address (default: "" = all interfaces)
+  host: mysite.example.com      # Public hostname (certificate name, links). Required
+                                # for a public server; not a bind address.
+  bind: ""                      # Listener interface (default: "" = all interfaces)
   port: 8080                    # Listen port (default: 443)
   https:
     auto: true                  # Let's Encrypt auto-certificates
-    email: admin@example.com    # ACME notification email (required with auto)
+    email: admin@example.com    # ACME notification email (recommended with auto)
     cache_dir: ./certs          # Certificate cache directory
     # cert: ./cert.pem          # Manual certificate path (overrides auto)
     # key: ./key.pem            # Manual key path (overrides auto)
@@ -293,10 +312,11 @@ Core server settings.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `host` | string | `""` (all interfaces) | Bind address |
+| `host` | string | `""` | Public hostname: the certificate name, the WebAuthn relying-party id, and the address people type. **Required** for a public server — a server with `https.auto: true` and no manual certificate refuses to start without it. Not a bind address. |
+| `bind` | string | `""` (all interfaces) | Listener interface. Leave empty unless the server must be reachable on one interface only; `--dev` binds `localhost` when this is empty. |
 | `port` | integer | `443` | Listen port (1–65535) |
 | `https.auto` | boolean | `true` | Use Let's Encrypt auto-certificates |
-| `https.email` | string | | ACME notification email (required when `auto: true`) |
+| `https.email` | string | | ACME notification email (recommended with `auto: true`, not required — without it Let's Encrypt has no contact address for expiry and revocation notices) |
 | `https.cache_dir` | string | `"certs"` | Certificate cache directory (relative to `data_dir`) |
 | `https.cert` | string | | Manual certificate path (overrides `auto`) |
 | `https.key` | string | | Manual key path (overrides `auto`) |

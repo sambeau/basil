@@ -256,3 +256,128 @@ func TestSearchIndexKeepsScriptRelativeBehaviourWithoutADataRoot(t *testing.T) {
 		t.Errorf("index not created next to the script: %v", err)
 	}
 }
+
+// --- regression tests for the FEAT-152 review -----------------------------
+
+// http.Dir blocks "..", but it follows symlinks, and uploads sits one level
+// below the auth database and the certificate cache. A link planted there -
+// by rsync -l, tar -x, unzip, or any future upload feature that preserves
+// supplied names - would turn this handler into an arbitrary-file reader.
+func TestUploadsRefusesSymlinksOutOfTheDirectory(t *testing.T) {
+	cfg, _, dataDir := siteRootFixture(t)
+	uploads := filepath.Join(dataDir, "uploads")
+	must(os.WriteFile(filepath.Join(dataDir, "secret.txt"), []byte("private"), 0600))
+	must(os.Symlink(filepath.Join(dataDir, "secret.txt"), filepath.Join(uploads, "absolute.txt")))
+	must(os.Symlink(filepath.Join("..", "secret.txt"), filepath.Join(uploads, "relative.txt")))
+	must(os.MkdirAll(filepath.Join(uploads, "sub"), 0755))
+	must(os.Symlink(dataDir, filepath.Join(uploads, "sub", "out")))
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer s.Close()
+
+	for _, p := range []string{
+		"/__uploads/absolute.txt",
+		"/__uploads/relative.txt",
+		"/__uploads/sub/out/secret.txt",
+	} {
+		rec := httptest.NewRecorder()
+		s.mux.ServeHTTP(rec, httptest.NewRequest("GET", p, http.NoBody))
+		if rec.Code == http.StatusOK || strings.Contains(rec.Body.String(), "private") {
+			t.Errorf("%s served a file from outside uploads/ (status %d, body %q)", p, rec.Code, rec.Body.String())
+		}
+	}
+
+	// A real file in the directory still works.
+	must(os.WriteFile(filepath.Join(uploads, "ok.txt"), []byte("public"), 0644))
+	rec := httptest.NewRecorder()
+	s.mux.ServeHTTP(rec, httptest.NewRequest("GET", "/__uploads/ok.txt", http.NoBody))
+	if rec.Code != http.StatusOK {
+		t.Errorf("an ordinary upload stopped being served: %d", rec.Code)
+	}
+}
+
+// auth.protected_paths must cover /__uploads/ like any other route.
+func TestUploadsHonoursProtectedPaths(t *testing.T) {
+	cfg, _, dataDir := siteRootFixture(t)
+	must(os.WriteFile(filepath.Join(dataDir, "uploads", "note.txt"), []byte("durable"), 0644))
+	cfg.Auth.ProtectedPaths = []config.ProtectedPath{{Path: "/__uploads"}}
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer s.Close()
+
+	rec := httptest.NewRecorder()
+	s.mux.ServeHTTP(rec, httptest.NewRequest("GET", "/__uploads/note.txt", http.NoBody))
+	if rec.Code == http.StatusOK {
+		t.Errorf("a protected path was served to an anonymous request: %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+// A legacy single-directory project may already have a project-level
+// uploads/ directory it has been writing user-submitted files to, on the old
+// advice to whitelist ./uploads. Upgrading Basil must not publish it.
+func TestUploadsNotPublishedInTheLegacyLayout(t *testing.T) {
+	dir := t.TempDir()
+	must(os.MkdirAll(filepath.Join(dir, "site"), 0755))
+	must(os.MkdirAll(filepath.Join(dir, "uploads"), 0755))
+	must(os.WriteFile(filepath.Join(dir, "uploads", "private.txt"), []byte("not public"), 0644))
+
+	cfg := config.Defaults()
+	cfg.ReleaseDir = dir
+	cfg.DataDir = dir // legacy: state lives in the project directory
+	cfg.Server.Dev = true
+	cfg.Site.Path = filepath.Join(dir, "site")
+	config.ResolvePaths(cfg)
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer s.Close()
+
+	rec := httptest.NewRecorder()
+	s.mux.ServeHTTP(rec, httptest.NewRequest("GET", "/__uploads/private.txt", http.NoBody))
+	if rec.Code == http.StatusOK {
+		t.Errorf("a legacy project's uploads/ directory was published on upgrade: %q", rec.Body.String())
+	}
+}
+
+// The durable location is advertised to site code as basil.uploads_dir and
+// served at /__uploads/. It must also be writable with no basil.yaml edit -
+// otherwise a site created by --init cannot use it without the very
+// configuration step the site-root layout removes.
+func TestUploadsAreWritableWithoutConfiguration(t *testing.T) {
+	cfg, _, dataDir := siteRootFixture(t)
+	cfg.Security.AllowWrite = nil // exactly what `basil --init` generates
+
+	siteDir := cfg.Site.Path
+	must(os.WriteFile(filepath.Join(siteDir, "index.pars"), []byte(
+		`"durable\n" ==> text(@`+filepath.Join(dataDir, "uploads", "from-site.txt")+`)
+"wrote to uploads"
+`), 0644))
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer s.Close()
+
+	handler := newSiteHandler(s, siteDir, s.scriptCache)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest("GET", "/", http.NoBody))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "uploads", "from-site.txt")); err != nil {
+		t.Errorf("site code could not write to the uploads directory: %v", err)
+	}
+}

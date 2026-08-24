@@ -90,7 +90,7 @@ public_dir: ./public
 # security:
 #   allow_write:
 #     - ./exports    # <data_dir>/exports
-#     - ./uploads    # <data_dir>/uploads - served at /__uploads/
+# (<data_dir>/uploads is always writable, and is served at /__uploads/)
 
 # Git over HTTPS - serve your site as a Git repository
 # Allows pushing changes directly to the server

@@ -217,8 +217,25 @@ func openDBInternal(dbPath string) (*DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("setting database permissions: %w", err)
 	}
+	// The WAL and shared-memory sidecars hold uncheckpointed pages of this
+	// database - user rows, emails, the bcrypt hashes of deploy API keys -
+	// and SQLite creates them 0644 every time the database is opened. They
+	// exist for the whole life of the server, so they get the same 0600 the
+	// database itself has.
+	secureSidecars(dbPath)
 
 	return d, nil
+}
+
+// secureSidecars tightens the permissions of SQLite's -wal and -shm files.
+// They may not exist yet; that is not an error.
+func secureSidecars(dbPath string) {
+	for _, suffix := range []string{"-wal", "-shm"} {
+		path := dbPath + suffix
+		if _, err := os.Stat(path); err == nil {
+			os.Chmod(path, 0600)
+		}
+	}
 }
 
 // applyMigrations applies schema migrations to existing databases.

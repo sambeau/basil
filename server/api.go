@@ -74,7 +74,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,
-		AllowWrite:    []string(h.server.config.Security.AllowWrite),
+		AllowWrite:    h.server.config.WritePolicy(), // configured directories plus <data_dir>/uploads
 		AllowWriteAll: false,
 		AllowExecute:  []string{rootPath},
 		RestrictRead:  []string{"/etc", "/var", "/root"},

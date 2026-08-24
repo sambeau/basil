@@ -156,7 +156,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env.DataPath = h.server.config.DataDir
 		env.Security = &evaluator.SecurityPolicy{
 			NoRead:        false,
-			AllowWrite:    []string(h.server.config.Security.AllowWrite),
+			AllowWrite:    h.server.config.WritePolicy(), // configured directories plus <data_dir>/uploads
 			AllowWriteAll: false,
 			AllowExecute:  []string{rootPath},
 			RestrictRead:  []string{"/etc", "/var", "/root"},
@@ -277,7 +277,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Allow executing Parsley files in the root path and subdirectories (for imports)
 	env.Security = &evaluator.SecurityPolicy{
 		NoRead:        false,                                         // Allow reads
-		AllowWrite:    []string(h.server.config.Security.AllowWrite), // Allow writes to configured directories
+		AllowWrite:    h.server.config.WritePolicy(), // configured directories plus <data_dir>/uploads
 		AllowWriteAll: false,                                         // Deny all writes unless in whitelist
 		AllowExecute:  []string{rootPath},                            // Allow imports from handler directory tree
 		RestrictRead:  []string{"/etc", "/var", "/root"},             // Basic restrictions

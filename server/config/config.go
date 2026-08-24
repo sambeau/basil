@@ -85,9 +85,17 @@ type DeveloperConfig struct {
 	Logging   LoggingConfig     `yaml:"logging"`    // Override logging settings
 }
 
-// ServerConfig holds server settings
+// ServerConfig holds server settings.
+//
+// Host and Bind are different things and must not be conflated: Host is the
+// public hostname this site answers to (the certificate name, the WebAuthn
+// relying-party id, the hostname printed in deploy instructions), while Bind
+// is the local interface the listener attaches to. A public server's hostname
+// is routinely an address this machine does not own - NAT, Docker, an elastic
+// IP or a load balancer in front - so binding it would fail.
 type ServerConfig struct {
-	Host  string      `yaml:"host"`
+	Host  string      `yaml:"host"` // Public hostname (certificates, rpID, links)
+	Bind  string      `yaml:"bind"` // Listener interface ("" = all interfaces)
 	Port  int         `yaml:"port"`
 	Dev   bool        `yaml:"-"` // Set via CLI flag, not config
 	HTTPS HTTPSConfig `yaml:"https"`

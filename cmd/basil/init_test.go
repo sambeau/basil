@@ -404,3 +404,235 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(content)
 }
+
+// --- regression tests for the FEAT-152 review -----------------------------
+
+// A site created by --init must be usable with no basil.yaml edit at all:
+// the config must load, the Git server the printed clone command talks to
+// must be on, and the durable place to write must be writable.
+func TestInitCommand_GeneratedConfigNeedsNoEditing(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("runInitCommand failed: %v", err)
+	}
+
+	path, err := config.ConfigPathForSite(root)
+	if err != nil {
+		t.Fatalf("ConfigPathForSite: %v", err)
+	}
+	cfg, err := config.Load(path, func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("the generated config does not load: %v", err)
+	}
+	if err := config.Validate(cfg); err != nil {
+		t.Fatalf("the generated config does not validate: %v", err)
+	}
+
+	// The summary prints `git clone https://…/.git`; that 404s unless the
+	// Git server is enabled.
+	if !cfg.Git.Enabled {
+		t.Error("git.enabled is false, so the clone URL printed by --init returns 404")
+	}
+
+	// Site code must be able to write to the durable location the same
+	// release advertises as basil.uploads_dir.
+	uploads := cfg.UploadsDir()
+	if uploads == "" {
+		t.Fatal("UploadsDir is empty")
+	}
+	var writable bool
+	for _, dir := range cfg.WritePolicy() {
+		if dir == uploads {
+			writable = true
+		}
+	}
+	if !writable {
+		t.Errorf("the uploads directory is not writable by site code: %v", cfg.WritePolicy())
+	}
+}
+
+// The data root holds the auth database, its SQLite sidecars and the
+// certificate cache. On a shared host 0755 lets every local account read
+// them.
+func TestInitCommand_DataRootIsPrivate(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("runInitCommand failed: %v", err)
+	}
+
+	for _, dir := range []string{
+		filepath.Join(root, "data"),
+		filepath.Join(root, "data", "uploads"),
+	} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat %s: %v", dir, err)
+		}
+		if mode := info.Mode().Perm(); mode&0o077 != 0 {
+			t.Errorf("%s is %04o: the data root must not be readable by other accounts", dir, mode)
+		}
+	}
+
+	// Every file in the data root that holds credentials must be private too.
+	for _, name := range []string{".basil-auth.db", ".basil-auth.db-wal", ".basil-auth.db-shm"} {
+		path := filepath.Join(root, "data", name)
+		info, err := os.Stat(path)
+		if err != nil {
+			continue // sidecars may be checkpointed away
+		}
+		if mode := info.Mode().Perm(); mode&0o077 != 0 {
+			t.Errorf("%s is %04o, want 0600: it holds user rows and API key hashes", name, mode)
+		}
+	}
+}
+
+// A host that is not a hostname must be refused before anything is created:
+// the API key is printed once, so a config that turns out to be unloadable
+// costs the operator the credential and the whole tree.
+func TestInitCommand_RejectsUnusableHost(t *testing.T) {
+	requireGit(t)
+	for _, host := range []string{
+		"*.example.com", // * is a YAML alias indicator
+		"mysite.example.com\nauth:\n  enabled: false", // config injection
+		"my site.example.com",
+		"-leading-hyphen.example.com",
+	} {
+		t.Run(host, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "mysite")
+			var stdout, stderr bytes.Buffer
+			opts := initOpts(root, &stdout, &stderr)
+			opts.Host = host
+
+			err := runInitCommand(opts)
+			if err == nil {
+				t.Fatalf("--host %q was accepted", host)
+			}
+			if _, statErr := os.Stat(root); !os.IsNotExist(statErr) {
+				t.Errorf("a refused init created %s anyway", root)
+			}
+			if strings.Contains(stdout.String(), "API key") {
+				t.Error("a refused init printed an API key")
+			}
+		})
+	}
+}
+
+// A hostname that is fine must stay fine, and it must be quoted in the file.
+func TestInitCommand_HostIsQuotedInConfig(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("runInitCommand failed: %v", err)
+	}
+	yaml := readFile(t, filepath.Join(root, "current", "basil.yaml"))
+	if !strings.Contains(yaml, `host: "mysite.example.com"`) {
+		t.Errorf("the host should be written as a quoted scalar:\n%s", yaml)
+	}
+}
+
+// A failure part-way through must not leave a half-built tree: --init
+// refuses to re-enter a non-empty directory, so the next attempt would fail
+// with "folder is not empty", which points at the wrong problem.
+func TestCleanupInitTree(t *testing.T) {
+	t.Run("removes a root it created", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		mustMkdirAll(t, filepath.Join(root, "releases", "abc"))
+		cleanupInitTree(root, true)
+		if _, err := os.Stat(root); !os.IsNotExist(err) {
+			t.Errorf("%s survived cleanup", root)
+		}
+	})
+
+	t.Run("empties a root the operator created", func(t *testing.T) {
+		root := t.TempDir()
+		mustMkdirAll(t, filepath.Join(root, "releases", "abc"))
+		mustMkdirAll(t, filepath.Join(root, "data"))
+		mustMkdirAll(t, filepath.Join(root, "site.git"))
+		cleanupInitTree(root, false)
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 0 {
+			t.Errorf("cleanup left %d entries behind: %v", len(entries), entries)
+		}
+		if _, err := os.Stat(root); err != nil {
+			t.Errorf("cleanup removed a directory it did not create: %v", err)
+		}
+	})
+}
+
+func mustMkdirAll(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Running as root, the target must not already exist, and its parent must
+// not be writable by other accounts: --init shells out to git several times
+// between the emptiness check and the last write, and every write it makes
+// follows symlinks.
+func TestInitCommand_RootRefusesATamperableTarget(t *testing.T) {
+	requireGit(t)
+
+	t.Run("pre-created target", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		mustMkdirAll(t, root) // empty, so the non-root path would accept it
+
+		var stdout, stderr bytes.Buffer
+		opts := initOpts(root, &stdout, &stderr)
+		opts.Geteuid = func() int { return 0 }
+
+		err := runInitCommand(opts)
+		if err == nil {
+			t.Fatal("root accepted a directory another account could have prepared")
+		}
+		if !strings.Contains(err.Error(), "must not exist yet") {
+			t.Errorf("the error does not name the problem: %v", err)
+		}
+	})
+
+	t.Run("world-writable parent", func(t *testing.T) {
+		parent := filepath.Join(t.TempDir(), "shared")
+		mustMkdirAll(t, parent)
+		if err := os.Chmod(parent, 0o777); err != nil {
+			t.Fatal(err)
+		}
+		root := filepath.Join(parent, "mysite")
+
+		var stdout, stderr bytes.Buffer
+		opts := initOpts(root, &stdout, &stderr)
+		opts.Geteuid = func() int { return 0 }
+
+		err := runInitCommand(opts)
+		if err == nil {
+			t.Fatal("root created a site under a world-writable parent")
+		}
+		if !strings.Contains(err.Error(), "writable by other accounts") {
+			t.Errorf("the error does not name the problem: %v", err)
+		}
+	})
+
+	t.Run("an ordinary user is unaffected", func(t *testing.T) {
+		parent := filepath.Join(t.TempDir(), "shared")
+		mustMkdirAll(t, parent)
+		if err := os.Chmod(parent, 0o777); err != nil {
+			t.Fatal(err)
+		}
+		root := filepath.Join(parent, "mysite")
+		mustMkdirAll(t, root)
+
+		var stdout, stderr bytes.Buffer
+		if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+			t.Fatalf("the non-root path should be unchanged: %v", err)
+		}
+	})
+}

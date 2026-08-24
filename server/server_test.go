@@ -294,11 +294,27 @@ func TestListenAddr(t *testing.T) {
 			expected: "localhost:3000",
 		},
 		{
-			name: "production mode",
+			// server.host is the public hostname, not an interface: a
+			// listener must never try to bind it (FEAT-152 review).
+			name: "production mode with a public hostname binds all interfaces",
 			cfg: &config.Config{
 				Server: config.ServerConfig{Host: "example.com", Port: 443},
 			},
-			expected: "example.com:443",
+			expected: ":443",
+		},
+		{
+			name: "explicit bind address is honoured",
+			cfg: &config.Config{
+				Server: config.ServerConfig{Host: "example.com", Bind: "127.0.0.1", Port: 443},
+			},
+			expected: "127.0.0.1:443",
+		},
+		{
+			name: "dev mode binds localhost even with a public host",
+			cfg: &config.Config{
+				Server: config.ServerConfig{Host: "example.com", Dev: true, Port: 3000},
+			},
+			expected: "localhost:3000",
 		},
 		{
 			name: "production mode empty host",
@@ -328,6 +344,7 @@ func TestGracefulShutdown(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Host: "127.0.0.1",
+			Bind: "127.0.0.1",
 			Port: 18999,
 			Dev:  true,
 		},
