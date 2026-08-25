@@ -20,7 +20,10 @@ import (
 )
 
 // releaseBranch is the branch a push must move to publish a release
-// (DESIGN-git-deploy §7, default `live`). FEAT-154 makes it configurable.
+// (DESIGN-git-deploy §7, default `live`). --init writes it into site.git's
+// HEAD, which is where every later reader gets it from (FEAT-157); an
+// operator changes it with `git -C <site root>/site.git symbolic-ref HEAD
+// refs/heads/<branch>`, not by editing a config.
 const releaseBranch = config.DefaultReleaseBranch
 
 const indexParsContent = `<h1>"🌿 Hello from Basil 👋"</h1>

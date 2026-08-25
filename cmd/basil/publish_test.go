@@ -479,6 +479,86 @@ func TestPublish_FollowsHEADRetargetWithNoClientChange(t *testing.T) {
 	}
 }
 
+// The "no client change" promise has a second half: a clone that already
+// published once carries remote.origin.push pointing at the branch that
+// released THEN. After a retarget, publish itself still follows the server —
+// but a bare `git push` from that clone would keep pushing the old branch,
+// which the hub stores and never deploys. Nothing fails, nothing is said, and
+// the developer believes they have published. So publish re-points the
+// refspec it wrote, and says so.
+func TestPublish_RePointsItsOwnRefspecAfterAHEADRetarget(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+
+	// First publish: sets the refspec at the branch releasing today.
+	v2 := f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	var first bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &first, &first, emptyEnv); err != nil {
+		t.Fatalf("first publish failed: %v\n%s", err, first.String())
+	}
+	if got := testGit(t, f.work, "config", "--get", "remote.origin.push"); got != "HEAD:refs/heads/live" {
+		t.Fatalf("precondition failed: remote.origin.push = %q", got)
+	}
+	if strings.Contains(first.String(), "Re-pointed") {
+		t.Errorf("the first publish had nothing to re-point:\n%s", first.String())
+	}
+
+	// The operator retargets HEAD.
+	testGit(t, f.bare, "branch", "shipping", f.seed)
+	testGit(t, f.bare, "symbolic-ref", "HEAD", "refs/heads/shipping")
+
+	f.commitLocal(t, "site/index.pars", "<h1>\"v3\"</h1>\n", "v3")
+	var second bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &second, &second, emptyEnv); err != nil {
+		t.Fatalf("publish after the retarget failed: %v\n%s", err, second.String())
+	}
+	if got := testGit(t, f.work, "config", "--get", "remote.origin.push"); got != "HEAD:refs/heads/shipping" {
+		t.Errorf("remote.origin.push = %q, want HEAD:refs/heads/shipping", got)
+	}
+	// Rewriting a developer's git config silently is worse than leaving it
+	// stale: the change has to be visible in the output.
+	if !strings.Contains(second.String(), "Re-pointed") {
+		t.Errorf("publish re-pointed the refspec without saying so:\n%s", second.String())
+	}
+
+	// The point of the setting: a bare `git push` now reaches the branch that
+	// actually releases.
+	bare := f.commitLocal(t, "site/index.pars", "<h1>\"v4\"</h1>\n", "v4")
+	testGit(t, f.work, "push", "origin")
+	if tip := testGit(t, f.bare, "rev-parse", "shipping"); tip != bare {
+		t.Errorf("a bare git push left shipping at %s, want %s", tip, bare)
+	}
+	if tip := testGit(t, f.bare, "rev-parse", "live"); tip != v2 {
+		t.Errorf("a bare git push moved live to %s; the branch that no longer releases should have stayed at %s", tip, v2)
+	}
+}
+
+// A refspec publish did not write is the developer's own and must survive
+// untouched, retarget or no retarget: repairing our own convenience setting
+// is one thing, editing someone's git config is another.
+func TestPublish_LeavesAForeignRefspecAlone(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+
+	const custom = "+refs/heads/main:refs/heads/mirror"
+	testGit(t, f.work, "config", "remote.origin.push", custom)
+
+	testGit(t, f.bare, "branch", "shipping", f.seed)
+	testGit(t, f.bare, "symbolic-ref", "HEAD", "refs/heads/shipping")
+
+	f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	var out bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("publish failed: %v\n%s", err, out.String())
+	}
+	if got := testGit(t, f.work, "config", "--get", "remote.origin.push"); got != custom {
+		t.Errorf("publish rewrote a refspec it did not write: %q, want %q", got, custom)
+	}
+	if strings.Contains(out.String(), "Re-pointed") {
+		t.Errorf("publish claimed to re-point a refspec it left alone:\n%s", out.String())
+	}
+}
+
 // A clone's committed deploy.branch is dead weight and must not steer the
 // publish - the exact confusion FEAT-157 removed.
 func TestPublish_IgnoresAndReportsRetiredBranchKey(t *testing.T) {

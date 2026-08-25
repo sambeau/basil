@@ -406,6 +406,26 @@ and a clone follows the same `HEAD`. If the new branch does not exist on the
 server yet, pushes to the old one are stored and publish nothing until it
 arrives; `basil check` says so.
 
+There is one wrinkle in that window. Git advertises `HEAD` only when it
+resolves, so while the new branch has no commits the server advertises no
+release branch at all — and `basil publish` stops rather than guess, naming
+the fix. Create the branch once, explicitly, from a clone:
+
+```bash
+git push origin HEAD:refs/heads/shipping
+```
+
+That push takes the ref-creation path — it publishes and deploys like any
+other release — and every `basil publish` after it works normally again. The
+tidier order is to push the branch first and retarget `HEAD` second, which
+skips the window entirely. See
+[Which branch publishes](git.md#which-branch-publishes).
+
+A clone that had already published once also carries a `remote.origin.push`
+refspec naming the old branch. `basil publish` re-points it on the next
+publish and says so, so a bare `git push` keeps reaching the branch that
+actually releases.
+
 ## `basil check`
 
 `check` verifies the bootstrap preconditions and reports each one plainly with

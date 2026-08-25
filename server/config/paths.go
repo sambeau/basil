@@ -156,12 +156,19 @@ func ResolveAnchors(cfg *Config, configDir string) {
 	// value is ignored here, at load, and not merely carried across live
 	// swaps as FEAT-156 did. In the legacy layout the key is the operator
 	// speaking and works exactly as FEAT-152 defined it.
+	//
+	// The warning names the KEY and the decision, never the release's value:
+	// data_dir is env-interpolated before it reaches here, so echoing it
+	// would put whatever ${...} expanded to into the server log on every
+	// start and every swap — the secret-echo class FEAT-156 closed in
+	// listener.go. What the operator needs to know is that the key was
+	// ignored and which root is actually in use; both are in the message.
 	if siteRoot != "" && requested != "" {
 		conventional := filepath.Join(siteRoot, DataDirName)
 		if cfg.DataDir != conventional {
 			cfg.operatorOverrides = append(cfg.operatorOverrides, fmt.Sprintf(
-				"data_dir: %q in this release's %s is ignored on a site root — the data root is the operator's, and the databases the deploy path runs on live under it; it stays %s",
-				requested, ConfigFileName, conventional))
+				"data_dir in this release's %s is ignored on a site root — the data root is the operator's, and the databases the deploy path runs on live under it; it stays %s",
+				ConfigFileName, conventional))
 			cfg.DataDir = conventional
 		}
 	}

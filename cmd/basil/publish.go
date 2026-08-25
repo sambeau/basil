@@ -165,6 +165,14 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	// --- the plan: range, changed files, drift ----------------------------
 	commitWord := pluralWord(count, "commit", "commits")
 	if base == "" {
+		// Defensive, and believed unreachable: git advertises HEAD as a symref
+		// only when it RESOLVES, so a branch name from symrefBranch implies a
+		// sha beside it, and the unreachable-origin path with no cached base
+		// already returned above. It stays because the alternative to a wrong
+		// message here is a wrong RANGE below - if the invariant ever breaks,
+		// publishing the whole tree should at least announce that it is doing
+		// so. (A hub whose HEAD names a not-yet-pushed branch does not reach
+		// here at all: it fails earlier, naming the one-off first push.)
 		fmt.Fprintf(stdout, "Publishing to %q on origin (the release branch does not exist there yet - first publish).\n", branch)
 	} else {
 		fmt.Fprintf(stdout, "Publishing to %q on origin (%s..%s).\n", branch, shortRelease(base), shortRelease(headSHA))
@@ -181,9 +189,11 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	}
 
 	// Drift: how far the server's release branch trails this publish. Only
-	// meaningful when origin answered AND the branch already exists there;
-	// unreachable already warned above, and a branch that does not exist yet
-	// (base == "", a first publish) cannot be "behind".
+	// meaningful when origin answered - a cached base cannot say where the
+	// server is now, and the unreachable case has already warned about
+	// exactly that. `base != ""` is the same defensive guard as above (when
+	// origin answers, a branch implies a tip); it is kept so this line can
+	// never render a range against an empty sha.
 	if reachable && base != "" {
 		fmt.Fprintf(stdout, "\ndrift: the release branch %q on origin is %d %s behind HEAD (this publish closes it).\n", branch, count, commitWord)
 	}
@@ -218,9 +228,13 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	// Configure the refspec whenever it is currently unset so a later bare
 	// `git push` from this clone also publishes - not only on a first publish.
 	// Best-effort convenience: the explicit HEAD:<ref> above is what actually
-	// makes this push work, so configureReleasePush ignores any failure (and
-	// leaves an existing refspec untouched).
-	configureReleasePush(top, ref)
+	// makes this push work, so configureReleasePush ignores any failure. It
+	// also re-points a refspec it wrote earlier for a branch that no longer
+	// releases, which is announced: a silently rewritten git config is worse
+	// than the stale one it replaces.
+	if stale := configureReleasePush(top, ref); stale != "" {
+		fmt.Fprintf(stdout, "Re-pointed this clone's `git push` default from %q to %q (origin's release branch changed).\n", stale, branch)
+	}
 
 	fmt.Fprintf(stdout, "Published %s to %q.\n", shortRelease(headSHA), branch)
 	return nil
@@ -263,11 +277,37 @@ func publishLog(dir, base, head string) (string, error) {
 
 // configureReleasePush stores remote.origin.push so a bare `git push` from
 // this clone publishes to the release branch. Best-effort; errors ignored.
-func configureReleasePush(dir, ref string) {
-	if existing, err := gitOutput(dir, "config", "--get", "remote.origin.push"); err == nil && strings.TrimSpace(existing) != "" {
-		return
+//
+// It also re-points a refspec THIS function wrote for a branch that no longer
+// releases. Publish learns the branch from the server every time, so a
+// retarget needs no client change — but a clone that had published once kept
+// `HEAD:refs/heads/live` forever, and after the retarget a bare `git push`
+// from it published nothing, silently, to a branch the hub stores and never
+// deploys. That is the "no client change" promise failing in the quietest
+// possible way.
+//
+// Only the exact shape this function writes is rewritten. Anything else in
+// remote.origin.push is the developer's own (a multi-ref refspec, a forced
+// one, a different source) and is left alone: publish may repair its own
+// convenience setting, never edit someone's git config out from under them.
+// Returns the previous branch when it re-pointed one, "" otherwise.
+func configureReleasePush(dir, ref string) string {
+	want := "HEAD:" + ref
+	existing, err := gitOutput(dir, "config", "--get", "remote.origin.push")
+	if err != nil || strings.TrimSpace(existing) == "" {
+		_ = runGit(dir, "config", "remote.origin.push", want)
+		return ""
 	}
-	_ = runGit(dir, "config", "remote.origin.push", "HEAD:"+ref)
+	current := strings.TrimSpace(existing)
+	if current == want {
+		return ""
+	}
+	stale, ok := strings.CutPrefix(current, "HEAD:refs/heads/")
+	if !ok || stale == "" {
+		return "" // not ours to touch
+	}
+	_ = runGit(dir, "config", "remote.origin.push", want)
+	return stale
 }
 
 // streamGit runs git with stdout/stderr wired straight to the caller's
@@ -321,8 +361,11 @@ func symrefBranch(out string) string {
 }
 
 // symrefTip reads the sha of HEAD from the same output - the release
-// branch's tip on the server. It is absent when HEAD names a branch that has
-// no commits yet, which is a first publish.
+// branch's tip on the server. In practice it is always present when
+// symrefBranch found a branch, because git advertises HEAD as a symref only
+// when it resolves: a HEAD naming a branch that does not exist there yet is
+// advertised as neither, and the caller refuses that state by name. "" is
+// therefore a should-not-happen, handled rather than trusted.
 func symrefTip(out string) string {
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)

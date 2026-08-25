@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Operator-owned settings (FEAT-156, FEAT-157).
@@ -49,21 +47,16 @@ type operatorProbe struct {
 
 // enforceOperatorOwned forces the operator-owned settings on when the
 // site-root layout is active, and records a warning for each one the config
-// explicitly disabled. data is the config source after env interpolation —
-// the same bytes that were unmarshalled into cfg.
+// explicitly disabled. probe is the raw config source after env
+// interpolation, parsed once by the caller.
 //
 // Omission is silent: a local config that simply has no git: block is the
 // normal case after FEAT-156's init split, and warning about it would fire on
 // every start of every graduated site.
-func enforceOperatorOwned(cfg *Config, data []byte) {
+func enforceOperatorOwned(cfg *Config, probe *operatorProbe) {
 	if cfg.SiteRoot == "" {
 		return
 	}
-
-	// A probe that will not parse is not a reason to skip enforcement: the
-	// forcing is the safety property, the warning is only its explanation.
-	var probe operatorProbe
-	_ = yaml.Unmarshal(data, &probe)
 
 	forced := []struct {
 		key      string
@@ -90,10 +83,7 @@ func enforceOperatorOwned(cfg *Config, data []byte) {
 // reads must never block a load, on a server or in the clone that pulls the
 // file. Layout makes no difference either; the stale key is in the file
 // wherever it is read.
-func noteRetiredKeys(cfg *Config, data []byte) {
-	var probe operatorProbe
-	_ = yaml.Unmarshal(data, &probe)
-
+func noteRetiredKeys(cfg *Config, probe *operatorProbe) {
 	repo := "<site root>/" + BareRepoName
 	if cfg.SiteRoot != "" {
 		repo = filepath.Join(cfg.SiteRoot, BareRepoName)
@@ -123,10 +113,17 @@ func ReleaseWarnings(cfg *Config) []string {
 	return append(out, cfg.retiredKeys...)
 }
 
-// OperatorOwnedKeys names the settings a site root forces on, for docs and
-// error text. It is not a config surface: nothing reads it to decide anything.
+// OperatorOwnedKeys names the settings a site root decides for itself
+// whatever the release says, for docs and error text. It is not a config
+// surface: nothing reads it to decide anything.
+//
+// Both entries are operator-owned in the same sense — the release's value is
+// ignored and the server's stands — though by different mechanisms:
+// auth.enabled is forced true here, and data_dir is pinned to the
+// conventional root in ResolveAnchors. Listing only one of them made this
+// disagree with the docs and left callers hand-appending the other.
 func OperatorOwnedKeys() []string {
-	return []string{"auth.enabled"}
+	return []string{"auth.enabled", "data_dir"}
 }
 
 // IsLocalHost reports whether a hostname names this machine rather than a

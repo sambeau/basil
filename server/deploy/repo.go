@@ -11,6 +11,7 @@ package deploy
 // endpoint switch, where git has no native equivalent.
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,8 +29,12 @@ import (
 // fixes it. The caller decides what that means: a push is refused, a display
 // hint falls back to the default name.
 func ReleaseBranch(repoDir string) (string, error) {
-	cmd := exec.Command("git", "symbolic-ref", "HEAD")
-	cmd.Dir = repoDir
+	// --git-dir, not cmd.Dir: a GIT_DIR in the inherited environment
+	// OVERRIDES the working directory, so a server started with one set
+	// would read its release branch out of some other repository entirely.
+	// The explicit flag beats the environment variable, and it also stops
+	// git walking up out of a half-deleted site.git into an enclosing repo.
+	cmd := exec.Command("git", "--git-dir="+repoDir, "symbolic-ref", "HEAD")
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -76,16 +81,39 @@ func headError(repoDir, reason string) error {
 // nobody should ever have to write the key to get today's behaviour. Anything
 // that is not a readable false is also enabled — a switch that turns itself
 // off on a typo would take down the deploy path it exists to control.
-func GitEnabled(repoDir string) bool {
-	// --local: the switch is a fact about THIS repository. Without it a
-	// basil.gitEnabled in the operator's ~/.gitconfig would decide it for
-	// every site the account serves.
-	cmd := exec.Command("git", "config", "--local", "--bool", "--get", "basil.gitEnabled")
-	cmd.Dir = repoDir
+//
+// The second return separates the two ways of arriving at "enabled". An unset
+// key is the normal case and reports nil: silence is correct. A key that is
+// present but UNREADABLE — a typo'd boolean, a config git refuses to parse —
+// still reports enabled, keeping the fail-open posture, but returns an error
+// for the caller to log. An operator who wrote `false` and got a served
+// endpoint must never have to guess why: "I turned it off and it stayed on"
+// is the one outcome this switch may not produce silently.
+func GitEnabled(repoDir string) (bool, error) {
+	// --file, not --local with cmd.Dir: a GIT_DIR in the inherited
+	// environment overrides the working directory, so cmd.Dir alone could
+	// have another repository answer for this one. Naming the file also
+	// keeps the switch a fact about THIS repository — a basil.gitEnabled in
+	// the operator's ~/.gitconfig must not decide it for every site the
+	// account serves.
+	configFile := filepath.Join(repoDir, "config")
+	cmd := exec.Command("git", "config", "--file", configFile, "--bool", "--get", "basil.gitEnabled")
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return true // unset, or unreadable
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			// Exit 1 is git's "no such key": unset, the normal case.
+			return true, nil
+		}
+		reason := strings.TrimSpace(stderr.String())
+		if reason == "" {
+			reason = err.Error()
+		}
+		return true, fmt.Errorf("cannot read basil.gitEnabled from %s: %s — the git endpoint stays on; fix the value or remove the key (git config --file %s --unset basil.gitEnabled)",
+			configFile, reason, configFile)
 	}
-	return strings.TrimSpace(string(out)) != "false"
+	return strings.TrimSpace(string(out)) != "false", nil
 }

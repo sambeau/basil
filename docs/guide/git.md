@@ -55,8 +55,11 @@ git -C /srv/mysite/site.git config basil.gitEnabled false   # then restart
 With that set, `/.git` is not served at all — clone and push both get a 404 — and
 deploys happen at the server shell with `basil deploy`. Unset (the normal case)
 or `true` means the endpoint is live whenever `site.git` exists. Changing it
-takes effect at the next restart, like the listener settings; a running server
-that notices the change says so. A plain local project directory has no bare
+takes effect at the next restart, like the listener settings — a running server
+keeps serving whatever it was built with. It only checks the switch again when
+something makes it re-read the site (a deploy, or a restart), and if it finds
+the change it says so; nothing watches the file, so **restart to apply it**. A
+plain local project directory has no bare
 repository and so no endpoint at all, which is the correct shape for a laptop and
 needs no setting either.
 

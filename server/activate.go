@@ -225,14 +225,13 @@ func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 		keep()
 	}
 
-	// data_dir is an ANCHOR, not a section: every persistent path in the
-	// running server was resolved against it at startup (the database file,
-	// the image cache, the certificate cache, security.allow_write) and the
-	// uploads directory is still derived from it live, through
-	// cfg.UploadsDir(). A release that moved it would leave the served config
-	// pointing at a data root no subsystem is using — and the auth and deploy
-	// databases, which live under it, somewhere else again.
-	carry("data_dir", newCfg.DataDir != old.DataDir, func() { newCfg.DataDir = old.DataDir })
+	// data_dir is deliberately absent from this list. It is an ANCHOR, not a
+	// section, and FEAT-157 moved its defence to where anchors are decided:
+	// on a site root the load pins it to <site root>/data and warns
+	// (config.ResolveAnchors), so both configs here have already resolved it
+	// identically — and SwapRelease returns early off site roots, where the
+	// key is the operator speaking and must be honoured. A carry() entry
+	// could only ever fire on a difference that cannot occur.
 
 	carry("database", !reflect.DeepEqual(newCfg.Database, old.Database), func() { newCfg.Database = old.Database })
 	carry("session", !reflect.DeepEqual(newCfg.Session, old.Session), func() { newCfg.Session = old.Session })
@@ -271,7 +270,11 @@ func (s *Server) warnGitSwitchChanged() {
 	if info, err := os.Stat(repo); err != nil || !info.IsDir() {
 		return
 	}
-	if now := deploy.GitEnabled(repo); now != s.gitSwitch {
+	now, err := deploy.GitEnabled(repo)
+	if err != nil {
+		s.logWarn("git: %v", err)
+	}
+	if now != s.gitSwitch {
 		s.logWarn("basil.gitEnabled is now %v in %s but the git endpoint was built at startup - restart required for it to take effect", now, repo)
 	}
 }

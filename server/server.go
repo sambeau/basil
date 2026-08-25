@@ -716,24 +716,37 @@ func (s *Server) initGit() error {
 		return nil // no repository, no Git
 	}
 
+	// A repository inside a served root would expose every version of every
+	// file over plain HTTP. site.git is a sibling of releases/ so an --init
+	// layout cannot get here; this guards misconfigured public_dir,
+	// site.path and static roots, which are configurable.
+	//
+	// This runs BEFORE the off-switch and the degraded check, and must keep
+	// doing so: it is a fact about where the repository sits on disk, not
+	// about whether Basil serves /.git. Turning the Git endpoint off does
+	// nothing to a static route that hands out site.git's objects — every
+	// version of every file, including any secret ever committed — so
+	// `basil.gitEnabled false` must not be a way past this guard.
+	if err := checkRepoOutsideServedRoots(s.config, repo); err != nil {
+		return err
+	}
+
 	// The operator's off-switch, read from the repository rather than the
 	// release. Recorded either way, so a later deploy can tell whether it
 	// moved (activate.go).
-	s.gitSwitch = deploy.GitEnabled(repo)
+	gitSwitch, switchErr := deploy.GitEnabled(repo)
+	if switchErr != nil {
+		// Enabled-because-unreadable is not the same as enabled-because-unset,
+		// and only one of them is what the operator asked for.
+		s.logWarn("git: %v", switchErr)
+	}
+	s.gitSwitch = gitSwitch
 	if !s.gitSwitch {
 		s.logInfo("git: /.git is not served - basil.gitEnabled is false in %s", repo)
 		return nil
 	}
 	if s.gitDegraded {
 		return nil // no auth database: initAuth already said so
-	}
-
-	// A repository inside a served root would expose every version of every
-	// file over plain HTTP. site.git is a sibling of releases/ so an --init
-	// layout cannot get here; this guards misconfigured public_dir,
-	// site.path and static roots, which are configurable.
-	if err := checkRepoOutsideServedRoots(s.config, repo); err != nil {
-		return err
 	}
 
 	// No auth database, no Git: pushes are authorised by API keys in that

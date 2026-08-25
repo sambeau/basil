@@ -204,8 +204,8 @@ func TestRetiredKeyWarningsNameTheFix(t *testing.T) {
 func operatorWarnings(all []string) []string {
 	var out []string
 	for _, w := range all {
-		for _, key := range append(OperatorOwnedKeys(), "data_dir") {
-			if strings.HasPrefix(w, key+":") {
+		for _, key := range OperatorOwnedKeys() {
+			if strings.HasPrefix(w, key) {
 				out = append(out, w)
 			}
 		}
@@ -213,9 +213,13 @@ func operatorWarnings(all []string) []string {
 	return out
 }
 
+// containsKey matches on the key alone, not key+":": an operator-owned
+// warning names its key first but need not quote a value after it —
+// data_dir's deliberately does not (the value is env-interpolated and must
+// not reach the log).
 func containsKey(warnings []string, key string) bool {
 	for _, w := range warnings {
-		if strings.HasPrefix(w, key+":") {
+		if strings.HasPrefix(w, key) {
 			return true
 		}
 	}

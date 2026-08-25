@@ -1341,10 +1341,11 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			})
 		}
 
-		// Git section (only when a Git handler is actually served). Gating on
-		// cfg.Git.Enabled (which now defaults true) would advertise "Git
-		// enabled" even where no handler is mounted — e.g. the legacy layout;
-		// the served handler is the truthful signal.
+		// Git section (only when a Git handler is actually served). There is
+		// no config key left to gate on — the endpoint is decided by the
+		// server's own facts (site.git existing, basil.gitEnabled, the auth
+		// database) — and the mounted handler is the one signal that reflects
+		// all of them at once.
 		if h.server.gitHandler != nil {
 			configGroups = append(configGroups, map[string]any{
 				"name":        "Git",

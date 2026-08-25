@@ -59,8 +59,15 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 	// Operator-owned settings are decided here, where the layout is already
 	// known: enforcement hangs off the same knowledge that picks DataDir, so
 	// the legacy layout is untouched by construction.
-	enforceOperatorOwned(cfg, data)
-	noteRetiredKeys(cfg, data)
+	// One probe of the raw bytes, read twice. Both readers ask the same
+	// question of the same source — "did the file MENTION this key?" — which
+	// the unmarshalled Config cannot answer once Defaults() has filled it in.
+	// A probe that will not parse is not a reason to skip enforcement: the
+	// forcing is the safety property, the warnings only explain it.
+	var probe operatorProbe
+	_ = yaml.Unmarshal(data, &probe)
+	enforceOperatorOwned(cfg, &probe)
+	noteRetiredKeys(cfg, &probe)
 
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {

@@ -141,7 +141,7 @@ func runFromHook(which, site, configPath string, stdin io.Reader, stdout, stderr
 	case "pre-receive":
 		return runPreReceive(cfg, eng, updates, releaseRef, stdout)
 	default:
-		return runPostReceive(eng, updates, releaseRef, stdout, stderr)
+		return runPostReceive(cfg, eng, updates, releaseRef, stdout, stderr)
 	}
 }
 
@@ -297,10 +297,14 @@ func warnUnformatted(stdout io.Writer, releaseDir string) {
 // failure here cannot reject the push, so it is reported loudly (Git relays
 // it) and recorded by the engine, and the non-zero exit tells Git to show
 // the developer something went wrong.
-func runPostReceive(eng *deploy.Engine, updates []refUpdate, releaseRef string, stdout, stderr io.Writer) error {
+func runPostReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, releaseRef string, stdout, stderr io.Writer) error {
 	var failure error
 	for _, u := range updates {
 		if u.ref != releaseRef || u.new == zeroSHA {
+			continue
+		}
+		if err := recheckFastForward(cfg, eng, u, stdout, stderr); err != nil {
+			failure = err
 			continue
 		}
 		// Validation already ran in pre-receive; Deploy still takes its
@@ -327,6 +331,41 @@ func runPostReceive(eng *deploy.Engine, updates []refUpdate, releaseRef string, 
 	return failure
 }
 
+// recheckFastForward re-runs pre-receive's ancestry gate, here, after the ref
+// has moved. The two hooks each read the release branch from site.git's HEAD,
+// and they read it at DIFFERENT MOMENTS: an operator retargeting HEAD between
+// them leaves an update that pre-receive waved through as "any other ref" —
+// store-and-stop, no ancestry check, no starter-overwrite check — arriving
+// here as the release branch, about to be published. Every other pre-receive
+// gate re-runs on its own (Deploy re-validates); ancestry is the one that
+// does not, so it is re-asserted.
+//
+// This cannot un-move the ref — post-receive never can. It refuses to
+// PUBLISH history that nothing checked, loudly, leaving the live site alone.
+func recheckFastForward(cfg *config.Config, eng *deploy.Engine, u refUpdate, stdout, stderr io.Writer) error {
+	if u.old == zeroSHA {
+		return nil // ref creation: there is no earlier value to fast-forward from
+	}
+	ancestor, err := isAncestor(cfg.BareRepoPath(), u.old, u.new)
+	if err != nil {
+		fmt.Fprintf(stderr, "DEPLOY REFUSED: cannot check release-branch ancestry: %v\n", err)
+		return err
+	}
+	if ancestor {
+		return nil
+	}
+	// Graduation's one-time exception, decided from the deploy record exactly
+	// as pre-receive decides it — but silently: when pre-receive granted it,
+	// it already said so, and repeating the announcement here would suggest a
+	// second exception was spent.
+	if starter, serr := onlyInitDeployedLocked(cfg, eng); serr == nil && starter {
+		return nil
+	}
+	fmt.Fprintf(stderr, "DEPLOY REFUSED: %s is not a fast-forward of %s, and nothing checked it — the release branch moved while this push was in flight (was site.git's HEAD retargeted mid-push?).\n", shortRelease(u.new), shortRelease(u.old))
+	fmt.Fprintf(stderr, "The push itself stands; the live site is unchanged%s. Review the branch, then deploy on the server if it is what you meant: basil deploy %s\n", stillLive(cfg.SiteRoot), shortRelease(u.new))
+	return fmt.Errorf("release %s refused: not a fast-forward and ungated", shortRelease(u.new))
+}
+
 // stillLive names what stayed live, for the rejection message: " (still
 // 4f2a1c9)" or "" when nothing is live to name.
 func stillLive(siteRoot string) string {
@@ -340,11 +379,15 @@ func stillLive(siteRoot string) string {
 // isAncestor reports whether old is an ancestor of new in the repository at
 // repoDir — i.e. whether the update is a fast-forward. `git merge-base
 // --is-ancestor` answers with its exit code: 0 yes, 1 no, anything else is a
-// real error. The repository path is passed explicitly rather than trusting
-// the GIT_DIR the hook inherits, so the check is testable outside a hook.
+// real error.
+//
+// The repository is named with --git-dir, which beats the GIT_DIR the hook
+// inherits. cmd.Dir alone would NOT: a GIT_DIR in the environment overrides
+// the working directory, so the ancestry gate protecting this repository's
+// release branch could be answered by another repository entirely — and a
+// half-deleted site.git would let git walk up into an enclosing one.
 func isAncestor(repoDir, old, new string) (bool, error) {
-	cmd := exec.Command("git", "merge-base", "--is-ancestor", old, new)
-	cmd.Dir = repoDir
+	cmd := exec.Command("git", "--git-dir="+repoDir, "merge-base", "--is-ancestor", old, new)
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr

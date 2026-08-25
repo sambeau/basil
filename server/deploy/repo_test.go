@@ -88,26 +88,80 @@ func TestReleaseBranchNamesTheFix(t *testing.T) {
 func TestGitEnabled(t *testing.T) {
 	repo := newBareRepo(t, "live")
 
-	if !GitEnabled(repo) {
-		t.Error("absent basil.gitEnabled must mean enabled")
+	if on, err := GitEnabled(repo); !on || err != nil {
+		t.Errorf("absent basil.gitEnabled must mean enabled, got %v, %v", on, err)
 	}
 	run(t, repo, "config", "basil.gitEnabled", "true")
-	if !GitEnabled(repo) {
-		t.Error("basil.gitEnabled true must mean enabled")
+	if on, err := GitEnabled(repo); !on || err != nil {
+		t.Errorf("basil.gitEnabled true must mean enabled, got %v, %v", on, err)
 	}
 	run(t, repo, "config", "basil.gitEnabled", "false")
-	if GitEnabled(repo) {
-		t.Error("basil.gitEnabled false must mean disabled")
+	if on, err := GitEnabled(repo); on || err != nil {
+		t.Errorf("basil.gitEnabled false must mean disabled, got %v, %v", on, err)
 	}
 	run(t, repo, "config", "basil.gitEnabled", "off")
-	if GitEnabled(repo) {
-		t.Error("git's other spellings of false must mean disabled")
+	if on, err := GitEnabled(repo); on || err != nil {
+		t.Errorf("git's other spellings of false must mean disabled, got %v, %v", on, err)
 	}
 	run(t, repo, "config", "basil.gitEnabled", "flase")
-	if !GitEnabled(repo) {
+	if on, _ := GitEnabled(repo); !on {
 		t.Error("an unreadable value must not switch the deploy path off")
 	}
-	if !GitEnabled(filepath.Join(t.TempDir(), "nothing-here")) {
-		t.Error("a missing repository must not report the switch off")
+	if on, err := GitEnabled(filepath.Join(t.TempDir(), "nothing-here")); !on || err != nil {
+		t.Errorf("a missing repository must not report the switch off, got %v, %v", on, err)
+	}
+}
+
+// "I turned it off and it stayed on" must never be silent. Unset and
+// unreadable both fail towards serving, and only the second is a surprise —
+// so only the second returns something for the caller to log.
+func TestGitEnabledDistinguishesUnsetFromUnreadable(t *testing.T) {
+	repo := newBareRepo(t, "live")
+
+	if _, err := GitEnabled(repo); err != nil {
+		t.Errorf("an unset key is the normal case and must be silent, got: %v", err)
+	}
+
+	run(t, repo, "config", "basil.gitEnabled", "flase")
+	on, err := GitEnabled(repo)
+	if !on {
+		t.Fatal("a typo'd boolean must leave the endpoint on")
+	}
+	if err == nil {
+		t.Fatal("a typo'd boolean must be reported, not swallowed")
+	}
+	// The warning has to be actionable: which repository, and what git said.
+	if !strings.Contains(err.Error(), repo) {
+		t.Errorf("the warning does not name the repository: %v", err)
+	}
+	if !strings.Contains(err.Error(), "basil.gitEnabled") {
+		t.Errorf("the warning does not name the key: %v", err)
+	}
+	if !strings.Contains(err.Error(), "bad boolean") {
+		t.Errorf("the warning does not relay git's reason: %v", err)
+	}
+}
+
+// GIT_DIR in the inherited environment OVERRIDES cmd.Dir, so a server started
+// with one set could have another repository answer for this one — which
+// branch publishes, and whether the endpoint is served. Both readers name the
+// repository with an explicit path, which beats the environment.
+func TestRepoReadersIgnoreGitDirInTheEnvironment(t *testing.T) {
+	ours := newBareRepo(t, "live")
+	theirs := newBareRepo(t, "attacker")
+	run(t, theirs, "config", "basil.gitEnabled", "false")
+
+	t.Setenv("GIT_DIR", theirs)
+
+	// Sanity: the environment really would win if the path were not pinned.
+	if got := run(t, ours, "symbolic-ref", "HEAD"); got != "refs/heads/attacker" {
+		t.Fatalf("precondition failed: GIT_DIR did not override the working directory (got %q)", got)
+	}
+
+	if branch, err := ReleaseBranch(ours); err != nil || branch != "live" {
+		t.Errorf("ReleaseBranch = %q, %v; want live from the named repository", branch, err)
+	}
+	if on, err := GitEnabled(ours); !on || err != nil {
+		t.Errorf("GitEnabled = %v, %v; want the named repository's absent key (enabled)", on, err)
 	}
 }

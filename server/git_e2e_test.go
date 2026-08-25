@@ -1034,3 +1034,213 @@ func TestGitE2E_GitEnabledSwitchAtTheHTTPSurface(t *testing.T) {
 		t.Errorf("GET / returned %d; switching off /.git must not affect the site", siteResp.StatusCode)
 	}
 }
+
+// The served-roots guard is not the Git endpoint's guard, and switching the
+// endpoint off must not be a way past it. `basil.gitEnabled false` stops
+// Basil serving /.git; it does nothing whatever to a static route handing out
+// site.git's objects — every version of every file, including any secret ever
+// committed — over plain HTTP with no authentication at all.
+//
+// Before FEAT-157 this could not arise: git.enabled was forced true on a site
+// root, so the guard was unreachable-past by construction. Moving the switch
+// to the repository gave it a real off state, and the early return for that
+// state sat in front of the guard.
+func TestGitE2E_ServedRootsGuardSurvivesTheOffSwitch(t *testing.T) {
+	site := newGitSite(t)
+	if _, err := gitRun(site.repoDir(), nil, "config", "basil.gitEnabled", "false"); err != nil {
+		t.Fatalf("setting basil.gitEnabled: %v", err)
+	}
+
+	cfgPath := filepath.Join(site.root, "current", config.ConfigFileName)
+	cfg, absPath, err := config.LoadWithPath(cfgPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	cfg.Server.Dev = true
+	// The deployed half of the pair: a static root that resolves above the
+	// release and takes site.git with it.
+	cfg.Static = append(cfg.Static, config.StaticRoute{Path: "/files/", Root: site.root})
+
+	_, err = New(cfg, absPath, "test", "test", io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("New() accepted a repository inside a served root because basil.gitEnabled was false")
+	}
+	if !strings.Contains(err.Error(), site.repoDir()) || !strings.Contains(err.Error(), site.root) {
+		t.Errorf("refusal should name both paths, got: %v", err)
+	}
+}
+
+// Retargeting HEAD MOVES the history protection; it must not widen it, and it
+// must not leave a gap beside it.
+//
+// Three assertions, because "the release branch is protected" is really three
+// claims: the new branch gains the protection, the old one loses it (it is
+// now an ordinary stored branch — narrowing, not accumulating), and no
+// near-miss spelling of the protected ref slips past the comparison.
+func TestGitE2E_RetargetMovesProtectionWithoutWideningIt(t *testing.T) {
+	site := newGitSite(t)
+	if _, err := gitRun(site.repoDir(), nil, "symbolic-ref", "HEAD", "refs/heads/shipping"); err != nil {
+		t.Fatalf("retargeting HEAD: %v", err)
+	}
+	_, ts := site.startServer(t, true, false)
+
+	work := clone(t, cloneURL(ts, "", ""))
+	gitMust(t, work, "checkout", "--quiet", "-B", releaseBranch, "origin/"+releaseBranch)
+	liveSHA := site.refSHA(t, releaseBranch)
+
+	// Bring the new release branch into being; it publishes.
+	gitMust(t, work, "checkout", "--quiet", "-b", "shipping")
+	shipped := commit(t, work, "site/index.pars", "<h1>\"shipped\"</h1>\n", "shipped")
+	if out, err := gitRun(work, nil, "push", "origin", "shipping"); err != nil {
+		t.Fatalf("pushing the new release branch failed: %v:\n%s", err, out)
+	}
+	if got := site.currentSHA(t); got != shipped {
+		t.Fatalf("current is %s, want the shipped release %s", got, shipped)
+	}
+
+	// (a) The protection moved WITH HEAD: shipping cannot be rewritten.
+	gitMust(t, work, "reset", "--hard", "HEAD~1")
+	commit(t, work, "site/index.pars", "<h1>\"rewritten\"</h1>\n", "rewrite shipping")
+	out, err := gitRun(work, nil, "push", "--force", "origin", "shipping")
+	if err == nil {
+		t.Errorf("force-pushing the new release branch was accepted:\n%s", out)
+	}
+	if !strings.Contains(out, "rewrites release history") {
+		t.Errorf("refusal does not name the reason:\n%s", out)
+	}
+	if got := site.refSHA(t, "shipping"); got != shipped {
+		t.Errorf("shipping moved to %s despite the refusal", got)
+	}
+
+	// (b) And it moved rather than accumulating: live is an ordinary branch
+	// again, stored and published to nobody, so rewriting it is ACCEPTED.
+	// A protection that only ever grows would end up freezing every branch
+	// HEAD had ever pointed at.
+	gitMust(t, work, "checkout", "--quiet", releaseBranch)
+	rewrittenLive := commit(t, work, "site/index.pars", "<h1>\"old branch\"</h1>\n", "rewrite live")
+	if out, err := gitRun(work, nil, "push", "--force", "origin", releaseBranch); err != nil {
+		t.Errorf("force-pushing the branch HEAD no longer names must be accepted: %v:\n%s", err, out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != rewrittenLive {
+		t.Errorf("%s is %s, want the force-pushed %s (was %s)", releaseBranch, got, rewrittenLive, liveSHA)
+	}
+	if got := site.currentSHA(t); got != shipped {
+		t.Errorf("a push to the old branch deployed: current is %s, want %s", got, shipped)
+	}
+
+	// (c) A near-miss spelling must not become a way to write the protected
+	// ref. refs/heads/SHIPPING is a DIFFERENT ref to git's comparison — and
+	// so to the hub's, which is why pre-receive lets it through as "any other
+	// ref" — but on a case-insensitive filesystem (APFS, NTFS) a loose ref is
+	// a file, and the two names are the same file.
+	//
+	// Observed: the protected ref holds, and git is what holds it. The ref
+	// transaction fails with "cannot lock ref 'refs/heads/SHIPPING':
+	// reference already exists" after pre-receive has already accepted the
+	// update, so the collision never lands. On a case-sensitive filesystem
+	// the same push simply creates an unrelated stored branch, which is
+	// harmless. Basil's own comparison is exact either way; this asserts the
+	// outcome, not the mechanism, so a platform where git stopped refusing
+	// would fail here rather than silently allow the rewrite.
+	//
+	// The push names the destination ref explicitly rather than creating a
+	// local branch called SHIPPING: on a case-insensitive filesystem the
+	// CLONE cannot hold both spellings either, so `checkout -B SHIPPING`
+	// fails locally and nothing is ever sent — a green test that exercised
+	// no server code at all.
+	upper := strings.ToUpper("shipping")
+	gitMust(t, work, "checkout", "--quiet", "-B", "case-collision", "origin/shipping")
+	commit(t, work, "site/index.pars", "<h1>\"case collision\"</h1>\n", "case collision")
+	upperOut, upperErr := gitRun(work, nil, "push", "origin", "HEAD:refs/heads/"+upper)
+	t.Logf("pushing refs/heads/%s was %s by this platform's git:\n%s", upper, pushOutcome(upperErr), upperOut)
+	if got := site.refSHA(t, "refs/heads/shipping"); got != shipped {
+		t.Errorf("pushing refs/heads/%s moved the protected ref to %s (was %s) — push %s:\n%s",
+			upper, got, shipped, pushOutcome(upperErr), upperOut)
+	}
+	if got := site.currentSHA(t); got != shipped {
+		t.Errorf("pushing refs/heads/%s deployed: current is %s, want %s", upper, got, shipped)
+	}
+}
+
+func pushOutcome(err error) string {
+	if err == nil {
+		return "accepted"
+	}
+	return "refused"
+}
+
+// A switch the operator wrote but git cannot read fails towards serving —
+// the deploy path must not go down on a typo — but it must never do so
+// SILENTLY. "I set basil.gitEnabled false and /.git kept serving" has to be
+// answerable from the log, so an unreadable value names itself, its
+// repository, and git's own reason. An unset key says nothing: that is the
+// normal case, and a warning on every start of every site is noise.
+func TestGitE2E_UnreadableGitEnabledWarnsAndKeepsServing(t *testing.T) {
+	site := newGitSite(t)
+	if _, err := gitRun(site.repoDir(), nil, "config", "basil.gitEnabled", "flase"); err != nil {
+		t.Fatalf("setting basil.gitEnabled: %v", err)
+	}
+
+	cfgPath := filepath.Join(site.root, "current", config.ConfigFileName)
+	cfg, absPath, err := config.LoadWithPath(cfgPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	cfg.Server.Dev = true
+
+	var stderr bytes.Buffer
+	srv, err := New(cfg, absPath, "test", "test", io.Discard, &stderr)
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	t.Cleanup(func() {
+		if srv.authDB != nil {
+			srv.authDB.Close()
+		}
+		if srv.db != nil {
+			srv.db.Close()
+		}
+		srv.cleanupDevTools()
+	})
+
+	if srv.gitHandler == nil {
+		t.Error("an unreadable basil.gitEnabled took the git endpoint down")
+	}
+	log := stderr.String()
+	for _, want := range []string{"basil.gitEnabled", site.repoDir(), "bad boolean"} {
+		if !strings.Contains(log, want) {
+			t.Errorf("the startup log does not mention %q:\n%s", want, log)
+		}
+	}
+}
+
+// The counterpart: the normal case is silent.
+func TestGitE2E_UnsetGitEnabledIsSilent(t *testing.T) {
+	site := newGitSite(t)
+
+	cfgPath := filepath.Join(site.root, "current", config.ConfigFileName)
+	cfg, absPath, err := config.LoadWithPath(cfgPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	cfg.Server.Dev = true
+
+	var stderr bytes.Buffer
+	srv, err := New(cfg, absPath, "test", "test", io.Discard, &stderr)
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	t.Cleanup(func() {
+		if srv.authDB != nil {
+			srv.authDB.Close()
+		}
+		if srv.db != nil {
+			srv.db.Close()
+		}
+		srv.cleanupDevTools()
+	})
+
+	if strings.Contains(stderr.String(), "basil.gitEnabled") {
+		t.Errorf("an unset basil.gitEnabled warned:\n%s", stderr.String())
+	}
+}

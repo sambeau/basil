@@ -57,7 +57,7 @@ type Config struct {
 
 	// retiredKeys holds one message per removed key this config still
 	// carries (see operator.go). Same reasoning, and reported through the
-	// same channel plus RetiredKeyWarnings, which `basil publish` prints so
+	// same channel plus ReleaseWarnings, which `basil publish` prints so
 	// a stale key in the repository everyone pulls from cannot linger unseen.
 	retiredKeys []string
 }

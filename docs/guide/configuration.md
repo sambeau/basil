@@ -25,7 +25,6 @@ This is the canonical reference for every key in `basil.yaml`. All examples are 
   - [cors](#cors)
   - [compression](#compression)
   - [logging](#logging)
-  - [git](#git)
   - [dev](#dev)
   - [developers](#developers)
   - [meta](#meta)
@@ -237,8 +236,14 @@ never disagree quietly:
 
 ```
 warning: auth.enabled: false in this release's basil.yaml is ignored on a site root — pushes are authenticated; a release cannot switch that off
-warning: data_dir: "/var/lib/elsewhere" in this release's basil.yaml is ignored on a site root — the data root is the operator's, and the databases the deploy path runs on live under it; it stays /srv/mysite/data
+warning: data_dir in this release's basil.yaml is ignored on a site root — the data root is the operator's, and the databases the deploy path runs on live under it; it stays /srv/mysite/data
 ```
+
+The `data_dir` warning names the key and the decision but never the release's
+*value*. `basil.yaml` is environment-interpolated before it is read, so a
+`data_dir: ${SOME_SECRET_PATH}` would otherwise print whatever that expanded
+to into the server log on every start and every deploy. What an operator needs
+is which key was ignored and which root is actually in use; both are there.
 
 Two facts left `basil.yaml` entirely rather than being forced, because forcing a
 *value* means nothing: **which branch publishes**, and **whether `/.git` is
@@ -437,8 +442,11 @@ logging:
   parsley:
     output: stderr              # Parsley log() output
 
-# git:
-#   enabled: false              # Off-switch only; ignored on a site root
+# No git: section. The release branch and the /.git off-switch are the
+# operator's, not the release's - see "Operator-Owned Settings on a Site
+# Root" above. Both are set on the server, in the bare repository:
+#   git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main   # the release branch
+#   git -C /srv/mysite/site.git config basil.gitEnabled false       # stop serving /.git
 
 dev:
   # log_database: ./dev_logs.db
