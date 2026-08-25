@@ -164,6 +164,8 @@ the auth database exists).
 - [ ] `--init --server` no longer writes `deploy.branch` into the generated config
 - [ ] Retargeting HEAD to a not-yet-pushed branch: pushes to the old branch are
       stored-not-published; `basil check` reports the state plainly
+- [ ] `basil check` verifies `site.git`'s HEAD names a branch that exists, warning
+      when the operator retargeted ahead of the first push (one `show-ref` call)
 - [ ] Detached or unreadable HEAD: push refused with the symbolic-ref fix named
 
 ### Retired keys
@@ -172,6 +174,9 @@ the auth database exists).
       generated configs, `configuration-example.yaml`, and the docs
 - [ ] A config carrying either key loads with a warning naming the replacement;
       never an error
+- [ ] The retired-key warning also surfaces where a clone would otherwise never see
+      it: at `basil --dev` startup and in `basil publish` output — a stale committed
+      key must not linger unseen in the repository everyone pulls from
 - [ ] `git config basil.gitEnabled false` in `site.git` disables `/.git` (clone and
       push both 404/refused); absent or `true` serves as today; tested both ways
 - [ ] `enforceOperatorOwned` forces `auth.enabled` only; its table test updated
@@ -219,9 +224,11 @@ Project checklist (`CLAUDE.md`) plus:
 
 ## Open Questions
 
-1. Should `basil check` also verify HEAD names a branch that exists (warn when the
-   operator retargeted ahead of the first push)? Recommend yes — it is one
-   `show-ref` call and `check` is the diagnosis surface.
-2. Warning channel for the retired keys in a *clone* (no server running): surfaced
-   at `basil --dev` startup and `basil publish`? Recommend yes to both — the clone
-   is where a stale committed key would otherwise linger unseen.
+All resolved (@sam, 2026-08-25):
+
+1. ~~Should `basil check` verify HEAD names an existing branch?~~ — **Yes.** One
+   `show-ref` call, and `check` is the diagnosis surface. In the acceptance
+   criteria.
+2. ~~Retired-key warnings in a clone?~~ — **Yes, at `basil --dev` startup and in
+   `basil publish` output.** The clone is where a stale committed key would
+   otherwise linger unseen. In the acceptance criteria.
