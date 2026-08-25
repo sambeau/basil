@@ -1,11 +1,19 @@
 ---
 id: FEAT-035
 title: "Git over HTTPS"
-status: implemented
+status: superseded
 priority: medium
 created: 2025-12-07
 author: "@sambeau"
 ---
+
+> **Superseded (2026-08-24).** The Git-over-HTTPS transport and its authentication
+> model live on, but the delivery is now owned by **FEAT-154** (the bare-repository
+> Git hub, release branch and receive hooks), which replaces the `go-git-http`
+> library and the "serve the live site directory" approach described below, and by
+> **FEAT-152** (the site-root layout) and **FEAT-153** (the deploy engine the hooks
+> call). This spec is kept for its history; do not treat its acceptance criteria or
+> `go-git-http` design as current.
 
 # FEAT-035: Git over HTTPS
 

@@ -15,7 +15,7 @@ Topic-by-topic guides for building with Basil. For the structured manuals, see t
 | Style my site | [Styling](styling.md) |
 | Enable CORS for APIs | [CORS](cors.md) |
 | Deploy, roll back, or inspect releases | [Deployment](deployment.md) |
-| Deploy via Git push | [Git over HTTPS](git.md) |
+| Clone, push, and publish over Git | [Git over HTTPS](git.md) |
 | Find an answer to a question | [FAQ](faq.md) |
 
 > **Contributor docs** — the development process, feature specs, bug reports, and plans live in [`work/`](../../work/README.md), not here. This directory is for people *using* Basil.

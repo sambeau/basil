@@ -1,372 +1,344 @@
 # Git over HTTPS
 
-Basil can serve your site as a Git repository, allowing you to push changes directly to a running server using standard Git commands.
+Basil's server holds a **bare Git repository** that your team pushes to. You clone
+it, edit locally, `git push` — and none of it reaches the public until you
+deliberately release it. The clone URL is `https://user@host/.git`, unchanged from
+earlier versions of Basil, but what sits behind it is different: a proper shared Git
+host, not the live site directory.
 
-> **This mechanism is being reworked.** Today Basil serves your live site directory
-> directly, which means a push has to contend with a checked-out working tree. That needs
-> some manual setup, and it has a failure mode that bites long-running sites — both are
-> covered below. The replacement, which pushes to a separate bare repository and deploys
-> from it, is described in
-> [`work/design/DESIGN-git-deploy.md`](../../work/design/DESIGN-git-deploy.md) and tracked
-> as FEAT-152/FEAT-154. Expect the setup steps below to get shorter, not longer.
+Two verbs do two different things, and keeping them apart is the whole point:
 
-## Quick Start
-
-### 1. Prepare the repository
-
-Basil serves your project directory as a Git repository, but it doesn't create or
-configure that repository for you, so on a fresh project you have to do two things by hand
-on the server, in the project directory:
-
-> **Sites created by the current `basil --init` are different.** `--init` now builds a
-> site root with a **bare** repository at `<site root>/site.git`, and a bare repository has
-> no checked-out branch to contend with — none of the `receive.denyCurrentBranch` setup
-> below applies, and neither does the drift failure. Serving it, and deploying from a push,
-> is FEAT-154; until then the section below describes the older single-directory setup.
-
-```bash
-cd /path/to/mysite
-
-# Create the repository, if you haven't already
-git init -b main .
-git add -A
-git commit -m "Initial commit"
-
-# Allow pushes into the branch that is checked out
-git config receive.denyCurrentBranch updateInstead
+```
+git push            →  shared with the team. Stored, published to nobody.
+publish             →  the release branch moves, and the site goes live.
 ```
 
-That second line is the important one. The directory Basil serves is a normal non-bare
-repository with a working tree — the live site — and Git refuses by default to accept a
-push into the branch that tree has checked out. `updateInstead` tells Git to accept the
-push and update the working tree to match, which is exactly what you want here.
+`git push` is transport. It stores whatever you push — any branch, any tag — and
+publishes none of it. **Publishing is moving the release branch** (`live` by
+default): a push that moves it triggers a deploy, which checks the release and, only
+if it passes, makes it the live site. That pipeline — validate, activate, record,
+roll back — is the subject of the [Deployment guide](deployment.md); this page is
+about the Git side: cloning, authenticating, pushing, and the credential mechanics
+that trip people up.
 
-Without it your first push is rejected. See
-[Troubleshooting](#troubleshooting) for what that looks like.
+> A friendlier `basil publish` command — one that shows you what is about to go out
+> and asks before it does — is coming (FEAT-155). Until it lands, publishing is
+> `git push` of the release branch, exactly as below.
 
-### 2. Enable Git
+## The endpoint
 
-In your `basil.yaml`:
+`basil --init` creates a site with a bare repository at `<site root>/site.git`, and
+the server serves it at `/.git` whenever that repository exists. There is nothing to
+turn on: the Git endpoint is live because the repository is there. A push into a bare
+repository never contends with a checked-out working tree, so the first push to a
+fresh site just works — no `receive.denyCurrentBranch`, no manual repository setup,
+none of the ceremony older versions of Basil required.
 
-```yaml
-git:
-  enabled: true
-  require_auth: true    # Require API key for access
+The repository ships with the starter site already committed on the release branch,
+so a clone of a freshly initialised server yields working files rather than *"you
+appear to have cloned an empty repository"*.
 
-auth:
-  enabled: true         # Required when require_auth is true
-```
+To turn the endpoint off entirely — an unusual thing to want — set `git.enabled:
+false`. There is no `git.enabled: true`: the endpoint is on when the repository
+exists.
 
-`require_auth: true` needs `auth.enabled: true` as well. Without it the server does not
-start at all — it exits with `git server requires auth but auth is not enabled`.
-
-### 3. Create a User and API Key
-
-```bash
-# Create a user. This prints the user ID you need in the next step.
-basil users create --name Alice --email alice@example.com --role editor
-# ✓ Created user usr_7d30113fc69ba1d8...
-
-# Generate an API key for that user
-basil apikey create --user usr_7d30113fc69ba1d8... --name "MacBook Git"
-# ✓ Created API key: bsl_live_AcTVMzefTllD875... (save this now — it won't be shown again)
-#   Key ID: key_42c52e0dc55a5a64...
-```
-
-Both commands take the user *ID*, not the name. Note that the first user you create is
-always an admin regardless of `--role`; the CLI says so when it ignores the flag.
-
-### 4. Clone Your Site
+## Clone your site
 
 ```bash
-# Clone from the running server
-git clone https://username:bsl_live_AcTVMzefTllD875...@yourserver.com/.git mysite
-```
-
-The username can be anything—only the API key matters.
-
-### 5. Push Changes
-
-```bash
+git clone https://sam@mysite.example.com/.git mysite
+Password: <paste the API key>     # the OS keychain remembers it
 cd mysite
-# Make changes...
-git add .
-git commit -m "Update homepage"
-git push
+git config core.hooksPath .githooks   # opt into the pre-commit formatting hook
 ```
 
-Basil automatically reloads when you push—no server restart needed.
+`basil --init` prints this exact command, with your hostname and account name
+already filled in, so you rarely type it from memory.
+
+In dev mode the transport is plain HTTP on localhost:
+
+```bash
+basil --dev --site /srv/mysite
+git clone http://sam@localhost:8080/.git mysite
+```
+
+**Production is always HTTPS.** Basil obtains its own certificate at startup, so the
+`https://` URL works without any TLS setup on your part — see the
+[Deployment guide](deployment.md#basil-check). Plain HTTP is refused everywhere
+except a `--dev` server on localhost (see [Authentication](#authentication)).
+
+## The daily loop
+
+```bash
+# ...edit...
+git add -A
+git commit -m "New homepage"
+git push                          # shared with the team. Not public.
+git push origin live              # publish: the release branch moves, the site deploys
+```
+
+A push that moves the release branch runs the deploy pipeline on the server, and its
+output reaches your terminal as `remote:` lines while the push is still running:
+
+```
+$ git push origin live
+remote: Checking release cd07c0b93bb4… ok
+remote: deploying cd07c0b93bb4
+remote: deployed cd07c0b93bb4 in 5ms
+remote: Deployed cd07c0b93bb4 (5ms)
+To https://mysite.example.com/.git
+   c58530e..cd07c0b  live -> live
+```
+
+A push that moves any *other* ref is stored and nothing else happens — no deploy, no
+output beyond Git's own:
+
+```
+$ git push -u origin new-shop
+To https://mysite.example.com/.git
+ * [new branch]      new-shop -> new-shop
+```
+
+So sharing work without publishing it is just a push of a branch that isn't the
+release branch:
+
+```bash
+git checkout -b new-shop
+git push -u origin new-shop       # on the server, published to nobody
+# ...a colleague, or you on another machine:
+git fetch && git checkout new-shop
+# ...when everyone's happy:
+git checkout live && git merge new-shop
+git push origin live              # now it goes live
+```
+
+A release that fails its check is **rejected**, the release branch does not move, and
+the live site is untouched — you see the reason in the terminal you typed into:
+
+```
+$ git push origin live
+remote: Checking release 3c2ffbf198b3…
+remote: site/index.pars:1:5: unexpected character 'Unterminated string starting with "broken"'
+remote: Release rejected. The live site is unchanged (still cd07c0b93bb4).
+remote: error: release 3c2ffbf198b3 refused
+To https://mysite.example.com/.git
+ ! [remote rejected] live -> live (pre-receive hook declined)
+error: failed to push some refs to 'https://mysite.example.com/.git'
+```
+
+The [Deployment guide](deployment.md#validation) describes what validation catches
+(broken code, not unfinished work) and how to override it in an emergency.
 
 ## Authentication
 
-Git authentication uses **API keys** via HTTP Basic Auth:
+Git access uses **HTTP Basic Auth over TLS**, with your **API key in the password
+field**. This is the model every Git client, editor and credential manager already
+speaks — the same shape as a GitHub personal access token.
 
-- **Username**: Can be anything (ignored)
-- **Password**: Your API key (starts with `bsl_live_`)
+- **Password**: your API key (starts with `bsl_live_`).
+- **Username**: selects a stored credential on your machine, and is **ignored by
+  Basil** — only the key authenticates. (This matters more than it sounds; see
+  [The two things Git calls a username](#the-two-things-git-calls-a-username).)
 
-### Role Requirements
-
-| Operation | Required Role |
+| Operation | Required role |
 |-----------|---------------|
-| Clone/Pull | Any authenticated user |
-| Push | `editor` or `admin` |
+| Clone / fetch | any authenticated user |
+| Push (any branch, including the release branch) | `editor` or `admin` |
 
-Users with the `viewer` role can clone but cannot push.
+A push from a `viewer` is refused with a message naming the role required:
 
-### Creating API Keys
+```
+Forbidden: pushing requires the editor or admin role (Vic has the viewer role)
+```
+
+Create users and keys with the CLI (both take the user *ID*, not the name; the first
+user created is always an admin):
 
 ```bash
-# Create an API key for a user (--user and --name are both required)
+basil users create --name Sam --email sam@example.com --role editor
+# ✓ Created user usr_7d30113fc69ba1d8...
 basil apikey create --user usr_7d30113fc69ba1d8... --name "MacBook Git"
-# ✓ Created API key: bsl_live_AcTVMzefTllD875...
-#   Key ID: key_42c52e0dc55a5a64...
-
-# List API keys for a user
+# ✓ Created API key: bsl_live_AcTVMzefTllD875... (save this now — it won't be shown again)
 basil apikey list --user usr_7d30113fc69ba1d8...
-
-# Revoke an API key — this takes the key ID, not the key itself
-basil apikey revoke key_42c52e0dc55a5a64...
+basil apikey revoke key_42c52e0dc55a5a64...      # takes the key ID, not the key itself
 ```
 
-## Configuration Reference
+### Plain HTTP is refused
 
-```yaml
-git:
-  enabled: false       # Enable Git server (default: false)
-  require_auth: true   # Require authentication (default: true)
-
-auth:
-  enabled: true        # Must be true when git.require_auth is true
-```
-
-### Options
-
-- **`enabled`**: Set to `true` to enable the Git HTTP endpoint at `/.git/`
-- **`require_auth`**: When `true`, all Git operations require a valid API key. This
-  requires `auth.enabled: true`; if auth is off the server exits at startup with
-  `git server requires auth but auth is not enabled`
-
-### Security Warning
-
-If you set `require_auth: false`, Basil will log a warning:
+HTTP Basic Auth puts the API key in an easily-decoded header, so over plain HTTP it
+is a plaintext credential with push rights on the wire. Basil **refuses** Git over
+plain HTTP rather than merely warning about it:
 
 ```
-⚠ Git enabled without authentication - anyone can push
+Git over plain HTTP is refused: HTTP Basic authentication would send the API key
+unencrypted. Use https:// (Basil obtains its own certificate), or a --dev server on
+localhost.
 ```
 
-This is dangerous in production—anyone could push malicious code to your server.
+The refusal is scoped to the Git endpoints — the rest of the site, including the
+ACME challenge path that lets Basil obtain its certificate, is served over plain HTTP
+on port 80 as normal. The **sole exception** is a `--dev` server answering a request
+from localhost, and that exception is decided in code, never from a config file.
+There is no setting to disable authentication or to allow plain-HTTP Git; a server
+with no auth database refuses Git entirely.
 
-## Dev Mode
+Never work around a TLS error with `git -c http.sslVerify=false`: your API key is in
+the request, so disabling verification hands push rights to whoever answered the
+connection. If the handshake fails, fix the certificate — `basil check` on the server
+tells you whether DNS or port 80 is the problem.
 
-In dev mode (`--dev`), requests from localhost bypass authentication:
+## The two things Git calls a username
+
+Git uses the word "username" for two unrelated things, and conflating them is the
+likeliest source of confusion here. They never meet:
+
+| | Where it lives | What it does |
+|---|---|---|
+| **URL username** — the `sam@` in the clone URL | `remote.origin.url` in `.git/config` | Selects which stored credential to send. **Basil ignores it** — only the API key authenticates. Nothing to do with commits. |
+| **`user.name` / `user.email`** | `git config`, global or per-repo | The **commit author**, recorded *inside* every commit you make. Nothing to do with authentication. |
+
+A developer whose `user.email` is `sam@personal.example` and whose Basil account is
+called `sam` has no conflict to resolve. Authorship is read from the commit; access
+is read from the key.
+
+Because Basil ignores the URL username, `https://anything@host/.git` works with a
+valid key. **Use your real account name in the URL anyway.** The platform credential
+helper keys on *(host, username)*, so two accounts on the same host — you and a
+deploy key, say — need distinct URL usernames or they fight over one keychain entry.
+It is free hygiene for a case that is annoying to debug later, and the deploy record
+still names whoever the key belongs to, not whoever the URL says.
+
+## Remembering your key: credential storage
+
+After the first push, Git offers your key to the platform credential helper, which
+stores it so every later `git push` is silent. **What that helper is, and whether it
+is secure, depends on your operating system** — and one common Linux fallback stores
+the key in plaintext.
+
+| Platform | Helper | Setup |
+|---|---|---|
+| macOS | Keychain (`osxkeychain`) | None — encrypted, ships configured |
+| Windows | Credential Manager (`manager`/`wincred`) | None — encrypted, ships configured |
+| Linux | **often none configured** | See below |
+
+On macOS and Windows there is nothing to do. On Linux Git frequently has no
+credential helper at all, in which case one of two things happens:
+
+- Git prompts for the key on **every** push, or
+- someone reaches for `credential.helper store`, which writes the key **in plaintext**
+  to `~/.git-credentials`.
+
+That second option leaves an API key with push rights sitting in a readable file. It
+is the most likely way a Basil key leaks in practice. **Prefer `libsecret`,** which
+stores the key in your desktop keyring:
 
 ```bash
-# Dev mode - no API key needed from localhost
-basil --dev
-git clone http://localhost:8080/.git mysite
+# Debian/Ubuntu: build and enable the libsecret helper
+sudo apt install libsecret-1-0 libsecret-1-dev
+sudo make -C /usr/share/doc/git/contrib/credential/libsecret
+git config --global credential.helper \
+  /usr/share/doc/git/contrib/credential/libsecret/git-credential-libsecret
 ```
 
-This makes local development easier while keeping production secure.
+Use `credential.helper store` only when you understand that it is plaintext on disk —
+a throwaway VM, say — and never on a shared host.
 
-## How Push Reload Works
+## What is refused
 
-When you `git push`:
+- **Force-pushing the release branch** — refused, for everyone, with no setting to
+  permit it. A rewritable release history makes the deploy record, and therefore
+  rollback, unreliable.
 
-1. Basil receives the push at `/.git/` and checks your API key and role
-2. It hands the request to the `go-git-http` handler, which runs `git receive-pack` in
-   your project directory
-3. `receive-pack` stores the pushed objects and updates the refs — it does **not** write
-   your files into the site directory by itself
-4. Because you set `receive.denyCurrentBranch=updateInstead`, Git then updates the
-   checked-out working tree to match the ref it just moved. This is the step that makes
-   the new files appear on disk, and it is Git doing it, not Basil
-5. Basil clears its script, response and fragment caches
-6. The next request loads the updated files
+  ```
+  remote: force-pushing the release branch rewrites release history, which the deploy
+  remote: record and rollback rely on — it is refused for everyone
+  remote: error: release branch force-push refused
+   ! [remote rejected] live -> live (pre-receive hook declined)
+  ```
 
-So the file update depends entirely on receive behaviour being configured. If it isn't,
-the push is refused (step 4 never happens) and nothing changes on disk. Basil's cache
-clear assumes the files are already there; it does not fetch or check out anything itself.
+- **Deleting the release branch** — refused, same reasoning.
 
-This happens automatically—no webhook or restart needed.
+  ```
+  remote: the release branch cannot be deleted
+  remote: error: release branch deletion refused
+   ! [remote rejected] live (pre-receive hook declined)
+  ```
 
-### The drifted working tree
+  Force-pushing or deleting any *other* branch is fine — it is your repository as much
+  as the server's.
 
-`updateInstead` is deliberately cautious: it refuses to update the working tree if that
-tree has **uncommitted changes to tracked files**, because updating would throw those
-changes away. On a long-running site this is the failure you are most likely to hit — a
-deploy that worked yesterday starts getting rejected, with no obvious cause.
-
-Anything that writes inside a tracked path can cause it: a generated file, a cache
-directory that isn't ignored, an edit made on the server, a stray `.DS_Store` that got
-committed once and now changes.
-
-Untracked and ignored files are fine, so anything you keep inside the project must be in
-`.gitignore` — logs, databases, the certificate cache, the transformed-image cache. (A
-site created by the current `basil --init` keeps all of that in its data directory, outside
-the repository entirely, which is why its `.gitignore` is nearly empty.)
-
-To fix a drifted tree, go to the server and either discard or commit the local changes:
-
-```bash
-cd /path/to/mysite
-git status                # see what has drifted
-git checkout -- .         # discard the local changes...
-# ...or keep them:
-git stash
-```
-
-Then push again.
-
-## Example Workflow
-
-### Initial Setup (Server)
-
-```yaml
-# basil.yaml
-server:
-  host: 0.0.0.0
-  port: 443
-  tls_cert: /etc/ssl/cert.pem
-  tls_key: /etc/ssl/key.pem
-
-git:
-  enabled: true
-  require_auth: true
-
-auth:
-  enabled: true
-```
-
-```bash
-# Prepare the repository (once)
-cd /path/to/mysite
-git init -b main .
-git add -A && git commit -m "Initial commit"
-git config receive.denyCurrentBranch updateInstead
-
-# Create a deployment user and note the usr_ ID it prints
-basil users create --name Deploy --email deploy@example.com --role editor
-# ✓ Created user usr_deploy123...
-
-basil apikey create --user usr_deploy123... --name "Deploy key"
-# ✓ Created API key: bsl_live_deploy123...
-```
-
-### Developer Workflow
-
-```bash
-# Clone the site
-git clone https://deploy:bsl_live_deploy123...@mysite.com/.git mysite
-cd mysite
-
-# Make changes
-vim handlers/index.pars
-
-# Deploy
-git add .
-git commit -m "Update homepage"
-git push   # Site updates as soon as the push lands
-```
+- **Git LFS and submodules are not supported.** The endpoint serves the Smart HTTP
+  clone/fetch/push protocol and nothing else; there is no LFS batch API, and a
+  submodule pointing back at a Basil server has no repository of its own to resolve
+  against. Keep large binaries in the repository directly (or serve them as
+  [uploads](deployment.md)) and vendor shared code rather than linking it as a
+  submodule.
 
 ## Troubleshooting
 
-### "branch is currently checked out"
+### A stale cached credential — 401 forever, no prompt
 
-```
-remote: error: refusing to update checked out branch: refs/heads/main
-remote: error: By default, updating the current branch in a non-bare repository
-remote: is denied, because it will make the index and work tree inconsistent
-remote: with what you pushed, and will require 'git reset --hard' to match
-remote: the work tree to HEAD.
- ! [remote rejected] main -> main (branch is currently checked out)
-error: failed to push some refs to 'https://mysite.com/.git'
-```
-
-Receive behaviour hasn't been configured. On the server, in the project directory:
+This is the most common failure once things are working. A wrong or revoked key is
+cached in your keychain, so pushes fail `401` and re-running the command never prompts
+again — Git keeps offering the same bad key. Clear it and Git will prompt afresh on
+the next push:
 
 ```bash
-git config receive.denyCurrentBranch updateInstead
+printf 'protocol=https\nhost=mysite.example.com\n' | git credential reject
 ```
 
-Then push again. Git's own message suggests `ignore` or `warn` as well — don't use those
-here. They accept the push but leave the working tree untouched, so your site would keep
-serving the old files while the repository claims to be up to date.
+Then `git push` and paste a current key.
 
-### "Working directory has unstaged changes"
+### "Authentication failed" / repeated password prompts
 
-```
- ! [remote rejected] main -> main (Working directory has unstaged changes)
-error: failed to push some refs to 'https://mysite.com/.git'
-```
+The key is wrong, revoked, or missing. Confirm the key is current
+(`basil apikey list --user usr_…` on the server), then either paste it when prompted
+or clear a stale cached one as above. The username in the URL is irrelevant to this —
+only the key is checked.
 
-The live working tree has uncommitted changes to tracked files, so Git won't overwrite it.
-See [The drifted working tree](#the-drifted-working-tree) above for why this happens and
-how to clear it.
+### "Forbidden: pushing requires the editor or admin role"
 
-### "Authentication required"
-
-You need to include your API key in the Git URL:
+Your key is valid but your account is a `viewer`. Anyone can clone; only `editor` and
+`admin` can push. Raise the role on the server:
 
 ```bash
-git clone https://user:bsl_live_yourkey@server/.git
-```
-
-Or configure Git credentials:
-
-```bash
-git config credential.helper store
-# Then enter credentials when prompted
-```
-
-### "Forbidden: editor or admin role required"
-
-Your user doesn't have permission to push. Check their role:
-
-```bash
-basil users list                    # find the usr_ ID
-basil users show usr_abc123...      # show takes the ID, not the name
-```
-
-Upgrade to editor if needed:
-
-```bash
+basil users show usr_abc123...            # show takes the ID, not the name
 basil users set-role usr_abc123... editor
 ```
 
-### Push succeeds but site doesn't update
+### "Git over plain HTTP is refused"
 
-If `receive.denyCurrentBranch` is set to `ignore` or `warn` rather than `updateInstead`,
-Git accepts the push and updates the refs but never touches the working tree, so the files
-Basil serves are unchanged. Check it on the server:
+You cloned with an `http://` URL against a production server. Re-point the remote at
+`https://`:
 
 ```bash
-git config receive.denyCurrentBranch
+git remote set-url origin https://sam@mysite.example.com/.git
 ```
 
-Otherwise, check the server logs. The cache clear might have failed, or there might be a
-parsing error in your Parsley files.
+Only a `--dev` server on localhost accepts plain-HTTP Git.
 
-### Clone works but push fails
+### A release push is rejected
 
-Check the rejection message. `(branch is currently checked out)` and
-`(Working directory has unstaged changes)` are the two repository-side failures above —
-they have nothing to do with your key. A `403` with `editor or admin role required` means
-your API key is valid but your role is insufficient; only `editor` and `admin` can push.
+The rejection message names the file, line and column
+(`site/index.pars:1:5: …`). That is validation refusing broken code before it goes
+live — the release branch did not move and the site is unchanged. Fix the reported
+error and push again. See the [Deployment guide](deployment.md#validation) for what
+validation does and does not catch.
 
-## Security Notes
+## Security notes
 
-- **Always use HTTPS in production**: API keys are sent in plain text with HTTP Basic Auth
-- **Keep API keys secret**: They grant full access to your site
-- **Use strong roles**: Give users the minimum role they need
-- **Audit API keys**: Use `basil apikey list --user <usr_id>` to see who has access
-- **Revoke unused keys**: `basil apikey revoke <key_id>` when no longer needed
+- **HTTPS is not optional in production** — the key is a Basic-auth credential; plain
+  HTTP is refused precisely so it is never sent in the clear.
+- **Treat the key like a password** — it grants push (and therefore deploy) rights.
+  Store it in the OS keychain or `libsecret`, not in `~/.git-credentials`.
+- **Give the minimum role** — a machine that only needs to read the site should hold a
+  `viewer` key.
+- **Rotate on suspicion** — `basil apikey revoke <key_id>` takes effect immediately
+  and needs no change to the user account.
 
-## Comparison with Other Deployment Methods
+## See also
 
-| Method | Pros | Cons |
-|--------|------|------|
-| Git push | Familiar workflow, instant updates | Requires API key and repository setup |
-| SCP/rsync | Simple, no setup | Manual, no versioning |
-| CI/CD pipeline | Automated, auditable | Complex setup |
-
-Git push is ideal for small teams who want quick deploys with version history.
+- [Deployment](deployment.md) — the deploy pipeline a release push triggers: validate,
+  activate, roll back, and the deploy record.
+- [Configuration](configuration.md#site-root-layout) — the site-root layout and the
+  two path anchors (release vs data).
+- [Authentication](authentication.md) — users, roles and API keys.
