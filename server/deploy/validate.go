@@ -137,6 +137,32 @@ func validateConfig(releaseDir string) []ValidationError {
 	if err := config.Validate(cfg); err != nil {
 		return []ValidationError{{File: config.ConfigFileName, Message: err.Error()}}
 	}
+
+	// A release chooses its own served roots, and one of them pointed at the
+	// site root would hand out site.git — the whole history, unpublished
+	// branches, every secret ever committed — over plain HTTP the moment the
+	// release went live. Nothing else stops it: site.git has no leading dot
+	// for the dotfile filters to catch, and the Git endpoint's own switch has
+	// no say over a static file handler.
+	//
+	// Refusing it here is what makes the failure land in the developer's
+	// terminal, on the push, with the release never activated — the same
+	// treatment a syntax error gets, and the reason recorded in the deploy
+	// record like any other rejection. The server re-checks at activation
+	// (SwapRelease) for the paths that skip this gate.
+	//
+	// The site root comes from the release's own location on disk
+	// (ResolveAnchors reads it from releases/<sha>/), not from anything in the
+	// file being validated. It is empty when the release is not inside a site
+	// root — a bare `basil validate` on a working copy — and then there is no
+	// repository for a served root to expose.
+	if repo := cfg.BareRepoPath(); repo != "" {
+		if info, err := os.Stat(repo); err == nil && info.IsDir() {
+			if err := config.CheckRepoOutsideServedRoots(cfg, repo); err != nil {
+				return []ValidationError{{File: config.ConfigFileName, Message: err.Error()}}
+			}
+		}
+	}
 	return nil
 }
 

@@ -613,23 +613,13 @@ func checkRepository(cfg *config.Config, pass, fail func(name, format string, a 
 	}
 	pass("repository", "%s", repo)
 
-	type servedRoot struct{ label, path string }
-	roots := []servedRoot{
-		{"public_dir", cfg.PublicDir},
-		{"site.path", cfg.Site.Path},
-	}
-	for i := range cfg.Static {
-		roots = append(roots, servedRoot{fmt.Sprintf("static[%d].root", i), cfg.Static[i].Root})
-	}
-
-	for _, root := range roots {
-		if root.path == "" {
-			continue
-		}
-		if pathContains(root.path, repo) {
-			fail("repository placement", "%s resolves inside the served root %s (%s) - anyone could download the site's history; move the repository or change %s", repo, root.label, root.path, root.label)
-			return
-		}
+	// The same check the server makes at startup and at every release
+	// activation, and the deploy gate makes on every push — one implementation,
+	// so `basil check` can never report all-clear on a placement any of them
+	// would refuse.
+	if err := config.CheckRepoOutsideServedRoots(cfg, repo); err != nil {
+		fail("repository placement", "%v", err)
+		return
 	}
 	pass("repository placement", "not inside any served root")
 
@@ -735,19 +725,6 @@ func checkManualCertificate(cfg *config.Config, pass, fail func(name, format str
 		return
 	}
 	pass("certificate", "manually configured (%s)", cfg.Server.HTTPS.Cert)
-}
-
-// pathContains reports whether p lives at or under root, after resolving
-// both through symlinks - `current` is one, so a naive prefix test lies.
-// config.RealPath resolves paths that do not exist yet as well, so a served
-// root the operator has not created cannot slip the repository past this.
-func pathContains(root, p string) bool {
-	root = config.RealPath(root)
-	p = config.RealPath(p)
-	if root == p {
-		return true
-	}
-	return strings.HasPrefix(p, root+string(filepath.Separator))
 }
 
 // clip shortens a value to fit its table column, counting runes rather than

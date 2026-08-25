@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -560,5 +561,84 @@ func TestActivateIfRepointedReportsAFailedReleaseOnce(t *testing.T) {
 	w.activateIfRepointed()
 	if n := strings.Count(stderr.String(), "activation FAILED"); n != 2 {
 		t.Errorf("a re-deployed failed release was not retried: %d failures reported, want 2; stderr: %s", n, stderr.String())
+	}
+}
+
+// initBareRepo creates the site's bare repository the way `basil --init
+// --server` does, so the server starts with a live Git endpoint over it.
+func initBareRepo(t *testing.T, repo string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	if out, err := exec.Command("git", "init", "--quiet", "--bare", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v: %s", err, out)
+	}
+}
+
+// A release must not be able to publish the site's repository by moving a
+// served root over it. static[].root is release-owned - it is not on any
+// restart-required carry list, because serving files IS what a release is
+// for - so `static: [{path: /s/, root: ../..}]` in a deployed basil.yaml
+// would hand out site.git (no leading dot, so no dotfile filter covers it)
+// and with it every version of every file, unpublished branches included,
+// from the moment the release went live. The startup guard cannot help: it
+// ran against a config two deploys ago.
+func TestSwapReleaseRefusesReleaseThatServesTheRepository(t *testing.T) {
+	root := activationFixture(t)
+	initBareRepo(t, filepath.Join(root, config.BareRepoName))
+	s, _, _ := newSiteRootServer(t, root)
+
+	exposing := writeRelease(t, root, "exposed", "exposed release", "static:\n  - path: /s/\n    root: ../..\n")
+	must(deploy.SetCurrent(root, exposing))
+
+	prevConfig, prevMux, prevState := s.config, s.mux, s.serving.Load()
+	err := s.SwapRelease()
+	if err == nil {
+		t.Fatal("SwapRelease activated a release that serves the site's repository")
+	}
+	if !strings.Contains(err.Error(), config.BareRepoName) {
+		t.Errorf("error should name the repository, got: %v", err)
+	}
+
+	// Refused like any other failed swap: nothing published, previous
+	// release still serving.
+	if s.config != prevConfig || s.mux != prevMux || s.serving.Load() != prevState {
+		t.Error("refused swap must leave the serving state untouched")
+	}
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "release A content") {
+		t.Errorf("after refused swap: expected release A content, got %q", got)
+	}
+	// The point of all of it: the repository's files are not reachable over
+	// HTTP. The previous release has no /s/ route at all, so its site
+	// catch-all answers that path - what must never come back is site.git's
+	// own content.
+	head, err := os.ReadFile(filepath.Join(root, config.BareRepoName, "HEAD"))
+	if err != nil {
+		t.Fatalf("reading the repository's HEAD: %v", err)
+	}
+	if got := get(s, "/s/"+config.BareRepoName+"/HEAD").Body.String(); strings.Contains(got, strings.TrimSpace(string(head))) {
+		t.Errorf("GET /s/%s/HEAD served the repository: %q", config.BareRepoName, got)
+	}
+}
+
+// The other half: a release whose static root stays inside itself is
+// ordinary configuration and activates normally. Without this the guard
+// above could be "refuse every release with a static route" and still pass.
+func TestSwapReleaseAllowsStaticRootInsideTheRelease(t *testing.T) {
+	root := activationFixture(t)
+	initBareRepo(t, filepath.Join(root, config.BareRepoName))
+	s, _, _ := newSiteRootServer(t, root)
+
+	serving := writeRelease(t, root, "static", "static release", "static:\n  - path: /s/\n    root: ./public\n")
+	must(os.MkdirAll(filepath.Join(serving, "public"), 0755))
+	must(os.WriteFile(filepath.Join(serving, "public", "hello.txt"), []byte("hello"), 0644))
+	must(deploy.SetCurrent(root, serving))
+
+	if err := s.SwapRelease(); err != nil {
+		t.Fatalf("SwapRelease refused a release serving its own public directory: %v", err)
+	}
+	if got := get(s, "/s/hello.txt").Body.String(); !strings.Contains(got, "hello") {
+		t.Errorf("static route from the new release: got %q", got)
 	}
 }

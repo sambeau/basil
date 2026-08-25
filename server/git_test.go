@@ -352,50 +352,6 @@ func TestHTTPRedirectHandler_ACMEChallengeStillAnswers(t *testing.T) {
 	}
 }
 
-// The bare repository must not sit inside anything the server serves files
-// from; a repository under a served root would expose every version of every
-// file.
-func TestCheckRepoOutsideServedRoots(t *testing.T) {
-	root := t.TempDir()
-	repo := filepath.Join(root, "public", "site.git")
-
-	cfg := &config.Config{
-		PublicDir: filepath.Join(root, "public"),
-		Site:      config.SiteConfig{Path: filepath.Join(root, "site")},
-	}
-	err := checkRepoOutsideServedRoots(cfg, repo)
-	if err == nil {
-		t.Fatal("repository inside public_dir was accepted")
-	}
-	if !strings.Contains(err.Error(), repo) || !strings.Contains(err.Error(), cfg.PublicDir) {
-		t.Errorf("error should name both paths, got: %v", err)
-	}
-
-	// A sibling repository (the --init layout) is fine.
-	cfg2 := &config.Config{
-		PublicDir: filepath.Join(root, "current", "public"),
-		Site:      config.SiteConfig{Path: filepath.Join(root, "current", "site")},
-		DataDir:   filepath.Join(root, "data"),
-	}
-	if err := checkRepoOutsideServedRoots(cfg2, filepath.Join(root, "site.git")); err != nil {
-		t.Fatalf("sibling repository refused: %v", err)
-	}
-
-	// static[].root is a served root too.
-	cfg3 := &config.Config{
-		Static: []config.StaticRoute{{Path: "/files/", Root: root}},
-	}
-	if err := checkRepoOutsideServedRoots(cfg3, filepath.Join(root, "site.git")); err == nil {
-		t.Fatal("repository inside static[].root was accepted")
-	}
-
-	// The uploads directory (under data_dir) is served at /__uploads/.
-	cfg4 := &config.Config{DataDir: root, SiteRoot: filepath.Dir(root)}
-	if err := checkRepoOutsideServedRoots(cfg4, filepath.Join(root, "uploads", "site.git")); err == nil {
-		t.Fatal("repository inside the uploads directory was accepted")
-	}
-}
-
 // A gzipped RPC body is bounded by its DECOMPRESSED size, so a tiny "gzip
 // bomb" cannot inflate without limit into git's stdin. limitReader refuses
 // (errors) rather than truncating; a normal body passes straight through.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Site-root layout (FEAT-152 / DESIGN-git-deploy §4):
@@ -337,4 +338,56 @@ func RealPath(p string) string {
 		rest = filepath.Join(filepath.Base(cur), rest)
 		cur = parent
 	}
+}
+
+// CheckRepoOutsideServedRoots refuses a bare repository that resolves inside
+// any directory the server serves files from: public_dir, site.path, any
+// static route's root or file directory, any route's public_dir, or the
+// uploads directory.
+//
+// It lives here, in config, because it is a question about a config and a
+// path rather than about a running server, and three places have to be able
+// to ask it: startup (server.initGit), live activation (server.SwapRelease)
+// and the deploy gate (deploy.Validate). A released config that moves a
+// served root over the repository is the same hole as a misconfigured one at
+// startup, and the check that closes it must not be reachable from only one
+// of them.
+func CheckRepoOutsideServedRoots(cfg *Config, repo string) error {
+	type root struct{ name, path string }
+	roots := []root{
+		{"public_dir", cfg.PublicDir},
+		{"site.path", cfg.Site.Path},
+		{"uploads directory", cfg.UploadsDir()},
+	}
+	for i, st := range cfg.Static {
+		roots = append(roots, root{fmt.Sprintf("static[%d].root", i), st.Root})
+		if st.File != "" {
+			roots = append(roots, root{fmt.Sprintf("static[%d].file's directory", i), filepath.Dir(st.File)})
+		}
+	}
+	for i, rt := range cfg.Routes {
+		roots = append(roots, root{fmt.Sprintf("routes[%d].public_dir", i), rt.PublicDir})
+	}
+
+	repoReal := RealPath(repo)
+	for _, rt := range roots {
+		if rt.path == "" {
+			continue
+		}
+		if pathContains(RealPath(rt.path), repoReal) {
+			return fmt.Errorf("the repository %s is inside the served %s (%s) — every version of every file would be exposed; move the served directory or the site root", repo, rt.name, rt.path)
+		}
+	}
+	return nil
+}
+
+// pathContains reports whether child is dir itself or inside it. Both paths
+// must already be resolved (RealPath); a raw prefix test on unresolved paths
+// lies wherever a symlink sits in between, and `current` always does.
+func pathContains(dir, child string) bool {
+	rel, err := filepath.Rel(dir, child)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }

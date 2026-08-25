@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sambeau/basil/server/config"
 )
 
 // validBasilYAML passes config.Load and config.Validate: host set, and
@@ -158,5 +160,65 @@ func TestValidateUnwalkableReleaseRoot(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("Validate on an unwalkable root returned %v, want a walking-the-release error labelled %q", errs, dir)
+	}
+}
+
+// siteRootRelease writes a release inside a real site-root layout —
+// releases/<id>, a `current` link and a site.git — so ResolveAnchors finds a
+// site root and the served-roots check has a repository to protect.
+func siteRootRelease(t *testing.T, yaml string) string {
+	t.Helper()
+	root := t.TempDir()
+	release := filepath.Join(root, config.ReleasesDirName, "abc1234")
+	if err := os.MkdirAll(filepath.Join(release, "site"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, config.BareRepoName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(release, "site", "index.pars"), []byte("<h1>\"hello\"</h1>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(release, config.ConfigFileName), []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(config.ReleasesDirName, "abc1234"), filepath.Join(root, config.CurrentLinkName)); err != nil {
+		t.Skipf("symlinks are not available here: %v", err)
+	}
+	return release
+}
+
+// A release may choose its own served roots, and one of them pointed at the
+// site root would publish site.git — the whole history, unpublished branches
+// included — as unauthenticated static files. The gate refuses the push, so
+// the developer reads it in their terminal and no release directory is ever
+// activated.
+func TestValidateRejectsServedRootOverTheRepository(t *testing.T) {
+	release := siteRootRelease(t, validBasilYAML+"static:\n  - path: /s/\n    root: ../..\n")
+
+	errs := Validate(release)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly one error, got %v", errs)
+	}
+	if errs[0].File != config.ConfigFileName {
+		t.Errorf("error file = %q, want %q", errs[0].File, config.ConfigFileName)
+	}
+	if !strings.Contains(errs[0].Message, config.BareRepoName) {
+		t.Errorf("error should name the repository, got: %s", errs[0].Message)
+	}
+	if !strings.Contains(errs[0].Message, "static[0].root") {
+		t.Errorf("error should name the served root that reaches it, got: %s", errs[0].Message)
+	}
+}
+
+// The other half of the same property: a static root that stays inside the
+// release is ordinary configuration and must go straight through.
+func TestValidateAcceptsStaticRootInsideTheRelease(t *testing.T) {
+	release := siteRootRelease(t, validBasilYAML+"static:\n  - path: /s/\n    root: ./public\n")
+	if err := os.MkdirAll(filepath.Join(release, "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if errs := Validate(release); errs != nil {
+		t.Errorf("Validate rejected a release serving its own public directory: %v", errs)
 	}
 }

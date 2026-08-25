@@ -130,6 +130,39 @@ func (s *Server) SwapRelease() error {
 		return fmt.Errorf("swap release: validating %s: %w", cfgPath, err)
 	}
 
+	// The served roots are the release's to choose, and site.git is not
+	// hidden from a static route by anything else: it does not begin with a
+	// dot, so the dotfile filters do not cover it, and the Git endpoint's own
+	// switch has no say over a file handler. A release carrying
+	// `static: [{path: /s/, root: ../..}]` would therefore publish the site
+	// root — site.git with the whole history in it, unpublished branches and
+	// every secret ever committed, plus data/ and its databases — as
+	// unauthenticated static files the moment it went live.
+	//
+	// So the startup guard is re-run here against the config that is about to
+	// serve, AFTER carrying and validating (what is checked must be what will
+	// run), and BEFORE anything is published. Refusing leaves the previous
+	// release serving, like every other failure in this function.
+	//
+	// deploy.Validate makes the same check at the gate, so a push that would
+	// do this is normally refused in the developer's terminal and never
+	// reaches a release directory. This is the backstop for the paths that
+	// never went through the gate: `basil deploy --no-validate`, a `current`
+	// re-pointed by hand, a rollback to a release that pre-dates the gate.
+	//
+	// Gated on the repository existing, exactly as initGit is: the check
+	// speaks about exposing site.git, and a site root without one has no
+	// history to expose. s.config's site root is used rather than the new
+	// release's, so nothing inside the release can move the thing being
+	// checked for.
+	if repo := s.config.BareRepoPath(); repo != "" {
+		if info, err := os.Stat(repo); err == nil && info.IsDir() {
+			if err := config.CheckRepoOutsideServedRoots(newCfg, repo); err != nil {
+				return fmt.Errorf("swap release: refusing to activate %s: %w", cfgPath, err)
+			}
+		}
+	}
+
 	// Build the new release's asset bundle before touching server state.
 	newBundle := buildAssetBundle(newCfg, s.logWarn)
 

@@ -727,8 +727,8 @@ func (s *Server) initGit() error {
 	// nothing to a static route that hands out site.git's objects — every
 	// version of every file, including any secret ever committed — so
 	// `basil.gitEnabled false` must not be a way past this guard.
-	if err := checkRepoOutsideServedRoots(s.config, repo); err != nil {
-		return err
+	if err := config.CheckRepoOutsideServedRoots(s.config, repo); err != nil {
+		return fmt.Errorf("refusing to serve Git: %w", err)
 	}
 
 	// The operator's off-switch, read from the repository rather than the
@@ -773,48 +773,6 @@ func (s *Server) initGit() error {
 	s.gitHandler = gitHandler
 	s.logInfo("git deploy enabled: serving %s at /.git/", repo)
 	return nil
-}
-
-// checkRepoOutsideServedRoots refuses a bare repository that resolves inside
-// any directory the server serves files from: public_dir, site.path, any
-// static route's root or file directory, any route's public_dir, or the
-// uploads directory.
-func checkRepoOutsideServedRoots(cfg *config.Config, repo string) error {
-	type root struct{ name, path string }
-	roots := []root{
-		{"public_dir", cfg.PublicDir},
-		{"site.path", cfg.Site.Path},
-		{"uploads directory", cfg.UploadsDir()},
-	}
-	for i, st := range cfg.Static {
-		roots = append(roots, root{fmt.Sprintf("static[%d].root", i), st.Root})
-		if st.File != "" {
-			roots = append(roots, root{fmt.Sprintf("static[%d].file's directory", i), filepath.Dir(st.File)})
-		}
-	}
-	for i, rt := range cfg.Routes {
-		roots = append(roots, root{fmt.Sprintf("routes[%d].public_dir", i), rt.PublicDir})
-	}
-
-	repoReal := config.RealPath(repo)
-	for _, rt := range roots {
-		if rt.path == "" {
-			continue
-		}
-		if pathContains(config.RealPath(rt.path), repoReal) {
-			return fmt.Errorf("refusing to serve Git: the repository %s is inside the served %s (%s) — every version of every file would be exposed; move the served directory or the site root", repo, rt.name, rt.path)
-		}
-	}
-	return nil
-}
-
-// pathContains reports whether child is dir itself or inside it.
-func pathContains(dir, child string) bool {
-	rel, err := filepath.Rel(dir, child)
-	if err != nil {
-		return false
-	}
-	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 // setupRoutes configures the HTTP mux with static and dynamic routes.

@@ -634,3 +634,47 @@ func TestRealPathResolvesThroughSymlinkToMissingComponents(t *testing.T) {
 		t.Errorf("resolved %q is not inside the real directory %q", got, real)
 	}
 }
+
+// The bare repository must not sit inside anything the server serves files
+// from; a repository under a served root would expose every version of every
+// file.
+func TestCheckRepoOutsideServedRoots(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "public", "site.git")
+
+	cfg := &Config{
+		PublicDir: filepath.Join(root, "public"),
+		Site:      SiteConfig{Path: filepath.Join(root, "site")},
+	}
+	err := CheckRepoOutsideServedRoots(cfg, repo)
+	if err == nil {
+		t.Fatal("repository inside public_dir was accepted")
+	}
+	if !strings.Contains(err.Error(), repo) || !strings.Contains(err.Error(), cfg.PublicDir) {
+		t.Errorf("error should name both paths, got: %v", err)
+	}
+
+	// A sibling repository (the --init layout) is fine.
+	cfg2 := &Config{
+		PublicDir: filepath.Join(root, "current", "public"),
+		Site:      SiteConfig{Path: filepath.Join(root, "current", "site")},
+		DataDir:   filepath.Join(root, "data"),
+	}
+	if err := CheckRepoOutsideServedRoots(cfg2, filepath.Join(root, "site.git")); err != nil {
+		t.Fatalf("sibling repository refused: %v", err)
+	}
+
+	// static[].root is a served root too.
+	cfg3 := &Config{
+		Static: []StaticRoute{{Path: "/files/", Root: root}},
+	}
+	if err := CheckRepoOutsideServedRoots(cfg3, filepath.Join(root, "site.git")); err == nil {
+		t.Fatal("repository inside static[].root was accepted")
+	}
+
+	// The uploads directory (under data_dir) is served at /__uploads/.
+	cfg4 := &Config{DataDir: root, SiteRoot: filepath.Dir(root)}
+	if err := CheckRepoOutsideServedRoots(cfg4, filepath.Join(root, "uploads", "site.git")); err == nil {
+		t.Fatal("repository inside the uploads directory was accepted")
+	}
+}

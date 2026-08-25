@@ -284,6 +284,27 @@ or a feature incomplete. Deciding *when* to publish is still your job —
 validation and the explicit deploy step protect against different mistakes. It
 is also correctness, not style: formatting never blocks a release.
 
+One thing it does refuse outright, whatever the code says: a release whose
+served roots reach the site's repository. `static[].root`, `public_dir`,
+`site.path` and `routes[].public_dir` are the release's own to choose, and one
+of them pointed above the release — `root: ../..` — would put `site.git` on the
+public web as ordinary static files. That is the whole history: every branch
+you never published, every secret ever committed. `site.git` has no leading
+dot, so nothing else filters it, and turning the Git endpoint off does not help
+— a file handler does not ask.
+
+```
+$ basil deploy live --site /srv/mysite
+deploying f84bad0feca0
+basil.yaml: the repository /srv/mysite/site.git is inside the served static[0].root (/srv/mysite) — every version of every file would be exposed; move the served directory or the site root
+Release rejected. The live site is unchanged.
+```
+
+The running server checks again at activation and refuses to swap a release
+that would do this, so the releases that skip the gate — `--no-validate`, a
+`current` symlink moved by hand, a rollback to an older release — cannot open
+the hole either. The previous release keeps serving and the refusal is logged.
+
 There is deliberately **no config key** to turn validation off — a switch
 inside the release being validated would outlive the emergency that justified
 it. The emergency override is a flag:
