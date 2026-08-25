@@ -232,3 +232,59 @@ All resolved (@sam, 2026-08-25):
 2. ~~Retired-key warnings in a clone?~~ — **Yes, at `basil --dev` startup and in
    `basil publish` output.** The clone is where a stale committed key would
    otherwise linger unseen. In the acceptance criteria.
+
+## Implementation notes (2026-08-25, branch `feat-157-head-source`)
+
+Implemented by one builder, two review lenses (spec-conformance + security), one fix
+round; every stage verified by the orchestrator. Landed as two commits.
+
+### Deviations and decisions of note
+
+- **Releasing from a tag is no longer expressible** — `HEAD` names branches only. The
+  old design's "tags are refs too" note is amended (§3) and the loss is recorded in
+  the CHANGELOG. Flagged to @sambeau at landing; a tag story, if ever wanted, is a
+  new feature.
+- **Publishing a newly named release branch needs one explicit push** — an unborn
+  HEAD is invisible to `ls-remote --symref` (verified: zero bytes, exit 0, protocols
+  v0 and v2), so `basil publish` refuses with a message naming both readings and
+  fixes; `git push origin HEAD:refs/heads/<branch>` creates the branch and, being a
+  release-branch push, deploys it. Docs carry the wrinkle in both guides.
+- **`basil publish` re-points its own refspec** after a hub retarget (review
+  finding): only the exact `HEAD:refs/heads/<x>` shape publish writes is rewritten,
+  announced in one line; hand-written refspecs are untouched. Without this, bare
+  `git push` silently stopped publishing after a retarget.
+- **`GitEnabled` fails open but never silently**: git exit 1 (key unset) is the quiet
+  normal; any other failure (typo'd boolean, dubious ownership, corrupt config) still
+  serves the endpoint but warns naming the repo and git's stderr.
+- **Git is pinned at the repository** (`--git-dir` / `config --file`), since `GIT_DIR`
+  in the inherited environment overrides `cmd.Dir` (verified) — the comment claiming
+  otherwise in `fromhook.go` was corrected.
+- **Case-collision (`refs/heads/SHIPPING` vs `shipping`)** is refused today by git's
+  own ref-lock on case-insensitive filesystems; Basil's comparison is exact. The
+  regression test asserts the outcome, so a git/platform change fails loudly. The
+  invariant rests on git's behaviour, recorded here deliberately.
+- **`post-receive` re-asserts fast-forward** before deploying, closing the mid-push
+  HEAD-retarget TOCTOU; the graduation exception is preserved (lock-held record
+  check, no duplicate announcement).
+
+### Security-review outcome
+
+The one blocker was a real regression introduced by this branch and fixed in-round:
+the `basil.gitEnabled false` early return ran before `checkRepoOutsideServedRoots`,
+letting a hardened server plus a deployed `static[].root: ../..` serve all of
+`site.git` as static files. The guard now runs first, with a fail-before-verified
+test. The adjacent pre-existing gap — the served-roots check is startup-only and not
+re-run at activation — is out of scope here and tracked as backlog #155.
+
+### Verification (orchestrator, observed directly)
+
+- `go build ./...` clean; `go test ./...` all 20 packages ok, twice (post-builder,
+  post-fix-round).
+- The #153 regression test **fails on pre-FEAT-157 code** ("force-pushing the
+  release branch was accepted after a release claimed a different branch") and
+  passes on the branch — run in a detached worktree at `fa17639`.
+- Live hub runs with the built binary: publish to `live`; retarget HEAD to `main`;
+  publish correctly refused with the unborn-branch message; the documented one-off
+  push created and deployed `main`; the next `basil publish` followed HEAD with no
+  client change; after the fix round, the refspec re-point line printed and
+  `remote.origin.push` moved to `main`, restoring bare `git push`.
