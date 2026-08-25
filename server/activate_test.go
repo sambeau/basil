@@ -462,3 +462,73 @@ func TestCurrentLinkWatcherActivatesRepointedRelease(t *testing.T) {
 	}
 	t.Fatalf("watcher did not activate release B; still serving %q", get(s, "/").Body.String())
 }
+
+// The watcher's event path and its poll both run activateIfRepointed, so a
+// deploy must activate exactly once however many times the link is looked at.
+// The comparison behind that is between the link's target and the release
+// being served, so this is also what catches those two disagreeing about how
+// the same path is spelled: if they ever did, the poll would rebuild the
+// serving surface - and clear every cache - once a second, forever.
+func TestActivateIfRepointedActivatesOncePerDeploy(t *testing.T) {
+	root := activationFixture(t)
+	s, stdout, _ := newSiteRootServer(t, root)
+	w := &currentLinkWatcher{server: s, siteRoot: s.config.SiteRoot}
+
+	// No deploy has happened: the link already names the release being served.
+	w.activateIfRepointed()
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "release A content") {
+		t.Fatalf("activated without a deploy: serving %q", got)
+	}
+
+	must(deploy.SetCurrent(root, filepath.Join(root, config.ReleasesDirName, "B")))
+	w.activateIfRepointed()
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "release B content") {
+		t.Fatalf("did not activate release B: serving %q", got)
+	}
+
+	// Every later look at the unchanged link must do nothing at all.
+	for range 3 {
+		w.activateIfRepointed()
+	}
+	if n := strings.Count(stdout.String(), "activated release"); n != 1 {
+		t.Errorf("activated %d times, want 1; stdout: %s", n, stdout.String())
+	}
+}
+
+// A release that cannot be activated must be reported once and then left
+// alone until the next deploy - otherwise the poll retries the same broken
+// release, and logs the same failure, every tick.
+func TestActivateIfRepointedReportsAFailedReleaseOnce(t *testing.T) {
+	root := activationFixture(t)
+	s, _, stderr := newSiteRootServer(t, root)
+	w := &currentLinkWatcher{server: s, siteRoot: s.config.SiteRoot}
+
+	broken := writeRelease(t, root, "broken", "broken release", "this is: not: valid: yaml\n")
+	must(deploy.SetCurrent(root, broken))
+	for range 3 {
+		w.activateIfRepointed()
+	}
+
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "release A content") {
+		t.Errorf("a release that failed to activate is being served: %q", got)
+	}
+	if n := strings.Count(stderr.String(), "activation FAILED"); n != 1 {
+		t.Errorf("reported the failure %d times, want 1; stderr: %s", n, stderr.String())
+	}
+
+	// The next deploy is still activated: one bad release must not wedge the
+	// watcher.
+	must(deploy.SetCurrent(root, filepath.Join(root, config.ReleasesDirName, "B")))
+	w.activateIfRepointed()
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "release B content") {
+		t.Errorf("did not activate release B after a failed release: serving %q", got)
+	}
+
+	// Deploying the once-failed release again is a fresh attempt - the reason
+	// it failed may have been fixed - so it is tried, and reported, again.
+	must(deploy.SetCurrent(root, broken))
+	w.activateIfRepointed()
+	if n := strings.Count(stderr.String(), "activation FAILED"); n != 2 {
+		t.Errorf("a re-deployed failed release was not retried: %d failures reported, want 2; stderr: %s", n, stderr.String())
+	}
+}

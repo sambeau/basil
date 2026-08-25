@@ -247,8 +247,20 @@ func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 
 // currentLinkDebounce coalesces the burst of filesystem events a symlink
 // swap produces (create of the temp link, rename over `current`) into one
-// activation.
+// check of the link.
 const currentLinkDebounce = 100 * time.Millisecond
+
+// currentLinkPoll is how often the link is re-read regardless of filesystem
+// events, because on some platforms a deploy produces no event for it at all.
+// macOS is the case in hand: fsnotify's kqueue backend reports directory
+// changes by re-scanning and diffing the names it finds, and SetCurrent's
+// rename of a temp link over `current` leaves that name in place, so nothing
+// ever looks new - the temp link is usually gone again before the re-scan
+// runs, so even it goes unreported. The per-file watch is no help either,
+// since kqueue resolves a symlink and ends up watching the release directory
+// rather than the link. inotify does deliver the rename, so on Linux this
+// poll is only a backstop behind an activation that has already happened.
+const currentLinkPoll = time.Second
 
 // currentLinkWatcher watches the site root for `current` being re-pointed
 // and activates the new release in the running server. The deploy CLI runs
@@ -256,10 +268,26 @@ const currentLinkDebounce = 100 * time.Millisecond
 // learns about a deploy; it runs in production as well as dev. It is
 // deliberately separate from the dev Watcher, which watches individual
 // source files for hot reload.
+//
+// Filesystem events are treated as a hint that something may have happened,
+// never as the fact itself: every path leads to re-reading the link and
+// comparing it with the release being served. That keeps activation correct
+// on platforms whose events miss the swap entirely (see currentLinkPoll) and
+// idempotent where they arrive in bursts.
 type currentLinkWatcher struct {
-	server *Server
-	fw     *fsnotify.Watcher
-	done   chan struct{}
+	server   *Server
+	siteRoot string
+	fw       *fsnotify.Watcher
+	done     chan struct{}
+
+	// failed is the release whose activation failed, skipped until `current`
+	// changes again; loop's goroutine owns it. Without it a release that
+	// cannot be built would be retried - and its failure logged - on every
+	// poll tick.
+	failed string
+	// linkErr is the last error reported for reading the link, for the same
+	// reason: a broken link must not produce a line of log a second.
+	linkErr string
 }
 
 // newCurrentLinkWatcher creates a watcher on the server's site root. The
@@ -269,11 +297,12 @@ func newCurrentLinkWatcher(s *Server) (*currentLinkWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := fw.Add(s.config.SiteRoot); err != nil {
+	siteRoot := s.config.SiteRoot
+	if err := fw.Add(siteRoot); err != nil {
 		fw.Close()
 		return nil, err
 	}
-	return &currentLinkWatcher{server: s, fw: fw, done: make(chan struct{})}, nil
+	return &currentLinkWatcher{server: s, siteRoot: siteRoot, fw: fw, done: make(chan struct{})}, nil
 }
 
 // Start begins watching. The loop stops when ctx is cancelled or the
@@ -286,9 +315,12 @@ func (w *currentLinkWatcher) loop(ctx context.Context) {
 	defer close(w.done)
 
 	// The debounce timer starts on the first interesting event and is pushed
-	// back by each following one; the swap runs when it fires.
+	// back by each following one; the link is checked when it fires.
 	var timer *time.Timer
 	var fire <-chan time.Time
+
+	poll := time.NewTicker(currentLinkPoll)
+	defer poll.Stop()
 
 	for {
 		select {
@@ -324,12 +356,10 @@ func (w *currentLinkWatcher) loop(ctx context.Context) {
 		case <-fire:
 			timer = nil
 			fire = nil
-			w.server.logInfo("%s re-pointed - activating new release", config.CurrentLinkName)
-			if err := w.server.SwapRelease(); err != nil {
-				// A failed swap must be loud: the operator just deployed
-				// something and the server is still serving the old release.
-				w.server.logError("release activation FAILED: %v - still serving the previous release", err)
-			}
+			w.activateIfRepointed()
+
+		case <-poll.C:
+			w.activateIfRepointed()
 
 		case err, ok := <-w.fw.Errors:
 			if !ok {
@@ -338,6 +368,42 @@ func (w *currentLinkWatcher) loop(ctx context.Context) {
 			w.server.logError("release watcher: %v", err)
 		}
 	}
+}
+
+// activateIfRepointed re-reads `current` and activates the release it names
+// if that is not the one already being served. Comparing the link against
+// the live release - rather than acting on an event, or on a remembered
+// target - is what lets the event path and the poll share the work: whichever
+// notices a deploy first activates it, and the other then finds nothing to
+// do. It is called only from loop's goroutine.
+func (w *currentLinkWatcher) activateIfRepointed() {
+	target, err := deploy.CurrentRelease(w.siteRoot)
+	if err != nil {
+		if msg := err.Error(); msg != w.linkErr {
+			w.linkErr = msg
+			w.server.logError("release watcher: %v - still serving the current release", err)
+		}
+		return
+	}
+	w.linkErr = ""
+	if target == w.server.liveConfig().ReleaseDir || target == w.failed {
+		return
+	}
+
+	w.server.logInfo("%s re-pointed to %s - activating new release", config.CurrentLinkName, filepath.Base(target))
+	if err := w.server.SwapRelease(); err != nil {
+		// A failed swap must be loud: the operator just deployed something
+		// and the server is still serving the old release. Record the release
+		// so the failure is reported once rather than on every poll tick,
+		// until `current` moves somewhere else.
+		w.failed = target
+		w.server.logError("release activation FAILED: %v - still serving the previous release", err)
+		return
+	}
+	// Forget the failure once anything else has activated: a release that
+	// failed is worth another attempt when it is deployed again, since the
+	// reason it failed may have been fixed in the meantime.
+	w.failed = ""
 }
 
 // Close stops the watcher and waits for its loop to exit.

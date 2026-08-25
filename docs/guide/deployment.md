@@ -215,6 +215,9 @@ the new release itself: it loads the new release's config, rebuilds its routes
 against the new code, clears the script, response and fragment caches, and
 starts serving the new release — while requests already in flight complete
 against the release they started on. The CLI does not need to signal anything.
+Activation lands within about a second of the re-point: the server notices the
+change from a filesystem event where the platform reports one, and from a
+once-a-second read of the link where it does not.
 
 Deploying with the server **stopped** also works: the release is activated on
 disk and the server serves it on its next start. `kill -HUP <pid>` re-activates
