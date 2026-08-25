@@ -434,8 +434,8 @@ func TestPublish_FirstPublishFromGraduatedProject(t *testing.T) {
 	if !strings.Contains(got, "First publish") {
 		t.Errorf("output did not announce the first publish:\n%s", got)
 	}
-	if !strings.Contains(got, "replace it") && !strings.Contains(got, "one-time replacement") {
-		t.Errorf("output did not explain the starter-site replacement:\n%s", got)
+	if !strings.Contains(got, "force-replace") && !strings.Contains(got, "unrelated") {
+		t.Errorf("output did not explain the forced first-publish replacement:\n%s", got)
 	}
 	if !strings.Contains(got, "remote: Deployed the release") {
 		t.Errorf("the server's remote: line was not streamed:\n%s", got)
@@ -577,6 +577,73 @@ func TestUnrelatedHistories_ClassifiesUnrelatedRootsAsTrue(t *testing.T) {
 	local, head := f.graduatedClone(t)
 	if !unrelatedHistories(local, "live", f.seed, head) {
 		t.Errorf("two unrelated roots were not classified as unrelated (seed=%s head=%s)", f.seed, head)
+	}
+}
+
+// --- security: a hostile server-advertised branch name (BUG-037) ------------
+
+// The branch publish acts on comes from origin's advertised HEAD. git reads a
+// leading-dash positional as an OPTION, so a plain-HTTP or MITM'd server that
+// advertises `ref: refs/heads/--upload-pack=<cmd>` could smuggle that option
+// into publish's `git fetch` and execute <cmd> locally. Real git refuses to
+// store such a ref, so the injection can only arrive over the wire - which is
+// exactly why the validator, not git's own ref checks, is the guard. It must
+// reject every option-injection and malformed shape, and accept ordinary names.
+func TestValidateReleaseBranch_RejectsInjectionAndMalformed(t *testing.T) {
+	bad := []string{
+		"",
+		"-upload-pack=touch /tmp/pwned",
+		"--upload-pack=touch /tmp/pwned",
+		"-o",
+		"live/../../etc",
+		"a..b",
+		"/live",
+		"live/",
+		"live//prod",
+		"live.lock",
+		"trailingdot.",
+		"has space",
+		"tilde~1",
+		"caret^",
+		"colon:ref",
+		"star*",
+		"question?",
+		"bracket[1]",
+		"back\\slash",
+		"tab\tname",
+		"ctrl\x01char",
+		"branch@{0}",
+	}
+	for _, name := range bad {
+		if err := validateReleaseBranch(name); err == nil {
+			t.Errorf("validateReleaseBranch(%q) = nil; want a refusal", name)
+		}
+	}
+
+	good := []string{"live", "main", "prod", "release-2.0", "feature/x", "v1.2.3"}
+	for _, name := range good {
+		if err := validateReleaseBranch(name); err != nil {
+			t.Errorf("validateReleaseBranch(%q) = %v; want nil", name, err)
+		}
+	}
+}
+
+// Defence in depth: even if a hostile branch name reached the classify fetch
+// (it cannot - validateReleaseBranch stops it upstream), `--end-of-options`
+// pins it as a positional so git can never read it as an option. Drive
+// unrelatedHistories with an injection name and prove the side-effect file the
+// option would have executed is never created.
+func TestUnrelatedHistories_FetchDoesNotExecuteInjectedOption(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	marker := filepath.Join(t.TempDir(), "PWNED")
+	evil := "--upload-pack=touch " + marker
+
+	// serverTip is irrelevant: the fetch runs first, and it is the thing under
+	// test. A missing local tip just makes the classifier return false.
+	_ = unrelatedHistories(f.work, evil, f.seed, f.seed)
+
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatalf("the injected --upload-pack option executed: %s was created", marker)
 	}
 }
 

@@ -54,6 +54,8 @@ basil publish                   # review the commits and files, confirm, then it
 
 `basil publish` runs in the clone: it shows what is about to go out, reports how far the live site has drifted, asks before pushing (`--yes` skips it, `--dry-run` stops at the plan), and streams the server's deploy output. Underneath it is a push of the release branch, so raw `git push origin live` still works; a release that fails validation is rejected with the live site left unchanged, and the server warns (never rejects) about unformatted `.pars` files, naming `basil fmt -w`.
 
+`--dry-run` never pushes, but on a first publish (a project whose history is unrelated to the server's starter site) it may run a `git fetch` while classifying the state — needed to tell a genuine first publish from an ordinary divergence. It downloads objects and updates remote-tracking refs, but pushes nothing.
+
 ## Authentication & Roles
 
 Git access uses API keys via HTTP Basic Auth (key as the password).

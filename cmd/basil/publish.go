@@ -122,6 +122,16 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 			// for each: guessing a branch is the mistake FEAT-157 removed.
 			return fmt.Errorf("origin advertises no release branch: its HEAD is either detached, or names a branch that does not exist there yet\n  on the server: basil check (it reports which), then git -C <site root>/site.git symbolic-ref HEAD refs/heads/<branch>\n  to create a newly named release branch, push it once explicitly: git push origin HEAD:refs/heads/<branch>")
 		}
+		// The branch name is server-advertised, and git reads a leading-dash
+		// positional as an OPTION: a plain-HTTP or MITM'd origin advertising
+		// e.g. `ref: refs/heads/--upload-pack=<cmd>` would smuggle that option
+		// into the `git fetch` used to classify a first publish, executing <cmd>
+		// locally (BUG-037). Validate here, at the single point every downstream
+		// use flows from - the classify fetch, the HEAD:<ref> pushes, the refspec
+		// config - so none of them can be handed a hostile value.
+		if err := validateReleaseBranch(branch); err != nil {
+			return err
+		}
 		base = symrefTip(out) // "" when the branch does not exist there yet
 	}
 	ref := "refs/heads/" + branch
@@ -277,7 +287,11 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 func unrelatedHistories(dir, branch, serverTip, head string) bool {
 	// Best-effort: land the server tip locally so merge-base can see it. A
 	// failure just means the guard below stays conservative and offers nothing.
-	_ = runGit(dir, "fetch", "--quiet", "origin", branch)
+	// `--end-of-options` is defence in depth: the branch is already validated at
+	// its source (validateReleaseBranch), but pinning the positional here means a
+	// leading-dash value could never be read as a git option even if a future
+	// caller reached this without validating first.
+	_ = runGit(dir, "fetch", "--quiet", "origin", "--end-of-options", branch)
 	if runGit(dir, "cat-file", "-e", serverTip+"^{commit}") != nil {
 		return false // tip not local: cannot judge, so never force
 	}
@@ -304,10 +318,19 @@ func firstPublish(dir, ref, branch, head string, stdin io.Reader, stdout, stderr
 	}
 	commitWord := pluralWord(count, "commit", "commits")
 
+	// The banner describes what the push WILL attempt, not what the server
+	// currently holds: the client cannot tell a hub still on its starter site
+	// from one that already carries a real but unrelated release (a second
+	// project pointed at a used hub). Both look like unrelated history from here;
+	// only the server knows which, and it accepts this force just once - while
+	// its deploy record is init-only. Claiming "placeholder site" would be false
+	// in the second case and the rejection that followed would seem to come from
+	// nowhere. Stating the condition keeps the message true either way.
 	fmt.Fprintf(stdout, "First publish to %q on origin.\n", branch)
-	fmt.Fprintln(stdout, "\nThis server has only its initial placeholder site. Publishing will replace it")
-	fmt.Fprintln(stdout, "with your project's history. This is a one-time replacement; afterwards the")
-	fmt.Fprintln(stdout, "release branch is protected normally.")
+	fmt.Fprintln(stdout, "\nYour project's history is unrelated to what this server currently publishes,")
+	fmt.Fprintln(stdout, "so publishing will force-replace the release branch with your history. The")
+	fmt.Fprintln(stdout, "server allows this only if it has never had a real release - otherwise it will")
+	fmt.Fprintln(stdout, "refuse, and nothing changes.")
 	fmt.Fprintf(stdout, "\n%d %s:\n", count, commitWord)
 	if log, err := publishLog(dir, "", head); err == nil && log != "" {
 		for _, line := range strings.Split(strings.TrimRight(log, "\n"), "\n") {
@@ -458,6 +481,48 @@ func findConfigUp(start string) (string, error) {
 	}
 }
 
+// validateReleaseBranch rejects a server-advertised branch name that git could
+// misread as an option or a malformed ref. The name arrives over the wire from
+// origin's HEAD, so a hostile or misconfigured server must not be able to steer
+// a local git invocation with it. The rules mirror the safe subset of
+// git-check-ref-format(1): no leading '-' (the option-injection vector), no
+// path traversal or ref-syntax metacharacters, nothing empty. The offending
+// value is quoted, never interpolated raw, so the diagnostic itself cannot
+// mislead.
+func validateReleaseBranch(branch string) error {
+	reject := func(reason string) error {
+		return fmt.Errorf("origin advertised an unusable release branch name %q (%s); refusing to publish - check the server's site.git HEAD", branch, reason)
+	}
+	switch {
+	case branch == "":
+		return reject("empty")
+	case strings.HasPrefix(branch, "-"):
+		// The load-bearing case: git reads a leading-dash positional as an
+		// option (e.g. --upload-pack=<cmd>), which would execute locally.
+		return reject("starts with '-'")
+	case strings.HasPrefix(branch, "/") || strings.HasSuffix(branch, "/"):
+		return reject("starts or ends with '/'")
+	case strings.HasSuffix(branch, "."):
+		return reject("ends with '.'")
+	case strings.HasSuffix(branch, ".lock"):
+		return reject("ends with '.lock'")
+	case strings.Contains(branch, ".."):
+		return reject("contains '..'")
+	case strings.Contains(branch, "//"):
+		return reject("contains '//'")
+	case strings.Contains(branch, "@{"):
+		return reject("contains '@{'")
+	}
+	// No ASCII control characters, whitespace, or ref-syntax metacharacters
+	// (~^:?*[ and backslash) anywhere in the name.
+	for _, r := range branch {
+		if r <= ' ' || r == 0x7f || strings.ContainsRune("~^:?*[\\", r) {
+			return reject("contains a control character or one of ~^:?*[\\ or whitespace")
+		}
+	}
+	return nil
+}
+
 // symrefBranch reads the branch out of `ls-remote --symref origin HEAD`,
 // whose first line is "ref: refs/heads/<branch>\tHEAD". A detached or
 // unreadable HEAD on the server produces no such line, and "" says so.
@@ -571,7 +636,9 @@ forced push the server allows while it still carries only its starter release.
 
 Options:
   --yes        Skip the confirmation prompt (for scripts)
-  --dry-run    Show what would be published and stop without pushing
+  --dry-run    Show what would be published and stop without pushing. On a first
+               publish it may run a git fetch to classify the state (downloading
+               objects, updating remote-tracking refs); it still pushes nothing.
 
 Exit codes:
   0  success (or nothing to publish, or cancelled)
