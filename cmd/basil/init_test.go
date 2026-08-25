@@ -676,6 +676,50 @@ func TestCleanupInitTree(t *testing.T) {
 	})
 }
 
+// The local layout makes the same promise with a different list of entries:
+// a failed local init leaves nothing behind, and never eats a directory the
+// operator made themselves.
+func TestCleanupLocalInitTree(t *testing.T) {
+	// The entries local init adds, in the order it adds them.
+	seed := func(t *testing.T, root string) {
+		t.Helper()
+		mustMkdirAll(t, filepath.Join(root, "site"))
+		mustMkdirAll(t, filepath.Join(root, "public"))
+		mustMkdirAll(t, filepath.Join(root, ".githooks"))
+		mustMkdirAll(t, filepath.Join(root, ".git"))
+		for _, name := range []string{"basil.yaml", ".gitignore"} {
+			if err := os.WriteFile(filepath.Join(root, name), []byte("x"), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	t.Run("removes a root it created", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		seed(t, root)
+		cleanupLocalInitTree(root, true)
+		if _, err := os.Stat(root); !os.IsNotExist(err) {
+			t.Errorf("%s survived cleanup", root)
+		}
+	})
+
+	t.Run("empties a root the operator created", func(t *testing.T) {
+		root := t.TempDir()
+		seed(t, root)
+		cleanupLocalInitTree(root, false)
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 0 {
+			t.Errorf("cleanup left %d entries behind: %v", len(entries), entries)
+		}
+		if _, err := os.Stat(root); err != nil {
+			t.Errorf("cleanup removed a directory it did not create: %v", err)
+		}
+	})
+}
+
 func mustMkdirAll(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -894,6 +938,10 @@ func TestLocalInit_Success(t *testing.T) {
 	for _, pattern := range []string{
 		".basil-auth.db*", "dev_logs.db*", "*.db", "*.db-wal", "*.db-shm",
 		"certs/", "cache/", "search/", "uploads/", ".DS_Store", "*.swp",
+		// Credentials and logs: in the legacy layout a manual TLS
+		// certificate (https.cert/key) and a file log sink both resolve to
+		// the project directory, so both land next to the code.
+		"*.pem", "*.key", "*.crt", "*.log", ".env",
 	} {
 		if !strings.Contains(ignore, pattern) {
 			t.Errorf(".gitignore does not cover %q:\n%s", pattern, ignore)
@@ -911,8 +959,19 @@ func TestLocalInit_Success(t *testing.T) {
 	if !strings.Contains(out, "cd mysite && basil --dev") {
 		t.Errorf("the next step is not printed:\n%s", out)
 	}
-	if !strings.Contains(out, "--server") || !strings.Contains(out, "docs/guide/deployment.md") {
+	if !strings.Contains(out, "--server") || !strings.Contains(out, "deployment guide") {
 		t.Errorf("no graduation pointer:\n%s", out)
+	}
+	// One physical line: it is a signpost, and a wrapped one reads as a
+	// paragraph the reader is meant to study.
+	var pointer string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "deployment guide") {
+			pointer = line
+		}
+	}
+	if !strings.Contains(pointer, "--server") {
+		t.Errorf("the graduation pointer is split across lines:\n%s", out)
 	}
 }
 
@@ -928,6 +987,33 @@ func TestLocalInit_ExplicitHost(t *testing.T) {
 		}
 		if yaml := readFile(t, filepath.Join(root, "basil.yaml")); !strings.Contains(yaml, `host: "mysite.local"`) {
 			t.Errorf("the --host value was not written:\n%s", yaml)
+		}
+	})
+
+	// Local mode is one shape (FEAT-156 open question 3): --host writes
+	// server.host and switches nothing else, so a public hostname still gets
+	// the dev port and no https block. The server's own template is the one
+	// that reads IsLocalHost.
+	t.Run("a public hostname does not switch mode", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		var stdout, stderr bytes.Buffer
+		opts := localInitOpts(root, &stdout, &stderr)
+		opts.Host = "mysite.example.com"
+		if err := runInitCommand(opts); err != nil {
+			t.Fatalf("local init with a public --host failed: %v", err)
+		}
+		yaml := readFile(t, filepath.Join(root, "basil.yaml"))
+		if !strings.Contains(yaml, `host: "mysite.example.com"`) {
+			t.Errorf("the --host value was not written:\n%s", yaml)
+		}
+		if !strings.Contains(yaml, "port: 8080") {
+			t.Errorf("a public --host must not switch the local template to port 443:\n%s", yaml)
+		}
+		if strings.Contains(yaml, "https:") {
+			t.Errorf("a public --host must not add an https block locally:\n%s", yaml)
+		}
+		if strings.Contains(stdout.String(), "API key") {
+			t.Errorf("a public --host must not build server topology:\n%s", stdout.String())
 		}
 	})
 
@@ -1013,8 +1099,13 @@ func TestLocalInit_NoGit(t *testing.T) {
 		}
 	}
 	assertFileExists(t, filepath.Join(root, "basil.yaml"))
-	if strings.Contains(stderr.String(), "git") {
-		t.Errorf("--no-git warned about git:\n%s", stderr.String())
+	// Local init writes to stdout only, so that is where a stray warning
+	// would land: the summary must not mention a repository it did not make.
+	if strings.Contains(stdout.String(), "git repository") {
+		t.Errorf("--no-git reported a repository:\n%s", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "warning") {
+		t.Errorf("--no-git warned about git:\n%s", stdout.String())
 	}
 }
 
@@ -1034,8 +1125,11 @@ func TestLocalInit_WithoutGitOnPath(t *testing.T) {
 			t.Errorf("%s was created without git", name)
 		}
 	}
-	if stderr.String() != "" {
-		t.Errorf("a missing git produced output on stderr:\n%s", stderr.String())
+	// Nothing is said about it. Local init writes to stdout only, so that is
+	// the stream a warning or an apology would appear on.
+	out := stdout.String()
+	if strings.Contains(out, "git repository") || strings.Contains(out, "warning") {
+		t.Errorf("a missing git was remarked upon:\n%s", out)
 	}
 }
 

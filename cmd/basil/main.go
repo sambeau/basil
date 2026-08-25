@@ -112,9 +112,9 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 
 	// Handle --init
 	if *initFolder != "" {
-		if *initNoGit && *initServer {
-			return fmt.Errorf("--no-git is only meaningful without --server: a deployment server receives pushes, so it cannot be built without git")
-		}
+		// Flag-combination rules that depend on the mode live in the run
+		// functions (runServerInit refuses --no-git, runLocalInit refuses
+		// --admin), so a caller that builds initOptions directly meets them.
 		return runInitCommand(initOptions{
 			Folder:      *initFolder,
 			Host:        *initHost,

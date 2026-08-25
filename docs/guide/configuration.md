@@ -282,8 +282,11 @@ The check stays quiet where it would be noise:
   nobody.
 
 The commonest cause is graduation: a folder created by local `basil --init` says
-`host: localhost`, port 8080. Set the top-level `server.host` to the real
-hostname before the first publish and the warning never appears — see
+`host: localhost`, `port: 8080`, and the sample above is exactly what publishing
+it unedited looks like. Both lines are the warning doing its job — the host and
+the port each moved. Set **both** top-level values to what the server serves on
+(`host: mysite.example.com`, `port: 443`) before the first publish, and the push
+is silent: there is nothing left to change. See
 [Graduating a local site to a server](deployment.md#graduating-a-local-site-to-a-server).
 
 ## Environment Variables

@@ -20,7 +20,7 @@ keywords:
 
 Basil's server holds a **bare Git repository** you push to, served over HTTPS at `/.git`. Clone it, edit, `git push` to share with the team — and move the **release branch** (`live`) to publish, which checks the release and makes it live. Push-to-deploy with nothing but Git.
 
-> **Basil-only.** The Git endpoint is part of the Basil server. It is on whenever the site has a `site.git` repository, which `basil --init` creates — there is nothing to enable.
+> **Basil-only.** The Git endpoint is part of the Basil server. It is on whenever the site has a `site.git` repository, which `basil --init <dir> --server` creates on the deployment machine — there is nothing to enable.
 
 ## Quick Start
 

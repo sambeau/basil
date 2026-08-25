@@ -91,11 +91,28 @@ A folder created by `basil --init` never has to be restructured to go public.
 The server gets its own init, your folder gets a Git remote, and the first push
 carries your site across.
 
-Before you push, open your local `basil.yaml` and set the top-level
-`server.host` to the hostname the site will answer on. That file ships inside
-the release and *becomes* the server's configuration, so the values in it are
-production values — and locally they cost you nothing, because `--dev` serves
-plain HTTP on `localhost` and turns a production port 443 into 8080. The
+Before you push, open your local `basil.yaml` and make its top-level
+`server` block describe the *server*, not your laptop — the hostname the site
+will answer on, and the port a public site is reached at:
+
+```yaml
+server:
+  host: mysite.example.com    # was: localhost
+  port: 443                   # was: 8080
+```
+
+Nothing else has to change. `https.auto` defaults to on, so a config with no
+`https:` block still obtains its own certificate. And locally the edit costs you
+nothing, because `--dev` serves plain HTTP on `localhost` and turns a production
+port 443 back into 8080 — the same `basil --dev` in the same folder, before and
+after.
+
+Leaving them at their local defaults is the one accident graduation makes easy:
+`basil.yaml` ships inside the release and *becomes* the server's configuration,
+so a deployed `host: localhost`, `port: 8080` would, at the server's next
+restart, move the public site to a port nobody is asking for and take its Git
+endpoint — your only remote way back in — with it. Pushing that release warns you at push time (see
+[the listener-change warning](configuration.md#the-listener-change-warning)); the
 [configuration guide](configuration.md#one-file-many-machines) explains the
 layering that makes one file work everywhere.
 

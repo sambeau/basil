@@ -284,7 +284,7 @@ deploy:
 Now `git push` (of `main`) *is* publishing, restoring the older push-to-publish
 model for teams that want it. This is the one place the two-verb split is a choice
 rather than the default; everything else on this page works with the `basil.yaml`
-that `basil --init` writes, unchanged.
+that `basil --init <dir> --server` writes on the server, unchanged.
 
 ## Authentication
 

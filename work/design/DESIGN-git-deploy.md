@@ -705,6 +705,14 @@ Four guarantees, none of them configurable:
 4. **The release branch cannot be force-pushed or deleted.** A rewritable release history
    makes the deploy record — and therefore rollback — unreliable.
 
+   **One exception, once (FEAT-156).** A brand-new server's release branch holds only the
+   starter commit `--init` made, so the first release pushed from a site built locally is
+   always a non-fast-forward — which would make graduation impossible without shell access.
+   While the deploy record shows nothing but that `init`-triggered release 1, a
+   non-fast-forward on the release branch is accepted and announced; from the first real
+   release onward the refusal applies as stated. The record, not the branch, is what
+   decides, so the window cannot be reopened by rewriting refs.
+
 Separating "may push" from "may publish" was considered and deferred: nobody has asked for
 it, and it can be added without breaking anything. See the backlog.
 

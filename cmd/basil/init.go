@@ -82,11 +82,11 @@ public_dir: ./public
 auth:
   enabled: true
 
-# The Git endpoint at /.git/ is on because this site has a repository
-# (site.git). Pushing always requires an API key from the auth database
-# above. To turn the endpoint off entirely:
-# git:
-#   enabled: false
+# The Git endpoint at /.git/ is live because this site has a repository
+# (site.git) - there is nothing here to switch it on. Pushing always
+# requires an API key from the auth database above. On a site root the
+# endpoint is operator-owned: git.enabled is ignored, so a release can never
+# disable the endpoint it arrived through.
 
 # Where site code may write. <data_dir>/uploads is always writable and is
 # served at /__uploads/; add more entries here if site code needs them.
@@ -126,6 +126,15 @@ certs/
 cache/
 search/
 uploads/
+
+# Keys, certificates, logs and environment files. A manual TLS certificate
+# (https.cert / https.key) resolves to this folder in the legacy layout, and
+# a file log sink writes here too; none of it may reach a public repository.
+*.pem
+*.key
+*.crt
+*.log
+.env
 
 # Editor and OS noise
 .DS_Store
@@ -267,9 +276,13 @@ func runLocalInit(opts initOptions) (err error) {
 		return err
 	}
 
+	// The folder is clone-shaped from day one, so graduating to a server
+	// later is two commands and not a restructure. The branch is `main`:
+	// this is the developer's own history, not the release branch a server
+	// publishes from.
 	if useGit {
-		if err := initLocalRepository(root); err != nil {
-			return err
+		if err := initRepoWithStarterCommit(root, "main"); err != nil {
+			return fmt.Errorf("creating the repository: %w", err)
 		}
 	}
 
@@ -277,27 +290,18 @@ func runLocalInit(opts initOptions) (err error) {
 	return nil
 }
 
-// writeLocalStarterSite writes the local folder's files. The pre-commit hook
-// is written only when a repository will be created: an inert .githooks/ in a
-// folder with no repository is a puzzle, not a nicety.
-func writeLocalStarterSite(root, host string, useGit bool) error {
-	files := map[string]struct {
-		content string
-		mode    os.FileMode
-	}{
-		config.ConfigFileName: {fmt.Sprintf(localBasilYAMLTemplate, host, 8080), 0644},
-		".gitignore":          {localGitignoreContent, 0644},
-		"site/index.pars":     {indexParsContent, 0644},
-		"public/.keep":        {"", 0644},
-	}
-	if useGit {
-		files[".githooks/pre-commit"] = struct {
-			content string
-			mode    os.FileMode
-		}{preCommitHook, 0755}
-	}
+// initFile is one file of a starter site: its content and its mode.
+type initFile struct {
+	content string
+	mode    os.FileMode
+}
+
+// writeFiles writes a starter-site file list into dir, creating parent
+// directories as it goes. Both modes' starter sites are written through it,
+// so "what a fresh site contains" is a list in one place per mode.
+func writeFiles(dir string, files map[string]initFile) error {
 	for name, f := range files {
-		path := filepath.Join(root, name)
+		path := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
 		}
@@ -308,21 +312,42 @@ func writeLocalStarterSite(root, host string, useGit bool) error {
 	return nil
 }
 
-// initLocalRepository makes the folder clone-shaped from day one, so
-// graduating to a server later is two commands and not a restructure. The
-// branch is `main`: this is the developer's own history, not the release
-// branch a server publishes from.
-func initLocalRepository(root string) error {
+// writeLocalStarterSite writes the local folder's files. The pre-commit hook
+// is written only when a repository will be created: an inert .githooks/ in a
+// folder with no repository is a puzzle, not a nicety. The .gitignore is
+// written either way, because it is useful the day someone runs `git init`
+// themselves - unlike the hook, which does nothing at all until
+// core.hooksPath points at it.
+func writeLocalStarterSite(root, host string, useGit bool) error {
+	files := map[string]initFile{
+		config.ConfigFileName: {fmt.Sprintf(localBasilYAMLTemplate, host, 8080), 0644},
+		".gitignore":          {localGitignoreContent, 0644},
+		"site/index.pars":     {indexParsContent, 0644},
+		"public/.keep":        {"", 0644},
+	}
+	if useGit {
+		files[".githooks/pre-commit"] = initFile{preCommitHook, 0755}
+	}
+	return writeFiles(root, files)
+}
+
+// initRepoWithStarterCommit turns a directory of starter files into a
+// repository on the named branch with one commit in it. Both modes need the
+// same four steps and the same fixed identity: --init runs where there may
+// be no user.name at all (a fresh server, a container), and --no-verify
+// keeps the pre-commit hook it just installed from running against its own
+// starter site.
+func initRepoWithStarterCommit(dir, branch string) error {
 	steps := [][]string{
-		{"init", "--initial-branch=main"},
+		{"init", "--initial-branch=" + branch},
 		{"config", "core.hooksPath", ".githooks"},
 		{"add", "-A"},
 		{"-c", "user.name=Basil", "-c", "user.email=basil@localhost",
 			"commit", "--no-verify", "-m", "Initial site"},
 	}
 	for _, args := range steps {
-		if err := runGit(root, args...); err != nil {
-			return fmt.Errorf("creating the repository: %w", err)
+		if err := runGit(dir, args...); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -368,7 +393,7 @@ func printLocalInitSummary(stdout io.Writer, root string, useGit bool) {
 	fmt.Fprintf(stdout, "Start the server:\n")
 	fmt.Fprintf(stdout, "  cd %s && basil --dev\n", name)
 	fmt.Fprintf(stdout, "\n")
-	fmt.Fprintf(stdout, "When you want to put it on a server: run 'basil --init <dir> --server' on the\nbox, then connect this folder - see docs/guide/deployment.md\n")
+	fmt.Fprintf(stdout, "When you want to put it on a server: run 'basil --init <dir> --server' on the box, then connect this folder - see the deployment guide\n")
 	fmt.Fprintf(stdout, "\n")
 }
 
@@ -378,10 +403,17 @@ func printLocalInitSummary(stdout io.Writer, root string, useGit bool) {
 func runServerInit(opts initOptions) (err error) {
 	stdout, stderr := opts.Stdout, opts.Stderr
 
+	// A deployment server exists to receive pushes, so it cannot be built
+	// without git. The rule lives here, with its siblings, so a caller that
+	// builds initOptions directly meets it too.
+	if opts.NoGit {
+		return fmt.Errorf("--no-git is only meaningful without --server: a deployment server receives pushes, so it cannot be built without git")
+	}
+
 	if opts.Host == "" {
 		return fmt.Errorf("--host is required: it is written to server.host, and a public server refuses to start without it\n" +
-			"  e.g. basil --init mysite --host mysite.example.com --admin sam\n" +
-			"  use --host localhost for a site you will only run with --dev")
+			"  e.g. basil --init mysite --server --host mysite.example.com --admin sam\n" +
+			"  for a site you will only run locally, leave --server off: basil --init mysite")
 	}
 
 	if err := validateHost(opts.Host); err != nil {
@@ -397,7 +429,8 @@ func runServerInit(opts initOptions) (err error) {
 	}
 
 	if _, err := exec.LookPath("git"); err != nil {
-		return fmt.Errorf("git is not installed or not on PATH: basil --init creates a repository and deploys its first release from it")
+		return fmt.Errorf("git is not installed or not on PATH: 'basil --init <dir> --server' creates a repository and deploys its first release from it\n" +
+			"  a local site needs no git at all: basil --init mysite")
 	}
 
 	root, err := filepath.Abs(opts.Folder)
@@ -683,26 +716,13 @@ func writeStarterSite(dir, host string) error {
 		port = 8080
 		extra = ""
 	}
-	files := map[string]struct {
-		content string
-		mode    os.FileMode
-	}{
+	return writeFiles(dir, map[string]initFile{
 		config.ConfigFileName:  {fmt.Sprintf(basilYAMLTemplate, host, port, extra), 0644},
 		".gitignore":           {gitignoreContent, 0644},
 		"site/index.pars":      {indexParsContent, 0644},
 		"public/.keep":         {"", 0644},
 		".githooks/pre-commit": {preCommitHook, 0755},
-	}
-	for name, f := range files {
-		path := filepath.Join(dir, name)
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
-		}
-		if err := os.WriteFile(path, []byte(f.content), f.mode); err != nil {
-			return fmt.Errorf("creating %s: %w", name, err)
-		}
-	}
-	return nil
+	})
 }
 
 // validateHost refuses anything that is not a hostname or an IP literal.
@@ -735,17 +755,8 @@ var hostnamePattern = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])
 // commitStarterSite commits the starter site on the release branch, pushes
 // it into the bare repository and returns the commit id.
 func commitStarterSite(work, repoDir string) (string, error) {
-	steps := [][]string{
-		{"init", "--initial-branch=" + releaseBranch},
-		{"config", "core.hooksPath", ".githooks"},
-		{"add", "-A"},
-		{"-c", "user.name=Basil", "-c", "user.email=basil@localhost",
-			"commit", "--no-verify", "-m", "Initial site"},
-	}
-	for _, args := range steps {
-		if err := runGit(work, args...); err != nil {
-			return "", fmt.Errorf("committing starter site: %w", err)
-		}
+	if err := initRepoWithStarterCommit(work, releaseBranch); err != nil {
+		return "", fmt.Errorf("committing starter site: %w", err)
 	}
 
 	out, err := gitOutput(work, "rev-parse", "HEAD")
