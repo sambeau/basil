@@ -2,7 +2,6 @@ package config
 
 import (
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -36,7 +35,6 @@ type Config struct {
 	Compression CompressionConfig          `yaml:"compression"`
 	Auth        AuthConfig                 `yaml:"auth"`
 	Session     SessionConfig              `yaml:"session"`
-	Git         GitConfig                  `yaml:"git"`
 	Deploy      DeployConfig               `yaml:"deploy"`
 	Dev         DevConfig                  `yaml:"dev"`
 	Database    DatabaseConfig             `yaml:"database"`    // Database configuration
@@ -52,10 +50,16 @@ type Config struct {
 	Secrets     *SecretTracker             `yaml:"-"`          // Tracks which config paths contain secrets (for DevTools)
 
 	// operatorOverrides holds one message per operator-owned setting this
-	// config tried to disable (see operator.go). Unexported because it is
+	// config tried to decide (see operator.go). Unexported because it is
 	// not configuration: it is a record of what loading decided, reported
 	// through Warnings.
 	operatorOverrides []string
+
+	// retiredKeys holds one message per removed key this config still
+	// carries (see operator.go). Same reasoning, and reported through the
+	// same channel plus RetiredKeyWarnings, which `basil publish` prints so
+	// a stale key in the repository everyone pulls from cannot linger unseen.
+	retiredKeys []string
 }
 
 // DatabaseConfig holds database settings
@@ -278,49 +282,13 @@ func (p *ProtectedPath) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
-// GitConfig holds Git server settings. Git deploy is on whenever the site's
-// bare repository (<site root>/site.git) exists; nobody ever needs to write
-// `git.enabled: true`. The only key is the off-switch. There is deliberately
-// no way to disable authentication: pushes always require an API key, and
-// the sole relaxation — dev-mode localhost — is decided in code.
-//
-// On a site root the off-switch is not honoured: git.enabled is
-// operator-owned there (FEAT-156, operator.go), because the config ships
-// inside the release and a deployed `git.enabled: false` would disable the
-// endpoint the deploy arrived through. It remains a real off-switch in the
-// legacy layout.
-type GitConfig struct {
-	Enabled bool `yaml:"enabled"` // Off-switch for the Git endpoint at /.git/ (default: true; active only when site.git exists)
-}
-
 // DeployConfig holds deploy engine settings (FEAT-153/FEAT-154). Validation
 // is always on (the override is the --no-validate CLI flag, never config) and
 // the post-deploy hook is a convention (deploy.pars in the release root), so
-// neither gets a key here.
+// neither gets a key here. Nor does the release branch: it is site.git's HEAD
+// (FEAT-157), an operator fact a release cannot rewrite.
 type DeployConfig struct {
 	Keep int `yaml:"keep"` // Releases to retain when pruning (default: 5, minimum 2 enforced at prune time); the active and previous releases are always kept
-
-	// Branch names the ref whose movement publishes a release
-	// (DESIGN-git-deploy §3, §7). Config speaks in branches — the plain
-	// name "live" — but a fully-qualified ref (refs/heads/..., refs/tags/...)
-	// is accepted for anyone releasing from a tag. Default: "live".
-	Branch string `yaml:"branch"`
-}
-
-// ReleaseRef returns the fully-qualified ref deploy.branch names, since the
-// implementation speaks in refs while config speaks in branches (design §3):
-// a bare name becomes refs/heads/<name>, and an already-qualified ref
-// (refs/heads/..., refs/tags/...) passes through unchanged. An empty value
-// means the default release branch.
-func (d DeployConfig) ReleaseRef() string {
-	branch := d.Branch
-	if branch == "" {
-		branch = DefaultReleaseBranch
-	}
-	if strings.HasPrefix(branch, "refs/") {
-		return branch
-	}
-	return "refs/heads/" + branch
 }
 
 // SessionConfig holds session storage settings
@@ -418,15 +386,8 @@ func Defaults() *Config {
 			Registration: "closed",
 			SessionTTL:   24 * time.Hour,
 		},
-		Git: GitConfig{
-			// On by default: the endpoint only activates when the site has a
-			// bare repository, so this is "on when site.git exists" with
-			// `enabled: false` as the off-switch.
-			Enabled: true,
-		},
 		Deploy: DeployConfig{
-			Keep:   5,
-			Branch: DefaultReleaseBranch,
+			Keep: 5,
 		},
 		Images: ImageConfig{
 			CacheDir:       "./cache/images",

@@ -126,7 +126,17 @@ func runFromHook(which, site, configPath string, stdin io.Reader, stdout, stderr
 	// power stays with `basil deploy` at the server shell (HookSandbox false).
 	eng.HookSandbox = true
 
-	releaseRef := cfg.Deploy.ReleaseRef()
+	// The release branch is site.git's HEAD and nothing else (FEAT-157): the
+	// config that would otherwise name it ships inside the release, so a
+	// deploy could un-protect the branch the refusals below guard. An
+	// unreadable or detached HEAD refuses the push - guessing a branch here
+	// is the same mistake in a quieter form.
+	releaseRef, err := deploy.ReleaseRef(cfg.BareRepoPath())
+	if err != nil {
+		fmt.Fprintln(stdout, err)
+		return err
+	}
+
 	switch which {
 	case "pre-receive":
 		return runPreReceive(cfg, eng, updates, releaseRef, stdout)

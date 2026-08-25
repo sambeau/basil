@@ -122,17 +122,18 @@ func shortRelease(sha string) string {
 	return sha
 }
 
-// branchShortName is the plain branch the release ref names, for display and
-// for the `basil deploy <branch>` hint. deploy.branch may be a bare name
-// ("live", "main") or a fully-qualified ref; a refs/heads/<name> ref reduces
-// to <name>, anything else (a bare name, or the rare refs/tags/<name>) is used
-// as Git already resolves it.
+// branchShortName is the release branch to show in a hint - site.git's HEAD
+// when there is a repository to ask (FEAT-157). The fallback is a display
+// fallback only: nothing decides anything from it, and the commands that DO
+// decide (the receive hooks) refuse rather than guess. `basil check` is where
+// an unreadable HEAD is reported as such.
 func branchShortName(cfg *config.Config) string {
-	b := cfg.Deploy.Branch
-	if b == "" {
-		b = config.DefaultReleaseBranch
+	if cfg.SiteRoot != "" {
+		if branch, err := deploy.ReleaseBranch(cfg.BareRepoPath()); err == nil {
+			return branch
+		}
 	}
-	return strings.TrimPrefix(b, "refs/heads/")
+	return config.DefaultReleaseBranch
 }
 
 // devReleaseDriftNote returns a one-line note when the release branch in the
@@ -631,6 +632,29 @@ func checkRepository(cfg *config.Config, pass, fail func(name, format string, a 
 		}
 	}
 	pass("repository placement", "not inside any served root")
+
+	checkReleaseBranch(cfg, pass, fail)
+}
+
+// checkReleaseBranch reports the one operator fact the whole deploy path
+// hangs off: which branch site.git's HEAD names, and whether it exists yet.
+// A HEAD retargeted ahead of the first push of the new branch is a real,
+// recoverable state - pushes to the old branch are stored and publish
+// nothing until it arrives - so it is reported plainly rather than as a
+// failure. A HEAD that names no branch at all IS a failure: nothing can
+// publish until it does.
+func checkReleaseBranch(cfg *config.Config, pass, fail func(name, format string, a ...any)) {
+	repo := cfg.BareRepoPath()
+	branch, err := deploy.ReleaseBranch(repo)
+	if err != nil {
+		fail("release branch", "%v", err)
+		return
+	}
+	if err := runGit(repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch); err != nil {
+		pass("release branch", "%s (HEAD names it, but it does not exist here yet - pushes to any other branch are stored and publish nothing until the first push of '%s' arrives)", branch, branch)
+		return
+	}
+	pass("release branch", "%s", branch)
 }
 
 func checkDNS(host string, pass, fail, note func(name, format string, a ...any)) {

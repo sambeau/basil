@@ -218,34 +218,51 @@ directory.
 ## Operator-Owned Settings on a Site Root
 
 Because `basil.yaml` ships inside the release, a deploy can change configuration
-— with two exceptions. On a **site root**, these belong to the operator and are
-forced on, whatever the active release's config says:
+— with a few exceptions. On a **site root** these belong to the operator:
 
-| Key | Forced to | Why |
+| Setting | On a site root | Why |
 | --- | --- | --- |
-| `git.enabled` | `true` | The Git endpoint is how releases arrive. A release cannot switch off the door it came in through. |
-| `auth.enabled` | `true` | Pushes are authorised by API keys in the auth database. A release cannot switch that off either. |
+| `auth.enabled` | Forced `true` | Pushes are authorised by API keys in the auth database. A release cannot switch that off. |
+| `data_dir` | Ignored; stays `<site root>/data` | The auth and deploy databases the deploy path itself runs on live under it, and every persistent path the running server uses was resolved against it. A release that moved it would strand all of them. |
 
-Without this, an entirely ordinary first push from a site built locally would
-brick the server: a local `basil.yaml` has no `git:` or `auth:` block, because a
-laptop needs neither, and deploying it would remove the endpoint the next deploy
-was supposed to arrive through. Recovery would mean a shell on the box.
+Without the first, an entirely ordinary first push from a site built locally
+would brick the server: a local `basil.yaml` has no `auth:` block, because a
+laptop needs no accounts, and deploying it would remove the authentication the
+next deploy has to pass. Recovery would mean a shell on the box.
 
-Omitting the blocks is the normal case and is **silent**. Setting one to `false`
-*explicitly* earns a warning at every start, naming the override, so the config
-on disk and the running server never disagree quietly:
+Omitting the block is the normal case and is **silent**. Setting it to `false`
+*explicitly*, or setting `data_dir`, earns a warning at every start and at every
+deploy, naming what was ignored, so the config on disk and the running server
+never disagree quietly:
 
 ```
-warning: git.enabled: false in this release's basil.yaml is ignored on a site root — the git endpoint is how releases arrive; a release cannot switch it off
 warning: auth.enabled: false in this release's basil.yaml is ignored on a site root — pushes are authenticated; a release cannot switch that off
+warning: data_dir: "/var/lib/elsewhere" in this release's basil.yaml is ignored on a site root — the data root is the operator's, and the databases the deploy path runs on live under it; it stays /srv/mysite/data
 ```
 
-In the **legacy layout** nothing is forced. A plain project directory has no bare
-repository, so it has no Git endpoint to protect and no accounts to require — a
-local `basil --dev` server with neither is exactly right.
+Two facts left `basil.yaml` entirely rather than being forced, because forcing a
+*value* means nothing: **which branch publishes**, and **whether `/.git` is
+served at all**. Both live in the bare repository, where only a shell on the box
+can reach them:
+
+```bash
+git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main   # the release branch
+git -C /srv/mysite/site.git config basil.gitEnabled false       # stop serving /.git
+```
+
+The keys they replace — `deploy.branch` and `git.enabled` — are gone. A config
+that still carries either loads fine and warns, naming the command above; it is
+never an error, because a stale key in a file everyone pulls from must not stop
+a server (or a `basil publish`) from working. The warning is printed by
+`basil publish` too, so a clone does not carry it around unseen.
+
+In the **legacy layout** nothing is forced and `data_dir` works exactly as
+documented above: a plain project directory has no bare repository, so it has no
+Git endpoint to protect and no accounts to require — a local `basil --dev`
+server with neither is exactly right.
 
 This is a narrow fence rather than a general rule about what a release may
-change: it covers exactly the two settings whose loss removes the way back in.
+change: it covers exactly the settings whose loss removes the way back in.
 Hostname, port and TLS all stay deployable — renaming a site over Git is a
 legitimate thing to do — and are gated instead.
 

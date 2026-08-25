@@ -117,6 +117,14 @@ func (s *Server) SwapRelease() error {
 	// from yaml) and every restart-required section before validating:
 	// validation rules depend on dev mode, and what gets validated must be
 	// what will actually run.
+	// What loading the new release decided to ignore — an operator-owned
+	// setting it tried to change, a key that no longer exists — is reported
+	// on every swap, not only at startup: a deploy is exactly when a release
+	// introduces one.
+	for _, w := range config.ReleaseWarnings(newCfg) {
+		s.logWarn("%s", w)
+	}
+
 	s.carryRestartRequiredSettings(newCfg)
 	if err := config.Validate(newCfg); err != nil {
 		return fmt.Errorf("swap release: validating %s: %w", cfgPath, err)
@@ -229,7 +237,7 @@ func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 	carry("database", !reflect.DeepEqual(newCfg.Database, old.Database), func() { newCfg.Database = old.Database })
 	carry("session", !reflect.DeepEqual(newCfg.Session, old.Session), func() { newCfg.Session = old.Session })
 	carry("auth", !reflect.DeepEqual(newCfg.Auth, old.Auth), func() { newCfg.Auth = old.Auth })
-	carry("git", !reflect.DeepEqual(newCfg.Git, old.Git), func() { newCfg.Git = old.Git })
+	carry("dev", !reflect.DeepEqual(newCfg.Dev, old.Dev), func() { newCfg.Dev = old.Dev })
 	carry("images", !reflect.DeepEqual(newCfg.Images, old.Images), func() { newCfg.Images = old.Images })
 	carry("logging", !reflect.DeepEqual(newCfg.Logging, old.Logging), func() { newCfg.Logging = old.Logging })
 	carry("compression", !reflect.DeepEqual(newCfg.Compression, old.Compression), func() { newCfg.Compression = old.Compression })
@@ -238,11 +246,34 @@ func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 	carry("server.proxy", !reflect.DeepEqual(newCfg.Server.Proxy, old.Server.Proxy), func() { newCfg.Server.Proxy = old.Server.Proxy })
 
 	// deploy.* is deliberately absent from this list: this process builds
-	// nothing from it. The receive hooks and the CLI read deploy.branch and
-	// deploy.keep out of the active release's own file at every invocation,
-	// so pinning a stale copy here would make the served config disagree with
-	// what the next push will actually do — the opposite of what carrying is
-	// for.
+	// nothing from it. The receive hooks and the CLI read deploy.keep out of
+	// the active release's own file at every invocation, so pinning a stale
+	// copy here would make the served config disagree with what the next push
+	// will actually do — the opposite of what carrying is for.
+
+	// The git endpoint is not a config section any more (FEAT-157): its
+	// switch is basil.gitEnabled in site.git, which no deploy can move. It
+	// still gets the restart-required warning, because the handler was built
+	// at startup and an operator who flips the switch should not think a
+	// deploy applied it.
+	s.warnGitSwitchChanged()
+}
+
+// warnGitSwitchChanged reports an operator flipping basil.gitEnabled while
+// the server runs. Silent when there is no repository to ask, and never
+// changes what is served: the endpoint the handler was built with stands
+// until a restart.
+func (s *Server) warnGitSwitchChanged() {
+	repo := s.config.BareRepoPath()
+	if repo == "" {
+		return
+	}
+	if info, err := os.Stat(repo); err != nil || !info.IsDir() {
+		return
+	}
+	if now := deploy.GitEnabled(repo); now != s.gitSwitch {
+		s.logWarn("basil.gitEnabled is now %v in %s but the git endpoint was built at startup - restart required for it to take effect", now, repo)
+	}
 }
 
 // currentLinkDebounce coalesces the burst of filesystem events a symlink

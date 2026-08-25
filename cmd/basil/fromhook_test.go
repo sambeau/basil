@@ -513,40 +513,55 @@ func TestFromHook_OneRefusalFailsTheWholePush(t *testing.T) {
 	}
 }
 
-// deploy.branch accepts the long ref forms, so a tag can be the release ref.
-func TestFromHook_TagReleaseRef(t *testing.T) {
+// The release branch follows site.git's HEAD, so an operator retargeting it
+// moves what publishes - and the old branch goes back to being stored and
+// published to nobody.
+func TestFromHook_FollowsHEADRetarget(t *testing.T) {
 	f := newDeployFixture(t)
 	before := f.currentSHA(t)
-	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"tagged\"</h1>\n", "tagged release")
-	testGit(t, f.work, "tag", "production")
-	testGit(t, f.work, "push", "--quiet", "origin", "production")
 
-	// The config ships inside the release, so point the ACTIVE release's
-	// config at the tag ref.
-	configPath := filepath.Join(f.root, "current", "basil.yaml")
-	appendConfig := "\ndeploy:\n  branch: refs/tags/production\n"
-	existing, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(configPath, append(existing, appendConfig...), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	testGit(t, f.work, "checkout", "--quiet", "-b", "shipping")
+	sha := f.commitAndPushBranch(t, "shipping", "site/index.pars", "<h1>\"shipped\"</h1>\n", "on shipping")
+	testGit(t, filepath.Join(f.root, "site.git"), "symbolic-ref", "HEAD", "refs/heads/shipping")
 
-	line := refLine(zeroSHA, sha, "refs/tags/production")
+	line := refLine(before, sha, "refs/heads/shipping")
 	if stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, line); err != nil {
-		t.Fatalf("pre-receive on the tag ref: %v\noutput: %s", err, stdout.String())
+		t.Fatalf("pre-receive on the retargeted branch: %v\noutput: %s", err, stdout.String())
 	}
 	if _, _, err := runHookLines(f, "post-receive", emptyEnv, line); err != nil {
-		t.Fatalf("post-receive on the tag ref: %v", err)
+		t.Fatalf("post-receive on the retargeted branch: %v", err)
 	}
 	if got := f.currentSHA(t); got != sha {
-		t.Errorf("current points at %s, want the tagged commit %s", got, sha)
+		t.Errorf("current points at %s, want %s", got, sha)
 	}
 
-	// And with a tag release ref, moving refs/heads/live publishes nothing.
+	// The branch HEAD no longer names publishes nothing.
 	if _, _, err := runHookLines(f, "post-receive", emptyEnv, refLine(before, sha, "refs/heads/live")); err != nil {
-		t.Fatalf("post-receive on refs/heads/live with a tag release ref: %v", err)
+		t.Fatalf("post-receive on the old release branch: %v", err)
+	}
+	if got := f.currentSHA(t); got != sha {
+		t.Errorf("a push to the old release branch deployed %s", got)
+	}
+}
+
+// A HEAD that names no branch names no release: the push is refused with the
+// one command that fixes it, rather than falling back to a guess.
+func TestFromHook_DetachedHEADRefusesWithTheFix(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	repo := filepath.Join(f.root, "site.git")
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	testGit(t, repo, "update-ref", "--no-deref", "HEAD", before)
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/"+releaseBranch))
+	if err == nil {
+		t.Fatalf("a detached HEAD must refuse the push:\n%s", stdout.String())
+	}
+	if !strings.Contains(err.Error(), "symbolic-ref HEAD refs/heads/") {
+		t.Errorf("refusal does not name the fix: %v", err)
+	}
+	if got := f.currentSHA(t); got != before {
+		t.Errorf("current moved to %s despite the refusal", got)
 	}
 }
 

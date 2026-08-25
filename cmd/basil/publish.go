@@ -16,8 +16,9 @@ import (
 // runPublishCommand handles `basil publish [dir]`: it pushes the current
 // commit of a working clone to the site's release branch, showing what would
 // be published and asking to confirm first. It is not --site-based: it runs
-// inside a clone and reads the release branch from that clone's committed
-// basil.yaml.
+// inside a clone and ASKS THE SERVER which branch releases (FEAT-157), so a
+// clone needs no committed setting naming it and an operator who retargets
+// site.git's HEAD needs no change on any client.
 func runPublishCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
 	return runPublish(args, os.Stdin, stdout, stderr, getenv)
 }
@@ -61,7 +62,10 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		return fmt.Errorf("no 'origin' remote in %s: publish pushes to origin, so clone your site from the server first", top)
 	}
 
-	// --- config: the release branch comes from the clone's basil.yaml -----
+	// --- config: loaded for its warnings, not for the release branch ------
+	// Nothing here decides where the publish goes any more. It is still read
+	// because a clone is precisely where a key that was removed from basil.yaml
+	// would otherwise sit unnoticed in the file everyone pulls from.
 	cfgPath, err := findConfigUp(top)
 	if err != nil {
 		return err
@@ -70,8 +74,9 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	if err != nil {
 		return fmt.Errorf("loading %s: %w", cfgPath, err)
 	}
-	ref := cfg.Deploy.ReleaseRef() // refs/heads/<branch> (or a qualified ref)
-	branch := branchShortName(cfg)
+	for _, w := range config.ReleaseWarnings(cfg) {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
+	}
 
 	headSHA, err := gitOutput(top, "rev-parse", "HEAD")
 	if err != nil {
@@ -85,24 +90,41 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		fmt.Fprintf(stderr, "warning: you have uncommitted changes; publishing the committed state %s\n", shortRelease(headSHA))
 	}
 
-	// --- the server's release-branch tip: origin, via git -----------------
-	// origin is the site's Git endpoint, so ls-remote reaching it is the
-	// closest we get to "what is deployed" without a status endpoint (a
-	// server round-trip is the spec's stated preference but has no endpoint
-	// yet - deferred). When origin is unreachable, fall back to the clone's
-	// cached remote-tracking ref and degrade drift to a warning, never a
+	// --- the release branch and its tip: origin, via one ls-remote --------
+	// `ls-remote --symref origin HEAD` answers both questions in the round
+	// trip publish already made: the "ref: refs/heads/<branch> HEAD" line is
+	// the server's release branch, and the sha line beside it is that
+	// branch's tip - the closest we get to "what is deployed" without a
+	// status endpoint. When origin is unreachable, fall back to what this
+	// clone cached about it (refs/remotes/origin/HEAD, which git clone wrote
+	// from the server's HEAD) and degrade drift to a warning, never a
 	// failure: publish must work without the network answering.
 	base := ""
+	branch := ""
 	reachable := true
-	if out, err := gitOutput(top, "ls-remote", "origin", ref); err != nil {
+	if out, err := gitOutput(top, "ls-remote", "--symref", "origin", "HEAD"); err != nil {
 		reachable = false
 		fmt.Fprintf(stderr, "warning: could not reach origin to check drift (%v); using the last known state from this clone\n", err)
+		branch = cachedReleaseBranch(top)
+		if branch == "" {
+			return fmt.Errorf("cannot publish: origin is unreachable and this clone does not know which branch releases (no refs/remotes/origin/HEAD) - retry when the server answers")
+		}
 		if cached, cerr := gitOutput(top, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+branch); cerr == nil {
 			base = strings.TrimSpace(cached)
 		}
 	} else {
-		base = firstField(out) // "" when the branch does not exist on origin yet
+		branch = symrefBranch(out)
+		if branch == "" {
+			// Git advertises HEAD as a symref only when it resolves, so the
+			// two states that produce silence here - a detached HEAD, and a
+			// HEAD retargeted at a branch nobody has pushed yet - are
+			// indistinguishable over the protocol. Say so, and name the fix
+			// for each: guessing a branch is the mistake FEAT-157 removed.
+			return fmt.Errorf("origin advertises no release branch: its HEAD is either detached, or names a branch that does not exist there yet\n  on the server: basil check (it reports which), then git -C <site root>/site.git symbolic-ref HEAD refs/heads/<branch>\n  to create a newly named release branch, push it once explicitly: git push origin HEAD:refs/heads/<branch>")
+		}
+		base = symrefTip(out) // "" when the branch does not exist there yet
 	}
+	ref := "refs/heads/" + branch
 
 	// --- unreachable origin with no cached base ---------------------------
 	// A base of "" is only a genuine first publish when origin ANSWERED and
@@ -205,7 +227,7 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 }
 
 // publishPlan counts the commits and lists the files HEAD adds over base. When
-// base is empty (the release branch does not exist on origin yet) everything
+// base is empty (nothing known on the server to diff against) everything
 // reachable from HEAD is new, so the whole tree is the change set.
 func publishPlan(dir, base, head string) (int, []string, error) {
 	if base == "" {
@@ -275,10 +297,58 @@ func findConfigUp(start string) (string, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("no %s in %s or its parents: publish needs the site config to find the release branch", config.ConfigFileName, start)
+			return "", fmt.Errorf("no %s in %s or its parents: run basil publish inside a clone of your site", config.ConfigFileName, start)
 		}
 		dir = parent
 	}
+}
+
+// symrefBranch reads the branch out of `ls-remote --symref origin HEAD`,
+// whose first line is "ref: refs/heads/<branch>\tHEAD". A detached or
+// unreadable HEAD on the server produces no such line, and "" says so.
+func symrefBranch(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		rest, ok := strings.CutPrefix(strings.TrimSpace(line), "ref: ")
+		if !ok {
+			continue
+		}
+		ref := firstField(rest)
+		if branch, ok := strings.CutPrefix(ref, "refs/heads/"); ok && branch != "" {
+			return branch
+		}
+	}
+	return ""
+}
+
+// symrefTip reads the sha of HEAD from the same output - the release
+// branch's tip on the server. It is absent when HEAD names a branch that has
+// no commits yet, which is a first publish.
+func symrefTip(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "ref: ") {
+			continue
+		}
+		return firstField(line)
+	}
+	return ""
+}
+
+// cachedReleaseBranch is what this clone last knew of the server's HEAD:
+// git clone writes refs/remotes/origin/HEAD from it, so the answer is right
+// unless the operator retargeted since the last fetch - and an unreachable
+// origin cannot be asked.
+func cachedReleaseBranch(dir string) string {
+	out, err := gitOutput(dir, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
+	if err != nil {
+		return ""
+	}
+	ref := strings.TrimSpace(out)
+	branch, ok := strings.CutPrefix(ref, "refs/remotes/origin/")
+	if !ok {
+		return ""
+	}
+	return branch
 }
 
 // firstField returns the first whitespace-delimited token of s (an ls-remote
@@ -329,10 +399,11 @@ func printPublishUsage(w io.Writer) {
 Usage:
   basil publish [dir] [options]
 
-Run inside a clone of your site (git clone https://<host>/.git). publish reads
-the release branch from the clone's basil.yaml, shows the commits and files it
-would send, reports drift against origin, then asks to confirm before pushing
-git push origin HEAD:<release-branch> with the server's output streamed live.
+Run inside a clone of your site (git clone https://<host>/.git). publish asks
+the server which branch releases (its site.git HEAD), shows the commits and
+files it would send, reports drift against origin, then asks to confirm before
+pushing git push origin HEAD:<release-branch> with the server's output
+streamed live.
 
 Options:
   --yes        Skip the confirmation prompt (for scripts)

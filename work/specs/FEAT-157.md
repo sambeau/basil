@@ -1,7 +1,7 @@
 ---
 id: FEAT-157
 title: "The release branch lives in site.git/HEAD; retire deploy.branch and git.enabled"
-status: proposed
+status: implemented
 priority: high
 created: 2026-08-25
 author: "@sambeau / @claude"

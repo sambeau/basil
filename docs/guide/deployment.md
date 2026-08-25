@@ -379,10 +379,32 @@ the release branch 'live' matches the live release
 ```
 
 When the branch is ahead, status says by how many commits and prints the
-`basil deploy` to run. It names the **configured** release branch throughout —
-`live` by default, or whatever `deploy.branch` is set to (a `deploy.branch: main`
-site reports `main`), not the literal word "live". Status reports rather than
-insists: a legacy layout or a missing repository is stated plainly and exits 0.
+`basil deploy` to run. It names the site's **actual** release branch throughout —
+whatever `site.git`'s `HEAD` points at, `live` by default — not the literal word
+"live". Status reports rather than insists: a legacy layout or a missing
+repository is stated plainly and exits 0.
+
+### Changing the release branch
+
+The branch whose movement publishes is `site.git`'s `HEAD`, and one git command
+changes it:
+
+```bash
+git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main
+```
+
+It is deliberately a fact about the server rather than a setting in `basil.yaml`:
+the config ships inside the release, so a deployed config naming the release
+branch would let a release un-protect the branch whose history the hub refuses to
+rewrite. The same reasoning puts the endpoint's off-switch there —
+`git -C /srv/mysite/site.git config basil.gitEnabled false`, which stops `/.git`
+being served at all and leaves deploys to `basil deploy` at the shell. Both are
+covered in the [Git guide](git.md#which-branch-publishes).
+
+Clients need no change: `basil publish` asks the server which branch releases,
+and a clone follows the same `HEAD`. If the new branch does not exist on the
+server yet, pushes to the old one are stored and publish nothing until it
+arrives; `basil check` says so.
 
 ## `basil check`
 

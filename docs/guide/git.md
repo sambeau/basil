@@ -42,14 +42,48 @@ The repository ships with the starter site already committed on the release bran
 so a clone of a freshly initialised server yields working files rather than *"you
 appear to have cloned an empty repository"*.
 
-**There is no `git.enabled: true` to write, and on a deployed site no way to write
-`false` either.** `basil.yaml` travels inside the release, so a config that could
-switch the endpoint off would let a release disable the very mechanism it arrived
-through — leaving no way back in but a shell on the box. On a site root the setting
-is [operator-owned](configuration.md#operator-owned-settings-on-a-site-root): it is
-forced on, and a release that sets it `false` gets a startup warning saying so. A
-plain local project directory has no bare repository and so no endpoint at all,
-which is the correct shape for a laptop and needs no setting.
+**There is nothing in `basil.yaml` to turn the endpoint on or off.** The config
+travels inside the release, so a setting that could switch the endpoint off would
+let a release disable the very mechanism it arrived through — leaving no way back
+in but a shell on the box. The off-switch is therefore a fact about the server,
+recorded in the repository itself:
+
+```bash
+git -C /srv/mysite/site.git config basil.gitEnabled false   # then restart
+```
+
+With that set, `/.git` is not served at all — clone and push both get a 404 — and
+deploys happen at the server shell with `basil deploy`. Unset (the normal case)
+or `true` means the endpoint is live whenever `site.git` exists. Changing it
+takes effect at the next restart, like the listener settings; a running server
+that notices the change says so. A plain local project directory has no bare
+repository and so no endpoint at all, which is the correct shape for a laptop and
+needs no setting either.
+
+(The old `git.enabled` key is gone. A config that still carries it loads and
+warns, naming the command above.)
+
+## Which branch publishes
+
+The release branch is **`site.git`'s `HEAD`** — git's own record of the
+repository's default branch, and already what a fresh clone checks out. `basil
+--init … --server` points it at `live`. To change it:
+
+```bash
+git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main
+```
+
+That one command is the whole interface. No client changes: `basil publish` asks
+the server which branch releases, and a plain `git clone` follows the same `HEAD`.
+Nothing in a release can rewrite it — which is the point. When the config named
+the branch, a deployed `basil.yaml` could point the protections at some other
+branch and leave the real one freely force-pushable.
+
+If you retarget `HEAD` at a branch that does not exist on the server yet, nothing
+breaks and nothing deploys: pushes to the old branch are stored and published to
+nobody until the new branch arrives (push it once explicitly — `git push origin
+HEAD:refs/heads/main`). `basil check` reports that state plainly, as it does a
+`HEAD` that names no branch at all.
 
 ## Clone your site
 
@@ -90,8 +124,8 @@ basil publish                     # publish: review, confirm, and the site deplo
 
 `git push` is the command you run twenty times a day, and it is the harmless one: it
 stores your work on the server and shows it to nobody. `basil publish` is the
-deliberate one. It runs in your clone, reads the release branch from the site's
-`basil.yaml`, and shows you exactly what is about to go out — the commit range, the
+deliberate one. It runs in your clone, asks the server which branch releases,
+and shows you exactly what is about to go out — the commit range, the
 files, and the drift it closes — before it moves anything:
 
 ```
@@ -127,9 +161,10 @@ cancels and pushes nothing.
 - **`basil publish --dry-run`** prints the same plan — commits, files, drift — and
   stops without pushing.
 - **`basil publish --yes`** skips the confirmation, for scripts.
-- It works from any clone with no prior setup: it reads the release branch from the
-  checked-out `basil.yaml` and configures the push refspec on first use. No
-  `basil.yaml` changes, no local Git config to remember.
+- It works from any clone with no prior setup: it learns the release branch from
+  the server (one `git ls-remote --symref origin HEAD`) and configures the push
+  refspec on first use. No `basil.yaml` changes, no local Git config to remember —
+  and an operator who retargets the branch needs no change on any client.
 
 Sharing work *without* publishing it is just a push of a branch that isn't the release
 branch — stored on the server, published to nobody:
@@ -274,17 +309,16 @@ To https://mysite.example.com/.git
 ```
 
 If you would rather a commit go live the moment it is pushed — no separate publish
-step — set the release branch to the one you work on:
+step — point the release branch at the one you work on, on the server:
 
-```yaml
-deploy:
-  branch: main
+```bash
+git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main
 ```
 
 Now `git push` (of `main`) *is* publishing, restoring the older push-to-publish
 model for teams that want it. This is the one place the two-verb split is a choice
-rather than the default; everything else on this page works with the `basil.yaml`
-that `basil --init <dir> --server` writes on the server, unchanged.
+rather than the default; it is the operator's choice, made once on the box, and
+everything else on this page works unchanged.
 
 ## Authentication
 

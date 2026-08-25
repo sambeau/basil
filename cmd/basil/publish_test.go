@@ -15,7 +15,7 @@ import (
 type publishFixture struct {
 	bare   string // the "server" bare repository (origin)
 	work   string // the clone publish runs in
-	branch string // the release branch (deploy.branch in the clone's basil.yaml)
+	branch string // the release branch (the bare repository's HEAD)
 	seed   string // the seed commit SHA (origin's release-branch tip)
 }
 
@@ -27,14 +27,14 @@ func newPublishFixture(t *testing.T, branch string) *publishFixture {
 	bare := filepath.Join(tmp, "site.git")
 	testGit(t, tmp, "init", "--bare", "--initial-branch="+branch, bare)
 
-	// Seed the release branch: basil.yaml carries deploy.branch so the clone
-	// (and publish) read the branch from committed config, not a default.
+	// Seed the release branch. Nothing in basil.yaml names it: publish asks
+	// origin for its HEAD, which `git init --bare --initial-branch` above
+	// already points at the branch under test (FEAT-157).
 	seedDir := filepath.Join(tmp, "seed")
 	testGit(t, tmp, "init", "--initial-branch="+branch, seedDir)
 	testGit(t, seedDir, "config", "user.name", "Seed Author")
 	testGit(t, seedDir, "config", "user.email", "seed@example.com")
-	writePubFile(t, filepath.Join(seedDir, "basil.yaml"),
-		"server:\n  host: localhost\ndeploy:\n  branch: "+branch+"\n")
+	writePubFile(t, filepath.Join(seedDir, "basil.yaml"), "server:\n  host: localhost\n")
 	writePubFile(t, filepath.Join(seedDir, "site", "index.pars"), "<h1>\"v1\"</h1>\n")
 	testGit(t, seedDir, "add", "-A")
 	testGit(t, seedDir, "commit", "--quiet", "--no-verify", "-m", "seed")
@@ -336,32 +336,29 @@ func TestPublish_UnreachableOriginNoCachedRefDoesNotPush(t *testing.T) {
 	// origin still points at the gone path, so nothing could have been pushed.
 }
 
-// --- genuine first publish to a reachable origin: no drift line -------------
+// --- a reachable origin that advertises no release branch -------------------
 
-// TestPublish_FirstPublishReachableOriginHasNoDriftLine points the release
-// branch at one the reachable origin does not have. That is a real first
-// publish (base == ""); the plan should say so and must NOT also print a drift
-// line - a branch that does not exist cannot be "behind".
-func TestPublish_FirstPublishReachableOriginHasNoDriftLine(t *testing.T) {
+// Git advertises HEAD as a symref only when it resolves, so an origin whose
+// HEAD names a branch nobody has pushed yet looks exactly like a detached one
+// from a clone. publish refuses both and names the fix for each, rather than
+// guessing a branch and publishing somewhere nobody asked for.
+func TestPublish_ReachableOriginWithUnbornHEAD(t *testing.T) {
 	f := newPublishFixture(t, "live")
-	// Retarget the release branch to one absent from origin. origin stays
-	// reachable (the bare repo exists), so ls-remote answers with no such ref.
-	writePubFile(t, filepath.Join(f.work, "basil.yaml"),
-		"server:\n  host: localhost\ndeploy:\n  branch: prod\n")
-	testGit(t, f.work, "add", "-A")
-	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", "target prod")
+	testGit(t, f.bare, "symbolic-ref", "HEAD", "refs/heads/prod")
+	f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
 
 	var out bytes.Buffer
 	err := runPublish([]string{f.work, "--dry-run"}, strings.NewReader(""), &out, &out, emptyEnv)
-	if err != nil {
-		t.Fatalf("first-publish dry-run failed: %v\n%s", err, out.String())
+	if err == nil {
+		t.Fatalf("publish must not guess a branch when origin advertises none:\n%s", out.String())
 	}
-	got := out.String()
-	if !strings.Contains(got, "first publish") {
-		t.Errorf("expected the first-publish line:\n%s", got)
+	for _, want := range []string{"basil check", "symbolic-ref HEAD refs/heads/", "git push origin HEAD:refs/heads/"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not name %q: %v", want, err)
+		}
 	}
-	if strings.Contains(got, "drift:") {
-		t.Errorf("a non-existent branch cannot be behind; no drift line expected:\n%s", got)
+	if tip := f.originTip(t); tip != f.seed {
+		t.Errorf("live moved to %s; nothing should have been pushed", tip)
 	}
 }
 
@@ -391,7 +388,7 @@ func TestPublish_SetsPushRefspecOnExistingBranch(t *testing.T) {
 	}
 }
 
-// --- deploy.branch: main round trip -----------------------------------------
+// --- a non-default release branch (HEAD: main) round trip -------------------
 
 func TestPublish_NonDefaultBranchRoundTrip(t *testing.T) {
 	f := newPublishFixture(t, "main")
@@ -404,7 +401,7 @@ func TestPublish_NonDefaultBranchRoundTrip(t *testing.T) {
 		t.Fatalf("publish to main failed: %v\n%s", err, out.String())
 	}
 	if !strings.Contains(out.String(), `to "main"`) {
-		t.Errorf("publish did not target the configured branch main:\n%s", out.String())
+		t.Errorf("publish did not target the branch origin's HEAD names (main):\n%s", out.String())
 	}
 	if tip := f.originTip(t); tip != head {
 		t.Errorf("main is at %s, want %s", tip, head)
@@ -450,5 +447,84 @@ func TestRun_DispatchesPublish(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Nothing to publish") {
 		t.Errorf("publish did not run via dispatch:\n%s", out.String())
+	}
+}
+
+// --- the release branch comes from the server (FEAT-157) --------------------
+
+// An operator retargeting site.git's HEAD is the whole interface for changing
+// the release branch: the next publish from an UNCHANGED clone must follow it.
+func TestPublish_FollowsHEADRetargetWithNoClientChange(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+
+	// The server now releases from "shipping", which already exists there.
+	testGit(t, f.bare, "branch", "shipping", f.seed)
+	testGit(t, f.bare, "symbolic-ref", "HEAD", "refs/heads/shipping")
+
+	head := f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	var out bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("publish after a HEAD retarget failed: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), `to "shipping"`) {
+		t.Errorf("publish did not follow origin's retargeted HEAD:\n%s", out.String())
+	}
+	if tip := testGit(t, f.bare, "rev-parse", "shipping"); tip != head {
+		t.Errorf("shipping is at %s, want %s", tip, head)
+	}
+	if tip := testGit(t, f.bare, "rev-parse", "live"); tip != f.seed {
+		t.Errorf("live moved to %s; only the branch HEAD names should have been published to", tip)
+	}
+}
+
+// A clone's committed deploy.branch is dead weight and must not steer the
+// publish - the exact confusion FEAT-157 removed.
+func TestPublish_IgnoresAndReportsRetiredBranchKey(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+	writePubFile(t, filepath.Join(f.work, "basil.yaml"),
+		"server:\n  host: localhost\ndeploy:\n  branch: shipping\n")
+	testGit(t, f.work, "add", "-A")
+	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", "stale key")
+	head := testGit(t, f.work, "rev-parse", "HEAD")
+
+	var out bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("publish failed: %v\n%s", err, out.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, `to "live"`) {
+		t.Errorf("the committed deploy.branch steered the publish:\n%s", got)
+	}
+	if !strings.Contains(got, "deploy.branch is no longer read") {
+		t.Errorf("publish did not report the retired key in the clone:\n%s", got)
+	}
+	if tip := f.originTip(t); tip != head {
+		t.Errorf("live is at %s, want %s", tip, head)
+	}
+}
+
+// A detached HEAD on the server names no release branch: publish stops and
+// names the one command that fixes it, rather than guessing a branch.
+func TestPublish_DetachedOriginHEADNamesTheFix(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	testGit(t, f.bare, "update-ref", "--no-deref", "HEAD", f.seed)
+	f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	var out bytes.Buffer
+	err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv)
+	if err == nil {
+		t.Fatalf("publish must not proceed when origin names no release branch:\n%s", out.String())
+	}
+	if !strings.Contains(err.Error(), "symbolic-ref HEAD refs/heads/") {
+		t.Errorf("error does not name the fix: %v", err)
+	}
+	if !strings.Contains(err.Error(), "detached") {
+		t.Errorf("error does not name the state: %v", err)
+	}
+	if tip := f.originTip(t); tip != f.seed {
+		t.Errorf("live moved to %s; nothing should have been pushed", tip)
 	}
 }

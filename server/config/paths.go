@@ -32,9 +32,11 @@ const (
 	UploadsURLPrefix = "/__uploads/"
 	// ConfigFileName is the name of the configuration file.
 	ConfigFileName = "basil.yaml"
-	// DefaultReleaseBranch is the branch a push must move to publish a
-	// release (DESIGN-git-deploy §7). Configurable as deploy.branch
-	// (FEAT-154); DeployConfig.ReleaseRef turns the setting into a ref.
+	// DefaultReleaseBranch is the branch `basil --init --server` points a
+	// new site.git's HEAD at (DESIGN-git-deploy §7). It is a starting value,
+	// not a setting: from then on the release branch is whatever HEAD names
+	// (deploy.ReleaseBranch), and it is only used again as the name to show
+	// when there is no repository to ask.
 	DefaultReleaseBranch = "live"
 )
 
@@ -96,7 +98,8 @@ func ConfigPathForSite(dir string) (string, error) {
 // Two layouts are supported:
 //
 //   - Site root: configDir is <site root>/current (or <site root>/releases/<id>).
-//     ReleaseDir is the active release, DataDir defaults to <site root>/data.
+//     ReleaseDir is the active release, DataDir is <site root>/data — the
+//     release does not get to move it (FEAT-157; see the warning below).
 //   - Legacy single directory: ReleaseDir is the project directory and DataDir
 //     defaults to the same place, which is exactly the pre-FEAT-152 behaviour.
 func ResolveAnchors(cfg *Config, configDir string) {
@@ -126,6 +129,8 @@ func ResolveAnchors(cfg *Config, configDir string) {
 	cfg.SiteRoot = siteRoot
 	cfg.ReleaseDir = releaseDir
 
+	requested := cfg.DataDir
+
 	switch {
 	case cfg.DataDir == "":
 		if siteRoot != "" {
@@ -142,6 +147,23 @@ func ResolveAnchors(cfg *Config, configDir string) {
 		cfg.DataDir = filepath.Join(anchor, cfg.DataDir)
 	default:
 		cfg.DataDir = filepath.Clean(cfg.DataDir)
+	}
+
+	// data_dir is the operator's ground truth on a site root: the data root
+	// holds the auth and deploy databases the deploy path itself runs on, and
+	// every persistent path a running server resolved was resolved against
+	// it. A release that moved it would strand all of them — so the release's
+	// value is ignored here, at load, and not merely carried across live
+	// swaps as FEAT-156 did. In the legacy layout the key is the operator
+	// speaking and works exactly as FEAT-152 defined it.
+	if siteRoot != "" && requested != "" {
+		conventional := filepath.Join(siteRoot, DataDirName)
+		if cfg.DataDir != conventional {
+			cfg.operatorOverrides = append(cfg.operatorOverrides, fmt.Sprintf(
+				"data_dir: %q in this release's %s is ignored on a site root — the data root is the operator's, and the databases the deploy path runs on live under it; it stays %s",
+				requested, ConfigFileName, conventional))
+			cfg.DataDir = conventional
+		}
 	}
 }
 

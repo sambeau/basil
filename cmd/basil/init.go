@@ -83,10 +83,12 @@ auth:
   enabled: true
 
 # The Git endpoint at /.git/ is live because this site has a repository
-# (site.git) - there is nothing here to switch it on. Pushing always
-# requires an API key from the auth database above. On a site root the
-# endpoint is operator-owned: git.enabled is ignored, so a release can never
-# disable the endpoint it arrived through.
+# (site.git) - there is nothing here to switch it on or off. Pushing always
+# requires an API key from the auth database above. The endpoint, and the
+# branch that publishes, are facts about the server rather than the release:
+# they live in site.git, where no deploy can reach them.
+#   which branch publishes: git -C site.git symbolic-ref HEAD refs/heads/live
+#   serve /.git at all:     git -C site.git config basil.gitEnabled false
 
 # Where site code may write. <data_dir>/uploads is always writable and is
 # served at /__uploads/; add more entries here if site code needs them.

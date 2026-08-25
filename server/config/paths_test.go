@@ -277,25 +277,31 @@ func TestResolutionIsIndependentOfWorkingDirectory(t *testing.T) {
 }
 
 func TestDataDirKey(t *testing.T) {
-	t.Run("relative resolves against the site root", func(t *testing.T) {
+	// On a site root the key belongs to the operator, not to the release
+	// that ships basil.yaml: it is ignored and warned about (FEAT-157). Both
+	// spellings a release might use are covered.
+	t.Run("relative is ignored on a site root", func(t *testing.T) {
 		root, _ := writeSiteRoot(t, "server:\n  host: example.com\ndata_dir: ./state\n")
 		cfg, err := Load(filepath.Join(root, CurrentLinkName, ConfigFileName), func(string) string { return "" })
 		if err != nil {
 			t.Fatalf("Load: %v", err)
 		}
-		if want := filepath.Join(root, "state"); cfg.DataDir != want {
+		if want := filepath.Join(root, DataDirName); cfg.DataDir != want {
 			t.Errorf("DataDir = %q, want %q", cfg.DataDir, want)
+		}
+		if !containsSubstring(Warnings(cfg), "data_dir") {
+			t.Error("a release moving data_dir on a site root must warn")
 		}
 	})
 
-	t.Run("absolute is left alone", func(t *testing.T) {
+	t.Run("absolute is ignored on a site root", func(t *testing.T) {
 		root, _ := writeSiteRoot(t, "server:\n  host: example.com\ndata_dir: /srv/state\n")
 		cfg, err := Load(filepath.Join(root, CurrentLinkName, ConfigFileName), func(string) string { return "" })
 		if err != nil {
 			t.Fatalf("Load: %v", err)
 		}
-		if cfg.DataDir != "/srv/state" {
-			t.Errorf("DataDir = %q, want /srv/state", cfg.DataDir)
+		if want := filepath.Join(root, DataDirName); cfg.DataDir != want {
+			t.Errorf("DataDir = %q, want %q", cfg.DataDir, want)
 		}
 		if cfg.Database.Path != "" {
 			t.Errorf("unexpected database path %q", cfg.Database.Path)

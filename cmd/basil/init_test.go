@@ -539,9 +539,12 @@ func TestInitCommand_GeneratedConfigNeedsNoEditing(t *testing.T) {
 	}
 
 	// The summary prints `git clone https://…/.git`; that 404s unless the
-	// Git server is enabled.
-	if !cfg.Git.Enabled {
-		t.Error("git.enabled is false, so the clone URL printed by --init returns 404")
+	// endpoint is served. Nothing in the config can switch it off any more
+	// (FEAT-157) — the endpoint follows the repository, and the operator's
+	// switch lives inside it — so what the generated config must NOT do is
+	// carry the retired keys.
+	if warns := config.ReleaseWarnings(cfg); len(warns) != 0 {
+		t.Errorf("the generated config carries settings loading has to ignore: %v", warns)
 	}
 
 	// Site code must be able to write to the durable location the same

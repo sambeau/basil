@@ -93,12 +93,14 @@ public_dir: ./public
 # (<data_dir>/uploads is always writable, and is served at /__uploads/)
 
 # Git over HTTPS - the endpoint at /.git/ that a team clones and pushes to.
-# There is nothing to turn on: it is live whenever the site has a bare
-# repository (which 'basil --init <dir> --server' creates). This key is an
-# off-switch only, and on a deployed site root it is operator-owned and
-# ignored - a release cannot disable the endpoint it arrived through.
-# git:
-#   enabled: false
+# There is nothing here to turn on or off: it is live whenever the site has a
+# bare repository (which 'basil --init <dir> --server' creates). The endpoint,
+# and the branch whose movement publishes, are facts about the SERVER - a
+# release cannot rewrite the door it arrived through - so they live in the
+# repository itself:
+#
+#   git -C <site root>/site.git symbolic-ref HEAD refs/heads/live  # publishes
+#   git -C <site root>/site.git config basil.gitEnabled false      # no /.git
 
 # Per-person overrides. This file describes the SITE, not your machine:
 # top-level keys are production truth, --dev covers mode, and anything that

@@ -365,12 +365,42 @@ func TestSwapReleaseCarriesRestartRequiredSections(t *testing.T) {
 	}
 }
 
+// The dev section is built at startup like any other subsystem (the dev log
+// database is opened once), so a release changing it is carried and warned
+// about rather than half-applied (FEAT-157 rider).
+func TestSwapReleaseCarriesDevSection(t *testing.T) {
+	root := activationFixture(t)
+	s, _, stderr := newSiteRootServer(t, root)
+	oldDev := s.config.Dev
+
+	// writeRelease's fixture ends inside the dev: block, so this line
+	// extends it rather than starting a second one.
+	redev := writeRelease(t, root, "redev", "redev release", "  log_database: elsewhere.db\n")
+	must(deploy.SetCurrent(root, redev))
+	if err := s.SwapRelease(); err != nil {
+		t.Fatalf("SwapRelease: %v", err)
+	}
+
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "redev release") {
+		t.Errorf("expected the new release's content, got %q", got)
+	}
+	if s.config.Dev != oldDev {
+		t.Errorf("dev applied live: got %+v, want %+v", s.config.Dev, oldDev)
+	}
+	if live := s.serving.Load().config; live.Dev != oldDev {
+		t.Errorf("live config shows the new dev section %+v", live.Dev)
+	}
+	if warnings := stderr.String(); !strings.Contains(warnings, "dev changed") || !strings.Contains(warnings, "restart required") {
+		t.Errorf("expected a restart-required warning naming dev, stderr: %s", warnings)
+	}
+}
+
 // data_dir is an anchor, not just a setting: the database connection, the
 // image cache and the certificate cache were all resolved against it at
 // startup, and site code still reads it live as basil.data_dir /
-// basil.uploads_dir and as its write policy. A release that moves it must be
-// carried like any other restart-required change, or handlers would start
-// writing under a data root no subsystem is using (FEAT-156 review).
+// basil.uploads_dir and as its write policy. On a site root the release does
+// not get to move it at all (FEAT-157): loading ignores the key and says so,
+// and the swap keeps serving the data root the operator's layout defines.
 func TestSwapReleaseCarriesDataDirAnchor(t *testing.T) {
 	root := activationFixture(t)
 	s, _, stderr := newSiteRootServer(t, root)
@@ -402,8 +432,8 @@ func TestSwapReleaseCarriesDataDirAnchor(t *testing.T) {
 	if live.AuthDBPath() != oldAuthDB {
 		t.Errorf("auth database path moved live: got %q, want %q", live.AuthDBPath(), oldAuthDB)
 	}
-	if warnings := stderr.String(); !strings.Contains(warnings, "data_dir") || !strings.Contains(warnings, "restart required") {
-		t.Errorf("expected a restart-required warning naming data_dir, stderr: %s", warnings)
+	if warnings := stderr.String(); !strings.Contains(warnings, "data_dir") || !strings.Contains(warnings, "ignored on a site root") {
+		t.Errorf("expected a warning that the release's data_dir was ignored, stderr: %s", warnings)
 	}
 }
 

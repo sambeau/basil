@@ -403,19 +403,20 @@ func TestStatusCommand_AheadCount(t *testing.T) {
 	}
 }
 
-// Status must read deploy.branch from config, not the hardcoded default: with
-// deploy.branch: main set in the active release's basil.yaml, status compares
-// against `main`, proving the DefaultReleaseBranch hardcode is gone.
-func TestStatusCommand_ReadsConfiguredBranch(t *testing.T) {
+// Status must read the release branch from site.git's HEAD, not a hardcoded
+// default and not the release's config: with HEAD retargeted at `main`,
+// status compares against `main`.
+func TestStatusCommand_ReadsBranchFromHEAD(t *testing.T) {
 	f := newDeployFixture(t)
 
-	// Point the active release's config at a non-default release branch.
+	// The release's own config says something else entirely; it is dead
+	// weight and must not steer status.
 	relCfg := filepath.Join(f.root, "current", "basil.yaml")
 	data, err := os.ReadFile(relCfg)
 	if err != nil {
 		t.Fatalf("reading release config: %v", err)
 	}
-	if err := os.WriteFile(relCfg, append(data, []byte("\ndeploy:\n  branch: main\n")...), 0o644); err != nil {
+	if err := os.WriteFile(relCfg, append(data, []byte("\ndeploy:\n  branch: shipping\n")...), 0o644); err != nil {
 		t.Fatalf("writing release config: %v", err)
 	}
 
@@ -423,6 +424,7 @@ func TestStatusCommand_ReadsConfiguredBranch(t *testing.T) {
 	// branching from the live release tip in the clone and pushing main.
 	testGit(t, f.work, "checkout", "--quiet", "-b", "main")
 	f.commitAndPushBranch(t, "main", "site/index.pars", "<h1>\"m2\"</h1>\n", "on main")
+	testGit(t, filepath.Join(f.root, "site.git"), "symbolic-ref", "HEAD", "refs/heads/main")
 
 	var stdout, stderr bytes.Buffer
 	if err := runStatusCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv); err != nil {
@@ -430,7 +432,10 @@ func TestStatusCommand_ReadsConfiguredBranch(t *testing.T) {
 	}
 	got := stdout.String()
 	if !strings.Contains(got, "'main'") {
-		t.Errorf("status did not read the configured branch main:\n%s", got)
+		t.Errorf("status did not read the branch from HEAD (main):\n%s", got)
+	}
+	if strings.Contains(got, "shipping") {
+		t.Errorf("status read the release's own deploy.branch:\n%s", got)
 	}
 	if strings.Contains(got, "'live'") {
 		t.Errorf("status still refers to the hardcoded default branch live:\n%s", got)
@@ -482,6 +487,7 @@ func TestCheckCommand_HealthyFixturePasses(t *testing.T) {
 		"ok    release",
 		"ok    repository",
 		"ok    repository placement",
+		"ok    release branch: " + releaseBranch,
 		"ok    server.host: localhost",
 		"ok    dns",
 		"All checks passed",
@@ -489,6 +495,44 @@ func TestCheckCommand_HealthyFixturePasses(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("check output is missing %q:\n%s", want, out)
 		}
+	}
+}
+
+// check is the diagnosis surface for the one operator fact the deploy path
+// hangs off: HEAD retargeted ahead of the first push of the new branch is
+// reported plainly (it is recoverable and nothing is broken), while a HEAD
+// that names no branch at all is a failure.
+func TestCheckCommand_ReportsReleaseBranchState(t *testing.T) {
+	f := newDeployFixture(t)
+	repo := filepath.Join(f.root, "site.git")
+
+	testGit(t, repo, "symbolic-ref", "HEAD", "refs/heads/shipping")
+	var stdout, stderr bytes.Buffer
+	if err := runCheckCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv); err != nil {
+		t.Fatalf("an unpushed release branch is not a failure: %v\n%s", err, stdout.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "ok    release branch: shipping") {
+		t.Errorf("check does not report the retargeted branch:\n%s", out)
+	}
+	if !strings.Contains(out, "does not exist here yet") {
+		t.Errorf("check does not report that the branch has not arrived:\n%s", out)
+	}
+
+	// A HEAD naming no branch: nothing can publish until it does.
+	testGit(t, repo, "update-ref", "--no-deref", "HEAD", testGit(t, repo, "rev-parse", releaseBranch))
+	stdout.Reset()
+	stderr.Reset()
+	err := runCheckCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv)
+	if err == nil {
+		t.Fatalf("a detached HEAD must fail check:\n%s", stdout.String())
+	}
+	out = stdout.String()
+	if !strings.Contains(out, "FAIL  release branch") {
+		t.Errorf("no release branch failure:\n%s", out)
+	}
+	if !strings.Contains(out, "symbolic-ref HEAD refs/heads/") {
+		t.Errorf("the failure does not name the fix:\n%s", out)
 	}
 }
 

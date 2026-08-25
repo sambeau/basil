@@ -578,21 +578,25 @@ func TestGitE2E_NoAuthDBNoGit(t *testing.T) {
 		t.Errorf("refusal should name the auth database, got: %v", err)
 	}
 
-	// git.enabled: false is the escape hatch: the same site starts fine
-	// with Git switched off.
+	// The operator's off-switch is the escape hatch: the same site starts
+	// fine with basil.gitEnabled false in site.git (FEAT-157 — it used to be
+	// git.enabled in the release's own config, which is exactly the thing a
+	// release could rewrite).
+	if _, err := gitRun(site.repoDir(), nil, "config", "basil.gitEnabled", "false"); err != nil {
+		t.Fatalf("setting basil.gitEnabled: %v", err)
+	}
 	cfg2, absPath2, err := config.LoadWithPath(cfgPath, os.Getenv)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
 	}
 	cfg2.Server.Dev = false
 	cfg2.Auth.Enabled = false
-	cfg2.Git.Enabled = false
 	srv, err := New(cfg2, absPath2, "test", "test", io.Discard, io.Discard)
 	if err != nil {
-		t.Fatalf("New() with git.enabled: false failed: %v", err)
+		t.Fatalf("New() with basil.gitEnabled false failed: %v", err)
 	}
 	if srv.gitHandler != nil {
-		t.Error("git.enabled: false still built a Git handler")
+		t.Error("basil.gitEnabled false still built a Git handler")
 	}
 	if srv.db != nil {
 		srv.db.Close()
@@ -722,10 +726,11 @@ func TestGitE2E_SiteRootWithoutAuthDBStartsWithGitOff(t *testing.T) {
 		t.Fatalf("loading config: %v", err)
 	}
 	cfg.Server.Dev = false
-	// The release's own config asks for both (init writes them, and a site
-	// root forces them anyway) — the degrade below is state, not config.
-	if !cfg.Auth.Enabled || !cfg.Git.Enabled {
-		t.Fatalf("site-root config should arrive with auth and git on, got auth=%v git=%v", cfg.Auth.Enabled, cfg.Git.Enabled)
+	// The release's own config asks for auth (init writes it, and a site root
+	// forces it anyway) and the repository exists, so git would be served —
+	// the degrade below is state, not config.
+	if !cfg.Auth.Enabled {
+		t.Fatalf("site-root config should arrive with auth on, got auth=%v", cfg.Auth.Enabled)
 	}
 
 	var stderr bytes.Buffer
@@ -752,8 +757,8 @@ func TestGitE2E_SiteRootWithoutAuthDBStartsWithGitOff(t *testing.T) {
 	if srv.authDB != nil || srv.gitHandler != nil {
 		t.Errorf("auth/git were built without an auth database: authDB=%v gitHandler=%v", srv.authDB != nil, srv.gitHandler != nil)
 	}
-	if srv.config.Auth.Enabled || srv.config.Git.Enabled {
-		t.Errorf("served config still claims auth=%v git=%v", srv.config.Auth.Enabled, srv.config.Git.Enabled)
+	if srv.config.Auth.Enabled {
+		t.Errorf("served config still claims auth=%v", srv.config.Auth.Enabled)
 	}
 
 	// It serves the site…
@@ -870,5 +875,162 @@ func TestGitE2E_RepoInsideServedRootRefusesStartup(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), site.repoDir()) || !strings.Contains(err.Error(), site.root) {
 		t.Errorf("refusal should name both paths, got: %v", err)
+	}
+}
+
+// --- FEAT-157: the release branch and the endpoint are the operator's -------
+
+// The #153 attack, end to end at the HTTP surface: deploy a release whose
+// basil.yaml says the release branch is something else, then try to rewrite
+// the real one. Before FEAT-157 the hub read that key from the ACTIVE
+// release, so the deploy re-pointed the protections at "shipping" and left
+// refs/heads/live force-pushable as "any other ref". Now the branch is
+// site.git's HEAD and the deployed key is inert.
+func TestGitE2E_DeployedBranchKeyCannotUnprotectTheReleaseBranch(t *testing.T) {
+	site := newGitSite(t)
+	_, ts := site.startServer(t, true, false)
+
+	work := clone(t, cloneURL(ts, "", ""))
+
+	// Step 1: deploy a release carrying the retired key as a raw YAML line -
+	// the struct field is gone, so this is exactly what an attacker would
+	// commit.
+	cfgPath := filepath.Join(work, config.ConfigFileName)
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("reading the clone's config: %v", err)
+	}
+	if err := os.WriteFile(cfgPath, append(data, []byte("\ndeploy:\n  branch: shipping\n")...), 0o644); err != nil {
+		t.Fatalf("writing the clone's config: %v", err)
+	}
+	gitMust(t, work, "add", "-A")
+	gitMust(t, work, "commit", "--quiet", "--no-verify", "-m", "point the release branch at shipping")
+	if out, err := gitRun(work, nil, "push", "origin", releaseBranch); err != nil {
+		t.Fatalf("pushing the attacking release failed: %v:\n%s", err, out)
+	}
+	attackSHA := site.refSHA(t, releaseBranch)
+	if got := site.currentSHA(t); got != attackSHA {
+		t.Fatalf("the attacking release did not go live (current %s, branch %s)", got, attackSHA)
+	}
+
+	// Step 2: the payload. Rewrite the release branch's history.
+	gitMust(t, work, "reset", "--hard", "HEAD~1")
+	commit(t, work, "site/index.pars", "<h1>\"rewritten\"</h1>\n", "rewritten history")
+	out, err := gitRun(work, nil, "push", "--force", "origin", releaseBranch)
+	if err == nil {
+		t.Fatalf("force-pushing the release branch was accepted after a release claimed a different branch:\n%s", out)
+	}
+	if !strings.Contains(out, "rewrites release history") {
+		t.Errorf("refusal does not name the reason:\n%s", out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != attackSHA {
+		t.Errorf("the release branch moved to %s despite the refusal", got)
+	}
+
+	// And deleting it is still refused for the same reason.
+	if out, err := gitRun(work, nil, "push", "origin", "--delete", releaseBranch); err == nil {
+		t.Errorf("deleting the release branch was accepted:\n%s", out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != attackSHA {
+		t.Errorf("the release branch was deleted despite the refusal (now %q)", got)
+	}
+}
+
+// Retargeting HEAD at a branch nobody has pushed yet is a real, recoverable
+// state: the old release branch goes back to being stored-and-published-to-
+// nobody, and nothing deploys until the new branch arrives.
+func TestGitE2E_HEADRetargetedAtUnpushedBranchStoresOnly(t *testing.T) {
+	site := newGitSite(t)
+	if _, err := gitRun(site.repoDir(), nil, "symbolic-ref", "HEAD", "refs/heads/shipping"); err != nil {
+		t.Fatalf("retargeting HEAD: %v", err)
+	}
+	_, ts := site.startServer(t, true, false)
+
+	liveBefore := site.currentSHA(t)
+	recordBefore := len(site.recordEntries(t))
+
+	work := clone(t, cloneURL(ts, "", ""))
+	gitMust(t, work, "checkout", "--quiet", "-B", releaseBranch, "origin/"+releaseBranch)
+	sha := commit(t, work, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	if out, err := gitRun(work, nil, "push", "origin", releaseBranch); err != nil {
+		t.Fatalf("pushing the old release branch must still be accepted (stored): %v:\n%s", err, out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != sha {
+		t.Errorf("the push was not stored: %s is at %q", releaseBranch, got)
+	}
+	if got := site.currentSHA(t); got != liveBefore {
+		t.Errorf("a push to the branch HEAD no longer names deployed %s", got)
+	}
+	if got := len(site.recordEntries(t)); got != recordBefore {
+		t.Errorf("deploy record grew to %d entries, want %d", got, recordBefore)
+	}
+
+	// Once the branch HEAD names arrives, it publishes.
+	gitMust(t, work, "checkout", "--quiet", "-b", "shipping")
+	shipped := commit(t, work, "site/index.pars", "<h1>\"shipped\"</h1>\n", "shipped")
+	if out, err := gitRun(work, nil, "push", "origin", "shipping"); err != nil {
+		t.Fatalf("pushing the new release branch failed: %v:\n%s", err, out)
+	}
+	if got := site.currentSHA(t); got != shipped {
+		t.Errorf("current is %s, want the shipped release %s", got, shipped)
+	}
+}
+
+// basil.gitEnabled is the operator's off-switch, tested at the HTTP surface
+// in both states: absent serves clone and push, false serves neither.
+func TestGitE2E_GitEnabledSwitchAtTheHTTPSurface(t *testing.T) {
+	// --- absent: the endpoint serves, as it always has -------------------
+	on := newGitSite(t)
+	_, onTS := on.startServer(t, true, false)
+	work := clone(t, cloneURL(onTS, "", ""))
+	sha := commit(t, work, "site/index.pars", "<h1>\"on\"</h1>\n", "with the switch absent")
+	if out, err := gitRun(work, nil, "push", "origin", releaseBranch); err != nil {
+		t.Fatalf("push with basil.gitEnabled absent failed: %v:\n%s", err, out)
+	}
+	if got := on.refSHA(t, releaseBranch); got != sha {
+		t.Errorf("release branch is %q, want the pushed %s", got, sha)
+	}
+
+	// --- false: clone and push both refused ------------------------------
+	off := newGitSite(t)
+	if _, err := gitRun(off.repoDir(), nil, "config", "basil.gitEnabled", "false"); err != nil {
+		t.Fatalf("setting basil.gitEnabled: %v", err)
+	}
+	srv, offTS := off.startServer(t, true, false)
+	if srv.gitHandler != nil {
+		t.Error("basil.gitEnabled false still built a Git handler")
+	}
+
+	// A clone is a GET of info/refs; with no handler mounted it 404s.
+	resp, err := http.Get(offTS.URL + "/.git/info/refs?service=git-upload-pack")
+	if err != nil {
+		t.Fatalf("GET info/refs: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("clone advertisement returned %d with the endpoint switched off, want 404", resp.StatusCode)
+	}
+	if out, err := gitRun(t.TempDir(), nil, "clone", "--quiet", cloneURL(offTS, "", ""), filepath.Join(t.TempDir(), "clone")); err == nil {
+		t.Errorf("cloning succeeded with basil.gitEnabled false:\n%s", out)
+	}
+
+	// A push is a POST to git-receive-pack; same answer.
+	pushResp, err := http.Post(offTS.URL+"/.git/git-receive-pack", "application/x-git-receive-pack-request", strings.NewReader(""))
+	if err != nil {
+		t.Fatalf("POST git-receive-pack: %v", err)
+	}
+	pushResp.Body.Close()
+	if pushResp.StatusCode != http.StatusNotFound {
+		t.Errorf("receive-pack returned %d with the endpoint switched off, want 404", pushResp.StatusCode)
+	}
+
+	// The site itself is unaffected: only the deploy door is shut.
+	siteResp, err := http.Get(offTS.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	siteResp.Body.Close()
+	if siteResp.StatusCode != http.StatusOK {
+		t.Errorf("GET / returned %d; switching off /.git must not affect the site", siteResp.StatusCode)
 	}
 }

@@ -60,6 +60,7 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 	// known: enforcement hangs off the same knowledge that picks DataDir, so
 	// the legacy layout is untouched by construction.
 	enforceOperatorOwned(cfg, data)
+	noteRetiredKeys(cfg, data)
 
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
@@ -88,6 +89,10 @@ func Warnings(cfg *Config) []string {
 	// every start: the config on disk and the running server disagree, and
 	// the operator should know which one won.
 	warnings = append(warnings, cfg.operatorOverrides...)
+
+	// A key that was removed but is still in the file: reported every start,
+	// never fatal (operator.go).
+	warnings = append(warnings, cfg.retiredKeys...)
 
 	// Let's Encrypt does not require a contact address, and requiring one
 	// here would mean editing basil.yaml between `basil --init` and a

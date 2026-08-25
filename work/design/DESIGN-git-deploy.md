@@ -37,7 +37,7 @@ basil publish       →  checked, then live.
 | --- | --- | --- |
 | D1 | **Server holds a bare repo plus a separate live release.** | Option 3 in the predecessor. |
 | D2 | **Push is the transport; the server is not `origin` in doctrine.** | It is a hub that also deploys. |
-| D3 | **Publishing is an explicit verb.** `git push` shares; `basil publish` releases. | Default `deploy.branch: live`. `main` supported for push-to-publish. |
+| D3 | **Publishing is an explicit verb.** `git push` shares; `basil publish` releases. | The release branch is `site.git`'s `HEAD`, `live` by default (FEAT-157). Push-to-publish is one command on the box: `git -C site.git symbolic-ref HEAD refs/heads/main`. |
 | D4 | **A release is validated before it is activated**, and a failed check rejects the push. | Correctness only. On by default. |
 | D4a | **Formatting is fixed locally by a pre-commit hook `--init` installs.** The server warns, never rejects. | No setting. §6.3. |
 | D4b | **The server never rewrites code.** A release is byte-identical to its commit. | Architectural. §6.3. |
@@ -80,8 +80,10 @@ Used consistently below, and in user-facing text.
 **On "ref":** a ref is a name that points at a commit, and a branch is one — `live` is a
 small file containing a commit ID. The implementation speaks in refs, because tags are refs
 too and someone will eventually want to release from a tag. **Configuration and
-documentation speak in branches.** `deploy.branch: live`, never `deploy.ref:
-refs/heads/live`, though the long form is accepted.
+documentation speak in branches.** `HEAD` names `refs/heads/live` and everything
+above it says "the release branch is `live`". *Amended by FEAT-157:* since the
+branch is now `HEAD`, which git will only let point at a branch, releasing from a
+tag is no longer expressible — the release ref is always `refs/heads/<branch>`.
 
 ---
 
@@ -607,19 +609,24 @@ that were considered and deliberately not added.
 
 ```yaml
 deploy:
-  branch: live       # what goes live. Set to `main` for push-to-publish.
   keep: 5            # releases retained for rollback
 
 data_dir: ./data     # persistent state; defaults to <site root>/data
+                     # (ignored on a site root — FEAT-157)
 ```
 
-That is the whole surface. Three keys, none of which a normal site sets.
+That is the whole surface, and on a site root only `deploy.keep` is a site's to
+set. *Amended by FEAT-157:* `deploy.branch` was the third key and is gone — the
+release branch is `site.git`'s `HEAD`, because a key that ships inside the release
+lets a release decide which branch the hub protects (see the attack below).
 
 **Not settings, by decision:**
 
 | Behaviour | How it is decided |
 | --- | --- |
-| Git deploy on/off | On when `<site root>/site.git` exists, which `--init` creates. `git.enabled: false` remains as an off-switch |
+| Git deploy on/off | On when `<site root>/site.git` exists, which `--init` creates. The off-switch is `git config basil.gitEnabled false` inside that repository — an operator fact, not a config key (FEAT-157; `git.enabled` is gone) |
+| Which branch publishes | `site.git`'s `HEAD`, retargeted with `git -C site.git symbolic-ref HEAD refs/heads/<branch>` (FEAT-157) |
+| The data root on a site root | `<site root>/data`. A release that sets `data_dir` is ignored and warned about (FEAT-157) |
 | Repository location | Always `<site root>/site.git`. Never configurable — a repository inside a served root would expose every version of every file |
 | Authentication | Always required. Never disableable from config; `--dev` on localhost is the only relaxation, and it is decided in code |
 | Validation | Always on for pushes. Emergency override is `basil deploy --no-validate` on the server, which needs shell access and cannot be left on by accident |
@@ -755,3 +762,39 @@ The current implementation does not work as documented — the repository is nev
 and receive behaviour is never configured, so a first push is rejected. That fix is small,
 independent, and should not wait for this design. It also does not conflict with it: the
 layout here removes the whole class of problem by never pushing into a checked-out tree.
+
+---
+
+## 12. The release-branch ownership attack (FEAT-156 review, closed by FEAT-157)
+
+Recorded because the shape generalises: **an invariant must not be ownable by the
+thing it protects.**
+
+`runPreReceive` protected exactly the ref `cfg.Deploy.ReleaseRef()` named, read
+from the *active release's* `basil.yaml`. So an authenticated editor could:
+
+1. Deploy a release whose config said `deploy.branch: shipping`. It validates and
+   goes live like any other release; nothing is out of the ordinary.
+2. From then on `refs/heads/live` is "any other ref" to the hub — store-and-stop —
+   so it can be force-pushed or deleted at will, and the first push of `shipping`
+   takes the ref-creation path that skips both the ancestry check and the
+   starter-overwrite record check.
+
+Release history — which the deploy record and rollback rely on — was therefore
+rewritable from inside a release. An authenticated editor is required, so this is
+privilege misuse rather than escalation; the invariant still must not be
+config-ownable.
+
+**Resolution (FEAT-157).** The release branch moved to `site.git`'s `HEAD`: a
+server-side, deploy-proof, git-native fact that was already required to agree with
+the setting it replaces, and that also decides what a fresh clone checks out —
+so the branch-that-publishes and the branch-clones-get cannot drift apart. The
+`deploy.branch` key is gone; a config still carrying it warns and is ignored. The
+same reasoning moved the endpoint's off-switch to `git config basil.gitEnabled`
+in the same repository, and made a release's `data_dir` inert on a site root.
+Forcing (FEAT-156's answer for `auth.enabled`) works for a boolean with one sane
+server value; it means nothing for a *value* like a branch name, which needs an
+operator-owned home instead.
+
+The regression test is the attack itself, at the HTTP surface:
+`TestGitE2E_DeployedBranchKeyCannotUnprotectTheReleaseBranch`.

@@ -148,6 +148,17 @@ type Server struct {
 
 	// Git server (nil if git not enabled)
 	gitHandler *GitHandler
+
+	// gitSwitch is basil.gitEnabled as this process read it from site.git at
+	// startup, kept so a live deploy can notice an operator flipping it and
+	// say a restart is needed (activate.go). Meaningful only when the
+	// repository exists.
+	gitSwitch bool
+
+	// gitDegraded records the one server-side reason the endpoint is off
+	// that is not the operator's switch: no authentication database, so
+	// there are no API keys to authorise a push (initAuth).
+	gitDegraded bool
 }
 
 // New creates a new Basil server with the given configuration.
@@ -615,7 +626,7 @@ func (s *Server) initAuth() error {
 		if _, err := os.Stat(s.config.AuthDBPath()); os.IsNotExist(err) {
 			s.logWarn("no authentication database at %s — running with authentication AND the git deploy endpoint DISABLED for this run; create an account with `basil users create` on the server and restart to turn them back on", s.config.AuthDBPath())
 			s.config.Auth.Enabled = false
-			s.config.Git.Enabled = false
+			s.gitDegraded = true
 			return nil
 		}
 	}
@@ -685,15 +696,13 @@ func (s *Server) initAuth() error {
 
 // initGit initializes the Git endpoint (FEAT-154). It serves the site's bare
 // repository — <site root>/site.git — and only that: Git deploy is on when
-// the repository exists, and `git.enabled: false` is the off-switch. In the
-// legacy layout (no site root) there is no bare repository, so there is no
-// Git endpoint; the old behaviour of serving the live project directory over
-// HTTP is gone (it is the arrangement BUG-033 grew from).
+// the repository exists, and the operator's off-switch is `git config
+// basil.gitEnabled false` inside that repository (FEAT-157 — it used to be
+// git.enabled in basil.yaml, which a release could set). In the legacy layout
+// (no site root) there is no bare repository, so there is no Git endpoint;
+// the old behaviour of serving the live project directory over HTTP is gone
+// (it is the arrangement BUG-033 grew from).
 func (s *Server) initGit() error {
-	if !s.config.Git.Enabled {
-		return nil // the one off-switch
-	}
-
 	repo := s.config.BareRepoPath()
 	if repo == "" {
 		// Legacy layout. If the project directory is itself a Git repository
@@ -705,6 +714,18 @@ func (s *Server) initGit() error {
 	}
 	if info, err := os.Stat(repo); err != nil || !info.IsDir() {
 		return nil // no repository, no Git
+	}
+
+	// The operator's off-switch, read from the repository rather than the
+	// release. Recorded either way, so a later deploy can tell whether it
+	// moved (activate.go).
+	s.gitSwitch = deploy.GitEnabled(repo)
+	if !s.gitSwitch {
+		s.logInfo("git: /.git is not served - basil.gitEnabled is false in %s", repo)
+		return nil
+	}
+	if s.gitDegraded {
+		return nil // no auth database: initAuth already said so
 	}
 
 	// A repository inside a served root would expose every version of every
@@ -719,7 +740,7 @@ func (s *Server) initGit() error {
 	// database, so without it the endpoint cannot exist. Dev mode may run
 	// without one because the handler only serves localhost then.
 	if s.authDB == nil && !s.config.Server.Dev {
-		return fmt.Errorf("git deploy requires the auth database: set auth.enabled: true (pushes are authorised by its API keys), or git.enabled: false to turn Git off")
+		return fmt.Errorf("git deploy requires the auth database: set auth.enabled: true (pushes are authorised by its API keys), or turn Git off with: git -C %s config basil.gitEnabled false", repo)
 	}
 
 	// (Re-)install the receive hooks: healing a deleted hook or a moved
