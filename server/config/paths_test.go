@@ -589,3 +589,42 @@ func TestRealPathResolvesNonExistentPaths(t *testing.T) {
 		t.Errorf("RealPath returned a relative path: %q", got)
 	}
 }
+
+// The companion to TestRealPathResolvesNonExistentPaths, which reaches the
+// symlink half of the property only where the host happens to put t.TempDir()
+// behind a link — true on macOS, where /var is a symlink to /private/var, and
+// not on Linux, where that test passes against the old unresolved-fallback
+// implementation too. This one builds the symlink itself, so the property is
+// pinned on every platform: without the walk up to the deepest existing
+// ancestor, components that do not exist keep their unresolved spelling and a
+// containment check against the real directory reports "outside" — which is
+// how a bare repository inside a served root slipped past
+// checkRepoOutsideServedRoots (BUG-034).
+func TestRealPathResolvesThroughSymlinkToMissingComponents(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks are not available here: %v", err)
+	}
+
+	real := RealPath(target)
+	if got := RealPath(link); got != real {
+		t.Fatalf("RealPath(%s) = %q, want the target's real path %q", link, got, real)
+	}
+
+	// The case that matters: a path that does not exist, reached through the
+	// link, must still land inside the real directory.
+	missing := filepath.Join(link, "not", "created", "site.git")
+	want := filepath.Join(real, "not", "created", "site.git")
+	got := RealPath(missing)
+	if got != want {
+		t.Errorf("RealPath(%s) = %q, want %q", missing, got, want)
+	}
+	if !strings.HasPrefix(got, real+string(filepath.Separator)) {
+		t.Errorf("resolved %q is not inside the real directory %q", got, real)
+	}
+}
