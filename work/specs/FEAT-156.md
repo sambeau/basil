@@ -394,6 +394,9 @@ the requirement; FEAT-153 owns the implementation.
   FEAT-154. The init split itself has no ordering constraint against FEAT-153–155,
   but landing it early keeps `--init` from teaching the wrong default in docs and
   demos in the meantime.
+- **Slotted into PLAN-132 as phase 3** (2026-08-25): after FEAT-153 (whose validation
+  gate carries this spec's listener-change check), before FEAT-154 (which must not
+  make pushes load-bearing until operator-owned enforcement exists).
 
 ## Definition of Done
 
