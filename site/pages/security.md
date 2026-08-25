@@ -4,7 +4,7 @@ title: Security
 
 # Security
 
-Can you put Basil on the internet? Yes. Here is what protects you, and what is still your job.
+Can you put Basil on the internet? Yes. With caveats. Here is what protects you, and where you should still be cautious.
 
 ## How it works
 
@@ -31,7 +31,7 @@ Inside a Basil server, Parsley code runs under a [security policy](manual/featur
 
 ## Caveats
 
-Basil is young. It has had internal security review and fixes (the [Parsley security guide](https://github.com/sambeau/basil/blob/main/docs/parsley/security.md) lists them) but no independent audit. The defaults are safe, but if your handler takes user input and uses it to pick a file or a command, that is on you — as in any language. Keep the binary up to date.
+Basil is young. It has had an internal security review and fixes  but no independent audit. The defaults are safe, but if your handler takes user input and uses it to pick a file or a command, that is on you — as in any language. Keep the binary up to date.
 
 ## Should you put it behind a reverse proxy?
 
