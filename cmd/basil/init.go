@@ -679,7 +679,7 @@ func checkTargetIsSafeForRoot(root, given string) error {
 func writeStarterSite(dir, host string) error {
 	port := 443
 	extra := "\n  https:\n    auto: true\n"
-	if isLocalHost(host) {
+	if config.IsLocalHost(host) {
 		port = 8080
 		extra = ""
 	}
@@ -731,10 +731,6 @@ func validateHost(host string) error {
 // hostnamePattern matches a DNS name: labels of letters, digits and hyphens,
 // separated by dots, no leading or trailing hyphen.
 var hostnamePattern = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$`)
-
-func isLocalHost(host string) bool {
-	return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasSuffix(host, ".local")
-}
 
 // commitStarterSite commits the starter site on the release branch, pushes
 // it into the bare repository and returns the commit id.
@@ -857,7 +853,7 @@ func printInitSummary(stdout io.Writer, opts initOptions, root, commit, admin, u
 	fmt.Fprintf(stdout, "\n")
 
 	fmt.Fprintf(stdout, "Start the server:\n")
-	if isLocalHost(opts.Host) {
+	if config.IsLocalHost(opts.Host) {
 		fmt.Fprintf(stdout, "  basil --dev --site %s\n", root)
 	} else {
 		fmt.Fprintf(stdout, "  basil --site %s\n", root)

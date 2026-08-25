@@ -498,7 +498,6 @@ func TestResolvePathsIsIdempotent(t *testing.T) {
 	}
 }
 
-
 // developerProfileYAML exercises the three path overrides a developer profile
 // can carry. They are the only configured path keys resolved outside
 // ResolvePaths - ApplyDeveloper joins them itself - so they are the ones most

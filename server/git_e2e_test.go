@@ -84,7 +84,7 @@ func newGitSite(t *testing.T) *gitSite {
 	bin := basilBinary(t)
 
 	root := filepath.Join(t.TempDir(), "mysite")
-	cmd := exec.Command(bin, "--init", root, "--host", "localhost", "--admin", "alice")
+	cmd := exec.Command(bin, "--init", root, "--server", "--host", "localhost", "--admin", "alice")
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
