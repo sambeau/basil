@@ -80,6 +80,7 @@ func TestCLI_InitCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	err := run(context.Background(), []string{
 		"--init", projectPath,
+		"--server",
 		"--host", "myapp.example.com",
 		"--admin", "sam",
 	}, &stdout, &stderr, os.Getenv)

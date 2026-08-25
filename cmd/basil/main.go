@@ -77,7 +77,9 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		initFolder  = flags.String("init", "", "Create a new Basil site in the specified folder")
 		sitePath    = flags.String("site", "", "Path to the site root (default: working directory)")
 		initHost    = flags.String("host", "", "Hostname for --init (written to server.host)")
-		initAdmin   = flags.String("admin", "", "Admin account name for --init")
+		initAdmin   = flags.String("admin", "", "Admin account name for --init --server")
+		initServer  = flags.Bool("server", false, "With --init: build the server deploy topology")
+		initNoGit   = flags.Bool("no-git", false, "With --init: do not create a git repository")
 		showVersion = flags.Bool("version", false, "Show version")
 		showHelp    = flags.Bool("help", false, "Show help")
 	)
@@ -110,18 +112,23 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 
 	// Handle --init
 	if *initFolder != "" {
+		if *initNoGit && *initServer {
+			return fmt.Errorf("--no-git is only meaningful without --server: a deployment server receives pushes, so it cannot be built without git")
+		}
 		return runInitCommand(initOptions{
 			Folder:      *initFolder,
 			Host:        *initHost,
 			Admin:       *initAdmin,
+			Server:      *initServer,
+			NoGit:       *initNoGit,
 			Stdin:       os.Stdin,
 			Stdout:      stdout,
 			Stderr:      stderr,
 			Interactive: hasTerminal(os.Stdin),
 		})
 	}
-	if *initHost != "" || *initAdmin != "" {
-		return fmt.Errorf("--host and --admin configure a new site and are only meaningful with --init (set server.host in %s to change the running server's hostname)", config.ConfigFileName)
+	if *initHost != "" || *initAdmin != "" || *initServer || *initNoGit {
+		return fmt.Errorf("--host, --admin, --server and --no-git configure a new site and are only meaningful with --init (set server.host in %s to change the running server's hostname)", config.ConfigFileName)
 	}
 
 	// Resolve the site root, if one was named. The config ships inside the
@@ -244,8 +251,10 @@ Server Options:
   -as NAME           Alias for --profile
   --site PATH        Path to the site root (finds the config in the active release)
   --init FOLDER      Create a new Basil site in the specified folder
-  --host HOSTNAME    Hostname for --init (written to server.host)
-  --admin NAME       Admin account name for --init (never guessed from $USER)
+  --server           With --init: build the server deploy topology (on the box)
+  --no-git           With --init: do not create a git repository
+  --host HOSTNAME    Hostname for --init (default localhost; required with --server)
+  --admin NAME       Admin account name for --init --server (never guessed from $USER)
   --version          Show version
   --help             Show this help
 
@@ -293,7 +302,9 @@ Examples:
   basil --dev -as sam         Dev mode with Sam's config overrides
   basil --site /srv/mysite    Serve the active release of a site root
   basil publish               Publish the clone's current commit to the release branch
-  basil --init mysite --host mysite.example.com --admin sam
+  basil --init mysite         Create a local site folder, then: cd mysite && basil --dev
+  basil --init /srv/mysite --server --host mysite.example.com --admin sam
+                              Set up a deployment server (run on the box)
   basil users create --name "Admin" --email admin@example.com --role admin
   basil users list            List all registered users
   basil apikey create --user usr_abc123 --name "MacBook Git"

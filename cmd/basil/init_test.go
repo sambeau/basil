@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,11 +22,14 @@ func requireGit(t *testing.T) {
 	}
 }
 
+// initOpts builds server-mode options: the server topology is what these
+// tests are about, and it is opt-in since FEAT-156.
 func initOpts(path string, out, errOut *bytes.Buffer) initOptions {
 	return initOptions{
 		Folder:  path,
 		Host:    "mysite.example.com",
 		Admin:   "sam",
+		Server:  true,
 		Stdout:  out,
 		Stderr:  errOut,
 		Geteuid: func() int { return 1000 },
@@ -814,5 +818,313 @@ func TestInitCommand_InstallsReceiveHooks(t *testing.T) {
 		if info.Mode().Perm()&0o111 == 0 {
 			t.Errorf("%s hook is not executable (mode %v)", name, info.Mode())
 		}
+	}
+}
+
+// --- local mode (FEAT-156) ------------------------------------------------
+
+// localInitOpts builds the default (local) options: no --server, no --host,
+// no --admin, which is the whole point of the mode.
+func localInitOpts(path string, out, errOut *bytes.Buffer) initOptions {
+	return initOptions{
+		Folder:  path,
+		Stdout:  out,
+		Stderr:  errOut,
+		Geteuid: func() int { return 1000 },
+		Getenv:  func(string) string { return "" },
+	}
+}
+
+// The default mode is a plain folder a hobbyist can read at a glance: it must
+// carry none of the server topology, and it must run without an edit.
+func TestLocalInit_Success(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(localInitOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("local init failed: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(root, "basil.yaml"))
+	assertFileExists(t, filepath.Join(root, "site", "index.pars"))
+	assertFileExists(t, filepath.Join(root, "public", ".keep"))
+	assertFileExists(t, filepath.Join(root, ".gitignore"))
+
+	// Nothing from the server topology.
+	for _, name := range []string{"site.git", "releases", "current", "data", ".basil-auth.db"} {
+		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
+			t.Errorf("local init created the server-mode entry %q", name)
+		}
+	}
+	if config.IsSiteRoot(root) {
+		t.Error("a local folder must not be a site root")
+	}
+
+	// The config loads and validates, as init proved before reporting success.
+	cfg, err := config.Load(filepath.Join(root, "basil.yaml"), func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("the generated config does not load: %v", err)
+	}
+	if err := config.Validate(cfg); err != nil {
+		t.Fatalf("the generated config does not validate: %v", err)
+	}
+	if cfg.Server.Host != "localhost" {
+		t.Errorf("server.host = %q, want the localhost default", cfg.Server.Host)
+	}
+	if cfg.Server.Port != 8080 {
+		t.Errorf("server.port = %d, want 8080", cfg.Server.Port)
+	}
+
+	yaml := readFile(t, filepath.Join(root, "basil.yaml"))
+	for _, block := range []string{"auth:", "git:", "https:"} {
+		if strings.Contains(yaml, block) {
+			t.Errorf("the local config carries a %q block:\n%s", block, yaml)
+		}
+	}
+	// The layering discipline is discoverable from day one.
+	if !strings.Contains(yaml, "# developers:") || !strings.Contains(yaml, "-as sam") {
+		t.Errorf("no commented developers example naming -as <name>:\n%s", yaml)
+	}
+	if !strings.Contains(yaml, "# data_dir:") || !strings.Contains(yaml, "# database:") {
+		t.Errorf("the commented data_dir/database stanzas are missing:\n%s", yaml)
+	}
+
+	// The .gitignore guards the future push path.
+	ignore := readFile(t, filepath.Join(root, ".gitignore"))
+	for _, pattern := range []string{
+		".basil-auth.db*", "dev_logs.db*", "*.db", "*.db-wal", "*.db-shm",
+		"certs/", "cache/", "search/", "uploads/", ".DS_Store", "*.swp",
+	} {
+		if !strings.Contains(ignore, pattern) {
+			t.Errorf(".gitignore does not cover %q:\n%s", pattern, ignore)
+		}
+	}
+
+	// The summary belongs to the mode.
+	out := stdout.String()
+	if strings.Contains(out, "API key") {
+		t.Errorf("local init printed an API key:\n%s", out)
+	}
+	if strings.Contains(out, "git clone") {
+		t.Errorf("local init printed a clone command:\n%s", out)
+	}
+	if !strings.Contains(out, "cd mysite && basil --dev") {
+		t.Errorf("the next step is not printed:\n%s", out)
+	}
+	if !strings.Contains(out, "--server") || !strings.Contains(out, "docs/guide/deployment.md") {
+		t.Errorf("no graduation pointer:\n%s", out)
+	}
+}
+
+// An explicit --host is accepted locally and validated with the same rules.
+func TestLocalInit_ExplicitHost(t *testing.T) {
+	t.Run("accepted", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		var stdout, stderr bytes.Buffer
+		opts := localInitOpts(root, &stdout, &stderr)
+		opts.Host = "mysite.local"
+		if err := runInitCommand(opts); err != nil {
+			t.Fatalf("local init with --host failed: %v", err)
+		}
+		if yaml := readFile(t, filepath.Join(root, "basil.yaml")); !strings.Contains(yaml, `host: "mysite.local"`) {
+			t.Errorf("the --host value was not written:\n%s", yaml)
+		}
+	})
+
+	t.Run("validated", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		var stdout, stderr bytes.Buffer
+		opts := localInitOpts(root, &stdout, &stderr)
+		opts.Host = "*.example.com"
+		if err := runInitCommand(opts); err == nil {
+			t.Fatal("an unusable --host was accepted")
+		}
+		if _, err := os.Stat(root); !os.IsNotExist(err) {
+			t.Error("a refused init created the folder anyway")
+		}
+	})
+}
+
+// The folder is clone-shaped from day one, so graduating later is two
+// commands rather than a restructure.
+func TestLocalInit_CreatesGitRepository(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(localInitOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("local init failed: %v", err)
+	}
+
+	// A normal repository, not bare: the work tree is the folder itself.
+	assertDirExists(t, filepath.Join(root, ".git"))
+
+	git := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+		cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("git %v: %v", args, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	if branch := git("rev-parse", "--abbrev-ref", "HEAD"); branch != "main" {
+		t.Errorf("branch = %q, want main", branch)
+	}
+	if count := git("rev-list", "--count", "HEAD"); count != "1" {
+		t.Errorf("commit count = %s, want 1", count)
+	}
+	if hooks := git("config", "core.hooksPath"); hooks != ".githooks" {
+		t.Errorf("core.hooksPath = %q, want .githooks", hooks)
+	}
+	if status := git("status", "--porcelain"); status != "" {
+		t.Errorf("the initial commit left the tree dirty:\n%s", status)
+	}
+
+	hook := filepath.Join(root, ".githooks", "pre-commit")
+	info, err := os.Stat(hook)
+	if err != nil {
+		t.Fatalf("pre-commit hook missing: %v", err)
+	}
+	if info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("pre-commit hook is not executable (mode %v)", info.Mode())
+	}
+	if !strings.Contains(stdout.String(), "git repository") {
+		t.Errorf("the summary does not mention the repository:\n%s", stdout.String())
+	}
+}
+
+// --no-git opts out even where git is available, and takes the hook with it:
+// an inert .githooks/ in a folder with no repository is a puzzle.
+func TestLocalInit_NoGit(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	opts := localInitOpts(root, &stdout, &stderr)
+	opts.NoGit = true
+	if err := runInitCommand(opts); err != nil {
+		t.Fatalf("local init --no-git failed: %v", err)
+	}
+
+	for _, name := range []string{".git", ".githooks"} {
+		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
+			t.Errorf("--no-git created %s", name)
+		}
+	}
+	assertFileExists(t, filepath.Join(root, "basil.yaml"))
+	if strings.Contains(stderr.String(), "git") {
+		t.Errorf("--no-git warned about git:\n%s", stderr.String())
+	}
+}
+
+// Git is a nicety, not a gate: with no git on PATH the folder is still
+// created, and nothing is said about it.
+func TestLocalInit_WithoutGitOnPath(t *testing.T) {
+	t.Setenv("PATH", "")
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(localInitOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("local init must not need git: %v", err)
+	}
+	assertFileExists(t, filepath.Join(root, "basil.yaml"))
+	for _, name := range []string{".git", ".githooks"} {
+		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
+			t.Errorf("%s was created without git", name)
+		}
+	}
+	if stderr.String() != "" {
+		t.Errorf("a missing git produced output on stderr:\n%s", stderr.String())
+	}
+}
+
+func TestLocalInit_Refusals(t *testing.T) {
+	t.Run("--admin names --server", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "mysite")
+		var stdout, stderr bytes.Buffer
+		opts := localInitOpts(root, &stdout, &stderr)
+		opts.Admin = "sam"
+
+		err := runInitCommand(opts)
+		if err == nil {
+			t.Fatal("--admin was accepted without --server")
+		}
+		if !strings.Contains(err.Error(), "--server") {
+			t.Errorf("the error does not name the fix: %v", err)
+		}
+		if _, statErr := os.Stat(root); !os.IsNotExist(statErr) {
+			t.Error("a refused init created the folder anyway")
+		}
+	})
+
+	t.Run("non-empty target", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "existing")
+		mustMkdirAll(t, root)
+		if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("hi"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		var stdout, stderr bytes.Buffer
+
+		err := runInitCommand(localInitOpts(root, &stdout, &stderr))
+		if err == nil {
+			t.Fatal("local init wrote into a non-empty folder")
+		}
+		if !strings.Contains(err.Error(), "is not empty") {
+			t.Errorf("unexpected error message: %v", err)
+		}
+		if _, statErr := os.Stat(filepath.Join(root, "notes.txt")); statErr != nil {
+			t.Error("the refusal removed the operator's own file")
+		}
+	})
+}
+
+// The flag combinations are refused at the CLI, where the user typed them.
+func TestCLI_InitFlagCombinations(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"--server without --init", []string{"--server"}, "--init"},
+		{"--no-git without --init", []string{"--no-git"}, "--init"},
+		{"--no-git with --server", []string{"--init", "x", "--server", "--no-git"}, "--no-git"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := run(context.Background(), tt.args, &stdout, &stderr, func(string) string { return "" })
+			if err == nil {
+				t.Fatalf("%v was accepted", tt.args)
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("the error does not name %q: %v", tt.want, err)
+			}
+		})
+	}
+}
+
+// --server is still the whole FEAT-152 topology, and it is what the flag
+// selects: this is the one assertion that the split did not move it.
+func TestCLI_ServerInitBuildsTheTopology(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	err := run(context.Background(), []string{
+		"--init", root, "--server",
+		"--host", "mysite.example.com",
+		"--admin", "sam",
+	}, &stdout, &stderr, os.Getenv)
+	if err != nil {
+		t.Fatalf("server init failed: %v", err)
+	}
+
+	assertDirExists(t, filepath.Join(root, "site.git"))
+	assertDirExists(t, filepath.Join(root, "releases"))
+	assertDirExists(t, filepath.Join(root, "data"))
+	assertFileExists(t, filepath.Join(root, "current", "basil.yaml"))
+	if !strings.Contains(stdout.String(), "API key: bsl_") {
+		t.Errorf("no API key printed:\n%s", stdout.String())
 	}
 }
