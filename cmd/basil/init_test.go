@@ -144,6 +144,108 @@ func TestInitCommand_RepositoryIsClonable(t *testing.T) {
 	}
 }
 
+// The pre-commit hook --init writes formats staged .pars files with the
+// operator's `basil` binary, not the standalone `pars` tool that requiring it
+// was the wart FEAT-155 removed.
+func TestInitCommand_PreCommitHookUsesBasilFmt(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("runInitCommand failed: %v", err)
+	}
+
+	hookPath := filepath.Join(root, "current", ".githooks", "pre-commit")
+	data, err := os.ReadFile(hookPath)
+	if err != nil {
+		t.Fatalf("reading pre-commit hook: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "basil fmt -w") {
+		t.Errorf("pre-commit hook does not run 'basil fmt -w':\n%s", content)
+	}
+	// The wart FEAT-155 removed was invoking the standalone `pars` binary.
+	// ".pars" (the file suffix) and "parsley" are fine; `pars fmt` / `pars `
+	// as a command, and guarding on `command -v pars`, are not.
+	if strings.Contains(content, "pars fmt") || strings.Contains(content, "command -v pars ") {
+		t.Errorf("pre-commit hook still invokes the standalone 'pars' tool:\n%s", content)
+	}
+	if !strings.Contains(content, "command -v basil") {
+		t.Errorf("pre-commit hook does not guard on 'command -v basil':\n%s", content)
+	}
+	info, err := os.Stat(hookPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("pre-commit hook mode = %v, want 0755", info.Mode().Perm())
+	}
+}
+
+// The hook is not just correct text: run its body against a real staged .pars
+// with `basil` on PATH and it formats the file and re-stages it.
+func TestInitCommand_PreCommitHookFormatsStagedPars(t *testing.T) {
+	requireGit(t)
+
+	tmp := t.TempDir()
+	binDir := filepath.Join(tmp, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	basilExe := filepath.Join(binDir, "basil")
+	build := exec.Command("go", "build", "-o", basilExe, "github.com/sambeau/basil/cmd/basil")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building basil: %v\n%s", err, out)
+	}
+
+	// A fresh clone-like repo with the hook wired in via core.hooksPath.
+	repo := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(filepath.Join(repo, ".githooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".githooks", "pre-commit"), []byte(preCommitHook), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := append(os.Environ(), "PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		cmd.Env = append(env, "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	runGit("init", "--initial-branch=main")
+	runGit("config", "core.hooksPath", ".githooks")
+	runGit("config", "user.name", "Test")
+	runGit("config", "user.email", "test@example.com")
+
+	messy := filepath.Join(repo, "page.pars")
+	if err := os.WriteFile(messy, []byte(fmtMessy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit("add", "page.pars")
+	runGit("commit", "-m", "add page")
+
+	// The working tree file was rewritten in place by the hook.
+	if got := readFile(t, messy); got != fmtFormatted {
+		t.Errorf("pre-commit hook did not format page.pars: got %q want %q", got, fmtFormatted)
+	}
+	// And the committed blob is the formatted version (the hook re-staged it).
+	show := exec.Command("git", "show", "HEAD:page.pars")
+	show.Dir = repo
+	show.Env = append(env, "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
+	committed, err := show.Output()
+	if err != nil {
+		t.Fatalf("git show: %v", err)
+	}
+	if string(committed) != fmtFormatted {
+		t.Errorf("committed blob not formatted: got %q want %q", committed, fmtFormatted)
+	}
+}
+
 // No runtime state may live inside the release, because a deploy replaces it.
 func TestInitCommand_NoStateInsideTheRelease(t *testing.T) {
 	requireGit(t)

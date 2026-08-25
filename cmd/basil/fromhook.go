@@ -167,7 +167,8 @@ func runPreReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, 
 		}
 
 		fmt.Fprintf(stdout, "Checking release %s… ", shortRelease(u.new))
-		if _, err := eng.Prepare(u.new); err != nil {
+		releaseDir, err := eng.Prepare(u.new)
+		if err != nil {
 			fmt.Fprintln(stdout) // finish the "Checking" line before the errors
 			var vErr *deploy.ValidationFailedError
 			if errors.As(err, &vErr) {
@@ -184,8 +185,28 @@ func runPreReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, 
 			continue
 		}
 		fmt.Fprintln(stdout, "ok")
+		// Formatting is a warning, never a gate: the release passed validation
+		// and WILL go live. This runs only after Prepare succeeds (so parse
+		// errors are already out of the way), reports on a separate non-fatal
+		// channel, and never touches `refusal` — the push stands regardless.
+		warnUnformatted(stdout, releaseDir)
 	}
 	return refusal
+}
+
+// warnUnformatted relays a non-fatal formatting notice for a release that has
+// already been accepted. The server never rewrites code (D4b); it only names
+// the unformatted files and the fix. It NEVER affects the push's exit status.
+func warnUnformatted(stdout io.Writer, releaseDir string) {
+	unformatted := deploy.Unformatted(releaseDir)
+	if len(unformatted) == 0 {
+		return
+	}
+	fmt.Fprintf(stdout, "warning: %d file(s) are not formatted:\n", len(unformatted))
+	for _, f := range unformatted {
+		fmt.Fprintf(stdout, "  %s\n", f)
+	}
+	fmt.Fprintln(stdout, "Run 'basil fmt -w' to format them. The push was accepted.")
 }
 
 // runPostReceive activates. By the time this hook runs the ref HAS moved: a

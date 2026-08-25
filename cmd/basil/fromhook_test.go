@@ -146,6 +146,56 @@ func TestFromHook_BrokenReleaseRefused(t *testing.T) {
 	}
 }
 
+// A valid but unformatted release is ACCEPTED: pre-receive succeeds (exit 0,
+// nothing refused), and a non-fatal warning naming the unformatted file and
+// the fix `basil fmt -w` is relayed to the developer. The server never
+// rewrites code, only reports.
+func TestFromHook_UnformattedReleaseWarnsButSucceeds(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	// Valid Parsley, but not in canonical form.
+	sha := f.commitAndPush(t, "site/index.pars", "let    x    =    5\n", "unformatted but valid")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive refused a valid (if unformatted) release: %v\noutput: %s", err, stdout.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "ok") {
+		t.Errorf("pre-receive did not accept the release:\n%s", out)
+	}
+	if !strings.Contains(out, "warning") || !strings.Contains(out, "index.pars") {
+		t.Errorf("output lacks a warning naming the unformatted file:\n%s", out)
+	}
+	if !strings.Contains(out, "basil fmt -w") {
+		t.Errorf("warning does not name the fix 'basil fmt -w':\n%s", out)
+	}
+	// The prefix Git adds must not be duplicated by us.
+	if strings.Contains(out, "remote:") {
+		t.Errorf("output hand-writes the remote: prefix:\n%s", out)
+	}
+	// Warning is not a rejection: the release was prepared, not refused, and
+	// its directory survives for post-receive to activate.
+	if _, statErr := os.Stat(filepath.Join(f.root, "releases", sha)); statErr != nil {
+		t.Errorf("prepared release directory missing after an accepted push: %v", statErr)
+	}
+}
+
+// A well-formatted release warns about nothing: the accept line stands alone.
+func TestFromHook_FormattedReleaseWarnsNothing(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "let x = 5\n", "already formatted")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive: %v\noutput: %s", err, stdout.String())
+	}
+	if out := stdout.String(); strings.Contains(out, "warning") || strings.Contains(out, "basil fmt -w") {
+		t.Errorf("a formatted release produced a formatting warning:\n%s", out)
+	}
+}
+
 func TestFromHook_ReleaseBranchDeletionRefused(t *testing.T) {
 	f := newDeployFixture(t)
 	before := f.currentSHA(t)

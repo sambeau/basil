@@ -47,14 +47,14 @@ const preCommitHook = `#!/bin/sh
 files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.pars$' || true)
 [ -z "$files" ] && exit 0
 
-if ! command -v pars >/dev/null 2>&1; then
-	echo "basil: 'pars' not found, skipping .pars formatting" >&2
+if ! command -v basil >/dev/null 2>&1; then
+	echo "basil: 'basil' not found, skipping .pars formatting" >&2
 	exit 0
 fi
 
 echo "$files" | while read -r f; do
 	[ -f "$f" ] || continue
-	pars fmt -w "$f" && git add "$f"
+	basil fmt -w "$f" && git add "$f"
 done
 exit 0
 `
