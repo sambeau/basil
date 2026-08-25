@@ -92,15 +92,19 @@ public_dir: ./public
 #     - ./exports    # <data_dir>/exports
 # (<data_dir>/uploads is always writable, and is served at /__uploads/)
 
-# Git over HTTPS - serve your site as a Git repository
-# Allows pushing changes directly to the server
+# Git over HTTPS - the endpoint at /.git/ that a team clones and pushes to.
+# There is nothing to turn on: it is live whenever the site has a bare
+# repository (which 'basil --init <dir> --server' creates). This key is an
+# off-switch only, and on a deployed site root it is operator-owned and
+# ignored - a release cannot disable the endpoint it arrived through.
 # git:
-#   enabled: true        # Enable Git endpoint at /.git/
-#   require_auth: true   # Require API key authentication
+#   enabled: false
 
-# Developer profiles for per-developer overrides
-# Each developer can have their own port, database, handlers, etc.
-# Use with: basil --dev --profile sam
+# Per-person overrides. This file describes the SITE, not your machine:
+# top-level keys are production truth, --dev covers mode, and anything that
+# suits one person's laptop lives here, where it cannot collide with anyone
+# else's. There is deliberately no gitignored local override file.
+# Use with: basil --dev -as sam    (--profile sam is the same flag)
 # developers:
 #   sam:
 #     port: 3001

@@ -17,9 +17,54 @@ This page covers the deploy pipeline and the five operator commands: `deploy`,
 the two are alternatives — and all exit non-zero on failure (2 for a usage
 error, 1 for everything else).
 
+## Setting up the server
+
+Deploying needs a machine set up to *receive* deploys, and one command on that
+box builds it:
+
+```bash
+basil --init /srv/mysite --server --host mysite.example.com --admin sam
+```
+
+`--server` is the flag that asks for the deploy topology. Without it,
+`basil --init` makes the [plain local folder](basil-quick-start.md) — the right
+shape for a laptop, and the wrong one for a server. Both flags are required in
+this mode, and neither is guessed:
+
+- **`--host`** is written to `server.host`: the site's public hostname, the name
+  on the certificate, the WebAuthn relying-party id, the address people type. It
+  is not a bind address — that is `server.bind` — so a site whose hostname points
+  at a load balancer, a NAT or a container host still starts.
+- **`--admin`** names the first Basil account. It is never derived from `$USER`
+  or `$SUDO_USER`, because this command usually runs as `root` and "root deployed
+  4f2a1c9" tells a team nothing. With a terminal attached, it is prompted for.
+
+One run creates the site root described below, commits the starter site to the
+release branch and deploys it as **release 1**, installs the receive hooks,
+creates the admin account and prints its **API key once**, and ends with the
+exact `git clone` command for the site, hostname and account name already filled
+in. Release 1 exists because a server with no release cannot serve, so it cannot
+answer an ACME challenge, cannot obtain a certificate, and could never receive
+the push that would give it a release.
+
+Run under `sudo` it hands the tree over to `$SUDO_USER` and says so;
+run as `root` with no `SUDO_USER` it prints the `chown` to run. As root it also
+insists the folder does not exist yet and that its parent is not writable by
+other accounts, because every write it makes follows symlinks.
+
+Then start the server:
+
+```bash
+basil --site /srv/mysite
+```
+
+`--no-git` belongs to local mode and is refused here: a machine that receives
+pushes cannot be built without git. Already have a site on your laptop? See
+[Graduating a local site to a server](#graduating-a-local-site-to-a-server).
+
 ## The site root
 
-Deployment works on the site-root layout that `basil --init` creates:
+Deployment works on the site-root layout that `basil --init … --server` creates:
 
 ```
 /srv/mysite/
@@ -39,6 +84,66 @@ and the two path anchors (release vs data) in full.
 
 The legacy single-directory layout has no releases, so the deploy commands
 refuse it and say so.
+
+## Graduating a local site to a server
+
+A folder created by `basil --init` never has to be restructured to go public.
+The server gets its own init, your folder gets a Git remote, and the first push
+carries your site across.
+
+Before you push, open your local `basil.yaml` and set the top-level
+`server.host` to the hostname the site will answer on. That file ships inside
+the release and *becomes* the server's configuration, so the values in it are
+production values — and locally they cost you nothing, because `--dev` serves
+plain HTTP on `localhost` and turns a production port 443 into 8080. The
+[configuration guide](configuration.md#one-file-many-machines) explains the
+layering that makes one file work everywhere.
+
+```bash
+# on the server, once
+basil --init /srv/mysite --server --host mysite.example.com --admin sam
+
+# in your local folder, once
+git remote add origin https://sam@mysite.example.com/.git
+git push -u origin main                 # your history is now on the server
+git push --force origin main:live       # the first publish — see below
+```
+
+The API key printed by the server's init is the password for both pushes; the
+username in the URL only selects which stored credential your machine offers
+(see [Git over HTTPS](git.md#authentication)). After that it is the ordinary
+loop — `git push` to share, `basil publish` to go live.
+
+### Why the first publish needs `--force`
+
+Server init seeds the release branch with a starter commit of its own, so at the
+moment you connect the two, your history and the server's are unrelated: moving
+`live` onto your commit is a non-fast-forward, and Git will not send one without
+`--force`.
+
+The hub accepts that **exactly once**. While the deploy record still shows
+nothing but the release `--init` created, a non-fast-forward on the release
+branch is allowed, and the server says so as it happens:
+
+```
+$ git push --force origin main:live
+remote: replacing the starter site created by 'basil --init' with your first release — this is the one non-fast-forward the release branch allows, and it will not be allowed again
+remote: Checking release 36f38ce44dc4… ok
+remote: deploying 36f38ce44dc4
+remote: deployed 36f38ce44dc4 in 16ms
+remote: Deployed 36f38ce44dc4 (16ms)
+To https://mysite.example.com/.git
+ + 759fc02...36f38ce main -> live (forced update)
+```
+
+Once one real release exists, release history is protected exactly as before:
+force-pushing or deleting the release branch is
+[refused for everyone](git.md#what-is-refused), because the deploy record — and
+therefore rollback — depends on it.
+
+`basil publish` is the command for every publish *after* that one. It never
+force-pushes, so it cannot make this one crossing; run the `--force` push above
+once, and use `basil publish` from then on.
 
 ## `basil deploy <sha|branch|tag>`
 
@@ -117,6 +222,22 @@ activation and applies immediately. Settings that are bound at startup do
 
 Only the listener settings are warned about; treat a change to any of the
 others as "deploy, then restart when convenient".
+
+A release that arrives by **push** is warned about earlier still — in the
+terminal you pushed from, before you have walked away — whenever it would move
+the listener of a public site:
+
+```
+remote: warning: this release changes how the live site is served:
+remote: warning:   server.host: mysite.example.com → localhost
+remote: warning:   server.port: 443 → 8080
+remote: The change takes effect when the server restarts, not now. If it was not intended, revert it before then: git revert HEAD && git push.
+```
+
+The push still succeeds — renaming a site or moving its port over Git is
+legitimate — but the mistake is one commit deep at that point, and trivially
+reverted. See
+[the listener-change warning](configuration.md#the-listener-change-warning).
 
 ## Validation
 

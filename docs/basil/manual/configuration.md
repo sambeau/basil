@@ -170,12 +170,16 @@ By default handlers can read files but not write. `allow_write` whitelists direc
 ## git
 
 ```yaml
-git:
-  enabled: true
-  require_auth: true
+# git:
+#   enabled: false     # off-switch only; ignored on a site root
 ```
 
-Serve the site as a Git repository for push-to-deploy. See [Git Deploy](git.md).
+The Git endpoint at `/.git/` is live whenever the site has a bare repository, so
+there is nothing to turn on. `enabled` is an off-switch only, and on a site root
+it is operator-owned: a release cannot disable the endpoint it arrived through.
+Authentication is not configurable — pushes always need an API key. See
+[Git Deploy](git.md) and
+[Operator-owned settings](../../guide/configuration.md#operator-owned-settings-on-a-site-root).
 
 ## images
 

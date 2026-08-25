@@ -6,7 +6,9 @@ This is the canonical reference for every key in `basil.yaml`. All examples are 
 
 - [Overview](#overview)
 - [Config File Resolution](#config-file-resolution)
+- [One File, Many Machines](#one-file-many-machines)
 - [Where Paths Resolve: the Two Anchors](#where-paths-resolve-the-two-anchors)
+- [Operator-Owned Settings on a Site Root](#operator-owned-settings-on-a-site-root)
 - [Environment Variables](#environment-variables)
 - [Secrets](#secrets)
 - [Complete Annotated Example](#complete-annotated-example)
@@ -56,6 +58,71 @@ The first file found is used. If none is found, Basil exits with an error.
 `basil --site /srv/mysite` points Basil at a site root directly, which is the
 usual way to run a deployed site.
 
+## One File, Many Machines
+
+There is one `basil.yaml`, and on a deployed site it travels inside the release —
+so the same versioned file serves the production server *and* every developer's
+machine. That works, and stays readable, because the file describes **the site,
+not the machine it happens to be running on**. Everything machine-shaped lives in
+a layer of its own:
+
+| Layer | Mechanism | Versioned? |
+| --- | --- | --- |
+| **Production truth** | top-level keys: `server.host`, `server.port`, `https`, … | yes |
+| **Mode** | `--dev` — HTTP on localhost, live reload, no caching; the production listener is ignored | ambient |
+| **Per-person** | `developers.<name>` profiles, applied with `-as <name>` | yes, deliberately |
+| **Per-run** | CLI flags — `--port 3000`, `--quiet`, `--config` | no |
+| **Secrets** | `!secret` values, resolved from the environment | no |
+
+Read top to bottom, that is the whole discipline. The top level says what the
+site is *in production*: `host: mysite.example.com`, port 443, HTTPS on. Nobody
+edits those to suit their laptop, because `--dev` already ignores them — it serves
+plain HTTP, binds `localhost` when `server.bind` is empty, and turns a production
+port 443 into 8080. Somebody who needs a different port puts it under their own
+name instead:
+
+```yaml
+developers:
+  sam:
+    port: 3001
+    database:
+      path: sam.db
+    logging:
+      level: debug
+```
+
+```bash
+basil --dev -as sam          # --profile sam is the same flag, spelled out
+```
+
+Per-person settings are **versioned on purpose**. They cannot collide — each
+person has their own key — and the whole team can see them, which is precisely
+what makes "it works on my machine" something you can look up rather than guess
+at.
+
+### There is no local override file, on purpose
+
+Basil has no `basil.local.yaml`, no gitignored overlay, no shadow config. It was
+considered and turned down. An untracked file that silently changes what the
+server does is invisible state — exactly the thing you cannot see when you are
+helping someone whose site behaves differently from yours — and it cuts against a
+folder you can read top to bottom. Every case it would serve already has a layer
+above it: a mode (`--dev`), a person (`developers.<name>`), a run (a flag), or a
+secret (`!secret` and an environment variable).
+
+If you hit a per-person need that no `developers.<name>` field covers, the answer
+is a new field there, not an escape hatch that overrides anything silently.
+
+### Two backstops
+
+The discipline is social, so sooner or later someone commits a top-level edit
+they meant for their own machine. Two mechanisms turn that into a caught mistake
+rather than an outage:
+[operator-owned settings](#operator-owned-settings-on-a-site-root), which a
+release simply cannot change, and
+[the listener-change warning](#the-listener-change-warning), which speaks up in
+the terminal that pushed it.
+
 ## Where Paths Resolve: the Two Anchors
 
 Every path in `basil.yaml` resolves against one of two anchors, and **never**
@@ -86,14 +153,16 @@ A deployed site is a **site root**, and `basil.yaml` ships inside the release:
     uploads/                      durable site writes, served at /__uploads/
 ```
 
-`basil --init` creates this layout. The release directory is resolved through
-`current` once, at startup.
+`basil --init … --server` creates this layout, on the machine that receives
+deploys. The release directory is resolved through `current` once, at startup.
 
 ### Legacy layout
 
 A plain project directory with a `basil.yaml` in it still works exactly as
 before: the release directory *and* the data directory are both the project
-directory, so `basil --dev` in a working copy behaves as it always has.
+directory, so `basil --dev` in a working copy behaves as it always has. This is
+the layout plain `basil --init mysite` writes, and the shape a clone of a
+deployed site has.
 
 ### `data_dir`
 
@@ -143,8 +212,79 @@ auth:
 ```
 
 A legacy single-directory project is not affected: `/__uploads/` is only
-registered for a site root created by `basil --init`, so upgrading never
-publishes an existing `uploads/` directory.
+registered for a site root, so upgrading never publishes an existing `uploads/`
+directory.
+
+## Operator-Owned Settings on a Site Root
+
+Because `basil.yaml` ships inside the release, a deploy can change configuration
+— with two exceptions. On a **site root**, these belong to the operator and are
+forced on, whatever the active release's config says:
+
+| Key | Forced to | Why |
+| --- | --- | --- |
+| `git.enabled` | `true` | The Git endpoint is how releases arrive. A release cannot switch off the door it came in through. |
+| `auth.enabled` | `true` | Pushes are authorised by API keys in the auth database. A release cannot switch that off either. |
+
+Without this, an entirely ordinary first push from a site built locally would
+brick the server: a local `basil.yaml` has no `git:` or `auth:` block, because a
+laptop needs neither, and deploying it would remove the endpoint the next deploy
+was supposed to arrive through. Recovery would mean a shell on the box.
+
+Omitting the blocks is the normal case and is **silent**. Setting one to `false`
+*explicitly* earns a warning at every start, naming the override, so the config
+on disk and the running server never disagree quietly:
+
+```
+warning: git.enabled: false in this release's basil.yaml is ignored on a site root — the git endpoint is how releases arrive; a release cannot switch it off
+warning: auth.enabled: false in this release's basil.yaml is ignored on a site root — pushes are authenticated; a release cannot switch that off
+```
+
+In the **legacy layout** nothing is forced. A plain project directory has no bare
+repository, so it has no Git endpoint to protect and no accounts to require — a
+local `basil --dev` server with neither is exactly right.
+
+This is a narrow fence rather than a general rule about what a release may
+change: it covers exactly the two settings whose loss removes the way back in.
+Hostname, port and TLS all stay deployable — renaming a site over Git is a
+legitimate thing to do — and are gated instead.
+
+### The listener-change warning
+
+When a **pushed** release would change `server.host`, `server.port` or the shape
+of the `https` block, relative to the release currently live **on a public
+server**, the push says so in the terminal you typed it in:
+
+```
+remote: warning: this release changes how the live site is served:
+remote: warning:   server.host: mysite.example.com → localhost
+remote: warning:   server.port: 443 → 8080
+remote: The change takes effect when the server restarts, not now. If it was not intended, revert it before then: git revert HEAD && git push.
+```
+
+The push still succeeds and the release still goes live — this is a warning, not
+a gate. Listener settings bind at startup, so nothing actually moves until the
+server restarts, which is exactly why the warning is worth having *now*: at push
+time the mistake is one commit deep and one `git revert` from gone.
+
+The check stays quiet where it would be noise:
+
+- **A localhost site says nothing.** If the live release's `server.host` is
+  `localhost`, `127.0.0.1`, `::1` or a `.local` name, its listener is a
+  developer's own business.
+- **`https` is compared by shape, not by field.** `https.auto` defaults to
+  `true`, so a release that merely omits the `https:` block obtains its
+  certificate exactly as the live one does and is correctly silent. What warns is
+  TLS genuinely changing: `auto` turned off, or a manual certificate appearing,
+  disappearing or moving.
+- **A config that will not load produces no lines at all** — validation already
+  owns broken configs, and reporting the same file twice in two voices helps
+  nobody.
+
+The commonest cause is graduation: a folder created by local `basil --init` says
+`host: localhost`, port 8080. Set the top-level `server.host` to the real
+hostname before the first publish and the warning never appears — see
+[Graduating a local site to a server](deployment.md#graduating-a-local-site-to-a-server).
 
 ## Environment Variables
 
@@ -277,9 +417,8 @@ logging:
   parsley:
     output: stderr              # Parsley log() output
 
-git:
-  enabled: false
-  require_auth: true
+# git:
+#   enabled: false              # Off-switch only; ignored on a site root
 
 dev:
   # log_database: ./dev_logs.db
@@ -287,6 +426,7 @@ dev:
   log_truncate_pct: 25
   cache: false                  # Response caching in dev mode
 
+# Per-person settings, applied with: basil --dev -as sam
 developers:
   sam:
     port: 3001
@@ -438,7 +578,7 @@ Authentication settings. Basil uses WebAuthn (passkeys) for passwordless authent
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable authentication |
+| `enabled` | boolean | `false` | Enable authentication. On a site root this is [operator-owned](#operator-owned-settings-on-a-site-root) and always on — deploys are authenticated by the API keys in its database. |
 | `registration` | string | `"closed"` | `"open"` (anyone) or `"closed"` (invite only) |
 | `session_ttl` | duration | `24h` | Auth session duration |
 | `login_path` | string | `"/login"` | Redirect path for unauthenticated users |
@@ -596,18 +736,18 @@ logging:
 
 ### `git`
 
-Git HTTP server. When enabled, serves the project as a Git repository at `/.git/`.
+The Git endpoint at `/.git/`, which serves the site's bare repository
+(`<site root>/site.git`).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable Git endpoint |
-| `require_auth` | boolean | `true` | Require API key authentication |
+| `enabled` | boolean | `true` | Off-switch only. The endpoint is active when the bare repository exists — there is nothing to turn *on* — and on a site root this is [operator-owned](#operator-owned-settings-on-a-site-root) and cannot be turned off from a release's config. A plain project directory has no bare repository and so no endpoint. |
 
-```yaml
-git:
-  enabled: true
-  require_auth: true
-```
+Authentication is not configurable: pushes always require an API key from the
+auth database, and Git over plain HTTP is refused outright, with a `--dev` server
+answering localhost the only relaxation — decided in code, never from a config
+file. (The old `git.require_auth` key is gone; a warning in a log nobody reads
+was not a control.) See [Git over HTTPS](git.md#authentication).
 
 ---
 
@@ -633,7 +773,10 @@ dev:
 
 ### `developers`
 
-Named developer profiles for per-developer overrides. Use with `basil --dev --profile <name>`.
+Named profiles for per-person overrides, applied with `basil --dev -as <name>`
+(`--profile <name>` is the same flag). This is where a setting that suits *your
+machine* belongs, rather than the top level — see
+[One File, Many Machines](#one-file-many-machines).
 
 Each profile can override:
 

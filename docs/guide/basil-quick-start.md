@@ -23,34 +23,47 @@ go build -o basil .
 The fastest way to get started:
 
 ```bash
-basil --init myapp --host localhost --admin your-name
-basil --dev --site myapp
+basil --init myapp
+cd myapp && basil --dev
 ```
 
 Visit http://localhost:8080 🎉
 
-`--host` is the hostname the site will be served on (`localhost` for a site you
-will only run with `--dev`). `--admin` names the first account; it is never
-guessed from your shell, because `--init` usually runs on a server as `root`.
-
-This creates a **site root**:
+That is the whole thing — a folder with files in it:
 
 ```
 myapp/
-  site.git/        bare repository, served at /.git
-  releases/        one directory per deployed commit
-    <commit>/        basil.yaml, site/index.pars, public/
-  current ->       the active release
-  data/            databases, certificates, logs, uploads — no deploy touches this
+├── basil.yaml      configuration
+├── site/           your pages (index.pars is the home page)
+│   └── index.pars
+└── public/         static files (CSS, JS, images)
 ```
 
-The starter site is committed and deployed as release 1, so the server has
-something to serve immediately. An admin account is created and its API key is
-printed **once** — save it.
+No flags to remember, no accounts, no API key, nothing to provision. Everything
+Basil writes while you work — databases, caches, certificates, uploads — lands
+in that folder too, and the generated `.gitignore` already covers it.
 
-Prefer a plain project directory? Create a folder with a `basil.yaml` and a
-`site/` in it and run `basil --dev` there; that layout is fully supported, and
-everything resolves against the project directory.
+If `git` is on your PATH, `--init` also makes the folder a repository on `main`
+with the starter site committed and the pre-commit formatting hook wired up.
+That costs you nothing today and saves a restructure the day you deploy. Pass
+`--no-git` to skip it; on a machine with no `git` at all you simply get the
+plain folder, with no warning and no fuss.
+
+`--host` is the only other thing worth setting here, and it defaults to
+`localhost`:
+
+```bash
+basil --init myapp --host myapp.local
+```
+
+**Going public later?** The folder never changes shape. You run one init command
+on the server, add it as a Git remote, and push — see
+[Graduating a local site to a server](deployment.md#graduating-a-local-site-to-a-server).
+
+### Prefer to build the folder yourself?
+
+Nothing stops you: a directory with a `basil.yaml` and a `site/` in it is a
+Basil site, and `basil --dev` inside it works. `--init` just saves the typing.
 
 ### Manual Setup (Alternative)
 
@@ -771,12 +784,19 @@ basil                       # Use default config resolution
 basil --config app.yaml     # Explicit config file
 basil --dev                 # Development mode (HTTP, no caching)
 basil --dev --port 3000     # Custom port
+basil --dev -as sam         # Apply the developers.sam profile
+basil --init myapp          # Create a local site folder
+basil --init myapp --no-git # ...without making it a git repository
 basil --version             # Show version
 basil --help                # Show help
 ```
 
+`basil --init FOLDER --server --host HOST --admin NAME` builds the deployment
+topology instead, on the machine that will receive deploys — see the
+[Deployment guide](deployment.md#setting-up-the-server).
+
 ## Next Steps
 
 - See `examples/hello/` for a complete example
-- Read [FEAT-002 spec](../specs/FEAT-002.md) for full details
+- Read the [Configuration Reference](configuration.md) for every key in `basil.yaml`
 - Check [FAQ](faq.md) for common questions

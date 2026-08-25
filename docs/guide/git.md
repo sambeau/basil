@@ -26,25 +26,30 @@ about to go out, reports how far the live site has drifted, and asks before it m
 anything. Underneath it is still a push of the release branch — so raw `git push`
 remains a working alternative (see [Publishing with raw Git](#publishing-with-raw-git))
 — but the verb is the one to reach for, and the daily loop below is built around it.
-None of this needs a single change to `basil.yaml`: a site `basil --init` created
-already has everything the two-verb workflow relies on.
+None of this needs a single change to `basil.yaml`: a site created by
+`basil --init … --server` already has everything the two-verb workflow relies on.
 
 ## The endpoint
 
-`basil --init` creates a site with a bare repository at `<site root>/site.git`, and
-the server serves it at `/.git` whenever that repository exists. There is nothing to
-turn on: the Git endpoint is live because the repository is there. A push into a bare
-repository never contends with a checked-out working tree, so the first push to a
-fresh site just works — no `receive.denyCurrentBranch`, no manual repository setup,
-none of the ceremony older versions of Basil required.
+`basil --init … --server` creates a site with a bare repository at
+`<site root>/site.git`, and the server serves it at `/.git` whenever that repository
+exists. There is nothing to turn on: the Git endpoint is live because the repository
+is there. A push into a bare repository never contends with a checked-out working
+tree, so the first push to a fresh site just works — no `receive.denyCurrentBranch`,
+no manual repository setup, none of the ceremony older versions of Basil required.
 
 The repository ships with the starter site already committed on the release branch,
 so a clone of a freshly initialised server yields working files rather than *"you
 appear to have cloned an empty repository"*.
 
-To turn the endpoint off entirely — an unusual thing to want — set `git.enabled:
-false`. There is no `git.enabled: true`: the endpoint is on when the repository
-exists.
+**There is no `git.enabled: true` to write, and on a deployed site no way to write
+`false` either.** `basil.yaml` travels inside the release, so a config that could
+switch the endpoint off would let a release disable the very mechanism it arrived
+through — leaving no way back in but a shell on the box. On a site root the setting
+is [operator-owned](configuration.md#operator-owned-settings-on-a-site-root): it is
+forced on, and a release that sets it `false` gets a startup warning saying so. A
+plain local project directory has no bare repository and so no endpoint at all,
+which is the correct shape for a laptop and needs no setting.
 
 ## Clone your site
 
@@ -55,8 +60,11 @@ cd mysite
 git config core.hooksPath .githooks   # opt into the pre-commit formatting hook
 ```
 
-`basil --init` prints this exact command, with your hostname and account name
-already filled in, so you rarely type it from memory.
+The server's own `basil --init … --server` prints this exact command, with the
+hostname and account name already filled in, so you rarely type it from memory.
+(Coming the other way — a folder you already have locally — is the
+[graduation path](deployment.md#graduating-a-local-site-to-a-server), which adds a
+remote instead of cloning.)
 
 In dev mode the transport is plain HTTP on localhost:
 
@@ -404,6 +412,14 @@ a throwaway VM, say — and never on a shared host.
   remote: error: release branch force-push refused
    ! [remote rejected] live -> live (pre-receive hook declined)
   ```
+
+  **One exception, once.** A brand-new server's release branch holds only the starter
+  commit `--init` made, so the first release pushed from a site you built locally is
+  always a non-fast-forward. While the deploy record still shows nothing but that
+  `init` release, the push is accepted and announced; from the first real release
+  onward the refusal above applies as normal. That is the
+  [graduation path](deployment.md#graduating-a-local-site-to-a-server), and it is the
+  only time you will type `--force` at a Basil server.
 
 - **Deleting the release branch** — refused, same reasoning.
 

@@ -24,13 +24,39 @@ keywords:
 The `basil` command starts the server, scaffolds projects, and manages users and API keys.
 
 ```bash
-basil --init myapp --host localhost --admin sam   # Create a new site
-basil --dev --site myapp                          # Run it in development mode
+basil --init myapp        # Create a new site folder
+cd myapp && basil --dev   # Run it in development mode
 ```
 
 ## Creating a Site
 
-`basil --init FOLDER --host HOSTNAME --admin NAME` creates a **site root**:
+`basil --init FOLDER` creates the plain folder Basil has always been about:
+
+```
+myapp/
+├── basil.yaml      Configuration
+├── site/           Your pages (index.pars is the home page)
+│   └── index.pars
+└── public/         Static files (CSS, JS, images)
+```
+
+No flags are required. `--host` defaults to `localhost` (an explicit one is
+accepted and validated); `--admin` is refused here, because a local folder has no
+accounts. The folder runs immediately with `basil --dev` inside it, and
+everything Basil writes as it runs — databases, caches, certificates, uploads —
+lands beside your code, covered by the generated `.gitignore`.
+
+If `git` is on the PATH, `--init` also makes the folder a repository on `main`
+with the starter site committed and `core.hooksPath` pointed at the pre-commit
+formatting hook. It is a quiet nicety, not a gate: `--no-git` opts out, and a
+machine without `git` simply gets the plain folder, with no warning. The point is
+that the folder is already clone-shaped on the day you decide to deploy it — see
+[Graduating a local site to a server](../../guide/deployment.md#graduating-a-local-site-to-a-server).
+
+### Creating a deployment server: `--server`
+
+`basil --init FOLDER --server --host HOSTNAME --admin NAME` is the other half,
+run on the machine that will *receive* deploys. It creates a **site root**:
 
 ```
 myapp/
@@ -42,7 +68,7 @@ myapp/
     └── uploads/      Durable site writes, served at /__uploads/
 ```
 
-Both flags are required, and neither is guessed:
+Both flags are required in this mode, and neither is guessed:
 
 - `--host` is written to `server.host`, the site's **public hostname**: the name on
   the certificate, the WebAuthn relying-party id, the address people type. It is
@@ -53,13 +79,15 @@ Both flags are required, and neither is guessed:
   hostname a stranger asks for. Use `localhost` for a site you will only run with
   `--dev`.
 - `--admin` names the first Basil account. It is **never** derived from `$USER`
-  or `$SUDO_USER` — `--init` usually runs on a server, where the shell is `root`
-  or a service account. With a terminal attached, `--init` prompts for it.
+  or `$SUDO_USER` — this command usually runs on a server, where the shell is
+  `root` or a service account. With a terminal attached, `--init` prompts for it.
 
-`--init` commits the starter site to the release branch and deploys it as release
-1, so the server has something to serve from the moment it starts. It creates the
-admin account and prints its API key **once**, and installs a pre-commit
-formatting hook.
+Server init commits the starter site to the release branch and deploys it as
+release 1, so the server has something to serve from the moment it starts. It
+creates the admin account and prints its API key **once**, installs a pre-commit
+formatting hook and the receive hooks, and prints the `git clone` command for the
+site. `--no-git` is refused in this mode: a machine that receives pushes cannot be
+built without git.
 
 Run under `sudo`, it hands the tree to `$SUDO_USER` and says so; run as `root`
 with no `SUDO_USER`, it warns and prints the exact `chown` command. As root it
@@ -88,7 +116,9 @@ the prefix in `auth.protected_paths`.
 
 A plain directory containing `basil.yaml` still works exactly as before, with the
 data root defaulting to that directory. `basil --dev` in a working copy needs no
-site root and no `current` symlink.
+site root and no `current` symlink. This is the layout plain `basil --init` writes
+and the shape a clone of a deployed site has, which is why a local folder can
+graduate to a server without being restructured.
 
 ## Starting the Server
 
@@ -132,7 +162,11 @@ basil --dev --profile sam    # or: basil --dev -as sam
 | `--quiet` | Suppress request logs (log level: error) |
 | `--port PORT` | Override listen port |
 | `--profile NAME`, `-as NAME` | Apply a developer profile |
-| `--init FOLDER` | Create a new Basil project |
+| `--init FOLDER` | Create a new Basil site folder |
+| `--server` | With `--init`: build the server deploy topology (on the box) |
+| `--no-git` | With `--init`: do not create a git repository |
+| `--host HOSTNAME` | With `--init`: the site's public hostname (default `localhost`; required with `--server`) |
+| `--admin NAME` | With `--init --server`: the first account's name |
 | `--version` | Show version |
 | `--help` | Show help |
 
