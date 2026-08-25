@@ -1,7 +1,7 @@
 ---
 id: FEAT-154
 title: "Git hub: bare repository, release branch and receive hooks"
-status: draft
+status: implemented
 priority: high
 created: 2026-08-24
 author: "@sambeau / @claude"
@@ -134,9 +134,15 @@ it is reacting to.
 - **The clone URL does not change.** `/.git` continues to work; only what sits behind it
   changes. Nothing a developer types is different.
 
-- **`go-git-http` stays.** It is unmaintained but small and stable, and it is doing very
-  little here — routing Smart HTTP to the real `git` binary. If it ever becomes a problem,
-  vendoring it is a contained change. Not worth replacing in this unit.
+- **~~`go-git-http` stays.~~ Reversed during implementation (2026-08-24): `go-git-http`
+  was removed.** The premise failed: the library sets only `cmd.Dir` on the `git`
+  subprocess and exposes no hook for per-request environment, so the authenticated
+  account's name could not be passed to `receive-pack` for the deploy record (D20). Serving
+  Smart HTTP directly — ref advertisement plus `git upload-pack`/`receive-pack
+  --stateless-rpc` — is ~30 lines per direction, sets `BASIL_PUBLISHER` per request, and
+  also drops the library's dumb-protocol raw-file serving of the object store (an
+  unnecessary attack surface). One unmaintained dependency gone. See the implementation
+  notes below.
 
 ## Technical Context
 
@@ -219,9 +225,36 @@ Project checklist (`CLAUDE.md`) plus:
 - [ ] FEAT-035 marked superseded, with a pointer to this spec
 - [ ] Merged to `main` and pushed; worktree and branch removed
 
-## Open Questions
+## Implementation Notes (2026-08-24)
 
-1. Should non-release branches be pruned automatically after some age? Recommend no; it is
-   the developer's repository as much as the server's.
-2. Does the bare repository need a size or push-size limit? Probably eventually; not in
-   this unit.
+Implemented on `claude/basil-git-deploy-0ad5un` (G1 `f1a336d` hooks/`--from-hook`/
+`deploy.branch`/`Engine.Prepare`; G2 `cec735c` transport + hardening; G3 `02c9e15` docs +
+BUG-033/FEAT-035 closure; fix round `11230ab`). All acceptance criteria met with code and a
+proving test; verified end to end by the orchestrator with a real `git` client (clone,
+store-only branch push, publishing push with the pusher recorded, broken push rejected with
+the ref unmoved and the live site unchanged, force-push and deletion refused).
+
+Reviewed by three lenses (spec, craft, security). The security lens **refuted** command
+injection, path traversal, raw-file serving, force-push/deletion bypass, and ACME-scoping
+regressions with file:line. Findings fixed in `11230ab`.
+
+Decisions and deviations:
+
+- **`go-git-http` removed; Smart HTTP served directly** (see the reversed Design Decision
+  above) — needed for per-request `BASIL_PUBLISHER`, and it dropped the dumb-protocol
+  raw-file surface.
+- **`deploy.pars` runs sandboxed on a push** — `@exec`/`@shell` denied, writes scoped to
+  the data root; full power only via `basil deploy` at the server shell. Decision by
+  @sambeau; rationale in `DESIGN-git-deploy.md` §6.7. The escape hatch is named in the
+  refusal the developer sees.
+- **The receive-pack role gate reads the decoded git service once** — a percent-encoded
+  service name (`git-receive%2dpack`) can no longer skip the editor/admin gate on the ref
+  advertisement.
+- **`viewer` role** added to hold the fetch-only side of the matrix; `SetUserRole` accepts
+  it; account names reject control characters.
+- **The RPC gzip body is bounded** (1 GiB decompressed) against a decompression bomb; a
+  full total-push-size limit is deferred — Open Question 2, backlog #144.
+
+Open Questions resolved: (1) non-release branches are **not** auto-pruned — the repository
+is the developer's too. (2) A push-size limit is **partially** addressed (gzip bound); the
+overall cap is deferred to backlog #144.

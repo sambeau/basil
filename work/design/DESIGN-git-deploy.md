@@ -562,6 +562,30 @@ bugs by review before landing.
   write-ahead fix shape). The site root must be on a local filesystem — flock is not
   reliable on NFS/SMB.
 
+### 6.7 `deploy.pars` runs sandboxed on a push (2026-08-24, @sambeau)
+
+FEAT-153 ran `deploy.pars` with `@exec`/`@shell` allowed, which was correct while the only
+trigger was `basil deploy` at a server shell — whoever runs it already has the host. The
+code carried an explicit warning that the push trigger must revisit this.
+
+FEAT-154 makes a `git push` to the release branch trigger a deploy, and **any `editor` may
+push the release branch** (D3). Running the hook with full exec on that path would turn
+"can push code" into "can run arbitrary commands on the server" for every editor account —
+a privilege escalation, since served Parsley is sandboxed and `deploy.pars` was not.
+
+**Decision (Option 1, sandbox on push):** a push-triggered `deploy.pars` runs with
+`@exec`/`@shell` **denied** and writes scoped to the data directory. Database access and
+network calls are not execute-gated, so migrations, cache-warming and notifications — the
+hook's stated purposes — still work on a push. A hook that genuinely needs to run an OS
+command is run deliberately with `basil deploy <sha>` at the server shell, which keeps full
+power. The policy is selected by an explicit flag at the call site (`Engine.HookSandbox`),
+not inferred from the trigger label; a blocked exec is a hard error that is recorded and
+relayed to the developer as `remote:` output naming the `basil deploy` escape hatch, and —
+per §6.6 — the deploy still goes live rather than rolling back.
+
+The publish-vs-push *role* split (a separate capability for who may release) remains
+deferred (§10); this decision is about what a release's hook may do, not who may trigger it.
+
 ---
 
 ## 7. Configuration
