@@ -492,6 +492,17 @@ Be clear about the limits, in the docs as well as here: **validation catches cod
 broken, not work that is unfinished.** It is not a substitute for the explicit publish step
 (D3) — the two protect against different mistakes.
 
+**Listener changes are flagged here** (FEAT-156, decided @sam 2026-08-25). `basil.yaml`
+ships inside the release, so a release can change `server.host`, `server.port` or the
+`https` block — legitimate for a site rename, but on the FEAT-156 graduation path it is
+an easy accident: a freshly connected local config says `host: localhost`, port 8080,
+no `https:`, and deploying it onto a public server takes down the site *and its git
+endpoint* on the next restart, leaving SSH as the only recovery. Validation warns at
+push time, in the developer's terminal, when a release's config changes any of the
+three relative to the active release on a public server. Warn, not refuse: the rename
+case must stay possible over git. (The unrecoverable settings — `git.*`, `auth.*` — are
+operator-owned and forced on a site root instead; see FEAT-156.)
+
 ### 6.3 Formatting — fixed locally, never a blocker
 
 Consistent formatting matters for the reason it is wanted: unformatted code makes diffs

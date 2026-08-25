@@ -44,6 +44,12 @@ check with no build server, and it is the strongest single argument for the whol
 - [ ] `materialise` — the commit is extracted into `releases/<id>/`, byte-identical to the
       commit
 - [ ] `validate` — every `.pars` handler, part and layout is parsed; the config is loaded
+- [ ] `validate` also flags a listener change: a release whose config changes
+      `server.host`, `server.port` or the `https` block relative to the active release
+      on a public server is warned about at push time, in the developer's terminal.
+      Guards the FEAT-156 graduation path, where a local config (`host: localhost`,
+      port 8080, no `https:`) would otherwise take down the site — and its git
+      endpoint — on the next restart (FEAT-156, decided @sam 2026-08-25)
 - [ ] `activate` — `current` is re-pointed and the running server's release path updated
 - [ ] `hook` — if `deploy.pars` exists in the release root it runs after activation.
       **Convention, not configuration**, matching `index.pars` / `{folder}.pars` (FEAT-040)

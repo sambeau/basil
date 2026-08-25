@@ -112,7 +112,8 @@ mysite/
   `https:` block — none of them mean anything until the site has a server, and
   operator-owned enforcement (below) means their absence can never disable anything
   remote. Commented-out `database:` and `data_dir:` stanzas stay as documentation,
-  as today.
+  as today, joined by a commented `developers:` example (see "One config file",
+  below) so the layering discipline is discoverable from day one.
 - **Git is a quiet nicety, not a gate.** When `git` is on the PATH: `git init`
   (normal, not bare, initial branch `main`), set `core.hooksPath .githooks`, make the
   first commit. This costs the hobbyist nothing visible and means the folder is
@@ -176,6 +177,33 @@ release branch are refused as usual. Enforcement lives in the FEAT-154 receive h
 this spec owns stating the rule, and `basil publish` (FEAT-155) owns making the
 first-publish experience seamless.
 
+### One config file: it describes the site, not a machine
+
+Once a site syncs between a production server and one or more developer machines,
+the versioned `basil.yaml` serves several environments at once. The rule that makes
+one file work — rather than splitting into local/remote files or a gitignored
+overlay — is a layering discipline Basil already has the machinery for:
+
+| Layer | Mechanism | Versioned? |
+| --- | --- | --- |
+| Production truth | top-level keys (`host`, `https`, `port`, …) | yes |
+| Mode | `--dev` (HTTP, localhost, live reload; ignores the production listener) | ambient |
+| Per-person | `developers.<name>` profiles, activated with `-as <name>` | yes, deliberately |
+| Per-run | CLI flags (`--port 3000`) | no |
+| Secrets | `!secret` (resolved from the environment) | no |
+
+Nobody edits a top-level value to suit their machine: a developer's port lives
+under `developers.<name>.port`, where it cannot collide with anyone else's and is
+visible to the whole team. A gitignored local overlay file was considered and
+rejected: it is invisible state ("works on my machine"), it cuts against the
+folder-you-can-read ethos, and every legitimate case it would serve is already
+covered by a layer above.
+
+The discipline is social, not enforced — someone will eventually commit a top-level
+`port:` edit. Two backstops make that a caught mistake instead of an outage: the
+operator-owned settings below, and the FEAT-153 validation gate flagging listener
+changes (also below).
+
 ### Operator-owned settings: a release cannot disable the deploy mechanism
 
 `basil.yaml` ships inside the release (FEAT-152 design decision), and today's
@@ -192,9 +220,19 @@ forced — a local dev server with no git endpoint is correct.
 
 This is the narrow version of FEAT-152 Open Question 1 (may a release change server
 settings?). It does not settle the general question — port, TLS and listener settings
-stay deployable for now — it fences off only the settings whose loss is unrecoverable
+stay deployable — it fences off only the settings whose loss is unrecoverable
 without a shell. It must land before or with FEAT-154, because FEAT-154 is where the
 hub becomes load-bearing.
+
+**Decision (@sam, 2026-08-25): listener changes are gated, not forced.** `server.host`
+stays deployable — renaming a site over git is legitimate — but the graduation path
+makes deploying a dev listener onto a public server an easy accident: a graduated
+local config says `host: localhost`, port 8080, no `https:`, and on the next restart
+the public site (and its git endpoint) would be gone. So the FEAT-153 validation gate
+must flag a release whose config changes `server.host`, `server.port` or the `https`
+block on a public server — warning by default, in the developer's terminal at push
+time, where the mistake is one commit deep and trivially reverted. This spec records
+the requirement; FEAT-153 owns the implementation.
 
 ## Acceptance Criteria
 
@@ -208,6 +246,8 @@ hub becomes load-bearing.
 - [ ] The generated config contains no `auth:`, `git:` or `https:` blocks and is
       loadable and valid (verified before init reports success, as server mode
       already does)
+- [ ] The generated config includes a commented `developers:` example showing a
+      per-person port override and naming `-as <name>`
 - [ ] `--host` defaults to `localhost`; an explicit `--host` is accepted and
       validated with the existing rules
 - [ ] `--admin` with local init is refused with an error naming `--server`
@@ -221,6 +261,9 @@ hub becomes load-bearing.
       `certs/`, `cache/`, `search/`, `uploads/`
 - [ ] The summary prints the layout and `basil --dev` next steps; it prints no API
       key and no clone command
+- [ ] The summary always ends with a one-line graduation pointer (server init on
+      the box, connect this folder, doc link) — it is the bridge between the two
+      halves of the product, and its tone is a signpost, not a nudge
 
 ### Server mode (opt-in)
 
@@ -247,11 +290,18 @@ hub becomes load-bearing.
 - [ ] In the legacy layout, nothing is forced: `git.enabled` still defaults to false
 - [ ] `docs/guide/configuration.md` documents which settings are operator-owned on a
       site root and why
+- [x] The listener-change requirement (validation gate flags a release changing
+      `server.host`, `server.port` or `https` on a public server) is recorded in
+      `work/specs/FEAT-153.md` and `DESIGN-git-deploy.md` for FEAT-153 to implement
+      (done 2026-08-25, alongside this spec)
 
 ### Documentation
 
 - [ ] The getting-started path in the docs leads with local init; the deploy guide
       owns `--server` and graduation
+- [ ] `docs/guide/configuration.md` gains a section on the one-file layering
+      discipline — "the file describes the site, not your machine" — covering the
+      top-level / `--dev` / `developers.<name>` / CLI-flag / `!secret` layers
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
 
 ## Design Decisions
@@ -288,6 +338,15 @@ hub becomes load-bearing.
 - **The starter-commit non-fast-forward exception is stated here, implemented in
   FEAT-154.** It is a property of the graduation story, so it belongs in this spec's
   record; it is enforced in receive hooks, which do not exist until FEAT-154.
+
+- **One versioned config file, no local overlay.** The multi-environment problem
+  (prod + N developer machines sharing one `basil.yaml` through git) is solved by
+  layering, not by file splitting: top level is production truth, `--dev` makes mode
+  ambient, `developers.<name>` namespaces per-person settings where they cannot
+  collide, flags cover per-run, `!secret` covers secrets. A gitignored
+  `basil.local.yaml` was considered and rejected as invisible state. Revisit only if
+  real usage surfaces a per-person need no `DeveloperConfig` field covers — the
+  answer then is a new field, not an escape hatch that overrides anything silently.
 
 ## Technical Context
 
@@ -351,15 +410,19 @@ Project checklist (`CLAUDE.md`) plus:
 
 ## Open Questions
 
-1. Flag name: `--server` (initialises the server side, matches where it runs) vs
-   `--remote` (matches the user's local/remote framing). Recommend `--server`;
-   the command is typed on the box it configures.
-2. Should local init print the graduation pointer every time, or only a doc link?
-   Recommend one line every time — it is the bridge between the two halves of the
-   product and costs one line.
-3. Should `--host` on local init switch anything besides `server.host` (e.g. port)?
-   Recommend no: local mode is one shape; `--dev` owns the dev listener.
-4. Does the operator-owned set need `server.host` too? A release deploying
-   `host: localhost` onto a public server would break ACME on next restart.
-   Recommend deferring to FEAT-152 Open Question 1 — unlike git/auth, the failure
-   is visible and recoverable over git.
+All resolved (@sam, 2026-08-25):
+
+1. ~~Flag name~~ — **`--server`.** The command is typed on the box it configures.
+2. ~~Graduation pointer: every time, or doc link only?~~ — **One line, every time.**
+   It is the bridge between the two halves of the product; init's summary is the one
+   guaranteed touchpoint every local user sees, and the cost is one ignorable line,
+   once. Doc-link-only would bury the local→remote story in a page the user has no
+   reason to open.
+3. ~~Should `--host` on local init switch anything besides `server.host`?~~ — **No.**
+   Local mode is one shape; `--dev` owns the dev listener.
+4. ~~Does the operator-owned set need `server.host` too?~~ — **No: gate, don't
+   force.** Renaming a site over git is legitimate, so forcing the host would
+   reintroduce SSH for a routine change. The real hazard — a graduated local config
+   deploying `host: localhost` onto a public server, taking down the site *and its
+   git endpoint* on the next restart — is caught instead by the FEAT-153 validation
+   gate flagging listener changes at push time (see Operator-owned settings).
