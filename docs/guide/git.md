@@ -455,8 +455,10 @@ a throwaway VM, say — and never on a shared host.
   always a non-fast-forward. While the deploy record still shows nothing but that
   `init` release, the push is accepted and announced; from the first real release
   onward the refusal above applies as normal. That is the
-  [graduation path](deployment.md#graduating-a-local-site-to-a-server), and it is the
-  only time you will type `--force` at a Basil server.
+  [graduation path](deployment.md#graduating-a-local-site-to-a-server): `basil
+  publish` recognises this one state and makes the forced push for you (its
+  under-the-hood form is `git push --force origin HEAD:live`, which you can still
+  type yourself). It is the only time a Basil server accepts a `--force` at all.
 
 - **Deleting the release branch** — refused, same reasoning.
 

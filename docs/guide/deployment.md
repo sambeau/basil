@@ -123,44 +123,64 @@ basil --init /srv/mysite --server --host mysite.example.com --admin sam
 # in your local folder, once
 git remote add origin https://sam@mysite.example.com/.git
 git push -u origin main                 # your history is now on the server
-git push --force origin main:live       # the first publish — see below
+basil publish                           # the first publish — see below
 ```
 
-The API key printed by the server's init is the password for both pushes; the
-username in the URL only selects which stored credential your machine offers
-(see [Git over HTTPS](git.md#authentication)). After that it is the ordinary
-loop — `git push` to share, `basil publish` to go live.
+The API key printed by the server's init is the password for both the push and
+the publish; the username in the URL only selects which stored credential your
+machine offers (see [Git over HTTPS](git.md#authentication)). After that it is
+the ordinary loop — `git push` to share, `basil publish` to go live.
 
-### Why the first publish needs `--force`
+### The first publish, and why it is special
 
 Server init seeds the release branch with a starter commit of its own, so at the
 moment you connect the two, your history and the server's are unrelated: moving
-`live` onto your commit is a non-fast-forward, and Git will not send one without
-`--force`.
+`live` onto your commit is a non-fast-forward, which Git normally will not send.
 
-The hub accepts that **exactly once**. While the deploy record still shows
-nothing but the release `--init` created, a non-fast-forward on the release
-branch is allowed, and the server says so as it happens:
+`basil publish` recognises this one state — a first publish onto a server that
+still carries only its starter site — explains it, and, once you confirm, makes
+the single forced push the hub allows:
 
 ```
-$ git push --force origin main:live
+$ basil publish
+First publish to "live" on origin.
+
+This server has only its initial placeholder site. Publishing will replace it
+with your project's history. This is a one-time replacement; afterwards the
+release branch is protected normally.
+
+1 commit:
+  36f38ce my first page
+
+2 files changed:
+  basil.yaml
+  site/index.pars
+
+Replace the starter site and publish 1 commit to "live"? [y/N] y
+
+Publishing 36f38ce44dc4 to "live" (replacing the starter site)...
 remote: replacing the starter site created by 'basil --init' with your first release — this is the one non-fast-forward the release branch allows, and it will not be allowed again
 remote: Checking release 36f38ce44dc4… ok
-remote: deploying 36f38ce44dc4
-remote: deployed 36f38ce44dc4 in 16ms
 remote: Deployed 36f38ce44dc4 (16ms)
-To https://mysite.example.com/.git
- + 759fc02...36f38ce main -> live (forced update)
+Published 36f38ce44dc4 to "live".
 ```
 
-Once one real release exists, release history is protected exactly as before:
-force-pushing or deleting the release branch is
-[refused for everyone](git.md#what-is-refused), because the deploy record — and
-therefore rollback — depends on it.
+The hub accepts that non-fast-forward **exactly once**: while the deploy record
+still shows nothing but the release `--init` created. Once one real release
+exists, release history is protected exactly as before — force-pushing or
+deleting the release branch is [refused for everyone](git.md#what-is-refused),
+because the deploy record, and therefore rollback, depends on it. `basil
+publish` will not offer the forced path again either: every publish after the
+first is an ordinary fast-forward.
 
-`basil publish` is the command for every publish *after* that one. It never
-force-pushes, so it cannot make this one crossing; run the `--force` push above
-once, and use `basil publish` from then on.
+`basil publish` offers the force **only** for genuinely unrelated histories. If
+your clone has merely fallen behind a shared release branch, that is an ordinary
+divergence, not a first publish: publish refuses it and tells you to fetch and
+rebase, exactly as before.
+
+Under the hood the first publish is `git push --force origin HEAD:live`, and
+that still works if you prefer to type it — `basil publish` just recognises the
+state and runs it for you.
 
 ## `basil deploy <sha|branch|tag>`
 

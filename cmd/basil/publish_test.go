@@ -67,6 +67,32 @@ func (f *publishFixture) originTip(t *testing.T) string {
 	return testGit(t, f.bare, "rev-parse", f.branch)
 }
 
+// graduatedClone builds a local project whose history is UNRELATED to the bare
+// origin's starter commit and connects it as a graduated site would: an
+// independently-initialised repo (its own root commit, not a clone of the
+// server), a basil.yaml so publish finds its config, `git remote add origin`,
+// and a push of its own branch that stores it without touching the release
+// branch. This is the state BUG-037 is about - the first `basil publish` from
+// it can only be a non-fast-forward. Returns the local repo path and its HEAD.
+func (f *publishFixture) graduatedClone(t *testing.T) (string, string) {
+	t.Helper()
+	tmp := t.TempDir()
+	local := filepath.Join(tmp, "mysite")
+	testGit(t, tmp, "init", "--initial-branch="+f.branch, local)
+	testGit(t, local, "config", "user.name", "Local Author")
+	testGit(t, local, "config", "user.email", "local@example.com")
+	writePubFile(t, filepath.Join(local, "basil.yaml"), "server:\n  host: localhost\n")
+	writePubFile(t, filepath.Join(local, "site", "index.pars"), "<h1>\"written on my laptop\"</h1>\n")
+	testGit(t, local, "add", "-A")
+	testGit(t, local, "commit", "--quiet", "--no-verify", "-m", "my first page")
+	head := testGit(t, local, "rev-parse", "HEAD")
+	testGit(t, local, "remote", "add", "origin", f.bare)
+	// Store the branch on origin without publishing it: the release branch is
+	// still the server's starter commit, unrelated to this history.
+	testGit(t, local, "push", "--quiet", "origin", f.branch+":refs/heads/main")
+	return local, head
+}
+
 // installRejectHook makes the bare repo refuse the next push with a
 // file:line diagnostic, mimicking the validation gate's rejection.
 func (f *publishFixture) installRejectHook(t *testing.T) {
@@ -385,6 +411,172 @@ func TestPublish_SetsPushRefspecOnExistingBranch(t *testing.T) {
 	got := testGit(t, f.work, "config", "--get", "remote.origin.push")
 	if want := "HEAD:refs/heads/live"; got != want {
 		t.Errorf("remote.origin.push = %q, want %q", got, want)
+	}
+}
+
+// --- first publish from a graduated project (BUG-037) -----------------------
+
+// The headline case: a project whose history is unrelated to the server's
+// starter commit publishes for the first time through `basil publish` (NOT raw
+// git). publish detects the unrelated history, makes the one forced push, and
+// the release branch moves onto the local project's commit. A SECOND publish is
+// then an ordinary fast-forward that needs no force.
+func TestPublish_FirstPublishFromGraduatedProject(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+	local, head := f.graduatedClone(t)
+
+	var out bytes.Buffer
+	if err := runPublish([]string{local, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("first publish from a graduated project failed: %v\n%s", err, out.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "First publish") {
+		t.Errorf("output did not announce the first publish:\n%s", got)
+	}
+	if !strings.Contains(got, "replace it") && !strings.Contains(got, "one-time replacement") {
+		t.Errorf("output did not explain the starter-site replacement:\n%s", got)
+	}
+	if !strings.Contains(got, "remote: Deployed the release") {
+		t.Errorf("the server's remote: line was not streamed:\n%s", got)
+	}
+	if tip := f.originTip(t); tip != head {
+		t.Fatalf("live is at %s, want the graduated head %s", tip, head)
+	}
+
+	// The second publish is an ordinary fast-forward: no force, no first-publish
+	// language, and the ref advances normally.
+	writePubFile(t, filepath.Join(local, "site", "index.pars"), "<h1>\"v2\"</h1>\n")
+	testGit(t, local, "add", "-A")
+	testGit(t, local, "commit", "--quiet", "--no-verify", "-m", "v2 page")
+	second := testGit(t, local, "rev-parse", "HEAD")
+
+	var out2 bytes.Buffer
+	if err := runPublish([]string{local, "--yes"}, strings.NewReader(""), &out2, &out2, emptyEnv); err != nil {
+		t.Fatalf("second publish failed: %v\n%s", err, out2.String())
+	}
+	if strings.Contains(out2.String(), "First publish") {
+		t.Errorf("the second publish must not be treated as a first publish:\n%s", out2.String())
+	}
+	if tip := f.originTip(t); tip != second {
+		t.Errorf("second publish left live at %s, want %s", tip, second)
+	}
+}
+
+// --dry-run on the first-publish state previews the replacement and pushes
+// nothing: the release branch stays at the server's starter commit.
+func TestPublish_FirstPublishDryRunPushesNothing(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+	local, _ := f.graduatedClone(t)
+
+	var out bytes.Buffer
+	if err := runPublish([]string{local, "--dry-run"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("first-publish --dry-run failed: %v\n%s", err, out.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "First publish") {
+		t.Errorf("--dry-run did not identify the first-publish state:\n%s", got)
+	}
+	if !strings.Contains(got, "--dry-run: nothing was pushed") {
+		t.Errorf("--dry-run did not announce it pushed nothing:\n%s", got)
+	}
+	if tip := f.originTip(t); tip != f.seed {
+		t.Errorf("--dry-run moved live to %s; the starter commit %s must stay", tip, f.seed)
+	}
+}
+
+// The forced first publish is not skippable without --yes: a declined prompt
+// leaves the starter commit in place.
+func TestPublish_FirstPublishPromptAborts(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+	local, _ := f.graduatedClone(t)
+
+	var out bytes.Buffer
+	if err := runPublish([]string{local}, strings.NewReader("n\n"), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("an aborted first publish is not an error: %v", err)
+	}
+	if !strings.Contains(out.String(), "Cancelled") {
+		t.Errorf("the declined first publish was not reported:\n%s", out.String())
+	}
+	if tip := f.originTip(t); tip != f.seed {
+		t.Errorf("a declined first publish moved live to %s, want %s", tip, f.seed)
+	}
+}
+
+// The guard against over-forcing: an ordinary divergence - a clone that shares
+// history with origin but has fallen behind - is NOT a first publish and must
+// never be offered a force. The classifier must return false, and publish must
+// keep today's behaviour (no forced push, the ref unmoved).
+func TestPublish_OrdinaryDivergenceIsNotOfferedAForce(t *testing.T) {
+	f := newPublishFixture(t, "live")
+
+	// Advance origin beyond what the clone has: another clone commits and
+	// pushes, so origin's release tip is ahead of the clone's HEAD but shares
+	// the seed as a common ancestor.
+	other := filepath.Join(t.TempDir(), "other")
+	testGit(t, filepath.Dir(other), "clone", "--quiet", f.bare, other)
+	testGit(t, other, "config", "user.name", "Other Author")
+	testGit(t, other, "config", "user.email", "other@example.com")
+	writePubFile(t, filepath.Join(other, "site", "index.pars"), "<h1>\"ahead\"</h1>\n")
+	testGit(t, other, "add", "-A")
+	testGit(t, other, "commit", "--quiet", "--no-verify", "-m", "ahead")
+	ahead := testGit(t, other, "rev-parse", "HEAD")
+	testGit(t, other, "push", "--quiet", "origin", "live")
+
+	// The classifier: origin tip (ahead) and the clone's HEAD (seed) share the
+	// seed, so this is NOT unrelated history.
+	if unrelatedHistories(f.work, "live", ahead, f.seed) {
+		t.Fatalf("ordinary divergence was misclassified as unrelated history")
+	}
+
+	// And publish must not force it: the clone is behind, so there is nothing to
+	// publish and the ref is untouched.
+	var out bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("publish failed: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "First publish") {
+		t.Errorf("ordinary divergence was offered a first-publish force:\n%s", out.String())
+	}
+	if tip := f.originTip(t); tip != ahead {
+		t.Errorf("publish moved live to %s; an ordinary divergence must leave it at %s", tip, ahead)
+	}
+}
+
+// A local commit diverging from a shared branch (not merely behind) is likewise
+// not unrelated history: the classifier must see the shared ancestor and refuse
+// the force, so the server's ordinary non-fast-forward refusal stands.
+func TestPublish_DivergentLocalCommitIsNotUnrelated(t *testing.T) {
+	f := newPublishFixture(t, "live")
+
+	// Origin advances.
+	other := filepath.Join(t.TempDir(), "other")
+	testGit(t, filepath.Dir(other), "clone", "--quiet", f.bare, other)
+	testGit(t, other, "config", "user.name", "Other Author")
+	testGit(t, other, "config", "user.email", "other@example.com")
+	writePubFile(t, filepath.Join(other, "site", "index.pars"), "<h1>\"theirs\"</h1>\n")
+	testGit(t, other, "add", "-A")
+	testGit(t, other, "commit", "--quiet", "--no-verify", "-m", "theirs")
+	testGit(t, other, "push", "--quiet", "origin", "live")
+	aheadSHA := testGit(t, other, "rev-parse", "HEAD")
+
+	// The clone commits its own divergent change on top of the seed.
+	mine := f.commitLocal(t, "site/index.pars", "<h1>\"mine\"</h1>\n", "mine")
+
+	if unrelatedHistories(f.work, "live", aheadSHA, mine) {
+		t.Fatalf("a divergent-but-shared history was misclassified as unrelated")
+	}
+}
+
+// The classifier is also correct in the affirmative: two genuinely unrelated
+// roots have no merge base, so unrelatedHistories reports true.
+func TestUnrelatedHistories_ClassifiesUnrelatedRootsAsTrue(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	local, head := f.graduatedClone(t)
+	if !unrelatedHistories(local, "live", f.seed, head) {
+		t.Errorf("two unrelated roots were not classified as unrelated (seed=%s head=%s)", f.seed, head)
 	}
 }
 

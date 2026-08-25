@@ -149,6 +149,25 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		return nil
 	}
 
+	// --- first publish onto a fresh server (BUG-037, graduation) ----------
+	// A graduated project - `basil --init` locally, then `git remote add
+	// origin` + push to a `basil --init --server` hub - has a history unrelated
+	// to the hub's starter commit. Its first `basil publish` is therefore a
+	// non-fast-forward, which the server honours exactly once, while its deploy
+	// record still shows nothing but the init release (see fromhook.go,
+	// acceptsStarterOverwrite). Detect that state here and offer to make the one
+	// forced push, rather than computing a `<starter>..HEAD` range whose left
+	// side this repo has never seen and letting git rev-list exit 128.
+	//
+	// The offer is made ONLY for genuinely unrelated histories, and only when
+	// origin ANSWERED (a live tip is what the force is measured against). An
+	// ordinary divergence - a clone that has merely fallen behind a shared
+	// branch - is not this case and must never be force-pushed: it falls through
+	// to the normal path below, which refuses the non-fast-forward as before.
+	if reachable && base != "" && unrelatedHistories(top, branch, base, headSHA) {
+		return firstPublish(top, ref, branch, headSHA, stdin, stdout, stderr, *yes, *dryRun)
+	}
+
 	count, files, err := publishPlan(top, base, headSHA)
 	if err != nil {
 		return fmt.Errorf("cannot determine what would be published: %w", err)
@@ -237,6 +256,102 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	}
 
 	fmt.Fprintf(stdout, "Published %s to %q.\n", shortRelease(headSHA), branch)
+	return nil
+}
+
+// unrelatedHistories reports whether the server's release tip and local HEAD
+// share no common ancestor - the signature of a first publish from a graduated
+// project (its history is unrelated to the hub's `basil --init` starter
+// commit), and the ONLY divergence for which publish offers a forced push.
+//
+// The probe has to be authoritative, which means the server tip must be a local
+// object before `git merge-base` can rule on it. A graduated project has never
+// fetched the starter commit; but neither has a clone that has simply fallen
+// behind fetched the newer tip - and merge-base cannot tell "no common
+// ancestor" from "one side is an object I have never seen": both exit non-zero.
+// So the tip is fetched first. Only when it is in hand AND merge-base still
+// reports no base are the histories genuinely unrelated. A fetch that cannot
+// land the object leaves the question open, and an open question is never a
+// force: an ordinary behind-the-remote clone must fall through to the normal
+// path, which refuses the non-fast-forward and tells the developer to rebase.
+func unrelatedHistories(dir, branch, serverTip, head string) bool {
+	// Best-effort: land the server tip locally so merge-base can see it. A
+	// failure just means the guard below stays conservative and offers nothing.
+	_ = runGit(dir, "fetch", "--quiet", "origin", branch)
+	if runGit(dir, "cat-file", "-e", serverTip+"^{commit}") != nil {
+		return false // tip not local: cannot judge, so never force
+	}
+	// Both commits are local; merge-base is authoritative. Exit 0 => a shared
+	// ancestor (ordinary, possibly behind); non-zero => none in common.
+	return runGit(dir, "merge-base", serverTip, head) != nil
+}
+
+// firstPublish handles the one non-fast-forward the server allows: replacing
+// the hub's `basil --init` starter site with a graduated project's own history
+// on its very first publish. It mirrors runPublish's voice - a plan, a
+// confirmation (skipped by --yes, previewed by --dry-run), the push streamed
+// live so the server's remote: lines appear - but the push is `--force`, and it
+// is reached only for unrelated histories, the sole state the server honours it
+// in. The equivalent manual crossing, `git push --force origin HEAD:<branch>`,
+// still works for anyone who prefers to type it.
+func firstPublish(dir, ref, branch, head string, stdin io.Reader, stdout, stderr io.Writer, yes, dryRun bool) error {
+	// base "" means "nothing on the server to diff against": the whole tree is
+	// what this publish introduces, which is exactly right - the starter site it
+	// replaces shares no history with it.
+	count, files, err := publishPlan(dir, "", head)
+	if err != nil {
+		return fmt.Errorf("cannot determine what would be published: %w", err)
+	}
+	commitWord := pluralWord(count, "commit", "commits")
+
+	fmt.Fprintf(stdout, "First publish to %q on origin.\n", branch)
+	fmt.Fprintln(stdout, "\nThis server has only its initial placeholder site. Publishing will replace it")
+	fmt.Fprintln(stdout, "with your project's history. This is a one-time replacement; afterwards the")
+	fmt.Fprintln(stdout, "release branch is protected normally.")
+	fmt.Fprintf(stdout, "\n%d %s:\n", count, commitWord)
+	if log, err := publishLog(dir, "", head); err == nil && log != "" {
+		for _, line := range strings.Split(strings.TrimRight(log, "\n"), "\n") {
+			fmt.Fprintf(stdout, "  %s\n", line)
+		}
+	}
+	fmt.Fprintf(stdout, "\n%s changed:\n", plural(len(files), "file"))
+	for _, f := range files {
+		fmt.Fprintf(stdout, "  %s\n", f)
+	}
+
+	// --- --dry-run: preview and push nothing ------------------------------
+	if dryRun {
+		fmt.Fprintln(stdout, "\n--dry-run: nothing was pushed.")
+		return nil
+	}
+
+	// --- confirmation: not skippable without --yes ------------------------
+	if !yes {
+		fmt.Fprintf(stderr, "\nReplace the starter site and publish %d %s to %q? [y/N] ", count, commitWord, branch)
+		var response string
+		// A read error (EOF on an empty pipe) leaves response empty, a No:
+		// silence never becomes consent - least of all for a forced push.
+		fmt.Fscanln(stdin, &response)
+		if response != "y" && response != "Y" {
+			fmt.Fprintln(stdout, "Cancelled. Nothing was pushed.")
+			return nil
+		}
+	}
+
+	// --- the forced push: streamed so the server's remote: lines appear ----
+	fmt.Fprintf(stdout, "\nPublishing %s to %q (replacing the starter site)...\n", shortRelease(head), branch)
+	if err := streamGit(dir, stdout, stderr, "push", "--force", "origin", "HEAD:"+ref); err != nil {
+		// The refusal (a hub that already has a real release; a validation
+		// failure) has already streamed as remote: lines. Do not swallow it.
+		return fmt.Errorf("publish failed: the push to %q was rejected (see the messages above)", branch)
+	}
+
+	// From here on this clone shares history with origin, so configure the
+	// refspec once for the ordinary publishes that follow.
+	if stale := configureReleasePush(dir, ref); stale != "" {
+		fmt.Fprintf(stdout, "Re-pointed this clone's `git push` default from %q to %q (origin's release branch changed).\n", stale, branch)
+	}
+	fmt.Fprintf(stdout, "Published %s to %q.\n", shortRelease(head), branch)
 	return nil
 }
 
@@ -447,6 +562,12 @@ the server which branch releases (its site.git HEAD), shows the commits and
 files it would send, reports drift against origin, then asks to confirm before
 pushing git push origin HEAD:<release-branch> with the server's output
 streamed live.
+
+The first publish from a graduated project (basil --init locally, then
+git remote add + push to a basil --init --server hub) has a history unrelated
+to the server's starter site, so it can only be a non-fast-forward. publish
+detects that one state, explains it, and - once confirmed - makes the single
+forced push the server allows while it still carries only its starter release.
 
 Options:
   --yes        Skip the confirmation prompt (for scripts)

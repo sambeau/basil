@@ -700,6 +700,130 @@ func TestGitE2E_GraduationFromLocalInitToServer(t *testing.T) {
 	}
 }
 
+// FIRST PUBLISH via `basil publish`, end to end (BUG-037): the client half of
+// graduation. Where TestGitE2E_GraduationFromLocalInitToServer drives the raw
+// `git push --force` a developer used to have to type, this drives `basil
+// publish --yes` instead - the command that should now detect the unrelated
+// history, make the one forced push the hub allows, and leave every publish
+// after it an ordinary fast-forward. It runs against the same real hub, so the
+// starter-overwrite exception in the receive hook is genuinely exercised.
+func TestGitE2E_FirstPublishViaBasilPublish(t *testing.T) {
+	site := newGitSite(t)
+	srv, ts := site.startServer(t, true, false) // dev: plain HTTP, no auth on the endpoint
+	starterLive := site.currentSHA(t)
+
+	// On the laptop: a plain `basil --init` folder, a day's work, and a remote.
+	local := filepath.Join(t.TempDir(), "mysite")
+	if out, err := exec.Command(site.basil, "--init", local).CombinedOutput(); err != nil {
+		t.Fatalf("local basil --init: %v:\n%s", err, out)
+	}
+	gitMust(t, local, "config", "user.name", "Test Author")
+	gitMust(t, local, "config", "user.email", "author@example.com")
+	const marker = "written on my laptop"
+	localSHA := commit(t, local, filepath.Join("site", "index.pars"), fmt.Sprintf("<h1>%q</h1>\n", marker), "my first page")
+	gitMust(t, local, "remote", "add", "origin", cloneURL(ts, "", ""))
+
+	// The first publish - the command, not raw git.
+	out, err := gitRunBasilPublish(t, site.basil, local)
+	if err != nil {
+		t.Fatalf("basil publish (first publish) failed: %v:\n%s", err, out)
+	}
+	if !strings.Contains(out, "First publish") {
+		t.Errorf("basil publish did not announce the first publish:\n%s", out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != localSHA {
+		t.Fatalf("release branch is %s, want the graduated head %s:\n%s", got, localSHA, out)
+	}
+	if got := site.currentSHA(t); got != localSHA {
+		t.Fatalf("current points at %s, want the graduated release %s (was %s):\n%s", got, localSHA, starterLive, out)
+	}
+
+	// The server serves the local site's page.
+	if err := srv.SwapRelease(); err != nil {
+		t.Fatalf("activating the graduated release: %v", err)
+	}
+	resp, err := http.Get(ts.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET / returned %d, want 200", resp.StatusCode)
+	}
+	if !bytes.Contains(body, []byte(marker)) {
+		t.Errorf("the server is not serving the local site's page after basil publish; body:\n%s", body)
+	}
+
+	// A SECOND publish is an ordinary fast-forward: `basil publish` again, no
+	// force involved, and the release advances.
+	second := commit(t, local, filepath.Join("site", "index.pars"), "<h1>\"v2\"</h1>\n", "v2")
+	out, err = gitRunBasilPublish(t, site.basil, local)
+	if err != nil {
+		t.Fatalf("the second (ordinary) publish failed: %v:\n%s", err, out)
+	}
+	if strings.Contains(out, "First publish") {
+		t.Errorf("the second publish was treated as a first publish:\n%s", out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != second {
+		t.Errorf("second publish left the release branch at %s, want %s", got, second)
+	}
+}
+
+// DRY RUN on the first-publish state previews the replacement and pushes
+// nothing: the hub still serves its starter site afterwards.
+func TestGitE2E_FirstPublishDryRunLeavesStarterServing(t *testing.T) {
+	site := newGitSite(t)
+	srv, ts := site.startServer(t, true, false)
+	starterLive := site.currentSHA(t)
+
+	local := filepath.Join(t.TempDir(), "mysite")
+	if out, err := exec.Command(site.basil, "--init", local).CombinedOutput(); err != nil {
+		t.Fatalf("local basil --init: %v:\n%s", err, out)
+	}
+	gitMust(t, local, "config", "user.name", "Test Author")
+	gitMust(t, local, "config", "user.email", "author@example.com")
+	commit(t, local, filepath.Join("site", "index.pars"), "<h1>\"laptop\"</h1>\n", "my first page")
+	gitMust(t, local, "remote", "add", "origin", cloneURL(ts, "", ""))
+
+	out, err := gitRunBasilPublish(t, site.basil, local, "--dry-run")
+	if err != nil {
+		t.Fatalf("basil publish --dry-run failed: %v:\n%s", err, out)
+	}
+	if !strings.Contains(out, "First publish") {
+		t.Errorf("--dry-run did not identify the first-publish state:\n%s", out)
+	}
+	if !strings.Contains(out, "nothing was pushed") {
+		t.Errorf("--dry-run did not announce it pushed nothing:\n%s", out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != starterLive {
+		t.Errorf("--dry-run moved the release branch to %s; the starter %s must stay", got, starterLive)
+	}
+	// The hub still serves the starter site.
+	if err := srv.SwapRelease(); err != nil {
+		t.Fatalf("re-activating after dry-run: %v", err)
+	}
+	if got := site.currentSHA(t); got != starterLive {
+		t.Errorf("live moved to %s after a dry-run; want the starter %s", got, starterLive)
+	}
+}
+
+// gitRunBasilPublish runs the built basil binary's `publish` subcommand against
+// a working directory, in the same hermetic environment gitRun uses so a push
+// never blocks on a credential prompt.
+func gitRunBasilPublish(t *testing.T, basil, dir string, extra ...string) (string, error) {
+	t.Helper()
+	args := append([]string{"publish", dir, "--yes"}, extra...)
+	cmd := exec.Command(basil, args...)
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_SSL_NO_VERIFY=true",
+	)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
 // A site root whose auth database is MISSING still starts (FEAT-156 review).
 // auth.enabled is operator-owned on a site root, so a release cannot switch
 // it off — which would have made a missing <data>/.basil-auth.db fatal, and
